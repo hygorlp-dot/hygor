@@ -76,7 +76,7 @@ const renovarSessaoEmail = async () => {
   finally{renovacaoEmCurso=null;}
 };
 
-export const fecharSessao = () => {
+const fecharSessao = () => {
   sessao = { userId: null, pin: null, accessToken:null,refreshToken:null,sessionId:null };
   presenceAuthBlocked=false;
   try{sessionStorage.removeItem("arcd_auth_session");}catch(_){}
@@ -175,7 +175,6 @@ export const consultarDreCanonico = ({year,month,period="mes",obraId=""}) =>
   chamar({ action:"financial-dre-report", ...credenciais(), year, month, period, obraId });
 export const consultarDreEmpresaCanonico = ({year,month}) =>
   chamar({ action:"financial-company-dre-report", ...credenciais(), year, month, period:"mes" });
-export const executarBackup = action => chamar({ action:`backup-${action}`, ...credenciais() });
 export const gerenciarAcessoPortalCliente = payload =>
   chamar({ action:"client-portal-admin", ...credenciais(), ...payload });
 
@@ -232,7 +231,7 @@ export const restaurarSessaoEmail=async()=>{
 };
 
 // ── Recarregar ─────────────────────────────────────────────────────
-export const loadData = async () => {
+const loadData = async () => {
   if (!temSessao()) return null;
   const r = await chamar({ action: "load", ...credenciais() });
   if (r.status !== 200) return null;
@@ -314,11 +313,6 @@ export const definirPinOperador=async(targetUserId,newPin)=>{
   if(r.status!==200)return{ok:false,erro:r.error||"Não foi possível definir o PIN."};
   ultimoUpdatedAt=r.updatedAt||ultimoUpdatedAt;
   return{ok:true,data:r.data,updatedAt:r.updatedAt};
-};
-
-export const saveData = async (payload) => {
-  const r = await saveDataDetailed(payload);
-  return !!r.ok;
 };
 
 // Depois de um conflito: adota a versão do servidor como base
@@ -432,13 +426,6 @@ export const restaurarQuinzena = async (quinzenaId) => {
   if (r.status !== 200) return { ok: false, erro: r.error || "Falha ao restaurar." };
   ultimoUpdatedAt = r.updatedAt || null;
   return { ok: true, data: r.data, updatedAt: r.updatedAt, devolvidos: r.devolvidos, mantidos: r.mantidos };
-};
-
-export const listarQuinzenasArquivadas = async () => {
-  if (!temSessao()) return { ok: false, erro: "Sessão encerrada.", arquivos: [] };
-  const r = await chamar({ action: "list-quinzena-archives", ...credenciais() });
-  if (r.status !== 200) return { ok: false, erro: r.error || "Falha ao listar arquivos.", arquivos: [] };
-  return { ok: true, arquivos: r.arquivos || [] };
 };
 
 export const carregarQuinzenaArquivada = async (quinzenaId) => {

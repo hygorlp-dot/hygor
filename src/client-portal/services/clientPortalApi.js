@@ -7,7 +7,6 @@ async function request(url, options = {}) {
 
 export const readClientPortalSession=()=>request("/api/client/auth/session");
 export const readClientPortalDashboard=projectId=>request(`/api/client/projects/${encodeURIComponent(projectId)}/dashboard`);
-export const logoutClientPortal=()=>request("/api/client/auth/logout",{method:"POST"});
 
 const normalizeLegacyPortal = source => {
   const portal=source?.portal || {};

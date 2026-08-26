@@ -7,9 +7,9 @@ export const RENTAL_STATE=Object.freeze({
   CLOSED:"closed",CANCELLED:"cancelled",
 });
 
-export const RENTAL_STATES=Object.freeze(Object.values(RENTAL_STATE));
+const RENTAL_STATES=Object.freeze(Object.values(RENTAL_STATE));
 
-export const RENTAL_STATE_LABEL=Object.freeze({
+const RENTAL_STATE_LABEL=Object.freeze({
   draft:"Rascunho",quoted:"Orçada",reserved:"Reservada",awaiting_approval:"Aguardando aprovação",
   approved:"Aprovada",contracted:"Contratada",separating:"Em separação",
   ready_for_dispatch:"Pronta para expedição",in_transport:"Em transporte",delivered:"Entregue",

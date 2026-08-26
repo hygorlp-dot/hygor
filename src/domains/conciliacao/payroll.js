@@ -4,7 +4,7 @@
 import { paraCentavos } from "./calculations.js";
 import { active } from "../financeiro/ledger.js";
 
-export const normalizarDocumento = value => String(value || "").replace(/\D/g, "");
+const normalizarDocumento = value => String(value || "").replace(/\D/g, "");
 
 export const mascararDocumento = value => {
   const digits = normalizarDocumento(value);
@@ -39,13 +39,6 @@ export const situacaoTituloFolha = title => {
 };
 
 export const saldoTituloFolha = title => Math.max(0, Number(title?.liquido || 0) - totalLiquidadoFolha(title));
-
-export const tituloFolhaPendente = (data, employeeId, competencia = "") =>
-  (data?.titulosFolha || []).find(title =>
-    title.employeeId === employeeId &&
-    (!competencia || title.competencia === competencia) &&
-    situacaoTituloFolha(title) !== "pago"
-  ) || null;
 
 export const resumoTituloFolha = (title, employee = {}) => ({
   employeeId: title?.employeeId || "",

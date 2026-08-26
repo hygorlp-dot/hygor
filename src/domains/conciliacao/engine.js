@@ -5,8 +5,8 @@ import { gerarCandidatosConciliacao } from "./matching.js";
 import { paraCentavos } from "./calculations.js";
 import { active } from "../financeiro/ledger.js";
 
-export const VERSAO_MOTOR_CONCILIACAO="2026.07.01";
-export const ACAO_CONCILIACAO=Object.freeze({
+const VERSAO_MOTOR_CONCILIACAO="2026.07.01";
+const ACAO_CONCILIACAO=Object.freeze({
   VINCULAR_PAGAMENTO_EXISTENTE:"VINCULAR_PAGAMENTO_EXISTENTE",
   REGISTRAR_PAGAMENTO_E_CONCILIAR:"REGISTRAR_PAGAMENTO_E_CONCILIAR",
   REGISTRAR_RECEBIMENTO_E_CONCILIAR:"REGISTRAR_RECEBIMENTO_E_CONCILIAR",

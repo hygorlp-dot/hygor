@@ -70,17 +70,17 @@ const purchaseOrderItem = item => ({ id:string(item.id), number:string(item.numb
 const quotationItem = item => ({ id:string(item.id), date:string(item.date), status:string(item.clientStatus || item.status), material:string(item.material), unit:string(item.unit), quantity:number(item.quantity), proposals:list(item.proposals).map(entry=>({ supplierName:string(entry.supplierName), unitPrice:number(entry.unitPrice), total:number(entry.total), leadTimeDays:number(entry.leadTimeDays), selected:entry.selected===true })) });
 const supportItem = item => ({ id:string(item.id), number:string(item.number), status:string(item.status), category:string(item.category), environment:string(item.environment), openedAt:string(item.openedAt), updatedAt:string(item.updatedAt), slaDueAt:string(item.slaDueAt) });
 
-export function projectClientProjectSummary(input) { const c=context(input); return portalProject(c.project); }
-export function projectClientTimeline(input) { const c=context(input); return c.can("viewProgress") ? publishedRecords(c.sourceData,"timeline",c.projectId,c.user).map(timelineItem) : []; }
-export function projectClientWeeklyUpdates(input) { const c=context(input); return c.can("viewWeeklyUpdates") ? publishedRecords(c.sourceData,"weeklyUpdates",c.projectId,c.user).map(weeklyUpdate) : []; }
-export function projectClientMedia(input) { const c=context(input); return c.can("viewMedia") ? publishedRecords(c.sourceData,"media",c.projectId,c.user).map(mediaItem).filter(item => item.url) : []; }
-export function projectClientDecisions(input) { const c=context(input); return c.can("viewDecisions") ? publishedRecords(c.sourceData,"decisions",c.projectId,c.user).map(decisionItem) : []; }
-export function projectClientChangeOrders(input) { const c=context(input); return c.can("viewChanges") ? publishedRecords(c.sourceData,"changeOrders",c.projectId,c.user).map(decisionItem) : []; }
+function projectClientProjectSummary(input) { const c=context(input); return portalProject(c.project); }
+function projectClientTimeline(input) { const c=context(input); return c.can("viewProgress") ? publishedRecords(c.sourceData,"timeline",c.projectId,c.user).map(timelineItem) : []; }
+function projectClientWeeklyUpdates(input) { const c=context(input); return c.can("viewWeeklyUpdates") ? publishedRecords(c.sourceData,"weeklyUpdates",c.projectId,c.user).map(weeklyUpdate) : []; }
+function projectClientMedia(input) { const c=context(input); return c.can("viewMedia") ? publishedRecords(c.sourceData,"media",c.projectId,c.user).map(mediaItem).filter(item => item.url) : []; }
+function projectClientDecisions(input) { const c=context(input); return c.can("viewDecisions") ? publishedRecords(c.sourceData,"decisions",c.projectId,c.user).map(decisionItem) : []; }
+function projectClientChangeOrders(input) { const c=context(input); return c.can("viewChanges") ? publishedRecords(c.sourceData,"changeOrders",c.projectId,c.user).map(decisionItem) : []; }
 export function projectClientFinancialSummary(input) { const c=context(input); return c.can("viewFinancial") ? publishedRecords(c.sourceData,"financialSummaries",c.projectId,c.user).map(financialSummary) : []; }
-export function projectClientMeasurements(input) { const c=context(input); return c.can("viewFinancial") ? publishedRecords(c.sourceData,"measurements",c.projectId,c.user).map(measurementItem) : []; }
-export function projectClientDocuments(input) { const c=context(input); return c.can("downloadDocuments") ? publishedRecords(c.sourceData,"documents",c.projectId,c.user).map(documentItem).filter(item => item.url) : []; }
-export function projectClientMessages(input) { const c=context(input); return c.can("sendMessages") ? publishedRecords(c.sourceData,"messages",c.projectId,c.user).map(messageItem) : []; }
-export function projectClientSupport(input) { const c=context(input); return c.can("openAssistance") ? publishedRecords(c.sourceData,"support",c.projectId,c.user).map(supportItem) : []; }
+function projectClientMeasurements(input) { const c=context(input); return c.can("viewFinancial") ? publishedRecords(c.sourceData,"measurements",c.projectId,c.user).map(measurementItem) : []; }
+function projectClientDocuments(input) { const c=context(input); return c.can("downloadDocuments") ? publishedRecords(c.sourceData,"documents",c.projectId,c.user).map(documentItem).filter(item => item.url) : []; }
+function projectClientMessages(input) { const c=context(input); return c.can("sendMessages") ? publishedRecords(c.sourceData,"messages",c.projectId,c.user).map(messageItem) : []; }
+function projectClientSupport(input) { const c=context(input); return c.can("openAssistance") ? publishedRecords(c.sourceData,"support",c.projectId,c.user).map(supportItem) : []; }
 
 /**
  * Produz a única forma permitida de dados para o Portal do Cliente. O

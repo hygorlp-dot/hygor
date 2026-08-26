@@ -58,7 +58,7 @@ const sumOrder = order => {
 const invoiceAmount = invoice => positiveCents(invoice?.valorBruto, invoice?.valorTotal, invoice?.total, invoice?.valor);
 const thirdMeasurementAmount = measurement => positiveCents(measurement?.total, measurement?.valor, measurement?.valorPrevisto, measurement?.valorBruto);
 
-export const notaReconhecivel = invoice => {
+const notaReconhecivel = invoice => {
   if (!active(invoice)) return false;
   const status = statusOf(invoice);
   return !status || RECOGNIZABLE_INVOICE.has(status);

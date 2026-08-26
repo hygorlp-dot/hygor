@@ -1,6 +1,6 @@
 // Permissões do domínio de aprovações. Sem React, DOM ou persistência.
 
-export const APROVACOES_ADMIN_ROLES = Object.freeze(["admin"]);
+const APROVACOES_ADMIN_ROLES = Object.freeze(["admin"]);
 
 export const podeAdministrarPoliticas = role => APROVACOES_ADMIN_ROLES.includes(String(role || ""));
 

@@ -2,7 +2,7 @@ import { applyProgressToCommitment } from "./calculations.js";
 
 const event=(type,actor={},now="",reason="")=>({type,at:now,byId:actor.id||"",by:actor.nome||actor.name||"",reason});
 
-export const validateProgressRecord=(record={})=>{
+const validateProgressRecord=(record={})=>{
   const errors=[];
   if(!String(record.id||"").trim()||!String(record.obraId||"").trim()||!String(record.activityId||"").trim())errors.push("Avanço físico exige identificação, obra e atividade.");
   if(!/^\d{4}-\d{2}-\d{2}$/.test(String(record.data||"")))errors.push("Avanço físico exige uma data válida.");

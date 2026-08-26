@@ -3,7 +3,7 @@ import { WBS_TYPES } from "./constants.js";
 const text = value => String(value || "").trim();
 const activeNodes = nodes => (nodes || []).filter(node => node?.active !== false);
 
-export function validateWbsTree(nodes = []) {
+function validateWbsTree(nodes = []) {
   const errors = [];
   const byId = new Map();
   activeNodes(nodes).forEach(node => {

@@ -25,5 +25,3 @@ export const normalizeTechnicalMeasurementStatus = value => {
 export const isApprovedTechnicalMeasurement = measurement =>
   normalizeTechnicalMeasurementStatus(measurement?.status)===TECHNICAL_MEASUREMENT_STATUS.APPROVED;
 
-export const isCancelledTechnicalMeasurement = measurement =>
-  normalizeTechnicalMeasurementStatus(measurement?.status)===TECHNICAL_MEASUREMENT_STATUS.CANCELLED;

@@ -9,4 +9,3 @@ const statusOf = item => String(item?.status || "").trim().toLowerCase();
 export const isClientMeasurementMutable = item =>
   active(item) && !ARCHIVED.has(statusOf(item));
 
-export const isClientMeasurementArchived = item => ARCHIVED.has(statusOf(item));

@@ -17,12 +17,12 @@ export const normalizeUnionDuesConfig=input=>{
 
 export const normalizeRoleKey=value=>String(value||"").trim().toLocaleLowerCase("pt-BR");
 
-export const unionDueGroupForEmployee=(employee,configInput)=>{
+const unionDueGroupForEmployee=(employee,configInput)=>{
   const config=normalizeUnionDuesConfig(configInput);
   return config.roleGroups[normalizeRoleKey(employee?.role)]||UNION_DUE_GROUP.EXEMPT;
 };
 
-export const shouldApplyUnionDue=(configInput,payrollCycle,periodEnd="")=>{
+const shouldApplyUnionDue=(configInput,payrollCycle,periodEnd="")=>{
   const config=normalizeUnionDuesConfig(configInput);
   if(!config.enabled)return false;
   if(config.effectiveFrom&&periodEnd&&periodEnd<config.effectiveFrom)return false;

@@ -11,4 +11,3 @@ export const SUPPLIER_CATEGORIES = Object.freeze([
   { v: "locacao", l: "Locação de equipamentos" }, { v: "outros", l: "Outros" },
 ]);
 
-export const supplierCategoryLabel = value => SUPPLIER_CATEGORIES.find(category => category.v === value)?.l || value;

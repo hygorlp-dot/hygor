@@ -2,14 +2,14 @@ import { DEFAULT_THEME, enabledThemeIds } from "../themes/themeRegistry.js";
 
 export const DEFAULT_DENSITY = "comfortable";
 export const densityOptions = Object.freeze(["compact", "comfortable", "spacious"]);
-export const REQUIRED_THEME_TOKENS = Object.freeze([
+const REQUIRED_THEME_TOKENS = Object.freeze([
   "--arcd-surface-page", "--arcd-surface-card", "--arcd-surface-muted",
   "--arcd-text-primary", "--arcd-text-secondary", "--arcd-border-default",
   "--arcd-action-primary", "--arcd-action-primary-text", "--arcd-focus-ring",
 ]);
 
-export function isEnabledTheme(theme) { return enabledThemeIds.includes(theme); }
-export function isValidDensity(density) { return densityOptions.includes(density); }
+function isEnabledTheme(theme) { return enabledThemeIds.includes(theme); }
+function isValidDensity(density) { return densityOptions.includes(density); }
 export function normalizeTheme(theme) { return isEnabledTheme(theme) ? theme : DEFAULT_THEME; }
 export function normalizeDensity(density) { return isValidDensity(density) ? density : DEFAULT_DENSITY; }
 

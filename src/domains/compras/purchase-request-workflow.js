@@ -1,6 +1,6 @@
 const text=value=>String(value??"").trim();
 
-export const validatePurchaseRequestItem=(item,index=0)=>{
+const validatePurchaseRequestItem=(item,index=0)=>{
   const errors={};
   if(!text(item?.descricaoRef))errors.descricaoRef="Informe a descrição do material.";
   if(!text(item?.unidadeRef))errors.unidadeRef="Informe a unidade de referência.";

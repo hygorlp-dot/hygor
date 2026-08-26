@@ -1,4 +1,3 @@
-export {canManagePurchases} from "../src/domains/compras/permissions.js";
 import {canManagePurchases} from "../src/domains/compras/permissions.js";
 
 export const validatePurchaseChanges = (user, previous = [], next = []) => {

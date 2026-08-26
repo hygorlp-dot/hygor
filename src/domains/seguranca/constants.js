@@ -1,5 +1,4 @@
 export const WORKER_ELIGIBILITY=Object.freeze({FIT:"apto",RESTRICTED:"apto_restricao",DOCUMENTATION_PENDING:"documentacao_pendente",TRAINING_EXPIRED:"treinamento_vencido",EXAM_EXPIRED:"exame_vencido",BLOCKED:"bloqueado"});
-export const INCIDENT_STATUS=Object.freeze(["aberto","em_investigacao","acao","verificacao","encerrado"]);
 // Catálogo de treinamentos (NRs) mais comuns em obras. As chaves aqui são as
 // mesmas que `evaluateWorkerEligibility` espera em `worker.trainings[key]`
 // (ver calculations.js) e que uma futura tela de "atividade exige X" em

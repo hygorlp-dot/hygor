@@ -12,7 +12,7 @@ export function createWorkCalendar(input = {}) {
   };
 }
 
-export function isWorkingDay(value, calendarInput = {}) {
+function isWorkingDay(value, calendarInput = {}) {
   const date = toDate(value); if (!date) return false;
   const calendar = createWorkCalendar(calendarInput);
   const dateText = format(date); const exception = calendar.exceptions.find(item => item.date === dateText);

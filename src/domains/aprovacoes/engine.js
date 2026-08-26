@@ -12,7 +12,7 @@
 import { avaliarCondicoes, calcularVencimento, prazoVencido } from "./calculations.js";
 import { encontrarPoliticaAplicavel, congelarPolitica } from "./policies.js";
 
-export const gerarIdAprovacao = (prefixo = "apr") =>
+const gerarIdAprovacao = (prefixo = "apr") =>
   `${prefixo}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
 const TIPOS_SEM_REFERENCIA = new Set([

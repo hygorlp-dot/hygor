@@ -3,7 +3,7 @@ import { createApprovalEngine } from "./engine.js";
 const activeUser=user=>user?.active!==false;
 const userView=user=>({id:user.id,nome:user.nome});
 
-export const arcdApprovalResolvers={
+const arcdApprovalResolvers={
   usuario:(reference,_context,data)=>{
     const user=(data.usuarios||[]).find(item=>item.id===reference&&activeUser(item));
     return user?[userView(user)]:[];

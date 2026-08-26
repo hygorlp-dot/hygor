@@ -23,7 +23,7 @@ export const EQUIPMENT_UNAVAILABILITY_LABEL=Object.freeze({
   administrative_block:"Bloqueio administrativo",quarantine:"Quarentena",
 });
 
-export const EQUIPMENT_BLOCKING_STATUS=Object.freeze({
+const EQUIPMENT_BLOCKING_STATUS=Object.freeze({
   inativo:"inativo",
   manutencao:"em manutenção",
   bloqueado:"bloqueado administrativamente",

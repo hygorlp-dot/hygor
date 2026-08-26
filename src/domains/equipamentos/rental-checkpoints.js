@@ -6,7 +6,7 @@ export const RENTAL_CHECKPOINT_TYPE=Object.freeze({
   PARTIAL_DELIVERY:"partial_delivery",DELIVERY:"delivery",PARTIAL_RETURN:"partial_return",RETURN:"return",INSPECTION:"inspection",ADJUSTMENT:"adjustment",
 });
 
-export const RENTAL_CHECKPOINT_TYPES=Object.freeze(Object.values(RENTAL_CHECKPOINT_TYPE));
+const RENTAL_CHECKPOINT_TYPES=Object.freeze(Object.values(RENTAL_CHECKPOINT_TYPE));
 
 const allowedState=Object.freeze({
   separation:RENTAL_STATE.SEPARATING,

@@ -41,7 +41,7 @@ export const validateBrazilianDocument = (document, personType) => (
   personType === "PF" ? validateCPF(document) : validateCNPJ(document)
 );
 
-export function formatCNPJ(value) {
+function formatCNPJ(value) {
   return digitsOnly(value).slice(0, 14)
     .replace(/^(\d{2})(\d)/, "$1.$2")
     .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
@@ -49,7 +49,7 @@ export function formatCNPJ(value) {
     .replace(/(\d{4})(\d)/, "$1-$2");
 }
 
-export function formatCPF(value) {
+function formatCPF(value) {
   return digitsOnly(value).slice(0, 11)
     .replace(/^(\d{3})(\d)/, "$1.$2")
     .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")

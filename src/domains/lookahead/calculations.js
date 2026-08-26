@@ -2,20 +2,20 @@ import { CONSTRAINT_STATUS, LOOKAHEAD_PACKAGE_STATUS } from "./constants.js";
 
 const dateOnly=value=>String(value||"").slice(0,10);
 const compareDate=(left,right)=>dateOnly(left).localeCompare(dateOnly(right));
-export const isBlockingConstraintOpen=(constraint={})=>{
+const isBlockingConstraintOpen=(constraint={})=>{
   if(!constraint.bloqueante)return false;
   const status=constraint.status;
   if([CONSTRAINT_STATUS.RELEASED,CONSTRAINT_STATUS.CANCELLED].includes(status))return false;
   return true;
 };
 
-export const deriveConstraintStatus=(constraint={},asOf="")=>{
+const deriveConstraintStatus=(constraint={},asOf="")=>{
   if([CONSTRAINT_STATUS.RELEASED,CONSTRAINT_STATUS.CANCELLED].includes(constraint.status))return constraint.status;
   if(constraint.dataPrometida&&asOf&&compareDate(constraint.dataPrometida,asOf)<0)return CONSTRAINT_STATUS.OVERDUE;
   return constraint.status||CONSTRAINT_STATUS.OPEN;
 };
 
-export const derivePackageReadiness=(workPackage={},constraints=[],asOf="")=>{
+const derivePackageReadiness=(workPackage={},constraints=[],asOf="")=>{
   if(workPackage.status===LOOKAHEAD_PACKAGE_STATUS.CANCELLED)return {ready:false,status:LOOKAHEAD_PACKAGE_STATUS.CANCELLED,blockingConstraintIds:[]};
   const linked=constraints.filter(item=>(workPackage.restricaoIds||[]).includes(item.id));
   const blocking=linked.filter(item=>isBlockingConstraintOpen({...item,status:deriveConstraintStatus(item,asOf)}));

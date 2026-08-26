@@ -32,8 +32,6 @@ export const validateProjectForm=(project={},options={})=>{
   return errors;
 };
 
-export const projectFormIsValid=(project,options)=>Object.keys(validateProjectForm(project,options)).length===0;
-
 export const projectAlertAction=alert=>{
   const text=String(alert||"").toLocaleLowerCase("pt-BR");
   if(text.includes("engenheiro"))return {label:"Definir engenheiro",field:"engineerId"};

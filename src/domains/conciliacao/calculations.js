@@ -9,19 +9,8 @@ import { active } from "../financeiro/ledger.js";
 export const semAcento = (s) =>
   String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-// "1.234,56" ou "(1.234,56)" → 1234.56 / -1234.56
-export const parseValorBR = (v) => {
-  if (typeof v === "number") return v;
-  const s = String(v ?? "").trim();
-  if (!s) return 0;
-  const neg = /^\(.*\)$/.test(s) || s.startsWith("-");
-  const n = Number(s.replace(/[()]/g, "").replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, ""));
-  if (isNaN(n)) return 0;
-  return neg && n > 0 ? -n : n;
-};
-
 // Datas no padrão OFX (YYYYMMDD[hhmmss][fuso]) → ISO "YYYY-MM-DD"
-export const dataOFXParaISO = (s) => {
+const dataOFXParaISO = (s) => {
   const m = String(s || "").match(/^(\d{4})(\d{2})(\d{2})/);
   return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
 };
@@ -124,16 +113,6 @@ export const hashArquivo = (texto) => {
 // verificado no componente, que precisa exibir a diferença ao vivo.
 export const somaRateios = (rateios) =>
   (rateios || []).reduce((s, r) => s + Number(r.valor || 0), 0);
-
-// Sugere destino a partir das regras que o usuário foi criando. Aceita tanto
-// o formato antigo (padrao/destino/obraId/categoria) quanto uma regra nova
-// desativada (ativa:false), que nunca deve sugerir nada.
-export const sugerirRateio = (tr, regras) => {
-  const d = String(tr.descricao || "").toLowerCase();
-  const regra = (regras || []).find(r => r.ativa !== false && r.padrao && d.includes(r.padrao.toLowerCase()));
-  if (!regra) return null;
-  return { destino: regra.destino, obraId: regra.obraId, categoria: regra.categoria, regraId: regra.id };
-};
 
 // Distância em dias entre duas datas ISO
 export const diasEntre = (a, b) => {

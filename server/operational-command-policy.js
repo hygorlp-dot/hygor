@@ -63,7 +63,7 @@ import {
   projectCommandObraId,
 } from "../src/domains/obras/project-commands.js";
 
-export const operationalCommandObraId=(data={},command={})=>{
+const operationalCommandObraId=(data={},command={})=>{
   const payload=command?.payload||{};
   if(EQUIPMENT_COMMAND_TYPES.has(command?.type))return equipmentCommandObraId(data,command);
   if(CLIENT_MEASUREMENT_COMMAND_TYPES.has(command?.type))return clientMeasurementCommandObraId(data,command);

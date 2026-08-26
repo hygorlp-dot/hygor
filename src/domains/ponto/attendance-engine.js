@@ -51,7 +51,7 @@ export const isEmployeeEmployedOnDate=(employee,date)=>{
   return true;
 };
 
-export const employeeHasRecordInPeriod=(data,employee,days)=>
+const employeeHasRecordInPeriod=(data,employee,days)=>
   (days||[]).some(date=>{
     const record=getAtt(data,employee?.id,date);
     return Boolean(
@@ -167,7 +167,7 @@ const nextBusinessDay=(value,holidays)=>{
   return date;
 };
 
-export const adjustPayrollPaymentDate=(baseDate,holidays)=>{
+const adjustPayrollPaymentDate=(baseDate,holidays)=>{
   const day=baseDate.getDay();
   if(day===6)return previousBusinessDay(baseDate,holidays);
   if(day===0)return nextBusinessDay(baseDate,holidays);
@@ -228,8 +228,8 @@ export const getHolidayPayRule=(data,employee,holidayIso,holidays)=>{
   };
 };
 
-export const attendanceLockKey=(obraId,date)=>`${date}__${obraId}`;
-export const getAttendanceLock=(data,obraId,date)=>
+const attendanceLockKey=(obraId,date)=>`${date}__${obraId}`;
+const getAttendanceLock=(data,obraId,date)=>
   data?.attendanceLocks?.[attendanceLockKey(obraId,date)]||null;
 export const isAttendanceLocked=(data,obraId,date)=>Boolean(getAttendanceLock(data,obraId,date)?.locked);
 
@@ -282,9 +282,9 @@ export const buildPermissionEmail=({
   return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 };
 
-export const getAttendanceStatusForDate=(data,employeeId,date)=>
+const getAttendanceStatusForDate=(data,employeeId,date)=>
   getAtt(data,employeeId,date)?.status||null;
-export const isValidAttendanceStatus=status=>["P","M","F"].includes(status);
+const isValidAttendanceStatus=status=>["P","M","F"].includes(status);
 
 export const getObraAttendanceSummary=(data,date)=>{
   const obras=(data?.obras||[]).filter(obra=>obra.status!=="done");

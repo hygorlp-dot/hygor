@@ -6,4 +6,3 @@ export const importarReferenciasDiario=(data={},obraId,date)=>({
   compromissos:(data.weeklyCommitments||[]).filter(item=>String(item.obraId)===String(obraId)&&String(item.data||item.date)===String(date)&&item.status!=="cancelado").map(item=>({commitmentId:item.id,activityId:item.activityId||"",descricao:item.descricao||"",quantidadePrometida:Number(item.quantidadePrometida||0)})),
 });
 
-export const summarizeDailyProduction=(log={})=>{const entries=log.entries||[];const quantity=entries.reduce((sum,item)=>sum+Number(item.quantity||0),0);const workerHours=entries.reduce((sum,item)=>sum+Number(item.workerHours||0),0);return {quantity,workerHours,entryCount:entries.length,unfulfilled:(log.commitments||[]).filter(item=>item.status==="nao_concluido").length};};

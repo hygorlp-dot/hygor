@@ -2,9 +2,9 @@
 // nada: apenas torna explícitas as evidências e conflitos de contraparte.
 import { semAcento } from "./calculations.js";
 
-export const normalizarDocumento = value => String(value || "").replace(/\D/g, "");
-export const normalizarPixIdentidade = value => String(value || "").trim().toLocaleLowerCase("pt-BR").replace(/\s+/g, "");
-export const normalizarNomeIdentidade = value => semAcento(value).replace(/\b(ltda|me|eireli|sa|s\/a)\b/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+const normalizarDocumento = value => String(value || "").replace(/\D/g, "");
+const normalizarPixIdentidade = value => String(value || "").trim().toLocaleLowerCase("pt-BR").replace(/\s+/g, "");
+const normalizarNomeIdentidade = value => semAcento(value).replace(/\b(ltda|me|eireli|sa|s\/a)\b/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 
 const text = value => String(value || "").trim();
 const values = (...items) => [...new Set(items.flatMap(item => Array.isArray(item) ? item : [item]).map(text).filter(Boolean))];

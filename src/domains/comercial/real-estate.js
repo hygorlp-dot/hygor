@@ -1,4 +1,4 @@
-export const REAL_ESTATE_SCHEMA_VERSION=1;
+const REAL_ESTATE_SCHEMA_VERSION=1;
 
 export const DEVELOPMENT_STATUSES=Object.freeze([
   "estudo","pre_lancamento","lancamento","em_construcao","pronto","entregue","encerrado","suspenso",
@@ -12,13 +12,9 @@ export const PROPERTY_TYPES=Object.freeze([
 export const PROPERTY_NATURES=Object.freeze([
   "proprio","parceiro","terceiro","permuta","administracao_exclusiva","captacao_sem_exclusividade",
 ]);
-export const REAL_ESTATE_LEAD_STAGES=Object.freeze([
+const REAL_ESTATE_LEAD_STAGES=Object.freeze([
   "novo","tentativa_contato","contato_realizado","qualificado","imoveis_apresentados","visita_agendada",
   "visita_realizada","simulacao","proposta","negociacao","reserva","documentacao","contrato","venda_concluida","pos_venda","perdido",
-]);
-export const REAL_ESTATE_LEAD_SOURCES=Object.freeze([
-  "indicacao","site","whatsapp","instagram","facebook","google","portal_imobiliario","placa","evento",
-  "corretor_parceiro","cliente_antigo","prospeccao","outro",
 ]);
 
 const list=value=>Array.isArray(value)?value:[];

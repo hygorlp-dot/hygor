@@ -1,4 +1,4 @@
-export const CLIENT_PORTAL_CAPABILITIES = Object.freeze([
+const CLIENT_PORTAL_CAPABILITIES = Object.freeze([
   "viewProgress", "viewMedia", "viewWeeklyUpdates", "viewDecisions", "approveDecisions", "viewChanges", "approveChanges", "viewFinancial", "viewProjectCash", "viewProcurement", "approveMeasurements", "downloadDocuments", "sendMessages", "viewTeam", "openAssistance",
 ]);
 

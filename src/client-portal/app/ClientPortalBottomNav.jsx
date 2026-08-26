@@ -1,4 +1,4 @@
-export const CLIENT_NAV_ITEMS = Object.freeze([
+const CLIENT_NAV_ITEMS = Object.freeze([
   { id:"home", label:"Início", icon:"⌂" }, { id:"progress", label:"Progresso", icon:"◔" }, { id:"decisions", label:"Decisões", icon:"✓" }, { id:"financial", label:"Financeiro", icon:"$" }, { id:"more", label:"Mais", icon:"•••" },
 ]);
 

@@ -2,7 +2,7 @@ import { isValidIsoDate } from "./date.js";
 import { normalizeRentalState } from "./rental-lifecycle.js";
 
 export const RENTAL_AMENDMENT_TYPE=Object.freeze({EXTENSION:"extension",RENEWAL:"renewal"});
-export const RENTAL_AMENDMENT_TYPES=Object.freeze(Object.values(RENTAL_AMENDMENT_TYPE));
+const RENTAL_AMENDMENT_TYPES=Object.freeze(Object.values(RENTAL_AMENDMENT_TYPE));
 
 const allowedStates=new Set(["contracted","delivered","active","pickup_requested"]);
 const text=value=>String(value||"").trim();

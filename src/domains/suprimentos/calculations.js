@@ -1,7 +1,7 @@
 // Motor determinístico de marcos e suprimentos. Ele não grava dados nem usa
 // IA: telas e automações apenas persistem as propostas que este módulo monta.
 
-export const SUPPLY_ENGINE_VERSION = "supply-engine-1";
+const SUPPLY_ENGINE_VERSION = "supply-engine-1";
 
 const number = value => Number(value || 0);
 const dayMs = 24 * 60 * 60 * 1000;
@@ -17,17 +17,13 @@ export const parseLocalDate = value => {
   const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
   return date.getUTCFullYear() === Number(match[1]) && date.getUTCMonth() === Number(match[2]) - 1 && date.getUTCDate() === Number(match[3]) ? date : null;
 };
-export const toLocalDate = date => date ? date.toISOString().slice(0, 10) : "";
-export const addCalendarDays = (date, days) => {
-  const parsed = parseLocalDate(date); if (!parsed) return "";
-  return toLocalDate(new Date(parsed.getTime() + Math.round(number(days)) * dayMs));
-};
-export const assertCalendar = calendar => {
+const toLocalDate = date => date ? date.toISOString().slice(0, 10) : "";
+const assertCalendar = calendar => {
   const workingDays = Array.isArray(calendar?.diasSemana) ? calendar.diasSemana : [1, 2, 3, 4, 5, 6];
   if (!workingDays.length) throw new Error("O calendário precisa ter ao menos um dia trabalhado.");
   return { diasSemana: [...new Set(workingDays.map(Number))].filter(day => day >= 0 && day <= 6), feriados: calendar?.feriados || [] };
 };
-export const isWorkingDay = (date, calendar = {}) => {
+const isWorkingDay = (date, calendar = {}) => {
   const parsed = parseLocalDate(date); if (!parsed) return false;
   const cal = assertCalendar(calendar);
   const holidays = new Set(cal.feriados.map(item => typeof item === "string" ? item : item?.data).filter(Boolean));
@@ -44,7 +40,7 @@ export const addBusinessDays = (date, days, calendar = {}) => {
   return toLocalDate(cursor);
 };
 export const subtractBusinessDays = (date, days, calendar = {}) => addBusinessDays(date, -Math.abs(number(days)), calendar);
-export const businessDaysBetweenInclusive = (start, end, calendar = {}) => {
+const businessDaysBetweenInclusive = (start, end, calendar = {}) => {
   let cursor = parseLocalDate(start), finish = parseLocalDate(end);
   if (!cursor || !finish) return 0;
   assertCalendar(calendar);
@@ -155,12 +151,12 @@ export const availableStock = ({ movements = [], reservations = [], obraId, mate
   return { fisico:Math.max(0, physical), reservado:Math.max(0, reserved), livre:Math.max(0, physical - reserved) };
 };
 
-export const validOpenOrderQuantity = ({ orders = [], obraId, materialId }) => orders
+const validOpenOrderQuantity = ({ orders = [], obraId, materialId }) => orders
   .filter(order => order.obraId === obraId && !cancelled(order))
   .reduce((sum,order) => sum + (order.itens || []).filter(item => item.materialId === materialId && !cancelled(item))
     .reduce((subtotal,item) => subtotal + Math.max(0, number(item.qtd) - number(item.qtdRecebida)), 0), 0);
 
-export const reverseSupplySchedule = ({ needDate, profile, calendar }) => {
+const reverseSupplySchedule = ({ needDate, profile, calendar }) => {
   if (!needDate) return { etapas:[], inicioSugerido:"", disponibilidadeSugerida:"", totalDias:0 };
   const stages = [
     ["congelamento_especificacao", "Congelamento da especificação", 0], ["liberacao_projeto", "Liberação de projeto", profile?.engenharia],
@@ -178,7 +174,7 @@ export const reverseSupplySchedule = ({ needDate, profile, calendar }) => {
     totalDias:backwards.reduce((sum,item) => sum + item.duracaoDias, 0) };
 };
 
-export const calculateSupplyRisk = ({ needDate, forecastDate, profile, calendar, hasSupplier, hasOrder, linkPending, stockSufficient }) => {
+const calculateSupplyRisk = ({ needDate, forecastDate, profile, calendar, hasSupplier, hasOrder, linkPending, stockSufficient }) => {
   const slack = needDate && forecastDate ? businessDaysBetweenInclusive(forecastDate, needDate, calendar) - 1 : null;
   const causes = [];
   if (linkPending) causes.push("vínculo com tarefa pendente");

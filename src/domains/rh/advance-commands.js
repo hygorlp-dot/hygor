@@ -57,7 +57,7 @@ export const buildAdvanceInstallments=({
   return rows;
 };
 
-export const advanceInstallmentsForPeriod=(advance,startDate,endDate)=>{
+const advanceInstallmentsForPeriod=(advance,startDate,endDate)=>{
   if(!active(advance)||!startDate||!endDate)return [];
   if(Array.isArray(advance?.installments)&&advance.installments.length){
     return advance.installments.filter(item=>

@@ -1,11 +1,11 @@
 import { isValidIsoDate } from "./date.js";
 
-export const RENTAL_BILLING_RULE=Object.freeze({
+const RENTAL_BILLING_RULE=Object.freeze({
   BEST_COMBINATION:"best_combination",CALENDAR_DAY:"calendar_day",BUSINESS_DAY:"business_day",
   MINIMUM_DAILY:"minimum_daily",TARIFF_WEEK:"tariff_week",TARIFF_FORTNIGHT:"tariff_fortnight",
   THIRTY_DAY_MONTH:"thirty_day_month",CIVIL_MONTH:"civil_month",ANNIVERSARY_CYCLE:"anniversary_cycle",
 });
-export const RENTAL_BILLING_RULES=Object.freeze(Object.values(RENTAL_BILLING_RULE));
+const RENTAL_BILLING_RULES=Object.freeze(Object.values(RENTAL_BILLING_RULE));
 export const normalizeBillingRule=value=>String(value||"")==="menor_combinacao"?RENTAL_BILLING_RULE.BEST_COMBINATION
   :RENTAL_BILLING_RULES.includes(String(value||""))?String(value):RENTAL_BILLING_RULE.BEST_COMBINATION;
 const cents=value=>Number.isSafeInteger(Number(value))?Math.max(0,Number(value)):0;

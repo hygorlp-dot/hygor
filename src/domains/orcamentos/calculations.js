@@ -1,11 +1,10 @@
 // Motor único de orçamento. Valores finais são centavos inteiros; cada
 // consumidor recebe a mesma memória de cálculo, não uma fórmula própria.
-export const ENGINE_VERSION = "budget-engine-1";
-export const toCents = value => Math.round(Number(value || 0) * 100);
-export const fromCents = value => Number(value || 0) / 100;
+const ENGINE_VERSION = "budget-engine-1";
+const fromCents = value => Number(value || 0) / 100;
 export const bdiEfetivo = (item, global) => item?.bdi !== "" && item?.bdi != null && Number(item.bdi) >= 0 ? Number(item.bdi) : Number(global || 0);
 
-export const calculateItem = (item, globalBdi = 0) => {
+const calculateItem = (item, globalBdi = 0) => {
   const quantidade=Number(item?.quantidade || 0), custoUnitario=Number(item?.precoUnit || 0), bdi=bdiEfetivo(item,globalBdi);
   const custoDiretoCentavos=Math.round(quantidade*custoUnitario*100);
   const bdiCentavos=Math.round(custoDiretoCentavos*bdi/100);
@@ -16,7 +15,7 @@ export const calculateItem = (item, globalBdi = 0) => {
 };
 
 const descendants=(stages,id)=>{const ids=[id];for(let i=0;i<ids.length;i++)stages.forEach(s=>s.parentId===ids[i]&&!ids.includes(s.id)&&ids.push(s.id));return ids;};
-export const calculateStage = (budget, stageId) => {
+const calculateStage = (budget, stageId) => {
   const ids=descendants(budget.etapas||[],stageId);
   const items=(budget.itens||[]).filter(i=>i.tipo!=="titulo"&&ids.includes(i.etapaId)).map(i=>calculateItem(i,budget.bdi));
   const custoDiretoCentavos=items.reduce((s,i)=>s+i.custoDiretoCentavos,0),bdiCentavos=items.reduce((s,i)=>s+i.bdiCentavos,0);

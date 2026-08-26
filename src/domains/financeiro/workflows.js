@@ -20,7 +20,7 @@ const activeTechnicalBilling=item=>!inactive(item)
   && (item?.tipo==="medicao_tecnica"||String(item?.medicaoTecnicaId||"").length>0);
 
 /** A receita contratada é a baseline comercial do faturamento físico. */
-export const resolveTechnicalBillingContract=(data={},obraId="")=>{
+const resolveTechnicalBillingContract=(data={},obraId="")=>{
   const contract=(data?.comercial?.contratos||[]).find(item=>
     item?.obraId===obraId&&["contratado","assinado"].includes(String(item?.status||"").toLowerCase())&&Number(item?.valor)>0);
   if(contract)return {ok:true,source:"contrato_comercial",sourceId:contract.id,valueCents:toCents(contract.valor)};

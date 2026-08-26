@@ -3,7 +3,7 @@ const number = value => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-export const normalizeUnitCode = value =>
+const normalizeUnitCode = value =>
   String(value || "UN").trim().toUpperCase() || "UN";
 
 export const purchaseUnitOf = item =>

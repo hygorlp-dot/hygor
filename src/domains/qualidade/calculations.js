@@ -2,7 +2,7 @@ import { NONCONFORMITY_STATUS } from "./constants.js";
 const activeNonconformity=status=>!["encerrada","cancelada"].includes(String(status||""));
 const sameService=(item,serviceId)=>!serviceId||!item.serviceId||String(item.serviceId)===String(serviceId);
 
-export const hasBlockingNonconformity=(records=[],obraId,serviceId)=>records.some(item=>
+const hasBlockingNonconformity=(records=[],obraId,serviceId)=>records.some(item=>
   String(item.obraId)===String(obraId)&&
   sameService(item,serviceId)&&
   item.impeditiva===true&&

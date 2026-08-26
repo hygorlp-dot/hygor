@@ -29,7 +29,7 @@ export const FINANCIAL_SNAPSHOT_WRITER_SECTIONS=new Set();
 
 export const FINANCIAL_MODULE_SECTION_MATRIX=Object.freeze({});
 
-export const PROJECT_FINANCIAL_FIELDS=Object.freeze([
+const PROJECT_FINANCIAL_FIELDS=Object.freeze([
   "contractType","contractValue","adminPercentage",
   "adminBaseMateriais","adminBaseMaoDeObra","adminBaseTerceirizados",
   "billingType","parcelaMensal","contractStart","contractEnd",
@@ -89,7 +89,7 @@ export const hasLegacyFinancialWrite=sections=>Object.keys(sections||{})
 export const financialPersistenceMode=engineEnforced=>
   engineEnforced?"transactional_ledger":"audited_shadow";
 
-export const hasBlockedLegacyFinancialWrite=sections=>Object.keys(sections||{})
+const hasBlockedLegacyFinancialWrite=sections=>Object.keys(sections||{})
   .some(section=>
     FINANCIAL_LEGACY_SECTIONS.has(section)
     && !FINANCIAL_OPERATIONAL_SOURCE_SECTIONS.has(section)

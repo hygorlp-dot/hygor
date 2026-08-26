@@ -2520,3 +2520,31 @@ independente do que for decidido sobre o script de lote em produção
 
 Verificação: suíte completa (254 arquivos/1507 testes), `build`, `lint`
 e `architecture:check` sem violação.
+
+### Onda 4 (item 13) - poda de exports não usados (knip) (26/08/2026)
+
+Rodado em paralelo às Ondas 1-2 (agente em segundo plano, escopo
+restrito para não tocar nos arquivos em edição ativa na sessão:
+`LegacyApp.jsx`, `licenciamento/`, `estoque/`, `planejamento/`,
+`operational-commands.js`, `api/data.js`). Removeu ~31 exports
+realmente mortos (confirmados por busca no repositório inteiro,
+incluindo testes, antes de cada remoção) e des-exportou ~28 outros que
+só eram usados dentro do próprio arquivo - lógica intacta nos dois
+casos, só a superfície pública mudou. `npm run quality:knip`: **82 → 23**
+exports não usados.
+
+Os 23 restantes ficaram de propósito: barrels do design system
+(`design-system/patterns|primitives/index.js`, reexportação
+intencional), os ~14 exports de `src/mobile/*` (camada órfã, decisão de
+produto ainda pendente - ver Onda 0), `PORTAL_PROHIBITED_FIELD_FRAGMENTS`
+em `server/client-portal-inventory.js` (parece salvaguarda de segurança
+ainda não conectada - não removido por segurança, não por certeza de
+uso), e os poucos itens dentro dos domínios fora de escopo desta
+rodada (`estoque`, `licenciamento`, `planejamento`).
+
+Revisado manualmente (diffs de amostra + busca cruzada por nome de
+cada export tocado em arquivos financeiros/DRE-sensíveis) antes de
+commitar - nenhuma lógica de negócio mudou. Verificação (rodada de
+novo, de forma independente, não só o relato do agente): suíte completa
+(254 arquivos/1507 testes), `build`, `lint` e `architecture:check` sem
+violação.
