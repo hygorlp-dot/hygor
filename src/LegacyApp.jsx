@@ -243,7 +243,7 @@ import {
 } from "./domains/terceirizados/lifecycle";
 const Terceiros = lazy(() => import("./domains/terceirizados/components/TerceirosView"));
 import { uploadWithRetry } from "./domains/documentos/upload-retry";
-const LazyMarcosCurvaASuprimentos = lazy(() => import("./features/suprimentos/MarcosCurvaASuprimentos"));
+const LazyMarcosCurvaASuprimentos = lazy(() => import("./domains/suprimentos/components/MarcosCurvaASuprimentos"));
 import {
   calcConciliacao,
   aplicarRecebimentoMedicao, estornarRecebimentosMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,

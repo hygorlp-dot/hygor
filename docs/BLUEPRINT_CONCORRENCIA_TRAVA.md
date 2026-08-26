@@ -2758,7 +2758,7 @@ que `CONFERENCIA_CATEGORIAS/IMPACTOS/STATUS`,
 Conferência (vieram junto), enquanto `criteriosQualidade` e as duas
 telas ficaram em `LegacyApp.jsx`. O corte final saiu em duas regiões
 não contíguas, com o "meio" (Qualidade/Segurança) preservado no lugar -
-mesma técnica already usada no item 1.
+mesma técnica já usada no item 1.
 
 Erro pego de novo só no `build`: a primeira extração acidentalmente
 incluiu a linha `// Bloco visual reutilizado no diario.` (comentário de
@@ -2767,7 +2767,36 @@ recortando um caractere antes do limite.
 
 Verificação: suíte completa (255 arquivos/1538 testes), `build`, `lint`
 e `architecture:check` sem violação. Chunk próprio
-(`ConferenciaView-*.js`, ~68,5 kB) confirmado no build. **Onda 7 (itens
-1-4) concluída** - resta a unificação de convenção de pastas
-(`src/features/*` → `src/domains/*/components/`) como próximo item do
-roadmap.
+(`ConferenciaView-*.js`, ~68,5 kB) confirmado no build.
+
+### Item 8 - unificação de `src/features/*`
+
+Investigado antes de mexer: `ConciliacaoView.jsx` carrega um comentário
+explícito dizendo que vive fora de `src/domains/conciliacao/components/`
+de propósito, para não recair num ciclo de bundling real -
+`vite.config.mjs` agrupa tudo sob `/src/domains/conciliacao/` no chunk
+manual `financial-domain`, que é carregado eager (Financeiro/DRE ainda
+não saíram de `LegacyApp.jsx`); como este componente é lazy e importa de
+volta de `LegacyApp.jsx`, colocá-lo dentro do domínio faria o Rollup
+fundir o monólito inteiro no chunk eager. O mesmo comentário afirmava
+que `MarcosCurvaASuprimentos.jsx` tinha o mesmo problema - checagem
+mostrou que **não tinha**: zero import de `LegacyApp.jsx`, e
+`suprimentos` nem está na lista de domínios agrupados em
+`financial-domain`.
+
+Resultado: `MarcosCurvaASuprimentos.jsx` movido para
+`src/domains/suprimentos/components/` (import relativo ajustado, lazy
+import em `LegacyApp.jsx` atualizado, `src/features/suprimentos/`
+removido). `ConciliacaoView.jsx` **fica onde está** - a exceção é real,
+não uma inconsistência a corrigir - e seu comentário foi atualizado para
+não citar mais Suprimentos como precedente igual.
+
+Verificação: suíte completa (255 arquivos/1538 testes), `build` (chunk
+próprio `MarcosCurvaASuprimentos-*.js`, ~17,9 kB, confirmado separado de
+`financial-domain` e `LegacyApp` - tamanhos de ambos inalterados,
+confirmando que não houve fusão), `lint` e `architecture:check` sem
+violação.
+
+**Onda 7 concluída** (itens 1-4 e 8). Resta o item 9: decidir o destino
+de `src/mobile/*` - marco de decisão explícito, de escopo do usuário,
+não executável unilateralmente.

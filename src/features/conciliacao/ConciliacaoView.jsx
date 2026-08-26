@@ -13,7 +13,15 @@
 // componente lazy ali dentro criava um ciclo (financial-domain eager
 // precisando deste arquivo, que por sua vez importa de volta do
 // LegacyApp.jsx) e o Rollup respondia fundindo o monólito inteiro nesse
-// chunk. Mesmo precedente de src/features/suprimentos/MarcosCurvaASuprimentos.
+// chunk.
+//
+// src/features/suprimentos/MarcosCurvaASuprimentos foi checado na Onda 7
+// (26/08/2026, unificação de convenção de pastas) e NÃO tinha o mesmo
+// problema - zero import de volta para LegacyApp.jsx, e "suprimentos" nem
+// está na lista de domínios agrupados em "financial-domain" - por isso foi
+// movido para src/domains/suprimentos/components/. Esta tela continua
+// aqui porque ela sim importa de LegacyApp.jsx e conciliacao sim está
+// nessa lista.
 // ===================================================================
 
 import { useEffect, useMemo, useRef, useState } from "react";

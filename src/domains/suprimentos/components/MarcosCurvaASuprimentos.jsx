@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { getPlanningBudget } from "../../domains/orcamentos/calculations";
+import { getPlanningBudget } from "../../orcamentos/calculations";
 import {
   buildBudgetMaterialDemand, createAbcSnapshot, createSupplyPlan, defaultSupplySettings,
   DEFAULT_LEAD_PROFILES,
-} from "../../domains/suprimentos/calculations";
+} from "../calculations";
 
 const now = () => new Date().toISOString();
 const id = prefix => `${prefix}-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
