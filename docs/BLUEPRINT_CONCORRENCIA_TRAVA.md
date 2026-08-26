@@ -2694,3 +2694,27 @@ Estoque).
 Verificação: suíte completa (255 arquivos/1538 testes), `build`, `lint`
 e `architecture:check` sem violação. Chunk próprio
 (`DiarioObraView-*.js`, ~57 kB) confirmado no build.
+
+### Item 2 - Estoque
+
+Extraído para `src/domains/estoque/components/EstoqueView.jsx` (713
+linhas). Mesmo achado do item 1 se repetiu de forma menor: dois dos
+quatro modais da região (`ModalMaterial`, `ModalComposicao`) também são
+usados pela tela de Cadastros, que não está sendo extraída nesta
+rodada - então **ficaram em `LegacyApp.jsx`** (agora `export`, mesmo
+tratamento dado a `Bloco` no item 1) em vez de ir para o arquivo novo.
+Só `ModalMovimento` e `ModalExecutar`, exclusivos de Estoque, saíram
+junto com a tela. `TIPOS_MOV`/`SINAL_MOV`/`calcSaldos`/`saldoDe`/
+`baixarPorComposicao` (de `domains/estoque/calculations.js`) e
+`STOCK_COMMAND` (de `domains/estoque/commands.js`) passaram a ser
+importados diretamente pelo arquivo novo, em vez de reexportados via
+`LegacyApp.jsx`.
+
+`src/LegacyApp.stock-cancellation.test.js` atualizado para ler o bloco
+de `excluirMov` em `EstoqueView.jsx` em vez de fatiar `LegacyApp.jsx`
+(a asserção sobre `calcCurvaABC`, que não fazia parte de Estoque,
+continua lendo `LegacyApp.jsx` normalmente).
+
+Verificação: suíte completa (255 arquivos/1538 testes), `build`, `lint`
+e `architecture:check` sem violação. Chunk próprio (`EstoqueView-*.js`,
+~25,5 kB) confirmado no build.

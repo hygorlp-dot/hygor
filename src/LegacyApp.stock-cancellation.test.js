@@ -6,13 +6,16 @@ import { describe, expect, it } from "vitest";
 // movimento de estoque foram extraídos para src/domains/estoque/ (Onda 1 do
 // raio-X, 25/08/2026) - este teste passou a checar os arquivos novos em vez
 // de LegacyApp.jsx, mas o invariante que ele protege é o mesmo de sempre.
+// A própria tela de Estoque foi extraída para
+// src/domains/estoque/components/EstoqueView.jsx na Onda 7 (26/08/2026).
 describe("DATA-002 — estorno de movimento de estoque",()=>{
   const legacySource=fs.readFileSync(path.join(process.cwd(),"src","LegacyApp.jsx"),"utf8");
+  const estoqueViewSource=fs.readFileSync(path.join(process.cwd(),"src","domains","estoque","components","EstoqueView.jsx"),"utf8");
   const commandsSource=fs.readFileSync(path.join(process.cwd(),"src","domains","estoque","commands.js"),"utf8");
   const calculationsSource=fs.readFileSync(path.join(process.cwd(),"src","domains","estoque","calculations.js"),"utf8");
 
   it("a tela exige motivo e delega o estorno ao comando, sem filtrar o registro localmente",()=>{
-    const block=legacySource.slice(legacySource.indexOf("const excluirMov ="),legacySource.indexOf("//  Composição",legacySource.indexOf("const excluirMov =")));
+    const block=estoqueViewSource.slice(estoqueViewSource.indexOf("const excluirMov ="),estoqueViewSource.indexOf("//  Composição",estoqueViewSource.indexOf("const excluirMov =")));
     expect(block).toContain("Motivo do estorno do movimento de estoque");
     expect(block).toContain("STOCK_COMMAND.MATERIAL_MOVEMENT_REVERSED");
     expect(block).not.toContain("movEstoque: (data.movEstoque||[]).filter");
