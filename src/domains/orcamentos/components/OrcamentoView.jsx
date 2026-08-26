@@ -12,6 +12,8 @@ import {
   Bar, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "../../../components/charts/LazyRecharts";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
+import { PageHeader, SummaryCard, ConfirmDialog } from "../../../design-system/patterns";
+import { Checkbox as DesignSystemCheckbox } from "../../../design-system/primitives/Checkbox.jsx";
 import {
   Badge, Btn, C, Ic, Inp, Modal, Sel,
   XLSX, carregarXLSX, lerSinapiEmSegundoPlano, jsonDaRespostaIA, obraContextoSalvo,
@@ -83,7 +85,10 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const obrasParaCopia = todasObras || data.obras || [];
   const orcamentosParaCopia = todosOrcamentosGlobais || data.orcamentos || [];
   const planosParaCopia = todosPlanosGlobais || data.planos || [];
-  const { cols, formGrid } = useBreakpoint();
+  const { cols, formGrid, isMobile } = useBreakpoint();
+  // DESIGN.md exige 44px como alvo mínimo de toque no mobile; no desktop (mouse)
+  // os mesmos botões ficam compactos como sempre foram.
+  const alvoToque = isMobile ? 44 : 24;
   const ehAdmin = currentUser?.role === "admin";
   const dataAtualRef = useRef(data);
   const scrollAlvoRef = useRef(null);   // posicao a preservar durante um salvamento
@@ -152,6 +157,12 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [buscaDebounced, setBuscaDebounced] = useState("");
   const [etapaAlvo, setEtapaAlvo] = useState("");
   const [novoModal, setNovoModal] = useState(false);
+  const [ajudaModal, setAjudaModal] = useState(false);
+  // Confirmação de exclusão (orçamento/etapa) via ConfirmDialog do design
+  // system, em vez de window.confirm nativo - consistente com o resto da
+  // interface e permite descrever o impacto real da exclusão.
+  const [confirmDelOrc, setConfirmDelOrc] = useState(null); // {id, nome}
+  const [confirmDelEtapa, setConfirmDelEtapa] = useState(null); // {ids, aviso}
   // Copiar orçamento (e cronograma, se a obra de origem já tiver um) de
   // outra obra - pedido do usuário em 26/08/2026, em vez de montar tudo do
   // zero a cada obra parecida.
@@ -1545,7 +1556,9 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const delOrc = (id) => {
     const alvo=todosOrcamentos.find(item=>item.id===id);
     if (budgetIsImmutable(alvo)||(data.budgetBaselines||[]).some(b=>b.budgetId===id&&b.ativo!==false)) { showToast("Versão aprovada ou baseline não pode ser excluída. Crie uma revisão ou adote outra baseline.","error"); return; }
-    if (!window.confirm("Remover este orçamento? Esta ação não pode ser desfeita.")) return;
+    setConfirmDelOrc({ id, nome: alvo?.nome || "" });
+  };
+  const executarDelOrc = (id) => {
     update({ ...data, orcamentos: todosOrcamentos.filter(o=>o.id!==id) });
     if (selOrc===id) { setSelOrc(null); setView("lista"); }
     showToast("Orçamento removido.");
@@ -1863,12 +1876,15 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
 
     let aviso = `Excluir a etapa "${etapa.nome}"?`;
     if (nSub || nItens) {
-      aviso += "\n\nIsto também remove:";
-      if (nSub)   aviso += `\n- ${nSub} subnível(is)`;
-      if (nItens) aviso += `\n- ${nItens} item(ns) do orçamento`;
+      aviso += " Isto também remove:";
+      if (nSub)   aviso += ` ${nSub} subnível(is)`;
+      if (nItens) aviso += `${nSub?" e":""} ${nItens} item(ns) do orçamento`;
+      aviso += ".";
     }
-    if (!window.confirm(aviso)) return;
-
+    setConfirmDelEtapa({ ids, aviso });
+  };
+  const executarDelEtapa = () => {
+    const { ids } = confirmDelEtapa;
     salvarOrc({
       etapas: orc.etapas.filter(e => !ids.includes(e.id)),
       itens:  (orc.itens||[]).filter(it => !ids.includes(it.etapaId)),
@@ -2454,17 +2470,40 @@ ${blocoBDI}
   if (view === "lista") {
     return (
       <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-        <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${C.yellow}`,padding:"14px 18px",borderRadius:8,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
-          <div>
-            <p style={{fontSize:10,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:1.2}}>SINAPI  ORSE</p>
-            <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:800,color:C.text,lineHeight:1,marginTop:2}}>Orçamentos</p>
-            <p style={{color:C.muted,fontSize:12,marginTop:4}}>Planilha orçamentária com BDI e exportação</p>
-          </div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+        <PageHeader
+          breadcrumb={["SINAPI", "ORSE"]}
+          title="Orçamentos"
+          description="Planilha orçamentária com BDI e exportação"
+          primaryAction={<Btn onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setNovoModal(true);}}><Ic n="plus"/> Novo</Btn>}
+          secondaryActions={<>
+            <Btn v="ghost" title="Como funciona esta tela" ariaLabel="Como funciona esta tela" onClick={()=>setAjudaModal(true)}><Ic n="info"/> Ajuda</Btn>
             {obrasParaCopia.some(o=>o.id!==obraIdFixo)&&<Btn v="ghost" onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setCopiarModal({obraOrigemId:"",orcOrigemId:"",repetirQuantidades:true});}}><Ic n="copy"/> Copiar de outra obra</Btn>}
-            <Btn onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setNovoModal(true);}}><Ic n="plus"/> Novo</Btn>
-          </div>
-        </div>
+          </>}
+        />
+
+        {ajudaModal && (
+          <Modal title="Como funciona o Orçamento" onClose={()=>setAjudaModal(false)} wide>
+            <div style={{display:"flex",flexDirection:"column",gap:14,fontSize:12.5,color:C.text,lineHeight:1.6}}>
+              <div>
+                <p style={{fontSize:11,fontWeight:800,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>Bases de preços</p>
+                <p>Vincule uma base <b>SINAPI</b> ou <b>ORSE</b> (ou as duas) ao orçamento para pesquisar composições e insumos por código ou descrição. Sem base vinculada, só é possível lançar itens avulsos ou favoritos já salvos.</p>
+              </div>
+              <div>
+                <p style={{fontSize:11,fontWeight:800,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>BDI</p>
+                <p>O selo colorido ao lado do BDI mostra se o percentual está dentro da faixa auditável do TCU (Acórdão 2622/2013) para o tipo de obra escolhido. Fora da faixa não bloqueia o orçamento, mas fica sinalizado para justificar em auditoria.</p>
+              </div>
+              <div>
+                <p style={{fontSize:11,fontWeight:800,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>Versão e baseline</p>
+                <p>Um orçamento <b>aprovado</b> fica bloqueado para edição - crie uma <b>revisão</b> para alterar valores depois disso. A <b>baseline</b> é a versão que planejamento, medições e comparativos usam como referência da obra; sem baseline definida, essas telas não têm o que comparar.</p>
+              </div>
+              <div>
+                <p style={{fontSize:11,fontWeight:800,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>Copiar de outra obra</p>
+                <p>Traz a estrutura de etapas, itens e (se existir) o cronograma de um orçamento de outra obra. Você escolhe se as quantidades vêm repetidas (útil para obras quase idênticas) ou zeradas (a estrutura e o preço de referência vêm, você lança a medida real desta obra). As datas do cronograma copiado são deslocadas para começar hoje.</p>
+              </div>
+              <Btn v="ghost" onClick={()=>setAjudaModal(false)} full>Fechar</Btn>
+            </div>
+          </Modal>
+        )}
 
         {obraIdFixo&&!getActiveBudgetBaseline(data,obraIdFixo,"controle").budget&&orcamentos.length>0&&(
           <div style={{background:`${C.orange}0C`,border:`1px solid ${C.orange}66`,borderRadius:8,padding:"10px 12px",fontSize:12,color:C.text,lineHeight:1.45}}>
@@ -2474,7 +2513,7 @@ ${blocoBDI}
 
         {orcamentos.length===0 && (
           <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,padding:30,textAlign:"center",boxShadow:`0 1px 4px ${C.shadow}`}}>
-            <p style={{fontSize:"clamp(21px,9vw,38px)",marginBottom:8}}></p>
+            <div style={{display:"flex",justifyContent:"center",marginBottom:8}}><Ic n="fileText" s={38} color={C.muted}/></div>
             <p style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Nenhum orçamento criado</p>
             <p style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Crie um orçamento, importe a base SINAPI ou ORSE<br/>e monte a planilha por etapas.</p>
           </div>
@@ -2502,7 +2541,7 @@ ${blocoBDI}
                   </p>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:19,fontWeight:800,color:C.yellow}}>{fmt(c.total)}</p>
+                  <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:19,fontWeight:800,color:C.yellow}}>{fmt(c.total)}</p>
                   <p style={{fontSize:10,color:C.muted}}>com BDI</p>
                 </div>
               </div>
@@ -2511,7 +2550,7 @@ ${blocoBDI}
                 {ehAdmin && o.obraId && !ehBaseline ? (
                   <Btn size="sm" v="success" onClick={()=>aprovarEAdotarBaseline(o.id)}>{bloqueado ? "Adotar como baseline" : "Aprovar baseline"}</Btn>
                 ) : null}
-                {!bloqueado&&<Btn size="sm" v="danger" onClick={()=>delOrc(o.id)}><Ic n="trash"/></Btn>}
+                {!bloqueado&&<Btn size="sm" v="danger" title="Excluir orçamento" ariaLabel="Excluir orçamento" onClick={()=>delOrc(o.id)}><Ic n="trash"/></Btn>}
               </div>
             </div>
           );
@@ -2544,9 +2583,13 @@ ${blocoBDI}
                 <Inp label="BDI (%)" type="number" value={form.bdi} onChange={F("bdi")} placeholder="23.25"/>
               </div>
               <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"9px 12px",background:form.desonerado?`${C.green}08`:C.surface,borderRadius:6,border:`1.5px solid ${form.desonerado?C.green+"55":C.border}`}}>
-                <div onClick={()=>F("desonerado")(!form.desonerado)} style={{width:19,height:19,border:`2px solid ${form.desonerado?C.green:C.muted}`,background:form.desonerado?C.green:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                  {form.desonerado && <span style={{color:"#fff",fontSize:12,fontWeight:900}}>ok</span>}
-                </div>
+                <span style={{position:"relative",width:19,height:19,flexShrink:0,display:"inline-block"}}>
+                  <input type="checkbox" checked={form.desonerado!==false} onChange={e=>F("desonerado")(e.target.checked)}
+                    style={{position:"absolute",inset:0,width:"100%",height:"100%",margin:0,opacity:0,cursor:"pointer"}}/>
+                  <div aria-hidden="true" style={{width:19,height:19,border:`2px solid ${form.desonerado?C.green:C.muted}`,background:form.desonerado?C.green:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
+                    {form.desonerado && <span style={{color:"#fff",fontSize:12,fontWeight:900}}>ok</span>}
+                  </div>
+                </span>
                 <div>
                   <p style={{fontSize:13,fontWeight:700,color:form.desonerado?C.green:C.text}}>Encargos desonerados</p>
                   <p style={{fontSize:11,color:C.muted}}>Desmarque para usar a tabela não desonerada</p>
@@ -2596,12 +2639,17 @@ ${blocoBDI}
                   <label style={{display:"flex",alignItems:"flex-start",gap:9,cursor:"pointer",padding:"8px 11px",
                           background: copiarModal.repetirQuantidades ? `${C.yellow}10` : C.surface,
                           border:`1.5px solid ${copiarModal.repetirQuantidades ? C.yellow : C.border}`,borderRadius:6}}>
-                    <div onClick={()=>setCopiarModal(m=>({...m,repetirQuantidades:!m.repetirQuantidades}))}
-                         style={{width:18,height:18,borderRadius:4,flexShrink:0,marginTop:1,
-                                 border:`2px solid ${copiarModal.repetirQuantidades?C.yellow:C.muted}`,background:copiarModal.repetirQuantidades?C.yellow:"transparent",
-                                 display:"flex",alignItems:"center",justifyContent:"center"}}>
-                      {copiarModal.repetirQuantidades && <span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
-                    </div>
+                    <span style={{position:"relative",width:18,height:18,flexShrink:0,marginTop:1,display:"inline-block"}}>
+                      <input type="checkbox" checked={copiarModal.repetirQuantidades}
+                        onChange={e=>setCopiarModal(m=>({...m,repetirQuantidades:e.target.checked}))}
+                        style={{position:"absolute",inset:0,width:"100%",height:"100%",margin:0,opacity:0,cursor:"pointer"}}/>
+                      <div aria-hidden="true"
+                           style={{width:18,height:18,borderRadius:4,
+                                   border:`2px solid ${copiarModal.repetirQuantidades?C.yellow:C.muted}`,background:copiarModal.repetirQuantidades?C.yellow:"transparent",
+                                   display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
+                        {copiarModal.repetirQuantidades && <span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
+                      </div>
+                    </span>
                     <div>
                       <p style={{fontSize:12.5,fontWeight:700,color:copiarModal.repetirQuantidades?C.yellow:C.text}}>Repetir as quantidades da obra de origem</p>
                       <p style={{fontSize:10.5,color:C.muted,marginTop:2,lineHeight:1.5}}>Desmarcado, os itens entram com quantidade zerada - a estrutura e o preço unitário de referência vêm, mas você lança a medida real desta obra.</p>
@@ -2618,6 +2666,11 @@ ${blocoBDI}
             </Modal>
           );
         })()}
+
+        <ConfirmDialog open={!!confirmDelOrc} onOpenChange={aberto=>!aberto&&setConfirmDelOrc(null)}
+          title="Remover orçamento" tone="danger" confirmLabel="Remover"
+          description={`Remover "${confirmDelOrc?.nome}"? Esta ação não pode ser desfeita.`}
+          onConfirm={()=>executarDelOrc(confirmDelOrc.id)}/>
       </div>
     );
   }
@@ -2647,42 +2700,23 @@ ${blocoBDI}
         </p>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:7}}>{baselineAtiva.budget?.id===orc.id&&<Badge color={C.green}>BASELINE ATIVA</Badge>}<Badge color={budgetIsImmutable(orc)?C.blue:C.orange}>V{orc.versionNumber||1} · {budgetIsImmutable(orc)?"APROVADA E BLOQUEADA":"RASCUNHO EDITÁVEL"}</Badge>{budgetIsImmutable(orc)&&<Btn size="sm" onClick={criarRevisaoOrc}><Ic n="plus"/> Criar revisão</Btn>}{ehAdmin&&orc.obraId&&baselineAtiva.budget?.id!==orc.id&&<Btn size="sm" v="success" onClick={aprovarEAdotarBaseline}>{budgetIsImmutable(orc)?"Adotar como baseline":"Aprovar e adotar baseline"}</Btn>}</div>
         <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8,marginTop:12}}>
-          {/* Custo direto */}
-          <div style={{background:C.surface,padding:"7px 10px",borderRadius:6}}>
-            <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>Custo direto</p>
-            <p style={{fontSize:13,fontWeight:800,color:C.muted,marginTop:2}}>{fmt(calc.custoDireto)}</p>
-          </div>
+          <SummaryCard label="Custo direto" value={fmt(calc.custoDireto)} tone="neutral"/>
 
           {/* BDI - clicável, com semáforo da faixa TCU */}
           {(() => {
             const sit = situacaoBDI(Number(orc.bdi||0), orc.bdiTipo || "edificios");
+            const tomBDI = sit.st==="dentro" ? "info" : "warning";
+            const detalheBDI = sit.st==="dentro" ? "Dentro da faixa TCU" : sit.st==="acima" ? "Acima do 3º quartil" : "Abaixo do 1º quartil";
             return (
-              <button onClick={abrirBDI} title="Configurar BDI conforme TCU" style={{
-                background: sit.st==="dentro" ? C.surface : `${sit.cor}0E`,
-                border: `1px solid ${sit.st==="dentro" ? C.border : sit.cor}`,
-                padding:"7px 10px", borderRadius:6, textAlign:"left", cursor:"pointer",
-              }}>
-                <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700,display:"flex",alignItems:"center",gap:3}}>
-                  BDI {orc.bdi}% <span style={{color:sit.cor,fontSize:8}}></span>
-                </p>
-                <p style={{fontSize:13,fontWeight:800,color:C.blue,marginTop:2}}>{fmt(calc.valorBDI)}</p>
-              </button>
+              <SummaryCard label={`BDI ${orc.bdi}%`} value={fmt(calc.valorBDI)} detail={detalheBDI}
+                tone={tomBDI} onClick={abrirBDI}/>
             );
           })()}
 
-          {/* Total */}
-          <div style={{background:C.surface,padding:"7px 10px",borderRadius:6}}>
-            <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>Total</p>
-            <p style={{fontSize:13,fontWeight:800,color:C.yellow,marginTop:2}}>{fmt(calc.total)}</p>
-          </div>
+          <SummaryCard label="Total" value={fmt(calc.total)} tone="primary"/>
 
-          {/* Por m ou nº de itens */}
-          <div style={{background:C.surface,padding:"7px 10px",borderRadius:6}}>
-            <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{orc.areaM2>0?"Por m":"Itens"}</p>
-            <p style={{fontSize:13,fontWeight:800,color:C.green,marginTop:2}}>
-              {orc.areaM2>0 ? fmt(calc.porM2) : String(calc.qtdItens)}
-            </p>
-          </div>
+          <SummaryCard label={orc.areaM2>0?"Por m2":"Itens"} tone="success"
+            value={orc.areaM2>0 ? fmt(calc.porM2) : String(calc.qtdItens)}/>
         </div>
 
         {/* Alerta quando o BDI está fora da faixa auditável */}
@@ -2712,7 +2746,7 @@ ${blocoBDI}
         ].map(([valor,label])=><button key={valor} onClick={()=>setOrcAba(valor)} style={{
           flex:"1 1 180px",border:`1px solid ${orcAba===valor?C.blue:C.border}`,borderRadius:6,padding:"8px 10px",
           background:orcAba===valor?`${C.blue}12`:C.bg,color:orcAba===valor?C.blue:C.muted,
-          fontSize:10.5,fontWeight:800,cursor:"pointer",fontFamily:"'Inter Display','Inter',sans-serif",
+          fontSize:10.5,fontWeight:800,cursor:"pointer",fontFamily:"var(--arcd-font-sans)",
         }}>{label}</button>)}
       </div>
 
@@ -2992,7 +3026,7 @@ ${blocoBDI}
             </p>
             <label style={{display:"inline-block"}}>
               <input type="file" accept=".xlsx,.xls" onChange={e=>importarXLSX(e.target.files?.[0])} style={{display:"none"}}/>
-              <span style={{display:"inline-flex",alignItems:"center",gap:6,background:C.yellow,color:"#fff",border:`1.5px solid ${C.yellowD}`,padding:"8px 14px",borderRadius:6,cursor:"pointer",fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:700,fontSize:12,textTransform:"uppercase",letterSpacing:.5}}>
+              <span style={{display:"inline-flex",alignItems:"center",gap:6,background:C.yellow,color:"#fff",border:`1.5px solid ${C.yellowD}`,padding:"8px 14px",borderRadius:6,cursor:"pointer",fontFamily:"var(--arcd-font-sans)",fontWeight:700,fontSize:12,textTransform:"uppercase",letterSpacing:.5}}>
                  Escolher planilha
               </span>
             </label>
@@ -3067,7 +3101,7 @@ ${blocoBDI}
                       title={recolhida?"Expandir nível":"Recolher nível"}
                       aria-expanded={!recolhida}
                       style={{background:recolhida?`${cor}12`:"transparent",border:`1px solid ${C.border}`,color:cor,
-                               borderRadius:5,width:24,height:24,cursor:"pointer",fontSize:14,lineHeight:1,fontWeight:900}}>
+                               borderRadius:5,width:alvoToque,height:alvoToque,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,lineHeight:1,fontWeight:900}}>
                       {recolhida?"▸":"▾"}
                     </button>
                     {no.total > 0 && (
@@ -3076,28 +3110,32 @@ ${blocoBDI}
                     <button onClick={() => { setEtapaAlvo(no.id); setBusca(""); setBuscaModal(true); }}
                       title="Adicionar item"
                       style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.text,
-                               borderRadius:5, width:24, height:24, cursor:"pointer", fontSize:13, lineHeight:1 }}>+</button>
+                               borderRadius:5, width:alvoToque, height:alvoToque, cursor:"pointer", display:"flex",alignItems:"center",justifyContent:"center", fontSize:13, lineHeight:1 }}>+</button>
                     <button onClick={() => abrirExterno(no.id)}
                       title="Nova composição externa ou cotação"
                       style={{background:"transparent",border:`1px solid ${C.border}`,color:C.green,
-                               borderRadius:5,width:24,height:24,cursor:"pointer",fontSize:11,lineHeight:1,fontWeight:800}}>R$</button>
+                               borderRadius:5,width:alvoToque,height:alvoToque,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,lineHeight:1,fontWeight:800}}>R$</button>
                     <button onClick={() => addTitulo(no.id)}
                       title="Adicionar título (texto sem valor)"
                       style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.muted,
-                               borderRadius:5, width:24, height:24, cursor:"pointer", fontSize:10,
+                               borderRadius:5, width:alvoToque, height:alvoToque, cursor:"pointer", display:"flex",alignItems:"center",justifyContent:"center", fontSize:10,
                                lineHeight:1, fontWeight:800 }}>T</button>
                     {podeSub && (
                       <button onClick={() => abrirNovaEtapa(no.id)}
                         title="Criar subnível"
                         style={{ background:"transparent", border:`1px solid ${C.border}`, color:cor,
-                                 borderRadius:5, width:24, height:24, cursor:"pointer", fontSize:12, lineHeight:1, fontWeight:800 }}></button>
+                                 borderRadius:5, width:alvoToque, height:alvoToque, cursor:"pointer", display:"flex",alignItems:"center",justifyContent:"center" }}>
+                        <Ic n="cornerDownRight" s={13}/>
+                      </button>
                     )}
                     <button onClick={() => abrirEditarEtapa(no)}
                       title="Renomear"
-                      style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer", fontSize:12, padding:"0 2px" }}></button>
+                      style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer", width:alvoToque, height:alvoToque, display:"flex",alignItems:"center",justifyContent:"center" }}>
+                      <Ic n="edit" s={13}/>
+                    </button>
                     <button onClick={() => delEtapa(no)}
                       title="Excluir"
-                      style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer", fontSize:15, padding:"0 2px", lineHeight:1 }}>x</button>
+                      style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer", width:alvoToque, height:alvoToque, display:"flex",alignItems:"center",justifyContent:"center", fontSize:15, lineHeight:1 }}>x</button>
                   </div>
                 </div>
 
@@ -3122,11 +3160,17 @@ ${blocoBDI}
                       <button onClick={() => moverLinha(it.id, -1)} disabled={primeira}
                         title="Mover para cima"
                         style={{ background:"transparent", border:0, cursor: primeira?"default":"pointer",
-                                 color: primeira ? C.line : C.muted, fontSize:9, lineHeight:1, padding:"1px 3px" }}></button>
+                                 color: primeira ? C.line : C.muted, width:isMobile?44:14, height:isMobile?22:11,
+                                 display:"flex",alignItems:"center",justifyContent:"center", lineHeight:1 }}>
+                        <Ic n="chevUp" s={isMobile?13:9}/>
+                      </button>
                       <button onClick={() => moverLinha(it.id, +1)} disabled={ultima}
                         title="Mover para baixo"
                         style={{ background:"transparent", border:0, cursor: ultima?"default":"pointer",
-                                 color: ultima ? C.line : C.muted, fontSize:9, lineHeight:1, padding:"1px 3px" }}></button>
+                                 color: ultima ? C.line : C.muted, width:isMobile?44:14, height:isMobile?22:11,
+                                 display:"flex",alignItems:"center",justifyContent:"center", lineHeight:1 }}>
+                        <Ic n="chevron" s={isMobile?13:9}/>
+                      </button>
                     </div>
                   );
 
@@ -3152,11 +3196,11 @@ ${blocoBDI}
                             color:C.text, padding:"3px 0", outline:"none",
                             fontSize:11.5, fontWeight:700, letterSpacing:.3,
                             textTransform:"uppercase",
-                            fontFamily:"'Inter Display','Inter',sans-serif",
+                            fontFamily:"var(--arcd-font-sans)",
                           }}
                         />
                         {setas()}
-                        <button onClick={() => delItem(it.id)}
+                        <button onClick={() => delItem(it.id)} title="Excluir título"
                           style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer",
                                    fontSize:14, padding:"0 2px", lineHeight:1, flexShrink:0 }}>x</button>
                       </div>
@@ -3214,7 +3258,7 @@ ${blocoBDI}
                           <CelulaTexto value={it.codigo||""}
                             onCommit={valor=>updItemCampo(it.id,"codigo",valor)}
                             placeholder="Sem código" title={codigoAtualizando===it.id?"Consultando código nas bases...":codigoPendente?"Código não localizado na base":"Código da composição"}
-                            style={{width:"100%",boxSizing:"border-box",background:codigoPendente?`${C.orange}12`:C.bg,border:`1.5px solid ${codigoPendente?C.orange:C.border}`,color:codigoPendente?C.orange:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
+                            style={{width:"100%",boxSizing:"border-box",background:codigoPendente?`${C.orange}12`:C.bg,border:`1.5px solid ${codigoPendente?C.orange:C.border}`,color:codigoPendente?C.orange:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",textTransform:"uppercase",fontFamily:"var(--arcd-font-mono)"}}/>
                       </div>
                       )}
                       <div style={{minWidth:0,overflow:"hidden"}}>
@@ -3233,21 +3277,21 @@ ${blocoBDI}
                             return false;
                           }}
                           title="Digite para pesquisar por descrição nas bases vinculadas"
-                          style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11.5,outline:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
+                          style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11.5,outline:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textTransform:"uppercase",fontFamily:"var(--arcd-font-sans)"}}/>
                       </div>
                       {colsOrc.unidade && (
                       <div style={{minWidth:0,overflow:"hidden"}}>
                           <CelulaTexto value={it.unidade||""}
                             onCommit={valor=>updItemCampo(it.id,"unidade",valor)}
                             title="Unidade do item"
-                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",textTransform:"uppercase",fontFamily:"'Inter',sans-serif"}}/>
+                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",textTransform:"uppercase",fontFamily:"var(--arcd-font-sans)"}}/>
                       </div>
                       )}
                       <div style={{minWidth:0,overflow:"hidden"}}>
                           <CelulaTexto type="number" step="any" inputMode="decimal" value={String(it.quantidade ?? "")}
                             onCommit={valor => updItemQtd(it.id, valor)}
                             title="Quantidade"
-                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
+                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11,outline:"none",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums"}}/>
                       </div>
                       {colsOrc.custoUnit && (
                       <div title={alterado?`Base: ${fmt(it.precoRef)} - editado`:"Custo unitário sem BDI"} style={{minWidth:0,overflow:"hidden",position:"relative"}}>
@@ -3259,7 +3303,7 @@ ${blocoBDI}
                               background: alterado?`${C.yellow}14`:C.bg,
                               border:`1.5px solid ${alterado?C.yellowD:C.border}`,
                               color: alterado?C.yellowD:C.text, fontWeight: alterado?800:400,
-                              padding:"5px 7px",borderRadius:5,fontSize:10.5,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
+                              padding:"5px 7px",borderRadius:5,fontSize:10.5,outline:"none",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums"}}/>
                       </div>
                       )}
                       {colsOrc.bdi && (
@@ -3271,20 +3315,20 @@ ${blocoBDI}
                             style={{width:"100%",boxSizing:"border-box",textAlign:"right",
                               background:C.bg,border:`1.5px solid ${C.border}`,
                               color: (it.bdi!==""&&it.bdi!=null)?C.text:C.muted,
-                              padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",fontFamily:"'Inter',sans-serif"}}/>
+                              padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums"}}/>
                       </div>
                       )}
                       {setas()}
                       {colsOrc.total && (
                       <div style={{minWidth:0,overflow:"hidden",textAlign:"right",whiteSpace:"nowrap"}}>
-                        <span title={`Preço total com BDI (${bdiEfetivo}%)`} style={{fontSize:12,fontWeight:800,color:alterado?C.yellowD:C.text}}>{fmt(tot)}</span>
+                        <span title={`Preço total com BDI (${bdiEfetivo}%)`} style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:12,fontWeight:800,color:alterado?C.yellowD:C.text}}>{fmt(tot)}</span>
                         <button onClick={() => analisarItemDoOrcamento(it)}
                           title="Ver a composição analítica deste item"
                           style={{background:"transparent",border:0,color:C.green,cursor:"pointer",fontSize:10,fontWeight:800,padding:"0 3px",marginLeft:4}}>Comp.</button>
                         <button onClick={() => setEditItem({...it})}
                           title={it.composicao?"Editar item e composição":"Editar item"}
                           style={{background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:10,padding:"0 3px"}}>Editar</button>
-                        <button onClick={() => delItem(it.id)}
+                        <button onClick={() => delItem(it.id)} title="Excluir item"
                           style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:13,padding:0}}>x</button>
                       </div>
                       )}
@@ -3304,7 +3348,7 @@ ${blocoBDI}
                               onClick={()=>selecionarReferenciaLinha(it.id,resultado)}
                               style={{width:"100%",display:"grid",gridTemplateColumns:"74px minmax(0,1fr) 78px",gap:7,
                                 alignItems:"center",background:"transparent",border:0,borderTop:indice?`1px solid ${C.line}`:"none",
-                                padding:"6px",textAlign:"left",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
+                                padding:"6px",textAlign:"left",cursor:"pointer",fontFamily:"var(--arcd-font-sans)"}}>
                               <span style={{fontSize:9.5,fontWeight:800,color:resultado.fonte==="ORSE"?C.purple:C.blue,whiteSpace:"nowrap"}}>
                                 {resultado.fonte||"SINAPI"} {resultado.codigo}
                               </span>
@@ -3371,7 +3415,7 @@ ${blocoBDI}
         <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}><p style={{fontSize:12,opacity:.75}}>BDI ({orc.bdi}%)</p><p style={{fontSize:12,fontWeight:700}}>{fmt(calc.valorBDI)}</p></div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:9,marginTop:6,borderTop:`1px solid rgba(255,255,255,.2)`}}>
           <p style={{fontSize:13,fontWeight:700}}>TOTAL GERAL</p>
-          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:24,fontWeight:800,color:C.yellow}}>{fmt(calc.total)}</p>
+          <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:24,fontWeight:800,color:C.yellow}}>{fmt(calc.total)}</p>
         </div>
         {orc.areaM2>0 && (
           <p style={{fontSize:11,opacity:.7,textAlign:"right",marginTop:2}}>{fmt(calc.porM2)}/m  {orc.areaM2} m</p>
@@ -3551,7 +3595,7 @@ ${blocoBDI}
             <span style={{display:"inline-flex",alignItems:"center",gap:6,background:C.yellow,color:"#fff",
                           border:`1.5px solid ${C.yellowD}`,padding:"8px 14px",borderRadius:6,
                           cursor: basePorCodigo.size===0||impLoad ? "not-allowed" : "pointer",
-                          fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:700,fontSize:12,
+                          fontFamily:"var(--arcd-font-sans)",fontWeight:700,fontSize:12,
                           textTransform:"uppercase",letterSpacing:.5}}>
               {impLoad ? "Lendo..." : "Escolher planilha"}
             </span>
@@ -3695,7 +3739,7 @@ ${blocoBDI}
               <span style={{fontSize:11,fontWeight:700,color:C.text}}>Descrição</span>
               <textarea value={form.descricao||""} onChange={e=>F("descricao")(e.target.value)} rows={3}
                 placeholder="Escopo, objetivo ou observações do orçamento"
-                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"'Inter',sans-serif"}}/>
+                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
             </label>
             <Sel label="Obra vinculada" value={form.obraId} onChange={F("obraId")}
               options={[{v:"",l:"- Nenhuma -"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
@@ -3753,7 +3797,7 @@ ${blocoBDI}
                   style={{width:"100%",background:C.bg,
                           border:`1.5px solid ${fora ? C.orange : C.border}`,color:C.text,
                           padding:"7px 9px",borderRadius:6,fontSize:13,outline:"none",
-                          fontFamily:"'Inter',sans-serif"}}/>
+                          fontFamily:"var(--arcd-font-sans)"}}/>
                 <span style={{fontSize:11,color:C.muted}}>%</span>
               </div>
               {dica && (
@@ -3777,7 +3821,7 @@ ${blocoBDI}
                     border:`2px solid ${bdiAba===v?C.yellow:C.border}`,
                     background:bdiAba===v?`${C.yellow}12`:"transparent",
                     color:bdiAba===v?C.text:C.muted,
-                    fontFamily:"'Inter Display','Inter',sans-serif",
+                    fontFamily:"var(--arcd-font-sans)",
                     fontWeight:700,fontSize:12,cursor:"pointer",borderRadius:6,
                   }}>{l}</button>
                 ))}
@@ -3808,11 +3852,11 @@ ${blocoBDI}
                         borderRadius:6, padding:"11px 6px", cursor:"pointer", textAlign:"center",
                       }}>
                         <p style={{fontSize:9,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{l}</p>
-                        <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:800,color:cor,marginTop:3,lineHeight:1}}>
+                        <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:20,fontWeight:800,color:cor,marginTop:3,lineHeight:1}}>
                           {val.toFixed(2)}%
                         </p>
                         <p style={{fontSize:9,color:C.muted,marginTop:3}}>{sub}</p>
-                        {atual && <p style={{fontSize:9,fontWeight:700,color:cor,marginTop:3}}> EM USO</p>}
+                        {atual && <p style={{fontSize:9,fontWeight:700,color:cor,marginTop:3,display:"flex",alignItems:"center",justifyContent:"center",gap:3}}><Ic n="check" s={10} color={cor}/> EM USO</p>}
                       </button>
                     );
                   })}
@@ -3888,7 +3932,7 @@ ${blocoBDI}
                       <p style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.6}}>BDI calculado</p>
                       <p style={{fontSize:10,color:C.muted,marginTop:2}}>Tributos (I) = {r.tributos.toFixed(2)}%</p>
                     </div>
-                    <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(18px,8vw,32px)",fontWeight:800,color:sit.cor,lineHeight:1}}>
+                    <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"clamp(18px,8vw,32px)",fontWeight:800,color:sit.cor,lineHeight:1}}>
                       {r.erro ? "-" : `${r.bdi.toFixed(2)}%`}
                     </p>
                   </div>
@@ -3997,7 +4041,7 @@ ${blocoBDI}
             {buscaRemotaAviso && <div style={{background:`${C.orange}0B`,border:`1px solid ${C.orange}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:10.5,color:C.orange}}>{buscaRemotaAviso}</p></div>}
 
             {!busca && baseBusca.some(i=>i._fav) && (
-              <p style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}> Seus favoritos</p>
+              <p style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.8,display:"flex",alignItems:"center",gap:4}}><Ic n="star" s={11} color={C.yellow}/> Seus favoritos</p>
             )}
 
             <div style={{maxHeight:340,overflowY:"auto",display:"flex",flexDirection:"column",gap:5}}>
@@ -4010,8 +4054,8 @@ ${blocoBDI}
                   <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start"}}>
                     <div style={{flex:1,minWidth:0}}>
                       <p style={{fontSize:12,color:C.text,lineHeight:1.4}}>{r.descricao}</p>
-                      <p style={{fontSize:10,color:C.muted,marginTop:2}}>
-                        {r._fav && " "}
+                      <p style={{fontSize:10,color:C.muted,marginTop:2,display:"flex",alignItems:"center",gap:3,flexWrap:"wrap"}}>
+                        {r._fav && <Ic n="star" s={9} color={C.yellow}/>}
                         <span style={{fontWeight:700,color:r.fonte==="ORSE"?C.purple:C.blue}}>{r.fonte||"SINAPI"}</span>
                         {" "}{r.codigo}  {r.unidade}
                         {r.dataBase?` · ${r.dataBase}`:""}{r.uf?` · ${r.uf}`:""}
@@ -4091,7 +4135,7 @@ ${blocoBDI}
               <span style={{fontSize:11,fontWeight:700,color:C.text}}>Composição / memória de preços</span>
               <textarea value={editItem.composicao||""} onChange={e=>setEditItem(x=>({...x,composicao:e.target.value}))}
                 placeholder="Material, mão de obra, equipamentos, coeficientes e valores..." rows={5}
-                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"'Inter',sans-serif"}}/>
+                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
             </label>
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>setEditItem(null)} full>Cancelar</Btn>
@@ -4119,7 +4163,7 @@ ${blocoBDI}
               <span style={{fontSize:11,fontWeight:700,color:C.text}}>Composição / detalhes da cotação</span>
               <textarea value={externoForm.composicao} onChange={e=>setExternoForm(f=>({...f,composicao:e.target.value}))}
                 rows={5} placeholder="Materiais, mão de obra, fornecedor, validade, coeficientes..."
-                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"'Inter',sans-serif"}}/>
+                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
             </label>
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>setExternoModal(false)} full>Cancelar</Btn>
@@ -4350,7 +4394,7 @@ ${blocoBDI}
         <div style={{display:"flex",flexDirection:"column",gap:11}}>
           <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 11px"}}><p style={{fontSize:12,fontWeight:850,color:C.text}}>{checkEdit.titulo}</p><p style={{fontSize:10,color:C.muted,lineHeight:1.5,marginTop:4}}>{checkEdit.detalhe}</p>{checkEdit.acaoSugerida&&<p style={{fontSize:10,color:C.subtle,lineHeight:1.5,marginTop:5}}><b>Próxima ação sugerida:</b> {checkEdit.acaoSugerida}</p>}</div>
           <div><p style={{fontSize:9,fontWeight:850,color:C.muted,textTransform:"uppercase",marginBottom:5}}>Decisão do operador</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:6}}>{[["pendente","Pendente",C.orange],["corrigido","Corrigido",C.green],["ignorado","Ignorar",C.muted]].map(([status,label,color])=><button key={status} onClick={()=>setCheckEdit(item=>({...item,status}))} style={{border:`1.5px solid ${checkEdit.status===status?color:C.border}`,background:checkEdit.status===status?`${color}12`:C.card,color:checkEdit.status===status?color:C.muted,borderRadius:7,padding:"8px 9px",fontSize:10,fontWeight:850,cursor:"pointer"}}>{label}</button>)}</div></div>
-          <label style={{display:"flex",flexDirection:"column",gap:5}}><span style={{fontSize:10,fontWeight:800,color:C.text}}>Observação {checkEdit.status==="ignorado"?"*":""}</span><textarea rows={4} value={checkEdit.observacao||""} onChange={e=>setCheckEdit(item=>({...item,observacao:e.target.value}))} placeholder={checkEdit.status==="corrigido"?"Descreva o que foi corrigido e onde conferir.":checkEdit.status==="ignorado"?"Justifique por que o item não se aplica ao escopo.":"Registre a dúvida, responsável ou ação combinada."} style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 10px",borderRadius:7,fontSize:11,outline:"none",resize:"vertical",fontFamily:"'Inter',sans-serif"}}/></label>
+          <label style={{display:"flex",flexDirection:"column",gap:5}}><span style={{fontSize:10,fontWeight:800,color:C.text}}>Observação {checkEdit.status==="ignorado"?"*":""}</span><textarea rows={4} value={checkEdit.observacao||""} onChange={e=>setCheckEdit(item=>({...item,observacao:e.target.value}))} placeholder={checkEdit.status==="corrigido"?"Descreva o que foi corrigido e onde conferir.":checkEdit.status==="ignorado"?"Justifique por que o item não se aplica ao escopo.":"Registre a dúvida, responsável ou ação combinada."} style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 10px",borderRadius:7,fontSize:11,outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/></label>
           <p style={{fontSize:9,color:C.muted}}>A decisão ficará vinculada a este orçamento com operador e data. A IA nunca marca um item como corrigido ou ignorado automaticamente.</p>
           <div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setCheckEdit(null)} full>Cancelar</Btn><Btn onClick={salvarRevisaoChecklist} full><Ic n="check"/> Salvar revisão</Btn></div>
         </div>
@@ -4377,7 +4421,7 @@ ${blocoBDI}
 
           {analiseReferencia.memoriaTexto&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 11px"}}>
             <p style={{fontSize:11,fontWeight:900,color:C.text,marginBottom:5}}>MEMÓRIA DE PREÇOS DO ITEM</p>
-            <pre style={{fontSize:10.5,color:C.muted,lineHeight:1.6,whiteSpace:"pre-wrap",fontFamily:"'Inter',sans-serif",margin:0}}>{analiseReferencia.memoriaTexto}</pre>
+            <pre style={{fontSize:10.5,color:C.muted,lineHeight:1.6,whiteSpace:"pre-wrap",fontFamily:"var(--arcd-font-sans)",margin:0}}>{analiseReferencia.memoriaTexto}</pre>
           </div>}
 
           {analiseReferencia.tipoItem==="COMPOSICAO"&&!analiseReferenciaLoading&&analiseComponentes.length>0&&<>
@@ -4405,6 +4449,11 @@ ${blocoBDI}
           </div>
         </div>
       </Modal>}
+
+      <ConfirmDialog open={!!confirmDelEtapa} onOpenChange={aberto=>!aberto&&setConfirmDelEtapa(null)}
+        title="Excluir etapa" tone="danger" confirmLabel="Excluir"
+        description={confirmDelEtapa?.aviso}
+        onConfirm={executarDelEtapa}/>
     </div>
   );
 }

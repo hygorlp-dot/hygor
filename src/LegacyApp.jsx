@@ -2960,6 +2960,9 @@ export function Ic({ n, s = 16, color }) {
     chevL:    "M15 18l-6-6 6-6",
     chevR:    "M9 18l6-6-6-6",
     chevron:  "M6 9l6 6 6-6",
+    chevUp:   "M18 15l-6-6-6 6",
+    cornerDownRight: "M15 10l5 5-5 5 M4 4v7a4 4 0 0 0 4 4h12", // seta que desce e vira à direita (criar subnível)
+    star:     "M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01z", // favorito
     // --- Clima (resumo diário) ---
     sun:      "M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z M12 1L12 3 M12 21L12 23 M4.22 4.22L5.64 5.64 M18.36 18.36L19.78 19.78 M1 12L3 12 M21 12L23 12 M4.22 19.78L5.64 18.36 M18.36 5.64L19.78 4.22",
     cloud:    "M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z",

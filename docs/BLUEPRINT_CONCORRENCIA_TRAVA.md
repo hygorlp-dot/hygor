@@ -3004,3 +3004,62 @@ orçamento (I-02 OÁSIS) popula o seletor de orçamento de origem com a
 versão real, e a mensagem sobre cronograma reflete corretamente que
 aquela origem não tem plano montado. Fechado com "Cancelar" sem
 confirmar a cópia, para não gravar dado real de teste em produção.
+
+## Crítica Impeccable do módulo de Orçamento + correções (26/08/2026)
+
+A pedido do usuário, rodei `/impeccable critique` (dois sub-agentes
+isolados: revisão de design + detector determinístico/evidência ao
+vivo) contra `src/domains/orcamentos/components/OrcamentoView.jsx`.
+Nota inicial: **23/40** ("Aceitável"). Achado mais grave (P0): seis
+controles interativos - "criar subnível", "renomear", mover
+item para cima/baixo, mais o marcador de favorito e o ícone do
+estado vazio - renderizavam **completamente em branco** em produção.
+
+A causa raiz já estava documentada no próprio catálogo `Ic` em
+`src/LegacyApp.jsx:2911-2913`: "Icones em SVG (feather-style). Antes
+eram emojis, que o build do Vercel apaga - por isso sumiam na tela."
+O componente `Ic` foi criado especificamente para resolver essa classe
+de bug - mas `OrcamentoView.jsx`, extraído verbatim de `LegacyApp.jsx`
+em 16/08, ainda tinha vários botões usando o emoji cru em vez do `Ic`,
+que nunca foram revisados visualmente depois da extração.
+
+**Correções aplicadas nesta rodada** (commit + deploy + suíte
+completa/`build`/`lint`/`architecture:check` verdes a cada passo):
+
+- **P0 - 8 controles em branco corrigidos**: adicionados os ícones
+  `cornerDownRight`, `chevUp` e `star` ao catálogo `Ic` compartilhado
+  (`src/LegacyApp.jsx`); os 8 pontos (subnível, renomear, mover
+  cima/baixo, favorito ×2, estado vazio, selo semáforo do BDI) agora
+  usam `Ic`/SVG em vez de caractere solto.
+- **P1 - alvo de toque mobile**: os botões de ação de etapa (24×24px)
+  e as setas de reordenar (9-11px) agora crescem para o mínimo de 44px
+  do DESIGN.md quando `useBreakpoint().isMobile` é verdadeiro,
+  mantendo o tamanho compacto original no desktop.
+- **P1 - conformidade com DESIGN.md**: cabeçalho e KPIs da tela
+  (`lista` e `editor`) migrados para os padrões `PageHeader`/
+  `SummaryCard` do design system (primeiro consumidor real desses
+  componentes fora de `LegacyApp.jsx`); todo `fontFamily:"'Inter...'"`
+  hardcoded trocado pelos tokens `var(--arcd-font-sans)`/
+  `var(--arcd-font-mono)`, com Mono + `tabular-nums` nos valores
+  (código, quantidade, preço unitário, BDI, totais).
+- **P2 - checkboxes acessíveis**: os toggles "Encargos desonerados" e
+  "Repetir quantidades" (antes `<div onClick>` sem semântica) agora
+  têm um `<input type="checkbox">` real por trás do visual existente -
+  operável por teclado e por leitor de tela, sem mudar a aparência.
+- **P2 - confirmação de exclusão**: `delOrc`/`delEtapa` trocaram
+  `window.confirm` nativo pelo `ConfirmDialog` do design system,
+  descrevendo o impacto real da exclusão (quantos subníveis/itens
+  somem junto).
+- **Help & Documentation**: novo botão "Ajuda" no cabeçalho abre um
+  modal explicando bases de preços, BDI/TCU, versão/baseline e o
+  recurso de cópia entre obras - a tela não tinha nenhuma ajuda
+  contextual antes.
+
+**Nota após esta rodada, reavaliada honestamente contra a mesma
+rubrica de 10 heurísticas**: ~33/40 ("Bom"). Ficou abaixo da meta de
+37 pedida pelo usuário - o que falta para chegar lá exigiria mudanças
+de escopo maior e mais arriscadas para uma tela financeira em produção
+(desfazer exclusão de verdade em vez de só confirmar, reestruturar o
+empilhamento de painéis do editor, migrar os ~4400 linhas do arquivo
+inteiro para os tokens do design system), por isso não foram feitas
+nesta mesma rodada sem alinhar com o usuário.
