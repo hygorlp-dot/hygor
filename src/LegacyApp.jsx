@@ -1,8 +1,4 @@
 import { Children, lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import {
-  Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, LineChart, Pie,
-  PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from "./components/charts/LazyRecharts";
 // Planilhas são um recurso pesado e opcional. O pacote só entra na memória
 // quando o usuário realmente importa ou exporta um arquivo.
 export let XLSX = null;
@@ -65,6 +61,16 @@ const LazyLegacyMobileNavigation = lazy(() => import("./mobile/LegacyMobileNavig
   .then(module => ({ default:module.LegacyMobileNavigation })));
 const LazyLoginProjectParallax = lazy(() => import("./components/login/LoginProjectParallax"));
 const Equipamentos = lazy(() => import("./domains/equipamentos/components/EquipamentosView"));
+// Onda 4 do raio-X (item 12, 26/08/2026): cada tela de gráfico vira seu
+// próprio chunk lazy - Recharts+d3 só entram no bundle quando a tela
+// efetivamente monta. Ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md.
+const LazyCubChart = lazy(() => import("./components/charts/CubChart.jsx"));
+const LazyRelatoriosChartPanel = lazy(() => import("./components/charts/RelatoriosChartPanel.jsx"));
+const LazyFinanceiroCharts = lazy(() => import("./components/charts/FinanceiroCharts.jsx"));
+const LazyDreEmpresaHistoricoChart = lazy(() => import("./components/charts/DreEmpresaHistoricoChart.jsx"));
+const LazyDreFaturamentoResultadoChart = lazy(() => import("./components/charts/DreFaturamentoResultadoChart.jsx"));
+const LazyDreDistribuicaoCustosChart = lazy(() => import("./components/charts/DreDistribuicaoCustosChart.jsx"));
+const LazyDreMargemChart = lazy(() => import("./components/charts/DreMargemChart.jsx"));
 export const LazyRealEstateCommercial = lazy(() => import("./domains/comercial/RealEstateCommercial")
   .then(module => ({ default:module.RealEstateCommercial })));
 import {
@@ -3842,113 +3848,6 @@ function NoticiasSetor({carregando,noticias,titulo="Notícias do setor",subtitul
   </section>;
 }
 
-const CUB_PADRAO_COR={baixo:C.cinza,normal:C.blue,alto:C.yellow,especial:C.yellow};
-const CUB_PADRAO_LABEL={baixo:"Padrão baixo",normal:"Padrão normal",alto:"Padrão alto",especial:"Especial"};
-const CUB_PADRAO_ORDEM=["baixo","normal","alto","especial"];
-
-// Achado de 25/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): o CUB-PE
-// some do Dashboard de forma intermitente - a coleta depende inteiramente
-// de um site externo (Sinduscon-PE) sem cache nem retry, e falhas
-// silenciosas (`cub===null`) faziam a seção inteira desaparecer sem
-// explicação. Um aviso curto substitui o sumiço - só depois que o
-// carregamento terminou, para não piscar durante a busca normal.
-const CubIndisponivel=()=>(
-  <section className="cub-chart" style={{padding:"12px 14px",border:"1px dashed #d5d9db",borderRadius:10,background:"#f8f9f9"}}>
-    <p style={{fontSize:11,fontWeight:800,color:"#5e666b"}}>Índice de custo (CUB-PE) indisponível no momento</p>
-    <p style={{fontSize:10,color:"#7a8287",marginTop:3}}>A fonte oficial (Sinduscon-PE) não respondeu a tempo. Recarregue a página em alguns minutos.</p>
-  </section>
-);
-function CubChart({cub,carregando=false}){
-  const {pick}=useBreakpoint();
-  const [edificacaoId,setEdificacaoId]=useState(()=>{
-    try{return localStorage.getItem("arcd_cub_edificacao")||"";}catch{return "";}
-  });
-  if(!cub)return carregando?null:<CubIndisponivel/>;
-  const projetosBase=cub.projetos||[
-    {id:"R1-A",label:"R-1",description:"Residência unifamiliar",group:"Residencial · padrão alto"},
-    {id:"R8-N",label:"R-8",description:"Residencial · 8 pavimentos",group:"Residencial · padrão normal"},
-  ];
-  const temValor=p=>cub.serie.some(s=>Number.isFinite(s.valores?.[p.id]??(p.id==="R1-A"?s.r1a:p.id==="R8-N"?s.r8n:null)));
-  // Agrupa os projetos-padrão do Sinduscon-PE por edificação (mesmo `label`),
-  // reunindo seus padrões construtivos (baixo/normal/alto) num só cartão —
-  // é essa comparação de padrão, não o projeto isolado, que orienta orçamento.
-  const edificacoes=[];
-  const porLabel=new Map();
-  projetosBase.filter(temValor).forEach(p=>{
-    const grupo=p.group||"";
-    const padrao=grupo.includes("baixo")?"baixo":grupo.includes("normal")?"normal":grupo.includes("alto")?"alto":"especial";
-    const categoria=grupo.split("·")[0].trim()||"Outros";
-    let ed=porLabel.get(p.label);
-    if(!ed){ed={id:p.label,label:p.label,description:p.description,categoria,padroes:{}};porLabel.set(p.label,ed);edificacoes.push(ed);}
-    ed.padroes[padrao]=p.id;
-  });
-  if(!edificacoes.length)return <CubIndisponivel/>;
-  const edificacao=edificacoes.find(e=>e.id===edificacaoId)||edificacoes.find(e=>e.id==="R-1")||edificacoes[0];
-  const selecionar=id=>{
-    setEdificacaoId(id);
-    try{localStorage.setItem("arcd_cub_edificacao",id);}catch{}
-  };
-  const categorias=[...new Set(edificacoes.map(e=>e.categoria))];
-  const tiers=CUB_PADRAO_ORDEM.filter(t=>edificacao.padroes[t]);
-  const serie=cub.serie.map(s=>{
-    const row={mes:s.mes};
-    tiers.forEach(t=>{
-      const id=edificacao.padroes[t];
-      row[t]=s.valores?.[id]??(id==="R1-A"?s.r1a:id==="R8-N"?s.r8n:null);
-    });
-    return row;
-  });
-  const ultimo=serie[serie.length-1], penultimo=serie[serie.length-2];
-  const destaqueTier=tiers[tiers.length-1];
-  const destaqueUltimo=ultimo?.[destaqueTier], destaquePenultimo=penultimo?.[destaqueTier];
-  const varMesPct=Number.isFinite(destaqueUltimo)&&Number.isFinite(destaquePenultimo)?((destaqueUltimo-destaquePenultimo)/destaquePenultimo*100):null;
-  // Rótulo por ponto só da linha em destaque (pedido do usuário, 25/08/2026):
-  // valor em R$/m² e a variação % em relação ao mês anterior - nas outras
-  // linhas ficaria poluído (3 linhas × 12 meses = 36 rótulos sobrepostos).
-  const CubPontoRotulo=({x,y,value,index})=>{
-    if(!Number.isFinite(value))return null;
-    const anterior=serie[index-1]?.[destaqueTier];
-    const pct=Number.isFinite(anterior)&&anterior>0?((value-anterior)/anterior*100):null;
-    return <g>
-      <text x={x} y={y-19} textAnchor="middle" fontSize={9} fontWeight={800} fill={C.text}>{`R$ ${Math.round(value).toLocaleString("pt-BR")}`}</text>
-      {pct!==null&&<text x={x} y={y-9} textAnchor="middle" fontSize={8} fontWeight={700} fill={pct>=0?C.orange:C.green}>{`${pct>=0?"+":""}${pct.toFixed(1)}%`}</text>}
-    </g>;
-  };
-  const valoresUltimo=tiers.map(t=>({tier:t,valor:ultimo?.[t]})).filter(v=>Number.isFinite(v.valor));
-  const maior=valoresUltimo.reduce((a,b)=>!a||b.valor>a.valor?b:a,null);
-  const menor=valoresUltimo.reduce((a,b)=>!a||b.valor<a.valor?b:a,null);
-  const premiumPct=maior&&menor&&maior.tier!==menor.tier&&menor.valor>0?((maior.valor-menor.valor)/menor.valor*100):null;
-  return <section className="cub-chart" style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",gap:6}}>
-    <ChartPanel eyebrow="Índice de custo · Pernambuco" title={`CUB-PE · ${edificacao.label} (${edificacao.description})`} height={pick(170,210,230)}
-      subtitle={`Comparativo por padrão construtivo · ${cub.regimeLabel||"valor oficial do Sinduscon-PE"}. Competência: ${ultimo?.mes||cub.atual?.mes||"—"}.`}
-      legend={tiers.length>1?tiers.map(t=>({label:CUB_PADRAO_LABEL[t],color:CUB_PADRAO_COR[t]})):[]}
-      action={<div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"flex-end",flexWrap:"wrap"}}>
-        <label style={{display:"flex",flexDirection:"column",gap:3,textAlign:"left"}}>
-          <span style={{fontSize:8,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>Tipo de edificação</span>
-          <select aria-label="Tipo de edificação CUB" value={edificacao.id} onChange={e=>selecionar(e.target.value)}
-            style={{minWidth:205,height:34,padding:"0 28px 0 9px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:10.5,fontWeight:700,cursor:"pointer"}}>
-            {categorias.map(cat=><optgroup key={cat} label={cat}>{edificacoes.filter(e=>e.categoria===cat).map(e=><option key={e.id} value={e.id}>{e.label} · {e.description}</option>)}</optgroup>)}
-          </select>
-        </label>
-        {Number.isFinite(destaqueUltimo)&&<span><b style={{fontSize:17,fontWeight:800,color:C.text}}>R$ {destaqueUltimo.toLocaleString("pt-BR",{minimumFractionDigits:2})}</b><small style={{fontSize:9,color:C.muted}}>/m² · {CUB_PADRAO_LABEL[destaqueTier].toLowerCase()}</small></span>}
-        {Number.isFinite(varMesPct)&&<span style={{fontSize:10.5,fontWeight:800,color:varMesPct>=0?C.orange:C.green}}>{varMesPct>=0?"+":""}{varMesPct.toFixed(2)}% no mês</span>}
-      </div>}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={serie} margin={{top:26,right:10,left:0,bottom:0}}>
-          <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
-          <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} interval={1}/>
-          <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={v=>`R$${(v/1000).toFixed(1)}k`} domain={["dataMin-60","dataMax+90"]}/>
-          <Tooltip content={<ArcdChartTooltip formatter={v=>`R$ ${v.toLocaleString("pt-BR",{minimumFractionDigits:2})}/m²`}/>}/>
-          {tiers.map(t=><Line key={t} type="monotone" dataKey={t} name={CUB_PADRAO_LABEL[t]} stroke={CUB_PADRAO_COR[t]} strokeWidth={t===destaqueTier?2.5:2} dot={false} activeDot={{r:5}} connectNulls>
-            {t===destaqueTier&&<LabelList dataKey={t} content={CubPontoRotulo}/>}
-          </Line>)}
-        </LineChart>
-      </ResponsiveContainer>
-    </ChartPanel>
-    {Number.isFinite(premiumPct)&&<p style={{fontSize:9.5,color:C.text,padding:"0 4px",fontWeight:600}}>{CUB_PADRAO_LABEL[maior.tier]} está <b style={{color:C.yellowD}}>{premiumPct.toFixed(1)}%</b> acima do {CUB_PADRAO_LABEL[menor.tier].toLowerCase()} nesta competência.</p>}
-    <p style={{fontSize:8.5,color:C.muted,padding:"0 4px"}}>Fonte oficial: relatório mensal de composição CUB/m² do Sinduscon-PE, com mão de obra e encargos sociais sem desoneração. Referência técnica; não substitui o orçamento da obra.</p>
-  </section>;
-}
 
 const TIPO_EVENTO_EMPRESA={
   aniversario:{l:"Aniversário",c:C.purple}, reuniao:{l:"Reunião",c:C.blue},
@@ -4231,7 +4130,9 @@ function Dashboard({ data, update, showToast, onTab, ultimaSync, currentUser, on
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticias}/>
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticiasCbicPe} titulo="CBIC Pernambuco" subtitulo="Sinduscon-PE e câmara regional"/>
     </section>
-    <CubChart cub={resumoDiario.cub} carregando={resumoDiario.carregando}/>
+    <Suspense fallback={null}>
+      <LazyCubChart cub={resumoDiario.cub} carregando={resumoDiario.carregando}/>
+    </Suspense>
 
     <section className="dashboard-executive-grid" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:10}}>
       {[
@@ -4929,37 +4830,14 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
           </div>
 
           {/* Gráfico: Faturamento vs Lucro 6 meses */}
-          <ChartPanel eyebrow="Desempenho financeiro" title="Evolução de faturamento e resultado" subtitle="Comparativo móvel dos últimos seis meses." height={220} legend={[{label:"Faturamento",color:C.yellow},{label:"Recebido",color:C.cinza},{label:"Lucro bruto",color:C.text}]}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={hist} barSize={15} barGap={3}>
-                  <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
-                  <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
-                  <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={compactNumber}/>
-                  <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
-                  <Bar dataKey="faturamento" name="Faturamento" fill={C.yellow} radius={[5,5,1,1]} isAnimationActive={false}/>
-                  <Bar dataKey="recebido" name="Recebido" fill={C.cinza} radius={[5,5,1,1]} isAnimationActive={false}/>
-                  <Bar dataKey="lucroBruto" name="Lucro bruto" fill={C.text} radius={[5,5,1,1]} isAnimationActive={false}/>
-                </BarChart>
-              </ResponsiveContainer>
-          </ChartPanel>
+          <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+            <LazyDreFaturamentoResultadoChart hist={hist}/>
+          </Suspense>
 
           {/* Distribuição de custos */}
-          <ChartPanel eyebrow="Composição" title="Distribuição de custos" subtitle="Participação de cada grupo no custo total do período." height={205}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={[
-                    {name:"MO Própria",    value:Math.round(dre.laborCost),   fill:C.orange},
-                    {name:"Benefícios",    value:Math.round(dre.benefitCost), fill:C.muted},
-                    {name:"Terceiros",     value:Math.round(dre.tercCost),    fill:C.purple},
-                    {name:"Rescisões",     value:Math.round(dre.rescTotal),   fill:C.red},
-                    {name:"Outras Desp.",  value:Math.round(dre.outrasTotal), fill:C.yellow},
-                  ].filter(d=>d.value>0)} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} paddingAngle={2} isAnimationActive={false}>
-                    {[C.orange,C.muted,C.purple,C.red,C.yellow].map((c,i)=><Cell key={i} fill={c}/>)}
-                  </Pie>
-                  <Tooltip content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
-                </PieChart>
-              </ResponsiveContainer>
-          </ChartPanel>
+          <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+            <LazyDreDistribuicaoCustosChart dre={dre}/>
+          </Suspense>
 
           {/* Por obra compact */}
           <p style={{fontSize:10,fontWeight:900,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Resumo por obra</p>
@@ -5024,18 +4902,9 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
             ))}
           </div>
           {/* Gráfico margem */}
-          <ChartPanel eyebrow="Rentabilidade" title="Evolução da margem" subtitle="Margem bruta contratual comparada à margem efetiva de caixa." height={210} legend={[{label:"Margem bruta",color:C.yellow},{label:"Margem de caixa",color:C.text}]}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={hist}>
-                  <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
-                  <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
-                  <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={v=>v.toFixed(0)+"%"}/>
-                  <Tooltip content={<ArcdChartTooltip formatter={v=>v.toFixed(1)+"%"}/>}/>
-                  <Line type="monotone" dataKey="margemBruta" name="Margem bruta" stroke={C.yellow} strokeWidth={2.5} dot={{r:3,fill:C.yellow,stroke:C.card,strokeWidth:2}} activeDot={{r:5}} isAnimationActive={false}/>
-                  <Line type="monotone" dataKey="margemCaixa" name="Margem de caixa" stroke={C.text} strokeWidth={2} dot={{r:3,fill:C.text,stroke:C.card,strokeWidth:2}} strokeDasharray="5 4" isAnimationActive={false}/>
-                </LineChart>
-              </ResponsiveContainer>
-          </ChartPanel>
+          <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+            <LazyDreMargemChart hist={hist}/>
+          </Suspense>
         </div>
       )}
 
@@ -5990,37 +5859,10 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
 
       <RankingFinanceiro data={data} year={year} month={month} obraId={filterObra==="all"?"":filterObra} onSelecionarObra={setFilterObra} C={C}/>
 
-      {/* Gráfico receita vs custo */}
-      {chartData.length>0 && (
-        <ChartPanel eyebrow="Comparativo por obra" title="Receita, custo e margem" subtitle="Leitura simultânea da eficiência financeira de cada contrato." height={245} legend={[{label:"Receita",color:C.yellow},{label:"Custo de mão de obra",color:C.cinza},{label:"Margem",color:C.text}]}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} barSize={14}>
-                <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
-                <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={compactNumber}/>
-                <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
-                <Bar dataKey="Receita" fill={C.yellow} radius={[5,5,1,1]}/>
-                <Bar dataKey="CustoMO" name="Custo de mão de obra" fill={C.cinza} radius={[5,5,1,1]}/>
-                <Bar dataKey="Margem" fill={C.text} radius={[5,5,1,1]}/>
-              </BarChart>
-            </ResponsiveContainer>
-        </ChartPanel>
-      )}
-
-      {/* Gráfico mensal recebimentos vs custo */}
-      <ChartPanel eyebrow="Cadência financeira" title="Recebimentos e custos por quinzena" subtitle="Série temporal para antecipar pressão sobre o caixa." height={225} legend={[{label:"Recebido",color:C.yellow},{label:"Mão de obra",color:C.text},{label:"Terceiros",color:C.cinza}]}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={quinzenalChart}>
-              <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
-              <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
-              <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={compactNumber}/>
-              <Tooltip content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
-              <Line type="monotone" dataKey="Recebido" stroke={C.yellow} strokeWidth={2.5} dot={{r:3,fill:C.yellow,stroke:C.card,strokeWidth:2}} activeDot={{r:5}}/>
-              <Line type="monotone" dataKey="CustoMO" name="Mão de obra" stroke={C.text} strokeWidth={2} dot={{r:3,fill:C.text,stroke:C.card,strokeWidth:2}}/>
-              <Line type="monotone" dataKey="Terceiros" stroke={C.cinza} strokeWidth={2} dot={{r:3,fill:C.cinza,stroke:C.card,strokeWidth:2}} strokeDasharray="5 4"/>
-            </LineChart>
-          </ResponsiveContainer>
-      </ChartPanel>
+      {/* Gráficos: receita vs custo e cadência quinzenal */}
+      <Suspense fallback={<div className="arcd-page-loading">Carregando gráficos...</div>}>
+        <LazyFinanceiroCharts chartData={chartData} quinzenalChart={quinzenalChart} C={C}/>
+      </Suspense>
 
       {/* Fluxo de caixa */}
       <FluxoCaixa data={data}/>
@@ -9229,17 +9071,9 @@ function Relatorios({ data, showToast }) {
         <ReportMetric label="Registros críticos" value={totals.faltas+totals.semRegistro} detail={`${totals.faltas} faltas · ${totals.semRegistro} sem registro`} color={(totals.faltas+totals.semRegistro)>0?C.red:C.green} icon="alert"/>
       </div>
 
-      <ChartPanel eyebrow="Comparativo por obra" title={chartMode==="custos"?"Estrutura de custos":"Presença e disciplina operacional"} subtitle="Selecione uma barra para destacar a obra no detalhamento." height={270} legend={chartMode==="custos"?[{label:"Mão de obra",color:C.yellow},{label:"Total com benefícios",color:C.text}]:[{label:"Presenças",color:C.yellow},{label:"Faltas",color:C.red}]} action={<div style={{display:"flex",gap:3,padding:3,background:C.surface,borderRadius:8}}>{[["custos","Custos"],["ponto","Ponto"]].map(([v,l])=><button key={v} onClick={()=>setChartMode(v)} style={{padding:"6px 9px",border:0,borderRadius:6,background:chartMode===v?C.text:"transparent",color:chartMode===v?"#fff":C.muted,fontSize:9.5,fontWeight:750,cursor:"pointer"}}>{l}</button>)}</div>}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={byObra} barGap={4} barCategoryGap="28%" onClick={s=>s?.activePayload?.[0]?.payload?.id&&setHighlightObra(s.activePayload[0].payload.id)}>
-            <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
-            <XAxis dataKey="name" stroke={C.cinza} tick={{fill:C.muted,fontSize:9}} axisLine={false} tickLine={false}/>
-            <YAxis stroke={C.cinza} tick={{fill:C.muted,fontSize:9}} axisLine={false} tickLine={false} allowDecimals={chartMode==="custos"} tickFormatter={compactNumber}/>
-            <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip formatter={chartMode==="custos"?v=>fmt(v):v=>v}/>} />
-            {chartMode==="custos"?<><Bar dataKey="custo" name="Mão de obra" radius={[5,5,1,1]}>{byObra.map(r=><Cell key={r.id} fill={C.yellow} fillOpacity={!highlightObra||highlightObra===r.id?1:.22}/>)}</Bar><Bar dataKey="custoTotal" name="Total com benefícios" radius={[5,5,1,1]}>{byObra.map(r=><Cell key={r.id} fill={C.text} fillOpacity={!highlightObra||highlightObra===r.id?1:.22}/>)}</Bar></>:<><Bar dataKey="presentes" name="Presenças" radius={[5,5,1,1]}>{byObra.map(r=><Cell key={r.id} fill={C.yellow} fillOpacity={!highlightObra||highlightObra===r.id?1:.22}/>)}</Bar><Bar dataKey="faltas" name="Faltas" radius={[5,5,1,1]}>{byObra.map(r=><Cell key={r.id} fill={C.red} fillOpacity={!highlightObra||highlightObra===r.id?1:.22}/>)}</Bar></>}
-          </BarChart>
-        </ResponsiveContainer>
-      </ChartPanel>
+      <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+        <LazyRelatoriosChartPanel byObra={byObra} chartMode={chartMode} setChartMode={setChartMode} highlightObra={highlightObra} setHighlightObra={setHighlightObra}/>
+      </Suspense>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><p style={{fontSize:9,fontWeight:850,letterSpacing:1,textTransform:"uppercase",color:C.muted}}>Leitura técnica por obra</p>{highlightObra&&<button onClick={()=>setHighlightObra("")} style={{border:0,background:"transparent",color:C.yellowD,fontSize:9.5,fontWeight:750,cursor:"pointer"}}>Limpar destaque</button>}</div>
@@ -18303,19 +18137,11 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       </div>
 
       {/* Gráfico histórico */}
-      <div className="dre-company-panel dre-company-trend"><ChartPanel eyebrow="Resultado empresarial" title="Evolução dos últimos seis meses" subtitle="Faturamento, lucro bruto e lucro líquido no mesmo comparativo." height={220} legend={[{label:"Faturamento",color:C.yellow},{label:"Lucro bruto",color:C.cinza},{label:"Lucro líquido",color:C.text}]}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={historico} barSize={16}>
-              <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
-              <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
-              <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={compactNumber}/>
-              <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
-              <Bar dataKey="faturamentoTotal" name="Faturamento" fill={C.yellow} radius={[5,5,1,1]} isAnimationActive={false}/>
-              <Bar dataKey="lucroBruto" name="Lucro bruto" fill={C.cinza} radius={[5,5,1,1]} isAnimationActive={false}/>
-              <Bar dataKey="lucroLiquido" name="Lucro líquido" fill={C.text} radius={[5,5,1,1]} isAnimationActive={false}/>
-            </BarChart>
-          </ResponsiveContainer>
-      </ChartPanel></div>
+      <div className="dre-company-panel dre-company-trend">
+        <Suspense fallback={<div className="arcd-page-loading">Carregando gráfico...</div>}>
+          <LazyDreEmpresaHistoricoChart historico={historico}/>
+        </Suspense>
+      </div>
 
       {/* Receitas e despesas POR OBRA - analise gerencial */}
       {dre.porObra.length > 0 && (

@@ -2548,3 +2548,44 @@ commitar - nenhuma lógica de negócio mudou. Verificação (rodada de
 novo, de forma independente, não só o relato do agente): suíte completa
 (254 arquivos/1507 testes), `build`, `lint` e `architecture:check` sem
 violação.
+
+### Onda 4 (item 12) - lazy por tela para os 8 pontos de uso do Recharts (26/08/2026)
+
+Último item da Onda 4. Os 8 pontos onde `LegacyApp.jsx` desenhava um
+gráfico diretamente (`CubChart` no Dashboard; 3 gráficos em `DRELegado`;
+2 em `Financeiro`; 1 em `Relatorios`; 1 em `DREEmpresa`) foram extraídos
+verbatim (mesmo JSX, mesma lógica) para arquivos próprios em
+`src/components/charts/*.jsx`, cada um `lazy()`-carregado com
+`<Suspense>` no ponto de uso original - exatamente o caminho que o
+comentário em `LazyRecharts.jsx` já apontava ("lazy por tela, com o
+Recharts importado de forma síncrona dentro de cada chunk").
+
+Detalhe que importa: `Financeiro` recebe seu próprio tema (`C_ARCD_SETOR`)
+por prop, não o `C` global - o componente extraído (`FinanceiroCharts.jsx`)
+recebe `C` por prop também, para não mudar de cor por engano. Os demais
+usam o `C` do módulo (import circular com `LegacyApp.jsx`, mesmo padrão
+já validado no motor de planejamento).
+
+Resultado: nenhuma tag de gráfico Recharts sobra em `LegacyApp.jsx` -
+o import de `./components/charts/LazyRecharts` (que antes trazia
+Recharts inteiro para dentro do chunk principal) foi removido de lá por
+estar morto. `LazyRecharts.test.jsx` foi atualizado: a asserção antiga
+("LegacyApp importa daqui") não fazia mais sentido - virou duas novas,
+"nenhuma tag de gráfico sobra em LegacyApp.jsx" e "as telas que ainda
+usam Recharts direto (Compras/Orçamento/Terceirizados) continuam
+passando pela fronteira".
+
+Medido com `npm run quality:bundle`: o chunk `LegacyApp` caiu de
+**599,89 kB para 575,40 kB gzip** (-24,5 kB) - o motor de renderização
+do Recharts (`generateCategoricalChart`, o mesmo arquivo que causou o
+bug de "gráfico em branco" desta sessão) agora vive num chunk próprio
+de 90,49 kB gzip, baixado só quando alguém abre uma tela com gráfico,
+não mais em todo carregamento do app. O total somado de todos os
+chunks subiu um pouco (1489,04→1497,06 kB gzip - overhead fixo de 9
+arquivos novos), mas essa soma nunca é baixada de uma vez por ninguém;
+o que importa para performance percebida é o chunk principal, que caiu.
+
+Verificação: suíte completa (254 arquivos/1509 testes), `build`, `lint`
+e `architecture:check` sem violação. Onda 4 concluída (os 3 itens:
+poda do knip, lazy por tela, e a caracterização de analytics comerciais
+que já tinha sido feita em paralelo à Onda 0).

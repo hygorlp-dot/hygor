@@ -24,6 +24,28 @@ describe("fronteira de import do Recharts",()=>{
   it("impede que LegacyApp importe Recharts diretamente, fora desta fronteira",()=>{
     const source=fs.readFileSync(path.join(process.cwd(),"src","LegacyApp.jsx"),"utf8");
     expect(source).not.toContain('from "recharts"');
-    expect(source).toContain('from "./components/charts/LazyRecharts"');
+  });
+
+  // Onda 4 do raio-X (item 12, 26/08/2026): todo gráfico saiu de LegacyApp.jsx
+  // para seu próprio chunk lazy em src/components/charts/*.jsx (cada um
+  // importando "recharts" direto, já que É a fronteira de code-splitting
+  // agora). LegacyApp.jsx não precisa mais nem de Recharts nem desta
+  // fronteira - nenhuma tag de gráfico deveria sobrar nele.
+  it("não sobra nenhuma tag de gráfico Recharts em LegacyApp.jsx (tudo virou lazy por tela)",()=>{
+    const source=fs.readFileSync(path.join(process.cwd(),"src","LegacyApp.jsx"),"utf8");
+    ["<ResponsiveContainer","<BarChart","<LineChart","<PieChart","<ComposedChart"].forEach(tag=>{
+      expect(source).not.toContain(tag);
+    });
+  });
+
+  // As telas que ainda usam gráfico direto (fora do padrão lazy-por-tela
+  // desta rodada) continuam passando pela fronteira central, não por
+  // "recharts" cru.
+  it("as demais telas que consomem Recharts continuam passando por esta fronteira",()=>{
+    ["domains/compras/components/ComprasView.jsx","domains/orcamentos/components/OrcamentoView.jsx","domains/terceirizados/components/TerceirosView.jsx"].forEach(rel=>{
+      const source=fs.readFileSync(path.join(process.cwd(),"src",rel),"utf8");
+      expect(source).not.toContain('from "recharts"');
+      expect(source).toContain("LazyRecharts");
+    });
   });
 });
