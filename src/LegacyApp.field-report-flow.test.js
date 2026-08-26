@@ -2,7 +2,10 @@ import {describe,expect,it} from "vitest";
 import {readFileSync} from "node:fs";
 
 const source=readFileSync(`${process.cwd()}/src/LegacyApp.jsx`,"utf8");
-const diary=source.slice(source.indexOf("function DiarioObra"),source.indexOf("// ==============================================================\n//  CONFERENCIA TECNICA"));
+// DiarioObra foi extraído para seu próprio arquivo na Onda 7 do raio-X
+// (26/08/2026) - este teste passou a ler o componente lá em vez de
+// LegacyApp.jsx, mas o invariante que ele protege é o mesmo de sempre.
+const diary=readFileSync(`${process.cwd()}/src/domains/obras/components/DiarioObraView.jsx`,"utf8");
 const normalization=source.slice(source.indexOf("rdos: Array.isArray"),source.indexOf("//  CONFERENCIA TECNICA",source.indexOf("rdos: Array.isArray")));
 
 describe("experiência operacional do Diário de Obra",()=>{
@@ -55,7 +58,7 @@ describe("experiência operacional do Diário de Obra",()=>{
     expect(diary).toContain("Conteúdo copiado para um novo rascunho sem aprovação ou auditoria anterior.");
   });
   it("impede serviço sem avanço ou justificativa",()=>{
-    expect(source).toContain("Informe avanço maior que 0% ou descreva o serviço realizado sem avanço físico.");
-    expect(source).toContain('role="alert"');
+    expect(diary).toContain("Informe avanço maior que 0% ou descreva o serviço realizado sem avanço físico.");
+    expect(diary).toContain('role="alert"');
   });
 });

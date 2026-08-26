@@ -2654,3 +2654,43 @@ vez de computada uma vez só no início do lote.
 
 Verificação: suíte completa (255 arquivos/1538 testes), `build`, `lint`
 e `architecture:check` sem violação. **Onda 5 concluída.**
+
+## Onda 7 - `LegacyApp.jsx` perde mais UI (26/08/2026)
+
+Onda 6 (cortar o motor de cronograma legado) tem seus itens 5-6
+bloqueados não por trabalho pendente, mas pela passagem real de tempo
+de uso em produção contra o critério proposto para "sem divergência"
+(comparador `compareCpmResults` foi ao ar horas antes, ainda sem sinal
+suficiente). Pulou-se para a Onda 7: continuar extraindo telas de
+`LegacyApp.jsx` para `src/domains/*/components/`, mesmo padrão já usado
+para Compras/Orçamento/Terceirizados/Equipamentos/RH.
+
+### Item 1 - Diário de Obra (RDO) + `ModalServicoRDO`
+
+Extraído para `src/domains/obras/components/DiarioObraView.jsx`
+(822 linhas, componente `React.lazy()`). Corpo movido verbatim (via
+corte por linha com `sed`, sem retranscrição manual) - a lógica de
+escrita já usava comandos (`FIELD_REPORT_*`) desde a Onda 1, então esta
+rodada só move UI, sem mudar comportamento.
+
+Achado durante a extração: o bloco de código entre o fim de `DiarioObra`
+e o início de `ModalServicoRDO` no arquivo original **não é código do
+Diário** - é a tela inteira de Conferência Técnica (`CONFERENCIA_CATEGORIAS`,
+`calcularRankingQualidade`, `Conferencia`, `ModalPendenciaConferencia`)
+mais o helper genérico `Bloco`. Um primeiro corte contíguo (linha inicial
+até linha final) teria arrastado Conferência inteira para dentro do
+arquivo do Diário por engano. Corrigido extraindo os dois blocos
+(`CLIMA_OPC`+`DiarioObra`, depois separadamente `ModalServicoRDO`) e
+recompondo `LegacyApp.jsx` com um corte em três partes, preservando
+Conferência e `Bloco` (que virou `export` nesta rodada, pois nunca tinha
+sido exportado apesar de ser usado em mais de uma tela) exatamente onde
+estavam.
+
+`src/LegacyApp.field-report-flow.test.js` atualizado para ler o novo
+arquivo em vez de fatiar `LegacyApp.jsx` por texto (mesmo padrão já
+usado em `LegacyApp.stock-cancellation.test.js` após a extração de
+Estoque).
+
+Verificação: suíte completa (255 arquivos/1538 testes), `build`, `lint`
+e `architecture:check` sem violação. Chunk próprio
+(`DiarioObraView-*.js`, ~57 kB) confirmado no build.
