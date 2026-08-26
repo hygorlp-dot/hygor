@@ -2800,3 +2800,50 @@ violação.
 **Onda 7 concluída** (itens 1-4 e 8). Resta o item 9: decidir o destino
 de `src/mobile/*` - marco de decisão explícito, de escopo do usuário,
 não executável unilateralmente.
+
+## Onda 8 - cobertura e orçamento de bundle (26/08/2026)
+
+Usuário optou por seguir para a Onda 8 em vez do item 9 da Onda 7.
+
+### Cobertura de testes (fresca)
+
+`npx vitest run --coverage`: 255 arquivos / 1538 testes, todos verdes.
+Resumo: **statements 85%, branches 67,68%, functions 87,94%, lines
+92,7%** - todos acima dos mínimos configurados em `vite.config.mjs`
+(75/55/70/80 respectivamente). `coverage/coverage-summary.json` gerado
+localmente (não versionado - `coverage/` está fora do repo).
+
+### Orçamento de bundle - recuperado, não só verificado
+
+Achado ao investigar `scripts/bundle-budgets.mjs` (o mecanismo real de
+orçamento de bundle do projeto, com teste próprio em
+`src/tooling-bundle-budget.test.js`, mas só invocado manualmente via
+`npm run quality:bundle` - não está no `prebuild`/CI): as extrações da
+Onda 7 (Diário de Obra, Estoque, Licenciamento, Conferência) já tinham
+resolvido o problema por conta própria. O chunk `LegacyApp` caiu de
+~596,87 kB para **530,03 kB gzip**, bem abaixo do teto de 640 kB então
+vigente - zero violações no `npm run quality:bundle` atual.
+
+Em vez de só confirmar isso, o teto foi **apertado de volta** (640 kB →
+570 kB) para travar o ganho real e voltar a pegar regressão cedo, em vez
+de deixar ~110 kB de folga acumulada silenciosamente virar o novo normal.
+O exemplo de baseline em `src/tooling-bundle-budget.test.js` foi
+atualizado do número antigo (596,87 kB) para o real medido agora
+(530,03 kB), mantendo o teste como uma verificação fiel do estado atual,
+não um número congelado de uma rodada anterior.
+
+Teto total (1.520 kB) e os demais chunks (spreadsheet-tools, charts,
+vendor, ClientPortalApp) não foram tocados - o total atual (1.502,19 kB)
+já estava com folga apertada (~18 kB) antes desta rodada, e não há
+evidência de que caber mais fatiamento nesses outros chunks traria
+ganho real sem investigação própria (mesmo cuidado já registrado no
+ajuste de 17/08/2026 sobre Equipamentos, que reverteu uma tentativa de
+`manualChunks` por piorar o resultado).
+
+Verificação: suíte completa (255 arquivos/1538 testes) incluindo o
+teste de orçamento com o novo baseline, `build`, `lint` e
+`architecture:check` sem violação.
+
+### Regressão visual leve para telas de gráfico
+
+Ainda não iniciado nesta rodada - próximo item da Onda 8.

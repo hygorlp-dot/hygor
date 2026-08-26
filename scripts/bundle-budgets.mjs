@@ -34,13 +34,21 @@
 // chunk manual) e foi revertida - não vale o risco de manualChunks nesta
 // sessão. Mesma lógica dos ajustes anteriores: orçamento sobe com folga
 // modesta; investigar manualChunks com mais cuidado fica para depois.
+//
+// Ajuste em 26/08/2026 (Onda 7-8 do raio-X): Diário de Obra, Estoque,
+// Licenciamento e Conferência saíram de LegacyApp.jsx para
+// src/domains/*/components/ (cada um vira seu próprio chunk lazy). O
+// chunk do LegacyApp caiu de ~596,87 kB para ~530 kB gzip - redução real,
+// medida após o build, não estimativa. Orçamento apertado de volta (640 →
+// 570 kB) para travar o ganho e voltar a pegar regressão cedo, com a
+// mesma folga modesta de sempre.
 export const BUNDLE_BUDGETS = Object.freeze({
   totalGzipBytes: 1_520 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,
   chunks: [
-    { label: "LegacyApp", pattern: /^LegacyApp-.*\.js$/, maxGzipBytes: 640 * 1024 },
+    { label: "LegacyApp", pattern: /^LegacyApp-.*\.js$/, maxGzipBytes: 570 * 1024 },
     // Exceção temporária registrada: planilhas ainda dependem de exceljs.
     { label: "spreadsheet-tools", pattern: /^spreadsheet-tools-.*\.js$/, maxGzipBytes: 275 * 1024 },
     { label: "charts", pattern: /^charts-.*\.js$/, maxGzipBytes: 125 * 1024 },

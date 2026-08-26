@@ -4,9 +4,9 @@ import { evaluateBundleBudgets } from "../scripts/bundle-budgets.mjs";
 describe("orçamento interno de bundle", () => {
   it("aceita a linha de base dos chunks atuais", () => {
     const result = evaluateBundleBudgets({
-      totals: { gzipBytes: 1_110.86 * 1024 },
+      totals: { gzipBytes: 1_044.02 * 1024 },
       assets: [
-        { name: "LegacyApp-hash.js", gzipBytes: 596.87 * 1024 },
+        { name: "LegacyApp-hash.js", gzipBytes: 530.03 * 1024 },
         { name: "spreadsheet-tools-hash.js", gzipBytes: 249.66 * 1024 },
         { name: "charts-hash.js", gzipBytes: 104.12 * 1024 },
         { name: "vendor-hash.js", gzipBytes: 85.1 * 1024 },
