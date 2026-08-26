@@ -13615,7 +13615,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="rdo"&&<DiarioObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="qualidade"&&<Qualidade data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="seguranca"&&<SegurancaObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
-        {abaConteudo==="conferencia"&&<Conferencia data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
+        {abaConteudo==="conferencia"&&<Conferencia data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="med"&&<MedicaoEvolucao data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="cmp"&&<Suspense fallback={<div className="arcd-page-loading">Carregando compras...</div>}><Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="est"&&<Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/>}
@@ -14703,7 +14703,7 @@ function Qualidade({data,showToast,currentUser,obraIdFixo="",dispatchCommand=nul
   return <div style={{display:"flex",flexDirection:"column",gap:10}}><PageHero eyebrow="Engenharia de campo" title="Qualidade · FVS e FVM" description="Inspeções, não conformidades e liberações confirmadas pelo servidor." actions={<Btn onClick={gerarPlano} disabled={gerando}><Ic n="plus"/> {gerando?"Gerando...":"Gerar/atualizar plano"}</Btn>}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7}}>{[["FVS",regs.filter(item=>item.tipo==="fvs").length,C.blue],["FVM",regs.filter(item=>item.tipo==="fvm").length,C.purple],["Liberadas",regs.filter(item=>item.status==="aprovada").length,C.green],["Não conformes",regs.filter(item=>item.status==="reprovada").length,C.red]].map(([label,value,color])=><div key={label} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${color}`,borderRadius:7,padding:8}}><p style={{fontSize:8,color:C.muted,fontWeight:800}}>{label}</p><b style={{fontSize:17,color}}>{value}</b></div>)}</div>{regs.map(ficha=>{const open=aberto===ficha.id;const feitos=(ficha.itens||[]).filter(item=>item.status!=="pendente").length;const draft=rascunho(ficha.id);return <div key={ficha.id} style={{background:C.card,border:`1px solid ${ficha.status==="reprovada"?C.red:C.border}`,borderRadius:8,overflow:"hidden"}}><button onClick={()=>setAberto(open?"":ficha.id)} style={{width:"100%",border:0,background:"transparent",padding:"10px 12px",display:"flex",justifyContent:"space-between",gap:8,textAlign:"left",cursor:"pointer"}}><div><b style={{fontSize:11,color:ficha.tipo==="fvs"?C.blue:C.purple}}>{ficha.codigo} · {ficha.tipo.toUpperCase()}</b><p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:2}}>{ficha.titulo}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Responsável: {ficha.responsavel||"Não definido"} · {feitos}/{(ficha.itens||[]).length} critérios</p></div><Badge color={ficha.status==="aprovada"?C.green:ficha.status==="reprovada"?C.red:C.orange}>{ficha.status}</Badge></button>{open&&<div style={{borderTop:`1px solid ${C.line}`,padding:10}}><Sel label="Responsável pela execução/correção" value={draft.responsavelId??ficha.responsavelId} onChange={value=>editarRascunho(ficha.id,{responsavelId:value})} options={[{v:"",l:"Selecione"},...usuarios.map(user=>({v:user.id,l:user.nome}))]}/><Inp label="Referência técnica (projeto, memorial, procedimento, norma)" value={draft.normaProjeto??ficha.normaProjeto} onChange={value=>editarRascunho(ficha.id,{normaProjeto:value})}/><Btn size="sm" v="ghost" style={{marginTop:7}} onClick={()=>salvarDetalhes(ficha)}>Salvar referência</Btn><div style={{marginTop:8}}>{(ficha.itens||[]).map(item=><div key={item.id} style={{padding:"8px 0",borderTop:`1px solid ${C.line}`}}><p style={{fontSize:11,fontWeight:750,color:C.text}}>{item.criterio}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>{item.metodo} · {item.tolerancia}</p><div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>{[["conforme","Conforme",C.green],["nao_conforme","Não conforme",C.red],["nao_aplicavel","N/A",C.muted]].map(([status,label,color])=><button key={status} onClick={()=>inspecionar(ficha,item,status)} disabled={ficha.status==="aprovada"} style={{border:`1px solid ${item.status===status?color:C.border}`,background:item.status===status?`${color}12`:C.bg,color,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer"}}>{label}</button>)}</div>{item.verificadoEm&&<p style={{fontSize:8.5,color:C.muted,marginTop:3}}>{item.responsavel} · {new Date(item.verificadoEm).toLocaleString("pt-BR")}</p>}</div>)}</div>{ficha.naoConformidade&&ficha.naoConformidade.status!=="encerrada"&&<div style={{background:`${C.red}08`,border:`1px solid ${C.red}55`,borderRadius:7,padding:9,marginTop:8}}><p style={{fontSize:10,fontWeight:900,color:C.red}}>NÃO CONFORMIDADE</p><Inp label="Ação corretiva" value={draft.acao??""} onChange={value=>editarRascunho(ficha.id,{acao:value})} multiline/><Inp label="Verificação de eficácia" value={draft.eficacia??""} onChange={value=>editarRascunho(ficha.id,{eficacia:value})} multiline/><Btn size="sm" v="success" onClick={()=>resolverNC(ficha)}>Encerrar NC após reinspeção</Btn></div>}<Btn full style={{marginTop:9}} onClick={()=>liberar(ficha)} disabled={ficha.status==="aprovada"}>Liberar ficha</Btn></div>}</div>;})}{!regs.length&&<p style={{textAlign:"center",padding:20,color:C.muted,fontSize:11}}>Gere o plano para criar uma FVS para cada etapa de 1º nível e FVM para os materiais comprados.</p>}</div>;
 }
 
-function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
+function Conferencia({ data, showToast, currentUser, obraIdFixo="", dispatchCommand=null }) {
   const { cols, isDesktop } = useBreakpoint();
   const obras=useMemo(()=>(data.obras||[]).filter(o=>o.status!=="done"),[data.obras]);
   const [obraFiltro,setObraFiltro]=useState(()=>obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
@@ -14765,14 +14765,14 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const obraDaConferencia=obraAtual;
   const responsavelAutomatico=useMemo(()=>vistoriadores.find(u=>u.id===conferencia?.responsavelId)||(ehAuditor?currentUser:null),[vistoriadores,conferencia?.responsavelId,ehAuditor,currentUser]);
 
-  const atualizar=async(id,mut,action="Conferência atualizada",details="")=>{
-    const now=new Date().toISOString();
-    const actor={id:currentUser?.id||"",name:currentUser?.nome||"Usuário autenticado"};
-    const result=await update({...data,conferencias:(data.conferencias||[]).map(c=>c.id===id
-      ? {...mut({...c}),atualizadoEm:now,atualizadoPorId:actor.id,atualizadoPor:actor.name,auditTrail:[...(c.auditTrail||[]),{id:uid(),action,details,actorId:actor.id,actor:actor.name,at:now}]}:c)});
-    setLastSaved(now);
+  const dispatch=async(factory,fallbackMsg)=>{
+    if(!dispatchCommand){showToast?.("Esta operação exige conexão com o servidor.","error");return null;}
+    const result=await dispatchCommand(factory);
+    if(!result?.ok){showToast?.(result?.reason||fallbackMsg,"error");return null;}
+    setLastSaved(new Date().toISOString());
     return result;
   };
+  const vigenteConferencia=atual=>(atual.conferencias||[]).find(c=>c.id===conferencia?.id);
 
   const abrirNovaConferencia=()=>{
     if(!podeCriarConferencia){showToast?.(ehAdmin||ehAuditor?"Nenhuma obra ativa está disponível no seu escopo.":"Somente o administrador ou o engenheiro auditor pode criar uma vistoria.","error");return;}
@@ -14781,43 +14781,46 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
     const obraId=obraPreferida?.id||"";
     setNovaForm({obraId,data:today(),responsavelId:ehAdmin?(auditores[0]?.id||currentUser?.id||""):(currentUser?.id||"")});
   };
-  const novaConferencia=()=>{
+  const novaConferencia=async()=>{
     const obraId=novaForm?.obraId;
     if(!obraId){showToast?.("Cadastre uma obra antes de criar a conferência.","error");return;}
     if(!ehAdmin&&!ehAuditor){showToast?.("Somente o administrador ou o engenheiro auditor pode criar uma vistoria.","error");return;}
     if(ehAuditor&&!obrasCriaveis.some(o=>o.id===obraId)){showToast?.("Esta obra não está disponível no seu escopo.","error");return;}
-    const responsavel=vistoriadores.find(u=>u.id===(ehAdmin?novaForm?.responsavelId:currentUser?.id));
-    if(!responsavel){showToast?.("Selecione o engenheiro auditor responsável ou o administrador.","error");return;}
-    const codigo=Math.max(0,...(data.conferencias||[]).filter(c=>c.obraId===obraId).map(c=>Number(c.codigo||0)))+1;
-    const agora=new Date().toISOString();
-    const nova={id:uid(),obraId,data:novaForm?.data||today(),codigo,responsavelId:responsavel.id,responsavel:responsavel.nome,status:"nao_iniciada",notaGeral:null,observacoesGerais:"",pendencias:[],criadoEm:agora,criadoPorId:currentUser?.id||"",criadoPor:currentUser?.nome||"",atualizadoEm:agora,concluidoEm:"",auditTrail:[{id:uid(),action:"Vistoria criada",details:`Responsável: ${responsavel.nome}`,actorId:currentUser?.id||"",actor:currentUser?.nome||"Usuário autenticado",at:agora}]};
-    update({...data,conferencias:[...(data.conferencias||[]),nova]});
+    const responsavelId=ehAdmin?novaForm?.responsavelId:currentUser?.id;
+    if(!vistoriadores.some(u=>u.id===responsavelId)){showToast?.("Selecione o engenheiro auditor responsável ou o administrador.","error");return;}
+    const id=uid();
+    const result=await dispatch(()=>({
+      type:OPERATIONAL_COMMAND.CONFERENCE_CREATED,idempotencyKey:`conferencia-${id}-${uid()}`,expectedVersion:0,
+      actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{conference:{id,obraId,data:novaForm?.data||today(),responsavelId}},
+    }),"Não foi possível criar a conferência.");
+    if(!result)return;
     setNovaForm(null);
-    setSelecionadaId(nova.id);
+    setSelecionadaId(id);
   };
 
   const excluirConferencia=()=>{
     if(!conferencia)return;
     setCancelModal({type:"conference",record:conferencia});setCancelReason("");
   };
-  const confirmarCancelamento=()=>{
+  const confirmarCancelamento=async()=>{
     if(!cancelModal||!cancelReason.trim()){showToast?.("Informe o motivo do cancelamento.","error");return;}
-    const agora=new Date().toISOString();
+    const reason=cancelReason.trim();
     if(cancelModal.type==="finding"){
-      atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(p=>p.id!==cancelModal.record.id?p:{
-        ...p,status:"cancelada",motivoCancelamento:cancelReason.trim(),canceladaEm:agora,
-        canceladaPorId:currentUser?.id||"",canceladaPor:currentUser?.nome||"",
-      })}),"Pendência cancelada",cancelReason.trim());
+      const result=await dispatch(atual=>({
+        type:OPERATIONAL_COMMAND.CONFERENCE_FINDING_CANCELLED,idempotencyKey:`achado-cancelamento-${cancelModal.record.id}-${uid()}`,
+        expectedVersion:Number(vigenteConferencia(atual)?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{conferenceId:conferencia.id,findingId:cancelModal.record.id,reason},
+      }),"Não foi possível cancelar a pendência.");
+      if(!result)return;
       setCancelModal(null);setCancelReason("");showToast?.("Pendência cancelada e mantida para auditoria.");return;
     }
-    atualizar(conferencia.id,c=>({
-      ...c,status:"cancelada",motivoCancelamento:cancelReason.trim(),canceladaEm:agora,
-      canceladaPorId:currentUser?.id||"",canceladaPor:currentUser?.nome||"",
-      pendencias:(c.pendencias||[]).map(p=>["resolvida","cancelada"].includes(p.status)?p:{
-        ...p,status:"cancelada",motivoCancelamento:`Conferência cancelada: ${cancelReason.trim()}`,
-        canceladaEm:agora,canceladaPor:currentUser?.nome||"",
-      }),
-    }),"Vistoria cancelada",cancelReason.trim());
+    const result=await dispatch(atual=>({
+      type:OPERATIONAL_COMMAND.CONFERENCE_CANCELLED,idempotencyKey:`conferencia-cancelamento-${conferencia.id}-${uid()}`,
+      expectedVersion:Number(vigenteConferencia(atual)?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{conferenceId:conferencia.id,reason},
+    }),"Não foi possível cancelar a conferência.");
+    if(!result)return;
     setCancelModal(null);setCancelReason("");
     setSelecionadaId(""); showToast?.("Conferência cancelada e preservada no histórico.");
   };
@@ -14829,14 +14832,19 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
     responsavelAjusteId:"",responsavelAjusteNome:"",ajusteNecessario:"",prazo:"",status:"aberta",fotos:[],criadoEm:"",resolvidoEm:"",
     });
   };
-  const salvarPendencia=form=>{
+  const salvarPendencia=async form=>{
     if(!podeGerirVistoria){showToast?.("Somente o responsável pela vistoria pode criar ou editar pendências.","error");return;}
     if(!form.descricao.trim()||!form.ajusteNecessario.trim()){showToast?.("Descreva o problema e o ajuste necessário.","error");return;}
     if(!form.responsavelAjusteId){showToast?.("Defina quem será responsável pelo ajuste.","error");return;}
     const resp=responsaveis.find(r=>r.id===form.responsavelAjusteId);
-    const agora=new Date().toISOString();
-    const pronta={...form,id:form.id||uid(),itemOrcamentoId:"",responsavelAjusteNome:resp?.nome||form.responsavelAjusteNome||"",criadoPorId:form.criadoPorId||currentUser?.id||"",criadoPor:form.criadoPor||currentUser?.nome||"",criadoEm:form.criadoEm||agora,resolvidoEm:form.status==="resolvida"?(form.resolvidoEm||agora):""};
-    atualizar(conferencia.id,c=>({...c,status:c.status==="nao_iniciada"?"em_andamento":c.status,pendencias:form.id?(c.pendencias||[]).map(p=>p.id===form.id?pronta:p):[...(c.pendencias||[]),pronta]}),form.id?"Pendência atualizada":"Pendência registrada",pronta.descricao);
+    const findingId=form.id||uid();
+    const finding={...form,id:findingId,itemOrcamentoId:"",responsavelAjusteNome:resp?.nome||form.responsavelAjusteNome||""};
+    const result=await dispatch(atual=>({
+      type:OPERATIONAL_COMMAND.CONFERENCE_FINDING_SAVED,idempotencyKey:`achado-${findingId}-${uid()}`,
+      expectedVersion:Number(vigenteConferencia(atual)?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{conferenceId:conferencia.id,finding},
+    }),"Não foi possível salvar a pendência.");
+    if(!result)return;
     setPendenciaForm(null); showToast?.(form.id?"Pendência atualizada.":"Pendência registrada.");
   };
   const removerPendencia=id=>{
@@ -14848,33 +14856,31 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
     if(p.status!=="aguardando_validacao"||!(p.fotos||[]).some(f=>f.tipo==="ajuste")){showToast?.("A validação exige uma foto de correção enviada pelo responsável do ajuste.","error");return;}
     setValidacaoForm({pendenciaId:p.id,resultado,observacao:""});
   };
-  const salvarValidacao=()=>{
+  const salvarValidacao=async()=>{
     if(!podeGerirVistoria||!validacaoForm)return;
     const resultado=validacaoForm.resultado;
     const observacao=String(validacaoForm.observacao||"").trim();
     if(!observacao){showToast?.(resultado==="conforme"?"Registre o critério verificado para aprovar a correção.":"Informe o motivo da não conformidade e a orientação para a nova correção.","error");return;}
-    const agora=new Date().toISOString();
-    const registro={id:uid(),resultado,observacao,vistoriadorId:currentUser.id,vistoriador:currentUser.nome||conferencia.responsavel||"",criadoEm:agora};
-    atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(p=>p.id===validacaoForm.pendenciaId?{
-      ...p,status:resultado==="conforme"?"resolvida":"em_ajuste",validacaoStatus:resultado,
-      validacaoObservacao:observacao,validadoPorId:registro.vistoriadorId,validadoPor:registro.vistoriador,
-      validadoEm:agora,validacoes:[...(p.validacoes||[]),registro],resolvidoEm:resultado==="conforme"?agora:"",
-    }:p)}),resultado==="conforme"?"Correção aprovada":"Correção reprovada",observacao);
+    const result=await dispatch(atual=>({
+      type:OPERATIONAL_COMMAND.CONFERENCE_FINDING_VALIDATED,idempotencyKey:`validacao-${validacaoForm.pendenciaId}-${uid()}`,
+      expectedVersion:Number(vigenteConferencia(atual)?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{conferenceId:conferencia.id,findingId:validacaoForm.pendenciaId,resultado,observacao},
+    }),"Não foi possível registrar a validação.");
+    if(!result)return;
     setValidacaoForm(null);
     showToast?.(resultado==="conforme"?"Correção aprovada e pendência encerrada.":"Correção não conforme. A pendência voltou ao responsável pelo ajuste.",resultado==="conforme"?undefined:"error");
   };
 
   const iniciarEdicaoMetadados=()=>{setMetadataDraft({data:conferencia.data,responsavelId:conferencia.responsavelId||"",observacoesGerais:conferencia.observacoesGerais||""});setMetadataEditing(true);};
-  const salvarMetadados=()=>{
+  const salvarMetadados=async()=>{
     if(!metadataDraft?.data){showToast?.("Informe a data da vistoria.","error");return;}
-    const responsavel=vistoriadores.find(u=>u.id===metadataDraft.responsavelId);
-    if(ehAdmin&&!responsavel){showToast?.("Selecione o responsável pela vistoria.","error");return;}
-    const changed=[];
-    if(metadataDraft.data!==conferencia.data)changed.push(`data: ${conferencia.data} → ${metadataDraft.data}`);
-    if(metadataDraft.responsavelId!==conferencia.responsavelId)changed.push(`responsável: ${conferencia.responsavel||"não definido"} → ${responsavel?.nome||conferencia.responsavel}`);
-    if(metadataDraft.observacoesGerais!==conferencia.observacoesGerais)changed.push("observações gerais atualizadas");
-    if(!changed.length){setMetadataEditing(false);return;}
-    atualizar(conferencia.id,c=>({...c,data:metadataDraft.data,responsavelId:ehAdmin?metadataDraft.responsavelId:c.responsavelId,responsavel:ehAdmin?(responsavel?.nome||c.responsavel):c.responsavel,observacoesGerais:metadataDraft.observacoesGerais}),"Metadados da vistoria atualizados",changed.join("; "));
+    if(ehAdmin&&!vistoriadores.some(u=>u.id===metadataDraft.responsavelId)){showToast?.("Selecione o responsável pela vistoria.","error");return;}
+    const result=await dispatch(atual=>({
+      type:OPERATIONAL_COMMAND.CONFERENCE_METADATA_UPDATED,idempotencyKey:`conferencia-metadados-${conferencia.id}-${uid()}`,
+      expectedVersion:Number(vigenteConferencia(atual)?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{conferenceId:conferencia.id,patch:{data:metadataDraft.data,observacoesGerais:metadataDraft.observacoesGerais,...(ehAdmin?{responsavelId:metadataDraft.responsavelId}:{})}},
+    }),"Não foi possível salvar as alterações.");
+    if(!result)return;
     setMetadataEditing(false);showToast?.("Alterações da vistoria salvas e registradas no histórico.");
   };
 
@@ -14895,7 +14901,12 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
       const resp=await enviarArquivoOneDrive({dataUrl,obraId:obraAtual?.id,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`ajuste-${temAnotacoes?"anotado-":""}${agora}.jpg`});
       if(!resp.url)throw new Error(resp.error||"Falha no envio.");
       novas.push({id:resp.item?.id||uid(),url:resp.url,legenda:legenda||"Foto da correção executada",path:resp.path||"",tipo:"ajuste",enviadoPorId:currentUser.id,enviadoPor:currentUser.nome||"",criadoEm,anotada:!!temAnotacoes,originalFotoId:originalId,anotadoPorId:temAnotacoes?currentUser.id:"",anotadoPor:temAnotacoes?(currentUser.nome||""):"",anotadoEm:temAnotacoes?criadoEm:""});
-      atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(x=>x.id===p.id?{...x,status:"aguardando_validacao",validacaoStatus:"",validacaoObservacao:"",validadoPorId:"",validadoPor:"",validadoEm:"",resolvidoEm:"",fotos:[...(x.fotos||[]),...novas]}:x)}));
+      const result=await dispatch(atual=>({
+        type:OPERATIONAL_COMMAND.CONFERENCE_FINDING_EVIDENCE_ADDED,idempotencyKey:`evidencia-${p.id}-${uid()}`,
+        expectedVersion:Number(vigenteConferencia(atual)?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{conferenceId:conferencia.id,findingId:p.id,resetValidation:true,fotos:novas},
+      }),"Não foi possível registrar a evidência.");
+      if(!result)return;
       setFotoTecnica(null);
       showToast?.("Foto enviada. A correção aguarda validação do responsável pela vistoria.");
     }catch(err){showToast?.(err.message||"Falha ao enviar a foto do ajuste.","error");}
@@ -14911,7 +14922,7 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
   const salvarCopiaAnotada=async({dataUrl,legenda,temAnotacoes})=>{
     const origem=fotoTecnica?.foto,p=fotoTecnica?.pendencia;if(!origem||!p||!temAnotacoes){if(!temAnotacoes)showToast?.("Faça ao menos uma marcação antes de salvar a cópia.","error");return;}
     setSubindoAjusteId(p.id);
-    try{const criadoEm=new Date().toISOString();const resp=await enviarArquivoOneDrive({dataUrl,obraId:obraAtual?.id,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`${origem.tipo==="ajuste"?"ajuste":"vistoria"}-anotado-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio da anotação.");const nova={id:resp.item?.id||uid(),url:resp.url,legenda:legenda||`${origem.legenda||"Evidência"} · anotada`,path:resp.path||"",tipo:origem.tipo,enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"",criadoEm,anotada:true,originalFotoId:origem.id||"",anotadoPorId:currentUser?.id||"",anotadoPor:currentUser?.nome||"",anotadoEm:criadoEm};atualizar(conferencia.id,c=>({...c,pendencias:(c.pendencias||[]).map(x=>x.id===p.id?{...x,fotos:[...(x.fotos||[]),nova]}:x)}));setFotoTecnica(null);showToast?.("Cópia anotada salva junto à pendência.");}
+    try{const criadoEm=new Date().toISOString();const resp=await enviarArquivoOneDrive({dataUrl,obraId:obraAtual?.id,obraName:obraAtual?.name||"Obra",driveId:obraAtual?.oneDriveDriveId,folderId:obraAtual?.oneDriveFolderId,folders:obraAtual?.oneDriveFolders,category:"conferencia",date:conferencia.data,fileName:`${origem.tipo==="ajuste"?"ajuste":"vistoria"}-anotado-${Date.now()}.jpg`});if(!resp.url)throw new Error(resp.error||"Falha no envio da anotação.");const nova={id:resp.item?.id||uid(),url:resp.url,legenda:legenda||`${origem.legenda||"Evidência"} · anotada`,path:resp.path||"",tipo:origem.tipo,enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"",criadoEm,anotada:true,originalFotoId:origem.id||"",anotadoPorId:currentUser?.id||"",anotadoPor:currentUser?.nome||"",anotadoEm:criadoEm};const result=await dispatch(atual=>({type:OPERATIONAL_COMMAND.CONFERENCE_FINDING_EVIDENCE_ADDED,idempotencyKey:`evidencia-anotada-${p.id}-${uid()}`,expectedVersion:Number(vigenteConferencia(atual)?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{conferenceId:conferencia.id,findingId:p.id,resetValidation:false,fotos:[nova]}}),"Não foi possível salvar a anotação.");if(!result)return;setFotoTecnica(null);showToast?.("Cópia anotada salva junto à pendência.");}
     catch(err){showToast?.(err.message||"Não foi possível salvar a anotação.","error");}
     finally{setSubindoAjusteId("");}
   };
@@ -14987,21 +14998,29 @@ function Conferencia({ data, update, showToast, currentUser, obraIdFixo="" }) {
   </div>;
 
   const abertas=(conferencia.pendencias||[]).filter(p=>!["resolvida","cancelada"].includes(p.status)).length;
-  const alternarConclusao=()=>{
+  const alternarConclusao=async()=>{
     if(!podeGerirVistoria)return;
     if(conferencia.status==="concluida"){
-      atualizar(conferencia.id,c=>({...c,status:"em_andamento",concluidoEm:""}),"Vistoria reaberta","Reaberta para nova análise");
+      const result=await dispatch(atual=>({
+        type:OPERATIONAL_COMMAND.CONFERENCE_REOPENED,idempotencyKey:`conferencia-reabertura-${conferencia.id}-${uid()}`,
+        expectedVersion:Number(vigenteConferencia(atual)?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{conferenceId:conferencia.id},
+      }),"Não foi possível reabrir a vistoria.");
+      if(!result)return;
       showToast?.("Vistoria reaberta com histórico preservado.");return;
     }
     if(abertas){showToast?.("Valide todas as correções antes de concluir a vistoria.","error");return;}
     setCompletionForm({scopeReviewed:false,notes:conferencia.inspectionDeclaration?.notes||""});setCompletionModal(true);
   };
-  const confirmarConclusao=()=>{
+  const confirmarConclusao=async()=>{
     const check=conferenceCompletionCheck(conferencia,completionForm);
     if(!check.ok){showToast?.(check.reason,"error");return;}
-    const now=new Date().toISOString();
-    const score=conferenceQualityScore({...conferencia,inspectionDeclaration:{...completionForm,confirmedAt:now}});
-    atualizar(conferencia.id,c=>({...c,status:"concluida",notaGeral:score,concluidoEm:now,concluidoPorId:currentUser?.id||"",concluidoPor:currentUser?.nome||"",inspectionDeclaration:{scopeReviewed:true,notes:completionForm.notes.trim(),confirmedAt:now,confirmedById:currentUser?.id||"",confirmedBy:currentUser?.nome||""}}),"Vistoria concluída",`Nota técnica calculada: ${score}/10`);
+    const result=await dispatch(atual=>({
+      type:OPERATIONAL_COMMAND.CONFERENCE_COMPLETED,idempotencyKey:`conferencia-conclusao-${conferencia.id}-${uid()}`,
+      expectedVersion:Number(vigenteConferencia(atual)?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{conferenceId:conferencia.id,declaration:completionForm},
+    }),"Não foi possível concluir a vistoria.");
+    if(!result)return;
     setCompletionModal(false);showToast?.("Vistoria concluída com declaração técnica e trilha de auditoria.");
   };
   const totalPendencias=(conferencia.pendencias||[]).length;
@@ -20503,7 +20522,7 @@ export default function App() {
           {tab === "plan"   && <Suspense fallback={<div className="arcd-page-loading">Carregando planejamento...</div>}><Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "plan_suprimentos" && <Suspense fallback={<div className="arcd-page-loading">Carregando suprimentos...</div>}><LazyMarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
           {tab === "rdo"    && <DiarioObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "conferencia" && <Conferencia data={data} update={update} showToast={showToast} currentUser={currentUser} />}
+          {tab === "conferencia" && <Conferencia data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "equipe" && <Suspense fallback={<div className="arcd-page-loading">Carregando equipe...</div>}><EquipeView data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={setTab} /></Suspense>}

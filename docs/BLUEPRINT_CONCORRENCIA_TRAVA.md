@@ -2589,3 +2589,42 @@ Verificação: suíte completa (254 arquivos/1509 testes), `build`, `lint`
 e `architecture:check` sem violação. Onda 4 concluída (os 3 itens:
 poda do knip, lazy por tela, e a caracterização de analytics comerciais
 que já tinha sido feita em paralelo à Onda 0).
+
+## Onda 5 - rumo ao 9/10 (26/08/2026)
+
+Segunda rodada do raio-X pediu um roadmap para levar os seis eixos a
+9/10. Cinco eixos são alcançáveis com mais ondas no mesmo ritmo; Core
+relacional (Onda 3) exige uma iniciativa própria, maior, com marcos
+separados - ver `docs/` (artefato "Ordem de Execução do ARCD" v2) para
+o desenho completo. Onda 5 ataca os itens rápidos de Funcionalidade e
+Coerência com o DRE.
+
+### Item 1/3 - Conferência ganha CAS completo
+
+Acabou sendo bem maior do que o "P" (pequeno) estimado no roadmap - a
+tela tinha 9 formas distintas de mutação (criar/cancelar conferência,
+criar/editar/cancelar achado, anexar evidência, validar correção,
+editar metadados, concluir/reabrir vistoria), todas passando por um
+helper genérico `atualizar()` que só carimbava auditoria, sem CAS.
+
+Criado `src/domains/qualidade/conference-commands.js` (`CONFERENCE_COMMAND`,
+9 tipos: `CONFERENCE_CREATED`, `CONFERENCE_CANCELLED`,
+`CONFERENCE_METADATA_UPDATED`, `CONFERENCE_COMPLETED`,
+`CONFERENCE_REOPENED`, `CONFERENCE_FINDING_SAVED`,
+`CONFERENCE_FINDING_CANCELLED`, `CONFERENCE_FINDING_EVIDENCE_ADDED`,
+`CONFERENCE_FINDING_VALIDATED`), reaproveitando as funções puras já
+existentes em `conference-workflow.js` (`conferenceCompletionCheck`,
+`conferenceQualityScore`) para a validação de conclusão e cálculo de
+nota - essas já eram testadas e usadas pelo cliente, então o servidor
+agora aplica exatamente a mesma regra, não uma reimplementação
+paralela. 20 testes novos. `LegacyApp.jsx`: o helper `atualizar()` saiu
+por completo, cada um dos 9 handlers da tela agora monta seu próprio
+comando com `expectedVersion` da versão mais fresca do servidor.
+
+Registrado em `operational-commands.js` e com papéis de autorização em
+`api/data.js` (admin + engenheiro_auditor para gerir a vistoria;
++ engenheiro para o envio de evidência de correção, que já era permitido
+ao responsável pelo ajuste).
+
+Verificação: suíte completa (255 arquivos/1538 testes), `build`, `lint`
+e `architecture:check` sem violação.
