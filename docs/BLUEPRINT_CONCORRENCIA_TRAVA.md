@@ -2718,3 +2718,27 @@ continua lendo `LegacyApp.jsx` normalmente).
 Verificação: suíte completa (255 arquivos/1538 testes), `build`, `lint`
 e `architecture:check` sem violação. Chunk próprio (`EstoqueView-*.js`,
 ~25,5 kB) confirmado no build.
+
+### Item 3 - Licenciamento
+
+Extraído para `src/domains/licenciamento/components/LicenciamentoView.jsx`
+(154 linhas). O catálogo de licenças que a tela usa (`LICENCAS`,
+`licencaPorId`, `LIC_STATUS`, `licStatusInfo`, `progressoChecklist`,
+`LIC_TERRAS_ALPHA_VERIFICACAO`) veio junto para o arquivo novo - todo
+consumidor de cada um estava dentro da própria tela. Já
+`LIC_SIMPLIFICADA_PRE`/`LIC_SIMPLIFICADA_DOCS` e `CONDOMINIOS_PADRAO`,
+que moram no mesmo bloco de constantes original, **ficaram em
+`LegacyApp.jsx`** - achado da checagem de consumidores: também alimentam
+a criação de dados padrão de uma obra nova, fora do escopo desta tela.
+
+Erro pego só no `build` (não no `vitest`, que não faz resolução real de
+módulos ESM): `enviarArquivoOneDrive` não é definido em `LegacyApp.jsx`,
+é importado de lá de `./api` - corrigido importando direto de `../../../api`
+no arquivo novo, mesmo padrão já usado em `DiarioObraView.jsx`.
+
+Verificação: suíte completa (255 arquivos/1538 testes), `build`, `lint`
+e `architecture:check` sem violação. Chunk próprio
+(`LicenciamentoView-*.js`, ~24 kB) confirmado no build. **Onda 7 (itens
+1-3) concluída** - restam a extração de Conferência (item 4) e a
+unificação de convenção de pastas (`src/features/*`) como itens
+seguintes do roadmap.
