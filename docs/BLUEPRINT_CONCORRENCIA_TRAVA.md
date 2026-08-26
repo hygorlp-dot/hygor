@@ -2738,7 +2738,36 @@ no arquivo novo, mesmo padrão já usado em `DiarioObraView.jsx`.
 
 Verificação: suíte completa (255 arquivos/1538 testes), `build`, `lint`
 e `architecture:check` sem violação. Chunk próprio
-(`LicenciamentoView-*.js`, ~24 kB) confirmado no build. **Onda 7 (itens
-1-3) concluída** - restam a extração de Conferência (item 4) e a
-unificação de convenção de pastas (`src/features/*`) como itens
-seguintes do roadmap.
+(`LicenciamentoView-*.js`, ~24 kB) confirmado no build.
+
+### Item 4 - Conferência
+
+Extraído para `src/domains/qualidade/components/ConferenciaView.jsx`
+(624 linhas). A região em torno de `Conferencia` no arquivo original
+tinha o mesmo tipo de armadilha encontrada no item 1 (Diário de Obra),
+só que em dobro: entre o fim de `EditorFotoTecnica` e o início de
+`Conferencia` havia `criteriosQualidade` + as telas inteiras de
+`SegurancaObra` e `Qualidade` (FVS/FVM) - screens completamente
+diferentes, sem relação com Conferência, apesar de `criteriosQualidade`
+ter nome parecido. A checagem de consumidores (grep exaustivo por
+identificador, no arquivo inteiro, antes de qualquer corte) confirmou
+que `CONFERENCIA_CATEGORIAS/IMPACTOS/STATUS`,
+`QUALIDADE_PESO_IMPACTO`/`qualidadeDataValida`/`qualidadeDias`/
+`qualidadeAssinatura`, `calcularRankingQualidade`+`RankingQualidade` e
+`imagemTecnicaComoDataUrl`+`EditorFotoTecnica` eram exclusivos de
+Conferência (vieram junto), enquanto `criteriosQualidade` e as duas
+telas ficaram em `LegacyApp.jsx`. O corte final saiu em duas regiões
+não contíguas, com o "meio" (Qualidade/Segurança) preservado no lugar -
+mesma técnica already usada no item 1.
+
+Erro pego de novo só no `build`: a primeira extração acidentalmente
+incluiu a linha `// Bloco visual reutilizado no diario.` (comentário de
+`Bloco`, não de `ModalPendenciaConferencia`) no arquivo novo - corrigido
+recortando um caractere antes do limite.
+
+Verificação: suíte completa (255 arquivos/1538 testes), `build`, `lint`
+e `architecture:check` sem violação. Chunk próprio
+(`ConferenciaView-*.js`, ~68,5 kB) confirmado no build. **Onda 7 (itens
+1-4) concluída** - resta a unificação de convenção de pastas
+(`src/features/*` → `src/domains/*/components/`) como próximo item do
+roadmap.
