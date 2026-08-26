@@ -2900,3 +2900,66 @@ testes desta rodada), `build` (Storybook e app), `lint` e
 
 **Onda 8 concluída** (cobertura, orçamento de bundle e regressão visual
 leve para gráficos).
+
+## Onda 7, item 9 - fundação mobile arquivada (26/08/2026)
+
+Usuário escolheu investigar antes de decidir o destino de `src/mobile/*`
+(a última pendência da Onda 7). `docs/ARCD_MOBILE.md` já documentava um
+plano real (fundação progressiva, isolada até validação de piloto) - não
+era código esquecido por acidente. Mas o piloto que destravaria o resto
+(Fornecedores, condicionado à paridade de CNPJ/CEP no novo editor) segue
+travado: `features.newSupplierEditor` continua `false`, e não houve
+nenhum commit em `src/mobile/` desde 30/07/2026 (um mês parado).
+
+Decisão do usuário: **arquivar por ora**. Componentes movidos para
+`archive/mobile-foundation-2026-08` (branch pushada, recuperável via
+`git checkout archive/mobile-foundation-2026-08 -- src/mobile`) e
+removidos de `main`. Só `LegacyMobileNavigation` + `MobileMoreMenu`
+continuam - são os únicos com uso real hoje (nav inferior do app
+legado). Teste correspondente extraído para
+`src/mobile/legacy-mobile-navigation.test.jsx`; achado durante a
+extração: o teste original só passava por importar de `./index.js`
+(que carregava `MobileMoreMenu` de forma eager antes de qualquer teste
+rodar) - importando direto do arquivo, o `import()` dinâmico de fato
+precisa resolver pela primeira vez, e um `await Promise.resolve()`
+não bastava. Corrigido com um `waitFor` por polling em vez de um delay
+fixo.
+
+Verificação: suíte completa, `build`, `lint` e `architecture:check`
+sem violação. **Onda 7 concluída por completo** (itens 1-4, 8 e 9).
+
+## Verificação de exportação de orçamento + cópia entre obras (26/08/2026)
+
+Fora do roadmap de ondas - pedido direto do usuário. Ao conferir um CSV
+de orçamento exportado por um orçamentista externo (planilha real,
+BDI de 15% e subtotais de nível/subnível conferidos e corretos),
+encontrado um bug real na importação: `importarOrcamentoXLSX`
+(`OrcamentoView.jsx`) só reconhecia "Item"/"Descri*" como coluna de
+descrição. O arquivo usava "Nome" - não reconhecido -, o que faria
+toda etapa importar como "Etapa" genérica e todo Produto/Serviço sem
+código importar como "(código não localizado — sem descrição)", em
+silêncio.
+
+Pedido do usuário para "fazer melhor": em vez de só ampliar a lista de
+sinônimos aceitos, a tela agora **sempre** abre um modal pedindo
+confirmação humana de onde está cada coluna (código, descrição,
+quantidade, preço - mais tipo/unidade) antes de montar qualquer linha,
+com a detecção automática servindo só de palpite inicial pré-preenchido
+- mesmo padrão já usado no import da base de preços SINAPI/ORSE deste
+mesmo arquivo (`mapModal`/`colMap`). Lógica extraída para
+`src/domains/orcamentos/budget-import-mapping.js` (7 testes).
+
+Adicionado também "Copiar de outra obra" (pedido separado do usuário):
+botão na lista de orçamentos que clona etapas+itens de um orçamento de
+outra obra (ids sempre novos) e, se a obra de origem já tiver um
+cronograma montado, clona `plano.tarefas`/`marcos` junto - remapeados
+para as novas etapas e com as datas deslocadas em bloco para a tarefa
+mais antiga começar hoje, preservando duração e encadeamento relativo.
+Lógica em `src/domains/orcamentos/budget-clone.js` (10 testes).
+
+Verificação: suíte completa, `build`, `lint` e `architecture:check`
+sem violação. Verificação visual em navegador **não foi possível** - o
+servidor de desenvolvimento exige login com credencial real conectada
+ao Supabase de produção, que não estava disponível nesta sessão;
+confiança vem da suíte de testes + revisão de código seguindo os
+padrões já estabelecidos no mesmo arquivo.
