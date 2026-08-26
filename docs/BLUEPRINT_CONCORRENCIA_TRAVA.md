@@ -2488,3 +2488,35 @@ dois motores concordam em produção primeiro.
 
 Verificação: suíte completa (253 arquivos/1506 testes), `build`, `lint`
 e `architecture:check` sem violação.
+
+### Extração do motor legado (26/08/2026)
+
+Depois de desenhar as duas rotas para a Fase 2 (extrair o motor para
+rodar em lote no servidor, vs. um endpoint novo de telemetria
+cliente→servidor - ver seção acima), o usuário escolheu extrair agora e
+decidir depois, separadamente, sobre o script de lote + persistência.
+
+Movidas as ~885 linhas do motor legado de `src/LegacyApp.jsx:11190-12074`
+para `src/domains/planejamento/legacy-engine.js` - mesmo corpo, mesma
+lógica, nenhum comportamento mudou. `LegacyApp.jsx` passou a importar
+essas funções (para uso interno em `ObraDetalhe`/`DiarioObra`/
+`MedicaoEvolucao`) e a reexportá-las com `export *`, então nada que já
+importava esses nomes dali (`PlanejamentoView.jsx`, o teste de
+caracterização) precisou mudar. O novo módulo importa `today`/`fmtDate`
+de volta de `LegacyApp.jsx` - import circular, mas o mesmo padrão já
+usado por `PlanejamentoView.jsx` (que também importa dali e é
+lazy-carregado por `LegacyApp.jsx`); `architecture:check` confirma que
+isso não é uma violação (676→684 módulos, 0 violações).
+
+Novo teste `src/domains/planejamento/legacy-engine.boundary.test.js`
+(mesmo padrão do teste de fronteira do `LazyRecharts`) garante que
+`LegacyApp.jsx` reexporta exatamente as mesmas referências do módulo
+novo - se algum dia divergir, o teste quebra.
+
+`LegacyApp.jsx` caiu de 21.664 para 20.796 linhas com esta extração
+(quase -900 linhas) - um ganho de manutenibilidade real e imediato,
+independente do que for decidido sobre o script de lote em produção
+(ainda não escrito, continua sendo uma decisão separada).
+
+Verificação: suíte completa (254 arquivos/1507 testes), `build`, `lint`
+e `architecture:check` sem violação.
