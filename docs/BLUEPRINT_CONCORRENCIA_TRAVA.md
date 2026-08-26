@@ -2846,4 +2846,57 @@ teste de orçamento com o novo baseline, `build`, `lint` e
 
 ### Regressão visual leve para telas de gráfico
 
-Ainda não iniciado nesta rodada - próximo item da Onda 8.
+Sem infra de screenshot/diff no repo (só Storybook com stories dos
+primitivos de design system). Perguntado ao usuário; escolheu a opção
+recomendada: **stories + snapshot de estrutura DOM**, sem dependência
+nova (nada de Playwright/Chromatic).
+
+**Stories**: um `.stories.jsx` por componente para os 7 gráficos de
+`src/components/charts/` (CubChart, DreDistribuicaoCustosChart,
+DreEmpresaHistoricoChart, DreFaturamentoResultadoChart, DreMargemChart,
+FinanceiroCharts, RelatoriosChartPanel), com dados de exemplo realistas.
+`.storybook/main.js` passou a também escanear
+`src/components/charts/**/*.stories.@(js|jsx)`. `npm run build-storybook`
+confirmado funcionando (a importação circular de `LegacyApp.jsx` que
+esses componentes já usavam arrasta o monólito inteiro para dentro do
+bundle do Storybook - aceitável, é ferramenta de dev, não afeta o
+orçamento de bundle da aplicação).
+
+**Teste vitest** (`src/components/charts/charts-visual-regression.test.jsx`):
+renderiza cada componente de verdade (`react-dom/client` + `act`, mesmo
+padrão de `supplier-editor-ui.test.jsx`) e tira snapshot da estrutura do
+SVG resultante (quantos `<path>`/`<rect>`/`<line>`/`<circle>`/`<text>`,
+por que isso pega regressão real: o achado de 25/08/2026 sobre
+`LazyRecharts.jsx` mostrou que envolver um filho do Recharts em
+`React.lazy()` faz o gráfico renderizar em branco sem lançar nenhum
+erro - se isso voltar a acontecer, a contagem de elementos cai para
+~0 e o snapshot muda.
+
+Duas lacunas de jsdom precisaram de correção para o teste funcionar de
+verdade (sem elas, todo gráfico renderizava vazio silenciosamente,
+mascarando o próprio bug que o teste existe para pegar):
+1. `ResizeObserver` não existe em jsdom - `ResponsiveContainer` usa
+   `new ResizeObserver(...)`. Stub adicionado em `src/test-setup.js`
+   (afeta qualquer teste futuro que renderize Recharts, não só este).
+2. `getBoundingClientRect()` devolve tudo zerado em jsdom -
+   `ResponsiveContainer` mede o container com isso de forma síncrona no
+   mount; mockado localmente no teste (`vi.spyOn`) para um tamanho fixo
+   e realista (600×300), assim como `window.matchMedia` (mesmo stub já
+   usado em `data-table.test.jsx`, necessário porque `CubChart` usa
+   `useBreakpoint`).
+
+Achado adicional, também de jsdom (não de produção): `<Bar>`/`<Line>`
+sem `isAnimationActive={false}` (a maioria dos 7) entram animados por
+padrão do Recharts - no primeiro paint o grupo `<g class="recharts-bar-
+rectangle">` existe mas está vazio; o `<path>` real só aparece quando a
+animação de entrada termina. O teste espera ~1,6s reais antes de tirar o
+snapshot para capturar o estado assentado, em vez de mudar o
+`isAnimationActive` dos componentes de produção só para facilitar o
+teste.
+
+Verificação: suíte completa (256 arquivos/1546 testes, +1 arquivo/+8
+testes desta rodada), `build` (Storybook e app), `lint` e
+`architecture:check` sem violação.
+
+**Onda 8 concluída** (cobertura, orçamento de bundle e regressão visual
+leve para gráficos).

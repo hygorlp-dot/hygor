@@ -1,0 +1,97 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`regressão visual leve (estrutura DOM) das telas de gráfico > CubChart 1`] = `
+{
+  "circles": 0,
+  "hasSvg": true,
+  "lines": 2,
+  "paths": 1,
+  "rects": 1,
+  "svgCount": 1,
+  "texts": 3,
+}
+`;
+
+exports[`regressão visual leve (estrutura DOM) das telas de gráfico > DreDistribuicaoCustosChart 1`] = `
+{
+  "circles": 0,
+  "hasSvg": true,
+  "lines": 0,
+  "paths": 5,
+  "rects": 1,
+  "svgCount": 1,
+  "texts": 0,
+}
+`;
+
+exports[`regressão visual leve (estrutura DOM) das telas de gráfico > DreEmpresaHistoricoChart 1`] = `
+{
+  "circles": 0,
+  "hasSvg": true,
+  "lines": 2,
+  "paths": 18,
+  "rects": 1,
+  "svgCount": 1,
+  "texts": 2,
+}
+`;
+
+exports[`regressão visual leve (estrutura DOM) das telas de gráfico > DreFaturamentoResultadoChart 1`] = `
+{
+  "circles": 0,
+  "hasSvg": true,
+  "lines": 2,
+  "paths": 18,
+  "rects": 1,
+  "svgCount": 1,
+  "texts": 2,
+}
+`;
+
+exports[`regressão visual leve (estrutura DOM) das telas de gráfico > DreMargemChart 1`] = `
+{
+  "circles": 12,
+  "hasSvg": true,
+  "lines": 2,
+  "paths": 2,
+  "rects": 1,
+  "svgCount": 1,
+  "texts": 2,
+}
+`;
+
+exports[`regressão visual leve (estrutura DOM) das telas de gráfico > FinanceiroCharts 1`] = `
+{
+  "circles": 0,
+  "hasSvg": true,
+  "lines": 4,
+  "paths": 12,
+  "rects": 2,
+  "svgCount": 2,
+  "texts": 4,
+}
+`;
+
+exports[`regressão visual leve (estrutura DOM) das telas de gráfico > RelatoriosChartPanel (custos) 1`] = `
+{
+  "circles": 0,
+  "hasSvg": true,
+  "lines": 2,
+  "paths": 6,
+  "rects": 1,
+  "svgCount": 1,
+  "texts": 2,
+}
+`;
+
+exports[`regressão visual leve (estrutura DOM) das telas de gráfico > RelatoriosChartPanel (ponto) 1`] = `
+{
+  "circles": 0,
+  "hasSvg": true,
+  "lines": 2,
+  "paths": 6,
+  "rects": 1,
+  "svgCount": 1,
+  "texts": 2,
+}
+`;
