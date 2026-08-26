@@ -2963,3 +2963,44 @@ servidor de desenvolvimento exige login com credencial real conectada
 ao Supabase de produção, que não estava disponível nesta sessão;
 confiança vem da suíte de testes + revisão de código seguindo os
 padrões já estabelecidos no mesmo arquivo.
+
+### Achado real ao verificar ao vivo em produção: "Copiar de outra obra" nunca aparecia
+
+O usuário logou na produção (`pontosarcd.vercel.app`) e testou o botão -
+não aparecia. Investigação (não uma suposição): o texto "Copiar de
+outra obra" estava de fato no bundle publicado (confirmado por
+`fetch()` direto do chunk), então não era cache/deploy atrasado. A
+causa real: `Orcamento` é montado por **dois** call sites diferentes em
+`LegacyApp.jsx` - um dentro de `ObraDetalhe` (o caminho mais comum,
+navegando para dentro de uma obra) passa `data={dadosObra}`, uma
+projeção **isolada por obra** via `dadosDaObraIsolados`; o outro (tela
+"Orçamentos" fora de uma obra específica) passa `data={data}`, o
+dataset completo. Dentro de `dadosDaObraIsolados`, `obras` é filtrado
+para conter só a obra atual, e `orcamentos`/`planos` estão na lista
+`CHAVES_ISOLADAS_OBRA` (também filtrados por obra). Ou seja: quando
+aberta do jeito mais comum, a tela de Orçamento **nunca via nenhuma
+outra obra** - nem para o botão aparecer, nem para os seletores de
+origem funcionarem, mesmo que a condição parecesse correta lendo só o
+código do componente isolado.
+
+Todo uso PRÉ-EXISTENTE de `data.obras`/`orcamentos`/`planos` neste
+arquivo sempre procurava só a obra atual (que sobrevive ao filtro) -
+por isso o isolamento nunca tinha aparecido como bug antes; "Copiar de
+outra obra" foi o primeiro recurso a precisar enxergar outra obra.
+
+Corrigido com três props extras que só `ObraDetalhe` passa
+(`todasObras`, `todosOrcamentosGlobais`, `todosPlanosGlobais`, lidos do
+`data` não-isolado do próprio `ObraDetalhe`), usados exclusivamente
+pelo recurso de cópia - o isolamento em si não foi alterado, só
+contornado onde este recurso específico precisa enxergar além da obra
+atual. `build`, suíte completa, `lint` e `architecture:check` sem
+violação.
+
+Reverificado ao vivo em produção após o deploy, navegando pelo caminho
+real (ALPHAVILLE → Obra → Orçamento): botão aparece, "Obra de origem"
+lista as 14 outras obras corretamente, selecionar uma sem orçamento
+mostra "Esta obra ainda não tem nenhum orçamento", selecionar uma com
+orçamento (I-02 OÁSIS) popula o seletor de orçamento de origem com a
+versão real, e a mensagem sobre cronograma reflete corretamente que
+aquela origem não tem plano montado. Fechado com "Cancelar" sem
+confirmar a cópia, para não gravar dado real de teste em produção.
