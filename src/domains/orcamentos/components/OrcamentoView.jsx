@@ -40,6 +40,10 @@ import {
   consolidateReferenceBases as consolidarBasesReferencia,
 } from "../reference-bases";
 import { BudgetTextCell as CelulaTexto } from "../BudgetTextCell";
+import {
+  detectarColunasImportacao, montarLinhasImportacao, resumoImportacao,
+} from "../budget-import-mapping";
+import { clonarCronogramaPlano, clonarEstruturaOrcamento } from "../budget-clone";
 import { auditBudgetTechnicalScope } from "../technical-audit";
 import {
   flattenBudgetTree as achatarArvore,
@@ -138,6 +142,10 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [buscaDebounced, setBuscaDebounced] = useState("");
   const [etapaAlvo, setEtapaAlvo] = useState("");
   const [novoModal, setNovoModal] = useState(false);
+  // Copiar orçamento (e cronograma, se a obra de origem já tiver um) de
+  // outra obra - pedido do usuário em 26/08/2026, em vez de montar tudo do
+  // zero a cada obra parecida.
+  const [copiarModal, setCopiarModal] = useState(null); // {obraOrigemId, orcOrigemId}
   const [editMetaModal, setEditMetaModal] = useState(false);
   const [mapModal,  setMapModal]  = useState(null);      // {headers, rows} p/ mapear colunas
   const [colMap,    setColMap]    = useState({ codigo:"", descricao:"", unidade:"", preco:"" });
@@ -164,6 +172,11 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // Importacao do orcamento (codigo + qtd) cruzada com a base.
   const [impModal, setImpModal] = useState(null);   // {linhas, stats, substituir, incluirPend}
   const [impLoad,  setImpLoad]  = useState(false);
+  // Confirmação humana de onde estão as colunas antes de importar - a
+  // detecção automática por nome de cabeçalho é só um palpite inicial
+  // (achado real: uma planilha com "Nome" em vez de "Descrição" perdia o
+  // nome de toda etapa e de todo item sem código, em silêncio, 26/08/2026).
+  const [colMapModal, setColMapModal] = useState(null); // {headerRow, rows, hIdx, col}
   const [bdiModal,  setBdiModal]  = useState(false);
   const [bdiAba,    setBdiAba]    = useState("faixa");   // "faixa" | "detalhado"
   const [bdiTipo,   setBdiTipo]   = useState("edificios");
@@ -967,6 +980,66 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     setSelOrc(novo.id);
     setView("editor");
     showToast("Orçamento criado com as 16 etapas padrão.");
+  };
+
+  // Copia o orçamento (etapas + itens) de uma obra de origem para a obra de
+  // destino, com ids novos. Se a obra de origem já tiver um cronograma
+  // (plano) montado, copia junto - remapeado para as novas etapas e com as
+  // datas deslocadas para começar hoje.
+  const confirmarCopiaDeObra = () => {
+    const obraDestinoId = obraIdFixo || form.obraId;
+    if (!copiarModal?.orcOrigemId) { showToast("Selecione o orçamento de origem.","error"); return; }
+    if (!obraDestinoId) { showToast("Selecione a obra de destino.","error"); return; }
+    const orcOrigem = todosOrcamentos.find(o => o.id === copiarModal.orcOrigemId);
+    if (!orcOrigem) { showToast("Orçamento de origem não encontrado.","error"); return; }
+
+    const planoOrigem = (data.planos||[]).find(p => p.obraId === copiarModal.obraOrigemId);
+    const planoDestinoExistente = (data.planos||[]).find(p => p.obraId === obraDestinoId);
+    if (planoDestinoExistente?.tarefas?.length && planoOrigem?.tarefas?.length
+        && !window.confirm("A obra de destino já tem um cronograma com tarefas. Substituir pelo cronograma copiado?")) {
+      return;
+    }
+
+    const agora = new Date().toISOString();
+    const id = uid();
+    const { etapas, itens, etapaIdMap } = clonarEstruturaOrcamento(orcOrigem, uid);
+    const novo = {
+      id, versionId:id, versionNumber:1, revisionOf:"", versionStatus:"rascunho",
+      nome: String(form.nome||"").trim() || `Cópia de ${orcOrigem.nome}`,
+      descricao: orcOrigem.descricao||"", cliente: orcOrigem.cliente||"", local: orcOrigem.local||"",
+      areaM2: orcOrigem.areaM2||0, fonte: orcOrigem.fonte||"SINAPI", uf: orcOrigem.uf||"PE",
+      dataBase: orcOrigem.dataBase||"", desonerado: orcOrigem.desonerado!==false, bdi: orcOrigem.bdi||0,
+      obraId: obraDestinoId,
+      createdAt: agora, updatedAt:agora, createdById:currentUser?.id||"", createdBy:currentUser?.nome||"",
+      status: "rascunho",
+      auditoriaChecklist: [],
+      etapas, itens,
+    };
+
+    let planos = data.planos||[];
+    let copiouCronograma = false;
+    if (planoOrigem?.tarefas?.length) {
+      const { tarefas, marcos } = clonarCronogramaPlano(planoOrigem, etapaIdMap, { hoje: today(), gerarId: uid });
+      const planoNovo = {
+        id: uid(), obraId: obraDestinoId, budgetId: id, budgetVersionId: id,
+        inicio: today(), tarefas, marcos,
+        diasSemana: planoOrigem.diasSemana||[1,2,3,4,5,6],
+        pularFeriados: planoOrigem.pularFeriados!==false,
+        usarFeriadosCadastrados: planoOrigem.usarFeriadosCadastrados||false,
+        feriados: planoOrigem.feriados||[],
+      };
+      planos = planoDestinoExistente ? planos.map(p => p.obraId===obraDestinoId ? planoNovo : p) : [...planos, planoNovo];
+      copiouCronograma = true;
+    }
+
+    update({ ...data, orcamentos:[...todosOrcamentos, novo], planos });
+    setCopiarModal(null);
+    setForm(emptyOrc);
+    setSelOrc(novo.id);
+    setView("editor");
+    showToast(copiouCronograma
+      ? `Orçamento e cronograma copiados de "${data.obras.find(o=>o.id===copiarModal.obraOrigemId)?.name||"outra obra"}".`
+      : `Orçamento copiado de "${data.obras.find(o=>o.id===copiarModal.obraOrigemId)?.name||"outra obra"}". A obra de origem não tinha cronograma para copiar.`);
   };
 
   const salvarOrc = (patch) => {
@@ -2034,8 +2107,6 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     }
   };
 
-  const norm = (s) => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
-
   const importarOrcamentoXLSX = async (file) => {
     await carregarXLSX();
     if (!file || !orc) return;
@@ -2049,91 +2120,48 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       const wb   = await XLSX.read(buf, { type:"array" });
       const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"", raw:true });
 
-      // Acha o cabecalho: a linha que tem "codigo" E alguma coluna de quantidade.
-      let hIdx = -1, col = {};
-      for (let i = 0; i < Math.min(rows.length, 30); i++) {
-        const c = {};
-        (rows[i]||[]).forEach((cel, j) => {
-          const h = norm(cel);
-          if (!h) return;
-          if (c.codigo    === undefined && (h === "codigo" || h.startsWith("cod")))            c.codigo = j;
-          if (c.tipo      === undefined && h === "tipo")                                        c.tipo = j;
-          if (c.descricao === undefined && (h === "item" || h.startsWith("descri")))            c.descricao = j;
-          if (c.unidade   === undefined && (h === "un." || h === "un" || h.startsWith("unid"))) c.unidade = j;
-          if (c.qtd       === undefined && (h.startsWith("qtd") || h.startsWith("quant")))      c.qtd = j;
-          if (c.preco === undefined && (h.includes("preco unit") || h.includes("p. unit") || h === "preco" || h === "valor unitario")) c.preco = j;
-          if (c.total === undefined && (h.includes("custo total") || h.includes("valor total") || h === "total")) c.total = j;
-          if (c.composicao === undefined && (h.startsWith("compos") || h.includes("memoria de preco"))) c.composicao = j;
-          if (c.fonte === undefined && h === "fonte") c.fonte = j;
-        });
-        if (c.codigo !== undefined && c.qtd !== undefined) { hIdx = i; col = c; break; }
-      }
+      // Acha o cabecalho (linha com Codigo E Quantidade) e monta um PALPITE
+      // inicial das demais colunas - a confirmacao de onde esta cada coluna
+      // e sempre humana, no modal que abre em seguida.
+      const { hIdx, col } = detectarColunasImportacao(rows);
       if (hIdx < 0) {
-        showToast("Não achei as colunas Código e Qtd. na planilha.", "error");
+        showToast("Não achei uma linha de cabeçalho com Código e Quantidade na planilha.", "error");
         setImpLoad(false); return;
       }
 
-      const linhas = [];
-      for (let i = hIdx + 1; i < rows.length; i++) {
-        const r    = rows[i] || [];
-        const cod  = String(r[col.codigo] ?? "").trim().toUpperCase();
-        const tipo = norm(col.tipo !== undefined ? r[col.tipo] : "");
-        const desc = String(col.descricao !== undefined ? r[col.descricao] : "").trim();
-        const qtd  = col.qtd !== undefined ? parseBR(r[col.qtd]) : 0;
-        if (!cod && !desc) continue;                       // linha vazia
-        if (norm(desc).startsWith("total")) continue;      // rodape de totais
-
-        // Estrutura: pelo Tipo quando existe; senao, linha com texto e sem
-        // codigo/qtd so pode ser titulo de etapa.
-        const ehNivel = tipo === "nivel" || (!tipo && !cod && qtd <= 0 && !!desc);
-        const ehSub   = tipo === "subnivel";
-        if (ehNivel || ehSub) {
-          linhas.push({ kind:"etapa", nivel: ehSub ? 2 : 1, nome: desc || "Etapa", _i:i+1 });
-          continue;
-        }
-        if (tipo === "titulo") { linhas.push({ kind:"titulo", descricao: desc, _i:i+1 }); continue; }
-
-        // Item: o codigo manda. Sem codigo, e produto avulso.
-        const b = cod ? basePorCodigo.get(cod) : null;
-        const preco = b ? precoDoItem(b, orc) : 0;
-        linhas.push({
-          kind: "item",
-          codigo: cod,
-          descricao: b ? b.descricao : (desc || "(código não localizado — sem descrição)"),
-          unidade:   b ? (b.unidade || "UN") : "UN",
-          fonte:     b ? (b.fonte || orc.fonte) : "NÃO LOCALIZADO",
-          quantidade: qtd,
-          precoUnit: preco,
-          composicao: "",
-          codigoNaoEncontrado: !cod || !b,
-          achou:  !!b,
-          semQtd: !(qtd > 0),
-          semPreco: !(preco > 0),
-          _i: i+1,
-        });
-      }
-
-      const itens = linhas.filter(l => l.kind === "item");
-      if (!itens.length) { showToast("Nenhum item com código encontrado na planilha.", "error"); setImpLoad(false); return; }
-
-      setImpModal({
-        linhas,
-        stats: {
-          etapas:   linhas.filter(l => l.kind === "etapa").length,
-          itens:    itens.length,
-          ok:       itens.filter(i => i.achou && !i.semPreco && !i.semQtd).length,
-          naoAchou: itens.filter(i => !i.achou).length,
-          semPreco: itens.filter(i => i.semPreco).length,
-          semQtd:   itens.filter(i => i.semQtd).length,
-          valor:    itens.reduce((s,i) => s + i.quantidade * i.precoUnit, 0),
-        },
-        substituir: false,
-        incluirPend: true,
-      });
+      // Sempre pede confirmação humana das 4 colunas que importam de verdade
+      // (código, descrição, quantidade, preço) antes de montar qualquer linha -
+      // a detecção por nome de cabeçalho já perdeu em silêncio o nome de toda
+      // etapa e de todo item sem código numa planilha que usava "Nome" em vez
+      // de "Descrição" (achado real, 26/08/2026).
+      setColMapModal({ headerRow: rows[hIdx] || [], rows, hIdx, col });
     } catch (e) {
       showToast("Não consegui ler a planilha: " + e.message, "error");
     }
     setImpLoad(false);
+  };
+
+  // Aplica o mapeamento de colunas confirmado (ou ajustado) pelo usuário e
+  // monta a pré-visualização de importação (impModal).
+  const confirmarMapeamentoImportacao = () => {
+    if (!colMapModal) return;
+    const { rows, hIdx, col } = colMapModal;
+    if (col.codigo === undefined || col.descricao === undefined || col.qtd === undefined || col.preco === undefined) {
+      showToast("Selecione as quatro colunas (código, descrição, quantidade e preço) antes de importar.", "error");
+      return;
+    }
+
+    const linhas = montarLinhasImportacao({ rows, hIdx, col, basePorCodigo, precoDoItem, orc, parseNumero: parseBR });
+    const itens = linhas.filter(l => l.kind === "item");
+    if (!itens.length) { showToast("Nenhum item com código encontrado na planilha.", "error"); return; }
+
+    setColMapModal(null);
+    setImpModal({
+      linhas,
+      stats: resumoImportacao(linhas),
+      substituir: false,
+      incluirPend: true,
+    });
   };
 
   // Aplica a importacao: cria as etapas na ordem e pendura os itens nelas.
@@ -2422,7 +2450,10 @@ ${blocoBDI}
             <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:800,color:C.text,lineHeight:1,marginTop:2}}>Orçamentos</p>
             <p style={{color:C.muted,fontSize:12,marginTop:4}}>Planilha orçamentária com BDI e exportação</p>
           </div>
-          <Btn onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setNovoModal(true);}}><Ic n="plus"/> Novo</Btn>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {data.obras.some(o=>o.id!==obraIdFixo)&&<Btn v="ghost" onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setCopiarModal({obraOrigemId:"",orcOrigemId:""});}}><Ic n="copy"/> Copiar de outra obra</Btn>}
+            <Btn onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setNovoModal(true);}}><Ic n="plus"/> Novo</Btn>
+          </div>
         </div>
 
         {obraIdFixo&&!getActiveBudgetBaseline(data,obraIdFixo,"controle").budget&&orcamentos.length>0&&(
@@ -2518,6 +2549,49 @@ ${blocoBDI}
             </div>
           </Modal>
         )}
+
+        {/* Modal copiar orçamento (e cronograma) de outra obra */}
+        {copiarModal && (() => {
+          const obraDestinoId = obraIdFixo || form.obraId;
+          const orcsDaOrigem = todosOrcamentos.filter(o => o.obraId === copiarModal.obraOrigemId);
+          const planoOrigemTemTarefas = !!(data.planos||[]).find(p => p.obraId === copiarModal.obraOrigemId)?.tarefas?.length;
+          return (
+            <Modal title="Copiar de outra obra" onClose={()=>setCopiarModal(null)} wide>
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                <p style={{fontSize:12,color:C.muted,lineHeight:1.5}}>
+                  Cria um orçamento novo nesta obra a partir das etapas e itens de um orçamento já existente em outra obra. Se a obra de origem já tiver um cronograma montado, ele também é copiado - com datas deslocadas para começar hoje.
+                </p>
+                {!obraIdFixo && (
+                  <Sel label="Obra de destino *" value={form.obraId} onChange={F("obraId")}
+                       options={[{v:"",l:"- Selecione -"}, ...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
+                )}
+                <Sel label="Obra de origem *" value={copiarModal.obraOrigemId}
+                     onChange={v=>setCopiarModal({ obraOrigemId:v, orcOrigemId:"" })}
+                     options={[{v:"",l:"- Selecione -"}, ...data.obras.filter(o=>o.id!==obraDestinoId).map(o=>({v:o.id,l:o.name}))]}/>
+                {copiarModal.obraOrigemId && (
+                  orcsDaOrigem.length
+                    ? <Sel label="Orçamento de origem *" value={copiarModal.orcOrigemId}
+                           onChange={v=>setCopiarModal(m=>({...m,orcOrigemId:v}))}
+                           options={[{v:"",l:"- Selecione -"}, ...orcsDaOrigem.map(o=>({v:o.id,l:`${o.nome} · V${o.versionNumber||1}`}))]}/>
+                    : <p style={{fontSize:11.5,color:C.orange}}>Esta obra ainda não tem nenhum orçamento.</p>
+                )}
+                {copiarModal.orcOrigemId && (
+                  <p style={{fontSize:11,color:C.muted}}>
+                    {planoOrigemTemTarefas
+                      ? "Esta origem tem um cronograma montado - será copiado junto, com as datas deslocadas para começar hoje."
+                      : "Esta origem ainda não tem cronograma montado - só o orçamento será copiado."}
+                  </p>
+                )}
+                <Inp label="Nome do novo orçamento" value={form.nome} onChange={F("nome")}
+                     placeholder={copiarModal.orcOrigemId ? `Cópia de ${todosOrcamentos.find(o=>o.id===copiarModal.orcOrigemId)?.nome||""}` : ""}/>
+                <div style={{display:"flex",gap:8}}>
+                  <Btn v="ghost" onClick={()=>setCopiarModal(null)} full>Cancelar</Btn>
+                  <Btn onClick={confirmarCopiaDeObra} full disabled={!copiarModal.orcOrigemId||!obraDestinoId}><Ic n="copy"/> Copiar</Btn>
+                </div>
+              </div>
+            </Modal>
+          );
+        })()}
       </div>
     );
   }
@@ -3461,6 +3535,44 @@ ${blocoBDI}
           </p>
         </div>
       </div>
+
+      {/* Modal: confirmar onde está cada coluna antes de qualquer linha ser lida */}
+      {colMapModal && (() => {
+        const { headerRow, rows, hIdx, col } = colMapModal;
+        const primeiraLinha = rows[hIdx+1] || [];
+        const opcoesColuna = [
+          { v:"", l:"Não usar" },
+          ...headerRow.map((cel,j) => ({ v:String(j), l:`${String(cel||"").trim()||"(vazio)"}  →  ${String(primeiraLinha[j] ?? "").slice(0,32)}` })),
+        ];
+        const setCol = (chave,valor) => setColMapModal(m => ({ ...m, col:{ ...m.col, [chave]: valor==="" ? undefined : Number(valor) } }));
+        const campos = [
+          { k:"codigo",    l:"Código",      obrig:true  },
+          { k:"descricao", l:"Descrição",   obrig:true  },
+          { k:"qtd",       l:"Quantidade",  obrig:true  },
+          { k:"preco",     l:"Preço",       obrig:true  },
+          { k:"tipo",      l:"Tipo",        obrig:false },
+          { k:"unidade",   l:"Unidade",     obrig:false },
+        ];
+        return (
+          <Modal title="Onde está cada coluna?" onClose={()=>setColMapModal(null)} wide>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <p style={{fontSize:12,color:C.muted,lineHeight:1.5}}>
+                A detecção automática pelo nome do cabeçalho é só um palpite. Confirme (ou corrija) qual coluna da planilha é cada campo antes de importar - especialmente <b>Código</b>, <b>Descrição</b>, <b>Quantidade</b> e <b>Preço</b>.
+              </p>
+              <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:9}}>
+                {campos.map(c => (
+                  <Sel key={c.k} label={`${c.l}${c.obrig?" *":""}`} value={col[c.k]===undefined?"":String(col[c.k])}
+                       onChange={v=>setCol(c.k,v)} options={opcoesColuna}/>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <Btn v="ghost" onClick={()=>setColMapModal(null)} full>Cancelar</Btn>
+                <Btn onClick={confirmarMapeamentoImportacao} full><Ic n="check"/> Confirmar e continuar</Btn>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {/* Modal: conferir a importação antes de aplicar */}
       {impModal && (() => {
