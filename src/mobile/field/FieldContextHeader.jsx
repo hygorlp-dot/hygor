@@ -1,2 +1,0 @@
-import "./styles.css";
-export function FieldContextHeader({ project, userName }) { return <header className="arcd-field-context"><span className="arcd-field-context__eyebrow">Modo Campo</span><h1 className="arcd-field-context__title">{project?.name || "Selecione uma obra"}</h1><span className="arcd-field-context__meta">{project ? [project.address, userName].filter(Boolean).join(" · ") : "Escolha a obra ativa para registrar atividades."}</span></header>; }

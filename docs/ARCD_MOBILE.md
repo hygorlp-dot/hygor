@@ -1,5 +1,24 @@
 # ARCD Mobile — fundação progressiva
 
+## Status: arquivada em 26/08/2026
+
+Um mês parado (últimos commits: 26-30/07/2026) sem o piloto de Fornecedores
+sair do papel - a flag `features.newSupplierEditor` segue `false`, e essa era
+a única condição de saída documentada nesta fundação. Investigado antes de
+arquivar (não era código esquecido por acidente: o comentário no topo deste
+documento já previa isolamento até validação de piloto).
+
+Os componentes da fundação (Shell, Campo, Edição, Dados, Filtros, Conexão,
+Dashboard - ver tabela "Componentes entregues" abaixo) foram movidos para a
+branch `archive/mobile-foundation-2026-08` e removidos de `main`.
+`LegacyMobileNavigation` (nav inferior do app legado) e seu `MobileMoreMenu`
+continuam em `src/mobile/` - são os únicos que têm uso real hoje.
+
+Para retomar: `git checkout archive/mobile-foundation-2026-08 -- src/mobile`
+recupera os arquivos; o piloto de Fornecedores (seção "Próximo piloto" abaixo)
+continua sendo o ponto de entrada natural, condicionado à paridade de CNPJ/CEP
+no novo editor.
+
 ## Limites desta etapa
 
 Esta fundação muda apenas a apresentação e permanece isolada do fluxo legado até cada piloto ser validado. Não altera fórmulas, regras financeiras, banco, blob persistido, API, autenticação, permissões, migrações ou variáveis de ambiente.
