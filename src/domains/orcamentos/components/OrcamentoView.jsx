@@ -57,6 +57,9 @@ import {
   listarBasesReferencia, pesquisarBasesReferencia, pesquisarInsumosReferencia,
   resolverCodigosReferencia, detalharComposicoesReferencia,
 } from "../../../api";
+import {
+  BITOLAS_ACO, novaSapataTipo, resumoSapatas,
+} from "../memoria-calculo-estrutural";
 
 // Total de um item com BDI. Se o item tiver BDI proprio (it.bdi), ele prevalece
 // sobre o BDI global do orcamento - permite uma linha com BDI diferente.
@@ -92,7 +95,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // parecer o orçamento vigente apenas por ser a última criada.
   const orcamentoFixoInicial=obraIdFixo?getActiveBudgetBaseline(data,obraIdFixo,"controle").budget:null;
   const [view,      setView]      = useState(orcamentoFixoInicial?"editor":"lista");   // "lista" | "editor"
-  const [orcAba,    setOrcAba]    = useState("orcamento"); // orçamento | insumos | próprias
+  const [orcAba,    setOrcAba]    = useState("orcamento"); // orçamento | insumos | próprias | memoria
+  const [pavimentoMemoria,setPavimentoMemoria]=useState("fundacao"); // fundacao | terreo | pavimento1 | cobertura
   const [selOrc,    setSelOrc]    = useState(()=>orcamentoFixoInicial?.id||getActiveBudgetBaseline(data,obraContextoSalvo(),"controle").budget?.id||null);      // id do orçamento aberto
   const [basesRemotas, setBasesRemotas] = useState([]);
   const [basesCarregando, setBasesCarregando] = useState(false);
@@ -645,6 +649,18 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     scrollAlvoRef.current = window.scrollY;
     update({ ...data, orcamentos: todosOrcamentos.map(o => o.id===selOrc ? {...o, ...patch,updatedAt:new Date().toISOString()} : o) });
   };
+
+  // Memória de cálculo estrutural - painel de referência por pavimento
+  // (guardado dentro do próprio orçamento, ao lado de itens/etapas; não
+  // escreve nas linhas do orçamento sozinho - decisão tomada com o usuário).
+  const sapatasFundacao = orc?.memoriaCalculo?.fundacao?.sapatas || [];
+  const resumoSapatasFundacao = useMemo(() => resumoSapatas(sapatasFundacao), [sapatasFundacao]);
+  const salvarSapatasFundacao = (novaLista) => salvarOrc({
+    memoriaCalculo: { ...(orc?.memoriaCalculo || {}), fundacao: { ...(orc?.memoriaCalculo?.fundacao || {}), sapatas: novaLista } },
+  });
+  const adicionarSapataTipo = () => salvarSapatasFundacao([...sapatasFundacao, novaSapataTipo({ id: uid() })]);
+  const atualizarSapataTipo = (id, patch) => salvarSapatasFundacao(sapatasFundacao.map(t => t.id === id ? { ...t, ...patch } : t));
+  const removerSapataTipo = id => salvarSapatasFundacao(sapatasFundacao.filter(t => t.id !== id));
 
   const salvarRevisaoChecklist=()=>{
     if(!checkEdit)return;
@@ -2289,6 +2305,7 @@ ${blocoBDI}
           ["orcamento","ORÇAMENTO"],
           ["insumos","INSUMOS E COMPOSIÇÕES / CURVA ABC"],
           ["proprias","COMPOSIÇÕES PRÓPRIAS"],
+          ["memoria","MEMÓRIA DE CÁLCULO"],
         ].map(([valor,label])=><button key={valor} onClick={()=>setOrcAba(valor)} style={{
           flex:"1 1 180px",border:`1px solid ${orcAba===valor?C.blue:C.border}`,borderRadius:6,padding:"8px 10px",
           background:orcAba===valor?`${C.blue}12`:C.bg,color:orcAba===valor?C.blue:C.muted,
@@ -3804,6 +3821,122 @@ ${blocoBDI}
             </table>{!(compForm.itens||[]).length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:13}}>Pesquise e adicione os insumos.</p>}</div>
             <div style={{display:"flex",gap:7,justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>novaComposicao()}>LIMPAR</Btn><Btn onClick={salvarComposicaoPropria}><Ic n="check"/> SALVAR COMPOSIÇÃO</Btn></div>
           </div>
+        </div>
+      )}
+
+      {orcAba==="memoria" && (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{background:`${C.blue}0a`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 11px"}}>
+            <p style={{fontSize:10.5,color:C.muted,lineHeight:1.55}}>
+              Painel de referência: os quantitativos aqui não alteram sozinhos as linhas do orçamento - sirvam para conferir e, depois de validados, lançar manualmente a quantidade correta na composição correspondente. Ficam salvos junto com esta versão do orçamento.
+            </p>
+          </div>
+
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+            {[["fundacao","FUNDAÇÃO"],["terreo","TÉRREO"],["pavimento1","1º PAVIMENTO"],["cobertura","COBERTURA"]].map(([valor,label])=>(
+              <button key={valor} onClick={()=>setPavimentoMemoria(valor)} style={{
+                border:`1px solid ${pavimentoMemoria===valor?C.blue:C.border}`,
+                background:pavimentoMemoria===valor?`${C.blue}12`:C.bg,
+                color:pavimentoMemoria===valor?C.blue:C.muted,
+                borderRadius:6,padding:"7px 12px",fontSize:10,fontWeight:800,cursor:"pointer",
+              }}>{label}</button>
+            ))}
+          </div>
+
+          {pavimentoMemoria==="fundacao" ? (
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>SAPATAS</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Uma linha por tipo de sapata (peças com a mesma dimensão), com a quantidade de peças daquele tipo - mesmo agrupamento que o próprio projeto estrutural já usa.</p></div>
+                <Btn size="sm" v="info" onClick={adicionarSapataTipo}><Ic n="plus"/> NOVO TIPO</Btn>
+              </div>
+
+              <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}>
+                <table style={{width:"100%",minWidth:1900,borderCollapse:"collapse",fontSize:9.5}}>
+                  <thead>
+                    <tr style={{background:C.surface}}>
+                      {["TIPO (pilares)","QTD PEÇAS","LARG.(m)","COMPR.(m)","ALT.BASE(m)","ALT.TRONCO(m)",
+                        "ESCAV. LARG.(m)","ESCAV. COMPR.(m)","ESCAV. PROF.(m)","VOL. ESCAVAÇÃO(m³)",
+                        "CONC.MAGRO(m²)","FÔRMAS(m²)","CONCR.BASE(m³)","CONCR.TRONCO(m³)","CONCR.SAPATA(m³)","REATERRO(m³)",
+                        "ARM.X BITOLA","ARM.X QTD","ARM.X COMPR.(m)","ARM.Y BITOLA","ARM.Y QTD","ARM.Y COMPR.(m)","PESO AÇO(kg)",""]
+                        .map(h=><th key={h} style={{padding:"6px 5px",textAlign:/\(m|QTD|PEÇAS/.test(h)?"right":"left",color:C.muted,fontSize:8.3,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {resumoSapatasFundacao.linhas.map(({tipo,calc})=>{
+                      const numInput=(campo,largura=58)=><input type="number" step="any" value={tipo[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[campo]:e.target.value})}
+                        style={{width:largura,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:9.5}}/>;
+                      const armInput=(direcao,campo,largura=54)=><input type="number" step="any" value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value}})}
+                        style={{width:largura,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:9.5}}/>;
+                      const armSelect=direcao=><select value={tipo[direcao]?.bitola} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],bitola:e.target.value}})}
+                        style={{padding:"4px 3px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:9.5}}>
+                        {BITOLAS_ACO.map(b=><option key={b} value={b}>∅{b}</option>)}
+                      </select>;
+                      return (
+                        <tr key={tipo.id} style={{borderBottom:`1px solid ${C.line}`}}>
+                          <td style={{padding:4}}><input value={tipo.tipo} onChange={e=>atualizarSapataTipo(tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:170,boxSizing:"border-box",padding:"4px 6px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:9.5}}/></td>
+                          <td style={{padding:4}}>{numInput("qtd",48)}</td>
+                          <td style={{padding:4}}>{numInput("largura")}</td>
+                          <td style={{padding:4}}>{numInput("comprimento")}</td>
+                          <td style={{padding:4}}>{numInput("alturaBase")}</td>
+                          <td style={{padding:4}}>{numInput("alturaTronco")}</td>
+                          <td style={{padding:4}}>{numInput("larguraEscavacao")}</td>
+                          <td style={{padding:4}}>{numInput("comprimentoEscavacao")}</td>
+                          <td style={{padding:4}}>{numInput("profundidadeEscavacao")}</td>
+                          <td style={{padding:"4px 5px",textAlign:"right",color:C.blue,fontWeight:700}}>{calc.volumeEscavacaoTotal.toFixed(2)}</td>
+                          <td style={{padding:"4px 5px",textAlign:"right",color:C.muted}}>{calc.areaConcretoMagroTotal.toFixed(2)}</td>
+                          <td style={{padding:4}} title="Preenchimento manual - a fôrma da sapata (só o tronco costuma precisar) varia por convenção de cada projeto/equipe.">{numInput("formaArea")}</td>
+                          <td style={{padding:"4px 5px",textAlign:"right",color:C.muted}}>{calc.volumeBaseTotal.toFixed(2)}</td>
+                          <td style={{padding:"4px 5px",textAlign:"right",color:C.muted}}>{calc.volumeTroncoTotal.toFixed(2)}</td>
+                          <td style={{padding:"4px 5px",textAlign:"right",fontWeight:800,color:C.text}}>{calc.volumeSapataTotal.toFixed(2)}</td>
+                          <td style={{padding:"4px 5px",textAlign:"right",color:C.orange}}>{calc.reaterroTotal.toFixed(2)}</td>
+                          <td style={{padding:4}}>{armSelect("armaduraX")}</td>
+                          <td style={{padding:4}}>{armInput("armaduraX","quantidade",44)}</td>
+                          <td style={{padding:4}}>{armInput("armaduraX","comprimento",54)}</td>
+                          <td style={{padding:4}}>{armSelect("armaduraY")}</td>
+                          <td style={{padding:4}}>{armInput("armaduraY","quantidade",44)}</td>
+                          <td style={{padding:4}}>{armInput("armaduraY","comprimento",54)}</td>
+                          <td style={{padding:"4px 5px",textAlign:"right",fontWeight:800,color:C.purple}}>{calc.pesoAcoTotal.toFixed(1)}</td>
+                          <td style={{padding:4}}><button onClick={()=>removerSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>x</button></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  {resumoSapatasFundacao.linhas.length>0&&<tfoot>
+                    <tr style={{background:C.surface,fontWeight:800}}>
+                      <td style={{padding:"6px 5px"}}>TOTAIS</td><td/><td/><td/><td/><td/><td/><td/><td/>
+                      <td style={{padding:"6px 5px",textAlign:"right",color:C.blue}}>{resumoSapatasFundacao.totais.volumeEscavacao.toFixed(2)}</td>
+                      <td style={{padding:"6px 5px",textAlign:"right"}}>{resumoSapatasFundacao.totais.areaConcretoMagro.toFixed(2)}</td>
+                      <td style={{padding:"6px 5px",textAlign:"right"}}>{resumoSapatasFundacao.totais.formaArea.toFixed(2)}</td>
+                      <td style={{padding:"6px 5px",textAlign:"right"}}>{resumoSapatasFundacao.totais.volumeBase.toFixed(2)}</td>
+                      <td style={{padding:"6px 5px",textAlign:"right"}}>{resumoSapatasFundacao.totais.volumeTronco.toFixed(2)}</td>
+                      <td style={{padding:"6px 5px",textAlign:"right"}}>{resumoSapatasFundacao.totais.volumeSapata.toFixed(2)}</td>
+                      <td style={{padding:"6px 5px",textAlign:"right",color:C.orange}}>{resumoSapatasFundacao.totais.reaterro.toFixed(2)}</td>
+                      <td/><td/><td/><td/><td/><td/>
+                      <td style={{padding:"6px 5px",textAlign:"right",color:C.purple}}>{resumoSapatasFundacao.totais.pesoAco.toFixed(1)}</td>
+                      <td/>
+                    </tr>
+                  </tfoot>}
+                </table>
+                {!resumoSapatasFundacao.linhas.length&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhum tipo de sapata cadastrado. Clique em "NOVO TIPO" para começar.</p>}
+              </div>
+
+              {resumoSapatasFundacao.acoPorBitola.length>0&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
+                <p style={{fontSize:10.5,fontWeight:900,color:C.purple}}>RESUMO DE AÇO POR BITOLA (já com 10% de perda)</p>
+                <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6}}>
+                  {resumoSapatasFundacao.acoPorBitola.map(l=><div key={l.bitola} style={{border:`1px solid ${C.border}`,borderRadius:6,padding:"6px 10px"}}>
+                    <b style={{fontSize:11,color:C.text}}>∅{l.bitola}mm</b><span style={{fontSize:10.5,color:C.muted,marginLeft:6}}>{l.kg.toFixed(1)} kg</span>
+                  </div>)}
+                  <div style={{border:`1px solid ${C.purple}55`,background:`${C.purple}0c`,borderRadius:6,padding:"6px 10px"}}>
+                    <b style={{fontSize:11,color:C.purple}}>TOTAL</b><span style={{fontSize:10.5,color:C.purple,marginLeft:6,fontWeight:800}}>{resumoSapatasFundacao.totais.pesoAco.toFixed(1)} kg</span>
+                  </div>
+                </div>
+              </div>}
+            </div>
+          ) : (
+            <p style={{padding:24,textAlign:"center",fontSize:11,color:C.muted,background:C.bg,border:`1px solid ${C.border}`,borderRadius:7}}>
+              Ainda não construído para este pavimento. Vamos por partes - fale comigo quando quiser seguir para {pavimentoMemoria==="terreo"?"o Térreo":pavimentoMemoria==="pavimento1"?"o 1º Pavimento":"a Cobertura"}.
+            </p>
+          )}
         </div>
       )}
 
