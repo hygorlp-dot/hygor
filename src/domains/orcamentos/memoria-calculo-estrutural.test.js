@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  calcularSapataTipo, novaSapataTipo, pesoUnitarioAco, resumoSapatas,
+  calcularPilarTipo, calcularSapataTipo, novaPilarTipo, novaSapataTipo, pesoUnitarioAco, resumoPilares, resumoSapatas,
 } from "./memoria-calculo-estrutural";
 
 describe("pesoUnitarioAco", () => {
@@ -130,6 +130,41 @@ describe("resumoSapatas", () => {
     const { totais, acoPorBitola, linhas } = resumoSapatas([]);
     expect(linhas).toEqual([]);
     expect(acoPorBitola).toEqual([]);
+    expect(Object.values(totais).every(v => v === 0)).toBe(true);
+  });
+});
+
+describe("calcularPilarTipo - concreto/fôrma/aço são valores diretos (já vêm prontos do projeto)", () => {
+  it("multiplica cada valor unitário pela quantidade de pilares do grupo", () => {
+    // P10 real (Estrutural.pdf, E-03/13): concreto 0.07m3, fôrma 1.35m2, aço 1.6kg por pilar.
+    const tipo = novaPilarTipo({ qtd: 9, concretoUnit: 0.07, formaUnit: 1.35, acoUnit: 1.6 });
+    const calc = calcularPilarTipo(tipo);
+    expect(calc.concretoTotal).toBeCloseTo(0.63);
+    expect(calc.formaTotal).toBeCloseTo(12.15);
+    expect(calc.acoTotal).toBeCloseTo(14.4);
+  });
+
+  it("não multiplica por quantidade negativa (trata como zero)", () => {
+    const calc = calcularPilarTipo(novaPilarTipo({ qtd: -3, concretoUnit: 1, formaUnit: 1, acoUnit: 1 }));
+    expect(calc.concretoTotal).toBe(0);
+  });
+});
+
+describe("resumoPilares", () => {
+  it("soma concreto/fôrma/aço de todos os tipos", () => {
+    const tipos = [
+      novaPilarTipo({ qtd: 9, concretoUnit: 0.07, formaUnit: 1.35, acoUnit: 1.6 }),
+      novaPilarTipo({ qtd: 2, concretoUnit: 0.42, formaUnit: 5.64, acoUnit: 5.8, planta: "Térreo, 1º Pavimento" }),
+    ];
+    const { totais } = resumoPilares(tipos);
+    expect(totais.concreto).toBeCloseTo(0.63 + 0.84);
+    expect(totais.forma).toBeCloseTo(12.15 + 11.28);
+    expect(totais.aco).toBeCloseTo(14.4 + 11.6);
+  });
+
+  it("devolve zero em tudo para uma lista vazia, sem quebrar", () => {
+    const { totais, linhas } = resumoPilares([]);
+    expect(linhas).toEqual([]);
     expect(Object.values(totais).every(v => v === 0)).toBe(true);
   });
 });

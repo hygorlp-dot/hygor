@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  contarPilares, extrairAnotacoesPosicao, extrairQuadroSapatas, extrairResumoAcoFundacao, extrairSapatasFundacao,
+  contarPilares, extrairAnotacoesPosicao, extrairPilares, extrairQuadroSapatas, extrairResumoAcoFundacao, extrairSapatasFundacao,
 } from "./estrutural-pdf-extrator";
 
 // Texto real extraído (pdftotext, sem -layout) da folha E-02/13 do projeto
@@ -299,5 +299,50 @@ describe("extrairResumoAcoFundacao - conferência contra o total real da página
 
   it("devolve null se não achar a seção Resumo Aço", () => {
     expect(extrairResumoAcoFundacao(QUADRO_REAL)).toBeNull();
+  });
+});
+
+// Três trechos reais extraídos (pdfjs-dist, mesmo caminho de produção do
+// app) do Estrutural.pdf do usuário - um pilar sozinho no Térreo (E-03/13),
+// um pilar que atravessa dois pavimentos (Fundação até o 1º Pavimento,
+// mesma folha), e um grupo de 9 pilares idênticos na Cobertura (E-10/13) -
+// este último é o caso que expôs o bug do corte "primeiro caractere que não
+// seja C" (quebrava quando o próprio valor de Planta era "Cobertura").
+const PILAR_TERREO_REAL = "P10  Fundação  Térreo  A   A B   B  4N2  A   A B   B  Vista XX  -1.500 +0.000  -0.300  4N2  Vista YY   N1 c/12 12Ø5  5  30   210 4N2Ø10 C=240  4N2  15  30   4N2Ø10  Corte A-A  25 10 5  N1Ø5c/12 C=79  4N2  15  30   4N2Ø10  Corte B-B  25 10 5  N1Ø5c/12 C=79  Aço: CA-50 e CA-60 (1.6 kg). Taxa: 22.05 kg/m3   Planta: Térreo Concreto: C25, usina.rigor (0.07 m3)   Tamanho máximo do agregado: 19 mm   Escala 1:75 Fôrmas: 1.35 m2   Cobrimento: 2.5 cm ";
+
+const PILAR_DOIS_PAVIMENTOS_REAL = "P7=P8  Fundação 1º Pavimento  A   A B   B  4N2  A   A B   B  Vista XX  -1.500 +3.200  +2.700  4N2  Vista YY  N1 c/15 31Ø5  5  30   540 4N2Ø12.5 C=570  4N2  30  30   4N2Ø12.5  Corte A-A  25 25 5  N1Ø5c/15 C=109  4N2  30  30   4N2Ø12.5  Corte B-B  25 25 5  N1Ø5c/15 C=109  Aço: CA-50 e CA-60 (5.8 kg). Taxa: 12.54 kg/m3   Planta: Térreo, 1º Pavimento Concreto: C25, usina.rigor (0.42 m3)   Tamanho máximo do agregado: 19 mm   Escala 1:75 Fôrmas: 5.64 m2   Cobrimento: 2.5 cm ";
+
+const PILAR_GRUPO_COBERTURA_REAL = "P1=P3=P4=P5=P6=P9=P11=P21=P22  1º Pavimento Cobertura  A   A  4N1  A   A  Vista XX  +3.200 +6.400  +5.900  4N1  Vista YY  N2 c/12 27Ø5  5   4N1Ø10 C=318  4N1  15  30   4N1Ø10  Corte A-A  25 10 5  N2Ø5c/12 C=79  Aço: CA-50 e CA-60 (12.3 kg). Taxa: 77.69 kg/m3   Planta: Cobertura Concreto: C25, usina.rigor (0.14 m3)   Tamanho máximo do agregado: 19 mm   Escala 1:75 Fôrmas: 2.88 m2   Cobrimento: 2.5 cm  P10  1";
+
+describe("extrairPilares", () => {
+  it("lê concreto/fôrma/aço já prontos de um pilar sozinho (Térreo)", () => {
+    const [pilar] = extrairPilares(PILAR_TERREO_REAL);
+    expect(pilar).toEqual({ tipo: "P10", qtd: 1, planta: "Térreo", concretoUnit: 0.07, formaUnit: 1.35, acoUnit: 1.6 });
+  });
+
+  it("mantém concreto/fôrma/aço como valor UNITÁRIO mesmo num grupo de vários pilares idênticos", () => {
+    // P10 sozinho e o grupo de 9 pilares abaixo têm a MESMA seção - o
+    // projeto imprime os dois com exatamente os mesmos 0.07/1.35/1.6,
+    // provando que não é um total do grupo (senão seria 9x maior aqui).
+    const grupo = "P1=P3=P4=P5=P6=P9=P11=P21=P22" + PILAR_TERREO_REAL.slice(PILAR_TERREO_REAL.indexOf(" "));
+    const [pilar] = extrairPilares(grupo);
+    expect(pilar.qtd).toBe(9);
+    expect(pilar.concretoUnit).toBeCloseTo(0.07);
+    expect(pilar.formaUnit).toBeCloseTo(1.35);
+    expect(pilar.acoUnit).toBeCloseTo(1.6);
+  });
+
+  it("guarda os pavimentos que o pilar atravessa quando ele não fica num só (Fundação até o 1º Pavimento)", () => {
+    const [pilar] = extrairPilares(PILAR_DOIS_PAVIMENTOS_REAL);
+    expect(pilar).toEqual({ tipo: "P7=P8", qtd: 2, planta: "Térreo, 1º Pavimento", concretoUnit: 0.42, formaUnit: 5.64, acoUnit: 5.8 });
+  });
+
+  it("lê corretamente quando o valor de Planta é o nome de um só pavimento (Cobertura) - caso que quebrava o corte antigo", () => {
+    const [pilar] = extrairPilares(PILAR_GRUPO_COBERTURA_REAL);
+    expect(pilar).toEqual({ tipo: "P1=P3=P4=P5=P6=P9=P11=P21=P22", qtd: 9, planta: "Cobertura", concretoUnit: 0.14, formaUnit: 2.88, acoUnit: 12.3 });
+  });
+
+  it("devolve array vazio quando não acha nenhum bloco de detalhamento", () => {
+    expect(extrairPilares("nada aqui")).toEqual([]);
   });
 });

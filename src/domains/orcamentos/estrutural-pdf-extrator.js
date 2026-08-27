@@ -184,8 +184,55 @@ export function extrairSapatasFundacao(texto) {
       comprimento: grupo.comprimentoCm / 100,
       alturaBase: grupo.alturaBaseCm / 100,
       alturaTronco: grupo.alturaTroncoCm / 100,
-      armaduraX: { bitola: String(grupo.armaduraX.bitola), quantidade: grupo.armaduraX.quantidade, comprimento: comprimento(0) },
+  armaduraX: { bitola: String(grupo.armaduraX.bitola), quantidade: grupo.armaduraX.quantidade, comprimento: comprimento(0) },
       armaduraY: { bitola: String(grupo.armaduraY.bitola), quantidade: grupo.armaduraY.quantidade, comprimento: comprimento(1) },
     };
   });
+}
+
+// Cada folha "Pilares do <pavimento>" traz, para cada pilar (ou grupo de
+// pilares idênticos, ex.: "P1=P3=P4=P5=P6=P9=P11=P21=P22"), um bloco de
+// detalhamento que já termina com o resumo pronto do próprio projeto:
+// "Aço: CA-50 e CA-60 (X kg). Taxa: Y kg/m3   Planta: <pavimentos>
+// Concreto: C25, usina.rigor (Z m3) ... Fôrmas: W m2" - concreto/fôrma/aço
+// aqui são valores JÁ CALCULADOS pelo projeto (não uma fórmula L x C x
+// altura que este módulo teria que re-derivar), validado campo a campo
+// contra os três pavimentos reais do usuário (Térreo, 1º Pavimento,
+// Cobertura - 15/14/14 grupos encontrados, batendo com a contagem "(x9)"
+// etc. da tabela de armadura da mesma folha).
+//
+// O campo "Planta" pode ser o próprio nome de um pavimento sozinho
+// ("Cobertura") - por isso o terminador do valor de Planta não pode ser
+// "primeiro caractere que não seja C" (quebra exatamente quando o valor É
+// "Cobertura"); em vez disso o corte usa a âncora fixa "Concreto: C25" que
+// sempre segue o campo Planta no documento.
+const RE_DETALHE_PILAR = /(P\d+(?:=P\d+)*)\s+(?:Fundação|Térreo|1º Pavimento|Cobertura)[\s\S]{0,900}?Aço:\s*CA-50 e CA-60\s*\(([\d.,]+)\s*kg\)\.\s*Taxa:\s*[\d.,]+\s*kg\/m3\s+Planta:\s*(.+?)\s*Concreto:\s*C25[\s\S]{0,40}?\(([\d.,]+)\s*m3\)[\s\S]{0,80}?Fôrmas:\s*([\d.,]+)\s*m2/g;
+
+// Junta os blocos de detalhamento num array pronto para `novaPilarTipo`
+// (memoria-calculo-estrutural.js): tipo (rótulo = a referência), qtd (nº de
+// pilares do grupo), e concreto/fôrma/aço JÁ POR PILAR (unitário) - o
+// projeto imprime um único bloco de detalhamento por grupo de pilares
+// idênticos, e esse bloco descreve UM pilar típico do grupo (confirmado
+// comparando "P10" sozinho com "P1=P3=...=P22" - mesma seção, os dois
+// blocos trazem exatamente os mesmos 0.07 m3/1.35 m2/1.6 kg, não um valor 9x
+// maior para o grupo de 9). Multiplicar por qtd fica a cargo de
+// `calcularPilarTipo`, igual às sapatas.
+export function extrairPilares(texto) {
+  const resultado = [];
+  const re = new RegExp(RE_DETALHE_PILAR.source, "g");
+  let m;
+  while ((m = re.exec(String(texto || "")))) {
+    const [, referencia, acoKg, planta, concretoM3, formaM2] = m;
+    const qtd = contarPilares(referencia);
+    if (!qtd) continue;
+    resultado.push({
+      tipo: referencia,
+      qtd,
+      planta: planta.trim(),
+      concretoUnit: paraNumero(concretoM3),
+      formaUnit: paraNumero(formaM2),
+      acoUnit: paraNumero(acoKg),
+    });
+  }
+  return resultado;
 }
