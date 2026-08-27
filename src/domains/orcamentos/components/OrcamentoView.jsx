@@ -3925,7 +3925,7 @@ ${blocoBDI}
                   <thead>
                     <tr style={{background:C.surface}}>
                       {["TIPO (pilares)","QTD PEÇAS","LARG.(m)","COMPR.(m)","ALT.BASE(m)","ALT.TRONCO(m)",
-                        "ESCAV. LARG.(m)","ESCAV. COMPR.(m)","ESCAV. PROF.(m)","VOL. ESCAVAÇÃO(m³)",
+                        "FOLGA ESCAV.(m)","ESCAV. PROF.(m)","VOL. ESCAVAÇÃO(m³)",
                         "CONC.MAGRO(m²)","FÔRMAS(m²)","CONCR.BASE(m³)","CONCR.TRONCO(m³)","CONCR.SAPATA(m³)","REATERRO(m³)",
                         "ARM.X BITOLA","ARM.X QTD","ARM.X COMPR.(m)","ARM.Y BITOLA","ARM.Y QTD","ARM.Y COMPR.(m)","PESO AÇO(kg)",""]
                         .map(h=><th key={h} style={{padding:"6px 5px",textAlign:/\(m|QTD|PEÇAS/.test(h)?"right":"left",color:C.muted,fontSize:8.3,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}
@@ -3949,12 +3949,11 @@ ${blocoBDI}
                           <td style={{padding:4}}>{numInput("comprimento")}</td>
                           <td style={{padding:4}}>{numInput("alturaBase")}</td>
                           <td style={{padding:4}}>{numInput("alturaTronco")}</td>
-                          <td style={{padding:4}}>{numInput("larguraEscavacao")}</td>
-                          <td style={{padding:4}}>{numInput("comprimentoEscavacao")}</td>
+                          <td style={{padding:4}} title="Quanto a cova é maior que a sapata, de cada lado (2x este valor soma em largura e em comprimento)">{numInput("folgaEscavacao",50)}</td>
                           <td style={{padding:4}}>{numInput("profundidadeEscavacao")}</td>
-                          <td style={{padding:"4px 5px",textAlign:"right",color:C.blue,fontWeight:700}}>{calc.volumeEscavacaoTotal.toFixed(2)}</td>
+                          <td style={{padding:"4px 5px",textAlign:"right",color:C.blue,fontWeight:700}} title={`Cova: ${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m`}>{calc.volumeEscavacaoTotal.toFixed(2)}</td>
                           <td style={{padding:"4px 5px",textAlign:"right",color:C.muted}}>{calc.areaConcretoMagroTotal.toFixed(2)}</td>
-                          <td style={{padding:4}} title="Preenchimento manual - a fôrma da sapata (só o tronco costuma precisar) varia por convenção de cada projeto/equipe.">{numInput("formaArea")}</td>
+                          <td style={{padding:"4px 5px",textAlign:"right",color:C.muted}} title="Perímetro da base x altura da base">{calc.formaAreaTotal.toFixed(2)}</td>
                           <td style={{padding:"4px 5px",textAlign:"right",color:C.muted}}>{calc.volumeBaseTotal.toFixed(2)}</td>
                           <td style={{padding:"4px 5px",textAlign:"right",color:C.muted}}>{calc.volumeTroncoTotal.toFixed(2)}</td>
                           <td style={{padding:"4px 5px",textAlign:"right",fontWeight:800,color:C.text}}>{calc.volumeSapataTotal.toFixed(2)}</td>
@@ -3973,7 +3972,7 @@ ${blocoBDI}
                   </tbody>
                   {resumoSapatasFundacao.linhas.length>0&&<tfoot>
                     <tr style={{background:C.surface,fontWeight:800}}>
-                      <td style={{padding:"6px 5px"}}>TOTAIS</td><td/><td/><td/><td/><td/><td/><td/><td/>
+                      <td style={{padding:"6px 5px"}}>TOTAIS</td><td/><td/><td/><td/><td/><td/><td/>
                       <td style={{padding:"6px 5px",textAlign:"right",color:C.blue}}>{resumoSapatasFundacao.totais.volumeEscavacao.toFixed(2)}</td>
                       <td style={{padding:"6px 5px",textAlign:"right"}}>{resumoSapatasFundacao.totais.areaConcretoMagro.toFixed(2)}</td>
                       <td style={{padding:"6px 5px",textAlign:"right"}}>{resumoSapatasFundacao.totais.formaArea.toFixed(2)}</td>

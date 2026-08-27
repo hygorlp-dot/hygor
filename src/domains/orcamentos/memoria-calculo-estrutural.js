@@ -22,12 +22,19 @@ export const pesoUnitarioAco = bitola => PESO_ACO_KG_M[String(bitola).replace(",
 // projeto estrutural (resumo de aço por bitola).
 const PERDA_ACO = 0.10;
 
+// Folga padrão de escavação: quanto a cova é maior que a sapata em cada
+// lado (não é decisão do projeto estrutural, é convenção de execução da
+// obra - por isso é editável por tipo, com este valor só como ponto de
+// partida). Profundidade também parte de um padrão (1,5m) pelo mesmo
+// motivo - ambos ajustáveis livremente por sapata.
+const FOLGA_ESCAVACAO_PADRAO_M = 0.20;
+const PROFUNDIDADE_ESCAVACAO_PADRAO_M = 1.5;
+
 export function novaSapataTipo(extra = {}) {
   return {
     id: "", tipo: "", qtd: 1,
     largura: 0, comprimento: 0, alturaBase: 0, alturaTronco: 0,
-    larguraEscavacao: 0, comprimentoEscavacao: 0, profundidadeEscavacao: 0,
-    formaArea: 0, // fôrmas - preenchimento manual, ver nota no README/PR
+    folgaEscavacao: FOLGA_ESCAVACAO_PADRAO_M, profundidadeEscavacao: PROFUNDIDADE_ESCAVACAO_PADRAO_M,
     armaduraX: { bitola: "10", quantidade: 0, comprimento: 0 },
     armaduraY: { bitola: "10", quantidade: 0, comprimento: 0 },
     ...extra,
@@ -42,20 +49,30 @@ export function calcularSapataTipo(tipoRow) {
   const alturaBase = Number(tipoRow?.alturaBase || 0);
   const alturaTronco = Number(tipoRow?.alturaTronco || 0);
   const qtd = Math.max(0, Number(tipoRow?.qtd || 0));
+  const folga = Number(tipoRow?.folgaEscavacao || 0);
+  const profundidade = Number(tipoRow?.profundidadeEscavacao || 0);
 
-  const volumeEscavacaoUnit = Number(tipoRow?.larguraEscavacao || 0) * Number(tipoRow?.comprimentoEscavacao || 0) * Number(tipoRow?.profundidadeEscavacao || 0);
+  // A cova é a sapata + a folga de trabalho de cada lado (2x a folga por
+  // dimensão) - convenção de obra confirmada com o usuário, não algo que o
+  // projeto estrutural diz.
+  const larguraEscavacaoUnit = largura > 0 ? largura + 2 * folga : 0;
+  const comprimentoEscavacaoUnit = comprimento > 0 ? comprimento + 2 * folga : 0;
+  const volumeEscavacaoUnit = larguraEscavacaoUnit * comprimentoEscavacaoUnit * profundidade;
   const areaConcretoMagroUnit = largura * comprimento;
   const volumeBaseUnit = largura * comprimento * alturaBase;
   const volumeTroncoUnit = largura * comprimento * alturaTronco;
   const volumeSapataUnit = volumeBaseUnit + volumeTroncoUnit;
   const reaterroUnit = Math.max(0, volumeEscavacaoUnit - volumeSapataUnit);
-  const formaAreaUnit = Number(tipoRow?.formaArea || 0);
+  // Fôrmas = perímetro da base x altura da base (convenção confirmada com o
+  // usuário) - só a base leva fôrma; o tronco fica coberto pela cova.
+  const formaAreaUnit = 2 * (largura + comprimento) * alturaBase;
 
   const pesoArmadura = direcao => pesoUnitarioAco(direcao?.bitola) * Number(direcao?.quantidade || 0) * Number(direcao?.comprimento || 0) * (1 + PERDA_ACO);
   const pesoXUnit = pesoArmadura(tipoRow?.armaduraX);
   const pesoYUnit = pesoArmadura(tipoRow?.armaduraY);
 
   return {
+    larguraEscavacaoUnit, comprimentoEscavacaoUnit,
     volumeEscavacaoUnit, areaConcretoMagroUnit, volumeBaseUnit, volumeTroncoUnit, volumeSapataUnit, reaterroUnit, formaAreaUnit,
     pesoXUnit, pesoYUnit, pesoAcoUnit: pesoXUnit + pesoYUnit,
     volumeEscavacaoTotal: volumeEscavacaoUnit * qtd,

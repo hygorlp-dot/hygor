@@ -19,11 +19,16 @@ describe("pesoUnitarioAco", () => {
 describe("calcularSapataTipo - quantidades de concreto/escavação", () => {
   const tipo = novaSapataTipo({
     largura: 0.85, comprimento: 1.0, alturaBase: 0.3, alturaTronco: 0.2, qtd: 7,
-    larguraEscavacao: 1.25, comprimentoEscavacao: 1.4, profundidadeEscavacao: 2,
+    folgaEscavacao: 0.2, profundidadeEscavacao: 2,
   });
 
-  it("calcula volume de escavação (L x C x profundidade)", () => {
-    expect(calcularSapataTipo(tipo).volumeEscavacaoUnit).toBeCloseTo(1.25 * 1.4 * 2);
+  it("calcula a cova como a sapata + a folga de cada lado (2x a folga por dimensão)", () => {
+    const calc = calcularSapataTipo(tipo);
+    expect(calc.larguraEscavacaoUnit).toBeCloseTo(0.85 + 2 * 0.2);
+    expect(calc.comprimentoEscavacaoUnit).toBeCloseTo(1.0 + 2 * 0.2);
+  });
+  it("calcula volume de escavação (L x C da cova x profundidade)", () => {
+    expect(calcularSapataTipo(tipo).volumeEscavacaoUnit).toBeCloseTo((0.85 + 0.4) * (1.0 + 0.4) * 2);
   });
   it("calcula área de concreto magro (L x C da sapata)", () => {
     expect(calcularSapataTipo(tipo).areaConcretoMagroUnit).toBeCloseTo(0.85);
@@ -34,18 +39,29 @@ describe("calcularSapataTipo - quantidades de concreto/escavação", () => {
     expect(calc.volumeTroncoUnit).toBeCloseTo(0.85 * 1.0 * 0.2);
     expect(calc.volumeSapataUnit).toBeCloseTo(calc.volumeBaseUnit + calc.volumeTroncoUnit);
   });
+  it("calcula fôrmas como o perímetro da base x a altura da base", () => {
+    expect(calcularSapataTipo(tipo).formaAreaUnit).toBeCloseTo(2 * (0.85 + 1.0) * 0.3);
+  });
   it("reaterro = escavação - volume de concreto da sapata", () => {
     const calc = calcularSapataTipo(tipo);
     expect(calc.reaterroUnit).toBeCloseTo(calc.volumeEscavacaoUnit - calc.volumeSapataUnit);
   });
   it("nunca devolve reaterro negativo (sapata maior que a escavação seria erro de digitação, não reaterro negativo)", () => {
-    const tipoInvalido = novaSapataTipo({ largura: 5, comprimento: 5, alturaBase: 5, larguraEscavacao: 1, comprimentoEscavacao: 1, profundidadeEscavacao: 1 });
+    const tipoInvalido = novaSapataTipo({ largura: 5, comprimento: 5, alturaBase: 5, folgaEscavacao: 0, profundidadeEscavacao: 1 });
     expect(calcularSapataTipo(tipoInvalido).reaterroUnit).toBe(0);
   });
   it("multiplica os totais pela quantidade de peças do tipo", () => {
     const calc = calcularSapataTipo(tipo);
     expect(calc.volumeEscavacaoTotal).toBeCloseTo(calc.volumeEscavacaoUnit * 7);
     expect(calc.volumeSapataTotal).toBeCloseTo(calc.volumeSapataUnit * 7);
+  });
+});
+
+describe("novaSapataTipo - padrões", () => {
+  it("parte de 20cm de folga de escavação e 1,5m de profundidade", () => {
+    const tipo = novaSapataTipo();
+    expect(tipo.folgaEscavacao).toBeCloseTo(0.2);
+    expect(tipo.profundidadeEscavacao).toBeCloseTo(1.5);
   });
 });
 
@@ -74,13 +90,13 @@ describe("resumoSapatas", () => {
   const tipos = [
     novaSapataTipo({
       tipo: "P1 e cia (85x100)", qtd: 7, largura: 0.85, comprimento: 1.0, alturaBase: 0.3, alturaTronco: 0.2,
-      larguraEscavacao: 1.25, comprimentoEscavacao: 1.4, profundidadeEscavacao: 2,
+      folgaEscavacao: 0.2, profundidadeEscavacao: 2,
       armaduraX: { bitola: "10", quantidade: 4, comprimento: 1.18 },
       armaduraY: { bitola: "10", quantidade: 3, comprimento: 1.33 },
     }),
     novaSapataTipo({
       tipo: "P2 (105x120)", qtd: 1, largura: 1.05, comprimento: 1.2, alturaBase: 0.3, alturaTronco: 0.2,
-      larguraEscavacao: 1.45, comprimentoEscavacao: 1.6, profundidadeEscavacao: 2,
+      folgaEscavacao: 0.2, profundidadeEscavacao: 2,
       armaduraX: { bitola: "10", quantidade: 5, comprimento: 1.38 },
       armaduraY: { bitola: "12.5", quantidade: 4, comprimento: 1.58 },
     }),
