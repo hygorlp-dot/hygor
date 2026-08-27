@@ -3200,3 +3200,21 @@ Achados que só apareceram rodando contra os arquivos reais completos
 com um mock mínimo do Supabase). Suíte completa 256 arquivos/1576
 testes, `build`, `lint`, `architecture:check` verdes.
 
+**Verificado ao vivo em produção** (só leitura - nenhum arquivo real
+enviado): a aba "Bases de preço" aparece em Central do Administrador,
+com os dois formulários e a lista real de bases já cadastradas
+(inclusive a base ORSE antiga corretamente rotulada "Pesquisa ao vivo
+(reimporte)", confirmando que a leitura de `modo` funciona contra dado
+de produção de verdade). **Essa mesma verificação ao vivo achou um bug
+real que a suíte inteira não pegou**: um `useEffect` esquecido em
+`OrcamentoView.jsx` ainda chamava `setSinapiUf`/`setOrseDataBase`
+(estados removidos) sempre que o orçamento ou as bases mudavam -
+quebrava a tela inteira com `setSinapiUf is not defined` ao abrir
+qualquer orçamento. `grep` por `\bsinapiUf\b` não achou porque a
+chamada era `setSinapiUf` (sem borda de palavra antes de "Sinapi") -
+corrigido removendo o efeito morto por inteiro, e a suíte completa +
+`build`/`lint`/`architecture:check` continuam verdes. Fica registrado
+como lembrete: build verde não garante ausência de `ReferenceError`
+neste projeto (JS puro, sem checagem de tipos) - só teste de
+comportamento real ou verificação ao vivo pegam isso.
+

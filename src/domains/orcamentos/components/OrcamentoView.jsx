@@ -268,13 +268,6 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const totalBasesDuplicadas = basesRemotas.length - basesConsolidadas.length;
 
   useEffect(() => {
-    if (!orc) return;
-    setSinapiUf(orc.uf || "PE");
-    const orse = basesRemotas.find(base => (orc.referencias || []).includes(base.id) && base.fonte === "ORSE");
-    if (orse?.dataBase) setOrseDataBase(orse.dataBase);
-  }, [selOrc, basesRemotas]);
-
-  useEffect(() => {
     let ativo = true;
     const term = buscaDebounced.trim();
     if (!buscaModal || !orc || term.length < 2 || !(orc.referencias || []).length) {
