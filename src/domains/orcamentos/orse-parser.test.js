@@ -43,14 +43,19 @@ const TB_SERVICO_PRECO = [
   "ORSE;17;2026;6;1;13,5;0;5;8,5;9,37;0,58;U;0;1;CEHOP;07/05/2004 12:46:16;",
 ].join("\r\n");
 
-// TB_COMPOSICAO é o único dos cinco arquivos separado por TAB, não ";"
-// (confirmado por hexdump nos arquivos reais - byte 0x09, não 0x3b).
-const TB_COMPOSICAO = [
-  ["ORSE", "4", "2026", "6", "1", "I", "ORSE", "54", "0,5", "0", "0", "P", "8,6", "18,19", "0", "0", "4,3", "9,09"].join("\t"),
-  ["ORSE", "4", "2026", "6", "1", "I", "ORSE", "2451", "2", "0,75", "0,25", "E", "47,16", "0", "300,25", "21,05", "460,9", "460,9"].join("\t"),
-  ["ORSE", "4", "2026", "6", "1", "I", "ORSE", "2477", "1", "1", "0", "E", "160,11", "0", "287,25", "70,83", "287,25", "287,25"].join("\t"),
-  ["ORSE", "4", "2026", "6", "1", "I", "SINAPI", "6111", "0,25", "0", "0", "P", "7,37", "15,59", "0", "0", "1,84", "3,9"].join("\t"),
-].join("\r\n");
+// TB_COMPOSICAO já foi entregue pelo CEHOP com dois separadores
+// diferentes em exportações distintas (TAB e ";" - confirmado por
+// hexdump nos dois casos), mantendo o mesmo layout de colunas. O
+// parser detecta o separador pela primeira linha; os dois formatos
+// abaixo cobrem esse caso.
+const camposComposicao4 = [
+  ["ORSE", "4", "2026", "6", "1", "I", "ORSE", "54", "0,5", "0", "0", "P", "8,6", "18,19", "0", "0", "4,3", "9,09"],
+  ["ORSE", "4", "2026", "6", "1", "I", "ORSE", "2451", "2", "0,75", "0,25", "E", "47,16", "0", "300,25", "21,05", "460,9", "460,9"],
+  ["ORSE", "4", "2026", "6", "1", "I", "ORSE", "2477", "1", "1", "0", "E", "160,11", "0", "287,25", "70,83", "287,25", "287,25"],
+  ["ORSE", "4", "2026", "6", "1", "I", "SINAPI", "6111", "0,25", "0", "0", "P", "7,37", "15,59", "0", "0", "1,84", "3,9"],
+];
+const TB_COMPOSICAO = camposComposicao4.map(campos => campos.join("\t")).join("\r\n");
+const TB_COMPOSICAO_PONTO_VIRGULA = camposComposicao4.map(campos => campos.join(";")).join("\r\n");
 
 describe("numeroBR", () => {
   it("converte número com vírgula decimal", () => {
@@ -144,6 +149,12 @@ describe("parseComposicoes", () => {
     const linhas = parseComposicoes(TB_COMPOSICAO);
     const filhoSinapi = linhas.find(l => l.itemCode === "6111");
     expect(filhoSinapi.fonte).toBe("SINAPI");
+  });
+  it("le o mesmo resultado quando o arquivo vem separado por ; em vez de TAB (ex.: reexportado/reeditado no Excel)", () => {
+    const porTab = parseComposicoes(TB_COMPOSICAO);
+    const porPontoVirgula = parseComposicoes(TB_COMPOSICAO_PONTO_VIRGULA);
+    expect(porPontoVirgula).toHaveLength(4);
+    expect(porPontoVirgula).toEqual(porTab);
   });
 });
 

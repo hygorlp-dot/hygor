@@ -596,7 +596,13 @@ export default async function handler(req, res) {
       }
       const { data, error } = await db
         .from("budget_reference_bases")
-        .update({ status: "ready", item_count: count || 0 })
+        // Uma base ORSE antiga podia ter sido criada no modo "official"
+        // (stub de metadado, sem itens - raspagem ao vivo). Um reimporte
+        // que chega até aqui já tem itens/insumos/relações de verdade no
+        // Postgres, então a base sempre vira "uploaded" - senão ela ficava
+        // presa em "official" (raspagem ao vivo) para sempre, mesmo depois
+        // de reimportada com sucesso.
+        .update({ status: "ready", mode: "uploaded", item_count: count || 0 })
         .eq("id", baseId)
         .eq("company_id", COMPANY)
         .select("*")

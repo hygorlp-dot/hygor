@@ -3266,3 +3266,38 @@ tem a mesma falha de import não resolvido). Suíte completa (256/1576),
 arquivos `.js` publicados em `dist/` que o `import` relativo sumiu e
 o conteúdo do módulo de parsing está de fato embutido.
 
+
+## Segundo achado após a correção do worker: TB_COMPOSICAO com separador trocado + base ORSE presa em "official" (27/08/2026)
+
+Depois do fix do empacotamento do worker (acima), o usuário conseguiu
+avançar até a etapa de finalização - mas a importação do ORSE ainda
+falhava, agora no `finish`, com "A base só pode ser concluída com
+composições, insumos e relações analíticas completos".
+
+**Causa raiz #1**: o arquivo `TB_COMPOSICAO .TXT` usado nesta tentativa
+tinha sido reeditado pelo usuário (provavelmente reaberto/resalvo no
+Excel), trocando o separador de TAB para `;` - confirmado por hexdump
+(0 bytes `0x09`, ~975 mil bytes `0x3b`, mesmas 57.353 linhas). O parser
+(`parseComposicoes`, `orse-parser.js`) tinha o separador fixado em TAB
+desde a correção anterior desta mesma sessão (achado do arquivo oficial
+original, que era TAB de verdade) - com `;` no lugar, cada linha virava
+um único campo, zerando os componentes extraídos silenciosamente.
+
+**Correção**: `parseComposicoes` agora detecta o separador pela
+primeira linha não vazia (`\t` se presente, senão `;`) - o layout de
+colunas é idêntico nos dois formatos, só o caractere separador muda.
+Novo teste em `orse-parser.test.js` prova que os dois formatos
+produzem o mesmo resultado.
+
+**Causa raiz #2** (gap real, independente do #1): `api/references.js`,
+ação `finish`, atualizava `status`/`item_count` mas nunca `mode` - uma
+base ORSE reimportada que nasceu como `mode:"official"` (raspagem ao
+vivo, era o comportamento antigo de "cadastrar" ORSE sem motor de
+verdade) ficava presa nesse modo para sempre, mesmo depois de um
+reimporte 100% bem-sucedido com itens/insumos/relações reais no
+Postgres - continuaria caindo na raspagem ao vivo em vez de consultar
+os dados recém-importados. Corrigido: `finish` agora sempre grava
+`mode:"uploaded"` ao concluir com sucesso.
+
+Suíte completa (256/256, 1577/1577), `build`, `lint`,
+`architecture:check` verdes.

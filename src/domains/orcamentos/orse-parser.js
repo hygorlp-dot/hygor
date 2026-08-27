@@ -107,15 +107,19 @@ export function parsePrecoServico(texto) {
   return { precos, competencia };
 }
 
-// TB_COMPOSICAO: codigoComposicao\tano\tmes\tseq\ttipo(I|S)\tfonteFilho\t
-// codigoFilho\tcoeficiente\t...\tcategoria\tvalorSem\tvalorCom\t...
-// Único dos cinco arquivos separado por TAB, não ";" (confirmado por
-// hexdump - byte 0x09 entre os campos, contra 0x3b nos outros quatro).
+// TB_COMPOSICAO: codigoComposicao;ano;mes;seq;tipo(I|S);fonteFilho;
+// codigoFilho;coeficiente;...;categoria;valorSem;valorCom;...
+// O CEHOP já entregou este arquivo com dois separadores diferentes em
+// exportações distintas (TAB, byte 0x09, e ";", byte 0x3b - confirmado
+// por hexdump nos dois casos) mantendo o mesmo layout de colunas: o
+// separador é detectado pela primeira linha não vazia, não fixado.
 // Só para exibição (Ver composição analítica) - nunca para calcular preço.
 export function parseComposicoes(texto) {
+  const todasAsLinhas = linhasDoTexto(texto);
+  const separador = todasAsLinhas[0]?.includes("\t") ? "\t" : ";";
   const linhas = [];
-  for (const linha of linhasDoTexto(texto)) {
-    const campos = linha.split("\t");
+  for (const linha of todasAsLinhas) {
+    const campos = linha.split(separador);
     const compositionCode = String(campos[1] ?? "").trim();
     const itemCode = String(campos[7] ?? "").trim();
     if (!compositionCode || !itemCode) continue;
