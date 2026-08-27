@@ -16,9 +16,9 @@ import { PageHeader, SummaryCard, ConfirmDialog } from "../../../design-system/p
 import { Checkbox as DesignSystemCheckbox } from "../../../design-system/primitives/Checkbox.jsx";
 import {
   Badge, Btn, C, Ic, Inp, Modal, Sel,
-  XLSX, carregarXLSX, lerSinapiEmSegundoPlano, jsonDaRespostaIA, obraContextoSalvo,
+  XLSX, carregarXLSX, jsonDaRespostaIA, obraContextoSalvo,
   maiusculoOrcamento, proximoCodigoArcd,
-  ETAPAS_PADRAO, MAX_NIVEL, CLASSE_ABC, SINAPI_UFS,
+  ETAPAS_PADRAO, MAX_NIVEL, CLASSE_ABC,
   escapeHtml, fmt, today, uid,
   calcControleCustosOrcamento,
 } from "../../../LegacyApp";
@@ -38,7 +38,6 @@ import {
   calculateBdi as calcBDI, classifyBdi as situacaoBDI, formatBdiPercent as f2p,
 } from "../bdi";
 import {
-  referenceBaseKey as chaveBaseReferencia,
   consolidateReferenceBases as consolidarBasesReferencia,
 } from "../reference-bases";
 import { BudgetTextCell as CelulaTexto } from "../BudgetTextCell";
@@ -55,11 +54,8 @@ import {
 } from "../tree";
 import {
   chamarIA,
-  listarBasesReferencia, iniciarBaseReferencia, enviarLoteReferencia,
-  enviarLoteInsumosReferencia, enviarLoteComponentesReferencia,
-  finalizarBaseReferencia, pesquisarBasesReferencia, pesquisarInsumosReferencia,
+  listarBasesReferencia, pesquisarBasesReferencia, pesquisarInsumosReferencia,
   resolverCodigosReferencia, detalharComposicoesReferencia,
-  removerBaseReferencia,
 } from "../../../api";
 
 // Total de um item com BDI. Se o item tiver BDI proprio (it.bdi), ele prevalece
@@ -98,23 +94,14 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [view,      setView]      = useState(orcamentoFixoInicial?"editor":"lista");   // "lista" | "editor"
   const [orcAba,    setOrcAba]    = useState("orcamento"); // orçamento | insumos | próprias
   const [selOrc,    setSelOrc]    = useState(()=>orcamentoFixoInicial?.id||getActiveBudgetBaseline(data,obraContextoSalvo(),"controle").budget?.id||null);      // id do orçamento aberto
-  const [baseImport,setBaseImport]= useState([]);        // base SINAPI/ORSE em memória
-  const [baseNome,  setBaseNome]  = useState("");
-  const [baseInfo,  setBaseInfo]  = useState(null);      // metadados da base importada
-  const [importando,setImportando]= useState(false);     // spinner durante o parse
   const [basesRemotas, setBasesRemotas] = useState([]);
   const [basesCarregando, setBasesCarregando] = useState(false);
-  const [sinapiUf, setSinapiUf] = useState("PE");
-  const [orseDataBase, setOrseDataBase] = useState(today().slice(0, 7));
   const [baseParaVincular, setBaseParaVincular] = useState("");
-  const [uploadProgresso, setUploadProgresso] = useState(0);
-  const [uploadEtapa, setUploadEtapa] = useState("");
   const [resultadosRemotos, setResultadosRemotos] = useState([]);
   const [buscaRemotaLoading, setBuscaRemotaLoading] = useState(false);
   const [buscaRemotaAviso, setBuscaRemotaAviso] = useState("");
   const [atualizandoPrecos, setAtualizandoPrecos] = useState(false);
   const [basesPainelAberto,setBasesPainelAberto]=useState(false);
-  const [basesSubAba,setBasesSubAba]=useState("oficiais");
   const [codigoAtualizando, setCodigoAtualizando] = useState("");
   const [componentesDetalhados,setComponentesDetalhados]=useState([]);
   const [detalhesLoading,setDetalhesLoading]=useState(false);
@@ -174,8 +161,6 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // zero a cada obra parecida.
   const [copiarModal, setCopiarModal] = useState(null); // {obraOrigemId, orcOrigemId}
   const [editMetaModal, setEditMetaModal] = useState(false);
-  const [mapModal,  setMapModal]  = useState(null);      // {headers, rows} p/ mapear colunas
-  const [colMap,    setColMap]    = useState({ codigo:"", descricao:"", unidade:"", preco:"" });
   // Conferencia dimensional (IA): painel aberto e resposta da IA.
   const [confAberta, setConfAberta] = useState(false);
   const [confIA,      setConfIA]     = useState(null);   // resposta estruturada da IA
@@ -391,15 +376,10 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     }
   };
 
-  //  Importar planilha SINAPI / ORSE 
-  //  Importar planilha de referência (SINAPI / ORSE) 
-  //
-  // Formato-alvo real: planilha de referência de preços com a base numa aba
-  // ("Banco"), cabeçalho lá pela linha 5, SINAPI e ORSE misturados, duas
-  // colunas de custo (desonerado / não desonerado) - muitas vezes só uma
-  // preenchida - e preços em string no padrão BR ("8,97"). O parser detecta
-  // tudo sozinho; só cai no mapeamento manual se a auto-detecção falhar.
-
+  // Usado pelo mapeamento manual de colunas ao importar uma planilha de
+  // ORÇAMENTO (não de base de referência - isso agora é só admin, ver
+  // src/domains/administracao/components/BasesPrecoAdmin.jsx), mais
+  // abaixo em montarLinhasImportacao/colMapModal.
   // "1.234,56" | 1234.56 | "" → number
   const parseBR = (v) => {
     if (typeof v === "number") return v;
@@ -420,406 +400,6 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     return isNaN(n) ? 0 : n;
   };
 
-  const LIXO = new Set(["", "0", "0.0", "-", "CÓDIGO REPETIDO", "CODIGO REPETIDO"]);
-  const ehLixo = (s) => LIXO.has(String(s ?? "").trim().toUpperCase());
-
-  // Localiza o cabeçalho e mapeia as colunas pelo nome
-  const detectarLayout = (rows) => {
-    for (let r = 0; r < Math.min(30, rows.length); r++) {
-      const linha = (rows[r] || []).map(c => String(c ?? "").toUpperCase().replace(/\n/g, " "));
-      const txt = linha.join(" | ");
-      const temCodigo = txt.includes("CÓDIGO") || txt.includes("CODIGO");
-      const temDesc   = txt.includes("DESCRIÇÃO") || txt.includes("DESCRICAO") || txt.includes("DISCRIMINAÇÃO");
-      if (!temCodigo || !temDesc) continue;
-
-      const cols = {};
-      linha.forEach((h, i) => {
-        if (!h.trim()) return;
-        const ehPreco = h.includes("CUSTO") || h.includes("PREÇO") || h.includes("PRECO") || h.includes("VALOR");
-        if (h.includes("FONTE") && cols.fonte === undefined) cols.fonte = i;
-        else if ((h.includes("CÓDIGO") || h.includes("CODIGO")) && cols.codigo === undefined) cols.codigo = i;
-        else if ((h.includes("DESCRIÇÃO") || h.includes("DESCRICAO") || h.includes("DISCRIMINAÇÃO")) && cols.descricao === undefined) cols.descricao = i;
-        else if ((h.includes("UNIDADE") || /\bUNID\b/.test(h) || /\bUND\b/.test(h)) && cols.unidade === undefined) cols.unidade = i;
-        else if (ehPreco) {
-          // "NÃO DESONERADO" precisa ser testado ANTES de "DESONERADO"
-          if ((h.includes("NÃO") || h.includes("NAO")) && cols.precoNao === undefined) cols.precoNao = i;
-          else if (cols.precoDes === undefined) cols.precoDes = i;
-          else if (cols.precoNao === undefined) cols.precoNao = i;
-        }
-      });
-
-      if (cols.codigo !== undefined && cols.descricao !== undefined &&
-          (cols.precoDes !== undefined || cols.precoNao !== undefined)) {
-        return { headerRow: r, cols };
-      }
-    }
-    return null;
-  };
-
-  const extrair = (rows, layout) => {
-    const { headerRow, cols } = layout;
-    const out = [];
-    for (let r = headerRow + 1; r < rows.length; r++) {
-      const row = rows[r] || [];
-      const codigoRaw = String(row[cols.codigo] ?? "").trim();
-      const descricao = String(row[cols.descricao] ?? "").trim();
-      if (ehLixo(codigoRaw) || ehLixo(descricao)) continue;
-
-      const precoDes = cols.precoDes !== undefined ? parseBR(row[cols.precoDes]) : 0;
-      const precoNao = cols.precoNao !== undefined ? parseBR(row[cols.precoNao]) : 0;
-      if (precoDes <= 0 && precoNao <= 0) continue;
-
-      out.push({
-        fonte:     cols.fonte   !== undefined ? (String(row[cols.fonte]   ?? "").trim() || "SINAPI") : "SINAPI",
-        codigo:    codigoRaw.replace(/\.0$/, ""),   // "97141.0" → "97141"
-        descricao,
-        unidade:   cols.unidade !== undefined ? (String(row[cols.unidade] ?? "").trim() || "UN") : "UN",
-        precoDes,
-        precoNao,
-      });
-    }
-    return out;
-  };
-
-  const extrairSinapiOficial = (wb, uf) => {
-    // Os cabecalhos da planilha oficial quebram linha DENTRO da celula, e o
-    // Excel grava "\r\n" - nao so "\n". Trocar apenas \n deixava um \r no meio
-    // de "Codigo da<CR> Composicao" e a busca pelo cabecalho da aba Analitico
-    // nunca casava: o analitico inteiro era descartado em silencio. Aqui todo
-    // espaco em branco (\r, \n, tab, espaco duplo) vira um espaco simples.
-    const cab = v => semAcento(v).toUpperCase().replace(/\s+/g, " ").trim();
-    const nomeAba = alvo => wb.SheetNames.find(nome => semAcento(nome).replace(/\s/g, "") === alvo.toLowerCase());
-    const lerAba = (alvo, campoPreco) => {
-      const nome = nomeAba(alvo);
-      if (!nome) return { itens: [], dataBase: "" };
-      const sheet = wb.Sheets[nome];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header:1, defval:"", raw:true });
-      const headerRow = rows.findIndex(row => {
-        const text = row.map(v => String(v || "").toUpperCase().replace(/\s+/g, " ")).join(" | ");
-        return /C[ÓO]DIGO/.test(text) && /DESCRI/.test(text) && /UNIDADE/.test(text);
-      });
-      if (headerRow < 0) return { itens: [], dataBase: "" };
-      let ufColumn = -1;
-      for (let r = headerRow - 1; r >= 0 && ufColumn < 0; r--) {
-        ufColumn = (rows[r] || []).findIndex(value => String(value || "").trim().toUpperCase() === uf);
-      }
-      if (ufColumn < 0) return { itens: [], dataBase: "" };
-      const header = (rows[headerRow] || []).map(cab);
-      const codigoColumn = header.findIndex(value => value.includes("CODIGO"));
-      const descricaoColumn = header.findIndex(value => value.includes("DESCRI"));
-      const unidadeColumn = header.findIndex(value => value.includes("UNIDADE"));
-      if ([codigoColumn, descricaoColumn, unidadeColumn].some(index => index < 0)) return { itens: [], dataBase: "" };
-      const itens = [];
-      for (let r = headerRow + 1; r < rows.length; r++) {
-        const row = rows[r] || [];
-        let codigo = String(row[codigoColumn] ?? "").trim().replace(/\.0$/, "");
-        if (ehLixo(codigo)) {
-          const cell = sheet[XLSX.utils.encode_cell({ r, c:codigoColumn })];
-          const matchCodigo = String(cell?.f || "").match(/MATCH\s*\(\s*(\d+)/i);
-          if (matchCodigo) codigo = matchCodigo[1];
-        }
-        const descricao = String(row[descricaoColumn] ?? "").trim();
-        const preco = parseBR(row[ufColumn]);
-        if (ehLixo(codigo) || ehLixo(descricao) || preco <= 0) continue;
-        itens.push({ fonte:"SINAPI", codigo, descricao,
-          unidade:String(row[unidadeColumn] ?? "UN").trim() || "UN",
-          precoDes:campoPreco === "precoDes" ? preco : 0,
-          precoNao:campoPreco === "precoNao" ? preco : 0 });
-      }
-      let dataBase = "";
-      rows.slice(0, headerRow).flat().some(value => {
-        const match = String(value || "").trim().match(/^(0[1-9]|1[0-2])\/(\d{4})$/);
-        if (!match) return false;
-        dataBase = `${match[2]}-${match[1]}`;
-        return true;
-      });
-      return { itens, dataBase };
-    };
-    const lerInsumos = (alvo, campoPreco) => {
-      const nome = nomeAba(alvo);
-      if (!nome) return [];
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[nome], {header:1,defval:"",raw:true});
-      const headerRow = rows.findIndex(row => {
-        const text = row.map(cab).join(" | ");
-        return text.includes("CODIGO DO INSUMO") && text.includes("DESCRICAO DO INSUMO");
-      });
-      if (headerRow < 0) return [];
-      let ufColumn = -1;
-      for (let r=headerRow-1;r>=0 && ufColumn<0;r--) {
-        ufColumn=(rows[r]||[]).findIndex(value=>String(value||"").trim().toUpperCase()===uf);
-      }
-      if (ufColumn < 0) return [];
-      const header=(rows[headerRow]||[]).map(cab);
-      const classColumn=header.findIndex(value=>value.includes("CLASSIFIC"));
-      const codeColumn=header.findIndex(value=>value.includes("CODIGO") && value.includes("INSUMO"));
-      const descColumn=header.findIndex(value=>value.includes("DESCRICAO") && value.includes("INSUMO"));
-      const unitColumn=header.findIndex(value=>value.includes("UNIDADE"));
-      if ([codeColumn,descColumn,unitColumn].some(index=>index<0)) return [];
-      return rows.slice(headerRow+1).map(row=>({
-        fonte:"SINAPI",codigo:String(row[codeColumn]??"").trim().replace(/\.0$/, ""),
-        descricao:String(row[descColumn]??"").trim(),unidade:String(row[unitColumn]??"UN").trim()||"UN",
-        classificacao:classColumn>=0?String(row[classColumn]??"").trim():"",
-        precoDes:campoPreco==="precoDes"?parseBR(row[ufColumn]):0,
-        precoNao:campoPreco==="precoNao"?parseBR(row[ufColumn]):0,
-      })).filter(item=>!ehLixo(item.codigo)&&!ehLixo(item.descricao)&&(item.precoDes>0||item.precoNao>0));
-    };
-    const lerAnalitico = () => {
-      // A Caixa altera levemente o nome entre competências ("Analítico",
-      // "Composições analíticas" etc.). Aceitar o radical evita descartar a
-      // aba inteira por uma diferença de apresentação.
-      const nome = wb.SheetNames.find(sheet=>cab(sheet).replace(/\s/g,"").includes("ANALIT"));
-      if (!nome) return [];
-      const rows=XLSX.utils.sheet_to_json(wb.Sheets[nome],{header:1,defval:"",raw:true});
-      const headerRow=rows.findIndex(row=>{
-        const text=row.map(cab).join(" | ");
-        return text.includes("CODIGO") && text.includes("COMPOSICAO") && text.includes("TIPO") && text.includes("COEFICIENTE");
-      });
-      if(headerRow<0) return [];
-      const header=(rows[headerRow]||[]).map(cab);
-      const compositionColumn=header.findIndex(value=>value.includes("CODIGO")&&value.includes("COMPOSICAO"));
-      const typeColumn=header.findIndex(value=>value.includes("TIPO")&&value.includes("ITEM"));
-      const itemColumn=header.findIndex(value=>value.includes("CODIGO")&&(value.includes("ITEM")||value.includes("INSUMO")));
-      const descColumn=header.findIndex(value=>value.includes("DESCRICAO")&&(value.includes("ITEM")||value.includes("INSUMO")));
-      const unitColumn=header.findIndex(value=>value.includes("UNIDADE")&&(value.includes("ITEM")||value.includes("INSUMO")));
-      const coefficientColumn=header.findIndex(value=>value.includes("COEFICIENTE"));
-      const situationColumn=header.findIndex(value=>value.includes("SITUAC"));
-      const descFinal=descColumn>=0?descColumn:header.findIndex(value=>value.includes("DESCRICAO"));
-      const unitFinal=unitColumn>=0?unitColumn:header.findIndex(value=>value.includes("UNIDADE"));
-      if ([compositionColumn,typeColumn,itemColumn,descFinal,unitFinal,coefficientColumn].some(index=>index<0)) return [];
-      return rows.slice(headerRow+1).map(row=>({
-        compositionCode:String(row[compositionColumn]??"").trim().replace(/\.0$/, ""),
-        itemType:cab(row[typeColumn])==="COMPOSICAO"?"COMPOSICAO":"INSUMO",
-        itemCode:String(row[itemColumn]??"").trim().replace(/\.0$/, ""),
-        descricao:String(row[descFinal]??"").trim(),unidade:String(row[unitFinal]??"UN").trim()||"UN",
-        coeficiente:parseBR(row[coefficientColumn]),situacao:situationColumn>=0?String(row[situationColumn]??"").trim():"",
-      })).filter(item=>item.compositionCode&&item.itemCode&&item.descricao&&item.coeficiente>0);
-    };
-    const nao = lerAba("CSD", "precoNao");
-    const des = lerAba("CCD", "precoDes");
-    const merged = new Map();
-    [...nao.itens, ...des.itens].forEach(item => {
-      const atual = merged.get(item.codigo) || { ...item, precoDes:0, precoNao:0 };
-      merged.set(item.codigo, { ...atual, descricao:item.descricao || atual.descricao,
-        unidade:item.unidade || atual.unidade, precoDes:item.precoDes || atual.precoDes,
-        precoNao:item.precoNao || atual.precoNao });
-    });
-    const insumosMerged=new Map();
-    [...lerInsumos("ISD","precoNao"),...lerInsumos("ICD","precoDes")].forEach(item=>{
-      const atual=insumosMerged.get(item.codigo)||{...item,precoDes:0,precoNao:0};
-      insumosMerged.set(item.codigo,{...atual,descricao:item.descricao||atual.descricao,unidade:item.unidade||atual.unidade,
-        classificacao:item.classificacao||atual.classificacao,precoDes:item.precoDes||atual.precoDes,precoNao:item.precoNao||atual.precoNao});
-    });
-    return { itens:[...merged.values()], insumos:[...insumosMerged.values()], componentes:lerAnalitico(), dataBase:des.dataBase || nao.dataBase,
-      abas:[nao.itens.length ? "CSD" : "", des.itens.length ? "CCD" : ""].filter(Boolean) };
-  };
-
-  const importarSinapiSupabase = async file => {
-    if (!file || !orc) return;
-    if (!ehAdmin) { showToast("Somente o administrador pode cadastrar bases de referência.", "error"); return; }
-    setImportando(true); setUploadProgresso(1); setUploadEtapa("Preparando a leitura do XLSX oficial...");
-    let baseCriada = null;
-    let baseReutilizada = false;
-    try {
-      setUploadEtapa("Enviando o arquivo para leitura em segundo plano...");
-      const extraida = await lerSinapiEmSegundoPlano(file, sinapiUf, (mensagem, progresso) => {
-        setUploadEtapa(mensagem);
-        if (Number.isFinite(progresso?.overallPercent)) {
-          setUploadProgresso(Math.max(1, Math.min(45, 1 + Math.round(progresso.overallPercent * 0.44))));
-        }
-      });
-      if (!extraida.itens.length || !extraida.dataBase) throw new Error("Não encontrei as abas oficiais CSD/CCD, a competência ou a coluna da UF selecionada.");
-      if (!extraida.insumos.length || !extraida.componentes.length) {
-        throw new Error(`Este arquivo não contém a base analítica completa (${extraida.insumos.length} insumos e ${extraida.componentes.length} relações). Envie o XLSX oficial SINAPI com as abas ICD/ISD e Analítico; o Excel exportado pelo orçamento não serve para repor o detalhamento.`);
-      }
-      setUploadProgresso(46); setUploadEtapa("Criando a referência segura no servidor...");
-      let inicio = await iniciarBaseReferencia({ fonte:"SINAPI", dataBase:extraida.dataBase, uf:sinapiUf,
-        desonerado:orc.desonerado !== false, arquivo:file.name });
-      if (!inicio.ok && inicio.duplicate && inicio.base?.id) {
-        const confirmar=window.confirm(`Já existe SINAPI ${extraida.dataBase} · ${sinapiUf}. Deseja reparar essa mesma base com o analítico do arquivo oficial? Os vínculos dos orçamentos serão preservados.`);
-        if (!confirmar) return;
-        inicio=await iniciarBaseReferencia({ fonte:"SINAPI", dataBase:extraida.dataBase, uf:sinapiUf,
-          desonerado:orc.desonerado !== false, arquivo:file.name, reimportar:true });
-        baseReutilizada=!!inicio.ok;
-      }
-      if (!inicio.ok || !inicio.base?.id) throw new Error(inicio.error || "Não foi possível iniciar a base no Supabase.");
-      baseCriada = inicio.base;
-      setUploadProgresso(48); setUploadEtapa("Enviando composições oficiais em lotes...");
-      const lote = 350;
-      const totalLinhas=extraida.itens.length+extraida.insumos.length+extraida.componentes.length;
-      let enviados=0;
-      for (let i = 0; i < extraida.itens.length; i += lote) {
-        const envio = await enviarLoteReferencia(baseCriada.id, extraida.itens.slice(i, i + lote));
-        if (!envio.ok) throw new Error(envio.error || `Falha no lote ${Math.floor(i / lote) + 1}.`);
-        enviados+=Math.min(lote,extraida.itens.length-i); setUploadProgresso(Math.min(98,48+Math.round((enviados/totalLinhas)*50)));
-      }
-      for (let i=0;i<extraida.insumos.length;i+=lote) {
-        setUploadEtapa("Enviando insumos oficiais em lotes...");
-        const envio=await enviarLoteInsumosReferencia(baseCriada.id,extraida.insumos.slice(i,i+lote));
-        if(!envio.ok) throw new Error(envio.error||`Falha ao enviar insumos, lote ${Math.floor(i/lote)+1}.`);
-        enviados+=Math.min(lote,extraida.insumos.length-i); setUploadProgresso(Math.min(98,48+Math.round((enviados/totalLinhas)*50)));
-      }
-      for (let i=0;i<extraida.componentes.length;i+=lote) {
-        setUploadEtapa("Enviando relações analíticas em lotes...");
-        const envio=await enviarLoteComponentesReferencia(baseCriada.id,extraida.componentes.slice(i,i+lote));
-        if(!envio.ok) throw new Error(envio.error||`Falha ao enviar analítico, lote ${Math.floor(i/lote)+1}.`);
-        enviados+=Math.min(lote,extraida.componentes.length-i); setUploadProgresso(Math.min(98,48+Math.round((enviados/totalLinhas)*50)));
-      }
-      setUploadEtapa("Validando e concluindo a base no Supabase...");
-      const fim = await finalizarBaseReferencia(baseCriada.id);
-      if (!fim.ok || !fim.base) throw new Error(fim.error || "Não foi possível finalizar a base.");
-      const refs = [...new Set([...(orc.referencias || []), fim.base.id])];
-      const temOrse = basesRemotas.some(base => refs.includes(base.id) && base.fonte === "ORSE");
-      salvarOrc({ referencias:refs, fonte:temOrse ? "MISTO" : "SINAPI", uf:sinapiUf, dataBase:extraida.dataBase });
-      setBaseImport(extraida.itens); setBaseNome(file.name);
-      setBaseInfo({ aba:extraida.abas.join(" + "), total:extraida.itens.length,
-        porFonte:{SINAPI:extraida.itens.length}, comDes:extraida.itens.filter(i=>i.precoDes>0).length,
-        comNao:extraida.itens.filter(i=>i.precoNao>0).length, dataBase:extraida.dataBase, localidade:sinapiUf });
-      setUploadProgresso(100); setUploadEtapa("Base concluída."); await carregarBasesRemotas();
-      // Dizer "analítico completo" sem conferir foi o que escondeu a falha do
-      // parser: a base subia verde e as composições não abriam. Agora o numero
-      // aparece, e zero analitico e avisado como problema.
-      const n = valor => valor.toLocaleString("pt-BR");
-      showToast(`Base SINAPI ${extraida.dataBase} / ${sinapiUf}: ${n(extraida.itens.length)} composições, `
-        + `${n(extraida.insumos.length)} insumos e ${n(extraida.componentes.length)} linhas de analítico${baseReutilizada ? " reparados" : ""}.`);
-    } catch (error) {
-      // Uma reimportação reaproveita o ID já vinculado aos orçamentos. Em caso
-      // de falha, não a removemos: a base anterior continua recuperável.
-      if (baseCriada?.id && !baseReutilizada) await removerBaseReferencia(baseCriada.id).catch(() => null);
-      showToast(error?.message || "Falha ao enviar a base SINAPI.", "error");
-    } finally { setImportando(false); window.setTimeout(() => {setUploadProgresso(0);setUploadEtapa("");}, 900); }
-  };
-
-  const cadastrarOrseSupabase = async file => {
-    if (!file || !orc) return;
-    if (!ehAdmin) { showToast("Somente o administrador pode cadastrar bases de referência.", "error"); return; }
-    setImportando(true);
-    try {
-      const nomeMatch = file.name.match(/(20\d{2})(0[1-9]|1[0-2])/);
-      const dataBase = nomeMatch ? `${nomeMatch[1]}-${nomeMatch[2]}` : orseDataBase;
-      if (!/^\d{4}-\d{2}$/.test(dataBase)) throw new Error("Informe a competência ORSE.");
-      const bytes = await file.arrayBuffer();
-      const digest = globalThis.crypto?.subtle ? await globalThis.crypto.subtle.digest("SHA-256", bytes) : null;
-      const hash = digest ? [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("") : "";
-      const inicio = await iniciarBaseReferencia({ fonte:"ORSE", dataBase, arquivo:file.name, hash });
-      if (!inicio.ok || !inicio.base?.id) throw new Error(inicio.error || "Não foi possível cadastrar a referência ORSE.");
-      const refs = [...new Set([...(orc.referencias || []), inicio.base.id])];
-      const temSinapi = basesRemotas.some(base => refs.includes(base.id) && base.fonte === "SINAPI");
-      salvarOrc({ referencias:refs, fonte:temSinapi ? "MISTO" : "ORSE", dataBase:orc.dataBase || dataBase });
-      setOrseDataBase(dataBase); await carregarBasesRemotas();
-      showToast(`ORSE ${dataBase} vinculado. A pesquisa usará a base pública oficial da CEHOP.`);
-    } catch (error) { showToast(error?.message || "Falha ao cadastrar a referência ORSE.", "error"); }
-    finally { setImportando(false); }
-  };
-
-  const importarXLSX = async (file) => {
-    await carregarXLSX();
-    if (!file) return;
-    if (!ehAdmin) { showToast("Somente o administrador pode importar bases temporárias.", "error"); return; }
-    setImportando(true);
-    try {
-      const buf = await file.arrayBuffer();
-      const wb  = await XLSX.read(buf, { type: "array" });
-
-      // Testa TODAS as abas e fica com a que rende mais itens
-      let melhor = null;
-      for (const nome of wb.SheetNames) {
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[nome], { header:1, defval:"", raw:false });
-        if (rows.length < 10) continue;
-        const layout = detectarLayout(rows);
-        if (!layout) continue;
-        const itens = extrair(rows, layout);
-        if (!melhor || itens.length > melhor.itens.length) melhor = { aba:nome, rows, layout, itens };
-      }
-
-      // Auto-detecção falhou → mapeamento manual
-      if (!melhor || melhor.itens.length === 0) {
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"", raw:false });
-        let hIdx = rows.findIndex(r => r.filter(c => String(c).trim()).length >= 4);
-        if (hIdx < 0) hIdx = 0;
-        setBaseNome(file.name);
-        setColMap({ codigo:"", descricao:"", unidade:"", preco:"" });
-        setMapModal({
-          headers: rows[hIdx].map((h,i) => String(h).trim() || `Coluna ${i+1}`),
-          rows: rows.slice(hIdx+1).filter(r => r.some(c => String(c).trim())),
-        });
-        setImportando(false);
-        showToast("Não reconheci o layout - mapeie as colunas manualmente.", "warn");
-        return;
-      }
-
-      const { itens, aba } = melhor;
-
-      // Quais colunas de preço realmente têm dado?
-      const comDes = itens.filter(i => i.precoDes > 0).length;
-      const comNao = itens.filter(i => i.precoNao > 0).length;
-
-      // Fontes presentes (SINAPI, ORSE...)
-      const porFonte = {};
-      itens.forEach(i => { porFonte[i.fonte] = (porFonte[i.fonte] || 0) + 1; });
-
-      // Data-base e localidade costumam estar acima do cabeçalho
-      const topo = melhor.rows.slice(0, melhor.layout.headerRow)
-        .flat().map(c => String(c ?? "").trim()).filter(Boolean);
-      const dataBase = topo.find(c => /^\d{2}\/\d{4}$/.test(c)) || "";
-      const localidade = topo.find(c =>
-        /^[A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{4,}$/.test(c) &&
-        !/BANCO|CUSTO|DATA|FONTE|ORIGEM|CÓDIGO|DESCRIÇÃO|UNIDADE|COEFICIENTE|ATRIBUÍDO|COLETADO/.test(c)
-      ) || "";
-
-      setBaseImport(itens);
-      setBaseNome(file.name);
-      setBaseInfo({ aba, total: itens.length, porFonte, comDes, comNao, dataBase, localidade });
-
-      // Identifica automaticamente uma base mista e evita que exportações com
-      // itens ORSE sejam rotuladas globalmente como apenas SINAPI.
-      const temSinapi = Object.keys(porFonte).some(f => f.toUpperCase().startsWith("SINAPI"));
-      const temOrse = Object.keys(porFonte).some(f => f.toUpperCase() === "ORSE");
-      const fonteDetectada = temSinapi && temOrse ? "MISTO" : temOrse ? "ORSE" : temSinapi ? "SINAPI" : orc?.fonte;
-      if (orc) salvarOrc({
-        ...(!orc.dataBase && dataBase ? {dataBase} : {}),
-        ...(fonteDetectada ? {fonte:fonteDetectada} : {}),
-      });
-
-      showToast(`${itens.length.toLocaleString("pt-BR")} composições carregadas da aba "${aba}".`);
-    } catch (e) {
-      showToast("Erro ao ler o arquivo. Confirme que é .xlsx ou .xls válido.", "error");
-    }
-    setImportando(false);
-  };
-
-  // Fallback: usuário mapeou as colunas na mão
-  const confirmarMapeamento = () => {
-    if (!mapModal) return;
-    const { rows } = mapModal;
-    if (colMap.codigo==="" || colMap.descricao==="" || colMap.preco==="") {
-      showToast("Mapeie ao menos Código, Descrição e Preço.","error"); return;
-    }
-    const ci = Number(colMap.codigo), di = Number(colMap.descricao);
-    const ui = colMap.unidade==="" ? -1 : Number(colMap.unidade);
-    const pi = Number(colMap.preco);
-
-    const itens = rows.map(r => {
-      const preco = parseBR(r[pi]);
-      return {
-        fonte:     "SINAPI",
-        codigo:    String(r[ci] ?? "").trim().replace(/\.0$/, ""),
-        descricao: String(r[di] ?? "").trim(),
-        unidade:   ui >= 0 ? (String(r[ui] ?? "").trim() || "UN") : "UN",
-        precoDes:  0,
-        precoNao:  preco,   // mapeamento manual → coluna única vira "não desonerado"
-      };
-    }).filter(x => !ehLixo(x.codigo) && !ehLixo(x.descricao) && x.precoNao > 0);
-
-    if (itens.length === 0) {
-      showToast("Nenhuma linha válida. Revise o mapeamento das colunas.","error"); return;
-    }
-
-    const porFonte = { SINAPI: itens.length };
-    setBaseImport(itens);
-    setBaseInfo({ aba:"(manual)", total:itens.length, porFonte, comDes:0, comNao:itens.length, dataBase:"", localidade:"" });
-    setMapModal(null);
-    showToast(`${itens.length.toLocaleString("pt-BR")} composições carregadas de ${baseNome}.`);
-  };
 
   //  Preço efetivo de uma composição 
   // Favoritos já vêm com preço congelado (precoUnit). Itens vindos da base
@@ -844,13 +424,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     return querDes ? (des <= 0 && nao > 0) : (nao <= 0 && des > 0);
   };
 
-  //  Base de busca: importada + favoritos 
-  const baseBusca = useMemo(() => {
-    const favs = (data.baseFavoritos||[]).map(f => ({...f, _fav:true}));
-    const codesFav = new Set(favs.map(f=>`${f.fonte || "SINAPI"}:${f.codigo}`));
-    const imp = baseImport.filter(i => !codesFav.has(`${i.fonte || "SINAPI"}:${i.codigo}`));
-    return [...favs, ...imp];
-  }, [data.baseFavoritos, baseImport]);
+  //  Base de busca: favoritos (curadoria da empresa, ver data.baseFavoritos)
+  const baseBusca = useMemo(() => (data.baseFavoritos||[]).map(f => ({...f, _fav:true})), [data.baseFavoritos]);
 
   // Busca sem acento: ninguém digita "VEDAÇÃO" na barra de pesquisa.
   // Normaliza os dois lados (NFD + remove diacríticos) antes de comparar.
@@ -1131,30 +706,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     salvarOrc({ referencias:ids, fonte:recalcularFonteOrc(ids) });
     showToast("Base desvinculada deste orçamento.");
   };
-  const excluirBasePersistida = async base => {
-    if (!ehAdmin) { showToast("Somente o administrador pode excluir bases de referência.", "error"); return; }
-    const orcamentosVinculados = (dataAtualRef.current.orcamentos || []).filter(item => (item.referencias || []).includes(base.id)).length;
-    const equivalentes = basesRemotas.filter(item => item.id !== base.id && chaveBaseReferencia(item) === chaveBaseReferencia(base) && item.status === "ready")
-      .sort((a,b)=>Number(b.total||0)-Number(a.total||0)||String(b.criadoEm||"").localeCompare(String(a.criadoEm||"")));
-    const substituta = equivalentes[0] || null;
-    const avisoVinculo = orcamentosVinculados
-      ? substituta ? ` Ela será substituída pela cópia equivalente em ${orcamentosVinculados} orçamento(s).` : ` Ela será desvinculada de ${orcamentosVinculados} orçamento(s).`
-      : "";
-    if (!window.confirm(`Excluir definitivamente a base ${base.fonte} ${base.dataBase}${base.uf?` · ${base.uf}`:""}?${avisoVinculo}`)) return;
-    const resultado = await removerBaseReferencia(base.id);
-    if (!resultado.ok) { showToast(resultado.error || "Não foi possível excluir a base.", "error"); return; }
-    const restantes = basesRemotas.filter(item => item.id !== base.id);
-    const atual = dataAtualRef.current;
-    const orcamentos = (atual.orcamentos || []).map(item => {
-      if (!(item.referencias || []).includes(base.id)) return item;
-      let referencias = (item.referencias || []).filter(id => id !== base.id);
-      if (substituta && !referencias.includes(substituta.id)) referencias = [...referencias, substituta.id];
-      return {...item, referencias, fonte:recalcularFonteOrc(referencias, restantes)};
-    });
-    setBasesRemotas(restantes);
-    update({...atual, orcamentos});
-    showToast(substituta ? "Base repetida excluída e vínculos preservados." : "Base excluída do Supabase.");
-  };
+  // Cadastro e exclusão de bases agora são exclusivos do administrador, em
+  // src/domains/administracao/components/BasesPrecoAdmin.jsx.
 
   const normalizarCodigoRef = valor => String(valor || "").trim().toUpperCase()
     .replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i, "").replace(/\.0$/, "")
@@ -2043,12 +1596,6 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // tem prioridade sobre favoritos antigos, garantindo preco da data-base atual.
   const referenciaPorCodigo = useMemo(() => {
     const m = new Map();
-    baseImport.forEach(i => {
-      const c = String(i.codigo??"").trim().toUpperCase().replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i,"").replace(/\.0$/,"");
-      const f = String(i.fonte||"").trim().toUpperCase();
-      if (c && f) m.set(`${f}|${c}`,i);
-      if (c && !m.has(c)) m.set(c,i);
-    });
     (data.baseFavoritos||[]).forEach(i => {
       const c = String(i.codigo??"").trim().toUpperCase().replace(/\s*\/\s*(ORSE|SINAPI(?:-I)?)\s*$/i,"").replace(/\.0$/,"");
       const f = String(i.fonte||"").trim().toUpperCase();
@@ -2056,56 +1603,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       if (c && !m.has(c)) m.set(c,i);
     });
     return m;
-  },[baseImport,data.baseFavoritos]);
-
-  const atualizarPrecosPelaBase = () => {
-    if (!orc || baseImport.length === 0) {
-      showToast("Carregue uma planilha de referência antes de atualizar.", "error");
-      return;
-    }
-    const novaBasePorCodigo = new Map();
-    baseImport.forEach(ref => {
-      const codigo = String(ref.codigo||"").trim().toUpperCase();
-      if (codigo && !novaBasePorCodigo.has(codigo)) novaBasePorCodigo.set(codigo, ref);
-    });
-    let atualizados = 0, naoEncontrados = 0;
-    const itens = orc.itens.map(it => {
-      if (it.tipo === "titulo") return it;
-      const codigo = String(it.codigo||"").trim().toUpperCase();
-      const ref = codigo ? novaBasePorCodigo.get(codigo) : null;
-      if (!ref) {
-        naoEncontrados++;
-        return { ...it, codigoNaoEncontrado:true };
-      }
-      const preco = precoDoItem(ref, orc);
-      if (!(preco > 0)) {
-        naoEncontrados++;
-        return { ...it, codigoNaoEncontrado:true };
-      }
-      atualizados++;
-      return {
-        ...it,
-        fonte: ref.fonte || it.fonte,
-        precoUnit: preco,
-        codigoNaoEncontrado:false,
-      };
-    });
-    const favoritos = (data.baseFavoritos||[]).map(f => {
-      const ref = novaBasePorCodigo.get(String(f.codigo||"").trim().toUpperCase());
-      if (!ref) return f;
-      const preco = precoDoItem(ref, orc);
-      return preco > 0 ? {...f, fonte:ref.fonte||f.fonte, descricao:ref.descricao||f.descricao,
-        unidade:ref.unidade||f.unidade, precoUnit:preco} : f;
-    });
-    update({
-      ...data,
-      baseFavoritos: favoritos,
-      orcamentos: todosOrcamentos.map(o => o.id===selOrc ? {
-        ...o, itens, dataBase: baseInfo?.dataBase || o.dataBase,
-      } : o),
-    });
-    showToast(`${atualizados} item(ns) atualizado(s) pela nova base${naoEncontrados ? `; ${naoEncontrados} sem correspondência` : ""}.`);
-  };
+  },[data.baseFavoritos]);
 
   const atualizarPrecosVinculados = async () => {
     if (!orc || !(orc.referencias || []).length) {
@@ -2937,10 +2435,11 @@ ${blocoBDI}
       </div>
 
       {basesPainelAberto&&<>
-      <div style={{display:"grid",gridTemplateColumns:`repeat(${ehAdmin?2:1},1fr)`,gap:5,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:4}}>{[["oficiais","Bases oficiais e vínculos"],...(ehAdmin?[["local","Importação local temporária"]]:[])].map(([id,label])=><button key={id} onClick={()=>setBasesSubAba(id)} style={{border:`1px solid ${basesSubAba===id?C.blue:C.border}`,background:basesSubAba===id?`${C.blue}10`:C.card,color:basesSubAba===id?C.blue:C.muted,borderRadius:6,padding:"7px 9px",fontSize:9.5,fontWeight:800,cursor:"pointer"}}>{label}</button>)}</div>
-
-      {/* Referências persistentes do orçamento */}
-      {basesSubAba==="oficiais"&&<div style={{background:C.card,border:`1.5px solid ${C.blue}55`,borderLeft:`5px solid ${C.blue}`,borderRadius:8,padding:"13px 14px",display:"flex",flexDirection:"column",gap:11}}>
+      {/* Cadastro/importação de bases (SINAPI/ORSE) é exclusivo do
+          administrador agora, em BasesPrecoAdmin (Central do Administrador).
+          Aqui fica só pesquisa, vínculo a uma base já cadastrada e reprecificação -
+          disponível para qualquer usuário com acesso ao orçamento. */}
+      <div style={{background:C.card,border:`1.5px solid ${C.blue}55`,borderLeft:`5px solid ${C.blue}`,borderRadius:8,padding:"13px 14px",display:"flex",flexDirection:"column",gap:11}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
           <div style={{minWidth:0,flex:1}}>
             <p style={{fontSize:14,fontWeight:800,color:C.text}}>Bases de referência no Supabase</p>
@@ -2964,128 +2463,14 @@ ${blocoBDI}
           </div>
         ) : <div style={{background:C.surface,border:`1px dashed ${C.border}`,padding:10,borderRadius:6}}><p style={{fontSize:11,color:C.muted}}>Nenhuma base do Supabase vinculada a este orçamento.</p></div>}
 
-        {ehAdmin ? <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(235px,1fr))",gap:9}}>
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,padding:10,borderRadius:6}}>
-            <p style={{fontSize:11,fontWeight:800,color:C.blue,marginBottom:7}}>SINAPI · planilha oficial</p>
-            <Sel label="Estado dos preços" value={sinapiUf} onChange={setSinapiUf} options={SINAPI_UFS.map(uf=>({v:uf,l:uf}))}/>
-            <label style={{display:"block",marginTop:8}}><input type="file" accept=".xlsx" disabled={importando} onChange={e=>{const file=e.target.files?.[0];e.target.value="";importarSinapiSupabase(file);}} style={{display:"none"}}/>
-              <span style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,background:C.blue,color:"#fff",padding:"8px 10px",borderRadius:7,cursor:importando?"wait":"pointer",fontSize:10.5,fontWeight:800,textTransform:"uppercase"}}><Ic n="download" s={13}/> Salvar SINAPI no Supabase</span>
-            </label>
-          </div>
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,padding:10,borderRadius:6}}>
-            <p style={{fontSize:11,fontWeight:800,color:C.purple,marginBottom:7}}>ORSE · data-base oficial</p>
-            <Inp label="Competência" type="month" value={orseDataBase} onChange={setOrseDataBase}/>
-            <label style={{display:"block",marginTop:8}}><input type="file" accept=".ORSE,.orse" disabled={importando} onChange={e=>{const file=e.target.files?.[0];e.target.value="";cadastrarOrseSupabase(file);}} style={{display:"none"}}/>
-              <span style={{display:"flex",justifyContent:"center",alignItems:"center",gap:6,background:C.purple,color:"#fff",padding:"8px 10px",borderRadius:7,cursor:importando?"wait":"pointer",fontSize:10.5,fontWeight:800,textTransform:"uppercase"}}><Ic n="file" s={13}/> Vincular arquivo ORSE</span>
-            </label>
-          </div>
-        </div> : <div style={{padding:"9px 11px",border:`1px solid ${C.blue}33`,borderRadius:7,background:`${C.blue}08`,fontSize:9.8,color:C.muted}}><b style={{color:C.blue}}>Uso liberado.</b> Você pode pesquisar e utilizar as bases já vinculadas. O cadastro, a importação, a desvinculação e a exclusão são exclusivos do administrador.</div>}
-        {uploadProgresso>0 && <div><div style={{display:"flex",justifyContent:"space-between",fontSize:9.5,color:C.muted,marginBottom:3,gap:10}}><span>{uploadEtapa||"Preparando importação..."}</span><strong>{uploadProgresso}%</strong></div><div style={{height:7,background:C.surface,borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${uploadProgresso}%`,background:C.blue,transition:"width .2s"}}/></div></div>}
         {basesDisponiveis.length>0 && <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}><Sel label="Vincular uma base já cadastrada" value={baseParaVincular} onChange={setBaseParaVincular} options={[{v:"",l:"Selecione"},...basesDisponiveis.map(base=>({v:base.id,l:`${base.fonte} ${base.dataBase}${base.uf?` · ${base.uf}`:""} · ${base.total||"oficial"}`}))]}/><Btn size="sm" v="info" disabled={!baseParaVincular} onClick={vincularBaseExistente}>Vincular</Btn></div>}
-        {ehAdmin&&basesRemotas.length>0&&<details style={{border:`1px solid ${totalBasesDuplicadas?C.orange:C.border}`,borderRadius:7,background:C.surface,padding:"8px 10px"}}><summary style={{cursor:"pointer",fontSize:10,fontWeight:850,color:totalBasesDuplicadas?C.orange:C.text}}>Gerenciar bases cadastradas · {basesRemotas.length} registro(s){totalBasesDuplicadas?` · ${totalBasesDuplicadas} repetição(ões)`:""}</summary><div style={{display:"flex",flexDirection:"column",gap:5,marginTop:8}}>{basesRemotas.map(base=>{const repetida=basesRemotas.filter(item=>chaveBaseReferencia(item)===chaveBaseReferencia(base)).length>1;return <div key={base.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:8,alignItems:"center",padding:"7px 8px",border:`1px solid ${repetida?C.orange:C.border}`,borderRadius:6,background:C.card}}><div style={{minWidth:0}}><p style={{fontSize:10.5,fontWeight:850,color:base.fonte==="ORSE"?C.purple:C.blue}}>{base.fonte} · {base.dataBase}{base.uf?` · ${base.uf}`:""}{base.fonte==="SINAPI"?` · ${base.desonerado===false?"NÃO DESONERADA":"DESONERADA"}`:""} {repetida&&<Badge color={C.orange}>REPETIDA</Badge>}</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{base.status==="ready"?`${Number(base.total||0).toLocaleString("pt-BR")} itens`:"Processamento incompleto"} · cadastrada em {base.criadoEm?new Date(base.criadoEm).toLocaleString("pt-BR"):"data não informada"}</p></div><Btn size="sm" v="danger" onClick={()=>excluirBasePersistida(base)}><Ic n="trash"/> Excluir</Btn></div>;})}</div></details>}
-        <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>Ao alterar um código na linha, fonte, descrição, unidade e custo unitário são consultados e atualizados automaticamente.</p>
-      </div>}
-
-      {/* Importação local temporária */}
-      {basesSubAba==="local"&&ehAdmin&&<div style={{background:baseImport.length>0?`${C.green}06`:C.surface,border:`1.5px dashed ${baseImport.length>0?C.green:C.border}`,borderRadius:8,padding:"12px 14px"}}>
-        {importando ? (
-          <div style={{display:"flex",alignItems:"center",gap:10,padding:"4px 0"}}>
-            <div style={{width:18,height:18,border:`3px solid ${C.border}`,borderTopColor:C.yellow,borderRadius:"50%",animation:"spin 1s linear infinite",flexShrink:0}}/>
-            <div>
-              <p style={{fontSize:13,fontWeight:700,color:C.text}}>Lendo a planilha...</p>
-              <p style={{fontSize:11,color:C.muted,marginTop:1}}>Bases grandes (17 mil linhas) levam alguns segundos.</p>
-            </div>
-          </div>
-        ) : baseImport.length > 0 && baseInfo ? (
-          <>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-              <div style={{minWidth:0}}>
-                <p style={{fontSize:13,fontWeight:700,color:C.green}}>
-                  ok {baseInfo.total.toLocaleString("pt-BR")} composições carregadas
-                </p>
-                <p style={{fontSize:11,color:C.muted,marginTop:2}}>
-                  {baseNome}  aba <strong>{baseInfo.aba}</strong>
-                </p>
-              </div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
-                <Btn size="sm" v="success" onClick={atualizarPrecosPelaBase}>Atualizar preços</Btn>
-                <label style={{display:"inline-flex"}}>
-                  <input type="file" accept=".xlsx,.xls" onChange={e=>{importarXLSX(e.target.files?.[0]);e.target.value="";}} style={{display:"none"}}/>
-                  <span style={{display:"inline-flex",alignItems:"center",padding:"6px 10px",border:`1.5px solid ${C.border}`,borderRadius:7,cursor:"pointer",fontSize:10,fontWeight:700,color:C.text}}>Trocar planilha</span>
-                </label>
-                <Btn size="sm" v="ghost" onClick={()=>{setBaseImport([]);setBaseNome("");setBaseInfo(null);}}>Limpar</Btn>
-              </div>
-            </div>
-
-            {/* Stats da base */}
-            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:9}}>
-              {Object.entries(baseInfo.porFonte).map(([f,n])=>(
-                <span key={f} style={{fontSize:10,fontWeight:700,background:`${C.blue}12`,color:C.blue,padding:"3px 8px",borderRadius:4}}>
-                  {f} {n.toLocaleString("pt-BR")}
-                </span>
-              ))}
-              {baseInfo.dataBase && (
-                <span style={{fontSize:10,fontWeight:700,background:`${C.yellow}18`,color:C.yellowD,padding:"3px 8px",borderRadius:4}}>
-                  Data-base {baseInfo.dataBase}
-                </span>
-              )}
-              {baseInfo.localidade && (
-                <span style={{fontSize:10,fontWeight:700,background:C.surface,color:C.muted,padding:"3px 8px",borderRadius:4,border:`1px solid ${C.border}`}}>
-                  {baseInfo.localidade}
-                </span>
-              )}
-            </div>
-
-            {/* Aviso: coluna de preço disponível vs escolhida no orçamento */}
-            {(() => {
-              const querDes = orc.desonerado !== false;
-              const temDes  = baseInfo.comDes > 0;
-              const temNao  = baseInfo.comNao > 0;
-              const faltaEscolhida = (querDes && !temDes) || (!querDes && !temNao);
-              if (!faltaEscolhida) {
-                return (
-                  <p style={{fontSize:10,color:C.muted,marginTop:8}}>
-                    Usando a coluna <strong style={{color:C.text}}>{querDes ? "desonerada" : "não desonerada"}</strong>, conforme o orçamento.
-                  </p>
-                );
-              }
-              return (
-                <div style={{marginTop:9,background:`${C.orange}10`,border:`1px solid ${C.orange}44`,borderRadius:6,padding:"7px 10px"}}>
-                  <p style={{fontSize:11,color:C.orange,fontWeight:700}}>
-                    ! Esta base só traz preços {temNao ? "NÃO desonerados" : "desonerados"}
-                  </p>
-                  <p style={{fontSize:10,color:C.muted,marginTop:2,lineHeight:1.5}}>
-                    O orçamento está marcado como <strong>{querDes ? "desonerado" : "não desonerado"}</strong>, mas essa coluna está vazia na planilha.
-                    Os itens usarão o preço {temNao ? "não desonerado" : "desonerado"} disponível.
-                    Se não for isso que você quer, ajuste o orçamento ou importe a outra tabela.
-                  </p>
-                </div>
-              );
-            })()}
-          </>
-        ) : (
-          <>
-            <p style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:3}}> Importar base SINAPI / ORSE</p>
-            <p style={{fontSize:11,color:C.muted,marginBottom:9,lineHeight:1.5}}>
-              Importe a planilha de referência (.xls ou .xlsx). O app acha a aba certa,
-              o cabeçalho e as colunas sozinho - inclusive quando SINAPI e ORSE vêm juntos.
-              A base fica em memória; só os itens que você usar são salvos.
-            </p>
-            <label style={{display:"inline-block"}}>
-              <input type="file" accept=".xlsx,.xls" onChange={e=>importarXLSX(e.target.files?.[0])} style={{display:"none"}}/>
-              <span style={{display:"inline-flex",alignItems:"center",gap:6,background:C.yellow,color:"#fff",border:`1.5px solid ${C.yellowD}`,padding:"8px 14px",borderRadius:6,cursor:"pointer",fontFamily:"var(--arcd-font-sans)",fontWeight:700,fontSize:12,textTransform:"uppercase",letterSpacing:.5}}>
-                 Escolher planilha
-              </span>
-            </label>
-          </>
-        )}
-
+        <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>Ao alterar um código na linha, fonte, descrição, unidade e custo unitário são consultados e atualizados automaticamente. Cadastro de novas bases é feito pelo administrador em Central do Administrador → Bases de preço.</p>
         {(data.baseFavoritos||[]).length > 0 && (
-          <p style={{fontSize:11,color:C.muted,marginTop:9,paddingTop:9,borderTop:`1px solid ${C.line}`}}>
-             {(data.baseFavoritos||[]).length} composição(ões) na sua base de favoritos (sempre disponível, sem reimportar)
+          <p style={{fontSize:11,color:C.muted,paddingTop:9,borderTop:`1px solid ${C.line}`}}>
+            {(data.baseFavoritos||[]).length} composição(ões) na sua base de favoritos (sempre disponível, sem depender de nenhuma base vinculada)
           </p>
         )}
-      </div>}
+      </div>
       </>}
 
       {/* Árvore de etapas + itens */}
@@ -4038,35 +3423,6 @@ ${blocoBDI}
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>{setEtapaModal(null);setEtapaNome("");}} full>Cancelar</Btn>
               <Btn onClick={salvarEtapa} full><Ic n="check"/> Salvar</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Modal: mapear colunas do XLSX */}
-      {mapModal && (
-        <Modal title="Mapear colunas da planilha" onClose={()=>setMapModal(null)} wide>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-              <p style={{fontSize:12,color:C.text,fontWeight:700}}>{baseNome}</p>
-              <p style={{fontSize:11,color:C.muted,marginTop:2}}>
-                {mapModal.rows.length.toLocaleString("pt-BR")} linhas  {mapModal.headers.length} colunas.
-                Confirme qual coluna corresponde a cada campo.
-              </p>
-            </div>
-            {[
-              ["codigo",    "Código da composição *"],
-              ["descricao", "Descrição do serviço *"],
-              ["unidade",   "Unidade"],
-              ["preco",     "Preço unitário (sem BDI) *"],
-            ].map(([k,l])=>(
-              <Sel key={k} label={l} value={colMap[k]} onChange={v=>setColMap(m=>({...m,[k]:v}))}
-                options={[{v:"",l:"- Selecionar coluna -"}, ...mapModal.headers.map((h,i)=>({v:String(i), l:`${h}  →  ${String(mapModal.rows[0]?.[i] ?? "").slice(0,32)}`}))]}
-              />
-            ))}
-            <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>setMapModal(null)} full>Cancelar</Btn>
-              <Btn onClick={confirmarMapeamento} full><Ic n="check"/> Carregar base</Btn>
             </div>
           </div>
         </Modal>

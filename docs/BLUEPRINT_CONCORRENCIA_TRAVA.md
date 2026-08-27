@@ -3114,3 +3114,89 @@ Nota reavaliada após esta rodada: ainda não recalculada com uma
 crítica Impeccable nova (isso exigiria rodar o processo completo de
 novo); a expectativa é de leitura mais próxima de 37 dado o alcance
 desta rodada, mas o número exato só é confirmado numa nova crítica.
+
+## Motor de importação ORSE + cadastro de bases exclusivo do administrador (27/08/2026)
+
+O usuário pediu para tirar da tela de Orçamento a capacidade de
+cadastrar bases SINAPI/ORSE - isso vira exclusivo do administrador -,
+e forneceu os 7 arquivos que o ORSE (CEHOP/Sergipe) entrega hoje (TXT
+relacionais) mais um XLSX do SINAPI, pedindo um motor de importação
+com testes.
+
+**Achado que mudou o desenho**: ORSE não tinha motor nenhum - toda
+busca/preço já era raspagem ao vivo do site `orse.cehop.se.gov.br`
+(`api/references.js`). O SINAPI já tinha um motor real (Web Worker +
+lotes para `/api/references` → Postgres). Os 7 TXT preenchem
+exatamente essa lacuna do ORSE.
+
+**Decifrando os TXT sem dicionário oficial** (decisão do usuário:
+"decifre pelos dados"): cruzei os 5 arquivos necessários entre si
+(`TB_INSUMO`, `TB_INSUMO_PRECO`, `TB_SERVICO`, `TB_SERVICO_PRECO`,
+`TB_COMPOSICAO` - os 2 de detalhamento de equipamento ficam de fora,
+decisão do usuário) e validei o resultado **ao vivo contra a raspagem
+já em produção**: composição código 4 bateu R$ 6,74 nos dois lados.
+Achados que só apareceram rodando contra os arquivos reais completos
+(24MB), não em fixtures pequenas:
+
+- Todos os 5 arquivos são **ISO-8859-1**, não UTF-8.
+- `TB_INSUMO_PRECO`: as colunas de preço são idênticas em 100% das
+  9.491 linhas - ORSE não distingue onerado/desonerado nem UF (é o
+  preço único de Sergipe).
+- `TB_SERVICO` (179.673 linhas cruas, só 15.445 códigos únicos) vem
+  com **blocos de RTF binário embutidos** em parte dos registros -
+  `file` o classifica como "data", não texto. O parser usa uma regex
+  ancorada (`^ORSE;(\d+);([^;]*);([^;]*)`) que só aceita linhas que
+  começam com "ORSE;<código>;", descartando linhas de continuação do
+  RTF como lixo.
+- **`TB_COMPOSICAO` é o único dos 5 arquivos separado por TAB, não
+  ";"** (confirmado por hexdump - byte 0x09) - um bug real que só
+  apareceu rodando contra o arquivo de verdade (57.353 linhas): o
+  parser retornava 0 componentes com o separador errado, e as fixtures
+  pequenas do teste unitário (escritas à mão com ";") não pegaram isso.
+- Cerca de 36% dos filhos de composição ORSE apontam para o catálogo
+  do SINAPI (não carregado por este motor) - a descrição desses filhos
+  vira um rótulo mínimo (`Item SINAPI 6111 (ver base SINAPI)`) em vez
+  de ficar em branco, porque o `component-chunk` de `/api/references`
+  descarta silenciosamente qualquer linha com descrição vazia.
+
+**O que foi feito**:
+- `src/domains/orcamentos/orse-parser.js` (motor puro, testável sem
+  Worker) + `src/domains/orcamentos/orse-import.js` (`readOrseInWorker`,
+  carregado por `import()` dinâmico) + `src/workers/orse-parser.worker.js`
+  - mesmo formato de saída (`{itens, insumos, componentes, dataBase}`)
+  que o SINAPI já produz, reusando o mesmo pipeline
+  `begin`→`chunk`/`input-chunk`/`component-chunk`→`finish`.
+- `api/references.js`: uma base ORSE nova agora nasce `mode:"uploaded"`/
+  `status:"processing"` (antes: `"official"`/`"ready"` com zero itens);
+  `chunk`/`input-chunk`/`component-chunk` aceitam `source` SINAPI ou
+  ORSE; `resolve`/`search`/`search-inputs`/`composition-details` agora
+  consultam o Postgres para qualquer base com `mode!=="official"` -
+  raspagem ao vivo do CEHOP vira fallback só para bases antigas ainda
+  não reimportadas pelo motor novo. `schema.sql` já tinha `uf`/
+  `desonerado` nullable - nenhuma migration nova.
+- Nova seção "Bases de preço" em `CentralAdministradorView.jsx` →
+  `src/domains/administracao/components/BasesPrecoAdmin.jsx`: upload do
+  XLSX do SINAPI (com UF e onerado/desonerado explícitos, já que não há
+  mais um orçamento de referência) e dos 5 TXT do ORSE (seleção múltipla,
+  classificados pelo nome do arquivo), lista de bases com exclusão
+  (replicando a lógica de substituição por base equivalente que já
+  existia em `OrcamentoView.jsx`, para não deixar orçamento órfão).
+- `OrcamentoView.jsx`: removidos `importarSinapiSupabase`,
+  `cadastrarOrseSupabase`, `importarXLSX` (+ auto-detecção de layout,
+  mapeamento manual de colunas, a aba "Importação local temporária") e
+  `excluirBasePersistida`. Fica só pesquisa, vínculo a uma base já
+  cadastrada e reprecificação - disponível a qualquer usuário com
+  acesso ao orçamento, sem nenhum controle de upload/exclusão. Também
+  removida (dead code, nunca chamada) uma segunda implementação inteira
+  de parser SINAPI (`extrairSinapiOficial`) que convivia com o motor
+  real sem ser usada.
+- `vite.config.mjs`: `api/**/*.test.{js,jsx}` entrou no include do
+  Vitest - não havia nenhum teste para `api/*.js` antes.
+
+**Testes**: `orse-parser.test.js` (16, incluindo a reconstrução por
+âncora do RTF e o preço R$ 6,74 validado ao vivo), `orse-import.test.js`
+(7, orquestração do worker + classificador de arquivo),
+`api/references.test.js` (3, novo arquivo - `begin`/`chunk`/`resolve`
+com um mock mínimo do Supabase). Suíte completa 256 arquivos/1576
+testes, `build`, `lint`, `architecture:check` verdes.
+

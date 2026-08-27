@@ -416,7 +416,7 @@ export default async function handler(req, res) {
         // relações analíticas. Reaproveitar seu ID é essencial: orçamentos
         // já vinculados continuam apontando para a mesma referência. Os lotes
         // são upsertados e a finalização só aceita a base completa.
-        if (source === "SINAPI" && meta.reimportar === true) {
+        if (meta.reimportar === true) {
           const { data, error } = await db
             .from("budget_reference_bases")
             .update({ file_name: String(meta.arquivo || "").slice(0, 240), file_hash: String(meta.hash || "").slice(0, 128) })
@@ -442,8 +442,15 @@ export default async function handler(req, res) {
         desonerado: source === "SINAPI" ? meta.desonerado !== false : null,
         file_name: String(meta.arquivo || "").slice(0, 240),
         file_hash: String(meta.hash || "").slice(0, 128),
-        mode: source === "ORSE" ? "official" : "uploaded",
-        status: source === "ORSE" ? "ready" : "processing",
+        // Antes, uma base ORSE nascia "official"/"ready" com zero itens (a
+        // pesquisa raspava o site do CEHOP ao vivo). Agora ORSE também é
+        // importada de verdade (motor em orse-parser.js) e passa pelo mesmo
+        // begin→chunk→finish do SINAPI - só bases antigas, já cadastradas
+        // antes desta mudança, continuam em modo "official" (ver resolve/
+        // search/search-inputs/composition-details, que ainda raspam ao
+        // vivo só para essas).
+        mode: "uploaded",
+        status: "processing",
         item_count: 0,
         created_by: user.id || null,
       };
@@ -463,7 +470,7 @@ export default async function handler(req, res) {
         .eq("company_id", COMPANY)
         .maybeSingle();
       if (baseError || !base) return res.status(404).json({ error: "Base não encontrada." });
-      if (base.source !== "SINAPI") return res.status(400).json({ error: "Somente bases SINAPI recebem lotes." });
+      if (!["SINAPI", "ORSE"].includes(base.source)) return res.status(400).json({ error: "Fonte da base não suporta lotes." });
 
       const rows = items.map(item => {
         const code = normalizeReferenceCode(item.codigo);
@@ -471,7 +478,7 @@ export default async function handler(req, res) {
         return {
           base_id: baseId,
           company_id: COMPANY,
-          source: "SINAPI",
+          source: base.source,
           code,
           description,
           unit: String(item.unidade || "UN").trim().slice(0, 30),
@@ -502,15 +509,15 @@ export default async function handler(req, res) {
         .maybeSingle();
       
       if (baseError || !base) return res.status(404).json({ error: "Base não encontrada." });
-      if (base.source !== "SINAPI") return res.status(400).json({ error: "Somente bases SINAPI recebem insumos enviados." });
-      
+      if (!["SINAPI", "ORSE"].includes(base.source)) return res.status(400).json({ error: "Fonte da base não suporta insumos." });
+
       const rows = items.map(item => {
         const code = normalizeReferenceCode(item.codigo);
         const description = String(item.descricao || "").trim();
         return {
           base_id: baseId,
           company_id: COMPANY,
-          source: "SINAPI",
+          source: base.source,
           code,
           description,
           unit: String(item.unidade || "UN").trim().slice(0, 30),
@@ -544,12 +551,12 @@ export default async function handler(req, res) {
         .maybeSingle();
       
       if (baseError || !base) return res.status(404).json({ error: "Base não encontrada." });
-      if (base.source !== "SINAPI") return res.status(400).json({ error: "Somente bases SINAPI recebem relações analíticas." });
-      
+      if (!["SINAPI", "ORSE"].includes(base.source)) return res.status(400).json({ error: "Fonte da base não suporta relações analíticas." });
+
       const rows = items.map(item => ({
         base_id: baseId,
         company_id: COMPANY,
-        source: "SINAPI",
+        source: String(item.fonte || base.source).toUpperCase(),
         composition_code: normalizeReferenceCode(item.compositionCode),
         item_type: String(item.itemType || "").toUpperCase() === "COMPOSICAO" ? "COMPOSICAO" : "INSUMO",
         item_code: normalizeReferenceCode(item.itemCode),
@@ -584,7 +591,7 @@ export default async function handler(req, res) {
       if (inputCountError || componentCountError) throw inputCountError || componentCountError;
       if (!(count > 0) || !(inputCount > 0) || !(componentCount > 0)) {
         return res.status(422).json({
-          error: "A base SINAPI só pode ser concluída com composições, insumos e relações analíticas. Envie o XLSX oficial completo (CCD/CSD, ICD/ISD e Analítico).",
+          error: "A base só pode ser concluída com composições, insumos e relações analíticas completos. Envie os arquivos oficiais completos (SINAPI: XLSX com CCD/CSD, ICD/ISD e Analítico; ORSE: TB_SERVICO(_PRECO), TB_INSUMO(_PRECO) e TB_COMPOSICAO).",
         });
       }
       const { data, error } = await db
@@ -612,8 +619,16 @@ export default async function handler(req, res) {
       if (basesError) throw basesError;
       const baseById = new Map((bases || []).map(base => [base.id, base]));
 
-      const sinapiIds = (bases || []).filter(base => base.source === "SINAPI").map(base => base.id);
-      const sinapiCodes = [...new Set(entries.filter(entry => entry.fonte !== "ORSE").map(entry => entry.codigo))];
+      // "SINAPI" aqui inclui qualquer base já importada de verdade (mode
+      // "uploaded") - hoje sempre SINAPI, mas também ORSE reimportado pelo
+      // motor novo (orse-parser.js). Só uma base ORSE ainda no modo antigo
+      // ("official", cadastrada sem itens) cai no fallback de raspagem
+      // ao vivo logo abaixo.
+      const sinapiIds = (bases || []).filter(base => base.mode !== "official").map(base => base.id);
+      // Não filtra mais por entry.fonte !== "ORSE": um código ORSE também
+      // pode estar em budget_reference_items agora (base já importada) - o
+      // base_id em sinapiIds já garante que só se busca no lugar certo.
+      const sinapiCodes = [...new Set(entries.map(entry => entry.codigo))];
       let sinapiItems = [];
       if (sinapiIds.length && sinapiCodes.length) {
         const { data, error } = await db.from("budget_reference_items")
@@ -628,7 +643,7 @@ export default async function handler(req, res) {
         }));
       }
 
-      const orseBases = (bases || []).filter(base => base.source === "ORSE");
+      const orseBases = (bases || []).filter(base => base.source === "ORSE" && base.mode === "official");
       const orseCodes = [...new Set(entries.filter(entry => entry.fonte !== "SINAPI").map(entry => entry.codigo))];
       let orseItems = [], warning = "";
       if (orseBases.length && orseCodes.length) {
@@ -674,8 +689,10 @@ export default async function handler(req, res) {
       if (basesError) throw basesError;
       
       const baseById = new Map((bases || []).map(base => [base.id, base]));
+      // Inclui qualquer base já importada (mode "uploaded"), não só SINAPI -
+      // ver comentário equivalente na ação "resolve".
       const sinapiIds = (bases || [])
-        .filter(base => base.source === "SINAPI")
+        .filter(base => base.mode !== "official")
         .map(base => base.id);
       const terms = normalizeText(term).split(/\s+/).filter(Boolean).slice(0, LIMITS.QUERY_TERMS_MAX);
       
@@ -735,8 +752,8 @@ export default async function handler(req, res) {
       }
       
       let orse = [], warning = "";
-      const orseBases = (bases || []).filter(base => base.source === "ORSE");
-      
+      const orseBases = (bases || []).filter(base => base.source === "ORSE" && base.mode === "official");
+
       if (orseBases.length) {
         try {
           const [inputGroups, compositionGroups] = await Promise.all([
@@ -787,12 +804,12 @@ export default async function handler(req, res) {
       if (basesError) throw basesError;
       
       const sinapiIds = (bases || [])
-        .filter(base => base.source === "SINAPI")
+        .filter(base => base.mode !== "official")
         .map(base => base.id);
       const baseById = new Map((bases || []).map(base => [base.id, base]));
-      const initialSinapi = [...new Set(entries
-        .filter(entry => entry.fonte !== "ORSE")
-        .map(entry => entry.codigo))];
+      // Idem ao comentário em "resolve": não filtra mais por fonte, o
+      // base_id em sinapiIds já restringe à base certa.
+      const initialSinapi = [...new Set(entries.map(entry => entry.codigo))];
       
       const relations = [];
       const visited = new Set();
@@ -888,7 +905,13 @@ export default async function handler(req, res) {
         const base = baseById.get(row.base_id);
         
         return {
-          fonte: "SINAPI",
+          // row.source é do próprio filho, não da base pai - uma composição
+          // ORSE pode ter filho SINAPI (e vice-versa). O preço desse filho
+          // cross-fonte pode não ser encontrado aqui (inputMap/
+          // compositionPriceMap só buscam pelo base_id da própria relação) -
+          // limitação conhecida do "Ver composição analítica", que é só
+          // exibição e nunca decide o preço da composição em si.
+          fonte: row.source,
           compositionCode: row.composition_code,
           itemType: row.item_type,
           itemCode: row.item_code,
@@ -904,7 +927,7 @@ export default async function handler(req, res) {
         };
       });
       
-      const orseBases = (bases || []).filter(base => base.source === "ORSE");
+      const orseBases = (bases || []).filter(base => base.source === "ORSE" && base.mode === "official");
       const orseCodes = [...new Set(entries
         .filter(entry => entry.fonte !== "SINAPI")
         .map(entry => entry.codigo))]
@@ -955,7 +978,7 @@ export default async function handler(req, res) {
         .eq("status", "ready");
       if (basesError) throw basesError;
 
-      const sinapiIds = (bases || []).filter(base => base.source === "SINAPI").map(base => base.id);
+      const sinapiIds = (bases || []).filter(base => base.mode !== "official").map(base => base.id);
       let sinapiItems = [];
       if (sinapiIds.length) {
         let query = db
@@ -981,7 +1004,7 @@ export default async function handler(req, res) {
         }));
       }
 
-      const orseBases = (bases || []).filter(base => base.source === "ORSE");
+      const orseBases = (bases || []).filter(base => base.source === "ORSE" && base.mode === "official");
       let orseItems = [];
       let orseWarning = "";
       if (orseBases.length) {
