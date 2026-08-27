@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  contarPilares, extrairAnotacoesPosicao, extrairQuadroSapatas, extrairSapatasFundacao,
+  contarPilares, extrairAnotacoesPosicao, extrairQuadroSapatas, extrairResumoAcoFundacao, extrairSapatasFundacao,
 } from "./estrutural-pdf-extrator";
 
 // Texto real extraído (pdftotext, sem -layout) da folha E-02/13 do projeto
@@ -9,6 +9,32 @@ import {
 // (o mesmo caractere de substituição que o poppler devolveu na extração
 // real - prova que o parser não depende de um símbolo específico).
 const D = "�"; // símbolo de diâmetro, ilegível após extração
+
+// Texto real do "Resumo Aço" no topo da mesma folha (antes do quadro) -
+// total já pronto da página inteira: Ø10=164kg, Ø12.5=14kg, total=178kg.
+const RESUMO_ACO_REAL = `
+Resumo A${D}o
+
+Comp. total Peso+10%
+
+Funda${D}${D}o
+
+(m)
+
+(kg) Total
+
+Detalhamento funda${D}${D}o
+
+CA-50
+
+${D}10 ${D}12.5
+
+242.1 13.0
+
+164 14 178
+
+`;
+
 const QUADRO_REAL = `
 QUADRO DE ELEMENTOS DE FUNDA${D}${D}O
 
@@ -129,19 +155,33 @@ P24
 A1
 `;
 
-// Trechos reais das anotações de barra desenhadas junto de cada sapata
-// individual (pdftotext, mesma folha). P12: X=6N9, Y=7N10. P17: X=6N15 -
-// mesma quantidade+bitola+espaçamento do X de P12 (6${D}10c/20), mas com
-// comprimento DIFERENTE (138 contra 173) - a ambiguidade real que o parser
-// precisa saber reconhecer e não arriscar.
-const ANOTACOES_REAIS = `
+// Trechos reais do DESENHO (depois do quadro) - cada sapata individual traz
+// sua própria anotação de barra. P12 e P17 compartilham a mesma
+// especificação no eixo X (6${D}10c/20) mas com comprimentos DIFERENTES na
+// vida real (173 contra 138) - a ordem de aparição (P12 primeiro, P17
+// depois) é o que a âncora por posição usa para não confundir os dois.
+const DESENHO_REAL = `
 P12
+P12 45 25 25 45
 6N9${D}10c/20 C=173
 7N10${D}10c/20 C=148
 
 P17
+P17 40 1313 40
 6N15${D}10c/20 C=138
 4N16${D}12.5c/25 C=168
+
+P7 e P8
+P7 e P8 25 20 20 25
+4N5${D}10c/25 C=108
+3N6${D}10c/25 C=123
+4N7${D}10c/25 C=123
+4N8${D}10c/25 C=123
+
+P18
+P18 25 20 20 25
+4N17${D}10c/25 C=123
+4N18${D}10c/25 C=123
 `;
 
 describe("contarPilares", () => {
@@ -186,7 +226,7 @@ describe("extrairQuadroSapatas - contra o texto real do projeto (Estrutural.pdf,
 
 describe("extrairAnotacoesPosicao - contra anotações reais de barra do desenho", () => {
   it("lê quantidade, posição, bitola, espaçamento e comprimento de cada anotação", () => {
-    const anotacoes = extrairAnotacoesPosicao(ANOTACOES_REAIS);
+    const anotacoes = extrairAnotacoesPosicao(DESENHO_REAL);
     expect(anotacoes).toEqual(expect.arrayContaining([
       { quantidade: 6, posicao: 9, bitola: 10, espacamento: 20, comprimentoCm: 173 },
       { quantidade: 7, posicao: 10, bitola: 10, espacamento: 20, comprimentoCm: 148 },
@@ -200,8 +240,8 @@ describe("extrairAnotacoesPosicao - contra anotações reais de barra do desenho
   });
 });
 
-describe("extrairSapatasFundacao - integração quadro + anotações (validação real)", () => {
-  const texto = QUADRO_REAL + ANOTACOES_REAIS;
+describe("extrairSapatasFundacao - integração quadro + desenho (âncora por posição, validação real)", () => {
+  const texto = QUADRO_REAL + DESENHO_REAL;
   const sapatas = extrairSapatasFundacao(texto);
 
   it("devolve uma sapata por grupo, com qtd de peças e dimensões em metro", () => {
@@ -213,20 +253,51 @@ describe("extrairSapatasFundacao - integração quadro + anotações (validaçã
     expect(p12.alturaTronco).toBeCloseTo(0.2);
   });
 
-  it("resolve o comprimento da armadura Y de P12 (7∅10c/20 é único no documento) = 1,48m", () => {
+  it("resolve os DOIS comprimentos de P12 pela âncora de posição (1,73m e 1,48m)", () => {
     const p12 = sapatas.find(s => s.tipo === "P12");
+    expect(p12.armaduraX).toEqual({ bitola: "10", quantidade: 6, comprimento: 1.73 });
     expect(p12.armaduraY).toEqual({ bitola: "10", quantidade: 7, comprimento: 1.48 });
   });
 
-  it("NÃO arrisca o comprimento da armadura X de P12 - a mesma especificação (6∅10c/20) aparece em P17 com comprimento diferente (138 vs 173)", () => {
+  it("resolve P17 com comprimento DIFERENTE de P12 mesmo compartilhando a mesma especificação (6∅10c/20) no eixo X - é exatamente o caso que a correlação por especificação global não conseguia distinguir", () => {
     const p12 = sapatas.find(s => s.tipo === "P12");
     const p17 = sapatas.find(s => s.tipo === "P17");
-    expect(p12.armaduraX.comprimento).toBe(0);
-    expect(p17.armaduraX.comprimento).toBe(0);
+    expect(p12.armaduraX.comprimento).toBe(1.73);
+    expect(p17.armaduraX.comprimento).toBe(1.38);
+    expect(p12.armaduraX.comprimento).not.toBe(p17.armaduraX.comprimento);
+  });
+
+  it("resolve P18 mesmo pertencendo a um grupo de 3 pilares (\"P7, P8 e P18\") desenhado em rótulos separados", () => {
+    const p18 = sapatas.find(s => s.tipo === "P7, P8 e P18");
+    expect(p18.qtd).toBe(3);
+    // A âncora usa o pilar do grupo encontrado mais cedo no desenho - aqui,
+    // "P7 e P8" aparece antes de "P18" sozinho, então é dali que vêm os
+    // comprimentos usados para representar o tipo inteiro.
+    expect(p18.armaduraX.comprimento).toBeCloseTo(1.08);
+    expect(p18.armaduraY.comprimento).toBeCloseTo(1.23);
   });
 
   it("conta 7 peças no maior grupo (P1, P4, P5, P6, P10, P11 e P14)", () => {
     const grupo = sapatas.find(s => s.tipo === "P1, P4, P5, P6, P10, P11 e P14");
     expect(grupo.qtd).toBe(7);
+  });
+
+  it("devolve comprimento 0 (não trava) para um grupo cuja referência não aparece em lugar nenhum do desenho", () => {
+    const semDesenho = extrairSapatasFundacao(QUADRO_REAL); // sem a seção DESENHO_REAL
+    expect(semDesenho.every(s => s.armaduraX.comprimento === 0 && s.armaduraY.comprimento === 0)).toBe(true);
+  });
+});
+
+describe("extrairResumoAcoFundacao - conferência contra o total real da página (Estrutural.pdf, folha E-02/13)", () => {
+  const texto = RESUMO_ACO_REAL + QUADRO_REAL;
+
+  it("lê o peso por bitola e o total geral já prontos do projeto", () => {
+    const resumo = extrairResumoAcoFundacao(texto);
+    expect(resumo.porBitola).toEqual([{ bitola: "10", pesoKg: 164 }, { bitola: "12.5", pesoKg: 14 }]);
+    expect(resumo.totalKg).toBe(178);
+  });
+
+  it("devolve null se não achar a seção Resumo Aço", () => {
+    expect(extrairResumoAcoFundacao(QUADRO_REAL)).toBeNull();
   });
 });

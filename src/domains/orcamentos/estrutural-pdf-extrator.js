@@ -1,12 +1,12 @@
 // Extrai sapatas da Fundação a partir do texto puro de um projeto estrutural
 // em PDF (mesmo gerador usado pelo usuário - confirmado em campo real,
 // Estrutural.pdf, folha E-02/13: "QUADRO DE ELEMENTOS DE FUNDAÇÃO"). O texto
-// já deve vir extraído (ex.: `pdf-parse`, no servidor) - este módulo é puro,
+// já deve vir extraído (ex.: pdfjs-dist, no navegador) - este módulo é puro,
 // sem nenhuma dependência de PDF, para ficar testável com uma string comum.
 //
 // O símbolo de diâmetro (∅) do desenho original não sobrevive à extração de
 // texto do PDF - vira um caractere de substituição diferente conforme a
-// biblioteca usada (confirmado: poppler devolve U+FFFD; pdf-parse/pdfjs pode
+// biblioteca usada (confirmado: poppler devolve U+FFFD; pdfjs-dist pode
 // devolver outro). Por isso nenhum regex aqui trava nesse caractere - todos
 // tratam a posição do símbolo como "0 a 2 caracteres quaisquer".
 
@@ -19,6 +19,47 @@ const RE_ARMADURA_QUADRO = /^(\d+)\D{0,2}(\d+(?:[.,]\d+)?)c\/(\d+(?:[.,]\d+)?)$/
 const RE_ANOTACAO_POSICAO = /(\d+)N(\d+)\D{0,2}(\d+(?:[.,]\d+)?)c\/(\d+(?:[.,]\d+)?)\s*C=(\d+)(?:-(\d+))?/g;
 
 const paraNumero = texto => Number(String(texto).replace(",", "."));
+const linhasNaoVazias = texto => String(texto || "").split(/\r\n|\n/).map(l => l.trim()).filter(Boolean);
+
+const RE_LINHA_BITOLAS = /^(?:\D{0,2}\d+(?:[.,]\d+)?\s*)+$/;
+const RE_LINHA_NUMEROS = /^[\d.,\s]+$/;
+
+// Lê o "Resumo Aço" da folha inteira (Ø10: 164kg, Ø12.5: 14kg, Total:
+// 178kg) - um total pronto pelo próprio projeto, útil só como conferência:
+// bate o total somado por tipo (memoria-calculo-estrutural.js) contra este
+// número para avisar se a extração ficou incompleta.
+export function extrairResumoAcoFundacao(texto) {
+  const linhas = linhasNaoVazias(texto);
+  const inicioResumo = linhas.findIndex(l => /Resumo A.o/i.test(l));
+  const inicioQuadro = linhas.findIndex(l => /QUADRO DE ELEMENTOS DE FUNDA/i.test(l));
+  if (inicioResumo === -1) return null;
+  const fim = inicioQuadro > inicioResumo ? inicioQuadro : linhas.length;
+  const bloco = linhas.slice(inicioResumo, fim);
+
+  // "242.1 13.0"/"164 14 178" (só números/ponto/espaço) também batem no
+  // formato de RE_LINHA_BITOLAS - só a linha de bitola de verdade tem o
+  // símbolo de diâmetro (um caractere que não é dígito, ponto, vírgula ou
+  // espaço).
+  const linhaBitolas = bloco.find(l => RE_LINHA_BITOLAS.test(l) && /[^\d.,\s]/.test(l));
+  if (!linhaBitolas) return null;
+  const bitolas = [...linhaBitolas.matchAll(/\D{0,2}(\d+(?:[.,]\d+)?)/g)].map(m => paraNumero(m[1]));
+  if (!bitolas.length) return null;
+
+  const indiceBitolas = bloco.indexOf(linhaBitolas);
+  const linhasNumericas = bloco.slice(indiceBitolas + 1).filter(l => RE_LINHA_NUMEROS.test(l));
+  // A 2a linha numérica depois das bitolas é o peso (a 1a é o comprimento
+  // total, que esta função não usa) - tem N valores (um por bitola) + 1
+  // total geral no fim.
+  const linhaPeso = linhasNumericas[1];
+  if (!linhaPeso) return null;
+  const valores = linhaPeso.split(/\s+/).map(Number).filter(Number.isFinite);
+  if (valores.length < bitolas.length + 1) return null;
+
+  return {
+    porBitola: bitolas.map((bitola, i) => ({ bitola: String(bitola), pesoKg: valores[i] })),
+    totalKg: valores[valores.length - 1],
+  };
+}
 
 // Conta quantos pilares uma string de referência representa
 // ("P1, P4, P5, P6, P10, P11 e P14" -> 7), para virar a quantidade de peças
@@ -30,11 +71,13 @@ export function contarPilares(referencia) {
 // Lê o "QUADRO DE ELEMENTOS DE FUNDAÇÃO": um grupo de 5 linhas se repete -
 // referência, dimensões (LxC), altura (base/tronco), armadura X, armadura Y.
 // Para de ler no primeiro grupo que não fechar as 5 linhas esperadas (fim da
-// tabela / início da próxima seção do desenho).
-export function extrairQuadroSapatas(texto) {
-  const linhas = String(texto || "").split(/\r\n|\n/).map(l => l.trim()).filter(Boolean);
+// tabela / início da próxima seção do desenho). Devolve também o texto que
+// vem DEPOIS da tabela (o desenho em si) - é lá que cada sapata individual
+// tem sua própria anotação de barra com o comprimento, que o quadro não tem.
+function lerQuadroComRestante(texto) {
+  const linhas = linhasNaoVazias(texto);
   const inicio = linhas.findIndex(l => /QUADRO DE ELEMENTOS DE FUNDA/i.test(l));
-  if (inicio === -1) return [];
+  if (inicio === -1) return { grupos: [], textoRestante: "" };
   let i = inicio + 1;
   while (i < linhas.length && !RE_REFERENCIA.test(linhas[i])) i++;
 
@@ -55,18 +98,16 @@ export function extrairQuadroSapatas(texto) {
     });
     i += 5;
   }
-  return grupos;
+  return { grupos, textoRestante: linhas.slice(i).join("\n") };
+}
+
+export function extrairQuadroSapatas(texto) {
+  return lerQuadroComRestante(texto).grupos;
 }
 
 // Cada barra desenhada individualmente traz seu próprio comprimento (ex.:
 // "4N17∅10c/25 C=123"). O quadro não tem comprimento - só bitola/espaçamento/
-// quantidade. Cruza os dois: para cada direção (X ou Y) de um grupo, procura
-// no documento inteiro uma anotação com a MESMA quantidade+bitola+espaçamento.
-// Só usa o comprimento se todas as anotações encontradas concordarem no valor
-// - essa combinação repete entre tipos diferentes (ex.: "4∅10c/25" é a
-// armadura mínima e aparece em várias sapatas de tamanhos diferentes), e
-// nunca é melhor arriscar um comprimento errado do que deixar em branco para
-// completar à mão.
+// quantidade.
 export function extrairAnotacoesPosicao(texto) {
   const resultado = [];
   const re = new RegExp(RE_ANOTACAO_POSICAO.source, "g");
@@ -82,29 +123,69 @@ export function extrairAnotacoesPosicao(texto) {
   return resultado;
 }
 
-function comprimentoDaDirecao(direcao, anotacoes) {
-  const candidatos = anotacoes.filter(a => a.quantidade === direcao.quantidade && a.bitola === direcao.bitola);
-  if (!candidatos.length) return 0;
-  const valores = new Set(candidatos.map(a => a.comprimentoCm));
-  if (valores.size > 1) return 0; // ambíguo - várias barras diferentes com a mesma quantidade/bitola
-  return candidatos[0].comprimentoCm / 100; // cm -> m
+// Onde a referência de um grupo (ou qualquer pilar dela) reaparece no
+// desenho, depois do quadro - o desenho às vezes repete o grupo inteiro
+// ("P1, P4, P5, P6, P10, P11 e P14"), às vezes rotula só um pilar sozinho
+// ("P18"), às vezes um par adjacente ("P7 e P8"). Qualquer um serve de
+// âncora - a mais próxima do início do texto restante.
+function posicaoAncora(textoRestante, referencia) {
+  const candidatos = [referencia, ...(referencia.match(/P\d+/g) || [])];
+  let melhor = -1;
+  for (const candidato of candidatos) {
+    const escapado = candidato.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = new RegExp(`\\b${escapado}\\b`).exec(textoRestante);
+    if (match && (melhor === -1 || match.index < melhor)) melhor = match.index;
+  }
+  return melhor;
+}
+
+// Para cada grupo, a janela de texto que "pertence" a ele vai da sua própria
+// âncora até a âncora do próximo grupo (em ordem de aparição no desenho, não
+// na ordem do quadro) - assim as anotações de um pilar não vazam para o
+// grupo vizinho. Dentro da janela, a PRIMEIRA anotação encontrada é a
+// armadura X e a segunda é a armadura Y (mesma ordem em que o quadro lista
+// X antes de Y) - validado em campo contra várias sapatas reais do projeto
+// do usuário (P12, P17, P18, P7/P8), inclusive um caso em que a mesma
+// especificação (bitola+quantidade+espaçamento) se repete em sapatas de
+// tamanhos diferentes com comprimentos realmente diferentes - a âncora por
+// posição resolve isso corretamente onde uma correlação só por
+// especificação (ambígua) teria que desistir.
+function anotacoesPorGrupo(grupos, textoRestante) {
+  const ancoras = grupos
+    .map(grupo => ({ referencia: grupo.referencia, posicao: posicaoAncora(textoRestante, grupo.referencia) }))
+    .filter(a => a.posicao >= 0)
+    .sort((a, b) => a.posicao - b.posicao);
+
+  const porReferencia = new Map();
+  ancoras.forEach((ancora, indice) => {
+    const fim = indice + 1 < ancoras.length ? ancoras[indice + 1].posicao : textoRestante.length;
+    const trecho = textoRestante.slice(ancora.posicao, fim);
+    porReferencia.set(ancora.referencia, extrairAnotacoesPosicao(trecho));
+  });
+  return porReferencia;
 }
 
 // Junta o quadro + as anotações de barra num array pronto para
 // `novaSapataTipo` (memoria-calculo-estrutural.js): tipo (rótulo = a própria
 // referência), qtd (nº de pilares), dimensões em metro, e armadura X/Y com
-// comprimento já resolvido quando não for ambíguo.
+// comprimento resolvido pela âncora de posição (ou 0 se o grupo não foi
+// encontrado desenhado em separado em algum lugar do texto).
 export function extrairSapatasFundacao(texto) {
-  const grupos = extrairQuadroSapatas(texto);
-  const anotacoes = extrairAnotacoesPosicao(texto);
-  return grupos.map(grupo => ({
-    tipo: grupo.referencia,
-    qtd: contarPilares(grupo.referencia),
-    largura: grupo.larguraCm / 100,
-    comprimento: grupo.comprimentoCm / 100,
-    alturaBase: grupo.alturaBaseCm / 100,
-    alturaTronco: grupo.alturaTroncoCm / 100,
-    armaduraX: { bitola: String(grupo.armaduraX.bitola), quantidade: grupo.armaduraX.quantidade, comprimento: comprimentoDaDirecao(grupo.armaduraX, anotacoes) },
-    armaduraY: { bitola: String(grupo.armaduraY.bitola), quantidade: grupo.armaduraY.quantidade, comprimento: comprimentoDaDirecao(grupo.armaduraY, anotacoes) },
-  }));
+  const { grupos, textoRestante } = lerQuadroComRestante(texto);
+  const porGrupo = anotacoesPorGrupo(grupos, textoRestante);
+
+  return grupos.map(grupo => {
+    const anotacoes = porGrupo.get(grupo.referencia) || [];
+    const comprimento = indice => (anotacoes[indice] ? anotacoes[indice].comprimentoCm / 100 : 0);
+    return {
+      tipo: grupo.referencia,
+      qtd: contarPilares(grupo.referencia),
+      largura: grupo.larguraCm / 100,
+      comprimento: grupo.comprimentoCm / 100,
+      alturaBase: grupo.alturaBaseCm / 100,
+      alturaTronco: grupo.alturaTroncoCm / 100,
+      armaduraX: { bitola: String(grupo.armaduraX.bitola), quantidade: grupo.armaduraX.quantidade, comprimento: comprimento(0) },
+      armaduraY: { bitola: String(grupo.armaduraY.bitola), quantidade: grupo.armaduraY.quantidade, comprimento: comprimento(1) },
+    };
+  });
 }

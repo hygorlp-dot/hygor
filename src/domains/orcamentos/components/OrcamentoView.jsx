@@ -58,9 +58,9 @@ import {
   resolverCodigosReferencia, detalharComposicoesReferencia,
 } from "../../../api";
 import {
-  BITOLAS_ACO, novaSapataTipo, resumoSapatas,
+  BITOLAS_ACO, calcularSapataTipo, novaSapataTipo, resumoSapatas,
 } from "../memoria-calculo-estrutural";
-import { extrairSapatasFundacao } from "../estrutural-pdf-extrator";
+import { extrairResumoAcoFundacao, extrairSapatasFundacao } from "../estrutural-pdf-extrator";
 
 // Total de um item com BDI. Se o item tiver BDI proprio (it.bdi), ele prevalece
 // sobre o BDI global do orcamento - permite uma linha com BDI diferente.
@@ -672,6 +672,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [pdfProcessando, setPdfProcessando] = useState(false);
   const [pdfAviso, setPdfAviso] = useState("");
   const [pdfPreview, setPdfPreview] = useState(null); // array de sapatas extraídas, aguardando confirmação
+  const [pdfResumoAco, setPdfResumoAco] = useState(null); // conferência: total já pronto do projeto
   const lerPdfEmSegundoPlano = async (...args) => {
     const { lerTextoPdf } = await import("../ler-estrutural-pdf");
     return lerTextoPdf(...args);
@@ -682,7 +683,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       setPdfAviso("Este tipo de documento ainda não tem leitura automática - só \"Projeto estrutural (Fundação/Sapatas)\" está pronto por enquanto.");
       return;
     }
-    setPdfProcessando(true); setPdfAviso(""); setPdfPreview(null);
+    setPdfProcessando(true); setPdfAviso(""); setPdfPreview(null); setPdfResumoAco(null);
     try {
       const texto = await lerPdfEmSegundoPlano(arquivo);
       const encontradas = extrairSapatasFundacao(texto).map(sapata => ({ ...novaSapataTipo(), ...sapata, id: uid() }));
@@ -691,6 +692,10 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         return;
       }
       setPdfPreview(encontradas);
+      // Conferência: o "Resumo Aço" da própria folha já traz o total pronto -
+      // comparar avisa se a leitura ficou incompleta (comprimento não
+      // identificado em muitos tipos) antes mesmo de aplicar na tabela.
+      setPdfResumoAco(extrairResumoAcoFundacao(texto));
     } catch (error) {
       setPdfAviso(error?.message || "Não foi possível ler o PDF.");
     } finally {
@@ -701,7 +706,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     if (!pdfPreview?.length) return;
     salvarSapatasFundacao([...sapatasFundacao, ...pdfPreview]);
     showToast(`${pdfPreview.length} tipo(s) de sapata importado(s) do PDF - confira dimensões/armadura e complete escavação e fôrmas.`);
-    setPdfPreview(null);
+    setPdfPreview(null); setPdfResumoAco(null);
   };
 
   // Folga/profundidade de escavação são convenção de obra, não do projeto -
@@ -3902,6 +3907,15 @@ ${blocoBDI}
             {pdfAviso&&<p style={{fontSize:10,color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
             {pdfPreview&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
               <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>{pdfPreview.length} tipo(s) de sapata encontrado(s) - confira antes de aplicar:</p>
+              {pdfResumoAco&&(()=>{
+                const totalCalculado=pdfPreview.reduce((s,sapata)=>s+calcularSapataTipo(sapata).pesoAcoTotal,0);
+                const diferenca=Math.abs(totalCalculado-pdfResumoAco.totalKg);
+                const bateu=diferenca<=pdfResumoAco.totalKg*0.02; // até 2% de diferença por arredondamento
+                return <div style={{border:`1px solid ${bateu?C.green:C.orange}55`,background:C.card,borderRadius:6,padding:"7px 9px"}}>
+                  <p style={{fontSize:10,fontWeight:850,color:bateu?C.green:C.orange}}>{bateu?"✓":"⚠"} Conferência com o Resumo Aço da folha</p>
+                  <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Extraído (com os comprimentos resolvidos): <b>{totalCalculado.toFixed(1)} kg</b> · Total pronto do projeto: <b>{pdfResumoAco.totalKg.toFixed(1)} kg</b>{!bateu&&" - a diferença indica que algum comprimento de armadura não foi identificado (fica marcado para completar à mão)."}</p>
+                </div>;
+              })()}
               <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:160,overflowY:"auto"}}>
                 {pdfPreview.map(sapata=><div key={sapata.id} style={{fontSize:9.5,color:C.text}}>
                   <b>{sapata.tipo}</b> · {sapata.qtd} peça(s) · {(sapata.largura*100).toFixed(0)}x{(sapata.comprimento*100).toFixed(0)}cm · alt. {(sapata.alturaBase*100).toFixed(0)}/{(sapata.alturaTronco*100).toFixed(0)}cm
@@ -3909,7 +3923,7 @@ ${blocoBDI}
                   {" · Y:"}{sapata.armaduraY.quantidade}∅{sapata.armaduraY.bitola}{sapata.armaduraY.comprimento?` (${sapata.armaduraY.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
                 </div>)}
               </div>
-              <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreview(null)}>DESCARTAR</Btn><Btn size="sm" onClick={aplicarPdfPreview}><Ic n="check"/> APLICAR NA TABELA</Btn></div>
+              <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>{setPdfPreview(null);setPdfResumoAco(null);}}>DESCARTAR</Btn><Btn size="sm" onClick={aplicarPdfPreview}><Ic n="check"/> APLICAR NA TABELA</Btn></div>
             </div>}
           </div>
 
