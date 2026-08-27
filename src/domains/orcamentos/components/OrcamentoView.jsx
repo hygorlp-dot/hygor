@@ -673,8 +673,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [pdfAviso, setPdfAviso] = useState("");
   const [pdfPreview, setPdfPreview] = useState(null); // array de sapatas extraídas, aguardando confirmação
   const lerPdfEmSegundoPlano = async (...args) => {
-    const { lerPdfEmWorker } = await import("../ler-estrutural-pdf");
-    return lerPdfEmWorker(...args);
+    const { lerTextoPdf } = await import("../ler-estrutural-pdf");
+    return lerTextoPdf(...args);
   };
   const processarPdfProjeto = async arquivo => {
     if (!arquivo) return;

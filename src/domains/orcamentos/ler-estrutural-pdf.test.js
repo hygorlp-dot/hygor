@@ -1,46 +1,42 @@
-import { describe, expect, it, vi } from "vitest";
-import { lerPdfEmWorker } from "./ler-estrutural-pdf";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-class WorkerFalso {
-  constructor() { WorkerFalso.instancias.push(this); }
-  postMessage() { this.ultimaMensagem = true; }
-  terminate() { this.terminado = true; }
-}
-WorkerFalso.instancias = [];
+vi.mock("pdfjs-dist", () => ({
+  GlobalWorkerOptions: {},
+  getDocument: vi.fn(),
+}));
 
-const arquivoFalso = texto => ({ arrayBuffer: () => Promise.resolve(new TextEncoder().encode(texto).buffer) });
+import { getDocument } from "pdfjs-dist";
+import { lerTextoPdf } from "./ler-estrutural-pdf";
 
-describe("lerPdfEmWorker", () => {
-  it("resolve com o texto extraído quando o worker conclui", async () => {
-    WorkerFalso.instancias = [];
-    const promessa = lerPdfEmWorker(arquivoFalso("pdf"), () => {}, { workerUrl: "x", WorkerClass: WorkerFalso });
-    await vi.waitFor(() => expect(WorkerFalso.instancias[0]).toBeDefined());
-    const worker = WorkerFalso.instancias[0];
-    worker.onmessage({ data: { tipo: "concluido", texto: "TEXTO EXTRAÍDO" } });
-    await expect(promessa).resolves.toBe("TEXTO EXTRAÍDO");
-    expect(worker.terminado).toBe(true);
+const arquivoFalso = () => ({ arrayBuffer: () => Promise.resolve(new Uint8Array([1, 2, 3]).buffer) });
+
+const paginaFalsa = linhas => ({
+  getTextContent: () => Promise.resolve({ items: linhas.map(str => ({ str })) }),
+});
+
+describe("lerTextoPdf", () => {
+  beforeEach(() => { getDocument.mockReset(); });
+
+  it("junta o texto de todas as páginas, uma linha por item", async () => {
+    getDocument.mockReturnValue({
+      promise: Promise.resolve({
+        numPages: 2,
+        getPage: numero => Promise.resolve(paginaFalsa([`página ${numero} linha 1`, `página ${numero} linha 2`])),
+      }),
+    });
+    const texto = await lerTextoPdf(arquivoFalso());
+    expect(texto).toContain("página 1 linha 1");
+    expect(texto).toContain("página 1 linha 2");
+    expect(texto).toContain("página 2 linha 1");
   });
 
-  it("rejeita com a mensagem de erro do worker", async () => {
-    WorkerFalso.instancias = [];
-    const promessa = lerPdfEmWorker(arquivoFalso("pdf"), () => {}, { workerUrl: "x", WorkerClass: WorkerFalso });
-    await vi.waitFor(() => expect(WorkerFalso.instancias[0]).toBeDefined());
-    const worker = WorkerFalso.instancias[0];
-    worker.onmessage({ data: { tipo: "erro", mensagem: "PDF corrompido." } });
-    await expect(promessa).rejects.toThrow("PDF corrompido.");
+  it("lança um erro claro quando o PDF não abre", async () => {
+    getDocument.mockReturnValue({ promise: Promise.reject(new Error("Invalid PDF structure.")) });
+    await expect(lerTextoPdf(arquivoFalso())).rejects.toThrow("Invalid PDF structure.");
   });
 
-  it("rejeita em onerror do worker", async () => {
-    WorkerFalso.instancias = [];
-    const promessa = lerPdfEmWorker(arquivoFalso("pdf"), () => {}, { workerUrl: "x", WorkerClass: WorkerFalso });
-    await vi.waitFor(() => expect(WorkerFalso.instancias[0]).toBeDefined());
-    const worker = WorkerFalso.instancias[0];
-    worker.onerror({ message: "Falha geral." });
-    await expect(promessa).rejects.toThrow("Falha geral.");
-  });
-
-  it("lança erro claro se o navegador não suporta Worker", () => {
-    expect(() => lerPdfEmWorker(arquivoFalso("pdf"), () => {}, { workerUrl: "x", WorkerClass: undefined }))
-      .toThrow(/não suporta/i);
+  it("usa uma mensagem padrão quando o erro do pdf.js não tem texto", async () => {
+    getDocument.mockReturnValue({ promise: Promise.reject({}) });
+    await expect(lerTextoPdf(arquivoFalso())).rejects.toThrow(/não foi possível abrir o pdf/i);
   });
 });
