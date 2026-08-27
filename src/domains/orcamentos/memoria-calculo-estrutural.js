@@ -127,47 +127,24 @@ export function resumoSapatas(tipos) {
   };
 }
 
-// Pilares (Térreo/1º Pavimento/Cobertura) não seguem o mesmo caminho de
-// cálculo das sapatas: o próprio projeto estrutural já entrega concreto,
-// fôrma e aço PRONTOS por pilar (detalhamento completo, incluindo taxa de
-// aço real da armadura) - tentar re-derivar esses valores a partir só da
-// seção (LxC) e da altura reintroduziria erro onde o projeto já é exato.
-// Por isso aqui os três campos são diretamente editáveis (não fórmulas).
-export function novaPilarTipo(extra = {}) {
+// Pilares (Térreo/1º Pavimento/Cobertura), igual vigas/lajes: achado real,
+// pedido direto do usuário (27/08/2026) depois de ver a tabela "um pilar
+// por linha" em produção - "não preciso de pilar unitariamente... cruze
+// as informações necessitadas do orçamento". Conferido contra o orçamento
+// real: o SINAPI orça fôrma e concretagem de pilares como UMA composição
+// por pavimento inteiro (ex.: "MONTAGEM E DESMONTAGEM DE FÔRMA DE
+// PILARES", "CONCRETAGEM DE PILARES"), nunca por pilar - exatamente o
+// mesmo formato que vigas/lajes já usavam. Um pilar tipo por linha existia
+// só porque o Estrutural.pdf detalha assim, mas essa granularidade nunca
+// era usada pelo orçamento - por isso virou um objeto único por
+// pavimento, como novaVigaPavimento/novaLajePavimento (o array por tipo
+// que o PDF entrega ainda existe no extrator, só que agora a extração
+// SOMA os tipos direto na hora de aplicar, em vez de guardar cada um).
+export function novaPilarPavimento(extra = {}) {
   return {
-    id: "", tipo: "", qtd: 1, precisaRevisar: false,
-    // Pavimentos que este pilar atravessa (informativo - ex.: um pilar que
-    // nasce na Fundação e só termina no 1º Pavimento aparece com
-    // "Térreo, 1º Pavimento" e seu concreto/fôrma/aço já cobre o trecho
-    // inteiro, não só o pavimento onde a linha está sendo editada).
-    planta: "",
-    concretoUnit: 0, formaUnit: 0, acoUnit: 0,
+    concretoM3: 0, formaM2: 0, acoPorBitola: [],
+    precisaRevisar: false,
     ...extra,
-  };
-}
-
-export function calcularPilarTipo(tipoRow) {
-  const qtd = Math.max(0, Number(tipoRow?.qtd || 0));
-  const concretoUnit = Number(tipoRow?.concretoUnit || 0);
-  const formaUnit = Number(tipoRow?.formaUnit || 0);
-  const acoUnit = Number(tipoRow?.acoUnit || 0);
-  return {
-    concretoTotal: concretoUnit * qtd,
-    formaTotal: formaUnit * qtd,
-    acoTotal: acoUnit * qtd,
-  };
-}
-
-export function resumoPilares(tipos) {
-  const linhas = (tipos || []).map(tipo => ({ tipo, calc: calcularPilarTipo(tipo) }));
-  const somar = campo => linhas.reduce((soma, linha) => soma + linha.calc[campo], 0);
-  return {
-    linhas,
-    totais: {
-      concreto: somar("concretoTotal"),
-      forma: somar("formaTotal"),
-      aco: somar("acoTotal"),
-    },
   };
 }
 
@@ -194,9 +171,24 @@ export function novaVigaPavimento(extra = {}) {
     // de vigas daquele pavimento com segurança - a tela precisa mostrar
     // esse aviso, nunca escondê-lo atrás de um número que parece confiável.
     avisoConcretoIncorreto: false,
+    // Achado real (27/08/2026, pedido direto do usuário): a viga
+    // baldrame/Térreo assenta sobre um lastro de concreto magro (igual às
+    // sapatas) - só que o magro corre pelo COMPRIMENTO da viga, não pela
+    // área da peça. Área do magro = comprimento total x (largura da viga +
+    // 2x a largura acrescida de cada lado) - mesma lógica de folga que a
+    // escavação das sapatas já usa. Só usado no Térreo (só lá a viga toca
+    // o solo); nos outros pavimentos fica zerado e sem efeito.
+    comprimentoTotalM: 0, larguraVigaM: 0, magroLarguraAcrescidaM: 0,
     precisaRevisar: false,
     ...extra,
   };
+}
+
+export function calcularConcretoMagroViga(viga) {
+  const comprimento = Number(viga?.comprimentoTotalM || 0);
+  const largura = Number(viga?.larguraVigaM || 0);
+  const acrescimo = Number(viga?.magroLarguraAcrescidaM || 0);
+  return comprimento * (largura + 2 * acrescimo);
 }
 
 export function novaLajePavimento(extra = {}) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  calcularPilarTipo, calcularSapataTipo, novaLajePavimento, novaPilarTipo, novaSapataTipo, novaVigaPavimento,
-  pesoUnitarioAco, resumoPilares, resumoSapatas, somaAcoPorBitola,
+  calcularConcretoMagroViga, calcularSapataTipo, novaLajePavimento, novaPilarPavimento, novaSapataTipo, novaVigaPavimento,
+  pesoUnitarioAco, resumoSapatas, somaAcoPorBitola,
 } from "./memoria-calculo-estrutural";
 
 describe("pesoUnitarioAco", () => {
@@ -135,45 +135,26 @@ describe("resumoSapatas", () => {
   });
 });
 
-describe("calcularPilarTipo - concreto/fôrma/aço são valores diretos (já vêm prontos do projeto)", () => {
-  it("multiplica cada valor unitário pela quantidade de pilares do grupo", () => {
-    // P10 real (Estrutural.pdf, E-03/13): concreto 0.07m3, fôrma 1.35m2, aço 1.6kg por pilar.
-    const tipo = novaPilarTipo({ qtd: 9, concretoUnit: 0.07, formaUnit: 1.35, acoUnit: 1.6 });
-    const calc = calcularPilarTipo(tipo);
-    expect(calc.concretoTotal).toBeCloseTo(0.63);
-    expect(calc.formaTotal).toBeCloseTo(12.15);
-    expect(calc.acoTotal).toBeCloseTo(14.4);
+describe("novaPilarPavimento - um único objeto por pavimento, sem lista de tipos (igual viga/laje)", () => {
+  it("começa zerado, sem nenhuma bitola", () => {
+    expect(novaPilarPavimento()).toEqual({ concretoM3: 0, formaM2: 0, acoPorBitola: [], precisaRevisar: false });
   });
 
-  it("não multiplica por quantidade negativa (trata como zero)", () => {
-    const calc = calcularPilarTipo(novaPilarTipo({ qtd: -3, concretoUnit: 1, formaUnit: 1, acoUnit: 1 }));
-    expect(calc.concretoTotal).toBe(0);
-  });
-});
-
-describe("resumoPilares", () => {
-  it("soma concreto/fôrma/aço de todos os tipos", () => {
-    const tipos = [
-      novaPilarTipo({ qtd: 9, concretoUnit: 0.07, formaUnit: 1.35, acoUnit: 1.6 }),
-      novaPilarTipo({ qtd: 2, concretoUnit: 0.42, formaUnit: 5.64, acoUnit: 5.8, planta: "Térreo, 1º Pavimento" }),
-    ];
-    const { totais } = resumoPilares(tipos);
-    expect(totais.concreto).toBeCloseTo(0.63 + 0.84);
-    expect(totais.forma).toBeCloseTo(12.15 + 11.28);
-    expect(totais.aco).toBeCloseTo(14.4 + 11.6);
-  });
-
-  it("devolve zero em tudo para uma lista vazia, sem quebrar", () => {
-    const { totais, linhas } = resumoPilares([]);
-    expect(linhas).toEqual([]);
-    expect(Object.values(totais).every(v => v === 0)).toBe(true);
+  it("aceita sobrescrever qualquer campo (ex.: soma dos tipos extraídos do PDF)", () => {
+    // Térreo real (Estrutural.pdf, E-03/13): soma de todos os tipos de pilar do pavimento.
+    const pilar = novaPilarPavimento({ concretoM3: 1.79, formaM2: 34.16, acoPorBitola: [{ bitola: "10", kg: 134 }] });
+    expect(pilar.concretoM3).toBe(1.79);
+    expect(somaAcoPorBitola(pilar.acoPorBitola)).toBe(134);
   });
 });
 
 describe("novaVigaPavimento / novaLajePavimento - um único objeto por pavimento, sem lista de tipos", () => {
   it("começa zerada, sem aviso de valor incorreto, sem nenhuma bitola", () => {
     const viga = novaVigaPavimento();
-    expect(viga).toEqual({ concretoM3: 0, formaM2: 0, acoPorBitola: [], avisoConcretoIncorreto: false, precisaRevisar: false });
+    expect(viga).toEqual({
+      concretoM3: 0, formaM2: 0, acoPorBitola: [], avisoConcretoIncorreto: false,
+      comprimentoTotalM: 0, larguraVigaM: 0, magroLarguraAcrescidaM: 0, precisaRevisar: false,
+    });
   });
 
   it("aceita sobrescrever qualquer campo (ex.: valores extraídos do PDF)", () => {
@@ -188,6 +169,18 @@ describe("novaVigaPavimento / novaLajePavimento - um único objeto por pavimento
     const laje = novaLajePavimento({ volumeM3: 15.79, volumeMacicasM3: 3.18, volumeVigotasM3: 12.61 });
     expect(laje.volumeM3).toBe(15.79);
     expect(laje.volumeMacicasM3 + laje.volumeVigotasM3).toBeCloseTo(15.79);
+  });
+});
+
+describe("calcularConcretoMagroViga - lastro sob a viga baldrame/Térreo, mesma lógica de folga da escavação de sapata", () => {
+  it("multiplica o comprimento total pela largura da viga mais a folga de cada lado", () => {
+    const viga = novaVigaPavimento({ comprimentoTotalM: 82, larguraVigaM: 0.15, magroLarguraAcrescidaM: 0.05 });
+    expect(calcularConcretoMagroViga(viga)).toBeCloseTo(82 * (0.15 + 2 * 0.05));
+  });
+
+  it("devolve 0 quando algum dos três campos está zerado (padrão inicial, ou pavimento sem viga baldrame)", () => {
+    expect(calcularConcretoMagroViga(novaVigaPavimento())).toBe(0);
+    expect(calcularConcretoMagroViga(novaVigaPavimento({ comprimentoTotalM: 82, larguraVigaM: 0.15 }))).toBeCloseTo(82 * 0.15);
   });
 });
 

@@ -59,8 +59,8 @@ import {
 } from "../../../api";
 import {
   BITOLAS_ACO, FOLGA_ESCAVACAO_PADRAO_M, PROFUNDIDADE_ESCAVACAO_PADRAO_M,
-  calcularPilarTipo, calcularSapataTipo, novaLajePavimento, novaPilarTipo, novaSapataTipo, novaVigaPavimento,
-  resumoPilares, resumoSapatas, somaAcoPorBitola,
+  calcularConcretoMagroViga, calcularSapataTipo, novaLajePavimento, novaPilarPavimento, novaSapataTipo, novaVigaPavimento,
+  resumoSapatas, somaAcoPorBitola,
 } from "../memoria-calculo-estrutural";
 import {
   CHAVE_PAVIMENTO, extrairElementosEstruturais, extrairQuantitativosPavimentos, extrairResumoAco, extrairSapatasFundacao,
@@ -770,40 +770,23 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
 
   // Pilares/Vigas/Lajes (Térreo/1º Pavimento/Cobertura) - mesmo painel de
   // referência dentro do orçamento, guardado por pavimento
-  // (memoriaCalculo.<pavimento>.pilares/vigas/lajes). Pilares seguem o
-  // mesmo padrão "tipo" das sapatas (uma linha por grupo idêntico); vigas e
-  // lajes são um objeto único por pavimento (o projeto só entrega um total
-  // pronto, não um valor por elemento - ver novaVigaPavimento/
-  // novaLajePavimento em memoria-calculo-estrutural.js).
-  const pilaresDoPavimento = pav => orc?.memoriaCalculo?.[pav]?.pilares || [];
-  const salvarPilaresDoPavimento = (pav, novaLista) => salvarOrc({
-    memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), pilares: novaLista } },
-  });
-  const adicionarPilarTipo = pav => salvarPilaresDoPavimento(pav, [...pilaresDoPavimento(pav), novaPilarTipo({ id: uid() })]);
-  const atualizarPilarTipo = (pav, id, patch) => salvarPilaresDoPavimento(pav, pilaresDoPavimento(pav).map(t => t.id === id ? { ...t, ...patch, precisaRevisar: false } : t));
-  const duplicarPilarTipo = (pav, id) => {
-    const tipo = pilaresDoPavimento(pav).find(t => t.id === id);
-    if (tipo) salvarPilaresDoPavimento(pav, [...pilaresDoPavimento(pav), { ...tipo, id: uid(), tipo: `${tipo.tipo} (cópia)` }]);
-  };
-  const removerPilarTipo = (pav, id) => {
-    if (!window.confirm("Remover este tipo de pilar da memória de cálculo?")) return;
-    salvarPilaresDoPavimento(pav, pilaresDoPavimento(pav).filter(t => t.id !== id));
-  };
-  // Achado real (27/08/2026, pedido direto do usuário): não precisa do aço
-  // detalhado por pilar, mas precisa dele por bitola - o projeto só dá isso
-  // pronto por pavimento inteiro (Resumo Aço da folha), não por pilar. Por
-  // isso é um campo à parte do array de tipos, não uma coluna da tabela.
-  const pilaresAcoPorBitolaDoPavimento = pav => orc?.memoriaCalculo?.[pav]?.pilaresAcoPorBitola || [];
-  const salvarPilaresAcoPorBitolaDoPavimento = (pav, novaLista) => salvarOrc({
-    memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), pilaresAcoPorBitola: novaLista } },
-  });
-
-  // Mescla com os padrões em vez de "tudo ou nada" (`||`) - um `viga`/`laje`
-  // já salvo ANTES do aço virar `acoPorBitola` (achado real, produção,
+  // (memoriaCalculo.<pavimento>.pilar/viga/laje). Os três são um objeto
+  // único por pavimento, não uma lista por tipo/elemento - achado real,
+  // pedido direto do usuário (27/08/2026): o orçamento só usa o total do
+  // pavimento inteiro (mesmo formato SINAPI de vigas/lajes), nunca o
+  // detalhe por pilar - ver novaPilarPavimento/novaVigaPavimento/
+  // novaLajePavimento em memoria-calculo-estrutural.js.
+  //
+  // Mescla com os padrões em vez de "tudo ou nada" (`||`) - um objeto já
+  // salvo ANTES do aço virar `acoPorBitola` (achado real, produção,
   // 27/08/2026: "Cannot read properties of undefined (reading 'map')" ao
   // abrir a Memória de Cálculo) é um objeto de verdade, então o `||` nunca
   // cai no padrão novo - ficava sem `acoPorBitola` nenhum, e o editor
   // quebrava tentando `.map` num `undefined`.
+  const pilarDoPavimento = pav => ({ ...novaPilarPavimento(), ...(orc?.memoriaCalculo?.[pav]?.pilar || {}) });
+  const salvarPilarDoPavimento = (pav, patch) => salvarOrc({
+    memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), pilar: { ...pilarDoPavimento(pav), ...patch, precisaRevisar: false } } },
+  });
   const vigaDoPavimento = pav => ({ ...novaVigaPavimento(), ...(orc?.memoriaCalculo?.[pav]?.viga || {}) });
   const salvarVigaDoPavimento = (pav, patch) => salvarOrc({
     memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), viga: { ...vigaDoPavimento(pav), ...patch } } },
@@ -846,58 +829,25 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // (é ajuste de leitura da tela inteira, não específico de um elemento) -
   // mas SEM o sistema de largura de coluna ajustável/arrastável: só 9
   // colunas, bem menos cramped que as 23 das sapatas, não precisa disso.
-  const renderTabelaPilares = pav => {
-    const pilares = pilaresDoPavimento(pav);
-    const resumo = resumoPilares(pilares);
-    const campoPilar = (tipo,campo,rotulo,largura="100%") => <input type="number" min="0" step="any" aria-label={rotulo} value={tipo[campo]}
-      onChange={e=>atualizarPilarTipo(pav,tipo.id,{[campo]:e.target.value.replace(",",".")})}
-      style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:dSapatas.fonte}}/>;
+  const renderCardPilar = pav => {
+    const pilar = pilarDoPavimento(pav);
+    const campoPilar = (campo,rotulo) => <input type="number" min="0" step="any" aria-label={rotulo} value={pilar[campo]}
+      onChange={e=>salvarPilarDoPavimento(pav,{[campo]:e.target.value.replace(",",".")})}
+      style={{width:"100%",boxSizing:"border-box",padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.bg,color:C.text,textAlign:"right",fontSize:11}}/>;
     return (
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-          <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>PILARES</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Uma linha por tipo de pilar (peças idênticas) - concreto e fôrma já vêm prontos do projeto estrutural (não são fórmula), só multiplicados pela quantidade. O aço fica à parte, por bitola, logo abaixo (o projeto só dá isso pronto por pavimento inteiro, não por pilar).</p></div>
-          <Btn size="sm" onClick={()=>adicionarPilarTipo(pav)}><Ic n="plus"/> NOVO TIPO</Btn>
+      <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          {pilar.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo aqui remove este aviso." style={{flexShrink:0,width:7,height:7,borderRadius:"50%",background:C.orange}}/>}
+          <p style={{fontSize:13,fontWeight:800,color:C.text}}>PILARES</p>
         </div>
-        <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:dSapatas.fonte}}>
-            <thead><tr style={{background:C.surface}}>
-              {["TIPO (PILARES)","QTD PEÇAS","PAVIMENTOS QUE ATRAVESSA","CONCR. UNIT.(M³)","FÔRMA UNIT.(M²)","CONCR. TOTAL(M³)","FÔRMA TOTAL(M²)",""]
-                .map(h=><th key={h} scope="col" style={{padding:dSapatas.padHeader,textAlign:/\(|QTD/.test(h)?"right":"left",color:C.muted,fontSize:dSapatas.fonteHeader,borderBottom:`1px solid ${C.border}`,whiteSpace:"normal",lineHeight:1.15}}>{h}</th>)}
-            </tr></thead>
-            <tbody>
-              {resumo.linhas.map(({tipo,calc})=>(
-                <tr key={tipo.id} style={{borderBottom:`1px solid ${C.line}`,background:tipo.precisaRevisar?`${C.orange}08`:"transparent"}}>
-                  <td style={{padding:dSapatas.pad}}>
-                    <div style={{display:"flex",alignItems:"center",gap:4}}>
-                      {tipo.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo desta linha remove este aviso." style={{flexShrink:0,width:7,height:7,borderRadius:"50%",background:C.orange}}/>}
-                      <input aria-label="Tipo (referência dos pilares)" value={tipo.tipo} onChange={e=>atualizarPilarTipo(pav,tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:"100%",boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:dSapatas.fonte}}/>
-                    </div>
-                  </td>
-                  <td style={{padding:dSapatas.pad}}>{campoPilar(tipo,"qtd","Quantidade de peças")}</td>
-                  <td style={{padding:dSapatas.pad,color:C.muted,fontSize:dSapatas.fonte}} title="Informativo - vem do próprio projeto. Um pilar que atravessa mais de um pavimento já tem o concreto/fôrma/aço do trecho inteiro nesta linha.">{tipo.planta||"-"}</td>
-                  <td style={{padding:dSapatas.pad}}>{campoPilar(tipo,"concretoUnit","Concreto por pilar")}</td>
-                  <td style={{padding:dSapatas.pad}}>{campoPilar(tipo,"formaUnit","Fôrma por pilar")}</td>
-                  <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:800,color:C.text}}>{calc.concretoTotal.toFixed(2)}</td>
-                  <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{calc.formaTotal.toFixed(2)}</td>
-                  <td style={{padding:dSapatas.pad,display:"flex",gap:6}}>
-                    <button aria-label="Duplicar este tipo" title="Duplicar" onClick={()=>duplicarPilarTipo(pav,tipo.id)} style={{border:0,background:"transparent",color:C.blue,cursor:"pointer",display:"flex"}}><Ic n="copy" s={13}/></button>
-                    <button aria-label="Remover este tipo" title="Remover" onClick={()=>removerPilarTipo(pav,tipo.id)} style={{border:0,background:"transparent",color:C.red,cursor:"pointer",fontWeight:800}}>x</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            {resumo.linhas.length>0&&<tfoot><tr style={{background:C.surface,fontWeight:800}}>
-              <td colSpan={5} style={{padding:dSapatas.padHeader}}>TOTAIS</td>
-              <td style={{padding:dSapatas.padHeader,textAlign:"right"}}>{resumo.totais.concreto.toFixed(2)}</td>
-              <td style={{padding:dSapatas.padHeader,textAlign:"right"}}>{resumo.totais.forma.toFixed(2)}</td>
-              <td/>
-            </tr></tfoot>}
-          </table>
-          {!resumo.linhas.length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:14}}>Nenhum pilar cadastrado ainda para {ROTULO_PAVIMENTO[pav]} - use "Projeto estrutural completo" no importador de PDF acima, ou clique em "NOVO TIPO".</p>}
+        <p style={{fontSize:10,color:C.muted,marginTop:-4}}>Total do pavimento inteiro (o orçamento sempre orça pilares assim, nunca pilar a pilar) - o projeto detalha cada pilar, mas concreto e fôrma somam certo pra cá.</p>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+          <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>CONCRETO (M³)</span>{campoPilar("concretoM3","Concreto dos pilares")}</label>
+          <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>FÔRMA (M²)</span>{campoPilar("formaM2","Fôrma dos pilares")}</label>
         </div>
-        <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
-          <div><p style={{fontSize:12,fontWeight:800,color:C.text}}>AÇO DOS PILARES POR BITOLA</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Total do pavimento inteiro - vem do "Resumo Aço" da própria folha de pilares, não é uma soma de cada tipo acima.</p></div>
-          {renderEditorAcoPorBitola(pilaresAcoPorBitolaDoPavimento(pav), lista=>salvarPilaresAcoPorBitolaDoPavimento(pav,lista))}
+        <div>
+          <p style={{fontSize:9,fontWeight:800,color:C.muted,marginBottom:5}}>AÇO POR BITOLA</p>
+          {renderEditorAcoPorBitola(pilar.acoPorBitola, lista=>salvarPilarDoPavimento(pav,{acoPorBitola:lista}))}
         </div>
       </div>
     );
@@ -918,6 +868,20 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>CONCRETO (M³)</span>{campoViga("concretoM3","Concreto das vigas")}</label>
           <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>FÔRMA (M²)</span>{campoViga("formaM2","Fôrma das vigas")}</label>
         </div>
+        {pav==="terreo"&&(()=>{
+          const magro=calcularConcretoMagroViga(viga);
+          return (
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 10px",display:"flex",flexDirection:"column",gap:6}}>
+              <p style={{fontSize:9.5,fontWeight:800,color:C.muted}}>CONCRETO MAGRO (LASTRO SOB A VIGA BALDRAME)</p>
+              <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+                <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:C.muted}}>COMPRIMENTO TOTAL (M)</span>{campoViga("comprimentoTotalM","Comprimento total das vigas baldrame")}</label>
+                <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:C.muted}}>LARGURA DA VIGA (M)</span>{campoViga("larguraVigaM","Largura da viga")}</label>
+                <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:C.muted}}>LARGURA A ACRESCER, DE CADA LADO (M)</span>{campoViga("magroLarguraAcrescidaM","Largura a acrescer no magro, de cada lado")}</label>
+              </div>
+              <p style={{fontSize:10,color:C.text}}>Área do magro: <b>{magro.toFixed(2)} m²</b> {magro>0&&<span style={{color:C.muted,fontWeight:400}}>({viga.comprimentoTotalM} x ({viga.larguraVigaM} + 2x{viga.magroLarguraAcrescidaM}))</span>}</p>
+            </div>
+          );
+        })()}
         <div>
           <p style={{fontSize:9,fontWeight:800,color:C.muted,marginBottom:5}}>AÇO POR BITOLA</p>
           {renderEditorAcoPorBitola(viga.acoPorBitola, lista=>salvarVigaDoPavimento(pav,{acoPorBitola:lista}))}
@@ -1137,7 +1101,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       };
     }
 
-    let pilaresTotal = 0, bitolasAtualizadas = 0;
+    let pavimentosAtualizados = 0, bitolasAtualizadas = 0;
     for (const pav of ["terreo", "pavimento1", "cobertura"]) {
       const pavAtual = memoriaAtual[pav] || {};
       const encontrados = pdfPreviewCompleto.pilares[pav] || [];
@@ -1146,18 +1110,22 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       const acoLaje = pdfPreviewCompleto.lajesAcoPorBitola[pav];
       [acoPilares, acoVigas, acoLaje].forEach(a => { if (a) bitolasAtualizadas += 1; });
       if (!encontrados.length && !acoPilares && !acoVigas && !acoLaje) continue; // pavimento ausente desta folha - preserva o que já tinha
-      const pilaresComId = encontrados.map(p => ({ ...novaPilarTipo(), ...p, id: uid(), precisaRevisar: true }));
-      pilaresTotal += pilaresComId.length;
+      pavimentosAtualizados += 1;
+      // O orçamento só usa concreto/fôrma de pilares como total do pavimento
+      // (nunca por pilar) - soma os tipos que o PDF detalha na hora de
+      // aplicar, em vez de guardar cada um (achado real, 27/08/2026).
+      const concretoPilares = encontrados.reduce((s, p) => s + Number(p.concretoUnit || 0) * Number(p.qtd || 0), 0);
+      const formaPilares = encontrados.reduce((s, p) => s + Number(p.formaUnit || 0) * Number(p.qtd || 0), 0);
       memoriaNova[pav] = {
         ...pavAtual,
-        pilares: pilaresComId, // sobrescreve a lista - reimportar não duplica
-        ...(acoPilares ? { pilaresAcoPorBitola: acoPilares.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } : {}),
+        ...(encontrados.length ? { pilar: { ...novaPilarPavimento(), ...(pavAtual.pilar || {}), concretoM3: concretoPilares, formaM2: formaPilares, ...(acoPilares ? { acoPorBitola: acoPilares.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } : {}), precisaRevisar: true } } : {}),
+        ...(acoPilares && !encontrados.length ? { pilar: { ...novaPilarPavimento(), ...(pavAtual.pilar || {}), acoPorBitola: acoPilares.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } } : {}),
         ...(acoVigas ? { viga: { ...novaVigaPavimento(), ...(pavAtual.viga || {}), acoPorBitola: acoVigas.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } } : {}),
         ...(acoLaje ? { laje: { ...novaLajePavimento(), ...(pavAtual.laje || {}), acoPorBitola: acoLaje.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } } : {}),
       };
     }
     salvarOrc({ memoriaCalculo: memoriaNova });
-    showToast(`Fundação (${pdfPreviewCompleto.sapatas.length} tipo(s) de sapata), ${pilaresTotal} tipo(s) de pilar e aço de ${bitolasAtualizadas} folha(s) importados - reimportar sempre substitui a versão anterior, nunca duplica.`);
+    showToast(`Fundação (${pdfPreviewCompleto.sapatas.length} tipo(s) de sapata) e ${pavimentosAtualizados} pavimento(s) de Pilares/Vigas/Laje importados - reimportar sempre substitui a versão anterior, nunca duplica.`);
     setPdfPreviewCompleto(null);
   };
 
@@ -4472,7 +4440,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
 
           <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
             <div><p style={{fontSize:12,fontWeight:850,color:C.text}}>IMPORTAR PROJETO (PDF)</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Sinalize qual documento é e o sistema tenta preencher a memória de cálculo sozinho - você sempre confere antes de aplicar.</p></div>
-            <select value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:10.5,fontWeight:700,maxWidth:360}}>
+            <select aria-label="Tipo de documento do PDF" value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:10.5,fontWeight:700,maxWidth:360}}>
               <option value="estrutural-completo">Projeto estrutural completo - Fundação, Pilares, Vigas e Laje</option>
               <option value="quantitativos">Quantitativos de superfícies e volumes - concreto/fôrma de vigas e laje</option>
             </select>
@@ -4515,8 +4483,10 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                   const acoVigas=pdfPreviewCompleto.vigasAcoPorBitola[pav];
                   const acoLaje=pdfPreviewCompleto.lajesAcoPorBitola[pav];
                   if(!pilares.length&&!acoPilares&&!acoVigas&&!acoLaje)return null;
+                  const concretoPilares=pilares.reduce((s,p)=>s+Number(p.concretoUnit||0)*Number(p.qtd||0),0);
+                  const formaPilares=pilares.reduce((s,p)=>s+Number(p.formaUnit||0)*Number(p.qtd||0),0);
                   return <p key={pav} style={{fontSize:9.5,color:C.text}}>
-                    <b>{label}:</b> {pilares.length} tipo(s) de pilar
+                    <b>{label}:</b> {pilares.length>0?`pilares ${concretoPilares.toFixed(2)}m³ concreto / ${formaPilares.toFixed(2)}m² fôrma`:""}
                     {acoPilares?` · aço de pilares: ${acoPilares.totalKg.toFixed(1)}kg`:""}
                     {acoVigas?` · aço de vigas: ${acoVigas.totalKg.toFixed(1)}kg`:""}
                     {acoLaje?` · aço de laje: ${acoLaje.totalKg.toFixed(1)}kg`:""}
@@ -4765,7 +4735,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
             </div>
           ) : (
             <div style={{display:"flex",flexDirection:"column",gap:14}}>
-              {renderTabelaPilares(pavimentoMemoria)}
+              {renderCardPilar(pavimentoMemoria)}
               {renderCardViga(pavimentoMemoria)}
               {PAVIMENTOS_COM_LAJE.includes(pavimentoMemoria) && renderCardLaje(pavimentoMemoria)}
             </div>
