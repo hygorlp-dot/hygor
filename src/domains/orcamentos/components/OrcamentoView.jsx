@@ -867,6 +867,14 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     return [...mapa.values()].sort((a,b)=>b.custo-a.custo);
   },[abcInsumos]);
 
+  // Cada composicao que a base nao abriu, para o alerta acionavel poder dizer
+  // QUAL codigo falta documentar - nao so quantas faltam por fonte. Ordenada
+  // por custo: a composicao que mais pesa no orcamento e a mais urgente de
+  // documentar (buscar/importar a analitica correspondente).
+  const composicoesNaoDocumentadas = useMemo(()=>
+    abcInsumos.linhas.filter(l=>l.tipo==="COMPOSICAO").sort((a,b)=>b.custo-a.custo),
+  [abcInsumos]);
+
   // A curva e recalculada dentro da familia escolhida. Misturar insumo com
   // composicao nao detalhada inflaria o total e jogaria insumo legitimo para a
   // classe C por comparacao com um servico inteiro - a curva perde o sentido.
@@ -3608,15 +3616,15 @@ ${blocoBDI}
           </div>
           {detalhesAviso&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"8px 10px",fontSize:10.5,color:C.orange}}>{detalhesAviso}</div>}
 
-          {/* A base analitica costuma vir completa para uma fonte e nao para a
-              outra. Quando isso acontece, a composicao entra inteira na lista e
-              a curva de insumos parece so ter a fonte que abriu - dizer isso na
-              cara evita a leitura de que a base sumiu. */}
-          {naoAbertasPorFonte.length>0&&<div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}44`,borderRadius:6,padding:"9px 11px"}}>
-            <p style={{fontSize:11,fontWeight:900,color:C.blue}}>COMPOSIÇÕES QUE A BASE NÃO ABRIU EM INSUMOS</p>
+          {/* Alerta acionavel: nao basta dizer "faltam N composicoes da fonte X" -
+              sem o codigo e a descricao, o administrador nao sabe qual composicao
+              especifica precisa ir buscar/importar na base analitica. Ordenada por
+              custo para a mais cara (mais urgente) aparecer primeiro. */}
+          {composicoesNaoDocumentadas.length>0&&<div style={{background:`${C.orange}0f`,border:`1px solid ${C.orange}66`,borderRadius:6,padding:"9px 11px"}}>
+            <p style={{fontSize:11,fontWeight:900,color:C.orange}}>⚠ COMPOSIÇÕES SEM DOCUMENTAÇÃO ANALÍTICA - BUSQUE A COMPOSIÇÃO CORRESPONDENTE</p>
             <p style={{fontSize:10,color:C.muted,lineHeight:1.55,marginTop:3}}>
-              Estas entram na lista inteiras, marcadas como COMPOSIÇÃO - os insumos delas não existem na base analítica vinculada.
-              Para abri-las, envie a planilha analítica da fonte correspondente em BASES DE REFERÊNCIA.
+              Estas composições entraram inteiras na curva (marcadas como COMPOSIÇÃO) porque a base vinculada não tem a relação delas com insumos.
+              Localize o código na fonte oficial (SINAPI ou ORSE) e reenvie a planilha/tabelas analíticas em Administração → Bases de preço para documentá-las.
             </p>
             <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:7}}>
               {naoAbertasPorFonte.map(linha=>(
@@ -3628,6 +3636,17 @@ ${blocoBDI}
                   <span style={{fontSize:9.5,color:C.muted,marginLeft:6}}>{linha.qtd} composição(ões) · {fmt(linha.custo)}</span>
                 </button>
               ))}
+            </div>
+            <div style={{marginTop:8,maxHeight:180,overflowY:"auto",border:`1px solid ${C.orange}33`,borderRadius:5}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}>
+                <thead><tr style={{background:C.bg}}>{["FONTE","CÓDIGO","DESCRIÇÃO","CUSTO NO ORÇAMENTO"].map(h=><th key={h} style={{padding:"5px 7px",textAlign:h==="CUSTO NO ORÇAMENTO"?"right":"left",color:C.muted,fontSize:8.5,position:"sticky",top:0,background:C.bg,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+                <tbody>{composicoesNaoDocumentadas.map(item=><tr key={`${item.fonte}-${item.codigo}`} style={{borderBottom:`1px solid ${C.line}`}}>
+                  <td style={{padding:"4px 7px",fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td>
+                  <td style={{padding:"4px 7px",color:C.text}}>{item.codigo}</td>
+                  <td title={item.descricao} style={{padding:"4px 7px",color:C.text,maxWidth:320,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td>
+                  <td style={{padding:"4px 7px",textAlign:"right",fontWeight:700,color:C.orange}}>{fmt(item.custo)}</td>
+                </tr>)}</tbody>
+              </table>
             </div>
           </div>}
           <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>
@@ -3678,9 +3697,11 @@ ${blocoBDI}
             </table>
             {!abcInsumosCurva.itens.length&&!detalhesLoading&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>{abcInsumos.linhas.length?"Nenhuma linha nesta família. Troque o filtro acima.":"Nenhum quantitativo calculado. Confira se os itens possuem código, quantidade e custo unitário."}</p>}
           </div>
-          {(abcInsumos.semDetalhe.length>0||abcInsumos.semPreco.length>0)&&<div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
-            {abcInsumos.semDetalhe.length>0&&<p style={{fontSize:10,color:C.orange,lineHeight:1.6}}><b>SEM DETALHAMENTO:</b> {abcInsumos.semDetalhe.slice(0,20).join(", ")}{abcInsumos.semDetalhe.length>20?"...":""}</p>}
-            {abcInsumos.semPreco.length>0&&<p style={{fontSize:10,color:C.red,lineHeight:1.6}}><b>SEM PREÇO:</b> {abcInsumos.semPreco.slice(0,20).join(", ")}{abcInsumos.semPreco.length>20?"...":""}</p>}
+          {/* SEM DETALHAMENTO (chaves cruas fonte|codigo) some daqui - o alerta
+              acionavel acima ja mostra a mesma informacao com codigo, descricao
+              e custo, que e o que importa para ir buscar a composicao certa. */}
+          {abcInsumos.semPreco.length>0&&<div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
+            <p style={{fontSize:10,color:C.red,lineHeight:1.6}}><b>SEM PREÇO:</b> {abcInsumos.semPreco.slice(0,20).join(", ")}{abcInsumos.semPreco.length>20?"...":""}</p>
           </div>}
           </>}
 
