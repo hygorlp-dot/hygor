@@ -798,11 +798,17 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), pilaresAcoPorBitola: novaLista } },
   });
 
-  const vigaDoPavimento = pav => orc?.memoriaCalculo?.[pav]?.viga || novaVigaPavimento();
+  // Mescla com os padrões em vez de "tudo ou nada" (`||`) - um `viga`/`laje`
+  // já salvo ANTES do aço virar `acoPorBitola` (achado real, produção,
+  // 27/08/2026: "Cannot read properties of undefined (reading 'map')" ao
+  // abrir a Memória de Cálculo) é um objeto de verdade, então o `||` nunca
+  // cai no padrão novo - ficava sem `acoPorBitola` nenhum, e o editor
+  // quebrava tentando `.map` num `undefined`.
+  const vigaDoPavimento = pav => ({ ...novaVigaPavimento(), ...(orc?.memoriaCalculo?.[pav]?.viga || {}) });
   const salvarVigaDoPavimento = (pav, patch) => salvarOrc({
     memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), viga: { ...vigaDoPavimento(pav), ...patch } } },
   });
-  const lajeDoPavimento = pav => orc?.memoriaCalculo?.[pav]?.laje || novaLajePavimento();
+  const lajeDoPavimento = pav => ({ ...novaLajePavimento(), ...(orc?.memoriaCalculo?.[pav]?.laje || {}) });
   const salvarLajeDoPavimento = (pav, patch) => salvarOrc({
     memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), laje: { ...lajeDoPavimento(pav), ...patch } } },
   });
@@ -811,7 +817,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // pelo resumo de Pilares - cada bitola é uma linha (∅ + kg), igual ao
   // "Resumo Aço" que o próprio projeto imprime por folha. Uma lista vazia
   // mostra só o botão de adicionar.
-  const renderEditorAcoPorBitola = (lista, salvarLista) => {
+  const renderEditorAcoPorBitola = (listaOuIndefinida, salvarLista) => {
+    const lista = listaOuIndefinida || []; // defesa extra - ver achado real no vigaDoPavimento/lajeDoPavimento acima
     const atualizarLinha = (indice, patch) => salvarLista(lista.map((l, i) => i === indice ? { ...l, ...patch } : l));
     const removerLinha = indice => salvarLista(lista.filter((_, i) => i !== indice));
     const adicionarLinha = () => salvarLista([...lista, { bitola: BITOLAS_ACO[0], kg: 0 }]);
