@@ -4,18 +4,30 @@ export function readSinapiInWorker(
   file,
   uf,
   onProgress = () => {},
-  {
-    WorkerClass = globalThis.Worker,
-    workerUrl = new URL("../../workers/sinapi-parser.worker.js", import.meta.url),
-    inactivityTimeoutMs = DEFAULT_INACTIVITY_TIMEOUT_MS,
-  } = {},
+  options = {},
 ) {
+  const {
+    WorkerClass = globalThis.Worker,
+    inactivityTimeoutMs = DEFAULT_INACTIVITY_TIMEOUT_MS,
+  } = options;
   if (typeof WorkerClass === "undefined") {
     throw new Error("Seu navegador não suporta a leitura segura de planilhas em segundo plano.");
   }
 
   return file.arrayBuffer().then(bytes => new Promise((resolve, reject) => {
-    const worker = new WorkerClass(workerUrl, { type: "module" });
+    // O padrão `new Worker(new URL(caminho, import.meta.url))` precisa
+    // aparecer assim, literal, para o bundler reconhecer e empacotar de
+    // verdade sinapi-parser.worker.js, resolvendo o import relativo dele
+    // para xlsx-selective-reader.js. Passar a URL por variável/parâmetro
+    // (como antes) faz o bundler tratar o arquivo como asset comum -
+    // copiado sem o import interno resolvido, falhando ao instanciar em
+    // produção. Achado ao investigar o mesmo bug no motor do ORSE -
+    // provavelmente afetava o SINAPI também (não confirmado se uma
+    // importação real chegou a falhar por causa disso). "workerUrl" nas
+    // opções ainda existe só para os testes conseguirem mockar.
+    const worker = "workerUrl" in options
+      ? new WorkerClass(options.workerUrl, { type: "module" })
+      : new Worker(new URL("../../workers/sinapi-parser.worker.js", import.meta.url), { type: "module" });
     let timeoutId;
 
     const stop = () => {

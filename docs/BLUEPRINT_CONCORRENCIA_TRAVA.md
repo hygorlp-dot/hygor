@@ -3224,3 +3224,45 @@ vinculadas (ORSE 2026-06 e SINAPI 2026-06 · PE) sem nenhum controle de
 upload - só "Atualizar preços dos itens" e o aviso apontando para
 Central do Administrador → Bases de preço.
 
+### Achado grave: os workers do SINAPI e do ORSE nunca foram empacotados de verdade (27/08/2026)
+
+O usuário tentou importar as tabelas do ORSE pela tela nova e recebeu
+"não lê as tabelas". Investigando, achei um bug de build que **também
+afeta o SINAPI**, não só o ORSE:
+
+`readOrseInWorker`/`readSinapiInWorker` construíam o Worker assim:
+`const workerUrl = new URL("...worker.js", import.meta.url); ...; new
+WorkerClass(workerUrl, {type:"module"})` - passando a URL por uma
+variável (para os testes conseguirem mockar). O Vite/Rolldown só
+reconhece e empacota de verdade um Worker quando o padrão `new
+Worker(new URL("...", import.meta.url))` aparece **literal** no
+código - com a URL numa variável, ele trata o arquivo do worker como
+um asset qualquer: copia o texto-fonte quase sem processar, sem
+resolver o `import` relativo que o worker tem para o módulo de parsing
+(`orse-parser.js`/`xlsx-selective-reader.js`). O worker publicado em
+produção continha um `import {...} from "../domains/..."` que não
+aponta para nenhum arquivo real - falha ao instanciar no navegador,
+silenciosamente (sem erro visível fora do toast genérico "Falha ao
+enviar a base").
+
+**Confirmado com os dois workers antes e depois da correção**
+(`dist/assets/*worker*.js`, build local limpo): antes, ambos os
+arquivos continham o `import` relativo cru, sem nenhum arquivo de
+destino existindo em `dist/`. Isso significa que **a importação
+oficial do SINAPI também estava quebrada em produção**, não só o ORSE
+- a base SINAPI de 8.403 itens já cadastrada foi importada antes desse
+bug aparecer (ou por um caminho diferente), não é evidência de que o
+worker funcionava.
+
+**Correção**: os dois motores agora escrevem o padrão exato que o
+bundler exige - `new Worker(new URL("...worker.js", import.meta.url),
+{type:"module"})` literal, direto na chamada, só desviando para o
+`WorkerClass`/`workerUrl` injetados quando `"workerUrl" in options`
+(usado pelos testes). `vite.config.mjs` também ganhou `worker:{format:
+"es"}` e um `assetsInlineLimit` que nunca deixa um `*.worker.js` virar
+uma `data:` URL inline (um worker pequeno pode cair nesse caminho, que
+tem a mesma falha de import não resolvido). Suíte completa (256/1576),
+`build`, `lint`, `architecture:check` verdes; conferido nos dois
+arquivos `.js` publicados em `dist/` que o `import` relativo sumiu e
+o conteúdo do módulo de parsing está de fato embutido.
+

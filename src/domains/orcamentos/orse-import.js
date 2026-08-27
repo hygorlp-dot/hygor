@@ -15,12 +15,12 @@ const DEFAULT_INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000;
 export function readOrseInWorker(
   arquivos, // { insumo, insumoPreco, servico, servicoPreco, composicao } - cada um um File/Blob
   onProgress = () => {},
-  {
-    WorkerClass = globalThis.Worker,
-    workerUrl = new URL("../../workers/orse-parser.worker.js", import.meta.url),
-    inactivityTimeoutMs = DEFAULT_INACTIVITY_TIMEOUT_MS,
-  } = {},
+  options = {},
 ) {
+  const {
+    WorkerClass = globalThis.Worker,
+    inactivityTimeoutMs = DEFAULT_INACTIVITY_TIMEOUT_MS,
+  } = options;
   if (typeof WorkerClass === "undefined") {
     throw new Error("Seu navegador não suporta a leitura segura de planilhas em segundo plano.");
   }
@@ -31,7 +31,18 @@ export function readOrseInWorker(
   }
 
   return Promise.all(chaves.map(chave => arquivos[chave].arrayBuffer())).then(buffers => new Promise((resolve, reject) => {
-    const worker = new WorkerClass(workerUrl, { type: "module" });
+    // O padrão `new Worker(new URL(caminho, import.meta.url))` PRECISA
+    // aparecer assim, literal, para o bundler (Vite/Rolldown) reconhecer e
+    // empacotar de verdade orse-parser.worker.js como um chunk de worker
+    // publicável, resolvendo o import relativo dele para orse-parser.js.
+    // Passar a URL por uma variável/parâmetro (como antes) faz o bundler
+    // tratar o arquivo como um asset qualquer - copiado sem o import
+    // interno resolvido, e o worker falha ao instanciar em produção
+    // (raiz do "não lê as tabelas" achado ao vivo). "workerUrl" nas
+    // opções ainda existe só para os testes conseguirem mockar.
+    const worker = "workerUrl" in options
+      ? new WorkerClass(options.workerUrl, { type: "module" })
+      : new Worker(new URL("../../workers/orse-parser.worker.js", import.meta.url), { type: "module" });
     let timeoutId;
 
     const stop = () => {
