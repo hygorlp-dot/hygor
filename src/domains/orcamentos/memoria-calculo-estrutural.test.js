@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calcularPilarTipo, calcularSapataTipo, novaLajePavimento, novaPilarTipo, novaSapataTipo, novaVigaPavimento,
-  pesoUnitarioAco, resumoPilares, resumoSapatas,
+  pesoUnitarioAco, resumoPilares, resumoSapatas, somaAcoPorBitola,
 } from "./memoria-calculo-estrutural";
 
 describe("pesoUnitarioAco", () => {
@@ -171,18 +171,33 @@ describe("resumoPilares", () => {
 });
 
 describe("novaVigaPavimento / novaLajePavimento - um único objeto por pavimento, sem lista de tipos", () => {
-  it("começa zerada, sem aviso de valor incorreto", () => {
+  it("começa zerada, sem aviso de valor incorreto, sem nenhuma bitola", () => {
     const viga = novaVigaPavimento();
-    expect(viga).toEqual({ concretoM3: 0, formaM2: 0, acoKg: 0, avisoConcretoIncorreto: false, precisaRevisar: false });
+    expect(viga).toEqual({ concretoM3: 0, formaM2: 0, acoPorBitola: [], avisoConcretoIncorreto: false, precisaRevisar: false });
   });
 
   it("aceita sobrescrever qualquer campo (ex.: valores extraídos do PDF)", () => {
-    const viga = novaVigaPavimento({ concretoM3: 11.14, formaM2: 109.7, acoKg: 937, avisoConcretoIncorreto: true });
+    const viga = novaVigaPavimento({
+      concretoM3: 11.14, formaM2: 109.7, avisoConcretoIncorreto: true,
+      acoPorBitola: [{ bitola: "10", kg: 490 }, { bitola: "5", kg: 156 }],
+    });
     expect(viga.avisoConcretoIncorreto).toBe(true);
     expect(viga.concretoM3).toBe(11.14);
+    expect(somaAcoPorBitola(viga.acoPorBitola)).toBe(646);
 
     const laje = novaLajePavimento({ volumeM3: 15.79, volumeMacicasM3: 3.18, volumeVigotasM3: 12.61 });
     expect(laje.volumeM3).toBe(15.79);
     expect(laje.volumeMacicasM3 + laje.volumeVigotasM3).toBeCloseTo(15.79);
+  });
+});
+
+describe("somaAcoPorBitola", () => {
+  it("soma o kg de cada bitola", () => {
+    expect(somaAcoPorBitola([{ bitola: "10", kg: 490 }, { bitola: "12.5", kg: 125 }])).toBe(615);
+  });
+
+  it("devolve 0 para lista vazia ou ausente", () => {
+    expect(somaAcoPorBitola([])).toBe(0);
+    expect(somaAcoPorBitola(undefined)).toBe(0);
   });
 });

@@ -179,9 +179,16 @@ export function resumoPilares(tipos) {
 // viga, e o "Quantitativos de superfícies e volumes.pdf" resume por
 // pavimento, não por viga/laje). Por isso são um objeto único por
 // pavimento, sem lista de tipos nem soma - os campos JÁ SÃO o total.
+// Achado real (27/08/2026, pedido direto do usuário): aço precisa vir
+// separado por bitola (cada bitola é um insumo/composição diferente no
+// orçamento - CA-50 10mm e CA-50 12,5mm são duas linhas SINAPI distintas,
+// não uma só) - por isso `acoPorBitola` é uma lista `{bitola,kg}`, não um
+// número só. Vem do "Resumo Aço" da própria folha (ver `extrairResumoAco`
+// em estrutural-pdf-extrator.js) - não tem como derivar por bitola a
+// partir de concreto/fôrma, então é sempre editável/importado à parte.
 export function novaVigaPavimento(extra = {}) {
   return {
-    concretoM3: 0, formaM2: 0, acoKg: 0,
+    concretoM3: 0, formaM2: 0, acoPorBitola: [],
     // Achado real (Quantitativos de superfícies e volumes.pdf, 27/08/2026):
     // o próprio projeto às vezes avisa que não conseguiu calcular o volume
     // de vigas daquele pavimento com segurança - a tela precisa mostrar
@@ -194,8 +201,13 @@ export function novaVigaPavimento(extra = {}) {
 
 export function novaLajePavimento(extra = {}) {
   return {
-    volumeM3: 0, volumeMacicasM3: 0, volumeVigotasM3: 0, acoKg: 0,
+    volumeM3: 0, volumeMacicasM3: 0, volumeVigotasM3: 0, acoPorBitola: [],
     precisaRevisar: false,
     ...extra,
   };
 }
+
+// Soma simples de uma lista {bitola,kg} - usado nos cartões de vigas/laje
+// e no resumo de pilares para mostrar o total ao lado do detalhamento por
+// bitola, sem duplicar essa conta em cada lugar que precisa dela.
+export const somaAcoPorBitola = lista => (lista || []).reduce((soma, item) => soma + Number(item?.kg || 0), 0);

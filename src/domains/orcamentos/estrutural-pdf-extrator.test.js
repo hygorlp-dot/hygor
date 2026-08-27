@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   contarPilares, extrairAcoVigasPavimento, extrairAnotacoesPosicao, extrairElementosEstruturais, extrairPilares,
-  extrairQuadroSapatas, extrairQuantitativosPavimentos, extrairResumoAcoFundacao, extrairSapatasFundacao,
+  extrairQuadroSapatas, extrairQuantitativosPavimentos, extrairResumoAco, extrairSapatasFundacao,
 } from "./estrutural-pdf-extrator";
 
 // Texto real extraído (pdftotext, sem -layout) da folha E-02/13 do projeto
@@ -11,30 +11,16 @@ import {
 // real - prova que o parser não depende de um símbolo específico).
 const D = "�"; // símbolo de diâmetro, ilegível após extração
 
-// Texto real do "Resumo Aço" no topo da mesma folha (antes do quadro) -
+// Texto real (pdfjs-dist, mesmo caminho de produção - um item de texto do
+// PDF por linha) do "Resumo Aço" no topo da mesma folha (antes do quadro) -
 // total já pronto da página inteira: Ø10=164kg, Ø12.5=14kg, total=178kg.
-const RESUMO_ACO_REAL = `
-Resumo A${D}o
-
-Comp. total Peso+10%
-
-Funda${D}${D}o
-
-(m)
-
-(kg) Total
-
-Detalhamento funda${D}${D}o
-
-CA-50
-
-${D}10 ${D}12.5
-
-242.1 13.0
-
-164 14 178
-
-`;
+// Achado real (27/08/2026): a extração de produção NÃO junta as bitolas
+// numa linha só como este teste assumia antes (estilo poppler/sem
+// -layout) - cada bitola, comprimento e peso vem em sua própria linha.
+// Essa forma antiga do fixture fazia o teste passar enquanto a função
+// ficava silenciosamente quebrada (sempre null) contra o texto real -
+// substituído pelo texto literal extraído de verdade.
+const RESUMO_ACO_REAL = "Resumo Aço\nFundação\nDetalhamento fundação\nComp. total\n(m)\nPeso+10%\n(kg)\nCA-50\n \nØ10\n \n242.1\n \n164\nØ12.5\n \n13.0\n \n14\n \n178\nTotal\n\n";
 
 const QUADRO_REAL = `
 QUADRO DE ELEMENTOS DE FUNDA${D}${D}O
@@ -289,17 +275,39 @@ describe("extrairSapatasFundacao - integração quadro + desenho (âncora por po
   });
 });
 
-describe("extrairResumoAcoFundacao - conferência contra o total real da página (Estrutural.pdf, folha E-02/13)", () => {
-  const texto = RESUMO_ACO_REAL + QUADRO_REAL;
-
-  it("lê o peso por bitola e o total geral já prontos do projeto", () => {
-    const resumo = extrairResumoAcoFundacao(texto);
+describe("extrairResumoAco - conferência/fonte de aço por bitola contra o total real da página", () => {
+  it("lê o peso por bitola e o total geral já prontos do projeto (Fundação/sapatas, E-02/13 - formato 'Total' sozinho)", () => {
+    const resumo = extrairResumoAco(RESUMO_ACO_REAL + QUADRO_REAL);
     expect(resumo.porBitola).toEqual([{ bitola: "10", pesoKg: 164 }, { bitola: "12.5", pesoKg: 14 }]);
     expect(resumo.totalKg).toBe(178);
   });
 
-  it("devolve null se não achar a seção Resumo Aço", () => {
-    expect(extrairResumoAcoFundacao(QUADRO_REAL)).toBeNull();
+  it("lê o formato 'Total <valor> Total' sanduichado (Pilares do Térreo, E-03/13)", () => {
+    const real = "Resumo Aço\nPilares\nComp. total\n(m)\nPeso+10%\n(kg)\nCA-50\nØ10\n197.6\n134\nØ12.5\n130.6\n138\n272\nCA-60\nØ5\n361.9\n62\n62\nTotal\n334\nTotal\n05/2026\n";
+    const resumo = extrairResumoAco(real);
+    expect(resumo.porBitola).toEqual([{ bitola: "5", pesoKg: 62 }, { bitola: "10", pesoKg: 134 }, { bitola: "12.5", pesoKg: 138 }]);
+    expect(resumo.totalKg).toBe(334);
+  });
+
+  it("não confunde o número extra de subtotal (que sobra depois da última bitola de uma classe) com o comprimento/peso da bitola seguinte", () => {
+    // "166" é peso de Ø16, "781" é só o subtotal de CA-50 (166+490+125=781) -
+    // não pode virar comprimento/peso de nenhuma bitola.
+    const real = "Resumo Aço\nVigas\nCA-50\nØ16\n95.6\n166\n781\nCA-60\nØ5\n901.0\n156\n156\nTotal\n937\nTotal\n";
+    const resumo = extrairResumoAco(real);
+    expect(resumo.porBitola).toEqual([{ bitola: "5", pesoKg: 156 }, { bitola: "16", pesoKg: 166 }]);
+    expect(resumo.totalKg).toBe(937);
+  });
+
+  it("soma DOIS blocos 'Resumo Aço' na mesma folha (laje: armadura transversal + longitudinal)", () => {
+    const transversal = "Resumo Aço\n1º Pavimento\nArmadura transversal inferior\nCA-50\nØ8\n378.9\n165\nCA-60\nØ5\n124.8\n22\n22\nTotal\n187\nTotal\n";
+    const longitudinal = "Resumo Aço\n1º Pavimento\nArmadura longitudinal inferior\nCA-50\nØ8\n85.4\n37\n37\nCA-60\nØ5\n436.3\n75\n75\nTotal\n112\nTotal\n";
+    const resumo = extrairResumoAco(transversal + longitudinal);
+    expect(resumo.porBitola).toEqual([{ bitola: "5", pesoKg: 97 }, { bitola: "8", pesoKg: 202 }]);
+    expect(resumo.totalKg).toBe(299);
+  });
+
+  it("devolve null se não achar nenhuma seção Resumo Aço", () => {
+    expect(extrairResumoAco(QUADRO_REAL)).toBeNull();
   });
 });
 
@@ -795,9 +803,26 @@ describe("extrairElementosEstruturais - lê o Estrutural.pdf inteiro de uma vez,
     expect(r.pilares.pavimento1).toEqual([]);
     expect(r.pilares.cobertura).toEqual([]);
 
-    expect(r.vigasAco.pavimento1.totalKg).toBeCloseTo(69.6 + 12.4 + 9.6 + 3.2);
-    expect(r.vigasAco.terreo).toBeNull();
-    expect(r.vigasAco.cobertura).toBeNull();
+    expect(r.vigasAcoCruzado.pavimento1.totalKg).toBeCloseTo(69.6 + 12.4 + 9.6 + 3.2);
+    expect(r.vigasAcoCruzado.terreo).toBeNull();
+    expect(r.vigasAcoCruzado.cobertura).toBeNull();
+
+    // Nem PILAR_TERREO_REAL nem VIGAS_1PAV_REAL trazem um bloco "Resumo
+    // Aço" próprio (só a tabela de armadura por elemento) - o teste
+    // seguinte cobre a leitura do "Resumo Aço" quando ele existe na folha.
+    expect(r.vigasAcoPorBitola.pavimento1).toBeNull();
+    expect(r.pilaresAcoPorBitola.terreo).toBeNull();
+    expect(r.lajesAcoPorBitola).toEqual({ terreo: null, pavimento1: null, cobertura: null });
+  });
+
+  it("também lê o aço por bitola de pilares e de laje quando a folha tem um 'Resumo Aço'", () => {
+    const pilarComResumo = "Pilares do Térreo\n" + PILAR_TERREO_REAL
+      + "\nResumo Aço\nPilares\nCA-50\nØ10\n197.6\n134\nTotal\n134\nTotal\n";
+    const lajeComResumo = "Lajes do 1º Pavimento\nResumo Aço\n1º Pavimento\nCA-50\nØ8\n378.9\n165\nTotal\n165\nTotal\n";
+    const r = extrairElementosEstruturais(`${pilarComResumo}\f${lajeComResumo}`);
+    expect(r.pilaresAcoPorBitola.terreo).toEqual({ porBitola: [{ bitola: "10", pesoKg: 134 }], totalKg: 134 });
+    expect(r.lajesAcoPorBitola.pavimento1).toEqual({ porBitola: [{ bitola: "8", pesoKg: 165 }], totalKg: 165 });
+    expect(r.lajesAcoPorBitola.cobertura).toBeNull();
   });
 
   it("ignora páginas sem nenhum título reconhecido (ex.: folha de detalhes/observações)", () => {
@@ -808,6 +833,9 @@ describe("extrairElementosEstruturais - lê o Estrutural.pdf inteiro de uma vez,
   it("devolve tudo vazio/nulo para um documento sem nenhuma folha reconhecida", () => {
     const r = extrairElementosEstruturais("nada aqui");
     expect(r.pilares).toEqual({ terreo: [], pavimento1: [], cobertura: [] });
-    expect(r.vigasAco).toEqual({ terreo: null, pavimento1: null, cobertura: null });
+    expect(r.vigasAcoPorBitola).toEqual({ terreo: null, pavimento1: null, cobertura: null });
+    expect(r.vigasAcoCruzado).toEqual({ terreo: null, pavimento1: null, cobertura: null });
+    expect(r.pilaresAcoPorBitola).toEqual({ terreo: null, pavimento1: null, cobertura: null });
+    expect(r.lajesAcoPorBitola).toEqual({ terreo: null, pavimento1: null, cobertura: null });
   });
 });

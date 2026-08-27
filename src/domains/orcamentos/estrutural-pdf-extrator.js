@@ -21,43 +21,74 @@ const RE_ANOTACAO_POSICAO = /(\d+)N(\d+)\D{0,2}(\d+(?:[.,]\d+)?)c\/(\d+(?:[.,]\d
 const paraNumero = texto => Number(String(texto).replace(",", "."));
 const linhasNaoVazias = texto => String(texto || "").split(/\r\n|\n/).map(l => l.trim()).filter(Boolean);
 
-const RE_LINHA_BITOLAS = /^(?:\D{0,2}\d+(?:[.,]\d+)?\s*)+$/;
-const RE_LINHA_NUMEROS = /^[\d.,\s]+$/;
-
-// Lê o "Resumo Aço" da folha inteira (Ø10: 164kg, Ø12.5: 14kg, Total:
-// 178kg) - um total pronto pelo próprio projeto, útil só como conferência:
-// bate o total somado por tipo (memoria-calculo-estrutural.js) contra este
-// número para avisar se a extração ficou incompleta.
-export function extrairResumoAcoFundacao(texto) {
-  const linhas = linhasNaoVazias(texto);
-  const inicioResumo = linhas.findIndex(l => /Resumo A.o/i.test(l));
-  const inicioQuadro = linhas.findIndex(l => /QUADRO DE ELEMENTOS DE FUNDA/i.test(l));
-  if (inicioResumo === -1) return null;
-  const fim = inicioQuadro > inicioResumo ? inicioQuadro : linhas.length;
+// Lê UM bloco "Resumo Aço" (a partir da linha em que ele começa) - Ø10:
+// 164kg, Ø12.5: 14kg, Total: 178kg - um total pronto pelo próprio projeto,
+// útil como conferência (bate o total somado por tipo em
+// memoria-calculo-estrutural.js contra este número) e, agora, como a
+// própria fonte do aço por bitola de pilares/vigas/lajes (que não têm um
+// jeito confiável de recalcular por elemento - só o resumo da folha
+// inteira dá isso pronto).
+//
+// Achado real (27/08/2026): a extração de produção (pdfjs-dist, "um item
+// de texto do PDF por linha" - ver ler-estrutural-pdf.js) NÃO junta as
+// bitolas numa linha só como os fixtures antigos (estilo poppler)
+// assumiam - cada bitola vira sua própria linha, seguida da linha de
+// comprimento e da linha de peso, cada uma separada. Essa função ficava
+// silenciosamente quebrada (sempre null) contra o texto real - confirmado
+// rodando contra as 8 folhas reais de resumo do Estrutural.pdf do usuário
+// (Fundação, Pilares x3, Vigas x3, Laje x2 blocos por página) antes de
+// reescrever. A nova leitura é por posição: para cada linha "Ø<bitola>",
+// as duas linhas seguintes são comprimento e peso - funciona mesmo com um
+// número extra de subtotal sobrando depois (o comprimento/peso da PRÓXIMA
+// bitola nunca é lido a partir desse subtotal, só das duas linhas logo
+// após o próprio "Ø<bitola>").
+//
+// O total geral aparece de duas formas diferentes conforme a folha (ambas
+// confirmadas em campo): "<total> Total" (Fundação/sapatas, só uma vez) ou
+// "Total <total> Total" (Pilares/Vigas/Laje, sanduichado) - checa a forma
+// mais específica (sanduichada) primeiro.
+function lerUmBlocoResumoAco(linhas, inicioResumo) {
+  const inicioTotal = linhas.findIndex((l, i) => i > inicioResumo && l === "Total");
+  let totalKg = null, fim = linhas.length;
+  if (inicioTotal > -1) {
+    if (/^[\d.,]+$/.test(linhas[inicioTotal + 1] || "") && linhas[inicioTotal + 2] === "Total") {
+      totalKg = paraNumero(linhas[inicioTotal + 1]); fim = inicioTotal + 3;
+    } else if (/^[\d.,]+$/.test(linhas[inicioTotal - 1] || "")) {
+      totalKg = paraNumero(linhas[inicioTotal - 1]); fim = inicioTotal + 1;
+    }
+  }
   const bloco = linhas.slice(inicioResumo, fim);
+  const porBitola = [];
+  for (let i = 0; i < bloco.length; i++) {
+    const bitola = /^Ø(\d+(?:[.,]\d+)?)$/.exec(bloco[i])?.[1];
+    if (!bitola) continue;
+    const comprimento = bloco[i + 1], peso = bloco[i + 2];
+    if (!/^[\d.,]+$/.test(comprimento || "") || !/^[\d.,]+$/.test(peso || "")) continue;
+    porBitola.push({ bitola: bitola.replace(",", "."), comprimentoM: paraNumero(comprimento), pesoKg: paraNumero(peso) });
+  }
+  return { porBitola, totalKg, fim };
+}
 
-  // "242.1 13.0"/"164 14 178" (só números/ponto/espaço) também batem no
-  // formato de RE_LINHA_BITOLAS - só a linha de bitola de verdade tem o
-  // símbolo de diâmetro (um caractere que não é dígito, ponto, vírgula ou
-  // espaço).
-  const linhaBitolas = bloco.find(l => RE_LINHA_BITOLAS.test(l) && /[^\d.,\s]/.test(l));
-  if (!linhaBitolas) return null;
-  const bitolas = [...linhaBitolas.matchAll(/\D{0,2}(\d+(?:[.,]\d+)?)/g)].map(m => paraNumero(m[1]));
-  if (!bitolas.length) return null;
-
-  const indiceBitolas = bloco.indexOf(linhaBitolas);
-  const linhasNumericas = bloco.slice(indiceBitolas + 1).filter(l => RE_LINHA_NUMEROS.test(l));
-  // A 2a linha numérica depois das bitolas é o peso (a 1a é o comprimento
-  // total, que esta função não usa) - tem N valores (um por bitola) + 1
-  // total geral no fim.
-  const linhaPeso = linhasNumericas[1];
-  if (!linhaPeso) return null;
-  const valores = linhaPeso.split(/\s+/).map(Number).filter(Number.isFinite);
-  if (valores.length < bitolas.length + 1) return null;
-
+// Uma folha pode ter mais de um "Resumo Aço" (laje: um pra armadura
+// transversal, outro pra longitudinal) - soma todos os blocos encontrados
+// por bitola e no total geral.
+export function extrairResumoAco(texto) {
+  const linhas = linhasNaoVazias(texto);
+  const porBitola = new Map();
+  let totalKg = 0, encontrouAlgum = false, cursor = 0;
+  while (true) {
+    const inicioResumo = linhas.findIndex((l, i) => i >= cursor && /Resumo A.o/i.test(l));
+    if (inicioResumo === -1) break;
+    encontrouAlgum = true;
+    const bloco = lerUmBlocoResumoAco(linhas, inicioResumo);
+    bloco.porBitola.forEach(({ bitola, pesoKg }) => porBitola.set(bitola, (porBitola.get(bitola) || 0) + pesoKg));
+    if (bloco.totalKg) totalKg += bloco.totalKg;
+    cursor = bloco.fim;
+  }
+  if (!encontrouAlgum) return null;
   return {
-    porBitola: bitolas.map((bitola, i) => ({ bitola: String(bitola), pesoKg: valores[i] })),
-    totalKg: valores[valores.length - 1],
+    porBitola: [...porBitola.entries()].map(([bitola, pesoKg]) => ({ bitola, pesoKg })).sort((a, b) => Number(a.bitola) - Number(b.bitola)),
+    totalKg,
   };
 }
 
@@ -237,19 +268,17 @@ concretoUnit: paraNumero(concretoM3),
   return resultado;
 }
 
-// Vigas não têm um bloco de resumo "Aço: (X kg)" por elemento como os
-// pilares - só um "Resumo Aço" no fim da folha inteira. Esse resumo,
-// porém, tem um formato frágil pra extrair: cada bitola pode vir como um
-// item de texto isolado do PDF (uma "linha" própria depois da extração),
-// então a heurística "uma linha só com todas as bitolas juntas" que
-// `extrairResumoAcoFundacao` usa (funciona na folha de Fundação) não bate
-// aqui. Em vez de tentar ler esse resumo, soma os dois números que
+// Segunda fonte, INDEPENDENTE, do aço de vigas: soma os dois números que
 // terminam CADA bloco individual de viga (ex.: "69.6   9.6 Total+10%:" =
-// 69.6kg de CA-50 e 9.6kg de CA-60 daquela viga) - o mesmo padrão em toda
-// folha de vigas, robusto a como o PDF quebra as bitolas do resumo.
-// Validado contra a folha real "Vigas do 1º Pavimento" (E-08/13): 28
-// blocos somam 781.5kg CA-50 e 155.5kg CA-60, batendo (dentro de
-// arredondamento) com o "Total 937" do resumo da própria folha.
+// 69.6kg de CA-50 e 9.6kg de CA-60 daquela viga), sem depender do "Resumo
+// Aço" da folha inteira. Só dá CA-50/CA-60 (não por bitola) - para o
+// detalhe por bitola use `extrairResumoAco` (agora corrigido para ler o
+// resumo da folha certo, ver seu comentário). Mantida como conferência
+// cruzada independente (mesmo espírito do "pdfResumoAco" das sapatas):
+// os dois totais devem bater; se não baterem, algo na extração ficou
+// incompleto. Validado contra a folha real "Vigas do 1º Pavimento"
+// (E-08/13): 28 blocos somam 781.5kg CA-50 e 155.5kg CA-60, batendo
+// (dentro de arredondamento) com o "Total 937" do resumo da própria folha.
 const RE_TOTAL_VIGA = /([\d.,]+)\s+([\d.,]+)\s*Total\+10%:/g;
 
 export function extrairAcoVigasPavimento(texto) {
@@ -310,25 +339,43 @@ const MARCADORES_PAGINA = [
   { chave: "pilares", pavimento: "terreo", re: /Pilares do Térreo/i },
   { chave: "pilares", pavimento: "pavimento1", re: /Pilares do 1º Pavimento/i },
   { chave: "pilares", pavimento: "cobertura", re: /Pilares da Cobertura/i },
-  { chave: "vigasAco", pavimento: "terreo", re: /Vigas do Térreo/i },
-  { chave: "vigasAco", pavimento: "pavimento1", re: /Vigas do 1º Pavimento/i },
-  { chave: "vigasAco", pavimento: "cobertura", re: /Vigas da Cobertura/i },
+  { chave: "vigas", pavimento: "terreo", re: /Vigas do Térreo/i },
+  { chave: "vigas", pavimento: "pavimento1", re: /Vigas do 1º Pavimento/i },
+  { chave: "vigas", pavimento: "cobertura", re: /Vigas da Cobertura/i },
+  { chave: "lajes", pavimento: "pavimento1", re: /Lajes do 1º Pavimento/i },
+  { chave: "lajes", pavimento: "cobertura", re: /Lajes da Cobertura/i },
 ];
 
-// Lê o Estrutural.pdf inteiro e devolve pilares + aço de vigas já
-// separados por pavimento, prontos para popular a memória de cálculo de
-// uma vez só (o usuário sobe o PDF uma única vez, não uma vez por aba).
+const pavimentosVazios = () => ({ terreo: null, pavimento1: null, cobertura: null });
+
+// Lê o Estrutural.pdf inteiro e devolve, por pavimento: pilares (lista por
+// tipo, com concreto/fôrma/aço já prontos do projeto), e o aço por bitola
+// de pilares/vigas/lajes (`extrairResumoAco`, lido do "Resumo Aço" de cada
+// folha - é a única fonte confiável de aço por bitola para vigas/lajes,
+// já que elas não têm um detalhamento por elemento como os pilares).
+// Vigas também levam um segundo total (`vigasAcoCruzado`), independente,
+// só para conferência (ver `extrairAcoVigasPavimento`).
 export function extrairElementosEstruturais(textoCompleto) {
   const paginas = String(textoCompleto || "").split("\f");
   const resultado = {
     pilares: { terreo: [], pavimento1: [], cobertura: [] },
-    vigasAco: { terreo: null, pavimento1: null, cobertura: null },
+    pilaresAcoPorBitola: pavimentosVazios(),
+    vigasAcoPorBitola: pavimentosVazios(),
+    vigasAcoCruzado: pavimentosVazios(),
+    lajesAcoPorBitola: pavimentosVazios(),
   };
   for (const pagina of paginas) {
     const marcador = MARCADORES_PAGINA.find(m => m.re.test(pagina));
     if (!marcador) continue;
-    if (marcador.chave === "pilares") resultado.pilares[marcador.pavimento] = extrairPilares(pagina);
-    else resultado.vigasAco[marcador.pavimento] = extrairAcoVigasPavimento(pagina);
+    if (marcador.chave === "pilares") {
+      resultado.pilares[marcador.pavimento] = extrairPilares(pagina);
+      resultado.pilaresAcoPorBitola[marcador.pavimento] = extrairResumoAco(pagina);
+    } else if (marcador.chave === "vigas") {
+      resultado.vigasAcoPorBitola[marcador.pavimento] = extrairResumoAco(pagina);
+      resultado.vigasAcoCruzado[marcador.pavimento] = extrairAcoVigasPavimento(pagina);
+    } else {
+      resultado.lajesAcoPorBitola[marcador.pavimento] = extrairResumoAco(pagina);
+    }
   }
   return resultado;
 }
