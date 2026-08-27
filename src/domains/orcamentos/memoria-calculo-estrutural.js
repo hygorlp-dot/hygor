@@ -27,8 +27,8 @@ const PERDA_ACO = 0.10;
 // obra - por isso é editável por tipo, com este valor só como ponto de
 // partida). Profundidade também parte de um padrão (1,5m) pelo mesmo
 // motivo - ambos ajustáveis livremente por sapata.
-const FOLGA_ESCAVACAO_PADRAO_M = 0.20;
-const PROFUNDIDADE_ESCAVACAO_PADRAO_M = 1.5;
+export const FOLGA_ESCAVACAO_PADRAO_M = 0.20;
+export const PROFUNDIDADE_ESCAVACAO_PADRAO_M = 1.5;
 
 export function novaSapataTipo(extra = {}) {
   return {
@@ -62,6 +62,10 @@ export function calcularSapataTipo(tipoRow) {
   const volumeBaseUnit = largura * comprimento * alturaBase;
   const volumeTroncoUnit = largura * comprimento * alturaTronco;
   const volumeSapataUnit = volumeBaseUnit + volumeTroncoUnit;
+  // Achado da crítica Impeccable (27/08/2026): zerar o reaterro negativo
+  // escondia silenciosamente uma inconsistência geométrica real (a sapata
+  // não cabe na própria cova) - agora fica marcada para a tela avisar.
+  const escavacaoInsuficiente = volumeSapataUnit > 0 && volumeEscavacaoUnit < volumeSapataUnit;
   const reaterroUnit = Math.max(0, volumeEscavacaoUnit - volumeSapataUnit);
   // Fôrmas = perímetro da base x altura da base (convenção confirmada com o
   // usuário) - só a base leva fôrma; o tronco fica coberto pela cova.
@@ -74,6 +78,7 @@ export function calcularSapataTipo(tipoRow) {
   return {
     larguraEscavacaoUnit, comprimentoEscavacaoUnit,
     volumeEscavacaoUnit, areaConcretoMagroUnit, volumeBaseUnit, volumeTroncoUnit, volumeSapataUnit, reaterroUnit, formaAreaUnit,
+    escavacaoInsuficiente,
     pesoXUnit, pesoYUnit, pesoAcoUnit: pesoXUnit + pesoYUnit,
     volumeEscavacaoTotal: volumeEscavacaoUnit * qtd,
     areaConcretoMagroTotal: areaConcretoMagroUnit * qtd,

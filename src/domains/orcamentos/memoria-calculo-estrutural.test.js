@@ -50,6 +50,11 @@ describe("calcularSapataTipo - quantidades de concreto/escavação", () => {
     const tipoInvalido = novaSapataTipo({ largura: 5, comprimento: 5, alturaBase: 5, folgaEscavacao: 0, profundidadeEscavacao: 1 });
     expect(calcularSapataTipo(tipoInvalido).reaterroUnit).toBe(0);
   });
+  it("marca escavacaoInsuficiente quando a sapata não cabe na própria cova (achado da crítica Impeccable) em vez de só zerar o reaterro em silêncio", () => {
+    const tipoInvalido = novaSapataTipo({ largura: 5, comprimento: 5, alturaBase: 5, folgaEscavacao: 0, profundidadeEscavacao: 1 });
+    expect(calcularSapataTipo(tipoInvalido).escavacaoInsuficiente).toBe(true);
+    expect(calcularSapataTipo(tipo).escavacaoInsuficiente).toBe(false);
+  });
   it("multiplica os totais pela quantidade de peças do tipo", () => {
     const calc = calcularSapataTipo(tipo);
     expect(calc.volumeEscavacaoTotal).toBeCloseTo(calc.volumeEscavacaoUnit * 7);

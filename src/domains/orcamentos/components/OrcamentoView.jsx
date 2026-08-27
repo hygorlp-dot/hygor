@@ -58,7 +58,8 @@ import {
   resolverCodigosReferencia, detalharComposicoesReferencia,
 } from "../../../api";
 import {
-  BITOLAS_ACO, calcularSapataTipo, novaSapataTipo, resumoSapatas,
+  BITOLAS_ACO, FOLGA_ESCAVACAO_PADRAO_M, PROFUNDIDADE_ESCAVACAO_PADRAO_M,
+  calcularSapataTipo, novaSapataTipo, resumoSapatas,
 } from "../memoria-calculo-estrutural";
 import { extrairResumoAcoFundacao, extrairSapatasFundacao } from "../estrutural-pdf-extrator";
 
@@ -659,7 +660,18 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const salvarSapatasFundacao = (novaLista) => salvarOrc({
     memoriaCalculo: { ...(orc?.memoriaCalculo || {}), fundacao: { ...(orc?.memoriaCalculo?.fundacao || {}), sapatas: novaLista } },
   });
-  const adicionarSapataTipo = () => salvarSapatasFundacao([...sapatasFundacao, novaSapataTipo({ id: uid() })]);
+  // Achado da crítica Impeccable (27/08/2026): o padrão de folga/profundidade
+  // de escavação era só estado local da tela - um valor específico do
+  // canteiro (ex.: 25cm em vez de 20cm) se perdia ao recarregar a página.
+  // Agora vive no próprio orçamento e vale também para tipos novos.
+  const padraoEscavacaoFundacao = orc?.memoriaCalculo?.fundacao?.padraoEscavacao
+    || { folga: FOLGA_ESCAVACAO_PADRAO_M, profundidade: PROFUNDIDADE_ESCAVACAO_PADRAO_M };
+  const salvarPadraoEscavacaoFundacao = patch => salvarOrc({
+    memoriaCalculo: { ...(orc?.memoriaCalculo || {}), fundacao: { ...(orc?.memoriaCalculo?.fundacao || {}), padraoEscavacao: { ...padraoEscavacaoFundacao, ...patch } } },
+  });
+  const adicionarSapataTipo = () => salvarSapatasFundacao([...sapatasFundacao, novaSapataTipo({
+    id: uid(), folgaEscavacao: padraoEscavacaoFundacao.folga, profundidadeEscavacao: padraoEscavacaoFundacao.profundidade,
+  })]);
   const atualizarSapataTipo = (id, patch) => salvarSapatasFundacao(sapatasFundacao.map(t => t.id === id ? { ...t, ...patch } : t));
   const removerSapataTipo = id => salvarSapatasFundacao(sapatasFundacao.filter(t => t.id !== id));
 
@@ -686,7 +698,10 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     setPdfProcessando(true); setPdfAviso(""); setPdfPreview(null); setPdfResumoAco(null);
     try {
       const texto = await lerPdfEmSegundoPlano(arquivo);
-      const encontradas = extrairSapatasFundacao(texto).map(sapata => ({ ...novaSapataTipo(), ...sapata, id: uid() }));
+      const encontradas = extrairSapatasFundacao(texto).map(sapata => ({
+        ...novaSapataTipo({ folgaEscavacao: padraoEscavacaoFundacao.folga, profundidadeEscavacao: padraoEscavacaoFundacao.profundidade }),
+        ...sapata, id: uid(),
+      }));
       if (!encontradas.length) {
         setPdfAviso("Não encontrei a tabela \"QUADRO DE ELEMENTOS DE FUNDAÇÃO\" neste PDF. Confirme se é o arquivo certo (folha da Fundação do projeto estrutural).");
         return;
@@ -711,13 +726,14 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
 
   // Folga/profundidade de escavação são convenção de obra, não do projeto -
   // o mesmo padrão costuma valer para a fundação inteira. Em vez de editar
-  // linha por linha, o operador ajusta aqui uma vez e aplica a todas.
-  const [padraoFolgaEscavacao, setPadraoFolgaEscavacao] = useState(0.2);
-  const [padraoProfundidadeEscavacao, setPadraoProfundidadeEscavacao] = useState(1.5);
+  // linha por linha, o operador ajusta aqui uma vez e aplica a todas -
+  // e o padrão em si fica salvo no orçamento (padraoEscavacaoFundacao acima).
   const aplicarPadraoEscavacaoATodos = () => {
     if (!sapatasFundacao.length) return;
-    salvarSapatasFundacao(sapatasFundacao.map(t => ({ ...t, folgaEscavacao: Number(padraoFolgaEscavacao) || 0, profundidadeEscavacao: Number(padraoProfundidadeEscavacao) || 0 })));
-    showToast(`Folga de ${padraoFolgaEscavacao}m e profundidade de ${padraoProfundidadeEscavacao}m aplicadas a ${sapatasFundacao.length} tipo(s).`);
+    const folga = Number(padraoEscavacaoFundacao.folga) || 0;
+    const profundidade = Number(padraoEscavacaoFundacao.profundidade) || 0;
+    salvarSapatasFundacao(sapatasFundacao.map(t => ({ ...t, folgaEscavacao: folga, profundidadeEscavacao: profundidade })));
+    showToast(`Folga de ${folga}m e profundidade de ${profundidade}m aplicadas a ${sapatasFundacao.length} tipo(s).`);
   };
 
   const salvarRevisaoChecklist=()=>{
@@ -2072,7 +2088,106 @@ ${blocoBDI}
     const w = window.open("","_blank"); w.document.write(html); w.document.close();
   };
 
-  //  VIEW: LISTA 
+  // Exportações da tabela de Sapatas (Memória de Cálculo - Fundação) - pedido
+  // do usuário após a crítica Impeccable: a tabela tem 23 colunas de dado
+  // real e não cabe legível numa tela nem numa folha A4 retrato, então em
+  // vez de forçar isso no navegador, oferece as duas saídas que o resto do
+  // orçamento já usa (Excel completo, PDF/impressão).
+  const CABECALHO_SAPATAS = ["TIPO (PILARES)","QTD PEÇAS","LARG.(m)","COMPR.(m)","ALT.BASE(m)","ALT.TRONCO(m)",
+    "FOLGA ESCAV.(m)","ESCAV. PROF.(m)","VOL. ESCAVAÇÃO(m³)","CONC.MAGRO(m²)","FÔRMAS(m²)",
+    "CONCR.BASE(m³)","CONCR.TRONCO(m³)","CONCR.SAPATA(m³)","REATERRO(m³)",
+    "ARM.X BITOLA","ARM.X QTD","ARM.X COMPR.(m)","ARM.Y BITOLA","ARM.Y QTD","ARM.Y COMPR.(m)","PESO AÇO(kg)"];
+  const linhaSapataParaExportar = ({ tipo, calc }) => [
+    tipo.tipo, tipo.qtd, tipo.largura, tipo.comprimento, tipo.alturaBase, tipo.alturaTronco,
+    tipo.folgaEscavacao, tipo.profundidadeEscavacao, calc.volumeEscavacaoTotal, calc.areaConcretoMagroTotal, calc.formaAreaTotal,
+    calc.volumeBaseTotal, calc.volumeTroncoTotal, calc.volumeSapataTotal, calc.reaterroTotal,
+    `∅${tipo.armaduraX.bitola}`, tipo.armaduraX.quantidade, tipo.armaduraX.comprimento,
+    `∅${tipo.armaduraY.bitola}`, tipo.armaduraY.quantidade, tipo.armaduraY.comprimento, calc.pesoAcoTotal,
+  ];
+  const exportXLSXSapatas = async () => {
+    if (!resumoSapatasFundacao.linhas.length) { showToast("Cadastre ao menos um tipo de sapata antes de exportar.","warn"); return; }
+    await carregarXLSX();
+    const t = resumoSapatasFundacao.totais;
+    const aoa = [
+      [`Memória de Cálculo - Fundação (Sapatas) - ${orc.nome}`],
+      [],
+      CABECALHO_SAPATAS,
+      ...resumoSapatasFundacao.linhas.map(linhaSapataParaExportar),
+      [],
+      ["TOTAIS","","","","","","","",t.volumeEscavacao,t.areaConcretoMagro,t.formaArea,t.volumeBase,t.volumeTronco,t.volumeSapata,t.reaterro,"","","","","","",t.pesoAco],
+      [],
+      ["RESUMO DE AÇO POR BITOLA (já com 10% de perda)"],
+      ["BITOLA","PESO (kg)"],
+      ...resumoSapatasFundacao.acoPorBitola.map(l=>[`∅${l.bitola}`,l.kg]),
+      ["TOTAL",t.pesoAco],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = CABECALHO_SAPATAS.map(()=>({wch:13}));
+    ws["!cols"][0] = {wch:32};
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sapatas");
+    await XLSX.writeFile(wb, `memoria-calculo-sapatas-${orc.nome.replace(/[^\w]/g,"-").toLowerCase()}.xlsx`);
+    showToast("Tabela de sapatas exportada em Excel.");
+  };
+
+  const exportPDFSapatas = () => {
+    if (!resumoSapatasFundacao.linhas.length) { showToast("Cadastre ao menos um tipo de sapata antes de exportar.","warn"); return; }
+    const t = resumoSapatasFundacao.totais;
+    const f3 = n => Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+    const linhasHtml = resumoSapatasFundacao.linhas.map(({tipo,calc})=>`<tr${calc.escavacaoInsuficiente?" class=\"alerta\"":""}>
+      <td class="desc">${escapeHtml(tipo.tipo||"-")}</td><td class="r">${tipo.qtd}</td>
+      <td class="r">${f3(tipo.largura)}</td><td class="r">${f3(tipo.comprimento)}</td><td class="r">${f3(tipo.alturaBase)}</td><td class="r">${f3(tipo.alturaTronco)}</td>
+      <td class="r">${f3(tipo.folgaEscavacao)}</td><td class="r">${f3(tipo.profundidadeEscavacao)}</td>
+      <td class="r">${calc.escavacaoInsuficiente?"⚠ ":""}${f3(calc.volumeEscavacaoTotal)}</td><td class="r">${f3(calc.areaConcretoMagroTotal)}</td><td class="r">${f3(calc.formaAreaTotal)}</td>
+      <td class="r">${f3(calc.volumeBaseTotal)}</td><td class="r">${f3(calc.volumeTroncoTotal)}</td><td class="r">${f3(calc.volumeSapataTotal)}</td><td class="r">${f3(calc.reaterroTotal)}</td>
+      <td class="c">∅${tipo.armaduraX.bitola}</td><td class="r">${tipo.armaduraX.quantidade}</td><td class="r">${tipo.armaduraX.comprimento?f3(tipo.armaduraX.comprimento):"-"}</td>
+      <td class="c">∅${tipo.armaduraY.bitola}</td><td class="r">${tipo.armaduraY.quantidade}</td><td class="r">${tipo.armaduraY.comprimento?f3(tipo.armaduraY.comprimento):"-"}</td>
+      <td class="r"><b>${f3(calc.pesoAcoTotal)}</b></td>
+    </tr>`).join("");
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Memória de Cálculo - Sapatas - ${escapeHtml(orc.nome)}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+@page{size:A4 landscape;margin:9mm}
+body{font-family:Arial,sans-serif;color:#121212;background:#fff;padding:14px;font-size:7.5px}
+.btn{position:fixed;top:10px;right:10px;background:#D4AF37;color:#fff;border:0;padding:10px 18px;font-weight:700;cursor:pointer;font-size:13px}
+h1{font-size:13px;margin-bottom:2px}
+.sub{font-size:9px;color:#666;margin-bottom:10px}
+table{width:100%;border-collapse:collapse}
+th{background:#121212;color:#fff;padding:4px 3px;font-size:6.8px;text-transform:uppercase;text-align:left;white-space:nowrap}
+td{padding:3px;border-bottom:1px solid #eee;font-size:7.5px;white-space:nowrap}
+td.desc{white-space:normal;max-width:150px}
+td.r,th.r{text-align:right}td.c,th.c{text-align:center}
+tr.alerta td{background:#FBEAE9;color:#B71C1C}
+tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121212}
+.aco{margin-top:14px;max-width:260px}
+.aco th,.aco td{font-size:8px}
+.footer{margin-top:14px;text-align:center;font-size:7px;color:#aaa;border-top:1px solid #eee;padding-top:6px}
+@media print{.btn{display:none}}
+</style></head><body>
+<button class="btn" onclick="window.print()">Imprimir / PDF</button>
+<h1>Memória de Cálculo - Fundação (Sapatas)</h1>
+<p class="sub">${escapeHtml(orc.nome)} · Emissão ${new Date().toLocaleDateString("pt-BR")} · Painel de referência - não altera as linhas do orçamento</p>
+<table>
+  <thead><tr>${CABECALHO_SAPATAS.map(h=>`<th class="${/\(m|QTD|PEÇAS/.test(h)?"r":""}">${escapeHtml(h)}</th>`).join("")}</tr></thead>
+  <tbody>${linhasHtml}</tbody>
+  <tfoot><tr>
+    <td colspan="8">TOTAIS</td>
+    <td class="r">${f3(t.volumeEscavacao)}</td><td class="r">${f3(t.areaConcretoMagro)}</td><td class="r">${f3(t.formaArea)}</td>
+    <td class="r">${f3(t.volumeBase)}</td><td class="r">${f3(t.volumeTronco)}</td><td class="r">${f3(t.volumeSapata)}</td><td class="r">${f3(t.reaterro)}</td>
+    <td colspan="6"></td><td class="r">${f3(t.pesoAco)}</td>
+  </tr></tfoot>
+</table>
+<table class="aco">
+  <thead><tr><th>RESUMO DE AÇO POR BITOLA</th><th class="r">PESO (kg)</th></tr></thead>
+  <tbody>${resumoSapatasFundacao.acoPorBitola.map(l=>`<tr><td>∅${l.bitola}mm</td><td class="r">${f3(l.kg)}</td></tr>`).join("")}
+  <tr><td><b>TOTAL</b></td><td class="r"><b>${f3(t.pesoAco)}</b></td></tr></tbody>
+</table>
+<div class="footer">Gerado por ARCD Ponto PRO · ${new Date().toLocaleString("pt-BR")}</div>
+</body></html>`;
+    const w = window.open("","_blank"); w.document.write(html); w.document.close();
+  };
+
+  //  VIEW: LISTA
   if (view === "lista") {
     return (
       <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -3942,15 +4057,19 @@ ${blocoBDI}
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>SAPATAS</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Uma linha por tipo de sapata (peças com a mesma dimensão), com a quantidade de peças daquele tipo - mesmo agrupamento que o próprio projeto estrutural já usa.</p></div>
-                <Btn size="sm" v="info" onClick={adicionarSapataTipo}><Ic n="plus"/> NOVO TIPO</Btn>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  <Btn size="sm" v="ghost" onClick={exportPDFSapatas} title="Gera uma versão em A4 paisagem para imprimir ou salvar como PDF"><Ic n="file"/> PDF / IMPRIMIR</Btn>
+                  <Btn size="sm" v="success" onClick={exportXLSXSapatas}><Ic n="download"/> EXCEL</Btn>
+                  <Btn size="sm" v="info" onClick={adicionarSapataTipo}><Ic n="plus"/> NOVO TIPO</Btn>
+                </div>
               </div>
 
               <div style={{background:`${C.blue}0a`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
                 <p style={{fontSize:10.5,fontWeight:850,color:C.text}}>Vai usar o padrão de folga (20cm) e profundidade (1,5m) de escavação em todas as sapatas, ou tipos diferentes precisam de valores próprios?</p>
                 <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>Ajuste os dois valores abaixo e aplique de uma vez a todos os tipos - depois, se algum tipo específico precisar de um valor diferente (ex.: um pilar mais profundo), edite só a linha dele na tabela.</p>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
-                  <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>FOLGA PADRÃO (m)</span><input type="number" step="any" value={padraoFolgaEscavacao} onChange={e=>setPadraoFolgaEscavacao(e.target.value.replace(",","."))} style={{width:80,padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right"}}/></label>
-                  <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>PROFUNDIDADE PADRÃO (m)</span><input type="number" step="any" value={padraoProfundidadeEscavacao} onChange={e=>setPadraoProfundidadeEscavacao(e.target.value.replace(",","."))} style={{width:90,padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right"}}/></label>
+                  <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>FOLGA PADRÃO (m)</span><input type="number" step="any" min="0" value={padraoEscavacaoFundacao.folga} onChange={e=>salvarPadraoEscavacaoFundacao({folga:e.target.value.replace(",",".")})} style={{width:80,padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right"}}/></label>
+                  <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>PROFUNDIDADE PADRÃO (m)</span><input type="number" step="any" min="0" value={padraoEscavacaoFundacao.profundidade} onChange={e=>salvarPadraoEscavacaoFundacao({profundidade:e.target.value.replace(",",".")})} style={{width:90,padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right"}}/></label>
                   <Btn size="sm" onClick={aplicarPadraoEscavacaoATodos} disabled={!sapatasFundacao.length}><Ic n="check"/> APLICAR A TODOS OS TIPOS</Btn>
                 </div>
               </div>
@@ -3972,16 +4091,16 @@ ${blocoBDI}
                       // brasileiro digita "0,2") - o navegador filtra a vírgula e deixa
                       // um valor truncado/inválido no campo. Normaliza para ponto antes
                       // de gravar.
-                      const numInput=(campo,largura=58)=><input type="number" step="any" value={tipo[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[campo]:e.target.value.replace(",",".")})}
+                      const numInput=(campo,largura=58)=><input type="number" step="any" min="0" value={tipo[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[campo]:e.target.value.replace(",",".")})}
                         style={{width:largura,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:9.5}}/>;
-                      const armInput=(direcao,campo,largura=54)=><input type="number" step="any" value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value.replace(",",".")}})}
+                      const armInput=(direcao,campo,largura=54)=><input type="number" step="any" min="0" value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value.replace(",",".")}})}
                         style={{width:largura,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:9.5}}/>;
                       const armSelect=direcao=><select value={tipo[direcao]?.bitola} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],bitola:e.target.value}})}
                         style={{padding:"4px 3px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:9.5}}>
                         {BITOLAS_ACO.map(b=><option key={b} value={b}>∅{b}</option>)}
                       </select>;
                       return (
-                        <tr key={tipo.id} style={{borderBottom:`1px solid ${C.line}`}}>
+                        <tr key={tipo.id} style={{borderBottom:`1px solid ${C.line}`,background:calc.escavacaoInsuficiente?`${C.red}0a`:"transparent"}}>
                           <td style={{padding:4}}><input value={tipo.tipo} onChange={e=>atualizarSapataTipo(tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:170,boxSizing:"border-box",padding:"4px 6px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:9.5}}/></td>
                           <td style={{padding:4}}>{numInput("qtd",48)}</td>
                           <td style={{padding:4}}>{numInput("largura")}</td>
@@ -3990,7 +4109,7 @@ ${blocoBDI}
                           <td style={{padding:4}}>{numInput("alturaTronco")}</td>
                           <td style={{padding:4}} title="Quanto a cova é maior que a sapata, de cada lado (2x este valor soma em largura e em comprimento)">{numInput("folgaEscavacao",50)}</td>
                           <td style={{padding:4}}>{numInput("profundidadeEscavacao")}</td>
-                          <td style={{padding:"4px 5px",textAlign:"right",color:C.blue,fontWeight:700}} title={`Cova: ${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m`}>{calc.volumeEscavacaoTotal.toFixed(2)}</td>
+                          <td style={{padding:"4px 5px",textAlign:"right",color:calc.escavacaoInsuficiente?C.red:C.blue,fontWeight:700}} title={calc.escavacaoInsuficiente?`⚠ A cova (${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m) é menor que o volume de concreto da sapata - confira as medidas, a sapata não cabe nessa escavação.`:`Cova: ${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m`}>{calc.escavacaoInsuficiente?"⚠ ":""}{calc.volumeEscavacaoTotal.toFixed(2)}</td>
                           <td style={{padding:"4px 5px",textAlign:"right",color:C.muted}}>{calc.areaConcretoMagroTotal.toFixed(2)}</td>
                           <td style={{padding:"4px 5px",textAlign:"right",color:C.muted}} title="Perímetro da base x altura da base">{calc.formaAreaTotal.toFixed(2)}</td>
                           <td style={{padding:"4px 5px",textAlign:"right",color:C.muted}}>{calc.volumeBaseTotal.toFixed(2)}</td>
