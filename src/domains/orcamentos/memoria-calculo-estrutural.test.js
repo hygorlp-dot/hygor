@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  calcularPilarTipo, calcularSapataTipo, novaPilarTipo, novaSapataTipo, pesoUnitarioAco, resumoPilares, resumoSapatas,
+  calcularPilarTipo, calcularSapataTipo, novaLajePavimento, novaPilarTipo, novaSapataTipo, novaVigaPavimento,
+  pesoUnitarioAco, resumoPilares, resumoSapatas,
 } from "./memoria-calculo-estrutural";
 
 describe("pesoUnitarioAco", () => {
@@ -166,5 +167,22 @@ describe("resumoPilares", () => {
     const { totais, linhas } = resumoPilares([]);
     expect(linhas).toEqual([]);
     expect(Object.values(totais).every(v => v === 0)).toBe(true);
+  });
+});
+
+describe("novaVigaPavimento / novaLajePavimento - um único objeto por pavimento, sem lista de tipos", () => {
+  it("começa zerada, sem aviso de valor incorreto", () => {
+    const viga = novaVigaPavimento();
+    expect(viga).toEqual({ concretoM3: 0, formaM2: 0, acoKg: 0, avisoConcretoIncorreto: false, precisaRevisar: false });
+  });
+
+  it("aceita sobrescrever qualquer campo (ex.: valores extraídos do PDF)", () => {
+    const viga = novaVigaPavimento({ concretoM3: 11.14, formaM2: 109.7, acoKg: 937, avisoConcretoIncorreto: true });
+    expect(viga.avisoConcretoIncorreto).toBe(true);
+    expect(viga.concretoM3).toBe(11.14);
+
+    const laje = novaLajePavimento({ volumeM3: 15.79, volumeMacicasM3: 3.18, volumeVigotasM3: 12.61 });
+    expect(laje.volumeM3).toBe(15.79);
+    expect(laje.volumeMacicasM3 + laje.volumeVigotasM3).toBeCloseTo(15.79);
   });
 });

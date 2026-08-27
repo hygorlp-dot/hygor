@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  contarPilares, extrairAnotacoesPosicao, extrairPilares, extrairQuadroSapatas, extrairResumoAcoFundacao, extrairSapatasFundacao,
+  contarPilares, extrairAcoVigasPavimento, extrairAnotacoesPosicao, extrairPilares, extrairQuadroSapatas,
+  extrairQuantitativosPavimentos, extrairResumoAcoFundacao, extrairSapatasFundacao,
 } from "./estrutural-pdf-extrator";
 
 // Texto real extraído (pdftotext, sem -layout) da folha E-02/13 do projeto
@@ -344,5 +345,438 @@ describe("extrairPilares", () => {
 
   it("devolve array vazio quando não acha nenhum bloco de detalhamento", () => {
     expect(extrairPilares("nada aqui")).toEqual([]);
+  });
+});
+
+// Trecho real (pdfjs-dist, mesmo caminho de produção - um item de texto do
+// PDF por linha, via lerTextoPdf()) da folha "Vigas do 1º Pavimento"
+// (Estrutural.pdf, E-08/13): duas vigas completas (V16 e V18) da tabela de
+// armadura. Cada bitola do "Resumo Aço" da folha inteira pode virar um
+// item de texto separado (uma "linha" só pra ela), por isso não dá pra
+// reusar a heurística de `extrairResumoAcoFundacao` (que espera todas as
+// bitolas juntas numa linha só, como acontece na folha de Fundação) - daí
+// a soma por viga em vez de ler aquele resumo.
+const VIGAS_1PAV_REAL = `Elemento
+
+Pos.
+
+Diam.
+
+Q.
+
+Esquema
+(cm)
+
+Comp.
+(cm)
+
+Total
+(cm)
+
+CA-50
+(kg)
+
+CA-60
+(kg)
+
+V 16
+
+1
+
+Ø10
+
+2
+
+25
+583
+25
+
+633
+
+1266
+
+7.8
+2
+
+Ø10
+
+3
+
+25
+135
+
+160
+
+480
+
+3.0
+3
+
+Ø16
+
+2
+
+26
+
+583
+26
+
+635
+
+1270
+
+20.0
+4
+
+Ø16
+
+2
+
+514
+26
+
+540
+
+1080
+
+17.0
+5
+
+Ø16
+
+2
+
+464
+26
+
+490
+
+980
+
+15.5
+6
+
+Ø5
+
+47
+
+45
+10
+5
+
+118
+
+5546
+
+8.7
+69.6
+
+9.6
+Total+10%:
+
+V 18
+
+1
+
+Ø10
+
+2
+
+370
+
+370
+
+740
+
+4.6
+2
+
+Ø10
+
+2
+
+25
+
+370
+25
+
+420
+
+840
+
+5.2
+3
+
+Ø10
+
+1
+
+250
+
+250
+
+250
+
+1.5
+4
+
+Ø5
+
+19
+
+35
+10
+5
+
+98
+
+1862
+
+2.9
+12.4
+
+3.2
+Total+10%:`;
+
+describe("extrairAcoVigasPavimento", () => {
+  it("soma o CA-50 e o CA-60 de cada bloco de viga (achado real: 2 vigas, 69.6+12.4kg CA-50 e 9.6+3.2kg CA-60)", () => {
+    const resumo = extrairAcoVigasPavimento(VIGAS_1PAV_REAL);
+    expect(resumo.ca50Kg).toBeCloseTo(69.6 + 12.4);
+    expect(resumo.ca60Kg).toBeCloseTo(9.6 + 3.2);
+    expect(resumo.totalKg).toBeCloseTo(69.6 + 12.4 + 9.6 + 3.2);
+  });
+
+  it("devolve zero em tudo quando não acha nenhum bloco 'Total+10%:'", () => {
+    expect(extrairAcoVigasPavimento("nada aqui")).toEqual({ ca50Kg: 0, ca60Kg: 0, totalKg: 0 });
+  });
+});
+
+// Texto real (pdfjs-dist) do "Quantitativos de superfícies e volumes.pdf" -
+// gerado à parte pelo mesmo software CAD, exclui a Fundação de propósito
+// ("Não medidos: Elementos de fundação", início de cada página) e traz o
+// concreto/fôrma de vigas e o volume de laje já prontos por pavimento -
+// dado que o Estrutural.pdf sozinho não dá (só o desenho detalhado, sem
+// resumo volumétrico de viga/laje). As duas páginas reais, juntas como
+// `lerTextoPdf()` realmente junta (`\n\f\n`).
+const QUANTITATIVOS_PAGINA_1 = `* Não medidos: Elementos de fundação.
+
+Grupo de Pisos Número 1: Térreo
+
+Número Pisos Iguais: 1
+
+Superfície total:
+
+21.28 m2
+
+Superfície total pavto:
+
+-0.18 m2
+
+Área de aberturas:
+
+-0.18 m2
+
+Superfície em planta de vigas, vigas de borda e cortinas:
+
+20.20 m2
+
+Superfície lateral de vigas, vigas de borda e cortinas:
+
+79.93 m2
+
+Concreto total em vigas:
+
+6.41 m3
+
+Vigas:
+
+6.41 m3
+
+Volume total lajes:
+
+0.00 m3
+
+Grupo de Pisos Número 2: 1º Pavimento
+
+Número Pisos Iguais: 1
+
+Superfície total: 199.74 m2
+
+Superfície total pavto: 175.11 m2
+
+Maciças:
+
+31.83 m2
+
+Vigotas: 143.28 m2
+
+Superfície em planta de vigas, vigas de borda e cortinas:
+
+23.22 m2
+
+Superfície lateral de vigas, vigas de borda e cortinas: 109.70 m2
+
+Concreto total em vigas:
+
+11.14 m3
+
+Valor incorreto do volume de vigas por não dispor dos dados necessários. Deve-se calcular a obra para
+
+realizar os quantitativos corretamente.
+
+Vigas:
+
+11.14 m3
+
+Volume total lajes:
+
+15.79 m3
+
+Maciças:
+
+3.18 m3
+
+Vigotas:
+
+12.61 m3
+
+Grupo de Pisos Número 3: Cobertura
+
+Número Pisos Iguais: 1
+
+Superfície total: 205.20 m2
+
+Superfície total pavto: 184.05 m2
+
+Maciças:
+
+28.24 m2
+
+Vigotas: 155.81 m2
+
+Superfície em planta de vigas, vigas de borda e cortinas:
+
+19.96 m2
+
+Superfície lateral de vigas, vigas de borda e cortinas:
+
+93.06 m2
+
+Concreto total em vigas:
+
+9.57 m3
+
+Vigas:
+
+9.57 m3
+
+Volume total lajes:
+
+16.53 m3
+
+Maciças:
+
+2.82 m3
+
+Vigotas:
+
+13.71 m3
+
+Quantitativos de superfícies e volumes
+
+ARU
+
+Data: 27/08/26
+
+Página 1`;
+
+const QUANTITATIVOS_PAGINA_2 = `* Não medidos: Elementos de fundação.
+
+Resumo total obra
+
+Superfície total: 426.22 m2
+
+Superfície total pavto: 358.98 m2
+
+Área de aberturas:
+
+-0.18 m2
+
+Maciças:
+
+60.07 m2
+
+Vigotas: 299.09 m2
+
+Superfície em planta de vigas, vigas de borda e cortinas:
+
+63.38 m2
+
+Superfície lateral de vigas, vigas de borda e cortinas: 282.69 m2
+
+Concreto total em vigas:
+
+27.12 m3
+
+Valor incorreto do volume de vigas por não dispor dos dados necessários. Deve-se calcular a obra para
+
+realizar os quantitativos corretamente.
+
+Vigas:
+
+27.12 m3
+
+Volume total lajes:
+
+32.32 m3
+
+Maciças:
+
+6.00 m3
+
+Vigotas:
+
+26.32 m3
+
+Quantitativos de superfícies e volumes
+
+ARU
+
+Data: 27/08/26
+
+Página 2`;
+
+const QUANTITATIVOS_REAL = `${QUANTITATIVOS_PAGINA_1}\n\f\n${QUANTITATIVOS_PAGINA_2}`;
+
+describe("extrairQuantitativosPavimentos", () => {
+  it("lê concreto/fôrma de vigas e volume de laje por pavimento, sem o aviso de valor incorreto quando ele não existe", () => {
+    const [terreo] = extrairQuantitativosPavimentos(QUANTITATIVOS_REAL);
+    expect(terreo).toEqual({
+      pavimento: "Térreo", concretoVigasM3: 6.41, formaVigasM2: 79.93, avisoConcretoIncorreto: false,
+      volumeLajesM3: 0, lajeMacicasM3: null, lajeVigotasM3: null,
+    });
+  });
+
+  it("carrega o aviso do próprio projeto quando o volume de vigas pode estar incorreto (1º Pavimento)", () => {
+    const [, pav1] = extrairQuantitativosPavimentos(QUANTITATIVOS_REAL);
+    expect(pav1.pavimento).toBe("1º Pavimento");
+    expect(pav1.avisoConcretoIncorreto).toBe(true);
+    expect(pav1.concretoVigasM3).toBeCloseTo(11.14);
+    expect(pav1.volumeLajesM3).toBeCloseTo(15.79);
+    expect(pav1.lajeMacicasM3).toBeCloseTo(3.18);
+    expect(pav1.lajeVigotasM3).toBeCloseTo(12.61);
+  });
+
+  it("para na próxima página (Resumo total obra) e não confunde o total geral com um pavimento", () => {
+    const pavimentos = extrairQuantitativosPavimentos(QUANTITATIVOS_REAL);
+    expect(pavimentos).toHaveLength(3);
+    expect(pavimentos.map(p => p.pavimento)).toEqual(["Térreo", "1º Pavimento", "Cobertura"]);
+    const cobertura = pavimentos[2];
+    expect(cobertura.concretoVigasM3).toBeCloseTo(9.57);
+    expect(cobertura.avisoConcretoIncorreto).toBe(false);
+  });
+
+  it("devolve array vazio quando não acha nenhum grupo de pisos", () => {
+    expect(extrairQuantitativosPavimentos("nada aqui")).toEqual([]);
   });
 });

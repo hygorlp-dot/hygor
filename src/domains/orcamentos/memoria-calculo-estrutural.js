@@ -170,3 +170,32 @@ export function resumoPilares(tipos) {
     },
   };
 }
+
+// Vigas e lajes, diferente de sapatas/pilares, não têm um "tipo" repetido
+// por pilar/elemento individual - o próprio projeto só entrega um total
+// JÁ PRONTO por pavimento inteiro (ver extrairAcoVigasPavimento e
+// extrairQuantitativosPavimentos em estrutural-pdf-extrator.js: o
+// Estrutural.pdf detalha viga a viga mas não resume concreto/fôrma por
+// viga, e o "Quantitativos de superfícies e volumes.pdf" resume por
+// pavimento, não por viga/laje). Por isso são um objeto único por
+// pavimento, sem lista de tipos nem soma - os campos JÁ SÃO o total.
+export function novaVigaPavimento(extra = {}) {
+  return {
+    concretoM3: 0, formaM2: 0, acoKg: 0,
+    // Achado real (Quantitativos de superfícies e volumes.pdf, 27/08/2026):
+    // o próprio projeto às vezes avisa que não conseguiu calcular o volume
+    // de vigas daquele pavimento com segurança - a tela precisa mostrar
+    // esse aviso, nunca escondê-lo atrás de um número que parece confiável.
+    avisoConcretoIncorreto: false,
+    precisaRevisar: false,
+    ...extra,
+  };
+}
+
+export function novaLajePavimento(extra = {}) {
+  return {
+    volumeM3: 0, volumeMacicasM3: 0, volumeVigotasM3: 0, acoKg: 0,
+    precisaRevisar: false,
+    ...extra,
+  };
+}

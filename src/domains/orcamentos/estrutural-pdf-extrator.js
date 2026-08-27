@@ -229,10 +229,68 @@ export function extrairPilares(texto) {
       tipo: referencia,
       qtd,
       planta: planta.trim(),
-      concretoUnit: paraNumero(concretoM3),
+concretoUnit: paraNumero(concretoM3),
       formaUnit: paraNumero(formaM2),
       acoUnit: paraNumero(acoKg),
     });
   }
   return resultado;
+}
+
+// Vigas não têm um bloco de resumo "Aço: (X kg)" por elemento como os
+// pilares - só um "Resumo Aço" no fim da folha inteira. Esse resumo,
+// porém, tem um formato frágil pra extrair: cada bitola pode vir como um
+// item de texto isolado do PDF (uma "linha" própria depois da extração),
+// então a heurística "uma linha só com todas as bitolas juntas" que
+// `extrairResumoAcoFundacao` usa (funciona na folha de Fundação) não bate
+// aqui. Em vez de tentar ler esse resumo, soma os dois números que
+// terminam CADA bloco individual de viga (ex.: "69.6   9.6 Total+10%:" =
+// 69.6kg de CA-50 e 9.6kg de CA-60 daquela viga) - o mesmo padrão em toda
+// folha de vigas, robusto a como o PDF quebra as bitolas do resumo.
+// Validado contra a folha real "Vigas do 1º Pavimento" (E-08/13): 28
+// blocos somam 781.5kg CA-50 e 155.5kg CA-60, batendo (dentro de
+// arredondamento) com o "Total 937" do resumo da própria folha.
+const RE_TOTAL_VIGA = /([\d.,]+)\s+([\d.,]+)\s*Total\+10%:/g;
+
+export function extrairAcoVigasPavimento(texto) {
+  const re = new RegExp(RE_TOTAL_VIGA.source, "g");
+  let m, ca50Kg = 0, ca60Kg = 0;
+  while ((m = re.exec(String(texto || "")))) {
+    ca50Kg += paraNumero(m[1]);
+    ca60Kg += paraNumero(m[2]);
+  }
+  return { ca50Kg, ca60Kg, totalKg: ca50Kg + ca60Kg };
+}
+
+// O PDF "Quantitativos de superfícies e volumes" (gerado à parte pelo
+// mesmo software CAD) já entrega, por pavimento, o concreto e a fôrma
+// (área lateral) das vigas, e o volume de laje - totais prontos que o
+// Estrutural.pdf sozinho não dá pra vigas/lajes (só dá o desenho
+// detalhado, sem um resumo volumétrico por elemento). Exclui de propósito
+// a Fundação ("Não medidos: Elementos de fundação", primeira linha do
+// PDF) - por isso não tenta ler nada de sapata aqui.
+//
+// O próprio PDF avisa, só para alguns grupos, que o volume de vigas pode
+// estar errado ("Valor incorreto do volume de vigas por não dispor dos
+// dados necessários...") - `avisoConcretoIncorreto` carrega esse aviso
+// para a tela mostrar, nunca escondido.
+export function extrairQuantitativosPavimentos(texto) {
+  const t = String(texto || "");
+  const marcadores = [...t.matchAll(/Grupo de Pisos Número \d+:\s*(.+?)\s*Número Pisos Iguais/g)]
+    .map(m => ({ nome: m[1].trim(), inicio: m.index }));
+  const fimGeral = t.search(/Resumo total obra/);
+  return marcadores.map((grupo, i) => {
+    const fim = i + 1 < marcadores.length ? marcadores[i + 1].inicio : (fimGeral > -1 ? fimGeral : t.length);
+    const bloco = t.slice(grupo.inicio, fim);
+    const num = re => { const m = re.exec(bloco); return m ? paraNumero(m[1]) : null; };
+    return {
+      pavimento: grupo.nome,
+      concretoVigasM3: num(/Concreto total em vigas:\s*([\d.,]+)\s*m3/),
+      formaVigasM2: num(/Superfície lateral de vigas, vigas de borda e cortinas:\s*([\d.,]+)\s*m2/),
+      avisoConcretoIncorreto: /Valor incorreto do volume de vigas/.test(bloco),
+      volumeLajesM3: num(/Volume total lajes:\s*([\d.,]+)\s*m3/),
+      lajeMacicasM3: num(/Volume total lajes:[\s\S]*?Maci[çc]as:\s*([\d.,]+)\s*m3/),
+      lajeVigotasM3: num(/Volume total lajes:[\s\S]*?Vigotas:\s*([\d.,]+)\s*m3/),
+    };
+  });
 }
