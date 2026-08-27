@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  contarPilares, extrairAcoVigasPavimento, extrairAnotacoesPosicao, extrairPilares, extrairQuadroSapatas,
-  extrairQuantitativosPavimentos, extrairResumoAcoFundacao, extrairSapatasFundacao,
+  contarPilares, extrairAcoVigasPavimento, extrairAnotacoesPosicao, extrairElementosEstruturais, extrairPilares,
+  extrairQuadroSapatas, extrairQuantitativosPavimentos, extrairResumoAcoFundacao, extrairSapatasFundacao,
 } from "./estrutural-pdf-extrator";
 
 // Texto real extraído (pdftotext, sem -layout) da folha E-02/13 do projeto
@@ -778,5 +778,36 @@ describe("extrairQuantitativosPavimentos", () => {
 
   it("devolve array vazio quando não acha nenhum grupo de pisos", () => {
     expect(extrairQuantitativosPavimentos("nada aqui")).toEqual([]);
+  });
+});
+
+describe("extrairElementosEstruturais - lê o Estrutural.pdf inteiro de uma vez, roteando cada página pelo próprio título", () => {
+  // Documento sintético de 2 "páginas" (separadas por \f, igual lerTextoPdf
+  // junta as páginas de verdade) - uma folha de Pilares do Térreo e uma de
+  // Vigas do 1º Pavimento, cada uma com o título real da folha na frente
+  // dos blocos reais já usados nos testes acima.
+  const DOCUMENTO = `Pilares do Térreo\n${PILAR_TERREO_REAL}\f Vigas do 1º Pavimento\n${VIGAS_1PAV_REAL}`;
+
+  it("roteia cada página pro pavimento certo, por conteúdo (pilares) e por aço (vigas)", () => {
+    const r = extrairElementosEstruturais(DOCUMENTO);
+    expect(r.pilares.terreo).toHaveLength(1);
+    expect(r.pilares.terreo[0].tipo).toBe("P10");
+    expect(r.pilares.pavimento1).toEqual([]);
+    expect(r.pilares.cobertura).toEqual([]);
+
+    expect(r.vigasAco.pavimento1.totalKg).toBeCloseTo(69.6 + 12.4 + 9.6 + 3.2);
+    expect(r.vigasAco.terreo).toBeNull();
+    expect(r.vigasAco.cobertura).toBeNull();
+  });
+
+  it("ignora páginas sem nenhum título reconhecido (ex.: folha de detalhes/observações)", () => {
+    const r = extrairElementosEstruturais(`Alguma folha qualquer sem título de pilar ou viga\f${DOCUMENTO}`);
+    expect(r.pilares.terreo).toHaveLength(1);
+  });
+
+  it("devolve tudo vazio/nulo para um documento sem nenhuma folha reconhecida", () => {
+    const r = extrairElementosEstruturais("nada aqui");
+    expect(r.pilares).toEqual({ terreo: [], pavimento1: [], cobertura: [] });
+    expect(r.vigasAco).toEqual({ terreo: null, pavimento1: null, cobertura: null });
   });
 });

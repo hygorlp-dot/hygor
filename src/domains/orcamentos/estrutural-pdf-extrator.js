@@ -294,3 +294,41 @@ export function extrairQuantitativosPavimentos(texto) {
     };
   });
 }
+
+// Chave interna do app (mesma de `pavimentoMemoria` em OrcamentoView.jsx)
+// para cada nome de pavimento como aparece nos dois PDFs.
+export const CHAVE_PAVIMENTO = { "Térreo": "terreo", "1º Pavimento": "pavimento1", "Cobertura": "cobertura" };
+
+// O Estrutural.pdf inteiro (lerTextoPdf) junta as páginas com "\f" (mesmo
+// separador que o próprio pdf.js usa por página) - cada folha "Pilares do
+// <pavimento>"/"Vigas do <pavimento>" só existe em UMA página, então
+// dividir por página e rotear pelo título da própria folha (em vez de
+// tentar ler o documento inteiro de uma vez, ou assumir um número de
+// página fixo) funciona pra qualquer PDF gerado pelo mesmo software,
+// mesmo que a ordem das folhas mude de um projeto pro outro.
+const MARCADORES_PAGINA = [
+  { chave: "pilares", pavimento: "terreo", re: /Pilares do Térreo/i },
+  { chave: "pilares", pavimento: "pavimento1", re: /Pilares do 1º Pavimento/i },
+  { chave: "pilares", pavimento: "cobertura", re: /Pilares da Cobertura/i },
+  { chave: "vigasAco", pavimento: "terreo", re: /Vigas do Térreo/i },
+  { chave: "vigasAco", pavimento: "pavimento1", re: /Vigas do 1º Pavimento/i },
+  { chave: "vigasAco", pavimento: "cobertura", re: /Vigas da Cobertura/i },
+];
+
+// Lê o Estrutural.pdf inteiro e devolve pilares + aço de vigas já
+// separados por pavimento, prontos para popular a memória de cálculo de
+// uma vez só (o usuário sobe o PDF uma única vez, não uma vez por aba).
+export function extrairElementosEstruturais(textoCompleto) {
+  const paginas = String(textoCompleto || "").split("\f");
+  const resultado = {
+    pilares: { terreo: [], pavimento1: [], cobertura: [] },
+    vigasAco: { terreo: null, pavimento1: null, cobertura: null },
+  };
+  for (const pagina of paginas) {
+    const marcador = MARCADORES_PAGINA.find(m => m.re.test(pagina));
+    if (!marcador) continue;
+    if (marcador.chave === "pilares") resultado.pilares[marcador.pavimento] = extrairPilares(pagina);
+    else resultado.vigasAco[marcador.pavimento] = extrairAcoVigasPavimento(pagina);
+  }
+  return resultado;
+}

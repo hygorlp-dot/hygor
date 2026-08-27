@@ -4320,7 +4320,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                   cortava o valor digitado (achado do usuário via screenshot). */}
               <style>{`.sapata-num-input::-webkit-outer-spin-button,.sapata-num-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.sapata-num-input{-moz-appearance:textfield}`}</style>
               <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}>
-                <table style={{width:COLUNAS_SAPATAS.reduce((s,c)=>s+larguraColunaEfetiva(c.chave),0),tableLayout:"fixed",borderCollapse:"collapse",fontSize:dSapatas.fonte,userSelect:colunaArrastando?"none":"auto"}}>
+                <table style={{width:"100%",minWidth:COLUNAS_SAPATAS.reduce((s,c)=>s+larguraColunaEfetiva(c.chave),0),tableLayout:"fixed",borderCollapse:"collapse",fontSize:dSapatas.fonte,userSelect:colunaArrastando?"none":"auto"}}>
                   <colgroup>{COLUNAS_SAPATAS.map(col=><col key={col.chave} style={{width:larguraColunaEfetiva(col.chave)}}/>)}</colgroup>
                   <thead>
                     {/* Cabeçalho em dois níveis - agrupa as 23 colunas em blocos
