@@ -17503,14 +17503,37 @@ export default function App() {
   },[dispatchOperationalCommand,showToast]);
 
   const executeAttendanceCommand=useCallback(async command=>{
-      if(saveQueueRef.current?.hasPending()){
-        const drained=await saveQueueRef.current.waitForIdle();
-        if(!drained.ok||saveQueueRef.current?.hasPending()){
-          return {ok:false,reason:"Há alterações locais ainda não confirmadas. Resolva o salvamento antes de registrar o ponto."};
-        }
-      }
+      // Achado de 25/08/2026: ESTE guard (esperar saveQueueRef esvaziar antes
+      // de registrar ponto) é herança de antes da Fase 1.5 (ver
+      // server/domain-row-routing.js), quando Ponto ainda disputava a MESMA
+      // linha/versão que o resto do cadastro. Hoje o servidor sempre relê a
+      // linha de Ponto (e a linha por obra) do zero, sob lock, dentro de
+      // executarComandoPontoBloqueado - nunca usa o snapshot local do
+      // navegador para validar ou gravar um comando de ponto. E a
+      // reconciliação otimista de `update()` (reconcileOptimisticSnapshot)
+      // já preserva o `attendance` mais recente via `ultimoDataRef`
+      // independente do estado da fila. Ou seja: um conflito de gravação
+      // travado em outro domínio (ex.: dois navegadores editando um
+      // fornecedor) não tem mais nenhuma razão técnica para bloquear o
+      // registro de ponto - e a fila geral pode ficar presa em CONFLICT
+      // (por design, só sai com resolução explícita do usuário - ver
+      // save-queue.test.js) por tempo indefinido, travando o Ponto junto sem
+      // necessidade. Reproduzido no achado de produção de 25/08/2026: o
+      // banner fixo "Há alterações locais ainda não confirmadas..." impedia
+      // bater ponto mesmo sem nenhuma edição pendente do próprio Ponto.
       attendanceCommandInFlightRef.current+=1;
-      setEstadoSalvar(SAVE_QUEUE_STATE.SAVING);
+      // O indicador de salvamento do cabeçalho (`estadoSalvar`) é compartilhado
+      // com a fila geral (saveQueueRef). Se ela estiver presa em CONFLICT/
+      // FAILED/OFFLINE - um problema real, em outro domínio, que só sai com
+      // ação do usuário -, um registro de ponto bem-sucedido não deve
+      // mascarar esse indicador de volta para SAVING/IDLE: o banner de
+      // conflito (`conflito`, mais abaixo) continua visível de qualquer
+      // forma, mas o pilulazinho do cabeçalho ficaria enganosamente "ok".
+      const estadoGeralBloqueado=()=>[
+        SAVE_QUEUE_STATE.CONFLICT,SAVE_QUEUE_STATE.FAILED,SAVE_QUEUE_STATE.OFFLINE,
+      ].includes(saveQueueRef.current?.getState());
+      const refletirEstadoPonto=estado=>{if(!estadoGeralBloqueado())setEstadoSalvar(estado);};
+      refletirEstadoPonto(SAVE_QUEUE_STATE.SAVING);
       try{
         let resposta=null;
         for(let attempt=0;attempt<=3;attempt+=1){
@@ -17524,7 +17547,7 @@ export default function App() {
           await new Promise(resolve=>window.setTimeout(resolve,Math.max(1500*(attempt+1),serverDelay)));
         }
         if(!resposta?.ok){
-          setEstadoSalvar(SAVE_QUEUE_STATE.FAILED);
+          refletirEstadoPonto(SAVE_QUEUE_STATE.FAILED);
           return {
             ok:false,status:Number(resposta?.status||0),code:resposta?.code||"",
             reason:resposta?.error||"O servidor não confirmou o registro de ponto.",
@@ -17538,11 +17561,11 @@ export default function App() {
         dataAtualRef.current=atual;
         setData(atual);
         setUltimaSync(new Date());
-        setEstadoSalvar(SAVE_QUEUE_STATE.IDLE);
+        refletirEstadoPonto(SAVE_QUEUE_STATE.IDLE);
         return {ok:true,idempotent:!!resposta.idempotent,result:resposta.result,data:atual};
       }catch(error){
         console.error("attendance-command",error);
-        setEstadoSalvar(SAVE_QUEUE_STATE.FAILED);
+        refletirEstadoPonto(SAVE_QUEUE_STATE.FAILED);
         return {ok:false,status:0,reason:"O servidor não confirmou o registro de ponto."};
       }finally{
         attendanceCommandInFlightRef.current=Math.max(0,attendanceCommandInFlightRef.current-1);

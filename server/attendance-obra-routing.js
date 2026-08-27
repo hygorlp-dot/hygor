@@ -28,12 +28,32 @@ export const obraBucketFromKey = (baseKey, key) => String(key || "").slice(atten
 // para priorizar a linha própria de uma obra (mais nova, autoritativa)
 // sobre a cópia legada que ainda pode sobrar na linha compartilhada de
 // Ponto, para obras que ainda não ganharam linha própria.
+//
+// Achado de 25/08/2026: uma fonte posterior só "vence" enquanto ela tiver
+// uma CHAVE para aquele (employeeId,date) - uma limpeza de status (P/M/F ->
+// sem registro) que vira `delete days[date]` na linha de obra deixa de
+// existir como chave, então o spread `{...merged[employeeId], ...days}` não
+// tinha como apagar o valor antigo que a cópia legada ainda carregava:
+// a marcação "ressuscitava" sozinha no próximo carregamento da tela,
+// mesmo sem nenhum clique novo. `applyEntriesToAttendance` agora grava um
+// tombstone (`record: null`) em vez de apagar a chave - aqui, esse
+// tombstone precisa vencer explicitamente qualquer valor de uma fonte
+// anterior (e não sobrar como `null` no resultado, que os consumidores
+// nunca esperam ver).
 export const mergeAttendanceObjects = (...sources) => {
   const merged = {};
   for (const source of sources) {
     for (const [employeeId, days] of Object.entries(source || {})) {
-      merged[employeeId] = { ...(merged[employeeId] || {}), ...days };
+      const target = { ...(merged[employeeId] || {}) };
+      for (const [date, record] of Object.entries(days || {})) {
+        if (record == null) delete target[date];
+        else target[date] = record;
+      }
+      merged[employeeId] = target;
     }
+  }
+  for (const employeeId of Object.keys(merged)) {
+    if (!Object.keys(merged[employeeId]).length) delete merged[employeeId];
   }
   return merged;
 };
@@ -58,6 +78,16 @@ export const groupAttendanceEntriesByObra = entries => {
 // valor final de cada registro, inclusive ausência = exclusão). Não
 // precisa saber nada sobre as OUTRAS obras: só toca os pares
 // (employeeId,date) que estão em `entries`.
+//
+// Achado de 25/08/2026: uma exclusão (status limpo) grava um tombstone
+// (`record: null`), não mais `delete days[date]`. Apagar a chave fazia essa
+// (employeeId,date) voltar a não ter opinião nenhuma NESTA linha de obra -
+// e mergeAttendanceObjects, ao ler, deixava a cópia antiga que ainda sobra
+// na linha compartilhada de Ponto "vencer" de volta, porque uma fonte
+// posterior só sobrescreve chaves que ela realmente tem. O tombstone
+// preserva a intenção de exclusão nesta linha para sempre vencer aquele
+// fallback (mergeAttendanceObjects apaga o tombstone do resultado final -
+// nenhum consumidor chega a ver `null`).
 export const applyEntriesToAttendance = (existingAttendance, entries, fullAttendanceAfter) => {
   let next = { ...(existingAttendance || {}) };
   for (const entry of entries || []) {
@@ -66,10 +96,8 @@ export const applyEntriesToAttendance = (existingAttendance, entries, fullAttend
     if (!employeeId || !date) continue;
     const record = fullAttendanceAfter?.[employeeId]?.[date] || null;
     const days = { ...(next[employeeId] || {}) };
-    if (record) days[date] = record;
-    else delete days[date];
-    if (Object.keys(days).length) next[employeeId] = days;
-    else delete next[employeeId];
+    days[date] = record;
+    next[employeeId] = days;
   }
   return next;
 };

@@ -57,6 +57,31 @@ describe("mergeAttendanceObjects", () => {
   it("devolve objeto vazio sem argumentos", () => {
     expect(mergeAttendanceObjects()).toEqual({});
   });
+
+  it("achado de 25/08/2026: um tombstone (record:null) da linha de obra apaga o valor da cópia legada, em vez de deixá-lo ressuscitar", () => {
+    // Reproduz o sintoma relatado: um funcionário com dias marcados "P" na
+    // cópia legada (linha compartilhada de Ponto, de antes da Fase 1.5)
+    // aparecia com esses dias de volta mesmo depois de limpos na tela,
+    // porque a limpeza (delete da chave na linha de obra) não tinha como
+    // vencer o valor antigo ainda presente na fonte legada.
+    const legado = { alisson: {
+      "2026-08-18": { status: "P" }, "2026-08-19": { status: "P" }, "2026-08-20": { status: "P" },
+    } };
+    const daObra = { alisson: { "2026-08-19": null } };   // "2026-08-19" foi limpo na obra
+    const merged = mergeAttendanceObjects(legado, daObra);
+    expect(merged.alisson).toEqual({
+      "2026-08-18": { status: "P" }, "2026-08-20": { status: "P" },
+    });
+    expect(merged.alisson).not.toHaveProperty("2026-08-19");
+  });
+
+  it("remove o funcionário do resultado quando toda fonte para ele é tombstone", () => {
+    const merged = mergeAttendanceObjects(
+      { alisson: { "2026-08-19": { status: "P" } } },
+      { alisson: { "2026-08-19": null } },
+    );
+    expect(merged).toEqual({});
+  });
 });
 
 describe("groupAttendanceEntriesByObra", () => {
@@ -93,20 +118,26 @@ describe("applyEntriesToAttendance", () => {
     });
   });
 
-  it("remove o registro quando fullAttendanceAfter não tem mais essa data (exclusão)", () => {
+  it("grava um tombstone (record:null) quando fullAttendanceAfter não tem mais essa data (exclusão)", () => {
+    // Não é mais `delete days[date]`: a exclusão precisa ficar registrada
+    // NESTA linha de obra para vencer, na leitura (mergeAttendanceObjects),
+    // qualquer cópia antiga que ainda sobre na linha compartilhada de Ponto
+    // - ver o achado de 25/08/2026 no topo de mergeAttendanceObjects.
     const existing = { e1: { "2026-08-01": { status: "P" }, "2026-08-02": { status: "M" } } };
     const after = { e1: { "2026-08-01": { status: "P" } } };
     const entries = [{ employeeId: "e1", date: "2026-08-02" }];
     expect(applyEntriesToAttendance(existing, entries, after)).toEqual({
-      e1: { "2026-08-01": { status: "P" } },
+      e1: { "2026-08-01": { status: "P" }, "2026-08-02": null },
     });
   });
 
-  it("remove o funcionário inteiro quando o último dia dele é excluído", () => {
+  it("mantém o funcionário com um tombstone quando o último dia dele é excluído", () => {
     const existing = { e1: { "2026-08-01": { status: "P" } } };
     const after = {};
     const entries = [{ employeeId: "e1", date: "2026-08-01" }];
-    expect(applyEntriesToAttendance(existing, entries, after)).toEqual({});
+    expect(applyEntriesToAttendance(existing, entries, after)).toEqual({
+      e1: { "2026-08-01": null },
+    });
   });
 
   it("não toca em funcionários/dias fora da lista de entradas", () => {
