@@ -75,6 +75,17 @@ const itemTotal = (it, bdi) =>
 const compFormVazio = (extra = {}) => ({ id:"", codigo:"", descricao:"", unidade:"UN",
   origemFonte:"PRÓPRIA", origemCodigo:"", origemDataBase:"", origemUf:"", itens:[], ...extra });
 
+// Densidade da tabela de sapatas (memória de cálculo) - ajuste manual do
+// usuário, guardado em data.config (canônico para a empresa inteira, não
+// por orçamento) até ele mesmo trocar de novo. "Espaçamento entre colunas
+// muito grande" era o padding/fonte fixos demais para quem prefere uma
+// visão mais compacta.
+const DENSIDADE_TABELA_SAPATAS = {
+  compacto:    { pad:"2px 3px", padHeader:"3px 4px", fonte:8.3, fonteHeader:7.6, fonteGrupo:7,   colTipo:140, colQtd:50 },
+  normal:      { pad:"4px 5px", padHeader:"6px 5px", fonte:9.5, fonteHeader:8.3, fonteGrupo:7.5, colTipo:180, colQtd:60 },
+  confortavel: { pad:"7px 8px", padHeader:"8px 8px", fonte:10.5,fonteHeader:9,   fonteGrupo:8.5, colTipo:210, colQtd:72 },
+};
+
 // Nome acessível de cada campo numérico da tabela de sapatas (memória de
 // cálculo) - achado da crítica Impeccable: inputs soltos em <td>, sem
 // aria-label, não têm nome nenhum para leitor de tela.
@@ -83,6 +94,23 @@ const ROTULO_CAMPO_SAPATA = {
   alturaBase: "Altura da base", alturaTronco: "Altura do tronco",
   folgaEscavacao: "Folga de escavação", profundidadeEscavacao: "Profundidade da escavação",
 };
+
+const normalizarTexto = texto => String(texto||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+
+// Quais totais da memória de cálculo (Fundação/Sapatas) podem virar a
+// quantidade de uma linha do orçamento, e as palavras usadas para sugerir
+// automaticamente qual linha já lançada bate com cada um (busca na
+// descrição do item, sem acento). Concretagem usa o volume TOTAL da
+// sapata (base+tronco somados) - não faz sentido vincular base e tronco
+// separados a linhas diferentes do orçamento.
+const TOTAIS_VINCULAVEIS_FUNDACAO = [
+  { chave: "volumeEscavacao", rotulo: "Volume de escavação", unidade: "m³", palavras: ["escavaç","escavac"] },
+  { chave: "areaConcretoMagro", rotulo: "Concreto magro", unidade: "m²", palavras: ["concreto magro","lastro","regulariza"] },
+  { chave: "formaArea", rotulo: "Fôrmas", unidade: "m²", palavras: ["forma","fôrma"] },
+  { chave: "volumeSapata", rotulo: "Concretagem da sapata", unidade: "m³", palavras: ["sapata","concreto para fund","concreto ciclop","concreto usinado","concreto para infra"] },
+  { chave: "reaterro", rotulo: "Reaterro", unidade: "m³", palavras: ["reaterro","reenchimento"] },
+  { chave: "pesoAco", rotulo: "Aço (armadura)", unidade: "kg", palavras: ["aço","aco","armadura","vergalh","ca-50","ca-60"] },
+];
 
 export default function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null, todasObras=null, todosOrcamentosGlobais=null, todosPlanosGlobais=null }) {
   // Quando aberta de dentro de uma obra (ObraDetalhe), `data` chega ISOLADA
@@ -681,6 +709,13 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const adicionarSapataTipo = () => salvarSapatasFundacao([...sapatasFundacao, novaSapataTipo({
     id: uid(), folgaEscavacao: padraoEscavacaoFundacao.folga, profundidadeEscavacao: padraoEscavacaoFundacao.profundidade,
   })]);
+
+  // Densidade da tabela é ajuste pessoal de leitura, não do orçamento - fica
+  // em data.config (empresa inteira) para valer em qualquer memória de
+  // cálculo até o usuário trocar de novo, como ele pediu explicitamente.
+  const densidadeMemoria = data?.config?.memoriaCalculoDensidade || "normal";
+  const salvarDensidadeMemoria = nivel => update({ ...data, config: { ...(data.config || {}), memoriaCalculoDensidade: nivel } });
+  const dSapatas = DENSIDADE_TABELA_SAPATAS[densidadeMemoria] || DENSIDADE_TABELA_SAPATAS.normal;
   // Editar um campo é o próprio sinal de "já revisei essa linha" - por isso
   // limpa precisaRevisar aqui, num único lugar, em vez de exigir um botão
   // separado de "marcar como revisado" (achado da crítica Impeccable).
@@ -4102,7 +4137,15 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>SAPATAS</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Uma linha por tipo de sapata (peças com a mesma dimensão), com a quantidade de peças daquele tipo - mesmo agrupamento que o próprio projeto estrutural já usa.</p></div>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                  <div title="Espaçamento das colunas na tela - vale para a memória de cálculo de todos os orçamentos até você trocar de novo" style={{display:"flex",border:`1px solid ${C.border}`,borderRadius:6,overflow:"hidden"}}>
+                    {[["compacto","COMPACTO"],["normal","NORMAL"],["confortavel","CONFORTÁVEL"]].map(([valor,label])=>(
+                      <button key={valor} onClick={()=>salvarDensidadeMemoria(valor)} style={{
+                        border:0,padding:"7px 9px",fontSize:9,fontWeight:800,cursor:"pointer",
+                        background:densidadeMemoria===valor?C.blue:C.bg,color:densidadeMemoria===valor?"#fff":C.muted,
+                      }}>{label}</button>
+                    ))}
+                  </div>
                   <Btn size="sm" v="ghost" onClick={exportPDFSapatas} title="Gera uma versão em A4 paisagem para imprimir ou salvar como PDF"><Ic n="file"/> PDF / IMPRIMIR</Btn>
                   <Btn size="sm" v="success" onClick={exportXLSXSapatas}><Ic n="download"/> EXCEL</Btn>
                   <Btn size="sm" v="info" onClick={adicionarSapataTipo}><Ic n="plus"/> NOVO TIPO</Btn>
@@ -4140,7 +4183,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
               </div>
 
               <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}>
-                <table style={{width:"100%",minWidth:1900,borderCollapse:"collapse",fontSize:9.5}}>
+                <table style={{width:"100%",minWidth:1900,borderCollapse:"collapse",fontSize:dSapatas.fonte}}>
                   <thead>
                     {/* Cabeçalho em dois níveis - agrupa as 23 colunas em blocos
                         (Dimensões/Escavação/Concreto/Armadura X/Armadura Y), achado
@@ -4148,7 +4191,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                     <tr style={{background:C.surface}}>
                       <th colSpan={2} style={{position:"sticky",left:0,zIndex:2,background:C.surface,borderBottom:`1px solid ${C.border}`}}/>
                       {[["DIMENSÕES",4],["ESCAVAÇÃO",3],["CONCRETO",6],["ARMADURA X",3],["ARMADURA Y",3]].map(([grupo,span])=>
-                        <th key={grupo} colSpan={span} style={{padding:"4px 5px",textAlign:"center",color:C.subtle,fontSize:7.5,fontWeight:800,letterSpacing:.4,borderBottom:`1px solid ${C.border}`,borderLeft:`1px solid ${C.line}`}}>{grupo}</th>
+                        <th key={grupo} colSpan={span} style={{padding:dSapatas.pad,textAlign:"center",color:C.subtle,fontSize:dSapatas.fonteGrupo,fontWeight:800,letterSpacing:.4,borderBottom:`1px solid ${C.border}`,borderLeft:`1px solid ${C.line}`}}>{grupo}</th>
                       )}
                       <th colSpan={2} style={{borderBottom:`1px solid ${C.border}`}}/>
                     </tr>
@@ -4157,9 +4200,9 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                         "FOLGA ESCAV.(m)","ESCAV. PROF.(m)","VOL. ESCAVAÇÃO(m³)",
                         "CONC.MAGRO(m²)","FÔRMAS(m²)","CONCR.BASE(m³)","CONCR.TRONCO(m³)","CONCR.SAPATA(m³)","REATERRO(m³)",
                         "ARM.X BITOLA","ARM.X QTD","ARM.X COMPR.(m)","ARM.Y BITOLA","ARM.Y QTD","ARM.Y COMPR.(m)","PESO AÇO(kg)",""]
-                        .map((h,i)=><th key={h} scope="col" style={{padding:"6px 5px",textAlign:/\(m|QTD|PEÇAS/.test(h)?"right":"left",color:C.muted,fontSize:8.3,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap",
-                          ...(i===0?{position:"sticky",left:0,zIndex:2,background:C.surface,width:180,minWidth:180}:{}),
-                          ...(i===1?{position:"sticky",left:180,zIndex:2,background:C.surface,width:60,minWidth:60,borderRight:`1px solid ${C.line}`}:{}),
+                        .map((h,i)=><th key={h} scope="col" style={{padding:dSapatas.padHeader,textAlign:/\(m|QTD|PEÇAS/.test(h)?"right":"left",color:C.muted,fontSize:dSapatas.fonteHeader,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap",
+                          ...(i===0?{position:"sticky",left:0,zIndex:2,background:C.surface,width:dSapatas.colTipo,minWidth:dSapatas.colTipo}:{}),
+                          ...(i===1?{position:"sticky",left:dSapatas.colTipo,zIndex:2,background:C.surface,width:dSapatas.colQtd,minWidth:dSapatas.colQtd,borderRight:`1px solid ${C.line}`}:{}),
                         }}>{h}</th>)}
                     </tr>
                   </thead>
@@ -4170,11 +4213,11 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                       // um valor truncado/inválido no campo. Normaliza para ponto antes
                       // de gravar.
                       const numInput=(campo,largura=58,rotulo=ROTULO_CAMPO_SAPATA[campo])=><input type="number" step="any" min="0" aria-label={rotulo} value={tipo[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[campo]:e.target.value.replace(",",".")})}
-                        style={{width:largura,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:9.5}}/>;
+                        style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:dSapatas.fonte}}/>;
                       const armInput=(direcao,campo,largura=54)=><input type="number" step="any" min="0" aria-label={`${campo==="quantidade"?"Quantidade":"Comprimento"} da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value.replace(",",".")}})}
-                        style={{width:largura,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:9.5}}/>;
+                        style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:dSapatas.fonte}}/>;
                       const armSelect=direcao=><select aria-label={`Bitola da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.bitola} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],bitola:e.target.value}})}
-                        style={{padding:"4px 3px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:9.5}}>
+                        style={{padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:dSapatas.fonte}}>
                         {BITOLAS_ACO.map(b=><option key={b} value={b}>∅{b}</option>)}
                       </select>;
                       // Vermelho ganha de laranja: escavação insuficiente é um erro de
@@ -4183,34 +4226,34 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                       const corFixa = calc.escavacaoInsuficiente ? (C.red+"14") : (tipo.precisaRevisar ? (C.orange+"10") : C.bg);
                       return (
                         <tr key={tipo.id} style={{borderBottom:`1px solid ${C.line}`,background:corLinha}}>
-                          <td style={{padding:4,position:"sticky",left:0,zIndex:1,background:corFixa}}>
+                          <td style={{padding:dSapatas.pad,position:"sticky",left:0,zIndex:1,background:corFixa}}>
                             <div style={{display:"flex",alignItems:"center",gap:4}}>
                               {tipo.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo desta linha remove este aviso." style={{flexShrink:0,width:7,height:7,borderRadius:"50%",background:C.orange}}/>}
-                              <input aria-label="Tipo (referência dos pilares)" value={tipo.tipo} onChange={e=>atualizarSapataTipo(tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:tipo.precisaRevisar?152:170,boxSizing:"border-box",padding:"4px 6px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:9.5}}/>
+                              <input aria-label="Tipo (referência dos pilares)" value={tipo.tipo} onChange={e=>atualizarSapataTipo(tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:"100%",boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:dSapatas.fonte}}/>
                             </div>
                           </td>
-                          <td style={{padding:4,position:"sticky",left:180,zIndex:1,background:corFixa,borderRight:`1px solid ${C.line}`}}>{numInput("qtd",48)}</td>
-                          <td style={{padding:4}}>{numInput("largura")}</td>
-                          <td style={{padding:4}}>{numInput("comprimento")}</td>
-                          <td style={{padding:4}}>{numInput("alturaBase")}</td>
-                          <td style={{padding:4}}>{numInput("alturaTronco")}</td>
-                          <td style={{padding:4}} title="Quanto a cova é maior que a sapata, de cada lado (2x este valor soma em largura e em comprimento)">{numInput("folgaEscavacao",50)}</td>
-                          <td style={{padding:4}}>{numInput("profundidadeEscavacao")}</td>
-                          <td style={{padding:"4px 5px",textAlign:"right",color:calc.escavacaoInsuficiente?C.red:C.blue,fontWeight:700}} title={calc.escavacaoInsuficiente?`⚠ A cova (${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m) é menor que o volume de concreto da sapata - confira as medidas, a sapata não cabe nessa escavação.`:`Cova: ${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m`}>{calc.escavacaoInsuficiente?"⚠ ":""}{calc.volumeEscavacaoTotal.toFixed(2)}</td>
-                          <td style={{padding:"4px 5px",textAlign:"right",color:C.muted}}>{calc.areaConcretoMagroTotal.toFixed(2)}</td>
-                          <td style={{padding:"4px 5px",textAlign:"right",color:C.muted}} title="Perímetro da base x altura da base">{calc.formaAreaTotal.toFixed(2)}</td>
-                          <td style={{padding:"4px 5px",textAlign:"right",color:C.muted}}>{calc.volumeBaseTotal.toFixed(2)}</td>
-                          <td style={{padding:"4px 5px",textAlign:"right",color:C.muted}}>{calc.volumeTroncoTotal.toFixed(2)}</td>
-                          <td style={{padding:"4px 5px",textAlign:"right",fontWeight:800,color:C.text}}>{calc.volumeSapataTotal.toFixed(2)}</td>
-                          <td style={{padding:"4px 5px",textAlign:"right",color:C.orange}}>{calc.reaterroTotal.toFixed(2)}</td>
-                          <td style={{padding:4}}>{armSelect("armaduraX")}</td>
-                          <td style={{padding:4}}>{armInput("armaduraX","quantidade",44)}</td>
-                          <td style={{padding:4}}>{armInput("armaduraX","comprimento",54)}</td>
-                          <td style={{padding:4}}>{armSelect("armaduraY")}</td>
-                          <td style={{padding:4}}>{armInput("armaduraY","quantidade",44)}</td>
-                          <td style={{padding:4}}>{armInput("armaduraY","comprimento",54)}</td>
-                          <td style={{padding:"4px 5px",textAlign:"right",fontWeight:800,color:C.purple}}>{calc.pesoAcoTotal.toFixed(1)}</td>
-                          <td style={{padding:4,display:"flex",gap:6}}>
+                          <td style={{padding:dSapatas.pad,position:"sticky",left:dSapatas.colTipo,zIndex:1,background:corFixa,borderRight:`1px solid ${C.line}`}}>{numInput("qtd",48)}</td>
+                          <td style={{padding:dSapatas.pad}}>{numInput("largura")}</td>
+                          <td style={{padding:dSapatas.pad}}>{numInput("comprimento")}</td>
+                          <td style={{padding:dSapatas.pad}}>{numInput("alturaBase")}</td>
+                          <td style={{padding:dSapatas.pad}}>{numInput("alturaTronco")}</td>
+                          <td style={{padding:dSapatas.pad}} title="Quanto a cova é maior que a sapata, de cada lado (2x este valor soma em largura e em comprimento)">{numInput("folgaEscavacao",50)}</td>
+                          <td style={{padding:dSapatas.pad}}>{numInput("profundidadeEscavacao")}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:calc.escavacaoInsuficiente?C.red:C.blue,fontWeight:700}} title={calc.escavacaoInsuficiente?`⚠ A cova (${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m) é menor que o volume de concreto da sapata - confira as medidas, a sapata não cabe nessa escavação.`:`Cova: ${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m`}>{calc.escavacaoInsuficiente?"⚠ ":""}{calc.volumeEscavacaoTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{calc.areaConcretoMagroTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}} title="Perímetro da base x altura da base">{calc.formaAreaTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{calc.volumeBaseTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{calc.volumeTroncoTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:800,color:C.text}}>{calc.volumeSapataTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.orange}}>{calc.reaterroTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad}}>{armSelect("armaduraX")}</td>
+                          <td style={{padding:dSapatas.pad}}>{armInput("armaduraX","quantidade",44)}</td>
+                          <td style={{padding:dSapatas.pad}}>{armInput("armaduraX","comprimento",54)}</td>
+                          <td style={{padding:dSapatas.pad}}>{armSelect("armaduraY")}</td>
+                          <td style={{padding:dSapatas.pad}}>{armInput("armaduraY","quantidade",44)}</td>
+                          <td style={{padding:dSapatas.pad}}>{armInput("armaduraY","comprimento",54)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:800,color:C.purple}}>{calc.pesoAcoTotal.toFixed(1)}</td>
+                          <td style={{padding:dSapatas.pad,display:"flex",gap:6}}>
                             <button aria-label="Duplicar este tipo" title="Duplicar" onClick={()=>duplicarSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.blue,cursor:"pointer",display:"flex"}}><Ic n="copy" s={13}/></button>
                             <button aria-label="Remover este tipo" title="Remover" onClick={()=>removerSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.red,cursor:"pointer",fontWeight:800}}>x</button>
                           </td>
@@ -4220,18 +4263,18 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                   </tbody>
                   {resumoSapatasFundacao.linhas.length>0&&<tfoot>
                     <tr style={{background:C.surface,fontWeight:800}}>
-                      <td style={{padding:"6px 5px",position:"sticky",left:0,zIndex:1,background:C.surface}}>TOTAIS</td>
-                      <td style={{position:"sticky",left:180,zIndex:1,background:C.surface,borderRight:`1px solid ${C.line}`}}/>
+                      <td style={{padding:dSapatas.padHeader,position:"sticky",left:0,zIndex:1,background:C.surface}}>TOTAIS</td>
+                      <td style={{position:"sticky",left:dSapatas.colTipo,zIndex:1,background:C.surface,borderRight:`1px solid ${C.line}`}}/>
                       <td/><td/><td/><td/><td/><td/>
-                      <td style={{padding:"6px 5px",textAlign:"right",color:C.blue}}>{resumoSapatasFundacao.totais.volumeEscavacao.toFixed(2)}</td>
-                      <td style={{padding:"6px 5px",textAlign:"right"}}>{resumoSapatasFundacao.totais.areaConcretoMagro.toFixed(2)}</td>
-                      <td style={{padding:"6px 5px",textAlign:"right"}}>{resumoSapatasFundacao.totais.formaArea.toFixed(2)}</td>
-                      <td style={{padding:"6px 5px",textAlign:"right"}}>{resumoSapatasFundacao.totais.volumeBase.toFixed(2)}</td>
-                      <td style={{padding:"6px 5px",textAlign:"right"}}>{resumoSapatasFundacao.totais.volumeTronco.toFixed(2)}</td>
-                      <td style={{padding:"6px 5px",textAlign:"right"}}>{resumoSapatasFundacao.totais.volumeSapata.toFixed(2)}</td>
-                      <td style={{padding:"6px 5px",textAlign:"right",color:C.orange}}>{resumoSapatasFundacao.totais.reaterro.toFixed(2)}</td>
+                      <td style={{padding:dSapatas.padHeader,textAlign:"right",color:C.blue}}>{resumoSapatasFundacao.totais.volumeEscavacao.toFixed(2)}</td>
+                      <td style={{padding:dSapatas.padHeader,textAlign:"right"}}>{resumoSapatasFundacao.totais.areaConcretoMagro.toFixed(2)}</td>
+                      <td style={{padding:dSapatas.padHeader,textAlign:"right"}}>{resumoSapatasFundacao.totais.formaArea.toFixed(2)}</td>
+                      <td style={{padding:dSapatas.padHeader,textAlign:"right"}}>{resumoSapatasFundacao.totais.volumeBase.toFixed(2)}</td>
+                      <td style={{padding:dSapatas.padHeader,textAlign:"right"}}>{resumoSapatasFundacao.totais.volumeTronco.toFixed(2)}</td>
+                      <td style={{padding:dSapatas.padHeader,textAlign:"right"}}>{resumoSapatasFundacao.totais.volumeSapata.toFixed(2)}</td>
+                      <td style={{padding:dSapatas.padHeader,textAlign:"right",color:C.orange}}>{resumoSapatasFundacao.totais.reaterro.toFixed(2)}</td>
                       <td/><td/><td/><td/><td/><td/>
-                      <td style={{padding:"6px 5px",textAlign:"right",color:C.purple}}>{resumoSapatasFundacao.totais.pesoAco.toFixed(1)}</td>
+                      <td style={{padding:dSapatas.padHeader,textAlign:"right",color:C.purple}}>{resumoSapatasFundacao.totais.pesoAco.toFixed(1)}</td>
                       <td/>
                     </tr>
                   </tfoot>}
