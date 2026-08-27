@@ -75,6 +75,15 @@ const itemTotal = (it, bdi) =>
 const compFormVazio = (extra = {}) => ({ id:"", codigo:"", descricao:"", unidade:"UN",
   origemFonte:"PRÓPRIA", origemCodigo:"", origemDataBase:"", origemUf:"", itens:[], ...extra });
 
+// Nome acessível de cada campo numérico da tabela de sapatas (memória de
+// cálculo) - achado da crítica Impeccable: inputs soltos em <td>, sem
+// aria-label, não têm nome nenhum para leitor de tela.
+const ROTULO_CAMPO_SAPATA = {
+  qtd: "Quantidade de peças", largura: "Largura", comprimento: "Comprimento",
+  alturaBase: "Altura da base", alturaTronco: "Altura do tronco",
+  folgaEscavacao: "Folga de escavação", profundidadeEscavacao: "Profundidade da escavação",
+};
+
 export default function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null, todasObras=null, todosOrcamentosGlobais=null, todosPlanosGlobais=null }) {
   // Quando aberta de dentro de uma obra (ObraDetalhe), `data` chega ISOLADA
   // por obra (dadosDaObraIsolados) - data.obras/orcamentos/planos só têm os
@@ -672,8 +681,40 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const adicionarSapataTipo = () => salvarSapatasFundacao([...sapatasFundacao, novaSapataTipo({
     id: uid(), folgaEscavacao: padraoEscavacaoFundacao.folga, profundidadeEscavacao: padraoEscavacaoFundacao.profundidade,
   })]);
-  const atualizarSapataTipo = (id, patch) => salvarSapatasFundacao(sapatasFundacao.map(t => t.id === id ? { ...t, ...patch } : t));
-  const removerSapataTipo = id => salvarSapatasFundacao(sapatasFundacao.filter(t => t.id !== id));
+  // Editar um campo é o próprio sinal de "já revisei essa linha" - por isso
+  // limpa precisaRevisar aqui, num único lugar, em vez de exigir um botão
+  // separado de "marcar como revisado" (achado da crítica Impeccable).
+  const atualizarSapataTipo = (id, patch) => salvarSapatasFundacao(sapatasFundacao.map(t => t.id === id ? { ...t, ...patch, precisaRevisar: false } : t));
+  const duplicarSapataTipo = id => {
+    const original = sapatasFundacao.find(t => t.id === id);
+    if (!original) return;
+    const indice = sapatasFundacao.indexOf(original);
+    const copia = { ...original, id: uid(), tipo: original.tipo ? `${original.tipo} (cópia)` : "" };
+    salvarSapatasFundacao([...sapatasFundacao.slice(0, indice + 1), copia, ...sapatasFundacao.slice(indice + 1)]);
+  };
+
+  // Excluir uma linha da memória de cálculo é reversível por alguns segundos
+  // - mesmo padrão já usado para excluir um orçamento inteiro (desfazerDelOrc)
+  // em vez de um modal de confirmação, que adicionaria fricção numa lista
+  // que já é só um painel de referência (achado da crítica Impeccable).
+  const [undoSapata, setUndoSapata] = useState(null); // {tipo, indice}
+  const undoSapataTimeoutRef = useRef(null);
+  const removerSapataTipo = id => {
+    const indice = sapatasFundacao.findIndex(t => t.id === id);
+    if (indice === -1) return;
+    setUndoSapata({ tipo: sapatasFundacao[indice], indice });
+    window.clearTimeout(undoSapataTimeoutRef.current);
+    undoSapataTimeoutRef.current = window.setTimeout(() => setUndoSapata(null), 8000);
+    salvarSapatasFundacao(sapatasFundacao.filter(t => t.id !== id));
+  };
+  const desfazerRemocaoSapata = () => {
+    if (!undoSapata) return;
+    window.clearTimeout(undoSapataTimeoutRef.current);
+    const lista = [...sapatasFundacao];
+    lista.splice(Math.min(undoSapata.indice, lista.length), 0, undoSapata.tipo);
+    salvarSapatasFundacao(lista);
+    setUndoSapata(null);
+  };
 
   // Importação de projeto em PDF -> preenchimento automático da memória de
   // cálculo. Só "estrutural-fundacao" está pronto (sapatas); os demais tipos
@@ -698,9 +739,13 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     setPdfProcessando(true); setPdfAviso(""); setPdfPreview(null); setPdfResumoAco(null);
     try {
       const texto = await lerPdfEmSegundoPlano(arquivo);
+      // precisaRevisar sinaliza na tabela que essa linha veio de extração
+      // automática e ainda não foi conferida - some assim que o usuário
+      // mexe em qualquer campo dela (achado da crítica Impeccable: antes o
+      // aviso de "confira" só existia num toast passageiro).
       const encontradas = extrairSapatasFundacao(texto).map(sapata => ({
         ...novaSapataTipo({ folgaEscavacao: padraoEscavacaoFundacao.folga, profundidadeEscavacao: padraoEscavacaoFundacao.profundidade }),
-        ...sapata, id: uid(),
+        ...sapata, id: uid(), precisaRevisar: true,
       }));
       if (!encontradas.length) {
         setPdfAviso("Não encontrei a tabela \"QUADRO DE ELEMENTOS DE FUNDAÇÃO\" neste PDF. Confirme se é o arquivo certo (folha da Fundação do projeto estrutural).");
@@ -732,7 +777,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     if (!sapatasFundacao.length) return;
     const folga = Number(padraoEscavacaoFundacao.folga) || 0;
     const profundidade = Number(padraoEscavacaoFundacao.profundidade) || 0;
-    salvarSapatasFundacao(sapatasFundacao.map(t => ({ ...t, folgaEscavacao: folga, profundidadeEscavacao: profundidade })));
+    salvarSapatasFundacao(sapatasFundacao.map(t => ({ ...t, folgaEscavacao: folga, profundidadeEscavacao: profundidade, precisaRevisar: false })));
     showToast(`Folga de ${folga}m e profundidade de ${profundidade}m aplicadas a ${sapatasFundacao.length} tipo(s).`);
   };
 
@@ -4064,6 +4109,26 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                 </div>
               </div>
 
+              {/* Glossário sempre visível - achado da crítica Impeccable: antes só
+                  existia como tooltip de hover em 2 colunas, inacessível por teclado
+                  e invisível até passar o mouse por cima. */}
+              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 9px",display:"flex",flexWrap:"wrap",gap:"3px 16px"}}>
+                {[["Folga","quanto a cova é maior que a sapata, de cada lado"],
+                  ["Tronco","parte da sapata que sobe até o pilar, acima da base"],
+                  ["Conc. magro","concreto pobre só de regularização, sob a sapata"],
+                  ["Fôrmas","molde para a concretagem da base (perímetro x altura)"],
+                  ["Bitola","diâmetro da barra de aço, em milímetros"]].map(([termo,def])=>(
+                  <span key={termo} style={{fontSize:9.5,color:C.muted}}><b style={{color:C.text}}>{termo}:</b> {def}</span>
+                ))}
+              </div>
+
+              {undoSapata && (
+                <div style={{background:`${C.blue}0C`,border:`1px solid ${C.blue}55`,borderRadius:8,padding:"9px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+                  <p style={{fontSize:11.5,color:C.text}}>Tipo "{undoSapata.tipo?.tipo||"sem nome"}" removido.</p>
+                  <Btn size="sm" v="ghost" onClick={desfazerRemocaoSapata}><Ic n="refresh" s={13}/> Desfazer</Btn>
+                </div>
+              )}
+
               <div style={{background:`${C.blue}0a`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
                 <p style={{fontSize:10.5,fontWeight:850,color:C.text}}>Vai usar o padrão de folga (20cm) e profundidade (1,5m) de escavação em todas as sapatas, ou tipos diferentes precisam de valores próprios?</p>
                 <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>Ajuste os dois valores abaixo e aplique de uma vez a todos os tipos - depois, se algum tipo específico precisar de um valor diferente (ex.: um pilar mais profundo), edite só a linha dele na tabela.</p>
@@ -4077,12 +4142,25 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
               <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}>
                 <table style={{width:"100%",minWidth:1900,borderCollapse:"collapse",fontSize:9.5}}>
                   <thead>
+                    {/* Cabeçalho em dois níveis - agrupa as 23 colunas em blocos
+                        (Dimensões/Escavação/Concreto/Armadura X/Armadura Y), achado
+                        da crítica Impeccable contra a densidade da tabela. */}
+                    <tr style={{background:C.surface}}>
+                      <th colSpan={2} style={{position:"sticky",left:0,zIndex:2,background:C.surface,borderBottom:`1px solid ${C.border}`}}/>
+                      {[["DIMENSÕES",4],["ESCAVAÇÃO",3],["CONCRETO",6],["ARMADURA X",3],["ARMADURA Y",3]].map(([grupo,span])=>
+                        <th key={grupo} colSpan={span} style={{padding:"4px 5px",textAlign:"center",color:C.subtle,fontSize:7.5,fontWeight:800,letterSpacing:.4,borderBottom:`1px solid ${C.border}`,borderLeft:`1px solid ${C.line}`}}>{grupo}</th>
+                      )}
+                      <th colSpan={2} style={{borderBottom:`1px solid ${C.border}`}}/>
+                    </tr>
                     <tr style={{background:C.surface}}>
                       {["TIPO (pilares)","QTD PEÇAS","LARG.(m)","COMPR.(m)","ALT.BASE(m)","ALT.TRONCO(m)",
                         "FOLGA ESCAV.(m)","ESCAV. PROF.(m)","VOL. ESCAVAÇÃO(m³)",
                         "CONC.MAGRO(m²)","FÔRMAS(m²)","CONCR.BASE(m³)","CONCR.TRONCO(m³)","CONCR.SAPATA(m³)","REATERRO(m³)",
                         "ARM.X BITOLA","ARM.X QTD","ARM.X COMPR.(m)","ARM.Y BITOLA","ARM.Y QTD","ARM.Y COMPR.(m)","PESO AÇO(kg)",""]
-                        .map(h=><th key={h} style={{padding:"6px 5px",textAlign:/\(m|QTD|PEÇAS/.test(h)?"right":"left",color:C.muted,fontSize:8.3,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}
+                        .map((h,i)=><th key={h} scope="col" style={{padding:"6px 5px",textAlign:/\(m|QTD|PEÇAS/.test(h)?"right":"left",color:C.muted,fontSize:8.3,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap",
+                          ...(i===0?{position:"sticky",left:0,zIndex:2,background:C.surface,width:180,minWidth:180}:{}),
+                          ...(i===1?{position:"sticky",left:180,zIndex:2,background:C.surface,width:60,minWidth:60,borderRight:`1px solid ${C.line}`}:{}),
+                        }}>{h}</th>)}
                     </tr>
                   </thead>
                   <tbody>
@@ -4091,18 +4169,27 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                       // brasileiro digita "0,2") - o navegador filtra a vírgula e deixa
                       // um valor truncado/inválido no campo. Normaliza para ponto antes
                       // de gravar.
-                      const numInput=(campo,largura=58)=><input type="number" step="any" min="0" value={tipo[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[campo]:e.target.value.replace(",",".")})}
+                      const numInput=(campo,largura=58,rotulo=ROTULO_CAMPO_SAPATA[campo])=><input type="number" step="any" min="0" aria-label={rotulo} value={tipo[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[campo]:e.target.value.replace(",",".")})}
                         style={{width:largura,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:9.5}}/>;
-                      const armInput=(direcao,campo,largura=54)=><input type="number" step="any" min="0" value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value.replace(",",".")}})}
+                      const armInput=(direcao,campo,largura=54)=><input type="number" step="any" min="0" aria-label={`${campo==="quantidade"?"Quantidade":"Comprimento"} da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value.replace(",",".")}})}
                         style={{width:largura,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:9.5}}/>;
-                      const armSelect=direcao=><select value={tipo[direcao]?.bitola} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],bitola:e.target.value}})}
+                      const armSelect=direcao=><select aria-label={`Bitola da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.bitola} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],bitola:e.target.value}})}
                         style={{padding:"4px 3px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:9.5}}>
                         {BITOLAS_ACO.map(b=><option key={b} value={b}>∅{b}</option>)}
                       </select>;
+                      // Vermelho ganha de laranja: escavação insuficiente é um erro de
+                      // medida (mais grave) - precisaRevisar é só "ainda não conferi".
+                      const corLinha = calc.escavacaoInsuficiente ? `${C.red}0a` : (tipo.precisaRevisar ? `${C.orange}08` : "transparent");
+                      const corFixa = calc.escavacaoInsuficiente ? (C.red+"14") : (tipo.precisaRevisar ? (C.orange+"10") : C.bg);
                       return (
-                        <tr key={tipo.id} style={{borderBottom:`1px solid ${C.line}`,background:calc.escavacaoInsuficiente?`${C.red}0a`:"transparent"}}>
-                          <td style={{padding:4}}><input value={tipo.tipo} onChange={e=>atualizarSapataTipo(tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:170,boxSizing:"border-box",padding:"4px 6px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:9.5}}/></td>
-                          <td style={{padding:4}}>{numInput("qtd",48)}</td>
+                        <tr key={tipo.id} style={{borderBottom:`1px solid ${C.line}`,background:corLinha}}>
+                          <td style={{padding:4,position:"sticky",left:0,zIndex:1,background:corFixa}}>
+                            <div style={{display:"flex",alignItems:"center",gap:4}}>
+                              {tipo.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo desta linha remove este aviso." style={{flexShrink:0,width:7,height:7,borderRadius:"50%",background:C.orange}}/>}
+                              <input aria-label="Tipo (referência dos pilares)" value={tipo.tipo} onChange={e=>atualizarSapataTipo(tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:tipo.precisaRevisar?152:170,boxSizing:"border-box",padding:"4px 6px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:9.5}}/>
+                            </div>
+                          </td>
+                          <td style={{padding:4,position:"sticky",left:180,zIndex:1,background:corFixa,borderRight:`1px solid ${C.line}`}}>{numInput("qtd",48)}</td>
                           <td style={{padding:4}}>{numInput("largura")}</td>
                           <td style={{padding:4}}>{numInput("comprimento")}</td>
                           <td style={{padding:4}}>{numInput("alturaBase")}</td>
@@ -4123,14 +4210,19 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                           <td style={{padding:4}}>{armInput("armaduraY","quantidade",44)}</td>
                           <td style={{padding:4}}>{armInput("armaduraY","comprimento",54)}</td>
                           <td style={{padding:"4px 5px",textAlign:"right",fontWeight:800,color:C.purple}}>{calc.pesoAcoTotal.toFixed(1)}</td>
-                          <td style={{padding:4}}><button onClick={()=>removerSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>x</button></td>
+                          <td style={{padding:4,display:"flex",gap:6}}>
+                            <button aria-label="Duplicar este tipo" title="Duplicar" onClick={()=>duplicarSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.blue,cursor:"pointer",display:"flex"}}><Ic n="copy" s={13}/></button>
+                            <button aria-label="Remover este tipo" title="Remover" onClick={()=>removerSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.red,cursor:"pointer",fontWeight:800}}>x</button>
+                          </td>
                         </tr>
                       );
                     })}
                   </tbody>
                   {resumoSapatasFundacao.linhas.length>0&&<tfoot>
                     <tr style={{background:C.surface,fontWeight:800}}>
-                      <td style={{padding:"6px 5px"}}>TOTAIS</td><td/><td/><td/><td/><td/><td/><td/>
+                      <td style={{padding:"6px 5px",position:"sticky",left:0,zIndex:1,background:C.surface}}>TOTAIS</td>
+                      <td style={{position:"sticky",left:180,zIndex:1,background:C.surface,borderRight:`1px solid ${C.line}`}}/>
+                      <td/><td/><td/><td/><td/><td/>
                       <td style={{padding:"6px 5px",textAlign:"right",color:C.blue}}>{resumoSapatasFundacao.totais.volumeEscavacao.toFixed(2)}</td>
                       <td style={{padding:"6px 5px",textAlign:"right"}}>{resumoSapatasFundacao.totais.areaConcretoMagro.toFixed(2)}</td>
                       <td style={{padding:"6px 5px",textAlign:"right"}}>{resumoSapatasFundacao.totais.formaArea.toFixed(2)}</td>

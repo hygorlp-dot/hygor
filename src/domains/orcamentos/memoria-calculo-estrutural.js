@@ -32,7 +32,7 @@ export const PROFUNDIDADE_ESCAVACAO_PADRAO_M = 1.5;
 
 export function novaSapataTipo(extra = {}) {
   return {
-    id: "", tipo: "", qtd: 1,
+    id: "", tipo: "", qtd: 1, precisaRevisar: false,
     largura: 0, comprimento: 0, alturaBase: 0, alturaTronco: 0,
     folgaEscavacao: FOLGA_ESCAVACAO_PADRAO_M, profundidadeEscavacao: PROFUNDIDADE_ESCAVACAO_PADRAO_M,
     armaduraX: { bitola: "10", quantidade: 0, comprimento: 0 },
