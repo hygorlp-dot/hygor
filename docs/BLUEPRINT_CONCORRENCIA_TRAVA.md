@@ -3218,3 +3218,9 @@ como lembrete: build verde não garante ausência de `ReferenceError`
 neste projeto (JS puro, sem checagem de tipos) - só teste de
 comportamento real ou verificação ao vivo pegam isso.
 
+Reverificado ao vivo após o hotfix: o orçamento I-02 OÁSIS (209 itens)
+abre normalmente, e o painel "Bases e preços" mostra as duas bases já
+vinculadas (ORSE 2026-06 e SINAPI 2026-06 · PE) sem nenhum controle de
+upload - só "Atualizar preços dos itens" e o aviso apontando para
+Central do Administrador → Bases de preço.
+
