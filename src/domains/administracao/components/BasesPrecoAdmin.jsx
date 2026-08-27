@@ -79,14 +79,18 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
 
   const [sinapiUf, setSinapiUf] = useState("PE");
   const [sinapiDesonerado, setSinapiDesonerado] = useState(true);
+  const [competenciaSinapi, setCompetenciaSinapi] = useState(""); // opcional - sobrescreve a lida do XLSX
   const [importandoSinapi, setImportandoSinapi] = useState(false);
   const [progressoSinapi, setProgressoSinapi] = useState(0);
   const [etapaSinapi, setEtapaSinapi] = useState("");
+  const [arrastandoSinapi, setArrastandoSinapi] = useState(false);
 
   const [arquivosOrse, setArquivosOrse] = useState({});
+  const [competenciaOrse, setCompetenciaOrse] = useState(""); // opcional - sobrescreve a lida dos TXT
   const [importandoOrse, setImportandoOrse] = useState(false);
   const [progressoOrse, setProgressoOrse] = useState(0);
   const [etapaOrse, setEtapaOrse] = useState("");
+  const [arrastandoOrse, setArrastandoOrse] = useState(false);
 
   const mostrarToast = (msg, type = "success") => { setToast({ msg, type }); window.setTimeout(() => setToast(null), 4000); };
 
@@ -124,12 +128,15 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
       if (!extraida.insumos.length || !extraida.componentes.length) {
         throw new Error(`Este arquivo não contém a base analítica completa (${extraida.insumos.length} insumos e ${extraida.componentes.length} relações). Envie o XLSX oficial SINAPI com as abas ICD/ISD e Analítico.`);
       }
+      // A competência manual (se preenchida) sobrescreve a lida do XLSX -
+      // útil se o arquivo trouxer uma data diferente da esperada.
+      const dataBase = competenciaSinapi || extraida.dataBase;
       setProgressoSinapi(46); setEtapaSinapi("Criando a referência segura no servidor...");
-      let inicio = await iniciarBaseReferencia({ fonte: "SINAPI", dataBase: extraida.dataBase, uf: sinapiUf, desonerado: sinapiDesonerado, arquivo: file.name });
+      let inicio = await iniciarBaseReferencia({ fonte: "SINAPI", dataBase, uf: sinapiUf, desonerado: sinapiDesonerado, arquivo: file.name });
       if (!inicio.ok && inicio.duplicate && inicio.base?.id) {
-        const confirmar = window.confirm(`Já existe SINAPI ${extraida.dataBase} · ${sinapiUf} · ${sinapiDesonerado ? "desonerada" : "não desonerada"}. Deseja reparar essa mesma base com o analítico do arquivo oficial? Os vínculos dos orçamentos serão preservados.`);
+        const confirmar = window.confirm(`Já existe SINAPI ${dataBase} · ${sinapiUf} · ${sinapiDesonerado ? "desonerada" : "não desonerada"}. Deseja reparar essa mesma base com o analítico do arquivo oficial? Os vínculos dos orçamentos serão preservados.`);
         if (!confirmar) { setImportandoSinapi(false); return; }
-        inicio = await iniciarBaseReferencia({ fonte: "SINAPI", dataBase: extraida.dataBase, uf: sinapiUf, desonerado: sinapiDesonerado, arquivo: file.name, reimportar: true });
+        inicio = await iniciarBaseReferencia({ fonte: "SINAPI", dataBase, uf: sinapiUf, desonerado: sinapiDesonerado, arquivo: file.name, reimportar: true });
         baseReutilizada = !!inicio.ok;
       }
       if (!inicio.ok || !inicio.base?.id) throw new Error(inicio.error || "Não foi possível iniciar a base no Supabase.");
@@ -142,7 +149,7 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
       setProgressoSinapi(100); setEtapaSinapi("Base concluída.");
       await carregarBases();
       const n = valor => valor.toLocaleString("pt-BR");
-      mostrarToast(`Base SINAPI ${extraida.dataBase} / ${sinapiUf}: ${n(extraida.itens.length)} composições, ${n(extraida.insumos.length)} insumos e ${n(extraida.componentes.length)} linhas de analítico${baseReutilizada ? " reparados" : ""}.`);
+      mostrarToast(`Base SINAPI ${dataBase} / ${sinapiUf}: ${n(extraida.itens.length)} composições, ${n(extraida.insumos.length)} insumos e ${n(extraida.componentes.length)} linhas de analítico${baseReutilizada ? " reparados" : ""}.`);
     } catch (error) {
       if (baseCriada?.id && !baseReutilizada) await removerBaseReferencia(baseCriada.id).catch(() => null);
       mostrarToast(error?.message || "Falha ao enviar a base SINAPI.", "error");
@@ -175,8 +182,9 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
         if (Number.isFinite(progresso)) setProgressoOrse(Math.max(1, Math.min(45, progresso)));
       });
       if (!extraida.itens.length || !extraida.dataBase) throw new Error("Não encontrei composições com preço ou a competência (ano/mês) nos arquivos enviados.");
+      const dataBase = competenciaOrse || extraida.dataBase;
       setProgressoOrse(46); setEtapaOrse("Criando a referência segura no servidor...");
-      const inicio = await iniciarBaseReferencia({ fonte: "ORSE", dataBase: extraida.dataBase, arquivo: SLOTS_ORSE.map(slot => arquivosOrse[slot].name).join(" + ") });
+      const inicio = await iniciarBaseReferencia({ fonte: "ORSE", dataBase, arquivo: SLOTS_ORSE.map(slot => arquivosOrse[slot].name).join(" + ") });
       if (!inicio.ok || !inicio.base?.id) throw new Error(inicio.error || "Não foi possível iniciar a base ORSE no Supabase.");
       baseCriada = inicio.base;
       setProgressoOrse(48); setEtapaOrse("Enviando composições, insumos e analítico em lotes...");
@@ -188,7 +196,7 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
       await carregarBases();
       setArquivosOrse({});
       const n = valor => valor.toLocaleString("pt-BR");
-      mostrarToast(`Base ORSE ${extraida.dataBase}: ${n(extraida.itens.length)} composições, ${n(extraida.insumos.length)} insumos e ${n(extraida.componentes.length)} linhas de analítico.`);
+      mostrarToast(`Base ORSE ${dataBase}: ${n(extraida.itens.length)} composições, ${n(extraida.insumos.length)} insumos e ${n(extraida.componentes.length)} linhas de analítico.`);
     } catch (error) {
       if (baseCriada?.id) await removerBaseReferencia(baseCriada.id).catch(() => null);
       mostrarToast(error?.message || "Falha ao enviar a base ORSE.", "error");
@@ -253,11 +261,23 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
               <input type="checkbox" checked={sinapiDesonerado} onChange={e => setSinapiDesonerado(e.target.checked)} />
               <span style={{ fontSize: 11, color: C.text }}>Desonerada (desmarque para não desonerada)</span>
             </label>
-            <label style={{ display: "block" }}>
+            <Inp label="Competência (opcional - sobrescreve a lida do arquivo)" type="month" value={competenciaSinapi} onChange={setCompetenciaSinapi} />
+            <label
+              onDragOver={e => { e.preventDefault(); if (!importandoSinapi) setArrastandoSinapi(true); }}
+              onDragLeave={() => setArrastandoSinapi(false)}
+              onDrop={e => {
+                e.preventDefault(); setArrastandoSinapi(false);
+                if (importandoSinapi) return;
+                const file = e.dataTransfer.files?.[0];
+                if (file) importarSinapi(file);
+              }}
+              style={{ display: "block", border: `1.5px dashed ${arrastandoSinapi ? C.blue : "transparent"}`, borderRadius: 7, background: arrastandoSinapi ? `${C.blue}0C` : "transparent" }}
+            >
               <input type="file" accept=".xlsx" disabled={importandoSinapi} onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; importarSinapi(file); }} style={{ display: "none" }} />
               <span style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, background: C.blue, color: "#fff", padding: "8px 10px", borderRadius: 7, cursor: importandoSinapi ? "wait" : "pointer", fontSize: 10.5, fontWeight: 800, textTransform: "uppercase" }}>
                 <Ic n="download" s={13} /> {importandoSinapi ? "Enviando..." : "Enviar XLSX oficial"}
               </span>
+              <p style={{ fontSize: 9, color: C.muted, textAlign: "center", marginTop: 4 }}>ou arraste o arquivo aqui</p>
             </label>
             {progressoSinapi > 0 && <div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9.5, color: C.muted, marginBottom: 3, gap: 10 }}><span>{etapaSinapi || "Preparando..."}</span><strong>{progressoSinapi}%</strong></div>
@@ -271,11 +291,22 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
           <p style={{ fontSize: 10, color: C.muted, marginBottom: 8, lineHeight: 1.5 }}>
             Selecione de uma vez os 5 arquivos: TB_INSUMO, TB_INSUMO_PRECO, TB_SERVICO, TB_SERVICO_PRECO e TB_COMPOSICAO (os de detalhamento de equipamento não são usados). O app reconhece cada um pelo nome.
           </p>
-          <label style={{ display: "block", marginBottom: 8 }}>
+          <Inp label="Competência (opcional - sobrescreve a lida dos arquivos)" type="month" value={competenciaOrse} onChange={setCompetenciaOrse} />
+          <label
+            onDragOver={e => { e.preventDefault(); if (!importandoOrse) setArrastandoOrse(true); }}
+            onDragLeave={() => setArrastandoOrse(false)}
+            onDrop={e => {
+              e.preventDefault(); setArrastandoOrse(false);
+              if (importandoOrse) return;
+              selecionarArquivosOrse(e.dataTransfer.files);
+            }}
+            style={{ display: "block", marginTop: 8, marginBottom: 8, border: `1.5px dashed ${arrastandoOrse ? C.purple : "transparent"}`, borderRadius: 7, background: arrastandoOrse ? `${C.purple}0C` : "transparent" }}
+          >
             <input type="file" accept=".txt" multiple disabled={importandoOrse} onChange={e => { selecionarArquivosOrse(e.target.files); e.target.value = ""; }} style={{ display: "none" }} />
             <span style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, border: `1.5px solid ${C.purple}`, color: C.purple, padding: "8px 10px", borderRadius: 7, cursor: importandoOrse ? "wait" : "pointer", fontSize: 10.5, fontWeight: 800, textTransform: "uppercase" }}>
               <Ic n="file" s={13} /> Selecionar arquivos TXT
             </span>
+            <p style={{ fontSize: 9, color: C.muted, textAlign: "center", marginTop: 4 }}>ou arraste os arquivos aqui (pode soltar todos de uma vez)</p>
           </label>
           <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 8 }}>
             {SLOTS_ORSE.map(slot => (
