@@ -3301,3 +3301,71 @@ os dados recém-importados. Corrigido: `finish` agora sempre grava
 
 Suíte completa (256/256, 1577/1577), `build`, `lint`,
 `architecture:check` verdes.
+
+## Memória de Cálculo Estrutural + extrator de PDF (27/08/2026)
+
+A pedido do usuário, começamos um recurso maior: uma aba "Memória de
+Cálculo" dentro do Orçamento, painel de referência por pavimento
+(Fundação → Térreo → 1º Pavimento → Cobertura), editável, para conferir
+quantitativos antes de lançar no orçamento - decisão explícita: não
+escreve nas linhas do orçamento sozinha nesta rodada.
+
+Primeira parte: **Fundação → Sapatas**, agrupadas por tipo repetido
+(mesma convenção que o próprio projeto estrutural do usuário já usa -
+ex.: "P1, P4, P5, P6, P10, P11 e P14" = uma única sapata 85x100).
+`src/domains/orcamentos/memoria-calculo-estrutural.js` calcula, por
+tipo: volume de escavação, área de concreto magro, concretagem da
+base/tronco/sapata, reaterro (= escavação − concreto), e peso de aço
+por armadura X/Y (NBR 7480, kg/m nominal por bitola, +10% de perda) -
+**validado contra o resumo de aço real de um projeto estrutural do
+próprio usuário** (Estrutural.pdf, folha E-02/13: tipo de 7 peças bateu
+41,4 kg calculado contra 41,3 kg do projeto). Escavação e fôrmas ficam
+sempre manuais - não são decisão do projetista estrutural, são
+convenção de execução da obra; o cálculo final já soma tudo depois do
+preenchimento manual (reaterro/fôrmas entram nos totais normalmente).
+
+**Extração automática do PDF do projeto** (segunda parte, mesma sessão):
+o usuário confirmou que todos os projetos estruturais futuros vêm do
+mesmo software gerador, então valeu a pena construir um extrator real.
+`src/domains/orcamentos/estrutural-pdf-extrator.js` (puro, sem Worker)
+lê o "QUADRO DE ELEMENTOS DE FUNDAÇÃO" (uma tabela de 5 linhas por
+grupo: referência de pilares, dimensões LxC, altura base/tronco,
+armadura X, armadura Y - regular e fácil de casar por regex) e cruza
+com as anotações de barra individuais do desenho (padrão
+`QNPosição∅BitolaC/Espaçamento C=Comprimento`, ex.: "4N17∅10c/25
+C=123") para resolver o comprimento de cada direção. **Só resolve o
+comprimento quando a combinação quantidade+bitola+espaçamento é única
+no documento inteiro** - a mesma armadura mínima (ex.: "4∅10c/25")
+repete entre sapatas de tamanhos bem diferentes, e nunca vale a pena
+arriscar um comprimento errado ao invés de deixar em branco para
+completar à mão (validado com um caso real ambíguo: P12 e P17
+compartilham "6∅10c/20" na direção X mas com comprimentos diferentes -
+123 vs 138cm - o extrator corretamente deixa os dois em branco).
+
+Achado paralelo: o usuário também tem um PDF "Quantitativos de
+superfícies e volumes" do mesmo software - dá totais por pavimento
+(Térreo/1º Pavimento/Cobertura) de área de laje, área/volume de vigas e
+área LATERAL de vigas (provavelmente a convenção de fôrmas de viga que
+faltava). Não usado ainda (o próprio relatório avisa que o volume de
+vigas do 1º Pavimento está incorreto por falta de dados) - fica
+reservado para quando avançarmos em Vigas/Lajes dos próximos
+pavimentos.
+
+**Leitura do PDF no navegador**: `pdfjs-dist` (novo, `src/workers/
+estrutural-pdf.worker.js`), mesmo padrão de Worker literal
+(`new Worker(new URL(...))`) exigido pelo bundler, já documentado nesta
+sessão para o SINAPI/ORSE. O worker interno do próprio pdf.js
+(`pdf.worker.min.mjs`) é referenciado via `import ... from
+"pdfjs-dist/build/pdf.worker.min.mjs?url"` (padrão de asset do Vite
+para pacotes de node_modules, não path relativo manual) - confirmado
+via `dist/`: nem o worker próprio nem o do pdf.js sobraram com import
+relativo não resolvido.
+
+Nova seção "IMPORTAR PROJETO (PDF)" dentro da aba Memória de Cálculo:
+seletor do tipo de documento (só "Projeto estrutural - Fundação" está
+pronto), upload/arrastar PDF, pré-visualização das sapatas encontradas
+(com aviso explícito de qual comprimento de armadura não foi
+identificado) antes de aplicar na tabela.
+
+Suíte completa (259/259, 1609/1609), `build`, `lint`,
+`architecture:check` verdes.

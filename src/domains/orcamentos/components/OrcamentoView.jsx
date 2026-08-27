@@ -60,6 +60,7 @@ import {
 import {
   BITOLAS_ACO, novaSapataTipo, resumoSapatas,
 } from "../memoria-calculo-estrutural";
+import { extrairSapatasFundacao } from "../estrutural-pdf-extrator";
 
 // Total de um item com BDI. Se o item tiver BDI proprio (it.bdi), ele prevalece
 // sobre o BDI global do orcamento - permite uma linha com BDI diferente.
@@ -661,6 +662,47 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const adicionarSapataTipo = () => salvarSapatasFundacao([...sapatasFundacao, novaSapataTipo({ id: uid() })]);
   const atualizarSapataTipo = (id, patch) => salvarSapatasFundacao(sapatasFundacao.map(t => t.id === id ? { ...t, ...patch } : t));
   const removerSapataTipo = id => salvarSapatasFundacao(sapatasFundacao.filter(t => t.id !== id));
+
+  // Importação de projeto em PDF -> preenchimento automático da memória de
+  // cálculo. Só "estrutural-fundacao" está pronto (sapatas); os demais tipos
+  // de documento aparecem no seletor para o usuário já sinalizar o que é,
+  // mas ainda processam como "em breve" - próximos passos combinados.
+  const [pdfTipoDocumento, setPdfTipoDocumento] = useState("estrutural-fundacao");
+  const [pdfArrastando, setPdfArrastando] = useState(false);
+  const [pdfProcessando, setPdfProcessando] = useState(false);
+  const [pdfAviso, setPdfAviso] = useState("");
+  const [pdfPreview, setPdfPreview] = useState(null); // array de sapatas extraídas, aguardando confirmação
+  const lerPdfEmSegundoPlano = async (...args) => {
+    const { lerPdfEmWorker } = await import("../ler-estrutural-pdf");
+    return lerPdfEmWorker(...args);
+  };
+  const processarPdfProjeto = async arquivo => {
+    if (!arquivo) return;
+    if (pdfTipoDocumento !== "estrutural-fundacao") {
+      setPdfAviso("Este tipo de documento ainda não tem leitura automática - só \"Projeto estrutural (Fundação/Sapatas)\" está pronto por enquanto.");
+      return;
+    }
+    setPdfProcessando(true); setPdfAviso(""); setPdfPreview(null);
+    try {
+      const texto = await lerPdfEmSegundoPlano(arquivo);
+      const encontradas = extrairSapatasFundacao(texto).map(sapata => ({ ...novaSapataTipo(), ...sapata, id: uid() }));
+      if (!encontradas.length) {
+        setPdfAviso("Não encontrei a tabela \"QUADRO DE ELEMENTOS DE FUNDAÇÃO\" neste PDF. Confirme se é o arquivo certo (folha da Fundação do projeto estrutural).");
+        return;
+      }
+      setPdfPreview(encontradas);
+    } catch (error) {
+      setPdfAviso(error?.message || "Não foi possível ler o PDF.");
+    } finally {
+      setPdfProcessando(false);
+    }
+  };
+  const aplicarPdfPreview = () => {
+    if (!pdfPreview?.length) return;
+    salvarSapatasFundacao([...sapatasFundacao, ...pdfPreview]);
+    showToast(`${pdfPreview.length} tipo(s) de sapata importado(s) do PDF - confira dimensões/armadura e complete escavação e fôrmas.`);
+    setPdfPreview(null);
+  };
 
   const salvarRevisaoChecklist=()=>{
     if(!checkEdit)return;
@@ -3830,6 +3872,34 @@ ${blocoBDI}
             <p style={{fontSize:10.5,color:C.muted,lineHeight:1.55}}>
               Painel de referência: os quantitativos aqui não alteram sozinhos as linhas do orçamento - sirvam para conferir e, depois de validados, lançar manualmente a quantidade correta na composição correspondente. Ficam salvos junto com esta versão do orçamento.
             </p>
+          </div>
+
+          <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
+            <div><p style={{fontSize:12,fontWeight:850,color:C.text}}>IMPORTAR PROJETO (PDF)</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Sinalize qual documento é e o sistema tenta preencher a memória de cálculo sozinho - você sempre confere antes de aplicar.</p></div>
+            <select value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:10.5,fontWeight:700,maxWidth:360}}>
+              <option value="estrutural-fundacao">Projeto estrutural - Fundação (sapatas)</option>
+              <option value="quantitativos">Quantitativos de superfícies e volumes (em breve)</option>
+            </select>
+            <label onDragOver={e=>{e.preventDefault();setPdfArrastando(true);}} onDragLeave={()=>setPdfArrastando(false)}
+              onDrop={e=>{e.preventDefault();setPdfArrastando(false);const arquivo=e.dataTransfer.files?.[0];if(arquivo)processarPdfProjeto(arquivo);}}
+              style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,border:`1.5px dashed ${pdfArrastando?C.blue:C.border}`,background:pdfArrastando?`${C.blue}0a`:"transparent",borderRadius:7,padding:"14px 10px",cursor:pdfProcessando?"wait":"pointer"}}>
+              <input type="file" accept=".pdf" disabled={pdfProcessando} onChange={e=>{const arquivo=e.target.files?.[0];e.target.value="";if(arquivo)processarPdfProjeto(arquivo);}} style={{display:"none"}}/>
+              <Ic n="download" s={16} color={C.muted}/>
+              <span style={{fontSize:10.5,fontWeight:800,color:C.blue}}>{pdfProcessando?"Lendo PDF...":"Selecionar PDF"}</span>
+              <span style={{fontSize:9,color:C.muted}}>ou arraste o arquivo aqui</span>
+            </label>
+            {pdfAviso&&<p style={{fontSize:10,color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
+            {pdfPreview&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
+              <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>{pdfPreview.length} tipo(s) de sapata encontrado(s) - confira antes de aplicar:</p>
+              <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:160,overflowY:"auto"}}>
+                {pdfPreview.map(sapata=><div key={sapata.id} style={{fontSize:9.5,color:C.text}}>
+                  <b>{sapata.tipo}</b> · {sapata.qtd} peça(s) · {(sapata.largura*100).toFixed(0)}x{(sapata.comprimento*100).toFixed(0)}cm · alt. {(sapata.alturaBase*100).toFixed(0)}/{(sapata.alturaTronco*100).toFixed(0)}cm
+                  {" · X:"}{sapata.armaduraX.quantidade}∅{sapata.armaduraX.bitola}{sapata.armaduraX.comprimento?` (${sapata.armaduraX.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
+                  {" · Y:"}{sapata.armaduraY.quantidade}∅{sapata.armaduraY.bitola}{sapata.armaduraY.comprimento?` (${sapata.armaduraY.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
+                </div>)}
+              </div>
+              <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreview(null)}>DESCARTAR</Btn><Btn size="sm" onClick={aplicarPdfPreview}><Ic n="check"/> APLICAR NA TABELA</Btn></div>
+            </div>}
           </div>
 
           <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
