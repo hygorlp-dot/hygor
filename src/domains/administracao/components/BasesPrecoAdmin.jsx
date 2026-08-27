@@ -176,6 +176,7 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
     if (faltando.length) { mostrarToast(`Faltam arquivos: ${faltando.map(slot => ROTULO_SLOT_ORSE[slot]).join(", ")}.`, "error"); return; }
     setImportandoOrse(true); setProgressoOrse(1); setEtapaOrse("Lendo os arquivos do ORSE...");
     let baseCriada = null;
+    let baseReutilizada = false;
     try {
       const extraida = await lerOrseEmSegundoPlano(arquivosOrse, (mensagem, progresso) => {
         setEtapaOrse(mensagem);
@@ -184,7 +185,17 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
       if (!extraida.itens.length || !extraida.dataBase) throw new Error("Não encontrei composições com preço ou a competência (ano/mês) nos arquivos enviados.");
       const dataBase = competenciaOrse || extraida.dataBase;
       setProgressoOrse(46); setEtapaOrse("Criando a referência segura no servidor...");
-      const inicio = await iniciarBaseReferencia({ fonte: "ORSE", dataBase, arquivo: SLOTS_ORSE.map(slot => arquivosOrse[slot].name).join(" + ") });
+      let inicio = await iniciarBaseReferencia({ fonte: "ORSE", dataBase, arquivo: SLOTS_ORSE.map(slot => arquivosOrse[slot].name).join(" + ") });
+      if (!inicio.ok && inicio.duplicate && inicio.base?.id) {
+        // Comum na primeira migração: já existe uma competência ORSE
+        // cadastrada à moda antiga (mode "official", 0 itens, pesquisa ao
+        // vivo) - reaproveitar o mesmo id preserva os orçamentos já
+        // vinculados a ela.
+        const confirmar = window.confirm(`Já existe ORSE ${dataBase} cadastrada${inicio.base.status === "ready" && inicio.base.total > 0 ? " com itens" : " (pesquisa ao vivo, sem itens ainda)"}. Deseja substituir pelos arquivos enviados agora? Os vínculos dos orçamentos serão preservados.`);
+        if (!confirmar) { setImportandoOrse(false); return; }
+        inicio = await iniciarBaseReferencia({ fonte: "ORSE", dataBase, arquivo: SLOTS_ORSE.map(slot => arquivosOrse[slot].name).join(" + "), reimportar: true });
+        baseReutilizada = !!inicio.ok;
+      }
       if (!inicio.ok || !inicio.base?.id) throw new Error(inicio.error || "Não foi possível iniciar a base ORSE no Supabase.");
       baseCriada = inicio.base;
       setProgressoOrse(48); setEtapaOrse("Enviando composições, insumos e analítico em lotes...");
@@ -196,9 +207,11 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
       await carregarBases();
       setArquivosOrse({});
       const n = valor => valor.toLocaleString("pt-BR");
-      mostrarToast(`Base ORSE ${dataBase}: ${n(extraida.itens.length)} composições, ${n(extraida.insumos.length)} insumos e ${n(extraida.componentes.length)} linhas de analítico.`);
+      mostrarToast(`Base ORSE ${dataBase}: ${n(extraida.itens.length)} composições, ${n(extraida.insumos.length)} insumos e ${n(extraida.componentes.length)} linhas de analítico${baseReutilizada ? " (base antiga substituída)" : ""}.`);
     } catch (error) {
-      if (baseCriada?.id) await removerBaseReferencia(baseCriada.id).catch(() => null);
+      // Reaproveitou uma base antiga (reimportar:true)? Não excluir - ela
+      // continua sendo a referência válida para os orçamentos já vinculados.
+      if (baseCriada?.id && !baseReutilizada) await removerBaseReferencia(baseCriada.id).catch(() => null);
       mostrarToast(error?.message || "Falha ao enviar a base ORSE.", "error");
     } finally {
       setImportandoOrse(false);
