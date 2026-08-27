@@ -704,6 +704,17 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     setPdfPreview(null);
   };
 
+  // Folga/profundidade de escavação são convenção de obra, não do projeto -
+  // o mesmo padrão costuma valer para a fundação inteira. Em vez de editar
+  // linha por linha, o operador ajusta aqui uma vez e aplica a todas.
+  const [padraoFolgaEscavacao, setPadraoFolgaEscavacao] = useState(0.2);
+  const [padraoProfundidadeEscavacao, setPadraoProfundidadeEscavacao] = useState(1.5);
+  const aplicarPadraoEscavacaoATodos = () => {
+    if (!sapatasFundacao.length) return;
+    salvarSapatasFundacao(sapatasFundacao.map(t => ({ ...t, folgaEscavacao: Number(padraoFolgaEscavacao) || 0, profundidadeEscavacao: Number(padraoProfundidadeEscavacao) || 0 })));
+    showToast(`Folga de ${padraoFolgaEscavacao}m e profundidade de ${padraoProfundidadeEscavacao}m aplicadas a ${sapatasFundacao.length} tipo(s).`);
+  };
+
   const salvarRevisaoChecklist=()=>{
     if(!checkEdit)return;
     if(checkEdit.status==="ignorado"&&!String(checkEdit.observacao||"").trim()){showToast("Explique por que este item será ignorado.","error");return;}
@@ -3920,6 +3931,16 @@ ${blocoBDI}
                 <Btn size="sm" v="info" onClick={adicionarSapataTipo}><Ic n="plus"/> NOVO TIPO</Btn>
               </div>
 
+              <div style={{background:`${C.blue}0a`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
+                <p style={{fontSize:10.5,fontWeight:850,color:C.text}}>Vai usar o padrão de folga (20cm) e profundidade (1,5m) de escavação em todas as sapatas, ou tipos diferentes precisam de valores próprios?</p>
+                <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>Ajuste os dois valores abaixo e aplique de uma vez a todos os tipos - depois, se algum tipo específico precisar de um valor diferente (ex.: um pilar mais profundo), edite só a linha dele na tabela.</p>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
+                  <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>FOLGA PADRÃO (m)</span><input type="number" step="any" value={padraoFolgaEscavacao} onChange={e=>setPadraoFolgaEscavacao(e.target.value.replace(",","."))} style={{width:80,padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right"}}/></label>
+                  <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>PROFUNDIDADE PADRÃO (m)</span><input type="number" step="any" value={padraoProfundidadeEscavacao} onChange={e=>setPadraoProfundidadeEscavacao(e.target.value.replace(",","."))} style={{width:90,padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right"}}/></label>
+                  <Btn size="sm" onClick={aplicarPadraoEscavacaoATodos} disabled={!sapatasFundacao.length}><Ic n="check"/> APLICAR A TODOS OS TIPOS</Btn>
+                </div>
+              </div>
+
               <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}>
                 <table style={{width:"100%",minWidth:1900,borderCollapse:"collapse",fontSize:9.5}}>
                   <thead>
@@ -3933,9 +3954,13 @@ ${blocoBDI}
                   </thead>
                   <tbody>
                     {resumoSapatasFundacao.linhas.map(({tipo,calc})=>{
-                      const numInput=(campo,largura=58)=><input type="number" step="any" value={tipo[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[campo]:e.target.value})}
+                      // "step=any" com type=number não aceita vírgula decimal (teclado
+                      // brasileiro digita "0,2") - o navegador filtra a vírgula e deixa
+                      // um valor truncado/inválido no campo. Normaliza para ponto antes
+                      // de gravar.
+                      const numInput=(campo,largura=58)=><input type="number" step="any" value={tipo[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[campo]:e.target.value.replace(",",".")})}
                         style={{width:largura,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:9.5}}/>;
-                      const armInput=(direcao,campo,largura=54)=><input type="number" step="any" value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value}})}
+                      const armInput=(direcao,campo,largura=54)=><input type="number" step="any" value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value.replace(",",".")}})}
                         style={{width:largura,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:9.5}}/>;
                       const armSelect=direcao=><select value={tipo[direcao]?.bitola} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],bitola:e.target.value}})}
                         style={{padding:"4px 3px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:9.5}}>
