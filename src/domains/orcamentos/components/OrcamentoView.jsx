@@ -1062,19 +1062,26 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   };
 
   // Importação de projeto em PDF -> preenchimento automático da memória de
-  // cálculo. Três tipos de documento, cada um alimentando uma parte
-  // diferente: Fundação (sapatas, do Estrutural.pdf), Pilares/Vigas (aço)
-  // também do Estrutural.pdf mas lendo o documento inteiro de uma vez
-  // (extrairElementosEstruturais roteia cada folha pro pavimento certo
-  // pelo próprio título), e Quantitativos (concreto/fôrma de vigas + laje),
-  // que vem de um PDF separado gerado pelo mesmo software CAD.
-  const [pdfTipoDocumento, setPdfTipoDocumento] = useState("estrutural-fundacao");
+  // cálculo. Dois tipos de documento: "Projeto estrutural completo" lê o
+  // Estrutural.pdf inteiro numa passada só - Fundação (sapatas), Pilares,
+  // Vigas e Laje dos três pavimentos, já que é o MESMO arquivo e o usuário
+  // não deveria precisar subi-lo mais de uma vez (achado real, 27/08/2026:
+  // antes eram duas opções separadas, forçando dois uploads do mesmo PDF -
+  // e cada aplicação SOMAVA na lista existente em vez de substituir,
+  // duplicando cada sapata/pilar a cada reimportação). "Quantitativos de
+  // superfícies e volumes" continua à parte - é um PDF de verdade
+  // diferente, gerado separadamente pelo mesmo software CAD.
+  //
+  // Reimportar agora SOBRESCREVE (nunca soma): a lista de sapatas/pilares
+  // de cada pavimento é substituída pela extração fresca do PDF, e viga/
+  // laje/aço por bitola são substituídos campo a campo - reimportar depois
+  // de corrigir algo no projeto corrige a memória de cálculo também, sem
+  // deixar linha antiga duplicada pra trás.
+  const [pdfTipoDocumento, setPdfTipoDocumento] = useState("estrutural-completo");
   const [pdfArrastando, setPdfArrastando] = useState(false);
   const [pdfProcessando, setPdfProcessando] = useState(false);
   const [pdfAviso, setPdfAviso] = useState("");
-  const [pdfPreview, setPdfPreview] = useState(null); // array de sapatas extraídas, aguardando confirmação
-  const [pdfResumoAco, setPdfResumoAco] = useState(null); // conferência: total já pronto do projeto
-  const [pdfPreviewPilaresVigas, setPdfPreviewPilaresVigas] = useState(null); // retorno de extrairElementosEstruturais
+  const [pdfPreviewCompleto, setPdfPreviewCompleto] = useState(null); // sapatas + pilares + aço, por pavimento
   const [pdfPreviewQuantitativos, setPdfPreviewQuantitativos] = useState(null); // array por pavimento
   const lerPdfEmSegundoPlano = async (...args) => {
     const { lerTextoPdf } = await import("../ler-estrutural-pdf");
@@ -1082,22 +1089,9 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   };
   const processarPdfProjeto = async arquivo => {
     if (!arquivo) return;
-    setPdfProcessando(true); setPdfAviso(""); setPdfPreview(null); setPdfResumoAco(null);
-    setPdfPreviewPilaresVigas(null); setPdfPreviewQuantitativos(null);
+    setPdfProcessando(true); setPdfAviso(""); setPdfPreviewCompleto(null); setPdfPreviewQuantitativos(null);
     try {
       const texto = await lerPdfEmSegundoPlano(arquivo);
-      if (pdfTipoDocumento === "estrutural-pilares-vigas") {
-        const achado = extrairElementosEstruturais(texto);
-        const total = Object.values(achado.pilares).reduce((s, l) => s + l.length, 0)
-          + [achado.pilaresAcoPorBitola, achado.vigasAcoPorBitola, achado.lajesAcoPorBitola]
-            .reduce((s, porPav) => s + Object.values(porPav).filter(Boolean).length, 0);
-        if (!total) {
-          setPdfAviso("Não encontrei nenhuma folha \"Pilares do <pavimento>\", \"Vigas do <pavimento>\" ou \"Lajes do <pavimento>\" neste PDF. Confirme se é o projeto estrutural completo.");
-          return;
-        }
-        setPdfPreviewPilaresVigas(achado);
-        return;
-      }
       if (pdfTipoDocumento === "quantitativos") {
         const achado = extrairQuantitativosPavimentos(texto);
         if (!achado.length) {
@@ -1111,60 +1105,60 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       // automática e ainda não foi conferida - some assim que o usuário
       // mexe em qualquer campo dela (achado da crítica Impeccable: antes o
       // aviso de "confira" só existia num toast passageiro).
-      const encontradas = extrairSapatasFundacao(texto).map(sapata => ({
-        ...novaSapataTipo({ folgaEscavacao: padraoEscavacaoFundacao.folga, profundidadeEscavacao: padraoEscavacaoFundacao.profundidade }),
-        ...sapata, id: uid(), precisaRevisar: true,
-      }));
-      if (!encontradas.length) {
-        setPdfAviso("Não encontrei a tabela \"QUADRO DE ELEMENTOS DE FUNDAÇÃO\" neste PDF. Confirme se é o arquivo certo (folha da Fundação do projeto estrutural).");
+      const sapatas = extrairSapatasFundacao(texto);
+      const resumoAcoSapatas = extrairResumoAco(texto);
+      const elementos = extrairElementosEstruturais(texto);
+      const total = sapatas.length + Object.values(elementos.pilares).reduce((s, l) => s + l.length, 0)
+        + [elementos.pilaresAcoPorBitola, elementos.vigasAcoPorBitola, elementos.lajesAcoPorBitola]
+          .reduce((s, porPav) => s + Object.values(porPav).filter(Boolean).length, 0);
+      if (!total) {
+        setPdfAviso("Não encontrei nem o \"QUADRO DE ELEMENTOS DE FUNDAÇÃO\" nem nenhuma folha \"Pilares/Vigas/Lajes do <pavimento>\" neste PDF. Confirme se é o projeto estrutural completo.");
         return;
       }
-      setPdfPreview(encontradas);
-      // Conferência: o "Resumo Aço" da própria folha já traz o total pronto -
-      // comparar avisa se a leitura ficou incompleta (comprimento não
-      // identificado em muitos tipos) antes mesmo de aplicar na tabela.
-      setPdfResumoAco(extrairResumoAco(texto));
+      setPdfPreviewCompleto({ sapatas, resumoAcoSapatas, ...elementos });
     } catch (error) {
       setPdfAviso(error?.message || "Não foi possível ler o PDF.");
     } finally {
       setPdfProcessando(false);
     }
   };
-  const aplicarPdfPreview = () => {
-    if (!pdfPreview?.length) return;
-    salvarSapatasFundacao([...sapatasFundacao, ...pdfPreview]);
-    showToast(`${pdfPreview.length} tipo(s) de sapata importado(s) do PDF - confira dimensões/armadura e complete escavação e fôrmas.`);
-    setPdfPreview(null); setPdfResumoAco(null);
-  };
-
-  // Um único salvarOrc para os três pavimentos de uma vez (não três saves
-  // separados) - evita salvar/re-renderizar três vezes seguidas por um
-  // clique só.
-  const aplicarPdfPreviewPilaresVigas = () => {
-    if (!pdfPreviewPilaresVigas) return;
+  const aplicarPdfPreviewCompleto = () => {
+    if (!pdfPreviewCompleto) return;
     const memoriaAtual = orc?.memoriaCalculo || {};
     const memoriaNova = { ...memoriaAtual };
-    let pilaresNovos = 0, bitolasAtualizadas = 0;
+
+    if (pdfPreviewCompleto.sapatas.length) {
+      memoriaNova.fundacao = {
+        ...(memoriaAtual.fundacao || {}),
+        sapatas: pdfPreviewCompleto.sapatas.map(sapata => ({
+          ...novaSapataTipo({ folgaEscavacao: padraoEscavacaoFundacao.folga, profundidadeEscavacao: padraoEscavacaoFundacao.profundidade }),
+          ...sapata, id: uid(), precisaRevisar: true,
+        })),
+      };
+    }
+
+    let pilaresTotal = 0, bitolasAtualizadas = 0;
     for (const pav of ["terreo", "pavimento1", "cobertura"]) {
       const pavAtual = memoriaAtual[pav] || {};
-      const encontrados = pdfPreviewPilaresVigas.pilares[pav] || [];
-      const acoPilares = pdfPreviewPilaresVigas.pilaresAcoPorBitola[pav];
-      const acoVigas = pdfPreviewPilaresVigas.vigasAcoPorBitola[pav];
-      const acoLaje = pdfPreviewPilaresVigas.lajesAcoPorBitola[pav];
-      const pilaresComId = encontrados.map(p => ({ ...novaPilarTipo(), ...p, id: uid(), precisaRevisar: true }));
-      pilaresNovos += pilaresComId.length;
+      const encontrados = pdfPreviewCompleto.pilares[pav] || [];
+      const acoPilares = pdfPreviewCompleto.pilaresAcoPorBitola[pav];
+      const acoVigas = pdfPreviewCompleto.vigasAcoPorBitola[pav];
+      const acoLaje = pdfPreviewCompleto.lajesAcoPorBitola[pav];
       [acoPilares, acoVigas, acoLaje].forEach(a => { if (a) bitolasAtualizadas += 1; });
+      if (!encontrados.length && !acoPilares && !acoVigas && !acoLaje) continue; // pavimento ausente desta folha - preserva o que já tinha
+      const pilaresComId = encontrados.map(p => ({ ...novaPilarTipo(), ...p, id: uid(), precisaRevisar: true }));
+      pilaresTotal += pilaresComId.length;
       memoriaNova[pav] = {
         ...pavAtual,
-        pilares: [...(pavAtual.pilares || []), ...pilaresComId],
+        pilares: pilaresComId, // sobrescreve a lista - reimportar não duplica
         ...(acoPilares ? { pilaresAcoPorBitola: acoPilares.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } : {}),
         ...(acoVigas ? { viga: { ...novaVigaPavimento(), ...(pavAtual.viga || {}), acoPorBitola: acoVigas.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } } : {}),
         ...(acoLaje ? { laje: { ...novaLajePavimento(), ...(pavAtual.laje || {}), acoPorBitola: acoLaje.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } } : {}),
       };
     }
     salvarOrc({ memoriaCalculo: memoriaNova });
-    showToast(`${pilaresNovos} tipo(s) de pilar e aço por bitola de ${bitolasAtualizadas} folha(s) importados do PDF - confira antes de vincular ao orçamento.`);
-    setPdfPreviewPilaresVigas(null);
+    showToast(`Fundação (${pdfPreviewCompleto.sapatas.length} tipo(s) de sapata), ${pilaresTotal} tipo(s) de pilar e aço de ${bitolasAtualizadas} folha(s) importados - reimportar sempre substitui a versão anterior, nunca duplica.`);
+    setPdfPreviewCompleto(null);
   };
 
   const aplicarPdfPreviewQuantitativos = () => {
@@ -4479,8 +4473,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
           <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
             <div><p style={{fontSize:12,fontWeight:850,color:C.text}}>IMPORTAR PROJETO (PDF)</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Sinalize qual documento é e o sistema tenta preencher a memória de cálculo sozinho - você sempre confere antes de aplicar.</p></div>
             <select value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:10.5,fontWeight:700,maxWidth:360}}>
-              <option value="estrutural-fundacao">Projeto estrutural - Fundação (sapatas)</option>
-              <option value="estrutural-pilares-vigas">Projeto estrutural completo - Pilares e aço de vigas (Térreo/1º Pav/Cobertura)</option>
+              <option value="estrutural-completo">Projeto estrutural completo - Fundação, Pilares, Vigas e Laje</option>
               <option value="quantitativos">Quantitativos de superfícies e volumes - concreto/fôrma de vigas e laje</option>
             </select>
             <label onDragOver={e=>{e.preventDefault();setPdfArrastando(true);}} onDragLeave={()=>setPdfArrastando(false)}
@@ -4492,35 +4485,35 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
               <span style={{fontSize:9,color:C.muted}}>ou arraste o arquivo aqui</span>
             </label>
             {pdfAviso&&<p style={{fontSize:10,color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
-            {pdfPreview&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
-              <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>{pdfPreview.length} tipo(s) de sapata encontrado(s) - confira antes de aplicar:</p>
-              {pdfResumoAco&&(()=>{
-                const totalCalculado=pdfPreview.reduce((s,sapata)=>s+calcularSapataTipo(sapata).pesoAcoTotal,0);
-                const diferenca=Math.abs(totalCalculado-pdfResumoAco.totalKg);
-                const bateu=diferenca<=pdfResumoAco.totalKg*0.02; // até 2% de diferença por arredondamento
-                return <div style={{border:`1px solid ${bateu?C.green:C.orange}55`,background:C.card,borderRadius:6,padding:"7px 9px"}}>
-                  <p style={{fontSize:10,fontWeight:850,color:bateu?C.green:C.orange}}>{bateu?"✓":"⚠"} Conferência com o Resumo Aço da folha</p>
-                  <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Extraído (com os comprimentos resolvidos): <b>{totalCalculado.toFixed(1)} kg</b> · Total pronto do projeto: <b>{pdfResumoAco.totalKg.toFixed(1)} kg</b>{!bateu&&" - a diferença indica que algum comprimento de armadura não foi identificado (fica marcado para completar à mão)."}</p>
-                </div>;
-              })()}
-              <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:160,overflowY:"auto"}}>
-                {pdfPreview.map(sapata=><div key={sapata.id} style={{fontSize:9.5,color:C.text}}>
-                  <b>{sapata.tipo}</b> · {sapata.qtd} peça(s) · {(sapata.largura*100).toFixed(0)}x{(sapata.comprimento*100).toFixed(0)}cm · alt. {(sapata.alturaBase*100).toFixed(0)}/{(sapata.alturaTronco*100).toFixed(0)}cm
-                  {" · X:"}{sapata.armaduraX.quantidade}∅{sapata.armaduraX.bitola}{sapata.armaduraX.comprimento?` (${sapata.armaduraX.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
-                  {" · Y:"}{sapata.armaduraY.quantidade}∅{sapata.armaduraY.bitola}{sapata.armaduraY.comprimento?` (${sapata.armaduraY.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
-                </div>)}
-              </div>
-              <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>{setPdfPreview(null);setPdfResumoAco(null);}}>DESCARTAR</Btn><Btn size="sm" onClick={aplicarPdfPreview}><Ic n="check"/> APLICAR NA TABELA</Btn></div>
-            </div>}
+            {pdfPreviewCompleto&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
+              <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Encontrado - confira antes de aplicar. <b>Reimportar substitui a versão anterior de cada pavimento, nunca soma/duplica.</b></p>
 
-            {pdfPreviewPilaresVigas&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
-              <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Encontrado nos três pavimentos - confira antes de aplicar:</p>
+              {!!pdfPreviewCompleto.sapatas.length&&<div style={{display:"flex",flexDirection:"column",gap:5}}>
+                <p style={{fontSize:10,fontWeight:850,color:C.text}}>FUNDAÇÃO: {pdfPreviewCompleto.sapatas.length} tipo(s) de sapata</p>
+                {pdfPreviewCompleto.resumoAcoSapatas&&(()=>{
+                  const totalCalculado=pdfPreviewCompleto.sapatas.reduce((s,sapata)=>s+calcularSapataTipo(sapata).pesoAcoTotal,0);
+                  const diferenca=Math.abs(totalCalculado-pdfPreviewCompleto.resumoAcoSapatas.totalKg);
+                  const bateu=diferenca<=pdfPreviewCompleto.resumoAcoSapatas.totalKg*0.02; // até 2% de diferença por arredondamento
+                  return <div style={{border:`1px solid ${bateu?C.green:C.orange}55`,background:C.card,borderRadius:6,padding:"7px 9px"}}>
+                    <p style={{fontSize:10,fontWeight:850,color:bateu?C.green:C.orange}}>{bateu?"✓":"⚠"} Conferência com o Resumo Aço da folha</p>
+                    <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Extraído (com os comprimentos resolvidos): <b>{totalCalculado.toFixed(1)} kg</b> · Total pronto do projeto: <b>{pdfPreviewCompleto.resumoAcoSapatas.totalKg.toFixed(1)} kg</b>{!bateu&&" - a diferença indica que algum comprimento de armadura não foi identificado (fica marcado para completar à mão)."}</p>
+                  </div>;
+                })()}
+                <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:160,overflowY:"auto"}}>
+                  {pdfPreviewCompleto.sapatas.map(sapata=><div key={sapata.tipo} style={{fontSize:9.5,color:C.text}}>
+                    <b>{sapata.tipo}</b> · {sapata.qtd} peça(s) · {(sapata.largura*100).toFixed(0)}x{(sapata.comprimento*100).toFixed(0)}cm · alt. {(sapata.alturaBase*100).toFixed(0)}/{(sapata.alturaTronco*100).toFixed(0)}cm
+                    {" · X:"}{sapata.armaduraX.quantidade}∅{sapata.armaduraX.bitola}{sapata.armaduraX.comprimento?` (${sapata.armaduraX.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
+                    {" · Y:"}{sapata.armaduraY.quantidade}∅{sapata.armaduraY.bitola}{sapata.armaduraY.comprimento?` (${sapata.armaduraY.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
+                  </div>)}
+                </div>
+              </div>}
+
               <div style={{display:"flex",flexDirection:"column",gap:3}}>
                 {PAVIMENTOS_ESTRUTURA.map(([pav,label])=>{
-                  const pilares=pdfPreviewPilaresVigas.pilares[pav]||[];
-                  const acoPilares=pdfPreviewPilaresVigas.pilaresAcoPorBitola[pav];
-                  const acoVigas=pdfPreviewPilaresVigas.vigasAcoPorBitola[pav];
-                  const acoLaje=pdfPreviewPilaresVigas.lajesAcoPorBitola[pav];
+                  const pilares=pdfPreviewCompleto.pilares[pav]||[];
+                  const acoPilares=pdfPreviewCompleto.pilaresAcoPorBitola[pav];
+                  const acoVigas=pdfPreviewCompleto.vigasAcoPorBitola[pav];
+                  const acoLaje=pdfPreviewCompleto.lajesAcoPorBitola[pav];
                   if(!pilares.length&&!acoPilares&&!acoVigas&&!acoLaje)return null;
                   return <p key={pav} style={{fontSize:9.5,color:C.text}}>
                     <b>{label}:</b> {pilares.length} tipo(s) de pilar
@@ -4530,7 +4523,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                   </p>;
                 })}
               </div>
-              <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewPilaresVigas(null)}>DESCARTAR</Btn><Btn size="sm" onClick={aplicarPdfPreviewPilaresVigas}><Ic n="check"/> APLICAR NAS TABELAS</Btn></div>
+              <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewCompleto(null)}>DESCARTAR</Btn><Btn size="sm" onClick={aplicarPdfPreviewCompleto}><Ic n="check"/> APLICAR (SUBSTITUI A VERSÃO ANTERIOR)</Btn></div>
             </div>}
 
             {pdfPreviewQuantitativos&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
