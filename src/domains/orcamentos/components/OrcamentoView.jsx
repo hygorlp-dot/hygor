@@ -773,6 +773,34 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     ...data, config: { ...(data.config || {}), memoriaCalculoLargurasColuna: { ...(data.config?.memoriaCalculoLargurasColuna || {}), [chave]: Number(valor) || undefined } },
   });
   const [larguraColunasAberto, setLarguraColunasAberto] = useState(false);
+  // Arrastar a borda direita do cabeçalho para redimensionar - pedido do
+  // usuário depois que o painel numérico sozinho não pareceu "arrastável".
+  // Só grava no canônico (data.config) ao soltar; enquanto arrasta, o valor
+  // ao vivo mora neste state, sem disparar update() a cada pixel.
+  const [colunaArrastando, setColunaArrastando] = useState(null); // {chave, largura}
+  const arrastoColunaRef = useRef(null);
+  const larguraColunaEfetiva = chave => colunaArrastando?.chave === chave ? colunaArrastando.largura : larguraColunaSapatas(chave);
+  const iniciarArrastoColuna = (chave, e) => {
+    e.preventDefault();
+    const xInicial = e.clientX;
+    const larguraInicial = larguraColunaSapatas(chave);
+    arrastoColunaRef.current = { chave, xInicial, larguraInicial, larguraFinal: larguraInicial };
+    const mover = ev => {
+      if (!arrastoColunaRef.current) return;
+      const nova = Math.max(24, Math.round(arrastoColunaRef.current.larguraInicial + (ev.clientX - arrastoColunaRef.current.xInicial)));
+      arrastoColunaRef.current.larguraFinal = nova;
+      setColunaArrastando({ chave, largura: nova });
+    };
+    const soltar = () => {
+      if (arrastoColunaRef.current) salvarLarguraColunaSapatas(arrastoColunaRef.current.chave, arrastoColunaRef.current.larguraFinal);
+      arrastoColunaRef.current = null;
+      setColunaArrastando(null);
+      window.removeEventListener("mousemove", mover);
+      window.removeEventListener("mouseup", soltar);
+    };
+    window.addEventListener("mousemove", mover);
+    window.addEventListener("mouseup", soltar);
+  };
 
   // Vínculo entre um total da memória e uma linha do orçamento: guarda só o
   // id do item, a quantidade em si sempre vem recalculada na hora de
@@ -4280,16 +4308,20 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                   {COLUNAS_SAPATAS.filter(col=>col.chave!=="acoes").map(col=>(
                     <label key={col.chave} style={{display:"flex",alignItems:"center",gap:5}}>
                       <span style={{fontSize:9,color:C.muted,minWidth:98}}>{col.rotulo||"AÇÕES"}</span>
-                      <input type="number" min="24" step="1" value={larguraColunaSapatas(col.chave)} onChange={e=>salvarLarguraColunaSapatas(col.chave,e.target.value)}
+                      <input type="number" min="24" step="1" value={larguraColunaEfetiva(col.chave)} onChange={e=>salvarLarguraColunaSapatas(col.chave,e.target.value)}
                         style={{width:52,padding:"3px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.card,color:C.text,textAlign:"right",fontSize:9.5}}/>
                     </label>
                   ))}
                 </div>
               </details>
 
+              {/* Some inputs numéricos nativos (type=number) mostram setinhas de
+                  incremento que comem ~20px do campo - numa coluna de 40-50px isso
+                  cortava o valor digitado (achado do usuário via screenshot). */}
+              <style>{`.sapata-num-input::-webkit-outer-spin-button,.sapata-num-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.sapata-num-input{-moz-appearance:textfield}`}</style>
               <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}>
-                <table style={{width:COLUNAS_SAPATAS.reduce((s,c)=>s+larguraColunaSapatas(c.chave),0),tableLayout:"fixed",borderCollapse:"collapse",fontSize:dSapatas.fonte}}>
-                  <colgroup>{COLUNAS_SAPATAS.map(col=><col key={col.chave} style={{width:larguraColunaSapatas(col.chave)}}/>)}</colgroup>
+                <table style={{width:COLUNAS_SAPATAS.reduce((s,c)=>s+larguraColunaEfetiva(c.chave),0),tableLayout:"fixed",borderCollapse:"collapse",fontSize:dSapatas.fonte,userSelect:colunaArrastando?"none":"auto"}}>
+                  <colgroup>{COLUNAS_SAPATAS.map(col=><col key={col.chave} style={{width:larguraColunaEfetiva(col.chave)}}/>)}</colgroup>
                   <thead>
                     {/* Cabeçalho em dois níveis - agrupa as 23 colunas em blocos
                         (Dimensões/Escavação/Concreto/Armadura X/Armadura Y), achado
@@ -4305,10 +4337,14 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                       <th colSpan={2} style={{borderBottom:`1px solid ${C.border}`}}/>
                     </tr>
                     <tr style={{background:C.surface}}>
-                      {COLUNAS_SAPATAS.map((col,i)=><th key={col.chave} scope="col" style={{padding:dSapatas.padHeader,textAlign:/\(m|QTD|PEÇAS/.test(col.rotulo)?"right":"left",color:C.muted,fontSize:dSapatas.fonteHeader,borderBottom:`1px solid ${C.border}`,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.15,
+                      {COLUNAS_SAPATAS.map((col,i)=><th key={col.chave} scope="col" style={{position:"relative",padding:dSapatas.padHeader,textAlign:/\(m|QTD|PEÇAS/.test(col.rotulo)?"right":"left",color:C.muted,fontSize:dSapatas.fonteHeader,borderBottom:`1px solid ${C.border}`,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.15,
                         ...(i===0?{position:"sticky",left:0,zIndex:2,background:C.surface}:{}),
-                        ...(i===1?{position:"sticky",left:larguraColunaSapatas("tipo"),zIndex:2,background:C.surface,borderRight:`1px solid ${C.line}`}:{}),
-                      }}>{col.rotulo}</th>)}
+                        ...(i===1?{position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:2,background:C.surface,borderRight:`1px solid ${C.line}`}:{}),
+                      }}>{col.rotulo}
+                        {col.chave!=="acoes"&&<span onMouseDown={e=>iniciarArrastoColuna(col.chave,e)} title="Arraste para ajustar a largura desta coluna" style={{position:"absolute",top:0,right:-4,bottom:0,width:8,cursor:"col-resize",zIndex:3,display:"flex",justifyContent:"center"}}>
+                          <span style={{width:1,height:"100%",background:colunaArrastando?.chave===col.chave?C.blue:C.border}}/>
+                        </span>}
+                      </th>)}
                     </tr>
                   </thead>
                   <tbody>
@@ -4317,9 +4353,9 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                       // brasileiro digita "0,2") - o navegador filtra a vírgula e deixa
                       // um valor truncado/inválido no campo. Normaliza para ponto antes
                       // de gravar.
-                      const numInput=(campo,largura="100%",rotulo=ROTULO_CAMPO_SAPATA[campo])=><input type="number" step="any" min="0" aria-label={rotulo} value={tipo[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[campo]:e.target.value.replace(",",".")})}
+                      const numInput=(campo,largura="100%",rotulo=ROTULO_CAMPO_SAPATA[campo])=><input type="number" step="any" min="0" className="sapata-num-input" aria-label={rotulo} value={tipo[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[campo]:e.target.value.replace(",",".")})}
                         style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:dSapatas.fonte}}/>;
-                      const armInput=(direcao,campo,largura="100%")=><input type="number" step="any" min="0" aria-label={`${campo==="quantidade"?"Quantidade":"Comprimento"} da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value.replace(",",".")}})}
+                      const armInput=(direcao,campo,largura="100%")=><input type="number" step="any" min="0" className="sapata-num-input" aria-label={`${campo==="quantidade"?"Quantidade":"Comprimento"} da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value.replace(",",".")}})}
                         style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:dSapatas.fonte}}/>;
                       const armSelect=direcao=><select aria-label={`Bitola da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.bitola} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],bitola:e.target.value}})}
                         style={{width:"100%",boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:dSapatas.fonte}}>
@@ -4337,7 +4373,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                               <input aria-label="Tipo (referência dos pilares)" value={tipo.tipo} onChange={e=>atualizarSapataTipo(tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:"100%",boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:dSapatas.fonte}}/>
                             </div>
                           </td>
-                          <td style={{padding:dSapatas.pad,position:"sticky",left:larguraColunaSapatas("tipo"),zIndex:1,background:corFixa,borderRight:`1px solid ${C.line}`}}>{numInput("qtd")}</td>
+                          <td style={{padding:dSapatas.pad,position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:1,background:corFixa,borderRight:`1px solid ${C.line}`}}>{numInput("qtd")}</td>
                           <td style={{padding:dSapatas.pad}}>{numInput("largura")}</td>
                           <td style={{padding:dSapatas.pad}}>{numInput("comprimento")}</td>
                           <td style={{padding:dSapatas.pad}}>{numInput("alturaBase")}</td>
@@ -4369,7 +4405,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                   {resumoSapatasFundacao.linhas.length>0&&<tfoot>
                     <tr style={{background:C.surface,fontWeight:800}}>
                       <td style={{padding:dSapatas.padHeader,position:"sticky",left:0,zIndex:1,background:C.surface}}>TOTAIS</td>
-                      <td style={{position:"sticky",left:larguraColunaSapatas("tipo"),zIndex:1,background:C.surface,borderRight:`1px solid ${C.line}`}}/>
+                      <td style={{position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:1,background:C.surface,borderRight:`1px solid ${C.line}`}}/>
                       <td/><td/><td/><td/><td/><td/>
                       <td style={{padding:dSapatas.padHeader,textAlign:"right",color:C.blue}}>{resumoSapatasFundacao.totais.volumeEscavacao.toFixed(2)}</td>
                       <td style={{padding:dSapatas.padHeader,textAlign:"right"}}>{resumoSapatasFundacao.totais.areaConcretoMagro.toFixed(2)}</td>
