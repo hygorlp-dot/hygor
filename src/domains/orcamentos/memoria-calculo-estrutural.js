@@ -178,16 +178,26 @@ export function novaVigaPavimento(extra = {}) {
     // 2x a largura acrescida de cada lado) - mesma lógica de folga que a
     // escavação das sapatas já usa. Só usado no Térreo (só lá a viga toca
     // o solo); nos outros pavimentos fica zerado e sem efeito.
-    comprimentoTotalM: 0, larguraVigaM: 0, magroLarguraAcrescidaM: 0,
+    //
+    // Comprimento não é digitado à mão: o usuário percebeu (28/08/2026) que
+    // já temos a área em PLANTA das vigas pronta do Quantitativos.pdf
+    // (`areaPlantaVigasM2` - vista de cima, comprimento x largura da viga,
+    // diferente da "Superfície lateral" que já virava `formaM2`) - dividir
+    // essa área pela largura da viga já dá o comprimento total, sem
+    // precisar de outro campo manual. Só a largura e o acréscimo continuam
+    // sendo pedidos ao usuário.
+    areaPlantaVigasM2: 0, larguraVigaM: 0, magroLarguraAcrescidaM: 0,
     precisaRevisar: false,
     ...extra,
   };
 }
 
 export function calcularConcretoMagroViga(viga) {
-  const comprimento = Number(viga?.comprimentoTotalM || 0);
+  const areaPlanta = Number(viga?.areaPlantaVigasM2 || 0);
   const largura = Number(viga?.larguraVigaM || 0);
   const acrescimo = Number(viga?.magroLarguraAcrescidaM || 0);
+  if (!areaPlanta || !largura) return 0;
+  const comprimento = areaPlanta / largura;
   return comprimento * (largura + 2 * acrescimo);
 }
 

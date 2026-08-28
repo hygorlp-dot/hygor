@@ -316,6 +316,12 @@ export function extrairQuantitativosPavimentos(texto) {
       pavimento: grupo.nome,
       concretoVigasM3: num(/Concreto total em vigas:\s*([\d.,]+)\s*m3/),
       formaVigasM2: num(/Superfície lateral de vigas, vigas de borda e cortinas:\s*([\d.,]+)\s*m2/),
+      // Área em PLANTA (vista de cima) = comprimento total x largura da
+      // viga - dá pra derivar o comprimento total das vigas sem precisar
+      // perguntar (achado real, 28/08/2026: usuário percebeu que já
+      // tínhamos esse dado pronto, só faltava extrair). Diferente da
+      // "Superfície lateral" acima (essa é comprimento x altura x 2 lados).
+      areaPlantaVigasM2: num(/Superfície em planta de vigas, vigas de borda e cortinas:\s*([\d.,]+)\s*m2/),
       avisoConcretoIncorreto: /Valor incorreto do volume de vigas/.test(bloco),
       volumeLajesM3: num(/Volume total lajes:\s*([\d.,]+)\s*m3/),
       lajeMacicasM3: num(/Volume total lajes:[\s\S]*?Maci[çc]as:\s*([\d.,]+)\s*m3/),

@@ -870,15 +870,15 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         </div>
         {pav==="terreo"&&(()=>{
           const magro=calcularConcretoMagroViga(viga);
+          const comprimento=viga.larguraVigaM>0?viga.areaPlantaVigasM2/viga.larguraVigaM:0;
           return (
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 10px",display:"flex",flexDirection:"column",gap:6}}>
-              <p style={{fontSize:9.5,fontWeight:800,color:C.muted}}>CONCRETO MAGRO (LASTRO SOB A VIGA BALDRAME)</p>
-              <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
-                <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:C.muted}}>COMPRIMENTO TOTAL (M)</span>{campoViga("comprimentoTotalM","Comprimento total das vigas baldrame")}</label>
+              <div><p style={{fontSize:9.5,fontWeight:800,color:C.muted}}>CONCRETO MAGRO (LASTRO SOB A VIGA BALDRAME)</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Comprimento total já vem da área em planta das vigas (importada do Quantitativos) dividida pela largura - só a largura e o acréscimo precisam ser digitados.</p></div>
+              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
                 <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:C.muted}}>LARGURA DA VIGA (M)</span>{campoViga("larguraVigaM","Largura da viga")}</label>
                 <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:C.muted}}>LARGURA A ACRESCER, DE CADA LADO (M)</span>{campoViga("magroLarguraAcrescidaM","Largura a acrescer no magro, de cada lado")}</label>
               </div>
-              <p style={{fontSize:10,color:C.text}}>Área do magro: <b>{magro.toFixed(2)} m²</b> {magro>0&&<span style={{color:C.muted,fontWeight:400}}>({viga.comprimentoTotalM} x ({viga.larguraVigaM} + 2x{viga.magroLarguraAcrescidaM}))</span>}</p>
+              <p style={{fontSize:10,color:C.text}}>Comprimento total: <b>{comprimento.toFixed(2)} m</b> ({viga.areaPlantaVigasM2||0} m² em planta ÷ {viga.larguraVigaM||0} m) · Área do magro: <b>{magro.toFixed(2)} m²</b></p>
             </div>
           );
         })()}
@@ -1114,8 +1114,12 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       // O orçamento só usa concreto/fôrma de pilares como total do pavimento
       // (nunca por pilar) - soma os tipos que o PDF detalha na hora de
       // aplicar, em vez de guardar cada um (achado real, 27/08/2026).
-      const concretoPilares = encontrados.reduce((s, p) => s + Number(p.concretoUnit || 0) * Number(p.qtd || 0), 0);
-      const formaPilares = encontrados.reduce((s, p) => s + Number(p.formaUnit || 0) * Number(p.qtd || 0), 0);
+      // Arredonda pra 2 casas na soma - sem isso, ponto flutuante deixa lixo
+      // tipo "2.5100000000000002" salvo direto no campo (achado real, print
+      // do usuário em produção, 28/08/2026).
+      const arred2 = n => Math.round(n * 100) / 100;
+      const concretoPilares = arred2(encontrados.reduce((s, p) => s + Number(p.concretoUnit || 0) * Number(p.qtd || 0), 0));
+      const formaPilares = arred2(encontrados.reduce((s, p) => s + Number(p.formaUnit || 0) * Number(p.qtd || 0), 0));
       memoriaNova[pav] = {
         ...pavAtual,
         ...(encontrados.length ? { pilar: { ...novaPilarPavimento(), ...(pavAtual.pilar || {}), concretoM3: concretoPilares, formaM2: formaPilares, ...(acoPilares ? { acoPorBitola: acoPilares.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } : {}), precisaRevisar: true } } : {}),
@@ -1143,6 +1147,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         viga: {
           ...novaVigaPavimento(), ...(pavAtual.viga || {}),
           concretoM3: grupo.concretoVigasM3 ?? 0, formaM2: grupo.formaVigasM2 ?? 0,
+          areaPlantaVigasM2: grupo.areaPlantaVigasM2 ?? 0,
           avisoConcretoIncorreto: grupo.avisoConcretoIncorreto,
         },
         laje: {

@@ -760,9 +760,15 @@ describe("extrairQuantitativosPavimentos", () => {
   it("lê concreto/fôrma de vigas e volume de laje por pavimento, sem o aviso de valor incorreto quando ele não existe", () => {
     const [terreo] = extrairQuantitativosPavimentos(QUANTITATIVOS_REAL);
     expect(terreo).toEqual({
-      pavimento: "Térreo", concretoVigasM3: 6.41, formaVigasM2: 79.93, avisoConcretoIncorreto: false,
+      pavimento: "Térreo", concretoVigasM3: 6.41, formaVigasM2: 79.93, areaPlantaVigasM2: 20.20, avisoConcretoIncorreto: false,
       volumeLajesM3: 0, lajeMacicasM3: null, lajeVigotasM3: null,
     });
+  });
+
+  it("lê a área em planta das vigas (comprimento total x largura da viga) - fonte usada pra derivar o comprimento sem perguntar", () => {
+    const [, pav1, cobertura] = extrairQuantitativosPavimentos(QUANTITATIVOS_REAL);
+    expect(pav1.areaPlantaVigasM2).toBeCloseTo(23.22);
+    expect(cobertura.areaPlantaVigasM2).toBeCloseTo(19.96);
   });
 
   it("carrega o aviso do próprio projeto quando o volume de vigas pode estar incorreto (1º Pavimento)", () => {

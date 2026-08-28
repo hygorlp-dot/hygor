@@ -153,7 +153,7 @@ describe("novaVigaPavimento / novaLajePavimento - um único objeto por pavimento
     const viga = novaVigaPavimento();
     expect(viga).toEqual({
       concretoM3: 0, formaM2: 0, acoPorBitola: [], avisoConcretoIncorreto: false,
-      comprimentoTotalM: 0, larguraVigaM: 0, magroLarguraAcrescidaM: 0, precisaRevisar: false,
+      areaPlantaVigasM2: 0, larguraVigaM: 0, magroLarguraAcrescidaM: 0, precisaRevisar: false,
     });
   });
 
@@ -172,15 +172,24 @@ describe("novaVigaPavimento / novaLajePavimento - um único objeto por pavimento
   });
 });
 
-describe("calcularConcretoMagroViga - lastro sob a viga baldrame/Térreo, mesma lógica de folga da escavação de sapata", () => {
-  it("multiplica o comprimento total pela largura da viga mais a folga de cada lado", () => {
-    const viga = novaVigaPavimento({ comprimentoTotalM: 82, larguraVigaM: 0.15, magroLarguraAcrescidaM: 0.05 });
-    expect(calcularConcretoMagroViga(viga)).toBeCloseTo(82 * (0.15 + 2 * 0.05));
+describe("calcularConcretoMagroViga - lastro sob a viga baldrame/Térreo, comprimento derivado da área em planta (não digitado)", () => {
+  it("deriva o comprimento (área em planta / largura da viga) e multiplica pela largura da viga mais a folga de cada lado", () => {
+    // Térreo real (Quantitativos.pdf): área em planta 20.20m2. Largura de
+    // viga hipotética 0.15m -> comprimento = 20.20/0.15 = 134.67m.
+    const viga = novaVigaPavimento({ areaPlantaVigasM2: 20.20, larguraVigaM: 0.15, magroLarguraAcrescidaM: 0.05 });
+    const comprimento = 20.20 / 0.15;
+    expect(calcularConcretoMagroViga(viga)).toBeCloseTo(comprimento * (0.15 + 2 * 0.05));
   });
 
-  it("devolve 0 quando algum dos três campos está zerado (padrão inicial, ou pavimento sem viga baldrame)", () => {
+  it("devolve 0 quando falta a área em planta ou a largura da viga (padrão inicial, ou pavimento sem viga baldrame)", () => {
     expect(calcularConcretoMagroViga(novaVigaPavimento())).toBe(0);
-    expect(calcularConcretoMagroViga(novaVigaPavimento({ comprimentoTotalM: 82, larguraVigaM: 0.15 }))).toBeCloseTo(82 * 0.15);
+    expect(calcularConcretoMagroViga(novaVigaPavimento({ areaPlantaVigasM2: 20.20 }))).toBe(0);
+    expect(calcularConcretoMagroViga(novaVigaPavimento({ larguraVigaM: 0.15 }))).toBe(0);
+  });
+
+  it("funciona sem acréscimo (o magro sai do tamanho exato da área em planta)", () => {
+    const viga = novaVigaPavimento({ areaPlantaVigasM2: 20.20, larguraVigaM: 0.15 });
+    expect(calcularConcretoMagroViga(viga)).toBeCloseTo(20.20);
   });
 });
 
