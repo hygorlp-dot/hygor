@@ -15,7 +15,7 @@ import { enviarArquivoOneDrive } from "../../../api";
 import {
   Badge, Btn, C, Ic, Inp, LICENCAS, LIC_STATUS, LIC_TERRAS_ALPHA_VERIFICACAO,
   Modal, PageHero, Sel, escapeHtml, fmtDate, licStatusInfo, licencaPorId,
-  progressoChecklist, today, uid,
+  preRequisitosOk, progressoChecklist, today, uid,
 } from "../../../LegacyApp";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 

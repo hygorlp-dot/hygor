@@ -1185,7 +1185,7 @@ const obrasLicencaIncompleta = (data) => {
 
 // Elegibilidade: a licenca simplificada so vale se TODOS os pre-requisitos
 // forem atendidos. Se faltar um, o caminho e outro tipo de licenca.
-const preRequisitosOk = (check, pre) => {
+export const preRequisitosOk = (check, pre) => {
   const lista = pre || LIC_SIMPLIFICADA_PRE;
   const faltando = lista.filter(p => !check?.pre?.[p.id]);
   return { marcados: lista.length - faltando.length, total: lista.length,
