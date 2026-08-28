@@ -762,7 +762,18 @@ describe("extrairQuantitativosPavimentos", () => {
     expect(terreo).toEqual({
       pavimento: "Térreo", concretoVigasM3: 6.41, formaVigasM2: 79.93, areaPlantaVigasM2: 20.20, avisoConcretoIncorreto: false,
       volumeLajesM3: 0, lajeMacicasM3: null, lajeVigotasM3: null,
+      areaMacicaLajeM2: null, areaVigotaLajeM2: null,
     });
+  });
+
+  it("lê a ÁREA de maciça/vigota (m2, antes da parte de vigas do bloco) - não confunde com o volume (m3, depois de Volume total lajes)", () => {
+    const [terreo, pav1, cobertura] = extrairQuantitativosPavimentos(QUANTITATIVOS_REAL);
+    expect(terreo.areaMacicaLajeM2).toBeNull();
+    expect(terreo.areaVigotaLajeM2).toBeNull();
+    expect(pav1.areaMacicaLajeM2).toBeCloseTo(31.83);
+    expect(pav1.areaVigotaLajeM2).toBeCloseTo(143.28);
+    expect(cobertura.areaMacicaLajeM2).toBeCloseTo(28.24);
+    expect(cobertura.areaVigotaLajeM2).toBeCloseTo(155.81);
   });
 
   it("lê a área em planta das vigas (comprimento total x largura da viga) - fonte usada pra derivar o comprimento sem perguntar", () => {

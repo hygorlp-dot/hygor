@@ -1008,6 +1008,9 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>ÁREA MACIÇA (M²)</span>{campoLaje("areaMacicaM2","Área de laje maciça")}</label>
           <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>ÁREA VIGOTA (M²)</span>{campoLaje("areaVigotaM2","Área de laje vigota")}</label>
         </div>
+        {!laje.areaMacicaM2&&!laje.areaVigotaM2&&laje.volumeM3>0&&(
+          <p style={{fontSize:9.5,color:C.orange,fontWeight:700,lineHeight:1.5}}>⚠ Área ainda não importada (0 m²) - o volume deste pavimento veio de uma importação anterior ao PDF de Quantitativos trazer esse dado. Reimporte o PDF de Quantitativos (seção "Importar projeto" acima) para calcular o aço da vigota.</p>
+        )}
         <div>
           <p style={{fontSize:9,fontWeight:800,color:C.muted,marginBottom:5}}>AÇO DA MACIÇA POR BITOLA</p>
           <p style={{fontSize:9,color:C.muted,marginBottom:5}}>Não inclui a vigota - a treliça pré-moldada não entra no Resumo Aço do projeto. O aço da vigota é calculado abaixo, pela malha da tela soldada.</p>
@@ -1314,12 +1317,13 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         laje: {
           ...novaLajePavimento(), ...(pavAtual.laje || {}),
           volumeM3: grupo.volumeLajesM3 ?? 0, volumeMacicasM3: grupo.lajeMacicasM3 ?? 0, volumeVigotasM3: grupo.lajeVigotasM3 ?? 0,
+          areaMacicaM2: grupo.areaMacicaLajeM2 ?? 0, areaVigotaM2: grupo.areaVigotaLajeM2 ?? 0,
         },
       };
       atualizados += 1;
     }
     salvarOrc({ memoriaCalculo: memoriaNova });
-    showToast(`Concreto/fôrma de vigas e volume de laje de ${atualizados} pavimento(s) importados do PDF de Quantitativos.`);
+    showToast(`Concreto/fôrma de vigas, área e volume de laje de ${atualizados} pavimento(s) importados do PDF de Quantitativos.`);
     setPdfPreviewQuantitativos(null);
   };
 
@@ -4683,6 +4687,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                 {pdfPreviewQuantitativos.map(grupo=><p key={grupo.pavimento} style={{fontSize:9.5,color:C.text}}>
                   <b>{grupo.pavimento}:</b> vigas {grupo.concretoVigasM3?.toFixed(2)}m³ concreto / {grupo.formaVigasM2?.toFixed(2)}m² fôrma{grupo.avisoConcretoIncorreto?<span style={{color:C.orange,fontWeight:800}}> ⚠ o próprio projeto avisa que este volume pode estar incorreto - confira</span>:""}
                   {" · laje "}{grupo.volumeLajesM3?.toFixed(2)}m³{grupo.volumeLajesM3?` (${grupo.lajeMacicasM3?.toFixed(2)}m³ maciça + ${grupo.lajeVigotasM3?.toFixed(2)}m³ vigota)`:""}
+                  {grupo.areaMacicaLajeM2||grupo.areaVigotaLajeM2?` · área da laje ${grupo.areaMacicaLajeM2?.toFixed(2)}m² maciça + ${grupo.areaVigotaLajeM2?.toFixed(2)}m² vigota`:""}
                 </p>)}
               </div>
               <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewQuantitativos(null)}>DESCARTAR</Btn><Btn size="sm" onClick={()=>setConfirmarAplicarQuantitativos(true)}><Ic n="check"/> APLICAR NAS TABELAS</Btn></div>

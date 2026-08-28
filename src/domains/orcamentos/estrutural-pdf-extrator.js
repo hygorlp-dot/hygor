@@ -326,6 +326,14 @@ export function extrairQuantitativosPavimentos(texto) {
       volumeLajesM3: num(/Volume total lajes:\s*([\d.,]+)\s*m3/),
       lajeMacicasM3: num(/Volume total lajes:[\s\S]*?Maci[çc]as:\s*([\d.,]+)\s*m3/),
       lajeVigotasM3: num(/Volume total lajes:[\s\S]*?Vigotas:\s*([\d.,]+)\s*m3/),
+      // A ÁREA de maciça/vigota (m2) vem ANTES da parte de vigas do mesmo
+      // bloco, logo depois de "Superfície total pavto" - texto igual ao do
+      // volume ("Maciças"/"Vigotas"), mas em m2 em vez de m3, então a
+      // unidade no regex é o que evita pegar o par errado (achado do
+      // usuário, 28/08/2026: "não está sendo preenchida as áreas das
+      // lajes" - a área nunca tinha sido extraída, só o volume).
+      areaMacicaLajeM2: num(/Superfície total pavto:[\s\S]*?Maci[çc]as:\s*([\d.,]+)\s*m2/),
+      areaVigotaLajeM2: num(/Superfície total pavto:[\s\S]*?Vigotas:\s*([\d.,]+)\s*m2/),
     };
   });
 }
