@@ -970,6 +970,9 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
                 <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:C.muted}}>LARGURA A ACRESCER, DE CADA LADO (M)</span>{campoViga("magroLarguraAcrescidaM","Largura a acrescer no magro, de cada lado")}</label>
               </div>
               <p style={{fontSize:10,color:C.text}}>Comprimento total: <b>{comprimento.toFixed(2)} m</b> ({viga.areaPlantaVigasM2||0} m² em planta ÷ {viga.larguraVigaM||0} m) · Área do magro: <b>{magro.toFixed(2)} m²</b></p>
+              {!viga.areaPlantaVigasM2&&viga.larguraVigaM>0&&(
+                <p style={{fontSize:9.5,color:C.orange,fontWeight:700,lineHeight:1.5}}>⚠ Área em planta ainda não importada (0 m²) - o concreto/fôrma deste pavimento vieram de uma importação anterior ao PDF de Quantitativos trazer esse dado. Reimporte o PDF de Quantitativos (seção "Importar projeto" acima) para calcular o magro.</p>
+              )}
             </div>
           );
         })()}
