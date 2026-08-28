@@ -168,6 +168,11 @@ const TOTAIS_VINCULAVEIS_FUNDACAO = [
 // o Térreo se apoia direto nas vigas/sapatas, sem laje entre eles.
 const PAVIMENTOS_ESTRUTURA = [["terreo","TÉRREO"],["pavimento1","1º PAVIMENTO"],["cobertura","COBERTURA"]];
 const PAVIMENTOS_COM_LAJE = ["pavimento1","cobertura"];
+// A Memória de Cálculo é organizada por projeto (disciplina) e, dentro de
+// cada uma, por pavimento - hoje só Estrutural existe, mas a estrutura já
+// deixa lugar pronto para Arquitetura/Elétrica/Hidráulica etc. mais à
+// frente, sem precisar reorganizar de novo quando chegarem.
+const DISCIPLINAS_MEMORIA = [["estrutural","ESTRUTURAL"]];
 const ROTULO_PAVIMENTO = { terreo:"Térreo", pavimento1:"1º Pavimento", cobertura:"Cobertura" };
 
 export default function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null, todasObras=null, todosOrcamentosGlobais=null, todosPlanosGlobais=null }) {
@@ -193,6 +198,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const orcamentoFixoInicial=obraIdFixo?getActiveBudgetBaseline(data,obraIdFixo,"controle").budget:null;
   const [view,      setView]      = useState(orcamentoFixoInicial?"editor":"lista");   // "lista" | "editor"
   const [orcAba,    setOrcAba]    = useState("orcamento"); // orçamento | insumos | próprias | memoria
+  const [disciplinaMemoria,setDisciplinaMemoria]=useState("estrutural"); // estrutural (única disciplina por enquanto)
   const [pavimentoMemoria,setPavimentoMemoria]=useState("fundacao"); // fundacao | terreo | pavimento1 | cobertura
   const [selOrc,    setSelOrc]    = useState(()=>orcamentoFixoInicial?.id||getActiveBudgetBaseline(data,obraContextoSalvo(),"controle").budget?.id||null);      // id do orçamento aberto
   const [basesRemotas, setBasesRemotas] = useState([]);
@@ -4577,6 +4583,18 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
             </p>
           </div>
 
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+            {DISCIPLINAS_MEMORIA.map(([valor,label])=>(
+              <button key={valor} onClick={()=>setDisciplinaMemoria(valor)} style={{
+                border:`1px solid ${disciplinaMemoria===valor?C.blue:C.border}`,
+                background:disciplinaMemoria===valor?`${C.blue}12`:C.bg,
+                color:disciplinaMemoria===valor?C.blue:C.muted,
+                borderRadius:6,padding:"8px 14px",fontSize:11,fontWeight:850,cursor:"pointer",
+              }}>{label}</button>
+            ))}
+          </div>
+
+          {disciplinaMemoria==="estrutural" && (<>
           <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
             <div><p style={{fontSize:12,fontWeight:850,color:C.text}}>IMPORTAR PROJETO (PDF)</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Sinalize qual documento é e o sistema tenta preencher a memória de cálculo sozinho - você sempre confere antes de aplicar.</p></div>
             <select aria-label="Tipo de documento do PDF" value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:10.5,fontWeight:700,maxWidth:360}}>
@@ -4892,6 +4910,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
               {renderVincularPavimento(pavimentoMemoria)}
             </div>
           )}
+          </>)}
         </div>
       )}
 
