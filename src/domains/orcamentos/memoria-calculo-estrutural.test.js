@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  calcularConcretoMagroViga, calcularSapataTipo, novaLajePavimento, novaPilarPavimento, novaSapataTipo, novaVigaPavimento,
-  pesoUnitarioAco, resumoSapatas, somaAcoPorBitola,
+  calcularAcoVigotaLaje, calcularConcretoMagroViga, calcularSapataTipo, novaLajePavimento, novaPilarPavimento, novaSapataTipo, novaVigaPavimento,
+  PESO_TELA_SOLDADA_KG_M2, pesoUnitarioAco, resumoSapatas, somaAcoPorBitola,
 } from "./memoria-calculo-estrutural";
 
 describe("pesoUnitarioAco", () => {
@@ -169,6 +169,32 @@ describe("novaVigaPavimento / novaLajePavimento - um único objeto por pavimento
     const laje = novaLajePavimento({ volumeM3: 15.79, volumeMacicasM3: 3.18, volumeVigotasM3: 12.61 });
     expect(laje.volumeM3).toBe(15.79);
     expect(laje.volumeMacicasM3 + laje.volumeVigotasM3).toBeCloseTo(15.79);
+  });
+
+  it("nova laje já parte de uma malha padrão (Q-61) para a vigota, editável depois", () => {
+    const laje = novaLajePavimento();
+    expect(laje.malhaVigota).toBe("Q-61");
+    expect(laje.pesoMalhaVigotaKgM2).toBeCloseTo(PESO_TELA_SOLDADA_KG_M2["Q-61"]);
+    expect(laje.areaMacicaM2).toBe(0);
+    expect(laje.areaVigotaM2).toBe(0);
+  });
+});
+
+describe("calcularAcoVigotaLaje - aço da vigota vem da área x peso/m² da malha, nunca da lista por bitola", () => {
+  it("multiplica área da vigota pelo peso/m² da malha escolhida", () => {
+    const laje = novaLajePavimento({ areaVigotaM2: 13.71, malhaVigota: "Q-92", pesoMalhaVigotaKgM2: PESO_TELA_SOLDADA_KG_M2["Q-92"] });
+    expect(calcularAcoVigotaLaje(laje)).toBeCloseTo(13.71 * PESO_TELA_SOLDADA_KG_M2["Q-92"]);
+  });
+
+  it("devolve 0 sem área de vigota (padrão inicial)", () => {
+    expect(calcularAcoVigotaLaje(novaLajePavimento())).toBe(0);
+  });
+
+  it("usa o peso/m² editado pelo usuário, não o padrão da malha, quando os dois divergem", () => {
+    // O peso é editável de propósito (achado do usuário: catálogos de
+    // fornecedor variam) - a fonte da verdade é o campo, não a malha.
+    const laje = novaLajePavimento({ areaVigotaM2: 10, malhaVigota: "Q-61", pesoMalhaVigotaKgM2: 1.5 });
+    expect(calcularAcoVigotaLaje(laje)).toBeCloseTo(15);
   });
 });
 

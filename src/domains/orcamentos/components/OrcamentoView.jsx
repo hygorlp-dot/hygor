@@ -58,8 +58,8 @@ import {
   resolverCodigosReferencia, detalharComposicoesReferencia,
 } from "../../../api";
 import {
-  BITOLAS_ACO, FOLGA_ESCAVACAO_PADRAO_M, PROFUNDIDADE_ESCAVACAO_PADRAO_M,
-  calcularConcretoMagroViga, calcularSapataTipo, novaLajePavimento, novaPilarPavimento, novaSapataTipo, novaVigaPavimento,
+  BITOLAS_ACO, FOLGA_ESCAVACAO_PADRAO_M, MALHAS_TELA_SOLDADA, PESO_TELA_SOLDADA_KG_M2, PROFUNDIDADE_ESCAVACAO_PADRAO_M,
+  calcularAcoVigotaLaje, calcularConcretoMagroViga, calcularSapataTipo, novaLajePavimento, novaPilarPavimento, novaSapataTipo, novaVigaPavimento,
   resumoSapatas, somaAcoPorBitola,
 } from "../memoria-calculo-estrutural";
 import {
@@ -826,7 +826,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     if (PAVIMENTOS_COM_LAJE.includes(pav)) {
       const laje = lajeDoPavimento(pav);
       lista.push({ chave: "lajeVolume", rotulo: "Concretagem da laje", unidade: "m³", palavras: ["laje"], valor: laje.volumeM3 });
-      lista.push({ chave: "lajeAco", rotulo: "Aço da laje", unidade: "kg", palavras: ["aço","aco","armadura","laje"], valor: somaAcoPorBitola(laje.acoPorBitola) });
+      lista.push({ chave: "lajeAco", rotulo: "Aço da laje maciça", unidade: "kg", palavras: ["aço","aco","armadura","laje"], valor: somaAcoPorBitola(laje.acoPorBitola) });
+      lista.push({ chave: "lajeAcoVigota", rotulo: "Aço da vigota (tela soldada)", unidade: "kg", palavras: ["tela","malha","vigota"], valor: calcularAcoVigotaLaje(laje) });
     }
     return lista.filter(t => t.valor > 0); // sem valor ainda não faz sentido oferecer pra vincular
   };
@@ -994,6 +995,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const campoLaje = (campo,rotulo) => <input type="number" min="0" step="any" aria-label={rotulo} value={laje[campo]}
       onChange={e=>salvarLajeDoPavimento(pav,{[campo]:e.target.value.replace(",",".")})}
       style={{width:"100%",boxSizing:"border-box",padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.bg,color:C.text,textAlign:"right",fontSize:11}}/>;
+    const acoVigota = calcularAcoVigotaLaje(laje);
     return (
       <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
         <div><p style={{fontSize:13,fontWeight:800,color:C.text}}>LAJE</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Volume total do pavimento, já separado em maciça (concreto cheio) e vigota (pré-moldada) - o mesmo jeito que o Quantitativos do projeto resume.</p></div>
@@ -1002,9 +1004,29 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>MACIÇA (M³)</span>{campoLaje("volumeMacicasM3","Volume de laje maciça")}</label>
           <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>VIGOTA (M³)</span>{campoLaje("volumeVigotasM3","Volume de laje vigota")}</label>
         </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
+          <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>ÁREA MACIÇA (M²)</span>{campoLaje("areaMacicaM2","Área de laje maciça")}</label>
+          <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>ÁREA VIGOTA (M²)</span>{campoLaje("areaVigotaM2","Área de laje vigota")}</label>
+        </div>
         <div>
-          <p style={{fontSize:9,fontWeight:800,color:C.muted,marginBottom:5}}>AÇO POR BITOLA</p>
+          <p style={{fontSize:9,fontWeight:800,color:C.muted,marginBottom:5}}>AÇO DA MACIÇA POR BITOLA</p>
+          <p style={{fontSize:9,color:C.muted,marginBottom:5}}>Não inclui a vigota - a treliça pré-moldada não entra no Resumo Aço do projeto. O aço da vigota é calculado abaixo, pela malha da tela soldada.</p>
           {renderEditorAcoPorBitola(laje.acoPorBitola, lista=>salvarLajeDoPavimento(pav,{acoPorBitola:lista}))}
+        </div>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 10px",display:"flex",flexDirection:"column",gap:6}}>
+          <div><p style={{fontSize:9.5,fontWeight:800,color:C.muted}}>AÇO DA VIGOTA (TELA SOLDADA)</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Peso = área da vigota x peso/m² da malha - não a lista de bitolas acima.</p></div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
+            <label style={{display:"flex",flexDirection:"column",gap:3}}>
+              <span style={{fontSize:9,color:C.muted}}>MALHA</span>
+              <select aria-label="Malha da tela soldada da vigota" value={laje.malhaVigota}
+                onChange={e=>salvarLajeDoPavimento(pav,{malhaVigota:e.target.value,pesoMalhaVigotaKgM2:PESO_TELA_SOLDADA_KG_M2[e.target.value]})}
+                style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.bg,color:C.text,fontSize:11}}>
+                {MALHAS_TELA_SOLDADA.map(m=><option key={m} value={m}>{m}</option>)}
+              </select>
+            </label>
+            <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:C.muted}}>PESO DA MALHA (KG/M²)</span>{campoLaje("pesoMalhaVigotaKgM2","Peso por m² da malha da vigota")}</label>
+          </div>
+          <p style={{fontSize:10,color:C.text}}>Aço da vigota: <b>{acoVigota.toFixed(1)} kg</b> ({Number(laje.areaVigotaM2||0).toFixed(2)} m² x {Number(laje.pesoMalhaVigotaKgM2||0).toFixed(2)} kg/m²)</p>
         </div>
       </div>
     );

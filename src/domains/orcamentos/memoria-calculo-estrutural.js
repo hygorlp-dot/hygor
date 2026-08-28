@@ -201,9 +201,30 @@ export function calcularConcretoMagroViga(viga) {
   return comprimento * (largura + 2 * acrescimo);
 }
 
+// Peso nominal (kg/m²) de tela soldada nervurada CA-60, por bitola de malha
+// (NBR 7481) - valores usuais de catálogo de fabricante (Gerdau/ArcelorMittal).
+// Ponto de partida editável, não um valor travado: cada fornecedor pode
+// arredondar ligeiramente diferente, então o campo na tela sempre permite
+// corrigir para o que a nota fiscal/catálogo do fornecedor realmente traz.
+export const PESO_TELA_SOLDADA_KG_M2 = {
+  "Q-61": 0.96, "Q-75": 1.21, "Q-92": 1.45, "Q-113": 1.79,
+  "Q-138": 2.19, "Q-159": 2.51, "Q-196": 3.09, "Q-246": 3.78,
+  "Q-283": 4.48, "Q-335": 5.30, "Q-386": 6.10, "Q-450": 7.10,
+  "Q-503": 7.95, "Q-636": 10.05,
+};
+export const MALHAS_TELA_SOLDADA = Object.keys(PESO_TELA_SOLDADA_KG_M2);
+
 export function novaLajePavimento(extra = {}) {
   return {
     volumeM3: 0, volumeMacicasM3: 0, volumeVigotasM3: 0, acoPorBitola: [],
+    // Área é separada do volume porque o aço da vigota não vem de
+    // armadura por bitola (a treliça pré-moldada não entra no Resumo Aço
+    // do projeto) - vem da tela soldada lançada sobre a vigota, calculada
+    // por área x peso/m² da malha (achado do usuário, 28/08/2026: "não
+    // contabilize aço de lajes de vigotas [na lista por bitola]... calcule
+    // o peso por área").
+    areaMacicaM2: 0, areaVigotaM2: 0,
+    malhaVigota: "Q-61", pesoMalhaVigotaKgM2: PESO_TELA_SOLDADA_KG_M2["Q-61"],
     precisaRevisar: false,
     ...extra,
   };
@@ -213,3 +234,9 @@ export function novaLajePavimento(extra = {}) {
 // e no resumo de pilares para mostrar o total ao lado do detalhamento por
 // bitola, sem duplicar essa conta em cada lugar que precisa dela.
 export const somaAcoPorBitola = lista => (lista || []).reduce((soma, item) => soma + Number(item?.kg || 0), 0);
+
+// Aço da vigota = área da vigota x peso/m² da malha escolhida - nunca soma
+// com acoPorBitola (esse é só da maciça, que tem armadura de verdade
+// detalhada no projeto).
+export const calcularAcoVigotaLaje = laje =>
+  Number(laje?.areaVigotaM2 || 0) * Number(laje?.pesoMalhaVigotaKgM2 || 0);
