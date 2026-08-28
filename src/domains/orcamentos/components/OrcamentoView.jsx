@@ -145,23 +145,6 @@ const ROTULO_CAMPO_SAPATA = {
   folgaEscavacao: "Folga de escavação", profundidadeEscavacao: "Profundidade da escavação",
 };
 
-const normalizarTexto = texto => String(texto||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
-
-// Quais totais da memória de cálculo (Fundação/Sapatas) podem virar a
-// quantidade de uma linha do orçamento, e as palavras usadas para sugerir
-// automaticamente qual linha já lançada bate com cada um (busca na
-// descrição do item, sem acento). Concretagem usa o volume TOTAL da
-// sapata (base+tronco somados) - não faz sentido vincular base e tronco
-// separados a linhas diferentes do orçamento.
-const TOTAIS_VINCULAVEIS_FUNDACAO = [
-  { chave: "volumeEscavacao", rotulo: "Volume de escavação", unidade: "m³", palavras: ["escavaç","escavac"] },
-  { chave: "areaConcretoMagro", rotulo: "Concreto magro", unidade: "m²", palavras: ["concreto magro","lastro","regulariza"] },
-  { chave: "formaArea", rotulo: "Fôrmas", unidade: "m²", palavras: ["forma","fôrma"] },
-  { chave: "volumeSapata", rotulo: "Concretagem da sapata", unidade: "m³", palavras: ["sapata","concreto para fund","concreto ciclop","concreto usinado","concreto para infra"] },
-  { chave: "reaterro", rotulo: "Reaterro", unidade: "m³", palavras: ["reaterro","reenchimento"] },
-  { chave: "pesoAco", rotulo: "Aço (armadura)", unidade: "kg", palavras: ["aço","aco","armadura","vergalh","ca-50","ca-60"] },
-];
-
 // Os três pavimentos com Pilares/Vigas (a Fundação só tem sapatas - não
 // existe "Vigas Baldrame" separado no projeto, é a própria Vigas do
 // Térreo, confirmado com o usuário). Só 1º Pavimento/Cobertura têm laje -
@@ -173,7 +156,6 @@ const PAVIMENTOS_COM_LAJE = ["pavimento1","cobertura"];
 // deixa lugar pronto para Arquitetura/Elétrica/Hidráulica etc. mais à
 // frente, sem precisar reorganizar de novo quando chegarem.
 const DISCIPLINAS_MEMORIA = [["estrutural","ESTRUTURAL"]];
-const ROTULO_PAVIMENTO = { terreo:"Térreo", pavimento1:"1º Pavimento", cobertura:"Cobertura" };
 
 export default function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null, todasObras=null, todosOrcamentosGlobais=null, todosPlanosGlobais=null }) {
   // Quando aberta de dentro de uma obra (ObraDetalhe), `data` chega ISOLADA
@@ -801,98 +783,6 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), laje: { ...lajeDoPavimento(pav), ...patch } } },
   });
 
-  // Achado do Impeccable (P1): "Vincular ao Orçamento" existia só na
-  // Fundação - 75% das abas construídas nesta sessão (Térreo/1º Pav/
-  // Cobertura) não tinham o mesmo fechamento, obrigando o usuário a
-  // decorar o total e digitar na aba Orçamento na mão. Versão genérica do
-  // mesmo padrão da Fundação (vinculosFundacao/sugerirVinculosFundacao/
-  // sincronizarVinculosFundacao, que continuam intactos - a Fundação usa
-  // um cálculo por tipo que não vale a pena generalizar agora), guardada
-  // em memoriaCalculo.<pavimento>.vinculos.
-  const totaisVinculaveisPavimento = pav => {
-    const pilar = pilarDoPavimento(pav);
-    const viga = vigaDoPavimento(pav);
-    const lista = [
-      { chave: "pilarConcreto", rotulo: "Concreto dos pilares", unidade: "m³", palavras: ["pilar"], valor: pilar.concretoM3 },
-      { chave: "pilarForma", rotulo: "Fôrma dos pilares", unidade: "m²", palavras: ["fôrma","forma","pilar"], valor: pilar.formaM2 },
-      { chave: "pilarAco", rotulo: "Aço dos pilares", unidade: "kg", palavras: ["aço","aco","armadura","pilar"], valor: somaAcoPorBitola(pilar.acoPorBitola) },
-      { chave: "vigaConcreto", rotulo: "Concreto das vigas", unidade: "m³", palavras: ["viga"], valor: viga.concretoM3 },
-      { chave: "vigaForma", rotulo: "Fôrma das vigas", unidade: "m²", palavras: ["fôrma","forma","viga"], valor: viga.formaM2 },
-      { chave: "vigaAco", rotulo: "Aço das vigas", unidade: "kg", palavras: ["aço","aco","armadura","viga"], valor: somaAcoPorBitola(viga.acoPorBitola) },
-    ];
-    if (pav === "terreo") {
-      lista.push({ chave: "vigaMagro", rotulo: "Concreto magro (viga baldrame)", unidade: "m²", palavras: ["magro","lastro"], valor: calcularConcretoMagroViga(viga) });
-    }
-    if (PAVIMENTOS_COM_LAJE.includes(pav)) {
-      const laje = lajeDoPavimento(pav);
-      lista.push({ chave: "lajeVolume", rotulo: "Concretagem da laje", unidade: "m³", palavras: ["laje"], valor: laje.volumeM3 });
-      lista.push({ chave: "lajeAco", rotulo: "Aço da laje maciça", unidade: "kg", palavras: ["aço","aco","armadura","laje"], valor: somaAcoPorBitola(laje.acoPorBitola) });
-      lista.push({ chave: "lajeAcoVigota", rotulo: "Aço da vigota (tela soldada)", unidade: "kg", palavras: ["tela","malha","vigota"], valor: calcularAcoVigotaLaje(laje) });
-    }
-    return lista.filter(t => t.valor > 0); // sem valor ainda não faz sentido oferecer pra vincular
-  };
-  const vinculosDoPavimento = pav => orc?.memoriaCalculo?.[pav]?.vinculos || {};
-  const salvarVinculosDoPavimento = (pav, patch) => salvarOrc({
-    memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), vinculos: { ...vinculosDoPavimento(pav), ...patch } } },
-  });
-  const sugerirVinculosPavimento = pav => {
-    const vinculos = vinculosDoPavimento(pav);
-    const sugestoes = {};
-    totaisVinculaveisPavimento(pav).forEach(({ chave, palavras }) => {
-      if (vinculos[chave]) return;
-      const achado = itensOrcamentoParaVincular.find(it => palavras.some(p => normalizarTexto(it.descricao || "").includes(normalizarTexto(p))));
-      if (achado) sugestoes[chave] = achado.id;
-    });
-    if (!Object.keys(sugestoes).length) { showToast(`Não encontrei nenhuma linha do orçamento parecida com os termos de ${ROTULO_PAVIMENTO[pav]} (pilar, viga, laje, fôrma, aço).`, "warn"); return; }
-    salvarVinculosDoPavimento(pav, sugestoes);
-    showToast(`${Object.keys(sugestoes).length} vínculo(s) sugerido(s) para ${ROTULO_PAVIMENTO[pav]} - confira antes de sincronizar.`);
-  };
-  const sincronizarVinculosPavimento = pav => {
-    const vinculos = vinculosDoPavimento(pav);
-    const totais = totaisVinculaveisPavimento(pav);
-    const atualizacoes = new Map();
-    totais.forEach(({ chave, valor }) => {
-      const itemId = vinculos[chave];
-      if (itemId) atualizacoes.set(itemId, Number(valor.toFixed(4)));
-    });
-    if (!atualizacoes.size) { showToast("Nenhum total vinculado ainda - escolha uma linha do orçamento para cada total antes de sincronizar.", "warn"); return; }
-    salvarOrc({ itens: (orc.itens || []).map(it => atualizacoes.has(it.id) ? { ...it, quantidade: atualizacoes.get(it.id) } : it) });
-    showToast(`${atualizacoes.size} linha(s) do orçamento atualizada(s) com os totais de ${ROTULO_PAVIMENTO[pav]}.`);
-  };
-  const renderVincularPavimento = pav => {
-    const vinculos = vinculosDoPavimento(pav);
-    const totais = totaisVinculaveisPavimento(pav);
-    if (!totais.length) return null; // nada preenchido ainda neste pavimento - vincular não faz sentido
-    return (
-      <div style={{background:C.bg,border:`1px solid ${C.blue}44`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:8}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
-          <div><p style={{fontSize:12,fontWeight:850,color:C.text}}>VINCULAR AO ORÇAMENTO</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Escolha, para cada total, qual linha já lançada no orçamento deve receber essa quantidade. Nada muda sozinho - só ao clicar em "sincronizar".</p></div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            <Btn size="sm" v="ghost" onClick={()=>sugerirVinculosPavimento(pav)} disabled={!itensOrcamentoParaVincular.length}><Ic n="search"/> SUGERIR VÍNCULOS</Btn>
-            <Btn size="sm" onClick={()=>sincronizarVinculosPavimento(pav)} disabled={!Object.keys(vinculos).length}><Ic n="refresh"/> SINCRONIZAR QUANTIDADES</Btn>
-          </div>
-        </div>
-        <div style={{display:"flex",flexDirection:"column",gap:5}}>
-          {totais.map(({chave,rotulo,unidade,valor})=>{
-            const itemVinculado = itensOrcamentoParaVincular.find(it=>it.id===vinculos[chave]);
-            return (
-              <div key={chave} style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",padding:"5px 0",borderBottom:`1px solid ${C.line}`}}>
-                <div style={{minWidth:170}}><b style={{fontSize:10.5,color:C.text}}>{rotulo}</b><span style={{fontSize:9.5,color:C.muted,marginLeft:6}}>{valor.toFixed(valor<10?3:2)} {unidade}</span></div>
-                <Ic n="chevR" s={12} color={C.muted}/>
-                <select aria-label={`Linha do orçamento vinculada a ${rotulo}`} value={vinculos[chave]||""} onChange={e=>salvarVinculosDoPavimento(pav,{[chave]:e.target.value||undefined})}
-                  style={{flex:"1 1 260px",minWidth:200,padding:"5px 7px",border:`1px solid ${itemVinculado?C.blue:C.border}`,borderRadius:5,background:C.card,color:C.text,fontSize:10}}>
-                  <option value="">Sem vínculo</option>
-                  {itensOrcamentoParaVincular.map(it=><option key={it.id} value={it.id}>{it.codigo?`${it.codigo} · `:""}{(it.descricao||"sem descrição").slice(0,70)} ({it.unidade||"UN"})</option>)}
-                </select>
-                {itemVinculado&&<span title="Quantidade atual desta linha no orçamento" style={{fontSize:9.5,color:C.muted}}>atual: {Number(itemVinculado.quantidade||0).toLocaleString("pt-BR",{maximumFractionDigits:3})} {itemVinculado.unidade}</span>}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
   // Editor de aço por bitola, reaproveitado pelo cartão de Vigas, de Laje e
   // pelo resumo de Pilares - cada bitola é uma linha (∅ + kg), igual ao
   // "Resumo Aço" que o próprio projeto imprime por folha. Uma lista vazia
@@ -1127,40 +1017,6 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     window.addEventListener("mouseup", soltar);
   };
 
-  // Vínculo entre um total da memória e uma linha do orçamento: guarda só o
-  // id do item, a quantidade em si sempre vem recalculada na hora de
-  // sincronizar - nunca fica "presa" num valor antigo.
-  const vinculosFundacao = orc?.memoriaCalculo?.fundacao?.vinculos || {};
-  const salvarVinculosFundacao = patch => salvarOrc({
-    memoriaCalculo: { ...(orc?.memoriaCalculo || {}), fundacao: { ...(orc?.memoriaCalculo?.fundacao || {}), vinculos: { ...vinculosFundacao, ...patch } } },
-  });
-  const itensOrcamentoParaVincular = (orc?.itens || []).filter(it => it.tipo !== "titulo");
-  const sugerirVinculosFundacao = () => {
-    const sugestoes = {};
-    TOTAIS_VINCULAVEIS_FUNDACAO.forEach(({ chave, palavras }) => {
-      if (vinculosFundacao[chave]) return; // já vinculado - não propõe sobrescrever
-      const achado = itensOrcamentoParaVincular.find(it => palavras.some(p => normalizarTexto(it.descricao || "").includes(normalizarTexto(p))));
-      if (achado) sugestoes[chave] = achado.id;
-    });
-    if (!Object.keys(sugestoes).length) { showToast("Não encontrei nenhuma linha do orçamento parecida com os termos da fundação (escavação, concreto magro, fôrmas, sapata, reaterro, aço).","warn"); return; }
-    salvarVinculosFundacao(sugestoes);
-    showToast(`${Object.keys(sugestoes).length} vínculo(s) sugerido(s) - confira antes de sincronizar.`);
-  };
-  const sincronizarVinculosFundacao = () => {
-    const totais = resumoSapatasFundacao.totais;
-    const valorPorChave = {
-      volumeEscavacao: totais.volumeEscavacao, areaConcretoMagro: totais.areaConcretoMagro, formaArea: totais.formaArea,
-      volumeSapata: totais.volumeSapata, reaterro: totais.reaterro, pesoAco: totais.pesoAco,
-    };
-    const atualizacoes = new Map();
-    TOTAIS_VINCULAVEIS_FUNDACAO.forEach(({ chave }) => {
-      const itemId = vinculosFundacao[chave];
-      if (itemId) atualizacoes.set(itemId, Number(valorPorChave[chave].toFixed(4)));
-    });
-    if (!atualizacoes.size) { showToast("Nenhum total vinculado ainda - escolha uma linha do orçamento para cada total antes de sincronizar.","warn"); return; }
-    salvarOrc({ itens: (orc.itens || []).map(it => atualizacoes.has(it.id) ? { ...it, quantidade: atualizacoes.get(it.id) } : it) });
-    showToast(`${atualizacoes.size} linha(s) do orçamento atualizada(s) com os totais da memória de cálculo.`);
-  };
   // Editar um campo é o próprio sinal de "já revisei essa linha" - por isso
   // limpa precisaRevisar aqui, num único lugar, em vez de exigir um botão
   // separado de "marcar como revisado" (achado da crítica Impeccable).
@@ -4940,44 +4796,12 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                 </div>
               </div>}
 
-              {/* Vincular ao orçamento: painel de referência deixa de ser só
-                  referência aqui, por pedido explícito do usuário - cada total
-                  pode ser ligado a UMA linha já lançada no orçamento, e um botão
-                  sincroniza a quantidade sob demanda (nunca em segundo plano). */}
-              <div style={{background:C.bg,border:`1px solid ${C.blue}44`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:8}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
-                  <div><p style={{fontSize:12,fontWeight:850,color:C.text}}>VINCULAR AO ORÇAMENTO</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Escolha, para cada total, qual linha já lançada no orçamento deve receber essa quantidade. Nada muda sozinho - só ao clicar em "sincronizar".</p></div>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                    <Btn size="sm" v="ghost" onClick={sugerirVinculosFundacao} disabled={!itensOrcamentoParaVincular.length}><Ic n="search"/> SUGERIR VÍNCULOS</Btn>
-                    <Btn size="sm" onClick={sincronizarVinculosFundacao} disabled={!Object.keys(vinculosFundacao).length}><Ic n="refresh"/> SINCRONIZAR QUANTIDADES</Btn>
-                  </div>
-                </div>
-                <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                  {TOTAIS_VINCULAVEIS_FUNDACAO.map(({chave,rotulo,unidade})=>{
-                    const valor = resumoSapatasFundacao.totais[chave];
-                    const itemVinculado = itensOrcamentoParaVincular.find(it=>it.id===vinculosFundacao[chave]);
-                    return (
-                      <div key={chave} style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",padding:"5px 0",borderBottom:`1px solid ${C.line}`}}>
-                        <div style={{minWidth:170}}><b style={{fontSize:10.5,color:C.text}}>{rotulo}</b><span style={{fontSize:9.5,color:C.muted,marginLeft:6}}>{valor.toFixed(valor<10?3:2)} {unidade}</span></div>
-                        <Ic n="chevR" s={12} color={C.muted}/>
-                        <select aria-label={`Linha do orçamento vinculada a ${rotulo}`} value={vinculosFundacao[chave]||""} onChange={e=>salvarVinculosFundacao({[chave]:e.target.value||undefined})}
-                          style={{flex:"1 1 260px",minWidth:200,padding:"5px 7px",border:`1px solid ${itemVinculado?C.blue:C.border}`,borderRadius:5,background:C.card,color:C.text,fontSize:10}}>
-                          <option value="">Sem vínculo</option>
-                          {itensOrcamentoParaVincular.map(it=><option key={it.id} value={it.id}>{it.codigo?`${it.codigo} · `:""}{(it.descricao||"sem descrição").slice(0,70)} ({it.unidade||"UN"})</option>)}
-                        </select>
-                        {itemVinculado&&<span title="Quantidade atual desta linha no orçamento" style={{fontSize:9.5,color:C.muted}}>atual: {Number(itemVinculado.quantidade||0).toLocaleString("pt-BR",{maximumFractionDigits:3})} {itemVinculado.unidade}</span>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
             ) : (
             <div style={{display:"flex",flexDirection:"column",gap:14}}>
               {renderCardPilar(pav)}
               {renderCardViga(pav)}
               {PAVIMENTOS_COM_LAJE.includes(pav) && renderCardLaje(pav)}
-              {renderVincularPavimento(pav)}
             </div>
             )}
           </div>
