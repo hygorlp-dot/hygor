@@ -65,6 +65,11 @@ import {
 import {
   CHAVE_PAVIMENTO, extrairElementosEstruturais, extrairQuantitativosPavimentos, extrairResumoAco, extrairSapatasFundacao,
 } from "../estrutural-pdf-extrator";
+import {
+  novaLinhaCaixa, novaLinhaConexao, novaLinhaContagem, novaLinhaPeca, novaLinhaTuboFlexivel, novaLinhaTuboRigido,
+  novoHidrossanitario, somaComprimento, somaQuantidade,
+} from "../memoria-calculo-hidrossanitario";
+import { extrairTabelasHidrossanitario } from "../hidrossanitario-pdf-extrator";
 
 // Total de um item com BDI. Se o item tiver BDI proprio (it.bdi), ele prevalece
 // sobre o BDI global do orcamento - permite uma linha com BDI diferente.
@@ -152,10 +157,13 @@ const ROTULO_CAMPO_SAPATA = {
 const PAVIMENTOS_ESTRUTURA = [["terreo","TÉRREO"],["pavimento1","1º PAVIMENTO"],["cobertura","COBERTURA"]];
 const PAVIMENTOS_COM_LAJE = ["pavimento1","cobertura"];
 // A Memória de Cálculo é organizada por projeto (disciplina) e, dentro de
-// cada uma, por pavimento - hoje só Estrutural existe, mas a estrutura já
-// deixa lugar pronto para Arquitetura/Elétrica/Hidráulica etc. mais à
-// frente, sem precisar reorganizar de novo quando chegarem.
-const DISCIPLINAS_MEMORIA = [["estrutural","ESTRUTURAL"]];
+// cada uma, por pavimento - a estrutura deixa lugar pronto para as
+// próximas disciplinas (Elétrica etc.) sem precisar reorganizar de novo.
+// Hidrossanitário (28/08/2026) é a primeira depois de Estrutural - o
+// projeto real não quebra os quantitativos por pavimento (a folha "Tabelas
+// e Detalhes" já consolida a obra inteira), por isso não usa o mesmo
+// aninhamento por pavimento do Estrutural.
+const DISCIPLINAS_MEMORIA = [["estrutural","ESTRUTURAL"],["hidrossanitario","HIDROSSANITÁRIO"]];
 
 // Índice da navegação lateral - um nó por pavimento, uma folha por
 // elemento estrutural (mesma árvore pedida: Fundação > Sapatas; Térreo >
@@ -278,6 +286,50 @@ const StructuralElementSection = ({ id, sectionRef, title, subtitle, open, onTog
     </div>}
   </div>
 );
+
+// Tabela editável genérica (hidrossanitário: 8 tabelas com colunas
+// diferentes, mesmo esqueleto visual do editor de aço por bitola do
+// estrutural - cabeçalho de coluna, "+ adicionar linha", lixeira discreta,
+// total explícito no rodapé). `colunas`: [{chave,rotulo,largura,numero,
+// opcoes}] - `opcoes` (array) vira <select>, senão <input> (number se
+// `numero`, senão texto).
+const TabelaEditavel = ({ colunas, linhas, onChange, onAdd, onRemove, totalLabel, totalValor }) => {
+  const grid = `${colunas.map(c => c.largura || "1fr").join(" ")} 22px`;
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:0}}>
+      {linhas.length>0&&(
+        <div style={{display:"grid",gridTemplateColumns:grid,gap:6,padding:"0 2px 4px",borderBottom:`1px solid ${C.line}`,marginBottom:4}}>
+          {colunas.map(c=><span key={c.chave} style={{fontSize:8.5,fontWeight:800,color:C.subtle,textAlign:c.numero?"right":"left"}}>{c.rotulo}</span>)}
+          <span/>
+        </div>
+      )}
+      {linhas.map((linha,i)=>(
+        <div key={i} style={{display:"grid",gridTemplateColumns:grid,gap:6,alignItems:"center",padding:"3px 0"}}>
+          {colunas.map(c=>(
+            <span key={c.chave}>
+              {c.opcoes ? (
+                <select aria-label={c.rotulo} value={linha[c.chave]||""} onChange={e=>onChange(i,{[c.chave]:e.target.value})}
+                  style={{width:"100%",boxSizing:"border-box",padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,fontSize:10.5}}>
+                  <option value="">-</option>
+                  {c.opcoes.map(o=><option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input type={c.numero?"number":"text"} min={c.numero?0:undefined} step={c.numero?"any":undefined} aria-label={c.rotulo} value={linha[c.chave]}
+                  onChange={e=>onChange(i,{[c.chave]:c.numero?e.target.value.replace(",","."):e.target.value})}
+                  style={{width:"100%",boxSizing:"border-box",padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:c.numero?"right":"left",fontSize:10.5}}/>
+              )}
+            </span>
+          ))}
+          <button aria-label="Remover esta linha" title="Remover" onClick={()=>onRemove(i)} style={{border:0,background:"transparent",color:C.subtle,cursor:"pointer",display:"flex",justifyContent:"center"}}><Ic n="trash" s={13}/></button>
+        </div>
+      ))}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:8}}>
+        <button onClick={onAdd} style={{border:`1px dashed ${C.border}`,background:"transparent",color:C.blue,borderRadius:5,padding:"5px 9px",fontSize:9.5,fontWeight:800,cursor:"pointer"}}>+ Adicionar linha</button>
+        {totalLabel&&linhas.length>0&&<span style={{fontSize:10.5,color:C.text}}>{totalLabel}: <b style={{color:C.purple,fontSize:12}}>{totalValor}</b></span>}
+      </div>
+    </div>
+  );
+};
 
 export default function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null, todasObras=null, todosOrcamentosGlobais=null, todosPlanosGlobais=null }) {
   // Quando aberta de dentro de uma obra (ObraDetalhe), `data` chega ISOLADA
@@ -963,6 +1015,16 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     return { concreto, forma, aco, escavacao: t.volumeEscavacao };
   })();
 
+  // Hidrossanitário (28/08/2026) - não quebra por pavimento como o
+  // estrutural (a folha "Tabelas e Detalhes" do projeto já consolida a obra
+  // inteira), então vive direto em memoriaCalculo.hidrossanitario, sem
+  // chave de pavimento.
+  const hidrossanitarioDoOrc = () => ({ ...novoHidrossanitario(), ...(orc?.memoriaCalculo?.hidrossanitario || {}) });
+  const salvarHidrossanitario = patch => salvarOrc({
+    memoriaCalculo: { ...(orc?.memoriaCalculo || {}), hidrossanitario: { ...hidrossanitarioDoOrc(), ...patch } },
+  });
+  const salvarTabelaHidrossanitario = (chave, lista) => salvarHidrossanitario({ [chave]: lista });
+
   // Editor de aço por bitola, reaproveitado pelo cartão de Vigas, de Laje e
   // pelo resumo de Pilares - cada bitola é uma linha (∅ + kg), igual ao
   // "Resumo Aço" que o próprio projeto imprime por folha. Uma lista vazia
@@ -1249,6 +1311,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [pdfAviso, setPdfAviso] = useState("");
   const [pdfPreviewCompleto, setPdfPreviewCompleto] = useState(null); // sapatas + pilares + aço, por pavimento
   const [pdfPreviewQuantitativos, setPdfPreviewQuantitativos] = useState(null); // array por pavimento
+  const [pdfPreviewHidrossanitario, setPdfPreviewHidrossanitario] = useState(null); // 8 tabelas (folha "Tabelas e Detalhes")
   // Achado do Impeccable (P0, 27/08/2026): aplicar o PDF sobrescreve sem
   // nenhuma confirmação, e o aviso de sobrescrita ficava dentro da mesma
   // caixa verde de "sucesso" do preview - a cor dizia "pode seguir" bem no
@@ -1257,22 +1320,39 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // substituído.
   const [confirmarAplicarPdf, setConfirmarAplicarPdf] = useState(false);
   const [confirmarAplicarQuantitativos, setConfirmarAplicarQuantitativos] = useState(false);
+  const [confirmarAplicarHidrossanitario, setConfirmarAplicarHidrossanitario] = useState(false);
   const lerPdfEmSegundoPlano = async (...args) => {
     const { lerTextoPdf } = await import("../ler-estrutural-pdf");
     return lerTextoPdf(...args);
   };
-  const processarPdfProjeto = async arquivo => {
+  // `tipoForcado` deixa o painel de Hidrossanitário (seu próprio botão de
+  // upload, sem dropdown) chamar direto sem depender do <select> do
+  // Estrutural - dois estados controlando o mesmo tipo criaria uma corrida
+  // (setPdfTipoDocumento não atualiza a tempo do processarPdfProjeto
+  // seguinte, no mesmo clique, ler o valor novo).
+  const processarPdfProjeto = async (arquivo, tipoForcado) => {
     if (!arquivo) return;
-    setPdfProcessando(true); setPdfAviso(""); setPdfPreviewCompleto(null); setPdfPreviewQuantitativos(null);
+    const tipo = tipoForcado || pdfTipoDocumento;
+    setPdfProcessando(true); setPdfAviso(""); setPdfPreviewCompleto(null); setPdfPreviewQuantitativos(null); setPdfPreviewHidrossanitario(null);
     try {
       const texto = await lerPdfEmSegundoPlano(arquivo);
-      if (pdfTipoDocumento === "quantitativos") {
+      if (tipo === "quantitativos") {
         const achado = extrairQuantitativosPavimentos(texto);
         if (!achado.length) {
           setPdfAviso("Não encontrei nenhum \"Grupo de Pisos\" neste PDF. Confirme se é o arquivo de Quantitativos de superfícies e volumes.");
           return;
         }
         setPdfPreviewQuantitativos(achado);
+        return;
+      }
+      if (tipo === "hidrossanitario") {
+        const achado = extrairTabelasHidrossanitario(texto);
+        const total = Object.values(achado).reduce((s, lista) => s + lista.length, 0);
+        if (!total) {
+          setPdfAviso("Não encontrei a folha \"Tabelas e Detalhes\" neste PDF. Confirme se é o projeto hidrossanitário completo.");
+          return;
+        }
+        setPdfPreviewHidrossanitario(achado);
         return;
       }
       // precisaRevisar sinaliza na tabela que essa linha veio de extração
@@ -1403,6 +1483,33 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     salvarOrc({ memoriaCalculo: memoriaNova });
     showToast(`Concreto/fôrma de vigas, área e volume de laje de ${atualizados} pavimento(s) importados do PDF de Quantitativos.`);
     setPdfPreviewQuantitativos(null);
+  };
+
+  const CHAVES_TABELAS_HIDROSSANITARIO = [
+    ["conexoesAguaFria", "Conexões - Água fria"], ["conexoesEsgoto", "Conexões - Esgoto"],
+    ["caixasRalosComplementos", "Caixas, ralos e complementos"], ["pecasHidraulicasSanitarias", "Peças hidráulicas e sanitárias"],
+    ["registrosAcessorios", "Registros e acessórios"], ["calhasPluviais", "Calhas pluviais"],
+    ["tubosRigidos", "Tubos rígidos"], ["tubosFlexiveis", "Tubos flexíveis"],
+  ];
+  const descricaoSubstituicaoHidrossanitario = () => {
+    if (!pdfPreviewHidrossanitario) return "";
+    const atual = hidrossanitarioDoOrc();
+    const comDado = CHAVES_TABELAS_HIDROSSANITARIO
+      .filter(([chave]) => atual[chave]?.length && pdfPreviewHidrossanitario[chave]?.length)
+      .map(([, label]) => label);
+    if (!comDado.length) return "Nenhum dado anterior será perdido - o hidrossanitário ainda está vazio na memória de cálculo.";
+    return `${comDado.join(", ")} já ${comDado.length > 1 ? "têm" : "tem"} linhas preenchidas - serão substituídas pelo que este PDF trouxer (tabela inteira, não soma/duplica). Não tem como desfazer depois de aplicar.`;
+  };
+  const aplicarPdfPreviewHidrossanitario = () => {
+    if (!pdfPreviewHidrossanitario) return;
+    const patch = {};
+    let tabelasAtualizadas = 0;
+    for (const [chave] of CHAVES_TABELAS_HIDROSSANITARIO) {
+      if (pdfPreviewHidrossanitario[chave]?.length) { patch[chave] = pdfPreviewHidrossanitario[chave]; tabelasAtualizadas += 1; }
+    }
+    salvarHidrossanitario(patch);
+    showToast(`${tabelasAtualizadas} tabela(s) do hidrossanitário importadas do PDF - reimportar sempre substitui a tabela inteira, nunca soma/duplica.`);
+    setPdfPreviewHidrossanitario(null);
   };
 
   // Folga/profundidade de escavação são convenção de obra, não do projeto -
@@ -5037,6 +5144,95 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
             </div>
           </div>
           </>)}
+
+          {disciplinaMemoria==="hidrossanitario" && (() => {
+            const hidro = hidrossanitarioDoOrc();
+            const totalPecas = CHAVES_TABELAS_HIDROSSANITARIO
+              .filter(([chave]) => chave!=="tubosRigidos" && chave!=="tubosFlexiveis")
+              .reduce((s,[chave]) => s + somaQuantidade(hidro[chave]), 0);
+            const totalMetrosTubo = somaComprimento(hidro.tubosRigidos) + somaComprimento(hidro.tubosFlexiveis);
+            const secaoHidro = (chave, titulo, colunas, novaLinha, totalLabel, totalFn) => {
+              const idSecao = `hidro-${chave}`;
+              const lista = hidro[chave] || [];
+              return (
+                <StructuralElementSection key={chave} id={idSecao} sectionRef={registrarSecaoMemoria(idSecao)}
+                  title={titulo} open={elementoEstaAberto(idSecao, chave==="conexoesAguaFria")} onToggle={()=>alternarElementoMemoria(idSecao, chave==="conexoesAguaFria")}
+                  resumo={<Metric label="Linhas" value={lista.length}/>}>
+                  <TabelaEditavel colunas={colunas} linhas={lista}
+                    onChange={(i,patch)=>salvarTabelaHidrossanitario(chave, lista.map((l,idx)=>idx===i?{...l,...patch}:l))}
+                    onAdd={()=>salvarTabelaHidrossanitario(chave, [...lista, novaLinha()])}
+                    onRemove={i=>salvarTabelaHidrossanitario(chave, lista.filter((_,idx)=>idx!==i))}
+                    totalLabel={totalLabel} totalValor={totalFn?totalFn(lista):""}/>
+                </StructuralElementSection>
+              );
+            };
+            return (
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
+                  <div><p style={{fontSize:12,fontWeight:850,color:C.text}}>IMPORTAR PROJETO HIDROSSANITÁRIO (PDF)</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Lê a folha "Tabelas e Detalhes" do projeto (a que consolida o quantitativo da obra inteira) e preenche as 8 tabelas abaixo - você sempre confere antes de aplicar.</p></div>
+                  <label onDragOver={e=>{e.preventDefault();setPdfArrastando(true);}} onDragLeave={()=>setPdfArrastando(false)}
+                    onDrop={e=>{e.preventDefault();setPdfArrastando(false);const arquivo=e.dataTransfer.files?.[0];if(arquivo)processarPdfProjeto(arquivo,"hidrossanitario");}}
+                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,border:`1.5px dashed ${pdfArrastando?C.blue:C.border}`,background:pdfArrastando?`${C.blue}0a`:"transparent",borderRadius:7,padding:"14px 10px",cursor:pdfProcessando?"wait":"pointer"}}>
+                    <input type="file" accept=".pdf" disabled={pdfProcessando} onChange={e=>{const arquivo=e.target.files?.[0];e.target.value="";if(arquivo)processarPdfProjeto(arquivo,"hidrossanitario");}} style={{display:"none"}}/>
+                    <Ic n="download" s={16} color={C.muted}/>
+                    <span style={{fontSize:10.5,fontWeight:800,color:C.blue}}>{pdfProcessando?"Lendo PDF...":"Selecionar PDF"}</span>
+                    <span style={{fontSize:9,color:C.muted}}>ou arraste o arquivo aqui</span>
+                  </label>
+                  {pdfAviso&&<p style={{fontSize:10,color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
+                  {pdfPreviewHidrossanitario&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
+                    <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Encontrado - confira antes de aplicar.</p>
+                    <div style={{border:`1px solid ${C.orange}55`,background:`${C.orange}12`,borderRadius:6,padding:"7px 9px"}}>
+                      <p style={{fontSize:10,fontWeight:850,color:C.orange}}>⚠ Reimportar substitui cada tabela inteira - nunca soma/duplica, mas também não tem desfazer depois de aplicar.</p>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                      {CHAVES_TABELAS_HIDROSSANITARIO.filter(([chave])=>pdfPreviewHidrossanitario[chave]?.length).map(([chave,label])=>(
+                        <p key={chave} style={{fontSize:9.5,color:C.text}}><b>{label}:</b> {pdfPreviewHidrossanitario[chave].length} linha(s)</p>
+                      ))}
+                    </div>
+                    <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewHidrossanitario(null)}>DESCARTAR</Btn><Btn size="sm" onClick={()=>setConfirmarAplicarHidrossanitario(true)}><Ic n="check"/> APLICAR (SUBSTITUI A VERSÃO ANTERIOR)</Btn></div>
+                  </div>}
+                </div>
+
+                <ConfirmDialog open={confirmarAplicarHidrossanitario} onOpenChange={aberto=>!aberto&&setConfirmarAplicarHidrossanitario(false)}
+                  title="Aplicar tabelas do hidrossanitário" tone="danger" confirmLabel="Aplicar mesmo assim"
+                  description={descricaoSubstituicaoHidrossanitario()}
+                  onConfirm={()=>{aplicarPdfPreviewHidrossanitario();setConfirmarAplicarHidrossanitario(false);}}/>
+
+                <FloorSection id="hidrossanitario" sectionRef={registrarSecaoMemoria("hidrossanitario")} title="HIDROSSANITÁRIO"
+                  resumo={<>
+                    <Metric label="Peças e conexões" value={fmtNum(totalPecas,0)} unit="un"/>
+                    <Metric label="Tubulação" value={fmtNum(totalMetrosTubo)} unit="m"/>
+                  </>}>
+                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    {secaoHidro("conexoesAguaFria","Conexões - água fria",
+                      [{chave:"codigo",rotulo:"Código",largura:"70px"},{chave:"descricao",rotulo:"Descrição"},{chave:"quantidade",rotulo:"Qtd",largura:"64px",numero:true}],
+                      novaLinhaConexao, "Total de peças", lista=>fmtNum(somaQuantidade(lista),0))}
+                    {secaoHidro("conexoesEsgoto","Conexões - esgoto",
+                      [{chave:"codigo",rotulo:"Código",largura:"70px"},{chave:"descricao",rotulo:"Descrição"},{chave:"quantidade",rotulo:"Qtd",largura:"64px",numero:true}],
+                      novaLinhaConexao, "Total de peças", lista=>fmtNum(somaQuantidade(lista),0))}
+                    {secaoHidro("caixasRalosComplementos","Caixas, ralos e complementos",
+                      [{chave:"descricao",rotulo:"Descrição"},{chave:"tipoSistema",rotulo:"Tipo de sistema",largura:"140px"},{chave:"quantidade",rotulo:"Qtd",largura:"64px",numero:true}],
+                      novaLinhaCaixa, "Total", lista=>fmtNum(somaQuantidade(lista),0))}
+                    {secaoHidro("pecasHidraulicasSanitarias","Peças hidráulicas e sanitárias",
+                      [{chave:"descricao",rotulo:"Descrição"},{chave:"abreviatura",rotulo:"Abreviatura",largura:"120px"},{chave:"tipoSistema",rotulo:"Tipo de sistema",largura:"120px"},{chave:"quantidade",rotulo:"Qtd",largura:"64px",numero:true}],
+                      novaLinhaPeca, "Total", lista=>fmtNum(somaQuantidade(lista),0))}
+                    {secaoHidro("registrosAcessorios","Registros e acessórios",
+                      [{chave:"descricao",rotulo:"Descrição"},{chave:"quantidade",rotulo:"Qtd",largura:"64px",numero:true}],
+                      novaLinhaContagem, "Total", lista=>fmtNum(somaQuantidade(lista),0))}
+                    {secaoHidro("calhasPluviais","Calhas pluviais",
+                      [{chave:"descricao",rotulo:"Descrição"},{chave:"quantidade",rotulo:"Qtd",largura:"64px",numero:true}],
+                      novaLinhaContagem, "Total", lista=>fmtNum(somaQuantidade(lista),0))}
+                    {secaoHidro("tubosRigidos","Tubos rígidos",
+                      [{chave:"descricao",rotulo:"Descrição"},{chave:"abreviatura",rotulo:"Abrev.",largura:"80px"},{chave:"sistema",rotulo:"Sistema",largura:"90px"},{chave:"diametroMm",rotulo:"Ø (mm)",largura:"70px",numero:true},{chave:"comprimentoM",rotulo:"Compr. (m)",largura:"80px",numero:true}],
+                      novaLinhaTuboRigido, "Total", lista=>`${fmtNum(somaComprimento(lista))} m`)}
+                    {secaoHidro("tubosFlexiveis","Tubos flexíveis",
+                      [{chave:"descricao",rotulo:"Descrição"},{chave:"diametroMm",rotulo:"Ø (mm)",largura:"70px",numero:true},{chave:"comprimentoM",rotulo:"Compr. (m)",largura:"80px",numero:true}],
+                      novaLinhaTuboFlexivel, "Total", lista=>`${fmtNum(somaComprimento(lista))} m`)}
+                  </div>
+                </FloorSection>
+              </div>
+            );
+          })()}
         </div>
       )}
 
