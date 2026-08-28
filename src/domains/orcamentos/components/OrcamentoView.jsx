@@ -796,6 +796,97 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), laje: { ...lajeDoPavimento(pav), ...patch } } },
   });
 
+  // Achado do Impeccable (P1): "Vincular ao Orçamento" existia só na
+  // Fundação - 75% das abas construídas nesta sessão (Térreo/1º Pav/
+  // Cobertura) não tinham o mesmo fechamento, obrigando o usuário a
+  // decorar o total e digitar na aba Orçamento na mão. Versão genérica do
+  // mesmo padrão da Fundação (vinculosFundacao/sugerirVinculosFundacao/
+  // sincronizarVinculosFundacao, que continuam intactos - a Fundação usa
+  // um cálculo por tipo que não vale a pena generalizar agora), guardada
+  // em memoriaCalculo.<pavimento>.vinculos.
+  const totaisVinculaveisPavimento = pav => {
+    const pilar = pilarDoPavimento(pav);
+    const viga = vigaDoPavimento(pav);
+    const lista = [
+      { chave: "pilarConcreto", rotulo: "Concreto dos pilares", unidade: "m³", palavras: ["pilar"], valor: pilar.concretoM3 },
+      { chave: "pilarForma", rotulo: "Fôrma dos pilares", unidade: "m²", palavras: ["fôrma","forma","pilar"], valor: pilar.formaM2 },
+      { chave: "pilarAco", rotulo: "Aço dos pilares", unidade: "kg", palavras: ["aço","aco","armadura","pilar"], valor: somaAcoPorBitola(pilar.acoPorBitola) },
+      { chave: "vigaConcreto", rotulo: "Concreto das vigas", unidade: "m³", palavras: ["viga"], valor: viga.concretoM3 },
+      { chave: "vigaForma", rotulo: "Fôrma das vigas", unidade: "m²", palavras: ["fôrma","forma","viga"], valor: viga.formaM2 },
+      { chave: "vigaAco", rotulo: "Aço das vigas", unidade: "kg", palavras: ["aço","aco","armadura","viga"], valor: somaAcoPorBitola(viga.acoPorBitola) },
+    ];
+    if (pav === "terreo") {
+      lista.push({ chave: "vigaMagro", rotulo: "Concreto magro (viga baldrame)", unidade: "m²", palavras: ["magro","lastro"], valor: calcularConcretoMagroViga(viga) });
+    }
+    if (PAVIMENTOS_COM_LAJE.includes(pav)) {
+      const laje = lajeDoPavimento(pav);
+      lista.push({ chave: "lajeVolume", rotulo: "Concretagem da laje", unidade: "m³", palavras: ["laje"], valor: laje.volumeM3 });
+      lista.push({ chave: "lajeAco", rotulo: "Aço da laje", unidade: "kg", palavras: ["aço","aco","armadura","laje"], valor: somaAcoPorBitola(laje.acoPorBitola) });
+    }
+    return lista.filter(t => t.valor > 0); // sem valor ainda não faz sentido oferecer pra vincular
+  };
+  const vinculosDoPavimento = pav => orc?.memoriaCalculo?.[pav]?.vinculos || {};
+  const salvarVinculosDoPavimento = (pav, patch) => salvarOrc({
+    memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), vinculos: { ...vinculosDoPavimento(pav), ...patch } } },
+  });
+  const sugerirVinculosPavimento = pav => {
+    const vinculos = vinculosDoPavimento(pav);
+    const sugestoes = {};
+    totaisVinculaveisPavimento(pav).forEach(({ chave, palavras }) => {
+      if (vinculos[chave]) return;
+      const achado = itensOrcamentoParaVincular.find(it => palavras.some(p => normalizarTexto(it.descricao || "").includes(normalizarTexto(p))));
+      if (achado) sugestoes[chave] = achado.id;
+    });
+    if (!Object.keys(sugestoes).length) { showToast(`Não encontrei nenhuma linha do orçamento parecida com os termos de ${ROTULO_PAVIMENTO[pav]} (pilar, viga, laje, fôrma, aço).`, "warn"); return; }
+    salvarVinculosDoPavimento(pav, sugestoes);
+    showToast(`${Object.keys(sugestoes).length} vínculo(s) sugerido(s) para ${ROTULO_PAVIMENTO[pav]} - confira antes de sincronizar.`);
+  };
+  const sincronizarVinculosPavimento = pav => {
+    const vinculos = vinculosDoPavimento(pav);
+    const totais = totaisVinculaveisPavimento(pav);
+    const atualizacoes = new Map();
+    totais.forEach(({ chave, valor }) => {
+      const itemId = vinculos[chave];
+      if (itemId) atualizacoes.set(itemId, Number(valor.toFixed(4)));
+    });
+    if (!atualizacoes.size) { showToast("Nenhum total vinculado ainda - escolha uma linha do orçamento para cada total antes de sincronizar.", "warn"); return; }
+    salvarOrc({ itens: (orc.itens || []).map(it => atualizacoes.has(it.id) ? { ...it, quantidade: atualizacoes.get(it.id) } : it) });
+    showToast(`${atualizacoes.size} linha(s) do orçamento atualizada(s) com os totais de ${ROTULO_PAVIMENTO[pav]}.`);
+  };
+  const renderVincularPavimento = pav => {
+    const vinculos = vinculosDoPavimento(pav);
+    const totais = totaisVinculaveisPavimento(pav);
+    if (!totais.length) return null; // nada preenchido ainda neste pavimento - vincular não faz sentido
+    return (
+      <div style={{background:C.bg,border:`1px solid ${C.blue}44`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
+          <div><p style={{fontSize:12,fontWeight:850,color:C.text}}>VINCULAR AO ORÇAMENTO</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Escolha, para cada total, qual linha já lançada no orçamento deve receber essa quantidade. Nada muda sozinho - só ao clicar em "sincronizar".</p></div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            <Btn size="sm" v="ghost" onClick={()=>sugerirVinculosPavimento(pav)} disabled={!itensOrcamentoParaVincular.length}><Ic n="search"/> SUGERIR VÍNCULOS</Btn>
+            <Btn size="sm" onClick={()=>sincronizarVinculosPavimento(pav)} disabled={!Object.keys(vinculos).length}><Ic n="refresh"/> SINCRONIZAR QUANTIDADES</Btn>
+          </div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:5}}>
+          {totais.map(({chave,rotulo,unidade,valor})=>{
+            const itemVinculado = itensOrcamentoParaVincular.find(it=>it.id===vinculos[chave]);
+            return (
+              <div key={chave} style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",padding:"5px 0",borderBottom:`1px solid ${C.line}`}}>
+                <div style={{minWidth:170}}><b style={{fontSize:10.5,color:C.text}}>{rotulo}</b><span style={{fontSize:9.5,color:C.muted,marginLeft:6}}>{valor.toFixed(valor<10?3:2)} {unidade}</span></div>
+                <Ic n="chevR" s={12} color={C.muted}/>
+                <select aria-label={`Linha do orçamento vinculada a ${rotulo}`} value={vinculos[chave]||""} onChange={e=>salvarVinculosDoPavimento(pav,{[chave]:e.target.value||undefined})}
+                  style={{flex:"1 1 260px",minWidth:200,padding:"5px 7px",border:`1px solid ${itemVinculado?C.blue:C.border}`,borderRadius:5,background:C.card,color:C.text,fontSize:10}}>
+                  <option value="">Sem vínculo</option>
+                  {itensOrcamentoParaVincular.map(it=><option key={it.id} value={it.id}>{it.codigo?`${it.codigo} · `:""}{(it.descricao||"sem descrição").slice(0,70)} ({it.unidade||"UN"})</option>)}
+                </select>
+                {itemVinculado&&<span title="Quantidade atual desta linha no orçamento" style={{fontSize:9.5,color:C.muted}}>atual: {Number(itemVinculado.quantidade||0).toLocaleString("pt-BR",{maximumFractionDigits:3})} {itemVinculado.unidade}</span>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   // Editor de aço por bitola, reaproveitado pelo cartão de Vigas, de Laje e
   // pelo resumo de Pilares - cada bitola é uma linha (∅ + kg), igual ao
   // "Resumo Aço" que o próprio projeto imprime por folha. Uma lista vazia
@@ -841,7 +932,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           <p style={{fontSize:13,fontWeight:800,color:C.text}}>PILARES</p>
         </div>
         <p style={{fontSize:10,color:C.muted,marginTop:-4}}>Total do pavimento inteiro (o orçamento sempre orça pilares assim, nunca pilar a pilar) - o projeto detalha cada pilar, mas concreto e fôrma somam certo pra cá.</p>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
           <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>CONCRETO (M³)</span>{campoPilar("concretoM3","Concreto dos pilares")}</label>
           <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>FÔRMA (M²)</span>{campoPilar("formaM2","Fôrma dos pilares")}</label>
         </div>
@@ -864,7 +955,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
         <div><p style={{fontSize:13,fontWeight:800,color:C.text}}>VIGAS</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>O projeto detalha viga a viga (armadura), mas só entrega concreto/fôrma como total do pavimento inteiro - por isso é um valor só, não uma tabela por viga.</p></div>
         {viga.avisoConcretoIncorreto&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:6,padding:"7px 9px"}}><p style={{fontSize:10,color:C.orange,fontWeight:700,lineHeight:1.5}}>⚠ O próprio projeto avisa que não conseguiu calcular o volume de concreto das vigas deste pavimento com segurança ("por não dispor dos dados necessários"). Confira antes de confiar neste número.</p></div>}
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
           <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>CONCRETO (M³)</span>{campoViga("concretoM3","Concreto das vigas")}</label>
           <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>FÔRMA (M²)</span>{campoViga("formaM2","Fôrma das vigas")}</label>
         </div>
@@ -874,7 +965,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           return (
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 10px",display:"flex",flexDirection:"column",gap:6}}>
               <div><p style={{fontSize:9.5,fontWeight:800,color:C.muted}}>CONCRETO MAGRO (LASTRO SOB A VIGA BALDRAME)</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Comprimento total já vem da área em planta das vigas (importada do Quantitativos) dividida pela largura - só a largura e o acréscimo precisam ser digitados.</p></div>
-              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
                 <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:C.muted}}>LARGURA DA VIGA (M)</span>{campoViga("larguraVigaM","Largura da viga")}</label>
                 <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:C.muted}}>LARGURA A ACRESCER, DE CADA LADO (M)</span>{campoViga("magroLarguraAcrescidaM","Largura a acrescer no magro, de cada lado")}</label>
               </div>
@@ -898,7 +989,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     return (
       <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
         <div><p style={{fontSize:13,fontWeight:800,color:C.text}}>LAJE</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Volume total do pavimento, já separado em maciça (concreto cheio) e vigota (pré-moldada) - o mesmo jeito que o Quantitativos do projeto resume.</p></div>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
           <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>VOLUME TOTAL (M³)</span>{campoLaje("volumeM3","Volume total de laje")}</label>
           <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>MACIÇA (M³)</span>{campoLaje("volumeMacicasM3","Volume de laje maciça")}</label>
           <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>VIGOTA (M³)</span>{campoLaje("volumeVigotasM3","Volume de laje vigota")}</label>
@@ -1047,6 +1138,14 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [pdfAviso, setPdfAviso] = useState("");
   const [pdfPreviewCompleto, setPdfPreviewCompleto] = useState(null); // sapatas + pilares + aço, por pavimento
   const [pdfPreviewQuantitativos, setPdfPreviewQuantitativos] = useState(null); // array por pavimento
+  // Achado do Impeccable (P0, 27/08/2026): aplicar o PDF sobrescreve sem
+  // nenhuma confirmação, e o aviso de sobrescrita ficava dentro da mesma
+  // caixa verde de "sucesso" do preview - a cor dizia "pode seguir" bem no
+  // meio do único aviso que devia soar como alerta. Agora exige confirmar
+  // num diálogo à parte, mostrando exatamente o que já existe e será
+  // substituído.
+  const [confirmarAplicarPdf, setConfirmarAplicarPdf] = useState(false);
+  const [confirmarAplicarQuantitativos, setConfirmarAplicarQuantitativos] = useState(false);
   const lerPdfEmSegundoPlano = async (...args) => {
     const { lerTextoPdf } = await import("../ler-estrutural-pdf");
     return lerTextoPdf(...args);
@@ -1085,6 +1184,28 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     } finally {
       setPdfProcessando(false);
     }
+  };
+
+  // Achado do Impeccable (P0): antes de confirmar, mostra exatamente o que
+  // já existe e vai ser substituído - não só "isso sobrescreve", mas O QUÊ.
+  const descricaoSubstituicaoPdfCompleto = () => {
+    if (!pdfPreviewCompleto) return "";
+    const mc = orc?.memoriaCalculo || {};
+    const partes = [];
+    if (pdfPreviewCompleto.sapatas.length && mc.fundacao?.sapatas?.length) {
+      partes.push(`Fundação já tem ${mc.fundacao.sapatas.length} tipo(s) de sapata`);
+    }
+    for (const [pav, label] of PAVIMENTOS_ESTRUTURA) {
+      const existentes = [];
+      if (mc[pav]?.pilar?.concretoM3 || mc[pav]?.pilar?.formaM2) existentes.push("pilares");
+      if (mc[pav]?.viga?.concretoM3 || mc[pav]?.viga?.formaM2) existentes.push("vigas");
+      if (mc[pav]?.laje?.volumeM3) existentes.push("laje");
+      const trazNesteImport = pdfPreviewCompleto.pilares[pav]?.length || pdfPreviewCompleto.pilaresAcoPorBitola[pav]
+        || pdfPreviewCompleto.vigasAcoPorBitola[pav] || pdfPreviewCompleto.lajesAcoPorBitola[pav];
+      if (existentes.length && trazNesteImport) partes.push(`${label} já tem ${existentes.join("/")} preenchido(s)`);
+    }
+    if (!partes.length) return "Nenhum dado anterior será perdido - esses pavimentos ainda estão vazios na memória de cálculo.";
+    return `${partes.join("; ")} - tudo isso será substituído pelo que este PDF trouxer. Não tem como desfazer depois de aplicar.`;
   };
   const aplicarPdfPreviewCompleto = () => {
     if (!pdfPreviewCompleto) return;
@@ -1133,6 +1254,16 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     setPdfPreviewCompleto(null);
   };
 
+  const descricaoSubstituicaoQuantitativos = () => {
+    if (!pdfPreviewQuantitativos?.length) return "";
+    const mc = orc?.memoriaCalculo || {};
+    const pavimentosComDado = pdfPreviewQuantitativos
+      .map(grupo => ({ grupo, pav: CHAVE_PAVIMENTO[grupo.pavimento] }))
+      .filter(({ pav }) => pav && (mc[pav]?.viga?.concretoM3 || mc[pav]?.viga?.formaM2 || mc[pav]?.laje?.volumeM3))
+      .map(({ grupo }) => grupo.pavimento);
+    if (!pavimentosComDado.length) return "Nenhum dado anterior será perdido - esses pavimentos ainda estão vazios na memória de cálculo.";
+    return `${pavimentosComDado.join(", ")} já ${pavimentosComDado.length > 1 ? "têm" : "tem"} concreto/fôrma de vigas ou volume de laje preenchidos - serão substituídos pelo que este PDF trouxer. Não tem como desfazer depois de aplicar.`;
+  };
   const aplicarPdfPreviewQuantitativos = () => {
     if (!pdfPreviewQuantitativos?.length) return;
     const memoriaAtual = orc?.memoriaCalculo || {};
@@ -4459,7 +4590,10 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
             </label>
             {pdfAviso&&<p style={{fontSize:10,color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
             {pdfPreviewCompleto&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
-              <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Encontrado - confira antes de aplicar. <b>Reimportar substitui a versão anterior de cada pavimento, nunca soma/duplica.</b></p>
+              <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Encontrado - confira antes de aplicar.</p>
+              <div style={{border:`1px solid ${C.orange}55`,background:`${C.orange}12`,borderRadius:6,padding:"7px 9px"}}>
+                <p style={{fontSize:10,fontWeight:850,color:C.orange}}>⚠ Reimportar substitui a versão anterior de cada pavimento - nunca soma/duplica, mas também não tem desfazer depois de aplicar.</p>
+              </div>
 
               {!!pdfPreviewCompleto.sapatas.length&&<div style={{display:"flex",flexDirection:"column",gap:5}}>
                 <p style={{fontSize:10,fontWeight:850,color:C.text}}>FUNDAÇÃO: {pdfPreviewCompleto.sapatas.length} tipo(s) de sapata</p>
@@ -4498,7 +4632,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                   </p>;
                 })}
               </div>
-              <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewCompleto(null)}>DESCARTAR</Btn><Btn size="sm" onClick={aplicarPdfPreviewCompleto}><Ic n="check"/> APLICAR (SUBSTITUI A VERSÃO ANTERIOR)</Btn></div>
+              <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewCompleto(null)}>DESCARTAR</Btn><Btn size="sm" onClick={()=>setConfirmarAplicarPdf(true)}><Ic n="check"/> APLICAR (SUBSTITUI A VERSÃO ANTERIOR)</Btn></div>
             </div>}
 
             {pdfPreviewQuantitativos&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
@@ -4509,9 +4643,18 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                   {" · laje "}{grupo.volumeLajesM3?.toFixed(2)}m³{grupo.volumeLajesM3?` (${grupo.lajeMacicasM3?.toFixed(2)}m³ maciça + ${grupo.lajeVigotasM3?.toFixed(2)}m³ vigota)`:""}
                 </p>)}
               </div>
-              <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewQuantitativos(null)}>DESCARTAR</Btn><Btn size="sm" onClick={aplicarPdfPreviewQuantitativos}><Ic n="check"/> APLICAR NAS TABELAS</Btn></div>
+              <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewQuantitativos(null)}>DESCARTAR</Btn><Btn size="sm" onClick={()=>setConfirmarAplicarQuantitativos(true)}><Ic n="check"/> APLICAR NAS TABELAS</Btn></div>
             </div>}
           </div>
+
+          <ConfirmDialog open={confirmarAplicarPdf} onOpenChange={aberto=>!aberto&&setConfirmarAplicarPdf(false)}
+            title="Aplicar projeto estrutural completo" tone="danger" confirmLabel="Aplicar mesmo assim"
+            description={descricaoSubstituicaoPdfCompleto()}
+            onConfirm={()=>{aplicarPdfPreviewCompleto();setConfirmarAplicarPdf(false);}}/>
+          <ConfirmDialog open={confirmarAplicarQuantitativos} onOpenChange={aberto=>!aberto&&setConfirmarAplicarQuantitativos(false)}
+            title="Aplicar Quantitativos de superfícies e volumes" tone="danger" confirmLabel="Aplicar mesmo assim"
+            description={descricaoSubstituicaoQuantitativos()}
+            onConfirm={()=>{aplicarPdfPreviewQuantitativos();setConfirmarAplicarQuantitativos(false);}}/>
 
           <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
             {[["fundacao","FUNDAÇÃO"],...PAVIMENTOS_ESTRUTURA].map(([valor,label])=>(
@@ -4743,6 +4886,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
               {renderCardPilar(pavimentoMemoria)}
               {renderCardViga(pavimentoMemoria)}
               {PAVIMENTOS_COM_LAJE.includes(pavimentoMemoria) && renderCardLaje(pavimentoMemoria)}
+              {renderVincularPavimento(pavimentoMemoria)}
             </div>
           )}
         </div>
