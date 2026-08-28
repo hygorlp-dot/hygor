@@ -157,6 +157,128 @@ const PAVIMENTOS_COM_LAJE = ["pavimento1","cobertura"];
 // frente, sem precisar reorganizar de novo quando chegarem.
 const DISCIPLINAS_MEMORIA = [["estrutural","ESTRUTURAL"]];
 
+// Índice da navegação lateral - um nó por pavimento, uma folha por
+// elemento estrutural (mesma árvore pedida: Fundação > Sapatas; Térreo >
+// Pilares/Vigas/Laje; ...). Derivado de PAVIMENTOS_ESTRUTURA/
+// PAVIMENTOS_COM_LAJE, calculado uma vez - nunca hardcoded à parte deles.
+const ITENS_NAV_MEMORIA = [
+  { id:"fundacao", label:"FUNDAÇÃO", elementos:[{ id:"fundacao", label:"Sapatas" }] },
+  ...PAVIMENTOS_ESTRUTURA.map(([pav,label]) => ({
+    id:pav, label,
+    elementos:[
+      { id:`${pav}-pilares`, label:"Pilares" },
+      { id:`${pav}-vigas`, label:"Vigas" },
+      ...(PAVIMENTOS_COM_LAJE.includes(pav) ? [{ id:`${pav}-laje`, label:"Laje" }] : []),
+    ],
+  })),
+];
+
+// ===================================================================
+// Design system da Memória de Cálculo Navegável (28/08/2026, pedido
+// detalhado do usuário) - componentes pequenos e reutilizados por
+// Sapatas/Pilares/Vigas/Laje, com UMA linguagem visual consistente para
+// cada tipo de dado:
+//   Metric          - leitura compacta (resumo de cabeçalho/topo)
+//   EditableField   - o usuário edita isto (aparência de formulário)
+//   CalculatedValue - o sistema calculou isto (fundo cinza, sem chrome
+//                     de input, nunca editável)
+//   ResultValue     - o resultado principal de uma seção (destaque)
+//   Warning         - alerta técnico (âmbar) ou erro (vermelho)
+//   CalculationDetails - fórmula, secundária ao resultado, sob demanda
+//   FloorSection / StructuralElementSection - blocos de layout
+// Nenhum destes muda regra de negócio - só como o mesmo dado já existente
+// é apresentado.
+// ===================================================================
+const Metric = ({ label, value, unit }) => (
+  <div style={{display:"flex",flexDirection:"column",gap:1}}>
+    <span style={{fontSize:9.5,fontWeight:700,color:C.muted}}>{label}</span>
+    <span style={{fontSize:14,fontWeight:800,color:C.text,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:9.5,fontWeight:700,color:C.muted,marginLeft:3}}>{unit}</span>}</span>
+  </div>
+);
+
+const EditableField = ({ label, value, onChange, unit, ariaLabel, width }) => (
+  <label style={{display:"flex",flexDirection:"column",gap:3,width}}>
+    <span style={{fontSize:9,fontWeight:800,color:C.muted}}>{label}</span>
+    <span style={{position:"relative",display:"flex"}}>
+      <input type="number" min="0" step="any" aria-label={ariaLabel||label} value={value}
+        onChange={e=>onChange(e.target.value.replace(",","."))}
+        style={{width:"100%",boxSizing:"border-box",padding:unit?"7px 28px 7px 8px":"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right",fontSize:11,fontVariantNumeric:"tabular-nums"}}/>
+      {unit&&<span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",fontSize:9,color:C.subtle,pointerEvents:"none"}}>{unit}</span>}
+    </span>
+  </label>
+);
+
+const CalculatedValue = ({ label, value, unit }) => (
+  <div style={{display:"flex",flexDirection:"column",gap:2,background:C.card2,borderRadius:6,padding:"6px 9px"}}>
+    <span style={{fontSize:9,fontWeight:700,color:C.muted}}>{label}</span>
+    <span style={{fontSize:13,fontWeight:800,color:C.text,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:9,fontWeight:700,color:C.muted,marginLeft:3}}>{unit}</span>}</span>
+  </div>
+);
+
+const ResultValue = ({ label, value, unit, tone="purple" }) => {
+  const cor = tone==="blue" ? C.blue : C.purple;
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:2,background:`${cor}0c`,border:`1px solid ${cor}33`,borderRadius:6,padding:"7px 10px"}}>
+      <span style={{fontSize:9,fontWeight:700,color:cor}}>{label}</span>
+      <span style={{fontSize:17,fontWeight:900,color:cor,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:10,fontWeight:700,marginLeft:3}}>{unit}</span>}</span>
+    </div>
+  );
+};
+
+const Warning = ({ children, tone="warn" }) => {
+  const cor = tone==="error" ? C.red : C.orange;
+  return (
+    <div style={{background:`${cor}0d`,border:`1px solid ${cor}44`,borderRadius:6,padding:"7px 9px"}}>
+      <p style={{fontSize:9.5,color:cor,fontWeight:700,lineHeight:1.5}}>⚠ {children}</p>
+    </div>
+  );
+};
+
+// "Ver memória do cálculo" - a fórmula fica secundária, escondida até o
+// usuário pedir (pedido explícito: resultado antes do detalhe).
+const CalculationDetails = ({ formula }) => (
+  <details>
+    <summary style={{cursor:"pointer",fontSize:9,color:C.blue,fontWeight:700}}>Ver memória do cálculo</summary>
+    <p style={{fontSize:9,color:C.muted,marginTop:4,lineHeight:1.5}}>{formula}</p>
+  </details>
+);
+
+// Âncora de rolagem: compensa a altura do cabeçalho sticky do app (~64px)
+// mais uma folga, para o topo da seção não ficar escondido atrás dele.
+const SCROLL_MARGIN = 84;
+// Nível 3 da hierarquia visual (Resumo/Parâmetros/Aço por bitola/Áreas...)
+// dentro de um elemento estrutural - mais discreto que o título do elemento
+// (nível 2), mais forte que o rótulo de um campo (nível 4).
+const LABEL_GRUPO = { fontSize:11, fontWeight:800, color:C.subtle, marginBottom:6 };
+const fmtNum = (n,casas=2) => Number(n||0).toLocaleString("pt-BR",{maximumFractionDigits:casas});
+
+const FloorSection = ({ id, sectionRef, title, resumo, children }) => (
+  <section ref={sectionRef} id={id} style={{display:"flex",flexDirection:"column",gap:12,scrollMarginTop:SCROLL_MARGIN}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:"4px 18px",paddingBottom:8,borderBottom:`2px solid ${C.border}`}}>
+      <p style={{fontSize:16,fontWeight:900,color:C.text,letterSpacing:.2}}>{title}</p>
+      {resumo&&<div style={{display:"flex",gap:18,flexWrap:"wrap"}}>{resumo}</div>}
+    </div>
+    {children}
+  </section>
+);
+
+const StructuralElementSection = ({ id, sectionRef, title, subtitle, open, onToggle, resumo, warning, children }) => (
+  <div ref={sectionRef} id={id} style={{border:`1px solid ${C.border}`,borderRadius:7,background:C.bg,scrollMarginTop:SCROLL_MARGIN,overflow:"hidden"}}>
+    <button onClick={onToggle} aria-expanded={open} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"10px 12px",border:0,background:"transparent",cursor:"pointer",textAlign:"left"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+        <span style={{display:"flex",flexShrink:0,transform:open?"rotate(90deg)":"none",transition:"transform 120ms ease-out"}}><Ic n="chevR" s={12} color={C.muted}/></span>
+        <span style={{fontSize:12.5,fontWeight:850,color:C.text,whiteSpace:"nowrap"}}>{title}</span>
+        {subtitle&&<span style={{fontSize:9.5,color:C.muted}}>{subtitle}</span>}
+      </div>
+      {resumo&&<div style={{display:"flex",gap:14,flexWrap:"wrap",justifyContent:"flex-end"}}>{resumo}</div>}
+    </button>
+    {open&&<div style={{padding:"2px 12px 12px",display:"flex",flexDirection:"column",gap:10}}>
+      {warning}
+      {children}
+    </div>}
+  </div>
+);
+
 export default function Orcamento({ data, update, showToast, obraIdFixo="", currentUser=null, todasObras=null, todosOrcamentosGlobais=null, todosPlanosGlobais=null }) {
   // Quando aberta de dentro de uma obra (ObraDetalhe), `data` chega ISOLADA
   // por obra (dadosDaObraIsolados) - data.obras/orcamentos/planos só têm os
@@ -181,6 +303,38 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [view,      setView]      = useState(orcamentoFixoInicial?"editor":"lista");   // "lista" | "editor"
   const [orcAba,    setOrcAba]    = useState("orcamento"); // orçamento | insumos | próprias | memoria
   const [disciplinaMemoria,setDisciplinaMemoria]=useState("estrutural"); // estrutural (única disciplina por enquanto)
+  // Memória de Cálculo Navegável (28/08/2026, pedido detalhado do usuário):
+  // índice lateral com destaque de leitura atual (scroll-spy) + accordion
+  // por elemento estrutural, pra responder "em que pavimento/elemento eu
+  // estou" sem depender só de rolar a página inteira.
+  const [secaoAtivaMemoria,setSecaoAtivaMemoria]=useState("");
+  const [elementoAbertoMemoria,setElementoAbertoMemoria]=useState({}); // "<pav>-<elemento>": bool
+  const secoesMemoriaRef=useRef({}); // id -> nó DOM, populado durante o render
+  const registrarSecaoMemoria = id => no => { if(no)secoesMemoriaRef.current[id]=no; else delete secoesMemoriaRef.current[id]; };
+  const elementoEstaAberto = (chave, padraoAberto) => elementoAbertoMemoria[chave] ?? padraoAberto;
+  const alternarElementoMemoria = (chave, padraoAberto) => setElementoAbertoMemoria(atual => ({
+    ...atual, [chave]: !elementoEstaAberto(chave, padraoAberto),
+  }));
+  // rAF duplo: se a seção acabou de abrir agora (accordion fechado antes do
+  // clique), o layout ainda não assentou no primeiro frame - rolar cedo
+  // demais mira na altura de ANTES do conteúdo abrir.
+  const navegarParaSecaoMemoria = (id, chaveElemento) => {
+    if (chaveElemento) setElementoAbertoMemoria(atual => ({ ...atual, [chaveElemento]: true }));
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      secoesMemoriaRef.current[id]?.scrollIntoView({ behavior:"smooth", block:"start" });
+    }));
+  };
+  useEffect(() => {
+    if (orcAba!=="memoria"||disciplinaMemoria!=="estrutural") return;
+    const nos = Object.entries(secoesMemoriaRef.current);
+    if (!nos.length) return;
+    const observador = new IntersectionObserver(entradas => {
+      const visiveis = entradas.filter(e=>e.isIntersecting).sort((a,b)=>a.boundingClientRect.top-b.boundingClientRect.top);
+      if (visiveis.length) setSecaoAtivaMemoria(visiveis[0].target.id);
+    }, { rootMargin:`-${SCROLL_MARGIN}px 0px -65% 0px`, threshold:0 });
+    nos.forEach(([,no])=>observador.observe(no));
+    return () => observador.disconnect();
+  }, [orcAba, disciplinaMemoria]);
   const [selOrc,    setSelOrc]    = useState(()=>orcamentoFixoInicial?.id||getActiveBudgetBaseline(data,obraContextoSalvo(),"controle").budget?.id||null);      // id do orçamento aberto
   const [basesRemotas, setBasesRemotas] = useState([]);
   const [basesCarregando, setBasesCarregando] = useState(false);
@@ -782,6 +936,32 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const salvarLajeDoPavimento = (pav, patch) => salvarOrc({
     memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), laje: { ...lajeDoPavimento(pav), ...patch } } },
   });
+  // Concreto/fôrma/aço somados de Pilares+Vigas+Laje de UM pavimento - usado
+  // tanto no resumo do cabeçalho do próprio pavimento quanto no resumo geral
+  // da memória inteira (mesma conta, dois lugares, uma função só).
+  const totaisDoPavimento = pav => {
+    const pilar = pilarDoPavimento(pav), viga = vigaDoPavimento(pav);
+    let concreto = Number(pilar.concretoM3||0) + Number(viga.concretoM3||0);
+    let forma = Number(pilar.formaM2||0) + Number(viga.formaM2||0);
+    let aco = somaAcoPorBitola(pilar.acoPorBitola) + somaAcoPorBitola(viga.acoPorBitola);
+    if (PAVIMENTOS_COM_LAJE.includes(pav)) {
+      const laje = lajeDoPavimento(pav);
+      concreto += Number(laje.volumeM3||0);
+      aco += somaAcoPorBitola(laje.acoPorBitola) + calcularAcoVigotaLaje(laje);
+    }
+    return { concreto, forma, aco };
+  };
+  // Resumo geral do topo (pedido do usuário: leitura rápida antes de entrar
+  // na memória detalhada) - soma Fundação + os três pavimentos.
+  const resumoGeralMemoria = (() => {
+    const t = resumoSapatasFundacao.totais;
+    let concreto = t.volumeSapata, forma = t.formaArea, aco = t.pesoAco;
+    for (const [pav] of PAVIMENTOS_ESTRUTURA) {
+      const tp = totaisDoPavimento(pav);
+      concreto += tp.concreto; forma += tp.forma; aco += tp.aco;
+    }
+    return { concreto, forma, aco, escavacao: t.volumeEscavacao };
+  })();
 
   // Editor de aço por bitola, reaproveitado pelo cartão de Vigas, de Laje e
   // pelo resumo de Pilares - cada bitola é uma linha (∅ + kg), igual ao
@@ -827,25 +1007,31 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // colunas, bem menos cramped que as 23 das sapatas, não precisa disso.
   const renderCardPilar = pav => {
     const pilar = pilarDoPavimento(pav);
-    const campoPilar = (campo,rotulo) => <input type="number" min="0" step="any" aria-label={rotulo} value={pilar[campo]}
-      onChange={e=>salvarPilarDoPavimento(pav,{[campo]:e.target.value.replace(",",".")})}
-      style={{width:"100%",boxSizing:"border-box",padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.bg,color:C.text,textAlign:"right",fontSize:11}}/>;
+    const chave = `${pav}-pilares`;
+    const aberto = elementoEstaAberto(chave, true); // Pilares abre por padrão (spec do usuário)
+    const acoPilares = somaAcoPorBitola(pilar.acoPorBitola);
     return (
-      <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-          {pilar.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo aqui remove este aviso." style={{flexShrink:0,width:7,height:7,borderRadius:"50%",background:C.orange}}/>}
-          <p style={{fontSize:13,fontWeight:800,color:C.text}}>PILARES</p>
-        </div>
+      <StructuralElementSection id={chave} sectionRef={registrarSecaoMemoria(chave)}
+        title={<span style={{display:"flex",alignItems:"center",gap:6}}>PILARES{pilar.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo aqui remove este aviso." style={{width:7,height:7,borderRadius:"50%",background:C.orange,display:"inline-block"}}/>}</span>}
+        open={aberto} onToggle={()=>alternarElementoMemoria(chave,true)}
+        resumo={<>
+          <Metric label="Concreto" value={fmtNum(pilar.concretoM3)} unit="m³"/>
+          <Metric label="Fôrma" value={fmtNum(pilar.formaM2)} unit="m²"/>
+          <Metric label="Aço" value={fmtNum(acoPilares,1)} unit="kg"/>
+        </>}>
         <p style={{fontSize:10,color:C.muted,marginTop:-4}}>Total do pavimento inteiro (o orçamento sempre orça pilares assim, nunca pilar a pilar) - o projeto detalha cada pilar, mas concreto e fôrma somam certo pra cá.</p>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
-          <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>CONCRETO (M³)</span>{campoPilar("concretoM3","Concreto dos pilares")}</label>
-          <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>FÔRMA (M²)</span>{campoPilar("formaM2","Fôrma dos pilares")}</label>
+        <div>
+          <p style={LABEL_GRUPO}>Parâmetros</p>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
+            <EditableField label="CONCRETO (M³)" ariaLabel="Concreto dos pilares" value={pilar.concretoM3} onChange={v=>salvarPilarDoPavimento(pav,{concretoM3:v})}/>
+            <EditableField label="FÔRMA (M²)" ariaLabel="Fôrma dos pilares" value={pilar.formaM2} onChange={v=>salvarPilarDoPavimento(pav,{formaM2:v})}/>
+          </div>
         </div>
         <div>
-          <p style={{fontSize:9,fontWeight:800,color:C.muted,marginBottom:5}}>AÇO POR BITOLA</p>
+          <p style={LABEL_GRUPO}>Aço por bitola</p>
           {renderEditorAcoPorBitola(pilar.acoPorBitola, lista=>salvarPilarDoPavimento(pav,{acoPorBitola:lista}), "Total aço dos pilares")}
         </div>
-      </div>
+      </StructuralElementSection>
     );
   };
 
@@ -853,122 +1039,111 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // pronto por pavimento inteiro (ver novaVigaPavimento/novaLajePavimento).
   const renderCardViga = pav => {
     const viga = vigaDoPavimento(pav);
-    const campoViga = (campo,rotulo) => <input type="number" min="0" step="any" aria-label={rotulo} value={viga[campo]}
-      onChange={e=>salvarVigaDoPavimento(pav,{[campo]:e.target.value.replace(",",".")})}
-      style={{width:"100%",boxSizing:"border-box",padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.bg,color:C.text,textAlign:"right",fontSize:11}}/>;
+    const chave = `${pav}-vigas`;
+    const aberto = elementoEstaAberto(chave, false);
+    const acoVigas = somaAcoPorBitola(viga.acoPorBitola);
+    const magro = calcularConcretoMagroViga(viga);
+    const comprimento = viga.larguraVigaM>0 ? viga.areaPlantaVigasM2/viga.larguraVigaM : 0;
     return (
-      <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
-        <div><p style={{fontSize:13,fontWeight:800,color:C.text}}>VIGAS</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>O projeto detalha viga a viga (armadura), mas só entrega concreto/fôrma como total do pavimento inteiro - por isso é um valor só, não uma tabela por viga.</p></div>
-        {viga.avisoConcretoIncorreto&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:6,padding:"7px 9px"}}><p style={{fontSize:10,color:C.orange,fontWeight:700,lineHeight:1.5}}>⚠ O próprio projeto avisa que não conseguiu calcular o volume de concreto das vigas deste pavimento com segurança ("por não dispor dos dados necessários"). Confira antes de confiar neste número.</p></div>}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
-          <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>CONCRETO (M³)</span>{campoViga("concretoM3","Concreto das vigas")}</label>
-          <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>FÔRMA (M²)</span>{campoViga("formaM2","Fôrma das vigas")}</label>
-        </div>
-        {pav==="terreo"&&(()=>{
-          const magro=calcularConcretoMagroViga(viga);
-          const comprimento=viga.larguraVigaM>0?viga.areaPlantaVigasM2/viga.larguraVigaM:0;
-          return (
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 10px",display:"flex",flexDirection:"column",gap:6}}>
-              <div><p style={{fontSize:9.5,fontWeight:800,color:C.muted}}>CONCRETO MAGRO (LASTRO SOB A VIGA BALDRAME)</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Comprimento total já vem da área em planta das vigas (importada do Quantitativos) dividida pela largura - só a largura e o acréscimo precisam ser digitados.</p></div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
-                <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:C.muted}}>LARGURA DA VIGA (M)</span>{campoViga("larguraVigaM","Largura da viga")}</label>
-                <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:C.muted}}>LARGURA A ACRESCER, DE CADA LADO (M)</span>{campoViga("magroLarguraAcrescidaM","Largura a acrescer no magro, de cada lado")}</label>
-              </div>
-              <p style={{fontSize:10,color:C.text}}>Comprimento total: <b>{comprimento.toFixed(2)} m</b> ({viga.areaPlantaVigasM2||0} m² em planta ÷ {viga.larguraVigaM||0} m) · Área do magro: <b>{magro.toFixed(2)} m²</b></p>
-              {!viga.areaPlantaVigasM2&&viga.larguraVigaM>0&&(
-                <p style={{fontSize:9.5,color:C.orange,fontWeight:700,lineHeight:1.5}}>⚠ Área em planta ainda não importada (0 m²) - o concreto/fôrma deste pavimento vieram de uma importação anterior ao PDF de Quantitativos trazer esse dado. Reimporte o PDF de Quantitativos (seção "Importar projeto" acima) para calcular o magro.</p>
-              )}
-            </div>
-          );
-        })()}
+      <StructuralElementSection id={chave} sectionRef={registrarSecaoMemoria(chave)}
+        title="VIGAS" open={aberto} onToggle={()=>alternarElementoMemoria(chave,false)}
+        resumo={<>
+          <Metric label="Concreto" value={fmtNum(viga.concretoM3)} unit="m³"/>
+          <Metric label="Fôrma" value={fmtNum(viga.formaM2)} unit="m²"/>
+          <Metric label="Aço" value={fmtNum(acoVigas,1)} unit="kg"/>
+        </>}
+        warning={viga.avisoConcretoIncorreto&&<Warning>O próprio projeto avisa que não conseguiu calcular o volume de concreto das vigas deste pavimento com segurança ("por não dispor dos dados necessários"). Confira antes de confiar neste número.</Warning>}>
+        <p style={{fontSize:10,color:C.muted,marginTop:-4}}>O projeto detalha viga a viga (armadura), mas só entrega concreto/fôrma como total do pavimento inteiro - por isso é um valor só, não uma tabela por viga.</p>
         <div>
-          <p style={{fontSize:9,fontWeight:800,color:C.muted,marginBottom:5}}>AÇO POR BITOLA</p>
+          <p style={LABEL_GRUPO}>Parâmetros</p>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
+            <EditableField label="CONCRETO (M³)" ariaLabel="Concreto das vigas" value={viga.concretoM3} onChange={v=>salvarVigaDoPavimento(pav,{concretoM3:v})}/>
+            <EditableField label="FÔRMA (M²)" ariaLabel="Fôrma das vigas" value={viga.formaM2} onChange={v=>salvarVigaDoPavimento(pav,{formaM2:v})}/>
+          </div>
+        </div>
+        {pav==="terreo"&&(
+          <div>
+            <p style={LABEL_GRUPO}>Concreto magro (lastro sob a viga baldrame)</p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
+              <EditableField label="LARGURA DA VIGA (M)" ariaLabel="Largura da viga" value={viga.larguraVigaM} onChange={v=>salvarVigaDoPavimento(pav,{larguraVigaM:v})}/>
+              <EditableField label="ACRÉSCIMO DE CADA LADO (M)" ariaLabel="Largura a acrescer no magro, de cada lado" value={viga.magroLarguraAcrescidaM} onChange={v=>salvarVigaDoPavimento(pav,{magroLarguraAcrescidaM:v})}/>
+            </div>
+            <div style={{marginTop:8}}><CalculatedValue label="Área do magro" value={magro.toFixed(2)} unit="m²"/></div>
+            <CalculationDetails formula={`Comprimento = ${Number(viga.areaPlantaVigasM2||0).toFixed(2)} m² em planta ÷ ${Number(viga.larguraVigaM||0).toFixed(3)} m = ${comprimento.toFixed(2)} m. Área do magro = ${comprimento.toFixed(2)} m × (${Number(viga.larguraVigaM||0).toFixed(3)} m largura + 2 × ${Number(viga.magroLarguraAcrescidaM||0).toFixed(3)} m de acréscimo) = ${magro.toFixed(2)} m².`}/>
+            {!viga.areaPlantaVigasM2&&viga.larguraVigaM>0&&(
+              <div style={{marginTop:6}}><Warning>Área em planta ainda não importada (0 m²) - o concreto/fôrma deste pavimento vieram de uma importação anterior ao PDF de Quantitativos trazer esse dado. Reimporte o PDF de Quantitativos (seção "Importar projeto" acima) para calcular o magro.</Warning></div>
+            )}
+          </div>
+        )}
+        <div>
+          <p style={LABEL_GRUPO}>Aço por bitola</p>
           {renderEditorAcoPorBitola(viga.acoPorBitola, lista=>salvarVigaDoPavimento(pav,{acoPorBitola:lista}), "Total aço das vigas")}
         </div>
-      </div>
+      </StructuralElementSection>
     );
   };
 
   const renderCardLaje = pav => {
     const laje = lajeDoPavimento(pav);
-    // Editável, mas com aparência de valor (não de campo de formulário) -
-    // são dados que já chegam prontos do PDF na maioria dos casos; a borda
-    // fica só no card em volta, o input em si não tem chrome (achado do
-    // usuário, 28/08/2026: "os cinco números do topo... se forem apenas
-    // calculados, não deveriam ter aparência de input" - aqui eles não são
-    // calculados, continuam editáveis para corrigir/completar à mão, mas a
-    // MESMA leitura de "isso é informação, não formulário" vale enquanto
-    // ninguém está com o campo em foco).
-    const valorLaje = (campo,rotulo,unidade) => (
-      <label style={{display:"flex",flexDirection:"column",gap:3,background:C.card,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 9px"}}>
-        <span style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.3}}>{rotulo}</span>
-        <span style={{display:"flex",alignItems:"baseline",gap:4}}>
-          <input type="number" min="0" step="any" aria-label={rotulo} value={laje[campo]}
-            onChange={e=>salvarLajeDoPavimento(pav,{[campo]:e.target.value.replace(",",".")})}
-            style={{width:"100%",boxSizing:"border-box",border:0,background:"transparent",color:C.text,fontSize:18,fontWeight:800,padding:0,outline:"none"}}/>
-          <span style={{fontSize:10,color:C.muted,fontWeight:700,whiteSpace:"nowrap"}}>{unidade}</span>
-        </span>
-      </label>
-    );
+    const chave = `${pav}-laje`;
+    const aberto = elementoEstaAberto(chave, false);
+    const acoMacica = somaAcoPorBitola(laje.acoPorBitola);
     const acoVigota = calcularAcoVigotaLaje(laje);
+    const semAreaImportada = !laje.areaMacicaM2 && !laje.areaVigotaM2 && laje.volumeM3>0;
     return (
-      <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:12}}>
-        <div><p style={{fontSize:13,fontWeight:800,color:C.text}}>LAJE</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Volumes, áreas e quantitativos de aço do pavimento - o mesmo jeito que o Quantitativos do projeto resume.</p></div>
+      <StructuralElementSection id={chave} sectionRef={registrarSecaoMemoria(chave)}
+        title="LAJE" open={aberto} onToggle={()=>alternarElementoMemoria(chave,false)}
+        resumo={<>
+          <Metric label="Volume" value={fmtNum(laje.volumeM3)} unit="m³"/>
+          <Metric label="Aço maciça" value={fmtNum(acoMacica,1)} unit="kg"/>
+          <Metric label="Aço vigota" value={fmtNum(acoVigota,1)} unit="kg"/>
+        </>}>
+        <p style={{fontSize:10,color:C.muted,marginTop:-4}}>Volumes, áreas e quantitativos de aço do pavimento - o mesmo jeito que o Quantitativos do projeto resume.</p>
 
         <div>
-          <p style={{fontSize:8.5,fontWeight:800,color:C.subtle,marginBottom:6,textTransform:"uppercase",letterSpacing:.4}}>Volumes</p>
+          <p style={LABEL_GRUPO}>Volumes</p>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:8}}>
-            {valorLaje("volumeM3","Volume total","m³")}
-            {valorLaje("volumeMacicasM3","Maciça","m³")}
-            {valorLaje("volumeVigotasM3","Vigota","m³")}
+            <EditableField label="VOLUME TOTAL" unit="m³" ariaLabel="Volume total de laje" value={laje.volumeM3} onChange={v=>salvarLajeDoPavimento(pav,{volumeM3:v})}/>
+            <EditableField label="MACIÇA" unit="m³" ariaLabel="Volume de laje maciça" value={laje.volumeMacicasM3} onChange={v=>salvarLajeDoPavimento(pav,{volumeMacicasM3:v})}/>
+            <EditableField label="VIGOTA" unit="m³" ariaLabel="Volume de laje vigota" value={laje.volumeVigotasM3} onChange={v=>salvarLajeDoPavimento(pav,{volumeVigotasM3:v})}/>
           </div>
         </div>
 
         <div>
-          <p style={{fontSize:8.5,fontWeight:800,color:C.subtle,marginBottom:6,textTransform:"uppercase",letterSpacing:.4}}>Áreas</p>
+          <p style={LABEL_GRUPO}>Áreas</p>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:8}}>
-            {valorLaje("areaMacicaM2","Área maciça","m²")}
-            {valorLaje("areaVigotaM2","Área vigota","m²")}
+            <EditableField label="ÁREA MACIÇA" unit="m²" ariaLabel="Área de laje maciça" value={laje.areaMacicaM2} onChange={v=>salvarLajeDoPavimento(pav,{areaMacicaM2:v})}/>
+            <EditableField label="ÁREA VIGOTA" unit="m²" ariaLabel="Área de laje vigota" value={laje.areaVigotaM2} onChange={v=>salvarLajeDoPavimento(pav,{areaVigotaM2:v})}/>
           </div>
-          {!laje.areaMacicaM2&&!laje.areaVigotaM2&&laje.volumeM3>0&&(
-            <p style={{fontSize:9.5,color:C.orange,fontWeight:700,lineHeight:1.5,marginTop:6}}>⚠ Área ainda não importada (0 m²) - o volume deste pavimento veio de uma importação anterior ao PDF de Quantitativos trazer esse dado. Reimporte o PDF de Quantitativos (seção "Importar projeto" acima) para calcular o aço da vigota.</p>
-          )}
+          {semAreaImportada&&<div style={{marginTop:6}}><Warning>Área ainda não importada (0 m²) - o volume deste pavimento veio de uma importação anterior ao PDF de Quantitativos trazer esse dado. Reimporte o PDF de Quantitativos (seção "Importar projeto" acima) para calcular o aço da vigota.</Warning></div>}
         </div>
 
         <div>
-          <p style={{fontSize:11,fontWeight:850,color:C.text,marginBottom:8}}>AÇO DA LAJE</p>
+          <p style={LABEL_GRUPO}>Aço da laje</p>
           <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"3fr 2fr",gap:10,alignItems:"start"}}>
             <div style={{border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 11px",display:"flex",flexDirection:"column",gap:6}}>
-              <div><p style={{fontSize:10.5,fontWeight:800,color:C.text}}>MACIÇA - AÇO POR BITOLA</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Não inclui vigota - a treliça pré-moldada não entra no Resumo Aço do projeto.</p></div>
+              <div><p style={{fontSize:10.5,fontWeight:800,color:C.text}}>Maciça - aço por bitola</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Não inclui vigota - a treliça pré-moldada não entra no Resumo Aço do projeto.</p></div>
               {renderEditorAcoPorBitola(laje.acoPorBitola, lista=>salvarLajeDoPavimento(pav,{acoPorBitola:lista}), "Total aço maciça")}
             </div>
             <div style={{border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 11px",display:"flex",flexDirection:"column",gap:8}}>
-              <div><p style={{fontSize:10.5,fontWeight:800,color:C.text}}>VIGOTA - TELA SOLDADA</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Peso = área x peso/m² da malha - não soma com o aço da maciça.</p></div>
+              <div><p style={{fontSize:10.5,fontWeight:800,color:C.text}}>Vigota - tela soldada</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Peso = área x peso/m² da malha - não soma com o aço da maciça.</p></div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 <label style={{display:"flex",flexDirection:"column",gap:3}}>
                   <span style={{fontSize:9,color:C.muted}}>MALHA</span>
                   <select aria-label="Malha da tela soldada da vigota" value={laje.malhaVigota}
                     onChange={e=>salvarLajeDoPavimento(pav,{malhaVigota:e.target.value,pesoMalhaVigotaKgM2:PESO_TELA_SOLDADA_KG_M2[e.target.value]})}
-                    style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.bg,color:C.text,fontSize:11}}>
+                    style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,fontSize:11}}>
                     {MALHAS_TELA_SOLDADA.map(m=><option key={m} value={m}>{m}</option>)}
                   </select>
                 </label>
-                <label style={{display:"flex",flexDirection:"column",gap:3}}>
-                  <span style={{fontSize:9,color:C.muted}}>PESO/M² (KG)</span>
-                  <input type="number" min="0" step="any" aria-label="Peso por m² da malha da vigota" value={laje.pesoMalhaVigotaKgM2}
-                    onChange={e=>salvarLajeDoPavimento(pav,{pesoMalhaVigotaKgM2:e.target.value.replace(",",".")})}
-                    style={{width:"100%",boxSizing:"border-box",padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.bg,color:C.text,textAlign:"right",fontSize:11}}/>
-                </label>
+                <EditableField label="PESO/M²" unit="kg" ariaLabel="Peso por m² da malha da vigota" value={laje.pesoMalhaVigotaKgM2} onChange={v=>salvarLajeDoPavimento(pav,{pesoMalhaVigotaKgM2:v})}/>
               </div>
-              <div style={{background:`${C.purple}0c`,border:`1px solid ${C.purple}44`,borderRadius:6,padding:"9px 10px"}}>
-                <p style={{fontSize:8.5,fontWeight:800,color:C.purple,textTransform:"uppercase",letterSpacing:.3}}>Peso calculado</p>
-                <p style={{fontSize:19,fontWeight:900,color:C.purple,marginTop:2}}>{acoVigota.toFixed(1)} kg</p>
-                <p style={{fontSize:9,color:C.muted,marginTop:3}}>{Number(laje.areaVigotaM2||0).toFixed(2)} m² × {Number(laje.pesoMalhaVigotaKgM2||0).toFixed(2)} kg/m²</p>
-              </div>
+              <ResultValue label="Peso calculado" value={acoVigota.toFixed(1)} unit="kg"/>
+              <p style={{fontSize:9,color:C.muted}}>{Number(laje.areaVigotaM2||0).toFixed(2)} m² × {Number(laje.pesoMalhaVigotaKgM2||0).toFixed(2)} kg/m² = {acoVigota.toFixed(1)} kg</p>
             </div>
           </div>
         </div>
-      </div>
+      </StructuralElementSection>
     );
   };
 
@@ -4606,15 +4781,55 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
             description={descricaoSubstituicaoQuantitativos()}
             onConfirm={()=>{aplicarPdfPreviewQuantitativos();setConfirmarAplicarQuantitativos(false);}}/>
 
-          {/* Sequencial, não em abas horizontais - achado do usuário (28/08/2026):
-              a separação por pavimento deve fluir como o próprio orçamento
-              (Fundação → Térreo → 1º Pavimento → Cobertura, uma seção após a
-              outra), não escondida atrás de botões que exigem clicar para
-              ver o restante. */}
-          {[["fundacao","FUNDAÇÃO"],...PAVIMENTOS_ESTRUTURA].map(([pav,label])=>(
-          <div key={pav} style={{display:"flex",flexDirection:"column",gap:14,paddingTop:pav!=="fundacao"?16:0,borderTop:pav!=="fundacao"?`2px solid ${C.border}`:"none"}}>
-            <p style={{fontSize:15,fontWeight:900,color:C.blue,letterSpacing:.3}}>{label}</p>
-            {pav==="fundacao" ? (
+          {/* Memória de Cálculo Navegável (28/08/2026, pedido detalhado do
+              usuário): resumo geral compacto + índice lateral sticky com
+              destaque de leitura atual (scroll-spy) + accordion por
+              elemento estrutural, pra responder rápido "em que pavimento/
+              elemento estou" sem depender só de rolar a página inteira. */}
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 14px",display:"flex",flexWrap:"wrap",gap:"6px 28px",alignItems:"center"}}>
+            <span style={{fontSize:12,fontWeight:850,color:C.text}}>Resumo geral</span>
+            <Metric label="Concreto total" value={fmtNum(resumoGeralMemoria.concreto)} unit="m³"/>
+            <Metric label="Fôrma total" value={fmtNum(resumoGeralMemoria.forma)} unit="m²"/>
+            <Metric label="Aço total" value={fmtNum(resumoGeralMemoria.aco,1)} unit="kg"/>
+            <Metric label="Escavação" value={fmtNum(resumoGeralMemoria.escavacao)} unit="m³"/>
+          </div>
+
+          {isMobile && (
+            <select aria-label="Ir para seção da memória de cálculo" value={secaoAtivaMemoria}
+              onChange={e=>{
+                const item=ITENS_NAV_MEMORIA.find(i=>i.elementos.some(el=>el.id===e.target.value));
+                navegarParaSecaoMemoria(e.target.value, item&&item.id!=="fundacao"?e.target.value:null);
+              }}
+              style={{padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:11,fontWeight:700}}>
+              {ITENS_NAV_MEMORIA.map(item=>(
+                <optgroup key={item.id} label={item.label}>
+                  {item.elementos.map(el=><option key={el.id} value={el.id}>{el.label}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          )}
+
+          <div style={{display:"flex",gap:20,alignItems:"flex-start"}}>
+            {!isMobile && (
+              <nav aria-label="Índice da memória de cálculo" style={{position:"sticky",top:SCROLL_MARGIN,width:220,flexShrink:0,display:"flex",flexDirection:"column",gap:14,maxHeight:`calc(100vh - ${SCROLL_MARGIN+16}px)`,overflowY:"auto",paddingBottom:8}}>
+                {ITENS_NAV_MEMORIA.map(item=>(
+                  <div key={item.id} style={{display:"flex",flexDirection:"column",gap:3}}>
+                    <button onClick={()=>navegarParaSecaoMemoria(item.id)} style={{textAlign:"left",border:0,background:"transparent",cursor:"pointer",padding:"2px 0",fontSize:10.5,fontWeight:900,color:secaoAtivaMemoria===item.id?C.blue:C.subtle,letterSpacing:.3}}>{item.label}</button>
+                    {item.elementos.length>1 && item.elementos.map(el=>(
+                      <button key={el.id} onClick={()=>navegarParaSecaoMemoria(el.id,el.id)} style={{textAlign:"left",border:0,borderLeft:`2px solid ${secaoAtivaMemoria===el.id?C.blue:"transparent"}`,background:"transparent",cursor:"pointer",padding:"3px 0 3px 10px",fontSize:10,fontWeight:secaoAtivaMemoria===el.id?800:600,color:secaoAtivaMemoria===el.id?C.blue:C.muted}}>{el.label}</button>
+                    ))}
+                  </div>
+                ))}
+              </nav>
+            )}
+
+            <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:28}}>
+              <FloorSection id="fundacao" sectionRef={registrarSecaoMemoria("fundacao")} title="FUNDAÇÃO"
+                resumo={<>
+                  <Metric label="Escavação" value={fmtNum(resumoSapatasFundacao.totais.volumeEscavacao)} unit="m³"/>
+                  <Metric label="Concreto" value={fmtNum(resumoSapatasFundacao.totais.volumeSapata)} unit="m³"/>
+                  <Metric label="Aço" value={fmtNum(resumoSapatasFundacao.totais.pesoAco,1)} unit="kg"/>
+                </>}>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>SAPATAS</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Uma linha por tipo de sapata (peças com a mesma dimensão), com a quantidade de peças daquele tipo - mesmo agrupamento que o próprio projeto estrutural já usa.</p></div>
@@ -4680,16 +4895,19 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                   incremento que comem ~20px do campo - numa coluna de 40-50px isso
                   cortava o valor digitado (achado do usuário via screenshot). */}
               <style>{`.sapata-num-input::-webkit-outer-spin-button,.sapata-num-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.sapata-num-input{-moz-appearance:textfield}`}</style>
-              <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}>
+              <div style={{overflow:"auto",maxHeight:"62vh",border:`1px solid ${C.border}`,borderRadius:7}}>
                 <table style={{width:"100%",minWidth:COLUNAS_SAPATAS.reduce((s,c)=>s+larguraColunaEfetiva(c.chave),0),tableLayout:"fixed",borderCollapse:"collapse",fontSize:dSapatas.fonte,userSelect:colunaArrastando?"none":"auto"}}>
                   <colgroup>{COLUNAS_SAPATAS.map(col=><col key={col.chave} style={{width:larguraColunaEfetiva(col.chave)}}/>)}</colgroup>
-                  <thead>
+                  <thead style={{position:"sticky",top:0,zIndex:4,background:C.surface}}>
                     {/* Cabeçalho em dois níveis - agrupa as 23 colunas em blocos
                         (Dimensões/Escavação/Concreto/Armadura X/Armadura Y), achado
                         da crítica Impeccable contra a densidade da tabela. Rótulo
                         QUEBRA linha (sem nowrap) - achado do usuário: "nowrap"
                         forçava a coluna a ficar tão larga quanto o texto do título,
-                        bem mais que o dado embaixo precisa. */}
+                        bem mais que o dado embaixo precisa. Cabeçalho inteiro (as
+                        DUAS linhas) gruda no topo do próprio scroll da tabela -
+                        pedido do usuário (28/08/2026), tabela ganhou altura máxima
+                        com rolagem própria pra isso funcionar. */}
                     <tr style={{background:C.surface}}>
                       <th colSpan={2} style={{position:"sticky",left:0,zIndex:2,background:C.surface,borderBottom:`1px solid ${C.border}`}}/>
                       {GRUPOS_CABECALHO_SAPATAS.filter(g=>g.nome).map(g=>
@@ -4797,15 +5015,27 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
               </div>}
 
             </div>
-            ) : (
-            <div style={{display:"flex",flexDirection:"column",gap:14}}>
-              {renderCardPilar(pav)}
-              {renderCardViga(pav)}
-              {PAVIMENTOS_COM_LAJE.includes(pav) && renderCardLaje(pav)}
+              </FloorSection>
+
+              {PAVIMENTOS_ESTRUTURA.map(([pav,label])=>{
+                const totaisPav = totaisDoPavimento(pav);
+                return (
+                  <FloorSection key={pav} id={pav} sectionRef={registrarSecaoMemoria(pav)} title={label}
+                    resumo={<>
+                      <Metric label="Concreto" value={fmtNum(totaisPav.concreto)} unit="m³"/>
+                      <Metric label="Fôrma" value={fmtNum(totaisPav.forma)} unit="m²"/>
+                      <Metric label="Aço" value={fmtNum(totaisPav.aco,1)} unit="kg"/>
+                    </>}>
+                    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                      {renderCardPilar(pav)}
+                      {renderCardViga(pav)}
+                      {PAVIMENTOS_COM_LAJE.includes(pav) && renderCardLaje(pav)}
+                    </div>
+                  </FloorSection>
+                );
+              })}
             </div>
-            )}
           </div>
-          ))}
           </>)}
         </div>
       )}
