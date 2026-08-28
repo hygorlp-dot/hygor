@@ -18197,8 +18197,18 @@ export default function App() {
         )}
 
         {/*  HEADER  */}
+        {/* Cabeçalho e banner de conflito compartilham UM único wrapper sticky
+            (em vez de cada um ter seu próprio position:sticky;top:0) - assim
+            o banner nunca "some" ao rolar a tela para baixo. Achado ao
+            investigar "orçamento não salva com mais de uma pessoa": o banner
+            de conflito É mostrado (nada silencioso), mas antes rolava para
+            fora da tela junto com o resto do conteúdo em telas longas (ex.:
+            Memória de Cálculo do Orçamento) - o usuário seguia editando sem
+            notar que a fila de salvamento estava travada aguardando a
+            resolução do conflito, e via a mudança local sem perceber que
+            nada estava chegando ao servidor. */}
+        <div style={{ position:"sticky", top:0, zIndex:50 }}>
         <header className="no-print arcd-topbar" style={{
-          position:"sticky", top:0, zIndex:50,
           background:"rgba(255,255,255,.97)", backdropFilter:"blur(18px)",
           borderBottom:`1px solid ${C.border}`,
           boxShadow:"none",
@@ -18318,6 +18328,7 @@ export default function App() {
             </div>
           </div>
         )}
+        </div>
 
         <main className="arcd-main" style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "24px 24px" : 14 }}>
           {tab === "home"   && (["engenheiro","engenheiro_auditor"].includes(currentUser?.role)

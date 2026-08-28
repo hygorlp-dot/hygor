@@ -3369,3 +3369,84 @@ identificado) antes de aplicar na tabela.
 
 Suíte completa (259/259, 1609/1609), `build`, `lint`,
 `architecture:check` verdes.
+
+## Investigação: "orçamento não salva com mais de uma pessoa" (28/08/2026)
+
+Retomando o relato do usuário ("apenas não estava salvando as alterações
+quando tinha mais de 1 pessoa utilizando o app"). Uma investigação anterior
+na mesma sessão (agente em segundo plano) leu `server/three-way-merge.js` e
+`server/three-way-conflicts.js` e concluiu que a mescla é **correta e até
+conservadora demais**: `findAggregateConflicts` compara o registro inteiro
+(não campo a campo), então duas pessoas mudando campos DIFERENTES do mesmo
+orçamento (ex.: uma mexe em `itens`, outra em `memoriaCalculo`) são
+sinalizadas como conflito mesmo sem colisão real - o resultado prático é
+pedir confirmação, nunca perder dado em silêncio no servidor. Testes de
+regressão documentando isso: `server/three-way-merge.test.js`,
+`server/three-way-conflicts.test.js`. O agente recomendou consultar
+`audit_events` (append-only, com `before_snapshot`/`after_snapshot` reais)
+no horário do incidente como próximo passo.
+
+**Consulta real contra produção** (script de leitura temporário, sem
+nenhum insert/update - `audit_events` do orçamento I-02 OÁSIS,
+`34cuchthev8e`, janela 25/07-28/08/2026, 2680 eventos):
+
+- **Achado colateral, real, mas não é a causa raiz**: `before_snapshot`/
+  `after_snapshot` chegam do Postgres como uma STRING contendo JSON (uma
+  camada extra de codificação), não como o objeto em si - mesma
+  peculiaridade de `postgres` + `` ::jsonb `` que `decodeAppData`
+  (`server/data-codec.js:10`) já trata defensivamente para
+  `company_app_data.value`. Ninguém lê `before_snapshot`/`after_snapshot`
+  de volta hoje (grep confirma zero consumidores em `api/`/`server/`), por
+  isso nunca quebrou nada em produção - só atrapalhou esta própria
+  investigação até eu perceber o padrão. Documentado com um comentário em
+  `gravarMutacaoNaTransacao` (`api/data.js`) para o próximo leitor não cair
+  na mesma pegadinha; não corrigido na escrita (mudar o padrão só nesses
+  dois INSERTs quebraria a consistência com o resto do arquivo, que grava
+  jsonb do mesmo jeito em todo lugar, sem nenhum benefício hoje).
+- **Confirmado**: três pessoas reais editam este orçamento (Hygor, Arthur
+  Pinheiro, Evellyn Eduarda da Silva) - a premissa "mais de uma pessoa" é
+  real, não hipotética.
+- **Nenhuma colisão de verdade encontrada**: zero janelas de <90s entre
+  atores DIFERENTES tocando a seção `orcamentos` em todo o mês consultado.
+  As poucas anomalias visíveis (3 saves seguidos do Arthur removendo 1
+  item por vez; 4 saves seguidos do Hygor com `updatedAt` idêntico antes/
+  depois) são consistentes com edição normal (exclusões deliberadas;
+  saves que tocaram outro orçamento na mesma seção), não com perda de
+  dado.
+- **Por que a ausência de evidência ainda é útil**: `audit_events` só
+  registra escritas que chegam a ser CONFIRMADAS pelo servidor. Se a causa
+  real for do lado do cliente (abaixo), ela nunca gera uma linha na
+  auditoria - a ausência de qualquer traço de conflito no log é
+  exatamente o padrão esperado desse cenário, não uma contradição dele.
+
+**Hipótese mais provável, encontrada por leitura de código** (`src/
+LegacyApp.jsx`, `src/domains/sync/save-queue.js`, `src/api.js`): o sistema
+de conflito já é robusto e NADA silencioso por design - `saveDataDetailed`
+despacha `arcd:data-conflict` em todo 409, e isso abre um banner laranja
+persistente ("Seu salvamento foi recusado", com os botões "Reaplicar
+minhas alterações"/"Descartar e recarregar") que só some quando o usuário
+escolhe uma das duas opções. Só que, até esta correção, **o banner não era
+sticky** - o cabeçalho (`<header>`) é `position:sticky` sozinho, mas o
+banner de conflito, logo abaixo dele no markup, era um `<div>` comum. Numa
+tela longa como a Memória de Cálculo do Orçamento (a mesma tela sendo
+usada nesta sessão), rolar a página para baixo rola o banner para fora da
+tela junto com o resto - o único indicativo que sobrava era uma pequena
+pílula vermelha no cabeçalho ("Conflito de salvamento"), fácil de não
+notar enquanto se está digitando em um campo lá embaixo.
+
+Combinado com o comportamento da fila de salvamento
+(`src/domains/sync/save-queue.js`): ao entrar em `CONFLICT`, `flush()` se
+recusa a processar qualquer novo `enqueue()` até alguém chamar
+`discard()` - que só acontece quando o usuário clica um dos dois botões do
+banner. Ou seja: se o usuário não notar o banner (rolado para fora da
+tela), a interface continua aceitando e mostrando cada edição
+normalmente (otimista, local), mas **nenhuma delas chega a sair para o
+servidor** até o banner ser resolvido - exatamente o sintoma relatado
+("não salva"), sem nenhum erro visível que aponte a causa.
+
+**Correção aplicada** (`src/LegacyApp.jsx`): cabeçalho e banner de
+conflito passam a compartilhar um único wrapper `position:sticky;top:0`
+(em vez de cada um ter o seu próprio), então o banner agora permanece
+visível, colado abaixo do cabeçalho, não importa o quanto a página role -
+sem precisar de um valor mágico de altura por breakpoint (que o padrão
+antigo de dois sticky independentes exigiria para não sobrepor).

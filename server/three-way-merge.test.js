@@ -58,4 +58,39 @@ describe("mescla autoritativa de projeções",()=>{
     const current={emp1:{}};
     expect(mergeThreeWay(base,incoming,current)).toEqual({emp1:{}});
   });
+
+  // Investigação de 27/08/2026 (relato de "orçamento não salva com mais de
+  // uma pessoa no app"): confirma que o merge de um ÚNICO registro (mesmo
+  // `id` dentro de uma lista, ex.: `orcamentos`) é feito CAMPO A CAMPO, não
+  // "o objeto inteiro de um lado vence". Duas pessoas no MESMO orçamento,
+  // cada uma mexendo numa seção diferente (itens vs. memoriaCalculo -
+  // Pilares/Vigas/Sapatas), não podem perder a mudança da outra em silêncio.
+  it("mescla campo a campo dentro do mesmo registro de uma lista (ex.: orçamentos)",()=>{
+    const orcamentoBase={
+      id:"orc-1",nome:"Obra X",
+      itens:[{id:"i1",qtd:10,preco:5}],
+      memoriaCalculo:{terreo:{pilares:[]}},
+    };
+    const base=[orcamentoBase];
+    // Pessoa A só mudou os itens (preço/quantidade).
+    const incomingDeA=[{
+      ...orcamentoBase,
+      itens:[{id:"i1",qtd:20,preco:5}],
+    }];
+    // Pessoa B já salvou primeiro, mudando só a memória de cálculo
+    // (Pilares/Vigas/Sapatas) - é o que já está no servidor quando o pedido
+    // de A chega.
+    const currentAposSalvarDeB=[{
+      ...orcamentoBase,
+      memoriaCalculo:{terreo:{pilares:[{id:"p1",tipo:"P1",concretoUnit:1}]}},
+    }];
+    // O resultado tem que ter as DUAS mudanças - a de A (itens) e a de B
+    // (memoriaCalculo) - dentro do MESMO orçamento, sem que nenhuma pise na
+    // outra.
+    expect(mergeThreeWay(base,incomingDeA,currentAposSalvarDeB)).toEqual([{
+      id:"orc-1",nome:"Obra X",
+      itens:[{id:"i1",qtd:20,preco:5}],
+      memoriaCalculo:{terreo:{pilares:[{id:"p1",tipo:"P1",concretoUnit:1}]}},
+    }]);
+  });
 });

@@ -760,6 +760,15 @@ export const legacyFinancialFactsChanged=(before,after)=>
   LEGACY_FINANCIAL_FACT_FIELDS.some(field=>
     JSON.stringify(before?.[field])!==JSON.stringify(after?.[field]));
 
+// Achado ao investigar "orçamento não salva com mais de uma pessoa"
+// (28/08/2026): audit_events.before_snapshot/after_snapshot voltam do
+// Postgres como uma STRING contendo JSON (uma camada extra de codificação),
+// não como o objeto em si - mesma peculiaridade de `postgres` + `::jsonb`
+// que `decodeAppData` (server/data-codec.js) já trata defensivamente para
+// `company_app_data.value`. Nenhum código hoje LÊ before_snapshot/
+// after_snapshot de volta, então isso nunca quebrou nada em produção - mas
+// qualquer leitor futuro (uma tela de auditoria, por exemplo) precisa do
+// mesmo `JSON.parse` defensivo antes de usar o valor como objeto.
 const gravarMutacaoNaTransacao=async({
   transaction,key=KEY,rowVersions={},keepDomain=null,value,basePayload=null,actor,action,before,after,financial=false,
 })=>{
