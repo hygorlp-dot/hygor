@@ -199,7 +199,6 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [view,      setView]      = useState(orcamentoFixoInicial?"editor":"lista");   // "lista" | "editor"
   const [orcAba,    setOrcAba]    = useState("orcamento"); // orçamento | insumos | próprias | memoria
   const [disciplinaMemoria,setDisciplinaMemoria]=useState("estrutural"); // estrutural (única disciplina por enquanto)
-  const [pavimentoMemoria,setPavimentoMemoria]=useState("fundacao"); // fundacao | terreo | pavimento1 | cobertura
   const [selOrc,    setSelOrc]    = useState(()=>orcamentoFixoInicial?.id||getActiveBudgetBaseline(data,obraContextoSalvo(),"controle").budget?.id||null);      // id do orçamento aberto
   const [basesRemotas, setBasesRemotas] = useState([]);
   const [basesCarregando, setBasesCarregando] = useState(false);
@@ -4677,18 +4676,15 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
             description={descricaoSubstituicaoQuantitativos()}
             onConfirm={()=>{aplicarPdfPreviewQuantitativos();setConfirmarAplicarQuantitativos(false);}}/>
 
-          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-            {[["fundacao","FUNDAÇÃO"],...PAVIMENTOS_ESTRUTURA].map(([valor,label])=>(
-              <button key={valor} onClick={()=>setPavimentoMemoria(valor)} style={{
-                border:`1px solid ${pavimentoMemoria===valor?C.blue:C.border}`,
-                background:pavimentoMemoria===valor?`${C.blue}12`:C.bg,
-                color:pavimentoMemoria===valor?C.blue:C.muted,
-                borderRadius:6,padding:"7px 12px",fontSize:10,fontWeight:800,cursor:"pointer",
-              }}>{label}</button>
-            ))}
-          </div>
-
-          {pavimentoMemoria==="fundacao" ? (
+          {/* Sequencial, não em abas horizontais - achado do usuário (28/08/2026):
+              a separação por pavimento deve fluir como o próprio orçamento
+              (Fundação → Térreo → 1º Pavimento → Cobertura, uma seção após a
+              outra), não escondida atrás de botões que exigem clicar para
+              ver o restante. */}
+          {[["fundacao","FUNDAÇÃO"],...PAVIMENTOS_ESTRUTURA].map(([pav,label])=>(
+          <div key={pav} style={{display:"flex",flexDirection:"column",gap:14,paddingTop:pav!=="fundacao"?16:0,borderTop:pav!=="fundacao"?`2px solid ${C.border}`:"none"}}>
+            <p style={{fontSize:15,fontWeight:900,color:C.blue,letterSpacing:.3}}>{label}</p>
+            {pav==="fundacao" ? (
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>SAPATAS</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Uma linha por tipo de sapata (peças com a mesma dimensão), com a quantidade de peças daquele tipo - mesmo agrupamento que o próprio projeto estrutural já usa.</p></div>
@@ -4902,14 +4898,16 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                 </div>
               </div>
             </div>
-          ) : (
+            ) : (
             <div style={{display:"flex",flexDirection:"column",gap:14}}>
-              {renderCardPilar(pavimentoMemoria)}
-              {renderCardViga(pavimentoMemoria)}
-              {PAVIMENTOS_COM_LAJE.includes(pavimentoMemoria) && renderCardLaje(pavimentoMemoria)}
-              {renderVincularPavimento(pavimentoMemoria)}
+              {renderCardPilar(pav)}
+              {renderCardViga(pav)}
+              {PAVIMENTOS_COM_LAJE.includes(pav) && renderCardLaje(pav)}
+              {renderVincularPavimento(pav)}
             </div>
-          )}
+            )}
+          </div>
+          ))}
           </>)}
         </div>
       )}
