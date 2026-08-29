@@ -1621,20 +1621,41 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       }
       const automaticos = [];
       const ambiguos = [];
-      const candidatosAmbiguos = new Map();
+      const sobreviventesPorItem = new Map();
       for (const item of itens) {
         const sobreviventes = primeiraPassada.get(item.id) || [];
         const decisao = classificarItem(item, sobreviventes);
         if (decisao) { automaticos.push(decisao); continue; }
         ambiguos.push(item);
-        sobreviventes.forEach(c => candidatosAmbiguos.set(`${c.fonte}::${c.codigo}`, c));
+        sobreviventesPorItem.set(item.id, sobreviventes);
       }
-      let matchesIA = [];
-      if (ambiguos.length) {
-        const resposta = await chamarIA({ action:"budget-match", itens:ambiguos, candidatos:[...candidatosAmbiguos.values()] });
-        if (!resposta.ok) { setMatchIAAviso(resposta.error||"Não foi possível associar os itens ambíguos agora - os itens com candidato único já foram associados por regra."); }
-        else matchesIA = (resposta.matches||[]).map(m => ({ ...m, origem:"ia" }));
+      // A IA é chamada em lotes pequenos (não todos os itens ambíguos de
+      // uma vez) - achado deste teste: com a busca melhor, muitos mais
+      // itens viram "ambíguos" (2+ candidatos) de uma só vez, e um prompt
+      // grande demais trunca a resposta da IA antes de fechar o JSON
+      // (erro AI_INVALID_JSON, perdendo o lote inteiro). Cada lote só leva
+      // os candidatos dos seus próprios itens (não o pool inteiro), o que
+      // também deixa o prompt mais enxuto e focado.
+      const TAMANHO_LOTE_IA = 12;
+      const lotes = [];
+      for (let i = 0; i < ambiguos.length; i += TAMANHO_LOTE_IA) lotes.push(ambiguos.slice(i, i + TAMANHO_LOTE_IA));
+      const resultadosLotes = await Promise.all(lotes.map(async lote => {
+        const candidatosLote = new Map();
+        lote.forEach(item => (sobreviventesPorItem.get(item.id)||[]).forEach(c => candidatosLote.set(`${c.fonte}::${c.codigo}`, c)));
+        const resposta = await chamarIA({ action:"budget-match", itens:lote, candidatos:[...candidatosLote.values()] });
+        return { lote, resposta };
+      }));
+      const matchesIA = [];
+      let lotesComFalha = 0;
+      for (const { lote, resposta } of resultadosLotes) {
+        if (!resposta.ok) {
+          lotesComFalha++;
+          lote.forEach(item => matchesIA.push({ itemId:item.id, status:"pendente", origem:"ia", confianca:0, justificativa:`Falha ao consultar a IA para este item (${resposta.error||"erro desconhecido"}) - tente associar de novo.` }));
+          continue;
+        }
+        matchesIA.push(...(resposta.matches||[]).map(m => ({ ...m, origem:"ia" })));
       }
+      if (lotesComFalha) setMatchIAAviso(`${lotesComFalha} de ${lotes.length} lote(s) de desempate por IA falharam - os itens afetados aparecem como pendentes com o motivo; clique em "Associar automaticamente" de novo para tentar só eles.`);
       setMatchIA({ itens, matches:[...automaticos, ...matchesIA] });
     } finally { setMatchIACarregando(false); }
   };
