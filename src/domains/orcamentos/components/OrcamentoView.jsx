@@ -1534,13 +1534,20 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const itensParaAssociarIA = () => {
     const hidro = hidrossanitarioDoOrc();
     const paraItem = (chave, tabela, l, idx) => {
-      let descricao = "", quantidade = 0, unidade = "un";
-      if (chave === "conexoesAguaFria" || chave === "conexoesEsgoto") { descricao = l.descricao; quantidade = l.quantidade; }
-      else if (chave === "caixasRalosComplementos" || chave === "pecasHidraulicasSanitarias") { descricao = `${l.descricao||""}${l.tipoSistema?` - ${l.tipoSistema}`:""}`; quantidade = l.quantidade; }
-      else if (chave === "registrosAcessorios" || chave === "calhasPluviais") { descricao = l.descricao; quantidade = l.quantidade; }
-      else if (chave === "tubosRigidos" || chave === "tubosFlexiveis") { descricao = `${l.descricao||""}${l.diametroMm?` Ø${l.diametroMm}mm`:""}${l.sistema?` - ${l.sistema}`:""}`; quantidade = l.comprimentoM; unidade = "m"; }
+      // `descricao` (com sufixo de tipo de sistema/rótulo, ex. "- Utilização")
+      // é só para exibição/categoria - nunca vai para a busca: um rótulo
+      // nosso ("Utilização", "Inspeção/Esgoto") nunca aparece no texto
+      // oficial da base, e ilike exige TODAS as palavras da consulta -
+      // uma palavra a mais que não bate já zera o resultado. `descricaoBusca`
+      // guarda só o que realmente pode aparecer na composição oficial
+      // (nome da peça + diâmetro, quando existir).
+      let descricao = "", descricaoBusca = "", quantidade = 0, unidade = "un";
+      if (chave === "conexoesAguaFria" || chave === "conexoesEsgoto") { descricao = l.descricao; descricaoBusca = l.descricao; quantidade = l.quantidade; }
+      else if (chave === "caixasRalosComplementos" || chave === "pecasHidraulicasSanitarias") { descricao = `${l.descricao||""}${l.tipoSistema?` - ${l.tipoSistema}`:""}`; descricaoBusca = l.descricao||""; quantidade = l.quantidade; }
+      else if (chave === "registrosAcessorios" || chave === "calhasPluviais") { descricao = l.descricao; descricaoBusca = l.descricao; quantidade = l.quantidade; }
+      else if (chave === "tubosRigidos" || chave === "tubosFlexiveis") { descricao = `${l.descricao||""}${l.diametroMm?` Ø${l.diametroMm}mm`:""}${l.sistema?` - ${l.sistema}`:""}`; descricaoBusca = `${l.descricao||""}${l.diametroMm?` ${l.diametroMm}mm`:""}`; quantidade = l.comprimentoM; unidade = "m"; }
       descricao = descricao.trim();
-      return descricao && Number(quantidade) > 0 ? { id:`${chave}-${idx}`, descricao, quantidade:Number(quantidade), unidade, tabela, categoria: categoriaDoItem(chave, l) } : null;
+      return descricao && Number(quantidade) > 0 ? { id:`${chave}-${idx}`, descricao, descricaoBusca: descricaoBusca.trim()||descricao, quantidade:Number(quantidade), unidade, tabela, categoria: categoriaDoItem(chave, l) } : null;
     };
     return CHAVES_TABELAS_HIDROSSANITARIO
       .flatMap(([chave,tabela]) => (hidro[chave]||[]).map((l,idx) => paraItem(chave,tabela,l,idx)))
@@ -1566,7 +1573,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       // corta em no máximo 6 palavras - o limite real de /api/references -
       // priorizando o núcleo da peça e o diâmetro; um segundo termo cobre
       // os modificadores que não couberam no primeiro).
-      const termos = [...new Set(itens.flatMap(it => termosBuscaParaItem(it.descricao)))].slice(0, 80);
+      const termos = [...new Set(itens.flatMap(it => termosBuscaParaItem(it.descricaoBusca||it.descricao)))].slice(0, 80);
       const buscas = await Promise.all(termos.map(termo => pesquisarBasesReferencia(orc.referencias, termo)));
       const candidatosPorChave = new Map();
       buscas.forEach(resultado => (resultado?.items||[]).forEach(item => {
