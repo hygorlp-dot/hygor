@@ -156,6 +156,81 @@ export default async function handler(req,res){
   }
 
   const aiConfig=await loadConfig();
+
+  // Motor de associação item→composição (28/08/2026, pedido do usuário):
+  // dado um item extraído do projeto (hoje só Hidrossanitário) e uma lista
+  // de candidatos JÁ pesquisados nas bases SINAPI/ORSE reais (nunca
+  // inventados aqui - a IA só ESCOLHE entre o que o cliente já buscou),
+  // devolve a composição mais adequada, com justificativa, ou marca
+  // pendência quando ambíguo/sem correspondência técnica. Só propõe -
+  // nada disto grava no orçamento sozinho, quem aplica é o operador.
+  if(req.body?.action==="budget-match"){
+    if(aiRateLimited(user.id))return res.status(429).json({error:"Muitas solicitações de IA em pouco tempo. Aguarde alguns minutos e tente novamente.",code:"AI_RATE_LIMIT_LOCAL"});
+    const apiKeyMatch=aiConfig.apiKey;
+    if(!apiKeyMatch)return res.status(503).json({error:"O Modo IA ainda não foi configurado pelo administrador.",code:"AI_NOT_CONFIGURED"});
+    const itens=(Array.isArray(req.body?.itens)?req.body.itens:[]).slice(0,300).map(it=>({
+      id:String(it?.id||""),descricao:String(it?.descricao||"").slice(0,300),
+      quantidade:Number(it?.quantidade||0),unidade:String(it?.unidade||"").slice(0,20),
+      tabela:String(it?.tabela||"").slice(0,80),
+    })).filter(it=>it.id&&it.descricao);
+    const candidatos=(Array.isArray(req.body?.candidatos)?req.body.candidatos:[]).slice(0,600).map(c=>({
+      fonte:String(c?.fonte||"").slice(0,10),codigo:String(c?.codigo||"").slice(0,20),
+      descricao:String(c?.descricao||"").slice(0,300),unidade:String(c?.unidade||"").slice(0,20),
+      precoUnit:Number(c?.precoUnit||0),
+    })).filter(c=>c.codigo&&c.descricao);
+    if(!itens.length)return res.status(400).json({error:"Nenhum item para associar."});
+    if(!candidatos.length)return res.status(400).json({error:"Nenhum candidato de composição para escolher - pesquise nas bases SINAPI/ORSE vinculadas primeiro."});
+    const systemMatch=[
+      "Você é um engenheiro orçamentista sênior especializado em instalações prediais.",
+      "Sua função é escolher, para cada item de projeto recebido, a composição de custo (SINAPI ou ORSE) mais adequada tecnicamente, ESCOLHENDO SOMENTE entre os candidatos fornecidos - nunca invente código, descrição, preço ou unidade que não esteja na lista de candidatos.",
+      "Regras obrigatórias: (1) nunca associe um item de um sistema (água fria, esgoto, pluvial) a uma composição de outro sistema; (2) nunca associe um diâmetro/dimensão claramente diferente do item, salvo equivalência técnica óbvia; (3) prefira composição a insumo isolado quando o objetivo for serviço executado; (4) se dois candidatos forem tecnicamente equivalentes, prefira o de fonte SINAPI; (5) se nenhum candidato for tecnicamente adequado, ou se dois candidatos forem plausíveis sem uma diferença clara, marque status \"pendente\" em vez de escolher às cegas; (6) a justificativa deve citar o critério técnico usado (sistema, material, diâmetro, unidade), nunca uma frase vaga como 'parece compatível'.",
+      "Responda em português do Brasil.",
+    ].join(" ");
+    const instrucao=`Itens do projeto (JSON):\n${JSON.stringify(itens)}\n\nCandidatos disponíveis nas bases (JSON, escolha só entre estes):\n${JSON.stringify(candidatos)}\n\nPara cada item, devolva um objeto no array "matches" com: itemId (o id recebido), status ("associado" ou "pendente"), fonte e codigo (copiados EXATAMENTE de um candidato, só quando status="associado"), confianca (0 a 1), justificativa (uma frase técnica curta).`;
+    const schemaMatch={type:"OBJECT",properties:{matches:{type:"ARRAY",items:{type:"OBJECT",properties:{
+      itemId:{type:"STRING"},status:{type:"STRING",enum:["associado","pendente"]},
+      fonte:{type:"STRING"},codigo:{type:"STRING"},confianca:{type:"NUMBER"},justificativa:{type:"STRING"},
+    },required:["itemId","status","confianca","justificativa"]}}},required:["matches"]};
+    const controllerMatch=new AbortController(),timeoutMatch=setTimeout(()=>controllerMatch.abort(),55000);
+    let responseMatch;
+    try{
+      responseMatch=await geminiRequest(apiKeyMatch,aiConfig.model,{
+        systemInstruction:{parts:[{text:systemMatch}]},
+        contents:[{role:"user",parts:[{text:instrucao}]}],
+        generationConfig:{maxOutputTokens:8000,temperature:0.05,responseMimeType:"application/json",responseSchema:schemaMatch},
+      },controllerMatch.signal);
+    }catch(error){
+      clearTimeout(timeoutMatch);
+      if(error?.name==="AbortError")return res.status(504).json({error:"A associação demorou além do limite. Tente com menos itens de uma vez."});
+      throw error;
+    }
+    clearTimeout(timeoutMatch);
+    if(!responseMatch.ok){
+      const bodyErr=await responseMatch.json().catch(()=>({})),providerMessage=providerMessageFrom(bodyErr);
+      if(isInvalidKey(responseMatch.status,providerMessage))return res.status(502).json({error:"A autenticação do Gemini precisa ser atualizada pelo administrador.",code:"AI_AUTH_INVALID"});
+      if(responseMatch.status===429)return res.status(429).json({error:"A cota gratuita ou o limite temporário do Gemini foi atingido. Tente novamente mais tarde.",code:"AI_RATE_LIMIT"});
+      return res.status(502).json({error:"O serviço Gemini não respondeu.",code:"AI_PROVIDER_ERROR"});
+    }
+    const bodyMatch=await responseMatch.json();
+    const textoMatch=(bodyMatch.candidates?.[0]?.content?.parts||[]).map(part=>part.text||"").join("").trim();
+    let resultado;
+    try{resultado=JSON.parse(textoMatch);}
+    catch{return res.status(422).json({error:"A IA não devolveu um JSON válido. Tente novamente com menos itens.",code:"AI_INVALID_JSON"});}
+    const candidatosPorChave=new Map(candidatos.map(c=>[`${c.fonte}::${c.codigo}`,c]));
+    const matches=(Array.isArray(resultado?.matches)?resultado.matches:[]).map(m=>{
+      const chave=`${m.fonte}::${m.codigo}`;
+      const candidato=m.status==="associado"?candidatosPorChave.get(chave):null;
+      // Se a IA "escolheu" um código que não está na lista de candidatos (ou
+      // devolveu status associado sem um candidato real por trás), a
+      // resposta é tratada como pendente - nunca como uma composição válida
+      // inventada (Princípio "não inventar" do pedido original).
+      return candidato
+        ? {itemId:m.itemId,status:"associado",fonte:candidato.fonte,codigo:candidato.codigo,descricao:candidato.descricao,unidade:candidato.unidade,precoUnit:candidato.precoUnit,confianca:Number(m.confianca||0),justificativa:String(m.justificativa||"").slice(0,400)}
+        : {itemId:m.itemId,status:"pendente",confianca:Number(m.confianca||0),justificativa:String(m.justificativa||"Nenhum candidato tecnicamente adequado.").slice(0,400)};
+    });
+    return res.status(200).json({ok:true,matches});
+  }
+
   if(req.body?.action==="status")return res.status(200).json({ok:true,...safeStatus(aiConfig)});
   if(req.body?.action==="configure"){
     if(user.role!=="admin")return res.status(403).json({error:"Somente o administrador pode configurar a IA."});

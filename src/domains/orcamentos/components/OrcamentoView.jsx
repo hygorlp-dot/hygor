@@ -1321,6 +1321,15 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [confirmarAplicarPdf, setConfirmarAplicarPdf] = useState(false);
   const [confirmarAplicarQuantitativos, setConfirmarAplicarQuantitativos] = useState(false);
   const [confirmarAplicarHidrossanitario, setConfirmarAplicarHidrossanitario] = useState(false);
+  // Motor de associação automática item→composição (28/08/2026, pedido do
+  // usuário: "quero que você construa esse motor de associação
+  // automática"). Escopo confirmado com o usuário: só Hidrossanitário por
+  // enquanto, a IA só PROPÕE (nunca grava no orçamento sozinha) e a saída é
+  // enxuta (composição real + confiança + justificativa + pendência), sem
+  // o schema completo de 15 seções que veio no documento original.
+  const [matchIA, setMatchIA] = useState(null); // {itens, matches} depois de rodar
+  const [matchIACarregando, setMatchIACarregando] = useState(false);
+  const [matchIAAviso, setMatchIAAviso] = useState("");
   const lerPdfEmSegundoPlano = async (...args) => {
     const { lerTextoPdf } = await import("../ler-estrutural-pdf");
     return lerTextoPdf(...args);
@@ -1510,6 +1519,54 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     salvarHidrossanitario(patch);
     showToast(`${tabelasAtualizadas} tabela(s) do hidrossanitário importadas do PDF - reimportar sempre substitui a tabela inteira, nunca soma/duplica.`);
     setPdfPreviewHidrossanitario(null);
+  };
+
+  // Achata as 8 tabelas do hidrossanitário numa lista única de itens para a
+  // IA associar - cada formato de linha vira uma descrição de busca coerente
+  // (ex.: tubo rígido junta descrição + diâmetro + sistema, já que nenhum
+  // desses campos sozinho identifica a composição certa).
+  const itensParaAssociarIA = () => {
+    const hidro = hidrossanitarioDoOrc();
+    const paraItem = (chave, tabela, l, idx) => {
+      let descricao = "", quantidade = 0, unidade = "un";
+      if (chave === "conexoesAguaFria" || chave === "conexoesEsgoto") { descricao = l.descricao; quantidade = l.quantidade; }
+      else if (chave === "caixasRalosComplementos" || chave === "pecasHidraulicasSanitarias") { descricao = `${l.descricao||""}${l.tipoSistema?` - ${l.tipoSistema}`:""}`; quantidade = l.quantidade; }
+      else if (chave === "registrosAcessorios" || chave === "calhasPluviais") { descricao = l.descricao; quantidade = l.quantidade; }
+      else if (chave === "tubosRigidos" || chave === "tubosFlexiveis") { descricao = `${l.descricao||""}${l.diametroMm?` Ø${l.diametroMm}mm`:""}${l.sistema?` - ${l.sistema}`:""}`; quantidade = l.comprimentoM; unidade = "m"; }
+      descricao = descricao.trim();
+      return descricao && Number(quantidade) > 0 ? { id:`${chave}-${idx}`, descricao, quantidade:Number(quantidade), unidade, tabela } : null;
+    };
+    return CHAVES_TABELAS_HIDROSSANITARIO
+      .flatMap(([chave,tabela]) => (hidro[chave]||[]).map((l,idx) => paraItem(chave,tabela,l,idx)))
+      .filter(Boolean);
+  };
+
+  const executarAssociacaoIA = async () => {
+    if (!orc) return;
+    const itens = itensParaAssociarIA();
+    if (!itens.length) { showToast("Nenhuma linha preenchida nas tabelas do hidrossanitário ainda - importe o PDF ou preencha manualmente primeiro.","error"); return; }
+    if (!(orc.referencias||[]).length) { showToast("Vincule ao menos uma base SINAPI/ORSE ao orçamento (aba \"Bases oficiais e vínculos\") antes de associar automaticamente.","error"); return; }
+    setMatchIACarregando(true); setMatchIAAviso(""); setMatchIA(null);
+    try {
+      // Cada descrição de tabela já é um bom termo de busca (vem do próprio
+      // projeto) - dedup evita pesquisar "Joelho 90° PVC 25mm" 6 vezes só
+      // porque 6 conexões diferentes usam essa mesma peça.
+      const termos = [...new Set(itens.map(it => it.descricao))].slice(0, 40);
+      const buscas = await Promise.all(termos.map(termo => pesquisarBasesReferencia(orc.referencias, termo)));
+      const candidatosPorChave = new Map();
+      buscas.forEach(resultado => (resultado?.items||[]).forEach(item => {
+        const chave = `${item.fonte||"SINAPI"}::${item.codigo}`;
+        if (!candidatosPorChave.has(chave)) candidatosPorChave.set(chave, {
+          fonte: item.fonte||"SINAPI", codigo: item.codigo, descricao: item.descricao,
+          unidade: item.unidade, precoUnit: precoDoItem(item, orc),
+        });
+      }));
+      const candidatos = [...candidatosPorChave.values()];
+      if (!candidatos.length) { setMatchIAAviso("Nenhum candidato encontrado nas bases vinculadas para os termos das tabelas - confira se a base certa (SINAPI/ORSE) está vinculada a este orçamento."); setMatchIACarregando(false); return; }
+      const resposta = await chamarIA({ action:"budget-match", itens, candidatos });
+      if (!resposta.ok) { setMatchIAAviso(resposta.error||"Não foi possível associar agora."); setMatchIACarregando(false); return; }
+      setMatchIA({ itens, matches: resposta.matches||[] });
+    } finally { setMatchIACarregando(false); }
   };
 
   // Folga/profundidade de escavação são convenção de obra, não do projeto -
@@ -5197,6 +5254,50 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                   title="Aplicar tabelas do hidrossanitário" tone="danger" confirmLabel="Aplicar mesmo assim"
                   description={descricaoSubstituicaoHidrossanitario()}
                   onConfirm={()=>{aplicarPdfPreviewHidrossanitario();setConfirmarAplicarHidrossanitario(false);}}/>
+
+                <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
+                    <div>
+                      <p style={{fontSize:12,fontWeight:850,color:C.text}}>ASSOCIAR ÀS COMPOSIÇÕES (IA)</p>
+                      <p style={{fontSize:10,color:C.muted,marginTop:2,maxWidth:520}}>A IA sugere, para cada peça/conexão/tubo já lançado nas tabelas, a composição SINAPI/ORSE mais próxima entre as bases vinculadas a este orçamento. Ela só propõe - nada é adicionado ao orçamento sozinha, você confere e adiciona manualmente na aba Itens.</p>
+                    </div>
+                    <Btn size="sm" onClick={executarAssociacaoIA} disabled={matchIACarregando}>
+                      <Ic n="ia" s={14}/> {matchIACarregando?"Associando...":"Associar automaticamente"}
+                    </Btn>
+                  </div>
+                  {matchIAAviso&&<p style={{fontSize:10,color:C.orange,lineHeight:1.5}}>{matchIAAviso}</p>}
+                  {matchIA&&(() => {
+                    const porItemId = new Map(matchIA.matches.map(m=>[m.itemId,m]));
+                    const associados = matchIA.matches.filter(m=>m.status==="associado").length;
+                    return (
+                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                        <p style={{fontSize:10.5,fontWeight:800,color:C.text}}>{associados} de {matchIA.itens.length} item(ns) com composição sugerida.</p>
+                        <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:420,overflow:"auto"}}>
+                          {matchIA.itens.map(item => {
+                            const m = porItemId.get(item.id);
+                            const associado = m?.status==="associado";
+                            return (
+                              <div key={item.id} style={{border:`1px solid ${associado?C.green+"44":C.orange+"44"}`,background:associado?`${C.green}08`:`${C.orange}08`,borderRadius:6,padding:"7px 9px",display:"flex",flexDirection:"column",gap:3}}>
+                                <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}>
+                                  <p style={{fontSize:10.5,color:C.text,fontWeight:700}}>{item.descricao} <span style={{color:C.muted,fontWeight:500}}>({fmtNum(item.quantidade)} {item.unidade})</span></p>
+                                  <span style={{fontSize:8.5,fontWeight:850,color:associado?C.green:C.orange,whiteSpace:"nowrap"}}>{associado?"ASSOCIADO":"PENDENTE"}</span>
+                                </div>
+                                {associado ? (
+                                  <p style={{fontSize:10,color:C.text}}>
+                                    <span style={{fontWeight:700,color:m.fonte==="ORSE"?C.purple:C.blue}}>{m.fonte}</span> {m.codigo} - {m.descricao}
+                                    <span style={{color:C.muted}}> · {Math.round((m.confianca||0)*100)}% confiança</span>
+                                  </p>
+                                ) : null}
+                                {m?.justificativa&&<p style={{fontSize:9.5,color:C.muted,fontStyle:"italic"}}>{m.justificativa}</p>}
+                                {associado&&<button onClick={()=>{navigator.clipboard?.writeText(m.codigo);showToast("Código copiado - busque na aba Itens para adicionar.");}} style={{alignSelf:"flex-start",fontSize:9.5,fontWeight:800,color:C.blue,background:"none",border:"none",padding:0,cursor:"pointer"}}>Copiar código</button>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
 
                 <FloorSection id="hidrossanitario" sectionRef={registrarSecaoMemoria("hidrossanitario")} title="HIDROSSANITÁRIO"
                   resumo={<>
