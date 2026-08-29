@@ -1333,6 +1333,17 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [matchIA, setMatchIA] = useState(null); // {itens, matches} depois de rodar
   const [matchIACarregando, setMatchIACarregando] = useState(false);
   const [matchIAAviso, setMatchIAAviso] = useState("");
+  // "Adicionar ao orçamento" (29/08/2026, pedido do usuário): a associação
+  // continua só propondo - este passo exige um clique explícito por item e
+  // a escolha manual da etapa/categoria, exatamente como pedir "onde eu
+  // escolher" deixa claro que não é automático. matchIAAplicados guarda os
+  // itemId já lançados nesta sessão, só para trocar o botão por um "✓
+  // Adicionado" e evitar duplicar sem querer.
+  const [matchAplicar, setMatchAplicar] = useState(null); // {match, item}
+  const [matchAplicarEtapaId, setMatchAplicarEtapaId] = useState("");
+  const [matchAplicarQtd, setMatchAplicarQtd] = useState("");
+  const [matchAplicarSalvando, setMatchAplicarSalvando] = useState(false);
+  const [matchIAAplicados, setMatchIAAplicados] = useState(() => new Set());
   const lerPdfEmSegundoPlano = async (...args) => {
     const { lerTextoPdf } = await import("../ler-estrutural-pdf");
     return lerTextoPdf(...args);
@@ -1662,6 +1673,62 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       if (lotesComFalha) setMatchIAAviso(`${lotesComFalha} de ${lotes.length} lote(s) de desempate por IA falharam - os itens afetados aparecem como pendentes com o motivo; clique em "Associar automaticamente" de novo para tentar só eles.`);
       setMatchIA({ itens, matches:[...automaticos, ...matchesIA] });
     } finally { setMatchIACarregando(false); }
+  };
+
+  // Abre o modal de confirmação para um item já associado (regra ou IA) -
+  // o operador escolhe a etapa/categoria e confere a quantidade antes de
+  // qualquer gravação; nada acontece só de clicar "Adicionar ao orçamento".
+  const abrirAplicarMatchIA = (match, item) => {
+    setMatchAplicar({ match, item });
+    setMatchAplicarEtapaId("");
+    setMatchAplicarQtd(String(item.quantidade || ""));
+  };
+
+  const confirmarAplicarMatchIA = async () => {
+    if (!matchAplicar || !orc) return;
+    const { match, item } = matchAplicar;
+    if (!matchAplicarEtapaId) { showToast("Escolha em qual etapa/categoria do orçamento este item entra.","error"); return; }
+    const quantidade = parseBR(matchAplicarQtd) || 0;
+    if (!(quantidade > 0)) { showToast("Informe uma quantidade válida.","error"); return; }
+    setMatchAplicarSalvando(true);
+    try {
+      // Re-resolve o código na base antes de gravar - o match guarda só o
+      // essencial usado na comparação (fonte/código/descrição/preço); isso
+      // busca também composição/data-base/UF/link oficial, pro item entrar
+      // no orçamento com a mesma qualidade de um item buscado manualmente.
+      let ref = { fonte:match.fonte, codigo:match.codigo, descricao:match.descricao, unidade:match.unidade, precoUnit:match.precoUnit };
+      if ((orc.referencias||[]).length) {
+        const resposta = await resolverCodigosReferencia(orc.referencias, [{codigo:match.codigo, fonte:match.fonte}]);
+        if (resposta.ok && resposta.items?.length) ref = resposta.items[0];
+      }
+      const preco = precoDoItem(ref, orc);
+      if (!(preco > 0)) { showToast("Esta composição não tem preço na base vinculada.","error"); return; }
+      const unidade = ref.unidade || match.unidade || "UN";
+      const novoItemOrc = {
+        id: uid(), etapaId: matchAplicarEtapaId, tipo:"item",
+        codigo: ref.codigo || match.codigo, fonte: ref.fonte || match.fonte,
+        descricao: ref.descricao || match.descricao, unidade, quantidade,
+        precoUnit: preco, precoRef: preco, composicao: ref.composicao || "",
+        baseData: ref.dataBase || orc.dataBase || "",
+        baseUf: ref.uf || (ref.fonte === "SINAPI" ? orc.uf : ""),
+        detailUrl: ref.detailUrl || "",
+      };
+      const favs = data.baseFavoritos || [];
+      const jaFav = favs.some(f => f.codigo === novoItemOrc.codigo && (f.fonte||"SINAPI") === novoItemOrc.fonte);
+      const novosFavs = jaFav ? favs : [...favs, {
+        codigo:novoItemOrc.codigo, fonte:novoItemOrc.fonte, descricao:novoItemOrc.descricao,
+        unidade, precoUnit:preco, baseData:novoItemOrc.baseData, baseUf:novoItemOrc.baseUf, detailUrl:novoItemOrc.detailUrl,
+      }];
+      update({
+        ...data, baseFavoritos: novosFavs,
+        orcamentos: todosOrcamentos.map(o => o.id===selOrc ? {...o, itens:[...o.itens, novoItemOrc]} : o),
+      });
+      setMatchIAAplicados(prev => new Set(prev).add(item.id));
+      setMatchAplicar(null);
+      showToast(`"${item.descricao}" adicionado ao orçamento.`);
+    } catch (error) {
+      showToast(error?.message || "Não foi possível adicionar o item ao orçamento.","error");
+    } finally { setMatchAplicarSalvando(false); }
   };
 
   // Folga/profundidade de escavação são convenção de obra, não do projeto -
@@ -4654,6 +4721,54 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
         </Modal>
       )}
 
+      {matchAplicar && (() => {
+        const { match, item } = matchAplicar;
+        const etapasFlat = calc ? achatarArvore(calc.arvore).filter(n => n.tipo === "etapa") : [];
+        const preco = match.precoUnit || 0;
+        const qtdNum = parseBR(matchAplicarQtd) || 0;
+        return (
+          <Modal title="Adicionar sugestão ao orçamento" onClose={()=>setMatchAplicar(null)}>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"11px 13px"}}>
+                <p style={{fontSize:11,color:C.muted,marginBottom:4}}>Item do projeto: {item.descricao}</p>
+                <p style={{fontSize:12,color:C.text,lineHeight:1.4}}>{match.descricao}</p>
+                <p style={{fontSize:11,color:C.muted,marginTop:4}}>
+                  <span style={{fontWeight:700,color:match.fonte==="ORSE"?C.purple:C.blue}}>{match.fonte}</span>
+                  {" "}{match.codigo} · {fmt(preco)}/{match.unidade} <span style={{color:C.muted}}>(sem BDI)</span>
+                </p>
+              </div>
+              <label style={{display:"flex",flexDirection:"column",gap:5}}>
+                <span style={{fontSize:11,fontWeight:700,color:C.text}}>Etapa/categoria do orçamento *</span>
+                <select aria-label="Etapa/categoria do orçamento" value={matchAplicarEtapaId} onChange={e=>setMatchAplicarEtapaId(e.target.value)}
+                  style={{padding:"8px 9px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:11.5}}>
+                  <option value="">Selecione onde este item entra...</option>
+                  {etapasFlat.map(n => (
+                    <option key={n.id} value={n.id}>{"—".repeat(n.nivel-1)}{n.nivel>1?" ":""}{n.nome}</option>
+                  ))}
+                </select>
+              </label>
+              <Inp label={`Quantidade (${match.unidade}) *`} type="number" value={matchAplicarQtd} onChange={setMatchAplicarQtd} placeholder="0,00"/>
+              {qtdNum>0 && (
+                <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:6,padding:"9px 13px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                    <p style={{fontSize:11,color:C.muted}}>Custo direto</p>
+                    <p style={{fontSize:11,color:C.muted}}>{fmt(qtdNum*preco)}</p>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <p style={{fontSize:12,color:C.text,fontWeight:700}}>Total c/ BDI {orc?.bdi}%</p>
+                    <p style={{fontSize:17,fontWeight:800,color:C.yellow}}>{fmt(qtdNum*preco*(1+Number(orc?.bdi||0)/100))}</p>
+                  </div>
+                </div>
+              )}
+              <div style={{display:"flex",gap:8}}>
+                <Btn v="ghost" onClick={()=>setMatchAplicar(null)} full>Cancelar</Btn>
+                <Btn onClick={confirmarAplicarMatchIA} disabled={matchAplicarSalvando} full><Ic n="check"/> {matchAplicarSalvando?"Adicionando...":"Adicionar"}</Btn>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
+
       {editItem && (
         <Modal title="Editar item do orçamento" onClose={()=>setEditItem(null)} wide>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -5389,7 +5504,14 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                                   </p>
                                 ) : null}
                                 {m?.justificativa&&<p style={{fontSize:9.5,color:C.muted,fontStyle:"italic"}}>{m.justificativa}</p>}
-                                {associado&&<button onClick={()=>{navigator.clipboard?.writeText(m.codigo);showToast("Código copiado - busque na aba Itens para adicionar.");}} style={{alignSelf:"flex-start",fontSize:9.5,fontWeight:800,color:C.blue,background:"none",border:"none",padding:0,cursor:"pointer"}}>Copiar código</button>}
+                                {associado&&(
+                                  <div style={{display:"flex",gap:12,alignItems:"center"}}>
+                                    <button onClick={()=>{navigator.clipboard?.writeText(m.codigo);showToast("Código copiado.");}} style={{fontSize:9.5,fontWeight:800,color:C.blue,background:"none",border:"none",padding:0,cursor:"pointer"}}>Copiar código</button>
+                                    {matchIAAplicados.has(item.id)
+                                      ? <span style={{fontSize:9.5,fontWeight:800,color:C.green}}>✓ Adicionado ao orçamento</span>
+                                      : <button onClick={()=>abrirAplicarMatchIA(m,item)} style={{fontSize:9.5,fontWeight:800,color:C.green,background:"none",border:"none",padding:0,cursor:"pointer"}}>+ Adicionar ao orçamento</button>}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
