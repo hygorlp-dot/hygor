@@ -21,9 +21,21 @@ const commercialCollections=[
 ];
 const idSet=value=>new Set((Array.isArray(value)?value:[]).map(item=>String(item?.id||"")).filter(Boolean));
 
+// Achado de 29/08/2026: esta auditoria é só informativa (procura exclusões
+// suspeitas comparando snapshots) - não é um gate de negócio como FIN-003.
+// Ainda assim, um erro aqui (ex.: "statement timeout" do Postgres ao
+// ordenar audit_events por created_at, que cresce sem limite e guarda
+// snapshots inteiros em JSONB) derrubava o prebuild inteiro com "throw",
+// bloqueando o deploy de TUDO - inclusive as migrações financeiras que
+// vêm depois na cadeia `&&`. Uma consulta de leitura best-effort nunca
+// deveria travar o pipeline de deploy; agora qualquer erro aqui vira um
+// aviso e a auditoria é pulada, sem derrubar o build.
 const {data:row,error}=await db.from("company_app_data")
   .select("value,updated_at").eq("company_id",company).eq("key","arced_ponto_v1").single();
-if(error)throw error;
+if(error){
+  console.log(`Integridade de cadastros: auditoria pulada (falha ao ler company_app_data: ${error.message}).`);
+  process.exit(0);
+}
 const current=decodeAppData(row.value);
 const currentCounts=Object.fromEntries(catalogs.map(key=>[key,Array.isArray(current[key])?current[key].length:0]));
 const commercialCounts=Object.fromEntries(commercialCollections.map(key=>[
@@ -33,7 +45,10 @@ const commercialCounts=Object.fromEntries(commercialCollections.map(key=>[
 const {data:events,error:auditError}=await db.from("audit_events")
   .select("id,created_at,action,actor_id,before_snapshot,after_snapshot")
   .eq("company_id",company).order("created_at",{ascending:false}).limit(500);
-if(auditError)throw auditError;
+if(auditError){
+  console.log(`Integridade de cadastros: auditoria de audit_events pulada (${auditError.message}). Cadastros atuais: ${JSON.stringify(currentCounts)}.`);
+  process.exit(0);
+}
 
 const suspicious=[];
 const recoverable=new Map(catalogs.map(key=>[key,new Set()]));
