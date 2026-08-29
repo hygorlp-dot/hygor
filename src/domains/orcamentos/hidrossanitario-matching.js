@@ -84,6 +84,22 @@ export function termosBuscaParaItem(descricao) {
   return [...new Set(termos)].filter(Boolean);
 }
 
+// Último recurso (29/08/2026, pedido do usuário: só considerar o
+// levantamento fechado quando TODO item tiver, no mínimo, uma tentativa
+// real de correspondência - não um "sem candidato" silencioso): um termo
+// de UMA palavra só (o núcleo, sem diâmetro nem modificador nenhum) para
+// os itens que não acharam nada nem no termo principal nem na cauda. É
+// deliberadamente permissivo - pode trazer candidatos de diâmetro ou
+// função diferente, mas o filtro de categoria/diâmetro (candidatoCompativel)
+// continua protegendo: se sobrar mais de um depois do filtro, vai para a
+// IA desempatar; nunca associa sozinho um candidato que não bateu.
+export function termoNucleoApenas(descricao) {
+  const brutas = tokenizar(descricao).filter(p => !PALAVRAS_IGNORAR.has(p));
+  const essenciais = brutas.filter(p => !PALAVRAS_BAIXA_PRIORIDADE.has(p) && !/^[0-9]/.test(p));
+  const nucleo = essenciais[0] || brutas.find(p => !/^[0-9]/.test(p)) || brutas[0];
+  return nucleo || "";
+}
+
 // Categorias reconhecidas. "indefinido" nunca é motivo de rejeição - só
 // bloqueia quando os DOIS lados (item e candidato) têm categoria conhecida
 // e ela conflita.

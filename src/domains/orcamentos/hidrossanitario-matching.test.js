@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   candidatoCompativel, categoriaDaDescricaoCandidato, categoriaDoItem,
-  classificarItem, diametrosCompativeis, termosBuscaParaItem,
+  classificarItem, diametrosCompativeis, termoNucleoApenas, termosBuscaParaItem,
 } from "./hidrossanitario-matching";
 
 // Casos reais do teste ao vivo (29/08/2026, orçamento "I-02 OÁSIS", 94
@@ -35,6 +35,16 @@ describe("termosBuscaParaItem", () => {
   it("devolve lista vazia para descrição vazia", () => {
     expect(termosBuscaParaItem("")).toEqual([]);
     expect(termosBuscaParaItem(undefined)).toEqual([]);
+  });
+});
+
+describe("termoNucleoApenas", () => {
+  it("devolve só a primeira palavra essencial, sem diâmetro nem modificador (último recurso quando o termo normal não achou nada)", () => {
+    expect(termoNucleoApenas("Adaptador Soldável Curto com Bolsa e Rosca para Registro 25 x 3/4'', PVC Marrom, Água Fria")).toBe("adaptador");
+    expect(termoNucleoApenas("Suporte PVC, Branco, 132 x 89, Aquapluv Style - TIGRE")).toBe("suporte");
+  });
+  it("devolve vazio para descrição vazia", () => {
+    expect(termoNucleoApenas("")).toBe("");
   });
 });
 

@@ -71,7 +71,7 @@ import {
 } from "../memoria-calculo-hidrossanitario";
 import { extrairTabelasHidrossanitario } from "../hidrossanitario-pdf-extrator";
 import {
-  candidatoCompativel, categoriaDoItem, classificarItem, termosBuscaParaItem,
+  candidatoCompativel, categoriaDoItem, classificarItem, termoNucleoApenas, termosBuscaParaItem,
 } from "../hidrossanitario-matching";
 
 // Total de um item com BDI. Se o item tiver BDI proprio (it.bdi), ele prevalece
@@ -1585,11 +1585,45 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       }));
       const candidatosPool = [...candidatosPorChave.values()];
       if (!candidatosPool.length) { setMatchIAAviso("Nenhum candidato encontrado nas bases vinculadas para os termos das tabelas - confira se a base certa (SINAPI/ORSE) está vinculada a este orçamento."); setMatchIACarregando(false); return; }
+      // Primeira passada: classifica com o que a busca "normal" achou.
+      // Item sem nenhum sobrevivente ainda não é "pendente" definitivo -
+      // guardamos à parte para uma segunda tentativa mais permissiva antes
+      // de desistir dele (pedido do usuário: todo item precisa de uma
+      // tentativa real de correspondência, não um "sem candidato" de cara).
+      const semCandidato = [];
+      const primeiraPassada = new Map();
+      for (const item of itens) {
+        const sobreviventes = candidatosPool.filter(c => candidatoCompativel(item, c));
+        if (!sobreviventes.length) { semCandidato.push(item); continue; }
+        primeiraPassada.set(item.id, sobreviventes);
+      }
+      // Segunda passada (só para quem ficou sem nada): busca de última
+      // instância com uma palavra só (o núcleo da peça, sem diâmetro nem
+      // modificador) - mais permissiva de propósito. O filtro de
+      // categoria/diâmetro continua de pé: um candidato de sistema ou
+      // diâmetro diferente é descartado igual; se sobrar mais de um depois
+      // do filtro, vai para a IA desempatar, nunca associa sozinho.
+      if (semCandidato.length) {
+        const termosFallback = [...new Set(semCandidato.map(it => termoNucleoApenas(it.descricaoBusca||it.descricao)).filter(Boolean))];
+        const buscasFallback = await Promise.all(termosFallback.map(termo => pesquisarBasesReferencia(orc.referencias, termo)));
+        buscasFallback.forEach(resultado => (resultado?.items||[]).forEach(item => {
+          const chave = `${item.fonte||"SINAPI"}::${item.codigo}`;
+          if (!candidatosPorChave.has(chave)) candidatosPorChave.set(chave, {
+            fonte: item.fonte||"SINAPI", codigo: item.codigo, descricao: item.descricao,
+            unidade: item.unidade, precoUnit: precoDoItem(item, orc),
+          });
+        }));
+        const poolAtualizado = [...candidatosPorChave.values()];
+        for (const item of semCandidato) {
+          const sobreviventes = poolAtualizado.filter(c => candidatoCompativel(item, c));
+          if (sobreviventes.length) primeiraPassada.set(item.id, sobreviventes);
+        }
+      }
       const automaticos = [];
       const ambiguos = [];
       const candidatosAmbiguos = new Map();
       for (const item of itens) {
-        const sobreviventes = candidatosPool.filter(c => candidatoCompativel(item, c));
+        const sobreviventes = primeiraPassada.get(item.id) || [];
         const decisao = classificarItem(item, sobreviventes);
         if (decisao) { automaticos.push(decisao); continue; }
         ambiguos.push(item);
