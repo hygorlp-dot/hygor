@@ -1636,7 +1636,11 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       // (erro AI_INVALID_JSON, perdendo o lote inteiro). Cada lote só leva
       // os candidatos dos seus próprios itens (não o pool inteiro), o que
       // também deixa o prompt mais enxuto e focado.
-      const TAMANHO_LOTE_IA = 12;
+      // Achado do segundo teste ao vivo (29/08/2026): mesmo em lotes de 12,
+      // ~2 de 8 lotes ainda voltavam com JSON inválido (truncado) quando os
+      // itens do lote tinham muitos candidatos cada um (justificativa mais
+      // longa por item). Reduzido para 8 - resposta mais curta por lote.
+      const TAMANHO_LOTE_IA = 8;
       const lotes = [];
       for (let i = 0; i < ambiguos.length; i += TAMANHO_LOTE_IA) lotes.push(ambiguos.slice(i, i + TAMANHO_LOTE_IA));
       const resultadosLotes = await Promise.all(lotes.map(async lote => {

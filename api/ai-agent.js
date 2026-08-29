@@ -197,7 +197,7 @@ export default async function handler(req,res){
       responseMatch=await geminiRequest(apiKeyMatch,aiConfig.model,{
         systemInstruction:{parts:[{text:systemMatch}]},
         contents:[{role:"user",parts:[{text:instrucao}]}],
-        generationConfig:{maxOutputTokens:8000,temperature:0.05,responseMimeType:"application/json",responseSchema:schemaMatch},
+        generationConfig:{maxOutputTokens:12000,temperature:0.05,responseMimeType:"application/json",responseSchema:schemaMatch},
       },controllerMatch.signal);
     }catch(error){
       clearTimeout(timeoutMatch);
