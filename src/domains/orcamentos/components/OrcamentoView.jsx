@@ -70,6 +70,9 @@ import {
   novoHidrossanitario, somaComprimento, somaQuantidade,
 } from "../memoria-calculo-hidrossanitario";
 import { extrairTabelasHidrossanitario } from "../hidrossanitario-pdf-extrator";
+import {
+  candidatoCompativel, categoriaDoItem, classificarItem, termosBuscaParaItem,
+} from "../hidrossanitario-matching";
 
 // Total de um item com BDI. Se o item tiver BDI proprio (it.bdi), ele prevalece
 // sobre o BDI global do orcamento - permite uma linha com BDI diferente.
@@ -1521,10 +1524,13 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     setPdfPreviewHidrossanitario(null);
   };
 
-  // Achata as 8 tabelas do hidrossanitário numa lista única de itens para a
-  // IA associar - cada formato de linha vira uma descrição de busca coerente
-  // (ex.: tubo rígido junta descrição + diâmetro + sistema, já que nenhum
-  // desses campos sozinho identifica a composição certa).
+  // Achata as 8 tabelas do hidrossanitário numa lista única de itens para o
+  // motor de associação - cada formato de linha vira uma descrição de
+  // busca coerente (ex.: tubo rígido junta descrição + diâmetro + sistema,
+  // já que nenhum desses campos sozinho identifica a composição certa) e
+  // uma `categoria` (sistema água fria/esgoto/pluvial/indefinido, ver
+  // categoriaDoItem em hidrossanitario-matching.js) usada para nunca
+  // deixar um candidato de sistema errado passar como único/automático.
   const itensParaAssociarIA = () => {
     const hidro = hidrossanitarioDoOrc();
     const paraItem = (chave, tabela, l, idx) => {
@@ -1534,13 +1540,21 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       else if (chave === "registrosAcessorios" || chave === "calhasPluviais") { descricao = l.descricao; quantidade = l.quantidade; }
       else if (chave === "tubosRigidos" || chave === "tubosFlexiveis") { descricao = `${l.descricao||""}${l.diametroMm?` Ø${l.diametroMm}mm`:""}${l.sistema?` - ${l.sistema}`:""}`; quantidade = l.comprimentoM; unidade = "m"; }
       descricao = descricao.trim();
-      return descricao && Number(quantidade) > 0 ? { id:`${chave}-${idx}`, descricao, quantidade:Number(quantidade), unidade, tabela } : null;
+      return descricao && Number(quantidade) > 0 ? { id:`${chave}-${idx}`, descricao, quantidade:Number(quantidade), unidade, tabela, categoria: categoriaDoItem(chave, l) } : null;
     };
     return CHAVES_TABELAS_HIDROSSANITARIO
       .flatMap(([chave,tabela]) => (hidro[chave]||[]).map((l,idx) => paraItem(chave,tabela,l,idx)))
       .filter(Boolean);
   };
 
+  // Motor híbrido (29/08/2026, achado do teste real com as 94 linhas do
+  // PDF): quando a busca encontra exatamente 1 candidato compatível
+  // (mesmo sistema, mesmo diâmetro), a IA só estaria confirmando uma
+  // escolha óbvia - a associação já sai automática/determinística, sem
+  // custo de API. A IA só é chamada para os itens onde sobra mais de 1
+  // candidato plausível (o desempate de verdade, ex.: "Bacia Sanitária"
+  // com 4 padrões possíveis) - ou pulada por completo se nenhum item cair
+  // nessa situação.
   const executarAssociacaoIA = async () => {
     if (!orc) return;
     const itens = itensParaAssociarIA();
@@ -1548,10 +1562,11 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     if (!(orc.referencias||[]).length) { showToast("Vincule ao menos uma base SINAPI/ORSE ao orçamento (aba \"Bases oficiais e vínculos\") antes de associar automaticamente.","error"); return; }
     setMatchIACarregando(true); setMatchIAAviso(""); setMatchIA(null);
     try {
-      // Cada descrição de tabela já é um bom termo de busca (vem do próprio
-      // projeto) - dedup evita pesquisar "Joelho 90° PVC 25mm" 6 vezes só
-      // porque 6 conexões diferentes usam essa mesma peça.
-      const termos = [...new Set(itens.map(it => it.descricao))].slice(0, 40);
+      // Cada item pode gerar 1-2 termos de busca (termosBuscaParaItem já
+      // corta em no máximo 6 palavras - o limite real de /api/references -
+      // priorizando o núcleo da peça e o diâmetro; um segundo termo cobre
+      // os modificadores que não couberam no primeiro).
+      const termos = [...new Set(itens.flatMap(it => termosBuscaParaItem(it.descricao)))].slice(0, 80);
       const buscas = await Promise.all(termos.map(termo => pesquisarBasesReferencia(orc.referencias, termo)));
       const candidatosPorChave = new Map();
       buscas.forEach(resultado => (resultado?.items||[]).forEach(item => {
@@ -1561,11 +1576,25 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           unidade: item.unidade, precoUnit: precoDoItem(item, orc),
         });
       }));
-      const candidatos = [...candidatosPorChave.values()];
-      if (!candidatos.length) { setMatchIAAviso("Nenhum candidato encontrado nas bases vinculadas para os termos das tabelas - confira se a base certa (SINAPI/ORSE) está vinculada a este orçamento."); setMatchIACarregando(false); return; }
-      const resposta = await chamarIA({ action:"budget-match", itens, candidatos });
-      if (!resposta.ok) { setMatchIAAviso(resposta.error||"Não foi possível associar agora."); setMatchIACarregando(false); return; }
-      setMatchIA({ itens, matches: resposta.matches||[] });
+      const candidatosPool = [...candidatosPorChave.values()];
+      if (!candidatosPool.length) { setMatchIAAviso("Nenhum candidato encontrado nas bases vinculadas para os termos das tabelas - confira se a base certa (SINAPI/ORSE) está vinculada a este orçamento."); setMatchIACarregando(false); return; }
+      const automaticos = [];
+      const ambiguos = [];
+      const candidatosAmbiguos = new Map();
+      for (const item of itens) {
+        const sobreviventes = candidatosPool.filter(c => candidatoCompativel(item, c));
+        const decisao = classificarItem(item, sobreviventes);
+        if (decisao) { automaticos.push(decisao); continue; }
+        ambiguos.push(item);
+        sobreviventes.forEach(c => candidatosAmbiguos.set(`${c.fonte}::${c.codigo}`, c));
+      }
+      let matchesIA = [];
+      if (ambiguos.length) {
+        const resposta = await chamarIA({ action:"budget-match", itens:ambiguos, candidatos:[...candidatosAmbiguos.values()] });
+        if (!resposta.ok) { setMatchIAAviso(resposta.error||"Não foi possível associar os itens ambíguos agora - os itens com candidato único já foram associados por regra."); }
+        else matchesIA = (resposta.matches||[]).map(m => ({ ...m, origem:"ia" }));
+      }
+      setMatchIA({ itens, matches:[...automaticos, ...matchesIA] });
     } finally { setMatchIACarregando(false); }
   };
 
@@ -5259,7 +5288,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
                     <div>
                       <p style={{fontSize:12,fontWeight:850,color:C.text}}>ASSOCIAR ÀS COMPOSIÇÕES (IA)</p>
-                      <p style={{fontSize:10,color:C.muted,marginTop:2,maxWidth:520}}>A IA sugere, para cada peça/conexão/tubo já lançado nas tabelas, a composição SINAPI/ORSE mais próxima entre as bases vinculadas a este orçamento. Ela só propõe - nada é adicionado ao orçamento sozinha, você confere e adiciona manualmente na aba Itens.</p>
+                      <p style={{fontSize:10,color:C.muted,marginTop:2,maxWidth:520}}>Busca a composição SINAPI/ORSE mais próxima nas bases vinculadas a este orçamento para cada peça/conexão/tubo já lançado - associa direto quando só existe um candidato compatível, e só chama a IA para desempatar quando sobra mais de uma opção plausível. Só propõe - nada é adicionado ao orçamento sozinho, você confere e adiciona manualmente na aba Itens.</p>
                     </div>
                     <Btn size="sm" onClick={executarAssociacaoIA} disabled={matchIACarregando}>
                       <Ic n="ia" s={14}/> {matchIACarregando?"Associando...":"Associar automaticamente"}
@@ -5269,9 +5298,14 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                   {matchIA&&(() => {
                     const porItemId = new Map(matchIA.matches.map(m=>[m.itemId,m]));
                     const associados = matchIA.matches.filter(m=>m.status==="associado").length;
+                    const porRegra = matchIA.matches.filter(m=>m.status==="associado"&&m.origem==="regra").length;
+                    const porIA = associados - porRegra;
                     return (
                       <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                        <p style={{fontSize:10.5,fontWeight:800,color:C.text}}>{associados} de {matchIA.itens.length} item(ns) com composição sugerida.</p>
+                        <p style={{fontSize:10.5,fontWeight:800,color:C.text}}>
+                          {associados} de {matchIA.itens.length} item(ns) com composição sugerida.
+                          {associados>0&&<span style={{fontWeight:500,color:C.muted}}> ({porRegra} por candidato único, {porIA} desempatados pela IA)</span>}
+                        </p>
                         <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:420,overflow:"auto"}}>
                           {matchIA.itens.map(item => {
                             const m = porItemId.get(item.id);
@@ -5285,7 +5319,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                                 {associado ? (
                                   <p style={{fontSize:10,color:C.text}}>
                                     <span style={{fontWeight:700,color:m.fonte==="ORSE"?C.purple:C.blue}}>{m.fonte}</span> {m.codigo} - {m.descricao}
-                                    <span style={{color:C.muted}}> · {Math.round((m.confianca||0)*100)}% confiança</span>
+                                    <span style={{color:C.muted}}> · {Math.round((m.confianca||0)*100)}% confiança · {m.origem==="ia"?"desempate por IA":"candidato único"}</span>
                                   </p>
                                 ) : null}
                                 {m?.justificativa&&<p style={{fontSize:9.5,color:C.muted,fontStyle:"italic"}}>{m.justificativa}</p>}

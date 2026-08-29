@@ -1,0 +1,171 @@
+// Motor de associação item→composição do Hidrossanitário (29/08/2026).
+//
+// Achado do teste real com as 94 linhas do PDF: rodar a IA para TODO item
+// era desperdício - em 5 dos 5 casos que ela associou, havia exatamente 1
+// candidato real encontrado (compatível em categoria/diâmetro), então a IA
+// só estava CONFIRMANDO uma escolha que uma regra determinística já dava
+// com a mesma segurança, sem custo de API/latência/dependência de chave
+// Gemini configurada. O único caso onde ela agregou algo (a "Bacia
+// Sanitária com Caixa Acoplada", 4 candidatos plausíveis, sem padrão/
+// engate especificado no item) é exatamente o tipo de desempate que só
+// faz sentido levar à IA.
+//
+// Também descobrimos a causa raiz de por que a busca (`pesquisarBasesReferencia`
+// → `/api/references`) não achava candidato pra maioria dos itens: o
+// servidor usa `terms.slice(0, QUERY_TERMS_MAX=6)` (api/references.js) -
+// só as 6 primeiras palavras da consulta viram filtro `ilike` (E lógico,
+// todas precisam bater). Mandar a descrição inteira do PDF ("Adaptador
+// Soldável Curto com Bolsa e Rosca para Registro 25 x 3/4'', PVC Marrom,
+// Água Fria") gasta as 6 vagas em "adaptador soldavel curto com bolsa e" -
+// o diâmetro e o substantivo que realmente distingue a peça ("registro")
+// nunca chegam a ser usados. `termosBuscaParaItem` resolve isso do lado
+// do cliente, sem precisar mudar o servidor: sempre preserva o núcleo
+// (primeira palavra não-genérica) e os números/frações (diâmetro), e só
+// preenche o resto do orçamento de 6 palavras com os modificadores
+// seguintes - descartando por último as palavras de sistema/cor/marca
+// (que agora são responsabilidade do filtro de categoria, não da busca).
+//
+// Este módulo é intencionalmente conservador: toda função aqui só REJEITA
+// um candidato quando há um CONFLITO CONFIRMADO (categoria oposta,
+// diâmetro numérico diferente) - na dúvida (informação ausente de um dos
+// lados), deixa passar e confia no desempate seguinte (mais candidatos
+// sobreviventes → vai para a IA; exatamente 1 → associação automática;
+// nenhum → pendente). Nunca inventa, nunca força uma escolha.
+
+const PALAVRAS_IGNORAR = new Set([
+  "com", "e", "para", "de", "da", "do", "das", "dos", "em", "na", "no",
+  "por", "ou", "um", "uma", "x", "a", "o",
+]);
+
+// Palavras de sistema/cor/marca/instalação: úteis para o OLHO humano, mas
+// não para a busca (o filtro de categoria abaixo já cuida de sistema) -
+// são as primeiras a sair quando o orçamento de 6 palavras aperta.
+const PALAVRAS_BAIXA_PRIORIDADE = new Set([
+  "pvc", "marrom", "branco", "agua", "fria", "esgoto", "pluvial",
+  "serie", "normal", "tigre", "fortlev", "aquapluv", "style",
+  "instalado", "instalacao", "instalada", "fornecimento", "ramal",
+  "sub-ramal", "subramal", "acessorio", "acessório",
+]);
+
+const REGEX_DIACRITICOS = new RegExp("[̀-ͯ]", "g");
+const semAcentoMinusculo = texto => String(texto || "")
+  .normalize("NFD").replace(REGEX_DIACRITICOS, "")
+  .toLowerCase();
+
+const tokenizar = texto => semAcentoMinusculo(texto)
+  .replace(/['"’]/g, "")
+  .split(/[^a-z0-9/]+/)
+  .filter(Boolean);
+
+// Devolve 1-2 termos de busca (cada um com no máximo 6 palavras, o limite
+// real do servidor) para uma descrição de item. O primeiro termo prioriza
+// substantivo-núcleo + diâmetro + os modificadores seguintes; quando a
+// descrição é longa demais para caber num só termo, um segundo termo
+// cobre os modificadores que sobraram (ex.: "registro", "rosca") - a busca
+// tenta os dois e o resultado é somado (pooled) antes do filtro de
+// categoria/diâmetro decidir o que é realmente compatível.
+export function termosBuscaParaItem(descricao) {
+  const brutas = tokenizar(descricao).filter(p => !PALAVRAS_IGNORAR.has(p));
+  if (!brutas.length) return [];
+  const numeros = brutas.filter(p => /^[0-9]/.test(p));
+  const naoNumeros = brutas.filter(p => !/^[0-9]/.test(p));
+  const essenciais = naoNumeros.filter(p => !PALAVRAS_BAIXA_PRIORIDADE.has(p));
+  const nucleo = essenciais[0] ? [essenciais[0]] : naoNumeros.slice(0, 1);
+  const resto = essenciais.slice(1);
+  const base = [...nucleo, ...numeros];
+  const primeiro = [...base, ...resto].slice(0, 6).join(" ");
+  const termos = [primeiro];
+  const vagas = Math.max(0, 6 - base.length);
+  if (resto.length > vagas) {
+    const cauda = resto.slice(vagas);
+    const segundo = [...base, ...cauda].slice(0, 6).join(" ");
+    termos.push(segundo);
+  }
+  return [...new Set(termos)].filter(Boolean);
+}
+
+// Categorias reconhecidas. "indefinido" nunca é motivo de rejeição - só
+// bloqueia quando os DOIS lados (item e candidato) têm categoria conhecida
+// e ela conflita.
+const SISTEMAS = ["agua-fria", "esgoto", "pluvial"];
+
+const categoriaPorPalavraChave = texto => {
+  const t = semAcentoMinusculo(texto);
+  if (/esgoto/.test(t)) return "esgoto";
+  if (/pluvial/.test(t)) return "pluvial";
+  if (/agua/.test(t)) return "agua-fria";
+  return "";
+};
+
+// Deriva a categoria/sistema de uma linha das 8 tabelas do hidrossanitário
+// - cada tabela tem sua própria forma de indicar o sistema (fixo pela
+// própria tabela, um campo tipoSistema/sistema, ou nenhum campo - nesse
+// caso cai para uma tentativa por palavra-chave na própria descrição, e se
+// nada bater, "indefinido").
+export function categoriaDoItem(chave, linha) {
+  if (chave === "conexoesAguaFria") return "agua-fria";
+  if (chave === "conexoesEsgoto") return "esgoto";
+  if (chave === "calhasPluviais") return "pluvial";
+  if (chave === "tubosRigidos") return categoriaPorPalavraChave(linha?.sistema) || "indefinido";
+  if (chave === "caixasRalosComplementos" || chave === "pecasHidraulicasSanitarias") {
+    return categoriaPorPalavraChave(linha?.tipoSistema) || "indefinido";
+  }
+  // registrosAcessorios e tubosFlexiveis não têm campo de sistema no
+  // modelo de dados - só resta tentar por palavra-chave na descrição.
+  return categoriaPorPalavraChave(linha?.descricao) || "indefinido";
+}
+
+// Categoria "lida" na descrição de um candidato SINAPI/ORSE (texto oficial
+// da base) - mesma lógica por palavra-chave, aplicada ao lado da base.
+export function categoriaDaDescricaoCandidato(descricao) {
+  return categoriaPorPalavraChave(descricao) || "indefinido";
+}
+
+// Números de diâmetro em mm mencionados no texto (aceita "25mm", "25 mm",
+// ou um número solto como "25" antes de "x"/vírgula - comum nas tabelas do
+// PDF, que às vezes omitem a unidade). Não tenta interpretar polegadas
+// (1/2", 3/4") como mm - ficam numa lista à parte, comparadas separado.
+const extrairNumeros = texto => (semAcentoMinusculo(texto).match(/\d+(?:[.,]\d+)?\s*mm\b|\b\d+(?:[.,]\d+)?(?=\s*(?:mm\b|x\b|,|$))/g) || [])
+  .map(s => parseFloat(s.replace(",", ".")))
+  .filter(n => Number.isFinite(n) && n > 0 && n < 1000); // descarta ex. "2000" de "2000 litros", "300" de "aço inox 300mm" só se vier de um contexto de volume - heurística simples, não perfeita.
+
+const extrairPolegadas = texto => (semAcentoMinusculo(texto).match(/\d\/\d\s*(?:''|"|pol)?/g) || [])
+  .map(s => s.replace(/[''"]|pol/g, "").trim());
+
+// Só rejeita quando os dois lados têm diâmetro extraído E não têm nenhum
+// valor em comum - quando falta informação de um lado, considera
+// compatível (deixa a decisão pra frente: desempate por IA se sobrar mais
+// de 1 candidato, ou aceitação automática se sobrar só esse).
+export function diametrosCompativeis(textoItem, textoCandidato) {
+  const mmItem = extrairNumeros(textoItem);
+  const mmCand = extrairNumeros(textoCandidato);
+  if (mmItem.length && mmCand.length && !mmItem.some(n => mmCand.includes(n))) return false;
+  const polItem = extrairPolegadas(textoItem);
+  const polCand = extrairPolegadas(textoCandidato);
+  if (polItem.length && polCand.length && !polItem.some(p => polCand.includes(p))) return false;
+  return true;
+}
+
+// Decisão final: um candidato é compatível com um item quando não há
+// conflito confirmado de categoria (sistema) nem de diâmetro.
+export function candidatoCompativel(item, candidato) {
+  const catItem = item.categoria || "indefinido";
+  const catCand = categoriaDaDescricaoCandidato(candidato.descricao);
+  if (SISTEMAS.includes(catItem) && SISTEMAS.includes(catCand) && catItem !== catCand) return false;
+  return diametrosCompativeis(item.descricao, candidato.descricao);
+}
+
+// Classifica um item já com sua lista de candidatos SOBREVIVENTES (depois
+// de `candidatoCompativel`): 0 → pendente sem custo de IA; exatamente 1 →
+// associação automática (determinística, sem IA); 2+ → ambíguo, só esses
+// vão para a chamada de IA.
+export function classificarItem(item, sobreviventes) {
+  if (!sobreviventes.length) {
+    return { itemId: item.id, status: "pendente", origem: "regra", confianca: 0, justificativa: "Nenhum candidato compatível encontrado (sistema/diâmetro considerados)." };
+  }
+  if (sobreviventes.length === 1) {
+    const c = sobreviventes[0];
+    return { itemId: item.id, status: "associado", origem: "regra", fonte: c.fonte, codigo: c.codigo, descricao: c.descricao, unidade: c.unidade, precoUnit: c.precoUnit, confianca: 1, justificativa: "Único candidato compatível por sistema e diâmetro - sem outra opção para comparar." };
+  }
+  return null; // ambíguo - decide a IA
+}
