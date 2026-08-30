@@ -4721,6 +4721,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
         </Modal>
       )}
 
+      {matchAplicar && <div id="debug-marker-matchaplicar" style={{position:"fixed",top:10,left:10,zIndex:999999,background:"red",color:"white",padding:20,fontSize:20}}>MARCADOR DEBUG - matchAplicar ESTA TRUTHY</div>}
       {matchAplicar && (
         <Modal title="Adicionar sugestão ao orçamento" onClose={()=>setMatchAplicar(null)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
