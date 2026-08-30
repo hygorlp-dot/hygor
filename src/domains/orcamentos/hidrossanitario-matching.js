@@ -201,6 +201,15 @@ export function candidatoCompativel(item, candidato) {
 // previsível.
 const PADRAO_SO_LOCAL_OU_JUNTA = /\b(ramal|sub-?ramal|prumada|reservacao|distribuicao|descarga|ventilacao|soldavel|elastica)\b/;
 
+// Achado do teste ao vivo de 30/08/2026: os 3 primeiros candidatos reais
+// testados (SINAPI 89383/89429/94656, o próprio caso que motivou esta
+// função) SÓ bateram depois de remover espaço e aspas do núcleo - o
+// código mais novo (94656, AF_04/2024) grafa "DN 25 MM X 3/4"" (com
+// espaço antes de "MM" e aspas de polegada), enquanto os mais antigos
+// (89383/89429, AF_06/2022) grafam "DN 25MM X 3/4" (sem espaço, sem
+// aspas) - mesma peça, formatação diferente entre revisões do SINAPI.
+// Comparar ignorando espaço/aspas evita que ruído de formatação
+// mascare candidatos que são, de fato, a mesma peça.
 export function candidatosDivergemSoPorInstalacao(candidatos) {
   if (!candidatos || candidatos.length < 2) return false;
   const nucleoDe = descricao => semAcentoMinusculo(descricao)
@@ -208,8 +217,7 @@ export function candidatosDivergemSoPorInstalacao(candidatos) {
     .split(/[,.]/)
     .filter(trecho => !PADRAO_SO_LOCAL_OU_JUNTA.test(trecho))
     .join("|")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/['"\s]/g, "");
   const nucleos = candidatos.map(c => nucleoDe(c.descricao));
   return nucleos[0].length > 0 && nucleos.every(n => n === nucleos[0]);
 }

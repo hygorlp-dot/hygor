@@ -130,6 +130,23 @@ describe("candidatosDivergemSoPorInstalacao", () => {
     expect(candidatosDivergemSoPorInstalacao(candidatos)).toBe(true);
   });
 
+  // Caso real, testado ao vivo em 30/08/2026 direto na aba Hidrossanitário
+  // do orçamento "I-02 OÁSIS": a IA respondeu "pendente" apontando
+  // exatamente estes 3 códigos, mas o filtro por regra ainda não pegava
+  // esse caso - o código mais novo (94656, AF_04/2024) grafa "DN 25 MM X
+  // 3/4"" (espaço extra + aspas de polegada) enquanto os mais antigos
+  // grafam "DN 25MM X 3/4" (sem espaço, sem aspas), quebrando a
+  // igualdade de string. Fixture com as descrições reais, exatamente como
+  // vieram do banco.
+  it("detecta o caso real testado ao vivo, mesmo com diferença de formatação entre revisões do SINAPI (espaço/aspas)", () => {
+    const candidatos = [
+      { fonte: "SINAPI", codigo: "89383", descricao: "ADAPTADOR CURTO COM BOLSA E ROSCA PARA REGISTRO, PVC, SOLDÁVEL, DN 25MM X 3/4, INSTALADO EM RAMAL OU SUB-RAMAL DE ÁGUA - FORNECIMENTO E INSTALAÇÃO. AF_06/2022" },
+      { fonte: "SINAPI", codigo: "89429", descricao: "ADAPTADOR CURTO COM BOLSA E ROSCA PARA REGISTRO, PVC, SOLDÁVEL, DN 25MM X 3/4, INSTALADO EM RAMAL DE DISTRIBUIÇÃO DE ÁGUA - FORNECIMENTO E INSTALAÇÃO. AF_06/2022" },
+      { fonte: "SINAPI", codigo: "94656", descricao: "ADAPTADOR CURTO COM BOLSA E ROSCA PARA REGISTRO, PVC, SOLDÁVEL, DN 25 MM X 3/4\", INSTALADO EM RESERVAÇÃO PREDIAL DE ÁGUA - FORNECIMENTO E INSTALAÇÃO. AF_04/2024" },
+    ];
+    expect(candidatosDivergemSoPorInstalacao(candidatos)).toBe(true);
+  });
+
   it("detecta quando os candidatos só diferem pelo tipo de junta", () => {
     const candidatos = [
       { descricao: "Juncao 100x100, pvc, junta soldavel" },
