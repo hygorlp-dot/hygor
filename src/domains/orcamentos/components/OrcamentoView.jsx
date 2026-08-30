@@ -1688,6 +1688,13 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // abrir. O operador ainda vê a composição/preço e confirma a quantidade
   // antes de qualquer gravação - nada é aplicado sozinho.
   const abrirAplicarMatchIA = (match, item) => {
+    // Achado do teste ao vivo de 30/08/2026: o modal de quantidade só é
+    // montado dentro do bloco `orcAba==="orcamento"` (aba Itens) - chamado
+    // daqui (aba Memória de Cálculo), setQtdModal ficava com o estado
+    // certo mas nada aparecia na tela, porque a árvore que contém o modal
+    // nem estava montada. Trocar de aba junto resolve e ainda faz sentido
+    // para o operador: ele é levado direto pra onde o item vai cair.
+    setOrcAba("orcamento");
     setEtapaAlvo(etapaSugeridaParaCategoria(item.categoria));
     setQtdModal({ fonte:match.fonte, codigo:match.codigo, descricao:match.descricao, unidade:match.unidade, precoUnit:match.precoUnit });
     setQtd(String(item.quantidade || ""));
