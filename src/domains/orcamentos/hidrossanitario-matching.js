@@ -137,13 +137,30 @@ export function categoriaDaDescricaoCandidato(descricao) {
   return categoriaPorPalavraChave(descricao) || "indefinido";
 }
 
-// Números de diâmetro em mm mencionados no texto (aceita "25mm", "25 mm",
-// ou um número solto como "25" antes de "x"/vírgula - comum nas tabelas do
-// PDF, que às vezes omitem a unidade). Não tenta interpretar polegadas
-// (1/2", 3/4") como mm - ficam numa lista à parte, comparadas separado.
-const extrairNumeros = texto => (semAcentoMinusculo(texto).match(/\d+(?:[.,]\d+)?\s*mm\b|\b\d+(?:[.,]\d+)?(?=\s*(?:mm\b|x\b|,|$))/g) || [])
-  .map(s => parseFloat(s.replace(",", ".")))
-  .filter(n => Number.isFinite(n) && n > 0 && n < 1000); // descarta ex. "2000" de "2000 litros", "300" de "aço inox 300mm" só se vier de um contexto de volume - heurística simples, não perfeita.
+// Números de diâmetro em mm mencionados no texto: só extrai um número
+// quando ele vem com sufixo "mm" explícito ("25mm", "25 mm"), ou quando
+// vem imediatamente antes de "x" + uma fração ("25 x 3/4", a convenção
+// real das peças de redução/adaptador do PDF). Não tenta interpretar
+// polegadas (1/2", 3/4") como mm - ficam numa lista à parte, comparadas
+// separado.
+//
+// Achado do audit de 30/08/2026: a versão anterior também extraía QUALQUER
+// número antes de "x" (sem exigir fração depois) e QUALQUER número antes
+// de vírgula/fim de string - o que fazia dimensões de calha como
+// "132 x 89" (largura x altura do perfil, não diâmetro nenhum - ex. real:
+// "Suporte PVC, Branco, 132 x 89, Aquapluv Style - TIGRE") virarem [132,89]
+// e rejeitar por "diâmetro incompatível" qualquer candidato genérico de
+// calha/condutor que não citasse esses mesmos números - provavelmente a
+// causa raiz de todos os 13 itens de calha pluvial terem dado "Nenhum
+// candidato" nos testes ao vivo desta sessão.
+const extrairNumeros = texto => {
+  const t = semAcentoMinusculo(texto);
+  const comSufixoMm = t.match(/\d+(?:[.,]\d+)?\s*mm\b/g) || [];
+  const antesDeFracao = t.match(/\d+(?:[.,]\d+)?(?=\s*x\s*\d\/\d)/g) || [];
+  return [...comSufixoMm, ...antesDeFracao]
+    .map(s => parseFloat(s.replace(/[^\d.,]/g, "").replace(",", ".")))
+    .filter(n => Number.isFinite(n) && n > 0 && n < 1000); // descarta ex. "2000" de "2000 litros".
+};
 
 const extrairPolegadas = texto => (semAcentoMinusculo(texto).match(/\d\/\d\s*(?:''|"|pol)?/g) || [])
   .map(s => s.replace(/[''"]|pol/g, "").trim());
@@ -171,10 +188,37 @@ export function candidatoCompativel(item, candidato) {
   return diametrosCompativeis(item.descricao, candidato.descricao);
 }
 
+// "Mínimo de IA" (audit de 30/08/2026): quando os candidatos sobreviventes
+// só diferem pelo LOCAL de instalação (ramal, sub-ramal, prumada,
+// reservação, distribuição, descarga, ventilação) ou pelo TIPO DE JUNTA
+// (soldável x elástica) - informação que o PDF de origem nunca especifica
+// item a item -, a IA não tem como resolver isso de verdade: nos testes ao
+// vivo desta sessão, chamada exatamente nesses casos, ela mesma respondeu
+// "pendente". Então esse desempate pode ser feito por regra, sem gastar
+// uma chamada de IA que já sabemos (pelo teste real) que terminaria em
+// "pendente" de qualquer forma - é uma downgrade estritamente segura:
+// nunca associa sozinho, só evita uma chamada de IA cujo resultado já é
+// previsível.
+const PADRAO_SO_LOCAL_OU_JUNTA = /\b(ramal|sub-?ramal|prumada|reservacao|distribuicao|descarga|ventilacao|soldavel|elastica)\b/;
+
+export function candidatosDivergemSoPorInstalacao(candidatos) {
+  if (!candidatos || candidatos.length < 2) return false;
+  const nucleoDe = descricao => semAcentoMinusculo(descricao)
+    .replace(/af[_ ]?\d+\/\d+/g, "")
+    .split(/[,.]/)
+    .filter(trecho => !PADRAO_SO_LOCAL_OU_JUNTA.test(trecho))
+    .join("|")
+    .replace(/\s+/g, " ")
+    .trim();
+  const nucleos = candidatos.map(c => nucleoDe(c.descricao));
+  return nucleos[0].length > 0 && nucleos.every(n => n === nucleos[0]);
+}
+
 // Classifica um item já com sua lista de candidatos SOBREVIVENTES (depois
 // de `candidatoCompativel`): 0 → pendente sem custo de IA; exatamente 1 →
-// associação automática (determinística, sem IA); 2+ → ambíguo, só esses
-// vão para a chamada de IA.
+// associação automática (determinística, sem IA); 2+ diferindo só por
+// instalação/junta → pendente sem custo de IA (ver acima); 2+ de verdade
+// diferentes → ambíguo, só esses vão para a chamada de IA.
 export function classificarItem(item, sobreviventes) {
   if (!sobreviventes.length) {
     return { itemId: item.id, status: "pendente", origem: "regra", confianca: 0, justificativa: "Nenhum candidato compatível encontrado (sistema/diâmetro considerados)." };
@@ -183,5 +227,8 @@ export function classificarItem(item, sobreviventes) {
     const c = sobreviventes[0];
     return { itemId: item.id, status: "associado", origem: "regra", fonte: c.fonte, codigo: c.codigo, descricao: c.descricao, unidade: c.unidade, precoUnit: c.precoUnit, confianca: 1, justificativa: "Único candidato compatível por sistema e diâmetro - sem outra opção para comparar." };
   }
-  return null; // ambíguo - decide a IA
+  if (candidatosDivergemSoPorInstalacao(sobreviventes)) {
+    return { itemId: item.id, status: "pendente", origem: "regra", confianca: 0, justificativa: "Candidatos equivalentes entre si, diferindo só pelo local de instalação ou tipo de junta - informação que o projeto não especifica item a item. Pendente sem custo de IA." };
+  }
+  return null; // ambíguo de verdade - decide a IA
 }

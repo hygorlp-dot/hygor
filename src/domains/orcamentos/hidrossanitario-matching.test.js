@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  candidatoCompativel, categoriaDaDescricaoCandidato, categoriaDoItem,
-  classificarItem, diametrosCompativeis, termoNucleoApenas, termosBuscaParaItem,
+  candidatoCompativel, candidatosDivergemSoPorInstalacao, categoriaDaDescricaoCandidato,
+  categoriaDoItem, classificarItem, diametrosCompativeis, termoNucleoApenas, termosBuscaParaItem,
 } from "./hidrossanitario-matching";
 
 // Casos reais do teste ao vivo (29/08/2026, orçamento "I-02 OÁSIS", 94
@@ -82,6 +82,22 @@ describe("diametrosCompativeis", () => {
   it("é permissivo quando falta diâmetro de um dos lados", () => {
     expect(diametrosCompativeis("Bacia Sanitária", "BACIA SANITARIA PADRAO ALTO")).toBe(true);
   });
+
+  // Bug real encontrado no audit de 30/08/2026: a extração de diâmetro
+  // confundia dimensões de calha (largura x altura do perfil) com
+  // diâmetro de peça, porque extraía QUALQUER número antes de "x" -
+  // provavelmente a causa raiz de todos os itens de calha pluvial terem
+  // dado "Nenhum candidato" nos testes ao vivo desta sessão.
+  it("não confunde dimensões de calha (132 x 89) com diâmetro de peça - não rejeita mais um candidato genérico de calha por causa disso", () => {
+    const itemCalha = "Suporte PVC, Branco, 132 x 89, Aquapluv Style - TIGRE";
+    const candidatoCalha = "CALHA EM PVC RIGIDO CIRCULAR DN 100MM PARA AGUAS PLUVIAIS";
+    expect(diametrosCompativeis(itemCalha, candidatoCalha)).toBe(true);
+  });
+
+  it("continua extraindo o diâmetro certo de 'NN x N/N' mesmo sem sufixo mm (convenção real de adaptador/registro do PDF)", () => {
+    expect(diametrosCompativeis("Registro 25 x 3/4", "REGISTRO GAVETA 25 X 3/4")).toBe(true);
+    expect(diametrosCompativeis("Registro 25 x 3/4", "REGISTRO GAVETA 32 X 3/4")).toBe(false);
+  });
 });
 
 describe("candidatoCompativel", () => {
@@ -99,6 +115,43 @@ describe("candidatoCompativel", () => {
   });
 });
 
+// "Mínimo de IA" (audit de 30/08/2026): padrão real encontrado nos testes
+// ao vivo desta sessão - candidatos que só diferem pelo local de
+// instalação ou tipo de junta (informação que o PDF nunca especifica),
+// caso em que a IA - quando de fato chamada - respondeu "pendente" mesmo
+// assim. Detectar isso por regra evita gastar a chamada.
+describe("candidatosDivergemSoPorInstalacao", () => {
+  it("detecta quando os candidatos só diferem pelo local de instalação (caso real do teste ao vivo)", () => {
+    const candidatos = [
+      { fonte: "SINAPI", codigo: "89429", descricao: "Adaptador soldavel curto com bolsa e rosca para registro, 25 x 3/4, instalado em ramal ou sub-ramal de agua" },
+      { fonte: "SINAPI", codigo: "89383", descricao: "Adaptador soldavel curto com bolsa e rosca para registro, 25 x 3/4, instalado em ramal de distribuicao de agua" },
+      { fonte: "SINAPI", codigo: "94656", descricao: "Adaptador soldavel curto com bolsa e rosca para registro, 25 x 3/4, instalado em reservacao predial de agua" },
+    ];
+    expect(candidatosDivergemSoPorInstalacao(candidatos)).toBe(true);
+  });
+
+  it("detecta quando os candidatos só diferem pelo tipo de junta", () => {
+    const candidatos = [
+      { descricao: "Juncao 100x100, pvc, junta soldavel" },
+      { descricao: "Juncao 100x100, pvc, junta elastica" },
+    ];
+    expect(candidatosDivergemSoPorInstalacao(candidatos)).toBe(true);
+  });
+
+  it("não confunde uma diferença de verdade (peça diferente) com divergência de instalação/junta", () => {
+    const candidatos = [
+      { descricao: "Registro de gaveta bruto, 25mm" },
+      { descricao: "Registro de esfera bruto, 25mm" },
+    ];
+    expect(candidatosDivergemSoPorInstalacao(candidatos)).toBe(false);
+  });
+
+  it("devolve falso com menos de 2 candidatos", () => {
+    expect(candidatosDivergemSoPorInstalacao([{ descricao: "x" }])).toBe(false);
+    expect(candidatosDivergemSoPorInstalacao([])).toBe(false);
+  });
+});
+
 describe("classificarItem", () => {
   it("marca pendente sem custo de IA quando não sobra candidato", () => {
     const r = classificarItem({ id: "x" }, []);
@@ -109,8 +162,19 @@ describe("classificarItem", () => {
     const r = classificarItem({ id: "x" }, [candidato]);
     expect(r).toMatchObject({ status: "associado", origem: "regra", codigo: "123", confianca: 1 });
   });
-  it("devolve null (ambíguo, decide a IA) quando sobra mais de 1 candidato", () => {
-    const r = classificarItem({ id: "x" }, [{ codigo: "1" }, { codigo: "2" }]);
+  it("devolve null (ambíguo, decide a IA) quando sobra mais de 1 candidato de verdade diferente", () => {
+    const r = classificarItem({ id: "x" }, [
+      { codigo: "1", descricao: "Registro de gaveta bruto, 25mm" },
+      { codigo: "2", descricao: "Registro de esfera bruto, 25mm" },
+    ]);
     expect(r).toBeNull();
+  });
+  it("marca pendente sem custo de IA quando os candidatos só divergem por local de instalação", () => {
+    const candidatos = [
+      { fonte: "SINAPI", codigo: "89429", descricao: "Adaptador soldavel curto, 25 x 3/4, instalado em ramal ou sub-ramal de agua" },
+      { fonte: "SINAPI", codigo: "89383", descricao: "Adaptador soldavel curto, 25 x 3/4, instalado em ramal de distribuicao de agua" },
+    ];
+    const r = classificarItem({ id: "x" }, candidatos);
+    expect(r).toMatchObject({ status: "pendente", origem: "regra" });
   });
 });
