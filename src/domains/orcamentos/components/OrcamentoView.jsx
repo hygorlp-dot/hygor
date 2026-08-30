@@ -4721,53 +4721,55 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
         </Modal>
       )}
 
-      {matchAplicar && (() => {
-        const { match, item } = matchAplicar;
-        const etapasFlat = calc ? achatarArvore(calc.arvore).filter(n => n.tipo === "etapa") : [];
-        const preco = match.precoUnit || 0;
-        const qtdNum = parseBR(matchAplicarQtd) || 0;
-        return (
-          <Modal title="Adicionar sugestão ao orçamento" onClose={()=>setMatchAplicar(null)}>
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"11px 13px"}}>
-                <p style={{fontSize:11,color:C.muted,marginBottom:4}}>Item do projeto: {item.descricao}</p>
-                <p style={{fontSize:12,color:C.text,lineHeight:1.4}}>{match.descricao}</p>
-                <p style={{fontSize:11,color:C.muted,marginTop:4}}>
-                  <span style={{fontWeight:700,color:match.fonte==="ORSE"?C.purple:C.blue}}>{match.fonte}</span>
-                  {" "}{match.codigo} · {fmt(preco)}/{match.unidade} <span style={{color:C.muted}}>(sem BDI)</span>
-                </p>
-              </div>
-              <label style={{display:"flex",flexDirection:"column",gap:5}}>
-                <span style={{fontSize:11,fontWeight:700,color:C.text}}>Etapa/categoria do orçamento *</span>
-                <select aria-label="Etapa/categoria do orçamento" value={matchAplicarEtapaId} onChange={e=>setMatchAplicarEtapaId(e.target.value)}
-                  style={{padding:"8px 9px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:11.5}}>
-                  <option value="">Selecione onde este item entra...</option>
-                  {etapasFlat.map(n => (
-                    <option key={n.id} value={n.id}>{"—".repeat(n.nivel-1)}{n.nivel>1?" ":""}{n.nome}</option>
-                  ))}
-                </select>
-              </label>
-              <Inp label={`Quantidade (${match.unidade}) *`} type="number" value={matchAplicarQtd} onChange={setMatchAplicarQtd} placeholder="0,00"/>
-              {qtdNum>0 && (
-                <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:6,padding:"9px 13px"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                    <p style={{fontSize:11,color:C.muted}}>Custo direto</p>
-                    <p style={{fontSize:11,color:C.muted}}>{fmt(qtdNum*preco)}</p>
-                  </div>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <p style={{fontSize:12,color:C.text,fontWeight:700}}>Total c/ BDI {orc?.bdi}%</p>
-                    <p style={{fontSize:17,fontWeight:800,color:C.yellow}}>{fmt(qtdNum*preco*(1+Number(orc?.bdi||0)/100))}</p>
-                  </div>
+      {matchAplicar && (
+        <Modal title="Adicionar sugestão ao orçamento" onClose={()=>setMatchAplicar(null)}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            {(() => {
+              const { match, item } = matchAplicar;
+              const etapasFlat = calc ? achatarArvore(calc.arvore).filter(n => n.tipo === "etapa") : [];
+              const preco = match.precoUnit || 0;
+              const qtdNum = parseBR(matchAplicarQtd) || 0;
+              return (<>
+                <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"11px 13px"}}>
+                  <p style={{fontSize:11,color:C.muted,marginBottom:4}}>Item do projeto: {item.descricao}</p>
+                  <p style={{fontSize:12,color:C.text,lineHeight:1.4}}>{match.descricao}</p>
+                  <p style={{fontSize:11,color:C.muted,marginTop:4}}>
+                    <span style={{fontWeight:700,color:match.fonte==="ORSE"?C.purple:C.blue}}>{match.fonte}</span>
+                    {" "}{match.codigo} · {fmt(preco)}/{match.unidade} <span style={{color:C.muted}}>(sem BDI)</span>
+                  </p>
                 </div>
-              )}
-              <div style={{display:"flex",gap:8}}>
-                <Btn v="ghost" onClick={()=>setMatchAplicar(null)} full>Cancelar</Btn>
-                <Btn onClick={confirmarAplicarMatchIA} disabled={matchAplicarSalvando} full><Ic n="check"/> {matchAplicarSalvando?"Adicionando...":"Adicionar"}</Btn>
-              </div>
+                <label style={{display:"flex",flexDirection:"column",gap:5}}>
+                  <span style={{fontSize:11,fontWeight:700,color:C.text}}>Etapa/categoria do orçamento *</span>
+                  <select aria-label="Etapa/categoria do orçamento" value={matchAplicarEtapaId} onChange={e=>setMatchAplicarEtapaId(e.target.value)}
+                    style={{padding:"8px 9px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:11.5}}>
+                    <option value="">Selecione onde este item entra...</option>
+                    {etapasFlat.map(n => (
+                      <option key={n.id} value={n.id}>{"—".repeat(n.nivel-1)}{n.nivel>1?" ":""}{n.nome}</option>
+                    ))}
+                  </select>
+                </label>
+                <Inp label={`Quantidade (${match.unidade}) *`} type="number" value={matchAplicarQtd} onChange={setMatchAplicarQtd} placeholder="0,00"/>
+                {qtdNum>0 && (
+                  <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:6,padding:"9px 13px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                      <p style={{fontSize:11,color:C.muted}}>Custo direto</p>
+                      <p style={{fontSize:11,color:C.muted}}>{fmt(qtdNum*preco)}</p>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <p style={{fontSize:12,color:C.text,fontWeight:700}}>Total c/ BDI {orc?.bdi}%</p>
+                      <p style={{fontSize:17,fontWeight:800,color:C.yellow}}>{fmt(qtdNum*preco*(1+Number(orc?.bdi||0)/100))}</p>
+                    </div>
+                  </div>
+                )}
+              </>);
+            })()}
+            <div style={{display:"flex",gap:8}}>
+              <Btn v="ghost" onClick={()=>setMatchAplicar(null)} full>Cancelar</Btn>
+              <Btn onClick={confirmarAplicarMatchIA} disabled={matchAplicarSalvando} full><Ic n="check"/> {matchAplicarSalvando?"Adicionando...":"Adicionar"}</Btn>
             </div>
-          </Modal>
-        );
-      })()}
+          </div>
+        </Modal>
+      )}
 
       {editItem && (
         <Modal title="Editar item do orçamento" onClose={()=>setEditItem(null)} wide>
