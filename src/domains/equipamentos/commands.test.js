@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../sync/operational-commands.js";
 import { buildEquipmentRegistry } from "./registry.js";
+import { rentalAvailability } from "./availability.js";
 
 const now="2026-07-28T12:00:00.000Z";
 const command=(type,key,payload,expectedVersion)=>({
@@ -360,6 +361,38 @@ describe("comandos transacionais de equipamentos",()=>{
     const closeTwo=applyOperationalCommand(closeOne.data,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,"equipment-rental-close-0002",{rentalId:"loc-2",endDate:"2026-07-20"},1));
     expect(closeTwo.data.locacoesEquip.find(item=>item.id==="loc-2")).toMatchObject({status:"encerrada",lifecycleState:"closed"});
     expect(closeTwo.data.equipamentos[0]).toMatchObject({status:"disponivel",obraAtualId:""});
+  });
+
+  // Bug real relatado pelo usuário (31/08/2026): locou 10 andaimes numa
+  // obra, mas a disponibilidade vista de outra obra só caiu 1 unidade.
+  // Causa: `next=upsertUnavailability(next,{...,quantity,...})` usava a
+  // forma curta de propriedade `quantity` - que, neste arquivo, é o NOME
+  // da função normalizadora de módulo (`const quantity=value=>...`,
+  // linha ~29), não a variável `quantidade` calculada da locação. O
+  // registro salvo ficava com `quantity` apontando pra uma função, que o
+  // JSON.stringify descarta ao persistir - e a leitura de volta caía no
+  // fallback `quantity(undefined)` = 1 dentro de `normalizedEvent`
+  // (availability.js), mascarando silenciosamente qualquer quantidade
+  // real > 1.
+  it("grava a quantidade real da locação/manutenção no registro de indisponibilidade (não sempre 1)",()=>{
+    const initial={...base(),equipamentos:[equipment({id:"eq-1",quantidadeTotal:60,version:1,obraAtualId:""})]};
+    const rented=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,"equipment-rental-qty-0001",{rental:{
+      id:"loc-1",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-08-01",fim:"2026-08-30",quantidade:10,
+    }},0));
+    expect(rented.ok).toBe(true);
+    expect(rented.data.equipmentUnavailability.find(item=>item.rentalId==="loc-1")).toMatchObject({quantity:10});
+    // Consequência observável pelo usuário: consultar disponibilidade do
+    // mesmo equipamento (outra obra, mesmo período) tem que refletir as
+    // 10 unidades ocupadas, não 1.
+    const availability=rentalAvailability({data:rented.data,equipment:rented.data.equipamentos[0],
+      rental:{inicio:"2026-08-01",fim:"2026-08-30",quantidade:1}});
+    expect(availability).toMatchObject({total:60,rented:10,free:50});
+
+    const maintained=applyOperationalCommand(rented.data,command(OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,"equipment-maintenance-qty-0001",{maintenance:{
+      id:"manut-1",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-09-01",fim:"2026-09-05",quantidade:5,custo:100,
+    }},0));
+    expect(maintained.ok).toBe(true);
+    expect(maintained.data.equipmentUnavailability.find(item=>item.maintenanceId==="manut-1")).toMatchObject({quantity:5});
   });
 
   it("impede inativação com locação aberta e preserva o histórico ao inativar",()=>{

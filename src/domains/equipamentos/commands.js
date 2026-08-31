@@ -307,7 +307,7 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     record.operationalHistory=audit(current,command,now,current?"EQUIPMENT_RENTAL_UPDATED":"EQUIPMENT_RENTAL_CREATED");
     let next=current?replace(data,"locacoesEquip",id,record):{...data,locacoesEquip:[...list(data,"locacoesEquip"),record]};
     next=upsertUnavailability(next,{
-      id:`unav-rental:${id}`,equipmentId:equipment.id,equipmentUnitId:selectedUnitIds.length===1?selectedUnitIds[0]:"",quantity,
+      id:`unav-rental:${id}`,equipmentId:equipment.id,equipmentUnitId:selectedUnitIds.length===1?selectedUnitIds[0]:"",quantity:quantidade,
       equipmentUnitIds:selectedUnitIds,equipmentLotId:record.equipmentLotId||"",
       type:EQUIPMENT_UNAVAILABILITY_TYPE.RENTAL,startDate:record.inicio,endDate:record.fim,
       reason:`Locação para ${list(data,"obras").find(item=>String(item.id)===String(record.obraId))?.name||"obra"}`,
@@ -560,7 +560,7 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     record.operationalHistory=audit(current,command,now,current?"EQUIPMENT_MAINTENANCE_UPDATED":"EQUIPMENT_MAINTENANCE_CREATED");
     let next=current?replace(data,"manutencoesEquip",id,record):{...data,manutencoesEquip:[...list(data,"manutencoesEquip"),record]};
     next=upsertUnavailability(next,{
-      id:`unav-maintenance:${id}`,equipmentId:equipment.id,equipmentUnitId:selectedUnitIds.length===1?selectedUnitIds[0]:"",quantity,
+      id:`unav-maintenance:${id}`,equipmentId:equipment.id,equipmentUnitId:selectedUnitIds.length===1?selectedUnitIds[0]:"",quantity:quantidade,
       equipmentUnitIds:selectedUnitIds,equipmentLotId:record.equipmentLotId||"",
       type:EQUIPMENT_UNAVAILABILITY_TYPE.MAINTENANCE,startDate,endDate,
       reason:record.descricao||"Manutenção",status:record.status||"programada",workId:obraId,
