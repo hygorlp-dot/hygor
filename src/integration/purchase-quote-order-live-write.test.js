@@ -1,0 +1,238 @@
+import {afterAll,beforeAll,beforeEach,describe,expect,it,vi} from "vitest";
+
+// Escrita ao vivo de cotação/pedido (31/08/2026, ver
+// docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): QUOTATION_SAVED e
+// PURCHASE_ORDER_SAVED, além de gravar o blob como sempre (o caminho
+// existente, inalterado), também gravam ao vivo em core_quotations/
+// core_purchase_orders (migration 014, CORE-003) como efeito colateral de
+// melhor esforço. Mesmo padrão de mock de
+// src/integration/purchase-request-live-write.test.js.
+
+const CORE_KEY="arced_ponto_v1";
+
+const testState=vi.hoisted(()=>({
+  rows:{},
+  upsertCalls:[],
+  upsertShouldFail:false,
+}));
+
+const queryFor=table=>{
+  const filters={};
+  const query={
+    select(){return query;},
+    eq(key,value){filters[key]=value;return query;},
+    in(){return query;},
+    like(){return query;},
+    upsert(row,options){
+      testState.upsertCalls.push({table,row,options});
+      return Promise.resolve(
+        testState.upsertShouldFail
+          ? {error:{message:"upsert falhou (simulado)"}}
+          : {error:null},
+      );
+    },
+    maybeSingle:async()=>{
+      if(table!=="company_app_data")return{data:null,error:null};
+      const row=testState.rows[filters.key];
+      if(!row||(filters.company_id&&filters.company_id!==row.company_id))return{data:null,error:null};
+      return{data:{value:row.value,updated_at:row.updated_at},error:null};
+    },
+    then(resolve,reject){
+      return Promise.resolve({data:[],error:null}).then(resolve,reject);
+    },
+  };
+  return query;
+};
+
+const fakeDb=vi.hoisted(()=>({
+  auth:{getUser:vi.fn(async()=>({data:{user:{id:"auth-compras"}},error:null}))},
+  from:vi.fn(table=>queryFor(table)),
+  rpc:vi.fn(async name=>{
+    if(name.startsWith("auth_rate_limit_"))return{data:null,error:null};
+    return{data:null,error:{code:"PGRST202",message:`Unexpected RPC ${name}`}};
+  }),
+}));
+
+vi.mock("@supabase/supabase-js",()=>({
+  createClient:()=>fakeDb,
+}));
+
+const bumpUpdatedAt=isoString=>new Date(new Date(isoString).getTime()+1000).toISOString();
+
+const makeTransaction=()=>async(strings,...values)=>{
+  const sql=strings.join("?");
+  if(sql.includes("for update")){
+    const [,key]=values;
+    const row=testState.rows[key];
+    if(!row)return[];
+    return[{value:row.value,updated_at:row.updated_at}];
+  }
+  if(sql.includes("update company_app_data")&&sql.includes("returning updated_at")){
+    const [value,companyId,key]=values;
+    const row=testState.rows[key];
+    const updatedAt=bumpUpdatedAt(row?.updated_at||new Date(0).toISOString());
+    testState.rows[key]={...row,company_id:companyId,key,value:JSON.parse(value),updated_at:updatedAt};
+    return[{updated_at:updatedAt}];
+  }
+  if(sql.includes("insert into audit_events"))return[];
+  throw new Error(`Query inesperada no mock de postgres: ${sql.slice(0,80)}`);
+};
+
+vi.mock("postgres",()=>({
+  default:vi.fn(()=>({
+    begin:async callback=>callback(makeTransaction()),
+    end:async()=>{},
+  })),
+}));
+
+let handler;
+const callApi=async body=>{
+  let statusCode=200;
+  let payload;
+  const req={body,query:{},headers:{"x-forwarded-for":"127.0.0.1"}};
+  const res={
+    status(code){statusCode=code;return res;},
+    json(value){payload=value;return value;},
+  };
+  await handler(req,res);
+  return{status:statusCode,body:payload};
+};
+
+const initialData=()=>({
+  usuarios:[{id:"admin-a",nome:"Administradora A",role:"admin",authUserId:"auth-compras",active:true}],
+  obras:[{id:"obra-1",name:"Obra 1"}],
+  materiais:[{id:"mat-1",descricao:"Cimento",unidade:"SC"}],
+  fornecedores:[
+    {id:"forn-1",nome:"Fornecedor A",ativo:true},
+    {id:"forn-2",nome:"Fornecedor B",ativo:true},
+  ],
+  cotacoes:[],pedidos:[],solicitacoesCompra:[],changeLog:[],
+});
+
+const quotationCommand=(overrides={})=>({
+  action:"operational-command",accessToken:"valid-token",
+  command:{
+    type:"COTACAO_COMPRA_SALVA",
+    payload:{
+      quote:{
+        id:"cot-1",obraId:"obra-1",materialId:"mat-1",qtd:10,
+        unidadeRef:"SC",unidadeCompra:"SC",
+        propostas:[
+          {id:"prop-1",fornecedorId:"forn-1",precoUnit:25},
+          {id:"prop-2",fornecedorId:"forn-2",precoUnit:27},
+        ],
+      },
+    },
+    expectedVersion:0,idempotencyKey:"test-idem-key-quotation-1",
+    ...overrides,
+  },
+});
+
+const orderCommand=(overrides={})=>({
+  action:"operational-command",accessToken:"valid-token",
+  command:{
+    type:"PEDIDO_COMPRA_SALVO",
+    payload:{
+      order:{
+        id:"ped-1",obraId:"obra-1",fornecedorId:"forn-1",data:"2026-08-31",
+        numero:"PED-001",
+        itens:[{id:"item-1",materialId:"mat-1",qtd:10,precoUnit:25,unidadeRef:"SC",unidadeCompra:"SC"}],
+      },
+    },
+    expectedVersion:0,idempotencyKey:"test-idem-key-order-1",
+    ...overrides,
+  },
+});
+
+describe("/api/data · QUOTATION_SAVED e PURCHASE_ORDER_SAVED gravam ao vivo em core_quotations/core_purchase_orders",()=>{
+  beforeAll(async()=>{
+    process.env.SUPABASE_URL="https://purchase-live.test";
+    process.env.SUPABASE_SERVICE_ROLE_KEY="service-role-test";
+    process.env.POSTGRES_URL_NON_POOLING="postgres://user:pass@localhost:5432/app";
+    vi.resetModules();
+    ({default:handler}=await import("../../api/data.js"));
+  },30000);
+
+  afterAll(()=>{delete process.env.POSTGRES_URL_NON_POOLING;});
+
+  beforeEach(()=>{
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-31T12:00:00.000Z"));
+    testState.upsertCalls.length=0;
+    testState.upsertShouldFail=false;
+    testState.rows={
+      [CORE_KEY]:{company_id:"arcd",key:CORE_KEY,value:initialData(),updated_at:"2026-08-31T10:00:00.000Z"},
+    };
+    fakeDb.from.mockClear();
+  });
+  afterAll(()=>vi.useRealTimers());
+
+  it("grava a cotação em core_quotations depois do comando ser aplicado com sucesso",async()=>{
+    const result=await callApi(quotationCommand());
+    expect(result.status).toBe(200);
+    expect(result.body.ok).toBe(true);
+    expect(testState.upsertCalls).toHaveLength(1);
+    const [{table,row,options}]=testState.upsertCalls;
+    expect(table).toBe("core_quotations");
+    expect(options).toEqual({onConflict:"company_id,id"});
+    expect(row).toMatchObject({
+      company_id:"arcd",id:"cot-1",project_id:"obra-1",material_id:"mat-1",
+      status:"aberta",active:true,quantity:10,source_version:1,request_id:null,
+    });
+    expect(row.source_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(row.payload.propostas).toHaveLength(2);
+  });
+
+  it("grava o pedido em core_purchase_orders depois do comando ser aplicado com sucesso",async()=>{
+    const result=await callApi(orderCommand());
+    expect(result.status).toBe(200);
+    expect(result.body.ok).toBe(true);
+    expect(testState.upsertCalls).toHaveLength(1);
+    const [{table,row,options}]=testState.upsertCalls;
+    expect(table).toBe("core_purchase_orders");
+    expect(options).toEqual({onConflict:"company_id,id"});
+    expect(row).toMatchObject({
+      company_id:"arcd",id:"ped-1",project_id:"obra-1",supplier_id:"forn-1",
+      numero:"PED-001",status:"enviado",active:true,source_version:1,
+      quote_id:null,request_id:null,
+    });
+    expect(row.source_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(row.payload.itens).toHaveLength(1);
+  });
+
+  it("reenviar o mesmo idempotencyKey não grava de novo",async()=>{
+    const command=quotationCommand();
+    await callApi(command);
+    testState.upsertCalls.length=0;
+    const repeated=await callApi(command);
+    expect(repeated.body.idempotent).toBe(true);
+    expect(testState.upsertCalls).toHaveLength(0);
+  });
+
+  it("se a escrita em core_quotations falhar, a resposta ao usuário continua ok",async()=>{
+    testState.upsertShouldFail=true;
+    const result=await callApi(quotationCommand());
+    expect(result.status).toBe(200);
+    expect(result.body.ok).toBe(true);
+    expect(testState.upsertCalls).toHaveLength(1);
+    // O blob foi gravado normalmente, mesmo com a escrita ao vivo falhando.
+    expect(testState.rows[CORE_KEY].value.cotacoes).toHaveLength(1);
+  });
+
+  it("não grava em core_quotations/core_purchase_orders para outros tipos de comando (ex.: decidir cotação)",async()=>{
+    await callApi(quotationCommand());
+    testState.upsertCalls.length=0;
+    await callApi({
+      action:"operational-command",accessToken:"valid-token",
+      command:{
+        type:"PEDIDO_COMPRA_GERADO_COTACAO",
+        payload:{quoteId:"cot-1",proposalId:"prop-1",orderId:"ped-from-quote-1",number:"PED-002",itemId:"item-2"},
+        expectedVersion:0,idempotencyKey:"test-idem-key-from-quote-1",
+      },
+    });
+    // Escopo desta rodada (decisão do usuário): decidir cotação também
+    // muda pedidos/cotações no blob, mas não dispara escrita ao vivo -
+    // fica só para a sincronização em lote.
+    expect(testState.upsertCalls).toHaveLength(0);
+  });
+});

@@ -25,7 +25,11 @@ const withHash = row => ({ ...row, sourceHash:hash(row.payload) });
 // operacional (src/domains/compras/purchase-order-commands.js). Propostas,
 // itens e pagamentos ficam inteiros dentro de `payload`, sem tabela filha
 // própria (mesmo princípio de escopo mínimo do CORE-001/CORE-002).
-const quotationRow = quote => withHash({
+// Exportadas (31/08/2026) para reuso por purchase-quote-order-live-write.js
+// - a escrita ao vivo de QUOTATION_SAVED/PURCHASE_ORDER_SAVED precisa do
+// MESMO cálculo de source_hash usado aqui, ou a próxima sincronização em
+// lote acusaria "hash_mismatch" por divergência de cálculo, não de dado.
+export const quotationRow = quote => withHash({
   id:text(quote?.id),
   projectId:text(quote?.obraId),
   materialId:text(quote?.materialId),
@@ -37,7 +41,7 @@ const quotationRow = quote => withHash({
   payload:quote || {},
 });
 
-const purchaseOrderRow = order => withHash({
+export const purchaseOrderRow = order => withHash({
   id:text(order?.id),
   projectId:text(order?.obraId),
   supplierId:text(order?.fornecedorId),

@@ -3450,3 +3450,90 @@ conflito passam a compartilhar um único wrapper `position:sticky;top:0`
 visível, colado abaixo do cabeçalho, não importa o quanto a página role -
 sem precisar de um valor mágico de altura por breakpoint (que o padrão
 antigo de dois sticky independentes exigiria para não sobrepor).
+
+## Core relacional: escrita ao vivo estendida a cotação/pedido (31/08/2026)
+
+Retomando a "Ordem de Execução do ARCD" depois de alguns dias parada.
+Reconferindo o documento inteiro antes de propor o próximo passo (não só
+grep por palavra-chave), três achados de desatualização, nenhum deles
+código quebrado - só a documentação/artifact que ficou para trás do que
+já tinha sido decidido/feito em 26/08 e 24/08:
+
+1. Onda 7 item 9 (destino de `src/mobile/*`) já tinha sido decidido e
+   executado em 26/08 (arquivado em `archive/mobile-foundation-2026-08`) -
+   o artifact publicado ("Ordem de Execução do ARCD") ainda mostrava
+   "Pendente".
+2. O artifact descrevia "Core relacional" partindo de "4/10, nada
+   começado" com 3 marcos genéricos. Na prática já existia: RLS por
+   papel/obra corretamente identificado como não-aplicável a esta
+   arquitetura (tudo passa por `service_role`); 3 domínios em modo sombra
+   verificados em produção com 0 divergências (CORE-001/002/003); pglite
+   provado em 2 dos 3 (falta só CORE-002/equipamentos); e um domínio já em
+   escrita ao vivo real (`purchase_requests`).
+3. A pergunta "onde exatamente uma cotação é criada" (registrada como
+   "ainda não mapeado" na seção "Cadeia de Compras: parada deliberada em
+   `purchase_requests`", 24/08) já tinha sido respondida na mesma sessão,
+   só numa seção posterior do mesmo documento ("Comando de criação de
+   cotação: a lacuna fundamental fechada") - `QUOTATION_SAVED` já existe,
+   testado, em produção.
+
+Artifact corrigido nos três pontos (republicado). Blueprint sempre foi a
+fonte de verdade; o artifact só reflete um resumo, e ficou defasado por
+não ter sido revisitado nas rodadas seguintes de trabalho.
+
+**Com o quadro correto, usuário escolheu**: escopar a extensão de escrita
+ao vivo (dual-write) para `cotações`/`pedidos`, já que o pré-requisito
+(comando de criação) e o schema relacional (CORE-003, migration 014) já
+existem - risco bem menor do que parecia quando a cadeia parou em 24/08.
+
+**Investigação antes do desenho**: mapeado exatamente quais comandos do
+domínio (`src/domains/compras/purchase-order-commands.js` +
+`purchase-cancellation-command.js`) mudam cotação/pedido e quais linhas
+cada um precisaria ressincronizar. Diferença real em relação a
+`purchase_requests` (uma tabela isolada, sem ricochete): alguns comandos
+mexem em mais de uma entidade ao mesmo tempo (`PURCHASE_ORDER_CREATED_
+FROM_QUOTE` cria um pedido E decide a cotação; `PURCHASE_QUOTE_CANCELLED`
+cancela a cotação E desvincula um pedido, se houver) - cada entidade
+tocada tem seu próprio `source_hash` (SHA-256 do `payload`) que precisa
+ficar fiel, ou a sincronização em lote seguinte acusaria "hash_mismatch"
+por divergência de cálculo, não de dado real.
+
+**Escopo desta rodada, decisão explícita do usuário ao ser perguntado**:
+reduzir para só `QUOTATION_SAVED` e `PURCHASE_ORDER_SAVED` (criação/edição
+direta de cada entidade). Decidir cotação, os dois cancelamentos
+(`PURCHASE_QUOTE_CANCELLED`/`PURCHASE_CANCELLED`) e anexação de documento
+ficam só na sincronização em lote por enquanto - reservado, não esquecido.
+
+**O que foi feito**:
+- `server/procurement-registry-shadow.js`: `quotationRow`/
+  `purchaseOrderRow` (antes privadas ao módulo) passaram a ser exportadas -
+  a escrita ao vivo precisa do MESMO cálculo de `source_hash` usado pela
+  sincronização em lote, ou os dois caminhos divergiriam silenciosamente.
+- `server/purchase-quote-order-live-write.js` (novo, puro, sem I/O):
+  `buildQuotationLiveRow`/`buildPurchaseOrderLiveRow` reaproveitam
+  `quotationRow`/`purchaseOrderRow` e convertem de camelCase (forma da
+  sombra) para snake_case (forma exigida por `.upsert()` direto via
+  PostgREST, mesmo padrão de `purchase-request-live-write.js`).
+- `api/data.js`: dois novos gatilhos (`sincronizarCotacaoAoVivo`/
+  `sincronizarPedidoAoVivo`), mesmo ponto de gancho e mesma tolerância de
+  melhor esforço de `sincronizarSolicitacaoCompraAoVivo` - falha na
+  escrita relacional nunca muda a resposta ao usuário, só gera log de erro
+  no servidor.
+- Testes: `server/purchase-quote-order-live-write.test.js` (8 casos,
+  conversão de forma + reuso do hash), `src/integration/
+  purchase-quote-order-live-write.test.js` (6 casos, mesmo padrão de mock
+  Supabase+postgres de `purchase-request-live-write.test.js` - grava com
+  sucesso, idempotência, tolerância a falha, e confirma que decidir
+  cotação NÃO dispara escrita ao vivo nesta rodada, por decisão de
+  escopo).
+
+**Risco tolerado, mesmo padrão de `purchase_requests`**: `core_quotations.
+project_id`/`core_purchase_orders.project_id,supplier_id,quote_id` são FK
+reais (`core_projects`/`core_suppliers`/`core_quotations`). Uma cotação/
+pedido referenciando uma obra/fornecedor/cotação ainda não sincronizada
+pelo CORE-001/CORE-003 em lote falharia a escrita ao vivo até o próximo
+deploy resincronizar - tolerado pela mesma tolerância de melhor esforço,
+nunca bloqueia a criação em si.
+
+Verificação: suíte completa (265 arquivos/1711 testes), `npm run build`,
+`npm run lint` e `npm run architecture:check` sem violação nova.

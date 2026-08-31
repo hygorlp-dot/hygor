@@ -64,6 +64,7 @@ import {
   PROCUREMENT_REGISTRY_TABLES, summarizeProcurementRegistryShadowStatus,
 } from "../server/procurement-registry-shadow-status.js";
 import { buildPurchaseRequestLiveRow } from "../server/purchase-request-live-write.js";
+import { buildPurchaseOrderLiveRow, buildQuotationLiveRow } from "../server/purchase-quote-order-live-write.js";
 import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
 import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
@@ -666,6 +667,41 @@ const sincronizarSolicitacaoCompraAoVivo=async({companyId,requestId,mergedData,a
     if(error)throw error;
   }catch(err){
     console.error(`Falha ao sincronizar solicitação de compra ${requestId} em purchase_requests (ator=${actor?.id||"desconhecido"}):`,err.message);
+  }
+};
+
+// Escrita ao vivo de cotação/pedido (31/08/2026, ver
+// docs/BLUEPRINT_CONCORRENCIA_TRAVA.md) - mesma tolerância de melhor
+// esforço de sincronizarSolicitacaoCompraAoVivo acima: se a gravação
+// falhar, a resposta ao usuário não muda em nada, só um log de erro no
+// servidor. Escopo desta rodada: só QUOTATION_SAVED e PURCHASE_ORDER_SAVED
+// (decisão do usuário) - decidir/cancelar cotação, cancelar pedido e
+// anexar documento continuam só na sincronização em lote por enquanto.
+const sincronizarCotacaoAoVivo=async({companyId,quoteId,mergedData,actor})=>{
+  if(!quoteId)return;
+  const record=(mergedData?.cotacoes||[]).find(item=>String(item?.id)===String(quoteId));
+  if(!record)return;
+  try{
+    const { error }=await db
+      .from("core_quotations")
+      .upsert(buildQuotationLiveRow(companyId,record),{onConflict:"company_id,id"});
+    if(error)throw error;
+  }catch(err){
+    console.error(`Falha ao sincronizar cotação ${quoteId} em core_quotations (ator=${actor?.id||"desconhecido"}):`,err.message);
+  }
+};
+
+const sincronizarPedidoAoVivo=async({companyId,orderId,mergedData,actor})=>{
+  if(!orderId)return;
+  const record=(mergedData?.pedidos||[]).find(item=>String(item?.id)===String(orderId));
+  if(!record)return;
+  try{
+    const { error }=await db
+      .from("core_purchase_orders")
+      .upsert(buildPurchaseOrderLiveRow(companyId,record),{onConflict:"company_id,id"});
+    if(error)throw error;
+  }catch(err){
+    console.error(`Falha ao sincronizar pedido ${orderId} em core_purchase_orders (ator=${actor?.id||"desconhecido"}):`,err.message);
   }
 };
 
@@ -1766,6 +1802,18 @@ export default async function handler(req, res) {
           await sincronizarSolicitacaoCompraAoVivo({
             companyId:COMPANY,
             requestId:command.payload?.request?.id||command.payload?.requestId,
+            mergedData:outcome.data,actor:usuario,
+          });
+        }
+        if(command.type===OPERATIONAL_COMMAND.QUOTATION_SAVED&&outcome.kind==="save"){
+          await sincronizarCotacaoAoVivo({
+            companyId:COMPANY,quoteId:command.payload?.quote?.id,
+            mergedData:outcome.data,actor:usuario,
+          });
+        }
+        if(command.type===OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED&&outcome.kind==="save"){
+          await sincronizarPedidoAoVivo({
+            companyId:COMPANY,orderId:command.payload?.order?.id,
             mergedData:outcome.data,actor:usuario,
           });
         }
