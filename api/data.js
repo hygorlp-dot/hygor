@@ -1817,6 +1817,52 @@ export default async function handler(req, res) {
             mergedData:outcome.data,actor:usuario,
           });
         }
+        // Ampliação (01/09/2026, ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md):
+        // os comandos que faltavam da mesma família - decidir cotação (que
+        // também gera um pedido), os dois cancelamentos e anexação de
+        // documento. Mesmo padrão, mesma tolerância de melhor esforço,
+        // reaproveitando as duas funções de sincronização já existentes -
+        // só muda QUAL linha cada comando precisa ressincronizar.
+        if(command.type===OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE&&outcome.kind==="save"){
+          await sincronizarPedidoAoVivo({
+            companyId:COMPANY,orderId:command.payload?.orderId,
+            mergedData:outcome.data,actor:usuario,
+          });
+          await sincronizarCotacaoAoVivo({
+            companyId:COMPANY,quoteId:command.payload?.quoteId,
+            mergedData:outcome.data,actor:usuario,
+          });
+        }
+        if(command.type===OPERATIONAL_COMMAND.PURCHASE_QUOTE_CANCELLED&&outcome.kind==="save"){
+          const quoteId=command.payload?.quoteId;
+          await sincronizarCotacaoAoVivo({companyId:COMPANY,quoteId,mergedData:outcome.data,actor:usuario});
+          // Cancelar uma cotação pode desvincular um pedido já gerado dela
+          // (cancelQuote limpa o cotacaoId do pedido, mas preserva o
+          // pedidoId antigo na PRÓPRIA cotação) - ressincroniza esse
+          // pedido também, para o vínculo relacional não ficar obsoleto.
+          const pedidoVinculado=(outcome.data?.cotacoes||[]).find(item=>String(item?.id)===String(quoteId))?.pedidoId;
+          if(pedidoVinculado){
+            await sincronizarPedidoAoVivo({companyId:COMPANY,orderId:pedidoVinculado,mergedData:outcome.data,actor:usuario});
+          }
+        }
+        if(command.type===OPERATIONAL_COMMAND.PURCHASE_CANCELLED&&outcome.kind==="save"){
+          await sincronizarPedidoAoVivo({
+            companyId:COMPANY,orderId:command.payload?.orderId,
+            mergedData:outcome.data,actor:usuario,
+          });
+        }
+        if(command.type===OPERATIONAL_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED&&outcome.kind==="save"){
+          await sincronizarCotacaoAoVivo({
+            companyId:COMPANY,quoteId:command.payload?.quoteId,
+            mergedData:outcome.data,actor:usuario,
+          });
+        }
+        if(command.type===OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED&&outcome.kind==="save"){
+          await sincronizarPedidoAoVivo({
+            companyId:COMPANY,orderId:command.payload?.orderId,
+            mergedData:outcome.data,actor:usuario,
+          });
+        }
         return res.status(200).json({
           ok:true,idempotent:outcome.kind==="idempotent",
           ...(outcome.kind==="idempotent"

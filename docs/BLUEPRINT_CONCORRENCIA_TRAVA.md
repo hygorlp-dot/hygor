@@ -3593,3 +3593,42 @@ não foi tocado - continua exatamente como estava, já testado e correto.
 
 Verificação: suíte completa (265 arquivos/1722 testes), `npm run build`,
 `npm run lint` e `npm run architecture:check` sem violação nova.
+
+## Core relacional: escrita ao vivo ampliada aos comandos que faltavam (01/09/2026)
+
+Continuação da extensão de 31/08 (`QUOTATION_SAVED`/`PURCHASE_ORDER_SAVED`).
+Usuário escolheu ampliar para o restante da família, que tinha ficado de
+fora por decisão de escopo na primeira rodada: decidir cotação, os dois
+cancelamentos, anexação de documento.
+
+**Mapeamento (reaproveitando as duas funções já existentes -
+`sincronizarCotacaoAoVivo`/`sincronizarPedidoAoVivo` - nenhum código de
+sincronização novo, só mais gatilhos em `api/data.js`)**:
+
+- `PEDIDO_COMPRA_GERADO_COTACAO` (decidir cotação) - grava o pedido novo
+  E a cotação (agora `status:"decidida"`).
+- `COTACAO_COMPRA_CANCELADA` - grava a cotação cancelada; se ela tinha um
+  pedido gerado a partir dela, esse pedido também é ressincronizado (o
+  cancelamento desvincula `cotacaoId` do pedido - `cancelQuote` preserva
+  o `pedidoId` antigo na PRÓPRIA cotação depois de cancelada, usado aqui
+  só para descobrir qual pedido precisa de resync, sem precisar mudar a
+  lógica de negócio existente).
+- `COMPRA_CANCELADA` (cancelar pedido) - grava o pedido cancelado.
+  Pagamentos/estornos/estoque/notas fiscais que o cancelamento também
+  mexe continuam só dentro do `payload`, sem coluna própria - mesmo
+  princípio de escopo mínimo do CORE-003 desde a criação.
+- `DOCUMENTO_COTACAO_COMPRA_ANEXADO`/`DOCUMENTO_PEDIDO_COMPRA_ANEXADO` -
+  gravam a cotação/pedido com o `payload` atualizado (documento anexado
+  não muda status/vínculo, só o conteúdo).
+
+10 testes na suíte de integração (5 novos + o teste que antes confirmava
+"decidir cotação NÃO grava" foi corrigido para refletir o novo escopo,
+mais um teste renomeado confirmando que comandos de OUTROS domínios
+continuam não gravando).
+
+Com isso, TODOS os comandos que mudam cotação/pedido no domínio Compras
+têm escrita ao vivo - a família fica completa, mesmo padrão e mesma
+tolerância de melhor esforço de `purchase_requests` do início ao fim.
+
+Verificação: suíte completa (265 arquivos/1727 testes), `npm run build`,
+`npm run lint` e `npm run architecture:check` sem violação nova.

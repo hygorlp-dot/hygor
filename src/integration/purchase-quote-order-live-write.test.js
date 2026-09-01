@@ -219,20 +219,125 @@ describe("/api/data · QUOTATION_SAVED e PURCHASE_ORDER_SAVED gravam ao vivo em 
     expect(testState.rows[CORE_KEY].value.cotacoes).toHaveLength(1);
   });
 
-  it("não grava em core_quotations/core_purchase_orders para outros tipos de comando (ex.: decidir cotação)",async()=>{
-    await callApi(quotationCommand());
-    testState.upsertCalls.length=0;
+  it("não grava em core_quotations/core_purchase_orders para comandos de outros domínios",async()=>{
     await callApi({
       action:"operational-command",accessToken:"valid-token",
       command:{
-        type:"PEDIDO_COMPRA_GERADO_COTACAO",
-        payload:{quoteId:"cot-1",proposalId:"prop-1",orderId:"ped-from-quote-1",number:"PED-002",itemId:"item-2"},
-        expectedVersion:0,idempotencyKey:"test-idem-key-from-quote-1",
+        type:"EMPLOYEE_SAVED",payload:{employee:{id:"emp-1",name:"Funcionário Teste"}},
+        expectedVersion:0,idempotencyKey:"test-idem-key-employee-1",
       },
     });
-    // Escopo desta rodada (decisão do usuário): decidir cotação também
-    // muda pedidos/cotações no blob, mas não dispara escrita ao vivo -
-    // fica só para a sincronização em lote.
     expect(testState.upsertCalls).toHaveLength(0);
+  });
+
+  // Ampliação (01/09/2026, ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md):
+  // decidir cotação, os dois cancelamentos e anexação de documento - a
+  // parte que tinha ficado de fora por decisão de escopo na primeira
+  // rodada. Mesmas duas funções de sincronização reaproveitadas, só muda
+  // qual linha cada comando precisa ressincronizar.
+  describe("comandos ampliados nesta rodada",()=>{
+    it("PEDIDO_COMPRA_GERADO_COTACAO (decidir cotação) grava o pedido novo E a cotação (agora 'decidida')",async()=>{
+      await callApi(quotationCommand());
+      testState.upsertCalls.length=0;
+      const result=await callApi({
+        action:"operational-command",accessToken:"valid-token",
+        command:{
+          type:"PEDIDO_COMPRA_GERADO_COTACAO",
+          payload:{quoteId:"cot-1",proposalId:"prop-1",orderId:"ped-from-quote-1",number:"PED-002",itemId:"item-2"},
+          expectedVersion:0,idempotencyKey:"test-idem-key-from-quote-1",
+        },
+      });
+      expect(result.body.ok).toBe(true);
+      const tables=testState.upsertCalls.map(c=>c.table).sort();
+      expect(tables).toEqual(["core_purchase_orders","core_quotations"]);
+      const pedido=testState.upsertCalls.find(c=>c.table==="core_purchase_orders").row;
+      expect(pedido).toMatchObject({id:"ped-from-quote-1",project_id:"obra-1",supplier_id:"forn-1",quote_id:"cot-1"});
+      const cotacao=testState.upsertCalls.find(c=>c.table==="core_quotations").row;
+      expect(cotacao).toMatchObject({id:"cot-1",status:"decidida"});
+    });
+
+    it("COTACAO_COMPRA_CANCELADA grava a cotação cancelada E o pedido que ela desvinculou",async()=>{
+      await callApi(quotationCommand());
+      await callApi({
+        action:"operational-command",accessToken:"valid-token",
+        command:{
+          type:"PEDIDO_COMPRA_GERADO_COTACAO",
+          payload:{quoteId:"cot-1",proposalId:"prop-1",orderId:"ped-from-quote-1",number:"PED-002",itemId:"item-2"},
+          expectedVersion:0,idempotencyKey:"test-idem-key-from-quote-2",
+        },
+      });
+      testState.upsertCalls.length=0;
+      const result=await callApi({
+        action:"operational-command",accessToken:"valid-token",
+        command:{
+          type:"COTACAO_COMPRA_CANCELADA",
+          payload:{quoteId:"cot-1",reason:"Cadastro duplicado"},
+          expectedVersion:2,idempotencyKey:"test-idem-key-cancel-quote-1",
+        },
+      });
+      expect(result.body.ok).toBe(true);
+      const tables=testState.upsertCalls.map(c=>c.table).sort();
+      expect(tables).toEqual(["core_purchase_orders","core_quotations"]);
+      const cotacao=testState.upsertCalls.find(c=>c.table==="core_quotations").row;
+      expect(cotacao).toMatchObject({id:"cot-1",status:"cancelada",active:false});
+      const pedido=testState.upsertCalls.find(c=>c.table==="core_purchase_orders").row;
+      expect(pedido).toMatchObject({id:"ped-from-quote-1",quote_id:null});
+    });
+
+    it("COMPRA_CANCELADA grava o pedido cancelado",async()=>{
+      await callApi(orderCommand());
+      testState.upsertCalls.length=0;
+      const result=await callApi({
+        action:"operational-command",accessToken:"valid-token",
+        command:{
+          type:"COMPRA_CANCELADA",
+          payload:{orderId:"ped-1",reason:"Cadastro duplicado"},
+          expectedVersion:1,idempotencyKey:"test-idem-key-cancel-order-1",
+        },
+      });
+      expect(result.body.ok).toBe(true);
+      expect(testState.upsertCalls).toHaveLength(1);
+      const [{table,row}]=testState.upsertCalls;
+      expect(table).toBe("core_purchase_orders");
+      expect(row).toMatchObject({id:"ped-1",status:"cancelado",active:false});
+    });
+
+    it("DOCUMENTO_COTACAO_COMPRA_ANEXADO grava a cotação (payload atualizado)",async()=>{
+      await callApi(quotationCommand());
+      testState.upsertCalls.length=0;
+      const result=await callApi({
+        action:"operational-command",accessToken:"valid-token",
+        command:{
+          type:"DOCUMENTO_COTACAO_COMPRA_ANEXADO",
+          payload:{quoteId:"cot-1",proposalId:"prop-1",document:{id:"doc-1",nome:"Proposta.pdf",url:"https://exemplo.test/doc-1"}},
+          expectedVersion:1,idempotencyKey:"test-idem-key-quote-doc-1",
+        },
+      });
+      expect(result.body.ok).toBe(true);
+      expect(testState.upsertCalls).toHaveLength(1);
+      const [{table,row}]=testState.upsertCalls;
+      expect(table).toBe("core_quotations");
+      expect(row.id).toBe("cot-1");
+      expect(row.payload.propostas.find(p=>p.id==="prop-1").documentos).toHaveLength(1);
+    });
+
+    it("DOCUMENTO_PEDIDO_COMPRA_ANEXADO grava o pedido (payload atualizado)",async()=>{
+      await callApi(orderCommand());
+      testState.upsertCalls.length=0;
+      const result=await callApi({
+        action:"operational-command",accessToken:"valid-token",
+        command:{
+          type:"DOCUMENTO_PEDIDO_COMPRA_ANEXADO",
+          payload:{orderId:"ped-1",document:{id:"doc-2",nome:"NF.pdf",url:"https://exemplo.test/doc-2"}},
+          expectedVersion:1,idempotencyKey:"test-idem-key-order-doc-1",
+        },
+      });
+      expect(result.body.ok).toBe(true);
+      expect(testState.upsertCalls).toHaveLength(1);
+      const [{table,row}]=testState.upsertCalls;
+      expect(table).toBe("core_purchase_orders");
+      expect(row.id).toBe("ped-1");
+      expect(row.payload.documentos).toHaveLength(1);
+    });
   });
 });
