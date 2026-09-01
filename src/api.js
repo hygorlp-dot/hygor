@@ -169,11 +169,13 @@ export const executarComandoOperacional = command => chamar({ action:"operationa
 export const executarComandoConciliacao = command => chamar({ action:"reconciliation-command", ...credenciais(), command });
 export const executarComandoPonto = command => chamar({ ...credenciais(), ...command });
 export const consultarSombraFinanceira = () => chamar({ action:"financial-shadow-report", ...credenciais() });
-// CORE-001 (Fase 2, cadastro em modo sombra) - até 01/09/2026 esta ação só
-// era consultada por scripts/check-core-registry-shadow-status.mjs; ver
+// CORE-001/002/003 (Fase 2, domínios em modo sombra) - até 01/09/2026 estas
+// ações só eram consultadas por scripts/check-*-shadow-status.mjs; ver
 // NucleoRelacionalAdmin.jsx (docs/BLUEPRINT_CONCORRENCIA_TRAVA.md) para o
 // primeiro consumidor real dentro do app.
 export const consultarNucleoRelacionalSombra = () => chamar({ action:"core-registry-report", ...credenciais() });
+export const consultarEquipamentosRelacionalSombra = () => chamar({ action:"equipment-registry-report", ...credenciais() });
+export const consultarComprasRelacionalSombra = () => chamar({ action:"procurement-registry-report", ...credenciais() });
 export const prepararSombraFinanceira = () => chamar({ action:"financial-shadow-migrate", ...credenciais() });
 export const sincronizarSombraFinanceira = () => chamar({ action:"financial-shadow-sync", ...credenciais() });
 export const consultarDreCanonico = ({year,month,period="mes",obraId=""}) =>

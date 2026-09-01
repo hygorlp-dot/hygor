@@ -3686,3 +3686,27 @@ novo, este tipo de componente de exibição não tem teste unitário
 dedicado neste projeto, mesmo padrão dos demais painéis admin), `npm
 run build`, `npm run lint` e `npm run architecture:check` sem violação
 nova. Verificado ao vivo em produção (ver parágrafo seguinte).
+
+## Core relacional: Núcleo Relacional ampliado aos 3 domínios (01/09/2026)
+
+Usuário pediu para continuar de modo autônomo até finalizar. Ampliação
+natural do que acabou de ser entregue (Núcleo Relacional, só CORE-001):
+os outros dois relatórios sombra (`equipment-registry-report`/CORE-002,
+`procurement-registry-report`/CORE-003) usam exatamente a mesma forma de
+resposta (`hasRuns`/`lastRun`/`ageMs`/`warnings`/`liveCounts`/`sample`) -
+generalizado o componente em vez de triplicar ~150 linhas de JSX quase
+idêntico.
+
+`NucleoRelacionalAdmin.jsx` ganhou um seletor interno de domínio
+(Cadastro/Equipamentos/Compras) em vez de mais abas na barra principal
+da Central do Administrador (já tinha 5) - a mesma renderização
+(cartão por seção, contagem, amostra expansível, alertas) agora é
+parametrizada por um mapa `DOMINIOS` com rótulos de seção e a função de
+consulta de cada um. `src/api.js` ganhou os dois wrappers que faltavam
+(`consultarEquipamentosRelacionalSombra`/`consultarComprasRelacionalSombra`,
+mesmo padrão). O resolvedor de rótulo de linha da amostra (`rotuloLinha`)
+ganhou mais alguns ramos para cobrir as tabelas novas (equipamento→obra,
+número do pedido) antes de cair no `id` cru como último recurso.
+
+Verificação: suíte completa (266/1734), `npm run build`, `npm run lint`
+e `npm run architecture:check` sem violação nova.
