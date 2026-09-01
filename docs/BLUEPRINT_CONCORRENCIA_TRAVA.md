@@ -3660,3 +3660,29 @@ só texto do SQL.
 
 Verificação: suíte completa (266 arquivos/1734 testes), `npm run build`,
 `npm run lint` e `npm run architecture:check` sem violação nova.
+
+## Core relacional: primeiro consumidor real de UI (CORE-001) (01/09/2026)
+
+Última frente aberta desta trilha: `core-registry-report` existia desde
+24/08/2026 (verificado contra produção, 0 divergências), mas nunca tinha
+nenhuma tela - só diagnóstico de backend puro, consultado por script.
+Usuário escolheu o cadastro (CORE-001 - projetos/funcionários/
+fornecedores) entre os três relatórios sombra disponíveis.
+
+**O que foi feito, deliberadamente mínimo**: `NucleoRelacionalAdmin.jsx`
+(novo, dentro de `src/domains/administracao/components/`, mesmo padrão
+de `BasesPrecoAdmin.jsx`), nova 5ª aba na Central do Administrador
+("Núcleo relacional"), exclusiva de admin. Mostra: idade/ator da última
+sincronização, contagem de alertas, contagem ativa de cada uma das 7
+tabelas `core_*` com uma amostra expansível de até 5 linhas por seção, e
+a lista de divergências (se houver). Só leitura - nenhuma escrita nova,
+nenhuma mudança na fonte de verdade operacional (continua sendo o
+cadastro normal de Obras/Equipe/Fornecedores). `consultarNucleoRelacionalSombra`
+(novo wrapper em `src/api.js`, mesmo padrão de `consultarSombraFinanceira`)
+chama a ação já existente.
+
+Verificação: suíte completa (266 arquivos/1734 testes - nenhum teste
+novo, este tipo de componente de exibição não tem teste unitário
+dedicado neste projeto, mesmo padrão dos demais painéis admin), `npm
+run build`, `npm run lint` e `npm run architecture:check` sem violação
+nova. Verificado ao vivo em produção (ver parágrafo seguinte).
