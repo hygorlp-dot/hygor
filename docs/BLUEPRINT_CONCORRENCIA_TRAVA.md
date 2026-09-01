@@ -3632,3 +3632,31 @@ tolerância de melhor esforço de `purchase_requests` do início ao fim.
 
 Verificação: suíte completa (265 arquivos/1727 testes), `npm run build`,
 `npm run lint` e `npm run architecture:check` sem violação nova.
+
+## Core relacional: pglite para CORE-002 (equipamentos) (01/09/2026)
+
+Trabalho mecânico (sem decisão de produto envolvida, ao contrário das
+rodadas anteriores desta trilha) - fechava a última lacuna da infra de
+teste real: CORE-001 e CORE-003 já tinham teste de execução real contra
+Postgres via `@electric-sql/pglite` desde 24/08; CORE-002 continuava só
+com `equipment-registry-migration.test.js` (asserção estática de texto
+do SQL).
+
+`server/equipment-registry-sync-legacy.pglite.test.js` (novo, mesmo
+padrão dos dois arquivos irmãos): aplica as migrations 007+009 em
+sequência, semeia um `core_projects` mínimo (FK real de
+`core_equipment_allocations`/`core_equipment_maintenance_events`) e
+exercita `equipment_registry_sync_legacy` de verdade - grava as 4
+tabelas (equipamento, proprietário, locação, manutenção) com valores
+corretos; arquiva (não apaga) o que sai do snapshot; desarquiva o que
+volta a aparecer; rejeita locação/manutenção referenciando
+equipamento/obra inexistente (FK real, não só validação de aplicação);
+rejeita `company_id`/`actor_id` vazios e snapshot incompleto/schema
+errada. 7 casos, todos verdes de primeira.
+
+Com isso, os três domínios de Fase 2 (CORE-001/002/003) têm o mesmo
+nível de infraestrutura de teste - execução real contra Postgres, não
+só texto do SQL.
+
+Verificação: suíte completa (266 arquivos/1734 testes), `npm run build`,
+`npm run lint` e `npm run architecture:check` sem violação nova.
