@@ -3537,3 +3537,59 @@ nunca bloqueia a criação em si.
 
 Verificação: suíte completa (265 arquivos/1711 testes), `npm run build`,
 `npm run lint` e `npm run architecture:check` sem violação nova.
+
+## Bug real corrigido: conflito de salvamento falso-positivo no orçamento (31/08/2026)
+
+Relato do usuário: "orçamento não está salvando quando lanço um item".
+Reproduzido AO VIVO em produção (obra I-02 OÁSIS): adicionei um item de
+teste via "Adicionar item" (funcionou, salvou normalmente) - mas ao
+mesmo tempo, o usuário estava editando a quantidade de um item
+DIFERENTE (código 92759, "ARMAÇÃO DE PILAR OU VIGA...") no mesmo
+orçamento. O save dele foi recusado com "Conflito de salvamento" -
+banner correto, mecanismo funcionando como desenhado, mas disparado sem
+nenhuma colisão real de dado.
+
+**Causa raiz, confirmada**: `findAggregateConflicts`
+(`server/three-way-conflicts.js`) comparava o REGISTRO INTEIRO (JSON
+completo) por `id` - já documentado como limitação conhecida na
+investigação de 27-28/08 ("orçamento não salva com mais de uma pessoa"),
+mas nunca corrigido até agora. `findSectionConflicts` roda ANTES de
+`mergeThreeWay` e barra com 409 sempre que dois objetos completos
+divergem - mesmo quando `mergeThreeWay` (que já reconcilia campo a
+campo, item a item - ver `three-way-merge.test.js`) resolveria os dois
+lados sem perder nada. O merge fino nunca tinha chance de rodar.
+
+**Correção**: `findValueConflicts` (novo, em `three-way-conflicts.js`)
+espelha a MESMA árvore de decisão de `mergeThreeWay`, ramo a ramo, na
+mesma ordem - só sinaliza conflito exatamente nos pontos em que o merge
+teria que escolher arbitrariamente entre o que o requerente pediu e o
+que já está gravado, porque os dois mudaram o MESMO valor-folha para
+coisas diferentes. Preserva todas as regras de negócio deliberadas que
+o merge já aplica sem perguntar (nunca ressuscitar um registro excluído
+por outro cliente, preservar registros/seções nunca vistos pelo
+cliente, ainda bloquear colisão real edição-vs-edição ou
+edição-vs-exclusão no MESMO item).
+
+**Segundo achado, ao verificar o cenário real antes de declarar
+resolvido**: `salvarOrc()` (`OrcamentoView.jsx`, usado pela maioria das
+edições de orçamento - incluindo `updItemQtd`, exatamente o que o
+usuário estava usando) carimba `updatedAt:new Date().toISOString()` a
+CADA edição, mesmo padrão em dezenas de domínios deste app. Sem excluir
+esse metadado da comparação, duas pessoas editando itens DIFERENTES
+ainda colidiriam - não mais no conteúdo, mas no timestamp em si (sempre
+diferente entre dois saves reais, por construção). `BOOKKEEPING_KEYS`
+(`updatedAt`, `atualizadoEm`, `updatedById`, `updatedBy`,
+`atualizadoPor`, `atualizadoPorId`) são ignorados na comparação -
+carregam "quem/quando mexeu por último", nunca uma intenção de negócio
+que valha proteger de sobrescrita; a mudança real que os acompanha
+continua sendo comparada normalmente.
+
+Testes novos: `server/three-way-conflicts.test.js` ganhou 8 casos -
+cobrindo o cenário exato do bug (itens diferentes no mesmo array,
+carimbo updatedAt divergindo), e preservando explicitamente os casos que
+AINDA devem conflitar (mesmo campo do mesmo item mudado para valores
+diferentes; um exclui um item que o outro editou). `three-way-merge.js`
+não foi tocado - continua exatamente como estava, já testado e correto.
+
+Verificação: suíte completa (265 arquivos/1722 testes), `npm run build`,
+`npm run lint` e `npm run architecture:check` sem violação nova.
