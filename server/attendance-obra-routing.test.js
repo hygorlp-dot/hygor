@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   applyEntriesToAttendance, attendanceObraBucket, attendanceObraKey,
-  attendanceObraKeyPrefix, groupAttendanceEntriesByObra, mergeAttendanceObjects,
-  NO_OBRA_BUCKET, obraBucketFromKey,
+  attendanceObraKeyPrefix, groupAttendanceEntriesByObra, groupObraDeparturesByBucket,
+  mergeAttendanceObjects, NO_OBRA_BUCKET, obraBucketFromKey, tombstoneAttendanceEntries,
 } from "./attendance-obra-routing.js";
 
 describe("attendanceObraBucket", () => {
@@ -150,5 +150,114 @@ describe("applyEntriesToAttendance", () => {
   it("devolve cópia do existente quando não há entradas", () => {
     const existing = { e1: { "2026-08-01": { status: "P" } } };
     expect(applyEntriesToAttendance(existing, [], existing)).toEqual(existing);
+  });
+});
+
+describe("groupObraDeparturesByBucket", () => {
+  // Achado de 02/09/2026: reproduz o bug real de produção - trocar a obra
+  // do dia de um funcionário (ex.: P1-08 -> CA1-06) só gravava a linha da
+  // obra NOVA; a cópia na linha da obra ANTIGA nunca era apagada e sobrava
+  // como fantasma, podendo vencer a cópia nova ao reconstruir `attendance`
+  // na leitura (mergeAttendanceObjects escolhe pela ORDEM em que as linhas
+  // voltam do banco - não garantida). Esta função identifica quais pares
+  // (employeeId,date) precisam de tombstone em qual obra ANTIGA.
+  it("agrupa por obra ANTIGA quando previousObraId difere de obraId", () => {
+    const entries = [
+      { employeeId: "alisson", date: "2026-08-21", obraId: "ca1-06", previousObraId: "p1-08" },
+    ];
+    const partidas = groupObraDeparturesByBucket(entries);
+    expect([...partidas.keys()]).toEqual(["p1-08"]);
+    expect(partidas.get("p1-08")).toEqual([{ employeeId: "alisson", date: "2026-08-21" }]);
+  });
+
+  it("ignora entradas sem mudança de obra (previousObraId === obraId)", () => {
+    const entries = [{ employeeId: "e1", date: "2026-08-21", obraId: "p1-08", previousObraId: "p1-08" }];
+    expect(groupObraDeparturesByBucket(entries).size).toBe(0);
+  });
+
+  it("ignora entradas sem previousObraId (primeiro lançamento do dia, nada para apagar)", () => {
+    const entries = [{ employeeId: "e1", date: "2026-08-21", obraId: "p1-08" }];
+    expect(groupObraDeparturesByBucket(entries).size).toBe(0);
+  });
+
+  it("resolve o balde sem_obra tanto para a obra antiga quanto para a nova", () => {
+    const entries = [{ employeeId: "e1", date: "2026-08-21", obraId: "p1-08", previousObraId: "" }];
+    const partidas = groupObraDeparturesByBucket(entries);
+    expect([...partidas.keys()]).toEqual([NO_OBRA_BUCKET]);
+  });
+
+  it("agrupa várias partidas da mesma obra antiga e mantém partidas distintas separadas", () => {
+    const entries = [
+      { employeeId: "e1", date: "2026-08-21", obraId: "ca1-06", previousObraId: "p1-08" },
+      { employeeId: "e2", date: "2026-08-22", obraId: "k1-04", previousObraId: "p1-08" },
+      { employeeId: "e3", date: "2026-08-21", obraId: "p1-08", previousObraId: "ca1-06" },
+    ];
+    const partidas = groupObraDeparturesByBucket(entries);
+    expect(partidas.get("p1-08")).toHaveLength(2);
+    expect(partidas.get("ca1-06")).toEqual([{ employeeId: "e3", date: "2026-08-21" }]);
+  });
+
+  it("devolve mapa vazio para lista vazia/ausente", () => {
+    expect(groupObraDeparturesByBucket([]).size).toBe(0);
+    expect(groupObraDeparturesByBucket(undefined).size).toBe(0);
+  });
+});
+
+describe("tombstoneAttendanceEntries", () => {
+  it("apaga (record:null) os pares informados, preservando o resto do funcionário", () => {
+    const existing = { alisson: { "2026-08-21": { status: "P", obraId: "p1-08" }, "2026-08-22": { status: "P" } } };
+    const next = tombstoneAttendanceEntries(existing, [{ employeeId: "alisson", date: "2026-08-21" }]);
+    expect(next.alisson).toEqual({ "2026-08-21": null, "2026-08-22": { status: "P" } });
+  });
+
+  it("nunca copia o registro atual - sempre grava null, mesmo se o par ainda não existir na linha", () => {
+    const next = tombstoneAttendanceEntries({}, [{ employeeId: "alisson", date: "2026-08-21" }]);
+    expect(next).toEqual({ alisson: { "2026-08-21": null } });
+  });
+
+  it("não toca em outros funcionários", () => {
+    const existing = { alisson: { "2026-08-21": { status: "P" } }, outro: { "2026-08-21": { status: "F" } } };
+    const next = tombstoneAttendanceEntries(existing, [{ employeeId: "alisson", date: "2026-08-21" }]);
+    expect(next.outro).toEqual({ "2026-08-21": { status: "F" } });
+  });
+
+  it("devolve cópia do existente sem pares", () => {
+    const existing = { alisson: { "2026-08-21": { status: "P" } } };
+    expect(tombstoneAttendanceEntries(existing, [])).toEqual(existing);
+  });
+});
+
+describe("integração: uma troca de obra some da leitura sem o tombstone, e não some com ele", () => {
+  // Reproduz de ponta a ponta o sintoma relatado. `mergeAttendanceObjects`
+  // sempre deixa a ÚLTIMA fonte da lista vencer para uma mesma chave - api/
+  // data.js (lerLinha) ordena as linhas por obra por updated_at ASCENDENTE,
+  // então "última fonte" = linha gravada por último. Duas garantias juntas
+  // fecham o bug: (1) o tombstone da obra antiga entra na lista de fontes
+  // ANTES do valor da obra nova (api/data.js grava as duas obras na mesma
+  // transação, tombstone primeiro - clock_timestamp() avança dentro dela),
+  // e (2) um tombstone (record:null) sempre vence uma fonte ANTERIOR, nunca
+  // uma posterior. Sem o tombstone, o fantasma na obra antiga preserva sua
+  // própria obraId como uma fonte independente - e a ordem de retorno do
+  // banco (não garantida antes desta correção) decide sozinha qual das duas
+  // obras "vence", mesmo sem nenhum clique novo do usuário.
+  it("sem tombstonear a obra antiga, a ordem das fontes decide (bug real)", () => {
+    const linhaAntiga = { alisson: { "2026-08-21": { status: "P", obraId: "p1-08" } } };   // fantasma, nunca apagado
+    const linhaNova = { alisson: { "2026-08-21": { status: "P", obraId: "ca1-06" } } };
+    expect(mergeAttendanceObjects(linhaAntiga, linhaNova).alisson["2026-08-21"].obraId).toBe("ca1-06");
+    // Só a ordem das fontes muda (equivalente a inverter updated_at) - o
+    // valor "vencedor" muda junto. Este é o bug relatado.
+    expect(mergeAttendanceObjects(linhaNova, linhaAntiga).alisson["2026-08-21"].obraId).toBe("p1-08");
+  });
+
+  it("tombstoneando a obra antiga E gravando-a ANTES da obra nova (ordem que api/data.js garante), a obra nova sempre vence", () => {
+    const linhaAntigaComTombstone = tombstoneAttendanceEntries(
+      { alisson: { "2026-08-21": { status: "P", obraId: "p1-08" } } },
+      [{ employeeId: "alisson", date: "2026-08-21" }],
+    );
+    const linhaNova = { alisson: { "2026-08-21": { status: "P", obraId: "ca1-06" } } };
+    // Tombstone primeiro, valor novo por último - a ordem que api/data.js
+    // sempre produz (bloco de tombstones de partidas roda antes do bloco de
+    // gravação das obras novas, de propósito).
+    expect(mergeAttendanceObjects(linhaAntigaComTombstone, linhaNova).alisson["2026-08-21"].obraId).toBe("ca1-06");
   });
 });

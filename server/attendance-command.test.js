@@ -39,6 +39,48 @@ describe("comandos granulares do ponto",()=>{
     expect(JSON.stringify(upsert()).length).toBeLessThan(500);
   });
 
+  // Achado de 02/09/2026: a troca de obra do dia (P1-08 -> CA1-06, por
+  // exemplo) "não salvava"/revertia sozinha depois de recarregar, porque
+  // api/data.js só gravava a linha da obra NOVA - a cópia na linha da obra
+  // ANTIGA nunca era apagada. `previousObraId` é o dado que falta para
+  // api/data.js saber qual linha antiga também precisa ser tocada (ver
+  // server/attendance-obra-routing.js: groupObraDeparturesByBucket).
+  it("o primeiro lançamento do dia não carrega previousObraId (nada para apagar)",()=>{
+    const result=applyAttendanceCommand(base(),engineer,upsert(),NOW);
+    expect(result.result.attendance[0]).not.toHaveProperty("previousObraId");
+  });
+
+  it("uma troca de obra do mesmo dia carrega previousObraId com a obra antiga",()=>{
+    const admin={id:"admin-1",nome:"Admin",role:"admin"};
+    const primeiro=applyAttendanceCommand(base(),admin,upsert(),NOW);
+    const trocado=applyAttendanceCommand(primeiro.data,admin,upsert({
+      operationId:ids[1],selectedObraId:"obra-b",record:{status:"P",obraId:"obra-b"},
+    }),NOW);
+    expect(trocado.ok).toBe(true);
+    expect(trocado.result.attendance[0]).toMatchObject({
+      employeeId:"e-a",date:"2026-07-28",obraId:"obra-b",previousObraId:"obra-a",
+    });
+  });
+
+  it("editar sem trocar de obra carrega previousObraId igual ao obraId atual (nada a apagar)",()=>{
+    const admin={id:"admin-1",nome:"Admin",role:"admin"};
+    const primeiro=applyAttendanceCommand(base(),admin,upsert(),NOW);
+    const editado=applyAttendanceCommand(primeiro.data,admin,upsert({
+      operationId:ids[1],record:{status:"M",obraId:"obra-a"},
+    }),NOW);
+    expect(editado.result.attendance[0]).toMatchObject({obraId:"obra-a",previousObraId:"obra-a"});
+  });
+
+  it("um lote que muda a obra de um lançamento carrega previousObraId corretamente",()=>{
+    const admin={id:"admin-1",nome:"Admin",role:"admin"};
+    const primeiro=applyAttendanceCommand(base(),admin,upsert(),NOW);
+    const lote=applyAttendanceCommand(primeiro.data,admin,{
+      action:ATTENDANCE_COMMAND.BATCH_UPSERT,operationId:ids[1],
+      patches:[{employeeId:"e-a",date:"2026-07-28",selectedObraId:"obra-b",record:{status:"P"}}],
+    },NOW);
+    expect(lote.result.attendance[0]).toMatchObject({obraId:"obra-b",previousObraId:"obra-a"});
+  });
+
   it("impede auditor e engenheiro fora do escopo",()=>{
     expect(applyAttendanceCommand(base(),{...engineer,role:"engenheiro_auditor"},upsert(),NOW))
       .toMatchObject({ok:false,status:403});

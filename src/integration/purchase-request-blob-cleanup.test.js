@@ -23,6 +23,7 @@ const queryFor=table=>{
     eq(key,value){filters[key]=value;return query;},
     in(){return query;},
     like(){return query;},
+    order(){return query;},
     maybeSingle:async()=>{
       if(table!=="company_app_data")return{data:null,error:null};
       const row=testState.rows[filters.key];

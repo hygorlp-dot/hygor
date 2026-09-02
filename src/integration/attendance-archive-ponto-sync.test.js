@@ -22,6 +22,7 @@ const queryFor=table=>{
   const filters={};
   let inFilter=null;
   let likeFilter=null;
+  let orderFilter=null;
   const query={
     select(){return query;},
     eq(key,value){filters[key]=value;return query;},
@@ -30,6 +31,7 @@ const queryFor=table=>{
     // Ponto por obra (número dinâmico, ver server/attendance-obra-routing.js)
     // - o mock só precisa entender o padrão de prefixo simples usado ali.
     like(key,pattern){likeFilter={key,prefix:String(pattern||"").replace(/%$/,"")};return query;},
+    order(field,opts){orderFilter={field,ascending:opts?.ascending!==false};return query;},
     maybeSingle:async()=>{
       if(table!=="company_app_data")return{data:null,error:null};
       const row=testState.rows[filters.key];
@@ -49,6 +51,10 @@ const queryFor=table=>{
           .filter(row=>String(row[likeFilter.key]||"").startsWith(likeFilter.prefix))
           .filter(row=>!filters.company_id||filters.company_id===row.company_id)
           .map(row=>({key:row.key,value:row.value,updated_at:row.updated_at}));
+        if(orderFilter){
+          const direction=orderFilter.ascending?1:-1;
+          matches.sort((a,b)=>direction*String(a[orderFilter.field]||"").localeCompare(String(b[orderFilter.field]||"")));
+        }
         result={data:matches,error:null};
       }else{
         result={data:[],error:null};

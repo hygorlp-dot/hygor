@@ -52,7 +52,8 @@ import {
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
 import {
   applyEntriesToAttendance, attendanceObraKey, attendanceObraKeyPrefix,
-  groupAttendanceEntriesByObra, mergeAttendanceObjects, obraBucketFromKey,
+  groupAttendanceEntriesByObra, groupObraDeparturesByBucket, mergeAttendanceObjects,
+  obraBucketFromKey, tombstoneAttendanceEntries,
 } from "../server/attendance-obra-routing.js";
 import {
   CORE_REGISTRY_TABLES, summarizeCoreRegistryShadowStatus,
@@ -486,8 +487,17 @@ const lerLinha = async () => {
       .eq("company_id", COMPANY).eq("key", KEY).maybeSingle(),
     db.from("company_app_data").select("key, value, updated_at")
       .eq("company_id", COMPANY).in("key", splitEntries.map(([, key]) => key)),
+    // Achado de 02/09/2026: sem `.order()` aqui, o Postgres devolve as
+    // linhas por obra em ordem NÃO garantida - e mergeAttendanceObjects
+    // (mais abaixo) deixa a fonte que aparece POR ÚLTIMO vencer em caso de
+    // conflito no mesmo (funcionário,data). Ordenar por updated_at
+    // ascendente garante que a linha realmente mais recente sempre vença,
+    // reforçando a correção de groupObraDeparturesByBucket (que já evita
+    // esse conflito na origem, apagando a cópia da obra antiga) para
+    // qualquer registro que ainda reste órfão de antes desta correção.
     db.from("company_app_data").select("key, value, updated_at")
-      .eq("company_id", COMPANY).like("key", `${PONTO_OBRA_KEY_PREFIX}%`),
+      .eq("company_id", COMPANY).like("key", `${PONTO_OBRA_KEY_PREFIX}%`)
+      .order("updated_at", { ascending: true }),
   ]);
   if (error) throw error;
   if (!data) return { payload: null, updatedAt: null, rowVersions: {}, rowVersionsPontoObra: {} };
@@ -1054,6 +1064,43 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
           'api/data'
         )
       `;
+
+      // Um lançamento que MUDOU de obra nesta operação (previousObraId !==
+      // obraId) precisa apagar sua cópia na linha da obra ANTIGA - senão ela
+      // sobra como fantasma que pode vencer a cópia nova ao reconstruir
+      // `attendance` na leitura (mergeAttendanceObjects: fontes cujo
+      // updated_at é mais recente vencem - lerLinha ordena por updated_at
+      // ascendente). Achado de 02/09/2026 (ver server/attendance-obra-
+      // routing.js: groupObraDeparturesByBucket).
+      //
+      // ORDEM IMPORTA: este bloco (tombstones nas obras ANTIGAS) roda
+      // ANTES do bloco de gravação das obras NOVAS logo abaixo, de
+      // propósito - cada `clock_timestamp()` do Postgres avança dentro da
+      // transação, então a linha com o valor VÁLIDO precisa terminar de
+      // gravar por ÚLTIMO. Invertendo a ordem, o tombstone da obra antiga
+      // ficaria com updated_at mais recente que a obra nova e "venceria" o
+      // valor correto no merge de leitura - reintroduzindo o mesmo bug ao
+      // contrário. Uma obra pode aparecer nos dois blocos (foi obra antiga
+      // de um lançamento do lote E obra nova de outro) - travar/gravar duas
+      // vezes na mesma transação é seguro, cada gravação relê o valor fresco.
+      const partidas=groupObraDeparturesByBucket(applied.result?.attendance);
+      for(const [obraBucket,pares] of partidas){
+        const key=`${PONTO_OBRA_KEY_PREFIX}${obraBucket}`;
+        const [lockedObraAntiga]=await transaction`
+          select value from company_app_data
+           where company_id=${COMPANY} and key=${key}
+           for update
+        `;
+        if(!lockedObraAntiga)continue; // obra antiga nunca ganhou linha própria - nada a apagar
+        const existente=decodeAppData(lockedObraAntiga.value)?.attendance||{};
+        const proximo=tombstoneAttendanceEntries(existente,pares);
+        await transaction`
+          update company_app_data
+             set value=${JSON.stringify(encodeAppData({attendance:proximo}))}::jsonb,
+                 updated_at=clock_timestamp(), updated_by=null
+           where company_id=${COMPANY} and key=${key}
+        `;
+      }
 
       // Uma linha por obra distinta tocada pelo lote - criada sob demanda
       // (insert ... on conflict do nothing + select for update logo em

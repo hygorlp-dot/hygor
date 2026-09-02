@@ -3710,3 +3710,80 @@ número do pedido) antes de cair no `id` cru como último recurso.
 
 Verificação: suíte completa (266/1734), `npm run build`, `npm run lint`
 e `npm run architecture:check` sem violação nova.
+
+## Bug real corrigido: troca de obra do dia no Ponto "não salvava" (02/09/2026)
+
+Usuário relatou: "não está salvando a troca de obra dos funcionários no
+dia" na gestão de ponto. Investigação ao vivo (produção, sessão
+autenticada) reproduziu o sintoma na tela Gestão do ponto
+(`PontoGeral`, `LegacyApp.jsx`): trocar a obra do dia de um funcionário
+(ex.: P1-08 → CA1-06) grava, mas ao recarregar a tela às vezes o valor
+"volta sozinho" para a obra antiga - sem erro nenhum, sem toast, sem
+conflito visível.
+
+**Causa raiz** (server/attendance-obra-routing.js,
+server/attendance-command.js, api/data.js): desde a Fase 1.5 reduzida
+(22/08/2026), `data.attendance` é particionado numa linha própria POR
+OBRA (`arced_ponto_v1__ponto__obra__<obraId>`) - a leitura
+(`lerLinha`) reconstrói o `attendance` consolidado mesclando todas
+essas linhas (`mergeAttendanceObjects`), onde a fonte que aparece POR
+ÚLTIMO na lista vence para uma mesma (funcionário,data). Uma troca de
+obra só gravava a linha da obra NOVA - a cópia na linha da obra ANTIGA
+nunca era apagada, sobrando como um registro "fantasma"
+(`{status,obraId:antiga}`). Como a consulta `.like()` que busca todas
+as linhas de obra não tinha `.order()`, o Postgres podia devolvê-las em
+qualquer ordem - e a ordem decidia, aleatoriamente a cada carregamento,
+se o fantasma da obra antiga "vencia" a cópia correta da obra nova.
+
+**Correção, duas partes que se sustentam mutuamente**:
+1. `server/attendance-obra-routing.js`: `attendance-command.js` agora
+   anota cada entrada de resultado com `previousObraId` (a obra do
+   registro antes da operação, quando havia um). Duas funções novas -
+   `groupObraDeparturesByBucket` (agrupa por obra ANTIGA os pares que
+   mudaram de obra nesta operação) e `tombstoneAttendanceEntries`
+   (apaga, `record:null`, esses pares na linha da obra antiga) -
+   fecham a lacuna: `api/data.js` (`executarComandoPontoBloqueado`)
+   agora tombstona a obra antiga ANTES de gravar a obra nova, na MESMA
+   transação - a ordem importa (`clock_timestamp()` avança dentro da
+   transação; o tombstone precisa terminar de gravar primeiro, senão
+   ele "vence" o valor correto ao contrário).
+2. `api/data.js` (`lerLinha`): a consulta das linhas por obra ganhou
+   `.order("updated_at",{ascending:true})` - reforça que a linha
+   realmente mais recente sempre vence no merge, mesmo para qualquer
+   fantasma pré-existente de antes desta correção que ainda não foi
+   limpo.
+
+Testado ao vivo em produção antes e depois da correção (com dados
+reais, revertidos ao final): reproduzido o "ressuscita sozinho" antes
+do deploy, confirmado que some (nenhum fantasma) depois. Um registro
+fantasma que a própria investigação ao vivo deixou para trás (`CA1-06`,
+funcionário Alisson, 21/08) foi limpo através da própria tela, já com o
+código corrigido, em vez de escrita direta no banco (bloqueada pelo
+classificador de permissões, corretamente).
+
+Achado secundário, registrado mas fora de escopo desta correção:
+alguns dias de um funcionário (24-25/08) desapareceram da linha de obra
+sem tombstone nem no histórico de recibos aparente - não bate com
+nenhuma troca de obra nem com nenhum clique de limpar status
+registrado nos recibos daquele funcionário. Pode ser uma interação
+antiga entre o arquivamento/restauração de quinzena
+(`finalizarQuinzena`/`restaurarQuinzena`) e o particionamento por obra
+(Fase 1.5, posterior a esse fluxo) - não investigado a fundo aqui.
+
+Testes novos: `server/attendance-command.test.js` (4 casos -
+`previousObraId` ausente no primeiro lançamento, presente e correto
+numa troca de obra, igual ao atual quando não muda de obra, e num
+lote); `server/attendance-obra-routing.test.js` (`groupObraDeparturesByBucket`,
+`tombstoneAttendanceEntries`, mais um teste de integração isolado que
+reproduz o bug e a correção via `mergeAttendanceObjects`);
+`src/integration/attendance-obra-locked-path.test.js` (2 casos de ponta
+a ponta via `/api/data`: trocar de obra apaga a linha antiga e a
+leitura reconstrói a obra nova; trocar de volta idem, sem sobrar
+fantasma na obra intermediária). Os mocks compartilhados de
+`@supabase/supabase-js` em 8 arquivos de teste de integração ganharam
+suporte a `.order()` (estava faltando, quebrava com `TypeError` assim
+que o código de produção passou a chamá-lo).
+
+Verificação: suíte completa (266 arquivos/1752 testes), `npm run
+build`, `npm run lint` e `npm run architecture:check` sem violação
+nova.

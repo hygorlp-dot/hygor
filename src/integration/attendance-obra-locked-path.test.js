@@ -17,17 +17,20 @@ const pontoObraKey=obraId=>`${PONTO_KEY}__obra__${obraId||"sem_obra"}`;
 const testState=vi.hoisted(()=>({
   rows:{},
   transactionCalls:[],
+  clock:null,
 }));
 
 const queryFor=table=>{
   const filters={};
   let inFilter=null;
   let likeFilter=null;
+  let orderFilter=null;
   const query={
     select(){return query;},
     eq(key,value){filters[key]=value;return query;},
     in(key,values){inFilter={key,values};return query;},
     like(key,pattern){likeFilter={key,prefix:String(pattern||"").replace(/%$/,"")};return query;},
+    order(field,opts){orderFilter={field,ascending:opts?.ascending!==false};return query;},
     maybeSingle:async()=>{
       if(table!=="company_app_data")return{data:null,error:null};
       const row=testState.rows[filters.key];
@@ -47,6 +50,10 @@ const queryFor=table=>{
           .filter(row=>String(row[likeFilter.key]||"").startsWith(likeFilter.prefix))
           .filter(row=>!filters.company_id||filters.company_id===row.company_id)
           .map(row=>({key:row.key,value:row.value,updated_at:row.updated_at}));
+        if(orderFilter){
+          const direction=orderFilter.ascending?1:-1;
+          matches.sort((a,b)=>direction*String(a[orderFilter.field]||"").localeCompare(String(b[orderFilter.field]||"")));
+        }
         result={data:matches,error:null};
       }else{
         result={data:[],error:null};
@@ -70,7 +77,19 @@ vi.mock("@supabase/supabase-js",()=>({
   createClient:()=>fakeDb,
 }));
 
-const bumpUpdatedAt=isoString=>new Date(new Date(isoString).getTime()+1000).toISOString();
+// clock_timestamp() do Postgres é um relógio ÚNICO, global, que só avança -
+// nunca "relativo à linha tocada". Um bump por-linha (baseado no updated_at
+// ANTERIOR dessa mesma linha) deixava a ordem entre DUAS linhas diferentes
+// tocadas na mesma transação dependente de quantas vezes cada uma já tinha
+// sido gravada antes - o que não reflete o Postgres real e escondia a
+// própria ordem de escrita que o achado de 02/09/2026 depende (tombstone da
+// obra antiga precisa terminar de gravar ANTES da obra nova, dentro da
+// MESMA transação - ver api/data.js).
+const bumpUpdatedAt=()=>{
+  const base=testState.clock?new Date(testState.clock).getTime():new Date("2026-08-22T12:00:00.000Z").getTime();
+  testState.clock=new Date(base+1000).toISOString();
+  return testState.clock;
+};
 
 // Mock mínimo do pacote "postgres" - entende as 5 formas de query que
 // executarComandoPontoBloqueado emite: SELECT...FOR UPDATE (linha meta e
@@ -96,14 +115,14 @@ const makeTransaction=()=>async(strings,...values)=>{
   if(sql.includes("update company_app_data")&&sql.includes("returning updated_at")){
     const [value,companyId,key]=values;
     const row=testState.rows[key];
-    const updatedAt=bumpUpdatedAt(row?.updated_at||new Date(0).toISOString());
+    const updatedAt=bumpUpdatedAt();
     testState.rows[key]={...row,company_id:companyId,key,value:JSON.parse(value),updated_at:updatedAt};
     return[{updated_at:updatedAt}];
   }
   if(sql.includes("update company_app_data")){
     const [value,companyId,key]=values;
     const row=testState.rows[key];
-    const updatedAt=bumpUpdatedAt(row?.updated_at||new Date(0).toISOString());
+    const updatedAt=bumpUpdatedAt();
     testState.rows[key]={...row,company_id:companyId,key,value:JSON.parse(value),updated_at:updatedAt};
     return[];
   }
@@ -168,6 +187,7 @@ describe("/api/data · caminho travado do Ponto particiona attendance por obra",
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-22T15:00:00.000Z"));
     testState.transactionCalls.length=0;
+    testState.clock=null;
     testState.rows={
       [CORE_KEY]:{company_id:"arcd",key:CORE_KEY,value:initialData(),updated_at:"2026-08-22T12:00:00.000Z"},
       [PONTO_KEY]:{company_id:"arcd",key:PONTO_KEY,value:initialPontoData(),updated_at:"2026-08-22T12:00:00.000Z"},
@@ -248,5 +268,71 @@ describe("/api/data · caminho travado do Ponto particiona attendance por obra",
     expect(testState.rows[CORE_KEY].value.attendanceOperationReceipts).toEqual(
       expect.arrayContaining([expect.objectContaining({operationId:"20000000-0000-4000-8000-000000000004"})]),
     );
+  });
+
+  // Achado de 02/09/2026: trocar a obra do dia de um funcionário (ex.:
+  // "trocar obra" na tela Gestão do ponto) só gravava a linha da obra NOVA
+  // - a cópia na linha da obra ANTIGA nunca era apagada, sobrando como um
+  // fantasma que podia "vencer" a cópia nova ao recarregar a tela (a ordem
+  // em que o banco devolve as linhas por obra não é garantida). Sintoma
+  // real relatado: a troca de obra "não salvava" ou revertia sozinha.
+  it("trocar a obra do dia apaga a cópia da obra ANTIGA - não sobra fantasma nem some ao recarregar",async()=>{
+    await callApi({
+      action:"attendance-upsert",accessToken:"valid-token",
+      operationId:"20000000-0000-4000-8000-000000000005",
+      employeeId:"e-a",date:"2026-08-22",selectedObraId:"obra-a",
+      record:{status:"P",obraId:"obra-a"},
+    });
+    expect(testState.rows[pontoObraKey("obra-a")].value.attendance["e-a"]["2026-08-22"]).toMatchObject({status:"P"});
+
+    const troca=await callApi({
+      action:"attendance-upsert",accessToken:"valid-token",
+      operationId:"20000000-0000-4000-8000-000000000006",
+      employeeId:"e-a",date:"2026-08-22",selectedObraId:"obra-b",
+      record:{status:"P",obraId:"obra-b"},
+    });
+    expect(troca.status).toBe(200);
+    expect(troca.body.ok).toBe(true);
+
+    // A linha ANTIGA (obra-a) precisa apagar (tombstone) sua cópia deste
+    // (funcionário,data) - não deixar a chave como estava, nem sumir sem
+    // registro nenhum (isso reintroduziria o "ressuscita sozinho" já
+    // corrigido em 25/08/2026 - ver mergeAttendanceObjects).
+    expect(testState.rows[pontoObraKey("obra-a")].value.attendance["e-a"]["2026-08-22"]).toBeNull();
+    // A linha NOVA (obra-b) tem a cópia real e correta.
+    expect(testState.rows[pontoObraKey("obra-b")].value.attendance["e-a"]["2026-08-22"]).toMatchObject({status:"P",obraId:"obra-b"});
+
+    // E a reconstrução de leitura (lerLinha/mergeAttendanceObjects) devolve
+    // a obra NOVA, nunca a fantasma da obra antiga - independente da ordem
+    // em que o banco devolveria as linhas.
+    const reloaded=await callApi({action:"load",accessToken:"valid-token"});
+    expect(reloaded.body.data.attendance["e-a"]["2026-08-22"]).toMatchObject({status:"P",obraId:"obra-b"});
+  });
+
+  it("trocar de volta para a obra original limpa a obra intermediária, sem deixar fantasma nela também",async()=>{
+    await callApi({
+      action:"attendance-upsert",accessToken:"valid-token",
+      operationId:"20000000-0000-4000-8000-000000000007",
+      employeeId:"e-a",date:"2026-08-22",selectedObraId:"obra-a",
+      record:{status:"P",obraId:"obra-a"},
+    });
+    await callApi({
+      action:"attendance-upsert",accessToken:"valid-token",
+      operationId:"20000000-0000-4000-8000-000000000008",
+      employeeId:"e-a",date:"2026-08-22",selectedObraId:"obra-b",
+      record:{status:"P",obraId:"obra-b"},
+    });
+    await callApi({
+      action:"attendance-upsert",accessToken:"valid-token",
+      operationId:"20000000-0000-4000-8000-000000000009",
+      employeeId:"e-a",date:"2026-08-22",selectedObraId:"obra-a",
+      record:{status:"P",obraId:"obra-a"},
+    });
+
+    expect(testState.rows[pontoObraKey("obra-a")].value.attendance["e-a"]["2026-08-22"]).toMatchObject({status:"P",obraId:"obra-a"});
+    expect(testState.rows[pontoObraKey("obra-b")].value.attendance["e-a"]["2026-08-22"]).toBeNull();
+
+    const reloaded=await callApi({action:"load",accessToken:"valid-token"});
+    expect(reloaded.body.data.attendance["e-a"]["2026-08-22"]).toMatchObject({status:"P",obraId:"obra-a"});
   });
 });

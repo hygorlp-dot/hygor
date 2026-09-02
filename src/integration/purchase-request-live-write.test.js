@@ -24,6 +24,7 @@ const queryFor=table=>{
     eq(key,value){filters[key]=value;return query;},
     in(){return query;},
     like(){return query;},
+    order(){return query;},
     upsert(row,options){
       testState.upsertCalls.push({table,row,options});
       return Promise.resolve(

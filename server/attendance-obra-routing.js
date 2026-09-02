@@ -101,3 +101,44 @@ export const applyEntriesToAttendance = (existingAttendance, entries, fullAttend
   }
   return next;
 };
+
+// Achado de 02/09/2026: uma troca de obra (P1-08 -> CA1-06, por exemplo)
+// só grava na linha da obra NOVA (groupAttendanceEntriesByObra/
+// applyEntriesToAttendance acima) - a cópia na linha da obra ANTIGA nunca
+// era tocada, e sobrava como um "fantasma" ({status,obraId:antiga}) que
+// mergeAttendanceObjects podia deixar VENCER a cópia nova ao reconstruir
+// `attendance` na leitura, porque a ordem em que o `.like()` devolve as
+// linhas por obra não é garantida. Sintoma real: trocar a obra do dia
+// "não salvava" ou revertia sozinho depois de recarregar a tela. Agrupa,
+// por obra ANTIGA distinta, os pares (employeeId,date) cujo `previousObraId`
+// (server/attendance-command.js) aponta para uma obra diferente da nova.
+export const groupObraDeparturesByBucket = entries => {
+  const byBucket = new Map();
+  for (const entry of entries || []) {
+    if (entry?.previousObraId == null) continue;
+    const previousBucket = attendanceObraBucket(entry.previousObraId);
+    const nextBucket = attendanceObraBucket(entry?.obraId);
+    if (previousBucket === nextBucket) continue;
+    const employeeId = String(entry?.employeeId || "");
+    const date = String(entry?.date || "");
+    if (!employeeId || !date) continue;
+    if (!byBucket.has(previousBucket)) byBucket.set(previousBucket, []);
+    byBucket.get(previousBucket).push({ employeeId, date });
+  }
+  return byBucket;
+};
+
+// Apaga (tombstone: `record:null`) os pares (employeeId,date) informados
+// na linha da obra ANTIGA - usado por groupObraDeparturesByBucket acima.
+// Nunca lê `fullAttendanceAfter` (o valor lá é sempre o da obra NOVA):
+// aqui a intenção é sempre apagar, nunca copiar o registro atual.
+export const tombstoneAttendanceEntries = (existingAttendance, pairs) => {
+  let next = { ...(existingAttendance || {}) };
+  for (const { employeeId, date } of pairs || []) {
+    if (!employeeId || !date) continue;
+    const days = { ...(next[employeeId] || {}) };
+    days[date] = null;
+    next[employeeId] = days;
+  }
+  return next;
+};

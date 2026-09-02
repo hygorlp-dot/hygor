@@ -148,9 +148,19 @@ const applyValidatedPatch=(data,validated)=>{
   else delete attendance[validated.employeeId];
   return {...data,attendance};
 };
+// Achado de 02/09/2026: quando um lançamento muda de obra (ex.: P1-08 ->
+// CA1-06), a linha de Ponto POR OBRA antiga (server/attendance-obra-
+// routing.js) precisa apagar sua cópia - senão ela sobra como um
+// "fantasma" que pode vencer a cópia nova ao reconstruir `attendance` na
+// leitura (mergeAttendanceObjects escolhe pela ORDEM em que as linhas
+// voltam do banco, não garantida), fazendo a troca de obra parecer que
+// "não salvou" ou reverteu sozinha depois de recarregar. `previousObraId`
+// carrega a obra do registro ANTES desta operação (quando havia um) para
+// que api/data.js saiba qual linha antiga também precisa ser tocada.
 const attendanceResult=validated=>({
   employeeId:validated.employeeId,date:validated.date,obraId:validated.obraId,
   record:validated.record,
+  ...(validated.currentRecord?.obraId!=null?{previousObraId:validated.currentRecord.obraId}:{}),
 });
 
 const applyUpsert=({data,user,command,now})=>{
