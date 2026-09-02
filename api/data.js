@@ -251,6 +251,7 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
+  [OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_CANCELLED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_RESERVATION_CANCELLED]:["admin","engenheiro","engenheiro_auditor","financeiro"],

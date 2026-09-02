@@ -106,6 +106,7 @@ export const EQUIPMENT_COMMAND=Object.freeze({
   EQUIPMENT_UNAVAILABILITY_SAVED:"INDISPONIBILIDADE_EQUIPAMENTO_SALVA",
   EQUIPMENT_UNAVAILABILITY_CANCELLED:"INDISPONIBILIDADE_EQUIPAMENTO_CANCELADA",
   EQUIPMENT_MAINTENANCE_SAVED:"MANUTENCAO_EQUIPAMENTO_SALVA",
+  EQUIPMENT_MAINTENANCE_CANCELLED:"MANUTENCAO_EQUIPAMENTO_CANCELADA",
   EQUIPMENT_TRANSFERRED:"EQUIPAMENTO_TRANSFERIDO",
 });
 
@@ -136,6 +137,7 @@ export const equipmentCommandObraId=(data={},command={})=>{
     const equipment=list(data,"equipamentos").find(item=>item.id===input.equipamentoId);
     return String(input.obraId||equipment?.obraAtualId||"");
   }
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_MAINTENANCE_CANCELLED)return String(list(data,"manutencoesEquip").find(item=>item.id===payload.maintenanceId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_TRANSFERRED)return String(payload.transfer?.paraObraId||"");
   return "";
 };
@@ -527,9 +529,15 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
     const id=String(input.id||"");
     const equipment=list(data,"equipamentos").find(item=>String(item.id)===String(input.equipamentoId));
     if(!id||!equipment)return fail("Selecione um equipamento existente.");
+    // Achado de 02/09/2026: o término era obrigatório (sempre virava, no
+    // mínimo, igual ao início) - impossível registrar uma manutenção de
+    // prazo indeterminado (equipamento que entra em manutenção sem data de
+    // volta prevista). Agora `fim` é opcional, mesmo padrão já usado pela
+    // locação (EQUIPMENT_RENTAL_SAVED, logo acima) - vazio só é validado
+    // quando presente.
     const startDate=String(input.inicio||input.data||"");
-    const endDate=String(input.fim||input.dataConclusao||startDate);
-    if(!isValidIsoDate(startDate)||!isValidIsoDate(endDate)||endDate<startDate||numeric(input.custo)<=0)return fail("Informe período válido e custo positivo da manutenção.");
+    const endDate=String(input.fim||input.dataConclusao||"");
+    if(!isValidIsoDate(startDate)||(endDate&&(!isValidIsoDate(endDate)||endDate<startDate))||numeric(input.custo)<=0)return fail("Informe uma data de início válida e custo positivo da manutenção.");
     const obraId=String(input.obraId||equipment.obraAtualId||"");
     if(!obraExists(data,obraId))return fail("A obra da manutenção não existe.");
     const current=list(data,"manutencoesEquip").find(item=>String(item.id)===id);
@@ -567,6 +575,29 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
       maintenanceId:id,rentalId:"",createdAt:current?.createdAt||now,createdBy:command.actorId||"",
       version:versionOf(unavailabilityList(data).find(item=>item.maintenanceId===id))+1,
     });
+    return {ok:true,data:next,entityId:id};
+  }
+
+  // Achado de 02/09/2026: só existia EQUIPMENT_MAINTENANCE_SAVED - não
+  // havia como excluir uma manutenção registrada por engano ou já
+  // resolvida sem editá-la manualmente. Mesmo padrão de exclusão suave já
+  // usado por EQUIPMENT_RENTAL_CANCELLED/EQUIPMENT_UNAVAILABILITY_CANCELLED
+  // (acima/abaixo): marca `status:"cancelada"`, nunca apaga a linha - o
+  // histórico de auditoria e o custo já lançado permanecem rastreáveis.
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_MAINTENANCE_CANCELLED){
+    const id=String(payload.maintenanceId||"");
+    const current=list(data,"manutencoesEquip").find(item=>String(item.id)===id);
+    if(!current)return fail("Manutenção não encontrada.");
+    const stale=versionError(current,command.expectedVersion,"A manutenção");
+    if(stale)return fail(stale);
+    if(current.status==="cancelada")return fail("A manutenção já foi excluída.");
+    const reason=String(payload.reason||"Excluída pelo histórico de manutenção").trim();
+    const record={...current,status:"cancelada",version:versionOf(current)+1,updatedAt:now,
+      canceladoEm:now,canceladoPorId:command.actorId||"",motivoCancelamento:reason};
+    record.operationalHistory=audit(current,command,now,"EQUIPMENT_MAINTENANCE_CANCELLED",{reason});
+    let next=replace(data,"manutencoesEquip",id,record);
+    const maintenanceEvent=unavailabilityList(next).find(item=>String(item.maintenanceId)===id);
+    if(maintenanceEvent)next=upsertUnavailability(next,{...maintenanceEvent,status:"cancelada",version:versionOf(maintenanceEvent)+1,updatedAt:now});
     return {ok:true,data:next,entityId:id};
   }
 

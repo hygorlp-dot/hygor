@@ -3865,3 +3865,67 @@ bug que ele permite.
 Verificação: suíte completa (269 arquivos/1772 testes), `npm run
 build`, `npm run lint` e `npm run architecture:check` sem violação
 nova.
+
+## Equipamentos: manutenção de prazo indeterminado e exclusão (02/09/2026)
+
+Usuário pediu, na aba Equipamentos: "manutenções podem ser por prazo
+indeterminado" (equipamento que sai de serviço sem data de volta
+prevista) e a "opção de excluir a manutenção" - nenhuma das duas
+existia.
+
+**Causa raiz do primeiro pedido**: `EQUIPMENT_MAINTENANCE_SAVED`
+(`src/domains/equipamentos/commands.js`) sempre exigia um término -
+quando não informado, `endDate` virava, no mínimo, igual ao início, e
+a validação exigia que fosse uma data ISO válida de qualquer forma.
+Locação (`EQUIPMENT_RENTAL_SAVED`) já suporta `fim` vazio ("em
+andamento") há tempos - a manutenção só nunca tinha ganhado o mesmo
+tratamento. Corrigido espelhando exatamente essa validação: `fim` só é
+checado quando presente. `fleetAvailability`/`upsertUnavailability`
+(usados pelos dois comandos) já suportavam `endDate=""` sem mudança
+nenhuma - só a validação bloqueava.
+
+**Segundo pedido**: não existia `EQUIPMENT_MAINTENANCE_CANCELLED`.
+Novo comando, mesmo padrão de exclusão suave já usado por
+`EQUIPMENT_RENTAL_CANCELLED`/`EQUIPMENT_UNAVAILABILITY_CANCELLED`:
+marca `status:"cancelada"`, nunca apaga a linha (custo e histórico de
+auditoria continuam rastreáveis), e cancela também o evento de
+indisponibilidade vinculado (`maintenanceId`) para a frota parar de
+contar aquele período como ocupado. Diferente da locação, a manutenção
+nunca mexeu no `status`/`obraAtualId` do próprio equipamento ao
+salvar - por isso a exclusão também não mexe (verificado com teste
+dedicado).
+
+`equipmentCommandObraId` (roteamento de obra por tipo de comando,
+usado por `validateOperationalCommandScope`) e
+`OPERATIONAL_COMMAND_ROLES` (`api/data.js` - gate de papel exaustivo,
+testado por `operational-command-authorization.test.js` para TODO
+comando conhecido) precisaram de uma entrada nova cada um - mesmos
+papéis já usados por `EQUIPMENT_MAINTENANCE_SAVED`
+(`admin`/`engenheiro`/`engenheiro_auditor`/`financeiro`).
+Deliberadamente NÃO adicionado a `FINANCIAL_OPERATIONAL_COMMANDS`
+(`api/data.js`) nem a `AUDIT_ONLY_EQUIPMENT_COMMANDS`
+(`server/operational-command-persistence.js`) - `EQUIPMENT_RENTAL_
+CANCELLED` (o par mais próximo) também está ausente dos dois, então
+ficar de fora mantém o mesmo comportamento (sem reconstrução
+financeira imediata no clique) sem introduzir uma inconsistência nova.
+
+**UI** (`EquipamentosView.jsx`): campo "Término" deixou de ter `*` e
+de default para o início - rótulo agora "Término (vazio = prazo
+indeterminado)", mesmo texto já usado pelo campo equivalente da
+locação. A lista de manutenções ganhou o que a de locação já tinha:
+badge de "→ prazo indeterminado"/"→ excluída", botões Editar (o
+formulário já suportava atualizar por id, só faltava o gatilho de UI
+para abrir uma manutenção existente) e Excluir (some quando já
+cancelada), e o modal virou "Editar manutenção"/"Nova manutenção" com
+"Salvar manutenção" no lugar do antigo texto fixo "Registrar
+manutenção".
+
+Testes novos em `src/domains/equipamentos/commands.test.js`: manutenção
+sem término salva com `fim:""` (e a indisponibilidade correspondente
+também), término anterior ao início continua rejeitado, cancelamento
+audita e libera a indisponibilidade sem tocar no equipamento, e
+recusa cancelar manutenção inexistente ou já cancelada.
+
+Verificação: suíte completa (269 arquivos/1777 testes), `npm run
+build`, `npm run lint` e `npm run architecture:check` sem violação
+nova.

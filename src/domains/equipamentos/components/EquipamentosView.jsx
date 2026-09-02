@@ -698,6 +698,33 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       setSalvandoEquipamento("");
     }
   };
+  const excluirManut = (m) => {
+    setConfirmModal({
+      titulo:`Excluir a manutenção de "${equipName(m.equipamentoId)}"?`,
+      mensagem:"Ela deixará de contar como indisponibilidade da frota. O cancelamento permanecerá no histórico de auditoria.",
+      tom:"danger",
+      confirmLabel:"Excluir manutenção",
+      onConfirmar:()=>executarExcluirManut(m),
+    });
+  };
+  const executarExcluirManut = async(m) => {
+    setSalvandoEquipamento("exclusao-manutencao");
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.manutencoesEquip||[]).find(item=>item.id===m.id);
+        return {type:OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_CANCELLED,
+          idempotencyKey:`manutencao-equipamento-cancelar-${m.id}-${uid()}`,
+          expectedVersion:Number(current?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{maintenanceId:m.id,reason:"Excluída pelo histórico de manutenção"}};
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível excluir a manutenção.","error");return;}
+      setManutModal(null);showToast("Manutenção excluída. A frota foi atualizada.");
+    }catch(error){
+      showToast(error?.message||"O servidor não respondeu ao excluir a manutenção.","error");
+    }finally{
+      setSalvandoEquipamento("");
+    }
+  };
 
   const salvarIndisponibilidade=async(f)=>{
     if(!f.equipmentId||!f.startDate||!f.endDate||!f.reason){showToast("Preencha equipamento, período e motivo.","error");return;}
@@ -773,7 +800,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
   const equipVazio = { nome:"", categoria:"", patrimonio:"", proprietarioId:"", tarifas:{dia:"",semana:"",quinzena:"",mes:""}, tarifasCusto:{dia:"",semana:"",quinzena:"",mes:""}, quantidadeTotal:1, valorDiaria:"", custoDiaria:"", status:"disponivel", obraAtualId:obraIdFixo||"", aquisicao:"", valorAquisicao:"", sinapiReferenciaId:"", sinapiFonte:"", sinapiCodigo:"", sinapiDescricao:"", sinapiUnidade:"", sinapiPreco:"", sinapiDataBase:"", sinapiUf:"", sinapiDesonerado:true, imagemUrl:"", imagemTipo:"auto", obs:"" };
   const donoVazio  = { nome:"", documento:"", telefone:"", email:"", chavePix:"", obs:"" };
   const locVazio   = { equipamentoId:"", equipmentLotId:"",equipmentUnitIds:[],obraId:obraIdFixo||"", inicio:today(), fim:"", quantidade:1, tarifaNegociada:false, regraTarifaria:"best_combination", tarifas:{dia:0,semana:0,quinzena:0,mes:0}, tarifasCusto:{dia:0,semana:0,quinzena:0,mes:0}, valorDiaria:"", custoDiaria:"", descontoPct:"", descontoValor:"", obs:"" };
-  const manutVazio = { equipamentoId:"",equipmentLotId:"",equipmentUnitIds:[],data:today(), inicio:today(), fim:today(), quantidade:1, status:"programada", tipo:"corretiva", descricao:"", custo:"", pagoPor:"empresa", fornecedor:"", obs:"" };
+  const manutVazio = { equipamentoId:"",equipmentLotId:"",equipmentUnitIds:[],data:today(), inicio:today(), fim:"", quantidade:1, status:"programada", tipo:"corretiva", descricao:"", custo:"", pagoPor:"empresa", fornecedor:"", obs:"" };
   const indispVazio={equipmentId:"",equipmentUnitId:"",quantity:1,type:"reservation",startDate:today(),endDate:today(),reason:"",status:"ativa",workId:""};
   const transfVazio= { equipamentoId:"",equipmentLotId:"",equipmentUnitIds:[],quantidade:1,deLocationId:"depot",paraObraId:"", data:today(), responsavel:"", obs:"" };
 
@@ -1230,20 +1257,29 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
         {(data.manutencoesEquip||[]).length===0
           ? <div className="equipment-empty-state"><span><Ic n="settings" s={19}/></span><div><p>Nenhuma manutenção registrada</p><small>Registre serviços e custos para acompanhar a disponibilidade real da frota.</small></div></div>
           : <div className="equipment-record-list">
-            {[...(data.manutencoesEquip||[])].sort((a,b)=>(b.data||"").localeCompare(a.data||"")).map(m=>(
-              <article key={m.id} className="equipment-record" data-maintenance={m.tipo||"corretiva"}>
-                <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
-                  <div style={{minWidth:0}}>
-                    <p style={{fontSize:12.5,fontWeight:800,color:C.text}}>{equipName(m.equipamentoId)}</p>
-                    <p style={{fontSize:9.5,color:C.muted}}>{fmtDate(m.data)} · {m.tipo}{m.descricao?` · ${m.descricao}`:""}</p>
-                    <p style={{fontSize:9,color:C.muted,marginTop:1}}>Pago por {m.pagoPor==="proprietario"?"proprietário":"empresa"}{m.fornecedor?` · ${m.fornecedor}`:""}</p>
+            {[...(data.manutencoesEquip||[])].sort((a,b)=>(b.data||"").localeCompare(a.data||"")).map(m=>{
+              const cancelada=m.status==="cancelada";
+              return (
+                <article key={m.id} className="equipment-record" data-maintenance={m.tipo||"corretiva"}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
+                    <div style={{minWidth:0}}>
+                      <p style={{fontSize:12.5,fontWeight:800,color:C.text}}>{equipName(m.equipamentoId)}</p>
+                      <p style={{fontSize:9.5,color:cancelada?C.red:C.muted}}>
+                        {fmtDate(m.inicio||m.data)} {cancelada?"→ excluída":m.fim?`→ ${fmtDate(m.fim)}`:"→ prazo indeterminado"} · {m.tipo}{m.descricao?` · ${m.descricao}`:""}
+                      </p>
+                      <p style={{fontSize:9,color:C.muted,marginTop:1}}>Pago por {m.pagoPor==="proprietario"?"proprietário":"empresa"}{m.fornecedor?` · ${m.fornecedor}`:""}</p>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <p style={{fontSize:12,fontWeight:800,color:cancelada?C.muted:C.red}}>{fmt(m.custo)}</p>
+                    </div>
                   </div>
-                  <div style={{textAlign:"right"}}>
-                    <p style={{fontSize:12,fontWeight:800,color:C.red}}>{fmt(m.custo)}</p>
+                  <div className="equipment-record-actions">
+                    {!cancelada&&<Btn size="sm" v="ghost" onClick={()=>setManutModal(m)}><Ic n="edit"/> Editar</Btn>}
+                    {!cancelada&&<Btn size="sm" v="danger" disabled={!!salvandoEquipamento} onClick={()=>excluirManut(m)}><Ic n="trash"/> Excluir</Btn>}
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>}
       </>}
 
@@ -1702,14 +1738,14 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       )}
 
       {manutModal && (
-        <Modal title="Manutenção" onClose={()=>setManutModal(null)} wide>
+        <Modal title={manutModal.id?"Editar manutenção":"Nova manutenção"} onClose={()=>setManutModal(null)} wide>
           <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
             <Sel label="Equipamento *" value={manutModal.equipamentoId} onChange={v=>{
               const lot=physicalRegistry.lots.find(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(v));
               setManutModal(f=>({...f,equipamentoId:v,equipmentLotId:lot?.id||"",equipmentUnitIds:[],quantidade:1}));
             }} options={equipOpts}/>
             <Inp label="Início *" type="date" value={manutModal.inicio||manutModal.data} onChange={v=>setManutModal(f=>({...f,inicio:v,data:v}))}/>
-            <Inp label="Término *" type="date" value={manutModal.fim||manutModal.inicio||manutModal.data} onChange={v=>setManutModal(f=>({...f,fim:v}))}/>
+            <Inp label="Término (vazio = prazo indeterminado)" type="date" value={manutModal.fim||""} onChange={v=>setManutModal(f=>({...f,fim:v}))}/>
             <Inp label="Unidades indisponíveis *" type="number" min="1"
               disabled={physicalRegistry.units.some(item=>String(item.legacySourceId||item.sourceEquipmentId||"")===String(manutModal.equipamentoId))}
               value={manutModal.quantidade||1} onChange={v=>setManutModal(f=>({...f,quantidade:v}))}/>
@@ -1731,7 +1767,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             <Sel label="Pago por" value={manutModal.pagoPor} onChange={v=>setManutModal(f=>({...f,pagoPor:v}))} options={[{v:"empresa",l:"Empresa"},{v:"proprietario",l:"Proprietário (terceiro)"}]}/>
             <Inp label="Fornecedor / oficina" value={manutModal.fornecedor} onChange={v=>setManutModal(f=>({...f,fornecedor:v}))}/>
             <div style={{gridColumn:"1/-1"}}><Inp label="Descrição" value={manutModal.descricao} onChange={v=>setManutModal(f=>({...f,descricao:v}))} multiline/></div>
-            <div style={{gridColumn:"1/-1"}}><Btn full disabled={!!salvandoEquipamento} onClick={()=>salvarManut(manutModal)}>{salvandoEquipamento==="manutencao"?"Registrando...":"Registrar manutenção"}</Btn></div>
+            <div style={{gridColumn:"1/-1"}}><Btn full disabled={!!salvandoEquipamento} onClick={()=>salvarManut(manutModal)}>{salvandoEquipamento==="manutencao"?"Salvando...":"Salvar manutenção"}</Btn></div>
           </div>
         </Modal>
       )}

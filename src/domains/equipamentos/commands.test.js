@@ -452,6 +452,59 @@ describe("comandos transacionais de equipamentos",()=>{
     expect(stale).toMatchObject({ok:false});
   });
 
+  // Achado de 02/09/2026: o término era sempre obrigatório (virava, no
+  // mínimo, igual ao início) - impossível registrar uma manutenção de
+  // prazo indeterminado (equipamento que sai de serviço sem data de volta
+  // prevista). Mesmo padrão já validado para EQUIPMENT_RENTAL_SAVED.
+  it("permite manutenção sem data de término (prazo indeterminado)",()=>{
+    const initial={...base(),equipamentos:[equipment({version:1,obraAtualId:"obra-a"})]};
+    const result=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,"equipment-maintenance-indeterminado-0001",{maintenance:{
+      id:"man-1",equipamentoId:"eq-1",inicio:"2026-08-01",custo:450,
+    }},0));
+    expect(result.ok).toBe(true);
+    expect(result.data.manutencoesEquip[0]).toMatchObject({inicio:"2026-08-01",fim:""});
+    expect(result.data.equipmentUnavailability.find(item=>item.maintenanceId==="man-1")).toMatchObject({endDate:""});
+  });
+
+  it("rejeita término anterior ao início mesmo com custo válido",()=>{
+    const initial={...base(),equipamentos:[equipment({version:1,obraAtualId:"obra-a"})]};
+    const result=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,"equipment-maintenance-invalido-0001",{maintenance:{
+      id:"man-1",equipamentoId:"eq-1",inicio:"2026-08-10",fim:"2026-08-05",custo:450,
+    }},0));
+    expect(result).toMatchObject({ok:false});
+  });
+
+  it("exclui a manutenção por cancelamento auditável, sem alterar a frota",()=>{
+    const initial={...base(),equipamentos:[equipment({version:1,obraAtualId:"obra-a"})],manutencoesEquip:[{
+      id:"man-1",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-08-01",fim:"",status:"programada",custo:450,version:1,
+    }],equipmentUnavailability:[{
+      id:"unav-maintenance:man-1",equipmentId:"eq-1",maintenanceId:"man-1",type:"maintenance",
+      startDate:"2026-08-01",endDate:"",status:"programada",quantity:1,version:1,
+    }]};
+    const result=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_CANCELLED,"equipment-maintenance-cancel-0001",{
+      maintenanceId:"man-1",reason:"Registrada por engano",
+    },1));
+    expect(result.ok).toBe(true);
+    expect(result.data.manutencoesEquip[0]).toMatchObject({status:"cancelada",version:2,motivoCancelamento:"Registrada por engano"});
+    expect(result.data.manutencoesEquip[0].operationalHistory.at(-1)).toMatchObject({type:"EQUIPMENT_MAINTENANCE_CANCELLED"});
+    expect(result.data.equipmentUnavailability[0]).toMatchObject({status:"cancelada",version:2});
+    // A exclusão de manutenção não mexe no status/obra do equipamento -
+    // EQUIPMENT_MAINTENANCE_SAVED também não mexe (diferente da locação).
+    expect(result.data.equipamentos[0]).toMatchObject({version:1});
+  });
+
+  it("recusa cancelar manutenção inexistente ou já cancelada",()=>{
+    const initial={...base(),equipamentos:[equipment({version:1})],manutencoesEquip:[{
+      id:"man-1",equipamentoId:"eq-1",obraId:"obra-a",inicio:"2026-08-01",fim:"",status:"cancelada",custo:450,version:2,
+    }]};
+    expect(applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_CANCELLED,"equipment-maintenance-cancel-missing",{
+      maintenanceId:"man-inexistente",
+    },0))).toMatchObject({ok:false});
+    expect(applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_CANCELLED,"equipment-maintenance-cancel-repetida",{
+      maintenanceId:"man-1",
+    },2))).toMatchObject({ok:false});
+  });
+
   it("vincula manutenção à unidade física e bloqueia identidade já locada",()=>{
     const initial={...base(),equipamentos:[equipment({version:1,quantidadeTotal:2})],equipmentRegistryMigration:{version:1},
       equipmentModels:[{id:"model-1",legacySourceId:"eq-1"}],equipmentUnits:[
