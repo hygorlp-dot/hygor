@@ -20,6 +20,7 @@ import { useEffect, useState } from "react";
 import { Badge, Btn, C, Ic } from "../../../LegacyApp";
 import {
   consultarComprasRelacionalSombra, consultarEquipamentosRelacionalSombra, consultarNucleoRelacionalSombra,
+  consultarPontoRelacionalSombra,
 } from "../../../api";
 
 const DOMINIOS = {
@@ -57,6 +58,14 @@ const DOMINIOS = {
       purchaseOrders: "Pedidos de compra",
     },
   },
+  ponto: {
+    rotulo: "Ponto",
+    descricao: "CORE-004 - um registro por funcionário e dia, sem partição por obra (o desenho oposto do blob legado, de propósito).",
+    consultar: consultarPontoRelacionalSombra,
+    rotuloSecao: {
+      records: "Registros de ponto",
+    },
+  },
 };
 const ORDEM_DOMINIOS = Object.keys(DOMINIOS);
 
@@ -68,13 +77,18 @@ const idadeLegivel = ageMs => {
   return `há ${Math.round(horas / 24)} dia(s)`;
 };
 
-// A amostra não tem uma coluna de rótulo única entre as tabelas dos três
+// A amostra não tem uma coluna de rótulo única entre as tabelas dos quatro
 // domínios (algumas nem têm `id` próprio - PK composta). Em vez de um
 // renderizador dedicado por tabela, um único resolvedor genérico cobre
 // todo mundo, na ordem do mais específico pro mais genérico.
 const rotuloLinha = linha => {
   if (linha?.name) return linha.name;
   if (linha?.numero) return linha.numero;
+  // Ponto (CORE-004): um funcionário tem várias linhas (uma por dia) - sem
+  // a data, o employee_id+project_id genérico logo abaixo seria ambíguo.
+  if (linha?.employee_id && linha?.record_date) {
+    return `${linha.employee_id} · ${linha.record_date} (${linha.status || "?"})`;
+  }
   if (linha?.equipment_id && linha?.project_id) return `${linha.equipment_id} → ${linha.project_id}`;
   if (linha?.employee_id && linha?.project_id) return `${linha.employee_id} → ${linha.project_id}`;
   if (linha?.employee_id) return `${linha.employee_id} · ${linha.identifier_type || ""}`;

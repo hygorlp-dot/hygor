@@ -64,6 +64,9 @@ import {
 import {
   PROCUREMENT_REGISTRY_TABLES, summarizeProcurementRegistryShadowStatus,
 } from "../server/procurement-registry-shadow-status.js";
+import {
+  ATTENDANCE_REGISTRY_TABLES, summarizeAttendanceRegistryShadowStatus,
+} from "../server/attendance-registry-shadow-status.js";
 import { buildPurchaseRequestLiveRow } from "../server/purchase-request-live-write.js";
 import { buildPurchaseOrderLiveRow, buildQuotationLiveRow } from "../server/purchase-quote-order-live-write.js";
 import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
@@ -2167,6 +2170,37 @@ export default async function handler(req, res) {
         sample[section] = sampleRows || [];
       }
       const summary = summarizeProcurementRegistryShadowStatus({ runs: runs || [], liveCounts });
+      return res.status(200).json({ ok:true, ...summary, liveCounts, sample });
+    }
+
+    // CORE-004, mesmo padrão do equipment-registry-report acima (02/09/2026,
+    // ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md, seção "Motor canônico do
+    // Ponto em modo sombra (CORE-004)").
+    if(action==="attendance-registry-report"){
+      if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores consultam a projeção de ponto."});
+      const { data: runs, error: runsError } = await db
+        .from("attendance_registry_shadow_runs")
+        .select("result, created_at, actor_id")
+        .eq("company_id", COMPANY)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (runsError) throw runsError;
+      const liveCounts = {};
+      const sample = {};
+      for (const [section, table] of Object.entries(ATTENDANCE_REGISTRY_TABLES)) {
+        const [{ count, error: countError }, { data: sampleRows, error: sampleError }] = await Promise.all([
+          db.from(table).select("*", { count: "exact", head: true })
+            .eq("company_id", COMPANY).is("archived_at", null),
+          db.from(table).select("*")
+            .eq("company_id", COMPANY).is("archived_at", null)
+            .order("synced_at", { ascending: false }).limit(5),
+        ]);
+        if (countError) throw countError;
+        if (sampleError) throw sampleError;
+        liveCounts[section] = count || 0;
+        sample[section] = sampleRows || [];
+      }
+      const summary = summarizeAttendanceRegistryShadowStatus({ runs: runs || [], liveCounts });
       return res.status(200).json({ ok:true, ...summary, liveCounts, sample });
     }
 

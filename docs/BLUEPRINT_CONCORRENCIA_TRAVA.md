@@ -3787,3 +3787,81 @@ que o código de produção passou a chamá-lo).
 Verificação: suíte completa (266 arquivos/1752 testes), `npm run
 build`, `npm run lint` e `npm run architecture:check` sem violação
 nova.
+
+## Motor canônico do Ponto em modo sombra (CORE-004) (02/09/2026)
+
+Usuário perguntou, logo depois da correção acima: "Tem como deixar o
+motor canônico, pois é um erro que costuma persistir com o tempo."
+Leitura correta: o bug corrigido é sintoma de uma arquitetura (blob
+JSON particionado por obra, reconstruído por merge dependente de
+ordem) que estruturalmente permite essa classe de erro acontecer de
+novo, de outra forma - "motor canônico" pediria a causa de raiz, não
+só o sintoma.
+
+Perguntado como avançar (mesmo critério do "Item 9" do motor de
+cronograma - Onda 2, e do modo sombra do CORE-001/002/003 - nenhum
+corte de fonte de verdade acontece sem sinal acumulado em produção
+primeiro), o usuário escolheu **modo sombra primeiro**: mesmo padrão
+já usado para cadastro/equipamentos/compras, sem nenhuma mudança de
+comportamento no app.
+
+**CORE-004, migration 015**: `core_attendance_records` - o desenho é
+deliberadamente o OPOSTO do blob legado. Em vez de particionar por
+obra e reconstruir por merge, é **uma linha por (funcionário,data)**,
+sem partição nenhuma - a existência mesma da tabela já elimina essa
+classe de bug por construção (não existe "cópia numa obra antiga" pra
+sobrar como fantasma, porque não existe mais cópia nenhuma além da
+linha única). `attendance_registry_sync_legacy` (mesmo padrão das RPCs
+007/009/014: upsert do snapshot inteiro, arquiva o que sumiu, nunca
+apaga de verdade) referencia `core_employees`/`core_projects`
+(CORE-001, já sincronizado antes no mesmo `prebuild`) via FK real. Um
+dia "sem registro" nunca existiu no blob e não vira linha aqui; um dia
+limpo pelo usuário (tombstone no blob) some do snapshot na próxima
+sincronização e a linha correspondente é arquivada.
+
+**Camada JS**: `server/attendance-registry-shadow.js`
+(`buildAttendanceRegistrySnapshot`/`compareAttendanceRegistrySnapshot`,
+mesmo padrão hash-por-linha dos outros três domínios - `id` é
+sintetizado como `${employeeId}__${date}`, já que o registro de origem
+não tem id próprio), `server/attendance-registry-shadow-status.js`
+(alertas de divergência de contagem). `scripts/apply-attendance-
+registry-shadow.mjs` reconstrói o `attendance` legado exatamente como
+`lerLinha` faz em `api/data.js` - lê a linha core mais todas as linhas
+`arced_ponto_v1__ponto__obra__*` e mescla com `mergeAttendanceObjects`
+(reaproveitado de `server/attendance-obra-routing.js`, mesma função já
+corrigida na seção anterior) - sem duplicar essa lógica.
+`scripts/check-attendance-registry-shadow-status.mjs`
+(`npm run attendance-registry:shadow-status`), ação
+`attendance-registry-report` em `api/data.js` (mesmo formato de
+resposta dos outros três - `NucleoRelacionalAdmin.jsx` ganhou um 4º
+domínio, "Ponto", no seletor interno, sem tela nova).
+
+Testes: `server/attendance-registry-shadow.test.js` (projeção, filtro
+de linha órfã por funcionário/obra inexistente, dia sem status nunca
+vira linha, comparação), `server/attendance-registry-shadow-status.test.js`
+(alertas de divergência), `server/attendance-registry-sync-legacy.pglite.test.js`
+(9 casos - execução real via Postgres/pglite: grava valores corretos,
+`project_id` nulo quando o dia não tem obra, arquiva/desarquiva,
+rejeita funcionário/obra inexistente (FK real) e status fora do
+domínio permitido (check real), rejeita `company_id`/`actor_id`
+vazios e snapshot incompleto/schema errada - mesmo nível de teste que
+CORE-001/002/003 já têm desde 01-02/09/2026).
+
+Nada disto grava sequer uma linha na leitura/escrita operacional do
+Ponto - `data.attendance` particionado por obra continua sendo a única
+fonte de verdade. `npm run attendance-registry:migrate-shadow` entra
+no `prebuild` de produção, depois de `registry:migrate-shadow`
+(CORE-001, garante que os FKs de funcionário/obra já existem no mesmo
+deploy).
+
+**O que fica para depois, como decisão separada** (mesmo critério do
+"Item 9" do motor de cronograma): acumular sinal de que o snapshot
+bate com o legado por um tempo em produção, e só então decidir se e
+quando `attendance-command.js`/`api/data.js` passam a escrever
+`core_attendance_records` como fonte de verdade de verdade -
+aposentando de vez o particionamento por obra e a classe inteira de
+bug que ele permite.
+
+Verificação: suíte completa (269 arquivos/1772 testes), `npm run
+build`, `npm run lint` e `npm run architecture:check` sem violação
+nova.

@@ -176,6 +176,7 @@ export const consultarSombraFinanceira = () => chamar({ action:"financial-shadow
 export const consultarNucleoRelacionalSombra = () => chamar({ action:"core-registry-report", ...credenciais() });
 export const consultarEquipamentosRelacionalSombra = () => chamar({ action:"equipment-registry-report", ...credenciais() });
 export const consultarComprasRelacionalSombra = () => chamar({ action:"procurement-registry-report", ...credenciais() });
+export const consultarPontoRelacionalSombra = () => chamar({ action:"attendance-registry-report", ...credenciais() });
 export const prepararSombraFinanceira = () => chamar({ action:"financial-shadow-migrate", ...credenciais() });
 export const sincronizarSombraFinanceira = () => chamar({ action:"financial-shadow-sync", ...credenciais() });
 export const consultarDreCanonico = ({year,month,period="mes",obraId=""}) =>
