@@ -3929,3 +3929,26 @@ recusa cancelar manutenção inexistente ou já cancelada.
 Verificação: suíte completa (269 arquivos/1777 testes), `npm run
 build`, `npm run lint` e `npm run architecture:check` sem violação
 nova.
+
+## Equipamentos: descartar equipamento direto da aba Manutenção (02/09/2026)
+
+Usuário: "Se um equipamento quebrar, deixe a opção na barra de
+manutenção para equipamento descartado." Descartar um equipamento já
+existia (`EQUIPMENT_DEACTIVATED`, botão "Excluir" na Frota e dentro do
+modal de edição) - só não estava acessível de onde a quebra costuma
+ser descoberta na prática: olhando o histórico de manutenção.
+
+Nenhum comando novo - cada linha do histórico de manutenção ganhou um
+botão "Descartar equipamento" que reaproveita `excluirEquip` tal como
+já existia (mesma confirmação, mesmo bloqueio de locação em aberto,
+mesmo `EQUIPMENT_DEACTIVATED`), só resolvendo o equipamento pelo
+`equipamentoId` daquela manutenção. Some sozinho quando o equipamento
+daquela manutenção já foi descartado (`ativo===false`) - e nesse caso
+o nome do equipamento na linha ganha um badge "Descartado", para o
+histórico continuar legível sem repetir o botão à toa.
+
+Verificação: suíte completa (269 arquivos/1777 testes - nenhum teste
+novo, é reaproveitamento de um comando e um fluxo de confirmação já
+totalmente testados, só um novo ponto de entrada de UI), `npm run
+build`, `npm run lint` e `npm run architecture:check` sem violação
+nova.

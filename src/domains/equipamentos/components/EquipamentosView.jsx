@@ -1259,11 +1259,13 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           : <div className="equipment-record-list">
             {[...(data.manutencoesEquip||[])].sort((a,b)=>(b.data||"").localeCompare(a.data||"")).map(m=>{
               const cancelada=m.status==="cancelada";
+              const equipamento=(data.equipamentos||[]).find(item=>item.id===m.equipamentoId);
+              const jaDescartado=!equipamento||equipamento.ativo===false;
               return (
                 <article key={m.id} className="equipment-record" data-maintenance={m.tipo||"corretiva"}>
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
                     <div style={{minWidth:0}}>
-                      <p style={{fontSize:12.5,fontWeight:800,color:C.text}}>{equipName(m.equipamentoId)}</p>
+                      <p style={{fontSize:12.5,fontWeight:800,color:C.text}}>{equipName(m.equipamentoId)}{jaDescartado&&<span style={{marginLeft:6}}><Badge color={C.muted}>Descartado</Badge></span>}</p>
                       <p style={{fontSize:9.5,color:cancelada?C.red:C.muted}}>
                         {fmtDate(m.inicio||m.data)} {cancelada?"→ excluída":m.fim?`→ ${fmtDate(m.fim)}`:"→ prazo indeterminado"} · {m.tipo}{m.descricao?` · ${m.descricao}`:""}
                       </p>
@@ -1276,6 +1278,16 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                   <div className="equipment-record-actions">
                     {!cancelada&&<Btn size="sm" v="ghost" onClick={()=>setManutModal(m)}><Ic n="edit"/> Editar</Btn>}
                     {!cancelada&&<Btn size="sm" v="danger" disabled={!!salvandoEquipamento} onClick={()=>excluirManut(m)}><Ic n="trash"/> Excluir</Btn>}
+                    {/* Achado de 02/09/2026: um equipamento que quebra durante a
+                        manutenção (sem conserto viável) só podia ser descartado
+                        indo até a aba Frota. Reaproveita exatamente o mesmo
+                        fluxo de "Excluir equipamento" (excluirEquip) - mesma
+                        confirmação, mesmo bloqueio de locação aberta, mesmo
+                        comando EQUIPMENT_DEACTIVATED - só disponível também
+                        aqui, de onde a quebra é descoberta na prática. */}
+                    {!jaDescartado&&equipamento&&<Btn size="sm" v="danger" disabled={!!salvandoEquipamento} onClick={()=>excluirEquip(equipamento)} title="Marcar este equipamento como descartado - saiu de serviço, sem conserto viável">
+                      <Ic n="trash"/> Descartar equipamento
+                    </Btn>}
                   </div>
                 </article>
               );
