@@ -147,6 +147,35 @@ describe("mergeAttendanceObjects - com bookkeeping (withAttendanceSyncedAt)", ()
     expect(mergeAttendanceObjects(semCarimbo1, semCarimbo2).alisson["2026-08-21"].obraId).toBe("ca1-06");
   });
 
+  // Trava de segurança de 04/09/2026, achada ao investigar o backfill de
+  // dado legado: DUAS linhas por obra (ambas com bookkeeping - passaram por
+  // withAttendanceSyncedAt), sem carimbo por célula nenhum (dado anterior à
+  // correção, nunca retocado). Sem esta trava, um tombstone alheio - de uma
+  // obra sem relação nenhuma com o funcionário/dia em questão - podia apagar
+  // um valor real só por ter sido processado por último (ordenado pelo
+  // updated_at físico da linha, que qualquer gravação alheia na mesma obra
+  // "refresca"). Foi exatamente isso que fez 6 funcionários mudarem de obra
+  // sozinhos na tela, sem clique nenhum deles, ao testar a correção anterior.
+  it("bookkeeping vs bookkeeping, SEM carimbo nenhum dos dois lados: um valor real nunca perde para um tombstone alheio, em qualquer ordem", () => {
+    const valorReal = withAttendanceSyncedAt({ func: { "2026-08-27": { status: "P", obraId: "k1-04" } } }, {});
+    const tombstoneAlheio = withAttendanceSyncedAt({ func: { "2026-08-27": null } }, {});
+    expect(mergeAttendanceObjects(valorReal, tombstoneAlheio).func["2026-08-27"]).toMatchObject({ obraId: "k1-04" });
+    expect(mergeAttendanceObjects(tombstoneAlheio, valorReal).func["2026-08-27"]).toMatchObject({ obraId: "k1-04" });
+  });
+
+  it("bookkeeping vs RAW (linha core/legado), sem carimbo: preserva o comportamento histórico de propósito - uma limpeza intencional na linha de obra ainda vence a cópia legada", () => {
+    // Mesmo cenário do teste de 25/08/2026 (linha 62 acima), mas com a fonte
+    // da obra passando por withAttendanceSyncedAt (o formato real usado por
+    // lerLinha) em vez de objeto cru. A trava de segurança acima NÃO deve
+    // interferir aqui - combinação raw+bookkeeping continua sendo "última
+    // fonte processada vence", de propósito.
+    const legadoRaw = { alisson: { "2026-08-18": { status: "P" }, "2026-08-19": { status: "P" } } };
+    const limpezaNaObra = withAttendanceSyncedAt({ alisson: { "2026-08-19": null } }, {});
+    const merged = mergeAttendanceObjects(legadoRaw, limpezaNaObra);
+    expect(merged.alisson).toEqual({ "2026-08-18": { status: "P" } });
+    expect(merged.alisson).not.toHaveProperty("2026-08-19");
+  });
+
   it("uma fonte COM carimbo sempre vence uma SEM carimbo, mesmo processada antes dela", () => {
     const comCarimbo = withAttendanceSyncedAt(
       { alisson: { "2026-08-21": { status: "P", obraId: "ca1-06" } } },

@@ -48,6 +48,7 @@
     "equipment-registry:shadow-status": "node scripts/check-equipment-registry-shadow-status.mjs",
     "procurement-registry:shadow-status": "node scripts/check-procurement-registry-shadow-status.mjs",
     "attendance-registry:shadow-status": "node scripts/check-attendance-registry-shadow-status.mjs",
+    "attendance:check-synced-at-gaps": "node scripts/check-attendance-synced-at-gaps.mjs",
     "assets:login": "node scripts/optimize-login-assets.mjs",
     "architecture:check": "depcruise --config .dependency-cruiser.cjs src api server",
     "quality:knip": "knip --config knip.json --no-exit-code --reporter compact --no-progress --include files,dependencies,exports",

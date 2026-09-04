@@ -79,6 +79,14 @@ export const withAttendanceSyncedAt = (attendance, syncedAt) => ({
 export const mergeAttendanceObjects = (...sources) => {
   const merged = {};
   const mergedAt = {};
+  // Por célula: de qual TIPO de fonte veio o valor que está vencendo agora -
+  // "bookkeeping" (passou por withAttendanceSyncedAt, mesmo sem carimbo
+  // nesta célula específica) ou "raw" (objeto cru, sem bookkeeping algum -
+  // a linha core/legado, ou uma chamada antiga de teste). Ver a trava de
+  // segurança de 04/09/2026 abaixo: ela só se aplica bookkeeping-vs-
+  // bookkeeping, porque raw-vs-bookkeeping tem uma regra INTENCIONALMENTE
+  // diferente (achado de 25/08/2026, mantido de propósito).
+  const mergedKind = {};
   for (const source of sources) {
     const hasBookkeeping = source?.[BOOKKEEPING_MARKER] === true;
     const attendance = hasBookkeeping ? source.attendance : source;
@@ -86,10 +94,12 @@ export const mergeAttendanceObjects = (...sources) => {
     for (const [employeeId, days] of Object.entries(attendance || {})) {
       const targetDays = { ...(merged[employeeId] || {}) };
       const targetAt = { ...(mergedAt[employeeId] || {}) };
+      const targetKind = { ...(mergedKind[employeeId] || {}) };
       for (const [date, record] of Object.entries(days || {})) {
         const candidateAt = String(syncedAt?.[employeeId]?.[date] || "");
         const currentAt = String(targetAt[date] || "");
         const currentIsValue = date in targetDays; // vencedor atual é um valor real, não um tombstone
+        const currentKind = targetKind[date]; // undefined na primeira vez que a célula aparece
         let candidateWins;
         if (candidateAt && currentAt) {
           if (candidateAt > currentAt) candidateWins = true;
@@ -106,17 +116,37 @@ export const mergeAttendanceObjects = (...sources) => {
           candidateWins = true; // com carimbo sempre vence sem carimbo
         } else if (currentAt) {
           candidateWins = false; // sem carimbo nunca vence com carimbo
+        } else if (hasBookkeeping && (currentKind === "bookkeeping" || currentKind === undefined)) {
+          // Trava de segurança (04/09/2026, achada ao investigar o backfill
+          // de dado legado): duas linhas por OBRA (ambas passaram por
+          // withAttendanceSyncedAt) conflitam sem carimbo nenhum nesta
+          // célula - sem informação real para desempatar, mas um tombstone
+          // alheio nunca deveria conseguir apagar um valor real só por ter
+          // sido processado por último (era exatamente isso que deixava um
+          // funcionário "sumir" quando uma obra sem relação nenhuma ganhava
+          // uma escrita nova). Mesma regra do empate exato acima: valor real
+          // vence tombstone, incondicionalmente. Só quando os DOIS lados são
+          // valores reais conflitantes é que a ordem ainda decide - caso
+          // genuinamente ambíguo sem carimbo (por isso o backfill de
+          // 04/09/2026 trata esses casos à parte, consultando uma fonte
+          // externa de verdade). NÃO se aplica quando a célula já veio de
+          // uma fonte raw (core/legado) - essa combinação preserva o
+          // comportamento histórico abaixo, de propósito (achado de
+          // 25/08/2026: uma limpeza precisa poder vencer a cópia legada).
+          candidateWins = record != null || !currentIsValue;
         } else {
-          candidateWins = true; // nenhum dos dois tem carimbo - histórico: última fonte processada vence
+          candidateWins = true; // histórico: última fonte processada vence (raw envolvido de algum lado)
         }
         if (!candidateWins) continue;
         if (record == null) delete targetDays[date];
         else targetDays[date] = record;
         if (candidateAt) targetAt[date] = candidateAt;
         else delete targetAt[date];
+        targetKind[date] = hasBookkeeping ? "bookkeeping" : "raw";
       }
       merged[employeeId] = targetDays;
       mergedAt[employeeId] = targetAt;
+      mergedKind[employeeId] = targetKind;
     }
   }
   for (const employeeId of Object.keys(merged)) {
