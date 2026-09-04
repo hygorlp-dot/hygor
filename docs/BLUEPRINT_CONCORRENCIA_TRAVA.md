@@ -4135,3 +4135,65 @@ fantasma nem apaga a obra nova.
 Verificação: suíte completa (269 arquivos/1787 testes), `npm run
 build`, `npm run lint` e `npm run architecture:check` sem violação
 nova.
+
+## Backfill de attendanceSyncedAt para dado legado (04/09/2026)
+
+A correção acima (carimbo por célula) só protege escrita NOVA - todo
+`attendance` gravado antes dela continua sem `attendanceSyncedAt`, e o
+merge cai no fallback "sem carimbo dos dois lados: última linha física
+processada vence" (comentário do próprio `mergeAttendanceObjects`).
+Esse fallback usa `.order("updated_at",{ascending:true})` da consulta
+`.like()` como critério - um campo da LINHA inteira, compartilhado por
+TODOS os funcionários que têm alguma célula ali. Na prática: qualquer
+gravação alheia (outro funcionário, outra data, na MESMA obra) muda
+qual linha é "a mais recente" e pode fazer uma cópia fantasma antiga,
+nunca tombstonada, "ressuscitar" e vencer o valor certo que mora em
+outra linha - mesmo sintoma dos bugs de 02/09 e da correção acima,
+só que agora o gatilho é uma escrita completamente sem relação, em
+qualquer obra que tenha sobra de dado legado.
+
+Achado ao vivo, testando a própria correção: uma troca de obra de
+teste (Alisson, K1-04→R1-16) tocou fisicamente a linha de R1-16. Isso
+bastou para a leitura de **outros seis funcionários** (Emson Severino,
+Clayton Marcio, Luciano José, Elessandro da Silva Junior, José
+Clodoaldo, Sivonaldo) mudar sozinha entre duas leituras consecutivas
+da tela, sem clique nenhum deles - a obra do dia trocava porque a
+linha de R1-16 virou "a mais recente" e uma cópia fantasma sua, de
+algum ponto do passado, passou a vencer.
+
+**Diagnóstico**: comparação célula a célula entre (a) a folha "ArcD
+ponto.pdf" impressa pelo usuário às 04/09/2026 10:51 - antes de
+qualquer escrita desta sessão, tratada como verdade de referência - e
+(b) uma reconstrução read-only de `data.attendance`, replicando
+exatamente o algoritmo de `lerLinha()` (mesma ordenação, mesmas
+funções de `server/attendance-obra-routing.js`), lendo direto do
+Supabase de produção via service-role. Filtrando por célula com MAIS
+DE UMA linha física contribuindo sem `attendanceSyncedAt`: **186
+células em conflito** na quinzena corrente, sendo 60 triviais (só uma
+linha tinha valor real, as demais já eram tombstone - resolvidas sem
+ambiguidade) e **126 ambíguas** (2+ linhas com valor real conflitante
+para o mesmo funcionário/dia - essas exigiram a folha em PDF para
+decidir qual sobrevive).
+
+**Correção aplicada** (script único, não versionado - já rodou):
+para cada célula sem carimbo, carimba com `attendanceSyncedAt` a
+âncora `2026-09-04T10:51:00Z` (horário da folha) na linha vencedora e
+`2020-01-01T00:00Z` (deliberadamente antiga) nas demais; toda célula
+ambígua cujo valor não batia com a folha foi reescrita como tombstone
+(`null`) na linha errada, preservando o valor certo na linha certa.
+132 valores fantasma foram apagados dessa forma, cobrindo os 23
+funcionários com conflito ambíguo (100% resolvido pela folha - nenhum
+caso ficou sem verdade de referência). Confirmado depois: reler o
+Supabase mostra **zero** células ainda sem carimbo, e os quatro casos
+mais graves (Cícero, Emson, Elessandro da Silva Junior, Clayton)
+batem exatamente com a folha de origem.
+
+**Por que isto não se repete**: com toda célula existente carimbada,
+`mergeAttendanceObjects` nunca mais cai no fallback por ordem física
+de linha para este dataset - toda decisão passa a ser por carimbo de
+célula, imune a gravação alheia. Um dado novo, gravado por qualquer
+comando a partir de hoje, já carimba sozinho (correção da seção
+anterior). O risco que expôs este bug (dado anterior a 04/09 nunca
+retocado) está fechado para a quinzena corrente; quinzenas já
+arquivadas (`${KEY}__arq__<id>`) não são afetadas - são cópias
+imutáveis, fora do caminho de leitura particionado por obra.
