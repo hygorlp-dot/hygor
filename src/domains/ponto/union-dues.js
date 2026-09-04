@@ -1,5 +1,28 @@
 export const UNION_DUE_GROUP=Object.freeze({PROFESSIONAL:"professional",HELPER:"helper",EXEMPT:"exempt"});
 
+// Chave de quinzena no mesmo formato já usado pelo arquivamento de ponto
+// (api/data.js: quinzenaValida, `${ano}-${mes}-Q${1|2}`) - reaproveitada aqui
+// para não inventar um segundo formato de identificador de competência.
+export const UNION_DUE_PERIOD_KEY_RE=/^\d{4}-\d{2}-Q[12]$/;
+
+export const buildUnionDuePeriodKey=(year,month,cycle)=>
+  `${year}-${String(Number(month)+1).padStart(2,"0")}-Q${cycle}`;
+
+// Isenção pontual: um funcionário específico não paga o sindicato NESTA
+// quinzena, sem alterar a classificação do cargo (que continua valendo nas
+// competências seguintes). Guardado por período para não exigir vigência
+// nova a cada exceção pontual (licença, acordo individual, etc.).
+const normalizeExemptionsByPeriod=input=>{
+  const raw=input&&typeof input==="object"?input:{};
+  const out={};
+  for(const [key,list] of Object.entries(raw)){
+    if(!UNION_DUE_PERIOD_KEY_RE.test(key))continue;
+    const ids=Array.isArray(list)?[...new Set(list.map(String).filter(Boolean))]:[];
+    if(ids.length)out[key]=ids;
+  }
+  return out;
+};
+
 export const normalizeUnionDuesConfig=input=>{
   const config=input&&typeof input==="object"?input:{};
   return {
@@ -10,14 +33,40 @@ export const normalizeUnionDuesConfig=input=>{
     helperValue:Math.max(0,Number(config.helperValue||0)),
     roleGroups:config.roleGroups&&typeof config.roleGroups==="object"?{...config.roleGroups}:{},
     effectiveFrom:/^\d{4}-\d{2}-\d{2}$/.test(String(config.effectiveFrom||""))?String(config.effectiveFrom):"",
+    exemptionsByPeriod:normalizeExemptionsByPeriod(config.exemptionsByPeriod),
     updatedAt:String(config.updatedAt||""),
     updatedBy:String(config.updatedBy||""),
   };
 };
 
+export const isEmployeeExemptForPeriod=(configInput,employeeId,periodKey)=>{
+  if(!periodKey)return false;
+  const config=normalizeUnionDuesConfig(configInput);
+  return (config.exemptionsByPeriod[periodKey]||[]).includes(String(employeeId||""));
+};
+
+// Alterna a isenção pontual de um funcionário numa quinzena, devolvendo um
+// novo `exemptionsByPeriod` (imutável) - usado pela tela para montar o
+// próximo `unionDues` a salvar.
+export const toggleUnionDueExemption=(exemptionsByPeriodInput,periodKey,employeeId,exempt)=>{
+  const current=normalizeExemptionsByPeriod(exemptionsByPeriodInput);
+  const id=String(employeeId||"");
+  if(!periodKey||!id)return current;
+  const existing=current[periodKey]||[];
+  const already=existing.includes(id);
+  if(exempt===already)return current;
+  const next={...current};
+  if(exempt)next[periodKey]=[...existing,id];
+  else{
+    const filtered=existing.filter(existingId=>existingId!==id);
+    if(filtered.length)next[periodKey]=filtered;else delete next[periodKey];
+  }
+  return next;
+};
+
 export const normalizeRoleKey=value=>String(value||"").trim().toLocaleLowerCase("pt-BR");
 
-const unionDueGroupForEmployee=(employee,configInput)=>{
+export const unionDueGroupForEmployee=(employee,configInput)=>{
   const config=normalizeUnionDuesConfig(configInput);
   return config.roleGroups[normalizeRoleKey(employee?.role)]||UNION_DUE_GROUP.EXEMPT;
 };
@@ -29,13 +78,17 @@ const shouldApplyUnionDue=(configInput,payrollCycle,periodEnd="")=>{
   return config.frequency==="every_payroll"||config.monthlyCycle===String(payrollCycle);
 };
 
-export const calculateUnionDue=({employee,config:configInput,payrollCycle,periodEnd="",hasPayrollMovement=true}={})=>{
+// `periodKey` (formato buildUnionDuePeriodKey) é opcional - sem ele, a
+// isenção pontual nunca se aplica (comportamento anterior, preservado para
+// quem já chamava esta função sem período, ex.: testes existentes).
+export const calculateUnionDue=({employee,config:configInput,payrollCycle,periodEnd="",periodKey="",hasPayrollMovement=true}={})=>{
   const config=normalizeUnionDuesConfig(configInput);
   const group=unionDueGroupForEmployee(employee,config);
-  if(!hasPayrollMovement||!shouldApplyUnionDue(config,payrollCycle,periodEnd))return {amount:0,group,applied:false};
+  const exempted=isEmployeeExemptForPeriod(config,employee?.id,periodKey);
+  if(exempted||!hasPayrollMovement||!shouldApplyUnionDue(config,payrollCycle,periodEnd))return {amount:0,group,applied:false,exempted};
   const amount=group===UNION_DUE_GROUP.PROFESSIONAL?config.professionalValue
     :group===UNION_DUE_GROUP.HELPER?config.helperValue:0;
-  return {amount,group,applied:amount>0};
+  return {amount,group,applied:amount>0,exempted:false};
 };
 
 // Liquidação canônica da remuneração. O desconto sindical reduz o valor que

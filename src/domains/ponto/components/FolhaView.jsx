@@ -21,8 +21,9 @@ import {
 import { calculateAttendanceDayCost } from "../payroll";
 import { splitPayrollResponsibility } from "../payroll-responsibility";
 import {
-  allocateUnionDueByWork, calculatePayrollSettlement, calculateUnionDue,
-  normalizeRoleKey, normalizeUnionDuesConfig, summarizeUnionDues, UNION_DUE_GROUP,
+  allocateUnionDueByWork, buildUnionDuePeriodKey, calculatePayrollSettlement, calculateUnionDue,
+  normalizeRoleKey, normalizeUnionDuesConfig, summarizeUnionDues, toggleUnionDueExemption,
+  unionDueGroupForEmployee, UNION_DUE_GROUP,
 } from "../union-dues";
 import { advanceDeductionForPeriod } from "../../rh/advance-commands";
 
@@ -39,6 +40,13 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const [unionDraft,setUnionDraft]=useState(()=>normalizeUnionDuesConfig(data.config?.unionDues));
   const [savingUnion,setSavingUnion]=useState(false);
   useEffect(()=>setUnionDraft(normalizeUnionDuesConfig(data.config?.unionDues)),[data.config?.unionDues]);
+  // Chave desta quinzena (mesmo formato usado no arquivamento do ponto) -
+  // a isenção pontual do sindicato é lida/gravada por esta chave, nunca
+  // mudando a classificação do cargo, que continua valendo nas próximas.
+  const unionPeriodKey=useMemo(()=>buildUnionDuePeriodKey(year,month,q),[year,month,q]);
+  const toggleEmployeeExemption=(employeeId,exempt)=>setUnionDraft(d=>({
+    ...d,exemptionsByPeriod:toggleUnionDueExemption(d.exemptionsByPeriod,unionPeriodKey,employeeId,exempt),
+  }));
 
   const { q1, q2 } = useMemo(() => getQ(year, month), [year, month]);
   // Folha e espelho diario seguem a mesma grade da gestao: segunda a sexta.
@@ -180,7 +188,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     const advTotal = (data.advances||[])
       .filter(a => a.empId === employee.id)
       .reduce((sum,advance)=>sum+advanceDeductionForPeriod(advance,periIni,periFim),0);
-    const unionResult=calculateUnionDue({employee,config:data.config?.unionDues,payrollCycle:q,periodEnd:periFim,hasPayrollMovement:gross>0||advTotal>0});
+    const unionResult=calculateUnionDue({employee,config:data.config?.unionDues,payrollCycle:q,periodEnd:periFim,periodKey:unionPeriodKey,hasPayrollMovement:gross>0||advTotal>0});
 
     // Converte mapa para array ordenado por dias trabalhados desc
     const obrasPorDiaArr = Object.values(obrasPorDia)
@@ -353,11 +361,19 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     feriadosPerdidos: rows.reduce((s, r) => s + valEfetivos(r).feriadosPerdidos, 0),
   };
   const unionSummary=summarizeUnionDues(rows.map(r=>{
-    const result=calculateUnionDue({employee:r,config:unionDraft,payrollCycle:q,periodEnd:diasCiclo.at(-1)||"",hasPayrollMovement:r.gross>0||r.advances>0});
+    const result=calculateUnionDue({employee:r,config:unionDraft,payrollCycle:q,periodEnd:diasCiclo.at(-1)||"",periodKey:unionPeriodKey,hasPayrollMovement:r.gross>0||r.advances>0});
     const settlement=calculatePayrollSettlement({gross:r.gross,benefits:r.vt+r.vr,advances:r.advances,unionDue:result.amount});
     return {...r,unionDue:filterObra==="all"?settlement.appliedUnionDue:0,unionDueGroup:result.group};
   }));
   const roleCatalog=useMemo(()=>[...new Set((data.employees||[]).map(e=>String(e.role||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)),[data.employees]);
+  // Funcionários sujeitos ao desconto NESTA quinzena (cargo classificado
+  // como Profissional/Ajudante e com movimento na folha) - só eles aparecem
+  // na lista de isenção pontual; quem já é isento pelo cargo não precisa
+  // de mais um clique para não pagar.
+  const employeesPayingUnionDueThisPeriod=useMemo(()=>rows
+    .filter(r=>unionDueGroupForEmployee(r,unionDraft)!==UNION_DUE_GROUP.EXEMPT)
+    .sort((a,b)=>a.name.localeCompare(b.name)),
+    [rows,unionDraft.roleGroups]);
   const saveUnionConfig=async()=>{
     if(unionDraft.enabled&&!unionDraft.effectiveFrom){showToast("Informe a vigência inicial para proteger folhas anteriores.","error");return;}
     setSavingUnion(true);
@@ -790,6 +806,21 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
             const key=normalizeRoleKey(role);const count=(data.employees||[]).filter(e=>normalizeRoleKey(e.role)===key).length;
             return <div className="payroll-union__role" key={key}><div><strong>{role}</strong><span>{count} funcionário(s)</span></div><select aria-label={`Classificação sindical de ${role}`} value={unionDraft.roleGroups[key]||UNION_DUE_GROUP.EXEMPT} onChange={e=>setUnionDraft(d=>({...d,roleGroups:{...d.roleGroups,[key]:e.target.value}}))}><option value={UNION_DUE_GROUP.PROFESSIONAL}>Profissional</option><option value={UNION_DUE_GROUP.HELPER}>Ajudante</option><option value={UNION_DUE_GROUP.EXEMPT}>Isento</option></select></div>;
           })}
+        </div>
+        <div className="payroll-union__roles payroll-union__exemptions">
+          <div className="payroll-section-heading">
+            <div><h3>Isenções desta quinzena</h3><p>Marque quem não paga o sindicato só em {periodLabel}. Não muda a classificação do cargo - volta a valer normalmente na próxima quinzena.</p></div>
+            <span className="payroll-scope-chip">{(unionDraft.exemptionsByPeriod[unionPeriodKey]||[]).length} isento(s) aqui</span>
+          </div>
+          {employeesPayingUnionDueThisPeriod.length===0
+            ?<div className="payroll-union__empty">Nenhum funcionário sujeito ao desconto nesta quinzena.</div>
+            :employeesPayingUnionDueThisPeriod.map(r=>{
+              const exempt=(unionDraft.exemptionsByPeriod[unionPeriodKey]||[]).includes(String(r.id));
+              return <label className="payroll-union__role payroll-union__exemption" key={r.id}>
+                <div><strong>{r.name}</strong><span>{r.role||"Funcionário"} · {unionDueGroupForEmployee(r,unionDraft)===UNION_DUE_GROUP.PROFESSIONAL?"Profissional":"Ajudante"}</span></div>
+                <span className="payroll-union__exemption-check"><input type="checkbox" checked={exempt} onChange={e=>toggleEmployeeExemption(r.id,e.target.checked)}/> Não paga nesta quinzena</span>
+              </label>;
+            })}
         </div>
         <footer className="payroll-union__footer"><div><span>Prévia desta quinzena</span><strong>{fmt(unionSummary.total)}</strong><small>{unionSummary.professionals} profissional(is) · {unionSummary.helpers} ajudante(s)</small></div><Btn v="primary" disabled={savingUnion} onClick={saveUnionConfig}><Ic n="check"/>{savingUnion?" Salvando…":" Salvar regra sindical"}</Btn></footer>
       </section>}

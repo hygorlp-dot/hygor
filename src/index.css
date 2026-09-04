@@ -1242,6 +1242,10 @@
 .payroll-union__footer > div { display:flex; flex-direction:column; }
 .payroll-union__footer strong { font-family:var(--arcd-font-mono); font-size:var(--arcd-font-size-xl); color:var(--arcd-text-primary); }
 .payroll-union__empty { padding:var(--arcd-space-5) 0; color:var(--arcd-text-secondary); text-align:center; }
+.payroll-union__exemptions { border-top:1px solid var(--arcd-border-default); }
+.payroll-union__exemption { cursor:pointer; }
+.payroll-union__exemption-check { display:flex; align-items:center; gap:var(--arcd-space-2); white-space:nowrap; font-weight:var(--arcd-font-weight-semibold); color:var(--arcd-text-primary); }
+.payroll-union__exemption-check input { width:18px; height:18px; accent-color:var(--arcd-action-primary); }
 
 .payroll-summary-strip > div {
   display: flex;
