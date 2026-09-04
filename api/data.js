@@ -53,7 +53,7 @@ import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance
 import {
   applyEntriesToAttendance, attendanceObraKey, attendanceObraKeyPrefix,
   groupAttendanceEntriesByObra, groupObraDeparturesByBucket, mergeAttendanceObjects,
-  obraBucketFromKey, tombstoneAttendanceEntries,
+  obraBucketFromKey, tombstoneAttendanceEntries, withAttendanceSyncedAt,
 } from "../server/attendance-obra-routing.js";
 import {
   CORE_REGISTRY_TABLES, summarizeCoreRegistryShadowStatus,
@@ -491,14 +491,13 @@ const lerLinha = async () => {
       .eq("company_id", COMPANY).eq("key", KEY).maybeSingle(),
     db.from("company_app_data").select("key, value, updated_at")
       .eq("company_id", COMPANY).in("key", splitEntries.map(([, key]) => key)),
-    // Achado de 02/09/2026: sem `.order()` aqui, o Postgres devolve as
-    // linhas por obra em ordem NÃO garantida - e mergeAttendanceObjects
-    // (mais abaixo) deixa a fonte que aparece POR ÚLTIMO vencer em caso de
-    // conflito no mesmo (funcionário,data). Ordenar por updated_at
-    // ascendente garante que a linha realmente mais recente sempre vença,
-    // reforçando a correção de groupObraDeparturesByBucket (que já evita
-    // esse conflito na origem, apagando a cópia da obra antiga) para
-    // qualquer registro que ainda reste órfão de antes desta correção.
+    // Achado de 04/09/2026 (ver server/attendance-obra-routing.js): ordenar
+    // por updated_at aqui já não é mais o que garante a correção - esse
+    // campo é da LINHA inteira (compartilhado por todo funcionário/dia que
+    // mora nela) e pode ser "refrescado" por uma gravação totalmente alheia
+    // na mesma obra. mergeAttendanceObjects agora compara um carimbo POR
+    // CÉLULA (withAttendanceSyncedAt, abaixo) - o `.order()` aqui fica só
+    // como reforço inofensivo para dados antigos sem esse carimbo.
     db.from("company_app_data").select("key, value, updated_at")
       .eq("company_id", COMPANY).like("key", `${PONTO_OBRA_KEY_PREFIX}%`)
       .order("updated_at", { ascending: true }),
@@ -538,7 +537,8 @@ const lerLinha = async () => {
   const attendanceSources = [merged.attendance || {}];
   for (const row of pontoObraRows || []) {
     rowVersionsPontoObra[obraBucketFromKey(PONTO_KEY, row.key)] = row.updated_at || null;
-    attendanceSources.push(decodeAppData(row.value)?.attendance || {});
+    const decodedObraRow = decodeAppData(row.value);
+    attendanceSources.push(withAttendanceSyncedAt(decodedObraRow?.attendance, decodedObraRow?.attendanceSyncedAt));
   }
   merged = { ...merged, attendance: mergeAttendanceObjects(...attendanceSources) };
 
@@ -1091,21 +1091,21 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
       // Um lançamento que MUDOU de obra nesta operação (previousObraId !==
       // obraId) precisa apagar sua cópia na linha da obra ANTIGA - senão ela
       // sobra como fantasma que pode vencer a cópia nova ao reconstruir
-      // `attendance` na leitura (mergeAttendanceObjects: fontes cujo
-      // updated_at é mais recente vencem - lerLinha ordena por updated_at
-      // ascendente). Achado de 02/09/2026 (ver server/attendance-obra-
-      // routing.js: groupObraDeparturesByBucket).
+      // `attendance` na leitura. Achado de 02/09/2026 (ver server/
+      // attendance-obra-routing.js: groupObraDeparturesByBucket).
       //
-      // ORDEM IMPORTA: este bloco (tombstones nas obras ANTIGAS) roda
-      // ANTES do bloco de gravação das obras NOVAS logo abaixo, de
-      // propósito - cada `clock_timestamp()` do Postgres avança dentro da
-      // transação, então a linha com o valor VÁLIDO precisa terminar de
-      // gravar por ÚLTIMO. Invertendo a ordem, o tombstone da obra antiga
-      // ficaria com updated_at mais recente que a obra nova e "venceria" o
-      // valor correto no merge de leitura - reintroduzindo o mesmo bug ao
-      // contrário. Uma obra pode aparecer nos dois blocos (foi obra antiga
-      // de um lançamento do lote E obra nova de outro) - travar/gravar duas
-      // vezes na mesma transação é seguro, cada gravação relê o valor fresco.
+      // Achado de 04/09/2026: depender da ORDEM de escrita dentro desta
+      // transação (tombstone antes do valor novo) não bastava - o
+      // `updated_at` que a leitura usava para desempatar é da LINHA
+      // inteira, compartilhado por todo funcionário/dia que mora nela, e
+      // uma gravação alheia (outro funcionário, outra data) na MESMA obra
+      // podia "refrescar" esse timestamp e fazer um tombstone antigo
+      // parecer mais novo que o valor correto de outra linha. A correção
+      // real é carimbar cada célula com `operationNow` (o instante deste
+      // comando, não `clock_timestamp()` do Postgres) via
+      // `withAttendanceSyncedAt`/`mergeAttendanceObjects` - a ordem entre
+      // os dois blocos abaixo deixou de importar para a correção, mas
+      // continua tombstone-antes-do-novo por clareza de leitura do código.
       const partidas=groupObraDeparturesByBucket(applied.result?.attendance);
       for(const [obraBucket,pares] of partidas){
         const key=`${PONTO_OBRA_KEY_PREFIX}${obraBucket}`;
@@ -1115,11 +1115,11 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
            for update
         `;
         if(!lockedObraAntiga)continue; // obra antiga nunca ganhou linha própria - nada a apagar
-        const existente=decodeAppData(lockedObraAntiga.value)?.attendance||{};
-        const proximo=tombstoneAttendanceEntries(existente,pares);
+        const decodedAntiga=decodeAppData(lockedObraAntiga.value);
+        const proximo=tombstoneAttendanceEntries(decodedAntiga?.attendance||{},pares,operationNow,decodedAntiga?.attendanceSyncedAt||{});
         await transaction`
           update company_app_data
-             set value=${JSON.stringify(encodeAppData({attendance:proximo}))}::jsonb,
+             set value=${JSON.stringify(encodeAppData({attendance:proximo.attendance,attendanceSyncedAt:proximo.syncedAt}))}::jsonb,
                  updated_at=clock_timestamp(), updated_by=null
            where company_id=${COMPANY} and key=${key}
         `;
@@ -1146,11 +1146,11 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
            where company_id=${COMPANY} and key=${key}
            for update
         `;
-        const existente=decodeAppData(lockedObra.value)?.attendance||{};
-        const proximo=applyEntriesToAttendance(existente,entries,applied.data.attendance);
+        const decodedObra=decodeAppData(lockedObra.value);
+        const proximo=applyEntriesToAttendance(decodedObra?.attendance||{},entries,applied.data.attendance,operationNow,decodedObra?.attendanceSyncedAt||{});
         await transaction`
           update company_app_data
-             set value=${JSON.stringify(encodeAppData({attendance:proximo}))}::jsonb,
+             set value=${JSON.stringify(encodeAppData({attendance:proximo.attendance,attendanceSyncedAt:proximo.syncedAt}))}::jsonb,
                  updated_at=clock_timestamp(), updated_by=null
            where company_id=${COMPANY} and key=${key}
         `;

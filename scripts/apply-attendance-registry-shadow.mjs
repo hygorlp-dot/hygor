@@ -2,7 +2,7 @@ import fs from "node:fs";
 import postgres from "postgres";
 import { createClient } from "@supabase/supabase-js";
 import { decodeAppData } from "../server/data-codec.js";
-import { attendanceObraKeyPrefix, mergeAttendanceObjects } from "../server/attendance-obra-routing.js";
+import { attendanceObraKeyPrefix, mergeAttendanceObjects, withAttendanceSyncedAt } from "../server/attendance-obra-routing.js";
 import {
   buildAttendanceRegistrySnapshot,
   compareAttendanceRegistrySnapshot,
@@ -56,9 +56,15 @@ try {
     process.exitCode=0;
   } else {
     const corePayload=decodeAppData(row.value);
+    // Achado de 04/09/2026 (ver server/attendance-obra-routing.js): merge
+    // por ordem/updated_at de linha não é confiável - reconstrói com o
+    // mesmo carimbo por célula que api/data.js (lerLinha) usa.
     const attendanceSources=[
       corePayload.attendance || {},
-      ...(pontoObraRows || []).map(item => decodeAppData(item.value)?.attendance || {}),
+      ...(pontoObraRows || []).map(item => {
+        const decoded=decodeAppData(item.value);
+        return withAttendanceSyncedAt(decoded?.attendance, decoded?.attendanceSyncedAt);
+      }),
     ];
     const legacy={ ...corePayload, attendance:mergeAttendanceObjects(...attendanceSources) };
     const snapshot=buildAttendanceRegistrySnapshot(legacy);

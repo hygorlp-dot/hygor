@@ -4059,3 +4059,79 @@ falha sem a correção e passa com ela.
 Verificação: suíte completa (269 arquivos/1778 testes), `npm run
 build`, `npm run lint` e `npm run architecture:check` sem violação
 nova.
+
+## Causa raiz de verdade fechada: `updated_at` de LINHA não serve para desempatar CÉLULA (04/09/2026)
+
+Usuário voltou a reportar o mesmo sintoma ainda no mesmo dia: "não está
+sendo salvo a alteração de obras quando clico e atualizo". A correção
+de 02/09 (tombstone da obra antiga + `.order("updated_at")`) e a de
+duas seções acima (meta preserva `attendance`) já estavam em produção
+e são corretas, mas nenhuma das duas é a causa raiz de verdade - um
+script de leitura contra produção (só leitura, sem escrita) capturado
+enquanto o usuário testava ao vivo confirmou o mecanismo exato.
+
+**O bug**: `updated_at` de uma linha `arced_ponto_v1__ponto__obra__*`
+é da LINHA FÍSICA inteira - compartilhado por TODOS os
+funcionários/dias que moram nela. Uma gravação totalmente ALHEIA
+(outro funcionário, outra data, mesma obra) "refresca" esse timestamp
+para o valor atual do relógio - inclusive para um tombstone antigo
+que não tem nada a ver com essa gravação. Reproduzido ao vivo: um
+funcionário mudou de obra A → B → C ao longo de vários cliques; a
+obra A tinha um fantasma antigo (de antes da correção de 02/09) nunca
+tombstonado; ao trocar de B para C, a obra B foi corretamente
+tombstonada - mas minutos depois, OUTRO funcionário gravou um dia
+totalmente diferente na MESMA linha de B, o que bastou para o
+tombstone de B (na prática, já "vencido" há minutos) parecer o mais
+recente de todos na próxima leitura, apagando o valor certo (que
+estava em C). Confirmado com uma consulta direta às três linhas
+envolvidas: a obra que "venceu" foi exatamente a que tinha a gravação
+alheia mais recente, não a que o usuário realmente escolheu.
+
+**Correção real** (`server/attendance-obra-routing.js`): parar de
+depender do relógio da LINHA para desempate e passar a rastrear um
+relógio por CÉLULA. `withAttendanceSyncedAt(attendance, syncedAt)`
+empacota um `attendance` com um mapa espelhado
+(`employeeId -> date -> ISO`) carimbado com o `now` do PRÓPRIO
+comando (não `clock_timestamp()` do Postgres) no momento em que
+aquele registro OU tombstone foi realmente escrito.
+`mergeAttendanceObjects` agora compara esse carimbo por célula quando
+os dois lados de um conflito o têm - só cai no comportamento antigo
+(última fonte processada vence) quando um dos lados não tem
+bookkeeping nenhum (linha core/legado, ou célula de antes desta
+correção). Regra de precedência, na ordem: (1) uma fonte COM carimbo
+sempre vence uma SEM carimbo, nunca o contrário; (2) com carimbo dos
+dois lados, o mais recente vence; (3) em caso de EMPATE exato - o caso
+mais comum de todos, já que uma troca de obra carimba as duas pontas
+(tombstone da antiga, valor da nova) com o MESMÍSSIMO `now` - um valor
+real sempre vence um tombstone, nunca o contrário, independente de
+qual linha o merge processa por último. `applyEntriesToAttendance`/
+`tombstoneAttendanceEntries` agora recebem `now` e o mapa de
+`syncedAt` existente, e devolvem `{attendance, syncedAt}` (mudança de
+assinatura) - `api/data.js` (`executarComandoPontoBloqueado`) grava
+`attendanceSyncedAt` como campo irmão de `attendance` em cada linha, e
+`lerLinha` embrulha cada linha por obra com `withAttendanceSyncedAt`
+antes de mesclar. `scripts/apply-attendance-registry-shadow.mjs`
+(CORE-004) ganhou o mesmo tratamento, para a projeção sombra também
+não depender do updated_at físico da linha.
+
+O `.order("updated_at",{ascending:true})` da consulta `.like()` (e a
+ordem tombstone-antes-do-valor-novo dentro da transação, ambos da
+correção de 02/09) deixaram de ser o mecanismo que garante a correção
+- viraram só reforço inofensivo para dados gravados antes desta
+correção (sem `attendanceSyncedAt` ainda). Nada muda para quem já
+tem carimbo: a correção é imune à ordem física das linhas por
+construção.
+
+Testes novos: `server/attendance-obra-routing.test.js` reproduz o
+bug exato (tombstone alheio "refrescado" apagando o valor certo de
+outra linha) e a regra de desempate por empate exato (achada só ao
+testar a própria correção - sem ela, a troca de obra mais comum de
+todas continuava quebrada);
+`src/integration/attendance-obra-locked-path.test.js` reproduz de
+ponta a ponta via `/api/data`: uma gravação de outro funcionário na
+obra antiga, depois de uma troca já concluída, não ressuscita o
+fantasma nem apaga a obra nova.
+
+Verificação: suíte completa (269 arquivos/1787 testes), `npm run
+build`, `npm run lint` e `npm run architecture:check` sem violação
+nova.

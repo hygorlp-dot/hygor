@@ -23,11 +23,47 @@ export const attendanceObraKeyPrefix = baseKey => `${baseKey}__obra__`;
 
 export const obraBucketFromKey = (baseKey, key) => String(key || "").slice(attendanceObraKeyPrefix(baseKey).length);
 
-// Mescla vários `attendance` ({employeeId:{date:record}}) em um só. Fontes
-// posteriores vencem em caso de conflito no mesmo (employeeId,date) - usado
-// para priorizar a linha própria de uma obra (mais nova, autoritativa)
-// sobre a cópia legada que ainda pode sobrar na linha compartilhada de
-// Ponto, para obras que ainda não ganharam linha própria.
+const BOOKKEEPING_MARKER = "__attendanceBookkeeping";
+
+// Achado de 04/09/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): ordenar
+// as linhas por obra pelo `updated_at` FÍSICO da linha (a correção de
+// 02/09/2026) não é suficiente - esse `updated_at` é da LINHA inteira,
+// compartilhado por TODOS os funcionários/dias que moram nela. Uma
+// gravação totalmente alheia (outro funcionário, outra data) na mesma
+// obra "refresca" o timestamp da linha, fazendo um tombstone antigo (de
+// uma célula que já migrou para outra obra há muito tempo) parecer mais
+// recente do que o valor correto que está numa OUTRA linha. Sintoma real:
+// um funcionário trocado de obra num dia, revisitado do zero num dia
+// diferente, ou uma célula tocada por um lote junto de outra - a troca
+// "some" da leitura sem nenhum motivo aparente.
+//
+// A correção definitiva é parar de depender do relógio da LINHA e passar
+// a rastrear um relógio por CÉLULA: `withAttendanceSyncedAt` empacota um
+// `attendance` com um mapa espelhado (`employeeId -> date -> ISO`)
+// carimbado no momento em que aquele registro OU tombstone foi realmente
+// escrito (o `now` do próprio comando, não `clock_timestamp()` do
+// Postgres). `mergeAttendanceObjects` compara esse carimbo por célula
+// quando os dois lados de um conflito o têm - só cai no comportamento
+// antigo (última fonte processada vence) quando um dos lados não tem
+// bookkeeping nenhum (a linha core/legado, ou uma célula gravada antes
+// desta correção existir).
+export const withAttendanceSyncedAt = (attendance, syncedAt) => ({
+  [BOOKKEEPING_MARKER]: true,
+  attendance: attendance || {},
+  syncedAt: syncedAt || {},
+});
+
+// Mescla vários `attendance` ({employeeId:{date:record}}) em um só. Cada
+// fonte pode ser um objeto de attendance cru (sem bookkeeping - tratado
+// como se não tivesse timestamp algum para nenhuma célula, o mesmo
+// comportamento de sempre) ou o resultado de `withAttendanceSyncedAt`.
+// Quando os dois lados de um conflito no mesmo (employeeId,date) têm
+// timestamp, o mais recente vence - não importa a ordem de processamento
+// nem o updated_at físico de nenhuma linha. Sem timestamp de um dos
+// lados, cai no comportamento histórico: a última fonte processada vence
+// (usado para priorizar a linha própria de uma obra sobre a cópia legada
+// que ainda pode sobrar na linha compartilhada de Ponto, para obras que
+// ainda não ganharam linha própria, ou dados anteriores a esta correção).
 //
 // Achado de 25/08/2026: uma fonte posterior só "vence" enquanto ela tiver
 // uma CHAVE para aquele (employeeId,date) - uma limpeza de status (P/M/F ->
@@ -42,14 +78,45 @@ export const obraBucketFromKey = (baseKey, key) => String(key || "").slice(atten
 // nunca esperam ver).
 export const mergeAttendanceObjects = (...sources) => {
   const merged = {};
+  const mergedAt = {};
   for (const source of sources) {
-    for (const [employeeId, days] of Object.entries(source || {})) {
-      const target = { ...(merged[employeeId] || {}) };
+    const hasBookkeeping = source?.[BOOKKEEPING_MARKER] === true;
+    const attendance = hasBookkeeping ? source.attendance : source;
+    const syncedAt = hasBookkeeping ? source.syncedAt : null;
+    for (const [employeeId, days] of Object.entries(attendance || {})) {
+      const targetDays = { ...(merged[employeeId] || {}) };
+      const targetAt = { ...(mergedAt[employeeId] || {}) };
       for (const [date, record] of Object.entries(days || {})) {
-        if (record == null) delete target[date];
-        else target[date] = record;
+        const candidateAt = String(syncedAt?.[employeeId]?.[date] || "");
+        const currentAt = String(targetAt[date] || "");
+        const currentIsValue = date in targetDays; // vencedor atual é um valor real, não um tombstone
+        let candidateWins;
+        if (candidateAt && currentAt) {
+          if (candidateAt > currentAt) candidateWins = true;
+          else if (candidateAt < currentAt) candidateWins = false;
+          // Empate exato: uma troca de obra carimba as DUAS pontas (o
+          // tombstone da obra antiga e o valor da obra nova) com o MESMO
+          // `now` - por isso um valor real sempre vence um tombstone no
+          // empate, nunca o contrário, independente de qual das duas linhas
+          // o merge processa por último. Achado ao testar a própria
+          // correção: sem esta regra, a ordem das linhas voltava a decidir
+          // exatamente no caso mais comum (uma troca simples).
+          else candidateWins = record != null || !currentIsValue;
+        } else if (candidateAt) {
+          candidateWins = true; // com carimbo sempre vence sem carimbo
+        } else if (currentAt) {
+          candidateWins = false; // sem carimbo nunca vence com carimbo
+        } else {
+          candidateWins = true; // nenhum dos dois tem carimbo - histórico: última fonte processada vence
+        }
+        if (!candidateWins) continue;
+        if (record == null) delete targetDays[date];
+        else targetDays[date] = record;
+        if (candidateAt) targetAt[date] = candidateAt;
+        else delete targetAt[date];
       }
-      merged[employeeId] = target;
+      merged[employeeId] = targetDays;
+      mergedAt[employeeId] = targetAt;
     }
   }
   for (const employeeId of Object.keys(merged)) {
@@ -77,19 +144,13 @@ export const groupAttendanceEntriesByObra = entries => {
 // completo já calculado por applyAttendanceCommand (fonte da verdade do
 // valor final de cada registro, inclusive ausência = exclusão). Não
 // precisa saber nada sobre as OUTRAS obras: só toca os pares
-// (employeeId,date) que estão em `entries`.
-//
-// Achado de 25/08/2026: uma exclusão (status limpo) grava um tombstone
-// (`record: null`), não mais `delete days[date]`. Apagar a chave fazia essa
-// (employeeId,date) voltar a não ter opinião nenhuma NESTA linha de obra -
-// e mergeAttendanceObjects, ao ler, deixava a cópia antiga que ainda sobra
-// na linha compartilhada de Ponto "vencer" de volta, porque uma fonte
-// posterior só sobrescreve chaves que ela realmente tem. O tombstone
-// preserva a intenção de exclusão nesta linha para sempre vencer aquele
-// fallback (mergeAttendanceObjects apaga o tombstone do resultado final -
-// nenhum consumidor chega a ver `null`).
-export const applyEntriesToAttendance = (existingAttendance, entries, fullAttendanceAfter) => {
+// (employeeId,date) que estão em `entries`. `now` (o carimbo do próprio
+// comando, não `clock_timestamp()`) é gravado por célula em
+// `existingSyncedAt` para `mergeAttendanceObjects` comparar depois -
+// ver o achado de 04/09/2026 no topo do arquivo.
+export const applyEntriesToAttendance = (existingAttendance, entries, fullAttendanceAfter, now = "", existingSyncedAt = {}) => {
   let next = { ...(existingAttendance || {}) };
+  let nextSynced = { ...(existingSyncedAt || {}) };
   for (const entry of entries || []) {
     const employeeId = String(entry?.employeeId || "");
     const date = String(entry?.date || "");
@@ -98,8 +159,13 @@ export const applyEntriesToAttendance = (existingAttendance, entries, fullAttend
     const days = { ...(next[employeeId] || {}) };
     days[date] = record;
     next[employeeId] = days;
+    if (now) {
+      const syncedDays = { ...(nextSynced[employeeId] || {}) };
+      syncedDays[date] = now;
+      nextSynced[employeeId] = syncedDays;
+    }
   }
-  return next;
+  return { attendance: next, syncedAt: nextSynced };
 };
 
 // Achado de 02/09/2026: uma troca de obra (P1-08 -> CA1-06, por exemplo)
@@ -107,9 +173,8 @@ export const applyEntriesToAttendance = (existingAttendance, entries, fullAttend
 // applyEntriesToAttendance acima) - a cópia na linha da obra ANTIGA nunca
 // era tocada, e sobrava como um "fantasma" ({status,obraId:antiga}) que
 // mergeAttendanceObjects podia deixar VENCER a cópia nova ao reconstruir
-// `attendance` na leitura, porque a ordem em que o `.like()` devolve as
-// linhas por obra não é garantida. Sintoma real: trocar a obra do dia
-// "não salvava" ou revertia sozinho depois de recarregar a tela. Agrupa,
+// `attendance` na leitura. Sintoma real: trocar a obra do dia "não
+// salvava" ou revertia sozinho depois de recarregar a tela. Agrupa,
 // por obra ANTIGA distinta, os pares (employeeId,date) cujo `previousObraId`
 // (server/attendance-command.js) aponta para uma obra diferente da nova.
 export const groupObraDeparturesByBucket = entries => {
@@ -131,14 +196,22 @@ export const groupObraDeparturesByBucket = entries => {
 // Apaga (tombstone: `record:null`) os pares (employeeId,date) informados
 // na linha da obra ANTIGA - usado por groupObraDeparturesByBucket acima.
 // Nunca lê `fullAttendanceAfter` (o valor lá é sempre o da obra NOVA):
-// aqui a intenção é sempre apagar, nunca copiar o registro atual.
-export const tombstoneAttendanceEntries = (existingAttendance, pairs) => {
+// aqui a intenção é sempre apagar, nunca copiar o registro atual. `now`
+// carimba o tombstone célula a célula, mesmo motivo de
+// applyEntriesToAttendance acima.
+export const tombstoneAttendanceEntries = (existingAttendance, pairs, now = "", existingSyncedAt = {}) => {
   let next = { ...(existingAttendance || {}) };
+  let nextSynced = { ...(existingSyncedAt || {}) };
   for (const { employeeId, date } of pairs || []) {
     if (!employeeId || !date) continue;
     const days = { ...(next[employeeId] || {}) };
     days[date] = null;
     next[employeeId] = days;
+    if (now) {
+      const syncedDays = { ...(nextSynced[employeeId] || {}) };
+      syncedDays[date] = now;
+      nextSynced[employeeId] = syncedDays;
+    }
   }
-  return next;
+  return { attendance: next, syncedAt: nextSynced };
 };

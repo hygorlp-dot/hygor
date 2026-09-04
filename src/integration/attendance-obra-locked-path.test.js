@@ -309,6 +309,48 @@ describe("/api/data · caminho travado do Ponto particiona attendance por obra",
     expect(reloaded.body.data.attendance["e-a"]["2026-08-22"]).toMatchObject({status:"P",obraId:"obra-b"});
   });
 
+  // Achado real de produção de 04/09/2026 (ver docs/BLUEPRINT_CONCORRENCIA_
+  // TRAVA.md): o `updated_at` de uma linha por obra é da LINHA inteira,
+  // compartilhado por todo funcionário/dia que mora nela - uma gravação
+  // TOTALMENTE ALHEIA (outro funcionário) na obra ANTIGA "refrescava" esse
+  // timestamp, fazendo o tombstone (já correto, já gravado) parecer mais
+  // recente que o valor certo, que está numa obra diferente - a troca
+  // "sumia" de novo, mesmo já tombstonada, sem nenhum clique novo do
+  // usuário. Corrigido com um carimbo por CÉLULA (withAttendanceSyncedAt),
+  // imune a gravações alheias na mesma linha física.
+  it("uma gravação de OUTRO funcionário na obra antiga, depois da troca, não ressuscita o fantasma nem apaga a obra nova",async()=>{
+    await callApi({
+      action:"attendance-upsert",accessToken:"valid-token",
+      operationId:"20000000-0000-4000-8000-000000000020",
+      employeeId:"e-a",date:"2026-08-22",selectedObraId:"obra-a",
+      record:{status:"P",obraId:"obra-a"},
+    });
+    await callApi({
+      action:"attendance-upsert",accessToken:"valid-token",
+      operationId:"20000000-0000-4000-8000-000000000021",
+      employeeId:"e-a",date:"2026-08-22",selectedObraId:"obra-b",
+      record:{status:"P",obraId:"obra-b"},
+    });
+    // Confirma o estado logo após a troca, antes da gravação alheia.
+    expect(testState.rows[pontoObraKey("obra-a")].value.attendance["e-a"]["2026-08-22"]).toBeNull();
+
+    // Gravação de um funcionário DIFERENTE, num dia DIFERENTE, mas na MESMA
+    // linha física (obra-a) - no esquema antigo, isto bastava para
+    // "refrescar" o updated_at físico da linha inteira.
+    await callApi({
+      action:"attendance-upsert",accessToken:"valid-token",
+      operationId:"20000000-0000-4000-8000-000000000022",
+      employeeId:"e-b",date:"2026-08-23",selectedObraId:"obra-a",
+      record:{status:"F",obraId:"obra-a"},
+    });
+
+    // A troca de e-a continua correta - nem ressuscitou o fantasma em
+    // obra-a, nem sumiu por causa da gravação alheia.
+    const reloaded=await callApi({action:"load",accessToken:"valid-token"});
+    expect(reloaded.body.data.attendance["e-a"]["2026-08-22"]).toMatchObject({status:"P",obraId:"obra-b"});
+    expect(reloaded.body.data.attendance["e-b"]["2026-08-23"]).toMatchObject({status:"F",obraId:"obra-a"});
+  });
+
   // Achado secundário de 02/09/2026, investigado a fundo (ver
   // docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): a linha
   // "meta" de Ponto pode ainda carregar uma cópia legada de `attendance`
