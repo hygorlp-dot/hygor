@@ -938,6 +938,25 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
       const outcome=await mutate({payload:current,updatedAt:locked.updated_at});
       if(!outcome||outcome.kind!=="save")return outcome;
       const valueToWrite=effectiveDomain===DOMAIN_ROW.CORE?outcome.data:pickDomainFields(outcome.data,effectiveDomain);
+      // Achado secundário de 02/09/2026, investigado a fundo (ver
+      // docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): a linha "meta" de Ponto ainda
+      // pode carregar uma cópia legada de `attendance`
+      // como fallback de leitura para toda célula (funcionário,data) que
+      // ainda não migrou para uma linha própria de obra (ver
+      // lerLinha/mergeAttendanceObjects). `attendance` saiu de
+      // DOMAIN_FIELDS[PONTO] em 22/08, então `pickDomainFields` não o inclui
+      // - sem esta preservação, um attendance-daily-check/-lock/-unlock (os 5
+      // comandos "meta" que passam por aqui) gravaria a linha só com os 4
+      // campos meta e APAGARIA esse fallback inteiro, silenciosamente, sem
+      // tombstone. Foi o que sumiu dias 24-25/08 de um funcionário sem
+      // deixar rastro nem nos recibos. Preserva exatamente o que já estava
+      // FISICAMENTE na linha recém-travada (`freshSlice`), nunca a visão
+      // mesclada multi-obra de `outcome.data` - mesmo cuidado que
+      // executarComandoPontoBloqueado (spread de freshPontoSlice) e o
+      // caminho CAS (valorComAttendance) já tomam para esta mesma linha.
+      if(effectiveDomain===DOMAIN_ROW.PONTO&&freshSlice&&freshSlice.attendance!=null){
+        valueToWrite.attendance=freshSlice.attendance;
+      }
       const saved=await gravarMutacaoNaTransacao({
         transaction,key,rowVersions:linha.rowVersions,keepDomain:effectiveDomain,
         value:valueToWrite,basePayload:freshSlice,actor,action,

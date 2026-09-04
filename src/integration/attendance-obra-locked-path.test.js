@@ -309,6 +309,54 @@ describe("/api/data · caminho travado do Ponto particiona attendance por obra",
     expect(reloaded.body.data.attendance["e-a"]["2026-08-22"]).toMatchObject({status:"P",obraId:"obra-b"});
   });
 
+  // Achado secundário de 02/09/2026, investigado a fundo (ver
+  // docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): a linha
+  // "meta" de Ponto pode ainda carregar uma cópia legada de `attendance`
+  // (fallback de leitura para células que nunca migraram para uma linha por
+  // obra - registros escritos antes de 22/08, quando `attendance` ainda
+  // fazia parte de DOMAIN_FIELDS[PONTO]). Os comandos "meta"
+  // (daily-check/lock/unlock) passam por executarMutacaoEmpresaBloqueada, que
+  // gravava a linha só com `pickDomainFields(PONTO)` = os 4 campos meta,
+  // APAGANDO esse `attendance` legado inteiro, sem tombstone. Sintoma real:
+  // dias de um funcionário sumiram da base sem rastro nenhum nos recibos.
+  it("attendance-daily-check NÃO apaga o `attendance` legado que ainda sobra na linha meta de Ponto",async()=>{
+    // Simula uma linha meta que ainda carrega a cópia legada de attendance de
+    // antes da partição por obra: dois dias de um funcionário que nunca
+    // ganharam linha de obra própria.
+    testState.rows[PONTO_KEY].value={
+      ...initialPontoData(),
+      attendance:{
+        "e-a":{
+          "2026-08-10":{status:"P",ot:0,note:"legado",obraId:"obra-a"},
+          "2026-08-11":{status:"F",ot:0,note:"legado",obraId:"obra-a"},
+        },
+      },
+    };
+
+    const result=await callApi({
+      action:"attendance-daily-check",accessToken:"valid-token",
+      operationId:"20000000-0000-4000-8000-000000000010",
+      date:"2026-08-22",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.ok).toBe(true);
+    // O comando só deveria mexer no dailyCheckDate - o attendance legado
+    // continua intacto na linha meta, célula por célula.
+    expect(testState.rows[PONTO_KEY].value.dailyCheckDate).toBe("2026-08-22");
+    expect(testState.rows[PONTO_KEY].value.attendance).toEqual({
+      "e-a":{
+        "2026-08-10":{status:"P",ot:0,note:"legado",obraId:"obra-a"},
+        "2026-08-11":{status:"F",ot:0,note:"legado",obraId:"obra-a"},
+      },
+    });
+
+    // E a leitura reconstruída continua enxergando os dois dias.
+    const reloaded=await callApi({action:"load",accessToken:"valid-token"});
+    expect(reloaded.body.data.attendance["e-a"]["2026-08-10"]).toMatchObject({status:"P",note:"legado"});
+    expect(reloaded.body.data.attendance["e-a"]["2026-08-11"]).toMatchObject({status:"F",note:"legado"});
+  });
+
   it("trocar de volta para a obra original limpa a obra intermediária, sem deixar fantasma nela também",async()=>{
     await callApi({
       action:"attendance-upsert",accessToken:"valid-token",

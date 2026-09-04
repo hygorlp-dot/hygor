@@ -3952,3 +3952,110 @@ novo, é reaproveitamento de um comando e um fluxo de confirmação já
 totalmente testados, só um novo ponto de entrada de UI), `npm run
 build`, `npm run lint` e `npm run architecture:check` sem violação
 nova.
+
+## Achado secundário fechado: `daily-check`/`lock`/`unlock` apagavam o `attendance` legado da linha meta de Ponto (02/09/2026)
+
+Usuário voltou a relatar "não está sendo salvo a alteração de obras
+quando clico e atualizo" - retomada do "achado secundário, registrado
+mas fora de escopo" de duas seções atrás. A correção já estava
+investigada e escrita numa sessão paralela, mas nunca tinha sido
+integrada ao `main` - só agora commitada e enviada para produção.
+
+Dias 24-25/08/2026 do funcionário Alisson dos Santos Oliveira (id
+`7rfg1dgx7vjo`) na obra P1-08 (id `rx7uzocuy5dj`) sumiram da base sem
+tombstone, sem recibo e sem `audit_event` - diferente de uma limpeza
+de status legítima, que sempre grava `record:null`.
+
+**A hipótese do arquivamento/restauração de quinzena
+(`finalizarQuinzena`/`restaurarQuinzena`) foi descartada pelos dados.**
+Um script de leitura contra produção (via `@supabase/supabase-js` +
+`decodeAppData`, sem nenhuma escrita) confirmou, na empresa `arcd`:
+`quinzenasArquivadas: {}`, `quinzenasRestauradas: {}`,
+`archivedLaborCosts: {}`, zero linhas `arced_ponto_v1__arq__*` e zero
+recibos de `attendance_archive_ponto_sync`/
+`attendance_restore_ponto_sync` em 2315 `attendanceOperationReceipts`.
+Esse fluxo nunca rodou aqui - `sincronizarPontoAposArquivo` e
+`restoreArchivedAttendance` foram lidos e não são a causa (as
+limitações conhecidas deles, já documentadas, seguem valendo, mas são
+de re-bloat, não de perda silenciosa de chave).
+
+**Causa raiz real** (`api/data.js`, `executarMutacaoEmpresaBloqueada`):
+desde a Fase 1.5 reduzida (22/08/2026), `attendance` saiu de
+`DOMAIN_FIELDS[PONTO]`, mas a linha "meta" de Ponto
+(`arced_ponto_v1__ponto`) **continua carregando uma cópia legada de
+`attendance`** como fallback de leitura (`lerLinha`/
+`mergeAttendanceObjects`) para toda célula (funcionário,data) escrita
+ANTES de 22/08 que nunca foi re-tocada por um `attendance-upsert`/
+`-batch-upsert` (que a migraria para a linha própria da obra). Os
+outros 5 comandos de Ponto (`attendance-daily-check`,
+`attendance-lock`, `attendance-unlock-request`/`-approve`/`-reject`)
+passam por `executarMutacaoEmpresaBloqueada`, que gravava a linha meta
+com `pickDomainFields(outcome.data, DOMAIN_ROW.PONTO)` = só os 4
+campos meta (`attendanceLocks`, `unlockRequests`, `dailyCheckDate`,
+`attendanceOperationReceipts`), num replace total da linha -
+**apagando o `attendance` legado inteiro, de todos os funcionários,
+silenciosamente, sem tombstone**. O comando destruidor é um
+`daily-check`, cujo recibo diz só `{dailyCheckDate}` - por isso nada
+aparece nos recibos. Achado relevante: `WorkerMovementModal.saveTransfer`
+(transferir um funcionário de obra permanentemente, `LegacyApp.jsx`)
+dispara um `attendance-daily-check` logo depois do `EMPLOYEE_SAVED` -
+um gatilho comum e frequente para este bug, sem relação aparente com
+Ponto do ponto de vista de quem clica em "Transferir".
+
+Trilha da célula do Alisson, reconstruída dos recibos + `audit_events`:
+
+- `2026-08-21T13:10:53Z` `attendance-upsert` → 24/08 = "P", obra P1-08
+  (pré-partição: gravou na linha meta).
+- `2026-08-21T13:10:57Z` `attendance-batch-upsert` → 25/08 = "P" (+26,
+  27, 28, 31), obra P1-08 (idem).
+- *(nunca mais)* nenhum recibo nem `audit_event` toca 24 ou 25 do
+  Alisson de novo. Os dias 26-31 foram re-clicados depois (25/08 e
+  27/08) e por isso migraram para a linha de obra; 24-25 ficaram
+  órfãos na cópia legada da meta.
+- `2026-09-02T13:17Z`/`13:19Z` dois `attendance-daily-check` →
+  `executarMutacaoEmpresaBloqueada` regravou a linha meta só com os 4
+  campos meta → `attendance` legado (com 24/25) foi junto. Estado
+  confirmado na época: a linha meta tinha topo exatamente
+  `[attendanceLocks, attendanceOperationReceipts, dailyCheckDate, unlockRequests]`.
+
+O caminho travado é o ativo em produção
+(`POSTGRES_URL_NON_POOLING` configurado). Os outros dois escritores da
+MESMA linha já preservavam essa cópia de propósito -
+`executarComandoPontoBloqueado` (spread de `freshPontoSlice`) e o
+caminho CAS (`valorComAttendance`) -; o caminho travado genérico era o
+único fora do padrão.
+
+**Correção** (`api/data.js`): em `executarMutacaoEmpresaBloqueada`,
+quando `effectiveDomain === DOMAIN_ROW.PONTO` e a linha recém-travada
+(`freshSlice`) já tem um `attendance`, ele é re-anexado a
+`valueToWrite` antes da gravação. Preserva exatamente o que estava
+FISICAMENTE na linha (nunca a visão mesclada multi-obra de
+`outcome.data`, que reintroduziria o re-bloat) - mesmo cuidado dos
+outros dois escritores. É no-op quando a linha meta não tem mais
+`attendance` (caso da `arcd` hoje - o blob já foi destruído; recuperar
+as células perdidas exigiria replay dos recibos/`audit_events`, fora
+de escopo desta rodada), mas protege qualquer empresa que ainda não
+rodou um `daily-check` pós-deploy e mantém o invariante que os outros
+caminhos já assumem.
+
+**Limitação conhecida, não corrigida (inalcançável em produção)**: no
+fallback pré-seed (`linhaEfetivaParaEscrita` devolve `CORE` porque a
+linha meta ainda não existe), `gravarMutacaoNaTransacao` roda
+`coreFieldsOnly(value, rowVersions, keepDomain=CORE)`, que remove
+`attendance` incondicionalmente (`keepDomain !== PONTO`). A linha meta
+de Ponto existe desde a Fase 1 (20/08/2026), dois dias ANTES de
+`attendance` sair de `DOMAIN_FIELDS[PONTO]`, então não há cenário real
+em que um `daily-check` pós-22/08 caia nesse ramo - fica registrado
+aqui, sem correção, para não arriscar mudança num caminho morto.
+
+Teste novo: `src/integration/attendance-obra-locked-path.test.js`
+(`attendance-daily-check NÃO apaga o attendance legado que ainda sobra
+na linha meta de Ponto` - semeia a linha meta com uma cópia legada de
+dois dias de um funcionário, dispara um `daily-check` pelo caminho
+travado, e exige que a cópia continue intacta célula a célula e que a
+leitura reconstruída ainda enxergue os dois dias). Confirmado que
+falha sem a correção e passa com ela.
+
+Verificação: suíte completa (269 arquivos/1778 testes), `npm run
+build`, `npm run lint` e `npm run architecture:check` sem violação
+nova.
