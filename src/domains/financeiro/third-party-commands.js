@@ -1,14 +1,16 @@
 import { arcdApprovalEngine } from "../aprovacoes/arcd-engine.js";
-import { active } from "./ledger.js";
 import {
+  approveThirdPartyMeasurement,
   cancelThirdPartyMeasurement,
   createThirdPartyMeasurement,
   createThirdPartyPayment,
   payThirdPartyMeasurement,
+  rejectThirdPartyMeasurement,
+  resubmitThirdPartyMeasurement,
   reverseThirdPartyPayment,
 } from "./third-party-payment-mutations.js";
 import { isDateInClosedPeriod, linkThirdPartyInvoice } from "./workflows.js";
-import { isActiveThirdPartyContract } from "../terceirizados/lifecycle.js";
+import { isActiveThirdPartyContract, isThirdPartyRecordActive } from "../terceirizados/lifecycle.js";
 import { calculateWithholdings } from "../terceirizados/withholdings.js";
 
 export const THIRD_PARTY_COMMAND=Object.freeze({
@@ -17,6 +19,9 @@ export const THIRD_PARTY_COMMAND=Object.freeze({
   THIRD_PARTY_MEASUREMENT_RECORDED:"MEDICAO_TERCEIRO_REGISTRADA",
   THIRD_PARTY_MEASUREMENT_CANCELLED:"MEDICAO_TERCEIRO_CANCELADA",
   THIRD_PARTY_MEASUREMENT_PAID:"MEDICAO_TERCEIRO_PAGA",
+  THIRD_PARTY_MEASUREMENT_APPROVED:"MEDICAO_TERCEIRO_APROVADA",
+  THIRD_PARTY_MEASUREMENT_REJECTED:"MEDICAO_TERCEIRO_REJEITADA",
+  THIRD_PARTY_MEASUREMENT_RESUBMITTED:"MEDICAO_TERCEIRO_REENVIADA",
   THIRD_PARTY_INVOICE_LINKED:"NOTA_MEDICAO_TERCEIRO_VINCULADA",
   THIRD_PARTY_CONTRACT_STAGES_SAVED:"ETAPAS_CONTRATO_TERCEIRO_SALVAS",
 });
@@ -42,13 +47,25 @@ const actorOf=command=>({
 });
 const behaviorOf=data=>
   data.configAprovacao?.comportamentoSemPolitica||"auto_aprovar";
+// Achado de 18/09/2026: isThirdPartyRecordActive (só exclui cancelado(a)/
+// estornado(a)) é a noção de "ativa" certa aqui - sequenciamento (data,
+// percentual anterior) e elegibilidade de cancelamento precisam continuar
+// vendo uma medição "rascunho" (aguardando aprovação do financeiro) ou
+// "rejeitada" (aguardando correção do engenheiro), senão a próxima medição
+// calcula seu avanço anterior como se a pendente não existisse, e o
+// engenheiro nunca mais consegue cancelar/corrigir a própria medição
+// pendente (ela deixa de ser "a última ativa do contrato"). O `active` de
+// ledger.js (que ESTE arquivo também usa, importado no topo) é uma noção
+// diferente e mais estrita, feita para o DRE ignorar rascunho/rejeitada no
+// custo/obrigação - não usar aqui.
 const activeMeasurements=(data,contractId)=>(data.medicoesTerc||[])
-  .filter(item=>String(item.tercId)===String(contractId)&&active(item))
+  .filter(item=>String(item.tercId)===String(contractId)&&isThirdPartyRecordActive(item))
   .sort((a,b)=>`${a.data||a.dataMedicao||""}|${a.id}`
     .localeCompare(`${b.data||b.dataMedicao||""}|${b.id}`));
-const latestPercentages=(data,contractId)=>{
+const latestPercentages=(data,contractId,{excludeMeasurementId=""}={})=>{
   const result={};
   for(const measurement of activeMeasurements(data,contractId)){
+    if(String(measurement.id)===String(excludeMeasurementId))continue;
     for(const item of measurement.itens||[])result[item.etapaId]=Number(item.pctAcum||0);
   }
   return result;
@@ -141,16 +158,18 @@ const reversePayment=(data,command,now)=>{
   }catch(error){return fail(error.message);}
 };
 
-const validateMeasurement=(data,raw)=>{
-  const validation=validateContract(data,raw.tercId);
-  if(validation.error)return validation;
-  const contract=validation.contract;
-  const id=String(raw.id||"");
-  if(!id||measurementById(data,id))return {error:"Medição de terceiro sem identificação única."};
+// Validação de CONTEÚDO (data, foto, etapas, percentuais, total) - comum a
+// uma medição nova (recordMeasurement) e a um reenvio depois de rejeição
+// (resubmitMeasurement). `excludeMeasurementId` tira a própria medição da
+// base de comparação (percentual anterior/data da última ativa) ao
+// revalidar um reenvio - sem isso, reenviar compararia a medição contra a
+// própria tentativa anterior, em vez da medição ativa anterior a ela.
+const validateMeasurementContent=(data,contract,raw,{excludeMeasurementId=""}={})=>{
   const date=String(raw.data||raw.dataMedicao||"");
   if(!validDate(date))return {error:"Informe uma data válida para a medição."};
   if(isDateInClosedPeriod(data,date))return {error:"O período financeiro desta medição está fechado."};
-  const previousMeasurements=activeMeasurements(data,contract.id);
+  const previousMeasurements=activeMeasurements(data,contract.id)
+    .filter(item=>String(item.id)!==String(excludeMeasurementId));
   const latest=previousMeasurements.at(-1);
   if(latest&&date<String(latest.data||latest.dataMedicao||"")){
     return {error:"A nova medição não pode anteceder a última medição ativa do contrato."};
@@ -159,7 +178,7 @@ const validateMeasurement=(data,raw)=>{
     return {error:"Anexe ao menos uma fotografia da execução antes de salvar a medição."};
   }
   const stages=new Map((contract.etapas||[]).map(item=>[String(item.id),item]));
-  const previous=latestPercentages(data,contract.id);
+  const previous=latestPercentages(data,contract.id,{excludeMeasurementId});
   const ids=new Set(),items=[];
   let totalCents=0;
   for(const item of raw.itens||[]){
@@ -191,6 +210,23 @@ const validateMeasurement=(data,raw)=>{
     contract,date,items,total:totalCents/100,
     number:previousMeasurements.length+1,
   };
+};
+
+const validateMeasurement=(data,raw)=>{
+  const validation=validateContract(data,raw.tercId);
+  if(validation.error)return validation;
+  const contract=validation.contract;
+  const id=String(raw.id||"");
+  if(!id||measurementById(data,id))return {error:"Medição de terceiro sem identificação única."};
+  return validateMeasurementContent(data,contract,raw);
+};
+
+// Reenvio corrige a MESMA medição (measurement) já existente, rejeitada -
+// não passa pela checagem de "id precisa ser novo" de validateMeasurement.
+const validateMeasurementResubmission=(data,measurement,raw)=>{
+  const validation=validateContract(data,measurement.tercId);
+  if(validation.error)return validation;
+  return validateMeasurementContent(data,validation.contract,raw,{excludeMeasurementId:measurement.id});
 };
 
 const recordMeasurement=(data,command,now)=>{
@@ -232,11 +268,73 @@ const cancelMeasurement=(data,command,now)=>{
   }catch(error){return fail(error.message);}
 };
 
+const approveMeasurement=(data,command,now)=>{
+  const payload=command.payload||{},id=String(payload.measurementId||"");
+  const actor=actorOf(command),measurement=measurementById(data,id);
+  if(!measurement)return fail("Medição de terceiro não encontrada.");
+  if(!sameVersion(measurement,command.expectedVersion)){
+    return fail("A medição foi alterada por outra pessoa. Atualize a tela.");
+  }
+  if(isDateInClosedPeriod(data,measurement.data||measurement.dataMedicao)){
+    return fail("O período financeiro desta medição está fechado.");
+  }
+  try{
+    return {ok:true,data:approveThirdPartyMeasurement({data,measurementId:id,actor,now}),entityId:id};
+  }catch(error){return fail(error.message);}
+};
+
+const rejectMeasurement=(data,command,now)=>{
+  const payload=command.payload||{},id=String(payload.measurementId||"");
+  const actor=actorOf(command),measurement=measurementById(data,id);
+  if(!measurement)return fail("Medição de terceiro não encontrada.");
+  if(!sameVersion(measurement,command.expectedVersion)){
+    return fail("A medição foi alterada por outra pessoa. Atualize a tela.");
+  }
+  if(isDateInClosedPeriod(data,measurement.data||measurement.dataMedicao)){
+    return fail("O período financeiro desta medição está fechado.");
+  }
+  try{
+    return {
+      ok:true,data:rejectThirdPartyMeasurement({
+        data,measurementId:id,reason:payload.reason,actor,now,
+      }),entityId:id,
+    };
+  }catch(error){return fail(error.message);}
+};
+
+const resubmitMeasurement=(data,command,now)=>{
+  const payload=command.payload||{},id=String(payload.measurementId||"");
+  const actor=actorOf(command),measurement=measurementById(data,id);
+  if(!measurement)return fail("Medição de terceiro não encontrada.");
+  if(!sameVersion(measurement,command.expectedVersion)){
+    return fail("A medição foi alterada por outra pessoa. Atualize a tela.");
+  }
+  if(measurement.status!=="rejeitada")return fail("Só uma medição rejeitada pode ser corrigida e reenviada.");
+  const raw=payload.measurement||{};
+  const validation=validateMeasurementResubmission(data,measurement,raw);
+  if(validation.error)return fail(validation.error);
+  try{
+    const next=resubmitThirdPartyMeasurement({
+      data,actor,measurementId:id,now,
+      measurement:{
+        data:validation.date,dataMedicao:validation.date,itens:validation.items,
+        total:validation.total,observacao:raw.observacao,fotos:raw.fotos,
+      },
+    });
+    return {ok:true,data:next,entityId:id};
+  }catch(error){return fail(error.message);}
+};
+
 const payMeasurement=(data,command,now)=>{
   const payload=command.payload||{},measurementId=String(payload.measurementId||"");
   const paymentId=String(payload.payment?.id||""),actor=actorOf(command);
   const measurement=measurementById(data,measurementId);
-  if(!measurement||!active(measurement))return fail("Medição de terceiro não encontrada ou cancelada.");
+  // isThirdPartyRecordActive (não o `active` de ledger.js) aqui de propósito:
+  // uma medição "rascunho"/"rejeitada" NÃO está cancelada - ela só ainda não
+  // foi aprovada, e merece a mensagem específica abaixo, não "não encontrada
+  // ou cancelada" (que seria factualmente errado e confundiria o financeiro).
+  if(!measurement||!isThirdPartyRecordActive(measurement))return fail("Medição de terceiro não encontrada ou cancelada.");
+  if(measurement.status!=="aprovada")return fail("Esta medição ainda não foi aprovada pelo financeiro.");
   if(!sameVersion(measurement,command.expectedVersion)){
     return fail("A medição foi alterada por outra pessoa. Atualize a tela.");
   }
@@ -331,7 +429,7 @@ const saveContractStages=(data,command,now)=>{
     stages.push({...item,id,nome,valor,ordem:index});
   }
   const measuredStageIds=new Set((data.medicoesTerc||[])
-    .filter(item=>String(item.tercId)===String(contract.id)&&active(item))
+    .filter(item=>String(item.tercId)===String(contract.id)&&isThirdPartyRecordActive(item))
     .flatMap(item=>(item.itens||[]).map(stage=>String(stage.etapaId||""))));
   if([...measuredStageIds].some(id=>!ids.has(id))){
     return fail("Uma etapa já medida não pode ser removida do contrato.");
@@ -368,6 +466,9 @@ export const applyThirdPartyCommand=(data={},command={},now=new Date().toISOStri
   if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_PAYMENT_REVERSED)return reversePayment(data,command,now);
   if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED)return recordMeasurement(data,command,now);
   if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_CANCELLED)return cancelMeasurement(data,command,now);
+  if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_APPROVED)return approveMeasurement(data,command,now);
+  if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_REJECTED)return rejectMeasurement(data,command,now);
+  if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_RESUBMITTED)return resubmitMeasurement(data,command,now);
   if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_PAID)return payMeasurement(data,command,now);
   if(command.type===THIRD_PARTY_COMMAND.THIRD_PARTY_CONTRACT_STAGES_SAVED)return saveContractStages(data,command,now);
   return linkInvoice(data,command,now);

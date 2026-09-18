@@ -49,7 +49,7 @@ describe("comandos de terceiros",()=>{
     ));
     expect(created.ok).toBe(true);
     expect(created.data.medicoesTerc[0]).toMatchObject({
-      total:500,numero:1,version:1,createdById:"u-1",
+      total:500,numero:1,version:1,createdById:"u-1",status:"rascunho",
     });
     const stale=applyThirdPartyCommand(created.data,command(
       THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED,{
@@ -61,6 +61,71 @@ describe("comandos de terceiros",()=>{
     ));
     expect(stale.ok).toBe(false);
     expect(stale.reason).toMatch(/avanço anterior mudou/i);
+  });
+
+  // Achado de 18/09/2026: activeMeasurements precisa continuar contando uma
+  // medição "rascunho" (aguardando aprovação) para calcular o percentual
+  // anterior/sequência da próxima - sem isso, medição 2 "esquece" que
+  // medição 1 (ainda pendente) já avançou até 50%.
+  it("uma medição pendente (rascunho) continua servindo de base para a próxima medição do contrato",()=>{
+    const created=applyThirdPartyCommand(base(),command(
+      THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED,{measurement:measurement({version:undefined})},
+    ));
+    expect(created.data.medicoesTerc[0].status).toBe("rascunho");
+    const next=applyThirdPartyCommand(created.data,command(
+      THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED,{
+        measurement:measurement({
+          id:"m-2",data:"2026-07-29",total:100,
+          itens:[{etapaId:"e-1",pctAnterior:50,pctAcum:60,valor:100}],
+        }),
+      },"third-party-command-0002",
+    ));
+    expect(next.ok).toBe(true);
+    expect(next.data.medicoesTerc[1]).toMatchObject({numero:2,status:"rascunho"});
+  });
+
+  it("financeiro aprova a medição pendente, o pagamento passa a ser permitido",()=>{
+    const data={...base(),medicoesTerc:[measurement({status:"rascunho"})]};
+    expect(applyThirdPartyCommand(data,command(
+      THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_PAID,{
+        measurementId:"m-1",payment:{id:"p-1",date:"2026-07-28",pagador:"obra"},
+      },"third-party-payment-0001",1,
+    )).reason).toMatch(/ainda não foi aprovada/i);
+    const approved=applyThirdPartyCommand(data,command(
+      THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_APPROVED,{measurementId:"m-1"},
+      "third-party-approve-0001",1,
+    ));
+    expect(approved.ok).toBe(true);
+    expect(approved.data.medicoesTerc[0]).toMatchObject({status:"aprovada",aprovadoPorId:"u-1",version:2});
+    const paid=applyThirdPartyCommand(approved.data,command(
+      THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_PAID,{
+        measurementId:"m-1",payment:{id:"p-1",date:"2026-07-28",pagador:"obra"},
+      },"third-party-payment-0002",2,
+    ));
+    expect(paid.ok).toBe(true);
+  });
+
+  it("financeiro rejeita com motivo obrigatório; engenheiro corrige e reenvia a mesma medição",()=>{
+    const data={...base(),medicoesTerc:[measurement({status:"rascunho"})]};
+    expect(applyThirdPartyCommand(data,command(
+      THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_REJECTED,{measurementId:"m-1",reason:""},
+      "third-party-reject-0001",1,
+    )).reason).toMatch(/motivo da rejeição/i);
+    const rejected=applyThirdPartyCommand(data,command(
+      THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_REJECTED,{measurementId:"m-1",reason:"Percentual não confere"},
+      "third-party-reject-0002",1,
+    ));
+    expect(rejected.ok).toBe(true);
+    expect(rejected.data.medicoesTerc[0]).toMatchObject({status:"rejeitada",motivoRejeicao:"Percentual não confere",version:2});
+
+    const resubmitted=applyThirdPartyCommand(rejected.data,command(
+      THIRD_PARTY_COMMAND.THIRD_PARTY_MEASUREMENT_RESUBMITTED,{
+        measurementId:"m-1",
+        measurement:{data:"2026-07-30",total:500,itens:[{etapaId:"e-1",pctAnterior:0,pctAcum:50,valor:500}],fotos:[{id:"f-2"}]},
+      },"third-party-resubmit-0001",2,
+    ));
+    expect(resubmitted.ok).toBe(true);
+    expect(resubmitted.data.medicoesTerc[0]).toMatchObject({status:"rascunho",numero:1,version:3,reenviadoPorId:"u-1"});
   });
 
   it("registra pagamento manual com aprovação criada no servidor",()=>{

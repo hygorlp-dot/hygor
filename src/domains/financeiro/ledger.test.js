@@ -166,6 +166,21 @@ describe("status econômicos do razão", () => {
       expect(ledger.events.filter(event=>event.sourceId==="desp-inativa")).toEqual([]);
     },
   );
+
+  // Achado de 18/09/2026: medição de terceiro pendente de aprovação do
+  // financeiro ("rascunho") ou rejeitada não pode virar custo/obrigação no
+  // DRE - só "aprovada" reconhece. Esta exclusão já existia no código antes
+  // de qualquer comando gravar esses status de verdade (server/... a
+  // aprovação do financeiro só passou a usá-la em 18/09/2026); este teste
+  // fecha a lacuna.
+  test.each(["rascunho","rejeitada"])(
+    "medição de terceiro com status %s não produz custo nem obrigação a pagar no DRE",status=>{
+      const ledger=buildFinancialLedger({medicoesTerc:[{
+        id:"mt-pendente",obraId:"obra-1",tercId:"t-1",data:"2026-07-08",total:8000,status,
+      }]});
+      expect(ledger.events.filter(event=>event.sourceId==="mt-pendente")).toEqual([]);
+    },
+  );
 });
 
 describe("compatibilidade e pendências financeiras", () => {

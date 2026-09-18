@@ -88,6 +88,9 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
   const [etapaForm,   setEtapaForm]   = useState({ id:"", nome:"", valor:"" });
   const [medModal,    setMedModal]    = useState(false);
   const [medForm,     setMedForm]     = useState({ data: today(), observacao:"", pcts:{}, fotos:[] });
+  const [medEditId,   setMedEditId]   = useState(""); // "" = medição nova; senão, id da medição rejeitada sendo corrigida
+  const [medRejeitarModal,setMedRejeitarModal]=useState(null); // medição sendo rejeitada pelo financeiro
+  const [motivoRejeicao,setMotivoRejeicao]=useState("");
   const [subindoFotosMed,setSubindoFotosMed]=useState(false);
   const [riscoSemFotoAceito,setRiscoSemFotoAceito]=useState(false);
   const [thirdPartyCommandPending,setThirdPartyCommandPending]=useState(false);
@@ -533,11 +536,19 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
   const medicoesTercAtual = tercSel ? medicoesDo(tercSel) : [];
 
+  // Exclui a própria medição em correção (medEditId) da base de percentual
+  // anterior - mesmo motivo do excludeMeasurementId no servidor
+  // (third-party-commands.js): reenviar não pode comparar a medição contra
+  // a própria tentativa anterior, e sim contra a última medição ativa antes
+  // dela.
   const acumuladoPorEtapa = useMemo(() => {
     const mapa = {};
-    medicoesTercAtual.forEach(m => m.itens.forEach(i => { mapa[i.etapaId] = Number(i.pctAcum || 0); }));
+    medicoesTercAtual.forEach(m => {
+      if (m.id===medEditId) return;
+      m.itens.forEach(i => { mapa[i.etapaId] = Number(i.pctAcum || 0); });
+    });
     return mapa;
-  }, [data.medicoesTerc, tercSel]);
+  }, [data.medicoesTerc, tercSel, medEditId]);
 
   const somaEtapas   = etapasTerc.reduce((s, e) => s + Number(e.valor || 0), 0);
   const totalMedido  = medicoesTercAtual.reduce((s, m) => s + Number(m.total || 0), 0);
@@ -618,12 +629,27 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     await salvarEtapasNoServidor(etapas,`${nomes.length} etapas sugeridas e salvas. Ajuste os valores de cada uma.`);
   };
 
-  const abrirMedicao = () => {
+  // `medicaoParaCorrigir` (opcional): abre em modo de correção de uma
+  // medição rejeitada - pré-preenche com o conteúdo dela em vez de com o
+  // acumulado atual, e salvarMedicao passa a reenviar a MESMA medição
+  // (THIRD_PARTY_MEASUREMENT_RESUBMITTED) em vez de criar uma nova.
+  const abrirMedicao = (medicaoParaCorrigir=null) => {
     if(!podeRegistrarEvidencia){showToast("A medição e suas fotografias devem ser registradas por um engenheiro de campo ou engenheiro auditor.","error");return;}
     if (!etapasTerc.length) { showToast("Subdivida o contrato em etapas antes de medir.", "error"); return; }
-    // O formulario ja abre com o acumulado atual: voce so mexe no que avancou.
-    setMedForm({ data: today(), observacao: "",
-      pcts: Object.fromEntries(etapasTerc.map(e => [e.id, String(acumuladoPorEtapa[e.id] || 0)])), fotos:[] });
+    if(medicaoParaCorrigir){
+      setMedEditId(medicaoParaCorrigir.id);
+      setMedForm({
+        data: medicaoParaCorrigir.data||medicaoParaCorrigir.dataMedicao||today(),
+        observacao: medicaoParaCorrigir.observacao||"",
+        pcts: Object.fromEntries((medicaoParaCorrigir.itens||[]).map(i => [i.etapaId, String(i.pctAcum)])),
+        fotos: (medicaoParaCorrigir.fotos||[]).map(f=>({...f})),
+      });
+    } else {
+      setMedEditId("");
+      // O formulario ja abre com o acumulado atual: voce so mexe no que avancou.
+      setMedForm({ data: today(), observacao: "",
+        pcts: Object.fromEntries(etapasTerc.map(e => [e.id, String(acumuladoPorEtapa[e.id] || 0)])), fotos:[] });
+    }
     setMedModal(true);
   };
 
@@ -663,13 +689,14 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     if (!tercAtual) return;
     if(!podeRegistrarEvidencia){showToast("Somente um engenheiro de campo ou auditor pode registrar esta medição.","error");return;}
     if(!(medForm.fotos||[]).length){
-      showToast("Anexe ao menos uma fotografia da execução para confirmar e lançar a medição no DRE.","error");
+      showToast("Anexe ao menos uma fotografia da execução para enviar a medição para aprovação.","error");
       inputFotosMedRef.current?.click();
       return;
     }
     const itens = itensDaMedicao().filter(i => Math.abs(i.pctAcum - i.pctAnterior) > 0.0001);
     if (!itens.length) { showToast("Nenhuma etapa avançou desde a última medição.", "warn"); return; }
     const total = itens.reduce((s, i) => s + i.valor, 0);
+    const isEdicao = !!medEditId;
     const medicao = {
       tercId: tercSel, obraId: tercAtual.obraId || "",
       data: medForm.data || today(), numero: medicoesTercAtual.length + 1,
@@ -680,17 +707,33 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     if(!dispatchCommand||thirdPartyCommandPending)return;
     setThirdPartyCommandPending(true);
     try {
-      const measurementId=uid();
-      const result=await dispatchCommand(()=>({
-        type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED,
-        idempotencyKey:`third-measurement-create-${measurementId}-${uid()}`,
-        expectedVersion:0,
-        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{measurement:{...medicao,id:measurementId}},
-      }));
+      const result = isEdicao
+        ? await dispatchCommand(atual=>{
+            const vigente=(atual.medicoesTerc||[]).find(item=>item.id===medEditId);
+            return {
+              type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RESUBMITTED,
+              idempotencyKey:`third-measurement-resubmit-${medEditId}-${uid()}`,
+              expectedVersion:Number(vigente?.version||0),
+              actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+              payload:{measurementId:medEditId,measurement:medicao},
+            };
+          })
+        : await (async()=>{
+            const measurementId=uid();
+            return dispatchCommand(()=>({
+              type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_RECORDED,
+              idempotencyKey:`third-measurement-create-${measurementId}-${uid()}`,
+              expectedVersion:0,
+              actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+              payload:{measurement:{...medicao,id:measurementId}},
+            }));
+          })();
       if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a medição.");
       setMedModal(false);
-      showToast(`Medição ${medicao.numero} confirmada: ${fmt(total)} lançado nas despesas do DRE de ${fullMonth(Number(medicao.data.slice(5,7))-1)} ${medicao.data.slice(0,4)}.`);
+      setMedEditId("");
+      showToast(isEdicao
+        ? "Medição corrigida e reenviada para aprovação do financeiro."
+        : `Medição ${medicao.numero} (${fmt(total)}) enviada para aprovação do financeiro.`);
     } catch (error) {
       showToast(error.message||"Não foi possível registrar a medição.","error");
     } finally {
@@ -725,6 +768,60 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
       showToast("Medição cancelada e preservada para auditoria.");
     } catch (error) {
       showToast(error.message||"Não foi possível cancelar a medição.","error");
+    } finally {
+      setThirdPartyCommandPending(false);
+    }
+  };
+
+  const aprovarMedicao = async m => {
+    if(!podeGerenciarPagamentos){showToast("Somente o financeiro pode aprovar uma medição.","error");return;}
+    if(!dispatchCommand||thirdPartyCommandPending)return;
+    setThirdPartyCommandPending(true);
+    try {
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.medicoesTerc||[]).find(item=>item.id===m.id);
+        return {
+          type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_APPROVED,
+          idempotencyKey:`third-measurement-approve-${m.id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{measurementId:m.id},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a aprovação.");
+      showToast(`Medição ${m.numero} aprovada: ${fmt(m.total)} reconhecido nas despesas do DRE.`);
+    } catch (error) {
+      showToast(error.message||"Não foi possível aprovar a medição.","error");
+    } finally {
+      setThirdPartyCommandPending(false);
+    }
+  };
+
+  const confirmarRejeicaoMedicao = async () => {
+    const m=medRejeitarModal;
+    if(!m)return;
+    if(!podeGerenciarPagamentos){showToast("Somente o financeiro pode rejeitar uma medição.","error");return;}
+    const motivo=String(motivoRejeicao||"").trim();
+    if(!motivo){showToast("Informe o motivo da rejeição.","error");return;}
+    if(!dispatchCommand||thirdPartyCommandPending)return;
+    setThirdPartyCommandPending(true);
+    try {
+      const result=await dispatchCommand(atual=>{
+        const vigente=(atual.medicoesTerc||[]).find(item=>item.id===m.id);
+        return {
+          type:OPERATIONAL_COMMAND.THIRD_PARTY_MEASUREMENT_REJECTED,
+          idempotencyKey:`third-measurement-reject-${m.id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{measurementId:m.id,reason:motivo},
+        };
+      });
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a rejeição.");
+      setMedRejeitarModal(null);
+      setMotivoRejeicao("");
+      showToast(`Medição ${m.numero} rejeitada. O engenheiro pode corrigir e reenviar.`);
+    } catch (error) {
+      showToast(error.message||"Não foi possível rejeitar a medição.","error");
     } finally {
       setThirdPartyCommandPending(false);
     }
@@ -817,12 +914,19 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     }
   };
 
-  // Medicao registrada e ainda nao paga e divida vencida com o terceiro. Ficava
-  // invisivel: os KPIs so olhavam pagamento semanal e contrato.
+  // Medicao aprovada e ainda nao paga e divida vencida com o terceiro. Ficava
+  // invisivel: os KPIs so olhavam pagamento semanal e contrato. Só conta
+  // "aprovada" - uma medição "rascunho"/"rejeitada" ainda não é uma dívida
+  // de verdade (o pagamento é bloqueado até o financeiro aprovar).
   const medicoesAPagar = (data.medicoesTerc || []).filter(m =>
-    registroTerceiroAtivo(m)&&scopedTercIds.has(m.tercId) && !m.pagamentoId && Number(m.total || 0) > 0
+    registroTerceiroAtivo(m)&&scopedTercIds.has(m.tercId) && m.status==="aprovada" && !m.pagamentoId && Number(m.total || 0) > 0
   );
   const totalAPagarMed = medicoesAPagar.reduce((s, m) => s + Number(m.total || 0), 0);
+  // Medições aguardando aprovação do financeiro, entre TODOS os contratos -
+  // a fila que faltava (só existia por contrato, dentro da aba Medições).
+  const medicoesAguardandoAprovacao = (data.medicoesTerc || []).filter(m =>
+    registroTerceiroAtivo(m)&&scopedTercIds.has(m.tercId) && m.status==="rascunho"
+  );
   const pagamentosSemEvidencia=(data.pagsTerceiros||[]).filter(p=>
     registroTerceiroAtivo(p)&&p.medicaoTercId&&p.semEvidenciaFotografica
     &&(filterObra==="all"||p.obraId===filterObra));
@@ -850,7 +954,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
   const tabsTerceiros = [
     ["kanban","Quadro",activeTerc.length],
     ["cadastro","Cadastro",kanbanTerc.length],
-    ...(podeGerenciarMedicoes ? [["medicoes","Medições",medicoesAPagar.length]] : []),
+    ...(podeGerenciarMedicoes ? [["medicoes","Medições",medicoesAPagar.length+medicoesAguardandoAprovacao.length]] : []),
     ...(podeGerenciarPagamentos ? [["pagamentos","Pagamentos",pendingCount]] : []),
   ];
   const resumoTerceiros = [
@@ -1258,6 +1362,35 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
       {/*  VIEW: MEDICOES  */}
       {view === "medicoes" && (<>
+        {/* Fila do financeiro, entre TODOS os contratos - antes só existia
+            por contrato, dentro da tela de um contrato específico. */}
+        {podeGerenciarPagamentos && medicoesAguardandoAprovacao.length>0 && (
+          <div style={{ background:C.card, border:`1px solid ${C.orange}66`, borderRadius:4, padding:"13px 15px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+              <p style={{ fontSize:12.5, fontWeight:900, color:C.text, textTransform:"uppercase" }}>Medições aguardando aprovação</p>
+              <Badge color={C.orange}>{medicoesAguardandoAprovacao.length}</Badge>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:7, marginTop:9 }}>
+              {medicoesAguardandoAprovacao.map(m=>{
+                const t=allTerc.find(x=>x.id===m.tercId);
+                return (
+                  <div key={m.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:9, flexWrap:"wrap",
+                                            background:C.surface, border:`1px solid ${C.border}`, borderRadius:7, padding:"8px 11px" }}>
+                    <div style={{ minWidth:0 }}>
+                      <p style={{ fontSize:12, fontWeight:800, color:C.text }}>{t?.name||"Prestador"} · {fmtDateFull(m.data)}</p>
+                      <p style={{ fontSize:10.5, color:C.muted, marginTop:2 }}>{specInfo(t?.specialty).l} · {obraName(m.obraId)} · {m.itens.length} etapa(s)</p>
+                    </div>
+                    <div style={{ display:"flex", gap:7, alignItems:"center" }}>
+                      <b style={{ fontSize:13.5, color:C.text }}>{fmt(m.total)}</b>
+                      <Btn size="sm" v="success" onClick={()=>aprovarMedicao(m)} disabled={thirdPartyCommandPending}>Aprovar</Btn>
+                      <Btn size="sm" v="danger" onClick={()=>{setMedRejeitarModal(m);setMotivoRejeicao("");}}>Rejeitar</Btn>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <Sel label="Contrato" value={tercSel} onChange={setTercSel}
           options={[{v:"",l:"Selecione o terceirizado..."},
             ...kanbanTerc.map(t => ({ v:t.id, l:`${t.name} · ${specInfo(t.specialty).l}${t.obraId?` · ${obraName(t.obraId)}`:""}` }))]}/>
@@ -1444,8 +1577,13 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
             Medições ({medicoesTercAtual.length})
           </p>
           <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-            {[...medicoesTercAtual].reverse().map((m,indiceMedicao) => (
-              <div key={m.id} style={{ background:C.card, border:`1px solid ${m.pagamentoId?C.green+"66":C.orange+"66"}`,
+            {[...medicoesTercAtual].reverse().map((m,indiceMedicao) => {
+              const borderColor=m.status==="rejeitada"?C.red:m.status==="rascunho"?C.orange:m.pagamentoId?C.green:C.orange;
+              const statusLabel=m.status==="rascunho"?"aguardando aprovação do financeiro"
+                :m.status==="rejeitada"?"rejeitada pelo financeiro"
+                :m.pagamentoId?"paga":"aguardando pagamento";
+              return (
+              <div key={m.id} style={{ background:C.card, border:`1px solid ${borderColor}66`,
                                        borderRadius:4, padding:"10px 13px" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", gap:9, flexWrap:"wrap" }}>
                   <div>
@@ -1453,19 +1591,27 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                       Medição {m.numero||medicoesTercAtual.length-indiceMedicao} · {fmtDateFull(m.data)}
                     </p>
                     <p style={{ fontSize:10.5, color:C.muted, marginTop:2 }}>
-                      {m.itens.length} etapa(s) · {m.pagamentoId ? "paga" : "aguardando pagamento"}
+                      {m.itens.length} etapa(s) · {statusLabel}
                     </p>
                   </div>
                   <div style={{ textAlign:"right" }}>
                     <p style={{ fontSize:17, fontWeight:800, color:m.total>=0?C.green:C.red,
                                 fontFamily:"'Inter Display','Inter',sans-serif" }}>{fmt(m.total)}</p>
                     <span style={{ marginTop:4, display:"inline-flex" }}>
-                      <Badge color={m.pagamentoId?C.green:C.orange}>
-                        <Ic n={m.pagamentoId?"check":"clock"} s={9}/> {m.pagamentoId?"PAGO":"EM ABERTO"}
-                      </Badge>
+                      {m.status==="rascunho"
+                        ? <Badge color={C.orange}><Ic n="clock" s={9}/> AGUARDANDO APROVAÇÃO</Badge>
+                        : m.status==="rejeitada"
+                        ? <Badge color={C.red}><Ic n="x" s={9}/> REJEITADA</Badge>
+                        : <Badge color={m.pagamentoId?C.green:C.orange}>
+                            <Ic n={m.pagamentoId?"check":"clock"} s={9}/> {m.pagamentoId?"PAGO":"EM ABERTO"}
+                          </Badge>}
                     </span>
                   </div>
                 </div>
+                {m.status==="rejeitada"&&<div style={{marginTop:7,background:`${C.red}0B`,border:`1px solid ${C.red}44`,borderRadius:7,padding:"7px 9px"}}>
+                  <p style={{fontSize:10,fontWeight:850,color:C.red}}>Motivo da rejeição</p>
+                  <p style={{fontSize:10.5,color:C.text,marginTop:2}}>{m.motivoRejeicao}</p>
+                </div>}
                 <div style={{ marginTop:7, display:"flex", flexDirection:"column", gap:3 }}>
                   {m.itens.map(i => {
                     const et = etapasTerc.find(e => e.id === i.etapaId);
@@ -1515,15 +1661,19 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                     </div>
                   );
                 })()}
-                <div style={{ display:"flex", gap:7, marginTop:9, justifyContent:"flex-end" }}>
+                <div style={{ display:"flex", gap:7, marginTop:9, justifyContent:"flex-end", flexWrap:"wrap" }}>
                   {m.notaFiscalId
                     ? <Badge color={C.blue}>NF VINCULADA</Badge>
                     : <Btn size="sm" v="ghost" onClick={()=>{setNotaTercModal(m);setNotaTercId("");}}>Vincular NF</Btn>}
-                  {!m.pagamentoId && <Btn size="sm" v="success" onClick={()=>abrirPagamentoMedicao(m)}>Registrar pagamento</Btn>}
+                  {podeGerenciarPagamentos&&m.status==="rascunho"&&<Btn size="sm" v="success" onClick={()=>aprovarMedicao(m)} disabled={thirdPartyCommandPending}>Aprovar</Btn>}
+                  {podeGerenciarPagamentos&&m.status==="rascunho"&&<Btn size="sm" v="danger" onClick={()=>{setMedRejeitarModal(m);setMotivoRejeicao("");}}>Rejeitar</Btn>}
+                  {podeRegistrarEvidencia&&m.status==="rejeitada"&&<Btn size="sm" v="warning" onClick={()=>abrirMedicao(m)}>Corrigir e reenviar</Btn>}
+                  {!m.pagamentoId && m.status==="aprovada" && <Btn size="sm" v="success" onClick={()=>abrirPagamentoMedicao(m)}>Registrar pagamento</Btn>}
                   <Btn size="sm" v="ghost" onClick={()=>removerMedicao(m)}>Remover</Btn>
                 </div>
               </div>
-            ))}
+              );
+            })}
             {!medicoesTercAtual.length && (
               <p style={{ padding:18, textAlign:"center", fontSize:11.5, color:C.muted,
                           background:C.card, border:`1px solid ${C.border}`, borderRadius:8 }}>
@@ -1840,7 +1990,8 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
       {/* Modal: registrar pagamento */}
       {medModal && tercAtual && (
-        <Modal title={`Medição ${medicoesTercAtual.length + 1} - ${tercAtual.name}`} onClose={()=>setMedModal(false)} wide>
+        <Modal title={medEditId?`Corrigir medição - ${tercAtual.name}`:`Medição ${medicoesTercAtual.length + 1} - ${tercAtual.name}`}
+          onClose={()=>{setMedModal(false);setMedEditId("");}} wide>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
             <p style={{ fontSize:11.5, color:C.muted, lineHeight:1.55 }}>
               Informe o percentual <b>acumulado</b> de cada etapa - o total executado até hoje, não o avanço da semana.
@@ -1903,16 +2054,16 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
             <div style={{background:C.surface,border:`1px solid ${(medForm.fotos||[]).length?C.green:C.orange}66`,borderRadius:9,padding:"11px 12px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:9,flexWrap:"wrap"}}><div><p style={{fontSize:10.5,fontWeight:900,color:C.text,textTransform:"uppercase"}}>Evidência fotográfica obrigatória</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>As imagens ficam na pasta de fotos da obra e identificam o engenheiro responsável.</p></div><Btn size="sm" v={(medForm.fotos||[]).length?"ghost":"warning"} onClick={()=>inputFotosMedRef.current?.click()} disabled={subindoFotosMed}><Ic n="camera"/> {subindoFotosMed?"Enviando...":"Adicionar fotos"}</Btn><input ref={inputFotosMedRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/></div>
-              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:7,marginTop:9}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:`1px solid ${C.border}`}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:8.5,color:C.muted,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:10,color:C.orange,fontWeight:800,marginTop:8}}>Nenhuma fotografia anexada. Clique em “Confirmar e lançar no DRE” para selecionar a evidência.</p>}
+              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:7,marginTop:9}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:`1px solid ${C.border}`}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:8.5,color:C.muted,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:10,color:C.orange,fontWeight:800,marginTop:8}}>Nenhuma fotografia anexada. Clique em “Confirmar e enviar para aprovação” para selecionar a evidência.</p>}
             </div>
 
             <div style={{background:`${C.green}0B`,border:`1px solid ${C.green}44`,borderRadius:8,padding:"8px 11px"}}>
-              <p style={{fontSize:10,color:C.green,fontWeight:850,lineHeight:1.45}}>Ao confirmar, o valor executado será reconhecido automaticamente como despesa de terceirizado no DRE da data informada. O pagamento será apenas a baixa financeira dessa obrigação.</p>
+              <p style={{fontSize:10,color:C.green,fontWeight:850,lineHeight:1.45}}>Ao confirmar, a medição é enviada para aprovação do financeiro. Só depois de aprovada ela é reconhecida como despesa de terceirizado no DRE; o pagamento continua sendo apenas a baixa financeira dessa obrigação.</p>
             </div>
 
             <div style={{ display:"flex", gap:8 }}>
-              <Btn v="ghost" full onClick={()=>setMedModal(false)}>Cancelar</Btn>
-              <Btn full onClick={salvarMedicao} disabled={subindoFotosMed||thirdPartyCommandPending}><Ic n="check"/> {thirdPartyCommandPending?"Confirmando...":"Confirmar e lançar no DRE"}</Btn>
+              <Btn v="ghost" full onClick={()=>{setMedModal(false);setMedEditId("");}}>Cancelar</Btn>
+              <Btn full onClick={salvarMedicao} disabled={subindoFotosMed||thirdPartyCommandPending}><Ic n="check"/> {thirdPartyCommandPending?"Confirmando...":medEditId?"Corrigir e reenviar":"Confirmar e enviar para aprovação"}</Btn>
             </div>
           </div>
         </Modal>
@@ -1926,6 +2077,20 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
           </div>
           <Sel label="Nota fiscal" value={notaTercId} onChange={setNotaTercId} options={[{v:"",l:"Selecione"},...(data.notasFiscais||[]).filter(n=>!n.medicaoTercId&&n.obraId===notaTercModal.obraId&&!["cancelada","rejeitada"].includes(n.status)).map(n=>({v:n.id,l:`${n.numero||"NF"} · ${fmt(n.valorBruto)} · ${n.fornecedorNome||"Fornecedor"}`}))]}/>
           <div style={{display:"flex",gap:7}}><Btn v="ghost" full onClick={()=>{setNotaTercModal(null);setNotaTercId("");}}>Cancelar</Btn><Btn full onClick={confirmarVinculoNotaTerceiro} disabled={!notaTercId}>Vincular e conferir</Btn></div>
+        </div>
+      </Modal>}
+
+      {medRejeitarModal&&<Modal title={`Rejeitar medição ${medRejeitarModal.numero}`} onClose={()=>{setMedRejeitarModal(null);setMotivoRejeicao("");}}>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{padding:"8px 10px",background:`${C.red}08`,border:`1px solid ${C.red}55`,borderRadius:7}}>
+            <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>A medição volta para o engenheiro corrigir e reenviar. Ela não é lançada no DRE enquanto estiver rejeitada.</p>
+          </div>
+          <Inp label="Motivo da rejeição" value={motivoRejeicao} onChange={setMotivoRejeicao}
+            placeholder="Ex.: percentual não confere com a obra"/>
+          <div style={{display:"flex",gap:7}}>
+            <Btn v="ghost" full onClick={()=>{setMedRejeitarModal(null);setMotivoRejeicao("");}}>Cancelar</Btn>
+            <Btn v="danger" full onClick={confirmarRejeicaoMedicao} disabled={!motivoRejeicao.trim()||thirdPartyCommandPending}>Confirmar rejeição</Btn>
+          </div>
         </div>
       </Modal>}
 
