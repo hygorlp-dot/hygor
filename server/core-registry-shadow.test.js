@@ -97,4 +97,49 @@ describe("core registry shadow", () => {
     expect(snapshot.thirdPartyProfiles).toHaveLength(1);
     expect(snapshot.thirdPartyContracts).toEqual([]);
   });
+
+  // Achado de 18/09/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): um
+  // contrato real com endDate anterior ao startDate (erro de digitação -
+  // ano errado) violava o check de
+  // migrations/007_create_core_registry_projection.up.sql
+  // (core_third_party_contracts_check) e derrubava o prebuild inteiro -
+  // qualquer deploy parava de subir por causa de UM registro legado ruim,
+  // mesmo sem nenhuma relação com terceirizados. A projeção nunca deveria
+  // confiar que o dado de origem já está são.
+  it("não projeta contrato de terceirizado com endDate anterior ao startDate (evita quebrar o check da migration)", () => {
+    const snapshot=buildCoreRegistrySnapshot({
+      ...legacy(),
+      terceirizados:[{
+        id:"contrato-invertido", prestadorId:"prestador-1", name:"Elétrica Ltda",
+        obraId:"obra-1", specialty:"eletricista",
+        startDate:"2026-08-15", endDate:"2026-01-15",
+      }],
+    });
+    expect(snapshot.thirdPartyContracts).toEqual([]);
+    // o cadastro do prestador (sem data) continua projetado normalmente -
+    // só o contrato com a data ruim é que fica de fora.
+    expect(snapshot.thirdPartyProfiles).toHaveLength(1);
+  });
+
+  it("mesmo achado para funcionário com endDate anterior ao startDate (core_employees tem o mesmo check)", () => {
+    const snapshot=buildCoreRegistrySnapshot({
+      ...legacy(),
+      employees:[
+        ...legacy().employees,
+        { id:"emp-invertido", name:"Data Errada", obra:"obra-1", startDate:"2026-08-15", endDate:"2026-01-15" },
+      ],
+    });
+    expect(snapshot.employees.map(row => row.id)).not.toContain("emp-invertido");
+  });
+
+  it("não filtra contrato/funcionário só por ter startDate ou endDate ausente (data parcial continua válida)", () => {
+    const snapshot=buildCoreRegistrySnapshot({
+      ...legacy(),
+      terceirizados:[{
+        id:"contrato-sem-fim", prestadorId:"prestador-1", name:"Elétrica Ltda",
+        obraId:"obra-1", specialty:"eletricista", startDate:"2026-08-15",
+      }],
+    });
+    expect(snapshot.thirdPartyContracts.map(row => row.id)).toEqual(["contrato-sem-fim"]);
+  });
 });

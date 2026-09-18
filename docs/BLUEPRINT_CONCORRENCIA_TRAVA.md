@@ -4197,3 +4197,57 @@ anterior). O risco que expôs este bug (dado anterior a 04/09 nunca
 retocado) está fechado para a quinzena corrente; quinzenas já
 arquivadas (`${KEY}__arq__<id>`) não são afetadas - são cópias
 imutáveis, fora do caminho de leitura particionado por obra.
+
+## Um dado legado ruim derrubou TODO deploy (18/09/2026)
+
+Contexto: um pedido pequeno e sem relação nenhuma com isto (trocar o
+input de foto da evidência de medição de terceirizados para abrir a
+câmera direto, `accept="image/*" capture="environment"` em vez de
+`multiple`, em `TerceirosView.jsx`) expôs um problema bem maior ao
+tentar fazer deploy - o build falhou na Vercel, não pelo meu código,
+mas no `prebuild` (`npm run registry:migrate-shadow`,
+`scripts/apply-core-registry-shadow.mjs`):
+
+```
+PostgresError: new row for relation "core_third_party_contracts"
+violates check constraint "core_third_party_contracts_check"
+```
+
+Causa raiz: um contrato real de terceirizado (eletricista, tipo
+"medição", editado por um usuário em 04/09/2026) tinha
+`endDate:"2026-01-15"` anterior ao `startDate:"2026-08-15"` - quase
+certamente um erro de digitação de ano (devia ser 2027). A migration
+`007_create_core_registry_projection.up.sql` tem
+`check (end_date is null or start_date is null or end_date >= start_date)`
+em `core_third_party_contracts` (e o mesmo check em `core_employees`,
+linha 44) - e `009_create_equipment_registry_projection.up.sql` tem o
+equivalente em `core_equipment_allocations` e
+`core_equipment_maintenance_events`. Nenhum dos quatro pontos de
+projeção (`server/core-registry-shadow.js`,
+`server/equipment-registry-shadow.js`) filtrava esse caso antes de
+tentar gravar - um único registro ruim, gravado meses atrás por um
+usuário comum através da tela normal, bastou para travar **qualquer**
+deploy da aplicação inteira, não só quem tocasse em terceirizados.
+
+**Corrigido**: as quatro funções de projeção (`thirdPartyContractRow`/
+`employeeRow` em `core-registry-shadow.js`,
+`allocationRow`/`maintenanceEventRow` em
+`equipment-registry-shadow.js`) agora filtram
+`endDate anterior a startDate` (`hasValidDateRange`) antes de incluir
+a linha no snapshot a gravar - o registro ruim simplesmente fica de
+fora da projeção sombra (que ainda não é lida por nada em produção,
+só uma fundação para migração futura - ver comentário no topo de
+`core-registry-shadow.js`) em vez de derrubar o `prebuild`. O dado de
+origem (`data.terceirizados`/`data.employees`/`data.locacoesEquip`/
+`data.manutencoesEquip`) não foi alterado por este código - continua
+precisando de correção manual pelo usuário (ou por um script à parte,
+com autorização), mas essa correção deixou de ser bloqueante para
+todo mundo.
+
+**Como aplicar**: qualquer nova tabela `core_*` com check de intervalo
+de datas precisa da mesma trava na função de projeção correspondente
+- nunca confiar que `data.*` (editado livremente pela tela normal,
+sem validação de intervalo de data hoje) chega são no `prebuild`.
+Testes de referência: `server/core-registry-shadow.test.js` e
+`server/equipment-registry-shadow.test.js` (casos "não projeta
+.../endDate anterior ao startDate").

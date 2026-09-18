@@ -86,4 +86,24 @@ describe("equipment registry shadow", () => {
       { section:"maintenanceEvents", key:"inesperado", reason:"unexpected" },
     ]));
   });
+
+  // Mesmo achado de 18/09/2026 documentado em core-registry-shadow.test.js:
+  // uma locação/manutenção com fim anterior ao início (erro de digitação)
+  // viola o check de migrations/009_create_equipment_registry_projection.up.sql
+  // e derrubava o prebuild inteiro.
+  it("não projeta locação com fim anterior ao início (evita quebrar o check da migration)", () => {
+    const snapshot=buildEquipmentRegistrySnapshot({
+      ...legacy(),
+      locacoesEquip:[{ id:"loc-invertida", equipamentoId:"eq-1", obraId:"obra-1", inicio:"2026-08-15", fim:"2026-01-15", status:"ativa" }],
+    });
+    expect(snapshot.allocations).toEqual([]);
+  });
+
+  it("não projeta manutenção com fim anterior ao início (evita quebrar o check da migration)", () => {
+    const snapshot=buildEquipmentRegistrySnapshot({
+      ...legacy(),
+      manutencoesEquip:[{ id:"man-invertida", equipamentoId:"eq-1", obraId:"obra-1", inicio:"2026-08-15", fim:"2026-01-15" }],
+    });
+    expect(snapshot.maintenanceEvents).toEqual([]);
+  });
 });

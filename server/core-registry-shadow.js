@@ -5,6 +5,16 @@ export const CORE_REGISTRY_SCHEMA_VERSION = 1;
 const array = value => Array.isArray(value) ? value : [];
 const text = value => String(value ?? "").trim();
 const date = value => /^\d{4}-\d{2}-\d{2}$/.test(text(value)) ? text(value) : "";
+// Achado de 18/09/2026: um contrato de terceirizado com endDate anterior ao
+// startDate (erro de digitação no cadastro - ex.: ano errado) violava o
+// check da tabela `core_third_party_contracts`
+// (migrations/007_create_core_registry_projection.up.sql) e derrubava o
+// prebuild inteiro - qualquer deploy, mesmo sem relação com terceirizados,
+// parava de subir por causa de UM registro legado ruim. A sincronização
+// nunca deveria confiar que o dado de origem já está são - ela precisa
+// filtrar antes de tentar gravar, do mesmo jeito que já filtra
+// id/profileId/projectId ausentes na linha abaixo.
+const hasValidDateRange = row => !row.startDate || !row.endDate || row.endDate >= row.startDate;
 const version = value => Number.isInteger(Number(value)) && Number(value) >= 0
   ? Number(value)
   : 0;
@@ -126,7 +136,7 @@ const uniqueBy = (rows, keyOf) => {
 
 export const buildCoreRegistrySnapshot = data => {
   const projects=array(data?.obras).map(projectRow).filter(row => row.id && row.name);
-  const employees=array(data?.employees).map(employeeRow).filter(row => row.id && row.name);
+  const employees=array(data?.employees).map(employeeRow).filter(row => row.id && row.name && hasValidDateRange(row));
   const projectIds=new Set(projects.map(row => row.id));
   const employeeIds=new Set(employees.map(row => row.id));
   const employeeAssignments=employees.flatMap(employee => {
@@ -150,7 +160,7 @@ export const buildCoreRegistrySnapshot = data => {
     .map(supplierRow).filter(row => row.id && row.name);
   const contracts=array(data?.terceirizados)
     .map(thirdPartyContractRow)
-    .filter(row => row.id && row.profileId && row.projectId && projectIds.has(row.projectId));
+    .filter(row => row.id && row.profileId && row.projectId && projectIds.has(row.projectId) && hasValidDateRange(row));
   const profiles=uniqueBy(
     array(data?.terceirizados).map(thirdPartyProfileRow).filter(row => row.id && row.name),
     row => row.id,

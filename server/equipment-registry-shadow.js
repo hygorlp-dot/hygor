@@ -5,6 +5,12 @@ export const EQUIPMENT_REGISTRY_SCHEMA_VERSION = 1;
 const array = value => Array.isArray(value) ? value : [];
 const text = value => String(value ?? "").trim();
 const date = value => /^\d{4}-\d{2}-\d{2}$/.test(text(value)) ? text(value) : "";
+// Mesmo achado de 18/09/2026 de server/core-registry-shadow.js: um
+// registro legado com endDate anterior ao startDate (erro de digitação)
+// viola o check de migrations/009_create_equipment_registry_projection.up.sql
+// e derruba o prebuild inteiro. Filtra antes de gravar, nunca confia que o
+// dado de origem já está são.
+const hasValidDateRange = row => !row.endDate || row.endDate >= row.startDate;
 const version = value => Number.isInteger(Number(value)) && Number(value) >= 0
   ? Number(value)
   : 0;
@@ -82,9 +88,9 @@ export const buildEquipmentRegistrySnapshot = data => {
   const equipmentIds=new Set(equipment.map(row => row.id));
   const owners=array(data?.proprietariosEquip).map(ownerRow).filter(row => row.id && row.name);
   const allocations=array(data?.locacoesEquip).map(allocationRow)
-    .filter(row => row.id && row.equipmentId && row.projectId && row.startDate && equipmentIds.has(row.equipmentId));
+    .filter(row => row.id && row.equipmentId && row.projectId && row.startDate && equipmentIds.has(row.equipmentId) && hasValidDateRange(row));
   const maintenanceEvents=array(data?.manutencoesEquip).map(maintenanceEventRow)
-    .filter(row => row.id && row.equipmentId && row.projectId && row.startDate && equipmentIds.has(row.equipmentId));
+    .filter(row => row.id && row.equipmentId && row.projectId && row.startDate && equipmentIds.has(row.equipmentId) && hasValidDateRange(row));
   const snapshot={
     schemaVersion:EQUIPMENT_REGISTRY_SCHEMA_VERSION,
     complete:true,
