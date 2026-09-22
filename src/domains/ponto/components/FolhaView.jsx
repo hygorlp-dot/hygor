@@ -240,24 +240,19 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     return a?.status || a?.ot || a?.note;
   });
 
-  const belongsToSelectedObra = e => {
-    if (filterObra === "all") return true;
-    return days.some(d => {
-      if (!isEmployeeEmployedOnDate(e, d)) return false;
-      const a = getAtt(data, e.id, d);
-      const temLancamento = !!a?.status || holidaysInPeriod.includes(d);
-      const obraDoDia = a?.obraId || getEmpObraIdOnDate(e, d);
-      return temLancamento && obraDoDia === filterObra;
-    });
-  };
+  // Filtra a distribuição já calculada: feriados seguem a lotação histórica,
+  // que pode diferir da obra carimbada no ponto de um funcionário emprestado.
+  const belongsToSelectedObra = row => filterObra === "all" || row.obrasPorDia.some(o =>
+    o.obraId === filterObra && (o.totalRegistros > 0 || o.feriadosPagos > 0 || o.feriadosPerdidos > 0 || o.custoDireto > 0 || o.advancesObra > 0)
+  );
 
   // "rows" roda calcRow (soma dia a dia do periodo) por funcionario - o
   // calculo mais caro da tela. Sem useMemo, refazia tudo a cada render (ex.:
   // digitar em qualquer campo de um modal aberto por cima da folha).
   const rows = useMemo(() => data.employees
-    .filter(belongsToSelectedObra)
     .filter(e => e.active !== false || hasAttendanceInPeriod(e))
     .map(calcRow)
+    .filter(belongsToSelectedObra)
     .filter(r => r.presentes > 0 || r.meiodia > 0 || r.faltas > 0 || r.feriadosPagos > 0 || r.feriadosPerdidos > 0 || r.advances > 0 || r.gross > 0)
     .sort((a, b) => a.name.localeCompare(b.name)),
     [data.employees, data.attendance, data.changeLog, data.obras, data.advances, data.config?.unionDues, days, holidaysInPeriod, filterObra, q]);
