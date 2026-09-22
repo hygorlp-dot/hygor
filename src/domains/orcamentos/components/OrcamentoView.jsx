@@ -1,3 +1,4 @@
+import { structuralImportTargets, validateImportTargets, remapImportSources, mergeImportSummaries } from '../structural-import-targets';
 import BudgetAuditPanel from './BudgetAuditPanel';
 import { budgetChangeReceipt, undoBudgetChange, repositionBudgetItem, auditWholeBudget } from '../budget-workflow';
 import { mergeStructuralImportSources, extractStructuralSources, quantitativeSourcePages, trackManualStructuralChanges } from '../structural-provenance';
@@ -1439,6 +1440,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [pdfArrastando, setPdfArrastando] = useState(false);
   const [pdfProcessando, setPdfProcessando] = useState(false);
   const [pdfAviso, setPdfAviso] = useState("");
+  const [pdfImportTargets,setPdfImportTargets] = useState({});
   const [pdfPreviewCompleto, setPdfPreviewCompleto] = useState(null); // sapatas + pilares + aço, por pavimento
   const [pdfPreviewQuantitativos, setPdfPreviewQuantitativos] = useState(null); // array por pavimento
   const [pdfPreviewHidrossanitario, setPdfPreviewHidrossanitario] = useState(null); // 8 tabelas (folha "Tabelas e Detalhes")
@@ -1472,6 +1474,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const processarPdfProjeto = async (arquivo, tipoForcado) => {
     if (!arquivo) return;
     const tipo = tipoForcado || pdfTipoDocumento;
+    setPdfImportTargets(structuralImportTargets(orc?.memoriaCalculo));
     setPdfProcessando(true); setPdfAviso(""); setPdfPreviewCompleto(null); setPdfPreviewQuantitativos(null); setPdfPreviewHidrossanitario(null);
     try {
       const texto = await lerPdfEmSegundoPlano(arquivo);
@@ -1525,21 +1528,28 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       partes.push(`Fundação já tem ${mc.fundacao.sapatas.length} tipo(s) de sapata`);
     }
     for (const [pav, label] of PAVIMENTOS_ESTRUTURA) {
+      const destination = pdfImportTargets[pav] || pav;
+      const destinationLabel = floors.find(f => f.id === destination)?.nome || label;
       const existentes = [];
-      if (mc[pav]?.pilar?.concretoM3 || mc[pav]?.pilar?.formaM2) existentes.push("pilares");
-      if (mc[pav]?.viga?.concretoM3 || mc[pav]?.viga?.formaM2) existentes.push("vigas");
-      if (mc[pav]?.laje?.volumeM3) existentes.push("laje");
+      if (mc[destination]?.pilar?.concretoM3 || mc[destination]?.pilar?.formaM2) existentes.push("pilares");
+      if (mc[destination]?.viga?.concretoM3 || mc[destination]?.viga?.formaM2) existentes.push("vigas");
+      if (mc[destination]?.laje?.volumeM3) existentes.push("laje");
       const trazNesteImport = pdfPreviewCompleto.pilares[pav]?.length || pdfPreviewCompleto.pilaresAcoPorBitola[pav]
-        || pdfPreviewCompleto.vigasAcoPorBitola[pav] || pdfPreviewCompleto.lajesAcoPorBitola[pav];
-      if (existentes.length && trazNesteImport) partes.push(`${label} já tem ${existentes.join("/")} preenchido(s)`);
+        || pdfPreviewCompleto.vigasAcoPorBitola[pav] || pdfPreviewCompleto.lajesAcoPorBitola[pav] || pdfPreviewCompleto.resumos?.[pav];
+      if (existentes.length && trazNesteImport) partes.push(`${destinationLabel} já tem ${existentes.join("/")} preenchido(s)`);
     }
     if (!partes.length) return "Nenhum dado anterior será perdido - esses pavimentos ainda estão vazios na memória de cálculo.";
-    return `${partes.join("; ")} - tudo isso será substituído pelo que este PDF trouxer. Não tem como desfazer depois de aplicar.`;
+    return `${partes.join("; ")} - tudo isso será substituído pelo que este PDF trouxer. Você pode desfazer a última alteração após salvar.`;
   };
+  const fontesDoPdf = () => PAVIMENTOS_ESTRUTURA.filter(([pav])=>pdfPreviewCompleto
+    ? !!(pdfPreviewCompleto.resumos?.[pav] || pdfPreviewCompleto.pilares?.[pav]?.length || pdfPreviewCompleto.pilaresAcoPorBitola?.[pav] || pdfPreviewCompleto.vigasAcoPorBitola?.[pav] || pdfPreviewCompleto.lajesAcoPorBitola?.[pav])
+    : pdfPreviewQuantitativos?.some(g=>CHAVE_PAVIMENTO[g.pavimento]===pav));
+  const destinosDoPdf = () => validateImportTargets(orc?.memoriaCalculo,Object.fromEntries(fontesDoPdf().map(([pav])=>[pav,pdfImportTargets[pav] || structuralImportTargets(orc?.memoriaCalculo)[pav]])));
   const aplicarPdfPreviewCompleto = () => {
     if (!pdfPreviewCompleto) return;
+    let targets;try{targets=destinosDoPdf();}catch(error){showToast(error.message,"warn");return;}
     const memoriaAtual = orc?.memoriaCalculo || {};
-    const memoriaNova = { ...memoriaAtual, avisosImportacao:pdfPreviewCompleto.avisos||[], resumosProjeto:pdfPreviewCompleto.resumos||{}, origensEstruturais:mergeStructuralImportSources(memoriaAtual.origensEstruturais,pdfPreviewCompleto.origensEstruturais) };
+    const memoriaNova = { ...memoriaAtual, avisosImportacao:pdfPreviewCompleto.avisos||[], destinosImportacao:{...memoriaAtual.destinosImportacao,...targets}, resumosProjeto:mergeImportSummaries(memoriaAtual.resumosProjeto,pdfPreviewCompleto.resumos,targets), origensEstruturais:mergeStructuralImportSources(memoriaAtual.origensEstruturais,remapImportSources(pdfPreviewCompleto.origensEstruturais,targets)) };
 
     if (pdfPreviewCompleto.sapatas.length) {
       memoriaNova.fundacao = {
@@ -1553,13 +1563,14 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
 
     let pavimentosAtualizados = 0, bitolasAtualizadas = 0;
     for (const [pav] of PAVIMENTOS_ESTRUTURA) {
-      const pavAtual = memoriaAtual[pav] || {};
+      const destination=targets[pav] || pav;
+      const pavAtual = memoriaAtual[destination] || {};
       const encontrados = pdfPreviewCompleto.pilares[pav] || [];
       const acoPilares = pdfPreviewCompleto.pilaresAcoPorBitola[pav];
       const acoVigas = pdfPreviewCompleto.vigasAcoPorBitola[pav];
       const acoLaje = pdfPreviewCompleto.lajesAcoPorBitola[pav];
       [acoPilares, acoVigas, acoLaje].forEach(a => { if (a) bitolasAtualizadas += 1; });
-      if (!encontrados.length && !acoPilares && !acoVigas && !acoLaje) continue; // pavimento ausente desta folha - preserva o que já tinha
+      if (!encontrados.length && !acoPilares && !acoVigas && !acoLaje && !pdfPreviewCompleto.resumos?.[pav]) continue; // pavimento ausente desta folha - preserva o que já tinha
       pavimentosAtualizados += 1;
       // O orçamento só usa concreto/fôrma de pilares como total do pavimento
       // (nunca por pilar) - soma os tipos que o PDF detalha na hora de
@@ -1570,7 +1581,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       const arred2 = n => Math.round(n * 100) / 100;
       const concretoPilares = arred2(encontrados.reduce((s, p) => s + Number(p.concretoUnit || 0) * Number(p.qtd || 0), 0));
       const formaPilares = arred2(encontrados.reduce((s, p) => s + Number(p.formaUnit || 0) * Number(p.qtd || 0), 0));
-      memoriaNova[pav] = {
+      memoriaNova[destination] = {
         ...pavAtual,
         ...(encontrados.length ? { pilar: { ...novaPilarPavimento(), ...(pavAtual.pilar || {}), concretoM3: concretoPilares, formaM2: formaPilares, ...(acoPilares ? { acoPorBitola: acoPilares.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } : {}), precisaRevisar: true } } : {}),
         ...(acoPilares && !encontrados.length ? { pilar: { ...novaPilarPavimento(), ...(pavAtual.pilar || {}), acoPorBitola: acoPilares.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } } : {}),
@@ -1587,19 +1598,21 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     if (!pdfPreviewQuantitativos?.length) return "";
     const mc = orc?.memoriaCalculo || {};
     const pavimentosComDado = pdfPreviewQuantitativos
-      .map(grupo => ({ grupo, pav: CHAVE_PAVIMENTO[grupo.pavimento] }))
+      .map(grupo => ({ grupo, pav: pdfImportTargets[CHAVE_PAVIMENTO[grupo.pavimento]] || CHAVE_PAVIMENTO[grupo.pavimento] }))
       .filter(({ pav }) => pav && (mc[pav]?.viga?.concretoM3 || mc[pav]?.viga?.formaM2 || mc[pav]?.laje?.volumeM3))
-      .map(({ grupo }) => grupo.pavimento);
+      .map(({ grupo, pav }) => floors.find(f => f.id === pav)?.nome || grupo.pavimento);
     if (!pavimentosComDado.length) return "Nenhum dado anterior será perdido - esses pavimentos ainda estão vazios na memória de cálculo.";
-    return `${pavimentosComDado.join(", ")} já ${pavimentosComDado.length > 1 ? "têm" : "tem"} concreto/fôrma de vigas ou volume de laje preenchidos - serão substituídos pelo que este PDF trouxer. Não tem como desfazer depois de aplicar.`;
+    return `${pavimentosComDado.join(", ")} já ${pavimentosComDado.length > 1 ? "têm" : "tem"} concreto/fôrma de vigas ou volume de laje preenchidos - serão substituídos pelo que este PDF trouxer. Você pode desfazer a última alteração após salvar.`;
   };
   const aplicarPdfPreviewQuantitativos = () => {
     if (!pdfPreviewQuantitativos?.length) return;
+    let targets;try{targets=destinosDoPdf();}catch(error){showToast(error.message,"warn");return;}
     const memoriaAtual = orc?.memoriaCalculo || {};
-    const memoriaNova=aplicarQuantitativosEstruturais(memoriaAtual,pdfPreviewQuantitativos);
+    const memoriaNova=aplicarQuantitativosEstruturais(memoriaAtual,pdfPreviewQuantitativos,targets);
+    memoriaNova.destinosImportacao={...memoriaAtual.destinosImportacao,...targets};
     const incomingSources={};
     for(const group of pdfPreviewQuantitativos){
-      const pav=CHAVE_PAVIMENTO[group.pavimento];if(!pav)continue;
+      const source=CHAVE_PAVIMENTO[group.pavimento];if(!source)continue;const pav=targets[source] || source;
       for(const element of ['vigas','laje'])incomingSources[`${pav}-${element}`]=group.origem;
     }
     memoriaNova.origensEstruturais=mergeStructuralImportSources(memoriaAtual.origensEstruturais,incomingSources);
@@ -1622,7 +1635,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       .filter(([chave]) => atual[chave]?.length && pdfPreviewHidrossanitario[chave]?.length)
       .map(([, label]) => label);
     if (!comDado.length) return "Nenhum dado anterior será perdido - o hidrossanitário ainda está vazio na memória de cálculo.";
-    return `${comDado.join(", ")} já ${comDado.length > 1 ? "têm" : "tem"} linhas preenchidas - serão substituídas pelo que este PDF trouxer (tabela inteira, não soma/duplica). Não tem como desfazer depois de aplicar.`;
+    return `${comDado.join(", ")} já ${comDado.length > 1 ? "têm" : "tem"} linhas preenchidas - serão substituídas pelo que este PDF trouxer (tabela inteira, não soma/duplica). Você pode desfazer a última alteração após salvar.`;
   };
   const aplicarPdfPreviewHidrossanitario = () => {
     if (!pdfPreviewHidrossanitario) return;
@@ -5220,11 +5233,20 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <span style={{fontSize:9,color:C.muted}}>ou arraste o arquivo aqui</span>
             </label>
             {pdfAviso&&<p style={{fontSize:10,color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
+            {(pdfPreviewCompleto || pdfPreviewQuantitativos) && <div className="floor-create-form">
+              <strong>Destino de cada pavimento do projeto</strong>
+              <p>Escolha onde aplicar os dados. Os vínculos do destino serão preservados e suas quantidades atualizadas.</p>
+              {fontesDoPdf().map(([source,label])=><label key={source}>{label} no PDF → pavimento do memorial
+                <select value={pdfImportTargets[source] || source} onChange={e=>setPdfImportTargets(current=>({...current,[source]:e.target.value}))}>
+                  {floors.map(f=><option key={f.id} value={f.id}>{f.nome}{f.origem?' · criado por cópia':''}</option>)}
+                </select>
+              </label>)}
+            </div>}
             {pdfPreviewCompleto&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
               <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Encontrado - confira antes de aplicar.</p>
               {pdfPreviewCompleto.avisos?.map((aviso,i)=><Warning key={i}>{aviso}</Warning>)}
               <div style={{border:`1px solid ${C.orange}55`,background:`${C.orange}12`,borderRadius:6,padding:"7px 9px"}}>
-                <p style={{fontSize:10,fontWeight:850,color:C.orange}}>⚠ Reimportar substitui a versão anterior de cada pavimento - nunca soma/duplica, mas também não tem desfazer depois de aplicar.</p>
+                <p style={{fontSize:10,fontWeight:850,color:C.orange}}>⚠ Reimportar substitui a versão anterior de cada pavimento - nunca soma/duplica. É possível desfazer a última alteração após salvar.</p>
               </div>
 
               {!!pdfPreviewCompleto.sapatas.length&&<div style={{display:"flex",flexDirection:"column",gap:5}}>
@@ -5614,7 +5636,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Encontrado - confira antes de aplicar.</p>
               {pdfPreviewCompleto.avisos?.map((aviso,i)=><Warning key={i}>{aviso}</Warning>)}
                     <div style={{border:`1px solid ${C.orange}55`,background:`${C.orange}12`,borderRadius:6,padding:"7px 9px"}}>
-                      <p style={{fontSize:10,fontWeight:850,color:C.orange}}>⚠ Reimportar substitui cada tabela inteira - nunca soma/duplica, mas também não tem desfazer depois de aplicar.</p>
+                      <p style={{fontSize:10,fontWeight:850,color:C.orange}}>⚠ Reimportar substitui cada tabela inteira - nunca soma/duplica. É possível desfazer a última alteração após salvar.</p>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:3}}>
                       {CHAVES_TABELAS_HIDROSSANITARIO.filter(([chave])=>pdfPreviewHidrossanitario[chave]?.length).map(([chave,label])=>(

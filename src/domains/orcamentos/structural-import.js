@@ -1,5 +1,6 @@
 import { aplicarCriterioEstrutural } from "./structural-quantity-policy";
 import { extrairGeometriaSapata } from "./sapata-geometria.js";
+import { structuralImportTargets } from './structural-import-targets';
 import {CHAVE_PAVIMENTO,extrairElementosEstruturais,extrairResumoAco,extrairSapatasFundacao} from './estrutural-pdf-extrator.js';
 
 // O quadro de locação mede o pavimento; as caixas de detalhamento podem
@@ -65,10 +66,11 @@ export function extrairProjetoEstrutural(texto){
   return {...elementos,sapatas,resumos,avisos,resumoAcoSapatas:extrairResumoAco(foundation)};
 }
 
-export function aplicarQuantitativosEstruturais(memoria,grupos){
+export function aplicarQuantitativosEstruturais(memoria,grupos,targets=structuralImportTargets(memoria)){
   const nova={...memoria};
   for(const grupo of grupos){
-    const pav=CHAVE_PAVIMENTO[grupo.pavimento];
+    const source=CHAVE_PAVIMENTO[grupo.pavimento];
+    const pav=source && (targets[source] || source);
     if(!pav)continue;
     const atual=nova[pav]||{};
     const viga={...atual.viga,avisoConcretoIncorreto:grupo.avisoConcretoIncorreto};
