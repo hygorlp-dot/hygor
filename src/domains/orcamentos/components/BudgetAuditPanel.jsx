@@ -7,7 +7,7 @@ export default function BudgetAuditPanel({issues,onNavigate,onRemoveLink,readOnl
     <summary>Conferência do orçamento inteiro · {issues.length} ocorrência(s)</summary>
     <div className="budget-workflow-bar">
       <input aria-label="Buscar ocorrência" placeholder="Item, pavimento ou problema" value={search} onChange={e=>{setSearch(e.target.value);setLimit(50);}}/>
-      <select aria-label="Tipo de ocorrência" value={kind} onChange={e=>{setKind(e.target.value);setLimit(50);}}><option value="">Todas</option><option value="budget">Itens da planilha</option><option value="memory">Vínculos do memorial</option></select>
+      <select aria-label="Tipo de ocorrência" value={kind} onChange={e=>{setKind(e.target.value);setLimit(50);}}><option value="">Todas</option><option value="budget">Itens da planilha</option><option value="memory">Vínculos do memorial</option><option value="item-memory">Memorial item a item</option></select>
       <span>{filtered.length} ocorrência(s)</span>
     </div>
     {!issues.length&&<p>Nenhuma inconsistência encontrada nas verificações automáticas.</p>}

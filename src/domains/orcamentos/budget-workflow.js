@@ -1,3 +1,4 @@
+import { auditItemMemories } from './item-memory';
 import { budgetIsImmutable } from './calculations';
 import { auditStructuralLinks } from './structural-auto-sync';
 import { memoryBudgetItems } from './structural-budget-matching';
@@ -39,6 +40,7 @@ export function auditWholeBudget(budget){
   const issues=auditStructuralLinks(budget).map(issue=>({...issue,id:`memory:${issue.source}`,destination:'memory',canRemove:!!budget?.memoriaCalculo?.vinculosEstruturais?.[issue.source]}));
   for(const floor of memoryFloors(budget?.memoriaCalculo))if(floor.etapaId && !(budget?.etapas || []).some(s=>s.id===floor.etapaId))
     issues.push({id:`floor:${floor.id}`,floorId:floor.id,label:floor.nome,message:'Etapa do pavimento foi removida',destination:'budget'});
+  issues.push(...auditItemMemories(budget));
   const items=memoryBudgetItems(budget);
   for(const item of budget?.itens || []){
     if(item.tipo==='titulo')continue;

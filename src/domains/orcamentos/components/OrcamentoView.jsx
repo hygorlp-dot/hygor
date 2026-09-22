@@ -1,3 +1,6 @@
+import { copiedFloorRecoveries, recoverCopiedFloor } from '../copied-floor-recovery';
+import ItemMemoryPanel from './ItemMemoryPanel';
+import { saveItemMemory, syncItemMemories } from '../item-memory';
 import { structuralImportTargets, validateImportTargets, remapImportSources, mergeImportSummaries } from '../structural-import-targets';
 import BudgetAuditPanel from './BudgetAuditPanel';
 import { budgetChangeReceipt, undoBudgetChange, repositionBudgetItem, auditWholeBudget } from '../budget-workflow';
@@ -168,7 +171,7 @@ const PAVIMENTOS_ESTRUTURA = [["terreo","TÉRREO"],["pavimento1","1º PAVIMENTO"
 // projeto real não quebra os quantitativos por pavimento (a folha "Tabelas
 // e Detalhes" já consolida a obra inteira), por isso não usa o mesmo
 // aninhamento por pavimento do Estrutural.
-const DISCIPLINAS_MEMORIA = [["estrutural","ESTRUTURAL"],["hidrossanitario","HIDROSSANITÁRIO"]];
+const DISCIPLINAS_MEMORIA = [["itens","ITEM A ITEM"],["estrutural","ESTRUTURAL"],["hidrossanitario","HIDROSSANITÁRIO"]];
 
 // ===================================================================
 // Design system da Memória de Cálculo Navegável (28/08/2026, pedido
@@ -465,6 +468,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [confIALoad,  setConfIALoad] = useState(false);
   const [checkFiltro, setCheckFiltro]= useState("pendente");
   const [checkEdit,   setCheckEdit]  = useState(null);
+  const [itemMemoryFocus, setItemMemoryFocus] = useState(null);
   const [qtdModal,  setQtdModal]  = useState(null);      // item selecionado p/ informar qtd
   const [qtd,       setQtd]       = useState("");
   const [editItem,  setEditItem]  = useState(null);
@@ -967,6 +971,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     if(structural)next=trackManualStructuralChanges(before,next);
     const sync = structural ? syncStructuralQuantities(before,next) : null;
     if (sync) next = sync.budget;
+    next = syncItemMemories(next).budget;
     const receipt=budgetChangeReceipt(before,next);
     if(receipt.keys.length)setBudgetReceipt(receipt);
     const sequence = ++memorySaveSequence.current;
@@ -1094,10 +1099,13 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const linhasEstruturais = structuralBudgetRows(orc);
   const memoryIssues = auditStructuralLinks(orc);
   const budgetIssues = auditWholeBudget(orc);
+  const copiedFloorsToRecover = copiedFloorRecoveries(orc);
   const abrirOcorrenciaOrcamento = issue => {
     if(issue.floorId){setFloorEditorOpen(true);return;}
     setAuditTarget(null);
-    if(issue.destination==='memory'){
+    if(issue.destination==='item-memory'){
+      setOrcAba('memoria');setDisciplinaMemoria('itens');setItemMemoryFocus(issue.itemId);
+    } else if(issue.destination==='memory'){
       setOrcAba('memoria');setDisciplinaMemoria('estrutural');
       setElementoAbertoMemoria(current=>({...current,[issue.scope]:true}));
       requestAnimationFrame(()=>setAuditTarget(issue.scope));
@@ -4085,10 +4093,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       {setas()}
                       {colsOrc.total && (
                       <div style={{minWidth:0,overflow:"hidden",textAlign:"right",whiteSpace:"nowrap"}}>
-                        <span title={`Preço total com BDI (${bdiEfetivo}%)`} style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:12,fontWeight:800,color:alterado?C.yellowD:C.text}}>{fmt(tot)}</span>
+                        <span title={`Preço total com BDI (${bdiEfetivo}%)`} style={{display:"block",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:12,fontWeight:800,color:alterado?C.yellowD:C.text}}>{fmt(tot)}</span>
                         <button onClick={() => analisarItemDoOrcamento(it)}
                           title="Ver a composição analítica deste item"
                           style={{background:"transparent",border:0,color:C.green,cursor:"pointer",fontSize:10,fontWeight:800,padding:"0 3px",marginLeft:4}}>Comp.</button>
+                        <button onClick={() => {setItemMemoryFocus(it.id);setOrcAba('memoria');setDisciplinaMemoria('itens');}}
+                          title="Abrir memória de cálculo deste item" style={{background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:10,padding:"0 3px"}}>Mem.</button>
                         <button onClick={() => setEditItem({...it})}
                           title={it.composicao?"Editar item e composição":"Editar item"}
                           style={{background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:10,padding:"0 3px"}}>Editar</button>
@@ -5200,6 +5210,31 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             ))}
           </div>
 
+          {!budgetIsImmutable(orc) && copiedFloorsToRecover.map(recovery=><div className="memory-sync-status" key={recovery.target}>
+            <strong>{recovery.name}: os dados do projeto e os destinos estão em dois cadastros diferentes</strong>
+            <p>A etapa criada por cópia reservou {recovery.count} destinos, mas ficou sem medidas. Unifique os cadastros para usar os dados já importados e atualizar os itens vinculados. O nível e a etapa serão mantidos.</p>
+            <Btn onClick={async()=>{
+              try{
+                const current=(dataAtualRef.current.orcamentos || []).find(b=>b.id===selOrc);
+                const next=recoverCopiedFloor(current,recovery.target);
+                const result=await salvarOrc({etapas:next.etapas,memoriaCalculo:next.memoriaCalculo});
+                if(result?.ok){setElementoAbertoMemoria(current=>({...current,[`${recovery.source}-pilares`]:true}));showToast('Pavimento unificado e quantidades vinculadas atualizadas.');}
+              }catch(error){showToast(error.message,'warn');}
+            }}>Unificar {recovery.name} e atualizar orçamento</Btn>
+          </div>)}
+          {disciplinaMemoria==="itens" && <ItemMemoryPanel key={selOrc} budget={orc} budgets={orcamentosParaCopia}
+            readOnly={budgetIsImmutable(orc)} focusItemId={itemMemoryFocus}
+            onNavigate={item=>abrirOcorrenciaOrcamento({destination:'budget',itemId:item.id,stageId:item.etapaId})}
+            onOpenOwner={owner=>{setDisciplinaMemoria(owner.discipline);if(owner.scope){setElementoAbertoMemoria(current=>({...current,[owner.scope]:true}));requestAnimationFrame(()=>setAuditTarget(owner.scope));}}}
+            onSave={async(itemId,record,options)=>{
+              const current=(dataAtualRef.current.orcamentos || []).find(b=>b.id===selOrc);
+              const next=saveItemMemory(current,itemId,record,options);
+              return salvarOrc({itens:next.itens});
+            }}
+            onSaveModel={async model=>{
+              const current=(dataAtualRef.current.orcamentos || []).find(b=>b.id===selOrc);
+              return salvarOrc({modelosMemorial:[...(current.modelosMemorial || []).filter(m=>!(m.name===model.name && m.signature===model.signature)),model]});
+            }}/>}
           {disciplinaMemoria==="estrutural" && (<>
           {!budgetIsImmutable(orc) && <div><Btn onClick={()=>setAddFloorOpen(true)}>+ Adicionar pavimento</Btn></div>}
           <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 14px",display:"flex",flexWrap:"wrap",gap:"6px 28px",alignItems:"center"}}>

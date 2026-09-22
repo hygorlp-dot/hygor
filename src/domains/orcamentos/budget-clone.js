@@ -1,3 +1,4 @@
+import { blankItemMemory } from './item-memory-models';
 // Clonagem de orçamento (e, quando existir, do cronograma vinculado) de uma
 // obra de origem para uma obra de destino. Pedido do usuário (26/08/2026):
 // um botão para copiar orçamento/cronograma de outra obra, em vez de montar
@@ -41,6 +42,7 @@ export function clonarEstruturaOrcamento(orcOrigem, gerarId, { zerarQuantidades 
     id: gerarId(),
     etapaId: item.etapaId ? (etapaIdMap.get(item.etapaId) || "") : "",
     quantidade: zerarQuantidades ? 0 : item.quantidade,
+    ...(zerarQuantidades && item.memorialMedicao ? {memorialMedicao:blankItemMemory(item.memorialMedicao)} : {}),
     codigoNaoEncontrado: false,
   }));
 

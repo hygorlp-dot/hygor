@@ -1,3 +1,4 @@
+import { blankItemMemory } from './item-memory-models';
 import { budgetSubtreeIds } from './tree';
 import { budgetIsImmutable } from './calculations';
 import { novaPilarPavimento, novaVigaPavimento, novaLajePavimento } from './memoria-calculo-estrutural';
@@ -77,7 +78,7 @@ export function addBudgetFloor(budget, { nome, nivel, origem, etapaId }, gerarId
     etapas:[...budget.etapas, ...stages.map(s => ({...clone(s), id:stageMap.get(s.id),
       parentId:s.id === etapaId ? (s.parentId || '') : stageMap.get(s.parentId),
       ...(s.id === etapaId ? {nome:name,nivelM:elevation,pavimentoId:id} : {pavimentoId:undefined})}))],
-    itens:[...(budget.itens || []), ...sourceItems.map(i => ({...clone(i), id:itemMap.get(i.id), etapaId:stageMap.get(i.etapaId), quantidade:0}))],
+    itens:[...(budget.itens || []), ...sourceItems.map(i => ({...clone(i), id:itemMap.get(i.id), etapaId:stageMap.get(i.etapaId), quantidade:0, ...(i.memorialMedicao ? {memorialMedicao:blankItemMemory(i.memorialMedicao)} : {})}))],
     memoriaCalculo:{...memory, [id]:contents, pavimentosAdicionais:[...(memory.pavimentosAdicionais || []),floor], vinculosEstruturais:links},
   };
 }
