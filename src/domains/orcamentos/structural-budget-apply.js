@@ -32,7 +32,7 @@ export function structuralBudgetRows(budget) {
     const v = { ...novaVigaPavimento(), ...memory[pav]?.viga };
     result[`${pav}-pilares`] = [row("concreto", "Concreto", p.concretoM3, "m³", p.precisaRevisar), row("forma", "Fôrma", p.formaM2, "m²", p.precisaRevisar), ...steelRows(p.acoPorBitola)];
     result[`${pav}-vigas`] = [row("concreto", "Concreto", v.concretoM3, "m³", v.avisoConcretoIncorreto), row("forma", "Fôrma", v.formaM2, "m²"),
-      ...(pav === "terreo" ? [row("magro", "Lastro de concreto magro", calcularConcretoMagroViga(v), "m²")] : []), ...steelRows(v.acoPorBitola)];
+      ...(pav === "terreo" ? [row("magro", "Lastro de concreto magro", calcularConcretoMagroViga(v), "m³", !(Number(v.magroEspessuraCm) > 0))] : []), ...steelRows(v.acoPorBitola)];
     if (pav === "terreo") continue;
     const l = { ...novaLajePavimento(), ...memory[pav]?.laje };
     result[`${pav}-laje`] = [row("concreto", "Concreto total", l.volumeM3, "m³"), row("area-macica", "Área maciça", l.areaMacicaM2, "m²"), row("area-vigota", "Área de vigotas", l.areaVigotaM2, "m²"),

@@ -65,7 +65,7 @@ import {
 } from "../../../api";
 import {
   BITOLAS_ACO, FOLGA_ESCAVACAO_PADRAO_M, MALHAS_TELA_SOLDADA, PESO_TELA_SOLDADA_KG_M2, PROFUNDIDADE_ESCAVACAO_PADRAO_M,
-  alturasReferenciaSapata, calcularAcoVigotaLaje, calcularConcretoMagroViga, calcularSapataTipo, novaLajePavimento, novaPilarPavimento, novaSapataTipo, novaVigaPavimento,
+  alturasReferenciaSapata, calcularAcoVigotaLaje, calcularAreaConcretoMagroViga, calcularConcretoMagroViga, calcularSapataTipo, novaLajePavimento, novaPilarPavimento, novaSapataTipo, novaVigaPavimento,
   resumoSapatas, somaAcoPorBitola,
 } from "../memoria-calculo-estrutural";
 import {
@@ -1129,6 +1129,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const aberto = elementoEstaAberto(chave, false);
     const acoVigas = somaAcoPorBitola(viga.acoPorBitola);
     const magro = calcularConcretoMagroViga(viga);
+    const areaMagro = calcularAreaConcretoMagroViga(viga);
     const comprimento = viga.larguraVigaM>0 ? viga.areaPlantaVigasM2/viga.larguraVigaM : 0;
     return (
       <StructuralElementSection id={chave} sectionRef={registrarSecaoMemoria(chave)}
@@ -1155,9 +1156,9 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
               <EditableField label="ACRÉSCIMO DE CADA LADO (M)" ariaLabel="Largura a acrescer no magro, de cada lado" value={viga.magroLarguraAcrescidaM} onChange={v=>salvarVigaDoPavimento(pav,{magroLarguraAcrescidaM:v})}/>
               <EditableField label="ESPESSURA DO LASTRO" unit="cm" ariaLabel="Espessura do lastro de concreto magro em centímetros" value={viga.magroEspessuraCm} onChange={v=>salvarVigaDoPavimento(pav,{magroEspessuraCm:v})}/>
             </div>
-            <p style={{fontSize:12,color:C.muted,marginTop:8}}>Informe a espessura do lastro em centímetros. O quantitativo vinculado ao orçamento permanece em m².</p>
-            <div style={{marginTop:8}}><CalculatedValue label="Área do magro" value={magro.toFixed(2)} unit="m²"/></div>
-            <CalculationDetails formula={`Comprimento = ${Number(viga.areaPlantaVigasM2||0).toFixed(2)} m² em planta ÷ ${Number(viga.larguraVigaM||0).toFixed(3)} m = ${comprimento.toFixed(2)} m. Área do magro = ${comprimento.toFixed(2)} m × (${Number(viga.larguraVigaM||0).toFixed(3)} m largura + 2 × ${Number(viga.magroLarguraAcrescidaM||0).toFixed(3)} m de acréscimo) = ${magro.toFixed(2)} m².`}/>
+            <p style={{fontSize:12,color:C.muted,marginTop:8}}>Informe a espessura do lastro em centímetros. O volume vinculado ao orçamento é a área do lastro × espessura em metros (cm ÷ 100).</p>
+            <div style={{marginTop:8}}><CalculatedValue label="Volume do magro" value={Number(viga.magroEspessuraCm)>0?fmtNum(magro,4):"Informe a espessura"} unit={Number(viga.magroEspessuraCm)>0?"m³":undefined}/><CalculatedValue label="Área do lastro" value={fmtNum(areaMagro)} unit="m²"/></div>
+            <CalculationDetails formula={`Comprimento = ${Number(viga.areaPlantaVigasM2||0).toFixed(2)} m² em planta ÷ ${Number(viga.larguraVigaM||0).toFixed(3)} m = ${comprimento.toFixed(2)} m. Área do magro = ${comprimento.toFixed(2)} m × (${Number(viga.larguraVigaM||0).toFixed(3)} m largura + 2 × ${Number(viga.magroLarguraAcrescidaM||0).toFixed(3)} m de acréscimo) = ${areaMagro.toFixed(2)} m². Volume = ${areaMagro.toFixed(2)} m² × (${Number(viga.magroEspessuraCm||0)} cm ÷ 100) = ${magro.toFixed(4)} m³.`}/>
             {!viga.areaPlantaVigasM2&&viga.larguraVigaM>0&&(
               <div style={{marginTop:6}}><Warning>Área em planta ainda não importada (0 m²) - o concreto/fôrma deste pavimento vieram de uma importação anterior ao PDF de Quantitativos trazer esse dado. Reimporte o PDF de Quantitativos (seção "Importar projeto" acima) para calcular o magro.</Warning></div>
             )}

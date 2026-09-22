@@ -5,6 +5,20 @@ const base = () => ({
   memoriaCalculo: { terreo:{pilar:{concretoM3:1.06}}, pavimento1:{pilar:{concretoM3:2.4}},
     vinculosEstruturais:{"terreo-pilares.concreto":"a","pavimento1-pilares.concreto":"a"} },
 });
+it("converte a espessura em centímetros e aplica o volume do lastro em m³", () => {
+  const budget = { itens: [{ id:'lastro', descricao:'Concreto magro para lastro', unidade:'M3', quantidade:0 }],
+    memoriaCalculo: { terreo:{viga:{areaPlantaVigasM2:15.78,larguraVigaM:.15,magroLarguraAcrescidaM:.15,magroEspessuraCm:3}},
+      vinculosEstruturais:{'terreo-vigas.magro':'lastro'} } };
+  const measure = structuralBudgetRows(budget)['terreo-vigas'].find(r=>r.key==='magro');
+  expect(measure.unit).toBe('m³');
+  expect(measure.value).toBeCloseTo(1.4202,6);
+  expect(applyStructuralBudgetLinks(budget,'terreo-vigas').budget.itens[0].quantidade).toBe(1.4202);
+  budget.itens[0].unidade='M2';
+  expect(applyStructuralBudgetLinks(budget,'terreo-vigas').ok).toBe(false);
+  budget.itens[0].unidade='M3';
+  budget.memoriaCalculo.terreo.viga.magroEspessuraCm='';
+  expect(applyStructuralBudgetLinks(budget,'terreo-vigas').ok).toBe(false);
+});
 it("soma fontes compartilhadas e reaplica sem duplicar, preservando preços e itens alheios", () => {
   const budget=base();
   const first=applyStructuralBudgetLinks(budget,"terreo-pilares");

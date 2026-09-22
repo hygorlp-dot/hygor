@@ -207,13 +207,18 @@ export function novaVigaPavimento(extra = {}) {
   };
 }
 
-export function calcularConcretoMagroViga(viga) {
+export function calcularAreaConcretoMagroViga(viga) {
   const areaPlanta = Number(viga?.areaPlantaVigasM2 || 0);
   const largura = Number(viga?.larguraVigaM || 0);
   const acrescimo = Number(viga?.magroLarguraAcrescidaM || 0);
   if (!areaPlanta || !largura) return 0;
   const comprimento = areaPlanta / largura;
   return comprimento * (largura + 2 * acrescimo);
+}
+
+export function calcularConcretoMagroViga(viga) {
+  const espessuraM = Number(viga?.magroEspessuraCm || 0) / 100;
+  return calcularAreaConcretoMagroViga(viga) * espessuraM;
 }
 
 // Peso nominal (kg/m²) de tela soldada nervurada CA-60, por bitola de malha
