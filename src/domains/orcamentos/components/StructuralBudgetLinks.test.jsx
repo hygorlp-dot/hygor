@@ -47,3 +47,20 @@ it("mantém leitura sem permitir redefinir destinos em orçamento bloqueado", ()
   expect(compatibleMemoryUnit("m²", "m3")).toBe(false);
   expect(compatibleMemoryUnit("", "")).toBe(false);
 });
+
+it("mostra a origem e a etapa do destino e exclui serviços diferentes em m³", () => {
+  const value = { ...budget, itens: [...budget.itens, { id: "exc", etapaId: "stage", descricao: "Escavação", unidade: "m³" }] };
+  render(value);
+  expect(container.textContent).toContain("Térreo · Estrutura");
+  expect(container.textContent).toContain("Estrutura");
+  act(() => container.querySelector("button").click());
+  expect([...container.querySelector("select").options].map(option => option.value)).toEqual(["", "concrete"]);
+  expect(container.querySelector("select").getAttribute("aria-label")).toBe("Destino de Concreto · Térreo · Estrutura");
+});
+
+it("preserva vínculo antigo inadequado com aviso para revisão", () => {
+  render({ ...budget, itens: [{ ...budget.itens[0], descricao: "Escavação" }] });
+  expect(container.textContent).toContain("O serviço vinculado não corresponde a concreto");
+  act(() => container.querySelector("button").click());
+  expect(container.querySelector("select").value).toBe("concrete");
+});
