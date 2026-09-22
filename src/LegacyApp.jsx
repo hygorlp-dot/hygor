@@ -12672,6 +12672,12 @@ function dadosDaObraIsolados(data,obraId){
 // a versão mais recente do servidor, sem trazer de volta coleções antigas do
 // painel isolado.
 function recomporDadosDaObra(base,proximos,obraId){
+  // Um snapshot do painel traz todas as seções isoladas. Reaplicar as que
+  // não mudaram reordena listas financeiras e provoca uma falsa mutação.
+  const recorteOriginal=dadosDaObraIsolados(base,obraId);
+  proximos=Object.fromEntries(Object.entries(proximos||{}).filter(([chave,valor])=>
+    valor!==recorteOriginal[chave] && JSON.stringify(valor)!==JSON.stringify(recorteOriginal[chave])
+  ));
   const funcionariosAtuais=(base.employees||[]).filter(e=>e.obra===obraId);
   const terceirosAtuais=(base.terceirizados||[]).filter(t=>t.obraId===obraId);
   const idsFuncionarios=new Set(funcionariosAtuais.map(e=>e.id));

@@ -1,3 +1,4 @@
+import { correspondeBuscaComposicao, composicaoComoReferencia } from "../composition-search";
 import { recuperarGeometriaSapatas } from "../sapata-geometria-recovery";
 import StructuralBudgetLinks from "./StructuralBudgetLinks";
 import { extrairProjetoEstrutural, aplicarQuantitativosEstruturais } from "../structural-import";
@@ -412,6 +413,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [compForm,setCompForm]=useState(compFormVazio());
   const [clonandoComposicao,setClonandoComposicao]=useState("");
   const [compBusca,setCompBusca]=useState("");
+  const [buscaComposicoesSalvas,setBuscaComposicoesSalvas]=useState("");
   const buscaCompRef=useRef(null);   // foco no campo ao clicar em "importar da base"
   const [compBuscaDebounced,setCompBuscaDebounced]=useState("");
   const [compResultados,setCompResultados]=useState([]);
@@ -718,7 +720,11 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   };
 
   //  Base de busca: favoritos (curadoria da empresa, ver data.baseFavoritos)
-  const baseBusca = useMemo(() => (data.baseFavoritos||[]).map(f => ({...f, _fav:true})), [data.baseFavoritos]);
+  const baseBusca = useMemo(() => {
+    const mapa=new Map();
+    [...(data.baseFavoritos||[]),...composicoesEmpresa.map(composicaoComoReferencia)].forEach(item=>mapa.set(`${item.fonte||""}|${item.codigo}`,{...item,_fav:true}));
+    return [...mapa.values()];
+  }, [data.baseFavoritos,composicoesEmpresa]);
 
   // Busca sem acento: ninguém digita "VEDAÇÃO" na barra de pesquisa.
   // Normaliza os dois lados (NFD + remove diacríticos) antes de comparar.
@@ -839,12 +845,13 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       setCompResultados([]);setCompBuscaLoading(false);setCompBuscaAviso("");
       return()=>{ativo=false;};
     }
-    const normalizado=termo.toLocaleLowerCase("pt-BR");
-    const locais=compTipoBusca==="COMPOSICAO"?[]:(data.materiais||[]).filter(item=>item.ativo!==false&&
-      `${item.codigo||""} ${item.descricao||""}`.toLocaleLowerCase("pt-BR").includes(normalizado)).map(item=>({
+    const materiaisLocais=compTipoBusca==="COMPOSICAO"?[]:(data.materiais||[]).filter(item=>item.ativo!==false&&
+      correspondeBuscaComposicao(item,termo)).map(item=>({
         fonte:"PRÓPRIA",tipoItem:"INSUMO",codigo:item.codigo,descricao:item.descricao,
         unidade:maiusculoOrcamento(item.unidade||"UN"),precoUnit:Number(item.precoMedio||0),_local:true,
       }));
+    const propriasLocais=compTipoBusca==="INSUMO"?[]:composicoesEmpresa.map(composicaoComoReferencia).filter(item=>correspondeBuscaComposicao(item,termo));
+    const locais=[...materiaisLocais,...propriasLocais];
     if(!(orc.referencias||[]).length){setCompResultados(locais);setCompBuscaLoading(false);setCompBuscaAviso("");return()=>{ativo=false;};}
     setCompBuscaLoading(true);setCompBuscaAviso("");
     const timer=window.setTimeout(async()=>{
@@ -855,7 +862,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       setCompBuscaLoading(false);
     },120);
     return()=>{ativo=false;window.clearTimeout(timer);};
-  },[compBuscaDebounced,compTipoBusca,orcAba,referenciaKey,selOrc,data.materiais]);
+  },[compBuscaDebounced,compTipoBusca,orcAba,referenciaKey,selOrc,data.materiais,composicoesEmpresa]);
 
   //  CRUD orçamento 
   const criarOrc = () => {
@@ -2030,6 +2037,11 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     setAnaliseComponentes([]);
     setAnaliseReferenciaAviso("");
     if(referencia?.tipoItem!=="COMPOSICAO")return;
+    if(referencia.fonte==="PRÓPRIA" && Array.isArray(referencia.itens)){
+      setAnaliseReferenciaLoading(false);
+      setAnaliseComponentes(referencia.itens.map(sub=>({fonte:sub.fonte||"PRÓPRIA",itemType:sub.tipoItem||"INSUMO",itemCode:sub.codigo,descricao:sub.descricao,unidade:sub.unidade||"UN",coeficiente:Number(sub.coeficiente||0),precoUnit:Number(sub.precoUnit||0)})));
+      return;
+    }
     if(!(orc?.referencias||[]).length){
       setAnaliseReferenciaAviso("Vincule uma base ao orçamento para abrir a composição.");return;
     }
@@ -4931,7 +4943,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <div><p style={{fontSize:13,fontWeight:800,color:C.text}}>COMPOSIÇÕES SALVAS</p><p style={{fontSize:9.5,color:C.muted}}>{composicoesEmpresa.length} cadastrada(s) na empresa</p></div>
               <Btn size="sm" v="ghost" onClick={()=>novaComposicao()}>NOVA</Btn>
             </div>
-            <div style={{display:"flex",flexDirection:"column",gap:5}}>{composicoesEmpresa.map(comp=>{
+            <Inp label="Buscar nas composições salvas" value={buscaComposicoesSalvas} onChange={setBuscaComposicoesSalvas} placeholder="Ex.: baldrame concreto — palavras em qualquer ordem"/>
+            <div style={{display:"flex",flexDirection:"column",gap:5}}>{composicoesEmpresa.filter(comp=>correspondeBuscaComposicao(comp,buscaComposicoesSalvas)).map(comp=>{
               const custo=(comp.itens||[]).reduce((s,item)=>s+Number(item.coeficiente||0)*Number(item.precoUnit||0),0);
               return <div key={comp.id} style={{border:`1px solid ${compForm.id===comp.id?C.blue:C.border}`,borderRadius:7,padding:"8px 9px",background:compForm.id===comp.id?`${C.blue}08`:C.surface}}>
                 <p style={{fontSize:10,fontWeight:800,color:C.blue}}>{comp.codigo} · {comp.unidade}</p>
@@ -4945,7 +4958,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   </div>
                 </div>
               </div>;
-            })}{!composicoesEmpresa.length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:14}}>Nenhuma composição da empresa.</p>}</div>
+            })}{!composicoesEmpresa.some(comp=>correspondeBuscaComposicao(comp,buscaComposicoesSalvas))&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:14}}>Nenhuma composição encontrada.</p>}</div>
           </div>
           <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:12,display:"flex",flexDirection:"column",gap:10}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
