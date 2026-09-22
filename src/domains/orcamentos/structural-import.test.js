@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {describe,it,expect} from 'vitest';
 import {extrairProjetoEstrutural,aplicarQuantitativosEstruturais} from './structural-import';
 import {extrairResumoAco} from './estrutural-pdf-extrator';
-import {resumoSapatas,calcularSapataTipo} from './memoria-calculo-estrutural';
+import {alturasReferenciaSapata,resumoSapatas,calcularSapataTipo} from './memoria-calculo-estrutural';
 const foundation=readFileSync(new URL('./fixtures/foundation-extraction.txt',import.meta.url),'utf8');
 const table=(name,volume='2.400',steel='310')=>`${name}\nElemento\nFôrmas\n(m2)\nSuperfície\n(m2)\nVolume\n(m3)\nBarras\n(kg)\nLajes de vigotas\n-\n90.38\n7.950\n164\nVigas\n120.58\n23.90\n12.090\n795\nPilares\n46.91\n-\n${volume}\n${steel}\nTotal`;
 const steel=(kind,kg,bar='Ø10')=>`Resumo Aço\n${kind}\nComp. total\n(m)\nPeso+10%\n(kg)\n${bar}\n19.6\n${kg}\nTotal\n${kg}\nTotal`;
@@ -55,5 +55,18 @@ describe('importação estrutural conferida',()=>{
     expect(next.reservatorio).toMatchObject({viga:{concretoM3:.74,formaM2:7.23,avisoConcretoIncorreto:true},laje:{volumeM3:0,areaVigotaM2:7.38,acoTotalProjetoKg:8}});
     expect(aplicarQuantitativosEstruturais(next,groups)).toEqual(next);
     expect(m.reservatorio.viga.concretoM3).toBeUndefined();
+  });
+});
+
+
+describe('alturas de referência dos dados já importados',()=>{
+  it.each([['30 / 20',.2,.1],['40 / 20',.2,.2],['35 / 20',.2,.15],['50 / 30',.3,.2]])('mostra base e trecho inclinado para %s, sem usar zeros legados',(cotas,base,inclinado)=>{
+    const tipo={alturasProjetoCm:cotas,alturaBase:0,alturaTronco:0,geometriaPendente:true};
+    expect(alturasReferenciaSapata(tipo)).toMatchObject({base,trechoInclinado:inclinado});
+    expect(tipo.alturaBase).toBe(0);
+    expect(tipo.geometriaPendente).toBe(true);
+  });
+  it.each(['','30 /','20 / 30','0 / 0','inválido'])('não fabrica alturas para referência inválida %s',alturasProjetoCm=>{
+    expect(alturasReferenciaSapata({alturasProjetoCm})).toBeNull();
   });
 });

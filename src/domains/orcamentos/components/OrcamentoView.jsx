@@ -61,7 +61,7 @@ import {
 } from "../../../api";
 import {
   BITOLAS_ACO, FOLGA_ESCAVACAO_PADRAO_M, MALHAS_TELA_SOLDADA, PESO_TELA_SOLDADA_KG_M2, PROFUNDIDADE_ESCAVACAO_PADRAO_M,
-  calcularAcoVigotaLaje, calcularConcretoMagroViga, calcularSapataTipo, novaLajePavimento, novaPilarPavimento, novaSapataTipo, novaVigaPavimento,
+  alturasReferenciaSapata, calcularAcoVigotaLaje, calcularConcretoMagroViga, calcularSapataTipo, novaLajePavimento, novaPilarPavimento, novaSapataTipo, novaVigaPavimento,
   resumoSapatas, somaAcoPorBitola,
 } from "../memoria-calculo-estrutural";
 import {
@@ -5272,6 +5272,17 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       // de gravar.
                       const numInput=(campo,largura="100%",rotulo=ROTULO_CAMPO_SAPATA[campo])=><input type="number" step="any" min="0" className="sapata-num-input" aria-label={rotulo} value={tipo[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[campo]:e.target.value.replace(",",".")})}
                         style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:dSapatas.fonte}}/>;
+                      const resultadoGeometria = (valor, campoConferido) => {
+                        const conferido = campoConferido && tipo[campoConferido] != null && tipo[campoConferido] !== "";
+                        if (tipo.geometriaPendente && !conferido) return <span style={{color:C.orange}} title="Geometria ainda não conferida. Não representa quantidade zero.">Pendente</span>;
+                        return valor.toFixed(2);
+                      };
+                      const alturaGeometria = campo => {
+                        if (!tipo.alturasProjetoCm) return numInput(campo);
+                        const alturas = alturasReferenciaSapata(tipo);
+                        const valor = campo === "alturaBase" ? alturas?.base : alturas?.trechoInclinado;
+                        return <span title={`Referência do PDF: ${tipo.alturasProjetoCm} cm (total / borda). O trecho superior é inclinado; seu volume depende das dimensões do topo.`} style={{color:C.text}}>{Number.isFinite(valor) && valor >= 0 ? valor.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "Pendente"}</span>;
+                      };
                       const armInput=(direcao,campo,largura="100%")=><input type="number" step="any" min="0" className="sapata-num-input" aria-label={`${campo==="quantidade"?"Quantidade":"Comprimento"} da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value.replace(",",".")}})}
                         style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:dSapatas.fonte}}/>;
                       const armSelect=direcao=><select aria-label={`Bitola da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.bitola} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],bitola:e.target.value}})}
@@ -5289,21 +5300,28 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                               {tipo.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo desta linha remove este aviso." style={{flexShrink:0,width:7,height:7,borderRadius:"50%",background:C.orange}}/>}
                               <input aria-label="Tipo (referência dos pilares)" value={tipo.tipo} onChange={e=>atualizarSapataTipo(tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:"100%",boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:dSapatas.fonte}}/>
                             </div>
+                            {tipo.alturasProjetoCm&&<div style={{marginTop:4,fontSize:11}}>
+                              <span>Cotas do PDF: {tipo.alturasProjetoCm} cm</span>
+                              <button type="button" style={{display:"block",border:0,background:"transparent",color:C.blue,cursor:"pointer",padding:"4px 0",textDecoration:"underline"}} onClick={()=>{
+                                const detalhe=document.getElementById(`conferencia-sapata-${tipo.id}`);
+                                if(detalhe){detalhe.open=true;detalhe.scrollIntoView({block:"center",behavior:"smooth"});detalhe.querySelector("input")?.focus({preventScroll:true});}
+                              }}>Conferir geometria</button>
+                            </div>}
                           </td>
                           <td style={{padding:dSapatas.pad,position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:1,background:corFixa,borderRight:`1px solid ${C.line}`}}>{numInput("qtd")}</td>
                           <td style={{padding:dSapatas.pad}}>{numInput("largura")}</td>
                           <td style={{padding:dSapatas.pad}}>{numInput("comprimento")}</td>
-                          <td style={{padding:dSapatas.pad}}>{numInput("alturaBase")}</td>
-                          <td style={{padding:dSapatas.pad}}>{numInput("alturaTronco")}</td>
+                          <td style={{padding:dSapatas.pad}}>{alturaGeometria("alturaBase")}</td>
+                          <td style={{padding:dSapatas.pad}}>{alturaGeometria("alturaTronco")}</td>
                           <td style={{padding:dSapatas.pad}} title="Quanto a cova é maior que a sapata, de cada lado (2x este valor soma em largura e em comprimento)">{numInput("folgaEscavacao")}</td>
                           <td style={{padding:dSapatas.pad}}>{numInput("profundidadeEscavacao")}</td>
                           <td style={{padding:dSapatas.pad,textAlign:"right",color:calc.escavacaoInsuficiente?C.red:C.blue,fontWeight:700}} title={calc.escavacaoInsuficiente?`⚠ A cova (${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m) é menor que o volume de concreto da sapata - confira as medidas, a sapata não cabe nessa escavação.`:`Cova: ${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m`}>{calc.escavacaoInsuficiente?"⚠ ":""}{calc.volumeEscavacaoTotal.toFixed(2)}</td>
                           <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{calc.areaConcretoMagroTotal.toFixed(2)}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}} title="Perímetro da base x altura da base">{calc.formaAreaTotal.toFixed(2)}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{calc.volumeBaseTotal.toFixed(2)}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{calc.volumeTroncoTotal.toFixed(2)}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:800,color:C.text}}>{calc.volumeSapataTotal.toFixed(2)}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.orange}}>{calc.reaterroTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}} title="Perímetro da base x altura da base">{resultadoGeometria(calc.formaAreaTotal,"formaConferidaM2")}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{tipo.alturasProjetoCm ? <span title="O volume conferido da sapata não é decomposto em prismas nesta tabela">—</span> : calc.volumeBaseTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{tipo.alturasProjetoCm ? <span title="O volume conferido da sapata não é decomposto em prismas nesta tabela">—</span> : calc.volumeTroncoTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:800,color:C.text}}>{resultadoGeometria(calc.volumeSapataTotal,"volumeConferidoM3")}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.orange}}>{resultadoGeometria(calc.reaterroTotal)}</td>
                           <td style={{padding:dSapatas.pad}}>{armSelect("armaduraX")}</td>
                           <td style={{padding:dSapatas.pad}}>{armInput("armaduraX","quantidade")}</td>
                           <td style={{padding:dSapatas.pad}}>{armInput("armaduraX","comprimento")}</td>
@@ -5340,7 +5358,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 {!resumoSapatasFundacao.linhas.length&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhum tipo de sapata cadastrado. Clique em "NOVO TIPO" para começar.</p>}
               </div>
 
-              {sapatasFundacao.filter(s=>s.alturasProjetoCm||s.armadurasSuperiores?.length).map(s=><details key={s.id} className="memory-disclosure">
+              {sapatasFundacao.filter(s=>s.alturasProjetoCm||s.armadurasSuperiores?.length).map(s=><details key={s.id} id={`conferencia-sapata-${s.id}`} className="memory-disclosure">
                 <summary>{s.tipo} · {s.geometriaPendente ? "⚠ Geometria pendente" : "Conferência do projeto"} · {s.qtd || 0} peça(s)</summary>
                 {s.alturasProjetoCm&&<>
                   <p>Alturas impressas: {s.alturasProjetoCm} cm. Informe os quantitativos conferidos por peça, considerando o topo inclinado. As colunas de base/tronco não decompõem esse volume conferido.</p>

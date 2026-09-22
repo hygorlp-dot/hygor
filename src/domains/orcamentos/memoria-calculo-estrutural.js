@@ -18,6 +18,17 @@ export const BITOLAS_ACO = Object.keys(PESO_ACO_KG_M).sort((a, b) => Number(a) -
 
 export const pesoUnitarioAco = bitola => PESO_ACO_KG_M[String(bitola).replace(",", ".")] || 0;
 
+// Referência de leitura do CAD: altura total / altura da borda, em cm.
+// Não altera o modelo de cálculo prismático nem libera volumes pendentes.
+export function alturasReferenciaSapata(tipo) {
+  const match = String(tipo?.alturasProjetoCm || "").match(/^\s*(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)\s*$/);
+  if (!match) return null;
+  const total = Number(match[1].replace(",", ".")) / 100;
+  const base = Number(match[2].replace(",", ".")) / 100;
+  if (total <= 0 || base <= 0 || base > total) return null;
+  return { base, trechoInclinado: Math.round((total - base) * 1e8) / 1e8, total };
+}
+
 // 10% de perda fixo, mesma convenção do "peso+10%" que já aparece pronta no
 // projeto estrutural (resumo de aço por bitola).
 const PERDA_ACO = 0.10;
