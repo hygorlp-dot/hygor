@@ -61,25 +61,26 @@ export function calcularSapataTipo(tipoRow) {
   const areaConcretoMagroUnit = largura * comprimento;
   const volumeBaseUnit = largura * comprimento * alturaBase;
   const volumeTroncoUnit = largura * comprimento * alturaTronco;
-  const volumeSapataUnit = volumeBaseUnit + volumeTroncoUnit;
+  const volumeSapataUnit = tipoRow?.volumeConferidoM3!=null&&tipoRow.volumeConferidoM3!=="" ? Math.max(0,Number(tipoRow.volumeConferidoM3)||0) : volumeBaseUnit + volumeTroncoUnit;
   // Achado da crítica Impeccable (27/08/2026): zerar o reaterro negativo
   // escondia silenciosamente uma inconsistência geométrica real (a sapata
   // não cabe na própria cova) - agora fica marcada para a tela avisar.
   const escavacaoInsuficiente = volumeSapataUnit > 0 && volumeEscavacaoUnit < volumeSapataUnit;
-  const reaterroUnit = Math.max(0, volumeEscavacaoUnit - volumeSapataUnit);
+  const reaterroUnit = tipoRow?.geometriaPendente ? 0 : Math.max(0, volumeEscavacaoUnit - volumeSapataUnit);
   // Fôrmas = perímetro da base x altura da base (convenção confirmada com o
   // usuário) - só a base leva fôrma; o tronco fica coberto pela cova.
-  const formaAreaUnit = 2 * (largura + comprimento) * alturaBase;
+  const formaAreaUnit = tipoRow?.formaConferidaM2!=null&&tipoRow.formaConferidaM2!=="" ? Math.max(0,Number(tipoRow.formaConferidaM2)||0) : 2 * (largura + comprimento) * alturaBase;
 
   const pesoArmadura = direcao => pesoUnitarioAco(direcao?.bitola) * Number(direcao?.quantidade || 0) * Number(direcao?.comprimento || 0) * (1 + PERDA_ACO);
   const pesoXUnit = pesoArmadura(tipoRow?.armaduraX);
   const pesoYUnit = pesoArmadura(tipoRow?.armaduraY);
+  const pesoSuperiorUnit=(tipoRow?.armadurasSuperiores||[]).reduce((s,a)=>s+pesoArmadura(a),0);
 
   return {
     larguraEscavacaoUnit, comprimentoEscavacaoUnit,
     volumeEscavacaoUnit, areaConcretoMagroUnit, volumeBaseUnit, volumeTroncoUnit, volumeSapataUnit, reaterroUnit, formaAreaUnit,
     escavacaoInsuficiente,
-    pesoXUnit, pesoYUnit, pesoAcoUnit: pesoXUnit + pesoYUnit,
+    pesoXUnit, pesoYUnit, pesoSuperiorUnit, pesoAcoUnit: pesoXUnit + pesoYUnit + pesoSuperiorUnit,
     volumeEscavacaoTotal: volumeEscavacaoUnit * qtd,
     areaConcretoMagroTotal: areaConcretoMagroUnit * qtd,
     volumeBaseTotal: volumeBaseUnit * qtd,
@@ -89,7 +90,7 @@ export function calcularSapataTipo(tipoRow) {
     formaAreaTotal: formaAreaUnit * qtd,
     pesoXTotal: pesoXUnit * qtd,
     pesoYTotal: pesoYUnit * qtd,
-    pesoAcoTotal: (pesoXUnit + pesoYUnit) * qtd,
+    pesoAcoTotal: (pesoXUnit + pesoYUnit + pesoSuperiorUnit) * qtd,
   };
 }
 
@@ -102,7 +103,7 @@ export function resumoSapatas(tipos) {
 
   const porBitola = new Map();
   linhas.forEach(({ tipo, calc }) => {
-    [[tipo?.armaduraX, calc.pesoXTotal], [tipo?.armaduraY, calc.pesoYTotal]].forEach(([direcao, peso]) => {
+    [[tipo?.armaduraX, calc.pesoXTotal], [tipo?.armaduraY, calc.pesoYTotal], ...(tipo?.armadurasSuperiores||[]).map(a=>[a,pesoUnitarioAco(a.bitola)*Number(a.quantidade||0)*Number(a.comprimento||0)*(1+PERDA_ACO)*Number(tipo.qtd||0)])].forEach(([direcao, peso]) => {
       if (!direcao || !(peso > 0)) return;
       const chave = String(direcao.bitola);
       porBitola.set(chave, (porBitola.get(chave) || 0) + peso);

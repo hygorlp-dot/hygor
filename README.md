@@ -87,15 +87,24 @@ depende de `20260725_append_only_audit.sql`; o arquivamento de ponto depende
 de `006_attendance_archive_transaction.up.sql`. O painel administrativo
 possui a ação `persistence-health` para confirmar essas RPCs.
 
-O build não executa migrations nem sincroniza dados. A preparação do motor
-financeiro é uma ação operacional explícita:
+`npm run build` executa automaticamente o `prebuild` definido em
+`package.json`. Além das verificações de prontidão financeira e integridade
+do catálogo, ele chama scripts de migração/sincronização dos registros
+financeiros, cadastros, equipamentos, compras e ponto, e de configuração de
+RLS do motor financeiro. Esses scripts possuem suas próprias condições de
+execução; em produção, podem alterar o banco com as credenciais configuradas.
+
+Para validar somente a compilação local, sem acionar o `prebuild`, use:
 
 ```bash
-npm run financial:migrate-shadow
+node node_modules/vite/bin/vite.js build
 ```
 
-Execute-a somente com as variáveis de produção carregadas e antes de ativar
-`FINANCIAL_ENGINE_ENFORCE`.
+A preparação financeira também pode ser chamada diretamente com
+`npm run financial:migrate-shadow`. Esse script só executa com
+`VERCEL_ENV=production` e exige `POSTGRES_URL_NON_POOLING`, `SUPABASE_URL`
+e `SUPABASE_SERVICE_ROLE_KEY`. Revise o ambiente de destino antes de
+executá-lo e conclua a preparação antes de ativar `FINANCIAL_ENGINE_ENFORCE`.
 
 ---
 

@@ -1,3 +1,4 @@
+import { extrairProjetoEstrutural, aplicarQuantitativosEstruturais } from "../structural-import";
 // ===================================================================
 // OrcamentoView — tela de Orçamento extraída de LegacyApp.jsx
 //
@@ -63,7 +64,7 @@ import {
   resumoSapatas, somaAcoPorBitola,
 } from "../memoria-calculo-estrutural";
 import {
-  CHAVE_PAVIMENTO, extrairElementosEstruturais, extrairQuantitativosPavimentos, extrairResumoAco, extrairSapatasFundacao,
+  CHAVE_PAVIMENTO, extrairQuantitativosPavimentos,
 } from "../estrutural-pdf-extrator";
 import {
   novaLinhaCaixa, novaLinhaConexao, novaLinhaContagem, novaLinhaPeca, novaLinhaTuboFlexivel, novaLinhaTuboRigido,
@@ -157,8 +158,8 @@ const ROTULO_CAMPO_SAPATA = {
 // existe "Vigas Baldrame" separado no projeto, é a própria Vigas do
 // Térreo, confirmado com o usuário). Só 1º Pavimento/Cobertura têm laje -
 // o Térreo se apoia direto nas vigas/sapatas, sem laje entre eles.
-const PAVIMENTOS_ESTRUTURA = [["terreo","TÉRREO"],["pavimento1","1º PAVIMENTO"],["cobertura","COBERTURA"]];
-const PAVIMENTOS_COM_LAJE = ["pavimento1","cobertura"];
+const PAVIMENTOS_ESTRUTURA = [["terreo","TÉRREO"],["pavimento1","1º PAVIMENTO"],["cobertura","COBERTURA"],["reservatorio","RESERVATÓRIO"]];
+const PAVIMENTOS_COM_LAJE = ["pavimento1","cobertura","reservatorio"];
 // A Memória de Cálculo é organizada por projeto (disciplina) e, dentro de
 // cada uma, por pavimento - a estrutura deixa lugar pronto para as
 // próximas disciplinas (Elétrica etc.) sem precisar reorganizar de novo.
@@ -1002,7 +1003,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     if (PAVIMENTOS_COM_LAJE.includes(pav)) {
       const laje = lajeDoPavimento(pav);
       concreto += Number(laje.volumeM3||0);
-      aco += somaAcoPorBitola(laje.acoPorBitola) + calcularAcoVigotaLaje(laje);
+      aco += laje.acoSemBitolas ? Number(laje.acoTotalProjetoKg||0) : somaAcoPorBitola(laje.acoPorBitola) + calcularAcoVigotaLaje(laje);
     }
     return { concreto, forma, aco };
   };
@@ -1084,7 +1085,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           <Metric label="Fôrma" value={fmtNum(pilar.formaM2)} unit="m²"/>
           <Metric label="Aço" value={fmtNum(acoPilares,1)} unit="kg"/>
         </>}>
-        <p style={{fontSize:10,color:C.muted,marginTop:-4}}>Total do pavimento inteiro (o orçamento sempre orça pilares assim, nunca pilar a pilar) - o projeto detalha cada pilar, mas concreto e fôrma somam certo pra cá.</p>
+        <p style={{fontSize:10,color:C.muted,marginTop:-4}}>Total do pavimento inteiro (o orçamento sempre orça pilares assim, nunca pilar a pilar) - quando disponível, a importação usa o quadro-resumo do projeto. Confira as divergências indicadas acima.</p>
         <div>
           <p style={LABEL_GRUPO}>Parâmetros</p>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
@@ -1160,9 +1161,11 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         title="LAJE" open={aberto} onToggle={()=>alternarElementoMemoria(chave,false)}
         resumo={<>
           <Metric label="Volume" value={fmtNum(laje.volumeM3)} unit="m³"/>
-          <Metric label="Aço maciça" value={fmtNum(acoMacica,1)} unit="kg"/>
-          <Metric label="Aço vigota" value={fmtNum(acoVigota,1)} unit="kg"/>
+          <Metric label={laje.acoSemBitolas?"Aço do projeto (sem bitolas)":"Aço maciça"} value={fmtNum(laje.acoSemBitolas?laje.acoTotalProjetoKg:acoMacica,1)} unit="kg"/>
+          {!laje.acoSemBitolas&&<Metric label="Aço vigota" value={fmtNum(acoVigota,1)} unit="kg"/>}
         </>}>
+        {laje.acoSemBitolas&&<Btn v="ghost" onClick={()=>salvarLajeDoPavimento(pav,{acoSemBitolas:false})}>Usar aço discriminado e estimativa de vigotas após conferência</Btn>}
+        {laje.acoSemBitolas&&<Warning>O quadro informa {laje.acoTotalProjetoKg} kg de aço sem separar bitolas. O resumo usa somente esse total; a estimativa de vigotas não é somada novamente. Confira o escopo antes de discriminar os insumos.</Warning>}
         <p style={{fontSize:10,color:C.muted,marginTop:-4}}>Volumes, áreas e quantitativos de aço do pavimento - o mesmo jeito que o Quantitativos do projeto resume.</p>
 
         <div>
@@ -1371,9 +1374,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       // automática e ainda não foi conferida - some assim que o usuário
       // mexe em qualquer campo dela (achado da crítica Impeccable: antes o
       // aviso de "confira" só existia num toast passageiro).
-      const sapatas = extrairSapatasFundacao(texto);
-      const resumoAcoSapatas = extrairResumoAco(texto);
-      const elementos = extrairElementosEstruturais(texto);
+      const projeto=extrairProjetoEstrutural(texto);
+      const {sapatas,resumoAcoSapatas,...elementos}=projeto;
       const total = sapatas.length + Object.values(elementos.pilares).reduce((s, l) => s + l.length, 0)
         + [elementos.pilaresAcoPorBitola, elementos.vigasAcoPorBitola, elementos.lajesAcoPorBitola]
           .reduce((s, porPav) => s + Object.values(porPav).filter(Boolean).length, 0);
@@ -1413,7 +1415,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const aplicarPdfPreviewCompleto = () => {
     if (!pdfPreviewCompleto) return;
     const memoriaAtual = orc?.memoriaCalculo || {};
-    const memoriaNova = { ...memoriaAtual };
+    const memoriaNova = { ...memoriaAtual, avisosImportacao:pdfPreviewCompleto.avisos||[], resumosProjeto:pdfPreviewCompleto.resumos||{} };
 
     if (pdfPreviewCompleto.sapatas.length) {
       memoriaNova.fundacao = {
@@ -1426,7 +1428,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     }
 
     let pavimentosAtualizados = 0, bitolasAtualizadas = 0;
-    for (const pav of ["terreo", "pavimento1", "cobertura"]) {
+    for (const [pav] of PAVIMENTOS_ESTRUTURA) {
       const pavAtual = memoriaAtual[pav] || {};
       const encontrados = pdfPreviewCompleto.pilares[pav] || [];
       const acoPilares = pdfPreviewCompleto.pilaresAcoPorBitola[pav];
@@ -1449,7 +1451,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         ...(encontrados.length ? { pilar: { ...novaPilarPavimento(), ...(pavAtual.pilar || {}), concretoM3: concretoPilares, formaM2: formaPilares, ...(acoPilares ? { acoPorBitola: acoPilares.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } : {}), precisaRevisar: true } } : {}),
         ...(acoPilares && !encontrados.length ? { pilar: { ...novaPilarPavimento(), ...(pavAtual.pilar || {}), acoPorBitola: acoPilares.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } } : {}),
         ...(acoVigas ? { viga: { ...novaVigaPavimento(), ...(pavAtual.viga || {}), acoPorBitola: acoVigas.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } } : {}),
-        ...(acoLaje ? { laje: { ...novaLajePavimento(), ...(pavAtual.laje || {}), acoPorBitola: acoLaje.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } } : {}),
+        ...(acoLaje ? { laje: { ...novaLajePavimento(), ...(pavAtual.laje || {}), acoTotalProjetoKg:acoLaje.totalKg, acoSemBitolas:!!acoLaje.semBitolas, acoPorBitola: acoLaje.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } } : {}),
       };
     }
     salvarOrc({ memoriaCalculo: memoriaNova });
@@ -1470,28 +1472,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const aplicarPdfPreviewQuantitativos = () => {
     if (!pdfPreviewQuantitativos?.length) return;
     const memoriaAtual = orc?.memoriaCalculo || {};
-    const memoriaNova = { ...memoriaAtual };
-    let atualizados = 0;
-    for (const grupo of pdfPreviewQuantitativos) {
-      const pav = CHAVE_PAVIMENTO[grupo.pavimento];
-      if (!pav) continue;
-      const pavAtual = memoriaAtual[pav] || {};
-      memoriaNova[pav] = {
-        ...pavAtual,
-        viga: {
-          ...novaVigaPavimento(), ...(pavAtual.viga || {}),
-          concretoM3: grupo.concretoVigasM3 ?? 0, formaM2: grupo.formaVigasM2 ?? 0,
-          areaPlantaVigasM2: grupo.areaPlantaVigasM2 ?? 0,
-          avisoConcretoIncorreto: grupo.avisoConcretoIncorreto,
-        },
-        laje: {
-          ...novaLajePavimento(), ...(pavAtual.laje || {}),
-          volumeM3: grupo.volumeLajesM3 ?? 0, volumeMacicasM3: grupo.lajeMacicasM3 ?? 0, volumeVigotasM3: grupo.lajeVigotasM3 ?? 0,
-          areaMacicaM2: grupo.areaMacicaLajeM2 ?? 0, areaVigotaM2: grupo.areaVigotaLajeM2 ?? 0,
-        },
-      };
-      atualizados += 1;
-    }
+    const memoriaNova=aplicarQuantitativosEstruturais(memoriaAtual,pdfPreviewQuantitativos);
+    const atualizados=pdfPreviewQuantitativos.filter(g=>CHAVE_PAVIMENTO[g.pavimento]).length;
     salvarOrc({ memoriaCalculo: memoriaNova });
     showToast(`Concreto/fôrma de vigas, área e volume de laje de ${atualizados} pavimento(s) importados do PDF de Quantitativos.`);
     setPdfPreviewQuantitativos(null);
@@ -3080,12 +3062,19 @@ ${blocoBDI}
     `∅${tipo.armaduraX.bitola}`, tipo.armaduraX.quantidade, tipo.armaduraX.comprimento,
     `∅${tipo.armaduraY.bitola}`, tipo.armaduraY.quantidade, tipo.armaduraY.comprimento, calc.pesoAcoTotal,
   ];
+  const notasExportacaoSapatas=()=>sapatasFundacao.flatMap(s=>[
+    ...(s.geometriaPendente?[`${s.tipo}: GEOMETRIA PENDENTE; concreto, fôrma e reaterro não são quantitativos finais. Alturas do projeto: ${s.alturasProjetoCm} cm.`]:[]),
+    ...(s.volumeConferidoM3!=null&&s.volumeConferidoM3!==""?[`${s.tipo}: concreto conferido diretamente por peça; colunas base/tronco não decompõem esse volume.`]:[]),
+    ...(s.armadurasSuperiores||[]).map((a,i)=>`${s.tipo}: armadura superior ${i===0?"X":"Y"}: ${a.quantidade} barras Ø${a.bitola}, comprimento médio ${a.comprimento} m; incluída no peso total.`),
+  ]);
   const exportXLSXSapatas = async () => {
     if (!resumoSapatasFundacao.linhas.length) { showToast("Cadastre ao menos um tipo de sapata antes de exportar.","warn"); return; }
     await carregarXLSX();
     const t = resumoSapatasFundacao.totais;
     const aoa = [
       [`Memória de Cálculo - Fundação (Sapatas) - ${orc.nome}`],
+      [],
+      ...notasExportacaoSapatas().map(n=>[n]),
       [],
       CABECALHO_SAPATAS,
       ...resumoSapatasFundacao.linhas.map(linhaSapataParaExportar),
@@ -3142,6 +3131,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
 </style></head><body>
 <button class="btn" onclick="window.print()">Imprimir / PDF</button>
 <h1>Memória de Cálculo - Fundação (Sapatas)</h1>
+${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 <p class="sub">${escapeHtml(orc.nome)} · Emissão ${new Date().toLocaleDateString("pt-BR")} · Painel de referência - não altera as linhas do orçamento</p>
 <table>
   <thead><tr>${CABECALHO_SAPATAS.map(h=>`<th class="${/\(m|QTD|PEÇAS/.test(h)?"r":""}">${escapeHtml(h)}</th>`).join("")}</tr></thead>
@@ -4993,6 +4983,9 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
           </div>
 
           {disciplinaMemoria==="estrutural" && (<>
+          {!!orc?.memoriaCalculo?.avisosImportacao?.length&&<Warning><b>Conferência da importação — totais sujeitos às pendências abaixo.</b>{orc.memoriaCalculo.avisosImportacao.map((aviso,i)=><p key={i}>{aviso}</p>)}</Warning>}
+          {sapatasFundacao.some(s=>s.geometriaPendente)&&<Warning>Totais parciais: há sapatas sem concreto/fôrmas conferidos. Esses valores não representam zero medido. Preencha os valores conferidos por peça abaixo.</Warning>}
+
           <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
             <div><p style={{fontSize:12,fontWeight:850,color:C.text}}>IMPORTAR PROJETO (PDF)</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Sinalize qual documento é e o sistema tenta preencher a memória de cálculo sozinho - você sempre confere antes de aplicar.</p></div>
             <select aria-label="Tipo de documento do PDF" value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:10.5,fontWeight:700,maxWidth:360}}>
@@ -5010,6 +5003,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
             {pdfAviso&&<p style={{fontSize:10,color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
             {pdfPreviewCompleto&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
               <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Encontrado - confira antes de aplicar.</p>
+              {pdfPreviewCompleto.avisos?.map((aviso,i)=><Warning key={i}>{aviso}</Warning>)}
               <div style={{border:`1px solid ${C.orange}55`,background:`${C.orange}12`,borderRadius:6,padding:"7px 9px"}}>
                 <p style={{fontSize:10,fontWeight:850,color:C.orange}}>⚠ Reimportar substitui a versão anterior de cada pavimento - nunca soma/duplica, mas também não tem desfazer depois de aplicar.</p>
               </div>
@@ -5022,12 +5016,12 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                   const bateu=diferenca<=pdfPreviewCompleto.resumoAcoSapatas.totalKg*0.02; // até 2% de diferença por arredondamento
                   return <div style={{border:`1px solid ${bateu?C.green:C.orange}55`,background:C.card,borderRadius:6,padding:"7px 9px"}}>
                     <p style={{fontSize:10,fontWeight:850,color:bateu?C.green:C.orange}}>{bateu?"✓":"⚠"} Conferência com o Resumo Aço da folha</p>
-                    <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Extraído (com os comprimentos resolvidos): <b>{totalCalculado.toFixed(1)} kg</b> · Total pronto do projeto: <b>{pdfPreviewCompleto.resumoAcoSapatas.totalKg.toFixed(1)} kg</b>{!bateu&&" - a diferença indica que algum comprimento de armadura não foi identificado (fica marcado para completar à mão)."}</p>
+                    <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Extraído (com os comprimentos resolvidos): <b>{totalCalculado.toFixed(1)} kg</b> · Total pronto do projeto: <b>{pdfPreviewCompleto.resumoAcoSapatas.totalKg.toFixed(1)} kg</b>{!bateu&&" - confira comprimentos, armaduras superiores, repetições e arredondamentos do projeto."}</p>
                   </div>;
                 })()}
                 <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:160,overflowY:"auto"}}>
                   {pdfPreviewCompleto.sapatas.map(sapata=><div key={sapata.tipo} style={{fontSize:9.5,color:C.text}}>
-                    <b>{sapata.tipo}</b> · {sapata.qtd} peça(s) · {(sapata.largura*100).toFixed(0)}x{(sapata.comprimento*100).toFixed(0)}cm · alt. {(sapata.alturaBase*100).toFixed(0)}/{(sapata.alturaTronco*100).toFixed(0)}cm
+                    <b>{sapata.tipo}</b> · {sapata.qtd} peça(s) · {(sapata.largura*100).toFixed(0)}x{(sapata.comprimento*100).toFixed(0)}cm · alt. do projeto {sapata.alturasProjetoCm}cm (geometria pendente)
                     {" · X:"}{sapata.armaduraX.quantidade}∅{sapata.armaduraX.bitola}{sapata.armaduraX.comprimento?` (${sapata.armaduraX.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
                     {" · Y:"}{sapata.armaduraY.quantidade}∅{sapata.armaduraY.bitola}{sapata.armaduraY.comprimento?` (${sapata.armaduraY.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
                   </div>)}
@@ -5055,7 +5049,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
             </div>}
 
             {pdfPreviewQuantitativos&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
-              <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Encontrado nos três pavimentos - confira antes de aplicar:</p>
+              <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Pavimentos encontrados - confira antes de aplicar:</p>
               <div style={{display:"flex",flexDirection:"column",gap:3}}>
                 {pdfPreviewQuantitativos.map(grupo=><p key={grupo.pavimento} style={{fontSize:9.5,color:C.text}}>
                   <b>{grupo.pavimento}:</b> vigas {grupo.concretoVigasM3?.toFixed(2)}m³ concreto / {grupo.formaVigasM2?.toFixed(2)}m² fôrma{grupo.avisoConcretoIncorreto?<span style={{color:C.orange,fontWeight:800}}> ⚠ o próprio projeto avisa que este volume pode estar incorreto - confira</span>:""}
@@ -5297,6 +5291,18 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                 {!resumoSapatasFundacao.linhas.length&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhum tipo de sapata cadastrado. Clique em "NOVO TIPO" para começar.</p>}
               </div>
 
+              {sapatasFundacao.filter(s=>s.alturasProjetoCm||s.armadurasSuperiores?.length).map(s=><div key={s.id} style={{padding:10,border:`1px solid ${C.border}`,borderRadius:6}}>
+                <b>{s.tipo} — conferência do projeto</b>
+                {s.alturasProjetoCm&&<>
+                  <p>Alturas impressas: {s.alturasProjetoCm} cm. Informe os quantitativos conferidos por peça, considerando o topo inclinado. As colunas de base/tronco não decompõem esse volume conferido.</p>
+                  <EditableField label="CONCRETO CONFERIDO (M³/PEÇA)" value={s.volumeConferidoM3??""} onChange={v=>atualizarSapataTipo(s.id,{volumeConferidoM3:v,geometriaPendente:!(v!==""&&Number(v)>0&&Number(s.formaConferidaM2)>0)})}/>
+                  <EditableField label="FÔRMA CONFERIDA (M²/PEÇA)" value={s.formaConferidaM2??""} onChange={v=>atualizarSapataTipo(s.id,{formaConferidaM2:v,geometriaPendente:!(v!==""&&Number(v)>0&&Number(s.volumeConferidoM3)>0)})}/>
+                </>}
+                {(s.armadurasSuperiores||[]).map((a,i)=><div key={i}>
+                  <p>Armadura superior {i===0?"X":"Y"}: {a.quantidade} barras Ø{a.bitola}. Comprimento médio, conferir barras variáveis.</p>
+                  <EditableField label="COMPRIMENTO SUPERIOR (M)" value={a.comprimento} onChange={v=>atualizarSapataTipo(s.id,{armadurasSuperiores:s.armadurasSuperiores.map((arm,j)=>j===i?{...arm,comprimento:v}:arm)})}/>
+                </div>)}
+              </div>)}
               {resumoSapatasFundacao.acoPorBitola.length>0&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
                 <p style={{fontSize:10.5,fontWeight:900,color:C.purple}}>RESUMO DE AÇO POR BITOLA (já com 10% de perda)</p>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6}}>
@@ -5369,6 +5375,7 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
                   {pdfAviso&&<p style={{fontSize:10,color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
                   {pdfPreviewHidrossanitario&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
                     <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Encontrado - confira antes de aplicar.</p>
+              {pdfPreviewCompleto.avisos?.map((aviso,i)=><Warning key={i}>{aviso}</Warning>)}
                     <div style={{border:`1px solid ${C.orange}55`,background:`${C.orange}12`,borderRadius:6,padding:"7px 9px"}}>
                       <p style={{fontSize:10,fontWeight:850,color:C.orange}}>⚠ Reimportar substitui cada tabela inteira - nunca soma/duplica, mas também não tem desfazer depois de aplicar.</p>
                     </div>

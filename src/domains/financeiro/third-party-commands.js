@@ -339,8 +339,13 @@ const payMeasurement=(data,command,now)=>{
     return fail("A medição foi alterada por outra pessoa. Atualize a tela.");
   }
   if(!paymentId||paymentById(data,paymentId))return fail("Pagamento de terceiro sem identificação única.");
-  const contract=contractById(data,measurement.tercId);
-  if(!contract)return fail("Contrato da medição não encontrado.");
+  // validateContract (não contractById puro) para ficar igual a recordPayment:
+  // um contrato arquivado/cancelado/estornado depois da medição aprovada não
+  // pode virar pagamento por esta via só porque a outra (registro manual) já
+  // bloqueia - a mesma regra de negócio precisa valer nos dois caminhos.
+  const validation=validateContract(data,measurement.tercId);
+  if(validation.error)return fail(validation.error);
+  const contract=validation.contract;
   const date=String(payload.payment?.date||"");
   if(!validDate(date))return fail("Informe uma data válida para o pagamento.");
   if(isDateInClosedPeriod(data,date))return fail("O período financeiro deste pagamento está fechado.");

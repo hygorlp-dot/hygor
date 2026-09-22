@@ -60,7 +60,7 @@ function lerUmBlocoResumoAco(linhas, inicioResumo) {
   const bloco = linhas.slice(inicioResumo, fim);
   const porBitola = [];
   for (let i = 0; i < bloco.length; i++) {
-    const bitola = /^Ø(\d+(?:[.,]\d+)?)$/.exec(bloco[i])?.[1];
+    const bitola = /^(?:CA-(?:50|60)\s+)?Ø(\d+(?:[.,]\d+)?)$/.exec(bloco[i])?.[1];
     if (!bitola) continue;
     const comprimento = bloco[i + 1], peso = bloco[i + 2];
     if (!/^[\d.,]+$/.test(comprimento || "") || !/^[\d.,]+$/.test(peso || "")) continue;
@@ -128,6 +128,12 @@ function lerQuadroComRestante(texto) {
       armaduraY: { quantidade: Number(armYMatch[1]), bitola: paraNumero(armYMatch[2]), espacamento: Number(armYMatch[3]) },
     });
     i += 5;
+    const superiores=[];
+    while(i<linhas.length && RE_ARMADURA_QUADRO.test(linhas[i])){
+      const arm=RE_ARMADURA_QUADRO.exec(linhas[i++]);
+      superiores.push({quantidade:Number(arm[1]),bitola:paraNumero(arm[2]),espacamento:paraNumero(arm[3])});
+    }
+    if(superiores.length)grupos.at(-1).armadurasSuperiores=superiores;
   }
   return { grupos, textoRestante: linhas.slice(i).join("\n") };
 }
@@ -206,9 +212,10 @@ export function extrairSapatasFundacao(texto) {
   const porGrupo = anotacoesPorGrupo(grupos, textoRestante);
 
   return grupos.map(grupo => {
-    const anotacoes = porGrupo.get(grupo.referencia) || [];
+    const anotacoes = [...new Map((porGrupo.get(grupo.referencia) || []).map(a=>[a.posicao,a])).values()].sort((a,b)=>a.posicao-b.posicao);
     const comprimento = indice => (anotacoes[indice] ? anotacoes[indice].comprimentoCm / 100 : 0);
     return {
+      ...(grupo.armadurasSuperiores?.length ? {armadurasSuperiores:grupo.armadurasSuperiores.map((arm,i)=>({bitola:String(arm.bitola),quantidade:arm.quantidade,comprimento:comprimento(i+2)}))} : {}),
       tipo: grupo.referencia,
       qtd: contarPilares(grupo.referencia),
       largura: grupo.larguraCm / 100,
@@ -340,7 +347,7 @@ export function extrairQuantitativosPavimentos(texto) {
 
 // Chave interna do app (mesma de `pavimentoMemoria` em OrcamentoView.jsx)
 // para cada nome de pavimento como aparece nos dois PDFs.
-export const CHAVE_PAVIMENTO = { "Térreo": "terreo", "1º Pavimento": "pavimento1", "Cobertura": "cobertura" };
+export const CHAVE_PAVIMENTO = { "Térreo": "terreo", "1º Pavimento": "pavimento1", "Cobertura": "cobertura", "Reservatório": "reservatorio" };
 
 // O Estrutural.pdf inteiro (lerTextoPdf) junta as páginas com "\f" (mesmo
 // separador que o próprio pdf.js usa por página) - cada folha "Pilares do

@@ -11,7 +11,8 @@ const folhaSource=readFileSync(resolve(process.cwd(),"src/domains/ponto/componen
 describe("folha líquida após desconto sindical",()=>{
   it("usa o cálculo canônico e rateia o desconto por obra",()=>{
     expect(folhaSource).toContain("calculatePayrollSettlement({gross,benefits:vt+vr,advances:advTotal,unionDue:unionResult.amount})");
-    expect(folhaSource).toContain("allocateUnionDueByWork(obrasPorDiaArr,settlement.appliedUnionDue)");
+    expect(folhaSource).toContain("allocateAdvancesByWork(obrasPorDiaArr,advTotal)");
+    expect(folhaSource).toContain("allocateUnionDueByWork(obrasComAdiantamentos,settlement.appliedUnionDue)");
     expect(folhaSource).toContain("unionDue:o.unionDueObra||0");
   });
 

@@ -19,6 +19,7 @@ import {
   prIsWeekdayIso, prUniqueDates, toLocalISODate,
 } from "../attendance-engine";
 import { calculateAttendanceDayCost } from "../payroll";
+import { allocateAdvancesByWork } from "../advance-allocation";
 import { splitPayrollResponsibility } from "../payroll-responsibility";
 import {
   allocateUnionDueByWork, buildUnionDuePeriodKey, calculatePayrollSettlement, calculateUnionDue,
@@ -203,31 +204,10 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       }))
       .sort((a, b) => b.diasTrabalhados - a.diasTrabalhados || a.obraName.localeCompare(b.obraName));
 
-    // Rateio do adiantamento entre as obras, proporcional aos dias trabalhados
-    // em cada uma. O adiantamento e do funcionario no periodo, nao de uma obra
-    // especifica; ao filtrar por obra, cada canteiro absorve a parcela que lhe
-    // cabe para o liquido por obra fechar com o liquido total.
-    const totalDiasFunc = obrasPorDiaArr.reduce((s, o) => s + o.diasTrabalhados, 0);
-    obrasPorDiaArr.forEach((o, i) => {
-      // bruto da obra + VT/VR da obra - parcela do adiantamento
-      let advObra;
-      if (totalDiasFunc > 0) {
-        advObra = advTotal * (o.diasTrabalhados / totalDiasFunc);
-      } else {
-        advObra = i === 0 ? advTotal : 0;   // sem dias: joga tudo na primeira
-      }
-      o.advancesObra = advObra;
-      o.netObra = o.bruto + o.vt + o.vr - advObra;
-    });
-    // Ajuste de arredondamento: garante que a soma dos liquidos por obra
-    // seja exatamente o liquido do funcionario (evita centavos perdidos).
-    const somaNetObras = obrasPorDiaArr.reduce((s, o) => s + o.netObra, 0);
+    const obrasComAdiantamentos=allocateAdvancesByWork(obrasPorDiaArr,advTotal);
     const settlement=calculatePayrollSettlement({gross,benefits:vt+vr,advances:advTotal,unionDue:unionResult.amount});
     const netBeforeUnion = settlement.netBeforeUnion;
-    if (obrasPorDiaArr.length && Math.abs(somaNetObras - netBeforeUnion) > 0.001) {
-      obrasPorDiaArr[0].netObra += (netBeforeUnion - somaNetObras);
-    }
-    const obrasLiquidas=allocateUnionDueByWork(obrasPorDiaArr,settlement.appliedUnionDue);
+    const obrasLiquidas=allocateUnionDueByWork(obrasComAdiantamentos,settlement.appliedUnionDue);
 
     return {
       ...employee,
@@ -247,7 +227,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       advances: advTotal,
       unionDue:settlement.appliedUnionDue,
       requestedUnionDue:settlement.requestedUnionDue,
-      unionDueGroup:unionResult.group,
+      unionDueGroup:unionResult.exempted?UNION_DUE_GROUP.EXEMPT:unionResult.group,
       netBeforeUnion,
       net: settlement.netPayable,
       days: days.length,
@@ -360,10 +340,18 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     feriadosPagos: rows.reduce((s, r) => s + valEfetivos(r).feriadosPagos, 0),
     feriadosPerdidos: rows.reduce((s, r) => s + valEfetivos(r).feriadosPerdidos, 0),
   };
+  // Previa da aba Sindicato e sempre da empresa inteira (recolhimento ao
+  // sindicato nao e segmentado por obra como o liquido de pagamento e) - por
+  // isso usa r.gross/r.advances (totais do funcionario), nao valEfetivos(r),
+  // e nao zera quando ha filtro de obra ativo (esta aba nao tem seletor
+  // proprio; filterObra e estado compartilhado com a aba "Folha da
+  // quinzena"). unionDueGroup vira EXEMPT quando a isencao pontual desta
+  // quinzena zera o valor, senao a contagem de profissional/ajudante do
+  // rodape inclui gente que nao vai pagar nada nesta quinzena.
   const unionSummary=summarizeUnionDues(rows.map(r=>{
     const result=calculateUnionDue({employee:r,config:unionDraft,payrollCycle:q,periodEnd:diasCiclo.at(-1)||"",periodKey:unionPeriodKey,hasPayrollMovement:r.gross>0||r.advances>0});
     const settlement=calculatePayrollSettlement({gross:r.gross,benefits:r.vt+r.vr,advances:r.advances,unionDue:result.amount});
-    return {...r,unionDue:filterObra==="all"?settlement.appliedUnionDue:0,unionDueGroup:result.group};
+    return {...r,unionDue:settlement.appliedUnionDue,unionDueGroup:result.exempted?UNION_DUE_GROUP.EXEMPT:result.group};
   }));
   const roleCatalog=useMemo(()=>[...new Set((data.employees||[]).map(e=>String(e.role||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b)),[data.employees]);
   // Funcionários sujeitos ao desconto NESTA quinzena (cargo classificado
