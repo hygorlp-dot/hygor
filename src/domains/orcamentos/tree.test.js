@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { moveBudgetStage, budgetStageLevel, budgetSubtreeIds, calculateBudgetTree, flattenBudgetTree } from "./tree";
+import { reorderBudgetStage, moveBudgetStage, budgetStageLevel, budgetSubtreeIds, calculateBudgetTree, flattenBudgetTree } from "./tree";
 
 describe("árvore canônica do orçamento", () => {
+  it("move 16 para 7 e renumera filhos sem alterar vínculos ou itens",()=>{
+    const etapas=Array.from({length:16},(_,i)=>({id:`s${i+1}`}));
+    etapas.splice(3,0,{id:'child',parentId:'s16'});
+    const moved=reorderBudgetStage(etapas,'s16',7);
+    expect(moved.filter(s=>!s.parentId).map(s=>s.id)).toEqual(['s1','s2','s3','s4','s5','s6','s16','s7','s8','s9','s10','s11','s12','s13','s14','s15']);
+    const flat=flattenBudgetTree(calculateBudgetTree({etapas:moved,itens:[{id:'item',etapaId:'child',quantidade:2,precoUnit:5}]}).arvore);
+    expect(flat.find(s=>s.id==='item').codigoItem).toBe('7.1.1');
+    expect(reorderBudgetStage(moved,'s16',16)).toEqual(etapas);
+    expect(()=>reorderBudgetStage(etapas,'s16',17)).toThrow();
+  });
   const budget = { bdi:10, etapas:[{id:"a"},{id:"b",parentId:"a"}], itens:[
     { id:"1", etapaId:"a", quantidade:1, precoUnit:100 },
     { id:"2", etapaId:"b", quantidade:1, precoUnit:50, bdi:20 },

@@ -56,6 +56,7 @@ import { clonarCronogramaPlano, clonarEstruturaOrcamento } from "../budget-clone
 import { auditBudgetTechnicalScope } from "../technical-audit";
 import {
   moveBudgetStage,
+  reorderBudgetStage,
   flattenBudgetTree as achatarArvore,
   budgetSubtreeIds as idsDaSubarvore,
   budgetStageLevel as nivelDaEtapa,
@@ -2510,7 +2511,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     setEtapaNome("");
   };
   const abrirEditarEtapa = (etapa) => {
-    setEtapaModal({ modo:"editar", paiId: etapa.parentId || "", etapa });
+    const position = orc.etapas.filter(e=>(e.parentId || "")===(etapa.parentId || "")).findIndex(e=>e.id===etapa.id)+1;
+    setEtapaModal({ modo:"editar", paiId: etapa.parentId || "", etapa, position });
     setEtapaNome(etapa.nome);
   };
 
@@ -2520,7 +2522,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
 
     if (modo === "editar") {
       try {
-        const etapas = moveBudgetStage(orc.etapas, etapa.id, paiId, MAX_NIVEL);
+        const etapas = reorderBudgetStage(moveBudgetStage(orc.etapas, etapa.id, paiId, MAX_NIVEL), etapa.id, etapaModal.position);
         salvarOrc({ etapas: etapas.map(e => e.id===etapa.id ? {...e, nome:etapaNome.trim()} : e) });
       } catch (error) { showToast(error.message,"error"); return; }
       showToast("Etapa atualizada. Numeração recalculada.");
@@ -3761,7 +3763,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       </button>
                     )}
                     <button onClick={() => abrirEditarEtapa(no)}
-                      title="Editar nome e nível"
+                      title="Editar nome e posição"
                       style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer", width:alvoToque, height:alvoToque, display:"flex",alignItems:"center",justifyContent:"center" }}>
                       <Ic n="edit" s={13}/>
                     </button>
@@ -4602,15 +4604,18 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       {/* Modal: nova etapa / subnível / renomear */}
       {etapaModal && (
         <Modal
-          title={etapaModal.modo==="editar" ? "Editar etapa e nível"
+          title={etapaModal.modo==="editar" ? "Editar etapa e posição"
                : etapaModal.modo==="sub"    ? "Novo subnível"
                : "Nova etapa"}
           onClose={()=>{setEtapaModal(null);setEtapaNome("");}}
         >
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             {etapaModal.modo==="editar" && <>
-              <Sel label="Posição na hierarquia" value={etapaModal.paiId}
-                onChange={paiId=>setEtapaModal(current=>({...current,paiId}))}
+              <Inp label="Posição na lista" type="number" value={etapaModal.position}
+                onChange={position=>setEtapaModal(current=>({...current,position}))}/>
+              <p style={{fontSize:12,color:C.muted}}>Para mover a etapa 16 para o lugar da 7, informe 7. As demais etapas serão renumeradas automaticamente.</p>
+              <Sel label="Etapa superior" value={etapaModal.paiId}
+                onChange={paiId=>setEtapaModal(current=>({...current,paiId,position:1}))}
                 options={[{v:"",l:"Nível 1 · Etapa principal"},
                   ...achatarArvore(calc.arvore).filter(row=>row.tipo==="etapa" && !idsDaSubarvore(orc.etapas,etapaModal.etapa.id).includes(row.id))
                     .map(row=>({v:row.id,l:`Dentro de ${row.codigo} · ${row.nome} (nível ${row.nivel+1})`}))]}/>
