@@ -1,6 +1,10 @@
+import BudgetAuditPanel from './BudgetAuditPanel';
+import { budgetChangeReceipt, undoBudgetChange, repositionBudgetItem, auditWholeBudget } from '../budget-workflow';
+import { mergeStructuralImportSources, extractStructuralSources, quantitativeSourcePages, trackManualStructuralChanges } from '../structural-provenance';
+import BudgetFloorEditor from './BudgetFloorEditor';
 import { reconcileOptimisticSnapshot } from '../../sync/optimistic-merge';
 import { syncStructuralQuantities, undoStructuralChange, auditStructuralLinks } from '../structural-auto-sync';
-import { memoryFloors, addBudgetFloor } from '../budget-floors';
+import { memoryFloors, addBudgetFloor, updateBudgetFloor, reconcileBudgetFloors } from '../budget-floors';
 import AddFloorForm from './AddFloorForm';
 import { aplicarCriterioEstrutural } from "../structural-quantity-policy";
 import { structuralBudgetRows, applyStructuralBudgetLinks } from "../structural-budget-apply";
@@ -334,6 +338,16 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const dataAtualRef = useRef(data);
   const [memorySave, setMemorySave] = useState(null);
   const [memoryReceipt, setMemoryReceipt] = useState(null);
+  const [budgetReceipt, setBudgetReceipt] = useState(null);
+  const [floorEditorOpen, setFloorEditorOpen] = useState(false);
+  const [draggedStage, setDraggedStage] = useState(null);
+  const [stageDrop, setStageDrop] = useState(null);
+  const [itemPosition, setItemPosition] = useState(null);
+  const [auditTarget, setAuditTarget] = useState(null);
+  useEffect(()=>{
+    if(!auditTarget)return;
+    document.getElementById(auditTarget)?.scrollIntoView({block:'center',behavior:'smooth'});
+  },[auditTarget]);
   const memorySaveSequence = useRef(0);
   const scrollAlvoRef = useRef(null);   // posicao a preservar durante um salvamento
   // Abrir somente a baseline aprovada. Uma revisão em rascunho nunca deve
@@ -947,9 +961,13 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const merged = reconcileOptimisticSnapshot({latest,rendered:data,intended:{...data,orcamentos:todosOrcamentos.map(o=>o.id===selOrc?{...o,...patch}:o)}});
     const before = (latest.orcamentos || []).find(o=>o.id===selOrc) || orc;
     let next = merged.orcamentos.find(o=>o.id===selOrc);
+    next = reconcileBudgetFloors(next);
     const structural = !!patch.memoriaCalculo;
+    if(structural)next=trackManualStructuralChanges(before,next);
     const sync = structural ? syncStructuralQuantities(before,next) : null;
     if (sync) next = sync.budget;
+    const receipt=budgetChangeReceipt(before,next);
+    if(receipt.keys.length)setBudgetReceipt(receipt);
     const sequence = ++memorySaveSequence.current;
     setMemorySave({id:selOrc,state:'saving'});
     if(structural) {
@@ -964,6 +982,21 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       if(sequence===memorySaveSequence.current) setMemorySave({id:selOrc,state:'error',message:error.message});
     });
     return pending;
+  };
+  const desfazerAlteracaoOrcamento = async () => {
+    const current=dataAtualRef.current;
+    try {
+      const restored=undoBudgetChange(current.orcamentos.find(o=>o.id===selOrc),budgetReceipt);
+      const sequence=++memorySaveSequence.current;
+      setMemorySave({id:selOrc,state:'saving'});
+      const next={...current,orcamentos:current.orcamentos.map(o=>o.id===selOrc?{...restored,updatedAt:new Date().toISOString()}:o)};
+      dataAtualRef.current=next;
+      const saved=await update(next);
+      if(sequence===memorySaveSequence.current){
+        setMemorySave({id:selOrc,state:saved?.ok?'saved':'error',message:saved?.reason});
+        if(saved?.ok){setBudgetReceipt(null);setMemoryReceipt(null);setUndoEtapa(null);}
+      }
+    } catch(error){showToast(error.message,'warn');setMemorySave({id:selOrc,state:'error',message:error.message});}
   };
   const desfazerAtualizacaoMemoria = async () => {
     const current=dataAtualRef.current;
@@ -1059,6 +1092,20 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
 
   const linhasEstruturais = structuralBudgetRows(orc);
   const memoryIssues = auditStructuralLinks(orc);
+  const budgetIssues = auditWholeBudget(orc);
+  const abrirOcorrenciaOrcamento = issue => {
+    if(issue.floorId){setFloorEditorOpen(true);return;}
+    setAuditTarget(null);
+    if(issue.destination==='memory'){
+      setOrcAba('memoria');setDisciplinaMemoria('estrutural');
+      setElementoAbertoMemoria(current=>({...current,[issue.scope]:true}));
+      requestAnimationFrame(()=>setAuditTarget(issue.scope));
+    } else {
+      setOrcAba('orcamento');setEtapasFechadas({});
+      if(!(orc.etapas || []).some(s=>s.id===issue.stageId))setItemPosition({id:issue.itemId,stageId:'',position:1});
+      requestAnimationFrame(()=>setAuditTarget(`budget-item-${issue.itemId}`));
+    }
+  };
   const aplicarDestinosMemoria = async scope => {
     const atual = dataAtualRef.current;
     const vigente = (atual.orcamentos || []).find(o=>o.id===selOrc);
@@ -1067,13 +1114,14 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     if (!resultado.ok) { showToast(resultado.reason,"warn"); return false; }
     scrollAlvoRef.current = window.scrollY;
     try {
-      const salvo = await update({...atual,orcamentos:atual.orcamentos.map(o=>o.id===selOrc?{...resultado.budget,updatedAt:new Date().toISOString()}:o)});
+      const salvo = await salvarOrc({itens:resultado.budget.itens,memoriaCalculo:resultado.budget.memoriaCalculo});
       if (!salvo?.ok) { showToast(salvo?.reason||"Não foi possível confirmar o salvamento das quantidades.","error"); return false; }
       showToast(`${resultado.count} item(ns) atualizado(s) com os quantitativos da memória.`);
       return true;
     } catch (error) { showToast(error?.message||"Falha ao aplicar quantitativos.","error"); return false; }
   };
   const renderDestinosMemoria = scope => <StructuralBudgetLinks scope={scope} rows={linhasEstruturais[scope]} budget={orc}
+    onNavigateTarget={item=>abrirOcorrenciaOrcamento({destination:'budget',itemId:item.id,stageId:item.etapaId})}
     onApply={()=>aplicarDestinosMemoria(scope)} readOnly={budgetIsImmutable(orc)} onChange={(key, itemId) => salvarOrc({ memoriaCalculo: {
       ...(orc.memoriaCalculo || {}), vinculosEstruturais: { ...(orc.memoriaCalculo?.vinculosEstruturais || {}), [key]: itemId },
     } })}/>;
@@ -1433,7 +1481,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           setPdfAviso("Não encontrei nenhum \"Grupo de Pisos\" neste PDF. Confirme se é o arquivo de Quantitativos de superfícies e volumes.");
           return;
         }
-        setPdfPreviewQuantitativos(achado);
+        setPdfPreviewQuantitativos(achado.map(group=>({...group,origem:{tipo:'extraido',arquivo:arquivo.name,criterio:'Quantitativos de superfícies e volumes',paginas:quantitativeSourcePages(texto,group.pavimento)}})));
         return;
       }
       if (tipo === "hidrossanitario") {
@@ -1459,7 +1507,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         setPdfAviso("Não encontrei nem o \"QUADRO DE ELEMENTOS DE FUNDAÇÃO\" nem nenhuma folha \"Pilares/Vigas/Lajes do <pavimento>\" neste PDF. Confirme se é o projeto estrutural completo.");
         return;
       }
-      setPdfPreviewCompleto({ sapatas, resumoAcoSapatas, ...elementos });
+      setPdfPreviewCompleto({ sapatas, resumoAcoSapatas, ...elementos, origensEstruturais:extractStructuralSources(texto,arquivo.name) });
     } catch (error) {
       setPdfAviso(error?.message || "Não foi possível ler o PDF.");
     } finally {
@@ -1491,7 +1539,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const aplicarPdfPreviewCompleto = () => {
     if (!pdfPreviewCompleto) return;
     const memoriaAtual = orc?.memoriaCalculo || {};
-    const memoriaNova = { ...memoriaAtual, avisosImportacao:pdfPreviewCompleto.avisos||[], resumosProjeto:pdfPreviewCompleto.resumos||{} };
+    const memoriaNova = { ...memoriaAtual, avisosImportacao:pdfPreviewCompleto.avisos||[], resumosProjeto:pdfPreviewCompleto.resumos||{}, origensEstruturais:mergeStructuralImportSources(memoriaAtual.origensEstruturais,pdfPreviewCompleto.origensEstruturais) };
 
     if (pdfPreviewCompleto.sapatas.length) {
       memoriaNova.fundacao = {
@@ -1549,6 +1597,12 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     if (!pdfPreviewQuantitativos?.length) return;
     const memoriaAtual = orc?.memoriaCalculo || {};
     const memoriaNova=aplicarQuantitativosEstruturais(memoriaAtual,pdfPreviewQuantitativos);
+    const incomingSources={};
+    for(const group of pdfPreviewQuantitativos){
+      const pav=CHAVE_PAVIMENTO[group.pavimento];if(!pav)continue;
+      for(const element of ['vigas','laje'])incomingSources[`${pav}-${element}`]=group.origem;
+    }
+    memoriaNova.origensEstruturais=mergeStructuralImportSources(memoriaAtual.origensEstruturais,incomingSources);
     const atualizados=pdfPreviewQuantitativos.filter(g=>CHAVE_PAVIMENTO[g.pavimento]).length;
     salvarOrc({ memoriaCalculo: aplicarCriterioEstrutural(memoriaNova) });
     showToast(`Concreto/fôrma de vigas, área e volume de laje de ${atualizados} pavimento(s) importados do PDF de Quantitativos.`);
@@ -1779,13 +1833,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     salvarOrc({auditoriaChecklist});setCheckEdit(null);showToast(registro.status==="corrigido"?"Item marcado como corrigido.":registro.status==="ignorado"?"Item ignorado com justificativa.":"Item mantido como pendente.");
   };
 
-  const salvarOrcAssincrono = patch => {
-    if (budgetIsImmutable(orc)) { showToast("Esta versão está aprovada e imutável. Crie uma revisão para alterá-la.","warn"); return; }
-    const atual = dataAtualRef.current;
-    const lista = atual.orcamentos || [];
-    scrollAlvoRef.current = window.scrollY;
-    update({...atual, orcamentos:lista.map(item => item.id===selOrc ? {...item,...patch,updatedAt:new Date().toISOString()} : item)});
-  };
+  const salvarOrcAssincrono = patch => salvarOrc(patch);
 
   const criarRevisaoOrc = () => {
     if (!orc) return;
@@ -2517,11 +2565,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     if (!origem || !destino) return;
     if (origem.etapaId !== destino.etapaId) return;   // so reordena dentro da etapa
 
-    const idxOrigem  = todos.findIndex(it => it.id === origemId);
-    const [movido] = todos.splice(idxOrigem, 1);
-    const idxDestino = todos.findIndex(it => it.id === destinoId);
-    todos.splice(idxDestino, 0, movido);
-    salvarOrc({ itens: todos });
+    const position=todos.filter(it=>it.etapaId===destino.etapaId).findIndex(it=>it.id===destinoId)+1;
+    salvarOrc({itens:repositionBudgetItem(todos,origemId,position)});
   };
 
   // Edita um valor numerico do item direto na planilha (custo unitario ou BDI
@@ -3461,6 +3506,26 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
 
+      <div className="budget-workflow-bar">
+        <span role="status">{memorySave?.id===selOrc ? (memorySave.state==='saving'?'Salvando…':memorySave.state==='saved'?'Salvo':'Falha ao salvar') : 'Nenhuma alteração pendente'}</span>
+        {memorySave?.id===selOrc && memorySave.message && <span>{memorySave.message}</span>}
+        <Btn size="sm" v="ghost" disabled={!budgetReceipt || budgetReceipt.budgetId!==selOrc || memorySave?.state!=='saved' || budgetIsImmutable(orc)} onClick={desfazerAlteracaoOrcamento}>Desfazer última alteração</Btn>
+        <Btn size="sm" v="ghost" disabled={budgetIsImmutable(orc)} onClick={()=>setFloorEditorOpen(true)}>Gerenciar pavimentos</Btn>
+      </div>
+      <BudgetAuditPanel issues={budgetIssues} onNavigate={abrirOcorrenciaOrcamento} readOnly={budgetIsImmutable(orc)} onRemoveLink={source=>salvarOrc({memoriaCalculo:{...orc.memoriaCalculo,vinculosEstruturais:{...orc.memoriaCalculo?.vinculosEstruturais,[source]:''}}})}/>
+
+      {floorEditorOpen && <Modal title="Pavimentos do orçamento" onClose={()=>setFloorEditorOpen(false)}>
+        <BudgetFloorEditor budget={orc} onClose={()=>setFloorEditorOpen(false)} onSave={(id,patch)=>{
+          const next=updateBudgetFloor(orc,id,patch);
+          salvarOrc({etapas:next.etapas,memoriaCalculo:next.memoriaCalculo});setFloorEditorOpen(false);
+        }}/>
+      </Modal>}
+      {itemPosition && <Modal title="Mover item" onClose={()=>setItemPosition(null)}>
+        <Sel label="Etapa de destino" value={itemPosition.stageId ?? orc.itens.find(i=>i.id===itemPosition.id)?.etapaId ?? ''}
+          onChange={stageId=>setItemPosition({...itemPosition,stageId,position:1})} options={[{v:'',l:'Selecione uma etapa'},...achatarArvore(calc.arvore).filter(r=>r.tipo==='etapa').map(r=>({v:r.id,l:`${r.codigo} · ${r.nome}`}))]}/>
+        <Inp label="Posição na etapa" type="number" value={itemPosition.position} onChange={position=>setItemPosition({...itemPosition,position})}/>
+        <Btn onClick={()=>{try{const stageId=itemPosition.stageId ?? orc.itens.find(i=>i.id===itemPosition.id)?.etapaId;if(!orc.etapas.some(s=>s.id===stageId))throw new Error('Selecione uma etapa.');salvarOrc({itens:repositionBudgetItem(orc.itens,itemPosition.id,itemPosition.position,stageId)});setItemPosition(null);}catch(error){showToast(error.message,'warn');}}}>Mover</Btn>
+      </Modal>}
       {/* Voltar + título */}
       <button onClick={()=>{setView("lista");setSelOrc(null);}} style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:12,fontWeight:600,padding:0,textAlign:"left",display:"flex",alignItems:"center",gap:4}}>
         ← Todos os orçamentos
@@ -3735,7 +3800,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           const recolhida = !!etapasFechadas[no.id];
 
           return (
-            <div key={no.id} style={{ marginLeft: recuo }}>
+            <div key={no.id} id={`budget-stage-${no.id}`} style={{ marginLeft: recuo }}>
               <div style={{
                 background: C.bg,
                 border: `1.5px solid ${C.border}`,
@@ -3746,12 +3811,25 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 marginBottom: 6,
               }}>
                 {/* Cabeçalho da etapa */}
-                <div style={{
+                <div onDragOver={e=>{if(draggedStage){e.preventDefault();e.stopPropagation();setStageDrop(no.id);}}}
+                  onDrop={e=>{if(!draggedStage)return;e.preventDefault();e.stopPropagation();
+                    try{
+                      const source=orc.etapas.find(s=>s.id===draggedStage);
+                      if((source?.parentId || '')!==(no.parentId || ''))throw new Error('Arraste entre etapas do mesmo nível. Para trocar a etapa superior, use Editar.');
+                      const position=orc.etapas.filter(s=>(s.parentId || '')===(no.parentId || '')).findIndex(s=>s.id===no.id)+1;
+                      salvarOrc({etapas:reorderBudgetStage(orc.etapas,draggedStage,position)});
+                    }catch(error){showToast(error.message,'warn');}
+                    setDraggedStage(null);setStageDrop(null);
+                  }} style={{
+                  outline:stageDrop===no.id?'2px solid #3377ff':undefined,
                   background: no.nivel === 1 ? C.surface : `${cor}06`,
                   padding: no.nivel === 1 ? "9px 12px" : "7px 12px",
                   borderBottom: (no.itens.length || no.sub.length) ? `1px solid ${C.line}55` : "none",
                   display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8,
                 }}>
+                  <button draggable={!budgetIsImmutable(orc)} aria-label={`Arrastar etapa ${no.codigo}`} title="Arraste para reordenar etapas"
+                    onDragStart={e=>{e.stopPropagation();setDraggedStage(no.id);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',no.id);}}
+                    onDragEnd={()=>{setDraggedStage(null);setStageDrop(null);}} className="budget-drag-handle">⠿</button>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <p style={{
                       fontSize: Math.max(12 - (no.nivel - 1), 10),
@@ -3759,7 +3837,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       color: C.text, lineHeight: 1.3,
                     }}>
                       <span style={{ color: cor, marginRight: 5 }}>{no.codigo}</span>
-                      {no.nome}
+                      {no.nome}{no.pavimentoId && no.nivelM!=null && <small> · Nível {fmtNum(no.nivelM)} m</small>}
                     </p>
                     {(no.itens.length > 0 || no.sub.length > 0) && (
                       <p style={{ fontSize: 9, color: C.muted, marginTop: 1 }}>
@@ -3832,6 +3910,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   // React desmontar e remontar a linha inteira.
                   const setas = () => (
                     <div style={{ display:"flex", flexDirection:"column", gap:1, flexShrink:0 }}>
+                      <button title="Mover para posição" aria-label={`Mover item ${it.codigoItem} para posição`} onClick={()=>setItemPosition({id:it.id,position:idx+1})} style={{border:0,background:'transparent',cursor:'pointer',fontSize:10}}>↕</button>
                       <button onClick={() => moverLinha(it.id, -1)} disabled={primeira}
                         title="Mover para cima"
                         style={{ background:"transparent", border:0, cursor: primeira?"default":"pointer",
@@ -3905,10 +3984,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   if (colsOrc.total)     gc.push("165px");   // total + acoes (comp./editar/x)
 
                   return (
-                    <div key={it.id}
-                      className="budget-line-row"
+                    <div key={it.id} id={`budget-item-${it.id}`}
+                      className={`budget-line-row ${auditTarget===`budget-item-${it.id}`?"budget-audit-target":""}`}
                       draggable
-                      onDragStart={e => { setArrastandoItem(it.id); e.dataTransfer.effectAllowed = "move"; }}
+                      onDragStart={e => { e.stopPropagation(); setArrastandoItem(it.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData('text/plain',it.id); }}
                       onDragEnd={() => { setArrastandoItem(null); setSobreItem(null); }}
                       onDragOver={e => { e.preventDefault(); if (sobreItem !== it.id) setSobreItem(it.id); }}
                       onDrop={e => { e.preventDefault(); moverItemPara(arrastandoItem, it.id); setArrastandoItem(null); setSobreItem(null); }}

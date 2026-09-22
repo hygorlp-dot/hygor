@@ -61,6 +61,7 @@ export function auditStructuralLinks(budget) {
     let message='';
     if(id && !item)message='Destino removido';
     else if(id && (measure.pending || measure.missing))message='Dado ausente ou pendência técnica';
+    else if(!Number.isFinite(measure.value) || measure.value<0)message='Quantitativo do memorial inválido';
     else if(item && !compatibleStructuralItem(measure,item))message='Serviço ou unidade incompatível';
     else if(item){
       const shared=entries.filter(e=>links[e.source]===id);

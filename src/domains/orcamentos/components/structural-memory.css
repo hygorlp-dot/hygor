@@ -61,3 +61,11 @@
 .memory-sync-status { display: grid; gap: 8px; padding: 12px; border: 1px solid #ccd5dc; border-radius: 6px; font-size: 12px; overflow-wrap: anywhere; }
 .memory-sync-status button { justify-self: start; padding: 8px 12px; cursor: pointer; }
 .memory-audit-link { display: block; width: 100%; text-align: left; padding: 10px; border: 0; border-bottom: 1px solid #dde1e5; background: transparent; cursor: pointer; font-size: 12px; }
+
+.budget-workflow-bar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px; border:1px solid #d3dae0; border-radius:6px; font-size:12px; }
+.budget-drag-handle { border:0; background:transparent; cursor:grab; padding:8px; font-size:18px; touch-action:none; }
+.budget-audit-target { outline:2px solid #2563eb; outline-offset:-2px; }
+.structural-source { font-size:11px; line-height:1.5; margin-top:8px; }
+.structural-source summary { cursor:pointer; }
+.structural-route { display:block; text-align:left; font-size:11px; line-height:1.5; background:transparent; border:0; padding:8px 0; color:#245ab4; cursor:pointer; overflow-wrap:anywhere; }
+.structural-route:disabled { color:inherit; cursor:default; }

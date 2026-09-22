@@ -8,7 +8,38 @@ export const DEFAULT_FLOORS = [
   { id:'cobertura', nome:'COBERTURA', temLaje:true },
   { id:'reservatorio', nome:'RESERVATÓRIO', temLaje:true },
 ];
-export const memoryFloors = (memory = {}) => [...DEFAULT_FLOORS, ...(memory.pavimentosAdicionais || [])];
+export const memoryFloors = (memory = {}) => [...DEFAULT_FLOORS, ...(memory.pavimentosAdicionais || [])]
+  .map(f=>({...f,...memory.cadastroPavimentos?.[f.id],id:f.id}));
+
+export function updateBudgetFloor(budget,id,patch){
+  if(budgetIsImmutable(budget))throw new Error('Crie uma revisão do orçamento aprovado.');
+  const memory=budget.memoriaCalculo || {}, floors=memoryFloors(memory);
+  if(!floors.some(f=>f.id===id))throw new Error('Pavimento não encontrado.');
+  const nome=String(patch.nome || '').trim(), nivelM=Number(String(patch.nivelM).replace(',','.'));
+  if(!nome || String(patch.nivelM ?? '').trim()==='' || !Number.isFinite(nivelM))throw new Error('Informe nome e nível em metros.');
+  if(floors.some(f=>f.id!==id&&f.nome.toLocaleLowerCase()===nome.toLocaleLowerCase()))throw new Error('Nome de pavimento já utilizado.');
+  if(patch.etapaId && !(budget.etapas || []).some(s=>s.id===patch.etapaId))throw new Error('Etapa não encontrada.');
+  if(patch.etapaId && floors.some(f=>f.id!==id&&f.etapaId===patch.etapaId))throw new Error('Esta etapa já pertence a outro pavimento.');
+  const record={...floors.find(f=>f.id===id),...patch,nome,nivelM,id};
+  return {...budget,memoriaCalculo:{...memory,cadastroPavimentos:{...memory.cadastroPavimentos,[id]:record}},
+    etapas:(budget.etapas || []).map(stage=>stage.id===record.etapaId?{...stage,nome,nivelM,pavimentoId:id}:
+      stage.pavimentoId===id?{...stage,pavimentoId:undefined}:stage)};
+}
+
+export function reconcileBudgetFloors(budget){
+  const memory=budget.memoriaCalculo || {}, registry={...memory.cadastroPavimentos};
+  const normalize=s=>String(s).normalize('NFD').replace(/[\u0300-\u036fºª°]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+  const stageFloors=new Map();
+  for(const floor of memoryFloors(memory)){
+    let stage=(budget.etapas || []).find(s=>s.pavimentoId===floor.id || s.id===floor.etapaId);
+    if(!stage && !floor.etapaId && !memory.cadastroPavimentos?.[floor.id]){
+      const candidates=(budget.etapas || []).filter(s=>!s.pavimentoId && (normalize(s.nome)===normalize(floor.nome) || normalize(s.nome).endsWith(` ${normalize(floor.nome)}`)));
+      if(candidates.length===1 && !stageFloors.has(candidates[0].id))stage=candidates[0];
+    }
+    if(stage){registry[floor.id]={...floor,nome:stage.nome,nivelM:stage.nivelM ?? floor.nivelM,etapaId:stage.id};stageFloors.set(stage.id,floor.id);}
+  }
+  return {...budget,etapas:(budget.etapas || []).map(s=>stageFloors.has(s.id)?{...s,pavimentoId:stageFloors.get(s.id)}:s),memoriaCalculo:{...memory,cadastroPavimentos:registry}};
+}
 
 export function addBudgetFloor(budget, { nome, nivel, origem, etapaId }, gerarId) {
   if (budgetIsImmutable(budget)) throw new Error('Crie uma revisão do orçamento aprovado.');
@@ -45,7 +76,7 @@ export function addBudgetFloor(budget, { nome, nivel, origem, etapaId }, gerarId
     ...budget,
     etapas:[...budget.etapas, ...stages.map(s => ({...clone(s), id:stageMap.get(s.id),
       parentId:s.id === etapaId ? (s.parentId || '') : stageMap.get(s.parentId),
-      ...(s.id === etapaId ? {nome:name,nivelM:elevation} : {})}))],
+      ...(s.id === etapaId ? {nome:name,nivelM:elevation,pavimentoId:id} : {pavimentoId:undefined})}))],
     itens:[...(budget.itens || []), ...sourceItems.map(i => ({...clone(i), id:itemMap.get(i.id), etapaId:stageMap.get(i.etapaId), quantidade:0}))],
     memoriaCalculo:{...memory, [id]:contents, pavimentosAdicionais:[...(memory.pavimentosAdicionais || []),floor], vinculosEstruturais:links},
   };

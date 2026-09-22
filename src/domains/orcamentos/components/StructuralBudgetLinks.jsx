@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { structuralMeasureOrigin } from '../structural-provenance';
 import { suggestedStructuralTarget, compatibleMemoryUnit, memoryBudgetItems, compatibleStructuralItem, structuralOrigin, normalizeStructuralText } from "../structural-budget-matching";
 export { compatibleMemoryUnit, memoryBudgetItems } from "../structural-budget-matching";
 import "./structural-memory.css";
 
-export default function StructuralBudgetLinks({ scope, rows, budget, onChange, onApply, readOnly }) {
+export default function StructuralBudgetLinks({ scope, rows, budget, onChange, onApply, onNavigateTarget, readOnly }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
@@ -30,6 +31,8 @@ export default function StructuralBudgetLinks({ scope, rows, budget, onChange, o
     <div className="structural-link-head" aria-hidden="true"><span>Quantitativo do memorial</span><span>Célula de destino</span></div>
     {rows.map(row => {
       const key = `${scope}.${row.key}`;
+      const Route = onNavigateTarget ? 'button' : 'span';
+      const source = structuralMeasureOrigin(budget,scope,row);
       const targetId = links[key] || "";
       const item = items.find(candidate => candidate.id === targetId);
       const incompatible = item && !compatibleMemoryUnit(row.unit, item.unidade);
@@ -43,7 +46,9 @@ export default function StructuralBudgetLinks({ scope, rows, budget, onChange, o
       const suggestion = !targetId && suggestedStructuralTarget(scope,row,budget,candidates);
       if (item && !candidates.some(candidate => candidate.id === item.id)) candidates.unshift(item);
       return <div className="structural-link-row" key={row.key}>
-        <div><small className="structural-origin">{context}</small><strong>{row.label}</strong><span className="structural-quantity">{row.missing ? 'Não informado' : `${Number(row.value || 0).toLocaleString("pt-BR", { maximumFractionDigits: 4 })} ${row.unit}`}</span>{row.pending && <small className="structural-pending">⚠ Conferência pendente</small>}</div>
+        <div><small className="structural-origin">{context}</small><strong>{row.label}</strong><span className="structural-quantity">{row.missing ? 'Não informado' : `${Number(row.value || 0).toLocaleString("pt-BR", { maximumFractionDigits: 4 })} ${row.unit}`}</span>{row.pending && <small className="structural-pending">⚠ Conferência pendente</small>}
+          <details className="structural-source"><summary>{source.status} · Origem da medida</summary><p>{context} · {row.label}</p><p>{source.detail}</p></details>
+        </div>
         <div>
           {canEdit ? <select disabled={saving} aria-label={`Destino de ${row.label} · ${context}`} value={targetId} onChange={e => onChange(key, e.target.value)}>
             <option value="">Sem vínculo</option>
@@ -51,6 +56,7 @@ export default function StructuralBudgetLinks({ scope, rows, budget, onChange, o
             {candidates.map(candidate => <option key={candidate.id} value={candidate.id}>{candidate.codigoItem} · {candidate.stagePath} · {candidate.descricao.length > 125 ? `${candidate.descricao.slice(0, 125)}…` : candidate.descricao} · {candidate.unidade}</option>)}
           </select> : item ? <><strong>Item {item.codigoItem} · Quantidade</strong><small>{item.stagePath}</small><p>{item.descricao}</p><small>No orçamento: {Number(item.quantidade || 0).toLocaleString("pt-BR")} {item.unidade}</small></> : <span className={targetId ? "structural-pending" : "structural-muted"}>{targetId ? "⚠ Item removido — redefina o destino" : "Sem vínculo definido"}</span>}
           {canEdit && item && <><small>Destino: {item.stagePath} · item {item.codigoItem}</small><p>{item.descricao}</p></>}
+          {item && <Route type={onNavigateTarget?'button':undefined} className="structural-route" onClick={onNavigateTarget?()=>onNavigateTarget(item):undefined}>{context} → {row.label} → item {item.codigoItem} → {Number(item.quantidade || 0).toLocaleString('pt-BR',{maximumFractionDigits:4})} {item.unidade}</Route>}
           {canEdit && suggestion && <button type="button" disabled={saving} onClick={()=>onChange(key,suggestion.id)}>Usar sugestão: item {suggestion.codigoItem} · {suggestion.stagePath}</button>}
           {wrongService && <small className="structural-pending">⚠ O serviço vinculado não corresponde a {row.label.toLowerCase()}. Redefina o destino.</small>}
           {incompatible && <small className="structural-pending">⚠ Unidade do destino ({item.unidade}) diferente de {row.unit}.</small>}

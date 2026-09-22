@@ -1,4 +1,5 @@
 import { buildBudgetTree, flattenBudgetTree } from "./tree";
+import { memoryFloors } from './budget-floors';
 
 export const normalizeStructuralText = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const unitKey = unit => normalizeStructuralText(unit).trim().replace("²", "2").replace("³", "3");
@@ -8,7 +9,7 @@ export function structuralOrigin(scope, memory = {}) {
   const [floor, element] = scope.split("-");
   const floors = { fundacao: "Fundação", terreo: "Térreo", pavimento1: "1º pavimento", cobertura: "Cobertura", reservatorio: "Reservatório" };
   const elements = { pilares: "Pilares", vigas: "Vigas", laje: "Laje", alvenaria: "Alvenaria" };
-  const custom = memory.pavimentosAdicionais?.find(p => p.id === floor);
+  const custom = memoryFloors(memory).find(p => p.id === floor && (memory.cadastroPavimentos?.[floor] || !floors[floor]));
   return { floor: custom?.nome || floors[floor] || floor, element: floor === "fundacao" ? "Sapatas" : elements[element] || "Estrutura" };
 }
 
