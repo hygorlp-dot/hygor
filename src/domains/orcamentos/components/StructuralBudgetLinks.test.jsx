@@ -20,6 +20,17 @@ const render = (value = budget, onChange = vi.fn(), readOnly = false) => {
 };
 afterEach(() => { if (root) act(() => root.unmount()); container?.remove(); container = root = null; });
 
+it("oculta destino de outro quantitativo e libera ao desfazer o vínculo", () => {
+  const value = { ...budget, memoriaCalculo: { vinculosEstruturais: { "pavimento1-vigas.concreto": "concrete" } } };
+  render(value);
+  act(() => container.querySelector("button").click());
+  expect([...container.querySelector("select").options].map(o => o.value)).toEqual([""]);
+  render({ ...value, memoriaCalculo: { vinculosEstruturais: {} } });
+  expect([...container.querySelector("select").options].map(o => o.value)).toEqual(["", "concrete"]);
+  render(budget);
+  expect(container.querySelector("select").value).toBe("concrete");
+});
+
 it("acompanha a renumeração sem perder o destino estável", () => {
   expect(render().textContent).toContain("Item 1.1 · Quantidade");
   const reordered = { ...budget, etapas: [{ id: "before", nome: "Preliminares" }, ...budget.etapas] };

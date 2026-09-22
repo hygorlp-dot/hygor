@@ -17,7 +17,7 @@ export const mergeThreeWay=(base,incoming,current)=>{
     const currentById=new Map(current.map(item=>[String(item.id),item]));
     const order=[...current.map(item=>String(item.id)),...incoming.map(item=>String(item.id))]
       .filter((id,index,ids)=>ids.indexOf(id)===index);
-    return order.flatMap(id=>{
+    const output=order.flatMap(id=>{
       const original=baseById.get(id);
       const requested=incomingById.get(id);
       const stored=currentById.get(id);
@@ -30,6 +30,16 @@ export const mergeThreeWay=(base,incoming,current)=>{
       if(!stored)return original?[]:[requested];
       return [mergeThreeWay(original,requested,stored)];
     });
+    const commonBefore=base.map(item=>String(item.id)).filter(id=>incomingById.has(id));
+    const commonAfter=incoming.map(item=>String(item.id)).filter(id=>baseById.has(id));
+    if(!same(commonBefore,commonAfter)){
+      const rank=new Map(incoming.map((item,index)=>[String(item.id),index]));
+      const ordered=output.filter(item=>rank.has(String(item.id)))
+        .sort((a,b)=>rank.get(String(a.id))-rank.get(String(b.id)));
+      let index=0;
+      return output.map(item=>rank.has(String(item.id))?ordered[index++]:item);
+    }
+    return output;
   }
   if(object(incoming)&&object(current)){
     const output={};

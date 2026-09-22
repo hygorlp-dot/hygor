@@ -35,9 +35,10 @@ export function structuralService(description) {
   const text = normalizeStructuralText(description);
   if (/\breaterro\b/.test(text)) return "reaterro";
   if (/\bescavacao\b/.test(text)) return "escavacao";
-  if (/\bescoramento\b/.test(text)) return "escoramento";
+  if (/^\s*escoramento\b/.test(text)) return "escoramento";
   if (/concreto magro|lastro.*concreto|concreto.*lastro/.test(text)) return "magro";
   if (/^(forma|formas|forma[s]? de)\b|(?:montagem|desmontagem|fabricacao|execucao|confeccao).*\bformas?\b/.test(text) && !/^concretagem\b/.test(text)) return "forma";
+  if (/\bescoramento\b/.test(text)) return "escoramento";
   if (/\barmacao\b|\barmadura\b|tela soldada|\baco\b/.test(text)) return "aco";
   if (/\bconcretagem\b|\bconcreto\b/.test(text)) return "concreto";
   if (/\blaje\b/.test(text)) return "laje";

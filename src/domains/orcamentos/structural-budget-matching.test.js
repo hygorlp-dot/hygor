@@ -9,6 +9,7 @@ describe("destinos dos quantitativos estruturais", () => {
     ["CONCRETO MAGRO PARA LASTRO", "magro"],
     ["MONTAGEM E DESMONTAGEM DE FÔRMA DE PILARES", "forma"],
     ["FABRICAÇÃO DE FÔRMA PARA VIGAS", "forma"],
+    ["MONTAGEM E DESMONTAGEM DE FÔRMA DE VIGA, ESCORAMENTO COM GARFO DE MADEIRA, PÉ-DIREITO SIMPLES, EM CHAPA DE MADEIRA", "forma"],
     ["ESCORAMENTO DE FÔRMAS DE LAJE", "escoramento"],
     ["ARMAÇÃO DE PILAR UTILIZANDO AÇO CA-50 DE 10 MM", "aco"],
     ["TELA SOLDADA NERVURADA Q-92", "aco"],

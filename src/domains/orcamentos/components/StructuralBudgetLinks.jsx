@@ -35,6 +35,7 @@ export default function StructuralBudgetLinks({ scope, rows, budget, onChange, o
       const incompatible = item && !compatibleMemoryUnit(row.unit, item.unidade);
       const wrongService = item && !compatibleStructuralItem(row, item) && !incompatible;
       const candidates = items.filter(candidate => compatibleStructuralItem(row, candidate)
+        && !Object.entries(links).some(([source, id]) => source !== key && id === candidate.id)
         && normalizeStructuralText(`${candidate.stagePath} ${candidate.codigoItem} ${candidate.codigo} ${candidate.descricao}`).includes(normalizeStructuralText(search)));
       const originScore = candidate => Number(normalizeStructuralText(candidate.stagePath).includes(normalizeStructuralText(origin.floor))) * 2
         + Number(normalizeStructuralText(`${candidate.stagePath} ${candidate.descricao}`).includes(normalizeStructuralText(origin.element)));
@@ -55,6 +56,6 @@ export default function StructuralBudgetLinks({ scope, rows, budget, onChange, o
         </div>
       </div>;
     })}
-    <p className="structural-link-note">As opções são filtradas por serviço e unidade. Confira a etapa do orçamento antes de vincular. Os destinos ficam salvos nesta versão. Concluir vínculos substitui a quantidade dos destinos pela soma dos quantitativos vinculados. Repetir a aplicação não duplica valores. Alterou as medidas? Use Atualizar quantidades.</p>
+    <p className="structural-link-note">As opções são filtradas por serviço e unidade. Destinos usados por outros quantitativos ficam ocultos; desfaça o vínculo anterior para reutilizá-los. Confira a etapa do orçamento antes de vincular. Os destinos ficam salvos nesta versão. Concluir vínculos atualiza as quantidades. Repetir a aplicação não duplica valores. Alterou as medidas? Use Atualizar quantidades.</p>
   </section>;
 }

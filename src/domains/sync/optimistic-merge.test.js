@@ -2,6 +2,16 @@ import {describe,expect,it} from "vitest";
 import {reconcileOptimisticSnapshot} from "./optimistic-merge.js";
 
 describe("reconciliação de cadastros otimistas",()=>{
+  it("salva arraste no orçamento sem perder edição concorrente nem vínculos por ID",()=>{
+    const itens=[{id:"a",quantidade:1},{id:"b",quantidade:2},{id:"c",quantidade:3}];
+    const rendered={orcamentos:[{id:"orc",itens,memoriaCalculo:{vinculosEstruturais:{"pavimento1-vigas.forma":"c"}}}]};
+    const intended={orcamentos:[{...rendered.orcamentos[0],itens:[itens[2],itens[0],itens[1]]}]};
+    expect(reconcileOptimisticSnapshot({rendered,intended,latest:rendered})).toEqual(intended);
+    const latest={orcamentos:[{...rendered.orcamentos[0],itens:[{...itens[0],quantidade:9},{id:"new"},itens[1],itens[2]]}]};
+    const saved=reconcileOptimisticSnapshot({rendered,intended,latest});
+    expect(saved.orcamentos[0].itens).toEqual([itens[2],{id:"new"},{...itens[0],quantidade:9},itens[1]]);
+    expect(saved.orcamentos[0].memoriaCalculo).toEqual(rendered.orcamentos[0].memoriaCalculo);
+  });
   it("preserva cadastro anterior quando outro módulo salva antes do rerender",()=>{
     const rendered={materiais:[{id:"m1"}],fornecedores:[]};
     const latest={materiais:[{id:"m1"},{id:"m2"}],fornecedores:[]};

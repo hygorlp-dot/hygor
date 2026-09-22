@@ -31,6 +31,17 @@ const mergeList=(base,intended,latest)=>{
     const id=recordId(desired);
     if(!seen.has(id)&&!baseById.has(id))output.push(desired);
   }
+  // Uma mudança explícita de ordem também é uma edição. Preserve registros
+  // concorrentes nas suas posições e reordene apenas os slots conhecidos.
+  const commonBefore=B.map(recordId).filter(id=>intendedById.has(id));
+  const commonAfter=I.map(recordId).filter(id=>baseById.has(id));
+  if(!same(commonBefore,commonAfter)){
+    const rank=new Map(I.map((item,index)=>[recordId(item),index]));
+    const ordered=output.filter(item=>rank.has(recordId(item)))
+      .sort((a,b)=>rank.get(recordId(a))-rank.get(recordId(b)));
+    let index=0;
+    return output.map(item=>rank.has(recordId(item))?ordered[index++]:item);
+  }
   return output;
 };
 

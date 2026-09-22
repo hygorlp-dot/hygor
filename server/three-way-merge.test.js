@@ -2,6 +2,18 @@ import {describe,expect,it} from "vitest";
 import {mergeThreeWay} from "./three-way-merge.js";
 
 describe("mescla autoritativa de projeções",()=>{
+  it("persiste ordem solicitada preservando edição e inclusão concorrentes",()=>{
+    const base={itens:[{id:"a",quantidade:1},{id:"b"},{id:"c"}]};
+    const incoming={itens:[base.itens[2],base.itens[0],base.itens[1]]};
+    const current={itens:[{id:"a",quantidade:9},{id:"other"},base.itens[1],base.itens[2]]};
+    expect(mergeThreeWay(base,incoming,current).itens).toEqual([{id:"c"},{id:"other"},{id:"a",quantidade:9},{id:"b"}]);
+    expect(mergeThreeWay(base,incoming,base)).toEqual(incoming);
+  });
+  it("mantém ordem concorrente quando o cliente só muda uma quantidade",()=>{
+    const base=[{id:"a",quantidade:1},{id:"b"}];
+    expect(mergeThreeWay(base,[{id:"a",quantidade:5},base[1]],[base[1],base[0]]))
+      .toEqual([{id:"b"},{id:"a",quantidade:5}]);
+  });
   it("preserva registros de outra obra ausentes da projeção do cliente",()=>{
     const base=[{id:"a",obraId:"obra-a",status:"aberto"}];
     const incoming=[{id:"a",obraId:"obra-a",status:"concluido"}];
