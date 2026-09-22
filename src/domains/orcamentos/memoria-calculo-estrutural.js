@@ -201,6 +201,7 @@ export function novaVigaPavimento(extra = {}) {
     // precisar de outro campo manual. Só a largura e o acréscimo continuam
     // sendo pedidos ao usuário.
     areaPlantaVigasM2: 0, larguraVigaM: 0, magroLarguraAcrescidaM: 0,
+    magroEspessuraCm: "",
     precisaRevisar: false,
     ...extra,
   };

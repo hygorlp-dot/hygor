@@ -1153,7 +1153,9 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
               <EditableField label="LARGURA DA VIGA (M)" ariaLabel="Largura da viga" value={viga.larguraVigaM} onChange={v=>salvarVigaDoPavimento(pav,{larguraVigaM:v})}/>
               <EditableField label="ACRÉSCIMO DE CADA LADO (M)" ariaLabel="Largura a acrescer no magro, de cada lado" value={viga.magroLarguraAcrescidaM} onChange={v=>salvarVigaDoPavimento(pav,{magroLarguraAcrescidaM:v})}/>
+              <EditableField label="ESPESSURA DO LASTRO" unit="cm" ariaLabel="Espessura do lastro de concreto magro em centímetros" value={viga.magroEspessuraCm} onChange={v=>salvarVigaDoPavimento(pav,{magroEspessuraCm:v})}/>
             </div>
+            <p style={{fontSize:12,color:C.muted,marginTop:8}}>Informe a espessura do lastro em centímetros. O quantitativo vinculado ao orçamento permanece em m².</p>
             <div style={{marginTop:8}}><CalculatedValue label="Área do magro" value={magro.toFixed(2)} unit="m²"/></div>
             <CalculationDetails formula={`Comprimento = ${Number(viga.areaPlantaVigasM2||0).toFixed(2)} m² em planta ÷ ${Number(viga.larguraVigaM||0).toFixed(3)} m = ${comprimento.toFixed(2)} m. Área do magro = ${comprimento.toFixed(2)} m × (${Number(viga.larguraVigaM||0).toFixed(3)} m largura + 2 × ${Number(viga.magroLarguraAcrescidaM||0).toFixed(3)} m de acréscimo) = ${magro.toFixed(2)} m².`}/>
             {!viga.areaPlantaVigasM2&&viga.larguraVigaM>0&&(
