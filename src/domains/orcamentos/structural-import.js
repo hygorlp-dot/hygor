@@ -1,3 +1,4 @@
+import { aplicarCriterioEstrutural } from "./structural-quantity-policy";
 import { extrairGeometriaSapata } from "./sapata-geometria.js";
 import {CHAVE_PAVIMENTO,extrairElementosEstruturais,extrairResumoAco,extrairSapatasFundacao} from './estrutural-pdf-extrator.js';
 
@@ -40,17 +41,11 @@ export function extrairProjetoEstrutural(texto){
   });
   if(sapatas.some(s=>s.geometriaPendente))avisos.push('Fundação: não foi possível identificar os dois cortes de todas as sapatas no PDF. Geometrias não identificadas não são calculadas como zero medido.');
   for(const [pav,resumo] of Object.entries(resumos)){
-    const detalhes=elementos.pilares[pav]||[];
     if(resumo.pilar){
-      const volume=detalhes.reduce((s,p)=>s+p.concretoUnit*p.qtd,0);
-      const forma=detalhes.reduce((s,p)=>s+p.formaUnit*p.qtd,0);
-      const divergencia=detalhes.length&&(Math.abs(volume-resumo.pilar.concretoM3)>0.02||Math.abs(forma-resumo.pilar.formaM2)>0.02);
-      if(divergencia)avisos.push(`${pav}: pilares usam o quadro-resumo da página ${resumo.pagina} (${resumo.pilar.concretoM3} m³ / ${resumo.pilar.formaM2} m²); detalhamentos somam ${volume.toFixed(2)} m³ / ${forma.toFixed(2)} m². Conferir o critério de medição.`);
       elementos.pilares[pav]=[{tipo:`Resumo da página ${resumo.pagina}`,qtd:1,concretoUnit:resumo.pilar.concretoM3,formaUnit:resumo.pilar.formaM2,acoUnit:resumo.pilar.acoKg}];
     }
-    if(resumo.laje&&!elementos.lajesAcoPorBitola[pav]){
-      elementos.lajesAcoPorBitola[pav]={porBitola:[],totalKg:resumo.laje.acoKg,semBitolas:true};
-      avisos.push(`${pav}: ${resumo.laje.acoKg} kg de aço de laje no quadro-resumo, sem discriminação por bitola. Não somar novamente ao aço estimado das vigotas.`);
+    if(resumo.laje){
+      elementos.lajesAcoPorBitola[pav]={porBitola:[],totalKg:resumo.laje.acoKg,semBitolas:false,somenteTelaSoldada:true};
     }
   }
   // Folhas mistas (reservatório): isolar cada bloco antes de classificar.
@@ -86,5 +81,5 @@ export function aplicarQuantitativosEstruturais(memoria,grupos){
     }
     nova[pav]={...atual,viga,laje};
   }
-  return nova;
+  return aplicarCriterioEstrutural(nova);
 }

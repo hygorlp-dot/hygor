@@ -1,3 +1,4 @@
+import { aplicarCriterioEstrutural } from "../structural-quantity-policy";
 import { structuralBudgetRows, applyStructuralBudgetLinks } from "../structural-budget-apply";
 import { correspondeBuscaComposicao, composicaoComoReferencia } from "../composition-search";
 import { recuperarGeometriaSapatas } from "../sapata-geometria-recovery";
@@ -945,7 +946,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // (guardado dentro do próprio orçamento, ao lado de itens/etapas; não
   // escreve nas linhas do orçamento sozinho - decisão tomada com o usuário).
   const sapatasFundacao = useMemo(() => recuperarGeometriaSapatas(orc?.memoriaCalculo?.fundacao?.sapatas || []), [orc?.memoriaCalculo?.fundacao?.sapatas]);
-  const avisosMemoria = (orc?.memoriaCalculo?.avisosImportacao || []).filter(aviso => !(sapatasFundacao.length && sapatasFundacao.every(s=>!s.geometriaPendente) && aviso.startsWith("Fundação: alturas preservadas")));
+  const avisosMemoria = (orc?.memoriaCalculo?.avisosImportacao || []).filter(aviso => !/pilares usam o quadro-resumo|aço de laje no quadro-resumo/.test(aviso)).filter(aviso => !(sapatasFundacao.length && sapatasFundacao.every(s=>!s.geometriaPendente) && aviso.startsWith("Fundação: alturas preservadas")));
   const resumoSapatasFundacao = useMemo(() => resumoSapatas(sapatasFundacao), [sapatasFundacao]);
   const salvarSapatasFundacao = (novaLista) => salvarOrc({
     memoriaCalculo: { ...(orc?.memoriaCalculo || {}), fundacao: { ...(orc?.memoriaCalculo?.fundacao || {}), sapatas: novaLista } },
@@ -978,15 +979,15 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // abrir a Memória de Cálculo) é um objeto de verdade, então o `||` nunca
   // cai no padrão novo - ficava sem `acoPorBitola` nenhum, e o editor
   // quebrava tentando `.map` num `undefined`.
-  const pilarDoPavimento = pav => ({ ...novaPilarPavimento(), ...(orc?.memoriaCalculo?.[pav]?.pilar || {}) });
+  const pilarDoPavimento = pav => ({ ...novaPilarPavimento(), ...(aplicarCriterioEstrutural(orc?.memoriaCalculo)?.[pav]?.pilar || {}) });
   const salvarPilarDoPavimento = (pav, patch) => salvarOrc({
     memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), pilar: { ...pilarDoPavimento(pav), ...patch, precisaRevisar: false } } },
   });
-  const vigaDoPavimento = pav => ({ ...novaVigaPavimento(), ...(orc?.memoriaCalculo?.[pav]?.viga || {}) });
+  const vigaDoPavimento = pav => ({ ...novaVigaPavimento(), ...(aplicarCriterioEstrutural(orc?.memoriaCalculo)?.[pav]?.viga || {}) });
   const salvarVigaDoPavimento = (pav, patch) => salvarOrc({
     memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), viga: { ...vigaDoPavimento(pav), ...patch } } },
   });
-  const lajeDoPavimento = pav => ({ ...novaLajePavimento(), ...(orc?.memoriaCalculo?.[pav]?.laje || {}) });
+  const lajeDoPavimento = pav => ({ ...novaLajePavimento(), ...(aplicarCriterioEstrutural(orc?.memoriaCalculo)?.[pav]?.laje || {}) });
   const salvarLajeDoPavimento = (pav, patch) => salvarOrc({
     memoriaCalculo: { ...(orc?.memoriaCalculo || {}), [pav]: { ...(orc?.memoriaCalculo?.[pav] || {}), laje: { ...lajeDoPavimento(pav), ...patch } } },
   });
@@ -1103,7 +1104,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           <Metric label="Fôrma" value={fmtNum(pilar.formaM2)} unit="m²"/>
           <Metric label="Aço" value={fmtNum(acoPilares,1)} unit="kg"/>
         </>}>
-        <p style={{fontSize:10,color:C.muted,marginTop:-4}}>Total do pavimento inteiro (o orçamento sempre orça pilares assim, nunca pilar a pilar) - quando disponível, a importação usa o quadro-resumo do projeto. Confira as divergências indicadas acima.</p>
+        <p style={{fontSize:10,color:C.muted,marginTop:-4}}>Total do pavimento inteiro (o orçamento sempre orça pilares assim, nunca pilar a pilar) - quando disponível, a importação usa o quadro-resumo do projeto. O quadro-resumo prevalece sobre os detalhamentos.</p>
         <div>
           <p style={LABEL_GRUPO}>Parâmetros</p>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
@@ -1182,9 +1183,9 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         resumo={<>
           <Metric label="Volume" value={fmtNum(laje.volumeM3)} unit="m³"/>
           <Metric label={laje.acoSemBitolas?"Aço do projeto (sem bitolas)":"Aço maciça"} value={fmtNum(laje.acoSemBitolas?laje.acoTotalProjetoKg:acoMacica,1)} unit="kg"/>
-          {!laje.acoSemBitolas&&<Metric label="Aço vigota" value={fmtNum(acoVigota,1)} unit="kg"/>}
+          {!laje.acoSemBitolas&&<Metric label="Tela soldada" value={fmtNum(acoVigota,1)} unit="kg"/>}
         </>}>
-        {laje.acoSemBitolas&&<Btn v="ghost" onClick={()=>salvarLajeDoPavimento(pav,{acoSemBitolas:false})}>Usar aço discriminado e estimativa de vigotas após conferência</Btn>}
+        {laje.somenteTelaSoldada&&<p>Vigotas: somente tela soldada, calculada pela área × peso da malha. Aços em barras do projeto desconsiderados.</p>}
         {laje.acoSemBitolas&&<Warning>O quadro informa {laje.acoTotalProjetoKg} kg de aço sem separar bitolas. O resumo usa somente esse total; a estimativa de vigotas não é somada novamente. Confira o escopo antes de discriminar os insumos.</Warning>}
         <p style={{fontSize:10,color:C.muted,marginTop:-4}}>Volumes, áreas e quantitativos de aço do pavimento - o mesmo jeito que o Quantitativos do projeto resume.</p>
 
@@ -1208,11 +1209,11 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
 
         <div>
           <p style={LABEL_GRUPO}>Aço da laje</p>
-          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"3fr 2fr",gap:10,alignItems:"start"}}>
-            <div style={{border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 11px",display:"flex",flexDirection:"column",gap:6}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile||laje.somenteTelaSoldada?"1fr":"3fr 2fr",gap:10,alignItems:"start"}}>
+            {!laje.somenteTelaSoldada&&<div style={{border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 11px",display:"flex",flexDirection:"column",gap:6}}>
               <div><p style={{fontSize:10.5,fontWeight:800,color:C.text}}>Maciça - aço por bitola</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Não inclui vigota - a treliça pré-moldada não entra no Resumo Aço do projeto.</p></div>
               {renderEditorAcoPorBitola(laje.acoPorBitola, lista=>salvarLajeDoPavimento(pav,{acoPorBitola:lista}), "Total aço maciça")}
-            </div>
+            </div>}
             <div style={{border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 11px",display:"flex",flexDirection:"column",gap:8}}>
               <div><p style={{fontSize:10.5,fontWeight:800,color:C.text}}>Vigota - tela soldada</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Peso = área x peso/m² da malha - não soma com o aço da maciça.</p></div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
@@ -1476,7 +1477,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         ...(acoLaje ? { laje: { ...novaLajePavimento(), ...(pavAtual.laje || {}), acoTotalProjetoKg:acoLaje.totalKg, acoSemBitolas:!!acoLaje.semBitolas, acoPorBitola: acoLaje.porBitola.map(b => ({ bitola: b.bitola, kg: b.pesoKg })) } } : {}),
       };
     }
-    salvarOrc({ memoriaCalculo: memoriaNova });
+    salvarOrc({ memoriaCalculo: aplicarCriterioEstrutural(memoriaNova) });
     showToast(`Fundação (${pdfPreviewCompleto.sapatas.length} tipo(s) de sapata) e ${pavimentosAtualizados} pavimento(s) de Pilares/Vigas/Laje importados - reimportar sempre substitui a versão anterior, nunca duplica.`);
     setPdfPreviewCompleto(null);
   };
@@ -1496,7 +1497,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const memoriaAtual = orc?.memoriaCalculo || {};
     const memoriaNova=aplicarQuantitativosEstruturais(memoriaAtual,pdfPreviewQuantitativos);
     const atualizados=pdfPreviewQuantitativos.filter(g=>CHAVE_PAVIMENTO[g.pavimento]).length;
-    salvarOrc({ memoriaCalculo: memoriaNova });
+    salvarOrc({ memoriaCalculo: aplicarCriterioEstrutural(memoriaNova) });
     showToast(`Concreto/fôrma de vigas, área e volume de laje de ${atualizados} pavimento(s) importados do PDF de Quantitativos.`);
     setPdfPreviewQuantitativos(null);
   };

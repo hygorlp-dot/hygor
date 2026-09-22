@@ -32,11 +32,11 @@ describe('importação estrutural conferida',()=>{
     expect(calcularSapataTipo(p).volumeSapataTotal).toBeCloseTo(.3391666666666667,10);
     expect(calcularSapataTipo({...p,volumeConferidoM3:.2,formaConferidaM2:1}).volumeSapataTotal).toBe(.4);
   });
-  it('preserva aço de lajes sem fabricar bitolas e usa o quadro-resumo dos pilares',()=>{
+  it('desconsidera barras das vigotas e usa o quadro-resumo dos pilares',()=>{
     const r=extrairProjetoEstrutural(table('1º Pavimento'));
     expect(r.pilares.pavimento1[0].concretoUnit).toBe(2.4);
-    expect(r.lajesAcoPorBitola.pavimento1).toEqual({totalKg:164,porBitola:[],semBitolas:true});
-    expect(r.avisos.join(' ')).toContain('sem discriminação');
+    expect(r.lajesAcoPorBitola.pavimento1).toEqual({totalKg:164,porBitola:[],semBitolas:false,somenteTelaSoldada:true});
+    expect(r.avisos).toEqual([]);
   });
   it('separa pilares de vigas em uma folha mista do reservatório',()=>{
     const r=extrairProjetoEstrutural(table('Reservatório','0.120','19')+'\n'+steel('Pilares',19,'CA-50 Ø10')+'\n'+steel('Desenho de vigas',48));

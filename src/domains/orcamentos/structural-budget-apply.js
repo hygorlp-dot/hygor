@@ -1,3 +1,4 @@
+import { aplicarCriterioEstrutural } from "./structural-quantity-policy";
 import { budgetIsImmutable } from "./calculations";
 import { compatibleStructuralItem } from "./structural-budget-matching";
 import { recuperarGeometriaSapatas } from "./sapata-geometria-recovery";
@@ -15,7 +16,7 @@ const steelRows = list => {
 
 // Uma única projeção alimenta tanto a tela quanto a aplicação no orçamento.
 export function structuralBudgetRows(budget) {
-  const memory = budget?.memoriaCalculo || {};
+  const memory = aplicarCriterioEstrutural(budget?.memoriaCalculo || {});
   const sapatas = recuperarGeometriaSapatas(memory.fundacao?.sapatas || []);
   const resumo = resumoSapatas(sapatas), t = resumo.totais;
   const pending = sapatas.some(s => s.geometriaPendente);
@@ -43,7 +44,7 @@ export function structuralBudgetRows(budget) {
 export function applyStructuralBudgetLinks(budget, scope) {
   const fail = reason => ({ ok: false, reason });
   if (budgetIsImmutable(budget)) return fail("Crie uma revisão para alterar as quantidades deste orçamento aprovado.");
-  const memory = budget?.memoriaCalculo || {};
+  const memory = aplicarCriterioEstrutural(budget?.memoriaCalculo || {});
   const links = memory.vinculosEstruturais || {};
   const previous = memory.aplicacoesEstruturais || {};
   const groups = structuralBudgetRows(budget);
