@@ -65,6 +65,18 @@ export const budgetStageLevel = (stages = [], id) => {
   return level;
 };
 
+export const moveBudgetStage = (stages, id, parentId = "", maxLevel = 5) => {
+  if (!stages.some(stage => stage.id === id)) throw new Error("Etapa não encontrada.");
+  if (parentId && !stages.some(stage => stage.id === parentId)) throw new Error("Etapa superior não encontrada.");
+  const subtree = budgetSubtreeIds(stages, id);
+  if (subtree.includes(parentId)) throw new Error("Uma etapa não pode ficar dentro dela mesma ou de suas subetapas.");
+  const next = stages.map(stage => stage.id === id ? {...stage, parentId} : stage);
+  if (subtree.some(child => budgetStageLevel(next, child) > maxLevel)) {
+    throw new Error(`A mudança ultrapassa o limite de ${maxLevel} níveis contando as subetapas.`);
+  }
+  return next;
+};
+
 export const calculateBudgetTree = budget => {
   const calculation = calculateBudget(budget);
   const withPercentage = node => ({

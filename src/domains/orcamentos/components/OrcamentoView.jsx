@@ -55,6 +55,7 @@ import {
 import { clonarCronogramaPlano, clonarEstruturaOrcamento } from "../budget-clone";
 import { auditBudgetTechnicalScope } from "../technical-audit";
 import {
+  moveBudgetStage,
   flattenBudgetTree as achatarArvore,
   budgetSubtreeIds as idsDaSubarvore,
   budgetStageLevel as nivelDaEtapa,
@@ -2518,8 +2519,11 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const { modo, paiId, etapa } = etapaModal;
 
     if (modo === "editar") {
-      salvarOrc({ etapas: orc.etapas.map(e => e.id===etapa.id ? {...e, nome:etapaNome.trim()} : e) });
-      showToast("Etapa renomeada.");
+      try {
+        const etapas = moveBudgetStage(orc.etapas, etapa.id, paiId, MAX_NIVEL);
+        salvarOrc({ etapas: etapas.map(e => e.id===etapa.id ? {...e, nome:etapaNome.trim()} : e) });
+      } catch (error) { showToast(error.message,"error"); return; }
+      showToast("Etapa atualizada. Numeração recalculada.");
     } else {
       if (paiId && nivelDaEtapa(orc.etapas, paiId) >= MAX_NIVEL) {
         showToast(`Limite de ${MAX_NIVEL} níveis atingido.`,"error"); return;
@@ -3757,7 +3761,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       </button>
                     )}
                     <button onClick={() => abrirEditarEtapa(no)}
-                      title="Renomear"
+                      title="Editar nome e nível"
                       style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer", width:alvoToque, height:alvoToque, display:"flex",alignItems:"center",justifyContent:"center" }}>
                       <Ic n="edit" s={13}/>
                     </button>
@@ -4598,12 +4602,20 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       {/* Modal: nova etapa / subnível / renomear */}
       {etapaModal && (
         <Modal
-          title={etapaModal.modo==="editar" ? "Renomear etapa"
+          title={etapaModal.modo==="editar" ? "Editar etapa e nível"
                : etapaModal.modo==="sub"    ? "Novo subnível"
                : "Nova etapa"}
           onClose={()=>{setEtapaModal(null);setEtapaNome("");}}
         >
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            {etapaModal.modo==="editar" && <>
+              <Sel label="Posição na hierarquia" value={etapaModal.paiId}
+                onChange={paiId=>setEtapaModal(current=>({...current,paiId}))}
+                options={[{v:"",l:"Nível 1 · Etapa principal"},
+                  ...achatarArvore(calc.arvore).filter(row=>row.tipo==="etapa" && !idsDaSubarvore(orc.etapas,etapaModal.etapa.id).includes(row.id))
+                    .map(row=>({v:row.id,l:`Dentro de ${row.codigo} · ${row.nome} (nível ${row.nivel+1})`}))]}/>
+              <p style={{fontSize:12,color:C.muted}}>Os itens e subetapas serão movidos juntos. A numeração será atualizada e os vínculos da memória serão preservados.</p>
+            </>}
             {etapaModal.paiId && (() => {
               const pai = orc.etapas.find(e=>e.id===etapaModal.paiId);
               const nivelPai = nivelDaEtapa(orc.etapas, etapaModal.paiId);
