@@ -1,0 +1,28 @@
+.structural-memory { --memory-line: #d6d6d6; --memory-muted: #525252; color: #161616; }
+.structural-memory .memory-disclosure { border: 1px solid var(--memory-line); border-radius: 4px; background: #fff; padding: 12px 16px; }
+.structural-memory .memory-disclosure > summary { cursor: pointer; font-size: var(--arcd-type-body, 14px); font-weight: 600; padding: 4px 0; }
+.structural-memory .memory-disclosure[open] > summary { margin-bottom: 12px; }
+.structural-memory .memory-disclosure p { font-size: var(--arcd-type-caption, 12px); line-height: 1.6; }
+.structural-memory .memory-review-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
+.structural-links { border-top: 1px solid #d6d6d6; margin-top: 8px; padding-top: 12px; font-size: var(--arcd-type-body, 14px); min-width: 0; }
+.structural-links header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.structural-links h4 { margin: 0; font-size: var(--arcd-type-card-title, 14px); font-weight: 600; }
+.structural-links p, .structural-links small { margin: 4px 0 0; color: #525252; font-size: var(--arcd-type-caption, 12px); line-height: 1.5; }
+.structural-links small { display: block; }
+.structural-links button { background: #fff; border: 1px solid #8d8d8d; border-radius: 8px; padding: 8px 12px; cursor: pointer; color: #161616; font: inherit; }
+.structural-links select, .structural-links input { width: 100%; min-width: 0; box-sizing: border-box; padding: 10px; border: 1px solid #8d8d8d; border-radius: 8px; background: #fff; color: #161616; font: inherit; }
+.structural-links :is(button, input, select):focus-visible, .structural-memory summary:focus-visible { outline: 2px solid #0f62fe; outline-offset: 3px; }
+.structural-link-head, .structural-link-row { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(0, 2fr); gap: 16px; padding: 12px 8px; border-bottom: 1px solid #e0e0e0; }
+.structural-link-head { color: #525252; background: #f4f4f4; font-size: var(--arcd-type-label, 12px); }
+.structural-link-row > div { min-width: 0; overflow-wrap: anywhere; }
+.structural-link-row strong { font-weight: 600; }
+.structural-quantity { display: block; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.structural-links .structural-pending { color: #8a3800; }
+.structural-muted { color: #525252; }
+.structural-link-search { display: grid; gap: 6px; margin-bottom: 12px; font-size: var(--arcd-type-label, 12px); }
+.structural-links .structural-link-note { margin-top: 12px; }
+@media (max-width: 700px) {
+  .structural-link-head { display: none; }
+  .structural-link-row { grid-template-columns: 1fr; gap: 8px; }
+  .structural-links :is(button, input, select) { min-height: 44px; }
+}

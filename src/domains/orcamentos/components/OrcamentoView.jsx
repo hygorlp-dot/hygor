@@ -1,3 +1,4 @@
+import StructuralBudgetLinks from "./StructuralBudgetLinks";
 import { extrairProjetoEstrutural, aplicarQuantitativosEstruturais } from "../structural-import";
 // ===================================================================
 // OrcamentoView — tela de Orçamento extraída de LegacyApp.jsx
@@ -203,27 +204,27 @@ const ITENS_NAV_MEMORIA = [
 // ===================================================================
 const Metric = ({ label, value, unit }) => (
   <div style={{display:"flex",flexDirection:"column",gap:1}}>
-    <span style={{fontSize:9.5,fontWeight:700,color:C.muted}}>{label}</span>
-    <span style={{fontSize:14,fontWeight:800,color:C.text,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:9.5,fontWeight:700,color:C.muted,marginLeft:3}}>{unit}</span>}</span>
+    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:700,color:C.muted}}>{label}</span>
+    <span style={{fontSize:14,fontWeight:600,color:C.text,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:700,color:C.muted,marginLeft:3}}>{unit}</span>}</span>
   </div>
 );
 
 const EditableField = ({ label, value, onChange, unit, ariaLabel, width }) => (
   <label style={{display:"flex",flexDirection:"column",gap:3,width}}>
-    <span style={{fontSize:9,fontWeight:800,color:C.muted}}>{label}</span>
+    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{label}</span>
     <span style={{position:"relative",display:"flex"}}>
       <input type="number" min="0" step="any" aria-label={ariaLabel||label} value={value}
         onChange={e=>onChange(e.target.value.replace(",","."))}
-        style={{width:"100%",boxSizing:"border-box",padding:unit?"7px 28px 7px 8px":"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right",fontSize:11,fontVariantNumeric:"tabular-nums"}}/>
-      {unit&&<span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",fontSize:9,color:C.subtle,pointerEvents:"none"}}>{unit}</span>}
+        style={{width:"100%",boxSizing:"border-box",padding:unit?"7px 28px 7px 8px":"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right",fontSize:"var(--arcd-type-body)",fontVariantNumeric:"tabular-nums"}}/>
+      {unit&&<span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",fontSize:"var(--arcd-type-caption)",color:C.subtle,pointerEvents:"none"}}>{unit}</span>}
     </span>
   </label>
 );
 
 const CalculatedValue = ({ label, value, unit }) => (
   <div style={{display:"flex",flexDirection:"column",gap:2,background:C.card2,borderRadius:6,padding:"6px 9px"}}>
-    <span style={{fontSize:9,fontWeight:700,color:C.muted}}>{label}</span>
-    <span style={{fontSize:13,fontWeight:800,color:C.text,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:9,fontWeight:700,color:C.muted,marginLeft:3}}>{unit}</span>}</span>
+    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:700,color:C.muted}}>{label}</span>
+    <span style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:700,color:C.muted,marginLeft:3}}>{unit}</span>}</span>
   </div>
 );
 
@@ -231,8 +232,8 @@ const ResultValue = ({ label, value, unit, tone="purple" }) => {
   const cor = tone==="blue" ? C.blue : C.purple;
   return (
     <div style={{display:"flex",flexDirection:"column",gap:2,background:`${cor}0c`,border:`1px solid ${cor}33`,borderRadius:6,padding:"7px 10px"}}>
-      <span style={{fontSize:9,fontWeight:700,color:cor}}>{label}</span>
-      <span style={{fontSize:17,fontWeight:900,color:cor,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:10,fontWeight:700,marginLeft:3}}>{unit}</span>}</span>
+      <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:700,color:cor}}>{label}</span>
+      <span style={{fontSize:17,fontWeight:600,color:cor,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:700,marginLeft:3}}>{unit}</span>}</span>
     </div>
   );
 };
@@ -241,7 +242,7 @@ const Warning = ({ children, tone="warn" }) => {
   const cor = tone==="error" ? C.red : C.orange;
   return (
     <div style={{background:`${cor}0d`,border:`1px solid ${cor}44`,borderRadius:6,padding:"7px 9px"}}>
-      <p style={{fontSize:9.5,color:cor,fontWeight:700,lineHeight:1.5}}>⚠ {children}</p>
+      <p style={{fontSize:"var(--arcd-type-caption)",color:cor,fontWeight:700,lineHeight:1.5}}>⚠ {children}</p>
     </div>
   );
 };
@@ -250,8 +251,8 @@ const Warning = ({ children, tone="warn" }) => {
 // usuário pedir (pedido explícito: resultado antes do detalhe).
 const CalculationDetails = ({ formula }) => (
   <details>
-    <summary style={{cursor:"pointer",fontSize:9,color:C.blue,fontWeight:700}}>Ver memória do cálculo</summary>
-    <p style={{fontSize:9,color:C.muted,marginTop:4,lineHeight:1.5}}>{formula}</p>
+    <summary style={{cursor:"pointer",fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:700}}>Ver memória do cálculo</summary>
+    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4,lineHeight:1.5}}>{formula}</p>
   </details>
 );
 
@@ -261,13 +262,13 @@ const SCROLL_MARGIN = 84;
 // Nível 3 da hierarquia visual (Resumo/Parâmetros/Aço por bitola/Áreas...)
 // dentro de um elemento estrutural - mais discreto que o título do elemento
 // (nível 2), mais forte que o rótulo de um campo (nível 4).
-const LABEL_GRUPO = { fontSize:11, fontWeight:800, color:C.subtle, marginBottom:6 };
+const LABEL_GRUPO = { fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.subtle, marginBottom:6 };
 const fmtNum = (n,casas=2) => Number(n||0).toLocaleString("pt-BR",{maximumFractionDigits:casas});
 
 const FloorSection = ({ id, sectionRef, title, resumo, children }) => (
   <section ref={sectionRef} id={id} style={{display:"flex",flexDirection:"column",gap:12,scrollMarginTop:SCROLL_MARGIN}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:"4px 18px",paddingBottom:8,borderBottom:`2px solid ${C.border}`}}>
-      <p style={{fontSize:16,fontWeight:900,color:C.text,letterSpacing:.2}}>{title}</p>
+      <p style={{fontSize:16,fontWeight:600,color:C.text,letterSpacing:.2}}>{title}</p>
       {resumo&&<div style={{display:"flex",gap:18,flexWrap:"wrap"}}>{resumo}</div>}
     </div>
     {children}
@@ -275,12 +276,12 @@ const FloorSection = ({ id, sectionRef, title, resumo, children }) => (
 );
 
 const StructuralElementSection = ({ id, sectionRef, title, subtitle, open, onToggle, resumo, warning, children }) => (
-  <div ref={sectionRef} id={id} style={{border:`1px solid ${C.border}`,borderRadius:7,background:C.bg,scrollMarginTop:SCROLL_MARGIN,overflow:"hidden"}}>
-    <button onClick={onToggle} aria-expanded={open} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,padding:"10px 12px",border:0,background:"transparent",cursor:"pointer",textAlign:"left"}}>
+  <div ref={sectionRef} id={id} style={{border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,scrollMarginTop:SCROLL_MARGIN,overflow:"hidden"}}>
+    <button onClick={onToggle} aria-expanded={open} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12,padding:"14px 16px",border:0,background:"transparent",cursor:"pointer",textAlign:"left"}}>
       <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
         <span style={{display:"flex",flexShrink:0,transform:open?"rotate(90deg)":"none",transition:"transform 120ms ease-out"}}><Ic n="chevR" s={12} color={C.muted}/></span>
-        <span style={{fontSize:12.5,fontWeight:850,color:C.text,whiteSpace:"nowrap"}}>{title}</span>
-        {subtitle&&<span style={{fontSize:9.5,color:C.muted}}>{subtitle}</span>}
+        <span style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,whiteSpace:"nowrap"}}>{title}</span>
+        {subtitle&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{subtitle}</span>}
       </div>
       {resumo&&<div style={{display:"flex",gap:14,flexWrap:"wrap",justifyContent:"flex-end"}}>{resumo}</div>}
     </button>
@@ -1019,6 +1020,20 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     return { concreto, forma, aco, escavacao: t.volumeEscavacao };
   })();
 
+  const linhaMemoria = (key, label, value, unit, pending = false) => ({ key, label, value, unit, pending });
+  const linhasAcoMemoria = lista => {
+    const bitolas = new Map();
+    for (const linha of lista || []) {
+      const bitola = String(Number(String(linha.bitola).replace(",", ".")));
+      bitolas.set(bitola, (bitolas.get(bitola) || 0) + Number(linha.kg || 0));
+    }
+    return [...bitolas].map(([bitola, kg]) => linhaMemoria(`aco-${bitola}`, `Aço Ø ${bitola} mm`, kg, "kg"));
+  };
+  const renderDestinosMemoria = (scope, rows) => <StructuralBudgetLinks scope={scope} rows={rows} budget={orc}
+    readOnly={budgetIsImmutable(orc)} onChange={(key, itemId) => salvarOrc({ memoriaCalculo: {
+      ...(orc.memoriaCalculo || {}), vinculosEstruturais: { ...(orc.memoriaCalculo?.vinculosEstruturais || {}), [key]: itemId },
+    } })}/>;
+
   // Hidrossanitário (28/08/2026) - não quebra por pavimento como o
   // estrutural (a folha "Tabelas e Detalhes" do projeto já consolida a obra
   // inteira), então vive direto em memoriaCalculo.hidrossanitario, sem
@@ -1074,12 +1089,12 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const renderCardPilar = pav => {
     const pilar = pilarDoPavimento(pav);
     const chave = `${pav}-pilares`;
-    const aberto = elementoEstaAberto(chave, true); // Pilares abre por padrão (spec do usuário)
+    const aberto = elementoEstaAberto(chave, false);
     const acoPilares = somaAcoPorBitola(pilar.acoPorBitola);
     return (
       <StructuralElementSection id={chave} sectionRef={registrarSecaoMemoria(chave)}
         title={<span style={{display:"flex",alignItems:"center",gap:6}}>PILARES{pilar.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo aqui remove este aviso." style={{width:7,height:7,borderRadius:"50%",background:C.orange,display:"inline-block"}}/>}</span>}
-        open={aberto} onToggle={()=>alternarElementoMemoria(chave,true)}
+        open={aberto} onToggle={()=>alternarElementoMemoria(chave,false)}
         resumo={<>
           <Metric label="Concreto" value={fmtNum(pilar.concretoM3)} unit="m³"/>
           <Metric label="Fôrma" value={fmtNum(pilar.formaM2)} unit="m²"/>
@@ -1097,6 +1112,11 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           <p style={LABEL_GRUPO}>Aço por bitola</p>
           {renderEditorAcoPorBitola(pilar.acoPorBitola, lista=>salvarPilarDoPavimento(pav,{acoPorBitola:lista}), "Total aço dos pilares")}
         </div>
+        {renderDestinosMemoria(chave, [
+          linhaMemoria("concreto", "Concreto", pilar.concretoM3, "m³", pilar.precisaRevisar),
+          linhaMemoria("forma", "Fôrma", pilar.formaM2, "m²", pilar.precisaRevisar),
+          ...linhasAcoMemoria(pilar.acoPorBitola),
+        ])}
       </StructuralElementSection>
     );
   };
@@ -1112,7 +1132,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const comprimento = viga.larguraVigaM>0 ? viga.areaPlantaVigasM2/viga.larguraVigaM : 0;
     return (
       <StructuralElementSection id={chave} sectionRef={registrarSecaoMemoria(chave)}
-        title="VIGAS" open={aberto} onToggle={()=>alternarElementoMemoria(chave,false)}
+        title="VIGAS" subtitle={viga.avisoConcretoIncorreto ? "⚠ Volume pendente de conferência" : undefined} open={aberto} onToggle={()=>alternarElementoMemoria(chave,false)}
         resumo={<>
           <Metric label="Concreto" value={fmtNum(viga.concretoM3)} unit="m³"/>
           <Metric label="Fôrma" value={fmtNum(viga.formaM2)} unit="m²"/>
@@ -1145,6 +1165,12 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           <p style={LABEL_GRUPO}>Aço por bitola</p>
           {renderEditorAcoPorBitola(viga.acoPorBitola, lista=>salvarVigaDoPavimento(pav,{acoPorBitola:lista}), "Total aço das vigas")}
         </div>
+        {renderDestinosMemoria(chave, [
+          linhaMemoria("concreto", "Concreto", viga.concretoM3, "m³", viga.avisoConcretoIncorreto),
+          linhaMemoria("forma", "Fôrma", viga.formaM2, "m²"),
+          ...(pav === "terreo" ? [linhaMemoria("magro", "Lastro de concreto magro", magro, "m²")] : []),
+          ...linhasAcoMemoria(viga.acoPorBitola),
+        ])}
       </StructuralElementSection>
     );
   };
@@ -1158,7 +1184,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const semAreaImportada = !laje.areaMacicaM2 && !laje.areaVigotaM2 && laje.volumeM3>0;
     return (
       <StructuralElementSection id={chave} sectionRef={registrarSecaoMemoria(chave)}
-        title="LAJE" open={aberto} onToggle={()=>alternarElementoMemoria(chave,false)}
+        title="LAJE" subtitle={laje.acoSemBitolas ? "⚠ Aço sem discriminação por bitola" : undefined} open={aberto} onToggle={()=>alternarElementoMemoria(chave,false)}
         resumo={<>
           <Metric label="Volume" value={fmtNum(laje.volumeM3)} unit="m³"/>
           <Metric label={laje.acoSemBitolas?"Aço do projeto (sem bitolas)":"Aço maciça"} value={fmtNum(laje.acoSemBitolas?laje.acoTotalProjetoKg:acoMacica,1)} unit="kg"/>
@@ -1211,6 +1237,13 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
             </div>
           </div>
         </div>
+        {renderDestinosMemoria(chave, [
+          linhaMemoria("concreto", "Concreto total", laje.volumeM3, "m³"),
+          linhaMemoria("area-macica", "Área maciça", laje.areaMacicaM2, "m²"),
+          linhaMemoria("area-vigota", "Área de vigotas", laje.areaVigotaM2, "m²"),
+          ...(laje.acoSemBitolas ? [linhaMemoria("aco-projeto", "Aço do projeto (sem bitolas)", laje.acoTotalProjetoKg, "kg", true)]
+            : [...linhasAcoMemoria(laje.acoPorBitola), linhaMemoria("aco-vigota", "Tela das vigotas", acoVigota, "kg")]),
+        ])}
       </StructuralElementSection>
     );
   };
@@ -4964,7 +4997,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       )}
 
       {orcAba==="memoria" && (
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div className="structural-memory" style={{display:"flex",flexDirection:"column",gap:16}}>
           <div style={{background:`${C.blue}0a`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 11px"}}>
             <p style={{fontSize:10.5,color:C.muted,lineHeight:1.55}}>
               Painel de referência: os quantitativos aqui não alteram sozinhos as linhas do orçamento - sirvam para conferir e, depois de validados, lançar manualmente a quantidade correta na composição correspondente. Ficam salvos junto com esta versão do orçamento.
@@ -4973,7 +5006,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
           <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
             {DISCIPLINAS_MEMORIA.map(([valor,label])=>(
-              <button key={valor} onClick={()=>setDisciplinaMemoria(valor)} style={{
+              <button key={valor} aria-pressed={disciplinaMemoria===valor} onClick={()=>setDisciplinaMemoria(valor)} style={{
                 border:`1px solid ${disciplinaMemoria===valor?C.blue:C.border}`,
                 background:disciplinaMemoria===valor?`${C.blue}12`:C.bg,
                 color:disciplinaMemoria===valor?C.blue:C.muted,
@@ -4983,10 +5016,23 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           </div>
 
           {disciplinaMemoria==="estrutural" && (<>
-          {!!orc?.memoriaCalculo?.avisosImportacao?.length&&<Warning><b>Conferência da importação — totais sujeitos às pendências abaixo.</b>{orc.memoriaCalculo.avisosImportacao.map((aviso,i)=><p key={i}>{aviso}</p>)}</Warning>}
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 14px",display:"flex",flexWrap:"wrap",gap:"6px 28px",alignItems:"center"}}>
+            <span style={{fontSize:12,fontWeight:850,color:C.text}}>Resumo geral</span>
+            <Metric label="Concreto total" value={fmtNum(resumoGeralMemoria.concreto)} unit="m³"/>
+            <Metric label="Fôrma total" value={fmtNum(resumoGeralMemoria.forma)} unit="m²"/>
+            <Metric label="Aço total" value={fmtNum(resumoGeralMemoria.aco,1)} unit="kg"/>
+            <Metric label="Escavação" value={fmtNum(resumoGeralMemoria.escavacao)} unit="m³"/>
+          </div>
+
+          {!!orc?.memoriaCalculo?.avisosImportacao?.length&&<details className="memory-disclosure">
+            <summary>⚠ {orc.memoriaCalculo.avisosImportacao.length} alertas da importação · totais sujeitos a conferência</summary>
+            {orc.memoriaCalculo.avisosImportacao.map((aviso,i)=><p key={i}>{aviso}</p>)}
+          </details>}
           {sapatasFundacao.some(s=>s.geometriaPendente)&&<Warning>Totais parciais: há sapatas sem concreto/fôrmas conferidos. Esses valores não representam zero medido. Preencha os valores conferidos por peça abaixo.</Warning>}
 
-          <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
+          <details className="memory-disclosure">
+            <summary>Importar projeto PDF</summary>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <div><p style={{fontSize:12,fontWeight:850,color:C.text}}>IMPORTAR PROJETO (PDF)</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Sinalize qual documento é e o sistema tenta preencher a memória de cálculo sozinho - você sempre confere antes de aplicar.</p></div>
             <select aria-label="Tipo de documento do PDF" value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:10.5,fontWeight:700,maxWidth:360}}>
               <option value="estrutural-completo">Projeto estrutural completo - Fundação, Pilares, Vigas e Laje</option>
@@ -5060,6 +5106,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewQuantitativos(null)}>DESCARTAR</Btn><Btn size="sm" onClick={()=>setConfirmarAplicarQuantitativos(true)}><Ic n="check"/> APLICAR NAS TABELAS</Btn></div>
             </div>}
           </div>
+          </details>
 
           <ConfirmDialog open={confirmarAplicarPdf} onOpenChange={aberto=>!aberto&&setConfirmarAplicarPdf(false)}
             title="Aplicar projeto estrutural completo" tone="danger" confirmLabel="Aplicar mesmo assim"
@@ -5075,14 +5122,6 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               destaque de leitura atual (scroll-spy) + accordion por
               elemento estrutural, pra responder rápido "em que pavimento/
               elemento estou" sem depender só de rolar a página inteira. */}
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 14px",display:"flex",flexWrap:"wrap",gap:"6px 28px",alignItems:"center"}}>
-            <span style={{fontSize:12,fontWeight:850,color:C.text}}>Resumo geral</span>
-            <Metric label="Concreto total" value={fmtNum(resumoGeralMemoria.concreto)} unit="m³"/>
-            <Metric label="Fôrma total" value={fmtNum(resumoGeralMemoria.forma)} unit="m²"/>
-            <Metric label="Aço total" value={fmtNum(resumoGeralMemoria.aco,1)} unit="kg"/>
-            <Metric label="Escavação" value={fmtNum(resumoGeralMemoria.escavacao)} unit="m³"/>
-          </div>
-
           {isMobile && (
             <select aria-label="Ir para seção da memória de cálculo" value={secaoAtivaMemoria}
               onChange={e=>{
@@ -5100,7 +5139,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
           <div style={{display:"flex",gap:20,alignItems:"flex-start"}}>
             {!isMobile && (
-              <nav aria-label="Índice da memória de cálculo" style={{position:"sticky",top:SCROLL_MARGIN,width:220,flexShrink:0,display:"flex",flexDirection:"column",gap:14,maxHeight:`calc(100vh - ${SCROLL_MARGIN+16}px)`,overflowY:"auto",paddingBottom:8}}>
+              <nav aria-label="Índice da memória de cálculo" style={{position:"sticky",top:SCROLL_MARGIN,width:160,flexShrink:0,display:"flex",flexDirection:"column",gap:14,maxHeight:`calc(100vh - ${SCROLL_MARGIN+16}px)`,overflowY:"auto",paddingBottom:8}}>
                 {ITENS_NAV_MEMORIA.map(item=>(
                   <div key={item.id} style={{display:"flex",flexDirection:"column",gap:3}}>
                     <button onClick={()=>navegarParaSecaoMemoria(item.id)} style={{textAlign:"left",border:0,background:"transparent",cursor:"pointer",padding:"2px 0",fontSize:10.5,fontWeight:900,color:secaoAtivaMemoria===item.id?C.blue:C.subtle,letterSpacing:.3}}>{item.label}</button>
@@ -5119,13 +5158,23 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   <Metric label="Concreto" value={fmtNum(resumoSapatasFundacao.totais.volumeSapata)} unit="m³"/>
                   <Metric label="Aço" value={fmtNum(resumoSapatasFundacao.totais.pesoAco,1)} unit="kg"/>
                 </>}>
+                {renderDestinosMemoria("fundacao", [
+                  linhaMemoria("escavacao", "Escavação", resumoSapatasFundacao.totais.volumeEscavacao, "m³"),
+                  linhaMemoria("concreto", "Concreto das sapatas", resumoSapatasFundacao.totais.volumeSapata, "m³", sapatasFundacao.some(s=>s.geometriaPendente)),
+                  linhaMemoria("forma", "Fôrma", resumoSapatasFundacao.totais.formaArea, "m²", sapatasFundacao.some(s=>s.geometriaPendente)),
+                  linhaMemoria("magro", "Lastro de concreto magro", resumoSapatasFundacao.totais.areaConcretoMagro, "m²"),
+                  linhaMemoria("reaterro", "Reaterro", resumoSapatasFundacao.totais.reaterro, "m³", sapatasFundacao.some(s=>s.geometriaPendente)),
+                  ...linhasAcoMemoria(resumoSapatasFundacao.acoPorBitola),
+                ])}
+                <details className="memory-disclosure">
+                  <summary>Dimensões, armaduras e conferência das sapatas · {sapatasFundacao.length} tipos</summary>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>SAPATAS</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Uma linha por tipo de sapata (peças com a mesma dimensão), com a quantidade de peças daquele tipo - mesmo agrupamento que o próprio projeto estrutural já usa.</p></div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
                   <div title="Espaçamento das colunas na tela - vale para a memória de cálculo de todos os orçamentos até você trocar de novo" style={{display:"flex",border:`1px solid ${C.border}`,borderRadius:6,overflow:"hidden"}}>
                     {[["compacto","COMPACTO"],["normal","NORMAL"],["confortavel","CONFORTÁVEL"]].map(([valor,label])=>(
-                      <button key={valor} onClick={()=>salvarDensidadeMemoria(valor)} style={{
+                      <button key={valor} aria-pressed={densidadeMemoria===valor} onClick={()=>salvarDensidadeMemoria(valor)} style={{
                         border:0,padding:"7px 9px",fontSize:9,fontWeight:800,cursor:"pointer",
                         background:densidadeMemoria===valor?C.blue:C.bg,color:densidadeMemoria===valor?"#fff":C.muted,
                       }}>{label}</button>
@@ -5291,8 +5340,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 {!resumoSapatasFundacao.linhas.length&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhum tipo de sapata cadastrado. Clique em "NOVO TIPO" para começar.</p>}
               </div>
 
-              {sapatasFundacao.filter(s=>s.alturasProjetoCm||s.armadurasSuperiores?.length).map(s=><div key={s.id} style={{padding:10,border:`1px solid ${C.border}`,borderRadius:6}}>
-                <b>{s.tipo} — conferência do projeto</b>
+              {sapatasFundacao.filter(s=>s.alturasProjetoCm||s.armadurasSuperiores?.length).map(s=><details key={s.id} className="memory-disclosure">
+                <summary>{s.tipo} · {s.geometriaPendente ? "⚠ Geometria pendente" : "Conferência do projeto"} · {s.qtd || 0} peça(s)</summary>
                 {s.alturasProjetoCm&&<>
                   <p>Alturas impressas: {s.alturasProjetoCm} cm. Informe os quantitativos conferidos por peça, considerando o topo inclinado. As colunas de base/tronco não decompõem esse volume conferido.</p>
                   <EditableField label="CONCRETO CONFERIDO (M³/PEÇA)" value={s.volumeConferidoM3??""} onChange={v=>atualizarSapataTipo(s.id,{volumeConferidoM3:v,geometriaPendente:!(v!==""&&Number(v)>0&&Number(s.formaConferidaM2)>0)})}/>
@@ -5302,7 +5351,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   <p>Armadura superior {i===0?"X":"Y"}: {a.quantidade} barras Ø{a.bitola}. Comprimento médio, conferir barras variáveis.</p>
                   <EditableField label="COMPRIMENTO SUPERIOR (M)" value={a.comprimento} onChange={v=>atualizarSapataTipo(s.id,{armadurasSuperiores:s.armadurasSuperiores.map((arm,j)=>j===i?{...arm,comprimento:v}:arm)})}/>
                 </div>)}
-              </div>)}
+              </details>)}
               {resumoSapatasFundacao.acoPorBitola.length>0&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
                 <p style={{fontSize:10.5,fontWeight:900,color:C.purple}}>RESUMO DE AÇO POR BITOLA (já com 10% de perda)</p>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6}}>
@@ -5316,6 +5365,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               </div>}
 
             </div>
+                </details>
               </FloorSection>
 
               {PAVIMENTOS_ESTRUTURA.map(([pav,label])=>{
