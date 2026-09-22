@@ -91,52 +91,38 @@ const itemTotal = (it, bdi) =>
 const compFormVazio = (extra = {}) => ({ id:"", codigo:"", descricao:"", unidade:"UN",
   origemFonte:"PRÓPRIA", origemCodigo:"", origemDataBase:"", origemUf:"", itens:[], ...extra });
 
-// Densidade da tabela de sapatas (memória de cálculo) - ajuste manual do
-// usuário, guardado em data.config (canônico para a empresa inteira, não
-// por orçamento) até ele mesmo trocar de novo. "Espaçamento entre colunas
-// muito grande" era o padding/fonte fixos demais para quem prefere uma
-// visão mais compacta.
+// Densidade altera o espaçamento sem sacrificar a leitura dos valores.
 const DENSIDADE_TABELA_SAPATAS = {
-  compacto:    { pad:"1px 2px", padHeader:"2px 3px", fonte:8,   fonteHeader:7.2, fonteGrupo:6.8 },
-  normal:      { pad:"4px 5px", padHeader:"6px 5px", fonte:9.5, fonteHeader:8.3, fonteGrupo:7.5 },
-  confortavel: { pad:"7px 8px", padHeader:"8px 8px", fonte:10.5,fonteHeader:9,   fonteGrupo:8.5 },
+  compacto: { pad:"6px 5px", padHeader:"8px 5px", fonte:12, fonteHeader:10, fonteGrupo:10 },
+  normal: { pad:"9px 6px", padHeader:"10px 6px", fonte:12, fonteHeader:10, fonteGrupo:10 },
+  confortavel: { pad:"12px 7px", padHeader:"12px 7px", fonte:13, fonteHeader:11, fonteGrupo:11 },
 };
 
-// Cada coluna da tabela de sapatas com sua largura PADRÃO (px) - o usuário
-// pode sobrescrever qualquer uma em data.config.memoriaCalculoLargurasColuna
-// (empresa inteira, "canônico até eu ajustar de novo", pedido explícito).
-// Achado do próprio usuário: cabeçalho com "nowrap" forçava a coluna a ficar
-// tão larga quanto o rótulo (ex.: "VOL. ESCAVAÇÃO(m³)"), mesmo quando o dado
-// exibido é bem mais curto - por isso agora o rótulo QUEBRA linha e quem
-// decide a largura de verdade é este número (ou o ajuste manual do usuário).
-// Larguras padrão apertadas de propósito - somam ~1100px, perto do que uma
-// A4 paisagem comporta (achado do próprio usuário: cabeçalho com "nowrap"
-// forçava muito mais largura que o dado precisa). Ajuste manual do usuário
-// (painel "AJUSTAR LARGURA DAS COLUNAS") sempre vence este padrão.
+// Larguras mínimas também protegem configurações antigas e o redimensionamento.
 const COLUNAS_SAPATAS = [
-  { chave:"tipo", rotulo:"TIPO (PILARES)", largura:130, grupo:null },
-  { chave:"qtd", rotulo:"QTD PEÇAS", largura:42, grupo:null },
-  { chave:"largura", rotulo:"LARG.(m)", largura:42, grupo:"DIMENSÕES" },
-  { chave:"comprimento", rotulo:"COMPR.(m)", largura:46, grupo:"DIMENSÕES" },
-  { chave:"alturaBase", rotulo:"ALT.BASE(m)", largura:44, grupo:"DIMENSÕES" },
-  { chave:"alturaTronco", rotulo:"ALT.TRONCO(m)", largura:46, grupo:"DIMENSÕES" },
-  { chave:"folgaEscavacao", rotulo:"FOLGA ESCAV.(m)", largura:46, grupo:"ESCAVAÇÃO" },
-  { chave:"profundidadeEscavacao", rotulo:"ESCAV. PROF.(m)", largura:46, grupo:"ESCAVAÇÃO" },
-  { chave:"volEscavacao", rotulo:"VOL. ESCAVAÇÃO(m³)", largura:48, grupo:"ESCAVAÇÃO" },
-  { chave:"concMagro", rotulo:"CONC.MAGRO(m²)", largura:46, grupo:"CONCRETO" },
-  { chave:"formas", rotulo:"FÔRMAS(m²)", largura:42, grupo:"CONCRETO" },
-  { chave:"concrBase", rotulo:"CONCR.BASE(m³)", largura:46, grupo:"CONCRETO" },
-  { chave:"concrTronco", rotulo:"CONCR.TRONCO(m³)", largura:48, grupo:"CONCRETO" },
-  { chave:"concrSapata", rotulo:"CONCR.SAPATA(m³)", largura:48, grupo:"CONCRETO" },
-  { chave:"reaterro", rotulo:"REATERRO(m³)", largura:44, grupo:"CONCRETO" },
-  { chave:"armXBitola", rotulo:"ARM.X BITOLA", largura:44, grupo:"ARMADURA X" },
-  { chave:"armXQtd", rotulo:"ARM.X QTD", largura:36, grupo:"ARMADURA X" },
-  { chave:"armXCompr", rotulo:"ARM.X COMPR.(m)", largura:44, grupo:"ARMADURA X" },
-  { chave:"armYBitola", rotulo:"ARM.Y BITOLA", largura:44, grupo:"ARMADURA Y" },
-  { chave:"armYQtd", rotulo:"ARM.Y QTD", largura:36, grupo:"ARMADURA Y" },
-  { chave:"armYCompr", rotulo:"ARM.Y COMPR.(m)", largura:44, grupo:"ARMADURA Y" },
-  { chave:"pesoAco", rotulo:"PESO AÇO(kg)", largura:44, grupo:null },
-  { chave:"acoes", rotulo:"", largura:40, grupo:null },
+  { chave:"tipo", rotulo:"Pilares", largura:180, grupo:null },
+  { chave:"qtd", rotulo:"Peças", largura:80, grupo:null },
+  { chave:"largura", rotulo:"Largura (m)", largura:80, grupo:"DIMENSÕES" },
+  { chave:"comprimento", rotulo:"Compr. (m)", largura:80, grupo:"DIMENSÕES" },
+  { chave:"alturaBase", rotulo:"Base (m)", largura:80, grupo:"DIMENSÕES" },
+  { chave:"alturaTronco", rotulo:"Tronco (m)", largura:80, grupo:"DIMENSÕES" },
+  { chave:"folgaEscavacao", rotulo:"Folga (m)", largura:80, grupo:"ESCAVAÇÃO" },
+  { chave:"profundidadeEscavacao", rotulo:"Profund. (m)", largura:80, grupo:"ESCAVAÇÃO" },
+  { chave:"volEscavacao", rotulo:"Volume (m³)", largura:80, grupo:"ESCAVAÇÃO" },
+  { chave:"concMagro", rotulo:"Lastro (m²)", largura:80, grupo:"CONCRETO" },
+  { chave:"formas", rotulo:"Fôrma (m²)", largura:80, grupo:"CONCRETO" },
+  { chave:"concrBase", rotulo:"Base (m³)", largura:80, grupo:"CONCRETO" },
+  { chave:"concrTronco", rotulo:"Tronco (m³)", largura:80, grupo:"CONCRETO" },
+  { chave:"concrSapata", rotulo:"Sapata (m³)", largura:80, grupo:"CONCRETO" },
+  { chave:"reaterro", rotulo:"Reaterro (m³)", largura:80, grupo:"CONCRETO" },
+  { chave:"armXBitola", rotulo:"Ø (mm)", largura:80, grupo:"ARMADURA X" },
+  { chave:"armXQtd", rotulo:"Barras", largura:80, grupo:"ARMADURA X" },
+  { chave:"armXCompr", rotulo:"Compr. (m)", largura:80, grupo:"ARMADURA X" },
+  { chave:"armYBitola", rotulo:"Ø (mm)", largura:80, grupo:"ARMADURA Y" },
+  { chave:"armYQtd", rotulo:"Barras", largura:80, grupo:"ARMADURA Y" },
+  { chave:"armYCompr", rotulo:"Compr. (m)", largura:80, grupo:"ARMADURA Y" },
+  { chave:"pesoAco", rotulo:"Aço (kg)", largura:80, grupo:null },
+  { chave:"acoes", rotulo:"Ações", largura:100, grupo:null },
 ];
 // Agrupa colunas consecutivas do mesmo grupo (Dimensões/Escavação/Concreto/
 // Armadura X/Armadura Y) para a linha de cabeçalho superior - calculado uma
@@ -1260,8 +1246,9 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // Largura de cada coluna é ajuste manual do usuário, canônico pra empresa
   // inteira (mesmo padrão de densidade) até ele mesmo trocar de novo - pedido
   // explícito depois de descobrir que o cabeçalho "nowrap" forçava largura
-  // demais. Sem ajuste próprio, cai na largura padrão apertada da coluna.
-  const larguraColunaSapatas = chave => Number(data?.config?.memoriaCalculoLargurasColuna?.[chave]) || COLUNAS_SAPATAS.find(c => c.chave === chave)?.largura || 50;
+  // demais. As larguras mínimas mantêm os controles legíveis.
+  const larguraMinimaSapata = chave => COLUNAS_SAPATAS.find(c => c.chave === chave)?.largura || 80;
+  const larguraColunaSapatas = chave => Math.max(larguraMinimaSapata(chave), Number(data?.config?.memoriaCalculoLargurasColuna?.[chave]) || 0);
   const salvarLarguraColunaSapatas = (chave, valor) => update({
     ...data, config: { ...(data.config || {}), memoriaCalculoLargurasColuna: { ...(data.config?.memoriaCalculoLargurasColuna || {}), [chave]: Number(valor) || undefined } },
   });
@@ -1280,7 +1267,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     arrastoColunaRef.current = { chave, xInicial, larguraInicial, larguraFinal: larguraInicial };
     const mover = ev => {
       if (!arrastoColunaRef.current) return;
-      const nova = Math.max(24, Math.round(arrastoColunaRef.current.larguraInicial + (ev.clientX - arrastoColunaRef.current.xInicial)));
+      const nova = Math.max(larguraMinimaSapata(chave), Math.round(arrastoColunaRef.current.larguraInicial + (ev.clientX - arrastoColunaRef.current.xInicial)));
       arrastoColunaRef.current.larguraFinal = nova;
       setColunaArrastando({ chave, largura: nova });
     };
@@ -5226,7 +5213,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   {COLUNAS_SAPATAS.filter(col=>col.chave!=="acoes").map(col=>(
                     <label key={col.chave} style={{display:"flex",alignItems:"center",gap:5}}>
                       <span style={{fontSize:9,color:C.muted,minWidth:98}}>{col.rotulo||"AÇÕES"}</span>
-                      <input type="number" min="24" step="1" value={larguraColunaEfetiva(col.chave)} onChange={e=>salvarLarguraColunaSapatas(col.chave,e.target.value)}
+                      <input type="number" min={col.largura} step="1" value={larguraColunaEfetiva(col.chave)} onChange={e=>salvarLarguraColunaSapatas(col.chave,e.target.value)}
                         style={{width:52,padding:"3px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.card,color:C.text,textAlign:"right",fontSize:9.5}}/>
                     </label>
                   ))}
@@ -5237,8 +5224,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   incremento que comem ~20px do campo - numa coluna de 40-50px isso
                   cortava o valor digitado (achado do usuário via screenshot). */}
               <style>{`.sapata-num-input::-webkit-outer-spin-button,.sapata-num-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.sapata-num-input{-moz-appearance:textfield}`}</style>
-              <div style={{overflow:"auto",maxHeight:"62vh",border:`1px solid ${C.border}`,borderRadius:7}}>
-                <table style={{width:"100%",minWidth:COLUNAS_SAPATAS.reduce((s,c)=>s+larguraColunaEfetiva(c.chave),0),tableLayout:"fixed",borderCollapse:"collapse",fontSize:dSapatas.fonte,userSelect:colunaArrastando?"none":"auto"}}>
+              <p className="sapata-scroll-hint">Dimensões em metros. Quantitativos calculados para todas as peças de cada linha. Deslize a tabela para consultar os demais grupos.</p>
+              <div className="sapata-table-scroll" role="region" aria-label="Dimensões e quantitativos das sapatas" tabIndex={0} style={{overflow:"auto",maxHeight:"62vh",border:`1px solid ${C.border}`,borderRadius:7}}>
+                <table className="sapata-table" style={{width:"100%",minWidth:COLUNAS_SAPATAS.reduce((s,c)=>s+larguraColunaEfetiva(c.chave),0),tableLayout:"fixed",borderCollapse:"separate",borderSpacing:0,fontSize:dSapatas.fonte,userSelect:colunaArrastando?"none":"auto"}}>
                   <colgroup>{COLUNAS_SAPATAS.map(col=><col key={col.chave} style={{width:larguraColunaEfetiva(col.chave)}}/>)}</colgroup>
                   <thead style={{position:"sticky",top:0,zIndex:4,background:C.surface}}>
                     {/* Cabeçalho em dois níveis - agrupa as 23 colunas em blocos
@@ -5304,13 +5292,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                               {tipo.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo desta linha remove este aviso." style={{flexShrink:0,width:7,height:7,borderRadius:"50%",background:C.orange}}/>}
                               <input aria-label="Tipo (referência dos pilares)" value={tipo.tipo} onChange={e=>atualizarSapataTipo(tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:"100%",boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:dSapatas.fonte}}/>
                             </div>
-                            {tipo.alturasProjetoCm&&<div style={{marginTop:4,fontSize:11}}>
-                              <span>Cotas do PDF: {tipo.alturasProjetoCm} cm</span>
-                              <button type="button" style={{display:"block",border:0,background:"transparent",color:C.blue,cursor:"pointer",padding:"4px 0",textDecoration:"underline"}} onClick={()=>{
-                                const detalhe=document.getElementById(`conferencia-sapata-${tipo.id}`);
-                                if(detalhe){detalhe.open=true;detalhe.scrollIntoView({block:"center",behavior:"smooth"});detalhe.querySelector("input")?.focus({preventScroll:true});}
-                              }}>{tipo.geometriaProjeto ? "Ver cálculo extraído" : "Conferir geometria"}</button>
-                            </div>}
+
                           </td>
                           <td style={{padding:dSapatas.pad,position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:1,background:corFixa,borderRight:`1px solid ${C.line}`}}>{numInput("qtd")}</td>
                           <td style={{padding:dSapatas.pad}}>{numInput("largura")}</td>
@@ -5333,10 +5315,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                           <td style={{padding:dSapatas.pad}}>{armInput("armaduraY","quantidade")}</td>
                           <td style={{padding:dSapatas.pad}}>{armInput("armaduraY","comprimento")}</td>
                           <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:800,color:C.purple}}>{calc.pesoAcoTotal.toFixed(1)}</td>
-                          <td style={{padding:dSapatas.pad,display:"flex",gap:6}}>
-                            <button aria-label="Duplicar este tipo" title="Duplicar" onClick={()=>duplicarSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.blue,cursor:"pointer",display:"flex"}}><Ic n="copy" s={13}/></button>
-                            <button aria-label="Remover este tipo" title="Remover" onClick={()=>removerSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.red,cursor:"pointer",fontWeight:800}}>x</button>
-                          </td>
+                          <td style={{padding:dSapatas.pad}}><div className="sapata-row-actions">
+                            <button aria-label="Duplicar este tipo" type="button" title="Duplicar" onClick={()=>duplicarSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.blue,cursor:"pointer",display:"flex"}}><Ic n="copy" s={13}/></button>
+                            <button aria-label="Remover este tipo" type="button" title="Remover" onClick={()=>removerSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.red,cursor:"pointer",fontWeight:800}}>×</button>
+                          </div></td>
                         </tr>
                       );
                     })}
@@ -5362,6 +5344,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 {!resumoSapatasFundacao.linhas.length&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhum tipo de sapata cadastrado. Clique em "NOVO TIPO" para começar.</p>}
               </div>
 
+              <details className="memory-disclosure sapata-technical-details"><summary>Referências do projeto e armaduras superiores</summary>
               {sapatasFundacao.filter(s=>s.alturasProjetoCm||s.armadurasSuperiores?.length).map(s=><details key={s.id} id={`conferencia-sapata-${s.id}`} className="memory-disclosure">
                 <summary>{s.tipo} · {s.geometriaProjeto ? "Geometria extraída do projeto" : s.geometriaPendente ? "⚠ Geometria pendente" : "Conferência do projeto"} · {s.qtd || 0} peça(s)</summary>
                 {s.geometriaProjeto&&<div>
@@ -5379,6 +5362,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   <EditableField label="COMPRIMENTO SUPERIOR (M)" value={a.comprimento} onChange={v=>atualizarSapataTipo(s.id,{armadurasSuperiores:s.armadurasSuperiores.map((arm,j)=>j===i?{...arm,comprimento:v}:arm)})}/>
                 </div>)}
               </details>)}
+              </details>
               {resumoSapatasFundacao.acoPorBitola.length>0&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
                 <p style={{fontSize:10.5,fontWeight:900,color:C.purple}}>RESUMO DE AÇO POR BITOLA (já com 10% de perda)</p>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6}}>

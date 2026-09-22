@@ -21,7 +21,29 @@
 .structural-muted { color: #525252; }
 .structural-link-search { display: grid; gap: 6px; margin-bottom: 12px; font-size: var(--arcd-type-label, 12px); }
 .structural-links .structural-link-note { margin-top: 12px; }
+.structural-memory .sapata-scroll-hint { margin: 0; color: var(--memory-muted); }
+.sapata-table-scroll { max-width: 100%; min-width: 0; background: #fff; scrollbar-gutter: stable; }
+.sapata-table { font-variant-numeric: tabular-nums; }
+.sapata-table :is(th, td) { box-sizing: border-box; vertical-align: middle; }
+.sapata-table th { text-transform: none; letter-spacing: 0; }
+.sapata-table tbody td { text-align: right; height: 58px; border-bottom: 1px solid #e0e0e0; }
+.sapata-table tbody td:first-child { text-align: left; }
+.sapata-table :is(input, select) { min-width: 0; min-height: 36px; max-width: 100%; line-height: 1.4; }
+.sapata-table select { cursor: pointer; }
+.sapata-table :is(input, select, button):focus-visible, .sapata-table-scroll:focus-visible { outline: 2px solid #0f62fe; outline-offset: 2px; }
+.sapata-table :is(th, td):is(:nth-child(3), :nth-child(7), :nth-child(10), :nth-child(16), :nth-child(19), :nth-child(22)) { border-left: 1px solid #d6d6d6; }
+.sapata-table tbody tr:hover { background-color: #f4f4f4 !important; }
+.sapata-row-actions { display: flex; justify-content: center; align-items: center; gap: 4px; }
+.sapata-row-actions button { box-sizing: border-box; flex: 0 0 36px; width: 36px; height: 36px; padding: 0; align-items: center; justify-content: center; border-radius: 4px; font-size: 18px; }
+.sapata-row-actions button:hover { background: #e8e8e8 !important; }
+.sapata-technical-details > .memory-disclosure { margin-top: 8px; }
 @media (max-width: 700px) {
+  .sapata-table :is(tbody, tfoot) td:nth-child(2), .sapata-table thead tr:nth-child(2) th:nth-child(2) { position: static !important; }
+  .sapata-table thead tr:first-child th:first-child { position: static !important; }
+  .structural-memory .memory-disclosure { padding: 10px 8px; min-width: 0; }
+  .sapata-table :is(input, select) { min-height: 44px; }
+  .sapata-row-actions { flex-direction: column; }
+  .sapata-row-actions button { flex-basis: 44px; width: 44px; height: 44px; }
   .structural-link-head { display: none; }
   .structural-link-row { grid-template-columns: 1fr; gap: 8px; }
   .structural-links :is(button, input, select) { min-height: 44px; }
