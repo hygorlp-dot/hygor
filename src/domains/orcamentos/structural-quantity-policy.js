@@ -1,10 +1,11 @@
 import { novaLajePavimento } from './memoria-calculo-estrutural';
+import { memoryFloors } from './budget-floors';
 
 // Critério de medição: quadro-resumo prevalece; vigotas usam apenas tela.
 // Projeção pura, compartilhada pela importação, tela e aplicação no orçamento.
 export function aplicarCriterioEstrutural(memory = {}) {
   const next = { ...memory };
-  for (const pav of ['terreo', 'pavimento1', 'cobertura', 'reservatorio']) {
+  for (const {id:pav} of memoryFloors(memory)) {
     const summary = memory.resumosProjeto?.[pav];
     const current = memory[pav];
     if (!summary && !current) continue;

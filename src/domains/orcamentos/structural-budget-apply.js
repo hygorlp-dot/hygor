@@ -1,4 +1,5 @@
 import { aplicarCriterioEstrutural } from "./structural-quantity-policy";
+import { memoryFloors } from './budget-floors';
 import { budgetIsImmutable } from "./calculations";
 import { compatibleStructuralItem } from "./structural-budget-matching";
 import { recuperarGeometriaSapatas } from "./sapata-geometria-recovery";
@@ -27,13 +28,15 @@ export function structuralBudgetRows(budget) {
     row("magro", "Lastro de concreto magro", t.areaConcretoMagro, "m²"),
     row("reaterro", "Reaterro", t.reaterro, "m³", pending), ...steelRows(resumo.acoPorBitola),
   ] };
-  for (const pav of ["terreo", "pavimento1", "cobertura", "reservatorio"]) {
+  for (const floor of memoryFloors(memory)) {
+    const pav = floor.id;
     const p = { ...novaPilarPavimento(), ...memory[pav]?.pilar };
     const v = { ...novaVigaPavimento(), ...memory[pav]?.viga };
     result[`${pav}-pilares`] = [row("concreto", "Concreto", p.concretoM3, "m³", p.precisaRevisar), row("forma", "Fôrma", p.formaM2, "m²", p.precisaRevisar), ...steelRows(p.acoPorBitola)];
     result[`${pav}-vigas`] = [row("concreto", "Concreto", v.concretoM3, "m³", v.avisoConcretoIncorreto), row("forma", "Fôrma", v.formaM2, "m²"),
-      ...(pav === "terreo" ? [row("magro", "Lastro de concreto magro", calcularConcretoMagroViga(v), "m³", !(Number(v.magroEspessuraCm) > 0))] : []), ...steelRows(v.acoPorBitola)];
-    if (pav === "terreo") continue;
+      ...(pav === "terreo" || floor.origem === "terreo" ? [row("magro", "Lastro de concreto magro", calcularConcretoMagroViga(v), "m³", !(Number(v.magroEspessuraCm) > 0))] : []), ...steelRows(v.acoPorBitola)];
+    result[`${pav}-alvenaria`] = [row('alvenaria', 'Alvenaria', memory[pav]?.alvenaria?.areaM2, 'm²')];
+    if (!floor.temLaje) continue;
     const l = { ...novaLajePavimento(), ...memory[pav]?.laje };
     result[`${pav}-laje`] = [row("concreto", "Concreto total", l.volumeM3, "m³"), row("area-macica", "Área maciça", l.areaMacicaM2, "m²"), row("area-vigota", "Área de vigotas", l.areaVigotaM2, "m²"),
       ...(l.acoSemBitolas ? [row("aco-projeto", "Aço do projeto (sem bitolas)", l.acoTotalProjetoKg, "kg", true)] : [...steelRows(l.acoPorBitola), row("aco-vigota", "Tela das vigotas", calcularAcoVigotaLaje(l), "kg")])];

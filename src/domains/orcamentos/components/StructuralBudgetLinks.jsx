@@ -12,7 +12,7 @@ export default function StructuralBudgetLinks({ scope, rows, budget, onChange, o
     try { if (await onApply?.()) setEditing(false); }
     finally { setSaving(false); }
   };
-  const origin = structuralOrigin(scope);
+  const origin = structuralOrigin(scope, budget?.memoriaCalculo);
   const context = `${origin.floor} · ${origin.element}`;
   const canEdit = editing && !readOnly;
   const items = memoryBudgetItems(budget);

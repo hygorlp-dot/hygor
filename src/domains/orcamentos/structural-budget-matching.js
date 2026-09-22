@@ -4,11 +4,12 @@ export const normalizeStructuralText = value => String(value || "").normalize("N
 const unitKey = unit => normalizeStructuralText(unit).trim().replace("²", "2").replace("³", "3");
 export const compatibleMemoryUnit = (a, b) => !!unitKey(a) && unitKey(a) === unitKey(b);
 
-export function structuralOrigin(scope) {
+export function structuralOrigin(scope, memory = {}) {
   const [floor, element] = scope.split("-");
   const floors = { fundacao: "Fundação", terreo: "Térreo", pavimento1: "1º pavimento", cobertura: "Cobertura", reservatorio: "Reservatório" };
-  const elements = { pilares: "Pilares", vigas: "Vigas", laje: "Laje" };
-  return { floor: floors[floor] || floor, element: floor === "fundacao" ? "Sapatas" : elements[element] || "Estrutura" };
+  const elements = { pilares: "Pilares", vigas: "Vigas", laje: "Laje", alvenaria: "Alvenaria" };
+  const custom = memory.pavimentosAdicionais?.find(p => p.id === floor);
+  return { floor: custom?.nome || floors[floor] || floor, element: floor === "fundacao" ? "Sapatas" : elements[element] || "Estrutura" };
 }
 
 export function memoryBudgetItems(budget) {
@@ -33,6 +34,7 @@ export function memoryBudgetItems(budget) {
 // (ex.: concretagem em sistema de fôrmas ou escavação para colocação de fôrmas).
 export function structuralService(description) {
   const text = normalizeStructuralText(description);
+  if (/^\s*(?:(?:execucao|assentamento) de )?alvenaria\b/.test(text)) return "alvenaria";
   if (/\breaterro\b/.test(text)) return "reaterro";
   if (/\bescavacao\b/.test(text)) return "escavacao";
   if (/^\s*escoramento\b/.test(text)) return "escoramento";

@@ -1,3 +1,5 @@
+import { memoryFloors, addBudgetFloor } from '../budget-floors';
+import AddFloorForm from './AddFloorForm';
 import { aplicarCriterioEstrutural } from "../structural-quantity-policy";
 import { structuralBudgetRows, applyStructuralBudgetLinks } from "../structural-budget-apply";
 import { correspondeBuscaComposicao, composicaoComoReferencia } from "../composition-search";
@@ -150,7 +152,6 @@ const ROTULO_CAMPO_SAPATA = {
 // Térreo, confirmado com o usuário). Só 1º Pavimento/Cobertura têm laje -
 // o Térreo se apoia direto nas vigas/sapatas, sem laje entre eles.
 const PAVIMENTOS_ESTRUTURA = [["terreo","TÉRREO"],["pavimento1","1º PAVIMENTO"],["cobertura","COBERTURA"],["reservatorio","RESERVATÓRIO"]];
-const PAVIMENTOS_COM_LAJE = ["pavimento1","cobertura","reservatorio"];
 // A Memória de Cálculo é organizada por projeto (disciplina) e, dentro de
 // cada uma, por pavimento - a estrutura deixa lugar pronto para as
 // próximas disciplinas (Elétrica etc.) sem precisar reorganizar de novo.
@@ -159,22 +160,6 @@ const PAVIMENTOS_COM_LAJE = ["pavimento1","cobertura","reservatorio"];
 // e Detalhes" já consolida a obra inteira), por isso não usa o mesmo
 // aninhamento por pavimento do Estrutural.
 const DISCIPLINAS_MEMORIA = [["estrutural","ESTRUTURAL"],["hidrossanitario","HIDROSSANITÁRIO"]];
-
-// Índice da navegação lateral - um nó por pavimento, uma folha por
-// elemento estrutural (mesma árvore pedida: Fundação > Sapatas; Térreo >
-// Pilares/Vigas/Laje; ...). Derivado de PAVIMENTOS_ESTRUTURA/
-// PAVIMENTOS_COM_LAJE, calculado uma vez - nunca hardcoded à parte deles.
-const ITENS_NAV_MEMORIA = [
-  { id:"fundacao", label:"FUNDAÇÃO", elementos:[{ id:"fundacao", label:"Sapatas" }] },
-  ...PAVIMENTOS_ESTRUTURA.map(([pav,label]) => ({
-    id:pav, label,
-    elementos:[
-      { id:`${pav}-pilares`, label:"Pilares" },
-      { id:`${pav}-vigas`, label:"Vigas" },
-      ...(PAVIMENTOS_COM_LAJE.includes(pav) ? [{ id:`${pav}-laje`, label:"Laje" }] : []),
-    ],
-  })),
-];
 
 // ===================================================================
 // Design system da Memória de Cálculo Navegável (28/08/2026, pedido
@@ -534,6 +519,18 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const todosOrcamentos=data.orcamentos||[];
   const orcamentos = obraIdFixo?todosOrcamentos.filter(o=>o.obraId===obraIdFixo):todosOrcamentos;
   const orc = orcamentos.find(o => o.id === selOrc);
+  const [addFloorOpen, setAddFloorOpen] = useState(false);
+  const floors = memoryFloors(orc?.memoriaCalculo);
+  const floorPairs = floors.map(f => [f.id, f.nome]);
+  const floorsWithSlab = floors.filter(f => f.temLaje).map(f => f.id);
+  const ITENS_NAV_MEMORIA = [
+    {id:'fundacao',label:'FUNDAÇÃO',elementos:[{id:'fundacao',label:'Sapatas'}]},
+    ...floors.map(f => ({id:f.id,label:f.nome,elementos:[
+      {id:`${f.id}-pilares`,label:'Pilares'}, {id:`${f.id}-vigas`,label:'Vigas'},
+      ...(f.temLaje ? [{id:`${f.id}-laje`,label:'Laje'}] : []),
+      {id:`${f.id}-alvenaria`,label:'Alvenaria'},
+    ]})),
+  ];
   const baselineAtiva = orc?.obraId ? getActiveBudgetBaseline(data,orc.obraId,"controle") : {budget:null,case:"baseline_ausente"};
   const calc = useMemo(() => orc ? calcOrcamento(orc) : null, [orc]);
   const controleCustos=useMemo(()=>calcControleCustosOrcamento(data,orc),[data.solicitacoesCompra,data.pedidos,data.movEstoque,data.transacoes,orc]);
@@ -999,7 +996,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     let concreto = Number(pilar.concretoM3||0) + Number(viga.concretoM3||0);
     let forma = Number(pilar.formaM2||0) + Number(viga.formaM2||0);
     let aco = somaAcoPorBitola(pilar.acoPorBitola) + somaAcoPorBitola(viga.acoPorBitola);
-    if (PAVIMENTOS_COM_LAJE.includes(pav)) {
+    if (floorsWithSlab.includes(pav)) {
       const laje = lajeDoPavimento(pav);
       concreto += Number(laje.volumeM3||0);
       aco += laje.acoSemBitolas ? Number(laje.acoTotalProjetoKg||0) : somaAcoPorBitola(laje.acoPorBitola) + calcularAcoVigotaLaje(laje);
@@ -1011,7 +1008,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const resumoGeralMemoria = (() => {
     const t = resumoSapatasFundacao.totais;
     let concreto = t.volumeSapata, forma = t.formaArea, aco = t.pesoAco;
-    for (const [pav] of PAVIMENTOS_ESTRUTURA) {
+    for (const [pav] of floorPairs) {
       const tp = totaisDoPavimento(pav);
       concreto += tp.concreto; forma += tp.forma; aco += tp.aco;
     }
@@ -1090,6 +1087,16 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // (é ajuste de leitura da tela inteira, não específico de um elemento) -
   // mas SEM o sistema de largura de coluna ajustável/arrastável: só 9
   // colunas, bem menos cramped que as 23 das sapatas, não precisa disso.
+  const renderCardAlvenaria = pav => {
+    const key = `${pav}-alvenaria`;
+    return <StructuralElementSection id={key} sectionRef={registrarSecaoMemoria(key)} title="ALVENARIA"
+      open={elementoEstaAberto(key,false)} onToggle={()=>alternarElementoMemoria(key,false)}>
+      <EditableField label="ÁREA LÍQUIDA DE ALVENARIA (M²)" value={orc?.memoriaCalculo?.[pav]?.alvenaria?.areaM2 || 0}
+        onChange={areaM2=>salvarOrc({memoriaCalculo:{...orc.memoriaCalculo,[pav]:{...orc.memoriaCalculo?.[pav],alvenaria:{areaM2}}}})}/>
+      <p>Informe a área de paredes descontando os vãos. Vincule à composição correspondente do pavimento.</p>
+      {renderDestinosMemoria(key)}
+    </StructuralElementSection>;
+  };
   const renderCardPilar = pav => {
     const pilar = pilarDoPavimento(pav);
     const chave = `${pav}-pilares`;
@@ -1148,7 +1155,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
             <EditableField label="FÔRMA (M²)" ariaLabel="Fôrma das vigas" value={viga.formaM2} onChange={v=>salvarVigaDoPavimento(pav,{formaM2:v})}/>
           </div>
         </div>
-        {pav==="terreo"&&(
+        {(pav==="terreo" || floors.find(f=>f.id===pav)?.origem==="terreo")&&(
           <div>
             <p style={LABEL_GRUPO}>Concreto magro (lastro sob a viga baldrame)</p>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
@@ -4002,7 +4009,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
         return (
           <>
-            <div style={{display:"flex",justifyContent:"flex-end",gap:6,marginBottom:6,position:"relative"}}>
+            <div style={{display:"flex",justifyContent:"flex-end",flexWrap:"wrap",gap:6,marginBottom:6,position:"relative"}}>
+              {!budgetIsImmutable(orc) && <Btn v="ghost" size="sm" onClick={()=>setAddFloorOpen(true)}>+ Adicionar pavimento</Btn>}
               <Btn v="ghost" size="sm" onClick={()=>setColsOrcAberto(a=>!a)}>Colunas</Btn>
               <Btn v="ghost" size="sm" onClick={()=>setEtapasFechadas({})}>Expandir todos</Btn>
               <Btn v="ghost" size="sm" onClick={()=>setEtapasFechadas(Object.fromEntries((orc.etapas||[]).map(e=>[e.id,true])))}>Recolher todos</Btn>
@@ -4998,6 +5006,14 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         </div>
       )}
 
+          {addFloorOpen && <Modal title="Adicionar pavimento" onClose={()=>setAddFloorOpen(false)}>
+            <AddFloorForm budget={orc} onCancel={()=>setAddFloorOpen(false)} onCreate={form=>{
+              const next = addBudgetFloor(orc, form, uid);
+              salvarOrc({etapas:next.etapas,itens:next.itens,memoriaCalculo:next.memoriaCalculo});
+              setAddFloorOpen(false);
+              showToast('Pavimento criado com quantitativos zerados.');
+            }}/>
+          </Modal>}
       {orcAba==="memoria" && (
         <div className="structural-memory" style={{display:"flex",flexDirection:"column",gap:16}}>
           <div style={{background:`${C.blue}0a`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 11px"}}>
@@ -5018,6 +5034,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           </div>
 
           {disciplinaMemoria==="estrutural" && (<>
+          {!budgetIsImmutable(orc) && <div><Btn onClick={()=>setAddFloorOpen(true)}>+ Adicionar pavimento</Btn></div>}
           <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 14px",display:"flex",flexWrap:"wrap",gap:"6px 28px",alignItems:"center"}}>
             <span style={{fontSize:12,fontWeight:850,color:C.text}}>Resumo geral</span>
             <Metric label="Concreto total" value={fmtNum(resumoGeralMemoria.concreto)} unit="m³"/>
@@ -5383,10 +5400,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 </details>
               </FloorSection>
 
-              {PAVIMENTOS_ESTRUTURA.map(([pav,label])=>{
+              {floorPairs.map(([pav,label])=>{
                 const totaisPav = totaisDoPavimento(pav);
                 return (
-                  <FloorSection key={pav} id={pav} sectionRef={registrarSecaoMemoria(pav)} title={label}
+                  <FloorSection key={pav} id={pav} sectionRef={registrarSecaoMemoria(pav)} title={`${label}${floors.find(f=>f.id===pav)?.nivelM != null ? ` · Nível ${fmtNum(floors.find(f=>f.id===pav).nivelM)} m` : ""}`}
                     resumo={<>
                       <Metric label="Concreto" value={fmtNum(totaisPav.concreto)} unit="m³"/>
                       <Metric label="Fôrma" value={fmtNum(totaisPav.forma)} unit="m²"/>
@@ -5395,7 +5412,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     <div style={{display:"flex",flexDirection:"column",gap:14}}>
                       {renderCardPilar(pav)}
                       {renderCardViga(pav)}
-                      {PAVIMENTOS_COM_LAJE.includes(pav) && renderCardLaje(pav)}
+                      {floorsWithSlab.includes(pav) && renderCardLaje(pav)}
+                      {renderCardAlvenaria(pav)}
                     </div>
                   </FloorSection>
                 );

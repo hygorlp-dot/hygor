@@ -48,3 +48,12 @@
   .structural-link-row { grid-template-columns: 1fr; gap: 8px; }
   .structural-links :is(button, input, select) { min-height: 44px; }
 }
+
+.floor-create-form { display: grid; gap: 14px; }
+.floor-create-form p, .floor-create-form small { font-size: 12px; line-height: 1.5; }
+.floor-create-form label { display: grid; gap: 6px; font-size: 12px; font-weight: 600; }
+.floor-create-form input, .floor-create-form select { width: 100%; min-width: 0; box-sizing: border-box; padding: 10px; border: 1px solid #cbd0d5; border-radius: 6px; }
+.floor-create-form > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.floor-create-form button { padding: 10px 14px; border-radius: 6px; border: 1px solid #cbd0d5; cursor: pointer; }
+.floor-create-form button[type="submit"] { background: #161a1e; color: white; }
+.floor-create-form [role="alert"] { color: #b42318; }
