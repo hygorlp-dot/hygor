@@ -3,9 +3,15 @@ import { compatibleMemoryUnit, memoryBudgetItems, compatibleStructuralItem, stru
 export { compatibleMemoryUnit, memoryBudgetItems } from "../structural-budget-matching";
 import "./structural-memory.css";
 
-export default function StructuralBudgetLinks({ scope, rows, budget, onChange, readOnly }) {
+export default function StructuralBudgetLinks({ scope, rows, budget, onChange, onApply, readOnly }) {
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const apply = async () => {
+    setSaving(true);
+    try { if (await onApply?.()) setEditing(false); }
+    finally { setSaving(false); }
+  };
   const origin = structuralOrigin(scope);
   const context = `${origin.floor} · ${origin.element}`;
   const canEdit = editing && !readOnly;
@@ -15,7 +21,8 @@ export default function StructuralBudgetLinks({ scope, rows, budget, onChange, r
   return <section className="structural-links" aria-label="Destinos no orçamento">
     <header>
       <div><h4>Destinos no orçamento · {context}</h4><p>{linked} de {rows.length} quantitativos com destino · coluna Quantidade</p></div>
-      {!readOnly && <button type="button" onClick={() => setEditing(!editing)} aria-expanded={editing}>{editing ? "Concluir vínculos" : "Definir destinos"}</button>}
+      {!readOnly && <button type="button" disabled={saving} onClick={() => editing ? apply() : setEditing(true)} aria-expanded={editing}>{saving ? "Salvando quantidades…" : editing ? "Concluir vínculos" : "Definir destinos"}</button>}
+      {!readOnly && !editing && onApply && <button type="button" disabled={saving} onClick={apply}>Atualizar quantidades</button>}
     </header>
     {canEdit && <label className="structural-link-search">Buscar item por etapa, número, código ou descrição
       <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Ex.: concretagem de pilares" />
@@ -36,7 +43,7 @@ export default function StructuralBudgetLinks({ scope, rows, budget, onChange, r
       return <div className="structural-link-row" key={row.key}>
         <div><small className="structural-origin">{context}</small><strong>{row.label}</strong><span className="structural-quantity">{Number(row.value || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} {row.unit}</span>{row.pending && <small className="structural-pending">⚠ Conferência pendente</small>}</div>
         <div>
-          {canEdit ? <select aria-label={`Destino de ${row.label} · ${context}`} value={targetId} onChange={e => onChange(key, e.target.value)}>
+          {canEdit ? <select disabled={saving} aria-label={`Destino de ${row.label} · ${context}`} value={targetId} onChange={e => onChange(key, e.target.value)}>
             <option value="">Sem vínculo</option>
             {targetId && !item && <option value={targetId}>Item removido — redefina o destino</option>}
             {candidates.map(candidate => <option key={candidate.id} value={candidate.id}>{candidate.codigoItem} · {candidate.stagePath} · {candidate.descricao.length > 125 ? `${candidate.descricao.slice(0, 125)}…` : candidate.descricao} · {candidate.unidade}</option>)}
@@ -48,6 +55,6 @@ export default function StructuralBudgetLinks({ scope, rows, budget, onChange, r
         </div>
       </div>;
     })}
-    <p className="structural-link-note">As opções são filtradas por serviço e unidade. Confira a etapa do orçamento antes de vincular. Os destinos ficam salvos nesta versão. O vínculo indica onde lançar o quantitativo; a quantidade do orçamento continua sendo preenchida manualmente.</p>
+    <p className="structural-link-note">As opções são filtradas por serviço e unidade. Confira a etapa do orçamento antes de vincular. Os destinos ficam salvos nesta versão. Concluir vínculos substitui a quantidade dos destinos pela soma dos quantitativos vinculados. Repetir a aplicação não duplica valores. Alterou as medidas? Use Atualizar quantidades.</p>
   </section>;
 }

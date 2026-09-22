@@ -64,3 +64,16 @@ it("preserva vínculo antigo inadequado com aviso para revisão", () => {
   act(() => container.querySelector("button").click());
   expect(container.querySelector("select").value).toBe("concrete");
 });
+
+it("concluir aplica as quantidades e só fecha depois da confirmação de salvamento", async () => {
+  render();
+  const onApply=vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+  act(()=>root.render(<StructuralBudgetLinks scope="terreo" rows={[{key:"concreto",label:"Concreto",value:1.06,unit:"m³"}]} budget={budget} onChange={()=>{}} onApply={onApply}/>));
+  act(()=>container.querySelector("button").click());
+  await act(async()=>container.querySelector("button").click());
+  expect(onApply).toHaveBeenCalledOnce();
+  expect(container.querySelector("select")).not.toBeNull();
+  await act(async()=>container.querySelector("button").click());
+  expect(container.querySelector("select")).toBeNull();
+  expect(container.textContent).toContain("Atualizar quantidades");
+});

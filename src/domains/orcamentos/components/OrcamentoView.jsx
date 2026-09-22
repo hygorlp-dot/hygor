@@ -1,3 +1,4 @@
+import { structuralBudgetRows, applyStructuralBudgetLinks } from "../structural-budget-apply";
 import { correspondeBuscaComposicao, composicaoComoReferencia } from "../composition-search";
 import { recuperarGeometriaSapatas } from "../sapata-geometria-recovery";
 import StructuralBudgetLinks from "./StructuralBudgetLinks";
@@ -1030,17 +1031,23 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     return { concreto, forma, aco, escavacao: t.volumeEscavacao };
   })();
 
-  const linhaMemoria = (key, label, value, unit, pending = false) => ({ key, label, value, unit, pending });
-  const linhasAcoMemoria = lista => {
-    const bitolas = new Map();
-    for (const linha of lista || []) {
-      const bitola = String(Number(String(linha.bitola).replace(",", ".")));
-      bitolas.set(bitola, (bitolas.get(bitola) || 0) + Number(linha.kg || 0));
-    }
-    return [...bitolas].map(([bitola, kg]) => linhaMemoria(`aco-${bitola}`, `Aço Ø ${bitola} mm`, kg, "kg"));
+  const linhasEstruturais = structuralBudgetRows(orc);
+  const aplicarDestinosMemoria = async scope => {
+    const atual = dataAtualRef.current;
+    const vigente = (atual.orcamentos || []).find(o=>o.id===selOrc);
+    if (!vigente) return false;
+    const resultado = applyStructuralBudgetLinks(vigente, scope);
+    if (!resultado.ok) { showToast(resultado.reason,"warn"); return false; }
+    scrollAlvoRef.current = window.scrollY;
+    try {
+      const salvo = await update({...atual,orcamentos:atual.orcamentos.map(o=>o.id===selOrc?{...resultado.budget,updatedAt:new Date().toISOString()}:o)});
+      if (!salvo?.ok) { showToast(salvo?.reason||"Não foi possível confirmar o salvamento das quantidades.","error"); return false; }
+      showToast(`${resultado.count} item(ns) atualizado(s) com os quantitativos da memória.`);
+      return true;
+    } catch (error) { showToast(error?.message||"Falha ao aplicar quantitativos.","error"); return false; }
   };
-  const renderDestinosMemoria = (scope, rows) => <StructuralBudgetLinks scope={scope} rows={rows} budget={orc}
-    readOnly={budgetIsImmutable(orc)} onChange={(key, itemId) => salvarOrc({ memoriaCalculo: {
+  const renderDestinosMemoria = scope => <StructuralBudgetLinks scope={scope} rows={linhasEstruturais[scope]} budget={orc}
+    onApply={()=>aplicarDestinosMemoria(scope)} readOnly={budgetIsImmutable(orc)} onChange={(key, itemId) => salvarOrc({ memoriaCalculo: {
       ...(orc.memoriaCalculo || {}), vinculosEstruturais: { ...(orc.memoriaCalculo?.vinculosEstruturais || {}), [key]: itemId },
     } })}/>;
 
@@ -1122,11 +1129,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           <p style={LABEL_GRUPO}>Aço por bitola</p>
           {renderEditorAcoPorBitola(pilar.acoPorBitola, lista=>salvarPilarDoPavimento(pav,{acoPorBitola:lista}), "Total aço dos pilares")}
         </div>
-        {renderDestinosMemoria(chave, [
-          linhaMemoria("concreto", "Concreto", pilar.concretoM3, "m³", pilar.precisaRevisar),
-          linhaMemoria("forma", "Fôrma", pilar.formaM2, "m²", pilar.precisaRevisar),
-          ...linhasAcoMemoria(pilar.acoPorBitola),
-        ])}
+        {renderDestinosMemoria(chave)}
       </StructuralElementSection>
     );
   };
@@ -1175,12 +1178,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           <p style={LABEL_GRUPO}>Aço por bitola</p>
           {renderEditorAcoPorBitola(viga.acoPorBitola, lista=>salvarVigaDoPavimento(pav,{acoPorBitola:lista}), "Total aço das vigas")}
         </div>
-        {renderDestinosMemoria(chave, [
-          linhaMemoria("concreto", "Concreto", viga.concretoM3, "m³", viga.avisoConcretoIncorreto),
-          linhaMemoria("forma", "Fôrma", viga.formaM2, "m²"),
-          ...(pav === "terreo" ? [linhaMemoria("magro", "Lastro de concreto magro", magro, "m²")] : []),
-          ...linhasAcoMemoria(viga.acoPorBitola),
-        ])}
+        {renderDestinosMemoria(chave)}
       </StructuralElementSection>
     );
   };
@@ -1247,13 +1245,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
             </div>
           </div>
         </div>
-        {renderDestinosMemoria(chave, [
-          linhaMemoria("concreto", "Concreto total", laje.volumeM3, "m³"),
-          linhaMemoria("area-macica", "Área maciça", laje.areaMacicaM2, "m²"),
-          linhaMemoria("area-vigota", "Área de vigotas", laje.areaVigotaM2, "m²"),
-          ...(laje.acoSemBitolas ? [linhaMemoria("aco-projeto", "Aço do projeto (sem bitolas)", laje.acoTotalProjetoKg, "kg", true)]
-            : [...linhasAcoMemoria(laje.acoPorBitola), linhaMemoria("aco-vigota", "Tela das vigotas", acoVigota, "kg")]),
-        ])}
+        {renderDestinosMemoria(chave)}
       </StructuralElementSection>
     );
   };
@@ -5019,7 +5011,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         <div className="structural-memory" style={{display:"flex",flexDirection:"column",gap:16}}>
           <div style={{background:`${C.blue}0a`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 11px"}}>
             <p style={{fontSize:10.5,color:C.muted,lineHeight:1.55}}>
-              Painel de referência: os quantitativos aqui não alteram sozinhos as linhas do orçamento - sirvam para conferir e, depois de validados, lançar manualmente a quantidade correta na composição correspondente. Ficam salvos junto com esta versão do orçamento.
+              Vincule os quantitativos aos itens correspondentes e use Concluir vínculos para atualizar as quantidades do orçamento. Ao alterar medidas, use Atualizar quantidades para reaplicar os resultados. Os totais dos itens e do orçamento são recalculados.
             </p>
           </div>
 
@@ -5177,14 +5169,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   <Metric label="Concreto" value={fmtNum(resumoSapatasFundacao.totais.volumeSapata)} unit="m³"/>
                   <Metric label="Aço" value={fmtNum(resumoSapatasFundacao.totais.pesoAco,1)} unit="kg"/>
                 </>}>
-                {renderDestinosMemoria("fundacao", [
-                  linhaMemoria("escavacao", "Escavação", resumoSapatasFundacao.totais.volumeEscavacao, "m³"),
-                  linhaMemoria("concreto", "Concreto das sapatas", resumoSapatasFundacao.totais.volumeSapata, "m³", sapatasFundacao.some(s=>s.geometriaPendente)),
-                  linhaMemoria("forma", "Fôrma", resumoSapatasFundacao.totais.formaArea, "m²", sapatasFundacao.some(s=>s.geometriaPendente)),
-                  linhaMemoria("magro", "Lastro de concreto magro", resumoSapatasFundacao.totais.areaConcretoMagro, "m²"),
-                  linhaMemoria("reaterro", "Reaterro", resumoSapatasFundacao.totais.reaterro, "m³", sapatasFundacao.some(s=>s.geometriaPendente)),
-                  ...linhasAcoMemoria(resumoSapatasFundacao.acoPorBitola),
-                ])}
+                {renderDestinosMemoria("fundacao")}
                 <details className="memory-disclosure">
                   <summary>Dimensões, armaduras e conferência das sapatas · {sapatasFundacao.length} tipos</summary>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
