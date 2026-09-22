@@ -1,0 +1,702 @@
+{
+  "fonte": "Estrutural.pdf · E-02/14 · 08/2026",
+  "sapatas": [
+    {
+      "assinatura": {
+        "tipo": "P1 e P5",
+        "qtd": 2,
+        "largura": 0.75,
+        "comprimento": 0.9,
+        "alturasProjetoCm": "30 / 20",
+        "armaduraX": {
+          "bitola": "10",
+          "quantidade": 4,
+          "comprimento": 1.08
+        },
+        "armaduraY": {
+          "bitola": "10",
+          "quantidade": 3,
+          "comprimento": 1.23
+        }
+      },
+      "alturaBase": 0.2,
+      "alturaTronco": 0.1,
+      "geometriaProjeto": {
+        "modelo": "prismoide-retangular",
+        "topoLargura": 0.25,
+        "topoComprimento": 0.4,
+        "afastamentosX": [
+          0.25,
+          0.25
+        ],
+        "afastamentosY": [
+          0.25,
+          0.25
+        ],
+        "cotasCortesCm": [
+          [
+            25,
+            13,
+            13,
+            25
+          ],
+          [
+            25,
+            20,
+            20,
+            25
+          ]
+        ],
+        "fonte": "Quadro e cortes do detalhamento de fundação"
+      }
+    },
+    {
+      "assinatura": {
+        "tipo": "P2",
+        "qtd": 1,
+        "largura": 1.05,
+        "comprimento": 1.3,
+        "alturasProjetoCm": "30 / 20",
+        "armaduraX": {
+          "bitola": "10",
+          "quantidade": 5,
+          "comprimento": 1.38
+        },
+        "armaduraY": {
+          "bitola": "10",
+          "quantidade": 4,
+          "comprimento": 1.63
+        }
+      },
+      "alturaBase": 0.2,
+      "alturaTronco": 0.1,
+      "geometriaProjeto": {
+        "modelo": "prismoide-retangular",
+        "topoLargura": 0.25,
+        "topoComprimento": 0.5,
+        "afastamentosX": [
+          0.4,
+          0.4
+        ],
+        "afastamentosY": [
+          0.4,
+          0.4
+        ],
+        "cotasCortesCm": [
+          [
+            40,
+            13,
+            13,
+            40
+          ],
+          [
+            40,
+            25,
+            25,
+            40
+          ]
+        ],
+        "fonte": "Quadro e cortes do detalhamento de fundação"
+      }
+    },
+    {
+      "assinatura": {
+        "tipo": "P3",
+        "qtd": 1,
+        "largura": 0.75,
+        "comprimento": 1,
+        "alturasProjetoCm": "30 / 20",
+        "armaduraX": {
+          "bitola": "10",
+          "quantidade": 4,
+          "comprimento": 1.08
+        },
+        "armaduraY": {
+          "bitola": "10",
+          "quantidade": 3,
+          "comprimento": 1.33
+        }
+      },
+      "alturaBase": 0.2,
+      "alturaTronco": 0.1,
+      "geometriaProjeto": {
+        "modelo": "prismoide-retangular",
+        "topoLargura": 0.25,
+        "topoComprimento": 0.5,
+        "afastamentosX": [
+          0.25,
+          0.25
+        ],
+        "afastamentosY": [
+          0.25,
+          0.25
+        ],
+        "cotasCortesCm": [
+          [
+            25,
+            13,
+            13,
+            25
+          ],
+          [
+            25,
+            25,
+            25,
+            25
+          ]
+        ],
+        "fonte": "Quadro e cortes do detalhamento de fundação"
+      }
+    },
+    {
+      "assinatura": {
+        "tipo": "P4, P6 e P11",
+        "qtd": 3,
+        "largura": 0.95,
+        "comprimento": 1.1,
+        "alturasProjetoCm": "30 / 20",
+        "armaduraX": {
+          "bitola": "10",
+          "quantidade": 4,
+          "comprimento": 1.28
+        },
+        "armaduraY": {
+          "bitola": "10",
+          "quantidade": 4,
+          "comprimento": 1.43
+        }
+      },
+      "alturaBase": 0.2,
+      "alturaTronco": 0.1,
+      "geometriaProjeto": {
+        "modelo": "prismoide-retangular",
+        "topoLargura": 0.25,
+        "topoComprimento": 0.40000000000000013,
+        "afastamentosX": [
+          0.35,
+          0.35
+        ],
+        "afastamentosY": [
+          0.35,
+          0.35
+        ],
+        "cotasCortesCm": [
+          [
+            35,
+            13,
+            13,
+            35
+          ],
+          [
+            35,
+            20,
+            20,
+            35
+          ]
+        ],
+        "fonte": "Quadro e cortes do detalhamento de fundação"
+      }
+    },
+    {
+      "assinatura": {
+        "tipo": "P7",
+        "qtd": 1,
+        "largura": 1.05,
+        "comprimento": 1.2,
+        "alturasProjetoCm": "30 / 20",
+        "armaduraX": {
+          "bitola": "10",
+          "quantidade": 5,
+          "comprimento": 1.38
+        },
+        "armaduraY": {
+          "bitola": "10",
+          "quantidade": 4,
+          "comprimento": 1.53
+        }
+      },
+      "alturaBase": 0.2,
+      "alturaTronco": 0.1,
+      "geometriaProjeto": {
+        "modelo": "prismoide-retangular",
+        "topoLargura": 0.25,
+        "topoComprimento": 0.4,
+        "afastamentosX": [
+          0.4,
+          0.4
+        ],
+        "afastamentosY": [
+          0.4,
+          0.4
+        ],
+        "cotasCortesCm": [
+          [
+            40,
+            13,
+            13,
+            40
+          ],
+          [
+            40,
+            20,
+            20,
+            40
+          ]
+        ],
+        "fonte": "Quadro e cortes do detalhamento de fundação"
+      }
+    },
+    {
+      "assinatura": {
+        "tipo": "P8",
+        "qtd": 1,
+        "largura": 1.2,
+        "comprimento": 1.05,
+        "alturasProjetoCm": "30 / 20",
+        "armaduraX": {
+          "bitola": "10",
+          "quantidade": 4,
+          "comprimento": 1.53
+        },
+        "armaduraY": {
+          "bitola": "10",
+          "quantidade": 5,
+          "comprimento": 1.38
+        }
+      },
+      "alturaBase": 0.2,
+      "alturaTronco": 0.1,
+      "geometriaProjeto": {
+        "modelo": "prismoide-retangular",
+        "topoLargura": 0.4,
+        "topoComprimento": 0.25,
+        "afastamentosX": [
+          0.4,
+          0.4
+        ],
+        "afastamentosY": [
+          0.4,
+          0.4
+        ],
+        "cotasCortesCm": [
+          [
+            40,
+            20,
+            20,
+            40
+          ],
+          [
+            40,
+            13,
+            13,
+            40
+          ]
+        ],
+        "fonte": "Quadro e cortes do detalhamento de fundação"
+      }
+    },
+    {
+      "assinatura": {
+        "tipo": "P9",
+        "qtd": 1,
+        "largura": 1.8,
+        "comprimento": 1.55,
+        "alturasProjetoCm": "50 / 20",
+        "armaduraX": {
+          "bitola": "12.5",
+          "quantidade": 6,
+          "comprimento": 2.18
+        },
+        "armaduraY": {
+          "bitola": "12.5",
+          "quantidade": 7,
+          "comprimento": 1.93
+        }
+      },
+      "alturaBase": 0.2,
+      "alturaTronco": 0.3,
+      "geometriaProjeto": {
+        "modelo": "prismoide-retangular",
+        "topoLargura": 0.5,
+        "topoComprimento": 0.25,
+        "afastamentosX": [
+          0.65,
+          0.65
+        ],
+        "afastamentosY": [
+          0.65,
+          0.65
+        ],
+        "cotasCortesCm": [
+          [
+            65,
+            25,
+            25,
+            65
+          ],
+          [
+            65,
+            13,
+            13,
+            65
+          ]
+        ],
+        "fonte": "Quadro e cortes do detalhamento de fundação"
+      }
+    },
+    {
+      "assinatura": {
+        "tipo": "P10 e P13",
+        "qtd": 2,
+        "largura": 1.25,
+        "comprimento": 1.4,
+        "alturasProjetoCm": "40 / 20",
+        "armaduraX": {
+          "bitola": "10",
+          "quantidade": 7,
+          "comprimento": 1.58
+        },
+        "armaduraY": {
+          "bitola": "10",
+          "quantidade": 6,
+          "comprimento": 1.73
+        }
+      },
+      "alturaBase": 0.2,
+      "alturaTronco": 0.2,
+      "geometriaProjeto": {
+        "modelo": "prismoide-retangular",
+        "topoLargura": 0.25,
+        "topoComprimento": 0.4,
+        "afastamentosX": [
+          0.5,
+          0.5
+        ],
+        "afastamentosY": [
+          0.5,
+          0.5
+        ],
+        "cotasCortesCm": [
+          [
+            50,
+            13,
+            13,
+            50
+          ],
+          [
+            50,
+            20,
+            20,
+            50
+          ]
+        ],
+        "fonte": "Quadro e cortes do detalhamento de fundação"
+      }
+    },
+    {
+      "assinatura": {
+        "tipo": "P12",
+        "qtd": 1,
+        "largura": 1.3,
+        "comprimento": 1.15,
+        "alturasProjetoCm": "35 / 20",
+        "armaduraX": {
+          "bitola": "10",
+          "quantidade": 5,
+          "comprimento": 1.63
+        },
+        "armaduraY": {
+          "bitola": "10",
+          "quantidade": 6,
+          "comprimento": 1.48
+        }
+      },
+      "alturaBase": 0.2,
+      "alturaTronco": 0.15,
+      "geometriaProjeto": {
+        "modelo": "prismoide-retangular",
+        "topoLargura": 0.4,
+        "topoComprimento": 0.24999999999999986,
+        "afastamentosX": [
+          0.45,
+          0.45
+        ],
+        "afastamentosY": [
+          0.45,
+          0.45
+        ],
+        "cotasCortesCm": [
+          [
+            45,
+            20,
+            20,
+            45
+          ],
+          [
+            45,
+            13,
+            13,
+            45
+          ]
+        ],
+        "fonte": "Quadro e cortes do detalhamento de fundação"
+      }
+    },
+    {
+      "assinatura": {
+        "tipo": "P14",
+        "qtd": 1,
+        "largura": 1.15,
+        "comprimento": 1.3,
+        "alturasProjetoCm": "35 / 20",
+        "armaduraX": {
+          "bitola": "10",
+          "quantidade": 6,
+          "comprimento": 1.48
+        },
+        "armaduraY": {
+          "bitola": "10",
+          "quantidade": 5,
+          "comprimento": 1.63
+        }
+      },
+      "alturaBase": 0.2,
+      "alturaTronco": 0.15,
+      "geometriaProjeto": {
+        "modelo": "prismoide-retangular",
+        "topoLargura": 0.24999999999999986,
+        "topoComprimento": 0.4,
+        "afastamentosX": [
+          0.45,
+          0.45
+        ],
+        "afastamentosY": [
+          0.45,
+          0.45
+        ],
+        "cotasCortesCm": [
+          [
+            45,
+            13,
+            13,
+            45
+          ],
+          [
+            45,
+            20,
+            20,
+            45
+          ]
+        ],
+        "fonte": "Quadro e cortes do detalhamento de fundação"
+      }
+    },
+    {
+      "assinatura": {
+        "tipo": "P15 e P17",
+        "qtd": 2,
+        "largura": 0.9,
+        "comprimento": 0.75,
+        "alturasProjetoCm": "30 / 20",
+        "armaduraX": {
+          "bitola": "10",
+          "quantidade": 3,
+          "comprimento": 1.23
+        },
+        "armaduraY": {
+          "bitola": "10",
+          "quantidade": 4,
+          "comprimento": 1.08
+        }
+      },
+      "alturaBase": 0.2,
+      "alturaTronco": 0.1,
+      "geometriaProjeto": {
+        "modelo": "prismoide-retangular",
+        "topoLargura": 0.4,
+        "topoComprimento": 0.25,
+        "afastamentosX": [
+          0.25,
+          0.25
+        ],
+        "afastamentosY": [
+          0.25,
+          0.25
+        ],
+        "cotasCortesCm": [
+          [
+            25,
+            20,
+            20,
+            25
+          ],
+          [
+            25,
+            13,
+            13,
+            25
+          ]
+        ],
+        "fonte": "Quadro e cortes do detalhamento de fundação"
+      }
+    },
+    {
+      "assinatura": {
+        "tipo": "P16",
+        "qtd": 1,
+        "largura": 1,
+        "comprimento": 0.85,
+        "alturasProjetoCm": "30 / 20",
+        "armaduraX": {
+          "bitola": "10",
+          "quantidade": 3,
+          "comprimento": 1.33
+        },
+        "armaduraY": {
+          "bitola": "10",
+          "quantidade": 4,
+          "comprimento": 1.18
+        }
+      },
+      "alturaBase": 0.2,
+      "alturaTronco": 0.1,
+      "geometriaProjeto": {
+        "modelo": "prismoide-retangular",
+        "topoLargura": 0.4,
+        "topoComprimento": 0.25,
+        "afastamentosX": [
+          0.3,
+          0.3
+        ],
+        "afastamentosY": [
+          0.3,
+          0.3
+        ],
+        "cotasCortesCm": [
+          [
+            30,
+            20,
+            20,
+            30
+          ],
+          [
+            30,
+            13,
+            13,
+            30
+          ]
+        ],
+        "fonte": "Quadro e cortes do detalhamento de fundação"
+      }
+    },
+    {
+      "assinatura": {
+        "tipo": "P18",
+        "qtd": 1,
+        "largura": 1.2,
+        "comprimento": 0.6,
+        "alturasProjetoCm": "30 / 20",
+        "armaduraX": {
+          "bitola": "10",
+          "quantidade": 3,
+          "comprimento": 1.49
+        },
+        "armaduraY": {
+          "bitola": "10",
+          "quantidade": 5,
+          "comprimento": 0.88
+        },
+        "armadurasSuperiores": [
+          {
+            "bitola": "10",
+            "quantidade": 3,
+            "comprimento": 1.5
+          },
+          {
+            "bitola": "10",
+            "quantidade": 5,
+            "comprimento": 0.92
+          }
+        ]
+      },
+      "alturaBase": 0.2,
+      "alturaTronco": 0.1,
+      "geometriaProjeto": {
+        "modelo": "prismoide-retangular",
+        "topoLargura": 0.4,
+        "topoComprimento": 0.2,
+        "afastamentosX": [
+          0.4,
+          0.4
+        ],
+        "afastamentosY": [
+          0.4,
+          0
+        ],
+        "cotasCortesCm": [
+          [
+            40,
+            20,
+            20,
+            40
+          ],
+          [
+            40,
+            13,
+            8
+          ]
+        ],
+        "fonte": "Quadro e cortes do detalhamento de fundação"
+      }
+    },
+    {
+      "assinatura": {
+        "tipo": "P19",
+        "qtd": 1,
+        "largura": 2,
+        "comprimento": 1.4,
+        "alturasProjetoCm": "50 / 30",
+        "armaduraX": {
+          "bitola": "10",
+          "quantidade": 13,
+          "comprimento": 2.11
+        },
+        "armaduraY": {
+          "bitola": "10",
+          "quantidade": 19,
+          "comprimento": 1.51
+        }
+      },
+      "alturaBase": 0.3,
+      "alturaTronco": 0.2,
+      "geometriaProjeto": {
+        "modelo": "prismoide-retangular",
+        "topoLargura": 0.4,
+        "topoComprimento": 0.2,
+        "afastamentosX": [
+          0.8,
+          0.8
+        ],
+        "afastamentosY": [
+          1.2,
+          0
+        ],
+        "cotasCortesCm": [
+          [
+            80,
+            20,
+            20,
+            80
+          ],
+          [
+            120,
+            13,
+            8
+          ]
+        ],
+        "fonte": "Quadro e cortes do detalhamento de fundação"
+      }
+    }
+  ],
+  "sha256Pdf": "95a154af827cf25b40849aa84ad251f92b7631730efd0804074c79cb8808f7dc"
+}

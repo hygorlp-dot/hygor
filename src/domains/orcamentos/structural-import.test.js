@@ -26,10 +26,10 @@ describe('importação estrutural conferida',()=>{
     const result=extrairProjetoEstrutural(foundation+'\fPilares do Térreo\n'+steel('Pilares',213));
     expect(result.resumoAcoSapatas.totalKg).toBe(212);
   });
-  it('não transforma alturas do CAD em volumes prismáticos não conferidos',()=>{
+  it('extrai alturas e topo dos cortes e calcula o trecho inclinado',()=>{
     const p=extrairProjetoEstrutural(foundation).sapatas[0];
-    expect(p).toMatchObject({alturasProjetoCm:'30 / 20',geometriaPendente:true,alturaBase:0,alturaTronco:0});
-    expect(calcularSapataTipo(p).volumeSapataTotal).toBe(0);
+    expect(p).toMatchObject({alturasProjetoCm:'30 / 20',geometriaPendente:false,alturaBase:.2,alturaTronco:.1});
+    expect(calcularSapataTipo(p).volumeSapataTotal).toBeCloseTo(.3391666666666667,10);
     expect(calcularSapataTipo({...p,volumeConferidoM3:.2,formaConferidaM2:1}).volumeSapataTotal).toBe(.4);
   });
   it('preserva aço de lajes sem fabricar bitolas e usa o quadro-resumo dos pilares',()=>{

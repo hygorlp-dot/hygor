@@ -1,3 +1,4 @@
+import { calcularGeometriaSapata } from "./sapata-geometria.js";
 // Memória de cálculo estrutural - quantitativos por pavimento, editáveis,
 // que servem de referência para conferir as quantidades lançadas no
 // orçamento (painel de referência - não escreve no orçamento sozinho,
@@ -70,8 +71,9 @@ export function calcularSapataTipo(tipoRow) {
   const comprimentoEscavacaoUnit = comprimento > 0 ? comprimento + 2 * folga : 0;
   const volumeEscavacaoUnit = larguraEscavacaoUnit * comprimentoEscavacaoUnit * profundidade;
   const areaConcretoMagroUnit = largura * comprimento;
-  const volumeBaseUnit = largura * comprimento * alturaBase;
-  const volumeTroncoUnit = largura * comprimento * alturaTronco;
+  const geometria = calcularGeometriaSapata(tipoRow);
+  const volumeBaseUnit = geometria?.volumeBase ?? largura * comprimento * alturaBase;
+  const volumeTroncoUnit = geometria?.volumeTronco ?? largura * comprimento * alturaTronco;
   const volumeSapataUnit = tipoRow?.volumeConferidoM3!=null&&tipoRow.volumeConferidoM3!=="" ? Math.max(0,Number(tipoRow.volumeConferidoM3)||0) : volumeBaseUnit + volumeTroncoUnit;
   // Achado da crítica Impeccable (27/08/2026): zerar o reaterro negativo
   // escondia silenciosamente uma inconsistência geométrica real (a sapata
@@ -80,7 +82,7 @@ export function calcularSapataTipo(tipoRow) {
   const reaterroUnit = tipoRow?.geometriaPendente ? 0 : Math.max(0, volumeEscavacaoUnit - volumeSapataUnit);
   // Fôrmas = perímetro da base x altura da base (convenção confirmada com o
   // usuário) - só a base leva fôrma; o tronco fica coberto pela cova.
-  const formaAreaUnit = tipoRow?.formaConferidaM2!=null&&tipoRow.formaConferidaM2!=="" ? Math.max(0,Number(tipoRow.formaConferidaM2)||0) : 2 * (largura + comprimento) * alturaBase;
+  const formaAreaUnit = tipoRow?.formaConferidaM2!=null&&tipoRow.formaConferidaM2!=="" ? Math.max(0,Number(tipoRow.formaConferidaM2)||0) : (geometria?.forma ?? 2 * (largura + comprimento) * alturaBase);
 
   const pesoArmadura = direcao => pesoUnitarioAco(direcao?.bitola) * Number(direcao?.quantidade || 0) * Number(direcao?.comprimento || 0) * (1 + PERDA_ACO);
   const pesoXUnit = pesoArmadura(tipoRow?.armaduraX);

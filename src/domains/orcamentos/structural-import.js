@@ -1,3 +1,4 @@
+import { extrairGeometriaSapata } from "./sapata-geometria.js";
 import {CHAVE_PAVIMENTO,extrairElementosEstruturais,extrairResumoAco,extrairSapatasFundacao} from './estrutural-pdf-extrator.js';
 
 // O quadro de locação mede o pavimento; as caixas de detalhamento podem
@@ -30,13 +31,14 @@ export function extrairProjetoEstrutural(texto){
   const elementos=extrairElementosEstruturais(texto);
   const resumos=extrairResumosPavimentos(texto);
   const avisos=[];
-  const sapatas=extrairSapatasFundacao(foundation).map(s=>({...s,
-    alturasProjetoCm:`${Math.round(s.alturaBase*100)} / ${Math.round(s.alturaTronco*100)}`,
-    // As alturas do CAD não são duas parcelas prismáticas aditivas.
-    // Exigir preenchimento evita publicar um volume fictício de concreto.
-    alturaBase:0,alturaTronco:0,geometriaPendente:true,
-  }));
-  if(sapatas.length)avisos.push('Fundação: alturas preservadas como referência. Concreto e fôrmas ficam pendentes até conferir a geometria das sapatas; não somar as duas alturas do quadro.');
+  const sapatas=extrairSapatasFundacao(foundation).map(s=>{
+    const geometriaProjeto=extrairGeometriaSapata(foundation,s);
+    const total=s.alturaBase, borda=s.alturaTronco;
+    return {...s, alturasProjetoCm:`${Math.round(total*100)} / ${Math.round(borda*100)}`,
+      alturaBase:geometriaProjeto?borda:0, alturaTronco:geometriaProjeto?Math.round((total-borda)*1e8)/1e8:0,
+      geometriaProjeto, geometriaPendente:!geometriaProjeto};
+  });
+  if(sapatas.some(s=>s.geometriaPendente))avisos.push('Fundação: não foi possível identificar os dois cortes de todas as sapatas no PDF. Geometrias não identificadas não são calculadas como zero medido.');
   for(const [pav,resumo] of Object.entries(resumos)){
     const detalhes=elementos.pilares[pav]||[];
     if(resumo.pilar){

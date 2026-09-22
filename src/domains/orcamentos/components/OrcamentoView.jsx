@@ -1,3 +1,4 @@
+import { recuperarGeometriaSapatas } from "../sapata-geometria-recovery";
 import StructuralBudgetLinks from "./StructuralBudgetLinks";
 import { extrairProjetoEstrutural, aplicarQuantitativosEstruturais } from "../structural-import";
 // ===================================================================
@@ -948,7 +949,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // Memória de cálculo estrutural - painel de referência por pavimento
   // (guardado dentro do próprio orçamento, ao lado de itens/etapas; não
   // escreve nas linhas do orçamento sozinho - decisão tomada com o usuário).
-  const sapatasFundacao = orc?.memoriaCalculo?.fundacao?.sapatas || [];
+  const sapatasFundacao = useMemo(() => recuperarGeometriaSapatas(orc?.memoriaCalculo?.fundacao?.sapatas || []), [orc?.memoriaCalculo?.fundacao?.sapatas]);
+  const avisosMemoria = (orc?.memoriaCalculo?.avisosImportacao || []).filter(aviso => !(sapatasFundacao.length && sapatasFundacao.every(s=>!s.geometriaPendente) && aviso.startsWith("Fundação: alturas preservadas")));
   const resumoSapatasFundacao = useMemo(() => resumoSapatas(sapatasFundacao), [sapatasFundacao]);
   const salvarSapatasFundacao = (novaLista) => salvarOrc({
     memoriaCalculo: { ...(orc?.memoriaCalculo || {}), fundacao: { ...(orc?.memoriaCalculo?.fundacao || {}), sapatas: novaLista } },
@@ -5024,9 +5026,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <Metric label="Escavação" value={fmtNum(resumoGeralMemoria.escavacao)} unit="m³"/>
           </div>
 
-          {!!orc?.memoriaCalculo?.avisosImportacao?.length&&<details className="memory-disclosure">
-            <summary>⚠ {orc.memoriaCalculo.avisosImportacao.length} alertas da importação · totais sujeitos a conferência</summary>
-            {orc.memoriaCalculo.avisosImportacao.map((aviso,i)=><p key={i}>{aviso}</p>)}
+          {!!avisosMemoria.length&&<details className="memory-disclosure">
+            <summary>⚠ {avisosMemoria.length} alertas da importação · totais sujeitos a conferência</summary>
+            {avisosMemoria.map((aviso,i)=><p key={i}>{aviso}</p>)}
           </details>}
           {sapatasFundacao.some(s=>s.geometriaPendente)&&<Warning>Totais parciais: há sapatas sem concreto/fôrmas conferidos. Esses valores não representam zero medido. Preencha os valores conferidos por peça abaixo.</Warning>}
 
@@ -5067,7 +5069,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 })()}
                 <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:160,overflowY:"auto"}}>
                   {pdfPreviewCompleto.sapatas.map(sapata=><div key={sapata.tipo} style={{fontSize:9.5,color:C.text}}>
-                    <b>{sapata.tipo}</b> · {sapata.qtd} peça(s) · {(sapata.largura*100).toFixed(0)}x{(sapata.comprimento*100).toFixed(0)}cm · alt. do projeto {sapata.alturasProjetoCm}cm (geometria pendente)
+                    <b>{sapata.tipo}</b> · {sapata.qtd} peça(s) · {(sapata.largura*100).toFixed(0)}x{(sapata.comprimento*100).toFixed(0)}cm · alt. do projeto {sapata.alturasProjetoCm}cm ({sapata.geometriaPendente ? "geometria não identificada" : "geometria extraída dos cortes"})
                     {" · X:"}{sapata.armaduraX.quantidade}∅{sapata.armaduraX.bitola}{sapata.armaduraX.comprimento?` (${sapata.armaduraX.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
                     {" · Y:"}{sapata.armaduraY.quantidade}∅{sapata.armaduraY.bitola}{sapata.armaduraY.comprimento?` (${sapata.armaduraY.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
                   </div>)}
@@ -5305,7 +5307,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                               <button type="button" style={{display:"block",border:0,background:"transparent",color:C.blue,cursor:"pointer",padding:"4px 0",textDecoration:"underline"}} onClick={()=>{
                                 const detalhe=document.getElementById(`conferencia-sapata-${tipo.id}`);
                                 if(detalhe){detalhe.open=true;detalhe.scrollIntoView({block:"center",behavior:"smooth"});detalhe.querySelector("input")?.focus({preventScroll:true});}
-                              }}>Conferir geometria</button>
+                              }}>{tipo.geometriaProjeto ? "Ver cálculo extraído" : "Conferir geometria"}</button>
                             </div>}
                           </td>
                           <td style={{padding:dSapatas.pad,position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:1,background:corFixa,borderRight:`1px solid ${C.line}`}}>{numInput("qtd")}</td>
@@ -5317,9 +5319,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                           <td style={{padding:dSapatas.pad}}>{numInput("profundidadeEscavacao")}</td>
                           <td style={{padding:dSapatas.pad,textAlign:"right",color:calc.escavacaoInsuficiente?C.red:C.blue,fontWeight:700}} title={calc.escavacaoInsuficiente?`⚠ A cova (${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m) é menor que o volume de concreto da sapata - confira as medidas, a sapata não cabe nessa escavação.`:`Cova: ${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m`}>{calc.escavacaoInsuficiente?"⚠ ":""}{calc.volumeEscavacaoTotal.toFixed(2)}</td>
                           <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{calc.areaConcretoMagroTotal.toFixed(2)}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}} title="Perímetro da base x altura da base">{resultadoGeometria(calc.formaAreaTotal,"formaConferidaM2")}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{tipo.alturasProjetoCm ? <span title="O volume conferido da sapata não é decomposto em prismas nesta tabela">—</span> : calc.volumeBaseTotal.toFixed(2)}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{tipo.alturasProjetoCm ? <span title="O volume conferido da sapata não é decomposto em prismas nesta tabela">—</span> : calc.volumeTroncoTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}} title="Laterais verticais da base e faces verticais do trecho superior, quando presentes">{resultadoGeometria(calc.formaAreaTotal,"formaConferidaM2")}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{tipo.alturasProjetoCm && !tipo.geometriaProjeto ? <span title="O volume conferido da sapata não é decomposto em prismas nesta tabela">—</span> : calc.volumeBaseTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{tipo.alturasProjetoCm && !tipo.geometriaProjeto ? <span title="O volume conferido da sapata não é decomposto em prismas nesta tabela">—</span> : calc.volumeTroncoTotal.toFixed(2)}</td>
                           <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:800,color:C.text}}>{resultadoGeometria(calc.volumeSapataTotal,"volumeConferidoM3")}</td>
                           <td style={{padding:dSapatas.pad,textAlign:"right",color:C.orange}}>{resultadoGeometria(calc.reaterroTotal)}</td>
                           <td style={{padding:dSapatas.pad}}>{armSelect("armaduraX")}</td>
@@ -5359,8 +5361,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               </div>
 
               {sapatasFundacao.filter(s=>s.alturasProjetoCm||s.armadurasSuperiores?.length).map(s=><details key={s.id} id={`conferencia-sapata-${s.id}`} className="memory-disclosure">
-                <summary>{s.tipo} · {s.geometriaPendente ? "⚠ Geometria pendente" : "Conferência do projeto"} · {s.qtd || 0} peça(s)</summary>
-                {s.alturasProjetoCm&&<>
+                <summary>{s.tipo} · {s.geometriaProjeto ? "Geometria extraída do projeto" : s.geometriaPendente ? "⚠ Geometria pendente" : "Conferência do projeto"} · {s.qtd || 0} peça(s)</summary>
+                {s.geometriaProjeto&&<div>
+                  <p>Fonte: {s.geometriaProjeto.fonte}. Base {fmtNum(s.largura)} × {fmtNum(s.comprimento)} m; topo {fmtNum(s.geometriaProjeto.topoLargura)} × {fmtNum(s.geometriaProjeto.topoComprimento)} m.</p>
+                  <p>Base: {fmtNum(s.alturaBase)} m de altura. Trecho inclinado: {fmtNum(s.alturaTronco)} m. Volume = base retangular + prismoide de topo retangular. Fôrma = laterais verticais da base + faces verticais do trecho superior quando o topo chega à borda. Reaterro = escavação − volume da sapata.</p>
+                  <p>Por peça: {fmtNum(calcularSapataTipo(s).volumeSapataUnit,4)} m³ de concreto · {fmtNum(calcularSapataTipo(s).formaAreaUnit,4)} m² de fôrma.</p>
+                </div>}
+                {s.alturasProjetoCm&&!s.geometriaProjeto&&<>
                   <p>Alturas impressas: {s.alturasProjetoCm} cm. Informe os quantitativos conferidos por peça, considerando o topo inclinado. As colunas de base/tronco não decompõem esse volume conferido.</p>
                   <EditableField label="CONCRETO CONFERIDO (M³/PEÇA)" value={s.volumeConferidoM3??""} onChange={v=>atualizarSapataTipo(s.id,{volumeConferidoM3:v,geometriaPendente:!(v!==""&&Number(v)>0&&Number(s.formaConferidaM2)>0)})}/>
                   <EditableField label="FÔRMA CONFERIDA (M²/PEÇA)" value={s.formaConferidaM2??""} onChange={v=>atualizarSapataTipo(s.id,{formaConferidaM2:v,geometriaPendente:!(v!==""&&Number(v)>0&&Number(s.volumeConferidoM3)>0)})}/>
