@@ -2234,6 +2234,10 @@
   width: 64px;
 }
 
+.ponto-feriados-ciclo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 12px 16px; background: #fff8e6; border: 1px solid #e8cf99; color: #713b00; font-size: 12px; }
+.ponto-feriados-ciclo span { line-height: 1.5; }
+.ponto-geral-table .ponto-feriado { background: #fff3d6 !important; }
+.ponto-feriado-label { display: inline-block; margin-top: 4px; padding: 3px 5px; border-radius: 3px; background: #8a3800; color: #fff; font-size: 10px; font-weight: 700; }
 .ponto-col-dia,
 .ponto-dia-cell {
   width: 64px;

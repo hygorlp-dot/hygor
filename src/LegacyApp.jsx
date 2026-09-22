@@ -7349,6 +7349,8 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   // permanecem sempre visiveis e destacados, mesmo sem lancamento.
   const days=diasCiclo.filter(prIsWeekdayIso);
   const feriados=prUniqueDates([...new Set(diasCiclo.map(d=>Number(d.slice(0,4))))].flatMap(ano=>getPayrollHolidays(data,ano)));
+  const nomesFeriados=new Map(getPlanningHolidays(data,[...new Set(diasCiclo.map(d=>Number(d.slice(0,4))))]).map(h=>[h.data,h.nome]));
+  const feriadosDoCiclo=diasCiclo.filter(date=>feriados.includes(date));
   const obraName=id=>(data.obras||[]).find(o=>o.id===id)?.name||"-";
   const obraDoRegistro=(employee,date,record,selectedObraId="")=>resolveEmployeeAttendanceObraId({
     data,employee,date,record,selectedObraId,
@@ -7478,12 +7480,18 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
       </div>
     ) : null}
 
+    <div className="ponto-feriados-ciclo" aria-label="Feriados do ciclo">
+      <strong>Feriados do ciclo</strong>
+      {feriadosDoCiclo.length ? feriadosDoCiclo.map(date=><span key={date}>{diaLabel(date)} · {nomesFeriados.get(date)||"Feriado"}{!prIsWeekdayIso(date)?` (${semana(date)})`:""}</span>) : <span>Nenhum feriado neste ciclo.</span>}
+    </div>
+
     <div className="ponto-geral-legend">
       <span className="ponto-legend-title">Clique na célula para alternar</span>
       <span className="ponto-legend-chip"><i style={{background:C.green}}/>Presente</span>
       <span className="ponto-legend-chip"><i style={{background:C.yellowD}}/>Meio dia</span>
       <span className="ponto-legend-chip"><i style={{background:C.red}}/>Falta</span>
       <span className="ponto-legend-chip"><i style={{background:C.cinza}}/>Sem registro</span>
+      <span className="ponto-legend-chip"><i style={{background:"#8a3800"}}/>Feriado</span>
       <span className="ponto-legend-help">Para mudar a obra do dia, clique no texto abaixo do status.</span>
     </div>
 
@@ -7492,7 +7500,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
         <thead style={{position:"sticky",top:0,zIndex:5}}><tr>
           <th className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:7,minWidth:290,background:C.surface,color:C.text,padding:"8px 12px",textAlign:"left",fontSize:9.5,fontWeight:800,letterSpacing:.4,borderBottom:`1px solid ${C.border}`}}>FUNCIONÁRIO E AÇÕES</th>
           <th className="ponto-col-total" style={{minWidth:64,background:C.surface,color:C.text,padding:8,fontSize:9.5,fontWeight:800,borderBottom:`1px solid ${C.border}`}}>DIAS</th>
-          {days.map(date=>{const feriado=feriados.includes(date);return <th className="ponto-col-dia" key={date} title={feriado?"Feriado cadastrado":""} style={{minWidth:64,background:feriado?`${C.red}14`:C.surface,color:feriado?C.red:C.text,padding:"6px 4px",borderLeft:`1px solid ${C.line}`,borderBottom:`1px solid ${C.border}`}}><div style={{fontSize:10,fontWeight:800}}>{diaLabel(date)}</div><div style={{fontSize:7.5,fontWeight:feriado?900:600,opacity:feriado?1:.6}}>{feriado?"FER":semana(date)}</div></th>;})}
+          {days.map(date=>{const feriado=feriados.includes(date);return <th className={`ponto-col-dia${feriado?" ponto-feriado":""}`} key={date} title={feriado?(nomesFeriados.get(date)||"Feriado"):""} style={{minWidth:64,background:feriado?`${C.red}14`:C.surface,color:feriado?C.red:C.text,padding:"6px 4px",borderLeft:`1px solid ${C.line}`,borderBottom:`1px solid ${C.border}`}}><div style={{fontSize:10,fontWeight:800}}>{diaLabel(date)}</div><div style={{fontSize:7.5,fontWeight:feriado?900:600,opacity:feriado?1:.6}}>{semana(date)}</div>{feriado&&<span className="ponto-feriado-label">Feriado</span>}</th>;})}
         </tr></thead>
         <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{const st=attendanceFor(emp.id,d)?.status;return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:`1px solid ${C.line}`}}>
           <td className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:2,background:C.card,padding:"8px 12px",borderTop:`1px solid ${C.line}`,minWidth:290}}>
@@ -7516,7 +7524,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
             const att=attendanceFor(emp.id,date),st=att?.status,obraId=obraDoRegistro(emp,date,att),fora=!employeeRelevantOnDate(data,emp,date),feriado=feriados.includes(date);
             const foraDeLotacao=st&&obraId&&obraId!==emp.obra;   // trabalhou em obra diferente da lotação
             const aberto=obraCell===cellKey;
-            return <td className="ponto-dia-cell" key={date} style={{padding:4,borderTop:`1px solid ${C.line}`,borderLeft:`1px solid ${C.line}`,background:feriado?`${C.red}06`:fora?C.surface:C.card,verticalAlign:"middle"}}>
+            return <td className={`ponto-dia-cell${feriado?" ponto-feriado":""}`} key={date} style={{padding:4,borderTop:`1px solid ${C.line}`,borderLeft:`1px solid ${C.line}`,background:feriado?`${C.red}06`:fora?C.surface:C.card,verticalAlign:"middle"}}>
               {fora?<div style={{textAlign:"center",color:C.muted,fontSize:11}}>—</div>:<>
                 <button onClick={()=>salvarCelula(emp,date,{status:proxStatus(st)})}
                   aria-busy={pending}
@@ -7525,7 +7533,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
                           background:st?corStatus(st):C.bg,color:st?"#fff":C.muted,
                           fontWeight:800,cursor:"pointer",fontSize:12,fontFamily:"'Inter Display','Inter',sans-serif",
                           boxShadow:pending?`0 0 0 2px ${C.blue}33`:"none",opacity:pending ? .82 : 1}}>
-                  {rotuloCurto(st)}
+                  {st?rotuloCurto(st):feriado?"Feriado":rotuloCurto(st)}
                 </button>
                 {/* Obra: escondida por padrão. Mostra um chip discreto só quando a
                     obra do dia difere da lotação; toque abre a troca. */}
