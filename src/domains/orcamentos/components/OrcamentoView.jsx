@@ -1,3 +1,5 @@
+import { reconcileOptimisticSnapshot } from '../../sync/optimistic-merge';
+import { syncStructuralQuantities, undoStructuralChange, auditStructuralLinks } from '../structural-auto-sync';
 import { memoryFloors, addBudgetFloor } from '../budget-floors';
 import AddFloorForm from './AddFloorForm';
 import { aplicarCriterioEstrutural } from "../structural-quantity-policy";
@@ -330,6 +332,9 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const alvoToque = isMobile ? 44 : 24;
   const ehAdmin = currentUser?.role === "admin";
   const dataAtualRef = useRef(data);
+  const [memorySave, setMemorySave] = useState(null);
+  const [memoryReceipt, setMemoryReceipt] = useState(null);
+  const memorySaveSequence = useRef(0);
   const scrollAlvoRef = useRef(null);   // posicao a preservar durante um salvamento
   // Abrir somente a baseline aprovada. Uma revisão em rascunho nunca deve
   // parecer o orçamento vigente apenas por ser a última criada.
@@ -938,12 +943,47 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const salvarOrc = (patch) => {
     if (budgetIsImmutable(orc)) { showToast("Esta versão está aprovada e imutável. Crie uma revisão para alterá-la.","warn"); return; }
     scrollAlvoRef.current = window.scrollY;
-    update({ ...data, orcamentos: todosOrcamentos.map(o => o.id===selOrc ? {...o, ...patch,updatedAt:new Date().toISOString()} : o) });
+    const latest = dataAtualRef.current;
+    const merged = reconcileOptimisticSnapshot({latest,rendered:data,intended:{...data,orcamentos:todosOrcamentos.map(o=>o.id===selOrc?{...o,...patch}:o)}});
+    const before = (latest.orcamentos || []).find(o=>o.id===selOrc) || orc;
+    let next = merged.orcamentos.find(o=>o.id===selOrc);
+    const structural = !!patch.memoriaCalculo;
+    const sync = structural ? syncStructuralQuantities(before,next) : null;
+    if (sync) next = sync.budget;
+    const sequence = ++memorySaveSequence.current;
+    setMemorySave({id:selOrc,state:'saving'});
+    if(structural) {
+      setMemoryReceipt(patch.itens || patch.etapas ? null : {budgetId:selOrc,beforeMemory:before.memoriaCalculo,afterMemory:next.memoriaCalculo,changes:sync.changes});
+    }
+    const nextData = {...merged,orcamentos:merged.orcamentos.map(o=>o.id===selOrc?{...next,updatedAt:new Date().toISOString()}:o)};
+    dataAtualRef.current = nextData;
+    const pending = update(nextData);
+    Promise.resolve(pending).then(result=>{
+      if(sequence===memorySaveSequence.current) setMemorySave({id:selOrc,state:result?.ok?'saved':'error',message:result?.reason});
+    }).catch(error=>{
+      if(sequence===memorySaveSequence.current) setMemorySave({id:selOrc,state:'error',message:error.message});
+    });
+    return pending;
+  };
+  const desfazerAtualizacaoMemoria = async () => {
+    const current=dataAtualRef.current;
+    const budget=(current.orcamentos || []).find(o=>o.id===selOrc);
+    try {
+      const restored=undoStructuralChange(budget,memoryReceipt);
+      const sequence=++memorySaveSequence.current;
+      setMemorySave({id:selOrc,state:'saving'});
+      const nextData={...current,orcamentos:current.orcamentos.map(o=>o.id===selOrc?{...restored,updatedAt:new Date().toISOString()}:o)};
+      dataAtualRef.current=nextData;
+      const result=await update(nextData);
+      if(sequence===memorySaveSequence.current){
+        setMemorySave({id:selOrc,state:result?.ok?'saved':'error',message:result?.reason});
+        if(result?.ok)setMemoryReceipt(null);
+      }
+    } catch(error) { showToast(error.message,'warn'); }
   };
 
   // Memória de cálculo estrutural - painel de referência por pavimento
-  // (guardado dentro do próprio orçamento, ao lado de itens/etapas; não
-  // escreve nas linhas do orçamento sozinho - decisão tomada com o usuário).
+  // Medidas vinculadas atualizam as quantidades no mesmo salvamento.
   const sapatasFundacao = useMemo(() => recuperarGeometriaSapatas(orc?.memoriaCalculo?.fundacao?.sapatas || []), [orc?.memoriaCalculo?.fundacao?.sapatas]);
   const avisosMemoria = (orc?.memoriaCalculo?.avisosImportacao || []).filter(aviso => !/pilares usam o quadro-resumo|aço de laje no quadro-resumo/.test(aviso)).filter(aviso => !(sapatasFundacao.length && sapatasFundacao.every(s=>!s.geometriaPendente) && aviso.startsWith("Fundação: alturas preservadas")));
   const resumoSapatasFundacao = useMemo(() => resumoSapatas(sapatasFundacao), [sapatasFundacao]);
@@ -1018,6 +1058,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   })();
 
   const linhasEstruturais = structuralBudgetRows(orc);
+  const memoryIssues = auditStructuralLinks(orc);
   const aplicarDestinosMemoria = async scope => {
     const atual = dataAtualRef.current;
     const vigente = (atual.orcamentos || []).find(o=>o.id===selOrc);
@@ -4017,6 +4058,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           <>
             <div style={{display:"flex",justifyContent:"flex-end",flexWrap:"wrap",gap:6,marginBottom:6,position:"relative"}}>
               {!budgetIsImmutable(orc) && <Btn v="ghost" size="sm" onClick={()=>setAddFloorOpen(true)}>+ Adicionar pavimento</Btn>}
+              {memorySave?.id===selOrc && <span role="status" style={{fontSize:12,alignSelf:'center'}}>{memorySave.state==='saving'?'Salvando…':memorySave.state==='saved'?'Salvo':'Falha ao salvar'}</span>}
               <Btn v="ghost" size="sm" onClick={()=>setColsOrcAberto(a=>!a)}>Colunas</Btn>
               <Btn v="ghost" size="sm" onClick={()=>setEtapasFechadas({})}>Expandir todos</Btn>
               <Btn v="ghost" size="sm" onClick={()=>setEtapasFechadas(Object.fromEntries((orc.etapas||[]).map(e=>[e.id,true])))}>Recolher todos</Btn>
@@ -5033,9 +5075,25 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           </Modal>}
       {orcAba==="memoria" && (
         <div className="structural-memory" style={{display:"flex",flexDirection:"column",gap:16}}>
+          {memorySave?.id===selOrc && <div role="status" className="memory-sync-status">
+            <strong>{memorySave.state==='saving'?'Salvando…':memorySave.state==='saved'?'Salvo':'Falha ao salvar'}</strong>
+            {memorySave.message && <span>{memorySave.message}</span>}
+            {memoryReceipt?.budgetId===selOrc && <>
+              {memoryReceipt.changes.map(change=><div key={change.id}>{change.description}: {fmtNum(change.before,4)} → {fmtNum(change.after,4)} {change.unit}</div>)}
+              <button disabled={memorySave.state!=='saved'} onClick={desfazerAtualizacaoMemoria}>Desfazer última alteração do memorial</button>
+            </>}
+          </div>}
+          {memoryIssues.length>0 && <details className="memory-disclosure">
+            <summary>Conferência dos vínculos · {memoryIssues.length} ocorrência(s)</summary>
+            {memoryIssues.map(issue=><button type="button" className="memory-audit-link" key={issue.source} onClick={()=>{
+              setDisciplinaMemoria('estrutural');
+              navegarParaSecaoMemoria(issue.scope,issue.scope==='fundacao'?null:issue.scope);
+            }}>{issue.label} — {issue.message}</button>)}
+          </details>}
+
           <div style={{background:`${C.blue}0a`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 11px"}}>
             <p style={{fontSize:10.5,color:C.muted,lineHeight:1.55}}>
-              Vincule os quantitativos aos itens correspondentes e use Concluir vínculos para atualizar as quantidades do orçamento. Ao alterar medidas, use Atualizar quantidades para reaplicar os resultados. Os totais dos itens e do orçamento são recalculados.
+              Os quantitativos vinculados atualizam automaticamente o orçamento ao salvar as medidas. Os totais são recalculados. Dados ausentes ou incompatíveis preservam a quantidade anterior e aparecem na conferência abaixo.
             </p>
           </div>
 

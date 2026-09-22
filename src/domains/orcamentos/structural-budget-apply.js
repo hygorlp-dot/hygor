@@ -41,6 +41,15 @@ export function structuralBudgetRows(budget) {
     result[`${pav}-laje`] = [row("concreto", "Concreto total", l.volumeM3, "m³"), row("area-macica", "Área maciça", l.areaMacicaM2, "m²"), row("area-vigota", "Área de vigotas", l.areaVigotaM2, "m²"),
       ...(l.acoSemBitolas ? [row("aco-projeto", "Aço do projeto (sem bitolas)", l.acoTotalProjetoKg, "kg", true)] : [...steelRows(l.acoPorBitola), row("aco-vigota", "Tela das vigotas", calcularAcoVigotaLaje(l), "kg")])];
   }
+  for (const [scope, rows] of Object.entries(result)) {
+    const [floor, element] = scope.split('-');
+    const data = memory[floor]?.[{pilares:'pilar',vigas:'viga',laje:'laje',alvenaria:'alvenaria'}[element]];
+    const fields = {concreto:element==='laje'?'volumeM3':'concretoM3',forma:'formaM2','area-macica':'areaMacicaM2','area-vigota':'areaVigotaM2',alvenaria:'areaM2'};
+    for (const measure of rows) {
+      const field = fields[measure.key];
+      if (scope==='fundacao' ? !sapatas.length : !data || (field && (data[field]==null || data[field]===''))) measure.missing = true;
+    }
+  }
   return result;
 }
 
@@ -63,7 +72,7 @@ export function applyStructuralBudgetLinks(budget, scope) {
     const item = items.get(id), measure = entries.find(r => r.source === source);
     if (!item || item.tipo === "titulo") return fail("Um destino foi removido. Redefina o vínculo antes de aplicar.");
     if (!measure) return fail(`O quantitativo ${source} não está mais disponível. Revise seus vínculos.`);
-    if (measure.pending) return fail(`${measure.label} (${source.split(".")[0]}) tem uma pendência técnica e não pode ser aplicado.`);
+    if (measure.pending || measure.missing) return fail(`${measure.label} (${source.split(".")[0]}) tem dado ausente ou pendência técnica e não pode ser aplicado.`);
     if (!Number.isFinite(measure.value) || measure.value < 0 || !compatibleStructuralItem(measure, item)) return fail(`Destino incompatível para ${measure.label}. Confira serviço e unidade.`);
     totals.set(id, totals.get(id) + measure.value);
   }

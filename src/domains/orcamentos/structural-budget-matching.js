@@ -56,3 +56,21 @@ export function memoryService(row) {
 export function compatibleStructuralItem(row, item) {
   return compatibleMemoryUnit(row.unit, item.unidade) && memoryService(row) === structuralService(item.descricao);
 }
+
+// Sugestão exige pavimento e elemento no caminho da etapa. A descrição pode
+// citar outros elementos, portanto não basta para uma escolha automática.
+export function suggestedStructuralTarget(scope, row, budget, candidates) {
+  const origin=structuralOrigin(scope,budget?.memoriaCalculo);
+  const norm=value=>normalizeStructuralText(value).replace(/[º°ª]/g,'').replace(/\s+/g,' ').trim();
+  const floor=norm(origin.floor), element=norm(origin.element);
+  const steelMatches=item=>{
+    if(!row.key.startsWith('aco-'))return true;
+    if(row.key==='aco-vigota')return /tela soldada/.test(norm(item.descricao));
+    const diameter=Number(row.key.slice(4));
+    return Number.isFinite(diameter) && [...norm(item.descricao).matchAll(/(\d+(?:[.,]\d+)?)\s*mm\b/g)]
+      .some(match=>Number(match[1].replace(',','.'))===diameter);
+  };
+  const matches=candidates.filter(item=>compatibleStructuralItem(row,item)
+    && steelMatches(item) && norm(item.stagePath).includes(floor) && norm(item.stagePath).includes(element));
+  return matches.length===1 ? matches[0] : null;
+}

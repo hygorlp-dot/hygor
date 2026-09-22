@@ -20,6 +20,18 @@ const render = (value = budget, onChange = vi.fn(), readOnly = false) => {
 };
 afterEach(() => { if (root) act(() => root.unmount()); container?.remove(); container = root = null; });
 
+it("oferece destino compatível sem vincular antes da escolha",()=>{
+  const save=vi.fn();
+  render();
+  act(()=>root.render(<StructuralBudgetLinks scope="pavimento1-vigas" rows={[{key:'concreto',label:'Concreto',value:3,unit:'m³'}]}
+    budget={{...budget,etapas:[{id:'stage',nome:'1º pavimento · Vigas'}],memoriaCalculo:{}}} onChange={save}/>));
+  act(()=>container.querySelector('button').click());
+  const suggestion=[...container.querySelectorAll('button')].find(b=>b.textContent.startsWith('Usar sugestão'));
+  expect(save).not.toHaveBeenCalled();
+  act(()=>suggestion.click());
+  expect(save).toHaveBeenCalledWith('pavimento1-vigas.concreto','concrete');
+});
+
 it("oculta destino de outro quantitativo e libera ao desfazer o vínculo", () => {
   const value = { ...budget, memoriaCalculo: { vinculosEstruturais: { "pavimento1-vigas.concreto": "concrete" } } };
   render(value);
