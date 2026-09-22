@@ -427,6 +427,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [analiseReferenciaAviso,setAnaliseReferenciaAviso]=useState("");
   const [buscaModal,setBuscaModal]= useState(false);
   const [busca,     setBusca]     = useState("");
+  const [selecaoLinhaVersao,setSelecaoLinhaVersao]=useState({});
   const [buscaLinha, setBuscaLinha] = useState({itemId:"", termo:""});
   // Colunas visiveis da planilha do orcamento. O usuario liga/desliga cada uma.
   // Fonte, descricao e quantidade sao fixas (sempre visiveis). As demais podem
@@ -2375,6 +2376,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       item.id === itemId ? aplicarReferencia(item, referencia, orcVigente) : item
     );
     salvarOrcAssincrono({itens});
+    setSelecaoLinhaVersao(v=>({...v,[itemId]:(v[itemId]||0)+1}));
     setBuscaLinha({itemId:"", termo:""});
     setResultadosLinhaRemotos([]);
     setBuscaLinhaAviso("");
@@ -3898,12 +3900,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       </div>
                       )}
                       <div style={{minWidth:0,overflow:"hidden"}}>
-                        <CelulaTexto value={it.descricao||""}
+                        <CelulaTexto value={it.descricao||""} searchOnly resetKey={selecaoLinhaVersao[it.id]||0}
                           onDigitar={e=>setBuscaLinha({itemId:it.id,termo:e.target.value})}
-                          onCommit={valor=>{
-                            updItemCampo(it.id,"descricao",valor);
-                            setBuscaLinha(atual=>atual.itemId===it.id?{itemId:"",termo:""}:atual);
-                          }}
+                          onSearchEnd={()=>setBuscaLinha(atual=>atual.itemId===it.id?{itemId:"",termo:""}:atual)}
                           onEscape={()=>setBuscaLinha({itemId:"",termo:""})}
                           onEnter={()=>{
                             if(buscaLinha.itemId===it.id && resultadosLinha.length) {
@@ -3912,7 +3911,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                             }
                             return false;
                           }}
-                          title="Digite para pesquisar por descrição nas bases vinculadas"
+                          title="Pesquise e selecione uma composição. A pesquisa não altera a descrição; use Editar para alterações manuais."
                           style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11.5,outline:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textTransform:"uppercase",fontFamily:"var(--arcd-font-sans)"}}/>
                       </div>
                       {colsOrc.unidade && (
@@ -3974,6 +3973,11 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                           background:C.bg,border:`1.5px solid ${C.blue}`,borderRadius:7,
                           boxShadow:`0 8px 20px ${C.shadow}`,padding:5,zIndex:20,
                         }}>
+                          {it.codigo&&<button type="button" disabled={codigoAtualizando===it.id} onMouseDown={e=>e.preventDefault()} onClick={async()=>{
+                            await updItemCampo(it.id,"codigo",it.codigo);
+                            setSelecaoLinhaVersao(v=>({...v,[it.id]:(v[it.id]||0)+1}));
+                            setBuscaLinha({itemId:"",termo:""});
+                          }} style={{border:0,background:"transparent",color:C.blue,cursor:"pointer",padding:6,textDecoration:"underline"}}>Restaurar composição pelo código {it.codigo}</button>}
                           <p style={{fontSize:9.5,color:C.muted,padding:"3px 6px 5px"}}>
                             {buscaLinhaLoading ? "Pesquisando nas bases vinculadas..." : "Selecione uma composição para atualizar código, unidade e preço"}
                           </p>

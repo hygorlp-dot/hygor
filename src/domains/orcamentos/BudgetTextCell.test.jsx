@@ -4,6 +4,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { BudgetTextCell } from "./BudgetTextCell";
 
 const mounted = [];
+function typeText(input, text) {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(input,text);
+  input.dispatchEvent(new Event("input",{bubbles:true}));
+}
 function render(props) {
   const container = document.createElement("div");
   document.body.append(container);
@@ -18,6 +22,32 @@ afterEach(() => mounted.splice(0).forEach(({ container, root }) => {
 }));
 
 describe("célula editável do orçamento", () => {
+  it("não salva a pesquisa ao sair sem selecionar uma composição", () => {
+    const onCommit = vi.fn();
+    const input = render({ value:"CONCRETO MAGRO PARA LASTRO, TRAÇO 1:4,5:4,5", searchOnly:true, onCommit });
+    act(() => { input.focus(); typeText(input,"CONCRETO MAGRO"); });
+    act(() => input.blur());
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(input.value).toBe("CONCRETO MAGRO PARA LASTRO, TRAÇO 1:4,5:4,5");
+  });
+
+  it("mostra a referência selecionada mesmo com o campo focado e não sobrescreve no blur", () => {
+    const onCommit = vi.fn();
+    const input = render({ value:"Antiga", searchOnly:true, onCommit, resetKey:0 });
+    act(() => { input.focus(); typeText(input,"concreto magro"); });
+    act(() => mounted.at(-1).root.render(<BudgetTextCell value="Descrição completa selecionada" searchOnly onCommit={onCommit} resetKey={1}/>));
+    expect(input.value).toBe("Descrição completa selecionada");
+    act(() => input.blur());
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("repor a mesma composição também descarta o texto pesquisado", () => {
+    const input = render({ value:"Original", searchOnly:true, resetKey:0 });
+    act(() => { input.focus(); typeText(input,"busca"); });
+    act(() => mounted.at(-1).root.render(<BudgetTextCell value="Original" searchOnly resetKey={1}/>));
+    expect(input.value).toBe("Original");
+  });
+
   it("só confirma o valor ao sair do campo", () => {
     const onCommit = vi.fn();
     const input = render({ value:"10", onCommit });

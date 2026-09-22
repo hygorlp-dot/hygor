@@ -6,6 +6,9 @@ export const BudgetTextCell = memo(function BudgetTextCell({
   onDigitar,
   onEnter,
   onEscape,
+  searchOnly = false,
+  resetKey,
+  onSearchEnd,
   ...props
 }) {
   const [local, setLocal] = useState(value ?? "");
@@ -13,8 +16,8 @@ export const BudgetTextCell = memo(function BudgetTextCell({
   const cancelling = useRef(false);
 
   useEffect(() => {
-    if (!focused.current) setLocal(value ?? "");
-  }, [value]);
+    if (!focused.current || searchOnly) setLocal(value ?? "");
+  }, [value, searchOnly, resetKey]);
 
   const discard = element => {
     cancelling.current = true;
@@ -33,6 +36,12 @@ export const BudgetTextCell = memo(function BudgetTextCell({
     onBlur={event => {
       focused.current = false;
       const text = event.target.value;
+      if (searchOnly) {
+        cancelling.current = false;
+        setLocal(value ?? "");
+        onSearchEnd?.();
+        return;
+      }
       if (cancelling.current) {
         cancelling.current = false;
         setLocal(value ?? "");
