@@ -1,9 +1,9 @@
 import { expect, it } from 'vitest';
 import { calculateItemMemory, blankItemMemory } from './item-memory-models';
-import { startItemMemory, saveItemMemory, syncItemMemories, suggestItemMemory, itemMemoryRows, evaluateItemMemory, reusableItemModel, compatibleItemModels, auditItemMemories } from './item-memory';
+import { startItemMemory, saveItemMemory, syncItemMemories, suggestItemMemory, itemMemoryRows, evaluateItemMemory, reusableItemModel, compatibleItemModels, auditItemMemories, existingMemoryOwner } from './item-memory';
 import { clonarEstruturaOrcamento } from './budget-clone';
 import { addBudgetFloor } from './budget-floors';
-import { budgetChangeReceipt, undoBudgetChange } from './budget-workflow';
+import { budgetChangeReceipt, undoBudgetChange, auditWholeBudget } from './budget-workflow';
 
 const base = () => ({id:'b',etapas:[{id:'s',nome:'ALVENARIA (TÉRREO)'}],itens:[{id:'i',etapaId:'s',codigo:'103317',fonte:'SINAPI',descricao:'ALVENARIA DE VEDAÇÃO DE BLOCOS',unidade:'M2',quantidade:20,precoUnit:50}]});
 const filled = item => ({...startItemMemory(item),rows:[{id:'r1',local:'Sala',operation:'add',values:{length:'4',height:'2,80',count:1}},{id:'r2',local:'Porta',operation:'subtract',values:{length:'.8',height:'2.1',count:1}}]});
@@ -82,4 +82,16 @@ it('biblioteca só transfere modelo para mesma composição; cópias zeradas nã
   expect(cloned.itens[0].quantidade).toBe(0);
   const floor=addBudgetFloor(b,{nome:'Novo',nivel:'3',origem:'terreo',etapaId:'s'},()=>`id${n++}`);
   expect(floor.itens[1].memorialMedicao).toEqual(blankItemMemory(record));
+});
+// Bug real de produção (referência ARCD-1ODFE4T, 2026-09): abrir Orçamento de
+// uma obra sem nenhum orçamento ainda selecionado chama auditWholeBudget(orc)
+// com orc undefined. Toda a cadeia (auditStructuralLinks, memoryBudgetItems)
+// já tratava isso com `?.`, exceto itemMemoryRows/existingMemoryOwner, que
+// quebravam a tela inteira com "Cannot read properties of undefined (reading
+// 'itens')".
+it('não quebra quando o orçamento ainda não existe (obra sem orçamento selecionado)',()=>{
+  expect(itemMemoryRows(undefined)).toEqual([]);
+  expect(auditItemMemories(undefined)).toEqual([]);
+  expect(auditWholeBudget(undefined)).toEqual([]);
+  expect(existingMemoryOwner({id:'i'},undefined)).toBeNull();
 });

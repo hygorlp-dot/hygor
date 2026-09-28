@@ -5,7 +5,7 @@ import { ITEM_MEMORY_MODELS, calculateItemMemory, measurementUnit, newMeasuremen
 export const itemMemorySignature = item => JSON.stringify([item.fonte || '',item.codigo || '',item.descricao || '',measurementUnit(item.unidade)]);
 
 export function existingMemoryOwner(item,budget){
-  const source=Object.entries(budget.memoriaCalculo?.vinculosEstruturais || {}).find(([,target])=>target===item.id)?.[0];
+  const source=Object.entries(budget?.memoriaCalculo?.vinculosEstruturais || {}).find(([,target])=>target===item.id)?.[0];
   if(source)return {name:'Memorial estrutural',discipline:'estrutural',scope:source.split('.')[0]};
   const text=normalizeStructuralText(item.descricao), stage=normalizeStructuralText(item.stagePath);
   if(/^(armacao|montagem e desmontagem de forma|fabricacao.*forma|concretagem|laje pre|escoramento de formas?|execucao de radier)\b/.test(text))return {name:'Memorial estrutural',discipline:'estrutural'};
@@ -39,8 +39,10 @@ export function suggestItemMemory(item){
 
 export function itemMemoryRows(budget){
   // Inclui também itens sem etapa: não podem desaparecer da conferência.
+  // budget pode chegar undefined (ex.: obra ainda sem orçamento selecionado)
+  // - memoryBudgetItems já trata isso, este filtro precisa do mesmo cuidado.
   const displayed=memoryBudgetItems(budget), found=new Set(displayed.map(i=>i.id));
-  const rows=[...displayed,...(budget.itens || []).filter(i=>i.tipo!=='titulo'&&!found.has(i.id)).map(i=>({...i,stagePath:'Sem etapa',codigoItem:'—'}))];
+  const rows=[...displayed,...(budget?.itens || []).filter(i=>i.tipo!=='titulo'&&!found.has(i.id)).map(i=>({...i,stagePath:'Sem etapa',codigoItem:'—'}))];
   return rows.map(item=>({...item,owner:existingMemoryOwner(item,budget),suggestion:suggestItemMemory(item)}));
 }
 
