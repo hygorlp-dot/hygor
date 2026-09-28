@@ -31,7 +31,7 @@ describe("motor operacional do ponto",()=>{
   it("normaliza registros legados e preserva funcionários no período histórico",()=>{
     const data={attendance:{e1:{"2026-07-05":"P","2026-07-08":{status:null,ot:2,note:"apoio"}}}};
     expect(getAtt(data,"e1","2026-07-05")).toEqual({
-      status:"P",ot:0,note:"",obraId:"",
+      status:"P",ot:0,note:"",obraId:"",role:"",
     });
     expect(attStatus(data,"e1","2026-07-05")).toBe("P");
     expect(employeeRelevantInPeriod(data,{

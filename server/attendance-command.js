@@ -106,6 +106,7 @@ const normalizeSubmittedRecord=({input,current,obraId})=>{
     status,
     ot:keepsWorkedTime?ot:0,
     note:String(input.note??previous.note??"").trim().slice(0,2000),
+    role:String(input.role??previous.role??"").trim().slice(0,120),
     entrada:keepsWorkedTime?String(input.entrada??previous.entrada??""):"",
     intervaloSaida:keepsWorkedTime?String(input.intervaloSaida??previous.intervaloSaida??""):"",
     intervaloRetorno:keepsWorkedTime?String(input.intervaloRetorno??previous.intervaloRetorno??""):"",

@@ -20,6 +20,7 @@ describe("normalização preservadora do registro de ponto", () => {
       ...input,
       ot:2,
       note:"",
+      role:"",
     });
   });
 
@@ -29,6 +30,7 @@ describe("normalização preservadora do registro de ponto", () => {
       ot:0,
       note:"",
       obraId:"",
+      role:"",
     });
   });
 });

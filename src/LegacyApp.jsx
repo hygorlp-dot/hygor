@@ -7621,6 +7621,8 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   const [filterObra, setFilterObra] = useState(obraInicial);
   const [noteModal, setNoteModal] = useState(null);
   const [noteText, setNoteText] = useState("");
+  const [roleModal, setRoleModal] = useState(null);
+  const [roleText, setRoleText] = useState("");
   const [otModal, setOtModal] = useState(null);
   const [otHours, setOtHours] = useState("0");
   const [timeModal, setTimeModal] = useState(null);
@@ -7774,6 +7776,23 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
       successMessage:"Observação salva.",
     });
     if(ok)setNoteModal(null);
+  };
+
+  // Função exercida NESTE dia. Fica vazia por padrão (usa a função do
+  // cadastro do funcionário) - só grava algo quando alguém realmente
+  // ajusta, ex.: pedreiro que passou o dia como azulejista.
+  const saveRole = async () => {
+    const emp = data.employees.find(e => e.id === roleModal);
+    if (requireDailyCheck()) return;
+    if (requireUnlocked(emp)) return;
+
+    const prev = getAtt(data, roleModal, selDate) || { status: null, ot: 0, note: "" };
+    const ok=await persistAttendanceRecord({
+      employee:emp,record:{...prev,role:roleText.trim()},
+      selectedObraId:obraDoPonto(emp),confirmDailyCheck:selDate===today(),
+      successMessage:"Função do dia salva.",
+    });
+    if(ok)setRoleModal(null);
   };
 
   const saveOT = async () => {
@@ -7986,6 +8005,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
         const status = att?.status;
         const ot = Number(att?.ot || 0);
         const note = att?.note || "";
+        const roleDoDia = att?.role || "";
         const timekeeping=calculateTimekeeping({
           entrada:att?.entrada,
           intervaloSaida:att?.intervaloSaida,
@@ -8002,7 +8022,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
             <header className="obra-attendance-card__header">
               <div className="obra-attendance-card__identity">
                 <p className="obra-attendance-card__name" title={e.name}>{e.name}</p>
-                <p className="obra-attendance-card__meta">{obraName(e.obra)}{e.role ? ` · ${e.role}` : ""}</p>
+                <p className="obra-attendance-card__meta">{obraName(e.obra)}{(roleDoDia || e.role) ? ` · ${roleDoDia || e.role}` : ""}{roleDoDia && roleDoDia !== e.role ? " (hoje)" : ""}</p>
               </div>
               <div className="obra-attendance-card__badges">
                 {cardLocked && <Badge color={C.red}><Ic n="lock" s={10} /> Bloqueado</Badge>}
@@ -8049,6 +8069,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
                       <Btn v="ghost" size="sm" full onClick={() => openTimekeeping(e)}><Ic n="calendar" /> Jornada</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setOtModal(e.id); setOtHours(String(ot)); }}><Ic n="clock" /> Hora extra</Btn>
                       <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setNoteModal(e.id); setNoteText(note); }}><Ic n="edit" /> Observação</Btn>
+                      <Btn v="ghost" size="sm" full onClick={() => { if (requireDailyCheck()) return; if (requireUnlocked(e)) return; setRoleModal(e.id); setRoleText(roleDoDia || e.role || ""); }}><Ic n="edit" /> Função do dia</Btn>
                     </div>
                     {podeMovimentarEquipe && <div className="obra-attendance-card__workforce">
                       <Btn v="warning" size="sm" full onClick={() => setMovementModal({ emp: e, mode: "transfer" })}><Ic n="building" /> Transferir</Btn>
@@ -8072,6 +8093,21 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
             <Btn v="ghost" onClick={() => setNoteModal(null)} full>Cancelar</Btn>
             <Btn onClick={saveNote} full><Ic n="check" /> Salvar</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {roleModal && (
+        <Modal title="Função do dia" onClose={() => setRoleModal(null)}>
+          <p style={{ fontSize: 11.5, color: C.muted, marginTop: -4, marginBottom: 10 }}>
+            Use quando o trabalhador exerceu, NESTE dia, uma função diferente da cadastrada
+            (ex.: pedreiro que ajudou como azulejista). Não muda o cadastro do funcionário,
+            só este dia.
+          </p>
+          <Inp label="Função nesta data" value={roleText} onChange={setRoleText} placeholder="Ex.: Azulejista" />
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <Btn v="ghost" onClick={() => setRoleModal(null)} full>Cancelar</Btn>
+            <Btn onClick={saveRole} full><Ic n="check" /> Salvar</Btn>
           </div>
         </Modal>
       )}
