@@ -5690,7 +5690,6 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   {pdfAviso&&<p style={{fontSize:10,color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
                   {pdfPreviewHidrossanitario&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
                     <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Encontrado - confira antes de aplicar.</p>
-              {pdfPreviewCompleto.avisos?.map((aviso,i)=><Warning key={i}>{aviso}</Warning>)}
                     <div style={{border:`1px solid ${C.orange}55`,background:`${C.orange}12`,borderRadius:6,padding:"7px 9px"}}>
                       <p style={{fontSize:10,fontWeight:850,color:C.orange}}>⚠ Reimportar substitui cada tabela inteira - nunca soma/duplica. É possível desfazer a última alteração após salvar.</p>
                     </div>
