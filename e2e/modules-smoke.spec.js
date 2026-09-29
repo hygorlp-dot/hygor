@@ -12,7 +12,8 @@ const groups = [
   ["Administração", ["Central do administrador"]],
   ["Painel", ["Dashboard", "Modo TV", "Comunicação", "Minhas aprovações"]],
   ["Engenharia", ["Obras", "Marcos e Curva A"]],
-  ["Compras", ["Compras", "Fornecedores", "Suprimentos", "Estoque"]],
+  // "Cotações" era "Suprimentos" até a desambiguação de 25/08/2026 (a51568c).
+  ["Compras", ["Compras", "Fornecedores", "Cotações", "Estoque"]],
   ["Financeiro", ["DRE empresa", "DRE obras", "Gestão financeira", "Conciliação",
     "Locação de equipamentos", "Medições", "Caixa da obra", "Relatórios"]],
   ["Recursos humanos", ["Equipes", "Ponto por obra", "Gestão do ponto",
@@ -295,10 +296,11 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
 
         await page.getByRole("button",{name:/^Manutenção/}).click();
         await page.getByRole("button",{name:"Registrar manutenção"}).click();
-        const maintenanceDialog=page.getByRole("dialog",{name:"Manutenção"});
+        // Diálogo "Nova manutenção" / botão "Salvar manutenção" desde 02/09/2026 (e8ea796).
+        const maintenanceDialog=page.getByRole("dialog",{name:"Nova manutenção"});
         await maintenanceDialog.getByLabel("Equipamento *").selectOption("eq-qa");
         await maintenanceDialog.getByLabel("Custo (R$) *").fill("350");
-        await maintenanceDialog.getByRole("button",{name:"Registrar manutenção"}).click();
+        await maintenanceDialog.getByRole("button",{name:"Salvar manutenção"}).click();
         await expect(page.getByText("Manutenção registrada.")).toBeVisible();
       }
       if(item==="Relacionamentos") {
