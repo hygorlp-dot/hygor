@@ -10,7 +10,9 @@ const app = readFileSync(resolve(process.cwd(), "src/domains/orcamentos/componen
 
 describe("densidade do editor de orçamento", () => {
   it("compacta somente as linhas editáveis no desktop", () => {
-    expect(app).toContain('className="budget-line-row"');
+    // A linha pode somar classes (ex.: destaque da conferência); o que importa
+    // é continuar aplicando budget-line-row, estática ou em template string.
+    expect(app).toMatch(/className=\{?["`]budget-line-row\b/);
     expect(css).toContain(".arcd-main .budget-line-row input");
     expect(css).toContain("min-height: 30px");
     expect(css).toContain("font-size: 10px !important");
