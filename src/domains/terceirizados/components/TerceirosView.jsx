@@ -8,7 +8,7 @@
 // docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #3 da fila de extração.
 // ===================================================================
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "../../../components/charts/LazyRecharts";
@@ -49,7 +49,7 @@ import {
 } from "../lifecycle";
 import { enviarArquivoOneDrive } from "../../../api";
 
-export default function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null }) {
+export default function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null, contratoInicial=null }) {
   const { formGrid } = useBreakpoint();
   const perfil=currentUser?.role;
   const podeGerenciarContratos=["admin","rh","engenheiro","engenheiro_auditor","financeiro"].includes(perfil);
@@ -60,7 +60,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     situacao:"andamento", endDate:"", tipoPessoa:"PJ", documento:"", razaoSocial:"", inscEstadual:"", inscMunicipal:"",
     email:"", responsavel:"", cep:"", endereco:"", cidade:"", ufEnd:"", tipoContrato:"medicao",
     banco:"", agencia:"", conta:"", retISS:"", retINSS:"", retISSQuem:"fonte", retINSSQuem:"fonte" };
-  const [view,        setView]        = useState("kanban");
+  const [view,        setView]        = useState(contratoInicial?.contratoId ? "medicoes" : "kanban");
   const [weekOffset,  setWeekOffset]  = useState(0);
   const [modal,       setModal]       = useState(false);
   const [form,        setForm]        = useState(emptyT);
@@ -81,7 +81,8 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
   const [reverseReason,setReverseReason]=useState("");
   const [stageToRemove,setStageToRemove]=useState(null);
   const [contractDraft,setContractDraft]=useState(null);
-  const [tercSel,     setTercSel]     = useState("");     // contrato aberto em Medições
+  const [tercSel,     setTercSel]     = useState(contratoInicial?.contratoId || "");     // contrato aberto em Medições
+  const [medicaoPedida,setMedicaoPedida]=useState(contratoInicial?.novaMedicao ? contratoInicial.contratoId : ""); // veio de "Nova medição" na aba Medição da obra
   const [arrastando,  setArrastando]  = useState(null);   // id do card em drag
   const [colunaAlvo,  setColunaAlvo]  = useState(null);   // coluna sob o card
   const [docForm,     setDocForm]     = useState({ tipo:"CND", numero:"", validade:"" });
@@ -652,6 +653,15 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     }
     setMedModal(true);
   };
+
+  // "Nova medição" vindo da aba Medição da obra: abre o formulário assim que o
+  // contrato pedido estiver carregado (as regras de permissão e de etapas são as
+  // mesmas de abrirMedicao).
+  useEffect(()=>{
+    if(!medicaoPedida||tercAtual?.id!==medicaoPedida)return;
+    setMedicaoPedida("");
+    abrirMedicao();
+  },[medicaoPedida,tercAtual?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const anexarFotosMedicao=async arquivos=>{
     const files=[...(arquivos||[])].filter(f=>String(f.type||"").startsWith("image/"));
