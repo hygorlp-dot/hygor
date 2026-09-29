@@ -1890,9 +1890,12 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     setSelOrc(id); setView("editor");
     showToast(`Revisão V${revisao.versionNumber} criada. A versão aprovada foi preservada.`);
   };
-  const aprovarEAdotarBaseline = (budgetId=selOrc) => {
+  // Bug real (29/09/2026): o botão do editor passava esta função direto ao
+  // onClick, e o evento do clique chegava como budgetId (o valor padrão só vale para
+  // undefined) - a aprovação sempre dizia "Orçamento não encontrado".
+  const aprovarEAdotarBaseline = (budgetId) => {
     if (!ehAdmin) { showToast("Somente o administrador pode aprovar e trocar a baseline.","error"); return; }
-    const resultado=adoptBudgetBaseline(data,budgetId,{id:uid(),now:new Date().toISOString(),actorId:currentUser?.id||"",actorName:currentUser?.nome||currentUser?.email||"",purpose:"controle"});
+    const resultado=adoptBudgetBaseline(data,typeof budgetId==="string"&&budgetId?budgetId:selOrc,{id:uid(),now:new Date().toISOString(),actorId:currentUser?.id||"",actorName:currentUser?.nome||currentUser?.email||"",purpose:"controle"});
     if (!resultado.ok) { showToast(resultado.reason||"Não foi possível aprovar o orçamento.","error"); return; }
     update(resultado.data);
     showToast("Versão aprovada e adotada como baseline da obra. Ela agora é imutável.");
@@ -3597,7 +3600,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         <p style={{fontSize:11,color:C.muted,marginTop:2}}>
           {orc.fonte} {orc.uf}  {orc.dataBase||"sem data-base"}  {orc.desonerado?"Desonerado":"Não desonerado"}  BDI {orc.bdi}%
         </p>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:7}}>{baselineAtiva.budget?.id===orc.id&&<Badge color={C.green}>BASELINE ATIVA</Badge>}<Badge color={budgetIsImmutable(orc)?C.blue:C.orange}>V{orc.versionNumber||1} · {budgetIsImmutable(orc)?"APROVADA E BLOQUEADA":"RASCUNHO EDITÁVEL"}</Badge>{budgetIsImmutable(orc)&&<Btn size="sm" onClick={criarRevisaoOrc}><Ic n="plus"/> Criar revisão</Btn>}{ehAdmin&&orc.obraId&&baselineAtiva.budget?.id!==orc.id&&<Btn size="sm" v="success" onClick={aprovarEAdotarBaseline}>{budgetIsImmutable(orc)?"Adotar como baseline":"Aprovar e adotar baseline"}</Btn>}</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:7}}>{baselineAtiva.budget?.id===orc.id&&<Badge color={C.green}>BASELINE ATIVA</Badge>}<Badge color={budgetIsImmutable(orc)?C.blue:C.orange}>V{orc.versionNumber||1} · {budgetIsImmutable(orc)?"APROVADA E BLOQUEADA":"RASCUNHO EDITÁVEL"}</Badge>{budgetIsImmutable(orc)&&<Btn size="sm" onClick={criarRevisaoOrc}><Ic n="plus"/> Criar revisão</Btn>}{ehAdmin&&orc.obraId&&baselineAtiva.budget?.id!==orc.id&&<Btn size="sm" v="success" onClick={()=>aprovarEAdotarBaseline(orc.id)}>{budgetIsImmutable(orc)?"Adotar como baseline":"Aprovar e adotar baseline"}</Btn>}</div>
         <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8,marginTop:12}}>
           <SummaryCard label="Custo direto" value={fmt(calc.custoDireto)} tone="neutral"/>
 
