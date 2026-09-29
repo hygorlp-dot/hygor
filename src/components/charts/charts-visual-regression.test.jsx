@@ -54,11 +54,23 @@ afterEach(() => {
 // termina. Sem esperar isso, o snapshot registraria "vazio" como estado
 // normal, mascarando justamente a classe de regressão que este teste existe
 // para pegar (gráfico que renderiza em branco).
-const AWAIT_ENTRANCE_ANIMATION_MS = 1600;
+// Relógio simulado (29/09/2026): esperar 1,6 s reais era corrida - a animação
+// do Recharts anda no ritmo da máquina, e o CI às vezes fotografava a linha
+// antes dos pontos aparecerem (circles 0) e às vezes depois (12). Com o
+// tempo e o requestAnimationFrame simulados, toda animação termina sempre.
+const SETTLE_MS = 5000;
 async function renderSettled(ui) {
-  const container = render(ui);
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, AWAIT_ENTRANCE_ANIMATION_MS)); });
-  return container;
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval",
+    "requestAnimationFrame", "cancelAnimationFrame", "performance", "Date"] });
+  try {
+    const container = render(ui);
+    for (let elapsed = 0; elapsed < SETTLE_MS; elapsed += 100) {
+      await act(async () => { vi.advanceTimersByTime(100); });
+    }
+    return container;
+  } finally {
+    vi.useRealTimers();
+  }
 }
 
 // ResponsiveContainer mede o container via getBoundingClientRect() (síncrono,

@@ -8,7 +8,7 @@ exports[`regressão visual leve (estrutura DOM) das telas de gráfico > CubChart
   "paths": 1,
   "rects": 1,
   "svgCount": 1,
-  "texts": 3,
+  "texts": 10,
 }
 `;
 
@@ -62,7 +62,7 @@ exports[`regressão visual leve (estrutura DOM) das telas de gráfico > DreMarge
 
 exports[`regressão visual leve (estrutura DOM) das telas de gráfico > FinanceiroCharts 1`] = `
 {
-  "circles": 0,
+  "circles": 12,
   "hasSvg": true,
   "lines": 4,
   "paths": 12,
