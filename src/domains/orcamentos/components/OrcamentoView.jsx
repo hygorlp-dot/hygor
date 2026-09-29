@@ -1778,11 +1778,21 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       const TAMANHO_LOTE_IA = 8;
       const lotes = [];
       for (let i = 0; i < ambiguos.length; i += TAMANHO_LOTE_IA) lotes.push(ambiguos.slice(i, i + TAMANHO_LOTE_IA));
-      const resultadosLotes = await Promise.all(lotes.map(async lote => {
-        const candidatosLote = new Map();
-        lote.forEach(item => (sobreviventesPorItem.get(item.id)||[]).forEach(c => candidatosLote.set(`${c.fonte}::${c.codigo}`, c)));
-        const resposta = await chamarIA({ action:"budget-match", itens:lote, candidatos:[...candidatosLote.values()] });
-        return { lote, resposta };
+      // No máximo 2 lotes ao mesmo tempo (29/09/2026): disparar todos juntos
+      // (11 no projeto real) esbarrava no limite por minuto e na sobrecarga
+      // do Gemini, e todos os lotes voltavam com erro.
+      const LOTES_SIMULTANEOS = 2;
+      const resultadosLotes = new Array(lotes.length);
+      let proximoLote = 0;
+      await Promise.all(Array.from({ length: Math.min(LOTES_SIMULTANEOS, lotes.length) }, async () => {
+        while (proximoLote < lotes.length) {
+          const indice = proximoLote++;
+          const lote = lotes[indice];
+          const candidatosLote = new Map();
+          lote.forEach(item => (sobreviventesPorItem.get(item.id)||[]).forEach(c => candidatosLote.set(`${c.fonte}::${c.codigo}`, c)));
+          const resposta = await chamarIA({ action:"budget-match", itens:lote, candidatos:[...candidatosLote.values()] });
+          resultadosLotes[indice] = { lote, resposta };
+        }
       }));
       const matchesIA = [];
       let lotesComFalha = 0;

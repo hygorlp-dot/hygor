@@ -111,6 +111,43 @@ describe("/api/ai-agent · ação budget-match",()=>{
     expect(result.status).toBe(400);
   });
 
+  // 29/09/2026: todos os 11 lotes de um projeto real voltaram com o genérico
+  // "O serviço Gemini não respondeu" - o motivo do Google era descartado.
+  const geminiError=(status,message)=>({ok:false,status,json:async()=>({error:{message,status:"X"}})});
+
+  it("tenta de novo quando o Gemini está sobrecarregado e usa a resposta seguinte",async()=>{
+    const fetch=vi.fn()
+      .mockResolvedValueOnce(geminiError(503,"The model is overloaded. Please try again later."))
+      .mockResolvedValueOnce(geminiJsonResponse([{itemId:"tubosRigidos-0",status:"associado",fonte:"SINAPI",codigo:"88485",confianca:0.9,justificativa:"Mesmo sistema e diâmetro."}]));
+    vi.stubGlobal("fetch",fetch);
+    const result=await callApi({accessToken:"token-a",action:"budget-match",itens,candidatos});
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(result.status).toBe(200);
+    expect(result.body.matches[0]).toMatchObject({status:"associado",codigo:"88485"});
+  },20000);
+
+  it("sobrecarga persistente vira mensagem específica após 3 tentativas",async()=>{
+    const fetch=vi.fn(async()=>geminiError(503,"The model is overloaded."));
+    vi.stubGlobal("fetch",fetch);
+    const result=await callApi({accessToken:"token-a",action:"budget-match",itens,candidatos});
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(result.status).toBe(503);
+    expect(result.body).toMatchObject({code:"AI_PROVIDER_OVERLOADED"});
+    expect(result.body.error).toContain("sobrecarregado");
+  },20000);
+
+  it("modelo indisponível e recusa do Google aparecem com o motivo, sem nova tentativa",async()=>{
+    vi.stubGlobal("fetch",vi.fn(async()=>geminiError(404,"models/gemini-x is not found for API version v1beta")));
+    const semModelo=await callApi({accessToken:"token-a",action:"budget-match",itens,candidatos});
+    expect(semModelo.body.code).toBe("AI_MODEL_UNAVAILABLE");
+
+    const fetch=vi.fn(async()=>geminiError(400,"Invalid JSON payload received. Unknown name \"enum\"."));
+    vi.stubGlobal("fetch",fetch);
+    const recusa=await callApi({accessToken:"token-a",action:"budget-match",itens,candidatos});
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(recusa.body.error).toBe('O Gemini recusou a associação (HTTP 400: Invalid JSON payload received. Unknown name "enum".).');
+  });
+
   it("rejeita com 400 quando não há candidatos",async()=>{
     vi.stubGlobal("fetch",vi.fn(async()=>geminiJsonResponse([])));
     const result=await callApi({accessToken:"token-a",action:"budget-match",itens,candidatos:[]});

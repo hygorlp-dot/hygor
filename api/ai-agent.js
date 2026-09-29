@@ -49,12 +49,16 @@ const database = () => createClient(URL, SERVICE, {
 // status/configure/remove/daily-brief não custam nada em cota de API.
 const AI_RATE_WINDOW_MS = 5 * 60 * 1000;
 const AI_RATE_MAX_REQUESTS = 20;
+// A associação de composições manda um projeto em lotes de 8 itens (81 itens
+// = 11 chamadas por clique); com o limite do chat, o segundo clique já parava
+// no meio. Cota própria, separada da do chat.
+const AI_MATCH_RATE_MAX_REQUESTS = 60;
 const aiRequestLog = new Map();
-const aiRateLimited = userId => {
+const aiRateLimited = (userId, maxRequests = AI_RATE_MAX_REQUESTS) => {
   const key = String(userId || "anonymous");
   const now = Date.now();
   const timestamps = (aiRequestLog.get(key) || []).filter(at => now - at < AI_RATE_WINDOW_MS);
-  if (timestamps.length >= AI_RATE_MAX_REQUESTS) {
+  if (timestamps.length >= maxRequests) {
     aiRequestLog.set(key, timestamps);
     return true;
   }
@@ -138,6 +142,7 @@ const geminiRequest = (apiKey,model,body,signal) => fetch(`https://generativelan
 });
 const providerErrorFrom = body => body?.error||{};
 const providerMessageFrom = body => String(providerErrorFrom(body)?.message||"").trim();
+const TRANSIENT_PROVIDER_STATUS = new Set([500,502,503,504]);
 const isInvalidKey = (status,message) => [401,403].includes(status)||(status===400&&/api key|api_key_invalid|key not valid|permission denied/i.test(message));
 
 // Todas as telas usam esta única ponte autenticada. A chave Gemini fica
@@ -165,7 +170,7 @@ export default async function handler(req,res){
   // pendência quando ambíguo/sem correspondência técnica. Só propõe -
   // nada disto grava no orçamento sozinho, quem aplica é o operador.
   if(req.body?.action==="budget-match"){
-    if(aiRateLimited(user.id))return res.status(429).json({error:"Muitas solicitações de IA em pouco tempo. Aguarde alguns minutos e tente novamente.",code:"AI_RATE_LIMIT_LOCAL"});
+    if(aiRateLimited(`${user.id}:budget-match`,AI_MATCH_RATE_MAX_REQUESTS))return res.status(429).json({error:"Muitas solicitações de IA em pouco tempo. Aguarde alguns minutos e tente novamente.",code:"AI_RATE_LIMIT_LOCAL"});
     const apiKeyMatch=aiConfig.apiKey;
     if(!apiKeyMatch)return res.status(503).json({error:"O Modo IA ainda não foi configurado pelo administrador.",code:"AI_NOT_CONFIGURED"});
     const itens=(Array.isArray(req.body?.itens)?req.body.itens:[]).slice(0,300).map(it=>({
@@ -191,25 +196,36 @@ export default async function handler(req,res){
       itemId:{type:"STRING"},status:{type:"STRING",enum:["associado","pendente"]},
       fonte:{type:"STRING"},codigo:{type:"STRING"},confianca:{type:"NUMBER"},justificativa:{type:"STRING"},
     },required:["itemId","status","confianca","justificativa"]}}},required:["matches"]};
-    const controllerMatch=new AbortController(),timeoutMatch=setTimeout(()=>controllerMatch.abort(),55000);
+    // Sobrecarga do Gemini (500/503, "model is overloaded") é passageira:
+    // tenta de novo com espera crescente, sempre dentro de um prazo total que
+    // responde antes do limite de 45s do navegador.
+    const prazoMatch=Date.now()+40000;
     let responseMatch;
-    try{
-      responseMatch=await geminiRequest(apiKeyMatch,aiConfig.model,{
-        systemInstruction:{parts:[{text:systemMatch}]},
-        contents:[{role:"user",parts:[{text:instrucao}]}],
-        generationConfig:{maxOutputTokens:12000,temperature:0.05,responseMimeType:"application/json",responseSchema:schemaMatch},
-      },controllerMatch.signal);
-    }catch(error){
-      clearTimeout(timeoutMatch);
-      if(error?.name==="AbortError")return res.status(504).json({error:"A associação demorou além do limite. Tente com menos itens de uma vez."});
-      throw error;
+    for(let tentativa=1;;tentativa++){
+      const controllerMatch=new AbortController(),timeoutMatch=setTimeout(()=>controllerMatch.abort(),Math.max(1000,prazoMatch-Date.now()));
+      try{
+        responseMatch=await geminiRequest(apiKeyMatch,aiConfig.model,{
+          systemInstruction:{parts:[{text:systemMatch}]},
+          contents:[{role:"user",parts:[{text:instrucao}]}],
+          generationConfig:{maxOutputTokens:12000,temperature:0.05,responseMimeType:"application/json",responseSchema:schemaMatch},
+        },controllerMatch.signal);
+      }catch(error){
+        if(error?.name==="AbortError")return res.status(504).json({error:"A associação demorou além do limite. Tente com menos itens de uma vez.",code:"AI_TIMEOUT"});
+        throw error;
+      }finally{clearTimeout(timeoutMatch);}
+      const espera=tentativa*2000;
+      if(responseMatch.ok||!TRANSIENT_PROVIDER_STATUS.has(responseMatch.status)||tentativa>=3||Date.now()+espera>prazoMatch-8000)break;
+      await new Promise(resolve=>setTimeout(resolve,espera));
     }
-    clearTimeout(timeoutMatch);
     if(!responseMatch.ok){
       const bodyErr=await responseMatch.json().catch(()=>({})),providerMessage=providerMessageFrom(bodyErr);
+      console.error("Gemini (budget-match) respondeu erro:",responseMatch.status,providerMessage.slice(0,500));
       if(isInvalidKey(responseMatch.status,providerMessage))return res.status(502).json({error:"A autenticação do Gemini precisa ser atualizada pelo administrador.",code:"AI_AUTH_INVALID"});
       if(responseMatch.status===429)return res.status(429).json({error:"A cota gratuita ou o limite temporário do Gemini foi atingido. Tente novamente mais tarde.",code:"AI_RATE_LIMIT"});
-      return res.status(502).json({error:"O serviço Gemini não respondeu.",code:"AI_PROVIDER_ERROR"});
+      if([400,404].includes(responseMatch.status)&&/model.*not found|not supported|is not found/i.test(providerMessage))return res.status(502).json({error:`O modelo Gemini configurado (${aiConfig.model}) não está disponível para esta chave. Atualize o modelo no ambiente.`,code:"AI_MODEL_UNAVAILABLE"});
+      if(TRANSIENT_PROVIDER_STATUS.has(responseMatch.status))return res.status(503).json({error:`O Gemini está sobrecarregado no momento (HTTP ${responseMatch.status}), mesmo após novas tentativas. Tente associar de novo em alguns minutos.`,code:"AI_PROVIDER_OVERLOADED"});
+      const detalhe=providerMessage?`: ${providerMessage.slice(0,240)}`:"";
+      return res.status(502).json({error:`O Gemini recusou a associação (HTTP ${responseMatch.status}${detalhe}).`,code:"AI_PROVIDER_ERROR"});
     }
     const bodyMatch=await responseMatch.json();
     const textoMatch=(bodyMatch.candidates?.[0]?.content?.parts||[]).map(part=>part.text||"").join("").trim();
