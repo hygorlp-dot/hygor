@@ -1,6 +1,8 @@
 import { copiedFloorRecoveries, recoverCopiedFloor } from '../copied-floor-recovery';
 import ItemMemoryPanel from './ItemMemoryPanel';
+import BoxMemoryPanel from './BoxMemoryPanel';
 import { saveItemMemory, syncItemMemories } from '../item-memory';
+import { saveBoxElement, removeBoxElement } from '../box-memory';
 import { structuralImportTargets, validateImportTargets, remapImportSources, mergeImportSummaries } from '../structural-import-targets';
 import BudgetAuditPanel from './BudgetAuditPanel';
 import { budgetChangeReceipt, undoBudgetChange, repositionBudgetItem, auditWholeBudget } from '../budget-workflow';
@@ -171,7 +173,7 @@ const PAVIMENTOS_ESTRUTURA = [["terreo","TÉRREO"],["pavimento1","1º PAVIMENTO"
 // projeto real não quebra os quantitativos por pavimento (a folha "Tabelas
 // e Detalhes" já consolida a obra inteira), por isso não usa o mesmo
 // aninhamento por pavimento do Estrutural.
-const DISCIPLINAS_MEMORIA = [["itens","ITEM A ITEM"],["estrutural","ESTRUTURAL"],["hidrossanitario","HIDROSSANITÁRIO"]];
+const DISCIPLINAS_MEMORIA = [["itens","ITEM A ITEM"],["caixas","CAIXAS E RESERVATÓRIOS"],["estrutural","ESTRUTURAL"],["hidrossanitario","HIDROSSANITÁRIO"]];
 
 // ===================================================================
 // Design system da Memória de Cálculo Navegável (28/08/2026, pedido
@@ -5234,6 +5236,25 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             onSaveModel={async model=>{
               const current=(dataAtualRef.current.orcamentos || []).find(b=>b.id===selOrc);
               return salvarOrc({modelosMemorial:[...(current.modelosMemorial || []).filter(m=>!(m.name===model.name && m.signature===model.signature)),model]});
+            }}
+            onOpenBox={()=>setDisciplinaMemoria('caixas')}/>}
+          {disciplinaMemoria==="caixas" && <BoxMemoryPanel key={selOrc} budget={orc} readOnly={budgetIsImmutable(orc)}
+            onOpenItemMemory={itemId=>{setItemMemoryFocus(itemId);setDisciplinaMemoria('itens');}}
+            onUndo={desfazerAlteracaoOrcamento}
+            canUndo={budgetReceipt?.budgetId===selOrc && budgetReceipt.keys.includes('elementosMemoria') && memorySave?.state==='saved' && !budgetIsImmutable(orc)}
+            onSave={async(element,links)=>{
+              try{
+                const current=(dataAtualRef.current.orcamentos || []).find(b=>b.id===selOrc);
+                const next=saveBoxElement(current,element,links);
+                return await salvarOrc({elementosMemoria:next.elementosMemoria,itens:next.itens});
+              }catch(error){return {ok:false,reason:error.message};}
+            }}
+            onRemove={async id=>{
+              try{
+                const current=(dataAtualRef.current.orcamentos || []).find(b=>b.id===selOrc);
+                const next=removeBoxElement(current,id);
+                return await salvarOrc({elementosMemoria:next.elementosMemoria,itens:next.itens});
+              }catch(error){return {ok:false,reason:error.message};}
             }}/>}
           {disciplinaMemoria==="estrutural" && (<>
           {!budgetIsImmutable(orc) && <div><Btn onClick={()=>setAddFloorOpen(true)}>+ Adicionar pavimento</Btn></div>}

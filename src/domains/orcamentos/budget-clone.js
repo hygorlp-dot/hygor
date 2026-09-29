@@ -43,6 +43,8 @@ export function clonarEstruturaOrcamento(orcOrigem, gerarId, { zerarQuantidades 
     etapaId: item.etapaId ? (etapaIdMap.get(item.etapaId) || "") : "",
     quantidade: zerarQuantidades ? 0 : item.quantidade,
     ...(zerarQuantidades && item.memorialMedicao ? {memorialMedicao:blankItemMemory(item.memorialMedicao)} : {}),
+    // Medidas de reservatório pertencem ao orçamento de origem (não são clonadas).
+    ...(item.memorialMedicao?.model === 'element' ? {memorialMedicao:undefined} : {}),
     codigoNaoEncontrado: false,
   }));
 

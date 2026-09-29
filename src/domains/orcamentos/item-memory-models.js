@@ -23,6 +23,7 @@ export const ITEM_MEMORY_MODELS = {
 };
 
 export const measurementUnit = value => String(value || '').trim().toUpperCase().replace('²','2').replace('³','3').replace(/^UND?\.?$|^UNIDADE[S]?$/,'UN');
+export const itemMemorySignature = item => JSON.stringify([item.fonte || '',item.codigo || '',item.descricao || '',measurementUnit(item.unidade)]);
 export const measureNumber = value => {
   if(value == null || String(value).trim()==='') return null;
   const text=String(value).trim();
@@ -31,7 +32,9 @@ export const measureNumber = value => {
 };
 export const newMeasurementRow = (model,id) => ({id,local:'',operation:'add',values:Object.fromEntries((ITEM_MEMORY_MODELS[model] || ITEM_MEMORY_MODELS.direct).fields.map(f=>[f.key,f.fallback ?? '']))});
 export function blankItemMemory(memory) {
-  if(!memory) return undefined;
+  // O vínculo com um reservatório aponta para medidas deste orçamento; em
+  // outra obra/pavimento ele não tem a que se referir.
+  if(!memory || memory.model==='element') return undefined;
   return {version:1,model:memory.model,unit:memory.unit,signature:memory.signature,rows:[],source:'',note:'',origin:'copied-template'};
 }
 

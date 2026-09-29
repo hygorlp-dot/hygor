@@ -1,12 +1,16 @@
 import { memoryBudgetItems, normalizeStructuralText } from './structural-budget-matching';
 import { budgetIsImmutable } from './calculations';
-import { ITEM_MEMORY_MODELS, calculateItemMemory, measurementUnit, newMeasurementRow } from './item-memory-models';
+import { ITEM_MEMORY_MODELS, calculateItemMemory, itemMemorySignature, measurementUnit, newMeasurementRow } from './item-memory-models';
+import { evaluateBoxLink } from './box-memory';
 
-export const itemMemorySignature = item => JSON.stringify([item.fonte || '',item.codigo || '',item.descricao || '',measurementUnit(item.unidade)]);
+export { itemMemorySignature };
 
 export function existingMemoryOwner(item,budget){
   const source=Object.entries(budget?.memoriaCalculo?.vinculosEstruturais || {}).find(([,target])=>target===item.id)?.[0];
   if(source)return {name:'Memorial estrutural',discipline:'estrutural',scope:source.split('.')[0]};
+  // Vínculo explícito a um reservatório vence a classificação por descrição
+  // abaixo: o operador escolheu medir este item pelas medidas da caixa.
+  if(item.memorialMedicao?.model==='element')return null;
   const text=normalizeStructuralText(item.descricao), stage=normalizeStructuralText(item.stagePath);
   if(/^(armacao|montagem e desmontagem de forma|fabricacao.*forma|concretagem|laje pre|escoramento de formas?|execucao de radier)\b/.test(text))return {name:'Memorial estrutural',discipline:'estrutural'};
   if(/sistema hidraulico|sanitario\/drenagem|hidrossanitar/.test(stage) || /^(tubo.*(?:pvc|pead)|(?:adaptador|joelho|curva|luva|te |uniao|bucha).*pvc|kit cavalete|hidrometro|caixa d[´'’ ]?agua|torneira|bacia sanitaria|cuba de|caixa (?:sifonada|enterrada hidraulica))/.test(text))return {name:'Instalações hidrossanitárias',discipline:'hidrossanitario'};
@@ -53,12 +57,13 @@ export function startItemMemory(item,model=suggestItemMemory(item).model){
 export function evaluateItemMemory(item,budget){
   const record=item.memorialMedicao;
   if(!record)return {valid:false,total:null,errors:['Medidas ainda não preenchidas.'],rows:[]};
-  const result=calculateItemMemory(record,item.unidade);
+  const fromBox=record.model==='element';
+  const result=fromBox?evaluateBoxLink(record,item,budget):calculateItemMemory(record,item.unidade);
   const errors=[...result.errors];
   if(record.signature!==itemMemorySignature(item))errors.unshift('A composição foi alterada. Reabra o memorial e confirme o modelo e as medidas.');
   if(!String(item.descricao || '').trim())errors.unshift('Identifique a composição antes de aplicar.');
   if(existingMemoryOwner(item,budget))errors.unshift('Este item é controlado pelo memorial da disciplina; utilize o vínculo existente.');
-  if(suggestItemMemory(item).warning && !String(record.note || '').trim())errors.unshift('Explique o critério da unidade cadastrada no campo de observações.');
+  if(!fromBox && suggestItemMemory(item).warning && !String(record.note || '').trim())errors.unshift('Explique o critério da unidade cadastrada no campo de observações.');
   return {...result,valid:!errors.length,errors,total:errors.length?null:result.total};
 }
 

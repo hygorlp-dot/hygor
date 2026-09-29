@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ITEM_MEMORY_MODELS, newMeasurementRow, measurementUnit } from '../item-memory-models';
 import { compatibleItemModels, evaluateItemMemory, itemMemoryRows, itemMemorySignature, reusableItemModel, startItemMemory } from '../item-memory';
+import { BOX_MEASURES } from '../box-memory';
 import './item-memory.css';
 
 const number = value => value == null ? '—' : Number(value).toLocaleString('pt-BR',{maximumFractionDigits:4});
@@ -98,7 +99,21 @@ function ItemMeasurementEditor({item,budget,models,onSave,onSaveModel,onNavigate
   </form>;
 }
 
-export default function ItemMemoryPanel({budget,budgets=[],onSave,onSaveModel,onNavigate,onOpenOwner,readOnly,focusItemId}){
+function BoxLinkedItem({item,budget,onNavigate,onOpenBox}){
+  const box=(budget.elementosMemoria || []).find(e=>e.id===item.memorialMedicao.elementId);
+  const result=evaluateItemMemory(item,budget);
+  return <article className="item-memory-editor">
+    <header><span className="item-memory-eyebrow">{item.stagePath}</span><h3>Item {item.codigoItem} · {item.descricao || 'Sem descrição'}</h3></header>
+    <p>Calculado pelas medidas de <strong>{box?.nome || 'um reservatório removido'}</strong> ({BOX_MEASURES[item.memorialMedicao.measure]?.label || 'medida não definida'}).</p>
+    <p>{result.valid?`Quantidade: ${number(result.total)} ${item.unidade}`:result.errors[0]}</p>
+    <div className="item-memory-actions">
+      <button type="button" className="item-memory-primary" onClick={onOpenBox}>Editar medidas do reservatório</button>
+      <button type="button" onClick={()=>onNavigate(item)}>Ver item na planilha</button>
+    </div>
+  </article>;
+}
+
+export default function ItemMemoryPanel({budget,budgets=[],onSave,onSaveModel,onNavigate,onOpenOwner,onOpenBox,readOnly,focusItemId}){
   const drafts=useRef(new Map());
   const rows=useMemo(()=>itemMemoryRows(budget),[budget]);
   const [search,setSearch]=useState(''),[stage,setStage]=useState(''),[filter,setFilter]=useState('editable'),[selected,setSelected]=useState(focusItemId || rows.find(i=>!i.owner)?.id);
@@ -126,6 +141,7 @@ export default function ItemMemoryPanel({budget,budgets=[],onSave,onSaveModel,on
         {!shown.length && <p>Nenhum item com estes filtros.</p>}
       </nav>
       {item?item.owner?<article className="item-memory-editor"><h3>Item {item.codigoItem} · {item.descricao || 'Sem descrição'}</h3><p>{item.owner.name}: utilize o levantamento e os vínculos desta disciplina. Este formulário não modifica esses dados.</p><p>Quantidade atual: {number(item.quantidade)} {item.unidade}</p><button onClick={()=>onNavigate(item)}>Ver item na planilha</button>{item.owner.discipline&&<button onClick={()=>onOpenOwner(item.owner)}>Abrir memorial da disciplina</button>}</article>:
+        item.memorialMedicao?.model==='element'?<BoxLinkedItem {...{item,budget,onNavigate,onOpenBox}}/>:
         <ItemMeasurementEditor key={`${budget.id}:${item.id}`} {...{item,budget,models,onSave,onSaveModel,onNavigate,readOnly,drafts}}/>:<p>Selecione um item para começar.</p>}
     </div>
   </section>;
