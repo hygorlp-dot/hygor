@@ -798,7 +798,7 @@ const difDiasAssinada = (a, b) => {
   return Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000);
 };
 
-const desvioTarefaAuto = (t, hoje) => {
+export const desvioTarefaAuto = (t, hoje) => {
   if (!t.inicio || !t.fim) return { situacao: "sem-datas", desvio: null, pctPrevisto: null, pctMedido: Number(t.progresso || 0), dataEquivalente: "" };
   const dur = diasCorridos(t.inicio, t.fim) + 1;   // duracao em dias corridos, inclusiva
   const prog = Math.max(0, Math.min(100, Number(t.progresso || 0)));

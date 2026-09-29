@@ -18,6 +18,7 @@ import {
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { fieldReportCompletion, fieldReportIsReadOnly } from "../field-report-workflow";
 import { aplicarRollup, montarTarefas, orcamentoDaObra } from "../../planejamento/legacy-engine";
+import { thirdPartySpecialty as specInfo } from "../../terceirizados/catalog";
 
 const CLIMA_OPC = [
   { v: "bom",          l: "Bom",          c: C.green  },

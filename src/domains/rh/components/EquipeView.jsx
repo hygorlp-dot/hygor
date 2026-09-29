@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {
   Badge, Btn, C, Divider, Ic, Inp, Modal, PageHero, Sel, TYPO,
-  fmt, fmtDateFull, gerarFichaFuncionarioPDF, today, uid,
+  fmt, fmtDate, fmtDateFull, gerarFichaFuncionarioPDF, today, uid,
 } from "../../../LegacyApp";
 import { overdue } from "../../seguranca/calculations";
 import { WORKER_TRAINING_TYPES } from "../../seguranca/constants";

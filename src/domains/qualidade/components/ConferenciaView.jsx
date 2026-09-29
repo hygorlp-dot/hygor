@@ -19,6 +19,9 @@ import {
   comprimirImagem, escapeHtml, fmtDate, obraContextoSalvo, today, uid,
 } from "../../../LegacyApp";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
+import { conferenceCompletionCheck, conferenceProgress, conferenceQualityScore, filterConferenceFindings } from "../conference-workflow";
+import { orcamentoDaObra } from "../../planejamento/legacy-engine";
+import { uploadWithRetry } from "../../documentos/upload-retry";
 
 // ==============================================================
 //  CONFERENCIA TECNICA

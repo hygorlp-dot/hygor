@@ -12,10 +12,11 @@ import { useCallback, useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {
   Btn, C, Ic, Inp, Modal, ModalComposicao, ModalMaterial, PageHero, Sel, TabRow,
-  fmt, fmtDate, today, uid,
+  fmt, fmtDate, maiusculoOrcamento, proximoCodigoArcd, today, uid,
 } from "../../../LegacyApp";
+import { historicoPreco } from "../../compras/calculations";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
-import { TIPOS_MOV, SINAL_MOV, calcSaldos, saldoDe, baixarPorComposicao } from "../calculations";
+import { TIPOS_MOV, SINAL_MOV, calcSaldos, saldoDe, baixarPorComposicao, calcCurvaABC, calcCurvaABCServicos, materiaisAbaixoMinimo } from "../calculations";
 import { STOCK_COMMAND } from "../commands";
 
 function ModalMovimento({ form, setForm, onSave, obras, materiais }) {

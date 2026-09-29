@@ -135,7 +135,7 @@ const OFFLINE_QUEUEABLE_COMMANDS={
 import { projectAlertAction, validateProjectForm } from "./domains/obras/project-validation";
 import { fieldReportCompletion, fieldReportIsReadOnly } from "./domains/obras/field-report-workflow";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
-import { TIPOS_MOV, SINAL_MOV, calcSaldos, saldoDe, baixarPorComposicao } from "./domains/estoque/calculations";
+import { TIPOS_MOV, SINAL_MOV, calcSaldos, saldoDe, baixarPorComposicao, materiaisAbaixoMinimo } from "./domains/estoque/calculations";
 import { STOCK_COMMAND } from "./domains/estoque/commands";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId } from "./domains/ponto/permissions";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
@@ -11084,7 +11084,7 @@ import {
   somaDiasUteis, ajustarParaDiaUtil, proximoDiaUtil, sugerirDependenciasPlanejamento,
   idsSucessoras, montarCronogramaIA, aplicarRollup, fisicoFinanceiroMensal,
   distribuicaoMensal, curvaS, fisicoFinanceiro, caminhoCritico, compararBaseline,
-  desvioAutomatico, fundirEvolucao,
+  desvioAutomatico, desvioTarefaAuto, fundirEvolucao,
 } from "./domains/planejamento/legacy-engine.js";
 export * from "./domains/planejamento/legacy-engine.js";
 
@@ -11954,93 +11954,6 @@ export const CATS_MATERIAL = [
   { v:"outros",      l:"Outros" },
 ];
 
-// ── Reposicao por estoque minimo ───────────────────────────────────
-// Varre todas as obras ativas: material com minimo cadastrado e saldo abaixo
-// dele vira uma linha de reposicao, com o deficit ja calculado. So considera
-// obras onde o material JA circulou (teve movimento) - minimo global nao deve
-// cobrar estoque de obra que nunca usou o item.
-const materiaisAbaixoMinimo = (data) => {
-  const saldos = calcSaldos(data.movEstoque);
-  const minimos = (data.materiais || []).filter(m => m.ativo !== false && Number(m.estoqueMin || 0) > 0);
-  if (!minimos.length) return [];
-  const obrasAtivas = (data.obras || []).filter(o => o.status !== "done");
-  const movimentou = new Set((data.movEstoque || []).filter(x=>!['cancelado','cancelada','estornado','estornada'].includes(String(x?.status||'').toLowerCase())).map(x => `${x.obraId}|${x.materialId}`));
-  const out = [];
-  obrasAtivas.forEach(o => {
-    minimos.forEach(m => {
-      if (!movimentou.has(`${o.id}|${m.id}`)) return;
-      const saldo = saldoDe(saldos, o.id, m.id);
-      const minimo = Number(m.estoqueMin || 0);
-      if (saldo >= minimo) return;
-      out.push({
-        obraId: o.id, obraNome: o.name,
-        materialId: m.id, descricao: m.descricao, unidade: m.unidade || "un",
-        saldo, minimo, deficit: Math.ceil((minimo - saldo) * 100) / 100,
-      });
-    });
-  });
-  return out.sort((a, b) => a.obraNome.localeCompare(b.obraNome) || a.descricao.localeCompare(b.descricao));
-};
-
-// Curva ABC pelo VALOR consumido (80/95 é o corte clássico)
-const calcCurvaABC = (movs, materiais) => {
-  const val = {};
-  (movs || []).filter(x => x.tipo === "consumo" && !['cancelado','cancelada','estornado','estornada'].includes(String(x?.status||'').toLowerCase())).forEach(x => {
-    val[x.materialId] = (val[x.materialId] || 0) + Number(x.qtd||0) * Number(x.valorUnit||0);
-  });
-  const lista = Object.entries(val)
-    .map(([id, v]) => ({
-      id, valor: v,
-      nome: (materiais || []).find(m => m.id === id)?.descricao || "-",
-    }))
-    .sort((a, b) => b.valor - a.valor);
-
-  const total = lista.reduce((s, x) => s + x.valor, 0);
-  let acum = 0;
-  return lista.map(x => {
-    acum += x.valor;
-    const pct = total ? (acum / total) * 100 : 0;
-    return { ...x, pctAcum: pct, classe: pct <= 80 ? "A" : pct <= 95 ? "B" : "C" };
-  });
-};
-
-// Curva ABC por COMPOSICAO (servico executado).
-//
-// A curva de insumos acima nunca mostra composicao: executar "120 m2 de
-// alvenaria" nao gera movimento de "alvenaria", gera consumo de cimento,
-// areia e bloco. O servico se dissolve nos insumos. Aqui ele e remontado:
-// todo consumo gerado por "Executar servico" carrega servicoId, entao basta
-// agrupar por ele para saber quanto cada SERVICO custou de material.
-// Consumo avulso (baixa manual, sem servico) ganha linha propria - se ficasse
-// de fora, a curva mentiria sobre o total gasto.
-const calcCurvaABCServicos = (movs, composicoes) => {
-  const val = {};
-  (movs || []).filter(x => x.tipo === "consumo" && !['cancelado','cancelada','estornado','estornada'].includes(String(x?.status||'').toLowerCase())).forEach(x => {
-    const k = x.servicoId || "__avulso__";
-    if (!val[k]) val[k] = { valor: 0, execucoes: new Set() };
-    val[k].valor += Number(x.qtd || 0) * Number(x.valorUnit || 0);
-    if (x.servicoId) val[k].execucoes.add(`${x.data}|${x.descricao}`);
-  });
-
-  const lista = Object.entries(val)
-    .map(([id, v]) => ({
-      id, valor: v.valor, execucoes: v.execucoes.size,
-      avulso: id === "__avulso__",
-      nome: id === "__avulso__"
-        ? "Consumo avulso (sem composicao)"
-        : (composicoes || []).find(c => c.id === id)?.nome || "Composicao removida",
-    }))
-    .filter(x => x.valor > 0)
-    .sort((a, b) => b.valor - a.valor);
-
-  const total = lista.reduce((s, x) => s + x.valor, 0);
-  let acum = 0;
-  return lista.map(x => {
-    acum += x.valor;
-    const pct = total ? (acum / total) * 100 : 0;
-    return { ...x, pctAcum: pct, classe: pct <= 80 ? "A" : pct <= 95 ? "B" : "C" };
-  });
-};
 
 // ============================================================================
 //  SUPRIMENTOS - Curva de necessidade de materiais + comparação de preços +
