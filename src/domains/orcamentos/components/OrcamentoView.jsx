@@ -1784,13 +1784,25 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       const LOTES_SIMULTANEOS = 2;
       const resultadosLotes = new Array(lotes.length);
       let proximoLote = 0;
+      let cotaDiariaEsgotada = null;
       await Promise.all(Array.from({ length: Math.min(LOTES_SIMULTANEOS, lotes.length) }, async () => {
         while (proximoLote < lotes.length) {
           const indice = proximoLote++;
           const lote = lotes[indice];
+          // Cota diária acabou: os lotes seguintes falhariam igual, sem gastar mais chamadas.
+          if (cotaDiariaEsgotada) { resultadosLotes[indice] = { lote, resposta: cotaDiariaEsgotada }; continue; }
           const candidatosLote = new Map();
           lote.forEach(item => (sobreviventesPorItem.get(item.id)||[]).forEach(c => candidatosLote.set(`${c.fonte}::${c.codigo}`, c)));
-          const resposta = await chamarIA({ action:"budget-match", itens:lote, candidatos:[...candidatosLote.values()] });
+          let resposta;
+          // Limite por minuto do Gemini: espera o tempo que o próprio Google indica e reenvia o lote.
+          for (let tentativa = 1; tentativa <= 3; tentativa++) {
+            resposta = await chamarIA({ action:"budget-match", itens:lote, candidatos:[...candidatosLote.values()] });
+            if (resposta.ok || resposta.code !== "AI_RATE_LIMIT" || tentativa === 3) break;
+            const espera = Math.min(65, Number(resposta.retryAfterSeconds) || 30);
+            setMatchIAAviso(`Limite por minuto do Gemini atingido - aguardando ${espera} s para continuar (lote ${indice + 1} de ${lotes.length})...`);
+            await new Promise(resolve => setTimeout(resolve, espera * 1000));
+          }
+          if (resposta.code === "AI_DAILY_QUOTA") cotaDiariaEsgotada = resposta;
           resultadosLotes[indice] = { lote, resposta };
         }
       }));
@@ -1804,7 +1816,9 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         }
         matchesIA.push(...(resposta.matches||[]).map(m => ({ ...m, origem:"ia" })));
       }
-      if (lotesComFalha) setMatchIAAviso(`${lotesComFalha} de ${lotes.length} lote(s) de desempate por IA falharam - os itens afetados aparecem como pendentes com o motivo; clique em "Associar automaticamente" de novo para tentar só eles.`);
+      if (cotaDiariaEsgotada) setMatchIAAviso(`${cotaDiariaEsgotada.error} ${lotesComFalha} de ${lotes.length} lote(s) ficaram pendentes.`);
+      else if (lotesComFalha) setMatchIAAviso(`${lotesComFalha} de ${lotes.length} lote(s) de desempate por IA falharam - os itens afetados aparecem como pendentes com o motivo; clique em "Associar automaticamente" de novo para tentar só eles.`);
+      else setMatchIAAviso("");
       setMatchIA({ itens, matches:[...automaticos, ...matchesIA] });
     } finally { setMatchIACarregando(false); }
   };

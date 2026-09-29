@@ -143,6 +143,23 @@ const geminiRequest = (apiKey,model,body,signal) => fetch(`https://generativelan
 const providerErrorFrom = body => body?.error||{};
 const providerMessageFrom = body => String(providerErrorFrom(body)?.message||"").trim();
 const TRANSIENT_PROVIDER_STATUS = new Set([500,502,503,504]);
+// O 429 do Gemini traz qual cota estourou (QuotaFailure) e quanto esperar
+// (RetryInfo). Limite por minuto passa sozinho; cota diária não.
+export const geminiQuotaInfo = body => {
+  const details = Array.isArray(body?.error?.details) ? body.error.details : [];
+  const violations = details.flatMap(item => Array.isArray(item?.violations) ? item.violations : []);
+  const quotaId = String(violations.find(item => item?.quotaId)?.quotaId || "");
+  const quotaValue = String(violations.find(item => item?.quotaValue)?.quotaValue || "");
+  const delay = String(details.find(item => item?.retryDelay)?.retryDelay || "");
+  const retryAfterSeconds = /^(\d+(?:\.\d+)?)s$/.test(delay) ? Math.ceil(Number(delay.slice(0, -1))) : null;
+  const daily = /PerDay/i.test(quotaId);
+  const perMinute = /PerMinute/i.test(quotaId) || (!daily && retryAfterSeconds != null && retryAfterSeconds <= 60);
+  const unit = /Token/i.test(quotaId) ? "tokens" : "pedidos";
+  return { quotaId, quotaValue, retryAfterSeconds, daily, perMinute, unit };
+};
+const geminiQuotaMessage = (quota, model) => quota.daily
+  ? `A cota diária gratuita do Gemini para o modelo ${model} foi esgotada${quota.quotaValue ? ` (${quota.quotaValue} ${quota.unit}/dia)` : ""}. Ela é renovada no dia seguinte; para usar mais hoje, é preciso ativar o faturamento da chave no Google AI Studio.`
+  : `O limite por minuto do Gemini foi atingido${quota.quotaValue ? ` (${quota.quotaValue} ${quota.unit}/min)` : ""}. Aguarde ${quota.retryAfterSeconds || 60} s e tente de novo.`;
 const isInvalidKey = (status,message) => [401,403].includes(status)||(status===400&&/api key|api_key_invalid|key not valid|permission denied/i.test(message));
 
 // Todas as telas usam esta única ponte autenticada. A chave Gemini fica
@@ -200,7 +217,7 @@ export default async function handler(req,res){
     // tenta de novo com espera crescente, sempre dentro de um prazo total que
     // responde antes do limite de 45s do navegador.
     const prazoMatch=Date.now()+40000;
-    let responseMatch;
+    let responseMatch,bodyErrMatch=null;
     for(let tentativa=1;;tentativa++){
       const controllerMatch=new AbortController(),timeoutMatch=setTimeout(()=>controllerMatch.abort(),Math.max(1000,prazoMatch-Date.now()));
       try{
@@ -213,15 +230,23 @@ export default async function handler(req,res){
         if(error?.name==="AbortError")return res.status(504).json({error:"A associação demorou além do limite. Tente com menos itens de uma vez.",code:"AI_TIMEOUT"});
         throw error;
       }finally{clearTimeout(timeoutMatch);}
-      const espera=tentativa*2000;
-      if(responseMatch.ok||!TRANSIENT_PROVIDER_STATUS.has(responseMatch.status)||tentativa>=3||Date.now()+espera>prazoMatch-8000)break;
+      if(responseMatch.ok)break;
+      bodyErrMatch=await responseMatch.json().catch(()=>({}));
+      // Limite por minuto com espera curta: aguarda o que o Google pede e
+      // tenta de novo; sobrecarga: espera crescente. Cota diária: não adianta.
+      const quota=responseMatch.status===429?geminiQuotaInfo(bodyErrMatch):null;
+      const espera=quota?(quota.perMinute&&quota.retryAfterSeconds!=null?quota.retryAfterSeconds*1000+500:null):TRANSIENT_PROVIDER_STATUS.has(responseMatch.status)?tentativa*2000:null;
+      if(espera==null||tentativa>=3||Date.now()+espera>prazoMatch-8000)break;
       await new Promise(resolve=>setTimeout(resolve,espera));
     }
     if(!responseMatch.ok){
-      const bodyErr=await responseMatch.json().catch(()=>({})),providerMessage=providerMessageFrom(bodyErr);
+      const bodyErr=bodyErrMatch||{},providerMessage=providerMessageFrom(bodyErr);
       console.error("Gemini (budget-match) respondeu erro:",responseMatch.status,providerMessage.slice(0,500));
       if(isInvalidKey(responseMatch.status,providerMessage))return res.status(502).json({error:"A autenticação do Gemini precisa ser atualizada pelo administrador.",code:"AI_AUTH_INVALID"});
-      if(responseMatch.status===429)return res.status(429).json({error:"A cota gratuita ou o limite temporário do Gemini foi atingido. Tente novamente mais tarde.",code:"AI_RATE_LIMIT"});
+      if(responseMatch.status===429){
+        const quota=geminiQuotaInfo(bodyErr);
+        return res.status(429).json({error:geminiQuotaMessage(quota,aiConfig.model),code:quota.daily?"AI_DAILY_QUOTA":"AI_RATE_LIMIT",retryAfterSeconds:quota.daily?null:(quota.retryAfterSeconds||60),quotaId:quota.quotaId});
+      }
       if([400,404].includes(responseMatch.status)&&/model.*not found|not supported|is not found/i.test(providerMessage))return res.status(502).json({error:`O modelo Gemini configurado (${aiConfig.model}) não está disponível para esta chave. Atualize o modelo no ambiente.`,code:"AI_MODEL_UNAVAILABLE"});
       if(TRANSIENT_PROVIDER_STATUS.has(responseMatch.status))return res.status(503).json({error:`O Gemini está sobrecarregado no momento (HTTP ${responseMatch.status}), mesmo após novas tentativas. Tente associar de novo em alguns minutos.`,code:"AI_PROVIDER_OVERLOADED"});
       const detalhe=providerMessage?`: ${providerMessage.slice(0,240)}`:"";

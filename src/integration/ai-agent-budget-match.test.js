@@ -148,6 +148,40 @@ describe("/api/ai-agent · ação budget-match",()=>{
     expect(recusa.body.error).toBe('O Gemini recusou a associação (HTTP 400: Invalid JSON payload received. Unknown name "enum".).');
   });
 
+  // 429 real do Gemini: QuotaFailure diz qual cota, RetryInfo quanto esperar.
+  const quota429=(quotaId,quotaValue,retryDelay)=>({ok:false,status:429,json:async()=>({error:{code:429,status:"RESOURCE_EXHAUSTED",message:"You exceeded your current quota.",details:[
+    {"@type":"type.googleapis.com/google.rpc.QuotaFailure",violations:[{quotaMetric:"generativelanguage.googleapis.com/generate_content_free_tier_requests",quotaId,quotaValue}]},
+    ...(retryDelay?[{"@type":"type.googleapis.com/google.rpc.RetryInfo",retryDelay}]:[]),
+  ]}})});
+
+  it("limite por minuto com espera curta: o servidor espera o indicado e tenta de novo",async()=>{
+    const fetch=vi.fn()
+      .mockResolvedValueOnce(quota429("GenerateRequestsPerMinutePerProjectPerModel-FreeTier","10","1s"))
+      .mockResolvedValueOnce(geminiJsonResponse([{itemId:"tubosRigidos-0",status:"pendente",confianca:0.3,justificativa:"Ambíguo."}]));
+    vi.stubGlobal("fetch",fetch);
+    const result=await callApi({accessToken:"token-a",action:"budget-match",itens,candidatos});
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(result.status).toBe(200);
+  },20000);
+
+  it("cota diária esgotada: não insiste e explica que renova no dia seguinte",async()=>{
+    const fetch=vi.fn(async()=>quota429("GenerateRequestsPerDayPerProjectPerModel-FreeTier","250","42000s"));
+    vi.stubGlobal("fetch",fetch);
+    const result=await callApi({accessToken:"token-a",action:"budget-match",itens,candidatos});
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe(429);
+    expect(result.body).toMatchObject({code:"AI_DAILY_QUOTA",retryAfterSeconds:null});
+    expect(result.body.error).toContain("cota diária");
+    expect(result.body.error).toContain("250 pedidos/dia");
+  });
+
+  it("limite por minuto com espera longa devolve o tempo para o navegador reenviar o lote",async()=>{
+    vi.stubGlobal("fetch",vi.fn(async()=>quota429("GenerateRequestsPerMinutePerProjectPerModel-FreeTier","10","50s")));
+    const result=await callApi({accessToken:"token-a",action:"budget-match",itens,candidatos});
+    expect(result.body).toMatchObject({code:"AI_RATE_LIMIT",retryAfterSeconds:50});
+    expect(result.body.error).toContain("10 pedidos/min");
+  });
+
   it("rejeita com 400 quando não há candidatos",async()=>{
     vi.stubGlobal("fetch",vi.fn(async()=>geminiJsonResponse([])));
     const result=await callApi({accessToken:"token-a",action:"budget-match",itens,candidatos:[]});
