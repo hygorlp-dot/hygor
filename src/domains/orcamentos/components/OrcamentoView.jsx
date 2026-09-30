@@ -3075,6 +3075,20 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const f2 = n => Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2, maximumFractionDigits:2});
     // "2026-07" -> "07/2026": a data-base é lida por quem recebe o PDF.
     const dataBaseLegivel = /^\d{4}-\d{2}$/.test(String(orc.dataBase||"")) ? orc.dataBase.split("-").reverse().join("/") : (orc.dataBase||"informada");
+    // Cliente/local caíam em "-" quando o orçamento não os tinha - a obra já
+    // sabe os dois. Empresa do cadastro (não o nome do sistema) no rodapé.
+    const obraDoOrc = (data.obras || []).find(o => o.id === orc.obraId);
+    const textoOu = (...valores) => valores.find(v => typeof v === "string" && v.trim())?.trim() || "-";
+    const clientePDF = textoOu(orc.cliente, obraDoOrc?.cliente, obraDoOrc?.client);
+    const localPDF = textoOu(orc.local, obraDoOrc?.address, obraDoOrc?.endereco);
+    const empresaPDF = data.config?.companyName || "ARCD Construtech";
+    // Texto dentro de <style> (rodapé de página via @page): entidades HTML não
+    // são decodificadas ali, então tira só o que quebraria a string CSS.
+    const textoCss = s => String(s || "").replace(/["\\<>{};\n\r]/g, " ");
+    const resumoEtapas = achatarArvore(calc.arvore).filter(n => n.tipo === "etapa" && n.nivel === 1).map(n => {
+      const pct = calc.total > 0 ? Number(n.total || 0) / calc.total * 100 : 0;
+      return `<tr><td class="num">${n.codigo}</td><td>${escapeHtml(n.nome)}</td><td class="r">R$ ${f2(n.total)}</td><td class="r">${f2(pct)}%</td><td class="barra-h"><i style="width:${Math.min(100, pct).toFixed(2)}%"></i></td></tr>`;
+    }).join("");
 
     // Hierarquia pelo fundo e pelo recuo (DESIGN.md: azul/roxo/verde/laranja
     // são estado ou informação, não enfeite de nível) - código sempre grafite.
@@ -3153,7 +3167,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-@page{size:A4 portrait;margin:11mm 10mm}
+@page{size:A4 portrait;margin:12mm 10mm 14mm;@bottom-left{content:"${textoCss(orc.nome)} · ${textoCss(empresaPDF)}";font:7.5px "IBM Plex Sans",Arial,sans-serif;color:#6f6f6f}@bottom-right{content:"Página " counter(page) " de " counter(pages);font:7.5px "IBM Plex Mono",monospace;color:#6f6f6f}}
 body{font-family:"IBM Plex Sans",Arial,sans-serif;color:#161616;background:#fff;padding:22px;font-size:9.5px;letter-spacing:.1px}
 .acoes{display:flex;justify-content:flex-end;margin:-8px 0 10px}
 .btn{background:#D4AF37;color:#161616;border:0;padding:9px 16px;font:600 12px "IBM Plex Sans",Arial,sans-serif;cursor:pointer}
@@ -3163,7 +3177,14 @@ thead{display:table-header-group}tr{break-inside:avoid}
 .ph{display:flex;align-items:center;gap:14px;padding-bottom:12px;border-bottom:2px solid #161616;margin-bottom:14px}
 .logo{background:#161616;color:#D4AF37;padding:9px 15px;font-size:19px;font-weight:600;letter-spacing:3px}
 .co h1{font-size:15px;font-weight:600}.co p{font-size:9px;color:#525252;margin-top:2px}
-.tag{font-size:15px;font-weight:400;text-align:right;flex:1}
+.tag{font-size:15px;font-weight:400;text-align:right;flex:1}.tag small{display:block;font-size:8px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#525252;margin-bottom:2px}
+.sec{font-size:11px;font-weight:600;margin:14px 0 6px;padding-bottom:3px;border-bottom:1px solid #D6D6D6}
+.resumo{margin-bottom:6px}.resumo td{border-bottom:1px solid #E0E0E0}.resumo .barra-h{width:22%}
+.resumo td.barra-h i{display:block;height:6px;background:#161616;min-width:1px}
+.assinaturas{display:grid;grid-template-columns:1fr 1fr;gap:18px 36px;margin-top:34px;break-inside:avoid}
+.assinaturas div{display:flex;flex-direction:column;gap:2px}.assinaturas .linha{height:30px;border-bottom:1px solid #161616;margin-bottom:4px}
+.assinaturas b{font-size:9.5px;font-weight:600}.assinaturas small{font-size:8.5px;color:#525252}
+.local-data{grid-column:1/-1;font-size:9px;color:#393939}
 .meta{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:#F5F3EE;padding:10px 12px;margin-bottom:12px;border:1px solid #E0DAD0}
 .meta div p:first-child{font-size:8px;font-weight:700;text-transform:uppercase;color:#777}
 .meta div p:last-child{font-size:11px;font-weight:700;margin-top:1px}
@@ -3201,16 +3222,15 @@ tfoot tr.m2 td{background:#F5F3EE;font-size:10px}
 <div class="ph">
   <div class="logo">ARCD</div>
   <div class="co">
-    <h1>${escapeHtml(data.config.companyName||"ARCD Construtech")}</h1>
+    <h1>${escapeHtml(empresaPDF)}</h1>
     ${data.config.cnpj?`<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>`:""}
-    <p>Planilha Orçamentária</p>
   </div>
-  <div class="tag">${escapeHtml(orc.nome)}</div>
+  <div class="tag"><small>Planilha orçamentária</small>${escapeHtml(obraDoOrc?.name||"")}${obraDoOrc?.name?" · ":""}${escapeHtml(orc.nome)}</div>
 </div>
-${orc.descricao?`<p style="font-size:10px;color:#555;margin:-5px 0 12px">${escapeHtml(orc.descricao)}</p>`:""}
+${orc.descricao?`<p style="font-size:10px;color:#525252;margin:-5px 0 12px">${escapeHtml(orc.descricao)}</p>`:""}
 <div class="meta">
-  <div><p>Cliente</p><p>${escapeHtml(orc.cliente||"-")}</p></div>
-  <div><p>Local</p><p>${escapeHtml(orc.local||"-")}</p></div>
+  <div><p>Cliente</p><p>${escapeHtml(clientePDF)}</p></div>
+  <div><p>Local</p><p>${escapeHtml(localPDF)}</p></div>
   <div><p>Base de preços</p><p>${escapeHtml(orc.fonte)} ${escapeHtml(orc.uf)} · ${escapeHtml(dataBaseLegivel)}</p></div>
   <div><p>Encargos</p><p>${orc.desonerado?"Desonerado":"Não desonerado"}</p></div>
   <div><p>BDI aplicado</p><p>${f2(orc.bdi)}%</p></div>
@@ -3219,6 +3239,13 @@ ${orc.descricao?`<p style="font-size:10px;color:#555;margin:-5px 0 12px">${escap
   <div><p>Emissão</p><p>${new Date().toLocaleDateString("pt-BR")}</p></div>
 </div>
 ${blocoBDI}
+<h2 class="sec">Resumo por etapa</h2>
+<table class="resumo">
+  <thead><tr><th>Item</th><th>Etapa</th><th class="r">Total c/ BDI</th><th class="r">% do total</th><th class="barra-h"></th></tr></thead>
+  <tbody>${resumoEtapas}</tbody>
+  <tfoot><tr class="tot"><td colspan="2">TOTAL GERAL</td><td class="r">R$ ${f2(calc.total)}</td><td class="r">100,00%</td><td></td></tr></tfoot>
+</table>
+<h2 class="sec">Planilha detalhada</h2>
 <table>
   <thead><tr>
     <th>Item</th><th>Código</th><th>Fonte</th><th>Discriminação dos serviços</th>
@@ -3232,7 +3259,12 @@ ${blocoBDI}
     ${orc.areaM2>0?`<tr class="m2"><td colspan="7">CUSTO POR METRO QUADRADO</td><td class="r">R$ ${f2(calc.porM2)}/m²</td></tr>`:""}
   </tfoot>
 </table>
-<div class="footer">Gerado por ARCD Ponto PRO · ${new Date().toLocaleString("pt-BR")} · Preços congelados na data-base ${escapeHtml(dataBaseLegivel)}</div>
+<section class="assinaturas">
+  <div><span class="linha"></span><b>Responsável técnico</b><small>Nome · CREA/CAU nº</small></div>
+  <div><span class="linha"></span><b>Contratante</b><small>${escapeHtml(clientePDF!=="-"?clientePDF:"Nome · CPF/CNPJ")}</small></div>
+  <p class="local-data">Local e data: ____________________________, ____/____/________</p>
+</section>
+<div class="footer">${escapeHtml(empresaPDF)} · gerado em ${new Date().toLocaleString("pt-BR")} · preços congelados na data-base ${escapeHtml(dataBaseLegivel)}</div>
 </body></html>`;
     const w = window.open("","_blank"); w.document.write(html); w.document.close();
   };
@@ -3301,12 +3333,17 @@ ${blocoBDI}
       <td class="r"><b>${f3(calc.pesoAcoTotal)}</b></td>
     </tr>`).join("");
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Memória de Cálculo - Sapatas - ${escapeHtml(orc.nome)}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-@page{size:A4 landscape;margin:9mm}
-body{font-family:Arial,sans-serif;color:#121212;background:#fff;padding:14px;font-size:7.5px}
-.btn{position:fixed;top:10px;right:10px;background:#D4AF37;color:#fff;border:0;padding:10px 18px;font-weight:700;cursor:pointer;font-size:13px}
-h1{font-size:13px;margin-bottom:2px}
+@page{size:A4 landscape;margin:9mm 9mm 12mm;@bottom-right{content:"Página " counter(page) " de " counter(pages);font:7px "IBM Plex Mono",monospace;color:#6f6f6f}}
+body{font-family:"IBM Plex Sans",Arial,sans-serif;color:#161616;background:#fff;padding:14px;font-size:7.5px}
+.acoes{display:flex;justify-content:flex-end;margin-bottom:8px}
+.btn{background:#D4AF37;color:#161616;border:0;padding:9px 16px;font:600 12px "IBM Plex Sans",Arial,sans-serif;cursor:pointer}
+.btn:focus-visible{outline:2px solid #161616;outline-offset:2px}
+td.r,tfoot td{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+thead{display:table-header-group}tr{break-inside:avoid}
+h1{font-size:14px;font-weight:600;margin-bottom:2px}
 .sub{font-size:9px;color:#666;margin-bottom:10px}
 table{width:100%;border-collapse:collapse}
 th{background:#121212;color:#fff;padding:4px 3px;font-size:6.8px;text-transform:uppercase;text-align:left;white-space:nowrap}
@@ -3318,9 +3355,9 @@ tfoot td{padding:5px 3px;font-weight:900;font-size:8px;border-top:2px solid #121
 .aco{margin-top:14px;max-width:260px}
 .aco th,.aco td{font-size:8px}
 .footer{margin-top:14px;text-align:center;font-size:7px;color:#aaa;border-top:1px solid #eee;padding-top:6px}
-@media print{.btn{display:none}}
+@media print{.acoes{display:none}body{padding:0}}
 </style></head><body>
-<button class="btn" onclick="window.print()">Imprimir / PDF</button>
+<div class="acoes"><button class="btn" onclick="window.print()">Imprimir / salvar PDF</button></div>
 <h1>Memória de Cálculo - Fundação (Sapatas)</h1>
 ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 <p class="sub">${escapeHtml(orc.nome)} · Emissão ${new Date().toLocaleDateString("pt-BR")} · Painel de referência - não altera as linhas do orçamento</p>
@@ -3339,7 +3376,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
   <tbody>${resumoSapatasFundacao.acoPorBitola.map(l=>`<tr><td>∅${l.bitola}mm</td><td class="r">${f3(l.kg)}</td></tr>`).join("")}
   <tr><td><b>TOTAL</b></td><td class="r"><b>${f3(t.pesoAco)}</b></td></tr></tbody>
 </table>
-<div class="footer">Gerado por ARCD Ponto PRO · ${new Date().toLocaleString("pt-BR")}</div>
+<div class="footer">${escapeHtml(data.config?.companyName||"ARCD Construtech")} · gerado em ${new Date().toLocaleString("pt-BR")}</div>
 </body></html>`;
     const w = window.open("","_blank"); w.document.write(html); w.document.close();
   };

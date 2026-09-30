@@ -27,3 +27,16 @@ it("a exportação A2 numera as atividades pela EAP do orçamento", () => {
   expect(trecho).toContain("numeracaoEap(tarefas, orc?.etapas)");
   expect(trecho).toContain("w.opener=null");
 });
+
+// 30/09/2026: "o cronograma não está saindo as datas" - régua de 9 marcas sem
+// ano, primeira cortada. Régua mensal, datas com ano e marca de hoje.
+it("a folha A2 sai com régua mensal, datas com ano e a marca de hoje", () => {
+  const source = readFileSync(join(raiz, "domains/planejamento/components/PlanejamentoView.jsx"), "utf8");
+  const inicio = source.indexOf("const exportarCronogramaA2");
+  const trecho = source.slice(inicio, source.indexOf("setExportA2Modal(false);", inicio));
+  expect(trecho).toContain("faixasMensais(iniPag, span)");
+  expect(trecho).toContain("inicio:dataCurtaComAno(t.inicio)");
+  expect(trecho).toContain("fim:dataCurtaComAno(t.fim)");
+  expect(trecho).toContain("hojeNaFolha");
+  expect(trecho).not.toContain("Array.from({length:9}");
+});

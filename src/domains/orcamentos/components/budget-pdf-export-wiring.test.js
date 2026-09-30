@@ -22,6 +22,18 @@ it("área e custo por área saem em metro quadrado", () => {
   expect(trecho).not.toMatch(/\/m<\/td>/);
 });
 
+it("documento entregável: paginação, resumo por etapa e assinaturas", () => {
+  expect(trecho).toContain('"Página " counter(page) " de " counter(pages)');
+  expect(trecho).toContain("Resumo por etapa");
+  expect(trecho).toContain('<section class="assinaturas">');
+  expect(trecho).toContain("Responsável técnico");
+});
+
+it("cliente e local vêm da obra quando o orçamento não os tem", () => {
+  expect(trecho).toContain("textoOu(orc.cliente, obraDoOrc?.cliente, obraDoOrc?.client)");
+  expect(trecho).toContain("textoOu(orc.local, obraDoOrc?.address, obraDoOrc?.endereco)");
+});
+
 it("o botão de impressão não flutua sobre o cabeçalho do documento", () => {
   expect(trecho).toContain('<div class="acoes"><button class="btn"');
   expect(trecho).not.toMatch(/\.btn\{position:fixed/);

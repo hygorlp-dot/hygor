@@ -644,7 +644,12 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       // Régua por mês (com o ano) e as mesmas faixas atrás das barras, para
       // cada barra ser lida contra o calendário, não só contra a vizinha.
       const meses = faixasMensais(iniPag, span).map((m,i)=>({...m, left:m.inicio/span*100, width:m.dias/span*100, par:i%2===1}));
-      const faixasFundo = meses.map(m=>`<b class="mf${m.par?" par":""}" style="left:${m.left}%;width:${m.width}%"></b>`).join("");
+      // "Hoje" na folha: sem ele não dá para ler, no papel, o que já devia
+      // ter começado/terminado. Só aparece se hoje cai dentro desta folha.
+      const offHoje = diasCorridos(iniPag, today());
+      const hojeNaFolha = offHoje >= 0 && offHoje < span;
+      const linhaHoje = hojeNaFolha ? `<b class="hoje" style="left:${(offHoje+.5)/span*100}%"></b>` : "";
+      const faixasFundo = meses.map(m=>`<b class="mf${m.par?" par":""}" style="left:${m.left}%;width:${m.width}%"></b>`).join("") + linhaHoje;
       const linhas = tarefas.map((t,idx)=>{
         const nivel=eap.get(t.id)?.nivel||0;
         const cells=colsEscolhidas.map(c=>c.id==="atividade"
@@ -660,11 +665,12 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         }
         return `<tr class="${t.titulo?'titulo':''}">${cells}<td class="g"><div class="gline">${faixasFundo}${barra}</div></td></tr>`;
       }).join("");
-      const regua = meses.map(m=>`<span class="${m.par?"par":""}" style="left:${m.left}%;width:${m.width}%">${m.dias>=6?esc(m.rotulo):""}</span>`).join("");
+      const regua = meses.map(m=>`<span class="${m.par?"par":""}" style="left:${m.left}%;width:${m.width}%">${m.dias>=6?esc(m.rotulo):""}</span>`).join("")
+        + (hojeNaFolha ? `<em class="hoje-rot" style="left:${(offHoje+.5)/span*100}%">hoje ${esc(dataCurtaComAno(today()))}</em>` : "");
       const dataLonga = iso => String(iso||"").split("-").reverse().join("/");
       const legenda = [["Concluída",COR_A2.concluida],["Em andamento",COR_A2.andamento],["A iniciar",COR_A2.aIniciar],["Caminho crítico",COR_A2.critica],["Etapa (resumo)",COR_A2.etapa]]
         .map(([rotulo,cor])=>`<span><i style="background:${cor}"></i>${rotulo}</span>`).join("");
-      return `<section class="page"><header><div class="id"><h1>Cronograma da obra</h1><p>${esc(nomeObra)}</p></div><div class="leg">${legenda}</div><div class="meta"><b>${esc(dataLonga(iniPag))} a ${esc(dataLonga(fimPag))}</b><span>A2 paisagem · folha ${pag+1} de ${folhas}</span></div></header><table><colgroup>${colsEscolhidas.map(c=>`<col style="width:${({atividade:70,inicio:24,fim:24,dias:15,custo:27,progresso:18,antecessora:38,sucessora:38}[c.id]||22)}mm">`).join("")}<col style="width:${larguraGraficoMm}mm"></colgroup><thead><tr>${cab}<th class="timeline"><div class="regua">${regua}</div></th></tr></thead><tbody>${linhas}</tbody></table><footer>ARCD Obras · gerado em ${esc(new Date().toLocaleString("pt-BR"))} · ${tarefas.length} atividade(s)</footer></section>`;
+      return `<section class="page"><header><div class="id"><h1>Cronograma da obra</h1><p>${esc(nomeObra)}</p></div><div class="leg">${legenda}</div><div class="meta"><b>${esc(dataLonga(iniPag))} a ${esc(dataLonga(fimPag))}</b><span>A2 paisagem · folha ${pag+1} de ${folhas}</span></div></header><table><colgroup>${colsEscolhidas.map(c=>`<col style="width:${({atividade:70,inicio:24,fim:24,dias:15,custo:27,progresso:18,antecessora:38,sucessora:38}[c.id]||22)}mm">`).join("")}<col style="width:${larguraGraficoMm}mm"></colgroup><thead><tr>${cab}<th class="timeline"><div class="regua">${regua}</div></th></tr></thead><tbody>${linhas}</tbody></table><footer>${esc(data.config?.companyName||"ARCD Construtech")} · gerado em ${esc(new Date().toLocaleString("pt-BR"))} · ${tarefas.length} atividade(s)</footer></section>`;
     }).join("");
     // Tipografia e paleta do ARCD Carbon (DESIGN.md): Plex Sans no texto, Plex
     // Mono em datas/valores, grafite/concreto/linha técnica; verde, azul e
@@ -690,6 +696,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       .regua span.par,.mf.par{background:rgba(22,22,22,.045)}
       .g{padding:0}.gline{height:6.8mm;position:relative}
       .mf{position:absolute;top:0;bottom:0;border-left:.25mm solid #E0E0E0}
+      .hoje{position:absolute;top:0;bottom:0;width:0;border-left:.35mm solid #DA1E28;z-index:2}
+      .hoje-rot{position:absolute;top:0;transform:translateX(-50%);background:#DA1E28;color:#fff;font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:5.6pt;padding:.3mm 1.2mm;border-radius:0 0 .6mm .6mm;white-space:nowrap;z-index:2}
       .bar{position:absolute;top:1.5mm;height:3.8mm;border-radius:.8mm;overflow:hidden}.bar-etapa{top:2.3mm;height:2.2mm;border-radius:.4mm}
       .bar i{display:block;height:100%;background:rgba(255,255,255,.3)}
       footer{font-size:6pt;color:#6f6f6f;text-align:right;margin-top:1.5mm}
