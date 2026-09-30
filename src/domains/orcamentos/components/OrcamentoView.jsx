@@ -3047,7 +3047,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     if (!abc) return;
     const aoa = [
       [`Curva ABC - ${orc.nome}`],
-      [`${orc.fonte} ${orc.uf}  ${orc.dataBase||"sem data-base"}  BDI ${orc.bdi}%  ${abcAgrupar?"itens agrupados por código":"itens sem agrupamento"}`],
+      [`${orc.fonte} ${orc.uf} · ${orc.dataBase||"sem data-base"} · BDI ${orc.bdi}% · ${abcAgrupar?"itens agrupados por código":"itens sem agrupamento"}`],
       [],
       ["CLASSE","QTD. ITENS","% DOS ITENS","CUSTO DIRETO","% DO VALOR"],
       ...abc.resumo.map(r => [r.classe, r.qtd, r.pctItens/100, r.custoDireto, r.pctValor/100]),
@@ -3460,7 +3460,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   </p>
                   <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:5}}>{ehBaseline&&<Badge color={C.green}>BASELINE ATIVA</Badge>}<Badge color={bloqueado?C.blue:C.orange}>V{o.versionNumber||1} · {bloqueado?"APROVADA":"RASCUNHO"}</Badge></div>
                   <p style={{fontSize:11,color:C.muted,marginTop:2}}>
-                    {c.qtdItens} item(ns){o.areaM2>0 && `  ${o.areaM2} m  ${fmt(c.porM2)}/m`}
+                    {c.qtdItens} item(ns){o.areaM2>0 && ` · ${o.areaM2} m² · ${fmt(c.porM2)}/m²`}
                   </p>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
@@ -4226,7 +4226,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 })}
 
                 {!recolhida && no.itens.length === 0 && no.sub.length === 0 && (
-                  <p style={{ padding:"9px 12px", fontSize:10.5, color:C.muted }}>Vazia - use + para item, T para título ou  para subnível.</p>
+                  <p style={{ padding:"9px 12px", fontSize:10.5, color:C.muted }}>Vazia - use + para item, T para título ou ↳ para subnível.</p>
                 )}
               </div>
             </div>

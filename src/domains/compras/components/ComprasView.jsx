@@ -1416,7 +1416,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       qtdCompra:l.chegou,unidadeCompra:purchaseUnitOf(l),
       fatorConversao:conversionFactorOf(l),unidadeRef:l.unidadeRef||"",
       data: quando,
-      descricao: `Pedido ${pedido.numero}  ${nomeForn(pedido.fornecedorId)}`,
+      descricao: `Pedido ${pedido.numero} · ${nomeForn(pedido.fornecedorId)}`,
       transacaoId: "", servicoId: "", orcItemId:l.orcItemId||"",orcNivel1Id:l.orcNivel1Id||"", etapa: "",
     }));
 
@@ -2107,7 +2107,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           <div style={{background:`${C.red}0C`,border:`1.5px solid ${C.red}`,borderRadius:6,padding:"9px 11px"}}>
             <p style={{fontSize:11.5,fontWeight:900,color:C.red}}>{atrasados.length} PEDIDO(S) COM ENTREGA ATRASADA</p>
             <p style={{fontSize:10,color:C.muted,marginTop:2}}>
-              {atrasados.slice(0,3).map(x=>`${x.pedido.numero} · ${nomeForn(x.pedido.fornecedorId)} · +${x.diasAtraso}d`).join("   ")}
+              {atrasados.slice(0,3).map(x=>`${x.pedido.numero} · ${nomeForn(x.pedido.fornecedorId)} · +${x.diasAtraso}d`).join(" | ")}
               {"  ·  Use o botão Cobrar entrega no pedido."}
             </p>
           </div>
@@ -2427,7 +2427,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
               border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px",cursor:"pointer"}}>
               <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>{f.nome}</p>
               <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>
-                {[f.cnpj, f.contato, f.telefone].filter(Boolean).join("  ") || "sem contato"}
+                {[f.cnpj, f.contato, f.telefone].filter(Boolean).join(" · ") || "sem contato"}
               </p>
               {(f.cidade || f.bairro) && (
                 <p style={{fontSize:10,color:C.muted,marginTop:2}}>

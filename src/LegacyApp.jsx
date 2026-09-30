@@ -4692,7 +4692,7 @@ h3{font-size:12px;font-weight:900;color:#2563eb}
 
 ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`:""}
 
-<div class="footer">Gerado por ArcD Ponto PRO  ${new Date().toLocaleString("pt-BR")}</div>
+<div class="footer">Gerado por ArcD Ponto PRO · ${new Date().toLocaleString("pt-BR")}</div>
 </body></html>`;
     const w=window.open("","_blank"); w.document.write(html); w.document.close();
   };
@@ -6486,7 +6486,7 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
             <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>
               {fases.filter(f => (porFase[f.id]||[]).length > 0)
                     .map(f => `${(porFase[f.id]||[]).length} em ${f.nome}`)
-                    .join("  ") || "nenhuma posicionada"}
+                    .join(" · ") || "nenhuma posicionada"}
             </p>
           </div>
           {somaQuadro !== (data.obras||[]).length && (
@@ -8263,7 +8263,7 @@ const buildQuickAlerts = (data, currentUser) => {
     alerts.push({
       type:"vencido", color:"#B71C1C", icon:"",
       title:`${vencidas.length} parcela(s) VENCIDA(S) - ${fmt(total)}`,
-      sub: vencidas.slice(0,3).map(x=>`${x.obraName}: ${fmt(x.m.valorPrevisto)} (${Math.abs(x.diffDias)}d atraso)`).join("  "),
+      sub: vencidas.slice(0,3).map(x=>`${x.obraName}: ${fmt(x.m.valorPrevisto)} (${Math.abs(x.diffDias)}d atraso)`).join(" · "),
       tab:"medicoes",
     });
   }
@@ -8272,7 +8272,7 @@ const buildQuickAlerts = (data, currentUser) => {
     alerts.push({
       type:"vencendo", color:"#D84315", icon:"",
       title:`${vencendo.length} parcela(s) vencem em até 3 dias - ${fmt(total)}`,
-      sub: vencendo.slice(0,3).map(x=>`${x.obraName}: ${fmt(x.m.valorPrevisto)} (${x.diffDias===0?"hoje":`em ${x.diffDias}d`})`).join("  "),
+      sub: vencendo.slice(0,3).map(x=>`${x.obraName}: ${fmt(x.m.valorPrevisto)} (${x.diffDias===0?"hoje":`em ${x.diffDias}d`})`).join(" · "),
       tab:"medicoes",
     });
   }
@@ -8286,7 +8286,7 @@ const buildQuickAlerts = (data, currentUser) => {
     alerts.push({
       type: "payment", color: "#D84315", icon: "",
       title: `${pendingTerc.length} terceirizado(s) a pagar esta sexta`,
-      sub: `${fmtDateFull(fri)}  Total ${fmt(pendingTerc.reduce((s,t)=>s+Number(t.weeklyRate||0),0))}`,
+      sub: `${fmtDateFull(fri)} · Total ${fmt(pendingTerc.reduce((s,t)=>s+Number(t.weeklyRate||0),0))}`,
     });
   }
 
@@ -8297,7 +8297,7 @@ const buildQuickAlerts = (data, currentUser) => {
     alerts.push({
       type: "ponto", color: "#B71C1C", icon: "",
       title: `Ponto pendente em ${pendingPonto.length} obra(s)`,
-      sub: pendingPonto.map(o=>`${o.obraName}: ${o.missingCount}`).join("  "),
+      sub: pendingPonto.map(o=>`${o.obraName}: ${o.missingCount}`).join(" · "),
     });
   }
 
@@ -8324,7 +8324,7 @@ const buildQuickAlerts = (data, currentUser) => {
   if(solicitacoesPendentes.length>0){
     alerts.push({type:"compras",color:C.orange,icon:"!",
       title:`${solicitacoesPendentes.length} solicitação(ões) de material aguardando Compras`,
-      sub:solicitacoesPendentes.slice(0,3).map(s=>`${(data.obras||[]).find(o=>o.id===s.obraId)?.name||"Obra"}: ${s.itens.length} item(ns)${s.prioridade==="urgente"?" · URGENTE":""}`).join("  "),
+      sub:solicitacoesPendentes.slice(0,3).map(s=>`${(data.obras||[]).find(o=>o.id===s.obraId)?.name||"Obra"}: ${s.itens.length} item(ns)${s.prioridade==="urgente"?" · URGENTE":""}`).join(" · "),
       tab:"cmp"});
   }
 
@@ -8381,7 +8381,7 @@ const buildQuickAlerts = (data, currentUser) => {
   if(pendenciasComerciais>0){
     alerts.push({type:"comercial",color:C.green,icon:"!",
       title:`${pendenciasComerciais} pendencia(s) no Comercial`,
-      sub:[semAtendimento&&`${semAtendimento} lead(s) sem atendimento`,tarefasVencidas&&`${tarefasVencidas} tarefa(s) vencida(s)`,reunioesAtrasadas&&`${reunioesAtrasadas} reuniao(oes) atrasada(s)`,contratosPendentes&&`${contratosPendentes} contrato(s) pendente(s)`].filter(Boolean).join("  "),
+      sub:[semAtendimento&&`${semAtendimento} lead(s) sem atendimento`,tarefasVencidas&&`${tarefasVencidas} tarefa(s) vencida(s)`,reunioesAtrasadas&&`${reunioesAtrasadas} reuniao(oes) atrasada(s)`,contratosPendentes&&`${contratosPendentes} contrato(s) pendente(s)`].filter(Boolean).join(" · "),
       tab:"com_dash"});
   }
 
@@ -8399,7 +8399,7 @@ const buildQuickAlerts = (data, currentUser) => {
     alerts.push({
       type: "contract", color: "#D4AF37", icon: "!",
       title: `${contractAlerts.length} contrato(s) acima de 80% comprometido`,
-      sub: contractAlerts.map(o=>`${o.name}: ${o.pct.toFixed(0)}%`).join("  "),
+      sub: contractAlerts.map(o=>`${o.name}: ${o.pct.toFixed(0)}%`).join(" · "),
     });
   }
   return alerts;
@@ -8539,7 +8539,7 @@ function FluxoCaixa({ data }) {
           </div>
         ))}
         <div style={{padding:"8px 14px",background:C.surface,borderTop:`2px solid ${C.line}`}}>
-          <p style={{fontSize:9,color:C.muted}}>* Projeção: MO estimada com 82% de presença  Terceiros com 4,3 semanas/mês</p>
+          <p style={{fontSize:9,color:C.muted}}>* Projeção: MO estimada com 82% de presença · Terceiros com 4,3 semanas/mês</p>
         </div>
       </div>
     </div>
@@ -14799,7 +14799,7 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
         <Inp value={busca} onChange={setBusca} placeholder="Buscar insumo..."/>
         {filtra(materiais,"descricao").map(m => (
           <Linha key={m.id} titulo={m.descricao}
-                 sub={`${m.codigo ? m.codigo+"  " : ""}${m.unidade}  mín. ${m.estoqueMin}${Number(m.precoMedio)>0 ? "  "+fmt(m.precoMedio) : ""}`}
+                 sub={`${m.codigo ? m.codigo+" · " : ""}${m.unidade} · mín. ${m.estoqueMin}${Number(m.precoMedio)>0 ? " · "+fmt(m.precoMedio) : ""}`}
                  onEdit={()=>setMatModal({...m, estoqueMin:String(m.estoqueMin), precoMedio:String(m.precoMedio)})}/>
         ))}
       </>)}
@@ -14813,7 +14813,7 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
         <Inp value={busca} onChange={setBusca} placeholder="Buscar fornecedor..."/>
         {filtra(fornec,"nome").map(f => (
           <Linha key={f.id} titulo={f.nome}
-                 sub={[f.cnpj,f.contato,f.telefone].filter(Boolean).join("  ") || "sem contato"}
+                 sub={[f.cnpj,f.contato,f.telefone].filter(Boolean).join(" · ") || "sem contato"}
                  onEdit={()=>setFornModal(f)}/>
         ))}
       </>)}
@@ -14828,7 +14828,7 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
         {filtra((data.terceirizados||[]),"nome").map(t => (
           <Linha key={t.id} titulo={t.nome}
                  sub={[t.servico, t.cnpj, (data.obras||[]).find(o=>o.id===t.obraId)?.name]
-                        .filter(Boolean).join("  ") || "sem detalhes"}
+                        .filter(Boolean).join(" · ") || "sem detalhes"}
                  onEdit={()=>setTercModal(t)}/>
         ))}
       </>)}
@@ -14865,7 +14865,7 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
         </Btn>
         {(data.composicoes||[]).map(c => (
           <Linha key={c.id} titulo={`${c.codigo} · ${c.nome}`}
-                 sub={`por 1 ${c.unidade}  ${c.itens.length} insumo(s)`}
+                 sub={`por 1 ${c.unidade} · ${c.itens.length} insumo(s)`}
                  onEdit={()=>setCompModal({...c, itens: c.itens.map(i=>({...i,coef:String(i.coef)}))})}/>
         ))}
       </>)}
@@ -15333,7 +15333,7 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
       <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${C.green}`,padding:"14px 18px",borderRadius:8}}>
         <p style={{fontSize:10,fontWeight:700,color:C.green,textTransform:"uppercase",letterSpacing:1.2,marginBottom:3}}>Aportes e materiais</p>
         <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:20,fontWeight:800,color:C.text,lineHeight:1}}>Caixa de Obra</p>
-        <p style={{color:C.muted,fontSize:12,marginTop:4}}>{obrasComCaixa.length} obra(s) com caixa  aportes do cliente e controle de gastos</p>
+        <p style={{color:C.muted,fontSize:12,marginTop:4}}>{obrasComCaixa.length} obra(s) com caixa · aportes do cliente e controle de gastos</p>
       </div>
 
       {/* Consolidado */}
@@ -15849,7 +15849,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 
   <tr class="result liq"><td>= LUCRO / PREJUÍZO LÍQUIDO</td><td class="val ${d.lucroLiquido<0?'neg':'pos'}">R$ ${fmt2(d.lucroLiquido)} (${d.margemLiquida.toFixed(1)}%)</td></tr>
 </tbody></table>
-<div class="footer">Gerado por ARCD Ponto PRO  ${new Date().toLocaleString("pt-BR")} - uso gerencial, não substitui o balanço contábil oficial</div>
+<div class="footer">Gerado por ARCD Ponto PRO · ${new Date().toLocaleString("pt-BR")} - uso gerencial, não substitui o balanço contábil oficial</div>
 </body></html>`;
     const w=window.open("","_blank"); w.document.write(html); w.document.close();
   };

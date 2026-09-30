@@ -36,6 +36,11 @@ export default defineConfig({
       testMatch: /modules-smoke\.spec\.js/,
       use: { browserName:"chromium", viewport:{width:1440,height:900} },
     },
+    {
+      name: "desktop-critical-actions",
+      testMatch: /critical-actions\.spec\.js/,
+      use: { browserName:"chromium", viewport:{width:1440,height:900} },
+    },
   ],
   webServer: {
     command: "npm run dev -- --host 127.0.0.1 --port 4173",

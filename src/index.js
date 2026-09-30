@@ -3,7 +3,12 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import ErrorBoundary from "./ErrorBoundary";
 import { ThemeProvider } from "./design-system/theme/ThemeProvider.jsx";
+import { instalarCapturaGlobal } from "./observability/global-error-capture.js";
 import "./index.css";
+
+// Erros fora da renderização (clique, exportação, promessa sem catch) - o
+// ErrorBoundary não os vê. Vão para o mesmo relatório ARCD-XXXX.
+instalarCapturaGlobal(window);
 
 // Sem AuthGate e sem Auth: não existe mais login de e-mail/senha do Supabase.
 // O PIN do próprio app é a credencial, e ele é conferido no servidor, dentro

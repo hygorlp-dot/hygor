@@ -252,7 +252,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
   </div>
 </div>
 
-<div class="footer">Documento gerado pelo ArcD Ponto PRO  ${new Date().toLocaleString("pt-BR")}  Via do empregador / Via do trabalhador</div>
+<div class="footer">Documento gerado pelo ArcD Ponto PRO · ${new Date().toLocaleString("pt-BR")} · Via do empregador / Via do trabalhador</div>
 </body></html>`;
     const w = window.open("","_blank");
     w.document.write(html);
@@ -316,7 +316,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         <Sel label="Selecionar da lista (ou preencha manualmente abaixo)"
           value={form.empId}
           onChange={selectEmp}
-          options={[{v:"",l:"- Preenchimento manual -"},...activeEmps.map(e=>({v:e.id,l:`${e.name}${e.role?"  "+e.role:""}`}))]}
+          options={[{v:"",l:"- Preenchimento manual -"},...activeEmps.map(e=>({v:e.id,l:`${e.name}${e.role?" · "+e.role:""}`}))]}
         />
         <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
           <Inp label="Nome completo *" value={form.empName} onChange={F("empName")} placeholder="Nome do trabalhador"/>
@@ -448,7 +448,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <Btn v="ghost" onClick={()=>setForm(emptyForm)} full><Ic n="x"/> Limpar</Btn>
-        <Btn v="ghost" onClick={gerarPDF} full disabled={!calc}><Ic n="file"/> Gerar PDF</Btn>
+        <Btn v="ghost" onClick={()=>gerarPDF()} full disabled={!calc}><Ic n="file"/> Gerar PDF</Btn>
       </div>
       <Btn onClick={salvar} full disabled={!calc||salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Salvar no histórico"}</Btn>
 

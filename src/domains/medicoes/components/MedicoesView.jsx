@@ -241,7 +241,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
         valorMOFixo, valorAdminPct,
         valorPrevisto: valorMOFixo,
         valorRecebido: 0, dataPagamento: "",
-        descricao: `${descPrefix}  ${compLabel(comp)}`,
+        descricao: `${descPrefix} · ${compLabel(comp)}`,
         recebido: false,
       });
     }
@@ -494,7 +494,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
       <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${C.blue}`,padding:"16px 18px",borderRadius:8}}>
         <p style={{fontSize:11,fontWeight:700,color:C.blue,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Faturamento estruturado</p>
         <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:22,fontWeight:800,color:C.text,lineHeight:1}}>Medições por Obra</p>
-        <p style={{color:C.muted,fontSize:13,marginTop:4}}>Parcela fixa automática  Avanço %  Lançamento livre</p>
+        <p style={{color:C.muted,fontSize:13,marginTop:4}}>Parcela fixa automática · Avanço % · Lançamento livre</p>
       </div>
 
       {/* Painel de vencimentos - todas as obras */}
@@ -545,7 +545,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
       })()}
 
       {/* Seletor de obra */}
-      <Sel value={selObra} onChange={v=>{setSelObra(v);}} options={data.obras.map(o=>({v:o.id,l:o.name+"  "+BILLING_LABELS[o.billingType]}))}/>
+      <Sel value={selObra} onChange={v=>{setSelObra(v);}} options={data.obras.map(o=>({v:o.id,l:o.name+" · "+BILLING_LABELS[o.billingType]}))}/>
 
       {obra && (<>
         {/* Card da obra com período do contrato */}

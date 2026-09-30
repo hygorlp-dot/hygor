@@ -1,5 +1,6 @@
 import { Component } from "react";
 import { buildLocalErrorDiagnostic } from "./observability/local-error-diagnostic";
+import { enviarRelatorioErro } from "./observability/global-error-capture.js";
 
 const DYNAMIC_IMPORT_FAILURE = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|ChunkLoadError/i;
 
@@ -32,19 +33,13 @@ export default class ErrorBoundary extends Component {
     console.error("Erro não tratado:", { reference: diagnostic.reference, erro, componentStack: info?.componentStack });
     const componentStack = String(info?.componentStack || "");
     this.setState({ componentStack });
-    fetch("/api/data", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      keepalive: true,
-      body: JSON.stringify({
-        action: "client-error",
-        reference: diagnostic.reference,
-        message: diagnostic.message,
-        pathname: window.location.pathname,
-        errorStack: String(erro?.stack || ""),
-        componentStack,
-      }),
-    }).catch(() => {});
+    enviarRelatorioErro({
+      reference: diagnostic.reference,
+      message: diagnostic.message,
+      pathname: window.location.pathname,
+      errorStack: String(erro?.stack || ""),
+      componentStack,
+    });
 
     // Depois de um deploy, uma aba antiga pode pedir um chunk cujo hash já
     // saiu do alias de produção. Reabre uma única vez com URL nova para obter

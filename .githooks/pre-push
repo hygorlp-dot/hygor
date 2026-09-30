@@ -1,0 +1,14 @@
+#!/bin/sh
+# Barra o push quando a verificação falha. O deploy da Vercel sai de cada push
+# no main, antes do CI terminar - então esta é a última porta antes da
+# produção. Mesma barra do CI: lint (inclui armadilhas de UI), arquitetura,
+# testes e build.
+#
+# Emergência (sabendo o que está fazendo): git push --no-verify
+set -e
+echo "pre-push: verificando antes de publicar (lint, arquitetura, testes, build)..."
+npm run --silent lint
+npm run --silent architecture:check
+npx vitest run --reporter=dot
+npm run --silent build
+echo "pre-push: tudo verde."

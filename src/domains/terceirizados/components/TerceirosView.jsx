@@ -1527,7 +1527,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
             </p>
             <div>
               <Btn size="sm" v="ghost" onClick={sugerirEtapas}>Sugerir etapas</Btn>
-              <Btn size="sm" onClick={abrirMedicao} disabled={!podeRegistrarEvidencia}><Ic n="plus"/> Nova medição</Btn>
+              <Btn size="sm" onClick={()=>abrirMedicao()} disabled={!podeRegistrarEvidencia}><Ic n="plus"/> Nova medição</Btn>
             </div>
           </div>
           {!podeRegistrarEvidencia&&<div style={{background:`${C.orange}0D`,border:`1px solid ${C.orange}55`,borderRadius:8,padding:"8px 11px"}}><p style={{fontSize:10.5,color:C.orange,fontWeight:800}}>A medição e suas fotografias devem ser registradas por um engenheiro de campo ou engenheiro auditor.</p></div>}

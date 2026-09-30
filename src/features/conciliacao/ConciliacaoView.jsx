@@ -1178,7 +1178,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                               {c.m.dataVencimento && `  vence ${fmtDate(c.m.dataVencimento)}`}
                             </p>
                             <p style={{fontSize:9.5,color:C.blue,marginTop:3}}>
-                              {c.motivos.join("  ")}
+                              {c.motivos.join(" · ")}
                             </p>
                           </div>
                           <div style={{textAlign:"right",flexShrink:0}}>

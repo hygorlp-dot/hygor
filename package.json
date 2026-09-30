@@ -28,7 +28,7 @@
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
-    "lint": "node scripts/check-financial-boundaries.mjs && node scripts/check-undeclared-names.mjs",
+    "lint": "node scripts/check-financial-boundaries.mjs && node scripts/check-undeclared-names.mjs && node scripts/check-ui-pitfalls.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:coverage": "vitest run --coverage",
@@ -54,7 +54,8 @@
     "quality:knip": "knip --config knip.json --no-exit-code --reporter compact --no-progress --include files,dependencies,exports",
     "pwa:generate": "node scripts/generate-shell-service-worker.mjs",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "prepare": "node scripts/install-git-hooks.mjs"
   },
   "browserslist": {
     "production": [
