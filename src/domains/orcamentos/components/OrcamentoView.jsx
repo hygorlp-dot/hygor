@@ -3073,19 +3073,19 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const exportacao=projectBudgetExport(orc);
     const itemCalcPorId=new Map(exportacao.rows.map(item=>[item.id,item]));
     const f2 = n => Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:2, maximumFractionDigits:2});
+    // "2026-07" -> "07/2026": a data-base é lida por quem recebe o PDF.
+    const dataBaseLegivel = /^\d{4}-\d{2}$/.test(String(orc.dataBase||"")) ? orc.dataBase.split("-").reverse().join("/") : (orc.dataBase||"informada");
 
-    // Cores por nível de hierarquia
-    const CORES_NIVEL = ["#D4AF37", "#0D47A1", "#4A148C", "#1E6B31", "#BF360C"];
-
+    // Hierarquia pelo fundo e pelo recuo (DESIGN.md: azul/roxo/verde/laranja
+    // são estado ou informação, não enfeite de nível) - código sempre grafite.
     const linhas = achatarArvore(calc.arvore).map(n => {
       if (n.tipo === "etapa") {
-        const cor = CORES_NIVEL[(n.nivel - 1) % CORES_NIVEL.length];
         const recuoPx = (n.nivel - 1) * 14;
         const fs = Math.max(9.5 - (n.nivel - 1) * 0.4, 8);
         return `<tr class="etapa n${n.nivel}">
-          <td style="font-weight:900;color:${cor}">${n.codigo}</td>
-          <td colspan="6" style="padding-left:${recuoPx}px;font-size:${fs}px;font-weight:${n.nivel===1?900:700}">${escapeHtml(n.nome)}</td>
-          <td class="r" style="font-weight:900">${n.total > 0 ? f2(n.total) : ""}</td>
+          <td class="num" style="font-weight:600">${n.codigo}</td>
+          <td colspan="6" style="padding-left:${recuoPx}px;font-size:${fs}px;font-weight:${n.nivel===1?600:500}">${escapeHtml(n.nome)}</td>
+          <td class="r" style="font-weight:600">${n.total > 0 ? f2(n.total) : ""}</td>
         </tr>`;
       }
       if (n.tipo === "titulo") {
@@ -3096,8 +3096,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       }
       const calculado=itemCalcPorId.get(n.id)||{};
       return `<tr>
-        <td>${n.codigoItem}</td>
-        <td>${escapeHtml(n.codigo)}</td>
+        <td class="num">${n.codigoItem}</td>
+        <td class="num">${escapeHtml(n.codigo)}</td>
         <td>${escapeHtml(n.fonte)}</td>
         <td class="desc">${escapeHtml(n.descricao)}</td>
         <td class="c">${escapeHtml(n.unidade)}</td>
@@ -3113,7 +3113,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const blocoBDI = !p ? "" : `
 <div class="bdi-box">
   <p class="bdi-t">MEMÓRIA DE CÁLCULO DO BDI - Acórdão 2622/2013-TCU-Plenário</p>
-  <p class="bdi-f">BDI = [ (1 + AC + S + R + G) x (1 + DF) x (1 + L)  (1  I) ]  1</p>
+  <p class="bdi-f">BDI = [ (1 + AC + S + R + G) × (1 + DF) × (1 + L) ÷ (1 − I) ] − 1</p>
   <table class="bdi-tb">
     <tr>
       <td><b>AC</b> Administração Central</td><td class="r">${f2(p.ac)}%</td>
@@ -3145,49 +3145,59 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   </p>
 </div>`;
 
+    // Tipografia do ARCD Carbon (DESIGN.md): Plex Sans no texto, Plex Mono nos
+    // códigos e valores. @page A4 retrato + cabeçalho da tabela repetido em cada
+    // folha; o botão fica numa barra própria (antes, fixo, cobria o nome do
+    // orçamento no canto superior direito).
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Orçamento - ${escapeHtml(orc.nome)}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;color:#121212;background:#fff;padding:22px;font-size:9.5px}
-.btn{position:fixed;top:10px;right:10px;background:#D4AF37;color:#fff;border:0;padding:10px 18px;font-weight:700;cursor:pointer}
-.ph{display:flex;align-items:center;gap:14px;padding-bottom:12px;border-bottom:3px solid #121212;margin-bottom:14px}
-.logo{background:#121212;color:#D4AF37;padding:9px 15px;font-family:Georgia;font-size:21px;font-weight:900;letter-spacing:2px}
-.co h1{font-size:15px;font-weight:900}.co p{font-size:9px;color:#666;margin-top:2px}
-.tag{font-size:14px;font-weight:900;text-align:right;flex:1}
+@page{size:A4 portrait;margin:11mm 10mm}
+body{font-family:"IBM Plex Sans",Arial,sans-serif;color:#161616;background:#fff;padding:22px;font-size:9.5px;letter-spacing:.1px}
+.acoes{display:flex;justify-content:flex-end;margin:-8px 0 10px}
+.btn{background:#D4AF37;color:#161616;border:0;padding:9px 16px;font:600 12px "IBM Plex Sans",Arial,sans-serif;cursor:pointer}
+.btn:focus-visible{outline:2px solid #161616;outline-offset:2px}
+.num,td.r,.meta div p:last-child,tfoot td.r{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+thead{display:table-header-group}tr{break-inside:avoid}
+.ph{display:flex;align-items:center;gap:14px;padding-bottom:12px;border-bottom:2px solid #161616;margin-bottom:14px}
+.logo{background:#161616;color:#D4AF37;padding:9px 15px;font-size:19px;font-weight:600;letter-spacing:3px}
+.co h1{font-size:15px;font-weight:600}.co p{font-size:9px;color:#525252;margin-top:2px}
+.tag{font-size:15px;font-weight:400;text-align:right;flex:1}
 .meta{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:#F5F3EE;padding:10px 12px;margin-bottom:12px;border:1px solid #E0DAD0}
 .meta div p:first-child{font-size:8px;font-weight:700;text-transform:uppercase;color:#777}
 .meta div p:last-child{font-size:11px;font-weight:700;margin-top:1px}
 table{width:100%;border-collapse:collapse}
-th{background:#121212;color:#fff;padding:6px 5px;font-size:8px;text-transform:uppercase;text-align:left}
+th{background:#161616;color:#fff;padding:6px 5px;font-size:8px;text-transform:uppercase;text-align:left}
 td{padding:4px 5px;border-bottom:1px solid #eee;font-size:9px;vertical-align:top}
 td.r,th.r{text-align:right}td.c,th.c{text-align:center}
 td.desc{max-width:290px}
 tr.etapa td{background:#F5F3EE;border-top:1px solid #C8C2B6;border-bottom:1px solid #E0DAD0}
-tr.etapa.n1 td{background:#EFEBE2;border-top:2px solid #121212}
+tr.etapa.n1 td{background:#EFEBE2;border-top:2px solid #161616}
 tr.etapa.n2 td{background:#F5F3EE}
 tr.etapa.n3 td{background:#F9F7F2}
 tr.etapa.n4 td,tr.etapa.n5 td{background:#FCFBF8}
 tr.titulo td{background:#FAF9F6;font-weight:700;text-transform:uppercase;letter-spacing:.4px;font-size:9px;color:#3D3530;border-bottom:1px solid #E0DAD0}
-tfoot td{padding:7px 5px;font-weight:900;font-size:11px;border-top:2px solid #121212}
-tfoot tr.tot td{background:#121212;color:#fff;font-size:13px}
+tfoot td{padding:7px 5px;font-weight:600;font-size:11px;border-top:2px solid #161616}
+tfoot tr.tot td{background:#161616;color:#fff;font-size:13px}
 tfoot tr.m2 td{background:#F5F3EE;font-size:10px}
 .bdi-box{border:1px solid #C8C2B6;background:#FAF9F6;padding:9px 11px;margin-bottom:12px}
-.bdi-t{font-size:8.5px;font-weight:900;letter-spacing:.4px;color:#121212;margin-bottom:3px}
+.bdi-t{font-size:8.5px;font-weight:600;letter-spacing:.4px;color:#161616;margin-bottom:3px}
 .bdi-f{font-size:8px;font-family:monospace;color:#6B6459;margin-bottom:6px}
 .bdi-tb{width:100%;border-collapse:collapse;margin:0}
 .bdi-tb td{padding:2.5px 5px;font-size:8.5px;border-bottom:1px solid #EFEBE2}
 .bdi-tb td.r{text-align:right;font-weight:700}
 .bdi-tb tr.trib td{background:#F5F3EE}
-.bdi-res{display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:5px;border-top:2px solid #121212}
-.bdi-res span{font-size:9px;font-weight:900;letter-spacing:.5px}
-.bdi-res b{font-size:14px;font-weight:900;color:#D4AF37}
+.bdi-res{display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:5px;border-top:2px solid #161616}
+.bdi-res span{font-size:9px;font-weight:600;letter-spacing:.5px}
+.bdi-res b{font-size:14px;font-weight:600;color:#161616;font-family:"IBM Plex Mono",monospace;border-bottom:2px solid #D4AF37}
 .bdi-sit{font-size:8px;margin-top:5px;padding:4px 6px}
 .bdi-sit.dentro{background:#E8F2E9;color:#1E6B31}
 .bdi-sit.acima,.bdi-sit.abaixo{background:#FBEAE9;color:#B71C1C}
-.footer{margin-top:20px;text-align:center;font-size:8px;color:#aaa;border-top:1px solid #eee;padding-top:8px}
-@media print{.btn{display:none}}
+.footer{margin-top:20px;text-align:center;font-size:8px;color:#6f6f6f;border-top:1px solid #D6D6D6;padding-top:8px}
+@media print{.acoes{display:none}body{padding:0}}
 </style></head><body>
-<button class="btn" onclick="window.print()"> Imprimir / PDF</button>
+<div class="acoes"><button class="btn" onclick="window.print()">Imprimir / salvar PDF</button></div>
 <div class="ph">
   <div class="logo">ARCD</div>
   <div class="co">
@@ -3201,10 +3211,10 @@ ${orc.descricao?`<p style="font-size:10px;color:#555;margin:-5px 0 12px">${escap
 <div class="meta">
   <div><p>Cliente</p><p>${escapeHtml(orc.cliente||"-")}</p></div>
   <div><p>Local</p><p>${escapeHtml(orc.local||"-")}</p></div>
-  <div><p>Base de preços</p><p>${escapeHtml(orc.fonte)} ${escapeHtml(orc.uf)}  ${escapeHtml(orc.dataBase||"-")}</p></div>
+  <div><p>Base de preços</p><p>${escapeHtml(orc.fonte)} ${escapeHtml(orc.uf)} · ${escapeHtml(dataBaseLegivel)}</p></div>
   <div><p>Encargos</p><p>${orc.desonerado?"Desonerado":"Não desonerado"}</p></div>
-  <div><p>BDI aplicado</p><p>${orc.bdi}%</p></div>
-  <div><p>Área</p><p>${orc.areaM2>0?orc.areaM2+" m":"-"}</p></div>
+  <div><p>BDI aplicado</p><p>${f2(orc.bdi)}%</p></div>
+  <div><p>Área</p><p>${orc.areaM2>0?f2(orc.areaM2)+" m²":"-"}</p></div>
   <div><p>Itens</p><p>${calc.qtdItens}</p></div>
   <div><p>Emissão</p><p>${new Date().toLocaleDateString("pt-BR")}</p></div>
 </div>
@@ -3217,12 +3227,12 @@ ${blocoBDI}
   <tbody>${linhas}</tbody>
   <tfoot>
     <tr><td colspan="7">CUSTO DIRETO (sem BDI)</td><td class="r">R$ ${f2(calc.custoDireto)}</td></tr>
-    <tr><td colspan="7">BDI (${orc.bdi}%)</td><td class="r">R$ ${f2(calc.valorBDI)}</td></tr>
+    <tr><td colspan="7">BDI (${f2(orc.bdi)}%)</td><td class="r">R$ ${f2(calc.valorBDI)}</td></tr>
     <tr class="tot"><td colspan="7">TOTAL GERAL DO ORÇAMENTO</td><td class="r">R$ ${f2(calc.total)}</td></tr>
-    ${orc.areaM2>0?`<tr class="m2"><td colspan="7">CUSTO POR METRO QUADRADO</td><td class="r">R$ ${f2(calc.porM2)}/m</td></tr>`:""}
+    ${orc.areaM2>0?`<tr class="m2"><td colspan="7">CUSTO POR METRO QUADRADO</td><td class="r">R$ ${f2(calc.porM2)}/m²</td></tr>`:""}
   </tfoot>
 </table>
-<div class="footer">Gerado por ARCD Ponto PRO  ${new Date().toLocaleString("pt-BR")}  Preços congelados na data-base ${escapeHtml(orc.dataBase||"informada")}</div>
+<div class="footer">Gerado por ARCD Ponto PRO · ${new Date().toLocaleString("pt-BR")} · Preços congelados na data-base ${escapeHtml(dataBaseLegivel)}</div>
 </body></html>`;
     const w = window.open("","_blank"); w.document.write(html); w.document.close();
   };

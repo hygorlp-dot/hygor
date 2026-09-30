@@ -36,7 +36,12 @@ import {
 } from "../index.js";
 import { compareCpmResults } from "../legacy-canonical-diff.js";
 import { numeracaoEap } from "../export-hierarchy.js";
+import { dataCurtaComAno, faixasMensais } from "../export-timeline.js";
 import { chamarIA } from "../../../api";
+
+// Cores do cronograma impresso (DESIGN.md "ARCD Carbon"): verde/azul/vermelho
+// só como estado; "a iniciar" neutro (aço), não o ouro da marca.
+const COR_A2 = { concluida:"#24A148", andamento:"#0F62FE", aIniciar:"#8D8D8D", critica:"#DA1E28", etapa:"#393939" };
 
 export default function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null }) {
   const { isDesktop, isMobile, cols } = useBreakpoint();
@@ -622,8 +627,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
     const nomesPorId = Object.fromEntries(tarefas.map(t=>[t.id,`${codigoDe(t)} ${t.nome}`.trim()]));
     const valorCelula = (t,id) => ({
       atividade:t.nome,
-      inicio:fmtDate(t.inicio),
-      fim:fmtDate(t.fim),
+      inicio:dataCurtaComAno(t.inicio),
+      fim:dataCurtaComAno(t.fim),
       dias:Math.max(1,diasUteis(t.inicio,t.fim,cal)),
       custo:t.custo>0?fmtDin(t.custo):"-",
       progresso:`${Number(t.progresso||0).toFixed(0)}%`,
@@ -635,7 +640,11 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       const df = Math.min(total-1,(pag+1)*porFolha-1);
       const iniPag = somaDias(GANTT_INI,di), fimPag=somaDias(GANTT_INI,df);
       const span = Math.max(1,df-di+1);
-      const cab = colsEscolhidas.map(c=>`<th>${esc(c.label)}</th>`).join("");
+      const cab = colsEscolhidas.map(c=>`<th class="h-${c.id}">${esc(c.label)}</th>`).join("");
+      // Régua por mês (com o ano) e as mesmas faixas atrás das barras, para
+      // cada barra ser lida contra o calendário, não só contra a vizinha.
+      const meses = faixasMensais(iniPag, span).map((m,i)=>({...m, left:m.inicio/span*100, width:m.dias/span*100, par:i%2===1}));
+      const faixasFundo = meses.map(m=>`<b class="mf${m.par?" par":""}" style="left:${m.left}%;width:${m.width}%"></b>`).join("");
       const linhas = tarefas.map((t,idx)=>{
         const nivel=eap.get(t.id)?.nivel||0;
         const cells=colsEscolhidas.map(c=>c.id==="atividade"
@@ -646,20 +655,46 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         let barra="";
         if(tf>=ti){
           const left=((ti-di)/span*100), width=Math.max(.6,((tf-ti+1)/span*100));
-          const cor=t.titulo?"#514b45":critico.criticas.includes(t.id)?"#b41f24":t.progresso>=100?"#18713a":t.progresso>0?"#1455b8":"#d8ac2d";
-          barra=`<div class="bar" style="left:${left}%;width:${width}%;background:${cor}"><i style="width:${Math.max(0,Math.min(100,Number(t.progresso||0)))}%"></i></div>`;
+          const cor=t.titulo?COR_A2.etapa:critico.criticas.includes(t.id)?COR_A2.critica:t.progresso>=100?COR_A2.concluida:t.progresso>0?COR_A2.andamento:COR_A2.aIniciar;
+          barra=`<div class="bar${t.titulo?" bar-etapa":""}" style="left:${left}%;width:${width}%;background:${cor}"><i style="width:${Math.max(0,Math.min(100,Number(t.progresso||0)))}%"></i></div>`;
         }
-        return `<tr class="${t.titulo?'titulo':''}">${cells}<td class="g"><div class="gline">${barra}</div></td></tr>`;
+        return `<tr class="${t.titulo?'titulo':''}">${cells}<td class="g"><div class="gline">${faixasFundo}${barra}</div></td></tr>`;
       }).join("");
-      const ticks=Array.from({length:9},(_,i)=>{
-        const off=Math.round((span-1)*i/8), d=somaDias(iniPag,off);
-        return `<span style="left:${i*12.5}%">${esc(fmtDate(d))}</span>`;
-      }).join("");
-      return `<section class="page"><header><div><b>CRONOGRAMA DA OBRA</b><small>${esc(nomeObra)}</small></div><div class="meta">A2 · Paisagem · Folha ${pag+1}/${folhas}<br>${esc(fmtDate(iniPag))} a ${esc(fmtDate(fimPag))}</div></header><table><colgroup>${colsEscolhidas.map(c=>`<col style="width:${({atividade:70,inicio:24,fim:24,dias:15,custo:27,progresso:18,antecessora:38,sucessora:38}[c.id]||22)}mm">`).join("")}<col style="width:${larguraGraficoMm}mm"></colgroup><thead><tr>${cab}<th class="timeline"><div>${ticks}</div></th></tr></thead><tbody>${linhas}</tbody></table><footer>Gerado em ${esc(new Date().toLocaleString("pt-BR"))} · ${tarefas.length} atividade(s)</footer></section>`;
+      const regua = meses.map(m=>`<span class="${m.par?"par":""}" style="left:${m.left}%;width:${m.width}%">${m.dias>=6?esc(m.rotulo):""}</span>`).join("");
+      const dataLonga = iso => String(iso||"").split("-").reverse().join("/");
+      const legenda = [["Concluída",COR_A2.concluida],["Em andamento",COR_A2.andamento],["A iniciar",COR_A2.aIniciar],["Caminho crítico",COR_A2.critica],["Etapa (resumo)",COR_A2.etapa]]
+        .map(([rotulo,cor])=>`<span><i style="background:${cor}"></i>${rotulo}</span>`).join("");
+      return `<section class="page"><header><div class="id"><h1>Cronograma da obra</h1><p>${esc(nomeObra)}</p></div><div class="leg">${legenda}</div><div class="meta"><b>${esc(dataLonga(iniPag))} a ${esc(dataLonga(fimPag))}</b><span>A2 paisagem · folha ${pag+1} de ${folhas}</span></div></header><table><colgroup>${colsEscolhidas.map(c=>`<col style="width:${({atividade:70,inicio:24,fim:24,dias:15,custo:27,progresso:18,antecessora:38,sucessora:38}[c.id]||22)}mm">`).join("")}<col style="width:${larguraGraficoMm}mm"></colgroup><thead><tr>${cab}<th class="timeline"><div class="regua">${regua}</div></th></tr></thead><tbody>${linhas}</tbody></table><footer>ARCD Obras · gerado em ${esc(new Date().toLocaleString("pt-BR"))} · ${tarefas.length} atividade(s)</footer></section>`;
     }).join("");
-    const html=`<!doctype html><html><head><meta charset="utf-8"><title>Cronograma A2 - ${esc(nomeObra)}</title><style>
-      @page{size:A2 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;color:#111;background:#fff}.page{width:100%;page-break-after:always}.page:last-child{page-break-after:auto}header{height:15mm;display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #111;margin-bottom:2mm}header b{font-size:15pt;display:block}header small{font-size:9pt}.meta{text-align:right;font-size:8pt;line-height:1.35}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:6.5pt}th,td{border:.25mm solid #cfcac2;padding:1.1mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;height:6.8mm}th{background:#eeeae3;text-transform:uppercase;font-size:5.8pt;text-align:left}.c-dias,.c-progresso{text-align:center}.c-custo{text-align:right}.eap{display:inline-block;margin-right:1.6mm;font-variant-numeric:tabular-nums;color:#5b554e}.titulo td{font-weight:bold;background:#f1efeb}.titulo .eap{color:#111}.timeline{padding:0;position:relative}.timeline>div{height:100%;position:relative}.timeline span{position:absolute;top:1mm;transform:translateX(-50%);font-size:5.3pt;white-space:nowrap}.g{padding:0;background:repeating-linear-gradient(90deg,transparent 0,transparent 12.45%,#eee 12.5%)}.gline{height:100%;position:relative}.bar{position:absolute;top:1.4mm;height:3.7mm;border-radius:1mm;overflow:hidden}.bar i{display:block;height:100%;background:rgba(255,255,255,.28)}footer{font-size:6pt;color:#666;text-align:right;margin-top:1.5mm}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-    </style></head><body>${paginas}<script>window.onload=()=>setTimeout(()=>window.print(),350)<\/script></body></html>`;
+    // Tipografia e paleta do ARCD Carbon (DESIGN.md): Plex Sans no texto, Plex
+    // Mono em datas/valores, grafite/concreto/linha técnica; verde, azul e
+    // vermelho só como estado. A impressão espera as fontes carregarem.
+    const html=`<!doctype html><html><head><meta charset="utf-8"><title>Cronograma A2 - ${esc(nomeObra)}</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"><style>
+      @page{size:A2 landscape;margin:8mm}*{box-sizing:border-box}
+      body{margin:0;font-family:"IBM Plex Sans",Arial,sans-serif;color:#161616;background:#fff;letter-spacing:.1px}
+      .page{width:100%;page-break-after:always}.page:last-child{page-break-after:auto}
+      header{display:grid;grid-template-columns:auto 1fr auto;align-items:end;gap:10mm;padding-bottom:2.5mm;border-bottom:.5mm solid #161616;margin-bottom:2.5mm}
+      h1{margin:0;font-size:17pt;font-weight:400;line-height:1.1}.id p{margin:1mm 0 0;font-size:9pt;color:#525252}
+      .leg{display:flex;gap:5mm;justify-content:center;font-size:7pt;color:#525252}.leg span{display:flex;align-items:center;gap:1.4mm}.leg i{width:6mm;height:2.6mm;border-radius:.6mm;display:inline-block}
+      .meta{text-align:right;display:flex;flex-direction:column;gap:.8mm}.meta b{font-family:"IBM Plex Mono",monospace;font-size:10pt;font-weight:500}.meta span{font-size:7pt;color:#525252}
+      table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:6.6pt}
+      th,td{border:.25mm solid #D6D6D6;padding:0 1.2mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;height:6.8mm}
+      th{background:#F4F4F4;font-size:6pt;font-weight:600;text-align:left;color:#393939}
+      .c-inicio,.c-fim,.c-dias,.c-custo,.c-progresso,.eap{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+      .c-dias,.c-progresso,.h-dias,.h-progresso{text-align:center}.c-custo,.h-custo{text-align:right}
+      .eap{display:inline-block;margin-right:1.6mm;color:#6f6f6f}
+      .titulo td{font-weight:600;background:#F4F4F4}.titulo .eap{color:#161616}
+      .timeline{padding:0;position:relative}.regua{position:relative;height:6.8mm}
+      .regua span{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding-left:1.2mm;border-left:.25mm solid #A8A8A8;font-family:"IBM Plex Mono",monospace;font-size:6.2pt;font-weight:500;color:#161616;white-space:nowrap;overflow:hidden}
+      .regua span.par,.mf.par{background:rgba(22,22,22,.045)}
+      .g{padding:0}.gline{height:6.8mm;position:relative}
+      .mf{position:absolute;top:0;bottom:0;border-left:.25mm solid #E0E0E0}
+      .bar{position:absolute;top:1.5mm;height:3.8mm;border-radius:.8mm;overflow:hidden}.bar-etapa{top:2.3mm;height:2.2mm;border-radius:.4mm}
+      .bar i{display:block;height:100%;background:rgba(255,255,255,.3)}
+      footer{font-size:6pt;color:#6f6f6f;text-align:right;margin-top:1.5mm}
+      @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    </style></head><body>${paginas}<script>window.onload=()=>{const imprimir=()=>setTimeout(()=>window.print(),200);(document.fonts&&document.fonts.ready?Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,2500))]):Promise.resolve()).then(imprimir)}<\/script></body></html>`;
     // Bug real (29/09/2026): com "noopener" o navegador devolve null ao app -
     // a aba abria em branco (about:blank) e nada era escrito nela. Mesmo padrão
     // do Diário/Licenciamento: abre, corta o vínculo com a janela e escreve.
