@@ -65,6 +65,7 @@ import {
   detectarColunasImportacao, montarLinhasImportacao, resumoImportacao,
 } from "../budget-import-mapping";
 import { clonarCronogramaPlano, clonarEstruturaOrcamento } from "../budget-clone";
+import { entradasParaDetalheAnalitico } from "../abc-detail-entries";
 import { auditBudgetTechnicalScope } from "../technical-audit";
 import {
   moveBudgetStage,
@@ -1974,9 +1975,9 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
 
   const carregarDetalhesComposicoes = async () => {
     if(!orc)return;
-    const entries=(orc.itens||[]).filter(item=>item.tipo!=="titulo"&&normalizarCodigoRef(item.codigo)
-      && !/^(EXTERNO|COTA[CÇ][AÃ]O|PR[ÓO]PRIA)$/.test(String(item.fonte||"").toUpperCase()))
-      .map(item=>({codigo:normalizarCodigoRef(item.codigo),fonte:item.fonte||""}));
+    // Inclui as sub-composições das composições próprias: sem isso a base
+    // nunca era consultada para elas e apareciam "sem analítico".
+    const entries=entradasParaDetalheAnalitico(orc.itens,composicoesEmpresa,normalizarCodigoRef);
     if(!entries.length){setComponentesDetalhados([]);setDetalhesAviso("Não há composições oficiais codificadas neste orçamento.");return;}
     if(!(orc.referencias||[]).length){
       setComponentesDetalhados(completarDetalhesLocalmente([]));
