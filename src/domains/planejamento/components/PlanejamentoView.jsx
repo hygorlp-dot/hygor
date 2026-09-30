@@ -35,6 +35,7 @@ import {
   calculatePPC,
 } from "../index.js";
 import { compareCpmResults } from "../legacy-canonical-diff.js";
+import { numeracaoEap } from "../export-hierarchy.js";
 import { chamarIA } from "../../../api";
 
 export default function Planejamento({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null }) {
@@ -609,12 +610,16 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
     const folhas = exportA2Folhas === 2 ? 2 : 1;
     const esc = v => String(v ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
     const nomeObra = obrasComOrc.find(o => o.id === obraId)?.name || "Obra";
-    const larguraTabelaMm = Math.min(175, Math.max(62, colsEscolhidas.reduce((a,c)=>a + ({atividade:54,inicio:24,fim:24,dias:15,custo:27,progresso:18,antecessora:38,sucessora:38}[c.id]||22),0)));
+    const larguraTabelaMm = Math.min(175, Math.max(62, colsEscolhidas.reduce((a,c)=>a + ({atividade:70,inicio:24,fim:24,dias:15,custo:27,progresso:18,antecessora:38,sucessora:38}[c.id]||22),0)));
     const larguraGraficoMm = 574 - larguraTabelaMm;
     const total = Math.max(1, totalDias);
     const porFolha = Math.ceil(total / folhas);
     const fmtDin = n => Number(n||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-    const nomesPorId = Object.fromEntries(tarefas.map(t=>[t.id,t.nome]));
+    // Numeração de EAP + recuo por nível: sem isso a folha era uma lista plana
+    // e PILARES/VIGAS/LAJES de pavimentos diferentes saíam idênticos.
+    const eap = numeracaoEap(tarefas, orc?.etapas);
+    const codigoDe = t => eap.get(t.id)?.codigo || "";
+    const nomesPorId = Object.fromEntries(tarefas.map(t=>[t.id,`${codigoDe(t)} ${t.nome}`.trim()]));
     const valorCelula = (t,id) => ({
       atividade:t.nome,
       inicio:fmtDate(t.inicio),
@@ -632,7 +637,10 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       const span = Math.max(1,df-di+1);
       const cab = colsEscolhidas.map(c=>`<th>${esc(c.label)}</th>`).join("");
       const linhas = tarefas.map((t,idx)=>{
-        const cells=colsEscolhidas.map(c=>`<td class="c-${c.id}">${esc(valorCelula(t,c.id))}</td>`).join("");
+        const nivel=eap.get(t.id)?.nivel||0;
+        const cells=colsEscolhidas.map(c=>c.id==="atividade"
+          ?`<td class="c-atividade" title="${esc(t.nome)}"><span class="eap" style="padding-left:${nivel*3.2}mm">${esc(codigoDe(t))}</span>${esc(t.nome)}</td>`
+          :`<td class="c-${c.id}">${esc(valorCelula(t,c.id))}</td>`).join("");
         const ti=Math.max(di,diasCorridos(GANTT_INI,t.inicio));
         const tf=Math.min(df,diasCorridos(GANTT_INI,t.fim));
         let barra="";
@@ -647,13 +655,17 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         const off=Math.round((span-1)*i/8), d=somaDias(iniPag,off);
         return `<span style="left:${i*12.5}%">${esc(fmtDate(d))}</span>`;
       }).join("");
-      return `<section class="page"><header><div><b>CRONOGRAMA DA OBRA</b><small>${esc(nomeObra)}</small></div><div class="meta">A2 · Paisagem · Folha ${pag+1}/${folhas}<br>${esc(fmtDate(iniPag))} a ${esc(fmtDate(fimPag))}</div></header><table><colgroup>${colsEscolhidas.map(c=>`<col style="width:${({atividade:54,inicio:24,fim:24,dias:15,custo:27,progresso:18,antecessora:38,sucessora:38}[c.id]||22)}mm">`).join("")}<col style="width:${larguraGraficoMm}mm"></colgroup><thead><tr>${cab}<th class="timeline"><div>${ticks}</div></th></tr></thead><tbody>${linhas}</tbody></table><footer>Gerado em ${esc(new Date().toLocaleString("pt-BR"))} · ${tarefas.length} atividade(s)</footer></section>`;
+      return `<section class="page"><header><div><b>CRONOGRAMA DA OBRA</b><small>${esc(nomeObra)}</small></div><div class="meta">A2 · Paisagem · Folha ${pag+1}/${folhas}<br>${esc(fmtDate(iniPag))} a ${esc(fmtDate(fimPag))}</div></header><table><colgroup>${colsEscolhidas.map(c=>`<col style="width:${({atividade:70,inicio:24,fim:24,dias:15,custo:27,progresso:18,antecessora:38,sucessora:38}[c.id]||22)}mm">`).join("")}<col style="width:${larguraGraficoMm}mm"></colgroup><thead><tr>${cab}<th class="timeline"><div>${ticks}</div></th></tr></thead><tbody>${linhas}</tbody></table><footer>Gerado em ${esc(new Date().toLocaleString("pt-BR"))} · ${tarefas.length} atividade(s)</footer></section>`;
     }).join("");
     const html=`<!doctype html><html><head><meta charset="utf-8"><title>Cronograma A2 - ${esc(nomeObra)}</title><style>
-      @page{size:A2 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;color:#111;background:#fff}.page{width:100%;page-break-after:always}.page:last-child{page-break-after:auto}header{height:15mm;display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #111;margin-bottom:2mm}header b{font-size:15pt;display:block}header small{font-size:9pt}.meta{text-align:right;font-size:8pt;line-height:1.35}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:6.5pt}th,td{border:.25mm solid #cfcac2;padding:1.1mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;height:6.8mm}th{background:#eeeae3;text-transform:uppercase;font-size:5.8pt;text-align:left}.c-dias,.c-progresso{text-align:center}.c-custo{text-align:right}.titulo td{font-weight:bold;background:#f1efeb}.timeline{padding:0;position:relative}.timeline>div{height:100%;position:relative}.timeline span{position:absolute;top:1mm;transform:translateX(-50%);font-size:5.3pt;white-space:nowrap}.g{padding:0;background:repeating-linear-gradient(90deg,transparent 0,transparent 12.45%,#eee 12.5%)}.gline{height:100%;position:relative}.bar{position:absolute;top:1.4mm;height:3.7mm;border-radius:1mm;overflow:hidden}.bar i{display:block;height:100%;background:rgba(255,255,255,.28)}footer{font-size:6pt;color:#666;text-align:right;margin-top:1.5mm}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+      @page{size:A2 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;color:#111;background:#fff}.page{width:100%;page-break-after:always}.page:last-child{page-break-after:auto}header{height:15mm;display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #111;margin-bottom:2mm}header b{font-size:15pt;display:block}header small{font-size:9pt}.meta{text-align:right;font-size:8pt;line-height:1.35}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:6.5pt}th,td{border:.25mm solid #cfcac2;padding:1.1mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;height:6.8mm}th{background:#eeeae3;text-transform:uppercase;font-size:5.8pt;text-align:left}.c-dias,.c-progresso{text-align:center}.c-custo{text-align:right}.eap{display:inline-block;margin-right:1.6mm;font-variant-numeric:tabular-nums;color:#5b554e}.titulo td{font-weight:bold;background:#f1efeb}.titulo .eap{color:#111}.timeline{padding:0;position:relative}.timeline>div{height:100%;position:relative}.timeline span{position:absolute;top:1mm;transform:translateX(-50%);font-size:5.3pt;white-space:nowrap}.g{padding:0;background:repeating-linear-gradient(90deg,transparent 0,transparent 12.45%,#eee 12.5%)}.gline{height:100%;position:relative}.bar{position:absolute;top:1.4mm;height:3.7mm;border-radius:1mm;overflow:hidden}.bar i{display:block;height:100%;background:rgba(255,255,255,.28)}footer{font-size:6pt;color:#666;text-align:right;margin-top:1.5mm}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
     </style></head><body>${paginas}<script>window.onload=()=>setTimeout(()=>window.print(),350)<\/script></body></html>`;
-    const w=window.open("","_blank","noopener,noreferrer");
+    // Bug real (29/09/2026): com "noopener" o navegador devolve null ao app -
+    // a aba abria em branco (about:blank) e nada era escrito nela. Mesmo padrão
+    // do Diário/Licenciamento: abre, corta o vínculo com a janela e escreve.
+    const w=window.open("","_blank");
     if(!w){showToast?.("O navegador bloqueou a janela de exportacao. Permita pop-ups e tente novamente.","warn");return;}
+    w.opener=null;
     w.document.open();w.document.write(html);w.document.close();
     setExportA2Modal(false);
   };
