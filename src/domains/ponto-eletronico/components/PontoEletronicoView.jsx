@@ -16,7 +16,11 @@ const tituloCard = { fontSize: 13, fontWeight: 600, color: C.text, margin: "0 0 
 
 export default function PontoEletronicoView({ data, showToast, currentUser }) {
   const obras = useMemo(() => (data?.obras || []).filter(o => o?.id && o?.name), [data?.obras]);
-  const [obraId, setObraId] = useState(() => obras[0]?.id || "");
+  // Abre na obra com mais funcionários ativos (a primeira da lista pode ser
+  // uma obra de apoio sem equipe, como "BASE DE DADOS").
+  const [obraId, setObraId] = useState(() => [...obras]
+    .map(o => ({ id: o.id, n: funcionariosDaObra(data?.employees, o.id).length }))
+    .sort((a, b) => b.n - a.n)[0]?.id || "");
   const [dia, setDia] = useState(() => dataLocal(new Date().toISOString()));
   const [dispositivos, setDispositivos] = useState([]);
   const [marcacoes, setMarcacoes] = useState([]);
