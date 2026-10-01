@@ -150,8 +150,11 @@ export async function enviarFotos({ armazem, api, lerFotoBase64, aposEnviar = as
 // Não renumera nada: se o servidor já tiver uma cadeia local deste aparelho
 // mais adiante do que a do banco local, só sinaliza (cadeiaDivergente).
 export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {} }) {
+  // Funcionários e biometrias são GLOBAIS da empresa. Os vetores só descem
+  // quando mudaram: o aparelho manda a assinatura do conjunto que já tem.
+  const anterior = await armazem.cadastro();
   const envio = monotonico();
-  const r = await api("ponto-sincronizar", corpo);
+  const r = await api("ponto-sincronizar", { ...corpo, biometriasAssinatura: anterior?.biometriasAssinatura || "" });
   const resposta = monotonico();
   if (!r.ok) return { ok: false, erro: r.error || `HTTP ${r.status}`, codigo: r.code || null, semRede: r.status === 0, status: r.status };
   // Referência só com leitura monotônica válida e sem reboot no meio.
@@ -163,7 +166,10 @@ export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}
   await armazem.salvarCadastro({
     obra: r.obra, dispositivo: r.dispositivo, estabelecimento: r.estabelecimento || null,
     funcionarios: r.funcionarios || [], terceirizados: r.terceirizados || [],
-    biometrias: r.biometrias || [], responsaveis: r.responsaveis || [], sincronizadoEm: new Date(r.servidorMs).toISOString(),
+    // biometrias null = inalteradas desde a última sincronização.
+    biometrias: (r.biometrias === null || (r.biometrias === undefined && r.biometriasAssinatura)) ? anterior?.biometrias || [] : r.biometrias || [],
+    biometriasAssinatura: r.biometriasAssinatura || "",
+    responsaveis: r.responsaveis || [], sincronizadoEm: new Date(r.servidorMs).toISOString(),
     tempo: r.tempo || null,
   });
   const local = await armazem.ultimoEventoGlobal();

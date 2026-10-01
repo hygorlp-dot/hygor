@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { chamarPontoEletronico } from "../../../api";
 import { Badge, Btn, C, Ic, Inp, Modal, PageHero, Sel } from "../../../LegacyApp";
-import { funcionariosDaObra } from "../funcionarios.js";
+import { funcionariosAtivos, funcionariosDaObra } from "../funcionarios.js";
 import { ROTULO_SITUACAO, dataLocal, horaLocal, intervaloDoDia, resumoDoDia, situacaoAparelho } from "../painel.js";
 
 const ATUALIZAR_A_CADA_MS = 20_000;
@@ -70,7 +70,8 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
     return () => window.clearInterval(timer);
   }, [carregar]);
 
-  const resumo = useMemo(() => resumoDoDia(marcacoes, funcionarios), [marcacoes, funcionarios]);
+  // Equipe lotada na obra + quem é de outra obra e bateu aqui (funcionário é global).
+  const resumo = useMemo(() => resumoDoDia(marcacoes, funcionarios, funcionariosAtivos(data?.employees)), [marcacoes, funcionarios, data?.employees]);
   const acessosTerceiros = useMemo(() => marcacoes.filter(m => m.tipoRegistro === "acesso_terceiro"), [marcacoes]);
   const bioPorFuncionario = useMemo(() => new Map(biometrias.map(b => [b.employeeId, b])), [biometrias]);
   const semBiometria = funcionarios.filter(f => !bioPorFuncionario.has(f.id)).length;
@@ -203,7 +204,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
                 <th style={{ padding: "6px 8px" }}>Funcionário</th><th style={{ padding: "6px 8px" }}>Situação</th><th style={{ padding: "6px 8px" }}>Batidas (horário da obra)</th>
               </tr></thead>
               <tbody>{resumo.map(l => <tr key={l.employeeId} style={{ borderTop: `1px solid ${C.line}` }}>
-                <td style={{ padding: "7px 8px" }}><span style={{ fontWeight: 600 }}>{l.nome}</span>{l.funcao && <span style={{ color: C.muted }}> · {l.funcao}</span>}</td>
+                <td style={{ padding: "7px 8px" }}><span style={{ fontWeight: 600 }}>{l.nome}</span>{l.funcao && <span style={{ color: C.muted }}> · {l.funcao}</span>}{l.foraDaObra && <span style={{ color: C.muted }}> · lotado em outra obra</span>}</td>
                 <td style={{ padding: "7px 8px" }}><Badge color={corSituacao[l.situacao]}>{ROTULO_SITUACAO[l.situacao]}</Badge></td>
                 <td style={{ padding: "7px 8px" }}>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>

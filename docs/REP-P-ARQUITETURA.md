@@ -19,7 +19,7 @@ parte daqui.
 | **Estabelecimento** | Unidade fiscal que **conta o NSR**. Identificado por inscrição (CNPJ 14 dígitos ou CPF 11), com CNO/CAEPF opcionais (CEI só para dado histórico), fuso e situação. Campos fiscais podem ficar vazios até alguém cadastrá-los. Nada é inventado. | `ponto_estabelecimentos` · `src/domains/ponto-eletronico/estabelecimento.js` |
 | **Obra** | Local de trabalho do cadastro do ARCD (`data.obras`). **Não é estabelecimento.** Uma obra pertence a no máximo um estabelecimento, por vínculo cadastrado no ARCD. | blob do ARCD + `ponto_estabelecimento_obras` |
 | **Dispositivo** | Celular da obra (coletor), pareado por código de uso único. Pertence a uma obra; o estabelecimento dele é fixado na primeira vez que é conhecido e **não muda** (trocar = parear de novo). | `ponto_dispositivos` |
-| **Trabalhador** | Funcionário da base única do ARCD (`data.employees`), referido por `employeeId` (o "workerId" do REP-P). Terceirizados entram só como controle de acesso. | blob do ARCD |
+| **Trabalhador** | Funcionário da base única do ARCD (`data.employees`), referido por `employeeId` (o "workerId" do REP-P). **É global da empresa:** qualquer funcionário ativo cadastra o rosto e bate ponto em **qualquer** aparelho, de qualquer obra (ver seção 2-A). Terceirizados continuam só como controle de acesso, por obra. | blob do ARCD |
 | **Evento local** | O que o aparelho cria no instante da batida, com ou sem internet. Formato 2. | aparelho (SQLCipher) → `ponto_eventos` |
 | **Marcação fiscal** | Evento de **ponto** aceito pela ARP, com NSR do estabelecimento e hash fiscal. | `ponto_arp_registros` |
 
@@ -30,6 +30,67 @@ Empresa
      │          └ Dispositivo A2 (sequência local própria)
      └─ Obra B ── Dispositivo B1 (sequência local própria)
 ```
+
+## 2-A. Funcionário global e as três "obras" (complemento da Fase 1)
+
+Os funcionários trabalham em obras diferentes e mudam de obra no mesmo dia.
+Por isso:
+
+- **Funcionário é entidade global da empresa.** Todo aparelho recebe **todos**
+  os funcionários ativos (`funcionariosAtivos`), e não só os lotados na obra
+  dele. O cadastro facial vale em todos os aparelhos, e mudar a lotação não
+  apaga nem invalida a biometria. Desligado ou inativo sai de todos os
+  aparelhos na próxima sincronização.
+- **O aparelho continua pertencendo a uma obra.** Essa obra diz **onde** a
+  batida aconteceu, e não quem pode bater nele. O trabalhador não escolhe obra
+  na batida: ela vem do aparelho, o que evita erro e fraude.
+- O **cadastro facial** pode ser feito em qualquer aparelho, para qualquer
+  funcionário ativo. Quem precisa estar autorizado na obra do aparelho é o
+  **responsável** (encarregado ou engenheiro com PIN).
+
+| Conceito | O que é | Onde | Muda? |
+|---|---|---|---|
+| **Obra de lotação** (administrativa) | Obra atual do funcionário no RH (`employee.obra`, exposta como `lotacaoObraId`) | cadastro do ARCD | Muda no RH. É **só informação**: não decide quem bate em qual aparelho |
+| **Obra de captura** | Obra do **aparelho** onde a batida aconteceu (`ponto_eventos.obra_id`, exposta como `obraCapturaId`) | ARP | **Nunca.** Faz parte do registro imutável |
+| **Obra apropriada** | Obra que recebe cada **intervalo** de trabalho no tratamento do ponto | `ponto_apropriacoes` (migration 018) | Sim, com motivo e auditoria. **Nunca** altera a ARP |
+
+- O **estabelecimento fiscal** da marcação vem da obra **do aparelho** (via
+  vínculo obra → estabelecimento), nunca da lotação do funcionário. Uma pessoa
+  que bate em obras de estabelecimentos diferentes no mesmo dia recebe NSR de
+  cada estabelecimento, e o tratamento posterior **não** reatribui
+  estabelecimento nem NSR.
+- **Apropriação** (`ponto_apropriacoes`): intervalos `[início, fim)` por
+  funcionário, cada um com sua obra. Pode haver **várias obras no mesmo dia**;
+  só não pode haver sobreposição para a mesma pessoa (o banco confere sob
+  trava). Toda criação, alteração (com motivo obrigatório) e cancelamento vai
+  para `ponto_apropriacoes_auditoria` (antes, depois, responsável, quando e
+  motivo), que é imutável. Escrita só pelas funções
+  `ponto_apropriacao_salvar`/`ponto_apropriacao_cancelar`.
+- **Proposta automática** (`proporApropriacoes`, só sugestão): batida aberta
+  seguida de batida na **mesma** obra forma entrada e saída; seguida de batida
+  em **outra** obra significa troca de obra sem bater saída, e o intervalo vai
+  até a chegada. Batida que sobra no fim do dia vira aviso de "sem saída". Ex.:
+  João, lotado na A: 07:00 no Tablet A, 11:30 no Tablet B, 17:00 no Tablet B
+  → 07:00–11:30 A e 11:30–17:00 B. Quem trata o ponto confirma
+  (`ponto-apropriacao-salvar`).
+- **Escala do reconhecimento 1:N** com a base global (benchmark em
+  `apps/ponto-obra/src/logica/escala-reconhecimento.test.js`, vetores
+  sintéticos):
+
+  | Funcionários | Tempo por identificação (Node) | Base de vetores |
+  |---|---|---|
+  | 50 | 0,02 ms | ~195 KB |
+  | 100 | 0,04 ms | ~390 KB |
+  | 250 | 0,09 ms | ~980 KB |
+  | 500 | 0,15 ms | ~1,9 MB |
+
+  A comparação é linear e desprezível perto do TFLite (centenas de ms por
+  foto), então não há indexação nesta fase. A base de vetores pesa: por isso a
+  sincronização manda uma **assinatura** do conjunto (`biometriasAssinatura`),
+  e os vetores só descem quando algo mudou. Os limiares não mudaram. Comparar
+  com mais pessoas aumenta a chance de rostos parecidos, e isso só se mede em
+  campo (`relatorio-calibracao.js`); a regra da margem sobre o 2º candidato
+  continua mandando os casos duvidosos ao encarregado.
 
 ## 2. Sequência local × NSR fiscal (a regra central)
 
@@ -134,6 +195,7 @@ cálculo próprio exigido pela norma.
 | `ponto_arp_contadores` | último NSR e último hash fiscal por estabelecimento; só +1, só pela ARP, nunca apagado |
 | `ponto_arp_registros` | registro fiscal: PK `(company_id, event_id)` (um NSR por evento), UNIQUE `(company_id, estabelecimento_id, nsr)`, FK para o evento e o estabelecimento |
 | `ponto_tempo_verificacoes` | medições da hora do servidor contra o NTP.br (só se acrescenta) |
+| `ponto_apropriacoes` + `_auditoria` (018) | apropriação da jornada por obra, **fora da ARP**: intervalos sem sobreposição por funcionário, versão, motivo obrigatório na correção, auditoria imutável |
 | `ponto_marcacoes` (016) | **legado formato 1**, marcado com `record_format_version = 1` (ver `REP-P-MIGRACAO-NSR.md`) |
 
 Imutabilidade: `UPDATE`, `DELETE` e `TRUNCATE` bloqueados por trigger em
@@ -209,6 +271,11 @@ Ver `REP-P-TEMPO-CONFIAVEL.md`. Resumo:
   da gravação (`evidencia_hora`).
 
 ## 11. Futuro (não implementado nesta fase)
+
+- Tela do ARCD para confirmar e corrigir apropriações (a API e o banco já
+  existem: `ponto-apropriacao-propor`, `-salvar`, `-cancelar`,
+  `-auditoria`, `ponto-apropriacoes`) e a ligação com a Gestão do ponto e a
+  folha.
 
 - **AFD** (Fase 2): leitura em ordem de NSR por estabelecimento
   (`registrosEmOrdemDeNsr`), leiaute oficial, hash do AFD e assinatura

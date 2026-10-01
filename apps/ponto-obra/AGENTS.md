@@ -67,6 +67,18 @@ Não faça upgrade de major (Expo/RN) sem decisão explícita.
   - Nada é renumerado, nunca. Banco local perdido = parear de novo (novo
     aparelho, nova cadeia). `legado-v1.js` só envia eventos antigos
     (formato 1) como estão.
+- **Funcionário é global da empresa.** O aparelho recebe todos os
+  funcionários ativos e as biometrias deles, e qualquer um bate ou cadastra o
+  rosto em qualquer aparelho. **Nunca** filtrar por `employee.obra` para
+  decidir quem pode bater: isso é a lotação administrativa, só informação.
+  - A obra do aparelho é a **obra de captura** (onde a batida aconteceu) e
+    nunca é perguntada ao trabalhador.
+  - A obra que recebe o tempo de trabalho é a **obra apropriada**, tratada no
+    servidor (`ponto_apropriacoes`), fora da ARP. Ela nunca altera a marcação.
+  - O responsável com PIN continua precisando estar autorizado na obra do
+    aparelho.
+  - Biometrias só descem quando mudam (`biometriasAssinatura`). Fotos de
+    cadastro nunca vão para os aparelhos, só o vetor.
 - Evento só sai da fila quando a ARP responde **por aquele `eventId`** com
   status gravado (idempotente: reenvio devolve o mesmo NSR). Foto só é apagada
   depois do OK do upload.

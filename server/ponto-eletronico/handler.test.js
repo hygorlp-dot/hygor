@@ -76,12 +76,13 @@ describe("ponto eletrônico - servidor", () => {
     expect((await tratar({ action: "ponto-dispositivos", body: {} })).status).toBe(401);
   });
 
-  it("sincroniza a base única: só funcionários ativos da obra do aparelho, terceirizados e responsáveis da obra", async () => {
+  it("sincroniza a base única: TODOS os funcionários ativos da empresa (qualquer obra), terceirizados e responsáveis da obra", async () => {
     const p = await parear();
     await tratar({ action: "ponto-responsavel-pin", body: { accessToken: "ok", userId: "u-enc", pin: "4321", obras: ["obra-a"] } });
     const r = await tratar({ action: "ponto-sincronizar", headers: { authorization: `Bearer ${p.token}` }, body: { gps: { lat: -8.2, lng: -35.9, precisao: 9 } } });
     expect(r.status).toBe(200);
-    expect(r.json.funcionarios.map(f => f.id)).toEqual(["e1"]);
+    expect(r.json.funcionarios.map(f => f.id)).toEqual(["e2", "e1"]);           // e2 é lotado na obra-b e aparece no aparelho da obra-a
+    expect(r.json.funcionarios.find(f => f.id === "e2").lotacaoObraId).toBe("obra-b");
     expect(r.json.terceirizados.map(t => t.id)).toEqual(["t1"]);
     expect(r.json.servidorMs).toBe(Date.parse("2026-10-01T10:00:00.000Z"));
     const [resp] = r.json.responsaveis;
@@ -133,20 +134,27 @@ describe("ponto eletrônico - servidor", () => {
     expect(url.json.url).toContain(`marcacoes/obra-a/2026-10-01/${m.id}.jpg`);
   });
 
-  it("biometria exige consentimento, funcionário da obra e responsável autorizado", async () => {
+  it("biometria exige consentimento, funcionário ATIVO da empresa (de qualquer obra) e responsável autorizado na obra do aparelho", async () => {
     const p = await parear();
     const auth = { authorization: `Bearer ${p.token}` };
     await tratar({ action: "ponto-responsavel-pin", body: { accessToken: "ok", userId: "u-enc", pin: "4321", obras: ["obra-a"] } });
     const base = { employeeId: "e1", modelo: "mobilefacenet-v1", vetor: Array.from({ length: 128 }, (_, i) => i / 128), fotos: [JPEG.toString("base64")], responsavelId: "u-enc" };
     expect((await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: base })).json.error).toMatch(/consentimento/);
     const consentimento = { termoVersao: "2026-10", aceitoEm: "2026-10-01T09:59:00.000Z" };
-    expect((await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: { ...base, employeeId: "e2", consentimento } })).status).toBe(400);
+    // Funcionário lotado em OUTRA obra pode ter o rosto cadastrado aqui.
+    expect((await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: { ...base, employeeId: "e2", consentimento } })).status).toBe(200);
+    // Quem não existe ou não está ativo, não.
+    expect((await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: { ...base, employeeId: "nao-existe", consentimento } })).json.error).toMatch(/não está ativo/);
+    // Responsável SEM autorização na obra deste aparelho não cadastra.
+    await tratar({ action: "ponto-responsavel-pin", body: { accessToken: "ok", userId: "u-enc", pin: "4321", obras: ["obra-b"] } });
+    expect((await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: { ...base, consentimento } })).status).toBe(403);
+    await tratar({ action: "ponto-responsavel-pin", body: { accessToken: "ok", userId: "u-enc", pin: "4321", obras: ["obra-a"] } });
     const r = await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: { ...base, consentimento } });
     expect(r.status).toBe(200);
     const status = await tratar({ action: "ponto-biometria-status", body: { accessToken: "ok" } });
-    expect(status.json.biometrias).toEqual([expect.objectContaining({ employeeId: "e1", cadastradoPor: "u-enc" })]);
+    expect(status.json.biometrias).toEqual(expect.arrayContaining([expect.objectContaining({ employeeId: "e1", cadastradoPor: "u-enc" }), expect.objectContaining({ employeeId: "e2" })]));
     await tratar({ action: "ponto-biometria-excluir", body: { accessToken: "ok", employeeId: "e1" } });
-    expect(db.tabelas.ponto_biometrias).toHaveLength(0);
+    expect(db.tabelas.ponto_biometrias.map(b => b.employee_id)).toEqual(["e2"]);
   });
 });
 

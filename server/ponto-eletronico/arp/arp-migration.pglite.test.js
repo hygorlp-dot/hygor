@@ -226,6 +226,8 @@ describe("migration 017 - aplicação sobre dados existentes", () => {
     await registrar(DISP_A, cadeia(DISP_A, 1));
     await expect(db.exec(lerMigration("017_ponto_arp_estabelecimento_nsr.down.sql"))).rejects.toThrow(/recusada/);
     const limpo = await novoPglite();
+    // Reversão em ordem: 018 (apropriação) antes da 017 (ARP).
+    await limpo.exec(lerMigration("018_ponto_apropriacoes.down.sql"));
     await limpo.exec(lerMigration("017_ponto_arp_estabelecimento_nsr.down.sql"));
     expect((await limpo.query("select to_regclass('public.ponto_arp_registros') t")).rows[0].t).toBeNull();
     await limpo.close();

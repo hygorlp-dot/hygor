@@ -17,11 +17,11 @@ nesta rodada).
 | **Gerado onde** | No aparelho, modo Encarregado → Cadastrar rosto | No aparelho, mesma tela | No aparelho, a cada batida |
 | **Enviado quando** | Na hora do cadastro (`ponto-cadastrar-biometria`, exige internet) | Junto com o vetor | Depois que a batida é aceita pelo servidor (`ponto-enviar-foto`), na sincronização |
 | **Servidor** | Tabela `ponto_biometrias.vetor` (Supabase) | Storage privado `ponto-obra`, `biometria/<funcionário>/<id>-1.jpg`; caminho e SHA-256 em `ponto_biometrias.fotos` | Storage privado `ponto-obra`, `marcacoes/<obra>/<data>/<marcação>.jpg`; SHA-256 dentro da marcação (`ponto_marcacoes.foto_sha256`), que entra no hash encadeado |
-| **No aparelho** | Copiado para **todos os aparelhos da obra** a cada sincronização (`ponto-sincronizar`) e guardado no banco local cifrado (SQLCipher, `estado.cadastro`) | Arquivo temporário apagado logo após a leitura | Arquivo JPEG na pasta de documentos do app (**fora** do SQLCipher; protegido só pelo sandbox do Android) até o upload; apagado depois do OK do servidor |
+| **No aparelho** | Desde 01/10/2026 (funcionário global), copiado para **todos os aparelhos da empresa**, de todas as obras, e guardado no banco local cifrado (SQLCipher, `estado.cadastro`). Só desce quando o conjunto muda (`biometriasAssinatura`) | Arquivo temporário apagado logo após a leitura | Arquivo JPEG na pasta de documentos do app (**fora** do SQLCipher; protegido só pelo sandbox do Android) até o upload; apagado depois do OK do servidor |
 | **Quem acessa (ARCD)** | Nenhuma tela mostra o vetor. `ponto-biometria-status` devolve só data/qualidade/quem cadastrou (perfis admin, rh, engenheiro, engenheiro_auditor, financeiro) | Nenhuma ação da API serve essa foto; só acesso direto ao Supabase (service role) | Perfis admin, rh, engenheiro, engenheiro_auditor, financeiro, por link assinado de 5 min (`ponto-foto-url`) |
-| **Quem acessa (aparelho)** | Qualquer aparelho pareado com a obra recebe os vetores dos funcionários ativos dela | — | — |
+| **Quem acessa (aparelho)** | **Qualquer aparelho ativo da empresa** recebe os vetores de **todos** os funcionários ativos (o funcionário pode bater em qualquer obra). Aparelho revogado para de sincronizar | — | — |
 | **Exclusão hoje** | ARCD → Ponto eletrônico (app) → excluir biometria (`ponto-biometria-excluir`, perfis admin, rh, engenheiro): apaga **todas** as linhas do funcionário em `ponto_biometrias`. Os aparelhos deixam de ter o vetor na próxima sincronização do cadastro (até 5 min com internet; aparelho offline mantém até sincronizar) | **Não é apagada.** A exclusão da biometria remove a linha da tabela, mas **não** remove o arquivo do Storage — o arquivo fica órfão | **Não há exclusão.** Marcação é append-only (Portaria 671/2021) e o hash da foto faz parte da cadeia |
-| **Desligamento / saída da obra** | Linha **continua** no banco; o servidor só para de mandar o vetor aos aparelhos (filtra funcionários ativos da obra) | Continua no Storage | Continua no Storage |
+| **Desligamento** | Linha **continua** no banco; o servidor para de mandar o vetor (só vão os de funcionários **ativos**) e ele sai dos aparelhos na sincronização seguinte. **Mudar de obra não muda nada** (a biometria é global) | Continua no Storage | Continua no Storage |
 
 Consentimento: gravado em `ponto_biometrias.consentimento` (versão do termo,
 data/hora do aceite, SHA-256 do texto) — e **apagado junto** com a biometria
@@ -34,6 +34,25 @@ Também ficam no aparelho:
 - Capturas cruas da câmera e recortes do rosto: a partir desta rodada são
   apagados logo após o uso. Antes ficavam no cache do app até o Android
   limpar.
+
+## Mudança de 01/10/2026: biometria global da empresa
+
+Os funcionários trocam de obra no mesmo dia, então o vetor biométrico de cada
+funcionário ativo agora fica em **todos** os aparelhos da empresa, e não só
+nos da obra de lotação. Proteções mantidas:
+- banco local cifrado (SQLCipher) com a chave no SecureStore;
+- **só o vetor** vai para os aparelhos; as fotos de cadastro ficam no Storage
+  privado do servidor;
+- nenhum vetor em log (teste trava `console.*` no app) nem no diagnóstico;
+- aparelho revogado não sincroniza mais;
+- exclusão da biometria (LGPD) e desligamento: o vetor sai de todos os
+  aparelhos na sincronização seguinte. Aparelho **offline** mantém a cópia
+  cifrada até sincronizar.
+
+Isso amplia o número de aparelhos que guardam o vetor de cada pessoa.
+**REQUER DECISÃO DO RESPONSÁVEL/JURÍDICO:** o termo de consentimento deve
+mencionar que o código biométrico fica nos aparelhos de **todas** as obras da
+empresa?
 
 ## Conflitos ou possíveis conflitos com o termo atual
 

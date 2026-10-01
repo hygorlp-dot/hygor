@@ -32,7 +32,8 @@ export async function criarServidor({ dados = DADOS_BASE(), estabelecimento = tr
   s.db = camadaSupabase(s.pg);
   s.tratar = criarTratadorPonto({
     db: s.db, company: EMPRESA, lerDados: async () => s.dados, agora: () => new Date(s.relogioServidor),
-    autenticarUsuario: async b => (b.accessToken === "admin" ? s.dados.usuarios[0] : null),
+    // accessToken "admin" ou o id de qualquer usuário ativo do cadastro.
+    autenticarUsuario: async b => (b.accessToken === "admin" ? s.dados.usuarios[0] : s.dados.usuarios.find(u => u.id === b.accessToken && u.active !== false) || null),
   });
   s.admin = (action, body = {}) => s.tratar({ action, body: { accessToken: "admin", ...body } });
   s.sql = async (texto, p = []) => (await s.pg.query(texto, p)).rows;

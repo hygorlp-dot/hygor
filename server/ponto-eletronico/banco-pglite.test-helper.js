@@ -1,4 +1,4 @@
-// Postgres REAL em memória (PGlite) com as migrations 016 + 017 aplicadas e
+// Postgres REAL em memória (PGlite) com as migrations 016 + 017 + 018 aplicadas e
 // uma camada com o mesmo jeito do supabase-js que o servidor usa
 // (from().select().eq()... / rpc / storage). Os testes ponta a ponta do app e
 // da ARP rodam o SQL de verdade - função ponto_arp_registrar, travas,
@@ -26,6 +26,7 @@ async function montarBase() {
   await db.exec(PAPEIS_SUPABASE);
   await db.exec(lerMigration("016_create_ponto_eletronico.up.sql"));
   await db.exec(lerMigration("017_ponto_arp_estabelecimento_nsr.up.sql"));
+  await db.exec(lerMigration("018_ponto_apropriacoes.up.sql"));
   const dump = await db.dumpDataDir();
   await db.close();
   return dump;

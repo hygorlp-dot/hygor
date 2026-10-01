@@ -60,19 +60,19 @@ describe("primeira sincronização e situação do cadastro", () => {
     });
     const r = await rodada({ corpo });
     expect(r).toMatchObject({ online: true, cadastroAtualizado: true, erro: null });
-    expect(a.chamadas.find(x => x.action === "ponto-sincronizar").corpo).toEqual(corpo);
+    expect(a.chamadas.find(x => x.action === "ponto-sincronizar").corpo).toEqual({ ...corpo, biometriasAssinatura: "" });   // primeira vez: ainda não tem biometrias
     const d = await dispositivo();
     expect(d.app_versao).toBe("1.0.0 (4)");
     expect(d.aparelho).toEqual({ marca: "samsung", modelo: "SM-A155M", android: "14", build: "4", commit: "abc1234" });
     expect(d.ultimo_gps).toMatchObject({ lat: -8.28, lng: -35.97, precisao: 12 });
-    expect((await a.armazem.cadastro()).funcionarios.map(f => f.id)).toEqual(["e2", "e1"]);
+    expect((await a.armazem.cadastro()).funcionarios.map(f => f.id)).toEqual(["e3", "e2", "e1"]);   // funcionário global: e3 é lotado na obra-b
     expect((await a.armazem.cadastro()).tempo).toMatchObject({ source: "host", status: "nao_verificada" });
   });
 
   it("cadastro sem responsáveis: a tela leva primeiro ao ARCD", async () => {
     ({ s, a } = await criarCenario({ comResponsavel: false }));
     await sincronizar();
-    expect(resumoCadastro(await a.armazem.cadastro())).toMatchObject({ temResponsavel: false, semRostos: true, totalFuncionarios: 2, sincronizado: true });
+    expect(resumoCadastro(await a.armazem.cadastro())).toMatchObject({ temResponsavel: false, semRostos: true, totalFuncionarios: 3, sincronizado: true });
   });
 
   it("cadastro sem biometria: obra sem rostos, com responsável", async () => {

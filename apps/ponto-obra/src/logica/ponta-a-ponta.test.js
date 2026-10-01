@@ -24,7 +24,7 @@ describe("aparelho + servidor, ponta a ponta", () => {
     const r = await sincronizar();
     expect(r).toMatchObject({ ok: true, cadeiaDivergente: false });
     expect(r.estabelecimento).toMatchObject({ id: s.estabelecimentoA });
-    expect((await a.armazem.cadastro()).funcionarios.map(f => f.id)).toEqual(["e2", "e1"]);
+    expect((await a.armazem.cadastro()).funcionarios.map(f => f.id)).toEqual(["e3", "e2", "e1"]);   // funcionário global: e3 é lotado na obra-b
 
     a.online = false;
     a.passar(2 * 3_600_000);

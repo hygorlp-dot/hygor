@@ -24,7 +24,10 @@ export function intervaloDoDia(dia) {
   return { de: de.toISOString(), ate: ate.toISOString() };
 }
 
-export function resumoDoDia(marcacoes, funcionarios) {
+// funcionarios: equipe LOTADA na obra (exibição). todos: cadastro da empresa,
+// para nomear quem é lotado em outra obra e bateu aqui - funcionário é global
+// e pode bater em qualquer aparelho (a obra da batida é a de CAPTURA).
+export function resumoDoDia(marcacoes, funcionarios, todos = []) {
   const porFuncionario = new Map();
   for (const m of marcacoes || []) {
     if (m.tipoRegistro !== "ponto" || !m.employeeId) continue;
@@ -39,7 +42,8 @@ export function resumoDoDia(marcacoes, funcionarios) {
   // Marcação de alguém que já não está ativo na obra (transferido/desligado
   // depois de bater) continua aparecendo - registro legal não some da tela.
   for (const [employeeId, batidas] of porFuncionario) {
-    linhas.push(linha({ id: employeeId, nome: "(fora da equipe atual da obra)", foraDaObra: true }, batidas.sort((a, b) => String(a.marcadoEm).localeCompare(String(b.marcadoEm)))));
+    const cadastro = (todos || []).find(f => String(f.id) === String(employeeId));
+    linhas.push(linha({ id: employeeId, nome: cadastro?.nome || cadastro?.name || "(funcionário não encontrado no cadastro)", funcao: cadastro?.funcao || cadastro?.role || "", foraDaObra: true }, batidas.sort((a, b) => String(a.marcadoEm).localeCompare(String(b.marcadoEm)))));
   }
   return linhas.sort((a, b) => ordemSituacao[a.situacao] - ordemSituacao[b.situacao] || a.nome.localeCompare(b.nome, "pt-BR"));
 }

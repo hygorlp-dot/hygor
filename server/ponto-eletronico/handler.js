@@ -19,10 +19,12 @@
 // A hora vem da fonte de hora oficial (./tempo/), não de new Date() solto.
 import crypto from "node:crypto";
 import { calcularHashMarcacao, validarMarcacao, verificarCadeia, HASH_INICIAL, sequenciaLegadaDoAparelho } from "../../src/domains/ponto-eletronico/marcacao.js";
-import { funcionariosDaObra, terceirizadosDaObra } from "../../src/domains/ponto-eletronico/funcionarios.js";
+import { funcionariosAtivos, terceirizadosDaObra } from "../../src/domains/ponto-eletronico/funcionarios.js";
 import { LIMITE_FOTO_BYTES } from "../../src/domains/ponto-eletronico/foto.js";
 import { validarEstabelecimento, pendenciasFiscais } from "../../src/domains/ponto-eletronico/estabelecimento.js";
 import { situacaoRepP } from "../../src/domains/ponto-eletronico/rep-p.js";
+import { proporApropriacoes, validarApropriacao } from "../../src/domains/ponto-eletronico/apropriacao.js";
+import { intervaloDoDia } from "../../src/domains/ponto-eletronico/painel.js";
 import { criarArp } from "./arp/arp.js";
 import { POLITICA_PADRAO, criarFonteHora } from "./tempo/fonte-hora.js";
 
@@ -85,8 +87,10 @@ const linhaMarcacao = m => ({
 });
 
 // Formato 2: evento local + (se for ponto aceito) registro fiscal da ARP.
+// obraId/obraCapturaId = obra do APARELHO onde a batida aconteceu (captura),
+// não a lotação do funcionário nem a obra apropriada.
 const linhaEvento = ({ evento: e, fiscal: f }) => ({
-  id: e.event_id, eventId: e.event_id, formato: 2, dispositivoId: e.dispositivo_id, obraId: e.obra_id,
+  id: e.event_id, eventId: e.event_id, formato: 2, dispositivoId: e.dispositivo_id, obraId: e.obra_id, obraCapturaId: e.obra_id,
   nsr: f ? Number(f.nsr) : null, localSequence: Number(e.local_sequence), estabelecimentoId: e.estabelecimento_id || null,
   fiscalHash: f?.fiscal_hash || null, gravadoEm: f?.gravado_em || null,
   situacaoFiscal: f ? "registrado" : e.tipo_registro === "acesso_terceiro" ? "acesso_sem_nsr" : "sem_nsr",
@@ -155,6 +159,15 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
     if (!data) return { falha: erro(401, "Aparelho não reconhecido. Pareie de novo pelo ARCD.", { code: "APARELHO_DESCONHECIDO" }) };
     if (data.status !== "ativo") return { falha: erro(403, "Este aparelho foi desativado no ARCD.", { code: "APARELHO_REVOGADO" }) };
     return { dispositivo: data };
+  };
+
+  // Regras de negócio da apropriação vêm do banco como exceção: viram 400/409
+  // com a mensagem; qualquer outro erro sobe.
+  const erroDeApropriacao = error => {
+    const m = String(error?.message || "");
+    if (/alterada por outra pessoa/.test(m)) return erro(409, m);
+    if (/sobrepõe|motivo|não encontrada|cancelada|outro funcionário/.test(m)) return erro(400, m);
+    throw error;
   };
 
   // Evento/marcação para foto: formato 2 (event_id) ou legado (id).
@@ -352,6 +365,76 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       return ok({ obraId, estabelecimentoId: estabId });
     },
 
+    // ---------------- apropriação da jornada (fora da ARP) ----------------
+    // A batida guarda a obra de CAPTURA e não muda. A apropriação diz a qual
+    // obra cada intervalo de trabalho é atribuído (pode haver várias no dia).
+    async "ponto-apropriacao-propor"({ body }) {
+      const { falha } = await doUsuario(body, PAPEIS_CONSULTA);
+      if (falha) return falha;
+      const employeeId = texto(body.employeeId), dia = texto(body.data);
+      if (!employeeId || !/^\d{4}-\d{2}-\d{2}$/.test(dia)) return erro(400, "Informe o funcionário e o dia (AAAA-MM-DD).");
+      const { de, ate } = intervaloDoDia(dia);
+      const { data: eventos, error } = await db.from("ponto_eventos").select("event_id,marcado_em,obra_id,tipo_registro,dispositivo_id")
+        .eq("company_id", company).eq("employee_id", employeeId).eq("tipo_registro", "ponto").gte("marcado_em", de).lte("marcado_em", ate)
+        .order("marcado_em", { ascending: true });
+      if (error) throw error;
+      const marcacoes = (eventos || []).map(e => ({ eventId: e.event_id, marcadoEm: e.marcado_em, obraCapturaId: e.obra_id, dispositivoId: e.dispositivo_id }));
+      return ok({ employeeId, data: dia, marcacoes, ...proporApropriacoes(marcacoes) });
+    },
+
+    async "ponto-apropriacoes"({ body }) {
+      const { falha } = await doUsuario(body, PAPEIS_CONSULTA);
+      if (falha) return falha;
+      let q = db.from("ponto_apropriacoes").select("*").eq("company_id", company);
+      if (texto(body.employeeId)) q = q.eq("employee_id", texto(body.employeeId));
+      if (texto(body.obraId)) q = q.eq("obra_apropriada_id", texto(body.obraId));
+      if (texto(body.de)) q = q.gte("data", texto(body.de));
+      if (texto(body.ate)) q = q.lte("data", texto(body.ate));
+      const { data, error } = await q.order("inicio", { ascending: true }).limit(2000);
+      if (error) throw error;
+      return ok({ apropriacoes: (data || []).map(a => ({
+        id: a.id, employeeId: a.employee_id, data: a.data, inicio: a.inicio, fim: a.fim, obraApropriadaId: a.obra_apropriada_id,
+        origem: a.origem, status: a.status, motivo: a.motivo, responsavelId: a.responsavel_id, version: a.version, atualizadoEm: a.atualizado_em,
+      })) });
+    },
+
+    async "ponto-apropriacao-salvar"({ body }) {
+      const { usuario, falha } = await doUsuario(body, PAPEIS_GESTAO);
+      if (falha) return falha;
+      const a = body.apropriacao || {};
+      const v = validarApropriacao(a);
+      if (!v.ok) return erro(400, v.erros.join("; "));
+      const dados = await lerDados();
+      if (!(dados?.obras || []).some(o => String(o.id) === texto(a.obraApropriadaId))) return erro(400, "Obra apropriada não encontrada.");
+      if (!(dados?.employees || []).some(e => String(e.id) === texto(a.employeeId))) return erro(400, "Funcionário não encontrado.");
+      const { data, error } = await db.rpc("ponto_apropriacao_salvar", {
+        p_company_id: company, p_id: texto(a.id) || null, p_employee_id: texto(a.employeeId), p_data: texto(a.data),
+        p_inicio: a.inicio, p_fim: a.fim, p_obra_apropriada_id: texto(a.obraApropriadaId), p_origem: a.origem || "manual",
+        p_responsavel_id: String(usuario.id), p_motivo: texto(a.motivo), p_versao_esperada: a.id ? Number(a.version) : null,
+      });
+      if (error) return erroDeApropriacao(error);
+      return ok({ id: data[0].id, version: data[0].version });
+    },
+
+    async "ponto-apropriacao-cancelar"({ body }) {
+      const { usuario, falha } = await doUsuario(body, PAPEIS_GESTAO);
+      if (falha) return falha;
+      const { data, error } = await db.rpc("ponto_apropriacao_cancelar", {
+        p_company_id: company, p_id: texto(body.id), p_responsavel_id: String(usuario.id), p_motivo: texto(body.motivo), p_versao_esperada: Number(body.version),
+      });
+      if (error) return erroDeApropriacao(error);
+      return ok({ id: data[0].id, version: data[0].version });
+    },
+
+    async "ponto-apropriacao-auditoria"({ body }) {
+      const { falha } = await doUsuario(body, PAPEIS_CONSULTA);
+      if (falha) return falha;
+      const { data, error } = await db.from("ponto_apropriacoes_auditoria").select("*").eq("company_id", company).eq("apropriacao_id", texto(body.id))
+        .order("em", { ascending: true });
+      if (error) throw error;
+      return ok({ auditoria: (data || []).map(r => ({ acao: r.acao, antes: r.antes, depois: r.depois, responsavelId: r.responsavel_id, motivo: r.motivo, em: r.em })) });
+    },
+
     // ---------------- fonte de hora ----------------
     async "ponto-tempo-status"({ body }) {
       const { falha } = await doUsuario(body, PAPEIS_CONSULTA);
@@ -419,17 +502,36 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const { dispositivo, falha } = await doAparelho(headers, body);
       if (falha) return falha;
       const dados = await lerDados();
+      // obra_id do aparelho = obra de CAPTURA (onde as batidas acontecem).
       const obraId = dispositivo.obra_id;
-      const funcionarios = funcionariosDaObra(dados?.employees, obraId);
+      // Funcionário é GLOBAL: o aparelho recebe TODOS os ativos da empresa, não
+      // só os lotados nesta obra - quem muda de obra no dia bate em qualquer uma.
+      const funcionarios = funcionariosAtivos(dados?.employees);
       const ids = new Set(funcionarios.map(f => f.id));
-      const [{ data: bios, error: errBio }, { data: resps, error: errResp }] = await Promise.all([
-        db.from("ponto_biometrias").select("employee_id,modelo,vetor,criado_em").eq("company_id", company).order("criado_em", { ascending: false }),
+      const [{ data: metas, error: errBio }, { data: resps, error: errResp }] = await Promise.all([
+        db.from("ponto_biometrias").select("id,employee_id,criado_em").eq("company_id", company).order("criado_em", { ascending: false }),
         db.from("ponto_responsaveis").select("user_id,nome,pin_hash,pin_salt,pin_iteracoes,obras,ativo").eq("company_id", company).eq("ativo", true),
       ]);
       if (errBio) throw errBio;
       if (errResp) throw errResp;
+      // Biometria vigente (a mais recente) de cada funcionário ATIVO, de
+      // qualquer obra. Mudar a lotação não apaga nem invalida o cadastro facial.
       const vigentes = new Map();
-      (bios || []).forEach(b => { if (ids.has(b.employee_id) && !vigentes.has(b.employee_id)) vigentes.set(b.employee_id, b); });
+      (metas || []).forEach(b => { if (ids.has(b.employee_id) && !vigentes.has(b.employee_id)) vigentes.set(b.employee_id, b); });
+      // Os vetores só descem quando o conjunto mudou: com a base global (até
+      // centenas de pessoas) reenviar tudo a cada 5 min gastaria dados móveis.
+      // Apps antigos não mandam a assinatura e recebem a lista inteira.
+      const biometriasAssinatura = sha256([...vigentes.values()].map(b => `${b.employee_id}:${b.id}`).sort().join("|"));
+      let biometrias = null;
+      if (texto(body.biometriasAssinatura) !== biometriasAssinatura) {
+        const idsBio = [...vigentes.values()].map(b => b.id);
+        const { data: vetores, error: errVet } = idsBio.length
+          ? await db.from("ponto_biometrias").select("id,employee_id,modelo,vetor,criado_em").eq("company_id", company).in("id", idsBio)
+          : { data: [], error: null };
+        if (errVet) throw errVet;
+        biometrias = (vetores || []).map(b => ({ employeeId: b.employee_id, modelo: b.modelo, vetor: b.vetor, cadastradaEm: b.criado_em }))
+          .sort((a, b) => String(a.employeeId).localeCompare(String(b.employeeId)));
+      }
       const update = { ultimo_contato_em: agora().toISOString() };
       if (limparVersao(body.appVersao)) update.app_versao = limparVersao(body.appVersao);
       if (body.gps && Number.isFinite(Number(body.gps.lat)) && Number.isFinite(Number(body.gps.lng))) update.ultimo_gps = { lat: Number(body.gps.lat), lng: Number(body.gps.lng), precisao: Number(body.gps.precisao) || null, em: agora().toISOString() };
@@ -450,7 +552,8 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
         obra: { id: obraId, nome: obra?.name || "" },
         funcionarios,
         terceirizados: terceirizadosDaObra(dados?.terceirizados, obraId),
-        biometrias: [...vigentes.values()].map(b => ({ employeeId: b.employee_id, modelo: b.modelo, vetor: b.vetor, cadastradaEm: b.criado_em })),
+        // null = conjunto igual ao que o aparelho já tem (mesma assinatura).
+        biometrias, biometriasAssinatura,
         responsaveis: (resps || [])
           .filter(r => !(r.obras || []).length || (r.obras || []).map(String).includes(String(obraId)))
           .map(r => ({ userId: r.user_id, nome: r.nome, pinHash: r.pin_hash, pinSalt: r.pin_salt, pinIteracoes: r.pin_iteracoes })),
@@ -519,8 +622,11 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const { dispositivo, falha } = await doAparelho(headers, body);
       if (falha) return falha;
       const dados = await lerDados();
-      const funcionario = funcionariosDaObra(dados?.employees, dispositivo.obra_id).find(f => f.id === texto(body.employeeId));
-      if (!funcionario) return erro(400, "Funcionário não está ativo nesta obra no cadastro do ARCD.");
+      // Qualquer funcionário ATIVO da empresa pode ter o rosto cadastrado em
+      // qualquer aparelho (a lotação dele não importa). O RESPONSÁVEL é que
+      // precisa estar autorizado na obra deste aparelho (conferido abaixo).
+      const funcionario = funcionariosAtivos(dados?.employees).find(f => f.id === texto(body.employeeId));
+      if (!funcionario) return erro(400, "Funcionário não está ativo no cadastro do ARCD.");
       const vetor = Array.isArray(body.vetor) ? body.vetor.map(Number) : [];
       if (vetor.length < 64 || vetor.length > 1024 || vetor.some(v => !Number.isFinite(v))) return erro(400, "Vetor facial inválido.");
       const consentimento = body.consentimento || {};
