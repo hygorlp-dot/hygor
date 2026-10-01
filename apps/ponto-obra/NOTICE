@@ -1,0 +1,14 @@
+Ponto de Obra (ARCD)
+
+Este app inclui modelos e geometria de pré-processamento derivados de:
+
+face_detection_tflite
+Copyright Hugo Cornellier
+https://github.com/hugocornellier/face_detection_tflite
+Licenciado sob a Apache License, Version 2.0
+(http://www.apache.org/licenses/LICENSE-2.0)
+
+- assets/modelos/face_detection_front.tflite (BlazeFace, Google MediaPipe, Apache-2.0)
+- assets/modelos/mobilefacenet.tflite (baseado em MobileFaceNets, arXiv 1804.07573, Apache-2.0)
+- src/logica/rosto.js: decodificação das âncoras SSD e recorte alinhado para o
+  vetor facial, portados do código Dart da biblioteca acima.
