@@ -24,7 +24,7 @@
     "tailwind-merge": "^3.6.0"
   },
   "scripts": {
-    "prebuild": "node scripts/check-financial-enforcement-readiness.mjs && node scripts/audit-catalog-integrity.mjs && npm run financial:migrate-shadow && npm run registry:migrate-shadow && npm run equipment-registry:migrate-shadow && npm run purchase-requests:migrate && npm run financial-engine:rls && npm run procurement-registry:migrate-shadow && npm run attendance-registry:migrate-shadow",
+    "prebuild": "node scripts/check-financial-enforcement-readiness.mjs && node scripts/audit-catalog-integrity.mjs && npm run financial:migrate-shadow && npm run registry:migrate-shadow && npm run equipment-registry:migrate-shadow && npm run purchase-requests:migrate && npm run financial-engine:rls && npm run procurement-registry:migrate-shadow && npm run attendance-registry:migrate-shadow && npm run ponto-eletronico:migrate",
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
@@ -55,7 +55,8 @@
     "pwa:generate": "node scripts/generate-shell-service-worker.mjs",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "prepare": "node scripts/install-git-hooks.mjs"
+    "prepare": "node scripts/install-git-hooks.mjs",
+    "ponto-eletronico:migrate": "node scripts/apply-ponto-eletronico.mjs"
   },
   "browserslist": {
     "production": [

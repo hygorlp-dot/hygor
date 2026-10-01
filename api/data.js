@@ -75,6 +75,8 @@ import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from ".
 import { applyPersistentAuthRateLimit, hashAppPin, verifyAppPin } from "../server/app-auth-security.js";
 import { buildClientPortalPublicationRows } from "../server/client-portal-publication.js";
 import { sanitizeClientError } from "../server/client-error-report.js";
+import { authenticateAppUser } from "./auth.js";
+import { criarTratadorPonto, ehAcaoPonto } from "../server/ponto-eletronico/handler.js";
 
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — server-side
@@ -483,6 +485,22 @@ const rateLimitCentral=async(subject,action)=>{
 // nada. `rowVersions` devolve o updated_at de CADA linha, para quem grava
 // um domínio separado usar como CAS da própria linha, em vez do updated_at
 // da core (que mudar por outro motivo não deveria invalidar essa gravação).
+// App "Ponto de Obra": obras, funcionários, terceirizados e usuários moram
+// todos na linha core (base única - ver server/domain-row-routing.js). Cada
+// aparelho sincroniza a cada minuto, então lê só essa linha em vez de
+// remontar o dataset inteiro com lerLinha().
+const lerBasePonto = async () => {
+  const { data, error } = await db.from("company_app_data").select("value")
+    .eq("company_id", COMPANY).eq("key", KEY).maybeSingle();
+  if (error) throw error;
+  return data ? decodeAppData(data.value) : {};
+};
+const tratarAcaoPonto = criarTratadorPonto({
+  db, company: COMPANY, lerDados: lerBasePonto,
+  autenticarUsuario: body => authenticateAppUser(
+    { userId: body.userId, pin: body.pin, accessToken: body.accessToken }, { scope: "ponto-eletronico" }),
+});
+
 const lerLinha = async () => {
   // Achado de 21/08/2026: as três leituras abaixo (linha core, linhas
   // separadas de domínio fixo, linhas de Ponto por obra) são independentes
@@ -1289,6 +1307,12 @@ export default async function handler(req, res) {
     }
     if(action==="backup-create"&&cronAutorizado(req))return res.status(200).json(await criarBackupOneDrive(req,"system:vercel-cron"));
     if(action==="backup-verify"&&cronAutorizado(req))return res.status(200).json(await verificarBackupOneDrive(req));
+    // App "Ponto de Obra" (REP-P): ações próprias, sem rota nova na Vercel.
+    // A gestão de ponto atual (attendance) não passa por aqui.
+    if(ehAcaoPonto(action)){
+      const resposta=await tratarAcaoPonto({action,body:req.body||{},headers:req.headers||{}});
+      return res.status(resposta.status).json(resposta.json);
+    }
     if (action === "client-portal") {
       const { payload: p } = await lerLinha();
       const obraId = String(req.body?.obraId || "");
