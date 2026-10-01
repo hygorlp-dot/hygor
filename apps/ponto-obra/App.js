@@ -1,127 +1,230 @@
 // App "Ponto de Obra" (REP-P, Portaria 671/2021) - aparelho dedicado a uma
 // obra. Liga: armazém criptografado, relógio confiável, modelos de rosto,
 // sincronização com o ARCD a cada minuto e as telas.
+//
+// Máquina de estados simples (sem roteador):
+//   carregando → parear | ponto ⇄ encarregado
+//   erro (banco/sessão), revogado (aparelho desativado no ARCD)
+// Nenhuma falha de rede, GPS, câmera ou reconhecimento apaga batida guardada.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Alert, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as Crypto from "expo-crypto";
 import * as Location from "expo-location";
-import { abrirArmazem } from "./src/dados/armazem-sqlite";
+import { abrirArmazem, arquivarBanco } from "./src/dados/armazem-sqlite";
 import { registrarBatida } from "./src/logica/terminal";
-import { enviarFotos, enviarPendentes, sincronizarCadastro } from "./src/logica/sincronizacao";
-import { apagarSessao, criarApi, criarRelogio, lerSessao, salvarSessao } from "./src/servicos/conexao";
+import { gpsRecente, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./src/logica/sincronizacao";
+import { classificarResposta, mensagemDeErro } from "./src/logica/falhas";
+import { montarDiagnostico } from "./src/logica/diagnostico";
+import { apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoApp, lerSessao, salvarSessao } from "./src/servicos/conexao";
 import { apagarFotoLocal, carregarModelos, lerFotoBase64, prepararFotoDaBatida } from "./src/servicos/rosto-nativo";
 import TelaEncarregado from "./src/telas/TelaEncarregado";
 import TelaPareamento from "./src/telas/TelaPareamento";
 import TelaPonto from "./src/telas/TelaPonto";
-import { Botao, COR, Mensagem, Titulo, estilos } from "./src/ui";
+import { Botao, COR, Mensagem, Texto, Titulo, estilos } from "./src/ui";
 
 const SINCRONIZAR_A_CADA_MS = 60_000;
 const CADASTRO_A_CADA_MS = 5 * 60_000;
 const sha256Texto = texto => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, texto);
 
 export default function App() {
-  const [fase, setFase] = useState("carregando");       // carregando | parear | ponto | encarregado | erro
-  const [erroFatal, setErroFatal] = useState("");
+  const [fase, setFase] = useState("carregando");       // carregando | parear | ponto | encarregado | erro | revogado
+  const [erroFatal, setErroFatal] = useState({ texto: "", bancoIlegivel: false });
   const [tentativa, setTentativa] = useState(0);
   const [cadastro, setCadastro] = useState(null);
   const [modelos, setModelos] = useState(null);
-  const [erroModelos, setErroModelos] = useState("");
-  const [situacao, setSituacao] = useState({ online: false, pendentes: 0, fotos: 0 });
-  const ref = useRef({ armazem: null, relogio: null, sessao: null, gps: null, ultimoCadastro: 0, sincronizando: false });
+  const [estadoModelos, setEstadoModelos] = useState({ estado: "carregando", erro: "" });
+  const [situacao, setSituacao] = useState({ online: false, pendentes: 0, fotos: 0, fotosComProblema: 0, aviso: "" });
+  const ref = useRef({ armazem: null, relogio: null, sessao: null, gps: null, gpsEstado: "aguardando", ultimoCadastro: 0, sincronizando: false, pedirDeNovo: null });
   const api = useRef(criarApi(() => ref.current.sessao?.token)).current;
 
-  const atualizarSituacao = useCallback(async online => {
-    const c = await ref.current.armazem.contagem();
-    setSituacao(s => ({ online: online ?? s.online, ...c }));
+  const atualizarSituacao = useCallback(async (extra = {}) => {
+    if (!ref.current.armazem) return;
+    try {
+      const c = await ref.current.armazem.contagem();
+      setSituacao(s => ({ ...s, ...extra, ...c }));
+    } catch { /* contagem é só para a tela */ }
   }, []);
 
   // Uma rodada: cadastro/hora (a cada 5 min ou quando pedido), batidas, fotos.
+  // Pedido durante outra rodada não se perde: roda logo depois.
   const sincronizar = useCallback(async ({ forcarCadastro = false } = {}) => {
     const { armazem, relogio } = ref.current;
-    if (!armazem || !ref.current.sessao || ref.current.sincronizando) return;
+    if (!armazem || !ref.current.sessao) return;
+    if (ref.current.sincronizando) { ref.current.pedirDeNovo = { forcarCadastro: forcarCadastro || !!ref.current.pedirDeNovo?.forcarCadastro }; return; }
     ref.current.sincronizando = true;
+    const anterior = await armazem.lerEstado("ultima_sincronizacao").catch(() => null);
     try {
-      let online = true;
-      if (forcarCadastro || Date.now() - ref.current.ultimoCadastro > CADASTRO_A_CADA_MS) {
-        const s = await sincronizarCadastro({ armazem, api, monotonico: () => relogio.monotonico(), sha256: sha256Texto });
-        if (s.codigo === "APARELHO_REVOGADO" || s.codigo === "APARELHO_DESCONHECIDO") {
-          await apagarSessao(); ref.current.sessao = null; setFase("parear"); return;
-        }
-        online = s.ok;
-        if (s.ok) { ref.current.ultimoCadastro = Date.now(); await relogio.carregar(); setCadastro(await armazem.cadastro()); }
+      const r = await rodadaDeSincronizacao({
+        armazem, api, sha256: sha256Texto, monotonico: () => relogio.monotonico(),
+        corpo: montarCorpoSincronizacao({ app: infoDoApp(), aparelho: infoDoAparelho(), gps: ref.current.gps, agoraMs: Date.now() }),
+        cadastroVencido: forcarCadastro || Date.now() - ref.current.ultimoCadastro > CADASTRO_A_CADA_MS,
+        lerFotoBase64, aposEnviarFoto: item => apagarFotoLocal(item.caminhoFoto),
+      });
+      if (r.revogado || r.desconhecido) {
+        // Sessão sai; banco e batidas ficam (registro legal) - ver aoParear.
+        await apagarSessao().catch(() => {});
+        ref.current.sessao = null;
+        setFase(r.revogado ? "revogado" : "parear");
       }
-      const envio = await enviarPendentes({ armazem, api });
-      if (envio.semRede) online = false;
-      if (online) await enviarFotos({ armazem, api, lerFotoBase64, aposEnviar: item => apagarFotoLocal(item.caminhoFoto) });
-      await atualizarSituacao(online);
+      if (r.cadastroAtualizado) { ref.current.ultimoCadastro = Date.now(); await relogio.carregar(); setCadastro(await armazem.cadastro()); }
+      const ok = !r.erro;
+      await armazem.gravarEstado("ultima_sincronizacao", { em: Date.now(), ok, erro: ok ? null : String(r.erro).slice(0, 120), ultimoOkEm: ok ? Date.now() : anterior?.ultimoOkEm ?? null });
+      await atualizarSituacao({ online: r.online, aviso: ok ? "" : classificarResposta({ ok: false, status: r.online ? r.status || 500 : 0, error: r.erro }).mensagem });
+    } catch (e) {
+      // Falha inesperada (banco, arquivo...): nada foi apagado; tenta na próxima rodada.
+      await armazem.gravarEstado("ultima_sincronizacao", { em: Date.now(), ok: false, erro: String(e?.message || e).slice(0, 120), ultimoOkEm: anterior?.ultimoOkEm ?? null }).catch(() => {});
+      await atualizarSituacao({ aviso: mensagemDeErro("sincronizacao", e) });
     } finally {
       ref.current.sincronizando = false;
+      const pendente = ref.current.pedirDeNovo;
+      ref.current.pedirDeNovo = null;
+      if (pendente) sincronizar(pendente);
     }
   }, [api, atualizarSituacao]);
 
+  // Inicialização: tudo local - o app abre e bate ponto sem internet.
   useEffect(() => {
+    let cancelado = false;
     (async () => {
       try {
         const armazem = await abrirArmazem();
         const relogio = criarRelogio(armazem);
         await relogio.carregar();
-        Object.assign(ref.current, { armazem, relogio, sessao: await lerSessao() });
+        let sessao = null;
+        try { sessao = await lerSessao(); } catch { sessao = null; }
+        // Bancos de antes desta versão: guarda de qual aparelho são as batidas.
+        if (sessao && !(await armazem.lerEstado("dispositivo_id"))) await armazem.gravarEstado("dispositivo_id", sessao.dispositivoId);
+        if (cancelado) return;
+        Object.assign(ref.current, { armazem, relogio, sessao });
         setCadastro(await armazem.cadastro());
         await atualizarSituacao();
-        carregarModelos().then(setModelos).catch(e => setErroModelos(`Reconhecimento facial não carregou: ${String(e?.message || e).split("\n")[0]}`));
-        setFase(ref.current.sessao ? "ponto" : "parear");
+        setFase(sessao ? "ponto" : "parear");
       } catch (e) {
-        setErroFatal(e?.message || String(e)); setFase("erro");
+        if (cancelado) return;
+        setErroFatal({ texto: mensagemDeErro("banco", e), bancoIlegivel: e?.tipo === "ilegivel" });
+        setFase("erro");
       }
     })();
+    return () => { cancelado = true; };
   }, [atualizarSituacao, tentativa]);
 
-  // Sincronização periódica e posição (registrada na batida, nunca a impede).
+  // Modelos de rosto: independentes do banco; falha só desliga o facial.
   useEffect(() => {
-    if (fase !== "ponto" && fase !== "encarregado") return undefined;
-    sincronizar();
-    const t = setInterval(() => sincronizar(), SINCRONIZAR_A_CADA_MS);
-    let assinatura = null;
-    (async () => {
-      const { granted } = await Location.requestForegroundPermissionsAsync();
-      if (!granted) return;
-      assinatura = await Location.watchPositionAsync({ accuracy: Location.Accuracy.Balanced, timeInterval: 120_000, distanceInterval: 25 },
-        p => { ref.current.gps = { lat: p.coords.latitude, lng: p.coords.longitude, precisao: p.coords.accuracy ?? null }; });
-    })();
-    return () => { clearInterval(t); assinatura?.remove?.(); };
-  }, [fase, sincronizar]);
+    carregarModelos()
+      .then(m => { setModelos(m); setEstadoModelos({ estado: "ok", erro: "" }); })
+      .catch(e => setEstadoModelos({ estado: "erro", erro: mensagemDeErro("modelos", e) }));
+  }, []);
 
-  const registrar = useCallback(async ({ pessoa, identificacao, fotoUri }) => {
-    const { armazem, relogio, sessao } = ref.current;
-    const foto = fotoUri ? await prepararFotoDaBatida(fotoUri) : null;
-    const m = await registrarBatida({
-      armazem, relogio, sha256: sha256Texto, gerarId: Crypto.randomUUID, dispositivoId: sessao.dispositivoId,
-      pessoa, identificacao, gps: ref.current.gps, fotoSha256: foto?.sha256,
-    });
-    if (foto) await armazem.anexarCaminhoFoto(m.id, foto.uri);
+  // Sincronização periódica e posição (registrada na batida, nunca a impede).
+  const ativo = fase === "ponto" || fase === "encarregado";
+  useEffect(() => {
+    if (!ativo) return undefined;
     sincronizar();
-    return { nome: pessoa.nome, cpfMascarado: pessoa.cpfMascarado, marcadoEm: m.marcadoEm, nsr: m.nsr, hash: m.hash, horaConfiavel: m.horaConfiavel };
+    const t = setInterval(() => { sincronizar(); }, SINCRONIZAR_A_CADA_MS);
+    let assinatura = null, encerrado = false;
+    (async () => {
+      try {
+        const { granted } = await Location.requestForegroundPermissionsAsync();
+        if (!granted) { ref.current.gpsEstado = "permissão negada (a batida segue sem GPS)"; return; }
+        // distanceInterval 0: aparelho parado na parede também recebe posição nova.
+        const a = await Location.watchPositionAsync({ accuracy: Location.Accuracy.Balanced, timeInterval: 60_000, distanceInterval: 0 },
+          p => { ref.current.gps = { lat: p.coords.latitude, lng: p.coords.longitude, precisao: p.coords.accuracy ?? null, em: Date.now() }; ref.current.gpsEstado = "ok"; });
+        if (encerrado) a.remove(); else { assinatura = a; ref.current.gpsEstado = ref.current.gps ? "ok" : "aguardando sinal"; }
+      } catch {
+        ref.current.gpsEstado = "localização desligada no aparelho (a batida segue sem GPS)";
+      }
+    })();
+    return () => { encerrado = true; clearInterval(t); try { assinatura?.remove?.(); } catch { /* já removida */ } };
+  }, [ativo, sincronizar]);
+
+  // Batida: foto primeiro (o hash dela entra na batida). Se a foto não puder
+  // ser guardada, a batida é registrada SEM foto e o aviso aparece - a batida
+  // nunca depende da foto. Se a própria batida falhar, o erro sobe para a tela.
+  const registrar = useCallback(async ({ pessoa, identificacao, foto }) => {
+    const { armazem, relogio, sessao } = ref.current;
+    let preparada = null, avisoFoto = "";
+    if (foto?.uri) {
+      try { preparada = await prepararFotoDaBatida(foto.uri, foto.width); }
+      catch { avisoFoto = "A foto não pôde ser guardada no aparelho (armazenamento cheio?). A batida foi registrada sem foto."; }
+    } else if (foto?.falhou) {
+      avisoFoto = "A câmera não tirou a foto. A batida foi registrada sem foto.";
+    }
+    let m;
+    try {
+      m = await registrarBatida({
+        armazem, relogio, sha256: sha256Texto, gerarId: Crypto.randomUUID, dispositivoId: sessao.dispositivoId,
+        pessoa, identificacao, gps: gpsRecente(ref.current.gps, Date.now()), fotoSha256: preparada?.sha256, caminhoFoto: preparada?.uri,
+      });
+    } catch (e) {
+      if (preparada) apagarFotoLocal(preparada.uri);   // foto sem batida não serve para nada
+      throw e;
+    }
+    sincronizar();
+    return { nome: pessoa.nome, cpfMascarado: pessoa.cpfMascarado, marcadoEm: m.marcadoEm, nsr: m.nsr, hash: m.hash, horaConfiavel: m.horaConfiavel, avisoFoto };
   }, [sincronizar]);
 
+  // Pareamento. Banco com batidas de OUTRO aparelho (pareado de novo depois
+  // de revogado): o banco antigo é preservado com outro nome e um novo começa
+  // - as batidas antigas não podem ir com o token novo.
   const aoParear = async sessao => {
+    let { armazem } = ref.current;
+    const dono = await armazem.dispositivoDoBanco();
+    if (dono && dono !== sessao.dispositivoId) {
+      await armazem.fechar();
+      await arquivarBanco("pareamento-anterior");
+      armazem = await abrirArmazem();
+      ref.current.relogio.trocarArmazem(armazem);
+      ref.current.armazem = armazem;
+      ref.current.ultimoCadastro = 0;
+    }
+    await armazem.gravarEstado("dispositivo_id", sessao.dispositivoId);
     await salvarSessao(sessao);
     ref.current.sessao = sessao;
     await sincronizar({ forcarCadastro: true });
+    setCadastro(await armazem.cadastro());
     setFase("ponto");
   };
+
+  const diagnostico = async () => {
+    const { armazem, relogio, sessao } = ref.current;
+    return montarDiagnostico({
+      app: infoDoApp(), aparelho: infoDoAparelho(), sessao,
+      contagem: await armazem.contagem().catch(() => ({})),
+      ultimaSincronizacao: await armazem.lerEstado("ultima_sincronizacao").catch(() => null),
+      modelos: estadoModelos, hora: relogio.agora(), gps: { estado: ref.current.gpsEstado },
+    });
+  };
+
+  const recomecarBancoIlegivel = () => Alert.alert(
+    "Começar um banco novo?",
+    "O arquivo atual NÃO será apagado: fica guardado no aparelho com outro nome para o suporte. Batidas que estavam nele e ainda não tinham sido enviadas não poderão ser enviadas por este aparelho.",
+    [{ text: "Cancelar", style: "cancel" }, {
+      text: "Começar banco novo", style: "destructive",
+      onPress: async () => {
+        try { await arquivarBanco("ilegivel"); } catch { /* tenta abrir mesmo assim */ }
+        setFase("carregando"); setTentativa(n => n + 1);
+      },
+    }],
+  );
 
   let conteudo;
   if (fase === "carregando") conteudo = <View style={[estilos.tela, { justifyContent: "center" }]}><ActivityIndicator size="large" color={COR.ouro} /></View>;
   else if (fase === "erro") conteudo = <View style={[estilos.tela, { justifyContent: "center" }]}>
     <Titulo>O app não abriu</Titulo>
-    <Mensagem tipo="erro">{erroFatal}</Mensagem>
+    <Mensagem tipo="erro">{erroFatal.texto}</Mensagem>
     <Botao titulo="Tentar de novo" onPress={() => { setFase("carregando"); setTentativa(n => n + 1); }} />
+    {erroFatal.bancoIlegivel && <Botao titulo="Guardar banco atual e começar outro" tipo="secundario" onPress={recomecarBancoIlegivel} />}
+  </View>;
+  else if (fase === "revogado") conteudo = <View style={[estilos.tela, { justifyContent: "center" }]}>
+    <Titulo>Aparelho desativado</Titulo>
+    <Texto apagado>Este aparelho foi desativado no ARCD. Nenhuma batida foi apagada: {situacao.pendentes} ainda não enviada(s) continuam guardadas nele. Para voltar a usar, gere um código novo no ARCD.</Texto>
+    <Botao titulo="Parear de novo" onPress={() => setFase("parear")} />
   </View>;
   else if (fase === "parear") conteudo = <TelaPareamento api={api} aoParear={aoParear} />;
   else if (fase === "encarregado") conteudo = <TelaEncarregado cadastro={cadastro} modelos={modelos} registrar={registrar} api={api} obra={ref.current.sessao?.obra}
-    situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} />;
-  else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos} erroModelos={erroModelos}
+    situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico} />;
+  else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos} erroModelos={estadoModelos.estado === "erro" ? estadoModelos.erro : ""}
     cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} />;
 
   return <View style={{ flex: 1, backgroundColor: COR.fundo }}>

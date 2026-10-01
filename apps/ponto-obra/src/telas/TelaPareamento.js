@@ -2,8 +2,8 @@
 // números gerado no ARCD (aba Ponto eletrônico → Parear aparelho).
 import { useState } from "react";
 import { TextInput, View } from "react-native";
-import * as Application from "expo-application";
-import * as Device from "expo-device";
+import { classificarResposta, mensagemDeErro } from "../logica/falhas";
+import { infoDoAparelho, infoDoApp } from "../servicos/conexao";
 import { Botao, COR, Mensagem, Texto, Titulo, estilos } from "../ui";
 
 export default function TelaPareamento({ api, aoParear }) {
@@ -13,14 +13,24 @@ export default function TelaPareamento({ api, aoParear }) {
 
   const parear = async () => {
     setEnviando(true); setErro("");
-    const r = await api("ponto-parear", {
-      codigo,
-      appVersao: Application.nativeApplicationVersion || "",
-      aparelho: { marca: Device.brand, modelo: Device.modelName, android: Device.osVersion },
-    });
-    setEnviando(false);
-    if (!r.ok) { setErro(r.error || "Não foi possível parear."); return; }
-    await aoParear({ token: r.token, dispositivoId: r.dispositivoId, obra: r.obra, nome: r.nome });
+    try {
+      const app = infoDoApp(), aparelho = infoDoAparelho();
+      const r = await api("ponto-parear", {
+        codigo,
+        appVersao: app.build ? `${app.versao} (${app.build})` : app.versao,
+        aparelho: { marca: aparelho.marca, modelo: aparelho.modelo, android: aparelho.android, build: app.build, commit: app.commit },
+      });
+      if (!r.ok) {
+        const c = classificarResposta(r);
+        setErro(c.tipo === "sem_rede" ? "Sem internet. O pareamento precisa de conexão; depois disso o app funciona sem internet." : c.mensagem);
+        return;
+      }
+      await aoParear({ token: r.token, dispositivoId: r.dispositivoId, obra: r.obra, nome: r.nome });
+    } catch (e) {
+      setErro(mensagemDeErro("pareamento", e));
+    } finally {
+      setEnviando(false);
+    }
   };
 
   return (

@@ -88,11 +88,12 @@ describe("aparelho + servidor, ponta a ponta", () => {
 
   it("foto vai depois da batida aceita e precisa ser a mesma registrada", async () => {
     await sincronizarCadastro({ armazem, api, monotonico, sha256 });
-    const b = await bater({ fotoSha256: sha256(JPEG) });
-    await armazem.anexarCaminhoFoto(b.id, "file://foto.jpg");
+    // O caminho da foto vai na MESMA transação da batida (antes era um passo
+    // separado: se o app fechasse no meio, a foto ficava sem dono).
+    const b = await bater({ fotoSha256: sha256(JPEG), caminhoFoto: "file://foto.jpg" });
     expect((await enviarFotos({ armazem, api, lerFotoBase64: async () => JPEG.toString("base64") })).enviadas).toBe(0); // batida ainda não enviada
     await enviarPendentes({ armazem, api });
-    expect(await enviarFotos({ armazem, api, lerFotoBase64: async () => JPEG.toString("base64") })).toEqual({ enviadas: 1, falhas: 0 });
+    expect(await enviarFotos({ armazem, api, lerFotoBase64: async () => JPEG.toString("base64") })).toEqual({ enviadas: 1, falhas: 0, semArquivo: 0, recusadas: 0 });
     expect([...db.arquivos.keys()]).toEqual([`marcacoes/obra-a/2026-10-01/${b.id}.jpg`]);
   });
 

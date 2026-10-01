@@ -14,6 +14,7 @@
 import crypto from "node:crypto";
 import { calcularHashMarcacao, validarMarcacao, verificarCadeia, HASH_INICIAL } from "../../src/domains/ponto-eletronico/marcacao.js";
 import { funcionariosDaObra, terceirizadosDaObra } from "../../src/domains/ponto-eletronico/funcionarios.js";
+import { LIMITE_FOTO_BYTES } from "../../src/domains/ponto-eletronico/foto.js";
 
 export const BUCKET_PONTO = "ponto-obra";
 export const PAPEIS_GESTAO = new Set(["admin", "rh", "engenheiro"]);
@@ -21,7 +22,7 @@ export const PAPEIS_CONSULTA = new Set(["admin", "rh", "engenheiro", "engenheiro
 export const PIN_ITERACOES = 60000;
 const VALIDADE_CODIGO_MS = 30 * 60 * 1000;
 const MAX_MARCACOES_POR_LOTE = 500;
-const MAX_FOTO_BYTES = 1_500_000;
+const MAX_FOTO_BYTES = LIMITE_FOTO_BYTES;  // mesmo limite que o app respeita antes de enviar
 
 const sha256 = valor => crypto.createHash("sha256").update(valor).digest("hex");
 const texto = v => String(v ?? "").trim();
@@ -41,6 +42,14 @@ const decodificarFoto = base64 => {
   if (buffer.length > MAX_FOTO_BYTES) return { invalida: "foto acima de 1,5 MB" };
   return { buffer, sha256: sha256(buffer) };
 };
+
+// Identificação do aparelho que o app manda (ponto-parear / ponto-sincronizar):
+// só campos conhecidos, texto curto - nada pessoal e nada arbitrário no banco.
+const CAMPOS_APARELHO = ["marca", "modelo", "android", "build", "commit"];
+export const limparAparelho = bruto => Object.fromEntries(CAMPOS_APARELHO
+  .filter(k => bruto && typeof bruto === "object" && bruto[k] !== undefined && bruto[k] !== null && texto(bruto[k]))
+  .map(k => [k, texto(bruto[k]).slice(0, 80)]));
+const limparVersao = v => texto(v).slice(0, 40);
 
 const linhaDispositivo = d => ({
   id: d.id, obraId: d.obra_id, nome: d.nome, status: d.status, appVersao: d.app_versao,
@@ -209,7 +218,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const { error: errIns } = await db.from("ponto_dispositivos").insert({
         company_id: company, id, obra_id: par.obra_id, nome: par.nome, token_hash: sha256(token),
         status: "ativo", ultimo_nsr: 0, ultimo_hash: HASH_INICIAL,
-        app_versao: texto(body.appVersao), aparelho: body.aparelho && typeof body.aparelho === "object" ? body.aparelho : {},
+        app_versao: limparVersao(body.appVersao), aparelho: limparAparelho(body.aparelho),
         criado_por: par.criado_por, ultimo_contato_em: agora().toISOString(),
       });
       if (errIns) throw errIns;
@@ -234,9 +243,9 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const vigentes = new Map();
       (bios || []).forEach(b => { if (ids.has(b.employee_id) && !vigentes.has(b.employee_id)) vigentes.set(b.employee_id, b); });
       const update = { ultimo_contato_em: agora().toISOString() };
-      if (texto(body.appVersao)) update.app_versao = texto(body.appVersao);
+      if (limparVersao(body.appVersao)) update.app_versao = limparVersao(body.appVersao);
       if (body.gps && Number.isFinite(Number(body.gps.lat)) && Number.isFinite(Number(body.gps.lng))) update.ultimo_gps = { lat: Number(body.gps.lat), lng: Number(body.gps.lng), precisao: Number(body.gps.precisao) || null, em: agora().toISOString() };
-      if (body.aparelho && typeof body.aparelho === "object") update.aparelho = body.aparelho;
+      if (Object.keys(limparAparelho(body.aparelho)).length) update.aparelho = limparAparelho(body.aparelho);
       const { error: errUp } = await db.from("ponto_dispositivos").update(update).eq("company_id", company).eq("id", dispositivo.id);
       if (errUp) throw errUp;
       const obra = (dados?.obras || []).find(o => String(o.id) === String(obraId));

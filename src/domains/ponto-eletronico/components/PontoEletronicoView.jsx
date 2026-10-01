@@ -135,7 +135,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
               return <div key={d.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "8px 0", borderTop: `1px solid ${C.line}` }}>
                 <div style={{ flex: 1, minWidth: 180 }}>
                   <p style={{ fontSize: 13, fontWeight: 600 }}>{d.nome}</p>
-                  <p style={{ fontSize: 11.5, color: C.muted }}>App {d.appVersao || "-"} · último NSR {d.ultimoNsr}{d.ultimoGps ? <> · <a href={`https://maps.google.com/?q=${d.ultimoGps.lat},${d.ultimoGps.lng}`} target="_blank" rel="noreferrer">localização</a></> : null}</p>
+                  <p style={{ fontSize: 11.5, color: C.muted }}>App {d.appVersao || "-"}{d.aparelho?.modelo ? ` · ${[d.aparelho.marca, d.aparelho.modelo].filter(Boolean).join(" ")}` : ""}{d.aparelho?.android ? ` · Android ${d.aparelho.android}` : ""} · último NSR {d.ultimoNsr}{d.ultimoGps ? <> · <a href={`https://maps.google.com/?q=${d.ultimoGps.lat},${d.ultimoGps.lng}`} target="_blank" rel="noreferrer">localização</a></> : null}</p>
                 </div>
                 <Badge color={corDoTom[s.tom]}>{s.rotulo}</Badge>
                 {podeGerir && d.status === "ativo" && <Btn size="sm" v="ghost" onClick={() => desativar(d)}>Desativar</Btn>}

@@ -43,3 +43,6 @@ yarn-error.*
 # Pastas nativas geradas pela Expo (prebuild) a cada build na EAS
 /android
 /ios
+
+# Saída da validação do bundle na CI
+dist-ci/

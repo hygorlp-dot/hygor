@@ -1,1 +1,1 @@
-export type { LeituraRelogio } from './src/RelogioConfiavelModule';
+export type { LeituraRelogio } from './RelogioConfiavelModule';

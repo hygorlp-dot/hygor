@@ -2,27 +2,29 @@
 // Tudo o que é feito aqui fica registrado com o id do responsável.
 import { useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { CameraView } from "expo-camera";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import RelogioConfiavel from "../../modules/relogio-confiavel";
 import { proximaEsperaPin, verificarPinResponsavel } from "../logica/pin";
 import { vetorDoCadastro } from "../logica/rosto";
+import { PARAMETROS_FACIAIS as P } from "../logica/calibracao";
+import { mensagemDeErro } from "../logica/falhas";
 import { analisarFoto, apagarFotoLocal, lerFotoBase64, prepararFotoDaBatida } from "../servicos/rosto-nativo";
 import { Botao, COR, Mensagem, Painel, Texto, Titulo, estilos } from "../ui";
 import { Comprovante } from "./TelaPonto";
 
 const pbkdf2Hex = (pin, salt, iteracoes) => bytesToHex(pbkdf2(sha256, pin, salt, { c: iteracoes, dkLen: 32 }));
 const INATIVIDADE_MS = 3 * 60_000;
-const CAPTURAS_CADASTRO = 3;
+const CAPTURAS_CADASTRO = P.capturasCadastro;
 
 // Termo de consentimento (LGPD, dado biométrico). Versionado: a versão e o
 // hash do texto vão junto com o cadastro. Revisar com o jurídico.
 export const TERMO_VERSAO = "2026-10";
 export const TERMO_TEXTO = "Autorizo a ARCD a usar a imagem do meu rosto para gerar um código biométrico usado SOMENTE para registrar o meu ponto nas obras da empresa. O código e as fotos ficam protegidos, não são compartilhados com terceiros e serão apagados quando eu deixar a empresa ou se eu pedir. Posso pedir a exclusão a qualquer momento; nesse caso meu ponto passa a ser registrado pelo encarregado.";
 
-export default function TelaEncarregado({ cadastro, modelos, registrar, sincronizarAgora, situacao, fechar, api, obra }) {
+export default function TelaEncarregado({ cadastro, modelos, registrar, sincronizarAgora, situacao, fechar, api, obra, diagnostico }) {
   const [responsavel, setResponsavel] = useState(null);   // { userId, nome } depois do PIN
   const [tela, setTela] = useState("menu");
   const ultimoToque = useRef(Date.now());
@@ -44,14 +46,16 @@ export default function TelaEncarregado({ cadastro, modelos, registrar, sincroni
         <Botao titulo="Registrar ponto de um funcionário" tipo="secundario" onPress={() => setTela("manual")} />
         <Botao titulo="Acesso de terceirizado" tipo="secundario" onPress={() => setTela("terceiro")} />
         <Painel>
-          <Texto>Batidas a enviar: {situacao.pendentes} · fotos: {situacao.fotos}</Texto>
+          <Texto>Batidas a enviar: {situacao.pendentes} · fotos: {situacao.fotos}{situacao.fotosComProblema ? ` · fotos com problema: ${situacao.fotosComProblema}` : ""}</Texto>
           <Texto apagado>Última sincronização: {cadastro?.sincronizadoEm ? new Date(cadastro.sincronizadoEm).toLocaleString("pt-BR") : "nunca"}</Texto>
           <Botao titulo="Sincronizar agora" tipo="secundario" onPress={sincronizarAgora} />
         </Painel>
-        <Botao titulo="Fixar o app na tela" tipo="secundario" onPress={() => RelogioConfiavel.fixarNaTela()} />
+        <Botao titulo="Diagnóstico" tipo="secundario" onPress={() => setTela("diagnostico")} />
+        <Botao titulo="Fixar o app na tela" tipo="secundario" onPress={() => { try { RelogioConfiavel.fixarNaTela(); } catch { /* sem modo quiosque */ } }} />
         <Botao titulo="Sair do modo encarregado" tipo="secundario" onPress={fechar} />
       </ScrollView>}
       {tela === "cadastro" && <CadastroFacial cadastro={cadastro} modelos={modelos} api={api} responsavel={responsavel} aoTerminar={async () => { await sincronizarAgora(); voltar(); }} voltar={voltar} />}
+      {tela === "diagnostico" && <Diagnostico diagnostico={diagnostico} voltar={voltar} />}
       {tela === "manual" && <RegistroPeloEncarregado pessoas={(cadastro?.funcionarios || []).map(f => ({ ...f, tipo: "funcionario" }))} titulo="Registrar ponto de um funcionário" registrar={registrar} responsavel={responsavel} voltar={voltar} obra={obra} />}
       {tela === "terceiro" && <RegistroPeloEncarregado pessoas={(cadastro?.terceirizados || []).map(t => ({ ...t, tipo: "terceiro" }))} titulo="Acesso de terceirizado" registrar={registrar} responsavel={responsavel} voltar={voltar} obra={obra} />}
     </View>
@@ -151,31 +155,38 @@ function CadastroFacial({ cadastro, modelos, api, responsavel, aoTerminar, volta
 
   const capturar = async () => {
     setOcupado(true); setMensagem(null);
+    let crua = null;
     try {
+      if (!modelos) { setMensagem({ tipo: "erro", texto: mensagemDeErro("modelos") }); return; }
+      if (!camera.current) throw new Error("câmera não está pronta");
       const foto = await camera.current.takePictureAsync({ quality: 0.8, shutterSound: false });
+      crua = foto.uri;
       const a = await analisarFoto(modelos, foto);
       if (a.erro) { setMensagem({ tipo: "erro", texto: a.erro }); return; }
-      if (Math.abs(a.giro) > 0.15) { setMensagem({ tipo: "erro", texto: "Peça para olhar de frente para a câmera." }); return; }
+      if (Math.abs(a.giro) > P.giroMaximoDeFrente) { setMensagem({ tipo: "erro", texto: "Peça para olhar de frente para a câmera." }); return; }
       if (!fotoBase64) {
-        const preparada = await prepararFotoDaBatida(foto.uri);
-        setFotoBase64(await lerFotoBase64(preparada.uri));
-        apagarFotoLocal(preparada.uri);
+        const preparada = await prepararFotoDaBatida(foto.uri, foto.width);
+        try { setFotoBase64(await lerFotoBase64(preparada.uri)); } finally { apagarFotoLocal(preparada.uri); }
       }
       setCapturas(c => [...c, a.vetor]);
     } catch (e) {
-      setMensagem({ tipo: "erro", texto: `Falha na captura: ${e?.message || e}` });
-    } finally { setOcupado(false); }
+      setMensagem({ tipo: "erro", texto: mensagemDeErro("camera", e) });
+    } finally { apagarFotoLocal(crua); setOcupado(false); }
   };
 
   const enviar = async () => {
     setOcupado(true);
-    const textoSha256 = bytesToHex(sha256(new TextEncoder().encode(TERMO_TEXTO)));
-    const r = await api("ponto-cadastrar-biometria", {
-      employeeId: pessoa.id, modelo: modelos.modelo, vetor: vetorDoCadastro(capturas), fotos: fotoBase64 ? [fotoBase64] : [],
-      consentimento: { termoVersao: TERMO_VERSAO, aceitoEm, textoSha256 }, responsavelId: responsavel.userId,
-    });
-    setOcupado(false);
-    if (!r.ok) { setMensagem({ tipo: "erro", texto: r.status === 0 ? "O cadastro do rosto precisa de internet. Tente quando o aparelho estiver conectado." : (r.error || "Falha ao cadastrar.") }); return; }
+    let r;
+    try {
+      const textoSha256 = bytesToHex(sha256(new TextEncoder().encode(TERMO_TEXTO)));
+      r = await api("ponto-cadastrar-biometria", {
+        employeeId: pessoa.id, modelo: modelos.modelo, vetor: vetorDoCadastro(capturas), fotos: fotoBase64 ? [fotoBase64] : [],
+        consentimento: { termoVersao: TERMO_VERSAO, aceitoEm, textoSha256 }, responsavelId: responsavel.userId,
+      });
+    } catch (e) {
+      setMensagem({ tipo: "erro", texto: mensagemDeErro("cadastro", e) }); return;
+    } finally { setOcupado(false); }
+    if (!r.ok) { setMensagem({ tipo: "erro", texto: r.status === 0 ? "O cadastro do rosto precisa de internet. Tente quando o aparelho estiver conectado." : r.status >= 500 ? "O ARCD está temporariamente indisponível. Tente de novo em alguns minutos." : (r.error || "Falha ao cadastrar.") }); return; }
     setMensagem({ tipo: "sucesso", texto: `Rosto de ${pessoa.nome} cadastrado.` });
     setTimeout(aoTerminar, 1500);
   };
@@ -194,6 +205,8 @@ function CadastroFacial({ cadastro, modelos, api, responsavel, aoTerminar, volta
 
 function RegistroPeloEncarregado({ pessoas, titulo, registrar, responsavel, voltar, obra }) {
   const camera = useRef(null);
+  const [permissao] = useCameraPermissions();
+  const comCamera = !!permissao?.granted;
   const [pessoa, setPessoa] = useState(null);
   const [comprovante, setComprovante] = useState(null);
   const [ocupado, setOcupado] = useState(false);
@@ -211,20 +224,48 @@ function RegistroPeloEncarregado({ pessoas, titulo, registrar, responsavel, volt
 
   const confirmar = async () => {
     setOcupado(true); setErro("");
+    // A foto é a evidência de quem estava na frente do aparelho - mas câmera
+    // com problema não impede a batida: registra sem foto e avisa.
+    let foto = { falhou: true };
+    if (comCamera && camera.current) {
+      try { foto = await camera.current.takePictureAsync({ quality: 0.8, shutterSound: false }); } catch { foto = { falhou: true }; }
+    }
     try {
-      // A foto é a evidência de quem estava na frente do aparelho.
-      const foto = await camera.current.takePictureAsync({ quality: 0.8, shutterSound: false });
-      setComprovante(await registrar({ pessoa, identificacao: { metodo: "encarregado", encarregadoId: responsavel.userId }, fotoUri: foto.uri }));
-    } catch (e) { setErro(`Não foi possível registrar: ${e?.message || e}`); }
-    finally { setOcupado(false); }
+      setComprovante(await registrar({ pessoa, identificacao: { metodo: "encarregado", encarregadoId: responsavel.userId }, foto }));
+    } catch (e) { setErro(mensagemDeErro("batida", e)); }
+    finally { apagarFotoLocal(foto.uri); setOcupado(false); }
   };
 
   return <>
     <Titulo>{pessoa.nome}</Titulo>
     <Texto apagado>A foto da pessoa fica junto da batida. Identificado por {responsavel.nome}.</Texto>
-    <View style={{ flex: 1, borderRadius: 12, overflow: "hidden" }}><CameraView ref={camera} style={{ flex: 1 }} facing="front" mirror /></View>
+    {comCamera
+      ? <View style={{ flex: 1, borderRadius: 12, overflow: "hidden" }}><CameraView ref={camera} style={{ flex: 1 }} facing="front" mirror /></View>
+      : <Mensagem tipo="aviso">Câmera sem permissão: a batida será registrada sem foto.</Mensagem>}
     {!!erro && <Mensagem tipo="erro">{erro}</Mensagem>}
-    <Botao titulo="Registrar com foto" grande onPress={confirmar} carregando={ocupado} />
+    <Botao titulo={comCamera ? "Registrar com foto" : "Registrar sem foto"} grande onPress={confirmar} carregando={ocupado} />
     <Botao titulo="Voltar" tipo="secundario" onPress={() => setPessoa(null)} />
   </>;
+}
+
+// Diagnóstico do aparelho para o suporte - sem dado pessoal ou biométrico
+// (lista fechada em src/logica/diagnostico.js).
+function Diagnostico({ diagnostico, voltar }) {
+  const [itens, setItens] = useState(null);
+  const [erro, setErro] = useState("");
+  const carregar = () => { setErro(""); diagnostico().then(setItens).catch(() => setErro("Não foi possível ler o diagnóstico.")); };
+  useEffect(carregar, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return <ScrollView contentContainerStyle={{ gap: 10 }}>
+    <Titulo>Diagnóstico</Titulo>
+    {!!erro && <Mensagem tipo="erro">{erro}</Mensagem>}
+    {!itens && !erro && <Texto apagado>Lendo...</Texto>}
+    {itens && <Painel>
+      {itens.map(i => <View key={i.rotulo} style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
+        <Text style={{ color: COR.apagado, fontSize: 15, flexShrink: 0 }}>{i.rotulo}</Text>
+        <Text selectable style={{ color: COR.texto, fontSize: 15, flex: 1, textAlign: "right" }}>{i.valor}</Text>
+      </View>)}
+    </Painel>}
+    <Botao titulo="Atualizar" tipo="secundario" onPress={carregar} />
+    <Botao titulo="Voltar" tipo="secundario" onPress={voltar} />
+  </ScrollView>;
 }

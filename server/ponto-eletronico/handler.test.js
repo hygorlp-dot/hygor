@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
-import { criarTratadorPonto, ehAcaoPonto, hashPin } from "./handler.js";
+import { criarTratadorPonto, ehAcaoPonto, hashPin, limparAparelho } from "./handler.js";
 import { bancoFalso } from "./banco-falso.test-helper.js";
 import { HASH_INICIAL, calcularHashMarcacao } from "../../src/domains/ponto-eletronico/marcacao.js";
 
@@ -147,5 +147,13 @@ describe("ponto eletrônico - servidor", () => {
     expect(status.json.biometrias).toEqual([expect.objectContaining({ employeeId: "e1", cadastradoPor: "u-enc" })]);
     await tratar({ action: "ponto-biometria-excluir", body: { accessToken: "ok", employeeId: "e1" } });
     expect(db.tabelas.ponto_biometrias).toHaveLength(0);
+  });
+});
+
+describe("identificação do aparelho no servidor", () => {
+  it("guarda só campos conhecidos, em texto curto", () => {
+    expect(limparAparelho({ marca: "samsung", modelo: "x".repeat(200), android: 14, serial: "NAO", imei: "NAO", build: null })).toEqual({ marca: "samsung", modelo: "x".repeat(80), android: "14" });
+    expect(limparAparelho("lixo")).toEqual({});
+    expect(limparAparelho(null)).toEqual({});
   });
 });

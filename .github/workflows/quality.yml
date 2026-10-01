@@ -55,6 +55,41 @@ jobs:
       - name: Sintaxe da fronteira de API
         run: node --check api/data.js
 
+  # App Android "Ponto de Obra" (Expo, apps/ponto-obra). Só impede regressão:
+  # NÃO compila nem publica APK (isso é feito à mão na EAS, perfil "piloto").
+  mobile-ponto-obra:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/ponto-obra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/ponto-obra/package-lock.json
+      - name: Instalação limpa do app
+        run: npm ci
+      - name: expo-doctor (versões do SDK 57, config, autolinking)
+        run: npx expo-doctor
+      - name: Bundle Android (Metro + código compartilhado + modelos .tflite)
+        run: |
+          npx expo export --platform android --output-dir dist-ci
+          test "$(grep -o '"ext":"tflite"' dist-ci/metadata.json | wc -l)" -ge 2
+      - name: Prebuild Android descartável (SQLCipher, permissões, autolinking)
+        run: |
+          npx expo prebuild --platform android --no-install --clean
+          node scripts/verificar-prebuild.mjs
+      - name: Instalação da raiz (testes compartilhados)
+        working-directory: .
+        run: npm ci
+      - name: Testes do Ponto de Obra (app, regras compartilhadas e servidor)
+        working-directory: .
+        run: npx vitest run apps/ponto-obra src/domains/ponto-eletronico server/ponto-eletronico
+
   browser-critical-flows:
     runs-on: ubuntu-latest
     steps:

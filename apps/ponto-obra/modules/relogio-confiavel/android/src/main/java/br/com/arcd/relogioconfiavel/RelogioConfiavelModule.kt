@@ -18,12 +18,19 @@ class RelogioConfiavelModule : Module() {
 
     // Lidos no mesmo instante, para a diferença entre eles ser coerente.
     Function("agora") {
+      val monotonico = SystemClock.elapsedRealtime()
+      val parede = System.currentTimeMillis()
       val resolver = appContext.reactContext?.contentResolver
-      val boot = resolver?.let { Settings.Global.getInt(it, Settings.Global.BOOT_COUNT, -1) } ?: -1
+      val boot = resolver?.let { runCatching { Settings.Global.getInt(it, Settings.Global.BOOT_COUNT, -1) }.getOrDefault(-1) } ?: -1
+      // Sem BOOT_COUNT (alguns fabricantes), o id do boot vira o instante
+      // aproximado em que o aparelho ligou (parede - monotônico, em minutos).
+      // Se alguém mudar a hora, esse id muda e a batida sai como "hora não
+      // confiável" até sincronizar - erra para o lado seguro.
+      val bootId = if (boot >= 0) "boot-$boot" else "inicio-" + ((parede - monotonico) / 60_000L)
       mapOf(
-        "monotonicoMs" to SystemClock.elapsedRealtime().toDouble(),
-        "relogioParedeMs" to System.currentTimeMillis().toDouble(),
-        "bootId" to "boot-$boot"
+        "monotonicoMs" to monotonico.toDouble(),
+        "relogioParedeMs" to parede.toDouble(),
+        "bootId" to bootId
       )
     }
 

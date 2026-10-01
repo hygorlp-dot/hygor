@@ -2,12 +2,15 @@
 // O app injeta: armazem (SQLite criptografado), relogio (hora confiável),
 // sha256 (expo-crypto) e gerarId (UUID). As regras do formato e do
 // encadeamento são as MESMAS do servidor (src/domains/ponto-eletronico).
-import { calcularHashMarcacao, validarMarcacao } from "../../../../src/domains/ponto-eletronico/marcacao.js";
+import { calcularHashMarcacao, gpsParaMarcacao, validarMarcacao } from "../../../../src/domains/ponto-eletronico/marcacao.js";
 
 // A batida NUNCA é recusada por falta de internet, hora não sincronizada ou
 // reconhecimento incerto (a Portaria veda restringir a marcação): nesses
 // casos ela sai sinalizada (horaConfiavel=false ou metodo="encarregado").
-export async function registrarBatida({ armazem, relogio, sha256, gerarId, dispositivoId, pessoa, identificacao, gps, fotoSha256 }) {
+// GPS inválido vira "sem GPS" em vez de recusar a batida. caminhoFoto é
+// gravado na MESMA transação da batida: se o app fechar logo depois, a foto
+// continua ligada à batida e entra na fila de envio.
+export async function registrarBatida({ armazem, relogio, sha256, gerarId, dispositivoId, pessoa, identificacao, gps, fotoSha256, caminhoFoto }) {
   const hora = relogio.agora();
   return armazem.transacao(async tx => {
     const ultimo = await tx.ultimaMarcacao();
@@ -27,14 +30,14 @@ export async function registrarBatida({ armazem, relogio, sha256, gerarId, dispo
       metodo: identificacao.metodo,
       confianca: identificacao.confianca ?? null,
       encarregadoId: identificacao.encarregadoId || "",
-      gps: gps || null,
+      gps: gpsParaMarcacao(gps),
       fotoSha256: fotoSha256 || "",
       hashAnterior: ultimo.hash,
     };
     marcacao.hash = await calcularHashMarcacao(marcacao, sha256);
     const v = validarMarcacao(marcacao);
     if (!v.ok) throw new Error(`Batida inválida: ${v.erros.join("; ")}`);
-    await tx.inserirMarcacao(marcacao);
+    await tx.inserirMarcacao(marcacao, { caminhoFoto: fotoSha256 ? caminhoFoto || null : null });
     return marcacao;
   });
 }

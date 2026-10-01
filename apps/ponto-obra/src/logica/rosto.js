@@ -6,13 +6,17 @@
 // Apache-2.0 - ver NOTICE): BlazeFace "front" (MediaPipe, 128x128) para achar
 // o rosto e os olhos, e MobileFaceNet (112x112 -> vetor de 192) para a
 // identidade.
+//
+// Limiares e tolerâncias: src/logica/calibracao.js (centralizados para a
+// homologação de campo). Os valores não mudaram ao serem centralizados.
+import { PARAMETROS_FACIAIS as P } from "./calibracao.js";
 
 // ---------------- BlazeFace (detecção) ----------------
 export const BLAZEFACE = Object.freeze({
   tamanho: 128,
   valoresPorCaixa: 16,      // cx, cy, w, h + 6 pontos (x,y)
   ancoras: 896,
-  scoreMinimo: 0.5,
+  scoreMinimo: P.scoreMinimoDeteccao,
   limiteLogit: 100,
 });
 
@@ -71,7 +75,7 @@ const iou = (a, b) => {
 
 // Agrupa candidatos do mesmo rosto (as âncoras vizinhas disparam juntas) e
 // devolve um rosto por grupo, do mais confiável ao menos.
-export function rostosDistintos(candidatos, limiarIou = 0.3) {
+export function rostosDistintos(candidatos, limiarIou = P.limiarIouMesmoRosto) {
   const ordenados = [...candidatos].sort((a, b) => b.score - a.score);
   const rostos = [];
   for (const c of ordenados) if (!rostos.some(r => iou(r.caixa, c.caixa) > limiarIou)) rostos.push(c);
@@ -151,14 +155,16 @@ export function vetorDoCadastro(capturas) {
 // Identificação 1:N. Só aceita quando o melhor passa do limiar E está
 // claramente à frente do segundo - dois parecidos (irmãos, por exemplo) não
 // viram uma batida no nome errado; vai para o encarregado.
-export const LIMIAR_RECONHECIMENTO = 0.6;
-export const MARGEM_SOBRE_SEGUNDO = 0.08;
+export const LIMIAR_RECONHECIMENTO = P.limiarReconhecimento;
+export const MARGEM_SOBRE_SEGUNDO = P.margemSobreSegundo;
 export function identificar(vetor, cadastros, { limiar = LIMIAR_RECONHECIMENTO, margem = MARGEM_SOBRE_SEGUNDO } = {}) {
   const ranking = (cadastros || [])
     .map(c => ({ employeeId: c.employeeId, similaridade: similaridadeCosseno(vetor, c.vetor) }))
     .sort((a, b) => b.similaridade - a.similaridade);
   const [melhor, segundo] = ranking;
-  if (!melhor || melhor.similaridade < limiar) return { reconhecido: false, motivo: "rosto não cadastrado nesta obra", melhor: melhor || null };
-  if (segundo && melhor.similaridade - segundo.similaridade < margem) return { reconhecido: false, motivo: "rosto parecido com mais de um cadastro", melhor };
-  return { reconhecido: true, employeeId: melhor.employeeId, confianca: Number(melhor.similaridade.toFixed(4)) };
+  // segundo/margemObtida servem só para medir a calibração (relatorio-calibracao.js).
+  const extra = { segundo: segundo || null, margemObtida: melhor && segundo ? melhor.similaridade - segundo.similaridade : null };
+  if (!melhor || melhor.similaridade < limiar) return { reconhecido: false, motivo: "rosto não cadastrado nesta obra", melhor: melhor || null, ...extra };
+  if (segundo && melhor.similaridade - segundo.similaridade < margem) return { reconhecido: false, motivo: "rosto parecido com mais de um cadastro", melhor, ...extra };
+  return { reconhecido: true, employeeId: melhor.employeeId, confianca: Number(melhor.similaridade.toFixed(4)), melhor, ...extra };
 }

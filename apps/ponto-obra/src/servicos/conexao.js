@@ -1,6 +1,8 @@
 // Conexão do aparelho com o ARCD (/api/data, ações ponto-*), sessão do
 // aparelho (token no SecureStore) e relógio confiável.
 import Constants from "expo-constants";
+import * as Application from "expo-application";
+import * as Device from "expo-device";
 import * as SecureStore from "expo-secure-store";
 import RelogioConfiavel from "../../modules/relogio-confiavel";
 import { horaDaMarcacao } from "../../../../src/domains/ponto-eletronico/relogio.js";
@@ -9,10 +11,22 @@ export const URL_API = Constants.expoConfig?.extra?.apiUrl || "https://pontosarc
 const CHAVE_SESSAO = "ponto-obra.sessao";
 const TEMPO_LIMITE_MS = 30_000;
 
+// ---------- identificação do app e do aparelho (sem dado pessoal) ----------
+// commit: injetado no build por app.config.js (EAS_BUILD_GIT_COMMIT_HASH).
+export const infoDoApp = () => ({
+  versao: Application.nativeApplicationVersion || Constants.expoConfig?.version || "",
+  build: Application.nativeBuildVersion || "",
+  commit: Constants.expoConfig?.extra?.commit || "",
+});
+export const infoDoAparelho = () => ({
+  plataforma: "android", marca: Device.brand || Device.manufacturer || "", modelo: Device.modelName || "", android: Device.osVersion || "",
+});
+
 // ---------- sessão do aparelho ----------
 export async function lerSessao() {
   const bruto = await SecureStore.getItemAsync(CHAVE_SESSAO);
-  return bruto ? JSON.parse(bruto) : null;
+  if (!bruto) return null;
+  try { return JSON.parse(bruto); } catch { return null; }  // sessão corrompida = parear de novo
 }
 export async function salvarSessao(sessao) {
   await SecureStore.setItemAsync(CHAVE_SESSAO, JSON.stringify(sessao));
@@ -46,16 +60,23 @@ export function criarApi(obterToken) {
 }
 
 // ---------- relógio confiável ----------
+// Se o módulo nativo falhar, a batida NÃO é impedida: usa o relógio do
+// celular e sai marcada como hora não confiável.
+function leitura() {
+  try { return RelogioConfiavel.agora(); }
+  catch { return { monotonicoMs: NaN, relogioParedeMs: Date.now(), bootId: "indisponivel" }; }
+}
 export function criarRelogio(armazem) {
   let referencia = null;
   return {
     async carregar() { referencia = await armazem.referenciaHora(); },
+    trocarArmazem(novo) { armazem = novo; referencia = null; },
     monotonico() {
-      const l = RelogioConfiavel.agora();
+      const l = leitura();
       return { ms: l.monotonicoMs, bootId: l.bootId };
     },
     agora() {
-      const l = RelogioConfiavel.agora();
+      const l = leitura();
       return { ...horaDaMarcacao({ referencia, monotonicoMs: l.monotonicoMs, bootId: l.bootId, relogioParedeMs: l.relogioParedeMs }), relogioParedeMs: l.relogioParedeMs };
     },
   };

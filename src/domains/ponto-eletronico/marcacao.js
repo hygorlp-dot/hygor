@@ -55,6 +55,17 @@ export async function calcularHashMarcacao(marcacao, hashFn) {
   return String(await hashFn(canonicalizarMarcacao(marcacao))).toLowerCase();
 }
 
+// GPS que pode entrar numa marcação: só {lat, lng, precisao} dentro do
+// intervalo que validarMarcacao aceita; qualquer outra coisa vira null. O
+// aparelho passa o GPS por aqui antes de registrar - GPS estranho nunca pode
+// fazer a batida ser recusada (a Portaria veda restringir a marcação).
+export function gpsParaMarcacao(gps) {
+  if (!gps || typeof gps !== "object") return null;
+  const lat = numeroOuNulo(gps.lat), lng = numeroOuNulo(gps.lng), precisao = numeroOuNulo(gps.precisao);
+  if (lat === null || lng === null || lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng, precisao: precisao !== null && precisao >= 0 ? precisao : null };
+}
+
 // Valida a forma de uma marcação recebida do aparelho. Não confere hash nem
 // sequência (isso depende do histórico - ver verificarCadeia).
 export function validarMarcacao(m) {
