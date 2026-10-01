@@ -1,24 +1,65 @@
 {
   "expo": {
-    "name": "ponto-obra",
+    "name": "Ponto de Obra",
     "slug": "ponto-obra",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "ios": {
-      "supportsTablet": true
-    },
+    "backgroundColor": "#161616",
     "android": {
+      "package": "br.com.arcd.pontoobra",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#161616",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
+    "plugins": [
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
+      ],
+      "expo-secure-store",
+      "expo-asset",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O Ponto de Obra usa a câmera para reconhecer o rosto de quem bate o ponto e guardar a foto como comprovante.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "O Ponto de Obra registra a localização de cada batida para confirmar que o aparelho está na obra."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "backgroundColor": "#161616"
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "https://pontosarcd.vercel.app/api/data"
     }
   }
 }

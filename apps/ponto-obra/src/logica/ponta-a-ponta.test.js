@@ -128,6 +128,19 @@ describe("aparelho + servidor, ponta a ponta", () => {
     expect(db.tabelas.ponto_marcacoes[2].id).toBe(perdida.id);
   });
 
+  it("estado perdido SEM batidas pendentes: a próxima batida continua do NSR do servidor", async () => {
+    await sincronizarCadastro({ armazem, api, monotonico, sha256 });
+    await bater(); await bater(); await bater();
+    await enviarPendentes({ armazem, api });          // servidor em NSR 3
+    armazem = criarArmazemMemoria();
+    armazem.salvarReferenciaHora = async r => { armazem._ref = r; };
+    expect(await sincronizarCadastro({ armazem, api, monotonico, sha256 })).toMatchObject({ cadeiaAlinhada: true, renumeradas: 0 });
+    const proxima = await bater();
+    expect(proxima.nsr).toBe(4);
+    expect((await enviarPendentes({ armazem, api })).erro).toBeNull();
+    expect(db.tabelas.ponto_marcacoes.map(m => m.nsr)).toEqual([1, 2, 3, 4]);
+  });
+
   it("reencadear mantém hora e pessoa, só muda posição e hashes", async () => {
     const [n] = await reencadear([{ id: "x", nsr: 1, marcadoEm: "2026-10-01T10:00:00.000Z", employeeId: "e1", hashAnterior: "0".repeat(64), hash: "a".repeat(64) }], { nsr: 7, hash: "b".repeat(64) }, sha256);
     expect(n).toMatchObject({ id: "x", nsr: 8, hashAnterior: "b".repeat(64), marcadoEm: "2026-10-01T10:00:00.000Z", employeeId: "e1" });

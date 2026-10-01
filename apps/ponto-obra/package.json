@@ -3,10 +3,27 @@
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
+    "@noble/hashes": "^2.4.0",
     "expo": "~57.0.26",
+    "expo-application": "~57.0.3",
+    "expo-asset": "~57.0.18",
+    "expo-camera": "~57.0.6",
+    "expo-constants": "~57.0.20",
+    "expo-crypto": "~57.0.3",
+    "expo-device": "~57.0.2",
+    "expo-file-system": "~57.0.7",
+    "expo-image-manipulator": "~57.0.20",
+    "expo-keep-awake": "~57.0.2",
+    "expo-location": "~57.0.20",
+    "expo-secure-store": "~57.0.4",
+    "expo-splash-screen": "~57.0.9",
+    "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
-    "react-native": "0.86.3"
+    "react-native": "0.86.3",
+    "react-native-fast-tflite": "^3.0.1",
+    "react-native-nitro-modules": "^0.37.1",
+    "upng-js": "^2.1.0"
   },
   "scripts": {
     "start": "expo start",
@@ -14,5 +31,15 @@
     "ios": "expo start --ios",
     "web": "expo start --web"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "react-native-fast-tflite"
+        ],
+        "listUnknownPackages": false
+      }
+    }
+  }
 }

@@ -28,14 +28,14 @@ export async function enviarPendentes({ armazem, api }) {
 
 // Fotos só depois da batida aceita (o servidor confere a foto pelo hash que
 // já está na batida). Foto que falha fica para a próxima rodada.
-export async function enviarFotos({ armazem, api, lerFotoBase64, limite = 20 }) {
+export async function enviarFotos({ armazem, api, lerFotoBase64, aposEnviar = () => {}, limite = 20 }) {
   const fila = await armazem.fotosPendentes(limite);
   let enviadas = 0, falhas = 0;
   for (const item of fila) {
     const foto = await lerFotoBase64(item.caminhoFoto);
     if (!foto) { await armazem.fotoEnviada(item.id); continue; } // arquivo sumiu: não trava a fila
     const r = await api("ponto-enviar-foto", { marcacaoId: item.id, foto });
-    if (r.ok) { await armazem.fotoEnviada(item.id); enviadas++; } else { falhas++; if (r.status === 0) break; }
+    if (r.ok) { await armazem.fotoEnviada(item.id); await aposEnviar(item); enviadas++; } else { falhas++; if (r.status === 0) break; }
   }
   return { enviadas, falhas };
 }
