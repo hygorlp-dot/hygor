@@ -9,7 +9,6 @@
     "backgroundColor": "#161616",
     "android": {
       "package": "br.com.arcd.pontoobra",
-      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#161616",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -59,7 +58,11 @@
       ]
     ],
     "extra": {
-      "apiUrl": "https://pontosarcd.vercel.app/api/data"
-    }
+      "apiUrl": "https://pontosarcd.vercel.app/api/data",
+      "eas": {
+        "projectId": "5e74ab72-e0ab-4215-84f1-b3e4794eb046"
+      }
+    },
+    "owner": "hygorf"
   }
 }
