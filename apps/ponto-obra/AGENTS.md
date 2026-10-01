@@ -19,7 +19,14 @@ Não faça upgrade de major (Expo/RN) sem decisão explícita.
 - **Navegação: máquina de estados em `App.js`** (`carregando → parear | ponto ⇄
   encarregado`, mais `erro` e `revogado`). **Não há Expo Router** e ele não
   deve ser introduzido sem decisão arquitetural explícita.
-- **Telas** em `src/telas/` (Pareamento, Ponto, Encarregado com Diagnóstico).
+- **Telas** em `src/telas/` (Pareamento, Ponto, Comprovante, Encarregado com
+  Sincronização, Cadastro facial e Diagnóstico).
+- **Design system** ARCD Precision / Cupertino Industrial em `src/ui/`
+  (`tokens.js` + componentes em `index.js`), documentado em `DESIGN.md`. Tela
+  não define cor, raio, fonte nem espaço próprio: `src/ui/design-system.test.js`
+  barra. O que cada tela mostra em cada estado (status, fases do
+  reconhecimento, falhas, comprovante, menu) fica em
+  `src/logica/apresentacao.js`, testado no Node.
 - **Lógica pura** (testada no Node) em `src/logica/`: batida (`terminal.js`),
   sincronização e fila (`sincronizacao.js`), contrato do armazém
   (`armazem-memoria.js`), rosto (`rosto.js`), **parâmetros de calibração
