@@ -4,7 +4,7 @@
 // texto, tom, ícone e ações. Nada de pixel.
 import { describe, expect, it } from "vitest";
 import {
-  FASE, PASSO_CADASTRO, casasDoCodigo, emAndamento, falhaNaTela, guiaDaFase, instrucaoDaFase, linhasDoComprovante,
+  FASE, PASSO_CADASTRO, batidasDoDia, casasDoCodigo, falaDeConfirmacao, saudacao, emAndamento, falhaNaTela, guiaDaFase, instrucaoDaFase, linhasDoComprovante,
   passoDoCadastro, rotuloDaCaptura, secoesDoEncarregado, statusDoAparelho, telaSemCamera,
 } from "./apresentacao.js";
 import { montarDiagnostico, secoesDoDiagnostico, ORDEM_SECOES_DIAGNOSTICO } from "./diagnostico.js";
@@ -156,7 +156,7 @@ describe("modo Encarregado", () => {
     const secoes = secoesDoEncarregado({ resumo: { totalFuncionarios: 10, comRosto: 3 }, situacao: { online: true, pendentes: 2 } });
     expect(secoes.map(s => s.titulo)).toEqual(["Cadastros", "Registros", "Sistema"]);
     const linhas = secoes.flatMap(s => s.linhas);
-    expect(linhas.map(l => l.id)).toEqual(["cadastro", "manual", "terceiro", "sincronizacao", "diagnostico", "fixar"]);
+    expect(linhas.map(l => l.id)).toEqual(["cadastro", "manual", "terceiro", "sincronizacao", "diagnostico", "voz", "fixar"]);
     expect(linhas.find(l => l.id === "cadastro").valor).toBe("3 de 10");
     expect(linhas.find(l => l.id === "sincronizacao").valor).toBe("2 pendentes");
     expect(linhas.every(l => l.rotulo.length > 3)).toBe(true);
@@ -222,5 +222,52 @@ describe("diagnóstico em seções", () => {
 
   it("item novo sem seção cai em 'Outros' em vez de sumir", () => {
     expect(secoesDoDiagnostico([{ rotulo: "Campo novo", valor: "x" }])).toEqual([{ titulo: "Outros", itens: [{ rotulo: "Campo novo", valor: "x", mono: false, atencao: false }] }]);
+  });
+});
+
+describe("saudação, voz e batidas do dia (comprovante)", () => {
+  // 10:42Z = 07:42 em Recife (UTC-3).
+  const HOJE = "2026-10-01T10:42:00.000Z";
+  const ev = (marcadoEm, extra = {}) => ({ formatVersion: 2, employeeId: "e1", terceiroId: "", marcadoEm, ...extra });
+
+  it("saudação pelo horário da obra (America/Recife)", () => {
+    expect(saudacao(Date.parse("2026-10-01T10:42:00Z"))).toBe("Bom dia");      // 07:42
+    expect(saudacao(Date.parse("2026-10-01T16:00:00Z"))).toBe("Boa tarde");    // 13:00
+    expect(saudacao(Date.parse("2026-10-01T23:30:00Z"))).toBe("Boa noite");    // 20:30
+    expect(saudacao(Date.parse("2026-10-01T06:00:00Z"))).toBe("Boa noite");    // 03:00
+  });
+
+  it("fala curta só com o primeiro nome", () => {
+    expect(falaDeConfirmacao("João Silva", Date.parse(HOJE))).toBe("Bom dia, João. Ponto registrado.");
+    expect(falaDeConfirmacao("", Date.parse(HOJE))).toBe("Ponto registrado.");
+  });
+
+  it("batidas do dia: só da pessoa, só do dia local, em ordem; ignora outros e legado", () => {
+    const eventos = [
+      ev("2026-10-01T15:01:00.000Z"), ev(HOJE), ev("2026-10-01T16:05:00.000Z"),
+      ev("2026-10-01T02:00:00.000Z"),                       // 23:00 do dia anterior em Recife
+      ev("2026-10-01T12:00:00.000Z", { employeeId: "e2" }),  // outra pessoa
+      { formatVersion: 1, employeeId: "e1", marcadoEm: HOJE }, // legado não entra
+    ];
+    expect(batidasDoDia(eventos, { id: "e1", marcadoEm: HOJE })).toEqual(["07:42", "12:01", "13:05"]);
+    expect(batidasDoDia(eventos, { id: "", marcadoEm: HOJE })).toEqual([]);
+  });
+
+  it("terceirizado é procurado pelo terceiroId", () => {
+    const eventos = [ev(HOJE, { employeeId: "", terceiroId: "t1" }), ev(HOJE)];
+    expect(batidasDoDia(eventos, { tipo: "terceiro", id: "t1", marcadoEm: HOJE })).toEqual(["07:42"]);
+  });
+
+  it("comprovante: saudação com o nome; 'hoje' só quando há mais de uma marcação", () => {
+    const c = { nome: "João Silva", marcadoEm: HOJE, localSequence: 3, hash: "a".repeat(64), horaConfiavel: true };
+    expect(linhasDoComprovante(c).saudacao).toBe("Bom dia, João Silva");
+    expect(linhasDoComprovante({ ...c, batidasHoje: ["07:42"] }).batidasHoje).toEqual([]);
+    expect(linhasDoComprovante({ ...c, batidasHoje: ["07:42", "12:01"] }).batidasHoje).toEqual(["07:42", "12:01"]);
+  });
+
+  it("menu do encarregado mostra o estado da voz por escrito", () => {
+    const voz = s => secoesDoEncarregado({ situacao: s }).at(-1).linhas.find(l => l.id === "voz");
+    expect(voz({ voz: true }).valor).toBe("Ligada");
+    expect(voz({ voz: false }).valor).toBe("Desligada");
   });
 });

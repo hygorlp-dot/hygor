@@ -60,7 +60,7 @@ Nenhum em aberto. Encontrados e corrigidos durante a rodada:
   obrigatório no Android, e a `main` tinha só 20 px de margem inferior: o link
   "Encarregado" e o botão primário podiam ficar sob a barra de 3 botões.
   Correção: margem inferior de 48 (altura dessa barra) em toda `Tela`, e topo
-  com `StatusBar.currentHeight`.
+  com `StatusBar.currentHeight`. Na rodada 2, substituída pela safe area exata.
 - **Mensagem técnica para o trabalhador.** A tela de ponto mostrava
   `mensagemDeErro()` com "(detalhe: …)" vindo do TFLite ou da câmera. Agora usa
   `mensagemParaTrabalhador()`, e o detalhe continua no Diagnóstico.
@@ -78,18 +78,23 @@ Nenhum em aberto. Encontrados e corrigidos durante a rodada:
 - Importar a raiz dos pacotes de fonte embutia as 30 variantes (+6 MB) → só os
   6 pesos usados (+1,2 MB).
 
+### Rodada 2 (01/10/2026, mesmo APK)
+
+Fechados: **safe area exata** (`react-native-safe-area-context` no lugar dos
+48 px fixos), **haptics**, **confirmação por voz** (pode ser desligada),
+**brilho máximo durante a captura**, **saudação e marcações do dia** no
+comprovante e **ícone/splash ARCD** no lugar do ícone padrão do template do
+Expo.
+
 ### P2 (pendências)
 
-- **Safe area exata.** Os 48 px fixos sobram um pouco em aparelhos com gestos.
-  O valor exato exige `react-native-safe-area-context`, uma dependência nativa
-  nova, e fica para uma rodada que já tenha build nativo planejado.
 - **Validação em aparelho real.** A revisão visual foi feita com
   `react-native-web`. Antes do piloto, conferir no aparelho a imagem real da
   câmera, a renderização do IBM Plex no Android, o edge-to-edge e o aumento de
   fonte do sistema (os limites estão em `escalaMax`, mas não foram testados em
   Android).
-- **Haptics.** Não implementado, porque `expo-haptics` seria uma dependência
-  nativa nova. A especificação está no DESIGN.md.
+- **Voz depende do motor TTS do aparelho.** Sem voz pt-BR instalada, o app
+  segue em silêncio. Conferir no aparelho do piloto.
 
 ### P3 (menores)
 

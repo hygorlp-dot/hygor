@@ -15,6 +15,8 @@ import { resumoCadastro } from "../logica/cadastro";
 import { secoesDoDiagnostico } from "../logica/diagnostico";
 import { PASSO_CADASTRO, passoDoCadastro, rotuloDaCaptura, secoesDoEncarregado } from "../logica/apresentacao";
 import { analisarFoto, apagarFotoLocal, lerFotoBase64, prepararFotoDaBatida } from "../servicos/rosto-nativo";
+import { falaDeConfirmacao } from "../logica/apresentacao";
+import { falar, vibrar } from "../servicos/feedback";
 import {
   Botao, BotaoSecundario, BotaoTexto, COR, COR_DO_TOM, Cabecalho, Campo, Corpo, ESPACO, EstadoCentral, Icone, LinhaAjuste,
   Mensagem, MolduraCamera, Passos, Rotulo, Secao, Superficie, TOQUE, Tela, Texto, Titulo,
@@ -30,7 +32,7 @@ const CAPTURAS_CADASTRO = P.capturasCadastro;
 export const TERMO_VERSAO = "2026-10";
 export const TERMO_TEXTO = "Autorizo a ARCD a usar a imagem do meu rosto para gerar um código biométrico usado SOMENTE para registrar o meu ponto nas obras da empresa. O código e as fotos ficam protegidos, não são compartilhados com terceiros e serão apagados quando eu deixar a empresa ou se eu pedir. Posso pedir a exclusão a qualquer momento; nesse caso meu ponto passa a ser registrado pelo encarregado.";
 
-export default function TelaEncarregado({ cadastro, modelos, registrar, sincronizarAgora, situacao, fechar, api, obra, diagnostico }) {
+export default function TelaEncarregado({ cadastro, modelos, registrar, sincronizarAgora, situacao, fechar, api, obra, diagnostico, voz = true, alternarVoz = () => {} }) {
   const [responsavel, setResponsavel] = useState(null);   // { userId, nome } depois do PIN
   const [tela, setTela] = useState("menu");
   const [fixar, setFixar] = useState("");
@@ -45,11 +47,12 @@ export default function TelaEncarregado({ cadastro, modelos, registrar, sincroni
 
   const voltar = () => setTela("menu");
   const abrir = id => {
+    if (id === "voz") { alternarVoz(); return; }
     if (id !== "fixar") { setTela(id); return; }
     try { RelogioConfiavel.fixarNaTela(); setFixar("Pedido enviado: o aplicativo fica fixado na tela. Para soltar, siga a instrução do Android."); }
     catch { setFixar("Este aparelho não permite fixar o aplicativo."); }
   };
-  const secoes = secoesDoEncarregado({ resumo: resumoCadastro(cadastro), situacao });
+  const secoes = secoesDoEncarregado({ resumo: resumoCadastro(cadastro), situacao: { ...situacao, voz } });
   return (
     <View style={estilos.raiz} onTouchStart={tocar}>
       {tela === "menu" && <Tela>
@@ -68,8 +71,8 @@ export default function TelaEncarregado({ cadastro, modelos, registrar, sincroni
       {tela === "cadastro" && <CadastroFacial cadastro={cadastro} modelos={modelos} api={api} responsavel={responsavel} aoTerminar={async () => { await sincronizarAgora(); voltar(); }} voltar={voltar} />}
       {tela === "sincronizacao" && <Sincronizacao cadastro={cadastro} situacao={situacao} sincronizarAgora={sincronizarAgora} voltar={voltar} />}
       {tela === "diagnostico" && <Diagnostico diagnostico={diagnostico} voltar={voltar} />}
-      {tela === "manual" && <RegistroPeloEncarregado pessoas={(cadastro?.funcionarios || []).map(f => ({ ...f, tipo: "funcionario" }))} titulo="Registrar funcionário" registrar={registrar} responsavel={responsavel} voltar={voltar} obra={obra} online={situacao.online} />}
-      {tela === "terceiro" && <RegistroPeloEncarregado pessoas={(cadastro?.terceirizados || []).map(t => ({ ...t, tipo: "terceiro" }))} titulo="Acesso de terceirizado" registrar={registrar} responsavel={responsavel} voltar={voltar} obra={obra} online={situacao.online} />}
+      {tela === "manual" && <RegistroPeloEncarregado pessoas={(cadastro?.funcionarios || []).map(f => ({ ...f, tipo: "funcionario" }))} titulo="Registrar funcionário" registrar={registrar} responsavel={responsavel} voltar={voltar} obra={obra} online={situacao.online} voz={voz} />}
+      {tela === "terceiro" && <RegistroPeloEncarregado pessoas={(cadastro?.terceirizados || []).map(t => ({ ...t, tipo: "terceiro" }))} titulo="Acesso de terceirizado" registrar={registrar} responsavel={responsavel} voltar={voltar} obra={obra} online={situacao.online} voz={voz} />}
     </View>
   );
 }
@@ -239,6 +242,7 @@ function CadastroFacial({ cadastro, modelos, api, responsavel, aoTerminar, volta
     } finally { setOcupado(false); }
     if (!r.ok) { setMensagem({ tom: r.status === 0 ? "atencao" : "erro", texto: r.status === 0 ? "O cadastro do rosto precisa de internet. Tente quando o aparelho estiver conectado." : r.status >= 500 ? "O ARCD está temporariamente indisponível. Tente de novo em alguns minutos." : (r.error || "Falha ao cadastrar.") }); return; }
     setConcluido(true);
+    vibrar("registro");
     setTimeout(aoTerminar, 2000);
   };
 
@@ -258,7 +262,7 @@ function CadastroFacial({ cadastro, modelos, api, responsavel, aoTerminar, volta
   </Tela>;
 }
 
-function RegistroPeloEncarregado({ pessoas, titulo, registrar, responsavel, voltar, obra, online }) {
+function RegistroPeloEncarregado({ pessoas, titulo, registrar, responsavel, voltar, obra, online, voz }) {
   const camera = useRef(null);
   const [permissao] = useCameraPermissions();
   const comCamera = !!permissao?.granted;
@@ -282,8 +286,11 @@ function RegistroPeloEncarregado({ pessoas, titulo, registrar, responsavel, volt
       try { foto = await camera.current.takePictureAsync({ quality: 0.8, shutterSound: false }); } catch { foto = { falhou: true }; }
     }
     try {
-      setComprovante(await registrar({ pessoa, identificacao: { metodo: "encarregado", encarregadoId: responsavel.userId }, foto }));
-    } catch (e) { setErro(mensagemDeErro("batida", e)); }
+      const c = await registrar({ pessoa, identificacao: { metodo: "encarregado", encarregadoId: responsavel.userId }, foto });
+      setComprovante(c);
+      vibrar("registro");
+      if (voz) falar(falaDeConfirmacao(c.nome, Date.parse(c.marcadoEm)));
+    } catch (e) { vibrar("falha"); setErro(mensagemDeErro("batida", e)); }
     finally { apagarFotoLocal(foto.uri); setOcupado(false); }
   };
 
