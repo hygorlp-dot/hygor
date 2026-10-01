@@ -32,7 +32,7 @@ export default function TelaEncarregado({ cadastro, modelos, registrar, sincroni
     return () => clearInterval(t);
   }, [fechar]);
 
-  if (!responsavel) return <EntrarComPin responsaveis={cadastro?.responsaveis || []} aoEntrar={setResponsavel} fechar={fechar} />;
+  if (!responsavel) return <EntrarComPin responsaveis={cadastro?.responsaveis || []} aoEntrar={setResponsavel} fechar={fechar} sincronizarAgora={sincronizarAgora} />;
 
   const voltar = () => setTela("menu");
   return (
@@ -58,13 +58,14 @@ export default function TelaEncarregado({ cadastro, modelos, registrar, sincroni
   );
 }
 
-function EntrarComPin({ responsaveis, aoEntrar, fechar }) {
+function EntrarComPin({ responsaveis, aoEntrar, fechar, sincronizarAgora }) {
   const [escolhido, setEscolhido] = useState(null);
   const [pin, setPin] = useState("");
   const [erro, setErro] = useState("");
   const [erros, setErros] = useState(0);
   const [bloqueadoAte, setBloqueadoAte] = useState(0);
   const [conferindo, setConferindo] = useState(false);
+  const [buscando, setBuscando] = useState(false);
 
   const entrar = () => {
     if (Date.now() < bloqueadoAte) { setErro(`Aguarde ${Math.ceil((bloqueadoAte - Date.now()) / 1000)} s para tentar de novo.`); return; }
@@ -84,7 +85,9 @@ function EntrarComPin({ responsaveis, aoEntrar, fechar }) {
 
   if (!responsaveis.length) return <View style={[estilos.tela, { justifyContent: "center" }]}>
     <Titulo>Sem responsáveis</Titulo>
-    <Texto apagado>Nenhum responsável com PIN do app para esta obra. No ARCD: Ponto eletrônico (app) → Responsáveis com PIN do app. Depois sincronize o aparelho.</Texto>
+    <Texto apagado>Nenhum responsável com PIN do app para esta obra. No ARCD: Ponto eletrônico (app) → Responsáveis com PIN do app. Depois toque em "Buscar no ARCD".</Texto>
+    {/* Só baixa o cadastro da obra: não precisa de PIN e é o único jeito de sair daqui. */}
+    <Botao titulo="Buscar no ARCD" carregando={buscando} onPress={async () => { setBuscando(true); try { await sincronizarAgora(); } finally { setBuscando(false); } }} />
     <Botao titulo="Voltar" tipo="secundario" onPress={fechar} />
   </View>;
 

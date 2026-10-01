@@ -9,7 +9,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { useKeepAwake } from "expo-keep-awake";
 import { identificar, similaridadeCosseno } from "../logica/rosto";
 import { analisarFoto } from "../servicos/rosto-nativo";
-import { Botao, COR, Mensagem, Texto, Titulo, estilos } from "../ui";
+import { Botao, COR, Mensagem, Painel, Texto, Titulo, estilos } from "../ui";
 
 const GIRO_FRENTE = 0.15, GIRO_VIRADO = 0.2, MESMA_PESSOA_VIRADA = 0.35;
 const esperar = ms => new Promise(r => setTimeout(r, ms));
@@ -25,6 +25,12 @@ export default function TelaPonto({ obra, relogio, modelos, erroModelos, cadastr
 
   useEffect(() => { const t = setInterval(() => setAgora(relogio.agora()), 1000); return () => clearInterval(t); }, [relogio]);
   useEffect(() => { if (permissao && !permissao.granted && permissao.canAskAgain) pedirPermissao(); }, [permissao, pedirPermissao]);
+
+  // Obra recém-pareada: sem rosto cadastrado, "Bater ponto" só falharia.
+  const comRosto = new Set((cadastro?.biometrias || []).map(b => b.employeeId)).size;
+  const totalFuncionarios = (cadastro?.funcionarios || []).length;
+  const semRostos = comRosto === 0;
+  const temResponsavel = (cadastro?.responsaveis || []).length > 0;
 
   const falha = (mensagem, extra = {}) => setFluxo({ etapa: "falha", mensagem, ...extra });
   const foto = () => camera.current.takePictureAsync({ quality: 0.8, shutterSound: false });
@@ -74,6 +80,7 @@ export default function TelaPonto({ obra, relogio, modelos, erroModelos, cadastr
         <Text style={{ color: situacao.online ? COR.verde : COR.laranja, fontSize: 14, marginTop: 4 }}>
           {situacao.online ? "Conectado ao ARCD" : "Sem internet - as batidas ficam guardadas"}{situacao.pendentes ? ` · ${situacao.pendentes} a enviar` : ""}{!agora.horaConfiavel ? " · hora aguardando sincronização" : ""}
         </Text>
+        {!semRostos && comRosto < totalFuncionarios && <Text style={{ color: COR.apagado, fontSize: 14 }}>{comRosto} de {totalFuncionarios} funcionários com rosto cadastrado</Text>}
       </View>
 
       <View style={{ flex: 1, borderRadius: 12, overflow: "hidden", backgroundColor: "#000" }}>
@@ -91,7 +98,14 @@ export default function TelaPonto({ obra, relogio, modelos, erroModelos, cadastr
           {fluxo.podeEncarregado && <View style={{ flex: 1 }}><Botao titulo="Chamar encarregado" tipo="secundario" onPress={() => { setFluxo({ etapa: "pronto" }); abrirEncarregado(); }} /></View>}
         </View>
       </View>}
-      {(fluxo.etapa === "pronto" || fluxo.etapa === "analisando") && <Botao titulo="Bater ponto" grande onPress={baterPonto} carregando={fluxo.etapa === "analisando"} />}
+      {semRostos && fluxo.etapa === "pronto" && <Painel>
+        <Titulo style={{ fontSize: 22 }}>Cadastre os rostos da equipe</Titulo>
+        <Texto apagado>{temResponsavel
+          ? "Ninguém desta obra tem rosto cadastrado ainda. O encarregado entra com o PIN e cadastra cada funcionário; depois o ponto é batido olhando para a câmera."
+          : "Primeiro cadastre o PIN do encarregado no ARCD (Ponto eletrônico (app) → Responsáveis com PIN do app). Depois toque abaixo e em \"Buscar no ARCD\"."}</Texto>
+        <Botao titulo="Cadastrar rostos (encarregado)" grande onPress={abrirEncarregado} />
+      </Painel>}
+      {!semRostos && (fluxo.etapa === "pronto" || fluxo.etapa === "analisando") && <Botao titulo="Bater ponto" grande onPress={baterPonto} carregando={fluxo.etapa === "analisando"} />}
 
       <Pressable onPress={abrirEncarregado} accessibilityRole="button" style={{ alignSelf: "flex-end", padding: 10 }}>
         <Text style={{ color: COR.apagado, fontSize: 15 }}>Encarregado</Text>
