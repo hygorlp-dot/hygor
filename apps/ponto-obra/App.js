@@ -16,6 +16,7 @@ import { registrarBatida } from "./src/logica/terminal";
 import { gpsRecente, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./src/logica/sincronizacao";
 import { classificarResposta, mensagemDeErro } from "./src/logica/falhas";
 import { montarDiagnostico } from "./src/logica/diagnostico";
+import { estadoDaReferencia } from "../../src/domains/ponto-eletronico/relogio.js";
 import { apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoApp, lerSessao, salvarSessao } from "./src/servicos/conexao";
 import { apagarFotoLocal, carregarModelos, lerFotoBase64, prepararFotoDaBatida } from "./src/servicos/rosto-nativo";
 import TelaEncarregado from "./src/telas/TelaEncarregado";
@@ -56,7 +57,7 @@ export default function App() {
     const anterior = await armazem.lerEstado("ultima_sincronizacao").catch(() => null);
     try {
       const r = await rodadaDeSincronizacao({
-        armazem, api, sha256: sha256Texto, monotonico: () => relogio.monotonico(),
+        armazem, api, monotonico: () => relogio.monotonico(),
         corpo: montarCorpoSincronizacao({ app: infoDoApp(), aparelho: infoDoAparelho(), gps: ref.current.gps, agoraMs: Date.now() }),
         cadastroVencido: forcarCadastro || Date.now() - ref.current.ultimoCadastro > CADASTRO_A_CADA_MS,
         lerFotoBase64, aposEnviarFoto: item => apagarFotoLocal(item.caminhoFoto),
@@ -69,8 +70,14 @@ export default function App() {
       }
       if (r.cadastroAtualizado) { ref.current.ultimoCadastro = Date.now(); await relogio.carregar(); setCadastro(await armazem.cadastro()); }
       const ok = !r.erro;
-      await armazem.gravarEstado("ultima_sincronizacao", { em: Date.now(), ok, erro: ok ? null : String(r.erro).slice(0, 120), ultimoOkEm: ok ? Date.now() : anterior?.ultimoOkEm ?? null });
-      await atualizarSituacao({ online: r.online, aviso: ok ? "" : classificarResposta({ ok: false, status: r.online ? r.status || 500 : 0, error: r.erro }).mensagem });
+      await armazem.gravarEstado("ultima_sincronizacao", {
+        em: Date.now(), ok, erro: ok ? null : String(r.erro).slice(0, 120), ultimoOkEm: ok ? Date.now() : anterior?.ultimoOkEm ?? null,
+        aguardandoEstabelecimento: !!r.aguardandoEstabelecimento, cadeiaDivergente: !!r.cadeiaDivergente,
+      });
+      const aviso = r.aguardandoEstabelecimento
+        ? "A obra deste aparelho ainda não está ligada a um estabelecimento no ARCD. As batidas ficam guardadas aqui e são enviadas quando o vínculo for feito."
+        : ok ? "" : classificarResposta({ ok: false, status: r.online ? r.status || 500 : 0, error: r.erro }).mensagem;
+      await atualizarSituacao({ online: r.online, aviso });
     } catch (e) {
       // Falha inesperada (banco, arquivo...): nada foi apagado; tenta na próxima rodada.
       await armazem.gravarEstado("ultima_sincronizacao", { em: Date.now(), ok: false, erro: String(e?.message || e).slice(0, 120), ultimoOkEm: anterior?.ultimoOkEm ?? null }).catch(() => {});
@@ -152,8 +159,10 @@ export default function App() {
     }
     let m;
     try {
+      // Estabelecimento que o aparelho já conhece (pode não haver: a ARP resolve).
+      const estabelecimentoId = (await armazem.cadastro().catch(() => null))?.estabelecimento?.id || null;
       m = await registrarBatida({
-        armazem, relogio, sha256: sha256Texto, gerarId: Crypto.randomUUID, dispositivoId: sessao.dispositivoId,
+        armazem, relogio, sha256: sha256Texto, gerarId: Crypto.randomUUID, dispositivoId: sessao.dispositivoId, estabelecimentoId,
         pessoa, identificacao, gps: gpsRecente(ref.current.gps, Date.now()), fotoSha256: preparada?.sha256, caminhoFoto: preparada?.uri,
       });
     } catch (e) {
@@ -161,7 +170,8 @@ export default function App() {
       throw e;
     }
     sincronizar();
-    return { nome: pessoa.nome, cpfMascarado: pessoa.cpfMascarado, marcadoEm: m.marcadoEm, nsr: m.nsr, hash: m.hash, horaConfiavel: m.horaConfiavel, avisoFoto };
+    // Sem NSR aqui: o NSR fiscal só existe depois que a ARP grava o evento.
+    return { nome: pessoa.nome, cpfMascarado: pessoa.cpfMascarado, marcadoEm: m.marcadoEm, localSequence: m.localSequence, eventId: m.eventId, hash: m.localHash, horaConfiavel: m.horaConfiavel, avisoFoto };
   }, [sincronizar]);
 
   // Pareamento. Banco com batidas de OUTRO aparelho (pareado de novo depois
@@ -188,21 +198,35 @@ export default function App() {
 
   const diagnostico = async () => {
     const { armazem, relogio, sessao } = ref.current;
+    const cad = await armazem.cadastro().catch(() => null);
+    const mono = relogio.monotonico();
+    const referencia = estadoDaReferencia({ referencia: await armazem.referenciaHora().catch(() => null), monotonicoMs: mono.ms, bootId: mono.bootId });
     return montarDiagnostico({
+      referencia,
       app: infoDoApp(), aparelho: infoDoAparelho(), sessao,
       contagem: await armazem.contagem().catch(() => ({})),
       ultimaSincronizacao: await armazem.lerEstado("ultima_sincronizacao").catch(() => null),
       modelos: estadoModelos, hora: relogio.agora(), gps: { estado: ref.current.gpsEstado },
+      fiscal: {
+        estabelecimento: cad?.estabelecimento?.nome || null,
+        ultimaSequenciaLocal: (await armazem.ultimoEventoGlobal().catch(() => null))?.localSequence ?? null,
+        ultimoNsr: await armazem.ultimoNsrRecebido().catch(() => null),
+        fonteHora: cad?.tempo?.source || null, statusHora: cad?.tempo?.status || null,
+      },
     });
   };
 
+  // Banco novo = cadeia local nova: o aparelho precisa ser pareado de novo
+  // (vira outro dispositivo no ARCD). Assim a sequência local nunca recomeça
+  // dentro do mesmo dispositivo e nada precisa ser renumerado.
   const recomecarBancoIlegivel = () => Alert.alert(
     "Começar um banco novo?",
-    "O arquivo atual NÃO será apagado: fica guardado no aparelho com outro nome para o suporte. Batidas que estavam nele e ainda não tinham sido enviadas não poderão ser enviadas por este aparelho.",
+    "O arquivo atual NÃO será apagado: fica guardado no aparelho com outro nome para o suporte. Batidas que estavam nele e ainda não tinham sido enviadas não poderão ser enviadas por este aparelho. O aparelho precisará ser pareado de novo com um código do ARCD.",
     [{ text: "Cancelar", style: "cancel" }, {
       text: "Começar banco novo", style: "destructive",
       onPress: async () => {
         try { await arquivarBanco("ilegivel"); } catch { /* tenta abrir mesmo assim */ }
+        try { await apagarSessao(); } catch { /* sem sessão o app pede pareamento */ }
         setFase("carregando"); setTentativa(n => n + 1);
       },
     }],

@@ -42,8 +42,8 @@ Não faça upgrade de major (Expo/RN) sem decisão explícita.
   monotônico (`elapsedRealtime`) + `BOOT_COUNT` para a hora confiável, e
   `fixarNaTela()` (modo quiosque).
 - **Regras compartilhadas com o servidor**: o app importa
-  `../../src/domains/ponto-eletronico` (marcação, hash encadeado, relógio,
-  contrato da foto). `metro.config.js` inclui essa pasta em `watchFolders`.
+  `../../src/domains/ponto-eletronico` (evento local `evento.js`, legado
+  `marcacao.js`, relógio, contrato da foto, estabelecimento, registro fiscal). `metro.config.js` inclui essa pasta em `watchFolders`.
   Mudou regra ali? Ela vale para app **e** servidor.
 - **CNG/EAS**: `android/` e `ios/` são gerados pelo prebuild e **não são
   versionados**. Configuração nativa só por `app.json`/`app.config.js` e
@@ -55,11 +55,23 @@ Não faça upgrade de major (Expo/RN) sem decisão explícita.
 - Batida **nunca** é impedida por falta de internet, GPS, câmera, foto ou
   reconhecimento: sai sinalizada (`horaConfiavel=false`, `metodo=encarregado`,
   sem foto, sem GPS). A Portaria veda restringir a marcação.
-- NSR sequencial por aparelho, hash encadeado, marcação append-only. Só
-  batidas que **nunca saíram** do aparelho podem ser renumeradas
-  (realinhamento), dentro de uma transação.
-- Batida só sai da fila quando o servidor confirma um topo de cadeia que
-  confere com o hash local. Foto só é apagada depois do OK do upload.
+- **Sequência local ≠ NSR.** Referência: `docs/REP-P-ARQUITETURA.md` (raiz).
+  - `localSequence` é sequencial **por aparelho** (1, 2, 3...) e a cadeia de
+    hash local (`localPreviousHash`/`localHash`) continua **por aparelho**.
+  - O **NSR fiscal** é atribuído **só pela ARP no servidor, por
+    estabelecimento** (função `ponto_arp_registrar`, migration 017). O app
+    nunca calcula, simula nem mostra um NSR que a ARP não devolveu.
+  - Evento ainda não sincronizado **não tem NSR** (`nsr` nem existe nele).
+  - A atribuição do NSR **não altera** nenhum dado material do evento: o app
+    guarda NSR e hash fiscal **ao lado**, em colunas próprias.
+  - Nada é renumerado, nunca. Banco local perdido = parear de novo (novo
+    aparelho, nova cadeia). `legado-v1.js` só envia eventos antigos
+    (formato 1) como estão.
+- Evento só sai da fila quando a ARP responde **por aquele `eventId`** com
+  status gravado (idempotente: reenvio devolve o mesmo NSR). Foto só é apagada
+  depois do OK do upload.
+- Marcação append-only no aparelho e na ARP (no banco: triggers bloqueiam
+  UPDATE/DELETE/TRUNCATE; inserção só pela função da ARP).
 - Foto: JPEG ≤ `LIMITE_FOTO_BYTES` (contrato compartilhado); o SHA-256 da
   batida é o dos bytes exatos do arquivo que será enviado.
 
@@ -90,7 +102,15 @@ Testes (rodam pelo Vitest da **raiz** do repositório):
 npx vitest run apps/ponto-obra src/domains/ponto-eletronico server/ponto-eletronico
 ```
 
-Depois do prebuild local, apague `android/` (não é versionado). A CI repete
+Os testes ponta a ponta do app usam Postgres real em memória (PGlite com as
+migrations 016 + 017). A concorrência com conexões paralelas de verdade
+(`server/ponto-eletronico/arp/arp-concorrencia.pg.test.js`) só roda com
+`PONTO_PG_URL` apontando para um Postgres descartável (na CI: job
+`rep-p-arp-postgres`).
+
+Depois do prebuild local, apague `android/` (não é versionado) e desfaça a
+troca que o prebuild faz nos scripts `android`/`ios` do `package.json`
+(`git checkout -- package.json`). A CI repete
 tudo isso no job `mobile-ponto-obra` e **não** publica APK.
 
 Use `npx expo install <pacote>` para dependências (versão compatível com o

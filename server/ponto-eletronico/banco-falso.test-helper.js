@@ -2,7 +2,10 @@
 // server/ponto-eletronico/handler.js - compartilhado pelos testes do servidor
 // e pelo teste ponta a ponta do app (apps/ponto-obra).
 export function bancoFalso() {
-  const tabelas = { ponto_dispositivos: [], ponto_pareamentos: [], ponto_marcacoes: [], ponto_biometrias: [], ponto_responsaveis: [] };
+  // Tabelas da 017 existem vazias aqui: o fluxo formato 2 (ARP) é testado no
+  // Postgres real (banco-pglite.test-helper.js); este banco cobre o legado.
+  const tabelas = { ponto_dispositivos: [], ponto_pareamentos: [], ponto_marcacoes: [], ponto_biometrias: [], ponto_responsaveis: [],
+    ponto_estabelecimentos: [], ponto_estabelecimento_obras: [], ponto_eventos: [], ponto_arp_registros: [], ponto_arp_contadores: [], ponto_tempo_verificacoes: [] };
   const arquivos = new Map();
   const consulta = tabela => {
     const filtros = [];
@@ -35,6 +38,7 @@ export function bancoFalso() {
       gte(k, v) { filtros.push(l => String(l[k]) >= String(v)); return b; },
       lte(k, v) { filtros.push(l => String(l[k]) <= String(v)); return b; },
       is(k, v) { filtros.push(l => (l[k] ?? null) === v); return b; },
+      in(k, lista) { filtros.push(l => lista.map(String).includes(String(l[k]))); return b; },
       order(k, o = {}) { ordem = { k, asc: o.ascending !== false }; return b; },
       limit(n) { limite = n; return b; },
       insert(r) { modo = "insert"; novo = r; return b; },

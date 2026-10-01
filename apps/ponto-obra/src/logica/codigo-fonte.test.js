@@ -51,6 +51,15 @@ describe("código-fonte do app", () => {
     expect(tela).toMatch(/P\.giroMaximoDeFrente/);
   });
 
+  it("REP-P: o aparelho não gera NSR e o guia não volta a instruir NSR por aparelho", () => {
+    const terminal = ler("src/logica/terminal.js");
+    expect(terminal).not.toMatch(/\bnsr\s*:/);
+    expect(terminal).toMatch(/localSequence:/);
+    const guia = ler("AGENTS.md");
+    expect(guia).not.toMatch(/NSR sequencial por aparelho/i);
+    expect(guia).toMatch(/NSR fiscal\*\* é atribuído \*\*só pela ARP/);
+  });
+
   it("configuração Android: sem backup do banco, SQLCipher ligado, sem sobreposição de tela", () => {
     const app = JSON.parse(ler("app.json")).expo;
     expect(app.android.allowBackup).toBe(false);

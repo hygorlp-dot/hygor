@@ -31,7 +31,12 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
   const [pareamento, setPareamento] = useState(null);   // {nome} | {codigo, expiraEm, nome}
   const [pinModal, setPinModal] = useState(null);       // {userId, pin, obras}
   const [detalhe, setDetalhe] = useState(null);         // {marcacao, fotoUrl, carregandoFoto}
+  const [estabelecimentos, setEstabelecimentos] = useState([]);
+  const [repP, setRepP] = useState(null);
+  const [estabModal, setEstabModal] = useState(null);   // formulário do estabelecimento
   const podeGerir = ["admin", "rh", "engenheiro"].includes(currentUser?.role);
+  // Dados fiscais (inscrição, vínculo obra -> estabelecimento): admin e RH.
+  const podeFiscal = ["admin", "rh"].includes(currentUser?.role);
 
   const funcionarios = useMemo(() => funcionariosDaObra(data?.employees, obraId), [data?.employees, obraId]);
   const nomeFuncionario = useMemo(() => new Map((data?.employees || []).map(e => [String(e.id), e.name])), [data?.employees]);
@@ -42,13 +47,15 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
     if (!obraId) return;
     if (!silencioso) setCarregando(true);
     const { de, ate } = intervaloDoDia(dia);
-    const [rDisp, rMarc, rBio, rResp] = await Promise.all([
+    const [rDisp, rMarc, rBio, rResp, rEst] = await Promise.all([
       chamarPontoEletronico("ponto-dispositivos", { obraId }),
       chamarPontoEletronico("ponto-marcacoes", { obraId, de, ate }),
       chamarPontoEletronico("ponto-biometria-status", {}),
       podeGerir ? chamarPontoEletronico("ponto-responsaveis", {}) : Promise.resolve({ ok: true, responsaveis: [] }),
+      chamarPontoEletronico("ponto-estabelecimentos", {}),
     ]);
-    const falha = [rDisp, rMarc, rBio, rResp].find(r => !r.ok);
+    const falha = [rDisp, rMarc, rBio, rResp, rEst].find(r => !r.ok);
+    if (rEst.ok) { setEstabelecimentos(rEst.estabelecimentos || []); setRepP(rEst.repP || null); }
     setErro(falha ? (falha.error || "Não foi possível carregar o ponto eletrônico.") : "");
     if (rDisp.ok) setDispositivos(rDisp.dispositivos || []);
     if (rMarc.ok) setMarcacoes(rMarc.marcacoes || []);
@@ -68,6 +75,25 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
   const bioPorFuncionario = useMemo(() => new Map(biometrias.map(b => [b.employeeId, b])), [biometrias]);
   const semBiometria = funcionarios.filter(f => !bioPorFuncionario.has(f.id)).length;
   const online = dispositivos.filter(d => situacaoAparelho(d).tom === "ok").length;
+  // Estabelecimento fiscal da obra (dono da sequência de NSR) - nunca a obra em si.
+  const estabDaObra = estabelecimentos.find(e => (e.obras || []).includes(String(obraId))) || null;
+  const nomeEstab = useMemo(() => new Map(estabelecimentos.map(e => [e.id, e.nome])), [estabelecimentos]);
+
+  const salvarEstabelecimento = async () => {
+    const { vincular, ...estabelecimento } = estabModal;
+    const r = await chamarPontoEletronico("ponto-estabelecimento-salvar", { estabelecimento });
+    if (!r.ok) { showToast?.(r.error || "Não foi possível salvar o estabelecimento.", "error"); return; }
+    if (vincular) {
+      const v = await chamarPontoEletronico("ponto-estabelecimento-vincular-obra", { obraId, estabelecimentoId: r.estabelecimento.id });
+      if (!v.ok) { showToast?.(v.error || "Estabelecimento salvo, mas a obra não foi vinculada.", "error"); setEstabModal(null); carregar(); return; }
+    }
+    showToast?.("Estabelecimento salvo."); setEstabModal(null); carregar();
+  };
+  const vincularObra = async estabelecimentoId => {
+    const r = await chamarPontoEletronico("ponto-estabelecimento-vincular-obra", { obraId, estabelecimentoId });
+    if (!r.ok) { showToast?.(r.error || "Não foi possível vincular a obra.", "error"); return; }
+    showToast?.(estabelecimentoId ? "Obra vinculada ao estabelecimento. As batidas guardadas nos aparelhos sobem na próxima sincronização." : "Vínculo removido."); carregar();
+  };
 
   const gerarCodigo = async () => {
     const r = await chamarPontoEletronico("ponto-codigo-pareamento", { obraId, nome: pareamento?.nome || "Aparelho da obra" });
@@ -125,6 +151,29 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
 
       {erro && <div role="alert" style={{ ...card, borderColor: C.red, color: C.red, fontSize: 13 }}>{erro}</div>}
 
+      {!estabDaObra && <div role="status" style={{ ...card, borderColor: C.orange, fontSize: 12.5 }}>
+        <b>Obra sem estabelecimento fiscal.</b> O NSR é contado por estabelecimento (CNPJ/CPF): enquanto esta obra não estiver ligada a um, as batidas ficam guardadas nos aparelhos e não recebem NSR.
+        {podeFiscal ? " Ligue a obra a um estabelecimento abaixo." : " Peça ao RH ou ao administrador para fazer o vínculo."}
+      </div>}
+
+      <section style={card} aria-labelledby="pe-estab">
+        <h3 id="pe-estab" style={tituloCard}><Ic n="lock" /> Estabelecimento fiscal (NSR)</h3>
+        {estabDaObra
+          ? <div style={{ fontSize: 12.5, display: "grid", gap: 4 }}>
+            <p><b>{estabDaObra.nome}</b> · {estabDaObra.tipoInscricao ? `${estabDaObra.tipoInscricao.toUpperCase()} ${estabDaObra.numeroInscricao}` : "inscrição não cadastrada"}{estabDaObra.cno ? ` · CNO ${estabDaObra.cno}` : ""} · último NSR {estabDaObra.ultimoNsr}</p>
+            <p style={{ color: C.muted }}>Obras neste estabelecimento: {(estabDaObra.obras || []).map(id => nomeObra.get(String(id)) || id).join(", ")}</p>
+            {!!estabDaObra.pendencias?.length && <p style={{ color: C.orange }}>Pendências: {estabDaObra.pendencias.join("; ")}.</p>}
+          </div>
+          : <p style={{ fontSize: 12.5, color: C.muted }}>Nenhum estabelecimento ligado a esta obra.</p>}
+        {repP && <p style={{ fontSize: 11.5, color: C.muted, marginTop: 6 }}>{repP.rotulo}. Pendências formais: {repP.pendencias.join("; ")}.</p>}
+        {podeFiscal && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginTop: 10 }}>
+          {!!estabelecimentos.length && <div style={{ minWidth: 220 }}><Sel label="Estabelecimento desta obra" value={estabDaObra?.id || ""} onChange={vincularObra}
+            options={[{ v: "", l: "Nenhum" }, ...estabelecimentos.map(e => ({ v: e.id, l: e.nome }))]} /></div>}
+          {estabDaObra && <Btn size="sm" v="ghost" onClick={() => setEstabModal({ ...estabDaObra })}>Editar estabelecimento</Btn>}
+          <Btn size="sm" v="ghost" onClick={() => setEstabModal({ nome: "", tipoInscricao: "cnpj", numeroInscricao: "", cno: "", caepf: "", timezone: "America/Recife", ativo: true, vincular: !estabDaObra })}><Ic n="plus" /> Novo estabelecimento</Btn>
+        </div>}
+      </section>
+
       <section style={card} aria-labelledby="pe-aparelhos">
         <h3 id="pe-aparelhos" style={tituloCard}><Ic n="smartphone" /> Aparelhos da obra</h3>
         {!dispositivos.length
@@ -135,7 +184,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
               return <div key={d.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "8px 0", borderTop: `1px solid ${C.line}` }}>
                 <div style={{ flex: 1, minWidth: 180 }}>
                   <p style={{ fontSize: 13, fontWeight: 600 }}>{d.nome}</p>
-                  <p style={{ fontSize: 11.5, color: C.muted }}>App {d.appVersao || "-"}{d.aparelho?.modelo ? ` · ${[d.aparelho.marca, d.aparelho.modelo].filter(Boolean).join(" ")}` : ""}{d.aparelho?.android ? ` · Android ${d.aparelho.android}` : ""} · último NSR {d.ultimoNsr}{d.ultimoGps ? <> · <a href={`https://maps.google.com/?q=${d.ultimoGps.lat},${d.ultimoGps.lng}`} target="_blank" rel="noreferrer">localização</a></> : null}</p>
+                  <p style={{ fontSize: 11.5, color: C.muted }}>App {d.appVersao || "-"}{d.aparelho?.modelo ? ` · ${[d.aparelho.marca, d.aparelho.modelo].filter(Boolean).join(" ")}` : ""}{d.aparelho?.android ? ` · Android ${d.aparelho.android}` : ""} · sequência local {d.ultimaSequenciaLocal}{d.estabelecimentoId ? ` · ${nomeEstab.get(d.estabelecimentoId) || "estabelecimento"}` : ""}{d.ultimoGps ? <> · <a href={`https://maps.google.com/?q=${d.ultimoGps.lat},${d.ultimoGps.lng}`} target="_blank" rel="noreferrer">localização</a></> : null}</p>
                 </div>
                 <Badge color={corDoTom[s.tom]}>{s.rotulo}</Badge>
                 {podeGerir && d.status === "ativo" && <Btn size="sm" v="ghost" onClick={() => desativar(d)}>Desativar</Btn>}
@@ -231,6 +280,22 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
         </div>
       </Modal>}
 
+      {estabModal && <Modal title={estabModal.id ? "Editar estabelecimento" : "Novo estabelecimento"} onClose={() => setEstabModal(null)}>
+        <div style={{ display: "grid", gap: 10 }}>
+          <p style={{ fontSize: 12, color: C.muted }}>O NSR é contado por estabelecimento. Preencha só o que já tiver: inscrição, CNO e CAEPF podem ser informados depois.</p>
+          <Inp label="Nome" value={estabModal.nome} onChange={v => setEstabModal(e => ({ ...e, nome: v }))} />
+          <Sel label="Tipo de inscrição" value={estabModal.tipoInscricao || ""} onChange={v => setEstabModal(e => ({ ...e, tipoInscricao: v }))} options={[{ v: "", l: "Ainda não informada" }, { v: "cnpj", l: "CNPJ" }, { v: "cpf", l: "CPF" }]} />
+          {estabModal.tipoInscricao && <Inp label={`Número do ${estabModal.tipoInscricao.toUpperCase()}`} value={estabModal.numeroInscricao || ""} onChange={v => setEstabModal(e => ({ ...e, numeroInscricao: v }))} />}
+          <Inp label="CNO (obra de construção civil, 12 dígitos)" value={estabModal.cno || ""} onChange={v => setEstabModal(e => ({ ...e, cno: v }))} />
+          <Inp label="CAEPF (14 dígitos)" value={estabModal.caepf || ""} onChange={v => setEstabModal(e => ({ ...e, caepf: v }))} />
+          <Inp label="Fuso horário" value={estabModal.timezone || "America/Recife"} onChange={v => setEstabModal(e => ({ ...e, timezone: v }))} />
+          {!estabModal.id && <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5 }}>
+            <input type="checkbox" checked={!!estabModal.vincular} onChange={ev => setEstabModal(e => ({ ...e, vincular: ev.target.checked }))} /> Ligar a obra {nomeObra.get(String(obraId))} a este estabelecimento
+          </label>}
+          <Btn onClick={salvarEstabelecimento} disabled={!String(estabModal.nome || "").trim()}>Salvar</Btn>
+        </div>
+      </Modal>}
+
       {detalhe && <Modal title={`Batida de ${nomeFuncionario.get(String(detalhe.marcacao.employeeId)) || "funcionário"}`} onClose={() => setDetalhe(null)}>
         <div style={{ display: "grid", gap: 8, fontSize: 12.5 }}>
           {detalhe.carregandoFoto ? <p style={{ color: C.muted }}>Carregando foto...</p>
@@ -239,7 +304,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
           <p><b>Horário:</b> {dataLocal(detalhe.marcacao.marcadoEm).split("-").reverse().join("/")} {horaLocal(detalhe.marcacao.marcadoEm)} (horário da obra)</p>
           <p><b>Identificação:</b> {detalhe.marcacao.metodo === "facial" ? `reconhecimento facial${detalhe.marcacao.confianca != null ? ` (${Math.round(detalhe.marcacao.confianca * 100)}%)` : ""}` : `pelo encarregado ${nomeUsuario.get(String(detalhe.marcacao.encarregadoId)) || ""}`}</p>
           <p><b>Hora:</b> {detalhe.marcacao.horaConfiavel ? "confirmada pela hora do servidor" : "do relógio do celular (aparelho sem sincronizar desde que ligou)"}{detalhe.marcacao.relogioAlterado ? " · o relógio do celular estava alterado (a batida usou a hora do servidor)" : ""}</p>
-          <p><b>NSR:</b> {detalhe.marcacao.nsr} · <b>Aparelho:</b> {dispositivos.find(d => d.id === detalhe.marcacao.dispositivoId)?.nome || "-"}</p>
+          <p><b>NSR:</b> {detalhe.marcacao.nsr ?? (detalhe.marcacao.formato === 1 ? "não tem (registro do formato antigo)" : "ainda não atribuído")} · <b>Registro nº</b> {detalhe.marcacao.localSequence} do aparelho {dispositivos.find(d => d.id === detalhe.marcacao.dispositivoId)?.nome || "-"}</p>
           {detalhe.marcacao.gps && <p><b>Local:</b> <a href={`https://maps.google.com/?q=${detalhe.marcacao.gps.lat},${detalhe.marcacao.gps.lng}`} target="_blank" rel="noreferrer">ver no mapa</a> (precisão {Math.round(detalhe.marcacao.gps.precisao || 0)} m)</p>}
         </div>
       </Modal>}

@@ -1,3 +1,8 @@
+// FORMATO 1 - LEGADO. Modelo atual: evento.js (sequência local) +
+// registro-fiscal.js (NSR fiscal por estabelecimento, atribuído pela ARP).
+// Aqui o campo "nsr" é a SEQUÊNCIA DO APARELHO (legacyDeviceSequence), não o
+// NSR fiscal - código novo deve ler por sequenciaLegadaDoAparelho().
+//
 // Marcação de ponto do app "Ponto de Obra" (REP-P, Portaria MTP 671/2021).
 //
 // Módulo puro, compartilhado pelo servidor (api/data.js → server/ponto-
@@ -14,6 +19,11 @@
 //   (fase 2), preservando a original.
 
 export const METODOS_IDENTIFICACAO = Object.freeze(["facial", "encarregado"]);
+
+// legacyDeviceSequence: o "nsr" de um registro formato 1. Era a numeração do
+// aparelho e continua sendo SÓ isso - nunca usar como NSR fiscal (que é por
+// estabelecimento e só existe depois da ARP).
+export const sequenciaLegadaDoAparelho = m => Number(m?.nsr);
 export const TIPOS_REGISTRO = Object.freeze(["ponto", "acesso_terceiro"]);
 export const HASH_INICIAL = "0".repeat(64);
 

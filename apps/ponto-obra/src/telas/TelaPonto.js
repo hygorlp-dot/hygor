@@ -158,8 +158,9 @@ export function Comprovante({ c, obra }) {
       <Text style={{ color: COR.verde, fontSize: 18, fontWeight: "600" }}>Ponto registrado</Text>
       <Text style={{ color: COR.texto, fontSize: 22 }}>{c.nome}</Text>
       <Text style={{ color: COR.texto, fontSize: 30, fontVariant: ["tabular-nums"] }}>{fmtHora(Date.parse(c.marcadoEm))}</Text>
-      <Text style={{ color: COR.apagado, fontSize: 14 }}>{obra?.nome} · NSR {c.nsr} · {c.cpfMascarado || "CPF não informado"}</Text>
+      <Text style={{ color: COR.apagado, fontSize: 14 }}>{obra?.nome} · registro nº {c.localSequence} deste aparelho · {c.cpfMascarado || "CPF não informado"}</Text>
       <Text style={{ color: COR.apagado, fontSize: 12 }}>Código do registro: {c.hash.slice(0, 16)}{c.horaConfiavel ? "" : " · hora do aparelho (será conferida)"}</Text>
+      <Text style={{ color: COR.apagado, fontSize: 12 }}>O NSR é atribuído pelo ARCD quando o aparelho sincroniza.</Text>
       {!!c.avisoFoto && <Text style={{ color: COR.laranja, fontSize: 14 }}>{c.avisoFoto}</Text>}
     </View>
   );

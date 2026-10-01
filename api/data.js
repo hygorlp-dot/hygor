@@ -77,6 +77,8 @@ import { buildClientPortalPublicationRows } from "../server/client-portal-public
 import { sanitizeClientError } from "../server/client-error-report.js";
 import { authenticateAppUser } from "./auth.js";
 import { criarTratadorPonto, ehAcaoPonto } from "../server/ponto-eletronico/handler.js";
+import { enviarUdpComDgram, verificarHora } from "../server/ponto-eletronico/tempo/ntp.js";
+import dgram from "node:dgram";
 
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;   // sem REACT_APP_ — server-side
@@ -495,8 +497,11 @@ const lerBasePonto = async () => {
   if (error) throw error;
   return data ? decodeAppData(data.value) : {};
 };
+// Hora do ponto: relógio do host + medição periódica contra o NTP.br (HLB)
+// gravada por "ponto-tempo-verificar" (rotina agendada ou admin).
 const tratarAcaoPonto = criarTratadorPonto({
   db, company: COMPANY, lerDados: lerBasePonto,
+  verificarHoraNtp: () => verificarHora({ enviarUdp: enviarUdpComDgram(dgram) }),
   autenticarUsuario: body => authenticateAppUser(
     { userId: body.userId, pin: body.pin, accessToken: body.accessToken }, { scope: "ponto-eletronico" }),
 });
@@ -1310,7 +1315,7 @@ export default async function handler(req, res) {
     // App "Ponto de Obra" (REP-P): ações próprias, sem rota nova na Vercel.
     // A gestão de ponto atual (attendance) não passa por aqui.
     if(ehAcaoPonto(action)){
-      const resposta=await tratarAcaoPonto({action,body:req.body||{},headers:req.headers||{}});
+      const resposta=await tratarAcaoPonto({action,body:req.body||{},headers:req.headers||{},cron:cronAutorizado(req)});
       return res.status(resposta.status).json(resposta.json);
     }
     if (action === "client-portal") {

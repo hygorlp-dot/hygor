@@ -1,156 +1,117 @@
 // @vitest-environment node
 //
-// Aparelho e servidor juntos: as batidas são montadas pela lógica real do
-// app (terminal.js) e enviadas pela sincronização real (sincronizacao.js)
-// ao tratador real do servidor (server/ponto-eletronico/handler.js), sobre
-// um banco em memória. Se o formato ou o encadeamento divergir entre os dois
-// lados, este teste quebra.
-import { createHash, pbkdf2Sync, randomUUID } from "node:crypto";
-import { beforeEach, describe, expect, it } from "vitest";
-import { criarTratadorPonto } from "../../../../server/ponto-eletronico/handler.js";
-import { bancoFalso } from "../../../../server/ponto-eletronico/banco-falso.test-helper.js";
-import { horaDaMarcacao } from "../../../../src/domains/ponto-eletronico/relogio.js";
-import { criarArmazemMemoria } from "./armazem-memoria.js";
-import { registrarBatida } from "./terminal.js";
-import { enviarFotos, enviarPendentes, reencadear, sincronizarCadastro } from "./sincronizacao.js";
+// Aparelho e servidor juntos: os eventos são montados pela lógica real do
+// app (terminal.js) e enviados pela sincronização real (sincronizacao.js) ao
+// tratador real do servidor (server/ponto-eletronico/handler.js), que grava
+// num Postgres real (PGlite com as migrations 016 + 017). Se o formato, o
+// encadeamento ou o contrato eventId -> NSR divergir entre os lados, quebra.
+import { pbkdf2Sync } from "node:crypto";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { enviarFotos, enviarPendentes, sincronizarCadastro } from "./sincronizacao.js";
 import { proximaEsperaPin, verificarPinResponsavel } from "./pin.js";
+import { JPEG, criarAparelho, criarCenario, sha256 } from "./cenario.test-helper.js";
 
-const sha256 = v => createHash("sha256").update(v).digest("hex");
+vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
 const pbkdf2Hex = (pin, salt, it) => pbkdf2Sync(pin, salt, it, 32, "sha256").toString("hex");
-const DADOS = {
-  obras: [{ id: "obra-a", name: "Residencial Alameda" }],
-  usuarios: [{ id: "u-admin", role: "admin", nome: "Admin", active: true }, { id: "u-enc", role: "user", nome: "Encarregado", active: true }],
-  employees: [{ id: "e1", name: "Zé Pedreiro", cpf: "123.456.789-09", obra: "obra-a", active: true }],
-  terceirizados: [{ id: "t1", name: "Elétrica X", obraId: "obra-a" }],
-};
-const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 7, 7, 7]);
 
-let db, tratar, armazem, api, relogioServidor, monotonicoMs, bootId, dispositivoId;
-const monotonico = () => ({ ms: monotonicoMs, bootId });
-const relogio = () => ({
-  agora: () => {
-    const parede = relogioServidor + 60_000; // celular 1 min adiantado
-    return { ...horaDaMarcacao({ referencia: armazem._ref, monotonicoMs, bootId, relogioParedeMs: parede }), relogioParedeMs: parede };
-  },
-});
-
-beforeEach(async () => {
-  db = bancoFalso();
-  relogioServidor = Date.parse("2026-10-01T10:00:00.000Z");
-  monotonicoMs = 5_000_000; bootId = "boot-1";
-  tratar = criarTratadorPonto({ db, company: "arcd", lerDados: async () => DADOS, agora: () => new Date(relogioServidor),
-    autenticarUsuario: async b => (b.accessToken === "admin" ? DADOS.usuarios[0] : null) });
-  const { json: { codigo } } = await tratar({ action: "ponto-codigo-pareamento", body: { accessToken: "admin", obraId: "obra-a", nome: "Portaria" } });
-  const par = await tratar({ action: "ponto-parear", body: { codigo } });
-  dispositivoId = par.json.dispositivoId;
-  let online = true;
-  api = async (action, corpo) => {
-    if (!online) return { ok: false, status: 0, error: "sem rede" };
-    const r = await tratar({ action, body: corpo, headers: { authorization: `Bearer ${par.json.token}` } });
-    return { ok: r.status === 200, status: r.status, ...r.json };
-  };
-  api.desligar = () => { online = false; };
-  api.ligar = () => { online = true; };
-  armazem = criarArmazemMemoria();
-  const salvar = armazem.salvarReferenciaHora;
-  armazem.salvarReferenciaHora = async r => { armazem._ref = r; return salvar(r); };
-  await tratar({ action: "ponto-responsavel-pin", body: { accessToken: "admin", userId: "u-enc", pin: "2468", obras: ["obra-a"] } });
-});
-
-const bater = (extra = {}) => registrarBatida({
-  armazem, relogio: relogio(), sha256, gerarId: randomUUID, dispositivoId,
-  pessoa: { tipo: "funcionario", id: "e1", cpf: "12345678909" }, identificacao: { metodo: "facial", confianca: 0.88 },
-  gps: { lat: -8.28, lng: -35.97, precisao: 10 }, ...extra,
-});
+let s, a;
+beforeEach(async () => { ({ s, a } = await criarCenario()); });
+const sincronizar = (ap = a) => sincronizarCadastro({ armazem: ap.armazem, api: ap.api, monotonico: ap.monotonico });
+const enviar = (ap = a, extra = {}) => enviarPendentes({ armazem: ap.armazem, api: ap.api, ...extra });
 
 describe("aparelho + servidor, ponta a ponta", () => {
-  it("sincroniza a base única, bate offline com a hora do servidor e envia tudo quando a rede volta", async () => {
-    const s = await sincronizarCadastro({ armazem, api, monotonico, sha256 });
-    expect(s.ok).toBe(true);
-    expect((await armazem.cadastro()).funcionarios.map(f => f.id)).toEqual(["e1"]);
+  it("sincroniza a base única, bate offline com a hora do servidor e a ARP atribui o NSR quando a rede volta", async () => {
+    const r = await sincronizar();
+    expect(r).toMatchObject({ ok: true, cadeiaDivergente: false });
+    expect(r.estabelecimento).toMatchObject({ id: s.estabelecimentoA });
+    expect((await a.armazem.cadastro()).funcionarios.map(f => f.id)).toEqual(["e2", "e1"]);
 
-    api.desligar();
-    monotonicoMs += 2 * 3_600_000; relogioServidor += 2 * 3_600_000;  // 2 h depois, sem internet
-    const b1 = await bater();
-    monotonicoMs += 4 * 3_600_000; relogioServidor += 4 * 3_600_000;
-    const b2 = await bater();
-    expect(b1.marcadoEm).toBe("2026-10-01T12:00:00.000Z");  // hora do servidor, não a do celular adiantado
-    expect(b1.horaConfiavel).toBe(true);
-    expect((await enviarPendentes({ armazem, api })).semRede).toBe(true);
+    a.online = false;
+    a.passar(2 * 3_600_000);
+    const b1 = await a.bater();
+    a.passar(4 * 3_600_000);
+    const b2 = await a.bater();
+    expect(b1.marcadoEm).toBe("2026-10-01T12:00:00.000Z");   // hora do servidor, não a do celular adiantado
+    expect(b1).toMatchObject({ horaConfiavel: true, localSequence: 1, formatVersion: 2 });
+    expect(b1).not.toHaveProperty("nsr");                      // evento local não tem NSR
+    expect((await enviar()).semRede).toBe(true);
 
-    api.ligar();
-    const r = await enviarPendentes({ armazem, api });
-    expect(r).toMatchObject({ enviadas: 2, erro: null });
-    expect(db.tabelas.ponto_marcacoes.map(m => [m.nsr, m.employee_id, m.obra_id])).toEqual([[1, "e1", "obra-a"], [2, "e1", "obra-a"]]);
-    expect(db.tabelas.ponto_dispositivos[0].ultimo_hash).toBe(b2.hash);
-    expect(await armazem.marcacoesPendentes(10)).toEqual([]);
+    a.online = true;
+    expect(await enviar()).toMatchObject({ enviadas: 2, erro: null });
+    const fiscais = await s.fiscais(s.estabelecimentoA);
+    expect(fiscais.map(f => [Number(f.nsr), f.event_id, Number(f.local_sequence)])).toEqual([[1, b1.eventId, 1], [2, b2.eventId, 2]]);
+    expect(await a.armazem.registroFiscal(b1.eventId)).toMatchObject({ nsr: 1, fiscalHash: fiscais[0].fiscal_hash, estabelecimentoId: s.estabelecimentoA });
+    expect(await a.armazem.eventosPendentes(10)).toEqual([]);
   });
 
-  it("foto vai depois da batida aceita e precisa ser a mesma registrada", async () => {
-    await sincronizarCadastro({ armazem, api, monotonico, sha256 });
-    // O caminho da foto vai na MESMA transação da batida (antes era um passo
-    // separado: se o app fechasse no meio, a foto ficava sem dono).
-    const b = await bater({ fotoSha256: sha256(JPEG), caminhoFoto: "file://foto.jpg" });
-    expect((await enviarFotos({ armazem, api, lerFotoBase64: async () => JPEG.toString("base64") })).enviadas).toBe(0); // batida ainda não enviada
-    await enviarPendentes({ armazem, api });
-    expect(await enviarFotos({ armazem, api, lerFotoBase64: async () => JPEG.toString("base64") })).toEqual({ enviadas: 1, falhas: 0, semArquivo: 0, recusadas: 0 });
-    expect([...db.arquivos.keys()]).toEqual([`marcacoes/obra-a/2026-10-01/${b.id}.jpg`]);
+  it("a sincronização não muda nada do evento: só guarda NSR e hash fiscal ao lado", async () => {
+    await sincronizar();
+    const b = await a.bater();
+    const antes = JSON.stringify((await a.armazem.eventosPendentes(1))[0]);
+    await enviar();
+    const depois = a.armazem.eventos.find(e => e.eventId === b.eventId);
+    const { enviada, fotoEstado, caminhoFoto, fiscal, motivoFoto, ...material } = depois;
+    expect(JSON.stringify(material)).toBe(antes);
+    expect(fiscal.nsr).toBe(1);
+    const [noServidor] = await s.eventos();
+    expect(noServidor.local_hash).toBe(b.localHash);
+  });
+
+  it("foto vai depois do evento gravado e precisa ser a mesma registrada", async () => {
+    await sincronizar();
+    // O caminho da foto vai na MESMA transação do evento.
+    const b = await a.bater({ fotoSha256: sha256(JPEG), caminhoFoto: "file://foto.jpg" });
+    expect((await enviarFotos({ armazem: a.armazem, api: a.api, lerFotoBase64: async () => JPEG.toString("base64") })).enviadas).toBe(0);
+    await enviar();
+    expect(await enviarFotos({ armazem: a.armazem, api: a.api, lerFotoBase64: async () => JPEG.toString("base64") })).toEqual({ enviadas: 1, falhas: 0, semArquivo: 0, recusadas: 0 });
+    expect([...s.db.arquivos.keys()]).toEqual([`marcacoes/obra-a/2026-10-01/${b.eventId}.jpg`]);
   });
 
   it("aparelho reiniciado sem sincronizar: bate com o relógio do celular e sinaliza", async () => {
-    await sincronizarCadastro({ armazem, api, monotonico, sha256 });
-    bootId = "boot-2"; monotonicoMs = 1_000;
-    const b = await bater();
-    expect(b.horaConfiavel).toBe(false);
-    expect((await enviarPendentes({ armazem, api })).erro).toBeNull();
-    expect(db.tabelas.ponto_marcacoes[0].hora_confiavel).toBe(false);
+    await sincronizar();
+    a.bootId = "boot-2"; a.monotonicoMs = 1_000;
+    const b = await a.bater();
+    expect(b).toMatchObject({ horaConfiavel: false, fonteHora: "relogio-do-aparelho", idadeReferenciaMs: null });
+    expect((await enviar()).erro).toBeNull();
+    const [e] = await s.eventos();
+    expect(e).toMatchObject({ hora_confiavel: false, fonte_hora: "relogio-do-aparelho" });
   });
 
-  it("acesso de terceirizado entra separado do ponto CLT", async () => {
-    await sincronizarCadastro({ armazem, api, monotonico, sha256 });
-    await registrarBatida({ armazem, relogio: relogio(), sha256, gerarId: randomUUID, dispositivoId,
-      pessoa: { tipo: "terceiro", id: "t1" }, identificacao: { metodo: "encarregado", encarregadoId: "u-enc" } });
-    await enviarPendentes({ armazem, api });
-    expect(db.tabelas.ponto_marcacoes[0]).toMatchObject({ tipo_registro: "acesso_terceiro", terceiro_id: "t1", employee_id: null });
+  it("acesso de terceirizado é gravado sem consumir NSR", async () => {
+    await sincronizar();
+    await a.bater({ pessoa: { tipo: "terceiro", id: "t1" }, identificacao: { metodo: "encarregado", encarregadoId: "u-enc" } });
+    const p = await a.bater();
+    await enviar();
+    const [t] = await s.eventos();
+    expect(t).toMatchObject({ tipo_registro: "acesso_terceiro", terceiro_id: "t1", employee_id: null });
+    expect((await s.fiscais(s.estabelecimentoA)).map(f => [Number(f.nsr), f.event_id])).toEqual([[1, p.eventId]]);
   });
 
-  it("estado do aparelho perdido: batidas não enviadas são renumeradas depois do servidor, nunca descartadas", async () => {
-    await sincronizarCadastro({ armazem, api, monotonico, sha256 });
-    await bater(); await bater();
-    await enviarPendentes({ armazem, api });          // servidor em NSR 2
-    armazem = criarArmazemMemoria();                  // aparelho "perdeu" o banco local
-    armazem.salvarReferenciaHora = async r => { armazem._ref = r; };
-    const perdida = await bater();                    // NSR 1 de novo, localmente
-    expect(perdida.nsr).toBe(1);
-    const s = await sincronizarCadastro({ armazem, api, monotonico, sha256 });
-    expect(s).toMatchObject({ cadeiaAlinhada: true, renumeradas: 1 });
-    expect((await enviarPendentes({ armazem, api })).erro).toBeNull();
-    expect(db.tabelas.ponto_marcacoes.map(m => m.nsr)).toEqual([1, 2, 3]);
-    expect(db.tabelas.ponto_marcacoes[2].id).toBe(perdida.id);
-  });
-
-  it("estado perdido SEM batidas pendentes: a próxima batida continua do NSR do servidor", async () => {
-    await sincronizarCadastro({ armazem, api, monotonico, sha256 });
-    await bater(); await bater(); await bater();
-    await enviarPendentes({ armazem, api });          // servidor em NSR 3
-    armazem = criarArmazemMemoria();
-    armazem.salvarReferenciaHora = async r => { armazem._ref = r; };
-    expect(await sincronizarCadastro({ armazem, api, monotonico, sha256 })).toMatchObject({ cadeiaAlinhada: true, renumeradas: 0 });
-    const proxima = await bater();
-    expect(proxima.nsr).toBe(4);
-    expect((await enviarPendentes({ armazem, api })).erro).toBeNull();
-    expect(db.tabelas.ponto_marcacoes.map(m => m.nsr)).toEqual([1, 2, 3, 4]);
-  });
-
-  it("reencadear mantém hora e pessoa, só muda posição e hashes", async () => {
-    const [n] = await reencadear([{ id: "x", nsr: 1, marcadoEm: "2026-10-01T10:00:00.000Z", employeeId: "e1", hashAnterior: "0".repeat(64), hash: "a".repeat(64) }], { nsr: 7, hash: "b".repeat(64) }, sha256);
-    expect(n).toMatchObject({ id: "x", nsr: 8, hashAnterior: "b".repeat(64), marcadoEm: "2026-10-01T10:00:00.000Z", employeeId: "e1" });
-    expect(n.hash).not.toBe("a".repeat(64));
+  it("banco do aparelho perdido: não se renumera nada - novo pareamento é outro aparelho, com cadeia própria", async () => {
+    await sincronizar();
+    await a.bater(); await a.bater();
+    await enviar();
+    // Banco local some mas a sessão (token) sobrevive: o servidor sabe que a
+    // cadeia local deste aparelho já foi até 2 e o app SINALIZA, sem renumerar.
+    a.novoArmazem();
+    expect(await sincronizar()).toMatchObject({ ok: true, cadeiaDivergente: true });
+    const perdida = await a.bater();
+    expect(perdida.localSequence).toBe(1);
+    const r = await enviar();
+    expect(r).toMatchObject({ status: "conflito" });
+    expect((await a.armazem.eventosPendentes(5)).map(e => e.eventId)).toEqual([perdida.eventId]);   // guardada, intacta
+    // Caminho previsto: parear de novo = outro aparelho, sequência local própria.
+    const novo = await criarAparelho(s, { obraId: "obra-a", nome: "Portaria (novo banco)" });
+    await sincronizar(novo);
+    const nb = await novo.bater();
+    expect(nb.localSequence).toBe(1);
+    expect((await enviar(novo)).erro).toBeNull();
+    expect((await s.fiscais(s.estabelecimentoA)).map(f => Number(f.nsr))).toEqual([1, 2, 3]);
   });
 
   it("PIN do encarregado confere offline contra o hash que veio do servidor", async () => {
-    await sincronizarCadastro({ armazem, api, monotonico, sha256 });
-    const { responsaveis } = await armazem.cadastro();
+    await sincronizar();
+    const { responsaveis } = await a.armazem.cadastro();
     expect(verificarPinResponsavel("2468", responsaveis, pbkdf2Hex)).toEqual({ userId: "u-enc", nome: "Encarregado" });
     expect(verificarPinResponsavel("1111", responsaveis, pbkdf2Hex)).toBeNull();
     expect(proximaEsperaPin(4)).toBe(0);

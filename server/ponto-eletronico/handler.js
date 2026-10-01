@@ -8,17 +8,29 @@
 //   sincronizar cadastro e hora, enviar marcações, fotos e biometria.
 //
 // Funcionários vêm da base única do ARCD (data.employees) - o app não tem
-// cadastro próprio. Marcações: forma e hash conferidos aqui
-// (src/domains/ponto-eletronico/marcacao.js), sequência garantida no banco
-// (ponto_registrar_marcacoes, migration 016).
+// cadastro próprio.
+//
+// Registros de ponto (docs/REP-P-ARQUITETURA.md):
+// - formato 2 (atual): o aparelho manda EVENTOS com sequência local; a ARP
+//   (./arp/) atribui o NSR fiscal POR ESTABELECIMENTO numa transação do banco
+//   (ponto_arp_registrar, migration 017) e responde por evento;
+// - formato 1 (LEGADO, apps antigos): "nsr" por aparelho em ponto_marcacoes
+//   (migration 016) - continua aceito para não perder batida, sem NSR fiscal.
+// A hora vem da fonte de hora oficial (./tempo/), não de new Date() solto.
 import crypto from "node:crypto";
-import { calcularHashMarcacao, validarMarcacao, verificarCadeia, HASH_INICIAL } from "../../src/domains/ponto-eletronico/marcacao.js";
+import { calcularHashMarcacao, validarMarcacao, verificarCadeia, HASH_INICIAL, sequenciaLegadaDoAparelho } from "../../src/domains/ponto-eletronico/marcacao.js";
 import { funcionariosDaObra, terceirizadosDaObra } from "../../src/domains/ponto-eletronico/funcionarios.js";
 import { LIMITE_FOTO_BYTES } from "../../src/domains/ponto-eletronico/foto.js";
+import { validarEstabelecimento, pendenciasFiscais } from "../../src/domains/ponto-eletronico/estabelecimento.js";
+import { situacaoRepP } from "../../src/domains/ponto-eletronico/rep-p.js";
+import { criarArp } from "./arp/arp.js";
+import { POLITICA_PADRAO, criarFonteHora } from "./tempo/fonte-hora.js";
 
 export const BUCKET_PONTO = "ponto-obra";
 export const PAPEIS_GESTAO = new Set(["admin", "rh", "engenheiro"]);
 export const PAPEIS_CONSULTA = new Set(["admin", "rh", "engenheiro", "engenheiro_auditor", "financeiro"]);
+// Dados fiscais do estabelecimento (inscrição, CNO...): só admin e RH.
+export const PAPEIS_FISCAL = new Set(["admin", "rh"]);
 export const PIN_ITERACOES = 60000;
 const VALIDADE_CODIGO_MS = 30 * 60 * 1000;
 const MAX_MARCACOES_POR_LOTE = 500;
@@ -54,19 +66,80 @@ const limparVersao = v => texto(v).slice(0, 40);
 const linhaDispositivo = d => ({
   id: d.id, obraId: d.obra_id, nome: d.nome, status: d.status, appVersao: d.app_versao,
   aparelho: d.aparelho || {}, ultimoContatoEm: d.ultimo_contato_em, ultimoGps: d.ultimo_gps,
-  ultimoNsr: Number(d.ultimo_nsr || 0), criadoEm: d.criado_em, criadoPor: d.criado_por, revogadoEm: d.revogado_em,
+  estabelecimentoId: d.estabelecimento_id || null,
+  // Sequência LOCAL do aparelho (não é NSR). A "legada" é a do formato 1.
+  ultimaSequenciaLocal: Number(d.ultima_sequencia_local || 0), ultimaSequenciaLegada: Number(d.ultimo_nsr || 0),
+  criadoEm: d.criado_em, criadoPor: d.criado_por, revogadoEm: d.revogado_em,
 });
 
+// Formato 1 (LEGADO): o "nsr" gravado era a sequência do aparelho - sai como
+// sequência local; NSR fiscal não existe para esses registros.
 const linhaMarcacao = m => ({
-  id: m.id, dispositivoId: m.dispositivo_id, obraId: m.obra_id, nsr: Number(m.nsr), tipoRegistro: m.tipo_registro,
+  id: m.id, eventId: m.id, formato: 1, dispositivoId: m.dispositivo_id, obraId: m.obra_id,
+  nsr: null, localSequence: sequenciaLegadaDoAparelho(m), legacyDeviceSequence: sequenciaLegadaDoAparelho(m),
+  estabelecimentoId: null, fiscalHash: null, situacaoFiscal: "legado_sem_nsr",
+  tipoRegistro: m.tipo_registro,
   employeeId: m.employee_id, terceiroId: m.terceiro_id, marcadoEm: m.marcado_em, horaConfiavel: m.hora_confiavel,
   relogioAlterado: m.relogio_alterado, metodo: m.metodo, confianca: m.confianca === null ? null : Number(m.confianca),
   encarregadoId: m.encarregado_id, gps: m.gps, temFoto: !!m.foto_sha256, recebidoEm: m.recebido_em,
 });
 
+// Formato 2: evento local + (se for ponto aceito) registro fiscal da ARP.
+const linhaEvento = ({ evento: e, fiscal: f }) => ({
+  id: e.event_id, eventId: e.event_id, formato: 2, dispositivoId: e.dispositivo_id, obraId: e.obra_id,
+  nsr: f ? Number(f.nsr) : null, localSequence: Number(e.local_sequence), estabelecimentoId: e.estabelecimento_id || null,
+  fiscalHash: f?.fiscal_hash || null, gravadoEm: f?.gravado_em || null,
+  situacaoFiscal: f ? "registrado" : e.tipo_registro === "acesso_terceiro" ? "acesso_sem_nsr" : "sem_nsr",
+  tipoRegistro: e.tipo_registro, employeeId: e.employee_id, terceiroId: e.terceiro_id, marcadoEm: e.marcado_em,
+  horaConfiavel: e.hora_confiavel, relogioAlterado: e.relogio_alterado, fonteHora: e.fonte_hora,
+  idadeReferenciaMs: e.idade_referencia_ms === null ? null : Number(e.idade_referencia_ms),
+  metodo: e.metodo, confianca: e.confianca === null ? null : Number(e.confianca),
+  encarregadoId: e.encarregado_id, gps: e.gps, temFoto: !!e.foto_sha256, recebidoEm: e.recebido_em,
+});
+
+const linhaEstabelecimento = (e, obras = []) => ({
+  id: e.id, nome: e.nome, tipoInscricao: e.tipo_inscricao, numeroInscricao: e.numero_inscricao,
+  cno: e.cno, caepf: e.caepf, cei: e.cei, timezone: e.timezone, ativo: e.ativo, obras,
+});
+
 const caminhoFotoMarcacao = (obraId, marcadoEm, id) => `marcacoes/${obraId}/${String(marcadoEm).slice(0, 10)}/${id}.jpg`;
 
-export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, agora = () => new Date() }) {
+// fonteHora: fonte de hora oficial (tempo/fonte-hora.js). Sem ela, monta a
+// padrão (relógio do host + última verificação NTP gravada). "agora" só
+// existe para os testes fixarem o relógio do host.
+// verificarHoraNtp: async () => medição (tempo/ntp.js verificarHora), usada
+// pela ação ponto-tempo-verificar.
+export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO }) {
+  const fonte = fonteHora || criarFonteHora({
+    relogioHost: agoraDoHost ? () => agoraDoHost().getTime() : () => Date.now(),
+    politica: politicaHora,
+    ultimaVerificacao: async () => {
+      const { data, error } = await db.from("ponto_tempo_verificacoes").select("*").eq("ok", true).order("verificado_em", { ascending: false }).limit(1);
+      if (error) throw error;
+      const v = data?.[0];
+      return v ? { ok: true, servidor: v.servidor, verificadoEm: v.verificado_em, offsetMs: Number(v.offset_ms), incertezaMs: v.incerteza_ms === null ? null : Number(v.incerteza_ms) } : null;
+    },
+  });
+  const agora = () => fonte.agora();
+  const arp = criarArp({ db, company, fonteHora: fonte, hashFn: sha256 });
+
+  // Estabelecimento do aparelho: o já fixado nele, ou o da obra (vínculo do
+  // ARCD). Obra sem vínculo = sem estabelecimento (as batidas esperam no
+  // aparelho; nunca se usa a obra como estabelecimento).
+  const estabelecimentoDoAparelho = async dispositivo => {
+    let id = dispositivo.estabelecimento_id || null;
+    if (!id) {
+      const { data, error } = await db.from("ponto_estabelecimento_obras").select("estabelecimento_id")
+        .eq("company_id", company).eq("obra_id", dispositivo.obra_id).maybeSingle();
+      if (error) throw error;
+      id = data?.estabelecimento_id || null;
+    }
+    if (!id) return null;
+    const { data: e, error } = await db.from("ponto_estabelecimentos").select("*").eq("company_id", company).eq("id", id).maybeSingle();
+    if (error) throw error;
+    return e ? { id: e.id, nome: e.nome, ativo: e.ativo, timezone: e.timezone } : null;
+  };
+
   const doUsuario = async (body, papeis) => {
     const usuario = await autenticarUsuario(body);
     if (!usuario) return { falha: erro(401, "Sessão inválida.") };
@@ -82,6 +155,17 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
     if (!data) return { falha: erro(401, "Aparelho não reconhecido. Pareie de novo pelo ARCD.", { code: "APARELHO_DESCONHECIDO" }) };
     if (data.status !== "ativo") return { falha: erro(403, "Este aparelho foi desativado no ARCD.", { code: "APARELHO_REVOGADO" }) };
     return { dispositivo: data };
+  };
+
+  // Evento/marcação para foto: formato 2 (event_id) ou legado (id).
+  const localizarParaFoto = async id => {
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+    const atual = await arp.localizarEvento(id);
+    if (atual) return { id: atual.event_id, obra_id: atual.obra_id, marcado_em: atual.marcado_em, foto_sha256: atual.foto_sha256, dispositivo_id: atual.dispositivo_id };
+    const { data, error } = await db.from("ponto_marcacoes").select("id,obra_id,marcado_em,foto_sha256,dispositivo_id")
+      .eq("company_id", company).eq("id", id).maybeSingle();
+    if (error) throw error;
+    return data;
   };
 
   const acoes = {
@@ -131,15 +215,16 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       if (texto(body.employeeId)) consulta = consulta.eq("employee_id", texto(body.employeeId));
       const { data, error } = await consulta.order("marcado_em", { ascending: false }).limit(2000);
       if (error) throw error;
-      return ok({ marcacoes: (data || []).map(linhaMarcacao), servidorMs: agora().getTime() });
+      const atuais = await arp.consultar({ obraId: body.obraId, de, ate, employeeId: body.employeeId });
+      const marcacoes = [...atuais.map(linhaEvento), ...(data || []).map(linhaMarcacao)]
+        .sort((a, b) => String(b.marcadoEm).localeCompare(String(a.marcadoEm)));
+      return ok({ marcacoes, servidorMs: agora().getTime() });
     },
 
     async "ponto-foto-url"({ body }) {
       const { falha } = await doUsuario(body, PAPEIS_CONSULTA);
       if (falha) return falha;
-      const { data: m, error } = await db.from("ponto_marcacoes").select("id,obra_id,marcado_em,foto_sha256")
-        .eq("company_id", company).eq("id", texto(body.marcacaoId)).maybeSingle();
-      if (error) throw error;
+      const m = await localizarParaFoto(texto(body.marcacaoId));
       if (!m?.foto_sha256) return erro(404, "Marcação sem foto.");
       const assinada = await db.storage.from(BUCKET_PONTO).createSignedUrl(caminhoFotoMarcacao(m.obra_id, m.marcado_em, m.id), 300);
       if (assinada.error) return erro(404, "A foto ainda não chegou do aparelho.");
@@ -195,6 +280,107 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       return ok({ excluida: true });
     },
 
+    // ---------------- estabelecimento fiscal ----------------
+    async "ponto-estabelecimentos"({ body }) {
+      const { falha } = await doUsuario(body, PAPEIS_CONSULTA);
+      if (falha) return falha;
+      const [{ data: ests, error: e1 }, { data: vinc, error: e2 }, { data: conts, error: e3 }] = await Promise.all([
+        db.from("ponto_estabelecimentos").select("*").eq("company_id", company).order("nome", { ascending: true }),
+        db.from("ponto_estabelecimento_obras").select("obra_id,estabelecimento_id").eq("company_id", company),
+        db.from("ponto_arp_contadores").select("estabelecimento_id,ultimo_nsr").eq("company_id", company),
+      ]);
+      if (e1) throw e1;
+      if (e2) throw e2;
+      if (e3) throw e3;
+      const lista = (ests || []).map(e => {
+        const obras = (vinc || []).filter(v => v.estabelecimento_id === e.id).map(v => v.obra_id);
+        const l = linhaEstabelecimento(e, obras);
+        return { ...l, ultimoNsr: Number((conts || []).find(c => c.estabelecimento_id === e.id)?.ultimo_nsr || 0), pendencias: pendenciasFiscais(l) };
+      });
+      return ok({ estabelecimentos: lista, repP: situacaoRepP() });
+    },
+
+    async "ponto-estabelecimento-salvar"({ body }) {
+      const { usuario, falha } = await doUsuario(body, PAPEIS_FISCAL);
+      if (falha) return falha;
+      const v = validarEstabelecimento(body.estabelecimento || {});
+      if (!v.ok) return erro(400, v.erros.join("; "));
+      const e = v.estabelecimento;
+      const linha = {
+        nome: e.nome, tipo_inscricao: e.tipoInscricao, numero_inscricao: e.numeroInscricao,
+        cno: e.cno, caepf: e.caepf, cei: e.cei, timezone: e.timezone, ativo: e.ativo,
+      };
+      if (e.id) {
+        const { data, error } = await db.from("ponto_estabelecimentos")
+          .update({ ...linha, atualizado_por: String(usuario.id), atualizado_em: agora().toISOString() })
+          .eq("company_id", company).eq("id", e.id).select("*");
+        if (error) throw error;
+        if (!data?.length) return erro(404, "Estabelecimento não encontrado.");
+        return ok({ estabelecimento: linhaEstabelecimento(data[0]) });
+      }
+      const id = crypto.randomUUID();
+      const { error } = await db.from("ponto_estabelecimentos").insert({ company_id: company, id, ...linha, criado_por: String(usuario.id) });
+      if (error) throw error;
+      return ok({ estabelecimento: linhaEstabelecimento({ id, ...linha }) });
+    },
+
+    // Liga (ou desliga, com estabelecimentoId vazio) uma obra a um
+    // estabelecimento. Aparelho que já gravou registro num estabelecimento
+    // fica nele: trocar a obra de estabelecimento depois disso exige parear
+    // os aparelhos de novo.
+    async "ponto-estabelecimento-vincular-obra"({ body }) {
+      const { usuario, falha } = await doUsuario(body, PAPEIS_FISCAL);
+      if (falha) return falha;
+      const obraId = texto(body.obraId), estabId = texto(body.estabelecimentoId) || null;
+      const dados = await lerDados();
+      if (!(dados?.obras || []).some(o => String(o.id) === obraId)) return erro(400, "Obra não encontrada.");
+      const { data: fixos, error: eF } = await db.from("ponto_dispositivos").select("id,estabelecimento_id")
+        .eq("company_id", company).eq("obra_id", obraId);
+      if (eF) throw eF;
+      if ((fixos || []).some(d => d.estabelecimento_id && d.estabelecimento_id !== estabId)) {
+        return erro(409, "Esta obra já tem aparelho com registros em outro estabelecimento. Pareie os aparelhos de novo antes de trocar.");
+      }
+      if (!estabId) {
+        const { error } = await db.from("ponto_estabelecimento_obras").delete().eq("company_id", company).eq("obra_id", obraId);
+        if (error) throw error;
+        return ok({ obraId, estabelecimentoId: null });
+      }
+      const { error } = await db.from("ponto_estabelecimento_obras").upsert(
+        { company_id: company, obra_id: obraId, estabelecimento_id: estabId, vinculado_por: String(usuario.id), vinculado_em: agora().toISOString() },
+        { onConflict: "company_id,obra_id" });
+      if (error) throw error;
+      return ok({ obraId, estabelecimentoId: estabId });
+    },
+
+    // ---------------- fonte de hora ----------------
+    async "ponto-tempo-status"({ body }) {
+      const { falha } = await doUsuario(body, PAPEIS_CONSULTA);
+      if (falha) return falha;
+      const { data, error } = await db.from("ponto_tempo_verificacoes").select("*").order("verificado_em", { ascending: false }).limit(10);
+      if (error) throw error;
+      return ok({ tempo: await fonte.evidencia(), verificacoes: data || [] });
+    },
+
+    // Mede o relógio do servidor contra o NTP.br (HLB). Chamada pela rotina
+    // agendada (cron) ou por admin. Só grava a medição - não ajusta relógio.
+    async "ponto-tempo-verificar"({ body, cron }) {
+      if (!cron) {
+        const { usuario, falha } = await doUsuario(body, PAPEIS_FISCAL);
+        if (falha) return falha;
+        if (usuario.role !== "admin") return erro(403, "Só o administrador verifica a hora manualmente.");
+      }
+      if (!verificarHoraNtp) return erro(501, "Verificação de hora não configurada neste servidor.");
+      const v = await verificarHoraNtp();
+      const { error } = await db.from("ponto_tempo_verificacoes").insert({
+        fonte: "ntp", servidor: texto(v.servidor).slice(0, 200), verificado_em: v.verificadoEm,
+        offset_ms: v.ok ? v.offsetMs : null, atraso_ms: v.ok ? v.atrasoMs : null, incerteza_ms: v.ok ? v.incertezaMs : null,
+        estrato: v.ok ? v.estrato : null, ok: !!v.ok, erro: v.erro ? texto(v.erro).slice(0, 500) : null,
+      });
+      if (error) throw error;
+      fonte.limparCache();
+      return ok({ verificacao: v, tempo: await fonte.evidencia() });
+    },
+
     // ---------------- aparelho da obra ----------------
     async "ponto-parear"({ body }) {
       const codigo = texto(body.codigo).replace(/\D/g, "");
@@ -215,8 +401,10 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
         .select("codigo_hash");
       if (errUso) throw errUso;
       if (!consumido?.length) return erro(400, "Código inválido ou já usado. Gere outro no ARCD.", { code: "CODIGO_INVALIDO" });
+      const estab = await estabelecimentoDoAparelho({ obra_id: par.obra_id });
       const { error: errIns } = await db.from("ponto_dispositivos").insert({
         company_id: company, id, obra_id: par.obra_id, nome: par.nome, token_hash: sha256(token),
+        ...(estab ? { estabelecimento_id: estab.id } : {}),
         status: "ativo", ultimo_nsr: 0, ultimo_hash: HASH_INICIAL,
         app_versao: limparVersao(body.appVersao), aparelho: limparAparelho(body.aparelho),
         criado_por: par.criado_por, ultimo_contato_em: agora().toISOString(),
@@ -224,7 +412,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       if (errIns) throw errIns;
       const dados = await lerDados();
       const obra = (dados?.obras || []).find(o => String(o.id) === String(par.obra_id));
-      return ok({ dispositivoId: id, token, obra: { id: par.obra_id, nome: obra?.name || "" }, nome: par.nome, servidorMs: agora().getTime() });
+      return ok({ dispositivoId: id, token, obra: { id: par.obra_id, nome: obra?.name || "" }, estabelecimento: estab, nome: par.nome, servidorMs: agora().getTime() });
     },
 
     async "ponto-sincronizar"({ body, headers }) {
@@ -249,8 +437,15 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const { error: errUp } = await db.from("ponto_dispositivos").update(update).eq("company_id", company).eq("id", dispositivo.id);
       if (errUp) throw errUp;
       const obra = (dados?.obras || []).find(o => String(o.id) === String(obraId));
+      const estabelecimento = await estabelecimentoDoAparelho(dispositivo);
+      const tempo = await fonte.evidencia();
       return ok({
-        servidorMs: agora().getTime(),
+        servidorMs: tempo.serverTimeMs,
+        tempo,
+        repP: situacaoRepP(),
+        estabelecimento,
+        // Topo da cadeia LOCAL já recebida (formato 2) e, para apps antigos, a do formato 1.
+        cadeiaLocal: { ultimaSequencia: Number(dispositivo.ultima_sequencia_local || 0), ultimoHash: dispositivo.ultimo_hash_local || HASH_INICIAL },
         dispositivo: { id: dispositivo.id, nome: dispositivo.nome, obraId, ultimoNsr: Number(dispositivo.ultimo_nsr || 0), ultimoHash: dispositivo.ultimo_hash || HASH_INICIAL },
         obra: { id: obraId, nome: obra?.name || "" },
         funcionarios,
@@ -265,6 +460,21 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
     async "ponto-enviar-marcacoes"({ body, headers }) {
       const { dispositivo, falha } = await doAparelho(headers, body);
       if (falha) return falha;
+      // Formato 2: { eventos } -> ARP. Resposta POR EVENTO (eventId -> nsr ->
+      // fiscalHash); nada de confirmar lote por "último NSR".
+      if (Array.isArray(body.eventos)) {
+        const { resultados, hora } = await arp.registrarEventos({ dispositivo, eventos: body.eventos });
+        if (resultados.some(r => r.status === "dispositivo_revogado")) return erro(403, "Este aparelho foi desativado no ARCD.", { code: "APARELHO_REVOGADO" });
+        const { data: d, error: errD } = await db.from("ponto_dispositivos").select("ultima_sequencia_local,ultimo_hash_local")
+          .eq("company_id", company).eq("id", dispositivo.id).maybeSingle();
+        if (errD) throw errD;
+        return ok({
+          resultados,
+          cadeiaLocal: { ultimaSequencia: Number(d?.ultima_sequencia_local || 0), ultimoHash: d?.ultimo_hash_local || HASH_INICIAL },
+          servidorMs: hora.serverTimeMs, tempo: hora,
+        });
+      }
+      // ---- formato 1 (LEGADO) ----
       const lote = Array.isArray(body.marcacoes) ? body.marcacoes.slice(0, MAX_MARCACOES_POR_LOTE) : [];
       if (!lote.length) return ok({ aceitas: 0, ultimoNsr: Number(dispositivo.ultimo_nsr || 0), ultimoHash: dispositivo.ultimo_hash, erro: null, servidorMs: agora().getTime() });
       const doAparelhoCerto = lote.filter(m => texto(m.dispositivoId).toLowerCase() === String(dispositivo.id).toLowerCase());
@@ -294,9 +504,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       if (falha) return falha;
       const foto = decodificarFoto(body.foto);
       if (!foto || foto.invalida) return erro(400, foto?.invalida || "Foto ausente.");
-      const { data: m, error } = await db.from("ponto_marcacoes").select("id,obra_id,marcado_em,foto_sha256,dispositivo_id")
-        .eq("company_id", company).eq("id", texto(body.marcacaoId)).maybeSingle();
-      if (error) throw error;
+      const m = await localizarParaFoto(texto(body.marcacaoId));
       if (!m || String(m.dispositivo_id) !== String(dispositivo.id)) return erro(404, "Marcação não encontrada neste aparelho.");
       // A foto precisa ser exatamente a que foi registrada na marcação (o hash
       // dela entrou no encadeamento) - não dá para trocar a foto depois.
@@ -342,10 +550,11 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
     },
   };
 
-  return async function tratar({ action, body = {}, headers = {} }) {
+  // cron: true quando a chamada veio da rotina agendada autenticada (api/data.js).
+  return async function tratar({ action, body = {}, headers = {}, cron = false }) {
     const acao = acoes[action];
     if (!acao) return erro(400, "Ação do ponto eletrônico desconhecida.");
-    return acao({ body, headers });
+    return acao({ body, headers, cron });
   };
 }
 

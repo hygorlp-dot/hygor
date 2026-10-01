@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { montarDiagnostico, estadoReferenciaHora } from "./diagnostico.js";
+import { IDADE_MAXIMA_REFERENCIA_MS, estadoDaReferencia } from "../../../../src/domains/ponto-eletronico/relogio.js";
 import { amostraDeCalibracao, relatorioCalibracao, varrerLimiares } from "./relatorio-calibracao.js";
 import { PARAMETROS_FACIAIS } from "./calibracao.js";
 import { LIMIAR_RECONHECIMENTO, MARGEM_SOBRE_SEGUNDO, BLAZEFACE, identificar } from "./rosto.js";
@@ -21,7 +22,7 @@ describe("diagnóstico do aparelho", () => {
     expect(d).toMatchObject({
       "Versão do app": "1.0.0", "Build (versionCode)": "4", Commit: "abc1234", Plataforma: "android", Android: "14",
       Aparelho: "samsung SM-A155M", "Batidas a enviar": "3", "Fotos a enviar": "2", "Fotos com problema": "1",
-      "Reconhecimento facial": "carregado", "Referência de hora": "sincronizada", GPS: "ok", Obra: "W1-22",
+      "Reconhecimento facial": "carregado", "Referência de hora": "referência temporal válida", GPS: "ok", Obra: "W1-22",
     });
     expect(d["Última sincronização"]).toMatch(/01\/10\/2026/);
   });
@@ -31,10 +32,29 @@ describe("diagnóstico do aparelho", () => {
     for (const proibido of ["TOKEN-SECRETO", "2468", "12345678909", "vetor", "0.1", "base64", "pinHash"]) expect(texto).not.toContain(proibido);
   });
 
-  it("estado da referência de hora", () => {
+  it("estado da referência de hora (nunca afirma sincronismo com a HLB)", () => {
     expect(estadoReferenciaHora({ horaConfiavel: false, motivo: "aparelho reiniciou desde a última sincronização" })).toMatch(/reiniciou/);
     expect(estadoReferenciaHora({ horaConfiavel: true, relogioAlterado: true })).toMatch(/diferente/);
     expect(estadoReferenciaHora(null)).toBe("desconhecido");
+    expect(JSON.stringify(montarDiagnostico({ hora: { horaConfiavel: true } }))).not.toMatch(/HLB|Hora Legal|sincronizad/i);
+  });
+
+  it("diagnóstico mostra última validação, idade e estado da referência", () => {
+    const ref = { servidorMs: Date.parse("2026-10-01T10:00:00Z"), monotonicoMs: 1000, bootId: "b", fonte: "host" };
+    const itens = Object.fromEntries(montarDiagnostico({ referencia: estadoDaReferencia({ referencia: ref, monotonicoMs: 1000 + 3 * 3_600_000, bootId: "b" }) }).map(i => [i.rotulo, i.valor]));
+    expect(itens).toMatchObject({ "Estado da referência": "válida", "Idade da referência": "3 h" });
+    expect(itens["Última validação da hora"]).toMatch(/01\/10\/2026/);
+    expect(Object.fromEntries(montarDiagnostico({}).map(i => [i.rotulo, i.valor]))["Estado da referência"]).toBe("desconhecido");
+  });
+
+  it("estados da referência: nunca validada, válida, próxima do vencimento, expirada, inválida após reinício", () => {
+    const ref = { servidorMs: 1_000_000, monotonicoMs: 0, bootId: "b" };
+    const em = ms => estadoDaReferencia({ referencia: ref, monotonicoMs: ms, bootId: "b" }).estado;
+    expect(estadoDaReferencia({ referencia: null, monotonicoMs: 0, bootId: "b" }).estado).toBe("nunca_validada");
+    expect(em(IDADE_MAXIMA_REFERENCIA_MS * 0.5)).toBe("valida");
+    expect(em(IDADE_MAXIMA_REFERENCIA_MS * 0.9)).toBe("proxima_do_vencimento");
+    expect(em(IDADE_MAXIMA_REFERENCIA_MS + 1)).toBe("expirada");
+    expect(estadoDaReferencia({ referencia: ref, monotonicoMs: 5, bootId: "outro" }).estado).toBe("invalida_apos_reinicio");
   });
 });
 

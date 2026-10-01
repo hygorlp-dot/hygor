@@ -117,7 +117,26 @@ describe("hora confiável", () => {
 
   it("nova referência desconta metade da latência", () => {
     const r = novaReferencia({ servidorMs: 1_000_000, monotonicoEnvioMs: 100, monotonicoRespostaMs: 500, bootId: "b" });
-    expect(r).toEqual({ servidorMs: 1_000_200, monotonicoMs: 500, bootId: "b", latenciaMs: 400 });
+    expect(r).toEqual({ servidorMs: 1_000_200, monotonicoMs: 500, bootId: "b", latenciaMs: 400, fonte: "servidor", fonteConfiavel: true, offsetHlbMs: null, verificadaEm: null });
+  });
+
+  it("referência guarda a evidência da fonte de hora e a marcação leva origem e idade", () => {
+    const tempo = { source: "host+ntp:a.st1.ntp.br", offsetMs: 12, lastVerifiedAt: "2026-10-01T09:00:00.000Z", confiavel: true };
+    const ref = novaReferencia({ servidorMs: Date.parse("2026-10-01T10:00:00Z"), monotonicoEnvioMs: 1000, monotonicoRespostaMs: 1000, bootId: "b", tempo });
+    expect(ref).toMatchObject({ fonte: "host+ntp:a.st1.ntp.br", fonteConfiavel: true, offsetHlbMs: 12, verificadaEm: "2026-10-01T09:00:00.000Z" });
+    const h = horaDaMarcacao({ referencia: ref, monotonicoMs: 61_000, bootId: "b", relogioParedeMs: Date.parse("2026-10-01T10:01:00Z") });
+    expect(h).toMatchObject({ horaConfiavel: true, fonteHora: "host+ntp:a.st1.ntp.br", idadeReferenciaMs: 60_000 });
+  });
+
+  it("fonte de hora sem verificação válida: usa a hora estimada mas não sai confiável", () => {
+    const ref = novaReferencia({ servidorMs: 5_000_000, monotonicoEnvioMs: 0, monotonicoRespostaMs: 0, bootId: "b", tempo: { source: "host", confiavel: false } });
+    const h = horaDaMarcacao({ referencia: ref, monotonicoMs: 1000, bootId: "b", relogioParedeMs: 5_001_000 });
+    expect(h).toMatchObject({ marcadoEmMs: 5_001_000, horaConfiavel: false, fonteHora: "host" });
+    expect(h.motivo).toMatch(/Hora Legal Brasileira/);
+  });
+
+  it("sem referência ou depois de reboot a origem é o relógio do aparelho", () => {
+    expect(horaDaMarcacao({ referencia: null, monotonicoMs: 1, bootId: "b", relogioParedeMs: 7 })).toMatchObject({ fonteHora: "relogio-do-aparelho", idadeReferenciaMs: null, horaConfiavel: false });
   });
 });
 

@@ -52,6 +52,8 @@ jobs:
       - run: npm ci
       - name: Contratos das migrations e integração financeira
         run: npm test -- src/integration/financial-transaction-migration.test.js src/integration/auth-rate-limit-migration.test.js src/integration/audit-migration.test.js server/financial-shadow.test.js server/reconciliation-command.test.js
+      - name: Contratos das migrations do Ponto de Obra (016 legado + 017 ARP/NSR por estabelecimento)
+        run: npx vitest run server/ponto-eletronico-migration.pglite.test.js server/ponto-eletronico/arp/arp-migration.pglite.test.js server/ponto-eletronico/arp/handler-arp.pglite.test.js
       - name: Sintaxe da fronteira de API
         run: node --check api/data.js
 
@@ -89,6 +91,35 @@ jobs:
       - name: Testes do Ponto de Obra (app, regras compartilhadas e servidor)
         working-directory: .
         run: npx vitest run apps/ponto-obra src/domains/ponto-eletronico server/ponto-eletronico
+
+  # REP-P: atribuição de NSR com conexões REALMENTE simultâneas num Postgres
+  # de verdade (o PGlite dos outros testes tem uma conexão só).
+  rep-p-arp-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ponto
+          POSTGRES_PASSWORD: ponto
+          POSTGRES_DB: ponto_teste
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ponto -d ponto_teste"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PONTO_PG_URL: postgres://ponto:ponto@localhost:5432/ponto_teste
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Concorrência real da ARP (NSR único, idempotência, rollback)
+        run: npx vitest run server/ponto-eletronico/arp/arp-concorrencia.pg.test.js
+      - name: Confere que o teste rodou (não foi pulado)
+        run: npx vitest run server/ponto-eletronico/arp/arp-concorrencia.pg.test.js --reporter=json --outputFile=concorrencia.json && node -e "const r=require('./concorrencia.json'); if (r.numPassedTests < 5) { console.error('teste de concorrência não rodou'); process.exit(1); }"
 
   browser-critical-flows:
     runs-on: ubuntu-latest
