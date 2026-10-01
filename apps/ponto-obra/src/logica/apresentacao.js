@@ -97,9 +97,13 @@ export function linhasDoComprovante(c, { obra = null, online = false } = {}) {
   const avisos = [];
   if (!c.horaConfiavel) avisos.push("Hora do aparelho: será conferida na sincronização.");
   if (c.avisoFoto) avisos.push(c.avisoFoto);
+  const ms = Date.parse(c.marcadoEm);
   return {
     titulo: "Ponto registrado",
     nome: c.nome,
+    saudacao: Number.isFinite(ms) ? `${saudacao(ms)}, ${c.nome}` : c.nome,
+    // Marcações da pessoa hoje neste aparelho (a última é esta).
+    batidasHoje: Array.isArray(c.batidasHoje) && c.batidasHoje.length > 1 ? c.batidasHoje.slice(-6) : [],
     obra: obra?.nome || "",
     registro: `Registro local nº ${c.localSequence}`,
     numeroRegistro: String(c.localSequence),
@@ -109,6 +113,37 @@ export function linhasDoComprovante(c, { obra = null, online = false } = {}) {
     detalhes,
     avisos,
   };
+}
+
+// ---------- Saudação e batidas do dia ----------
+const FUSO = "America/Recife";
+const horaLocal = ms => Number(new Date(ms).toLocaleString("en-US", { timeZone: FUSO, hour: "2-digit", hour12: false })) % 24;
+const diaLocal = ms => new Date(ms).toLocaleDateString("en-CA", { timeZone: FUSO });
+
+export function saudacao(ms) {
+  const h = horaLocal(ms);
+  return h >= 5 && h < 12 ? "Bom dia" : h >= 12 && h < 18 ? "Boa tarde" : "Boa noite";
+}
+
+// Horários (HH:MM, fuso da obra) em que a pessoa marcou no dia da batida,
+// em ordem. Só leitura dos eventos já gravados; não classifica entrada/saída
+// (isso é do tratamento no ARCD). eventos = armazem.eventosRecentes().
+export function batidasDoDia(eventos, { tipo = "funcionario", id, marcadoEm }) {
+  const ref = Date.parse(marcadoEm);
+  if (!id || !Number.isFinite(ref)) return [];
+  const campo = tipo === "terceiro" ? "terceiroId" : "employeeId";
+  return (eventos || [])
+    .filter(e => Number(e?.formatVersion) === 2 && String(e?.[campo] || "") === String(id) && Number.isFinite(Date.parse(e?.marcadoEm)))
+    .filter(e => diaLocal(Date.parse(e.marcadoEm)) === diaLocal(ref))
+    .map(e => Date.parse(e.marcadoEm))
+    .sort((a, b) => a - b)
+    .map(ms => new Date(ms).toLocaleTimeString("pt-BR", { timeZone: FUSO, hour: "2-digit", minute: "2-digit" }));
+}
+
+// Frase falada na confirmação (só o primeiro nome).
+export function falaDeConfirmacao(nome, ms) {
+  const primeiro = String(nome || "").trim().split(/\s+/)[0];
+  return primeiro ? `${saudacao(ms)}, ${primeiro}. Ponto registrado.` : "Ponto registrado.";
 }
 
 // ---------- Modo Encarregado ----------
@@ -128,6 +163,7 @@ export function secoesDoEncarregado({ resumo = {}, situacao = {} } = {}) {
       { id: "sincronizacao", rotulo: "Sincronização", valor: pendentes ? `${pendentes} ${pendentes === 1 ? "pendente" : "pendentes"}` : situacao.online ? "Em dia" : "Offline",
         tom: situacao.aviso || situacao.fotosComProblema ? "atencao" : null },
       { id: "diagnostico", rotulo: "Diagnóstico" },
+      { id: "voz", rotulo: "Confirmação por voz", valor: situacao.voz === false ? "Desligada" : "Ligada", acao: true },
       { id: "fixar", rotulo: "Fixar aplicativo na tela", acao: true },
     ] },
   ];

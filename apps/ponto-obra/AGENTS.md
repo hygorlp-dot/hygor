@@ -89,7 +89,13 @@ Não faça upgrade de major (Expo/RN) sem decisão explícita.
 - Diagnóstico (modo Encarregado) tem lista fechada de campos sem dado
   pessoal/biométrico (`src/logica/diagnostico.js`).
 - `android.allowBackup=false` (o banco cifrado não pode ir para a nuvem sem a
-  chave). Permissões só câmera e localização.
+  chave). Permissões perigosas só câmera e localização; `VIBRATE` (normal, sem
+  pedido ao usuário) vem do `expo-haptics`. `WRITE_SETTINGS` fica bloqueada: o
+  `expo-brightness` só ajusta o brilho da janela do app (sem plugin).
+- Feedback físico (`src/servicos/feedback.js`: vibração, voz e brilho) é
+  melhor esforço e nunca lança: a batida não depende dele. A voz diz só o
+  primeiro nome e pode ser desligada no modo Encarregado
+  (`preferencias_tela` no estado local, não é registro).
 - Texto do termo de consentimento (`TERMO_TEXTO`) é jurídico: não alterar sem
   decisão do responsável. Ver `docs/privacidade-e-retencao.md`.
 

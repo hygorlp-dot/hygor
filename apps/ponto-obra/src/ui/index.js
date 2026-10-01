@@ -8,7 +8,8 @@
 // - estado sempre com ícone + texto + cor (Status, Mensagem, EstadoCentral);
 // - movimento só com opacidade/escala/translação no driver nativo.
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COR, COR_DO_TOM, ESPACO, MOVIMENTO, RAIO, TIPO, TOQUE } from "./tokens";
 
 export * from "./tokens";
@@ -72,11 +73,11 @@ function Selo({ tom = "sucesso", tamanho = 72 }) {
 
 // ---------- Estrutura ----------
 // Fundo plano; margem lateral de 20. Android 16 desenha de ponta a ponta
-// (edge-to-edge obrigatório no SDK 57): em cima, a altura da barra de status;
-// embaixo, 48 = barra de navegação de 3 botões, para nenhuma ação ficar sob
-// ela. Sem biblioteca de safe area (seria dependência nativa nova).
+// (edge-to-edge obrigatório no SDK 57): as margens somam a área exata das
+// barras do sistema (safe area), seja navegação por gestos ou por botões.
 export function Tela({ children, centro = false, style, ...props }) {
-  return <View {...props} style={[estilos.tela, centro && estilos.telaCentro, style]}>{children}</View>;
+  const borda = useSafeAreaInsets();
+  return <View {...props} style={[estilos.tela, { paddingTop: borda.top + ESPACO.lg, paddingBottom: borda.bottom + ESPACO.xl }, centro && estilos.telaCentro, style]}>{children}</View>;
 }
 
 // Subtela do modo Encarregado: "‹ Voltar" sempre no mesmo lugar + título.
@@ -300,7 +301,7 @@ const estilos = StyleSheet.create({
   centro: { textAlign: "center" },
   tela: {
     flex: 1, backgroundColor: COR.fundo, gap: ESPACO.lg,
-    paddingHorizontal: ESPACO.xl, paddingTop: (StatusBar.currentHeight || 0) + ESPACO.lg, paddingBottom: ESPACO.x5,
+    paddingHorizontal: ESPACO.xl,
   },
   telaCentro: { justifyContent: "center" },
   cabecalho: { gap: ESPACO.sm },

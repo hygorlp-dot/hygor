@@ -206,8 +206,10 @@ rostos) e o caminho do encarregado. A batida nunca fica impedida.
 
 ## Feedback de sucesso (comprovante)
 
-É uma tela inteira: selo verde, **Ponto registrado**, nome, hora com segundos,
-obra, número do registro local e a pílula de envio ("Enviando ao ARCD" ou "Será
+É uma tela inteira: selo verde, **Ponto registrado**, saudação com o nome ("Bom
+dia, João Silva"), hora com segundos, obra, número do registro local, as
+marcações da pessoa no dia neste aparelho ("Hoje: 06:58 · 07:42", lidas do banco
+local, sem classificar entrada ou saída) e a pílula de envio ("Enviando ao ARCD" ou "Será
 enviado quando houver conexão."). Embaixo, em hierarquia menor, ficam o CPF
 mascarado, o código do registro e "NSR: atribuído pelo ARCD após o envio". O app
 nunca mostra um NSR que a ARP não devolveu. Avisos de hora ou foto aparecem como
@@ -279,16 +281,38 @@ erro de câmera aparece como mensagem no topo da moldura.
 - O app aceita o aumento de fonte do sistema com limites por token. Não há
   gesto oculto: toda ação é um botão visível.
 
-## Haptics
+## Feedback físico (`src/servicos/feedback.js`)
 
-Não implementado. `expo-haptics` não está no projeto e seria uma dependência
-nativa nova, só por feedback opcional. Fica para quando houver outro motivo para
-um novo build nativo: toque leve ao reconhecer, médio ao registrar e alerta em
-falha crítica.
+Melhor esforço: aparelho sem vibrador, sem voz em português ou que recuse o
+brilho segue normalmente, e nada disso pode impedir a batida.
+
+- **Vibração** (`expo-haptics`): leve quando o rosto é reconhecido (fase
+  "virar"), sucesso quando o ponto é gravado e alerta só em falha real. A
+  incerteza do rosto não vibra.
+- **Voz** (`expo-speech`, pt-BR): "Bom dia, João. Ponto registrado." Diz só o
+  primeiro nome e pode ser desligada em Encarregado → Confirmação por voz.
+- **Brilho** (`expo-brightness`): máximo só na janela do app durante a captura
+  (sol forte, rosto escuro), depois volta ao do sistema. Não usa
+  `WRITE_SETTINGS`, que está bloqueada.
+
+## Safe area
+
+`react-native-safe-area-context`: cada `Tela` soma a área exata das barras do
+sistema (status, gestos ou 3 botões) às margens de 16 em cima e 20 embaixo.
+
+## Ícone e splash
+
+A marca é um mostrador fino em ouro sobre grafite `#0B0B0C`: um anel (que é ao
+mesmo tempo a guia facial e o relógio), a marcação das 12 h e os ponteiros. Os
+arquivos ficam em `assets/`: ícone, ícone adaptativo (fundo, primeiro plano na
+zona segura e versão monocromática para o ícone temático do Android 13+),
+splash e favicon. Substituem o ícone padrão do template do Expo.
 
 ## Fases futuras
 
 - **Tema claro:** não implementado. A direção inicial é escura (luz forte,
   aparelho fixo). Para um tema claro, os tokens de `COR` ganhariam uma variante;
   componentes e telas já não têm cor própria.
-- **Haptics:** ver acima.
+- **Captura automática** com detecção de rosto em tempo real (sem toque, para
+  uso com luva): exige mexer no pipeline da câmera, então precisa de decisão e
+  de uma rodada própria.

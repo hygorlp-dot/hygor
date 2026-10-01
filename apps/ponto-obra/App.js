@@ -17,6 +17,7 @@ import { IBMPlexSans_600SemiBold } from "@expo-google-fonts/ibm-plex-sans/600Sem
 import { IBMPlexMono_400Regular } from "@expo-google-fonts/ibm-plex-mono/400Regular";
 import { IBMPlexMono_500Medium } from "@expo-google-fonts/ibm-plex-mono/500Medium";
 import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 import * as Crypto from "expo-crypto";
 import * as Location from "expo-location";
 import { abrirArmazem, arquivarBanco } from "./src/dados/armazem-sqlite";
@@ -24,6 +25,7 @@ import { registrarBatida } from "./src/logica/terminal";
 import { gpsRecente, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./src/logica/sincronizacao";
 import { classificarResposta, mensagemDeErro } from "./src/logica/falhas";
 import { montarDiagnostico } from "./src/logica/diagnostico";
+import { batidasDoDia } from "./src/logica/apresentacao";
 import { estadoDaReferencia } from "../../src/domains/ponto-eletronico/relogio.js";
 import { apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoApp, lerSessao, salvarSessao } from "./src/servicos/conexao";
 import { apagarFotoLocal, carregarModelos, lerFotoBase64, prepararFotoDaBatida } from "./src/servicos/rosto-nativo";
@@ -51,6 +53,8 @@ export default function App() {
   const [modelos, setModelos] = useState(null);
   const [estadoModelos, setEstadoModelos] = useState({ estado: "carregando", erro: "" });
   const [situacao, setSituacao] = useState({ online: false, pendentes: 0, fotos: 0, fotosComProblema: 0, aviso: "" });
+  // Preferências da tela (não são registro): confirmação por voz.
+  const [preferencias, setPreferencias] = useState({ voz: true });
   const ref = useRef({ armazem: null, relogio: null, sessao: null, gps: null, gpsEstado: "aguardando", ultimoCadastro: 0, sincronizando: false, pedirDeNovo: null });
   const api = useRef(criarApi(() => ref.current.sessao?.token)).current;
 
@@ -120,6 +124,8 @@ export default function App() {
         if (cancelado) return;
         Object.assign(ref.current, { armazem, relogio, sessao });
         setCadastro(await armazem.cadastro());
+        const pref = await armazem.lerEstado("preferencias_tela").catch(() => null);
+        if (pref) setPreferencias(p => ({ ...p, ...pref }));
         await atualizarSituacao();
         setFase(sessao ? "ponto" : "parear");
       } catch (e) {
@@ -185,8 +191,11 @@ export default function App() {
       throw e;
     }
     sincronizar();
+    // Só leitura, para o comprovante: marcações da pessoa hoje. Não pode
+    // atrapalhar a batida já gravada.
+    const batidasHoje = batidasDoDia(await armazem.eventosRecentes(200).catch(() => []), { tipo: pessoa.tipo, id: pessoa.id, marcadoEm: m.marcadoEm });
     // Sem NSR aqui: o NSR fiscal só existe depois que a ARP grava o evento.
-    return { nome: pessoa.nome, cpfMascarado: pessoa.cpfMascarado, marcadoEm: m.marcadoEm, localSequence: m.localSequence, eventId: m.eventId, hash: m.localHash, horaConfiavel: m.horaConfiavel, avisoFoto };
+    return { batidasHoje, nome: pessoa.nome, cpfMascarado: pessoa.cpfMascarado, marcadoEm: m.marcadoEm, localSequence: m.localSequence, eventId: m.eventId, hash: m.localHash, horaConfiavel: m.horaConfiavel, avisoFoto };
   }, [sincronizar]);
 
   // Pareamento. Banco com batidas de OUTRO aparelho (pareado de novo depois
@@ -209,6 +218,12 @@ export default function App() {
     await sincronizar({ forcarCadastro: true });
     setCadastro(await armazem.cadastro());
     setFase("ponto");
+  };
+
+  const alternarVoz = async () => {
+    const proximas = { ...preferencias, voz: !preferencias.voz };
+    setPreferencias(proximas);
+    try { await ref.current.armazem?.gravarEstado("preferencias_tela", proximas); } catch { /* preferência só vale nesta sessão */ }
   };
 
   const diagnostico = async () => {
@@ -270,14 +285,15 @@ export default function App() {
   </Tela>;
   else if (fase === "parear") conteudo = <TelaPareamento api={api} aoParear={aoParear} />;
   else if (fase === "encarregado") conteudo = <TelaEncarregado cadastro={cadastro} modelos={modelos} registrar={registrar} api={api} obra={ref.current.sessao?.obra}
-    situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico} />;
+    situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico}
+    voz={preferencias.voz} alternarVoz={alternarVoz} />;
   else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos}
-    cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} />;
+    cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} voz={preferencias.voz} />;
 
-  return <View style={estilos.raiz}>
+  return <SafeAreaProvider initialMetrics={initialWindowMetrics} style={estilos.raiz}>
     <StatusBar style="light" />
     {conteudo}
-  </View>;
+  </SafeAreaProvider>;
 }
 
 const estilos = StyleSheet.create({

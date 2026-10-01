@@ -15,8 +15,9 @@ import { identificar, similaridadeCosseno } from "../logica/rosto";
 import { PARAMETROS_FACIAIS as P } from "../logica/calibracao";
 import { estadoPermissaoCamera, mensagemParaTrabalhador } from "../logica/falhas";
 import { resumoCadastro } from "../logica/cadastro";
-import { FASE, emAndamento, falhaNaTela, guiaDaFase, instrucaoDaFase, statusDoAparelho, telaSemCamera } from "../logica/apresentacao";
+import { FASE, emAndamento, falaDeConfirmacao, falhaNaTela, guiaDaFase, instrucaoDaFase, statusDoAparelho, telaSemCamera } from "../logica/apresentacao";
 import { analisarFoto, apagarFotoLocal } from "../servicos/rosto-nativo";
+import { brilhoMaximo, brilhoNormal, falar, vibrar } from "../servicos/feedback";
 import { Botao, BotaoTexto, COMPROVANTE_MS, COR, COR_DO_TOM, Corpo, ESPACO, Icone, Mensagem, MolduraCamera, RAIO, Rotulo, Status, Tela, Texto, TituloSecao } from "../ui";
 import Comprovante from "./Comprovante";
 
@@ -25,7 +26,7 @@ const fmtHora = ms => new Date(ms).toLocaleTimeString("pt-BR", { timeZone: "Amer
 // "quinta-feira, 1 de outubro" → só a primeira letra maiúscula.
 const fmtData = ms => { const d = new Date(ms).toLocaleDateString("pt-BR", { timeZone: "America/Recife", weekday: "long", day: "numeric", month: "long" }); return d.charAt(0).toUpperCase() + d.slice(1); };
 
-export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar, situacao, abrirEncarregado }) {
+export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar, situacao, abrirEncarregado, voz = true }) {
   useKeepAwake();
   const camera = useRef(null);
   const [permissao, pedirPermissao] = useCameraPermissions();
@@ -49,7 +50,8 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
   const { semRostos, temResponsavel } = resumoCadastro(cadastro);
 
   const fase = (f, nome = "") => setFluxo({ etapa: "analisando", fase: f, nome });
-  const falha = f => setFluxo({ etapa: "falha", fase: FASE.PRONTO, falha: falhaNaTela(f) });
+  // Vibração de alerta só em falha real (incerteza do rosto não assusta).
+  const falha = f => { if (f.tipo === "erro") vibrar("falha"); setFluxo({ etapa: "falha", fase: FASE.PRONTO, falha: falhaNaTela(f) }); };
   const voltarAoInicio = () => { clearTimeout(timerSucesso.current); setFluxo({ etapa: "pronto", fase: FASE.PRONTO }); };
   const foto = async () => {
     if (!camera.current) throw new Error("câmera não está pronta");
@@ -62,6 +64,8 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     // Capturas cruas da câmera: apagadas no fim, aconteça o que acontecer (a
     // foto da batida é uma cópia preparada por registrar()).
     const cruas = [];
+    // Tela no brilho máximo durante a captura (sol forte, rosto escuro).
+    brilhoMaximo();
     try {
       fase(FASE.OLHAR);
       const fotoFrente = await foto();
@@ -77,6 +81,7 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       if (!funcionario) return falha({ tipo: "atencao", contexto: "cadastro", mensagem: "O cadastro deste aparelho está desatualizado. Chame o encarregado.", podeEncarregado: true });
 
       fase(FASE.VIRAR, funcionario.nome);
+      vibrar("leve");
       await esperar(P.esperaAntesDaViradaMs);
       etapa = "camera";
       const fotoVirada = await foto();
@@ -90,12 +95,15 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       etapa = "batida";
       const comprovante = await registrar({ pessoa: { tipo: "funcionario", ...funcionario }, identificacao: { metodo: "facial", confianca: id.confianca }, foto: fotoFrente });
       setFluxo({ etapa: "sucesso", fase: FASE.PRONTO, comprovante });
+      vibrar("registro");
+      if (voz) falar(falaDeConfirmacao(comprovante.nome, Date.parse(comprovante.marcadoEm)));
       clearTimeout(timerSucesso.current);
       timerSucesso.current = setTimeout(() => setFluxo(f => (f.etapa === "sucesso" ? { etapa: "pronto", fase: FASE.PRONTO } : f)), duracaoDoComprovante(comprovante));
     } catch {
       falha({ tipo: "erro", contexto: etapa, mensagem: mensagemParaTrabalhador(etapa), podeEncarregado: true });
     } finally {
       cruas.forEach(apagarFotoLocal);
+      brilhoNormal();
     }
   };
 
