@@ -53,3 +53,31 @@ export function montarDiagnostico({ app = {}, aparelho = {}, sessao = null, cont
   ];
   return itens.map(([rotulo, valor]) => ({ rotulo, valor: String(valor) }));
 }
+
+// Agrupa a lista fechada em seções (página de Ajustes, não dashboard). Item
+// sem seção conhecida cai em "Outros" - nada some da tela.
+const SECAO_DO_ITEM = {
+  "Versão do app": "Aplicativo", "Build (versionCode)": "Aplicativo", "Commit": "Aplicativo",
+  "Plataforma": "Aparelho", "Android": "Aparelho", "Aparelho": "Aparelho", "Aparelho no ARCD": "Aparelho", "Obra": "Aparelho",
+  "Última sincronização": "Ponto", "Último envio com sucesso": "Ponto", "Batidas a enviar": "Ponto", "Fotos a enviar": "Ponto", "Fotos com problema": "Ponto",
+  "Estabelecimento": "Registro fiscal", "Sequência local (último registro)": "Registro fiscal", "Último NSR recebido da ARP": "Registro fiscal", "Cadeia local": "Registro fiscal",
+  "Reconhecimento facial": "Segurança", "GPS": "Segurança",
+  "Referência de hora": "Hora", "Estado da referência": "Hora", "Última validação da hora": "Hora", "Idade da referência": "Hora", "Fonte de hora do servidor": "Hora",
+};
+export const ORDEM_SECOES_DIAGNOSTICO = Object.freeze(["Aplicativo", "Aparelho", "Ponto", "Registro fiscal", "Hora", "Segurança", "Outros"]);
+// Valores técnicos (números, códigos) em fonte mono.
+const MONO = new Set(["Versão do app", "Build (versionCode)", "Commit", "Android", "Sequência local (último registro)", "Último NSR recebido da ARP", "Batidas a enviar", "Fotos a enviar", "Fotos com problema"]);
+// Valores que pedem atenção (texto + ícone na tela, não só cor).
+const atencao = ({ rotulo, valor }) =>
+  (rotulo === "Cadeia local" && valor !== "ok")
+  || (rotulo === "Fotos com problema" && valor !== "0")
+  || (rotulo === "Reconhecimento facial" && valor.startsWith("indisponível"))
+  || (rotulo === "Estado da referência" && /expirada|aguardando|nunca/.test(valor));
+
+export function secoesDoDiagnostico(itens) {
+  const porSecao = new Map(ORDEM_SECOES_DIAGNOSTICO.map(t => [t, []]));
+  for (const item of itens) {
+    porSecao.get(SECAO_DO_ITEM[item.rotulo] || "Outros").push({ ...item, mono: MONO.has(item.rotulo), atencao: atencao(item) });
+  }
+  return ORDEM_SECOES_DIAGNOSTICO.map(titulo => ({ titulo, itens: porSecao.get(titulo) })).filter(s => s.itens.length);
+}

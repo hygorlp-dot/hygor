@@ -7,7 +7,15 @@
 //   erro (banco/sessão), revogado (aparelho desativado no ARCD)
 // Nenhuma falha de rede, GPS, câmera ou reconhecimento apaga batida guardada.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
+import { useFonts } from "expo-font";
+// Só os 6 pesos usados (importar a raiz do pacote embutiria as 30 variantes).
+import { IBMPlexSans_300Light } from "@expo-google-fonts/ibm-plex-sans/300Light";
+import { IBMPlexSans_400Regular } from "@expo-google-fonts/ibm-plex-sans/400Regular";
+import { IBMPlexSans_500Medium } from "@expo-google-fonts/ibm-plex-sans/500Medium";
+import { IBMPlexSans_600SemiBold } from "@expo-google-fonts/ibm-plex-sans/600SemiBold";
+import { IBMPlexMono_400Regular } from "@expo-google-fonts/ibm-plex-mono/400Regular";
+import { IBMPlexMono_500Medium } from "@expo-google-fonts/ibm-plex-mono/500Medium";
 import { StatusBar } from "expo-status-bar";
 import * as Crypto from "expo-crypto";
 import * as Location from "expo-location";
@@ -22,13 +30,20 @@ import { apagarFotoLocal, carregarModelos, lerFotoBase64, prepararFotoDaBatida }
 import TelaEncarregado from "./src/telas/TelaEncarregado";
 import TelaPareamento from "./src/telas/TelaPareamento";
 import TelaPonto from "./src/telas/TelaPonto";
-import { Botao, COR, Mensagem, Texto, Titulo, estilos } from "./src/ui";
+import { Botao, BotaoSecundario, COR, Corpo, ESPACO, EstadoCentral, Mensagem, Tela, Texto } from "./src/ui";
 
 const SINCRONIZAR_A_CADA_MS = 60_000;
 const CADASTRO_A_CADA_MS = 5 * 60_000;
+// IBM Plex (identidade ARCD) embutida no app: abre offline. Se a fonte não
+// carregar, o app segue com a do sistema - nunca fica preso esperando.
+const FONTES = { IBMPlexSans_300Light, IBMPlexSans_400Regular, IBMPlexSans_500Medium, IBMPlexSans_600SemiBold, IBMPlexMono_400Regular, IBMPlexMono_500Medium };
+const ESPERA_MAXIMA_FONTES_MS = 3000;
 const sha256Texto = texto => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, texto);
 
 export default function App() {
+  const [fontesProntas, erroFontes] = useFonts(FONTES);
+  const [fontesDesistiu, setFontesDesistiu] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setFontesDesistiu(true), ESPERA_MAXIMA_FONTES_MS); return () => clearTimeout(t); }, []);
   const [fase, setFase] = useState("carregando");       // carregando | parear | ponto | encarregado | erro | revogado
   const [erroFatal, setErroFatal] = useState({ texto: "", bancoIlegivel: false });
   const [tentativa, setTentativa] = useState(0);
@@ -233,26 +248,39 @@ export default function App() {
   );
 
   let conteudo;
-  if (fase === "carregando") conteudo = <View style={[estilos.tela, { justifyContent: "center" }]}><ActivityIndicator size="large" color={COR.ouro} /></View>;
-  else if (fase === "erro") conteudo = <View style={[estilos.tela, { justifyContent: "center" }]}>
-    <Titulo>O app não abriu</Titulo>
-    <Mensagem tipo="erro">{erroFatal.texto}</Mensagem>
-    <Botao titulo="Tentar de novo" onPress={() => { setFase("carregando"); setTentativa(n => n + 1); }} />
-    {erroFatal.bancoIlegivel && <Botao titulo="Guardar banco atual e começar outro" tipo="secundario" onPress={recomecarBancoIlegivel} />}
-  </View>;
-  else if (fase === "revogado") conteudo = <View style={[estilos.tela, { justifyContent: "center" }]}>
-    <Titulo>Aparelho desativado</Titulo>
-    <Texto apagado>Este aparelho foi desativado no ARCD. Nenhuma batida foi apagada: {situacao.pendentes} ainda não enviada(s) continuam guardadas nele. Para voltar a usar, gere um código novo no ARCD.</Texto>
-    <Botao titulo="Parear de novo" onPress={() => setFase("parear")} />
-  </View>;
+  if (!fontesProntas && !erroFontes && !fontesDesistiu) conteudo = null;
+  else if (fase === "carregando") conteudo = <Tela centro>
+    <View style={estilos.abertura} accessible accessibilityLabel="Abrindo o Ponto de Obra">
+      <Texto variante="secao" cor={COR.ouro}>PONTO DE OBRA</Texto>
+      <ActivityIndicator size="large" color={COR.textoSecundario} />
+    </View>
+  </Tela>;
+  else if (fase === "erro") conteudo = <Tela>
+    <EstadoCentral tom="erro" titulo="O app não abriu" acoes={<>
+      <Botao titulo="Tentar de novo" onPress={() => { setFase("carregando"); setTentativa(n => n + 1); }} />
+      {erroFatal.bancoIlegivel && <BotaoSecundario titulo="Guardar banco atual e começar outro" onPress={recomecarBancoIlegivel} />}
+    </>}>
+      <Mensagem tom="erro">{erroFatal.texto}</Mensagem>
+    </EstadoCentral>
+  </Tela>;
+  else if (fase === "revogado") conteudo = <Tela>
+    <EstadoCentral tom="atencao" titulo="Aparelho desativado" acoes={<Botao titulo="Parear de novo" onPress={() => setFase("parear")} />}>
+      <Corpo secundario centro>Este aparelho foi desativado no ARCD. Nenhuma batida foi apagada: {situacao.pendentes} ainda não {situacao.pendentes === 1 ? "enviada continua guardada" : "enviadas continuam guardadas"} nele. Para voltar a usar, gere um código novo no ARCD.</Corpo>
+    </EstadoCentral>
+  </Tela>;
   else if (fase === "parear") conteudo = <TelaPareamento api={api} aoParear={aoParear} />;
   else if (fase === "encarregado") conteudo = <TelaEncarregado cadastro={cadastro} modelos={modelos} registrar={registrar} api={api} obra={ref.current.sessao?.obra}
     situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico} />;
-  else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos} erroModelos={estadoModelos.estado === "erro" ? estadoModelos.erro : ""}
+  else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos}
     cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} />;
 
-  return <View style={{ flex: 1, backgroundColor: COR.fundo }}>
+  return <View style={estilos.raiz}>
     <StatusBar style="light" />
     {conteudo}
   </View>;
 }
+
+const estilos = StyleSheet.create({
+  raiz: { flex: 1, backgroundColor: COR.fundo },
+  abertura: { alignItems: "center", gap: ESPACO.xxl },
+});
