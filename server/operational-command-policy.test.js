@@ -305,4 +305,70 @@ describe("escopo servidor de comandos operacionais",()=>{
     expect(validateOperationalCommandScope({user:{id:"admin",role:"admin"},data,command:companyCommand})).toMatchObject({ok:true,scope:"company"});
     expect(validateOperationalCommandScope({user:{id:"fin",role:"financeiro"},data,command:companyCommand})).toMatchObject({ok:true,scope:"company"});
   });
+  describe("conferência, licenciamento e estoque",()=>{
+    const extra={
+      ...data,
+      conferencias:[{id:"conf-a",obraId:"obra-a",version:1},{id:"conf-b",obraId:"obra-b",version:1}],
+      movEstoque:[{id:"mov-a",obraId:"obra-a"},{id:"mov-b",obraId:"obra-b"}],
+    };
+    const auditor={id:"aud",role:"engenheiro_auditor",obraId:"obra-a"};
+    it("resolve a obra de todos os comandos de conferência técnica",()=>{
+      const create={type:OPERATIONAL_COMMAND.CONFERENCE_CREATED,payload:{conference:{id:"conf-new",obraId:"obra-a"}}};
+      expect(validateOperationalCommandScope({user:auditor,data:extra,command:create})).toMatchObject({ok:true,obraId:"obra-a"});
+      expect(validateOperationalCommandScope({user:auditor,data:extra,command:{...create,payload:{conference:{id:"conf-new",obraId:"obra-b"}}}})).toMatchObject({ok:false});
+      for(const type of [
+        OPERATIONAL_COMMAND.CONFERENCE_CANCELLED,OPERATIONAL_COMMAND.CONFERENCE_METADATA_UPDATED,
+        OPERATIONAL_COMMAND.CONFERENCE_COMPLETED,OPERATIONAL_COMMAND.CONFERENCE_REOPENED,
+        OPERATIONAL_COMMAND.CONFERENCE_FINDING_SAVED,OPERATIONAL_COMMAND.CONFERENCE_FINDING_CANCELLED,
+        OPERATIONAL_COMMAND.CONFERENCE_FINDING_EVIDENCE_ADDED,OPERATIONAL_COMMAND.CONFERENCE_FINDING_VALIDATED,
+      ]){
+        expect(validateOperationalCommandScope({user:auditor,data:extra,command:{type,payload:{conferenceId:"conf-a"}}})).toMatchObject({ok:true,obraId:"obra-a"});
+        expect(validateOperationalCommandScope({user:auditor,data:extra,command:{type,payload:{conferenceId:"conf-b"}}})).toMatchObject({ok:false});
+        expect(validateOperationalCommandScope({user:{role:"admin"},data:extra,command:{type,payload:{conferenceId:"conf-b"}}})).toMatchObject({ok:true,obraId:"obra-b"});
+      }
+    });
+    it("resolve a obra do checklist de licenciamento e trata condomínio como cadastro corporativo",()=>{
+      const checklist={type:OPERATIONAL_COMMAND.LICENSE_CHECKLIST_SAVED,payload:{license:{id:"lic-a",obraId:"obra-a"}}};
+      expect(validateOperationalCommandScope({user,data:extra,command:checklist})).toMatchObject({ok:true,obraId:"obra-a"});
+      expect(validateOperationalCommandScope({user,data:extra,command:{...checklist,payload:{license:{id:"lic-b",obraId:"obra-b"}}}})).toMatchObject({ok:false});
+      const condominium={type:OPERATIONAL_COMMAND.CONDOMINIUM_SAVED,payload:{condominium:{id:"cond-1",nome:"Condomínio"}}};
+      expect(validateOperationalCommandScope({user,data:extra,command:condominium})).toMatchObject({ok:true,scope:"company"});
+      expect(validateOperationalCommandScope({user:{role:"financeiro"},data:extra,command:condominium})).toMatchObject({ok:false});
+    });
+    it("resolve a obra dos movimentos de estoque e trata composições como cadastro corporativo",()=>{
+      const movement={type:OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_RECORDED,payload:{movement:{id:"mov-new",obraId:"obra-a"}}};
+      expect(validateOperationalCommandScope({user,data:extra,command:movement})).toMatchObject({ok:true,obraId:"obra-a"});
+      expect(validateOperationalCommandScope({user,data:extra,command:{...movement,payload:{movement:{id:"mov-new",obraId:"obra-b"}}}})).toMatchObject({ok:false});
+      const execution={type:OPERATIONAL_COMMAND.SERVICE_EXECUTION_RECORDED,payload:{compositionId:"comp-1",obraId:"obra-a"}};
+      expect(validateOperationalCommandScope({user,data:extra,command:execution})).toMatchObject({ok:true,obraId:"obra-a"});
+      expect(validateOperationalCommandScope({user,data:extra,command:{...execution,payload:{compositionId:"comp-1",obraId:"obra-b"}}})).toMatchObject({ok:false});
+      const reversal={type:OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_REVERSED,payload:{movementId:"mov-a"}};
+      expect(validateOperationalCommandScope({user,data:extra,command:reversal})).toMatchObject({ok:true,obraId:"obra-a"});
+      expect(validateOperationalCommandScope({user,data:extra,command:{...reversal,payload:{movementId:"mov-b"}}})).toMatchObject({ok:false});
+      for(const type of [OPERATIONAL_COMMAND.COMPOSITION_SAVED,OPERATIONAL_COMMAND.COMPOSITION_DELETED]){
+        const command={type,payload:{composition:{id:"comp-1"},compositionId:"comp-1"}};
+        expect(validateOperationalCommandScope({user,data:extra,command})).toMatchObject({ok:true,scope:"company"});
+        expect(validateOperationalCommandScope({user:{role:"mestre"},data:extra,command})).toMatchObject({ok:false});
+      }
+    });
+  });
+
+  // Trava contra a classe de defeito: um domínio novo de comandos registrado
+  // em OPERATIONAL_COMMAND mas esquecido na política de escopo falhava em
+  // produção com "precisa estar vinculado a uma obra" em qualquer obra.
+  // Um comando tem regra quando a política lê o payload/dados para achar a
+  // obra ou devolve um escopo corporativo sem precisar deles.
+  it("todo comando operacional registrado tem regra de escopo no servidor",()=>{
+    const tracked=(target,touched)=>new Proxy(target,{get(obj,key){if(typeof key==="string")touched.add(key);return obj[key];}});
+    const semRegra=[...new Set(Object.values(OPERATIONAL_COMMAND))].filter(type=>{
+      const touched=new Set();
+      const result=validateOperationalCommandScope({
+        user:{id:"admin",role:"admin"},
+        data:tracked({},touched),
+        command:{type,payload:tracked({},touched)},
+      });
+      return !result.ok&&!touched.size;
+    });
+    expect(semRegra).toEqual([]);
+  });
 });

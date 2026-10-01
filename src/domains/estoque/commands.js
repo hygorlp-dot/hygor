@@ -9,6 +9,16 @@ export const STOCK_COMMAND = Object.freeze({
 });
 
 export const STOCK_COMMAND_TYPES = new Set(Object.values(STOCK_COMMAND));
+// Composições são o catálogo de serviços da empresa; movimentos pertencem a uma obra.
+export const STOCK_COMPANY_COMMAND_TYPES = new Set([STOCK_COMMAND.COMPOSITION_SAVED, STOCK_COMMAND.COMPOSITION_DELETED]);
+
+export const stockCommandObraId = (data = {}, command = {}) => {
+  const payload = command?.payload || {};
+  if (command?.type === STOCK_COMMAND.MATERIAL_MOVEMENT_RECORDED) return String(payload.movement?.obraId || "");
+  if (command?.type === STOCK_COMMAND.SERVICE_EXECUTION_RECORDED) return String(payload.obraId || "");
+  if (command?.type === STOCK_COMMAND.MATERIAL_MOVEMENT_REVERSED) return String((data?.movEstoque || []).find(item => item.id === payload.movementId)?.obraId || "");
+  return "";
+};
 
 const fail = reason => ({ ok: false, reason });
 const versionOf = item => Number(item?.version || 0);
