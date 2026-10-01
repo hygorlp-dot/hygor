@@ -69,7 +69,7 @@ export default function App() {
         Object.assign(ref.current, { armazem, relogio, sessao: await lerSessao() });
         setCadastro(await armazem.cadastro());
         await atualizarSituacao();
-        carregarModelos().then(setModelos).catch(e => setErroModelos(e?.message || String(e)));
+        carregarModelos().then(setModelos).catch(e => setErroModelos(`Reconhecimento facial não carregou: ${String(e?.message || e).split("\n")[0]}`));
         setFase(ref.current.sessao ? "ponto" : "parear");
       } catch (e) {
         setErroFatal(e?.message || String(e)); setFase("erro");

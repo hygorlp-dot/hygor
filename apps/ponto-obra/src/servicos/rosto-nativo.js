@@ -22,20 +22,20 @@ const MODELOS = {
 
 const hex = buffer => Array.from(new Uint8Array(buffer), b => b.toString(16).padStart(2, "0")).join("");
 
-async function conferirModelo({ modulo, sha256 }) {
+// No APK de produção o require() vira um recurso interno
+// ("assets_modelos_..."), que o TFLite não abre como URL; por isso o modelo é
+// carregado da cópia file:// que o expo-asset faz - a mesma que teve o SHA conferido.
+async function carregarConferido({ modulo, sha256 }) {
   const asset = Asset.fromModule(modulo);
   await asset.downloadAsync();
   const bytes = await new File(asset.localUri).bytes();
   const calculado = hex(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, bytes));
   if (calculado !== sha256) throw new Error("Os arquivos de reconhecimento facial deste app foram alterados. Reinstale o Ponto de Obra.");
+  return loadTensorflowModel({ url: asset.localUri }, []);
 }
 
 export async function carregarModelos() {
-  await Promise.all([conferirModelo(MODELOS.detector), conferirModelo(MODELOS.identidade)]);
-  const [detector, identidade] = await Promise.all([
-    loadTensorflowModel(MODELOS.detector.modulo, []),
-    loadTensorflowModel(MODELOS.identidade.modulo, []),
-  ]);
+  const [detector, identidade] = await Promise.all([carregarConferido(MODELOS.detector), carregarConferido(MODELOS.identidade)]);
   return { detector, identidade, modelo: MOBILEFACENET.modelo };
 }
 
