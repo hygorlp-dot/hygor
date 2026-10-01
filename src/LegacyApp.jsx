@@ -65,6 +65,7 @@ const DiarioObra = lazy(() => import("./domains/obras/components/DiarioObraView.
 const Estoque = lazy(() => import("./domains/estoque/components/EstoqueView.jsx"));
 const Licenciamento = lazy(() => import("./domains/licenciamento/components/LicenciamentoView.jsx"));
 const Conferencia = lazy(() => import("./domains/qualidade/components/ConferenciaView.jsx"));
+const PontoEletronico = lazy(() => import("./domains/ponto-eletronico/components/PontoEletronicoView.jsx"));
 // Onda 4 do raio-X (item 12, 26/08/2026): cada tela de gráfico vira seu
 // próprio chunk lazy - Recharts+d3 só entram no bundle quando a tela
 // efetivamente monta. Ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md.
@@ -2920,6 +2921,7 @@ export function Ic({ n, s = 16, color }) {
     user:     "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", // uma pessoa (cliente/lead)
     handshake:"M11 17l2 2a1 1 0 0 0 3-3 M14 14l2.5 2.5a1 1 0 0 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 0 1-1.41 0l-2.12-2.12a1 1 0 0 0-1.41 0L3 12 M18 3l3 3-3 3 M3 21l3-3", // parceria (parceiros)
     clock:    "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2",
+    smartphone:"M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z M12 18h.01", // celular (app de ponto da obra)
     refresh:  "M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0 1 14.85-3.36L23 10 M1 14l4.64 4.36A9 9 0 0 0 20.49 15",
     // --- Gráficos e dados ---
     chart:    "M18 20V10 M12 20V4 M6 20v-6",           // barras (dashboard)
@@ -10140,11 +10142,11 @@ export const ROLES = [
 ];
 
 const ROLE_TABS = {
-  admin:       ["home","tv","chat","aprov_pend","admin_central","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","equipe","terc","equip","equip_fin","licenca","folha","resc","rh_indic","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management"],
-  engenheiro:  ["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
+  admin:       ["home","tv","chat","aprov_pend","admin_central","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","ponto_app","equipe","terc","equip","equip_fin","licenca","folha","resc","rh_indic","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management"],
+  engenheiro:  ["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_app","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   engenheiro_auditor:["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
   compras:     ["home","tv","cmp","fornecedores","suprimentos","plan_suprimentos","est","cad","ia"],
-  rh:          ["home","tv","ponto","ponto_geral","equipe","terc","folha","resc","rh_indic","conc","cad","ia"],
+  rh:          ["home","tv","ponto","ponto_geral","ponto_app","equipe","terc","folha","resc","rh_indic","conc","cad","ia"],
   financeiro:  ["home","tv","equip_fin","plan","cmp","fornecedores","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
   comercial:   ["home","tv","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management","com_funil","com_leads","com_propostas","com_negociacoes","com_agenda","com_parceiros","com_metas","com_relatorios","ia"],
   visualizador:["home","tv"],
@@ -10163,7 +10165,7 @@ const ACCESS_SECTORS=[
     ["equip_fin","Locação de equipamentos"],["medicoes","Medições financeiras"],["caixa","Caixa da obra"],["relat","Relatórios"],
   ]},
   {id:"rh",label:"Recursos Humanos",color:"#0F766E",tabs:[
-    ["equipe","Equipes"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["rh_indic","Indicadores"],["conc","Conciliação da folha"],
+    ["equipe","Equipes"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["ponto_app","Ponto eletrônico (app)"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["rh_indic","Indicadores"],["conc","Conciliação da folha"],
   ]},
   {id:"comercial",label:"Comercial",color:"#2E7D32",tabs:[
     ["com_workspace","Comercial da empresa"],["com_real_estate","Venda de imóveis"],["com_pipeline","Pipeline"],["com_relationships","Relacionamentos"],["com_deals","Propostas e contratos"],["com_management","Gestão comercial"],
@@ -17109,7 +17111,7 @@ const NAV_GROUPS = [
   },
   {
     id: "rh_grp", label: "Recursos humanos", icon: "users", color: "#0F766E",
-    tabs: ["equipe", "ponto", "ponto_geral", "terc", "folha", "resc", "rh_indic"],
+    tabs: ["equipe", "ponto", "ponto_geral", "ponto_app", "terc", "folha", "resc", "rh_indic"],
   },
   {
     id: "com_grp", label: "Comercial", icon: "users", color: C.green,
@@ -17162,6 +17164,7 @@ const TAB_META = {
   med:    { label: "Medicao",        icon: "ruler",  group: "eng_grp"},
   ponto:  { label: "Ponto por obra", icon: "clock", group: "rh_grp"},
   ponto_geral: { label: "Gestão do ponto", icon: "calendar", group: "rh_grp"},
+  ponto_app: { label: "Ponto eletrônico (app)", icon: "smartphone", group: "rh_grp"},
   equipe: { label: "Equipes", icon: "users", group: "rh_grp"},
   terc:   { label: "Terceirizados", icon: "handshake", group: "rh_grp" },
   folha:  { label: "Folha",      icon: "wallet",   group: "rh_grp"  },
@@ -18477,6 +18480,7 @@ export default function App() {
           {tab === "terc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando terceiros...</div>}><Terceiros data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
+          {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser}/>}
           {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "rh_indic" && <Suspense fallback={<div className="arcd-page-loading">Carregando indicadores...</div>}><IndicadoresView data={data} /></Suspense>}

@@ -16,7 +16,7 @@ const groups = [
   ["Compras", ["Compras", "Fornecedores", "Cotações", "Estoque"]],
   ["Financeiro", ["DRE empresa", "DRE obras", "Gestão financeira", "Conciliação",
     "Locação de equipamentos", "Medições", "Caixa da obra", "Relatórios"]],
-  ["Recursos humanos", ["Equipes", "Ponto por obra", "Gestão do ponto",
+  ["Recursos humanos", ["Equipes", "Ponto por obra", "Gestão do ponto", "Ponto eletrônico (app)",
     "Terceirizados", "Folha", "Rescisão", "Indicadores"]],
   ["Comercial", ["Comercial da empresa", "Venda de imóveis", "Pipeline", "Relacionamentos",
     "Propostas e contratos", "Gestão comercial"]],

@@ -158,6 +158,9 @@ const chamarRotaAutenticada = async (rota, payload = {}) => {
   return { ok:response.ok, status:response.status, ...json };
 };
 
+// App "Ponto de Obra" (REP-P): ações ponto-* despachadas por /api/data para
+// server/ponto-eletronico/handler.js. Registros separados da gestão de ponto atual.
+export const chamarPontoEletronico = (action, payload = {}) => chamarRotaAutenticada("/api/data", { action, ...payload });
 export const chamarIA = payload => chamarRotaAutenticada("/api/ai-agent", payload);
 export const verificarStatusIA = () => chamarRotaAutenticada("/api/ai-agent", { action:"status" });
 export const configurarGemini = apiKey => chamarRotaAutenticada("/api/ai-agent", { action:"configure", apiKey });
