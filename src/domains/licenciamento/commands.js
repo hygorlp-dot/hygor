@@ -4,6 +4,11 @@ export const LICENSING_COMMAND = Object.freeze({
 });
 
 export const LICENSING_COMMAND_TYPES = new Set(Object.values(LICENSING_COMMAND));
+// Condomínio é cadastro corporativo; só o checklist pertence a uma obra.
+export const LICENSING_COMPANY_COMMAND_TYPES = new Set([LICENSING_COMMAND.CONDOMINIUM_SAVED]);
+
+export const licensingCommandObraId = (data = {}, command = {}) =>
+  command?.type === LICENSING_COMMAND.LICENSE_CHECKLIST_SAVED ? String(command.payload?.license?.obraId || "") : "";
 
 const fail = reason => ({ ok: false, reason });
 const versionOf = item => Number(item?.version || 0);

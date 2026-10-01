@@ -62,6 +62,20 @@ import {
   PROJECT_COMMAND_TYPES,
   projectCommandObraId,
 } from "../src/domains/obras/project-commands.js";
+import {
+  CONFERENCE_COMMAND_TYPES,
+  conferenceCommandObraId,
+} from "../src/domains/qualidade/conference-commands.js";
+import {
+  LICENSING_COMMAND_TYPES,
+  LICENSING_COMPANY_COMMAND_TYPES,
+  licensingCommandObraId,
+} from "../src/domains/licenciamento/commands.js";
+import {
+  STOCK_COMMAND_TYPES,
+  STOCK_COMPANY_COMMAND_TYPES,
+  stockCommandObraId,
+} from "../src/domains/estoque/commands.js";
 
 const operationalCommandObraId=(data={},command={})=>{
   const payload=command?.payload||{};
@@ -81,6 +95,9 @@ const operationalCommandObraId=(data={},command={})=>{
   if(EMPLOYEE_COMMAND_TYPES.has(command?.type))return employeeCommandObraId(data,command);
   if(ADVANCE_COMMAND_TYPES.has(command?.type))return advanceCommandObraId(data,command);
   if(PROJECT_COMMAND_TYPES.has(command?.type))return projectCommandObraId(data,command);
+  if(CONFERENCE_COMMAND_TYPES.has(command?.type))return conferenceCommandObraId(data,command);
+  if(LICENSING_COMMAND_TYPES.has(command?.type))return licensingCommandObraId(data,command);
+  if(STOCK_COMMAND_TYPES.has(command?.type))return stockCommandObraId(data,command);
   if(command?.type===OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED)return String(payload?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED)return String(payload?.measurement?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED)return String((data?.medicoesObra||[]).find(item=>item.id===payload?.measurementId)?.obraId||"");
@@ -140,6 +157,16 @@ export const validateOperationalCommandScope=({user={},data={},command={}}={})=>
     return ["admin","compras","engenheiro","engenheiro_auditor"].includes(user?.role)
       ?{ok:true,obraId:"",scope:"company"}
       :{ok:false,error:"Seu perfil não pode alterar o catálogo de insumos."};
+  }
+  if(LICENSING_COMPANY_COMMAND_TYPES.has(command.type)){
+    return ["admin","engenheiro"].includes(user?.role)
+      ?{ok:true,obraId:"",scope:"company"}
+      :{ok:false,error:"Seu perfil não pode alterar o cadastro de condomínios."};
+  }
+  if(STOCK_COMPANY_COMMAND_TYPES.has(command.type)){
+    return ["admin","compras","engenheiro","engenheiro_auditor"].includes(user?.role)
+      ?{ok:true,obraId:"",scope:"company"}
+      :{ok:false,error:"Seu perfil não pode alterar as composições de serviço."};
   }
   if(PROJECT_COMMAND_TYPES.has(command.type)){
     return user?.role==="admin"

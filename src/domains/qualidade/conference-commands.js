@@ -29,6 +29,14 @@ const replaceConference = (data, id, record) => ({
   ...data,
   conferencias: (data.conferencias || []).map(item => item.id === id ? record : item),
 });
+
+// Obra usada pela política de escopo do servidor: a criação traz a obra no
+// payload; os demais comandos herdam a obra da conferência existente.
+export const conferenceCommandObraId = (data = {}, command = {}) => {
+  if (command?.type === CONFERENCE_COMMAND.CONFERENCE_CREATED) return String(command.payload?.conference?.obraId || "");
+  return String(findConference(data, command.payload?.conferenceId)?.obraId || "");
+};
+
 const stampAudit = (record, command, now, action, details = "") => ({
   ...record,
   atualizadoEm: now, atualizadoPorId: command.actorId || "", atualizadoPor: command.actorName || "Usuário autenticado",
