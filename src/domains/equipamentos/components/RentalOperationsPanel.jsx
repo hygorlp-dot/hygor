@@ -64,7 +64,7 @@ function SortHeader({ column, effectiveSort, onSort }) {
 // quando ela some por falta de largura, sob a obra - a informação nunca se perde.
 function PeriodInfo({ row }) {
   return <>
-    <span className="ro-mono ro-nowrap">{rentalPeriodText(row)}</span>
+    <span className="ro-mono">{rentalPeriodText(row)}</span>
     <span className="ro-sub">{row.cancelada ? "" : `${row.diasContrato} dia(s)`}{row.plannedEnd && row.emAberto ? ` · previsto ${formatDate(row.plannedEnd)}` : ""}</span>
     {row.vencimento && <AlertFlag>{vencimentoText(row.vencimento)}</AlertFlag>}
   </>;
@@ -163,7 +163,7 @@ export default function RentalOperationsPanel({
         </td>
         <td>
           <BillingPill cobranca={row.cobranca} />
-          {billing && <span className="ro-sub ro-mono ro-nowrap">{billing}</span>}
+          {billing && <span className="ro-sub ro-mono">{billing}</span>}
         </td>
         <td className="ro-col--owner">{row.proprietarioNome}</td>
         <td className="ro-col--actions" onClick={event => event.stopPropagation()}>

@@ -148,6 +148,19 @@ for (const [width, height] of [[1440, 900], [1280, 800], [1024, 768]]) {
     await page.getByLabel("Período", { exact:true }).selectOption("tudo");
     await expect(page.locator("tr[data-row-id]").first()).toBeVisible();
 
+    // Robustez a fontes: o CI (Linux) e máquinas sem IBM Plex usam fontes de
+    // fallback de métrica diferente. Mede primeiro com as fontes reais e
+    // depois com fallbacks LARGOS de propósito - a tabela não pode rolar em nenhum dos dois.
+    const measureWithWideFonts = async () => {
+      const style = await page.addStyleTag({ content: ".ro, .ro *{font-family:Verdana,'DejaVu Sans',sans-serif!important}.ro .ro-mono{font-family:'Courier New','DejaVu Sans Mono',monospace!important}" });
+      const overflow = await page.evaluate(() => { const wrap = document.querySelector(".ro-table-wrap"); return { table: wrap.scrollWidth - wrap.clientWidth, page: document.documentElement.scrollWidth - window.innerWidth }; });
+      await style.evaluate(node => node.remove());
+      return overflow;
+    };
+    const wide = await measureWithWideFonts();
+    expect(wide.page, "página com fontes de fallback largas").toBeLessThanOrEqual(0);
+    expect(wide.table, "tabela com fontes de fallback largas").toBeLessThanOrEqual(0);
+
     const metrics = await page.evaluate(() => {
       const wrap = document.querySelector(".ro-table-wrap");
       const visible = selector => [...document.querySelectorAll(selector)].some(node => node.offsetParent !== null);
