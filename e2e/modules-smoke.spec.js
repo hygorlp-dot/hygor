@@ -209,33 +209,51 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await reservationDialog.getByRole("button",{name:/Salvar/}).click();
         await expect(page.getByText("Reserva registrada.")).toBeVisible();
         await page.getByRole("button",{name:/Locações/}).click();
-        // Aviso persistente de que cobrança/medição/fatura (Fase 5) ainda não
-        // alimenta o DRE - substitui depender só dos toasts por ação
-        // (achado de auditoria de estrutura, ver AUDITORIA_EQUIPAMENTOS.md).
-        await expect(page.getByText("COBRANÇA POR CICLO · EM DESENVOLVIMENTO")).toBeVisible();
-        await expect(page.getByText("CICLO · ATIVA")).toBeVisible();
-        await expect(page.getByRole("button",{name:"Avançar: Retirada solicitada"})).toBeVisible();
-        await expect(page.getByRole("button",{name:"Encerrar"})).toHaveCount(0);
-        const activeRentalCard=page.locator(".equipment-record").filter({hasText:"Término planejado: 30/09"});
-        await activeRentalCard.getByRole("button",{name:"Emitir fatura"}).click();
+        // Aviso persistente (agora discreto, recolhido) de que cobrança/medição/
+        // fatura (Fase 5) ainda não alimenta o DRE - substitui depender só dos
+        // toasts por ação (achado de auditoria de estrutura, ver
+        // AUDITORIA_EQUIPAMENTOS.md).
+        await expect(page.getByText("Cobrança por ciclo ainda não está integrada ao DRE.")).toBeVisible();
+        // A central abre no mês atual, em andamento. Os dados de homologação
+        // têm datas fixas (e o relógio do teste é o real), então o teste
+        // escolhe "Todo o período" + "Todas" para enxergar todas as locações
+        // sem depender do dia em que roda.
+        await page.getByLabel("Período",{exact:true}).selectOption("tudo");
+        await page.getByRole("button",{name:/^Todas/}).click();
+        const rentalRow=id=>page.locator(`tr[data-row-id="${id}"]`);
+        const rowMenu=async(id,item)=>{
+          await rentalRow(id).getByRole("button",{name:/Mais ações de/}).click();
+          await page.getByRole("menuitem",{name:item,exact:true}).click();
+        };
+        const activeRentalRow=rentalRow("rental-lifecycle-qa");
+        await expect(activeRentalRow.getByText("Ciclo · Ativa")).toBeVisible();
+        // Menu: o próximo passo do ciclo existe e "Encerrar" (só para registro
+        // legado/pós-inspeção) não aparece numa locação ativa.
+        await activeRentalRow.getByRole("button",{name:/Mais ações de/}).click();
+        await expect(page.getByRole("menuitem",{name:"Avançar: Retirada solicitada"})).toBeVisible();
+        await expect(page.getByRole("menuitem",{name:"Encerrar",exact:true})).toHaveCount(0);
+        await expect(page.getByRole("menuitem",{name:"Excluir locação…"})).toBeVisible();
+        await page.keyboard.press("Escape");
+        await rowMenu("rental-lifecycle-qa","Emitir fatura");
         const invoiceDialog=page.getByRole("dialog",{name:/Emitir fatura · Betoneira QA/});
         await expect(invoiceDialog.getByText("EMISSÃO · AINDA NÃO RECEBIDA")).toBeVisible();
         await expect(invoiceDialog.getByText("Total faturado")).toBeVisible();
         await expect(invoiceDialog.getByText("R$ 3.000,00").last()).toBeVisible();
         await expect(invoiceDialog.getByRole("button",{name:"Emitir com saldo aberto"})).toBeVisible();
         await invoiceDialog.getByRole("button",{name:"Cancelar"}).click();
-        await activeRentalCard.getByRole("button",{name:"Medir competência"}).click();
+        // Ação principal da linha em andamento: "Medir competência".
+        await activeRentalRow.getByRole("button",{name:"Medir competência"}).click();
         const measurementDialog=page.getByRole("dialog",{name:/Medir competência · Betoneira QA/});
         await expect(measurementDialog.getByText("MEDIÇÃO CONTRATUAL · NÃO FATURADA")).toBeVisible();
         await expect(measurementDialog.getByLabel("Competência *")).toHaveValue("2026-09");
         await expect(measurementDialog.getByText("Líquido medido: R$ 3.000,00")).toBeVisible();
         await measurementDialog.getByRole("button",{name:"Cancelar"}).click();
-        await activeRentalCard.getByRole("button",{name:"Editar"}).click();
+        await rowMenu("rental-lifecycle-qa","Editar locação");
         const rentalDialog=page.getByRole("dialog",{name:"Editar locação"});
         await expect(rentalDialog.getByLabel("Regra de cobrança *")).toBeVisible();
         await rentalDialog.getByLabel("Regra de cobrança *").selectOption("civil_month");
         await rentalDialog.getByRole("button",{name:"Fechar"}).click();
-        await activeRentalCard.getByRole("button",{name:"Adicionar cobrança"}).click();
+        await rowMenu("rental-lifecycle-qa","Adicionar cobrança");
         const chargeDialog=page.getByRole("dialog",{name:/Adicionar cobrança · Betoneira QA/});
         await expect(chargeDialog.getByText("LINHA PREPARADA · NÃO FATURADA")).toBeVisible();
         await chargeDialog.getByLabel("Descrição *").fill("Frete complementar");
@@ -243,7 +261,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await chargeDialog.getByLabel("Desconto (R$)").fill("5,50");
         await expect(chargeDialog.getByText("Líquido previsto: R$ 120,00")).toBeVisible();
         await chargeDialog.getByRole("button",{name:"Cancelar"}).click();
-        await activeRentalCard.getByRole("button",{name:"Prorrogar / renovar"}).click();
+        await rowMenu("rental-lifecycle-qa","Prorrogar / renovar");
         const amendmentDialog=page.getByRole("dialog",{name:/Prorrogar ou renovar · Betoneira QA/});
         await expect(amendmentDialog.getByText("ADITIVO DE PRAZO AUDITÁVEL")).toBeVisible();
         await expect(amendmentDialog.getByText(/término planejado atual: 30\/09/)).toBeVisible();
@@ -252,33 +270,39 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(amendmentDialog.getByLabel("Início da renovação *")).toBeVisible();
         await expect(amendmentDialog.getByLabel("Fim da renovação *")).toBeVisible();
         await amendmentDialog.getByRole("button",{name:"Cancelar"}).click();
-        await page.getByRole("button",{name:"Expedição parcial"}).click();
+        // Detalhe: abre pela linha, concentra as ações administrativas e fecha antes de abrir um modal.
+        await activeRentalRow.getByRole("button",{name:/Abrir detalhes de Betoneira QA/}).click();
+        const detail=page.getByRole("dialog",{name:/Betoneira QA/});
+        await expect(detail.getByRole("heading",{name:"Cobranças"})).toBeVisible();
+        await expect(detail.getByRole("heading",{name:"Histórico"})).toBeVisible();
+        await detail.getByRole("button",{name:"Fechar detalhes"}).click();
+        await rowMenu("rental-partial-dispatch-qa","Expedição parcial");
         const partialDispatchDialog=page.getByRole("dialog",{name:/Expedição parcial · Plataforma parcial QA/});
         await expect(partialDispatchDialog.getByLabel("Quantidade *")).toHaveValue("1");
         await expect(partialDispatchDialog.getByRole("button",{name:"Salvar checklist"})).toBeVisible();
         await partialDispatchDialog.getByRole("button",{name:"Cancelar"}).click();
-        await page.getByRole("button",{name:"Substituir unidade"}).click();
+        await rowMenu("rental-partial-dispatch-qa","Substituir unidade");
         const replacementDialog=page.getByRole("dialog",{name:/Substituir unidade · Plataforma parcial QA/});
         await expect(replacementDialog.getByLabel("Unidade atual *")).toBeVisible();
         await expect(replacementDialog.getByLabel("Unidade substituta *").locator('option[value="unit-partial-3"]')).toHaveCount(1);
         await replacementDialog.getByRole("button",{name:"Cancelar"}).click();
-        await page.getByRole("button",{name:"Registrar ajuste concluído"}).click();
+        await rowMenu("rental-adjustment-qa","Registrar ajuste concluído");
         const adjustmentDialog=page.getByRole("dialog",{name:/Conclusão do ajuste · Compactador em ajuste QA/});
         await expect(adjustmentDialog.getByLabel("Observações")).toBeVisible();
         await expect(adjustmentDialog.getByRole("button",{name:"Salvar checklist"})).toBeVisible();
         await adjustmentDialog.getByRole("button",{name:"Cancelar"}).click();
-        await page.getByRole("button",{name:"Checklist: Separação"}).click();
+        await rowMenu("rental-separation-qa","Checklist: Separação");
         const checklistDialog=page.getByRole("dialog",{name:/Separação · Betoneira QA/});
         await expect(checklistDialog.getByText("EVIDÊNCIA OPERACIONAL OBRIGATÓRIA")).toBeVisible();
         await expect(checklistDialog.getByRole("button",{name:"Salvar checklist"})).toBeVisible();
         await checklistDialog.getByRole("button",{name:"Cancelar"}).click();
-        await page.getByRole("button",{name:"Checklist: Devolução"}).click();
+        await rowMenu("rental-return-qa","Checklist: Devolução");
         const returnDialog=page.getByRole("dialog",{name:/Devolução · Betoneira QA/});
         await expect(returnDialog.getByLabel("Limpeza")).toBeVisible();
         await expect(returnDialog.getByLabel("Avarias")).toBeVisible();
         await expect(returnDialog.getByLabel("Itens faltantes")).toBeVisible();
         await returnDialog.getByRole("button",{name:"Cancelar"}).click();
-        await page.getByRole("button",{name:"Devolução parcial"}).click();
+        await rowMenu("rental-return-qa","Devolução parcial");
         const partialDialog=page.getByRole("dialog",{name:/Devolução parcial · Betoneira QA/});
         await expect(partialDialog.getByLabel("Quantidade *")).toHaveValue("1");
         await partialDialog.getByRole("button",{name:"Cancelar"}).click();

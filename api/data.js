@@ -42,6 +42,7 @@ import { projectReconciliationPatch } from "../server/reconciliation-response.js
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
+import { RENTAL_COMMAND_ROLES } from "../src/domains/equipamentos/rental-command-roles.js";
 import {
   requiresFinancialOperationalPersistence,
 } from "../server/operational-command-persistence.js";
@@ -246,17 +247,8 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.EQUIPMENT_SAVED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_OWNER_SAVED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CANCELLED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED]:["admin","financeiro"],
-  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED]:["admin","financeiro"],
+  // Papéis dos comandos de locação: fonte única compartilhada com a Central de locações.
+  ...RENTAL_COMMAND_ROLES,
   [OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_CANCELLED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED]:["admin","engenheiro","engenheiro_auditor","financeiro"],
