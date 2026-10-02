@@ -62,9 +62,34 @@ test("central operacional: contexto, indicadores, situação e tabela", async ({
   await expect(page.getByLabel("Período", { exact:true })).toHaveValue("mes");
   await expect(page.getByLabel("Obra", { exact:true })).toHaveValue("all");
   await expect(page.getByRole("button", { name:/^Em andamento/ })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".arcd-summary-card").filter({ hasText:"Receita no período" })).toContainText("Setembro 2026 · todas as obras");
+  await expect(page.locator(".arcd-summary-card").filter({ hasText:"Receita contratual no período" })).toContainText("Setembro 2026 · todas as obras · todas as situações");
   await expect(page.getByText("Cobrança por ciclo ainda não está integrada ao DRE.")).toBeVisible();
   await expect(page.locator("tr[data-row-id]").first()).toBeVisible();
+
+  // Receita contratual (tarifa x dias) e faturas a receber são grandezas diferentes - os nomes dizem isso.
+  const card = label => page.locator(".arcd-summary-card").filter({ hasText:label });
+  await expect(card("Receita contratual no período")).toContainText("Conforme tarifas das locações");
+  await expect(card("Faturas a receber")).toContainText("Controle interno, ainda fora do DRE");
+
+  // Período: ‹ › troca o mês e os indicadores seguem.
+  await page.getByRole("button", { name:"Mês anterior" }).click();
+  await expect(card("Receita contratual no período")).toContainText("Agosto 2026");
+  await page.getByRole("button", { name:"Próximo mês" }).click();
+  await expect(card("Receita contratual no período")).toContainText("Setembro 2026");
+
+  // Situação: a lista muda, os indicadores do recorte não; "Em andamento" é o padrão ao limpar.
+  const receita = await card("Receita contratual no período").innerText();
+  await page.getByRole("button", { name:/^Encerradas/ }).click();
+  await expect(page.locator("tr[data-row-id]").first()).toHaveAttribute("data-situation", "encerrada");
+  expect(await card("Receita contratual no período").innerText()).toBe(receita);
+  await page.getByRole("button", { name:"Remover filtro Encerradas" }).click();
+  await expect(page.getByRole("button", { name:/^Em andamento/ })).toHaveAttribute("aria-pressed", "true");
+
+  // Medir competência (ação principal da linha em andamento) abre o modal existente.
+  await page.locator("tr[data-row-id=\"L1\"]").getByRole("button", { name:"Medir competência" }).click();
+  const medir = page.getByRole("dialog", { name:/Medir competência/ });
+  await expect(medir).toBeVisible();
+  await medir.getByRole("button", { name:"Cancelar" }).click();
 
   // Obra com código e nome, e o filtro vira chip removível.
   await page.getByLabel("Obra", { exact:true }).selectOption("ob-long");
@@ -94,6 +119,10 @@ test("central operacional: contexto, indicadores, situação e tabela", async ({
 
   // Menu ⋯ + exclusão com a confirmação que já existia (nada é excluído aqui).
   const row = page.locator("tr[data-row-id=\"L1\"]");
+  await row.getByRole("button", { name:/Mais ações de/ }).click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
   await row.getByRole("button", { name:/Mais ações de/ }).click();
   await page.getByRole("menuitem", { name:"Excluir locação…" }).click();
   const confirm = page.getByRole("dialog", { name:/Excluir a locação de/ });

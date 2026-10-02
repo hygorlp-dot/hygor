@@ -37,7 +37,7 @@ import {
   RENTAL_CHECKPOINT_TYPE, rentalDeliveryBalance, rentalDispatchBalance, rentalReturnBalance,
 } from "../rental-checkpoints";
 import { buildRentalPeriodicCharge } from "../rental-charges";
-import { CHECKPOINT_BY_STATE, CHECKPOINT_LABEL } from "../rental-operations";
+import { CHECKPOINT_BY_STATE, CHECKPOINT_LABEL } from "../rental-actions";
 import RentalOperationsPanel from "./RentalOperationsPanel";
 
 const LazyEquipmentBillingReports = lazy(() => import("../EquipmentBillingReports"));

@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { calcEquipamentosMes } from "./calculations.js";
 import {
+  BILLING_LABEL, RENTAL_SITUATION_LABEL, SITUATION_SEGMENTS, billingNote, buildActiveFilterChips, buildRentalResults, clearFilterChip,
+  clearRentalView, defaultRentalView, nextRentalSort, rentalPeriodText, rentalScopeLabel, rentalValueCell, vencimentoText,
   applyRentalFilters, buildFilterOptions, buildRentalRows, computeRentalKpis, countBySituation, DEFAULT_FILTERS,
-  activeFilterCount, filterBySituation, groupRentalRows, NO_WORK, paginate, periodSelectOptions, periodSelectValue,
-  periodStateFromSelect, rentalRowActions, rentalSituation, rentalTimeline, resolveRentalPeriod, shiftMonth, sortRentalRows,
-  summarizeRentalRows, canOperateRental, primaryRowAction, isReadOnlyFor, defaultSortFor,
+  activeFilterCount, filterBySituation, groupRentalRows, NO_WORK, paginate, rentalSituation, sortRentalRows,
+  summarizeRentalRows, defaultSortFor,
 } from "./rental-operations.js";
+import { resolveRentalPeriod } from "./rental-period.js";
 import { buildRentalData, HOJE } from "./rental-operations.fixture.js";
 
 const SETEMBRO = { preset: "mes", ym: "2026-09" };
@@ -17,41 +19,6 @@ const context = (data, periodState = SETEMBRO, filters = DEFAULT_FILTERS) => {
 const ids = rows => rows.map(row => row.id).sort();
 const admin = { id: "u1", role: "admin" };
 const financeiro = { id: "u2", role: "financeiro" };
-
-describe("período", () => {
-  it("resolve os atalhos a partir de 'hoje' fixo (terça 15/09/2026)", () => {
-    expect(resolveRentalPeriod({ preset: "hoje" }, { hoje: HOJE })).toMatchObject({ inicio: "2026-09-15", fim: "2026-09-15" });
-    expect(resolveRentalPeriod({ preset: "semana" }, { hoje: HOJE })).toMatchObject({ inicio: "2026-09-14", fim: "2026-09-20" });
-    expect(resolveRentalPeriod({ preset: "30d" }, { hoje: HOJE })).toMatchObject({ inicio: "2026-08-17", fim: "2026-09-15" });
-    expect(resolveRentalPeriod(SETEMBRO, { hoje: HOJE })).toMatchObject({ inicio: "2026-09-01", fim: "2026-09-30", label: "Setembro 2026", mensal: true });
-  });
-
-  it("semana que começa no domingo recua até a segunda anterior", () => {
-    expect(resolveRentalPeriod({ preset: "semana" }, { hoje: "2026-09-20" })).toMatchObject({ inicio: "2026-09-14", fim: "2026-09-20" });
-    expect(resolveRentalPeriod({ preset: "semana" }, { hoje: "2026-09-21" })).toMatchObject({ inicio: "2026-09-21", fim: "2026-09-27" });
-  });
-
-  it("navegação mensal atravessa o ano e 'mês anterior' é o mesmo preset com outro mês", () => {
-    expect(shiftMonth("2026-01", -1)).toBe("2025-12");
-    expect(shiftMonth("2026-12", 1)).toBe("2027-01");
-    expect(periodStateFromSelect("mes_anterior", HOJE)).toEqual({ preset: "mes", ym: "2026-08" });
-    expect(periodSelectValue({ preset: "mes", ym: "2026-09" }, HOJE)).toBe("mes");
-    expect(periodSelectValue({ preset: "mes", ym: "2026-08" }, HOJE)).toBe("mes_anterior");
-    expect(periodSelectValue({ preset: "mes", ym: "2026-03" }, HOJE)).toBe("mes:2026-03");
-    expect(periodSelectOptions({ preset: "mes", ym: "2026-03" }, HOJE).some(opt => opt.value === "mes:2026-03" && opt.label === "Março 2026")).toBe(true);
-    expect(periodSelectOptions(SETEMBRO, HOJE).some(opt => opt.value.startsWith("mes:"))).toBe(false);
-  });
-
-  it("período personalizado inverte datas trocadas e cai no mês atual quando incompleto", () => {
-    expect(resolveRentalPeriod({ preset: "personalizado", inicio: "2026-09-10", fim: "2026-09-01" }, { hoje: HOJE })).toMatchObject({ inicio: "2026-09-01", fim: "2026-09-10" });
-    expect(resolveRentalPeriod({ preset: "personalizado", inicio: "", fim: "" }, { hoje: HOJE })).toMatchObject({ inicio: "2026-09-01", fim: "2026-09-30", incompleto: true });
-  });
-
-  it("'todo o período' cobre da locação mais antiga até hoje", () => {
-    const data = buildRentalData();
-    expect(resolveRentalPeriod({ preset: "tudo" }, { hoje: HOJE, rentals: data.locacoesEquip })).toMatchObject({ inicio: "2026-07-01", fim: "2026-09-15" });
-  });
-});
 
 describe("situação e vencimento", () => {
   it("classifica por data e status, sem reinterpretar o registro", () => {
@@ -192,7 +159,7 @@ describe("situação como navegação", () => {
 describe("ordenação", () => {
   const { filtered } = context(buildRentalData());
   it("padrão por aba: em andamento = quem vence primeiro; histórico = mais recentes primeiro", () => {
-    expect(defaultSortFor("em_andamento")).toEqual({ key: "vencimento", dir: "asc" });
+    expect(defaultSortFor("em_andamento")).toEqual({ key: "fim", dir: "asc" });
     expect(sortRentalRows(filterBySituation(filtered, "em_andamento"), null, "em_andamento").map(row => row.id)).toEqual(["L1", "L7", "L6"]); // L7 e L6 sem término planejado: desempate por nome
     expect(sortRentalRows(filtered, null, "todas").map(row => row.id)).toEqual(["L3", "L6", "L7", "L5", "L1", "L2"]);
   });
@@ -249,7 +216,7 @@ describe("KPIs respondem ao período e aos filtros", () => {
     expect(kpis.ocupacao.unidadeDias).toBe(99);
     expect(kpis.ocupacao.capacidade).toBe(360);
     expect(kpis.ocupacao.pct).toBeCloseTo(27.5, 5);
-    expect(kpis.aReceber).toEqual({ abertoCents: 88000, aFaturarCents: 150000, locacoesComSaldo: 2, locacoesAFaturar: 1 });
+    expect(kpis.aReceber).toEqual({ abertoCents: 88000, aFaturarCents: 150000, locacoesComSaldo: 2, faturasComSaldo: 2, locacoesAFaturar: 1 });
     expect(kpis.livres.total).toBe(12);
     expect(kpis.livres.unidades).toBe(6);
   });
@@ -299,75 +266,132 @@ describe("KPIs respondem ao período e aos filtros", () => {
   });
 });
 
-describe("ações da linha e permissões", () => {
-  const rowOf = (id, data = buildRentalData()) => context(data, { preset: "tudo" }).rows.find(row => row.id === id);
-  const labels = (row, user) => rentalRowActions(row, user).map(action => action.label);
-
-  it("administrador vê todas as ações aplicáveis; a ação principal é 'Medir competência'", () => {
-    const actions = rentalRowActions(rowOf("L1"), admin);
-    expect(actions.map(action => action.id)).toEqual(expect.arrayContaining(["avancar:pickup_requested", "medir", "cobranca", "faturar", "aditivo", "editar", "excluir"]));
-    expect(primaryRowAction(actions)?.id).toBe("medir");
-    expect(actions.find(action => action.id === "excluir")).toMatchObject({ danger: true, group: "admin" });
-    expect(actions.filter(action => action.danger)).toHaveLength(1);
+describe("vocabulário: situação da locação x situação da cobrança", () => {
+  it("nenhum rótulo é igual nas duas colunas (nem na aba de situação e no filtro de cobrança)", () => {
+    const situation = Object.values(RENTAL_SITUATION_LABEL).map(label => label.toLowerCase());
+    const billing = Object.values(BILLING_LABEL).map(label => label.toLowerCase());
+    expect(situation.filter(label => billing.includes(label))).toEqual([]);
+    const segments = SITUATION_SEGMENTS.map(item => item.label.toLowerCase());
+    expect(segments.filter(label => billing.includes(label))).toEqual([]);
   });
 
-  it("locação cancelada não oferece ação alguma de alteração", () => {
-    expect(rentalRowActions(rowOf("L5"), admin)).toEqual([]);
-  });
-
-  it("locação encerrada só mantém cobrança (medir/cobrança) e vínculo de recebimento", () => {
-    const encerrada = labels(rowOf("L2"), admin);
-    expect(encerrada).toEqual(expect.arrayContaining(["Medir competência", "Adicionar cobrança", "Editar locação", "Excluir locação"]));
-    expect(encerrada).not.toContain("Prorrogar / renovar");
-  });
-
-  it("lista 'vincular recebimento' para cada fatura com saldo", () => {
-    expect(labels(rowOf("L6"), financeiro)).toContain("Vincular recebimento · FAT-202609-002");
-    expect(labels(rowOf("L2"), financeiro).some(label => label.startsWith("Vincular recebimento"))).toBe(false);
-  });
-
-  it("financeiro altera cobrança e contrato; engenheiro só contrato; outros perfis só consultam", () => {
-    const eng = { id: "u3", role: "engenheiro" };
-    expect(labels(rowOf("L1"), eng)).toEqual(expect.arrayContaining(["Editar locação", "Excluir locação"]));
-    expect(labels(rowOf("L1"), eng)).not.toContain("Medir competência");
-    expect(labels(rowOf("L1"), { role: "rh" })).toEqual([]);
-    expect(labels(rowOf("L1"), null)).toEqual([]);
-    expect(isReadOnlyFor(rowOf("L1"), { role: "rh" })).toBe(true);
-    expect(isReadOnlyFor(rowOf("L1"), eng)).toBe(false);
-  });
-
-  it("perfil vinculado a uma obra só age nas locações da própria obra", () => {
-    const daObraA = { id: "u4", role: "financeiro", obraId: "ob-a" };
-    expect(canOperateRental(daObraA, rowOf("L1").rental, "cobranca")).toBe(true);
-    expect(canOperateRental(daObraA, rowOf("L6").rental, "cobranca")).toBe(false);
-    expect(labels(rowOf("L6"), daObraA)).toEqual([]);
-  });
-
-  it("não oferece o que o ciclo de vida não permite (condições idênticas às da lista antiga)", () => {
-    const data = buildRentalData();
-    data.locacoesEquip[0].lifecycleState = "ready_for_dispatch";
-    data.locacoesEquip[0].quantidade = 3;
-    expect(labels(rowOf("L1", data), admin)).toEqual(expect.arrayContaining(["Checklist: Expedição", "Expedição parcial"]));
-    expect(labels(rowOf("L1", data), admin)).not.toContain("Prorrogar / renovar");
-    expect(labels(rowOf("L1", data), admin)).not.toContain("Encerrar");
-  });
-
-  it("registro legado (sem ciclo de vida) em aberto pode ser encerrado", () => {
-    expect(labels(rowOf("L7"), admin)).toContain("Encerrar");
+  it("o ciclo financeiro encerrado se chama 'Ciclo encerrado'; a locação encerrada, 'Encerrada'", () => {
+    const { rows } = context(buildRentalData());
+    const l2 = rows.find(row => row.id === "L2");
+    expect(RENTAL_SITUATION_LABEL[l2.situacao]).toBe("Encerrada");
+    expect(l2.cobranca.label).toBe("Ciclo encerrado");
+    expect(buildFilterOptions(buildRentalData(), rows).cobranca.map(item => item.label)).toEqual(
+      ["Todas", "Pendente", "Parcial", "A faturar", "Sem medição", "Em dia", "Ciclo encerrado"]);
   });
 });
 
-describe("linha do tempo do detalhe", () => {
-  it("junta início, ciclo, checklists, aditivos e encerramento em ordem cronológica", () => {
+describe("'Todo o período'", () => {
+  const withHistory = () => {
     const data = buildRentalData();
-    Object.assign(data.locacoesEquip[0], {
-      lifecycleHistory: [{ at: "2026-09-02T10:00:00Z", to: "delivered", actorName: "Ana" }],
-      rentalCheckpoints: [{ type: "delivery", status: "recorded", date: "2026-09-02", responsible: "Ana", quantity: 1 }],
-      rentalAmendments: [{ type: "extension", newEndDate: "2026-09-18", reason: "Obra atrasou", createdAt: "2026-09-10T09:00:00Z" }],
-    });
-    const row = context(data).rows.find(item => item.id === "L1");
-    const labels = rentalTimeline(row).map(item => item.label);
-    expect(labels).toEqual(["Início da locação", "Ciclo: Entregue", "Checklist: Entrega", "Prorrogação"]);
-    expect(rentalTimeline(context(data).rows.find(item => item.id === "L5")).at(-1)).toMatchObject({ label: "Locação excluída", detail: "Pedido duplicado" });
+    data.locacoesEquip.push(
+      { id: "OLD", equipamentoId: "eq-bet", obraId: "ob-b", inicio: "2025-01-10", fim: "2025-01-31", quantidade: 1, status: "ativa", version: 1 },
+      { id: "OPEN-OLD", equipamentoId: "eq-ger", obraId: "ob-a", inicio: "2025-03-01", fim: "", quantidade: 1, status: "ativa", version: 1 },
+    );
+    return data;
+  };
+
+  it("inclui locações muito antigas, atuais, programadas e encerradas, cada uma com seu valor", () => {
+    const { filtered, periodo } = context(withHistory(), { preset: "tudo" });
+    expect(periodo).toMatchObject({ inicio: "2025-01-10", fim: "2026-09-15", label: "Todo o período" });
+    expect(ids(filtered)).toEqual(["L1", "L2", "L3", "L4", "L5", "L6", "L7", "OLD", "OPEN-OLD"]);
+    const row = id => filtered.find(item => item.id === id);
+    expect(row("OLD").valorPeriodo).toBeCloseTo(1500, 2); // 22 dias: 1 mês (R$ 1.500) é mais barato que 3 semanas + 1 diária
+    expect(row("OPEN-OLD").diasNoPeriodo).toBeGreaterThan(500); // aberta desde 2025, corre até hoje
+    // programada: ainda sem dias, sem valor - a célula explica em vez de mostrar R$ 0,00
+    expect(row("L3").diasNoPeriodo).toBe(0);
+    expect(rentalValueCell(row("L3"))).toEqual({ kind: "fora", amount: null, note: "inicia em 20/09/26" });
+    expect(countBySituation(filtered)).toMatchObject({ programada: 1, cancelada: 1 });
+  });
+
+  it("os indicadores do período inteiro não contam locação que ainda não começou", () => {
+    const data = withHistory();
+    const { filtered, periodo } = context(data, { preset: "tudo" });
+    const kpis = computeRentalKpis(data, filtered, periodo);
+    expect(kpis.equipamentosLocados.locacoes).toBe(filtered.filter(row => !row.cancelada && row.diasNoPeriodo > 0).length);
+    expect(kpis.receita.valor).toBeCloseTo(filtered.filter(row => !row.cancelada).reduce((total, row) => total + row.valorPeriodo, 0), 2);
+  });
+});
+
+describe("modelo de tela (estado -> domínio -> view model)", () => {
+  const ctxFor = view => {
+    const periodo = resolveRentalPeriod(view.periodState, { hoje: HOJE });
+    const data = buildRentalData();
+    const rows = buildRentalRows(data, { periodo, hoje: HOJE });
+    return { periodo, data, rows, options: buildFilterOptions(data, rows), ctx: { hoje: HOJE, obraIdFixo: "" } };
+  };
+
+  it("estado padrão: mês atual, em andamento, sem filtros e sem chips", () => {
+    const view = defaultRentalView({ hoje: HOJE });
+    expect(view).toMatchObject({ situation: "em_andamento", groupBy: "none", sort: null, page: 0, filters: DEFAULT_FILTERS });
+    const { periodo, options } = ctxFor(view);
+    expect(buildActiveFilterChips(view, { periodo, options, hoje: HOJE })).toEqual([]);
+  });
+
+  it("chips refletem exatamente o que difere do padrão, e cada um se remove sozinho", () => {
+    let view = { ...defaultRentalView({ hoje: HOJE }), situation: "encerrada" };
+    view = { ...view, periodState: { preset: "tudo" }, filters: { ...view.filters, obraId: "ob-a", cobranca: "pendente", busca: " andaime " } };
+    const { periodo, options } = ctxFor(view);
+    const chips = buildActiveFilterChips(view, { periodo, options, hoje: HOJE });
+    expect(chips.map(chip => chip.label)).toEqual(["Todo o período", "K1-04 — Terras Alpha", "Cobrança: Pendente", "Busca: “andaime”", "Encerradas"]);
+    const ctx = { hoje: HOJE };
+    expect(clearFilterChip(view, "obra", ctx).filters.obraId).toBe("all");
+    expect(clearFilterChip(view, "periodo", ctx).periodState).toEqual({ preset: "mes", ym: "2026-09" });
+    expect(clearFilterChip(view, "situacao", ctx).situation).toBe("em_andamento");
+    // limpar um não mexe nos demais
+    expect(clearFilterChip(view, "obra", ctx).filters.cobranca).toBe("pendente");
+    expect(clearRentalView({ ...view, groupBy: "obra" }, ctx)).toEqual({ ...defaultRentalView(ctx), groupBy: "obra" });
+  });
+
+  it("trocar outro filtro não devolve o período ao mês atual", () => {
+    const view = { ...defaultRentalView({ hoje: HOJE }), periodState: { preset: "tudo" } };
+    const cleared = clearFilterChip({ ...view, filters: { ...view.filters, obraId: "ob-a" } }, "obra", { hoje: HOJE });
+    expect(cleared.periodState).toEqual({ preset: "tudo" });
+  });
+
+  it("legenda de escopo: nomeia período, obra e situações; sem mês quando é 'Todo o período'", () => {
+    const base = defaultRentalView({ hoje: HOJE });
+    const mk = view => { const { periodo, options } = ctxFor(view); return rentalScopeLabel(view, { periodo, options }); };
+    expect(mk(base)).toBe("Setembro 2026 · todas as obras · todas as situações");
+    expect(mk({ ...base, filters: { ...base.filters, obraId: "ob-a" } })).toBe("Setembro 2026 · K1-04 — Terras Alpha · todas as situações");
+    const all = mk({ ...base, periodState: { preset: "tudo" } });
+    expect(all).toBe("Todo o período · todas as obras · todas as situações");
+    expect(all).not.toMatch(/Setembro|2026 ·/);
+    expect(mk({ ...base, filters: { ...base.filters, cobranca: "pendente" } })).toMatch(/filtros ativos$/);
+  });
+
+  it("ordenação: repetir o critério inverte; critério novo começa pelo sentido útil", () => {
+    expect(nextRentalSort({ key: "valor", dir: "desc" }, "valor")).toEqual({ key: "valor", dir: "asc" });
+    expect(nextRentalSort({ key: "valor", dir: "asc" }, "obra")).toEqual({ key: "obra", dir: "asc" });
+    expect(nextRentalSort(null, "inicio")).toEqual({ key: "inicio", dir: "desc" });
+  });
+
+  it("resultados: contagens do recorte, situação escolhida, grupos contíguos e página com cabeçalhos", () => {
+    const view = { ...defaultRentalView({ hoje: HOJE }), situation: "todas", groupBy: "obra" };
+    const { filtered } = context(buildRentalData());
+    const results = buildRentalResults(filtered, view, 4);
+    expect(results.counts.todas).toBe(6);
+    expect(results.page).toMatchObject({ total: 6, pageCount: 2, from: 1, to: 4 });
+    expect(results.entries.map(entry => entry.type)).toEqual(["group", "row", "row", "row", "row"]);
+    const second = buildRentalResults(filtered, { ...view, page: 1 }, 4);
+    expect(second.entries.map(entry => entry.type)).toEqual(["group", "row", "row"]); // o 2º grupo abre na página 2
+    expect(second.grouped).toBe(true);
+    expect(buildRentalResults(filtered, { ...view, groupBy: "none" }, 25).entries.every(entry => entry.type === "row")).toBe(true);
+  });
+
+  it("textos de célula vêm do domínio", () => {
+    const { rows } = context(buildRentalData());
+    const l1 = rows.find(row => row.id === "L1");
+    expect(rentalPeriodText(l1)).toBe("01/09/26 → em andamento");
+    expect(vencimentoText(l1.vencimento)).toBe("Vence em 3 dia(s)");
+    expect(vencimentoText({ tipo: "vencida", dias: 2 })).toBe("Vencida há 2 dia(s)");
+    expect(billingNote(l1)).toBe(`medido, sem fatura ${(1500).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`);
+    expect(billingNote(rows.find(row => row.id === "L7"))).toMatch(/^saldo da fatura R\$/);
+    expect(rentalValueCell(rows.find(row => row.id === "L5"))).toMatchObject({ kind: "cancelada" });
+    expect(rentalValueCell(l1)).toMatchObject({ kind: "valor", note: "30 dia(s) · 1 mês" });
   });
 });

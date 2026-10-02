@@ -1,60 +1,59 @@
 ---
 target: aba Locações da Central de locação de equipamentos (src/domains/equipamentos/components/RentalOperationsPanel.jsx)
-total_score: 31
+total_score: 32
 max_score: 40
 na_heuristics: 
 p0_count: 0
-p1_count: 1
-timestamp: 2026-10-02T18-30-00Z
+p1_count: 0
+timestamp: 2026-10-02T21-00-00Z
 slug: src-domains-equipamentos-components-rentaloperationspanel-jsx
 ---
-# Revisão Impeccable — Central operacional de locações
+# Revisão Impeccable — Central operacional de locações (2ª passada, fechamento)
 
-**Método**: autoavaliação após a implementação, com (a) o scanner determinístico do hook do Impeccable em cada arquivo escrito (sem achados), (b) capturas reais em Chromium a 1440, 1280 e 1024px com massa de 48 locações, nomes longos e valores grandes, (c) testes de comportamento. Não substitui uma crítica independente em duas passadas como as de agosto; a nota é conservadora por isso.
+**Método**: (a) scanner determinístico do hook do Impeccable em cada arquivo alterado (sem achados); (b) revisão manual das 10 heurísticas sobre capturas reais em Chromium a 1440, 1280 e 1024px (48 locações, nomes longos, valores na casa dos milhões); (c) `.impeccable/config.json` e as críticas de 17/08/2026 (Equipamentos) usadas como régua; (d) testes de comportamento. Continua sendo uma autoavaliação, não uma crítica independente em duas passadas.
+
+**1ª passada (02/10/2026, mesmo dia)**: 31/40 · P0 0 · P1 1 · P2 5 · P3 3.
 
 ## Design Health Score
 
-| # | Heurística | Nota | Achado-chave |
-|---|---|---|---|
-| 1 | Visibilidade do status do sistema | 3 | Resumo com `aria-live`, contagens por situação, KPIs com escopo explícito, esqueleto que reserva a altura. Falta feedback de "salvando" por linha (o `busy` só desabilita). |
-| 2 | Correspondência com o mundo real | 4 | Equipamento → obra → período → situação → cobrança, com "K1-04 — Terras Alpha", "vence em 3 dias", "medido a faturar". |
-| 3 | Controle e liberdade do usuário | 3 | Chips removíveis, "Limpar filtros", ‹ › de mês, Esc fecha menu/detalhe. Exclusão tem confirmação, mas não há desfazer. |
-| 4 | Consistência e padrões | 3 | Só tokens `--arcd-*`, primitivos do design system, fonte mono em números/códigos. Cabeçalho e abas continuam os legados compartilhados pelas 6 abas. |
-| 5 | Prevenção de erros | 3 | Ação destrutiva isolada no fim do menu e com confirmação; ações que o servidor recusaria nem aparecem (espelho de papéis testado). |
-| 6 | Reconhecimento vs. memorização | 4 | Estado sempre por ícone + texto + tom; obra por nome e código; filtros ativos visíveis como chips. |
-| 7 | Flexibilidade e eficiência | 3 | Busca, 7 ordenações, agrupamento, atalhos de período, ação principal na linha. Sem visões salvas nem ações em lote. |
-| 8 | Estética e minimalismo | 3 | 1 ação visível + `⋯` por linha, sem gradiente/sombra/faixa lateral. Densa por natureza (8 colunas em ≥ 1200px). |
-| 9 | Recuperação de erros | 3 | Erro com mensagem clara e "Tentar novamente"; vazio e "sem resultado" distintos. O erro hoje só ocorre com dado malformado (não há requisição própria). |
-| 10 | Ajuda e documentação | 2 | Aviso do DRE recolhido e notas nos cartões; faltam dicas para "taxa de ocupação" e "unidades-dia". |
+| # | Heurística | 1ª | 2ª | O que mudou / por quê |
+|---|---|---|---|---|
+| 1 | Visibilidade do status do sistema | 3 | 3 | Resumo agora diz a situação ("3 locações em andamento"); legenda dos indicadores diz "todas as situações". Ainda sem feedback de "salvando" por linha. |
+| 2 | Correspondência com o mundo real | 4 | 4 | "Receita contratual", "Faturas a receber", "Ciclo encerrado" falam a língua do financeiro. |
+| 3 | Controle e liberdade do usuário | 3 | 3 | Chips, limpar, Esc; foco volta à linha ao fechar o detalhe. Sem desfazer exclusão. |
+| 4 | Consistência e padrões | 3 | 3 | Colunas "Situação da locação" e "Situação da cobrança" sem rótulos repetidos entre si (teste trava). Cabeçalho/abas continuam os legados. |
+| 5 | Prevenção de erros | 3 | 3 | Permissões da tela e do servidor saem da mesma tabela; teste compara ação × papel × obra. |
+| 6 | Reconhecimento vs. memorização | 4 | 4 | — |
+| 7 | Flexibilidade e eficiência | 3 | 3 | — |
+| 8 | Estética e minimalismo | 3 | 3 | Cabeçalhos quebram linha em vez de alargar a tabela; nota de ciclo é texto secundário, não alerta. |
+| 9 | Recuperação de erros | 3 | 3 | — |
+| 10 | Ajuda e documentação | 2 | 3 | Cada indicador financeiro diz de onde vem o número (nota visível + explicação no rótulo); locação "em andamento" sem ação de ciclo explica o motivo na linha, no menu e no detalhe. |
 
-**Total: 31/40 (78%).** A tela de Equipamentos como um todo estava em 24/40 em 17/08.
-
-## Veredito de especificidade
-
-Desenhada para locação entre obras: a unidade da conversa é equipamento × obra × período, com vencimento e saldo à vista — não um CRUD genérico. O que ainda a aproxima de um dashboard genérico: os quatro cartões de KPI (necessários, mas de peso igual).
+**Total: 32/40.** A única nota que subiu (10) subiu porque a explicação passou a existir na tela, não para fechar um número.
 
 ## Problemas
 
 **[P0]** nenhum.
 
-**[P1] Duas bases de valor na mesma tela.** "Receita no período" vem do contrato; "A receber" vem de faturas/medições que ainda não alimentam o DRE. Justificativa para não corrigir agora: é a regra financeira vigente (Fase 5 inacabada), e o pedido proíbe alterá-la. Mitigação: nota em cada cartão e aviso recolhido. Ação: decisão de produto sobre integrar a cobrança por ciclo ao DRE.
+**[P1]** nenhum. *O P1 da 1ª passada ("duas bases de valor na mesma tela") caiu para P2, justificativa abaixo.*
 
-**[P2]** Cabeçalho (PageHero) com 3 botões secundários de peso igual abaixo do primário — compartilhado com as outras abas.
-**[P2]** Sem tooltip para "taxa de ocupação" / "unidades-dia" / "Sem medição".
-**[P2]** Sem reordenação no layout empilhado (< 640px).
-**[P2]** Cobrança "Encerrada" também rotula locações excluídas (sem cobrança futura) — pode confundir com a situação "Encerrada".
-**[P2]** O erro "Tentar novamente" só recalcula; não refaz requisição (não existe nenhuma nesta aba).
+**[P2] As duas bases de valor continuam coexistindo** (rebaixado de P1). Antes: "Receita no período" × "A receber", nomes que sugeriam a mesma grandeza. Agora: "Receita contratual no período — Conforme tarifas das locações" × "Faturas a receber — N faturas pendentes · Controle interno, ainda fora do DRE", com explicação no rótulo de cada um. O risco de ler os dois como a mesma coisa deixou de ser provável; o que resta é a lacuna de produto (cobrança por ciclo fora do DRE), que não é de interface e não pode ser resolvida nesta rodada.
+**[P2]** Cabeçalho (PageHero) com 3 botões secundários de peso igual — compartilhado com as outras abas.
+**[P2]** Sem reordenação no layout empilhado (< 640px; fora do escopo desktop/notebook/tablet).
+**[P2]** "Tentar novamente" só recalcula (a aba não faz requisição própria).
 
-**[P3]** Cabeçalho de tabela `sticky` sem efeito prático dentro do contêiner de rolagem horizontal.
-**[P3]** Contagem do badge da aba "Mapa de ocupação" quebra de linha a 1024px (pré-existente).
+**[P3]** Explicação dos indicadores via `title` não é alcançável por teclado (a nota visível cobre o essencial).
+**[P3]** Cabeçalho `sticky` sem efeito dentro do contêiner de rolagem horizontal.
+**[P3]** Badge da aba "Mapa de ocupação" quebra linha a 1024px (pré-existente).
 **[P3]** Sem virtualização (paginação de 25 cobre o volume atual).
 
-## Checagens dos critérios Impeccable
+**Encerrado nesta passada**: cobrança "Encerrada" confundível com a situação "Encerrada" (agora "Ciclo encerrado"); contagem da aba ativa invisível; valor de R$ 1 diária mostrado para locação programada em "Todo o período" (agora "—" com "inicia em dd/mm").
 
-- Card overload: 4 cartões de resumo (de 4 + um bloco de aviso + lista de cartões antes). Cartões dentro de cartões: nenhum.
-- Side-tabs / border accents / gradientes / sombras decorativas: nenhum nesta aba (o menu e a tabela usam só borda de 1px; o detalhe reutiliza o `Drawer` do design system).
-- Texto minúsculo: mínimo `--arcd-type-caption` (10px) só no título de grupo do menu; metadados em `--arcd-type-label` (11px).
-- Ações `danger` para tarefa não destrutiva: nenhuma. Uma única ação `danger` por linha, no fim do menu, e no fim do detalhe.
-- Filtros duplicados: nenhum (situação só no controle segmentado; chips apenas refletem o estado).
-- Estado crítico só por cor: nenhum (ícone + texto + tom).
-- Valores soltos fora de token: nenhum no CSS novo.
+## Critérios Impeccable
+
+- Card overload / cartões aninhados: 4 cartões de resumo; detalhe usa divisores, sem cartões (teste trava).
+- Side-tabs, border accents, gradientes, sombras decorativas: nenhum nesta aba.
+- Texto minúsculo: mínimo `--arcd-type-caption` (10px) só no título de grupo do menu.
+- `danger` em tarefa não destrutiva: nenhum; uma ação `danger` por linha, isolada no fim do menu e do detalhe.
+- Filtros duplicados: nenhum. Estado só por cor: nenhum. Valores soltos fora de token: nenhum no CSS novo.
+- Responsividade: só container query no CSS da Central (teste garante ausência de `@media` por largura de janela); proprietário e período sempre recolocados quando a coluna sai.

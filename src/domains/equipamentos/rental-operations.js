@@ -10,119 +10,11 @@
 // rental-lifecycle.js. Qualquer regra ambígua fica como está e documentada
 // em docs/EQUIPAMENTOS_CENTRAL_OPERACIONAL_LOCACOES.md.
 import { cobrancaLocacao, diasLocacaoNoPeriodo, disponibilidadeNoDia, textoComposicao } from "./calculations.js";
-import { RENTAL_CHECKPOINT_TYPE, rentalDeliveryBalance, rentalDispatchBalance, rentalReturnBalance } from "./rental-checkpoints.js";
-import { availableRentalTransitions, normalizeRentalState, rentalStateLabel } from "./rental-lifecycle.js";
+import { normalizeRentalState, rentalStateLabel } from "./rental-lifecycle.js";
+import { daysBetween, formatDate, isIso, listDays, monthLabel, monthOf, PERIOD_PRESET } from "./rental-period.js";
 
-// ---------------------------------------------------------------- datas ----
-const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-const pad = n => String(n).padStart(2, "0");
-const parseIso = iso => { const [y, m, d] = String(iso).split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); };
-const toIso = date => `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
-const isIso = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
-
-export const addDays = (iso, amount) => { const d = parseIso(iso); d.setUTCDate(d.getUTCDate() + amount); return toIso(d); };
-export const daysBetween = (from, to) => Math.round((parseIso(to) - parseIso(from)) / 86400000);
-export const monthOf = iso => String(iso || "").slice(0, 7);
-export const shiftMonth = (ym, delta) => {
-  const [y, m] = ym.split("-").map(Number);
-  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`;
-};
-export const monthBounds = ym => {
-  const [y, m] = ym.split("-").map(Number);
-  return { inicio: `${ym}-01`, fim: toIso(new Date(Date.UTC(y, m, 0))) };
-};
-export const monthLabel = ym => { const [y, m] = String(ym || "").split("-").map(Number); return MESES[m - 1] ? `${MESES[m - 1]} ${y}` : ""; };
-export const formatDate = iso => { if (!isIso(iso)) return "—"; const [y, m, d] = iso.split("-"); return `${d}/${m}/${y.slice(2)}`; };
-export const formatDateFull = iso => { if (!isIso(iso)) return "—"; const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
 // Mesmo formato de fmt() em LegacyApp.jsx - a tela inteira fala o mesmo "R$ 1.234,56".
 export const formatMoney = value => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const listDays = (inicio, fim, limit = 3660) => {
-  const out = [];
-  if (!isIso(inicio) || !isIso(fim) || fim < inicio) return out;
-  for (let cursor = inicio; cursor <= fim && out.length < limit; cursor = addDays(cursor, 1)) out.push(cursor);
-  return out;
-};
-
-// -------------------------------------------------------------- período ----
-export const PERIOD_PRESET = Object.freeze({
-  TODAY: "hoje", WEEK: "semana", MONTH: "mes", LAST_30: "30d", CUSTOM: "personalizado", ALL: "tudo",
-});
-
-// state: { preset, ym?, inicio?, fim? }  ->  janela efetiva [inicio, fim].
-// "Este mês" e "Mês anterior" são o mesmo preset MONTH com `ym` diferente -
-// é isso que permite navegar com ‹ › sem inventar um segundo modelo.
-export const resolveRentalPeriod = (state = {}, { hoje, rentals = [] } = {}) => {
-  const preset = state.preset || PERIOD_PRESET.MONTH;
-  if (preset === PERIOD_PRESET.TODAY) {
-    return { preset, inicio: hoje, fim: hoje, label: `Hoje · ${formatDate(hoje)}`, mensal: false };
-  }
-  if (preset === PERIOD_PRESET.WEEK) {
-    const dow = parseIso(hoje).getUTCDay();
-    const inicio = addDays(hoje, -((dow + 6) % 7));
-    const fim = addDays(inicio, 6);
-    return { preset, inicio, fim, label: `Esta semana · ${formatDate(inicio)} → ${formatDate(fim)}`, mensal: false };
-  }
-  if (preset === PERIOD_PRESET.LAST_30) {
-    return { preset, inicio: addDays(hoje, -29), fim: hoje, label: `Últimos 30 dias · ${formatDate(addDays(hoje, -29))} → ${formatDate(hoje)}`, mensal: false };
-  }
-  if (preset === PERIOD_PRESET.CUSTOM) {
-    let { inicio, fim } = state;
-    if (isIso(inicio) && isIso(fim)) {
-      if (fim < inicio) [inicio, fim] = [fim, inicio];
-      return { preset, inicio, fim, label: `${formatDate(inicio)} → ${formatDate(fim)}`, mensal: false };
-    }
-    // Datas incompletas: cai no mês atual em vez de uma janela vazia.
-    const bounds = monthBounds(monthOf(hoje));
-    return { preset, ...bounds, label: `${formatDate(bounds.inicio)} → ${formatDate(bounds.fim)}`, mensal: false, incompleto: true };
-  }
-  if (preset === PERIOD_PRESET.ALL) {
-    const starts = rentals.map(item => item.inicio).filter(isIso).sort();
-    const ends = rentals.map(item => item.fim).filter(isIso).sort();
-    const inicio = starts[0] || hoje;
-    const fim = [hoje, ends.at(-1)].filter(Boolean).sort().at(-1);
-    return { preset, inicio, fim, label: "Todo o período", mensal: false };
-  }
-  const ym = /^\d{4}-\d{2}$/.test(String(state.ym || "")) ? state.ym : monthOf(hoje);
-  return { preset: PERIOD_PRESET.MONTH, ym, ...monthBounds(ym), label: monthLabel(ym), mensal: true };
-};
-
-// Valor exibido no seletor: os atalhos "Este mês"/"Mês anterior" são o mesmo
-// preset MONTH apontando para um ym; um mês navegado além disso vira "mes:YYYY-MM".
-export const periodSelectValue = (state = {}, hoje) => {
-  const preset = state.preset || PERIOD_PRESET.MONTH;
-  if (preset !== PERIOD_PRESET.MONTH) return preset;
-  const ym = state.ym || monthOf(hoje);
-  if (ym === monthOf(hoje)) return "mes";
-  if (ym === shiftMonth(monthOf(hoje), -1)) return "mes_anterior";
-  return `mes:${ym}`;
-};
-
-export const periodSelectOptions = (state = {}, hoje) => {
-  const options = [
-    { value: PERIOD_PRESET.TODAY, label: "Hoje" },
-    { value: PERIOD_PRESET.WEEK, label: "Esta semana" },
-    { value: "mes", label: "Este mês" },
-    { value: "mes_anterior", label: "Mês anterior" },
-    { value: PERIOD_PRESET.LAST_30, label: "Últimos 30 dias" },
-    { value: PERIOD_PRESET.CUSTOM, label: "Personalizado" },
-    { value: PERIOD_PRESET.ALL, label: "Todo o período" },
-  ];
-  const current = periodSelectValue(state, hoje);
-  if (current.startsWith("mes:")) options.splice(4, 0, { value: current, label: monthLabel(current.slice(4)) });
-  return options;
-};
-
-export const periodStateFromSelect = (value, hoje, previous = {}) => {
-  if (value === "mes") return { preset: PERIOD_PRESET.MONTH, ym: monthOf(hoje) };
-  if (value === "mes_anterior") return { preset: PERIOD_PRESET.MONTH, ym: shiftMonth(monthOf(hoje), -1) };
-  if (String(value).startsWith("mes:")) return { preset: PERIOD_PRESET.MONTH, ym: String(value).slice(4) };
-  if (value === PERIOD_PRESET.CUSTOM) {
-    const base = resolveRentalPeriod(previous, { hoje });
-    return { preset: PERIOD_PRESET.CUSTOM, inicio: previous.inicio || base.inicio, fim: previous.fim || base.fim };
-  }
-  return { preset: value };
-};
 
 // ------------------------------------------------------ situação/cobrança ----
 export const RENTAL_SITUATION = Object.freeze({
@@ -137,7 +29,7 @@ export const BILLING_STATE = Object.freeze({
   OK: "em_dia", PENDING: "pendente", PARTIAL: "parcial", TO_INVOICE: "a_faturar", NONE: "sem_medicao", CLOSED: "encerrada",
 });
 export const BILLING_LABEL = Object.freeze({
-  em_dia: "Em dia", pendente: "Pendente", parcial: "Parcial", a_faturar: "A faturar", sem_medicao: "Sem medição", encerrada: "Encerrada",
+  em_dia: "Em dia", pendente: "Pendente", parcial: "Parcial", a_faturar: "A faturar", sem_medicao: "Sem medição", encerrada: "Ciclo encerrado",
 });
 // Quanto maior a urgência, mais cedo na ordenação por cobrança.
 const BILLING_ORDER = ["pendente", "parcial", "a_faturar", "sem_medicao", "em_dia", "encerrada"];
@@ -218,9 +110,9 @@ export const buildRentalRows = (data = {}, { periodo, hoje }) => {
     const openInvoices = invoices.filter(item => ["issued", "partially_paid"].includes(item.status) && Number(item.openAmountCents || 0) > 0);
     const quantidade = Math.max(1, Number(rental.quantidade || 1));
 
-    const diasNoPeriodo = periodo.preset === PERIOD_PRESET.ALL
-      ? (isIso(rental.inicio) ? Math.max(1, diasLocacaoNoPeriodo(rental, periodo.inicio, periodo.fim)) : 0)
-      : diasLocacaoNoPeriodo(rental, periodo.inicio, periodo.fim);
+    // Dias dentro da janela, pela mesma função dos relatórios. Em "Todo o
+    // período" a janela termina hoje: uma locação programada ainda não tem dias.
+    const diasNoPeriodo = diasLocacaoNoPeriodo(rental, periodo.inicio, periodo.fim);
     const cobPeriodo = diasNoPeriodo && !cancelada ? cobrancaLocacao(rental, equipment, diasNoPeriodo) : null;
     // Valor acumulado do contrato até hoje (ou até o término): é o número que a
     // lista antiga mostrava - continua disponível no detalhe.
@@ -308,16 +200,16 @@ const collator = new Intl.Collator("pt-BR", { numeric: true, sensitivity: "base"
 const far = "9999-12-31";
 const sortValue = {
   equipamento: row => row.equipamentoNome, obra: row => row.obraRotulo, inicio: row => row.inicio || far,
-  fim: row => row.fim || far, valor: row => row.valorPeriodo,
+  // "Fim" = término: a data de fim quando já existe, senão o término planejado.
+  fim: row => row.fim || row.plannedEnd || far, valor: row => row.valorPeriodo,
   situacao: row => SITUATION_ORDER.indexOf(row.situacao), cobranca: row => BILLING_ORDER.indexOf(row.cobranca.estado),
-  vencimento: row => row.plannedEnd || row.fim || far,
 };
 
 // Ordenação padrão por aba: histórico = mais recentes primeiro; em andamento =
 // quem vence antes aparece antes (o que pede ação primeiro); programadas = a
 // que entra primeiro. O usuário sobrescreve clicando no cabeçalho.
 export const defaultSortFor = situation => {
-  if (situation === RENTAL_SITUATION.ACTIVE) return { key: "vencimento", dir: "asc" };
+  if (situation === RENTAL_SITUATION.ACTIVE) return { key: "fim", dir: "asc" };
   if (situation === RENTAL_SITUATION.SCHEDULED) return { key: "inicio", dir: "asc" };
   return { key: "inicio", dir: "desc" };
 };
@@ -456,94 +348,119 @@ export const computeRentalKpis = (data = {}, rows = [], periodo, filters = DEFAU
       abertoCents: sum(rows.filter(row => !row.cancelada), row => row.cobranca.abertoCents),
       aFaturarCents: sum(rows.filter(row => !row.cancelada), row => row.cobranca.aFaturarCents),
       locacoesComSaldo: comPendencia.length,
+      faturasComSaldo: comPendencia.reduce((total, row) => total + row.openInvoices.length, 0),
       locacoesAFaturar: rows.filter(row => !row.cancelada && row.cobranca.estado === BILLING_STATE.TO_INVOICE).length,
     },
     livres,
   };
 };
 
-// ------------------------------------------------------- ações e permissões ----
-export const CHECKPOINT_BY_STATE = Object.freeze({
-  ready_for_dispatch: RENTAL_CHECKPOINT_TYPE.SEPARATION, in_transport: RENTAL_CHECKPOINT_TYPE.DISPATCH,
-  delivered: RENTAL_CHECKPOINT_TYPE.DELIVERY, returned: RENTAL_CHECKPOINT_TYPE.RETURN, under_inspection: RENTAL_CHECKPOINT_TYPE.INSPECTION,
-});
-export const CHECKPOINT_LABEL = Object.freeze({
-  separation: "Separação", partial_dispatch: "Expedição parcial", dispatch: "Expedição", partial_delivery: "Entrega parcial",
-  delivery: "Entrega", partial_return: "Devolução parcial", return: "Devolução", inspection: "Inspeção", adjustment: "Conclusão do ajuste",
+// ------------------------------------------- estado da tela -> modelo de tela ----
+// A tela guarda UM objeto de estado (`view`); tudo que decide o que aparece
+// (chips, escopo, ordenação, agrupamento, página, textos de célula) é
+// calculado aqui e o componente só desenha.
+export const DEFAULT_SITUATION = "em_andamento";
+export const SITUATION_SEGMENTS = [
+  { value: "em_andamento", label: "Em andamento", noun: "em andamento" },
+  { value: "programada", label: "Programadas", noun: "programadas" },
+  { value: "encerrada", label: "Encerradas", noun: "encerradas" },
+  { value: "cancelada", label: "Canceladas", noun: "canceladas" },
+  { value: "todas", label: "Todas", noun: "" },
+];
+
+export const defaultRentalView = ({ hoje, obraIdFixo = "" }) => ({
+  periodState: { preset: PERIOD_PRESET.MONTH, ym: monthOf(hoje) },
+  filters: { ...DEFAULT_FILTERS, obraId: obraIdFixo || "all" },
+  situation: DEFAULT_SITUATION, groupBy: "none", sort: null, page: 0,
 });
 
-// Espelho de OPERATIONAL_COMMAND_ROLES (api/data.js) - o servidor continua
-// sendo a autoridade; isto só evita oferecer botões que o servidor recusaria.
-// server/rental-action-permissions.test.js trava o espelho contra o original.
-export const RENTAL_ACTION_ROLES = Object.freeze({
-  contrato: ["admin", "engenheiro", "engenheiro_auditor", "financeiro"],
-  cobranca: ["admin", "financeiro"],
-});
+const isDefaultPeriod = (periodState, hoje) => periodState.preset === PERIOD_PRESET.MONTH && periodState.ym === monthOf(hoje);
 
-export const canOperateRental = (user, rental, kind) => {
-  if (!user?.role || !RENTAL_ACTION_ROLES[kind]?.includes(user.role)) return false;
-  return user.role === "admin" || !user.obraId || String(user.obraId) === String(rental?.obraId || "");
+// Chips dos filtros ATIVOS (o que difere do padrão). O período só vira chip
+// quando sai do mês atual; a situação, quando sai de "Em andamento".
+export const buildActiveFilterChips = (view, { periodo, options, hoje, obraIdFixo = "" }) => {
+  const { filters, situation, periodState } = view;
+  const labelOf = (list, value) => list.find(item => item.value === value)?.label || "—";
+  const chips = [];
+  if (!isDefaultPeriod(periodState, hoje)) chips.push({ id: "periodo", label: periodo.label });
+  if (!obraIdFixo && filters.obraId !== "all") chips.push({ id: "obra", label: labelOf(options.obras, filters.obraId) });
+  if (filters.cobranca !== "all") chips.push({ id: "cobranca", label: `Cobrança: ${labelOf(options.cobranca, filters.cobranca)}` });
+  if (filters.proprietario !== "all") chips.push({ id: "proprietario", label: `Proprietário: ${labelOf(options.proprietarios, filters.proprietario)}` });
+  if (filters.categoria !== "all") chips.push({ id: "categoria", label: `Categoria: ${filters.categoria}` });
+  if (normalizeText(filters.busca)) chips.push({ id: "busca", label: `Busca: “${filters.busca.trim()}”` });
+  if (situation !== DEFAULT_SITUATION) chips.push({ id: "situacao", label: SITUATION_SEGMENTS.find(item => item.value === situation)?.label || situation });
+  return chips;
 };
 
-// Ações disponíveis para uma locação, na ordem em que aparecem no menu e no
-// detalhe. As condições são EXATAMENTE as da lista antiga (EquipamentosView):
-// só foram movidas para cá para serem testáveis e compartilhadas pela linha e
-// pelo painel de detalhe.
-export const rentalRowActions = (row, user) => {
-  const rental = row.rental;
-  const cps = rental.rentalCheckpoints || [];
-  const state = row.lifecycleState;
-  const contrato = canOperateRental(user, rental, "contrato");
-  const cobranca = canOperateRental(user, rental, "cobranca");
-  const open = row.emAberto;
-  const hasAdjustment = cps.some(item => item.type === RENTAL_CHECKPOINT_TYPE.ADJUSTMENT && item.status !== "cancelled");
-  const actions = [];
-  const add = (id, label, group, extra = {}) => actions.push({ id, label, group, ...extra });
-
-  if (contrato && open) {
-    availableRentalTransitions(state, { checkpoints: cps }).filter(next => !["cancelled", "closed"].includes(next)).forEach(next => {
-      const type = CHECKPOINT_BY_STATE[next];
-      const recorded = cps.some(item => item.type === type && item.status !== "cancelled");
-      add(`avancar:${next}`, type && !recorded ? `Checklist: ${CHECKPOINT_LABEL[type]}` : `Avançar: ${rentalStateLabel(next)}`, "ciclo", { nextState: next });
-    });
-    if (state === "ready_for_dispatch" && rentalDispatchBalance(rental, cps).remainingQuantity > 1) add("expedicao_parcial", "Expedição parcial", "ciclo");
-    if (state === "in_transport" && rentalDeliveryBalance(rental, cps).remainingQuantity > 1) add("entrega_parcial", "Entrega parcial", "ciclo");
-    if (state === "awaiting_adjustment" && !hasAdjustment) add("ajuste", "Registrar ajuste concluído", "ciclo");
-    if (state === "pickup_requested" && rentalReturnBalance(rental, cps).remainingQuantity > 1) add("devolucao_parcial", "Devolução parcial", "ciclo");
-    if (!rental.lifecycleState || state === "under_inspection" || (state === "awaiting_adjustment" && hasAdjustment)) add("encerrar", "Encerrar", "ciclo");
-  }
-  if (cobranca && !row.cancelada) {
-    add("medir", "Medir competência", "cobranca");
-    add("cobranca", "Adicionar cobrança", "cobranca");
-    if (row.hasItemsToInvoice) add("faturar", "Emitir fatura", "cobranca");
-    row.openInvoices.forEach(invoice => add(`receber:${invoice.id}`, `Vincular recebimento · ${invoice.number}`, "cobranca", { invoiceId: invoice.id }));
-  }
-  if (contrato && !row.cancelada) {
-    if (open && ["contracted", "delivered", "active", "pickup_requested"].includes(state)) add("aditivo", "Prorrogar / renovar", "contrato");
-    if (open && (rental.equipmentUnitIds || []).length > 0 && ["separating", "ready_for_dispatch", "in_transport", "delivered", "active", "pickup_requested"].includes(state)) add("substituir", "Substituir unidade", "contrato");
-    if (!row.cancelada) add("editar", "Editar locação", "contrato");
-  }
-  if (contrato && !row.cancelada) add("excluir", "Excluir locação", "admin", { danger: true });
-  return actions;
+export const clearFilterChip = (view, id, { hoje, obraIdFixo = "" }) => {
+  const base = defaultRentalView({ hoje, obraIdFixo });
+  if (id === "periodo") return { ...view, periodState: base.periodState, page: 0 };
+  if (id === "situacao") return { ...view, situation: base.situation, sort: null, page: 0 };
+  const field = { obra: "obraId", cobranca: "cobranca", proprietario: "proprietario", categoria: "categoria", busca: "busca" }[id];
+  return field ? { ...view, filters: { ...view.filters, [field]: base.filters[field] }, page: 0 } : view;
 };
 
-// A ação principal da linha: só onde "Medir competência" é de fato o próximo
-// passo do dia a dia (locação em andamento, perfil financeiro).
-export const primaryRowAction = actions => actions.find(item => item.id === "medir") || null;
+// "Limpar filtros": devolve filtros, período e situação ao padrão (mantém só o agrupamento).
+export const clearRentalView = (view, ctx) => ({ ...defaultRentalView(ctx), groupBy: view.groupBy });
 
-export const isReadOnlyFor = (row, user) => !canOperateRental(user, row.rental, "contrato") && !canOperateRental(user, row.rental, "cobranca");
+// Legenda de escopo dos indicadores. Eles valem para o recorte (período + filtros)
+// em TODAS as situações - a situação é só navegação; por isso a legenda diz isso.
+export const rentalScopeLabel = (view, { periodo, options }) => {
+  const obra = view.filters.obraId === "all" ? "todas as obras" : options.obras.find(item => item.value === view.filters.obraId)?.label || "obra selecionada";
+  const others = activeFilterCount({ ...view.filters, obraId: "all" }) > 0;
+  return [periodo.label, obra, "todas as situações", others ? "filtros ativos" : ""].filter(Boolean).join(" · ");
+};
 
-// Linha do tempo do detalhe: só junta registros que a locação já guarda.
-const CHECKPOINT_TIMELINE_LABEL = CHECKPOINT_LABEL;
-export const rentalTimeline = row => {
-  const rental = row.rental;
-  const events = [];
-  if (rental.inicio) events.push({ at: rental.inicio, label: "Início da locação", detail: row.obraRotulo });
-  (rental.lifecycleHistory || []).forEach(item => events.push({ at: String(item.at || "").slice(0, 10), label: `Ciclo: ${rentalStateLabel(item.to)}`, detail: [item.actorName, item.reason].filter(Boolean).join(" · ") }));
-  (rental.rentalCheckpoints || []).filter(item => item.status !== "cancelled").forEach(item => events.push({ at: String(item.date || item.createdAt || "").slice(0, 10), label: `Checklist: ${CHECKPOINT_TIMELINE_LABEL[item.type] || item.type}`, detail: [item.responsible || item.createdBy, item.quantity ? `${item.quantity} un` : ""].filter(Boolean).join(" · ") }));
-  (rental.rentalAmendments || []).forEach(item => events.push({ at: String(item.createdAt || "").slice(0, 10), label: item.type === "renewal" ? "Renovação" : "Prorrogação", detail: [item.newEndDate ? `novo término ${formatDateFull(item.newEndDate)}` : "", item.reason].filter(Boolean).join(" · ") }));
-  (rental.rentalReplacements || []).forEach(item => events.push({ at: String(item.date || item.createdAt || "").slice(0, 10), label: "Unidade substituída", detail: item.reason || "" }));
-  if (rental.fim && !row.cancelada) events.push({ at: rental.fim, label: "Encerramento", detail: "" });
-  if (row.cancelada) events.push({ at: String(rental.cancelledAt || "").slice(0, 10), label: "Locação excluída", detail: rental.cancellationReason || "" });
-  return events.sort((a, b) => String(a.at).localeCompare(String(b.at)));
+// Próximo estado de ordenação ao clicar num cabeçalho: repetir o critério
+// inverte o sentido; um critério novo começa por onde faz mais sentido
+// (valores e datas: maior/mais recente primeiro; textos: A-Z).
+export const nextRentalSort = (current, key) => {
+  if (current?.key === key) return { key, dir: current.dir === "asc" ? "desc" : "asc" };
+  return { key, dir: ["valor", "inicio", "fim"].includes(key) ? "desc" : "asc" };
+};
+
+// Resultado exibido: contagens do recorte, ordenação efetiva, grupos, página e
+// as entradas (cabeçalho de grupo ou linha) já na ordem de desenho.
+export const buildRentalResults = (context, view, pageSize) => {
+  const counts = countBySituation(context);
+  const effectiveSort = view.sort || defaultSortFor(view.situation);
+  const sorted = sortRentalRows(filterBySituation(context, view.situation), view.sort, view.situation);
+  const groups = groupRentalRows(sorted, view.groupBy);
+  const ordered = groups ? groups.flatMap(group => group.rows) : sorted;
+  const page = paginate(ordered, view.page, pageSize);
+  const groupOf = new Map();
+  (groups || []).forEach(group => group.rows.forEach(row => groupOf.set(row.id, group)));
+  const entries = [];
+  let last = null;
+  page.items.forEach(row => {
+    const group = groupOf.get(row.id);
+    if (group && group.key !== last) { entries.push({ type: "group", group }); last = group.key; }
+    entries.push({ type: "row", row });
+  });
+  return { counts, effectiveSort, sorted, summary: summarizeRentalRows(sorted), page, entries, grouped: Boolean(groups) };
+};
+
+// ------------------------------------------------------------ textos de célula ----
+export const rentalPeriodText = row => `${formatDate(row.inicio)} → ${row.cancelada ? "excluída" : row.fim ? formatDate(row.fim) : "em andamento"}`;
+
+export const vencimentoText = vencimento => {
+  if (!vencimento) return "";
+  if (vencimento.tipo === "vencida") return `Vencida há ${vencimento.dias} dia(s)`;
+  return vencimento.dias === 0 ? "Vence hoje" : `Vence em ${vencimento.dias} dia(s)`;
+};
+
+// Valor da célula "Valor no período": o número, ou o motivo de não haver um.
+export const rentalValueCell = row => {
+  if (row.cancelada) return { kind: "cancelada", amount: null, note: "" };
+  if (row.diasNoPeriodo === 0) return { kind: "fora", amount: null, note: row.situacao === "programada" ? `inicia em ${formatDate(row.inicio)}` : "sem dias no período" };
+  if (row.semTarifa) return { kind: "sem_tarifa", amount: null, note: "" };
+  const composition = row.composicao && !/^\d+ dias?$/.test(row.composicao) ? ` · ${row.composicao}` : "";
+  return { kind: "valor", amount: row.valorPeriodo, note: `${row.diasNoPeriodo} dia(s)${composition}` };
+};
+
+// Nota sob a cobrança: de onde vem o valor mostrado (fatura emitida x só medido).
+export const billingNote = row => {
+  if (row.cobranca.abertoCents > 0) return `saldo da fatura ${formatMoney(row.cobranca.abertoCents / 100)}`;
+  if (row.cobranca.aFaturarCents > 0) return `medido, sem fatura ${formatMoney(row.cobranca.aFaturarCents / 100)}`;
+  return "";
 };

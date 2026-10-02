@@ -1,10 +1,10 @@
-import { Badge } from "../../../design-system/primitives/Badge.jsx";
+import { useCallback, useRef } from "react";
 import { Button } from "../../../design-system/primitives/Button.jsx";
 import { Drawer } from "../../../design-system/primitives/Drawer.jsx";
 import { PACOTES_TARIFA, tarifasDaLocacao } from "../calculations.js";
-import {
-  formatDate, formatDateFull, formatMoney, isReadOnlyFor, RENTAL_SITUATION_LABEL, rentalRowActions, rentalTimeline,
-} from "../rental-operations.js";
+import { isReadOnlyFor, rentalCycleNote, rentalRowActions, rentalTimeline } from "../rental-actions.js";
+import { billingNote, formatMoney, rentalValueCell, RENTAL_SITUATION_LABEL, vencimentoText } from "../rental-operations.js";
+import { formatDate, formatDateFull } from "../rental-period.js";
 import { BillingPill, SituationPill } from "./RentalPills.jsx";
 
 const ITEM_STATUS = { open: "Aberta", measured: "Medida", billed: "Faturada" };
@@ -22,33 +22,34 @@ const Field = ({ label, children, mono = false }) => (
   </div>
 );
 
-// Detalhe da locação: tudo o que a linha da tabela resume, mais as ações
-// administrativas. Fechar o painel antes de abrir um modal de ação evita dois
-// diálogos empilhados.
-export function RentalDetailDrawer({ row, data, user, periodoLabel, busy, onClose, onAction }) {
+// Detalhe da locação, na ordem de leitura: equipamento, obra, período,
+// situação, tarifa e valores, cobranças, faturas, histórico e ações. Seções
+// separadas por divisores e tipografia - não por cartões. Fechar o painel
+// antes de abrir um modal de ação evita dois diálogos empilhados, e o foco
+// volta ao nome do equipamento na tabela.
+export function RentalDetailDrawer({ row, data, user, periodoLabel, busy, returnFocusRef, onClose, onAction }) {
+  // O Drawer reinicia foco e rolagem do corpo quando `onOpenChange` muda de
+  // identidade; mantê-la estável evita que um novo render da tela roube o foco.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const handleOpenChange = useCallback(open => { if (!open) closeRef.current(); }, []);
   if (!row) return null;
   const equipment = (data.equipamentos || []).find(item => String(item.id) === row.equipamentoId);
   const tariffs = tarifasDaLocacao(row.rental, equipment) || {};
   const tariffText = PACOTES_TARIFA.filter(pack => Number(tariffs[pack.id] || 0) > 0).map(pack => `${formatMoney(tariffs[pack.id])}/${pack.label}`).join(" · ");
   const actions = rentalRowActions(row, user);
   const readOnly = isReadOnlyFor(row, user);
+  const cycleNote = rentalCycleNote(row, user);
   const timeline = rentalTimeline(row);
+  const value = rentalValueCell(row);
   const run = action => { onClose(); onAction(action, row); };
-  const discount = Number(row.rental.descontoPct || 0) > 0 || Number(row.rental.descontoValor || 0) > 0
-    ? [Number(row.rental.descontoPct || 0) > 0 ? `${row.rental.descontoPct}%` : "", Number(row.rental.descontoValor || 0) > 0 ? formatMoney(row.rental.descontoValor) : ""].filter(Boolean).join(" + ")
-    : "";
+  const discount = [Number(row.rental.descontoPct || 0) > 0 ? `${row.rental.descontoPct}%` : "", Number(row.rental.descontoValor || 0) > 0 ? formatMoney(row.rental.descontoValor) : ""].filter(Boolean).join(" + ");
+  const periodValue = value.kind === "valor" ? formatMoney(value.amount) : value.kind === "sem_tarifa" ? "Sem tarifa" : value.kind === "fora" ? value.note : "—";
 
   return (
-    <Drawer open onOpenChange={open => { if (!open) onClose(); }} title={`${row.equipamentoNome}${row.quantidade > 1 ? ` · ${row.quantidade} un.` : ""}`} closeLabel="Fechar detalhes">
+    <Drawer open onOpenChange={handleOpenChange} triggerRef={returnFocusRef} closeLabel="Fechar detalhes"
+      title={`${row.equipamentoNome}${row.quantidade > 1 ? ` · ${row.quantidade} un.` : ""}`}>
       <div className="ro-detail">
-        <div className="ro-detail__status">
-          <SituationPill row={row} />
-          <BillingPill cobranca={row.cobranca} />
-          {row.vencimento && <Badge tone={row.vencimento.tipo === "vencida" ? "danger" : "warning"}>
-            {row.vencimento.tipo === "vencida" ? `Vencida há ${row.vencimento.dias} dia(s)` : row.vencimento.dias === 0 ? "Vence hoje" : `Vence em ${row.vencimento.dias} dia(s)`}
-          </Badge>}
-        </div>
-
         <section aria-labelledby="ro-detail-equip">
           <h3 id="ro-detail-equip">Equipamento</h3>
           <dl>
@@ -79,36 +80,51 @@ export function RentalDetailDrawer({ row, data, user, periodoLabel, busy, onClos
           </dl>
         </section>
 
+        <section aria-labelledby="ro-detail-situacao">
+          <h3 id="ro-detail-situacao">Situação</h3>
+          <dl>
+            <Field label="Locação"><SituationPill row={row} /></Field>
+            <Field label="Ciclo">{row.lifecycleLabel || "Sem ciclo de vida registrado"}</Field>
+            <Field label="Cobrança"><BillingPill cobranca={row.cobranca} />{billingNote(row) && <span className="ro-sub ro-mono">{billingNote(row)}</span>}</Field>
+            {row.vencimento && <Field label="Prazo">{vencimentoText(row.vencimento)}</Field>}
+            {cycleNote && <Field label="Observação">{cycleNote}</Field>}
+          </dl>
+        </section>
+
         <section aria-labelledby="ro-detail-tarifa">
           <h3 id="ro-detail-tarifa">Tarifa e valores</h3>
           <dl>
             <Field label="Tarifa" mono>{tariffText || "Sem tarifa cadastrada"}</Field>
             {discount && <Field label="Desconto" mono>{discount}</Field>}
-            <Field label={`Valor em ${periodoLabel}`} mono>{row.cancelada ? "—" : row.semTarifa ? "Sem tarifa" : formatMoney(row.valorPeriodo)}</Field>
-            <Field label="Acumulado do contrato" mono>{row.cancelada ? "—" : row.semTarifaContrato ? "Sem tarifa" : formatMoney(row.valorAcumulado)}</Field>
+            <Field label={`Contratual em ${periodoLabel}`} mono>{periodValue}</Field>
+            <Field label="Contratual acumulado" mono>{row.cancelada ? "—" : row.semTarifaContrato ? "Sem tarifa" : formatMoney(row.valorAcumulado)}</Field>
           </dl>
         </section>
 
-        <section aria-labelledby="ro-detail-cobranca">
-          <h3 id="ro-detail-cobranca">Cobranças</h3>
-          {row.chargeItems.length === 0 && row.invoices.length === 0
-            ? <p className="ro-detail__empty">Nenhuma linha de cobrança, medição ou fatura registrada para esta locação.</p>
-            : <>
-              {row.chargeItems.length > 0 && <table className="ro-detail__table">
-                <caption className="ro-sr-only">Linhas de cobrança</caption>
-                <thead><tr><th scope="col">Competência</th><th scope="col">Descrição</th><th scope="col">Situação</th><th scope="col" className="ro-num">Líquido</th></tr></thead>
-                <tbody>{row.chargeItems.map(item => (
-                  <tr key={item.id}><td className="ro-mono">{item.competence}</td><td>{item.description || "Locação"}</td><td>{ITEM_STATUS[item.status] || item.status}</td><td className="ro-num ro-mono">{formatMoney(Number(item.netAmountCents || 0) / 100)}</td></tr>
-                ))}</tbody>
-              </table>}
-              {row.invoices.length > 0 && <table className="ro-detail__table">
-                <caption className="ro-sr-only">Faturas</caption>
-                <thead><tr><th scope="col">Fatura</th><th scope="col">Vencimento</th><th scope="col">Situação</th><th scope="col" className="ro-num">Saldo</th></tr></thead>
-                <tbody>{row.invoices.map(invoice => (
-                  <tr key={invoice.id}><td className="ro-mono">{invoice.number}</td><td className="ro-mono">{formatDate(invoice.dueDate)}</td><td>{INVOICE_STATUS[invoice.status] || invoice.status}</td><td className="ro-num ro-mono">{formatMoney(Number(invoice.openAmountCents || 0) / 100)}</td></tr>
-                ))}</tbody>
-              </table>}
-            </>}
+        <section aria-labelledby="ro-detail-cobrancas">
+          <h3 id="ro-detail-cobrancas">Cobranças</h3>
+          {row.chargeItems.length === 0
+            ? <p className="ro-detail__empty">Nenhuma linha de cobrança ou medição registrada para esta locação.</p>
+            : <table className="ro-detail__table">
+              <caption className="ro-sr-only">Linhas de cobrança</caption>
+              <thead><tr><th scope="col">Competência</th><th scope="col">Descrição</th><th scope="col">Situação</th><th scope="col" className="ro-num">Líquido</th></tr></thead>
+              <tbody>{row.chargeItems.map(item => (
+                <tr key={item.id}><td className="ro-mono">{item.competence}</td><td>{item.description || "Locação"}</td><td>{ITEM_STATUS[item.status] || item.status}</td><td className="ro-num ro-mono">{formatMoney(Number(item.netAmountCents || 0) / 100)}</td></tr>
+              ))}</tbody>
+            </table>}
+        </section>
+
+        <section aria-labelledby="ro-detail-faturas">
+          <h3 id="ro-detail-faturas">Faturas</h3>
+          {row.invoices.length === 0
+            ? <p className="ro-detail__empty">Nenhuma fatura emitida para esta locação.</p>
+            : <table className="ro-detail__table">
+              <caption className="ro-sr-only">Faturas</caption>
+              <thead><tr><th scope="col">Fatura</th><th scope="col">Vencimento</th><th scope="col">Situação</th><th scope="col" className="ro-num">Saldo</th></tr></thead>
+              <tbody>{row.invoices.map(invoice => (
+                <tr key={invoice.id}><td className="ro-mono">{invoice.number}</td><td className="ro-mono">{formatDate(invoice.dueDate)}</td><td>{INVOICE_STATUS[invoice.status] || invoice.status}</td><td className="ro-num ro-mono">{formatMoney(Number(invoice.openAmountCents || 0) / 100)}</td></tr>
+              ))}</tbody>
+            </table>}
         </section>
 
         <section aria-labelledby="ro-detail-historico">
@@ -123,6 +139,7 @@ export function RentalDetailDrawer({ row, data, user, periodoLabel, busy, onClos
           <h3 id="ro-detail-acoes">Ações</h3>
           {readOnly && <p className="ro-detail__empty">Seu perfil consulta as locações, mas não pode alterá-las.</p>}
           {!readOnly && actions.length === 0 && <p className="ro-detail__empty">Nenhuma ação disponível para a situação atual ({RENTAL_SITUATION_LABEL[row.situacao]}).</p>}
+          {cycleNote && <p className="ro-detail__empty">{cycleNote}</p>}
           {GROUPS.map(group => {
             const items = actions.filter(action => action.group === group.id);
             return items.length ? <div key={group.id} role="group" aria-label={group.title}>

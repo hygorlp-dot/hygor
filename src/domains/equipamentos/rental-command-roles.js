@@ -1,0 +1,23 @@
+// Papéis autorizados a cada comando de LOCAÇÃO de equipamento: fonte única.
+// api/data.js monta OPERATIONAL_COMMAND_ROLES a partir daqui e a Central de
+// locações (rental-actions.js) decide, pelos mesmos papéis, quais botões
+// oferecer - a tela nunca mantém uma cópia própria da política. Os valores são
+// exatamente os que já valiam no servidor.
+import { OPERATIONAL_COMMAND } from "../sync/operational-commands.js";
+
+const CONTRACT_ROLES = Object.freeze(["admin", "engenheiro", "engenheiro_auditor", "financeiro"]);
+const BILLING_ROLES = Object.freeze(["admin", "financeiro"]);
+
+export const RENTAL_COMMAND_ROLES = Object.freeze({
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED]: CONTRACT_ROLES,
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED]: CONTRACT_ROLES,
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CANCELLED]: CONTRACT_ROLES,
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED]: CONTRACT_ROLES,
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED]: CONTRACT_ROLES,
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED]: CONTRACT_ROLES,
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED]: CONTRACT_ROLES,
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED]: BILLING_ROLES,
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED]: BILLING_ROLES,
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED]: BILLING_ROLES,
+  [OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED]: BILLING_ROLES,
+});

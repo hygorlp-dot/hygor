@@ -11,7 +11,7 @@ const MENU_WIDTH = 256;
 // ACOMPANHA o botão quando a página rola e só fecha se o botão sair da tela,
 // com Esc ou com clique fora. A ação destrutiva fica sozinha no fim,
 // separada, nunca misturada às ações comuns.
-export function RentalRowMenu({ row, actions, busy, open, onOpenChange, onDetails, onAction }) {
+export function RentalRowMenu({ row, actions, cycleNote = "", busy, open, onOpenChange, onDetails, onAction }) {
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
   const closeRef = useRef(onOpenChange);
@@ -48,7 +48,7 @@ export function RentalRowMenu({ row, actions, busy, open, onOpenChange, onDetail
       items[next].focus({ preventScroll: true });
     };
     // Rolagem DENTRO do menu não reposiciona nada; fora dele, o menu segue o botão.
-    const onScroll = event => { if (!menuRef.current?.contains(event.target)) place(); };
+    const onScroll = event => { if (!(event.target instanceof Node && menuRef.current?.contains(event.target))) place(); };
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown, true);
     window.addEventListener("scroll", onScroll, true);
@@ -78,6 +78,7 @@ export function RentalRowMenu({ row, actions, busy, open, onOpenChange, onDetail
     {open && createPortal(
       <div ref={menuRef} className="ro-menu" role="menu" aria-label={`Ações da locação de ${row.equipamentoNome}`} style={{ top: position.top, left: position.left, width: MENU_WIDTH }}>
         <button type="button" role="menuitem" className="ro-menu__item" onClick={() => run(() => onDetails(row))}>Abrir detalhes</button>
+        {cycleNote && <div role="group" aria-label="Ciclo" className="ro-menu__group"><p className="ro-menu__note">{cycleNote}</p></div>}
         {common.map(({ group, items }) => (
           <div key={group} role="group" aria-label={GROUP_LABEL[group]} className="ro-menu__group">
             <span className="ro-menu__heading" aria-hidden="true">{GROUP_LABEL[group]}</span>

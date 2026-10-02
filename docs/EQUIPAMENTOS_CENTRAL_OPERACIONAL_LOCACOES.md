@@ -20,11 +20,14 @@ medição ou persistência foi alterada** — a tela só reorganiza o que já ex
 
 ## Arquivos
 
-- `src/domains/equipamentos/rental-operations.js` — domínio puro (sem React): período, situação, cobrança, filtros, ordenação, agrupamento, KPIs, ações e permissões.
+- `src/domains/equipamentos/rental-period.js` — calendário e resolução dos atalhos de período (puro).
+- `src/domains/equipamentos/rental-operations.js` — linhas, situação, cobrança, filtros, ordenação, agrupamento, KPIs e o **modelo de tela** (chips, escopo, resultados paginados, textos de célula).
+- `src/domains/equipamentos/rental-actions.js` — ações por locação, permissões, nota de ciclo e histórico.
+- `src/domains/equipamentos/rental-command-roles.js` — papéis dos 11 comandos de locação: **fonte única**, usada por `api/data.js` (`OPERATIONAL_COMMAND_ROLES`) e pela tela.
 - `src/domains/equipamentos/components/RentalOperationsPanel.jsx` — a aba.
 - `components/RentalRowMenu.jsx`, `RentalDetailDrawer.jsx`, `RentalPills.jsx`, `rental-operations.css`.
 - `EquipamentosView.jsx` — o bloco antigo foi substituído; `executarAcaoLocacao` liga cada ação aos **mesmos** modais e comandos de antes.
-- Testes: `rental-operations.test.js` (40), `RentalOperationsPanel.test.jsx` (32), `server/rental-action-permissions.test.js`, `e2e/equipment-rentals.spec.js`; `e2e/modules-smoke.spec.js` migrado para o fluxo novo.
+- Testes: `rental-period.test.js`, `rental-operations.test.js`, `rental-actions.test.js`, `RentalOperationsPanel.test.jsx`, `server/rental-action-permissions.test.js` (tela × servidor por ação, papel e obra), `e2e/equipment-rentals.spec.js`; `e2e/modules-smoke.spec.js` migrado para o fluxo novo.
 
 ## Como cada coisa funciona
 
@@ -32,13 +35,14 @@ medição ou persistência foi alterada** — a tela só reorganiza o que já ex
 
 **Situação** (texto + ícone + tom): *cancelada* = `status:"cancelada"`; *programada* = início depois de hoje; *encerrada* = `fim` já vencido; *em andamento* = o resto (inclui contrato com término futuro). O ciclo de vida (`lifecycleState`) continua aparecendo como detalhe ("Ciclo · Ativa"). A aba abre em **Em andamento**; as contagens de cada aba refletem período + filtros.
 
-**Cobrança** (derivada só de registros existentes): *Pendente* (fatura com saldo e nenhum recebimento), *Parcial* (saldo com recebimento parcial), *A faturar* (linhas abertas/medidas sem fatura), *Sem medição* (sem linhas nem faturas), *Em dia* (tudo recebido), *Encerrada* (quitada em locação encerrada, ou locação excluída).
+**Cobrança** (coluna "Situação da cobrança", derivada só de registros existentes): *Pendente* (fatura com saldo e nenhum recebimento), *Parcial* (saldo com recebimento parcial), *A faturar* (linhas abertas/medidas sem fatura), *Sem medição* (sem linhas nem faturas), *Em dia* (tudo recebido), *Ciclo encerrado* (quitada em locação encerrada, ou locação excluída — nada mais a cobrar). A coluna "Situação da locação" usa *Em andamento / Programada / Encerrada / Cancelada*; um teste impede que as duas colunas voltem a ter rótulos iguais.
 
 **Indicadores** (do contexto atual, todas as situações; cada cartão diz seu escopo — ex. "Setembro 2026 · K1-04 — Terras Alpha"):
 - *Equipamentos locados*: pico de unidades simultâneas no período (+ nº de equipamentos e locações).
 - *Taxa de ocupação*: unidades-dia locadas ÷ unidades-dia da frota no escopo (limitado a 1 por unidade/dia). Filtros de proprietário/categoria restringem a frota; obra e busca só restringem o numerador.
-- *Receita no período*: soma de `cobrancaLocacao(...).liquido` dos dias no período — **idêntica a `calcEquipamentosMes`** (teste compara os dois).
-- *A receber*: soma de `openAmountCents` das faturas + valor medido a faturar.
+- *Receita contratual no período* ("Conforme tarifas das locações"): soma de `cobrancaLocacao(...).liquido` dos dias no período — **idêntica a `calcEquipamentosMes`** (teste compara os dois). Não depende de medição nem de fatura.
+- *Faturas a receber* ("N faturas pendentes · Controle interno, ainda fora do DRE"): soma de `openAmountCents` das faturas emitidas das locações do recorte; o valor medido e ainda não faturado aparece separado, na nota. Não é a mesma grandeza do cartão anterior.
+- Os quatro indicadores valem para o recorte (período + filtros) **em todas as situações** — a legenda diz isso ("Setembro 2026 · K1-04 — Terras Alpha · todas as situações"); a situação escolhida muda só a lista, e o resumo acima da tabela diz qual ("3 locações em andamento").
 - *Livres no pico do período* (secundário): mesma conta do antigo "Livres no mês" (`disponibilidadeNoDia`); só para períodos de até ~3 meses.
 - Os 4 KPIs fixos da frota (`Frota ativa`…) deixam de aparecer no cabeçalho **nesta aba** (continuam nas demais).
 
@@ -65,4 +69,28 @@ medição ou persistência foi alterada** — a tela só reorganiza o que já ex
 
 ## Revisão Impeccable
 
-Ver `.impeccable/critique/2026-10-02T18-30-00Z__src-domains-equipamentos-components-rentaloperationspanel-jsx.md`: **31/40**, P0 = 0, P1 = 1 (justificado: as duas bases de valor acima), P2 = 5, P3 = 3. Achados da crítica de 17/08/2026 tratados nesta aba: ações em excesso por linha, `danger` competindo com ações comuns, bordas decorativas de 3px (`.equipment-record::before` não é mais usado aqui), tamanhos de fonte soltos (agora só tokens `--arcd-type-*`), estado só por cor, cartões repetidos, grade sem hierarquia.
+Ver `.impeccable/critique/2026-10-02T18-30-00Z__src-domains-equipamentos-components-rentaloperationspanel-jsx.md`: 1ª passada **31/40** (P0 0 · P1 1 · P2 5 · P3 3); 2ª passada, após o fechamento, **32/40** (P0 0 · P1 0 · P2 4 · P3 4) — o P1 das duas bases de valor caiu para P2 porque cada indicador passou a dizer a origem do número; a lacuna de produto (cobrança por ciclo fora do DRE) continua. Achados da crítica de 17/08/2026 tratados nesta aba: ações em excesso por linha, `danger` competindo com ações comuns, bordas decorativas de 3px (`.equipment-record::before` não é mais usado aqui), tamanhos de fonte soltos (agora só tokens `--arcd-type-*`), estado só por cor, cartões repetidos, grade sem hierarquia.
+
+## Rodada de fechamento (02/10/2026)
+
+Sem redesenho, sem regra financeira nova, sem mudança de contrato, competência ou persistência.
+
+**Nomenclatura**
+
+| Antes | Depois | Origem do dado |
+|---|---|---|
+| Receita no período | Receita contratual no período · "Conforme tarifas das locações" | `cobrancaLocacao` (tarifa × dias no período) |
+| A receber · "N locação(ões) com saldo" | Faturas a receber · "N faturas pendentes · Controle interno, ainda fora do DRE" | `rentalInvoices.openAmountCents` |
+| Situação / Cobrança (colunas) | Situação da locação / Situação da cobrança | — |
+| Cobrança "Encerrada" | Cobrança "Ciclo encerrado" | mesmo estado, só o rótulo |
+| (nada) | "Ciclo indisponível — término programado em dd/mm/aaaa" | locação em andamento com `fim` já preenchido |
+
+**"Em andamento" sem ação de ciclo.** A regra legada continua: ações de ciclo (avançar, aditivo, substituir, encerrar) só existem para locação sem `fim`. Quando a data diz "em andamento" mas o término já foi programado, a linha, o menu e o detalhe dizem o motivo, como texto secundário (não alerta). Só aparece para quem operaria o contrato. A cobrança (medir, adicionar, faturar) continua disponível, como já era.
+
+**Revisão estrutural.** `rental-operations.js` foi separado por responsabilidade real, não por tamanho: período (sem dependências), ações/permissões (dependem do ciclo de vida e dos papéis) e recorte de dados. Saíram do componente para o domínio: ordenação padrão (estava duplicada), próximo estado de ordenação, montagem e remoção de chips, legenda de escopo, agrupamento + paginação com cabeçalhos de grupo, e os textos de período, vencimento, valor e cobrança (antes repetidos na linha e no detalhe). O componente agora guarda um único objeto de estado e desenha o que o domínio devolve.
+
+**Permissões sem cópia manual.** O espelho `RENTAL_ACTION_ROLES` foi removido: os papéis dos 11 comandos de locação moram em `rental-command-roles.js`, e `api/data.js` monta `OPERATIONAL_COMMAND_ROLES` a partir dele (valores idênticos — os 124 testes de autorização por comando seguem passando). Cada ação da tela carrega o comando que dispara; `server/rental-action-permissions.test.js` compara tela e servidor (papel + escopo de obra) para toda ação, papel e obra, e garante que toda ação visível é aceita pelo servidor.
+
+**Outros ajustes**: "Fim" ordena por término (data de fim ou término planejado) e é o padrão de "Em andamento" — antes o padrão não correspondia a nenhum cabeçalho; locação programada em "Todo o período" mostra "—  inicia em dd/mm" em vez do valor de uma diária; o menu acompanha o botão na rolagem (e só fecha se o botão sair da tela); o foco volta ao nome do equipamento ao fechar o detalhe; o alerta de prazo acompanha o período quando a coluna some; cabeçalhos quebram linha em vez de alargar a tabela.
+
+**Valores e rastreabilidade**: "Receita contratual" (`cobrancaLocacao`, = `calcEquipamentosMes`), "Valor no período" da linha (a mesma conta por locação), "Contratual acumulado" do detalhe (a mesma conta de início até hoje/fim — era o número da lista antiga), "Faturas a receber" (`openAmountCents`), "medido, sem fatura" (`netAmountCents` das linhas abertas/medidas), "Livres" (`disponibilidadeNoDia`, = antigo "Livres no mês"). Nenhuma fórmula nova.
