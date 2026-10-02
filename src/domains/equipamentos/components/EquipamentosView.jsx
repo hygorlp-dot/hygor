@@ -32,11 +32,13 @@ import {
 } from "../availability";
 import { EQUIPMENT_IMAGE_OPTIONS, equipmentImageFor } from "../images";
 import { deriveEquipmentLocations, physicalIdentityForRecord } from "../registry";
-import { availableRentalTransitions, normalizeRentalState, rentalStateLabel } from "../rental-lifecycle";
+import { rentalStateLabel } from "../rental-lifecycle";
 import {
   RENTAL_CHECKPOINT_TYPE, rentalDeliveryBalance, rentalDispatchBalance, rentalReturnBalance,
 } from "../rental-checkpoints";
-import { buildRentalPeriodicCharge, rentalChargeSummary } from "../rental-charges";
+import { buildRentalPeriodicCharge } from "../rental-charges";
+import { CHECKPOINT_BY_STATE, CHECKPOINT_LABEL } from "../rental-operations";
+import RentalOperationsPanel from "./RentalOperationsPanel";
 
 const LazyEquipmentBillingReports = lazy(() => import("../EquipmentBillingReports"));
 
@@ -499,11 +501,6 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
     }catch(error){showToast(error?.message||"O servidor não respondeu ao atualizar a locação.","error");}
     finally{setSalvandoEquipamento("");}
   };
-  const CHECKPOINT_BY_STATE={ready_for_dispatch:RENTAL_CHECKPOINT_TYPE.SEPARATION,
-    in_transport:RENTAL_CHECKPOINT_TYPE.DISPATCH,delivered:RENTAL_CHECKPOINT_TYPE.DELIVERY,
-    returned:RENTAL_CHECKPOINT_TYPE.RETURN,under_inspection:RENTAL_CHECKPOINT_TYPE.INSPECTION};
-  const CHECKPOINT_LABEL={separation:"Separação",partial_dispatch:"Expedição parcial",dispatch:"Expedição",
-    partial_delivery:"Entrega parcial",delivery:"Entrega",partial_return:"Devolução parcial",return:"Devolução",inspection:"Inspeção",adjustment:"Conclusão do ajuste"};
   const prepararTransicaoLocacao=(rental,nextState)=>{
     const type=CHECKPOINT_BY_STATE[nextState];
     const recorded=(rental.rentalCheckpoints||[]).some(item=>item.type===type&&item.status!=="cancelled");
@@ -678,6 +675,31 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
     finally{setSalvandoEquipamento("");}
   };
 
+  // Ponte entre a Central operacional de locações (que só descreve a ação
+  // escolhida) e os handlers/modais que já existiam. Nada aqui grava direto:
+  // cada caso abre o mesmo modal ou dispara o mesmo comando de antes.
+  const executarAcaoLocacao=(action,row,{competence}={})=>{
+    const l=row.rental;
+    const [kind]=String(action.id).split(":");
+    if(kind==="medir")return prepararMedicaoLocacao(l);
+    if(kind==="cobranca")return setRentalChargeModal({rentalId:l.id,workId:l.obraId,type:"freight",description:"",quantity:"1",unit:"un",unitPrice:"",discountAmount:"0",taxAmount:"0",competence:competence||ym});
+    if(kind==="faturar")return prepararFaturaLocacao(l);
+    if(kind==="receber"){
+      const invoice=row.openInvoices.find(item=>item.id===action.invoiceId);
+      return invoice&&prepararRecebimentoFatura(invoice);
+    }
+    if(kind==="aditivo")return prepararAditivoLocacao(l);
+    if(kind==="substituir")return setRentalReplacementModal({rentalId:l.id,outgoingUnitId:l.equipmentUnitIds[0],incomingUnitId:"",date:today(),reason:"",notes:""});
+    if(kind==="expedicao_parcial")return prepararMovimentacaoParcial(l,RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH);
+    if(kind==="entrega_parcial")return prepararMovimentacaoParcial(l,RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY);
+    if(kind==="ajuste")return prepararConclusaoAjuste(l);
+    if(kind==="devolucao_parcial")return prepararDevolucaoParcial(l);
+    if(kind==="avancar")return prepararTransicaoLocacao(l,action.nextState);
+    if(kind==="encerrar")return encerrarLoc(l);
+    if(kind==="editar")return setLocModal(l);
+    if(kind==="excluir")return excluirLoc(l);
+  };
+
   const salvarManut = async(f) => {
     if(!f.equipamentoId||!f.data||!f.custo){ showToast("Preencha equipamento, data e custo.","error"); return; }
     const m = { ...f, custo:Number(f.custo||0) };
@@ -821,19 +843,19 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
         description={contexto==="financeiro"
           ?"Disponibilidade, alocação, manutenção e cobrança por obra em uma única operação auditável."
           :`${equipamentosAtivos.length} equipamento(s) ativo(s) · custos integrados à obra.`}
-        stats={contexto==="financeiro"?[
+        stats={contexto==="financeiro"&&aba!=="locacoes"?[
           {label:"Frota ativa",value:`${totalUnidades} un.`,detail:`${equipamentosAtivos.length} cadastro(s)`,color:C.text},
           {label:"Em uso no mês",value:`${periodPeakUsage} un.`,detail:`${periodRentals.length} locação(ões) em ${mesLabel}`,color:periodPeakUsage?C.blue:C.muted},
           {label:"Livres no mês",value:`${periodFreeUnits} un.`,detail:"Disponibilidade no pico de ocupação",color:periodFreeUnits?C.green:C.orange},
           {label:"Receita no mês",value:fmt(rel.total.receita),detail:mesLabel,color:C.green},
         ]:undefined}
         actions={<>
-          {contexto==="financeiro"&&<Btn size="sm" disabled={!equipamentosAtivos.length} onClick={()=>setLocModal(locVazio)}
+          {(contexto==="financeiro"||aba==="locacoes")&&<Btn size="sm" disabled={!equipamentosAtivos.length} onClick={()=>setLocModal(locVazio)}
             title={equipamentosAtivos.length?"Criar uma nova locação":"Cadastre um equipamento antes de criar a locação"}>
             <Ic n="plus"/> Nova locação
           </Btn>}
           {contexto==="financeiro"&&<Btn size="sm" v="ghost" disabled={!equipamentosAtivos.length} onClick={()=>setIndispModal(indispVazio)}><Ic n="calendar"/> Reservar / bloquear</Btn>}
-          <Btn size="sm" v={contexto==="financeiro"?"ghost":"primary"} onClick={()=>setEquipModal(equipVazio)}><Ic n="wrench"/> Novo equipamento</Btn>
+          <Btn size="sm" v={contexto==="financeiro"||aba==="locacoes"?"ghost":"primary"} onClick={()=>setEquipModal(equipVazio)}><Ic n="wrench"/> Novo equipamento</Btn>
           <Btn size="sm" v="ghost" onClick={()=>setDonoModal(donoVazio)}><Ic n="user"/> Proprietários</Btn>
         </>}
       />
@@ -1144,109 +1166,9 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
         </>);
       })()}
 
-      {aba==="locacoes" && <>
-        <div className="equipment-section-heading">
-          <div><p>Histórico de locações</p><small>{locacoesAtivas.length} em andamento · {(data.locacoesEquip||[]).length} no histórico</small></div>
-          <Btn size="sm" onClick={()=>setLocModal(locVazio)}><Ic n="plus"/> Nova locação</Btn>
-        </div>
-        {/* Aviso persistente (não só o toast por ação) - achado de auditoria:
-            cobrança/medição/fatura de locação (Fase 5) ainda não alimenta o
-            DRE; a receita reconhecida hoje vem do modelo antigo de tarifa por
-            período. Ver docs/AUDITORIA_EQUIPAMENTOS.md e
-            docs/EQUIPAMENTOS_FASE_5_COBRANCA.md. */}
-        <div style={{padding:"9px 11px",border:`1px solid ${C.blue}44`,borderRadius:8,background:`${C.blue}08`,marginBottom:10}}>
-          <p style={{fontSize:10.5,fontWeight:850,color:C.blue}}>COBRANÇA POR CICLO · EM DESENVOLVIMENTO</p>
-          <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Linhas de cobrança, medições e faturas registradas nesta aba ainda não entram no DRE - a receita de locação reconhecida hoje vem do período/tarifa do contrato. Use esses recursos como controle interno até a integração ser concluída.</p>
-        </div>
-        {(data.locacoesEquip||[]).length===0
-          ? <div className="equipment-empty-state"><span><Ic n="calendar" s={19}/></span><div><p>Nenhuma locação registrada</p><small>Escolha um equipamento e uma obra para iniciar o histórico de cobrança.</small></div></div>
-          : <div className="equipment-record-list">
-            {[...(data.locacoesEquip||[])].sort((a,b)=>(b.inicio||"").localeCompare(a.inicio||"")).map(l=>{
-              const cancelada=l.status==="cancelada";
-              const emAberto = !cancelada&&!l.fim;
-              const lifecycleState=normalizeRentalState(l.lifecycleState||l.status);
-              const chargeSummary=rentalChargeSummary(data.rentalChargeItems||[],{rentalId:l.id});
-              const measuredCompetences=(data.rentalChargeItems||[]).filter(item=>item.rentalId===l.id&&item.status==="measured").map(item=>item.competence);
-              const rentalInvoices=(data.rentalInvoices||[]).filter(item=>item.rentalId===l.id&&item.status!=="cancelled");
-              const openRentalInvoices=rentalInvoices.filter(item=>["issued","partially_paid"].includes(item.status)&&Number(item.openAmountCents||0)>0);
-              const lifecycleNext=availableRentalTransitions(lifecycleState,{checkpoints:l.rentalCheckpoints||[]})
-                .filter(state=>!["cancelled","closed"].includes(state));
-              return (
-                <article key={l.id} className="equipment-record" data-active={emAberto}>
-                  <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
-                    <div style={{minWidth:0}}>
-                      <p style={{fontSize:12.5,fontWeight:800,color:C.text}}>
-                        {equipName(l.equipamentoId)}
-                        {Number(l.quantidade||1)>1 && (
-                          <span style={{fontSize:10.5,color:C.blue,fontWeight:800,marginLeft:6}}>
-                            {l.quantidade} un
-                          </span>
-                        )}
-                      </p>
-                      <p style={{fontSize:9.5,color:cancelada?C.red:C.muted}}>{obraName(l.obraId)} · {fmtDate(l.inicio)} {cancelada?"→ excluída":l.fim?`→ ${fmtDate(l.fim)}`:"→ em andamento"}</p>
-                      <span style={{display:"inline-flex",marginTop:5,padding:"3px 7px",borderRadius:99,fontSize:8.5,fontWeight:850,color:cancelada?C.red:C.blue,background:`${cancelada?C.red:C.blue}12`}}>
-                        CICLO · {rentalStateLabel(lifecycleState).toUpperCase()}
-                      </span>
-                      {l.plannedEndDate&&<p style={{fontSize:9,color:C.muted,marginTop:4}}>Término planejado: {fmtDate(l.plannedEndDate)}</p>}
-                      {chargeSummary.netAmountCents!==0&&<p style={{fontSize:9,color:chargeSummary.netAmountCents>=0?C.green:C.red,marginTop:3}}>Linhas preparadas: {fmt(chargeSummary.netAmountCents/100)}</p>}
-                      {measuredCompetences.length>0&&<p style={{fontSize:9,color:C.blue,marginTop:3}}>Medida: {measuredCompetences.join(", ")}</p>}
-                      {rentalInvoices.length>0&&<p style={{fontSize:9,color:C.orange,marginTop:3}}>Faturado: {fmt(rentalInvoices.reduce((sum,item)=>sum+Number(item.netAmountCents||0),0)/100)} · em aberto {fmt(rentalInvoices.reduce((sum,item)=>sum+Number(item.openAmountCents||0),0)/100)}</p>}
-                      {openRentalInvoices.map(invoice=><p key={invoice.id} style={{fontSize:9,color:C.muted,marginTop:2,display:"flex",alignItems:"center",gap:6}}>
-                        {invoice.number} · saldo {fmt(Number(invoice.openAmountCents||0)/100)}
-                        <button type="button" disabled={!!salvandoEquipamento} onClick={()=>prepararRecebimentoFatura(invoice)}
-                          style={{background:"transparent",border:0,color:C.green,fontWeight:800,fontSize:9,cursor:"pointer",textDecoration:"underline",padding:0}}>
-                          Vincular recebimento
-                        </button>
-                      </p>)}
-                    </div>
-                    {(() => {
-                      const eqL = (data.equipamentos||[]).find(x=>x.id===l.equipamentoId);
-                      const tf  = tarifasDaLocacao(l, eqL);
-                      const dias = l.inicio ? diasCorridos(l.inicio, l.fim || today()) + 1 : 0;
-                      const cob = dias ? cobrancaLocacao(l, eqL, dias) : null;
-                      return (
-                        <div style={{textAlign:"right"}}>
-                          {cob && !cob.semTarifa
-                            ? <>
-                                <p style={{fontSize:12,fontWeight:800,color:C.yellowD}}>{fmt(cob.liquido)}</p>
-                                <p style={{fontSize:9,color:C.muted}}>{dias} dia(s) · {textoComposicao(cob.composicao)}</p>
-                              </>
-                            : <p style={{fontSize:11,color:C.orange}}>sem tarifa</p>}
-                          {cob && cob.desconto>0.005 && <p style={{fontSize:9,color:C.orange}}>desc {fmt(cob.desconto)}</p>}
-                          <p style={{fontSize:8.5,color:C.muted,marginTop:2}}>
-                            {PACOTES_TARIFA.filter(p=>Number(tf?.[p.id]||0)>0).map(p=>`${p.label} ${fmt(tf[p.id])}`).join(" · ")}
-                          </p>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                  <div className="equipment-record-actions">
-                    {!cancelada&&<Btn size="sm" v="ghost" onClick={()=>setLocModal(l)}><Ic n="edit"/> Editar</Btn>}
-                    {!cancelada&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>setRentalChargeModal({rentalId:l.id,workId:l.obraId,type:"freight",description:"",quantity:"1",unit:"un",unitPrice:"",discountAmount:"0",taxAmount:"0",competence:ym})}>Adicionar cobrança</Btn>}
-                    {!cancelada&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararMedicaoLocacao(l)}>Medir competência</Btn>}
-                    {!cancelada&&(data.rentalChargeItems||[]).some(item=>item.rentalId===l.id&&["open","measured"].includes(item.status))&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararFaturaLocacao(l)}>Emitir fatura</Btn>}
-                    {emAberto&&["contracted","delivered","active","pickup_requested"].includes(lifecycleState)&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararAditivoLocacao(l)}>Prorrogar / renovar</Btn>}
-                    {emAberto&&(l.equipmentUnitIds||[]).length>0&&["separating","ready_for_dispatch","in_transport","delivered","active","pickup_requested"].includes(lifecycleState)&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>setRentalReplacementModal({rentalId:l.id,outgoingUnitId:l.equipmentUnitIds[0],incomingUnitId:"",date:today(),reason:"",notes:""})}>Substituir unidade</Btn>}
-                    {emAberto&&lifecycleState==="ready_for_dispatch"&&rentalDispatchBalance(l,l.rentalCheckpoints||[]).remainingQuantity>1&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararMovimentacaoParcial(l,RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH)}>Expedição parcial</Btn>}
-                    {emAberto&&lifecycleState==="in_transport"&&rentalDeliveryBalance(l,l.rentalCheckpoints||[]).remainingQuantity>1&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararMovimentacaoParcial(l,RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY)}>Entrega parcial</Btn>}
-                    {emAberto&&lifecycleState==="awaiting_adjustment"&&!(l.rentalCheckpoints||[]).some(item=>item.type===RENTAL_CHECKPOINT_TYPE.ADJUSTMENT&&item.status!=="cancelled")&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararConclusaoAjuste(l)}>Registrar ajuste concluído</Btn>}
-                    {emAberto&&lifecycleState==="pickup_requested"&&rentalReturnBalance(l,l.rentalCheckpoints||[]).remainingQuantity>1&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>prepararDevolucaoParcial(l)}>Devolução parcial</Btn>}
-                    {emAberto&&lifecycleNext.map(nextState=>{
-                      const checkpointType=CHECKPOINT_BY_STATE[nextState];
-                      const recorded=(l.rentalCheckpoints||[]).some(item=>item.type===checkpointType&&item.status!=="cancelled");
-                      return <Btn key={nextState} size="sm" v="ghost" disabled={!!salvandoEquipamento}
-                        onClick={()=>prepararTransicaoLocacao(l,nextState)}>
-                        {checkpointType&&!recorded?`Checklist: ${CHECKPOINT_LABEL[checkpointType]}`:`Avançar: ${rentalStateLabel(nextState)}`}
-                      </Btn>;
-                    })}
-                    {emAberto&&(!l.lifecycleState||lifecycleState==="under_inspection"||(lifecycleState==="awaiting_adjustment"&&(l.rentalCheckpoints||[]).some(item=>item.type===RENTAL_CHECKPOINT_TYPE.ADJUSTMENT&&item.status!=="cancelled")))&&<Btn size="sm" v="ghost" disabled={!!salvandoEquipamento} onClick={()=>encerrarLoc(l)}>Encerrar</Btn>}
-                    {!cancelada&&<Btn size="sm" v="danger" disabled={!!salvandoEquipamento} onClick={()=>excluirLoc(l)}><Ic n="trash"/> Excluir</Btn>}
-                  </div>
-                </article>
-              );
-            })}
-          </div>}
-      </>}
+      {aba==="locacoes" && <RentalOperationsPanel
+        data={data} user={currentUser} hoje={today()} obraIdFixo={obraIdFixo} busy={!!salvandoEquipamento}
+        onNovaLocacao={()=>setLocModal(locVazio)} onAction={executarAcaoLocacao}/>}
 
       {/* ---------- MANUTENÇÃO ---------- */}
       {aba==="manutencao" && <>
