@@ -127,4 +127,21 @@ describe("armazém SQLite do aparelho (SQL real)", () => {
     expect((await db.getFirstAsync("PRAGMA journal_mode")).journal_mode).toBe("wal");
     await db.closeAsync();
   });
+
+  it("eventosRecentes (comprovante): só leitura, do mais novo ao mais antigo, com limite, sem tocar fila nem cadeia", async () => {
+    const { armazem } = await abrir();
+    const b1 = await bater(armazem);
+    const b2 = await bater(armazem, { pessoa: { tipo: "terceiro", id: "t1" } });
+    const b3 = await bater(armazem);
+    const antes = await armazem.contagem();
+    const recentes = await armazem.eventosRecentes(2);
+    expect(recentes.map(e => e.eventId)).toEqual([b3.eventId, b2.eventId]);
+    expect(recentes[0]).toMatchObject({ employeeId: "e1", formatVersion: 2, marcadoEm: b3.marcadoEm });
+    expect((await armazem.eventosRecentes(10)).map(e => e.eventId)).toEqual([b3.eventId, b2.eventId, b1.eventId]);
+    expect(await armazem.contagem()).toEqual(antes);
+    expect((await armazem.eventosPendentes(10)).map(e => e.localSequence)).toEqual([1, 2, 3]);
+    const cadeia = await verificarCadeiaLocal(await armazem.eventosPendentes(10), null, sha256);
+    expect(cadeia.erro).toBeNull();
+    expect(cadeia.aceitos.length).toBe(3);
+  });
 });

@@ -24,12 +24,14 @@ const linhasPermissao = manifesto.split("\n").filter(l => l.includes("uses-permi
 const ativa = nome => linhasPermissao.some(l => l.includes(`"android.permission.${nome}"`) && !l.includes('tools:node="remove"'));
 conferir(ativa("CAMERA"), "permissão de câmera declarada");
 conferir(ativa("ACCESS_FINE_LOCATION"), "permissão de localização declarada");
-for (const proibida of ["RECORD_AUDIO", "SYSTEM_ALERT_WINDOW", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]) conferir(!ativa(proibida), `permissão ${proibida} removida`);
+// WRITE_SETTINGS: o expo-brightness só mexe no brilho da janela do app, que
+// não precisa dela - nunca alterar configuração do sistema do aparelho.
+for (const proibida of ["RECORD_AUDIO", "SYSTEM_ALERT_WINDOW", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "WRITE_SETTINGS"]) conferir(!ativa(proibida), `permissão ${proibida} removida`);
 
 const modulosExpo = autolinking("resolve").modules.map(m => m.packageName);
-for (const m of ["relogio-confiavel", "expo-sqlite", "expo-camera", "expo-secure-store"]) conferir(modulosExpo.includes(m), `módulo Expo autolinkado: ${m}`);
+for (const m of ["relogio-confiavel", "expo-sqlite", "expo-camera", "expo-secure-store", "expo-font", "expo-haptics", "expo-speech", "expo-brightness"]) conferir(modulosExpo.includes(m), `módulo Expo autolinkado: ${m}`);
 const rn = autolinking("react-native-config").dependencies || {};
-for (const m of ["react-native-fast-tflite", "react-native-nitro-modules"]) conferir(!!rn[m]?.platforms?.android, `módulo React Native autolinkado: ${m}`);
+for (const m of ["react-native-fast-tflite", "react-native-nitro-modules", "react-native-safe-area-context"]) conferir(!!rn[m]?.platforms?.android, `módulo React Native autolinkado: ${m}`);
 
 if (falhas.length) { console.error(`\n${falhas.length} verificação(ões) falharam.`); process.exit(1); }
 console.log("\nPrebuild Android conferido.");

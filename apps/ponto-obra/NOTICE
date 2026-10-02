@@ -12,3 +12,9 @@ Licenciado sob a Apache License, Version 2.0
 - assets/modelos/mobilefacenet.tflite (baseado em MobileFaceNets, arXiv 1804.07573, Apache-2.0)
 - src/logica/rosto.js: decodificação das âncoras SSD e recorte alinhado para o
   vetor facial, portados do código Dart da biblioteca acima.
+
+Fontes IBM Plex Sans e IBM Plex Mono (pacotes @expo-google-fonts/ibm-plex-sans
+e @expo-google-fonts/ibm-plex-mono)
+Copyright IBM Corp.
+Licenciadas sob a SIL Open Font License, Version 1.1
+(https://openfontlicense.org)

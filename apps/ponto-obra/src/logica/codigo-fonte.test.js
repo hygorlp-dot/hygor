@@ -64,6 +64,9 @@ describe("código-fonte do app", () => {
     const app = JSON.parse(ler("app.json")).expo;
     expect(app.android.allowBackup).toBe(false);
     expect(app.android.blockedPermissions).toContain("android.permission.SYSTEM_ALERT_WINDOW");
+    // Brilho só da janela do app: nada de alterar configuração do sistema.
+    expect(app.android.blockedPermissions).toContain("android.permission.WRITE_SETTINGS");
+    expect(app.plugins.flat()).not.toContain("expo-brightness");
     expect(app.plugins).toContainEqual(["expo-sqlite", { useSQLCipher: true }]);
   });
 });
