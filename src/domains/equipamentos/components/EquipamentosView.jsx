@@ -12,7 +12,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {
-  ARCD_LOGO, Badge, Btn, C, CampoCNPJ, escapeHtml, Ic, Inp, MiniKpi, Modal,
+  Badge, Btn, C, CampoCNPJ, escapeHtml, Ic, Inp, MiniKpi, Modal,
   MONTHS, PageHero, Sel, TabRow, abrirRelatorioPadrao, diasCorridos, fmt,
   fmtDate, fmtDateFull, maiusculoOrcamento, montarRelatorioPadraoHtml,
   today, uid,
@@ -843,7 +843,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
         description={contexto==="financeiro"
           ?"Disponibilidade, alocação, manutenção e cobrança por obra em uma única operação auditável."
           :`${equipamentosAtivos.length} equipamento(s) ativo(s) · custos integrados à obra.`}
-        stats={contexto==="financeiro"&&aba!=="locacoes"?[
+        stats={contexto==="financeiro"&&!["locacoes","relatorio"].includes(aba)?[
           {label:"Frota ativa",value:`${totalUnidades} un.`,detail:`${equipamentosAtivos.length} cadastro(s)`,color:C.text},
           {label:"Em uso no mês",value:`${periodPeakUsage} un.`,detail:`${periodRentals.length} locação(ões) em ${mesLabel}`,color:periodPeakUsage?C.blue:C.muted},
           {label:"Livres no mês",value:`${periodFreeUnits} un.`,detail:"Disponibilidade no pico de ocupação",color:periodFreeUnits?C.green:C.orange},
@@ -1221,15 +1221,11 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       {aba==="relatorio" && <Suspense fallback={<div className="equipment-report-empty"><strong>Preparando relatórios</strong><p>Organizando dados gerenciais e memórias por obra...</p></div>}>
         <LazyEquipmentBillingReports
           data={data}
-          monthly={rel}
-          matrix={relPorObra}
           period={ym}
-          periodLabel={mesLabel}
           periodOptions={mesesOpts}
           onPeriodChange={setYm}
           ownerName={donoName}
-          logoSrc={data.config?.companyImageUrl||data.config?.logoUrl||ARCD_LOGO}
-          formatCurrency={fmt}
+          hoje={today()}
           formatDate={fmtDate}
           formatComposition={textoComposicao}
           onPrintManagement={()=>imprimirRelEquipGerencial(data,ym,mesLabel,rel,relPorObra,donoName,showToast)}

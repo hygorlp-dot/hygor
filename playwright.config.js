@@ -42,6 +42,11 @@ export default defineConfig({
       use: { browserName:"chromium", viewport:{width:1440,height:900} },
     },
     {
+      name: "desktop-billing-center",
+      testMatch: /billing-center\.spec\.js/,
+      use: { browserName:"chromium", viewport:{width:1440,height:900} },
+    },
+    {
       name: "desktop-critical-actions",
       testMatch: /critical-actions\.spec\.js/,
       use: { browserName:"chromium", viewport:{width:1440,height:900} },
