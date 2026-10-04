@@ -26,6 +26,7 @@ import { gpsRecente, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./s
 import { classificarResposta, mensagemDeErro } from "./src/logica/falhas";
 import { montarDiagnostico } from "./src/logica/diagnostico";
 import { batidasDoDia, fusoDoCadastro } from "./src/logica/apresentacao";
+import { criarSessaoCalibracao, relatorioDeCampo, resumoDeCampo } from "./src/logica/calibracao-campo";
 import { REP_P, situacaoRepP } from "../../src/domains/ponto-eletronico/rep-p.js";
 import { estadoDaReferencia } from "../../src/domains/ponto-eletronico/relogio.js";
 import { apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoApp, lerSessao, salvarSessao } from "./src/servicos/conexao";
@@ -56,6 +57,9 @@ export default function App() {
   const [situacao, setSituacao] = useState({ online: false, pendentes: 0, fotos: 0, fotosComProblema: 0, aviso: "" });
   // Medições anônimas da sessão para o Diagnóstico (só ms, nada pessoal).
   const desempenho = useRef({ identificacaoMs: null, batidaMs: null });
+  // Calibração de campo: só memória, só números (ligada pelo encarregado).
+  const sessaoCalibracao = useRef(criarSessaoCalibracao()).current;
+  const [calibrando, setCalibrando] = useState(false);
   // Preferências da tela (não são registro): confirmação por voz.
   const [preferencias, setPreferencias] = useState({ voz: true });
   const ref = useRef({ armazem: null, relogio: null, sessao: null, gps: null, gpsEstado: "aguardando", ultimoCadastro: 0, sincronizando: false, pedirDeNovo: null });
@@ -292,10 +296,11 @@ export default function App() {
   else if (fase === "parear") conteudo = <TelaPareamento api={api} aoParear={aoParear} />;
   else if (fase === "encarregado") conteudo = <TelaEncarregado cadastro={cadastro} modelos={modelos} registrar={registrar} api={api} obra={ref.current.sessao?.obra}
     situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico}
-    voz={preferencias.voz} alternarVoz={alternarVoz} />;
+    voz={preferencias.voz} alternarVoz={alternarVoz}
+    calibracao={{ ativa: calibrando, alternar: () => setCalibrando(v => !v), resumo: () => resumoDeCampo(relatorioDeCampo(sessaoCalibracao.linhas())), limpar: () => sessaoCalibracao.limpar() }} />;
   else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos}
     cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} voz={preferencias.voz}
-    medir={m => Object.assign(desempenho.current, m)} />;
+    medir={m => Object.assign(desempenho.current, m)} calibrar={calibrando ? linha => sessaoCalibracao.registrar(linha) : null} />;
 
   return <SafeAreaProvider initialMetrics={initialWindowMetrics} style={estilos.raiz}>
     <StatusBar style="light" />

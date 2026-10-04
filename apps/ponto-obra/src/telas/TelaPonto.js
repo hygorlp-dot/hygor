@@ -12,19 +12,20 @@ import { useEffect, useRef, useState } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useKeepAwake } from "expo-keep-awake";
-import { MOTIVO, identificar, similaridadeCosseno } from "../logica/rosto";
+import { MOTIVO, avaliarProvaDeVida, identificar } from "../logica/rosto";
 import { PARAMETROS_FACIAIS as P } from "../logica/calibracao";
 import { estadoPermissaoCamera, mensagemParaTrabalhador } from "../logica/falhas";
 import { resumoCadastro } from "../logica/cadastro";
 import { FASE, emAndamento, falaDeConfirmacao, falhaNaTela, formatarData, formatarHora, fusoDoCadastro, guiaDaFase, instrucaoDaFase, statusDoAparelho, telaSemCamera } from "../logica/apresentacao";
 import { analisarFoto, apagarFotoLocal } from "../servicos/rosto-nativo";
 import { brilhoMaximo, brilhoNormal, falar, vibrar } from "../servicos/feedback";
+import { RESULTADO as RESULTADO_CALIBRACAO } from "../logica/calibracao-campo";
 import { Botao, BotaoTexto, COMPROVANTE_MS, COR, COR_DO_TOM, Corpo, ESPACO, Icone, Mensagem, MolduraCamera, RAIO, Rotulo, Status, Tela, Texto, TituloSecao } from "../ui";
 import Comprovante from "./Comprovante";
 
 const esperar = ms => new Promise(r => setTimeout(r, ms));
 
-export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar, situacao, abrirEncarregado, voz = true, medir = () => {} }) {
+export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar, situacao, abrirEncarregado, voz = true, medir = () => {}, calibrar = null }) {
   useKeepAwake();
   const camera = useRef(null);
   const [permissao, pedirPermissao] = useCameraPermissions();
@@ -64,6 +65,12 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     // foto da batida é uma cópia preparada por registrar()).
     const cruas = [];
     const inicio = Date.now();
+    // Calibração de campo (só se o encarregado ligou): uma linha de números
+    // por tentativa - nada de vetor, foto, nome ou id (calibracao-campo.js).
+    const anotar = (resultado, a = {}, id = null) => calibrar?.({
+      resultado, duracaoMs: Date.now() - inicio, confiancaDeteccao: a.confiancaDeteccao, larguraRosto: a.larguraRosto, luminancia: a.luminancia,
+      top1: id?.melhor?.similaridade, top2: id?.segundo?.similaridade,
+    });
     // Tela no brilho máximo durante a captura (sol forte, rosto escuro).
     brilhoMaximo();
     try {
@@ -73,11 +80,12 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       etapa = "modelos";
       fase(FASE.ANALISAR);
       const frente = await analisarFoto(modelos, fotoFrente);
-      if (frente.erro) return falha({ mensagem: frente.erro, podeEncarregado: true });
-      if (Math.abs(frente.giro) > P.giroMaximoDeFrente) return falha({ mensagem: "Olhe de frente para a câmera e tente de novo." });
+      if (frente.erro) { anotar(RESULTADO_CALIBRACAO.SEM_ROSTO); return falha({ mensagem: frente.erro, podeEncarregado: true }); }
+      if (Math.abs(frente.giro) > P.giroMaximoDeFrente) { anotar(RESULTADO_CALIBRACAO.FORA_DE_POSE, frente); return falha({ mensagem: "Olhe de frente para a câmera e tente de novo." }); }
       const tId = Date.now();
       const id = identificar(frente.vetor, cadastro?.biometrias || []);
       medir({ identificacaoMs: Date.now() - tId });
+      if (!id.reconhecido) anotar(id.motivo === MOTIVO.AMBIGUO ? RESULTADO_CALIBRACAO.AMBIGUO : RESULTADO_CALIBRACAO.NAO_CADASTRADO, frente, id);
       if (!id.reconhecido) return falha({ mensagem: id.motivo === MOTIVO.NAO_CADASTRADO ? "Se o seu rosto ainda não foi cadastrado, chame o encarregado." : "Olhe de frente e tente novamente.", podeEncarregado: true });
       const funcionario = (cadastro.funcionarios || []).find(f => f.id === id.employeeId);
       if (!funcionario) return falha({ tipo: "atencao", contexto: "cadastro", mensagem: "O cadastro deste aparelho está desatualizado. Chame o encarregado.", podeEncarregado: true });
@@ -90,9 +98,10 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       cruas.push(fotoVirada.uri);
       etapa = "modelos";
       const virado = await analisarFoto(modelos, fotoVirada);
-      const vivo = !virado.erro && Math.abs(virado.giro) >= P.giroMinimoVirado && similaridadeCosseno(frente.vetor, virado.vetor) >= P.similaridadeMinimaVirado;
-      if (!vivo) return falha({ mensagem: "Olhe de frente e, quando pedir, vire o rosto devagar.", podeEncarregado: true });
+      const { vivo } = avaliarProvaDeVida(frente, virado);
+      if (!vivo) { anotar(RESULTADO_CALIBRACAO.PROVA_DE_VIDA, frente, id); return falha({ mensagem: "Olhe de frente e, quando pedir, vire o rosto devagar.", podeEncarregado: true }); }
 
+      anotar(RESULTADO_CALIBRACAO.RECONHECIDO, frente, id);
       fase(FASE.CONFIRMADO, funcionario.nome);
       etapa = "batida";
       const comprovante = await registrar({ pessoa: { tipo: "funcionario", ...funcionario }, identificacao: { metodo: "facial", confianca: id.confianca }, foto: fotoFrente });
@@ -103,6 +112,7 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       clearTimeout(timerSucesso.current);
       timerSucesso.current = setTimeout(() => setFluxo(f => (f.etapa === "sucesso" ? { etapa: "pronto", fase: FASE.PRONTO } : f)), duracaoDoComprovante(comprovante));
     } catch {
+      anotar(RESULTADO_CALIBRACAO.ERRO);
       falha({ tipo: "erro", contexto: etapa, mensagem: mensagemParaTrabalhador(etapa), podeEncarregado: true });
     } finally {
       cruas.forEach(apagarFotoLocal);

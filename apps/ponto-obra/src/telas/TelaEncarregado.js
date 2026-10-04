@@ -32,7 +32,7 @@ const CAPTURAS_CADASTRO = P.capturasCadastro;
 export const TERMO_VERSAO = "2026-10";
 export const TERMO_TEXTO = "Autorizo a ARCD a usar a imagem do meu rosto para gerar um código biométrico usado SOMENTE para registrar o meu ponto nas obras da empresa. O código e as fotos ficam protegidos, não são compartilhados com terceiros e serão apagados quando eu deixar a empresa ou se eu pedir. Posso pedir a exclusão a qualquer momento; nesse caso meu ponto passa a ser registrado pelo encarregado.";
 
-export default function TelaEncarregado({ cadastro, modelos, registrar, sincronizarAgora, situacao, fechar, api, obra, diagnostico, voz = true, alternarVoz = () => {} }) {
+export default function TelaEncarregado({ cadastro, modelos, registrar, sincronizarAgora, situacao, fechar, api, obra, diagnostico, voz = true, alternarVoz = () => {}, calibracao = null }) {
   const [responsavel, setResponsavel] = useState(null);   // { userId, nome } depois do PIN
   const [tela, setTela] = useState("menu");
   const [fixar, setFixar] = useState("");
@@ -71,7 +71,7 @@ export default function TelaEncarregado({ cadastro, modelos, registrar, sincroni
       {tela === "cadastro" && <CadastroFacial cadastro={cadastro} modelos={modelos} api={api} responsavel={responsavel} aoTerminar={async () => { await sincronizarAgora(); voltar(); }} voltar={voltar} />}
       {tela === "funcionarios" && <Funcionarios cadastro={cadastro} voltar={voltar} cadastrarRosto={() => setTela("cadastro")} />}
       {tela === "sincronizacao" && <Sincronizacao cadastro={cadastro} situacao={situacao} sincronizarAgora={sincronizarAgora} voltar={voltar} />}
-      {tela === "diagnostico" && <Diagnostico diagnostico={diagnostico} voltar={voltar} />}
+      {tela === "diagnostico" && <Diagnostico diagnostico={diagnostico} voltar={voltar} calibracao={calibracao} />}
       {tela === "manual" && <RegistroPeloEncarregado pessoas={(cadastro?.funcionarios || []).map(f => ({ ...f, tipo: "funcionario" }))} titulo="Registrar funcionário" registrar={registrar} responsavel={responsavel} voltar={voltar} obra={obra} online={situacao.online} voz={voz} />}
       {tela === "terceiro" && <RegistroPeloEncarregado pessoas={(cadastro?.terceirizados || []).map(t => ({ ...t, tipo: "terceiro" }))} titulo="Acesso de terceirizado" registrar={registrar} responsavel={responsavel} voltar={voltar} obra={obra} online={situacao.online} voz={voz} />}
     </View>
@@ -354,7 +354,7 @@ function Sincronizacao({ cadastro, situacao, sincronizarAgora, voltar }) {
 
 // Diagnóstico do aparelho para o suporte - sem dado pessoal ou biométrico
 // (lista fechada em src/logica/diagnostico.js), em seções de leitura.
-function Diagnostico({ diagnostico, voltar }) {
+function Diagnostico({ diagnostico, voltar, calibracao }) {
   const [itens, setItens] = useState(null);
   const [erro, setErro] = useState("");
   const carregar = () => { setErro(""); diagnostico().then(setItens).catch(() => setErro("Não foi possível ler o diagnóstico.")); };
@@ -367,9 +367,25 @@ function Diagnostico({ diagnostico, voltar }) {
       {itens && secoesDoDiagnostico(itens).map(s => <Secao key={s.titulo} titulo={s.titulo}>
         {s.itens.map(i => <LinhaAjuste key={i.rotulo} rotulo={i.rotulo} valor={i.valor} mono={i.mono} tom={i.atencao ? "atencao" : null} />)}
       </Secao>)}
+      {!!calibracao && <CalibracaoDeCampo calibracao={calibracao} />}
     </ScrollView>
     <BotaoSecundario titulo="Atualizar" onPress={carregar} />
   </Tela>;
+}
+
+// Modo técnico: liga a coleta anônima de métricas na tela de ponto (só
+// números, só memória) e mostra o resumo. Ver docs/calibracao-facial.md.
+function CalibracaoDeCampo({ calibracao }) {
+  const [, atualizar] = useState(0);
+  const linhas = calibracao.resumo();
+  return <Secao titulo="Calibração de campo" rodape={calibracao.ativa
+    ? "Ligada: cada tentativa na tela de ponto guarda só números (scores, margem, luz, duração). Nada de rosto, nome ou foto."
+    : "Desligada. Ligue durante a homologação para medir o reconhecimento neste aparelho."}>
+    <LinhaAjuste rotulo="Coleta" valor={calibracao.ativa ? "Ligada" : "Desligada"} tom={calibracao.ativa ? "atencao" : null}
+      onPress={() => { calibracao.alternar(); atualizar(n => n + 1); }} chevron={false} rotuloAcessivel={`Calibração de campo, ${calibracao.ativa ? "ligada, toque para desligar" : "desligada, toque para ligar"}`} />
+    {linhas.map(l => <LinhaAjuste key={l.rotulo} rotulo={l.rotulo} valor={l.valor} mono />)}
+    <LinhaAjuste rotulo="Limpar métricas" onPress={() => { calibracao.limpar(); atualizar(n => n + 1); }} chevron={false} />
+  </Secao>;
 }
 
 const estilos = StyleSheet.create({
