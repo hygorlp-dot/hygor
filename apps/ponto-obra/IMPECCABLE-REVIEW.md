@@ -9,6 +9,67 @@
   fora do sistema); detector automatizado; e revisão visual de 29 estados em 3
   tamanhos de tela.
 
+## Rodada 3 - evolução profissional (04/10/2026)
+
+<!-- impeccable-resumo
+p0: 0
+p1: 0
+p1_justificados: 0
+-->
+
+- Base: `f3b4555` (main, com o funcionário global). Escopo: tela do
+  trabalhador, Encarregado, Funcionários, Diagnóstico e cópia das mensagens.
+- Verificação: detector (`design-system.test.js`) sem exceção nova; testes de
+  comportamento (`apresentacao.test.js`, `diagnostico-calibracao.test.js`);
+  revisão visual de **30 cenas × 3 tamanhos** (360×800, 412×915, tablet
+  800×1280) no harness `react-native-web`, com medição automática de estouro
+  horizontal, rolagem lateral e alvo < 44: **0 ocorrências**. As telas estão
+  em `docs/ui/`. **Não houve validação em aparelho físico** (sem aparelho no
+  ambiente): por isso o scorecard mantém o teto 9,0 de UI.
+
+### Antes × Depois (10 heurísticas)
+
+"Antes" é a main `f3b4555` com a auditoria do usuário (UI trabalhador 6,4;
+encarregado 6,2), que apontou a cópia "nesta obra" errada para funcionário
+global, a falta da lista de Funcionários e o Diagnóstico sem seções de
+suporte.
+
+| # | Heurística | Antes (estimado) | Depois | O que mudou |
+| --- | --- | --- | --- | --- |
+| 1 | Visibility of System Status | 3 | **4** | Comprovante offline diz "Salvo no aparelho · Será enviado automaticamente"; Diagnóstico em seções (Aplicativo, Aparelho, Sincronização, REP-P, Hora, Modelos, Desempenho) com "Alerta da hora" em texto + ícone. |
+| 2 | Match System / Real World | 2 | **4** | "Rosto não cadastrado nesta obra" virou "ainda não cadastrado" (o rosto vale em toda a empresa); hora no fuso do estabelecimento, não do aparelho; status do NTP traduzido ("medida contra o NTP.br, dentro da meta"). |
+| 3 | User Control and Freedom | 3 | **3** | Sem mudança. Continua faltando cancelar o reconhecimento em andamento (P3). |
+| 4 | Consistency and Standards | 4 | **4** | Funcionários e Diagnóstico usam o mesmo padrão de linhas agrupadas e "‹ Voltar". |
+| 5 | Error Prevention | 3 | **3** | Sem mudança de fluxo. |
+| 6 | Recognition Rather Than Recall | 3 | **4** | Lista de Funcionários com "Rosto cadastrado / Sem rosto" e o atalho "Cadastrar rosto"; menu mostra "2 de 4" e a contagem. |
+| 7 | Flexibility and Efficiency | 3 | **3** | Sem mudança. |
+| 8 | Aesthetic and Minimalist Design | 4 | **4** | Versão REP encurtada ("0.2.0-tecnica · não registrada", antes quebrava em 3 linhas); sem parênteses aninhados na fonte de hora. |
+| 9 | Error Recovery | 3 | **4** | Cada alerta de hora diz o que fazer ("Conecte à internet para sincronizar", "Avise o suporte do ARCD"); ambíguo e não cadastrado têm mensagens diferentes. |
+| 10 | Help and Documentation | 3 | **3** | Ajuda contextual melhorou, mas segue sem tela de ajuda (não necessária num quiosque). |
+| | **Total** | **31/40** | **36/40** | |
+
+O "Antes" desta tabela é mais baixo que o "Depois" da rodada 1 (36/40)
+porque a main recebeu o funcionário global depois dela e a cópia ficou
+errada; a auditoria do usuário mediu isso.
+
+### Achados da rodada 3
+
+- **P0**: nenhum.
+- **P1** (corrigidos): cópia "nesta obra" contradizia o funcionário global;
+  hora formatada no fuso do aparelho em vez do estabelecimento.
+- **P2** (corrigidos): item "Funcionários" ausente (era P3 na rodada 1);
+  Diagnóstico sem versão REP, perfil e data do build.
+- **P3** (corrigidos): versão REP redundante quebrando em 3 linhas; parênteses
+  aninhados na fonte de hora.
+- **P2** (pendente): validação no aparelho - ver `docs/device-matrix.md` e
+  `docs/checklist-aparelho.md`.
+- **P3** (pendentes): cancelar o reconhecimento em andamento; câmera alta no
+  tablet; `FLAG_SECURE` (ver `docs/seguranca.md`).
+
+---
+
+## Rodada 1 (01/10/2026)
+
 ## Como foi verificado
 
 1. **Detector automatizado** (`src/ui/design-system.test.js`). É o equivalente
