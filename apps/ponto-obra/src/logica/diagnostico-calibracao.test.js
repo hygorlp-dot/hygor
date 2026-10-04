@@ -43,7 +43,7 @@ describe("diagnóstico do aparelho", () => {
 
   it("versões de release separadas: app, software REP (técnica), versionCode, commit, perfil e data do build", () => {
     const d = Object.fromEntries(montarDiagnostico({ ...entrada, app: { versao: "1.1.0", build: "23", commit: "abc1234", perfil: "piloto", buildEm: "2026-10-04T12:00:00.000Z" }, rep: { versao: "0.2.0-tecnica" }, fuso: "America/Recife" }).map(i => [i.rotulo, i.valor]));
-    expect(d).toMatchObject({ "Versão do app": "1.1.0", "Versão do software REP": "0.2.0-tecnica (técnica, não registrada)", "Build (versionCode)": "23", Commit: "abc1234", "Perfil do build": "piloto" });
+    expect(d).toMatchObject({ "Versão do app": "1.1.0", "Versão do software REP": "0.2.0-tecnica · não registrada", "Build (versionCode)": "23", Commit: "abc1234", "Perfil do build": "piloto" });
     expect(d["Data do build"]).toMatch(/04\/10\/2026/);
     // Nunca afirma registro formal.
     expect(d["Situação formal REP-P"]).toMatch(/não é REP-P registrado/);

@@ -20,6 +20,30 @@ const ROTULO_ESTADO_REFERENCIA = {
   nunca_validada: "nunca validada", invalida_apos_reinicio: "aparelho reiniciou - aguardando sincronizar",
   valida: "válida", proxima_do_vencimento: "próxima do vencimento", expirada: "expirada (batidas saem como hora não confiável)",
 };
+// Status da fonte de hora do SERVIDOR (fonte-hora.js avaliarVerificacao).
+const ROTULO_STATUS_HORA_SERVIDOR = {
+  verificada: "medida contra o NTP.br, dentro da meta", dentro_da_tolerancia: "medida contra o NTP.br, dentro da tolerância",
+  fora_da_tolerancia: "FORA da tolerância contra o NTP.br", verificacao_vencida: "medição vencida", nao_verificada: "sem medição contra o NTP.br",
+};
+
+// Matriz de comportamento da hora (docs/REP-P-TEMPO-CONFIAVEL.md): a batida
+// é SEMPRE registrada (a Portaria veda restringir a marcação); o que muda é
+// se ela sai confiável e o que o diagnóstico pede ao suporte.
+// hora = horaDaMarcacao(); referencia = estadoDaReferencia();
+// statusHora = status da fonte do servidor no último cadastro baixado.
+// Devolve { tom: "ok" | "atencao" | "erro", texto, acao, batidaConfiavel }.
+export function alertaDaHora({ hora = null, referencia = null, statusHora = null } = {}) {
+  const r = (tom, texto, acao) => ({ tom, texto, acao, batidaConfiavel: !!hora?.horaConfiavel });
+  if (!referencia || referencia.estado === "nunca_validada") return r("erro", "O aparelho ainda não pegou a hora do ARCD. As batidas saem com a hora do celular, sinalizadas.", "Conecte o aparelho à internet e sincronize.");
+  if (referencia.estado === "invalida_apos_reinicio") return r("atencao", "O aparelho reiniciou. Até a próxima sincronização as batidas saem com a hora do celular, sinalizadas.", "Conecte à internet para sincronizar a hora.");
+  if (referencia.estado === "expirada") return r("erro", "Mais de 7 dias sem sincronizar a hora. As batidas saem sinalizadas.", "Conecte à internet para sincronizar a hora.");
+  if (statusHora === "fora_da_tolerancia") return r("erro", "A hora do servidor do ARCD está fora da tolerância medida contra o NTP.br. As batidas saem sinalizadas.", "Avise o suporte do ARCD.");
+  if (referencia.estado === "proxima_do_vencimento") return r("atencao", "A referência de hora vence em breve.", "Conecte à internet para sincronizar a hora.");
+  if (statusHora === "nao_verificada" || statusHora === "verificacao_vencida") return r("atencao", `Hora do servidor ${ROTULO_STATUS_HORA_SERVIDOR[statusHora]}; a referência do aparelho é válida.`, "Nada a fazer na obra; o suporte acompanha a medição.");
+  if (hora?.relogioAlterado) return r("ok", "Hora válida. O relógio do celular está diferente, mas a batida usa a hora do ARCD.", null);
+  return r("ok", "Hora válida.", null);
+}
+
 const duracao = ms => (ms === null || ms === undefined ? "-" : ms < 3_600_000 ? `${Math.round(ms / 60_000)} min` : ms < 172_800_000 ? `${Math.round(ms / 3_600_000)} h` : `${Math.round(ms / 86_400_000)} dias`);
 
 // referencia = estadoDaReferencia() (relogio.js).
@@ -37,7 +61,7 @@ export function montarDiagnostico({ app = {}, rep = {}, aparelho = {}, sessao = 
       : fiscal.ultimoNsr !== null && fiscal.ultimoNsr !== undefined ? "aceitando eventos" : "sem eventos confirmados ainda";
   const itens = [
     ["Versão do app", app.versao || "-"],
-    ["Versão do software REP", rep.versao ? `${rep.versao} (técnica, não registrada)` : "-"],
+    ["Versão do software REP", rep.versao ? `${rep.versao} · não registrada` : "-"],
     ["Build (versionCode)", app.build || "-"],
     ["Commit", app.commit || "-"],
     ["Perfil do build", app.perfil || "-"],
@@ -63,7 +87,8 @@ export function montarDiagnostico({ app = {}, rep = {}, aparelho = {}, sessao = 
     ["Estado da referência", referencia ? ROTULO_ESTADO_REFERENCIA[referencia.estado] || referencia.estado : "desconhecido"],
     ["Última validação da hora", referencia?.ultimaValidacao ? fmt(Date.parse(referencia.ultimaValidacao)) : "nunca"],
     ["Idade da referência", duracao(referencia?.idadeMs)],
-    ["Fonte de hora do servidor", fiscal.fonteHora ? `${fiscal.fonteHora}${fiscal.statusHora ? ` (${fiscal.statusHora})` : ""}` : "-"],
+    ["Fonte de hora do servidor", fiscal.fonteHora ? `${fiscal.fonteHora}${fiscal.statusHora ? ` · ${ROTULO_STATUS_HORA_SERVIDOR[fiscal.statusHora] || fiscal.statusHora}` : ""}` : "-"],
+    ["Alerta da hora", (({ texto, acao }) => (acao ? `${texto} ${acao}` : texto))(alertaDaHora({ hora, referencia, statusHora: fiscal.statusHora }))],
     ["Fuso horário", fuso || "-"],
     ["Reconhecimento facial", modelos.estado === "ok" ? "carregado" : modelos.estado === "erro" ? `indisponível (${modelos.erro || "erro"})` : "carregando"],
     ["Modelo detector", modeloCarregado(modelos.detector)],
@@ -82,7 +107,7 @@ const SECAO_DO_ITEM = {
   "Plataforma": "Aparelho", "Android": "Aparelho", "Aparelho": "Aparelho", "Aparelho no ARCD": "Aparelho", "Obra": "Aparelho", "GPS": "Aparelho",
   "Última sincronização": "Sincronização", "Último envio com sucesso": "Sincronização", "Batidas a enviar": "Sincronização", "Fotos a enviar": "Sincronização", "Fotos com problema": "Sincronização",
   "Estabelecimento": "REP-P", "Sequência local (último registro)": "REP-P", "Último NSR recebido da ARP": "REP-P", "ARP": "REP-P", "Cadeia local": "REP-P", "Situação formal REP-P": "REP-P",
-  "Referência de hora": "Hora", "Estado da referência": "Hora", "Última validação da hora": "Hora", "Idade da referência": "Hora", "Fonte de hora do servidor": "Hora", "Fuso horário": "Hora",
+  "Referência de hora": "Hora", "Estado da referência": "Hora", "Última validação da hora": "Hora", "Idade da referência": "Hora", "Fonte de hora do servidor": "Hora", "Alerta da hora": "Hora", "Fuso horário": "Hora",
   "Reconhecimento facial": "Modelos", "Modelo detector": "Modelos", "Modelo de identidade": "Modelos", "Carga dos modelos": "Modelos",
   "Última identificação": "Desempenho", "Última batida (total)": "Desempenho",
 };
@@ -95,7 +120,9 @@ const atencao = ({ rotulo, valor }) =>
   || (rotulo === "Fotos com problema" && valor !== "0")
   || (rotulo === "Reconhecimento facial" && valor.startsWith("indisponível"))
   || (rotulo === "ARP" && /divergente|aguardando/.test(valor))
-  || (rotulo === "Estado da referência" && /expirada|aguardando|nunca/.test(valor));
+  || (rotulo === "Estado da referência" && /expirada|aguardando|nunca/.test(valor))
+  || (rotulo === "Alerta da hora" && !valor.startsWith("Hora válida."))
+  || (rotulo === "Fonte de hora do servidor" && /FORA/.test(valor));
 
 export function secoesDoDiagnostico(itens) {
   const porSecao = new Map(ORDEM_SECOES_DIAGNOSTICO.map(t => [t, []]));
