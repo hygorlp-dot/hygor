@@ -13,7 +13,7 @@ import { PARAMETROS_FACIAIS as P } from "../logica/calibracao";
 import { mensagemDeErro } from "../logica/falhas";
 import { resumoCadastro } from "../logica/cadastro";
 import { secoesDoDiagnostico } from "../logica/diagnostico";
-import { PASSO_CADASTRO, passoDoCadastro, rotuloDaCaptura, secoesDoEncarregado } from "../logica/apresentacao";
+import { PASSO_CADASTRO, formatarDataHora, fusoDoCadastro, passoDoCadastro, rotuloDaCaptura, secoesDoEncarregado, situacaoDosFuncionarios } from "../logica/apresentacao";
 import { analisarFoto, apagarFotoLocal, lerFotoBase64, prepararFotoDaBatida } from "../servicos/rosto-nativo";
 import { falaDeConfirmacao } from "../logica/apresentacao";
 import { falar, vibrar } from "../servicos/feedback";
@@ -69,6 +69,7 @@ export default function TelaEncarregado({ cadastro, modelos, registrar, sincroni
         </ScrollView>
       </Tela>}
       {tela === "cadastro" && <CadastroFacial cadastro={cadastro} modelos={modelos} api={api} responsavel={responsavel} aoTerminar={async () => { await sincronizarAgora(); voltar(); }} voltar={voltar} />}
+      {tela === "funcionarios" && <Funcionarios cadastro={cadastro} voltar={voltar} cadastrarRosto={() => setTela("cadastro")} />}
       {tela === "sincronizacao" && <Sincronizacao cadastro={cadastro} situacao={situacao} sincronizarAgora={sincronizarAgora} voltar={voltar} />}
       {tela === "diagnostico" && <Diagnostico diagnostico={diagnostico} voltar={voltar} />}
       {tela === "manual" && <RegistroPeloEncarregado pessoas={(cadastro?.funcionarios || []).map(f => ({ ...f, tipo: "funcionario" }))} titulo="Registrar funcionário" registrar={registrar} responsavel={responsavel} voltar={voltar} obra={obra} online={situacao.online} voz={voz} />}
@@ -108,7 +109,7 @@ function EntrarComPin({ responsaveis, aoEntrar, fechar, sincronizarAgora }) {
       <Botao titulo="Buscar no ARCD" carregando={buscando} onPress={async () => { setBuscando(true); try { await sincronizarAgora(); } finally { setBuscando(false); } }} />
       <BotaoTexto titulo="Voltar" onPress={fechar} />
     </>}>
-      <Corpo secundario centro>Nenhum responsável com PIN do app nesta obra. No ARCD: Ponto eletrônico (app) → Responsáveis com PIN do app. Depois toque em "Buscar no ARCD".</Corpo>
+      <Corpo secundario centro>Nenhum responsável com PIN autorizado para a obra deste aparelho. No ARCD: Ponto eletrônico (app) → Responsáveis com PIN do app. Depois toque em "Buscar no ARCD".</Corpo>
     </EstadoCentral>
   </Tela>;
 
@@ -141,7 +142,7 @@ function ListaPessoas({ pessoas, aoEscolher, marcador }) {
   return <>
     <Campo value={busca} onChangeText={setBusca} rotulo="Buscar pelo nome" placeholder="Buscar pelo nome" />
     <FlatList data={filtradas} keyExtractor={p => p.id} style={estilos.lista} contentContainerStyle={estilos.listaConteudo}
-      ListEmptyComponent={<Corpo secundario centro>{busca ? "Ninguém com esse nome." : "Ninguém cadastrado nesta obra."}</Corpo>}
+      ListEmptyComponent={<Corpo secundario centro>{busca ? "Ninguém com esse nome." : "Nenhum funcionário ativo no cadastro."}</Corpo>}
       ItemSeparatorComponent={() => <View style={estilos.separador} />}
       renderItem={({ item }) => <Pressable onPress={() => aoEscolher(item)} accessibilityRole="button"
         accessibilityLabel={`${item.nome}${item.funcao ? `, ${item.funcao}` : ""}${marcador ? `, ${marcador(item).texto}` : ""}`}
@@ -304,10 +305,32 @@ function RegistroPeloEncarregado({ pessoas, titulo, registrar, responsavel, volt
   </Tela>;
 }
 
+// Funcionários (consulta): funcionário é global da empresa - todos os ativos
+// estão neste aparelho. Mostra quem já tem rosto e quem falta, com atalho
+// para o cadastro.
+function Funcionarios({ cadastro, voltar, cadastrarRosto }) {
+  const lista = situacaoDosFuncionarios(cadastro);
+  const semRosto = lista.filter(f => f.rosto.icone !== "ok").length;
+  return <Tela>
+    <Cabecalho voltar={voltar} rotuloVoltar="Encarregado" titulo="Funcionários"
+      subtitulo={lista.length ? `${lista.length} ativos · ${semRosto ? `${semRosto} sem rosto` : "todos com rosto"}` : "Nenhum funcionário ativo no cadastro."} />
+    <FlatList data={lista} keyExtractor={f => f.id} style={estilos.lista} contentContainerStyle={estilos.listaConteudo}
+      ItemSeparatorComponent={() => <View style={estilos.separador} />}
+      renderItem={({ item }) => <View accessible accessibilityLabel={`${item.nome}${item.funcao ? `, ${item.funcao}` : ""}, ${item.rosto.texto}${item.lotacao ? `, ${item.lotacao}` : ""}`} style={estilos.pessoa}>
+        <View style={estilos.pessoaTexto}>
+          <Texto variante="corpo">{item.nome}</Texto>
+          {!!(item.funcao || item.lotacao) && <Rotulo secundario>{[item.funcao, item.lotacao].filter(Boolean).join(" · ")}</Rotulo>}
+        </View>
+        <Marcador {...item.rosto} />
+      </View>} />
+    {semRosto > 0 && <BotaoSecundario titulo="Cadastrar rosto" onPress={cadastrarRosto} />}
+  </Tela>;
+}
+
 // Fila e envio: o que estava no painel do menu, numa página própria.
 function Sincronizacao({ cadastro, situacao, sincronizarAgora, voltar }) {
   const [enviando, setEnviando] = useState(false);
-  const ultima = cadastro?.sincronizadoEm ? new Date(cadastro.sincronizadoEm).toLocaleString("pt-BR", { timeZone: "America/Recife" }) : "nunca";
+  const ultima = cadastro?.sincronizadoEm ? formatarDataHora(Date.parse(cadastro.sincronizadoEm), fusoDoCadastro(cadastro)) : "nunca";
   return <Tela>
     <ScrollView contentContainerStyle={estilos.rolagem}>
       <Cabecalho voltar={voltar} rotuloVoltar="Encarregado" titulo="Sincronização" />
@@ -320,7 +343,7 @@ function Sincronizacao({ cadastro, situacao, sincronizarAgora, voltar }) {
         <LinhaAjuste rotulo="Fotos a enviar" valor={String(situacao.fotos || 0)} mono />
         {!!situacao.fotosComProblema && <LinhaAjuste rotulo="Fotos com problema" valor={String(situacao.fotosComProblema)} mono tom="atencao" />}
       </Secao>
-      <Secao titulo="Cadastro da obra">
+      <Secao titulo="Cadastro">
         <LinhaAjuste rotulo="Última atualização" valor={ultima} />
       </Secao>
     </ScrollView>

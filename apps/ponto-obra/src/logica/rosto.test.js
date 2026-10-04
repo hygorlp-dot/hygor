@@ -78,7 +78,7 @@ describe("identificação 1:N", () => {
   });
 
   it("rosto desconhecido não vira batida de ninguém", () => {
-    expect(identificar(unitario(9), cadastros)).toMatchObject({ reconhecido: false, motivo: "rosto não cadastrado nesta obra" });
+    expect(identificar(unitario(9), cadastros)).toMatchObject({ reconhecido: false, motivo: "rosto ainda não cadastrado" });
   });
 
   it("dois cadastros parecidos demais: manda para o encarregado em vez de chutar", () => {

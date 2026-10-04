@@ -1,5 +1,6 @@
 // Tela de batida (fica sempre aberta no aparelho da obra).
-// Fluxo: foto de frente → reconhece entre os cadastrados da obra → pede para
+// Fluxo: foto de frente → reconhece entre todos os funcionários ativos da
+// empresa (funcionário é global) → pede para
 // virar o rosto (prova de vida contra foto impressa) → registra com foto e
 // GPS → mostra o comprovante. Se não reconhecer, o encarregado identifica:
 // a batida nunca é impedida (Portaria 671/2021).
@@ -11,22 +12,19 @@ import { useEffect, useRef, useState } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useKeepAwake } from "expo-keep-awake";
-import { identificar, similaridadeCosseno } from "../logica/rosto";
+import { MOTIVO, identificar, similaridadeCosseno } from "../logica/rosto";
 import { PARAMETROS_FACIAIS as P } from "../logica/calibracao";
 import { estadoPermissaoCamera, mensagemParaTrabalhador } from "../logica/falhas";
 import { resumoCadastro } from "../logica/cadastro";
-import { FASE, emAndamento, falaDeConfirmacao, falhaNaTela, guiaDaFase, instrucaoDaFase, statusDoAparelho, telaSemCamera } from "../logica/apresentacao";
+import { FASE, emAndamento, falaDeConfirmacao, falhaNaTela, formatarData, formatarHora, fusoDoCadastro, guiaDaFase, instrucaoDaFase, statusDoAparelho, telaSemCamera } from "../logica/apresentacao";
 import { analisarFoto, apagarFotoLocal } from "../servicos/rosto-nativo";
 import { brilhoMaximo, brilhoNormal, falar, vibrar } from "../servicos/feedback";
 import { Botao, BotaoTexto, COMPROVANTE_MS, COR, COR_DO_TOM, Corpo, ESPACO, Icone, Mensagem, MolduraCamera, RAIO, Rotulo, Status, Tela, Texto, TituloSecao } from "../ui";
 import Comprovante from "./Comprovante";
 
 const esperar = ms => new Promise(r => setTimeout(r, ms));
-const fmtHora = ms => new Date(ms).toLocaleTimeString("pt-BR", { timeZone: "America/Recife", hour: "2-digit", minute: "2-digit" });
-// "quinta-feira, 1 de outubro" → só a primeira letra maiúscula.
-const fmtData = ms => { const d = new Date(ms).toLocaleDateString("pt-BR", { timeZone: "America/Recife", weekday: "long", day: "numeric", month: "long" }); return d.charAt(0).toUpperCase() + d.slice(1); };
 
-export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar, situacao, abrirEncarregado, voz = true }) {
+export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar, situacao, abrirEncarregado, voz = true, medir = () => {} }) {
   useKeepAwake();
   const camera = useRef(null);
   const [permissao, pedirPermissao] = useCameraPermissions();
@@ -48,6 +46,7 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
 
   // Obra recém-pareada: sem rosto cadastrado, "Bater ponto" só falharia.
   const { semRostos, temResponsavel } = resumoCadastro(cadastro);
+  const fuso = fusoDoCadastro(cadastro);
 
   const fase = (f, nome = "") => setFluxo({ etapa: "analisando", fase: f, nome });
   // Vibração de alerta só em falha real (incerteza do rosto não assusta).
@@ -64,6 +63,7 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     // Capturas cruas da câmera: apagadas no fim, aconteça o que acontecer (a
     // foto da batida é uma cópia preparada por registrar()).
     const cruas = [];
+    const inicio = Date.now();
     // Tela no brilho máximo durante a captura (sol forte, rosto escuro).
     brilhoMaximo();
     try {
@@ -75,8 +75,10 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       const frente = await analisarFoto(modelos, fotoFrente);
       if (frente.erro) return falha({ mensagem: frente.erro, podeEncarregado: true });
       if (Math.abs(frente.giro) > P.giroMaximoDeFrente) return falha({ mensagem: "Olhe de frente para a câmera e tente de novo." });
+      const tId = Date.now();
       const id = identificar(frente.vetor, cadastro?.biometrias || []);
-      if (!id.reconhecido) return falha({ mensagem: id.motivo === "rosto não cadastrado nesta obra" ? "Se você ainda não tem cadastro, chame o encarregado." : "Olhe de frente e tente novamente.", podeEncarregado: true });
+      medir({ identificacaoMs: Date.now() - tId });
+      if (!id.reconhecido) return falha({ mensagem: id.motivo === MOTIVO.NAO_CADASTRADO ? "Se o seu rosto ainda não foi cadastrado, chame o encarregado." : "Olhe de frente e tente novamente.", podeEncarregado: true });
       const funcionario = (cadastro.funcionarios || []).find(f => f.id === id.employeeId);
       if (!funcionario) return falha({ tipo: "atencao", contexto: "cadastro", mensagem: "O cadastro deste aparelho está desatualizado. Chame o encarregado.", podeEncarregado: true });
 
@@ -95,8 +97,9 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       etapa = "batida";
       const comprovante = await registrar({ pessoa: { tipo: "funcionario", ...funcionario }, identificacao: { metodo: "facial", confianca: id.confianca }, foto: fotoFrente });
       setFluxo({ etapa: "sucesso", fase: FASE.PRONTO, comprovante });
+      medir({ batidaMs: Date.now() - inicio });
       vibrar("registro");
-      if (voz) falar(falaDeConfirmacao(comprovante.nome, Date.parse(comprovante.marcadoEm)));
+      if (voz) falar(falaDeConfirmacao(comprovante.nome, Date.parse(comprovante.marcadoEm), fuso));
       clearTimeout(timerSucesso.current);
       timerSucesso.current = setTimeout(() => setFluxo(f => (f.etapa === "sucesso" ? { etapa: "pronto", fase: FASE.PRONTO } : f)), duracaoDoComprovante(comprovante));
     } catch {
@@ -108,11 +111,11 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
   };
 
   if (fluxo.etapa === "sucesso") {
-    return <Comprovante c={fluxo.comprovante} obra={obra} online={situacao.online} duracaoMs={duracaoDoComprovante(fluxo.comprovante)} aoConcluir={voltarAoInicio} />;
+    return <Comprovante c={fluxo.comprovante} obra={obra} online={situacao.online} fuso={fuso} duracaoMs={duracaoDoComprovante(fluxo.comprovante)} aoConcluir={voltarAoInicio} />;
   }
 
   const status = statusDoAparelho(situacao, agora);
-  const hora = fmtHora(agora.marcadoEmMs);
+  const hora = formatarHora(agora.marcadoEmMs, fuso);
   const topo = <>
     <View style={estilos.topo}>
       <Rotulo secundario numberOfLines={2} style={estilos.obra}>{obra?.nome || "Obra"}</Rotulo>
@@ -120,7 +123,7 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     </View>
     <View style={estilos.relogio}>
       <Texto variante="relogio" centro accessibilityRole="header" accessibilityLabel={`Agora são ${hora}`} style={estilos.numeros}>{hora}</Texto>
-      <Corpo secundario centro>{fmtData(agora.marcadoEmMs)}</Corpo>
+      <Corpo secundario centro>{formatarData(agora.marcadoEmMs, fuso)}</Corpo>
     </View>
   </>;
 
@@ -143,7 +146,7 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       {topo}
       <Painel tom="info" titulo="Cadastre os rostos da equipe">
         <Corpo secundario centro>{temResponsavel
-          ? "Ninguém desta obra tem rosto cadastrado. O encarregado entra com o PIN e cadastra cada funcionário."
+          ? "Nenhum funcionário tem rosto cadastrado ainda. O encarregado entra com o PIN e cadastra cada um."
           : "Primeiro cadastre o PIN do encarregado no ARCD: Ponto eletrônico (app) → Responsáveis com PIN do app. Depois toque abaixo e em \"Buscar no ARCD\"."}</Corpo>
       </Painel>
       <Botao titulo="Cadastrar rostos" onPress={abrirEncarregado} rotuloAcessivel="Cadastrar rostos, abre o modo Encarregado" />

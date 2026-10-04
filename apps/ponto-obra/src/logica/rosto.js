@@ -157,6 +157,10 @@ export function vetorDoCadastro(capturas) {
 // viram uma batida no nome errado; vai para o encarregado.
 export const LIMIAR_RECONHECIMENTO = P.limiarReconhecimento;
 export const MARGEM_SOBRE_SEGUNDO = P.margemSobreSegundo;
+// Motivos da recusa (a tela traduz). Funcionário é global da empresa: o
+// rosto é comparado com TODOS os ativos, então "não cadastrado" é na empresa.
+export const MOTIVO = Object.freeze({ NAO_CADASTRADO: "rosto ainda não cadastrado", AMBIGUO: "rosto parecido com mais de um cadastro" });
+
 export function identificar(vetor, cadastros, { limiar = LIMIAR_RECONHECIMENTO, margem = MARGEM_SOBRE_SEGUNDO } = {}) {
   const ranking = (cadastros || [])
     .map(c => ({ employeeId: c.employeeId, similaridade: similaridadeCosseno(vetor, c.vetor) }))
@@ -164,7 +168,7 @@ export function identificar(vetor, cadastros, { limiar = LIMIAR_RECONHECIMENTO, 
   const [melhor, segundo] = ranking;
   // segundo/margemObtida servem só para medir a calibração (relatorio-calibracao.js).
   const extra = { segundo: segundo || null, margemObtida: melhor && segundo ? melhor.similaridade - segundo.similaridade : null };
-  if (!melhor || melhor.similaridade < limiar) return { reconhecido: false, motivo: "rosto não cadastrado nesta obra", melhor: melhor || null, ...extra };
-  if (segundo && melhor.similaridade - segundo.similaridade < margem) return { reconhecido: false, motivo: "rosto parecido com mais de um cadastro", melhor, ...extra };
+  if (!melhor || melhor.similaridade < limiar) return { reconhecido: false, motivo: MOTIVO.NAO_CADASTRADO, melhor: melhor || null, ...extra };
+  if (segundo && melhor.similaridade - segundo.similaridade < margem) return { reconhecido: false, motivo: MOTIVO.AMBIGUO, melhor, ...extra };
   return { reconhecido: true, employeeId: melhor.employeeId, confianca: Number(melhor.similaridade.toFixed(4)), melhor, ...extra };
 }

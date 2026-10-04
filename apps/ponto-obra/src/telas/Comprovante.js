@@ -7,11 +7,9 @@ import { StyleSheet, View } from "react-native";
 import { linhasDoComprovante } from "../logica/apresentacao";
 import { BarraTempo, BotaoSecundario, COR, Corpo, ESPACO, EstadoCentral, Mensagem, Rotulo, Status, Tela, Texto, TituloSecao } from "../ui";
 
-const fmtHora = ms => new Date(ms).toLocaleTimeString("pt-BR", { timeZone: "America/Recife", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-
-export default function Comprovante({ c, obra, online, aoConcluir, duracaoMs = 0 }) {
-  const l = linhasDoComprovante(c, { obra, online });
-  const hora = fmtHora(Date.parse(c.marcadoEm));
+export default function Comprovante({ c, obra, online, fuso, aoConcluir, duracaoMs = 0 }) {
+  const l = linhasDoComprovante(c, { obra, online, fuso });
+  const hora = l.hora;
   return <Tela>
     <EstadoCentral tom="sucesso" titulo={l.titulo} acoes={<>
       {duracaoMs > 0 && <BarraTempo duracaoMs={duracaoMs} />}
@@ -24,7 +22,8 @@ export default function Comprovante({ c, obra, online, aoConcluir, duracaoMs = 0
       {l.batidasHoje.length > 0 && <Rotulo secundario centro accessibilityLabel={`Marcações de hoje: ${l.batidasHoje.join(", ")}`}>
         Hoje: <Texto variante="rotulo" cor={COR.texto} style={estilo.numeros}>{l.batidasHoje.join("  ·  ")}</Texto>
       </Rotulo>}
-      <Status {...l.envio} />
+      <Status {...l.envio} detalhe="" rotuloAcessivel={[l.envio.texto, l.envio.detalhe].filter(Boolean).join(". ")} />
+      {!!l.envio.detalhe && <Rotulo secundario centro>{l.envio.detalhe}</Rotulo>}
       <View style={estilo.detalhes}>
         {l.detalhes.map(d => <Rotulo key={d.rotulo} secundario centro>{d.rotulo}: <Texto variante={d.mono ? "mono" : "rotulo"} cor={COR.textoSecundario}>{d.valor}</Texto></Rotulo>)}
       </View>

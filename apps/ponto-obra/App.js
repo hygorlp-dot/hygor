@@ -25,7 +25,8 @@ import { registrarBatida } from "./src/logica/terminal";
 import { gpsRecente, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./src/logica/sincronizacao";
 import { classificarResposta, mensagemDeErro } from "./src/logica/falhas";
 import { montarDiagnostico } from "./src/logica/diagnostico";
-import { batidasDoDia } from "./src/logica/apresentacao";
+import { batidasDoDia, fusoDoCadastro } from "./src/logica/apresentacao";
+import { REP_P, situacaoRepP } from "../../src/domains/ponto-eletronico/rep-p.js";
 import { estadoDaReferencia } from "../../src/domains/ponto-eletronico/relogio.js";
 import { apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoApp, lerSessao, salvarSessao } from "./src/servicos/conexao";
 import { apagarFotoLocal, carregarModelos, lerFotoBase64, prepararFotoDaBatida } from "./src/servicos/rosto-nativo";
@@ -53,6 +54,8 @@ export default function App() {
   const [modelos, setModelos] = useState(null);
   const [estadoModelos, setEstadoModelos] = useState({ estado: "carregando", erro: "" });
   const [situacao, setSituacao] = useState({ online: false, pendentes: 0, fotos: 0, fotosComProblema: 0, aviso: "" });
+  // Medições anônimas da sessão para o Diagnóstico (só ms, nada pessoal).
+  const desempenho = useRef({ identificacaoMs: null, batidaMs: null });
   // Preferências da tela (não são registro): confirmação por voz.
   const [preferencias, setPreferencias] = useState({ voz: true });
   const ref = useRef({ armazem: null, relogio: null, sessao: null, gps: null, gpsEstado: "aguardando", ultimoCadastro: 0, sincronizando: false, pedirDeNovo: null });
@@ -139,8 +142,9 @@ export default function App() {
 
   // Modelos de rosto: independentes do banco; falha só desliga o facial.
   useEffect(() => {
+    const t0 = Date.now();
     carregarModelos()
-      .then(m => { setModelos(m); setEstadoModelos({ estado: "ok", erro: "" }); })
+      .then(m => { setModelos(m); setEstadoModelos({ estado: "ok", erro: "", detector: "BlazeFace (frente)", identidade: m.modelo, cargaMs: Date.now() - t0 }); })
       .catch(e => setEstadoModelos({ estado: "erro", erro: mensagemDeErro("modelos", e) }));
   }, []);
 
@@ -193,7 +197,8 @@ export default function App() {
     sincronizar();
     // Só leitura, para o comprovante: marcações da pessoa hoje. Não pode
     // atrapalhar a batida já gravada.
-    const batidasHoje = batidasDoDia(await armazem.eventosRecentes(200).catch(() => []), { tipo: pessoa.tipo, id: pessoa.id, marcadoEm: m.marcadoEm });
+    const fuso = fusoDoCadastro(await armazem.cadastro().catch(() => null));
+    const batidasHoje = batidasDoDia(await armazem.eventosRecentes(200).catch(() => []), { tipo: pessoa.tipo, id: pessoa.id, marcadoEm: m.marcadoEm, fuso });
     // Sem NSR aqui: o NSR fiscal só existe depois que a ARP grava o evento.
     return { batidasHoje, nome: pessoa.nome, cpfMascarado: pessoa.cpfMascarado, marcadoEm: m.marcadoEm, localSequence: m.localSequence, eventId: m.eventId, hash: m.localHash, horaConfiavel: m.horaConfiavel, avisoFoto };
   }, [sincronizar]);
@@ -232,7 +237,8 @@ export default function App() {
     const mono = relogio.monotonico();
     const referencia = estadoDaReferencia({ referencia: await armazem.referenciaHora().catch(() => null), monotonicoMs: mono.ms, bootId: mono.bootId });
     return montarDiagnostico({
-      referencia,
+      referencia, fuso: fusoDoCadastro(cad), desempenho: desempenho.current,
+      rep: { versao: REP_P.versao, situacao: situacaoRepP().rotulo },
       app: infoDoApp(), aparelho: infoDoAparelho(), sessao,
       contagem: await armazem.contagem().catch(() => ({})),
       ultimaSincronizacao: await armazem.lerEstado("ultima_sincronizacao").catch(() => null),
@@ -288,7 +294,8 @@ export default function App() {
     situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico}
     voz={preferencias.voz} alternarVoz={alternarVoz} />;
   else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos}
-    cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} voz={preferencias.voz} />;
+    cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} voz={preferencias.voz}
+    medir={m => Object.assign(desempenho.current, m)} />;
 
   return <SafeAreaProvider initialMetrics={initialWindowMetrics} style={estilos.raiz}>
     <StatusBar style="light" />

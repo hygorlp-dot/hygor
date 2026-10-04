@@ -4,7 +4,7 @@
 // texto, tom, ícone e ações. Nada de pixel.
 import { describe, expect, it } from "vitest";
 import {
-  FASE, PASSO_CADASTRO, batidasDoDia, casasDoCodigo, falaDeConfirmacao, saudacao, emAndamento, falhaNaTela, guiaDaFase, instrucaoDaFase, linhasDoComprovante,
+  FASE, PASSO_CADASTRO, batidasDoDia, casasDoCodigo, falaDeConfirmacao, formatarData, formatarHora, fusoDoCadastro, saudacao, situacaoDosFuncionarios, emAndamento, falhaNaTela, guiaDaFase, instrucaoDaFase, linhasDoComprovante,
   passoDoCadastro, rotuloDaCaptura, secoesDoEncarregado, statusDoAparelho, telaSemCamera,
 } from "./apresentacao.js";
 import { montarDiagnostico, secoesDoDiagnostico, ORDEM_SECOES_DIAGNOSTICO } from "./diagnostico.js";
@@ -57,9 +57,9 @@ describe("tela de ponto - offline", () => {
     expect(TONS_DE_ESTADO.filter(t => t !== "atencao")).not.toContain(s.tom);
   });
 
-  it("comprovante offline tranquiliza: será enviado quando houver conexão", () => {
+  it("comprovante offline tranquiliza: salvo no aparelho, será enviado automaticamente", () => {
     const l = linhasDoComprovante({ nome: "João", localSequence: 3, hash: "a".repeat(64), horaConfiavel: true }, { online: false });
-    expect(l.envio).toMatchObject({ tom: "neutro", texto: "Será enviado quando houver conexão." });
+    expect(l.envio).toMatchObject({ tom: "neutro", icone: "offline", texto: "Salvo no aparelho", detalhe: "Será enviado automaticamente." });
   });
 });
 
@@ -156,7 +156,8 @@ describe("modo Encarregado", () => {
     const secoes = secoesDoEncarregado({ resumo: { totalFuncionarios: 10, comRosto: 3 }, situacao: { online: true, pendentes: 2 } });
     expect(secoes.map(s => s.titulo)).toEqual(["Cadastros", "Registros", "Sistema"]);
     const linhas = secoes.flatMap(s => s.linhas);
-    expect(linhas.map(l => l.id)).toEqual(["cadastro", "manual", "terceiro", "sincronizacao", "diagnostico", "voz", "fixar"]);
+    expect(linhas.map(l => l.id)).toEqual(["cadastro", "funcionarios", "manual", "terceiro", "sincronizacao", "diagnostico", "voz", "fixar"]);
+    expect(linhas.find(l => l.id === "funcionarios").valor).toBe("10");
     expect(linhas.find(l => l.id === "cadastro").valor).toBe("3 de 10");
     expect(linhas.find(l => l.id === "sincronizacao").valor).toBe("2 pendentes");
     expect(linhas.every(l => l.rotulo.length > 3)).toBe(true);
@@ -271,3 +272,59 @@ describe("saudação, voz e batidas do dia (comprovante)", () => {
     expect(voz({ voz: false }).valor).toBe("Desligada");
   });
 });
+
+describe("fuso do estabelecimento (sem fuso fixo nas telas)", () => {
+  const ms = Date.parse("2026-10-01T10:42:00Z");
+  it("usa o fuso do estabelecimento que veio no cadastro", () => {
+    expect(fusoDoCadastro({ estabelecimento: { timezone: "America/Manaus" } })).toBe("America/Manaus");
+    expect(formatarHora(ms, "America/Manaus")).toBe("06:42");                 // UTC-4
+    expect(formatarHora(ms, "America/Sao_Paulo")).toBe("07:42");              // UTC-3
+    expect(formatarHora(ms, "America/Noronha")).toBe("08:42");                // UTC-2
+    expect(formatarHora(ms, "America/Recife", { segundos: true })).toBe("07:42:00");
+  });
+
+  it("sem estabelecimento, sem fuso ou fuso inválido: o padrão do domínio", () => {
+    for (const cad of [null, {}, { estabelecimento: null }, { estabelecimento: { timezone: "" } }, { estabelecimento: { timezone: "Marte/Olympus" } }]) {
+      expect(fusoDoCadastro(cad)).toBe("America/Recife");
+    }
+  });
+
+  it("a virada do dia segue o fuso: 23:30 em Manaus ainda é o dia anterior ao de Recife", () => {
+    const quase = Date.parse("2026-10-02T03:30:00Z");                            // 23:30 de 01/10 em Manaus, 00:30 de 02/10 em Recife
+    expect(formatarData(quase, "America/Manaus")).toMatch(/^Quinta-feira, 1 de outubro/);
+    expect(formatarData(quase, "America/Recife")).toMatch(/^Sexta-feira, 2 de outubro/);
+    const ev = marcadoEm => ({ formatVersion: 2, employeeId: "e1", marcadoEm });
+    const eventos = [ev("2026-10-01T23:00:00.000Z"), ev("2026-10-02T03:30:00.000Z")];
+    expect(batidasDoDia(eventos, { id: "e1", marcadoEm: "2026-10-02T03:30:00.000Z", fuso: "America/Manaus" })).toEqual(["19:00", "23:30"]);
+    expect(batidasDoDia(eventos, { id: "e1", marcadoEm: "2026-10-02T03:30:00.000Z", fuso: "America/Recife" })).toEqual(["00:30"]);
+    expect(saudacao(quase, "America/Manaus")).toBe("Boa noite");
+  });
+
+  it("comprovante mostra a hora (com segundos) no fuso do estabelecimento", () => {
+    const l = linhasDoComprovante({ nome: "Ana", marcadoEm: "2026-10-01T10:42:15.000Z", localSequence: 1, hash: "a".repeat(64), horaConfiavel: true }, { fuso: "America/Manaus" });
+    expect(l.hora).toBe("06:42:15");
+    expect(l.saudacao).toBe("Bom dia, Ana");
+  });
+});
+
+describe("funcionários (consulta do encarregado)", () => {
+  it("funcionários: situação do rosto por escrito, sem rosto primeiro, lotação só como informação", () => {
+    const cadastro = {
+      obra: { id: "obra-a" },
+      funcionarios: [
+        { id: "e1", nome: "Zé Pedreiro", funcao: "Pedreiro", lotacaoObraId: "obra-a" },
+        { id: "e2", nome: "Ana Carpinteira", lotacaoObraId: "obra-x" },
+        { id: "e3", nome: "Bruno", lotacaoObraId: "obra-a" },
+      ],
+      biometrias: [{ employeeId: "e1" }],
+    };
+    const lista = situacaoDosFuncionarios(cadastro);
+    expect(lista.map(f => f.id)).toEqual(["e2", "e3", "e1"]);
+    expect(lista[2].rosto).toMatchObject({ icone: "ok", texto: "Rosto cadastrado" });
+    expect(lista[0].rosto).toMatchObject({ icone: "offline", texto: "Sem rosto", tom: "neutro" });
+    expect(lista[0].lotacao).toBe("Lotado em outra obra");
+    expect(lista[1].lotacao).toBe("");
+    expect(situacaoDosFuncionarios(null)).toEqual([]);
+  });
+});
+

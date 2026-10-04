@@ -1,3 +1,5 @@
+import { FUSO_PADRAO, fusoValido } from "../../../../src/domains/ponto-eletronico/estabelecimento.js";
+
 // O que cada tela MOSTRA, decidido fora do React (puro, testado no Node).
 // Nada aqui decide regra de batida: só traduz estado já existente em texto,
 // tom e ícone. Regra de ouro do design: estado = ícone + texto + cor.
@@ -88,7 +90,7 @@ export function telaSemCamera(estado) {
 // comprovante antigo mostrava continua aqui, em hierarquia. NSR: o app
 // nunca mostra um número - só diz que o ARCD atribui depois do envio.
 // c = retorno de registrar() (App.js); hora já formatada pela tela.
-export function linhasDoComprovante(c, { obra = null, online = false } = {}) {
+export function linhasDoComprovante(c, { obra = null, online = false, fuso = FUSO_PADRAO } = {}) {
   const detalhes = [
     { rotulo: "CPF", valor: c.cpfMascarado || "não informado", mono: true },
     { rotulo: "Código do registro", valor: String(c.hash || "").slice(0, 16), mono: true },
@@ -101,7 +103,8 @@ export function linhasDoComprovante(c, { obra = null, online = false } = {}) {
   return {
     titulo: "Ponto registrado",
     nome: c.nome,
-    saudacao: Number.isFinite(ms) ? `${saudacao(ms)}, ${c.nome}` : c.nome,
+    saudacao: Number.isFinite(ms) ? `${saudacao(ms, fuso)}, ${c.nome}` : c.nome,
+    hora: Number.isFinite(ms) ? formatarHora(ms, fuso, { segundos: true }) : "",
     // Marcações da pessoa hoje neste aparelho (a última é esta).
     batidasHoje: Array.isArray(c.batidasHoje) && c.batidasHoje.length > 1 ? c.batidasHoje.slice(-6) : [],
     obra: obra?.nome || "",
@@ -109,41 +112,57 @@ export function linhasDoComprovante(c, { obra = null, online = false } = {}) {
     numeroRegistro: String(c.localSequence),
     envio: online
       ? { tom: "neutro", icone: "sincronizando", texto: "Enviando ao ARCD" }
-      : { tom: "neutro", icone: "offline", texto: "Será enviado quando houver conexão." },
+      : { tom: "neutro", icone: "offline", texto: "Salvo no aparelho", detalhe: "Será enviado automaticamente." },
     detalhes,
     avisos,
   };
 }
 
-// ---------- Saudação e batidas do dia ----------
-const FUSO = "America/Recife";
-const horaLocal = ms => Number(new Date(ms).toLocaleString("en-US", { timeZone: FUSO, hour: "2-digit", hour12: false })) % 24;
-const diaLocal = ms => new Date(ms).toLocaleDateString("en-CA", { timeZone: FUSO });
+// ---------- Fuso horário ----------
+// Hora mostrada no fuso do ESTABELECIMENTO da obra do aparelho (cadastrado no
+// ARCD, vem no cadastro sincronizado). Sem estabelecimento ou com fuso
+// inválido, o padrão do domínio (o mesmo default do banco).
+export function fusoDoCadastro(cadastro) {
+  const fuso = String(cadastro?.estabelecimento?.timezone || "").trim();
+  return fuso && fusoValido(fuso) ? fuso : FUSO_PADRAO;
+}
+export const formatarHora = (ms, fuso = FUSO_PADRAO, { segundos = false } = {}) =>
+  new Date(ms).toLocaleTimeString("pt-BR", { timeZone: fuso, hour: "2-digit", minute: "2-digit", ...(segundos ? { second: "2-digit" } : {}) });
+// "Quinta-feira, 1 de outubro": só a primeira letra maiúscula.
+export function formatarData(ms, fuso = FUSO_PADRAO) {
+  const d = new Date(ms).toLocaleDateString("pt-BR", { timeZone: fuso, weekday: "long", day: "numeric", month: "long" });
+  return d.charAt(0).toUpperCase() + d.slice(1);
+}
+export const formatarDataHora = (ms, fuso = FUSO_PADRAO) => (Number.isFinite(ms) ? new Date(ms).toLocaleString("pt-BR", { timeZone: fuso }) : "nunca");
 
-export function saudacao(ms) {
-  const h = horaLocal(ms);
+// ---------- Saudação e batidas do dia ----------
+const horaLocal = (ms, fuso) => Number(new Date(ms).toLocaleString("en-US", { timeZone: fuso, hour: "2-digit", hour12: false })) % 24;
+const diaLocal = (ms, fuso) => new Date(ms).toLocaleDateString("en-CA", { timeZone: fuso });
+
+export function saudacao(ms, fuso = FUSO_PADRAO) {
+  const h = horaLocal(ms, fuso);
   return h >= 5 && h < 12 ? "Bom dia" : h >= 12 && h < 18 ? "Boa tarde" : "Boa noite";
 }
 
-// Horários (HH:MM, fuso da obra) em que a pessoa marcou no dia da batida,
+// Horários (HH:MM, fuso do estabelecimento) em que a pessoa marcou no dia da batida,
 // em ordem. Só leitura dos eventos já gravados; não classifica entrada/saída
 // (isso é do tratamento no ARCD). eventos = armazem.eventosRecentes().
-export function batidasDoDia(eventos, { tipo = "funcionario", id, marcadoEm }) {
+export function batidasDoDia(eventos, { tipo = "funcionario", id, marcadoEm, fuso = FUSO_PADRAO }) {
   const ref = Date.parse(marcadoEm);
   if (!id || !Number.isFinite(ref)) return [];
   const campo = tipo === "terceiro" ? "terceiroId" : "employeeId";
   return (eventos || [])
     .filter(e => Number(e?.formatVersion) === 2 && String(e?.[campo] || "") === String(id) && Number.isFinite(Date.parse(e?.marcadoEm)))
-    .filter(e => diaLocal(Date.parse(e.marcadoEm)) === diaLocal(ref))
+    .filter(e => diaLocal(Date.parse(e.marcadoEm), fuso) === diaLocal(ref, fuso))
     .map(e => Date.parse(e.marcadoEm))
     .sort((a, b) => a - b)
-    .map(ms => new Date(ms).toLocaleTimeString("pt-BR", { timeZone: FUSO, hour: "2-digit", minute: "2-digit" }));
+    .map(ms => formatarHora(ms, fuso));
 }
 
 // Frase falada na confirmação (só o primeiro nome).
-export function falaDeConfirmacao(nome, ms) {
+export function falaDeConfirmacao(nome, ms, fuso = FUSO_PADRAO) {
   const primeiro = String(nome || "").trim().split(/\s+/)[0];
-  return primeiro ? `${saudacao(ms)}, ${primeiro}. Ponto registrado.` : "Ponto registrado.";
+  return primeiro ? `${saudacao(ms, fuso)}, ${primeiro}. Ponto registrado.` : "Ponto registrado.";
 }
 
 // ---------- Modo Encarregado ----------
@@ -154,6 +173,7 @@ export function secoesDoEncarregado({ resumo = {}, situacao = {} } = {}) {
   return [
     { titulo: "Cadastros", linhas: [
       { id: "cadastro", rotulo: "Cadastrar rosto", valor: resumo.totalFuncionarios ? `${resumo.comRosto} de ${resumo.totalFuncionarios}` : "" },
+      { id: "funcionarios", rotulo: "Funcionários", valor: resumo.totalFuncionarios ? String(resumo.totalFuncionarios) : "" },
     ] },
     { titulo: "Registros", linhas: [
       { id: "manual", rotulo: "Registrar funcionário" },
@@ -167,6 +187,27 @@ export function secoesDoEncarregado({ resumo = {}, situacao = {} } = {}) {
       { id: "fixar", rotulo: "Fixar aplicativo na tela", acao: true },
     ] },
   ];
+}
+
+// ---------- Funcionários ----------
+// Lista de consulta (funcionário é global da empresa): quem tem rosto e quem
+// não tem, por escrito e com ícone. Ordem: sem rosto primeiro (é o que o
+// encarregado precisa resolver), depois por nome.
+export function situacaoDosFuncionarios(cadastro) {
+  const comRosto = new Set((cadastro?.biometrias || []).map(b => String(b.employeeId)));
+  const obraDoAparelho = String(cadastro?.obra?.id || "");
+  return (cadastro?.funcionarios || [])
+    .map(f => {
+      const temRosto = comRosto.has(String(f.id));
+      const outraObra = !!f.lotacaoObraId && !!obraDoAparelho && String(f.lotacaoObraId) !== obraDoAparelho;
+      return {
+        id: f.id, nome: f.nome, funcao: f.funcao || "",
+        rosto: temRosto ? { tom: "sucesso", icone: "ok", texto: "Rosto cadastrado" } : { tom: "neutro", icone: "offline", texto: "Sem rosto" },
+        // Lotação é só informação (pode bater em qualquer obra).
+        lotacao: outraObra ? "Lotado em outra obra" : "",
+      };
+    })
+    .sort((a, b) => Number(a.rosto.icone === "ok") - Number(b.rosto.icone === "ok") || a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
 // ---------- Cadastro facial guiado ----------
