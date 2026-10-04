@@ -128,15 +128,23 @@ npx vitest run apps/ponto-obra src/domains/ponto-eletronico server/ponto-eletron
 ```
 
 Os testes ponta a ponta do app usam Postgres real em memória (PGlite com as
-migrations 016 + 017). A concorrência com conexões paralelas de verdade
+migrations 016 + 017 + 018). A concorrência com conexões paralelas de verdade
 (`server/ponto-eletronico/arp/arp-concorrencia.pg.test.js`) só roda com
 `PONTO_PG_URL` apontando para um Postgres descartável (na CI: job
 `rep-p-arp-postgres`).
 
 Depois do prebuild local, apague `android/` (não é versionado) e desfaça a
 troca que o prebuild faz nos scripts `android`/`ios` do `package.json`
-(`git checkout -- package.json`). A CI repete
-tudo isso no job `mobile-ponto-obra` e **não** publica APK.
+(cuidado: `git checkout -- package.json` também desfaz dependências ainda não
+commitadas).
+
+**Tudo isso de uma vez**, com evidência e scorecard:
+`npm run mobile:release-check` (na raiz; `--rapido` pula doctor, bundle e
+prebuild; `--offline` sem rede). Ele salva e restaura o `package.json`, apaga
+`android/` e grava `apps/ponto-obra/quality-out/` (relatório
+`mobile-quality-report.md`). A CI roda o mesmo com `--ci` no job
+`mobile-ponto-obra` e **não** publica APK. Gates e notas:
+`docs/QUALITY-SCORECARD.md`.
 
 Use `npx expo install <pacote>` para dependências (versão compatível com o
 SDK). Biblioteca com código nativo exige novo build (não roda no Expo Go).
