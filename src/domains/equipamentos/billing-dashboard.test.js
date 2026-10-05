@@ -31,11 +31,11 @@ describe("equação financeira: receita contratual - descontos = líquida - cust
     expect(finance.descontos).toBeCloseTo(1050, 2);
     expect(finance.receitaLiquida).toBeCloseTo(6100, 2);
     expect(finance.receitaContratual - finance.descontos).toBeCloseTo(finance.receitaLiquida, 2);
-    expect(finance.repasses).toBeCloseTo(1660, 2);
+    expect(finance.repasses).toBeCloseTo(1450, 2);
     expect(finance.manutencao).toBeCloseTo(300, 2);
-    expect(finance.custo).toBeCloseTo(1960, 2);
-    expect(finance.resultado).toBeCloseTo(4140, 2);
-    expect(finance.margem).toBeCloseTo(4140 / 6100 * 100, 5);
+    expect(finance.custo).toBeCloseTo(1750, 2);
+    expect(finance.resultado).toBeCloseTo(4350, 2);
+    expect(finance.margem).toBeCloseTo(4350 / 6100 * 100, 5);
     expect(finance.descontosQtd).toBe(1);
     expect(finance.descontosPct).toBeCloseTo(1050 / 7150 * 100, 5);
   });
@@ -54,11 +54,11 @@ describe("recortes: manutenção só entra quando pode ser apropriada", () => {
   it("por obra: custo = repasses, manutenção não apropriada (e o modelo diz isso)", () => {
     const { finance } = build({ obraId: "ob-a" });
     expect(finance.receitaLiquida).toBeCloseTo(1950, 2);
-    expect(finance.repasses).toBeCloseTo(160, 2);
+    expect(finance.repasses).toBeCloseTo(450, 2);
     expect(finance.manutencao).toBeNull();
     expect(finance.manutencaoApropriada).toBe(false);
-    expect(finance.custo).toBeCloseTo(160, 2);
-    expect(finance.resultado).toBeCloseTo(1790, 2);
+    expect(finance.custo).toBeCloseTo(450, 2);
+    expect(finance.resultado).toBeCloseTo(1500, 2);
   });
 
   it("por propriedade: manutenção dos equipamentos daquela propriedade", () => {
@@ -69,18 +69,18 @@ describe("recortes: manutenção só entra quando pode ser apropriada", () => {
     const terceiros = build({ propriedade: "terceiros" }).finance;
     expect(terceiros.receitaLiquida).toBeCloseTo(1450, 2);
     expect(terceiros.manutencao).toBeCloseTo(0, 2);
-    expect(terceiros.resultado).toBeCloseTo(-210, 2);
-    expect(terceiros.margem).toBeLessThan(0);
+    expect(terceiros.resultado).toBeCloseTo(0, 2);
+    expect(terceiros.margem).toBeCloseTo(0, 5);
   });
 });
 
 describe("próprios x terceiros", () => {
-  it("divide receita, custo, resultado, margem e participação; terceiros negativos ficam negativos", () => {
+  it("divide receita, custo, resultado, margem e participação; terceiros ficam neutros quando o repasse acompanha a locação", () => {
     const { split, finance } = build();
     expect(split.proprios.receitaLiquida).toBeCloseTo(4650, 2);
     expect(split.terceiros.receitaLiquida).toBeCloseTo(1450, 2);
     expect(split.proprios.resultado + split.terceiros.resultado).toBeCloseTo(finance.resultado, 2);
-    expect(split.terceiros.resultado).toBeCloseTo(-210, 2);
+    expect(split.terceiros.resultado).toBeCloseTo(0, 2);
     expect(split.proprios.participacao + split.terceiros.participacao).toBeCloseTo(100, 5);
   });
 });
@@ -91,8 +91,8 @@ describe("filtros", () => {
     expect(ids(build({ propriedade: "terceiros" }))).toEqual(["A1", "C1", "T1"]);
     expect(ids(build({ situacao: "pendente" }))).toEqual(["G1"]);
     expect(ids(build({ situacao: "a_faturar" }))).toEqual(["C1"]);
-    expect(ids(build({ pendencia: "qualquer" }))).toEqual(["G1", "S1", "T1"]);
-    expect(ids(build({ pendencia: PENDING_TYPE.NEGATIVE }))).toEqual(["C1"]);
+    expect(ids(build({ pendencia: "qualquer" }))).toEqual(["G1", "S1"]);
+    expect(ids(build({ pendencia: PENDING_TYPE.NEGATIVE }))).toEqual([]);
     expect(ids(build({ pendencia: PENDING_TYPE.NO_RATE }))).toEqual(["S1"]);
     expect(ids(build({ busca: "locadora norte" }))).toEqual(["A1", "C1", "T1"]);
     expect(ids(build({ busca: "fat-202609-002" }))).toEqual(["G1"]);
@@ -100,8 +100,8 @@ describe("filtros", () => {
   });
 
   it("filtros combinados e contagem para 'Limpar filtros'", () => {
-    const filters = { obraId: "ob-a", propriedade: "terceiros", pendencia: "qualquer" };
-    expect(ids(build(filters))).toEqual(["T1"]);
+    const filters = { obraId: "ob-b", propriedade: "proprios", pendencia: "qualquer" };
+    expect(ids(build(filters))).toEqual(["G1", "S1"]);
     expect(activeBillingFilterCount({ ...DEFAULT_BILLING_FILTERS, ...filters })).toBe(3);
     expect(activeBillingFilterCount(DEFAULT_BILLING_FILTERS)).toBe(0);
   });
@@ -115,10 +115,10 @@ describe("filtros", () => {
   });
 
   it("chips e escopo descrevem o recorte", () => {
-    const model = build({ obraId: "ob-a", propriedade: "terceiros", pendencia: PENDING_TYPE.NO_COST_RATE });
+    const model = build({ obraId: "ob-b", propriedade: "proprios", pendencia: PENDING_TYPE.HIGH_DISCOUNT });
     const options = buildBillingFilterOptions(model);
-    expect(buildBillingChips(model.filters, options).map(chip => chip.label)).toEqual(["K1-04 — Terras Alpha", "Terceiros", "Repasse sem tarifa de custo"]);
-    expect(billingScopeLabel(model, options)).toBe("Setembro 2026 · K1-04 — Terras Alpha · terceiros · filtros ativos");
+    expect(buildBillingChips(model.filters, options).map(chip => chip.label)).toEqual(["P1-08 — Oásis Home Park", "Próprios", "Desconto elevado (≥ 20%)"]);
+    expect(billingScopeLabel(model, options)).toBe("Setembro 2026 · P1-08 — Oásis Home Park · próprios · filtros ativos");
     expect(billingScopeLabel(build(), buildBillingFilterOptions(build()))).toBe("Setembro 2026 · todas as obras");
   });
 
@@ -158,10 +158,9 @@ describe("atenção necessária e fechamento", () => {
   it("só exceções que regras existentes produzem, cada uma com tipo para o drill-down", () => {
     const { attention } = build();
     expect(attention.map(item => item.type)).toEqual([
-      PENDING_TYPE.NO_RATE, PENDING_TYPE.NO_COST_RATE, PENDING_TYPE.NEGATIVE, PENDING_TYPE.OVERDUE, PENDING_TYPE.HIGH_DISCOUNT,
+      PENDING_TYPE.NO_RATE, PENDING_TYPE.OVERDUE, PENDING_TYPE.HIGH_DISCOUNT,
     ]);
     expect(attention.find(item => item.type === PENDING_TYPE.OVERDUE).amount).toBe(3000);
-    expect(attention.find(item => item.type === PENDING_TYPE.NEGATIVE).label).toBe("1 obra com resultado negativo");
   });
 
   it("fechamento explica o estado pelos fatos e não finge conferência registrada", () => {
@@ -170,7 +169,7 @@ describe("atenção necessária e fechamento", () => {
     expect(closing.label).toBe("Revisar antes da conferência");
     expect(closing.checks.map(check => check.label)).toEqual([
       "5/6 locações com tarifa e cobrança calculada",
-      "2/3 repasses de terceiros com tarifa de custo",
+      "Repasses de terceiros acompanham o valor líquido das locações",
       "1 desconto(s) elevado(s) para revisar",
       "1 fatura(s) vencida(s) no ciclo de cobrança",
     ]);
@@ -197,7 +196,7 @@ describe("comparação temporal e tendência", () => {
     expect(previous.label).toBe("Agosto 2026");
     expect(previous.receitaLiquida.valor).toBeCloseTo(1600, 2);
     expect(previous.receitaLiquida.variacaoPct).toBeCloseTo((6100 - 1600) / 1600 * 100, 5);
-    expect(previous.resultado.diferenca).toBeCloseTo(4140 - 1600, 2);
+    expect(previous.resultado.diferenca).toBeCloseTo(4350 - 1600, 2);
     expect(previous.utilizacao.diferencaPp).toBeCloseTo(88 / 540 * 100 - 31 / 558 * 100, 5);
   });
 
@@ -220,15 +219,15 @@ describe("ranking e memória por obra", () => {
     expect(sortWorks(works).map(work => work.id)).toEqual(["ob-b", "ob-a", "ob-c"]);
     expect(sortWorks(works, { key: "resultado", dir: "asc" })[0].id).toBe("ob-c");
     const c = works.find(work => work.id === "ob-c");
-    expect(c).toMatchObject({ codigo: "G2-01", locacoes: 1, equipamentos: 1, negativa: true });
-    expect(c.resultado).toBeCloseTo(-500, 2);
+    expect(c).toMatchObject({ codigo: "G2-01", locacoes: 1, equipamentos: 1, negativa: false });
+    expect(c.resultado).toBeCloseTo(0, 2);
     expect(works.find(work => work.id === "ob-b").pendencias).toBe(3); // sem tarifa + desconto elevado + fatura vencida
   });
 
   it("barras de resultado: maior para menor, negativo identificado", () => {
     const bars = workResultBars(build());
     expect(bars.map(bar => bar.id)).toEqual(["ob-b", "ob-a", "ob-c"]);
-    expect(bars.at(-1)).toMatchObject({ negative: true });
+    expect(bars.at(-1)).toMatchObject({ negative: false });
     expect(bars[0].ratio).toBe(1);
   });
 
@@ -248,17 +247,17 @@ describe("drill-down próprios x terceiros", () => {
   it("reconcilia o resultado de terceiros até equipamento e locação", () => {
     const model = build();
     const analysis = buildOwnershipAnalysis(model, "terceiros");
-    expect(analysis.summary.resultado).toBeCloseTo(-210, 2);
-    expect(analysis.reconciled.resultado).toBeCloseTo(-210, 2);
+    expect(analysis.summary.resultado).toBeCloseTo(0, 2);
+    expect(analysis.reconciled.resultado).toBeCloseTo(0, 2);
     expect(analysis.differences.resultado).toBeCloseTo(0, 8);
     expect(analysis.equipments).toHaveLength(3);
-    expect(analysis.negativeEquipments).toBe(1);
+    expect(analysis.negativeEquipments).toBe(0);
     const grua = analysis.equipments.find(item => item.id === "eq-gru");
     expect(grua.finance.receitaLiquida).toBeCloseTo(1000, 2);
-    expect(grua.finance.repasses).toBeCloseTo(1500, 2);
-    expect(grua.finance.resultado).toBeCloseTo(-500, 2);
-    expect(grua.diagnosticos).toContain("Tarifa contratual abaixo do repasse");
-    expect(grua.rentals[0].resultado).toBeCloseTo(-500, 2);
+    expect(grua.finance.repasses).toBeCloseTo(1000, 2);
+    expect(grua.finance.resultado).toBeCloseTo(0, 2);
+    expect(grua.diagnosticos).toEqual([]);
+    expect(grua.rentals[0].resultado).toBeCloseTo(0, 2);
   });
 
   it("apropria manutenção no nível do equipamento próprio sem alterar locações", () => {
