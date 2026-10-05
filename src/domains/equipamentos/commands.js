@@ -15,6 +15,7 @@ import { buildRentalPeriodicCharge,validateRentalChargeItem } from "./rental-cha
 import { normalizeBillingRule } from "./billing-cycles.js";
 import { validateRentalInvoice } from "./rental-invoices.js";
 import { validateRentalInvoiceReceipt } from "./rental-receipts.js";
+import { rentalCommercialOverrideStatus } from "./rental-commercial.js";
 
 const EQUIPMENT_STATUS=new Set(["disponivel","locado","manutencao","inativo","bloqueado","avariado","aguardando_inspecao"]);
 const RATE_KEYS=["dia","semana","quinzena","mes"];
@@ -91,6 +92,7 @@ export const EQUIPMENT_COMMAND=Object.freeze({
   EQUIPMENT_DEACTIVATED:"EQUIPAMENTO_INATIVADO",
   EQUIPMENT_OWNER_SAVED:"PROPRIETARIO_EQUIPAMENTO_SALVO",
   EQUIPMENT_RENTAL_SAVED:"LOCACAO_EQUIPAMENTO_SALVA",
+  EQUIPMENT_RENTAL_COMMERCIAL_OVERRIDDEN:"LOCACAO_EQUIPAMENTO_CONDICOES_COMERCIAIS_SUBSTITUIDAS",
   EQUIPMENT_RENTAL_CLOSED:"LOCACAO_EQUIPAMENTO_ENCERRADA",
   EQUIPMENT_RENTAL_CANCELLED:"LOCACAO_EQUIPAMENTO_CANCELADA",
   EQUIPMENT_RENTAL_TRANSITIONED:"LOCACAO_EQUIPAMENTO_ESTADO_ALTERADO",
@@ -120,6 +122,7 @@ export const equipmentCommandObraId=(data={},command={})=>{
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_DEACTIVATED)return String(list(data,"equipamentos").find(item=>item.id===payload.equipmentId)?.obraAtualId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_OWNER_SAVED)return "";
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_SAVED)return String(payload.rental?.obraId||"");
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_COMMERCIAL_OVERRIDDEN)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CLOSED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CANCELLED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED)return String(list(data,"locacoesEquip").find(item=>item.id===payload.rentalId)?.obraId||"");
@@ -331,6 +334,48 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
       next=replace(next,"equipamentos",equipmentId,updatedEquipment);
     }
     return {ok:true,data:next,entityId:id};
+  }
+
+  if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_COMMERCIAL_OVERRIDDEN){
+    const id=String(payload.rentalId||"");
+    const current=list(data,"locacoesEquip").find(item=>String(item.id)===id);
+    if(!current)return fail("Locação não encontrada.");
+    const stale=versionError(current,command.expectedVersion,"A locação");
+    if(stale)return fail(stale);
+    const eligibility=rentalCommercialOverrideStatus(data,id);
+    if(!eligibility.allowed)return fail(eligibility.reason);
+    const equipment=list(data,"equipamentos").find(item=>String(item.id)===String(current.equipamentoId));
+    if(!equipment)return fail("Equipamento da locação não encontrado.");
+    const input=payload.commercial||{};
+    const contractDays=current.fim?diasLocacaoNoPeriodo(current,current.inicio,current.fim):30;
+    const candidate={
+      ...current,
+      commercialSnapshot:null,
+      tarifaNegociada:true,
+      tarifas:rates(input.tarifas),
+      tarifasCusto:rates(input.tarifasCusto??current.commercialSnapshot?.tarifasCusto??current.tarifasCusto),
+      regraTarifaria:normalizeBillingRule(input.regraTarifaria),
+      descontoPct:numeric(input.descontoPct),
+      descontoValor:numeric(input.descontoValor),
+    };
+    const discountValidation=validateRentalDiscounts(candidate,equipment,contractDays);
+    if(!discountValidation.ok)return fail(discountValidation.reason);
+    const snapshot=commercialSnapshot(candidate,equipment,command,now);
+    const record={
+      ...current,
+      tarifas:candidate.tarifas,
+      tarifasCusto:candidate.tarifasCusto,
+      regraTarifaria:snapshot.regraTarifaria,
+      descontoPct:snapshot.descontoPct,
+      descontoValor:snapshot.descontoValor,
+      commercialSnapshot:snapshot,
+      version:versionOf(current)+1,
+      updatedAt:now,
+      // Deliberadamente SEM novo operationalHistory: o administrador pediu
+      // substituição direta das condições vigentes, não um aditivo comercial.
+      // Idempotência e concorrência continuam protegidas pelo comando/version.
+    };
+    return {ok:true,data:replace(data,"locacoesEquip",id,record),entityId:id};
   }
 
   if(command.type===EQUIPMENT_COMMAND.EQUIPMENT_RENTAL_CLOSED){
