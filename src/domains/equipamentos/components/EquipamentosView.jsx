@@ -2098,7 +2098,7 @@ function imprimirRelEquipGerencial(data,ym,mesLabel,monthly,matrix,donoName,show
       },
       {
         titulo:"Valores a pagar por proprietário e obra",
-        descricao:"Demonstrativo interno calculado pelas tarifas de custo das locações de terceiros.",
+        descricao:"Demonstrativo interno: o repasse ao proprietário acompanha o valor líquido de cada locação de terceiro.",
         headers:["Proprietário","Obra",{label:"Equip.",num:true},{label:"Locações",num:true},{label:"Diárias-un.",num:true},{label:"Valor a receber",num:true}],
         rows:proprietariosPorObra.map(item=>[
           escapeHtml(item.proprietario),
@@ -2106,7 +2106,7 @@ function imprimirRelEquipGerencial(data,ym,mesLabel,monthly,matrix,donoName,show
           String(item.quantidadeEquipamentos),
           String(item.locacoes),
           String(item.unidadeDias),
-          item.valor>0?escapeHtml(fmt(item.valor)):"TARIFA DE CUSTO AUSENTE",
+          escapeHtml(fmt(item.valor)),
         ]),
         totalRow:[
           "TOTAL","","","","",
