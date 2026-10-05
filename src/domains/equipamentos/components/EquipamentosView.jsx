@@ -24,7 +24,7 @@ import { getDays } from "../../ponto/attendance-engine";
 import {
   calcEquipamentosMes, calcEquipamentosPorObra, calcEquipMes, cobrancaLocacao,
   diasLocacaoNoPeriodo, disponibilidadeNoDia, melhorTarifa, PACOTES_TARIFA,
-  picoUsoNoPeriodo, tarifasCustoDaLocacao, tarifasDaLocacao, textoComposicao,
+  picoUsoNoPeriodo, tarifasDaLocacao, textoComposicao,
 } from "../calculations";
 import {
   availabilityOnDate, buildEquipmentUnavailability, EQUIPMENT_UNAVAILABILITY_LABEL,
@@ -86,7 +86,7 @@ const resumoLocacaoEquip = (data, equipId, days) => {
       const dias = diasLocacaoNoPeriodo(l, pi, pf);
       if (!dias) return;
       const cob = cobrancaLocacao(l, equip, dias);
-      const cst = melhorTarifa(tarifasCustoDaLocacao(l, equip), dias).total;
+      const cst = equip?.proprietarioId ? cob.liquido : 0;
       receita += cob.liquido; custo += cst; desconto += cob.desconto;
       porContrato.push({ locId: l.id, obraId: l.obraId, dias, ...cob, custo: cst });
     });
@@ -417,7 +417,6 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       rentalId:rental.id,
       equipamentoId:rental.equipamentoId,
       tarifas:{...(snapshot.tarifas||rental.tarifas||{})},
-      tarifasCusto:{...(snapshot.tarifasCusto||rental.tarifasCusto||{})},
       regraTarifaria:snapshot.regraTarifaria||rental.regraTarifaria||"best_combination",
       descontoPct:Number(snapshot.descontoPct??rental.descontoPct??0),
       descontoValor:Number(snapshot.descontoValor??rental.descontoValor??0),
@@ -439,7 +438,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           expectedVersion:Number(current?.version||0),
           actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
           payload:{rentalId:form.rentalId,commercial:{
-            tarifas:numTar(form.tarifas),tarifasCusto:numTar(form.tarifasCusto),
+            tarifas:numTar(form.tarifas),
             regraTarifaria:form.regraTarifaria||"best_combination",
             descontoPct:Number(form.descontoPct||0),descontoValor:Number(form.descontoValor||0),
           }},
@@ -1394,17 +1393,13 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
               })()}
             </div>
 
-            {(equipModal.proprietarioId || Number(equipModal.custoDiaria)>0) && (
-              <div style={{gridColumn:"1/-1",background:`${C.red}07`,border:`1px solid ${C.red}33`,borderRadius:9,padding:"11px 13px"}}>
-                <p style={{fontSize:11,fontWeight:800,color:C.text,marginBottom:3}}>Tarifas pagas ao proprietário (terceiro)</p>
-                <p style={{fontSize:10,color:C.muted,marginBottom:9}}>Deixe zerado se o equipamento for da empresa.</p>
-                <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:8}}>
-                  {[["dia","Por dia"],["semana","Por semana"],["quinzena","Por quinzena"],["mes","Por mês"]].map(([k,l])=>(
-                    <Inp key={k} label={`${l} (R$)`} type="number" min="0"
-                         value={equipModal.tarifasCusto?.[k] ?? ""}
-                         onChange={v=>setEquipModal(f=>({...f,tarifasCusto:{...(f.tarifasCusto||{}),[k]:v}}))}/>
-                  ))}
-                </div>
+            {equipModal.proprietarioId && (
+              <div style={{gridColumn:"1/-1",background:`${C.blue}07`,border:`1px solid ${C.blue}33`,borderRadius:9,padding:"11px 13px"}}>
+                <p style={{fontSize:11,fontWeight:800,color:C.text,marginBottom:3}}>Repasse ao proprietário</p>
+                <p style={{fontSize:10,color:C.muted,lineHeight:1.45}}>
+                  O repasse acompanha automaticamente o <b>valor líquido da locação</b>.
+                  Não existe uma segunda tabela de tarifas para o proprietário.
+                </p>
               </div>
             )}
             <Sel label="Situação" value={equipModal.status} onChange={v=>setEquipModal(f=>({...f,status:v}))} options={Object.entries(STATUS_EQUIP).map(([v,o])=>({v,l:o.l}))}/>
