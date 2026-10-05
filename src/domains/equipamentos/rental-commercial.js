@@ -4,17 +4,19 @@
 // versionamento/idempotência para evitar gravações concorrentes.
 
 const list = (data, key) => Array.isArray(data?.[key]) ? data[key] : [];
-const active = item => String(item?.status || "").toLowerCase() !== "cancelled";
+const inactiveStatuses = new Set(["cancelled", "canceled", "cancelada"]);
+const active = item => !inactiveStatuses.has(String(item?.status || "").toLowerCase());
 
 export function rentalCommercialOverrideStatus(data = {}, rentalId = "") {
   const id = String(rentalId || "");
   const chargeItems = list(data, "rentalChargeItems").filter(item =>
     String(item.rentalId || "") === id && active(item));
-  const invoices = list(data, "rentalInvoices").filter(item =>
-    String(item.rentalId || "") === id && active(item));
-  const invoiceIds = new Set(invoices.map(item => String(item.id || "")));
+  const allInvoices = list(data, "rentalInvoices").filter(item =>
+    String(item.rentalId || "") === id);
+  const invoices = allInvoices.filter(active);
+  const allInvoiceIds = new Set(allInvoices.map(item => String(item.id || "")));
   const receipts = list(data, "rentalInvoiceReceipts").filter(item =>
-    invoiceIds.has(String(item.invoiceId || "")));
+    allInvoiceIds.has(String(item.invoiceId || "")));
 
   if (receipts.length) {
     return { allowed: false, reason: "A locação já possui recebimento vinculado. As condições comerciais não podem ser substituídas silenciosamente.", chargeItems, invoices, receipts };
