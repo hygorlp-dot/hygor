@@ -340,6 +340,113 @@ export const buildWorkMemory = (model, workId) => {
   };
 };
 
+// Diagnóstico explicável da margem de uma locação. Não cria regra financeira:
+// apenas compara os valores que já vieram de calcEquipamentosPorObra.
+const rentalMarginDiagnosis = row => {
+  const diagnostics = [];
+  const gross = n(row.bruto), net = n(row.receita), cost = n(row.custoDono), discount = n(row.descontos);
+  if (row.semTarifa) diagnostics.push("Locação sem tarifa");
+  if (row.terceiro && cost === 0 && n(row.dias) > 0) diagnostics.push("Repasse sem tarifa de custo");
+  if (cost > gross + 0.005) diagnostics.push("Tarifa contratual abaixo do repasse");
+  if (cost > net + 0.005 && cost <= gross + 0.005) {
+    diagnostics.push(discount > 0.005 ? "Desconto levou a margem ao negativo" : "Repasse acima da receita líquida");
+  }
+  if (net - cost < -0.005 && !diagnostics.some(item => /margem|repasse|tarifa contratual/i.test(item))) {
+    diagnostics.push("Margem negativa");
+  }
+  return diagnostics;
+};
+
+// Drill-down dos números de Próprios × Terceiros. A reconciliação usa
+// exatamente as mesmas linhas e a mesma manutenção já usadas por `split`,
+// portanto o detalhamento sempre fecha com o agregado exibido no painel.
+export const buildOwnershipAnalysis = (model, ownership = "terceiros") => {
+  const key = ownership === "proprios" ? "proprios" : "terceiros";
+  const isThirdParty = key === "terceiros";
+  const rows = model.rows.filter(row => (isThirdParty ? row.terceiro : !row.terceiro));
+  const summary = model.split[key];
+  const maintenanceAppropriated = summary?.manutencaoApropriada === true;
+  const monthlyByEquipment = new Map((model.monthly?.linhas || []).map(line => [String(line.equip?.id || ""), line]));
+
+  const byEquipment = new Map();
+  rows.forEach(row => {
+    const id = String(row.equipamento?.id || "");
+    if (!byEquipment.has(id)) byEquipment.set(id, { id, equipamento: row.equipamento, owner: row.owner, rows: [] });
+    byEquipment.get(id).rows.push(row);
+  });
+
+  const equipments = [...byEquipment.values()].map(group => {
+    const monthlyLine = monthlyByEquipment.get(group.id);
+    const maintenance = maintenanceAppropriated ? n(monthlyLine?.manut) : null;
+    const finance = financials({ rows: group.rows, maintenance });
+    const rentals = group.rows.map(row => ({
+      ...row,
+      resultado: n(row.receita) - n(row.custoDono),
+      margem: percentOf(n(row.receita) - n(row.custoDono), n(row.receita)),
+      diagnosticos: rentalMarginDiagnosis(row),
+    })).sort((a, b) => a.resultado - b.resultado || String(a.inicio).localeCompare(String(b.inicio)));
+
+    const diagnostics = [...new Set(rentals.flatMap(item => item.diagnosticos))];
+    if (finance.resultado < -0.005 && finance.manutencaoApropriada && n(finance.manutencao) > 0
+      && finance.receitaLiquida - finance.repasses >= -0.005) {
+      diagnostics.push("Manutenção levou o equipamento ao resultado negativo");
+    }
+    return {
+      id: group.id,
+      equipamento: group.equipamento,
+      owner: group.owner,
+      obras: [...new Set(group.rows.map(row => row.obraRotulo))],
+      locacoes: group.rows.length,
+      unidadeDias: sum(group.rows, row => row.unidadeDias),
+      finance,
+      rentals,
+      diagnosticos: [...new Set(diagnostics)],
+    };
+  }).sort((a, b) => a.finance.resultado - b.finance.resultado
+    || String(a.equipamento?.nome || "").localeCompare(String(b.equipamento?.nome || ""), "pt-BR"));
+
+  const byOwner = new Map();
+  equipments.forEach(equipment => {
+    const owner = equipment.owner || (isThirdParty ? "Terceiro" : "ARCD (próprio)");
+    if (!byOwner.has(owner)) byOwner.set(owner, { owner, equipments: [] });
+    byOwner.get(owner).equipments.push(equipment);
+  });
+  const owners = [...byOwner.values()].map(group => {
+    const finance = {
+      receitaContratual: sum(group.equipments, item => item.finance.receitaContratual),
+      descontos: sum(group.equipments, item => item.finance.descontos),
+      receitaLiquida: sum(group.equipments, item => item.finance.receitaLiquida),
+      repasses: sum(group.equipments, item => item.finance.repasses),
+      manutencao: maintenanceAppropriated ? sum(group.equipments, item => item.finance.manutencao) : null,
+    };
+    finance.custo = finance.repasses + (finance.manutencao ?? 0);
+    finance.resultado = finance.receitaLiquida - finance.custo;
+    finance.margem = percentOf(finance.resultado, finance.receitaLiquida);
+    return { owner: group.owner, equipamentos: group.equipments.length, locacoes: sum(group.equipments, item => item.locacoes), finance };
+  }).sort((a, b) => a.finance.resultado - b.finance.resultado || a.owner.localeCompare(b.owner, "pt-BR"));
+
+  const reconciled = {
+    receitaLiquida: sum(equipments, item => item.finance.receitaLiquida),
+    custo: sum(equipments, item => item.finance.custo),
+    resultado: sum(equipments, item => item.finance.resultado),
+  };
+
+  return {
+    ownership: key,
+    label: isThirdParty ? "Equipamentos de terceiros" : "Equipamentos próprios",
+    summary,
+    owners,
+    equipments,
+    negativeEquipments: equipments.filter(item => item.finance.resultado < -0.005).length,
+    reconciled,
+    differences: {
+      receitaLiquida: n(summary?.receitaLiquida) - reconciled.receitaLiquida,
+      custo: n(summary?.custo) - reconciled.custo,
+      resultado: n(summary?.resultado) - reconciled.resultado,
+    },
+  };
+};
+
 // Resultado por obra para o gráfico de barras horizontais (maior -> menor).
 export const workResultBars = model => {
   const works = sortWorks(model.works, { key: "resultado", dir: "desc" });
