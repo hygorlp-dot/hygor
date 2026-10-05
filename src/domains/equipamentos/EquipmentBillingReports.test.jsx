@@ -269,3 +269,51 @@ describe("erro e acessibilidade", () => {
     container.querySelectorAll("table").forEach(table => expect(table.querySelector("caption")).not.toBeNull());
   });
 });
+
+
+describe("análise explicável de próprios x terceiros", () => {
+  it("abre o -R$ 210 de terceiros e reconcilia até equipamento e locação", () => {
+    const { container } = render();
+    const trigger = container.querySelector('button[aria-label="Analisar resultado de equipamentos de terceiros"]');
+    expect(trigger).not.toBeNull();
+    expect(norm(trigger.textContent)).toContain("R$ 210,00");
+    click(trigger);
+
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(norm(dialog.textContent)).toContain("Análise de resultado · Equipamentos de terceiros");
+    expect(norm(dialog.textContent)).toContain("Receita líquida R$ 1.450,00");
+    expect(norm(dialog.textContent)).toContain("Custo R$ 1.660,00");
+    expect(norm(dialog.textContent)).toContain("Resultado −R$ 210,00");
+    expect(norm(dialog.textContent)).toContain("✓ fecha com o painel");
+    expect(norm(dialog.textContent)).toContain("Grua 30 m");
+    expect(norm(dialog.textContent)).toContain("Tarifa contratual abaixo do repasse");
+
+    const grua = dialog.querySelector('button[aria-label="Analisar Grua 30 m"]');
+    click(grua);
+    expect(norm(dialog.textContent)).toContain("Green Garden");
+    expect(norm(dialog.textContent)).toContain("R$ 1.000,00");
+    expect(norm(dialog.textContent)).toContain("R$ 1.500,00");
+    expect(norm(dialog.textContent)).toContain("−R$ 500,00");
+  });
+
+  it("receita, custo, resultado e margem dos dois grupos são analisáveis", () => {
+    const { container } = render();
+    ["receita líquida", "custo", "resultado", "margem"].forEach(metric => {
+      ["equipamentos próprios", "equipamentos de terceiros"].forEach(group => {
+        expect(container.querySelector(`button[aria-label="Analisar ${metric} de ${group}"]`)).not.toBeNull();
+      });
+    });
+  });
+
+  it("fecha com Esc e devolve o foco ao número agregado", () => {
+    const { container } = render();
+    const trigger = container.querySelector('button[aria-label="Analisar resultado de equipamentos de terceiros"]');
+    act(() => trigger.focus());
+    click(trigger);
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+    act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+});
