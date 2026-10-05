@@ -69,13 +69,14 @@ const normalizeEquipment=input=>({
 const hasRates=value=>RATE_KEYS.some(key=>numeric(value?.[key])>0);
 const commercialSnapshot=(input,equipment,command,now)=>{
   const negotiatedRates=rates(input.tarifas);
-  const negotiatedCostRates=rates(input.tarifasCusto);
-  const source=hasRates(negotiatedRates)||hasRates(negotiatedCostRates)||input.tarifaNegociada===true
+  const source=hasRates(negotiatedRates)||input.tarifaNegociada===true
     ?"negociada":"cadastro_equipamento";
   const effectiveRates=source==="negociada"&&hasRates(negotiatedRates)?negotiatedRates:rates(equipment.tarifas);
-  const effectiveCostRates=source==="negociada"&&hasRates(negotiatedCostRates)?negotiatedCostRates:rates(equipment.tarifasCusto);
   if(!hasRates(effectiveRates)&&numeric(input.valorDiaria)>0)effectiveRates.dia=numeric(input.valorDiaria);
-  if(!hasRates(effectiveCostRates)&&numeric(input.custoDiaria)>0)effectiveCostRates.dia=numeric(input.custoDiaria);
+  // Campo legado mantido no snapshot para compatibilidade estrutural. Para
+  // terceiros ele espelha a própria tarifa da locação: o repasse não possui
+  // tabela financeira independente.
+  const effectiveCostRates=equipment?.proprietarioId?rates(effectiveRates):rates(equipment.tarifasCusto);
   return {
     tarifas:effectiveRates,tarifasCusto:effectiveCostRates,
     descontoPct:numeric(input.descontoPct),descontoValor:numeric(input.descontoValor),
@@ -353,7 +354,7 @@ export const applyEquipmentCommand=(data={},command={},now=new Date().toISOStrin
       commercialSnapshot:null,
       tarifaNegociada:true,
       tarifas:rates(input.tarifas),
-      tarifasCusto:rates(input.tarifasCusto??current.commercialSnapshot?.tarifasCusto??current.tarifasCusto),
+      tarifasCusto:equipment?.proprietarioId?rates(input.tarifas):rates(current.commercialSnapshot?.tarifasCusto??current.tarifasCusto),
       regraTarifaria:normalizeBillingRule(input.regraTarifaria),
       descontoPct:numeric(input.descontoPct),
       descontoValor:numeric(input.descontoValor),
