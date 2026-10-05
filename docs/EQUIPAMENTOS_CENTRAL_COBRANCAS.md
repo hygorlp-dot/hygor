@@ -23,7 +23,7 @@ foi alterada** — a tela só reorganiza e explica números que já existiam.
 | Receita contratual | `calcEquipamentosMes`: receita + descontos (= `calcEquipFaturamentoEmpresa.receitaBruta`). Em recorte: soma de `bruto` das locações (`calcEquipamentosPorObra`). |
 | Descontos | `calcEquipamentosMes.descontos` / soma dos `descontos` das locações. |
 | Receita líquida | `calcEquipamentosMes.receita` (a mesma do DRE de equipamentos) / soma de `receita`. |
-| Custo total | repasse a terceiros + manutenção paga pela empresa (`calcEquipamentosMes.custo`). Em recortes por obra/situação/busca: **só repasses** (ver limitação). |
+| Custo total | repasse a terceiros + manutenção paga pela empresa (`calcEquipamentosMes.custo`). **O repasse de terceiro é exatamente o valor líquido da própria locação**; em recortes por obra/situação/busca o custo é só esse repasse (ver limitação). |
 | Resultado / Margem | `lucro` e `lucro ÷ receita` de `calcEquipamentosMes`; em recorte, receita líquida − custo do recorte. |
 | Próprios × terceiros | linhas `proprios`/`terceiros` de `calcEquipamentosMes`. |
 | Faturamento (faturado, recebido, em aberto, vencido, medido sem fatura) | `rentalInvoices` e `rentalChargeItems` da competência. **Não entra no DRE** e nunca é somado à receita — a tela diz isso. |
@@ -43,10 +43,11 @@ foi alterada** — a tela só reorganiza e explica números que já existiam.
 
 ## Pendências ("Atenção necessária")
 
-Somente regras que já existiam nos dados: locação sem tarifa, repasse de
-terceiro sem tarifa de custo, desconto elevado (≥ 20%, o mesmo limiar de
-`calcEquipamentosPorObra`), fatura vencida (vencimento < hoje e saldo em
-aberto) e obra com resultado negativo. Cada item filtra o ranking por obra.
+Somente regras que já existiam nos dados: locação sem tarifa, desconto elevado
+(≥ 20%, o mesmo limiar de `calcEquipamentosPorObra`), fatura vencida
+(vencimento < hoje e saldo em aberto) e obra com resultado negativo. O repasse
+de terceiros não possui tabela própria: acompanha o valor líquido da locação.
+Cada item filtra o ranking por obra.
 
 ## Decisões
 
@@ -58,3 +59,14 @@ aberto) e obra com resultado negativo. Cada item filtra o ranking por obra.
 - As classes `equipment-report-*` de `src/index.css` ficaram quase todas sem
   uso (só `equipment-report-empty` segue no fallback do `Suspense`); a limpeza
   ficou fora deste escopo.
+
+
+## Regra de repasse a terceiros
+
+O valor a repassar ao proprietário de um equipamento terceiro é **o mesmo valor
+líquido calculado para a locação no período**, já considerando quantidade,
+combinação tarifária e descontos.
+
+Campos legados `tarifasCusto` e `custoDiaria` podem permanecer em registros
+antigos por compatibilidade estrutural, mas **não participam mais do cálculo do
+repasse**.
