@@ -33,6 +33,7 @@ import {
 import { EQUIPMENT_IMAGE_OPTIONS, equipmentImageFor } from "../images";
 import { deriveEquipmentLocations, physicalIdentityForRecord } from "../registry";
 import { rentalStateLabel } from "../rental-lifecycle";
+import { rentalCommercialOverrideStatus } from "../rental-commercial";
 import {
   RENTAL_CHECKPOINT_TYPE, rentalDeliveryBalance, rentalDispatchBalance, rentalReturnBalance,
 } from "../rental-checkpoints";
@@ -140,6 +141,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
   const [rentalMeasurementModal,setRentalMeasurementModal]=useState(null);
   const [rentalInvoiceModal,setRentalInvoiceModal]=useState(null);
   const [rentalReceiptModal,setRentalReceiptModal]=useState(null);
+  const [rentalCommercialModal,setRentalCommercialModal]=useState(null);
   // Confirmação de ações destrutivas/irreversíveis - substitui window.confirm
   // nativo por um Modal próprio do design system (ver auditoria de design,
   // achado P0: dialogs nativos do navegador quebram a marca exatamente nos
@@ -401,6 +403,53 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       setDonoModal(null); showToast(isEdit?"Proprietário atualizado.":"Proprietário salvo.");
     }catch(error){
       showToast(error?.message||"O servidor não respondeu ao salvar o proprietário.","error");
+    }finally{
+      setSalvandoEquipamento("");
+    }
+  };
+
+  const abrirEdicaoCondicoesComerciais = rental => {
+    if(currentUser?.role!=="admin") return;
+    const eligibility=rentalCommercialOverrideStatus(data,rental?.id);
+    if(!eligibility.allowed){showToast(eligibility.reason,"error");return;}
+    const snapshot=rental?.commercialSnapshot||{};
+    setRentalCommercialModal({
+      rentalId:rental.id,
+      equipamentoId:rental.equipamentoId,
+      tarifas:{...(snapshot.tarifas||rental.tarifas||{})},
+      tarifasCusto:{...(snapshot.tarifasCusto||rental.tarifasCusto||{})},
+      regraTarifaria:snapshot.regraTarifaria||rental.regraTarifaria||"best_combination",
+      descontoPct:Number(snapshot.descontoPct??rental.descontoPct??0),
+      descontoValor:Number(snapshot.descontoValor??rental.descontoValor??0),
+    });
+    setLocModal(null);
+  };
+
+  const salvarCondicoesComerciais = async form => {
+    if(currentUser?.role!=="admin"){showToast("Somente administradores podem substituir as condições comerciais.","error");return;}
+    const numTar=t=>({dia:Math.max(0,Number(t?.dia||0)),semana:Math.max(0,Number(t?.semana||0)),
+      quinzena:Math.max(0,Number(t?.quinzena||0)),mes:Math.max(0,Number(t?.mes||0))});
+    setSalvandoEquipamento(`condicoes-comerciais-${form.rentalId}`);
+    try{
+      const result=await dispatchCommand?.(atual=>{
+        const current=(atual.locacoesEquip||[]).find(item=>item.id===form.rentalId);
+        return {
+          type:OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_COMMERCIAL_OVERRIDDEN,
+          idempotencyKey:`locacao-condicoes-comerciais-${form.rentalId}-${uid()}`,
+          expectedVersion:Number(current?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{rentalId:form.rentalId,commercial:{
+            tarifas:numTar(form.tarifas),tarifasCusto:numTar(form.tarifasCusto),
+            regraTarifaria:form.regraTarifaria||"best_combination",
+            descontoPct:Number(form.descontoPct||0),descontoValor:Number(form.descontoValor||0),
+          }},
+        };
+      });
+      if(!result?.ok){showToast(result?.reason||"Não foi possível substituir as condições comerciais.","error");return;}
+      setRentalCommercialModal(null);
+      showToast("Condições comerciais substituídas.");
+    }catch(error){
+      showToast(error?.message||"O servidor não respondeu ao substituir as condições comerciais.","error");
     }finally{
       setSalvandoEquipamento("");
     }
@@ -1578,6 +1627,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             {(() => {
               const eq = (data.equipamentos||[]).find(x=>x.id===locModal.equipamentoId);
               const snapshotCongelado=!!locModal.commercialSnapshot;
+              const commercialEligibility=locModal.id?rentalCommercialOverrideStatus(data,locModal.id):{allowed:false,reason:""};
               const usaProprias = locModal.tarifaNegociada===true
                 || PACOTES_TARIFA.some(p => Number(locModal.tarifas?.[p.id]||0) > 0);
               const tarifasEfetivas = tarifasDaLocacao(locModal, eq);
@@ -1600,10 +1650,16 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                         Negociar preço só para esta obra
                       </label>}
                     </div>
-                    {snapshotCongelado ? <p style={{fontSize:10.5,color:C.blue,lineHeight:1.5}}>
-                      Condições comerciais congeladas em {locModal.commercialSnapshot.negociadoEm?fmtDate(String(locModal.commercialSnapshot.negociadoEm).slice(0,10)):"data não registrada"}
-                      {locModal.commercialSnapshot.negociadoPor?` por ${locModal.commercialSnapshot.negociadoPor}`:""}. Alterações no cadastro do equipamento não modificam este contrato.
-                    </p> : usaProprias ? (
+                    {snapshotCongelado ? <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+                      <div style={{flex:"1 1 360px"}}>
+                        <p style={{fontSize:10.5,color:C.blue,lineHeight:1.5}}>
+                          Condições comerciais vigentes desde {locModal.commercialSnapshot.negociadoEm?fmtDate(String(locModal.commercialSnapshot.negociadoEm).slice(0,10)):"data não registrada"}
+                          {locModal.commercialSnapshot.negociadoPor?` · definidas por ${locModal.commercialSnapshot.negociadoPor}`:""}. Alterações no cadastro do equipamento não modificam esta locação.
+                        </p>
+                        {currentUser?.role==="admin"&&!commercialEligibility.allowed&&<p style={{fontSize:9.5,color:C.muted,lineHeight:1.45,marginTop:4}}>{commercialEligibility.reason}</p>}
+                      </div>
+                      {currentUser?.role==="admin"&&<Btn v="ghost" disabled={!commercialEligibility.allowed} onClick={()=>abrirEdicaoCondicoesComerciais(locModal)}>Editar condições comerciais</Btn>}
+                    </div> : usaProprias ? (
                       <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:8}}>
                         {[["dia","Por dia"],["semana","Por semana"],["quinzena","Por quinzena"],["mes","Por mês"]].map(([k,l])=>(
                           <Inp key={k} label={`${l} (R$)`} type="number" min="0"
@@ -1666,6 +1722,33 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           </div>
         </Modal>
       )}
+
+      {rentalCommercialModal&&(()=>{const rental=(data.locacoesEquip||[]).find(item=>item.id===rentalCommercialModal.rentalId);const eq=(data.equipamentos||[]).find(item=>item.id===rentalCommercialModal.equipamentoId);const dias=rental?.inicio&&rental?.fim?diasCorridos(rental.inicio,rental.fim)+1:30;const preview=cobrancaLocacao({...rental,commercialSnapshot:null,tarifas:rentalCommercialModal.tarifas,descontoPct:rentalCommercialModal.descontoPct,descontoValor:rentalCommercialModal.descontoValor},eq,dias);return <Modal
+        title={`Editar condições comerciais · ${equipName(rental?.equipamentoId)}`} onClose={()=>setRentalCommercialModal(null)} wide>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+          <div style={{gridColumn:"1/-1",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+            <p style={{fontSize:10.5,fontWeight:800,color:C.text}}>Substituição administrativa</p>
+            <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5,marginTop:3}}>As condições vigentes serão substituídas sem criar aditivo ou histórico comercial. O sistema mantém apenas versionamento técnico e impede a alteração quando já existe medição, fatura ou recebimento.</p>
+          </div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:formGrid(4),gap:8}}>
+            {[["dia","Por dia"],["semana","Por semana"],["quinzena","Por quinzena"],["mes","Por mês"]].map(([k,l])=>
+              <Inp key={k} label={`${l} (R$)`} type="number" min="0" value={rentalCommercialModal.tarifas?.[k]??""}
+                onChange={v=>setRentalCommercialModal(form=>({...form,tarifas:{...(form.tarifas||{}),[k]:v}}))}/>)}
+          </div>
+          <Sel label="Regra de cobrança *" value={rentalCommercialModal.regraTarifaria} onChange={v=>setRentalCommercialModal(form=>({...form,regraTarifaria:v}))}
+            options={[{v:"best_combination",l:"Melhor combinação tarifária"},{v:"calendar_day",l:"Por dia corrido"},{v:"business_day",l:"Por dia útil"},{v:"minimum_daily",l:"Diária mínima"},{v:"tariff_week",l:"Semana tarifária"},{v:"tariff_fortnight",l:"Quinzena tarifária"},{v:"thirty_day_month",l:"Mês de 30 dias"},{v:"civil_month",l:"Mês civil"},{v:"anniversary_cycle",l:"Ciclo por aniversário"}]}/>
+          <Inp label="Desconto ao cliente (%)" type="number" min="0" max="100" value={rentalCommercialModal.descontoPct} onChange={v=>setRentalCommercialModal(form=>({...form,descontoPct:v}))}/>
+          <Inp label="Desconto fixo (R$)" type="number" min="0" value={rentalCommercialModal.descontoValor} onChange={v=>setRentalCommercialModal(form=>({...form,descontoValor:v}))}/>
+          <div style={{gridColumn:"1/-1",background:`${C.green}0A`,border:`1px solid ${C.green}44`,borderRadius:8,padding:"10px 12px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:12,fontSize:11.5,color:C.text}}><span>Prévia para {dias} dia{dias!==1?"s":""}</span><strong>{fmt(preview.liquido)}</strong></div>
+            {preview.desconto>0.005&&<p style={{fontSize:9.5,color:C.orange,marginTop:3}}>Desconto total: {fmt(preview.desconto)}</p>}
+          </div>
+          <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <Btn v="ghost" full onClick={()=>setRentalCommercialModal(null)}>Cancelar</Btn>
+            <Btn full disabled={!!salvandoEquipamento} loading={salvandoEquipamento===`condicoes-comerciais-${rentalCommercialModal.rentalId}`} onClick={()=>salvarCondicoesComerciais(rentalCommercialModal)}>Substituir condições</Btn>
+          </div>
+        </div>
+      </Modal>;})()}
 
       {manutModal && (
         <Modal title={manutModal.id?"Editar manutenção":"Nova manutenção"} onClose={()=>setManutModal(null)} wide>
