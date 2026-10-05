@@ -282,9 +282,10 @@ describe("análise explicável de próprios x terceiros", () => {
     const dialog = document.body.querySelector('[role="dialog"]');
     expect(dialog).not.toBeNull();
     expect(norm(dialog.textContent)).toContain("Análise de resultado · Equipamentos de terceiros");
-    expect(norm(dialog.textContent)).toContain("Receita líquida R$ 1.450,00");
-    expect(norm(dialog.textContent)).toContain("Custo R$ 1.660,00");
-    expect(norm(dialog.textContent)).toContain("Resultado −R$ 210,00");
+    const metricText = label => norm([...dialog.querySelectorAll(".bc-analysis__metric")].find(item => item.querySelector("span")?.textContent === label)?.textContent);
+    expect(metricText("Receita líquida")).toContain("R$ 1.450,00");
+    expect(metricText("Custo")).toContain("R$ 1.660,00");
+    expect(metricText("Resultado")).toContain("−R$ 210,00");
     expect(norm(dialog.textContent)).toContain("✓ fecha com o painel");
     expect(norm(dialog.textContent)).toContain("Grua 30 m");
     expect(norm(dialog.textContent)).toContain("Tarifa contratual abaixo do repasse");
