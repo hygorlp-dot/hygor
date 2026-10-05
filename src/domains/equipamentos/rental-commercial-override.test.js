@@ -93,6 +93,6 @@ describe("sobrescrita administrativa das condições comerciais", () => {
   it("respeita versão esperada para evitar sobrescrita concorrente", () => {
     const result = applyEquipmentCommand(baseData(), command({ expectedVersion: 1 }), "2026-10-05T15:00:00.000Z");
     expect(result.ok).toBe(false);
-    expect(result.reason).toMatch(/alterada por outra pessoa/i);
+    expect(result.reason).toMatch(/alterad[oa] por outra pessoa/i);
   });
 });
