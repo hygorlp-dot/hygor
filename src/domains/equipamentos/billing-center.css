@@ -135,3 +135,36 @@ td:not(.num) > .bc-flag { justify-content: flex-start; }
   .bc-filters__row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bc-map__layout { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+/* drill-down financeiro: números agregados viram portas para a memória de cálculo */
+.bc-analysis-link { border: 0; background: transparent; padding: 0; color: inherit; font: inherit; font-family: var(--arcd-font-mono); font-variant-numeric: tabular-nums; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; cursor: pointer; }
+.bc-analysis-link[data-negative="true"] { color: var(--arcd-danger-text); font-weight: 600; }
+.bc-analysis-link:focus-visible, .bc-analysis__close:focus-visible { outline: 3px solid color-mix(in srgb, var(--arcd-focus-ring) 62%, transparent); outline-offset: 2px; }
+.bc-analysis-backdrop { position: fixed; inset: 0; z-index: 1400; display: flex; justify-content: flex-end; background: color-mix(in srgb, #000 38%, transparent); }
+.bc-analysis { width: min(72rem, 96vw); height: 100%; overflow: auto; background: var(--arcd-surface-elevated); border-left: 1px solid var(--arcd-border-strong); padding: var(--arcd-space-5); color: var(--arcd-text-primary); }
+.bc-analysis__header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--arcd-space-4); padding-bottom: var(--arcd-space-4); border-bottom: 1px solid var(--arcd-border-default); }
+.bc-analysis__header h3 { margin: var(--arcd-space-1) 0 0; font-size: var(--arcd-type-section-title); font-weight: 600; }
+.bc-analysis__close { display: inline-grid; place-items: center; width: var(--arcd-control-height); height: var(--arcd-control-height); border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-radius-md); background: var(--arcd-surface-card); color: var(--arcd-text-primary); cursor: pointer; }
+.bc-analysis__section { padding: var(--arcd-space-5) 0; border-bottom: 1px solid var(--arcd-border-default); }
+.bc-analysis__section:last-child { border-bottom: 0; }
+.bc-analysis__section-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--arcd-space-3); flex-wrap: wrap; margin-bottom: var(--arcd-space-3); }
+.bc-analysis__section-head h4 { margin: 0; font-size: var(--arcd-type-card-title); font-weight: 600; }
+.bc-analysis__equation { display: grid; grid-template-columns: repeat(11, minmax(0, auto)); align-items: center; gap: var(--arcd-space-2); }
+.bc-analysis__metric { min-width: 7rem; padding: var(--arcd-space-2) 0; }
+.bc-analysis__metric > span, .bc-analysis__metric > small { display: block; color: var(--arcd-text-secondary); font-size: var(--arcd-type-label); }
+.bc-analysis__metric > strong { display: block; margin-top: 2px; font-size: var(--arcd-type-card-title); }
+.bc-analysis__metric[data-negative="true"] > strong { color: var(--arcd-danger-text); }
+.bc-analysis__metric[data-highlight="true"] { border-bottom: 2px solid var(--arcd-focus-ring); }
+.bc-analysis__costs { display: flex; gap: var(--arcd-space-5); flex-wrap: wrap; margin-top: var(--arcd-space-3); color: var(--arcd-text-secondary); font-size: var(--arcd-type-label); }
+.bc-analysis__costs span { display: inline-flex; gap: var(--arcd-space-2); }
+.bc-analysis__equipment-table tr[data-selected="true"] { background: var(--arcd-surface-muted); }
+.bc-analysis__reason { display: flex; align-items: flex-start; gap: var(--arcd-space-1); color: var(--arcd-danger-text); font-size: var(--arcd-type-label); line-height: 1.35; }
+.bc-analysis__reason + .bc-analysis__reason { margin-top: 2px; }
+.bc-analysis__rentals > .bc-analysis__section-head > strong[data-negative="true"] { color: var(--arcd-danger-text); }
+
+@media (max-width: 900px) {
+  .bc-analysis { width: 100vw; padding: var(--arcd-space-4); }
+  .bc-analysis__equation { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bc-analysis__equation > span[aria-hidden="true"] { display: none; }
+}
