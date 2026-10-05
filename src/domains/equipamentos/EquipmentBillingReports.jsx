@@ -378,7 +378,7 @@ function WorkMemory({ memory, model, formatDate, formatComposition, onBack, onEd
             <td className="num bc-mono">{formatMoney(row.bruto)}</td>
             <td className="num bc-mono">{formatMoney(row.descontos)}{row.descontoElevado && <span className="bc-flag"><AlertTriangle size={12} aria-hidden="true" /> elevado ({pct(row.descontoEfetivoPct)})</span>}</td>
             <td className="num bc-mono">{formatMoney(row.receita)}</td>
-            <td className="num bc-mono">{row.terceiro ? (row.custoDono > 0 ? formatMoney(row.custoDono) : <span className="bc-flag"><AlertTriangle size={12} aria-hidden="true" /> sem tarifa de custo</span>) : "—"}</td>
+            <td className="num bc-mono">{row.terceiro ? formatMoney(row.custoDono) : "—"}</td>
             <td className="bc-row-actions">
               <Button variant="ghost" size="sm" onClick={() => onEditRental?.(row.locacaoId)}>Editar</Button>
               <button type="button" className="bc-danger-link" onClick={() => onDeleteRental?.(row.locacaoId)} aria-label={`Excluir locação de ${row.equipamento.nome}`}>Excluir…</button>
@@ -417,11 +417,11 @@ function EquipmentTables({ model, data, ownerName }) {
     </div>
     <div className="bc-table-wrap">
       <table className="bc-table">
-        <caption>Repasses aos proprietários por obra (tarifas de custo dos contratos)</caption>
+        <caption>Repasses aos proprietários por obra (mesmo valor líquido das locações)</caption>
         <thead><tr><th scope="col">Proprietário</th><th scope="col">Obra</th><th scope="col" className="num">Equip.</th><th scope="col" className="num">Locações</th><th scope="col" className="num">Diárias-un.</th><th scope="col" className="num">Valor a repassar</th></tr></thead>
         <tbody>{ownerRows.length ? ownerRows.map(row => <tr key={row.key}>
           <td>{row.owner}</td><td>{row.obra}</td><td className="num bc-mono">{row.equipments.size}</td><td className="num bc-mono">{row.rentals}</td><td className="num bc-mono">{row.unitDays}</td>
-          <td className="num bc-mono">{row.amount > 0 ? formatMoney(row.amount) : <span className="bc-flag"><AlertTriangle size={12} aria-hidden="true" /> tarifa de custo ausente</span>}</td>
+          <td className="num bc-mono">{formatMoney(row.amount)}</td>
         </tr>) : <tr><td colSpan={6} className="bc-note">Nenhum equipamento de terceiros no recorte.</td></tr>}</tbody>
         {ownerRows.length > 0 && <tfoot><tr><th scope="row" colSpan={5}>Total a repassar</th><td className="num bc-mono">{formatMoney(ownerRows.reduce((total, row) => total + row.amount, 0))}</td></tr></tfoot>}
       </table>

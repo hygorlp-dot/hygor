@@ -73,6 +73,16 @@ describe("sobrescrita administrativa das condições comerciais", () => {
     expect(rental.operationalHistory).toEqual(history);
   });
 
+  it("em equipamento de terceiro o snapshot de repasse espelha a tarifa da locação", () => {
+    const data = baseData();
+    data.equipamentos[0].proprietarioId = "P1";
+    const result = applyEquipmentCommand(data, command(), "2026-10-05T15:00:00.000Z");
+    expect(result.ok).toBe(true);
+    const snapshot = result.data.locacoesEquip[0].commercialSnapshot;
+    expect(snapshot.tarifas.mes).toBe(400);
+    expect(snapshot.tarifasCusto).toEqual(snapshot.tarifas);
+  });
+
   it("bloqueia a substituição silenciosa depois de medição", () => {
     const data = baseData();
     data.rentalChargeItems = [{ id: "C1", rentalId: "L1", status: "open" }];

@@ -42,7 +42,7 @@ test("central de cobranças: competência, filtros, pendência, memória, PDF e 
 
   // 3. KPIs da competência atual (equação financeira)
   await expect(term(page, "Receita líquida")).toContainText("R$ 6.100,00");
-  await expect(term(page, "Resultado")).toContainText("R$ 4.140,00");
+  await expect(term(page, "Resultado")).toContainText("R$ 4.350,00");
   await expect(page.getByText("As faturas ainda não alimentam o DRE.", { exact:false })).toBeVisible();
 
   // 2. trocar competência
@@ -57,14 +57,14 @@ test("central de cobranças: competência, filtros, pendência, memória, PDF e 
   await expect(term(page, "Custo total")).toContainText("só repasses");
   await page.getByRole("button", { name:"Limpar filtros" }).click();
 
-  // 5. abrir pendência (obra com resultado negativo)
-  await page.getByRole("button", { name:"Ver: 1 obra com resultado negativo" }).click();
+  // 5. abrir pendência (desconto elevado)
+  await page.getByRole("button", { name:"Ver: 1 desconto elevado (≥ 20%)" }).click();
   await expect(page.getByRole("tab", { name:"Por obra" })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".bc-table tbody tr")).toHaveCount(1);
 
   // 6. abrir detalhe (memória) da obra e 7. voltar
-  await page.getByRole("button", { name:"Abrir memória da obra Green Garden" }).click();
-  await expect(page.locator(".bc-memory")).toContainText("Obra com resultado negativo");
+  await page.getByRole("button", { name:"Abrir memória da obra Oásis Home Park" }).click();
+  await expect(page.locator(".bc-memory")).toContainText("Desconto elevado");
   await page.getByRole("button", { name:"Voltar ao ranking" }).click();
   await expect(page.locator(".bc-memory")).toHaveCount(0);
   await page.getByRole("button", { name:"Limpar filtros" }).click();
@@ -72,7 +72,7 @@ test("central de cobranças: competência, filtros, pendência, memória, PDF e 
 
   // 8. alternar próprios / terceiros
   await page.getByLabel("Propriedade", { exact:true }).selectOption("terceiros");
-  await expect(term(page, "Resultado")).toContainText("−R$ 210,00");
+  await expect(term(page, "Resultado")).toContainText("R$ 0,00");
   await page.getByLabel("Propriedade", { exact:true }).selectOption("proprios");
   await expect(term(page, "Resultado")).toContainText("R$ 4.350,00");
   await page.getByLabel("Propriedade", { exact:true }).selectOption("all");

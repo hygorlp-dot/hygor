@@ -73,8 +73,8 @@ describe("Central de cobranças · estrutura", () => {
     expect(term(container, "Receita contratual")).toContain("R$ 7.150,00");
     expect(term(container, "Descontos")).toContain("R$ 1.050,00");
     expect(term(container, "Receita líquida")).toContain("R$ 6.100,00");
-    expect(term(container, "Custo total")).toContain("R$ 1.960,00");
-    expect(term(container, "Resultado")).toContain("R$ 4.140,00");
+    expect(term(container, "Custo total")).toContain("R$ 1.750,00");
+    expect(term(container, "Resultado")).toContain("R$ 4.350,00");
     expect(norm(container.querySelector("#bc-result-title").parentElement.textContent)).toContain("Setembro 2026 · todas as obras");
   });
 
@@ -114,12 +114,12 @@ describe("fechamento e atenção necessária", () => {
     const { container } = render();
     const items = [...container.querySelectorAll(".bc-attention li")].map(item => norm(item.textContent));
     expect(items[0]).toContain("1 locação sem tarifa");
-    click(container.querySelector('button[aria-label="Ver: 1 obra com resultado negativo"]'));
+    click(container.querySelector('button[aria-label="Ver: 1 desconto elevado (≥ 20%)"]'));
     expect(view(container, "Por obra").getAttribute("aria-selected")).toBe("true");
     const rows = [...container.querySelectorAll("tbody tr")];
     expect(rows).toHaveLength(1);
-    expect(norm(rows[0].textContent)).toContain("Green Garden");
-    expect(byText(container, ".bc-chip", "Obra com resultado negativo")).toBeTruthy();
+    expect(norm(rows[0].textContent)).toContain("Oásis Home Park");
+    expect(byText(container, ".bc-chip", "Desconto elevado (≥ 20%)")).toBeTruthy();
   });
 
   it("sem pendências: mensagem positiva explícita", () => {
@@ -136,8 +136,8 @@ describe("filtros", () => {
     const { container, onPeriodChange } = render();
     expect(byText(container, "button", "Limpar filtros")).toBeUndefined();
     choose(container, "Propriedade", "terceiros");
-    expect(term(container, "Resultado")).toContain("−R$ 210,00");
-    expect(term(container, "Resultado")).toContain("Resultado negativo no período");
+    expect(term(container, "Resultado")).toContain("R$ 0,00");
+    expect(term(container, "Resultado")).not.toContain("Resultado negativo no período");
     choose(container, "Obra", "ob-a");
     expect(term(container, "Custo total")).toContain("só repasses");
     expect([...container.querySelectorAll(".bc-chip")].map(chip => norm(chip.textContent))).toEqual(["K1-04 — Terras Alpha", "Terceiros"]);
@@ -153,7 +153,7 @@ describe("filtros", () => {
     const checkbox = container.querySelector('.bc-filters input[type="checkbox"]');
     expect(norm(checkbox.closest("label").textContent)).toContain("Somente com pendência");
     act(() => { checkbox.click(); });
-    expect(term(container, "Receita líquida")).toContain("R$ 3.400,00"); // G1 3.150 + T1 250 + S1 0
+    expect(term(container, "Receita líquida")).toContain("R$ 3.150,00"); // G1 3.150 + S1 0
     expect(byText(container, ".bc-chip", "Somente com pendência")).toBeTruthy();
   });
 
@@ -169,12 +169,12 @@ describe("filtros", () => {
 });
 
 describe("próprios x terceiros, comparação e gráficos", () => {
-  it("tabela própria/terceiros deixa a margem negativa explícita, com texto", () => {
+  it("tabela própria/terceiros mostra terceiros com margem neutra quando repasse acompanha a locação", () => {
     const { container } = render();
     const table = [...container.querySelectorAll("table")].find(item => item.querySelector("caption")?.textContent.includes("próprios e de terceiros"));
     const margem = [...table.querySelectorAll("tbody tr")].find(row => row.querySelector("th").textContent === "Margem");
-    expect(norm(margem.textContent)).toContain("margem negativa no período");
-    expect(margem.querySelectorAll('td[data-negative="true"]')).toHaveLength(1);
+    expect(norm(margem.textContent)).not.toContain("margem negativa no período");
+    expect(margem.querySelectorAll('td[data-negative="true"]')).toHaveLength(0);
   });
 
   it("compara com a competência anterior quando há dados", () => {
@@ -272,11 +272,11 @@ describe("erro e acessibilidade", () => {
 
 
 describe("análise explicável de próprios x terceiros", () => {
-  it("abre o -R$ 210 de terceiros e reconcilia até equipamento e locação", () => {
+  it("abre o resultado neutro de terceiros e reconcilia até equipamento e locação", () => {
     const { container } = render();
     const trigger = container.querySelector('button[aria-label="Analisar resultado de equipamentos de terceiros"]');
     expect(trigger).not.toBeNull();
-    expect(norm(trigger.textContent)).toContain("R$ 210,00");
+    expect(norm(trigger.textContent)).toContain("R$ 0,00");
     click(trigger);
 
     const dialog = document.body.querySelector('[role="dialog"]');
@@ -284,18 +284,18 @@ describe("análise explicável de próprios x terceiros", () => {
     expect(norm(dialog.textContent)).toContain("Análise de resultado · Equipamentos de terceiros");
     const metricText = label => norm([...dialog.querySelectorAll(".bc-analysis__metric")].find(item => item.querySelector("span")?.textContent === label)?.textContent);
     expect(metricText("Receita líquida")).toContain("R$ 1.450,00");
-    expect(metricText("Custo")).toContain("R$ 1.660,00");
-    expect(metricText("Resultado")).toContain("−R$ 210,00");
+    expect(metricText("Custo")).toContain("R$ 1.450,00");
+    expect(metricText("Resultado")).toContain("R$ 0,00");
     expect(norm(dialog.textContent)).toContain("✓ fecha com o painel");
     expect(norm(dialog.textContent)).toContain("Grua 30 m");
-    expect(norm(dialog.textContent)).toContain("Tarifa contratual abaixo do repasse");
+    expect(norm(dialog.textContent)).not.toContain("Tarifa contratual abaixo do repasse");
 
     const grua = dialog.querySelector('button[aria-label="Analisar Grua 30 m"]');
     click(grua);
     expect(norm(dialog.textContent)).toContain("Green Garden");
     expect(norm(dialog.textContent)).toContain("R$ 1.000,00");
-    expect(norm(dialog.textContent)).toContain("R$ 1.500,00");
-    expect(norm(dialog.textContent)).toContain("−R$ 500,00");
+    expect(norm(dialog.textContent)).toContain("R$ 1.000,00");
+    expect(norm(dialog.textContent)).not.toContain("−R$ 500,00");
   });
 
   it("receita, custo, resultado e margem dos dois grupos são analisáveis", () => {

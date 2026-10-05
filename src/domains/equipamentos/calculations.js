@@ -80,6 +80,14 @@ export const cobrancaLocacao = (loc,equip,dias) => {
     desconto,liquido,descontoEfetivoPct,descontoElevado:descontoEfetivoPct>=20};
 };
 
+// Regra comercial ARCD: para equipamento de terceiro, o repasse acompanha
+// exatamente o valor líquido da própria locação no período. Não existe uma
+// segunda tabela financeira para calcular o repasse. Campos legados
+// `tarifasCusto`/`custoDiaria` permanecem apenas para compatibilidade de
+// dados antigos e não influenciam mais o valor a pagar ao proprietário.
+export const repasseLocacao = (loc,equip,dias) =>
+  equip?.proprietarioId ? cobrancaLocacao(loc,equip,dias).liquido : 0;
+
 export const validateRentalDiscounts=(loc,equip,dias=30)=>{
   const percentual=Number(loc?.descontoPct||0),fixo=Number(loc?.descontoValor||0);
   if(!Number.isFinite(percentual)||percentual<0||percentual>100)return {ok:false,reason:"O desconto percentual deve estar entre 0% e 100%."};
@@ -135,13 +143,10 @@ export const calcEquipMes = (data,equipId,ym) => {
     const cobranca=cobrancaLocacao(locacao,equip,dias);
     receita+=cobranca.liquido;
     descontos+=cobranca.desconto;
-    // Tarifa de custo só é repasse quando existe proprietário terceiro. Em
-    // equipamento próprio ela é referência interna e não gera obrigação -
-    // mesma regra aplicada no motor do servidor (server/dre-projection.js).
-    if (equip?.proprietarioId) {
-      custoDono+=melhorTarifa(tarifasCustoDaLocacao(locacao,equip),dias).total
-        *Math.max(1,Number(locacao.quantidade||1));
-    }
+    // O repasse de terceiro é o MESMO valor líquido da locação.
+    // `cobrancaLocacao` já considera quantidade, combinação tarifária e
+    // descontos; portanto não existe cálculo paralelo por tarifa de custo.
+    if (equip?.proprietarioId) custoDono+=cobranca.liquido;
   });
   const manut=(data.manutencoesEquip||[])
     .filter(m=>m.equipamentoId===equipId&&(m.data||"").slice(0,7)===ym&&m.pagoPor!=="proprietario")
@@ -239,9 +244,9 @@ export const calcEquipamentosPorObra=(data,ym)=>{
         const dias=diasLocacaoNoPeriodo(locacao,inicio,fim);
         const quantidade=Math.max(1,Number(locacao.quantidade||1));
         const cobranca=cobrancaLocacao(locacao,equipamento,dias);
-        const custoUnitario=melhorTarifa(tarifasCustoDaLocacao(locacao,equipamento),dias);
-        // Mesma regra de calcEquipMes: repasse só existe com proprietário terceiro.
-        const custoLocacao=equipamento?.proprietarioId?custoUnitario.total*quantidade:0;
+        // Mesma regra de calcEquipMes: se houver proprietário terceiro,
+        // o repasse é exatamente o valor líquido da própria locação.
+        const custoLocacao=equipamento?.proprietarioId?cobranca.liquido:0;
         const primeiro=String(locacao.inicio||"")<inicio?inicio:String(locacao.inicio||"");
         const ultimo=!locacao.fim||String(locacao.fim)>fim?fim:String(locacao.fim);
         receita+=cobranca.liquido;
@@ -266,7 +271,8 @@ export const calcEquipamentosPorObra=(data,ym)=>{
           custoDono:custoLocacao,
           lucro:cobranca.liquido-custoLocacao,
           composicao:cobranca.composicao,
-          composicaoCusto:custoUnitario.composicao,
+          // O repasse usa a mesma composição tarifária da locação.
+          composicaoCusto:cobranca.composicao,
           semTarifa:cobranca.semTarifa,
           tarifaNegociada:locacao.tarifaNegociada===true,
           status:locacao.fim?"encerrada":"em_andamento",

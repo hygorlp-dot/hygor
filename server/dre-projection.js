@@ -70,8 +70,8 @@ const equipmentCompany = (data,ym) => {
   }));
   const total=rows.reduce((acc,{equipment,financial})=>({
     receita:acc.receita+financial.receita,
-    // Tarifa de custo só é repasse quando existe proprietário terceiro. Em
-    // equipamento próprio ela é referência interna e não gera obrigação.
+    // O repasse só existe para equipamento de terceiro e já vem de
+    // calcEquipMes com o mesmo valor líquido da locação.
     custoDono:acc.custoDono+(equipment?.proprietarioId?financial.custoDono:0),
     manut:acc.manut+financial.manut,
     descontos:acc.descontos+financial.descontos,
