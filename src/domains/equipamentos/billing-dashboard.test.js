@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { calcEquipamentosMes, calcEquipamentosPorObra, calcEquipFaturamentoEmpresa } from "./calculations.js";
 import {
   activeBillingFilterCount, billingScopeLabel, buildBillingChips, buildBillingDashboard, buildBillingFilterOptions,
-  buildWorkMemory, DEFAULT_BILLING_FILTERS, PENDING_TYPE, sortWorks, workResultBars,
+  buildOwnershipAnalysis, buildWorkMemory, DEFAULT_BILLING_FILTERS, PENDING_TYPE, sortWorks, workResultBars,
 } from "./billing-dashboard.js";
 import { BILLING_HOJE, BILLING_YM, buildBillingData } from "./billing-dashboard.fixture.js";
 
@@ -240,5 +240,42 @@ describe("ranking e memória por obra", () => {
     expect(memory.rows.map(row => row.locacaoId)).toEqual(["G1", "S1"]);
     expect(memory.pendencias.map(item => item.type).sort()).toEqual([PENDING_TYPE.HIGH_DISCOUNT, PENDING_TYPE.NO_RATE, PENDING_TYPE.OVERDUE].sort());
     expect(buildWorkMemory(build(), "inexistente")).toBeNull();
+  });
+});
+
+
+describe("drill-down próprios x terceiros", () => {
+  it("reconcilia o resultado de terceiros até equipamento e locação", () => {
+    const model = build();
+    const analysis = buildOwnershipAnalysis(model, "terceiros");
+    expect(analysis.summary.resultado).toBeCloseTo(-210, 2);
+    expect(analysis.reconciled.resultado).toBeCloseTo(-210, 2);
+    expect(analysis.differences.resultado).toBeCloseTo(0, 8);
+    expect(analysis.equipments).toHaveLength(3);
+    expect(analysis.negativeEquipments).toBe(1);
+    const grua = analysis.equipments.find(item => item.id === "eq-gru");
+    expect(grua.finance.receitaLiquida).toBeCloseTo(1000, 2);
+    expect(grua.finance.repasses).toBeCloseTo(1500, 2);
+    expect(grua.finance.resultado).toBeCloseTo(-500, 2);
+    expect(grua.diagnosticos).toContain("Tarifa contratual abaixo do repasse");
+    expect(grua.rentals[0].resultado).toBeCloseTo(-500, 2);
+  });
+
+  it("apropria manutenção no nível do equipamento próprio sem alterar locações", () => {
+    const analysis = buildOwnershipAnalysis(build(), "proprios");
+    expect(analysis.summary.resultado).toBeCloseTo(4350, 2);
+    expect(analysis.differences.resultado).toBeCloseTo(0, 8);
+    const betoneira = analysis.equipments.find(item => item.id === "eq-bet");
+    expect(betoneira.finance.manutencao).toBeCloseTo(300, 2);
+    expect(betoneira.rentals[0].resultado).toBeCloseTo(1500, 2);
+    expect(betoneira.finance.resultado).toBeCloseTo(1200, 2);
+  });
+
+  it("respeita recorte por obra e não inventa manutenção não apropriada", () => {
+    const model = build({ obraId: "ob-a" });
+    const analysis = buildOwnershipAnalysis(model, "terceiros");
+    expect(analysis.summary.manutencaoApropriada).toBe(false);
+    expect(analysis.equipments.every(item => item.finance.manutencao === null)).toBe(true);
+    expect(analysis.differences.resultado).toBeCloseTo(0, 8);
   });
 });
