@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { buildBillingData } from "../src/domains/equipamentos/billing-dashboard.fixture.js";
+import { applyOperationalCommand } from "../src/domains/sync/operational-commands.js";
 
 // Central de cobranças (aba "Cobrança por obra"): fluxo real na tela - trocar
 // competência, filtrar, seguir uma pendência, abrir a memória da obra,
@@ -11,12 +12,17 @@ const SHOTS = process.env.RENTALS_SHOTS || "";
 
 async function abrirCentral(page) {
   await page.clock.setFixedTime(new Date("2026-09-15T12:00:00-03:00"));
-  const state = { usuarios:[PROFILE], attendance:{}, attendanceLocks:{}, unlockRequests:[], dailyCheckDate:"", changeLog:[], config:{ paymentHolidays:[] }, ...buildBillingData() };
+  let state = { usuarios:[PROFILE], attendance:{}, attendanceLocks:{}, unlockRequests:[], dailyCheckDate:"", changeLog:[], config:{ paymentHolidays:[] }, ...buildBillingData() };
   await page.route("**/api/**", route => route.fulfill({ json:{ ok:true, status:200, presencas:[], reply:"" } }));
   await page.route("**/api/data", async route => {
     const body = route.request().postDataJSON?.() || {};
     if (body.action === "profiles") return route.fulfill({ json:{ usuarios:[PROFILE], precisaSetup:false } });
     if (body.action === "auth-refresh") return route.fulfill({ json:{ accessToken:"qa-access", refreshToken:"qa-refresh" } });
+    if (body.action === "operational-command") {
+      const result = applyOperationalCommand(state, body.command, "2026-09-15T12:00:00.000Z");
+      if (result.ok) state = result.data;
+      return route.fulfill({ json:{ ...result, updatedAt:"2026-09-15T12:00:00.000Z" } });
+    }
     return route.fulfill({ json:{ ok:true, accessToken:"qa-access", refreshToken:"qa-refresh", usuario:PROFILE, data:state, updatedAt:"2026-09-01T00:00:00.000Z" } });
   });
   await page.goto("/");
@@ -34,6 +40,39 @@ async function abrirCentral(page) {
 }
 
 const term = (page, label) => page.locator(".bc-term").filter({ has:page.locator("dt", { hasText:new RegExp(`^${label}`) }) }).first();
+
+test("cobrança ao cliente: edição salva, PDF atualizado da obra e total alinhado", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await abrirCentral(page);
+  await expect(page.getByRole("button", { name:"PDF de cobrança ao cliente", exact:true })).toBeDisabled();
+  await page.getByLabel("Obra", { exact:true }).selectOption("ob-a");
+  await page.getByRole("tab", { name:"Por obra" }).click();
+  await page.getByRole("button", { name:"Abrir memória da obra Terras Alpha" }).click();
+  const row = page.locator(".bc-memory tbody tr").filter({ hasText:"Andaime tubular" });
+  await row.getByRole("button", { name:"Editar", exact:true }).click();
+  const modal = page.getByRole("dialog");
+  await modal.getByLabel("Quantidade para esta obra *", { exact:true }).fill("1");
+  await modal.getByRole("button", { name:"Salvar locação", exact:true }).click();
+  await expect(modal).not.toBeVisible();
+  await expect(page.locator(".bc-memory .bc-term").filter({ has:page.locator("dt", { hasText:/^Receita líquida/ }) })).toContainText("R$ 1.850,00");
+  await page.getByRole("tab", { name:"Visão geral" }).click();
+  const opened = page.waitForEvent("popup");
+  await page.getByRole("button", { name:"PDF de cobrança ao cliente", exact:true }).click();
+  const report = await opened;
+  await expect(report.locator("body")).toContainText("Relatório de cobrança de equipamentos");
+  await expect(report.locator("body")).toContainText("Terras Alpha");
+  await expect(report.locator("body")).not.toContainText("Oásis Home Park");
+  await expect(report.locator(".kpis")).toContainText("R$ 1.850,00");
+  await expect(report.locator("thead")).not.toContainText(/Repasse|Margem|Resultado/);
+  await expect(report.locator("tfoot td")).toHaveCount(12);
+  await expect(report.locator("tfoot td").last()).toContainText("R$ 1.850,00");
+  const pdf = await report.pdf({ path:test.info().outputPath("cobranca-cliente.pdf"), preferCSSPageSize:true, printBackground:true });
+  expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+  await report.screenshot({ path:test.info().outputPath("cobranca-cliente.png"), fullPage:true });
+  await report.close();
+  expect(errors).toEqual([]);
+});
 
 test("central de cobranças: competência, filtros, pendência, memória, PDF e exportação", async ({ page }) => {
   const pageErrors = [];
