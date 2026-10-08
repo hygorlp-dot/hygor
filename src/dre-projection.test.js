@@ -73,10 +73,10 @@ describe("projeção canônica do DRE", () => {
     expect(statement).toMatchObject({
       faturamentoObras:1000,receitaLocacoes:180,faturamentoTotal:1180,
       descontoLocacoes:10,totalDeducoes:10,receitaLiquida:1170,
-      repasseEquipamentosTerceiros:50,manutencaoLocacoes:0,custoLocacoes:50,
+      repasseEquipamentosTerceiros:80,manutencaoLocacoes:0,custoLocacoes:80,
     });
     // A tarifa de custo do equipamento próprio não vira repasse.
-    expect(statement.repasseEquipamentosTerceiros).toBe(50);
+    expect(statement.repasseEquipamentosTerceiros).toBe(80);
     expect(statement.custoLocacoes).toBeGreaterThanOrEqual(0);
     expect(statement.receitaLiquida-statement.totalCSP-statement.totalDespOp).toBe(statement.ebitda);
   });

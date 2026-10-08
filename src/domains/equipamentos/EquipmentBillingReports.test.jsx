@@ -192,15 +192,33 @@ describe("próprios x terceiros, comparação e gráficos", () => {
     expect(rows.at(-1)).toContain("R$ 6.100,00");
   });
 
-  it("resultado por obra: do maior para o menor, negativo com sinal e texto", () => {
+  it("resultado por obra: do maior para o menor, repasse igual à locação deixa terceiros neutros", () => {
     const { container } = render();
     const bars = [...container.querySelectorAll(".bc-bars li")].map(item => norm(item.textContent));
     expect(bars[0]).toContain("Oásis Home Park");
-    expect(bars.at(-1)).toContain("−R$ 500,00 (negativo)");
+    expect(bars.at(-1)).toContain("R$ 0,00");
+    expect(bars.at(-1)).not.toContain("(negativo)");
   });
 });
 
 describe("visão por obra e memória", () => {
+  it("oferece PDF de cobrança ao cliente diretamente para a obra filtrada", () => {
+    const { container, onPrintWork, onPrintManagement } = render();
+    const pdf = byText(container, "button", "PDF de cobrança ao cliente");
+    expect(pdf).toBeTruthy();
+    expect(pdf.disabled).toBe(true);
+    choose(container, "Obra", "ob-a");
+    expect(pdf.disabled).toBe(false);
+    click(pdf);
+    expect(onPrintWork).toHaveBeenCalledWith(expect.objectContaining({ id: "ob-a", name: "Terras Alpha" }));
+    expect(onPrintManagement).not.toHaveBeenCalled();
+    choose(container, "Obra", "ob-b");
+    click(pdf);
+    expect(onPrintWork).toHaveBeenLastCalledWith(expect.objectContaining({ id: "ob-b" }));
+    click(byText(container, "button", "Limpar filtros"));
+    expect(pdf.disabled).toBe(true);
+  });
+
   it("ranking ordenável com aria-sort; a linha abre a memória e volta", () => {
     const { container } = render();
     click(view(container, "Por obra"));

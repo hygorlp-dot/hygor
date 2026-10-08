@@ -96,6 +96,7 @@ export default function EquipmentBillingReports({
   const { finance, operation, billing, split, previous } = model;
   const works = sortWorks(model.works, workSort);
   const memory = workId ? buildWorkMemory(model, workId) : null;
+  const clientWork = memory?.work.obra || (data.obras || []).find(obra => String(obra.id) === String(filters.obraId));
   const trendPoints = model.trend.filter(point => !point.semDados).map(point => ({ ...point, short: `${point.label.slice(0, 3)}/${point.ym.slice(2, 4)}` }));
   const bars = workResultBars(model);
   const ownershipModel = ownershipAnalysis ? buildOwnershipAnalysis(model, ownershipAnalysis.ownership) : null;
@@ -112,6 +113,9 @@ export default function EquipmentBillingReports({
         <p className="bc-lead">Fechamento, cobrança, custos e resultado das locações por obra.</p>
       </div>
       <div className="bc-header__actions">
+        <Button variant="primary" size="sm" disabled={!clientWork || !model.hasMonthData}
+          title={clientWork ? `Cobrança de ${clientWork.name} · ${model.label}` : "Selecione uma obra para gerar a cobrança ao cliente"}
+          onClick={() => onPrintWork(clientWork)}>PDF de cobrança ao cliente</Button>
         <Button variant="secondary" size="sm" onClick={onExportManagement}>Exportar dados</Button>
         <Button variant="secondary" size="sm" onClick={onPrintManagement}>Relatório gerencial PDF</Button>
       </div>
