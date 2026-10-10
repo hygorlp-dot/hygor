@@ -1,5 +1,5 @@
 {
-  "comentario": "Exceções formais do portão de auditoria (scripts/auditoria-dependencias.mjs). Só advisory high/critical SEM versão corrigida publicada. Cada uma se revoga sozinha quando sai a correção, quando a severidade muda, quando passa revisarAte ou quando o pacote passa a atingir algo fora de atingidosPermitidos (os pacotes que o npm marca como dependentes, direta ou indiretamente; em apps/ponto-obra o npm marca expo/react-native porque dependem do Metro e da CLI de build - o pacote vulnerável em si não entra no bundle Hermes). Não é correção: é risco residual aceito e documentado (docs/PONTO-OBRA-FASE-01-ESTABILIZACAO.md, seção 7).",
+  "comentario": "Exceções formais do portão de auditoria (scripts/auditoria-dependencias.mjs). Só advisory high/critical SEM versão corrigida publicada. Cada uma se revoga sozinha quando sai a correção, quando a severidade muda, quando passa revisarAte quando o pacote passa a atingir algo fora de atingidosPermitidos, quando algo da cadeia vira dependência direta fora de diretosPermitidos, ou (somenteDesenvolvimento) quando algo da cadeia deixa de ser dev no lockfile (os pacotes que o npm marca como dependentes, direta ou indiretamente; em apps/ponto-obra o npm marca expo/react-native porque dependem do Metro e da CLI de build - o pacote vulnerável em si não entra no bundle Hermes). Não é correção: é risco residual aceito e documentado (docs/PONTO-OBRA-FASE-01-ESTABILIZACAO.md, seção 7).",
   "excecoes": [
     {
       "ghsa": "GHSA-vfj7-8cjw-p6xm",
@@ -38,6 +38,18 @@
           "react-native"
         ]
       },
+      "diretosPermitidos": {
+        ".": [
+          "tailwindcss"
+        ],
+        "apps/ponto-obra": [
+          "expo",
+          "react-native"
+        ]
+      },
+      "somenteDesenvolvimento": {
+        ".": true
+      },
       "exposicao": "Só ferramenta de build/desenvolvimento (Tailwind no PostCSS do Vite; Metro do Expo). Não entra no bundle web, nas funções da Vercel nem no bundle Android. Nenhum código do projeto importa braces/micromatch/fast-glob/chokidar.",
       "exploracao": "Exige padrão glob profundamente aninhado controlado pelo atacante. Os padrões vêm da configuração do próprio repositório (tailwind.config, metro). Efeito máximo: derrubar o processo de build (negação de serviço local), sem acesso a dados.",
       "justificativa": "Advisory com first_patched_version = null: braces 3.0.3 é a última versão publicada e está na faixa vulnerável. Única saída hoje seria migrar para Tailwind 4 (major, fora do escopo da estabilização) ou trocar o Metro do Expo SDK 57.",
@@ -62,6 +74,11 @@
         "apps/ponto-obra": [
           "@expo/cli",
           "@expo/code-signing-certificates",
+          "expo"
+        ]
+      },
+      "diretosPermitidos": {
+        "apps/ponto-obra": [
           "expo"
         ]
       },

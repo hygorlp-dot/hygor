@@ -40,7 +40,7 @@ export function montarDiagnostico({ app = {}, aparelho = {}, sessao = null, cont
     ["Sequência local (último registro)", fiscal.ultimaSequenciaLocal ?? "-"],
     ["Último NSR recebido da ARP", fiscal.ultimoNsr ?? "-"],
     ["Cadeia local", sinc?.cadeiaDivergente ? "DIVERGENTE do servidor - chame o suporte" : "ok"],
-    ["Registro fiscal", sinc?.fiscalDivergente ? "ARP respondeu NSR diferente do guardado - chame o suporte" : "ok"],
+    ["Registro fiscal", sinc?.fiscalDivergente ? "ARP respondeu NSR/hash diferente do guardado - chame o suporte" : "ok"],
     ["Batidas a enviar", String(contagem.pendentes ?? 0)],
     ["Fotos a enviar", String(contagem.fotos ?? 0)],
     ["Fotos com problema", String(contagem.fotosComProblema ?? 0)],

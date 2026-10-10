@@ -236,6 +236,8 @@ describe("fila de eventos e cadeia local", () => {
     };
     expect(await enviarPendentes({ armazem: a.armazem, api: apiAtrasada })).toMatchObject({ enviadas: 0, status: "fiscal_divergente", fiscalDivergente: true });
     expect((await a.armazem.registroFiscal(b.eventId)).nsr).toBe(7);
+    // A evidência fica guardada no aparelho (primeira divergência), sem dado pessoal.
+    expect(await a.armazem.lerEstado("divergencia_fiscal")).toMatchObject({ eventId: b.eventId, guardado: { nsr: 7 }, recebido: { nsr: 8, status: "registrado" } });
     // Mesma resposta da ARP (idempotente) numa rodada concorrente: sem erro.
     const c = await a.bater();
     const apiIgual = async () => {

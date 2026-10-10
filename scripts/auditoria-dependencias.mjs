@@ -48,8 +48,15 @@ for (const pacote of new Set(excecoes.filter(e => (e.escopos || []).includes(esc
   if (Array.isArray(v)) versoesPublicadas[pacote] = v;
 }
 
+// Pacotes só de desenvolvimento segundo o lockfile do escopo.
+const pacotesDev = new Set();
+try {
+  const lock = JSON.parse(readFileSync(path.join(pasta, "package-lock.json"), "utf8"));
+  for (const [caminho, p] of Object.entries(lock.packages || {})) if (p?.dev === true) pacotesDev.add(caminho.split("node_modules/").pop());
+} catch { /* sem lockfile: nada conta como dev e exceção "só desenvolvimento" bloqueia */ }
+
 const hoje = new Date().toISOString().slice(0, 10);
-const r = avaliarAuditoria({ relatorio, excecoes, escopo, hoje, versoesPublicadas });
+const r = avaliarAuditoria({ relatorio, excecoes, escopo, hoje, versoesPublicadas, pacotesDev });
 
 console.log(`Auditoria de dependências - escopo "${escopo}" - ${hoje}`);
 console.log(`Totais do npm audit: ${JSON.stringify(relatorio?.metadata?.vulnerabilities || {})}`);

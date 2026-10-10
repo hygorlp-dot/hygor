@@ -98,6 +98,16 @@ export async function enviarPendentes({ armazem, api, lote = LOTE, maxRodadas = 
         // aparelho e a rodada para, para o problema aparecer.
         const guardado = await armazem.registroFiscal(e.eventId);
         if (guardado && (Number(guardado.nsr ?? -1) !== Number(resultado.nsr ?? -1) || String(guardado.fiscalHash ?? "") !== String(resultado.fiscalHash ?? ""))) {
+          // Evidência para o suporte: a PRIMEIRA divergência fica guardada no
+          // banco do aparelho (não some na próxima rodada). Só NSR, hash e
+          // ids - nada pessoal.
+          if (!(await armazem.lerEstado("divergencia_fiscal"))) {
+            await armazem.gravarEstado("divergencia_fiscal", {
+              eventId: e.eventId, localSequence: e.localSequence, em: new Date().toISOString(),
+              guardado: { nsr: guardado.nsr ?? null, fiscalHash: guardado.fiscalHash ?? null },
+              recebido: { nsr: resultado.nsr ?? null, fiscalHash: resultado.fiscalHash ?? null, status: resultado.status },
+            });
+          }
           enviadas += nesta;
           return {
             enviadas, pendentes: pendentes.length - nesta, status: "fiscal_divergente", fiscalDivergente: true,

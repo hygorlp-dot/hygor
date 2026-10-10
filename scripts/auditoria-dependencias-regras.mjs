@@ -134,8 +134,13 @@ export function atingidosPor(relatorio, pacote) {
   return [...vistos].sort();
 }
 
+export const PRAZO_MAXIMO_DIAS = 45;
+const diasEntre = (de, ate) => Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86_400_000);
+
 // versoesPublicadas: { [pacote]: ["x.y.z", ...] } (npm view <pacote> versions).
-export function avaliarAuditoria({ relatorio, excecoes, escopo, hoje, versoesPublicadas = {} }) {
+// pacotesDev: nomes que o lockfile do escopo marca como só de desenvolvimento
+// (packages["node_modules/<nome>"].dev === true).
+export function avaliarAuditoria({ relatorio, excecoes, escopo, hoje, versoesPublicadas = {}, pacotesDev = new Set() }) {
   const falhas = [];
   const excecoesAplicadas = [];
   if (!relatorio || relatorio.error || !relatorio.vulnerabilities) {
@@ -161,15 +166,30 @@ export function avaliarAuditoria({ relatorio, excecoes, escopo, hoje, versoesPub
     usadas.add(ex);
     if (ex.severidade !== a.severidade) { falhas.push(`${rotulo}: a severidade mudou (exceção registrada como ${ex.severidade}) - revisar a exceção`); continue; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(ex.revisarAte || "") || ex.revisarAte < hoje) { falhas.push(`${rotulo}: exceção vencida ou sem data de revisão (revisarAte=${ex.revisarAte || "-"})`); continue; }
+    if (diasEntre(hoje, ex.revisarAte) > PRAZO_MAXIMO_DIAS) { falhas.push(`${rotulo}: revisarAte=${ex.revisarAte} passa de ${PRAZO_MAXIMO_DIAS} dias a partir de hoje - encurtar o prazo`); continue; }
     // A exceção vale só para os caminhos analisados: se o pacote passar a
     // atingir outro (ex.: dependência de produção nova), revisar a exposição.
     const permitidos = new Set(ex.atingidosPermitidos?.[escopo] || []);
     const novos = atingidosPor(relatorio, a.pacote).filter(n => !permitidos.has(n));
     if (novos.length) { falhas.push(`${rotulo}: passou a atingir ${novos.join(", ")}, fora dos caminhos registrados na exceção - revisar a exposição`); continue; }
+    // `effects` não inclui o próprio projeto: dependência DIRETA nova (ex.:
+    // micromatch em dependencies) só aparece pelo isDirect do relatório.
+    const cadeia = [a.pacote, ...atingidosPor(relatorio, a.pacote)];
+    const diretosOk = new Set(ex.diretosPermitidos?.[escopo] || []);
+    const diretosNovos = cadeia.filter(n => relatorio.vulnerabilities[n]?.isDirect && !diretosOk.has(n));
+    if (diretosNovos.length) { falhas.push(`${rotulo}: ${diretosNovos.join(", ")} passou a ser dependência direta do projeto - revisar a exposição`); continue; }
+    // Exceção aceita só como ferramenta de desenvolvimento: tudo na cadeia
+    // tem de continuar dev no lockfile (mover para produção bloqueia).
+    if (ex.somenteDesenvolvimento?.[escopo]) {
+      const emProducao = cadeia.filter(n => !pacotesDev.has(n));
+      if (emProducao.length) { falhas.push(`${rotulo}: ${emProducao.join(", ")} não é mais só de desenvolvimento no lockfile - revisar a exposição`); continue; }
+    }
     const corrigida = versaoCorrigidaPublicada(versoesPublicadas[a.pacote], a.faixa);
     if (corrigida) { falhas.push(`${rotulo}: já existe versão corrigida (${a.pacote}@${corrigida}) - atualizar e remover a exceção`); continue; }
     if (corrigida === null) { falhas.push(`${rotulo}: não foi possível confirmar que segue sem correção (versões publicadas indisponíveis ou faixa "${a.faixa}" fora do formato)`); continue; }
-    excecoesAplicadas.push({ ...a, revisarAte: ex.revisarAte, ultimaVulneravel: (versoesPublicadas[a.pacote] || []).filter(v => versaoNaFaixa(v, a.faixa) && !parteNumerica(v)?.pre).pop() });
+    const vulneraveis = (versoesPublicadas[a.pacote] || []).filter(v => versaoNaFaixa(v, a.faixa) && !parteNumerica(v)?.pre);
+    const ultimaVulneravel = vulneraveis.reduce((maior, v) => (!maior || comparar(parteNumerica(v), parteNumerica(maior)) > 0 ? v : maior), null);
+    excecoesAplicadas.push({ ...a, revisarAte: ex.revisarAte, ultimaVulneravel });
   }
   const excecoesSemUso = daqui.filter(e => !usadas.has(e)).map(e => `${e.pacote} ${e.ghsa}`);
   return { advisories, falhas, excecoesAplicadas, excecoesSemUso };

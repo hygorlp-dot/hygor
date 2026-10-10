@@ -12,14 +12,14 @@ const relatorio = vias => ({
     ...Object.fromEntries(vias.map(v => [v.name, { name: v.name, severity: v.severity, via: [v], effects: v.name === "braces" ? ["micromatch"] : [] }])),
     ...(vias.some(v => v.name === "braces") ? {
       micromatch: { name: "micromatch", severity: "high", via: ["braces"], effects: ["tailwindcss"] },
-      tailwindcss: { name: "tailwindcss", severity: "high", via: ["micromatch"], effects: [] },
+      tailwindcss: { name: "tailwindcss", severity: "high", via: ["micromatch"], effects: [], isDirect: true },
     } : {}),
   },
   metadata: { vulnerabilities: {} },
 });
 const braces = advisory("braces", "GHSA-vfj7-8cjw-p6xm", "high", "<=3.0.3");
-const excecaoBraces = { ghsa: "GHSA-vfj7-8cjw-p6xm", pacote: "braces", severidade: "high", escopos: ["."], revisarAte: "2026-11-09", atingidosPermitidos: { ".": ["micromatch", "tailwindcss"] } };
-const base = { escopo: ".", hoje: "2026-10-10", versoesPublicadas: { braces: ["2.3.2", "3.0.2", "3.0.3"] } };
+const excecaoBraces = { ghsa: "GHSA-vfj7-8cjw-p6xm", pacote: "braces", severidade: "high", escopos: ["."], revisarAte: "2026-11-09", atingidosPermitidos: { ".": ["micromatch", "tailwindcss"] }, diretosPermitidos: { ".": ["tailwindcss"] }, somenteDesenvolvimento: { ".": true } };
+const base = { escopo: ".", hoje: "2026-10-10", versoesPublicadas: { braces: ["3.0.3", "2.3.2", "3.0.2"] }, pacotesDev: new Set(["braces", "micromatch", "tailwindcss"]) };
 
 describe("versaoNaFaixa (faixas do npm audit)", () => {
   it("compara comparadores simples, compostos e alternativas", () => {
@@ -125,6 +125,26 @@ describe("exposição e advisory sem explicação", () => {
     expect(versaoCorrigidaPublicada(["1.0.0", "1.4.0", "1.4.1"], "<=1.4.0")).toBe("1.4.1");
     expect(versaoCorrigidaPublicada([], "<=1.4.0")).toBe(null);
     expect(versaoCorrigidaPublicada(["1.0.0"], "^1.0.0")).toBe(null);
+  });
+});
+
+describe("dependência direta, produção e prazo (segunda rodada de revisão)", () => {
+  it("pacote da cadeia virando dependência direta do projeto bloqueia", () => {
+    const rel = relatorio([braces]);
+    rel.vulnerabilities.micromatch.isDirect = true;   // alguém pôs micromatch em dependencies
+    expect(avaliarAuditoria({ ...base, relatorio: rel, excecoes: [excecaoBraces] }).falhas[0]).toContain("micromatch passou a ser dependência direta");
+  });
+  it("exceção 'só desenvolvimento': cadeia indo para produção no lockfile bloqueia", () => {
+    const r = avaliarAuditoria({ ...base, pacotesDev: new Set(["braces", "micromatch"]), relatorio: relatorio([braces]), excecoes: [excecaoBraces] });
+    expect(r.falhas[0]).toContain("tailwindcss não é mais só de desenvolvimento");
+  });
+  it("prazo de revisão acima de 45 dias a partir de hoje bloqueia no próprio portão", () => {
+    const longe = { ...excecaoBraces, revisarAte: "2026-11-25", registradaEm: "2026-11-01" };
+    expect(avaliarAuditoria({ ...base, relatorio: relatorio([braces]), excecoes: [longe] }).falhas[0]).toContain("passa de 45 dias");
+    expect(avaliarAuditoria({ ...base, relatorio: relatorio([braces]), excecoes: [{ ...excecaoBraces, revisarAte: "2026-11-24" }] }).falhas).toEqual([]);
+  });
+  it("última versão vulnerável é a maior, não a última da lista", () => {
+    expect(avaliarAuditoria({ ...base, relatorio: relatorio([braces]), excecoes: [excecaoBraces] }).excecoesAplicadas[0].ultimaVulneravel).toBe("3.0.3");
   });
 });
 

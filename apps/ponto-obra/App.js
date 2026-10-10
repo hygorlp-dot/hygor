@@ -72,7 +72,9 @@ export default function App() {
       const ok = !r.erro;
       await armazem.gravarEstado("ultima_sincronizacao", {
         em: Date.now(), ok, erro: ok ? null : String(r.erro).slice(0, 120), ultimoOkEm: ok ? Date.now() : anterior?.ultimoOkEm ?? null,
-        aguardandoEstabelecimento: !!r.aguardandoEstabelecimento, cadeiaDivergente: !!r.cadeiaDivergente, fiscalDivergente: !!r.fiscalDivergente,
+        aguardandoEstabelecimento: !!r.aguardandoEstabelecimento, cadeiaDivergente: !!r.cadeiaDivergente,
+        // Persistente: a divergência fiscal não some numa rodada seguinte (evidência em "divergencia_fiscal").
+        fiscalDivergente: !!r.fiscalDivergente || !!anterior?.fiscalDivergente,
       });
       const aviso = r.aguardandoEstabelecimento
         ? "A obra deste aparelho ainda não está ligada a um estabelecimento no ARCD. As batidas ficam guardadas aqui e são enviadas quando o vínculo for feito."
