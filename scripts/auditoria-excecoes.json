@@ -1,0 +1,42 @@
+{
+  "comentario": "Exceções formais do portão de auditoria (scripts/auditoria-dependencias.mjs). Só advisory high/critical SEM versão corrigida publicada. Cada uma se revoga sozinha quando sai a correção, quando a severidade muda ou quando passa revisarAte. Não é correção: é risco residual aceito e documentado (docs/PONTO-OBRA-FASE-01-ESTABILIZACAO.md, seção 7).",
+  "excecoes": [
+    {
+      "ghsa": "GHSA-vfj7-8cjw-p6xm",
+      "cve": "CVE-2026-93687",
+      "pacote": "braces",
+      "severidade": "high",
+      "escopos": [".", "apps/ponto-obra"],
+      "registradaEm": "2026-10-10",
+      "revisarAte": "2026-11-09",
+      "caminho": {
+        ".": "tailwindcss@3.4.19 (dev) -> chokidar@3.6.0 / fast-glob@3.3.3 / micromatch@4.0.8 -> braces@3.0.3",
+        "apps/ponto-obra": "expo@57.0.27 -> @expo/metro -> metro-file-map@0.84.5 -> micromatch@4.0.8 -> braces@3.0.3"
+      },
+      "exposicao": "Só ferramenta de build/desenvolvimento (Tailwind no PostCSS do Vite; Metro do Expo). Não entra no bundle web, nas funções da Vercel nem no bundle Android. Nenhum código do projeto importa braces/micromatch/fast-glob/chokidar.",
+      "exploracao": "Exige padrão glob profundamente aninhado controlado pelo atacante. Os padrões vêm da configuração do próprio repositório (tailwind.config, metro). Efeito máximo: derrubar o processo de build (negação de serviço local), sem acesso a dados.",
+      "justificativa": "Advisory com first_patched_version = null: braces 3.0.3 é a última versão publicada e está na faixa vulnerável. Única saída hoje seria migrar para Tailwind 4 (major, fora do escopo da estabilização) ou trocar o Metro do Expo SDK 57.",
+      "mitigacao": "Build só roda em CI/EAS com código revisado; nenhum glob vem de entrada externa.",
+      "riscoResidual": "Baixo: DoS do processo de build com padrão malicioso introduzido no próprio repositório.",
+      "condicaoDeSaida": "Publicação de braces corrigido (o portão falha sozinho e pede a atualização) ou migração planejada para Tailwind 4 / SDK do Expo que não dependa de micromatch@4."
+    },
+    {
+      "ghsa": "GHSA-86w9-cpqp-85rv",
+      "cve": "CVE-2026-85393",
+      "pacote": "node-forge",
+      "severidade": "high",
+      "escopos": ["apps/ponto-obra"],
+      "registradaEm": "2026-10-10",
+      "revisarAte": "2026-11-09",
+      "caminho": {
+        "apps/ponto-obra": "expo@57.0.27 -> @expo/cli@57.0.28 -> @expo/code-signing-certificates@0.0.6 -> node-forge@1.4.0"
+      },
+      "exposicao": "Só a CLI do Expo, na máquina de build. Usado para assinatura/verificação de manifestos de atualização OTA (code signing do expo-updates). O app não usa expo-updates nem EAS Update e o node-forge não entra no bundle Android.",
+      "exploracao": "Forjar assinatura RSA PKCS#1 v1.5 com chave de expoente baixo durante a verificação de um manifesto assinado. Não há verificação de manifesto assinado no fluxo deste projeto.",
+      "justificativa": "Advisory com first_patched_version = null: node-forge 1.4.0 é a última versão publicada e está na faixa vulnerável. Dependência fixada pela CLI do Expo SDK 57.",
+      "mitigacao": "Não adotar EAS Update/expo-updates com code signing enquanto a exceção existir. APK distribuído só por build EAS do perfil piloto/produção.",
+      "riscoResidual": "Baixo enquanto o app não usar atualização OTA assinada.",
+      "condicaoDeSaida": "Publicação de node-forge corrigido ou de @expo/cli sem node-forge vulnerável (o portão falha sozinho e pede a atualização)."
+    }
+  ]
+}

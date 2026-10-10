@@ -48,7 +48,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["src/test-setup.js"],
-    include: ["src/**/*.test.{js,jsx}", "server/**/*.test.{js,jsx}", "api/**/*.test.{js,jsx}", "apps/ponto-obra/src/**/*.test.js"],
+    include: ["src/**/*.test.{js,jsx}", "server/**/*.test.{js,jsx}", "api/**/*.test.{js,jsx}", "apps/ponto-obra/src/**/*.test.js", "scripts/**/*.test.js"],
     exclude: ["node_modules/**", ".agents/**", ".claude/**", ".claude-flow/**"],
     coverage: {
       provider: "v8",

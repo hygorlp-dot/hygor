@@ -30,8 +30,11 @@ jobs:
         run: npm run build-storybook
       - name: Métricas de bundle
         run: npm run quality:bundle
+      # Todo advisory high/critical bloqueia. A única exceção é advisory SEM versão
+      # corrigida publicada, registrado em scripts/auditoria-excecoes.json com prazo;
+      # a exceção se revoga sozinha quando sai a correção (docs/PONTO-OBRA-FASE-01-ESTABILIZACAO.md).
       - name: Auditoria de vulnerabilidades
-        run: npm audit --audit-level=high
+        run: npm run audit:deps
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -52,7 +55,7 @@ jobs:
       - run: npm ci
       - name: Contratos das migrations e integração financeira
         run: npm test -- src/integration/financial-transaction-migration.test.js src/integration/auth-rate-limit-migration.test.js src/integration/audit-migration.test.js server/financial-shadow.test.js server/reconciliation-command.test.js
-      - name: Contratos das migrations do Ponto de Obra (016 legado + 017 ARP/NSR por estabelecimento)
+      - name: Contratos das migrations do Ponto de Obra (016 legado + 017 ARP/NSR por estabelecimento + 018 apropriação)
         run: npx vitest run server/ponto-eletronico-migration.pglite.test.js server/ponto-eletronico/arp/arp-migration.pglite.test.js server/ponto-eletronico/arp/handler-arp.pglite.test.js
       - name: Sintaxe da fronteira de API
         run: node --check api/data.js
@@ -91,6 +94,9 @@ jobs:
       - name: Testes do Ponto de Obra (app, regras compartilhadas e servidor)
         working-directory: .
         run: npx vitest run apps/ponto-obra src/domains/ponto-eletronico server/ponto-eletronico
+      - name: Auditoria de vulnerabilidades do app (mesmo portão da raiz)
+        working-directory: .
+        run: npm run audit:deps -- apps/ponto-obra
 
   # REP-P: atribuição de NSR com conexões REALMENTE simultâneas num Postgres
   # de verdade (o PGlite dos outros testes tem uma conexão só).
