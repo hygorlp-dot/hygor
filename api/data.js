@@ -75,7 +75,7 @@ import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft
 import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
 import { applyPersistentAuthRateLimit, hashAppPin, verifyAppPin } from "../server/app-auth-security.js";
 import { buildClientPortalPublicationRows } from "../server/client-portal-publication.js";
-import { sanitizeClientError } from "../server/client-error-report.js";
+import { sanitizeClientError, sanitizeServerError } from "../server/client-error-report.js";
 import { authenticateAppUser } from "./auth.js";
 import { criarTratadorPonto, ehAcaoPonto } from "../server/ponto-eletronico/handler.js";
 import { enviarUdpComDgram, verificarHora } from "../server/ponto-eletronico/tempo/ntp.js";
@@ -2962,7 +2962,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Ação desconhecida." });
   } catch (err) {
     const correlationId=crypto.randomUUID();
-    console.error(`Falha em /api/data [${correlationId}]:`, err);
+    console.error(`Falha em /api/data [${correlationId}]:`, sanitizeServerError(err));
     if(err?.code==="ATTENDANCE_ARCHIVE_MIGRATION_REQUIRED"){
       return res.status(503).json({
         error:"O arquivamento seguro ainda não está instalado no banco. Execute migrations/006_attendance_archive_transaction.up.sql.",
