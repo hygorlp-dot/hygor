@@ -7,7 +7,7 @@
 // mais: os testes dele viraram testes de que NADA é renumerado.
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { registrarBatida } from "./terminal.js";
+import { AVISO_CAMERA_FALHOU, AVISO_FOTO_NAO_GUARDADA, fotoSemBloquear, registrarBatida } from "./terminal.js";
 import {
   GPS_IDADE_MAXIMA_MS, enviarFotos, enviarPendentes, gpsRecente, montarCorpoSincronizacao,
   rodadaDeSincronizacao, sincronizarCadastro,
@@ -19,7 +19,7 @@ import { FotoForaDoLimite, fotoDentroDoLimite } from "./foto.js";
 import { FOTO } from "./armazem-memoria.js";
 import { LIMITE_FOTO_BYTES } from "../../../../src/domains/ponto-eletronico/foto.js";
 import { JPEG, criarCenario, sha256 } from "./cenario.test-helper.js";
-import { IDADE_MAXIMA_REFERENCIA_MS } from "../../../../src/domains/ponto-eletronico/relogio.js";
+import { IDADE_MAXIMA_REFERENCIA_MS, estadoDaReferencia, horaDaMarcacao, novaReferencia } from "../../../../src/domains/ponto-eletronico/relogio.js";
 
 vi.setConfig({ testTimeout: 60000, hookTimeout: 60000 });
 
@@ -209,6 +209,61 @@ describe("fila de eventos e cadeia local", () => {
     const apiTorta = async () => ({ ok: true, status: 200, resultados: [{ eventId: b.eventId, status: "registrado", nsr: 0, fiscalHash: "x" }] });
     expect((await enviarPendentes({ armazem: a.armazem, api: apiTorta })).enviadas).toBe(0);
   });
+
+  it("confirmação é pelo eventId, não pela posição: resposta fora de ordem e com evento alheio", async () => {
+    await sincronizar();
+    const b1 = await a.bater(), b2 = await a.bater();
+    const fiscal = n => ({ status: "registrado", nsr: n, fiscalHash: String(n).repeat(64).slice(0, 64), estabelecimentoId: "est", gravadoEm: "2026-10-01T10:00:00.000Z" });
+    // Só cita OUTRO evento: nada é confirmado.
+    const apiAlheia = async () => ({ ok: true, status: 200, resultados: [{ eventId: randomUUID(), ...fiscal(9) }] });
+    expect((await enviarPendentes({ armazem: a.armazem, api: apiAlheia })).enviadas).toBe(0);
+    expect((await a.armazem.eventosPendentes(5)).map(e => e.eventId)).toEqual([b1.eventId, b2.eventId]);
+    // Ordem invertida e um resultado alheio no meio: cada um fica com o NSR do SEU eventId.
+    const apiInvertida = async () => ({ ok: true, status: 200, resultados: [{ eventId: b2.eventId, ...fiscal(2) }, { eventId: randomUUID(), ...fiscal(9) }, { eventId: b1.eventId, ...fiscal(1) }] });
+    expect(await enviarPendentes({ armazem: a.armazem, api: apiInvertida })).toMatchObject({ enviadas: 2, erro: null });
+    expect((await a.armazem.registroFiscal(b1.eventId)).nsr).toBe(1);
+    expect((await a.armazem.registroFiscal(b2.eventId)).nsr).toBe(2);
+  });
+
+  it("ARP respondendo outro NSR para evento já confirmado não troca nada e é sinalizado", async () => {
+    await sincronizar();
+    const b = await a.bater();
+    const fiscal = n => ({ status: "registrado", nsr: n, fiscalHash: String(n).repeat(64).slice(0, 64), estabelecimentoId: "est", gravadoEm: "2026-10-01T10:00:00.000Z" });
+    // Outra rodada confirma o evento enquanto esta espera a resposta (NSR 7) e esta recebe NSR 8.
+    const apiAtrasada = async () => {
+      await a.armazem.confirmarEvento(b.eventId, { nsr: 7, fiscalHash: fiscal(7).fiscalHash, estabelecimentoId: "est", gravadoEm: fiscal(7).gravadoEm });
+      return { ok: true, status: 200, resultados: [{ eventId: b.eventId, ...fiscal(8) }] };
+    };
+    expect(await enviarPendentes({ armazem: a.armazem, api: apiAtrasada })).toMatchObject({ enviadas: 0, status: "fiscal_divergente", fiscalDivergente: true });
+    expect((await a.armazem.registroFiscal(b.eventId)).nsr).toBe(7);
+    // Mesma resposta da ARP (idempotente) numa rodada concorrente: sem erro.
+    const c = await a.bater();
+    const apiIgual = async () => {
+      await a.armazem.confirmarEvento(c.eventId, { nsr: 3, fiscalHash: fiscal(3).fiscalHash, estabelecimentoId: "est", gravadoEm: fiscal(3).gravadoEm });
+      return { ok: true, status: 200, resultados: [{ eventId: c.eventId, ...fiscal(3) }] };
+    };
+    expect(await enviarPendentes({ armazem: a.armazem, api: apiIgual })).toMatchObject({ erro: null });
+  });
+});
+
+describe("hora: reboot durante a sincronização e monotônico que volta", () => {
+  it("reboot entre o envio e a resposta: a referência NÃO é gravada e a batida sai sinalizada", async () => {
+    const leituras = [{ ms: 9_000_000, bootId: "boot-1" }, { ms: 2_000, bootId: "boot-2" }];
+    const monotonico = () => leituras.shift();
+    expect(await sincronizarCadastro({ armazem: a.armazem, api: a.api, monotonico })).toMatchObject({ ok: true });
+    expect(await a.armazem.referenciaHora()).toBeNull();          // cadastro salvo, hora não
+    expect((await a.armazem.cadastro()).funcionarios.length).toBeGreaterThan(0);
+    a.bootId = "boot-2"; a.monotonicoMs = 3_000;
+    expect(await a.bater()).toMatchObject({ horaConfiavel: false, fonteHora: "relogio-do-aparelho" });
+  });
+
+  it("mesmo bootId mas monotônico menor que o da referência (leitura inconsistente): não confia", () => {
+    const referencia = novaReferencia({ servidorMs: Date.parse("2026-10-01T10:00:00Z"), monotonicoEnvioMs: 5_000, monotonicoRespostaMs: 5_100, bootId: "b" });
+    const relogioParedeMs = Date.parse("2026-10-01T12:00:00Z");
+    expect(horaDaMarcacao({ referencia, monotonicoMs: 6_000, bootId: "b", relogioParedeMs })).toMatchObject({ horaConfiavel: true });
+    expect(horaDaMarcacao({ referencia, monotonicoMs: 4_000, bootId: "b", relogioParedeMs })).toMatchObject({ horaConfiavel: false, marcadoEmMs: relogioParedeMs });
+    expect(estadoDaReferencia({ referencia, monotonicoMs: 4_000, bootId: "b" }).estado).toBe("invalida_apos_reinicio");
+  });
 });
 
 describe("hora: reboot e relógio do celular alterado", () => {
@@ -392,5 +447,27 @@ describe("encarregado identifica quando o facial não serve", () => {
       pessoa: { tipo: "funcionario", id: "e2", cpf: "98765432100" }, identificacao: { metodo: "encarregado", encarregadoId: "u-enc" }, gps: undefined,
     });
     expect(b).toMatchObject({ metodo: "encarregado", gps: null, fotoSha256: "", localSequence: 1 });
+  });
+
+  it("câmera ou gravação da foto falhando: a batida é registrada sem foto e com aviso (caminho do App.js)", async () => {
+    const quebra = async () => { throw new Error("ENOSPC: no space left on device"); };
+    const naoChamar = async () => { throw new Error("não deveria preparar foto"); };
+    const casos = [
+      [{ uri: "file:///cache/crua.jpg", width: 1080 }, quebra, AVISO_FOTO_NAO_GUARDADA],
+      [{ falhou: true }, naoChamar, AVISO_CAMERA_FALHOU],
+      [null, naoChamar, ""],
+    ];
+    for (const [i, [foto, preparar, aviso]] of casos.entries()) {
+      const { preparada, avisoFoto } = await fotoSemBloquear(foto, preparar);
+      expect(preparada).toBeNull();
+      expect(avisoFoto).toBe(aviso);
+      const b = await a.bater({ fotoSha256: preparada?.sha256, caminhoFoto: preparada?.uri });
+      expect(b).toMatchObject({ fotoSha256: "", localSequence: i + 1 });
+    }
+    expect(await a.armazem.contagem()).toMatchObject({ pendentes: 3, fotos: 0 });
+    // Foto boa: o hash dos bytes preparados entra na batida e o arquivo vai para a fila.
+    const { preparada } = await fotoSemBloquear({ uri: "file:///cache/crua.jpg", width: 1080 }, async () => ({ uri: "file:///docs/b.jpg", sha256: "d".repeat(64) }));
+    expect(await a.bater({ fotoSha256: preparada.sha256, caminhoFoto: preparada.uri })).toMatchObject({ fotoSha256: "d".repeat(64), localSequence: 4 });
+    expect(await a.armazem.contagem()).toMatchObject({ pendentes: 4, fotos: 1 });
   });
 });

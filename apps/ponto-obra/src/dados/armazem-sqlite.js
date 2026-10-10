@@ -56,8 +56,9 @@ export async function abrirArmazem() {
 }
 
 // Recuperação de banco ilegível (chave perdida): o arquivo antigo é
-// PRESERVADO com outro nome - nunca apagado - e um banco novo começa. O
-// realinhamento com o servidor (sincronizacao.js) continua a sequência do NSR.
+// PRESERVADO com outro nome - nunca apagado - e um banco novo começa. Banco
+// novo = parear de novo (outro aparelho, cadeia local própria): nada é
+// renumerado e o NSR continua sendo só da ARP (docs/REP-P-ARQUITETURA.md).
 // Também usado ao parear o aparelho de novo (outro dispositivo no ARCD).
 export async function arquivarBanco(motivo) {
   const carimbo = new Date().toISOString().replace(/[:.]/g, "-");

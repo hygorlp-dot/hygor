@@ -87,7 +87,7 @@ describe("armazém SQLite do aparelho (SQL real)", () => {
     const { db, armazem } = await abrir();
     const fixo = () => "7d6c3f6e-1a2b-4c3d-8e9f-0a1b2c3d4e5f";
     const a = await bater(armazem, { gerarId: fixo });
-    await expect(bater(armazem, { gerarId: fixo })).rejects.toThrow();
+    await expect(bater(armazem, { gerarId: fixo })).rejects.toThrow(/UNIQUE/);
     const c = await bater(armazem);
     expect([a.localSequence, c.localSequence]).toEqual([1, 2]);
     expect(c.localPreviousHash).toBe(a.localHash);
