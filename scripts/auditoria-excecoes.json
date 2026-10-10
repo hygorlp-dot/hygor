@@ -1,17 +1,42 @@
 {
-  "comentario": "Exceções formais do portão de auditoria (scripts/auditoria-dependencias.mjs). Só advisory high/critical SEM versão corrigida publicada. Cada uma se revoga sozinha quando sai a correção, quando a severidade muda ou quando passa revisarAte. Não é correção: é risco residual aceito e documentado (docs/PONTO-OBRA-FASE-01-ESTABILIZACAO.md, seção 7).",
+  "comentario": "Exceções formais do portão de auditoria (scripts/auditoria-dependencias.mjs). Só advisory high/critical SEM versão corrigida publicada. Cada uma se revoga sozinha quando sai a correção, quando a severidade muda, quando passa revisarAte ou quando o pacote passa a atingir algo fora de atingidosPermitidos (os pacotes que o npm marca como dependentes, direta ou indiretamente; em apps/ponto-obra o npm marca expo/react-native porque dependem do Metro e da CLI de build - o pacote vulnerável em si não entra no bundle Hermes). Não é correção: é risco residual aceito e documentado (docs/PONTO-OBRA-FASE-01-ESTABILIZACAO.md, seção 7).",
   "excecoes": [
     {
       "ghsa": "GHSA-vfj7-8cjw-p6xm",
       "cve": "CVE-2026-93687",
       "pacote": "braces",
       "severidade": "high",
-      "escopos": [".", "apps/ponto-obra"],
+      "escopos": [
+        ".",
+        "apps/ponto-obra"
+      ],
       "registradaEm": "2026-10-10",
       "revisarAte": "2026-11-09",
       "caminho": {
         ".": "tailwindcss@3.4.19 (dev) -> chokidar@3.6.0 / fast-glob@3.3.3 / micromatch@4.0.8 -> braces@3.0.3",
         "apps/ponto-obra": "expo@57.0.27 -> @expo/metro -> metro-file-map@0.84.5 -> micromatch@4.0.8 -> braces@3.0.3"
+      },
+      "atingidosPermitidos": {
+        ".": [
+          "chokidar",
+          "fast-glob",
+          "micromatch",
+          "tailwindcss"
+        ],
+        "apps/ponto-obra": [
+          "@expo/cli",
+          "@expo/metro",
+          "@expo/metro-config",
+          "@react-native/community-cli-plugin",
+          "@react-native/virtualized-lists",
+          "expo",
+          "metro",
+          "metro-config",
+          "metro-file-map",
+          "metro-transform-worker",
+          "micromatch",
+          "react-native"
+        ]
       },
       "exposicao": "Só ferramenta de build/desenvolvimento (Tailwind no PostCSS do Vite; Metro do Expo). Não entra no bundle web, nas funções da Vercel nem no bundle Android. Nenhum código do projeto importa braces/micromatch/fast-glob/chokidar.",
       "exploracao": "Exige padrão glob profundamente aninhado controlado pelo atacante. Os padrões vêm da configuração do próprio repositório (tailwind.config, metro). Efeito máximo: derrubar o processo de build (negação de serviço local), sem acesso a dados.",
@@ -25,11 +50,20 @@
       "cve": "CVE-2026-85393",
       "pacote": "node-forge",
       "severidade": "high",
-      "escopos": ["apps/ponto-obra"],
+      "escopos": [
+        "apps/ponto-obra"
+      ],
       "registradaEm": "2026-10-10",
       "revisarAte": "2026-11-09",
       "caminho": {
-        "apps/ponto-obra": "expo@57.0.27 -> @expo/cli@57.0.28 -> @expo/code-signing-certificates@0.0.6 -> node-forge@1.4.0"
+        "apps/ponto-obra": "expo@57.0.27 -> @expo/cli@57.0.28 -> node-forge@1.4.0 (direta) e @expo/cli -> @expo/code-signing-certificates@0.0.6 -> node-forge@1.4.0"
+      },
+      "atingidosPermitidos": {
+        "apps/ponto-obra": [
+          "@expo/cli",
+          "@expo/code-signing-certificates",
+          "expo"
+        ]
       },
       "exposicao": "Só a CLI do Expo, na máquina de build. Usado para assinatura/verificação de manifestos de atualização OTA (code signing do expo-updates). O app não usa expo-updates nem EAS Update e o node-forge não entra no bundle Android.",
       "exploracao": "Forjar assinatura RSA PKCS#1 v1.5 com chave de expoente baixo durante a verificação de um manifesto assinado. Não há verificação de manifesto assinado no fluxo deste projeto.",

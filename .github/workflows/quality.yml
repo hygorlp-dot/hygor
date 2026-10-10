@@ -78,6 +78,10 @@ jobs:
             apps/ponto-obra/package-lock.json
       - name: Instalação limpa do app
         run: npm ci
+      # Mesmo portão da raiz (só usa módulos do Node; não depende da raiz instalada).
+      - name: Auditoria de vulnerabilidades do app
+        working-directory: .
+        run: npm run audit:deps -- apps/ponto-obra
       - name: expo-doctor (versões do SDK 57, config, autolinking)
         run: npx expo-doctor
       - name: Bundle Android (Metro + código compartilhado + modelos .tflite)
@@ -94,9 +98,6 @@ jobs:
       - name: Testes do Ponto de Obra (app, regras compartilhadas e servidor)
         working-directory: .
         run: npx vitest run apps/ponto-obra src/domains/ponto-eletronico server/ponto-eletronico
-      - name: Auditoria de vulnerabilidades do app (mesmo portão da raiz)
-        working-directory: .
-        run: npm run audit:deps -- apps/ponto-obra
 
   # REP-P: atribuição de NSR com conexões REALMENTE simultâneas num Postgres
   # de verdade (o PGlite dos outros testes tem uma conexão só).

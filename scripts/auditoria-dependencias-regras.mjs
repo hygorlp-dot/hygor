@@ -8,32 +8,46 @@
 //   - o escopo (raiz "." ou "apps/ponto-obra") estiver listado nela;
 //   - a severidade for a mesma registrada (se subir, revisar de novo);
 //   - a data de revisão não tiver passado;
-//   - NÃO houver versão corrigida publicada (a versão mais recente do pacote
-//     no registro ainda cai na faixa vulnerável do advisory).
+//   - o pacote só atingir os pacotes registrados na exceção (atingidosPermitidos):
+//     se uma dependência nova passar a puxá-lo, a exposição precisa ser revista;
+//   - NÃO houver versão corrigida publicada (nenhuma versão estável fora da
+//     faixa vulnerável e mais nova que a maior vulnerável, em qualquer tag).
+// E bloqueia pacote high/critical que nenhum advisory do relatório explique.
 // Ou seja: a exceção se revoga sozinha quando sai a correção.
 
 export const SEVERIDADES_BLOQUEANTES = ["high", "critical"];
+const SEVERIDADES_CONHECIDAS = ["info", "low", "moderate", "high", "critical"];
+// Severidade fora do vocabulário do npm (ou ausente) também bloqueia.
+export function bloqueia(severidade) {
+  const s = String(severidade || "").toLowerCase();
+  return SEVERIDADES_BLOQUEANTES.includes(s) || !SEVERIDADES_CONHECIDAS.includes(s);
+}
 
-// Advisories de verdade (os objetos em `via`), sem repetir. Um pacote que só
-// "depende de" outro vulnerável não é advisory próprio.
+// Advisories de verdade (os objetos em `via`), sem repetir por advisory E
+// pacote: o mesmo GHSA pode atingir mais de um pacote e cada um conta. Um
+// pacote que só "depende de" outro vulnerável não é advisory próprio.
+// Objeto sem url vira "SEM-IDENTIFICACAO", que nenhuma exceção cobre.
 export function advisoriesDoRelatorio(relatorio) {
-  const porUrl = new Map();
-  for (const vuln of Object.values(relatorio?.vulnerabilities || {})) {
+  const porChave = new Map();
+  for (const [nome, vuln] of Object.entries(relatorio?.vulnerabilities || {})) {
     for (const via of vuln.via || []) {
-      if (!via || typeof via !== "object" || !via.url) continue;
-      if (!porUrl.has(via.url)) {
-        porUrl.set(via.url, {
-          ghsa: via.url.split("/").pop(),
-          pacote: via.name,
-          severidade: via.severity,
+      if (!via || typeof via !== "object") continue;
+      const url = via.url || "";
+      const pacote = via.name || nome;
+      const chave = `${url}|${pacote}`;
+      if (!porChave.has(chave)) {
+        porChave.set(chave, {
+          ghsa: url ? url.split("/").pop() : "SEM-IDENTIFICACAO",
+          pacote,
+          severidade: String(via.severity || "").toLowerCase(),
           faixa: via.range,
           titulo: via.title,
-          url: via.url,
+          url,
         });
       }
     }
   }
-  return [...porUrl.values()].sort((a, b) => a.pacote.localeCompare(b.pacote) || a.ghsa.localeCompare(b.ghsa));
+  return [...porChave.values()].sort((a, b) => a.pacote.localeCompare(b.pacote) || a.ghsa.localeCompare(b.ghsa));
 }
 
 const parteNumerica = v => {
@@ -47,7 +61,17 @@ function comparar(a, b) {
   if (a.pre === b.pre) return 0;
   if (!a.pre) return 1;
   if (!b.pre) return -1;
-  return a.pre < b.pre ? -1 : 1;
+  // Identificador a identificador; numéricos como número (beta.9 < beta.10).
+  const pa = a.pre.split("."), pb = b.pre.split(".");
+  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
+    if (pa[i] === undefined) return -1;
+    if (pb[i] === undefined) return 1;
+    const na = /^\d+$/.test(pa[i]), nb = /^\d+$/.test(pb[i]);
+    if (na && nb && Number(pa[i]) !== Number(pb[i])) return Number(pa[i]) < Number(pb[i]) ? -1 : 1;
+    if (na !== nb) return na ? -1 : 1;
+    if (pa[i] !== pb[i]) return pa[i] < pb[i] ? -1 : 1;
+  }
+  return 0;
 }
 
 // Faixa no formato que o npm audit devolve: comparadores separados por espaço
@@ -78,8 +102,40 @@ export function versaoNaFaixa(versao, faixa) {
   return algumaValida ? false : null;
 }
 
-// ultimaVersao: { [pacote]: "x.y.z" } (versão mais recente no registro).
-export function avaliarAuditoria({ relatorio, excecoes, escopo, hoje, ultimaVersao = {} }) {
+// Existe versão publicada (estável) fora da faixa vulnerável e mais nova que
+// a maior versão vulnerável? Olha a lista inteira, não só a tag "latest"
+// (correção publicada em outra tag também revoga a exceção).
+// Devolve a versão corrigida, false (não há) ou null (não dá para saber).
+export function versaoCorrigidaPublicada(versoes, faixa) {
+  const estaveis = (versoes || []).filter(v => { const p = parteNumerica(v); return p && !p.pre; });
+  const vulneraveis = [], fora = [];
+  for (const v of estaveis) {
+    const r = versaoNaFaixa(v, faixa);
+    if (r === null) return null;
+    (r ? vulneraveis : fora).push(v);
+  }
+  if (!vulneraveis.length) return null;
+  const maior = vulneraveis.map(parteNumerica).reduce((a, b) => (comparar(a, b) >= 0 ? a : b));
+  const corrigida = fora.find(v => comparar(parteNumerica(v), maior) > 0);
+  return corrigida || false;
+}
+
+// Pacotes atingidos por um pacote vulnerável: fechamento de `effects` do
+// npm audit (quem depende dele, direta ou indiretamente).
+export function atingidosPor(relatorio, pacote) {
+  const vistos = new Set();
+  const fila = [...(relatorio?.vulnerabilities?.[pacote]?.effects || [])];
+  while (fila.length) {
+    const n = fila.shift();
+    if (vistos.has(n)) continue;
+    vistos.add(n);
+    fila.push(...(relatorio.vulnerabilities[n]?.effects || []));
+  }
+  return [...vistos].sort();
+}
+
+// versoesPublicadas: { [pacote]: ["x.y.z", ...] } (npm view <pacote> versions).
+export function avaliarAuditoria({ relatorio, excecoes, escopo, hoje, versoesPublicadas = {} }) {
   const falhas = [];
   const excecoesAplicadas = [];
   if (!relatorio || relatorio.error || !relatorio.vulnerabilities) {
@@ -90,19 +146,30 @@ export function avaliarAuditoria({ relatorio, excecoes, escopo, hoje, ultimaVers
   const daqui = (excecoes || []).filter(e => (e.escopos || []).includes(escopo));
   const usadas = new Set();
 
+  // Nenhum pacote high/critical pode ficar sem advisory que o explique
+  // (sem isso, um `via` fora do formato esperado passaria calado).
+  const explicados = new Set(advisories.flatMap(a => [a.pacote, ...atingidosPor(relatorio, a.pacote)]));
+  for (const [nome, v] of Object.entries(relatorio.vulnerabilities)) {
+    if (bloqueia(v.severity) && !explicados.has(nome)) falhas.push(`${nome} (${v.severity}): sem advisory identificável no relatório do npm`);
+  }
+
   for (const a of advisories) {
-    if (!SEVERIDADES_BLOQUEANTES.includes(a.severidade)) continue;
+    if (!bloqueia(a.severidade)) continue;
     const ex = daqui.find(e => e.ghsa === a.ghsa && e.pacote === a.pacote);
     const rotulo = `${a.pacote} ${a.ghsa} (${a.severidade})`;
     if (!ex) { falhas.push(`${rotulo}: sem correção aplicada e sem exceção registrada`); continue; }
     usadas.add(ex);
     if (ex.severidade !== a.severidade) { falhas.push(`${rotulo}: a severidade mudou (exceção registrada como ${ex.severidade}) - revisar a exceção`); continue; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(ex.revisarAte || "") || ex.revisarAte < hoje) { falhas.push(`${rotulo}: exceção vencida ou sem data de revisão (revisarAte=${ex.revisarAte || "-"})`); continue; }
-    const ultima = ultimaVersao[a.pacote];
-    const aindaVulneravel = ultima ? versaoNaFaixa(ultima, a.faixa) : null;
-    if (aindaVulneravel === false) { falhas.push(`${rotulo}: já existe versão corrigida (${a.pacote}@${ultima}) - atualizar e remover a exceção`); continue; }
-    if (aindaVulneravel === null) { falhas.push(`${rotulo}: não foi possível confirmar que segue sem correção (última versão: ${ultima || "desconhecida"}, faixa "${a.faixa}")`); continue; }
-    excecoesAplicadas.push({ ...a, revisarAte: ex.revisarAte, ultimaVersao: ultima });
+    // A exceção vale só para os caminhos analisados: se o pacote passar a
+    // atingir outro (ex.: dependência de produção nova), revisar a exposição.
+    const permitidos = new Set(ex.atingidosPermitidos?.[escopo] || []);
+    const novos = atingidosPor(relatorio, a.pacote).filter(n => !permitidos.has(n));
+    if (novos.length) { falhas.push(`${rotulo}: passou a atingir ${novos.join(", ")}, fora dos caminhos registrados na exceção - revisar a exposição`); continue; }
+    const corrigida = versaoCorrigidaPublicada(versoesPublicadas[a.pacote], a.faixa);
+    if (corrigida) { falhas.push(`${rotulo}: já existe versão corrigida (${a.pacote}@${corrigida}) - atualizar e remover a exceção`); continue; }
+    if (corrigida === null) { falhas.push(`${rotulo}: não foi possível confirmar que segue sem correção (versões publicadas indisponíveis ou faixa "${a.faixa}" fora do formato)`); continue; }
+    excecoesAplicadas.push({ ...a, revisarAte: ex.revisarAte, ultimaVulneravel: (versoesPublicadas[a.pacote] || []).filter(v => versaoNaFaixa(v, a.faixa) && !parteNumerica(v)?.pre).pop() });
   }
   const excecoesSemUso = daqui.filter(e => !usadas.has(e)).map(e => `${e.pacote} ${e.ghsa}`);
   return { advisories, falhas, excecoesAplicadas, excecoesSemUso };
