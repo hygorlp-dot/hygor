@@ -12,7 +12,7 @@ import { StatusBar } from "expo-status-bar";
 import * as Crypto from "expo-crypto";
 import * as Location from "expo-location";
 import { abrirArmazem, arquivarBanco } from "./src/dados/armazem-sqlite";
-import { registrarBatida } from "./src/logica/terminal";
+import { fotoSemBloquear, registrarBatida } from "./src/logica/terminal";
 import { gpsRecente, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./src/logica/sincronizacao";
 import { classificarResposta, mensagemDeErro } from "./src/logica/falhas";
 import { montarDiagnostico } from "./src/logica/diagnostico";
@@ -73,6 +73,8 @@ export default function App() {
       await armazem.gravarEstado("ultima_sincronizacao", {
         em: Date.now(), ok, erro: ok ? null : String(r.erro).slice(0, 120), ultimoOkEm: ok ? Date.now() : anterior?.ultimoOkEm ?? null,
         aguardandoEstabelecimento: !!r.aguardandoEstabelecimento, cadeiaDivergente: !!r.cadeiaDivergente,
+        // Persistente: a divergência fiscal não some numa rodada seguinte (evidência em "divergencia_fiscal").
+        fiscalDivergente: !!r.fiscalDivergente || !!anterior?.fiscalDivergente,
       });
       const aviso = r.aguardandoEstabelecimento
         ? "A obra deste aparelho ainda não está ligada a um estabelecimento no ARCD. As batidas ficam guardadas aqui e são enviadas quando o vínculo for feito."
@@ -150,13 +152,7 @@ export default function App() {
   // nunca depende da foto. Se a própria batida falhar, o erro sobe para a tela.
   const registrar = useCallback(async ({ pessoa, identificacao, foto }) => {
     const { armazem, relogio, sessao } = ref.current;
-    let preparada = null, avisoFoto = "";
-    if (foto?.uri) {
-      try { preparada = await prepararFotoDaBatida(foto.uri, foto.width); }
-      catch { avisoFoto = "A foto não pôde ser guardada no aparelho (armazenamento cheio?). A batida foi registrada sem foto."; }
-    } else if (foto?.falhou) {
-      avisoFoto = "A câmera não tirou a foto. A batida foi registrada sem foto.";
-    }
+    const { preparada, avisoFoto } = await fotoSemBloquear(foto, prepararFotoDaBatida);
     let m;
     try {
       // Estabelecimento que o aparelho já conhece (pode não haver: a ARP resolve).

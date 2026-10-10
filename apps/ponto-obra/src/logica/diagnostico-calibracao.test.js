@@ -25,6 +25,9 @@ describe("diagnóstico do aparelho", () => {
       "Reconhecimento facial": "carregado", "Referência de hora": "referência temporal válida", GPS: "ok", Obra: "W1-22",
     });
     expect(d["Última sincronização"]).toMatch(/01\/10\/2026/);
+    expect(d["Registro fiscal"]).toBe("ok");
+    const divergente = Object.fromEntries(montarDiagnostico({ ...entrada, ultimaSincronizacao: { ...entrada.ultimaSincronizacao, fiscalDivergente: true } }).map(i => [i.rotulo, i.valor]));
+    expect(divergente["Registro fiscal"]).toMatch(/NSR\/hash diferente.*suporte/);
   });
 
   it("nunca inclui token, PIN, CPF, vetor ou foto, mesmo se vierem na entrada", () => {

@@ -45,6 +45,12 @@ describe("código-fonte do app", () => {
     expect(ler("src/servicos/rosto-nativo.js")).toMatch(/await escolhida\.arquivo\.move\(destino\)/);
   });
 
+  it("batida no App.js trata a foto pelo fotoSemBloquear (testado): câmera/foto nunca impedem a batida", () => {
+    const app = ler("App.js");
+    expect(app).toContain("await fotoSemBloquear(foto, prepararFotoDaBatida)");
+    expect(app.match(/prepararFotoDaBatida\(/g) || []).toHaveLength(0);   // nenhuma chamada direta fora do helper
+  });
+
   it("parâmetros faciais só em calibracao.js (sem números soltos nas telas)", () => {
     const tela = ler("src/telas/TelaPonto.js");
     expect(tela).not.toMatch(/GIRO_FRENTE|GIRO_VIRADO|MESMA_PESSOA_VIRADA/);
