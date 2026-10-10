@@ -1,9 +1,10 @@
 # Ponto de Obra — Fase 01: estabilização, segurança e auditoria de regressão
 
-Data: 10/10/2026 · Branch: `fix/ponto-obra-fase-01-estabilizacao` · PR: (preenchido na abertura)
+Data: 10/10/2026 · Branch: `fix/ponto-obra-fase-01-estabilizacao` · PR: [hygorlp-dot/hygor#69](https://github.com/hygorlp-dot/hygor/pull/69)
 
 Escopo: só estabilização da arquitetura existente. Sem AFD, AEJ,
-comprovante, tratamento de jornada, mudança visual, upgrade de major ou
+comprovante, tratamento de jornada, mudança visual (a única linha nova de tela é
+o campo "Registro fiscal" do diagnóstico do encarregado), upgrade de major ou
 alteração de regra fiscal, facial ou de privacidade. A PR #62 (redesenho
 "ARCD Precision") não foi tocada.
 
@@ -52,10 +53,10 @@ fase: ver a PR.
 | 11 | Cópia local do registro fiscal podia ser sobrescrita | `armazem-sqlite-nucleo.js` `confirmarEvento` | P2 | Segunda confirmação trocaria NSR/hash guardados no aparelho (ARP intacta) | `UPDATE` sem `enviada = 0` | Escrita única no SQLite e no armazém em memória | 2 testes (falhou antes da correção) | Corrigido |
 | 12 | Docs citavam só migrations 016/017 | `REP-P-ARQUITETURA.md`, `AGENTS.md` | P3 | Referência desatualizada | 018 entrou depois | Texto atualizado | — | Corrigido |
 | 13 | Portão agrupava advisory só por URL: o mesmo GHSA em outro pacote (até critical) sumia atrás da exceção | `auditoria-dependencias-regras.mjs` | P1 (revisão) | Alerta crítico passaria calado | Chave de agrupamento incompleta | Chave url+pacote; advisory sem url, severidade desconhecida e pacote sem explicação bloqueiam | 6 testes | Corrigido |
-| 14 | Exceção valia para qualquer caminho, inclusive produção | idem | P2 (revisão) | Dependência de runtime nova puxando `braces` seria coberta | Exceção só por GHSA+pacote | `atingidosPermitidos` por escopo (fechamento de `effects`) | teste | Corrigido |
+| 14 | Exceção valia para qualquer caminho, inclusive produção (incluindo dependência direta nova ou Tailwind movido para produção) | idem | P2 (revisão, 1ª e 2ª rodada) | Dependência de runtime nova puxando `braces` seria coberta | Exceção só por GHSA+pacote; `effects` não inclui o projeto | `atingidosPermitidos`, `diretosPermitidos` (`isDirect`) e `somenteDesenvolvimento` (flag `dev` do lockfile) | 4 testes | Corrigido |
 | 15 | Autorrevogação olhava só a tag `latest`; sem timeout; teste quebraria com lista vazia | idem | P2/P3 (revisão) | Correção em outra tag não revogaria; job preso; CI vermelha quando o objetivo é atingido | — | `npm view versions`, timeout 180 s, teste tolera lista vazia | testes | Corrigido |
-| 16 | Log do catch geral de `/api/data` gravava o erro cru do Postgres (`details` com a linha: CPF, vetor facial) | `api/data.js` | P2 (revisão) | Dado pessoal/biométrico no log da Vercel | `console.error(err)` | `sanitizeServerError` (nome, código, mensagem, pilha com `redact`) | 2 testes | Corrigido |
-| 17 | Divergência da ARP para evento já confirmado seria engolida | `sincronizacao.js` | P2 (revisão) | NSR diferente para o mesmo `eventId` não apareceria | Retorno de `confirmarEvento` ignorado | Rodada para com `fiscal_divergente`; diagnóstico mostra | 2 testes | Corrigido |
+| 16 | Log do catch geral de `/api/data` gravava o erro cru do Postgres (`details` com a linha: CPF, vetor facial) | `api/data.js` | P2 (revisão) | Dado pessoal/biométrico no log da Vercel | `console.error(err)` | `sanitizeServerError` (nome, código, mensagem, pilha com `redact`; sai `details`/`hint`) | 2 testes | Corrigido o vazamento por `details`. Residual P3: mensagem do Postgres com valor de entrada (ex.: `malformed array literal: "{...}"`) ainda passa; outros endpoints fora do ponto (`api/upload.js`, `api/presence.js`, `api/ai-agent.js`, `api/references.js`, `server/data-codec.js`) ainda logam erro cru |
+| 17 | Divergência da ARP para evento já confirmado seria engolida | `sincronizacao.js` | P2 (revisão) | NSR diferente para o mesmo `eventId` não apareceria | Retorno de `confirmarEvento` ignorado | Rodada para com `fiscal_divergente`; a primeira divergência fica guardada (`divergencia_fiscal`) e o aviso no diagnóstico é persistente | 2 testes | Corrigido como defesa: hoje o caminho é praticamente inalcançável (uma rodada por vez no `App.js`; evento confirmado não é reenviado) |
 | 18 | "Câmera/foto falhando não bloqueia a batida" sem teste (lógica inline no `App.js`) | `App.js` | P2 (revisão) | Regressão possível sem aviso | Código de tela não roda no Node | `fotoSemBloquear` em `terminal.js`, testado; trava de código-fonte | 2 testes | Corrigido |
 | 19 | Sem teste de: confirmação fora de ordem por `eventId`, reboot durante a sincronização, monotônico regredindo, assinatura biométrica do lado do app | testes do app | P2 (revisão) | Contratos da fase sem prova | Lacuna de teste | Testes novos; teste da assinatura reforçado | 5 testes | Corrigido |
 | 20 | Banco: legado formato 1 aceito depois do formato 2 (bifurcação possível da cadeia local) | `016`/`017` (`ponto_registrar_marcacoes`, `ponto_arp_registrar`) | P2 (revisão, anterior à fase) | Cadeia local não garantida pelo banco, só pela ordem do app | Função legada não olha `ultima_sequencia_local` | Migration 019 (proposta, seção 10) | — | **Pendente: exige autorização para migrar produção**. Produção: 0 marcações legadas, sem bifurcação |
@@ -137,12 +138,22 @@ Os números de "high" do npm contam pacotes, não advisories: um advisory em
 
 **Portão** (`npm run audit:deps`, raiz e `-- apps/ponto-obra`): todo
 advisory high/critical bloqueia, salvo exceção registrada em
-`scripts/auditoria-excecoes.json`. A exceção só vale com escopo,
-severidade igual à registrada, prazo de revisão (≤45 dias) e **sem versão
-corrigida publicada** (a última versão no registro ainda cai na faixa
-vulnerável). Sai a correção, o portão volta a falhar e pede a atualização.
-Relatório do npm com erro também bloqueia. Todos os advisories, inclusive
-moderados, são impressos; cada exceção vira aviso no GitHub Actions.
+`scripts/auditoria-excecoes.json`. A exceção só vale enquanto **todas** as
+condições abaixo forem verdadeiras (conferidas pelo próprio portão):
+- o escopo e a severidade são os registrados;
+- `revisarAte` não passou e está a no máximo 45 dias de hoje;
+- o pacote só atinge os pacotes registrados (`atingidosPermitidos`, o
+  fechamento de `effects` do npm);
+- nada da cadeia virou dependência direta fora de `diretosPermitidos`;
+- na raiz (`somenteDesenvolvimento`), tudo da cadeia continua `dev` no lockfile;
+- **não há versão estável corrigida publicada**: nenhuma versão fora da
+  faixa e acima da maior vulnerável, em qualquer tag.
+
+Também bloqueiam: relatório do npm com erro, advisory sem URL, severidade
+desconhecida e pacote high/critical que nenhum advisory explica. O
+agrupamento é por advisory **e** pacote. Todos os advisories, inclusive
+moderados, são impressos numa linha cada; cada exceção vira aviso escapado
+no GitHub Actions.
 
 **Exceções em vigor (risco residual, não correção):**
 
@@ -153,10 +164,13 @@ moderados, são impressos; cada exceção vira aviso no GitHub Actions.
 
 Prazo das duas: revisar até 09/11/2026. Cada exceção lista também os pacotes
 que o npm marca como atingidos (`atingidosPermitidos`); no app aparecem
-`expo` e `react-native` porque dependem do Metro e da CLI de build. O pacote
-vulnerável em si não entra no bundle Hermes (busca por strings no bundle
-exportado: zero ocorrências de `node-forge`, `micromatch`, `braces`,
-`fill-range`, `to-regex-range`; as strings de controle do app aparecem).
+`expo` e `react-native` porque dependem do Metro e da CLI de build. A
+evidência principal de que o pacote vulnerável não roda no aparelho é o grafo:
+`metro-file-map` e `@expo/cli` são ferramentas Node da máquina de build e
+nenhum código do app os importa. No lockfile do app eles aparecem como
+produção só porque o `expo` é dependência de produção. A busca por strings
+no bundle Hermes (zero ocorrências de `node-forge`, `micromatch`, `braces`,
+`fill-range`, `to-regex-range`) é só um indício complementar.
 O `overrides.uuid` do app é um salto de major (7 → 11) num pacote usado só
 pelo `xcode` do prebuild iOS, que chama apenas `uuid.v4()`.
 
@@ -169,8 +183,8 @@ Execução local no estado final da branch (Windows, Node 24, 10/10/2026):
 
 | Verificação | Resultado |
 |---|---|
-| `npm run test:coverage` (suíte inteira do ERP + app + servidor) | **2.446 aprovados, 0 reprovados, 5 ignorados** (335 arquivos); limites de cobertura atendidos |
-| Suíte do Ponto (`apps/ponto-obra src/domains/ponto-eletronico server/ponto-eletronico scripts`) | 238 aprovados, 5 ignorados |
+| `npm run test:coverage` (suíte inteira do ERP + app + servidor) | **2.450 aprovados, 0 reprovados, 5 ignorados** (334 arquivos aprovados + 1 só com testes ignorados); limites de cobertura atendidos |
+| Suíte do Ponto (`apps/ponto-obra src/domains/ponto-eletronico server/ponto-eletronico scripts`) | 242 aprovados, 5 ignorados (inclui `server/client-error-report.test.js`) |
 | Ignorados | os 5 de `arp-concorrencia.pg.test.js`: exigem Postgres real (`PONTO_PG_URL`); rodam no job `rep-p-arp-postgres`, que falha se menos de 5 passarem |
 | `npm run lint` / `architecture:check` (834 módulos) / `typecheck` | aprovados |
 | `npx vite build` (sem `prebuild`) / `build-storybook` / `quality:bundle` | aprovados |
@@ -180,7 +194,7 @@ Execução local no estado final da branch (Windows, Node 24, 10/10/2026):
 | App: `expo prebuild --clean` + `verificar-prebuild.mjs` | SQLCipher, `allowBackup=false`, permissões, autolinking de `relogio-confiavel`, `expo-sqlite`, `expo-camera`, `expo-secure-store`, `react-native-fast-tflite`, `react-native-nitro-modules` |
 | `npm run audit:deps` (raiz e app) | aprovados, com as 2 exceções formais anunciadas |
 
-Testes acrescentados nesta fase: 17 do portão de auditoria; 2 do log seguro;
+Testes acrescentados nesta fase: 21 do portão de auditoria; 2 do log seguro;
 no app, escrita única (SQLite e memória), `eventId` repetido, confirmação
 fora de ordem, divergência fiscal, foto/câmera falhando, reboot durante a
 sincronização, monotônico regredindo, trava de código-fonte do `App.js`,
@@ -243,7 +257,7 @@ qualidade; arquivos em `apps/ponto-obra/src` salvo indicação):
 | Inscrição do estabelecimento mutável depois do NSR | P2 | Exige migration 019 | Só perfis fiscais alteram | Migration 019: inscrição só de NULL para valor, uma vez, havendo NSR; auditoria append-only do estabelecimento |
 | DDL reaplicada a cada deploy, sem `lock_timeout` | P2 | Muda o processo de deploy | Volume baixo hoje | Livro de migrations com checksum, aplicada uma vez |
 | `service_role` da 016 com permissões amplas (TRUNCATE em `ponto_marcacoes`, colunas-semente de `ponto_dispositivos`); dono do banco ignora triggers | P3 | Exige migration; o bypass do dono é inerente | Credencial só no servidor | Migration 019 (revogar/conceder mínimo, trigger de TRUNCATE) + verificação periódica da cadeia e ancoragem externa do último hash |
-| Abertura do banco SQLCipher, câmera, TFLite e relógio Kotlin em aparelho real | P1 operacional | A CI não executa código nativo | Prebuild confere SQLCipher/autolinking; lógica testada no Node | Teste do APK em campo |
+| Abertura do banco SQLCipher, câmera, TFLite e relógio Kotlin em aparelho real | Operacional (não é defeito de código; impede declarar homologação) | A CI não executa código nativo | Prebuild confere SQLCipher/autolinking; lógica testada no Node | Teste do APK em campo |
 | CI não hermética: correção upstream ou vencimento da exceção (09/11) deixam qualquer PR vermelho | P3 | Proposital (autorrevogação) | Aviso anotado em toda execução | Agendar revisão; opcional: workflow diário rodando o portão |
 
 **Migration 019 não foi escrita nesta fase de propósito:** o `prebuild` aplica
@@ -253,7 +267,24 @@ autorização expressa.
 
 ## 11. Evidências dos pipelines
 
-(preenchido após a CI)
+| Execução | Commit | financial-and-security | migration-contracts | mobile-ponto-obra | rep-p-arp-postgres | browser-critical-flows |
+|---|---|---|---|---|---|---|
+| Base: [37781103626](https://github.com/hygorlp-dot/hygor/actions/runs/37781103626) (`main`) | `8c5e52a` | ❌ npm audit | ✅ | ❌ expo-doctor | ✅ | ✅ |
+| [38071629979](https://github.com/hygorlp-dot/hygor/actions/runs/38071629979) | `0c1fde6` (correções iniciais) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [38072929721](https://github.com/hygorlp-dot/hygor/actions/runs/38072929721) | `986a4f1` (+ 1ª rodada de revisão) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Commit final (2ª rodada de revisão) | ver os checks da [PR #69](https://github.com/hygorlp-dot/hygor/pull/69) | | | | | |
+
+Números da execução `986a4f1` (log do Actions):
+- financial-and-security: 2.446 aprovados e 5 ignorados; o portão anotou 1 exceção formal (`braces`).
+- migration-contracts: 27 e 37 testes aprovados (contratos financeiros e as migrations 016-018 do ponto).
+- mobile-ponto-obra:
+  - `expo-doctor` 21/21;
+  - bundle Android com 737 módulos e os 2 `.tflite`;
+  - prebuild conferido;
+  - 218 aprovados e 5 ignorados na suíte do ponto;
+  - o portão do app anotou 2 exceções formais.
+- rep-p-arp-postgres: **5/5 em Postgres 16 real**, com conexões simultâneas. A trava do job exige pelo menos 5.
+- browser-critical-flows: Playwright 38 aprovados.
 
 ## 12. Critérios de aceite
 
@@ -271,10 +302,10 @@ autorização expressa.
 | ARP e concorrência | ✅ PGlite local; Postgres real na CI | seções 8 e 11 |
 | Sincronização e offline | ✅ | seção 8 |
 | Lint, arquitetura, typecheck | ✅ | seção 8 |
-| Testes do ERP | ✅ | 2.446/0/5 |
+| Testes do ERP | ✅ | 2.450/0/5 (local); 2.446/0/5 na CI de `986a4f1` |
 | Fluxos críticos do navegador | ✅ | 38/38 |
 | Cinco jobs verdes | ver seção 11 | |
-| Nenhum P0/P1 aberto | ✅ | P1 da revisão corrigido; P2 de banco pendentes de autorização (seção 10) |
+| Nenhum P0/P1 de código aberto | ✅ | P1 da revisão corrigido; P2 de banco pendentes de autorização (seção 10); validação em aparelho real é pendência operacional |
 | Documentação de encerramento | ✅ | este arquivo |
 | PR pronta para merge | ver seção 11 | |
 
