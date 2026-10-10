@@ -141,9 +141,11 @@ export function criarArmazemSobreBanco(db) {
     },
     // Formato 2: a ARP aceitou ESTE evento. Só colunas fiscais e "enviada"
     // mudam; dados, hash local e sequência local ficam como estavam.
+    // Escrita única: o que a ARP devolveu da primeira vez não é trocado por
+    // uma resposta repetida ou atrasada (devolve false e não mexe em nada).
     async confirmarEvento(eventId, fiscal) {
       const r = await db.runAsync(
-        "UPDATE marcacoes SET enviada = 1, nsr_fiscal = ?, hash_fiscal = ?, estabelecimento_fiscal = ?, gravado_em = ? WHERE id = ? AND formato = 2",
+        "UPDATE marcacoes SET enviada = 1, nsr_fiscal = ?, hash_fiscal = ?, estabelecimento_fiscal = ?, gravado_em = ? WHERE id = ? AND formato = 2 AND enviada = 0",
         fiscal?.nsr ?? null, fiscal?.fiscalHash ?? null, fiscal?.estabelecimentoId ?? null, fiscal?.gravadoEm ?? null, eventId,
       );
       return r.changes > 0;

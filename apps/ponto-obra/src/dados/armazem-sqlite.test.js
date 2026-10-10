@@ -15,6 +15,7 @@ import { abrirNode } from "./sqlite-node.test-helper.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { criarArmazemSobreBanco, prepararBanco } from "./armazem-sqlite-nucleo.js";
 import { registrarBatida } from "../logica/terminal.js";
+import { criarArmazemMemoria } from "../logica/armazem-memoria.js";
 import { calcularHashLocal, verificarCadeiaLocal } from "../../../../src/domains/ponto-eletronico/evento.js";
 import { horaDaMarcacao } from "../../../../src/domains/ponto-eletronico/relogio.js";
 import { sha256 } from "../logica/cenario.test-helper.js";
@@ -58,6 +59,39 @@ describe("armazém SQLite do aparelho (SQL real)", () => {
     expect(await armazem.eventosPendentes(5)).toEqual([]);
     expect(await armazem.fotosPendentes(5)).toEqual([{ id: b.eventId, caminhoFoto: "file:///docs/b.jpg" }]);
     expect(await armazem.ultimoNsrRecebido()).toBe(501);
+    await db.closeAsync();
+  });
+
+  it("registro fiscal guardado no aparelho é de escrita única: segunda confirmação não sobrescreve o NSR", async () => {
+    const { db, armazem } = await abrir();
+    const b = await bater(armazem);
+    const fiscal = { nsr: 7, fiscalHash: "f".repeat(64), estabelecimentoId: "est-1", gravadoEm: "2026-10-01T10:00:01.000Z" };
+    expect(await armazem.confirmarEvento(b.eventId, fiscal)).toBe(true);
+    // Resposta repetida ou divergente (ex.: rodada antiga atrasada) não troca o que a ARP já deu.
+    expect(await armazem.confirmarEvento(b.eventId, { ...fiscal, nsr: 8, fiscalHash: "e".repeat(64) })).toBe(false);
+    expect(await armazem.registroFiscal(b.eventId)).toEqual(fiscal);
+    expect(await armazem.ultimoNsrRecebido()).toBe(7);
+    expect(await armazem.eventosPendentes(5)).toEqual([]);
+    await db.closeAsync();
+  });
+
+  it("armazém em memória (usado nos testes de lógica) segue a mesma escrita única", async () => {
+    const armazem = criarArmazemMemoria();
+    const b = await bater(armazem);
+    expect(await armazem.confirmarEvento(b.eventId, { nsr: 7, fiscalHash: "f".repeat(64) })).toBe(true);
+    expect(await armazem.confirmarEvento(b.eventId, { nsr: 8, fiscalHash: "e".repeat(64) })).toBe(false);
+    expect(await armazem.registroFiscal(b.eventId)).toMatchObject({ nsr: 7, fiscalHash: "f".repeat(64) });
+  });
+
+  it("eventId repetido é recusado sem gravar nada e sem consumir sequência local", async () => {
+    const { db, armazem } = await abrir();
+    const fixo = () => "7d6c3f6e-1a2b-4c3d-8e9f-0a1b2c3d4e5f";
+    const a = await bater(armazem, { gerarId: fixo });
+    await expect(bater(armazem, { gerarId: fixo })).rejects.toThrow();
+    const c = await bater(armazem);
+    expect([a.localSequence, c.localSequence]).toEqual([1, 2]);
+    expect(c.localPreviousHash).toBe(a.localHash);
+    expect((await armazem.eventosPendentes(10)).map(e => e.eventId)).toEqual([a.eventId, c.eventId]);
     await db.closeAsync();
   });
 
