@@ -4,20 +4,20 @@
   "main": "index.js",
   "dependencies": {
     "@noble/hashes": "^2.4.0",
-    "expo": "~57.0.26",
+    "expo": "~57.0.27",
     "expo-application": "~57.0.3",
-    "expo-asset": "~57.0.18",
+    "expo-asset": "~57.0.19",
     "expo-camera": "~57.0.6",
-    "expo-constants": "~57.0.20",
+    "expo-constants": "~57.0.21",
     "expo-crypto": "~57.0.3",
     "expo-device": "~57.0.2",
     "expo-file-system": "~57.0.7",
-    "expo-image-manipulator": "~57.0.20",
+    "expo-image-manipulator": "~57.0.21",
     "expo-keep-awake": "~57.0.2",
     "expo-location": "~57.0.20",
     "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
-    "expo-sqlite": "~57.0.3",
+    "expo-sqlite": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-native": "0.86.3",
@@ -41,5 +41,8 @@
         "listUnknownPackages": false
       }
     }
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }
