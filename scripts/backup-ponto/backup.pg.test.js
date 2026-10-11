@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 import { PAPEIS_SUPABASE, lerMigration } from "../../server/ponto-eletronico/banco-pglite.test-helper.js";
+import { MARCADOR_DESCARTAVEL, identidadeBanco } from "../migracoes-ponto/locais.mjs";
 
 const URL_PG = process.env.PONTO_PG_URL;
 const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -21,7 +22,8 @@ const sha256 = v => createHash("sha256").update(v).digest("hex");
 const C = "arcd", ZERO = "0".repeat(64);
 let admin; const bancos = [];
 const urlDe = nome => { const u = new URL(URL_PG); u.pathname = `/${nome}`; return u.toString(); };
-const identidade = nome => { const u = new URL(URL_PG); return `${u.hostname}/${nome}`; };
+const identidade = nome => identidadeBanco(urlDe(nome));
+const marcarDescartavel = nome => admin.unsafe(`comment on database ${nome} is '${MARCADOR_DESCARTAVEL}'`);
 async function banco() {
   admin ??= postgres(URL_PG, { max: 1, onnotice: () => {} });
   const nome = `ponto_bkp_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
@@ -29,7 +31,7 @@ async function banco() {
   bancos.push(nome);
   return nome;
 }
-afterAll(async () => { for (const b of bancos) await admin?.unsafe(`drop database if exists ${b}`); await admin?.end({ timeout: 5 }); });
+afterAll(async () => { for (const b of bancos) await admin?.unsafe(`drop database if exists ${b} with (force)`).catch(() => admin?.unsafe(`drop database if exists ${b}`)); await admin?.end({ timeout: 5 }); });
 const rodar = (script, args, env) => {
   try { return { ok: true, codigo: 0, saida: execFileSync(process.execPath, [path.join(raiz, "scripts", script), ...args], { cwd: raiz, env: { ...process.env, ...env }, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }) }; }
   catch (e) { return { ok: false, codigo: e.status, saida: `${e.stdout || ""}${e.stderr || ""}` }; }
@@ -66,6 +68,18 @@ describe.skipIf(!URL_PG)("backup e restauração do ponto em Postgres real (linh
     expect(fs.readFileSync(pacote).includes(Buffer.from("12345678909"))).toBe(false);
 
     const env = { PONTO_BACKUP_KEY: chave, POSTGRES_URL_NON_POOLING: "" };
+    // Destino SEM o marcador de descartável: recusa sem tocar em nada.
+    expect(rodar("restaurar-backup-ponto.mjs", ["--pacote", pacote, `--confirmo-descartavel=${identidade(destino)}`], { ...env, PONTO_RESTAURAR_URL: urlDe(destino) }))
+      .toMatchObject({ ok: false, saida: expect.stringMatching(/não está marcado como descartável/) });
+    await marcarDescartavel(destino);
+    // Banco marcado mas que JÁ TEM o esquema do ponto (ex.: produção antes do go-live, tabelas vazias): recusa.
+    const comEsquema = await banco();
+    await marcarDescartavel(comEsquema);
+    const sqlE = postgres(urlDe(comEsquema), { max: 1, onnotice: () => {} });
+    try { await sqlE.unsafe(PAPEIS_SUPABASE); for (const f of ["016_create_ponto_eletronico.up.sql", "017_ponto_arp_estabelecimento_nsr.up.sql", "018_ponto_apropriacoes.up.sql"]) await sqlE.unsafe(lerMigration(f)); }
+    finally { await sqlE.end({ timeout: 5 }); }
+    expect(rodar("restaurar-backup-ponto.mjs", ["--pacote", pacote, `--confirmo-descartavel=${identidade(comEsquema)}`], { ...env, PONTO_RESTAURAR_URL: urlDe(comEsquema) }))
+      .toMatchObject({ codigo: 1, saida: expect.stringMatching(/FALHA NA RECUPERAÇÃO[\s\S]*já tem o esquema do ponto e ele não foi criado por esta ferramenta/) });
     // Recusas: sem confirmação; destino = origem; chave errada.
     expect(rodar("restaurar-backup-ponto.mjs", ["--pacote", pacote], { ...env, PONTO_RESTAURAR_URL: urlDe(destino) })).toMatchObject({ ok: false, saida: expect.stringMatching(/confirme que o destino é descartável/) });
     expect(rodar("restaurar-backup-ponto.mjs", ["--pacote", pacote, `--confirmo-descartavel=${identidade(origem)}`], { ...env, PONTO_RESTAURAR_URL: urlDe(origem) })).toMatchObject({ ok: false, saida: expect.stringMatching(/destino é o banco de origem/) });

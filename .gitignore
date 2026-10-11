@@ -34,3 +34,8 @@ bundle-metrics.json
 skills-lock.json
 CLAUDE.md
 PRODUCT.md
+
+# Backup do Ponto de Obra (dado pessoal e biométrico cifrado): nunca no repositório
+*.arcdponto
+*.arcdponto.parcial
+*.arcdponto.manifest.json

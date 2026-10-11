@@ -136,6 +136,31 @@ describe("restauração: estados e fotos", () => {
     expect(r.motivos[0]).toMatch(/2\/5 verificadas/);
   });
 
+  it("prova que já FALTAVA ou estava TROCADA na origem: a restauração nunca diz 'completa', mesmo com todas as fotos do pacote conferidas; órfão não impede", async () => {
+    await popular(origem);
+    await bater(origem, { storage: null });                                     // batida 4 sem foto na origem
+    const semFoto = ultimaBatida.caminho;
+    const r1 = await restaurarEm(dbD, await backup(), { storage: storageMemoria() });
+    expect(r1).toMatchObject({ estado: "parcial", fotos: { noPacote: 5, verificadas: 5, referencias: 6, referenciasSemFoto: [{ caminho: semFoto, tipo: "batida" }], referenciasDivergentes: [] } });
+    expect(r1.motivos).toEqual([expect.stringMatching(/1 registro\(s\) do banco sem foto conferida/)]);
+
+    const destino2 = await novoBanco(), destino3 = await novoBanco();
+    try {
+      await fotosO.enviar(semFoto, ultimaBatida.foto);                          // a foto chegou; agora uma prova é trocada
+      const [trocada] = [...fotosO.arquivos.keys()].filter(k => k.startsWith("marcacoes/obra-1/")).sort();
+      const original = fotosO.arquivos.get(trocada);
+      fotosO._gravar(trocada, jpeg("trocada"));
+      const r2 = await restaurarEm(adaptadorPglite(destino2), await backup(), { storage: storageMemoria() });
+      expect(r2).toMatchObject({ estado: "parcial", fotos: { verificadas: 6, referenciasSemFoto: [], referenciasDivergentes: [{ caminho: trocada, tipo: "batida" }] } });
+      expect(r2.motivos.join(" ")).toMatch(/SHA-256 diferente do registrado no banco/);
+
+      fotosO._gravar(trocada, original);                                        // prova correta de volta + um órfão
+      fotosO._gravar("marcacoes/obra-1/2026-10-11/sem-evento.jpg", jpeg("orfa"));
+      const r3 = await restaurarEm(adaptadorPglite(destino3), await backup(), { storage: storageMemoria() });
+      expect(r3).toMatchObject({ estado: "completa", motivos: [], fotos: { noPacote: 7, verificadas: 7, referencias: 6, referenciasSemFoto: [], referenciasDivergentes: [] } });
+    } finally { await destino2.close(); await destino3.close(); }
+  });
+
   it("PARCIAL por SHA-256 divergente: bytes do mesmo tamanho, conteúdo diferente", async () => {
     await popular(origem);
     const p = await backup();
@@ -174,7 +199,7 @@ describe("restauração: estados e fotos", () => {
     await popular(origem);
     const p = await backup();
     const r = await restaurarEm(dbO, p, { storage: storageMemoria() });
-    expect(r).toMatchObject({ estado: "falha", motivos: [expect.stringMatching(/só em banco vazio/)] });
+    expect(r).toMatchObject({ estado: "falha", motivos: [expect.stringMatching(/já tem o esquema do ponto e ele não foi criado por esta ferramenta/)] });
     expect((await origem.query("select count(*)::int n from public.ponto_arp_registros")).rows[0].n).toBe(3);
     await bater(origem);                                                           // origem mudou depois do backup
     const r2 = await restaurarEm(dbO, p, { storage: storageMemoria(), somenteFotos: true });
@@ -188,7 +213,15 @@ describe("restauração: estados e fotos", () => {
     const adulterado = Buffer.from(p.corpo); adulterado[adulterado.length - 5] ^= 0xff;
     expect(() => abrir({ ...p, corpo: adulterado })).toThrow();
     const outro = structuredClone(p.manifesto); outro.fotos.quantidade = 4;
-    expect(() => abrir({ ...p, manifesto: outro })).toThrow(/conjunto de fotos não confere/);
+    expect(() => abrir({ ...p, manifesto: outro })).toThrow(/manifesto foi alterado/);
+    // Manifesto editado E com o SHA recalculado: o índice é autenticado com o SHA original - não abre.
+    const forjado = structuredClone(p.manifesto); forjado.fotos.incluidas = false; forjado.sha256 = "f".repeat(64);
+    expect(() => abrir({ ...p, manifesto: forjado })).toThrow();
+    // Um byte de UMA foto dentro do pacote: a tag GCM daquele registro acusa.
+    const umaFoto = Buffer.from(p.corpo); umaFoto[40] ^= 0x01;
+    expect(() => abrir({ ...p, corpo: umaFoto })).toThrow();
+    // Pacote cortado no meio (cópia interrompida): sem rodapé, não abre.
+    expect(() => abrir({ ...p, corpo: p.corpo.subarray(0, p.corpo.length - 100) })).toThrow(/rodapé/);
   });
 
   it("backup tirado ANTES do livro (produção hoje): esquema pela validação de objetos e restauração completa", async () => {
@@ -205,36 +238,151 @@ describe("restauração: estados e fotos", () => {
 });
 
 describe("consistência banco x Storage no backup", () => {
-  it("batida sem arquivo (foto ainda no aparelho) e órfão: 'consistente_com_pendencias', listados no manifesto", async () => {
+  it("batida sem arquivo (foto ainda no aparelho) e órfão: 'consistente_com_pendencias'; listas só DENTRO do pacote, contagens no manifesto", async () => {
     await popular(origem);
     await bater(origem, { storage: null });                                     // foto ainda não chegou
     const pendente = ultimaBatida.caminho;
     fotosO._gravar("marcacoes/obra-1/2026-10-11/sem-evento.jpg", jpeg("orfa"));
-    const { manifesto } = await backup();
-    expect(manifesto.fotos.consistencia).toMatchObject({ qualidade: "consistente_com_pendencias", semArquivo: [{ caminho: pendente, tipo: "batida" }],
+    const p = await backup();
+    expect(p.dados.consistencia).toMatchObject({ qualidade: "consistente_com_pendencias", semArquivo: [{ caminho: pendente, tipo: "batida" }],
       orfaos: [{ caminho: "marcacoes/obra-1/2026-10-11/sem-evento.jpg" }], hashDivergente: [] });
+    // Manifesto (texto claro): só contagens, nenhum caminho com ID interno.
+    expect(p.manifesto.fotos.consistencia).toMatchObject({ qualidade: "consistente_com_pendencias", semArquivo: 1, orfaos: 1, hashDivergente: 0 });
+    expect(JSON.stringify(p.manifesto)).not.toContain("marcacoes/");
+    expect(JSON.stringify(p.manifesto)).not.toContain("biometria/");
   });
 
-  it("foto de prova trocada (SHA-256 ≠ o da marcação) ou cadastro sem foto: 'inconsistente'", async () => {
+  it("foto de prova trocada (SHA-256 ≠ o da marcação): 'inconsistente'", async () => {
     await popular(origem);
     const [c] = [...fotosO.arquivos.keys()].filter(k => k.startsWith("marcacoes/obra-1/"));
     fotosO._gravar(c, jpeg("trocada"));
-    expect((await backup()).manifesto.fotos.consistencia).toMatchObject({ qualidade: "inconsistente", hashDivergente: [{ caminho: c, tipo: "batida" }] });
-    fotosO._gravar(c, fotosO.arquivos.get(c)); // mantém a troca; agora some a do cadastro
-    const cad = [...fotosO.arquivos.keys()].find(k => k.startsWith("biometria/"));
-    fotosO.arquivos.delete(cad);
-    expect((await backup()).manifesto.fotos.consistencia.semArquivo).toEqual(expect.arrayContaining([{ caminho: cad, tipo: "cadastro" }]));
+    expect((await backup()).dados.consistencia).toMatchObject({ qualidade: "inconsistente", hashDivergente: [{ caminho: c, tipo: "batida" }], semArquivo: [] });
   });
 
-  it("bucket mudou DURANTE o backup: tenta de novo e registra; mudando sempre: 'inconsistente' (nunca afirma consistência)", async () => {
+  it("cadastro facial sem foto - SÓ isso: 'inconsistente' (não é pendência como a batida)", async () => {
     await popular(origem);
+    const cad = [...fotosO.arquivos.keys()].find(k => k.startsWith("biometria/"));
+    fotosO.arquivos.delete(cad);
+    expect((await backup()).dados.consistencia).toMatchObject({ qualidade: "inconsistente", semArquivo: [{ caminho: cad, tipo: "cadastro" }], hashDivergente: [], orfaos: [], mudouDuranteBackup: false });
+  });
+
+  it("foto JÁ LISTADA mudou durante o backup: tenta de novo; mudando sempre: 'inconsistente' (nunca afirma consistência)", async () => {
+    await popular(origem);
+    const [alvo] = [...fotosO.arquivos.keys()];
     let chamadas = 0;
-    const umaVez = { ...fotosO, listar: async () => { chamadas += 1; if (chamadas === 2) fotosO._gravar("marcacoes/obra-1/2026-10-11/chegou.jpg", jpeg("x")); return fotosO.listar(); } };
+    const umaVez = { ...fotosO, listar: async () => { chamadas += 1; if (chamadas === 2) fotosO._gravar(alvo, fotosO.arquivos.get(alvo)); return fotosO.listar(); } };
     const d1 = await exportar({ db: dbO, storage: umaVez });
-    expect(d1.consistencia).toMatchObject({ tentativas: 2, mudouDuranteBackup: false });
-    let n = 0;
-    const sempre = { ...fotosO, listar: async () => { n += 1; fotosO._gravar(`marcacoes/obra-1/2026-10-11/novo-${n}.jpg`, jpeg(n)); return fotosO.listar(); } };
+    expect(d1.consistencia).toMatchObject({ qualidade: "consistente", tentativas: 2, mudouDuranteBackup: false });
+    const sempre = { ...fotosO, listar: async () => { const l = await fotosO.listar(); fotosO._gravar(alvo, fotosO.arquivos.get(alvo)); return l; } };
     const d2 = await exportar({ db: dbO, storage: sempre, tentativas: 3 });
     expect(d2.consistencia).toMatchObject({ qualidade: "inconsistente", mudouDuranteBackup: true, tentativas: 3 });
+  });
+
+  it("bucket que só CRESCE (batidas chegando durante o backup) não é mudança: uma tentativa só, e a foto nova fica de fora (é posterior ao retrato)", async () => {
+    await popular(origem);
+    let n = 0;
+    const crescendo = { ...fotosO, listar: async () => { n += 1; fotosO._gravar(`marcacoes/obra-1/2026-10-11/nova-${n}.jpg`, jpeg(n)); return fotosO.listar(); } };
+    const d = await exportar({ db: dbO, storage: crescendo });
+    expect(d.consistencia).toMatchObject({ tentativas: 1, mudouDuranteBackup: false });
+    expect(d.fotos.map(f => f.caminho)).not.toContain("marcacoes/obra-1/2026-10-11/nova-2.jpg");
+  });
+});
+
+describe("fidelidade do banco restaurado", () => {
+  it("cadeia fiscal QUEBRADA na origem: o backup registra, e a restauração termina em FALHA (nunca 'completa')", async () => {
+    await popular(origem);
+    await origem.exec(`set session_replication_role = replica;
+      update public.ponto_arp_registros set fiscal_hash = repeat('e', 64) where nsr = 2;
+      set session_replication_role = origin;`);
+    const p = await backup();
+    expect(p.manifesto.fiscal).toEqual([expect.objectContaining({ cadeiaIntegra: false })]);
+    const r = await restaurarEm(dbD, p, { storage: storageMemoria() });
+    expect(r).toMatchObject({ estado: "falha", motivos: [expect.stringMatching(/cadeia fiscal\/contador/)] });
+  });
+
+  it("contador divergente do último registro na origem: FALHA", async () => {
+    await popular(origem);
+    await origem.exec(`set session_replication_role = replica;
+      update public.ponto_arp_contadores set ultimo_nsr = ultimo_nsr + 1;
+      set session_replication_role = origin;`);
+    const r = await restaurarEm(dbD, await backup(), { storage: storageMemoria() });
+    expect(r).toMatchObject({ estado: "falha", motivos: [expect.stringMatching(/cadeia fiscal\/contador/)] });
+  });
+
+  it("queda ao ajustar as sequências: nada fica (mesma transação da carga); nova tentativa completa e a auditoria seguinte não colide", async () => {
+    await popular(origem);
+    const p = await backup();
+    let cortar = true;
+    const caindo = { ...dbD, query: async (t, params) => { if (cortar && /select setval/.test(t)) throw new Error("conexão caiu no setval"); return dbD.query(t, params); } };
+    const r1 = await restaurar({ db: caindo, dados: abrir(p), manifesto: p.manifesto, aplicarEsquema: aplicarEsquemaEm(dbD), storage: storageMemoria() });
+    expect(r1).toMatchObject({ estado: "falha", motivos: [expect.stringMatching(/setval/)] });
+    expect((await destino.query("select count(*)::int n from public.ponto_estabelecimentos_auditoria")).rows[0].n).toBe(0);
+    cortar = false;
+    expect((await restaurarEm(dbD, p, { storage: storageMemoria() })).estado).toBe("completa");
+    // Próxima linha de auditoria (sequência) não colide com as restauradas.
+    await destino.query("insert into public.ponto_estabelecimentos(company_id,id,nome,criado_por) values ($1,$2,'Filial','admin')", [C, randomUUID()]);
+    expect((await destino.query("select count(*)::int n from public.ponto_estabelecimentos_auditoria where acao = 'criado'")).rows[0].n).toBeGreaterThan(0);
+  });
+
+  it("sequência atrás dos dados num banco 'restaurado' por fora: a conferência acusa e não declara nada", async () => {
+    await popular(origem);
+    const p = await backup();
+    expect((await restaurarEm(dbD, p, { storage: storageMemoria() })).estado).toBe("completa");
+    await destino.exec("select setval(pg_get_serial_sequence('public.ponto_estabelecimentos_auditoria', 'id'), 1, false)");
+    const r = await restaurarEm(dbD, p, { storage: storageMemoria(), somenteFotos: true });
+    expect(r).toMatchObject({ estado: "falha", motivos: [expect.stringMatching(/sequência atrás dos dados em ponto_estabelecimentos_auditoria\.id/)] });
+  });
+
+  it("fuso da sessão diferente na origem e no destino, e numeric com escala (1.50): restauração exata e 'completa'", async () => {
+    await popular(origem);
+    await origem.query("insert into public.ponto_tempo_verificacoes(fonte,servidor,verificado_em,offset_ms,atraso_ms,ok) values ('ntp','b.ntp.br','2026-10-11T23:30:00-03:00',1.50,12.300,true)");
+    await origem.exec("set timezone = 'Etc/GMT+3'");
+    await destino.exec("set timezone = 'America/Sao_Paulo'");
+    const p = await backup();
+    const r = await restaurarEm(dbD, p, { storage: storageMemoria() });
+    expect(r.estado).toBe("completa");
+    const [v] = (await destino.query("select offset_ms::text o, atraso_ms::text a, verificado_em at time zone 'UTC' as utc from public.ponto_tempo_verificacoes where servidor = 'b.ntp.br'")).rows;
+    expect([v.o, v.a]).toEqual(["1.50", "12.300"]);
+  });
+
+  it("toda tabela das migrations está no backup (uma tabela nova de uma 020 não pode ficar de fora em silêncio)", async () => {
+    const { OBJETOS } = await import("../migracoes-ponto/validacao.mjs");
+    const { TABELAS } = await import("./pacote.mjs");
+    expect([...TABELAS].sort()).toEqual([...new Set(Object.values(OBJETOS).flatMap(o => o.tabelasComRls))].sort());
+  });
+});
+
+describe("storageSupabase (caminho --com-fotos de produção) com um bucket falso no formato do storage-js", () => {
+  const bucketFalso = (arquivos, { erroDownload } = {}) => ({
+    async list(prefixo, { limit, offset }) {
+      const nivel = prefixo ? `${prefixo}/` : "";
+      const nomes = [...new Set([...arquivos.keys()].filter(c => c.startsWith(nivel)).map(c => c.slice(nivel.length).split("/")[0]))].sort();
+      const pagina = nomes.slice(offset, offset + limit);
+      return { data: pagina.map(nome => (arquivos.has(`${nivel}${nome}`)
+        ? { name: nome, id: `id-${nome}`, updated_at: "2026-10-11T10:00:00Z", metadata: { size: arquivos.get(`${nivel}${nome}`).length, eTag: `"${nome}"` } }
+        : { name: nome, id: null, metadata: null })), error: null };
+    },
+    async download(c) {
+      if (erroDownload) return { data: null, error: erroDownload };
+      if (!arquivos.has(c)) return { data: null, error: { message: "Object not found", statusCode: "404" } };
+      const b = arquivos.get(c);
+      return { data: { arrayBuffer: async () => b.buffer.slice(b.byteOffset, b.byteOffset + b.length) }, error: null };
+    },
+    async upload() { return { error: { message: "The resource already exists", statusCode: "409" } }; },
+  });
+
+  it("lista pastas aninhadas e mais de 1000 itens (paginação), baixa, devolve null para 404 e propaga outros erros", async () => {
+    const { storageSupabase } = await import("./storages.mjs");
+    const arquivos = new Map();
+    for (let i = 0; i < 1203; i += 1) arquivos.set(`marcacoes/obra-1/2026-10-11/${String(i).padStart(5, "0")}.jpg`, jpeg(i));
+    arquivos.set("biometria/emp-1/b-1.jpg", jpeg("cad"));
+    const s = storageSupabase(bucketFalso(arquivos));
+    const lista = await s.listar();
+    expect(lista).toHaveLength(1204);
+    expect(lista[0]).toMatchObject({ caminho: "biometria/emp-1/b-1.jpg", tamanho: jpeg("cad").length });
+    expect(Buffer.compare(await s.baixar("biometria/emp-1/b-1.jpg"), jpeg("cad"))).toBe(0);
+    expect(await s.baixar("biometria/emp-1/nao-existe.jpg")).toBeNull();
+    await expect(s.enviar("biometria/emp-1/b-1.jpg", jpeg("x"))).rejects.toMatchObject({ statusCode: "409" });
+    await expect(storageSupabase(bucketFalso(arquivos, { erroDownload: { message: "Internal error", statusCode: "500" } })).baixar("biometria/emp-1/b-1.jpg")).rejects.toMatchObject({ statusCode: "500" });
   });
 });
