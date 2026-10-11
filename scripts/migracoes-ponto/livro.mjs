@@ -130,8 +130,16 @@ export async function obterTrava(db, { timeoutMs = TRAVA_PADRAO.timeoutMs, inter
     await new Promise(r => setTimeout(r, intervaloMs));
   }
 }
+// A trava consultiva é REENTRANTE na mesma sessão (obter 2x exige soltar 2x):
+// solta até o Postgres dizer que não há mais nenhuma camada.
 export async function liberarTrava(db, registrar = () => {}) {
-  try { await db.query("select pg_advisory_unlock(hashtextextended($1, 0))", [CHAVE_TRAVA]); registrar({ etapa: "trava_liberada" }); }
+  try {
+    for (let i = 0; i < 16; i += 1) {
+      const [l] = await db.query("select pg_advisory_unlock(hashtextextended($1, 0)) as ok", [CHAVE_TRAVA]);
+      if (!l.ok) break;
+    }
+    registrar({ etapa: "trava_liberada" });
+  }
   catch (e) { registrar({ etapa: "trava_liberada_pela_desconexao", erro: String(e.message || e).slice(0, 120) }); }
 }
 
@@ -139,34 +147,54 @@ const versaoDoArquivo = arquivo => arquivo.slice(0, 3);
 
 // Executa o plano. origem: quem/onde (ex.: "deploy:vercel", "manual:fulano").
 // registrar(evento): observabilidade sem dado sensível ({ etapa, arquivo, acao, ms }).
+//
+// ATOMICIDADE: o plano é feito ANTES de qualquer escrita. Os passos
+// pendentes viram lotes: migrations já existentes consecutivas
+// (registrar_existente) entram num lote só; cada "aplicar" é um lote. Se o
+// livro ainda não existe, a criação dele vai no PRIMEIRO lote. Cada lote
+// termina conferindo a integridade fiscal da versão a que chega; se não
+// fechar, o lote inteiro é desfeito. Assim, uma recusa ou queda na
+// implantação nunca deixa um livro vazio ou pela metade (que travaria o
+// deploy: o gate exige um histórico completo).
 export async function aplicar({ db, manifesto, lerArquivo, origem, limites = LIMITES_PADRAO, trava = TRAVA_PADRAO, registrar = () => {}, agora = () => Date.now() }) {
   if (!/^\d+(ms|s|min)$/.test(limites.lockTimeout) || !/^\d+(ms|s|min)$/.test(limites.statementTimeout)) throw new ErroLivro("limites de tempo inválidos");
   await obterTrava(db, { ...trava, registrar });
   try {
-    if (!(await livroExiste(db))) await db.transacao(async () => { await db.exec(DDL_LIVRO); });
     const plano = await planejar({ db, manifesto, lerArquivo });
-    const feitos = [];
+    const feitos = [], lotes = [];
     for (const passo of plano.passos) {
       if (passo.acao === "ja_aplicada") { feitos.push(passo); registrar({ etapa: "migration", arquivo: passo.arquivo, acao: passo.acao }); continue; }
+      const ultimo = lotes.at(-1);
+      if (passo.acao === "registrar_existente" && ultimo?.[0].acao === "registrar_existente") ultimo.push(passo);
+      else lotes.push([passo]);
+    }
+    let criarLivro = !plano.livroExiste;
+    for (const lote of lotes) {
       const inicio = agora();
       await db.transacao(async () => {
         await db.exec(`set local lock_timeout = '${limites.lockTimeout}'; set local statement_timeout = '${limites.statementTimeout}';`);
-        if (passo.acao === "aplicar") {
-          await db.exec(await lerArquivo(passo.arquivo));
-          const depois = await validarMigracao(db, passo.arquivo);
-          if (!depois.completa) throw new ErroLivro(`${passo.arquivo}: aplicada mas a validação falhou (faltando: ${depois.faltando.join(", ")}) - desfeita`);
-          // A versão nova precisa fechar íntegra NA MESMA transação; senão, desfaz.
-          const violacoes = await verificarIntegridadeFiscal(db, versaoDoArquivo(passo.arquivo));
-          if (violacoes.length) throw new ErroLivro(`${passo.arquivo}: integridade fiscal não confere depois de aplicar (${violacoes.join("; ")}) - desfeita`, { violacoes });
-          passo.validacao = depois;
+        if (criarLivro) await db.exec(DDL_LIVRO);
+        for (const passo of lote) {
+          if (passo.acao === "aplicar") {
+            await db.exec(await lerArquivo(passo.arquivo));
+            const depois = await validarMigracao(db, passo.arquivo);
+            if (!depois.completa) throw new ErroLivro(`${passo.arquivo}: aplicada mas a validação falhou (faltando: ${depois.faltando.join(", ")}) - desfeita`);
+            passo.validacao = depois;
+          }
+          await db.query(
+            `insert into public.${TABELA_LIVRO}(arquivo, sha256, modo, origem, duracao_ms, validacao) values ($1, $2, $3, $4, $5, $6::text::jsonb)`,
+            [passo.arquivo, passo.sha256, passo.acao === "aplicar" ? "aplicada" : "registrada_existente", origem, Math.round(agora() - inicio),
+              JSON.stringify({ presentes: passo.validacao?.presentes?.length ?? 0, faltando: passo.validacao?.faltando ?? [] })]);
         }
-        await db.query(
-          `insert into public.${TABELA_LIVRO}(arquivo, sha256, modo, origem, duracao_ms, validacao) values ($1, $2, $3, $4, $5, $6::text::jsonb)`,
-          [passo.arquivo, passo.sha256, passo.acao === "aplicar" ? "aplicada" : "registrada_existente", origem, Math.round(agora() - inicio),
-            JSON.stringify({ presentes: passo.validacao?.presentes?.length ?? 0, faltando: passo.validacao?.faltando ?? [] })]);
+        // A versão a que o lote chega precisa fechar íntegra NA MESMA transação; senão, desfaz tudo (inclusive o livro recém-criado).
+        const alvo = lote.at(-1).arquivo;
+        const violacoes = await verificarIntegridadeFiscal(db, versaoDoArquivo(alvo));
+        if (violacoes.length) {
+          throw new ErroLivro(`${lote.map(p => p.arquivo).join(", ")}: integridade fiscal da versão ${versaoDoArquivo(alvo)} não confere (${violacoes.join("; ")}) - nada foi gravado`, { violacoes });
+        }
       });
-      registrar({ etapa: "migration", arquivo: passo.arquivo, acao: passo.acao, ms: Math.round(agora() - inicio) });
-      feitos.push(passo);
+      criarLivro = false;
+      for (const passo of lote) { registrar({ etapa: "migration", arquivo: passo.arquivo, acao: passo.acao, ms: Math.round(agora() - inicio) }); feitos.push(passo); }
     }
     return { passos: feitos };
   } finally {

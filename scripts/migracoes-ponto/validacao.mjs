@@ -8,6 +8,8 @@
 // cada deploy, mais a 019. `marcadores`: trecho que só existe no corpo da
 // função na versão daquela migration (detecta 017 recriada por cima da 019).
 
+import { readFileSync } from "node:fs";
+
 export const OBJETOS = {
   "016_create_ponto_eletronico.up.sql": {
     tabelasComRls: ["ponto_dispositivos", "ponto_pareamentos", "ponto_marcacoes", "ponto_biometrias", "ponto_responsaveis"],
@@ -85,6 +87,46 @@ const FUNCOES_PROTEGIDAS = {
 const SEARCH_PATH_019 = "search_path=pg_catalog, public, pg_temp";
 const versaoDe = arquivo => arquivo.slice(0, 3);
 
+// Impressão digital do catálogo do ponto: TODAS as funções ponto_* (corpo,
+// security definer, configuração) e TODOS os triggers das tabelas ponto_*
+// (tabela, função, tipo/eventos). O esperado de cada versão está em
+// impressoes.json, gerado aplicando as próprias migrations num banco limpo
+// (gerar-impressoes.mjs; um teste refaz e compara). Pega o que nome e
+// existência não pegam: função de trigger reescrita (ex.: a imutabilidade
+// virando "return new"), trigger religado noutra tabela ou noutro evento.
+export async function impressaoDigital(db) {
+  const funcoes = await db.query(`select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' as chave, md5(p.prosrc) as corpo,
+      p.prosecdef as definer, coalesce(array_to_string(p.proconfig, ','), '') as config
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and left(p.proname, 6) = 'ponto_' and left(p.proname, 15) <> 'ponto_migracoes' order by 1`);
+  const triggers = await db.query(`select t.tgname as nome, c.relname as tabela, p.proname as funcao, t.tgtype::int as tipo
+    from pg_trigger t join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace join pg_proc p on p.oid = t.tgfoid
+    where not t.tgisinternal and n.nspname = 'public' and left(c.relname, 6) = 'ponto_' and c.relname <> 'ponto_migracoes_aplicadas' order by 1`);
+  return {
+    funcoes: Object.fromEntries(funcoes.map(f => [f.chave, { corpo: f.corpo, definer: !!f.definer, config: f.config }])),
+    triggers: Object.fromEntries(triggers.map(t => [t.nome, { tabela: t.tabela, funcao: t.funcao, tipo: Number(t.tipo) }])),
+  };
+}
+const IMPRESSOES = JSON.parse(readFileSync(new URL("./impressoes.json", import.meta.url), "utf8"));
+export const impressaoEsperada = versao => IMPRESSOES[versao] || null;
+
+export function compararImpressao(esperada, atual) {
+  const v = [];
+  for (const [chave, e] of Object.entries(esperada.funcoes)) {
+    const a = atual.funcoes[chave];
+    if (!a) v.push(`função ${chave} ausente`);
+    else if (a.corpo !== e.corpo) v.push(`função ${chave} com corpo diferente do da migration`);
+    else if (a.definer !== e.definer || a.config !== e.config) v.push(`função ${chave} com security definer/configuração diferente da migration`);
+  }
+  for (const [nome, e] of Object.entries(esperada.triggers)) {
+    const a = atual.triggers[nome];
+    if (!a) v.push(`trigger ${nome} ausente`);
+    else if (a.tabela !== e.tabela || a.funcao !== e.funcao || a.tipo !== e.tipo) v.push(`trigger ${nome} ligado de outro jeito (tabela/função/eventos)`);
+  }
+  for (const nome of Object.keys(atual.triggers)) if (!esperada.triggers[nome]) v.push(`trigger ${nome} a mais em ${atual.triggers[nome].tabela} (não vem das migrations)`);
+  return v;
+}
+
 export async function verificarIntegridadeFiscal(db, versao) {
   const violacoes = [];
   const migracoes = Object.keys(OBJETOS).filter(a => versaoDe(a) <= versao);
@@ -98,38 +140,28 @@ export async function verificarIntegridadeFiscal(db, versao) {
     if (!l) violacoes.push(`trigger ${t} ausente`);
     else if (!["O", "A"].includes(l.estado)) violacoes.push(`trigger ${t} desabilitado (${l.estado})`);
   }
-  // Privilégios: só olha papéis que existem (PGlite/Supabase).
-  const papeis = new Set((await db.query(`select rolname from pg_roles where rolname in ('anon','authenticated','service_role')`)).map(r => r.rolname));
+  const esperada = impressaoEsperada(versao);
+  if (!esperada) violacoes.push(`sem impressão digital cadastrada para a versão ${versao}`);
+  else for (const x of compararImpressao(esperada, await impressaoDigital(db))) if (!violacoes.includes(x)) violacoes.push(x);
+  // Privilégios numa consulta só (o gate roda no build; uma ida e volta por
+  // privilégio custaria dezenas de segundos com o banco em outra região).
   const proibidos = {};
   for (const [v, mapa] of Object.entries(PROIBIDOS_SERVICE_ROLE)) if (v <= versao) for (const [t, ps] of Object.entries(mapa)) proibidos[t] = [...new Set([...(proibidos[t] || []), ...ps])];
   if (versao >= "019") for (const t of tabelas) proibidos[t] = [...new Set([...(proibidos[t] || []), "TRUNCATE"])];
-  if (papeis.has("service_role")) {
-    for (const [t, ps] of Object.entries(proibidos)) {
-      if (!tabelas.includes(t)) continue;
-      for (const p of ps) {
-        const [l] = await db.query(`select has_table_privilege('service_role', $1, $2) as tem`, [`public.${t}`, p]);
-        if (l.tem) violacoes.push(`service_role com ${p} em ${t}`);
-      }
-    }
-  }
-  for (const papel of ["anon", "authenticated"].filter(p => papeis.has(p))) {
-    for (const t of tabelas) {
-      for (const p of ["SELECT", ...ESCRITA]) {
-        const [l] = await db.query(`select has_table_privilege($1, $2, $3) as tem`, [papel, `public.${t}`, p]);
-        if (l.tem) violacoes.push(`${papel} com ${p} em ${t}`);
-      }
-    }
-  }
+  const pares = [];
+  for (const [t, ps] of Object.entries(proibidos)) if (tabelas.includes(t)) for (const p of ps) pares.push(["service_role", t, p]);
+  for (const papel of ["anon", "authenticated"]) for (const t of tabelas) for (const p of ["SELECT", ...ESCRITA]) pares.push([papel, t, p]);
+  for (const l of await db.query(`select x.papel, x.tabela, x.priv from unnest($1::text[], $2::text[], $3::text[]) as x(papel, tabela, priv)
+      where exists (select 1 from pg_roles r where r.rolname = x.papel)
+        and coalesce(has_table_privilege(x.papel, to_regclass('public.' || x.tabela), x.priv), false)`,
+    [pares.map(p => p[0]), pares.map(p => p[1]), pares.map(p => p[2])])) violacoes.push(`${l.papel} com ${l.priv} em ${l.tabela}`);
   const funcs = Object.entries(FUNCOES_PROTEGIDAS).filter(([v]) => v <= versao).flatMap(([, fs]) => fs);
-  for (const f of await db.query(`select p.oid::regprocedure::text as assinatura, p.proname as nome, p.prosecdef as definer,
-      coalesce(array_to_string(p.proconfig, ','), '') as config from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-      where n.nspname = 'public' and p.proname = any($1::text[])`, [funcs])) {
+  for (const f of await db.query(`select p.proname as nome, p.prosecdef as definer, coalesce(array_to_string(p.proconfig, ','), '') as config,
+      array(select r.rolname::text from pg_roles r where r.rolname in ('anon','authenticated') and has_function_privilege(r.oid, p.oid, 'execute') order by 1) as executam
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = any($1::text[])`, [funcs])) {
     if (!f.definer) violacoes.push(`função ${f.nome} deixou de ser security definer`);
     if (versao >= "019" && f.config !== SEARCH_PATH_019) violacoes.push(`função ${f.nome} sem o search_path endurecido da 019`);
-    for (const papel of ["anon", "authenticated"].filter(p => papeis.has(p))) {
-      const [l] = await db.query(`select has_function_privilege($1, $2, 'execute') as tem`, [papel, f.assinatura]);
-      if (l.tem) violacoes.push(`${papel} pode executar ${f.nome}`);
-    }
+    for (const papel of f.executam || []) violacoes.push(`${papel} pode executar ${f.nome}`);
   }
   return violacoes;
 }

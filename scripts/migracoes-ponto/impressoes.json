@@ -1,0 +1,556 @@
+{
+  "016": {
+    "funcoes": {
+      "ponto_marcacao_imutavel()": {
+        "corpo": "a13c899eb7b4144a63a19faee9e366d2",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_registrar_marcacoes(p_company_id text, p_dispositivo_id uuid, p_marcacoes jsonb)": {
+        "corpo": "27f343a53105003a6f88efb6aa8be33d",
+        "definer": true,
+        "config": "search_path=public"
+      }
+    },
+    "triggers": {
+      "ponto_marcacoes_no_delete": {
+        "tabela": "ponto_marcacoes",
+        "funcao": "ponto_marcacao_imutavel",
+        "tipo": 11
+      },
+      "ponto_marcacoes_no_update": {
+        "tabela": "ponto_marcacoes",
+        "funcao": "ponto_marcacao_imutavel",
+        "tipo": 19
+      }
+    }
+  },
+  "017": {
+    "funcoes": {
+      "ponto_arp_contador_protegido()": {
+        "corpo": "35dd5cb165f4fe240d01781640337a40",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_arp_imutavel()": {
+        "corpo": "71e38d1c6bde1abefb98482457e1bcd6",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_arp_registrar(p_company_id text, p_dispositivo_id uuid, p_eventos jsonb, p_hora jsonb)": {
+        "corpo": "9d1d018da64f6a18c791c355ca506c65",
+        "definer": true,
+        "config": "search_path=public"
+      },
+      "ponto_arp_somente_pela_funcao()": {
+        "corpo": "31d85f7a73051bad57b8b9bab33e2008",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_arp_texto_fiscal(p_estabelecimento_id uuid, p_nsr bigint, p_event_id uuid, p_tipo text, p_cpf text, p_employee_id text, p_marcado_em text, p_gravado_em text, p_dispositivo_id uuid, p_local_sequence bigint, p_local_hash text, p_previous text)": {
+        "corpo": "bc7042d8dead717d6e6476cbc6657f53",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_dispositivo_protegido()": {
+        "corpo": "d053f9c110b9e919e4b206836a01ca46",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_marcacao_imutavel()": {
+        "corpo": "a13c899eb7b4144a63a19faee9e366d2",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_registrar_marcacoes(p_company_id text, p_dispositivo_id uuid, p_marcacoes jsonb)": {
+        "corpo": "27f343a53105003a6f88efb6aa8be33d",
+        "definer": true,
+        "config": "search_path=public"
+      }
+    },
+    "triggers": {
+      "ponto_arp_contadores_no_truncate": {
+        "tabela": "ponto_arp_contadores",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_arp_contadores_protegido": {
+        "tabela": "ponto_arp_contadores",
+        "funcao": "ponto_arp_contador_protegido",
+        "tipo": 31
+      },
+      "ponto_arp_registros_no_delete": {
+        "tabela": "ponto_arp_registros",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 11
+      },
+      "ponto_arp_registros_no_truncate": {
+        "tabela": "ponto_arp_registros",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_arp_registros_no_update": {
+        "tabela": "ponto_arp_registros",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 19
+      },
+      "ponto_arp_registros_so_arp": {
+        "tabela": "ponto_arp_registros",
+        "funcao": "ponto_arp_somente_pela_funcao",
+        "tipo": 7
+      },
+      "ponto_dispositivos_protegido": {
+        "tabela": "ponto_dispositivos",
+        "funcao": "ponto_dispositivo_protegido",
+        "tipo": 19
+      },
+      "ponto_eventos_no_delete": {
+        "tabela": "ponto_eventos",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 11
+      },
+      "ponto_eventos_no_truncate": {
+        "tabela": "ponto_eventos",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_eventos_no_update": {
+        "tabela": "ponto_eventos",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 19
+      },
+      "ponto_eventos_so_arp": {
+        "tabela": "ponto_eventos",
+        "funcao": "ponto_arp_somente_pela_funcao",
+        "tipo": 7
+      },
+      "ponto_marcacoes_no_delete": {
+        "tabela": "ponto_marcacoes",
+        "funcao": "ponto_marcacao_imutavel",
+        "tipo": 11
+      },
+      "ponto_marcacoes_no_update": {
+        "tabela": "ponto_marcacoes",
+        "funcao": "ponto_marcacao_imutavel",
+        "tipo": 19
+      },
+      "ponto_tempo_verificacoes_no_delete": {
+        "tabela": "ponto_tempo_verificacoes",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 11
+      },
+      "ponto_tempo_verificacoes_no_truncate": {
+        "tabela": "ponto_tempo_verificacoes",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_tempo_verificacoes_no_update": {
+        "tabela": "ponto_tempo_verificacoes",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 19
+      }
+    }
+  },
+  "018": {
+    "funcoes": {
+      "ponto_apropriacao_cancelar(p_company_id text, p_id uuid, p_responsavel_id text, p_motivo text, p_versao_esperada integer)": {
+        "corpo": "a3ee217bf5f5122ab37ac82d57fc97d3",
+        "definer": true,
+        "config": "search_path=public"
+      },
+      "ponto_apropriacao_salvar(p_company_id text, p_id uuid, p_employee_id text, p_data date, p_inicio timestamp with time zone, p_fim timestamp with time zone, p_obra_apropriada_id text, p_origem text, p_responsavel_id text, p_motivo text, p_versao_esperada integer)": {
+        "corpo": "03a85ab28e4fcb64432f41283828df14",
+        "definer": true,
+        "config": "search_path=public"
+      },
+      "ponto_apropriacao_somente_pela_funcao()": {
+        "corpo": "ab522eef28fa5317dad852d48fb4ad08",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_arp_contador_protegido()": {
+        "corpo": "35dd5cb165f4fe240d01781640337a40",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_arp_imutavel()": {
+        "corpo": "71e38d1c6bde1abefb98482457e1bcd6",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_arp_registrar(p_company_id text, p_dispositivo_id uuid, p_eventos jsonb, p_hora jsonb)": {
+        "corpo": "9d1d018da64f6a18c791c355ca506c65",
+        "definer": true,
+        "config": "search_path=public"
+      },
+      "ponto_arp_somente_pela_funcao()": {
+        "corpo": "31d85f7a73051bad57b8b9bab33e2008",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_arp_texto_fiscal(p_estabelecimento_id uuid, p_nsr bigint, p_event_id uuid, p_tipo text, p_cpf text, p_employee_id text, p_marcado_em text, p_gravado_em text, p_dispositivo_id uuid, p_local_sequence bigint, p_local_hash text, p_previous text)": {
+        "corpo": "bc7042d8dead717d6e6476cbc6657f53",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_dispositivo_protegido()": {
+        "corpo": "d053f9c110b9e919e4b206836a01ca46",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_marcacao_imutavel()": {
+        "corpo": "a13c899eb7b4144a63a19faee9e366d2",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_registrar_marcacoes(p_company_id text, p_dispositivo_id uuid, p_marcacoes jsonb)": {
+        "corpo": "27f343a53105003a6f88efb6aa8be33d",
+        "definer": true,
+        "config": "search_path=public"
+      }
+    },
+    "triggers": {
+      "ponto_aprop_auditoria_no_delete": {
+        "tabela": "ponto_apropriacoes_auditoria",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 11
+      },
+      "ponto_aprop_auditoria_no_truncate": {
+        "tabela": "ponto_apropriacoes_auditoria",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_aprop_auditoria_no_update": {
+        "tabela": "ponto_apropriacoes_auditoria",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 19
+      },
+      "ponto_aprop_auditoria_so_funcao": {
+        "tabela": "ponto_apropriacoes_auditoria",
+        "funcao": "ponto_apropriacao_somente_pela_funcao",
+        "tipo": 7
+      },
+      "ponto_apropriacoes_no_truncate": {
+        "tabela": "ponto_apropriacoes",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_apropriacoes_so_funcao": {
+        "tabela": "ponto_apropriacoes",
+        "funcao": "ponto_apropriacao_somente_pela_funcao",
+        "tipo": 31
+      },
+      "ponto_arp_contadores_no_truncate": {
+        "tabela": "ponto_arp_contadores",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_arp_contadores_protegido": {
+        "tabela": "ponto_arp_contadores",
+        "funcao": "ponto_arp_contador_protegido",
+        "tipo": 31
+      },
+      "ponto_arp_registros_no_delete": {
+        "tabela": "ponto_arp_registros",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 11
+      },
+      "ponto_arp_registros_no_truncate": {
+        "tabela": "ponto_arp_registros",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_arp_registros_no_update": {
+        "tabela": "ponto_arp_registros",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 19
+      },
+      "ponto_arp_registros_so_arp": {
+        "tabela": "ponto_arp_registros",
+        "funcao": "ponto_arp_somente_pela_funcao",
+        "tipo": 7
+      },
+      "ponto_dispositivos_protegido": {
+        "tabela": "ponto_dispositivos",
+        "funcao": "ponto_dispositivo_protegido",
+        "tipo": 19
+      },
+      "ponto_eventos_no_delete": {
+        "tabela": "ponto_eventos",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 11
+      },
+      "ponto_eventos_no_truncate": {
+        "tabela": "ponto_eventos",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_eventos_no_update": {
+        "tabela": "ponto_eventos",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 19
+      },
+      "ponto_eventos_so_arp": {
+        "tabela": "ponto_eventos",
+        "funcao": "ponto_arp_somente_pela_funcao",
+        "tipo": 7
+      },
+      "ponto_marcacoes_no_delete": {
+        "tabela": "ponto_marcacoes",
+        "funcao": "ponto_marcacao_imutavel",
+        "tipo": 11
+      },
+      "ponto_marcacoes_no_update": {
+        "tabela": "ponto_marcacoes",
+        "funcao": "ponto_marcacao_imutavel",
+        "tipo": 19
+      },
+      "ponto_tempo_verificacoes_no_delete": {
+        "tabela": "ponto_tempo_verificacoes",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 11
+      },
+      "ponto_tempo_verificacoes_no_truncate": {
+        "tabela": "ponto_tempo_verificacoes",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_tempo_verificacoes_no_update": {
+        "tabela": "ponto_tempo_verificacoes",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 19
+      }
+    }
+  },
+  "019": {
+    "funcoes": {
+      "ponto_apropriacao_cancelar(p_company_id text, p_id uuid, p_responsavel_id text, p_motivo text, p_versao_esperada integer)": {
+        "corpo": "a3ee217bf5f5122ab37ac82d57fc97d3",
+        "definer": true,
+        "config": "search_path=pg_catalog, public, pg_temp"
+      },
+      "ponto_apropriacao_salvar(p_company_id text, p_id uuid, p_employee_id text, p_data date, p_inicio timestamp with time zone, p_fim timestamp with time zone, p_obra_apropriada_id text, p_origem text, p_responsavel_id text, p_motivo text, p_versao_esperada integer)": {
+        "corpo": "03a85ab28e4fcb64432f41283828df14",
+        "definer": true,
+        "config": "search_path=pg_catalog, public, pg_temp"
+      },
+      "ponto_apropriacao_somente_pela_funcao()": {
+        "corpo": "ab522eef28fa5317dad852d48fb4ad08",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_arp_contador_protegido()": {
+        "corpo": "35dd5cb165f4fe240d01781640337a40",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_arp_fonte_hora(p_host timestamp with time zone, p_tol interval, OUT banco timestamp with time zone, OUT base timestamp with time zone, OUT fonte text, OUT dif_ms numeric)": {
+        "corpo": "c9ecc2f4b93de3c59390685e49584b43",
+        "definer": false,
+        "config": "search_path=pg_catalog, public, pg_temp"
+      },
+      "ponto_arp_imutavel()": {
+        "corpo": "71e38d1c6bde1abefb98482457e1bcd6",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_arp_registrar(p_company_id text, p_dispositivo_id uuid, p_eventos jsonb, p_hora jsonb)": {
+        "corpo": "14b3aaa2d8826704e527fe0585b0e3b4",
+        "definer": true,
+        "config": "search_path=pg_catalog, public, pg_temp"
+      },
+      "ponto_arp_somente_pela_funcao()": {
+        "corpo": "31d85f7a73051bad57b8b9bab33e2008",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_arp_texto_fiscal(p_estabelecimento_id uuid, p_nsr bigint, p_event_id uuid, p_tipo text, p_cpf text, p_employee_id text, p_marcado_em text, p_gravado_em text, p_dispositivo_id uuid, p_local_sequence bigint, p_local_hash text, p_previous text)": {
+        "corpo": "bc7042d8dead717d6e6476cbc6657f53",
+        "definer": false,
+        "config": "search_path=pg_catalog, public, pg_temp"
+      },
+      "ponto_dispositivo_protegido()": {
+        "corpo": "62c7e2cbef3e8d4bb4260aff0e5ab529",
+        "definer": false,
+        "config": "search_path=pg_catalog, public, pg_temp"
+      },
+      "ponto_estab_auditoria_so_trigger()": {
+        "corpo": "3b9039e6850d21bd84eb2c7ce2f644db",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_estab_nsr_emitidos(p_company_id text, p_estab uuid)": {
+        "corpo": "f0b38439e647f3e7fcea13c1cf0b0284",
+        "definer": false,
+        "config": "search_path=pg_catalog, public, pg_temp"
+      },
+      "ponto_estabelecimento_auditar()": {
+        "corpo": "fc61028f4bc9c47d1e3b4acda6ef964a",
+        "definer": true,
+        "config": "search_path=pg_catalog, public, pg_temp"
+      },
+      "ponto_estabelecimento_protegido()": {
+        "corpo": "07dad68cbfd8e9b58a2876a5a53e3628",
+        "definer": true,
+        "config": "search_path=pg_catalog, public, pg_temp"
+      },
+      "ponto_marcacao_imutavel()": {
+        "corpo": "a13c899eb7b4144a63a19faee9e366d2",
+        "definer": false,
+        "config": ""
+      },
+      "ponto_registrar_marcacoes(p_company_id text, p_dispositivo_id uuid, p_marcacoes jsonb)": {
+        "corpo": "9ec724d6b23e5bdde9999b07840c69d1",
+        "definer": true,
+        "config": "search_path=pg_catalog, public, pg_temp"
+      }
+    },
+    "triggers": {
+      "ponto_aprop_auditoria_no_delete": {
+        "tabela": "ponto_apropriacoes_auditoria",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 11
+      },
+      "ponto_aprop_auditoria_no_truncate": {
+        "tabela": "ponto_apropriacoes_auditoria",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_aprop_auditoria_no_update": {
+        "tabela": "ponto_apropriacoes_auditoria",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 19
+      },
+      "ponto_aprop_auditoria_so_funcao": {
+        "tabela": "ponto_apropriacoes_auditoria",
+        "funcao": "ponto_apropriacao_somente_pela_funcao",
+        "tipo": 7
+      },
+      "ponto_apropriacoes_no_truncate": {
+        "tabela": "ponto_apropriacoes",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_apropriacoes_so_funcao": {
+        "tabela": "ponto_apropriacoes",
+        "funcao": "ponto_apropriacao_somente_pela_funcao",
+        "tipo": 31
+      },
+      "ponto_arp_contadores_no_truncate": {
+        "tabela": "ponto_arp_contadores",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_arp_contadores_protegido": {
+        "tabela": "ponto_arp_contadores",
+        "funcao": "ponto_arp_contador_protegido",
+        "tipo": 31
+      },
+      "ponto_arp_registros_no_delete": {
+        "tabela": "ponto_arp_registros",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 11
+      },
+      "ponto_arp_registros_no_truncate": {
+        "tabela": "ponto_arp_registros",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_arp_registros_no_update": {
+        "tabela": "ponto_arp_registros",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 19
+      },
+      "ponto_arp_registros_so_arp": {
+        "tabela": "ponto_arp_registros",
+        "funcao": "ponto_arp_somente_pela_funcao",
+        "tipo": 7
+      },
+      "ponto_dispositivos_protegido": {
+        "tabela": "ponto_dispositivos",
+        "funcao": "ponto_dispositivo_protegido",
+        "tipo": 19
+      },
+      "ponto_estabelecimentos_auditar": {
+        "tabela": "ponto_estabelecimentos",
+        "funcao": "ponto_estabelecimento_auditar",
+        "tipo": 21
+      },
+      "ponto_estabelecimentos_auditoria_no_delete": {
+        "tabela": "ponto_estabelecimentos_auditoria",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 11
+      },
+      "ponto_estabelecimentos_auditoria_no_truncate": {
+        "tabela": "ponto_estabelecimentos_auditoria",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_estabelecimentos_auditoria_no_update": {
+        "tabela": "ponto_estabelecimentos_auditoria",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 19
+      },
+      "ponto_estabelecimentos_auditoria_so_trigger": {
+        "tabela": "ponto_estabelecimentos_auditoria",
+        "funcao": "ponto_estab_auditoria_so_trigger",
+        "tipo": 7
+      },
+      "ponto_estabelecimentos_protegido": {
+        "tabela": "ponto_estabelecimentos",
+        "funcao": "ponto_estabelecimento_protegido",
+        "tipo": 27
+      },
+      "ponto_eventos_no_delete": {
+        "tabela": "ponto_eventos",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 11
+      },
+      "ponto_eventos_no_truncate": {
+        "tabela": "ponto_eventos",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_eventos_no_update": {
+        "tabela": "ponto_eventos",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 19
+      },
+      "ponto_eventos_so_arp": {
+        "tabela": "ponto_eventos",
+        "funcao": "ponto_arp_somente_pela_funcao",
+        "tipo": 7
+      },
+      "ponto_marcacoes_no_delete": {
+        "tabela": "ponto_marcacoes",
+        "funcao": "ponto_marcacao_imutavel",
+        "tipo": 11
+      },
+      "ponto_marcacoes_no_truncate": {
+        "tabela": "ponto_marcacoes",
+        "funcao": "ponto_marcacao_imutavel",
+        "tipo": 34
+      },
+      "ponto_marcacoes_no_update": {
+        "tabela": "ponto_marcacoes",
+        "funcao": "ponto_marcacao_imutavel",
+        "tipo": 19
+      },
+      "ponto_tempo_verificacoes_no_delete": {
+        "tabela": "ponto_tempo_verificacoes",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 11
+      },
+      "ponto_tempo_verificacoes_no_truncate": {
+        "tabela": "ponto_tempo_verificacoes",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 34
+      },
+      "ponto_tempo_verificacoes_no_update": {
+        "tabela": "ponto_tempo_verificacoes",
+        "funcao": "ponto_arp_imutavel",
+        "tipo": 19
+      }
+    }
+  }
+}

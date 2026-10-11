@@ -4,7 +4,7 @@
 //
 //   node scripts/aplicar-migracoes-ponto.mjs                     # só planeja (não muda nada)
 //   node scripts/aplicar-migracoes-ponto.mjs --verificar         # gate de deploy: GO / NO-GO / INTERVENCAO_HUMANA (só lê)
-//   node scripts/aplicar-migracoes-ponto.mjs --aplicar --confirmo-banco=<host do banco>
+//   node scripts/aplicar-migracoes-ponto.mjs --aplicar --confirmo-banco=<usuario@host:porta/banco>
 //   ... --manifesto scripts/migracoes-ponto/manifesto-com-019.json   # janela da 019
 //   ... --url-env NOME_DA_VARIAVEL                               # padrão POSTGRES_URL_NON_POOLING
 //
@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { adaptadorPostgres } from "./migracoes-ponto/adaptadores.mjs";
 import { aplicar, planejar, verificarGate } from "./migracoes-ponto/livro.mjs";
+import { hostDe, hostLocal, identidadeBanco } from "./migracoes-ponto/locais.mjs";
 
 const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const arg = nome => { const a = process.argv.find(x => x === `--${nome}` || x.startsWith(`--${nome}=`)); if (!a) return null; return a.includes("=") ? a.slice(a.indexOf("=") + 1) : true; };
@@ -30,14 +31,17 @@ const lerArquivo = arquivo => {
 const nomeUrl = valorDe("url-env") || "POSTGRES_URL_NON_POOLING";
 const url = process.env[nomeUrl];
 if (!url) { console.error(`variável ${nomeUrl} ausente`); process.exit(1); }
-const host = new URL(url).hostname;
+let host, identidade;
+try { host = hostDe(url); identidade = identidadeBanco(url); } catch (e) { console.error(e.message); process.exit(1); }
 const modoAplicar = arg("aplicar") === true;
-if (modoAplicar && arg("confirmo-banco") !== host) {
-  console.error(`para aplicar, confirme o banco: --confirmo-banco=${host}`);
+// O valor esperado NÃO é impresso: quem aplica precisa saber em qual banco
+// está (no pooler do Supabase o host é o mesmo para todos os projetos).
+if (modoAplicar && arg("confirmo-banco") !== identidade) {
+  console.error("para aplicar, confirme o banco: --confirmo-banco=<usuario@host:porta/banco> (o mesmo da URL; o valor não é exibido)");
   process.exit(1);
 }
 
-const sql = postgres(url, { max: 1, ssl: /localhost|127\.0\.0\.1/.test(host) ? false : "require", connect_timeout: 20, onnotice: () => {} });
+const sql = postgres(url, { max: 1, ssl: hostLocal(host) ? false : "require", connect_timeout: 20, onnotice: () => {} });
 const conexao = await sql.reserve();
 try {
   const db = adaptadorPostgres(conexao);

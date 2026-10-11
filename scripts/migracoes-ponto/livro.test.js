@@ -239,7 +239,11 @@ describe("livro ainda NÃO está no deploy", () => {
     expect(pkg.scripts["ponto-eletronico:migrate"]).toBe("node scripts/apply-ponto-eletronico.mjs");
     const antigo = readFileSync(new URL("../apply-ponto-eletronico.mjs", import.meta.url), "utf8");
     expect(antigo).toMatch(/guardaScriptAntigo/);
-    expect(antigo.indexOf("guardaScriptAntigo(adaptadorPostgres(sql))")).toBeLessThan(antigo.indexOf("016_create_ponto_eletronico.up.sql"));
+    // A chamada do gate precisa EXISTIR e vir antes da reaplicação (indexOf -1 passaria em silêncio).
+    const chamadaGate = antigo.indexOf("guardaScriptAntigo(db"), reaplica016 = antigo.indexOf("016_create_ponto_eletronico.up.sql");
+    expect(chamadaGate).toBeGreaterThan(-1);
+    expect(reaplica016).toBeGreaterThan(-1);
+    expect(chamadaGate).toBeLessThan(reaplica016);
   });
 });
 
@@ -321,8 +325,75 @@ describe("gate de deploy: GO / NO-GO / INTERVENCAO_HUMANA (só lê)", () => {
     const ruim = `${lerMigration("019_ponto_integridade_fiscal.up.sql")}\ngrant insert on public.ponto_arp_registros to service_role;`;
     const manifesto = MANIFESTO_019.map(m => (m.arquivo.startsWith("019") ? { ...m, sha256: sha256Migracao(ruim) } : m));
     await expect(aplicar({ db, manifesto, lerArquivo: async a => (a.startsWith("019") ? ruim : lerMigration(a)), origem: "teste" }))
-      .rejects.toThrow(/integridade fiscal não confere.*service_role com INSERT em ponto_arp_registros.*desfeita/);
+      .rejects.toThrow(/integridade fiscal da versão 019 não confere.*service_role com INSERT em ponto_arp_registros.*nada foi gravado/);
     expect((await validarMigracao(db, "019_ponto_integridade_fiscal.up.sql")).presentes).toEqual([]);
     expect(await gate()).toMatchObject({ resultado: "GO", versaoFiscal: "018" });
+  });
+
+  it("implantação ATÔMICA: recusa ou deriva de permissão na implantação não deixa livro nenhum - o deploy segue GO/'seguir' como antes", async () => {
+    await deployAntigo();
+    // (a) recusa no plano (arquivo diferente do manifesto): nada criado.
+    const errado = MANIFESTO.map((m, i) => (i === 1 ? { ...m, sha256: "0".repeat(64) } : m));
+    await expect(aplicar({ db, manifesto: errado, lerArquivo, origem: "teste" })).rejects.toThrow(/017_.*mudou/);
+    expect((await q("select to_regclass('public.ponto_migracoes_aplicadas') as t"))[0].t).toBeNull();
+    expect(await gate()).toMatchObject({ resultado: "GO", acao: "seguir" });
+    // (b) produção com permissão desviada: a implantação confere a integridade da 018 na MESMA transação e desfaz tudo.
+    await pg.exec("grant update on public.ponto_arp_registros to service_role");
+    await expect(aplicar({ db, manifesto: MANIFESTO, lerArquivo, origem: "teste" })).rejects.toThrow(/versão 018 não confere.*service_role com UPDATE em ponto_arp_registros.*nada foi gravado/);
+    expect((await q("select to_regclass('public.ponto_migracoes_aplicadas') as t"))[0].t).toBeNull();
+    expect(await gate()).toMatchObject({ resultado: "GO", acao: "seguir" });
+    // (c) corrigido o desvio, a mesma implantação passa inteira: 3 registros numa transação.
+    await pg.exec("revoke update on public.ponto_arp_registros from service_role");
+    expect((await aplicar({ db, manifesto: MANIFESTO, lerArquivo, origem: "teste" })).passos.map(p => p.acao)).toEqual(Array(3).fill("registrar_existente"));
+    expect(await gate()).toMatchObject({ resultado: "GO", acao: "pular", versaoFiscal: "018" });
+  });
+
+  it("queda NO MEIO da implantação (depois de registrar a 016): nada fica - não há livro pela metade", async () => {
+    await deployAntigo();
+    let n = 0;
+    const caindo = { ...db, query: async (texto, p) => { if (/insert into public\.ponto_migracoes_aplicadas/.test(texto) && ++n === 2) throw new Error("conexão caiu"); return db.query(texto, p); } };
+    await expect(aplicar({ db: caindo, manifesto: MANIFESTO, lerArquivo, origem: "teste" })).rejects.toThrow(/conexão caiu/);
+    expect((await q("select to_regclass('public.ponto_migracoes_aplicadas') as t"))[0].t).toBeNull();
+    expect(await gate()).toMatchObject({ resultado: "GO", acao: "seguir" });
+    expect((await aplicar({ db, manifesto: MANIFESTO, lerArquivo, origem: "teste" })).passos).toHaveLength(3);
+  });
+
+  it("IMPRESSÃO DIGITAL: função de trigger neutralizada (imutabilidade virando 'return new'), trigger religado noutra tabela ou trigger a mais: NO-GO", async () => {
+    await ate019();
+    expect(await gate()).toMatchObject({ resultado: "GO" });
+    // (a) a função continua existindo com o mesmo nome; só o corpo muda - e o UPDATE fiscal passaria.
+    await pg.exec("create or replace function public.ponto_arp_imutavel() returns trigger language plpgsql as $$ begin return coalesce(new, old); end $$");
+    expect(await gate()).toMatchObject({ resultado: "NO-GO", motivos: expect.arrayContaining([expect.stringMatching(/ponto_arp_imutavel\(\) com corpo diferente/)]) });
+  });
+
+  it("IMPRESSÃO DIGITAL: trigger com o MESMO nome religado noutra tabela, ou trigger estranho numa tabela fiscal: NO-GO", async () => {
+    await ate019();
+    await pg.exec(`drop trigger ponto_arp_registros_no_delete on public.ponto_arp_registros;
+      create trigger ponto_arp_registros_no_delete before delete on public.ponto_tempo_verificacoes for each row execute function public.ponto_arp_imutavel();`);
+    expect(await gate()).toMatchObject({ resultado: "NO-GO", motivos: expect.arrayContaining([expect.stringMatching(/ponto_arp_registros_no_delete ligado de outro jeito/)]) });
+  });
+
+  it("IMPRESSÃO DIGITAL: trigger estranho numa tabela fiscal (pode reescrever NEW antes da gravação): NO-GO", async () => {
+    await ate019();
+    await pg.exec(`create function public.ponto_x() returns trigger language plpgsql as $$ begin return new; end $$;
+      create trigger ponto_x before insert on public.ponto_arp_registros for each row execute function public.ponto_x();`);
+    expect(await gate()).toMatchObject({ resultado: "NO-GO", motivos: expect.arrayContaining([expect.stringMatching(/trigger ponto_x a mais em ponto_arp_registros/)]) });
+  });
+
+  it("impressoes.json está em dia com as migrations (senão: node scripts/migracoes-ponto/gerar-impressoes.mjs)", async () => {
+    const { gerarImpressoes } = await import("./gerar-impressoes.mjs");
+    expect(await gerarImpressoes()).toEqual(JSON.parse(readFileSync(new URL("./impressoes.json", import.meta.url), "utf8")));
+  });
+
+  it("trava reentrante: obtida duas vezes na mesma sessão, liberarTrava solta todas as camadas", async () => {
+    const { obterTrava, liberarTrava } = await import("./livro.mjs");
+    const travas = async () => (await q("select count(*)::int as n from pg_locks where locktype = 'advisory' and pid = pg_backend_pid() and granted"))[0].n;
+    await obterTrava(db); await obterTrava(db);
+    expect(await travas()).toBe(1);                       // uma linha em pg_locks, duas camadas
+    await q("select pg_advisory_unlock(hashtextextended('arcd:ponto:migracoes', 0))");
+    expect(await travas()).toBe(1);                       // soltar UMA vez não basta: ainda presa
+    await obterTrava(db);
+    await liberarTrava(db);
+    expect(await travas()).toBe(0);
   });
 });
