@@ -3,48 +3,40 @@
 // pacote contém CPF, vetor facial e fotos (cifrados).
 //
 //   PONTO_BACKUP_KEY=<base64 32 bytes> node scripts/backup-ponto.mjs \
-//     --saida <pasta FORA do repositório> --autorizado-por "<nome>" [--com-fotos]
+//     --saida <pasta FORA do repositório> --autorizado-por "<nome>" \
+//     [--com-fotos | --fotos-de-pasta <pasta>]
 //
-// Conexão em modo SOMENTE LEITURA (default_transaction_read_only). Banco:
-// POSTGRES_URL_NON_POOLING; fotos: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY.
-// Gera <nome>.arcdponto (cifrado) e <nome>.arcdponto.manifest.json (sem
-// dado pessoal). Nunca imprime URL, chave ou dado.
+// Banco: POSTGRES_URL_NON_POOLING, transação REPEATABLE READ READ ONLY.
+// Fotos: --com-fotos = bucket do Supabase (SUPABASE_URL +
+// SUPABASE_SERVICE_ROLE_KEY); --fotos-de-pasta = pasta local (ensaio).
+// Sem fotos, o pacote NÃO serve para recuperação integral.
+//
+// Saída: 0 = cópia consistente; 2 = com pendências ou sem fotos (ver
+// manifesto); 3 = INCONSISTENTE (hash divergente, cadastro sem foto ou bucket
+// mudando); 1 = falha. Nunca imprime URL, chave ou dado.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { adaptadorPostgres } from "./migracoes-ponto/adaptadores.mjs";
 import { chaveDoAmbiente, empacotar, exportar } from "./backup-ponto/pacote.mjs";
+import { storagePasta, storageSupabase } from "./backup-ponto/storages.mjs";
 
 const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const valor = nome => { const i = process.argv.indexOf(`--${nome}`); return i >= 0 ? process.argv[i + 1] : null; };
-const saida = valor("saida"), autorizadoPor = valor("autorizado-por"), comFotos = process.argv.includes("--com-fotos");
-if (!saida || !autorizadoPor) { console.error("uso: --saida <pasta fora do repositório> --autorizado-por \"<nome>\" [--com-fotos]"); process.exit(1); }
-const destino = path.resolve(saida);
-if (destino === raiz || destino.startsWith(raiz + path.sep)) { console.error("recusado: o pacote não pode ficar dentro do repositório (risco de commit de dado sensível)"); process.exit(1); }
+const dentroDoRepo = d => { const a = path.resolve(d); return a === raiz || a.startsWith(raiz + path.sep); };
+const saida = valor("saida"), autorizadoPor = valor("autorizado-por"), comFotos = process.argv.includes("--com-fotos"), fotosDePasta = valor("fotos-de-pasta");
+if (!saida || !autorizadoPor) { console.error("uso: --saida <pasta fora do repositório> --autorizado-por \"<nome>\" [--com-fotos | --fotos-de-pasta <pasta>]"); process.exit(1); }
+if (comFotos && fotosDePasta) { console.error("use --com-fotos OU --fotos-de-pasta"); process.exit(1); }
+if (dentroDoRepo(saida)) { console.error("recusado: o pacote não pode ficar dentro do repositório (risco de commit de dado sensível)"); process.exit(1); }
 const chave = chaveDoAmbiente(process.env.PONTO_BACKUP_KEY);
 if (!process.env.POSTGRES_URL_NON_POOLING) { console.error("POSTGRES_URL_NON_POOLING ausente"); process.exit(1); }
 
-async function storageSupabase() {
+async function origemDasFotos() {
+  if (fotosDePasta) return storagePasta(path.resolve(fotosDePasta));
+  if (!comFotos) return null;
   const { createClient } = await import("@supabase/supabase-js");
-  const s = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } }).storage.from("ponto-obra");
-  const listarTudo = async (prefixo = "") => {
-    const itens = [];
-    for (let offset = 0; ; offset += 1000) {
-      const { data, error } = await s.list(prefixo, { limit: 1000, offset });
-      if (error) throw error;
-      for (const it of data || []) {
-        const caminho = prefixo ? `${prefixo}/${it.name}` : it.name;
-        if (it.id) itens.push({ caminho }); else itens.push(...await listarTudo(caminho));
-      }
-      if ((data || []).length < 1000) break;
-    }
-    return itens;
-  };
-  return {
-    listar: () => listarTudo(),
-    baixar: async c => { const { data, error } = await s.download(c); if (error) throw error; return Buffer.from(await data.arrayBuffer()); },
-  };
+  return storageSupabase(createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } }).storage.from("ponto-obra"));
 }
 
 const urlOrigem = new URL(process.env.POSTGRES_URL_NON_POOLING);
@@ -53,16 +45,17 @@ const sql = postgres(process.env.POSTGRES_URL_NON_POOLING, { max: 1, ssl: /^(loc
 const conexao = await sql.reserve();
 try {
   await conexao.unsafe("set default_transaction_read_only = on");
-  await conexao.unsafe("begin isolation level repeatable read read only");   // retrato consistente
-  const dados = await exportar({ db: adaptadorPostgres(conexao), storage: comFotos ? await storageSupabase() : null });
-  await conexao.unsafe("commit");
+  const dados = await exportar({ db: adaptadorPostgres(conexao), storage: await origemDasFotos() });
   const agora = new Date().toISOString();
   const { manifesto, corpo } = await empacotar({ dados, chave, agora, origem: identidade, autorizadoPor });
-  fs.mkdirSync(destino, { recursive: true });
+  fs.mkdirSync(path.resolve(saida), { recursive: true });
   const nome = `ponto-${agora.replace(/[:.]/g, "-")}.arcdponto`;
-  fs.writeFileSync(path.join(destino, nome), corpo, { mode: 0o600 });
-  fs.writeFileSync(path.join(destino, `${nome}.manifest.json`), JSON.stringify(manifesto, null, 2));
-  console.log(`Backup do ponto: ${nome} (${corpo.length} bytes cifrados), ${Object.values(manifesto.tabelas).reduce((s, t) => s + t.linhas, 0)} linhas, ${manifesto.fotos.quantidade} foto(s); cadeias fiscais íntegras: ${manifesto.fiscal.every(f => f.cadeiaIntegra)}`);
+  fs.writeFileSync(path.join(path.resolve(saida), nome), corpo, { mode: 0o600 });
+  fs.writeFileSync(path.join(path.resolve(saida), `${nome}.manifest.json`), JSON.stringify(manifesto, null, 2));
+  const c = manifesto.fotos.consistencia;
+  console.log(`Backup do ponto: ${nome} (${corpo.length} bytes cifrados), ${Object.values(manifesto.tabelas).reduce((s, t) => s + t.linhas, 0)} linhas, ${manifesto.fotos.quantidade} foto(s); cadeias fiscais íntegras: ${manifesto.fiscal.every(f => f.cadeiaIntegra && f.contadorConfere)}`);
+  console.log(`Consistência banco x Storage: ${c.qualidade}${c.semArquivo ? ` (referências sem arquivo: ${c.semArquivo.length}, órfãos: ${c.orfaos.length}, hash divergente: ${c.hashDivergente.length}, tentativas: ${c.tentativas})` : ""}`);
+  process.exitCode = c.qualidade === "consistente" ? 0 : c.qualidade === "inconsistente" ? 3 : 2;
 } catch (e) {
   console.error(`backup falhou: ${e.message}`);
   process.exitCode = 1;

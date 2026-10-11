@@ -31,8 +31,8 @@ async function banco() {
 }
 afterAll(async () => { for (const b of bancos) await admin?.unsafe(`drop database if exists ${b}`); await admin?.end({ timeout: 5 }); });
 const rodar = (script, args, env) => {
-  try { return { ok: true, saida: execFileSync(process.execPath, [path.join(raiz, "scripts", script), ...args], { cwd: raiz, env: { ...process.env, ...env }, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }) }; }
-  catch (e) { return { ok: false, saida: `${e.stdout || ""}${e.stderr || ""}` }; }
+  try { return { ok: true, codigo: 0, saida: execFileSync(process.execPath, [path.join(raiz, "scripts", script), ...args], { cwd: raiz, env: { ...process.env, ...env }, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }) }; }
+  catch (e) { return { ok: false, codigo: e.status, saida: `${e.stdout || ""}${e.stderr || ""}` }; }
 };
 
 describe.skipIf(!URL_PG)("backup e restauração do ponto em Postgres real (linhas de comando)", () => {
@@ -58,7 +58,8 @@ describe.skipIf(!URL_PG)("backup e restauração do ponto em Postgres real (linh
     const pasta = fs.mkdtempSync(path.join(os.tmpdir(), "ponto-bkp-"));
     const chave = randomBytes(32).toString("base64");
     const b = rodar("backup-ponto.mjs", ["--saida", pasta, "--autorizado-por", "ci"], { POSTGRES_URL_NON_POOLING: urlDe(origem), PONTO_BACKUP_KEY: chave });
-    expect(b.saida).toMatch(/cadeias fiscais íntegras: true/);
+    // Sem fotos: saída 2 e o manifesto diz que o pacote não serve para recuperação integral.
+    expect(b).toMatchObject({ codigo: 2, saida: expect.stringMatching(/cadeias fiscais íntegras: true[\s\S]*Consistência banco x Storage: sem_fotos/) });
     const pacote = path.join(pasta, fs.readdirSync(pasta).find(f => f.endsWith(".arcdponto")));
     const manifesto = JSON.parse(fs.readFileSync(`${pacote}.manifest.json`, "utf8"));
     expect(manifesto).toMatchObject({ origem: identidade(origem), autorizadoPor: "ci", fiscal: [expect.objectContaining({ ultimoNsr: 3, cadeiaIntegra: true })] });
@@ -69,9 +70,9 @@ describe.skipIf(!URL_PG)("backup e restauração do ponto em Postgres real (linh
     expect(rodar("restaurar-backup-ponto.mjs", ["--pacote", pacote], { ...env, PONTO_RESTAURAR_URL: urlDe(destino) })).toMatchObject({ ok: false, saida: expect.stringMatching(/confirme que o destino é descartável/) });
     expect(rodar("restaurar-backup-ponto.mjs", ["--pacote", pacote, `--confirmo-descartavel=${identidade(origem)}`], { ...env, PONTO_RESTAURAR_URL: urlDe(origem) })).toMatchObject({ ok: false, saida: expect.stringMatching(/destino é o banco de origem/) });
     expect(rodar("restaurar-backup-ponto.mjs", ["--pacote", pacote, `--confirmo-descartavel=${identidade(destino)}`], { ...env, PONTO_BACKUP_KEY: randomBytes(32).toString("base64"), PONTO_RESTAURAR_URL: urlDe(destino) }).ok).toBe(false);
-    // Restauração de verdade.
+    // Restauração de verdade do banco. Pacote sem fotos -> APENAS BANCO (saída 2), nunca "completa".
     const r = rodar("restaurar-backup-ponto.mjs", ["--pacote", pacote, `--confirmo-descartavel=${identidade(destino)}`], { ...env, PONTO_RESTAURAR_URL: urlDe(destino) });
-    expect(r).toMatchObject({ ok: true, saida: expect.stringMatching(/Restaurado e conferido: .*NSR 1\.\.3 íntegra/) });
+    expect(r).toMatchObject({ codigo: 2, saida: expect.stringMatching(/RECUPERAÇÃO APENAS DO BANCO \(não satisfaz o gate\): .*NSR 1\.\.3 íntegra; fotos: pacote sem fotos/) });
     // Segunda vez: destino já tem dados -> recusa.
     expect(rodar("restaurar-backup-ponto.mjs", ["--pacote", pacote, `--confirmo-descartavel=${identidade(destino)}`], { ...env, PONTO_RESTAURAR_URL: urlDe(destino) })).toMatchObject({ ok: false, saida: expect.stringMatching(/só em banco vazio/) });
     fs.rmSync(pasta, { recursive: true, force: true });
