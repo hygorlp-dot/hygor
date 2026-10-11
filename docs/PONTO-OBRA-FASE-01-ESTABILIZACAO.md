@@ -272,7 +272,10 @@ autorização expressa.
 | Base: [37781103626](https://github.com/hygorlp-dot/hygor/actions/runs/37781103626) (`main`) | `8c5e52a` | ❌ npm audit | ✅ | ❌ expo-doctor | ✅ | ✅ |
 | [38071629979](https://github.com/hygorlp-dot/hygor/actions/runs/38071629979) | `0c1fde6` (correções iniciais) | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [38072929721](https://github.com/hygorlp-dot/hygor/actions/runs/38072929721) | `986a4f1` (+ 1ª rodada de revisão) | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Commit final (2ª rodada de revisão) | ver os checks da [PR #69](https://github.com/hygorlp-dot/hygor/pull/69) | | | | | |
+| [38074031337](https://github.com/hygorlp-dot/hygor/actions/runs/38074031337) (push) | `42b9eac` (final, + 2ª rodada de revisão) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [38074034904](https://github.com/hygorlp-dot/hygor/actions/runs/38074034904) (pull_request) | `42b9eac` | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+Números da execução final `42b9eac` (push, log do Actions): financial-and-security 2.450 aprovados / 5 ignorados; migration-contracts 27 + 37; mobile-ponto-obra `expo-doctor` 21/21, bundle de 737 módulos com os 2 `.tflite`, 218 aprovados / 5 ignorados; rep-p-arp-postgres 5/5 em Postgres 16 real; browser-critical-flows 38 aprovados. Os dois portões de auditoria anotaram as exceções (`braces` na raiz; `braces` e `node-forge` no app).
 
 Números da execução `986a4f1` (log do Actions):
 - financial-and-security: 2.446 aprovados e 5 ignorados; o portão anotou 1 exceção formal (`braces`).
@@ -339,3 +342,69 @@ Não está demonstrado: funcionamento em aparelho real e conformidade REP-P.
    fonte; nada de NSR no aparelho.
 5. Revisar as exceções do portão até 09/11/2026 (ou antes, se o portão
    anunciar correção publicada).
+
+## 15. Encerramento e parecer de merge (11/10/2026)
+
+**Estado:** tecnicamente concluída. HEAD `42b9eac` verde nos 5 jobs, nos
+workflows de push e de pull_request (seção 11). PR #69 aberta, `MERGEABLE` /
+`CLEAN`, sem commit posterior além deste relatório. Exceções de `braces` e
+`node-forge` reconferidas em 11/10: advisories sem retirada e com
+`first_patched_version = null`; `braces` sem publicação desde 18/09/2024; o
+portão passa nos dois escopos; prazo de revisão 09/11/2026.
+
+### O que o merge executa em produção
+
+Merge no `main` → deploy de produção da Vercel → `npm run build` →
+`prebuild`, com `VERCEL_ENV=production`:
+1. `check-financial-enforcement-readiness`, `audit-catalog-integrity`;
+2. sete scripts de migração/sombra do ERP (financeiro, cadastros, equipamentos,
+   compras, RLS do motor financeiro, procurement, attendance);
+3. `ponto-eletronico:migrate` → `scripts/apply-ponto-eletronico.mjs`, que
+   **reaplica 016, 017 e 018 inteiras** (DDL idempotente, cada arquivo numa
+   transação) e valida os objetos.
+
+A PR #69 **não altera** nenhum desses scripts nem as migrations: o merge
+executa exatamente o mesmo `prebuild` do último deploy do `main` (08/10,
+sucesso). Em tempo de execução, a única mudança é a linha do log do catch
+geral de `/api/data`. O app Android não é implantado pela Vercel. A função
+`api/data.js` empacota `migrations/*.up.sql` (`vercel.json`), mas só
+executa em tempo de execução uma lista fixa (001-003, ação administrativa do
+financeiro).
+
+### Backup
+
+- O backup diário (cron `backup-create`, 03:00 UTC, OneDrive, AES-256-GCM)
+  copia **só `company_app_data`** (`api/data.js`, função do backup).
+  **As tabelas do ponto (`ponto_eventos`, `ponto_arp_registros`,
+  `ponto_arp_contadores`, `ponto_estabelecimentos`, `ponto_dispositivos` etc.)
+  não estão nesse backup.**
+- Para elas, o único backup é o do próprio Supabase (diário/PITR, conforme o
+  plano), que **não pude verificar** (exige acesso ao painel ou à API de
+  gestão).
+
+### Risco documentado × risco aceito pela direção
+
+Tudo o que está nas seções 7 e 10 é **risco documentado pela engenharia**.
+Nenhum foi **aceito formalmente pela direção**: a aceitação depende de
+registro seu (na PR ou em ata). Em especial, aguardam aceitação ou decisão:
+as exceções `braces`/`node-forge` até 09/11; os P2 de banco (migration 019);
+a ausência das tabelas do ponto no backup do OneDrive; os 2 registros fiscais
+emitidos com estabelecimento sem inscrição e com hora `nao_verificada`.
+
+### Parecer: **GO condicionado**
+
+O merge da #69 é tecnicamente seguro: não muda esquema nem dados do ponto,
+não muda o `prebuild`, só tira dado pessoal do log e endurece a CI. Condições:
+1. **Antes:** confirmar no painel do Supabase que há backup recuperável
+   (diário ou PITR) cobrindo o banco inteiro, ou autorizar uma exportação
+   lógica das tabelas `ponto_*` antes do deploy.
+2. **Quando:** fora do horário de batida. A reaplicação da DDL 016-018 em
+   todo deploy (comportamento já existente, item 23) pega travas curtas nas
+   tabelas do ponto.
+3. **Depois:** conferir o deploy (status Vercel), `ponto-sincronizar` de um
+   aparelho e a cadeia fiscal (consulta de leitura da seção 9).
+4. Registrar a aceitação dos riscos acima.
+
+Sem a condição 1, o parecer é **NO-GO para implantar** (o código pode ser
+mesclado, mas o deploy de produção deve aguardar).
+
