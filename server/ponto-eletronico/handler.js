@@ -327,6 +327,9 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
         const { data, error } = await db.from("ponto_estabelecimentos")
           .update({ ...linha, atualizado_por: String(usuario.id), atualizado_em: agora().toISOString() })
           .eq("company_id", company).eq("id", e.id).select("*");
+        // Migration 019: com NSR emitido, inscrição/CNO/CAEPF/CEI só de vazio
+        // para valor e fuso fixo - o banco recusa e a mensagem vai ao usuário.
+        if (error && /depois de emitido NSR|exige o responsável/.test(String(error.message || ""))) return erro(409, error.message);
         if (error) throw error;
         if (!data?.length) return erro(404, "Estabelecimento não encontrado.");
         return ok({ estabelecimento: linhaEstabelecimento(data[0]) });

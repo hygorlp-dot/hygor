@@ -56,7 +56,13 @@ jobs:
       - name: Contratos das migrations e integração financeira
         run: npm test -- src/integration/financial-transaction-migration.test.js src/integration/auth-rate-limit-migration.test.js src/integration/audit-migration.test.js server/financial-shadow.test.js server/reconciliation-command.test.js
       - name: Contratos das migrations do Ponto de Obra (016 legado + 017 ARP/NSR por estabelecimento + 018 apropriação)
-        run: npx vitest run server/ponto-eletronico-migration.pglite.test.js server/ponto-eletronico/arp/arp-migration.pglite.test.js server/ponto-eletronico/arp/handler-arp.pglite.test.js
+        run: npx vitest run server/ponto-eletronico-migration.pglite.test.js server/ponto-eletronico/arp/arp-migration.pglite.test.js server/ponto-eletronico/arp/handler-arp.pglite.test.js server/ponto-eletronico/arp/arp-migration-019.pglite.test.js
+      # Migration 019 (PRELIMINAR, fora do deploy automático): a suíte inteira do
+      # ponto roda também com o banco já na 019 - prova de regressão da ARP.
+      - name: Ponto de Obra com a migration 019 (preliminar)
+        env:
+          PONTO_MIGRACOES_ATE: "019"
+        run: npx vitest run apps/ponto-obra src/domains/ponto-eletronico server/ponto-eletronico
       - name: Sintaxe da fronteira de API
         run: node --check api/data.js
 
@@ -127,6 +133,8 @@ jobs:
         run: npx vitest run server/ponto-eletronico/arp/arp-concorrencia.pg.test.js
       - name: Confere que o teste rodou (não foi pulado)
         run: npx vitest run server/ponto-eletronico/arp/arp-concorrencia.pg.test.js --reporter=json --outputFile=concorrencia.json && node -e "const r=require('./concorrencia.json'); if (r.numPassedTests < 5) { console.error('teste de concorrência não rodou'); process.exit(1); }"
+      - name: Concorrência real da migration 019 (preliminar; travas de hora, inscrição e legado)
+        run: npx vitest run server/ponto-eletronico/arp/arp-019-concorrencia.pg.test.js --reporter=json --outputFile=concorrencia019.json && node -e "const r=require('./concorrencia019.json'); if (r.numPassedTests < 5) { console.error('teste de concorrência da 019 não rodou'); process.exit(1); }"
 
   browser-critical-flows:
     runs-on: ubuntu-latest
