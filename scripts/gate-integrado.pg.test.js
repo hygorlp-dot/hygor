@@ -21,6 +21,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { PAPEIS_SUPABASE, lerMigration } from "../server/ponto-eletronico/banco-pglite.test-helper.js";
 import { caminhoFotoCadastro, caminhoFotoMarcacao } from "../server/ponto-eletronico/fotos-caminho.js";
 import { storagePasta } from "./backup-ponto/storages.mjs";
+import { MARCADOR_DESCARTAVEL, identidadeBanco } from "./migracoes-ponto/locais.mjs";
 
 const URL_PG = process.env.PONTO_PG_URL;
 const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -29,11 +30,12 @@ const C = "arcd", ZERO = "0".repeat(64), CPF = "12345678909";
 const jpeg = n => Buffer.from([0xff, 0xd8, 0xff, 0xe0, ...Buffer.from(`sintetica-${n}`)]);
 let admin; const bancos = [], pastas = [];
 const urlDe = nome => { const u = new URL(URL_PG); u.pathname = `/${nome}`; return u.toString(); };
-const ident = nome => `${new URL(URL_PG).hostname}/${nome}`;
+const ident = nome => identidadeBanco(urlDe(nome));
 async function banco() {
   admin ??= postgres(URL_PG, { max: 1, onnotice: () => {} });
   const nome = `ponto_gate_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
   await admin.unsafe(`create database ${nome}`);
+  await admin.unsafe(`comment on database ${nome} is '${MARCADOR_DESCARTAVEL}'`);
   bancos.push(nome);
   return nome;
 }
@@ -53,7 +55,6 @@ describe.skipIf(!URL_PG)("gate de produção integrado em Postgres real (linhas 
     const origem = await banco(), destino = await banco();
     const fotosOrigem = pasta(), fotosDestino = pasta(), saida = pasta();
     const sql = postgres(urlDe(origem), { max: 1, onnotice: () => {} });
-    const host = new URL(URL_PG).hostname;
     let seq = 0, ultimo = ZERO;
     const estab = randomUUID(), disp = randomUUID();
     const bater = async (s, fotos) => {
@@ -85,8 +86,8 @@ describe.skipIf(!URL_PG)("gate de produção integrado em Postgres real (linhas 
       // 7: livro pela CLI (planeja, aplica). 8: 019 pela CLI. 9-10: gate GO.
       expect(cli("aplicar-migracoes-ponto.mjs", [], env).saida).toMatch(/registrar_existente[\s\S]*registrar_existente[\s\S]*registrar_existente[\s\S]*Nada foi alterado/);
       expect(cli("aplicar-migracoes-ponto.mjs", ["--aplicar"], env)).toMatchObject({ codigo: 1, saida: expect.stringMatching(/confirme o banco/) });
-      expect(cli("aplicar-migracoes-ponto.mjs", ["--aplicar", `--confirmo-banco=${host}`], env)).toMatchObject({ codigo: 0, saida: expect.stringMatching(/trava_obtida[\s\S]*Concluído/) });
-      expect(cli("aplicar-migracoes-ponto.mjs", ["--manifesto", "scripts/migracoes-ponto/manifesto-com-019.json", "--aplicar", `--confirmo-banco=${host}`], env))
+      expect(cli("aplicar-migracoes-ponto.mjs", ["--aplicar", `--confirmo-banco=${ident(origem)}`], env)).toMatchObject({ codigo: 0, saida: expect.stringMatching(/trava_obtida[\s\S]*Concluído/) });
+      expect(cli("aplicar-migracoes-ponto.mjs", ["--manifesto", "scripts/migracoes-ponto/manifesto-com-019.json", "--aplicar", `--confirmo-banco=${ident(origem)}`], env))
         .toMatchObject({ codigo: 0, saida: expect.stringMatching(/019_ponto_integridade_fiscal\.up\.sql aplicar/) });
       expect(cli("aplicar-migracoes-ponto.mjs", ["--verificar"], env)).toMatchObject({ codigo: 0, saida: expect.stringMatching(/Gate: GO \(versão fiscal 019\)/) });
       expect((await sql`select prosrc from pg_proc where proname = 'ponto_arp_registrar'`)[0].prosrc).toContain("fonteGravacao");
@@ -127,5 +128,40 @@ describe.skipIf(!URL_PG)("gate de produção integrado em Postgres real (linhas 
       await sql.unsafe(lerMigration("017_ponto_arp_estabelecimento_nsr.up.sql"));     // alguém reaplicou a 017 por fora
       expect(cli("aplicar-migracoes-ponto.mjs", ["--verificar"], env)).toMatchObject({ codigo: 2, saida: expect.stringMatching(/Gate: NO-GO/) });
     } finally { await sql.end({ timeout: 5 }); }
+  }, 300000);
+
+  it("o SCRIPT DE DEPLOY de verdade (apply-ponto-eletronico.mjs): seguir, pular, bloquear e trava com prazo contra outra sessão", async () => {
+    const deploy = (nome, extra = {}) => cli("apply-ponto-eletronico.mjs", [], { VERCEL_ENV: "production", POSTGRES_URL_NON_POOLING: urlDe(nome), ...extra });
+    const funcoes = async s => (await s`select md5(string_agg(p.proname || md5(p.prosrc), '|' order by p.proname)) h from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and left(p.proname, 6) = 'ponto_'`)[0].h;
+    const a = await banco(), b = await banco();
+    const sqlA = postgres(urlDe(a), { max: 1, onnotice: () => {} }), sqlB = postgres(urlDe(b), { max: 1, onnotice: () => {} });
+    try {
+      await sqlA.unsafe(PAPEIS_SUPABASE); await sqlB.unsafe(PAPEIS_SUPABASE);
+      // Hoje (sem livro, sem 019): GO/seguir e reaplica 016-018 como antes.
+      expect(deploy(a)).toMatchObject({ codigo: 0, saida: expect.stringMatching(/trava_obtida[\s\S]*gate GO[\s\S]*migration aplicada/) });
+      // Livro implantado: o deploy seguinte não reaplica nada.
+      expect(cli("aplicar-migracoes-ponto.mjs", ["--aplicar", `--confirmo-banco=${ident(a)}`], { POSTGRES_URL_NON_POOLING: urlDe(a) }).codigo).toBe(0);
+      const antes = await funcoes(sqlA);
+      expect(deploy(a)).toMatchObject({ codigo: 0, saida: expect.stringMatching(/gate GO \(versão fiscal 018\)[\s\S]*nada reaplicado/) });
+      expect(await funcoes(sqlA)).toBe(antes);
+      // Outra sessão (deploy ou CLI) segurando a trava: o deploy espera o prazo e falha explícito, sem alterar nada.
+      const poolOutra = postgres(urlDe(a), { max: 1, onnotice: () => {} }), outra = await poolOutra.reserve();
+      try {
+        await outra`select pg_advisory_lock(hashtextextended('arcd:ponto:migracoes', 0))`;
+        const r = deploy(a, { PONTO_TRAVA_TIMEOUT_MS: "1500" });
+        expect(r.codigo).not.toBe(0);
+        expect(r.saida).toMatch(/trava_expirou[\s\S]*trava do livro de migrations não obtida/);
+        expect(r.saida).not.toMatch(/gate /);
+      } finally { outra.release(); await poolOutra.end({ timeout: 5 }); }
+      // 019 aplicada SEM livro: o deploy é bloqueado e a 019 continua no banco.
+      for (const f of ["016_create_ponto_eletronico.up.sql", "017_ponto_arp_estabelecimento_nsr.up.sql", "018_ponto_apropriacoes.up.sql", "019_ponto_integridade_fiscal.up.sql"]) await sqlB.unsafe(lerMigration(f));
+      const r019 = deploy(b);
+      expect(r019.codigo).not.toBe(0);
+      expect(r019.saida).toMatch(/gate INTERVENCAO_HUMANA[\s\S]*deploy bloqueado pelo gate/);
+      expect((await sqlB`select prosrc from pg_proc where proname = 'ponto_arp_registrar'`)[0].prosrc).toContain("fonteGravacao");
+      // A saída nunca mostra a URL do banco.
+      expect(r019.saida).not.toContain(urlDe(b));
+    } finally { await sqlA.end({ timeout: 5 }); await sqlB.end({ timeout: 5 }); }
   }, 300000);
 });

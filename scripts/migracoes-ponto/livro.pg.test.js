@@ -36,7 +36,7 @@ async function bancoNovo() {
 afterAll(async () => { await admin?.end({ timeout: 5 }); });
 afterEach(async () => {
   for (const c of conexoes.splice(0)) await c.end({ timeout: 5 });
-  for (const b of bancos.splice(0)) await admin.unsafe(`drop database if exists ${b}`);
+  for (const b of bancos.splice(0)) await admin.unsafe(`drop database if exists ${b} with (force)`).catch(() => admin.unsafe(`drop database if exists ${b}`));
 });
 
 const funcoes = async sql => (await sql`select md5(string_agg(p.proname || pg_get_functiondef(p.oid), '|' order by p.proname)) h
