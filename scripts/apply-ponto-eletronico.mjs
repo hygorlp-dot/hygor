@@ -14,7 +14,7 @@
 import fs from "node:fs";
 import postgres from "postgres";
 import { adaptadorPostgres } from "./migracoes-ponto/adaptadores.mjs";
-import { guardaScriptAntigo } from "./migracoes-ponto/livro.mjs";
+import { guardaScriptAntigo, liberarTrava, obterTrava } from "./migracoes-ponto/livro.mjs";
 
 if (process.env.VERCEL_ENV !== "production") {
   process.stdout.write("ponto-eletronico: ambiente não produtivo; migration automática ignorada.\n");
@@ -31,9 +31,15 @@ try {
   // não reaplica nada; com a 019 no banco e sem livro, reaplicar 016/017
   // sobrescreveria as funções dela - o deploy falha e a versão anterior
   // continua no ar.
-  const guarda = await guardaScriptAntigo(adaptadorPostgres(sql));
-  if (guarda.acao === "pular") { process.stdout.write(`ponto-eletronico: ${guarda.motivo}.\n`); process.exit(0); }
-  if (guarda.acao === "bloquear") throw new Error(`ponto-eletronico: ${guarda.motivo}`);
+  // Mesma trava (com prazo) do livro: deploy e CLI do livro não rodam juntos.
+  // max:1 -> a trava de sessão fica na única conexão deste script.
+  const db = adaptadorPostgres(sql);
+  await obterTrava(db, { timeoutMs: 120_000 });
+  const lerArquivo = arquivo => fs.readFileSync(new URL(`../migrations/${arquivo}`, import.meta.url), "utf8");
+  const guarda = await guardaScriptAntigo(db, { lerArquivo });
+  process.stdout.write(`ponto-eletronico: gate ${guarda.resultado} (versão fiscal ${guarda.versaoFiscal || "-"}): ${guarda.motivos.join(" | ")}\n`);
+  if (guarda.acao === "pular") { await liberarTrava(db); process.exit(0); }
+  if (guarda.acao === "bloquear") throw new Error(`ponto-eletronico: deploy bloqueado pelo gate (${guarda.resultado}). Nada foi reaplicado. Ver docs/PONTO-OBRA-RUNBOOK-PRODUCAO.md.`);
   await sql.unsafe(fs.readFileSync(new URL("../migrations/016_create_ponto_eletronico.up.sql", import.meta.url), "utf8"));
   await sql.unsafe(fs.readFileSync(new URL("../migrations/017_ponto_arp_estabelecimento_nsr.up.sql", import.meta.url), "utf8"));
   await sql.unsafe(fs.readFileSync(new URL("../migrations/018_ponto_apropriacoes.up.sql", import.meta.url), "utf8"));

@@ -60,3 +60,76 @@ export async function validarMigracao(db, arquivo) {
   }
   return { completa: faltando.length === 0, parcial: faltando.length > 0 && presentes.length > 0, faltando, presentes, conhecida: true };
 }
+
+// ---------------------------------------------------------------- integridade fiscal (gate de deploy)
+// Só LÊ o catálogo. versao = última migration registrada no livro ("016".."019").
+// Devolve a lista de violações (vazia = íntegro). Regras por versão:
+//   >= 017: RLS em todas as tabelas registradas; triggers obrigatórios
+//           presentes e HABILITADOS; tabelas fiscais sem escrita direta
+//           para a service_role; nada para anon/authenticated; funções da
+//           ARP security definer e sem EXECUTE para anon/authenticated.
+//   >= 019: sem TRUNCATE para a service_role em nenhuma tabela do ponto;
+//           legado e auditoria do estabelecimento só leitura; search_path
+//           endurecido nas funções security definer; corpo da versão 019.
+const ESCRITA = ["INSERT", "UPDATE", "DELETE", "TRUNCATE"];
+const PROIBIDOS_SERVICE_ROLE = {
+  "017": { ponto_eventos: ESCRITA, ponto_arp_registros: ESCRITA, ponto_arp_contadores: ESCRITA, ponto_tempo_verificacoes: ["UPDATE", "DELETE", "TRUNCATE"] },
+  "018": { ponto_apropriacoes: ESCRITA, ponto_apropriacoes_auditoria: ESCRITA },
+  "019": { ponto_marcacoes: ESCRITA, ponto_dispositivos: ["DELETE", "TRUNCATE"], ponto_estabelecimentos_auditoria: ESCRITA },
+};
+const FUNCOES_PROTEGIDAS = {
+  "016": ["ponto_registrar_marcacoes"],
+  "017": ["ponto_arp_registrar"],
+  "018": ["ponto_apropriacao_salvar", "ponto_apropriacao_cancelar"],
+};
+const SEARCH_PATH_019 = "search_path=pg_catalog, public, pg_temp";
+const versaoDe = arquivo => arquivo.slice(0, 3);
+
+export async function verificarIntegridadeFiscal(db, versao) {
+  const violacoes = [];
+  const migracoes = Object.keys(OBJETOS).filter(a => versaoDe(a) <= versao);
+  const tabelas = [...new Set(migracoes.flatMap(a => OBJETOS[a].tabelasComRls))];
+  const triggers = [...new Set(migracoes.flatMap(a => OBJETOS[a].triggers))];
+  for (const t of await db.query(`select c.relname as nome, c.relrowsecurity as rls from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relname = any($1::text[])`, [tabelas])) if (!t.rls) violacoes.push(`RLS desligado em ${t.nome}`);
+  const trg = await db.query(`select tgname as nome, tgenabled::text as estado from pg_trigger where not tgisinternal and tgname = any($1::text[])`, [triggers]);
+  for (const t of triggers) {
+    const l = trg.find(x => x.nome === t);
+    if (!l) violacoes.push(`trigger ${t} ausente`);
+    else if (!["O", "A"].includes(l.estado)) violacoes.push(`trigger ${t} desabilitado (${l.estado})`);
+  }
+  // Privilégios: só olha papéis que existem (PGlite/Supabase).
+  const papeis = new Set((await db.query(`select rolname from pg_roles where rolname in ('anon','authenticated','service_role')`)).map(r => r.rolname));
+  const proibidos = {};
+  for (const [v, mapa] of Object.entries(PROIBIDOS_SERVICE_ROLE)) if (v <= versao) for (const [t, ps] of Object.entries(mapa)) proibidos[t] = [...new Set([...(proibidos[t] || []), ...ps])];
+  if (versao >= "019") for (const t of tabelas) proibidos[t] = [...new Set([...(proibidos[t] || []), "TRUNCATE"])];
+  if (papeis.has("service_role")) {
+    for (const [t, ps] of Object.entries(proibidos)) {
+      if (!tabelas.includes(t)) continue;
+      for (const p of ps) {
+        const [l] = await db.query(`select has_table_privilege('service_role', $1, $2) as tem`, [`public.${t}`, p]);
+        if (l.tem) violacoes.push(`service_role com ${p} em ${t}`);
+      }
+    }
+  }
+  for (const papel of ["anon", "authenticated"].filter(p => papeis.has(p))) {
+    for (const t of tabelas) {
+      for (const p of ["SELECT", ...ESCRITA]) {
+        const [l] = await db.query(`select has_table_privilege($1, $2, $3) as tem`, [papel, `public.${t}`, p]);
+        if (l.tem) violacoes.push(`${papel} com ${p} em ${t}`);
+      }
+    }
+  }
+  const funcs = Object.entries(FUNCOES_PROTEGIDAS).filter(([v]) => v <= versao).flatMap(([, fs]) => fs);
+  for (const f of await db.query(`select p.oid::regprocedure::text as assinatura, p.proname as nome, p.prosecdef as definer,
+      coalesce(array_to_string(p.proconfig, ','), '') as config from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname = any($1::text[])`, [funcs])) {
+    if (!f.definer) violacoes.push(`função ${f.nome} deixou de ser security definer`);
+    if (versao >= "019" && f.config !== SEARCH_PATH_019) violacoes.push(`função ${f.nome} sem o search_path endurecido da 019`);
+    for (const papel of ["anon", "authenticated"].filter(p => papeis.has(p))) {
+      const [l] = await db.query(`select has_function_privilege($1, $2, 'execute') as tem`, [papel, f.assinatura]);
+      if (l.tem) violacoes.push(`${papel} pode executar ${f.nome}`);
+    }
+  }
+  return violacoes;
+}

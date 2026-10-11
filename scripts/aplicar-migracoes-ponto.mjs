@@ -3,6 +3,7 @@
 // (docs/PONTO-OBRA-RUNBOOK-PRODUCAO.md).
 //
 //   node scripts/aplicar-migracoes-ponto.mjs                     # só planeja (não muda nada)
+//   node scripts/aplicar-migracoes-ponto.mjs --verificar         # gate de deploy: GO / NO-GO / INTERVENCAO_HUMANA (só lê)
 //   node scripts/aplicar-migracoes-ponto.mjs --aplicar --confirmo-banco=<host do banco>
 //   ... --manifesto scripts/migracoes-ponto/manifesto-com-019.json   # janela da 019
 //   ... --url-env NOME_DA_VARIAVEL                               # padrão POSTGRES_URL_NON_POOLING
@@ -14,7 +15,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { adaptadorPostgres } from "./migracoes-ponto/adaptadores.mjs";
-import { aplicar, planejar } from "./migracoes-ponto/livro.mjs";
+import { aplicar, planejar, verificarGate } from "./migracoes-ponto/livro.mjs";
 
 const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const arg = nome => { const a = process.argv.find(x => x === `--${nome}` || x.startsWith(`--${nome}=`)); if (!a) return null; return a.includes("=") ? a.slice(a.indexOf("=") + 1) : true; };
@@ -41,8 +42,16 @@ const conexao = await sql.reserve();
 try {
   const db = adaptadorPostgres(conexao);
   console.log(`Livro de migrations do Ponto - banco ${host} - manifesto ${path.relative(raiz, manifestoArq)} - ${modoAplicar ? "APLICAR" : "planejar (nada muda)"}`);
+  if (arg("verificar") === true) {
+    const g = await verificarGate(db, { lerArquivo });
+    console.log(`Gate: ${g.resultado} (versão fiscal ${g.versaoFiscal || "-"})`);
+    for (const m of g.motivos) console.log(`  - ${m}`);
+    process.exitCode = g.resultado === "GO" ? 0 : g.resultado === "NO-GO" ? 2 : 3;
+    process.exit();
+  }
+  const registrar = ev => console.log(`  [${ev.etapa}]${ev.arquivo ? ` ${ev.arquivo}` : ""}${ev.acao ? ` ${ev.acao}` : ""}${ev.ms !== undefined ? ` ${ev.ms} ms` : ""}${ev.tentativas ? ` (${ev.tentativas} tentativa(s))` : ""}`);
   const r = modoAplicar
-    ? await aplicar({ db, manifesto, lerArquivo, origem: process.env.PONTO_LIVRO_ORIGEM || `manual:${process.env.USER || process.env.USERNAME || "desconhecido"}` })
+    ? await aplicar({ db, manifesto, lerArquivo, registrar, origem: process.env.PONTO_LIVRO_ORIGEM || `manual:${process.env.USER || process.env.USERNAME || "desconhecido"}` })
     : await planejar({ db, manifesto, lerArquivo });
   if (!modoAplicar && !r.livroExiste) console.log("  (o livro ainda não existe: será criado ao aplicar)");
   for (const p of r.passos) console.log(`  ${p.acao.padEnd(20)} ${p.arquivo}  ${p.sha256.slice(0, 12)}…`);

@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PAPEIS_SUPABASE, lerMigration } from "../../server/ponto-eletronico/banco-pglite.test-helper.js";
 import { verificarCadeiaFiscal } from "../../src/domains/ponto-eletronico/registro-fiscal.js";
 import { adaptadorPglite } from "./adaptadores.mjs";
-import { aplicar, guardaScriptAntigo, planejar, sha256Migracao } from "./livro.mjs";
+import { aplicar, guardaScriptAntigo, planejar, sha256Migracao, verificarGate } from "./livro.mjs";
 import { validarMigracao } from "./validacao.mjs";
 
 vi.setConfig({ testTimeout: 60000, hookTimeout: 60000 });
@@ -28,11 +28,12 @@ const C = "arcd", ZERO = "0".repeat(64);
 let pg, db;
 const q = async (sql, p = []) => (await pg.query(sql, p)).rows;
 const lerArquivo = async arquivo => lerMigration(arquivo);
+const ANTIGAS_ARQ = ["016_create_ponto_eletronico.up.sql", "017_ponto_arp_estabelecimento_nsr.up.sql", "018_ponto_apropriacoes.up.sql"];
 // O que o script ANTIGO faz a cada deploy (sem a guarda): reaplica 016-018.
 const deployAntigo = async () => { for (const f of ["016_create_ponto_eletronico.up.sql", "017_ponto_arp_estabelecimento_nsr.up.sql", "018_ponto_apropriacoes.up.sql"]) await pg.exec(lerMigration(f)); };
 // O mesmo script COM a guarda deste PR.
 const deployAntigoComGuarda = async () => {
-  const g = await guardaScriptAntigo(db);
+  const g = await guardaScriptAntigo(db, { lerArquivo });
   if (g.acao === "seguir") await deployAntigo();
   return g;
 };
@@ -242,3 +243,86 @@ describe("livro ainda NÃO está no deploy", () => {
   });
 });
 
+
+describe("gate de deploy: GO / NO-GO / INTERVENCAO_HUMANA (só lê)", () => {
+  const gate = () => verificarGate(db, { lerArquivo });
+  const ate018 = async () => { await deployAntigo(); await aplicar({ db, manifesto: MANIFESTO, lerArquivo, origem: "teste" }); };
+  const ate019 = async () => { await ate018(); await aplicar({ db, manifesto: MANIFESTO_019, lerArquivo, origem: "teste" }); };
+
+  it("sem livro: GO 'seguir' (comportamento anterior); com objeto da 019 e sem livro: INTERVENCAO_HUMANA", async () => {
+    await deployAntigo();
+    expect(await gate()).toMatchObject({ resultado: "GO", acao: "seguir" });
+    await pg.exec("create table public.ponto_estabelecimentos_auditoria(id int)");
+    expect(await gate()).toMatchObject({ resultado: "INTERVENCAO_HUMANA", acao: "bloquear" });
+  });
+
+  it("livro íntegro só com 016-018: GO (versão 018); livro íntegro com a 019: GO (versão 019)", async () => {
+    await ate018();
+    expect(await gate()).toMatchObject({ resultado: "GO", acao: "pular", versaoFiscal: "018" });
+    await aplicar({ db, manifesto: MANIFESTO_019, lerArquivo, origem: "teste" });
+    expect(await gate()).toMatchObject({ resultado: "GO", acao: "pular", versaoFiscal: "019" });
+  });
+
+  it("função da 019 substituída pela da 017: NO-GO", async () => {
+    await ate019();
+    await pg.exec(lerMigration("017_ponto_arp_estabelecimento_nsr.up.sql"));
+    const g = await gate();
+    expect(g).toMatchObject({ resultado: "NO-GO", acao: "bloquear" });
+    expect(g.motivos.join("\n")).toMatch(/019_.*corpo de ponto_arp_registrar/);
+    expect(g.motivos.join("\n")).toMatch(/ponto_arp_registrar sem o search_path endurecido da 019/);
+  });
+
+  it("trigger fiscal removido ou desabilitado: NO-GO", async () => {
+    await ate019();
+    await pg.exec("alter table public.ponto_arp_registros disable trigger ponto_arp_registros_no_update");
+    expect((await gate()).motivos).toContain("trigger ponto_arp_registros_no_update desabilitado (D)");
+    await pg.exec("alter table public.ponto_arp_registros enable trigger ponto_arp_registros_no_update; drop trigger ponto_eventos_no_delete on public.ponto_eventos");
+    const g = await gate();
+    expect(g.resultado).toBe("NO-GO");
+    expect(g.motivos).toContain("trigger ponto_eventos_no_delete ausente");
+  });
+
+  it("permissão indevidamente ampliada (service_role escrevendo no fiscal, anon lendo eventos, anon executando a ARP): NO-GO", async () => {
+    await ate019();
+    await pg.exec("grant insert on public.ponto_arp_registros to service_role; grant select on public.ponto_eventos to anon; grant truncate on public.ponto_biometrias to service_role");
+    await pg.exec("grant execute on function public.ponto_arp_registrar(text, uuid, jsonb, jsonb) to anon");
+    const g = await gate();
+    expect(g.resultado).toBe("NO-GO");
+    expect(g.motivos).toEqual(expect.arrayContaining(["service_role com INSERT em ponto_arp_registros", "anon com SELECT em ponto_eventos",
+      "service_role com TRUNCATE em ponto_biometrias", "anon pode executar ponto_arp_registrar"]));
+  });
+
+  it("SHA-256 incompatível (arquivo aplicado mudou no deploy): NO-GO", async () => {
+    await ate019();
+    const g = await verificarGate(db, { lerArquivo: async a => (a.startsWith("018") ? `${lerMigration(a)}\n-- mudou` : lerMigration(a)) });
+    expect(g).toMatchObject({ resultado: "NO-GO", motivos: [expect.stringMatching(/018_.*mudou depois de aplicado/)] });
+  });
+
+  it("histórico incompleto (017 ausente do livro) e migration posterior presente sem registro: INTERVENCAO_HUMANA", async () => {
+    await deployAntigo();
+    await aplicar({ db, manifesto: MANIFESTO.filter(m => !m.arquivo.startsWith("017")), lerArquivo, origem: "teste" });
+    const g = await gate();
+    expect(g.resultado).toBe("INTERVENCAO_HUMANA");
+    expect(g.motivos.join("\n")).toMatch(/histórico incompleto/);
+    expect(g.motivos.join("\n")).toMatch(/017_.*presentes no banco sem registro/);
+    const outro = new PGlite({ extensions: { pgcrypto } });
+    try {
+      await outro.exec(PAPEIS_SUPABASE);
+      const dbo = adaptadorPglite(outro);
+      for (const f of ANTIGAS_ARQ) await outro.exec(lerMigration(f));
+      await aplicar({ db: dbo, manifesto: MANIFESTO, lerArquivo, origem: "teste" });
+      await outro.exec(lerMigration("019_ponto_integridade_fiscal.up.sql"));     // 019 aplicada por fora do livro
+      expect(await verificarGate(dbo, { lerArquivo })).toMatchObject({ resultado: "INTERVENCAO_HUMANA", motivos: expect.arrayContaining([expect.stringMatching(/019_.*sem registro/)]) });
+    } finally { await outro.close(); }
+  });
+
+  it("falha entre etapas: 019 que deixaria permissão ampliada é desfeita NA MESMA transação; o gate segue GO na 018", async () => {
+    await ate018();
+    const ruim = `${lerMigration("019_ponto_integridade_fiscal.up.sql")}\ngrant insert on public.ponto_arp_registros to service_role;`;
+    const manifesto = MANIFESTO_019.map(m => (m.arquivo.startsWith("019") ? { ...m, sha256: sha256Migracao(ruim) } : m));
+    await expect(aplicar({ db, manifesto, lerArquivo: async a => (a.startsWith("019") ? ruim : lerMigration(a)), origem: "teste" }))
+      .rejects.toThrow(/integridade fiscal não confere.*service_role com INSERT em ponto_arp_registros.*desfeita/);
+    expect((await validarMigracao(db, "019_ponto_integridade_fiscal.up.sql")).presentes).toEqual([]);
+    expect(await gate()).toMatchObject({ resultado: "GO", versaoFiscal: "018" });
+  });
+});

@@ -15,14 +15,17 @@
 //   - NUNCA executa uma migration se alguma POSTERIOR do manifesto já
 //     estiver presente no banco (ex.: 017 por cima da 019 reescreveria a
 //     ARP com a versão antiga): recusa;
-//   - um livro por vez (pg_advisory_lock de sessão): deploys concorrentes
-//     esperam um pelo outro;
+//   - um livro por vez (trava consultiva de sessão COM PRAZO, obterTrava):
+//     execuções concorrentes se serializam e nenhuma espera para sempre;
+//   - a versão nova precisa fechar íntegra (verificarIntegridadeFiscal) NA
+//     MESMA transação, senão é desfeita; verificarGate decide o deploy
+//     (GO / NO-GO / INTERVENCAO_HUMANA);
 //   - modo "planejar" não muda nada (nem cria o livro).
 //
 // O adaptador (db) tem: query(texto, params) -> linhas; exec(texto) para SQL
 // com vários comandos; transacao(fn). Ver adaptadores.mjs.
 import { createHash } from "node:crypto";
-import { validarMigracao } from "./validacao.mjs";
+import { OBJETOS, validarMigracao, verificarIntegridadeFiscal } from "./validacao.mjs";
 
 export const TABELA_LIVRO = "ponto_migracoes_aplicadas";
 export const CHAVE_TRAVA = "arcd:ponto:migracoes";
@@ -110,16 +113,41 @@ export async function planejar({ db, manifesto, lerArquivo }) {
   return { livroExiste: existe, passos };
 }
 
+// ---------------------------------------------------------------- trava com prazo
+// pg_advisory_lock espera para sempre. Aqui: pg_try_advisory_lock em laço
+// até o prazo, depois erro explícito. Trava de SESSÃO: se a conexão cair, o
+// Postgres solta sozinho (não fica presa); liberarTrava nunca lança.
+export const TRAVA_PADRAO = { timeoutMs: 60_000, intervaloMs: 250 };
+export async function obterTrava(db, { timeoutMs = TRAVA_PADRAO.timeoutMs, intervaloMs = TRAVA_PADRAO.intervaloMs, registrar = () => {} } = {}) {
+  const inicio = Date.now();
+  for (let tentativa = 1; ; tentativa += 1) {
+    const [l] = await db.query("select pg_try_advisory_lock(hashtextextended($1, 0)) as ok", [CHAVE_TRAVA]);
+    if (l.ok) { registrar({ etapa: "trava_obtida", ms: Date.now() - inicio, tentativas: tentativa }); return; }
+    if (Date.now() - inicio >= timeoutMs) {
+      registrar({ etapa: "trava_expirou", ms: Date.now() - inicio, tentativas: tentativa });
+      throw new ErroLivro(`trava do livro de migrations não obtida em ${Math.round(timeoutMs / 1000)} s: outra execução (deploy ou CLI) está em andamento. Nada foi alterado; tente de novo depois.`, { codigo: "TRAVA_EXPIROU" });
+    }
+    await new Promise(r => setTimeout(r, intervaloMs));
+  }
+}
+export async function liberarTrava(db, registrar = () => {}) {
+  try { await db.query("select pg_advisory_unlock(hashtextextended($1, 0))", [CHAVE_TRAVA]); registrar({ etapa: "trava_liberada" }); }
+  catch (e) { registrar({ etapa: "trava_liberada_pela_desconexao", erro: String(e.message || e).slice(0, 120) }); }
+}
+
+const versaoDoArquivo = arquivo => arquivo.slice(0, 3);
+
 // Executa o plano. origem: quem/onde (ex.: "deploy:vercel", "manual:fulano").
-export async function aplicar({ db, manifesto, lerArquivo, origem, limites = LIMITES_PADRAO, agora = () => Date.now() }) {
+// registrar(evento): observabilidade sem dado sensível ({ etapa, arquivo, acao, ms }).
+export async function aplicar({ db, manifesto, lerArquivo, origem, limites = LIMITES_PADRAO, trava = TRAVA_PADRAO, registrar = () => {}, agora = () => Date.now() }) {
   if (!/^\d+(ms|s|min)$/.test(limites.lockTimeout) || !/^\d+(ms|s|min)$/.test(limites.statementTimeout)) throw new ErroLivro("limites de tempo inválidos");
-  await db.query(`select pg_advisory_lock(hashtextextended($1, 0))`, [CHAVE_TRAVA]);
+  await obterTrava(db, { ...trava, registrar });
   try {
     if (!(await livroExiste(db))) await db.transacao(async () => { await db.exec(DDL_LIVRO); });
     const plano = await planejar({ db, manifesto, lerArquivo });
     const feitos = [];
     for (const passo of plano.passos) {
-      if (passo.acao === "ja_aplicada") { feitos.push(passo); continue; }
+      if (passo.acao === "ja_aplicada") { feitos.push(passo); registrar({ etapa: "migration", arquivo: passo.arquivo, acao: passo.acao }); continue; }
       const inicio = agora();
       await db.transacao(async () => {
         await db.exec(`set local lock_timeout = '${limites.lockTimeout}'; set local statement_timeout = '${limites.statementTimeout}';`);
@@ -127,6 +155,9 @@ export async function aplicar({ db, manifesto, lerArquivo, origem, limites = LIM
           await db.exec(await lerArquivo(passo.arquivo));
           const depois = await validarMigracao(db, passo.arquivo);
           if (!depois.completa) throw new ErroLivro(`${passo.arquivo}: aplicada mas a validação falhou (faltando: ${depois.faltando.join(", ")}) - desfeita`);
+          // A versão nova precisa fechar íntegra NA MESMA transação; senão, desfaz.
+          const violacoes = await verificarIntegridadeFiscal(db, versaoDoArquivo(passo.arquivo));
+          if (violacoes.length) throw new ErroLivro(`${passo.arquivo}: integridade fiscal não confere depois de aplicar (${violacoes.join("; ")}) - desfeita`, { violacoes });
           passo.validacao = depois;
         }
         await db.query(
@@ -134,23 +165,59 @@ export async function aplicar({ db, manifesto, lerArquivo, origem, limites = LIM
           [passo.arquivo, passo.sha256, passo.acao === "aplicar" ? "aplicada" : "registrada_existente", origem, Math.round(agora() - inicio),
             JSON.stringify({ presentes: passo.validacao?.presentes?.length ?? 0, faltando: passo.validacao?.faltando ?? [] })]);
       });
+      registrar({ etapa: "migration", arquivo: passo.arquivo, acao: passo.acao, ms: Math.round(agora() - inicio) });
       feitos.push(passo);
     }
     return { passos: feitos };
   } finally {
-    await db.query(`select pg_advisory_unlock(hashtextextended($1, 0))`, [CHAVE_TRAVA]);
+    await liberarTrava(db, registrar);
   }
 }
 
-// Para o script ANTIGO (apply-ponto-eletronico.mjs), antes de reaplicar
-// 016-018: com o livro ativo ele não reaplica nada; com a 019 no banco e sem
-// livro, reaplicar 016/017 sobrescreveria as funções da 019 - bloqueia
-// (o deploy falha e a versão anterior continua no ar).
-export async function guardaScriptAntigo(db) {
-  if (await livroExiste(db)) return { acao: "pular", motivo: "livro de migrations ativo (ponto_migracoes_aplicadas): o script antigo não reaplica 016-018" };
-  const v019 = await validarMigracao(db, "019_ponto_integridade_fiscal.up.sql");
-  if (v019.presentes.length > 0) {
-    return { acao: "bloquear", motivo: "a migration 019 está no banco e não há livro de migrations: reaplicar 016/017 sobrescreveria as funções da 019. Implante o livro (docs/PONTO-OBRA-RUNBOOK-PRODUCAO.md)." };
+// ---------------------------------------------------------------- gate de deploy
+// Só LÊ. Resultado:
+//   GO                 - livro íntegro e versão fiscal conferida (ou: sem livro e sem 019 = comportamento anterior)
+//   NO-GO              - deriva comprovada: arquivo aplicado mudou, objeto registrado sumiu ou foi trocado,
+//                        trigger ausente/desabilitado, permissão ampliada, função da 019 substituída
+//   INTERVENCAO_HUMANA - estado que a ferramenta não deve interpretar: histórico com lacuna, migration
+//                        desconhecida no livro, migration presente sem registro, 019 sem livro
+// Nunca corrige nada. acao: "seguir" (sem livro: script antigo reaplica 016-018), "pular" (GO com livro:
+// nada a reaplicar), "bloquear" (o deploy falha; a versão anterior continua no ar).
+export async function verificarGate(db, { lerArquivo }) {
+  const conhecidas = Object.keys(OBJETOS);
+  if (!(await livroExiste(db))) {
+    const v019 = await validarMigracao(db, "019_ponto_integridade_fiscal.up.sql");
+    if (v019.presentes.length > 0) {
+      return { resultado: "INTERVENCAO_HUMANA", acao: "bloquear", versaoFiscal: null, motivos: ["a migration 019 está no banco sem livro de migrations: reaplicar 016/017 sobrescreveria as funções dela. Implante o livro (docs/PONTO-OBRA-RUNBOOK-PRODUCAO.md)."] };
+    }
+    return { resultado: "GO", acao: "seguir", versaoFiscal: null, motivos: ["sem livro e sem 019: comportamento anterior (reaplicar 016-018)"] };
   }
-  return { acao: "seguir", motivo: "sem livro e sem 019: comportamento anterior (reaplicar 016-018)" };
+  const intervencao = [], nogo = [];
+  const linhas = await db.query(`select arquivo, sha256 from public.${TABELA_LIVRO} order by arquivo`);
+  const registradas = linhas.map(l => l.arquivo);
+  const conhecidasRegistradas = registradas.filter(a => conhecidas.includes(a));
+  for (const a of registradas.filter(a => !conhecidas.includes(a))) intervencao.push(`migration desconhecida no livro: ${a}`);
+  if (!registradas.length) intervencao.push("livro existe mas está vazio");
+  if (conhecidasRegistradas.some((a, i) => a !== conhecidas[i])) {
+    intervencao.push(`histórico incompleto: registradas ${registradas.join(", ")} (esperado em ordem a partir de ${conhecidas[0]})`);
+  }
+  for (const l of linhas.filter(x => conhecidas.includes(x.arquivo))) {
+    let conteudo = null;
+    try { conteudo = await lerArquivo(l.arquivo); } catch { intervencao.push(`${l.arquivo}: arquivo da migration ausente neste deploy`); continue; }
+    if (sha256Migracao(conteudo) !== l.sha256) nogo.push(`${l.arquivo}: o arquivo mudou depois de aplicado (SHA-256 diferente do livro)`);
+    const v = await validarMigracao(db, l.arquivo);
+    if (!v.completa) nogo.push(`${l.arquivo}: registrada, mas o banco não confere (faltando: ${v.faltando.join(", ")})`);
+  }
+  for (const a of conhecidas.filter(a => !registradas.includes(a))) {
+    const v = await validarMigracao(db, a);
+    if (v.presentes.length > 0) intervencao.push(`${a}: objetos presentes no banco sem registro no livro`);
+  }
+  const versaoFiscal = conhecidasRegistradas.map(versaoDoArquivo).sort().at(-1) || null;
+  if (versaoFiscal) for (const v of await verificarIntegridadeFiscal(db, versaoFiscal)) nogo.push(v);
+  if (intervencao.length) return { resultado: "INTERVENCAO_HUMANA", acao: "bloquear", versaoFiscal, motivos: [...intervencao, ...nogo] };
+  if (nogo.length) return { resultado: "NO-GO", acao: "bloquear", versaoFiscal, motivos: nogo };
+  return { resultado: "GO", acao: "pular", versaoFiscal, motivos: [`livro íntegro; versão fiscal ${versaoFiscal} conferida (objetos, triggers, permissões e funções)`] };
 }
+
+// Para o script ANTIGO (apply-ponto-eletronico.mjs), antes de reaplicar 016-018.
+export const guardaScriptAntigo = (db, opcoes) => verificarGate(db, opcoes);
