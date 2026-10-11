@@ -13,6 +13,8 @@
 
 import fs from "node:fs";
 import postgres from "postgres";
+import { adaptadorPostgres } from "./migracoes-ponto/adaptadores.mjs";
+import { guardaScriptAntigo } from "./migracoes-ponto/livro.mjs";
 
 if (process.env.VERCEL_ENV !== "production") {
   process.stdout.write("ponto-eletronico: ambiente não produtivo; migration automática ignorada.\n");
@@ -24,6 +26,14 @@ if (!process.env.POSTGRES_URL_NON_POOLING) {
 
 const sql = postgres(process.env.POSTGRES_URL_NON_POOLING, { ssl:"require", max:1, connect_timeout:20, idle_timeout:5 });
 try {
+  // Guarda do livro de migrations (scripts/migracoes-ponto/livro.mjs). Hoje
+  // (sem livro e sem 019) segue igual a antes. Com o livro ativo, este script
+  // não reaplica nada; com a 019 no banco e sem livro, reaplicar 016/017
+  // sobrescreveria as funções dela - o deploy falha e a versão anterior
+  // continua no ar.
+  const guarda = await guardaScriptAntigo(adaptadorPostgres(sql));
+  if (guarda.acao === "pular") { process.stdout.write(`ponto-eletronico: ${guarda.motivo}.\n`); process.exit(0); }
+  if (guarda.acao === "bloquear") throw new Error(`ponto-eletronico: ${guarda.motivo}`);
   await sql.unsafe(fs.readFileSync(new URL("../migrations/016_create_ponto_eletronico.up.sql", import.meta.url), "utf8"));
   await sql.unsafe(fs.readFileSync(new URL("../migrations/017_ponto_arp_estabelecimento_nsr.up.sql", import.meta.url), "utf8"));
   await sql.unsafe(fs.readFileSync(new URL("../migrations/018_ponto_apropriacoes.up.sql", import.meta.url), "utf8"));
