@@ -100,33 +100,96 @@ describe("migration 019 aplicada sobre 016-018", () => {
     });
   });
 
-  describe("B. hora de gravação sob a trava do contador", () => {
-    it("host atrasado (ou outra instância com relógio atrás) não faz o NSR seguinte ter hora menor; a evidência registra o ajuste", async () => {
-      await registrar(DISP_A, eventos(DISP_A, 1), hora("2026-10-01T12:00:05.000Z"));
-      await registrar(DISP_B, eventos(DISP_B, 1), hora("2026-10-01T12:00:01.000Z"));    // relógio 4 s atrás
-      const r = await fiscais(EST);
-      expect(r.map(x => [Number(x.nsr), x.gravado_em_texto])).toEqual([[1, "2026-10-01T12:00:05.000Z"], [2, "2026-10-01T12:00:05.000Z"]]);
-      expect(r[1].evidencia_hora.arp).toMatchObject({ versao: 19, horaHostAceita: true, ajustadaPeloNsrAnterior: true });
-      expect(r[1].evidencia_hora.serverTime).toBe("2026-10-01T12:00:01.000Z");     // evidência original preservada
-      expect(await cadeiaFiscalOk(EST)).toEqual({ ok: true, erro: null });
-    });
+  describe("B. relógio fiscal (auditoria da regra de hora)", () => {
+    // Horários relativos ao relógio REAL do banco (é ele o árbitro).
+    const agora = deslocMs => new Date(Date.now() + deslocMs).toISOString();
+    const ev = disp => eventos(disp, 1, { inicio: (seqs[disp] = (seqs[disp] || 0) + 1), anterior: ultimos[disp] || ZERO }).map(e => { ultimos[disp] = e.localHash; return e; });
+    let seqs, ultimos;
+    beforeEach(() => { seqs = {}; ultimos = {}; });
+    const ultimo = async () => (await fiscais(EST)).at(-1);
 
-    it("host normal: gravado_em é a hora do host, no mesmo formato ISO que o JS assina", async () => {
-      const r = await registrar(DISP_A, eventos(DISP_A, 2), hora("2026-10-01T12:00:00.123456Z"));
-      expect(r.map(x => x.gravado_em)).toEqual(["2026-10-01T12:00:00.123Z", "2026-10-01T12:00:00.123Z"]);
-      const [f] = await fiscais(EST);
-      expect(f.evidencia_hora.arp).toMatchObject({ horaHostAceita: true, ajustadaPeloNsrAnterior: false });
+    it("host normal: grava a hora do host, no formato ISO que o JS assina; evidência completa", async () => {
+      const h = agora(-200);
+      await registrar(DISP_A, ev(DISP_A), { ...hora(h), toleranciaMs: 30000, status: "verificada" });
+      const f = await ultimo();
+      expect(f.gravado_em_texto).toBe(h);
       expect(new Date(f.gravado_em).toISOString()).toBe(f.gravado_em_texto);
+      expect(f.evidencia_hora).toMatchObject({ serverTime: h, status: "verificada", arp: { versao: 19, fonteGravacao: "host", horaHost: h, ajuste: "nenhum", toleranciaMs: 30000 } });
+      expect(Math.abs(f.evidencia_hora.arp.diferencaHostBancoMs + 200)).toBeLessThan(5000);
+    });
+
+    it("host ATRASADO além da tolerância: grava o relógio do banco e diz por quê (não troca em silêncio)", async () => {
+      const h = agora(-10 * 60_000);
+      await registrar(DISP_A, ev(DISP_A), hora(h));
+      const f = await ultimo();
+      expect(Math.abs(Date.parse(f.gravado_em_texto) - Date.now())).toBeLessThan(5000);
+      expect(f.evidencia_hora.arp).toMatchObject({ fonteGravacao: "banco:host_divergente", horaHost: h, ajuste: "nenhum" });
+      expect(f.evidencia_hora.arp.diferencaHostBancoMs).toBeLessThan(-590_000);
+      expect(f.evidencia_hora.serverTime).toBe(h);                    // evidência original preservada
+    });
+
+    it("host ADIANTADO / hora no futuro (+1 dia): não vira hora fiscal e NÃO arrasta os NSR seguintes (sem catraca)", async () => {
+      await registrar(DISP_A, ev(DISP_A), hora(agora(24 * 3_600_000)));
+      await registrar(DISP_B, ev(DISP_B), hora(agora(0)));
+      const [a, b] = await fiscais(EST);
+      expect(a.evidencia_hora.arp.fonteGravacao).toBe("banco:host_divergente");
+      expect(Math.abs(Date.parse(a.gravado_em_texto) - Date.now())).toBeLessThan(5000);
+      expect(Date.parse(b.gravado_em_texto)).toBeGreaterThanOrEqual(Date.parse(a.gravado_em_texto));
+      expect(b.evidencia_hora.arp.fonteGravacao).toBe("host");
+    });
+
+    it("instâncias com relógios diferentes dentro da tolerância: o NSR seguinte nunca fica com hora menor (monotonia marcada)", async () => {
+      const adiantada = agora(4000), atrasada = agora(0);
+      await registrar(DISP_A, ev(DISP_A), hora(adiantada));
+      await registrar(DISP_B, ev(DISP_B), hora(atrasada));
+      const [a, b] = await fiscais(EST);
+      expect(a.gravado_em_texto).toBe(adiantada);
+      expect(b.gravado_em_texto).toBe(adiantada);
+      expect(b.evidencia_hora.arp).toMatchObject({ fonteGravacao: "host", horaHost: atrasada, ajuste: "monotonia", gravadoAnterior: adiantada });
       expect(await cadeiaFiscalOk(EST)).toEqual({ ok: true, erro: null });
     });
 
-    it("serverTime fora do ISO UTC (ex.: '01/02/2026 10:00') ou ausente é ignorado: usa o relógio do banco", async () => {
-      const r = await registrar(DISP_A, eventos(DISP_A, 1), { serverTime: "01/02/2026 10:00", source: "host" });
-      expect(r[0].gravado_em).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
-      expect(Math.abs(Date.parse(r[0].gravado_em) - Date.now())).toBeLessThan(60_000);
-      const [f] = await fiscais(EST);
-      expect(f.evidencia_hora.arp.horaHostAceita).toBe(false);
+    it("registro anterior anômalo (no futuro além da tolerância, ex.: gravado antes da 019): o próximo grava a hora verdadeira e marca a regressão", async () => {
+      await registrar(DISP_A, ev(DISP_A), hora(agora(0)));
+      // Simula um NSR anterior com hora no futuro (como a 017 permitia): reescrita só no banco descartável do teste.
+      await q("alter table public.ponto_arp_registros disable trigger ponto_arp_registros_no_update");
+      await q("update public.ponto_arp_registros set gravado_em = now() + interval '2 hours' where estabelecimento_id = $1", [EST]);
+      await q("alter table public.ponto_arp_registros enable trigger ponto_arp_registros_no_update");
+      const h = agora(0);
+      await registrar(DISP_B, ev(DISP_B), hora(h));
+      const b = await ultimo();
+      expect(b.gravado_em_texto).toBe(h);
+      expect(b.evidencia_hora.arp).toMatchObject({ fonteGravacao: "host", ajuste: "regressao_registro_anterior_anomalo" });
+      expect(b.evidencia_hora.arp.gravadoAnterior).toBeTruthy();
+    });
+
+    it("serverTime fora do ISO UTC ('01/02/2026 10:00') ou ausente: relógio do banco, marcado como hora inválida", async () => {
+      await registrar(DISP_A, ev(DISP_A), { serverTime: "01/02/2026 10:00", source: "host" });
+      await registrar(DISP_B, ev(DISP_B), {});
+      for (const f of await fiscais(EST)) {
+        expect(f.gravado_em_texto).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+        expect(Math.abs(Date.parse(f.gravado_em_texto) - Date.now())).toBeLessThan(5000);
+        expect(f.evidencia_hora.arp).toMatchObject({ fonteGravacao: "banco:hora_do_host_invalida", horaHost: null });
+      }
       expect(await cadeiaFiscalOk(EST)).toEqual({ ok: true, erro: null });
+    });
+
+    it("referência vencida, fora da tolerância HLB ou falha do NTP: a gravação não é bloqueada e o estado da fonte fica na evidência", async () => {
+      for (const status of ["verificacao_vencida", "fora_da_tolerancia", "nao_verificada"]) {
+        const disp = DISP_A;
+        await registrar(disp, ev(disp), { ...hora(agora(0)), status, confiavel: status !== "fora_da_tolerancia", lastVerifiedAt: null, offsetMs: null });
+        expect((await ultimo()).evidencia_hora).toMatchObject({ status, arp: { fonteGravacao: "host" } });
+      }
+      expect((await fiscais(EST)).map(f => Number(f.nsr))).toEqual([1, 2, 3]);
+    });
+
+    it("tolerância vem da política (toleranciaMs) e é limitada a 1 s..5 min; valor inválido usa 30 s", async () => {
+      await registrar(DISP_A, ev(DISP_A), { ...hora(agora(-3000)), toleranciaMs: 1000 });
+      expect((await ultimo()).evidencia_hora.arp).toMatchObject({ fonteGravacao: "banco:host_divergente", toleranciaMs: 1000 });
+      await registrar(DISP_A, ev(DISP_A), { ...hora(agora(-3000)), toleranciaMs: 999_999_999 });
+      expect((await ultimo()).evidencia_hora.arp).toMatchObject({ toleranciaMs: 300000 });
+      await registrar(DISP_A, ev(DISP_A), { ...hora(agora(0)), toleranciaMs: "abc" });
+      expect((await ultimo()).evidencia_hora.arp).toMatchObject({ toleranciaMs: 30000 });
     });
   });
 

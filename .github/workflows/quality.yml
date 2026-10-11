@@ -134,7 +134,7 @@ jobs:
       - name: Confere que o teste rodou (não foi pulado)
         run: npx vitest run server/ponto-eletronico/arp/arp-concorrencia.pg.test.js --reporter=json --outputFile=concorrencia.json && node -e "const r=require('./concorrencia.json'); if (r.numPassedTests < 5) { console.error('teste de concorrência não rodou'); process.exit(1); }"
       - name: Concorrência real da migration 019 (preliminar; travas de hora, inscrição e legado)
-        run: npx vitest run server/ponto-eletronico/arp/arp-019-concorrencia.pg.test.js --reporter=json --outputFile=concorrencia019.json && node -e "const r=require('./concorrencia019.json'); if (r.numPassedTests < 5) { console.error('teste de concorrência da 019 não rodou'); process.exit(1); }"
+        run: npx vitest run server/ponto-eletronico/arp/arp-019-concorrencia.pg.test.js --reporter=default --reporter=json --outputFile=concorrencia019.json && node -e "const r=require('./concorrencia019.json'); if (r.numPassedTests < 6) { console.error('teste de concorrência da 019 não rodou'); process.exit(1); }"
 
   browser-critical-flows:
     runs-on: ubuntu-latest

@@ -19,6 +19,8 @@ const sha256 = v => createHash("sha256").update(v).digest("hex");
 const ZERO = "0".repeat(64);
 const hora = serverTime => ({ serverTime, source: "host", status: "nao_verificada" });
 const espera = ms => new Promise(r => setTimeout(r, ms));
+// Horários relativos ao relógio real: o banco é o árbitro da tolerância (30 s).
+const agora = deslocMs => new Date(Date.now() + deslocMs).toISOString();
 
 let sql;
 describe.skipIf(!URL_PG)("migration 019 com conexões simultâneas (Postgres real)", () => {
@@ -65,13 +67,16 @@ describe.skipIf(!URL_PG)("migration 019 com conexões simultâneas (Postgres rea
     const c1 = await sql.reserve();
     try {
       await c1`begin`;
-      await arp(c1, company, a.disp, [proximo(a)], hora("2026-10-01T12:00:05.000Z"));   // NSR 1 segura o contador
-      const segundo = arp(sql, company, b.disp, [proximo(b)], hora("2026-10-01T12:00:01.000Z"));   // espera o contador
+      const adiantada = agora(5000), atrasada = agora(1000);
+      await arp(c1, company, a.disp, [proximo(a)], hora(adiantada));   // NSR 1 segura o contador
+      const segundo = arp(sql, company, b.disp, [proximo(b)], hora(atrasada));   // espera o contador
       await espera(300);
       await c1`commit`;
       const [r] = await segundo;
       expect(Number(r.nsr)).toBe(2);
-      expect(r.gravado_em).toBe("2026-10-01T12:00:05.000Z");             // na 017 seria 12:00:01 (menor que o NSR 1)
+      expect(r.gravado_em).toBe(adiantada);             // na 017 seria a atrasada (menor que o NSR 1)
+      const [f2] = await sql`select evidencia_hora from public.ponto_arp_registros where company_id = ${company} and nsr = 2`;
+      expect(f2.evidencia_hora.arp).toMatchObject({ ajuste: "monotonia", horaHost: atrasada, gravadoAnterior: adiantada });
     } finally { c1.release(); }
     expect(await cadeiaOk(company, estab)).toEqual({ ok: true, erro: null });
   }, 60000);
@@ -79,7 +84,7 @@ describe.skipIf(!URL_PG)("migration 019 com conexões simultâneas (Postgres rea
   it("B: 6 aparelhos em paralelo com relógios desencontrados: hora nunca decresce com o NSR e a cadeia fiscal confere", async () => {
     const { company, estab, aps } = await empresa(6);
     await Promise.all(aps.map(async (ap, i) => {
-      for (let k = 0; k < 5; k++) await arp(sql, company, ap.disp, [proximo(ap)], hora(new Date(Date.UTC(2026, 9, 1, 12, 0, 0) + ((i * 7 + k * 3) % 11) * 1000).toISOString()));
+      for (let k = 0; k < 5; k++) await arp(sql, company, ap.disp, [proximo(ap)], hora(agora(((i * 7 + k * 3) % 11) * 1000 - 5000)));
     }));
     const regs = await fiscais(company, estab);
     expect(regs.map(r => Number(r.nsr))).toEqual(Array.from({ length: 30 }, (_, i) => i + 1));
@@ -92,7 +97,7 @@ describe.skipIf(!URL_PG)("migration 019 com conexões simultâneas (Postgres rea
     const c1 = await sql.reserve(), c2 = await sql.reserve();
     try {
       await c1`begin`;
-      await arp(c1, company, a.disp, [proximo(a)], hora("2026-10-01T12:00:00.000Z"));     // FOR SHARE no estabelecimento
+      await arp(c1, company, a.disp, [proximo(a)], hora(agora(0)));     // FOR SHARE no estabelecimento
       await c2`set lock_timeout = '500ms'`;
       await expect(c2`update public.ponto_estabelecimentos set numero_inscricao = '11444777000161', atualizado_por = 'f' where company_id = ${company} and id = ${estab}`)
         .rejects.toThrow(/lock timeout|canceling statement/i);
@@ -109,10 +114,10 @@ describe.skipIf(!URL_PG)("migration 019 com conexões simultâneas (Postgres rea
       await c1`begin`;
       await c1`update public.ponto_estabelecimentos set numero_inscricao = '11444777000161', atualizado_por = 'f' where company_id = ${company} and id = ${estab}`;
       await c2`set lock_timeout = '500ms'`;
-      await expect(arp(c2, company, a.disp, [proximo(a)], hora("2026-10-01T12:00:00.000Z"))).rejects.toThrow(/lock timeout|canceling statement/i);
+      await expect(arp(c2, company, a.disp, [proximo(a)], hora(agora(0)))).rejects.toThrow(/lock timeout|canceling statement/i);
       a.seq -= 1; a.ultimo = ZERO;                                                          // o evento não entrou
       await c1`commit`;
-      const [r] = await arp(c2, company, a.disp, [proximo(a)], hora("2026-10-01T12:00:00.000Z"));
+      const [r] = await arp(c2, company, a.disp, [proximo(a)], hora(agora(0)));
       expect(r).toMatchObject({ status: "registrado" });
       const [aud] = await sql`select acao, nsr_emitidos from public.ponto_estabelecimentos_auditoria where company_id = ${company} and acao = 'alterado'`;
       expect(Number(aud.nsr_emitidos)).toBe(0);                                             // a troca foi antes do NSR 1
@@ -124,7 +129,7 @@ describe.skipIf(!URL_PG)("migration 019 com conexões simultâneas (Postgres rea
     const c1 = await sql.reserve(), c2 = await sql.reserve();
     try {
       await c1`begin`;
-      await arp(c1, company, a.disp, [proximo(a)], hora("2026-10-01T12:00:00.000Z"));     // FOR UPDATE no aparelho
+      await arp(c1, company, a.disp, [proximo(a)], hora(agora(0)));     // FOR UPDATE no aparelho
       const marc = [{ id: randomUUID(), nsr: 1, hashAnterior: ZERO, hash: sha256("l1"), employeeId: "emp", cpf: "12345678909", marcadoEm: "2026-10-01T09:00:00.000Z", metodo: "facial" }];
       await c2`set lock_timeout = '500ms'`;
       await expect(c2`select * from public.ponto_registrar_marcacoes(${company}, ${a.disp}::uuid, ${c2.json(marc)})`).rejects.toThrow(/lock timeout|canceling statement/i);
@@ -134,5 +139,17 @@ describe.skipIf(!URL_PG)("migration 019 com conexões simultâneas (Postgres rea
       expect(r.erro).toMatch(/formato 2/);
       expect((await sql`select count(*)::int n from public.ponto_marcacoes where company_id = ${company}`)[0].n).toBe(0);
     } finally { await c2`reset lock_timeout`.catch(() => {}); c1.release(); c2.release(); }
+  }, 60000);
+
+  it("B: um host com hora no FUTURO (+1 dia) no meio de 4 aparelhos concorrentes não arrasta os NSR seguintes (sem catraca)", async () => {
+    const { company, estab, aps } = await empresa(4);
+    await Promise.all(aps.map(async (ap, i) => {
+      for (let k = 0; k < 4; k++) await arp(sql, company, ap.disp, [proximo(ap)], hora(i === 0 && k === 1 ? agora(24 * 3_600_000) : agora(0)));
+    }));
+    const regs = await fiscais(company, estab);
+    expect(regs).toHaveLength(16);
+    for (const r of regs) expect(Date.parse(r.gravado_em_texto) - Date.now()).toBeLessThan(60_000);   // nenhum no futuro
+    expect(regs.filter(r => r.evidencia_hora.arp.fonteGravacao === "banco:host_divergente")).toHaveLength(1);
+    expect(await cadeiaOk(company, estab)).toEqual({ ok: true, erro: null });
   }, 60000);
 });

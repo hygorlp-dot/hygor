@@ -61,23 +61,60 @@ cadeia local mesmo quando o lote não insere nada (ex.: todo
 (Vercel) **antes** da RPC. Dois aparelhos disputando o contador podem
 inverter a ordem: quem leu a hora depois pega o contador antes. Instâncias
 com relógios diferentes produzem o mesmo efeito. Além disso, qualquer texto
-convertível em data era aceito (ex.: `01/02/2026 10:00`, interpretado pelo
-`DateStyle` da sessão) e entrava no hash.
+convertível em data era aceito e entrava no hash. Em produção, o NSR 1 ficou
+com `gravado_em` 66 ms antes do `recebido_em` do próprio banco.
 
-**Mudança (sem trocar a fonte de hora).** O relógio do host continua sendo a
-fonte, porque é ele que o cron verifica contra o NTP.br. Sob a trava do
-contador:
-`gravado_em = greatest(hora do host, gravado_em do NSR anterior do estabelecimento)`,
-truncado em milissegundos, e o texto assinado vem do próprio valor
-(`YYYY-MM-DDTHH:MM:SS.sssZ`, igual ao `toISOString` do JS). `serverTime`
-fora do ISO 8601 UTC é ignorado e a hora do banco é usada. A evidência
-(`evidencia_hora`, fora do hash) ganha `arp.horaHostAceita`,
-`arp.relogioBanco` e `arp.ajustadaPeloNsrAnterior`. O texto canônico do hash
-não muda (versão 1).
+**Primeira versão rejeitada (auditoria de 11/10).** `greatest(hora do host, NSR anterior)`
+resolvia a inversão, mas tinha **efeito catraca**: uma única gravação com o
+host adiantado (+1 dia) prendia todos os NSR seguintes nessa hora futura até
+o relógio alcançá-la. Era uma substituição silenciosa e em cascata da hora
+fiscal.
 
-**Por que não usar o relógio do banco direto:** mudaria a fonte de hora
-documentada em `docs/REP-P-TEMPO-CONFIAVEL.md` sem medição dela contra a HLB.
-Isso fica como decisão (seção 11).
+**Regra adotada.** Tudo sob a trava do contador. Tudo registrado em
+`evidencia_hora.arp`, fora do hash, ao lado da evidência original da fonte
+de hora, que é preservada inteira.
+
+| Passo | Regra | Marca na evidência |
+|---|---|---|
+| Árbitro | relógio do banco (`clock_timestamp()`), lido dentro da transação | `relogioBanco` |
+| Tolerância | `toleranciaMs` da política da fonte de hora (30 s), limitada a 1 s..5 min; inválida → 30 s | `toleranciaMs` |
+| Fonte | hora do host, se ISO 8601 UTC **e** a no máximo uma tolerância do banco | `fonteGravacao: host` |
+| | host fora da tolerância (adiantado ou atrasado) | `fonteGravacao: banco:host_divergente` + `horaHost` + `diferencaHostBancoMs` |
+| | `serverTime` ausente ou fora do formato | `fonteGravacao: banco:hora_do_host_invalida` |
+| Monotonia | fonte atrás do NSR anterior por **até** uma tolerância → hora do anterior | `ajuste: monotonia` + `gravadoAnterior` |
+| | atrás por **mais** que uma tolerância (o anterior está no futuro, ex.: gravado antes da 019) → hora verdadeira, sem catraca | `ajuste: regressao_registro_anterior_anomalo` + `gravadoAnterior` |
+
+**Efeitos e limites:**
+- A hora gravada fica sempre a no máximo duas tolerâncias (60 s) do relógio
+  do banco.
+- Ela não decresce com o NSR, exceto quando o registro anterior já era
+  anômalo, e isso fica marcado.
+- O estado da fonte (`verificada`, `dentro_da_tolerancia`,
+  `fora_da_tolerancia`, `verificacao_vencida`, `nao_verificada`) **não
+  bloqueia** a gravação: ele é evidência, e a Portaria veda restringir a
+  marcação.
+- O texto canônico do hash fiscal não muda (versão 1).
+- Os registros anteriores não são tocados.
+
+**Premissa nova (decisão da direção, seção 11).** O relógio do banco
+(Supabase) passa a ser o árbitro de plausibilidade. Ele não é medido contra a
+HLB por nós; a proposta é estender o cron `ponto-tempo-verificar` para
+registrar também `now()` do banco contra o NTP.br. Com o host e o banco
+corretos, a fonte da hora fiscal continua sendo o host verificado.
+
+**Auditoria (testes):**
+
+| Caso | Onde | Resultado |
+|---|---|---|
+| Host normal | PGlite | hora do host, formato ISO do JS, evidência completa |
+| Host atrasado além da tolerância (−10 min) | PGlite | relógio do banco, `banco:host_divergente` |
+| Host adiantado / hora no futuro (+1 dia) | PGlite e Postgres real (4 aparelhos concorrentes) | não vira hora fiscal; os NSR seguintes não são arrastados |
+| Instâncias com relógios diferentes (+4 s × 0 s) | PGlite e Postgres real (transação aberta + espera no contador) | NSR seguinte com a hora do anterior, `ajuste: monotonia` |
+| 6 aparelhos com relógios espalhados ±5 s | Postgres real | hora nunca decresce com o NSR; cadeia íntegra |
+| NSR anterior anômalo (+2 h) | PGlite | próximo grava a hora verdadeira, `regressao_registro_anterior_anomalo` |
+| `serverTime` inválido ou ausente | PGlite | relógio do banco, `banco:hora_do_host_invalida` |
+| Referência vencida / fora da tolerância HLB / NTP sem medição | PGlite | gravação não bloqueada; `status` preservado na evidência |
+| Limites da tolerância (1 s, 5 min, inválida) | PGlite | 1000 / 300000 / 30000 ms |
 
 ## 4. C. Identificação fiscal do estabelecimento
 
@@ -106,6 +143,7 @@ livre, e não há trilha além de `atualizado_por`/`atualizado_em`.
 
 | Item | Mudança | Por quê |
 |---|---|---|
+| `ponto_estabelecimentos_auditoria` | RLS habilitado; só `service_role` lê; INSERT só pelo trigger | mesmo padrão das demais tabelas do ponto |
 | `ponto_marcacoes` | trigger contra TRUNCATE | TRUNCATE ignora os triggers de linha da 016 |
 | `ponto_dispositivos` | semente legada só pela função legada e sem voltar; `obra_id`/`token_hash`/`id` imutáveis; revogado não volta a ativo | a 017 só protegia as colunas novas; a API nunca altera essas colunas |
 | `service_role` | sem TRUNCATE em todas as tabelas do ponto; sem DELETE em `ponto_marcacoes`/`ponto_dispositivos`; sem escrita direta em `ponto_marcacoes` | a 016 não revogava os privilégios padrão do Supabase; a API não usa nenhum deles |
@@ -140,12 +178,12 @@ livre, e não há trilha além de `atualizado_por`/`atualizado_em`.
 
 ## 7. Testes
 
-- `server/ponto-eletronico/arp/arp-migration-019.pglite.test.js` (16, PGlite):
+- `server/ponto-eletronico/arp/arp-migration-019.pglite.test.js` (21, PGlite):
   A, B, C, D, aplicação sobre dados existentes sem reescrever nenhuma linha
   (md5 de todas as tabelas antes e depois), linha de base única, `down` e
   reaplicação, e a trava "019 fora do deploy".
-- `server/ponto-eletronico/arp/arp-019-concorrencia.pg.test.js` (5, Postgres
-  16 real, job `rep-p-arp-postgres`, com trava de ≥ 5 aprovados): cada caso
+- `server/ponto-eletronico/arp/arp-019-concorrencia.pg.test.js` (6, Postgres
+  16 real, job `rep-p-arp-postgres`, com trava de ≥ 6 aprovados): cada caso
   segura uma transação aberta numa conexão e tenta a concorrente com
   `lock_timeout`:
   - hora invertida entre aparelhos;
@@ -278,8 +316,9 @@ deploy).
 2. Implementar o livro de migrations e trocar o comportamento do deploy.
 3. Exportação lógica das tabelas do ponto antes da janela (contém CPF e vetor
    facial).
-4. Manter a hora do host como fonte do `gravado_em` (proposto) ou adotar o
-   relógio do banco, medindo-o contra a HLB.
+4. Regra de hora da seção 3: host como fonte, relógio do banco como árbitro
+   (tolerância de 30 s). Aceitar a premissa do relógio do banco e autorizar a
+   medição dele contra o NTP.br.
 5. CNPJ/CPF do estabelecimento (quem informa e quando: depois da 019).
 6. Classificar os 2 registros existentes e o destino do aparelho sem eventos.
 7. Aceitar formalmente os riscos residuais (Fase 01, seção 15).

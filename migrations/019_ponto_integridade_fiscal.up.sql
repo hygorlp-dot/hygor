@@ -9,10 +9,11 @@
 --    aparelho, ponto_registrar_marcacoes recusa legado novo (cadeia local
 --    única garantida pelo banco). A ARP só grava o topo da cadeia local do
 --    aparelho quando insere algum evento.
--- B. Hora de gravação calculada SOB a trava do contador: não decresce com o
---    NSR (greatest(hora do host, gravado_em do NSR anterior)); serverTime
---    fora do formato ISO UTC é ignorado (usa o relógio do banco). A hora
---    do banco entra só na evidência (fora do hash).
+-- B. Hora de gravação calculada SOB a trava do contador. Fonte = hora do
+--    host se ISO UTC e dentro da tolerância do relógio do banco; senão o
+--    relógio do banco. Atrás do NSR anterior por até uma tolerância: usa a
+--    do anterior (monotonia); mais que isso, grava a verdadeira e marca
+--    (sem efeito catraca). Tudo registrado na evidência (fora do hash).
 -- C. Inscrição (CNPJ/CPF, CNO, CAEPF, CEI) e fuso do estabelecimento ficam
 --    congelados depois do primeiro NSR; o preenchimento inicial (de vazio
 --    para valor) continua possível uma vez, com responsável, e fica na
@@ -38,6 +39,7 @@ create table if not exists public.ponto_estabelecimentos_auditoria (
   em                  timestamptz not null default now()
 );
 create index if not exists idx_ponto_estab_auditoria on public.ponto_estabelecimentos_auditoria(company_id, estabelecimento_id, id);
+alter table public.ponto_estabelecimentos_auditoria enable row level security;
 
 drop trigger if exists ponto_estabelecimentos_auditoria_no_update on public.ponto_estabelecimentos_auditoria;
 drop trigger if exists ponto_estabelecimentos_auditoria_no_delete on public.ponto_estabelecimentos_auditoria;
@@ -276,8 +278,14 @@ declare
   v_fiscal     text;
   v_host       timestamptz;
   v_host_ok    boolean;
+  v_banco      timestamptz;
+  v_tol        interval;
+  v_dif_ms     numeric;
+  v_base       timestamptz;
+  v_fonte      text;
   v_anterior   timestamptz;
   v_ts         timestamptz;
+  v_ajuste     text;
   v_gravado    text;
   v_parou      boolean := false;
   v_inseriu    boolean := false;
@@ -285,10 +293,25 @@ declare
 begin
   perform set_config('ponto.arp_ingresso', 'sim', true);
 
-  -- Hora do host (evidência da fonte oficial). Só aceita ISO 8601 em UTC;
-  -- fora disso (ou ausente) usa o relógio do banco. Milissegundos, como o JS.
+  -- Hora de gravação (docs/PONTO-OBRA-MIGRATION-019.md, seção 3):
+  -- - fonte = hora do host (a medida contra o NTP.br), se em ISO 8601 UTC e a
+  --   no máximo `toleranciaMs` (política da fonte de hora; 30 s; limitada a
+  --   1 s..5 min) do relógio do banco, lido aqui dentro da transação;
+  -- - fora disso, o relógio do banco - e a evidência diz por quê;
+  -- - milissegundos, como o JS assina.
+  v_banco := date_trunc('milliseconds', clock_timestamp());
+  v_tol := make_interval(secs => least(greatest(
+    case when coalesce(p_hora->>'toleranciaMs', '') ~ '^[0-9]+(\.[0-9]+)?$' then (p_hora->>'toleranciaMs')::numeric else 30000 end, 1000), 300000) / 1000.0);
   v_host_ok := coalesce(p_hora->>'serverTime', '') ~ v_iso;
-  v_host := date_trunc('milliseconds', case when v_host_ok then (p_hora->>'serverTime')::timestamptz else clock_timestamp() end);
+  v_host := case when v_host_ok then date_trunc('milliseconds', (p_hora->>'serverTime')::timestamptz) end;
+  v_dif_ms := case when v_host_ok then round(extract(epoch from (v_host - v_banco)) * 1000) end;
+  if not v_host_ok then
+    v_base := v_banco; v_fonte := 'banco:hora_do_host_invalida';
+  elsif v_host - v_banco > v_tol or v_banco - v_host > v_tol then
+    v_base := v_banco; v_fonte := 'banco:host_divergente';
+  else
+    v_base := v_host; v_fonte := 'host';
+  end if;
 
   select * into v_disp from public.ponto_dispositivos d
    where d.company_id = p_company_id and d.id = p_dispositivo_id for update;
@@ -407,10 +430,19 @@ begin
       select c.ultimo_nsr, c.ultimo_hash_fiscal into v_cont from public.ponto_arp_contadores c
        where c.company_id = p_company_id and c.estabelecimento_id = v_estab for update;
       v_nsr := v_cont.ultimo_nsr + 1;
-      -- Hora de gravação SOB a trava: nunca menor que a do NSR anterior.
+      -- Hora SOB a trava do contador. Atrás do NSR anterior por até uma
+      -- tolerância (relógios de instâncias diferentes): usa a do anterior
+      -- (monotonia). Mais que isso: o anterior é que está errado (futuro) -
+      -- grava a hora verdadeira e marca, em vez de propagar o erro (catraca).
       select r.gravado_em into v_anterior from public.ponto_arp_registros r
        where r.company_id = p_company_id and r.estabelecimento_id = v_estab and r.nsr = v_cont.ultimo_nsr;
-      v_ts := greatest(v_host, coalesce(v_anterior, '-infinity'::timestamptz));
+      if v_anterior is null or v_base >= v_anterior then
+        v_ts := v_base; v_ajuste := 'nenhum';
+      elsif v_anterior - v_base <= v_tol then
+        v_ts := v_anterior; v_ajuste := 'monotonia';
+      else
+        v_ts := v_base; v_ajuste := 'regressao_registro_anterior_anomalo';
+      end if;
       v_gravado := to_char(v_ts at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
       v_fiscal := encode(sha256(convert_to(public.ponto_arp_texto_fiscal(
         v_estab, v_nsr, v_id, 'ponto', v_e->>'cpf', v_e->>'employeeId', v_e->>'marcadoEm', v_gravado,
@@ -423,16 +455,20 @@ begin
         v_cont.ultimo_hash_fiscal, v_fiscal,
         coalesce(p_hora, '{}'::jsonb) || jsonb_build_object('arp', jsonb_build_object(
           'versao', 19,
-          'horaHostAceita', v_host_ok,
-          'relogioBanco', to_char(clock_timestamp() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-          'ajustadaPeloNsrAnterior', v_ts > v_host))
+          'fonteGravacao', v_fonte,
+          'horaHost', case when v_host_ok then to_char(v_host at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') end,
+          'relogioBanco', to_char(v_banco at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+          'diferencaHostBancoMs', v_dif_ms,
+          'toleranciaMs', round(extract(epoch from v_tol) * 1000),
+          'ajuste', v_ajuste,
+          'gravadoAnterior', case when v_ajuste <> 'nenhum' then to_char(v_anterior at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') end))
       );
       update public.ponto_arp_contadores c set ultimo_nsr = v_nsr, ultimo_hash_fiscal = v_fiscal, atualizado_em = now()
        where c.company_id = p_company_id and c.estabelecimento_id = v_estab;
       return query select v_id, v_seq, 'registrado'::text, v_nsr, v_fiscal, v_estab, v_gravado, null::text;
     else
       return query select v_id, v_seq, 'acesso_registrado'::text, null::bigint, null::text, v_estab,
-        to_char(v_host at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), null::text;
+        to_char(v_base at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), null::text;
     end if;
   end loop;
 
