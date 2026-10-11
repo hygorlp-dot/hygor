@@ -143,7 +143,7 @@ livre, e não há trilha além de `atualizado_por`/`atualizado_em`.
 
 | Item | Mudança | Por quê |
 |---|---|---|
-| `ponto_estabelecimentos_auditoria` | RLS habilitado; só `service_role` lê; INSERT só pelo trigger | mesmo padrão das demais tabelas do ponto |
+| `ponto_estabelecimentos_auditoria` | RLS habilitado; `service_role` só com SELECT (sem INSERT nem na sequência); INSERT só pelo trigger (dono) | sem isso, os privilégios padrão do Supabase permitiriam linha forjada com a marca de sessão (revisão, P2-1) |
 | `ponto_marcacoes` | trigger contra TRUNCATE | TRUNCATE ignora os triggers de linha da 016 |
 | `ponto_dispositivos` | semente legada só pela função legada e sem voltar; `obra_id`/`token_hash`/`id` imutáveis; revogado não volta a ativo | a 017 só protegia as colunas novas; a API nunca altera essas colunas |
 | `service_role` | sem TRUNCATE em todas as tabelas do ponto; sem DELETE em `ponto_marcacoes`/`ponto_dispositivos`; sem escrita direta em `ponto_marcacoes` | a 016 não revogava os privilégios padrão do Supabase; a API não usa nenhum deles |
@@ -168,9 +168,12 @@ livre, e não há trilha além de `atualizado_por`/`atualizado_em`.
 - Mesmas assinaturas e retornos de `ponto_arp_registrar` e
   `ponto_registrar_marcacoes`, os mesmos status e o mesmo texto do hash
   fiscal. Nenhum `ALTER TABLE` em tabela existente, nenhuma linha reescrita.
-- Idempotente (aplicada duas vezes, sem efeito extra) e reversível (o `down`
-  devolve as funções **idênticas** às da 016/017, conferido por md5 do
-  `pg_get_functiondef`). Com linhas, a auditoria fica; vazia, sai, e a
+- Idempotente (aplicada duas vezes, sem efeito extra) e reversível: o `down`
+  devolve as **três funções recriadas** (`ponto_arp_registrar`,
+  `ponto_registrar_marcacoes`, `ponto_dispositivo_protegido`) idênticas às da
+  016/017, conferido por md5 do `pg_get_functiondef`. Não revertidos, de
+  propósito: os REVOKE e o `search_path` endurecido de `ponto_arp_texto_fiscal`
+  e das funções da 018. Com linhas, a auditoria fica; vazia, sai, e a
   reversão completa 019 → 018 → 017 funciona num banco limpo.
 - O app não muda. Mudança de comportamento visível: a sincronização pode
   receber o erro novo do legado (só em aparelho com legado pendente depois do
@@ -215,9 +218,14 @@ select estabelecimento_id, count(*), max(nsr), md5(string_agg(fiscal_hash, '' or
 -- 3. Bifurcação legado × formato 2 (deve vir vazia)
 select m.dispositivo_id, m.nsr from ponto_marcacoes m
   join ponto_eventos e on e.company_id = m.company_id and e.dispositivo_id = m.dispositivo_id and e.local_sequence = m.nsr;
--- 4. Hora fiscal em ordem (deve vir vazia)
+-- 4. Hora fiscal em ordem (vazia; depois da 019 pode trazer linha cuja
+--    evidencia_hora->'arp'->>'ajuste' = 'regressao_registro_anterior_anomalo')
 select * from (select estabelecimento_id, nsr, gravado_em, lag(gravado_em) over (partition by estabelecimento_id order by nsr) ant
   from ponto_arp_registros) x where gravado_em < ant;
+-- 4b. Semente local da 017 sem evento (deve vir vazia; se vier, a 019 trata
+--     o aparelho como já no formato 2 e recusa legado novo)
+select id from ponto_dispositivos d where ultima_sequencia_local > 0
+  and not exists (select 1 from ponto_eventos e where e.company_id = d.company_id and e.dispositivo_id = d.id);
 -- 5. Estado da inscrição (sem exibir o número)
 select id, tipo_inscricao, numero_inscricao is not null tem_numero, timezone from ponto_estabelecimentos;
 -- 6. md5 de cada tabela do ponto (deve ser IGUAL antes e depois)
@@ -234,6 +242,9 @@ select acao, nsr_emitidos, responsavel from ponto_estabelecimentos_auditoria;   
 select proname, proconfig from pg_proc where proname in ('ponto_arp_registrar','ponto_registrar_marcacoes');
 select privilege_type, table_name from information_schema.role_table_grants
  where grantee = 'service_role' and table_name like 'ponto%' and privilege_type = 'TRUNCATE';   -- vazio
+select privilege_type from information_schema.role_table_grants
+ where grantee = 'service_role' and table_name = 'ponto_estabelecimentos_auditoria';            -- só SELECT
+select relrowsecurity from pg_class where relname = 'ponto_estabelecimentos_auditoria';           -- true
 ```
 
 O md5 de `ponto_dispositivos` muda se algum aparelho sincronizar durante a
@@ -253,8 +264,14 @@ com os aparelhos sem rede.
 3. Registrar o resultado das consultas da seção 8.
 
 **Implantação (escolher uma e autorizar):**
-- **Opção 1 (recomendada): aplicação manual numa janela.** `psql -1 -v ON_ERROR_STOP=1 -f migrations/019_ponto_integridade_fiscal.up.sql`
-  com `set lock_timeout = '5s'` antes. Fora do horário de batida, porque os
+- **Opção 1 (recomendada): pelo livro de migrations, numa janela.**
+  `node scripts/aplicar-migracoes-ponto.mjs --manifesto scripts/migracoes-ponto/manifesto-com-019.json --aplicar --confirmo-banco=<host>`.
+  Ele aplica a 019 numa transação com `lock_timeout` 5 s e `statement_timeout`
+  120 s e a registra. Sem o livro, o equivalente é
+  `PGOPTIONS='-c lock_timeout=5s -c statement_timeout=120s' psql -1 -v ON_ERROR_STOP=1 -f migrations/019_ponto_integridade_fiscal.up.sql`.
+  **Nunca sem o livro implantado antes:** o deploy seguinte reaplicaria a
+  016/017 por cima (revisão independente, P1-1). Ver
+  `docs/PONTO-OBRA-RUNBOOK-PRODUCAO.md`. Fora do horário de batida, porque os
   aparelhos guardam as batidas e reenviam. Seção 8 antes e depois. Só então
   incluir a 019 no script de deploy, **junto com** o livro de migrations
   abaixo.
@@ -322,3 +339,30 @@ deploy).
 5. CNPJ/CPF do estabelecimento (quem informa e quando: depois da 019).
 6. Classificar os 2 registros existentes e o destino do aparelho sem eventos.
 7. Aceitar formalmente os riscos residuais (Fase 01, seção 15).
+
+## 12. Revisão independente (11/10/2026)
+
+Parecer: **APROVAR COM CORREÇÕES**. Revisão adversarial do SQL `up`/`down`
+em PGlite, com os privilégios padrão do Supabase simulados e dados espelhando
+produção.
+
+| Achado | Sev. | Situação |
+|---|---|---|
+| Deploy reaplicando 016/017/018 depois da 019 reverte ARP, legado e trava do aparelho (revogado volta a ativo) e cria janela em que o legado falha | P1 | **Resolvido pelo livro de migrations e pela guarda do script antigo** (PR do livro). Condição de implantação: livro antes da 019 |
+| `service_role` com INSERT na auditoria (linha forjada com a marca de sessão); anon com UPDATE na sequência | P2 | Corrigido (SELECT apenas; sequência revogada) + teste |
+| `down` → cadastro alterado → `up`: trilha sem marca | P2 | Corrigido (`reaplicacao` quando o estado difere) + teste |
+| Semente local da 017 em lote vazio permitia bifurcar depois da 019 | P3 | Corrigido + teste + verificação prévia 4b |
+| Responsável herdado no preenchimento da inscrição | P3 | Corrigido (exige `atualizado_em` novo) + teste |
+| `serverTime` no formato certo mas data impossível derrubava o lote | P3 | Corrigido (cai no relógio do banco) + teste |
+| Relógio do banco lido antes das travas | P3 | Corrigido (`ponto_arp_fonte_hora` sob a trava do contador) |
+| Furo em REPEATABLE READ no trigger da inscrição | P3 | Corrigido (`FOR SHARE` no contador) |
+| Afirmação do `down` "funções idênticas" larga demais | P3 | Texto corrigido (seção 6) |
+| `lock_timeout` ambíguo no `psql -f` | P3 | `PGOPTIONS` (seção 9) |
+| MultiXact pelo `FOR SHARE`; REFERENCES/TRIGGER da 016 para a `service_role` | P3 | Registrados (volume irrelevante; higiene futura) |
+
+**Sem problema (verificado):** nenhuma linha existente alterada; numeração,
+idempotência e texto do hash iguais; idempotência e ida e volta do `down`;
+nenhum ciclo de trava; corrida primeiro NSR × inscrição fechada em READ
+COMMITTED; triggers security definer com `search_path` fixo; transação única;
+reversão depois de NSR emitidos sob a 019 mantém a cadeia íntegra.
+

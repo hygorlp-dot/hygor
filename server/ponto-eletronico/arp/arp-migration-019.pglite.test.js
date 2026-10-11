@@ -230,6 +230,26 @@ describe("migration 019 aplicada sobre 016-018", () => {
       await expect(q("delete from public.ponto_estabelecimentos where id = $1", [EST])).rejects.toThrow();
     });
 
+    it("revisão: a service_role só LÊ a auditoria - nem com a marca de sessão consegue inserir linha forjada", async () => {
+      await atualizar({ nome: "Y" });
+      await q("set role service_role");
+      try {
+        expect((await q("select count(*)::int n from public.ponto_estabelecimentos_auditoria")).length).toBe(1);
+        await q("select set_config('ponto.estab_auditoria', 'sim', false)");
+        await expect(q("insert into public.ponto_estabelecimentos_auditoria(company_id, estabelecimento_id, acao, depois) values ($1, $2, 'alterado', '{}')", [C, EST]))
+          .rejects.toThrow(/permission denied/);
+      } finally { await q("reset role"); await q("select set_config('ponto.estab_auditoria', '', false)"); }
+      const privs = await q(`select privilege_type from information_schema.role_table_grants where grantee = 'service_role' and table_name = 'ponto_estabelecimentos_auditoria'`);
+      expect(privs.map(p => p.privilege_type)).toEqual(["SELECT"]);
+    });
+
+    it("revisão: preencher a inscrição com responsável HERDADO (sem atualizado_em novo) é recusado", async () => {
+      await registrar(DISP_A, eventos(DISP_A, 1));
+      await q("update public.ponto_estabelecimentos set nome = 'X', atualizado_por = 'usuario-antigo', atualizado_em = now() where id = $1", [EST]);
+      await expect(q("update public.ponto_estabelecimentos set tipo_inscricao = 'cnpj', numero_inscricao = '11222333000181' where id = $1", [EST]))
+        .rejects.toThrow(/responsável desta alteração/);
+    });
+
     it("auditoria é append-only e só recebe linhas do trigger", async () => {
       await atualizar({ nome: "X" });
       await expect(q("update public.ponto_estabelecimentos_auditoria set responsavel = 'outro'")).rejects.toThrow(/imutável/);
@@ -274,6 +294,25 @@ describe("migration 019 aplicada sobre 016-018", () => {
       await q("rollback");
     });
 
+    it("revisão: semente local deixada pela 017 num lote vazio também bloqueia legado novo (sem bifurcação)", async () => {
+      const antigos = marcacoes(DISP_A, 2);
+      await legado(DISP_A, antigos);
+      // Como a 017 deixava: topo da cadeia local gravado sem nenhum evento (reproduzido só no banco descartável).
+      await q("alter table public.ponto_dispositivos disable trigger ponto_dispositivos_protegido");
+      await q("update public.ponto_dispositivos set ultima_sequencia_local = 2, ultimo_hash_local = $2 where id = $1", [DISP_A, antigos[1].hash]);
+      await q("alter table public.ponto_dispositivos enable trigger ponto_dispositivos_protegido");
+      const [l3] = marcacoes(DISP_A, 1, { inicio: 3, anterior: antigos[1].hash });
+      expect((await legado(DISP_A, [l3]))[0]).toMatchObject({ aceitas: 0, erro: expect.stringMatching(/formato 2/) });
+      expect((await registrar(DISP_A, eventos(DISP_A, 1, { inicio: 3, anterior: antigos[1].hash })))[0]).toMatchObject({ status: "registrado", local_sequence: 3 });
+    });
+
+    it("revisão: serverTime no formato certo mas data impossível (30/02) não derruba o lote: vira relógio do banco", async () => {
+      const [r] = await registrar(DISP_A, eventos(DISP_A, 1), { serverTime: "2026-02-30T10:00:00.000Z", source: "host" });
+      expect(r.status).toBe("registrado");
+      const [f] = await fiscais(EST);
+      expect(f.evidencia_hora.arp).toMatchObject({ fonteGravacao: "banco:hora_do_host_invalida", horaHost: null });
+    });
+
     it("search_path endurecido nas funções security definer", async () => {
       const r = await q(`select p.proname, array_to_string(p.proconfig, ',') cfg from pg_proc p join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'public' and p.proname in ('ponto_arp_registrar','ponto_registrar_marcacoes','ponto_apropriacao_salvar','ponto_apropriacao_cancelar') order by 1`);
@@ -304,6 +343,17 @@ describe("migration 019 sobre um banco que já tem dados (como produção)", () 
     const e = eventos(DISP_A, 3);
     expect((await registrar(DISP_A, [e[2]]))[0]).toMatchObject({ status: "registrado", nsr: 3 });
     expect(await cadeiaFiscalOk(EST)).toEqual({ ok: true, erro: null });
+  });
+
+  it("revisão: down -> cadastro muda sem auditoria -> up de novo: a trilha ganha 'reaplicacao' com o estado atual (sem buraco)", async () => {
+    await db.exec(lerMigration("019_ponto_integridade_fiscal.up.sql"));
+    await db.exec(lerMigration("019_ponto_integridade_fiscal.down.sql"));
+    await q("update public.ponto_estabelecimentos set tipo_inscricao = 'cnpj', numero_inscricao = '11222333000181' where id = $1", [EST]);
+    await db.exec(lerMigration("019_ponto_integridade_fiscal.up.sql"));
+    const linhas = await q("select acao, antes->>'numero_inscricao' antes, depois->>'numero_inscricao' depois from public.ponto_estabelecimentos_auditoria order by id");
+    expect(linhas).toEqual([{ acao: "linha_de_base", antes: null, depois: null }, { acao: "reaplicacao", antes: null, depois: "11222333000181" }]);
+    await db.exec(lerMigration("019_ponto_integridade_fiscal.up.sql"));     // sem mudança: nenhuma linha nova
+    expect((await q("select count(*)::int n from public.ponto_estabelecimentos_auditoria"))[0].n).toBe(2);
   });
 
   it("reverter (down) devolve as funções da 016/017 sem apagar a auditoria", async () => {

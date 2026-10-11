@@ -1,5 +1,7 @@
--- Reverte a 019 SEM apagar dado nenhum: devolve os corpos das funções da
--- 016/017 (copiados literalmente desses arquivos) e tira os triggers novos.
+-- Reverte a 019 SEM apagar dado nenhum: devolve os corpos das TRÊS funções
+-- recriadas pela 019 (copiados literalmente da 016/017) e tira os triggers
+-- novos. O search_path endurecido de ponto_arp_texto_fiscal e das funções da
+-- 018 fica (não é revertido).
 -- A tabela ponto_estabelecimentos_auditoria, se tiver linhas, FICA (evidência
 -- append-only) e só deixa de receber linhas novas. As permissões retiradas
 -- (TRUNCATE/DELETE da service_role) NÃO são devolvidas de propósito.
@@ -244,6 +246,8 @@ begin
      set ultima_sequencia_local = v_disp.ultima_sequencia_local, ultimo_hash_local = v_disp.ultimo_hash_local, ultimo_contato_em = now()
    where d.company_id = p_company_id and d.id = p_dispositivo_id;
 end $$;
+
+drop function if exists public.ponto_arp_fonte_hora(timestamptz, interval);   -- só a ARP da 019 usa
 
 -- Auditoria do estabelecimento: com linhas, FICA (evidência; e nesse caso a
 -- 017 também não pode ser revertida, pela guarda dela). Vazia, sai junto -

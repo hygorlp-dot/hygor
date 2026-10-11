@@ -30,7 +30,7 @@ create table if not exists public.ponto_estabelecimentos_auditoria (
   id                  bigint generated always as identity primary key,
   company_id          text        not null,
   estabelecimento_id  uuid        not null,
-  acao                text        not null check (acao in ('linha_de_base','criado','alterado','inscricao_preenchida_apos_nsr')),
+  acao                text        not null check (acao in ('linha_de_base','reaplicacao','criado','alterado','inscricao_preenchida_apos_nsr')),
   campos              text[]      not null default '{}',
   antes               jsonb,
   depois              jsonb       not null,
@@ -84,6 +84,10 @@ begin
   if (new.company_id, new.id) is distinct from (old.company_id, old.id) then
     raise exception 'identificador do estabelecimento não muda';
   end if;
+  -- FOR SHARE no contador: em REPEATABLE READ, um NSR emitido depois do
+  -- snapshot vira erro de serialização em vez de passar despercebido.
+  perform 1 from public.ponto_arp_contadores c
+   where c.company_id = old.company_id and c.estabelecimento_id = old.id for share;
   v_nsr := public.ponto_estab_nsr_emitidos(old.company_id, old.id);
   if v_nsr = 0 then return new; end if;
   -- Com NSR emitido: inscrição e demais identificações só de vazio para
@@ -100,8 +104,12 @@ begin
   if new.timezone is distinct from old.timezone then
     raise exception 'o fuso horário do estabelecimento não muda depois de emitido NSR (% registro(s))', v_nsr;
   end if;
-  if old.numero_inscricao is null and new.numero_inscricao is not null and nullif(btrim(coalesce(new.atualizado_por, '')), '') is null then
-    raise exception 'preenchimento da inscrição depois de emitido NSR exige o responsável (atualizado_por)';
+  -- O responsável precisa vir NESTA alteração (atualizado_em novo), não
+  -- herdado de uma edição anterior.
+  if old.numero_inscricao is null and new.numero_inscricao is not null
+     and (nullif(btrim(coalesce(new.atualizado_por, '')), '') is null
+          or new.atualizado_em is null or (old.atualizado_em is not null and new.atualizado_em <= old.atualizado_em)) then
+    raise exception 'preenchimento da inscrição depois de emitido NSR exige o responsável desta alteração (atualizado_por e atualizado_em novos)';
   end if;
   return new;
 end $$;
@@ -139,14 +147,20 @@ create trigger ponto_estabelecimentos_auditar after insert or update on public.p
   for each row execute function public.ponto_estabelecimento_auditar();
 
 -- Linha de base: o estado de cada estabelecimento existente no momento da
--- 019 (com quantos NSR já tinham sido emitidos). Uma vez só.
+-- 019 (com quantos NSR já tinham sido emitidos). Reaplicação (ex.: depois
+-- de um down em que o cadastro mudou sem auditoria): nova linha
+-- 'reaplicacao' só se o estado atual difere do último registrado - a trilha
+-- não fica com buraco.
 do $$ begin
   perform set_config('ponto.estab_auditoria', 'sim', true);
   insert into public.ponto_estabelecimentos_auditoria(company_id, estabelecimento_id, acao, antes, depois, nsr_emitidos, responsavel)
-  select e.company_id, e.id, 'linha_de_base', null, to_jsonb(e), public.ponto_estab_nsr_emitidos(e.company_id, e.id), 'migration-019'
+  select e.company_id, e.id,
+         case when u.depois is null then 'linha_de_base' else 'reaplicacao' end,
+         u.depois, to_jsonb(e), public.ponto_estab_nsr_emitidos(e.company_id, e.id), 'migration-019'
     from public.ponto_estabelecimentos e
-   where not exists (select 1 from public.ponto_estabelecimentos_auditoria a
-                      where a.company_id = e.company_id and a.estabelecimento_id = e.id and a.acao = 'linha_de_base');
+    left join lateral (select a.depois from public.ponto_estabelecimentos_auditoria a
+                        where a.company_id = e.company_id and a.estabelecimento_id = e.id order by a.id desc limit 1) u on true
+   where u.depois is null or u.depois is distinct from to_jsonb(e);
   perform set_config('ponto.estab_auditoria', '', true);
 end $$;
 
@@ -209,7 +223,9 @@ begin
   end if;
   -- Cadeia local única: depois do primeiro evento formato 2 do aparelho, o
   -- legado não cresce mais (reenvio do que já foi aceito segue idempotente).
-  v_formato2 := exists (select 1 from public.ponto_eventos e
+  -- Também a semente gravada pela 017 num lote vazio (ultima_sequencia_local
+  -- > 0 sem evento) conta: o formato 2 já começou daquele ponto.
+  v_formato2 := v_disp.ultima_sequencia_local > 0 or exists (select 1 from public.ponto_eventos e
                          where e.company_id = p_company_id and e.dispositivo_id = p_dispositivo_id);
   perform set_config('ponto.legado_ingresso', 'sim', true);
 
@@ -249,6 +265,24 @@ begin
    where company_id = p_company_id and id = p_dispositivo_id;
   perform set_config('ponto.legado_ingresso', '', true);
   return query select v_aceitas, v_disp.ultimo_nsr, v_disp.ultimo_hash, v_erro;
+end $$;
+
+-- ---------------------------------------------------------------- B. fonte da hora de gravação
+-- Chamada pela ARP DEPOIS da trava do contador: lê o relógio do banco
+-- naquele instante e decide a base (host dentro da tolerância, ou banco).
+create or replace function public.ponto_arp_fonte_hora(
+  p_host timestamptz, p_tol interval, out banco timestamptz, out base timestamptz, out fonte text, out dif_ms numeric
+) language plpgsql volatile set search_path = pg_catalog, public, pg_temp as $$
+begin
+  banco := date_trunc('milliseconds', clock_timestamp());
+  dif_ms := case when p_host is not null then round(extract(epoch from (p_host - banco)) * 1000) end;
+  if p_host is null then
+    base := banco; fonte := 'banco:hora_do_host_invalida';
+  elsif p_host - banco > p_tol or banco - p_host > p_tol then
+    base := banco; fonte := 'banco:host_divergente';
+  else
+    base := p_host; fonte := 'host';
+  end if;
 end $$;
 
 -- ---------------------------------------------------------------- A + B + C. ARP
@@ -299,18 +333,16 @@ begin
   --   1 s..5 min) do relógio do banco, lido aqui dentro da transação;
   -- - fora disso, o relógio do banco - e a evidência diz por quê;
   -- - milissegundos, como o JS assina.
-  v_banco := date_trunc('milliseconds', clock_timestamp());
+  -- O relógio do banco é lido DEPOIS da trava do contador (ponto_arp_fonte_hora).
   v_tol := make_interval(secs => least(greatest(
     case when coalesce(p_hora->>'toleranciaMs', '') ~ '^[0-9]+(\.[0-9]+)?$' then (p_hora->>'toleranciaMs')::numeric else 30000 end, 1000), 300000) / 1000.0);
   v_host_ok := coalesce(p_hora->>'serverTime', '') ~ v_iso;
-  v_host := case when v_host_ok then date_trunc('milliseconds', (p_hora->>'serverTime')::timestamptz) end;
-  v_dif_ms := case when v_host_ok then round(extract(epoch from (v_host - v_banco)) * 1000) end;
-  if not v_host_ok then
-    v_base := v_banco; v_fonte := 'banco:hora_do_host_invalida';
-  elsif v_host - v_banco > v_tol or v_banco - v_host > v_tol then
-    v_base := v_banco; v_fonte := 'banco:host_divergente';
-  else
-    v_base := v_host; v_fonte := 'host';
+  if v_host_ok then
+    begin
+      v_host := date_trunc('milliseconds', (p_hora->>'serverTime')::timestamptz);
+    exception when others then   -- passa no formato mas não é data (ex.: 30/02)
+      v_host_ok := false; v_host := null;
+    end;
   end if;
 
   select * into v_disp from public.ponto_dispositivos d
@@ -430,6 +462,8 @@ begin
       select c.ultimo_nsr, c.ultimo_hash_fiscal into v_cont from public.ponto_arp_contadores c
        where c.company_id = p_company_id and c.estabelecimento_id = v_estab for update;
       v_nsr := v_cont.ultimo_nsr + 1;
+      select f.banco, f.base, f.fonte, f.dif_ms into v_banco, v_base, v_fonte, v_dif_ms
+        from public.ponto_arp_fonte_hora(v_host, v_tol) f;
       -- Hora SOB a trava do contador. Atrás do NSR anterior por até uma
       -- tolerância (relógios de instâncias diferentes): usa a do anterior
       -- (monotonia). Mais que isso: o anterior é que está errado (futuro) -
@@ -467,6 +501,7 @@ begin
        where c.company_id = p_company_id and c.estabelecimento_id = v_estab;
       return query select v_id, v_seq, 'registrado'::text, v_nsr, v_fiscal, v_estab, v_gravado, null::text;
     else
+      select f.base into v_base from public.ponto_arp_fonte_hora(v_host, v_tol) f;
       return query select v_id, v_seq, 'acesso_registrado'::text, null::bigint, null::text, v_estab,
         to_char(v_base at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), null::text;
     end if;
@@ -504,6 +539,8 @@ begin
       execute format('revoke all on function public.ponto_arp_texto_fiscal(uuid, bigint, uuid, text, text, text, text, text, uuid, bigint, text, text) from %s', papel);
       execute format('revoke all on function public.ponto_estab_nsr_emitidos(text, uuid) from %s', papel);
       execute format('revoke all on table public.ponto_estabelecimentos_auditoria from %s', papel);
+      execute format('revoke all on function public.ponto_arp_fonte_hora(timestamptz, interval) from %s', papel);
+      execute format('revoke all on sequence public.ponto_estabelecimentos_auditoria_id_seq from %s', papel);
     end if;
   end loop;
   if exists (select 1 from pg_roles where rolname = 'service_role') then
@@ -515,6 +552,10 @@ begin
     -- Marcação legada e aparelho não são apagados pela API.
     revoke delete on public.ponto_marcacoes, public.ponto_dispositivos from service_role;
     revoke insert, update, delete on public.ponto_marcacoes from service_role;
+    -- Auditoria: a service_role só LÊ (o trigger grava como dono). Sem isso,
+    -- os privilégios padrão do Supabase deixariam INSERT com a marca de sessão.
+    revoke all on public.ponto_estabelecimentos_auditoria from service_role;
+    revoke all on sequence public.ponto_estabelecimentos_auditoria_id_seq from service_role;
     grant select on public.ponto_estabelecimentos_auditoria to service_role;
   end if;
 end $$;
