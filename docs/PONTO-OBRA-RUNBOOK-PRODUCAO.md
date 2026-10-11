@@ -7,7 +7,7 @@ data). O executor nunca aceita risco em nome da direção.
 PRs envolvidas (empilhadas, todas abertas):
 - [#69](https://github.com/hygorlp-dot/hygor/pull/69) — Fase 01 (base `main`).
 - [#70](https://github.com/hygorlp-dot/hygor/pull/70) — migration 019 preliminar (rascunho; base `#69`).
-- PR do livro de migrations e do backup (rascunho; base `#70`).
+- [#71](https://github.com/hygorlp-dot/hygor/pull/71) — livro de migrations, backup do ponto e este runbook (rascunho; base `#70`).
 
 **Regra que governa a ordem:** a 019 só pode ser aplicada **depois** que o
 livro de migrations estiver implantado. Sem ele, o deploy seguinte reaplica

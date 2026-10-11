@@ -6,7 +6,7 @@ não declara conformidade REP-P nem homologação em aparelho.
 | Fase | Estado | Onde |
 |---|---|---|
 | Fase 01 — estabilização, segurança e regressão | **Tecnicamente concluída.** Integração à `main` pendente (merge exige autorização) | PR [#69](https://github.com/hygorlp-dot/hygor/pull/69), `docs/PONTO-OBRA-FASE-01-ESTABILIZACAO.md` |
-| Etapa intermediária — segurança fiscal da ARP | **Em preparação.** Migration 019 escrita, revisada e testada; livro de migrations e backup do ponto prontos; nada aplicado em produção | PR [#70](https://github.com/hygorlp-dot/hygor/pull/70) (019, rascunho), PR do livro (rascunho), `docs/PONTO-OBRA-MIGRATION-019.md`, `docs/PONTO-OBRA-RUNBOOK-PRODUCAO.md`, `docs/PONTO-OBRA-BACKUP-RESTAURACAO.md` |
+| Etapa intermediária — segurança fiscal da ARP | **Em preparação.** Migration 019 escrita, revisada e testada; livro de migrations e backup do ponto prontos; nada aplicado em produção | PR [#70](https://github.com/hygorlp-dot/hygor/pull/70) (019, rascunho), PR [#71](https://github.com/hygorlp-dot/hygor/pull/71) (livro e backup, rascunho), `docs/PONTO-OBRA-MIGRATION-019.md`, `docs/PONTO-OBRA-RUNBOOK-PRODUCAO.md`, `docs/PONTO-OBRA-BACKUP-RESTAURACAO.md` |
 | Fase 02 — AFD, comprovante, espelho, quiosque | **Aguardando** o gate de produção abaixo e a consolidação da PR [#62](https://github.com/hygorlp-dot/hygor/pull/62) | — |
 | Fase 03 — ICP-Brasil, INPI, AEJ, substituir folha | Não iniciada | — |
 
@@ -26,7 +26,7 @@ não declara conformidade REP-P nem homologação em aparelho.
 **Falta (cada item 🔐):**
 1. confirmar e ensaiar o backup da plataforma Supabase;
 2. backup real do ponto, com ensaio de restauração;
-3. merges #69 → #70 → livro;
+3. merges #69 → #70 → #71;
 4. implantar o livro;
 5. aplicar a 019 na janela;
 6. cadastrar o CNPJ;
@@ -50,7 +50,7 @@ Não foi alterada em nenhuma das fases.
 ## Condição objetiva para iniciar a Fase 02
 
 Todas verdadeiras e registradas:
-1. #69, #70 e o livro mesclados na `main`, com CI verde nos 5 jobs no HEAD.
+1. #69, #70 e #71 mesclados na `main`, com CI verde nos 5 jobs no HEAD.
 2. Livro implantado: `ponto_migracoes_aplicadas` com 016-019, e o plano da
    CLI mostrando só `ja_aplicada`.
 3. 019 aplicada, com as verificações da seção 8 antes e depois guardadas e a
