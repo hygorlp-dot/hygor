@@ -212,6 +212,13 @@ describe("recusas do livro", () => {
     expect((await validarMigracao(db, "019_ponto_integridade_fiscal.up.sql")).presentes).toEqual([]);   // nada da 019 ficou
   });
 
+  it("deriva: 019 registrada no livro mas sobrescrita por fora (017 reaplicada sem livro) -> o livro recusa seguir", async () => {
+    await deployAntigo();
+    await aplicar({ db, manifesto: MANIFESTO_019, lerArquivo, origem: "teste" });
+    await pg.exec(lerMigration("017_ponto_arp_estabelecimento_nsr.up.sql"));     // alguém rodou a 017 na mão
+    await expect(planejar({ db, manifesto: MANIFESTO_019, lerArquivo })).rejects.toThrow(/019_.*registrada no livro, mas o banco não confere.*corpo de ponto_arp_registrar/);
+  });
+
   it("livro é append-only e fechado para anon/authenticated", async () => {
     await aplicar({ db, manifesto: MANIFESTO, lerArquivo, origem: "teste" });
     await expect(q("update public.ponto_migracoes_aplicadas set origem = 'x'")).rejects.toThrow(/append-only/);

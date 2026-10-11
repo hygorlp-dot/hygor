@@ -137,6 +137,8 @@ jobs:
         run: npx vitest run server/ponto-eletronico/arp/arp-019-concorrencia.pg.test.js --reporter=default --reporter=json --outputFile=concorrencia019.json && node -e "const r=require('./concorrencia019.json'); if (r.numPassedTests < 6) { console.error('teste de concorrência da 019 não rodou'); process.exit(1); }"
       - name: Livro de migrations do ponto em Postgres real (cenário de produção e deploys simultâneos)
         run: npx vitest run scripts/migracoes-ponto/livro.pg.test.js --reporter=default --reporter=json --outputFile=livro.json && node -e "const r=require('./livro.json'); if (r.numPassedTests < 2) { console.error('teste do livro de migrations não rodou'); process.exit(1); }"
+      - name: Ensaio de recuperação do ponto em Postgres real (backup cifrado -> restauração em banco descartável)
+        run: npx vitest run scripts/backup-ponto/backup.pg.test.js --reporter=default --reporter=json --outputFile=backup.json && node -e "const r=require('./backup.json'); if (r.numPassedTests < 1) { console.error('ensaio de recuperação não rodou'); process.exit(1); }"
 
   browser-critical-flows:
     runs-on: ubuntu-latest

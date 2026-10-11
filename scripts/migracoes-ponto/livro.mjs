@@ -92,6 +92,9 @@ export async function planejar({ db, manifesto, lerArquivo }) {
     const reg = registrados.get(arquivo);
     if (reg) {
       if (reg.sha256 !== sha) throw new ErroLivro(`${arquivo}: já aplicada com outro conteúdo (livro ${reg.sha256}, arquivo ${sha})`, { arquivo });
+      // Deriva: registrada, mas os objetos não batem (reversão manual ou
+      // migration antiga reaplicada por fora do livro). Exige pessoa.
+      if (!validacoes[i].completa) throw new ErroLivro(`${arquivo}: registrada no livro, mas o banco não confere (faltando: ${validacoes[i].faltando.join(", ")}). Reversão manual ou deriva - exige análise.`, { arquivo, validacao: validacoes[i] });
       passos.push({ arquivo, sha256: sha, acao: "ja_aplicada" });
       continue;
     }
