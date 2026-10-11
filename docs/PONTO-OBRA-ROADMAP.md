@@ -6,7 +6,7 @@ não declara conformidade REP-P nem homologação em aparelho.
 | Fase | Estado | Onde |
 |---|---|---|
 | Fase 01 — estabilização, segurança e regressão | **Tecnicamente concluída.** Integração à `main` pendente (merge exige autorização) | PR [#69](https://github.com/hygorlp-dot/hygor/pull/69), `docs/PONTO-OBRA-FASE-01-ESTABILIZACAO.md` |
-| Etapa intermediária — segurança fiscal da ARP | **Em preparação.** Migration 019 escrita, revisada e testada; livro de migrations e backup do ponto prontos; nada aplicado em produção | PR [#70](https://github.com/hygorlp-dot/hygor/pull/70) (019, rascunho), PR [#71](https://github.com/hygorlp-dot/hygor/pull/71) (livro e backup, rascunho), `docs/PONTO-OBRA-MIGRATION-019.md`, `docs/PONTO-OBRA-RUNBOOK-PRODUCAO.md`, `docs/PONTO-OBRA-BACKUP-RESTAURACAO.md` |
+| Etapa intermediária — segurança fiscal da ARP | **Em preparação.** Migration 019 escrita, revisada e testada; livro de migrations, gate de deploy e backup do ponto prontos e ensaiados só com dados sintéticos; nada aplicado em produção | PR [#70](https://github.com/hygorlp-dot/hygor/pull/70) (019, rascunho), PR [#71](https://github.com/hygorlp-dot/hygor/pull/71) (livro e backup, rascunho), `docs/PONTO-OBRA-MIGRATION-019.md`, `docs/PONTO-OBRA-RUNBOOK-PRODUCAO.md`, `docs/PONTO-OBRA-BACKUP-RESTAURACAO.md` |
 | Fase 02 — AFD, comprovante, espelho, quiosque | **Aguardando** o gate de produção abaixo e a consolidação da PR [#62](https://github.com/hygorlp-dot/hygor/pull/62) | — |
 | Fase 03 — ICP-Brasil, INPI, AEJ, substituir folha | Não iniciada | — |
 
@@ -19,18 +19,26 @@ não declara conformidade REP-P nem homologação em aparelho.
   - inscrição congelada depois do NSR, com auditoria;
   - endurecimento de permissões e travas.
 - Revisão independente: APROVAR COM CORREÇÕES, com as correções aplicadas.
-- Livro de migrations (cada arquivo uma vez, SHA-256, deriva detectada,
-  guarda no script antigo).
-- Backup cifrado do ponto e ensaio de restauração em bancos descartáveis.
+- Livro de migrations (cada arquivo uma vez, SHA-256, deriva detectada, trava
+  com prazo compartilhada entre deploy e CLI).
+- Gate de deploy com três resultados (GO, NO-GO, INTERVENÇÃO HUMANA) que
+  confere a integridade fiscal da versão ativa (triggers, privilégios, funções
+  e SHA-256) e recusa deriva sem corrigir nada.
+- Backup cifrado do ponto com consistência banco × Storage classificada e
+  restauração com estados explícitos (`completa`, `apenas_banco`,
+  `parcial`, `falha`); só `completa` conta para o gate.
+- Ensaio integrado de 18 passos (016 → 019 → backup → restauração → nova
+  batida) em PGlite e em Postgres real na CI, com cenários negativos.
 
 **Falta (cada item 🔐):**
 1. confirmar e ensaiar o backup da plataforma Supabase;
-2. backup real do ponto, com ensaio de restauração;
+2. backup real do ponto (`consistente`) restaurado com estado `completa`;
 3. merges #69 → #70 → #71;
 4. implantar o livro;
 5. aplicar a 019 na janela;
 6. cadastrar o CNPJ;
-7. aceitar formalmente os riscos residuais.
+7. decisão formal da direção sobre os riscos residuais (registrados, não
+   aceitos).
 
 Sequência e critérios: `docs/PONTO-OBRA-RUNBOOK-PRODUCAO.md`.
 
@@ -55,11 +63,13 @@ Todas verdadeiras e registradas:
    CLI mostrando só `ja_aplicada`.
 3. 019 aplicada, com as verificações da seção 8 antes e depois guardadas e a
    cadeia fiscal íntegra.
-4. Backup do ponto e backup da plataforma **restaurados com sucesso** em
-   ambiente descartável, com evidência.
-5. CNPJ do estabelecimento cadastrado (auditado depois do NSR 2).
-6. #62 consolidada (ou decisão formal de descartá-la ou adiá-la).
-7. APK da versão estabilizada validado em aparelho real: SQLCipher abre
+4. Backup do ponto restaurado com estado `completa` e backup da plataforma
+   restaurado, ambos em ambiente descartável, com evidência.
+5. Gate (`node scripts/aplicar-migracoes-ponto.mjs --verificar`) dando GO
+   com versão fiscal 019, e o redeploy seguinte sem reaplicar nada.
+6. CNPJ do estabelecimento cadastrado (auditado depois do NSR 2).
+7. #62 consolidada (ou decisão formal de descartá-la ou adiá-la).
+8. APK da versão estabilizada validado em aparelho real: SQLCipher abre
    depois da atualização, batida offline, câmera negada, reboot, diagnóstico.
-8. Riscos residuais aceitos formalmente pela direção (Fase 01, seção 15;
-   019, seção 11).
+9. Decisão formal da direção sobre os riscos residuais (Fase 01, seção 15;
+   019, seção 11; backup, seção 7).
