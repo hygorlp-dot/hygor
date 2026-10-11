@@ -151,7 +151,7 @@ export async function restaurar({ db, dados, manifesto, aplicarEsquema, storage 
     for (const t of TABELAS) {
       const linhas = dados.tabelas[t];
       if (!linhas?.length) continue;
-      await db.query(`insert into public.${t} overriding system value select * from jsonb_populate_recordset(null::public.${t}, $1::jsonb)`, [JSON.stringify(linhas)]);
+      await db.query(`insert into public.${t} overriding system value select * from jsonb_populate_recordset(null::public.${t}, $1::text::jsonb)`, [JSON.stringify(linhas)]);
     }
   });
   // Sequências de identidade acompanham o maior id restaurado.

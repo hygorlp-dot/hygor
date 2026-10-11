@@ -116,6 +116,7 @@ describe("cenário completo de produção", () => {
     const depoisDoLivro = await retrato();
     expect(depoisDoLivro.funcoes).toBe(antesDoLivro.funcoes);
     expect(depoisDoLivro.dados).toEqual(antesDoLivro.dados);
+    expect((await q("select distinct jsonb_typeof(validacao) t from public.ponto_migracoes_aplicadas")).map(l => l.t)).toEqual(["object"]);
     expect(await q("select arquivo, modo, origem from public.ponto_migracoes_aplicadas order by arquivo")).toEqual(
       MANIFESTO.map(m => ({ arquivo: m.arquivo, modo: "registrada_existente", origem: "teste:implantacao" })));
 

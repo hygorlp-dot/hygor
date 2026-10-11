@@ -130,7 +130,7 @@ export async function aplicar({ db, manifesto, lerArquivo, origem, limites = LIM
           passo.validacao = depois;
         }
         await db.query(
-          `insert into public.${TABELA_LIVRO}(arquivo, sha256, modo, origem, duracao_ms, validacao) values ($1, $2, $3, $4, $5, $6::jsonb)`,
+          `insert into public.${TABELA_LIVRO}(arquivo, sha256, modo, origem, duracao_ms, validacao) values ($1, $2, $3, $4, $5, $6::text::jsonb)`,
           [passo.arquivo, passo.sha256, passo.acao === "aplicar" ? "aplicada" : "registrada_existente", origem, Math.round(agora() - inicio),
             JSON.stringify({ presentes: passo.validacao?.presentes?.length ?? 0, faltando: passo.validacao?.faltando ?? [] })]);
       });

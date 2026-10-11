@@ -71,6 +71,8 @@ describe.skipIf(!URL_PG)("livro de migrations em Postgres real", () => {
       expect(acoes.sort()).toEqual(["aplicar,aplicar,aplicar,aplicar", "ja_aplicada,ja_aplicada,ja_aplicada,ja_aplicada"]);
       const linhas = await sql`select arquivo, modo from public.ponto_migracoes_aplicadas order by arquivo`;
       expect(linhas.map(l => l.modo)).toEqual(["aplicada", "aplicada", "aplicada", "aplicada"]);
+      // postgres.js serializa parâmetro ::jsonb como JSON: o livro precisa gravar OBJETO, não string.
+      expect((await sql`select distinct jsonb_typeof(validacao) t from public.ponto_migracoes_aplicadas`).map(l => l.t)).toEqual(["object"]);
     } finally { c1.release(); c2.release(); }
   }, 120000);
 });
