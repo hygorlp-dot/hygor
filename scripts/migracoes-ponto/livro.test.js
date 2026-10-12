@@ -240,10 +240,13 @@ describe("livro ainda NÃO está no deploy", () => {
     const antigo = readFileSync(new URL("../apply-ponto-eletronico.mjs", import.meta.url), "utf8");
     expect(antigo).toMatch(/guardaScriptAntigo/);
     // A chamada do gate precisa EXISTIR e vir antes da reaplicação (indexOf -1 passaria em silêncio).
-    const chamadaGate = antigo.indexOf("guardaScriptAntigo(db"), reaplica016 = antigo.indexOf("016_create_ponto_eletronico.up.sql");
+    // Compara com a CHAMADA da reaplicação (a função que reaplica pode estar declarada em qualquer lugar).
+    const chamadaGate = antigo.indexOf("guardaScriptAntigo(db"), chamadaReaplica = antigo.indexOf("await reaplicar016a018(");
     expect(chamadaGate).toBeGreaterThan(-1);
-    expect(reaplica016).toBeGreaterThan(-1);
-    expect(chamadaGate).toBeLessThan(reaplica016);
+    expect(chamadaReaplica).toBeGreaterThan(-1);
+    expect(antigo.split("await reaplicar016a018(").length).toBe(2);   // uma chamada só
+    expect(chamadaGate).toBeLessThan(chamadaReaplica);
+    expect(antigo.slice(chamadaGate, chamadaReaplica)).toMatch(/acao === "bloquear"[\s\S]*throw/);
   });
 });
 
@@ -371,6 +374,15 @@ describe("gate de deploy: GO / NO-GO / INTERVENCAO_HUMANA (só lê)", () => {
     await pg.exec(`drop trigger ponto_arp_registros_no_delete on public.ponto_arp_registros;
       create trigger ponto_arp_registros_no_delete before delete on public.ponto_tempo_verificacoes for each row execute function public.ponto_arp_imutavel();`);
     expect(await gate()).toMatchObject({ resultado: "NO-GO", motivos: expect.arrayContaining([expect.stringMatching(/ponto_arp_registros_no_delete ligado de outro jeito/)]) });
+  });
+
+  it("IMPRESSÃO DIGITAL: trigger religado numa função HOMÔNIMA de outro schema (x.ponto_arp_imutavel neutralizada): NO-GO e o UPDATE continua barrado em produção legítima", async () => {
+    await ate019();
+    await pg.exec(`create schema x;
+      create function x.ponto_arp_imutavel() returns trigger language plpgsql as $$ begin return coalesce(new, old); end $$;
+      drop trigger ponto_arp_registros_no_update on public.ponto_arp_registros;
+      create trigger ponto_arp_registros_no_update before update on public.ponto_arp_registros for each row execute function x.ponto_arp_imutavel();`);
+    expect(await gate()).toMatchObject({ resultado: "NO-GO", motivos: expect.arrayContaining([expect.stringMatching(/ponto_arp_registros_no_update ligado de outro jeito/)]) });
   });
 
   it("IMPRESSÃO DIGITAL: trigger estranho numa tabela fiscal (pode reescrever NEW antes da gravação): NO-GO", async () => {

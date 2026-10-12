@@ -201,6 +201,11 @@ export async function exportar({ db, storage = null, tentativas = 3, pacote = nu
     const mudou = sumiu || mudouNoMeio(antes, depois);
     if (mudou && tentativa < tentativas) continue;
     const refs = referenciasDeFotos(tabelas);
+    // Foto que chegou DEPOIS da primeira lista mas que o retrato do banco já
+    // referencia (ex.: cadastro facial no meio do backup): tentar de novo a
+    // pega; sem isso, ela viraria "sem arquivo" por puro acaso de tempo.
+    const listadas = new Set(antes.map(i => i.caminho)), referenciadas = new Set(refs.map(r => r.caminho));
+    if (depois.some(i => !listadas.has(i.caminho) && referenciadas.has(i.caminho)) && tentativa < tentativas) continue;
     return { tabelas, livro, esquema, fotos, consistencia: consistencia({ refs, fotos, mudouDuranteBackup: mudou, tentativas: tentativa, incluidas: !!storage }) };
   }
 }

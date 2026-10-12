@@ -12,6 +12,13 @@ export function identidadeBanco(url) {
   const banco = decodeURIComponent(u.pathname.replace(/^\//, "")) || "postgres";
   return `${decodeURIComponent(u.username || "postgres")}@${u.hostname}:${u.port || "5432"}/${banco}`;
 }
+// Projeto Supabase de uma identidade, nas duas formas: pooler
+// (postgres.<ref>@aws-...pooler.supabase.com) e direta (postgres@db.<ref>.supabase.co).
+export function projetoSupabase(identidade) {
+  const [usuario, resto = ""] = String(identidade || "").split("@");
+  const host = resto.split(":")[0];
+  return (/^[^.]+\.([a-z0-9]{15,})$/i.exec(usuario) || [])[1] || (/^db\.([a-z0-9]{15,})\.supabase\.co$/i.exec(host) || [])[1] || null;
+}
 export const hostDe = url => { try { return new URL(url).hostname; } catch { throw new Error("URL do banco inválida (o valor não é exibido)"); } };
 export const hostLocal = host => /^(localhost|127\.0\.0\.1|::1|\[::1\])$/.test(String(host));
 

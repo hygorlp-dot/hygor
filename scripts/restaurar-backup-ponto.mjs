@@ -23,7 +23,7 @@ import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { adaptadorPostgres } from "./migracoes-ponto/adaptadores.mjs";
 import { aplicar } from "./migracoes-ponto/livro.mjs";
-import { MARCADOR_DESCARTAVEL, dentroDe, hostDe, hostLocal, identidadeBanco, pastaSincronizada } from "./migracoes-ponto/locais.mjs";
+import { MARCADOR_DESCARTAVEL, dentroDe, hostDe, hostLocal, identidadeBanco, pastaSincronizada, projetoSupabase } from "./migracoes-ponto/locais.mjs";
 import { abrir, chaveDoAmbiente, fonteArquivo, manifestoDoEsquema, restaurar } from "./backup-ponto/pacote.mjs";
 import { storagePasta } from "./backup-ponto/storages.mjs";
 
@@ -40,7 +40,9 @@ let prod = null;
 try { prod = process.env.POSTGRES_URL_NON_POOLING ? identidadeBanco(process.env.POSTGRES_URL_NON_POOLING) : null; } catch { sair("POSTGRES_URL_NON_POOLING inválida (o valor não é exibido)"); }
 // Mesmo servidor/projeto = mesmo usuario@host:porta (no pooler do Supabase o usuário carrega o projeto).
 const servidor = id => String(id || "").split("/")[0];
-const mesmoServidor = id => !hostLocal(host) && servidor(id) === servidor(identidade);
+// Mesmo projeto Supabase pelo pooler (postgres.<ref>@...) ou pelo acesso direto (db.<ref>.supabase.co).
+const mesmoProjeto = id => !!projetoSupabase(id) && projetoSupabase(id) === projetoSupabase(identidade);
+const mesmoServidor = id => !hostLocal(host) && (servidor(id) === servidor(identidade) || mesmoProjeto(id));
 if (identidade === manifesto.origem || identidade === prod || mesmoServidor(manifesto.origem) || mesmoServidor(prod)) {
   sair("recusado: o destino é o banco de origem ou está no mesmo servidor/projeto da origem ou da produção");
 }

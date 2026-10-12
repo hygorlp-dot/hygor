@@ -288,6 +288,26 @@ describe("consistência banco x Storage no backup", () => {
   });
 });
 
+describe("chegadas durante o backup", () => {
+  it("foto que chega DEPOIS da primeira lista e que o retrato do banco já referencia (cadastro no meio do backup): tenta de novo e sai 'consistente'", async () => {
+    await popular(origem);
+    const bio = randomUUID(), foto = jpeg("cadastro-no-meio"), caminho = caminhoFotoCadastro("emp-9", bio, 0);
+    let n = 0;
+    const meio = { ...fotosO, listar: async () => {
+      n += 1;
+      const l = await fotosO.listar();
+      if (n === 1) {                                                     // depois da 1ª lista: a linha entra e a foto chega
+        await origem.query("insert into public.ponto_biometrias(company_id,id,employee_id,modelo,vetor,fotos,consentimento,cadastrado_por) values ($1,$2,'emp-9','m',$3::jsonb,$4::jsonb,$5::jsonb,'enc')",
+          [C, bio, JSON.stringify(VETOR), JSON.stringify([{ caminho, sha256: sha256(foto) }]), JSON.stringify({ termoVersao: "2026-10", aceitoEm: "2026-10-01T10:00:00Z" })]);
+        fotosO._gravar(caminho, foto);
+      }
+      return l;
+    } };
+    const d = await exportar({ db: dbO, storage: meio });
+    expect(d.consistencia).toMatchObject({ qualidade: "consistente", tentativas: 2, semArquivo: [] });
+  });
+});
+
 describe("fidelidade do banco restaurado", () => {
   it("cadeia fiscal QUEBRADA na origem: o backup registra, e a restauração termina em FALHA (nunca 'completa')", async () => {
     await popular(origem);
@@ -376,9 +396,11 @@ describe("storageSupabase (caminho --com-fotos de produção) com um bucket fals
     const arquivos = new Map();
     for (let i = 0; i < 1203; i += 1) arquivos.set(`marcacoes/obra-1/2026-10-11/${String(i).padStart(5, "0")}.jpg`, jpeg(i));
     arquivos.set("biometria/emp-1/b-1.jpg", jpeg("cad"));
+    arquivos.set("marcacoes/obra-1/.emptyFolderPlaceholder", Buffer.alloc(0));   // criado pelo painel ao fazer "nova pasta"
     const s = storageSupabase(bucketFalso(arquivos));
     const lista = await s.listar();
-    expect(lista).toHaveLength(1204);
+    expect(lista).toHaveLength(1204);                                         // o placeholder não é foto: fica de fora
+    expect(lista.some(i => i.caminho.endsWith(".emptyFolderPlaceholder"))).toBe(false);
     expect(lista[0]).toMatchObject({ caminho: "biometria/emp-1/b-1.jpg", tamanho: jpeg("cad").length });
     expect(Buffer.compare(await s.baixar("biometria/emp-1/b-1.jpg"), jpeg("cad"))).toBe(0);
     expect(await s.baixar("biometria/emp-1/nao-existe.jpg")).toBeNull();

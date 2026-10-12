@@ -34,6 +34,13 @@ if (!url) { console.error(`variável ${nomeUrl} ausente`); process.exit(1); }
 let host, identidade;
 try { host = hostDe(url); identidade = identidadeBanco(url); } catch (e) { console.error(e.message); process.exit(1); }
 const modoAplicar = arg("aplicar") === true;
+// "restauracao" é reservada: só a ferramenta de restauração grava essa origem
+// (é ela que autoriza retomar uma restauração interrompida no mesmo banco).
+const origemDoLivro = () => {
+  const o = process.env.PONTO_LIVRO_ORIGEM || `manual:${process.env.USER || process.env.USERNAME || "desconhecido"}`;
+  if (o.trim().toLowerCase() === "restauracao") { console.error("recusado: a origem 'restauracao' é reservada à ferramenta de restauração"); process.exit(1); }
+  return o;
+};
 // O valor esperado NÃO é impresso: quem aplica precisa saber em qual banco
 // está (no pooler do Supabase o host é o mesmo para todos os projetos).
 if (modoAplicar && arg("confirmo-banco") !== identidade) {
@@ -55,7 +62,7 @@ try {
   }
   const registrar = ev => console.log(`  [${ev.etapa}]${ev.arquivo ? ` ${ev.arquivo}` : ""}${ev.acao ? ` ${ev.acao}` : ""}${ev.ms !== undefined ? ` ${ev.ms} ms` : ""}${ev.tentativas ? ` (${ev.tentativas} tentativa(s))` : ""}`);
   const r = modoAplicar
-    ? await aplicar({ db, manifesto, lerArquivo, registrar, origem: process.env.PONTO_LIVRO_ORIGEM || `manual:${process.env.USER || process.env.USERNAME || "desconhecido"}` })
+    ? await aplicar({ db, manifesto, lerArquivo, registrar, origem: origemDoLivro() })
     : await planejar({ db, manifesto, lerArquivo });
   if (!modoAplicar && !r.livroExiste) console.log("  (o livro ainda não existe: será criado ao aplicar)");
   for (const p of r.passos) console.log(`  ${p.acao.padEnd(20)} ${p.arquivo}  ${p.sha256.slice(0, 12)}…`);

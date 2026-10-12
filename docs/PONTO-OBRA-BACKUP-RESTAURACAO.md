@@ -54,8 +54,11 @@ Não há transação entre o Postgres e o Storage. O backup
 
 Se uma foto **já listada** mudou (tamanho ou versão) ou sumiu entre listar e
 baixar, **repete** tudo, até 3 tentativas. Foto **nova** no bucket não conta
-como mudança: é de uma batida posterior ao retrato do banco e fica para o
-próximo backup. Depois cruza as
+como mudança (é de uma batida posterior ao retrato do banco e fica para o
+próximo backup), exceto quando o retrato do banco já a referencia (por
+exemplo, um cadastro facial feito no meio do backup): aí repete também. Só
+entram fotos do ponto (`marcacoes/…` e `biometria/….jpg`); objetos do painel,
+como `.emptyFolderPlaceholder`, são ignorados. Depois cruza as
 referências do banco com os arquivos. A origem dos caminhos é única:
 `server/ponto-eletronico/fotos-caminho.js`, a mesma que o servidor usa para
 gravar.

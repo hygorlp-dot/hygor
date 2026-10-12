@@ -99,8 +99,10 @@ export async function impressaoDigital(db) {
       p.prosecdef as definer, coalesce(array_to_string(p.proconfig, ','), '') as config
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and left(p.proname, 6) = 'ponto_' and left(p.proname, 15) <> 'ponto_migracoes' order by 1`);
-  const triggers = await db.query(`select t.tgname as nome, c.relname as tabela, p.proname as funcao, t.tgtype::int as tipo
-    from pg_trigger t join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace join pg_proc p on p.oid = t.tgfoid
+  // Função do trigger com o SCHEMA: uma homônima noutro schema (x.ponto_arp_imutavel) não pode passar por igual.
+  const triggers = await db.query(`select t.tgname as nome, c.relname as tabela, pn.nspname || '.' || p.proname as funcao, t.tgtype::int as tipo
+    from pg_trigger t join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace
+    join pg_proc p on p.oid = t.tgfoid join pg_namespace pn on pn.oid = p.pronamespace
     where not t.tgisinternal and n.nspname = 'public' and left(c.relname, 6) = 'ponto_' and c.relname <> 'ponto_migracoes_aplicadas' order by 1`);
   return {
     funcoes: Object.fromEntries(funcoes.map(f => [f.chave, { corpo: f.corpo, definer: !!f.definer, config: f.config }])),

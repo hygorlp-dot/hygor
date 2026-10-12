@@ -40,6 +40,9 @@ continua obrigatória.
   CLI, 120 s no deploy), e depois erro explícito `TRAVA_EXPIROU` sem alterar
   nada. A trava é de sessão: se a conexão cair, o Postgres a solta; a
   liberação nunca lança erro. O deploy e a CLI usam a **mesma** trava.
+  A trava é reentrante na mesma sessão e `liberarTrava` solta **todas** as
+  camadas: quem ligar o livro ao deploy (etapa 12) não pode chamar `aplicar`
+  de dentro de um trecho que já segura a trava, ou a perderia no meio.
 - **Observabilidade sem dado sensível:** eventos `trava_obtida`,
   `trava_expirou`, `migration`, `trava_liberada` com arquivo, ação, duração e
   tentativas; nunca URL, chave, CPF ou hash fiscal.
@@ -106,6 +109,13 @@ Para a versão fiscal registrada (`verificarIntegridadeFiscal`):
 - SHA-256 de cada arquivo registrado igual ao arquivo deste deploy.
 
 ## 5. Sequência exata
+
+**Antes da etapa 3** (somente leitura, autorizado): `show timezone` e
+`select rolname, rolconfig from pg_roles where rolname in ('authenticator','service_role')`.
+Esperado: UTC. A #71 normaliza o caminho das fotos para a data UTC; se o
+banco ou o PostgREST estiverem noutro fuso, fotos antigas gravadas perto da
+meia-noite ficariam noutro caminho (o link da foto daria 404). Fuso diferente
+de UTC é **NO-GO** para a etapa 3 até decisão.
 
 | # | Ação | Quem | Efeito em produção | Conferir |
 |---|---|---|---|---|
@@ -174,9 +184,6 @@ node scripts/aplicar-migracoes-ponto.mjs --verificar
 ## 9. Testes depois da implantação
 
 - [ ] `--verificar`: GO, versão fiscal 019.
-- [ ] `show timezone` e `select rolname, rolconfig from pg_roles where rolname in ('authenticator','service_role')`:
-      esperado UTC (o caminho das fotos usa a data UTC; o código normaliza,
-      mas fotos antigas gravadas com outro fuso ficariam noutro caminho).
 - [ ] Seção 8 de `PONTO-OBRA-MIGRATION-019.md` (depois): triggers e auditoria
       presentes, `service_role` só com SELECT na auditoria, sem `TRUNCATE`,
       RLS ligado.

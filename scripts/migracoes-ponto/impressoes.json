@@ -15,12 +15,12 @@
     "triggers": {
       "ponto_marcacoes_no_delete": {
         "tabela": "ponto_marcacoes",
-        "funcao": "ponto_marcacao_imutavel",
+        "funcao": "public.ponto_marcacao_imutavel",
         "tipo": 11
       },
       "ponto_marcacoes_no_update": {
         "tabela": "ponto_marcacoes",
-        "funcao": "ponto_marcacao_imutavel",
+        "funcao": "public.ponto_marcacao_imutavel",
         "tipo": 19
       }
     }
@@ -71,82 +71,82 @@
     "triggers": {
       "ponto_arp_contadores_no_truncate": {
         "tabela": "ponto_arp_contadores",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_arp_contadores_protegido": {
         "tabela": "ponto_arp_contadores",
-        "funcao": "ponto_arp_contador_protegido",
+        "funcao": "public.ponto_arp_contador_protegido",
         "tipo": 31
       },
       "ponto_arp_registros_no_delete": {
         "tabela": "ponto_arp_registros",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 11
       },
       "ponto_arp_registros_no_truncate": {
         "tabela": "ponto_arp_registros",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_arp_registros_no_update": {
         "tabela": "ponto_arp_registros",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 19
       },
       "ponto_arp_registros_so_arp": {
         "tabela": "ponto_arp_registros",
-        "funcao": "ponto_arp_somente_pela_funcao",
+        "funcao": "public.ponto_arp_somente_pela_funcao",
         "tipo": 7
       },
       "ponto_dispositivos_protegido": {
         "tabela": "ponto_dispositivos",
-        "funcao": "ponto_dispositivo_protegido",
+        "funcao": "public.ponto_dispositivo_protegido",
         "tipo": 19
       },
       "ponto_eventos_no_delete": {
         "tabela": "ponto_eventos",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 11
       },
       "ponto_eventos_no_truncate": {
         "tabela": "ponto_eventos",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_eventos_no_update": {
         "tabela": "ponto_eventos",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 19
       },
       "ponto_eventos_so_arp": {
         "tabela": "ponto_eventos",
-        "funcao": "ponto_arp_somente_pela_funcao",
+        "funcao": "public.ponto_arp_somente_pela_funcao",
         "tipo": 7
       },
       "ponto_marcacoes_no_delete": {
         "tabela": "ponto_marcacoes",
-        "funcao": "ponto_marcacao_imutavel",
+        "funcao": "public.ponto_marcacao_imutavel",
         "tipo": 11
       },
       "ponto_marcacoes_no_update": {
         "tabela": "ponto_marcacoes",
-        "funcao": "ponto_marcacao_imutavel",
+        "funcao": "public.ponto_marcacao_imutavel",
         "tipo": 19
       },
       "ponto_tempo_verificacoes_no_delete": {
         "tabela": "ponto_tempo_verificacoes",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 11
       },
       "ponto_tempo_verificacoes_no_truncate": {
         "tabela": "ponto_tempo_verificacoes",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_tempo_verificacoes_no_update": {
         "tabela": "ponto_tempo_verificacoes",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 19
       }
     }
@@ -212,112 +212,112 @@
     "triggers": {
       "ponto_aprop_auditoria_no_delete": {
         "tabela": "ponto_apropriacoes_auditoria",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 11
       },
       "ponto_aprop_auditoria_no_truncate": {
         "tabela": "ponto_apropriacoes_auditoria",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_aprop_auditoria_no_update": {
         "tabela": "ponto_apropriacoes_auditoria",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 19
       },
       "ponto_aprop_auditoria_so_funcao": {
         "tabela": "ponto_apropriacoes_auditoria",
-        "funcao": "ponto_apropriacao_somente_pela_funcao",
+        "funcao": "public.ponto_apropriacao_somente_pela_funcao",
         "tipo": 7
       },
       "ponto_apropriacoes_no_truncate": {
         "tabela": "ponto_apropriacoes",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_apropriacoes_so_funcao": {
         "tabela": "ponto_apropriacoes",
-        "funcao": "ponto_apropriacao_somente_pela_funcao",
+        "funcao": "public.ponto_apropriacao_somente_pela_funcao",
         "tipo": 31
       },
       "ponto_arp_contadores_no_truncate": {
         "tabela": "ponto_arp_contadores",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_arp_contadores_protegido": {
         "tabela": "ponto_arp_contadores",
-        "funcao": "ponto_arp_contador_protegido",
+        "funcao": "public.ponto_arp_contador_protegido",
         "tipo": 31
       },
       "ponto_arp_registros_no_delete": {
         "tabela": "ponto_arp_registros",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 11
       },
       "ponto_arp_registros_no_truncate": {
         "tabela": "ponto_arp_registros",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_arp_registros_no_update": {
         "tabela": "ponto_arp_registros",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 19
       },
       "ponto_arp_registros_so_arp": {
         "tabela": "ponto_arp_registros",
-        "funcao": "ponto_arp_somente_pela_funcao",
+        "funcao": "public.ponto_arp_somente_pela_funcao",
         "tipo": 7
       },
       "ponto_dispositivos_protegido": {
         "tabela": "ponto_dispositivos",
-        "funcao": "ponto_dispositivo_protegido",
+        "funcao": "public.ponto_dispositivo_protegido",
         "tipo": 19
       },
       "ponto_eventos_no_delete": {
         "tabela": "ponto_eventos",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 11
       },
       "ponto_eventos_no_truncate": {
         "tabela": "ponto_eventos",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_eventos_no_update": {
         "tabela": "ponto_eventos",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 19
       },
       "ponto_eventos_so_arp": {
         "tabela": "ponto_eventos",
-        "funcao": "ponto_arp_somente_pela_funcao",
+        "funcao": "public.ponto_arp_somente_pela_funcao",
         "tipo": 7
       },
       "ponto_marcacoes_no_delete": {
         "tabela": "ponto_marcacoes",
-        "funcao": "ponto_marcacao_imutavel",
+        "funcao": "public.ponto_marcacao_imutavel",
         "tipo": 11
       },
       "ponto_marcacoes_no_update": {
         "tabela": "ponto_marcacoes",
-        "funcao": "ponto_marcacao_imutavel",
+        "funcao": "public.ponto_marcacao_imutavel",
         "tipo": 19
       },
       "ponto_tempo_verificacoes_no_delete": {
         "tabela": "ponto_tempo_verificacoes",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 11
       },
       "ponto_tempo_verificacoes_no_truncate": {
         "tabela": "ponto_tempo_verificacoes",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_tempo_verificacoes_no_update": {
         "tabela": "ponto_tempo_verificacoes",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 19
       }
     }
@@ -408,147 +408,147 @@
     "triggers": {
       "ponto_aprop_auditoria_no_delete": {
         "tabela": "ponto_apropriacoes_auditoria",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 11
       },
       "ponto_aprop_auditoria_no_truncate": {
         "tabela": "ponto_apropriacoes_auditoria",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_aprop_auditoria_no_update": {
         "tabela": "ponto_apropriacoes_auditoria",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 19
       },
       "ponto_aprop_auditoria_so_funcao": {
         "tabela": "ponto_apropriacoes_auditoria",
-        "funcao": "ponto_apropriacao_somente_pela_funcao",
+        "funcao": "public.ponto_apropriacao_somente_pela_funcao",
         "tipo": 7
       },
       "ponto_apropriacoes_no_truncate": {
         "tabela": "ponto_apropriacoes",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_apropriacoes_so_funcao": {
         "tabela": "ponto_apropriacoes",
-        "funcao": "ponto_apropriacao_somente_pela_funcao",
+        "funcao": "public.ponto_apropriacao_somente_pela_funcao",
         "tipo": 31
       },
       "ponto_arp_contadores_no_truncate": {
         "tabela": "ponto_arp_contadores",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_arp_contadores_protegido": {
         "tabela": "ponto_arp_contadores",
-        "funcao": "ponto_arp_contador_protegido",
+        "funcao": "public.ponto_arp_contador_protegido",
         "tipo": 31
       },
       "ponto_arp_registros_no_delete": {
         "tabela": "ponto_arp_registros",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 11
       },
       "ponto_arp_registros_no_truncate": {
         "tabela": "ponto_arp_registros",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_arp_registros_no_update": {
         "tabela": "ponto_arp_registros",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 19
       },
       "ponto_arp_registros_so_arp": {
         "tabela": "ponto_arp_registros",
-        "funcao": "ponto_arp_somente_pela_funcao",
+        "funcao": "public.ponto_arp_somente_pela_funcao",
         "tipo": 7
       },
       "ponto_dispositivos_protegido": {
         "tabela": "ponto_dispositivos",
-        "funcao": "ponto_dispositivo_protegido",
+        "funcao": "public.ponto_dispositivo_protegido",
         "tipo": 19
       },
       "ponto_estabelecimentos_auditar": {
         "tabela": "ponto_estabelecimentos",
-        "funcao": "ponto_estabelecimento_auditar",
+        "funcao": "public.ponto_estabelecimento_auditar",
         "tipo": 21
       },
       "ponto_estabelecimentos_auditoria_no_delete": {
         "tabela": "ponto_estabelecimentos_auditoria",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 11
       },
       "ponto_estabelecimentos_auditoria_no_truncate": {
         "tabela": "ponto_estabelecimentos_auditoria",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_estabelecimentos_auditoria_no_update": {
         "tabela": "ponto_estabelecimentos_auditoria",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 19
       },
       "ponto_estabelecimentos_auditoria_so_trigger": {
         "tabela": "ponto_estabelecimentos_auditoria",
-        "funcao": "ponto_estab_auditoria_so_trigger",
+        "funcao": "public.ponto_estab_auditoria_so_trigger",
         "tipo": 7
       },
       "ponto_estabelecimentos_protegido": {
         "tabela": "ponto_estabelecimentos",
-        "funcao": "ponto_estabelecimento_protegido",
+        "funcao": "public.ponto_estabelecimento_protegido",
         "tipo": 27
       },
       "ponto_eventos_no_delete": {
         "tabela": "ponto_eventos",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 11
       },
       "ponto_eventos_no_truncate": {
         "tabela": "ponto_eventos",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_eventos_no_update": {
         "tabela": "ponto_eventos",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 19
       },
       "ponto_eventos_so_arp": {
         "tabela": "ponto_eventos",
-        "funcao": "ponto_arp_somente_pela_funcao",
+        "funcao": "public.ponto_arp_somente_pela_funcao",
         "tipo": 7
       },
       "ponto_marcacoes_no_delete": {
         "tabela": "ponto_marcacoes",
-        "funcao": "ponto_marcacao_imutavel",
+        "funcao": "public.ponto_marcacao_imutavel",
         "tipo": 11
       },
       "ponto_marcacoes_no_truncate": {
         "tabela": "ponto_marcacoes",
-        "funcao": "ponto_marcacao_imutavel",
+        "funcao": "public.ponto_marcacao_imutavel",
         "tipo": 34
       },
       "ponto_marcacoes_no_update": {
         "tabela": "ponto_marcacoes",
-        "funcao": "ponto_marcacao_imutavel",
+        "funcao": "public.ponto_marcacao_imutavel",
         "tipo": 19
       },
       "ponto_tempo_verificacoes_no_delete": {
         "tabela": "ponto_tempo_verificacoes",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 11
       },
       "ponto_tempo_verificacoes_no_truncate": {
         "tabela": "ponto_tempo_verificacoes",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 34
       },
       "ponto_tempo_verificacoes_no_update": {
         "tabela": "ponto_tempo_verificacoes",
-        "funcao": "ponto_arp_imutavel",
+        "funcao": "public.ponto_arp_imutavel",
         "tipo": 19
       }
     }

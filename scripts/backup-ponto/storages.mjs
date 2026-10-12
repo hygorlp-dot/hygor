@@ -19,7 +19,9 @@ export function storageSupabase(bucket) {
       if (error) throw error;
       for (const it of data || []) {
         const caminho = prefixo ? `${prefixo}/${it.name}` : it.name;
-        if (it.id) itens.push({ caminho, tamanho: Number(it.metadata?.size ?? -1), versao: `${it.updated_at || ""}|${it.metadata?.eTag || ""}|${it.metadata?.size ?? ""}` });
+        // Só fotos do ponto (marcacoes/… e biometria/….jpg): o painel do Supabase cria
+        // objetos como .emptyFolderPlaceholder, que não são prova e não se restauram.
+        if (it.id) { if (caminhoSeguro(caminho)) itens.push({ caminho, tamanho: Number(it.metadata?.size ?? -1), versao: `${it.updated_at || ""}|${it.metadata?.eTag || ""}|${it.metadata?.size ?? ""}` }); }
         else itens.push(...await listarTudo(caminho));
       }
       if ((data || []).length < 1000) break;
@@ -59,7 +61,7 @@ export function storagePasta(raiz) {
     });
   };
   return {
-    listar: async () => listarTudo(raiz).sort((a, b) => a.caminho.localeCompare(b.caminho)),
+    listar: async () => listarTudo(raiz).filter(i => caminhoSeguro(i.caminho)).sort((a, b) => (a.caminho < b.caminho ? -1 : a.caminho > b.caminho ? 1 : 0)),
     baixar: async c => { const f = abs(c); return fs.existsSync(f) ? fs.readFileSync(f) : null; },
     async enviar(c, b) {
       const f = abs(c);
