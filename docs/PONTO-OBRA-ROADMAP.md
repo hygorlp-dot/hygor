@@ -22,11 +22,12 @@ presumida aqui.
 | Fase | Estado | Onde |
 |---|---|---|
 | Fase 0–1 REP-P — ARP, NSR por estabelecimento, app de batida | **INTEGRADO** (na `main` desde 01/10) | `docs/REP-P-ARQUITETURA.md` |
-| Fase 01 — estabilização, segurança e regressão | **TESTADO** (CI verde nos 5 jobs). Integração pendente de autorização | PR [#69](https://github.com/hygorlp-dot/hygor/pull/69) `cb0b38f`, `docs/PONTO-OBRA-FASE-01-ESTABILIZACAO.md` |
-| Etapa intermediária — segurança fiscal da ARP | **TESTADO** com dados sintéticos (PGlite e Postgres real). Nada aplicado em produção | PR [#70](https://github.com/hygorlp-dot/hygor/pull/70) `6e277be` (019), PR [#71](https://github.com/hygorlp-dot/hygor/pull/71) (livro, gate, backup) |
-| ARCD Precision (UI do app) | **TESTADO**, reconciliado sobre a Fase 01 e corrigido pela revisão Impeccable; **não homologado** em aparelho | PR [#72](https://github.com/hygorlp-dot/hygor/pull/72) (substitui a [#62](https://github.com/hygorlp-dot/hygor/pull/62)) |
-| Fase 02 — AFD, comprovante, espelho, quiosque | **NÃO INICIADO** (aguarda as condições do fim deste documento) | — |
-| Fase 03 — ICP-Brasil, INPI, AEJ, substituir folha | **NÃO INICIADO** | — |
+| Fase 01 — estabilização, segurança e regressão | **Tecnicamente concluída — TESTADO** (CI verde nos 5 jobs). Integração à `main` pendente de autorização | PR [#69](https://github.com/hygorlp-dot/hygor/pull/69) `7293b3d`, `docs/PONTO-OBRA-FASE-01-ESTABILIZACAO.md` |
+| Proteção fiscal (etapa intermediária: 019, livro, gate, backup) | **IMPLEMENTADO e TESTADO** com dados sintéticos (PGlite e Postgres real). **Implantação pendente** (nada aplicado em produção) | PR [#70](https://github.com/hygorlp-dot/hygor/pull/70) `058a71a` (019), PR [#71](https://github.com/hygorlp-dot/hygor/pull/71) (livro, gate, backup) |
+| ARCD Precision (UI do app) e trava de ambiente | **IMPLEMENTADO e TESTADO**, reconciliado sobre a Fase 01; revisões Impeccable e independente aplicadas; **não homologado** em aparelho | PR [#72](https://github.com/hygorlp-dot/hygor/pull/72) (substitui a [#62](https://github.com/hygorlp-dot/hygor/pull/62)) |
+| Ambiente de homologação isolado | Ferramentas **TESTADAS** (provisionar, conferir, código, reset, guardas contra produção); **o ambiente não existe** - criar projeto Supabase e deploy Vercel de homologação exige autorização | PR dependente das #71 e #72, `docs/PONTO-OBRA-HOMOLOGACAO.md` |
+| Fase 02 — AFD, comprovante, espelho, quiosque | **EM DESENVOLVIMENTO** só na parte Android (ARCD Precision, comprovante na tela, quiosque); **sem homologação final**. AFD, espelho e comprovante formal não iniciados | — |
+| Fase 03 — ICP-Brasil, INPI, AEJ, documentação REP-P, PTRP, integração com a folha | **NÃO INICIADO** (entregas futuras; nenhuma conformidade REP-P declarada) | — |
 
 ## Matriz requisito → implementação → teste → evidência → risco → estado
 
@@ -42,8 +43,8 @@ presumida aqui.
 | Recuperação integral (`completa`) com fotos e cadeia conferidas | `restaurar` / `restaurar-backup-ponto.mjs` | `pacote.test.js`, `gate-integrado.pg.test.js` | `RECUPERAÇÃO COMPLETA` sintética na CI | **ensaio real não feito**; Supabase (`session_replication_role`, `comment on database`) não verificado | TESTADO (sintético) |
 | App Android: SQLCipher, TFLite, hora confiável, offline | `apps/ponto-obra` | `apps/ponto-obra/**/*.test.js` (268 com servidor e regras) | job `mobile-ponto-obra`; expo-doctor 21/21; prebuild conferido | **sem validação física** | TESTADO |
 | UI ARCD Precision reconciliada, com as correções da revisão Impeccable (câmera com prazo e `onCameraReady`, comprovante de terceirizado, divergência fiscal visível) | PR #72 | `apresentacao.test.js`, `prazo.test.js`, `codigo-fonte.test.js`, `design-system.test.js` | 277 testes do ponto; expo-doctor 21/21; prebuild com lista permitida de permissões | estouros de altura em 360×640 só se conferem no aparelho | TESTADO |
-| APK piloto | `eas.json` perfil `piloto` (APK interno, `autoIncrement`, `PONTO_AMBIENTE=piloto`, `requireCommit`) | `verificar-prebuild.mjs`; CI verde no commit | **build EAS `4f8b84c1` concluído em 12/10/2026: versionCode 3, commit `7a5b73c` (HEAD da PR #72, com os patches do Expo SDK 57 de 12/10), keystore remota padrão do projeto** (o build anterior `e4f41447`, versionCode 2, commit `199d07b`, ficou superado) | **aponta para a PRODUÇÃO do ARCD** (não há homologação): parear grava NSR real e permanente; o app avisa no pareamento e no Diagnóstico. Permissões e assinatura do APK final ainda não conferidas (`aapt`/`apksigner`) | IMPLEMENTADO (gerado; **não instalado, não homologado**) |
-| Homologação física | `apps/ponto-obra/docs/HOMOLOGACAO-PILOTO.md` (18 cenários) | — | — | nenhum cenário executado | NÃO INICIADO |
+| APK de homologação | perfil `homologacao` do `eas.json` (exige `PONTO_API_URL` isolada; pacote `.homologacao`), `scripts/verificar-apk.mjs` | `ambiente.test.js`; verificador rodado contra o APK antigo | APKs antigos `e4f41447` (vc 2) e `4f8b84c1` (vc 3, SHA-256 `1750d709…5438`, commit `7a5b73c` conferido) **auditados: apontam para a PRODUÇÃO — BLOQUEADOS PARA PAREAMENTO DE HOMOLOGAÇÃO, NÃO INSTALAR** | novo APK isolado depende do backend de homologação | IMPLEMENTADO (configuração); **APK isolado NÃO GERADO** |
+| Homologação física | `apps/ponto-obra/docs/HOMOLOGACAO-PILOTO.md` (18 cenários) | lógica coberta por testes automáticos (não substituem o aparelho) | — | nenhum cenário executado: sem backend isolado e sem aparelho | NÃO INICIADO |
 | Conformidade REP-P formal | — | — | — | exige requisitos fiscais, jurídicos e formais (Fase 03) | NÃO INICIADO |
 
 ## Efeito de cada merge no deploy da Vercel
@@ -55,7 +56,8 @@ O `prebuild` da `main` termina em `npm run ponto-eletronico:migrate`.
 | #69 | `prebuild` igual; 016–018 sem mudança de conteúdo (reaplicadas como hoje). Servidor: logs sanitizados e correções da Fase 01 no handler do ponto |
 | #70 | só acrescenta os arquivos da 019; **não aplica** (o script de deploy aplica só 016–018) |
 | #71 | o script de deploy ganha trava e gate; hoje GO/seguir → reaplica 016–018 como antes (provado executando o script em Postgres real) |
-| #72 | só `apps/ponto-obra` e documentação: nada muda no runtime do ERP |
+| #72 | app; no servidor, só o campo `ambiente` nas respostas do aparelho e a recusa (409) de app que declara outro ambiente. Sem `PONTO_AMBIENTE` na produção, comportamento igual |
+| PR da homologação | `scripts/homologacao/` e documentação: nada roda no deploy de produção |
 
 ## Etapa intermediária: o que falta (cada item 🔐)
 
