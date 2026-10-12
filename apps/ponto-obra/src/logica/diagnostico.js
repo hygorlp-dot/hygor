@@ -22,13 +22,24 @@ const ROTULO_ESTADO_REFERENCIA = {
 };
 const duracao = ms => (ms === null || ms === undefined ? "-" : ms < 3_600_000 ? `${Math.round(ms / 60_000)} min` : ms < 172_800_000 ? `${Math.round(ms / 3_600_000)} h` : `${Math.round(ms / 86_400_000)} dias`);
 
+// Servidor do ARCD em que o aparelho grava (infoDoServidor, conexao.js).
+// Build de PILOTO apontando para a PRODUÇÃO é dito com todas as letras: cada
+// batida ali vira NSR fiscal real e permanente.
+export const PILOTO_EM_PRODUCAO = "PRODUÇÃO - batidas viram registro fiscal real";
+export function rotuloDoServidor(servidor) {
+  if (!servidor?.host) return "-";
+  if (servidor.producao && servidor.ambiente !== "producao") return `${servidor.host} - ${PILOTO_EM_PRODUCAO} (build ${servidor.ambiente})`;
+  return `${servidor.host}${servidor.producao ? " (produção)" : ""}${servidor.ambiente !== "producao" ? ` - ${servidor.ambiente}` : ""}`;
+}
+
 // referencia = estadoDaReferencia() (relogio.js).
-export function montarDiagnostico({ app = {}, aparelho = {}, sessao = null, contagem = {}, ultimaSincronizacao = null, modelos = {}, hora = null, gps = {}, fiscal = {}, referencia = null }) {
+export function montarDiagnostico({ app = {}, aparelho = {}, sessao = null, contagem = {}, ultimaSincronizacao = null, modelos = {}, hora = null, gps = {}, fiscal = {}, referencia = null, servidor = null }) {
   const sinc = ultimaSincronizacao;
   const itens = [
     ["Versão do app", app.versao || "-"],
     ["Build (versionCode)", app.build || "-"],
     ["Commit", app.commit || "-"],
+    ["Servidor do ARCD", rotuloDoServidor(servidor)],
     ["Plataforma", aparelho.plataforma || "android"],
     ["Android", aparelho.android || "-"],
     ["Aparelho", [aparelho.marca, aparelho.modelo].filter(Boolean).join(" ") || "-"],
@@ -40,7 +51,7 @@ export function montarDiagnostico({ app = {}, aparelho = {}, sessao = null, cont
     ["Sequência local (último registro)", fiscal.ultimaSequenciaLocal ?? "-"],
     ["Último NSR recebido da ARP", fiscal.ultimoNsr ?? "-"],
     ["Cadeia local", sinc?.cadeiaDivergente ? "DIVERGENTE do servidor - chame o suporte" : "ok"],
-    ["Registro fiscal", sinc?.fiscalDivergente ? "ARP respondeu NSR/hash diferente do guardado - chame o suporte" : "ok"],
+    ["Registro fiscal", sinc?.fiscalDivergente || fiscal.divergente ? "ARP respondeu NSR/hash diferente do guardado - chame o suporte" : "ok"],
     ["Batidas a enviar", String(contagem.pendentes ?? 0)],
     ["Fotos a enviar", String(contagem.fotos ?? 0)],
     ["Fotos com problema", String(contagem.fotosComProblema ?? 0)],
@@ -58,7 +69,7 @@ export function montarDiagnostico({ app = {}, aparelho = {}, sessao = null, cont
 // Agrupa a lista fechada em seções (página de Ajustes, não dashboard). Item
 // sem seção conhecida cai em "Outros" - nada some da tela.
 const SECAO_DO_ITEM = {
-  "Versão do app": "Aplicativo", "Build (versionCode)": "Aplicativo", "Commit": "Aplicativo",
+  "Versão do app": "Aplicativo", "Build (versionCode)": "Aplicativo", "Commit": "Aplicativo", "Servidor do ARCD": "Aplicativo",
   "Plataforma": "Aparelho", "Android": "Aparelho", "Aparelho": "Aparelho", "Aparelho no ARCD": "Aparelho", "Obra": "Aparelho",
   "Última sincronização": "Ponto", "Último envio com sucesso": "Ponto", "Batidas a enviar": "Ponto", "Fotos a enviar": "Ponto", "Fotos com problema": "Ponto",
   "Estabelecimento": "Registro fiscal", "Sequência local (último registro)": "Registro fiscal", "Último NSR recebido da ARP": "Registro fiscal", "Cadeia local": "Registro fiscal", "Registro fiscal": "Registro fiscal",
@@ -72,6 +83,7 @@ const MONO = new Set(["Versão do app", "Build (versionCode)", "Commit", "Androi
 const atencao = ({ rotulo, valor }) =>
   (rotulo === "Cadeia local" && valor !== "ok")
   || (rotulo === "Registro fiscal" && valor !== "ok")
+  || (rotulo === "Servidor do ARCD" && valor.includes(PILOTO_EM_PRODUCAO))
   || (rotulo === "Fotos com problema" && valor !== "0")
   || (rotulo === "Reconhecimento facial" && valor.startsWith("indisponível"))
   || (rotulo === "Estado da referência" && /expirada|aguardando|nunca/.test(valor));

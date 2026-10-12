@@ -7,7 +7,14 @@ import * as SecureStore from "expo-secure-store";
 import RelogioConfiavel from "../../modules/relogio-confiavel";
 import { horaDaMarcacao } from "../../../../src/domains/ponto-eletronico/relogio.js";
 
-export const URL_API = Constants.expoConfig?.extra?.apiUrl || "https://pontosarcd.vercel.app/api/data";
+export const URL_PRODUCAO = "https://pontosarcd.vercel.app/api/data";
+export const URL_API = Constants.expoConfig?.extra?.apiUrl || URL_PRODUCAO;
+// Só para MOSTRAR (Diagnóstico e pareamento) - não vai para o servidor.
+export const infoDoServidor = () => ({
+  host: (() => { try { return new URL(URL_API).host; } catch { return "?"; } })(),
+  ambiente: Constants.expoConfig?.extra?.ambiente || "producao",
+  producao: URL_API === URL_PRODUCAO,
+});
 const CHAVE_SESSAO = "ponto-obra.sessao";
 const TEMPO_LIMITE_MS = 30_000;
 

@@ -27,7 +27,7 @@ import { classificarResposta, mensagemDeErro } from "./src/logica/falhas";
 import { montarDiagnostico } from "./src/logica/diagnostico";
 import { batidasDoDia } from "./src/logica/apresentacao";
 import { estadoDaReferencia } from "../../src/domains/ponto-eletronico/relogio.js";
-import { apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoApp, lerSessao, salvarSessao } from "./src/servicos/conexao";
+import { apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoApp, infoDoServidor, lerSessao, salvarSessao } from "./src/servicos/conexao";
 import { apagarFotoLocal, carregarModelos, lerFotoBase64, prepararFotoDaBatida } from "./src/servicos/rosto-nativo";
 import TelaEncarregado from "./src/telas/TelaEncarregado";
 import TelaPareamento from "./src/telas/TelaPareamento";
@@ -62,7 +62,10 @@ export default function App() {
     if (!ref.current.armazem) return;
     try {
       const c = await ref.current.armazem.contagem();
-      setSituacao(s => ({ ...s, ...extra, ...c }));
+      // Evidência de escrita única (sincronizacao.js): a divergência fiscal
+      // fica visível até o suporte tratar, não só durante uma rodada.
+      const divergencia = await ref.current.armazem.lerEstado("divergencia_fiscal").catch(() => null);
+      setSituacao(s => ({ ...s, ...extra, ...c, fiscalDivergente: !!divergencia }));
     } catch { /* contagem é só para a tela */ }
   }, []);
 
@@ -95,13 +98,17 @@ export default function App() {
         // Persistente: a divergência fiscal não some numa rodada seguinte (evidência em "divergencia_fiscal").
         fiscalDivergente: !!r.fiscalDivergente || !!anterior?.fiscalDivergente,
       });
-      const aviso = r.aguardandoEstabelecimento
+      const aviso = r.fiscalDivergente
+        ? "O ARCD devolveu um registro fiscal diferente do guardado neste aparelho. Nada foi alterado aqui. Chame o suporte."
+        : r.aguardandoEstabelecimento
         ? "A obra deste aparelho ainda não está ligada a um estabelecimento no ARCD. As batidas ficam guardadas aqui e são enviadas quando o vínculo for feito."
         : ok ? "" : classificarResposta({ ok: false, status: r.online ? r.status || 500 : 0, error: r.erro }).mensagem;
       await atualizarSituacao({ online: r.online, aviso });
     } catch (e) {
       // Falha inesperada (banco, arquivo...): nada foi apagado; tenta na próxima rodada.
-      await armazem.gravarEstado("ultima_sincronizacao", { em: Date.now(), ok: false, erro: String(e?.message || e).slice(0, 120), ultimoOkEm: anterior?.ultimoOkEm ?? null }).catch(() => {});
+      // Sem apagar os sinais da rodada anterior: uma exceção qualquer não pode "curar" uma divergência.
+      await armazem.gravarEstado("ultima_sincronizacao", { em: Date.now(), ok: false, erro: String(e?.message || e).slice(0, 120), ultimoOkEm: anterior?.ultimoOkEm ?? null,
+        aguardandoEstabelecimento: !!anterior?.aguardandoEstabelecimento, cadeiaDivergente: !!anterior?.cadeiaDivergente, fiscalDivergente: !!anterior?.fiscalDivergente }).catch(() => {});
       await atualizarSituacao({ aviso: mensagemDeErro("sincronizacao", e) });
     } finally {
       ref.current.sincronizando = false;
@@ -191,7 +198,7 @@ export default function App() {
     // atrapalhar a batida já gravada.
     const batidasHoje = batidasDoDia(await armazem.eventosRecentes(200).catch(() => []), { tipo: pessoa.tipo, id: pessoa.id, marcadoEm: m.marcadoEm });
     // Sem NSR aqui: o NSR fiscal só existe depois que a ARP grava o evento.
-    return { batidasHoje, nome: pessoa.nome, cpfMascarado: pessoa.cpfMascarado, marcadoEm: m.marcadoEm, localSequence: m.localSequence, eventId: m.eventId, hash: m.localHash, horaConfiavel: m.horaConfiavel, avisoFoto };
+    return { batidasHoje, tipo: pessoa.tipo || "funcionario", metodo: identificacao?.metodo || "", nome: pessoa.nome, cpfMascarado: pessoa.cpfMascarado, marcadoEm: m.marcadoEm, localSequence: m.localSequence, eventId: m.eventId, hash: m.localHash, horaConfiavel: m.horaConfiavel, avisoFoto };
   }, [sincronizar]);
 
   // Pareamento. Banco com batidas de OUTRO aparelho (pareado de novo depois
@@ -229,11 +236,12 @@ export default function App() {
     const referencia = estadoDaReferencia({ referencia: await armazem.referenciaHora().catch(() => null), monotonicoMs: mono.ms, bootId: mono.bootId });
     return montarDiagnostico({
       referencia,
-      app: infoDoApp(), aparelho: infoDoAparelho(), sessao,
+      app: infoDoApp(), aparelho: infoDoAparelho(), sessao, servidor: infoDoServidor(),
       contagem: await armazem.contagem().catch(() => ({})),
       ultimaSincronizacao: await armazem.lerEstado("ultima_sincronizacao").catch(() => null),
       modelos: estadoModelos, hora: relogio.agora(), gps: { estado: ref.current.gpsEstado },
       fiscal: {
+        divergente: !!(await armazem.lerEstado("divergencia_fiscal").catch(() => null)),
         estabelecimento: cad?.estabelecimento?.nome || null,
         ultimaSequenciaLocal: (await armazem.ultimoEventoGlobal().catch(() => null))?.localSequence ?? null,
         ultimoNsr: await armazem.ultimoNsrRecebido().catch(() => null),

@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { abrirNode } from "./sqlite-node.test-helper.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { criarArmazemSobreBanco, prepararBanco } from "./armazem-sqlite-nucleo.js";
+import { criarArmazemSobreBanco, prepararBanco, serializarBanco } from "./armazem-sqlite-nucleo.js";
 import { registrarBatida } from "../logica/terminal.js";
 import { criarArmazemMemoria } from "../logica/armazem-memoria.js";
 import { calcularHashLocal, verificarCadeiaLocal } from "../../../../src/domains/ponto-eletronico/evento.js";
@@ -92,6 +92,33 @@ describe("armazém SQLite do aparelho (SQL real)", () => {
     expect([a.localSequence, c.localSequence]).toEqual([1, 2]);
     expect(c.localPreviousHash).toBe(a.localHash);
     expect((await armazem.eventosPendentes(10)).map(e => e.eventId)).toEqual([a.eventId, c.eventId]);
+    await db.closeAsync();
+  });
+
+  it("armazenamento cheio (SQLITE_FULL) no meio da batida: nada gravado, sequência não pula, a próxima batida segue a cadeia", async () => {
+    // A falha vem da conexão crua, ABAIXO de serializarBanco - como o SQLite do aparelho falharia.
+    const banco = new DatabaseSync(arquivo);
+    let cheio = false;
+    const db = serializarBanco({
+      async execAsync(sql) { banco.exec(sql); },
+      async getFirstAsync(sql, ...p) { return banco.prepare(sql).get(...p) ?? null; },
+      async getAllAsync(sql, ...p) { return banco.prepare(sql).all(...p); },
+      async runAsync(sql, ...p) {
+        if (cheio && /INSERT INTO marcacoes/.test(sql)) throw new Error("database or disk is full");
+        const r = banco.prepare(sql).run(...p); return { changes: Number(r.changes), lastInsertRowId: Number(r.lastInsertRowid) };
+      },
+      async closeAsync() { banco.close(); },
+    });
+    await prepararBanco(db);
+    const armazem = criarArmazemSobreBanco(db);
+    const a = await bater(armazem);
+    cheio = true;
+    await expect(bater(armazem)).rejects.toThrow(/disk is full/);
+    expect(await armazem.contagem()).toMatchObject({ pendentes: 1 });
+    cheio = false;
+    const c = await bater(armazem);
+    expect([a.localSequence, c.localSequence]).toEqual([1, 2]);
+    expect(c.localPreviousHash).toBe(a.localHash);
     await db.closeAsync();
   });
 

@@ -18,6 +18,7 @@ export default function Comprovante({ c, obra, online, aoConcluir, duracaoMs = 0
       <BotaoSecundario titulo="Concluir" onPress={aoConcluir} />
     </>}>
       <TituloSecao centro>{l.saudacao}</TituloSecao>
+      {!!l.naoEVoce && <Rotulo secundario centro>{l.naoEVoce}</Rotulo>}
       <Texto variante="horaComprovante" centro accessibilityLabel={`Registrado às ${hora}`} style={estilo.numeros}>{hora}</Texto>
       {!!l.obra && <Corpo secundario centro>{l.obra}</Corpo>}
       <Corpo secundario centro accessibilityLabel={l.registro}>Registro local nº <Texto variante="corpo" cor={COR.texto} style={estilo.numeros}>{l.numeroRegistro}</Texto></Corpo>
@@ -25,10 +26,10 @@ export default function Comprovante({ c, obra, online, aoConcluir, duracaoMs = 0
         Hoje: <Texto variante="rotulo" cor={COR.texto} style={estilo.numeros}>{l.batidasHoje.join("  ·  ")}</Texto>
       </Rotulo>}
       <Status {...l.envio} />
+      {l.avisos.map(a => <Mensagem key={a} tom="atencao">{a}</Mensagem>)}
       <View style={estilo.detalhes}>
         {l.detalhes.map(d => <Rotulo key={d.rotulo} secundario centro>{d.rotulo}: <Texto variante={d.mono ? "mono" : "rotulo"} cor={COR.textoSecundario}>{d.valor}</Texto></Rotulo>)}
       </View>
-      {l.avisos.map(a => <Mensagem key={a} tom="atencao">{a}</Mensagem>)}
     </EstadoCentral>
   </Tela>;
 }

@@ -27,9 +27,16 @@ conferir(ativa("ACCESS_FINE_LOCATION"), "permissão de localização declarada")
 // WRITE_SETTINGS: o expo-brightness só mexe no brilho da janela do app, que
 // não precisa dela - nunca alterar configuração do sistema do aparelho.
 for (const proibida of ["RECORD_AUDIO", "SYSTEM_ALERT_WINDOW", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "WRITE_SETTINGS"]) conferir(!ativa(proibida), `permissão ${proibida} removida`);
+// Lista PERMITIDA (não só proibidas): qualquer permissão nova que uma
+// dependência injete (localização em segundo plano, notificações, serviço em
+// primeiro plano...) falha aqui até alguém decidir e acrescentar.
+const PERMITIDAS = new Set(["CAMERA", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "INTERNET", "VIBRATE"]);
+const ativas = linhasPermissao.filter(l => !l.includes('tools:node="remove"')).map(l => (l.match(/android:name="(?:android\.permission\.)?([^"]+)"/) || [])[1]).filter(Boolean);
+for (const nome of ativas) conferir(PERMITIDAS.has(nome), `permissão ${nome} está na lista permitida`);
 
 const modulosExpo = autolinking("resolve").modules.map(m => m.packageName);
-for (const m of ["relogio-confiavel", "expo-sqlite", "expo-camera", "expo-secure-store", "expo-font", "expo-haptics", "expo-speech", "expo-brightness"]) conferir(modulosExpo.includes(m), `módulo Expo autolinkado: ${m}`);
+for (const m of ["relogio-confiavel", "expo-sqlite", "expo-camera", "expo-secure-store", "expo-font", "expo-haptics", "expo-speech", "expo-brightness",
+  "expo-location", "expo-asset", "expo-crypto", "expo-file-system", "expo-image-manipulator", "expo-keep-awake", "expo-application", "expo-device", "expo-constants"]) conferir(modulosExpo.includes(m), `módulo Expo autolinkado: ${m}`);
 const rn = autolinking("react-native-config").dependencies || {};
 for (const m of ["react-native-fast-tflite", "react-native-nitro-modules", "react-native-safe-area-context"]) conferir(!!rn[m]?.platforms?.android, `módulo React Native autolinkado: ${m}`);
 

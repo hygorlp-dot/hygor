@@ -88,18 +88,26 @@ export function telaSemCamera(estado) {
 // comprovante antigo mostrava continua aqui, em hierarquia. NSR: o app
 // nunca mostra um número - só diz que o ARCD atribui depois do envio.
 // c = retorno de registrar() (App.js); hora já formatada pela tela.
+// Terceirizado: é ACESSO (acesso_terceiro), fora da ARP - sem NSR e sem CPF;
+// dizer "Ponto registrado" afirmaria um fato fiscal falso.
 export function linhasDoComprovante(c, { obra = null, online = false } = {}) {
-  const detalhes = [
-    { rotulo: "CPF", valor: c.cpfMascarado || "não informado", mono: true },
-    { rotulo: "Código do registro", valor: String(c.hash || "").slice(0, 16), mono: true },
-    { rotulo: "NSR", valor: "atribuído pelo ARCD após o envio" },
-  ];
+  const acesso = c.tipo === "terceiro";
+  const detalhes = acesso
+    ? [{ rotulo: "Código do registro", valor: String(c.hash || "").slice(0, 16), mono: true }]
+    : [
+      { rotulo: "CPF", valor: c.cpfMascarado || "não informado", mono: true },
+      { rotulo: "Código do registro", valor: String(c.hash || "").slice(0, 16), mono: true },
+      { rotulo: "NSR", valor: "atribuído pelo ARCD após o envio" },
+    ];
   const avisos = [];
   if (!c.horaConfiavel) avisos.push("Hora do aparelho: será conferida na sincronização.");
   if (c.avisoFoto) avisos.push(c.avisoFoto);
   const ms = Date.parse(c.marcadoEm);
   return {
-    titulo: "Ponto registrado",
+    titulo: acesso ? "Acesso registrado" : "Ponto registrado",
+    // Reconhecimento facial pode errar de pessoa e a batida não se desfaz:
+    // quem não é o nome da tela sabe o que fazer.
+    naoEVoce: c.metodo === "facial" ? "Não é você? Avise o encarregado." : "",
     nome: c.nome,
     saudacao: Number.isFinite(ms) ? `${saudacao(ms)}, ${c.nome}` : c.nome,
     // Marcações da pessoa hoje neste aparelho (a última é esta).
@@ -141,9 +149,10 @@ export function batidasDoDia(eventos, { tipo = "funcionario", id, marcadoEm }) {
 }
 
 // Frase falada na confirmação (só o primeiro nome).
-export function falaDeConfirmacao(nome, ms) {
+export function falaDeConfirmacao(nome, ms, tipo = "funcionario") {
   const primeiro = String(nome || "").trim().split(/\s+/)[0];
-  return primeiro ? `${saudacao(ms)}, ${primeiro}. Ponto registrado.` : "Ponto registrado.";
+  const fato = tipo === "terceiro" ? "Acesso registrado." : "Ponto registrado.";
+  return primeiro ? `${saudacao(ms)}, ${primeiro}. ${fato}` : fato;
 }
 
 // ---------- Modo Encarregado ----------
@@ -162,7 +171,7 @@ export function secoesDoEncarregado({ resumo = {}, situacao = {} } = {}) {
     { titulo: "Sistema", linhas: [
       { id: "sincronizacao", rotulo: "Sincronização", valor: pendentes ? `${pendentes} ${pendentes === 1 ? "pendente" : "pendentes"}` : situacao.online ? "Em dia" : "Offline",
         tom: situacao.aviso || situacao.fotosComProblema ? "atencao" : null },
-      { id: "diagnostico", rotulo: "Diagnóstico" },
+      { id: "diagnostico", rotulo: "Diagnóstico", valor: situacao.fiscalDivergente ? "Chame o suporte" : "", tom: situacao.fiscalDivergente ? "atencao" : null },
       { id: "voz", rotulo: "Confirmação por voz", valor: situacao.voz === false ? "Desligada" : "Ligada", acao: true },
       { id: "fixar", rotulo: "Fixar aplicativo na tela", acao: true },
     ] },

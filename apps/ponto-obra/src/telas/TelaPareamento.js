@@ -6,7 +6,8 @@ import { useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, StyleSheet, View } from "react-native";
 import { classificarResposta, mensagemDeErro } from "../logica/falhas";
 import { casasDoCodigo } from "../logica/apresentacao";
-import { infoDoAparelho, infoDoApp } from "../servicos/conexao";
+import { infoDoAparelho, infoDoApp, infoDoServidor } from "../servicos/conexao";
+import { PILOTO_EM_PRODUCAO, rotuloDoServidor } from "../logica/diagnostico";
 import { Botao, COR, CampoCodigo, Corpo, ESPACO, EstadoCentral, Legenda, Mensagem, Tela, Texto, Titulo } from "../ui";
 
 export default function TelaPareamento({ api, aoParear }) {
@@ -60,6 +61,10 @@ export default function TelaPareamento({ api, aoParear }) {
         <CampoCodigo casas={casasDoCodigo(codigo)} valor={codigo} rotulo="Código de pareamento, 8 números"
           aoMudar={v => { setCodigo(v.replace(/\D/g, "").slice(0, 8)); if (erro) setErro(""); }} />
         <Legenda>No ARCD: Recursos humanos → Ponto eletrônico (app) → Parear aparelho.</Legenda>
+        {/* Antes de digitar o código: em qual ARCD este aparelho vai gravar. */}
+        {rotuloDoServidor(infoDoServidor()).includes(PILOTO_EM_PRODUCAO)
+          ? <Mensagem tom="atencao" titulo="Build de piloto ligado à PRODUÇÃO">Cada batida neste aparelho vira registro fiscal real e permanente no ARCD. Só vincule com autorização registrada.</Mensagem>
+          : <Legenda>Servidor: {rotuloDoServidor(infoDoServidor())}</Legenda>}
         {!!erro && <Mensagem tom="erro" titulo="Não foi possível vincular">{erro}</Mensagem>}
         <Botao titulo="Vincular aparelho" onPress={parear} carregando={enviando} desabilitado={codigo.length !== 8} />
       </Tela>

@@ -282,3 +282,45 @@ describe("saudação, voz e batidas do dia (comprovante)", () => {
     expect(voz({ voz: false }).valor).toBe("Desligada");
   });
 });
+
+describe("revisão Impeccable (piloto): textos que não podem afirmar fato falso", () => {
+  const base = { nome: "José Silva", marcadoEm: "2026-10-12T12:00:00Z", localSequence: 7, hash: "a".repeat(64), horaConfiavel: true };
+
+  it("terceirizado é ACESSO, fora da ARP: sem 'Ponto registrado', sem NSR e sem CPF; voz diz 'Acesso registrado'", () => {
+    const l = linhasDoComprovante({ ...base, tipo: "terceiro", cpfMascarado: "" });
+    expect(l.titulo).toBe("Acesso registrado");
+    expect(l.detalhes.map(d => d.rotulo)).toEqual(["Código do registro"]);
+    expect(falaDeConfirmacao("José Silva", Date.parse(base.marcadoEm), "terceiro")).toMatch(/José\. Acesso registrado\.$/);
+    // Funcionário continua como antes.
+    const f = linhasDoComprovante({ ...base, tipo: "funcionario", cpfMascarado: "***.456.789-**" });
+    expect(f.titulo).toBe("Ponto registrado");
+    expect(f.detalhes.map(d => d.rotulo)).toEqual(["CPF", "Código do registro", "NSR"]);
+    expect(falaDeConfirmacao("José Silva", Date.parse(base.marcadoEm))).toMatch(/Ponto registrado\.$/);
+  });
+
+  it("reconhecimento facial pode errar de pessoa: o comprovante diz o que fazer; registro pelo encarregado, não", () => {
+    expect(linhasDoComprovante({ ...base, metodo: "facial" }).naoEVoce).toBe("Não é você? Avise o encarregado.");
+    expect(linhasDoComprovante({ ...base, metodo: "encarregado" }).naoEVoce).toBe("");
+  });
+
+  it("divergência fiscal guardada no aparelho aparece no menu do encarregado (não só no diagnóstico)", () => {
+    const diag = s => secoesDoEncarregado({ situacao: s }).at(-1).linhas.find(l => l.id === "diagnostico");
+    expect(diag({ fiscalDivergente: true })).toMatchObject({ valor: "Chame o suporte", tom: "atencao" });
+    expect(diag({})).toMatchObject({ valor: "", tom: null });
+  });
+
+  it("diagnóstico lê a evidência persistente: 'Registro fiscal' continua em atenção mesmo se a última rodada não trouxe o sinal", () => {
+    const base2 = { app: {}, aparelho: {}, contagem: {}, modelos: { estado: "ok" }, hora: {}, gps: {} };
+    const item = extra => montarDiagnostico({ ...base2, ...extra }).find(i => i.rotulo === "Registro fiscal");
+    expect(item({ ultimaSincronizacao: { em: 0, ok: false }, fiscal: { divergente: true } }).valor).toMatch(/suporte/);
+    expect(item({ ultimaSincronizacao: { em: 0, ok: true }, fiscal: {} }).valor).toBe("ok");
+  });
+
+  it("servidor do ARCD no diagnóstico: build de PILOTO apontando para a PRODUÇÃO pede atenção e diz que a batida vira registro fiscal real", () => {
+    const base3 = { app: {}, aparelho: {}, contagem: {}, modelos: { estado: "ok" }, hora: {}, gps: {}, fiscal: {} };
+    const servidor = s => secoesDoDiagnostico(montarDiagnostico({ ...base3, servidor: s })).flatMap(x => x.itens).find(i => i.rotulo === "Servidor do ARCD");
+    expect(servidor({ host: "pontosarcd.vercel.app", ambiente: "piloto", producao: true })).toMatchObject({ atencao: true, valor: expect.stringMatching(/PRODUÇÃO - batidas viram registro fiscal real/) });
+    expect(servidor({ host: "pontosarcd.vercel.app", ambiente: "producao", producao: true })).toMatchObject({ atencao: false, valor: "pontosarcd.vercel.app (produção)" });
+    expect(servidor({ host: "homolog.exemplo.com.br", ambiente: "piloto", producao: false })).toMatchObject({ atencao: false, valor: "homolog.exemplo.com.br - piloto" });
+  });
+});
