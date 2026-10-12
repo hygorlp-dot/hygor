@@ -75,4 +75,16 @@ describe("código-fonte do app", () => {
     expect(app.plugins.flat()).not.toContain("expo-brightness");
     expect(app.plugins).toContainEqual(["expo-sqlite", { useSQLCipher: true }]);
   });
+
+  it("captura da câmera com PRAZO e só depois de onCameraReady (revisão Impeccable P0: quiosque travava)", () => {
+    const ponto = ler("src/telas/TelaPonto.js"), encarregado = ler("src/telas/TelaEncarregado.js");
+    expect(ponto).toContain("onCameraReady");
+    for (const fonte of [ponto, encarregado]) {
+      const capturas = fonte.split("takePictureAsync(").length - 1;
+      const comPrazo = fonte.split("comPrazo(camera.current.takePictureAsync(").length - 1;
+      expect(capturas).toBeGreaterThan(0);
+      expect(comPrazo).toBe(capturas);
+    }
+    expect(ponto).toContain("if (emCurso.current) return;");   // toque duplo não inicia duas batidas
+  });
 });

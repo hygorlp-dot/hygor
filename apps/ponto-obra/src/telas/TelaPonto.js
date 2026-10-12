@@ -16,6 +16,7 @@ import { PARAMETROS_FACIAIS as P } from "../logica/calibracao";
 import { estadoPermissaoCamera, mensagemParaTrabalhador } from "../logica/falhas";
 import { resumoCadastro } from "../logica/cadastro";
 import { FASE, emAndamento, falaDeConfirmacao, falhaNaTela, guiaDaFase, instrucaoDaFase, statusDoAparelho, telaSemCamera } from "../logica/apresentacao";
+import { PRAZO_CAMERA_LIGAR_MS, PRAZO_CAPTURA_MS, comPrazo } from "../logica/prazo";
 import { analisarFoto, apagarFotoLocal } from "../servicos/rosto-nativo";
 import { brilhoMaximo, brilhoNormal, falar, vibrar } from "../servicos/feedback";
 import { Botao, BotaoTexto, COMPROVANTE_MS, COR, COR_DO_TOM, Corpo, ESPACO, Icone, Mensagem, MolduraCamera, RAIO, Rotulo, Status, Tela, Texto, TituloSecao } from "../ui";
@@ -34,11 +35,21 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
   // etapa: pronto | analisando (com fase) | falha | sucesso
   const [fluxo, setFluxo] = useState({ etapa: "pronto", fase: FASE.PRONTO });
   const [erroCamera, setErroCamera] = useState("");
+  // A captura só funciona depois de onCameraReady (antes, o expo-camera
+  // devolve uma promessa que nunca resolve). Se a câmera não ligar no prazo,
+  // avisa - e o caminho do encarregado continua aberto.
+  const [cameraPronta, setCameraPronta] = useState(false);
   const timerSucesso = useRef(null);
+  const emCurso = useRef(false);            // toque duplo não inicia duas batidas
   const estadoCamera = estadoPermissaoCamera(permissao);
 
   useEffect(() => { const t = setInterval(() => setAgora(relogio.agora()), 1000); return () => clearInterval(t); }, [relogio]);
   useEffect(() => () => clearTimeout(timerSucesso.current), []);
+  useEffect(() => {
+    if (cameraPronta || erroCamera) return undefined;
+    const t = setTimeout(() => setErroCamera("A câmera não ligou. Feche e abra o app; se continuar, o encarregado pode registrar o ponto."), PRAZO_CAMERA_LIGAR_MS);
+    return () => clearTimeout(t);
+  }, [cameraPronta, erroCamera, fluxo.etapa]);
   // Pede só uma vez sozinho; negada de vez, o Android não mostra mais o
   // pedido - aí o caminho é o botão das configurações (sem repetir em loop).
   const jaPediu = useRef(false);
@@ -51,15 +62,21 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
 
   const fase = (f, nome = "") => setFluxo({ etapa: "analisando", fase: f, nome });
   // Vibração de alerta só em falha real (incerteza do rosto não assusta).
-  const falha = f => { if (f.tipo === "erro") vibrar("falha"); setFluxo({ etapa: "falha", fase: FASE.PRONTO, falha: falhaNaTela(f) }); };
+  // Falha real também é FALADA: num aparelho preso na parede a vibração não se sente.
+  const falha = f => {
+    if (f.tipo === "erro") { vibrar("falha"); if (voz) falar("Ponto não registrado. Tente de novo."); }
+    setFluxo({ etapa: "falha", fase: FASE.PRONTO, falha: falhaNaTela(f) });
+  };
   const voltarAoInicio = () => { clearTimeout(timerSucesso.current); setFluxo({ etapa: "pronto", fase: FASE.PRONTO }); };
   const foto = async () => {
     if (!camera.current) throw new Error("câmera não está pronta");
-    return camera.current.takePictureAsync({ quality: 0.8, shutterSound: false });
+    return comPrazo(camera.current.takePictureAsync({ quality: 0.8, shutterSound: false }), PRAZO_CAPTURA_MS, "câmera sem resposta");
   };
 
   const baterPonto = async () => {
+    if (emCurso.current) return;
     if (!modelos) return falha({ tipo: "erro", contexto: "modelos", mensagem: mensagemParaTrabalhador("modelos"), podeEncarregado: true });
+    emCurso.current = true;
     let etapa = "camera";
     // Capturas cruas da câmera: apagadas no fim, aconteça o que acontecer (a
     // foto da batida é uma cópia preparada por registrar()).
@@ -104,6 +121,7 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     } finally {
       cruas.forEach(apagarFotoLocal);
       brilhoNormal();
+      emCurso.current = false;
     }
   };
 
@@ -160,7 +178,8 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
         instrucao={fluxo.etapa === "falha" ? "" : instrucaoDaFase(fluxo.fase, fluxo.nome)}
         aviso={erroCamera ? <Mensagem tom="erro" titulo="A câmera não abriu">{erroCamera}</Mensagem> : null}>
         <CameraView ref={camera} style={estilos.camera} facing="front" mirror
-          onMountError={() => setErroCamera("Feche e abra o app. Se continuar, o encarregado pode registrar o ponto.")} />
+          onCameraReady={() => { setCameraPronta(true); setErroCamera(""); }}
+          onMountError={() => { setCameraPronta(false); setErroCamera("Feche e abra o app. Se continuar, o encarregado pode registrar o ponto."); }} />
       </MolduraCamera>
 
       {f
@@ -171,8 +190,8 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
             onPress={() => { voltarAoInicio(); abrirEncarregado(); }} />
         </>
         : <>
-          <Botao titulo={fluxo.fase === FASE.CONFIRMADO ? "Registrando ponto" : analisando ? "Aguarde" : "Bater ponto"}
-            onPress={baterPonto} carregando={emAndamento(fluxo.fase)} />
+          <Botao titulo={fluxo.fase === FASE.CONFIRMADO ? "Registrando ponto" : analisando ? "Aguarde" : cameraPronta || erroCamera ? "Bater ponto" : "Preparando câmera"}
+            onPress={baterPonto} carregando={emAndamento(fluxo.fase) || (!cameraPronta && !erroCamera)} />
           <BotaoTexto titulo="Encarregado" chevron alinhar="end" onPress={abrirEncarregado} desabilitado={analisando} />
         </>}
     </Tela>

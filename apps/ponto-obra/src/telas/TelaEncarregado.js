@@ -14,6 +14,7 @@ import { mensagemDeErro } from "../logica/falhas";
 import { resumoCadastro } from "../logica/cadastro";
 import { secoesDoDiagnostico } from "../logica/diagnostico";
 import { PASSO_CADASTRO, passoDoCadastro, rotuloDaCaptura, secoesDoEncarregado } from "../logica/apresentacao";
+import { PRAZO_CAPTURA_MS, comPrazo } from "../logica/prazo";
 import { analisarFoto, apagarFotoLocal, lerFotoBase64, prepararFotoDaBatida } from "../servicos/rosto-nativo";
 import { falaDeConfirmacao } from "../logica/apresentacao";
 import { falar, vibrar } from "../servicos/feedback";
@@ -213,7 +214,7 @@ function CadastroFacial({ cadastro, modelos, api, responsavel, aoTerminar, volta
     try {
       if (!modelos) { setMensagem({ tom: "erro", texto: mensagemDeErro("modelos") }); return; }
       if (!camera.current) throw new Error("câmera não está pronta");
-      const foto = await camera.current.takePictureAsync({ quality: 0.8, shutterSound: false });
+      const foto = await comPrazo(camera.current.takePictureAsync({ quality: 0.8, shutterSound: false }), PRAZO_CAPTURA_MS, "câmera sem resposta");
       crua = foto.uri;
       const a = await analisarFoto(modelos, foto);
       if (a.erro) { setMensagem({ tom: "info", texto: a.erro }); return; }
@@ -283,13 +284,13 @@ function RegistroPeloEncarregado({ pessoas, titulo, registrar, responsavel, volt
     // com problema não impede a batida: registra sem foto e avisa.
     let foto = { falhou: true };
     if (comCamera && camera.current) {
-      try { foto = await camera.current.takePictureAsync({ quality: 0.8, shutterSound: false }); } catch { foto = { falhou: true }; }
+      try { foto = await comPrazo(camera.current.takePictureAsync({ quality: 0.8, shutterSound: false }), PRAZO_CAPTURA_MS, "câmera sem resposta"); } catch { foto = { falhou: true }; }
     }
     try {
       const c = await registrar({ pessoa, identificacao: { metodo: "encarregado", encarregadoId: responsavel.userId }, foto });
       setComprovante(c);
       vibrar("registro");
-      if (voz) falar(falaDeConfirmacao(c.nome, Date.parse(c.marcadoEm)));
+      if (voz) falar(falaDeConfirmacao(c.nome, Date.parse(c.marcadoEm), c.tipo));
     } catch (e) { vibrar("falha"); setErro(mensagemDeErro("batida", e)); }
     finally { apagarFotoLocal(foto.uri); setOcupado(false); }
   };
