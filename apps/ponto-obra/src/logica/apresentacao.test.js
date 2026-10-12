@@ -316,11 +316,11 @@ describe("revisão Impeccable (piloto): textos que não podem afirmar fato falso
     expect(item({ ultimaSincronizacao: { em: 0, ok: true }, fiscal: {} }).valor).toBe("ok");
   });
 
-  it("servidor do ARCD no diagnóstico: build de PILOTO apontando para a PRODUÇÃO pede atenção e diz que a batida vira registro fiscal real", () => {
+  it("servidor do ARCD no diagnóstico: host e ambiente; app SEM servidor (bloqueado) pede atenção", () => {
     const base3 = { app: {}, aparelho: {}, contagem: {}, modelos: { estado: "ok" }, hora: {}, gps: {}, fiscal: {} };
     const servidor = s => secoesDoDiagnostico(montarDiagnostico({ ...base3, servidor: s })).flatMap(x => x.itens).find(i => i.rotulo === "Servidor do ARCD");
-    expect(servidor({ host: "pontosarcd.vercel.app", ambiente: "piloto", producao: true })).toMatchObject({ atencao: true, valor: expect.stringMatching(/PRODUÇÃO - batidas viram registro fiscal real/) });
-    expect(servidor({ host: "pontosarcd.vercel.app", ambiente: "producao", producao: true })).toMatchObject({ atencao: false, valor: "pontosarcd.vercel.app (produção)" });
-    expect(servidor({ host: "homolog.exemplo.com.br", ambiente: "piloto", producao: false })).toMatchObject({ atencao: false, valor: "homolog.exemplo.com.br - piloto" });
+    expect(servidor({ host: "pontosarcd.vercel.app", ambiente: "producao", nomeAmbiente: "PRODUÇÃO" })).toMatchObject({ atencao: false, valor: "pontosarcd.vercel.app - PRODUÇÃO" });
+    expect(servidor({ host: "ponto-homologacao.example.com", ambiente: "homologacao", nomeAmbiente: "HOMOLOGAÇÃO — NÃO OFICIAL" })).toMatchObject({ atencao: false, valor: "ponto-homologacao.example.com - HOMOLOGAÇÃO — NÃO OFICIAL" });
+    expect(servidor({ host: "", ambiente: "homologacao", nomeAmbiente: "HOMOLOGAÇÃO — NÃO OFICIAL", bloqueado: true })).toMatchObject({ atencao: true, valor: expect.stringMatching(/SEM SERVIDOR - nada é enviado/) });
   });
 });

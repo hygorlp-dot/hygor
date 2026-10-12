@@ -16,6 +16,9 @@ export function classificarResposta(r) {
   if (r?.ok) return { tipo: TIPO_FALHA.OK, mensagem: "" };
   if (r?.code === "APARELHO_REVOGADO") return { tipo: TIPO_FALHA.REVOGADO, mensagem: "Este aparelho foi desativado no ARCD. As batidas que ainda não foram enviadas continuam guardadas nele." };
   if (r?.code === "APARELHO_DESCONHECIDO" || r?.code === "APARELHO_SEM_TOKEN") return { tipo: TIPO_FALHA.DESCONHECIDO, mensagem: "O ARCD não reconhece mais este aparelho. Pareie de novo com um código gerado no ARCD." };
+  if (r?.code === "AMBIENTE_INCOMPATIVEL") return { tipo: TIPO_FALHA.RECUSADO, mensagem: `${resumirTexto(r?.error) || "O servidor é de outro ambiente."} As batidas continuam guardadas no aparelho; chame o suporte.` };
+  if (r?.code === "AMBIENTE_NAO_CONFIRMADO") return { tipo: TIPO_FALHA.RECUSADO, mensagem: "O servidor de homologação não confirmou o próprio ambiente e bloqueou o ponto. Nada foi enviado; as batidas continuam guardadas. Chame o suporte." };
+  if (r?.code === "SERVIDOR_NAO_CONFIGURADO") return { tipo: TIPO_FALHA.RECUSADO, mensagem: "Este aplicativo não tem servidor configurado. Nada foi enviado; as batidas continuam guardadas." };
   const status = Number(r?.status || 0);
   if (status === 0) return { tipo: TIPO_FALHA.SEM_REDE, mensagem: "Sem internet. As batidas ficam guardadas no aparelho e são enviadas quando a conexão voltar." };
   if (status >= 500 || status === 408 || status === 429) return { tipo: TIPO_FALHA.SERVIDOR, mensagem: "O ARCD está temporariamente indisponível. As batidas ficam guardadas e o envio é repetido sozinho." };

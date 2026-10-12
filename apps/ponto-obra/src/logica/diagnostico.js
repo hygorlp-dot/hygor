@@ -22,14 +22,15 @@ const ROTULO_ESTADO_REFERENCIA = {
 };
 const duracao = ms => (ms === null || ms === undefined ? "-" : ms < 3_600_000 ? `${Math.round(ms / 60_000)} min` : ms < 172_800_000 ? `${Math.round(ms / 3_600_000)} h` : `${Math.round(ms / 86_400_000)} dias`);
 
-// Servidor do ARCD em que o aparelho grava (infoDoServidor, conexao.js).
-// Build de PILOTO apontando para a PRODUÇÃO é dito com todas as letras: cada
-// batida ali vira NSR fiscal real e permanente.
-export const PILOTO_EM_PRODUCAO = "PRODUÇÃO - batidas viram registro fiscal real";
+// Servidor do ARCD em que o aparelho grava e o AMBIENTE do build
+// (infoDoServidor, conexao.js). Sem servidor (build sem URL, ou homologação
+// apontando para a produção) o app fica bloqueado - e isso é dito.
+export const SEM_SERVIDOR = "SEM SERVIDOR - nada é enviado";
 export function rotuloDoServidor(servidor) {
-  if (!servidor?.host) return "-";
-  if (servidor.producao && servidor.ambiente !== "producao") return `${servidor.host} - ${PILOTO_EM_PRODUCAO} (build ${servidor.ambiente})`;
-  return `${servidor.host}${servidor.producao ? " (produção)" : ""}${servidor.ambiente !== "producao" ? ` - ${servidor.ambiente}` : ""}`;
+  if (!servidor) return "-";
+  const nome = servidor.nomeAmbiente || servidor.ambiente || "";
+  if (servidor.bloqueado || !servidor.host) return `${SEM_SERVIDOR}${nome ? ` (${nome})` : ""}`;
+  return nome ? `${servidor.host} - ${nome}` : servidor.host;
 }
 
 // referencia = estadoDaReferencia() (relogio.js).
@@ -83,7 +84,7 @@ const MONO = new Set(["Versão do app", "Build (versionCode)", "Commit", "Androi
 const atencao = ({ rotulo, valor }) =>
   (rotulo === "Cadeia local" && valor !== "ok")
   || (rotulo === "Registro fiscal" && valor !== "ok")
-  || (rotulo === "Servidor do ARCD" && valor.includes(PILOTO_EM_PRODUCAO))
+  || (rotulo === "Servidor do ARCD" && valor.includes(SEM_SERVIDOR))
   || (rotulo === "Fotos com problema" && valor !== "0")
   || (rotulo === "Reconhecimento facial" && valor.startsWith("indisponível"))
   || (rotulo === "Estado da referência" && /expirada|aguardando|nunca/.test(valor));

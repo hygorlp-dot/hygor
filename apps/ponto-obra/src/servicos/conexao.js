@@ -6,16 +6,25 @@ import * as Device from "expo-device";
 import * as SecureStore from "expo-secure-store";
 import RelogioConfiavel from "../../modules/relogio-confiavel";
 import { horaDaMarcacao } from "../../../../src/domains/ponto-eletronico/relogio.js";
+import { AMBIENTES, NOME_AMBIENTE, conferirAmbiente, ehHostDeProducao } from "../../config/ambiente";
 
-export const URL_PRODUCAO = "https://pontosarcd.vercel.app/api/data";
-export const URL_API = Constants.expoConfig?.extra?.apiUrl || URL_PRODUCAO;
-// Só para MOSTRAR (Diagnóstico e pareamento) - não vai para o servidor.
+// Ambiente e servidor embutidos no build (app.config.js, config/ambiente.js).
+// SEM fallback: sem apiUrl o app não fala com servidor nenhum - nunca cai na
+// produção em silêncio. Homologação com host de produção (o build já recusa)
+// também fica sem servidor: segunda trava, em execução.
+const EXTRA = Constants.expoConfig?.extra || {};
+export const AMBIENTE = AMBIENTES.includes(EXTRA.ambiente) ? EXTRA.ambiente : "producao";
+export const URL_API = (() => {
+  if (!EXTRA.apiUrl) return null;
+  try { if (AMBIENTE === "homologacao" && ehHostDeProducao(new URL(EXTRA.apiUrl).host)) return null; } catch { return null; }
+  return EXTRA.apiUrl;
+})();
+// Só para MOSTRAR (Diagnóstico, pareamento, tela de ponto).
 export const infoDoServidor = () => ({
-  host: (() => { try { return new URL(URL_API).host; } catch { return "?"; } })(),
-  ambiente: Constants.expoConfig?.extra?.ambiente || "producao",
-  // Pelo HOST: barra final ou maiúsculas na URL não podem esconder que é a produção.
-  producao: (() => { try { return new URL(URL_API).host === new URL(URL_PRODUCAO).host; } catch { return false; } })(),
+  host: (() => { try { return URL_API ? new URL(URL_API).host : ""; } catch { return ""; } })(),
+  ambiente: AMBIENTE, nomeAmbiente: NOME_AMBIENTE[AMBIENTE], bloqueado: !URL_API,
 });
+export { conferirAmbiente };
 const CHAVE_SESSAO = "ponto-obra.sessao";
 const TEMPO_LIMITE_MS = 30_000;
 
@@ -25,6 +34,7 @@ export const infoDoApp = () => ({
   versao: Application.nativeApplicationVersion || Constants.expoConfig?.version || "",
   build: Application.nativeBuildVersion || "",
   commit: Constants.expoConfig?.extra?.commit || "",
+  ambiente: AMBIENTE,
 });
 export const infoDoAparelho = () => ({
   plataforma: "android", marca: Device.brand || Device.manufacturer || "", modelo: Device.modelName || "", android: Device.osVersion || "",
@@ -50,12 +60,14 @@ export function criarApi(obterToken) {
     const controle = new AbortController();
     const timer = setTimeout(() => controle.abort(), TEMPO_LIMITE_MS);
     try {
+      if (!URL_API) return { ok: false, status: -1, code: "SERVIDOR_NAO_CONFIGURADO", error: "Este aplicativo não tem servidor configurado. Nada foi enviado." };
       const token = await obterToken?.();
       const r = await fetch(URL_API, {
         method: "POST",
         signal: controle.signal,
         headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ action, ...corpo }),
+        // O servidor recusa (sem gravar nada) se o ambiente dele for outro.
+        body: JSON.stringify({ action, ...corpo, ambienteApp: AMBIENTE }),
       });
       const json = await r.json().catch(() => ({}));
       return { ok: r.ok, status: r.status, ...json };

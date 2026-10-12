@@ -21,6 +21,8 @@ import { analisarFoto, apagarFotoLocal } from "../servicos/rosto-nativo";
 import { brilhoMaximo, brilhoNormal, falar, vibrar } from "../servicos/feedback";
 import { Botao, BotaoTexto, COMPROVANTE_MS, COR, COR_DO_TOM, Corpo, ESPACO, Icone, Mensagem, MolduraCamera, RAIO, Rotulo, Status, Tela, Texto, TituloSecao } from "../ui";
 import Comprovante from "./Comprovante";
+import { AMBIENTE } from "../servicos/conexao";
+import { NOME_AMBIENTE } from "../../config/ambiente";
 
 const esperar = ms => new Promise(r => setTimeout(r, ms));
 const fmtHora = ms => new Date(ms).toLocaleTimeString("pt-BR", { timeZone: "America/Recife", hour: "2-digit", minute: "2-digit" });
@@ -139,6 +141,7 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
   const topo = <>
     <View style={estilos.topo}>
       <Rotulo secundario numberOfLines={2} style={estilos.obra}>{obra?.nome || "Obra"}</Rotulo>
+      {AMBIENTE === "homologacao" && <Rotulo cor={COR.atencao} accessibilityRole="text">{NOME_AMBIENTE.homologacao}</Rotulo>}
       <Status {...status} />
     </View>
     <View style={estilos.relogio}>

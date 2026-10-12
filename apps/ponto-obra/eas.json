@@ -5,21 +5,24 @@
     "requireCommit": true
   },
   "build": {
-    "piloto": {
+    "homologacao": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       },
       "autoIncrement": true,
       "env": {
-        "PONTO_AMBIENTE": "piloto"
+        "PONTO_AMBIENTE": "homologacao"
       }
     },
     "producao": {
       "android": {
         "buildType": "app-bundle"
       },
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "PONTO_AMBIENTE": "producao"
+      }
     }
   },
   "submit": {

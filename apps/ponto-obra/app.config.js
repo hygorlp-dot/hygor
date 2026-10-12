@@ -2,12 +2,12 @@
 //   - o SHA curto do commit do build, para o Diagnóstico do app mostrar
 //     exatamente qual código está instalado (na EAS vem de
 //     EAS_BUILD_GIT_COMMIT_HASH; local, do git);
-//   - o servidor do ARCD e o ambiente do build. Sem PONTO_API_URL vale o
-//     app.json, que é a PRODUÇÃO do ARCD: um aparelho pareado ali grava NSR
-//     fiscal real e permanente. O perfil "piloto" (eas.json) declara
-//     PONTO_AMBIENTE=piloto; o Diagnóstico e a tela de pareamento mostram o
-//     servidor e avisam quando um build de piloto aponta para a produção.
+//   - o AMBIENTE e o servidor do ARCD (config/ambiente.js). Produção: o
+//     apiUrl do app.json. Homologação: EXIGE PONTO_API_URL de um backend
+//     isolado e recusa o host de produção - sem ela, o build FALHA (nunca cai
+//     na produção em silêncio).
 const { execSync } = require("node:child_process");
+const { resolverServidor } = require("./config/ambiente");
 
 function commitCurto() {
   const daEas = process.env.EAS_BUILD_GIT_COMMIT_HASH;
@@ -19,20 +19,12 @@ function commitCurto() {
   }
 }
 
-function urlDaApi(padrao) {
-  const url = process.env.PONTO_API_URL || padrao;
-  let u;
-  try { u = new URL(url); } catch { throw new Error("PONTO_API_URL inválida"); }
-  if (u.protocol !== "https:") throw new Error("PONTO_API_URL precisa ser https");
-  return u.toString();
-}
-
-module.exports = ({ config }) => ({
-  ...config,
-  extra: {
-    ...config.extra,
-    apiUrl: urlDaApi(config.extra?.apiUrl),
-    ambiente: process.env.PONTO_AMBIENTE || "producao",
-    commit: commitCurto(),
-  },
-});
+module.exports = ({ config }) => {
+  const { ambiente, apiUrl } = resolverServidor({ ambiente: process.env.PONTO_AMBIENTE, urlEnv: process.env.PONTO_API_URL, urlPadrao: config.extra?.apiUrl });
+  return {
+    ...config,
+    // Homologação ganha nome próprio na tela inicial do Android (não confundir com o oficial).
+    ...(ambiente === "homologacao" ? { name: `${config.name} (HOMOLOGAÇÃO)` } : {}),
+    extra: { ...config.extra, apiUrl, ambiente, commit: commitCurto() },
+  };
+};

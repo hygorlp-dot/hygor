@@ -5,6 +5,8 @@
 // só existe depois que a ARP grava o evento.
 import { StyleSheet, View } from "react-native";
 import { linhasDoComprovante } from "../logica/apresentacao";
+import { AMBIENTE } from "../servicos/conexao";
+import { NOME_AMBIENTE } from "../../config/ambiente";
 import { BarraTempo, BotaoSecundario, COR, Corpo, ESPACO, EstadoCentral, Mensagem, Rotulo, Status, Tela, Texto, TituloSecao } from "../ui";
 
 const fmtHora = ms => new Date(ms).toLocaleTimeString("pt-BR", { timeZone: "America/Recife", hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -17,6 +19,7 @@ export default function Comprovante({ c, obra, online, aoConcluir, duracaoMs = 0
       {duracaoMs > 0 && <BarraTempo duracaoMs={duracaoMs} />}
       <BotaoSecundario titulo="Concluir" onPress={aoConcluir} />
     </>}>
+      {AMBIENTE === "homologacao" && <Rotulo centro cor={COR.atencao}>{NOME_AMBIENTE.homologacao} — não é registro oficial</Rotulo>}
       <TituloSecao centro>{l.saudacao}</TituloSecao>
       {!!l.naoEVoce && <Rotulo secundario centro>{l.naoEVoce}</Rotulo>}
       <Texto variante="horaComprovante" centro accessibilityLabel={`Registrado às ${hora}`} style={estilo.numeros}>{hora}</Texto>

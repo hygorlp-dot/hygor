@@ -45,7 +45,7 @@ export function montarCorpoSincronizacao({ app = {}, aparelho = {}, gps = null, 
     appVersao: versao ? (build ? `${versao} (${build})` : versao) : "",
     aparelho: {
       marca: textoCurto(aparelho.marca), modelo: textoCurto(aparelho.modelo), android: textoCurto(aparelho.android, 20),
-      build, commit: textoCurto(app.commit, 12),
+      build, commit: textoCurto(app.commit, 12), ambiente: textoCurto(app.ambiente, 20),
     },
   };
   const g = gpsRecente(gps, agoraMs);

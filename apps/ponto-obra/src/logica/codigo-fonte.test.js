@@ -92,7 +92,7 @@ describe("código-fonte do app", () => {
     expect(ponto).toContain("if (!cameraMontada || cameraPronta || erroCamera) return undefined;");
   });
 
-  it("servidor de produção reconhecido pelo host (barra final ou maiúsculas não escondem o aviso do piloto)", () => {
-    expect(ler("src/servicos/conexao.js")).toContain("new URL(URL_API).host === new URL(URL_PRODUCAO).host");
+  it("homologação nunca usa host de produção nem em execução (segunda trava, além do build)", () => {
+    expect(ler("src/servicos/conexao.js")).toContain("if (AMBIENTE === \"homologacao\" && ehHostDeProducao(new URL(EXTRA.apiUrl).host)) return null;");
   });
 });
