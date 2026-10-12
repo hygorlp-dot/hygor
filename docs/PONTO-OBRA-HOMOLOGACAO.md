@@ -61,8 +61,16 @@ se usar as credenciais ou o banco de produção.
    node scripts/homologacao/cli.mjs conferir --api https://<homologacao>/api/data
    ```
    Esperado: marcador `homologacao`, gate GO 019, dados sintéticos, API `ambiente homologacao`.
-6. 🔐 Gerar o APK: `PONTO_API_URL=https://<homologacao>/api/data eas build --profile homologacao --platform android`
-   (o primeiro build do pacote `.homologacao` pede a criação da keystore no EAS).
+6. 🔐 Gerar o APK. Variáveis do shell local NÃO chegam ao servidor do EAS: cadastrar a URL
+   no ambiente "preview" do EAS (usado pelo perfil `homologacao`):
+   ```bash
+   eas env:create --environment preview --name PONTO_API_URL --value https://<homologacao>/api/data --visibility plaintext
+   ```
+   ```bash
+   eas build --profile homologacao --platform android
+   ```
+   Sem a variável, ou com host de produção, o build falha. O primeiro build do pacote
+   `.homologacao` pede a criação da keystore no EAS (interativo).
 7. Conferir o APK: `node scripts/verificar-apk.mjs <apk> --build-tools <pasta> --esperado homologacao` → `APROVADO PARA HOMOLOGACAO`.
 8. Código de pareamento só no banco isolado: `node scripts/homologacao/cli.mjs codigo`.
 9. Executar a matriz `apps/ponto-obra/docs/HOMOLOGACAO-PILOTO.md` (18 cenários).
@@ -94,7 +102,9 @@ se usar as credenciais ou o banco de produção.
    na lista de hosts de produção do app.
 4. O Storage do projeto de homologação não é limpo pelo `resetar` (fotos de
    teste ficam até limpar o bucket pelo painel).
-5. Achados P2/P3 da revisão independente da #72 que não bloqueiam a
+5. Os dois APKs antigos (`e4f41447`, `4f8b84c1`) continuam baixáveis no EAS até expirarem
+   (26/10/2026): só a identificação NÃO INSTALAR impede o uso. Expirar os links é decisão da direção.
+6. Achados P2/P3 da revisão independente da #72 que não bloqueiam a
    homologação isolada: pareamento sem limite de tentativas; cadastro facial
    confia no `responsavelId` sem prova de PIN no servidor; prova de vida sem
    desafio aleatório; desempenho por batida a medir no aparelho; relógio de 1 s
