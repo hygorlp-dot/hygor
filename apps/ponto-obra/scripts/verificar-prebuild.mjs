@@ -17,6 +17,7 @@ const autolinking = subcomando => JSON.parse(execSync(`npx expo-modules-autolink
 
 conferir(existsSync(path.join(raiz, "android")), "pasta android/ gerada pelo prebuild");
 conferir(/^expo\.sqlite\.useSQLCipher=true$/m.test(ler("android/gradle.properties")), "SQLCipher ligado (expo.sqlite.useSQLCipher=true)");
+conferir(/^expo\.camera\.barcode-scanner-enabled=false$/m.test(ler("android/gradle.properties")), "leitor de código de barras (ML Kit) desligado - o app não usa");
 
 const manifesto = ler("android/app/src/main/AndroidManifest.xml");
 conferir(/android:allowBackup="false"/.test(manifesto), "backup do Android desligado (banco cifrado não vai para a nuvem sem a chave)");
@@ -26,7 +27,15 @@ conferir(ativa("CAMERA"), "permissão de câmera declarada");
 conferir(ativa("ACCESS_FINE_LOCATION"), "permissão de localização declarada");
 // WRITE_SETTINGS: o expo-brightness só mexe no brilho da janela do app, que
 // não precisa dela - nunca alterar configuração do sistema do aparelho.
-for (const proibida of ["RECORD_AUDIO", "SYSTEM_ALERT_WINDOW", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "WRITE_SETTINGS"]) conferir(!ativa(proibida), `permissão ${proibida} removida`);
+// READ_PHONE_STATE entra IMPLÍCITA pelo merge de manifestos (biblioteca sem
+// targetSdkVersion); USE_BIOMETRIC/USE_FINGERPRINT vêm do SecureStore, que o
+// app não usa com biometria. Como o merge acontece DEPOIS deste manifesto,
+// cada proibida precisa da linha explícita de remoção (tools:node="remove"):
+// ausência aqui não garante ausência no APK. O APK final: scripts/verificar-apk.mjs.
+const removida = nome => linhasPermissao.some(l => l.includes(`"android.permission.${nome}"`) && l.includes('tools:node="remove"'));
+for (const proibida of ["RECORD_AUDIO", "SYSTEM_ALERT_WINDOW", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "WRITE_SETTINGS", "READ_PHONE_STATE", "USE_BIOMETRIC", "USE_FINGERPRINT"]) {
+  conferir(!ativa(proibida) && removida(proibida), `permissão ${proibida} removida explicitamente (vale também para o merge)`);
+}
 // Lista PERMITIDA (não só proibidas): qualquer permissão nova que uma
 // dependência injete (localização em segundo plano, notificações, serviço em
 // primeiro plano...) falha aqui até alguém decidir e acrescentar.

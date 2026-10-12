@@ -24,7 +24,10 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.SYSTEM_ALERT_WINDOW",
-        "android.permission.WRITE_SETTINGS"
+        "android.permission.WRITE_SETTINGS",
+        "android.permission.READ_PHONE_STATE",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
       ],
       "allowBackup": false
     },
@@ -41,7 +44,8 @@
         "expo-camera",
         {
           "cameraPermission": "O Ponto de Obra usa a câmera para reconhecer o rosto de quem bate o ponto e guardar a foto como comprovante.",
-          "recordAudioAndroid": false
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
         }
       ],
       [

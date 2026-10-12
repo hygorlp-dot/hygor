@@ -1,4 +1,4 @@
-# Ponto de Obra — matriz de homologação do APK piloto
+# Ponto de Obra — matriz de homologação do APK (ambiente isolado)
 
 Versão do documento: 12/10/2026. **Nenhum cenário abaixo foi executado em
 aparelho físico.** Todos estão PENDENTES até alguém executar e registrar a
@@ -6,16 +6,30 @@ evidência. Testes automáticos (Node, CI) provam a lógica, não o aparelho:
 SQLCipher, câmera, TFLite, relógio Kotlin, permissões e voz/vibração só se
 provam no APK instalado.
 
+## APKs que NÃO podem ser usados na homologação
+
+Gerados antes da trava de ambiente. Apontam para a **PRODUÇÃO** do ARCD
+(`pontosarcd.vercel.app`): pareados, cada batida vira NSR fiscal real e
+permanente. Ficam preservados como histórico, com esta identificação, e
+**não se instalam** em aparelho de homologação.
+
+| Build EAS | versionCode | Commit | SHA-256 do APK | Ambiente embutido | Situação |
+|---|---|---|---|---|---|
+| `e4f41447` | 2 | `199d07b` | (não baixado) | `piloto` → produção | **NÃO INSTALAR** |
+| `4f8b84c1` | 3 | `7a5b73c` | `1750d70980524ab6681302c7054c8e9ef92f4e85f9f2337cd63f725916585438` | `piloto` → produção | **NÃO INSTALAR** (auditado: assinatura v2 ok, certificado SHA-256 `3afb511b…5915`, permissões a mais `READ_PHONE_STATE`, `USE_BIOMETRIC`, `USE_FINGERPRINT`) |
+
 ## Pré-requisitos (antes do primeiro cenário)
 
 | Item | Como conferir |
 |---|---|
-| APK do perfil `piloto` (`eas build --profile piloto --platform android`) gerado com autorização | link do build no EAS, versão e **commit** anotados |
-| Diagnóstico do app mostra a mesma versão, build e commit | modo Encarregado → Diagnóstico |
-| Aparelho Android 10+ dedicado ao piloto, sem dados pessoais de terceiros | modelo e versão do Android anotados |
-| Servidor definido pela direção. **Hoje só existe a produção do ARCD**: o perfil `piloto` aponta para ela e cada batida de um aparelho pareado vira NSR fiscal real e permanente. Alternativa: backend de homologação + `PONTO_API_URL` no perfil | Diagnóstico → "Servidor do ARCD" (em atenção quando piloto aponta para produção) |
-| Pessoas de teste com consentimento LGPD para cadastro facial | termo assinado (fora do repositório) |
-| Encarregado de teste com PIN | criado no ARCD de homologação |
+| Backend de homologação ISOLADO provisionado (projeto Supabase e deploy próprios, marcador no banco) | `docs/PONTO-OBRA-HOMOLOGACAO.md`; `node scripts/homologacao/cli.mjs conferir --api <URL>` responde `ambiente homologacao` |
+| APK do perfil `homologacao` (`PONTO_API_URL=<backend isolado> eas build --profile homologacao --platform android`), gerado com autorização; o build **falha** sem a URL ou com a produção | link do build no EAS, versionCode e **commit** anotados |
+| APK conferido ANTES de instalar | `node scripts/verificar-apk.mjs <apk> --build-tools <pasta> --esperado homologacao` → `APROVADO PARA HOMOLOGACAO` (pacote `br.com.arcd.pontoobra.homologacao`, servidor isolado, permissões só da lista, assinatura ok) |
+| No aparelho: nome "Ponto de Obra (HOMOLOGAÇÃO)", etiqueta "HOMOLOGAÇÃO — NÃO OFICIAL" na tela de ponto, Diagnóstico com o servidor isolado | modo Encarregado → Diagnóstico |
+| Código de pareamento gerado SÓ no banco de homologação (`cli.mjs codigo`); **nunca** no ARCD de produção | registro de quem gerou |
+| Aparelho Android 10+ dedicado, sem dados pessoais de terceiros | modelo e versão do Android anotados |
+| Pessoas de teste com consentimento LGPD específico para o cadastro facial de homologação (nada da biometria de produção) | termo assinado (fora do repositório) |
+| Encarregado de homologação com PIN (semente do provisionamento) | PIN entregue fora do repositório |
 
 ## Como registrar
 
@@ -28,8 +42,8 @@ Nunca fotografar CPF completo, PIN ou token.
 
 | # | Cenário | Passos | Resultado esperado | Cobertura automática (só lógica) | Resultado |
 |---|---|---|---|---|---|
-| 1 | Instalação limpa | instalar o APK; abrir; **antes de digitar o código**, ler o servidor mostrado; parear só com autorização | abre sem erro; a tela de pareamento mostra o servidor (build de piloto ligado à produção mostra aviso em destaque); banco cifrado criado; tela de ponto após o pareamento | `regressao.test.js`, `ponta-a-ponta.test.js` | PENDENTE |
-| 2 | Atualização sobre a versão anterior | instalar a versão anterior, bater 3 vezes offline, instalar o piloto por cima | app abre; as 3 batidas continuam; sequência local continua (4, 5…); nada reenumerado | `atualizacao-formato1.test.js`, `armazem-sqlite.test.js` | PENDENTE |
+| 1 | Instalação limpa | instalar o APK; abrir; **antes de digitar o código**, ler o servidor mostrado; parear só com autorização | abre sem erro; a tela de pareamento mostra o servidor isolado e o aviso HOMOLOGAÇÃO — NÃO OFICIAL; banco cifrado criado; tela de ponto após o pareamento; app de outro ambiente é recusado sem vincular | `regressao.test.js`, `ponta-a-ponta.test.js` | PENDENTE |
+| 2 | Atualização sobre a versão anterior | instalar a versão anterior DE HOMOLOGAÇÃO (mesmo pacote .homologacao), bater 3 vezes offline, instalar a nova por cima | app abre; as 3 batidas continuam; sequência local continua (4, 5…); nada reenumerado | `atualizacao-formato1.test.js`, `armazem-sqlite.test.js` | PENDENTE |
 | 3 | Banco SQLCipher | após 1 e 2, abrir o Diagnóstico; reiniciar o app | banco abre (chave no SecureStore); "Cadeia local: ok" | prebuild confere `useSQLCipher`; `armazem-sqlite.test.js` (SQL) | PENDENTE |
 | 4 | Cadastro facial | encarregado cadastra uma pessoa de teste (3 fotos) | cadastro concluído; foto e vetor só no servidor de homologação | `rosto.test.js`, `escala-reconhecimento.test.js` | PENDENTE |
 | 5 | Reconhecimento facial | a pessoa cadastrada bate; uma não cadastrada tenta | reconhece a cadastrada; recusa a outra com mensagem clara, sem registrar | `diagnostico-calibracao.test.js` | PENDENTE |
