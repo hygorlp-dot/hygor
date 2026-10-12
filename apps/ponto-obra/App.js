@@ -7,8 +7,17 @@
 //   erro (banco/sessão), revogado (aparelho desativado no ARCD)
 // Nenhuma falha de rede, GPS, câmera ou reconhecimento apaga batida guardada.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
+import { useFonts } from "expo-font";
+// Só os 6 pesos usados (importar a raiz do pacote embutiria as 30 variantes).
+import { IBMPlexSans_300Light } from "@expo-google-fonts/ibm-plex-sans/300Light";
+import { IBMPlexSans_400Regular } from "@expo-google-fonts/ibm-plex-sans/400Regular";
+import { IBMPlexSans_500Medium } from "@expo-google-fonts/ibm-plex-sans/500Medium";
+import { IBMPlexSans_600SemiBold } from "@expo-google-fonts/ibm-plex-sans/600SemiBold";
+import { IBMPlexMono_400Regular } from "@expo-google-fonts/ibm-plex-mono/400Regular";
+import { IBMPlexMono_500Medium } from "@expo-google-fonts/ibm-plex-mono/500Medium";
 import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider, initialWindowMetrics } from "react-native-safe-area-context";
 import * as Crypto from "expo-crypto";
 import * as Location from "expo-location";
 import { abrirArmazem, arquivarBanco } from "./src/dados/armazem-sqlite";
@@ -16,19 +25,27 @@ import { fotoSemBloquear, registrarBatida } from "./src/logica/terminal";
 import { gpsRecente, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./src/logica/sincronizacao";
 import { classificarResposta, mensagemDeErro } from "./src/logica/falhas";
 import { montarDiagnostico } from "./src/logica/diagnostico";
+import { batidasDoDia } from "./src/logica/apresentacao";
 import { estadoDaReferencia } from "../../src/domains/ponto-eletronico/relogio.js";
-import { apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoApp, lerSessao, salvarSessao } from "./src/servicos/conexao";
+import { AMBIENTE, apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoApp, infoDoServidor, lerSessao, salvarSessao, sessaoConfere } from "./src/servicos/conexao";
 import { apagarFotoLocal, carregarModelos, lerFotoBase64, prepararFotoDaBatida } from "./src/servicos/rosto-nativo";
 import TelaEncarregado from "./src/telas/TelaEncarregado";
 import TelaPareamento from "./src/telas/TelaPareamento";
 import TelaPonto from "./src/telas/TelaPonto";
-import { Botao, COR, Mensagem, Texto, Titulo, estilos } from "./src/ui";
+import { Botao, BotaoSecundario, COR, Corpo, ESPACO, EstadoCentral, Mensagem, Tela, Texto } from "./src/ui";
 
 const SINCRONIZAR_A_CADA_MS = 60_000;
 const CADASTRO_A_CADA_MS = 5 * 60_000;
+// IBM Plex (identidade ARCD) embutida no app: abre offline. Se a fonte não
+// carregar, o app segue com a do sistema - nunca fica preso esperando.
+const FONTES = { IBMPlexSans_300Light, IBMPlexSans_400Regular, IBMPlexSans_500Medium, IBMPlexSans_600SemiBold, IBMPlexMono_400Regular, IBMPlexMono_500Medium };
+const ESPERA_MAXIMA_FONTES_MS = 3000;
 const sha256Texto = texto => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, texto);
 
 export default function App() {
+  const [fontesProntas, erroFontes] = useFonts(FONTES);
+  const [fontesDesistiu, setFontesDesistiu] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setFontesDesistiu(true), ESPERA_MAXIMA_FONTES_MS); return () => clearTimeout(t); }, []);
   const [fase, setFase] = useState("carregando");       // carregando | parear | ponto | encarregado | erro | revogado
   const [erroFatal, setErroFatal] = useState({ texto: "", bancoIlegivel: false });
   const [tentativa, setTentativa] = useState(0);
@@ -36,6 +53,8 @@ export default function App() {
   const [modelos, setModelos] = useState(null);
   const [estadoModelos, setEstadoModelos] = useState({ estado: "carregando", erro: "" });
   const [situacao, setSituacao] = useState({ online: false, pendentes: 0, fotos: 0, fotosComProblema: 0, aviso: "" });
+  // Preferências da tela (não são registro): confirmação por voz.
+  const [preferencias, setPreferencias] = useState({ voz: true });
   const ref = useRef({ armazem: null, relogio: null, sessao: null, gps: null, gpsEstado: "aguardando", ultimoCadastro: 0, sincronizando: false, pedirDeNovo: null });
   const api = useRef(criarApi(() => ref.current.sessao?.token)).current;
 
@@ -43,7 +62,10 @@ export default function App() {
     if (!ref.current.armazem) return;
     try {
       const c = await ref.current.armazem.contagem();
-      setSituacao(s => ({ ...s, ...extra, ...c }));
+      // Evidência de escrita única (sincronizacao.js): a divergência fiscal
+      // fica visível até o suporte tratar, não só durante uma rodada.
+      const divergencia = await ref.current.armazem.lerEstado("divergencia_fiscal").catch(() => null);
+      setSituacao(s => ({ ...s, ...extra, ...c, fiscalDivergente: !!divergencia }));
     } catch { /* contagem é só para a tela */ }
   }, []);
 
@@ -61,6 +83,7 @@ export default function App() {
         corpo: montarCorpoSincronizacao({ app: infoDoApp(), aparelho: infoDoAparelho(), gps: ref.current.gps, agoraMs: Date.now() }),
         cadastroVencido: forcarCadastro || Date.now() - ref.current.ultimoCadastro > CADASTRO_A_CADA_MS,
         lerFotoBase64, aposEnviarFoto: item => apagarFotoLocal(item.caminhoFoto),
+        ambienteApp: AMBIENTE,
       });
       if (r.revogado || r.desconhecido) {
         // Sessão sai; banco e batidas ficam (registro legal) - ver aoParear.
@@ -76,13 +99,17 @@ export default function App() {
         // Persistente: a divergência fiscal não some numa rodada seguinte (evidência em "divergencia_fiscal").
         fiscalDivergente: !!r.fiscalDivergente || !!anterior?.fiscalDivergente,
       });
-      const aviso = r.aguardandoEstabelecimento
+      const aviso = r.fiscalDivergente
+        ? "O ARCD devolveu um registro fiscal diferente do guardado neste aparelho. Nada foi alterado aqui. Chame o suporte."
+        : r.aguardandoEstabelecimento
         ? "A obra deste aparelho ainda não está ligada a um estabelecimento no ARCD. As batidas ficam guardadas aqui e são enviadas quando o vínculo for feito."
         : ok ? "" : classificarResposta({ ok: false, status: r.online ? r.status || 500 : 0, error: r.erro }).mensagem;
       await atualizarSituacao({ online: r.online, aviso });
     } catch (e) {
       // Falha inesperada (banco, arquivo...): nada foi apagado; tenta na próxima rodada.
-      await armazem.gravarEstado("ultima_sincronizacao", { em: Date.now(), ok: false, erro: String(e?.message || e).slice(0, 120), ultimoOkEm: anterior?.ultimoOkEm ?? null }).catch(() => {});
+      // Sem apagar os sinais da rodada anterior: uma exceção qualquer não pode "curar" uma divergência.
+      await armazem.gravarEstado("ultima_sincronizacao", { em: Date.now(), ok: false, erro: String(e?.message || e).slice(0, 120), ultimoOkEm: anterior?.ultimoOkEm ?? null,
+        aguardandoEstabelecimento: !!anterior?.aguardandoEstabelecimento, cadeiaDivergente: !!anterior?.cadeiaDivergente, fiscalDivergente: !!anterior?.fiscalDivergente }).catch(() => {});
       await atualizarSituacao({ aviso: mensagemDeErro("sincronizacao", e) });
     } finally {
       ref.current.sincronizando = false;
@@ -105,8 +132,16 @@ export default function App() {
         // Bancos de antes desta versão: guarda de qual aparelho são as batidas.
         if (sessao && !(await armazem.lerEstado("dispositivo_id"))) await armazem.gravarEstado("dispositivo_id", sessao.dispositivoId);
         if (cancelado) return;
+        // Pareado com outro ambiente/servidor: bloqueia (nada é enviado; as batidas ficam guardadas).
+        if (sessao && !sessaoConfere(sessao)) {
+          setErroFatal({ texto: `Este aparelho foi vinculado a outro servidor ou ambiente (${sessao.ambiente || "producao"}${sessao.servidor ? ` - ${sessao.servidor}` : ""}). Nada é enviado. Chame o suporte.`, bancoIlegivel: false, sessaoDivergente: true });
+          setFase("erro");
+          return;
+        }
         Object.assign(ref.current, { armazem, relogio, sessao });
         setCadastro(await armazem.cadastro());
+        const pref = await armazem.lerEstado("preferencias_tela").catch(() => null);
+        if (pref) setPreferencias(p => ({ ...p, ...pref }));
         await atualizarSituacao();
         setFase(sessao ? "ponto" : "parear");
       } catch (e) {
@@ -166,8 +201,11 @@ export default function App() {
       throw e;
     }
     sincronizar();
+    // Só leitura, para o comprovante: marcações da pessoa hoje. Não pode
+    // atrapalhar a batida já gravada.
+    const batidasHoje = batidasDoDia(await armazem.eventosRecentes(200).catch(() => []), { tipo: pessoa.tipo, id: pessoa.id, marcadoEm: m.marcadoEm });
     // Sem NSR aqui: o NSR fiscal só existe depois que a ARP grava o evento.
-    return { nome: pessoa.nome, cpfMascarado: pessoa.cpfMascarado, marcadoEm: m.marcadoEm, localSequence: m.localSequence, eventId: m.eventId, hash: m.localHash, horaConfiavel: m.horaConfiavel, avisoFoto };
+    return { batidasHoje, tipo: pessoa.tipo || "funcionario", metodo: identificacao?.metodo || "", nome: pessoa.nome, cpfMascarado: pessoa.cpfMascarado, marcadoEm: m.marcadoEm, localSequence: m.localSequence, eventId: m.eventId, hash: m.localHash, horaConfiavel: m.horaConfiavel, avisoFoto };
   }, [sincronizar]);
 
   // Pareamento. Banco com batidas de OUTRO aparelho (pareado de novo depois
@@ -192,6 +230,12 @@ export default function App() {
     setFase("ponto");
   };
 
+  const alternarVoz = async () => {
+    const proximas = { ...preferencias, voz: !preferencias.voz };
+    setPreferencias(proximas);
+    try { await ref.current.armazem?.gravarEstado("preferencias_tela", proximas); } catch { /* preferência só vale nesta sessão */ }
+  };
+
   const diagnostico = async () => {
     const { armazem, relogio, sessao } = ref.current;
     const cad = await armazem.cadastro().catch(() => null);
@@ -199,11 +243,12 @@ export default function App() {
     const referencia = estadoDaReferencia({ referencia: await armazem.referenciaHora().catch(() => null), monotonicoMs: mono.ms, bootId: mono.bootId });
     return montarDiagnostico({
       referencia,
-      app: infoDoApp(), aparelho: infoDoAparelho(), sessao,
+      app: infoDoApp(), aparelho: infoDoAparelho(), sessao, servidor: infoDoServidor(),
       contagem: await armazem.contagem().catch(() => ({})),
       ultimaSincronizacao: await armazem.lerEstado("ultima_sincronizacao").catch(() => null),
       modelos: estadoModelos, hora: relogio.agora(), gps: { estado: ref.current.gpsEstado },
       fiscal: {
+        divergente: !!(await armazem.lerEstado("divergencia_fiscal").catch(() => null)),
         estabelecimento: cad?.estabelecimento?.nome || null,
         ultimaSequenciaLocal: (await armazem.ultimoEventoGlobal().catch(() => null))?.localSequence ?? null,
         ultimoNsr: await armazem.ultimoNsrRecebido().catch(() => null),
@@ -229,26 +274,42 @@ export default function App() {
   );
 
   let conteudo;
-  if (fase === "carregando") conteudo = <View style={[estilos.tela, { justifyContent: "center" }]}><ActivityIndicator size="large" color={COR.ouro} /></View>;
-  else if (fase === "erro") conteudo = <View style={[estilos.tela, { justifyContent: "center" }]}>
-    <Titulo>O app não abriu</Titulo>
-    <Mensagem tipo="erro">{erroFatal.texto}</Mensagem>
-    <Botao titulo="Tentar de novo" onPress={() => { setFase("carregando"); setTentativa(n => n + 1); }} />
-    {erroFatal.bancoIlegivel && <Botao titulo="Guardar banco atual e começar outro" tipo="secundario" onPress={recomecarBancoIlegivel} />}
-  </View>;
-  else if (fase === "revogado") conteudo = <View style={[estilos.tela, { justifyContent: "center" }]}>
-    <Titulo>Aparelho desativado</Titulo>
-    <Texto apagado>Este aparelho foi desativado no ARCD. Nenhuma batida foi apagada: {situacao.pendentes} ainda não enviada(s) continuam guardadas nele. Para voltar a usar, gere um código novo no ARCD.</Texto>
-    <Botao titulo="Parear de novo" onPress={() => setFase("parear")} />
-  </View>;
+  if (!fontesProntas && !erroFontes && !fontesDesistiu) conteudo = null;
+  else if (fase === "carregando") conteudo = <Tela centro>
+    <View style={estilos.abertura} accessible accessibilityLabel="Abrindo o Ponto de Obra">
+      <Texto variante="secao" cor={COR.ouro}>PONTO DE OBRA</Texto>
+      <ActivityIndicator size="large" color={COR.textoSecundario} />
+    </View>
+  </Tela>;
+  else if (fase === "erro") conteudo = <Tela>
+    <EstadoCentral tom="erro" titulo="O app não abriu" acoes={<>
+      <Botao titulo="Tentar de novo" onPress={() => { setFase("carregando"); setTentativa(n => n + 1); }} />
+      {erroFatal.bancoIlegivel && <BotaoSecundario titulo="Guardar banco atual e começar outro" onPress={recomecarBancoIlegivel} />}
+      {erroFatal.sessaoDivergente && <BotaoSecundario titulo="Parear de novo (batidas não enviadas ficam arquivadas)"
+        onPress={async () => { await apagarSessao().catch(() => {}); ref.current.sessao = null; setErroFatal({ texto: "", bancoIlegivel: false }); setFase("parear"); }} />}
+    </>}>
+      <Mensagem tom="erro">{erroFatal.texto}</Mensagem>
+    </EstadoCentral>
+  </Tela>;
+  else if (fase === "revogado") conteudo = <Tela>
+    <EstadoCentral tom="atencao" titulo="Aparelho desativado" acoes={<Botao titulo="Parear de novo" onPress={() => setFase("parear")} />}>
+      <Corpo secundario centro>Este aparelho foi desativado no ARCD. Nenhuma batida foi apagada: {situacao.pendentes} ainda não {situacao.pendentes === 1 ? "enviada continua guardada" : "enviadas continuam guardadas"} nele. Para voltar a usar, gere um código novo no ARCD.</Corpo>
+    </EstadoCentral>
+  </Tela>;
   else if (fase === "parear") conteudo = <TelaPareamento api={api} aoParear={aoParear} />;
   else if (fase === "encarregado") conteudo = <TelaEncarregado cadastro={cadastro} modelos={modelos} registrar={registrar} api={api} obra={ref.current.sessao?.obra}
-    situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico} />;
-  else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos} erroModelos={estadoModelos.estado === "erro" ? estadoModelos.erro : ""}
-    cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} />;
+    situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico}
+    voz={preferencias.voz} alternarVoz={alternarVoz} />;
+  else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos}
+    cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} voz={preferencias.voz} />;
 
-  return <View style={{ flex: 1, backgroundColor: COR.fundo }}>
+  return <SafeAreaProvider initialMetrics={initialWindowMetrics} style={estilos.raiz}>
     <StatusBar style="light" />
     {conteudo}
-  </View>;
+  </SafeAreaProvider>;
 }
+
+const estilos = StyleSheet.create({
+  raiz: { flex: 1, backgroundColor: COR.fundo },
+  abertura: { alignItems: "center", gap: ESPACO.xxl },
+});

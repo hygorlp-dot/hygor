@@ -54,6 +54,10 @@ export function criarArmazemMemoria() {
     async eventosPendentes(limite) {
       return eventos.filter(e => !e.enviada).sort((a, b) => sequenciaDe(a) - sequenciaDe(b)).slice(0, limite).map(limpa);
     },
+    // Só leitura, para a tela: últimas marcações, da mais nova para a mais antiga.
+    async eventosRecentes(limite) {
+      return [...eventos].sort((a, b) => sequenciaDe(b) - sequenciaDe(a)).slice(0, Math.max(0, Math.min(limite, 1000))).map(limpa);
+    },
     // Formato 2: a ARP aceitou ESTE evento - guarda NSR/hash fiscal ao lado.
     async confirmarEvento(eventId, fiscal) {
       const e = porId(eventId);

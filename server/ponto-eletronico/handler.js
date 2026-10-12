@@ -28,6 +28,7 @@ import { intervaloDoDia } from "../../src/domains/ponto-eletronico/painel.js";
 import { criarArp } from "./arp/arp.js";
 import { POLITICA_PADRAO, criarFonteHora } from "./tempo/fonte-hora.js";
 
+import { NOME_AMBIENTE, criarAmbiente } from "./ambiente.js";
 export const BUCKET_PONTO = "ponto-obra";
 export const PAPEIS_GESTAO = new Set(["admin", "rh", "engenheiro"]);
 export const PAPEIS_CONSULTA = new Set(["admin", "rh", "engenheiro", "engenheiro_auditor", "financeiro"]);
@@ -59,7 +60,7 @@ const decodificarFoto = base64 => {
 
 // Identificação do aparelho que o app manda (ponto-parear / ponto-sincronizar):
 // só campos conhecidos, texto curto - nada pessoal e nada arbitrário no banco.
-const CAMPOS_APARELHO = ["marca", "modelo", "android", "build", "commit"];
+const CAMPOS_APARELHO = ["marca", "modelo", "android", "build", "commit", "ambiente"];
 export const limparAparelho = bruto => Object.fromEntries(CAMPOS_APARELHO
   .filter(k => bruto && typeof bruto === "object" && bruto[k] !== undefined && bruto[k] !== null && texto(bruto[k]))
   .map(k => [k, texto(bruto[k]).slice(0, 80)]));
@@ -113,7 +114,8 @@ const caminhoFotoMarcacao = (obraId, marcadoEm, id) => `marcacoes/${obraId}/${St
 // existe para os testes fixarem o relógio do host.
 // verificarHoraNtp: async () => medição (tempo/ntp.js verificarHora), usada
 // pela ação ponto-tempo-verificar.
-export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO }) {
+export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO, ambienteDeclarado, supabaseUrl }) {
+  const ambiente = criarAmbiente({ db, declarado: ambienteDeclarado, supabaseUrl });
   const fonte = fonteHora || criarFonteHora({
     relogioHost: agoraDoHost ? () => agoraDoHost().getTime() : () => Date.now(),
     politica: politicaHora,
@@ -465,7 +467,10 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
     },
 
     // ---------------- aparelho da obra ----------------
-    async "ponto-parear"({ body }) {
+    // Sem autenticação: só diz o ambiente deste servidor (o app confere ANTES de parear).
+    async "ponto-ambiente"({ ambiente }) { return ok({ ambiente }); },
+
+    async "ponto-parear"({ body, ambiente }) {
       const codigo = texto(body.codigo).replace(/\D/g, "");
       if (codigo.length !== 8) return erro(400, "O código tem 8 números.");
       const { data: par, error } = await db.from("ponto_pareamentos").select("*")
@@ -495,10 +500,10 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       if (errIns) throw errIns;
       const dados = await lerDados();
       const obra = (dados?.obras || []).find(o => String(o.id) === String(par.obra_id));
-      return ok({ dispositivoId: id, token, obra: { id: par.obra_id, nome: obra?.name || "" }, estabelecimento: estab, nome: par.nome, servidorMs: agora().getTime() });
+      return ok({ dispositivoId: id, token, obra: { id: par.obra_id, nome: obra?.name || "" }, estabelecimento: estab, nome: par.nome, servidorMs: agora().getTime(), ambiente });
     },
 
-    async "ponto-sincronizar"({ body, headers }) {
+    async "ponto-sincronizar"({ body, headers, ambiente }) {
       const { dispositivo, falha } = await doAparelho(headers, body);
       if (falha) return falha;
       const dados = await lerDados();
@@ -542,6 +547,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const estabelecimento = await estabelecimentoDoAparelho(dispositivo);
       const tempo = await fonte.evidencia();
       return ok({
+        ambiente,
         servidorMs: tempo.serverTimeMs,
         tempo,
         repP: situacaoRepP(),
@@ -660,7 +666,15 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
   return async function tratar({ action, body = {}, headers = {}, cron = false }) {
     const acao = acoes[action];
     if (!acao) return erro(400, "Ação do ponto eletrônico desconhecida.");
-    return acao({ body, headers, cron });
+    // Ambiente antes de qualquer leitura ou gravação (ambiente.js).
+    const amb = await ambiente();
+    if (amb.erro) return erro(503, `${amb.erro} As ações do ponto estão bloqueadas.`, { code: "AMBIENTE_NAO_CONFIRMADO" });
+    // App que declara o ambiente dele (versões novas): divergente = nada é gravado.
+    const doApp = texto(body?.ambienteApp).toLowerCase();
+    if (doApp && doApp !== amb.ambiente) {
+      return erro(409, `Este aplicativo é de ${NOME_AMBIENTE[doApp] || doApp} e este servidor é de ${NOME_AMBIENTE[amb.ambiente]}. Nada foi gravado.`, { code: "AMBIENTE_INCOMPATIVEL", ambiente: amb.ambiente });
+    }
+    return acao({ body, headers, cron, ambiente: amb.ambiente });
   };
 }
 
