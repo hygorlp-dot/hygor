@@ -61,7 +61,7 @@ const SECAO_DO_ITEM = {
   "Versão do app": "Aplicativo", "Build (versionCode)": "Aplicativo", "Commit": "Aplicativo",
   "Plataforma": "Aparelho", "Android": "Aparelho", "Aparelho": "Aparelho", "Aparelho no ARCD": "Aparelho", "Obra": "Aparelho",
   "Última sincronização": "Ponto", "Último envio com sucesso": "Ponto", "Batidas a enviar": "Ponto", "Fotos a enviar": "Ponto", "Fotos com problema": "Ponto",
-  "Estabelecimento": "Registro fiscal", "Sequência local (último registro)": "Registro fiscal", "Último NSR recebido da ARP": "Registro fiscal", "Cadeia local": "Registro fiscal",
+  "Estabelecimento": "Registro fiscal", "Sequência local (último registro)": "Registro fiscal", "Último NSR recebido da ARP": "Registro fiscal", "Cadeia local": "Registro fiscal", "Registro fiscal": "Registro fiscal",
   "Reconhecimento facial": "Segurança", "GPS": "Segurança",
   "Referência de hora": "Hora", "Estado da referência": "Hora", "Última validação da hora": "Hora", "Idade da referência": "Hora", "Fonte de hora do servidor": "Hora",
 };
@@ -71,6 +71,7 @@ const MONO = new Set(["Versão do app", "Build (versionCode)", "Commit", "Androi
 // Valores que pedem atenção (texto + ícone na tela, não só cor).
 const atencao = ({ rotulo, valor }) =>
   (rotulo === "Cadeia local" && valor !== "ok")
+  || (rotulo === "Registro fiscal" && valor !== "ok")
   || (rotulo === "Fotos com problema" && valor !== "0")
   || (rotulo === "Reconhecimento facial" && valor.startsWith("indisponível"))
   || (rotulo === "Estado da referência" && /expirada|aguardando|nunca/.test(valor));

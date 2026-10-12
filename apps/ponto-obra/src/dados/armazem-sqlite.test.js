@@ -163,7 +163,7 @@ describe("armazém SQLite do aparelho (SQL real)", () => {
   });
 
   it("eventosRecentes (comprovante): só leitura, do mais novo ao mais antigo, com limite, sem tocar fila nem cadeia", async () => {
-    const { armazem } = await abrir();
+    const { db, armazem } = await abrir();
     const b1 = await bater(armazem);
     const b2 = await bater(armazem, { pessoa: { tipo: "terceiro", id: "t1" } });
     const b3 = await bater(armazem);
@@ -177,5 +177,6 @@ describe("armazém SQLite do aparelho (SQL real)", () => {
     const cadeia = await verificarCadeiaLocal(await armazem.eventosPendentes(10), null, sha256);
     expect(cadeia.erro).toBeNull();
     expect(cadeia.aceitos.length).toBe(3);
+    await db.closeAsync();                       // arquivo aberto impede apagar a pasta no Windows
   });
 });

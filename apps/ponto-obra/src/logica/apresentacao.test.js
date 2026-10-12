@@ -220,6 +220,17 @@ describe("diagnóstico em seções", () => {
     expect(todos["Reconhecimento facial"].atencao).toBe(false);
   });
 
+  it("divergência da ARP (item da Fase 01) fica na seção Registro fiscal e pede atenção; sem divergência, não", () => {
+    const base = { app: {}, aparelho: {}, contagem: {}, modelos: { estado: "ok" }, hora: {}, gps: {}, fiscal: {} };
+    const item = sinc => {
+      const secao = secoesDoDiagnostico(montarDiagnostico({ ...base, ultimaSincronizacao: { em: 0, ok: true, ...sinc } }))
+        .find(s => s.itens.some(i => i.rotulo === "Registro fiscal"));
+      return { titulo: secao.titulo, ...secao.itens.find(i => i.rotulo === "Registro fiscal") };
+    };
+    expect(item({ fiscalDivergente: true })).toMatchObject({ titulo: "Registro fiscal", atencao: true, valor: expect.stringMatching(/suporte/) });
+    expect(item({ fiscalDivergente: false })).toMatchObject({ titulo: "Registro fiscal", atencao: false, valor: "ok" });
+  });
+
   it("item novo sem seção cai em 'Outros' em vez de sumir", () => {
     expect(secoesDoDiagnostico([{ rotulo: "Campo novo", valor: "x" }])).toEqual([{ titulo: "Outros", itens: [{ rotulo: "Campo novo", valor: "x", mono: false, atencao: false }] }]);
   });
