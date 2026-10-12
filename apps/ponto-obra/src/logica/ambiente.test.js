@@ -13,7 +13,7 @@ import { rodadaDeSincronizacao, sincronizarCadastro } from "./sincronizacao.js";
 
 const require = createRequire(import.meta.url);
 const RAIZ = path.resolve(__dirname, "../..");
-const { resolverServidor, conferirAmbiente, ehHostDeProducao, decidirAmbienteDoPareamento } = require("../../config/ambiente.js");
+const { resolverServidor, conferirAmbiente, ehHostDeProducao, decidirAmbienteDoPareamento, sessaoConfereCom } = require("../../config/ambiente.js");
 const ler = rel => readFileSync(path.join(RAIZ, rel), "utf8");
 const PADRAO = "https://pontosarcd.vercel.app/api/data";
 const HOMOLOG = "https://ponto-homologacao.example.com/api/data";
@@ -56,6 +56,9 @@ describe("build: ambiente e servidor embutidos no APK", () => {
     const eas = JSON.parse(ler("eas.json"));
     expect(eas.build.piloto).toBeUndefined();
     expect(eas.build.homologacao.env).toEqual({ PONTO_AMBIENTE: "homologacao" });
+    // A URL do backend isolado vem das variáveis do EAS (ambiente "preview"):
+    // o shell local não chega ao servidor de build.
+    expect(eas.build.homologacao.environment).toBe("preview");
     expect(eas.build.producao.env.PONTO_AMBIENTE).toBe("producao");
     for (const perfil of Object.values(eas.build)) {
       if (perfil.env?.PONTO_API_URL) expect(perfil.env.PONTO_AMBIENTE === "homologacao" && ehHostDeProducao(new URL(perfil.env.PONTO_API_URL).host)).toBe(false);
@@ -104,6 +107,15 @@ describe("execução: app e servidor precisam estar no mesmo ambiente", () => {
     // Mesmo ambiente: segue normal e guarda o cadastro.
     const ok = await sincronizarCadastro({ armazem, api: async () => ({ ok: true, status: 200, ambiente: "homologacao", servidorMs: Date.now(), funcionarios: [] }), monotonico, ambienteApp: "homologacao" });
     expect(ok.ok).toBe(true);
+  });
+
+  it("sessão: só vale no mesmo ambiente e servidor; sessão antiga (sem campos) é de produção", () => {
+    expect(sessaoConfereCom({ dispositivoId: "a" }, "producao", "pontosarcd.vercel.app")).toBe(true);           // aparelho de produção atual
+    expect(sessaoConfereCom({ dispositivoId: "a" }, "homologacao", "ponto-homologacao.example.com")).toBe(false);
+    expect(sessaoConfereCom({ ambiente: "homologacao", servidor: "ponto-homologacao.example.com" }, "homologacao", "ponto-homologacao.example.com")).toBe(true);
+    expect(sessaoConfereCom({ ambiente: "homologacao", servidor: "antigo-homolog.example.com" }, "homologacao", "ponto-homologacao.example.com")).toBe(false);
+    expect(sessaoConfereCom({ ambiente: "producao", servidor: "pontosarcd.vercel.app" }, "homologacao", "ponto-homologacao.example.com")).toBe(false);
+    expect(sessaoConfereCom(null, "producao", "x")).toBe(false);
   });
 
   it("conexão e sessão: sem fallback para a produção; toda requisição declara o ambiente; sessão presa ao ambiente e ao servidor", () => {

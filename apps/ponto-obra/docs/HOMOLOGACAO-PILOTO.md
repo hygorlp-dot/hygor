@@ -23,7 +23,7 @@ permanente. Ficam preservados como histórico, com esta identificação, e
 | Item | Como conferir |
 |---|---|
 | Backend de homologação ISOLADO provisionado (projeto Supabase e deploy próprios, marcador no banco) | `docs/PONTO-OBRA-HOMOLOGACAO.md`; `node scripts/homologacao/cli.mjs conferir --api <URL>` responde `ambiente homologacao` |
-| APK do perfil `homologacao` (`PONTO_API_URL=<backend isolado> eas build --profile homologacao --platform android`), gerado com autorização; o build **falha** sem a URL ou com a produção | link do build no EAS, versionCode e **commit** anotados |
+| APK do perfil `homologacao`: cadastrar a URL do backend isolado como variável do EAS (`eas env:create --environment preview --name PONTO_API_URL --value https://<homologacao>/api/data --visibility plaintext`) e rodar `eas build --profile homologacao --platform android`, com autorização; o build **falha** sem a URL ou com a produção | link do build no EAS, versionCode e **commit** anotados |
 | APK conferido ANTES de instalar | `node scripts/verificar-apk.mjs <apk> --build-tools <pasta> --esperado homologacao` → `APROVADO PARA HOMOLOGACAO` (pacote `br.com.arcd.pontoobra.homologacao`, servidor isolado, permissões só da lista, assinatura ok) |
 | No aparelho: nome "Ponto de Obra (HOMOLOGAÇÃO)", etiqueta "HOMOLOGAÇÃO — NÃO OFICIAL" na tela de ponto, Diagnóstico com o servidor isolado | modo Encarregado → Diagnóstico |
 | Código de pareamento gerado SÓ no banco de homologação (`cli.mjs codigo`); **nunca** no ARCD de produção | registro de quem gerou |

@@ -6,6 +6,7 @@
   },
   "build": {
     "homologacao": {
+      "environment": "preview",
       "distribution": "internal",
       "android": {
         "buildType": "apk"

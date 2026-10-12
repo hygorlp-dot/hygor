@@ -85,7 +85,14 @@ function decidirAmbienteDoPareamento(resposta, ambienteApp) {
   return { ok: false, mensagem: "O servidor não confirmou o próprio ambiente. O aparelho NÃO foi vinculado; tente de novo ou chame o suporte." };
 }
 
+// Sessão guardada no aparelho: só vale no MESMO ambiente e servidor em que foi
+// pareada. Sessões antigas (sem os campos) são de produção e sem servidor fixo.
+function sessaoConfereCom(sessao, ambiente, host) {
+  if (!sessao) return false;
+  return (sessao.ambiente || "producao") === ambiente && (!sessao.servidor || sessao.servidor === host);
+}
+
 module.exports = {
   AMBIENTES, HOSTS_PRODUCAO, NOME_AMBIENTE, SUFIXO_PACOTE_HOMOLOGACAO,
-  ehHostDeProducao, hostNormalizado, normalizarAmbiente, resolverServidor, conferirAmbiente, decidirAmbienteDoPareamento,
+  ehHostDeProducao, hostNormalizado, normalizarAmbiente, resolverServidor, conferirAmbiente, decidirAmbienteDoPareamento, sessaoConfereCom,
 };
