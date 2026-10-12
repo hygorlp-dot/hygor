@@ -496,6 +496,9 @@ const tratarAcaoPonto = criarTratadorPonto({
   verificarHoraNtp: () => verificarHora({ enviarUdp: enviarUdpComDgram(dgram) }),
   autenticarUsuario: body => authenticateAppUser(
     { userId: body.userId, pin: body.pin, accessToken: body.accessToken }, { scope: "ponto-eletronico" }),
+  // Ausente = produção. "homologacao" só funciona com o marcador no banco
+  // (server/ponto-eletronico/ambiente.js).
+  ambienteDeclarado: process.env.PONTO_AMBIENTE,
 });
 
 const lerLinha = async () => {
