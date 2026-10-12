@@ -28,6 +28,8 @@ describe("build: ambiente e servidor embutidos no APK", () => {
   it("produção declarada: servidor do app.json; PONTO_API_URL pode trocar (https)", () => {
     expect(resolverServidor({ ambiente: "producao", urlPadrao: PADRAO })).toEqual({ ambiente: "producao", apiUrl: PADRAO });
     expect(() => resolverServidor({ ambiente: "producao", urlEnv: "http://inseguro/api", urlPadrao: PADRAO })).toThrow(/https/);
+    // URL de homologação (ou qualquer outra) vazando para um build de produção: recusada.
+    expect(() => resolverServidor({ ambiente: "producao", urlEnv: HOMOLOG, urlPadrao: PADRAO })).toThrow(/build de PRODUÇÃO com servidor que não é da produção/);
   });
 
   it("homologação SEM PONTO_API_URL: o build falha", () => {
@@ -59,6 +61,8 @@ describe("build: ambiente e servidor embutidos no APK", () => {
     // A URL do backend isolado vem das variáveis do EAS (ambiente "preview"):
     // o shell local não chega ao servidor de build.
     expect(eas.build.homologacao.environment).toBe("preview");
+    // Variáveis do ambiente "preview" do EAS (homologação) nunca chegam ao perfil de produção.
+    expect(eas.build.producao.environment).toBe("production");
     expect(eas.build.producao.env.PONTO_AMBIENTE).toBe("producao");
     for (const perfil of Object.values(eas.build)) {
       if (perfil.env?.PONTO_API_URL) expect(perfil.env.PONTO_AMBIENTE === "homologacao" && ehHostDeProducao(new URL(perfil.env.PONTO_API_URL).host)).toBe(false);
