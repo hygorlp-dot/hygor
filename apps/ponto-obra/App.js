@@ -134,7 +134,7 @@ export default function App() {
         if (cancelado) return;
         // Pareado com outro ambiente/servidor: bloqueia (nada é enviado; as batidas ficam guardadas).
         if (sessao && !sessaoConfere(sessao)) {
-          setErroFatal({ texto: `Este aparelho foi vinculado a outro servidor ou ambiente (${sessao.ambiente || "producao"}${sessao.servidor ? ` - ${sessao.servidor}` : ""}). Nada é enviado. Chame o suporte.`, bancoIlegivel: false });
+          setErroFatal({ texto: `Este aparelho foi vinculado a outro servidor ou ambiente (${sessao.ambiente || "producao"}${sessao.servidor ? ` - ${sessao.servidor}` : ""}). Nada é enviado. Chame o suporte.`, bancoIlegivel: false, sessaoDivergente: true });
           setFase("erro");
           return;
         }
@@ -285,6 +285,8 @@ export default function App() {
     <EstadoCentral tom="erro" titulo="O app não abriu" acoes={<>
       <Botao titulo="Tentar de novo" onPress={() => { setFase("carregando"); setTentativa(n => n + 1); }} />
       {erroFatal.bancoIlegivel && <BotaoSecundario titulo="Guardar banco atual e começar outro" onPress={recomecarBancoIlegivel} />}
+      {erroFatal.sessaoDivergente && <BotaoSecundario titulo="Parear de novo (batidas não enviadas ficam arquivadas)"
+        onPress={async () => { await apagarSessao().catch(() => {}); ref.current.sessao = null; setErroFatal({ texto: "", bancoIlegivel: false }); setFase("parear"); }} />}
     </>}>
       <Mensagem tom="erro">{erroFatal.texto}</Mensagem>
     </EstadoCentral>

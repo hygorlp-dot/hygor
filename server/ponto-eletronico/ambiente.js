@@ -14,8 +14,9 @@
 import crypto from "node:crypto";
 
 export const AMBIENTES = Object.freeze(["producao", "homologacao"]);
-// SHA-256 do project ref do Supabase de PRODUÇÃO (o ref em si não fica no
-// código). Homologação apontando para ele é bloqueada mesmo com marcador.
+// SHA-256 do project ref do Supabase de PRODUÇÃO. Não é segredo (o ref aparece
+// em documentação do repositório); o hash só evita repetir o identificador.
+// Homologação apontando para ele é bloqueada mesmo com marcador.
 export const HASH_REF_PRODUCAO = "33d9c2f82b177af37ac81fc05afe8acb11f9b4747f65c39d6ef3f4dfa1613719";
 export const hashDoRef = ref => crypto.createHash("sha256").update(String(ref || "").trim().toLowerCase()).digest("hex");
 export const refDoSupabase = url => { try { return new URL(String(url)).hostname.split(".")[0].toLowerCase(); } catch { return null; } };

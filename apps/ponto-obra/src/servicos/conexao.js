@@ -6,7 +6,7 @@ import * as Device from "expo-device";
 import * as SecureStore from "expo-secure-store";
 import RelogioConfiavel from "../../modules/relogio-confiavel";
 import { horaDaMarcacao } from "../../../../src/domains/ponto-eletronico/relogio.js";
-import { AMBIENTES, NOME_AMBIENTE, conferirAmbiente, ehHostDeProducao } from "../../config/ambiente";
+import { AMBIENTES, NOME_AMBIENTE, conferirAmbiente, ehHostDeProducao, sessaoConfereCom } from "../../config/ambiente";
 
 // Ambiente e servidor embutidos no build (app.config.js, config/ambiente.js).
 // SEM fallback: sem apiUrl o app não fala com servidor nenhum - nunca cai na
@@ -52,9 +52,7 @@ export async function salvarSessao(sessao) {
 }
 // Sessão de outro ambiente/servidor (ex.: APK trocado, URL de outro backend):
 // não se usa - nada é enviado. Sessões antigas (sem os campos) são de produção.
-export const sessaoConfere = sessao => !!sessao
-  && (sessao.ambiente || "producao") === AMBIENTE
-  && (!sessao.servidor || sessao.servidor === infoDoServidor().host);
+export const sessaoConfere = sessao => sessaoConfereCom(sessao, AMBIENTE, infoDoServidor().host);
 export async function apagarSessao() {
   await SecureStore.deleteItemAsync(CHAVE_SESSAO);
 }
