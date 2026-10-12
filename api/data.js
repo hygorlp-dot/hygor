@@ -499,6 +499,7 @@ const tratarAcaoPonto = criarTratadorPonto({
   // Ausente = produção. "homologacao" só funciona com o marcador no banco
   // (server/ponto-eletronico/ambiente.js).
   ambienteDeclarado: process.env.PONTO_AMBIENTE,
+  supabaseUrl: process.env.SUPABASE_URL,
 });
 
 const lerLinha = async () => {

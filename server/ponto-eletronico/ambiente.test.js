@@ -7,12 +7,12 @@ import { bancoFalso } from "./banco-falso.test-helper.js";
 
 const ADMIN = { id: "u1", name: "Admin", role: "admin" };
 const DADOS = { obras: [{ id: "obra-a", name: "Obra A" }], employees: [], terceirizados: [] };
-const montar = ({ ambienteDeclarado, marcador } = {}) => {
+const montar = ({ ambienteDeclarado, marcador, supabaseUrl = "https://homologacaoteste00000.supabase.co" } = {}) => {
   const db = bancoFalso();
   if (marcador) db.tabelas.arcd_ambiente = [{ id: true, ambiente: marcador }];
   const tratar = criarTratadorPonto({
     db, company: "arcd", lerDados: async () => DADOS, agora: () => new Date("2026-10-12T10:00:00.000Z"),
-    autenticarUsuario: async body => (body.accessToken === "ok" ? ADMIN : null), ambienteDeclarado,
+    autenticarUsuario: async body => (body.accessToken === "ok" ? ADMIN : null), ambienteDeclarado, supabaseUrl,
   });
   return { db, tratar };
 };
@@ -67,6 +67,20 @@ describe("ambiente do servidor do ponto", () => {
     expect((await tratar({ action: "ponto-parear", body: { codigo: await codigo(tratar) } })).status).toBe(200);
     const errado = montar({ ambienteDeclarado: "piloto" });
     expect(await errado.tratar({ action: "ponto-ambiente" })).toMatchObject({ status: 503, json: { code: "AMBIENTE_NAO_CONFIRMADO" } });
+  });
+
+  it("homologação ligada ao projeto Supabase da PRODUÇÃO (pelo hash do ref): bloqueada MESMO com o marcador; sem SUPABASE_URL também", async () => {
+    const { HASH_REF_PRODUCAO, hashDoRef, refDoSupabase } = await import("./ambiente.js");
+    expect(HASH_REF_PRODUCAO).toMatch(/^[0-9a-f]{64}$/);
+    expect(hashDoRef(refDoSupabase("https://AbCd.supabase.co"))).toBe(hashDoRef("abcd"));
+    // Simula a produção: um ref cujo hash é o de produção (o teste não conhece o ref real).
+    const ambienteMod = await import("./ambiente.js");
+    const { criarAmbiente } = ambienteMod;
+    const db = bancoFalso(); db.tabelas.arcd_ambiente = [{ id: true, ambiente: "homologacao" }];
+    const semUrl = criarAmbiente({ db, declarado: "homologacao", supabaseUrl: "" });
+    expect(await semUrl()).toMatchObject({ erro: expect.stringMatching(/sem SUPABASE_URL/) });
+    const outro = criarAmbiente({ db, declarado: "homologacao", supabaseUrl: "https://homologacaoteste00000.supabase.co" });
+    expect(await outro()).toEqual({ ambiente: "homologacao" });
   });
 
   it("marcador com outro valor não confirma homologação", async () => {
