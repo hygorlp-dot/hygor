@@ -43,22 +43,27 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
   const emCurso = useRef(false);            // toque duplo não inicia duas batidas
   const estadoCamera = estadoPermissaoCamera(permissao);
 
+  // Obra recém-pareada: sem rosto cadastrado, "Bater ponto" só falharia.
+  const { semRostos, temResponsavel } = resumoCadastro(cadastro);
+  // A CameraView só existe nesta condição (comprovante, falta de permissão e
+  // obra sem rostos ocupam a tela sem ela). Ao sair dela, "pronta" zera: a
+  // câmera que volta é NOVA e precisa ligar de novo antes de qualquer captura.
+  const cameraMontada = fluxo.etapa !== "sucesso" && estadoCamera === "concedida" && !semRostos;
+
   useEffect(() => { const t = setInterval(() => setAgora(relogio.agora()), 1000); return () => clearInterval(t); }, [relogio]);
   useEffect(() => () => clearTimeout(timerSucesso.current), []);
+  useEffect(() => { if (!cameraMontada) { setCameraPronta(false); setErroCamera(""); } }, [cameraMontada]);
   useEffect(() => {
-    if (cameraPronta || erroCamera) return undefined;
+    if (!cameraMontada || cameraPronta || erroCamera) return undefined;
     const t = setTimeout(() => setErroCamera("A câmera não ligou. Feche e abra o app; se continuar, o encarregado pode registrar o ponto."), PRAZO_CAMERA_LIGAR_MS);
     return () => clearTimeout(t);
-  }, [cameraPronta, erroCamera, fluxo.etapa]);
+  }, [cameraMontada, cameraPronta, erroCamera]);
   // Pede só uma vez sozinho; negada de vez, o Android não mostra mais o
   // pedido - aí o caminho é o botão das configurações (sem repetir em loop).
   const jaPediu = useRef(false);
   useEffect(() => {
     if (estadoCamera === "pedir" && !jaPediu.current) { jaPediu.current = true; pedirPermissao().catch(() => {}); }
   }, [estadoCamera, pedirPermissao]);
-
-  // Obra recém-pareada: sem rosto cadastrado, "Bater ponto" só falharia.
-  const { semRostos, temResponsavel } = resumoCadastro(cadastro);
 
   const fase = (f, nome = "") => setFluxo({ etapa: "analisando", fase: f, nome });
   // Vibração de alerta só em falha real (incerteza do rosto não assusta).

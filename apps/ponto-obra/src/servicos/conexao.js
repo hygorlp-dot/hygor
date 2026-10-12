@@ -13,7 +13,8 @@ export const URL_API = Constants.expoConfig?.extra?.apiUrl || URL_PRODUCAO;
 export const infoDoServidor = () => ({
   host: (() => { try { return new URL(URL_API).host; } catch { return "?"; } })(),
   ambiente: Constants.expoConfig?.extra?.ambiente || "producao",
-  producao: URL_API === URL_PRODUCAO,
+  // Pelo HOST: barra final ou maiúsculas na URL não podem esconder que é a produção.
+  producao: (() => { try { return new URL(URL_API).host === new URL(URL_PRODUCAO).host; } catch { return false; } })(),
 });
 const CHAVE_SESSAO = "ponto-obra.sessao";
 const TEMPO_LIMITE_MS = 30_000;

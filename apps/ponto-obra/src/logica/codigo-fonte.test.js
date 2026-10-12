@@ -86,5 +86,13 @@ describe("código-fonte do app", () => {
       expect(comPrazo).toBe(capturas);
     }
     expect(ponto).toContain("if (emCurso.current) return;");   // toque duplo não inicia duas batidas
+    // Câmera que volta (depois do comprovante, da permissão, do cadastro) é NOVA:
+    // "pronta" zera quando ela sai da tela, e o prazo de 10 s só conta com ela montada.
+    expect(ponto).toMatch(/useEffect\(\(\) => \{ if \(!cameraMontada\) \{ setCameraPronta\(false\);/);
+    expect(ponto).toContain("if (!cameraMontada || cameraPronta || erroCamera) return undefined;");
+  });
+
+  it("servidor de produção reconhecido pelo host (barra final ou maiúsculas não escondem o aviso do piloto)", () => {
+    expect(ler("src/servicos/conexao.js")).toContain("new URL(URL_API).host === new URL(URL_PRODUCAO).host");
   });
 });
