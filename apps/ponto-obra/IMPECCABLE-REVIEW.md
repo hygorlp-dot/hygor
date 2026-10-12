@@ -137,3 +137,25 @@ limiares (`calibracao.js`), fotos, fonte de hora, idempotência ou no texto do
 termo (`TERMO_TEXTO`). No diff, `src/logica` só tem acréscimos (+32 linhas e
 nenhuma removida), e `src/dados`, `src/servicos`, `src/domains` e `server` não
 foram alterados.
+
+## Segunda revisão (12/10/2026, sobre a base da Fase 01 — PR #72)
+
+Revisão independente de código (sem aparelho). As capturas de `docs/ui` são
+do web, sem safe area e sem 360×640: os estouros de altura abaixo foram
+calculados, não fotografados.
+
+| # | Achado | Prioridade | Situação |
+|---|---|---|---|
+| 1 | `takePictureAsync` antes de a câmera ligar nunca responde (expo-camera 57): a tela ficava em "Aguarde" para sempre e travava o quiosque, inclusive o caminho do encarregado | P0 | **Corrigido**: prazo de 8 s em toda captura (`src/logica/prazo.js`), botão só depois de `onCameraReady`, aviso se a câmera não ligar em 10 s; trava no código-fonte |
+| 2 | Terceirizado (acesso, fora da ARP) aparecia como "Ponto registrado", com NSR prometido e "CPF: não informado"; a voz dizia "Ponto registrado" | P1 | **Corrigido**: "Acesso registrado", sem NSR nem CPF; voz igual |
+| 3 | Divergência fiscal (NSR/hash) podia voltar a "ok" depois de uma rodada com exceção, e só aparecia no Diagnóstico | P1 | **Corrigido**: a evidência persistente (`divergencia_fiscal`) é a fonte; menu "Diagnóstico: Chame o suporte" em atenção; aviso próprio na sincronização |
+| 4 | Avisos do comprovante (hora/foto) abaixo dos detalhes: fora da tela em 360×640, e a tela some sozinha | P2 | **Corrigido**: avisos logo depois do estado de envio |
+| 5 | Falha só visual e por vibração (aparelho na parede) | P2 | **Corrigido**: "Ponto não registrado. Tente de novo." falado |
+| 6 | Reconhecimento da pessoa errada sem orientação | P2 | **Corrigido**: "Não é você? Avise o encarregado." no comprovante facial |
+| 7 | Toque duplo podia iniciar duas batidas | P3 | **Corrigido**: trava de reentrada |
+| 8 | Câmera e guia apertadas em 360×640 | P2 | Pendente: conferir no aparelho (homologação, cenário 15) |
+| 9 | Alvo de toque 44 dp (Android recomenda 48); voz em aparelho com idioma inglês lê com voz inglesa; brilho volta antes do comprovante; papel `switch` na voz; textos do caminho no ARCD diferentes; placeholder como único rótulo | P3 | Registrados; não bloqueiam o piloto. Aparelho do piloto em pt-BR |
+
+Contraste WCAG conferido por cálculo: todos os pares de texto ≥ 4,5:1
+(erro sobre superfície elevada 4,6:1; o terciário só em chevron, placeholder
+e desabilitado).
