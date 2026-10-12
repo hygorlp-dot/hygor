@@ -34,6 +34,7 @@
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit -p tsconfig.quality.json",
     "quality:bundle": "node scripts/bundle-metrics.mjs",
+    "audit:deps": "node scripts/auditoria-dependencias.mjs",
     "financial:migrate-shadow": "node scripts/apply-financial-shadow.mjs",
     "registry:migrate-shadow": "node scripts/apply-core-registry-shadow.mjs",
     "equipment-registry:migrate-shadow": "node scripts/apply-equipment-registry-shadow.mjs",
@@ -72,7 +73,7 @@
     "@playwright/test": "^1.62.0",
     "@storybook/react-vite": "^10.5.4",
     "@vitejs/plugin-react": "^6.0.4",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
     "autoprefixer": "^10.5.4",
     "dependency-cruiser": "^18.1.0",
     "fake-indexeddb": "^6.2.5",
@@ -84,7 +85,7 @@
     "tailwindcss": "^3.4.19",
     "typescript": "^5.9.3",
     "vite": "^8.1.5",
-    "vitest": "^4.1.10",
+    "vitest": "^4.1.11",
     "workbox-build": "^7.4.1"
   },
   "overrides": {

@@ -74,9 +74,15 @@ describe("funcionário é global da empresa", () => {
   it("vetores só descem quando o conjunto muda (assinatura) e o aparelho guarda os que já tem", async () => {
     await cadastrarRosto(B, "e1", 3);
     await sincronizar(A);
-    const assinatura = (await A.armazem.cadastro()).biometriasAssinatura;
+    const antes = await A.armazem.cadastro();
+    const assinatura = antes.biometriasAssinatura;
     A.chamadas.length = 0;
     await sincronizar(A);
+    // O app mandou a assinatura que tinha e, sem mudança, os vetores ficaram idênticos.
+    expect(A.chamadas.find(c => c.action === "ponto-sincronizar").corpo.biometriasAssinatura).toBe(assinatura);
+    const depois = await A.armazem.cadastro();
+    expect(depois.biometrias).toEqual(antes.biometrias);
+    expect(depois.biometriasAssinatura).toBe(assinatura);
     const r = await s.tratar({ action: "ponto-sincronizar", body: { biometriasAssinatura: assinatura }, headers: { authorization: `Bearer ${A.token}` } });
     expect(r.json).toMatchObject({ biometrias: null, biometriasAssinatura: assinatura });
     expect((await A.armazem.cadastro()).biometrias.map(b => b.employeeId)).toEqual(["e1"]);   // manteve os vetores

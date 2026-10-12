@@ -82,6 +82,9 @@ Não faça upgrade de major (Expo/RN) sem decisão explícita.
 - Evento só sai da fila quando a ARP responde **por aquele `eventId`** com
   status gravado (idempotente: reenvio devolve o mesmo NSR). Foto só é apagada
   depois do OK do upload.
+- A cópia do registro fiscal no aparelho (NSR, hash fiscal, estabelecimento)
+  é de **escrita única**: `confirmarEvento` só grava em evento ainda não
+  enviado; uma resposta repetida ou atrasada não troca o que a ARP já deu.
 - Marcação append-only no aparelho e na ARP (no banco: triggers bloqueiam
   UPDATE/DELETE/TRUNCATE; inserção só pela função da ARP).
 - Foto: JPEG ≤ `LIMITE_FOTO_BYTES` (contrato compartilhado); o SHA-256 da
@@ -108,6 +111,17 @@ npx expo prebuild --platform android --no-install --clean # projeto nativo desca
 node scripts/verificar-prebuild.mjs     # SQLCipher, permissões, autolinking
 ```
 
+Auditoria de dependências (pela raiz, mesmo portão da CI):
+
+```bash
+npm run audit:deps -- apps/ponto-obra
+```
+
+High/critical bloqueia. Exceção só para advisory **sem versão corrigida
+publicada**, registrado em `scripts/auditoria-excecoes.json` com prazo; ela
+se revoga sozinha quando sai a correção. Não use `npm audit fix --force`
+(faz downgrade do SDK).
+
 Testes (rodam pelo Vitest da **raiz** do repositório):
 
 ```bash
@@ -115,7 +129,7 @@ npx vitest run apps/ponto-obra src/domains/ponto-eletronico server/ponto-eletron
 ```
 
 Os testes ponta a ponta do app usam Postgres real em memória (PGlite com as
-migrations 016 + 017). A concorrência com conexões paralelas de verdade
+migrations 016 + 017 + 018). A concorrência com conexões paralelas de verdade
 (`server/ponto-eletronico/arp/arp-concorrencia.pg.test.js`) só roda com
 `PONTO_PG_URL` apontando para um Postgres descartável (na CI: job
 `rep-p-arp-postgres`).
