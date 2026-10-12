@@ -14,11 +14,19 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 
 const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 export const lerMigration = nome => fs.readFileSync(path.join(raiz, "migrations", nome), "utf8");
+// Papéis do Supabase E os privilégios padrão dele: no projeto real, todo
+// objeto novo do schema public nasce com ALL para anon/authenticated/
+// service_role (alter default privileges). As migrations precisam revogar o
+// que não pode - testar sem isto provaria permissões que produção não tem.
 export const PAPEIS_SUPABASE = `do $$ begin
   if not exists (select 1 from pg_roles where rolname='anon') then create role anon; end if;
   if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated; end if;
   if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role; end if;
-end $$;`;
+end $$;
+grant usage on schema public to anon, authenticated, service_role;
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;`;
 
 // Migrations aplicadas na ordem. A 019 (preliminar, ainda fora de
 // scripts/apply-ponto-eletronico.mjs) só entra com ate: "019" ou

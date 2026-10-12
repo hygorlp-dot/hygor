@@ -1,0 +1,21 @@
+{
+  "comentario": "Manifesto da JANELA AUTORIZADA da migration 019 (docs/PONTO-OBRA-RUNBOOK-PRODUCAO.md). Usado só manualmente com --manifesto; nunca pelo deploy. Vira o manifesto de produção depois da janela, por PR.",
+  "migracoes": [
+    {
+      "arquivo": "016_create_ponto_eletronico.up.sql",
+      "sha256": "86a24889158572e3a126d67c77366c73efa23731709d55e662d8c13f9eb5a9d0"
+    },
+    {
+      "arquivo": "017_ponto_arp_estabelecimento_nsr.up.sql",
+      "sha256": "84de50c9542a393875b52ba39f04ed5e0d2532c2def78cbb068d7f1996706f8f"
+    },
+    {
+      "arquivo": "018_ponto_apropriacoes.up.sql",
+      "sha256": "51a9b2fc3cc0f7f8204f739c3e3e8f0de9f1c714bf1393f4e8a80e37e73bcc19"
+    },
+    {
+      "arquivo": "019_ponto_integridade_fiscal.up.sql",
+      "sha256": "0738a5dc68c8a9647338bd282c4087bb1130f84b573bcb0c18cb158d70cc9a89"
+    }
+  ]
+}
