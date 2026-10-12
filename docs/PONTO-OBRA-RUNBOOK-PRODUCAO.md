@@ -94,7 +94,11 @@ Para a versão fiscal registrada (`verificarIntegridadeFiscal`):
   `ponto_*`, incluindo as de trigger; tabela, função e eventos de **todo**
   trigger das tabelas `ponto_*`; trigger a mais é violação. Isso pega, por
   exemplo, a função de imutabilidade reescrita para deixar passar o UPDATE,
-  mesmo com o nome e o trigger intactos.
+  mesmo com o nome e o trigger intactos, ou o trigger religado numa função
+  homônima de outro schema. Consequência: **não criar** webhook de banco,
+  auditoria ou qualquer outro trigger nas tabelas `ponto_*` fora das
+  migrations; o gate dá NO-GO e, como ele está no `prebuild`, trava o deploy
+  de todo o ERP.
 - `service_role` **sem** escrita em eventos, registros e contadores (017+),
   sem `UPDATE`/`DELETE`/`TRUNCATE` em verificações de tempo, sem escrita em
   apropriações (018+), sem `TRUNCATE` em nenhuma tabela do ponto, sem escrita
@@ -173,6 +177,9 @@ node scripts/aplicar-migracoes-ponto.mjs --manifesto scripts/migracoes-ponto/man
 node scripts/aplicar-migracoes-ponto.mjs --verificar
 ```
 
+- Durante a transação da 019 (alguns segundos), as batidas que chegarem
+  **esperam** o fim dela: os aparelhos guardam e reenviam, mas a janela deve
+  ser fora do horário de batida.
 - O plano deve mostrar 3 × `ja_aplicada` e 1 × `aplicar`. A 019 roda numa
   transação com `lock_timeout` 5 s e `statement_timeout` 120 s e só é gravada
   se a validação de objetos **e** a integridade fiscal da versão 019 fecharem.

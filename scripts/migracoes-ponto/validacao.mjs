@@ -153,9 +153,12 @@ export async function verificarIntegridadeFiscal(db, versao) {
   const pares = [];
   for (const [t, ps] of Object.entries(proibidos)) if (tabelas.includes(t)) for (const p of ps) pares.push(["service_role", t, p]);
   for (const papel of ["anon", "authenticated"]) for (const t of tabelas) for (const p of ["SELECT", ...ESCRITA]) pares.push([papel, t, p]);
+  // O papel entra pelo OID da junção: o planejador não consegue avaliar
+  // has_table_privilege antes dela (com o nome em texto, um papel ausente
+  // derrubava a consulta inteira).
   for (const l of await db.query(`select x.papel, x.tabela, x.priv from unnest($1::text[], $2::text[], $3::text[]) as x(papel, tabela, priv)
-      where exists (select 1 from pg_roles r where r.rolname = x.papel)
-        and coalesce(has_table_privilege(x.papel, to_regclass('public.' || x.tabela), x.priv), false)`,
+      join pg_roles r on r.rolname = x.papel
+      where coalesce(has_table_privilege(r.oid, to_regclass('public.' || x.tabela), x.priv), false)`,
     [pares.map(p => p[0]), pares.map(p => p[1]), pares.map(p => p[2])])) violacoes.push(`${l.papel} com ${l.priv} em ${l.tabela}`);
   const funcs = Object.entries(FUNCOES_PROTEGIDAS).filter(([v]) => v <= versao).flatMap(([, fs]) => fs);
   for (const f of await db.query(`select p.proname as nome, p.prosecdef as definer, coalesce(array_to_string(p.proconfig, ','), '') as config,

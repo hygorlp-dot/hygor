@@ -182,18 +182,27 @@ nenhum registro.
 7. **Chaves estrangeiras** não são revalidadas depois da carga em modo
    `replica`; a integridade vem da conferência por SHA-256 contra o retrato
    da origem.
-8. **Volume.** As fotos não ficam na memória, mas cada tabela ainda é um
-   registro só (uma tabela de centenas de MB exigiria dividir o registro). O
-   volume real do bucket e das tabelas ainda **não foi medido**.
+8. **Volume.** As fotos não ficam na memória (ensaio com pacote de 550 MB:
+   heap de cerca de 22 MB), mas cada tabela ainda é um registro e uma string
+   só. Medido: cerca de **320 mil linhas** de `ponto_eventos` (~1,5 KB cada)
+   é o teto antes do limite de string do V8; perto disso, dividir a tabela em
+   lotes de registros. Com 30 funcionários, isso dá cerca de 10 anos; com
+   300, cerca de 1 ano. O volume real ainda **não foi medido**.
 9. **Fotos restauradas só para pasta local.** Não há caminho de volta para um
    bucket novo nem roteiro para promover o banco restaurado a produção: isso
    define o RTO real e precisa de decisão.
+10. **Bucket num banco novo.** A 016 cria o bucket `ponto-obra` dentro de um
+    bloco que engole erros: depois de restaurar num projeto Supabase,
+    conferir que o bucket existe.
+11. **Versões do Postgres.** A CI ensaia a restauração com origem e destino
+    em Postgres 16; o Supabase pode estar em outra versão (15 ou 17). Ensaio
+    entre versões ainda **não feito**.
 
 ## 8. Evidência de recuperação efetiva (o que conta)
 
 | Evidência | Como | Estado |
 |---|---|---|
-| Restauração confere banco, cadeia e fotos; estados `completa`/`apenas_banco`/`parcial`/`falha` | `scripts/backup-ponto/pacote.test.js` (PGlite, 23 testes): íntegra, sem destino, foto ausente, corrompida, truncada, SHA divergente, falha de escrita, interrompida, nova tentativa, prova faltando ou trocada na origem, pacote adulterado (registro, foto, manifesto, corte), chave errada, destino com esquema, backup anterior ao livro, cadeia quebrada e contador divergente (falha), queda no ajuste das sequências, sequência atrasada, fuso diferente e `numeric` com escala, consistência banco × Storage, `storageSupabase` com bucket falso (paginação, pastas, 404) | **Feito** (sintético) |
+| Restauração confere banco, cadeia e fotos; estados `completa`/`apenas_banco`/`parcial`/`falha` | `scripts/backup-ponto/pacote.test.js` (PGlite, 24 testes): íntegra, sem destino, foto ausente, corrompida, truncada, SHA divergente, falha de escrita, interrompida, nova tentativa, prova faltando ou trocada na origem, pacote adulterado (registro, foto, manifesto, corte), chave errada, destino com esquema, backup anterior ao livro, cadeia quebrada e contador divergente (falha), queda no ajuste das sequências, sequência atrasada, fuso diferente e `numeric` com escala, consistência banco × Storage, `storageSupabase` com bucket falso (paginação, pastas, 404) | **Feito** (sintético) |
 | Fluxo do gate de ponta a ponta (18 passos) | `scripts/gate-integrado.test.js` (PGlite) e `scripts/gate-integrado.pg.test.js` (Postgres real, com as CLIs) | **Feito** (sintético; o Postgres real roda na CI) |
 | Linhas de comando em Postgres real | `scripts/backup-ponto/backup.pg.test.js` (job `rep-p-arp-postgres`) | **Feito na CI** (sintético) |
 | Pacote **real** de produção restaurado num banco descartável com estado `completa` | backup autorizado + restauração em Postgres temporário; guardar log e manifestos | **Pendente: autorização** |
