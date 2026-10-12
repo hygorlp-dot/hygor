@@ -7,6 +7,7 @@ import { ActivityIndicator, KeyboardAvoidingView, StyleSheet, View } from "react
 import { classificarResposta, mensagemDeErro } from "../logica/falhas";
 import { casasDoCodigo } from "../logica/apresentacao";
 import { AMBIENTE, conferirAmbiente, infoDoAparelho, infoDoApp, infoDoServidor } from "../servicos/conexao";
+import regrasDeAmbiente from "../../config/ambiente.js";
 import { rotuloDoServidor } from "../logica/diagnostico";
 import { Botao, COR, CampoCodigo, Corpo, ESPACO, EstadoCentral, Legenda, Mensagem, Tela, Texto, Titulo } from "../ui";
 
@@ -23,12 +24,12 @@ export default function TelaPareamento({ api, aoParear }) {
       // 1) Ambiente do servidor antes de gastar o código. Servidor antigo (sem a
       //    ação) responde 400 sem "ambiente" = produção.
       const amb = await api("ponto-ambiente");
-      if (!amb.ok && (amb.status === 0 || amb.status === -1 || amb.code === "AMBIENTE_NAO_CONFIRMADO")) {
+      const antes = regrasDeAmbiente.decidirAmbienteDoPareamento(amb, AMBIENTE);
+      if (antes.parar) {
         const c = classificarResposta(amb);
         setErro(c.tipo === "sem_rede" ? "Sem internet. O pareamento precisa de conexão; depois disso o app funciona sem internet." : c.mensagem);
         return;
       }
-      const antes = conferirAmbiente(AMBIENTE, amb.ambiente);
       if (!antes.ok) { setErro(antes.mensagem); return; }
       const r = await api("ponto-parear", {
         codigo,

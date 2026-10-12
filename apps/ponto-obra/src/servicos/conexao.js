@@ -46,9 +46,15 @@ export async function lerSessao() {
   if (!bruto) return null;
   try { return JSON.parse(bruto); } catch { return null; }  // sessão corrompida = parear de novo
 }
+// A sessão fica PRESA ao ambiente e ao servidor em que o aparelho foi pareado.
 export async function salvarSessao(sessao) {
-  await SecureStore.setItemAsync(CHAVE_SESSAO, JSON.stringify(sessao));
+  await SecureStore.setItemAsync(CHAVE_SESSAO, JSON.stringify({ ...sessao, ambiente: AMBIENTE, servidor: infoDoServidor().host }));
 }
+// Sessão de outro ambiente/servidor (ex.: APK trocado, URL de outro backend):
+// não se usa - nada é enviado. Sessões antigas (sem os campos) são de produção.
+export const sessaoConfere = sessao => !!sessao
+  && (sessao.ambiente || "producao") === AMBIENTE
+  && (!sessao.servidor || sessao.servidor === infoDoServidor().host);
 export async function apagarSessao() {
   await SecureStore.deleteItemAsync(CHAVE_SESSAO);
 }

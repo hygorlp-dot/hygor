@@ -7,7 +7,7 @@
 //     isolado e recusa o host de produção - sem ela, o build FALHA (nunca cai
 //     na produção em silêncio).
 const { execSync } = require("node:child_process");
-const { resolverServidor } = require("./config/ambiente");
+const { SUFIXO_PACOTE_HOMOLOGACAO, resolverServidor } = require("./config/ambiente");
 
 function commitCurto() {
   const daEas = process.env.EAS_BUILD_GIT_COMMIT_HASH;
@@ -23,8 +23,12 @@ module.exports = ({ config }) => {
   const { ambiente, apiUrl } = resolverServidor({ ambiente: process.env.PONTO_AMBIENTE, urlEnv: process.env.PONTO_API_URL, urlPadrao: config.extra?.apiUrl });
   return {
     ...config,
-    // Homologação ganha nome próprio na tela inicial do Android (não confundir com o oficial).
-    ...(ambiente === "homologacao" ? { name: `${config.name} (HOMOLOGAÇÃO)` } : {}),
+    // Homologação: nome e PACOTE próprios - instala ao lado do oficial, com
+    // SecureStore e banco separados (sessão e batidas nunca se misturam).
+    ...(ambiente === "homologacao" ? {
+      name: `${config.name} (HOMOLOGAÇÃO)`,
+      android: { ...config.android, package: `${config.android.package}${SUFIXO_PACOTE_HOMOLOGACAO}` },
+    } : {}),
     extra: { ...config.extra, apiUrl, ambiente, commit: commitCurto() },
   };
 };
