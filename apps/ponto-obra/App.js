@@ -298,7 +298,7 @@ export default function App() {
   </Tela>;
   else if (fase === "parear") conteudo = <TelaPareamento api={api} aoParear={aoParear} />;
   else if (fase === "encarregado") conteudo = <TelaEncarregado cadastro={cadastro} modelos={modelos} registrar={registrar} api={api} obra={ref.current.sessao?.obra}
-    situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico}
+    situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico} armazem={ref.current.armazem}
     voz={preferencias.voz} alternarVoz={alternarVoz} />;
   else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos}
     cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} voz={preferencias.voz} />;

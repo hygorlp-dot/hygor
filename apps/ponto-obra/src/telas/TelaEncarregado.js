@@ -7,7 +7,7 @@ import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import RelogioConfiavel from "../../modules/relogio-confiavel";
-import { abrirSessaoResponsavel, corpoCadastroBiometria, proximaEsperaPin, verificarPinResponsavel } from "../logica/pin";
+import { abrirSessaoResponsavel, corpoCadastroBiometria, criarTravaPin, textoEsperaPin, verificarPinResponsavel } from "../logica/pin";
 import { vetorDoCadastro } from "../logica/rosto";
 import { PARAMETROS_FACIAIS as P } from "../logica/calibracao";
 import { mensagemDeErro } from "../logica/falhas";
@@ -33,7 +33,7 @@ const CAPTURAS_CADASTRO = P.capturasCadastro;
 export const TERMO_VERSAO = "2026-10";
 export const TERMO_TEXTO = "Autorizo a ARCD a usar a imagem do meu rosto para gerar um código biométrico usado SOMENTE para registrar o meu ponto nas obras da empresa. O código e as fotos ficam protegidos, não são compartilhados com terceiros e serão apagados quando eu deixar a empresa ou se eu pedir. Posso pedir a exclusão a qualquer momento; nesse caso meu ponto passa a ser registrado pelo encarregado.";
 
-export default function TelaEncarregado({ cadastro, modelos, registrar, sincronizarAgora, situacao, fechar, api, obra, diagnostico, voz = true, alternarVoz = () => {} }) {
+export default function TelaEncarregado({ cadastro, modelos, registrar, sincronizarAgora, situacao, fechar, api, obra, diagnostico, armazem, voz = true, alternarVoz = () => {} }) {
   // Sessão do responsável (logica/pin.js abrirSessaoResponsavel): { userId, nome }
   // + o PIN só em memória, para o servidor conferir no cadastro facial.
   const [responsavel, setResponsavel] = useState(null);
@@ -52,7 +52,7 @@ export default function TelaEncarregado({ cadastro, modelos, registrar, sincroni
     return () => clearInterval(t);
   }, [sair]);
 
-  if (!responsavel) return <EntrarComPin responsaveis={cadastro?.responsaveis || []} aoEntrar={entrar} fechar={sair} sincronizarAgora={sincronizarAgora} />;
+  if (!responsavel) return <EntrarComPin responsaveis={cadastro?.responsaveis || []} aoEntrar={entrar} fechar={sair} sincronizarAgora={sincronizarAgora} armazem={armazem} />;
 
   const voltar = () => setTela("menu");
   const abrir = id => {
@@ -86,28 +86,35 @@ export default function TelaEncarregado({ cadastro, modelos, registrar, sincroni
   );
 }
 
-function EntrarComPin({ responsaveis, aoEntrar, fechar, sincronizarAgora }) {
+function EntrarComPin({ responsaveis, aoEntrar, fechar, sincronizarAgora, armazem }) {
   const [escolhido, setEscolhido] = useState(null);
   const [pin, setPin] = useState("");
   const [erro, setErro] = useState("");
-  const [erros, setErros] = useState(0);
-  const [bloqueadoAte, setBloqueadoAte] = useState(0);
+  // Erros seguidos e espera ficam no banco local (logica/pin.js): fechar e
+  // abrir o app não zera a trava.
+  const [trava] = useState(() => criarTravaPin({ armazem }));
   const [conferindo, setConferindo] = useState(false);
   const [buscando, setBuscando] = useState(false);
 
-  const entrar = () => {
-    if (Date.now() < bloqueadoAte) { setErro(`Aguarde ${Math.ceil((bloqueadoAte - Date.now()) / 1000)} s para tentar de novo.`); return; }
+  useEffect(() => {
+    let viva = true;
+    trava.situacao().then(s => { if (viva && s.bloqueado) setErro(`Muitos PINs errados. Aguarde ${textoEsperaPin(s.esperaMs)} para tentar de novo.`); }).catch(() => {});
+    return () => { viva = false; };
+  }, [trava]);
+
+  const entrar = async () => {
+    if (conferindo) return;
     setConferindo(true);
+    const agora = await trava.situacao().catch(() => ({ bloqueado: false }));
+    if (agora.bloqueado) { setConferindo(false); setErro(`Aguarde ${textoEsperaPin(agora.esperaMs)} para tentar de novo.`); return; }
     // PBKDF2 leva cerca de 1 s no aparelho: deixa a tela mostrar o carregando.
-    setTimeout(() => {
+    setTimeout(async () => {
       const ok = verificarPinResponsavel(pin, [escolhido], pbkdf2Hex);
-      setConferindo(false);
-      if (ok) { aoEntrar(abrirSessaoResponsavel(ok, pin)); setPin(""); return; }
-      const n = erros + 1;
-      setErros(n); setPin("");
-      const espera = proximaEsperaPin(n);
-      if (espera) setBloqueadoAte(Date.now() + espera);
-      setErro(espera ? `PIN incorreto. Aguarde ${Math.round(espera / 1000)} s.` : "PIN incorreto.");
+      if (ok) { await trava.acertou().catch(() => {}); setConferindo(false); aoEntrar(abrirSessaoResponsavel(ok, pin)); setPin(""); return; }
+      // Grava a falha ANTES de mostrar o resultado.
+      const { esperaMs } = await trava.falhou().catch(() => ({ esperaMs: 0 }));
+      setConferindo(false); setPin("");
+      setErro(esperaMs ? `PIN incorreto. Aguarde ${textoEsperaPin(esperaMs)}.` : "PIN incorreto.");
     }, 50);
   };
 
