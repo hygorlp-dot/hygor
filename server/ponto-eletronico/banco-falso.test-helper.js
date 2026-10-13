@@ -1,11 +1,13 @@
 // Banco falso em memória com a mesma API encadeada do supabase-js usada em
 // server/ponto-eletronico/handler.js - compartilhado pelos testes do servidor
 // e pelo teste ponta a ponta do app (apps/ponto-obra).
-export function bancoFalso() {
+// agora: relógio (ms) do "banco" - só as RPCs auth_rate_limit_* usam (o now()
+// do Postgres), para os testes do limite de pareamento avançarem a janela.
+export function bancoFalso({ agora = () => Date.now() } = {}) {
   // Tabelas da 017 existem vazias aqui: o fluxo formato 2 (ARP) é testado no
   // Postgres real (banco-pglite.test-helper.js); este banco cobre o legado.
   const tabelas = { ponto_dispositivos: [], ponto_pareamentos: [], ponto_marcacoes: [], ponto_biometrias: [], ponto_responsaveis: [],
-    ponto_estabelecimentos: [], ponto_estabelecimento_obras: [], ponto_eventos: [], ponto_arp_registros: [], ponto_arp_contadores: [], ponto_tempo_verificacoes: [] };
+    ponto_estabelecimentos: [], ponto_estabelecimento_obras: [], ponto_eventos: [], ponto_arp_registros: [], ponto_arp_contadores: [], ponto_tempo_verificacoes: [], auth_rate_limits: [] };
   const arquivos = new Map();
   const consulta = tabela => {
     const filtros = [];
@@ -54,6 +56,7 @@ export function bancoFalso() {
     tabelas, arquivos,
     from: consulta,
     async rpc(nome, p) {
+      if (nome.startsWith("auth_rate_limit_")) return limiteDeTentativas(tabelas.auth_rate_limits, nome, p, agora());
       if (nome !== "ponto_registrar_marcacoes") throw new Error(`rpc inesperada: ${nome}`);
       const d = tabelas.ponto_dispositivos.find(x => x.id === p.p_dispositivo_id);
       let aceitas = 0;
@@ -74,3 +77,25 @@ export function bancoFalso() {
   };
 }
 
+// Mesma regra das RPCs de migrations/20260726_auth_rate_limit.sql e
+// 20260727_auth_rate_limit_success.sql (status / failure / success).
+function limiteDeTentativas(linhas, nome, p, agoraMs) {
+  const i = linhas.findIndex(l => l.company_id === p.p_company_id && l.subject_hash === p.p_subject_hash);
+  const resposta = l => [{ blocked: !!l && l.blocked_until !== null && l.blocked_until > agoraMs,
+    retry_after_seconds: l && l.blocked_until !== null ? Math.max(0, Math.round((l.blocked_until - agoraMs) / 1000)) : 0 }];
+  if (nome === "auth_rate_limit_status") return { data: i >= 0 ? resposta(linhas[i]) : [], error: null };
+  if (nome === "auth_rate_limit_success") { if (i >= 0) linhas.splice(i, 1); return { data: null, error: null }; }
+  if (nome !== "auth_rate_limit_failure") throw new Error(`rpc inesperada: ${nome}`);
+  const limite = p.p_limit ?? 8, janelaMs = (p.p_window_seconds ?? 300) * 1000;
+  if (i < 0) {
+    const nova = { company_id: p.p_company_id, subject_hash: p.p_subject_hash, attempts: 1, window_started_at: agoraMs, blocked_until: null };
+    linhas.push(nova);
+    return { data: resposta(nova), error: null };
+  }
+  const l = linhas[i];
+  const expirou = l.window_started_at < agoraMs - janelaMs;
+  l.attempts = expirou ? 1 : l.attempts + 1;
+  if (expirou) l.window_started_at = agoraMs;
+  if (l.attempts >= limite) l.blocked_until = agoraMs + janelaMs;
+  return { data: resposta(l), error: null };
+}

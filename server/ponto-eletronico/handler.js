@@ -30,6 +30,7 @@ import { caminhoFotoCadastro, caminhoFotoMarcacao } from "./fotos-caminho.js";
 import { POLITICA_PADRAO, criarFonteHora } from "./tempo/fonte-hora.js";
 
 import { NOME_AMBIENTE, criarAmbiente } from "./ambiente.js";
+import { criarLimitePareamento, criarLimitePinResponsavel } from "./limite-pareamento.js";
 export const BUCKET_PONTO = "ponto-obra";
 export const PAPEIS_GESTAO = new Set(["admin", "rh", "engenheiro"]);
 export const PAPEIS_CONSULTA = new Set(["admin", "rh", "engenheiro", "engenheiro_auditor", "financeiro"]);
@@ -147,6 +148,8 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
   });
   const agora = () => fonte.agora();
   const arp = criarArp({ db, company, fonteHora: fonte, hashFn: sha256 });
+  const limitePareamento = criarLimitePareamento({ db, company });
+  const limitePin = criarLimitePinResponsavel({ db, company });
 
   // Estabelecimento do aparelho: o já fixado nele, ou o da obra (vínculo do
   // ARCD). Obra sem vínculo = sem estabelecimento (as batidas esperam no
@@ -492,14 +495,26 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
     // Sem autenticação: só diz o ambiente deste servidor (o app confere ANTES de parear).
     async "ponto-ambiente"({ ambiente }) { return ok({ ambiente }); },
 
-    async "ponto-parear"({ body, ambiente }) {
+    // Sem login: quem acerta um código recebe o cadastro da obra (CPFs,
+    // vetores faciais, hashes de PIN). Por isso há limite de falhas por
+    // origem E um teto global (LIMITE_PAREAMENTO). A tentativa é contada
+    // ANTES de olhar o código - inclusive o certo, senão o bloqueio não
+    // protegeria nada, e contar só depois deixaria passar uma rajada paralela.
+    async "ponto-parear"({ body, headers, ambiente }) {
       const codigo = texto(body.codigo).replace(/\D/g, "");
       if (codigo.length !== 8) return erro(400, "O código tem 8 números.");
+      const limite = await limitePareamento.tentar(headers);
+      if (limite.bloqueado) {
+        const minutos = Math.max(1, Math.ceil(limite.tentarDeNovoEmSegundos / 60));
+        return erro(429, `Muitas tentativas de pareamento com código errado. Por segurança, o pareamento está bloqueado por ${minutos} min. Confira o código no ARCD e tente de novo depois.`,
+          { code: "PAREAMENTO_BLOQUEADO", tentarDeNovoEmSegundos: limite.tentarDeNovoEmSegundos });
+      }
       const { data: par, error } = await db.from("ponto_pareamentos").select("*")
         .eq("company_id", company).eq("codigo_hash", sha256(codigo)).maybeSingle();
       if (error) throw error;
       if (!par || par.usado_em) return erro(400, "Código inválido ou já usado. Gere outro no ARCD.", { code: "CODIGO_INVALIDO" });
       if (new Date(par.expira_em).getTime() < agora().getTime()) return erro(400, "Código expirado. Gere outro no ARCD.", { code: "CODIGO_EXPIRADO" });
+      await limitePareamento.acertou(headers);
       const token = gerarTokenAparelho();
       const id = crypto.randomUUID();
       // Consome o código ANTES de criar o aparelho, com a condição de ainda
@@ -669,7 +684,15 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
         if (body.pinResponsavel === undefined || body.pinResponsavel === null || body.pinResponsavel === "") {
           return erro(403, "Este aplicativo precisa ser atualizado: o cadastro do rosto exige o PIN do responsável conferido no ARCD.", { code: "PIN_RESPONSAVEL_AUSENTE" });
         }
-        if (!pinConfere(body.pinResponsavel, resp)) {
+        // Limite por aparelho, contado ANTES do PBKDF2 (LIMITE_PIN_RESPONSAVEL).
+        const limite = await limitePin.tentar(dispositivo.id);
+        if (limite.bloqueado) {
+          const minutos = Math.max(1, Math.ceil(limite.tentarDeNovoEmSegundos / 60));
+          return erro(429, `Muitas tentativas com PIN do responsável errado neste aparelho. Por segurança, o cadastro do rosto está bloqueado por ${minutos} min.`,
+            { code: "PIN_RESPONSAVEL_BLOQUEADO", tentarDeNovoEmSegundos: limite.tentarDeNovoEmSegundos });
+        }
+        if (pinConfere(body.pinResponsavel, resp)) await limitePin.acertou(dispositivo.id);
+        else {
           return erro(403, "O PIN do responsável não confere com o ARCD (pode ter sido trocado). Em Sincronização toque em \"Sincronizar agora\", saia do modo encarregado e entre de novo com o PIN atual.", { code: "PIN_RESPONSAVEL_INVALIDO" });
         }
       }
