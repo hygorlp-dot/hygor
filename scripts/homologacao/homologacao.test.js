@@ -133,3 +133,57 @@ describe("homologação isolada: provisionar e operar sem tocar na produção", 
     expect(TRABALHADORES.every(t => /Sintético/.test(t.name))).toBe(true);
   });
 });
+
+describe("preparação da Vercel, bucket e Storage da homologação", () => {
+  const jwt = ref => `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify({ role: "service_role", ref })).toString("base64url")}.assinatura`;
+  const REF = "homologref0000000000";
+  const ok = {
+    PONTO_AMBIENTE: "homologacao", SUPABASE_URL: `https://${REF}.supabase.co`, SUPABASE_SERVICE_ROLE_KEY: jwt(REF),
+    POSTGRES_URL_NON_POOLING: `postgres://postgres.${REF}:x@aws-0-sa-east-1.pooler.supabase.com:5432/postgres`, CRON_SECRET: "novo",
+  };
+
+  it("variáveis do projeto Vercel de homologação: completas e do MESMO projeto = sem erro; nada de valor nas mensagens", async () => {
+    const { validarVariaveisDeHomologacao } = await import("./homologacao.mjs");
+    const r = validarVariaveisDeHomologacao(ok);
+    expect(r.erros).toEqual([]);
+    expect(JSON.stringify(r)).not.toContain(REF);
+  });
+
+  it("variáveis: faltando, ambiente errado, segredos da produção copiados, chave e banco de OUTRO projeto = NO-GO", async () => {
+    const { validarVariaveisDeHomologacao } = await import("./homologacao.mjs");
+    const r = validarVariaveisDeHomologacao({ ...ok, PONTO_AMBIENTE: "producao", CRON_SECRET: "", BACKUP_ENCRYPTION_KEY: "x", MICROSOFT_CLIENT_SECRET: "y",
+      SUPABASE_SERVICE_ROLE_KEY: jwt("outroprojeto0000000"), POSTGRES_URL_NON_POOLING: "postgres://postgres.outroprojeto0000000:x@aws-0-sa-east-1.pooler.supabase.com:5432/postgres" });
+    const t = r.erros.join(" | ");
+    for (const esperado of [/CRON_SECRET ausente/, /PONTO_AMBIENTE precisa ser 'homologacao'/, /BACKUP_ENCRYPTION_KEY presente/, /MICROSOFT_CLIENT_SECRET presente/,
+      /SERVICE_ROLE_KEY é de outro projeto/, /POSTGRES_URL_NON_POOLING é de outro projeto/]) expect(t).toMatch(esperado);
+  });
+
+  it("bucket: criado PRIVADO quando falta; público vira privado; sem esquema storage = 'sem_storage'", async () => {
+    const { garantirBucketPrivado, situacaoDoBucket } = await import("./homologacao.mjs");
+    const { pg, db } = await bancoNovo();
+    expect(await situacaoDoBucket(db)).toBe("sem_storage");
+    await pg.exec("create schema storage; create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);");
+    expect(await garantirBucketPrivado(db)).toBe("privado");
+    await pg.exec("update storage.buckets set public = true");
+    expect(await situacaoDoBucket(db)).toBe("PUBLICO");
+    expect(await garantirBucketPrivado(db)).toBe("privado");
+  });
+
+  it("Storage: limpeza apaga as fotos de teste em subpastas; recusa projeto diferente do banco", async () => {
+    const { limparStorageHomologacao, evidenciaDeProjeto } = await import("./homologacao.mjs");
+    const arquivos = new Set(["marcacoes/homolog-obra-1/2026-10-12/a.jpg", "marcacoes/homolog-obra-1/2026-10-12/b.jpg", "biometria/homolog-trab-1/x-1.jpg"]);
+    const storage = { from: () => ({
+      async list(prefixo) {
+        const nivel = prefixo ? `${prefixo}/` : "";
+        const nomes = [...new Set([...arquivos].filter(c => c.startsWith(nivel)).map(c => c.slice(nivel.length).split("/")[0]))];
+        return { data: nomes.map(n => ({ name: n, id: arquivos.has(`${nivel}${n}`) ? n : null })), error: null };
+      },
+      async remove(lista) { for (const c of lista) arquivos.delete(c); return { error: null }; },
+    }) };
+    const identidade = `postgres.${REF}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres`;
+    expect(await limparStorageHomologacao({ storage, supabaseUrl: `https://${REF}.supabase.co`, identidade })).toEqual({ apagados: 3 });
+    expect(arquivos.size).toBe(0);
+    await expect(limparStorageHomologacao({ storage, supabaseUrl: "https://outroprojeto0000000.supabase.co", identidade })).rejects.toThrow(/mesmo projeto/);
+    expect(evidenciaDeProjeto(identidade)).toMatchObject({ reconhecido: true, ehProducao: false, hashPrefixo: expect.stringMatching(/^[0-9a-f]{12}$/) });
+  });
+});

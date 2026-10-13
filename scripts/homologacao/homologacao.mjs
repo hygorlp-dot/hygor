@@ -15,7 +15,7 @@
 // db: adaptador do livro (query, exec, transacao) - scripts/migracoes-ponto/adaptadores.mjs.
 import crypto from "node:crypto";
 import { aplicar, verificarGate } from "../migracoes-ponto/livro.mjs";
-import { projetoSupabase } from "../migracoes-ponto/locais.mjs";
+import { identidadeBanco, projetoSupabase } from "../migracoes-ponto/locais.mjs";
 import { PIN_ITERACOES, hashPin } from "../../server/ponto-eletronico/handler.js";
 import { HASH_REF_PRODUCAO, hashDoRef } from "../../server/ponto-eletronico/ambiente.js";
 
@@ -144,9 +144,33 @@ export async function provisionar(db, { esquemaErp, manifesto, lerArquivo, pinEn
   const livro = await aplicar({ db, manifesto, lerArquivo, origem: ORIGEM_LIVRO });
   await db.transacao(async () => { await db.exec(DDL_MARCADOR); });
   const semente = await semear(db, { pinEncarregado });
+  const bucket = await garantirBucketPrivado(db);
   const gate = await verificarGate(db, { lerArquivo });
   if (gate.resultado !== "GO") throw new Error(`gate depois do provisionamento: ${gate.resultado} (${gate.motivos.join("; ")})`);
-  return { livro: livro.passos.map(p => `${p.acao} ${p.arquivo}`), semente, gate: `${gate.resultado} ${gate.versaoFiscal}` };
+  return { livro: livro.passos.map(p => `${p.acao} ${p.arquivo}`), semente, bucket, gate: `${gate.resultado} ${gate.versaoFiscal}` };
+}
+
+// Bucket PRIVADO das fotos (a 016 tenta criar, mas engole o erro para não
+// derrubar o deploy). Aqui a falta vira erro visível. Banco sem o esquema
+// "storage" (Postgres puro, testes) devolve "sem_storage".
+export const BUCKET = "ponto-obra";
+export async function situacaoDoBucket(db) {
+  const [{ e }] = await db.query("select to_regclass('storage.buckets') is not null as e");
+  if (!e) return "sem_storage";
+  const [b] = await db.query("select public from storage.buckets where id = $1", [BUCKET]);
+  return !b ? "ausente" : b.public ? "PUBLICO" : "privado";
+}
+export async function garantirBucketPrivado(db) {
+  const antes = await situacaoDoBucket(db);
+  if (antes === "sem_storage" || antes === "privado") return antes;
+  if (antes === "ausente") {
+    await db.query("insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values ($1, $1, false, 2097152, array['image/jpeg'])", [BUCKET]);
+  } else {
+    await db.query("update storage.buckets set public = false where id = $1", [BUCKET]);
+  }
+  const depois = await situacaoDoBucket(db);
+  if (depois !== "privado") throw new Error(`bucket ${BUCKET} não ficou privado (${depois})`);
+  return depois;
 }
 
 export async function gerarCodigoPareamento(db, { obraId = OBRAS[0].id, nome = "Aparelho de homologação", agoraMs = Date.now() } = {}) {
@@ -164,7 +188,7 @@ export async function conferir(db, { lerArquivo }) {
   for (const t of ["ponto_dispositivos", "ponto_eventos", "ponto_arp_registros", "ponto_biometrias"]) contagem[t] = (await existe(db, t)) ? (await db.query(`select count(*)::int as n from public.${t}`))[0].n : null;
   const erp = await dadosDoErp(db);
   return {
-    marcador: await marcadorDoBanco(db), comentario: await comentarioDoBanco(db), gate: `${gate.resultado} ${gate.versaoFiscal || "-"}`,
+    marcador: await marcadorDoBanco(db), comentario: await comentarioDoBanco(db), gate: `${gate.resultado} ${gate.versaoFiscal || "-"}`, bucket: await situacaoDoBucket(db),
     dadosSinteticos: ehSintetico(erp), trabalhadores: Array.isArray(erp?.employees) ? erp.employees.length : 0, contagem,
   };
 }
@@ -191,4 +215,84 @@ begin
 end $$;`);
     await db.query("update public.company_app_data set value = '{}'::jsonb, updated_at = now() where company_id = $1 and key = $2", [COMPANY, CHAVE_DADOS]);
   });
+}
+
+// ---------------------------------------------------------------- identidade, variáveis e Storage
+// Evidência de que o projeto de homologação NÃO é o de produção, sem expor o
+// ref: compara o hash do ref com o de produção e mostra só um prefixo do hash.
+export function evidenciaDeProjeto(identidade) {
+  const ref = projetoSupabase(identidade);
+  if (!ref) return { reconhecido: false, ehProducao: false, hashPrefixo: null };
+  const h = hashDoRef(ref);
+  return { reconhecido: true, ehProducao: h === HASH_REF_PRODUCAO, hashPrefixo: h.slice(0, 12) };
+}
+
+const refDaChave = chave => {
+  const partes = String(chave || "").split(".");
+  if (partes.length !== 3) return null;                    // chave nova (sb_secret_...) não traz o ref
+  try { return JSON.parse(Buffer.from(partes[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")).ref || null; } catch { return null; }
+};
+const refDaUrl = url => { try { return new URL(url).hostname.split(".")[0].toLowerCase(); } catch { return null; } };
+
+// Variáveis que NÃO podem ir para o projeto Vercel de homologação (vêm da
+// produção e não servem à homologação: backup, OneDrive, IA, chaves).
+export const PROIBIDAS_NA_HOMOLOGACAO = ["BACKUP_ENCRYPTION_KEY", "PONTO_BACKUP_KEY", "MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET", "MICROSOFT_REDIRECT_URI",
+  "ONEDRIVE_ROOT_FOLDER_URL", "GEMINI_API_KEY", "AI_ENCRYPTION_KEY"];
+export const OBRIGATORIAS_NA_HOMOLOGACAO = ["PONTO_AMBIENTE", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "POSTGRES_URL_NON_POOLING", "CRON_SECRET"];
+
+// vars: objeto { NOME: valor } (arquivo .env do projeto Vercel de homologação).
+// Devolve { erros, avisos } SEM nenhum valor nas mensagens.
+export function validarVariaveisDeHomologacao(vars, { identidadeDoBanco } = {}) {
+  const erros = [], avisos = [];
+  for (const n of OBRIGATORIAS_NA_HOMOLOGACAO) if (!String(vars[n] ?? "").trim()) erros.push(`${n} ausente`);
+  if (vars.PONTO_AMBIENTE && vars.PONTO_AMBIENTE !== "homologacao") erros.push("PONTO_AMBIENTE precisa ser 'homologacao'");
+  for (const n of PROIBIDAS_NA_HOMOLOGACAO) if (String(vars[n] ?? "").trim()) erros.push(`${n} presente: não copiar da produção (a homologação não usa)`);
+  const refUrl = refDaUrl(vars.SUPABASE_URL);
+  if (vars.SUPABASE_URL && !refUrl) erros.push("SUPABASE_URL inválida");
+  if (refUrl && hashDoRef(refUrl) === HASH_REF_PRODUCAO) erros.push("SUPABASE_URL é do projeto de PRODUÇÃO");
+  const refChave = refDaChave(vars.SUPABASE_SERVICE_ROLE_KEY);
+  if (vars.SUPABASE_SERVICE_ROLE_KEY && !refChave) avisos.push("SUPABASE_SERVICE_ROLE_KEY sem ref legível (chave nova): confira no painel que é do projeto de homologação");
+  if (refChave && hashDoRef(refChave) === HASH_REF_PRODUCAO) erros.push("SUPABASE_SERVICE_ROLE_KEY é do projeto de PRODUÇÃO");
+  if (refChave && refUrl && refChave.toLowerCase() !== refUrl) erros.push("SUPABASE_SERVICE_ROLE_KEY é de outro projeto que não o da SUPABASE_URL");
+  if (vars.POSTGRES_URL_NON_POOLING) {
+    let ident = null;
+    try { ident = identidadeBanco(vars.POSTGRES_URL_NON_POOLING); } catch { erros.push("POSTGRES_URL_NON_POOLING inválida"); }
+    const refPg = ident ? projetoSupabase(ident) : null;
+    if (refPg && hashDoRef(refPg) === HASH_REF_PRODUCAO) erros.push("POSTGRES_URL_NON_POOLING é do projeto de PRODUÇÃO");
+    if (refPg && refUrl && refPg.toLowerCase() !== refUrl) erros.push("POSTGRES_URL_NON_POOLING é de outro projeto que não o da SUPABASE_URL");
+    if (ident && !refPg) avisos.push("POSTGRES_URL_NON_POOLING não é de um projeto Supabase reconhecível: confira o isolamento à mão");
+    if (ident && identidadeDoBanco && ident !== identidadeDoBanco) avisos.push("POSTGRES_URL_NON_POOLING difere do banco provisionado (PONTO_HOMOLOGACAO_DB_URL)");
+  }
+  if (vars.CRON_SECRET) avisos.push("CRON_SECRET: use um valor NOVO, nunca o da produção");
+  return { erros, avisos };
+}
+
+// Limpeza do Storage da homologação (fotos de TESTE) no reset. Só com URL de
+// projeto que não é o de produção E que é o mesmo projeto do banco marcado.
+// storage: cliente com a API do supabase-js (storage.from(bucket)).
+export async function limparStorageHomologacao({ storage, supabaseUrl, identidade }) {
+  const ref = refDaUrl(supabaseUrl);
+  if (!ref) throw new Error("URL do Supabase de homologação inválida");
+  if (hashDoRef(ref) === HASH_REF_PRODUCAO) throw new Error("limpeza recusada: é o projeto Supabase de PRODUÇÃO");
+  const doBanco = projetoSupabase(identidade);
+  if (!doBanco || doBanco.toLowerCase() !== ref) throw new Error("limpeza recusada: o Storage não é do mesmo projeto do banco de homologação");
+  const bucket = storage.from(BUCKET);
+  let apagados = 0;
+  const pastas = [""];
+  const arquivos = [];
+  while (pastas.length) {
+    const prefixo = pastas.pop();
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await bucket.list(prefixo, { limit: 1000, offset });
+      if (error) throw new Error(`listar o Storage: ${error.message}`);
+      for (const it of data || []) (it.id ? arquivos : pastas).push(prefixo ? `${prefixo}/${it.name}` : it.name);
+      if ((data || []).length < 1000) break;
+    }
+  }
+  for (let i = 0; i < arquivos.length; i += 100) {
+    const { error } = await bucket.remove(arquivos.slice(i, i + 100));
+    if (error) throw new Error(`apagar do Storage: ${error.message}`);
+    apagados += Math.min(100, arquivos.length - i);
+  }
+  return { apagados };
 }
