@@ -1,13 +1,13 @@
 // Modo encarregado: responsável da obra (PIN do app definido no ARCD).
 // Tudo o que é feito aqui fica registrado com o id do responsável.
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import RelogioConfiavel from "../../modules/relogio-confiavel";
-import { proximaEsperaPin, verificarPinResponsavel } from "../logica/pin";
+import { abrirSessaoResponsavel, corpoCadastroBiometria, proximaEsperaPin, verificarPinResponsavel } from "../logica/pin";
 import { vetorDoCadastro } from "../logica/rosto";
 import { PARAMETROS_FACIAIS as P } from "../logica/calibracao";
 import { mensagemDeErro } from "../logica/falhas";
@@ -34,17 +34,25 @@ export const TERMO_VERSAO = "2026-10";
 export const TERMO_TEXTO = "Autorizo a ARCD a usar a imagem do meu rosto para gerar um código biométrico usado SOMENTE para registrar o meu ponto nas obras da empresa. O código e as fotos ficam protegidos, não são compartilhados com terceiros e serão apagados quando eu deixar a empresa ou se eu pedir. Posso pedir a exclusão a qualquer momento; nesse caso meu ponto passa a ser registrado pelo encarregado.";
 
 export default function TelaEncarregado({ cadastro, modelos, registrar, sincronizarAgora, situacao, fechar, api, obra, diagnostico, voz = true, alternarVoz = () => {} }) {
-  const [responsavel, setResponsavel] = useState(null);   // { userId, nome } depois do PIN
+  // Sessão do responsável (logica/pin.js abrirSessaoResponsavel): { userId, nome }
+  // + o PIN só em memória, para o servidor conferir no cadastro facial.
+  const [responsavel, setResponsavel] = useState(null);
+  const sessao = useRef(null);
   const [tela, setTela] = useState("menu");
   const [fixar, setFixar] = useState("");
   const ultimoToque = useRef(Date.now());
   const tocar = () => { ultimoToque.current = Date.now(); };
+  const entrar = nova => { sessao.current?.descartar(); sessao.current = nova; setResponsavel(nova); };
+  // Sair (botão ou inatividade) descarta o PIN antes de fechar; a desmontagem
+  // também descarta, para qualquer outro caminho que tire a tela.
+  const sair = useCallback(() => { sessao.current?.descartar(); fechar(); }, [fechar]);
+  useEffect(() => () => sessao.current?.descartar(), []);
   useEffect(() => {
-    const t = setInterval(() => { if (Date.now() - ultimoToque.current > INATIVIDADE_MS) fechar(); }, 15_000);
+    const t = setInterval(() => { if (Date.now() - ultimoToque.current > INATIVIDADE_MS) sair(); }, 15_000);
     return () => clearInterval(t);
-  }, [fechar]);
+  }, [sair]);
 
-  if (!responsavel) return <EntrarComPin responsaveis={cadastro?.responsaveis || []} aoEntrar={setResponsavel} fechar={fechar} sincronizarAgora={sincronizarAgora} />;
+  if (!responsavel) return <EntrarComPin responsaveis={cadastro?.responsaveis || []} aoEntrar={entrar} fechar={sair} sincronizarAgora={sincronizarAgora} />;
 
   const voltar = () => setTela("menu");
   const abrir = id => {
@@ -66,7 +74,7 @@ export default function TelaEncarregado({ cadastro, modelos, registrar, sincroni
             {secao.linhas.map(l => <LinhaAjuste key={l.id} rotulo={l.rotulo} valor={l.valor} tom={l.tom} chevron={!l.acao} onPress={() => abrir(l.id)} />)}
           </Secao>)}
           {!!fixar && <Mensagem tom="info">{fixar}</Mensagem>}
-          <BotaoTexto titulo="Sair do modo encarregado" onPress={fechar} />
+          <BotaoTexto titulo="Sair do modo encarregado" onPress={sair} />
         </ScrollView>
       </Tela>}
       {tela === "cadastro" && <CadastroFacial cadastro={cadastro} modelos={modelos} api={api} responsavel={responsavel} aoTerminar={async () => { await sincronizarAgora(); voltar(); }} voltar={voltar} />}
@@ -94,7 +102,7 @@ function EntrarComPin({ responsaveis, aoEntrar, fechar, sincronizarAgora }) {
     setTimeout(() => {
       const ok = verificarPinResponsavel(pin, [escolhido], pbkdf2Hex);
       setConferindo(false);
-      if (ok) { aoEntrar(ok); return; }
+      if (ok) { aoEntrar(abrirSessaoResponsavel(ok, pin)); setPin(""); return; }
       const n = erros + 1;
       setErros(n); setPin("");
       const espera = proximaEsperaPin(n);
@@ -234,10 +242,12 @@ function CadastroFacial({ cadastro, modelos, api, responsavel, aoTerminar, volta
     let r;
     try {
       const textoSha256 = bytesToHex(sha256(new TextEncoder().encode(TERMO_TEXTO)));
-      r = await api("ponto-cadastrar-biometria", {
+      // responsavelId + pinResponsavel (o servidor confere o PIN quando
+      // PONTO_EXIGIR_PIN_NO_SERVIDOR=1).
+      r = await api("ponto-cadastrar-biometria", corpoCadastroBiometria(responsavel, {
         employeeId: pessoa.id, modelo: modelos.modelo, vetor: vetorDoCadastro(capturas), fotos: fotoBase64 ? [fotoBase64] : [],
-        consentimento: { termoVersao: TERMO_VERSAO, aceitoEm, textoSha256 }, responsavelId: responsavel.userId,
-      });
+        consentimento: { termoVersao: TERMO_VERSAO, aceitoEm, textoSha256 },
+      }));
     } catch (e) {
       setMensagem({ tom: "erro", texto: mensagemDeErro("cadastro", e) }); return;
     } finally { setOcupado(false); }

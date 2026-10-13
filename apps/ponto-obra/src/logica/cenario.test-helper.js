@@ -27,13 +27,14 @@ export const DADOS_BASE = () => ({
 });
 
 // Servidor (tratador + Postgres) compartilhado por vários aparelhos.
-export async function criarServidor({ dados = DADOS_BASE(), estabelecimento = true, comResponsavel = true } = {}) {
+export async function criarServidor({ dados = DADOS_BASE(), estabelecimento = true, comResponsavel = true, exigirPinNoServidor = false } = {}) {
   const s = { dados, relogioServidor: Date.parse("2026-10-01T10:00:00.000Z"), pg: await novoPglite() };
   s.db = camadaSupabase(s.pg);
   s.tratar = criarTratadorPonto({
     db: s.db, company: EMPRESA, lerDados: async () => s.dados, agora: () => new Date(s.relogioServidor),
     // accessToken "admin" ou o id de qualquer usuário ativo do cadastro.
     autenticarUsuario: async b => (b.accessToken === "admin" ? s.dados.usuarios[0] : s.dados.usuarios.find(u => u.id === b.accessToken && u.active !== false) || null),
+    exigirPinNoServidor,
   });
   s.admin = (action, body = {}) => s.tratar({ action, body: { accessToken: "admin", ...body } });
   s.sql = async (texto, p = []) => (await s.pg.query(texto, p)).rows;
