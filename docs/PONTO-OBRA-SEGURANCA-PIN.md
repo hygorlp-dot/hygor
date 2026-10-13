@@ -53,6 +53,62 @@ PIN offline serve ao modo Encarregado. Opções, da menor à maior mudança:
 
 Recomendação técnica: 1 + 2 + 3 juntos, mantendo a conferência offline.
 Nenhuma delas foi aplicada (mudança funcional exige autorização).
+A seção 5 refina esta recomendação com uma quinta opção, que elimina a
+exposição remota sem perder o modo offline.
+
+## 5. Decisão técnica proposta (13/10/2026) — para a direção decidir
+
+**O que cada medida faz de verdade.** Nenhum número de iterações ou
+tamanho de PIN *elimina* um verificador offline: quem tem o verificador
+testa todos os PINs fora do alcance de qualquer limite. As medidas se
+dividem assim:
+
+| Medida | Classe | Efeito sobre P1 (quebra offline) | Custo operacional |
+|---|---|---|---|
+| PIN de 6–8 dígitos | **aumenta o custo** | 10⁶–10⁸ candidatos × PBKDF2 60 000: de segundos para horas/dias com hardware dedicado; não impede | pequeno: ARCD recusa PIN curto novo |
+| Mais iterações do PBKDF2 | **aumenta o custo** (linear) | idem; deixa a entrada no aparelho mais lenta (~1 s hoje) | pequeno, mas piora o aparelho de entrada |
+| Rotação do PIN após revogação | **reduz a janela** | PIN vazado de aparelho revogado deixa de valer | ARCD orienta a troca ao revogar |
+| Relatório de batidas "pelo encarregado" | **detecta** | não impede; torna o abuso visível (P5) | só ARCD |
+| **Verificador vinculado ao aparelho** (abaixo) | **elimina a exposição REMOTA** | o token deixa de dar acesso ao verificador; resta só quem tem o aparelho desbloqueado com root | 1ª entrada de cada encarregado em cada aparelho (e após troca de PIN) precisa de internet |
+| Conferência só online | **elimina** | elimina P1 por completo | modo Encarregado sem internet deixa de existir — **não recomendado** |
+
+**Verificador vinculado ao aparelho (proposta nova, não implementada).**
+O servidor deixa de mandar `pinHash`/`pinSalt` na sincronização. Na primeira
+entrada de um encarregado num aparelho (online), o app manda o PIN ao
+servidor, que o confere com o limite já existente (5 por aparelho em 15 min).
+Aceito, o aparelho guarda um verificador próprio, derivado do PIN com uma
+chave aleatória do aparelho protegida pelo Keystore do Android (via
+SecureStore), junto da "versão do PIN" informada pelo servidor. Daí em
+diante a entrada funciona **offline**, como hoje. Trocar o PIN no ARCD muda a
+versão e exige uma nova entrada online. Efeitos:
+- quem só tem o **token** (sincronização) não obtém mais nada para atacar;
+- quem tem o **aparelho** com root ainda pode extrair a chave e testar
+  PINs (combinar com PIN de 6+ dígitos);
+- a batida offline e o modo Encarregado offline continuam, exceto a
+  primeira entrada de cada encarregado em cada aparelho.
+
+**Bloqueio global do pareamento (negação de serviço).**
+
+| Mitigação | Classe | Efeito |
+|---|---|---|
+| Subir o teto (ex.: 100–300/15 min) | **aumenta o custo** do bloqueio | o atacante só precisa de mais requisições; o risco continua |
+| **Código de 12 dígitos** (ou QR com segredo longo) **e retirar o teto global**, mantendo o limite por origem | **elimina** o bloqueio global | força bruta distribuída fica inviável: 10 000 IPs × 5 tentativas a cada 15 min, durante os 30 min de validade = 10⁵ palpites contra 10¹² códigos (≈ 1 em 10 milhões) |
+| Pareamento só com sessão do responsável (QR gerado no ARCD logado) | **elimina** a exposição pública do endpoint | mudança de fluxo maior |
+
+**Proposta de decisão, em ordem:**
+1. **Homologação:** nada muda. Os dados são só sintéticos; com
+   `PONTO_EXIGIR_PIN_NO_SERVIDOR=1`, servem para medir o fluxo atual.
+2. **Antes do piloto em produção:**
+   - verificador vinculado ao aparelho;
+   - rotação do PIN após revogação;
+   - relatório das batidas "pelo encarregado";
+   - código de pareamento de 12 dígitos sem teto global;
+   - PIN de 6+ dígitos para PINs novos.
+3. Cada item é mudança funcional: exige autorização e PR própria com testes.
+   Nada foi implementado.
+
+Este documento **registra** os riscos e propõe a decisão. Nenhum risco
+está aceito pela direção.
 
 ## 4. Limites de tentativas: onde falham abertos ou fechados
 

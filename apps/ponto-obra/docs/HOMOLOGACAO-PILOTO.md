@@ -39,6 +39,8 @@ Para cada cenário: data, quem executou, aparelho, versão/commit, resultado
 rosto de terceiros; captura do Diagnóstico) e, se reprovado, o defeito aberto.
 Nunca fotografar CPF completo, PIN ou token.
 
+Planilha pronta para o executor: `apps/ponto-obra/docs/homologacao-registro.csv` (uma linha por cenário, 18 + H1–H6, com aparelho, Android, build EAS, versionCode, commit e SHA-256 do APK, resultado, evidência e issue).
+
 ## Cenários
 
 | # | Cenário | Passos | Resultado esperado | Cobertura automática (só lógica) | Ensaio em emulador | Resultado |

@@ -114,11 +114,11 @@ Qualquer divergência = **NO-GO** (não parear).
    ```bash
    eas env:create --environment preview --name PONTO_API_URL --value https://<homologacao>/api/data --visibility plaintext
    ```
-2. **Commit do candidato (RC):** o HEAD da branch `integ/ponto-hardening-piloto`
+2. **Commit do candidato (RC):** a tag `ponto-homologacao-rc1` (`53a7272`), da branch `integ/ponto-hardening-piloto`
    com os 5 jobs da CI verdes (#73 + #74 + #76 + #75 integradas). O EAS exige
    árvore limpa (`requireCommit`) e embute o commit no APK. Anotar o hash.
    ```bash
-   git switch integ/ponto-hardening-piloto && git pull --ff-only && git status --short
+   git fetch --tags && git switch --detach ponto-homologacao-rc1 && git status --short
    cd apps/ponto-obra
    ```
 3. **Assinatura:** o pacote `br.com.arcd.pontoobra.homologacao` é novo para o

@@ -43,7 +43,7 @@ depois da implantação.
 | 10 | Conformidade REP-P formal (Fases 02/03: AFD, comprovante, espelho, ICP-Brasil, INPI, AEJ, folha) | **NÃO INICIADO** (parte Android do comprovante na tela em desenvolvimento) | — | 0 | requisitos fiscais, jurídicos e formais | fase 9 | parecer formal; nenhuma conformidade é declarada antes |
 
 Branch de integração `integ/ponto-hardening-piloto` (#73 + #76 com #74 +
-#75): HEAD e CI na PR de integração. É dela que sai o APK candidato (§4.5).
+#75): RC1 congelado na tag `ponto-homologacao-rc1` → `53a7272` (CI 5/5). Os APKs saem da tag (§4.5). Autorização: `docs/PONTO-OBRA-AUTORIZACAO-HOMOLOGACAO.md`; merge: `docs/PONTO-OBRA-PLANO-MERGE.md`.
 
 ## Matriz requisito → implementação → teste → evidência → risco → estado
 
