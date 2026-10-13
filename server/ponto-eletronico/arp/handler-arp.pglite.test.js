@@ -78,6 +78,23 @@ describe("estabelecimento fiscal no ARCD", () => {
   });
 });
 
+// Só com a 019 no banco (PONTO_MIGRACOES_ATE=019, passo da CI migration-contracts).
+describe.runIf((process.env.PONTO_MIGRACOES_ATE || "018") >= "019")("estabelecimento com a migration 019", () => {
+  it("depois do NSR: preencher o CNPJ vazio funciona uma vez; trocar devolve 409 com o motivo, sem mudar nada", async () => {
+    const { json: { estabelecimento: e } } = await como("admin", "ponto-estabelecimento-salvar", { estabelecimento: { nome: "E" } });
+    await como("admin", "ponto-estabelecimento-vincular-obra", { obraId: "obra-a", estabelecimentoId: e.id });
+    const d = await parear("obra-a");
+    expect((await d.api("ponto-enviar-marcacoes", { eventos: [await eventoDe(d, 1)] })).json.resultados[0]).toMatchObject({ status: "registrado", nsr: 1 });
+    const preenchido = await como("rh", "ponto-estabelecimento-salvar", { estabelecimento: { id: e.id, nome: "E", tipoInscricao: "cnpj", numeroInscricao: "11.222.333/0001-81" } });
+    expect(preenchido.status).toBe(200);
+    const trocado = await como("rh", "ponto-estabelecimento-salvar", { estabelecimento: { id: e.id, nome: "E", tipoInscricao: "cnpj", numeroInscricao: "11.444.777/0001-61" } });
+    expect(trocado.status).toBe(409);
+    expect(trocado.json.error).toMatch(/não muda depois de emitido NSR/);
+    const lista = await como("eng", "ponto-estabelecimentos");
+    expect(lista.json.estabelecimentos.find(x => x.id === e.id)).toMatchObject({ numeroInscricao: "11222333000181", ultimoNsr: 1 });
+  });
+});
+
 describe("consulta e foto", () => {
   it("ponto-marcacoes junta formato 2 (com NSR fiscal) e legado (sem NSR, só sequência local)", async () => {
     const { json: { estabelecimento: e } } = await como("admin", "ponto-estabelecimento-salvar", { estabelecimento: { nome: "E" } });

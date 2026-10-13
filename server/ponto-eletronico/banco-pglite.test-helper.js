@@ -1,4 +1,4 @@
-// Postgres REAL em memória (PGlite) com as migrations 016 + 017 + 018 aplicadas e
+// Postgres REAL em memória (PGlite) com as migrations 016 + 017 + 018 (e a 019 sob pedido) aplicadas e
 // uma camada com o mesmo jeito do supabase-js que o servidor usa
 // (from().select().eq()... / rpc / storage). Os testes ponta a ponta do app e
 // da ARP rodam o SQL de verdade - função ponto_arp_registrar, travas,
@@ -20,21 +20,29 @@ export const PAPEIS_SUPABASE = `do $$ begin
   if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role; end if;
 end $$;`;
 
-let base = null;
-async function montarBase() {
+// Migrations aplicadas na ordem. A 019 (preliminar, ainda fora de
+// scripts/apply-ponto-eletronico.mjs) só entra com ate: "019" ou
+// PONTO_MIGRACOES_ATE=019 - assim a suíte inteira do ponto roda nos dois
+// estados do banco (produção atual e produção com a 019).
+export const MIGRACOES_PONTO = [
+  ["016", "016_create_ponto_eletronico.up.sql"],
+  ["017", "017_ponto_arp_estabelecimento_nsr.up.sql"],
+  ["018", "018_ponto_apropriacoes.up.sql"],
+  ["019", "019_ponto_integridade_fiscal.up.sql"],
+];
+const bases = new Map();
+async function montarBase(ate) {
   const db = new PGlite({ extensions: { pgcrypto } });
   await db.exec(PAPEIS_SUPABASE);
-  await db.exec(lerMigration("016_create_ponto_eletronico.up.sql"));
-  await db.exec(lerMigration("017_ponto_arp_estabelecimento_nsr.up.sql"));
-  await db.exec(lerMigration("018_ponto_apropriacoes.up.sql"));
+  for (const [n, arquivo] of MIGRACOES_PONTO) if (n <= ate) await db.exec(lerMigration(arquivo));
   const dump = await db.dumpDataDir();
   await db.close();
   return dump;
 }
 
-export async function novoPglite() {
-  base ??= montarBase();
-  return new PGlite({ loadDataDir: await base, extensions: { pgcrypto } });
+export async function novoPglite({ ate = process.env.PONTO_MIGRACOES_ATE || "018" } = {}) {
+  if (!bases.has(ate)) bases.set(ate, montarBase(ate));
+  return new PGlite({ loadDataDir: await bases.get(ate), extensions: { pgcrypto } });
 }
 
 // Valor JS -> parâmetro SQL (objeto/array vira jsonb, como o PostgREST faz).
