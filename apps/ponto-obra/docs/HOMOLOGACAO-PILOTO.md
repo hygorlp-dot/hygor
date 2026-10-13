@@ -30,6 +30,7 @@ permanente. Ficam preservados como histórico, com esta identificação, e
 | Aparelho Android 10+ dedicado, sem dados pessoais de terceiros | modelo e versão do Android anotados |
 | Pessoas de teste com consentimento LGPD específico para o cadastro facial de homologação (nada da biometria de produção) | termo assinado (fora do repositório) |
 | Encarregado de homologação com PIN (semente do provisionamento) | PIN entregue fora do repositório |
+| Backend de homologação com `PONTO_EXIGIR_PIN_NO_SERVIDOR=1` (variável de ambiente do deploy isolado): o cadastro facial só é aceito com o PIN do responsável conferido no servidor. Padrão desligado só para não quebrar apps antigos de produção; na homologação fica **LIGADO** | modo Encarregado → Cadastrar rosto com o PIN atual = salvo; sem o app novo (sem PIN) o servidor responde 403 `PIN_RESPONSAVEL_AUSENTE` |
 
 ## Como registrar
 

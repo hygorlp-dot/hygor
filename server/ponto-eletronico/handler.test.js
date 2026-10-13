@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { criarTratadorPonto, ehAcaoPonto, hashPin, limparAparelho } from "./handler.js";
+import { criarTratadorPonto, ehAcaoPonto, hashPin, limparAparelho, pinConfere } from "./handler.js";
 import { bancoFalso } from "./banco-falso.test-helper.js";
 import { HASH_INICIAL, calcularHashMarcacao } from "../../src/domains/ponto-eletronico/marcacao.js";
 
@@ -155,6 +157,97 @@ describe("ponto eletrônico - servidor", () => {
     expect(status.json.biometrias).toEqual(expect.arrayContaining([expect.objectContaining({ employeeId: "e1", cadastradoPor: "u-enc" }), expect.objectContaining({ employeeId: "e2" })]));
     await tratar({ action: "ponto-biometria-excluir", body: { accessToken: "ok", employeeId: "e1" } });
     expect(db.tabelas.ponto_biometrias.map(b => b.employee_id)).toEqual(["e2"]);
+  });
+});
+
+describe("PIN do responsável conferido no servidor (PONTO_EXIGIR_PIN_NO_SERVIDOR)", () => {
+  const PIN = "90817263";   // sintético; dígitos que não aparecem por acaso em hash/uuid
+  const consentimento = { termoVersao: "2026-10", aceitoEm: "2026-10-01T09:59:00.000Z" };
+  const corpo = extra => ({ employeeId: "e1", modelo: "mobilefacenet-v1", vetor: Array.from({ length: 128 }, (_, i) => i / 128),
+    fotos: [JPEG.toString("base64")], responsavelId: "u-enc", consentimento, ...extra });
+  const montar = exigirPinNoServidor => criarTratadorPonto({
+    db, company: "arcd", lerDados: async () => DADOS, agora: () => new Date("2026-10-01T10:00:00.000Z"),
+    autenticarUsuario: async body => (body.accessToken === "ok" ? sessao : null), exigirPinNoServidor,
+  });
+  const preparar = async exigir => {
+    tratar = montar(exigir);
+    const p = await parear();
+    await tratar({ action: "ponto-responsavel-pin", body: { accessToken: "ok", userId: "u-enc", pin: PIN, obras: ["obra-a"] } });
+    return { authorization: `Bearer ${p.token}` };
+  };
+  const nadaGravado = () => {
+    expect(db.tabelas.ponto_biometrias).toEqual([]);
+    expect([...db.arquivos.keys()].filter(k => k.startsWith("biometria/"))).toEqual([]);
+  };
+
+  it("flag ligado: sem PIN = 403 PIN_RESPONSAVEL_AUSENTE, sem gravar foto nem biometria", async () => {
+    const auth = await preparar(true);
+    for (const pinResponsavel of [undefined, null, ""]) {
+      const r = await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: corpo({ pinResponsavel }) });
+      expect(r.status).toBe(403);
+      expect(r.json.code).toBe("PIN_RESPONSAVEL_AUSENTE");
+    }
+    nadaGravado();
+  });
+
+  it("flag ligado: PIN errado ou malformado = 403 PIN_RESPONSAVEL_INVALIDO, sem gravar nada", async () => {
+    const auth = await preparar(true);
+    for (const pinResponsavel of ["90817264", "1234", "abc", "9".repeat(50), 90817264, { pin: PIN }, [PIN]]) {
+      const r = await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: corpo({ pinResponsavel }) });
+      expect(r.status).toBe(403);
+      expect(r.json.code).toBe("PIN_RESPONSAVEL_INVALIDO");
+      expect(JSON.stringify(r.json)).not.toContain(PIN);
+    }
+    nadaGravado();
+  });
+
+  it("flag ligado: o PIN é o do responsável indicado - o PIN de OUTRO responsável não serve", async () => {
+    const auth = await preparar(true);
+    await tratar({ action: "ponto-responsavel-pin", body: { accessToken: "ok", userId: "u-admin", pin: "55667788", obras: [] } });
+    const r = await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: corpo({ responsavelId: "u-enc", pinResponsavel: "55667788" }) });
+    expect(r.json.code).toBe("PIN_RESPONSAVEL_INVALIDO");
+    nadaGravado();
+  });
+
+  it("flag ligado: responsável sem acesso à obra continua 403 mesmo com o PIN certo", async () => {
+    const auth = await preparar(true);
+    await tratar({ action: "ponto-responsavel-pin", body: { accessToken: "ok", userId: "u-enc", pin: PIN, obras: ["obra-b"] } });
+    const r = await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: corpo({ pinResponsavel: PIN }) });
+    expect(r.status).toBe(403);
+    expect(r.json.error).toMatch(/sem permissão nesta obra/);
+    nadaGravado();
+  });
+
+  it("flag ligado: PIN certo = 200 e o PIN não fica gravado em lugar nenhum", async () => {
+    const auth = await preparar(true);
+    const r = await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: corpo({ pinResponsavel: PIN }) });
+    expect(r.status).toBe(200);
+    expect(db.tabelas.ponto_biometrias).toHaveLength(1);
+    expect(db.tabelas.ponto_biometrias[0].cadastrado_por).toBe("u-enc");
+    expect(JSON.stringify(db.tabelas)).not.toContain(PIN);
+    expect(JSON.stringify(r.json)).not.toContain(PIN);
+  });
+
+  it("flag desligado (padrão): igual a hoje - cadastra sem PIN e ignora o PIN enviado", async () => {
+    const auth = await preparar(undefined);
+    expect((await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: corpo() })).status).toBe(200);
+    expect((await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: corpo({ pinResponsavel: "00000000" }) })).status).toBe(200);
+    expect(db.tabelas.ponto_biometrias).toHaveLength(2);
+  });
+
+  it("pinConfere: aceita só 4-8 dígitos, não lança com hash de tamanho diferente e usa as iterações padrão sem a coluna", () => {
+    const linha = { pin_hash: hashPin(PIN, "sal"), pin_salt: "sal", pin_iteracoes: null };
+    expect(pinConfere(PIN, linha)).toBe(true);
+    expect(pinConfere("90817264", linha)).toBe(false);
+    expect(pinConfere(PIN, { ...linha, pin_hash: "abc" })).toBe(false);
+    expect(pinConfere(PIN, { ...linha, pin_hash: null })).toBe(false);
+    expect(pinConfere(PIN, null)).toBe(false);
+  });
+
+  it("o handler compara com crypto.timingSafeEqual e não registra o PIN em log", () => {
+    const fonte = readFileSync(path.join(__dirname, "handler.js"), "utf8");
+    expect(fonte).toContain("crypto.timingSafeEqual(");
+    expect(fonte).not.toMatch(/console\.\w+\([^)]*pin/i);
   });
 });
 

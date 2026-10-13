@@ -101,6 +101,15 @@ Não faça upgrade de major (Expo/RN) sem decisão explícita.
 
 - **Nenhum `console.*`** no app (há teste). Nunca registrar em log: vetor
   facial, foto, PIN, token do aparelho, CPF completo, chave do SQLCipher.
+- PIN do responsável: conferido offline no aparelho (hash PBKDF2 da
+  sincronização) e, com `PONTO_EXIGIR_PIN_NO_SERVIDOR=1` no servidor
+  (api/data.js → `criarTratadorPonto({ exigirPinNoServidor })`), também no
+  servidor em `ponto-cadastrar-biometria` (`pinResponsavel`; 403
+  `PIN_RESPONSAVEL_AUSENTE`/`PIN_RESPONSAVEL_INVALIDO`, nada gravado). O app
+  guarda o PIN digitado SÓ em memória (closure de `abrirSessaoResponsavel`,
+  `src/logica/pin.js`), nunca em disco/SecureStore/log, e descarta ao sair do
+  modo encarregado (botão, inatividade, desmontagem) - há teste de
+  código-fonte. Flag padrão desligado (apps antigos); na homologação, LIGADO.
 - Diagnóstico (modo Encarregado) tem lista fechada de campos sem dado
   pessoal/biométrico (`src/logica/diagnostico.js`).
 - `android.allowBackup=false` (o banco cifrado não pode ir para a nuvem sem a
