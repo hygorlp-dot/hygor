@@ -64,9 +64,23 @@ async function pixelsDoRecorte(uri, recorte, tamanho) {
 
 const limitar = (v, min, max) => Math.max(min, Math.min(max, v));
 
+// Relógio MONOTÔNICO para medir duração (desempenho.js): não muda com ajuste
+// de hora do celular. Sem performance.now, NaN = medição descartada (nunca
+// cai para Date.now, que não é monotônico).
+export const agoraMonotonicoMs = () => (typeof globalThis.performance?.now === "function" ? globalThis.performance.now() : NaN);
+
 // foto = { uri, width, height } (takePictureAsync). Devolve o vetor do rosto
-// e o giro da cabeça, ou { erro } com uma instrução para a pessoa.
+// e o giro da cabeça, ou { erro } com uma instrução para a pessoa. Em ambos,
+// `tempos` = { deteccao, embedding } em ms (relógio monotônico; só a etapa
+// que chegou a rodar) - observabilidade, não muda nenhuma decisão.
 export async function analisarFoto(modelos, foto) {
+  const tempos = {};
+  const t0 = agoraMonotonicoMs();
+  const r = await analisar(modelos, foto, tempos, t0);
+  return { ...r, tempos };
+}
+
+async function analisar(modelos, foto, tempos, t0) {
   // 1. Detecção no quadrado central (o rosto fica no meio na tela de batida).
   const lado = Math.min(foto.width, foto.height);
   const ox = (foto.width - lado) / 2, oy = (foto.height - lado) / 2;
@@ -76,6 +90,7 @@ export async function analisarFoto(modelos, foto) {
   const scores = saidas.find(s => s.length === BLAZEFACE.ancoras);
   if (!caixas || !scores) throw new Error("Modelo de detecção com saída inesperada.");
   const rostos = rostosDistintos(decodificarBlazeFace(scores, caixas));
+  tempos.deteccao = agoraMonotonicoMs() - t0;
   if (!rostos.length) return { erro: "Não encontrei um rosto. Olhe para a câmera." };
   if (rostos.length > 1 && rostos[1].score > P.segundoRostoScoreMaximo) return { erro: "Uma pessoa por vez na frente da câmera." };
   const rosto = rostos[0];
@@ -96,8 +111,10 @@ export async function analisarFoto(modelos, foto) {
   };
 
   // 3. Vetor de identidade.
+  const t1 = agoraMonotonicoMs();
   const pixelsRosto = await pixelsDoRecorte(foto.uri, recorte, MOBILEFACENET.tamanho);
   const [saida] = await modelos.identidade.run([pixelsParaTensor(pixelsRosto, MOBILEFACENET.tamanho, MOBILEFACENET.tamanho).buffer]);
+  tempos.embedding = agoraMonotonicoMs() - t1;
   return { vetor: normalizarL2(new Float32Array(saida)), giro: giroDaCabeca(rosto), confiancaDeteccao: rosto.score, larguraRosto };
 }
 

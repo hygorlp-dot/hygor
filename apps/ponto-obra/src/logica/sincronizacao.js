@@ -15,6 +15,7 @@
 import { novaReferencia } from "../../../../src/domains/ponto-eletronico/relogio.js";
 import { gpsParaMarcacao } from "../../../../src/domains/ponto-eletronico/marcacao.js";
 import { LIMITE_FOTO_BYTES, bytesDoBase64 } from "../../../../src/domains/ponto-eletronico/foto.js";
+import { limparMetricasAparelho } from "../../../../src/domains/ponto-eletronico/metricas-aparelho.js";
 import { enviarLegado } from "./legado-v1.js";
 import regrasDeAmbiente from "../../config/ambiente.js";
 
@@ -40,15 +41,38 @@ export function gpsRecente(gps, agoraMs, idadeMaximaMs = GPS_IDADE_MAXIMA_MS) {
 
 const textoCurto = (v, max = 80) => (v === null || v === undefined ? "" : String(v).slice(0, max));
 
+const minutosDesde = (ms, agoraMs) => (Number.isFinite(ms) ? Math.max(0, Math.floor((agoraMs - ms) / 60_000)) : null);
+
+// Métricas de fila/desempenho para o ARCD ver aparelho com fila parada
+// (contrato em src/domains/ponto-eletronico/metricas-aparelho.js). Só
+// números, nada pessoal. Só LÊ o estado da fila - não muda nada nela.
+//   contagem             = armazem.contagem() { pendentes, fotos }
+//   pendenteMaisAntiga   = 1º de armazem.eventosPendentes(1) (só marcadoEm é lido)
+//   ultimaSincronizacao  = estado "ultima_sincronizacao" (ultimoOkEm em ms)
+//   reconhecimentoP95Ms  = p95DoReconhecimento() (desempenho.js)
+// Valor desconhecido fica de fora (o servidor não inventa zero).
+export function metricasDaFila({ contagem = {}, pendenteMaisAntiga = null, ultimaSincronizacao = null, reconhecimentoP95Ms = null, agoraMs = Date.now() } = {}) {
+  return limparMetricasAparelho({
+    batidasPendentes: Number(contagem?.pendentes),
+    fotosPendentes: Number(contagem?.fotos),
+    // Relógio do celular adiantado/atrasado não gera idade negativa (vira 0).
+    pendenteMaisAntigaMin: pendenteMaisAntiga ? minutosDesde(Date.parse(pendenteMaisAntiga.marcadoEm), agoraMs) : null,
+    minDesdeEnvioOk: minutosDesde(Number(ultimaSincronizacao?.ultimoOkEm ?? NaN), agoraMs),
+    reconhecimentoP95Ms,
+  });
+}
+
 // Corpo de "ponto-sincronizar": versão do app e identificação do aparelho
-// (sem nada pessoal) + último GPS válido. Sem GPS a sincronização segue.
-export function montarCorpoSincronizacao({ app = {}, aparelho = {}, gps = null, agoraMs = Date.now() } = {}) {
+// (sem nada pessoal) + último GPS válido + métricas de fila (metricasDaFila).
+// Sem GPS ou sem métricas a sincronização segue.
+export function montarCorpoSincronizacao({ app = {}, aparelho = {}, gps = null, metricas = null, agoraMs = Date.now() } = {}) {
   const versao = textoCurto(app.versao, 20), build = textoCurto(app.build, 20);
   const corpo = {
     appVersao: versao ? (build ? `${versao} (${build})` : versao) : "",
     aparelho: {
       marca: textoCurto(aparelho.marca), modelo: textoCurto(aparelho.modelo), android: textoCurto(aparelho.android, 20),
       build, commit: textoCurto(app.commit, 12), ambiente: textoCurto(app.ambiente, 20),
+      ...limparMetricasAparelho(metricas),
     },
   };
   const g = gpsRecente(gps, agoraMs);

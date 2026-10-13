@@ -290,4 +290,46 @@ describe("identificação do aparelho no servidor", () => {
     expect(limparAparelho("lixo")).toEqual({});
     expect(limparAparelho(null)).toEqual({});
   });
+
+  it("métricas de fila: só os campos do contrato, como números inteiros limitados", () => {
+    expect(limparAparelho({
+      marca: "samsung", batidasPendentes: 3.4, fotosPendentes: 0, pendenteMaisAntigaMin: 9_999_999, minDesdeEnvioOk: 12, reconhecimentoP95Ms: 1e12,
+      cpf: "12345678909", nome: "Zé", vetor: [0.1], similaridade: 0.9,
+    })).toEqual({ marca: "samsung", batidasPendentes: 3, fotosPendentes: 0, pendenteMaisAntigaMin: 525_600, minDesdeEnvioOk: 12, reconhecimentoP95Ms: 600_000 });
+    // Texto, booleano, negativo, NaN, Infinity e objeto não entram.
+    expect(limparAparelho({ batidasPendentes: "5", fotosPendentes: true, pendenteMaisAntigaMin: -1, minDesdeEnvioOk: NaN, reconhecimentoP95Ms: Infinity })).toEqual({});
+    expect(limparAparelho({ batidasPendentes: { $gt: 1 } })).toEqual({});
+  });
+
+  it("ponto-sincronizar guarda as métricas e ponto-dispositivos as expõe em `fila` (aparelho com fila parada)", async () => {
+    const p = await parear();
+    const sincronizar = aparelho => tratar({ action: "ponto-sincronizar", headers: { authorization: `Bearer ${p.token}` }, body: { appVersao: "1.2.0 (3)", aparelho } });
+    // Antes de qualquer métrica: fila null.
+    let lista = (await tratar({ action: "ponto-dispositivos", body: { accessToken: "ok", obraId: "obra-a" } })).json.dispositivos;
+    expect(lista[0].fila).toBeNull();
+
+    expect((await sincronizar({ marca: "samsung", modelo: "A15", batidasPendentes: 7, fotosPendentes: 2, pendenteMaisAntigaMin: 130, minDesdeEnvioOk: 131, reconhecimentoP95Ms: 1450, nome: "Zé" })).status).toBe(200);
+    expect(db.tabelas.ponto_dispositivos[0].aparelho).toEqual({ marca: "samsung", modelo: "A15", batidasPendentes: 7, fotosPendentes: 2, pendenteMaisAntigaMin: 130, minDesdeEnvioOk: 131, reconhecimentoP95Ms: 1450 });
+    lista = (await tratar({ action: "ponto-dispositivos", body: { accessToken: "ok", obraId: "obra-a" } })).json.dispositivos;
+    expect(lista[0].aparelho).toEqual({ marca: "samsung", modelo: "A15" });
+    expect(lista[0].fila).toEqual({ batidasPendentes: 7, fotosPendentes: 2, pendenteMaisAntigaMin: 130, minDesdeEnvioOk: 131, reconhecimentoP95Ms: 1450 });
+    expect(lista[0].ultimoContatoEm).toBe("2026-10-01T10:00:00.000Z");
+
+    // Versão antiga do app (sem métricas): a métrica anterior não fica parecendo atual.
+    await sincronizar({ marca: "samsung", modelo: "A15" });
+    lista = (await tratar({ action: "ponto-dispositivos", body: { accessToken: "ok", obraId: "obra-a" } })).json.dispositivos;
+    expect(lista[0].fila).toBeNull();
+
+    // Valor malicioso nunca chega ao banco.
+    await sincronizar({ marca: "samsung", batidasPendentes: "DROP TABLE", fotosPendentes: -4 });
+    expect(db.tabelas.ponto_dispositivos[0].aparelho).toEqual({ marca: "samsung" });
+  });
+
+  it("registro antigo no banco com lixo em `aparelho` sai limpo na listagem", async () => {
+    await parear();
+    db.tabelas.ponto_dispositivos[0].aparelho = { marca: "x", serial: "NAO", batidasPendentes: "9", fotosPendentes: 1 };
+    const [d] = (await tratar({ action: "ponto-dispositivos", body: { accessToken: "ok" } })).json.dispositivos;
+    expect(d.aparelho).toEqual({ marca: "x" });
+    expect(d.fila).toEqual({ fotosPendentes: 1 });
+  });
 });

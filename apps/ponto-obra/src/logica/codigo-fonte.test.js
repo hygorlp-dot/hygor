@@ -115,4 +115,14 @@ describe("código-fonte do app", () => {
   it("homologação nunca usa host de produção nem em execução (segunda trava, além do build)", () => {
     expect(ler("src/servicos/conexao.js")).toContain("if (AMBIENTE === \"homologacao\" && ehHostDeProducao(new URL(EXTRA.apiUrl).host)) return null;");
   });
+
+  it("desempenho só observa: relógio monotônico, anotação sem await e sem derrubar a batida", () => {
+    const ponto = ler("src/telas/TelaPonto.js"), nativo = ler("src/servicos/rosto-nativo.js"), app = ler("App.js");
+    // performance.now (monotônico); sem ele, NaN - nunca Date.now, que muda com ajuste de hora.
+    expect(nativo).toMatch(/agoraMonotonicoMs = \(\) => \(typeof globalThis\.performance\?\.now === "function" \? globalThis\.performance\.now\(\) : NaN\)/);
+    expect(ponto).toContain("criarCronometro(agoraMonotonicoMs)");
+    expect(ponto).toContain("try { anotarDesempenho({ tempos: cronometro.tempos, ...resultado }); } catch");
+    expect(ponto).not.toMatch(/await anotarDesempenho/);
+    expect(app).toContain("ref.current.armazem?.gravarEstado(CHAVE_DESEMPENHO, ref.current.desempenho).catch(() => {});");
+  });
 });

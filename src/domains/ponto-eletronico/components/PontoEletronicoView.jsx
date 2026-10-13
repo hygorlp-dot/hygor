@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { chamarPontoEletronico } from "../../../api";
 import { Badge, Btn, C, Ic, Inp, Modal, PageHero, Sel } from "../../../LegacyApp";
 import { funcionariosAtivos, funcionariosDaObra } from "../funcionarios.js";
-import { ROTULO_SITUACAO, dataLocal, horaLocal, intervaloDoDia, resumoDoDia, situacaoAparelho } from "../painel.js";
+import { ROTULO_SITUACAO, dataLocal, detalheFila, horaLocal, intervaloDoDia, resumoDoDia, situacaoAparelho, situacaoFila } from "../painel.js";
 
 const ATUALIZAR_A_CADA_MS = 20_000;
 const corDoTom = { ok: C.green, atencao: C.orange, critico: C.red, neutro: C.muted };
@@ -182,11 +182,14 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
           : <div style={{ display: "grid", gap: 8 }}>
             {dispositivos.map(d => {
               const s = situacaoAparelho(d);
+              const fila = situacaoFila(d);
               return <div key={d.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "8px 0", borderTop: `1px solid ${C.line}` }}>
                 <div style={{ flex: 1, minWidth: 180 }}>
                   <p style={{ fontSize: 13, fontWeight: 600 }}>{d.nome}</p>
                   <p style={{ fontSize: 11.5, color: C.muted }}>App {d.appVersao || "-"}{d.aparelho?.modelo ? ` · ${[d.aparelho.marca, d.aparelho.modelo].filter(Boolean).join(" ")}` : ""}{d.aparelho?.android ? ` · Android ${d.aparelho.android}` : ""} · sequência local {d.ultimaSequenciaLocal}{d.estabelecimentoId ? ` · ${nomeEstab.get(d.estabelecimentoId) || "estabelecimento"}` : ""}{d.ultimoGps ? <> · <a href={`https://maps.google.com/?q=${d.ultimoGps.lat},${d.ultimoGps.lng}`} target="_blank" rel="noreferrer">localização</a></> : null}</p>
+                  {d.fila && <p style={{ fontSize: 11.5, color: C.muted }}>{detalheFila(d)}{d.ultimoContatoEm ? ` · informado às ${horaLocal(d.ultimoContatoEm)}` : ""}</p>}
                 </div>
+                {fila && fila.tom !== "ok" && <Badge color={corDoTom[fila.tom]}>{fila.rotulo}</Badge>}
                 <Badge color={corDoTom[s.tom]}>{s.rotulo}</Badge>
                 {podeGerir && d.status === "ativo" && <Btn size="sm" v="ghost" onClick={() => desativar(d)}>Desativar</Btn>}
               </div>;

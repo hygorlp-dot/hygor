@@ -114,19 +114,37 @@ Qualquer divergência = **NO-GO** (não parear).
    ```bash
    eas env:create --environment preview --name PONTO_API_URL --value https://<homologacao>/api/data --visibility plaintext
    ```
-2. Build (o primeiro do pacote `br.com.arcd.pontoobra.homologacao` cria a
-   keystore no EAS, de forma interativa; o versionCode é incremental e próprio):
+2. **Commit do candidato (RC):** o HEAD da branch `integ/ponto-hardening-piloto`
+   com os 5 jobs da CI verdes (#73 + #74 + #76 + #75 integradas). O EAS exige
+   árvore limpa (`requireCommit`) e embute o commit no APK. Anotar o hash.
+   ```bash
+   git switch integ/ponto-hardening-piloto && git pull --ff-only && git status --short
+   cd apps/ponto-obra
+   ```
+3. **Assinatura:** o pacote `br.com.arcd.pontoobra.homologacao` é novo para o
+   EAS, então o **primeiro** build gera uma keystore própria, gerenciada pelo
+   EAS (diferente da de produção) — passo **interativo** (`--non-interactive`
+   não cria keystore). Os builds seguintes reutilizam a mesma keystore, o que
+   o cenário de atualização exige. O versionCode é remoto
+   (`appVersionSource: remote`) e incrementado a cada build (`autoIncrement`);
+   confirmar no primeiro build de qual número parte o pacote novo.
    ```bash
    eas build --profile homologacao --platform android
    ```
-3. **Duas versões consecutivas** para o cenário de atualização: repetir o
-   build depois de um commit novo (versionCode N e N+1, mesma keystore).
-4. Conferir cada APK antes de instalar:
+4. **Duas versões consecutivas** (cenário 2): rodar o mesmo comando de novo
+   (mesmo commit ou o RC seguinte). Resultado: versionCode N e N+1, mesmo
+   pacote, mesma keystore. Baixar os dois APKs pelo link do EAS e anotar
+   build, versionCode, commit e SHA-256 de cada um.
+5. Conferir cada APK antes de instalar (o segundo também contra o primeiro):
    ```bash
-   node scripts/verificar-apk.mjs <apk> --build-tools <pasta> --esperado homologacao
+   node scripts/verificar-apk.mjs <apk-N> --build-tools <pasta> --esperado homologacao
+   node scripts/verificar-apk.mjs <apk-N+1> --build-tools <pasta> --esperado homologacao --atualiza <apk-N>
    ```
-   Esperado: `APROVADO PARA HOMOLOGACAO` (pacote `.homologacao`, servidor
-   isolado embutido, permissões só da lista, assinatura ok).
+   Esperado: `APROVADO PARA HOMOLOGACAO` nos dois (pacote `.homologacao`,
+   servidor isolado embutido, permissões só da lista, assinatura ok; no
+   segundo, mesmo pacote e certificado do primeiro e versionCode maior).
+   Os APKs `e4f41447` e `4f8b84c1` **nunca** entram: apontam para a produção
+   (o verificador os classifica como BLOQUEADOS).
 
 **4.6 Operação**
 - Código de pareamento só no banco isolado: `node scripts/homologacao/cli.mjs codigo`.

@@ -22,7 +22,8 @@ import * as Crypto from "expo-crypto";
 import * as Location from "expo-location";
 import { abrirArmazem, arquivarBanco } from "./src/dados/armazem-sqlite";
 import { fotoSemBloquear, registrarBatida } from "./src/logica/terminal";
-import { gpsRecente, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./src/logica/sincronizacao";
+import { gpsRecente, metricasDaFila, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./src/logica/sincronizacao";
+import { CHAVE_DESEMPENHO, p95DoReconhecimento, registrarTentativa } from "./src/logica/desempenho";
 import { classificarResposta, mensagemDeErro } from "./src/logica/falhas";
 import { montarDiagnostico } from "./src/logica/diagnostico";
 import { batidasDoDia } from "./src/logica/apresentacao";
@@ -56,7 +57,8 @@ export default function App() {
   const [situacao, setSituacao] = useState({ online: false, pendentes: 0, fotos: 0, fotosComProblema: 0, aviso: "" });
   // Preferências da tela (não são registro): confirmação por voz.
   const [preferencias, setPreferencias] = useState({ voz: true });
-  const ref = useRef({ armazem: null, relogio: null, sessao: null, gps: null, gpsEstado: "aguardando", ultimoCadastro: 0, sincronizando: false, pedirDeNovo: null });
+  // desempenho: estatísticas locais do reconhecimento (desempenho.js), em memória e no estado local.
+  const ref = useRef({ armazem: null, relogio: null, sessao: null, gps: null, gpsEstado: "aguardando", ultimoCadastro: 0, sincronizando: false, pedirDeNovo: null, desempenho: null });
   // Trava do PIN do encarregado (logica/trava-pin.js) da instância atual do
   // armazém: estável entre renderizações, refeita se o banco local for trocado
   // (pareamento com outro aparelho).
@@ -87,10 +89,13 @@ export default function App() {
     ref.current.sincronizando = true;
     const anterior = await armazem.lerEstado("ultima_sincronizacao").catch(() => null);
     try {
+      const cadastroVencido = forcarCadastro || Date.now() - ref.current.ultimoCadastro > CADASTRO_A_CADA_MS;
+      // O corpo (com as métricas da fila) só vai no "ponto-sincronizar", que roda quando o cadastro vence.
+      const metricas = cadastroVencido ? await lerMetricasDaFila(armazem, anterior, ref.current.desempenho) : null;
       const r = await rodadaDeSincronizacao({
         armazem, api, monotonico: () => relogio.monotonico(),
-        corpo: montarCorpoSincronizacao({ app: infoDoApp(), aparelho: infoDoAparelho(), gps: ref.current.gps, agoraMs: Date.now() }),
-        cadastroVencido: forcarCadastro || Date.now() - ref.current.ultimoCadastro > CADASTRO_A_CADA_MS,
+        corpo: montarCorpoSincronizacao({ app: infoDoApp(), aparelho: infoDoAparelho(), gps: ref.current.gps, metricas, agoraMs: Date.now() }),
+        cadastroVencido,
         lerFotoBase64, aposEnviarFoto: item => apagarFotoLocal(item.caminhoFoto),
         ambienteApp: AMBIENTE,
       });
@@ -151,6 +156,7 @@ export default function App() {
         setCadastro(await armazem.cadastro());
         const pref = await armazem.lerEstado("preferencias_tela").catch(() => null);
         if (pref) setPreferencias(p => ({ ...p, ...pref }));
+        ref.current.desempenho = await armazem.lerEstado(CHAVE_DESEMPENHO).catch(() => null);
         await atualizarSituacao();
         setFase(sessao ? "ponto" : "parear");
       } catch (e) {
@@ -230,6 +236,8 @@ export default function App() {
       ref.current.relogio.trocarArmazem(armazem);
       ref.current.armazem = armazem;
       ref.current.ultimoCadastro = 0;
+      // Estatísticas do banco novo (as do pareamento anterior ficaram no arquivado).
+      ref.current.desempenho = await armazem.lerEstado(CHAVE_DESEMPENHO).catch(() => null);
     }
     await armazem.gravarEstado("dispositivo_id", sessao.dispositivoId);
     await salvarSessao(sessao);
@@ -238,6 +246,15 @@ export default function App() {
     setCadastro(await armazem.cadastro());
     setFase("ponto");
   };
+
+  // Uma tentativa de batida pelo rosto (TelaPonto): só durações e contagens.
+  // Melhor esforço: nunca lança e não é aguardado pela batida.
+  const anotarDesempenho = useCallback(tentativa => {
+    try {
+      ref.current.desempenho = registrarTentativa(ref.current.desempenho, tentativa);
+      ref.current.armazem?.gravarEstado(CHAVE_DESEMPENHO, ref.current.desempenho).catch(() => {});
+    } catch { /* só observabilidade */ }
+  }, []);
 
   const alternarVoz = async () => {
     const proximas = { ...preferencias, voz: !preferencias.voz };
@@ -255,6 +272,7 @@ export default function App() {
       app: infoDoApp(), aparelho: infoDoAparelho(), sessao, servidor: infoDoServidor(),
       contagem: await armazem.contagem().catch(() => ({})),
       ultimaSincronizacao: await armazem.lerEstado("ultima_sincronizacao").catch(() => null),
+      desempenho: ref.current.desempenho,
       modelos: estadoModelos, hora: relogio.agora(), gps: { estado: ref.current.gpsEstado },
       fiscal: {
         divergente: !!(await armazem.lerEstado("divergencia_fiscal").catch(() => null)),
@@ -310,12 +328,24 @@ export default function App() {
     situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico} travaPin={travaPinDoArmazem()}
     voz={preferencias.voz} alternarVoz={alternarVoz} />;
   else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos}
-    cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} voz={preferencias.voz} />;
+    cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} voz={preferencias.voz}
+    anotarDesempenho={anotarDesempenho} />;
 
   return <SafeAreaProvider initialMetrics={initialWindowMetrics} style={estilos.raiz}>
     <StatusBar style="light" />
     {conteudo}
   </SafeAreaProvider>;
+}
+
+// Métricas de fila para o ARCD (metricasDaFila, testada). Só leitura do
+// banco; qualquer falha aqui só tira as métricas do envio, nunca a rodada.
+async function lerMetricasDaFila(armazem, ultimaSincronizacao, desempenho) {
+  try {
+    const [contagem, [maisAntiga] = []] = await Promise.all([armazem.contagem(), armazem.eventosPendentes(1)]);
+    return metricasDaFila({ contagem, pendenteMaisAntiga: maisAntiga || null, ultimaSincronizacao, reconhecimentoP95Ms: p95DoReconhecimento(desempenho), agoraMs: Date.now() });
+  } catch {
+    return null;
+  }
 }
 
 const estilos = StyleSheet.create({
