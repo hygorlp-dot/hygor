@@ -22,8 +22,8 @@ import * as Crypto from "expo-crypto";
 import * as Location from "expo-location";
 import { abrirArmazem, arquivarBanco } from "./src/dados/armazem-sqlite";
 import { fotoSemBloquear, registrarBatida } from "./src/logica/terminal";
-import { gpsRecente, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./src/logica/sincronizacao";
-import { CHAVE_DESEMPENHO, registrarTentativa } from "./src/logica/desempenho";
+import { gpsRecente, metricasDaFila, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./src/logica/sincronizacao";
+import { CHAVE_DESEMPENHO, p95DoReconhecimento, registrarTentativa } from "./src/logica/desempenho";
 import { classificarResposta, mensagemDeErro } from "./src/logica/falhas";
 import { montarDiagnostico } from "./src/logica/diagnostico";
 import { batidasDoDia } from "./src/logica/apresentacao";
@@ -80,10 +80,13 @@ export default function App() {
     ref.current.sincronizando = true;
     const anterior = await armazem.lerEstado("ultima_sincronizacao").catch(() => null);
     try {
+      const cadastroVencido = forcarCadastro || Date.now() - ref.current.ultimoCadastro > CADASTRO_A_CADA_MS;
+      // O corpo (com as métricas da fila) só vai no "ponto-sincronizar", que roda quando o cadastro vence.
+      const metricas = cadastroVencido ? await lerMetricasDaFila(armazem, anterior, ref.current.desempenho) : null;
       const r = await rodadaDeSincronizacao({
         armazem, api, monotonico: () => relogio.monotonico(),
-        corpo: montarCorpoSincronizacao({ app: infoDoApp(), aparelho: infoDoAparelho(), gps: ref.current.gps, agoraMs: Date.now() }),
-        cadastroVencido: forcarCadastro || Date.now() - ref.current.ultimoCadastro > CADASTRO_A_CADA_MS,
+        corpo: montarCorpoSincronizacao({ app: infoDoApp(), aparelho: infoDoAparelho(), gps: ref.current.gps, metricas, agoraMs: Date.now() }),
+        cadastroVencido,
         lerFotoBase64, aposEnviarFoto: item => apagarFotoLocal(item.caminhoFoto),
         ambienteApp: AMBIENTE,
       });
@@ -321,6 +324,17 @@ export default function App() {
     <StatusBar style="light" />
     {conteudo}
   </SafeAreaProvider>;
+}
+
+// Métricas de fila para o ARCD (metricasDaFila, testada). Só leitura do
+// banco; qualquer falha aqui só tira as métricas do envio, nunca a rodada.
+async function lerMetricasDaFila(armazem, ultimaSincronizacao, desempenho) {
+  try {
+    const [contagem, [maisAntiga] = []] = await Promise.all([armazem.contagem(), armazem.eventosPendentes(1)]);
+    return metricasDaFila({ contagem, pendenteMaisAntiga: maisAntiga || null, ultimaSincronizacao, reconhecimentoP95Ms: p95DoReconhecimento(desempenho), agoraMs: Date.now() });
+  } catch {
+    return null;
+  }
 }
 
 const estilos = StyleSheet.create({
