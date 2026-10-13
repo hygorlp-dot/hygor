@@ -3,7 +3,7 @@
 Referência técnica oficial do registro de ponto por programa (REP-P,
 Portaria MTP nº 671/2021) do ARCD. Vale para o app Android
 `apps/ponto-obra`, para o servidor (`server/ponto-eletronico`) e para o banco
-(migrations 016 e 017). Escrito na Fase 1 (01/10/2026). Toda fase seguinte
+(migrations 016, 017 e 018). Escrito na Fase 1 (01/10/2026). Toda fase seguinte
 parte daqui.
 
 **INPI: PENDENTE — executar somente após congelamento da versão final.**

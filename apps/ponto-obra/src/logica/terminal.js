@@ -52,3 +52,17 @@ export async function registrarBatida({ armazem, relogio, sha256, gerarId, dispo
     return evento;
   });
 }
+
+// Foto da batida sem nunca bloquear a batida: se a câmera falhou ou a foto
+// não pôde ser guardada (armazenamento cheio, erro nativo), a batida segue
+// SEM foto e o aviso vai para a tela. `preparar` é o prepararFotoDaBatida
+// nativo (redimensiona, calcula o SHA-256 dos bytes exatos e move o arquivo).
+export const AVISO_FOTO_NAO_GUARDADA = "A foto não pôde ser guardada no aparelho (armazenamento cheio?). A batida foi registrada sem foto.";
+export const AVISO_CAMERA_FALHOU = "A câmera não tirou a foto. A batida foi registrada sem foto.";
+export async function fotoSemBloquear(foto, preparar) {
+  if (foto?.uri) {
+    try { return { preparada: await preparar(foto.uri, foto.width), avisoFoto: "" }; }
+    catch { return { preparada: null, avisoFoto: AVISO_FOTO_NAO_GUARDADA }; }
+  }
+  return { preparada: null, avisoFoto: foto?.falhou ? AVISO_CAMERA_FALHOU : "" };
+}

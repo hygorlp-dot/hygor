@@ -57,7 +57,7 @@ export function criarArmazemMemoria() {
     // Formato 2: a ARP aceitou ESTE evento - guarda NSR/hash fiscal ao lado.
     async confirmarEvento(eventId, fiscal) {
       const e = porId(eventId);
-      if (!e || e.formatVersion !== 2) return false;
+      if (!e || e.formatVersion !== 2 || e.enviada) return false;   // escrita única, como no SQLite
       e.enviada = true;
       e.fiscal = { nsr: fiscal?.nsr ?? null, fiscalHash: fiscal?.fiscalHash ?? null, estabelecimentoId: fiscal?.estabelecimentoId ?? null, gravadoEm: fiscal?.gravadoEm ?? null };
       return true;
