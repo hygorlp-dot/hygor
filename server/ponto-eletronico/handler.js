@@ -21,6 +21,7 @@ import crypto from "node:crypto";
 import { calcularHashMarcacao, validarMarcacao, verificarCadeia, HASH_INICIAL, sequenciaLegadaDoAparelho } from "../../src/domains/ponto-eletronico/marcacao.js";
 import { funcionariosAtivos, terceirizadosDaObra } from "../../src/domains/ponto-eletronico/funcionarios.js";
 import { LIMITE_FOTO_BYTES } from "../../src/domains/ponto-eletronico/foto.js";
+import { limparMetricasAparelho } from "../../src/domains/ponto-eletronico/metricas-aparelho.js";
 import { validarEstabelecimento, pendenciasFiscais } from "../../src/domains/ponto-eletronico/estabelecimento.js";
 import { situacaoRepP } from "../../src/domains/ponto-eletronico/rep-p.js";
 import { proporApropriacoes, validarApropriacao } from "../../src/domains/ponto-eletronico/apropriacao.js";
@@ -60,15 +61,27 @@ const decodificarFoto = base64 => {
 
 // Identificação do aparelho que o app manda (ponto-parear / ponto-sincronizar):
 // só campos conhecidos, texto curto - nada pessoal e nada arbitrário no banco.
+// Junto vão as métricas de fila/desempenho (contrato METRICAS_APARELHO em
+// src/domains/ponto-eletronico/metricas-aparelho.js): só números limitados.
+// O objeto inteiro substitui o anterior: app antigo (sem métricas) não deixa
+// métrica velha parecendo atual.
 const CAMPOS_APARELHO = ["marca", "modelo", "android", "build", "commit", "ambiente"];
-export const limparAparelho = bruto => Object.fromEntries(CAMPOS_APARELHO
+const identificacaoDoAparelho = bruto => Object.fromEntries(CAMPOS_APARELHO
   .filter(k => bruto && typeof bruto === "object" && bruto[k] !== undefined && bruto[k] !== null && texto(bruto[k]))
   .map(k => [k, texto(bruto[k]).slice(0, 80)]));
+export const limparAparelho = bruto => ({ ...identificacaoDoAparelho(bruto), ...limparMetricasAparelho(bruto) });
 const limparVersao = v => texto(v).slice(0, 40);
+
+// Fila do aparelho como ele informou no último contato (ultimoContatoEm):
+// null = app sem métricas (versão antiga) ou nunca sincronizou.
+const filaDoAparelho = aparelho => {
+  const m = limparMetricasAparelho(aparelho);
+  return Object.keys(m).length ? m : null;
+};
 
 const linhaDispositivo = d => ({
   id: d.id, obraId: d.obra_id, nome: d.nome, status: d.status, appVersao: d.app_versao,
-  aparelho: d.aparelho || {}, ultimoContatoEm: d.ultimo_contato_em, ultimoGps: d.ultimo_gps,
+  aparelho: identificacaoDoAparelho(d.aparelho), fila: filaDoAparelho(d.aparelho), ultimoContatoEm: d.ultimo_contato_em, ultimoGps: d.ultimo_gps,
   estabelecimentoId: d.estabelecimento_id || null,
   // Sequência LOCAL do aparelho (não é NSR). A "legada" é a do formato 1.
   ultimaSequenciaLocal: Number(d.ultima_sequencia_local || 0), ultimaSequenciaLegada: Number(d.ultimo_nsr || 0),
