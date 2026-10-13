@@ -26,6 +26,7 @@ import { situacaoRepP } from "../../src/domains/ponto-eletronico/rep-p.js";
 import { proporApropriacoes, validarApropriacao } from "../../src/domains/ponto-eletronico/apropriacao.js";
 import { intervaloDoDia } from "../../src/domains/ponto-eletronico/painel.js";
 import { criarArp } from "./arp/arp.js";
+import { caminhoFotoCadastro, caminhoFotoMarcacao } from "./fotos-caminho.js";
 import { POLITICA_PADRAO, criarFonteHora } from "./tempo/fonte-hora.js";
 
 export const BUCKET_PONTO = "ponto-obra";
@@ -106,7 +107,6 @@ const linhaEstabelecimento = (e, obras = []) => ({
   cno: e.cno, caepf: e.caepf, cei: e.cei, timezone: e.timezone, ativo: e.ativo, obras,
 });
 
-const caminhoFotoMarcacao = (obraId, marcadoEm, id) => `marcacoes/${obraId}/${String(marcadoEm).slice(0, 10)}/${id}.jpg`;
 
 // fonteHora: fonte de hora oficial (tempo/fonte-hora.js). Sem ela, monta a
 // padrão (relógio do host + última verificação NTP gravada). "agora" só
@@ -643,7 +643,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       for (const [i, bruto] of (Array.isArray(body.fotos) ? body.fotos.slice(0, 5) : []).entries()) {
         const foto = decodificarFoto(bruto);
         if (!foto || foto.invalida) return erro(400, foto?.invalida || "Foto do cadastro ausente.");
-        const caminho = `biometria/${funcionario.id}/${id}-${i + 1}.jpg`;
+        const caminho = caminhoFotoCadastro(funcionario.id, id, i);
         const { error: errUp } = await db.storage.from(BUCKET_PONTO).upload(caminho, foto.buffer, { contentType: "image/jpeg", upsert: false });
         if (errUp) throw errUp;
         fotos.push({ caminho, sha256: foto.sha256 });

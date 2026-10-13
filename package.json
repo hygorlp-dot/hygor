@@ -57,6 +57,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "prepare": "node scripts/install-git-hooks.mjs",
+    "ponto-eletronico:livro": "node scripts/aplicar-migracoes-ponto.mjs",
     "ponto-eletronico:migrate": "node scripts/apply-ponto-eletronico.mjs"
   },
   "browserslist": {
