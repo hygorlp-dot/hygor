@@ -16,6 +16,9 @@ import { novaReferencia } from "../../../../src/domains/ponto-eletronico/relogio
 import { gpsParaMarcacao } from "../../../../src/domains/ponto-eletronico/marcacao.js";
 import { LIMITE_FOTO_BYTES, bytesDoBase64 } from "../../../../src/domains/ponto-eletronico/foto.js";
 import { enviarLegado } from "./legado-v1.js";
+import regrasDeAmbiente from "../../config/ambiente.js";
+
+const { conferirAmbiente } = regrasDeAmbiente;
 
 const LOTE = 200;
 const HEX64 = /^[0-9a-f]{64}$/i;
@@ -45,7 +48,7 @@ export function montarCorpoSincronizacao({ app = {}, aparelho = {}, gps = null, 
     appVersao: versao ? (build ? `${versao} (${build})` : versao) : "",
     aparelho: {
       marca: textoCurto(aparelho.marca), modelo: textoCurto(aparelho.modelo), android: textoCurto(aparelho.android, 20),
-      build, commit: textoCurto(app.commit, 12),
+      build, commit: textoCurto(app.commit, 12), ambiente: textoCurto(app.ambiente, 20),
     },
   };
   const g = gpsRecente(gps, agoraMs);
@@ -173,7 +176,10 @@ export async function enviarFotos({ armazem, api, lerFotoBase64, aposEnviar = as
 // `monotonico()` devolve { ms, bootId } do relógio que não muda com ajuste.
 // Não renumera nada: se o servidor já tiver uma cadeia local deste aparelho
 // mais adiante do que a do banco local, só sinaliza (cadeiaDivergente).
-export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {} }) {
+// ambienteApp: o ambiente deste build. Servidor de OUTRO ambiente: para ANTES
+// de guardar qualquer coisa (funcionários/biometrias de outro banco nunca
+// entram no aparelho) e a rodada não envia batida.
+export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}, ambienteApp = null }) {
   // Funcionários e biometrias são GLOBAIS da empresa. Os vetores só descem
   // quando mudaram: o aparelho manda a assinatura do conjunto que já tem.
   const anterior = await armazem.cadastro();
@@ -181,6 +187,10 @@ export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}
   const r = await api("ponto-sincronizar", { ...corpo, biometriasAssinatura: anterior?.biometriasAssinatura || "" });
   const resposta = monotonico();
   if (!r.ok) return { ok: false, erro: r.error || `HTTP ${r.status}`, codigo: r.code || null, semRede: r.status === 0, status: r.status };
+  if (ambienteApp) {
+    const amb = conferirAmbiente(ambienteApp, r.ambiente);
+    if (!amb.ok) return { ok: false, erro: amb.mensagem, codigo: "AMBIENTE_INCOMPATIVEL", status: 409 };
+  }
   // Referência só com leitura monotônica válida e sem reboot no meio.
   if (envio.bootId === resposta.bootId && Number.isFinite(envio.ms) && Number.isFinite(resposta.ms)) {
     await armazem.salvarReferenciaHora(novaReferencia({
@@ -205,10 +215,11 @@ export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}
 // cadastro/hora quando pedido ou vencido → eventos → fotos. Nunca lança por
 // falha de rede/servidor: devolve o resumo para a tela e o diagnóstico.
 // Exceção inesperada (ex.: banco) sobe para quem chamou registrar no estado.
-export async function rodadaDeSincronizacao({ armazem, api, monotonico, corpo, cadastroVencido, lerFotoBase64, aposEnviarFoto }) {
+export async function rodadaDeSincronizacao({ armazem, api, monotonico, corpo, cadastroVencido, lerFotoBase64, aposEnviarFoto, ambienteApp = null }) {
   const resumo = { online: true, cadastroAtualizado: false, revogado: false, desconhecido: false, erro: null, envio: null, fotos: null, cadeiaDivergente: false };
   if (cadastroVencido) {
-    const s = await sincronizarCadastro({ armazem, api, monotonico, corpo });
+    const s = await sincronizarCadastro({ armazem, api, monotonico, corpo, ambienteApp });
+    if (s.codigo === "AMBIENTE_INCOMPATIVEL") return { ...resumo, ambienteIncompativel: true, erro: s.erro, status: 409 };
     if (s.codigo === "APARELHO_REVOGADO") return { ...resumo, online: true, revogado: true, erro: s.erro };
     if (s.codigo === "APARELHO_DESCONHECIDO" || s.codigo === "APARELHO_SEM_TOKEN") return { ...resumo, online: true, desconhecido: true, erro: s.erro };
     if (!s.ok) { resumo.online = !s.semRede; resumo.erro = s.erro; resumo.status = s.status; }
