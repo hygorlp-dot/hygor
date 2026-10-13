@@ -36,6 +36,26 @@ describe("código-fonte do app", () => {
     expect(comLog).toEqual([]);
   });
 
+  it("PIN do responsável só em memória: nunca persistido e descartado ao sair do modo encarregado", () => {
+    const semComentario = f => ler(f).split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+    // O PIN só sai da closure de pin.js pelo corpo do cadastro facial.
+    expect(arquivosDoApp().filter(f => /pinParaServidor\s*\(|pinResponsavel/.test(semComentario(f))).map(f => f.replace(/\\/g, "/")))
+      .toEqual(["src/logica/pin.js"]);
+    // Quem lida com a sessão não toca em disco (SecureStore, SQLite, arquivos).
+    for (const f of ["src/logica/pin.js", "src/telas/TelaEncarregado.js"]) {
+      expect(semComentario(f)).not.toMatch(/SecureStore|AsyncStorage|expo-sqlite|expo-file-system|armazem/);
+    }
+    const tela = ler("src/telas/TelaEncarregado.js");
+    expect(tela).toContain("aoEntrar(abrirSessaoResponsavel(ok, pin))");
+    expect(tela).toContain("corpoCadastroBiometria(responsavel, {");
+    // Sair (botão e inatividade) e desmontar descartam o PIN.
+    expect(tela).toContain("const sair = useCallback(() => { sessao.current?.descartar(); fechar(); }, [fechar]);");
+    expect(tela).toContain("useEffect(() => () => sessao.current?.descartar(), []);");
+    expect(tela).toMatch(/INATIVIDADE_MS\) sair\(\)/);
+    expect(tela).toContain('titulo="Sair do modo encarregado" onPress={sair}');
+    expect(tela).toContain("aoEntrar={entrar} fechar={sair}");
+  });
+
   it("transação do banco na conexão que tem a chave do SQLCipher (não a do expo-sqlite)", () => {
     expect(ler("src/dados/armazem-sqlite.js")).toContain("serializarBanco(await SQLite.openDatabaseAsync(NOME_BANCO))");
     expect(ler("src/dados/armazem-sqlite-nucleo.js")).toContain('"BEGIN IMMEDIATE"');
@@ -94,5 +114,15 @@ describe("código-fonte do app", () => {
 
   it("homologação nunca usa host de produção nem em execução (segunda trava, além do build)", () => {
     expect(ler("src/servicos/conexao.js")).toContain("if (AMBIENTE === \"homologacao\" && ehHostDeProducao(new URL(EXTRA.apiUrl).host)) return null;");
+  });
+
+  it("desempenho só observa: relógio monotônico, anotação sem await e sem derrubar a batida", () => {
+    const ponto = ler("src/telas/TelaPonto.js"), nativo = ler("src/servicos/rosto-nativo.js"), app = ler("App.js");
+    // performance.now (monotônico); sem ele, NaN - nunca Date.now, que muda com ajuste de hora.
+    expect(nativo).toMatch(/agoraMonotonicoMs = \(\) => \(typeof globalThis\.performance\?\.now === "function" \? globalThis\.performance\.now\(\) : NaN\)/);
+    expect(ponto).toContain("criarCronometro(agoraMonotonicoMs)");
+    expect(ponto).toContain("try { anotarDesempenho({ tempos: cronometro.tempos, ...resultado }); } catch");
+    expect(ponto).not.toMatch(/await anotarDesempenho/);
+    expect(app).toContain("ref.current.armazem?.gravarEstado(CHAVE_DESEMPENHO, ref.current.desempenho).catch(() => {});");
   });
 });

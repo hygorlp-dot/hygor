@@ -8,7 +8,7 @@
 import { pbkdf2Sync } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { enviarFotos, enviarPendentes, sincronizarCadastro } from "./sincronizacao.js";
-import { proximaEsperaPin, verificarPinResponsavel } from "./pin.js";
+import { abrirSessaoResponsavel, corpoCadastroBiometria, proximaEsperaPin, verificarPinResponsavel } from "./pin.js";
 import { JPEG, criarAparelho, criarCenario, sha256 } from "./cenario.test-helper.js";
 
 vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
@@ -116,5 +116,32 @@ describe("aparelho + servidor, ponta a ponta", () => {
     expect(verificarPinResponsavel("1111", responsaveis, pbkdf2Hex)).toBeNull();
     expect(proximaEsperaPin(4)).toBe(0);
     expect(proximaEsperaPin(6)).toBe(60_000);
+  });
+
+  it("com PONTO_EXIGIR_PIN_NO_SERVIDOR ligado, o cadastro facial do app passa com a sessão do PIN e falha depois de sair", async () => {
+    ({ s, a } = await criarCenario({ exigirPinNoServidor: true }));
+    await sincronizar();
+    const { responsaveis } = await a.armazem.cadastro();
+    const ok = verificarPinResponsavel("2468", responsaveis, pbkdf2Hex);
+    const sessao = abrirSessaoResponsavel(ok, "2468");
+    const campos = {
+      employeeId: "e1", modelo: "mobilefacenet-192-apache2", vetor: Array.from({ length: 128 }, (_, i) => i / 128),
+      fotos: [JPEG.toString("base64")], consentimento: { termoVersao: "2026-10", aceitoEm: "2026-10-01T10:00:00.000Z", textoSha256: "x" },
+    };
+    // App antigo (sem pinResponsavel) é recusado sem gravar nada.
+    const antigo = await a.api("ponto-cadastrar-biometria", { ...campos, responsavelId: "u-enc" });
+    expect(antigo).toMatchObject({ ok: false, status: 403, code: "PIN_RESPONSAVEL_AUSENTE" });
+    expect(await s.sql("select id from public.ponto_biometrias")).toEqual([]);
+
+    const r = await a.api("ponto-cadastrar-biometria", corpoCadastroBiometria(sessao, campos));
+    expect(r.ok).toBe(true);
+    const linhas = await s.sql("select * from public.ponto_biometrias");
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0].cadastrado_por).toBe("u-enc");
+    expect(JSON.stringify(linhas)).not.toContain("\"2468\"");
+
+    sessao.descartar();
+    const depois = await a.api("ponto-cadastrar-biometria", corpoCadastroBiometria(sessao, campos));
+    expect(depois).toMatchObject({ ok: false, status: 403, code: "PIN_RESPONSAVEL_AUSENTE" });
   });
 });

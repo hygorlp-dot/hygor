@@ -15,6 +15,7 @@
 import { novaReferencia } from "../../../../src/domains/ponto-eletronico/relogio.js";
 import { gpsParaMarcacao } from "../../../../src/domains/ponto-eletronico/marcacao.js";
 import { LIMITE_FOTO_BYTES, bytesDoBase64 } from "../../../../src/domains/ponto-eletronico/foto.js";
+import { limparMetricasAparelho } from "../../../../src/domains/ponto-eletronico/metricas-aparelho.js";
 import { enviarLegado } from "./legado-v1.js";
 import regrasDeAmbiente from "../../config/ambiente.js";
 
@@ -40,15 +41,38 @@ export function gpsRecente(gps, agoraMs, idadeMaximaMs = GPS_IDADE_MAXIMA_MS) {
 
 const textoCurto = (v, max = 80) => (v === null || v === undefined ? "" : String(v).slice(0, max));
 
+const minutosDesde = (ms, agoraMs) => (Number.isFinite(ms) ? Math.max(0, Math.floor((agoraMs - ms) / 60_000)) : null);
+
+// Métricas de fila/desempenho para o ARCD ver aparelho com fila parada
+// (contrato em src/domains/ponto-eletronico/metricas-aparelho.js). Só
+// números, nada pessoal. Só LÊ o estado da fila - não muda nada nela.
+//   contagem             = armazem.contagem() { pendentes, fotos }
+//   pendenteMaisAntiga   = 1º de armazem.eventosPendentes(1) (só marcadoEm é lido)
+//   ultimaSincronizacao  = estado "ultima_sincronizacao" (ultimoOkEm em ms)
+//   reconhecimentoP95Ms  = p95DoReconhecimento() (desempenho.js)
+// Valor desconhecido fica de fora (o servidor não inventa zero).
+export function metricasDaFila({ contagem = {}, pendenteMaisAntiga = null, ultimaSincronizacao = null, reconhecimentoP95Ms = null, agoraMs = Date.now() } = {}) {
+  return limparMetricasAparelho({
+    batidasPendentes: Number(contagem?.pendentes),
+    fotosPendentes: Number(contagem?.fotos),
+    // Relógio do celular adiantado/atrasado não gera idade negativa (vira 0).
+    pendenteMaisAntigaMin: pendenteMaisAntiga ? minutosDesde(Date.parse(pendenteMaisAntiga.marcadoEm), agoraMs) : null,
+    minDesdeEnvioOk: minutosDesde(Number(ultimaSincronizacao?.ultimoOkEm ?? NaN), agoraMs),
+    reconhecimentoP95Ms,
+  });
+}
+
 // Corpo de "ponto-sincronizar": versão do app e identificação do aparelho
-// (sem nada pessoal) + último GPS válido. Sem GPS a sincronização segue.
-export function montarCorpoSincronizacao({ app = {}, aparelho = {}, gps = null, agoraMs = Date.now() } = {}) {
+// (sem nada pessoal) + último GPS válido + métricas de fila (metricasDaFila).
+// Sem GPS ou sem métricas a sincronização segue.
+export function montarCorpoSincronizacao({ app = {}, aparelho = {}, gps = null, metricas = null, agoraMs = Date.now() } = {}) {
   const versao = textoCurto(app.versao, 20), build = textoCurto(app.build, 20);
   const corpo = {
     appVersao: versao ? (build ? `${versao} (${build})` : versao) : "",
     aparelho: {
       marca: textoCurto(aparelho.marca), modelo: textoCurto(aparelho.modelo), android: textoCurto(aparelho.android, 20),
       build, commit: textoCurto(app.commit, 12), ambiente: textoCurto(app.ambiente, 20),
+      ...limparMetricasAparelho(metricas),
     },
   };
   const g = gpsRecente(gps, agoraMs);
@@ -211,6 +235,24 @@ export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}
   return { ok: true, cadeiaDivergente: noServidor > Number(local.localSequence || 0), estabelecimento: r.estabelecimento || null };
 }
 
+// Aparelho revogado ou desconhecido NO ARCD (resposta do servidor - nunca por
+// falta de token local): o que só serve para operar sai do banco local -
+// hashes de PIN dos responsáveis e vetores faciais. Batidas, fotos de batida e
+// cadeia local ficam (registro legal). Um aparelho perdido e revogado deixa de
+// guardar material para atacar o PIN offline ou a biometria. Re-parear baixa
+// tudo de novo. Falha do banco aqui não esconde a revogação da tela.
+export async function apagarSegredosDoCadastro(armazem) {
+  try {
+    const c = await armazem.cadastro();
+    if (!c || (!(c.responsaveis || []).length && !(c.biometrias || []).length)) return false;
+    await armazem.salvarCadastro({ ...c, responsaveis: [], biometrias: [], biometriasAssinatura: "" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+const revogadoOuDesconhecido = async (armazem, resumo) => ({ ...resumo, segredosApagados: await apagarSegredosDoCadastro(armazem) });
+
 // Uma rodada completa (o App chama a cada minuto e depois de cada batida):
 // cadastro/hora quando pedido ou vencido → eventos → fotos. Nunca lança por
 // falha de rede/servidor: devolve o resumo para a tela e o diagnóstico.
@@ -220,16 +262,17 @@ export async function rodadaDeSincronizacao({ armazem, api, monotonico, corpo, c
   if (cadastroVencido) {
     const s = await sincronizarCadastro({ armazem, api, monotonico, corpo, ambienteApp });
     if (s.codigo === "AMBIENTE_INCOMPATIVEL") return { ...resumo, ambienteIncompativel: true, erro: s.erro, status: 409 };
-    if (s.codigo === "APARELHO_REVOGADO") return { ...resumo, online: true, revogado: true, erro: s.erro };
-    if (s.codigo === "APARELHO_DESCONHECIDO" || s.codigo === "APARELHO_SEM_TOKEN") return { ...resumo, online: true, desconhecido: true, erro: s.erro };
+    if (s.codigo === "APARELHO_REVOGADO") return revogadoOuDesconhecido(armazem, { ...resumo, online: true, revogado: true, erro: s.erro });
+    if (s.codigo === "APARELHO_DESCONHECIDO") return revogadoOuDesconhecido(armazem, { ...resumo, online: true, desconhecido: true, erro: s.erro });
+    if (s.codigo === "APARELHO_SEM_TOKEN") return { ...resumo, online: true, desconhecido: true, erro: s.erro };
     if (!s.ok) { resumo.online = !s.semRede; resumo.erro = s.erro; resumo.status = s.status; }
     resumo.cadastroAtualizado = s.ok;
     resumo.cadeiaDivergente = !!s.cadeiaDivergente;
   }
   const envio = await enviarPendentes({ armazem, api });
   resumo.envio = envio;
-  if (envio.codigo === "APARELHO_REVOGADO") return { ...resumo, revogado: true, erro: envio.erro };
-  if (envio.codigo === "APARELHO_DESCONHECIDO") return { ...resumo, desconhecido: true, erro: envio.erro };
+  if (envio.codigo === "APARELHO_REVOGADO") return revogadoOuDesconhecido(armazem, { ...resumo, revogado: true, erro: envio.erro });
+  if (envio.codigo === "APARELHO_DESCONHECIDO") return revogadoOuDesconhecido(armazem, { ...resumo, desconhecido: true, erro: envio.erro });
   if (envio.semRede) resumo.online = false;
   if (envio.erro && !resumo.erro) { resumo.erro = envio.erro; resumo.status = envio.status; }
   resumo.aguardandoEstabelecimento = !!envio.aguardandoEstabelecimento;

@@ -71,3 +71,36 @@ export function situacaoAparelho(d, agoraMs = Date.now()) {
   const h = Math.round(min / 60);
   return { rotulo: h < 48 ? `Sem contato há ${h} h` : `Sem contato há ${Math.round(h / 24)} dias`, tom: "critico" };
 }
+
+// Fila do aparelho (linhaDispositivo.fila, informada pelo próprio aparelho no
+// último contato - contrato em metricas-aparelho.js). O aparelho tenta enviar
+// a cada minuto: batida pendente há 15 min já é atraso; há 1 h, fila parada
+// (ex.: obra sem estabelecimento, servidor recusando). null = sem métricas
+// (app antigo) ou aparelho desativado.
+export const FILA_ATRASADA_MIN = 15;
+export const FILA_PARADA_MIN = 60;
+const duracaoMin = min => (min < 60 ? `${min} min` : min < 2880 ? `${Math.round(min / 60)} h` : `${Math.round(min / 1440)} dias`);
+const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+
+export function situacaoFila(d) {
+  const f = d?.fila;
+  if (!f || d.status !== "ativo") return null;
+  const batidas = f.batidasPendentes ?? 0, fotos = f.fotosPendentes ?? 0, idade = f.pendenteMaisAntigaMin;
+  if (batidas > 0 && idade >= FILA_PARADA_MIN) return { rotulo: `Fila parada: ${plural(batidas, "batida", "batidas")} sem enviar há ${duracaoMin(idade)}`, tom: "critico" };
+  if (batidas > 0 && idade >= FILA_ATRASADA_MIN) return { rotulo: `Fila atrasada: ${plural(batidas, "batida", "batidas")} sem enviar há ${duracaoMin(idade)}`, tom: "atencao" };
+  // Idade desconhecida (data da batida ilegível no aparelho): não dá para
+  // dizer que está em dia.
+  if (batidas > 0 && !Number.isFinite(idade)) return { rotulo: `${plural(batidas, "batida pendente", "batidas pendentes")}, sem a idade da mais antiga`, tom: "atencao" };
+  if (fotos > 0 && f.minDesdeEnvioOk >= FILA_PARADA_MIN) return { rotulo: `${plural(fotos, "foto", "fotos")} sem enviar`, tom: "atencao" };
+  return { rotulo: "Fila em dia", tom: "ok" };
+}
+
+// Linha de detalhe da fila (texto curto para a lista de aparelhos).
+export function detalheFila(d) {
+  const f = d?.fila;
+  if (!f) return "";
+  const partes = [`fila: ${plural(f.batidasPendentes ?? 0, "batida", "batidas")}, ${plural(f.fotosPendentes ?? 0, "foto", "fotos")}`];
+  if (Number.isFinite(f.minDesdeEnvioOk)) partes.push(`último envio ok há ${duracaoMin(f.minDesdeEnvioOk)}`);
+  if (Number.isFinite(f.reconhecimentoP95Ms)) partes.push(`reconhecimento p95 ${f.reconhecimentoP95Ms < 1000 ? `${f.reconhecimentoP95Ms} ms` : `${(f.reconhecimentoP95Ms / 1000).toFixed(1).replace(".", ",")} s`}`);
+  return partes.join(" · ");
+}

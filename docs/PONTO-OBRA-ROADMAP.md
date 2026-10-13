@@ -1,6 +1,6 @@
 # Ponto de Obra — roadmap e estado das fases
 
-Atualizado em 12/10/2026 a partir de evidências verificadas (commit, teste,
+Atualizado em 13/10/2026 a partir de evidências verificadas (commit, teste,
 CI). Este documento não declara conformidade REP-P, homologação em aparelho
 nem risco aceito.
 
@@ -12,22 +12,38 @@ mesclado na `main`; *implantado* = em produção (migration aplicada, APK em
 uso). Merge não é deploy; build Android não é validação física; CI verde não
 é conformidade REP-P; risco documentado não é risco aceito.
 
-**Nomenclatura.** Os documentos internos usam **fases** (Fase 0–1 da
-REP-P, Fase 01 de estabilização, etapa intermediária de segurança fiscal,
-Fase 02, Fase 03) e o runbook tem uma **sequência de 12 etapas** de
-implantação. Um "roadmap de dez etapas" não está registrado no repositório;
-a correspondência com ele precisa ser informada pela direção e não foi
-presumida aqui.
+## Roadmap em dez fases
 
-| Fase | Estado | Onde |
-|---|---|---|
-| Fase 0–1 REP-P — ARP, NSR por estabelecimento, app de batida | **INTEGRADO** (na `main` desde 01/10) | `docs/REP-P-ARQUITETURA.md` |
-| Fase 01 — estabilização, segurança e regressão | **Tecnicamente concluída — TESTADO** (CI verde nos 5 jobs). Integração à `main` pendente de autorização | PR [#69](https://github.com/hygorlp-dot/hygor/pull/69) `7293b3d`, `docs/PONTO-OBRA-FASE-01-ESTABILIZACAO.md` |
-| Proteção fiscal (etapa intermediária: 019, livro, gate, backup) | **IMPLEMENTADO e TESTADO** com dados sintéticos (PGlite e Postgres real). **Implantação pendente** (nada aplicado em produção) | PR [#70](https://github.com/hygorlp-dot/hygor/pull/70) `058a71a` (019), PR [#71](https://github.com/hygorlp-dot/hygor/pull/71) (livro, gate, backup) |
-| ARCD Precision (UI do app) e trava de ambiente | **IMPLEMENTADO e TESTADO**, reconciliado sobre a Fase 01; revisões Impeccable e independente aplicadas; **não homologado** em aparelho | PR [#72](https://github.com/hygorlp-dot/hygor/pull/72) (substitui a [#62](https://github.com/hygorlp-dot/hygor/pull/62)) |
-| Ambiente de homologação isolado | Ferramentas **TESTADAS** (provisionar, conferir, código, reset, guardas contra produção); **o ambiente não existe** - criar projeto Supabase e deploy Vercel de homologação exige autorização | PR dependente das #71 e #72, `docs/PONTO-OBRA-HOMOLOGACAO.md` |
-| Fase 02 — AFD, comprovante, espelho, quiosque | **EM DESENVOLVIMENTO** só na parte Android (ARCD Precision, comprovante na tela, quiosque); **sem homologação final**. AFD, espelho e comprovante formal não iniciados | — |
-| Fase 03 — ICP-Brasil, INPI, AEJ, documentação REP-P, PTRP, integração com a folha | **NÃO INICIADO** (entregas futuras; nenhuma conformidade REP-P declarada) | — |
+**Origem da numeração.** O "roadmap de dez fases" citado pela direção não
+está registrado no repositório. As dez fases abaixo são a **proposta** desta
+revisão, montada a partir das fases reais (Fase 0–1 REP-P, Fase 01, etapa
+intermediária, Fases 02 e 03) e das PRs; a direção pode remapear sem que o
+estado de cada entrega mude.
+
+**Nota de 0 a 10 (prontidão de engenharia, não conformidade).** Cada ponto
+exige todos os anteriores:
+0 nada feito · 1 especificado · 2 desenho/plano reproduzível pronto ·
+3 parcialmente implementado · 4 implementado · 5 testes de unidade ·
+6 CI verde nos 5 jobs, com testes de integração · 7 provado em Postgres real
+e com revisão independente · 8 homologado (aparelho físico ou ambiente real
+isolado) · 9 integrado na `main` · 10 implantado em produção com evidência
+depois da implantação.
+
+| # | Fase | Estado | Evidência (PR, HEAD, testes) | Nota | Bloqueio | Próxima dependência | Critério para passar à seguinte |
+|---|---|---|---|---|---|---|---|
+| 1 | ARP, NSR por estabelecimento e app de batida (Fase 0–1 REP-P) | **INTEGRADO** na `main` (01/10); servidor do ponto em produção; **pulou o HOMOLOGADO** (app sem homologação física) | `docs/REP-P-ARQUITETURA.md`; `arp-concorrencia.pg.test.js` (5 em Postgres real) | 6 | — | homologação física (fase 8) | já cumprido para o servidor; o app depende da fase 8 |
+| 2 | Fase 01 — estabilização, segurança e regressão | **TESTADO** | [#69](https://github.com/hygorlp-dot/hygor/pull/69) `7293b3d`; CI 5/5 | 7 | merge exige autorização | merge #69 | CI verde no HEAD + autorização de merge |
+| 3 | Segurança fiscal da ARP — migration 019 | **TESTADO** (sintético, PGlite e Postgres real); **nada aplicado em produção** | [#70](https://github.com/hygorlp-dot/hygor/pull/70) `058a71a`; `arp-019-concorrencia.pg.test.js` (6) | 7 | aplicar a 019 exige janela e autorização | livro implantado (fase 4) | 019 aplicada na janela com GO 019 e verificações guardadas |
+| 4 | Livro de migrations, backup e gate de deploy | **TESTADO** (sintético); ensaio real de backup **não feito** | [#71](https://github.com/hygorlp-dot/hygor/pull/71) `554ab31`; `livro.pg.test.js`, `backup.pg.test.js`, `gate-integrado.pg.test.js` | 7 | fuso do banco, backup real restaurado `completa`, autorização | merges #69→#70→#71 | livro implantado com GO 018 e backup real restaurado |
+| 5 | ARCD Precision (UI do app) e trava de ambiente | **TESTADO**; **não homologado** | [#72](https://github.com/hygorlp-dot/hygor/pull/72) `2c15bdc`; `ambiente.test.js`; expo-doctor; prebuild | 7 | aparelho físico | APK de homologação (fase 8) | cenários 1–18 aprovados no RC |
+| 6 | Hardening de segurança: PIN no servidor, limites de tentativas, trava persistente, segredos apagados na revogação, métricas de fila e desempenho | **TESTADO** em cada PR e **integrado na branch de integração** (não na `main`); revisão independente feita e achados corrigidos | [#74](https://github.com/hygorlp-dot/hygor/pull/74) `14b323a`, [#76](https://github.com/hygorlp-dot/hygor/pull/76) `2021ab3`, [#75](https://github.com/hygorlp-dot/hygor/pull/75) `0a6eb92`; `integracao-hardening.test.js`; `limite-pareamento.pg.test.js` (Postgres real); `docs/PONTO-OBRA-SEGURANCA-PIN.md` | 7 | decisão sobre P1 (hash do PIN no aparelho) e sobre o teto global | homologação (H1–H6) | H1–H6 aprovados no RC; decisão registrada sobre P1 e o teto |
+| 7 | Ambiente de homologação isolado | ferramentas **TESTADAS** (provisionar, conferir, código, reset, `validar-env`, guarda do `prebuild`); **o ambiente não existe** | [#73](https://github.com/hygorlp-dot/hygor/pull/73) `4c7e8b5`; `homologacao.test.js`, `homologacao.pg.test.js`, `guarda-prebuild.test.js`; `docs/PONTO-OBRA-HOMOLOGACAO.md` §4 | 2 | **autorização** para criar Supabase e Vercel (custo e credenciais) | autorização da direção | `conferir --api` = marcador, GO 019, bucket privado, hash ≠ produção, API `homologacao` |
+| 8 | Homologação física (RC + 18 cenários + H1–H6) | **NÃO INICIADO**; matriz, verificador de APK (com `--atualiza`) e comandos prontos | `apps/ponto-obra/docs/HOMOLOGACAO-PILOTO.md`; §4.5 | 1 | fase 7; aparelho físico; consentimento LGPD; keystore EAS do pacote `.homologacao` | ambiente isolado criado | 18 + H1–H6 APROVADOS no mesmo APK, sem P0/P1 aberto |
+| 9 | Implantação em produção (merges, livro, 019, CNPJ, flag do PIN) | **NÃO INICIADO**; runbook pronto | `docs/PONTO-OBRA-RUNBOOK-PRODUCAO.md` | 2 | fases 2–8; autorização | homologação aprovada | sequência do runbook concluída com evidência e cadeia fiscal íntegra |
+| 10 | Conformidade REP-P formal (Fases 02/03: AFD, comprovante, espelho, ICP-Brasil, INPI, AEJ, folha) | **NÃO INICIADO** (parte Android do comprovante na tela em desenvolvimento) | — | 0 | requisitos fiscais, jurídicos e formais | fase 9 | parecer formal; nenhuma conformidade é declarada antes |
+
+Branch de integração `integ/ponto-hardening-piloto` (#73 + #76 com #74 +
+#75): RC1 congelado na tag `ponto-homologacao-rc1` → `53a7272` (CI 5/5). Os APKs saem da tag (§4.5). Autorização: `docs/PONTO-OBRA-AUTORIZACAO-HOMOLOGACAO.md`; merge: `docs/PONTO-OBRA-PLANO-MERGE.md`.
 
 ## Matriz requisito → implementação → teste → evidência → risco → estado
 
@@ -44,7 +60,12 @@ presumida aqui.
 | App Android: SQLCipher, TFLite, hora confiável, offline | `apps/ponto-obra` | `apps/ponto-obra/**/*.test.js` (268 com servidor e regras) | job `mobile-ponto-obra`; expo-doctor 21/21; prebuild conferido | **sem validação física** | TESTADO |
 | UI ARCD Precision reconciliada, com as correções da revisão Impeccable (câmera com prazo e `onCameraReady`, comprovante de terceirizado, divergência fiscal visível) | PR #72 | `apresentacao.test.js`, `prazo.test.js`, `codigo-fonte.test.js`, `design-system.test.js` | 277 testes do ponto; expo-doctor 21/21; prebuild com lista permitida de permissões | estouros de altura em 360×640 só se conferem no aparelho | TESTADO |
 | APK de homologação | perfil `homologacao` do `eas.json` (exige `PONTO_API_URL` isolada; pacote `.homologacao`), `scripts/verificar-apk.mjs` | `ambiente.test.js`; verificador rodado contra o APK antigo | APKs antigos `e4f41447` (vc 2) e `4f8b84c1` (vc 3, SHA-256 `1750d709…5438`, commit `7a5b73c` conferido) **auditados: apontam para a PRODUÇÃO — BLOQUEADOS PARA PAREAMENTO DE HOMOLOGAÇÃO, NÃO INSTALAR** | novo APK isolado depende do backend de homologação | IMPLEMENTADO (configuração); **APK isolado NÃO GERADO** |
-| Homologação física | `apps/ponto-obra/docs/HOMOLOGACAO-PILOTO.md` (18 cenários) | lógica coberta por testes automáticos (não substituem o aparelho) | — | nenhum cenário executado: sem backend isolado e sem aparelho | NÃO INICIADO |
+| PIN do responsável conferido no servidor no cadastro facial (flag `PONTO_EXIGIR_PIN_NO_SERVIDOR`) | #74 | `handler.test.js`, `pin.test.js`, `integracao-hardening.test.js` | CI 5/5 na #74 | P1: hash do PIN no aparelho (quebra offline) - decisão da direção | TESTADO |
+| Limites de tentativas (pareamento por origem e global; PIN por aparelho), contados antes de olhar o código/PIN | #76 `limite-pareamento.js` | `limite-pareamento.test.js`, `limite-pareamento.pg.test.js` (rajadas em Postgres real), `integracao-hardening.test.js` | pre-push 2570 testes; CI | falha ABERTA se a RPC cair; teto global = negação de serviço do pareamento | TESTADO |
+| Trava persistente do PIN; segredos apagados na revogação | #76 `trava-pin.js`, `sincronizacao.js` | `pin.test.js`, `rep-p-ponta-a-ponta.test.js`, `integracao-hardening.test.js` | idem | relógio adiantado 24 h zera a trava local | TESTADO |
+| Métricas de fila e tempo do reconhecimento | #75 `metricas-aparelho.js`, `desempenho.js`, `painel.js` | `desempenho.test.js`, `metricas-fila.test.js`, `painel.test.js`, `handler.test.js` | CI 5/5 na #75 | tempos só valem medidos em aparelho de referência | TESTADO |
+| Deploy de homologação nunca no banco da produção | #73 `guarda-prebuild.mjs` (1º passo do `prebuild`) + `ambiente.js` (execução) | `guarda-prebuild.test.js` (produção sai 0 sem conectar; homologação recusa variáveis/banco errados; falha fechada) | — | o guarda só vale com `PONTO_AMBIENTE=homologacao` no projeto (conferido pelo `validar-env`) | TESTADO |
+| Homologação física | `apps/ponto-obra/docs/HOMOLOGACAO-PILOTO.md` (18 cenários + H1–H6) | lógica coberta por testes automáticos (não substituem o aparelho) | — | nenhum cenário executado: sem backend isolado e sem aparelho | NÃO INICIADO |
 | Conformidade REP-P formal | — | — | — | exige requisitos fiscais, jurídicos e formais (Fase 03) | NÃO INICIADO |
 
 ## Efeito de cada merge no deploy da Vercel
@@ -57,7 +78,10 @@ O `prebuild` da `main` termina em `npm run ponto-eletronico:migrate`.
 | #70 | só acrescenta os arquivos da 019; **não aplica** (o script de deploy aplica só 016–018) |
 | #71 | o script de deploy ganha trava e gate; hoje GO/seguir → reaplica 016–018 como antes (provado executando o script em Postgres real) |
 | #72 | app; no servidor, só o campo `ambiente` nas respostas do aparelho e a recusa (409) de app que declara outro ambiente. Sem `PONTO_AMBIENTE` na produção, comportamento igual |
-| PR da homologação | `scripts/homologacao/` e documentação: nada roda no deploy de produção |
+| #73 | `scripts/homologacao/` e documentação; o `prebuild` ganha `guarda-prebuild.mjs` como 1º passo, que **na produção sai 0 na hora** (sem `PONTO_AMBIENTE=homologacao`, não importa nem conecta em nada; provado rodando o script) |
+| #74 | cadastro facial ganha a conferência do PIN só com `PONTO_EXIGIR_PIN_NO_SERVIDOR=1`; **sem o flag, igual a hoje** |
+| #76 | pareamento passa a ter limite de tentativas (tabela `auth_rate_limits` e RPCs já existentes na produção, sem migration nova); com o flag do PIN, limite do PIN por aparelho. App: revogação apaga hashes de PIN e vetores do aparelho |
+| #75 | `ponto-sincronizar` aceita métricas numéricas dentro de `aparelho` (jsonb existente, sem migration); `ponto-dispositivos` devolve `fila` |
 
 ## Etapa intermediária: o que falta (cada item 🔐)
 
@@ -96,7 +120,8 @@ Todas verdadeiras e registradas:
    com versão fiscal 019, e o redeploy seguinte sem reaplicar nada.
 6. CNPJ do estabelecimento cadastrado (auditado depois do NSR 2).
 7. #72 mesclada (ARCD Precision reconciliado) ou decisão formal de adiá-la.
-8. APK piloto validado em aparelho real conforme a matriz de homologação
-   (`apps/ponto-obra/docs/HOMOLOGACAO-PILOTO.md` na #72).
+8. APK de homologação (perfil `homologacao`, RC da branch de integração)
+   validado em aparelho real conforme a matriz de homologação
+   (`apps/ponto-obra/docs/HOMOLOGACAO-PILOTO.md`: 18 cenários + H1–H6).
 9. Decisão formal da direção sobre os riscos residuais (Fase 01, seção 15;
    019, seção 11; backup, seção 7).

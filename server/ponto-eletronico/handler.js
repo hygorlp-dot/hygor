@@ -21,6 +21,7 @@ import crypto from "node:crypto";
 import { calcularHashMarcacao, validarMarcacao, verificarCadeia, HASH_INICIAL, sequenciaLegadaDoAparelho } from "../../src/domains/ponto-eletronico/marcacao.js";
 import { funcionariosAtivos, terceirizadosDaObra } from "../../src/domains/ponto-eletronico/funcionarios.js";
 import { LIMITE_FOTO_BYTES } from "../../src/domains/ponto-eletronico/foto.js";
+import { limparMetricasAparelho } from "../../src/domains/ponto-eletronico/metricas-aparelho.js";
 import { validarEstabelecimento, pendenciasFiscais } from "../../src/domains/ponto-eletronico/estabelecimento.js";
 import { situacaoRepP } from "../../src/domains/ponto-eletronico/rep-p.js";
 import { proporApropriacoes, validarApropriacao } from "../../src/domains/ponto-eletronico/apropriacao.js";
@@ -30,6 +31,7 @@ import { caminhoFotoCadastro, caminhoFotoMarcacao } from "./fotos-caminho.js";
 import { POLITICA_PADRAO, criarFonteHora } from "./tempo/fonte-hora.js";
 
 import { NOME_AMBIENTE, criarAmbiente } from "./ambiente.js";
+import { criarLimitePareamento, criarLimitePinResponsavel } from "./limite-pareamento.js";
 export const BUCKET_PONTO = "ponto-obra";
 export const PAPEIS_GESTAO = new Set(["admin", "rh", "engenheiro"]);
 export const PAPEIS_CONSULTA = new Set(["admin", "rh", "engenheiro", "engenheiro_auditor", "financeiro"]);
@@ -49,6 +51,17 @@ export const gerarCodigoPareamento = () => String(crypto.randomInt(0, 100_000_00
 export const gerarTokenAparelho = () => crypto.randomBytes(32).toString("base64url");
 export const hashPin = (pin, salt, iteracoes = PIN_ITERACOES) =>
   crypto.pbkdf2Sync(String(pin), String(salt), iteracoes, 32, "sha256").toString("hex");
+// Confere o PIN digitado contra a linha de ponto_responsaveis (pin_hash,
+// pin_salt, pin_iteracoes). Comparação em tempo constante; formato inválido
+// ou linha sem hash = false, sem calcular nada. O PIN nunca vai para log.
+export function pinConfere(pin, resp) {
+  const limpo = typeof pin === "string" || typeof pin === "number" ? String(pin) : "";
+  if (!/^\d{4,8}$/.test(limpo) || !resp?.pin_hash || !resp?.pin_salt) return false;
+  const iteracoes = Number(resp.pin_iteracoes) > 0 ? Number(resp.pin_iteracoes) : PIN_ITERACOES;
+  const calculado = Buffer.from(hashPin(limpo, resp.pin_salt, iteracoes), "hex");
+  const guardado = Buffer.from(String(resp.pin_hash), "hex");
+  return calculado.length === guardado.length && crypto.timingSafeEqual(calculado, guardado);
+}
 
 const decodificarFoto = base64 => {
   const limpo = texto(base64).replace(/^data:image\/jpeg;base64,/, "");
@@ -61,15 +74,27 @@ const decodificarFoto = base64 => {
 
 // Identificação do aparelho que o app manda (ponto-parear / ponto-sincronizar):
 // só campos conhecidos, texto curto - nada pessoal e nada arbitrário no banco.
+// Junto vão as métricas de fila/desempenho (contrato METRICAS_APARELHO em
+// src/domains/ponto-eletronico/metricas-aparelho.js): só números limitados.
+// O objeto inteiro substitui o anterior: app antigo (sem métricas) não deixa
+// métrica velha parecendo atual.
 const CAMPOS_APARELHO = ["marca", "modelo", "android", "build", "commit", "ambiente"];
-export const limparAparelho = bruto => Object.fromEntries(CAMPOS_APARELHO
+const identificacaoDoAparelho = bruto => Object.fromEntries(CAMPOS_APARELHO
   .filter(k => bruto && typeof bruto === "object" && bruto[k] !== undefined && bruto[k] !== null && texto(bruto[k]))
   .map(k => [k, texto(bruto[k]).slice(0, 80)]));
+export const limparAparelho = bruto => ({ ...identificacaoDoAparelho(bruto), ...limparMetricasAparelho(bruto) });
 const limparVersao = v => texto(v).slice(0, 40);
+
+// Fila do aparelho como ele informou no último contato (ultimoContatoEm):
+// null = app sem métricas (versão antiga) ou nunca sincronizou.
+const filaDoAparelho = aparelho => {
+  const m = limparMetricasAparelho(aparelho);
+  return Object.keys(m).length ? m : null;
+};
 
 const linhaDispositivo = d => ({
   id: d.id, obraId: d.obra_id, nome: d.nome, status: d.status, appVersao: d.app_versao,
-  aparelho: d.aparelho || {}, ultimoContatoEm: d.ultimo_contato_em, ultimoGps: d.ultimo_gps,
+  aparelho: identificacaoDoAparelho(d.aparelho), fila: filaDoAparelho(d.aparelho), ultimoContatoEm: d.ultimo_contato_em, ultimoGps: d.ultimo_gps,
   estabelecimentoId: d.estabelecimento_id || null,
   // Sequência LOCAL do aparelho (não é NSR). A "legada" é a do formato 1.
   ultimaSequenciaLocal: Number(d.ultima_sequencia_local || 0), ultimaSequenciaLegada: Number(d.ultimo_nsr || 0),
@@ -114,7 +139,15 @@ const linhaEstabelecimento = (e, obras = []) => ({
 // existe para os testes fixarem o relógio do host.
 // verificarHoraNtp: async () => medição (tempo/ntp.js verificarHora), usada
 // pela ação ponto-tempo-verificar.
-export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO, ambienteDeclarado, supabaseUrl }) {
+// exigirPinNoServidor (api/data.js: PONTO_EXIGIR_PIN_NO_SERVIDOR=1): o
+// cadastro facial (ponto-cadastrar-biometria) só é aceito com o PIN do
+// responsável ("pinResponsavel") conferido AQUI, contra ponto_responsaveis -
+// sem isso, qualquer token de aparelho poderia cadastrar um rosto no nome de
+// qualquer responsável. Padrão DESLIGADO só para não quebrar os apps antigos
+// já instalados em produção (não mandam o PIN). Na HOMOLOGAÇÃO o flag deve
+// ficar LIGADO; em produção, ligar quando todos os aparelhos tiverem o app
+// que envia o PIN.
+export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO, ambienteDeclarado, supabaseUrl, exigirPinNoServidor = false }) {
   const ambiente = criarAmbiente({ db, declarado: ambienteDeclarado, supabaseUrl });
   const fonte = fonteHora || criarFonteHora({
     relogioHost: agoraDoHost ? () => agoraDoHost().getTime() : () => Date.now(),
@@ -128,6 +161,8 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
   });
   const agora = () => fonte.agora();
   const arp = criarArp({ db, company, fonteHora: fonte, hashFn: sha256 });
+  const limitePareamento = criarLimitePareamento({ db, company });
+  const limitePin = criarLimitePinResponsavel({ db, company });
 
   // Estabelecimento do aparelho: o já fixado nele, ou o da obra (vínculo do
   // ARCD). Obra sem vínculo = sem estabelecimento (as batidas esperam no
@@ -473,14 +508,26 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
     // Sem autenticação: só diz o ambiente deste servidor (o app confere ANTES de parear).
     async "ponto-ambiente"({ ambiente }) { return ok({ ambiente }); },
 
-    async "ponto-parear"({ body, ambiente }) {
+    // Sem login: quem acerta um código recebe o cadastro da obra (CPFs,
+    // vetores faciais, hashes de PIN). Por isso há limite de falhas por
+    // origem E um teto global (LIMITE_PAREAMENTO). A tentativa é contada
+    // ANTES de olhar o código - inclusive o certo, senão o bloqueio não
+    // protegeria nada, e contar só depois deixaria passar uma rajada paralela.
+    async "ponto-parear"({ body, headers, ambiente }) {
       const codigo = texto(body.codigo).replace(/\D/g, "");
       if (codigo.length !== 8) return erro(400, "O código tem 8 números.");
+      const limite = await limitePareamento.tentar(headers);
+      if (limite.bloqueado) {
+        const minutos = Math.max(1, Math.ceil(limite.tentarDeNovoEmSegundos / 60));
+        return erro(429, `Muitas tentativas de pareamento com código errado. Por segurança, o pareamento está bloqueado por ${minutos} min. Confira o código no ARCD e tente de novo depois.`,
+          { code: "PAREAMENTO_BLOQUEADO", tentarDeNovoEmSegundos: limite.tentarDeNovoEmSegundos });
+      }
       const { data: par, error } = await db.from("ponto_pareamentos").select("*")
         .eq("company_id", company).eq("codigo_hash", sha256(codigo)).maybeSingle();
       if (error) throw error;
       if (!par || par.usado_em) return erro(400, "Código inválido ou já usado. Gere outro no ARCD.", { code: "CODIGO_INVALIDO" });
       if (new Date(par.expira_em).getTime() < agora().getTime()) return erro(400, "Código expirado. Gere outro no ARCD.", { code: "CODIGO_EXPIRADO" });
+      await limitePareamento.acertou(headers);
       const token = gerarTokenAparelho();
       const id = crypto.randomUUID();
       // Consome o código ANTES de criar o aparelho, com a condição de ainda
@@ -641,9 +688,27 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const consentimento = body.consentimento || {};
       if (!texto(consentimento.termoVersao) || !texto(consentimento.aceitoEm)) return erro(400, "Sem o consentimento do funcionário a biometria não pode ser cadastrada (LGPD).");
       const responsavelId = texto(body.responsavelId);
-      const { data: resp, error: errResp } = await db.from("ponto_responsaveis").select("user_id,obras,ativo").eq("company_id", company).eq("user_id", responsavelId).maybeSingle();
+      const { data: resp, error: errResp } = await db.from("ponto_responsaveis").select("user_id,obras,ativo,pin_hash,pin_salt,pin_iteracoes").eq("company_id", company).eq("user_id", responsavelId).maybeSingle();
       if (errResp) throw errResp;
       if (!resp?.ativo || ((resp.obras || []).length && !(resp.obras || []).map(String).includes(String(dispositivo.obra_id)))) return erro(403, "Responsável sem permissão nesta obra.");
+      // Prova de que o responsável digitou o PIN (ver exigirPinNoServidor).
+      // Antes de gravar qualquer foto ou vetor.
+      if (exigirPinNoServidor) {
+        if (body.pinResponsavel === undefined || body.pinResponsavel === null || body.pinResponsavel === "") {
+          return erro(403, "Este aplicativo precisa ser atualizado: o cadastro do rosto exige o PIN do responsável conferido no ARCD.", { code: "PIN_RESPONSAVEL_AUSENTE" });
+        }
+        // Limite por aparelho, contado ANTES do PBKDF2 (LIMITE_PIN_RESPONSAVEL).
+        const limite = await limitePin.tentar(dispositivo.id);
+        if (limite.bloqueado) {
+          const minutos = Math.max(1, Math.ceil(limite.tentarDeNovoEmSegundos / 60));
+          return erro(429, `Muitas tentativas com PIN do responsável errado neste aparelho. Por segurança, o cadastro do rosto está bloqueado por ${minutos} min.`,
+            { code: "PIN_RESPONSAVEL_BLOQUEADO", tentarDeNovoEmSegundos: limite.tentarDeNovoEmSegundos });
+        }
+        if (pinConfere(body.pinResponsavel, resp)) await limitePin.acertou(dispositivo.id);
+        else {
+          return erro(403, "O PIN do responsável não confere com o ARCD (pode ter sido trocado). Em Sincronização toque em \"Sincronizar agora\", saia do modo encarregado e entre de novo com o PIN atual.", { code: "PIN_RESPONSAVEL_INVALIDO" });
+        }
+      }
       const id = crypto.randomUUID();
       const fotos = [];
       for (const [i, bruto] of (Array.isArray(body.fotos) ? body.fotos.slice(0, 5) : []).entries()) {

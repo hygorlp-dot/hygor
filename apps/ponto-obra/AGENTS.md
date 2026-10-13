@@ -31,7 +31,10 @@ Não faça upgrade de major (Expo/RN) sem decisão explícita.
   sincronização e fila (`sincronizacao.js`), contrato do armazém
   (`armazem-memoria.js`), rosto (`rosto.js`), **parâmetros de calibração
   facial** (`calibracao.js` — o único lugar com limiares), relatório de
-  calibração, foto dentro do limite, falhas → mensagens, diagnóstico.
+  calibração, foto dentro do limite, falhas → mensagens, diagnóstico,
+  desempenho do reconhecimento (`desempenho.js`: durações por etapa medidas
+  com relógio monotônico + contagens de resultado, só números; só observa,
+  nenhuma decisão depende delas).
 - **Banco local**: SQLite com **SQLCipher** (`expo-sqlite`, plugin
   `useSQLCipher`), chave aleatória no **SecureStore**. O SQL fica em
   `src/dados/armazem-sqlite-nucleo.js` (testado contra SQLite real);
@@ -101,8 +104,20 @@ Não faça upgrade de major (Expo/RN) sem decisão explícita.
 
 - **Nenhum `console.*`** no app (há teste). Nunca registrar em log: vetor
   facial, foto, PIN, token do aparelho, CPF completo, chave do SQLCipher.
+- PIN do responsável: conferido offline no aparelho (hash PBKDF2 da
+  sincronização) e, com `PONTO_EXIGIR_PIN_NO_SERVIDOR=1` no servidor
+  (api/data.js → `criarTratadorPonto({ exigirPinNoServidor })`), também no
+  servidor em `ponto-cadastrar-biometria` (`pinResponsavel`; 403
+  `PIN_RESPONSAVEL_AUSENTE`/`PIN_RESPONSAVEL_INVALIDO`, nada gravado). O app
+  guarda o PIN digitado SÓ em memória (closure de `abrirSessaoResponsavel`,
+  `src/logica/pin.js`), nunca em disco/SecureStore/log, e descarta ao sair do
+  modo encarregado (botão, inatividade, desmontagem) - há teste de
+  código-fonte. Flag padrão desligado (apps antigos); na homologação, LIGADO.
 - Diagnóstico (modo Encarregado) tem lista fechada de campos sem dado
   pessoal/biométrico (`src/logica/diagnostico.js`).
+- Métricas que vão ao ARCD na sincronização (fila e p95 do reconhecimento)
+  seguem o contrato `src/domains/ponto-eletronico/metricas-aparelho.js`: só
+  números limitados, aceitos pelo servidor campo a campo.
 - `android.allowBackup=false` (o banco cifrado não pode ir para a nuvem sem a
   chave). Permissões perigosas só câmera e localização; `VIBRATE` (normal, sem
   pedido ao usuário) vem do `expo-haptics`. `WRITE_SETTINGS` fica bloqueada: o
