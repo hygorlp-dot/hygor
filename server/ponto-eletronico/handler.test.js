@@ -4,6 +4,7 @@ import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { criarTratadorPonto, ehAcaoPonto, hashPin, limparAparelho, pinConfere } from "./handler.js";
 import { bancoFalso } from "./banco-falso.test-helper.js";
+import { LIMITE_PIN_RESPONSAVEL } from "./limite-pareamento.js";
 import { HASH_INICIAL, calcularHashMarcacao } from "../../src/domains/ponto-eletronico/marcacao.js";
 
 const sha256 = v => createHash("sha256").update(v).digest("hex");
@@ -191,14 +192,46 @@ describe("PIN do responsável conferido no servidor (PONTO_EXIGIR_PIN_NO_SERVIDO
   });
 
   it("flag ligado: PIN errado ou malformado = 403 PIN_RESPONSAVEL_INVALIDO, sem gravar nada", async () => {
-    const auth = await preparar(true);
-    for (const pinResponsavel of ["90817264", "1234", "abc", "9".repeat(50), 90817264, { pin: PIN }, [PIN]]) {
+    let auth;
+    for (const [i, pinResponsavel] of ["90817264", "1234", "abc", "9".repeat(50), 90817264, { pin: PIN }, [PIN]].entries()) {
+      // Aparelho novo a cada LIMITE_PIN_RESPONSAVEL tentativas (o limite é por aparelho).
+      if (i % LIMITE_PIN_RESPONSAVEL.falhas === 0) auth = await preparar(true);
       const r = await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: corpo({ pinResponsavel }) });
       expect(r.status).toBe(403);
       expect(r.json.code).toBe("PIN_RESPONSAVEL_INVALIDO");
       expect(JSON.stringify(r.json)).not.toContain(PIN);
     }
     nadaGravado();
+  });
+
+  it("flag ligado: limite por aparelho - depois de N PINs errados até o certo é 429, sem PBKDF2 nem gravação; outro aparelho segue", async () => {
+    const auth = await preparar(true);
+    for (let i = 0; i < LIMITE_PIN_RESPONSAVEL.falhas; i++) {
+      expect((await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: corpo({ pinResponsavel: `1111000${i}` }) })).json.code).toBe("PIN_RESPONSAVEL_INVALIDO");
+    }
+    const r = await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: corpo({ pinResponsavel: PIN }) });
+    expect(r.status).toBe(429);
+    expect(r.json.code).toBe("PIN_RESPONSAVEL_BLOQUEADO");
+    expect(r.json.error).toMatch(/bloqueado por 15 min/);
+    expect(JSON.stringify(r.json)).not.toContain(PIN);
+    nadaGravado();
+    const outro = await preparar(true);
+    expect((await tratar({ action: "ponto-cadastrar-biometria", headers: outro, body: corpo({ pinResponsavel: PIN }) })).status).toBe(200);
+  });
+
+  it("flag ligado: PIN certo zera o contador do aparelho", async () => {
+    const auth = await preparar(true);
+    const errar = () => tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: corpo({ pinResponsavel: "11110000" }) });
+    for (let i = 0; i < LIMITE_PIN_RESPONSAVEL.falhas - 1; i++) await errar();
+    expect((await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: corpo({ pinResponsavel: PIN }) })).status).toBe(200);
+    for (let i = 0; i < LIMITE_PIN_RESPONSAVEL.falhas - 1; i++) expect((await errar()).status).toBe(403);
+  });
+
+  it("flag ligado: rajada paralela de PINs não passa do limite (a tentativa é contada antes de conferir)", async () => {
+    const auth = await preparar(true);
+    const rs = await Promise.all(Array.from({ length: 20 }, (_, i) => tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: corpo({ pinResponsavel: String(22220000 + i) }) })));
+    expect(rs.filter(r => r.status === 403)).toHaveLength(LIMITE_PIN_RESPONSAVEL.falhas);
+    expect(rs.filter(r => r.status === 429)).toHaveLength(20 - LIMITE_PIN_RESPONSAVEL.falhas);
   });
 
   it("flag ligado: o PIN é o do responsável indicado - o PIN de OUTRO responsável não serve", async () => {

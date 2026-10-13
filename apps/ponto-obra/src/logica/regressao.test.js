@@ -50,6 +50,19 @@ describe("pareamento", () => {
     expect(expirado.json.code).toBe("CODIGO_EXPIRADO");
     expect(classificarResposta({ ok: false, status: expirado.status, ...expirado.json })).toMatchObject({ tipo: TIPO_FALHA.RECUSADO, mensagem: expect.stringContaining("expirado") });
   });
+
+  it("pareamento bloqueado por excesso de tentativas mostra o motivo, não 'ARCD indisponível'", () => {
+    const erro = "Muitas tentativas de pareamento com código errado. Por segurança, o pareamento está bloqueado por 15 min. Confira o código no ARCD e tente de novo depois.";
+    const c = classificarResposta({ ok: false, status: 429, code: "PAREAMENTO_BLOQUEADO", error: erro });
+    expect(c).toEqual({ tipo: TIPO_FALHA.RECUSADO, mensagem: erro });
+    expect(classificarResposta({ ok: false, status: 429, code: "PAREAMENTO_BLOQUEADO" }).mensagem).toMatch(/Muitas tentativas/);
+  });
+
+  it("PIN do responsável bloqueado no servidor mostra o motivo, não 'ARCD indisponível'", () => {
+    const c = classificarResposta({ ok: false, status: 429, code: "PIN_RESPONSAVEL_BLOQUEADO" });
+    expect(c.tipo).toBe(TIPO_FALHA.RECUSADO);
+    expect(c.mensagem).toMatch(/PIN do responsável errado/);
+  });
 });
 
 describe("primeira sincronização e situação do cadastro", () => {

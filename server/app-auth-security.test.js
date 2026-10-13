@@ -24,4 +24,15 @@ describe("segurança das credenciais operacionais",()=>{
     expect(calls[0][1].p_subject_hash).toBe(authRateLimitSubject("arcd","api:user-1"));
     expect(calls[0][1].p_subject_hash).not.toContain("user-1");
   });
+
+  it("limite e janela próprios só vão na falha; sem eles, a chamada é a de sempre",async()=>{
+    const calls=[];
+    const db={rpc:async(name,args)=>{calls.push([name,args]);return {data:[{blocked:false,retry_after_seconds:0}],error:null};}};
+    await applyPersistentAuthRateLimit(db,{company:"arcd",subject:"s",action:"failure",limit:5,windowSeconds:900});
+    await applyPersistentAuthRateLimit(db,{company:"arcd",subject:"s",action:"status",limit:5,windowSeconds:900});
+    await applyPersistentAuthRateLimit(db,{company:"arcd",subject:"s",action:"failure"});
+    expect(calls[0]).toEqual(["auth_rate_limit_failure",expect.objectContaining({p_limit:5,p_window_seconds:900})]);
+    expect(Object.keys(calls[1][1])).toEqual(["p_company_id","p_subject_hash"]);
+    expect(Object.keys(calls[2][1])).toEqual(["p_company_id","p_subject_hash"]);
+  });
 });

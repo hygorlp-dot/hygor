@@ -10,7 +10,7 @@
 // arp/arp-concorrencia.pg.test.js, que roda na CI contra um Postgres de verdade.)
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { enviarPendentes, sincronizarCadastro } from "./sincronizacao.js";
+import { enviarPendentes, rodadaDeSincronizacao, sincronizarCadastro } from "./sincronizacao.js";
 import { criarAparelho, criarServidor, sha256 } from "./cenario.test-helper.js";
 import { HASH_INICIAL, calcularHashMarcacao } from "../../../../src/domains/ponto-eletronico/marcacao.js";
 
@@ -155,5 +155,22 @@ describe("REP-P: sequência local por aparelho, NSR fiscal por estabelecimento",
     const guardados = await A.armazem.eventosPendentes(5);
     expect(guardados.map(x => [x.eventId, x.localSequence, x.localHash])).toEqual([[e1.eventId, 1, e1.localHash], [e2.eventId, 2, e2.localHash]]);
     expect((await s.fiscais(null)).length).toBe(0);
+  });
+
+  it("aparelho revogado: hashes de PIN e vetores faciais saem do banco local; batidas e cadeia ficam", async () => {
+    const e1 = await A.bater();
+    // Material sintético que um aparelho perdido teria (hash de PIN e vetor facial).
+    await A.armazem.salvarCadastro({ ...(await A.armazem.cadastro()),
+      responsaveis: [{ userId: "u-enc", nome: "Encarregado", pinHash: "ab".repeat(32), pinSalt: "cd".repeat(16), pinIteracoes: 60000 }],
+      biometrias: [{ employeeId: "e1", vetor: Array.from({ length: 128 }, (_, i) => i / 128) }], biometriasAssinatura: "assinatura" });
+    await s.admin("ponto-dispositivo-revogar", { dispositivoId: A.dispositivoId });
+    for (const cadastroVencido of [true, false]) {
+      const r = await rodadaDeSincronizacao({ armazem: A.armazem, api: A.api, monotonico: A.monotonico, corpo: {}, cadastroVencido, lerFotoBase64: async () => null, aposEnviarFoto: async () => {} });
+      expect(r.revogado).toBe(true);
+    }
+    const c = await A.armazem.cadastro();
+    expect(c).toMatchObject({ responsaveis: [], biometrias: [], biometriasAssinatura: "" });
+    expect(c.obra?.id).toBe("obra-a");
+    expect((await A.armazem.eventosPendentes(5)).map(x => x.eventId)).toEqual([e1.eventId]);
   });
 });
