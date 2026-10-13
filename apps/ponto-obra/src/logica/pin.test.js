@@ -55,6 +55,16 @@ describe("regra pura da trava do PIN", () => {
     expect(registrarFalhaPin(trava, T0 + ESQUECER_ERROS_MS).trava.erros).toBe(1);
   });
 
+  it("LIMITE CONHECIDO: adiantar o relógio do aparelho em 24 h zera a trava LOCAL (falha aberta documentada)", () => {
+    // A trava local usa o relógio de parede (o monotônico zera a cada
+    // reinício). Adiantar a hora exige as configurações do Android; a
+    // proteção que não depende do aparelho é o limite do PIN no servidor
+    // (LIMITE_PIN_RESPONSAVEL), que vale para o cadastro facial.
+    const { trava } = errarVezes(8);
+    expect(conferirTravaPin(trava, T0 + 60_000).bloqueado).toBe(true);
+    expect(conferirTravaPin(trava, T0 + ESQUECER_ERROS_MS)).toMatchObject({ bloqueado: false, trava: { erros: 0 } });
+  });
+
   it("estado gravado inválido ou adulterado não quebra nem cria espera maior que a máxima", () => {
     for (const lixo of [null, undefined, "x", 3, [], { erros: "abc" }]) expect(normalizarTravaPin(lixo)).toEqual({ erros: 0, bloqueadoAte: 0, ultimaFalhaEm: 0 });
     const adulterado = normalizarTravaPin({ erros: 9, ultimaFalhaEm: T0, bloqueadoAte: T0 + 10 * 365 * 24 * 60 * 60_000 });

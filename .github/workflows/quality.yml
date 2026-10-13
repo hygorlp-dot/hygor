@@ -128,6 +128,8 @@ jobs:
       - run: npm ci
       - name: Concorrência real da ARP (NSR único, idempotência, rollback)
         run: npx vitest run server/ponto-eletronico/arp/arp-concorrencia.pg.test.js
+      - name: Limitador do pareamento e do PIN contra as RPCs reais (rajadas simultâneas, teto global, janela, falha aberta)
+        run: npx vitest run server/ponto-eletronico/limite-pareamento.pg.test.js --reporter=default --reporter=json --outputFile=limite.json && node -e "const r=require('./limite.json'); if (r.numPassedTests < 8) { console.error('teste do limitador em Postgres real não rodou'); process.exit(1); }"
       - name: Confere que o teste rodou (não foi pulado)
         run: npx vitest run server/ponto-eletronico/arp/arp-concorrencia.pg.test.js --reporter=json --outputFile=concorrencia.json && node -e "const r=require('./concorrencia.json'); if (r.numPassedTests < 5) { console.error('teste de concorrência não rodou'); process.exit(1); }"
 
