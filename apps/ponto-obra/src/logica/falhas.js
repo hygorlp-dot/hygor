@@ -18,6 +18,8 @@ export function classificarResposta(r) {
   if (r?.code === "APARELHO_DESCONHECIDO" || r?.code === "APARELHO_SEM_TOKEN") return { tipo: TIPO_FALHA.DESCONHECIDO, mensagem: "O ARCD não reconhece mais este aparelho. Pareie de novo com um código gerado no ARCD." };
   if (r?.code === "AMBIENTE_INCOMPATIVEL") return { tipo: TIPO_FALHA.RECUSADO, mensagem: `${resumirTexto(r?.error) || "O servidor é de outro ambiente."} As batidas continuam guardadas no aparelho; chame o suporte.` };
   if (r?.code === "AMBIENTE_NAO_CONFIRMADO") return { tipo: TIPO_FALHA.RECUSADO, mensagem: "O servidor de homologação não confirmou o próprio ambiente e bloqueou o ponto. Nada foi enviado; as batidas continuam guardadas. Chame o suporte." };
+  // 429 do limite de tentativas do pareamento: não é "servidor fora do ar".
+  if (r?.code === "PAREAMENTO_BLOQUEADO") return { tipo: TIPO_FALHA.RECUSADO, mensagem: resumirTexto(r?.error, 240) || "Muitas tentativas de pareamento com código errado. Aguarde alguns minutos, confira o código no ARCD e tente de novo." };
   if (r?.code === "SERVIDOR_NAO_CONFIGURADO") return { tipo: TIPO_FALHA.RECUSADO, mensagem: "Este aplicativo não tem servidor configurado. Nada foi enviado; as batidas continuam guardadas." };
   const status = Number(r?.status || 0);
   if (status === 0) return { tipo: TIPO_FALHA.SEM_REDE, mensagem: "Sem internet. As batidas ficam guardadas no aparelho e são enviadas quando a conexão voltar." };
