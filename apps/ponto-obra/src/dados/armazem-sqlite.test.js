@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { abrirNode } from "./sqlite-node.test-helper.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { criarArmazemSobreBanco, prepararBanco } from "./armazem-sqlite-nucleo.js";
+import { criarArmazemSobreBanco, prepararBanco, serializarBanco } from "./armazem-sqlite-nucleo.js";
 import { registrarBatida } from "../logica/terminal.js";
 import { criarArmazemMemoria } from "../logica/armazem-memoria.js";
 import { calcularHashLocal, verificarCadeiaLocal } from "../../../../src/domains/ponto-eletronico/evento.js";
@@ -95,6 +95,33 @@ describe("armazém SQLite do aparelho (SQL real)", () => {
     await db.closeAsync();
   });
 
+  it("armazenamento cheio (SQLITE_FULL) no meio da batida: nada gravado, sequência não pula, a próxima batida segue a cadeia", async () => {
+    // A falha vem da conexão crua, ABAIXO de serializarBanco - como o SQLite do aparelho falharia.
+    const banco = new DatabaseSync(arquivo);
+    let cheio = false;
+    const db = serializarBanco({
+      async execAsync(sql) { banco.exec(sql); },
+      async getFirstAsync(sql, ...p) { return banco.prepare(sql).get(...p) ?? null; },
+      async getAllAsync(sql, ...p) { return banco.prepare(sql).all(...p); },
+      async runAsync(sql, ...p) {
+        if (cheio && /INSERT INTO marcacoes/.test(sql)) throw new Error("database or disk is full");
+        const r = banco.prepare(sql).run(...p); return { changes: Number(r.changes), lastInsertRowId: Number(r.lastInsertRowid) };
+      },
+      async closeAsync() { banco.close(); },
+    });
+    await prepararBanco(db);
+    const armazem = criarArmazemSobreBanco(db);
+    const a = await bater(armazem);
+    cheio = true;
+    await expect(bater(armazem)).rejects.toThrow(/disk is full/);
+    expect(await armazem.contagem()).toMatchObject({ pendentes: 1 });
+    cheio = false;
+    const c = await bater(armazem);
+    expect([a.localSequence, c.localSequence]).toEqual([1, 2]);
+    expect(c.localPreviousHash).toBe(a.localHash);
+    await db.closeAsync();
+  });
+
   it("sequência local continua depois de reabrir; batidas simultâneas não repetem; a cadeia local confere", async () => {
     let { db, armazem } = await abrir();
     await bater(armazem); await bater(armazem);
@@ -160,5 +187,23 @@ describe("armazém SQLite do aparelho (SQL real)", () => {
     expect((await db.getFirstAsync("PRAGMA synchronous")).synchronous).toBe(2);
     expect((await db.getFirstAsync("PRAGMA journal_mode")).journal_mode).toBe("wal");
     await db.closeAsync();
+  });
+
+  it("eventosRecentes (comprovante): só leitura, do mais novo ao mais antigo, com limite, sem tocar fila nem cadeia", async () => {
+    const { db, armazem } = await abrir();
+    const b1 = await bater(armazem);
+    const b2 = await bater(armazem, { pessoa: { tipo: "terceiro", id: "t1" } });
+    const b3 = await bater(armazem);
+    const antes = await armazem.contagem();
+    const recentes = await armazem.eventosRecentes(2);
+    expect(recentes.map(e => e.eventId)).toEqual([b3.eventId, b2.eventId]);
+    expect(recentes[0]).toMatchObject({ employeeId: "e1", formatVersion: 2, marcadoEm: b3.marcadoEm });
+    expect((await armazem.eventosRecentes(10)).map(e => e.eventId)).toEqual([b3.eventId, b2.eventId, b1.eventId]);
+    expect(await armazem.contagem()).toEqual(antes);
+    expect((await armazem.eventosPendentes(10)).map(e => e.localSequence)).toEqual([1, 2, 3]);
+    const cadeia = await verificarCadeiaLocal(await armazem.eventosPendentes(10), null, sha256);
+    expect(cadeia.erro).toBeNull();
+    expect(cadeia.aceitos.length).toBe(3);
+    await db.closeAsync();                       // arquivo aberto impede apagar a pasta no Windows
   });
 });

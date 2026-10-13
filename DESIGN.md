@@ -41,6 +41,17 @@ datas e identificadores. Corpo com `letter-spacing: .16px`; títulos com peso
 - Cards não devem flutuar nem usar gradientes.
 - Áreas de toque com mínimo de 44px no mobile.
 
+## Família de sistemas
+
+- **ARCD Carbon** (este documento): web, ERP e desktop administrativo.
+- **ARCD Precision**: aplicativos mobile e quiosques (uma tarefa por tela,
+  alvos grandes, leitura a distância).
+- **ARCD Precision / Cupertino Industrial**: o app Ponto de Obra, em tema
+  escuro. Ver `apps/ponto-obra/DESIGN.md`.
+
+Todos compartilham o ouro ARCD como única cor de marca, IBM Plex e as cores
+de estado reservadas a estado.
+
 ## Assinatura ARCD
 
 A navegação usa uma linha dourada vertical como “linha de execução”, conectando

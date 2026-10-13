@@ -70,6 +70,29 @@ describe("código-fonte do app", () => {
     const app = JSON.parse(ler("app.json")).expo;
     expect(app.android.allowBackup).toBe(false);
     expect(app.android.blockedPermissions).toContain("android.permission.SYSTEM_ALERT_WINDOW");
+    // Brilho só da janela do app: nada de alterar configuração do sistema.
+    expect(app.android.blockedPermissions).toContain("android.permission.WRITE_SETTINGS");
+    expect(app.plugins.flat()).not.toContain("expo-brightness");
     expect(app.plugins).toContainEqual(["expo-sqlite", { useSQLCipher: true }]);
+  });
+
+  it("captura da câmera com PRAZO e só depois de onCameraReady (revisão Impeccable P0: quiosque travava)", () => {
+    const ponto = ler("src/telas/TelaPonto.js"), encarregado = ler("src/telas/TelaEncarregado.js");
+    expect(ponto).toContain("onCameraReady");
+    for (const fonte of [ponto, encarregado]) {
+      const capturas = fonte.split("takePictureAsync(").length - 1;
+      const comPrazo = fonte.split("comPrazo(camera.current.takePictureAsync(").length - 1;
+      expect(capturas).toBeGreaterThan(0);
+      expect(comPrazo).toBe(capturas);
+    }
+    expect(ponto).toContain("if (emCurso.current) return;");   // toque duplo não inicia duas batidas
+    // Câmera que volta (depois do comprovante, da permissão, do cadastro) é NOVA:
+    // "pronta" zera quando ela sai da tela, e o prazo de 10 s só conta com ela montada.
+    expect(ponto).toMatch(/useEffect\(\(\) => \{ if \(!cameraMontada\) \{ setCameraPronta\(false\);/);
+    expect(ponto).toContain("if (!cameraMontada || cameraPronta || erroCamera) return undefined;");
+  });
+
+  it("homologação nunca usa host de produção nem em execução (segunda trava, além do build)", () => {
+    expect(ler("src/servicos/conexao.js")).toContain("if (AMBIENTE === \"homologacao\" && ehHostDeProducao(new URL(EXTRA.apiUrl).host)) return null;");
   });
 });

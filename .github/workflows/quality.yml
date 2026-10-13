@@ -70,6 +70,9 @@ jobs:
   # NÃO compila nem publica APK (isso é feito à mão na EAS, perfil "piloto").
   mobile-ponto-obra:
     runs-on: ubuntu-latest
+    # PONTO_AMBIENTE é obrigatório no app (config/ambiente.js): a CI confere o build de produção.
+    env:
+      PONTO_AMBIENTE: producao
     defaults:
       run:
         working-directory: apps/ponto-obra

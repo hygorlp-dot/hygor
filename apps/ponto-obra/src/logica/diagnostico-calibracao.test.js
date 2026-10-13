@@ -65,17 +65,17 @@ describe("payload da sincronização", () => {
   it("versão do app, marca, modelo, Android e GPS válido; nada pessoal", () => {
     const agoraMs = Date.parse("2026-10-01T12:00:00Z");
     expect(montarCorpoSincronizacao({
-      app: { versao: "1.0.0", build: "7", commit: "abcdef1234567" }, aparelho: { marca: "motorola", modelo: "moto g54", android: "14", serial: "NAO-VAI" },
+      app: { versao: "1.0.0", build: "7", commit: "abcdef1234567", ambiente: "homologacao" }, aparelho: { marca: "motorola", modelo: "moto g54", android: "14", serial: "NAO-VAI" },
       gps: { lat: -8.1, lng: -34.9, precisao: 8, em: agoraMs - 5000 }, agoraMs,
     })).toEqual({
       appVersao: "1.0.0 (7)",
-      aparelho: { marca: "motorola", modelo: "moto g54", android: "14", build: "7", commit: "abcdef123456" },
+      aparelho: { marca: "motorola", modelo: "moto g54", android: "14", build: "7", commit: "abcdef123456", ambiente: "homologacao" },
       gps: { lat: -8.1, lng: -34.9, precisao: 8 },
     });
   });
 
   it("sem informação nenhuma ainda sai um corpo válido", () => {
-    expect(montarCorpoSincronizacao()).toEqual({ appVersao: "", aparelho: { marca: "", modelo: "", android: "", build: "", commit: "" } });
+    expect(montarCorpoSincronizacao()).toEqual({ appVersao: "", aparelho: { marca: "", modelo: "", android: "", build: "", commit: "", ambiente: "" } });
   });
 });
 
