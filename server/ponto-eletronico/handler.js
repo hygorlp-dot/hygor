@@ -49,6 +49,17 @@ export const gerarCodigoPareamento = () => String(crypto.randomInt(0, 100_000_00
 export const gerarTokenAparelho = () => crypto.randomBytes(32).toString("base64url");
 export const hashPin = (pin, salt, iteracoes = PIN_ITERACOES) =>
   crypto.pbkdf2Sync(String(pin), String(salt), iteracoes, 32, "sha256").toString("hex");
+// Confere o PIN digitado contra a linha de ponto_responsaveis (pin_hash,
+// pin_salt, pin_iteracoes). Comparação em tempo constante; formato inválido
+// ou linha sem hash = false, sem calcular nada. O PIN nunca vai para log.
+export function pinConfere(pin, resp) {
+  const limpo = typeof pin === "string" || typeof pin === "number" ? String(pin) : "";
+  if (!/^\d{4,8}$/.test(limpo) || !resp?.pin_hash || !resp?.pin_salt) return false;
+  const iteracoes = Number(resp.pin_iteracoes) > 0 ? Number(resp.pin_iteracoes) : PIN_ITERACOES;
+  const calculado = Buffer.from(hashPin(limpo, resp.pin_salt, iteracoes), "hex");
+  const guardado = Buffer.from(String(resp.pin_hash), "hex");
+  return calculado.length === guardado.length && crypto.timingSafeEqual(calculado, guardado);
+}
 
 const decodificarFoto = base64 => {
   const limpo = texto(base64).replace(/^data:image\/jpeg;base64,/, "");
@@ -114,7 +125,15 @@ const linhaEstabelecimento = (e, obras = []) => ({
 // existe para os testes fixarem o relógio do host.
 // verificarHoraNtp: async () => medição (tempo/ntp.js verificarHora), usada
 // pela ação ponto-tempo-verificar.
-export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO, ambienteDeclarado, supabaseUrl }) {
+// exigirPinNoServidor (api/data.js: PONTO_EXIGIR_PIN_NO_SERVIDOR=1): o
+// cadastro facial (ponto-cadastrar-biometria) só é aceito com o PIN do
+// responsável ("pinResponsavel") conferido AQUI, contra ponto_responsaveis -
+// sem isso, qualquer token de aparelho poderia cadastrar um rosto no nome de
+// qualquer responsável. Padrão DESLIGADO só para não quebrar os apps antigos
+// já instalados em produção (não mandam o PIN). Na HOMOLOGAÇÃO o flag deve
+// ficar LIGADO; em produção, ligar quando todos os aparelhos tiverem o app
+// que envia o PIN.
+export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO, ambienteDeclarado, supabaseUrl, exigirPinNoServidor = false }) {
   const ambiente = criarAmbiente({ db, declarado: ambienteDeclarado, supabaseUrl });
   const fonte = fonteHora || criarFonteHora({
     relogioHost: agoraDoHost ? () => agoraDoHost().getTime() : () => Date.now(),
@@ -641,9 +660,19 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const consentimento = body.consentimento || {};
       if (!texto(consentimento.termoVersao) || !texto(consentimento.aceitoEm)) return erro(400, "Sem o consentimento do funcionário a biometria não pode ser cadastrada (LGPD).");
       const responsavelId = texto(body.responsavelId);
-      const { data: resp, error: errResp } = await db.from("ponto_responsaveis").select("user_id,obras,ativo").eq("company_id", company).eq("user_id", responsavelId).maybeSingle();
+      const { data: resp, error: errResp } = await db.from("ponto_responsaveis").select("user_id,obras,ativo,pin_hash,pin_salt,pin_iteracoes").eq("company_id", company).eq("user_id", responsavelId).maybeSingle();
       if (errResp) throw errResp;
       if (!resp?.ativo || ((resp.obras || []).length && !(resp.obras || []).map(String).includes(String(dispositivo.obra_id)))) return erro(403, "Responsável sem permissão nesta obra.");
+      // Prova de que o responsável digitou o PIN (ver exigirPinNoServidor).
+      // Antes de gravar qualquer foto ou vetor.
+      if (exigirPinNoServidor) {
+        if (body.pinResponsavel === undefined || body.pinResponsavel === null || body.pinResponsavel === "") {
+          return erro(403, "Este aplicativo precisa ser atualizado: o cadastro do rosto exige o PIN do responsável conferido no ARCD.", { code: "PIN_RESPONSAVEL_AUSENTE" });
+        }
+        if (!pinConfere(body.pinResponsavel, resp)) {
+          return erro(403, "O PIN do responsável não confere com o ARCD (pode ter sido trocado). Em Sincronização toque em \"Sincronizar agora\", saia do modo encarregado e entre de novo com o PIN atual.", { code: "PIN_RESPONSAVEL_INVALIDO" });
+        }
+      }
       const id = crypto.randomUUID();
       const fotos = [];
       for (const [i, bruto] of (Array.isArray(body.fotos) ? body.fotos.slice(0, 5) : []).entries()) {
