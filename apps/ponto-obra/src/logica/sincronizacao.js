@@ -211,6 +211,24 @@ export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}
   return { ok: true, cadeiaDivergente: noServidor > Number(local.localSequence || 0), estabelecimento: r.estabelecimento || null };
 }
 
+// Aparelho revogado ou desconhecido NO ARCD (resposta do servidor - nunca por
+// falta de token local): o que só serve para operar sai do banco local -
+// hashes de PIN dos responsáveis e vetores faciais. Batidas, fotos de batida e
+// cadeia local ficam (registro legal). Um aparelho perdido e revogado deixa de
+// guardar material para atacar o PIN offline ou a biometria. Re-parear baixa
+// tudo de novo. Falha do banco aqui não esconde a revogação da tela.
+export async function apagarSegredosDoCadastro(armazem) {
+  try {
+    const c = await armazem.cadastro();
+    if (!c || (!(c.responsaveis || []).length && !(c.biometrias || []).length)) return false;
+    await armazem.salvarCadastro({ ...c, responsaveis: [], biometrias: [], biometriasAssinatura: "" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+const revogadoOuDesconhecido = async (armazem, resumo) => ({ ...resumo, segredosApagados: await apagarSegredosDoCadastro(armazem) });
+
 // Uma rodada completa (o App chama a cada minuto e depois de cada batida):
 // cadastro/hora quando pedido ou vencido → eventos → fotos. Nunca lança por
 // falha de rede/servidor: devolve o resumo para a tela e o diagnóstico.
@@ -220,16 +238,17 @@ export async function rodadaDeSincronizacao({ armazem, api, monotonico, corpo, c
   if (cadastroVencido) {
     const s = await sincronizarCadastro({ armazem, api, monotonico, corpo, ambienteApp });
     if (s.codigo === "AMBIENTE_INCOMPATIVEL") return { ...resumo, ambienteIncompativel: true, erro: s.erro, status: 409 };
-    if (s.codigo === "APARELHO_REVOGADO") return { ...resumo, online: true, revogado: true, erro: s.erro };
-    if (s.codigo === "APARELHO_DESCONHECIDO" || s.codigo === "APARELHO_SEM_TOKEN") return { ...resumo, online: true, desconhecido: true, erro: s.erro };
+    if (s.codigo === "APARELHO_REVOGADO") return revogadoOuDesconhecido(armazem, { ...resumo, online: true, revogado: true, erro: s.erro });
+    if (s.codigo === "APARELHO_DESCONHECIDO") return revogadoOuDesconhecido(armazem, { ...resumo, online: true, desconhecido: true, erro: s.erro });
+    if (s.codigo === "APARELHO_SEM_TOKEN") return { ...resumo, online: true, desconhecido: true, erro: s.erro };
     if (!s.ok) { resumo.online = !s.semRede; resumo.erro = s.erro; resumo.status = s.status; }
     resumo.cadastroAtualizado = s.ok;
     resumo.cadeiaDivergente = !!s.cadeiaDivergente;
   }
   const envio = await enviarPendentes({ armazem, api });
   resumo.envio = envio;
-  if (envio.codigo === "APARELHO_REVOGADO") return { ...resumo, revogado: true, erro: envio.erro };
-  if (envio.codigo === "APARELHO_DESCONHECIDO") return { ...resumo, desconhecido: true, erro: envio.erro };
+  if (envio.codigo === "APARELHO_REVOGADO") return revogadoOuDesconhecido(armazem, { ...resumo, revogado: true, erro: envio.erro });
+  if (envio.codigo === "APARELHO_DESCONHECIDO") return revogadoOuDesconhecido(armazem, { ...resumo, desconhecido: true, erro: envio.erro });
   if (envio.semRede) resumo.online = false;
   if (envio.erro && !resumo.erro) { resumo.erro = envio.erro; resumo.status = envio.status; }
   resumo.aguardandoEstabelecimento = !!envio.aguardandoEstabelecimento;

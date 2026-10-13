@@ -500,6 +500,9 @@ const tratarAcaoPonto = criarTratadorPonto({
   // (server/ponto-eletronico/ambiente.js).
   ambienteDeclarado: process.env.PONTO_AMBIENTE,
   supabaseUrl: process.env.SUPABASE_URL,
+  // "1" = cadastro facial só com o PIN do responsável conferido no servidor.
+  // Desligado por padrão (apps antigos não mandam o PIN); LIGADO na homologação.
+  exigirPinNoServidor: process.env.PONTO_EXIGIR_PIN_NO_SERVIDOR === "1",
 });
 
 const lerLinha = async () => {
