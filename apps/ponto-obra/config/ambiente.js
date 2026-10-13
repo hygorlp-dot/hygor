@@ -58,6 +58,9 @@ function resolverServidor({ ambiente, urlEnv, urlPadrao }) {
     return { ambiente: a, apiUrl: u.toString() };
   }
   const u = urlHttps(urlEnv || urlPadrao, urlEnv ? "PONTO_API_URL" : "apiUrl do app.json");
+  // Produção só fala com a produção: uma PONTO_API_URL de homologação (ou
+  // qualquer outra) vazando para um build de produção é recusada.
+  if (!ehHostDeProducao(u.host)) throw new Error(`build de PRODUÇÃO com servidor que não é da produção (${hostNormalizado(u.host)}) - recusado.`);
   return { ambiente: a, apiUrl: u.toString() };
 }
 

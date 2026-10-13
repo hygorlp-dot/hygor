@@ -17,6 +17,7 @@
       }
     },
     "producao": {
+      "environment": "production",
       "android": {
         "buildType": "app-bundle"
       },
