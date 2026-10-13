@@ -2,6 +2,7 @@
 // o verificar-prebuild não vê. Não instala nada e não envia nada.
 //
 //   node scripts/verificar-apk.mjs <arquivo.apk> --build-tools <pasta com aapt e lib/apksigner.jar> [--esperado homologacao|producao]
+//     [--atualiza <apk da versão anterior>]  (cenário de atualização: mesmo pacote e certificado, versionCode maior)
 //
 // Mostra: SHA-256 do arquivo, pacote, versionCode, permissões efetivas (lista
 // PERMITIDA), assinatura (apksigner) e fingerprint do certificado, e o
@@ -58,10 +59,29 @@ const extra = config?.extra || {};
 let host = "";
 try { host = new URL(extra.apiUrl).host; } catch { host = ""; }
 anotar(!!config, "configuração embutida (assets/app.config) lida");
+
+// --atualiza <apk anterior>: cenário 2 da homologação (instalar a versão nova
+// por cima). O Android só aceita com o MESMO pacote e o MESMO certificado, e a
+// versão nova precisa de versionCode maior.
+const anterior = valor("atualiza");
+if (anterior) {
+  if (!fs.existsSync(anterior)) { console.error("--atualiza: APK anterior não encontrado"); process.exit(2); }
+  const b = rodar(exe("aapt"), ["dump", "badging", anterior]);
+  const pacoteAnterior = (b.match(/package: name='([^']+)'/) || [])[1];
+  const versionCodeAnterior = (b.match(/versionCode='(\d+)'/) || [])[1];
+  let certificadoAnterior = "";
+  try {
+    certificadoAnterior = (rodar("java", ["-jar", path.join(pasta, "lib", "apksigner.jar"), "verify", "--print-certs", anterior])
+      .match(/certificate SHA-256 digest: ([0-9a-f]{64})/) || [])[1] || "";
+  } catch { certificadoAnterior = ""; }
+  anotar(!!pacote && pacote === pacoteAnterior, `atualização: mesmo pacote da versão anterior (${pacoteAnterior || "?"})`);
+  anotar(Number(versionCode) > Number(versionCodeAnterior), `atualização: versionCode ${versionCode} > ${versionCodeAnterior || "?"} da anterior`);
+  anotar(!!certificado && certificado === certificadoAnterior, "atualização: mesmo certificado de assinatura da anterior (senão o Android recusa instalar por cima)");
+}
 let classificacao;
 if (extra.ambiente !== esperado) classificacao = `BLOQUEADO PARA PAREAMENTO DE ${esperado.toUpperCase()} (ambiente embutido: ${extra.ambiente || "?"})`;
 else if (esperado === "homologacao" && (ehHostDeProducao(host) || !pacote?.endsWith(SUFIXO_PACOTE_HOMOLOGACAO))) classificacao = "BLOQUEADO PARA PAREAMENTO DE HOMOLOGAÇÃO (servidor ou pacote de produção)";
-else if (falhas.length) classificacao = "REPROVADO (permissão ou assinatura)";
+else if (falhas.length) classificacao = "REPROVADO (permissão, assinatura ou atualização)";
 else classificacao = `APROVADO PARA ${esperado.toUpperCase()}`;
 
 console.log(`APK: ${path.basename(apk)}`);
