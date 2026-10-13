@@ -7,7 +7,8 @@ import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import RelogioConfiavel from "../../modules/relogio-confiavel";
-import { abrirSessaoResponsavel, corpoCadastroBiometria, criarTravaPin, textoEsperaPin, verificarPinResponsavel } from "../logica/pin";
+import { abrirSessaoResponsavel, corpoCadastroBiometria, verificarPinResponsavel } from "../logica/pin";
+import { textoEsperaPin } from "../logica/trava-pin";
 import { vetorDoCadastro } from "../logica/rosto";
 import { PARAMETROS_FACIAIS as P } from "../logica/calibracao";
 import { mensagemDeErro } from "../logica/falhas";
@@ -33,7 +34,7 @@ const CAPTURAS_CADASTRO = P.capturasCadastro;
 export const TERMO_VERSAO = "2026-10";
 export const TERMO_TEXTO = "Autorizo a ARCD a usar a imagem do meu rosto para gerar um código biométrico usado SOMENTE para registrar o meu ponto nas obras da empresa. O código e as fotos ficam protegidos, não são compartilhados com terceiros e serão apagados quando eu deixar a empresa ou se eu pedir. Posso pedir a exclusão a qualquer momento; nesse caso meu ponto passa a ser registrado pelo encarregado.";
 
-export default function TelaEncarregado({ cadastro, modelos, registrar, sincronizarAgora, situacao, fechar, api, obra, diagnostico, armazem, voz = true, alternarVoz = () => {} }) {
+export default function TelaEncarregado({ cadastro, modelos, registrar, sincronizarAgora, situacao, fechar, api, obra, diagnostico, travaPin, voz = true, alternarVoz = () => {} }) {
   // Sessão do responsável (logica/pin.js abrirSessaoResponsavel): { userId, nome }
   // + o PIN só em memória, para o servidor conferir no cadastro facial.
   const [responsavel, setResponsavel] = useState(null);
@@ -52,7 +53,7 @@ export default function TelaEncarregado({ cadastro, modelos, registrar, sincroni
     return () => clearInterval(t);
   }, [sair]);
 
-  if (!responsavel) return <EntrarComPin responsaveis={cadastro?.responsaveis || []} aoEntrar={entrar} fechar={sair} sincronizarAgora={sincronizarAgora} armazem={armazem} />;
+  if (!responsavel) return <EntrarComPin responsaveis={cadastro?.responsaveis || []} aoEntrar={entrar} fechar={sair} sincronizarAgora={sincronizarAgora} trava={travaPin} />;
 
   const voltar = () => setTela("menu");
   const abrir = id => {
@@ -86,13 +87,12 @@ export default function TelaEncarregado({ cadastro, modelos, registrar, sincroni
   );
 }
 
-function EntrarComPin({ responsaveis, aoEntrar, fechar, sincronizarAgora, armazem }) {
+function EntrarComPin({ responsaveis, aoEntrar, fechar, sincronizarAgora, trava }) {
   const [escolhido, setEscolhido] = useState(null);
   const [pin, setPin] = useState("");
   const [erro, setErro] = useState("");
-  // Erros seguidos e espera ficam no banco local (logica/pin.js): fechar e
-  // abrir o app não zera a trava.
-  const [trava] = useState(() => criarTravaPin({ armazem }));
+  // Erros seguidos e espera ficam no banco local (logica/trava-pin.js, criada
+  // no App): fechar e abrir o app não zera a trava.
   const [conferindo, setConferindo] = useState(false);
   const [buscando, setBuscando] = useState(false);
 

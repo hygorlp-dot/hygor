@@ -33,6 +33,7 @@ import TelaEncarregado from "./src/telas/TelaEncarregado";
 import TelaPareamento from "./src/telas/TelaPareamento";
 import TelaPonto from "./src/telas/TelaPonto";
 import { Botao, BotaoSecundario, COR, Corpo, ESPACO, EstadoCentral, Mensagem, Tela, Texto } from "./src/ui";
+import { criarTravaPin } from "./src/logica/trava-pin";
 
 const SINCRONIZAR_A_CADA_MS = 60_000;
 const CADASTRO_A_CADA_MS = 5 * 60_000;
@@ -56,6 +57,14 @@ export default function App() {
   // Preferências da tela (não são registro): confirmação por voz.
   const [preferencias, setPreferencias] = useState({ voz: true });
   const ref = useRef({ armazem: null, relogio: null, sessao: null, gps: null, gpsEstado: "aguardando", ultimoCadastro: 0, sincronizando: false, pedirDeNovo: null });
+  // Trava do PIN do encarregado (logica/trava-pin.js) da instância atual do
+  // armazém: estável entre renderizações, refeita se o banco local for trocado
+  // (pareamento com outro aparelho).
+  const travaPinDoArmazem = () => {
+    const armazem = ref.current.armazem;
+    if (ref.current.travaPin?.armazem !== armazem) ref.current.travaPin = { armazem, trava: criarTravaPin({ armazem }) };
+    return ref.current.travaPin.trava;
+  };
   const api = useRef(criarApi(() => ref.current.sessao?.token)).current;
 
   const atualizarSituacao = useCallback(async (extra = {}) => {
@@ -298,7 +307,7 @@ export default function App() {
   </Tela>;
   else if (fase === "parear") conteudo = <TelaPareamento api={api} aoParear={aoParear} />;
   else if (fase === "encarregado") conteudo = <TelaEncarregado cadastro={cadastro} modelos={modelos} registrar={registrar} api={api} obra={ref.current.sessao?.obra}
-    situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico} armazem={ref.current.armazem}
+    situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico} travaPin={travaPinDoArmazem()}
     voz={preferencias.voz} alternarVoz={alternarVoz} />;
   else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos}
     cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} voz={preferencias.voz} />;

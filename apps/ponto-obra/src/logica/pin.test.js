@@ -5,10 +5,11 @@
 // Trava do PIN do encarregado: regra pura + persistência no banco local
 // (reiniciar o app não zera o contador).
 import { describe, expect, it } from "vitest";
+import { abrirSessaoResponsavel, corpoCadastroBiometria, proximaEsperaPin } from "./pin.js";
 import {
-  CHAVE_TRAVA_PIN, ESQUECER_ERROS_MS, abrirSessaoResponsavel, corpoCadastroBiometria, conferirTravaPin, criarTravaPin, normalizarTravaPin, proximaEsperaPin,
+  CHAVE_TRAVA_PIN, ESQUECER_ERROS_MS, conferirTravaPin, criarTravaPin, normalizarTravaPin,
   registrarAcertoPin, registrarFalhaPin, textoEsperaPin,
-} from "./pin.js";
+} from "./trava-pin.js";
 import { criarArmazemMemoria } from "./armazem-memoria.js";
 
 const T0 = Date.parse("2026-10-12T08:00:00.000Z");
