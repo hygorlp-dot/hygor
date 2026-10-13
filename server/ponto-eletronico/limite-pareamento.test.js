@@ -94,6 +94,19 @@ describe("ponto-parear - limite de tentativas", () => {
     expect((await parear(certo, de("203.0.113.8"))).status).toBe(429);
   });
 
+  it("rajada paralela da mesma origem: só N tentativas olham o código (contadas antes, no banco)", async () => {
+    const certo = await gerarCodigo();
+    const rs = await Promise.all(Array.from({ length: 20 }, (_, i) => errado(certo, de("203.0.113.7"), i)));
+    expect(rs.filter(r => r.status === 400)).toHaveLength(ORIGEM.porOrigem);
+    expect(rs.filter(r => r.status === 429)).toHaveLength(20 - ORIGEM.porOrigem);
+  });
+
+  it("código certo também conta no teto global (só a janela o libera)", async () => {
+    // Pareamentos legítimos consomem o teto: 30 em 15 min é muito acima do uso real.
+    for (let i = 0; i < ORIGEM.global; i++) expect((await parear(await gerarCodigo(), de(`198.51.100.${i}`))).status).toBe(200);
+    expect((await parear(await gerarCodigo(), de("198.51.100.250"))).status).toBe(429);
+  });
+
   it("código mal formado não consome tentativa", async () => {
     for (let i = 0; i < ORIGEM.porOrigem + 2; i++) expect((await parear("123", de("203.0.113.7"))).status).toBe(400);
     expect(db.tabelas.auth_rate_limits).toHaveLength(0);
