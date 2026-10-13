@@ -144,6 +144,8 @@ jobs:
         run: npx vitest run scripts/backup-ponto/backup.pg.test.js --reporter=default --reporter=json --outputFile=backup.json && node -e "const r=require('./backup.json'); if (r.numPassedTests < 1) { console.error('ensaio de recuperação não rodou'); process.exit(1); }"
       - name: Gate de produção integrado em Postgres real (016-019, livro, deploy, backup, restauração completa, nova batida)
         run: npx vitest run scripts/gate-integrado.pg.test.js --reporter=default --reporter=json --outputFile=gate.json && node -e "const r=require('./gate.json'); if (r.numPassedTests < 2) { console.error('teste integrado do gate ou do script de deploy não rodou'); process.exit(1); }"
+      - name: Homologação isolada em Postgres real (provisionar, conferir, código, reset, recusas de destino)
+        run: npx vitest run scripts/homologacao/homologacao.pg.test.js --reporter=default --reporter=json --outputFile=homologacao.json && node -e "const r=require('./homologacao.json'); if (r.numPassedTests < 1) { console.error('teste da homologação isolada não rodou'); process.exit(1); }"
 
   browser-critical-flows:
     runs-on: ubuntu-latest
