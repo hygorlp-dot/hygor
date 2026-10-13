@@ -1,6 +1,6 @@
 # Ponto de Obra — homologação ISOLADA (NÃO OFICIAL)
 
-Data: 12/10/2026. **Situação real: o código e as ferramentas do ambiente
+Data: 12/10/2026 (revisado no mesmo dia). **Situação real: o código e as ferramentas do ambiente
 isolado estão prontos e testados com dados sintéticos (PGlite e Postgres
 real na CI). O ambiente em si NÃO existe ainda:** criar o projeto Supabase e o
 deploy na Vercel de homologação exige autorização (recurso externo, possível
@@ -39,42 +39,116 @@ se usar as credenciais ou o banco de produção.
 - **Sem biometria:** o cadastro facial é feito no aparelho, só com pessoas que
   autorizarem por escrito. Nada da biometria de produção é copiado.
 
-## 4. Passo a passo (cada item 🔐 exige autorização)
+## 4. Plano de provisionamento reproduzível (cada item 🔐 exige autorização)
 
-1. 🔐 Criar um projeto Supabase NOVO de homologação (nome com "homolog").
-   No SQL editor dele: `comment on database postgres is 'arcd-ponto-homologacao';`
-2. 🔐 Criar um projeto Vercel NOVO de homologação a partir do mesmo repositório,
-   com nome contendo "homolog" e **sem** o prefixo `pontos`. Variáveis: as do
-   projeto de homologação (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
-   `POSTGRES_URL_NON_POOLING`) e `PONTO_AMBIENTE=homologacao`. **Nunca copiar
-   variáveis da produção** (inclusive OneDrive e chaves de backup).
-3. Provisionar (do computador do operador, sem variáveis de produção carregadas):
-   ```bash
-   node scripts/homologacao/cli.mjs provisionar --confirmo-homologacao=<usuario@host:porta/banco>
+Executado por uma pessoa com acesso às contas, sem nenhuma variável de
+produção carregada no terminal. Nenhum valor secreto vai para o repositório.
+
+**4.1 🔐 Supabase de homologação**
+1. Criar um projeto NOVO, nome com "homolog" (painel ou `supabase projects create ponto-homologacao --org-id <org> --region sa-east-1`).
+2. No SQL editor do projeto novo (nunca na produção):
+   ```sql
+   comment on database postgres is 'arcd-ponto-homologacao';
    ```
-   com `PONTO_HOMOLOGACAO_DB_URL` e `PONTO_HOMOLOGACAO_PIN` no ambiente. Esperado:
-   `Homologação provisionada (NÃO OFICIAL): gate GO 019`.
-4. Deploy do projeto Vercel de homologação. O `prebuild` aplica as migrations
-   do ERP no banco de homologação; o gate do ponto vê o livro e não reaplica nada.
-5. Conferir banco e API:
+3. Anotar, fora do repositório: URL do projeto, `service_role key`, string de
+   conexão direta (porta 5432) — são a `SUPABASE_URL`,
+   `SUPABASE_SERVICE_ROLE_KEY` e `POSTGRES_URL_NON_POOLING` da homologação.
+
+**4.2 Provisionar o banco** (do computador do operador):
+```bash
+node scripts/homologacao/cli.mjs provisionar --confirmo-homologacao=<usuario@host:porta/banco>
+```
+com `PONTO_HOMOLOGACAO_DB_URL` (conexão direta da homologação) e
+`PONTO_HOMOLOGACAO_PIN` (4 a 8 números, escolhido pelo responsável) no
+ambiente. Esperado: `Homologação provisionada (NÃO OFICIAL): gate GO 019, bucket privado`.
+O comando cria esquema do ERP, livro 016–019, marcador, semente sintética e o
+**bucket privado** `ponto-obra` (falta de bucket é erro visível).
+
+**4.3 🔐 Vercel de homologação**
+1. Montar um arquivo `.env.homologacao` (fora do repositório) só com:
+   `PONTO_AMBIENTE=homologacao`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+   `POSTGRES_URL_NON_POOLING` (da homologação), `CRON_SECRET` NOVO e,
+   opcionalmente, `COMPANY_ID=arcd`.
+2. Conferir antes de configurar (não conecta em nada, não exibe valores):
    ```bash
-   node scripts/homologacao/cli.mjs conferir --api https://<homologacao>/api/data
+   node scripts/homologacao/cli.mjs validar-env --arquivo .env.homologacao
    ```
-   Esperado: marcador `homologacao`, gate GO 019, dados sintéticos, API `ambiente homologacao`.
-6. 🔐 Gerar o APK. Variáveis do shell local NÃO chegam ao servidor do EAS: cadastrar a URL
-   no ambiente "preview" do EAS (usado pelo perfil `homologacao`):
+   Recusa: ambiente diferente de `homologacao`; projeto Supabase de produção
+   (pela URL, pela chave de serviço ou pelo banco); chave ou banco de outro
+   projeto que não o da URL; variáveis da produção que a homologação não usa
+   (`BACKUP_ENCRYPTION_KEY`, `PONTO_BACKUP_KEY`, `MICROSOFT_*`,
+   `ONEDRIVE_ROOT_FOLDER_URL`, `GEMINI_API_KEY`, `AI_ENCRYPTION_KEY`).
+   Conferido contra o arquivo de variáveis REAL da produção: **NO-GO** (URL e
+   chave reconhecidas como produção), sem exibir nenhum valor.
+3. Criar o projeto Vercel NOVO (nome com "homolog", **sem** o prefixo
+   `pontos`) a partir do mesmo repositório e cadastrar as variáveis do
+   arquivo para o ambiente *Production* desse projeto (`vercel env add <NOME> production`).
+4. Deploy de produção **do projeto de homologação**. O `prebuild` (auditado:
+   os 10 scripts só leem as variáveis do projeto, sem endereço fixo) aplica as
+   migrations do ERP no banco de homologação; o gate do ponto vê o livro e não
+   reaplica nada. As rotinas agendadas (`backup-create`, `ponto-tempo-verificar`)
+   rodam contra o banco de homologação; o backup no OneDrive falha sem
+   credenciais (esperado).
+
+**4.4 Conferir banco e API**
+```bash
+node scripts/homologacao/cli.mjs conferir --api https://<homologacao>/api/data
+```
+Esperado: marcador `homologacao`, gate GO 019, dados sintéticos, bucket
+privado, `projeto Supabase: hash do ref … ≠ produção` e API `ambiente homologacao`.
+Qualquer divergência = **NO-GO** (não parear).
+
+**4.5 🔐 APK de homologação (EAS)**
+1. A URL vai como variável do EAS no ambiente "preview" (o shell local não
+   chega ao servidor de build). O perfil `producao` usa o ambiente
+   "production" e recusa qualquer servidor que não seja a produção, então essa
+   variável não o afeta:
    ```bash
    eas env:create --environment preview --name PONTO_API_URL --value https://<homologacao>/api/data --visibility plaintext
    ```
+2. Build (o primeiro do pacote `br.com.arcd.pontoobra.homologacao` cria a
+   keystore no EAS, de forma interativa; o versionCode é incremental e próprio):
    ```bash
    eas build --profile homologacao --platform android
    ```
-   Sem a variável, ou com host de produção, o build falha. O primeiro build do pacote
-   `.homologacao` pede a criação da keystore no EAS (interativo).
-7. Conferir o APK: `node scripts/verificar-apk.mjs <apk> --build-tools <pasta> --esperado homologacao` → `APROVADO PARA HOMOLOGACAO`.
-8. Código de pareamento só no banco isolado: `node scripts/homologacao/cli.mjs codigo`.
-9. Executar a matriz `apps/ponto-obra/docs/HOMOLOGACAO-PILOTO.md` (18 cenários).
-10. Reset controlado (só banco marcado): `cli.mjs resetar --confirmo-homologacao=...` e provisionar de novo.
+3. **Duas versões consecutivas** para o cenário de atualização: repetir o
+   build depois de um commit novo (versionCode N e N+1, mesma keystore).
+4. Conferir cada APK antes de instalar:
+   ```bash
+   node scripts/verificar-apk.mjs <apk> --build-tools <pasta> --esperado homologacao
+   ```
+   Esperado: `APROVADO PARA HOMOLOGACAO` (pacote `.homologacao`, servidor
+   isolado embutido, permissões só da lista, assinatura ok).
+
+**4.6 Operação**
+- Código de pareamento só no banco isolado: `node scripts/homologacao/cli.mjs codigo`.
+- Executar a matriz `apps/ponto-obra/docs/HOMOLOGACAO-PILOTO.md` (18 cenários).
+- Reset controlado (só banco marcado), apagando também as fotos de teste do
+  Storage quando `PONTO_HOMOLOGACAO_SUPABASE_URL` e
+  `PONTO_HOMOLOGACAO_SERVICE_ROLE_KEY` estiverem no ambiente (recusa projeto de
+  produção e projeto diferente do banco):
+  `cli.mjs resetar --confirmo-homologacao=...` e provisionar de novo.
+
+## 4A. Prova de vida e ataques de apresentação (protocolo; nada alterado)
+
+A prova de vida atual (virar o rosto) **não é anti-spoofing**. Os limiares
+(`calibracao.js`) **não mudam** sem medição. Na homologação, com voluntários
+autorizados, medir e registrar:
+- FRR (pessoa cadastrada recusada) e FAR (outra pessoa aceita) por 100
+  tentativas, em luz normal, contraluz e sol;
+- ataques de apresentação (foto impressa, foto na tela, vídeo) com taxa de
+  aceitação por tipo;
+- tempo por etapa (captura, análise, identificação, prova de vida) por modelo
+  de aparelho de referência.
+Só com esses números se decide mudar limiar ou adicionar desafio aleatório.
+
+## 4B. Registro de evidências (modelo por cenário)
+
+`data · executor · aparelho (marca/modelo) · Android · build EAS · versionCode
+· commit · pacote · cenário nº · resultado (APROVADO/REPROVADO/BLOQUEADO) ·
+evidência (captura do Diagnóstico; foto da tela sem rosto de terceiros) ·
+issue (se reprovado)`. Nunca registrar CPF completo, PIN, token ou foto de
+rosto de pessoa que não autorizou.
 
 ## 5. Requisitos fiscais preservados (Missão 6)
 
@@ -100,8 +174,7 @@ se usar as credenciais ou o banco de produção.
    a produção mudar de projeto, o hash precisa ser atualizado.
 3. Domínio próprio da produção (fora da Vercel), se existir no futuro, entra
    na lista de hosts de produção do app.
-4. O Storage do projeto de homologação não é limpo pelo `resetar` (fotos de
-   teste ficam até limpar o bucket pelo painel).
+4. A limpeza do Storage no `resetar` exige a URL e a chave de serviço da homologação no ambiente; sem elas, as fotos de teste ficam.
 5. Os dois APKs antigos (`e4f41447`, `4f8b84c1`) continuam baixáveis no EAS até expirarem
    (26/10/2026): só a identificação NÃO INSTALAR impede o uso. Expirar os links é decisão da direção.
 6. Achados P2/P3 da revisão independente da #72 que não bloqueiam a
