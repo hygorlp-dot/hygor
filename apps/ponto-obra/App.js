@@ -227,6 +227,8 @@ export default function App() {
       ref.current.relogio.trocarArmazem(armazem);
       ref.current.armazem = armazem;
       ref.current.ultimoCadastro = 0;
+      // Estatísticas do banco novo (as do pareamento anterior ficaram no arquivado).
+      ref.current.desempenho = await armazem.lerEstado(CHAVE_DESEMPENHO).catch(() => null);
     }
     await armazem.gravarEstado("dispositivo_id", sessao.dispositivoId);
     await salvarSessao(sessao);

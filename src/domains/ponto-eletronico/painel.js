@@ -88,6 +88,9 @@ export function situacaoFila(d) {
   const batidas = f.batidasPendentes ?? 0, fotos = f.fotosPendentes ?? 0, idade = f.pendenteMaisAntigaMin;
   if (batidas > 0 && idade >= FILA_PARADA_MIN) return { rotulo: `Fila parada: ${plural(batidas, "batida", "batidas")} sem enviar há ${duracaoMin(idade)}`, tom: "critico" };
   if (batidas > 0 && idade >= FILA_ATRASADA_MIN) return { rotulo: `Fila atrasada: ${plural(batidas, "batida", "batidas")} sem enviar há ${duracaoMin(idade)}`, tom: "atencao" };
+  // Idade desconhecida (data da batida ilegível no aparelho): não dá para
+  // dizer que está em dia.
+  if (batidas > 0 && !Number.isFinite(idade)) return { rotulo: `${plural(batidas, "batida pendente", "batidas pendentes")}, sem a idade da mais antiga`, tom: "atencao" };
   if (fotos > 0 && f.minDesdeEnvioOk >= FILA_PARADA_MIN) return { rotulo: `${plural(fotos, "foto", "fotos")} sem enviar`, tom: "atencao" };
   return { rotulo: "Fila em dia", tom: "ok" };
 }

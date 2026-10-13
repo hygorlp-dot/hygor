@@ -57,6 +57,11 @@ describe("fila do aparelho no painel (métricas informadas pelo app)", () => {
     expect(situacaoFila(ativo({ batidasPendentes: 0, fotosPendentes: 0 }))).toEqual({ rotulo: "Fila em dia", tom: "ok" });
   });
 
+  it("batidas pendentes sem a idade da mais antiga não aparecem como 'em dia'", () => {
+    expect(situacaoFila(ativo({ batidasPendentes: 2 }))).toEqual({ rotulo: "2 batidas pendentes, sem a idade da mais antiga", tom: "atencao" });
+    expect(situacaoFila(ativo({ batidasPendentes: 1, pendenteMaisAntigaMin: null })).rotulo).toBe("1 batida pendente, sem a idade da mais antiga");
+  });
+
   it("detalhe curto com fila, último envio ok e p95 do reconhecimento", () => {
     expect(detalheFila(ativo({ batidasPendentes: 1, fotosPendentes: 0, minDesdeEnvioOk: 125, reconhecimentoP95Ms: 1460 })))
       .toBe("fila: 1 batida, 0 fotos · último envio ok há 2 h · reconhecimento p95 1,5 s");
