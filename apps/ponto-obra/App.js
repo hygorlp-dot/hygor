@@ -23,6 +23,7 @@ import * as Location from "expo-location";
 import { abrirArmazem, arquivarBanco } from "./src/dados/armazem-sqlite";
 import { fotoSemBloquear, registrarBatida } from "./src/logica/terminal";
 import { gpsRecente, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./src/logica/sincronizacao";
+import { CHAVE_DESEMPENHO, registrarTentativa } from "./src/logica/desempenho";
 import { classificarResposta, mensagemDeErro } from "./src/logica/falhas";
 import { montarDiagnostico } from "./src/logica/diagnostico";
 import { batidasDoDia } from "./src/logica/apresentacao";
@@ -55,7 +56,8 @@ export default function App() {
   const [situacao, setSituacao] = useState({ online: false, pendentes: 0, fotos: 0, fotosComProblema: 0, aviso: "" });
   // Preferências da tela (não são registro): confirmação por voz.
   const [preferencias, setPreferencias] = useState({ voz: true });
-  const ref = useRef({ armazem: null, relogio: null, sessao: null, gps: null, gpsEstado: "aguardando", ultimoCadastro: 0, sincronizando: false, pedirDeNovo: null });
+  // desempenho: estatísticas locais do reconhecimento (desempenho.js), em memória e no estado local.
+  const ref = useRef({ armazem: null, relogio: null, sessao: null, gps: null, gpsEstado: "aguardando", ultimoCadastro: 0, sincronizando: false, pedirDeNovo: null, desempenho: null });
   const api = useRef(criarApi(() => ref.current.sessao?.token)).current;
 
   const atualizarSituacao = useCallback(async (extra = {}) => {
@@ -142,6 +144,7 @@ export default function App() {
         setCadastro(await armazem.cadastro());
         const pref = await armazem.lerEstado("preferencias_tela").catch(() => null);
         if (pref) setPreferencias(p => ({ ...p, ...pref }));
+        ref.current.desempenho = await armazem.lerEstado(CHAVE_DESEMPENHO).catch(() => null);
         await atualizarSituacao();
         setFase(sessao ? "ponto" : "parear");
       } catch (e) {
@@ -230,6 +233,15 @@ export default function App() {
     setFase("ponto");
   };
 
+  // Uma tentativa de batida pelo rosto (TelaPonto): só durações e contagens.
+  // Melhor esforço: nunca lança e não é aguardado pela batida.
+  const anotarDesempenho = useCallback(tentativa => {
+    try {
+      ref.current.desempenho = registrarTentativa(ref.current.desempenho, tentativa);
+      ref.current.armazem?.gravarEstado(CHAVE_DESEMPENHO, ref.current.desempenho).catch(() => {});
+    } catch { /* só observabilidade */ }
+  }, []);
+
   const alternarVoz = async () => {
     const proximas = { ...preferencias, voz: !preferencias.voz };
     setPreferencias(proximas);
@@ -246,6 +258,7 @@ export default function App() {
       app: infoDoApp(), aparelho: infoDoAparelho(), sessao, servidor: infoDoServidor(),
       contagem: await armazem.contagem().catch(() => ({})),
       ultimaSincronizacao: await armazem.lerEstado("ultima_sincronizacao").catch(() => null),
+      desempenho: ref.current.desempenho,
       modelos: estadoModelos, hora: relogio.agora(), gps: { estado: ref.current.gpsEstado },
       fiscal: {
         divergente: !!(await armazem.lerEstado("divergencia_fiscal").catch(() => null)),
@@ -301,7 +314,8 @@ export default function App() {
     situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico}
     voz={preferencias.voz} alternarVoz={alternarVoz} />;
   else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos}
-    cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} voz={preferencias.voz} />;
+    cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} voz={preferencias.voz}
+    anotarDesempenho={anotarDesempenho} />;
 
   return <SafeAreaProvider initialMetrics={initialWindowMetrics} style={estilos.raiz}>
     <StatusBar style="light" />
