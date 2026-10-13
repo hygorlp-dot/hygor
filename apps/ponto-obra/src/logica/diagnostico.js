@@ -4,6 +4,7 @@
 // nenhum dado pessoal ou biométrico: nada de vetor facial, foto, CPF, PIN,
 // token do aparelho ou chave do banco. A lista de campos é fechada aqui -
 // o teste confere que nada sensível escapa.
+import { ETAPAS_DESEMPENHO, linhasDoDesempenho } from "./desempenho.js";
 
 const fmt = ms => (Number.isFinite(ms) ? new Date(ms).toLocaleString("pt-BR", { timeZone: "America/Recife" }) : "nunca");
 
@@ -34,7 +35,9 @@ export function rotuloDoServidor(servidor) {
 }
 
 // referencia = estadoDaReferencia() (relogio.js).
-export function montarDiagnostico({ app = {}, aparelho = {}, sessao = null, contagem = {}, ultimaSincronizacao = null, modelos = {}, hora = null, gps = {}, fiscal = {}, referencia = null, servidor = null }) {
+// desempenho = estado "desempenho_reconhecimento" (desempenho.js): só
+// durações e contagens, vira a seção "Desempenho".
+export function montarDiagnostico({ app = {}, aparelho = {}, sessao = null, contagem = {}, ultimaSincronizacao = null, modelos = {}, hora = null, gps = {}, fiscal = {}, referencia = null, servidor = null, desempenho = null }) {
   const sinc = ultimaSincronizacao;
   const itens = [
     ["Versão do app", app.versao || "-"],
@@ -63,6 +66,7 @@ export function montarDiagnostico({ app = {}, aparelho = {}, sessao = null, cont
     ["Idade da referência", duracao(referencia?.idadeMs)],
     ["Fonte de hora do servidor", fiscal.fonteHora ? `${fiscal.fonteHora}${fiscal.statusHora ? ` (${fiscal.statusHora})` : ""}` : "-"],
     ["GPS", gps.estado || "desconhecido"],
+    ...linhasDoDesempenho(desempenho),
   ];
   return itens.map(([rotulo, valor]) => ({ rotulo, valor: String(valor) }));
 }
@@ -76,8 +80,9 @@ const SECAO_DO_ITEM = {
   "Estabelecimento": "Registro fiscal", "Sequência local (último registro)": "Registro fiscal", "Último NSR recebido da ARP": "Registro fiscal", "Cadeia local": "Registro fiscal", "Registro fiscal": "Registro fiscal",
   "Reconhecimento facial": "Segurança", "GPS": "Segurança",
   "Referência de hora": "Hora", "Estado da referência": "Hora", "Última validação da hora": "Hora", "Idade da referência": "Hora", "Fonte de hora do servidor": "Hora",
+  ...Object.fromEntries([...ETAPAS_DESEMPENHO.map(([, rotulo]) => rotulo), "Resultado da prova de vida", "Resultado do reconhecimento"].map(r => [r, "Desempenho"])),
 };
-export const ORDEM_SECOES_DIAGNOSTICO = Object.freeze(["Aplicativo", "Aparelho", "Ponto", "Registro fiscal", "Hora", "Segurança", "Outros"]);
+export const ORDEM_SECOES_DIAGNOSTICO = Object.freeze(["Aplicativo", "Aparelho", "Ponto", "Registro fiscal", "Hora", "Segurança", "Desempenho", "Outros"]);
 // Valores técnicos (números, códigos) em fonte mono.
 const MONO = new Set(["Versão do app", "Build (versionCode)", "Commit", "Android", "Sequência local (último registro)", "Último NSR recebido da ARP", "Batidas a enviar", "Fotos a enviar", "Fotos com problema"]);
 // Valores que pedem atenção (texto + ícone na tela, não só cor).

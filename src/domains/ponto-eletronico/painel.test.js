@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { horaLocal, intervaloDoDia, resumoDoDia, situacaoAparelho } from "./painel.js";
+import { FILA_ATRASADA_MIN, FILA_PARADA_MIN, detalheFila, horaLocal, intervaloDoDia, resumoDoDia, situacaoAparelho, situacaoFila } from "./painel.js";
+import { METRICAS_APARELHO, limparMetricasAparelho } from "./metricas-aparelho.js";
 
 const m = (employeeId, marcadoEm, extra = {}) => ({ employeeId, marcadoEm, tipoRegistro: "ponto", horaConfiavel: true, metodo: "facial", ...extra });
 
@@ -35,5 +36,42 @@ describe("painel do ponto eletrônico", () => {
     expect(situacaoAparelho({ status: "ativo", ultimoContatoEm: "2026-10-01T11:20:00Z" }, agora)).toEqual({ rotulo: "Sem contato há 40 min", tom: "atencao" });
     expect(situacaoAparelho({ status: "ativo", ultimoContatoEm: "2026-09-28T12:00:00Z" }, agora)).toEqual({ rotulo: "Sem contato há 3 dias", tom: "critico" });
     expect(situacaoAparelho({ status: "revogado" }, agora).rotulo).toBe("Desativado");
+  });
+});
+
+describe("fila do aparelho no painel (métricas informadas pelo app)", () => {
+  const ativo = fila => ({ status: "ativo", fila });
+
+  it("sem métricas (app antigo) ou aparelho desativado: sem selo de fila", () => {
+    expect(situacaoFila({ status: "ativo", fila: null })).toBeNull();
+    expect(situacaoFila({ status: "revogado", fila: { batidasPendentes: 9, pendenteMaisAntigaMin: 999 } })).toBeNull();
+    expect(detalheFila({ fila: null })).toBe("");
+  });
+
+  it("batida pendente há 1 h ou mais = fila parada (crítico); há 15 min = atrasada; senão em dia", () => {
+    expect(situacaoFila(ativo({ batidasPendentes: 3, pendenteMaisAntigaMin: FILA_PARADA_MIN }))).toEqual({ rotulo: "Fila parada: 3 batidas sem enviar há 1 h", tom: "critico" });
+    expect(situacaoFila(ativo({ batidasPendentes: 1, pendenteMaisAntigaMin: 4320 })).rotulo).toBe("Fila parada: 1 batida sem enviar há 3 dias");
+    expect(situacaoFila(ativo({ batidasPendentes: 2, pendenteMaisAntigaMin: FILA_ATRASADA_MIN }))).toEqual({ rotulo: "Fila atrasada: 2 batidas sem enviar há 15 min", tom: "atencao" });
+    expect(situacaoFila(ativo({ batidasPendentes: 2, pendenteMaisAntigaMin: 3 })).tom).toBe("ok");
+    expect(situacaoFila(ativo({ batidasPendentes: 0, fotosPendentes: 4, minDesdeEnvioOk: 90 }))).toEqual({ rotulo: "4 fotos sem enviar", tom: "atencao" });
+    expect(situacaoFila(ativo({ batidasPendentes: 0, fotosPendentes: 0 }))).toEqual({ rotulo: "Fila em dia", tom: "ok" });
+  });
+
+  it("batidas pendentes sem a idade da mais antiga não aparecem como 'em dia'", () => {
+    expect(situacaoFila(ativo({ batidasPendentes: 2 }))).toEqual({ rotulo: "2 batidas pendentes, sem a idade da mais antiga", tom: "atencao" });
+    expect(situacaoFila(ativo({ batidasPendentes: 1, pendenteMaisAntigaMin: null })).rotulo).toBe("1 batida pendente, sem a idade da mais antiga");
+  });
+
+  it("detalhe curto com fila, último envio ok e p95 do reconhecimento", () => {
+    expect(detalheFila(ativo({ batidasPendentes: 1, fotosPendentes: 0, minDesdeEnvioOk: 125, reconhecimentoP95Ms: 1460 })))
+      .toBe("fila: 1 batida, 0 fotos · último envio ok há 2 h · reconhecimento p95 1,5 s");
+    expect(detalheFila(ativo({ batidasPendentes: 0, fotosPendentes: 1, reconhecimentoP95Ms: 640 }))).toBe("fila: 0 batidas, 1 foto · reconhecimento p95 640 ms");
+  });
+
+  it("contrato das métricas (app e servidor): só os 5 campos, número finito >= 0, inteiro e limitado", () => {
+    expect(Object.keys(METRICAS_APARELHO)).toEqual(["batidasPendentes", "fotosPendentes", "pendenteMaisAntigaMin", "minDesdeEnvioOk", "reconhecimentoP95Ms"]);
+    expect(limparMetricasAparelho({ batidasPendentes: 2.5, reconhecimentoP95Ms: 700_000, nome: "Zé" })).toEqual({ batidasPendentes: 3, reconhecimentoP95Ms: 600_000 });
+    for (const lixo of [null, undefined, "x", 3, [1, 2]]) expect(limparMetricasAparelho(lixo)).toEqual({});
+    expect(limparMetricasAparelho({ batidasPendentes: "2", fotosPendentes: -1, minDesdeEnvioOk: NaN })).toEqual({});
   });
 });

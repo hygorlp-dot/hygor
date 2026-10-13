@@ -7,6 +7,11 @@
 // Desenho (ARCD Cupertino Industrial): hora e câmera protagonistas, uma ação
 // dominante ("Bater ponto"), status conciso no canto, detalhe técnico só no
 // modo Encarregado. Fases e textos vêm de logica/apresentacao.js.
+//
+// Desempenho (logica/desempenho.js): cada tentativa mede, com relógio
+// monotônico, captura, análise, identificação, prova de vida e gravação, e
+// conta o resultado do reconhecimento e da prova de vida. Só observa: nenhuma
+// decisão depende dessas medições, e anotar nunca atrasa nem impede a batida.
 import { useEffect, useRef, useState } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -17,7 +22,8 @@ import { estadoPermissaoCamera, mensagemParaTrabalhador } from "../logica/falhas
 import { resumoCadastro } from "../logica/cadastro";
 import { FASE, emAndamento, falaDeConfirmacao, falhaNaTela, guiaDaFase, instrucaoDaFase, statusDoAparelho, telaSemCamera } from "../logica/apresentacao";
 import { PRAZO_CAMERA_LIGAR_MS, PRAZO_CAPTURA_MS, comPrazo } from "../logica/prazo";
-import { analisarFoto, apagarFotoLocal } from "../servicos/rosto-nativo";
+import { categoriaDoReconhecimento, criarCronometro } from "../logica/desempenho";
+import { agoraMonotonicoMs, analisarFoto, apagarFotoLocal } from "../servicos/rosto-nativo";
 import { brilhoMaximo, brilhoNormal, falar, vibrar } from "../servicos/feedback";
 import { Botao, BotaoTexto, COMPROVANTE_MS, COR, COR_DO_TOM, Corpo, ESPACO, Icone, Mensagem, MolduraCamera, RAIO, Rotulo, Status, Tela, Texto, TituloSecao } from "../ui";
 import Comprovante from "./Comprovante";
@@ -29,7 +35,7 @@ const fmtHora = ms => new Date(ms).toLocaleTimeString("pt-BR", { timeZone: "Amer
 // "quinta-feira, 1 de outubro" → só a primeira letra maiúscula.
 const fmtData = ms => { const d = new Date(ms).toLocaleDateString("pt-BR", { timeZone: "America/Recife", weekday: "long", day: "numeric", month: "long" }); return d.charAt(0).toUpperCase() + d.slice(1); };
 
-export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar, situacao, abrirEncarregado, voz = true }) {
+export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar, situacao, abrirEncarregado, voz = true, anotarDesempenho = () => {} }) {
   useKeepAwake();
   const camera = useRef(null);
   const [permissao, pedirPermissao] = useCameraPermissions();
@@ -85,6 +91,8 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     if (!modelos) return falha({ tipo: "erro", contexto: "modelos", mensagem: mensagemParaTrabalhador("modelos"), podeEncarregado: true });
     emCurso.current = true;
     let etapa = "camera";
+    const cronometro = criarCronometro(agoraMonotonicoMs);
+    const resultado = { reconhecimento: null, provaDeVida: null };
     // Capturas cruas da câmera: apagadas no fim, aconteça o que acontecer (a
     // foto da batida é uma cópia preparada por registrar()).
     const cruas = [];
@@ -92,14 +100,18 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     brilhoMaximo();
     try {
       fase(FASE.OLHAR);
-      const fotoFrente = await foto();
+      const fotoFrente = await cronometro.medir("captura", foto);
       cruas.push(fotoFrente.uri);
       etapa = "modelos";
       fase(FASE.ANALISAR);
-      const frente = await analisarFoto(modelos, fotoFrente);
+      const frente = await cronometro.medir("analise", () => analisarFoto(modelos, fotoFrente));
+      cronometro.anotar("deteccao", frente.tempos?.deteccao);
+      cronometro.anotar("embedding", frente.tempos?.embedding);
       if (frente.erro) return falha({ mensagem: frente.erro, podeEncarregado: true });
       if (Math.abs(frente.giro) > P.giroMaximoDeFrente) return falha({ mensagem: "Olhe de frente para a câmera e tente de novo." });
-      const id = identificar(frente.vetor, cadastro?.biometrias || []);
+      const id = await cronometro.medir("identificacao", async () => identificar(frente.vetor, cadastro?.biometrias || []));
+      resultado.reconhecimento = categoriaDoReconhecimento(id);
+      cronometro.anotar("reconhecimento", cronometro.desdeOInicio());
       if (!id.reconhecido) return falha({ mensagem: id.motivo === "rosto não cadastrado nesta obra" ? "Se você ainda não tem cadastro, chame o encarregado." : "Olhe de frente e tente novamente.", podeEncarregado: true });
       const funcionario = (cadastro.funcionarios || []).find(f => f.id === id.employeeId);
       if (!funcionario) return falha({ tipo: "atencao", contexto: "cadastro", mensagem: "O cadastro deste aparelho está desatualizado. Chame o encarregado.", podeEncarregado: true });
@@ -107,17 +119,22 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       fase(FASE.VIRAR, funcionario.nome);
       vibrar("leve");
       await esperar(P.esperaAntesDaViradaMs);
-      etapa = "camera";
-      const fotoVirada = await foto();
-      cruas.push(fotoVirada.uri);
-      etapa = "modelos";
-      const virado = await analisarFoto(modelos, fotoVirada);
-      const vivo = !virado.erro && Math.abs(virado.giro) >= P.giroMinimoVirado && similaridadeCosseno(frente.vetor, virado.vetor) >= P.similaridadeMinimaVirado;
+      // Prova de vida medida SEM a espera proposital acima.
+      const vivo = await cronometro.medir("provaDeVida", async () => {
+        etapa = "camera";
+        const fotoVirada = await foto();
+        cruas.push(fotoVirada.uri);
+        etapa = "modelos";
+        const virado = await analisarFoto(modelos, fotoVirada);
+        return !virado.erro && Math.abs(virado.giro) >= P.giroMinimoVirado && similaridadeCosseno(frente.vetor, virado.vetor) >= P.similaridadeMinimaVirado;
+      });
+      resultado.provaDeVida = vivo ? "aprovada" : "reprovada";
       if (!vivo) return falha({ mensagem: "Olhe de frente e, quando pedir, vire o rosto devagar.", podeEncarregado: true });
 
       fase(FASE.CONFIRMADO, funcionario.nome);
       etapa = "batida";
-      const comprovante = await registrar({ pessoa: { tipo: "funcionario", ...funcionario }, identificacao: { metodo: "facial", confianca: id.confianca }, foto: fotoFrente });
+      const comprovante = await cronometro.medir("gravacao", () => registrar({ pessoa: { tipo: "funcionario", ...funcionario }, identificacao: { metodo: "facial", confianca: id.confianca }, foto: fotoFrente }));
+      cronometro.anotar("total", cronometro.desdeOInicio());
       setFluxo({ etapa: "sucesso", fase: FASE.PRONTO, comprovante });
       vibrar("registro");
       if (voz) falar(falaDeConfirmacao(comprovante.nome, Date.parse(comprovante.marcadoEm)));
@@ -129,6 +146,8 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       cruas.forEach(apagarFotoLocal);
       brilhoNormal();
       emCurso.current = false;
+      // Melhor esforço, sem await: medir nunca segura nem derruba a batida.
+      try { anotarDesempenho({ tempos: cronometro.tempos, ...resultado }); } catch { /* só observabilidade */ }
     }
   };
 
