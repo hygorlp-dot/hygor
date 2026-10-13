@@ -83,8 +83,16 @@ O comando cria esquema do ERP, livro 016–019, marcador, semente sintética e o
 3. Criar o projeto Vercel NOVO (nome com "homolog", **sem** o prefixo
    `pontos`) a partir do mesmo repositório e cadastrar as variáveis do
    arquivo para o ambiente *Production* desse projeto (`vercel env add <NOME> production`).
-4. Deploy de produção **do projeto de homologação**. O `prebuild` (auditado:
-   os 10 scripts só leem as variáveis do projeto, sem endereço fixo) aplica as
+4. Deploy de produção **do projeto de homologação**. O **primeiro** passo do
+   `prebuild` é `scripts/homologacao/guarda-prebuild.mjs`: com
+   `PONTO_AMBIENTE=homologacao` ele refaz a conferência do `validar-env` sobre
+   as variáveis do próprio deploy e exige o comentário e o marcador da
+   homologação no banco (por isso o **4.2 vem antes**); qualquer falha, ou o
+   banco sem responder, **recusa o deploy antes de qualquer migration** (falha
+   fechada). Sem `PONTO_AMBIENTE=homologacao` (a produção) ele sai na hora,
+   sem conectar em nada. Depois, o `prebuild` (auditado: os 10 scripts só leem
+   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `POSTGRES_URL_NON_POOLING`,
+   sem endereço fixo) aplica as
    migrations do ERP no banco de homologação; o gate do ponto vê o livro e não
    reaplica nada. As rotinas agendadas (`backup-create`, `ponto-tempo-verificar`)
    rodam contra o banco de homologação; o backup no OneDrive falha sem
