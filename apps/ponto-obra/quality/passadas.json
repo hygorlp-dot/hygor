@@ -46,6 +46,29 @@
         "testes": 10
       },
       "bloqueios": 0
+    },
+    {
+      "passada": 3,
+      "sha": "74414bc",
+      "em": "2026-10-20T14:34:27.047Z",
+      "geral": 9.7,
+      "notas": {
+        "android": 9.3,
+        "offline": 10,
+        "integridade": 10,
+        "seguranca": 10,
+        "sincronizacao": 10,
+        "multiobra": 10,
+        "facial": 8.7,
+        "ux_trabalhador": 9,
+        "ux_encarregado": 9,
+        "acessibilidade": 10,
+        "release": 10,
+        "diagnostico": 10,
+        "rep_p_tecnico": 10,
+        "testes": 10
+      },
+      "bloqueios": 0
     }
   ]
 }
