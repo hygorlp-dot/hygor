@@ -19,6 +19,7 @@ import {
   prIsWeekdayIso, prUniqueDates, toLocalISODate,
 } from "../attendance-engine";
 import { calculateAttendanceDayCost } from "../payroll";
+import { resolveHolidayObraId } from "../permissions";
 import { allocateAdvancesByWork } from "../advance-allocation";
 import { splitPayrollResponsibility } from "../payroll-responsibility";
 import {
@@ -178,7 +179,8 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     const holidayPay = holidayRules.reduce((s, h) => s + h.amount, 0);
     gross += holidayPay;
     holidayRules.forEach(h => {
-      const obraId = getEmpObraIdOnDate(employee, h.holidayIso);
+      // Feriado é pago pela obra do último dia trabalhado antes dele.
+      const obraId = resolveHolidayObraId({ data, employee, holidayIso: h.holidayIso });
       addToObra(obraId, h.losesHoliday ? "HD" : "HP", {
         valorFeriados: Number(h.amount || 0),
       });
@@ -422,7 +424,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     const feriado = holidaysInPeriod.includes(d);
     const regraFer = feriado ? (r.holidayRules || []).find(h => h.holidayIso === d) : null;
     const a = feriado ? null : getAtt(data, r.id, d);
-    const obraId = a?.obraId || getEmpObraIdOnDate(r, d);
+    const obraId = feriado ? resolveHolidayObraId({ data, employee: r, holidayIso: d }) : (a?.obraId || getEmpObraIdOnDate(r, d));
     if (filterObra !== "all" && obraId !== filterObra) return null;
     const st = feriado ? (regraFer?.losesHoliday ? "Feriado perdido" : "Feriado pago")
       : a?.status === "P" ? "Presente" : a?.status === "M" ? "Meio periodo"

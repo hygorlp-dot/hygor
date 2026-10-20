@@ -138,7 +138,7 @@ import { fieldReportCompletion, fieldReportIsReadOnly } from "./domains/obras/fi
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
 import { TIPOS_MOV, SINAL_MOV, calcSaldos, saldoDe, baixarPorComposicao, materiaisAbaixoMinimo } from "./domains/estoque/calculations";
 import { STOCK_COMMAND } from "./domains/estoque/commands";
-import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId } from "./domains/ponto/permissions";
+import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "./domains/ponto/permissions";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
@@ -8912,13 +8912,7 @@ function Relatorios({ data, showToast }) {
 
       holidaysInMonth.forEach(h => {
         if (!isEmployeeEmployedOnDate(e, h)) return;
-        const a = getAtt(data, e.id, h);
-        if (resolveEmployeeAttendanceObraId({
-          data,
-          employee:e,
-          date:h,
-          record:a,
-        }) !== o.id) return;
+        if (resolveHolidayObraId({ data, employee:e, holidayIso:h }) !== o.id) return;
         const rule = getHolidayPayRule(data, e, h, payrollHolidays);
         holidayPay += Number(rule.amount || 0);
       });
@@ -9008,13 +9002,7 @@ function Relatorios({ data, showToast }) {
 
     holidaysInMonth.forEach(h => {
       if (!isEmployeeEmployedOnDate(e, h)) return;
-      const record = getAtt(data, e.id, h);
-      const obraDoDia = resolveEmployeeAttendanceObraId({
-        data,
-        employee:e,
-        date:h,
-        record,
-      });
+      const obraDoDia = resolveHolidayObraId({ data, employee:e, holidayIso:h });
       if (filterObra !== "all" && obraDoDia !== filterObra) return;
       total += Number(getHolidayPayRule(data, e, h, payrollHolidays).amount || 0);
     });
