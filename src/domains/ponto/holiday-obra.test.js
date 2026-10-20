@@ -51,9 +51,13 @@ describe("obra que paga o feriado", () => {
     expect(resolveHolidayObraId({ data, employee:funcionario, holidayIso:FERIADO })).toBe("fixa");
   });
 
-  it("ponto com obra lançado no próprio feriado prevalece", () => {
+  it("ponto lançado no próprio feriado em outra obra não muda: vale a obra do dia anterior", () => {
+    // Caso real (H-02, 20/10/2026): presente na H-02 em 09/10 e um "P" lançado
+    // em 12/10 com a P1-08 - o feriado é da H-02.
     const data = comPonto({ "2026-10-09":{ status:"P", obraId:"adm" }, [FERIADO]:{ status:"P", obraId:"outra" } });
-    expect(resolveHolidayObraId({ data, employee:funcionario, holidayIso:FERIADO })).toBe("outra");
+    expect(resolveHolidayObraId({ data, employee:funcionario, holidayIso:FERIADO })).toBe("adm");
+    const custo = obra => motor().calculateCurrentCost(data, obra, quinzena).laborCost;
+    expect([custo("adm"), custo("outra")]).toEqual([200, 0]);
   });
 
   it("mão de obra e taxa de administração da obra incluem o feriado; a lotação não recebe nada", () => {
