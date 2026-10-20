@@ -78,6 +78,7 @@ import { applyPersistentAuthRateLimit, hashAppPin, verifyAppPin } from "../serve
 import { buildClientPortalPublicationRows } from "../server/client-portal-publication.js";
 import { sanitizeClientError } from "../server/client-error-report.js";
 import { authenticateAppUser } from "./auth.js";
+import { assuntoLimitePinUsuario, normalizarIdentificador, resolverUsuarioPorIdentificador, respostaPerfisPublica } from "../server/login-identity.js";
 import { criarTratadorPonto, ehAcaoPonto } from "../server/ponto-eletronico/handler.js";
 import { enviarUdpComDgram, verificarHora } from "../server/ponto-eletronico/tempo/ntp.js";
 import dgram from "node:dgram";
@@ -1305,7 +1306,7 @@ export default async function handler(req, res) {
   }
 
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || "desconhecido";
-  const { action=req.query?.action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
+  const { action=req.query?.action, userId, identificador, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
 
   try {
     if(action==="client-error"){
@@ -1410,14 +1411,12 @@ export default async function handler(req, res) {
 
     // ── 1. Lista de perfis (tela de login) ─────────────────────────
     // Não exige PIN — é o que a tela precisa ANTES de alguém digitar.
-    // Devolve só nome e papel. O hash do PIN nunca sai daqui.
+    // Não devolve nomes, papéis nem ids: só se falta o primeiro administrador
+    // (ver server/login-identity.js).
     if (action === "profiles") {
       let indice=await lerIndicePerfis();
       if(!indice){const {payload:p}=await lerLinha();indice=compactProfiles(p);await salvarIndicePerfis(p);}
-      const usuarios = (indice?.usuarios || [])
-        .filter(u => u.active !== false)
-        .map(u => ({ id: u.id, nome: u.nome, role: u.role }));
-      return res.status(200).json({ usuarios, precisaSetup: usuarios.length === 0 });
+      return res.status(200).json(respostaPerfisPublica(indice));
     }
 
     // ── 2. Primeiro acesso: cria o admin inicial ───────────────────
@@ -1474,8 +1473,11 @@ export default async function handler(req, res) {
     // impede que falhas de outra pessoa no mesmo NAT bloqueiem sessões ativas.
     const usaPin=!accessToken;
     if(usaPin){
-      const limiteCentral=await rateLimitCentral(ip,"status");
-      if (limiteCentral?.blocked||bloqueado(ip)) {
+      const [limiteCentral,limiteDoUsuario]=await Promise.all([
+        rateLimitCentral(ip,"status"),
+        userId?rateLimitCentral(assuntoLimitePinUsuario(userId),"status"):null,
+      ]);
+      if (limiteCentral?.blocked||limiteDoUsuario?.blocked||bloqueado(ip)) {
         return res.status(429).json({ error: "Muitas tentativas. Aguarde 5 minutos." });
       }
     }
@@ -1488,19 +1490,27 @@ export default async function handler(req, res) {
       accessToken ? authDb.auth.getUser(accessToken) : Promise.resolve({data:null,error:null}),
     ]);
     let { payload: atual, updatedAt, rowVersions, rowVersionsPontoObra } = linha;
-    const pinAuth=usaPin?conferirPin(atual,userId,pin):{usuario:null,upgradeHash:""};
+    // Login por PIN: a tela pública manda o e-mail ou nome completo digitado;
+    // as chamadas seguintes da sessão já mandam o id devolvido no login.
+    const pinUserId=usaPin?String(userId||resolverUsuarioPorIdentificador(atual?.usuarios,identificador)?.id||""):"";
+    const limiteUsuario=usaPin?(pinUserId?assuntoLimitePinUsuario(pinUserId):`pin-identificador|${normalizarIdentificador(identificador)}`):"";
+    if(usaPin&&!userId){
+      const bloqueioUsuario=await rateLimitCentral(limiteUsuario,"status");
+      if(bloqueioUsuario?.blocked)return res.status(429).json({ error: "Muitas tentativas. Aguarde 5 minutos." });
+    }
+    const pinAuth=usaPin?conferirPin(atual,pinUserId,pin):{usuario:null,upgradeHash:""};
     const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(atual,tokenAuth.data.user):null) || pinAuth.usuario;
 
     if (!usuario) {
       if(usaPin){
         registrarFalha(ip);
-        await rateLimitCentral(ip,"failure");
+        await Promise.all([rateLimitCentral(ip,"failure"),rateLimitCentral(limiteUsuario,"failure")]);
       }
       return res.status(401).json({ error: "Sessão inválida ou PIN incorreto." });
     }
     if(usaPin){
       limparFalhas(ip);
-      await rateLimitCentral(ip,"success");
+      await Promise.all([rateLimitCentral(ip,"success"),rateLimitCentral(limiteUsuario,"success")]);
       if(pinAuth.upgradeHash){
         const atualizado={...atual,usuarios:(atual.usuarios||[]).map(item=>item.id===usuario.id?{...item,pin:pinAuth.upgradeHash}:item)};
         const migration=await salvarComAuditoria({

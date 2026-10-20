@@ -189,12 +189,12 @@ export const consultarDreEmpresaCanonico = ({year,month}) =>
 export const gerenciarAcessoPortalCliente = payload =>
   chamar({ action:"client-portal-admin", ...credenciais(), ...payload });
 
-// ── Tela de login: quem existe? ────────────────────────────────────
-// Devolve só nome e papel. O hash do PIN nunca sai do servidor.
+// ── Tela de login: falta o primeiro administrador? ─────────────────
+// A tela pública não recebe nomes nem papéis (server/login-identity.js).
 export const listarPerfis = async () => {
   const r = await chamar({ action: "profiles" });
-  if (r.status !== 200) return { usuarios: [], precisaSetup: false, erro: r.error || "Não foi possível carregar o acesso ao banco." };
-  return { usuarios: r.usuarios || [], precisaSetup: !!r.precisaSetup };
+  if (r.status !== 200) return { precisaSetup: false, erro: r.error || "Não conseguimos conectar ao servidor. Verifique a internet e tente de novo." };
+  return { precisaSetup: !!r.precisaSetup };
 };
 
 // ── Primeiro acesso ────────────────────────────────────────────────
@@ -206,17 +206,19 @@ export const criarPrimeiroAdmin = async (payload) => {
 };
 
 // ── Entrar (o PIN é conferido no servidor) ─────────────────────────
-export const entrarComPin = async (userId, pin) => {
-  const r = await chamar({ action: "load", userId, pin });
+// `identificador` é o e-mail ou nome completo digitado; o servidor devolve o
+// usuário, e o id dele passa a identificar a sessão.
+export const entrarComPin = async (identificador, pin) => {
+  const r = await chamar({ action: "load", identificador, pin });
 
   if (r.status === 429) return { ok: false, erro: r.error || "Muitas tentativas." };
-  if (r.status === 401) return { ok: false, erro: "PIN incorreto." };
+  if (r.status === 401) return { ok: false, erro: "E-mail, nome ou PIN incorreto." };
   if (r.status !== 200)  return { ok: false, erro: r.error || "Falha ao entrar." };
   if (!r.data || !r.usuario?.id) {
     return { ok:false, erro:"O servidor devolveu uma resposta de autenticação inválida. Tente novamente." };
   }
 
-  abrirSessao(userId, pin);
+  abrirSessao(r.usuario.id, pin);
   ultimoUpdatedAt = r.updatedAt || null;
   return { ok: true, data: r.data, usuario: r.usuario };
 };

@@ -30,7 +30,7 @@ describe("SEC-002 — limite de tentativas compartilhado", () => {
 
   it("limita PIN e e-mail, mas não bloqueia sessão JWT válida pelo IP",()=>{
     expect(api).toContain('rateLimitCentral(ip,"status")');
-    expect(api).toContain('await rateLimitCentral(ip,"failure")');
+    expect(api).toContain('await Promise.all([rateLimitCentral(ip,"failure"),rateLimitCentral(limiteUsuario,"failure")])');
     expect(api).toContain('const usaPin=!accessToken');
     expect(api).toContain('rateLimitCentral(authSubject,"status")');
     expect(api).toContain('rateLimitCentral(authSubject,"failure")');

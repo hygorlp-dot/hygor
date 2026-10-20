@@ -162,6 +162,8 @@ test("PIN incorreto informa o erro sem iniciar sessão", async ({ page }) => {
       return route.fulfill({ json: { usuarios: [PROFILE], precisaSetup: false } });
     }
     if (body.action === "load") {
+      expect(body.identificador).toBe(PROFILE.email);
+      expect(body.userId).toBeUndefined();
       return route.fulfill({ status: 401, json: { error: "PIN incorreto." } });
     }
     return route.fulfill({ json: {} });
@@ -169,13 +171,14 @@ test("PIN incorreto informa o erro sem iniciar sessão", async ({ page }) => {
 
   await page.goto("/");
   await page.getByRole("tab", { name: "PIN de acesso" }).click();
-  await page.getByRole("button", { name: /Engenheiro QA/ }).click();
+  await page.getByLabel("E-mail ou nome completo").fill(PROFILE.email);
+  await page.getByRole("button", { name: "Continuar" }).click();
   for (const digit of ["1", "2", "3", "4"]) {
     await page.getByRole("button", { name: digit, exact: true }).click();
   }
   await page.getByRole("button", { name: "Confirmar acesso" }).click();
 
-  await expect(page.getByText("PIN incorreto.")).toBeVisible();
+  await expect(page.getByText("E-mail, nome ou PIN incorreto.")).toBeVisible();
   await expect(page.getByText(/Bo[ma] (dia|tarde|noite), Engenheiro\./)).toHaveCount(0);
 });
 

@@ -108,4 +108,20 @@ describe("contrato de resposta do login", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("login por PIN manda a identificação digitada e guarda o id devolvido pelo servidor",async()=>{
+    const fetchMock=vi.fn(async(_url,options={})=>{
+      const body=JSON.parse(options.body||"{}");
+      if(body.action==="load"&&body.identificador==="maria@arcd.test"&&!body.userId)return {
+        status:200,ok:true,json:async()=>({data:{obras:[]},usuario:{id:"u-admin",nome:"Maria"}}),
+      };
+      return {status:200,ok:true,json:async()=>({data:{obras:[]},usuario:{id:body.userId}})};
+    });
+    vi.stubGlobal("fetch",fetchMock);
+    const {entrarComPin,saveDataDetailed}=await import("./api.js");
+    await expect(entrarComPin("maria@arcd.test","1234")).resolves.toMatchObject({ok:true,usuario:{id:"u-admin"}});
+    await saveDataDetailed({obras:[]});
+    const proxima=JSON.parse(fetchMock.mock.calls.at(-1)[1].body);
+    expect(proxima).toMatchObject({userId:"u-admin",pin:"1234"});
+  });
 });
