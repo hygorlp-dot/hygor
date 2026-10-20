@@ -44,6 +44,14 @@ const rodar = (nome, titulo, fn) => {
   process.stdout.write(`${r.ok ? "  ✓" : "  ✗"} ${titulo}${r.detalhe ? ` — ${r.detalhe}` : ""}\n`);
   return r;
 };
+// EXPO_OFFLINE só existe quando é offline: a CLI do Expo recusa valor vazio
+// (GetEnv.NoBoolean) e quebrava o bundle e o prebuild na CI.
+const ambienteExpo = OFFLINE ? { ...process.env, EXPO_OFFLINE: "1" } : process.env;
+// Primeira linha de erro da ferramenta (não o fim do stack trace).
+const primeiroErro = texto => {
+  const linhas = `${texto}`.split("\n").map(l => l.trim()).filter(Boolean);
+  return (linhas.find(l => /error|erro|falha/i.test(l) && !/^at\s/.test(l)) || linhas.filter(l => !/^at\s/.test(l)).slice(-2).join(" ")).slice(0, 300);
+};
 const exec = (cmd, args, opcoes = {}) => spawnSync(cmd, args, { cwd: APP, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024, ...opcoes });
 
 // Passadas da rodada: no máximo 3 (AUDIT→TEST→SCORE, POLISH→TEST→SCORE, final).
@@ -79,8 +87,8 @@ if (!RAPIDO) {
 
   rodar("bundle", "Bundle Android (Metro + modelos .tflite)", () => {
     rmSync(path.join(APP, "dist-ci"), { recursive: true, force: true });
-    const r = exec("npx", ["expo", "export", "--platform", "android", "--output-dir", "dist-ci"], { env: { ...process.env, EXPO_OFFLINE: OFFLINE ? "1" : process.env.EXPO_OFFLINE || "" } });
-    if (r.status !== 0) return { ok: false, detalhe: `${r.stderr}`.split("\n").filter(Boolean).slice(-3).join(" ") };
+    const r = exec("npx", ["expo", "export", "--platform", "android", "--output-dir", "dist-ci"], { env: ambienteExpo });
+    if (r.status !== 0) return { ok: false, detalhe: primeiroErro(`${r.stderr}${r.stdout}`) };
     const meta = readFileSync(path.join(APP, "dist-ci/metadata.json"), "utf8");
     const tflite = (meta.match(/"ext":"tflite"/g) || []).length;
     const tamanho = Number(execSync(`du -sk dist-ci`, { cwd: APP, encoding: "utf8" }).split("\t")[0]);
@@ -92,8 +100,8 @@ if (!RAPIDO) {
   rodar("prebuild", "Prebuild Android descartável + verificar-prebuild", () => {
     const pacoteAntes = readFileSync(path.join(APP, "package.json"), "utf8");
     try {
-      const r = exec("npx", ["expo", "prebuild", "--platform", "android", "--no-install", "--clean"], { env: { ...process.env, EXPO_OFFLINE: OFFLINE ? "1" : process.env.EXPO_OFFLINE || "" } });
-      if (r.status !== 0) return { ok: false, detalhe: `${r.stderr}`.split("\n").filter(Boolean).slice(-3).join(" ") };
+      const r = exec("npx", ["expo", "prebuild", "--platform", "android", "--no-install", "--clean"], { env: ambienteExpo });
+      if (r.status !== 0) return { ok: false, detalhe: primeiroErro(`${r.stderr}${r.stdout}`) };
       const v = exec("node", ["scripts/verificar-prebuild.mjs"]);
       const manifesto = readFileSync(path.join(APP, "android/app/src/main/AndroidManifest.xml"), "utf8");
       const atividadesExportadas = [...manifesto.matchAll(/<activity[^>]*android:exported="true"/g)].length;
