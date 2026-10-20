@@ -131,7 +131,10 @@
   transform-origin: 24% 58%;
 }
 
+/* No desktop o cartão de acesso ocupa o canto da marca e já traz o logo:
+   a marca d'água só aparece no topo do celular (ver @media abaixo). */
 .login-project-brand-watermark {
+  display: none;
   position: absolute;
   z-index: 2;
   top: clamp(30px, 7vh, 78px);
@@ -358,6 +361,7 @@
   }
 
   .login-project-brand-watermark {
+    display: block;
     top: 20px;
     left: 22px;
     width: 104px;
@@ -415,7 +419,11 @@
     font-size: 14px !important;
   }
 
-  .login-access-card button {
+  .login-access-card button:not([role="tab"]) {
+    min-height: var(--arcd-touch-target-min);
+  }
+
+  .login-access-card [role="tablist"] {
     min-height: var(--arcd-touch-target-min);
   }
 }

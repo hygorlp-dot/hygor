@@ -105,7 +105,8 @@ export default function LoginProjectParallax({logoSrc=""}){
           transition={{duration:1.25,ease:[.22,1,.36,1]}}
         />
       </div>}
-      {logoSrc&&<img className="login-project-brand-watermark" src={logoSrc} alt="" draggable="false"/>}
+      {/* O vídeo já desenha o lettering ARCD; a marca d'água só entra sem ele. */}
+      {logoSrc&&!showVideo&&<img className="login-project-brand-watermark" src={logoSrc} alt="" draggable="false"/>}
     </div>
   </LazyMotion>;
 }

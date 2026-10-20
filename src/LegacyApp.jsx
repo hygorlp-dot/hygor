@@ -39,7 +39,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./components/ui/card";
+import { Card, CardHeader, CardDescription, CardContent } from "./components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { Alert, AlertDescription } from "./components/ui/alert";
 import { ThemeSettings } from "./design-system/theme/ThemeSettings";
@@ -10179,6 +10179,15 @@ function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
   const [loading,setLoading]=useState(false);
   const [setupForm,setSetupForm]=useState({nome:"",email:"",pin:"",confirmacao:""});
 
+  // A tela de acesso é escura; o resto do app é claro. A barra do navegador
+  // (theme-color) acompanha só enquanto o login está aberto.
+  useEffect(()=>{
+    const meta=document.querySelector('meta[name="theme-color"]');
+    if(!meta)return undefined;
+    const anterior=meta.getAttribute("content");
+    meta.setAttribute("content","#0d141f");
+    return ()=>{meta.setAttribute("content",anterior||"#f5f5f3");};
+  },[]);
   const handleBackspace=()=>setPin(p=>p.slice(0,-1));
   const tentarEntrar=async valor=>{
     if(!identificador.trim())return;
@@ -10225,14 +10234,6 @@ function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
         <LazyLoginProjectParallax logoSrc={ARCD_LOGO}/>
       </Suspense>
 
-      <section className="login-project-story" aria-label="Plataforma ARCD">
-        <div className="login-eyebrow">
-          ARCD OBRAS
-        </div>
-        <h1>Da obra ao dado.<br/><strong>Em tempo real.</strong></h1>
-        <p>Decisões, equipes e projetos conectados em uma única operação.</p>
-      </section>
-
       <main className="login-access-column">
       <Card className="login-access-card w-full max-w-[430px] border-white/10 bg-[#0d141f]/95 text-white shadow-none backdrop-blur-xl">
         <CardHeader className="pb-5">
@@ -10241,7 +10242,7 @@ function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
           </div>
           <div className="pt-4">
             <p className="text-[10px] font-bold tracking-[0.2em] text-[#d4af37] uppercase">Central de operação</p>
-            <CardTitle className="font-display text-2xl mt-2 tracking-[-0.02em]">Acesse seu ambiente</CardTitle>
+            <h1 className="font-display text-2xl font-semibold leading-tight mt-2 tracking-[-0.02em]">Acesse seu ambiente</h1>
             <CardDescription className="mt-2 text-slate-400">Use sua credencial corporativa para continuar.</CardDescription>
           </div>
         </CardHeader>
@@ -10270,7 +10271,7 @@ function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
                          value={email} onChange={e=>setEmail(e.target.value)}
                          onKeyDown={e=>{if(e.key==="Enter")tentarEmail();}}
                          placeholder="nome@empresa.com.br"
-                         className="h-11 border-white/10 bg-white/[0.04] text-white placeholder:text-slate-600 focus-visible:ring-[#d4af37]" />
+                         className="h-11 border-white/10 bg-white/[0.04] text-white placeholder:text-slate-400 focus-visible:ring-[#d4af37]" />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="login-senha" className="text-xs font-semibold text-slate-300">Senha</Label>
@@ -10278,7 +10279,7 @@ function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
                     <Input id="login-senha" type={mostrarSenha?"text":"password"} autoComplete="current-password"
                            value={senha} onChange={e=>setSenha(e.target.value)}
                            onKeyDown={e=>{if(e.key==="Enter")tentarEmail();}}
-                           placeholder="Digite sua senha" className="h-11 border-white/10 bg-white/[0.04] pr-10 text-white placeholder:text-slate-600 focus-visible:ring-[#d4af37]" />
+                           placeholder="Digite sua senha" className="h-11 border-white/10 bg-white/[0.04] pr-10 text-white placeholder:text-slate-400 focus-visible:ring-[#d4af37]" />
                     <button type="button" onClick={()=>setMostrarSenha(v=>!v)}
                             aria-label={mostrarSenha?"Ocultar senha":"Mostrar senha"}
                             className="login-password-toggle absolute right-1 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
@@ -10296,7 +10297,7 @@ function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
                 <Button onClick={tentarEmail} disabled={loading} className="h-11 w-full bg-[#d4af37] font-bold text-[#10151d] hover:bg-[#e1c159] active:scale-[0.98] transition-transform">
                   {loading ? "Sincronizando operação..." : "Acessar central ARCD"}
                 </Button>
-                <p className="text-[11px] leading-relaxed text-slate-500 text-center">
+                <p className="text-xs leading-relaxed text-slate-400 text-center">
                   Acesso individual, seguro e auditável.
                 </p>
               </TabsContent>

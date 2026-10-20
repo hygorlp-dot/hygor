@@ -26,4 +26,22 @@ describe("layout mobile do login", () => {
     expect(css).toContain(".login-password-toggle");
     expect(app).toContain("login-password-toggle");
   });
+
+  it("não sobrepõe a marca d'água ao cartão nem repete o logo sobre o vídeo", () => {
+    const parallax = readFileSync(resolve(process.cwd(), "src/components/login/LoginProjectParallax.jsx"), "utf8");
+    expect(css).toContain(".login-project-brand-watermark {\n  display: none;");
+    expect(css).toContain(".login-project-brand-watermark {\n    display: block;");
+    expect(parallax).toContain("logoSrc&&!showVideo&&");
+  });
+
+  it("aba ativa não vaza a caixa das abas no celular", () => {
+    expect(css).toContain('.login-access-card button:not([role="tab"])');
+    expect(css).not.toMatch(/\.login-access-card button \{/);
+  });
+
+  it("tem título principal acessível e barra do navegador escura no login", () => {
+    expect(app).toContain('<h1 className="font-display text-2xl');
+    expect(app).toContain('meta.setAttribute("content","#0d141f")');
+    expect(app).not.toContain("placeholder:text-slate-600");
+  });
 });
