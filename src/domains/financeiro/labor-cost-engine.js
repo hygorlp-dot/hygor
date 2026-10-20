@@ -1,5 +1,5 @@
 import { calculateAttendanceDayCost } from "../ponto/payroll.js";
-import { resolveEmployeeAttendanceObraId } from "../ponto/permissions.js";
+import { resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "../ponto/permissions.js";
 
 const requiredFunction = (value, name) => {
   if (typeof value !== "function") {
@@ -54,9 +54,10 @@ export const createLaborCostEngine = ({
         benefitCost += cost.benefitCost;
       });
 
+      // Feriado: paga a obra do último dia trabalhado antes dele.
       holidaysInPeriod.forEach(date => {
         if (!employedOnDate(employee, date)) return;
-        if (workForDate(employee, date) !== obraId) return;
+        if (resolveHolidayObraId({ data, employee, holidayIso:date }) !== obraId) return;
         laborCost += Number(holidayPayRule(data, employee, date, holidays).amount || 0);
       });
     });
