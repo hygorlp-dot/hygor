@@ -7,12 +7,13 @@ let root, container;
 afterEach(() => { if(root) act(()=>root.unmount()); container?.remove(); vi.useRealTimers(); });
 
 // Feriado é pago pela obra do último dia trabalhado antes dele (decisão de
-// 20/10/2026), não pela lotação: todo o ponto na obra de trabalho leva também
-// os feriados de 07/09 e 15/09 para ela.
+// 20/10/2026), não pela lotação: trabalhou na obra de trabalho na sexta
+// 04/09 e em 14/09, então os feriados de 07/09 e 15/09 vão para ela - mesmo
+// com ponto lançado nos próprios feriados.
 it('feriados vão para a obra onde o funcionário trabalhou, não para a lotação', () => {
   vi.useFakeTimers(); vi.setSystemTime(new Date(2026,8,18,12));
   const attendance = {};
-  for(const day of [7,8,9,10,11,14,15,16,17,18]) attendance[`2026-09-${day.toString().padStart(2,'0')}`]={status:'P',obraId:'emprestimo'};
+  for(const day of [4,7,8,9,10,11,14,15,16,17,18]) attendance[`2026-09-${day.toString().padStart(2,'0')}`]={status:'P',obraId:'emprestimo'};
   const data={config:{},employees:[{id:'e',name:'Funcionário emprestado',active:true,obra:'lotacao',dailyRate:100}],
     obras:[{id:'lotacao',name:'Obra de lotação'},{id:'emprestimo',name:'Obra de trabalho'},{id:'vazia',name:'Sem movimento'}],
     attendance:{e:attendance},changeLog:[],advances:[]};

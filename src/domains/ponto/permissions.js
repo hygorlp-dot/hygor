@@ -58,8 +58,8 @@ export const canManageAttendanceWorkforce = role =>
 // Feriado não tem ponto: a obra que paga o feriado é a do ÚLTIMO DIA
 // TRABALHADO antes dele (presença ou meio período), com a obra carimbada no
 // ponto daquele dia. Sem dia trabalhado na janela, vale a lotação histórica
-// na data do feriado. Ponto lançado no próprio feriado com obra explícita
-// prevalece (a pessoa trabalhou ali naquele dia). Regra única para folha,
+// na data do feriado. Ponto lançado no próprio feriado NÃO muda a obra
+// (decisão de 20/10/2026: sempre a obra do dia anterior). Regra única para folha,
 // DRE, base da taxa de administração e servidor.
 export const HOLIDAY_OBRA_LOOKBACK_DAYS = 31;
 const WORKED_STATUSES = new Set(["P", "M"]);
@@ -74,10 +74,6 @@ export const resolveHolidayObraId = ({
   data = {}, employee, holidayIso, lookbackDays = HOLIDAY_OBRA_LOOKBACK_DAYS,
 } = {}) => {
   const records = data?.attendance?.[employee?.id] || {};
-  const onHoliday = records[holidayIso];
-  if (onHoliday && typeof onHoliday === "object" && (onHoliday.obraId || onHoliday.obra)) {
-    return String(onHoliday.obraId || onHoliday.obra);
-  }
   let date = holidayIso;
   for (let i = 0; i < lookbackDays; i++) {
     date = previousIsoDate(date);
