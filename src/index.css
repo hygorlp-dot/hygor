@@ -2405,6 +2405,15 @@
   font-weight: 600;
 }
 
+.obra-attendance__notice[data-tone="info"] {
+  border-color: #9db8e0;
+  background: #f2f6fc;
+}
+
+.obra-attendance__notice[data-tone="info"] p {
+  color: #1f4a86;
+}
+
 .obra-attendance__pending {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

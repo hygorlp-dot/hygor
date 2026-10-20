@@ -7646,6 +7646,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   const selectedObraLocked = selectedObra ? isAttendanceLocked(data, selectedObra.id, selDate) : false;
   const selectedObraCanEdit = selectedObra ? canEditAttendance(data, selectedObra.id, selDate, currentUser?.id) : true;
   const obraAttendanceSummary = getObraAttendanceSummary(data, selDate);
+  const feriadoSelecionado = prIsWeekdayIso(selDate) && getPayrollHolidays(data, Number(String(selDate).slice(0,4))).includes(selDate);
   const attendanceCompletion = getAttendanceCompletionMessage(obraAttendanceSummary);
   const podeMovimentarEquipe=canManageAttendanceWorkforce(currentUser?.role);
   const obraDoPonto = employee => resolveEmployeeAttendanceObraId({
@@ -7922,6 +7923,15 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
         <Inp label="Data" type="date" value={selDate} onChange={setSelDate} max={today()} />
         {obraIdFixo?<Inp label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>:<Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />}
       </div>
+
+      {/* Feriado: o ponto do dia não muda o pagamento - a folha paga o
+          feriado pela obra do último dia trabalhado antes dele. */}
+      {feriadoSelecionado && (
+        <div className="obra-attendance__notice" data-tone="info" role="status">
+          <Ic n="info" s={14}/>
+          <p>{fmtDateFull(selDate)} é feriado. O feriado é pago na folha pela obra em que cada funcionário trabalhou no último dia antes dele; lançar ponto hoje não muda esse pagamento.</p>
+        </div>
+      )}
 
       {/* Status das pendências: uma linha quando tudo pronto; quando falta,
           lista enxuta de obras clicáveis. Sem caixas empilhadas. */}
