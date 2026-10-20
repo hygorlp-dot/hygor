@@ -48,3 +48,24 @@ it('feriado sem ponto vai para a obra do último dia trabalhado (12/10 na obra p
   filter('adm'); expect(total()).toMatch(/1\.100,00/);
   filter('fixa'); expect(total()).toMatch(/R\$\s*0,00/);
 });
+
+it('dia sem obra no ponto segue o histórico do cadastro (obraHistory), como a DRE', () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date(2026,8,18,12));
+  const attendance = {};
+  for(const day of [8,9,10,11,14,15,16,17,18]) attendance[`2026-09-${day.toString().padStart(2,'0')}`]={status:'P'};
+  const data={config:{},employees:[{id:'e',name:'Transferido',active:true,obra:'nova',dailyRate:100,
+      obraHistory:[{date:'2026-09-14',fromObraId:'antiga',toObraId:'nova'}]}],
+    obras:[{id:'antiga',name:'Obra antiga'},{id:'nova',name:'Obra nova'}],
+    attendance:{e:attendance},changeLog:[],advances:[]};
+  container=document.createElement('div');document.body.append(container);root=createRoot(container);
+  act(()=>root.render(<Folha data={data} showToast={()=>{}}/>));
+  const total=()=>container.querySelector('.payroll-summary-strip__net strong').textContent;
+  const select=[...container.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value==='all'));
+  const filter=value=>act(()=>{select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));});
+  // Antiga: 08-11/09 (antes da transferência de 14/09) + feriado de 07/09
+  // (sem dia trabalhado antes: lotação histórica). Nova: 14, 16, 17, 18/09 +
+  // feriado de 15/09 (dia anterior trabalhado já na nova).
+  filter('antiga'); expect(total()).toMatch(/R\$\s*500,00/);
+  filter('nova'); expect(total()).toMatch(/R\$\s*500,00/);
+  filter('all'); expect(total()).toMatch(/1\.000,00/);
+});
