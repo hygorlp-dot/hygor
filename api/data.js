@@ -23,7 +23,7 @@ import crypto from "crypto";
 import fs from "node:fs";
 import path from "node:path";
 import postgres from "postgres";
-import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData } from "../server/data-codec.js";
+import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData, profileIndexOutdated } from "../server/data-codec.js";
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
 import { validatePurchaseChanges } from "../server/permission-policies.js";
@@ -34,7 +34,7 @@ import { findSectionConflicts } from "../server/three-way-conflicts.js";
 import { mergeThreeWay } from "../server/three-way-merge.js";
 import { authorizeSectionChanges, validateBankReconciliationPolicy, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
-import { buildRequestedDreProjectionRows } from "../server/dre-projection.js";
+import { buildRequestedDreProjectionRows, dreSourceRevision } from "../server/dre-projection.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
 import { authorizeReconciliationCommand } from "../server/reconciliation-policy.js";
 import { executeReconciliationWithRetry } from "../server/reconciliation-execution.js";
@@ -127,7 +127,7 @@ const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // migra sozinha para ela - sem exigir nenhuma ordem de deploy específica.
 const linhaEfetivaParaEscrita = (domain, rowVersions) =>
   (domain!==DOMAIN_ROW.CORE && rowVersions[domain]==null) ? DOMAIN_ROW.CORE : domain;
-const DRE_PROJECTION_VERSION = "2026-08-third-party-equipment-cost-v5";
+const DRE_PROJECTION_VERSION = "2026-10-feriado-obra-dia-anterior-v6";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
   "changeLog",
@@ -572,6 +572,16 @@ const salvarIndicePerfis = async payload => {
   if(error)console.error("Não foi possível atualizar o índice de login:",error.message);
 };
 
+// Regrava o índice só quando o que ele guarda (usuários e obras) mudou.
+const indicePerfisMudou=(antes,depois)=>!igualIndice(antes,depois);
+const igualIndice=(antes,depois)=>!profileIndexOutdated(compactProfiles(antes),depois);
+// Atualização do índice é acessória: nunca derruba a carga ou a gravação que
+// já deu certo, e nunca troca um índice por outro sem nenhum usuário.
+const atualizarIndicePerfisSeguro=async payload=>{
+  if(!(payload?.usuarios||[]).length)return;
+  try{await salvarIndicePerfis(payload);}
+  catch(error){console.error("Não foi possível atualizar o índice de login:",error?.message||error);}
+};
 const lerIndicePerfis = async () => {
   const {data,error}=await db.from("company_app_data").select("value").eq("company_id",COMPANY).eq("key",PROFILE_KEY).maybeSingle();
   if(error)throw error;
@@ -2010,6 +2020,7 @@ export default async function handler(req, res) {
         if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(base.payload,usuario),updatedAt:base.updatedAt});
         const gravacao=await persistir(base,result.data);
         if(gravacao.applied){
+          if(indicePerfisMudou(base.payload,result.data))await atualizarIndicePerfisSeguro(result.data);
           return res.status(200).json({
             ok:true,
             sections:projectChangedSectionsPatch(
@@ -2344,7 +2355,7 @@ export default async function handler(req, res) {
       if(error)throw error;
       let currentEvent=(events||[]).find(event=>
         event.source_id===currentId&&event.payload?.active!==false);
-      const sourceRevision=String(updatedAt||"");
+      const sourceRevision=dreSourceRevision({updatedAt,rowVersions,rowVersionsPontoObra});
       if(!currentEvent
         ||String(currentEvent.payload?.sourceRevision||"")!==sourceRevision
         ||String(currentEvent.payload?.projectionVersion||"")!==DRE_PROJECTION_VERSION){
@@ -2399,7 +2410,10 @@ export default async function handler(req, res) {
 
     // ── 3. Carregar ────────────────────────────────────────────────
     if (action === "load") {
-      const completo = await anexarCustosArquivados(atual);
+      const [completo,indice] = await Promise.all([anexarCustosArquivados(atual),lerIndicePerfis().catch(()=>null)]);
+      // Autocorreção: índice de login/OneDrive desatualizado (obra criada por
+      // comando operacional antes desta correção) é regravado na carga.
+      if(profileIndexOutdated(indice,atual))await atualizarIndicePerfisSeguro(atual);
       return res.status(200).json({
         data: projectDataForUser(completo, usuario),
         updatedAt,
@@ -2546,7 +2560,7 @@ export default async function handler(req, res) {
             currentUpdatedAt:outcome.currentUpdatedAt,
           }:{}),
         });
-        if(chaves.includes("usuarios"))await salvarIndicePerfis(outcome.data);
+        if(chaves.includes("usuarios")||chaves.includes("obras"))await salvarIndicePerfis(outcome.data);
         return res.status(200).json({
           ok:true,merged:!!outcome.merged,
           data:outcome.merged?projectDataForUser(outcome.data,usuario):undefined,
@@ -2624,7 +2638,7 @@ export default async function handler(req, res) {
         if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
         gravado={updated_at:retry.updatedAt};combinado=true;
       }
-      if(chaves.includes("usuarios"))await salvarIndicePerfis(valor);
+      if(chaves.includes("usuarios")||chaves.includes("obras"))await salvarIndicePerfis(valor);
       return res.status(200).json({ok:true,merged:combinado,data:combinado?projectDataForUser(valor,usuario):undefined,updatedAt:gravado?.updated_at||agora,savedSections:chaves});
     }
 
@@ -2727,7 +2741,7 @@ export default async function handler(req, res) {
         if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
         gravado={updated_at:retry.updatedAt};
       }
-      if(!igual(valor?.usuarios,atual?.usuarios))await salvarIndicePerfis(valor);
+      if(indicePerfisMudou(atual,valor))await atualizarIndicePerfisSeguro(valor);
       return res.status(200).json({ ok: true, merged:!!houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora), data:(houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora))?projectDataForUser(valor,usuario):undefined, updatedAt: gravado?.updated_at || agora });
     }
 

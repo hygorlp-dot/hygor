@@ -1,5 +1,34 @@
 const validSelectedObra = value => value && value !== "all";
 
+// Transferências de cada funcionário, já filtradas e em ordem decrescente de
+// data, montadas UMA vez por lista de eventos (antes: filtro + ordenação do
+// changeLog inteiro a cada consulta de um funcionário/dia - o maior custo da
+// DRE e da folha). O dataset é imutável entre renders/requisições; a chave
+// inclui o tamanho da lista por segurança.
+const transferCache = new WeakMap();
+const transfersOf = (employee, transferEvents) => {
+  const events = Array.isArray(transferEvents) ? transferEvents : [];
+  let byEmployee = transferCache.get(events);
+  if (!byEmployee || byEmployee.size_ !== events.length) {
+    byEmployee = new Map();
+    byEmployee.size_ = events.length;
+    for (const event of events) {
+      if (event?.type !== "transfer" || !event.date) continue;
+      const empId = String(event.empId || "");
+      if (!byEmployee.has(empId)) byEmployee.set(empId, []);
+      byEmployee.get(empId).push(event);
+    }
+    transferCache.set(events, byEmployee);
+  }
+  const fromLog = byEmployee.get(String(employee.id || "")) || [];
+  const storedHistory = (employee.obraHistory || []).map(event => ({
+    type:"transfer",empId:employee.id,date:event.date,
+    fromId:event.fromObraId||event.fromId,toId:event.toObraId||event.toId,
+  })).filter(event => event.date);
+  return [...fromLog, ...storedHistory]
+    .sort((left,right)=>String(right.date).localeCompare(String(left.date)));
+};
+
 export const resolveHistoricalEmployeeObraId = ({
   employee,
   date,
@@ -7,18 +36,15 @@ export const resolveHistoricalEmployeeObraId = ({
   obras=[],
 } = {}) => {
   if(!employee||!date)return "";
-  const byName=new Map((obras||[]).map(obra=>[String(obra?.name||""),String(obra?.id||"")]));
-  const storedHistory=(employee.obraHistory||[]).map(event=>({
-    type:"transfer",empId:employee.id,date:event.date,
-    fromId:event.fromObraId||event.fromId,toId:event.toObraId||event.toId,
-  }));
-  const transfers=[...(transferEvents||[]),...storedHistory]
-    .filter(event=>event?.type==="transfer"&&String(event.empId||"")===String(employee.id||"")&&event.date)
-    .sort((left,right)=>String(right.date).localeCompare(String(left.date)));
+  const transfers=transfersOf(employee,transferEvents);
   let obraId=String(employee.obra||employee.obraId||employee.lastObra||"");
+  if(!transfers.length)return obraId;
+  let byName=null;
   for(const transfer of transfers){
     if(String(transfer.date)>String(date)){
-      obraId=String(transfer.fromId||byName.get(String(transfer.from||""))||obraId);
+      if(transfer.fromId){obraId=String(transfer.fromId);continue;}
+      byName??=new Map((obras||[]).map(obra=>[String(obra?.name||""),String(obra?.id||"")]));
+      obraId=String(byName.get(String(transfer.from||""))||obraId);
       continue;
     }
     break;

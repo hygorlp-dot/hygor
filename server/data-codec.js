@@ -43,3 +43,15 @@ export const compactProfiles = payload => ({
   })),
   atualizadoEm:new Date().toISOString(),
 });
+
+// O índice de login/OneDrive (compactProfiles) guarda usuários E obras. Ele
+// só era regravado quando `usuarios` mudava - obra criada ou editada ficava
+// fora do índice (achado de 20/10/2026: F-05 OÁSIS HOME PARK ausente desde
+// 28/09, sem escopo de upload no OneDrive). Compara o conteúdo, ignorando
+// o carimbo de atualização.
+const semCarimbo = indice => {
+  const { atualizadoEm: _ignorado, ...resto } = indice || {};
+  return JSON.stringify(resto);
+};
+export const profileIndexOutdated = (indice, payload) =>
+  !indice || semCarimbo(indice) !== semCarimbo(compactProfiles(payload));
