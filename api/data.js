@@ -27,6 +27,7 @@ import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData, profil
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
 import { validatePurchaseChanges } from "../server/permission-policies.js";
+import { podeAcessarAba } from "../src/domains/administracao/abas-acesso.js";
 import { validateProcurementChain } from "../server/procurement-chain-policy.js";
 import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
@@ -1317,7 +1318,15 @@ export default async function handler(req, res) {
     // App "Ponto de Obra" (REP-P): ações próprias, sem rota nova na Vercel.
     // A gestão de ponto atual (attendance) não passa por aqui.
     if(ehAcaoPonto(action)){
+      // O código de pareamento tem 8 números: sem limite, dá para tentar em
+      // série. Mesmo contador persistente do login, com assunto próprio.
+      const pareamento=action==="ponto-parear";
+      if(pareamento){
+        const limite=await rateLimitCentral(`ponto-parear|${ip}`,"status");
+        if(limite?.blocked)return res.status(429).json({error:"Muitas tentativas de pareamento. Aguarde alguns minutos."});
+      }
       const resposta=await tratarAcaoPonto({action,body:req.body||{},headers:req.headers||{},cron:cronAutorizado(req)});
+      if(pareamento)await rateLimitCentral(`ponto-parear|${ip}`,resposta.status===200?"success":"failure");
       return res.status(resposta.status).json(resposta.json);
     }
     if (action === "client-portal") {
@@ -2331,6 +2340,10 @@ export default async function handler(req, res) {
       const companyStatement=action==="financial-company-dre-report";
       if(!Number.isInteger(year)||year<2000||year>2100||!Number.isInteger(month)||month<0||month>11){
         return res.status(400).json({error:"Período do DRE inválido."});
+      }
+      // Mesma regra de abas da tela: sem a aba, a API também não entrega a DRE.
+      if(companyStatement?!podeAcessarAba(usuario,"dre_emp"):!(podeAcessarAba(usuario,"dre")||podeAcessarAba(usuario,"dre_emp"))){
+        return res.status(403).json({error:"Este perfil não tem acesso à DRE."});
       }
       if(companyStatement&&usuario.obraId){
         return res.status(403).json({error:"O DRE da empresa não está disponível para um perfil restrito a uma obra."});

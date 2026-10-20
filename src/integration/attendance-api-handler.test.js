@@ -157,6 +157,15 @@ describe("/api/data · persistência granular do ponto",()=>{
   });
   afterAll(()=>vi.useRealTimers());
 
+  it("DRE: engenheiro sem a aba DRE não lê nem a DRE da própria obra pela API",async()=>{
+    const obra=await callApi({action:"financial-dre-report",accessToken:"valid-token",year:2026,month:6,obraId:"obra-a"});
+    expect(obra.status).toBe(403);
+    expect(obra.body.error).toMatch(/não tem acesso à DRE/);
+    const empresa=await callApi({action:"financial-company-dre-report",accessToken:"valid-token",year:2026,month:6});
+    expect(empresa.status).toBe(403);
+    expect(fakeDb.from.mock.calls.some(([table])=>table==="financial_events")).toBe(false);
+  });
+
   it("confirma no servidor, persiste após nova leitura e audita uma única vez",async()=>{
     const command={
       action:"attendance-upsert",
