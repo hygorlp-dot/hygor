@@ -22,9 +22,11 @@ storybook-static/
 # Não pertencem ao código ou à configuração de produção. Exceção: subagentes
 # do Claude Code em .claude/agents/ são configuração de time, versionada de
 # propósito, para que qualquer pessoa usando Claude Code neste repositório
-# tenha os mesmos agentes disponíveis.
+# tenha os mesmos agentes disponíveis. Também versionado: .claude/settings.json
+# (permissões do Claude Code definidas pelo responsável, ex.: SQL no Supabase).
 .claude/*
 !.claude/agents/
+!.claude/settings.json
 .claude-flow/
 .swarm/
 playwright-report/
