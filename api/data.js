@@ -28,6 +28,7 @@ import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archiv
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
 import { validatePurchaseChanges } from "../server/permission-policies.js";
 import { podeAcessarAba } from "../src/domains/administracao/abas-acesso.js";
+import { compactAuditSnapshots, expandSectionDelta } from "../src/domains/sync/section-delta.js";
 import { validateProcurementChain } from "../server/procurement-chain-policy.js";
 import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
@@ -842,15 +843,12 @@ export const legacyFinancialFactsChanged=(before,after)=>
   LEGACY_FINANCIAL_FACT_FIELDS.some(field=>
     JSON.stringify(before?.[field])!==JSON.stringify(after?.[field]));
 
-// Achado ao investigar "orçamento não salva com mais de uma pessoa"
-// (28/08/2026): audit_events.before_snapshot/after_snapshot voltam do
-// Postgres como uma STRING contendo JSON (uma camada extra de codificação),
-// não como o objeto em si - mesma peculiaridade de `postgres` + `::jsonb`
-// que `decodeAppData` (server/data-codec.js) já trata defensivamente para
-// `company_app_data.value`. Nenhum código hoje LÊ before_snapshot/
-// after_snapshot de volta, então isso nunca quebrou nada em produção - mas
-// qualquer leitor futuro (uma tela de auditoria, por exemplo) precisa do
-// mesmo `JSON.parse` defensivo antes de usar o valor como objeto.
+// Valores jsonb vão sempre por `transaction.json(...)`. Interpolar
+// JSON.stringify(x) seguido de ::jsonb faz o driver `postgres` codificar de novo e
+// gravar um TEXTO JSON, não o objeto: a base passava a ser gravada como
+// string, e a leitura seguinte regravava a base inteira só para corrigir o
+// formato (~1 s a mais por salvamento, achado de 21/10/2026). O mesmo valia
+// para before/after da auditoria. Teste: server/jsonb-gravacao.test.js.
 const gravarMutacaoNaTransacao=async({
   transaction,key=KEY,rowVersions={},keepDomain=null,value,basePayload=null,actor,action,before,after,financial=false,
 })=>{
@@ -880,12 +878,12 @@ const gravarMutacaoNaTransacao=async({
             from company_app_data
            where company_id=${COMPANY} and key=${key}
         ),
-        ${JSON.stringify(encodeAppData(valorPersistido))}::jsonb,
+        ${transaction.json(encodeAppData(valorPersistido))}::jsonb,
         ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
         ${correlationId},${action},
-        ${JSON.stringify(before||{})}::jsonb,
-        ${JSON.stringify(after||{})}::jsonb,
-        ${JSON.stringify(snapshot)}::jsonb,
+        ${transaction.json(before||{})}::jsonb,
+        ${transaction.json(after||{})}::jsonb,
+        ${transaction.json(snapshot)}::jsonb,
         false
       )
     `;
@@ -895,7 +893,7 @@ const gravarMutacaoNaTransacao=async({
 
   const [saved]=await transaction`
     update company_app_data
-       set value=${JSON.stringify(encodeAppData(valorPersistido))}::jsonb,
+       set value=${transaction.json(encodeAppData(valorPersistido))}::jsonb,
            updated_at=clock_timestamp(),
            updated_by=null
      where company_id=${COMPANY} and key=${key}
@@ -910,8 +908,8 @@ const gravarMutacaoNaTransacao=async({
       ${COMPANY},'company_app_data',${key},${action},
       ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
       ${correlationId},
-      ${JSON.stringify(before||{})}::jsonb,
-      ${JSON.stringify(after||{})}::jsonb,
+      ${transaction.json(before||{})}::jsonb,
+      ${transaction.json(after||{})}::jsonb,
       'api/data'
     )
   `;
@@ -1101,7 +1099,7 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
       const correlationId=crypto.randomUUID();
       const [savedPonto]=await transaction`
         update company_app_data
-           set value=${JSON.stringify(encodeAppData(pontoValue))}::jsonb,
+           set value=${transaction.json(encodeAppData(pontoValue))}::jsonb,
                updated_at=clock_timestamp(), updated_by=null
          where company_id=${COMPANY} and key=${pontoKeyAlvo}
          returning updated_at
@@ -1114,8 +1112,8 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
           ${COMPANY},'company_app_data',${pontoKeyAlvo},${applied.audit?.action||command.action},
           ${String(usuario?.id||"system")},${String(usuario?.nome||usuario?.email||"Sistema")},
           ${correlationId},
-          ${JSON.stringify(applied.audit?.before||{})}::jsonb,
-          ${JSON.stringify(applied.audit?.after||{operationId:command.operationId})}::jsonb,
+          ${transaction.json(applied.audit?.before||{})}::jsonb,
+          ${transaction.json(applied.audit?.after||{operationId:command.operationId})}::jsonb,
           'api/data'
         )
       `;
@@ -1151,7 +1149,7 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
         const proximo=tombstoneAttendanceEntries(decodedAntiga?.attendance||{},pares,operationNow,decodedAntiga?.attendanceSyncedAt||{});
         await transaction`
           update company_app_data
-             set value=${JSON.stringify(encodeAppData({attendance:proximo.attendance,attendanceSyncedAt:proximo.syncedAt}))}::jsonb,
+             set value=${transaction.json(encodeAppData({attendance:proximo.attendance,attendanceSyncedAt:proximo.syncedAt}))}::jsonb,
                  updated_at=clock_timestamp(), updated_by=null
            where company_id=${COMPANY} and key=${key}
         `;
@@ -1170,7 +1168,7 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
         const key=`${PONTO_OBRA_KEY_PREFIX}${obraBucket}`;
         await transaction`
           insert into company_app_data(company_id,key,value,updated_at,updated_by)
-          values (${COMPANY},${key},${JSON.stringify(encodeAppData({attendance:{}}))}::jsonb,clock_timestamp(),null)
+          values (${COMPANY},${key},${transaction.json(encodeAppData({attendance:{}}))}::jsonb,clock_timestamp(),null)
           on conflict (company_id,key) do nothing
         `;
         const [lockedObra]=await transaction`
@@ -1182,7 +1180,7 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
         const proximo=applyEntriesToAttendance(decodedObra?.attendance||{},entries,applied.data.attendance,operationNow,decodedObra?.attendanceSyncedAt||{});
         await transaction`
           update company_app_data
-             set value=${JSON.stringify(encodeAppData({attendance:proximo.attendance,attendanceSyncedAt:proximo.syncedAt}))}::jsonb,
+             set value=${transaction.json(encodeAppData({attendance:proximo.attendance,attendanceSyncedAt:proximo.syncedAt}))}::jsonb,
                  updated_at=clock_timestamp(), updated_by=null
            where company_id=${COMPANY} and key=${key}
         `;
@@ -1305,7 +1303,7 @@ export default async function handler(req, res) {
   }
 
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || "desconhecido";
-  const { action=req.query?.action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
+  let { action=req.query?.action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
 
   try {
     if(action==="client-error"){
@@ -2476,6 +2474,19 @@ export default async function handler(req, res) {
     // alteração: Obras, RH, Compras, Financeiro etc. Em concorrência, somente
     // as seções realmente tocadas entram no merge de três vias.
     if (action === "save-sections") {
+      // Seções enviadas como delta (só registros alterados) voltam a ser
+      // listas completas aqui, sobre o estado atual, antes de qualquer
+      // validação - ver src/domains/sync/section-delta.js.
+      if(objeto(req.body?.sectionDeltas)){
+        const completas={...(objeto(sections)?sections:{})},bases={...(objeto(baseSections)?baseSections:{})};
+        for(const [key,delta] of Object.entries(req.body.sectionDeltas).slice(0,120)){
+          if(!key||key.startsWith("__"))continue;
+          const expandido=expandSectionDelta(delta,atual?.[key]);
+          if(!expandido)return res.status(400).json({ error:`Alteração da seção ${key} em formato inválido.` });
+          completas[key]=expandido.incoming;bases[key]=expandido.base;
+        }
+        sections=completas;baseSections=bases;
+      }
       if (!objeto(sections)) return res.status(400).json({ error: "Nenhuma seção para salvar." });
       const chaves = Object.keys(sections).filter(k => k && !k.startsWith("__")).slice(0, 120);
       const commandOnlySections=["attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
@@ -2566,8 +2577,10 @@ export default async function handler(req, res) {
             }
             return {
               kind:"save",data:value,merged:!!houveConcorrencia,
-              before:Object.fromEntries(chaves.map(key=>[key,current?.[key]])),
-              after:Object.fromEntries(chaves.map(key=>[key,value?.[key]])),
+              ...compactAuditSnapshots(
+                Object.fromEntries(chaves.map(key=>[key,current?.[key]])),
+                Object.fromEntries(chaves.map(key=>[key,value?.[key]])),
+              ),
             };
           },
         });
@@ -2645,7 +2658,7 @@ export default async function handler(req, res) {
       let agora=new Date().toISOString();
       const salvarVersao=sincronizaFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
       let gravacao=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
-        before:Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),after:Object.fromEntries(chaves.map(key=>[key,valor?.[key]]))});
+        ...compactAuditSnapshots(Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),Object.fromEntries(chaves.map(key=>[key,valor?.[key]])))});
       let gravado=gravacao.applied?{updated_at:gravacao.updatedAt}:null;
 
       let combinado=houveConcorrencia;

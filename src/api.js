@@ -9,6 +9,8 @@
 // A credencial do usuário é o PIN — conferido lá, não aqui.
 // ═══════════════════════════════════════════════════════════════════
 
+import { buildSectionDelta } from "./domains/sync/section-delta.js";
+
 const ROTA = "/api/data";
 
 // Guardado só em memória (não em localStorage): fechou a aba, tem que
@@ -274,11 +276,18 @@ export const saveDataDetailed = async (payload,basePayload=null) => {
     : [];
   const porSecoes = !!safeBase && chaves.length > 0;
   if (safeBase && !chaves.length) return { ok:true, conflict:false, unchanged:true, updatedAt:ultimoUpdatedAt };
-  const sections = porSecoes ? Object.fromEntries(chaves.map(k=>[k,safePayload[k]])) : undefined;
-  const baseSections = porSecoes ? Object.fromEntries(chaves.map(k=>[k,safeBase[k]])) : undefined;
+  // Listas de registros com id vão como delta (só o que mudou); o servidor
+  // reconstrói a lista inteira. As demais seções seguem completas.
+  const sections = {}, baseSections = {}, sectionDeltas = {};
+  if (porSecoes) chaves.forEach(k => {
+    const delta = buildSectionDelta(safeBase[k], safePayload[k]);
+    if (delta) sectionDeltas[k] = delta;
+    else { sections[k] = safePayload[k]; baseSections[k] = safeBase[k]; }
+  });
 
   const r = await chamar(porSecoes ? {
     action:"save-sections",...credenciais(),sections,baseSections,
+    ...(Object.keys(sectionDeltas).length ? { sectionDeltas } : {}),
     expectedUpdatedAt:ultimoUpdatedAt,
   } : {
     action:"save",...credenciais(),payload:safePayload,basePayload:safeBase,

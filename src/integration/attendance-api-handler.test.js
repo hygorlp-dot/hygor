@@ -187,6 +187,39 @@ describe("/api/data · persistência granular do ponto",()=>{
     expect(testState.rows[CORE_KEY].value.orcamentos[0]).toEqual(aprovado);
   });
 
+  it("orçamento por delta: só o novo registro trafega, a lista é reconstruída e a auditoria fica compacta",async()=>{
+    const outros=Array.from({length:30},(_,i)=>({id:`orc-${i}`,obraId:"obra-a",nome:`O${i}`,versionStatus:"rascunho",itens:[{id:`i-${i}`,quantidade:i}]}));
+    const aprovado={id:"orc-v1",obraId:"obra-a",nome:"V1",versionStatus:"aprovado",itens:[{id:"it-1",precoUnit:10}]};
+    testState.rows[CORE_KEY].value={...initialData(),orcamentos:[aprovado,...outros]};
+    const novo={id:"orc-novo",obraId:"obra-a",nome:"Novo",versionStatus:"rascunho",itens:[]};
+    const salvo=await callApi({action:"save-sections",accessToken:"valid-token",expectedUpdatedAt:"2026-07-28T12:00:00.000Z",
+      sections:{},baseSections:{},sectionDeltas:{orcamentos:{changed:[novo],original:[],removed:[]}}});
+    expect(salvo.status).toBe(200);
+    const gravado=testState.rows[CORE_KEY].value.orcamentos;
+    expect(gravado.map(o=>o.id)).toEqual(["orc-v1",...outros.map(o=>o.id),"orc-novo"]);
+    expect(gravado[0]).toEqual(aprovado);
+    const auditoria=testState.rpcCalls.at(-1);
+    expect(auditoria.p_before.orcamentos).toEqual([]);
+    expect(auditoria.p_after.orcamentos).toEqual([novo]);
+  });
+
+  it("orçamento por delta: alterar a versão aprovada continua recusado",async()=>{
+    const aprovado={id:"orc-v1",obraId:"obra-a",nome:"V1",versionStatus:"aprovado",itens:[{id:"it-1",precoUnit:10}]};
+    testState.rows[CORE_KEY].value={...initialData(),orcamentos:[aprovado]};
+    const alterado={...aprovado,itens:[{id:"it-1",precoUnit:99}]};
+    const salvo=await callApi({action:"save-sections",accessToken:"valid-token",expectedUpdatedAt:"2026-07-28T12:00:00.000Z",
+      sections:{},baseSections:{},sectionDeltas:{orcamentos:{changed:[alterado],original:[aprovado],removed:[]}}});
+    expect(salvo.status).toBe(409);
+    expect(testState.rows[CORE_KEY].value.orcamentos[0]).toEqual(aprovado);
+  });
+
+  it("delta malformado é recusado sem gravar",async()=>{
+    const salvo=await callApi({action:"save-sections",accessToken:"valid-token",expectedUpdatedAt:"2026-07-28T12:00:00.000Z",
+      sections:{},baseSections:{},sectionDeltas:{orcamentos:{changed:[{nome:"sem id"}],original:[],removed:[]}}});
+    expect(salvo.status).toBe(400);
+    expect(testState.rpcCalls).toHaveLength(0);
+  });
+
   it("DRE: engenheiro sem a aba DRE não lê nem a DRE da própria obra pela API",async()=>{
     const obra=await callApi({action:"financial-dre-report",accessToken:"valid-token",year:2026,month:6,obraId:"obra-a"});
     expect(obra.status).toBe(403);
