@@ -88,10 +88,34 @@ export async function enviarPendentes({ armazem, api, lote = LOTE, maxRodadas = 
     for (const e of pendentes) {
       const resultado = porEvento.get(String(e.eventId));
       if (!fiscalValido(e, resultado)) { parada = { evento: e, resultado }; break; }
-      await armazem.confirmarEvento(e.eventId, {
+      const gravou = await armazem.confirmarEvento(e.eventId, {
         nsr: resultado.nsr ?? null, fiscalHash: resultado.fiscalHash ?? null,
         estabelecimentoId: resultado.estabelecimentoId ?? null, gravadoEm: resultado.gravadoEm ?? null,
       });
+      if (!gravou) {
+        // Já confirmado antes (escrita única). Mesma resposta: tudo certo.
+        // Resposta diferente da ARP para o mesmo eventId: nada é trocado no
+        // aparelho e a rodada para, para o problema aparecer.
+        const guardado = await armazem.registroFiscal(e.eventId);
+        if (guardado && (Number(guardado.nsr ?? -1) !== Number(resultado.nsr ?? -1) || String(guardado.fiscalHash ?? "") !== String(resultado.fiscalHash ?? ""))) {
+          // Evidência para o suporte: a PRIMEIRA divergência fica guardada no
+          // banco do aparelho (não some na próxima rodada). Só NSR, hash e
+          // ids - nada pessoal.
+          if (!(await armazem.lerEstado("divergencia_fiscal"))) {
+            await armazem.gravarEstado("divergencia_fiscal", {
+              eventId: e.eventId, localSequence: e.localSequence, em: new Date().toISOString(),
+              guardado: { nsr: guardado.nsr ?? null, fiscalHash: guardado.fiscalHash ?? null },
+              recebido: { nsr: resultado.nsr ?? null, fiscalHash: resultado.fiscalHash ?? null, status: resultado.status },
+            });
+          }
+          enviadas += nesta;
+          return {
+            enviadas, pendentes: pendentes.length - nesta, status: "fiscal_divergente", fiscalDivergente: true,
+            erro: `a ARP respondeu outro registro fiscal para o evento ${e.localSequence}, já confirmado - nada foi alterado no aparelho; chame o suporte`,
+          };
+        }
+        continue;
+      }
       nesta++;
     }
     enviadas += nesta;
@@ -198,6 +222,7 @@ export async function rodadaDeSincronizacao({ armazem, api, monotonico, corpo, c
   if (envio.semRede) resumo.online = false;
   if (envio.erro && !resumo.erro) { resumo.erro = envio.erro; resumo.status = envio.status; }
   resumo.aguardandoEstabelecimento = !!envio.aguardandoEstabelecimento;
+  resumo.fiscalDivergente = !!envio.fiscalDivergente;
   if (resumo.online) resumo.fotos = await enviarFotos({ armazem, api, lerFotoBase64, aposEnviar: aposEnviarFoto });
   return resumo;
 }
