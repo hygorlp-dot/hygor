@@ -21,7 +21,7 @@ function RouteLoading() {
 export default function OperationalApp() {
   useEffect(() => {
     const tituloAnterior = document.title;
-    document.title = "ArcD Ponto PRO";
+    document.title = "ARCD Obras";
     return () => { document.title = tituloAnterior; };
   }, []);
 

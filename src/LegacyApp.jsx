@@ -39,7 +39,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./components/ui/card";
+import { Card, CardHeader, CardDescription, CardContent } from "./components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { Alert, AlertDescription } from "./components/ui/alert";
 import { ThemeSettings } from "./design-system/theme/ThemeSettings";
@@ -10167,26 +10167,33 @@ const ACCESS_SECTORS=[
 
 //  Tela de Login 
 
-function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
+function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
   const [metodo,setMetodo]=useState("email");
   const [email,setEmail]=useState("");
   const [senha,setSenha]=useState("");
   const [mostrarSenha,setMostrarSenha]=useState(false);
   const [step,setStep]=useState("select");
-  const [selUser,setSelUser]=useState(null);
+  const [identificador,setIdentificador]=useState("");
   const [pin,setPin]=useState("");
   const [erro,setErro]=useState("");
   const [loading,setLoading]=useState(false);
   const [setupForm,setSetupForm]=useState({nome:"",email:"",pin:"",confirmacao:""});
-  const usuarios=perfis||[];
-  const roleAtual=ROLES.find(r=>r.v===selUser?.role)||ROLES[0];
 
+  // A tela de acesso é escura; o resto do app é claro. A barra do navegador
+  // (theme-color) acompanha só enquanto o login está aberto.
+  useEffect(()=>{
+    const meta=document.querySelector('meta[name="theme-color"]');
+    if(!meta)return undefined;
+    const anterior=meta.getAttribute("content");
+    meta.setAttribute("content","#0d141f");
+    return ()=>{meta.setAttribute("content",anterior||"#f5f5f3");};
+  },[]);
   const handleBackspace=()=>setPin(p=>p.slice(0,-1));
   const tentarEntrar=async valor=>{
-    if(!selUser)return;
+    if(!identificador.trim())return;
     if(valor.length<4){setErro("O PIN tem no mínimo 4 dígitos.");return;}
     setLoading(true);setErro("");
-    const r=await entrarComPin(selUser.id,valor);
+    const r=await entrarComPin(identificador.trim(),valor);
     if(!r.ok){setErro(r.erro||"PIN incorreto.");setPin("");setLoading(false);return;}
     onLogin(r.usuario,r.data);setLoading(false);
   };
@@ -10214,7 +10221,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
       const usuario={id:uid(),nome,role:"admin",email,pinPlain:pin,active:true,createdAt:new Date().toISOString()};
       const criado=await criarPrimeiroAdmin({usuarios:[usuario]});
       if(!criado.ok)throw new Error(criado.erro||"Não foi possível criar o administrador.");
-      const acesso=await entrarComPin(usuario.id,pin);
+      const acesso=await entrarComPin(email||nome,pin);
       if(!acesso.ok)throw new Error(acesso.erro||"Administrador criado, mas não foi possível iniciar a sessão.");
       onLogin(acesso.usuario,acesso.data);
     }catch(error){setErro(error.message||"Não foi possível concluir o primeiro acesso.");}
@@ -10227,14 +10234,6 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
         <LazyLoginProjectParallax logoSrc={ARCD_LOGO}/>
       </Suspense>
 
-      <section className="login-project-story" aria-label="Plataforma ARCD">
-        <div className="login-eyebrow">
-          ARCD OBRAS
-        </div>
-        <h1>Da obra ao dado.<br/><strong>Em tempo real.</strong></h1>
-        <p>Decisões, equipes e projetos conectados em uma única operação.</p>
-      </section>
-
       <main className="login-access-column">
       <Card className="login-access-card w-full max-w-[430px] border-white/10 bg-[#0d141f]/95 text-white shadow-none backdrop-blur-xl">
         <CardHeader className="pb-5">
@@ -10243,7 +10242,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
           </div>
           <div className="pt-4">
             <p className="text-[10px] font-bold tracking-[0.2em] text-[#d4af37] uppercase">Central de operação</p>
-            <CardTitle className="font-display text-2xl mt-2 tracking-[-0.02em]">Acesse seu ambiente</CardTitle>
+            <h1 className="font-display text-2xl font-semibold leading-tight mt-2 tracking-[-0.02em]">Acesse seu ambiente</h1>
             <CardDescription className="mt-2 text-slate-400">Use sua credencial corporativa para continuar.</CardDescription>
           </div>
         </CardHeader>
@@ -10272,7 +10271,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
                          value={email} onChange={e=>setEmail(e.target.value)}
                          onKeyDown={e=>{if(e.key==="Enter")tentarEmail();}}
                          placeholder="nome@empresa.com.br"
-                         className="h-11 border-white/10 bg-white/[0.04] text-white placeholder:text-slate-600 focus-visible:ring-[#d4af37]" />
+                         className="h-11 border-white/10 bg-white/[0.04] text-white placeholder:text-slate-400 focus-visible:ring-[#d4af37]" />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="login-senha" className="text-xs font-semibold text-slate-300">Senha</Label>
@@ -10280,7 +10279,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
                     <Input id="login-senha" type={mostrarSenha?"text":"password"} autoComplete="current-password"
                            value={senha} onChange={e=>setSenha(e.target.value)}
                            onKeyDown={e=>{if(e.key==="Enter")tentarEmail();}}
-                           placeholder="Digite sua senha" className="h-11 border-white/10 bg-white/[0.04] pr-10 text-white placeholder:text-slate-600 focus-visible:ring-[#d4af37]" />
+                           placeholder="Digite sua senha" className="h-11 border-white/10 bg-white/[0.04] pr-10 text-white placeholder:text-slate-400 focus-visible:ring-[#d4af37]" />
                     <button type="button" onClick={()=>setMostrarSenha(v=>!v)}
                             aria-label={mostrarSenha?"Ocultar senha":"Mostrar senha"}
                             className="login-password-toggle absolute right-1 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
@@ -10298,48 +10297,43 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
                 <Button onClick={tentarEmail} disabled={loading} className="h-11 w-full bg-[#d4af37] font-bold text-[#10151d] hover:bg-[#e1c159] active:scale-[0.98] transition-transform">
                   {loading ? "Sincronizando operação..." : "Acessar central ARCD"}
                 </Button>
-                <p className="text-[11px] leading-relaxed text-slate-500 text-center">
+                <p className="text-xs leading-relaxed text-slate-400 text-center">
                   Acesso individual, seguro e auditável.
                 </p>
               </TabsContent>
 
               <TabsContent value="pin" className="mt-4">
                 {step === "select" ? (
-                  <div className="flex flex-col gap-2 max-h-[330px] overflow-auto pr-1">
-                    {!usuarios.length&&<p className="text-xs text-slate-500 text-center py-5">Nenhum operador com PIN disponível. Entre com seu e-mail corporativo.</p>}
-                    <div className="flex flex-col gap-2 login-user-list">
-                    {usuarios.map((u,idx) => {
-                      const role = ROLES.find(r=>r.v===u.role)||ROLES[0];
-                      const iniciais = String(u.nome||"AR").split(" ").slice(0,2).map(n=>n[0]).join("").toUpperCase();
-                      return (
-                        <button type="button" key={u.id} style={{"--row-i":idx}}
-                                onClick={()=>{setSelUser(u);setStep("pin");setPin("");setErro("");}}
-                                className="w-full flex items-center gap-3 p-2.5 rounded-md border border-white/10 bg-white/[0.025] hover:border-[#d4af37]/60 hover:bg-white/[0.06] text-left transition-colors active:scale-[0.98]">
-                          <span className="w-9 h-9 rounded-md flex items-center justify-center text-xs font-bold shrink-0"
-                                style={{background:`${role.color}1F`, color: role.color}}>{iniciais}</span>
-                          <span className="min-w-0">
-                            <b className="block text-sm truncate">{u.nome}</b>
-                            <small className="block text-xs text-slate-500 truncate">{role.l}</small>
-                          </span>
-                          <span className="ml-auto text-slate-600">›</span>
-                        </button>
-                      );
-                    })}
+                  <form className="flex flex-col gap-4" onSubmit={e=>{
+                    e.preventDefault();
+                    if(!identificador.trim()){setErro("Informe seu e-mail ou nome completo.");return;}
+                    setStep("pin");setPin("");setErro("");
+                  }}>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="login-identificador" className="text-xs font-semibold text-slate-300">E-mail ou nome completo</Label>
+                      <Input id="login-identificador" autoComplete="username" autoCapitalize="words" autoFocus
+                             value={identificador} onChange={e=>setIdentificador(e.target.value)}
+                             placeholder="Como está no seu cadastro"
+                             className="h-11 border-white/10 bg-white/[0.04] text-white placeholder:text-slate-400 focus-visible:ring-[#d4af37]" />
                     </div>
-                  </div>
+                    {erro && (
+                      <Alert key={erro} variant="destructive" className="py-2.5 login-error-shake">
+                        <AlertDescription className="text-xs">{erro}</AlertDescription>
+                      </Alert>
+                    )}
+                    <Button type="submit" className="h-11 w-full bg-[#d4af37] font-bold text-[#10151d] hover:bg-[#e1c159] active:scale-[0.98] transition-transform">
+                      Continuar
+                    </Button>
+                  </form>
                 ) : (
                   <div className="flex flex-col gap-4">
                     <button type="button" onClick={()=>{setStep("select");setPin("");setErro("");}}
                             className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-white uppercase tracking-wide">
-                      <ChevronLeft className="w-3.5 h-3.5"/> Trocar operador
+                      <ChevronLeft className="w-3.5 h-3.5"/> Trocar identificação
                     </button>
                     <div className="text-center flex flex-col items-center gap-1">
-                      <span className="w-11 h-11 rounded-md flex items-center justify-center text-sm font-bold"
-                            style={{background:`${roleAtual.color}1F`, color: roleAtual.color}}>
-                        {String(selUser?.nome||"AR").split(" ").slice(0,2).map(n=>n[0]).join("").toUpperCase()}
-                      </span>
-                      <b className="text-sm">{selUser?.nome}</b>
-                      <small className="text-xs text-slate-500">{roleAtual.l}</small>
+                      <b className="text-sm break-all">{identificador.trim()}</b>
+                      <small className="text-xs text-slate-400">Digite seu PIN</small>
                     </div>
                     <div className="flex justify-center gap-2.5" aria-label={`${pin.length} de 6 dígitos informados`}>
                       {Array.from({length:6},(_,i)=>(
@@ -10374,12 +10368,6 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
             </Tabs>}
         </CardContent>
 
-        <CardFooter className="justify-between border-t border-white/10 pt-4 text-[11px] text-slate-500">
-          <span className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-600" /> Conexão segura
-          </span>
-          <span>{usuarios.length} operador{usuarios.length===1?"":"es"} habilitado{usuarios.length===1?"":"s"}</span>
-        </CardFooter>
       </Card>
       </main>
     </div>
@@ -17337,10 +17325,6 @@ export default function App() {
     appleIcon.href = ARCD_LOGO;
   }, [data?.config?.companyName, data?.config?.productName]);
 
-  // A lista de perfis vem SEM os dados. Os dados só chegam depois que o
-  // servidor confere o PIN - é o que impede alguém de abrir a URL e ler tudo.
-  const [perfis, setPerfis] = useState([]);
-
   const approvalHandledRef = useRef(false);
   // Última versão que veio do servidor - o ponto de partida das minhas edições.
   // Serve de "base" para o merge de conflito saber o que EU mudei.
@@ -17713,7 +17697,6 @@ export default function App() {
         }
         const r = await listarPerfis();
         if (!vivo) return;
-        setPerfis(r.usuarios || []);
         if (r.erro) setErroInicial(r.erro);
         if (r.precisaSetup) setFirstSetup(true);
       } catch (err) {
@@ -18074,7 +18057,6 @@ export default function App() {
 
     return (
       <LoginScreen
-        perfis={perfis}
         onLogin={handleLogin}
         erroInicial={erroInicial}
         precisaSetup={firstSetup}
