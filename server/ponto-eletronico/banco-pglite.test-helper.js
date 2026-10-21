@@ -47,7 +47,7 @@ export function camadaSupabase(pg) {
   const arquivos = new Map();
   const consulta = tabela => {
     const filtros = [], params = [];
-    let modo = "select", colunas = "*", ordem = [], limite = null, patch = null, novos = null, conflito = null, retornar = false;
+    let modo = "select", colunas = "*", ordem = [], limite = null, deslocamento = 0, patch = null, novos = null, conflito = null, retornar = false;
     const p = valor => { params.push(ehJson(valor) ? JSON.stringify(valor) : valor); return `$${params.length}${ehJson(valor) ? "::jsonb" : ""}`; };
     const onde = () => (filtros.length ? ` where ${filtros.join(" and ")}` : "");
     const executar = async () => {
@@ -56,6 +56,7 @@ export function camadaSupabase(pg) {
         sql = `select ${colunas === "*" ? "*" : colunas.split(",").map(c => ident(c.trim())).join(",")} from public.${ident(tabela)}${onde()}`;
         if (ordem.length) sql += ` order by ${ordem.join(", ")}`;
         if (limite) sql += ` limit ${Number(limite)}`;
+        if (deslocamento) sql += ` offset ${Number(deslocamento)}`;
       } else if (modo === "insert" || modo === "upsert") {
         const linhas = [].concat(novos);
         const cols = [...new Set(linhas.flatMap(Object.keys))];
@@ -86,6 +87,8 @@ export function camadaSupabase(pg) {
       lte(k, v) { filtros.push(`${ident(k)} <= ${p(v)}`); return b; },
       is(k, v) { filtros.push(`${ident(k)} is ${v === null ? "null" : v ? "true" : "false"}`); return b; },
       in(k, lista) { filtros.push(lista.length ? `${ident(k)} in (${lista.map(p).join(",")})` : "false"); return b; },
+      like(k, padrao) { filtros.push(`${ident(k)} like ${p(padrao)}`); return b; },
+      range(de, ate) { limite = ate - de + 1; deslocamento = de; return b; },
       order(k, o = {}) { ordem.push(`${ident(k)} ${o.ascending === false ? "desc" : "asc"}`); return b; },
       limit(n) { limite = n; return b; },
       insert(r) { modo = "insert"; novos = r; return b; },

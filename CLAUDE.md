@@ -32,6 +32,8 @@ de auditoria. Na dúvida entre seguir uma regra e terminar mais rápido, siga a 
 - SQL pelo conector é **somente leitura** por padrão (`select`). Escrita, DDL ou correção de dado só com pedido explícito do responsável naquela conversa, e sempre por migration versionada no repositório, nunca por SQL solto.
 - Conferir dado real antes de concluir um diagnóstico: o dado de produção desempata hipótese.
 - Linhas gzip (`arcd-gzip-base64-v1`) não são inspecionáveis por SQL; diga isso em vez de supor o conteúdo.
+- A base da empresa é dividida em linhas (`arced_ponto_v1` + `__ponto`, `__equipamentos`, `__config`, `__lookahead`, `__rdo`, `__orcamentos` e o ponto por obra). Quem lê direto uma linha só vê parte dos dados; use `lerLinha()` ou mescle com `mergeDomainRows`. Campo novo numa linha própria: `DOMAIN_FIELDS` em `server/domain-row-routing.js` e teste com Postgres real.
+- jsonb gravado pelo driver `postgres` vai por `sql.json(...)`, nunca `JSON.stringify(...)::jsonb` (grava texto).
 
 ## 5. Git, PR e deploy
 

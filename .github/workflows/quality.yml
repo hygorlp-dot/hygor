@@ -121,7 +121,7 @@ jobs:
       - name: Concorrência real da ARP (NSR único, idempotência, rollback)
         run: npx vitest run server/ponto-eletronico/arp/arp-concorrencia.pg.test.js
       - name: Gravação de jsonb pelo driver postgres (objeto, não texto)
-        run: npx vitest run server/jsonb-gravacao.test.js
+        run: npx vitest run server/jsonb-gravacao.test.js server/orcamentos-linha-propria.pg.test.js
       - name: Confere que o teste rodou (não foi pulado)
         run: npx vitest run server/ponto-eletronico/arp/arp-concorrencia.pg.test.js --reporter=json --outputFile=concorrencia.json && node -e "const r=require('./concorrencia.json'); if (r.numPassedTests < 5) { console.error('teste de concorrência não rodou'); process.exit(1); }"
 
