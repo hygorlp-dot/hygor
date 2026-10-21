@@ -2529,8 +2529,13 @@ export default async function handler(req, res) {
             if(!erroMotorFinanceiro.ok)return {kind:"error",status:409,error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"};
             const erroAutorizacao=authorizeSectionChanges(usuario,secoesFinanceiras);
             if(erroAutorizacao)return {kind:"error",status:403,error:erroAutorizacao};
+            // Valida o que será gravado (a mesclagem de três vias), não o eco
+            // da tela: um registro que o cliente não tocou volta do banco
+            // intacto, mesmo que a cópia dele no navegador tenha sido
+            // normalizada (ex.: versão aprovada de orçamento).
             const erroExclusao=validateNoPhysicalDeletes(
-              Object.fromEntries(chaves.map(key=>[key,current?.[key]])),sections,
+              Object.fromEntries(chaves.map(key=>[key,current?.[key]])),
+              Object.fromEntries(chaves.map(key=>[key,value[key]])),
             );
             if(erroExclusao)return {kind:"error",status:409,error:erroExclusao};
             const erroBaseline=validateBudgetBaselinePolicy(current,value,usuario);
@@ -2588,7 +2593,11 @@ export default async function handler(req, res) {
       if(!erroMotorFinanceiro.ok)return res.status(409).json({error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
       const erroAutorizacao=authorizeSectionChanges(usuario,Object.fromEntries(chaves.map(key=>[key,sections[key]])));
       if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
-      const erroExclusao=validateNoPhysicalDeletes(Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),sections);
+      const erroExclusao=validateNoPhysicalDeletes(
+        Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),
+        Object.fromEntries(chaves.map(key=>[key,baseSections&&Object.prototype.hasOwnProperty.call(baseSections,key)
+          ?mergeThreeWay(baseSections[key],sections[key],atual?.[key]):sections[key]])),
+      );
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
       const erroBaseline=validateBudgetBaselinePolicy(atual,{...atual,...sections},usuario);
       if(erroBaseline)return res.status(403).json({error:erroBaseline});
