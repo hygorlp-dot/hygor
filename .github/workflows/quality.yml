@@ -55,7 +55,7 @@ jobs:
       - name: Contratos das migrations do Ponto de Obra (016 legado + 017 ARP/NSR por estabelecimento)
         run: npx vitest run server/ponto-eletronico-migration.pglite.test.js server/ponto-eletronico/arp/arp-migration.pglite.test.js server/ponto-eletronico/arp/handler-arp.pglite.test.js
       - name: Contrato da migration 019 (schema public fechado para anon/authenticated)
-        run: npx vitest run server/acesso-publico-migration.pglite.test.js
+        run: npx vitest run server/acesso-publico-migration.pglite.test.js server/manutencao-banco-migration.pglite.test.js
       - name: Sintaxe da fronteira de API
         run: node --check api/data.js
 
