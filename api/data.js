@@ -49,7 +49,7 @@ import {
   requiresFinancialOperationalPersistence,
 } from "../server/operational-command-persistence.js";
 import {
-  coreFieldsOnly, DOMAIN_ROW, mergeDomainRows, pickDomainFields, rowForAttendanceCommand,
+  coreFieldsOnly, DOMAIN_ROW, domainForField, mergeDomainRows, pickDomainFields, rowForAttendanceCommand,
   rowForOperationalCommand, SPLITTABLE_DOMAINS,
 } from "../server/domain-row-routing.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
@@ -100,12 +100,14 @@ const LOOKAHEAD_KEY = `${KEY}__lookahead`;
 const CONFIG_KEY = `${KEY}__config`;
 const EQUIPAMENTOS_KEY = `${KEY}__equipamentos`;
 const RDO_KEY = `${KEY}__rdo`;
+const ORCAMENTOS_KEY = `${KEY}__orcamentos`;
 const SPLIT_ROW_KEYS = Object.freeze({
   [DOMAIN_ROW.PONTO]: PONTO_KEY,
   [DOMAIN_ROW.LOOKAHEAD]: LOOKAHEAD_KEY,
   [DOMAIN_ROW.CONFIG]: CONFIG_KEY,
   [DOMAIN_ROW.EQUIPAMENTOS]: EQUIPAMENTOS_KEY,
   [DOMAIN_ROW.RDO]: RDO_KEY,
+  [DOMAIN_ROW.ORCAMENTOS]: ORCAMENTOS_KEY,
 });
 // Fase 1.5 reduzida (22/08/2026): `data.attendance` sai da linha "meta" de
 // Ponto (PONTO_KEY, que continua só com locks/unlockRequests/
@@ -992,6 +994,94 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
         value:valueToWrite,basePayload:freshSlice,actor,action,
         before:outcome.before,after:outcome.after,financial,
       });
+      return {...outcome,updatedAt:saved.updatedAt,syncResult:saved.syncResult};
+    });
+  }finally{
+    await connection.end({timeout:2});
+  }
+};
+
+// Gravação de seções que moram em linhas diferentes (save-sections), numa
+// transação só. Trava SEMPRE a linha core primeiro (ordem fixa: nenhum
+// impasse com outro escritor) e depois as linhas separadas tocadas, e grava
+// só as que mudaram: salvar um orçamento grava a linha de orçamentos
+// (~0,4 MB antes de compactar), não a base inteira (~2,2 MB).
+// A core recebe sempre o carimbo novo (updated_at), mesmo sem regravar o
+// valor - é por ele que a tela detecta que outra pessoa salvou antes.
+// Uma linha separada que ainda não existe é criada aqui, com a core travada
+// e a partir do valor dela: nenhuma gravação concorrente se perde na troca.
+const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linha,mutate})=>{
+  const separados=[...new Set(domains)].filter(d=>d!==DOMAIN_ROW.CORE&&SPLIT_ROW_KEYS[d]);
+  const connection=postgres(process.env.POSTGRES_URL_NON_POOLING,{
+    ssl:"require",max:1,connect_timeout:20,idle_timeout:5,
+  });
+  try{
+    return await connection.begin(async transaction=>{
+      const travar=async key=>(await transaction`
+        select value,updated_at from company_app_data
+         where company_id=${COMPANY} and key=${key}
+         for update
+      `)[0];
+      const coreTravada=await travar(KEY);
+      if(!coreTravada)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
+      const coreFresca=decodeAppData(coreTravada.value);
+      const travadas={};
+      for(const dominio of separados)travadas[dominio]=await travar(SPLIT_ROW_KEYS[dominio]);
+      // Linha existente: valor travado. Ausente: o campo ainda mora na core.
+      const fatias=Object.fromEntries(separados.map(dominio=>[
+        dominio,travadas[dominio]?decodeAppData(travadas[dominio].value):pickDomainFields(coreFresca,dominio),
+      ]));
+      const versoes={...linha.rowVersions,...Object.fromEntries(separados.map(d=>[d,travadas[d]?.updated_at||"criando"]))};
+      const rowPayloadsByDomain=Object.fromEntries(SPLITTABLE_DOMAINS.map(dominio=>[
+        dominio,fatias[dominio]||pickDomainFields(linha.payload,dominio),
+      ]));
+      const current=mergeDomainRows(coreFieldsOnly(coreFresca,linha.rowVersions),rowPayloadsByDomain);
+      const outcome=await mutate({payload:current,updatedAt:coreTravada.updated_at});
+      if(!outcome||outcome.kind!=="save")return outcome;
+
+      // Linhas separadas: grava só a que mudou (ou cria a que faltava).
+      for(const dominio of separados){
+        const proximo=pickDomainFields(outcome.data,dominio);
+        if(travadas[dominio]&&igual(proximo,fatias[dominio]))continue;
+        await transaction`
+          insert into company_app_data(company_id,key,value,updated_at,updated_by)
+          values (${COMPANY},${SPLIT_ROW_KEYS[dominio]},${transaction.json(encodeAppData(proximo))}::jsonb,clock_timestamp(),null)
+          on conflict (company_id,key) do update set value=excluded.value,updated_at=excluded.updated_at,updated_by=null
+        `;
+      }
+      // Core: regrava o valor só se algum campo dela mudou (inclui a primeira
+      // vez, quando o campo sai da core para a linha nova); senão, só o carimbo.
+      const coreProxima=coreFieldsOnly(outcome.data,versoes);
+      const chavesCore=new Set([...Object.keys(coreProxima),...Object.keys(coreFresca)]);
+      const coreMudou=[...chavesCore].some(chave=>coreProxima[chave]!==coreFresca[chave]&&!igual(coreProxima[chave],coreFresca[chave]));
+      let saved;
+      if(coreMudou||financial){
+        saved=await gravarMutacaoNaTransacao({
+          transaction,key:KEY,rowVersions:versoes,keepDomain:DOMAIN_ROW.CORE,
+          value:coreProxima,basePayload:coreFresca,actor,action,
+          before:outcome.before,after:outcome.after,financial,
+        });
+      }else{
+        const [carimbo]=await transaction`
+          update company_app_data set updated_at=clock_timestamp()
+           where company_id=${COMPANY} and key=${KEY}
+          returning updated_at
+        `;
+        await transaction`
+          insert into audit_events(
+            company_id,aggregate_type,aggregate_id,action,actor_id,actor_name,
+            correlation_id,before_snapshot,after_snapshot,source
+          ) values (
+            ${COMPANY},'company_app_data',${separados.map(d=>SPLIT_ROW_KEYS[d]).join(",")||KEY},${action},
+            ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
+            ${crypto.randomUUID()},
+            ${transaction.json(outcome.before||{})}::jsonb,
+            ${transaction.json(outcome.after||{})}::jsonb,
+            'api/data'
+          )
+        `;
+        saved={updatedAt:carimbo.updated_at,syncResult:{}};
+      }
       return {...outcome,updatedAt:saved.updatedAt,syncResult:saved.syncResult};
     });
   }finally{
@@ -2503,10 +2593,11 @@ export default async function handler(req, res) {
       const sincronizaFinanceiro=hasLegacyFinancialWrite(secoesFinanceiras);
       if (!chaves.length) return res.status(200).json({ ok:true, updatedAt, unchanged:true });
       if(process.env.POSTGRES_URL_NON_POOLING){
-        const outcome=await executarMutacaoEmpresaBloqueada({
+        const outcome=await executarMutacaoMultiLinha({
           actor:usuario,
           action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
           financial:sincronizaFinanceiro,
+          domains:chaves.map(domainForField),
           linha:{payload:atual,rowVersions},
           mutate:async({payload:current,updatedAt:lockedUpdatedAt})=>{
             const houveConcorrencia=expectedUpdatedAt&&lockedUpdatedAt
@@ -2598,6 +2689,13 @@ export default async function handler(req, res) {
           updatedAt:outcome.updatedAt,savedSections:chaves,
         });
       }
+      // Caminho sem conexão transacional (só ambiente sem POSTGRES_URL): grava
+      // apenas a core, então recusa seção que já mora em linha própria.
+      const secaoEmOutraLinha=chaves.find(key=>
+        domainForField(key)!==DOMAIN_ROW.CORE&&rowVersions[domainForField(key)]!=null);
+      if(secaoEmOutraLinha)return res.status(409).json({
+        error:"Recarregue a página para salvar estas alterações.",code:"SECTION_IN_OWN_ROW",section:secaoEmOutraLinha,
+      });
       const erroSnapshotObra=validateProjectFinancialSnapshotPolicy({
         engineEnforced:FINANCIAL_ENGINE_ENFORCE,before:atual,after:{...atual,...sections},
       });
@@ -2699,6 +2797,13 @@ export default async function handler(req, res) {
       if(legacyPointWrite)return res.status(409).json({
         error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
         code:"ATTENDANCE_GRANULAR_REQUIRED",
+      });
+      // O envio completo grava só a linha core: uma seção que já mora em linha
+      // própria (orçamentos, equipamentos...) seria descartada em silêncio.
+      const secaoEmOutraLinha=Object.keys(secoesAlteradas).find(key=>
+        domainForField(key)!==DOMAIN_ROW.CORE&&rowVersions[domainForField(key)]!=null);
+      if(secaoEmOutraLinha)return res.status(409).json({
+        error:"Recarregue a página para salvar estas alterações.",code:"SECTION_IN_OWN_ROW",section:secaoEmOutraLinha,
       });
       const sincronizaFinanceiro=hasLegacyFinancialWrite(secoesAlteradas);
       const erroSnapshotObra=validateProjectFinancialSnapshotPolicy({
