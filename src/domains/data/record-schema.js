@@ -2,6 +2,7 @@
 // pode continuar preenchendo campos de apresentação, mas não pode apagar
 // metadados de auditoria nem inventar uma data histórica.
 import { migrateLegacyTechnicalMeasurements, uniqueIssues } from "../medicoes/migrations.js";
+import { orcamentoAprovado } from "../orcamentos/budget-approval.js";
 
 export const APP_SCHEMA_VERSION = 6;
 
@@ -31,10 +32,36 @@ const preserveRecord = (source, normalized) => {
   return preserved;
 };
 
+// Registros que, uma vez fechados, voltam exatamente como estão gravados: o
+// servidor compara a versão aprovada byte a byte, e qualquer coerção do
+// normalizador (um campo novo descartado, um default preenchido) fazia todo
+// salvamento de orçamento ser recusado como "alteração em versão aprovada".
+const FROZEN_RECORDS = { orcamentos: orcamentoAprovado };
+
+// Listas filhas com id (itens e etapas do orçamento, por exemplo) seguem a
+// mesma regra do registro: campo que o normalizador não conhece não some.
+const preserveNestedLists = (source, record) => {
+  const next = { ...record };
+  Object.keys(next).forEach(key => {
+    const original = source?.[key];
+    if (!Array.isArray(next[key]) || !Array.isArray(original)) return;
+    const comId = item => item && typeof item === "object" && item.id != null;
+    if (!next[key].every(comId)) return;
+    const byId = new Map(original.filter(comId).map(item => [item.id, item]));
+    next[key] = next[key].map(item => byId.has(item.id) ? preserveRecord(byId.get(item.id), item) : item);
+  });
+  return next;
+};
+
 const preserveCollection = (source, normalized, key) => {
   const original = Array.isArray(source?.[key]) ? source[key] : [];
   const byId = new Map(original.filter(item => item?.id).map(item => [item.id, item]));
-  return (normalized?.[key] || []).map(item => preserveRecord(byId.get(item?.id), item));
+  return (normalized?.[key] || []).map(item => {
+    const origem = byId.get(item?.id);
+    if (origem && FROZEN_RECORDS[key]?.(origem)) return origem;
+    const preserved = preserveRecord(origem, item);
+    return origem ? preserveNestedLists(origem, preserved) : preserved;
+  });
 };
 
 const missingEffectiveDateIssues = (source, currentIssues) => {

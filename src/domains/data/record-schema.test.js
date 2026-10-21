@@ -23,6 +23,25 @@ describe("schema versionado de registros legados", () => {
     expect(once.schemaVersion).toBe(APP_SCHEMA_VERSION);
   });
 
+  it("orçamento: preserva campos novos de itens e etapas e devolve a versão aprovada intacta", () => {
+    const rascunho = { id: "orc-r", versionStatus: "rascunho",
+      etapas: [{ id: "et-1", nome: "COBERTURA", parentId: "", pavimentoId: "cob", nivelM: 3.15 }],
+      itens: [{ id: "it-1", etapaId: "et-1", quantidade: 2, memorialMedicao: { version: 1, model: "count" } }] };
+    const aprovado = { id: "orc-a", versionStatus: "aprovado", lockedAt: "2026-09-30T12:50:42.313Z",
+      etapas: [{ id: "et-9", nome: "Etapa", parentId: "", pavimentoId: "p1" }],
+      itens: [{ id: "it-9", baseUf: "", memorialMedicao: { version: 1 } }] };
+    // O que o normalizador da tela devolve hoje: lista fechada de campos.
+    const normalizado = { orcamentos: [
+      { id: "orc-r", versionStatus: "rascunho", etapas: [{ id: "et-1", nome: "COBERTURA", parentId: "" }], itens: [{ id: "it-1", etapaId: "et-1", quantidade: 2 }] },
+      { id: "orc-a", versionStatus: "aprovado", etapas: [{ id: "et-9", nome: "ETAPA", parentId: "" }], itens: [{ id: "it-9", baseUf: "PE" }] },
+    ] };
+    const resultado = finalizeNormalizedData({ orcamentos: [rascunho, aprovado] }, normalizado);
+    expect(resultado.orcamentos[0].etapas[0]).toMatchObject({ pavimentoId: "cob", nivelM: 3.15 });
+    expect(resultado.orcamentos[0].itens[0].memorialMedicao).toEqual({ version: 1, model: "count" });
+    expect(JSON.stringify(resultado.orcamentos[1])).toBe(JSON.stringify(aprovado));
+    expect(finalizeNormalizedData(resultado, resultado).orcamentos).toEqual(resultado.orcamentos);
+  });
+
   it("não inventa a data efetiva de registros históricos e cria uma pendência determinística", () => {
     const legacy = { medicoesObra: [{ id: "mt-sem-data", obraId: "obra-a", status: "confirmada" }] };
     const result = finalizeNormalizedData(legacy, { medicoesObra: [{ id: "mt-sem-data", obraId: "obra-a", data: "", status: "confirmada" }] });

@@ -1,3 +1,4 @@
+import { orcamentoAprovado } from "../src/domains/orcamentos/budget-approval.js";
 // Política única para mutações do blob legado. A UI pode ocultar um botão,
 // mas a autorização definitiva ocorre antes de qualquer update no servidor.
 const SECTION_ROLES = Object.freeze({
@@ -156,7 +157,6 @@ const validarFechamentosImutaveis = (antes, depois) => {
   }
   return "";
 };
-const orcamentoAprovado=item=>["aprovado","aprovada"].includes(String(item?.versionStatus||item?.status||"").toLowerCase())||item?.locked===true||item?.imutavel===true;
 const validarOrcamentosAprovados=(antes,depois)=>{
   const anteriores=porId(antes),posteriores=porId(depois);
   for(const [id,orcamento] of anteriores){
