@@ -38,3 +38,20 @@ describe("DRE do servidor — mão de obra após transferência de obra", () => 
     expect(newWorkRow.payload.moData.laborCost).toBe(100);
   });
 });
+
+describe("DRE do servidor — feriado pago pela obra do último dia trabalhado", () => {
+  it("o feriado entra na obra onde o funcionário trabalhou no dia anterior, não na lotação", () => {
+    const data = {
+      config: {},
+      obras: [
+        { id: "adm", name: "Obra por administração", contractType: "admin_only", adminPercentage: 15 },
+        { id: "fixa", name: "Obra de lotação", contractType: "fixed_labor" },
+      ],
+      employees: [{ id: "e1", obra: "fixa", dailyRate: 100 }],
+      attendance: { e1: { "2026-10-09": { status: "P", obraId: "adm" } } },
+    };
+    const linha = scope => buildRequestedDreProjectionRows(data, [{ year: 2026, month: 9, period: "q1", scope }])[0].payload.moData.laborCost;
+    expect(linha("adm")).toBe(200);                                 // 09/10 + feriado de 12/10
+    expect(linha("fixa")).toBe(0);
+  });
+});

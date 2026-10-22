@@ -23,10 +23,12 @@ import crypto from "crypto";
 import fs from "node:fs";
 import path from "node:path";
 import postgres from "postgres";
-import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData } from "../server/data-codec.js";
+import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData, profileIndexOutdated } from "../server/data-codec.js";
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
 import { validatePurchaseChanges } from "../server/permission-policies.js";
+import { podeAcessarAba } from "../src/domains/administracao/abas-acesso.js";
+import { compactAuditSnapshots, expandSectionDelta } from "../src/domains/sync/section-delta.js";
 import { validateProcurementChain } from "../server/procurement-chain-policy.js";
 import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
 import { projectDataForUser, publicUser } from "../server/data-projection.js";
@@ -34,7 +36,7 @@ import { findSectionConflicts } from "../server/three-way-conflicts.js";
 import { mergeThreeWay } from "../server/three-way-merge.js";
 import { authorizeSectionChanges, validateBankReconciliationPolicy, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
-import { buildRequestedDreProjectionRows } from "../server/dre-projection.js";
+import { buildRequestedDreProjectionRows, dreSourceRevision } from "../server/dre-projection.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
 import { authorizeReconciliationCommand } from "../server/reconciliation-policy.js";
 import { executeReconciliationWithRetry } from "../server/reconciliation-execution.js";
@@ -47,7 +49,7 @@ import {
   requiresFinancialOperationalPersistence,
 } from "../server/operational-command-persistence.js";
 import {
-  coreFieldsOnly, DOMAIN_ROW, mergeDomainRows, pickDomainFields, rowForAttendanceCommand,
+  coreFieldsOnly, DOMAIN_ROW, domainForField, mergeDomainRows, pickDomainFields, rowForAttendanceCommand,
   rowForOperationalCommand, SPLITTABLE_DOMAINS,
 } from "../server/domain-row-routing.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
@@ -98,12 +100,14 @@ const LOOKAHEAD_KEY = `${KEY}__lookahead`;
 const CONFIG_KEY = `${KEY}__config`;
 const EQUIPAMENTOS_KEY = `${KEY}__equipamentos`;
 const RDO_KEY = `${KEY}__rdo`;
+const ORCAMENTOS_KEY = `${KEY}__orcamentos`;
 const SPLIT_ROW_KEYS = Object.freeze({
   [DOMAIN_ROW.PONTO]: PONTO_KEY,
   [DOMAIN_ROW.LOOKAHEAD]: LOOKAHEAD_KEY,
   [DOMAIN_ROW.CONFIG]: CONFIG_KEY,
   [DOMAIN_ROW.EQUIPAMENTOS]: EQUIPAMENTOS_KEY,
   [DOMAIN_ROW.RDO]: RDO_KEY,
+  [DOMAIN_ROW.ORCAMENTOS]: ORCAMENTOS_KEY,
 });
 // Fase 1.5 reduzida (22/08/2026): `data.attendance` sai da linha "meta" de
 // Ponto (PONTO_KEY, que continua só com locks/unlockRequests/
@@ -127,7 +131,7 @@ const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // migra sozinha para ela - sem exigir nenhuma ordem de deploy específica.
 const linhaEfetivaParaEscrita = (domain, rowVersions) =>
   (domain!==DOMAIN_ROW.CORE && rowVersions[domain]==null) ? DOMAIN_ROW.CORE : domain;
-const DRE_PROJECTION_VERSION = "2026-08-third-party-equipment-cost-v5";
+const DRE_PROJECTION_VERSION = "2026-10-feriado-obra-dia-anterior-v6";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
   "changeLog",
@@ -572,6 +576,16 @@ const salvarIndicePerfis = async payload => {
   if(error)console.error("Não foi possível atualizar o índice de login:",error.message);
 };
 
+// Regrava o índice só quando o que ele guarda (usuários e obras) mudou.
+const indicePerfisMudou=(antes,depois)=>!igualIndice(antes,depois);
+const igualIndice=(antes,depois)=>!profileIndexOutdated(compactProfiles(antes),depois);
+// Atualização do índice é acessória: nunca derruba a carga ou a gravação que
+// já deu certo, e nunca troca um índice por outro sem nenhum usuário.
+const atualizarIndicePerfisSeguro=async payload=>{
+  if(!(payload?.usuarios||[]).length)return;
+  try{await salvarIndicePerfis(payload);}
+  catch(error){console.error("Não foi possível atualizar o índice de login:",error?.message||error);}
+};
 const lerIndicePerfis = async () => {
   const {data,error}=await db.from("company_app_data").select("value").eq("company_id",COMPANY).eq("key",PROFILE_KEY).maybeSingle();
   if(error)throw error;
@@ -831,15 +845,12 @@ export const legacyFinancialFactsChanged=(before,after)=>
   LEGACY_FINANCIAL_FACT_FIELDS.some(field=>
     JSON.stringify(before?.[field])!==JSON.stringify(after?.[field]));
 
-// Achado ao investigar "orçamento não salva com mais de uma pessoa"
-// (28/08/2026): audit_events.before_snapshot/after_snapshot voltam do
-// Postgres como uma STRING contendo JSON (uma camada extra de codificação),
-// não como o objeto em si - mesma peculiaridade de `postgres` + `::jsonb`
-// que `decodeAppData` (server/data-codec.js) já trata defensivamente para
-// `company_app_data.value`. Nenhum código hoje LÊ before_snapshot/
-// after_snapshot de volta, então isso nunca quebrou nada em produção - mas
-// qualquer leitor futuro (uma tela de auditoria, por exemplo) precisa do
-// mesmo `JSON.parse` defensivo antes de usar o valor como objeto.
+// Valores jsonb vão sempre por `transaction.json(...)`. Interpolar
+// JSON.stringify(x) seguido de ::jsonb faz o driver `postgres` codificar de novo e
+// gravar um TEXTO JSON, não o objeto: a base passava a ser gravada como
+// string, e a leitura seguinte regravava a base inteira só para corrigir o
+// formato (~1 s a mais por salvamento, achado de 21/10/2026). O mesmo valia
+// para before/after da auditoria. Teste: server/jsonb-gravacao.test.js.
 const gravarMutacaoNaTransacao=async({
   transaction,key=KEY,rowVersions={},keepDomain=null,value,basePayload=null,actor,action,before,after,financial=false,
 })=>{
@@ -869,12 +880,12 @@ const gravarMutacaoNaTransacao=async({
             from company_app_data
            where company_id=${COMPANY} and key=${key}
         ),
-        ${JSON.stringify(encodeAppData(valorPersistido))}::jsonb,
+        ${transaction.json(encodeAppData(valorPersistido))}::jsonb,
         ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
         ${correlationId},${action},
-        ${JSON.stringify(before||{})}::jsonb,
-        ${JSON.stringify(after||{})}::jsonb,
-        ${JSON.stringify(snapshot)}::jsonb,
+        ${transaction.json(before||{})}::jsonb,
+        ${transaction.json(after||{})}::jsonb,
+        ${transaction.json(snapshot)}::jsonb,
         false
       )
     `;
@@ -884,7 +895,7 @@ const gravarMutacaoNaTransacao=async({
 
   const [saved]=await transaction`
     update company_app_data
-       set value=${JSON.stringify(encodeAppData(valorPersistido))}::jsonb,
+       set value=${transaction.json(encodeAppData(valorPersistido))}::jsonb,
            updated_at=clock_timestamp(),
            updated_by=null
      where company_id=${COMPANY} and key=${key}
@@ -899,8 +910,8 @@ const gravarMutacaoNaTransacao=async({
       ${COMPANY},'company_app_data',${key},${action},
       ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
       ${correlationId},
-      ${JSON.stringify(before||{})}::jsonb,
-      ${JSON.stringify(after||{})}::jsonb,
+      ${transaction.json(before||{})}::jsonb,
+      ${transaction.json(after||{})}::jsonb,
       'api/data'
     )
   `;
@@ -983,6 +994,94 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
         value:valueToWrite,basePayload:freshSlice,actor,action,
         before:outcome.before,after:outcome.after,financial,
       });
+      return {...outcome,updatedAt:saved.updatedAt,syncResult:saved.syncResult};
+    });
+  }finally{
+    await connection.end({timeout:2});
+  }
+};
+
+// Gravação de seções que moram em linhas diferentes (save-sections), numa
+// transação só. Trava SEMPRE a linha core primeiro (ordem fixa: nenhum
+// impasse com outro escritor) e depois as linhas separadas tocadas, e grava
+// só as que mudaram: salvar um orçamento grava a linha de orçamentos
+// (~0,4 MB antes de compactar), não a base inteira (~2,2 MB).
+// A core recebe sempre o carimbo novo (updated_at), mesmo sem regravar o
+// valor - é por ele que a tela detecta que outra pessoa salvou antes.
+// Uma linha separada que ainda não existe é criada aqui, com a core travada
+// e a partir do valor dela: nenhuma gravação concorrente se perde na troca.
+const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linha,mutate})=>{
+  const separados=[...new Set(domains)].filter(d=>d!==DOMAIN_ROW.CORE&&SPLIT_ROW_KEYS[d]);
+  const connection=postgres(process.env.POSTGRES_URL_NON_POOLING,{
+    ssl:"require",max:1,connect_timeout:20,idle_timeout:5,
+  });
+  try{
+    return await connection.begin(async transaction=>{
+      const travar=async key=>(await transaction`
+        select value,updated_at from company_app_data
+         where company_id=${COMPANY} and key=${key}
+         for update
+      `)[0];
+      const coreTravada=await travar(KEY);
+      if(!coreTravada)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
+      const coreFresca=decodeAppData(coreTravada.value);
+      const travadas={};
+      for(const dominio of separados)travadas[dominio]=await travar(SPLIT_ROW_KEYS[dominio]);
+      // Linha existente: valor travado. Ausente: o campo ainda mora na core.
+      const fatias=Object.fromEntries(separados.map(dominio=>[
+        dominio,travadas[dominio]?decodeAppData(travadas[dominio].value):pickDomainFields(coreFresca,dominio),
+      ]));
+      const versoes={...linha.rowVersions,...Object.fromEntries(separados.map(d=>[d,travadas[d]?.updated_at||"criando"]))};
+      const rowPayloadsByDomain=Object.fromEntries(SPLITTABLE_DOMAINS.map(dominio=>[
+        dominio,fatias[dominio]||pickDomainFields(linha.payload,dominio),
+      ]));
+      const current=mergeDomainRows(coreFieldsOnly(coreFresca,linha.rowVersions),rowPayloadsByDomain);
+      const outcome=await mutate({payload:current,updatedAt:coreTravada.updated_at});
+      if(!outcome||outcome.kind!=="save")return outcome;
+
+      // Linhas separadas: grava só a que mudou (ou cria a que faltava).
+      for(const dominio of separados){
+        const proximo=pickDomainFields(outcome.data,dominio);
+        if(travadas[dominio]&&igual(proximo,fatias[dominio]))continue;
+        await transaction`
+          insert into company_app_data(company_id,key,value,updated_at,updated_by)
+          values (${COMPANY},${SPLIT_ROW_KEYS[dominio]},${transaction.json(encodeAppData(proximo))}::jsonb,clock_timestamp(),null)
+          on conflict (company_id,key) do update set value=excluded.value,updated_at=excluded.updated_at,updated_by=null
+        `;
+      }
+      // Core: regrava o valor só se algum campo dela mudou (inclui a primeira
+      // vez, quando o campo sai da core para a linha nova); senão, só o carimbo.
+      const coreProxima=coreFieldsOnly(outcome.data,versoes);
+      const chavesCore=new Set([...Object.keys(coreProxima),...Object.keys(coreFresca)]);
+      const coreMudou=[...chavesCore].some(chave=>coreProxima[chave]!==coreFresca[chave]&&!igual(coreProxima[chave],coreFresca[chave]));
+      let saved;
+      if(coreMudou||financial){
+        saved=await gravarMutacaoNaTransacao({
+          transaction,key:KEY,rowVersions:versoes,keepDomain:DOMAIN_ROW.CORE,
+          value:coreProxima,basePayload:coreFresca,actor,action,
+          before:outcome.before,after:outcome.after,financial,
+        });
+      }else{
+        const [carimbo]=await transaction`
+          update company_app_data set updated_at=clock_timestamp()
+           where company_id=${COMPANY} and key=${KEY}
+          returning updated_at
+        `;
+        await transaction`
+          insert into audit_events(
+            company_id,aggregate_type,aggregate_id,action,actor_id,actor_name,
+            correlation_id,before_snapshot,after_snapshot,source
+          ) values (
+            ${COMPANY},'company_app_data',${separados.map(d=>SPLIT_ROW_KEYS[d]).join(",")||KEY},${action},
+            ${String(actor?.id||"system")},${String(actor?.nome||actor?.email||"Sistema")},
+            ${crypto.randomUUID()},
+            ${transaction.json(outcome.before||{})}::jsonb,
+            ${transaction.json(outcome.after||{})}::jsonb,
+            'api/data'
+          )
+        `;
+        saved={updatedAt:carimbo.updated_at,syncResult:{}};
+      }
       return {...outcome,updatedAt:saved.updatedAt,syncResult:saved.syncResult};
     });
   }finally{
@@ -1090,7 +1189,7 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
       const correlationId=crypto.randomUUID();
       const [savedPonto]=await transaction`
         update company_app_data
-           set value=${JSON.stringify(encodeAppData(pontoValue))}::jsonb,
+           set value=${transaction.json(encodeAppData(pontoValue))}::jsonb,
                updated_at=clock_timestamp(), updated_by=null
          where company_id=${COMPANY} and key=${pontoKeyAlvo}
          returning updated_at
@@ -1103,8 +1202,8 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
           ${COMPANY},'company_app_data',${pontoKeyAlvo},${applied.audit?.action||command.action},
           ${String(usuario?.id||"system")},${String(usuario?.nome||usuario?.email||"Sistema")},
           ${correlationId},
-          ${JSON.stringify(applied.audit?.before||{})}::jsonb,
-          ${JSON.stringify(applied.audit?.after||{operationId:command.operationId})}::jsonb,
+          ${transaction.json(applied.audit?.before||{})}::jsonb,
+          ${transaction.json(applied.audit?.after||{operationId:command.operationId})}::jsonb,
           'api/data'
         )
       `;
@@ -1140,7 +1239,7 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
         const proximo=tombstoneAttendanceEntries(decodedAntiga?.attendance||{},pares,operationNow,decodedAntiga?.attendanceSyncedAt||{});
         await transaction`
           update company_app_data
-             set value=${JSON.stringify(encodeAppData({attendance:proximo.attendance,attendanceSyncedAt:proximo.syncedAt}))}::jsonb,
+             set value=${transaction.json(encodeAppData({attendance:proximo.attendance,attendanceSyncedAt:proximo.syncedAt}))}::jsonb,
                  updated_at=clock_timestamp(), updated_by=null
            where company_id=${COMPANY} and key=${key}
         `;
@@ -1159,7 +1258,7 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
         const key=`${PONTO_OBRA_KEY_PREFIX}${obraBucket}`;
         await transaction`
           insert into company_app_data(company_id,key,value,updated_at,updated_by)
-          values (${COMPANY},${key},${JSON.stringify(encodeAppData({attendance:{}}))}::jsonb,clock_timestamp(),null)
+          values (${COMPANY},${key},${transaction.json(encodeAppData({attendance:{}}))}::jsonb,clock_timestamp(),null)
           on conflict (company_id,key) do nothing
         `;
         const [lockedObra]=await transaction`
@@ -1171,7 +1270,7 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
         const proximo=applyEntriesToAttendance(decodedObra?.attendance||{},entries,applied.data.attendance,operationNow,decodedObra?.attendanceSyncedAt||{});
         await transaction`
           update company_app_data
-             set value=${JSON.stringify(encodeAppData({attendance:proximo.attendance,attendanceSyncedAt:proximo.syncedAt}))}::jsonb,
+             set value=${transaction.json(encodeAppData({attendance:proximo.attendance,attendanceSyncedAt:proximo.syncedAt}))}::jsonb,
                  updated_at=clock_timestamp(), updated_by=null
            where company_id=${COMPANY} and key=${key}
         `;
@@ -1294,7 +1393,7 @@ export default async function handler(req, res) {
   }
 
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || "desconhecido";
-  const { action=req.query?.action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
+  let { action=req.query?.action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
 
   try {
     if(action==="client-error"){
@@ -1307,7 +1406,15 @@ export default async function handler(req, res) {
     // App "Ponto de Obra" (REP-P): ações próprias, sem rota nova na Vercel.
     // A gestão de ponto atual (attendance) não passa por aqui.
     if(ehAcaoPonto(action)){
+      // O código de pareamento tem 8 números: sem limite, dá para tentar em
+      // série. Mesmo contador persistente do login, com assunto próprio.
+      const pareamento=action==="ponto-parear";
+      if(pareamento){
+        const limite=await rateLimitCentral(`ponto-parear|${ip}`,"status");
+        if(limite?.blocked)return res.status(429).json({error:"Muitas tentativas de pareamento. Aguarde alguns minutos."});
+      }
       const resposta=await tratarAcaoPonto({action,body:req.body||{},headers:req.headers||{},cron:cronAutorizado(req)});
+      if(pareamento)await rateLimitCentral(`ponto-parear|${ip}`,resposta.status===200?"success":"failure");
       return res.status(resposta.status).json(resposta.json);
     }
     if (action === "client-portal") {
@@ -2010,6 +2117,7 @@ export default async function handler(req, res) {
         if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(base.payload,usuario),updatedAt:base.updatedAt});
         const gravacao=await persistir(base,result.data);
         if(gravacao.applied){
+          if(indicePerfisMudou(base.payload,result.data))await atualizarIndicePerfisSeguro(result.data);
           return res.status(200).json({
             ok:true,
             sections:projectChangedSectionsPatch(
@@ -2321,6 +2429,10 @@ export default async function handler(req, res) {
       if(!Number.isInteger(year)||year<2000||year>2100||!Number.isInteger(month)||month<0||month>11){
         return res.status(400).json({error:"Período do DRE inválido."});
       }
+      // Mesma regra de abas da tela: sem a aba, a API também não entrega a DRE.
+      if(companyStatement?!podeAcessarAba(usuario,"dre_emp"):!(podeAcessarAba(usuario,"dre")||podeAcessarAba(usuario,"dre_emp"))){
+        return res.status(403).json({error:"Este perfil não tem acesso à DRE."});
+      }
       if(companyStatement&&usuario.obraId){
         return res.status(403).json({error:"O DRE da empresa não está disponível para um perfil restrito a uma obra."});
       }
@@ -2344,7 +2456,7 @@ export default async function handler(req, res) {
       if(error)throw error;
       let currentEvent=(events||[]).find(event=>
         event.source_id===currentId&&event.payload?.active!==false);
-      const sourceRevision=String(updatedAt||"");
+      const sourceRevision=dreSourceRevision({updatedAt,rowVersions,rowVersionsPontoObra});
       if(!currentEvent
         ||String(currentEvent.payload?.sourceRevision||"")!==sourceRevision
         ||String(currentEvent.payload?.projectionVersion||"")!==DRE_PROJECTION_VERSION){
@@ -2399,7 +2511,10 @@ export default async function handler(req, res) {
 
     // ── 3. Carregar ────────────────────────────────────────────────
     if (action === "load") {
-      const completo = await anexarCustosArquivados(atual);
+      const [completo,indice] = await Promise.all([anexarCustosArquivados(atual),lerIndicePerfis().catch(()=>null)]);
+      // Autocorreção: índice de login/OneDrive desatualizado (obra criada por
+      // comando operacional antes desta correção) é regravado na carga.
+      if(profileIndexOutdated(indice,atual))await atualizarIndicePerfisSeguro(atual);
       return res.status(200).json({
         data: projectDataForUser(completo, usuario),
         updatedAt,
@@ -2449,6 +2564,19 @@ export default async function handler(req, res) {
     // alteração: Obras, RH, Compras, Financeiro etc. Em concorrência, somente
     // as seções realmente tocadas entram no merge de três vias.
     if (action === "save-sections") {
+      // Seções enviadas como delta (só registros alterados) voltam a ser
+      // listas completas aqui, sobre o estado atual, antes de qualquer
+      // validação - ver src/domains/sync/section-delta.js.
+      if(objeto(req.body?.sectionDeltas)){
+        const completas={...(objeto(sections)?sections:{})},bases={...(objeto(baseSections)?baseSections:{})};
+        for(const [key,delta] of Object.entries(req.body.sectionDeltas).slice(0,120)){
+          if(!key||key.startsWith("__"))continue;
+          const expandido=expandSectionDelta(delta,atual?.[key]);
+          if(!expandido)return res.status(400).json({ error:`Alteração da seção ${key} em formato inválido.` });
+          completas[key]=expandido.incoming;bases[key]=expandido.base;
+        }
+        sections=completas;baseSections=bases;
+      }
       if (!objeto(sections)) return res.status(400).json({ error: "Nenhuma seção para salvar." });
       const chaves = Object.keys(sections).filter(k => k && !k.startsWith("__")).slice(0, 120);
       const commandOnlySections=["attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
@@ -2465,10 +2593,11 @@ export default async function handler(req, res) {
       const sincronizaFinanceiro=hasLegacyFinancialWrite(secoesFinanceiras);
       if (!chaves.length) return res.status(200).json({ ok:true, updatedAt, unchanged:true });
       if(process.env.POSTGRES_URL_NON_POOLING){
-        const outcome=await executarMutacaoEmpresaBloqueada({
+        const outcome=await executarMutacaoMultiLinha({
           actor:usuario,
           action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
           financial:sincronizaFinanceiro,
+          domains:chaves.map(domainForField),
           linha:{payload:atual,rowVersions},
           mutate:async({payload:current,updatedAt:lockedUpdatedAt})=>{
             const houveConcorrencia=expectedUpdatedAt&&lockedUpdatedAt
@@ -2502,8 +2631,13 @@ export default async function handler(req, res) {
             if(!erroMotorFinanceiro.ok)return {kind:"error",status:409,error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"};
             const erroAutorizacao=authorizeSectionChanges(usuario,secoesFinanceiras);
             if(erroAutorizacao)return {kind:"error",status:403,error:erroAutorizacao};
+            // Valida o que será gravado (a mesclagem de três vias), não o eco
+            // da tela: um registro que o cliente não tocou volta do banco
+            // intacto, mesmo que a cópia dele no navegador tenha sido
+            // normalizada (ex.: versão aprovada de orçamento).
             const erroExclusao=validateNoPhysicalDeletes(
-              Object.fromEntries(chaves.map(key=>[key,current?.[key]])),sections,
+              Object.fromEntries(chaves.map(key=>[key,current?.[key]])),
+              Object.fromEntries(chaves.map(key=>[key,value[key]])),
             );
             if(erroExclusao)return {kind:"error",status:409,error:erroExclusao};
             const erroBaseline=validateBudgetBaselinePolicy(current,value,usuario);
@@ -2534,8 +2668,10 @@ export default async function handler(req, res) {
             }
             return {
               kind:"save",data:value,merged:!!houveConcorrencia,
-              before:Object.fromEntries(chaves.map(key=>[key,current?.[key]])),
-              after:Object.fromEntries(chaves.map(key=>[key,value?.[key]])),
+              ...compactAuditSnapshots(
+                Object.fromEntries(chaves.map(key=>[key,current?.[key]])),
+                Object.fromEntries(chaves.map(key=>[key,value?.[key]])),
+              ),
             };
           },
         });
@@ -2546,13 +2682,20 @@ export default async function handler(req, res) {
             currentUpdatedAt:outcome.currentUpdatedAt,
           }:{}),
         });
-        if(chaves.includes("usuarios"))await salvarIndicePerfis(outcome.data);
+        if(chaves.includes("usuarios")||chaves.includes("obras"))await salvarIndicePerfis(outcome.data);
         return res.status(200).json({
           ok:true,merged:!!outcome.merged,
           data:outcome.merged?projectDataForUser(outcome.data,usuario):undefined,
           updatedAt:outcome.updatedAt,savedSections:chaves,
         });
       }
+      // Caminho sem conexão transacional (só ambiente sem POSTGRES_URL): grava
+      // apenas a core, então recusa seção que já mora em linha própria.
+      const secaoEmOutraLinha=chaves.find(key=>
+        domainForField(key)!==DOMAIN_ROW.CORE&&rowVersions[domainForField(key)]!=null);
+      if(secaoEmOutraLinha)return res.status(409).json({
+        error:"Recarregue a página para salvar estas alterações.",code:"SECTION_IN_OWN_ROW",section:secaoEmOutraLinha,
+      });
       const erroSnapshotObra=validateProjectFinancialSnapshotPolicy({
         engineEnforced:FINANCIAL_ENGINE_ENFORCE,before:atual,after:{...atual,...sections},
       });
@@ -2561,7 +2704,11 @@ export default async function handler(req, res) {
       if(!erroMotorFinanceiro.ok)return res.status(409).json({error:erroMotorFinanceiro.error,code:"FINANCIAL_ENGINE_ENFORCED"});
       const erroAutorizacao=authorizeSectionChanges(usuario,Object.fromEntries(chaves.map(key=>[key,sections[key]])));
       if(erroAutorizacao)return res.status(403).json({error:erroAutorizacao});
-      const erroExclusao=validateNoPhysicalDeletes(Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),sections);
+      const erroExclusao=validateNoPhysicalDeletes(
+        Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),
+        Object.fromEntries(chaves.map(key=>[key,baseSections&&Object.prototype.hasOwnProperty.call(baseSections,key)
+          ?mergeThreeWay(baseSections[key],sections[key],atual?.[key]):sections[key]])),
+      );
       if(erroExclusao)return res.status(409).json({error:erroExclusao});
       const erroBaseline=validateBudgetBaselinePolicy(atual,{...atual,...sections},usuario);
       if(erroBaseline)return res.status(403).json({error:erroBaseline});
@@ -2609,7 +2756,7 @@ export default async function handler(req, res) {
       let agora=new Date().toISOString();
       const salvarVersao=sincronizaFinanceiro?salvarFinanceiroComAuditoria:salvarComAuditoria;
       let gravacao=await salvarVersao({expectedUpdatedAt:updatedAt,value:valor,rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
-        before:Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),after:Object.fromEntries(chaves.map(key=>[key,valor?.[key]]))});
+        ...compactAuditSnapshots(Object.fromEntries(chaves.map(key=>[key,atual?.[key]])),Object.fromEntries(chaves.map(key=>[key,valor?.[key]])))});
       let gravado=gravacao.applied?{updated_at:gravacao.updatedAt}:null;
 
       let combinado=houveConcorrencia;
@@ -2624,7 +2771,7 @@ export default async function handler(req, res) {
         if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
         gravado={updated_at:retry.updatedAt};combinado=true;
       }
-      if(chaves.includes("usuarios"))await salvarIndicePerfis(valor);
+      if(chaves.includes("usuarios")||chaves.includes("obras"))await salvarIndicePerfis(valor);
       return res.status(200).json({ok:true,merged:combinado,data:combinado?projectDataForUser(valor,usuario):undefined,updatedAt:gravado?.updated_at||agora,savedSections:chaves});
     }
 
@@ -2650,6 +2797,13 @@ export default async function handler(req, res) {
       if(legacyPointWrite)return res.status(409).json({
         error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
         code:"ATTENDANCE_GRANULAR_REQUIRED",
+      });
+      // O envio completo grava só a linha core: uma seção que já mora em linha
+      // própria (orçamentos, equipamentos...) seria descartada em silêncio.
+      const secaoEmOutraLinha=Object.keys(secoesAlteradas).find(key=>
+        domainForField(key)!==DOMAIN_ROW.CORE&&rowVersions[domainForField(key)]!=null);
+      if(secaoEmOutraLinha)return res.status(409).json({
+        error:"Recarregue a página para salvar estas alterações.",code:"SECTION_IN_OWN_ROW",section:secaoEmOutraLinha,
       });
       const sincronizaFinanceiro=hasLegacyFinancialWrite(secoesAlteradas);
       const erroSnapshotObra=validateProjectFinancialSnapshotPolicy({
@@ -2727,7 +2881,7 @@ export default async function handler(req, res) {
         if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
         gravado={updated_at:retry.updatedAt};
       }
-      if(!igual(valor?.usuarios,atual?.usuarios))await salvarIndicePerfis(valor);
+      if(indicePerfisMudou(atual,valor))await atualizarIndicePerfisSeguro(valor);
       return res.status(200).json({ ok: true, merged:!!houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora), data:(houveConcorrencia||!mesmoInstante(gravado?.updated_at,agora))?projectDataForUser(valor,usuario):undefined, updatedAt: gravado?.updated_at || agora });
     }
 

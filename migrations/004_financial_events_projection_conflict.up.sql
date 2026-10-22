@@ -19,7 +19,24 @@ where older.company_id = newer.company_id
     select 1 from journal_entries entry where entry.event_id = older.id
   );
 
-create unique index if not exists uq_financial_events_canonical_source
-  on financial_events(company_id, event_type, source_type, source_id);
+-- Só cria a chave se a tabela ainda não tiver uma única equivalente (a
+-- restrição do bootstrap já cobre as mesmas colunas). Sem esta checagem o
+-- deploy recriava um índice duplicado a cada execução (migration 020).
+do $$
+begin
+  if not exists (
+    select 1
+      from pg_index x
+     where x.indrelid = 'public.financial_events'::regclass
+       and x.indisunique
+       and (select array_agg(a.attname::text order by k.ord)
+              from unnest(x.indkey) with ordinality k(attnum, ord)
+              join pg_attribute a on a.attrelid = x.indrelid and a.attnum = k.attnum)
+           = array['company_id','event_type','source_type','source_id']
+  ) then
+    create unique index uq_financial_events_canonical_source
+      on financial_events(company_id, event_type, source_type, source_id);
+  end if;
+end $$;
 
 commit;

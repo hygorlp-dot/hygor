@@ -19,6 +19,7 @@ import {
   prIsWeekdayIso, prUniqueDates, toLocalISODate,
 } from "../attendance-engine";
 import { calculateAttendanceDayCost } from "../payroll";
+import { resolveHistoricalEmployeeObraId, resolveHolidayObraId } from "../permissions";
 import { allocateAdvancesByWork } from "../advance-allocation";
 import { splitPayrollResponsibility } from "../payroll-responsibility";
 import {
@@ -71,29 +72,13 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
   const periodLabel = `${q === "1" ? "1ª" : "2ª"} Quinzena de ${fullMonth(month)} ${year}`;
 
-  //  Reconstrói a obra do operário em uma data específica via changeLog 
-  const getEmpObraIdOnDate = (employee, dateIso) => {
-    const transfers = (data.changeLog || [])
-      .filter(t => t.type === "transfer" && t.empId === employee.id && t.date)
-      .sort((a, b) => b.date.localeCompare(a.date)); // desc - mais recente primeiro
-
-    let obraId = employee.obra || employee.lastObra || "";
-
-    for (const t of transfers) {
-      if (t.date > dateIso) {
-        // Usa fromId (gravado nas novas entradas) ou fallback por nome (entradas antigas)
-        if (t.fromId) {
-          obraId = t.fromId;
-        } else {
-          const found = data.obras.find(o => o.name === t.from);
-          if (found) obraId = found.id;
-        }
-      } else {
-        break; // transferências anteriores à data não afetam
-      }
-    }
-    return obraId;
-  };
+  // Obra do operário numa data (sem obra carimbada no ponto): o MESMO
+  // resolvedor da DRE e do servidor - transferências do changeLog e o
+  // histórico do cadastro (obraHistory). Antes a folha tinha uma cópia que
+  // ignorava o obraHistory e podia divergir da DRE.
+  const getEmpObraIdOnDate = (employee, dateIso) => resolveHistoricalEmployeeObraId({
+    employee, date: dateIso, transferEvents: data.changeLog || [], obras: data.obras || [],
+  });
 
   const calcRow = employee => {
     let gross = 0;
@@ -178,7 +163,8 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     const holidayPay = holidayRules.reduce((s, h) => s + h.amount, 0);
     gross += holidayPay;
     holidayRules.forEach(h => {
-      const obraId = getEmpObraIdOnDate(employee, h.holidayIso);
+      // Feriado é pago pela obra do último dia trabalhado antes dele.
+      const obraId = resolveHolidayObraId({ data, employee, holidayIso: h.holidayIso });
       addToObra(obraId, h.losesHoliday ? "HD" : "HP", {
         valorFeriados: Number(h.amount || 0),
       });
@@ -422,7 +408,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     const feriado = holidaysInPeriod.includes(d);
     const regraFer = feriado ? (r.holidayRules || []).find(h => h.holidayIso === d) : null;
     const a = feriado ? null : getAtt(data, r.id, d);
-    const obraId = a?.obraId || getEmpObraIdOnDate(r, d);
+    const obraId = feriado ? resolveHolidayObraId({ data, employee: r, holidayIso: d }) : (a?.obraId || getEmpObraIdOnDate(r, d));
     if (filterObra !== "all" && obraId !== filterObra) return null;
     const st = feriado ? (regraFer?.losesHoliday ? "Feriado perdido" : "Feriado pago")
       : a?.status === "P" ? "Presente" : a?.status === "M" ? "Meio periodo"

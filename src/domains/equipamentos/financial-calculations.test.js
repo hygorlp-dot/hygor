@@ -28,18 +28,18 @@ describe("motor financeiro de equipamentos", () => {
     const report = calcEquipamentosMes(data, "2026-07");
     expect(report.total).toMatchObject({
       receita:360,
-      custoDono:100,
+      custoDono:160,
       manut:20,
-      custo:120,
-      lucro:240,
+      custo:180,
+      lucro:180,
     });
     expect(calcEquipFaturamentoEmpresa(data, "2026-07")).toMatchObject({
       receita:360,
       receitaBruta:360,
       descontos:0,
-      custoDono:100,
+      custoDono:160,
       manut:20,
-      lucro:240,
+      lucro:180,
       receitaProprios:200,
       receitaTerceiros:160,
     });
@@ -105,11 +105,29 @@ describe("motor financeiro de equipamentos", () => {
     expect(calcEquipCustoObra(julho31Dias,"o1","2026-07")).toBe(4200);
     const mensal=calcEquipamentosMes(julho31Dias,"2026-07");
     expect(mensal.total)
-      .toMatchObject({receita:4200,custoDono:2520,lucro:1680});
+      .toMatchObject({receita:4200,custoDono:4200,lucro:0});
     expect(mensal.linhas[0].locacoes).toBe(1);
     expect(mensal.linhas[0]).toMatchObject({diasContrato:31,unidadeDias:62,diasTotais:31});
     expect(calcEquipamentosPorObra(julho31Dias,"2026-07").totaisPorObra.o1)
-      .toMatchObject({dias:31,unidadeDias:62,receita:4200,custoDono:2520,lucro:1680});
+      .toMatchObject({dias:31,unidadeDias:62,receita:4200,custoDono:4200,lucro:0});
+  });
+
+  it("repasse de terceiro é exatamente o valor líquido da locação, ignorando tarifa de custo legada", () => {
+    const data = {
+      obras:[{id:"o1",name:"Obra A",status:"active"}],
+      equipamentos:[{
+        id:"e1",nome:"Compactador",proprietarioId:"p1",
+        tarifas:{dia:150},tarifasCusto:{dia:180},
+      }],
+      locacoesEquip:[{
+        id:"l1",equipamentoId:"e1",obraId:"o1",
+        inicio:"2026-09-05",fim:"2026-09-06",quantidade:1,
+      }],
+    };
+    const mensal=calcEquipamentosMes(data,"2026-09");
+    expect(mensal.total).toMatchObject({receita:300,custoDono:300,lucro:0});
+    const detalhe=calcEquipamentosPorObra(data,"2026-09").totaisPorObra.o1;
+    expect(detalhe).toMatchObject({receita:300,custoDono:300,lucro:0});
   });
 
   it("não gera repasse de custoDono para equipamento próprio, mesmo com tarifasCusto residual", () => {

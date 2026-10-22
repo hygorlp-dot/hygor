@@ -6,11 +6,11 @@ const t = (dia, semana = 0, mes = 0) => ({ dia, semana, quinzena: 0, mes });
 
 // Setembro/2026:
 //  B1  Betoneira (própria)          · Terras Alpha · 30 dias          -> R$ 1.500
-//  A1  Andaime x2 (terceiro)        · Terras Alpha · 10 dias          -> receita 200, repasse 160
-//  T1  Escora (terceiro, SEM tarifa de custo) · Terras Alpha · 5 dias -> receita 250, repasse 0  (pendência)
+//  A1  Andaime x2 (terceiro)        · Terras Alpha · 10 dias          -> receita 200, repasse 200
+//  T1  Escora (terceiro)             · Terras Alpha · 5 dias           -> receita 250, repasse 250
 //  G1  Gerador (próprio) 25% desc.  · Oásis        · 21 dias          -> bruto 4.200, desconto 1.050 (desconto elevado)
 //  S1  Serra (própria, SEM tarifa)  · Oásis        · 2 dias           -> sem cobrança (pendência)
-//  C1  Grua (terceiro, custo > receita) · Green Garden · 10 dias      -> receita 1.000, repasse 1.500 (obra negativa)
+//  C1  Grua (terceiro)              · Green Garden · 10 dias          -> receita 1.000, repasse 1.000
 // Agosto/2026: B0 Betoneira · Terras Alpha · 31 dias -> R$ 1.600 (base de comparação)
 // Manutenção da betoneira em setembro: R$ 300 (paga pela empresa).
 export const buildBillingData = () => ({

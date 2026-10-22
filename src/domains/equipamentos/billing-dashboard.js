@@ -29,11 +29,11 @@ export const percentOf = (part, total) => (total > 0 ? (part / total) * 100 : nu
 
 // ------------------------------------------------------------- filtros ----
 export const PENDING_TYPE = Object.freeze({
-  NO_RATE: "sem_tarifa", NO_COST_RATE: "repasse_sem_tarifa", HIGH_DISCOUNT: "desconto_elevado",
+  NO_RATE: "sem_tarifa", HIGH_DISCOUNT: "desconto_elevado",
   OVERDUE: "fatura_vencida", NEGATIVE: "margem_negativa",
 });
 export const PENDING_LABEL = Object.freeze({
-  sem_tarifa: "Locação sem tarifa", repasse_sem_tarifa: "Repasse sem tarifa de custo",
+  sem_tarifa: "Locação sem tarifa",
   desconto_elevado: "Desconto elevado (≥ 20%)", fatura_vencida: "Fatura vencida", margem_negativa: "Obra com resultado negativo",
 });
 
@@ -68,7 +68,6 @@ const buildRows = (data, matrix, hoje, ownerName) => {
     const overdue = invoices.filter(item => ["issued", "partially_paid"].includes(item.status) && n(item.openAmountCents) > 0 && item.dueDate && item.dueDate < hoje);
     const pendencias = [];
     if (detail.semTarifa) pendencias.push(PENDING_TYPE.NO_RATE);
-    if (terceiro && n(detail.custoDono) === 0 && n(detail.dias) > 0) pendencias.push(PENDING_TYPE.NO_COST_RATE);
     if (detail.descontoElevado) pendencias.push(PENDING_TYPE.HIGH_DISCOUNT);
     if (overdue.length) pendencias.push(PENDING_TYPE.OVERDUE);
     const billing = rentalBilling({
@@ -214,7 +213,6 @@ export const buildBillingDashboard = (data = {}, { ym, hoje, filters = DEFAULT_B
   const countPending = type => rows.filter(row => row.pendencias.includes(type)).length;
   const attention = [
     { type: PENDING_TYPE.NO_RATE, count: countPending(PENDING_TYPE.NO_RATE), label: count => `${count} locaç${count === 1 ? "ão" : "ões"} sem tarifa (não gera cobrança)`, tone: "danger" },
-    { type: PENDING_TYPE.NO_COST_RATE, count: countPending(PENDING_TYPE.NO_COST_RATE), label: count => `${count} repasse${count === 1 ? "" : "s"} de terceiro sem tarifa de custo`, tone: "danger" },
     { type: PENDING_TYPE.NEGATIVE, count: works.filter(work => work.negativa).length, label: count => `${count} obra${count === 1 ? "" : "s"} com resultado negativo`, tone: "danger" },
     { type: PENDING_TYPE.OVERDUE, count: countPending(PENDING_TYPE.OVERDUE), amount: billing.vencido, label: count => `${count} locaç${count === 1 ? "ão" : "ões"} com fatura vencida`, tone: "danger" },
     { type: PENDING_TYPE.HIGH_DISCOUNT, count: countPending(PENDING_TYPE.HIGH_DISCOUNT), label: count => `${count} desconto${count === 1 ? "" : "s"} elevado${count === 1 ? "" : "s"} (≥ 20%)`, tone: "warning" },
@@ -223,14 +221,13 @@ export const buildBillingDashboard = (data = {}, { ym, hoje, filters = DEFAULT_B
   // Fechamento: explica o estado a partir dos mesmos fatos. O sistema NÃO
   // registra conferência nem fechamento formal da competência - o painel não
   // finge que registra.
-  const blocking = countPending(PENDING_TYPE.NO_RATE) + countPending(PENDING_TYPE.NO_COST_RATE);
-  const thirdPartyRows = rows.filter(row => row.terceiro);
+  const blocking = countPending(PENDING_TYPE.NO_RATE);
   const closing = {
     status: rows.length === 0 ? "sem_dados" : blocking > 0 ? "revisar" : "pronto",
     label: rows.length === 0 ? "Sem locações na competência" : blocking > 0 ? "Revisar antes da conferência" : "Pronto para conferência",
     checks: rows.length === 0 ? [] : [
       { ok: countPending(PENDING_TYPE.NO_RATE) === 0, label: `${rows.length - countPending(PENDING_TYPE.NO_RATE)}/${rows.length} locações com tarifa e cobrança calculada` },
-      { ok: countPending(PENDING_TYPE.NO_COST_RATE) === 0, label: thirdPartyRows.length ? `${thirdPartyRows.length - countPending(PENDING_TYPE.NO_COST_RATE)}/${thirdPartyRows.length} repasses de terceiros com tarifa de custo` : "Nenhum equipamento de terceiro no recorte" },
+      { ok: true, label: "Repasses de terceiros acompanham o valor líquido das locações" },
       { ok: countPending(PENDING_TYPE.HIGH_DISCOUNT) === 0, label: countPending(PENDING_TYPE.HIGH_DISCOUNT) ? `${countPending(PENDING_TYPE.HIGH_DISCOUNT)} desconto(s) elevado(s) para revisar` : "Nenhum desconto elevado", warning: true },
       { ok: billing.faturasVencidas === 0, label: billing.faturasVencidas ? `${billing.faturasVencidas} fatura(s) vencida(s) no ciclo de cobrança` : "Nenhuma fatura vencida no ciclo de cobrança", warning: true },
     ],
@@ -337,6 +334,107 @@ export const buildWorkMemory = (model, workId) => {
     },
     rows: [...work.rows].sort((a, b) => String(a.equipamento.nome).localeCompare(String(b.equipamento.nome), "pt-BR") || String(a.inicio).localeCompare(String(b.inicio))),
     pendencias,
+  };
+};
+
+// Diagnóstico explicável da margem de uma locação. Não cria regra financeira:
+// apenas compara os valores que já vieram de calcEquipamentosPorObra.
+const rentalMarginDiagnosis = row => {
+  const diagnostics = [];
+  const gross = n(row.bruto), net = n(row.receita), cost = n(row.custoDono), discount = n(row.descontos);
+  if (row.semTarifa) diagnostics.push("Locação sem tarifa");
+  if (row.terceiro && Math.abs(cost - net) > 0.005) diagnostics.push("Repasse divergente da locação");
+  if (net - cost < -0.005 && !diagnostics.some(item => /margem|repasse/i.test(item))) diagnostics.push("Margem negativa");
+  return diagnostics;
+};
+
+// Drill-down dos números de Próprios × Terceiros. A reconciliação usa
+// exatamente as mesmas linhas e a mesma manutenção já usadas por `split`,
+// portanto o detalhamento sempre fecha com o agregado exibido no painel.
+export const buildOwnershipAnalysis = (model, ownership = "terceiros") => {
+  const key = ownership === "proprios" ? "proprios" : "terceiros";
+  const isThirdParty = key === "terceiros";
+  const rows = model.rows.filter(row => (isThirdParty ? row.terceiro : !row.terceiro));
+  const summary = model.split[key];
+  const maintenanceAppropriated = summary?.manutencaoApropriada === true;
+  const monthlyByEquipment = new Map((model.monthly?.linhas || []).map(line => [String(line.equip?.id || ""), line]));
+
+  const byEquipment = new Map();
+  rows.forEach(row => {
+    const id = String(row.equipamento?.id || "");
+    if (!byEquipment.has(id)) byEquipment.set(id, { id, equipamento: row.equipamento, owner: row.owner, rows: [] });
+    byEquipment.get(id).rows.push(row);
+  });
+
+  const equipments = [...byEquipment.values()].map(group => {
+    const monthlyLine = monthlyByEquipment.get(group.id);
+    const maintenance = maintenanceAppropriated ? n(monthlyLine?.manut) : null;
+    const finance = financials({ rows: group.rows, maintenance });
+    const rentals = group.rows.map(row => ({
+      ...row,
+      resultado: n(row.receita) - n(row.custoDono),
+      margem: percentOf(n(row.receita) - n(row.custoDono), n(row.receita)),
+      diagnosticos: rentalMarginDiagnosis(row),
+    })).sort((a, b) => a.resultado - b.resultado || String(a.inicio).localeCompare(String(b.inicio)));
+
+    const diagnostics = [...new Set(rentals.flatMap(item => item.diagnosticos))];
+    if (finance.resultado < -0.005 && finance.manutencaoApropriada && n(finance.manutencao) > 0
+      && finance.receitaLiquida - finance.repasses >= -0.005) {
+      diagnostics.push("Manutenção levou o equipamento ao resultado negativo");
+    }
+    return {
+      id: group.id,
+      equipamento: group.equipamento,
+      owner: group.owner,
+      obras: [...new Set(group.rows.map(row => row.obraRotulo))],
+      locacoes: group.rows.length,
+      unidadeDias: sum(group.rows, row => row.unidadeDias),
+      finance,
+      rentals,
+      diagnosticos: [...new Set(diagnostics)],
+    };
+  }).sort((a, b) => a.finance.resultado - b.finance.resultado
+    || String(a.equipamento?.nome || "").localeCompare(String(b.equipamento?.nome || ""), "pt-BR"));
+
+  const byOwner = new Map();
+  equipments.forEach(equipment => {
+    const owner = equipment.owner || (isThirdParty ? "Terceiro" : "ARCD (próprio)");
+    if (!byOwner.has(owner)) byOwner.set(owner, { owner, equipments: [] });
+    byOwner.get(owner).equipments.push(equipment);
+  });
+  const owners = [...byOwner.values()].map(group => {
+    const finance = {
+      receitaContratual: sum(group.equipments, item => item.finance.receitaContratual),
+      descontos: sum(group.equipments, item => item.finance.descontos),
+      receitaLiquida: sum(group.equipments, item => item.finance.receitaLiquida),
+      repasses: sum(group.equipments, item => item.finance.repasses),
+      manutencao: maintenanceAppropriated ? sum(group.equipments, item => item.finance.manutencao) : null,
+    };
+    finance.custo = finance.repasses + (finance.manutencao ?? 0);
+    finance.resultado = finance.receitaLiquida - finance.custo;
+    finance.margem = percentOf(finance.resultado, finance.receitaLiquida);
+    return { owner: group.owner, equipamentos: group.equipments.length, locacoes: sum(group.equipments, item => item.locacoes), finance };
+  }).sort((a, b) => a.finance.resultado - b.finance.resultado || a.owner.localeCompare(b.owner, "pt-BR"));
+
+  const reconciled = {
+    receitaLiquida: sum(equipments, item => item.finance.receitaLiquida),
+    custo: sum(equipments, item => item.finance.custo),
+    resultado: sum(equipments, item => item.finance.resultado),
+  };
+
+  return {
+    ownership: key,
+    label: isThirdParty ? "Equipamentos de terceiros" : "Equipamentos próprios",
+    summary,
+    owners,
+    equipments,
+    negativeEquipments: equipments.filter(item => item.finance.resultado < -0.005).length,
+    reconciled,
+    differences: {
+      receitaLiquida: n(summary?.receitaLiquida) - reconciled.receitaLiquida,
+      custo: n(summary?.custo) - reconciled.custo,
+      resultado: n(summary?.resultado) - reconciled.resultado,
+    },
   };
 };
 

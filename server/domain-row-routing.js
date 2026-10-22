@@ -31,6 +31,7 @@ export const DOMAIN_ROW = Object.freeze({
   CONFIG: "config",
   EQUIPAMENTOS: "equipamentos",
   RDO: "rdo",
+  ORCAMENTOS: "orcamentos",
 });
 
 // Comandos de cronograma de curto prazo (Lookahead) - só 4, definidos
@@ -115,7 +116,21 @@ export const DOMAIN_FIELDS = Object.freeze({
     "equipmentRegistryHistory", SHARED_RECEIPTS_FIELD,
   ],
   [DOMAIN_ROW.RDO]: ["rdos", SHARED_RECEIPTS_FIELD],
+  // Orçamentos (21/10/2026): só a tela grava (save-sections), nenhum comando
+  // do servidor. Uma linha própria faz cada salvamento de orçamento gravar só
+  // os orçamentos, em vez da base inteira da empresa.
+  [DOMAIN_ROW.ORCAMENTOS]: ["orcamentos"],
 });
+
+// Domínio dono de um campo de primeiro nível (CORE se nenhum). O razão de
+// idempotência compartilhado fica com CORE: a tela nunca o grava.
+export const domainForField = field => {
+  if (field === SHARED_RECEIPTS_FIELD) return DOMAIN_ROW.CORE;
+  for (const [domain, fields] of Object.entries(DOMAIN_FIELDS)) {
+    if (fields.includes(field)) return domain;
+  }
+  return DOMAIN_ROW.CORE;
+};
 
 // Extrai, de um `data` já mesclado, só os campos de uma linha específica -
 // usado para gravar só a fatia que mudou, sem reescrever o resto do blob
@@ -134,7 +149,7 @@ export const pickDomainFields = (data, domain) => {
 // Exportado para o caminho travado (api/data.js: executarMutacaoEmpresaBloqueada)
 // reconstruir a visão mesclada usando o valor recém-travado de UM domínio
 // sem precisar reimplementar a lista aqui.
-export const SPLITTABLE_DOMAINS = [DOMAIN_ROW.PONTO, DOMAIN_ROW.LOOKAHEAD, DOMAIN_ROW.CONFIG, DOMAIN_ROW.EQUIPAMENTOS, DOMAIN_ROW.RDO];
+export const SPLITTABLE_DOMAINS = [DOMAIN_ROW.PONTO, DOMAIN_ROW.LOOKAHEAD, DOMAIN_ROW.CONFIG, DOMAIN_ROW.EQUIPAMENTOS, DOMAIN_ROW.RDO, DOMAIN_ROW.ORCAMENTOS];
 
 // Remove de `data` (já mesclado, com os campos das 4 linhas separadas
 // dentro) os campos de todo domínio cuja linha própria JÁ EXISTE
@@ -225,7 +240,7 @@ const mergeSharedReceipts = arrays => {
 export const mergeDomainRows = (corePayload, rowPayloadsByDomain = {}) => {
   let merged = { ...(corePayload || {}) };
   const receiptCopies = Array.isArray(merged[SHARED_RECEIPTS_FIELD]) ? [merged[SHARED_RECEIPTS_FIELD]] : [];
-  for (const domain of [DOMAIN_ROW.PONTO, DOMAIN_ROW.LOOKAHEAD, DOMAIN_ROW.CONFIG, DOMAIN_ROW.EQUIPAMENTOS, DOMAIN_ROW.RDO]) {
+  for (const domain of SPLITTABLE_DOMAINS) {
     const rowPayload = rowPayloadsByDomain[domain];
     if (!rowPayload || typeof rowPayload !== "object") continue;
     if (Array.isArray(rowPayload[SHARED_RECEIPTS_FIELD])) receiptCopies.push(rowPayload[SHARED_RECEIPTS_FIELD]);

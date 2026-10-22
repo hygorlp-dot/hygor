@@ -96,7 +96,13 @@ const bumpUpdatedAt=()=>{
 // linhas de obra), UPDATE...RETURNING (linha meta), INSERT...ON CONFLICT DO
 // NOTHING (cria a linha de obra sob demanda) e UPDATE sem RETURNING (grava a
 // linha de obra), além do INSERT em audit_events.
-const makeTransaction=()=>async(strings,...values)=>{
+// Fiel ao driver `postgres`: tx.json(x) grava o objeto; um texto interpolado
+// num parâmetro jsonb seria gravado como TEXTO, e o teste precisa enxergar
+// isso (era o que fazia a base ser regravada a cada leitura).
+const PG_JSON=Symbol("pg-json");
+const valorJsonb=value=>value&&typeof value==="object"&&PG_JSON in value?value[PG_JSON]:value;
+const comJson=tx=>Object.assign(tx,{json:value=>({[PG_JSON]:value})});
+const makeTransaction=()=>comJson(async(strings,...values)=>{
   const sql=strings.join("?");
   testState.transactionCalls.push(sql.replace(/\s+/g," ").trim().slice(0,60));
   if(sql.includes("for update")){
@@ -108,7 +114,7 @@ const makeTransaction=()=>async(strings,...values)=>{
   if(sql.includes("insert into company_app_data")&&sql.includes("on conflict")){
     const [companyId,key,value]=values;
     if(!testState.rows[key]){
-      testState.rows[key]={company_id:companyId,key,value:JSON.parse(value),updated_at:new Date(0).toISOString()};
+      testState.rows[key]={company_id:companyId,key,value:valorJsonb(value),updated_at:new Date(0).toISOString()};
     }
     return[];
   }
@@ -116,21 +122,21 @@ const makeTransaction=()=>async(strings,...values)=>{
     const [value,companyId,key]=values;
     const row=testState.rows[key];
     const updatedAt=bumpUpdatedAt();
-    testState.rows[key]={...row,company_id:companyId,key,value:JSON.parse(value),updated_at:updatedAt};
+    testState.rows[key]={...row,company_id:companyId,key,value:valorJsonb(value),updated_at:updatedAt};
     return[{updated_at:updatedAt}];
   }
   if(sql.includes("update company_app_data")){
     const [value,companyId,key]=values;
     const row=testState.rows[key];
     const updatedAt=bumpUpdatedAt();
-    testState.rows[key]={...row,company_id:companyId,key,value:JSON.parse(value),updated_at:updatedAt};
+    testState.rows[key]={...row,company_id:companyId,key,value:valorJsonb(value),updated_at:updatedAt};
     return[];
   }
   if(sql.includes("insert into audit_events")){
     return[];
   }
   throw new Error(`Query inesperada no mock de postgres: ${sql.slice(0,80)}`);
-};
+});
 
 vi.mock("postgres",()=>({
   default:vi.fn(()=>({

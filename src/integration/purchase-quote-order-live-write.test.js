@@ -60,7 +60,13 @@ vi.mock("@supabase/supabase-js",()=>({
 
 const bumpUpdatedAt=isoString=>new Date(new Date(isoString).getTime()+1000).toISOString();
 
-const makeTransaction=()=>async(strings,...values)=>{
+// Fiel ao driver `postgres`: tx.json(x) grava o objeto; um texto interpolado
+// num parâmetro jsonb seria gravado como TEXTO, e o teste precisa enxergar
+// isso (era o que fazia a base ser regravada a cada leitura).
+const PG_JSON=Symbol("pg-json");
+const valorJsonb=value=>value&&typeof value==="object"&&PG_JSON in value?value[PG_JSON]:value;
+const comJson=tx=>Object.assign(tx,{json:value=>({[PG_JSON]:value})});
+const makeTransaction=()=>comJson(async(strings,...values)=>{
   const sql=strings.join("?");
   if(sql.includes("for update")){
     const [,key]=values;
@@ -72,12 +78,12 @@ const makeTransaction=()=>async(strings,...values)=>{
     const [value,companyId,key]=values;
     const row=testState.rows[key];
     const updatedAt=bumpUpdatedAt(row?.updated_at||new Date(0).toISOString());
-    testState.rows[key]={...row,company_id:companyId,key,value:JSON.parse(value),updated_at:updatedAt};
+    testState.rows[key]={...row,company_id:companyId,key,value:valorJsonb(value),updated_at:updatedAt};
     return[{updated_at:updatedAt}];
   }
   if(sql.includes("insert into audit_events"))return[];
   throw new Error(`Query inesperada no mock de postgres: ${sql.slice(0,80)}`);
-};
+});
 
 vi.mock("postgres",()=>({
   default:vi.fn(()=>({

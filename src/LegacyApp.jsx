@@ -138,7 +138,7 @@ import { fieldReportCompletion, fieldReportIsReadOnly } from "./domains/obras/fi
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
 import { TIPOS_MOV, SINAL_MOV, calcSaldos, saldoDe, baixarPorComposicao, materiaisAbaixoMinimo } from "./domains/estoque/calculations";
 import { STOCK_COMMAND } from "./domains/estoque/commands";
-import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId } from "./domains/ponto/permissions";
+import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "./domains/ponto/permissions";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
@@ -271,6 +271,7 @@ import {
   normalizeApprovalInstances, podeAdministrarPoliticas, podeGerenciarDelegacoes, OPERADORES,
 } from "./domains/aprovacoes/index.js";
 import { arcdApprovalEngine as motorAprovacaoGenerico } from "./domains/aprovacoes/arcd-engine.js";
+import { ROLE_TABS, allowedTabsForUser } from "./domains/administracao/abas-acesso.js";
 
 // Resolvedores concretos do motor de aprovação para o app ARCD: como este
 // app ainda não tem cargo/hierarquia/departamento/centro de custo cadastrados,
@@ -7646,6 +7647,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   const selectedObraLocked = selectedObra ? isAttendanceLocked(data, selectedObra.id, selDate) : false;
   const selectedObraCanEdit = selectedObra ? canEditAttendance(data, selectedObra.id, selDate, currentUser?.id) : true;
   const obraAttendanceSummary = getObraAttendanceSummary(data, selDate);
+  const feriadoSelecionado = prIsWeekdayIso(selDate) && getPayrollHolidays(data, Number(String(selDate).slice(0,4))).includes(selDate);
   const attendanceCompletion = getAttendanceCompletionMessage(obraAttendanceSummary);
   const podeMovimentarEquipe=canManageAttendanceWorkforce(currentUser?.role);
   const obraDoPonto = employee => resolveEmployeeAttendanceObraId({
@@ -7922,6 +7924,15 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
         <Inp label="Data" type="date" value={selDate} onChange={setSelDate} max={today()} />
         {obraIdFixo?<Inp label="Obra" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>:<Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />}
       </div>
+
+      {/* Feriado: o ponto do dia não muda o pagamento - a folha paga o
+          feriado pela obra do último dia trabalhado antes dele. */}
+      {feriadoSelecionado && (
+        <div className="obra-attendance__notice" data-tone="info" role="status">
+          <Ic n="info" s={14}/>
+          <p>{fmtDateFull(selDate)} é feriado. O feriado é pago na folha pela obra em que cada funcionário trabalhou no último dia antes dele; lançar ponto hoje não muda esse pagamento.</p>
+        </div>
+      )}
 
       {/* Status das pendências: uma linha quando tudo pronto; quando falta,
           lista enxuta de obras clicáveis. Sem caixas empilhadas. */}
@@ -8912,13 +8923,7 @@ function Relatorios({ data, showToast }) {
 
       holidaysInMonth.forEach(h => {
         if (!isEmployeeEmployedOnDate(e, h)) return;
-        const a = getAtt(data, e.id, h);
-        if (resolveEmployeeAttendanceObraId({
-          data,
-          employee:e,
-          date:h,
-          record:a,
-        }) !== o.id) return;
+        if (resolveHolidayObraId({ data, employee:e, holidayIso:h }) !== o.id) return;
         const rule = getHolidayPayRule(data, e, h, payrollHolidays);
         holidayPay += Number(rule.amount || 0);
       });
@@ -9008,13 +9013,7 @@ function Relatorios({ data, showToast }) {
 
     holidaysInMonth.forEach(h => {
       if (!isEmployeeEmployedOnDate(e, h)) return;
-      const record = getAtt(data, e.id, h);
-      const obraDoDia = resolveEmployeeAttendanceObraId({
-        data,
-        employee:e,
-        date:h,
-        record,
-      });
+      const obraDoDia = resolveHolidayObraId({ data, employee:e, holidayIso:h });
       if (filterObra !== "all" && obraDoDia !== filterObra) return;
       total += Number(getHolidayPayRule(data, e, h, payrollHolidays).amount || 0);
     });
@@ -10141,16 +10140,6 @@ export const ROLES = [
   { v:"visualizador",l:"Visualizador",      desc:"Somente Dashboard (somente leitura)", color:"#6B6459" },
 ];
 
-const ROLE_TABS = {
-  admin:       ["home","tv","chat","aprov_pend","admin_central","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_geral","ponto_app","equipe","terc","equip","equip_fin","licenca","folha","resc","rh_indic","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia","ia_config","obsoletos","cad","config","com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management"],
-  engenheiro:  ["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","ponto","ponto_app","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
-  engenheiro_auditor:["home","tv","obras","orc","plan","plan_suprimentos","rdo","conferencia","med","est","cmp","fornecedores","suprimentos","equipe","terc","equip","licenca","caixa","obsoletos","cad","ia"],
-  compras:     ["home","tv","cmp","fornecedores","suprimentos","plan_suprimentos","est","cad","ia"],
-  rh:          ["home","tv","ponto","ponto_geral","ponto_app","equipe","terc","folha","resc","rh_indic","conc","cad","ia"],
-  financeiro:  ["home","tv","equip_fin","plan","cmp","fornecedores","dre_emp","dre","fin","conc","medicoes","caixa","relat","ia"],
-  comercial:   ["home","tv","com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management","com_funil","com_leads","com_propostas","com_negociacoes","com_agenda","com_parceiros","com_metas","com_relatorios","ia"],
-  visualizador:["home","tv"],
-};
 
 const ACCESS_SECTORS=[
   {id:"engenharia",label:"Engenharia",color:"#1565C0",tabs:[
@@ -10175,19 +10164,6 @@ const ACCESS_SECTORS=[
   ]},
 ];
 
-const allowedTabsForUser=user=>{
-  if(!user||user.role==="admin")return ROLE_TABS.admin;
-  const custom=Array.isArray(user.accessTabs)?user.accessTabs:null;
-  const base=custom??(ROLE_TABS[user.role]||["home"]);
-  const valid=new Set(ROLE_TABS.admin);
-  // Dashboard e Modo TV são visões institucionais somente leitura; continuam
-  // disponíveis mesmo em cadastros antigos cuja lista personalizada de abas
-  // foi criada antes da existência do painel corporativo.
-  const herdadas=user.role==="financeiro"?["equip_fin"]:user.role==="engenheiro"?["ponto"]:user.role==="rh"?["terc","conc"]:[];
-  return [...new Set(["home","tv","chat","aprov_pend",...base,...herdadas])]
-    .filter(tab=>valid.has(tab)&&tab!=="config")
-    .filter(tab=>user.role!=="engenheiro_auditor"||!["ponto","ponto_geral"].includes(tab));
-};
 
 //  Tela de Login 
 

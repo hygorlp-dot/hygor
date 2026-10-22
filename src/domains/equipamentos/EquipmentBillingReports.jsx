@@ -6,10 +6,11 @@ import { Input } from "../../design-system/primitives/Input.jsx";
 import { Select } from "../../design-system/primitives/Select.jsx";
 import { EmptyState, ErrorState } from "../../design-system/patterns/FeedbackState.jsx";
 import {
-  billingScopeLabel, buildBillingChips, buildBillingDashboard, buildBillingFilterOptions, buildWorkMemory,
+  billingScopeLabel, buildBillingChips, buildBillingDashboard, buildBillingFilterOptions, buildOwnershipAnalysis, buildWorkMemory,
   DEFAULT_BILLING_FILTERS, PENDING_TYPE, sortWorks, workResultBars,
 } from "./billing-dashboard.js";
 import BillingTrendChart, { TREND_SERIES } from "./BillingTrendChart.jsx";
+import BillingOwnershipAnalysis from "./BillingOwnershipAnalysis.jsx";
 import { formatMoney } from "./rental-operations.js";
 import { physicalIdentityForRecord } from "./registry.js";
 import "./billing-center.css";
@@ -65,6 +66,7 @@ export default function EquipmentBillingReports({
   const [workId, setWorkId] = useState("");
   const [mapWorkId, setMapWorkId] = useState("");
   const [equipmentQuery, setEquipmentQuery] = useState("");
+  const [ownershipAnalysis, setOwnershipAnalysis] = useState(null);
   const [attempt, setAttempt] = useState(0);
   const today = hoje || new Date().toISOString().slice(0, 10);
 
@@ -79,7 +81,7 @@ export default function EquipmentBillingReports({
     // `attempt` força o recálculo em "Tentar novamente".
   }, [data, period, today, filters, ownerName, attempt]);
 
-  useEffect(() => { setWorkId(""); }, [period]);
+  useEffect(() => { setWorkId(""); setOwnershipAnalysis(null); }, [period]);
 
   const patch = next => setFilters(current => ({ ...current, ...next }));
   const clearFilters = () => setFilters(DEFAULT_BILLING_FILTERS);
@@ -94,8 +96,11 @@ export default function EquipmentBillingReports({
   const { finance, operation, billing, split, previous } = model;
   const works = sortWorks(model.works, workSort);
   const memory = workId ? buildWorkMemory(model, workId) : null;
+  const clientWork = memory?.work.obra || (data.obras || []).find(obra => String(obra.id) === String(filters.obraId));
   const trendPoints = model.trend.filter(point => !point.semDados).map(point => ({ ...point, short: `${point.label.slice(0, 3)}/${point.ym.slice(2, 4)}` }));
   const bars = workResultBars(model);
+  const ownershipModel = ownershipAnalysis ? buildOwnershipAnalysis(model, ownershipAnalysis.ownership) : null;
+  const openOwnershipAnalysis = (ownership, metric) => setOwnershipAnalysis({ ownership, metric });
   const goToPending = type => { patch({ pendencia: type }); setWorkId(""); setView("obras"); if (type === PENDING_TYPE.NEGATIVE) setWorkSort({ key: "resultado", dir: "asc" }); };
   const mapWorks = model.works;
   const mapWork = mapWorks.find(work => work.id === mapWorkId) || mapWorks[0] || null;
@@ -108,6 +113,9 @@ export default function EquipmentBillingReports({
         <p className="bc-lead">Fechamento, cobrança, custos e resultado das locações por obra.</p>
       </div>
       <div className="bc-header__actions">
+        <Button variant="primary" size="sm" disabled={!clientWork || !model.hasMonthData}
+          title={clientWork ? `Cobrança de ${clientWork.name} · ${model.label}` : "Selecione uma obra para gerar a cobrança ao cliente"}
+          onClick={() => onPrintWork(clientWork)}>PDF de cobrança ao cliente</Button>
         <Button variant="secondary" size="sm" onClick={onExportManagement}>Exportar dados</Button>
         <Button variant="secondary" size="sm" onClick={onPrintManagement}>Relatório gerencial PDF</Button>
       </div>
@@ -216,10 +224,10 @@ export default function EquipmentBillingReports({
                 <caption className="bc-sr-only">Comparação entre equipamentos próprios e de terceiros</caption>
                 <thead><tr><th scope="col">Indicador</th><th scope="col" className="num">Próprios</th><th scope="col" className="num">Terceiros</th></tr></thead>
                 <tbody>
-                  <tr><th scope="row">Receita líquida</th><td className="num bc-mono">{formatMoney(split.proprios.receitaLiquida)}</td><td className="num bc-mono">{formatMoney(split.terceiros.receitaLiquida)}</td></tr>
-                  <tr><th scope="row">Custo</th><td className="num bc-mono">{formatMoney(split.proprios.custo)}</td><td className="num bc-mono">{formatMoney(split.terceiros.custo)}</td></tr>
-                  <tr><th scope="row">Resultado</th>{["proprios", "terceiros"].map(key => <td key={key} className="num bc-mono" data-negative={split[key].resultado < 0}>{signedMoney(split[key].resultado)}</td>)}</tr>
-                  <tr><th scope="row">Margem</th>{["proprios", "terceiros"].map(key => <td key={key} className="num bc-mono" data-negative={split[key].margem != null && split[key].margem < 0}>{pct(split[key].margem)}{split[key].margem != null && split[key].margem < 0 ? <span className="bc-flag"><AlertTriangle size={12} aria-hidden="true" /> margem negativa no período</span> : null}</td>)}</tr>
+                  <tr><th scope="row">Receita líquida</th>{["proprios", "terceiros"].map(key => <td key={key} className="num bc-mono"><button type="button" className="bc-analysis-link" onClick={() => openOwnershipAnalysis(key, "receita")} aria-label={`Analisar receita líquida de ${key === "proprios" ? "equipamentos próprios" : "equipamentos de terceiros"}`}>{formatMoney(split[key].receitaLiquida)}</button></td>)}</tr>
+                  <tr><th scope="row">Custo</th>{["proprios", "terceiros"].map(key => <td key={key} className="num bc-mono"><button type="button" className="bc-analysis-link" onClick={() => openOwnershipAnalysis(key, "custo")} aria-label={`Analisar custo de ${key === "proprios" ? "equipamentos próprios" : "equipamentos de terceiros"}`}>{formatMoney(split[key].custo)}</button></td>)}</tr>
+                  <tr><th scope="row">Resultado</th>{["proprios", "terceiros"].map(key => <td key={key} className="num bc-mono" data-negative={split[key].resultado < 0}><button type="button" className="bc-analysis-link" data-negative={split[key].resultado < 0} onClick={() => openOwnershipAnalysis(key, "resultado")} aria-label={`Analisar resultado de ${key === "proprios" ? "equipamentos próprios" : "equipamentos de terceiros"}`}>{signedMoney(split[key].resultado)}</button></td>)}</tr>
+                  <tr><th scope="row">Margem</th>{["proprios", "terceiros"].map(key => <td key={key} className="num bc-mono" data-negative={split[key].margem != null && split[key].margem < 0}><button type="button" className="bc-analysis-link" data-negative={split[key].margem != null && split[key].margem < 0} onClick={() => openOwnershipAnalysis(key, "margem")} aria-label={`Analisar margem de ${key === "proprios" ? "equipamentos próprios" : "equipamentos de terceiros"}`}>{pct(split[key].margem)}</button>{split[key].margem != null && split[key].margem < 0 ? <span className="bc-flag"><AlertTriangle size={12} aria-hidden="true" /> margem negativa no período</span> : null}</td>)}</tr>
                   <tr><th scope="row">Participação na receita</th><td className="num bc-mono">{pct(split.proprios.participacao)}</td><td className="num bc-mono">{pct(split.terceiros.participacao)}</td></tr>
                 </tbody>
               </table>
@@ -327,6 +335,8 @@ export default function EquipmentBillingReports({
         onBack={() => setWorkId("")} onEditRental={onEditRental} onDeleteRental={onDeleteRental} onAddRentalToWork={onAddRentalToWork} onExportWork={onExportWork} onPrintWork={onPrintWork} />}
 
       {!filteredEmpty && view === "mapa" && <FleetMap works={mapWorks} work={mapWork} onSelect={setMapWorkId} query={equipmentQuery} onQuery={setEquipmentQuery} ownerName={ownerName} formatDate={formatDate} label={model.label} />}
+      {ownershipModel && <BillingOwnershipAnalysis analysis={ownershipModel} focus={ownershipAnalysis.metric} scope={scope}
+        formatDate={formatDate} formatComposition={formatComposition} onEditRental={onEditRental} onClose={() => setOwnershipAnalysis(null)} />}
     </section>
   );
 }
@@ -372,7 +382,7 @@ function WorkMemory({ memory, model, formatDate, formatComposition, onBack, onEd
             <td className="num bc-mono">{formatMoney(row.bruto)}</td>
             <td className="num bc-mono">{formatMoney(row.descontos)}{row.descontoElevado && <span className="bc-flag"><AlertTriangle size={12} aria-hidden="true" /> elevado ({pct(row.descontoEfetivoPct)})</span>}</td>
             <td className="num bc-mono">{formatMoney(row.receita)}</td>
-            <td className="num bc-mono">{row.terceiro ? (row.custoDono > 0 ? formatMoney(row.custoDono) : <span className="bc-flag"><AlertTriangle size={12} aria-hidden="true" /> sem tarifa de custo</span>) : "—"}</td>
+            <td className="num bc-mono">{row.terceiro ? formatMoney(row.custoDono) : "—"}</td>
             <td className="bc-row-actions">
               <Button variant="ghost" size="sm" onClick={() => onEditRental?.(row.locacaoId)}>Editar</Button>
               <button type="button" className="bc-danger-link" onClick={() => onDeleteRental?.(row.locacaoId)} aria-label={`Excluir locação de ${row.equipamento.nome}`}>Excluir…</button>
@@ -411,11 +421,11 @@ function EquipmentTables({ model, data, ownerName }) {
     </div>
     <div className="bc-table-wrap">
       <table className="bc-table">
-        <caption>Repasses aos proprietários por obra (tarifas de custo dos contratos)</caption>
+        <caption>Repasses aos proprietários por obra (mesmo valor líquido das locações)</caption>
         <thead><tr><th scope="col">Proprietário</th><th scope="col">Obra</th><th scope="col" className="num">Equip.</th><th scope="col" className="num">Locações</th><th scope="col" className="num">Diárias-un.</th><th scope="col" className="num">Valor a repassar</th></tr></thead>
         <tbody>{ownerRows.length ? ownerRows.map(row => <tr key={row.key}>
           <td>{row.owner}</td><td>{row.obra}</td><td className="num bc-mono">{row.equipments.size}</td><td className="num bc-mono">{row.rentals}</td><td className="num bc-mono">{row.unitDays}</td>
-          <td className="num bc-mono">{row.amount > 0 ? formatMoney(row.amount) : <span className="bc-flag"><AlertTriangle size={12} aria-hidden="true" /> tarifa de custo ausente</span>}</td>
+          <td className="num bc-mono">{formatMoney(row.amount)}</td>
         </tr>) : <tr><td colSpan={6} className="bc-note">Nenhum equipamento de terceiros no recorte.</td></tr>}</tbody>
         {ownerRows.length > 0 && <tfoot><tr><th scope="row" colSpan={5}>Total a repassar</th><td className="num bc-mono">{formatMoney(ownerRows.reduce((total, row) => total + row.amount, 0))}</td></tr></tfoot>}
       </table>

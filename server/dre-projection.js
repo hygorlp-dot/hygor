@@ -70,8 +70,8 @@ const equipmentCompany = (data,ym) => {
   }));
   const total=rows.reduce((acc,{equipment,financial})=>({
     receita:acc.receita+financial.receita,
-    // Tarifa de custo só é repasse quando existe proprietário terceiro. Em
-    // equipamento próprio ela é referência interna e não gera obrigação.
+    // O repasse só existe para equipamento de terceiro e já vem de
+    // calcEquipMes com o mesmo valor líquido da locação.
     custoDono:acc.custoDono+(equipment?.proprietarioId?financial.custoDono:0),
     manut:acc.manut+financial.manut,
     descontos:acc.descontos+financial.descontos,
@@ -234,4 +234,16 @@ export const buildDreProjectionRows = data => {
     if(period==="mes")requests.push({year,month,period,scope:"company_dre"});
   }
   return buildRequestedDreProjectionRows(data,requests);
+};
+
+// Revisão dos dados que alimentam a DRE materializada (financial-dre-report).
+// Achado de 20/10/2026: a revisão era só o updated_at da linha core, mas o
+// ponto mora em linhas por obra (e config/equipamentos em linhas próprias) -
+// uma correção de ponto não invalidava a DRE gravada, que continuava
+// aparecendo por cima do cálculo ao vivo da tela. A revisão agora junta a
+// versão de TODAS as linhas lidas por lerLinha(), em ordem estável.
+export const dreSourceRevision = ({ updatedAt = null, rowVersions = {}, rowVersionsPontoObra = {} } = {}) => {
+  const ordenado = objeto => Object.keys(objeto || {}).sort()
+    .map(chave => `${chave}=${objeto[chave] || ""}`).join(",");
+  return `core=${updatedAt || ""}|linhas:${ordenado(rowVersions)}|ponto:${ordenado(rowVersionsPontoObra)}`;
 };

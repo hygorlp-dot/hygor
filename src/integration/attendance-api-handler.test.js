@@ -157,6 +157,78 @@ describe("/api/data · persistência granular do ponto",()=>{
   });
   afterAll(()=>vi.useRealTimers());
 
+  it("orçamento: criar um novo com uma versão aprovada ecoada sem campos novos salva e não toca na aprovada",async()=>{
+    const aprovado={id:"orc-v1",obraId:"obra-a",nome:"V1",versionStatus:"aprovado",status:"aprovado",lockedAt:"2026-09-30T12:50:42.313Z",
+      etapas:[{id:"et-1",nome:"COBERTURA",parentId:"",pavimentoId:"cobertura",nivelM:3.15}],
+      itens:[{id:"it-1",etapaId:"et-1",codigo:"100600",quantidade:2,precoUnit:10,baseUf:"",memorialMedicao:{version:1,model:"count"}}]};
+    testState.rows[CORE_KEY].value={...initialData(),orcamentos:[aprovado]};
+    // Cópia do navegador antes da correção do normalizador: sem pavimentoId,
+    // nivelM e memorialMedicao, e com baseUf preenchido.
+    const ecoado={...aprovado,etapas:[{id:"et-1",nome:"COBERTURA",parentId:""}],
+      itens:[{id:"it-1",etapaId:"et-1",codigo:"100600",quantidade:2,precoUnit:10,baseUf:"PE"}]};
+    const novo={id:"orc-novo",obraId:"obra-a",nome:"Novo",versionStatus:"rascunho",status:"rascunho",etapas:[],itens:[]};
+    const salvo=await callApi({action:"save-sections",accessToken:"valid-token",expectedUpdatedAt:"2026-07-28T12:00:00.000Z",
+      sections:{orcamentos:[ecoado,novo]},baseSections:{orcamentos:[ecoado]}});
+    expect(salvo.status).toBe(200);
+    const gravado=testState.rows[CORE_KEY].value.orcamentos;
+    expect(gravado.map(o=>o.id)).toEqual(["orc-v1","orc-novo"]);
+    expect(gravado[0]).toEqual(aprovado);
+  });
+
+  it("orçamento: alterar de fato a versão aprovada continua recusado",async()=>{
+    const aprovado={id:"orc-v1",obraId:"obra-a",nome:"V1",versionStatus:"aprovado",status:"aprovado",etapas:[],
+      itens:[{id:"it-1",codigo:"100600",quantidade:2,precoUnit:10}]};
+    testState.rows[CORE_KEY].value={...initialData(),orcamentos:[aprovado]};
+    const alterado={...aprovado,itens:[{...aprovado.itens[0],precoUnit:99}]};
+    const salvo=await callApi({action:"save-sections",accessToken:"valid-token",expectedUpdatedAt:"2026-07-28T12:00:00.000Z",
+      sections:{orcamentos:[alterado]},baseSections:{orcamentos:[aprovado]}});
+    expect(salvo.status).toBe(409);
+    expect(salvo.body.error).toMatch(/imutáveis/);
+    expect(testState.rows[CORE_KEY].value.orcamentos[0]).toEqual(aprovado);
+  });
+
+  it("orçamento por delta: só o novo registro trafega, a lista é reconstruída e a auditoria fica compacta",async()=>{
+    const outros=Array.from({length:30},(_,i)=>({id:`orc-${i}`,obraId:"obra-a",nome:`O${i}`,versionStatus:"rascunho",itens:[{id:`i-${i}`,quantidade:i}]}));
+    const aprovado={id:"orc-v1",obraId:"obra-a",nome:"V1",versionStatus:"aprovado",itens:[{id:"it-1",precoUnit:10}]};
+    testState.rows[CORE_KEY].value={...initialData(),orcamentos:[aprovado,...outros]};
+    const novo={id:"orc-novo",obraId:"obra-a",nome:"Novo",versionStatus:"rascunho",itens:[]};
+    const salvo=await callApi({action:"save-sections",accessToken:"valid-token",expectedUpdatedAt:"2026-07-28T12:00:00.000Z",
+      sections:{},baseSections:{},sectionDeltas:{orcamentos:{changed:[novo],original:[],removed:[]}}});
+    expect(salvo.status).toBe(200);
+    const gravado=testState.rows[CORE_KEY].value.orcamentos;
+    expect(gravado.map(o=>o.id)).toEqual(["orc-v1",...outros.map(o=>o.id),"orc-novo"]);
+    expect(gravado[0]).toEqual(aprovado);
+    const auditoria=testState.rpcCalls.at(-1);
+    expect(auditoria.p_before.orcamentos).toEqual([]);
+    expect(auditoria.p_after.orcamentos).toEqual([novo]);
+  });
+
+  it("orçamento por delta: alterar a versão aprovada continua recusado",async()=>{
+    const aprovado={id:"orc-v1",obraId:"obra-a",nome:"V1",versionStatus:"aprovado",itens:[{id:"it-1",precoUnit:10}]};
+    testState.rows[CORE_KEY].value={...initialData(),orcamentos:[aprovado]};
+    const alterado={...aprovado,itens:[{id:"it-1",precoUnit:99}]};
+    const salvo=await callApi({action:"save-sections",accessToken:"valid-token",expectedUpdatedAt:"2026-07-28T12:00:00.000Z",
+      sections:{},baseSections:{},sectionDeltas:{orcamentos:{changed:[alterado],original:[aprovado],removed:[]}}});
+    expect(salvo.status).toBe(409);
+    expect(testState.rows[CORE_KEY].value.orcamentos[0]).toEqual(aprovado);
+  });
+
+  it("delta malformado é recusado sem gravar",async()=>{
+    const salvo=await callApi({action:"save-sections",accessToken:"valid-token",expectedUpdatedAt:"2026-07-28T12:00:00.000Z",
+      sections:{},baseSections:{},sectionDeltas:{orcamentos:{changed:[{nome:"sem id"}],original:[],removed:[]}}});
+    expect(salvo.status).toBe(400);
+    expect(testState.rpcCalls).toHaveLength(0);
+  });
+
+  it("DRE: engenheiro sem a aba DRE não lê nem a DRE da própria obra pela API",async()=>{
+    const obra=await callApi({action:"financial-dre-report",accessToken:"valid-token",year:2026,month:6,obraId:"obra-a"});
+    expect(obra.status).toBe(403);
+    expect(obra.body.error).toMatch(/não tem acesso à DRE/);
+    const empresa=await callApi({action:"financial-company-dre-report",accessToken:"valid-token",year:2026,month:6});
+    expect(empresa.status).toBe(403);
+    expect(fakeDb.from.mock.calls.some(([table])=>table==="financial_events")).toBe(false);
+  });
+
   it("confirma no servidor, persiste após nova leitura e audita uma única vez",async()=>{
     const command={
       action:"attendance-upsert",

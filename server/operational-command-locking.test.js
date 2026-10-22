@@ -44,7 +44,17 @@ describe("serialização sistêmica das mutações da empresa",()=>{
     const sections=api.slice(api.indexOf('if (action === "save-sections")'));
     expect(attendance).toContain("executarMutacaoEmpresaBloqueada({");
     expect(reconciliation).toContain("executarMutacaoEmpresaBloqueada({");
-    expect(sections).toContain("executarMutacaoEmpresaBloqueada({");
+    // save-sections pode tocar mais de uma linha (core + orçamentos): usa a
+    // variante que trava todas elas na mesma transação.
+    expect(sections).toContain("executarMutacaoMultiLinha({");
+  });
+
+  it("a gravação em várias linhas trava a core primeiro e as demais com FOR UPDATE",()=>{
+    const start=api.indexOf("const executarMutacaoMultiLinha=");
+    const end=api.indexOf("// Uma alteração real",start);
+    const implementation=api.slice(start,end);
+    expect(implementation).toContain("for update");
+    expect(implementation.indexOf("travar(KEY)")).toBeLessThan(implementation.indexOf("travar(SPLIT_ROW_KEYS[dominio])"));
   });
 
   it("gravarMutacaoNaTransacao nunca pede a reconstrução do DRE (o self-heal da leitura já cobre)",()=>{
