@@ -1,4 +1,5 @@
 import { active } from "../financeiro/ledger.js";
+import { calcSaldos, saldoDe } from "../estoque/calculations.js";
 import { cancelWorkCashMovementFromPayment } from "../financeiro/work-cash-commands.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
 import { totalPagoPedido } from "./calculations.js";
@@ -11,10 +12,26 @@ export const PURCHASE_CANCELLATION_COMMAND_TYPES=
 
 const fail=reason=>({ok:false,reason});
 const versionOf=item=>Number(item?.version||0);
-const movementOfOrder=(movement,order)=>
-  movement?.pedidoId===order.id||
-  (!movement?.pedidoId&&movement?.obraId===order.obraId&&movement?.tipo==="entrada"
-    &&String(movement?.descricao||"").startsWith(`Pedido ${order.numero}`));
+// Movimentos antigos não guardavam pedidoId; o vínculo era a descrição
+// "Pedido <número> · <fornecedor>". Comparar só o prefixo "Pedido PC-1"
+// também pegaria "Pedido PC-12", então o número precisa terminar ali.
+export const movementOfOrder=(movement,order)=>{
+  if(movement?.pedidoId)return movement.pedidoId===order.id;
+  if(movement?.obraId!==order.obraId||movement?.tipo!=="entrada")return false;
+  const description=String(movement?.descricao||""),label=`Pedido ${order.numero}`;
+  return description===label||description.startsWith(`${label} ·`);
+};
+
+// Cancelar a entrada de material que a obra já consumiu deixaria o estoque
+// negativo, coisa que o consumo e a perda já recusam. Primeiro a obra
+// devolve ou ajusta o estoque; depois a compra pode ser cancelada.
+const consumedStock=(before,after)=>{
+  const saldosAntes=calcSaldos(before),saldosDepois=calcSaldos(after);
+  return after.filter((movement,index)=>movement!==before[index]).find(movement=>{
+    const depois=saldoDe(saldosDepois,movement.obraId,movement.materialId);
+    return depois<-1e-6&&depois<saldoDe(saldosAntes,movement.obraId,movement.materialId)-1e-6;
+  });
+};
 
 export const purchaseCancellationCommandObraId=(data={},command={})=>
   String((data.pedidos||[]).find(item=>item.id===command.payload?.orderId)?.obraId||"");
@@ -76,11 +93,14 @@ export const applyPurchaseCancellationCommand=(
     estornadoEm:now,estornadoPorId:actor.id,estornadoPor:userName,
     updatedAt:now,updatedById:actor.id,updatedBy:userName,version:versionOf(payment)+1,
   });
-  const stockMovements=(next.movEstoque||[]).map(movement=>!movementOfOrder(movement,order)
+  const stockMovements=(next.movEstoque||[]).map(movement=>!movementOfOrder(movement,order)||!active(movement)
     ?movement:{
       ...movement,status:"cancelado",motivoCancelamento:reason,canceladoEm:now,
       canceladoPorId:actor.id,canceladoPor:userName,version:versionOf(movement)+1,
     });
+  if(consumedStock(next.movEstoque||[],stockMovements)){
+    return fail("Parte do material desta compra já foi consumida na obra. Registre a devolução ou o ajuste de estoque antes de cancelar a compra.");
+  }
   // Movimento antigo sem pagamentoId também precisa perder efeito, mas nunca
   // é removido do histórico.
   const workCash=(next.caixaObra||[]).map(movement=>

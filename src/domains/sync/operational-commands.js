@@ -33,6 +33,7 @@ import {
 import {
   conversionFactorOf,
   referencePricePerPurchaseUnit,
+  referenceUnitCostOf,
 } from "../compras/unit-conversion.js";
 import {
   applyBankTransactionCommand,
@@ -765,6 +766,9 @@ export const applyOperationalCommand=(data,command)=>{
     const pedidoId=String(command.payload?.pedidoId||"");
     const current=(data?.pedidos||[]).find(item=>item.id===pedidoId);
     if(!current)return fail("Pedido não encontrado.");
+    if(["cancelado","rascunho"].includes(current.status)||inactive(current)){
+      return fail(current.status==="rascunho"?"Envie o pedido ao fornecedor antes de registrar o recebimento.":"Este pedido foi cancelado e não recebe mais material.");
+    }
     const versionError=requiresVersion(current,command.expectedVersion,"O pedido");
     if(versionError)return fail(versionError);
     const quantities=command.payload?.receivedQuantities;
@@ -782,7 +786,13 @@ export const applyOperationalCommand=(data,command)=>{
     }
     if(entries.length!==requested.length||entries.some(entry=>{
       const item=byItem.get(entry?.pedidoItemId||"");
-      return !item||entry.pedidoId!==current.id||entry.obraId!==current.obraId||entry.materialId!==item.materialId||Math.abs(Number(entry.qtdCompra??entry.qtd??0)-Number(quantities[item.id]||0))>=1e-6;
+      if(!item||entry.pedidoId!==current.id||entry.obraId!==current.obraId||entry.materialId!==item.materialId)return true;
+      const quantity=Number(quantities[item.id]||0),factor=conversionFactorOf(item);
+      if(Math.abs(Number(entry.qtdCompra??entry.qtd??0)-quantity)>=1e-6)return true;
+      // A quantidade e o custo que entram no estoque vêm do pedido, não do
+      // navegador: unidade canônica = quantidade comprada × fator.
+      if(entry.qtd!=null&&Math.abs(Number(entry.qtd)-quantity*(factor||1))>=1e-6)return true;
+      return entry.valorUnit!=null&&Math.abs(Number(entry.valorUnit)-referenceUnitCostOf(item))>=1e-6;
     }))return fail("Entradas de estoque não correspondem ao recebimento informado.");
     const updated={...current,itens:(current.itens||[]).map(item=>{
       const quantity=Number(quantities[item.id]||0);

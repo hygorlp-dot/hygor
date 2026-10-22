@@ -127,4 +127,14 @@ describe("cancelamento de solicitação de compra (soft-delete)",()=>{
   it("resolve o escopo pela obra da solicitação também no cancelamento",()=>{
     expect(purchaseRequestCommandObraId(base(),cancelCommand())).toBe("obra-1");
   });
+
+  it("recusa editar uma solicitação que já gerou pedido",()=>{
+    const data=base();
+    data.solicitacoesCompra[0]={...data.solicitacoesCompra[0],status:"pedido_gerado",pedidoId:"pedido-1"};
+    const edit=applyPurchaseRequestCommand(data,command({
+      payload:{request:{...command().payload.request,id:"sol-antiga",numero:"SC-0001"}},expectedVersion:2,
+    }));
+    expect(edit.ok).toBe(false);
+    expect(edit.reason).toContain("Ajuste o pedido");
+  });
 });

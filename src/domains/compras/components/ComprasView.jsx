@@ -32,9 +32,11 @@ import {
   STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
   pedidoLiberadoParaReceber, origemPagamentoLabel, situacaoCaixaObra,
-  historicoPrecoTodos, analisePreco, mapaGerencialCompras,
+  historicoPrecoTodos, analisePreco, mapaGerencialCompras, proximoNumeroPedido,
 } from "../calculations";
 import { canManagePurchases } from "../permissions";
+import { movementOfOrder } from "../purchase-cancellation-command";
+import { active } from "../../financeiro/ledger";
 import { arcdApprovalEngine as motorAprovacaoGenerico } from "../../aprovacoes/arcd-engine.js";
 import {
   changePurchaseRequestProject,
@@ -44,7 +46,7 @@ import {
 import {
   conversionFactorOf, hasValidUnitConversion, purchaseUnitOf,
   referencePricePerPurchaseUnit, referenceQuantityOf, referenceTotalOf,
-  suggestedSteelConversion,
+  referenceUnitCostOf, suggestedSteelConversion,
 } from "../unit-conversion";
 import {
   enviarArquivoOneDrive, listarBasesReferencia, pesquisarInsumosReferencia,
@@ -1068,7 +1070,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         ?"Sem conexão. A solicitação continua aberta para você tentar novamente quando a internet voltar."
         :result?.state===SAVE_QUEUE_STATE.CONFLICT
           ?"Outra pessoa alterou os dados ao mesmo tempo. A solicitação não foi formalizada; resolva o conflito e tente novamente."
-          :"O servidor não confirmou a solicitação. Seus dados continuam no formulário para uma nova tentativa.";
+          :result?.reason||"O servidor não confirmou a solicitação. Seus dados continuam no formulário para uma nova tentativa.";
       showToast(reason,"error");return false;
     }
     setSolModal(null);setAba("solicitacoes");
@@ -1154,6 +1156,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const gerarPedidoSolicitacao=(sol)=>{
     if(!podeProcessar){showToast("Somente o setor de Compras pode transformar a solicitação em pedido.","error");return;}
     const instanciaApr=instanciaAprovacaoDe(sol);
+    if(["reprovada","cancelada"].includes(instanciaApr?.status)){
+      showToast(`Esta solicitação foi ${instanciaApr.status} na aprovação e não pode virar pedido.`,"error");return;
+    }
     if(instanciaApr&&instanciaApr.status!=="aprovada"){
       if(!window.confirm(`Esta solicitação ainda não foi aprovada (status: ${instanciaApr.status}). Deseja continuar mesmo assim?`))return;
     }
@@ -1214,7 +1219,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     }
     const pedidoAnterior=f.id?(data.pedidos||[]).find(p=>p.id===f.id):null;
     const totalNovo=itens.reduce((s,i)=>s+Number(i.qtd||0)*Number(i.precoUnit||0),0);
-    const totalPago=(pedidoAnterior?.pagamentos||[]).reduce((s,pg)=>s+Number(pg.valor||0),0);
+    const totalPago=(pedidoAnterior?.pagamentos||[]).filter(active).reduce((s,pg)=>s+Number(pg.valor||0),0);
     if(f.id&&totalNovo+0.01<totalPago){
       showToast(`O novo total não pode ser menor que o valor já pago (${fmt(totalPago)}).`,"error");return;
     }
@@ -1224,7 +1229,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
     const p = {
       id: f.id || uid(),
-      numero: f.numero?.trim() || `PC-${String((data.pedidos||[]).length + 1).padStart(4,"0")}`,
+      numero: f.numero?.trim() || proximoNumeroPedido(data.pedidos),
       obraId: f.obraId || obraAtual,
       fornecedorId: f.fornecedorId,
       data: f.data || new Date().toISOString().slice(0,10),
@@ -1412,7 +1417,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       // O pedido é conferido na embalagem comprada, mas o estoque permanece
       // na unidade canônica do cadastro/SINAPI.
       qtd: referenceQuantityOf(l,l.chegou),
-      valorUnit: conversionFactorOf(l)>0?Number(l.precoUnit||0)/conversionFactorOf(l):Number(l.precoUnit||0),
+      valorUnit: referenceUnitCostOf(l),
       qtdCompra:l.chegou,unidadeCompra:purchaseUnitOf(l),
       fatorConversao:conversionFactorOf(l),unidadeRef:l.unidadeRef||"",
       data: quando,
@@ -1472,10 +1477,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   };
 
   const podeExcluirCompra=canManagePurchases(currentUser?.role);
-  const movimentoDoPedido=(mov,pedido)=>
-    mov?.pedidoId===pedido.id||
-    (!mov?.pedidoId&&mov?.obraId===pedido.obraId&&mov?.tipo==="entrada"&&
-      String(mov?.descricao||"").startsWith(`Pedido ${pedido.numero}`));
+  const movimentoDoPedido=movementOfOrder;
 
   const abrirExclusaoCompra=p=>{
     if(!podeExcluirCompra){
@@ -1617,7 +1619,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     const melhor=Number(prop.precoUnit||0)<=menor+0.000001;
     if(!melhor&&!String(justificativa||"").trim()){showToast("Justifique a escolha de uma proposta que não é a mais barata.","error");return;}
 
-    const numero = `PC-${String((data.pedidos||[]).length + 1).padStart(4,"0")}`;
+    const numero = proximoNumeroPedido(data.pedidos);
     if(!dispatchCommand){showToast("A geração segura do pedido exige conexão com o servidor.","error");return;}
     const orderId=uid(),itemId=uid();
     const result=await dispatchCommand(()=>({
@@ -1659,10 +1661,12 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         showToast("Complete ao menos duas propostas antes de gerar o pedido.","warn");return;
       }
       const melhor=[...propostas].sort((a,b)=>Number(a.precoUnit)-Number(b.precoUnit)||Number(a.prazoDias||999)-Number(b.prazoDias||999))[0];
-      gerarPedidoDaCotacao(card.registro,melhor.id,"",false);return;
+      // Arrastar não pode comprar sozinho: abre a confirmação da proposta.
+      setCotDecisao({cotacaoId:card.registro.id,propostaId:melhor.id,justificativa:""});return;
     }
     if(card.tipo==="pedido"&&destino==="entrega"){
-      showToast("Pedido liberado para entrega.");return;
+      // A coluna "Em entrega" é o pedido quitado: mover até ela é pagar.
+      abrirPagamento(card.registro);showToast("Registre o pagamento para mover o pedido.");return;
     }
     if(card.tipo==="pedido"&&destino==="concluido"){
       // Recebimento não depende de pagamento prévio (compra a prazo é o caso

@@ -268,4 +268,52 @@ describe("comando de anexação de documento à proposta (PURCHASE_QUOTE_DOCUMEN
     expect(result).toMatchObject({ok:false});
     expect(result.reason).toMatch(/alterad[ao] por outra pessoa/);
   });
+
+  it("recusa alterar pedido cancelado",()=>{
+    const data=base();
+    data.pedidos=[{...rawOrder(),version:3,status:"cancelado"}];
+    const result=applyPurchaseOrderCommand(data,{
+      ...command(PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:rawOrder(),adjustmentReason:"Reabrir"},3),
+    },"2026-07-29T12:00:00.000Z");
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain("cancelado");
+  });
+
+  it("recusa gerar pedido de solicitação cancelada ou que já tem pedido ativo",()=>{
+    const cancelled=base();
+    cancelled.solicitacoesCompra[0].status="cancelada";
+    const fromCancelled=applyPurchaseOrderCommand(cancelled,command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:rawOrder()},
+    ),"2026-07-28T12:00:00.000Z");
+    expect(fromCancelled.ok).toBe(false);
+    expect(fromCancelled.reason).toContain("foi cancelada");
+
+    const first=applyPurchaseOrderCommand(base(),command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:rawOrder()},
+    ),"2026-07-28T12:00:00.000Z");
+    const second=applyPurchaseOrderCommand(first.data,command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:{...rawOrder(),id:"p-2",numero:"PC-002"}},
+    ),"2026-07-28T12:00:00.000Z");
+    expect(second.ok).toBe(false);
+    expect(second.reason).toContain("já gerou o pedido PC-001");
+
+    // Com o primeiro pedido cancelado, a solicitação volta a poder gerar outro.
+    first.data.pedidos[0]={...first.data.pedidos[0],status:"cancelado"};
+    const again=applyPurchaseOrderCommand(first.data,command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:{...rawOrder(),id:"p-2",numero:"PC-002"}},
+    ),"2026-07-28T12:00:00.000Z");
+    expect(again.ok).toBe(true);
+  });
+
+  it("recusa gerar pedido de solicitação reprovada na aprovação",()=>{
+    const data=base();
+    data.solicitacoesCompra[0].aprovacaoInstanciaId="apr-1";
+    data.instanciasAprovacao=[{id:"apr-1",status:"reprovada"}];
+    const result=applyPurchaseOrderCommand(data,command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:rawOrder()},
+    ),"2026-07-28T12:00:00.000Z");
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain("reprovada");
+  });
 });
+

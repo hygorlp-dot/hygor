@@ -203,6 +203,7 @@ import {
   referencePricePerPurchaseUnit,
   referenceQuantityOf,
   referenceTotalOf,
+  referenceUnitCostOf,
   suggestedSteelConversion,
 } from "./domains/compras/unit-conversion";
 const Compras = lazy(() => import("./domains/compras/components/ComprasView"));
@@ -12934,7 +12935,11 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       .map(i => ({
         id: uid(),receiptId:uid(),pedidoId:pedido.id,pedidoItemId:i.id,
         obraId: pedido.obraId, materialId: i.materialId,
-        tipo: "entrada", qtd: i.falta, valorUnit: Number(i.precoUnit || 0),
+        // O pedido conta na embalagem comprada (ex.: SC); o estoque fica na
+        // unidade do cadastro (ex.: KG), igual ao recebimento da aba Compras.
+        tipo: "entrada", qtd: referenceQuantityOf(i,i.falta),
+        valorUnit: referenceUnitCostOf(i),
+        qtdCompra:i.falta,unidadeCompra:purchaseUnitOf(i),fatorConversao:conversionFactorOf(i),unidadeRef:i.unidadeRef||"",
         data: quando,
         descricao: `Chegada confirmada - pedido ${pedido.numero}`,
         transacaoId: "", servicoId: "",orcItemId:i.orcItemId||"",orcNivel1Id:i.orcNivel1Id||"", etapa: "",
@@ -12953,7 +12958,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
         payload:{
           pedidoId:pedido.id,
-          receivedQuantities:Object.fromEntries(entradas.map(item=>[item.pedidoItemId,item.qtd])),
+          receivedQuantities:Object.fromEntries(entradas.map(item=>[item.pedidoItemId,item.qtdCompra])),
           stockEntries:entradas,
         },
       };

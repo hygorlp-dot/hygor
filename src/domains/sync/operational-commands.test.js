@@ -245,6 +245,30 @@ describe("comandos operacionais versionados",()=>{
     expect(excess).toMatchObject({ok:false});
   });
 
+  it("recusa recebimento de pedido cancelado ou em rascunho",()=>{
+    const order=status=>({pedidos:[{id:"p-1",obraId:"o-1",status,version:1,itens:[{id:"i-1",materialId:"mat-1",qtd:2,qtdRecebida:0,precoUnit:10}]}],movEstoque:[],materiais:[]});
+    const payload={pedidoId:"p-1",receivedQuantities:{"i-1":2},stockEntries:[{id:"stock-1",pedidoItemId:"i-1",pedidoId:"p-1",obraId:"o-1",materialId:"mat-1",qtd:2}]};
+    const cancelled=applyOperationalCommand(order("cancelado"),command(OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,"purchase-receipt-cancelled-0001",payload,1));
+    expect(cancelled.ok).toBe(false);expect(cancelled.reason).toMatch(/cancelado/);
+    const draft=applyOperationalCommand(order("rascunho"),command(OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,"purchase-receipt-draft-0001",payload,1));
+    expect(draft.ok).toBe(false);expect(draft.reason).toMatch(/Envie o pedido/);
+  });
+
+  it("recusa entrada de estoque fora da unidade canônica ou com custo diferente do pedido",()=>{
+    const initial={pedidos:[{id:"p-1",obraId:"o-1",version:1,itens:[{
+      id:"i-1",materialId:"mat-1",qtd:10,qtdRecebida:0,precoUnit:18,
+      unidadeRef:"KG",unidadeCompra:"SC",fatorConversao:20,
+    }]}],movEstoque:[],materiais:[{id:"mat-1",unidade:"KG"}]};
+    const entry={id:"stock-1",pedidoItemId:"i-1",pedidoId:"p-1",obraId:"o-1",materialId:"mat-1",qtdCompra:10};
+    const send=(patch,key)=>applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,key,{
+      pedidoId:"p-1",receivedQuantities:{"i-1":10},stockEntries:[{...entry,...patch}],
+    },1));
+    // 10 sacos lançados como 10 kg (o bug antigo da confirmação de chegada).
+    expect(send({qtd:10,valorUnit:18},"purchase-receipt-unit-0001").ok).toBe(false);
+    expect(send({qtd:200,valorUnit:1},"purchase-receipt-cost-0001").ok).toBe(false);
+    expect(send({qtd:200,valorUnit:.9},"purchase-receipt-ok-0001").ok).toBe(true);
+  });
+
   it("recebe em sacos e movimenta o estoque na unidade canônica",()=>{
     const initial={pedidos:[{id:"p-1",obraId:"o-1",version:1,itens:[{
       id:"i-1",materialId:"mat-1",qtd:10,qtdRecebida:0,precoUnit:18,
