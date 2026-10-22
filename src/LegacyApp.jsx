@@ -10254,13 +10254,13 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
               <div className="rounded-md border border-[#d4af37]/30 bg-[#d4af37]/10 p-3 text-xs leading-relaxed text-slate-300">
                 Crie o administrador inicial. Os dados existentes da empresa serão preservados.
               </div>
-              <div className="flex flex-col gap-2"><Label htmlFor="setup-nome" className="text-xs font-semibold text-slate-300">Nome do administrador</Label><Input id="setup-nome" value={setupForm.nome} onChange={e=>setSetupForm(f=>({...f,nome:e.target.value}))} autoFocus className="h-11 border-white/10 bg-white/[0.04] text-white"/></div>
-              <div className="flex flex-col gap-2"><Label htmlFor="setup-email" className="text-xs font-semibold text-slate-300">E-mail corporativo</Label><Input id="setup-email" type="email" value={setupForm.email} onChange={e=>setSetupForm(f=>({...f,email:e.target.value}))} className="h-11 border-white/10 bg-white/[0.04] text-white"/></div>
-              <div className="grid grid-cols-2 gap-3"><div className="flex flex-col gap-2"><Label htmlFor="setup-pin" className="text-xs font-semibold text-slate-300">PIN</Label><Input id="setup-pin" type="password" inputMode="numeric" value={setupForm.pin} onChange={e=>setSetupForm(f=>({...f,pin:e.target.value}))} className="h-11 border-white/10 bg-white/[0.04] text-white"/></div><div className="flex flex-col gap-2"><Label htmlFor="setup-confirmacao" className="text-xs font-semibold text-slate-300">Confirmar PIN</Label><Input id="setup-confirmacao" type="password" inputMode="numeric" value={setupForm.confirmacao} onChange={e=>setSetupForm(f=>({...f,confirmacao:e.target.value}))} className="h-11 border-white/10 bg-white/[0.04] text-white"/></div></div>
+              <div className="flex flex-col gap-2"><Label htmlFor="setup-nome" className="text-xs font-semibold text-slate-300">Nome do administrador</Label><Input id="setup-nome" value={setupForm.nome} onChange={e=>setSetupForm(f=>({...f,nome:e.target.value}))} autoFocus className="h-11 border-white/10 bg-white/4 text-white"/></div>
+              <div className="flex flex-col gap-2"><Label htmlFor="setup-email" className="text-xs font-semibold text-slate-300">E-mail corporativo</Label><Input id="setup-email" type="email" value={setupForm.email} onChange={e=>setSetupForm(f=>({...f,email:e.target.value}))} className="h-11 border-white/10 bg-white/4 text-white"/></div>
+              <div className="grid grid-cols-2 gap-3"><div className="flex flex-col gap-2"><Label htmlFor="setup-pin" className="text-xs font-semibold text-slate-300">PIN</Label><Input id="setup-pin" type="password" inputMode="numeric" value={setupForm.pin} onChange={e=>setSetupForm(f=>({...f,pin:e.target.value}))} className="h-11 border-white/10 bg-white/4 text-white"/></div><div className="flex flex-col gap-2"><Label htmlFor="setup-confirmacao" className="text-xs font-semibold text-slate-300">Confirmar PIN</Label><Input id="setup-confirmacao" type="password" inputMode="numeric" value={setupForm.confirmacao} onChange={e=>setSetupForm(f=>({...f,confirmacao:e.target.value}))} className="h-11 border-white/10 bg-white/4 text-white"/></div></div>
               {erro&&<Alert key={erro} variant="destructive" className="py-2.5 login-error-shake"><AlertDescription className="text-xs">{erro}</AlertDescription></Alert>}
               <Button onClick={concluirPrimeiroAcesso} disabled={loading} className="h-11 w-full bg-[#d4af37] font-bold text-[#10151d] hover:bg-[#e1c159]">{loading?"Criando ambiente...":"Criar administrador e entrar"}</Button>
             </div> : <Tabs value={metodo} onValueChange={trocarMetodo}>
-              <TabsList className="grid grid-cols-2 w-full h-11 border border-white/10 bg-white/[0.04] p-1">
+              <TabsList className="grid grid-cols-2 w-full h-11 border border-white/10 bg-white/4 p-1">
                 <TabsTrigger value="email" className="text-xs text-slate-400 data-[state=active]:bg-[#d4af37] data-[state=active]:text-[#10151d] data-[state=active]:shadow-none">E-mail e senha</TabsTrigger>
                 <TabsTrigger value="pin" className="text-xs text-slate-400 data-[state=active]:bg-[#d4af37] data-[state=active]:text-[#10151d] data-[state=active]:shadow-none">PIN de acesso</TabsTrigger>
               </TabsList>
@@ -10272,7 +10272,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
                          value={email} onChange={e=>setEmail(e.target.value)}
                          onKeyDown={e=>{if(e.key==="Enter")tentarEmail();}}
                          placeholder="nome@empresa.com.br"
-                         className="h-11 border-white/10 bg-white/[0.04] text-white placeholder:text-slate-600 focus-visible:ring-[#d4af37]" />
+                         className="h-11 border-white/10 bg-white/4 text-white placeholder:text-slate-600 focus-visible:ring-[#d4af37]" />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="login-senha" className="text-xs font-semibold text-slate-300">Senha</Label>
@@ -10280,7 +10280,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
                     <Input id="login-senha" type={mostrarSenha?"text":"password"} autoComplete="current-password"
                            value={senha} onChange={e=>setSenha(e.target.value)}
                            onKeyDown={e=>{if(e.key==="Enter")tentarEmail();}}
-                           placeholder="Digite sua senha" className="h-11 border-white/10 bg-white/[0.04] pr-10 text-white placeholder:text-slate-600 focus-visible:ring-[#d4af37]" />
+                           placeholder="Digite sua senha" className="h-11 border-white/10 bg-white/4 pr-10 text-white placeholder:text-slate-600 focus-visible:ring-[#d4af37]" />
                     <button type="button" onClick={()=>setMostrarSenha(v=>!v)}
                             aria-label={mostrarSenha?"Ocultar senha":"Mostrar senha"}
                             className="login-password-toggle absolute right-1 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
@@ -10314,7 +10314,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
                       return (
                         <button type="button" key={u.id} style={{"--row-i":idx}}
                                 onClick={()=>{setSelUser(u);setStep("pin");setPin("");setErro("");}}
-                                className="w-full flex items-center gap-3 p-2.5 rounded-md border border-white/10 bg-white/[0.025] hover:border-[#d4af37]/60 hover:bg-white/[0.06] text-left transition-colors active:scale-[0.98]">
+                                className="w-full flex items-center gap-3 p-2.5 rounded-md border border-white/10 bg-white/2.5 hover:border-[#d4af37]/60 hover:bg-white/6 text-left transition-colors active:scale-[0.98]">
                           <span className="w-9 h-9 rounded-md flex items-center justify-center text-xs font-bold shrink-0"
                                 style={{background:`${role.color}1F`, color: role.color}}>{iniciais}</span>
                           <span className="min-w-0">
@@ -10357,7 +10357,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
                     <div className="grid grid-cols-3 gap-2">
                       {[1,2,3,4,5,6,7,8,9,"",0,"back"].map((d,i)=>(
                         <Button key={i} type="button" variant="outline" disabled={loading||d===""}
-                                className={cn("border-white/10 bg-white/[0.03] text-white hover:border-[#d4af37]/60 hover:bg-white/[0.08] hover:text-white active:scale-95 transition-transform",d===""&&"invisible")}
+                                className={cn("border-white/10 bg-white/3 text-white hover:border-[#d4af37]/60 hover:bg-white/8 hover:text-white active:scale-95 transition-transform",d===""&&"invisible")}
                                 onClick={()=>d===""?null:d==="back"?handleBackspace():handleDigit(String(d))}>
                           {d==="back" ? <Delete className="w-4 h-4"/> : d}
                         </Button>

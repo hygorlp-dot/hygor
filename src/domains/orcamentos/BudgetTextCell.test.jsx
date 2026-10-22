@@ -31,7 +31,7 @@ describe("célula editável do orçamento", () => {
     expect(input.value).toBe("CONCRETO MAGRO PARA LASTRO, TRAÇO 1:4,5:4,5");
   });
 
-  it("mostra a referência selecionada mesmo com o campo focado e não sobrescreve no blur", () => {
+  it("mostra a referência selecionada mesmo com o campo focado e não sobrescreve no blur-sm", () => {
     const onCommit = vi.fn();
     const input = render({ value:"Antiga", searchOnly:true, onCommit, resetKey:0 });
     act(() => { input.focus(); typeText(input,"concreto magro"); });
