@@ -37,7 +37,6 @@ import {
 import { canManagePurchases } from "../permissions";
 import { movementOfOrder } from "../purchase-cancellation-command";
 import { active } from "../../financeiro/ledger";
-import { arcdApprovalEngine as motorAprovacaoGenerico } from "../../aprovacoes/arcd-engine.js";
 import {
   changePurchaseRequestProject,
   purchaseRequestSummary,
@@ -1031,21 +1030,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       ? (data.solicitacoesCompra||[]).map(s=>s.id===f.id?registro:s)
       : [...(data.solicitacoesCompra||[]),registro];
 
-    // Nova solicitação -> dispara o motor de aprovação (§2). Sem nenhuma
-    // política configurada, aprova automaticamente na hora - não trava
-    // ninguém até o administrador definir as alçadas de verdade.
-    let dataFinal={...data,materiais:materiaisAtualizados,solicitacoesCompra:solicitacoesCompraBase};
-    if(!f.id){
-      const valorTotalEstimado=itens.reduce((s,i)=>s+referenceTotalOf(i),0);
-      const contexto={valorTotal:valorTotalEstimado,obraId:registro.obraId,categoria:"material",
-        solicitanteId:registro.solicitanteId,urgencia:registro.prioridade};
-      const {data:comAprovacao,resumo}=motorAprovacaoGenerico.iniciarInstancia(dataFinal,{
-        entidadeTipo:"solicitacaoCompra",entidadeId:solicitacaoId,contexto,operador:currentUser,
-        comportamentoSemPolitica:data.configAprovacao?.comportamentoSemPolitica||"auto_aprovar",
-      });
-      dataFinal={...comAprovacao,solicitacoesCompra:comAprovacao.solicitacoesCompra.map(s=>
-        s.id===solicitacaoId?{...s,aprovacaoInstanciaId:resumo.instanciaId}:s)};
-    }
+    // A aprovação nasce no servidor (purchase-approval.js), com a alçada da
+    // empresa: a tela não monta nem envia instância de aprovação.
+    const dataFinal={...data,materiais:materiaisAtualizados,solicitacoesCompra:solicitacoesCompraBase};
     if(!dispatchCommand){
       showToast("O salvamento seguro da solicitação exige conexão com o servidor.","error");
       return false;
@@ -1053,8 +1040,6 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     const solicitacaoFinal=(dataFinal.solicitacoesCompra||[]).find(s=>s.id===solicitacaoId)||registro;
     const catalogMaterials=(dataFinal.materiais||[]).filter(material=>
       String(material.solicitacaoOrigemId||"")===String(solicitacaoId));
-    const approvalInstance=(dataFinal.instanciasAprovacao||[]).find(instance=>
-      String(instance.id||"")===String(solicitacaoFinal.aprovacaoInstanciaId||""));
     const result=await dispatchCommand(atual=>{
       const vigente=(atual.solicitacoesCompra||[]).find(s=>String(s.id)===String(solicitacaoId));
       return {
@@ -1062,7 +1047,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         idempotencyKey:`solicitacao-compra-${solicitacaoId}-${uid()}`,
         expectedVersion:Number(vigente?.version||0),
         actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{request:solicitacaoFinal,catalogMaterials,approvalInstance},
+        payload:{request:solicitacaoFinal,catalogMaterials},
       };
     });
     if(!result?.ok){
@@ -1090,14 +1075,18 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       .filter(({resultado})=>resultado?.status==="em_andamento"&&(resultado.aprovadoresElegiveis||[]).some(u=>u.id===currentUser?.id));
   };
   const decidirAprovacao=async(instancia,etapaId,decisao,justificativa="")=>{
-    const {data:next,resumo}=motorAprovacaoGenerico.registrarDecisao(data,{
-      instanciaId:instancia.id,etapaId,aprovadorId:currentUser?.id||"",aprovadorNome:currentUser?.nome||currentUser?.email||"Operador",
-      decisao,justificativa,contexto:{valorTotal:0},
-    });
-    if(!resumo.ok){showToast(resumo.motivo||"Não foi possível registrar a decisão.","error");return;}
-    const result=await update(next);
-    if(result&&result.ok===false){
-      showToast(result.reason||"O servidor não confirmou a decisão. Tente novamente.","error");return;
+    if(decisao==="reprovado"&&!String(justificativa||"").trim()){showToast("Informe o motivo da reprovação.","error");return;}
+    if(!dispatchCommand){showToast("Registrar a decisão exige conexão com o servidor.","error");return;}
+    // O servidor registra o usuário autenticado como aprovador e confere se
+    // ele é elegível para a etapa (approval-commands.js).
+    const result=await dispatchCommand(()=>({
+      type:OPERATIONAL_COMMAND.APPROVAL_DECISION_RECORDED,
+      idempotencyKey:`aprovacao-${instancia.id}-${etapaId}-${uid()}`,
+      actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{instanciaId:instancia.id,etapaId,decisao,justificativa:String(justificativa||"").trim()},
+    }));
+    if(!result?.ok){
+      showToast(result?.reason||"O servidor não confirmou a decisão. Tente novamente.","error");return;
     }
     showToast(decisao==="aprovado"?"Aprovação registrada.":"Reprovação registrada.");
   };
@@ -1156,11 +1145,12 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const gerarPedidoSolicitacao=(sol)=>{
     if(!podeProcessar){showToast("Somente o setor de Compras pode transformar a solicitação em pedido.","error");return;}
     const instanciaApr=instanciaAprovacaoDe(sol);
-    if(["reprovada","cancelada"].includes(instanciaApr?.status)){
-      showToast(`Esta solicitação foi ${instanciaApr.status} na aprovação e não pode virar pedido.`,"error");return;
-    }
+    // Sem atalho: a solicitação só vira pedido depois de aprovada. O servidor
+    // recusa do mesmo jeito (purchase-order-commands.js).
     if(instanciaApr&&instanciaApr.status!=="aprovada"){
-      if(!window.confirm(`Esta solicitação ainda não foi aprovada (status: ${instanciaApr.status}). Deseja continuar mesmo assim?`))return;
+      showToast(["reprovada","cancelada"].includes(instanciaApr.status)
+        ?"Esta solicitação foi reprovada na aprovação e não pode virar pedido."
+        :"Esta solicitação ainda aguarda aprovação. O pedido fica liberado assim que ela for aprovada.","error");return;
     }
     const itens=sol.itens.map(item=>{
       const existente=materiais.find(m=>(item.codigoRef&&maiusculoOrcamento(m.codigo)===maiusculoOrcamento(item.codigoRef)&&maiusculoOrcamento(m.fonteRef||item.fonteRef)===maiusculoOrcamento(item.fonteRef))||
