@@ -20,6 +20,13 @@ export const conversionFactorOf = item => {
 export const referenceQuantityOf = (item, quantity = item?.quantidade ?? item?.qtd) =>
   number(quantity) * conversionFactorOf(item);
 
+// Custo por unidade de estoque (unidade do cadastro): preço da embalagem
+// comprada dividido pelo fator. Usado no recebimento, na tela e no servidor.
+export const referenceUnitCostOf = item => {
+  const factor = conversionFactorOf(item);
+  return factor > 0 ? number(item?.precoUnit) / factor : number(item?.precoUnit);
+};
+
 export const referencePricePerPurchaseUnit = item =>
   number(item?.precoRef) * conversionFactorOf(item);
 

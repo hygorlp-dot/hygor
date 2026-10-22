@@ -115,6 +115,16 @@ const normalizeOrder=(data,raw,current,{newMaterials=[]}={})=>{
   const request=requestId?requestById(data,requestId):null;
   if(requestId&&!request)return {error:"A solicitação relacionada ao pedido não existe."};
   if(request&&String(request.obraId)!==obraId)return {error:"Pedido e solicitação precisam pertencer à mesma obra."};
+  if(request&&request.status==="cancelada")return {error:"A solicitação relacionada foi cancelada e não pode gerar pedido."};
+  const approval=request?.aprovacaoInstanciaId
+    ?(data.instanciasAprovacao||[]).find(item=>String(item.id)===String(request.aprovacaoInstanciaId)):null;
+  if(!current&&["reprovada","cancelada"].includes(approval?.status)){
+    return {error:"A solicitação foi reprovada na aprovação e não pode gerar pedido."};
+  }
+  const requestOrder=request?.pedidoId&&String(request.pedidoId)!==id?orderById(data,request.pedidoId):null;
+  if(requestOrder&&active(requestOrder)&&requestOrder.status!=="cancelado"){
+    return {error:`Esta solicitação já gerou o pedido ${requestOrder.numero}.`};
+  }
   const quoteId=String(raw.cotacaoId||"");
   const quote=quoteId?quoteById(data,quoteId):null;
   if(quoteId&&!quote)return {error:"A cotação relacionada ao pedido não existe."};
@@ -149,6 +159,9 @@ const saveOrder=(data,command,now)=>{
     return fail("O pedido foi alterado por outra pessoa. Atualize a tela.");
   }
   if(!current&&command.expectedVersion!==0)return fail("A criação do pedido exige versão inicial zero.");
+  if(current&&(current.status==="cancelado"||!active(current))){
+    return fail("Este pedido foi cancelado e não pode mais ser alterado.");
+  }
   if(current&&!String(payload.adjustmentReason||"").trim()){
     return fail("Informe o motivo do ajuste do pedido.");
   }

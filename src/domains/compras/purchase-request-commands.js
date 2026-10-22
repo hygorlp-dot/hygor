@@ -41,6 +41,11 @@ const saveRequest=(data,command,now)=>{
   const current=requestById(data,id);
   if(!id)return fail("Solicitação sem identificação única.");
   if(current?.status==="cancelada")return fail("Esta solicitação foi cancelada e não pode mais ser editada.");
+  // Depois que Compras gera o pedido, mudar a solicitação faria ela divergir
+  // do que foi comprado. O ajuste passa a ser feito no pedido.
+  if(current?.pedidoId||current?.status==="pedido_gerado"){
+    return fail("Esta solicitação já gerou um pedido de compra. Ajuste o pedido em vez da solicitação.");
+  }
   if(!(data.obras||[]).some(item=>String(item.id)===obraId))return fail("Selecione uma obra existente para a solicitação.");
   if(current&&versionOf(current)!==Number(command.expectedVersion)){
     return fail("A solicitação foi alterada por outra pessoa. Atualize a tela e tente novamente.");

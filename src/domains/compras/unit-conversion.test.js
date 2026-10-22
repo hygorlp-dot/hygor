@@ -8,6 +8,7 @@ import {
   steelDiameterMmOf,
   steelKgPerMeterOf,
   suggestedSteelConversion,
+  referenceUnitCostOf,
 } from "./unit-conversion";
 
 describe("conversão de unidades de Compras", () => {
@@ -59,3 +60,11 @@ describe("conversão de unidades de Compras", () => {
     expect(suggestedSteelConversion(item,"BR",6).factor).toBeCloseTo(5.787037,5);
   });
 });
+
+describe("custo na unidade do estoque",()=>{
+  it("divide o preço da embalagem pelo fator e mantém o preço sem conversão",()=>{
+    expect(referenceUnitCostOf({precoUnit:18,unidadeRef:"KG",unidadeCompra:"SC",fatorConversao:20})).toBeCloseTo(.9);
+    expect(referenceUnitCostOf({precoUnit:18,unidadeRef:"UN"})).toBe(18);
+  });
+});
+

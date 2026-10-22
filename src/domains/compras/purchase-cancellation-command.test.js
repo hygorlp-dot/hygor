@@ -92,4 +92,38 @@ describe("cancelamento transacional de compra",()=>{
     expect(result.ok).toBe(true);
     expect(result.data.pedidos[0].status).toBe("cancelado");
   });
+
+  it("recusa cancelar compra cujo material a obra já consumiu",()=>{
+    const consumed=data();
+    consumed.movEstoque=[
+      {id:"me-1",pedidoId:"p-1",obraId:"o-1",materialId:"m-1",tipo:"entrada",qtd:10,status:"ativo",version:1},
+      {id:"me-2",obraId:"o-1",materialId:"m-1",tipo:"consumo",qtd:6,status:"ativo",version:1},
+    ];
+    expect(applyPurchaseCancellationCommand(consumed,command(),now).reason).toMatch(/já foi consumida/);
+    // Com outra entrada cobrindo o consumo, o saldo não fica negativo.
+    consumed.movEstoque.push({id:"me-3",obraId:"o-1",materialId:"m-1",tipo:"entrada",qtd:6,status:"ativo",version:1});
+    const result=applyPurchaseCancellationCommand(consumed,command(),now);
+    expect(result.ok).toBe(true);
+    expect(result.data.movEstoque.find(item=>item.id==="me-1").status).toBe("cancelado");
+  });
+
+  it("não confunde movimento antigo de outro pedido com número de mesmo prefixo",()=>{
+    const legacy=data();
+    legacy.pedidos[0].numero="PC-1";
+    legacy.movEstoque=[
+      {id:"me-1",obraId:"o-1",materialId:"m-1",tipo:"entrada",qtd:1,status:"ativo",descricao:"Pedido PC-1 · Fornecedor A",version:1},
+      {id:"me-12",obraId:"o-1",materialId:"m-2",tipo:"entrada",qtd:1,status:"ativo",descricao:"Pedido PC-12 · Fornecedor B",version:1},
+    ];
+    const result=applyPurchaseCancellationCommand(legacy,command(),now);
+    expect(result.ok).toBe(true);
+    expect(result.data.movEstoque.find(item=>item.id==="me-1").status).toBe("cancelado");
+    expect(result.data.movEstoque.find(item=>item.id==="me-12").status).toBe("ativo");
+  });
+
+  it("não reabre nem recarimba movimento de estoque já cancelado",()=>{
+    const previous=data();
+    previous.movEstoque=[{id:"me-1",pedidoId:"p-1",obraId:"o-1",tipo:"entrada",status:"cancelado",canceladoEm:"2026-07-01",version:4}];
+    const result=applyPurchaseCancellationCommand(previous,command(),now);
+    expect(result.data.movEstoque[0]).toEqual(previous.movEstoque[0]);
+  });
 });

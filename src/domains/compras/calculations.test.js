@@ -5,6 +5,7 @@ import {
   statusPagamentoPedido,
   analisePreco,
   mapaGerencialCompras,
+  proximoNumeroPedido,
 } from "./calculations";
 
 describe("domínio de compras", () => {
@@ -71,3 +72,14 @@ describe("domínio de compras", () => {
     expect(mapa.alertas.some(a => a.nivel === "critico")).toBe(true);
   });
 });
+
+describe("numeração de pedido de compra",()=>{
+  it("usa o maior número existente e não repete quando a contagem fica para trás",()=>{
+    expect(proximoNumeroPedido([])).toBe("PC-0001");
+    // Antes: 2 pedidos -> PC-0003, que já existia e o servidor recusava.
+    expect(proximoNumeroPedido([{numero:"PC-0001"},{numero:"PC-0003"}])).toBe("PC-0004");
+    expect(proximoNumeroPedido([{numero:"PC-0002"},{numero:"NF 55"},{numero:"pc-0009"}])).toBe("PC-0010");
+    expect(proximoNumeroPedido([{numero:"X"},{numero:"Y"}])).toBe("PC-0003");
+  });
+});
+

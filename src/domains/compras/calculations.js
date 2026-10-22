@@ -15,6 +15,18 @@ export const statusPedido = pedido => {
   return recebido<=0?"enviado":recebido>=total-1e-6?"recebido":"parcial";
 };
 
+// Próximo número livre de pedido. Contar os pedidos (antes: length+1) repete
+// número quando algum foi numerado à mão ou removido; o servidor recusa
+// número repetido e a compra travava.
+export const proximoNumeroPedido = pedidos => {
+  const lista=pedidos||[];
+  const maior=lista.reduce((max,pedido)=>{
+    const match=String(pedido?.numero||"").trim().match(/^PC-(\d+)$/i);
+    return match?Math.max(max,Number(match[1])):max;
+  },0);
+  return `PC-${String(Math.max(maior,lista.length)+1).padStart(4,"0")}`;
+};
+
 export const totalPedido = pedido => (pedido.itens||[])
   .reduce((s,i)=>s+Number(i.qtd||0)*Number(i.precoUnit||0),0);
 export const recebidoPedido = pedido => (pedido.itens||[])
