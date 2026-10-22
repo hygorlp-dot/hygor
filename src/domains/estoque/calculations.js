@@ -23,6 +23,22 @@ export const calcSaldos = (movs) => {
 
 export const saldoDe = (saldos, obraId, materialId) => saldos[`${obraId}|${materialId}`] || 0;
 
+// Custo médio ponderado do insumo (decisão de 22/10/2026): soma de
+// quantidade × custo das ENTRADAS ativas, dividida pela soma das quantidades,
+// na unidade do cadastro e somando todas as obras. Recalculado a partir dos
+// movimentos, um cancelamento de compra já tira a entrada da média. Sem
+// entrada com custo, devolve null (quem chama mantém o valor cadastrado).
+export const custoMedioPonderado = (movs, materialId) => {
+  let quantidade = 0, valor = 0;
+  (movs || []).forEach(x => {
+    if (x?.materialId !== materialId || x.tipo !== "entrada" || inactiveStatus(x.status)) return;
+    const qtd = Number(x.qtd || 0), custo = Number(x.valorUnit || 0);
+    if (!(qtd > 0) || !(custo > 0)) return;
+    quantidade += qtd; valor += qtd * custo;
+  });
+  return quantidade > 0 ? valor / quantidade : null;
+};
+
 // "Executei 120 m de alvenaria" → quanto sai de cada insumo
 export const baixarPorComposicao = (comp, qtdExecutada) =>
   (comp?.itens || [])

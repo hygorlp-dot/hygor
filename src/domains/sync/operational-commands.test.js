@@ -245,6 +245,17 @@ describe("comandos operacionais versionados",()=>{
     expect(excess).toMatchObject({ok:false});
   });
 
+  it("recebimento atualiza o custo médio ponderado e guarda o último preço (C1.5)",()=>{
+    const initial={pedidos:[{id:"p-1",obraId:"o-1",version:1,itens:[{id:"i-1",materialId:"mat-1",qtd:100,qtdRecebida:0,precoUnit:20}]}],
+      movEstoque:[{id:"old",materialId:"mat-1",obraId:"o-2",tipo:"entrada",qtd:100,valorUnit:10}],
+      materiais:[{id:"mat-1",precoMedio:10}]};
+    const payload={pedidoId:"p-1",receivedQuantities:{"i-1":100},stockEntries:[{id:"stock-1",pedidoItemId:"i-1",pedidoId:"p-1",obraId:"o-1",materialId:"mat-1",qtd:100,valorUnit:20,tipo:"ajuste"}]};
+    const result=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,"purchase-receipt-average-0001",payload,1));
+    expect(result.data.materiais[0]).toMatchObject({precoMedio:15,ultimoPrecoCompra:20});
+    // O navegador não escolhe o tipo do movimento: recebimento é entrada.
+    expect(result.data.movEstoque.find(item=>item.id==="stock-1").tipo).toBe("entrada");
+  });
+
   it("recusa recebimento de pedido cancelado ou em rascunho",()=>{
     const order=status=>({pedidos:[{id:"p-1",obraId:"o-1",status,version:1,itens:[{id:"i-1",materialId:"mat-1",qtd:2,qtdRecebida:0,precoUnit:10}]}],movEstoque:[],materiais:[]});
     const payload={pedidoId:"p-1",receivedQuantities:{"i-1":2},stockEntries:[{id:"stock-1",pedidoItemId:"i-1",pedidoId:"p-1",obraId:"o-1",materialId:"mat-1",qtd:2}]};

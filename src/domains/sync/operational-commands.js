@@ -86,6 +86,7 @@ import {
   applyStockCommand,
   STOCK_COMMAND,
 } from "../estoque/commands.js";
+import { custoMedioPonderado } from "../estoque/calculations.js";
 import {
   applyConferenceCommand,
   CONFERENCE_COMMAND,
@@ -772,7 +773,9 @@ export const applyOperationalCommand=(data,command)=>{
     const versionError=requiresVersion(current,command.expectedVersion,"O pedido");
     if(versionError)return fail(versionError);
     const quantities=command.payload?.receivedQuantities;
-    const entries=Array.isArray(command.payload?.stockEntries)?command.payload.stockEntries:[];
+    // Recebimento só gera entrada de estoque: o tipo é do servidor.
+    const entries=Array.isArray(command.payload?.stockEntries)
+      ?command.payload.stockEntries.map(entry=>entry&&typeof entry==="object"?{...entry,tipo:"entrada"}:entry):[];
     if(!quantities||!entries.length)return fail("Recebimento de pedido incompleto.");
     const ids=new Set((data?.movEstoque||[]).map(item=>item.id));
     if(entries.some(item=>!item?.id||ids.has(item.id)))return fail("Há uma entrada de estoque duplicada neste recebimento.");
@@ -804,7 +807,9 @@ export const applyOperationalCommand=(data,command)=>{
       const item=(current.itens||[]).find(entry=>entry.materialId===material.id&&Number(quantities[entry.id]||0)>0);
       const factor=conversionFactorOf(item);
       const canonicalPrice=factor>0?Number(item?.precoUnit||0)/factor:Number(item?.precoUnit||0);
-      return {...material,precoMedio:canonicalPrice||Number(material.precoMedio||0),
+      const average=custoMedioPonderado([...(data?.movEstoque||[]),...entries],material.id);
+      return {...material,precoMedio:average??(canonicalPrice||Number(material.precoMedio||0)),
+        ultimoPrecoCompra:canonicalPrice||Number(material.ultimoPrecoCompra||0),
         ultimaUnidadeCompra:item?.unidadeCompra||item?.unidadeRef||material.unidade||"",
         ultimoFatorConversao:factor||1,
         ultimaReferenciaCompra:referencePricePerPurchaseUnit(item)};
