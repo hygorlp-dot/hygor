@@ -1,0 +1,455 @@
+{
+  "geradoEm": "2026-10-20T14:25:24.618Z",
+  "sha": "215e9f1fb6c11c2d967e1c07a89a5024073ad771",
+  "geral": 9.7,
+  "categorias": [
+    {
+      "id": "android",
+      "nota": 9.3,
+      "gates": [
+        {
+          "id": "expo-doctor",
+          "status": "pass"
+        },
+        {
+          "id": "bundle-android",
+          "status": "pass"
+        },
+        {
+          "id": "tflite-no-bundle",
+          "status": "pass"
+        },
+        {
+          "id": "prebuild",
+          "status": "pass"
+        },
+        {
+          "id": "sqlcipher-config",
+          "status": "pass"
+        },
+        {
+          "id": "reabertura",
+          "status": "pass"
+        },
+        {
+          "id": "transacao-duravel",
+          "status": "pass"
+        },
+        {
+          "id": "tflite-carregamento",
+          "status": "pass"
+        },
+        {
+          "id": "falhas-fisicas",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "id": "offline",
+      "nota": 10,
+      "gates": [
+        {
+          "id": "sem-internet",
+          "status": "pass"
+        },
+        {
+          "id": "servidor-500",
+          "status": "pass"
+        },
+        {
+          "id": "hora-offline",
+          "status": "pass"
+        },
+        {
+          "id": "gps-ausente",
+          "status": "pass"
+        },
+        {
+          "id": "lote-offline",
+          "status": "pass"
+        },
+        {
+          "id": "registro-manual-offline",
+          "status": "pass"
+        },
+        {
+          "id": "falhas-de-rede",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "id": "integridade",
+      "nota": 10,
+      "gates": [
+        {
+          "id": "sequencia-nunca-renumerada",
+          "status": "pass"
+        },
+        {
+          "id": "arp-so-acrescenta",
+          "status": "pass"
+        },
+        {
+          "id": "envio-por-eventid",
+          "status": "pass"
+        },
+        {
+          "id": "hash-sql-js",
+          "status": "pass"
+        },
+        {
+          "id": "append-only",
+          "status": "pass"
+        },
+        {
+          "id": "leitura-sem-efeito",
+          "status": "pass"
+        },
+        {
+          "id": "nsr-so-do-servidor",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "id": "seguranca",
+      "nota": 10,
+      "gates": [
+        {
+          "id": "sem-log",
+          "status": "pass"
+        },
+        {
+          "id": "sqlcipher-conexao",
+          "status": "pass"
+        },
+        {
+          "id": "android-config",
+          "status": "pass"
+        },
+        {
+          "id": "diagnostico-sem-pessoal",
+          "status": "pass"
+        },
+        {
+          "id": "pin-hash",
+          "status": "pass"
+        },
+        {
+          "id": "token-hash",
+          "status": "pass"
+        },
+        {
+          "id": "atividades-exportadas",
+          "status": "pass"
+        },
+        {
+          "id": "auditoria-documentada",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "id": "sincronizacao",
+      "nota": 10,
+      "gates": [
+        {
+          "id": "idempotencia",
+          "status": "pass"
+        },
+        {
+          "id": "ordem-offline",
+          "status": "pass"
+        },
+        {
+          "id": "foto-depois-do-ok",
+          "status": "pass"
+        },
+        {
+          "id": "fila-de-fotos-robusta",
+          "status": "pass"
+        },
+        {
+          "id": "revogado-e-desconhecido",
+          "status": "pass"
+        },
+        {
+          "id": "biometrias-por-assinatura",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "id": "multiobra",
+      "nota": 10,
+      "gates": [
+        {
+          "id": "funcionario-global",
+          "status": "pass"
+        },
+        {
+          "id": "lotacao-nao-invalida",
+          "status": "pass"
+        },
+        {
+          "id": "apropriacao",
+          "status": "pass"
+        },
+        {
+          "id": "migration-018",
+          "status": "pass"
+        },
+        {
+          "id": "copy-global",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "id": "facial",
+      "nota": 8.7,
+      "gates": [
+        {
+          "id": "identificacao",
+          "status": "pass"
+        },
+        {
+          "id": "far-frr-sintetico",
+          "status": "pass"
+        },
+        {
+          "id": "calibracao-anonima",
+          "status": "pass"
+        },
+        {
+          "id": "escala-1n",
+          "status": "pass"
+        },
+        {
+          "id": "anti-spoof-honesto",
+          "status": "pass"
+        },
+        {
+          "id": "limiares-centralizados",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "id": "ux_trabalhador",
+      "nota": 9,
+      "gates": [
+        {
+          "id": "status-conciso",
+          "status": "pass"
+        },
+        {
+          "id": "fases-camera",
+          "status": "pass"
+        },
+        {
+          "id": "falha-nao-alarmista",
+          "status": "pass"
+        },
+        {
+          "id": "sucesso-completo",
+          "status": "pass"
+        },
+        {
+          "id": "sem-termo-tecnico",
+          "status": "pass"
+        },
+        {
+          "id": "fuso-do-estabelecimento",
+          "status": "pass"
+        },
+        {
+          "id": "design-system",
+          "status": "pass"
+        },
+        {
+          "id": "telas-validadas",
+          "status": "pass"
+        },
+        {
+          "id": "impeccable-p0-p1",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "id": "ux_encarregado",
+      "nota": 9,
+      "gates": [
+        {
+          "id": "menu-seccionado",
+          "status": "pass"
+        },
+        {
+          "id": "cadastro-guiado",
+          "status": "pass"
+        },
+        {
+          "id": "pareamento-simples",
+          "status": "pass"
+        },
+        {
+          "id": "sincronizacao-legivel",
+          "status": "pass"
+        },
+        {
+          "id": "funcionarios",
+          "status": "pass"
+        },
+        {
+          "id": "acessivel",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "id": "acessibilidade",
+      "nota": 10,
+      "gates": [
+        {
+          "id": "alvos-44",
+          "status": "pass"
+        },
+        {
+          "id": "contraste",
+          "status": "pass"
+        },
+        {
+          "id": "nomes-acessiveis",
+          "status": "pass"
+        },
+        {
+          "id": "tamanho-minimo",
+          "status": "pass"
+        },
+        {
+          "id": "nao-so-cor",
+          "status": "pass"
+        },
+        {
+          "id": "font-scaling",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "id": "release",
+      "nota": 9.2,
+      "gates": [
+        {
+          "id": "versao-semver",
+          "status": "pass"
+        },
+        {
+          "id": "versao-rep",
+          "status": "pass"
+        },
+        {
+          "id": "versoes-no-diagnostico",
+          "status": "pass"
+        },
+        {
+          "id": "commit-no-build",
+          "status": "pass"
+        },
+        {
+          "id": "metadados-do-build",
+          "status": "pass"
+        },
+        {
+          "id": "perfis-eas",
+          "status": "pass"
+        },
+        {
+          "id": "release-check",
+          "status": "pass"
+        },
+        {
+          "id": "ci-relatorio",
+          "status": "pass"
+        },
+        {
+          "id": "arvore-limpa",
+          "status": "fail"
+        }
+      ]
+    },
+    {
+      "id": "diagnostico",
+      "nota": 10,
+      "gates": [
+        {
+          "id": "secoes",
+          "status": "pass"
+        },
+        {
+          "id": "privacidade",
+          "status": "pass"
+        },
+        {
+          "id": "hora",
+          "status": "pass"
+        },
+        {
+          "id": "matriz-de-hora",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "id": "rep_p_tecnico",
+      "nota": 10,
+      "gates": [
+        {
+          "id": "arp-nsr",
+          "status": "pass"
+        },
+        {
+          "id": "arp-atomica",
+          "status": "pass"
+        },
+        {
+          "id": "apropriacao-fora-da-arp",
+          "status": "pass"
+        },
+        {
+          "id": "sem-falsa-conformidade",
+          "status": "pass"
+        },
+        {
+          "id": "situacao-pendente",
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "id": "testes",
+      "nota": 10,
+      "gates": [
+        {
+          "id": "suite-verde",
+          "status": "pass"
+        },
+        {
+          "id": "ci-018",
+          "status": "pass"
+        },
+        {
+          "id": "ci-postgres",
+          "status": "pass"
+        },
+        {
+          "id": "ci-mobile",
+          "status": "pass"
+        }
+      ]
+    }
+  ]
+}

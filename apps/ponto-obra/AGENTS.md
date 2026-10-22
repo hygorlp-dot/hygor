@@ -19,7 +19,14 @@ Não faça upgrade de major (Expo/RN) sem decisão explícita.
 - **Navegação: máquina de estados em `App.js`** (`carregando → parear | ponto ⇄
   encarregado`, mais `erro` e `revogado`). **Não há Expo Router** e ele não
   deve ser introduzido sem decisão arquitetural explícita.
-- **Telas** em `src/telas/` (Pareamento, Ponto, Encarregado com Diagnóstico).
+- **Telas** em `src/telas/` (Pareamento, Ponto, Comprovante, Encarregado com
+  Sincronização, Cadastro facial e Diagnóstico).
+- **Design system** ARCD Precision / Cupertino Industrial em `src/ui/`
+  (`tokens.js` + componentes em `index.js`), documentado em `DESIGN.md`. Tela
+  não define cor, raio, fonte nem espaço próprio: `src/ui/design-system.test.js`
+  barra. O que cada tela mostra em cada estado (status, fases do
+  reconhecimento, falhas, comprovante, menu) fica em
+  `src/logica/apresentacao.js`, testado no Node.
 - **Lógica pura** (testada no Node) em `src/logica/`: batida (`terminal.js`),
   sincronização e fila (`sincronizacao.js`), contrato do armazém
   (`armazem-memoria.js`), rosto (`rosto.js`), **parâmetros de calibração
@@ -94,7 +101,13 @@ Não faça upgrade de major (Expo/RN) sem decisão explícita.
 - Diagnóstico (modo Encarregado) tem lista fechada de campos sem dado
   pessoal/biométrico (`src/logica/diagnostico.js`).
 - `android.allowBackup=false` (o banco cifrado não pode ir para a nuvem sem a
-  chave). Permissões só câmera e localização.
+  chave). Permissões perigosas só câmera e localização; `VIBRATE` (normal, sem
+  pedido ao usuário) vem do `expo-haptics`. `WRITE_SETTINGS` fica bloqueada: o
+  `expo-brightness` só ajusta o brilho da janela do app (sem plugin).
+- Feedback físico (`src/servicos/feedback.js`: vibração, voz e brilho) é
+  melhor esforço e nunca lança: a batida não depende dele. A voz diz só o
+  primeiro nome e pode ser desligada no modo Encarregado
+  (`preferencias_tela` no estado local, não é registro).
 - Texto do termo de consentimento (`TERMO_TEXTO`) é jurídico: não alterar sem
   decisão do responsável. Ver `docs/privacidade-e-retencao.md`.
 
@@ -115,15 +128,23 @@ npx vitest run apps/ponto-obra src/domains/ponto-eletronico server/ponto-eletron
 ```
 
 Os testes ponta a ponta do app usam Postgres real em memória (PGlite com as
-migrations 016 + 017). A concorrência com conexões paralelas de verdade
+migrations 016 + 017 + 018). A concorrência com conexões paralelas de verdade
 (`server/ponto-eletronico/arp/arp-concorrencia.pg.test.js`) só roda com
 `PONTO_PG_URL` apontando para um Postgres descartável (na CI: job
 `rep-p-arp-postgres`).
 
 Depois do prebuild local, apague `android/` (não é versionado) e desfaça a
 troca que o prebuild faz nos scripts `android`/`ios` do `package.json`
-(`git checkout -- package.json`). A CI repete
-tudo isso no job `mobile-ponto-obra` e **não** publica APK.
+(cuidado: `git checkout -- package.json` também desfaz dependências ainda não
+commitadas).
+
+**Tudo isso de uma vez**, com evidência e scorecard:
+`npm run mobile:release-check` (na raiz; `--rapido` pula doctor, bundle e
+prebuild; `--offline` sem rede). Ele salva e restaura o `package.json`, apaga
+`android/` e grava `apps/ponto-obra/quality-out/` (relatório
+`mobile-quality-report.md`). A CI roda o mesmo com `--ci` no job
+`mobile-ponto-obra` e **não** publica APK. Gates e notas:
+`docs/QUALITY-SCORECARD.md`.
 
 Use `npx expo install <pacote>` para dependências (versão compatível com o
 SDK). Biblioteca com código nativo exige novo build (não roda no Expo Go).

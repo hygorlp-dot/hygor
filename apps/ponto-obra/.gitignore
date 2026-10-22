@@ -46,3 +46,6 @@ yarn-error.*
 
 # Saída da validação do bundle na CI
 dist-ci/
+
+# Saída do release-check/scorecard (vai como artifact na CI)
+quality-out/

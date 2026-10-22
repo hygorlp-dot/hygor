@@ -52,8 +52,8 @@ jobs:
       - run: npm ci
       - name: Contratos das migrations e integração financeira
         run: npm test -- src/integration/financial-transaction-migration.test.js src/integration/auth-rate-limit-migration.test.js src/integration/audit-migration.test.js server/financial-shadow.test.js server/reconciliation-command.test.js
-      - name: Contratos das migrations do Ponto de Obra (016 legado + 017 ARP/NSR por estabelecimento)
-        run: npx vitest run server/ponto-eletronico-migration.pglite.test.js server/ponto-eletronico/arp/arp-migration.pglite.test.js server/ponto-eletronico/arp/handler-arp.pglite.test.js
+      - name: Contratos das migrations do Ponto de Obra (016 legado + 017 ARP/NSR por estabelecimento + 018 apropriação por obra)
+        run: npx vitest run server/ponto-eletronico-migration.pglite.test.js server/ponto-eletronico/arp/arp-migration.pglite.test.js server/ponto-eletronico/arp/arp-migration-caminhos.pglite.test.js server/ponto-eletronico/arp/handler-arp.pglite.test.js server/ponto-eletronico/apropriacao-migration.pglite.test.js
       - name: Contrato da migration 019 (schema public fechado para anon/authenticated)
         run: npx vitest run server/acesso-publico-migration.pglite.test.js server/manutencao-banco-migration.pglite.test.js
       - name: Sintaxe da fronteira de API
@@ -61,11 +61,14 @@ jobs:
 
   # App Android "Ponto de Obra" (Expo, apps/ponto-obra). Só impede regressão:
   # NÃO compila nem publica APK (isso é feito à mão na EAS, perfil "piloto").
+  # Tudo passa pelo release-check (o mesmo que se roda antes de um build):
+  # testes (app, domínio, servidor, migrations), expo-doctor, bundle com os
+  # 2 .tflite, prebuild + verificar-prebuild, versões e o scorecard objetivo
+  # (scripts/mobile-quality-score.mjs). Bloqueia por P0, gate crítico
+  # reprovado, evidência ausente e regressão contra quality/baseline.json.
+  # Estética subjetiva não bloqueia.
   mobile-ponto-obra:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/ponto-obra
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -76,23 +79,22 @@ jobs:
             package-lock.json
             apps/ponto-obra/package-lock.json
       - name: Instalação limpa do app
+        working-directory: apps/ponto-obra
         run: npm ci
-      - name: expo-doctor (versões do SDK 57, config, autolinking)
-        run: npx expo-doctor
-      - name: Bundle Android (Metro + código compartilhado + modelos .tflite)
-        run: |
-          npx expo export --platform android --output-dir dist-ci
-          test "$(grep -o '"ext":"tflite"' dist-ci/metadata.json | wc -l)" -ge 2
-      - name: Prebuild Android descartável (SQLCipher, permissões, autolinking)
-        run: |
-          npx expo prebuild --platform android --no-install --clean
-          node scripts/verificar-prebuild.mjs
       - name: Instalação da raiz (testes compartilhados)
-        working-directory: .
         run: npm ci
-      - name: Testes do Ponto de Obra (app, regras compartilhadas e servidor)
-        working-directory: .
-        run: npx vitest run apps/ponto-obra src/domains/ponto-eletronico server/ponto-eletronico
+      - name: Release check + scorecard (doctor, bundle, prebuild, testes, gates de UX/segurança/REP-P)
+        run: npm run mobile:release-check -- --ci
+      - name: Relatório de qualidade (artifact mobile-quality-report)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-quality-report
+          path: |
+            apps/ponto-obra/quality-out/mobile-quality-report.json
+            apps/ponto-obra/quality-out/mobile-quality-report.md
+            apps/ponto-obra/quality-out/evidencias.json
+          if-no-files-found: warn
 
   # REP-P: atribuição de NSR com conexões REALMENTE simultâneas num Postgres
   # de verdade (o PGlite dos outros testes tem uma conexão só).

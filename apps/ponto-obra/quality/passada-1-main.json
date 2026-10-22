@@ -1,0 +1,944 @@
+{
+  "geradoEm": "2026-10-04T19:06:41.513Z",
+  "sha": "f3b45551908463914f4444bab935f8ad7ae040af",
+  "categorias": [
+    {
+      "id": "android",
+      "nome": "Robustez Android",
+      "critica": false,
+      "nota": 8.7,
+      "notaSemTeto": 8.7,
+      "teto": {
+        "valor": 9.3,
+        "motivo": "matriz de dispositivos com 0 de 3 aparelhos aprovados"
+      },
+      "gates": [
+        {
+          "id": "expo-doctor",
+          "descricao": "expo-doctor sem erro",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "só checks de rede falharam offline (2) - não verificados"
+        },
+        {
+          "id": "bundle-android",
+          "descricao": "bundle Android gerado",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "2 .tflite, 7.2 MB"
+        },
+        {
+          "id": "tflite-no-bundle",
+          "descricao": "os 2 modelos .tflite no bundle",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "2 .tflite, 7.2 MB"
+        },
+        {
+          "id": "prebuild",
+          "descricao": "prebuild + verificar-prebuild (SQLCipher, permissões, autolinking)",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "prebuild conferido, 1 atividade(s) exportada(s)"
+        },
+        {
+          "id": "sqlcipher-config",
+          "descricao": "SQLCipher ligado no app.json",
+          "peso": 1,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": ""
+        },
+        {
+          "id": "reabertura",
+          "descricao": "evento e sequência sobrevivem a fechar e abrir o banco",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "2 teste(s) passando"
+        },
+        {
+          "id": "transacao-duravel",
+          "descricao": "transação atômica e gravação durável",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "2 teste(s) passando"
+        },
+        {
+          "id": "tflite-carregamento",
+          "descricao": "modelos TFLite pela cópia file:// do expo-asset",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "falhas-fisicas",
+          "descricao": "câmera, GPS, rede e processo: falha não perde batida",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: robustez-fisica.test › app reaberto no meio da fila"
+        }
+      ]
+    },
+    {
+      "id": "offline",
+      "nome": "Operação offline",
+      "critica": true,
+      "nota": 8.5,
+      "notaSemTeto": 8.5,
+      "teto": null,
+      "gates": [
+        {
+          "id": "sem-internet",
+          "descricao": "sem internet nada se perde e a reconexão envia tudo",
+          "peso": 3,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "servidor-500",
+          "descricao": "servidor fora do ar mantém pendentes",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "hora-offline",
+          "descricao": "hora confiável offline dentro da validade; vencida sinaliza",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "2 teste(s) passando"
+        },
+        {
+          "id": "gps-ausente",
+          "descricao": "batida sem GPS",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "2 teste(s) passando"
+        },
+        {
+          "id": "lote-offline",
+          "descricao": "450 eventos offline saem em lotes sem buraco",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "registro-manual-offline",
+          "descricao": "registro manual sem modelo, câmera, GPS ou internet",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "falhas-de-rede",
+          "descricao": "timeout, 500 intermitente e rede que volta",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "fail",
+          "detalhe": "teste ausente: robustez-fisica.test › timeout de rede"
+        }
+      ]
+    },
+    {
+      "id": "integridade",
+      "nome": "Integridade",
+      "critica": true,
+      "nota": 9.3,
+      "notaSemTeto": 9.3,
+      "teto": null,
+      "gates": [
+        {
+          "id": "sequencia-nunca-renumerada",
+          "descricao": "sequência local nunca renumerada",
+          "peso": 3,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "2 teste(s) passando"
+        },
+        {
+          "id": "arp-so-acrescenta",
+          "descricao": "confirmação da ARP só acrescenta ao lado",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "envio-por-eventid",
+          "descricao": "evento só sai da fila pela resposta do seu eventId",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "hash-sql-js",
+          "descricao": "hash fiscal SQL = JS e cadeia confere",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "append-only",
+          "descricao": "UPDATE/DELETE/TRUNCATE bloqueados",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "2 teste(s) passando"
+        },
+        {
+          "id": "leitura-sem-efeito",
+          "descricao": "leitura do comprovante não toca fila nem cadeia",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: armazem-sqlite.test › eventosRecentes (comprovante)"
+        },
+        {
+          "id": "nsr-so-do-servidor",
+          "descricao": "aparelho não gera NSR",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        }
+      ]
+    },
+    {
+      "id": "seguranca",
+      "nome": "Segurança local",
+      "critica": true,
+      "nota": 9.2,
+      "notaSemTeto": 9.2,
+      "teto": null,
+      "gates": [
+        {
+          "id": "sem-log",
+          "descricao": "nenhum console.* no app",
+          "peso": 3,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "sqlcipher-conexao",
+          "descricao": "transação na conexão com a chave do SQLCipher",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "android-config",
+          "descricao": "sem backup, SQLCipher, sem sobreposição, sem WRITE_SETTINGS",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "diagnostico-sem-pessoal",
+          "descricao": "diagnóstico nunca inclui token, PIN, CPF, vetor ou foto",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "pin-hash",
+          "descricao": "PIN conferido offline contra hash",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "token-hash",
+          "descricao": "só o hash do token no banco",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "atividades-exportadas",
+          "descricao": "só a atividade de entrada exportada (prebuild)",
+          "peso": 1,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "prebuild conferido, 1 atividade(s) exportada(s)"
+        },
+        {
+          "id": "auditoria-documentada",
+          "descricao": "auditoria de segurança documentada (SQLCipher, SecureStore, backup, screenshots, clipboard, intents, storage, logs)",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "docs/seguranca.md ausente"
+        }
+      ]
+    },
+    {
+      "id": "sincronizacao",
+      "nome": "Sincronização",
+      "critica": false,
+      "nota": 10,
+      "notaSemTeto": 10,
+      "teto": null,
+      "gates": [
+        {
+          "id": "idempotencia",
+          "descricao": "reenvio devolve o mesmo NSR",
+          "peso": 3,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "ordem-offline",
+          "descricao": "eventos offline de vários aparelhos na ordem de gravação",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "foto-depois-do-ok",
+          "descricao": "foto só é apagada depois do OK",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "fila-de-fotos-robusta",
+          "descricao": "foto sumida, trocada ou grande não trava a fila",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "3 teste(s) passando"
+        },
+        {
+          "id": "revogado-e-desconhecido",
+          "descricao": "revogado e token inválido tratados",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "2 teste(s) passando"
+        },
+        {
+          "id": "biometrias-por-assinatura",
+          "descricao": "vetores só descem quando mudam",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        }
+      ]
+    },
+    {
+      "id": "multiobra",
+      "nome": "Multiobra",
+      "critica": false,
+      "nota": 6,
+      "notaSemTeto": 6,
+      "teto": null,
+      "gates": [
+        {
+          "id": "funcionario-global",
+          "descricao": "todo aparelho recebe todos os ativos",
+          "peso": 3,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "2 teste(s) passando"
+        },
+        {
+          "id": "lotacao-nao-invalida",
+          "descricao": "mudar lotação não invalida biometria",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "apropriacao",
+          "descricao": "apropriação por intervalos fora da ARP, auditada",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "3 teste(s) passando"
+        },
+        {
+          "id": "migration-018",
+          "descricao": "contrato da migration 018 (banco novo, 016→017→018, sobreposição, versão, auditoria, cancelamento, permissões, reversão)",
+          "peso": 3,
+          "bloqueia": true,
+          "status": "fail",
+          "detalhe": "teste ausente: apropriacao-migration.pglite.test › banco novo"
+        },
+        {
+          "id": "copy-global",
+          "descricao": "nenhum texto do app diz 'nesta obra' para funcionário (regra é global)",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "texto por obra em: src/logica/rosto.js, src/telas/TelaPonto.js"
+        }
+      ]
+    },
+    {
+      "id": "facial",
+      "nome": "Reconhecimento facial",
+      "critica": false,
+      "nota": 3.6,
+      "notaSemTeto": 3.6,
+      "teto": {
+        "valor": 8.7,
+        "motivo": "sem medição de FAR/FRR em campo com rostos reais (só sintética)"
+      },
+      "gates": [
+        {
+          "id": "identificacao",
+          "descricao": "reconhece certo, recusa desconhecido e ambíguo",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "3 teste(s) passando"
+        },
+        {
+          "id": "far-frr-sintetico",
+          "descricao": "suíte sintética de FAR/FRR, margem e segundo candidato",
+          "peso": 3,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: avaliacao-facial.test › FAR e FRR"
+        },
+        {
+          "id": "calibracao-anonima",
+          "descricao": "calibração de campo sem vetor nem imagem",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "fail",
+          "detalhe": "teste ausente: calibracao-campo.test › sessão de calibração guarda só métricas"
+        },
+        {
+          "id": "escala-1n",
+          "descricao": "1:N com 500 funcionários",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "anti-spoof-honesto",
+          "descricao": "anti-spoof documentado sem afirmar liveness forte",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "docs/anti-spoof.md ausente"
+        },
+        {
+          "id": "limiares-centralizados",
+          "descricao": "limiares só em calibracao.js",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        }
+      ]
+    },
+    {
+      "id": "ux_trabalhador",
+      "nome": "UI/UX trabalhador",
+      "critica": false,
+      "nota": 0,
+      "notaSemTeto": 0,
+      "teto": {
+        "valor": 9,
+        "motivo": "telas validadas só no harness web (sem screenshot em aparelho físico)"
+      },
+      "gates": [
+        {
+          "id": "status-conciso",
+          "descricao": "status com ícone + texto + cor",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: apresentacao.test › status sempre tem ícone e texto"
+        },
+        {
+          "id": "fases-camera",
+          "descricao": "fases da câmera e guia facial",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: apresentacao.test › as fases seguem o roteiro"
+        },
+        {
+          "id": "falha-nao-alarmista",
+          "descricao": "incerteza neutra; vermelho só em falha real",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: apresentacao.test › rosto não confirmado é incerteza normal"
+        },
+        {
+          "id": "sucesso-completo",
+          "descricao": "comprovante como estado completo",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: apresentacao.test › mostra o que o trabalhador precisa ver"
+        },
+        {
+          "id": "sem-termo-tecnico",
+          "descricao": "nada de TFLite/modelo para o trabalhador",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: apresentacao.test › nenhuma instrução ao trabalhador fala de modelo"
+        },
+        {
+          "id": "fuso-do-estabelecimento",
+          "descricao": "hora no fuso do estabelecimento (sem fuso fixo nas telas)",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "fuso fixo em: src/logica/diagnostico.js, src/telas/TelaPonto.js"
+        },
+        {
+          "id": "design-system",
+          "descricao": "detector Impeccable RN (cor, gradiente, sombra, raio, espaço, fonte)",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "fail",
+          "detalhe": "teste ausente: design-system.test › nenhuma cor solta"
+        },
+        {
+          "id": "telas-validadas",
+          "descricao": "screenshots dos estados críticos",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "sem screenshot: 01-ponto-sincronizado, 02-ponto-offline, 07-ponto-virar, 09-ponto-falha-reconhecimento, 11-sucesso-online, 13-camera-negada, 15-pareamento, 20-encarregado-menu, 22-diagnostico, 26-cadastro-captura"
+        },
+        {
+          "id": "impeccable-p0-p1",
+          "descricao": "Impeccable: P0 = 0 e P1 = 0 ou justificado",
+          "peso": 3,
+          "bloqueia": true,
+          "status": "fail",
+          "detalhe": "ENOENT: no such file or directory, open '/tmp/claude-0/-home-user-hygor/ef1b8395-1ec7-5f52-9138-6413bc360924/scratchpad/main-wt/apps/ponto-obra/IMPECCABLE-REVIEW.md'"
+        }
+      ]
+    },
+    {
+      "id": "ux_encarregado",
+      "nome": "UI/UX encarregado",
+      "critica": false,
+      "nota": 0,
+      "notaSemTeto": 0,
+      "teto": {
+        "valor": 9,
+        "motivo": "telas validadas só no harness web (sem screenshot em aparelho físico)"
+      },
+      "gates": [
+        {
+          "id": "menu-seccionado",
+          "descricao": "menu em seções, sem botões soltos",
+          "peso": 3,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: apresentacao.test › menu em três seções"
+        },
+        {
+          "id": "cadastro-guiado",
+          "descricao": "cadastro facial guiado com progresso",
+          "peso": 3,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: apresentacao.test › cadastro facial é guiado"
+        },
+        {
+          "id": "pareamento-simples",
+          "descricao": "pareamento em 8 casas",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: apresentacao.test › 8 casas, só dígitos"
+        },
+        {
+          "id": "sincronizacao-legivel",
+          "descricao": "sincronização com estado por escrito",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: apresentacao.test › sincronização sinaliza atenção"
+        },
+        {
+          "id": "funcionarios",
+          "descricao": "lista de funcionários com situação do rosto",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: apresentacao.test › funcionários: situação do rosto por escrito"
+        },
+        {
+          "id": "acessivel",
+          "descricao": "todo controle com nome acessível",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "fail",
+          "detalhe": "teste ausente: design-system.test › todo Pressable tem papel e nome acessível"
+        }
+      ]
+    },
+    {
+      "id": "acessibilidade",
+      "nome": "Acessibilidade",
+      "critica": true,
+      "nota": 0,
+      "notaSemTeto": 0,
+      "teto": null,
+      "gates": [
+        {
+          "id": "alvos-44",
+          "descricao": "alvos >= 44",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "fail",
+          "detalhe": "teste ausente: design-system.test › alvos de toque: mínimo 44"
+        },
+        {
+          "id": "contraste",
+          "descricao": "contraste WCAG",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "fail",
+          "detalhe": "teste ausente: design-system.test › contraste: texto principal e secundário"
+        },
+        {
+          "id": "nomes-acessiveis",
+          "descricao": "labels em todo controle",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "fail",
+          "detalhe": "teste ausente: design-system.test › todo Pressable tem papel e nome acessível"
+        },
+        {
+          "id": "tamanho-minimo",
+          "descricao": "nada abaixo de 13 px",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: design-system.test › nada abaixo de 13 px"
+        },
+        {
+          "id": "nao-so-cor",
+          "descricao": "estado com texto + cor + ícone",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: apresentacao.test › status sempre tem ícone e texto"
+        },
+        {
+          "id": "font-scaling",
+          "descricao": "todo token tipográfico com limite de escala",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "ENOENT: no such file or directory, open '/tmp/claude-0/-home-user-hygor/ef1b8395-1ec7-5f52-9138-6413bc360924/scratchpad/main-wt/apps/ponto-obra/src/ui/tokens.js'"
+        }
+      ]
+    },
+    {
+      "id": "release",
+      "nome": "Governança de release",
+      "critica": false,
+      "nota": 3.3,
+      "notaSemTeto": 3.3,
+      "teto": null,
+      "gates": [
+        {
+          "id": "versao-semver",
+          "descricao": "appVersion em semver",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": ""
+        },
+        {
+          "id": "versao-rep",
+          "descricao": "versão do software REP separada da do app",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": ""
+        },
+        {
+          "id": "versoes-no-diagnostico",
+          "descricao": "appVersion, REP version, versionCode e commit no Diagnóstico",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: diagnostico › versões de release separadas"
+        },
+        {
+          "id": "commit-no-build",
+          "descricao": "commit do build (EAS ou git) no app",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": ""
+        },
+        {
+          "id": "metadados-do-build",
+          "descricao": "perfil e data do build no app",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "perfil/data do build ausentes"
+        },
+        {
+          "id": "perfis-eas",
+          "descricao": "perfis piloto e producao",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": ""
+        },
+        {
+          "id": "release-check",
+          "descricao": "npm run mobile:release-check existe",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "script mobile:release-check ausente"
+        },
+        {
+          "id": "ci-relatorio",
+          "descricao": "CI roda o scorecard e guarda o relatório",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "CI sem scorecard/artifact"
+        },
+        {
+          "id": "arvore-limpa",
+          "descricao": "build a partir de commit limpo",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "4 arquivo(s) não commitado(s)"
+        }
+      ]
+    },
+    {
+      "id": "diagnostico",
+      "nome": "Diagnóstico",
+      "critica": false,
+      "nota": 5,
+      "notaSemTeto": 5,
+      "teto": null,
+      "gates": [
+        {
+          "id": "secoes",
+          "descricao": "seções Aplicativo, Aparelho, Sincronização, REP-P, Hora, Modelos",
+          "peso": 3,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: diagnostico › seções do suporte"
+        },
+        {
+          "id": "privacidade",
+          "descricao": "lista fechada sem dado pessoal",
+          "peso": 3,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "hora",
+          "descricao": "estado da referência de hora",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "matriz-de-hora",
+          "descricao": "matriz de comportamento da hora",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "teste ausente: matriz-hora.test › sem medição"
+        }
+      ]
+    },
+    {
+      "id": "rep_p_tecnico",
+      "nome": "Arquitetura REP-P (técnica)",
+      "critica": true,
+      "nota": 10,
+      "notaSemTeto": 10,
+      "teto": null,
+      "gates": [
+        {
+          "id": "arp-nsr",
+          "descricao": "NSR por estabelecimento, idempotente, sem lacuna",
+          "peso": 3,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "3 teste(s) passando"
+        },
+        {
+          "id": "arp-atomica",
+          "descricao": "erro desfaz tudo sem queimar NSR",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "apropriacao-fora-da-arp",
+          "descricao": "apropriação não toca a ARP",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": "1 teste(s) passando"
+        },
+        {
+          "id": "sem-falsa-conformidade",
+          "descricao": "nenhuma tela declara REP-P conforme",
+          "peso": 2,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": ""
+        },
+        {
+          "id": "situacao-pendente",
+          "descricao": "situação formal sempre 'não conforme' até a Fase 2",
+          "peso": 1,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": ""
+        }
+      ]
+    },
+    {
+      "id": "testes",
+      "nome": "CI / testes",
+      "critica": true,
+      "nota": 8,
+      "notaSemTeto": 8,
+      "teto": null,
+      "gates": [
+        {
+          "id": "suite-verde",
+          "descricao": "toda a suíte do ponto passa",
+          "peso": 4,
+          "bloqueia": true,
+          "status": "pass",
+          "detalhe": "209 testes"
+        },
+        {
+          "id": "ci-018",
+          "descricao": "CI nomeia a migration 018 nos contratos",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "fail",
+          "detalhe": "018 fora do job de migrations"
+        },
+        {
+          "id": "ci-postgres",
+          "descricao": "job de concorrência real em Postgres",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": ""
+        },
+        {
+          "id": "ci-mobile",
+          "descricao": "job mobile com doctor, bundle, prebuild e testes",
+          "peso": 2,
+          "bloqueia": false,
+          "status": "pass",
+          "detalhe": ""
+        }
+      ]
+    }
+  ],
+  "geral": 5.8,
+  "bloqueios": [
+    "offline/falhas-de-rede: teste ausente: robustez-fisica.test › timeout de rede",
+    "multiobra/migration-018: teste ausente: apropriacao-migration.pglite.test › banco novo",
+    "facial/calibracao-anonima: teste ausente: calibracao-campo.test › sessão de calibração guarda só métricas",
+    "ux_trabalhador/design-system: teste ausente: design-system.test › nenhuma cor solta",
+    "ux_trabalhador/impeccable-p0-p1: ENOENT: no such file or directory, open '/tmp/claude-0/-home-user-hygor/ef1b8395-1ec7-5f52-9138-6413bc360924/scratchpad/main-wt/apps/ponto-obra/IMPECCABLE-REVIEW.md'",
+    "ux_encarregado/acessivel: teste ausente: design-system.test › todo Pressable tem papel e nome acessível",
+    "acessibilidade/alvos-44: teste ausente: design-system.test › alvos de toque: mínimo 44",
+    "acessibilidade/contraste: teste ausente: design-system.test › contraste: texto principal e secundário",
+    "acessibilidade/nomes-acessiveis: teste ausente: design-system.test › todo Pressable tem papel e nome acessível"
+  ],
+  "regressoes": [],
+  "baseline": null,
+  "evidencias": {
+    "passos": {
+      "gitLimpo": {
+        "ok": false,
+        "ms": 16,
+        "detalhe": "4 arquivo(s) não commitado(s)"
+      },
+      "testes": {
+        "ok": true,
+        "ms": 84611,
+        "detalhe": "209/214 passando"
+      },
+      "expoDoctor": {
+        "ok": true,
+        "ms": 3054,
+        "detalhe": "só checks de rede falharam offline (2) - não verificados"
+      },
+      "bundle": {
+        "ok": true,
+        "ms": 6723,
+        "detalhe": "2 .tflite, 7.2 MB"
+      },
+      "prebuild": {
+        "ok": true,
+        "ms": 5362,
+        "detalhe": "prebuild conferido, 1 atividade(s) exportada(s)"
+      },
+      "versoes": {
+        "ok": true,
+        "ms": 1,
+        "detalhe": "app 1.0.0 · REP 0.2.0-tecnica · Expo 57.0.26 · RN 0.86.3"
+      }
+    },
+    "metricas": {
+      "bundleKb": 7348,
+      "versoes": {
+        "appVersion": "1.0.0",
+        "repSoftwareVersion": "0.2.0-tecnica",
+        "expo": "57.0.26",
+        "reactNative": "0.86.3",
+        "commit": "f3b4555"
+      }
+    }
+  }
+}

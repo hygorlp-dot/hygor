@@ -67,6 +67,35 @@ medição válida, a referência entregue aos aparelhos sai com
 `fonteConfiavel = false` e as batidas saem com `horaConfiavel = false`, mas
 **continuam sendo registradas**.
 
+## Matriz de comportamento da hora
+
+Provada em `apps/ponto-obra/src/logica/matriz-hora.test.js` (fonte de hora do
+servidor + NTP + referência do aparelho + diagnóstico, juntos). Em TODAS as
+linhas a batida é registrada - a Portaria veda restringir a marcação; o que
+muda é a sinalização (`horaConfiavel`) e o alerta do Diagnóstico
+(`alertaDaHora`, seção Hora).
+
+| situação | status no servidor | batida confiável (política atual) | se `exigirVerificacao=true` | alerta no Diagnóstico |
+|---|---|---|---|---|
+| sem medição | `nao_verificada` | sim | não (sinalizada) | atenção: "sem medição contra o NTP.br" |
+| medição válida | `verificada` / `dentro_da_tolerancia` | sim | sim | ok: "Hora válida." |
+| medição vencida (> 30 h) | `verificacao_vencida` | sim | não (sinalizada) | atenção: "medição vencida" |
+| fora da tolerância (> 30 s) | `fora_da_tolerancia` | **não** | não | erro: "Avise o suporte do ARCD." |
+| offline ≤ 7 dias | (a do último sync) | sim, pelo monotônico | idem à linha do status | ok / atenção perto de vencer |
+| offline > 7 dias ou reinício | - | não (hora do celular, sinalizada) | não | erro / atenção: "sincronize" |
+| NTP indisponível | `ok:false` gravado com o erro → `nao_verificada` | sim | não (sinalizada) | atenção |
+
+### Decisão pendente: `exigirVerificacao`
+
+Continua `false`. Virar `true` faz TODA batida sair sinalizada sempre que a
+medição diária contra o NTP.br falhar ou atrasar (UDP bloqueado no provedor,
+rotina agendada atrasada) - num dia ruim, a obra inteira com batidas "hora não
+confiável", sem que a hora esteja de fato errada. Antes de mudar é preciso:
+(1) histórico de `ponto_tempo_verificacoes` mostrando a medição diária
+estável no ambiente de produção; (2) alerta para o suporte quando a medição
+falhar; (3) decisão do responsável jurídico sobre o efeito das batidas
+sinalizadas no tratamento do ponto. Os testes já cobrem os dois valores.
+
 ## Validades e verificação diária (valores centralizados)
 
 | Constante | Onde | Valor | Por quê |

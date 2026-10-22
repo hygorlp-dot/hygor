@@ -139,6 +139,12 @@ export function criarArmazemSobreBanco(db) {
       const linhas = await db.getAllAsync("SELECT * FROM marcacoes WHERE enviada = 0 ORDER BY sequencia_local LIMIT ?", Math.min(limite, 1_000_000));
       return linhas.map(linhaParaEvento);
     },
+    // Só leitura, para a tela (batidas do dia no comprovante): as últimas
+    // marcações, da mais nova para a mais antiga. Não altera nada.
+    async eventosRecentes(limite) {
+      const linhas = await db.getAllAsync("SELECT * FROM marcacoes ORDER BY sequencia_local DESC LIMIT ?", Math.max(0, Math.min(limite, 1000)));
+      return linhas.map(linhaParaEvento);
+    },
     // Formato 2: a ARP aceitou ESTE evento. Só colunas fiscais e "enviada"
     // mudam; dados, hash local e sequência local ficam como estavam.
     async confirmarEvento(eventId, fiscal) {

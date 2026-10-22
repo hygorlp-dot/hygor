@@ -9,7 +9,7 @@ import { File, Paths } from "expo-file-system";
 import * as Crypto from "expo-crypto";
 import UPNG from "upng-js";
 import {
-  BLAZEFACE, MOBILEFACENET, decodificarBlazeFace, giroDaCabeca, normalizarL2, olhosENariz,
+  BLAZEFACE, MOBILEFACENET, decodificarBlazeFace, giroDaCabeca, luminanciaMedia, normalizarL2, olhosENariz,
   pixelsParaTensor, recorteParaIdentidade, rostosDistintos,
 } from "../logica/rosto.js";
 import { PARAMETROS_FACIAIS as P } from "../logica/calibracao.js";
@@ -98,7 +98,7 @@ export async function analisarFoto(modelos, foto) {
   // 3. Vetor de identidade.
   const pixelsRosto = await pixelsDoRecorte(foto.uri, recorte, MOBILEFACENET.tamanho);
   const [saida] = await modelos.identidade.run([pixelsParaTensor(pixelsRosto, MOBILEFACENET.tamanho, MOBILEFACENET.tamanho).buffer]);
-  return { vetor: normalizarL2(new Float32Array(saida)), giro: giroDaCabeca(rosto), confiancaDeteccao: rosto.score, larguraRosto };
+  return { vetor: normalizarL2(new Float32Array(saida)), giro: giroDaCabeca(rosto), confiancaDeteccao: rosto.score, larguraRosto, luminancia: luminanciaMedia(pixelsRosto) };
 }
 
 // Foto da batida: JPEG dentro do limite do servidor (logica/foto.js),

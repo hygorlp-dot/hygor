@@ -13,7 +13,16 @@ function commitCurto() {
   }
 }
 
+// Metadados do build (sem segredo): perfil e ID vêm das variáveis públicas
+// da EAS (EAS_BUILD_PROFILE, EAS_BUILD_ID); a data é a da geração da
+// configuração. Local: perfil "local". O versionCode vem da EAS (remoto).
 module.exports = ({ config }) => ({
   ...config,
-  extra: { ...config.extra, commit: commitCurto() },
+  extra: {
+    ...config.extra,
+    commit: commitCurto(),
+    buildPerfil: process.env.EAS_BUILD_PROFILE || "local",
+    buildId: process.env.EAS_BUILD_ID || "",
+    buildEm: new Date().toISOString(),
+  },
 });

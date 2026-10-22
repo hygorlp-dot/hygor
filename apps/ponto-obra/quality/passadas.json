@@ -1,0 +1,74 @@
+{
+  "passadas": [
+    {
+      "passada": 1,
+      "sha": "f3b4555",
+      "em": "2026-10-04T19:04:30.826Z",
+      "geral": 5.8,
+      "notas": {
+        "android": 8.7,
+        "offline": 8.5,
+        "integridade": 9.3,
+        "seguranca": 9.2,
+        "sincronizacao": 10,
+        "multiobra": 6,
+        "facial": 3.6,
+        "ux_trabalhador": 0,
+        "ux_encarregado": 0,
+        "acessibilidade": 0,
+        "release": 3.3,
+        "diagnostico": 5,
+        "rep_p_tecnico": 10,
+        "testes": 8
+      },
+      "bloqueios": 9,
+      "observacao": "baseline: main f3b4555 sem nenhuma mudança desta rodada"
+    },
+    {
+      "passada": 2,
+      "sha": "8a55429",
+      "em": "2026-10-04T23:13:26.722Z",
+      "geral": 9.7,
+      "notas": {
+        "android": 9.3,
+        "offline": 10,
+        "integridade": 10,
+        "seguranca": 10,
+        "sincronizacao": 10,
+        "multiobra": 10,
+        "facial": 8.7,
+        "ux_trabalhador": 9,
+        "ux_encarregado": 9,
+        "acessibilidade": 10,
+        "release": 10,
+        "diagnostico": 10,
+        "rep_p_tecnico": 10,
+        "testes": 10
+      },
+      "bloqueios": 0
+    },
+    {
+      "passada": 3,
+      "sha": "74414bc",
+      "em": "2026-10-20T14:34:27.047Z",
+      "geral": 9.7,
+      "notas": {
+        "android": 9.3,
+        "offline": 10,
+        "integridade": 10,
+        "seguranca": 10,
+        "sincronizacao": 10,
+        "multiobra": 10,
+        "facial": 8.7,
+        "ux_trabalhador": 9,
+        "ux_encarregado": 9,
+        "acessibilidade": 10,
+        "release": 10,
+        "diagnostico": 10,
+        "rep_p_tecnico": 10,
+        "testes": 10
+      },
+      "bloqueios": 0
+    }
+  ]
+}

@@ -40,6 +40,10 @@ const CONTEXTO = {
   sincronizacao: "A sincronização falhou. As batidas continuam guardadas e o envio é repetido sozinho.",
   cadastro: "O cadastro do rosto não foi concluído. Tente de novo.",
 };
+// Para o trabalhador na tela de ponto: só o que fazer, sem o detalhe técnico
+// (o detalhe fica no Diagnóstico do modo Encarregado).
+export const mensagemParaTrabalhador = contexto => CONTEXTO[contexto] || "Algo deu errado. Tente de novo.";
+
 export function mensagemDeErro(contexto, erro) {
   const base = CONTEXTO[contexto] || "Algo deu errado. Tente de novo.";
   const detalhe = resumirTexto(erro?.message || erro, 90);

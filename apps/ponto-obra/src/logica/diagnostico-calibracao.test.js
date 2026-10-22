@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { montarDiagnostico, estadoReferenciaHora } from "./diagnostico.js";
+import { montarDiagnostico, estadoReferenciaHora, secoesDoDiagnostico } from "./diagnostico.js";
 import { IDADE_MAXIMA_REFERENCIA_MS, estadoDaReferencia } from "../../../../src/domains/ponto-eletronico/relogio.js";
 import { amostraDeCalibracao, relatorioCalibracao, varrerLimiares } from "./relatorio-calibracao.js";
 import { PARAMETROS_FACIAIS } from "./calibracao.js";
@@ -25,6 +25,35 @@ describe("diagnóstico do aparelho", () => {
       "Reconhecimento facial": "carregado", "Referência de hora": "referência temporal válida", GPS: "ok", Obra: "W1-22",
     });
     expect(d["Última sincronização"]).toMatch(/01\/10\/2026/);
+  });
+
+  it("seções do suporte: Aplicativo, Aparelho, Sincronização, REP-P, Hora, Modelos (nessa ordem)", () => {
+    const secoes = secoesDoDiagnostico(montarDiagnostico({ ...entrada, rep: { versao: "0.2.0-tecnica" }, modelos: { estado: "ok", detector: "BlazeFace (frente)", identidade: "mobilefacenet-192-apache2", cargaMs: 812 } }));
+    expect(secoes.map(s => s.titulo).slice(0, 6)).toEqual(["Aplicativo", "Aparelho", "Sincronização", "REP-P", "Hora", "Modelos"]);
+    const porSecao = Object.fromEntries(secoes.map(s => [s.titulo, s.itens.map(i => i.rotulo)]));
+    expect(porSecao.Sincronização).toEqual(expect.arrayContaining(["Último envio com sucesso", "Batidas a enviar", "Fotos a enviar"]));
+    expect(porSecao["REP-P"]).toEqual(expect.arrayContaining(["Estabelecimento", "Sequência local (último registro)", "Último NSR recebido da ARP", "ARP"]));
+    expect(porSecao.Hora).toEqual(expect.arrayContaining(["Estado da referência", "Última validação da hora", "Fonte de hora do servidor"]));
+    expect(porSecao.Modelos).toEqual(expect.arrayContaining(["Modelo detector", "Modelo de identidade"]));
+    expect(secoes.find(s => s.titulo === "Outros")).toBeUndefined();
+    const d = Object.fromEntries(secoes.flatMap(s => s.itens).map(i => [i.rotulo, i.valor]));
+    expect(d["Modelo detector"]).toBe("BlazeFace (frente) · SHA-256 conferido");
+    expect(d["Carga dos modelos"]).toBe("812 ms");
+  });
+
+  it("versões de release separadas: app, software REP (técnica), versionCode, commit, perfil e data do build", () => {
+    const d = Object.fromEntries(montarDiagnostico({ ...entrada, app: { versao: "1.1.0", build: "23", commit: "abc1234", perfil: "piloto", buildEm: "2026-10-04T12:00:00.000Z" }, rep: { versao: "0.2.0-tecnica" }, fuso: "America/Recife" }).map(i => [i.rotulo, i.valor]));
+    expect(d).toMatchObject({ "Versão do app": "1.1.0", "Versão do software REP": "0.2.0-tecnica · não registrada", "Build (versionCode)": "23", Commit: "abc1234", "Perfil do build": "piloto" });
+    expect(d["Data do build"]).toMatch(/04\/10\/2026/);
+    // Nunca afirma registro formal.
+    expect(d["Situação formal REP-P"]).toMatch(/não é REP-P registrado/);
+  });
+
+  it("ARP no diagnóstico: aceitando, aguardando vínculo ou cadeia divergente", () => {
+    const arp = (sinc, fiscal = {}) => Object.fromEntries(montarDiagnostico({ ultimaSincronizacao: sinc, fiscal }).map(i => [i.rotulo, i.valor])).ARP;
+    expect(arp({ ok: true }, { ultimoNsr: 41 })).toBe("aceitando eventos");
+    expect(arp({ ok: true, aguardandoEstabelecimento: true })).toMatch(/aguardando vínculo/);
+    expect(arp({ ok: false, cadeiaDivergente: true })).toMatch(/divergente/);
   });
 
   it("nunca inclui token, PIN, CPF, vetor ou foto, mesmo se vierem na entrada", () => {

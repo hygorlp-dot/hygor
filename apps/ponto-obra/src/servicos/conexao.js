@@ -17,6 +17,9 @@ export const infoDoApp = () => ({
   versao: Application.nativeApplicationVersion || Constants.expoConfig?.version || "",
   build: Application.nativeBuildVersion || "",
   commit: Constants.expoConfig?.extra?.commit || "",
+  perfil: Constants.expoConfig?.extra?.buildPerfil || "",
+  buildId: Constants.expoConfig?.extra?.buildId || "",
+  buildEm: Constants.expoConfig?.extra?.buildEm || "",
 });
 export const infoDoAparelho = () => ({
   plataforma: "android", marca: Device.brand || Device.manufacturer || "", modelo: Device.modelName || "", android: Device.osVersion || "",

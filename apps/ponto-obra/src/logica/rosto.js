@@ -157,6 +157,30 @@ export function vetorDoCadastro(capturas) {
 // viram uma batida no nome errado; vai para o encarregado.
 export const LIMIAR_RECONHECIMENTO = P.limiarReconhecimento;
 export const MARGEM_SOBRE_SEGUNDO = P.margemSobreSegundo;
+// Prova de vida por MUDANÇA DE POSE (a mesma regra que a tela usava
+// inline): a 2ª foto precisa estar virada e ainda parecer a mesma pessoa.
+// NÃO é anti-spoofing: vídeo ou outra pessoa virando o rosto de uma foto
+// passa. Ver docs/anti-spoof.md. frente/virado = saída de analisarFoto().
+export function avaliarProvaDeVida(frente, virado, parametros = P) {
+  if (!frente?.vetor || !virado || virado.erro || !virado.vetor) return { vivo: false, motivo: "segunda foto sem rosto" };
+  if (Math.abs(virado.giro) < parametros.giroMinimoVirado) return { vivo: false, motivo: "não virou o rosto" };
+  const sim = similaridadeCosseno(frente.vetor, virado.vetor);
+  if (sim < parametros.similaridadeMinimaVirado) return { vivo: false, motivo: "outra pessoa na segunda foto", similaridade: sim };
+  return { vivo: true, motivo: null, similaridade: sim };
+}
+
+// Luminância média (0-255) de pixels RGBA: só um número sobre a luz do rosto,
+// para a calibração de campo. Não guarda nem devolve pixels.
+export function luminanciaMedia(rgba) {
+  let soma = 0, n = 0;
+  for (let i = 0; i + 2 < rgba.length; i += 4) { soma += 0.299 * rgba[i] + 0.587 * rgba[i + 1] + 0.114 * rgba[i + 2]; n++; }
+  return n ? Math.round(soma / n) : null;
+}
+
+// Motivos da recusa (a tela traduz). Funcionário é global da empresa: o
+// rosto é comparado com TODOS os ativos, então "não cadastrado" é na empresa.
+export const MOTIVO = Object.freeze({ NAO_CADASTRADO: "rosto ainda não cadastrado", AMBIGUO: "rosto parecido com mais de um cadastro" });
+
 export function identificar(vetor, cadastros, { limiar = LIMIAR_RECONHECIMENTO, margem = MARGEM_SOBRE_SEGUNDO } = {}) {
   const ranking = (cadastros || [])
     .map(c => ({ employeeId: c.employeeId, similaridade: similaridadeCosseno(vetor, c.vetor) }))
@@ -164,7 +188,7 @@ export function identificar(vetor, cadastros, { limiar = LIMIAR_RECONHECIMENTO, 
   const [melhor, segundo] = ranking;
   // segundo/margemObtida servem só para medir a calibração (relatorio-calibracao.js).
   const extra = { segundo: segundo || null, margemObtida: melhor && segundo ? melhor.similaridade - segundo.similaridade : null };
-  if (!melhor || melhor.similaridade < limiar) return { reconhecido: false, motivo: "rosto não cadastrado nesta obra", melhor: melhor || null, ...extra };
-  if (segundo && melhor.similaridade - segundo.similaridade < margem) return { reconhecido: false, motivo: "rosto parecido com mais de um cadastro", melhor, ...extra };
+  if (!melhor || melhor.similaridade < limiar) return { reconhecido: false, motivo: MOTIVO.NAO_CADASTRADO, melhor: melhor || null, ...extra };
+  if (segundo && melhor.similaridade - segundo.similaridade < margem) return { reconhecido: false, motivo: MOTIVO.AMBIGUO, melhor, ...extra };
   return { reconhecido: true, employeeId: melhor.employeeId, confianca: Number(melhor.similaridade.toFixed(4)), melhor, ...extra };
 }
