@@ -1,5 +1,6 @@
 import { validatePurchaseRequest } from "./purchase-request-workflow.js";
 import { hasValidUnitConversion } from "./unit-conversion.js";
+import { proximoNumeroSolicitacao } from "./calculations.js";
 
 export const PURCHASE_REQUEST_COMMAND=Object.freeze({
   PURCHASE_REQUEST_SAVED:"SOLICITACAO_COMPRA_SALVA",
@@ -36,7 +37,12 @@ const normalizeCatalogMaterials=(data,requestId,rawMaterials=[])=>{
 };
 
 const saveRequest=(data,command,now)=>{
-  const payload=command.payload||{},raw=payload.request||{};
+  const payload=command.payload||{},sent=payload.request||{};
+  // Número da solicitação nova vem do servidor (o comando roda com a linha
+  // travada): dois usuários criando ao mesmo tempo nunca repetem o número.
+  const existing=requestById(data,sent.id);
+  const raw=!existing&&!String(sent.numero||"").trim()
+    ?{...sent,numero:proximoNumeroSolicitacao(data.solicitacoesCompra)}:sent;
   const id=String(raw.id||""),obraId=String(raw.obraId||"");
   const current=requestById(data,id);
   if(!id)return fail("Solicitação sem identificação única.");

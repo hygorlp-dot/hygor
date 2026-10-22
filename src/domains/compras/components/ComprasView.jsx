@@ -32,7 +32,7 @@ import {
   STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
   pedidoLiberadoParaReceber, origemPagamentoLabel, situacaoCaixaObra,
-  historicoPrecoTodos, analisePreco, mapaGerencialCompras, proximoNumeroPedido,
+  historicoPrecoTodos, analisePreco, mapaGerencialCompras,
 } from "../calculations";
 import { canManagePurchases } from "../permissions";
 import { movementOfOrder } from "../purchase-cancellation-command";
@@ -1012,8 +1012,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     });
 
     const agora=new Date().toISOString();
-    const proximaSequencia=Math.max(0,...(data.solicitacoesCompra||[]).map(s=>Number(String(s.numero||"").match(/\d+/)?.[0]||0)))+1;
-    const numero=f.numero||`SC-${String(proximaSequencia).padStart(4,"0")}`;
+    // Solicitação nova vai sem número: o servidor numera sob a trava da
+    // linha, sem colisão entre dois usuários (C2.1).
+    const numero=f.numero||"";
     const anterior=f.id?(data.solicitacoesCompra||[]).find(s=>s.id===f.id):null;
     const registro={...(anterior||{}),id:solicitacaoId,numero,obraId:f.obraId,
       solicitanteId:anterior?.solicitanteId||currentUser?.id||"",
@@ -1074,7 +1075,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       showToast(reason,"error");return false;
     }
     setSolModal(null);setAba("solicitacoes");
-    showToast(f.id?`Solicitação ${numero} atualizada e confirmada pelo servidor.`:`Solicitação ${numero} formalizada com ${itens.length} insumo(s) e confirmada pelo servidor.`);
+    const numeroConfirmado=(result.data?.solicitacoesCompra||[]).find(s=>s.id===solicitacaoId)?.numero||numero;
+    showToast(f.id?`Solicitação ${numeroConfirmado} atualizada e confirmada pelo servidor.`:`Solicitação ${numeroConfirmado} formalizada com ${itens.length} insumo(s) e confirmada pelo servidor.`);
     return true;
   };
 
@@ -1229,7 +1231,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
     const p = {
       id: f.id || uid(),
-      numero: f.numero?.trim() || proximoNumeroPedido(data.pedidos),
+      numero: f.numero?.trim() || "",
       obraId: f.obraId || obraAtual,
       fornecedorId: f.fornecedorId,
       data: f.data || new Date().toISOString().slice(0,10),
@@ -1264,7 +1266,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     });
     if(!result?.ok){showToast(result?.reason||"O servidor não confirmou o pedido.","error");return;}
     setPedModal(null);
-    showToast(f.id ? "Pedido atualizado." : `Pedido ${p.numero} criado.`);
+    const numeroPedido=(result.data?.pedidos||[]).find(item=>item.id===p.id)?.numero||p.numero;
+    showToast(f.id ? "Pedido atualizado." : `Pedido ${numeroPedido} criado.`);
   };
 
   const abrirPagamento=p=>setPagModal({pedido:p,valor:String(saldoPagamentoPedido(p).toFixed(2)),data:today(),origem:p.origemPagamento||"empresa",transacaoId:"",referencia:"",observacao:"",conciliado:false,comprovanteFile:null,comprovanteLegenda:""});
@@ -1619,7 +1622,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     const melhor=Number(prop.precoUnit||0)<=menor+0.000001;
     if(!melhor&&!String(justificativa||"").trim()){showToast("Justifique a escolha de uma proposta que não é a mais barata.","error");return;}
 
-    const numero = proximoNumeroPedido(data.pedidos);
+    const numero = "";
     if(!dispatchCommand){showToast("A geração segura do pedido exige conexão com o servidor.","error");return;}
     const orderId=uid(),itemId=uid();
     const result=await dispatchCommand(()=>({
@@ -1634,7 +1637,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     }));
     if(!result?.ok){showToast(result?.reason||"O servidor não confirmou o pedido da cotação.","error");return;}
     setCotDecisao(null);
-    showToast(`Pedido ${numero} gerado a partir da cotação.`);
+    const numeroPedido=(result.data?.pedidos||[]).find(item=>item.id===orderId)?.numero||"";
+    showToast(`Pedido ${numeroPedido} gerado a partir da cotação.`);
     if(navegar)setAba("pedidos");
   };
 
