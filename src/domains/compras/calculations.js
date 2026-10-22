@@ -146,8 +146,8 @@ export const mapaGerencialCompras = (data, obraIds = [], hoje = "") => {
     cotacoes: cotacoes.filter(c => c.status === "aberta").length,
     pedidos: pedidosValidos.filter(p => !["recebido"].includes(statusPedido(p))).length,
     pagamentos: pedidosValidos.filter(p => statusPagamentoPedido(p) !== "pago").length,
-    recebimentos: pedidosValidos.filter(p =>
-      statusPagamentoPedido(p) === "pago" && statusPedido(p) !== "recebido").length,
+    // Recebimento não depende de pagamento: compra a prazo é o caso normal.
+    recebimentos: pedidosValidos.filter(p => statusPedido(p) !== "recebido").length,
   };
   const coberturaCotacao = pedidosValidos.length
     ? ((pedidosValidos.length - semCotacao.length) / pedidosValidos.length) * 100 : 0;
