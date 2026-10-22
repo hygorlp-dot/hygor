@@ -4,15 +4,15 @@ import { cva } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 
 const alertVariants = cva(
-  "relative w-full rounded-[var(--arcd-radius-md)] border border-[var(--arcd-border-default)] bg-[var(--arcd-surface-card)] p-4 text-[var(--arcd-text-primary)] [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-[var(--arcd-text-primary)]",
+  "relative w-full rounded-(--arcd-radius-md) border border-(--arcd-border-default) bg-(--arcd-surface-card) p-4 text-(--arcd-text-primary) [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-(--arcd-text-primary)",
   {
     variants: {
       variant: {
         default: "",
         destructive:
-          "border-[var(--arcd-danger-border)] bg-[var(--arcd-danger-surface)] text-[var(--arcd-danger-text)] [&>svg]:text-[var(--arcd-danger-text)]",
+          "border-(--arcd-danger-border) bg-(--arcd-danger-surface) text-(--arcd-danger-text) [&>svg]:text-(--arcd-danger-text)",
         warning:
-          "border-[var(--arcd-warning-border)] bg-[var(--arcd-warning-surface)] text-[var(--arcd-warning-text)] [&>svg]:text-[var(--arcd-warning-text)]",
+          "border-(--arcd-warning-border) bg-(--arcd-warning-surface) text-(--arcd-warning-text) [&>svg]:text-(--arcd-warning-text)",
       },
     },
     defaultVariants: {
