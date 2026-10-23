@@ -8,9 +8,10 @@
 import { useMemo, useState } from "react";
 import { referenceTotalOf } from "../../compras/unit-conversion";
 import {
-  Btn, C, Ic, Inp, MOTORES_APROVACAO_POR_ENTIDADE, PageHero,
-  SETORES_APROVACAO, fmt,
+  Btn, C, Ic, Inp, PageHero,
+  SETORES_APROVACAO, fmt, uid,
 } from "../../../LegacyApp";
+import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 
 // Rótulo legível da entidade por trás de uma instância de aprovação - hoje
 // só conhece solicitação de compra (único tipo com resolvedores reais); um
@@ -34,7 +35,7 @@ const rotuloEntidadeAprovacao = (instancia, data) => {
 // Painel de pendências - qualquer usuário elegível em qualquer etapa "em
 // andamento" de qualquer instância, independente do setor. Fica de fora da
 // Central do Administrador de propósito: quem decide não precisa ser admin.
-function AprovacoesPendentes({ data, update, showToast, currentUser }) {
+function AprovacoesPendentes({ data, showToast, currentUser, dispatchCommand = null }) {
   const [justificativas, setJustificativas] = useState({});
   const pendentes = useMemo(() => (data.instanciasAprovacao||[])
     .filter(i => i.status === "em_andamento" && i.snapshotPolitica)
@@ -47,17 +48,20 @@ function AprovacoesPendentes({ data, update, showToast, currentUser }) {
     .filter(x => x.etapas.length > 0)
   , [data.instanciasAprovacao, currentUser?.id]);
 
-  const decidir = (instancia, etapaId, decisao) => {
+  // A decisão é um comando do servidor: ele grava o usuário autenticado como
+  // aprovador e confere a elegibilidade (approval-commands.js). Antes, o
+  // salvamento genérico desta coleção só funcionava para o administrador.
+  const decidir = async (instancia, etapaId, decisao) => {
     const justificativa = justificativas[etapaId] || "";
     if (decisao === "reprovado" && !justificativa.trim()) { showToast("Informe o motivo da reprovação.", "error"); return; }
-    const motor = MOTORES_APROVACAO_POR_ENTIDADE[instancia.entidadeTipo]?.();
-    if (!motor) { showToast("Nenhum motor de execução cadastrado para este tipo de processo.", "error"); return; }
-    const { data: next, resumo } = motor.registrarDecisao(data, {
-      instanciaId: instancia.id, etapaId, aprovadorId: currentUser?.id||"", aprovadorNome: currentUser?.nome||currentUser?.email||"Operador",
-      decisao, justificativa, contexto: { valorTotal:0 },
-    });
-    if (!resumo.ok) { showToast(resumo.motivo||"Não foi possível registrar a decisão.", "error"); return; }
-    update(next);
+    if (!dispatchCommand) { showToast("Registrar a decisão exige conexão com o servidor.", "error"); return; }
+    const result = await dispatchCommand(() => ({
+      type: OPERATIONAL_COMMAND.APPROVAL_DECISION_RECORDED,
+      idempotencyKey: `aprovacao-${instancia.id}-${etapaId}-${uid()}`,
+      actorId: currentUser?.id||"", actorName: currentUser?.nome||"",
+      payload: { instanciaId: instancia.id, etapaId, decisao, justificativa: justificativa.trim() },
+    }));
+    if (!result?.ok) { showToast(result?.reason||"O servidor não confirmou a decisão.", "error"); return; }
     setJustificativas(j => ({ ...j, [etapaId]: "" }));
     showToast(decisao==="aprovado" ? "Aprovação registrada." : "Reprovação registrada.");
   };

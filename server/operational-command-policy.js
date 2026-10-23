@@ -72,6 +72,10 @@ import {
   licensingCommandObraId,
 } from "../src/domains/licenciamento/commands.js";
 import {
+  APPROVAL_COMMAND_TYPES,
+  approvalCommandObraId,
+} from "../src/domains/aprovacoes/approval-commands.js";
+import {
   STOCK_COMMAND_TYPES,
   STOCK_COMPANY_COMMAND_TYPES,
   stockCommandObraId,
@@ -98,6 +102,7 @@ const operationalCommandObraId=(data={},command={})=>{
   if(CONFERENCE_COMMAND_TYPES.has(command?.type))return conferenceCommandObraId(data,command);
   if(LICENSING_COMMAND_TYPES.has(command?.type))return licensingCommandObraId(data,command);
   if(STOCK_COMMAND_TYPES.has(command?.type))return stockCommandObraId(data,command);
+  if(APPROVAL_COMMAND_TYPES.has(command?.type))return approvalCommandObraId(data,command);
   if(command?.type===OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED)return String(payload?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED)return String(payload?.measurement?.obraId||"");
   if(command?.type===OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CANCELLED)return String((data?.medicoesObra||[]).find(item=>item.id===payload?.measurementId)?.obraId||"");

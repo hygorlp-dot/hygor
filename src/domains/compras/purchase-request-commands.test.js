@@ -37,7 +37,12 @@ describe("comando transacional de solicitação de compra",()=>{
     expect(result.data.materiais).toHaveLength(2);
     expect(result.data.solicitacoesCompra.find(item=>item.id==="sol-2")?.itens[0].materialId).toBe("mat-novo");
     expect(result.data.solicitacoesCompra.find(item=>item.id==="sol-2")?.version).toBe(1);
-    expect(result.data.instanciasAprovacao).toEqual([expect.objectContaining({id:"apr-1"})]);
+    // A instância vem do servidor; a "aprovada" enviada pelo navegador é ignorada.
+    const request=result.data.solicitacoesCompra.find(item=>item.id==="sol-2");
+    expect(result.data.instanciasAprovacao).toHaveLength(1);
+    expect(result.data.instanciasAprovacao[0]).toMatchObject({entidadeTipo:"solicitacaoCompra",entidadeId:"sol-2"});
+    expect(result.data.instanciasAprovacao[0].id).not.toBe("apr-1");
+    expect(request.aprovacaoInstanciaId).toBe(result.data.instanciasAprovacao[0].id);
   });
 
   it("recusa item cujo insumo não será persistido",()=>{
@@ -144,6 +149,58 @@ describe("cancelamento de solicitação de compra (soft-delete)",()=>{
     const result=applyPurchaseRequestCommand(data,command({payload:{request:{...command().payload.request,numero:""}}}));
     expect(result.ok).toBe(true);
     expect(result.data.solicitacoesCompra.find(item=>item.id==="sol-2").numero).toBe("SC-0008");
+  });
+
+  describe("alçada da aprovação (decidida em 22/10/2026)",()=>{
+    const usuarios=[
+      {id:"eng-1",nome:"Eng. Ana",role:"engenheiro"},
+      {id:"adm-1",nome:"Admin",role:"admin"},
+      {id:"cmp-1",nome:"Compras",role:"compras"},
+    ];
+    const withPeople=()=>({...base(),usuarios,obras:[{id:"obra-1",name:"Obra 1",engineerId:"eng-1"}]});
+    const priced=preco=>({payload:{request:{...command().payload.request,
+      itens:[{...command().payload.request.itens[0],precoRef:preco}]}}});
+    const eligible=result=>result.data.instanciasAprovacao[0].resultadosEtapas
+      .filter(etapa=>etapa.status==="em_andamento").flatMap(etapa=>etapa.aprovadoresElegiveis.map(user=>user.id));
+
+    it("até R$ 5.000 aprova o engenheiro da obra",()=>{
+      const result=applyPurchaseRequestCommand(withPeople(),{...command(priced(250)),actorId:"cmp-1"});
+      expect(result.data.instanciasAprovacao[0].status).toBe("em_andamento");
+      expect(eligible(result)).toEqual(["eng-1"]);
+    });
+
+    it("acima de R$ 5.000 vai para o Administrador",()=>{
+      const result=applyPurchaseRequestCommand(withPeople(),{...command(priced(260)),actorId:"cmp-1"});
+      expect(result.data.instanciasAprovacao[0].valorAprovado).toBe(5200);
+      expect(eligible(result)).toEqual(["adm-1"]);
+    });
+
+    it("o engenheiro não aprova a própria solicitação",()=>{
+      const result=applyPurchaseRequestCommand(withPeople(),{...command(priced(10)),actorId:"eng-1"});
+      expect(eligible(result)).toEqual(["adm-1"]);
+    });
+
+    it("mudar os itens depois reinicia a aprovação; editar só a observação não",()=>{
+      const created=applyPurchaseRequestCommand(withPeople(),{...command(priced(10)),actorId:"cmp-1"});
+      const first=created.data.instanciasAprovacao[0].id;
+      const request=created.data.solicitacoesCompra.find(item=>item.id==="sol-2");
+      const notes=applyPurchaseRequestCommand(created.data,{...command({payload:{request:{...request,observacao:"Entregar cedo"}}}),
+        actorId:"cmp-1",expectedVersion:1});
+      expect(notes.data.instanciasAprovacao).toHaveLength(1);
+      const more=applyPurchaseRequestCommand(notes.data,{...command({payload:{request:{...request,
+        itens:[{...request.itens[0],quantidade:40}]}}}),actorId:"cmp-1",expectedVersion:2});
+      expect(more.data.instanciasAprovacao).toHaveLength(2);
+      expect(more.data.instanciasAprovacao.find(item=>item.id===first)).toMatchObject({status:"substituida"});
+      expect(more.data.solicitacoesCompra.find(item=>item.id==="sol-2").aprovacaoInstanciaId).not.toBe(first);
+    });
+
+    it("política própria da empresa substitui a padrão",()=>{
+      const data={...withPeople(),politicasAprovacao:[{id:"pol-1",nome:"Sem etapas",ativa:true,
+        entidadeTipo:"solicitacaoCompra",versao:1,condicoes:[],etapas:[]}]};
+      const result=applyPurchaseRequestCommand(data,{...command(priced(10000)),actorId:"cmp-1"});
+      expect(result.data.instanciasAprovacao[0]).toMatchObject({policyId:"pol-1",status:"aprovada"});
+      expect(result.data.politicasAprovacao).toHaveLength(1);
+    });
   });
 });
 

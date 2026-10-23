@@ -18439,7 +18439,7 @@ export default function App() {
           {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV}/>}
           {tab === "chat" && <Comunicacao data={data} currentUser={currentUser} showToast={showToast}/>}
           {tab === "admin_central" && <Suspense fallback={<div className="arcd-page-loading">Carregando central do administrador...</div>}><CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/></Suspense>}
-          {tab === "aprov_pend" && <Suspense fallback={<div className="arcd-page-loading">Carregando aprovações...</div>}><AprovacoesPendentesView data={data} update={update} showToast={showToast} currentUser={currentUser}/></Suspense>}
+          {tab === "aprov_pend" && <Suspense fallback={<div className="arcd-page-loading">Carregando aprovações...</div>}><AprovacoesPendentesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab.startsWith("com_") && <Suspense fallback={<div className="arcd-page-loading">Carregando comercial...</div>}><Comercial data={data} update={update} dispatchCommand={dispatchOperationalCommand} showToast={showToast} currentUser={currentUser} view={tab} onTab={setTab} /></Suspense>}
           {tab === "obras"  && (obraAberta
             ? <ObraDetalhe data={data} obraId={obraAberta} update={update} showToast={showToast}

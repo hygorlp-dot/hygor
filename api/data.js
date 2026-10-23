@@ -201,6 +201,9 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.INVOICE_SAVED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.INVOICE_APPROVED]:["admin","financeiro"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED]:["admin","compras"],
+  // Qualquer perfil que possa ser aprovador; quem decide é o motor, que só
+  // aceita o usuário autenticado se ele estiver entre os elegíveis da etapa.
+  [OPERATIONAL_COMMAND.APPROVAL_DECISION_RECORDED]:["admin","compras","financeiro","engenheiro","engenheiro_auditor","rh","diretoria"],
   [OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.PURCHASE_REQUEST_CANCELLED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.SUPPLIER_SAVED]:["admin","compras","financeiro"],
@@ -1102,7 +1105,7 @@ const executarComandoOperacionalBloqueado=async({command,usuario,financial,linha
       const scope=validateOperationalCommandScope({user:usuario,data:current,command});
       if(!scope.ok)return {kind:"error",status:scope.error.includes("vinculado")?400:403,error:scope.error};
       const executed=applyOperationalCommand(current,{
-        ...command,actorId:usuario.id,
+        ...command,actorId:usuario.id,actorRole:usuario.role||"",
         actorName:usuario.nome||usuario.email||"Usuário autenticado",
       });
       if(!executed.ok)return {
@@ -2112,7 +2115,7 @@ export default async function handler(req, res) {
       const dominioInicial=linhaEfetivaParaEscrita(domainAlvo,rowVersions);
       let base={payload:atual,domain:dominioInicial,rowVersions,updatedAt:dominioInicial===DOMAIN_ROW.CORE?updatedAt:rowVersions[domainAlvo]};
       for(let attempt=0;attempt<6;attempt+=1){
-        const result=applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorName:usuario.nome||usuario.email||"Usuário autenticado"});
+        const result=applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorRole:usuario.role||"",actorName:usuario.nome||usuario.email||"Usuário autenticado"});
         if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:base.updatedAt});
         if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(base.payload,usuario),updatedAt:base.updatedAt});
         const gravacao=await persistir(base,result.data);

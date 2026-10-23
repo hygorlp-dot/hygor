@@ -330,5 +330,49 @@ describe("comando de anexação de documento à proposta (PURCHASE_QUOTE_DOCUMEN
     expect(fromQuote.ok).toBe(true);
     expect(fromQuote.data.pedidos.find(item=>item.id==="p-2").numero).toBe("PC-0043");
   });
+
+  it("solicitação aguardando aprovação não vira pedido",()=>{
+    const data=base();
+    data.solicitacoesCompra[0].aprovacaoInstanciaId="apr-1";
+    data.instanciasAprovacao=[{id:"apr-1",status:"em_andamento"}];
+    const result=applyPurchaseOrderCommand(data,command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:rawOrder()},
+    ),"2026-07-28T12:00:00.000Z");
+    expect(result.reason).toContain("aguarda aprovação");
+  });
+
+  describe("alçada de R$ 5.000 no pedido",()=>{
+    const big={...rawOrder(),solicitacaoId:"",itens:[{id:"i-1",materialId:"m-1",qtd:100,precoUnit:60}]};
+    const save=(data,order,patch={})=>applyPurchaseOrderCommand(data,{...command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order},
+    ),...patch},"2026-07-28T12:00:00.000Z");
+
+    it("pedido direto acima da alçada só o Administrador lança",()=>{
+      expect(save(base(),big).reason).toMatch(/precisa de aprovação do Administrador/);
+      expect(save(base(),big,{actorRole:"compras"}).ok).toBe(false);
+      expect(save(base(),big,{actorRole:"admin"}).ok).toBe(true);
+      expect(save(base(),{...big,itens:[{id:"i-1",materialId:"m-1",qtd:100,precoUnit:50}]}).ok).toBe(true);
+    });
+
+    it("solicitação aprovada pelo Administrador cobre pedido acima da alçada; a do engenheiro não",()=>{
+      const instance=(etapa)=>({id:"apr-1",status:"aprovada",policyId:"padrao-solicitacao-compra",
+        snapshotPolitica:{etapas:[{id:"engenheiro-obra",tipoAprovador:"responsavelObra"},{id:"administrador",tipoAprovador:"administrador"}]},
+        resultadosEtapas:etapa==="admin"?[{status:"pulada"},{status:"concluida"}]:[{status:"concluida"},{status:"pulada"}]});
+      const withRequest=etapa=>{const data=base();data.solicitacoesCompra[0].aprovacaoInstanciaId="apr-1";
+        data.instanciasAprovacao=[instance(etapa)];return data;};
+      const order={...big,solicitacaoId:"s-1"};
+      expect(save(withRequest("engenheiro"),order).ok).toBe(false);
+      expect(save(withRequest("admin"),order).ok).toBe(true);
+    });
+
+    it("ajuste que não aumenta o total não pede nova alçada",()=>{
+      const created=save(base(),big,{actorRole:"admin"});
+      const lower={...big,itens:[{id:"i-1",materialId:"m-1",qtd:90,precoUnit:60}]};
+      const edit=applyPurchaseOrderCommand(created.data,{...command(
+        PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:lower,adjustmentReason:"Menos sacos"},1,
+      )},"2026-07-29T12:00:00.000Z");
+      expect(edit.ok).toBe(true);
+    });
+  });
 });
 

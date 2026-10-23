@@ -1,6 +1,7 @@
 import { validatePurchaseRequest } from "./purchase-request-workflow.js";
 import { hasValidUnitConversion } from "./unit-conversion.js";
 import { proximoNumeroSolicitacao } from "./calculations.js";
+import { iniciarAprovacaoSolicitacao } from "./purchase-approval.js";
 
 export const PURCHASE_REQUEST_COMMAND=Object.freeze({
   PURCHASE_REQUEST_SAVED:"SOLICITACAO_COMPRA_SALVA",
@@ -35,6 +36,12 @@ const normalizeCatalogMaterials=(data,requestId,rawMaterials=[])=>{
   }
   return {materials:[...catalog.values()],changed};
 };
+
+const approvalRelevant=request=>JSON.stringify((request?.itens||[]).map(item=>[
+  String(item.materialId||""),Number(item.quantidade||0),Number(item.precoRef||0),
+  String(item.unidadeCompra||""),Number(item.fatorConversao||1),
+]));
+const itemsChanged=(before,after)=>approvalRelevant(before)!==approvalRelevant(after);
 
 const saveRequest=(data,command,now)=>{
   const payload=command.payload||{},sent=payload.request||{};
@@ -77,17 +84,24 @@ const saveRequest=(data,command,now)=>{
     atualizadoPor:actorName,updatedBy:actorName,updatedById:String(command.actorId||""),
     ...(!current?{criadoEm:raw.criadoEm||now,criadoPor:raw.criadoPor||actorName,
       criadoPorId:raw.criadoPorId||String(command.actorId||"")}:{})};
-  let next={...data,materiais:catalogResult.materials,
-    solicitacoesCompra:current
-      ?(data.solicitacoesCompra||[]).map(item=>String(item.id)===id?saved:item)
-      :[...(data.solicitacoesCompra||[]),saved]};
-  const approval=payload.approvalInstance;
-  if(approval?.id){
-    const existing=(next.instanciasAprovacao||[]).some(item=>String(item.id)===String(approval.id));
-    next={...next,instanciasAprovacao:existing
-      ?(next.instanciasAprovacao||[]).map(item=>String(item.id)===String(approval.id)?approval:item)
-      :[...(next.instanciasAprovacao||[]),approval]};
+  // A aprovação nasce no servidor; `payload.approvalInstance`, que o
+  // navegador mandava pronto (e podia mandar "aprovada"), é ignorado.
+  const actor={id:String(command.actorId||""),nome:actorName};
+  let withApproval={...data,materiais:catalogResult.materials};
+  let approvalId=current?.aprovacaoInstanciaId||"";
+  if(!current||itemsChanged(current,saved)){
+    const started=iniciarAprovacaoSolicitacao(withApproval,{...saved,solicitanteId:saved.solicitanteId||actor.id},actor,now);
+    // Itens mudaram depois de aprovados ou em análise: vale a nova aprovação.
+    withApproval={...started.data,instanciasAprovacao:(started.data.instanciasAprovacao||[]).map(item=>
+      approvalId&&String(item.id)===String(approvalId)&&item.status!=="substituida"
+        ?{...item,status:"substituida",concluidoEm:now,substituidaPor:started.instanciaId}:item)};
+    approvalId=started.instanciaId;
   }
+  const finalRequest={...saved,aprovacaoInstanciaId:approvalId};
+  const next={...withApproval,
+    solicitacoesCompra:current
+      ?(data.solicitacoesCompra||[]).map(item=>String(item.id)===id?finalRequest:item)
+      :[...(data.solicitacoesCompra||[]),finalRequest]};
   return {ok:true,entityId:id,data:next};
 };
 
