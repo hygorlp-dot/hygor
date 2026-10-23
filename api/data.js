@@ -2068,111 +2068,41 @@ export default async function handler(req, res) {
           error:outcome.error,reason:outcome.error,
           ...(outcome.conflict?{conflict:true,currentUpdatedAt:outcome.currentUpdatedAt}:{}),
         });
-        const ehComandoDeSolicitacaoCompra=command.type===OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED
-          ||command.type===OPERATIONAL_COMMAND.PURCHASE_REQUEST_CANCELLED;
-        if(ehComandoDeSolicitacaoCompra&&["save","idempotent"].includes(outcome.kind)){
-          await sincronizarSolicitacaoCompraAoVivo({
-            companyId:COMPANY,
-            requestId:command.payload?.request?.id||command.payload?.requestId,
-            mergedData:outcome.data,actor:usuario,
-          });
+        // Project every record changed by the committed command, including
+        // indirect request/quote changes when generating or cancelling orders.
+        if(outcome.kind==="save"){
+          const projections=[
+            ["solicitacoesCompra",sincronizarSolicitacaoCompraAoVivo,"requestId"],
+            ["cotacoes",sincronizarCotacaoAoVivo,"quoteId"],
+            ["pedidos",sincronizarPedidoAoVivo,"orderId"],
+          ];
+          for(const [section,sync,idKey] of projections){
+            const previous=new Map((outcome.basePayload?.[section]||[]).map(record=>[record.id,record]));
+            for(const record of outcome.data?.[section]||[]){
+              if(JSON.stringify(previous.get(record.id))===JSON.stringify(record))continue;
+              await sync({companyId:COMPANY,[idKey]:record.id,mergedData:outcome.data,actor:usuario});
+            }
+          }
         }
         if(outcome.kind==="idempotent"){
           const payload=command.payload||{};
           const orderIds=new Set([payload.order?.id,payload.orderId,payload.pedidoId,
             payload.targetType==="pedido"?payload.targetId:null,
             ...Object.values(payload.orders||{}).map(entry=>entry?.orderId)].filter(Boolean));
+          const orders=(outcome.data?.pedidos||[]).filter(order=>orderIds.has(order.id));
+          const quoteIds=new Set([payload.quote?.id,payload.quoteId,...orders.map(order=>order.cotacaoId)].filter(Boolean));
+          const quotes=(outcome.data?.cotacoes||[]).filter(quote=>quoteIds.has(quote.id));
+          const requestIds=new Set([payload.request?.id,payload.requestId,
+            ...orders.map(order=>order.solicitacaoId),...quotes.map(quote=>quote.solicitacaoId)].filter(Boolean));
+          for(const requestId of requestIds){
+            await sincronizarSolicitacaoCompraAoVivo({companyId:COMPANY,requestId,mergedData:outcome.data,actor:usuario});
+          }
+          for(const quoteId of quoteIds){
+            await sincronizarCotacaoAoVivo({companyId:COMPANY,quoteId,mergedData:outcome.data,actor:usuario});
+          }
           for(const orderId of orderIds){
             await sincronizarPedidoAoVivo({companyId:COMPANY,orderId,mergedData:outcome.data,actor:usuario});
           }
-          const quoteId=payload.quote?.id||payload.quoteId;
-          if(quoteId)await sincronizarCotacaoAoVivo({companyId:COMPANY,quoteId,mergedData:outcome.data,actor:usuario});
-        }
-        if(command.type===OPERATIONAL_COMMAND.QUOTATION_SAVED&&outcome.kind==="save"){
-          await sincronizarCotacaoAoVivo({
-            companyId:COMPANY,quoteId:command.payload?.quote?.id,
-            mergedData:outcome.data,actor:usuario,
-          });
-        }
-        if(command.type===OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED&&outcome.kind==="save"){
-          await sincronizarPedidoAoVivo({
-            companyId:COMPANY,orderId:command.payload?.order?.id,
-            mergedData:outcome.data,actor:usuario,
-          });
-        }
-        // Receipts and financial commands also change the order payload.
-        // Compare the committed records instead of maintaining another list
-        // of command types (which previously omitted these transitions).
-        if(outcome.kind==="save"&&![
-          OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED,OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE,
-          OPERATIONAL_COMMAND.QUOTE_MAP_DECIDED,OPERATIONAL_COMMAND.PURCHASE_QUOTE_CANCELLED,
-          OPERATIONAL_COMMAND.PURCHASE_CANCELLED,OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED,
-          OPERATIONAL_COMMAND.PURCHASE_ORDER_SENT_TO_SUPPLIER,OPERATIONAL_COMMAND.PURCHASE_ORDER_SUPPLIER_ACCEPTED,
-        ].includes(command.type)){
-          const previousOrders=new Map((outcome.basePayload?.pedidos||[]).map(order=>[order.id,order]));
-          for(const order of outcome.data?.pedidos||[]){
-            if(JSON.stringify(previousOrders.get(order.id))===JSON.stringify(order))continue;
-            await sincronizarPedidoAoVivo({companyId:COMPANY,orderId:order.id,mergedData:outcome.data,actor:usuario});
-          }
-        }
-        // Ampliação (01/09/2026, ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md):
-        // os comandos que faltavam da mesma família - decidir cotação (que
-        // também gera um pedido), os dois cancelamentos e anexação de
-        // documento. Mesmo padrão, mesma tolerância de melhor esforço,
-        // reaproveitando as duas funções de sincronização já existentes -
-        // só muda QUAL linha cada comando precisa ressincronizar.
-        if(command.type===OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE&&outcome.kind==="save"){
-          await sincronizarPedidoAoVivo({
-            companyId:COMPANY,orderId:command.payload?.orderId,
-            mergedData:outcome.data,actor:usuario,
-          });
-          await sincronizarCotacaoAoVivo({
-            companyId:COMPANY,quoteId:command.payload?.quoteId,
-            mergedData:outcome.data,actor:usuario,
-          });
-        }
-        if(command.type===OPERATIONAL_COMMAND.QUOTE_MAP_DECIDED&&outcome.kind==="save"){
-          for(const entry of Object.values(command.payload?.orders||{})){
-            if(!(outcome.data?.pedidos||[]).some(item=>String(item?.id)===String(entry?.orderId)))continue;
-            await sincronizarPedidoAoVivo({
-              companyId:COMPANY,orderId:entry.orderId,mergedData:outcome.data,actor:usuario,
-            });
-          }
-          await sincronizarCotacaoAoVivo({
-            companyId:COMPANY,quoteId:command.payload?.quoteId,
-            mergedData:outcome.data,actor:usuario,
-          });
-        }
-        if(command.type===OPERATIONAL_COMMAND.PURCHASE_QUOTE_CANCELLED&&outcome.kind==="save"){
-          const quoteId=command.payload?.quoteId;
-          await sincronizarCotacaoAoVivo({companyId:COMPANY,quoteId,mergedData:outcome.data,actor:usuario});
-          // Cancelar uma cotação pode desvincular um pedido já gerado dela
-          // (cancelQuote limpa o cotacaoId do pedido, mas preserva o
-          // pedidoId antigo na PRÓPRIA cotação) - ressincroniza esse
-          // pedido também, para o vínculo relacional não ficar obsoleto.
-          const pedidoVinculado=(outcome.data?.cotacoes||[]).find(item=>String(item?.id)===String(quoteId))?.pedidoId;
-          if(pedidoVinculado){
-            await sincronizarPedidoAoVivo({companyId:COMPANY,orderId:pedidoVinculado,mergedData:outcome.data,actor:usuario});
-          }
-        }
-        if(command.type===OPERATIONAL_COMMAND.PURCHASE_CANCELLED&&outcome.kind==="save"){
-          await sincronizarPedidoAoVivo({
-            companyId:COMPANY,orderId:command.payload?.orderId,
-            mergedData:outcome.data,actor:usuario,
-          });
-        }
-        if(command.type===OPERATIONAL_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED&&outcome.kind==="save"){
-          await sincronizarCotacaoAoVivo({
-            companyId:COMPANY,quoteId:command.payload?.quoteId,
-            mergedData:outcome.data,actor:usuario,
-          });
-        }
-        if([OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED,OPERATIONAL_COMMAND.PURCHASE_ORDER_SENT_TO_SUPPLIER,
-          OPERATIONAL_COMMAND.PURCHASE_ORDER_SUPPLIER_ACCEPTED].includes(command.type)&&outcome.kind==="save"){
-          await sincronizarPedidoAoVivo({
-            companyId:COMPANY,orderId:command.payload?.orderId,
-            mergedData:outcome.data,actor:usuario,
-          });
         }
         return res.status(200).json({
           ok:true,idempotent:outcome.kind==="idempotent",

@@ -67,7 +67,7 @@ const divergences=compareFinancialScopes(
 const dreDivergences=compareDreProjectionRows(snapshot.dreSnapshots,events);
 const purchaseDivergences=compareProcurementDreRecognition(sourceData,events);
 if(divergences.length||dreDivergences.length||purchaseDivergences.length){
-  process.stderr.write(`FIN-002 detalhes: ${JSON.stringify({financial:divergences.slice(0,20),dre:dreDivergences.slice(0,20)})}\n`);
+  process.stderr.write(`FIN-002 detalhes: ${JSON.stringify({financial:divergences.slice(0,20),dre:dreDivergences.slice(0,20),comprasDre:purchaseDivergences.slice(0,20)})}\n`);
   throw new Error(`FIN-002: gate recusado; ${divergences.length} divergência(s) financeira(s), ${dreDivergences.length} no DRE e ${purchaseDivergences.length} entre Compras e DRE.`);
 }
 process.stdout.write(`FIN-002: migration e carga concluídas; ${sync.facts} fatos, ${sync.settlements} liquidações, ${sync.dreSnapshots} projeções DRE, 0 divergências.\n`);

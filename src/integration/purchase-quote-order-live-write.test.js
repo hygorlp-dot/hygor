@@ -254,6 +254,30 @@ describe("/api/data · QUOTATION_SAVED e PURCHASE_ORDER_SAVED gravam ao vivo em 
     expect((await callApi(request)).body.idempotent).toBe(true);
     expect(testState.rows[CORE_KEY].value.pedidos[0].pagamentos).toHaveLength(1);
   });
+  it("cotar e gerar pedido atualiza também a solicitação de origem",async()=>{
+    testState.rows[CORE_KEY].value.solicitacoesCompra=[{id:"req-1",obraId:"obra-1",status:"enviada",version:1,cotacaoIds:[],
+      itens:[{id:"ri-1",materialId:"mat-1",descricaoRef:"Cimento",quantidade:10}]}];
+    const quote=quotationCommand();quote.command.payload.quote.solicitacaoId="req-1";
+    expect((await callApi(quote)).body.ok).toBe(true);
+    expect(testState.upsertCalls.find(call=>call.table==="purchase_requests").row.payload.status).toBe("em_analise");
+    testState.upsertCalls.length=0;
+    const generate={action:"operational-command",accessToken:"valid-token",command:{
+      type:"PEDIDO_COMPRA_GERADO_COTACAO",expectedVersion:0,idempotencyKey:"request-order-projection-001",
+      payload:{quoteId:"cot-1",proposalId:"prop-1",orderId:"ped-1",number:"PC-001",itemId:"item-1"},
+    }};
+    const result=await callApi(generate);
+    expect(result.body.ok,result.body.error).toBe(true);
+    expect(testState.upsertCalls.find(call=>call.table==="purchase_requests").row.payload.status).toBe("pedido_gerado");
+    testState.upsertCalls.length=0;
+    const cancel=await callApi({action:"operational-command",accessToken:"valid-token",command:{
+      type:"COMPRA_CANCELADA",expectedVersion:1,idempotencyKey:"request-cancel-projection-001",
+      payload:{orderId:"ped-1",reason:"Compra cancelada pelo solicitante"},
+    }});
+    expect(cancel.body.ok,cancel.body.error).toBe(true);
+    expect(testState.upsertCalls.find(call=>call.table==="purchase_requests").row.payload.status).toBe("enviada");
+    expect(testState.upsertCalls.find(call=>call.table==="core_quotations").row.status).toBe("aberta");
+    expect(testState.upsertCalls.find(call=>call.table==="core_purchase_orders").row.status).toBe("cancelado");
+  });
 
   it("não grava em core_quotations/core_purchase_orders para comandos de outros domínios",async()=>{
     await callApi({
