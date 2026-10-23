@@ -26,7 +26,8 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
     expect(mover).not.toMatch(/gerarPedidoDaCotacao\(/);
     expect(mover).toMatch(/setCotDecisao\(\{cotacaoId:card\.registro\.id/);
     expect(mover).not.toMatch(/Pedido liberado para entrega/);
-    expect(mover).toMatch(/abrirPagamento\(card\.registro\)/);
+    // C1.2: "Aguardando entrega" não depende de pagamento; arrastar envia o rascunho.
+    expect(mover).not.toMatch(/abrirPagamento\(card\.registro\)/);
   });
 
   it("solicitação reprovada não vira pedido",()=>{
@@ -48,6 +49,14 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
     expect(pagar).toMatch(/conferenciaPagamentoPedido\(data,pedido\.id\)/);
     expect(pagar).toMatch(/adiantamento:!!f\.adiantamento,motivoAdiantamento:/);
     expect(compras).toMatch(/Motivo do adiantamento \*/);
+  });
+
+  it("C1.2: o kanban separa pedidos pela entrega, não pelo pagamento",()=>{
+    expect(compras).not.toMatch(/Pedidos a pagar/);
+    expect(compras).toMatch(/const coluna=concluido\?"concluido":status==="rascunho"\?"pedido":"entrega";/);
+    expect(compras).not.toMatch(/liberado para recebimento/);
+    const mover=trecho(compras,"const moverCardKanban=","const comprasAbas=");
+    expect(mover).toMatch(/status:"enviado",motivoAjuste:"Pedido enviado ao fornecedor\."/);
   });
 });
 
