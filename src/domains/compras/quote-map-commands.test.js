@@ -116,7 +116,8 @@ describe("mapa de cotação com vários itens (C1.3)",()=>{
     expect(quote).toMatchObject({status:"aberta",pedidoIds:["p-1"],pedidoId:"p-1"});
     expect(Object.keys(quote.decisoes)).toHaveLength(10);
     expect(quote.decisoes["ci-1"]).toBeUndefined();
-    expect(quote.economia).toBe(ITENS*10);
+    // A economia acompanha só as decisões que seguem vivas.
+    expect(quote.economia).toBe(ITENS*10/2);
     expect(cancelled.data.solicitacoesCompra[0]).toMatchObject({status:"pedido_gerado",pedidoId:"p-1",pedidoIds:["p-1"]});
     // Os itens devolvidos podem ir para outro fornecedor sem o pedido vivo bloquear.
     const again=decide(cancelled.data,{"ci-1":"pr-3"},{justifications:{"ci-1":"Único com estoque"}},quote.version);

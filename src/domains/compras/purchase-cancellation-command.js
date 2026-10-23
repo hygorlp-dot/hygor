@@ -141,6 +141,7 @@ export const applyPurchaseCancellationCommand=(
         .filter(([,decision])=>decision?.pedidoId!==order.id));
       const pedidoIds=(quote.pedidoIds||[]).filter(id=>id!==order.id);
       return {...quote,status:"aberta",decisoes,pedidoIds,
+        economia:Object.values(decisoes).reduce((sum,decision)=>sum+Number(decision?.economia||0),0),
         pedidoId:quote.pedidoId===order.id?(pedidoIds[0]||""):quote.pedidoId,
         version:versionOf(quote)+1,updatedAt:now,updatedById:actor.id,updatedBy:userName};
     }
