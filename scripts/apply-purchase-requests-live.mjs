@@ -4,11 +4,10 @@
 // docs/BLUEPRINT_CONCORRENCIA_TRAVA.md). Diferente de
 // apply-core-registry-shadow.mjs/apply-equipment-registry-shadow.mjs (que
 // também fazem uma sincronização em lote a cada deploy), este script só
-// aplica a migration (idempotente - create table if not exists) - não há
-// nada para sincronizar em lote, porque a tabela `purchase_requests`
-// recebe escrita ao vivo, um registro por vez, no momento em que
-// SOLICITACAO_COMPRA_SALVA é processado (api/data.js, ação
-// "operational-command").
+// aplica a migration e reconcilia as solicitações da fonte operacional sob
+// bloqueio de linha. Isso também repara registros históricos anteriores à
+// escrita ao vivo e tentativas cujo efeito colateral falhou. Não remove
+// registros extras nem altera a fonte operacional ou pagamentos.
 //
 // Rodar manualmente contra produção, se precisar aplicar a migration antes
 // do próximo deploy (o prebuild já faz isso automaticamente):
@@ -19,6 +18,7 @@
 
 import fs from "node:fs";
 import postgres from "postgres";
+import { backfillPurchaseRequests } from "../server/purchase-request-backfill.js";
 
 if (process.env.VERCEL_ENV !== "production") {
   process.stdout.write("purchase_requests: ambiente não produtivo; migration automática ignorada.\n");
@@ -50,7 +50,8 @@ try {
   }
   const [check]=await sql`select to_regclass('public.purchase_requests') is not null as table_ok`;
   if (!check?.table_ok) throw new Error("purchase_requests: a validação pós-migração não encontrou a tabela.");
-  process.stdout.write("purchase_requests: migration aplicada.\n");
+  const result=await sql.begin(tx=>backfillPurchaseRequests(tx,process.env.COMPANY_ID||"arcd"));
+  process.stdout.write(`purchase_requests: migration e backfill confirmados; ${result.requests} solicitações, ${result.preservedExtras} registros extras preservados.\n`);
 } finally {
   await sql.end({ timeout:2 });
 }
