@@ -63,6 +63,18 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
 });
 
 
+describe("contratos de fornecimento (C2.4)",()=>{
+  const contratos=readFileSync(`${process.cwd()}/src/domains/compras/components/ContratosFornecimentoView.jsx`,"utf8");
+  it("a aba grava pelo servidor e o pedido leva o vínculo do contrato",()=>{
+    expect(contratos).toMatch(/type:OPERATIONAL_COMMAND\.SUPPLY_CONTRACT_SAVED/);
+    expect(contratos).toMatch(/type:OPERATIONAL_COMMAND\.SUPPLY_CONTRACT_CLOSED/);
+    expect(compras).toMatch(/\["contratos","Contratos de fornecimento"\]/);
+    expect(compras).toMatch(/contratosDisponiveis\(data,\{fornecedorId:form\.fornecedorId,obraId:form\.obraId,dataPedido:form\.data\}\)/);
+    const salvar=trecho(compras,"const salvarPedido = async","const abrirPagamento=");
+    expect(salvar).toMatch(/contratoId:i\.contratoId\|\|"",contratoItemId:i\.contratoItemId\|\|""/);
+  });
+});
+
 describe("entrega programada por item (C2.2)",()=>{
   it("o pedido grava data e remessas do item e o cartão mostra o atraso do item",()=>{
     const salvar=trecho(compras,"const salvarPedido = async","const abrirPagamento=");

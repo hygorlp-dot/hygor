@@ -1,6 +1,7 @@
 // Regras puras do contexto de Compras. Sem React, DOM ou persistência.
 import { calculateWorkCash } from "../financeiro/work-cash.js";
 import { active } from "../financeiro/ledger.js";
+import { pedidoPorContrato } from "./supply-contracts.js";
 import { pedidosComItensAtrasados, pontualidadeEntregas, remessasDoItem } from "./delivery-schedule.js";
 
 export const STATUS_PEDIDO = {
@@ -115,7 +116,8 @@ export const mapaGerencialCompras = (data, obraIds = [], hoje = "") => {
   const atrasadosIds = new Set(hoje ? pedidosComItensAtrasados({ ...data, pedidos: pedidosValidos }, hoje).map(x => x.pedido.id) : []);
   const atrasados = pedidosValidos.filter(p => atrasadosIds.has(p.id));
   const semPrevisao = pedidosValidos.filter(p => (p.itens || []).every(i => !remessasDoItem(i, p).length));
-  const semCotacao = pedidosValidos.filter(p => !p.cotacaoId);
+  // Pedido feito pelo contrato de fornecimento dispensa cotação (C2.4).
+  const semCotacao = pedidosValidos.filter(p => !p.cotacaoId && !pedidoPorContrato(p));
   const pagamentos = pedidos.flatMap(p => p.pagamentos || []).filter(active);
   const semConciliacao = pagamentos.filter(pg => !pg.conciliado);
   const recebidosSemQuitar = pedidosValidos.filter(p =>
