@@ -38,6 +38,7 @@ import { authorizeSectionChanges, validateBankReconciliationPolicy, validateBudg
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
 import { compareProcurementDreRecognition } from "../server/procurement-financial-facts.js";
 import { buildRequestedDreProjectionRows, dreSourceRevision } from "../server/dre-projection.js";
+import { readAnnualLayout, saveAnnualLayout } from "../src/domains/dre/annual-statement.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
 import { authorizeReconciliationCommand } from "../server/reconciliation-policy.js";
 import { executeReconciliationWithRetry } from "../server/reconciliation-execution.js";
@@ -2533,6 +2534,36 @@ export default async function handler(req, res) {
       });
       if(outcome.kind==="error")return res.status(outcome.status||400).json({error:outcome.error});
       return res.status(200).json({ ok:true, removed:id });
+    }
+
+    if(action==="financial-annual-dre-report"||action==="financial-annual-dre-layout"){
+      if(!["admin","financeiro"].includes(usuario.role)||usuario.obraId||!podeAcessarAba(usuario,"dre_emp")){
+        return res.status(403).json({error:"O DRE anual exige acesso ao DRE da empresa sem restrição de obra."});
+      }
+      if(action==="financial-annual-dre-layout"){
+        const outcome=await executarMutacaoEmpresaBloqueada({
+          actor:usuario,action:"dre_annual_layout_saved",domain:DOMAIN_ROW.CONFIG,linha:{payload:atual,rowVersions},
+          mutate:async({payload:current,updatedAt:currentUpdatedAt})=>{
+            try{
+              const saved=saveAnnualLayout(current,req.body?.rows,req.body?.expectedVersion,usuario);
+              if(saved.unchanged)return {kind:"unchanged",data:current,layout:saved.layout,updatedAt:currentUpdatedAt};
+              return {kind:"save",data:saved.data,layout:saved.layout,
+                before:{layout:readAnnualLayout(current.config)},after:{layout:saved.layout}};
+            }catch(cause){return {kind:"error",status:409,error:cause.message};}
+          },
+        });
+        if(outcome.kind==="error")return res.status(outcome.status).json({error:outcome.error});
+        return res.status(200).json({ok:true,layout:outcome.layout,updatedAt:outcome.updatedAt,
+          sections:projectChangedSectionsPatch({}, {config:outcome.data.config}, usuario)});
+      }
+      const year=Number(req.body?.year);
+      if(!Number.isInteger(year)||year<2000||year>2100)return res.status(400).json({error:"Ano inválido."});
+      const canonical=await loadCanonicalDre(db,COMPANY);
+      const requests=Array.from({length:12},(_,month)=>({year,month,period:"mes",scope:"company_dre"}));
+      const months=buildRequestedDreProjectionRows(atual,requests,canonical.events).map(row=>row.payload);
+      return res.status(200).json({ok:true,year,months,layout:readAnnualLayout(atual.config),
+        source:"canonical_ledger",sourceRevision:`${dreSourceRevision({updatedAt,rowVersions,rowVersionsPontoObra})}|canonical:${canonical.revision}`,
+        issues:canonical.issues});
     }
 
     if(action==="financial-management-report"){

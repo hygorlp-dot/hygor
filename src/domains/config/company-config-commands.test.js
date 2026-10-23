@@ -23,6 +23,12 @@ const command = (config, expectedVersion = 2) => ({
 });
 
 describe("comando transacional de configuração da empresa", () => {
+  it("preserva a estrutura versionada do DRE ao salvar o formulário geral",()=>{
+    const layout={version:3,rows:[{id:"real"}]};
+    const data={config:{...base().config,dreAnnualLayout:layout}};
+    const result=applyCompanyConfigCommand(data,command({companyName:"ARCD",dreAnnualLayout:{version:0,rows:[]}}));
+    expect(result.data.config.dreAnnualLayout).toBe(layout);
+  });
   it("normaliza alíquotas, e-mails, feriados e autoria", () => {
     const result = applyCompanyConfigCommand(
       base(),
