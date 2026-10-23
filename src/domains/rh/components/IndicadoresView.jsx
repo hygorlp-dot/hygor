@@ -59,7 +59,7 @@ function Indicadores({ data }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
             {pendentes.map(({ employee, expired }) => (
               <div key={employee.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontSize: 12, fontWeight:600, color: C.text }}>{employee.name}</span>
+                <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>{employee.name}</span>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
                   {expired.map(label => <Badge key={label} color={C.red}>{label}</Badge>)}
                 </div>

@@ -12,7 +12,7 @@ const ATUALIZAR_A_CADA_MS = 20_000;
 const corDoTom = { ok: C.green, atencao: C.orange, critico: C.red, neutro: C.muted };
 const corSituacao = { em_jornada: C.blue, fechada: C.green, sem_batida: C.muted };
 const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: 14 };
-const tituloCard = { fontSize: 13, fontWeight: 600, color: C.text, margin: "0 0 10px", display: "flex", alignItems: "center", gap: 8 };
+const tituloCard = { fontSize: "var(--arcd-type-body)", fontWeight: 600, color: C.text, margin: "0 0 10px", display: "flex", alignItems: "center", gap: 8 };
 
 export default function PontoEletronicoView({ data, showToast, currentUser }) {
   const obras = useMemo(() => (data?.obras || []).filter(o => o?.id && o?.name), [data?.obras]);
@@ -126,7 +126,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
   };
 
   if (!obras.length) {
-    return <div style={card}><p style={{ color: C.muted, fontSize: 13 }}>Cadastre uma obra no ARCD para parear o primeiro aparelho de ponto.</p></div>;
+    return <div style={card}><p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Cadastre uma obra no ARCD para parear o primeiro aparelho de ponto.</p></div>;
   }
 
   return (
@@ -150,9 +150,9 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
         <Btn v="ghost" onClick={() => carregar()} loading={carregando}><Ic n="refresh" /> Atualizar</Btn>
       </div>
 
-      {erro && <div role="alert" style={{ ...card, borderColor: C.red, color: C.red, fontSize: 13 }}>{erro}</div>}
+      {erro && <div role="alert" style={{ ...card, borderColor: C.red, color: C.red, fontSize: "var(--arcd-type-body)" }}>{erro}</div>}
 
-      {!estabDaObra && <div role="status" style={{ ...card, borderColor: C.orange, fontSize: 12.5 }}>
+      {!estabDaObra && <div role="status" style={{ ...card, borderColor: C.orange, fontSize: "var(--arcd-type-body)" }}>
         <b>Obra sem estabelecimento fiscal.</b> O NSR é contado por estabelecimento (CNPJ/CPF): enquanto esta obra não estiver ligada a um, as batidas ficam guardadas nos aparelhos e não recebem NSR.
         {podeFiscal ? " Ligue a obra a um estabelecimento abaixo." : " Peça ao RH ou ao administrador para fazer o vínculo."}
       </div>}
@@ -160,12 +160,12 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
       <section style={card} aria-labelledby="pe-estab">
         <h3 id="pe-estab" style={tituloCard}><Ic n="lock" /> Estabelecimento fiscal (NSR)</h3>
         {estabDaObra
-          ? <div style={{ fontSize: 12.5, display: "grid", gap: 4 }}>
+          ? <div style={{ fontSize: "var(--arcd-type-body)", display: "grid", gap: 4 }}>
             <p><b>{estabDaObra.nome}</b> · {estabDaObra.tipoInscricao ? `${estabDaObra.tipoInscricao.toUpperCase()} ${estabDaObra.numeroInscricao}` : "inscrição não cadastrada"}{estabDaObra.cno ? ` · CNO ${estabDaObra.cno}` : ""} · último NSR {estabDaObra.ultimoNsr}</p>
             <p style={{ color: C.muted }}>Obras neste estabelecimento: {(estabDaObra.obras || []).map(id => nomeObra.get(String(id)) || id).join(", ")}</p>
             {!!estabDaObra.pendencias?.length && <p style={{ color: C.orange }}>Pendências: {estabDaObra.pendencias.join("; ")}.</p>}
           </div>
-          : <p style={{ fontSize: 12.5, color: C.muted }}>Nenhum estabelecimento ligado a esta obra.</p>}
+          : <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>Nenhum estabelecimento ligado a esta obra.</p>}
         {repP && <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 6 }}>{repP.rotulo}. Pendências formais: {repP.pendencias.join("; ")}.</p>}
         {podeFiscal && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginTop: 10 }}>
           {!!estabelecimentos.length && <div style={{ minWidth: 220 }}><Sel label="Estabelecimento desta obra" value={estabDaObra?.id || ""} onChange={vincularObra}
@@ -178,13 +178,13 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
       <section style={card} aria-labelledby="pe-aparelhos">
         <h3 id="pe-aparelhos" style={tituloCard}><Ic n="smartphone" /> Aparelhos da obra</h3>
         {!dispositivos.length
-          ? <p style={{ color: C.muted, fontSize: 12.5 }}>Nenhum aparelho pareado nesta obra. {podeGerir ? "Use \"Parear aparelho\" e digite o código no celular da obra." : ""}</p>
+          ? <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Nenhum aparelho pareado nesta obra. {podeGerir ? "Use \"Parear aparelho\" e digite o código no celular da obra." : ""}</p>
           : <div style={{ display: "grid", gap: 8 }}>
             {dispositivos.map(d => {
               const s = situacaoAparelho(d);
               return <div key={d.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "8px 0", borderTop: `1px solid ${C.line}` }}>
                 <div style={{ flex: 1, minWidth: 180 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600 }}>{d.nome}</p>
+                  <p style={{ fontSize: "var(--arcd-type-body)", fontWeight: 600 }}>{d.nome}</p>
                   <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>App {d.appVersao || "-"}{d.aparelho?.modelo ? ` · ${[d.aparelho.marca, d.aparelho.modelo].filter(Boolean).join(" ")}` : ""}{d.aparelho?.android ? ` · Android ${d.aparelho.android}` : ""} · sequência local {d.ultimaSequenciaLocal}{d.estabelecimentoId ? ` · ${nomeEstab.get(d.estabelecimentoId) || "estabelecimento"}` : ""}{d.ultimoGps ? <> · <a href={`https://maps.google.com/?q=${d.ultimoGps.lat},${d.ultimoGps.lng}`} target="_blank" rel="noreferrer">localização</a></> : null}</p>
                 </div>
                 <Badge color={corDoTom[s.tom]}>{s.rotulo}</Badge>
@@ -197,9 +197,9 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
       <section style={card} aria-labelledby="pe-batidas">
         <h3 id="pe-batidas" style={tituloCard}><Ic n="clock" /> Batidas de {dia.split("-").reverse().join("/")}</h3>
         {!resumo.length
-          ? <p style={{ color: C.muted, fontSize: 12.5 }}>Nenhum funcionário ativo nesta obra no cadastro do ARCD.</p>
+          ? <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Nenhum funcionário ativo nesta obra no cadastro do ARCD.</p>
           : <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--arcd-type-body)" }}>
               <thead><tr style={{ textAlign: "left", color: C.muted, fontSize:"var(--arcd-type-label)" }}>
                 <th style={{ padding: "6px 8px" }}>Funcionário</th><th style={{ padding: "6px 8px" }}>Situação</th><th style={{ padding: "6px 8px" }}>Batidas (horário da obra)</th>
               </tr></thead>
@@ -211,7 +211,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
                     {l.batidas.map(b => {
                       const atencao = !b.horaConfiavel || b.relogioAlterado || b.metodo === "encarregado";
                       return <button key={b.id} type="button" onClick={() => abrirDetalhe(b)} title="Ver detalhes da batida"
-                        style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, padding: "3px 8px", borderRadius: 4, cursor: "pointer",
+                        style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "var(--arcd-type-control)", padding: "3px 8px", borderRadius: 4, cursor: "pointer",
                           border: `1px solid ${atencao ? C.orange : C.border}`, background: atencao ? `${C.orange}14` : C.surface, color: C.text }}>
                         {horaLocal(b.marcadoEm).slice(0, 5)}{atencao ? " !" : ""}
                       </button>;
@@ -222,18 +222,18 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
             </table>
             <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 8 }}>"!" = identificada pelo encarregado, hora não confirmada pelo servidor ou relógio do celular alterado. A batida vale do mesmo jeito; o sinal é para conferência.</p>
           </div>}
-        {!!acessosTerceiros.length && <p style={{ fontSize: 12, color: C.muted, marginTop: 10 }}>
+        {!!acessosTerceiros.length && <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted, marginTop: 10 }}>
           Acessos de terceirizados: {acessosTerceiros.map(a => `${horaLocal(a.marcadoEm).slice(0, 5)} ${(data?.terceirizados || []).find(t => String(t.id) === String(a.terceiroId))?.name || "terceirizado"}`).join(" · ")}
         </p>}
       </section>
 
       <section style={card} aria-labelledby="pe-bio">
         <h3 id="pe-bio" style={tituloCard}><Ic n="user" /> Biometria facial</h3>
-        <p style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>O cadastro do rosto é feito no aparelho da obra por um responsável com PIN, com o consentimento do funcionário (LGPD).</p>
+        <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted, marginBottom: 8 }}>O cadastro do rosto é feito no aparelho da obra por um responsável com PIN, com o consentimento do funcionário (LGPD).</p>
         <div style={{ display: "grid", gap: 4 }}>
           {funcionarios.map(f => {
             const b = bioPorFuncionario.get(f.id);
-            return <div key={f.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "5px 0", borderTop: `1px solid ${C.line}`, fontSize: 12.5 }}>
+            return <div key={f.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "5px 0", borderTop: `1px solid ${C.line}`, fontSize: "var(--arcd-type-body)" }}>
               <span style={{ flex: 1 }}>{f.nome}</span>
               {b ? <span style={{ color: C.muted }}>cadastrada em {new Date(b.cadastradaEm).toLocaleDateString("pt-BR")} por {nomeUsuario.get(String(b.cadastradoPor)) || "responsável"}</span> : <Badge color={C.orange}>Pendente</Badge>}
               {b && podeGerir && <Btn size="sm" v="ghost" onClick={() => excluirBiometria(f)}>Excluir</Btn>}
@@ -244,8 +244,8 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
 
       {podeGerir && <section style={card} aria-labelledby="pe-resp">
         <h3 id="pe-resp" style={tituloCard}><Ic n="lock" /> Responsáveis com PIN do app</h3>
-        <p style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>Quem pode cadastrar rostos e identificar um funcionário quando o reconhecimento falhar. O PIN do app é separado do PIN do ARCD.</p>
-        {responsaveis.map(r => <div key={r.userId} style={{ display: "flex", gap: 10, alignItems: "center", padding: "5px 0", borderTop: `1px solid ${C.line}`, fontSize: 12.5 }}>
+        <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted, marginBottom: 8 }}>Quem pode cadastrar rostos e identificar um funcionário quando o reconhecimento falhar. O PIN do app é separado do PIN do ARCD.</p>
+        {responsaveis.map(r => <div key={r.userId} style={{ display: "flex", gap: 10, alignItems: "center", padding: "5px 0", borderTop: `1px solid ${C.line}`, fontSize: "var(--arcd-type-body)" }}>
           <span style={{ flex: 1 }}>{r.nome}</span>
           <span style={{ color: C.muted }}>{r.obras?.length ? r.obras.map(id => nomeObra.get(String(id)) || id).join(", ") : "todas as obras"}</span>
           <Btn size="sm" v="ghost" onClick={() => setPinModal({ userId: r.userId, pin: "", obras: r.obras || [] })}>Trocar PIN</Btn>
@@ -255,13 +255,13 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
 
       {pareamento && <Modal title="Parear aparelho da obra" onClose={() => setPareamento(null)}>
         {!pareamento.codigo ? <div style={{ display: "grid", gap: 10 }}>
-          <p style={{ fontSize: 12.5, color: C.muted }}>Obra: <b style={{ color: C.text }}>{nomeObra.get(String(obraId))}</b>. O código vale 30 minutos e pode ser usado uma única vez.</p>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>Obra: <b style={{ color: C.text }}>{nomeObra.get(String(obraId))}</b>. O código vale 30 minutos e pode ser usado uma única vez.</p>
           <Inp label="Nome do aparelho" value={pareamento.nome} placeholder="Ex.: Portaria principal" onChange={v => setPareamento({ nome: v })} />
           <Btn onClick={gerarCodigo}>Gerar código</Btn>
         </div> : <div style={{ display: "grid", gap: 10, textAlign: "center" }}>
-          <p style={{ fontSize: 12.5, color: C.muted }}>No celular da obra, abra o app Ponto de Obra e digite:</p>
-          <p style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 34, letterSpacing: 6, fontWeight: 500 }}>{pareamento.codigo.replace(/(\d{4})(\d{4})/, "$1 $2")}</p>
-          <p style={{ fontSize: 12, color: C.muted }}>Válido até {new Date(pareamento.expiraEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}. Depois de pareado, o aparelho aparece na lista em alguns segundos.</p>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>No celular da obra, abra o app Ponto de Obra e digite:</p>
+          <p style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "var(--arcd-type-page-title)", letterSpacing: 6, fontWeight: 500 }}>{pareamento.codigo.replace(/(\d{4})(\d{4})/, "$1 $2")}</p>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>Válido até {new Date(pareamento.expiraEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}. Depois de pareado, o aparelho aparece na lista em alguns segundos.</p>
           <Btn v="ghost" onClick={() => { setPareamento(null); carregar(); }}>Concluir</Btn>
         </div>}
       </Modal>}
@@ -273,7 +273,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
           <Inp label="PIN do app (4 a 8 números)" type="password" value={pinModal.pin} onChange={v => setPinModal(p => ({ ...p, pin: String(v).replace(/\D/g, "").slice(0, 8) }))} />
           <fieldset style={{ border: `1px solid ${C.border}`, borderRadius: 4, padding: 10 }}>
             <legend style={{ fontSize:"var(--arcd-type-label)", color: C.muted, padding: "0 4px" }}>Obras em que pode atuar (nenhuma marcada = todas)</legend>
-            {obras.map(o => <label key={o.id} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5, padding: "3px 0" }}>
+            {obras.map(o => <label key={o.id} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: "var(--arcd-type-label)", padding: "3px 0" }}>
               <input type="checkbox" checked={pinModal.obras.includes(o.id)} onChange={e => setPinModal(p => ({ ...p, obras: e.target.checked ? [...p.obras, o.id] : p.obras.filter(x => x !== o.id) }))} />{o.name}
             </label>)}
           </fieldset>
@@ -283,14 +283,14 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
 
       {estabModal && <Modal title={estabModal.id ? "Editar estabelecimento" : "Novo estabelecimento"} onClose={() => setEstabModal(null)}>
         <div style={{ display: "grid", gap: 10 }}>
-          <p style={{ fontSize: 12, color: C.muted }}>O NSR é contado por estabelecimento. Preencha só o que já tiver: inscrição, CNO e CAEPF podem ser informados depois.</p>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>O NSR é contado por estabelecimento. Preencha só o que já tiver: inscrição, CNO e CAEPF podem ser informados depois.</p>
           <Inp label="Nome" value={estabModal.nome} onChange={v => setEstabModal(e => ({ ...e, nome: v }))} />
           <Sel label="Tipo de inscrição" value={estabModal.tipoInscricao || ""} onChange={v => setEstabModal(e => ({ ...e, tipoInscricao: v }))} options={[{ v: "", l: "Ainda não informada" }, { v: "cnpj", l: "CNPJ" }, { v: "cpf", l: "CPF" }]} />
           {estabModal.tipoInscricao && <Inp label={`Número do ${estabModal.tipoInscricao.toUpperCase()}`} value={estabModal.numeroInscricao || ""} onChange={v => setEstabModal(e => ({ ...e, numeroInscricao: v }))} />}
           <Inp label="CNO (obra de construção civil, 12 dígitos)" value={estabModal.cno || ""} onChange={v => setEstabModal(e => ({ ...e, cno: v }))} />
           <Inp label="CAEPF (14 dígitos)" value={estabModal.caepf || ""} onChange={v => setEstabModal(e => ({ ...e, caepf: v }))} />
           <Inp label="Fuso horário" value={estabModal.timezone || "America/Recife"} onChange={v => setEstabModal(e => ({ ...e, timezone: v }))} />
-          {!estabModal.id && <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5 }}>
+          {!estabModal.id && <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: "var(--arcd-type-label)" }}>
             <input type="checkbox" checked={!!estabModal.vincular} onChange={ev => setEstabModal(e => ({ ...e, vincular: ev.target.checked }))} /> Ligar a obra {nomeObra.get(String(obraId))} a este estabelecimento
           </label>}
           <Btn onClick={salvarEstabelecimento} disabled={!String(estabModal.nome || "").trim()}>Salvar</Btn>
@@ -298,7 +298,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
       </Modal>}
 
       {detalhe && <Modal title={`Batida de ${nomeFuncionario.get(String(detalhe.marcacao.employeeId)) || "funcionário"}`} onClose={() => setDetalhe(null)}>
-        <div style={{ display: "grid", gap: 8, fontSize: 12.5 }}>
+        <div style={{ display: "grid", gap: 8, fontSize: "var(--arcd-type-body)" }}>
           {detalhe.carregandoFoto ? <p style={{ color: C.muted }}>Carregando foto...</p>
             : detalhe.fotoUrl ? <img src={detalhe.fotoUrl} alt="Foto registrada na batida" style={{ width: "100%", maxWidth: 320, borderRadius: 4, justifySelf: "center" }} />
               : <p style={{ color: C.muted }}>{detalhe.erroFoto || "Sem foto nesta batida."}</p>}

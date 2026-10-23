@@ -6,6 +6,8 @@ Direção aprovada. Modo Operate da skill Impeccable: precisão, leitura, sobrie
 
 IBM Plex Sans em títulos, controles, corpo e valores. Algarismos tabulares para comparação; monoespaçada apenas para códigos. Escala estável em rem: página 28 px, seção 20 px, cartão 16 px, corpo e controles 14 px, rótulo 13 px, informação auxiliar 12 px, valor principal 24 px. Peso 400 para leitura, 500 para rótulos e 600 para títulos e valores. Não reduzir texto para caber nem cortar valores monetários. Margem em linha própria.
 
+Títulos de modais usam 20 px nas duas plataformas. Campos de texto, seleção e área de texto usam 16 px no celular para evitar ampliação automática do navegador. Legendas de gráficos e textos auxiliares mantêm pelo menos 12 px. Valores financeiros usam a mesma família do conteúdo, com algarismos tabulares; PIX, CPF, patrimônio e NSR conservam a monoespaçada quando identificadores. O modo TV mantém títulos maiores para leitura à distância.
+
 ## Cor por função
 
 Fundo marfim #F5F2EC; superfície branca; texto e ação principal grafite #202421; texto secundário #62665F; bronze #7C6039 para marca, foco e seleção; seleção suave #EDE5D9; divisores #DAD6CE; limite de controle #8B8D84. Sucesso confirmado #2E6652, atenção necessária #855A24, erro ou resultado negativo #A63B3B. Texto normal com contraste mínimo 4,5:1, controles e texto grande 3:1. Não atribuir uma cor a cada indicador neutro. Estados usam texto e ícone quando apropriado, além da cor.

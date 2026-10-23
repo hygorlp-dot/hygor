@@ -259,7 +259,7 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
       {toast && <div style={{ background: toast.type === "error" ? `${C.red}12` : toast.type === "warn" ? `${C.orange}12` : `${C.green}12`, border: `1px solid ${toast.type === "error" ? C.red : toast.type === "warn" ? C.orange : C.green}44`, borderRadius: 7, padding: "9px 11px", fontSize:"var(--arcd-type-label)", color: C.text }}>{toast.msg}</div>}
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
-        <p style={{ fontSize: 13, fontWeight:600, color: C.text }}>Bases de preço - SINAPI e ORSE</p>
+        <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>Bases de preço - SINAPI e ORSE</p>
         <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 3, lineHeight: 1.5 }}>
           Cadastro exclusivo do administrador. Depois de cadastrada, qualquer operador pode vincular a base ao orçamento e escolher UF / onerado ou desonerado por lá - nenhum arquivo é enviado de dentro do orçamento.
         </p>
@@ -267,7 +267,7 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 10 }}>
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
-          <p style={{ fontSize: 12, fontWeight:600, color: C.blue, marginBottom: 8 }}>SINAPI · planilha oficial (XLSX)</p>
+          <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.blue, marginBottom: 8 }}>SINAPI · planilha oficial (XLSX)</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <Sel label="UF dos preços" value={sinapiUf} onChange={setSinapiUf} options={SINAPI_UFS.map(uf => ({ v: uf, l: uf }))} />
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
@@ -300,7 +300,7 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
         </div>
 
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
-          <p style={{ fontSize: 12, fontWeight:600, color: C.purple, marginBottom: 8 }}>ORSE · tabelas oficiais (TXT, CEHOP)</p>
+          <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.purple, marginBottom: 8 }}>ORSE · tabelas oficiais (TXT, CEHOP)</p>
           <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginBottom: 8, lineHeight: 1.5 }}>
             Selecione de uma vez os 5 arquivos: TB_INSUMO, TB_INSUMO_PRECO, TB_SERVICO, TB_SERVICO_PRECO e TB_COMPOSICAO (os de detalhamento de equipamento não são usados). O app reconhece cada um pelo nome.
           </p>
@@ -340,7 +340,7 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
       </div>
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
-        <p style={{ fontSize: 12, fontWeight:600, color: C.text, marginBottom: 8 }}>
+        <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, marginBottom: 8 }}>
           Bases cadastradas · {bases.length} registro(s){duplicadas ? ` · ${duplicadas} repetição(ões)` : ""}
         </p>
         {carregando ? <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Carregando...</p>

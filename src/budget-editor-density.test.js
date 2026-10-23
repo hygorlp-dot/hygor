@@ -15,12 +15,13 @@ describe("densidade do editor de orçamento", () => {
     expect(app).toMatch(/className=\{?["`]budget-line-row\b/);
     expect(css).toContain(".arcd-main .budget-line-row input");
     expect(css).toContain("min-height: 30px");
-    expect(css).toContain("font-size:var(--arcd-type-caption) !important");
+    const desktopRow = css.match(/\.arcd-main \.budget-line-row input[^{}]*\{([^}]+)\}/)?.[1];
+    expect(desktopRow).toContain("font-size:var(--arcd-type-control) !important");
   });
 
   it("preserva o padrão global de toque no mobile", () => {
     expect(css).toContain("@media (max-width: 767px)");
     expect(css).toContain("min-height: 44px");
-    expect(css).toContain("font-size: 16px !important");
+    expect(css).toContain("font-size: var(--arcd-type-control-touch) !important");
   });
 });

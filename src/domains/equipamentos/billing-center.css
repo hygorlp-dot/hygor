@@ -79,7 +79,7 @@ td:not(.num) > .bc-flag { justify-content: flex-start; }
 .bc-table { width: 100%; border-collapse: collapse; }
 .bc-table caption { margin-bottom: var(--arcd-space-2); color: var(--arcd-text-secondary); font-size: var(--arcd-type-label); font-weight: 600; text-align: left; }
 .bc-table th, .bc-table td { padding: var(--arcd-space-2) var(--arcd-space-2); border-bottom: 1px solid var(--arcd-border-default); background: transparent; text-align: left; vertical-align: top; overflow-wrap: anywhere; text-transform: none; letter-spacing: normal; }
-.bc-table tbody th { font-size: var(--arcd-type-body); }
+.bc-table tbody th { font-size: var(--arcd-type-label); }
 .bc-table thead th { color: var(--arcd-text-secondary); font-size: var(--arcd-type-label); font-weight: 600; }
 .bc-table tbody th { font-weight: 400; color: var(--arcd-text-secondary); }
 .bc-table tfoot th, .bc-table tfoot td { font-weight: 600; border-bottom: 0; }

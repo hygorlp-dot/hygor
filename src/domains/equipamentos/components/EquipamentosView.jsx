@@ -946,7 +946,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                   <div className="equipment-fleet-card__body">
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:6}}>
                     <div style={{minWidth:0}}>
-                      <p style={{fontSize:13,fontWeight:600,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.nome}</p>
+                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.nome}</p>
                       <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{e.categoria||"Sem categoria"}{e.patrimonio?` · ${e.patrimonio}`:""}</p>
                     </div>
                     <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:st.c,background:`${st.c}14`,padding:"2px 7px",borderRadius:99,flexShrink:0,textTransform:"uppercase",height:"fit-content"}}>{st.l}</span>
@@ -1053,7 +1053,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
             const allocations=physicalRegistry.allocations.filter(item=>assetIds.has(item.lotId||item.unitId));
             return <article key={model.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}>
               <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"start"}}>
-                <div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:600,color:C.text}}>{model.name}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{model.category||"Sem categoria"}{model.manufacturer?` · ${model.manufacturer}`:""}</p></div>
+                <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{model.name}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{model.category||"Sem categoria"}{model.manufacturer?` · ${model.manufacturer}`:""}</p></div>
                 <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:units.length?C.green:C.blue,background:`${units.length?C.green:C.blue}12`,borderRadius:99,padding:"3px 7px",whiteSpace:"nowrap"}}>{units.length?`${units.length} unidade(s)`:`${lots.reduce((sum,lot)=>sum+Number(lot.quantity||0),0)} em lote`}</span>
               </div>
               <div style={{display:"grid",gap:5,marginTop:10}}>{allocations.map(allocation=>{
@@ -1125,7 +1125,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           </p>
 
           {linhas.length===0
-            ? <div style={{padding:24,textAlign:"center",color:C.muted,fontSize:12}}>Nenhum equipamento no filtro.</div>
+            ? <div style={{padding:24,textAlign:"center",color:C.muted,fontSize:"var(--arcd-type-body)"}}>Nenhum equipamento no filtro.</div>
             : <div style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,maxHeight:"70vh"}}>
               <table style={{borderCollapse:"separate",borderSpacing:0,fontSize:"var(--arcd-type-label)"}}>
                 <thead>
@@ -1136,12 +1136,12 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                     {diasMes.map(d=>(
                       <th key={d} style={{position:"sticky",top:0,zIndex:2,background:ehFimSemana(d)?`${C.blue}10`:C.surface,
                                           padding:"7px 0",minWidth:42,borderBottom:`1px solid ${C.border}`,
-                                          fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>{diaCurto(d)}</th>
+                                          fontSize:"var(--arcd-type-label)",color:C.muted,fontWeight:600}}>{diaCurto(d)}</th>
                     ))}
                     {["Dias","Ocup.","Receita","Result."].map(h=>(
                       <th key={h} style={{position:"sticky",top:0,zIndex:2,background:C.surface,padding:"7px 9px",
                                           borderBottom:`1px solid ${C.border}`,borderLeft:`1px solid ${C.border}`,
-                                          fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
+                                          fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -1240,14 +1240,14 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                 <article key={m.id} className="equipment-record" data-maintenance={m.tipo||"corretiva"}>
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
                     <div style={{minWidth:0}}>
-                      <p style={{fontSize:12.5,fontWeight:600,color:C.text}}>{equipName(m.equipamentoId)}{jaDescartado&&<span style={{marginLeft:6}}><Badge color={C.muted}>Descartado</Badge></span>}</p>
+                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{equipName(m.equipamentoId)}{jaDescartado&&<span style={{marginLeft:6}}><Badge color={C.muted}>Descartado</Badge></span>}</p>
                       <p style={{fontSize:"var(--arcd-type-caption)",color:cancelada?C.red:C.muted}}>
                         {fmtDate(m.inicio||m.data)} {cancelada?"→ excluída":m.fim?`→ ${fmtDate(m.fim)}`:"→ prazo indeterminado"} · {m.tipo}{m.descricao?` · ${m.descricao}`:""}
                       </p>
                       <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>Pago por {m.pagoPor==="proprietario"?"proprietário":"empresa"}{m.fornecedor?` · ${m.fornecedor}`:""}</p>
                     </div>
                     <div style={{textAlign:"right"}}>
-                      <p style={{fontSize:12,fontWeight:600,color:cancelada?C.muted:C.red}}>{fmt(m.custo)}</p>
+                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:cancelada?C.muted:C.red}}>{fmt(m.custo)}</p>
                     </div>
                   </div>
                   <div className="equipment-record-actions">
@@ -1328,13 +1328,13 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                 })}
               </div>}
               {equipModal.sinapiCodigo&&<div style={{marginTop:9,display:"grid",gridTemplateColumns:formGrid(3),gap:7}}>
-                <div style={{padding:"8px 9px",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Referência SINAPI</p><b style={{fontSize:12,color:C.text}}>{fmt(Number(equipModal.sinapiPreco||0))}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{equipModal.sinapiUnidade||"UN"} · {equipModal.sinapiDataBase||"sem data"}{equipModal.sinapiUf?` · ${equipModal.sinapiUf}`:""}</p></div>
-                <div style={{padding:"8px 9px",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Valor de compra</p><b style={{fontSize:12,color:C.text}}>{Number(equipModal.valorAquisicao||0)>0?fmt(Number(equipModal.valorAquisicao)):"A informar"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>valor efetivamente negociado</p></div>
+                <div style={{padding:"8px 9px",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Referência SINAPI</p><b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{fmt(Number(equipModal.sinapiPreco||0))}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{equipModal.sinapiUnidade||"UN"} · {equipModal.sinapiDataBase||"sem data"}{equipModal.sinapiUf?` · ${equipModal.sinapiUf}`:""}</p></div>
+                <div style={{padding:"8px 9px",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Valor de compra</p><b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{Number(equipModal.valorAquisicao||0)>0?fmt(Number(equipModal.valorAquisicao)):"A informar"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>valor efetivamente negociado</p></div>
                 {(()=>{
                   const ref=Number(equipModal.sinapiPreco||0),compra=Number(equipModal.valorAquisicao||0);
                   const diferenca=compra-ref,pct=ref>0&&compra>0?diferenca/ref*100:0;
                   const cor=diferenca>0?C.red:C.green;
-                  return <div style={{padding:"8px 9px",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Comparação</p>{ref>0&&compra>0?<><b style={{fontSize:12,color:cor}}>{diferenca>0?"+":""}{fmt(diferenca)} · {pct>0?"+":""}{pct.toFixed(1)}%</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{diferenca>0?"acima da referência":"abaixo da referência"}</p></>:<><b style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Aguardando valor</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>preencha a aquisição</p></>}</div>;
+                  return <div style={{padding:"8px 9px",background:C.card,border:`1px solid ${C.border}`,borderRadius:5}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Comparação</p>{ref>0&&compra>0?<><b style={{fontSize:"var(--arcd-type-body)",color:cor}}>{diferenca>0?"+":""}{fmt(diferenca)} · {pct>0?"+":""}{pct.toFixed(1)}%</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{diferenca>0?"acima da referência":"abaixo da referência"}</p></>:<><b style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Aguardando valor</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>preencha a aquisição</p></>}</div>;
                 })()}
                 <p style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.4}}>Referência gerencial. Confirme unidade, especificação, data-base, frete e condições comerciais antes de decidir a compra.</p>
               </div>}
@@ -1454,7 +1454,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           <Inp label="Data de emissão *" type="date" value={rentalInvoiceModal.issueDate} onChange={v=>setRentalInvoiceModal(form=>({...form,issueDate:v}))}/>
           <Inp label="Vencimento *" type="date" value={rentalInvoiceModal.dueDate} onChange={v=>setRentalInvoiceModal(form=>({...form,dueDate:v}))}/>
           <div style={{gridColumn:"1/-1",border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 11px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>LINHAS DA FATURA</p>{eligible.map(item=>{const checked=(rentalInvoiceModal.chargeItemIds||[]).includes(item.id);return <label key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,padding:"7px 0",fontSize:"var(--arcd-type-label)",borderBottom:`1px solid ${C.line}`}}><span><input type="checkbox" checked={checked} onChange={()=>setRentalInvoiceModal(form=>({...form,chargeItemIds:checked?form.chargeItemIds.filter(id=>id!==item.id):[...form.chargeItemIds,item.id]}))} style={{marginRight:7}}/>{item.description}</span><b>{fmt(Number(item.netAmountCents||0)/100)}</b></label>;})}</div>
-          <div style={{gridColumn:"1/-1",display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:600,color:C.orange}}><span>Total faturado</span><span>{fmt(total/100)}</span></div>
+          <div style={{gridColumn:"1/-1",display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.orange}}><span>Total faturado</span><span>{fmt(total/100)}</span></div>
           <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalInvoiceModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento||!selected.length||total<=0} loading={salvandoEquipamento===`fatura-${rentalInvoiceModal.rentalId}`} onClick={()=>salvarFaturaLocacao(rentalInvoiceModal)}>Emitir com saldo aberto</Btn></div>
         </div>
       </Modal>;})()}
@@ -1478,7 +1478,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           <Inp label="Desconto fixo desta medição (R$)" value={rentalMeasurementModal.fixedDiscount} onChange={v=>setRentalMeasurementModal(form=>({...form,fixedDiscount:v}))}/>
           <Inp label="Início da utilização *" type="date" value={rentalMeasurementModal.utilizationStart} onChange={v=>setRentalMeasurementModal(form=>({...form,utilizationStart:v}))}/>
           <Inp label="Fim da utilização *" type="date" value={rentalMeasurementModal.utilizationEnd} onChange={v=>setRentalMeasurementModal(form=>({...form,utilizationEnd:v}))}/>
-          <div style={{gridColumn:"1/-1",padding:"10px 12px",border:`1px solid ${preview.ok?C.green:C.red}44`,borderRadius:8}}>{preview.ok?<><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Regra: {preview.record.billingRule} · bruto {fmt(preview.record.grossAmountCents/100)} · descontos {fmt(preview.record.discountAmountCents/100)}</p><p style={{fontSize:14,fontWeight:600,color:C.green,marginTop:3}}>Líquido medido: {fmt(preview.record.netAmountCents/100)}</p></>:<p style={{fontSize:"var(--arcd-type-label)",color:C.red}}>{preview.reason}</p>}</div>
+          <div style={{gridColumn:"1/-1",padding:"10px 12px",border:`1px solid ${preview.ok?C.green:C.red}44`,borderRadius:8}}>{preview.ok?<><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Regra: {preview.record.billingRule} · bruto {fmt(preview.record.grossAmountCents/100)} · descontos {fmt(preview.record.discountAmountCents/100)}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.green,marginTop:3}}>Líquido medido: {fmt(preview.record.netAmountCents/100)}</p></>:<p style={{fontSize:"var(--arcd-type-label)",color:C.red}}>{preview.reason}</p>}</div>
           <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalMeasurementModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento||!preview.ok} loading={salvandoEquipamento===`medicao-${rentalMeasurementModal.rentalId}`} onClick={()=>salvarMedicaoLocacao(rentalMeasurementModal)}>Confirmar medição</Btn></div>
         </div>
       </Modal>;})()}
@@ -1494,7 +1494,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           <Inp label="Preço unitário (R$) *" value={rentalChargeModal.unitPrice} onChange={v=>setRentalChargeModal(form=>({...form,unitPrice:v}))}/>
           <Inp label="Desconto (R$)" value={rentalChargeModal.discountAmount} onChange={v=>setRentalChargeModal(form=>({...form,discountAmount:v}))}/>
           <Inp label="Imposto (R$)" value={rentalChargeModal.taxAmount} onChange={v=>setRentalChargeModal(form=>({...form,taxAmount:v}))}/>
-          <div style={{display:"flex",alignItems:"end",justifyContent:"flex-end",fontSize:12,fontWeight:600,color:["discount","reversal"].includes(rentalChargeModal.type)?C.red:C.green}}>Líquido previsto: {fmt(["discount","reversal"].includes(rentalChargeModal.type)?-Math.max(0,preview):Math.max(0,preview))}</div>
+          <div style={{display:"flex",alignItems:"end",justifyContent:"flex-end",fontSize:"var(--arcd-type-body)",fontWeight:600,color:["discount","reversal"].includes(rentalChargeModal.type)?C.red:C.green}}>Líquido previsto: {fmt(["discount","reversal"].includes(rentalChargeModal.type)?-Math.max(0,preview):Math.max(0,preview))}</div>
           <div style={{gridColumn:"1/-1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Btn v="ghost" full onClick={()=>setRentalChargeModal(null)}>Cancelar</Btn><Btn full disabled={!!salvandoEquipamento} loading={salvandoEquipamento===`cobranca-${rentalChargeModal.rentalId}`} onClick={()=>salvarLinhaCobranca(rentalChargeModal)}>Salvar linha</Btn></div>
         </div>
       </Modal>;})()}
@@ -1536,7 +1536,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
           </div>
           <Inp label="Data *" type="date" value={rentalCheckpointModal.date} onChange={v=>setRentalCheckpointModal(form=>({...form,date:v}))}/>
           <Inp label="Quantidade *" type="number" min="1" disabled={(rentalCheckpointModal.equipmentUnitIds||[]).length>0} value={rentalCheckpointModal.quantity} onChange={v=>setRentalCheckpointModal(form=>({...form,quantity:v}))}/>
-          {(rental?.equipmentUnitIds||[]).length>0&&<div style={{gridColumn:"1/-1",padding:"8px 10px",border:`1px solid ${C.border}`,borderRadius:7}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>UNIDADES FÍSICAS</p>{[RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH,RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY,RENTAL_CHECKPOINT_TYPE.PARTIAL_RETURN].includes(rentalCheckpointModal.type)?<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>{(rental.equipmentUnitIds||[]).filter(id=>{const balance=rentalCheckpointModal.type===RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH?rentalDispatchBalance(rental,rental.rentalCheckpoints||[]):rentalCheckpointModal.type===RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY?rentalDeliveryBalance(rental,rental.rentalCheckpoints||[]):rentalReturnBalance(rental,rental.rentalCheckpoints||[]);return !(balance.movedUnitIds||balance.returnedUnitIds||[]).includes(String(id));}).map(unitId=>{const selected=(rentalCheckpointModal.equipmentUnitIds||[]).includes(unitId);const unit=physicalRegistry.units.find(item=>item.id===unitId);return <label key={unitId} style={{display:"inline-flex",gap:5,alignItems:"center",fontSize:"var(--arcd-type-caption)"}}><input type="checkbox" checked={selected} onChange={()=>setRentalCheckpointModal(form=>{const ids=selected?form.equipmentUnitIds.filter(id=>id!==unitId):[...form.equipmentUnitIds,unitId];return {...form,equipmentUnitIds:ids,quantity:Math.max(1,ids.length)};})}/>{unit?.assetTag||unitId}</label>;})}</div>:<p style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:3}}>{physicalIdentityForRecord(data,{equipmentUnitIds:rentalCheckpointModal.equipmentUnitIds},(data.equipamentos||[]).find(item=>item.id===rental?.equipamentoId)).label}</p>}</div>}
+          {(rental?.equipmentUnitIds||[]).length>0&&<div style={{gridColumn:"1/-1",padding:"8px 10px",border:`1px solid ${C.border}`,borderRadius:7}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>UNIDADES FÍSICAS</p>{[RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH,RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY,RENTAL_CHECKPOINT_TYPE.PARTIAL_RETURN].includes(rentalCheckpointModal.type)?<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>{(rental.equipmentUnitIds||[]).filter(id=>{const balance=rentalCheckpointModal.type===RENTAL_CHECKPOINT_TYPE.PARTIAL_DISPATCH?rentalDispatchBalance(rental,rental.rentalCheckpoints||[]):rentalCheckpointModal.type===RENTAL_CHECKPOINT_TYPE.PARTIAL_DELIVERY?rentalDeliveryBalance(rental,rental.rentalCheckpoints||[]):rentalReturnBalance(rental,rental.rentalCheckpoints||[]);return !(balance.movedUnitIds||balance.returnedUnitIds||[]).includes(String(id));}).map(unitId=>{const selected=(rentalCheckpointModal.equipmentUnitIds||[]).includes(unitId);const unit=physicalRegistry.units.find(item=>item.id===unitId);return <label key={unitId} style={{display:"inline-flex",gap:5,alignItems:"center",fontSize:"var(--arcd-type-label)"}}><input type="checkbox" checked={selected} onChange={()=>setRentalCheckpointModal(form=>{const ids=selected?form.equipmentUnitIds.filter(id=>id!==unitId):[...form.equipmentUnitIds,unitId];return {...form,equipmentUnitIds:ids,quantity:Math.max(1,ids.length)};})}/>{unit?.assetTag||unitId}</label>;})}</div>:<p style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:3}}>{physicalIdentityForRecord(data,{equipmentUnitIds:rentalCheckpointModal.equipmentUnitIds},(data.equipamentos||[]).find(item=>item.id===rental?.equipamentoId)).label}</p>}</div>}
           <Inp label="Acessórios" value={rentalCheckpointModal.accessories} onChange={v=>setRentalCheckpointModal(form=>({...form,accessories:v}))} placeholder="Separe por vírgula"/>
           <Inp label="Horímetro" type="number" min="0" value={rentalCheckpointModal.hourMeter} onChange={v=>setRentalCheckpointModal(form=>({...form,hourMeter:v}))}/>
           <Inp label="Combustível" value={rentalCheckpointModal.fuel} onChange={v=>setRentalCheckpointModal(form=>({...form,fuel:v}))} placeholder="Ex.: cheio, 3/4, 50%"/>
@@ -1583,7 +1583,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                                  border:`1px solid ${estoura?C.red+"55":C.border}`,
                                  borderRadius:9,padding:"9px 12px"}}>
                       <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase",letterSpacing:.5,fontWeight:600}}>Disponibilidade de {periodo}</p>
-                      <p style={{fontSize:12,color:C.text,marginTop:3}}>
+                      <p style={{fontSize:"var(--arcd-type-body)",color:C.text,marginTop:3}}>
                         <b>{total}</b> total · <b>{emUsoOutros}</b> locada(s) · <b>{unavailable}</b> indisponível(is) ·{" "}
                         <b style={{color:livre>0?C.green:C.red}}>{livre}</b> livre(s)
                       </p>
@@ -1610,7 +1610,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                 {units.length>0&&<div style={{marginTop:7}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text,marginBottom:6}}>Unidades desta locação</p>
                   <div style={{display:"flex",flexWrap:"wrap",gap:6}}>{units.map(unit=>{
                     const selected=(locModal.equipmentUnitIds||[]).includes(unit.id);
-                    return <label key={unit.id} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 8px",border:`1px solid ${selected?C.blue:C.border}`,borderRadius:7,background:selected?`${C.blue}10`:C.card,fontSize:"var(--arcd-type-caption)",color:C.text,cursor:"pointer"}}>
+                    return <label key={unit.id} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 8px",border:`1px solid ${selected?C.blue:C.border}`,borderRadius:7,background:selected?`${C.blue}10`:C.card,fontSize:"var(--arcd-type-label)",color:C.text,cursor:"pointer"}}>
                       <input type="checkbox" checked={selected} onChange={()=>setLocModal(form=>{
                         const current=form.equipmentUnitIds||[];
                         const next=selected?current.filter(id=>id!==unit.id):[...current,unit.id];
@@ -1704,7 +1704,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                             <span>Desconto</span><span>- {fmt(cob.desconto)}</span>
                           </div>
                         )}
-                        <div style={{display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:600,
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-body)",fontWeight:600,
                                      color:C.green,marginTop:6,paddingTop:6,borderTop:`1px solid ${C.green}33`}}>
                           <span>Total</span><span>{fmt(cob.liquido)}</span>
                         </div>
@@ -1771,7 +1771,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                 {lots.length>0&&<div style={{marginTop:7}}><Sel label="Lote" value={manutModal.equipmentLotId||lots[0]?.id||""} onChange={v=>setManutModal(form=>({...form,equipmentLotId:v,equipmentUnitIds:[]}))} options={lots.map(lot=>({v:lot.id,l:`${lot.lotCode||lot.id} · ${lot.quantity} ${lot.unit||"un"}`}))}/></div>}
                 {units.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:7}}>{units.map(unit=>{
                   const selected=(manutModal.equipmentUnitIds||[]).includes(unit.id);
-                  return <label key={unit.id} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 8px",border:`1px solid ${selected?C.orange:C.border}`,borderRadius:7,background:selected?`${C.orange}10`:C.card,fontSize:"var(--arcd-type-caption)",cursor:"pointer"}}><input type="checkbox" checked={selected} onChange={()=>setManutModal(form=>{const current=form.equipmentUnitIds||[];const next=selected?current.filter(id=>id!==unit.id):[...current,unit.id];return {...form,equipmentUnitIds:next,equipmentLotId:"",quantidade:Math.max(1,next.length)};})} style={{accentColor:C.orange}}/>{unit.assetTag||unit.serialNumber||unit.id}</label>;
+                  return <label key={unit.id} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 8px",border:`1px solid ${selected?C.orange:C.border}`,borderRadius:7,background:selected?`${C.orange}10`:C.card,fontSize:"var(--arcd-type-label)",cursor:"pointer"}}><input type="checkbox" checked={selected} onChange={()=>setManutModal(form=>{const current=form.equipmentUnitIds||[];const next=selected?current.filter(id=>id!==unit.id):[...current,unit.id];return {...form,equipmentUnitIds:next,equipmentLotId:"",quantidade:Math.max(1,next.length)};})} style={{accentColor:C.orange}}/>{unit.assetTag||unit.serialNumber||unit.id}</label>;
                 })}</div>}
               </div>;
             })()}
@@ -1823,7 +1823,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
               const locationOptions=[...new Set(positions.map(item=>item.locationId))].map(id=>({v:id,l:id==="depot"?"Depósito":obraName(id)}));
               return <div style={{padding:"9px 10px",border:`1px solid ${C.blue}38`,borderRadius:8,background:`${C.blue}07`,display:"grid",gap:7}}>
                 {lots.length>0&&<Sel label="Lote" value={transfModal.equipmentLotId||lots[0]?.id||""} onChange={v=>setTransfModal(form=>({...form,equipmentLotId:v,equipmentUnitIds:[]}))} options={lots.map(lot=>({v:lot.id,l:`${lot.lotCode||lot.id} · ${lot.quantity} ${lot.unit||"un"}`}))}/>}
-                {units.length>0&&<div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text,marginBottom:5}}>Patrimônio(s)</p><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{units.map(unit=>{const selected=(transfModal.equipmentUnitIds||[]).includes(unit.id);return <label key={unit.id} style={{fontSize:"var(--arcd-type-caption)",padding:"5px 7px",border:`1px solid ${selected?C.blue:C.border}`,borderRadius:6,cursor:"pointer"}}><input type="checkbox" checked={selected} onChange={()=>setTransfModal(form=>{const current=form.equipmentUnitIds||[];const next=selected?current.filter(id=>id!==unit.id):[...current,unit.id];const firstPosition=physicalRegistry.allocations.find(item=>item.unitId===next[0]);return {...form,equipmentUnitIds:next,equipmentLotId:"",quantidade:Math.max(1,next.length),deLocationId:firstPosition?.locationId||"depot"};})} style={{accentColor:C.blue,marginRight:5}}/>{unit.assetTag||unit.id}</label>;})}</div></div>}
+                {units.length>0&&<div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text,marginBottom:5}}>Patrimônio(s)</p><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{units.map(unit=>{const selected=(transfModal.equipmentUnitIds||[]).includes(unit.id);return <label key={unit.id} style={{fontSize:"var(--arcd-type-label)",padding:"5px 7px",border:`1px solid ${selected?C.blue:C.border}`,borderRadius:6,cursor:"pointer"}}><input type="checkbox" checked={selected} onChange={()=>setTransfModal(form=>{const current=form.equipmentUnitIds||[];const next=selected?current.filter(id=>id!==unit.id):[...current,unit.id];const firstPosition=physicalRegistry.allocations.find(item=>item.unitId===next[0]);return {...form,equipmentUnitIds:next,equipmentLotId:"",quantidade:Math.max(1,next.length),deLocationId:firstPosition?.locationId||"depot"};})} style={{accentColor:C.blue,marginRight:5}}/>{unit.assetTag||unit.id}</label>;})}</div></div>}
                 <Inp label="Quantidade" type="number" min="1" disabled={units.length>0} value={transfModal.quantidade||1} onChange={v=>setTransfModal(form=>({...form,quantidade:v}))}/>
                 <Sel label="Origem física" value={transfModal.deLocationId||locationOptions[0]?.v||"depot"} onChange={v=>setTransfModal(form=>({...form,deLocationId:v}))} options={locationOptions.length?locationOptions:[{v:"depot",l:"Depósito"}]}/>
               </div>;
@@ -1840,7 +1840,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       {confirmModal && (
         <Modal title={confirmModal.titulo} onClose={()=>setConfirmModal(null)}>
           <div style={{display:"flex",flexDirection:"column",gap:14}}>
-            <p style={{fontSize:12.5,color:C.subtle,lineHeight:1.5,whiteSpace:"pre-line"}}>{confirmModal.mensagem}</p>
+            <p style={{fontSize:"var(--arcd-type-body)",color:C.subtle,lineHeight:1.5,whiteSpace:"pre-line"}}>{confirmModal.mensagem}</p>
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>setConfirmModal(null)} style={{flex:1}}>Cancelar</Btn>
               <Btn v={confirmModal.tom==="danger"?"danger":undefined} style={{flex:1}}
@@ -1855,7 +1855,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       {encerrarLocModal && (
         <Modal title="Encerrar locação" onClose={()=>setEncerrarLocModal(null)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <p style={{fontSize:12.5,color:C.subtle,lineHeight:1.5}}>
+            <p style={{fontSize:"var(--arcd-type-body)",color:C.subtle,lineHeight:1.5}}>
               {equipName(encerrarLocModal.locacao.equipamentoId)} · {obraName(encerrarLocModal.locacao.obraId)}
             </p>
             <Inp label="Data de término" type="date" value={encerrarLocModal.data}

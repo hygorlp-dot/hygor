@@ -1377,7 +1377,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
         {podeGerenciarPagamentos && medicoesAguardandoAprovacao.length>0 && (
           <div style={{ background:C.card, border:`1px solid ${C.orange}66`, borderRadius:4, padding:"13px 15px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-              <p style={{ fontSize:12.5, fontWeight:600, color:C.text, textTransform:"uppercase" }}>Medições aguardando aprovação</p>
+              <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.text, textTransform:"uppercase" }}>Medições aguardando aprovação</p>
               <Badge color={C.orange}>{medicoesAguardandoAprovacao.length}</Badge>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:7, marginTop:9 }}>
@@ -1387,11 +1387,11 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   <div key={m.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:9, flexWrap:"wrap",
                                             background:C.surface, border:`1px solid ${C.border}`, borderRadius:7, padding:"8px 11px" }}>
                     <div style={{ minWidth:0 }}>
-                      <p style={{ fontSize:12, fontWeight:600, color:C.text }}>{t?.name||"Prestador"} · {fmtDateFull(m.data)}</p>
+                      <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.text }}>{t?.name||"Prestador"} · {fmtDateFull(m.data)}</p>
                       <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginTop:2 }}>{specInfo(t?.specialty).l} · {obraName(m.obraId)} · {m.itens.length} etapa(s)</p>
                     </div>
                     <div style={{ display:"flex", gap:7, alignItems:"center" }}>
-                      <b style={{ fontSize:13.5, color:C.text }}>{fmt(m.total)}</b>
+                      <b style={{ fontSize:"var(--arcd-type-body)", color:C.text }}>{fmt(m.total)}</b>
                       <Btn size="sm" v="success" onClick={()=>aprovarMedicao(m)} disabled={thirdPartyCommandPending}>Aprovar</Btn>
                       <Btn size="sm" v="danger" onClick={()=>{setMedRejeitarModal(m);setMotivoRejeicao("");}}>Rejeitar</Btn>
                     </div>
@@ -1407,7 +1407,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
         {!tercSel && (
           <div style={{ padding:26, textAlign:"center", background:C.card, border:`1px solid ${C.border}`, borderRadius:10 }}>
-            <p style={{ fontSize:12.5, color:C.muted, lineHeight:1.6 }}>
+            <p style={{ fontSize:"var(--arcd-type-body)", color:C.muted, lineHeight:1.6 }}>
               Escolha um contrato para subdividir em etapas e medir o avanço.<br/>
               Ex.: eletricista → rasgo de parede, eletrodutos, enfiação...
             </p>
@@ -1424,7 +1424,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               <div style={{ background:C.card, border:`1px solid ${info.color}66`, borderRadius:4, padding:"13px 15px" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", gap:8, flexWrap:"wrap" }}>
                   <div style={{ minWidth:0 }}>
-                    <p style={{ fontSize:16, fontWeight:600, color:C.text }}>{tercAtual.name}</p>
+                    <p style={{ fontSize:"var(--arcd-type-card-title)", fontWeight:600, color:C.text }}>{tercAtual.name}</p>
                     <p style={{ fontSize:"var(--arcd-type-label)", color:info.color, fontWeight:600 }}>
                       {info.l} · {obraName(tercAtual.obraId)}
                     </p>
@@ -1439,20 +1439,20 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   {tercAtual.documento && (
                     <div>
                       <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>{tercAtual.tipoPessoa==="PF"?"CPF":"CNPJ"}</p>
-                      <p style={{ fontSize:12, color:C.text }}>{maskDoc(tercAtual.documento, tercAtual.tipoPessoa)}
+                      <p style={{ fontSize:"var(--arcd-type-body)", color:C.text }}>{maskDoc(tercAtual.documento, tercAtual.tipoPessoa)}
                         <span style={{ marginLeft:6, fontSize:"var(--arcd-type-label)", fontWeight:600, color: docOk?C.green:C.red }}>{docOk?"✓":"inválido"}</span>
                       </p>
                     </div>
                   )}
-                  {tercAtual.razaoSocial && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>RAZÃO SOCIAL</p><p style={{ fontSize:12, color:C.text }}>{tercAtual.razaoSocial}</p></div>}
-                  {tercAtual.responsavel && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>RESPONSÁVEL</p><p style={{ fontSize:12, color:C.text }}>{tercAtual.responsavel}</p></div>}
-                  {tercAtual.phone && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>TELEFONE</p><p style={{ fontSize:12, color:C.text }}>{tercAtual.phone}</p></div>}
-                  {(tercAtual.startDate || tercAtual.endDate) && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>PERÍODO</p><p style={{ fontSize:12, color:C.text }}>{tercAtual.startDate?fmtDateFull(tercAtual.startDate):"?"}{tercAtual.endDate?` → ${fmtDateFull(tercAtual.endDate)}`:""}</p></div>}
-                  {(Number(tercAtual.retISS)>0 || Number(tercAtual.retINSS)>0) && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>RETENÇÕES</p><p style={{ fontSize:12, color:C.text }}>{Number(tercAtual.retISS)>0?`ISS ${tercAtual.retISS}% (${tercAtual.retISSQuem==="fonte"?"fonte":"prestador"})`:""}{Number(tercAtual.retISS)>0&&Number(tercAtual.retINSS)>0?" · ":""}{Number(tercAtual.retINSS)>0?`INSS ${tercAtual.retINSS}% (${tercAtual.retINSSQuem==="fonte"?"fonte":"prestador"})`:""}</p></div>}
+                  {tercAtual.razaoSocial && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>RAZÃO SOCIAL</p><p style={{ fontSize:"var(--arcd-type-body)", color:C.text }}>{tercAtual.razaoSocial}</p></div>}
+                  {tercAtual.responsavel && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>RESPONSÁVEL</p><p style={{ fontSize:"var(--arcd-type-body)", color:C.text }}>{tercAtual.responsavel}</p></div>}
+                  {tercAtual.phone && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>TELEFONE</p><p style={{ fontSize:"var(--arcd-type-body)", color:C.text }}>{tercAtual.phone}</p></div>}
+                  {(tercAtual.startDate || tercAtual.endDate) && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>PERÍODO</p><p style={{ fontSize:"var(--arcd-type-body)", color:C.text }}>{tercAtual.startDate?fmtDateFull(tercAtual.startDate):"?"}{tercAtual.endDate?` → ${fmtDateFull(tercAtual.endDate)}`:""}</p></div>}
+                  {(Number(tercAtual.retISS)>0 || Number(tercAtual.retINSS)>0) && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>RETENÇÕES</p><p style={{ fontSize:"var(--arcd-type-body)", color:C.text }}>{Number(tercAtual.retISS)>0?`ISS ${tercAtual.retISS}% (${tercAtual.retISSQuem==="fonte"?"fonte":"prestador"})`:""}{Number(tercAtual.retISS)>0&&Number(tercAtual.retINSS)>0?" · ":""}{Number(tercAtual.retINSS)>0?`INSS ${tercAtual.retINSS}% (${tercAtual.retINSSQuem==="fonte"?"fonte":"prestador"})`:""}</p></div>}
                   {(() => {
                     const dd = diasDiarioTerc[tercAtual.id];
                     if (!dd || (dd.dias + dd.meios) === 0) return null;
-                    return <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>PRESENÇA (DIÁRIO)</p><p style={{ fontSize:12, color:C.text }}>{dd.dias} dia(s){dd.meios?` + ${dd.meios} meio`:""} em obra</p></div>;
+                    return <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>PRESENÇA (DIÁRIO)</p><p style={{ fontSize:"var(--arcd-type-body)", color:C.text }}>{dd.dias} dia(s){dd.meios?` + ${dd.meios} meio`:""} em obra</p></div>;
                   })()}
                 </div>
                 {(tercAtual.documentos || []).length > 0 && (
@@ -1482,7 +1482,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   <CartesianGrid strokeDasharray="3 3" stroke={C.line}/>
                   <XAxis dataKey="nome" tick={{ fontSize:"var(--arcd-type-label)", fill:C.muted }} axisLine={{ stroke:C.border }} tickLine={false}/>
                   <YAxis tick={{ fontSize:"var(--arcd-type-caption)", fill:C.muted }} axisLine={false} tickLine={false} tickFormatter={v=>`${(v/1000).toFixed(0)}k`}/>
-                  <Tooltip formatter={v=>fmt(v)} contentStyle={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, fontSize:12 }}/>
+                  <Tooltip formatter={v=>fmt(v)} contentStyle={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, fontSize:"var(--arcd-type-body)" }}/>
                   <Line type="monotone" dataKey="acumulado" stroke={C.blue} strokeWidth={2.5} dot={{ r:3, fill:C.blue }}/>
                 </LineChart>
               </ResponsiveContainer>
@@ -1597,7 +1597,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                                        borderRadius:4, padding:"10px 13px" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", gap:9, flexWrap:"wrap" }}>
                   <div>
-                    <p style={{ fontSize:13.5, fontWeight:600, color:C.text }}>
+                    <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.text }}>
                       Medição {m.numero||medicoesTercAtual.length-indiceMedicao} · {fmtDateFull(m.data)}
                     </p>
                     <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginTop:2 }}>
@@ -1605,7 +1605,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                     </p>
                   </div>
                   <div style={{ textAlign:"right" }}>
-                    <p style={{ fontSize:17, fontWeight:600, color:m.total>=0?C.green:C.red,
+                    <p style={{ fontSize:"var(--arcd-type-card-title)", fontWeight:600, color:m.total>=0?C.green:C.red,
                                 fontFamily:"var(--arcd-font-sans)" }}>{fmt(m.total)}</p>
                     <span style={{ marginTop:4, display:"inline-flex" }}>
                       {m.status==="rascunho"
@@ -1711,9 +1711,9 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                 Impostos retidos a recolher · {compLabel(ym)}
               </p>
               <div style={{ display:"flex", gap:16, marginTop:6, flexWrap:"wrap" }}>
-                {iss > 0 && <div><p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, fontWeight:600 }}>ISS</p><p style={{ fontSize:17, fontWeight:600, color:C.text }}>{fmt(iss)}</p></div>}
-                {inss > 0 && <div><p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, fontWeight:600 }}>INSS</p><p style={{ fontSize:17, fontWeight:600, color:C.text }}>{fmt(inss)}</p></div>}
-                <div><p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, fontWeight:600 }}>TOTAL</p><p style={{ fontSize:17, fontWeight:600, color:C.purple }}>{fmt(iss + inss)}</p></div>
+                {iss > 0 && <div><p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, fontWeight:600 }}>ISS</p><p style={{ fontSize:"var(--arcd-type-card-title)", fontWeight:600, color:C.text }}>{fmt(iss)}</p></div>}
+                {inss > 0 && <div><p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, fontWeight:600 }}>INSS</p><p style={{ fontSize:"var(--arcd-type-card-title)", fontWeight:600, color:C.text }}>{fmt(inss)}</p></div>}
+                <div><p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, fontWeight:600 }}>TOTAL</p><p style={{ fontSize:"var(--arcd-type-card-title)", fontWeight:600, color:C.purple }}>{fmt(iss + inss)}</p></div>
               </div>
               <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginTop:5, lineHeight:1.4 }}>
                 Valores que a empresa reteve dos prestadores e deve recolher à prefeitura (ISS) e à Receita (INSS).
@@ -2019,7 +2019,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   <div key={e.id} style={{ padding:"9px 11px", borderTop:i?`1px solid ${C.line}`:0,
                                            display:"grid", gridTemplateColumns:"minmax(0,1fr) 84px 96px", gap:8, alignItems:"center" }}>
                     <div style={{ minWidth:0 }}>
-                      <p style={{ fontSize:12.5, fontWeight:600, color:C.text }}>{e.nome}</p>
+                      <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.text }}>{e.nome}</p>
                       <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginTop:2 }}>
                         {fmt(e.valor)} · anterior {anterior.toFixed(1)}%
                       </p>
@@ -2029,10 +2029,10 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                       onChange={ev=>setMedForm(f=>({...f, pcts:{...f.pcts, [e.id]:ev.target.value}}))}
                       style={{ width:"100%", boxSizing:"border-box", background:C.bg,
                                border:`1.5px solid ${delta<0?C.red:delta>0?C.green:C.line}`,
-                               color:C.text, padding:"7px 8px", borderRadius:7, fontSize:13, textAlign:"right",
+                               color:C.text, padding:"7px 8px", borderRadius:7, fontSize:"var(--arcd-type-control)", textAlign:"right",
                                outline:"none", fontFamily:"var(--arcd-font-sans)" }}/>
                     <div style={{ textAlign:"right" }}>
-                      <p style={{ fontSize:12.5, fontWeight:600, color:delta<0?C.red:delta>0?C.green:C.muted }}>{fmt(valor)}</p>
+                      <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:delta<0?C.red:delta>0?C.green:C.muted }}>{fmt(valor)}</p>
                       <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>{delta>0?"+":""}{delta.toFixed(1)} p.p.</p>
                     </div>
                   </div>
@@ -2054,7 +2054,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8,
                           background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"11px 13px" }}>
               <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.muted, textTransform:"uppercase", letterSpacing:.8 }}>Total desta medição</span>
-              <b style={{ fontSize:21, color:C.green, fontFamily:"var(--arcd-font-sans)" }}>
+              <b style={{ fontSize:"var(--arcd-type-section-title)", color:C.green, fontFamily:"var(--arcd-font-sans)" }}>
                 {fmt(itensDaMedicao().reduce((s,i)=>s+i.valor,0))}
               </b>
             </div>
@@ -2111,7 +2111,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
         return (
           <Modal title={`Pagar medição ${medPayModal.numero} - ${t.name}`} onClose={()=>{setMedPayModal(null);setPaySource("");setRiscoSemFotoAceito(false);}}>
             <div className="terceiros-payment-review">
-              <p style={{ fontSize:12, color:C.muted }}>{specInfo(t.specialty).emoji} {specInfo(t.specialty).l} · {obraName(medPayModal.obraId)}</p>
+              <p style={{ fontSize:"var(--arcd-type-body)", color:C.muted }}>{specInfo(t.specialty).emoji} {specInfo(t.specialty).l} · {obraName(medPayModal.obraId)}</p>
               <div className="terceiros-payment-review__values">
                 <span><small>Bruto / obrigação</small><b>{fmt(medPayModal.total)}</b></span>
                 <span><small>ISS retido</small><b>{fmt(ret.issRetido)}</b></span>
@@ -2127,7 +2127,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}>
                   {[["empresa","Empresa","Despesa administrativa"],["obra","Obra","Custo direto da obra"]].map(([v,l,dica])=>(
                     <button key={v} onClick={()=>setPaySource(v)} style={{ padding:"10px 9px", border:`2px solid ${paySource===v?C.green:C.border}`, background:paySource===v?`${C.green}12`:C.surface, borderRadius:8, cursor:"pointer", textAlign:"left" }}>
-                      <p style={{ fontSize:13, fontWeight:600, color:paySource===v?C.text:C.muted }}>{l}</p>
+                      <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:paySource===v?C.text:C.muted }}>{l}</p>
                       <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, marginTop:2 }}>{v==="obra"?`${dica}: ${obraName(medPayModal.obraId)}`:dica}</p>
                     </button>
                   ))}
@@ -2145,8 +2145,8 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
       {payModal && (
         <Modal title={`Pagamento - ${payModal.name}`} onClose={()=>{setPayModal(null);setPayAmount("");setPayDesc("");setPaySource("");}}>
           <div className="terceiros-payment-review">
-            <p style={{ fontSize:12, color:C.muted }}>{specInfo(payModal.specialty).emoji} {specInfo(payModal.specialty).l} · {obraName(payModal.obraId)}</p>
-            <p style={{ fontSize:13, color:C.orange, fontWeight:600, marginTop:2 }}>Sexta-feira: {fmtDateFull(friday)}</p>
+            <p style={{ fontSize:"var(--arcd-type-body)", color:C.muted }}>{specInfo(payModal.specialty).emoji} {specInfo(payModal.specialty).l} · {obraName(payModal.obraId)}</p>
+            <p style={{ fontSize:"var(--arcd-type-body)", color:C.orange, fontWeight:600, marginTop:2 }}>Sexta-feira: {fmtDateFull(friday)}</p>
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
             <div>
@@ -2154,7 +2154,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}>
                 {[["empresa","Empresa","Despesa administrativa"],["obra","Obra","Custo direto da obra"]].map(([v,l,dica])=>(
                   <button key={v} onClick={()=>setPaySource(v)} style={{ padding:"10px 9px", border:`2px solid ${paySource===v?C.orange:C.border}`, background:paySource===v?`${C.orange}12`:C.surface, borderRadius:8, cursor:"pointer", textAlign:"left" }}>
-                    <p style={{ fontSize:13, fontWeight:600, color:paySource===v?C.text:C.muted }}>{l}</p>
+                    <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:paySource===v?C.text:C.muted }}>{l}</p>
                     <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, marginTop:2 }}>{v==="obra"?`${dica}: ${obraName(payModal.obraId)}`:dica}</p>
                   </button>
                 ))}

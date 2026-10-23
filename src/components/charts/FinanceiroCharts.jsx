@@ -14,8 +14,8 @@ export default function FinanceiroCharts({ chartData, quinzenalChart, C }) {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} barSize={14}>
                 <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
-                <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={compactNumber}/>
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}}/>
+                <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} tickFormatter={compactNumber}/>
                 <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
                 <Bar dataKey="Receita" fill={C.yellow} radius={[5,5,1,1]}/>
                 <Bar dataKey="CustoMO" name="Custo de mão de obra" fill={C.cinza} radius={[5,5,1,1]}/>
@@ -29,8 +29,8 @@ export default function FinanceiroCharts({ chartData, quinzenalChart, C }) {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={quinzenalChart}>
               <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
-              <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
-              <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={compactNumber}/>
+              <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}}/>
+              <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} tickFormatter={compactNumber}/>
               <Tooltip content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
               <Line type="monotone" dataKey="Recebido" stroke={C.yellow} strokeWidth={2.5} dot={{r:3,fill:C.yellow,stroke:C.card,strokeWidth:2}} activeDot={{r:5}}/>
               <Line type="monotone" dataKey="CustoMO" name="Mão de obra" stroke={C.text} strokeWidth={2} dot={{r:3,fill:C.text,stroke:C.card,strokeWidth:2}}/>

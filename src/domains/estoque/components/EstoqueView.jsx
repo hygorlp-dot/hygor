@@ -76,7 +76,7 @@ function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiai
     <Modal title="Executei um serviço" onClose={onClose} wide>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         {composicoes.length === 0 ? (
-          <p style={{fontSize:12,color:C.muted,lineHeight:1.55,padding:"10px 0"}}>
+          <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,lineHeight:1.55,padding:"10px 0"}}>
             Nenhuma composição cadastrada ainda. Vá na aba <strong>Composições</strong> e
             defina, por exemplo, quanto 1 m de alvenaria consome de tijolo, cimento e areia.
             Depois é só informar aqui o quanto executou.
@@ -502,7 +502,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
       {/*  SALDO  */}
       {aba === "saldo" && (
         linhasSaldo.length === 0
-          ? <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>
+          ? <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20}}>
               Nenhum material com saldo nesta obra. Registre uma entrada.
             </p>
           : linhasSaldo.map(({m, saldo, critico}) => (
@@ -513,14 +513,14 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
             }}>
               <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8,alignItems:"center"}}>
                 <div style={{minWidth:0}}>
-                  <p className="brk" style={{fontSize:12.5,fontWeight:600,color:C.text}}>{m.descricao}</p>
+                  <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{m.descricao}</p>
                   <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                     {m.codigo && `${m.codigo}  `}mín. {m.estoqueMin} {m.unidade}
                     {Number(m.precoMedio)>0 && `  ${fmt(m.precoMedio)}/${m.unidade}`}
                   </p>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:15,fontWeight:600,
+                  <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-card-title)",fontWeight:600,
                              color: critico ? C.red : C.text, whiteSpace:"nowrap"}}>
                     {saldo.toFixed(2)} <span style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{m.unidade}</span>
                   </p>
@@ -536,7 +536,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
       {/*  MOVIMENTOS  */}
       {aba === "movs" && (
         movs.length === 0
-          ? <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20}}>Nenhum movimento.</p>
+          ? <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20}}>Nenhum movimento.</p>
           : movs.map(x => {
             const t = TIPOS_MOV.find(t => t.v === x.tipo) || TIPOS_MOV[0];
             const m = matPorId(x.materialId);
@@ -547,7 +547,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
               }}>
                 <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8}}>
                   <div style={{minWidth:0}}>
-                    <p className="brk" style={{fontSize:12,fontWeight:600,color:C.text}}>{m?.descricao || "-"}</p>
+                    <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{m?.descricao || "-"}</p>
                     <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                       {t.l}  {fmtDate(x.data)}
                       {x.servicoId && "  baixa automática"}
@@ -557,11 +557,11 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
                     )}
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
-                    <p style={{fontSize:13,fontWeight:600,color:t.cor,whiteSpace:"nowrap"}}>
+                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:t.cor,whiteSpace:"nowrap"}}>
                       {t.sinal > 0 ? "+" : ""} {x.qtd} {m?.unidade}
                     </p>
                     <button onClick={()=>excluirMov(x.id)} style={{
-                      background:"transparent",border:0,color:C.muted,fontSize:"var(--arcd-type-label)",
+                      background:"transparent",border:0,color:C.muted,fontSize:"var(--arcd-type-control)",
                       cursor:"pointer",marginTop:3,textDecoration:"underline",
                     }}>excluir</button>
                   </div>
@@ -583,7 +583,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
           <div key={m.id} onClick={()=>setMatModal({...m, estoqueMin:String(m.estoqueMin), precoMedio:String(m.precoMedio)})}
             style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,
                     padding:"9px 11px",cursor:"pointer"}}>
-            <p className="brk" style={{fontSize:12.5,fontWeight:600,color:C.text}}>{m.descricao}</p>
+            <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{m.descricao}</p>
             <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
               {m.codigo && `${m.codigo}  `}{m.unidade}  mín. {m.estoqueMin}
               {Number(m.precoMedio)>0 && `  ${fmt(m.precoMedio)}`}
@@ -610,7 +610,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
           <div key={c.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
             <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}>
               <div style={{minWidth:0,flex:1}}>
-                <p className="brk" style={{fontSize:12.5,fontWeight:600,color:C.text}}>{c.codigo} · {c.nome}</p>
+                <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{c.codigo} · {c.nome}</p>
                 <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>por 1 {c.unidade}</p>
               </div>
               <div style={{display:"flex",gap:4,flexShrink:0}}>
@@ -648,7 +648,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
                 border:`2px solid ${abcModo===v?C.yellow:C.border}`,
                 background:abcModo===v?`${C.yellow}12`:"transparent",
                 color:abcModo===v?C.text:C.muted,
-                fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-label)",
+                fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-control)",
               }}>{l}</button>
             ))}
           </div>
@@ -667,7 +667,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
           </div>
 
           {lista.length===0
-            ? <p style={{fontSize:12,color:C.muted,textAlign:"center",padding:20,lineHeight:1.6}}>
+            ? <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20,lineHeight:1.6}}>
                 {abcModo==="composicao"
                   ? <>Nenhum serviço executado ainda.<br/>Use <strong>Executar serviço</strong> para baixar uma composição - ela passa a aparecer aqui.</>
                   : "Sem consumo registrado ainda."}
@@ -682,13 +682,13 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
                                   display:"flex",alignItems:"center",justifyContent:"center",
                                   fontWeight:600,fontSize:"var(--arcd-type-label)",flexShrink:0}}>{x.classe}</span>
                     <div style={{minWidth:0}}>
-                      <p className="brk" style={{fontSize:12,fontWeight:600,color:x.avulso?C.muted:C.text}}>{x.nome}</p>
+                      <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:x.avulso?C.muted:C.text}}>{x.nome}</p>
                       {abcModo==="composicao"&&!x.avulso&&x.execucoes>0&&(
                         <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>{x.execucoes} execução(ões)</p>
                       )}
                     </div>
                     <div style={{textAlign:"right",flexShrink:0}}>
-                      <p style={{fontSize:12.5,fontWeight:600,color:C.text,whiteSpace:"nowrap"}}>{fmt(x.valor)}</p>
+                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,whiteSpace:"nowrap"}}>{fmt(x.valor)}</p>
                       <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{x.pctAcum.toFixed(0)}% acum.</p>
                     </div>
                   </div>

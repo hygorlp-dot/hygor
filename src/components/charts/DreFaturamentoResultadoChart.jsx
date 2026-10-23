@@ -10,8 +10,8 @@ export default function DreFaturamentoResultadoChart({ hist }) {
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={hist} barSize={15} barGap={3}>
           <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
-          <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
-          <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={compactNumber}/>
+          <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}}/>
+          <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} tickFormatter={compactNumber}/>
           <Tooltip cursor={{fill:`${C.yellow}0A`}} content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/>
           <Bar dataKey="faturamento" name="Faturamento" fill={C.yellow} radius={[5,5,1,1]} isAnimationActive={false}/>
           <Bar dataKey="recebido" name="Recebido" fill={C.cinza} radius={[5,5,1,1]} isAnimationActive={false}/>

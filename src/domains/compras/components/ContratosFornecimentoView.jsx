@@ -29,7 +29,7 @@ function ModalContrato({form,setForm,onSave,fornecedores,materiais,obras,C}){
           options={[{v:"",l:"Selecione..."},...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/></div>
         <Inp label={`Preço acordado (R$/${purchaseUnitOf(it)}) *`} type="number" value={it.precoUnit} onChange={v=>setItem(i,{precoUnit:v})}/>
         <Inp label={`Quantidade contratada (${purchaseUnitOf(it)}) *`} type="number" value={it.qtdContratada} onChange={v=>setItem(i,{qtdContratada:v})}/>
-        {(form.itens||[]).length>1&&<button type="button" onClick={()=>setForm(f=>({...f,itens:f.itens.filter((_,k)=>k!==i)}))} style={{background:"transparent",border:0,color:C.muted,fontSize:"var(--arcd-type-label)",cursor:"pointer",textDecoration:"underline",paddingBottom:9,justifySelf:"start"}}>remover</button>}
+        {(form.itens||[]).length>1&&<button type="button" onClick={()=>setForm(f=>({...f,itens:f.itens.filter((_,k)=>k!==i)}))} style={{background:"transparent",border:0,color:C.muted,fontSize:"var(--arcd-type-control)",cursor:"pointer",textDecoration:"underline",paddingBottom:9,justifySelf:"start"}}>remover</button>}
       </div>)}
       <Btn v="ghost" onClick={()=>setForm(f=>({...f,itens:[...(f.itens||[]),itemVazio()]}))}><Ic n="plus"/> Insumo</Btn>
       <Inp label="Observação" value={form.observacao||""} onChange={v=>setForm(f=>({...f,observacao:v}))} multiline/>
@@ -85,7 +85,7 @@ export default function ContratosFornecimentoView({data,dispatchCommand,currentU
 
   return <>
     <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-      <div><b style={{fontSize:13,color:C.text}}>Contratos de fornecimento</b>
+      <div><b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>Contratos de fornecimento</b>
         <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Preço acordado por insumo e período. O pedido pelo contrato dispensa cotação e consome o saldo.</p></div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
         <Btn size="sm" v="ghost" onClick={()=>setMostrarEncerrados(v=>!v)}>{mostrarEncerrados?"Só ativos":"Mostrar encerrados"}</Btn>
@@ -93,11 +93,11 @@ export default function ContratosFornecimentoView({data,dispatchCommand,currentU
       </div>
     </div>
     {!contratos.length&&<div style={{padding:26,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:9,background:C.card,marginTop:10}}>
-      <p style={{fontSize:12,fontWeight:600,color:C.text}}>Nenhum contrato de fornecimento</p>
+      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>Nenhum contrato de fornecimento</p>
       <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Cadastre os acordos de preço com fornecedores (ex.: concreto 30 MPa a R$ 520/m³ até março).</p></div>}
     {contratos.map(c=>{const r=resumoContrato(data,c),vencido=c.vigenciaFim<hoje;return <div key={c.id} style={{marginTop:10,background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"10px 12px"}}>
       <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
-        <div style={{minWidth:0}}><b style={{fontSize:12,color:C.text}}>{c.numero} · {nomeForn(c.fornecedorId)}</b>
+        <div style={{minWidth:0}}><b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{c.numero} · {nomeForn(c.fornecedorId)}</b>
           <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{fmtDate(c.vigenciaInicio)} a {fmtDate(c.vigenciaFim)} · {c.obraId?obras.find(o=>o.id===c.obraId)?.name||"Obra":"Todas as obras"} · {fmt(r.valorConsumido)} de {fmt(r.valorContratado)}</p></div>
         <div style={{display:"flex",gap:5,alignItems:"flex-start",flexWrap:"wrap"}}>
           <Badge color={c.status!=="ativo"?C.muted:vencido?C.orange:C.green}>{c.status!=="ativo"?"ENCERRADO":vencido?"VENCIDO":"VIGENTE"}</Badge>
