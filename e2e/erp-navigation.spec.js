@@ -61,6 +61,9 @@ test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=
     await expect(field).toHaveCSS("font-size",touch?"16px":"14px");
   }
   await open("Obras");
+  // Empty portfolio: this existing action emits a notice without saving a record.
+  await page.getByRole("button",{name:"Preparar pastas",exact:true}).click();
+  await expect(page.locator(".arcd-toast")).toContainText("Todas as obras já estão com a estrutura documental preparada.");
   await page.getByRole("button",{name:/Nova obra/}).first().click();
   const dialog=page.getByRole("dialog");
   await expect(dialog).toBeVisible();
