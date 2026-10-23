@@ -22,6 +22,9 @@ declare
   v_total bigint; v_old financial_dre_allocations%rowtype;
 begin
   perform pg_advisory_xact_lock(hashtextextended(p_company_id||':dre-allocations',0));
+  if exists(select 1 from jsonb_array_elements(coalesce(p_snapshot->'cashAllocations','[]')) x group by x->>'id' having count(*)>1) then
+    raise exception 'O snapshot contém associações repetidas';
+  end if;
   for v_link in select value from jsonb_array_elements(coalesce(p_snapshot->'cashAllocations','[]')) loop
     select * into v_bank from bank_transactions where company_id=p_company_id
       and metadata->>'legacyId'=v_link->>'transactionId' for update;

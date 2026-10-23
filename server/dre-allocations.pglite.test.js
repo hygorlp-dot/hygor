@@ -37,6 +37,8 @@ describe("vínculos parciais transacionais no PostgreSQL",()=>{
   });
   it("rejeita payload adulterado, excesso no banco, exclusão do histórico e alteração do valor pago",async()=>{
     const linked=associate(source());await sync("capacity",linked);
+    const duplicate=structuredClone(linked);duplicate.reconciliationLinks.push({...duplicate.reconciliationLinks[0]});
+    await expect(sync("capacity",duplicate)).rejects.toThrow(/repetidas/);
     const over=structuredClone(linked);over.reconciliationLinks.push({...over.reconciliationLinks[0],id:"second",amountCents:5000});
     await expect(sync("capacity",over)).rejects.toThrow(/saldo bancário/);
     const changed=structuredClone(linked);changed.reconciliationLinks[0].amountCents=1;

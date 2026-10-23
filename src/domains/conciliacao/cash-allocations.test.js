@@ -31,6 +31,12 @@ describe("vínculos parciais entre caixa existente e banco",()=>{
     expect(undone.data.reconciliationLinks[0].status).toBe("reversed");
     expect(undone.data.caixaObra).toBe(first.data.caixaObra);
   });
+  it("não duplica uma retentativa antiga depois de expirar o log de comandos",()=>{
+    const first=link(fixture(),100);
+    const retry=link(first.data,100);
+    expect(retry.data).toBe(first.data);expect(retry.resumo.idempotent).toBe(true);
+    expect(link(first.data,10).resumo.ok).toBe(false);
+  });
   it.each([0,-1,100.001,Infinity,"abc",101])("rejeita valor inválido/excedente %s",value=>{
     const source=fixture(),result=link(source,value);
     expect(result.resumo.ok).toBe(false);expect(result.data).toBe(source);

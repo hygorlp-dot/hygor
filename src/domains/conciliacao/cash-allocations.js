@@ -49,6 +49,13 @@ export const applyCashAllocation = (data, payload, actor, reverse = false) => {
   const now = new Date().toISOString();
   let links = cashAllocations(data);
   let eventId;
+  // O histórico de associações é permanente; o log recente de comandos tem
+  // retenção limitada. Uma retentativa antiga também não pode duplicar caixa.
+  const previous=reverse?null:links.find(link=>link.id===`cashlink_${payload.idempotencyKey}`);
+  if(previous){
+    if(previous.transactionId!==bank.id||previous.eventId!==payload.eventId||previous.amountCents!==toCents(payload.amount))return fail("A chave deste vínculo já foi utilizada com outros dados.");
+    return {data,resumo:{ok:true,idempotent:true,preservedPayments:true,status:bank.status,remainingCents:bank.remainingCents,eventId:previous.eventId}};
+  }
   if (reverse) {
     const link = links.find(item => item.id === payload.allocationId && item.transactionId === bank.id && item.status === "active");
     if (!link) return fail("Vínculo ativo não encontrado.");
