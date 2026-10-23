@@ -92,6 +92,7 @@ export const registrarPagamentoEConciliar = (data, params) => {
   const collectionsByType={
     nota:["notasFiscais","Nota fiscal"],pedido:["pedidos","Pedido"],medicao:["medicoes","Medição"],
     medicaoTerc:["medicoesTerc","Medição de terceiro"],funcionario:["employees","Funcionário"],
+    terceiro:["terceirizados","Terceiro"],
     tituloFolha:["titulosFolha","Título de folha"],
   };
   const required=collectionsByType[tipo];
@@ -99,7 +100,7 @@ export const registrarPagamentoEConciliar = (data, params) => {
     return { data, resumo:{ok:false,motivo:`${required[1]} não encontrado`} };
   }
   const target=required?(data[required[0]]||[]).find(item=>item.id===entidadeId):null;
-  if(target&&!active(target))return {data,resumo:{ok:false,motivo:"A obrigação está cancelada ou inativa."}};
+  if(target&&(!active(target)||target.active===false))return {data,resumo:{ok:false,motivo:"A obrigação está cancelada ou inativa."}};
   const value=Math.abs(Number(valor??tr.valor));
   if(!(value>0)||!Number.isFinite(value)||Math.abs(value-Math.abs(Number(tr.valor)))>0.01)return {data,resumo:{ok:false,motivo:"O valor deve corresponder à transação bancária."}};
   if(Math.sign(Number(tr.valor))!==(["medicao","entradaContrato"].includes(tipo)?1:-1))return {data,resumo:{ok:false,motivo:"A direção bancária é incompatível com a obrigação."}};

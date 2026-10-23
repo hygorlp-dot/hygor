@@ -12,6 +12,12 @@ const pay=(data,tipo="pedido",extra={})=>registrarPagamentoEConciliar(data,{tran
 const link=data=>vincularPagamentoExistente(data,{transacaoId:"bank",tipo:"nota",entidadeId:"invoice",pagamentoId:"real",operador:actor});
 
 describe("integridade de pagamento e vínculo bancário",()=>{
+  test("não registra pagamento para terceiro inexistente ou funcionário desativado",()=>{
+    const data=fixture();
+    expect(registrarPagamentoEConciliar(data,{transacaoId:"bank",tipo:"terceiro",entidadeId:"missing",operador:actor}).resumo.ok).toBe(false);
+    data.employees=[{id:"inactive",active:false}];
+    expect(registrarPagamentoEConciliar(data,{transacaoId:"bank",tipo:"funcionario",entidadeId:"inactive",operador:actor}).resumo.ok).toBe(false);
+  });
   test.each(["cancelado","estornado","rascunho"])("recusa pedido %s sem gravar",status=>{
     const data=fixture();data.pedidos[0].status=status;
     expect(pay(data).resumo.ok).toBe(false);expect(pay(data).data).toBe(data);
