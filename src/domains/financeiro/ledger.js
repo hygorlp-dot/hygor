@@ -147,7 +147,7 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
       list.push(invoice); invoicesByOrder.set(invoice.pedidoId, list);
     }
     if (invoice.medicaoTercId) thirdMeasurementByInvoice.set(invoice.id, invoice.medicaoTercId);
-    (invoice.pagamentos || []).forEach(payment => {
+    (notaReconhecivel(invoice) ? invoice.pagamentos || [] : []).filter(active).forEach(payment => {
       if (payment.id) invoicePaymentIds.add(payment.id);
       if (payment.transacaoId) invoicePaymentTransactions.add(payment.transacaoId);
     });

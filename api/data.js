@@ -36,6 +36,7 @@ import { findSectionConflicts } from "../server/three-way-conflicts.js";
 import { mergeThreeWay } from "../server/three-way-merge.js";
 import { authorizeSectionChanges, validateBankReconciliationPolicy, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
+import { compareProcurementDreRecognition } from "../server/procurement-financial-facts.js";
 import { buildRequestedDreProjectionRows, dreSourceRevision } from "../server/dre-projection.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
 import { authorizeReconciliationCommand } from "../server/reconciliation-policy.js";
@@ -397,7 +398,7 @@ const relatorioSombraFinanceira = async atual => {
   const [titles,settlements,events,links,qualityCases,runs]=await Promise.all([
     listarTabelaFinanceira("financial_titles","id,obra_id,direction,status,metadata"),
     listarTabelaFinanceira("settlements","id,title_id,amount,status,metadata"),
-    listarTabelaFinanceira("financial_events","id,event_type,source_id,payload"),
+    listarTabelaFinanceira("financial_events","id,event_type,source_id,effective_date,payload"),
     listarTabelaFinanceira("reconciliation_links","id,status"),
     listarTabelaFinanceira("data_quality_cases","id,status,category,details"),
     listarTabelaFinanceira("financial_shadow_runs","id,created_at,result"),
@@ -405,11 +406,12 @@ const relatorioSombraFinanceira = async atual => {
   const canonico=summarizeCanonicalFinancialRows({titles,settlements,events});
   const divergencias=compareFinancialScopes(legado,canonico);
   const divergenciasDRE=compareDreProjectionRows(snapshot.dreSnapshots,events);
+  const divergenciasComprasDRE=compareProcurementDreRecognition(atual,events);
   const lastRun=[...runs].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)))[0]||null;
   return {
     ok:true,modo:"sombra",engineEnforced:FINANCIAL_ENGINE_ENFORCE,
-    legado,canonico,divergencias,divergenciasDRE,
-    prontoParaAtivar:divergencias.length===0&&divergenciasDRE.length===0&&snapshot.facts.length>0,
+    legado,canonico,divergencias,divergenciasDRE,divergenciasComprasDRE,
+    prontoParaAtivar:divergencias.length===0&&divergenciasDRE.length===0&&divergenciasComprasDRE.length===0&&snapshot.facts.length>0,
     contagens:{fatosLegados:snapshot.facts.length,transacoesLegadas:snapshot.bankTransactions.length,
       titulos:titles.length,liquidacoes:settlements.filter(row=>row.status==="active").length,
       vinculosConciliacao:links.filter(row=>row.status==="active").length,
@@ -2068,12 +2070,23 @@ export default async function handler(req, res) {
         });
         const ehComandoDeSolicitacaoCompra=command.type===OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED
           ||command.type===OPERATIONAL_COMMAND.PURCHASE_REQUEST_CANCELLED;
-        if(ehComandoDeSolicitacaoCompra&&outcome.kind==="save"){
+        if(ehComandoDeSolicitacaoCompra&&["save","idempotent"].includes(outcome.kind)){
           await sincronizarSolicitacaoCompraAoVivo({
             companyId:COMPANY,
             requestId:command.payload?.request?.id||command.payload?.requestId,
             mergedData:outcome.data,actor:usuario,
           });
+        }
+        if(outcome.kind==="idempotent"){
+          const payload=command.payload||{};
+          const orderIds=new Set([payload.order?.id,payload.orderId,payload.pedidoId,
+            payload.targetType==="pedido"?payload.targetId:null,
+            ...Object.values(payload.orders||{}).map(entry=>entry?.orderId)].filter(Boolean));
+          for(const orderId of orderIds){
+            await sincronizarPedidoAoVivo({companyId:COMPANY,orderId,mergedData:outcome.data,actor:usuario});
+          }
+          const quoteId=payload.quote?.id||payload.quoteId;
+          if(quoteId)await sincronizarCotacaoAoVivo({companyId:COMPANY,quoteId,mergedData:outcome.data,actor:usuario});
         }
         if(command.type===OPERATIONAL_COMMAND.QUOTATION_SAVED&&outcome.kind==="save"){
           await sincronizarCotacaoAoVivo({
@@ -2086,6 +2099,21 @@ export default async function handler(req, res) {
             companyId:COMPANY,orderId:command.payload?.order?.id,
             mergedData:outcome.data,actor:usuario,
           });
+        }
+        // Receipts and financial commands also change the order payload.
+        // Compare the committed records instead of maintaining another list
+        // of command types (which previously omitted these transitions).
+        if(outcome.kind==="save"&&![
+          OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED,OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE,
+          OPERATIONAL_COMMAND.QUOTE_MAP_DECIDED,OPERATIONAL_COMMAND.PURCHASE_QUOTE_CANCELLED,
+          OPERATIONAL_COMMAND.PURCHASE_CANCELLED,OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED,
+          OPERATIONAL_COMMAND.PURCHASE_ORDER_SENT_TO_SUPPLIER,OPERATIONAL_COMMAND.PURCHASE_ORDER_SUPPLIER_ACCEPTED,
+        ].includes(command.type)){
+          const previousOrders=new Map((outcome.basePayload?.pedidos||[]).map(order=>[order.id,order]));
+          for(const order of outcome.data?.pedidos||[]){
+            if(JSON.stringify(previousOrders.get(order.id))===JSON.stringify(order))continue;
+            await sincronizarPedidoAoVivo({companyId:COMPANY,orderId:order.id,mergedData:outcome.data,actor:usuario});
+          }
         }
         // Ampliação (01/09/2026, ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md):
         // os comandos que faltavam da mesma família - decidir cotação (que

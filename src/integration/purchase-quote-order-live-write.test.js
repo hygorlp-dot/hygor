@@ -207,13 +207,15 @@ describe("/api/data · QUOTATION_SAVED e PURCHASE_ORDER_SAVED gravam ao vivo em 
     expect(row.payload.itens).toHaveLength(1);
   });
 
-  it("reenviar o mesmo idempotencyKey não grava de novo",async()=>{
+  it("repetição idempotente repara o espelho sem repetir a cotação",async()=>{
     const command=quotationCommand();
     await callApi(command);
     testState.upsertCalls.length=0;
     const repeated=await callApi(command);
     expect(repeated.body.idempotent).toBe(true);
-    expect(testState.upsertCalls).toHaveLength(0);
+    expect(testState.upsertCalls).toHaveLength(1);
+    expect(testState.rows[CORE_KEY].value.cotacoes).toHaveLength(1);
+    expect(testState.upsertCalls[0].row.source_version).toBe(1);
   });
 
   it("se a escrita em core_quotations falhar, a resposta ao usuário continua ok",async()=>{
@@ -224,6 +226,33 @@ describe("/api/data · QUOTATION_SAVED e PURCHASE_ORDER_SAVED gravam ao vivo em 
     expect(testState.upsertCalls).toHaveLength(1);
     // O blob foi gravado normalmente, mesmo com a escrita ao vivo falhando.
     expect(testState.rows[CORE_KEY].value.cotacoes).toHaveLength(1);
+  });
+  it("recebimento físico atualiza o payload relacional e uma repetição não duplica estoque",async()=>{
+    await callApi(orderCommand());testState.upsertCalls.length=0;
+    const request={action:"operational-command",accessToken:"valid-token",command:{
+      type:"PEDIDO_RECEBIMENTO_REGISTRADO",expectedVersion:1,idempotencyKey:"test-receipt-projection-001",
+      payload:{pedidoId:"ped-1",receivedQuantities:{"item-1":4},stockEntries:[{
+        id:"stock-1",pedidoItemId:"item-1",pedidoId:"ped-1",obraId:"obra-1",materialId:"mat-1",qtd:4,data:"2026-08-31",
+      }]}}};
+    const result=await callApi(request);
+    expect(result.body.ok).toBe(true);
+    expect(testState.upsertCalls).toHaveLength(1);
+    expect(testState.upsertCalls[0].row.payload.itens[0].qtdRecebida).toBe(4);
+    expect((await callApi(request)).body.idempotent).toBe(true);
+    expect(testState.rows[CORE_KEY].value.movEstoque).toHaveLength(1);
+  });
+  it("pagamento do pedido atualiza o espelho e preserva um único registro",async()=>{
+    await callApi(orderCommand());testState.upsertCalls.length=0;
+    const request={action:"operational-command",accessToken:"valid-token",command:{
+      type:"PAGAMENTO_OBRIGACAO_REGISTRADO",expectedVersion:1,idempotencyKey:"test-payment-projection-001",
+      payload:{targetType:"pedido",targetId:"ped-1",payment:{id:"pg-1",valor:40,data:"2026-08-31",origem:"empresa"}},
+    }};
+    const result=await callApi(request);
+    expect(result.body.ok,result.body.error).toBe(true);
+    expect(testState.upsertCalls).toHaveLength(1);
+    expect(testState.upsertCalls[0].row.payload.pagamentos[0]).toMatchObject({id:"pg-1",valor:40});
+    expect((await callApi(request)).body.idempotent).toBe(true);
+    expect(testState.rows[CORE_KEY].value.pedidos[0].pagamentos).toHaveLength(1);
   });
 
   it("não grava em core_quotations/core_purchase_orders para comandos de outros domínios",async()=>{

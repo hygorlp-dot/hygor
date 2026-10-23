@@ -2,6 +2,7 @@ import fs from "node:fs";
 import postgres from "postgres";
 import { createClient } from "@supabase/supabase-js";
 import { decodeAppData } from "../server/data-codec.js";
+import { compareProcurementDreRecognition } from "../server/procurement-financial-facts.js";
 import {
   buildLegacyFinancialFacts, compareFinancialScopes,
   compareDreProjectionRows,
@@ -36,7 +37,8 @@ const {data:row,error:loadError}=await db.from("company_app_data").select("value
 if(loadError){await sql.end({timeout:2});throw loadError;}
 if(!row?.value){await sql.end({timeout:2});process.stdout.write("FIN-002: migration aplicada; não há dataset legado para carregar.\n");process.exit(0);}
 
-const snapshot=buildLegacyFinancialFacts(decodeAppData(row.value));
+const sourceData=decodeAppData(row.value);
+const snapshot=buildLegacyFinancialFacts(sourceData);
 const [syncRow]=await sql`
   select financial_sync_legacy_facts(
     ${company}, ${"system:production-deploy"}, ${sql.json(snapshot)}
@@ -56,15 +58,16 @@ const all=async(table,columns)=>{
 const [titles,settlements,events]=await Promise.all([
   all("financial_titles","id,obra_id,direction,status,metadata"),
   all("settlements","id,title_id,amount,status,metadata"),
-  all("financial_events","id,event_type,source_id,payload"),
+  all("financial_events","id,event_type,source_id,effective_date,payload"),
 ]);
 const divergences=compareFinancialScopes(
   summarizeLegacyFinancialFacts(snapshot),
   summarizeCanonicalFinancialRows({titles,settlements,events}),
 );
 const dreDivergences=compareDreProjectionRows(snapshot.dreSnapshots,events);
-if(divergences.length||dreDivergences.length){
+const purchaseDivergences=compareProcurementDreRecognition(sourceData,events);
+if(divergences.length||dreDivergences.length||purchaseDivergences.length){
   process.stderr.write(`FIN-002 detalhes: ${JSON.stringify({financial:divergences.slice(0,20),dre:dreDivergences.slice(0,20)})}\n`);
-  throw new Error(`FIN-002: gate recusado; ${divergences.length} divergência(s) financeira(s) e ${dreDivergences.length} divergência(s) no DRE.`);
+  throw new Error(`FIN-002: gate recusado; ${divergences.length} divergência(s) financeira(s), ${dreDivergences.length} no DRE e ${purchaseDivergences.length} entre Compras e DRE.`);
 }
 process.stdout.write(`FIN-002: migration e carga concluídas; ${sync.facts} fatos, ${sync.settlements} liquidações, ${sync.dreSnapshots} projeções DRE, 0 divergências.\n`);

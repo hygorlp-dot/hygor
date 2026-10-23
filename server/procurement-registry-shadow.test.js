@@ -37,6 +37,15 @@ const canonicalFrom = snapshot => ({
 });
 
 describe("procurement registry shadow", () => {
+  it("preserva mapas com vários materiais e os pedidos vinculados", () => {
+    const quote={id:"map1",obraId:"obra-1",itens:[{id:"i1",materialId:"m1",qtd:3},{id:"i2",materialId:"m2",qtd:7}]};
+    const snapshot=buildProcurementRegistrySnapshot({cotacoes:[quote],pedidos:[{
+      id:"ped-map",obraId:"obra-1",fornecedorId:"f1",cotacaoId:"map1",
+    }]});
+    expect(snapshot.quotations[0]).toMatchObject({materialId:"m1",quantity:3,payload:quote});
+    expect(snapshot.purchaseOrders).toHaveLength(1);
+  });
+
   it("projeta cotações e pedidos", () => {
     const snapshot=buildProcurementRegistrySnapshot(legacy());
     expect(snapshot.schemaVersion).toBe(PROCUREMENT_REGISTRY_SCHEMA_VERSION);
