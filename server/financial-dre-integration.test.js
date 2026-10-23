@@ -15,6 +15,7 @@ describe("API nativa e DRE usam os mesmos fatos",()=>{
     expect(validateNativeDreCommand({type:"REGISTER_SETTLEMENT",payload:{titleId:"malformed",amount:1}})).toMatch(/Identificador/);
     expect(validateNativeDreCommand({type:"REVERSE_SETTLEMENT",payload:{settlementId:"malformed"}})).toMatch(/Identificador/);
     expect(validateNativeDreCommand({type:"REGISTER_SETTLEMENT",payload:{titleId:"12345678-1234-1234-1234-123456789012",amount:1.25}})).toBe("");
+    expect(validateNativeDreCommand({type:"REGISTER_SETTLEMENT",payload:{titleId:"12345678-1234-1234-1234-123456789012",amount:1.25,legacyId:"forged"}})).toMatch(/reservados/);
   });
   it("separa competência e caixa, sem reaproveitar projeções legadas",()=>{
     const native=canonicalDreEvents({titles:[title,{...title,id:"legacy",metadata:{legacyId:"old"}}],settlements:[paid]});
