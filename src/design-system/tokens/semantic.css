@@ -14,12 +14,12 @@
 
   --arcd-border-subtle: var(--arcd-gray-200);
   --arcd-border-default: var(--arcd-gray-200);
-  --arcd-border-strong: #8b8d84;
+  --arcd-border-strong: #7A8591;
 
   --arcd-action-primary: var(--arcd-gray-900);
   --arcd-action-primary-hover: var(--arcd-gold-500);
   --arcd-action-primary-active: var(--arcd-gold-600);
-  --arcd-action-primary-subtle: #ede5d9;
+  --arcd-action-primary-subtle: #EEE5D5;
   --arcd-action-primary-text: var(--arcd-gray-0);
   --arcd-focus-ring: var(--arcd-gold-400);
 

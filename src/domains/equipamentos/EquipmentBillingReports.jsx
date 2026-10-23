@@ -420,7 +420,7 @@ function EquipmentTables({ model, data, ownerName }) {
         <thead><tr><th scope="col">Equipamento</th><th scope="col">Propriedade</th><th scope="col" className="num">Diárias-un.</th><th scope="col" className="num">Receita líquida</th><th scope="col" className="num">Descontos</th><th scope="col" className="num">Repasse</th><th scope="col" className="num">Manutenção</th><th scope="col" className="num">Resultado</th><th scope="col" className="num">Margem</th></tr></thead>
         <tbody>{equipmentRows.map(line => <tr key={line.equip.id}>
           <td><strong className="bc-strong">{line.equip.nome}</strong><span className="bc-note">{physicalIdentityForRecord(data, {}, line.equip).label}</span></td>
-          <td>{line.proprio ? "ARCD (próprio)" : ownerName(line.equip.proprietarioId)}</td>
+          <td>{line.proprio ? "MARCELL (próprio)" : ownerName(line.equip.proprietarioId)}</td>
           <td className="num bc-mono">{line.unidadeDias}</td><td className="num bc-mono">{formatMoney(line.receita)}</td><td className="num bc-mono">{formatMoney(line.descontos)}</td>
           <td className="num bc-mono">{formatMoney(line.custoDono)}</td><td className="num bc-mono">{formatMoney(line.manut)}</td>
           <td className="num bc-mono" data-negative={line.lucro < 0}>{signedMoney(line.lucro)}</td><td className="num bc-mono">{pct(line.receita > 0 ? line.lucro / line.receita * 100 : null)}</td>
@@ -485,7 +485,7 @@ function FleetMap({ works, work, onSelect, query, onQuery, ownerName, formatDate
               <td className="bc-mono">{first && last ? `${formatDate(first)} — ${formatDate(last)}` : "Período não informado"}<span className="bc-note">{item.inProgress ? "Em andamento" : "Movimentação encerrada"}</span></td>
               <td className="num bc-mono">{item.quantity}<span className="bc-note">{item.rentals} locação(ões)</span></td>
               <td className="num bc-mono">{item.unitDays}</td>
-              <td>{item.row.terceiro ? ownerName(item.row.equipamento.proprietarioId) : "ARCD (próprio)"}</td>
+              <td>{item.row.terceiro ? ownerName(item.row.equipamento.proprietarioId) : "MARCELL (próprio)"}</td>
             </tr>;
           }) : <tr><td colSpan={5} className="bc-note">Nenhum equipamento corresponde à busca.</td></tr>}</tbody>
         </table>

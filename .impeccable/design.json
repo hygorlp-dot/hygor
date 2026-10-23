@@ -1,0 +1,443 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-23T21:31:09.316940+00:00",
+  "title": "Design System: MARCELL",
+  "extensions": {
+    "colorMeta": {
+      "navy": {
+        "role": "primary",
+        "displayName": "Navy",
+        "tonalRamp": [
+          "oklch(15% .015 250)",
+          "oklch(27% .03 250)",
+          "oklch(39% .045 250)",
+          "oklch(51% .055 250)",
+          "oklch(63% .05 250)",
+          "oklch(75% .04 250)",
+          "oklch(87% .025 250)",
+          "oklch(95% .01 250)"
+        ]
+      },
+      "gold": {
+        "role": "primary",
+        "displayName": "Gold",
+        "tonalRamp": [
+          "oklch(15% .015 85)",
+          "oklch(27% .03 85)",
+          "oklch(39% .045 85)",
+          "oklch(51% .055 85)",
+          "oklch(63% .05 85)",
+          "oklch(75% .04 85)",
+          "oklch(87% .025 85)",
+          "oklch(95% .01 85)"
+        ]
+      },
+      "sand": {
+        "role": "neutral",
+        "displayName": "Sand",
+        "tonalRamp": [
+          "oklch(15% .015 85)",
+          "oklch(27% .03 85)",
+          "oklch(39% .045 85)",
+          "oklch(51% .055 85)",
+          "oklch(63% .05 85)",
+          "oklch(75% .04 85)",
+          "oklch(87% .025 85)",
+          "oklch(95% .01 85)"
+        ]
+      },
+      "slate": {
+        "role": "neutral",
+        "displayName": "Slate",
+        "tonalRamp": [
+          "oklch(15% .015 250)",
+          "oklch(27% .03 250)",
+          "oklch(39% .045 250)",
+          "oklch(51% .055 250)",
+          "oklch(63% .05 250)",
+          "oklch(75% .04 250)",
+          "oklch(87% .025 250)",
+          "oklch(95% .01 250)"
+        ]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "White",
+        "tonalRamp": [
+          "oklch(15% .015 250)",
+          "oklch(27% .03 250)",
+          "oklch(39% .045 250)",
+          "oklch(51% .055 250)",
+          "oklch(63% .05 250)",
+          "oklch(75% .04 250)",
+          "oklch(87% .025 250)",
+          "oklch(95% .01 250)"
+        ]
+      },
+      "secondary-text": {
+        "role": "neutral",
+        "displayName": "Secondary Text",
+        "tonalRamp": [
+          "oklch(15% .015 250)",
+          "oklch(27% .03 250)",
+          "oklch(39% .045 250)",
+          "oklch(51% .055 250)",
+          "oklch(63% .05 250)",
+          "oklch(75% .04 250)",
+          "oklch(87% .025 250)",
+          "oklch(95% .01 250)"
+        ]
+      },
+      "muted-surface": {
+        "role": "neutral",
+        "displayName": "Muted Surface",
+        "tonalRamp": [
+          "oklch(15% .015 250)",
+          "oklch(27% .03 250)",
+          "oklch(39% .045 250)",
+          "oklch(51% .055 250)",
+          "oklch(63% .05 250)",
+          "oklch(75% .04 250)",
+          "oklch(87% .025 250)",
+          "oklch(95% .01 250)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Border",
+        "tonalRamp": [
+          "oklch(15% .015 250)",
+          "oklch(27% .03 250)",
+          "oklch(39% .045 250)",
+          "oklch(51% .055 250)",
+          "oklch(63% .05 250)",
+          "oklch(75% .04 250)",
+          "oklch(87% .025 250)",
+          "oklch(95% .01 250)"
+        ]
+      },
+      "control-border": {
+        "role": "neutral",
+        "displayName": "Control Border",
+        "tonalRamp": [
+          "oklch(15% .015 250)",
+          "oklch(27% .03 250)",
+          "oklch(39% .045 250)",
+          "oklch(51% .055 250)",
+          "oklch(63% .05 250)",
+          "oklch(75% .04 250)",
+          "oklch(87% .025 250)",
+          "oklch(95% .01 250)"
+        ]
+      },
+      "focus": {
+        "role": "neutral",
+        "displayName": "Focus",
+        "tonalRamp": [
+          "oklch(15% .015 85)",
+          "oklch(27% .03 85)",
+          "oklch(39% .045 85)",
+          "oklch(51% .055 85)",
+          "oklch(63% .05 85)",
+          "oklch(75% .04 85)",
+          "oklch(87% .025 85)",
+          "oklch(95% .01 85)"
+        ]
+      },
+      "selected-surface": {
+        "role": "neutral",
+        "displayName": "Selected Surface",
+        "tonalRamp": [
+          "oklch(15% .015 85)",
+          "oklch(27% .03 85)",
+          "oklch(39% .045 85)",
+          "oklch(51% .055 85)",
+          "oklch(63% .05 85)",
+          "oklch(75% .04 85)",
+          "oklch(87% .025 85)",
+          "oklch(95% .01 85)"
+        ]
+      },
+      "action-hover": {
+        "role": "neutral",
+        "displayName": "Action Hover",
+        "tonalRamp": [
+          "oklch(15% .015 250)",
+          "oklch(27% .03 250)",
+          "oklch(39% .045 250)",
+          "oklch(51% .055 250)",
+          "oklch(63% .05 250)",
+          "oklch(75% .04 250)",
+          "oklch(87% .025 250)",
+          "oklch(95% .01 250)"
+        ]
+      },
+      "sidebar-hover": {
+        "role": "neutral",
+        "displayName": "Sidebar Hover",
+        "tonalRamp": [
+          "oklch(15% .015 250)",
+          "oklch(27% .03 250)",
+          "oklch(39% .045 250)",
+          "oklch(51% .055 250)",
+          "oklch(63% .05 250)",
+          "oklch(75% .04 250)",
+          "oklch(87% .025 250)",
+          "oklch(95% .01 250)"
+        ]
+      },
+      "sidebar-active": {
+        "role": "neutral",
+        "displayName": "Sidebar Active",
+        "tonalRamp": [
+          "oklch(15% .015 250)",
+          "oklch(27% .03 250)",
+          "oklch(39% .045 250)",
+          "oklch(51% .055 250)",
+          "oklch(63% .05 250)",
+          "oklch(75% .04 250)",
+          "oklch(87% .025 250)",
+          "oklch(95% .01 250)"
+        ]
+      },
+      "sidebar-text": {
+        "role": "neutral",
+        "displayName": "Sidebar Text",
+        "tonalRamp": [
+          "oklch(15% .015 250)",
+          "oklch(27% .03 250)",
+          "oklch(39% .045 250)",
+          "oklch(51% .055 250)",
+          "oklch(63% .05 250)",
+          "oklch(75% .04 250)",
+          "oklch(87% .025 250)",
+          "oklch(95% .01 250)"
+        ]
+      },
+      "success": {
+        "role": "neutral",
+        "displayName": "Success",
+        "tonalRamp": [
+          "oklch(15% .015 160)",
+          "oklch(27% .03 160)",
+          "oklch(39% .045 160)",
+          "oklch(51% .055 160)",
+          "oklch(63% .05 160)",
+          "oklch(75% .04 160)",
+          "oklch(87% .025 160)",
+          "oklch(95% .01 160)"
+        ]
+      },
+      "warning": {
+        "role": "neutral",
+        "displayName": "Warning",
+        "tonalRamp": [
+          "oklch(15% .015 70)",
+          "oklch(27% .03 70)",
+          "oklch(39% .045 70)",
+          "oklch(51% .055 70)",
+          "oklch(63% .05 70)",
+          "oklch(75% .04 70)",
+          "oklch(87% .025 70)",
+          "oklch(95% .01 70)"
+        ]
+      },
+      "danger": {
+        "role": "neutral",
+        "displayName": "Danger",
+        "tonalRamp": [
+          "oklch(15% .015 25)",
+          "oklch(27% .03 25)",
+          "oklch(39% .045 25)",
+          "oklch(51% .055 25)",
+          "oklch(63% .05 25)",
+          "oklch(75% .04 25)",
+          "oklch(87% .025 25)",
+          "oklch(95% .01 25)"
+        ]
+      },
+      "info": {
+        "role": "neutral",
+        "displayName": "Info",
+        "tonalRamp": [
+          "oklch(15% .015 250)",
+          "oklch(27% .03 250)",
+          "oklch(39% .045 250)",
+          "oklch(51% .055 250)",
+          "oklch(63% .05 250)",
+          "oklch(75% .04 250)",
+          "oklch(87% .025 250)",
+          "oklch(95% .01 250)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Mensagem institucional",
+        "purpose": "Mensagem editorial do acesso desktop."
+      },
+      "body": {
+        "displayName": "Operação",
+        "purpose": "Leitura, controles e números financeiros."
+      }
+    },
+    "shadows": [
+      {
+        "name": "overlay",
+        "value": "0 8px 20px rgb(22 22 22 / 12%)",
+        "purpose": "Sobreposições."
+      },
+      {
+        "name": "modal",
+        "value": "0 16px 32px rgb(22 22 22 / 18%)",
+        "purpose": "Modais e gavetas."
+      }
+    ],
+    "motion": [
+      {
+        "name": "fast",
+        "value": "120ms",
+        "purpose": "Estados de controle."
+      },
+      {
+        "name": "normal",
+        "value": "180ms",
+        "purpose": "Entrada de diálogo."
+      },
+      {
+        "name": "slow",
+        "value": "280ms",
+        "purpose": "Movimento lento existente."
+      },
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "Transições operacionais."
+      },
+      {
+        "name": "reduced",
+        "value": "1ms",
+        "purpose": "Preferência de movimento reduzido."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "480px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      },
+      {
+        "name": "login-stack",
+        "value": "900px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button primary",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação operacional primary.",
+      "html": "<button class=\"ds-button-primary\">Salvar</button>",
+      "css": ".ds-button-primary{display:inline-flex;align-items:center;justify-content:center;min-height:var(--arcd-control-height, 2.75rem);padding:0 var(--arcd-space-4, 1rem);border:1px solid transparent;border-radius:var(--arcd-radius-md, .375rem);font:600 .875rem var(--arcd-font-sans, \"Nimbus Sans\", Arial, sans-serif);cursor:pointer;transition:background-color var(--arcd-motion-fast, 120ms) var(--arcd-ease-standard, cubic-bezier(.2,0,0,1));background:var(--mrc-navy, #0D1B2E);color:#FFFFFF;border-color:var(--mrc-navy, #0D1B2E);}.ds-button-primary:hover{background:var(--arcd-action-primary-hover, #18304C);}.ds-button-primary:focus-visible{outline:3px solid color-mix(in srgb,var(--arcd-focus-ring, #7B6030) 62%,transparent);outline-offset:2px;}.ds-button-primary:active{transform:translateY(1px);}.ds-button-primary:disabled{opacity:.56;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-button-primary{transition-duration:1ms;}}"
+    },
+    {
+      "name": "Button secondary",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Ação operacional secondary.",
+      "html": "<button class=\"ds-button-secondary\">Salvar</button>",
+      "css": ".ds-button-secondary{display:inline-flex;align-items:center;justify-content:center;min-height:var(--arcd-control-height, 2.75rem);padding:0 var(--arcd-space-4, 1rem);border:1px solid transparent;border-radius:var(--arcd-radius-md, .375rem);font:600 .875rem var(--arcd-font-sans, \"Nimbus Sans\", Arial, sans-serif);cursor:pointer;transition:background-color var(--arcd-motion-fast, 120ms) var(--arcd-ease-standard, cubic-bezier(.2,0,0,1));background:var(--arcd-surface-card, #FFFFFF);color:var(--arcd-text-primary, #0D1B2E);border-color:var(--arcd-border-strong, #7A8591);}.ds-button-secondary:hover{background:var(--arcd-surface-muted, #E8E5DF);}.ds-button-secondary:focus-visible{outline:3px solid color-mix(in srgb,var(--arcd-focus-ring, #7B6030) 62%,transparent);outline-offset:2px;}.ds-button-secondary:active{transform:translateY(1px);}.ds-button-secondary:disabled{opacity:.56;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-button-secondary{transition-duration:1ms;}}"
+    },
+    {
+      "name": "Button ghost",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Ação operacional ghost.",
+      "html": "<button class=\"ds-button-ghost\">Salvar</button>",
+      "css": ".ds-button-ghost{display:inline-flex;align-items:center;justify-content:center;min-height:var(--arcd-control-height, 2.75rem);padding:0 var(--arcd-space-4, 1rem);border:1px solid transparent;border-radius:var(--arcd-radius-md, .375rem);font:600 .875rem var(--arcd-font-sans, \"Nimbus Sans\", Arial, sans-serif);cursor:pointer;transition:background-color var(--arcd-motion-fast, 120ms) var(--arcd-ease-standard, cubic-bezier(.2,0,0,1));background:transparent;color:var(--arcd-text-primary, #0D1B2E);border-color:transparent;}.ds-button-ghost:hover{background:var(--arcd-surface-muted, #E8E5DF);}.ds-button-ghost:focus-visible{outline:3px solid color-mix(in srgb,var(--arcd-focus-ring, #7B6030) 62%,transparent);outline-offset:2px;}.ds-button-ghost:active{transform:translateY(1px);}.ds-button-ghost:disabled{opacity:.56;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-button-ghost{transition-duration:1ms;}}"
+    },
+    {
+      "name": "Campo de texto",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo operacional com foco visível e tamanho de toque.",
+      "html": "<label class=\"ds-field\">Descrição<input class=\"ds-input\" placeholder=\"Descrição do registro\"></label>",
+      "css": ".ds-field{display:grid;gap:.5rem;color:var(--arcd-text-primary, #0D1B2E);font:500 .8125rem var(--arcd-font-sans, \"Nimbus Sans\", Arial, sans-serif);}.ds-input{min-height:2.75rem;padding:.5rem .75rem;border:1px solid var(--arcd-border-strong, #7A8591);border-radius:var(--arcd-radius-control, .5rem);background:var(--arcd-surface-card, #FFFFFF);color:var(--arcd-text-primary, #0D1B2E);font:400 .875rem var(--arcd-font-sans, \"Nimbus Sans\", Arial, sans-serif);}.ds-input:hover{border-color:var(--arcd-text-secondary, #536171);}.ds-input:focus-visible{outline:3px solid color-mix(in srgb,var(--arcd-focus-ring, #7B6030) 62%,transparent);outline-offset:2px;}@media(max-width:767px){.ds-input{font-size:1rem;}}"
+    },
+    {
+      "name": "Navegação lateral",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "Seleção em ouro na navegação azul-marinho.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Módulos\"><a href=\"#obras\" class=\"ds-nav-item\" aria-current=\"page\">Obras</a><a href=\"#compras\" class=\"ds-nav-item\">Compras</a></nav>",
+      "css": ".ds-nav{display:grid;gap:4px;padding:12px;background:var(--mrc-navy, #0D1B2E);font:400 .875rem var(--arcd-font-sans, \"Nimbus Sans\", Arial, sans-serif);}.ds-nav-item{display:block;padding:10px 12px;color:var(--arcd-nav-text, #C4CFDA);text-decoration:none;border-left:2px solid transparent;}.ds-nav-item:not([aria-current]){color:#C4CFDA;}.ds-nav-item:hover{background:#1B2C42;color:#FFFFFF;}.ds-nav-item[aria-current]{background:#243348;color:var(--mrc-gold, #B9985B);border-color:var(--mrc-gold, #B9985B);}.ds-nav-item:focus-visible{outline:3px solid color-mix(in srgb,var(--arcd-focus-ring, #7B6030) 62%,transparent);outline-offset:2px;}"
+    },
+    {
+      "name": "Badge neutro",
+      "kind": "chip",
+      "refersTo": "badge-neutral",
+      "description": "Metadado neutro sem semântica de alerta.",
+      "html": "<span class=\"ds-badge\">Registro</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;min-height:1.5rem;border:1px solid var(--arcd-neutral-border, #C6C6C6);border-radius:9999px;padding:0 .5rem;background:var(--arcd-neutral-surface, #E8E5DF);color:var(--arcd-neutral-text, #536171);font:600 .75rem var(--arcd-font-sans, \"Nimbus Sans\", Arial, sans-serif);}"
+    },
+    {
+      "name": "Cartão de registro",
+      "kind": "card",
+      "refersTo": "record-card",
+      "description": "Registro móvel com dados completos e superfície plana.",
+      "html": "<article class=\"ds-card\"><strong>Obra</strong><p>Informações do registro</p></article>",
+      "css": ".ds-card{padding:1rem;border:1px solid var(--arcd-border-default, #D9DDE2);border-radius:var(--arcd-radius-md, .375rem);background:var(--arcd-surface-card, #FFFFFF);color:var(--arcd-text-primary, #0D1B2E);font:400 .875rem var(--arcd-font-sans, \"Nimbus Sans\", Arial, sans-serif);}.ds-card strong{font-size:1rem;font-weight:600;}.ds-card p{margin:.5rem 0 0;color:var(--arcd-text-secondary, #536171);overflow-wrap:anywhere;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Ambiente operacional MARCELL",
+    "overview": "A identidade oficial situa a equipe na MARCELL: navegação azul-marinho, marca em ouro e áreas de trabalho claras em areia e branco. A operação mantém leitura direta, densidade controlada e padrões familiares para consultar obras, comparar valores e concluir ações.\n\nA assinatura completa apresenta a empresa no acesso; o monograma atende espaços compactos. Os vetores oficiais preservam desenho, proporção e cores. A mensagem institucional do acesso recebe a serifada editorial; telas de trabalho mantêm a família operacional.",
+    "keyCharacteristics": [
+      "Identidade institucional azul e ouro.",
+      "Conteúdo claro, tipografia operacional e valores completos.",
+      "Superfícies planas e profundidade reservada a sobreposições.",
+      "Estados explícitos, foco visível e adaptação ao toque."
+    ],
+    "rules": [
+      {
+        "name": "The Functional Color Rule",
+        "body": "Ouro identifica a marca e a seleção; sucesso, atenção e erro mantêm sua semântica própria.",
+        "section": "colors"
+      },
+      {
+        "name": "The Operational Type Rule",
+        "body": "Valores financeiros usam Nimbus Sans e algarismos tabulares; monoespaçada identifica códigos, PIX, CPF, patrimônio e NSR.",
+        "section": "typography"
+      },
+      {
+        "name": "The Overlay Depth Rule",
+        "body": "Reservar sombra estrutural a sobreposições; cartões operacionais permanecem planos.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** usar a assinatura e o monograma oficiais em suas versões adequadas ao fundo.",
+      "**Do** preservar contraste, foco visível, estados textuais e alvos de toque.",
+      "**Do** manter valores completos, algarismos tabulares e informações de relatório legíveis.",
+      "**Do** usar Nimbus Sans na operação e P052 na mensagem institucional do acesso."
+    ],
+    "donts": [
+      "**Don't** redesenhar, distorcer ou aplicar filtros aos vetores oficiais.",
+      "**Don't** usar ouro ou ardósia claros como texto pequeno sobre fundo claro.",
+      "**Don't** substituir estados funcionais pela cor da marca.",
+      "**Don't** transformar identificadores internos `arcd` ou nomes legais cadastrados em rótulos de identidade novos por substituição indiscriminada."
+    ]
+  }
+}

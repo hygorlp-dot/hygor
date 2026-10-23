@@ -1,0 +1,3 @@
+URW Base 35 / ArtifexSoftware, release 20200910.
+https://raw.githubusercontent.com/ArtifexSoftware/urw-base35-fonts/20200910/
+OTF files are supplied unmodified. WOFF2 is a lossless web packaging of the same font programs. Copyright and licensing: LICENSE and COPYING.

@@ -292,7 +292,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
   const statusProposta=async(p,status)=>{
     if(["enviada","aceita"].includes(status)&&(!p.leadId||!p.objeto||!(Number(p.valor)>0))){showToast("Complete lead, objeto e valor antes de avançar a proposta.","error");return;}
     const now=new Date().toISOString(),campo=status==="enviada"?"enviadoEm":status==="visualizada"?"visualizadoEm":status==="aceita"?"aceitoEm":status==="rejeitada"?"rejeitadoEm":"",l=leadBy(p.leadId),ja=contratos.find(k=>k.propostaId===p.id);
-    const contratoAuto=status==="aceita"&&!ja?{id:uid(),numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",contratada:data.config.companyName||"ARCD OBRAS",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:0,parcelas:1,diaVencimento:5,prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[],elaboradoEm:now}:null;
+    const contratoAuto=status==="aceita"&&!ja?{id:uid(),numero:`CONT-${String(contratos.length+1).padStart(4,"0")}`,leadId:p.leadId,propostaId:p.id,clienteId:"",contratante:l?.nome||"",contratada:data.config.companyName||"MARCELL OBRAS",objeto:p.objeto,escopo:p.escopo,valor:p.valor,entrada:0,parcelas:1,diaVencimento:5,prazo:p.prazo,inicio:"",conclusao:"",responsabilidades:p.responsabilidades,responsavelComercialId:l?.responsavelId||"",responsavelTecnicoId:"",status:"elaboracao",assinaturaUrl:"",documentosRecebidos:false,entradaPaga:false,escopoValidado:false,documentos:[],elaboradoEm:now}:null;
     setSalvandoComercial(`proposta-status-${p.id}`);
     try{
       await persistirComercial({
@@ -304,7 +304,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       });
     }finally{setSalvandoComercial("");}
   };
-  const pdfProposta=p=>{const l=leadBy(p.leadId),html=`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(p.numero)}</title><style>body{font-family:Arial;margin:38px;color:#151515}h1{font-size:22px}h2{font-size:14px;margin-top:22px;border-bottom:1px solid #ccc;padding-bottom:5px}.head{display:flex;justify-content:space-between}.value{font-size:22px;font-weight:bold}.box{background:#f5f5f5;padding:12px;margin:10px 0;white-space:pre-wrap}footer{margin-top:40px;font-size:10px;color:#666}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button><div class="head"><div><h1>${escapeHtml(data.config.companyName||"ARCD OBRAS")}</h1><p>${escapeHtml(data.config.cnpj||"")}</p></div><div><b>${escapeHtml(p.numero)} · V${p.versao}</b><p>Validade: ${escapeHtml(fmtDate(p.validade))}</p></div></div><h2>CLIENTE</h2><p>${escapeHtml(l?.nome||"")} · ${escapeHtml(l?.email||"")} · ${escapeHtml(l?.whatsapp||"")}</p><h2>OBJETO</h2><div class="box">${escapeHtml(p.objeto)}</div><h2>ESCOPO</h2><div class="box">${escapeHtml(p.escopo)}</div><h2>INCLUSOS / NÃO INCLUSOS</h2><div class="box">${escapeHtml(p.inclusos)}\n\nNão inclusos:\n${escapeHtml(p.exclusos)}</div><h2>ENTREGÁVEIS E PRAZO</h2><div class="box">${escapeHtml(p.entregaveis)}\nPrazo: ${escapeHtml(p.prazo)}</div><h2>INVESTIMENTO</h2><p class="value">${fmt(p.valor)}</p><div class="box">${escapeHtml(p.formaPagamento)}</div><h2>RESPONSABILIDADES E PREMISSAS</h2><div class="box">${escapeHtml(p.responsabilidades)}\n\n${escapeHtml(p.premissas)}</div><footer>Gerado pelo ARCD OBRAS em ${new Date().toLocaleString("pt-BR")}</footer></body></html>`;const w=window.open("","_blank");w.document.write(html);w.document.close();};
+  const pdfProposta=p=>{const l=leadBy(p.leadId),html=`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(p.numero)}</title><style>body{font-family:Arial;margin:38px;color:#151515}h1{font-size:22px}h2{font-size:14px;margin-top:22px;border-bottom:1px solid #ccc;padding-bottom:5px}.head{display:flex;justify-content:space-between}.value{font-size:22px;font-weight:bold}.box{background:#f5f5f5;padding:12px;margin:10px 0;white-space:pre-wrap}footer{margin-top:40px;font-size:10px;color:#666}@media print{button{display:none}}</style></head><body><button onclick="print()">Imprimir / salvar PDF</button><div class="head"><div><h1>${escapeHtml(data.config.companyName||"MARCELL OBRAS")}</h1><p>${escapeHtml(data.config.cnpj||"")}</p></div><div><b>${escapeHtml(p.numero)} · V${p.versao}</b><p>Validade: ${escapeHtml(fmtDate(p.validade))}</p></div></div><h2>CLIENTE</h2><p>${escapeHtml(l?.nome||"")} · ${escapeHtml(l?.email||"")} · ${escapeHtml(l?.whatsapp||"")}</p><h2>OBJETO</h2><div class="box">${escapeHtml(p.objeto)}</div><h2>ESCOPO</h2><div class="box">${escapeHtml(p.escopo)}</div><h2>INCLUSOS / NÃO INCLUSOS</h2><div class="box">${escapeHtml(p.inclusos)}\n\nNão inclusos:\n${escapeHtml(p.exclusos)}</div><h2>ENTREGÁVEIS E PRAZO</h2><div class="box">${escapeHtml(p.entregaveis)}\nPrazo: ${escapeHtml(p.prazo)}</div><h2>INVESTIMENTO</h2><p class="value">${fmt(p.valor)}</p><div class="box">${escapeHtml(p.formaPagamento)}</div><h2>RESPONSABILIDADES E PREMISSAS</h2><div class="box">${escapeHtml(p.responsabilidades)}\n\n${escapeHtml(p.premissas)}</div><footer>Gerado pelo MARCELL OBRAS em ${new Date().toLocaleString("pt-BR")}</footer></body></html>`;const w=window.open("","_blank");w.document.write(html);w.document.close();};
   const compartilharProposta=p=>{const l=leadBy(p.leadId),texto=`Olá ${l?.nome||""}, segue a proposta ${p.numero} (versão ${p.versao}) para ${p.objeto}, no valor de ${fmt(p.valor)}. Validade: ${fmtDate(p.validade)}.`;navigator.clipboard.writeText(texto).then(()=>showToast("Mensagem copiada para WhatsApp."));};
   const salvarNegociacao=async f=>{
     const p=propostas.find(x=>x.id===f.propostaId);if(!p)return;
@@ -447,7 +447,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       await persistirComercial({metas:f.id?metas.map(x=>x.id===f.id?m:x):[...metas,m]},{mensagem:f.id?"Meta atualizada.":"Meta cadastrada.",aoConfirmar:()=>setMetaForm(null)});
     }finally{setSalvandoComercial("");}
   };
-  const exportarRelatorio=async()=>{await carregarXLSX();const rows=vendedores.map(v=>({Vendedor:v.nome,Leads:v.leads,Vendas:v.vendas,Receita:v.receita,"Conversão %":v.conversao}));const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Comercial");await XLSX.writeFile(wb,`ARCD_Comercial_${today()}.xlsx`);};
+  const exportarRelatorio=async()=>{await carregarXLSX();const rows=vendedores.map(v=>({Vendedor:v.nome,Leads:v.leads,Vendas:v.vendas,Receita:v.receita,"Conversão %":v.conversao}));const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Comercial");await XLSX.writeFile(wb,`MARCELL_Comercial_${today()}.xlsx`);};
 
   const anexarDocumentoComercial=async(tipo,registro,setRegistro,file)=>{
     if(!file)return;
@@ -748,7 +748,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
       <>
         <Titulo
           titulo="Indicações"
-          sub="O canal que mais traz negócio para a ARCD"
+          sub="O canal que mais traz negócio para a MARCELL"
           acao={
             <Btn
               onClick={() =>
@@ -1481,7 +1481,7 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     {npsForm&&<Modal title="Pesquisa de satisfação na entrega" onClose={()=>setNpsForm(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
         <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
-          De 0 a 10, o quanto o cliente recomendaria a ARCD. Nota 9-10 é promotor
+          De 0 a 10, o quanto o cliente recomendaria a MARCELL. Nota 9-10 é promotor
           (candidato a indicar), 7-8 neutro, 0-6 detrator (precisa de atenção).
         </p>
         <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>

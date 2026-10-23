@@ -18,7 +18,7 @@ test("DRE anual ajustável preserva fontes, salva estrutura, exporta e abre deta
     if(body.action==="financial-company-dre-report")return route.fulfill({json:{ok:true,current:null,history:[]}});
     return route.fulfill({json:{ok:true,accessToken:"isolated-access",refreshToken:"isolated-refresh",usuario:profile,data,updatedAt:"2026-10-23T12:00:00Z"}});
   });
-  await page.goto("/");await page.locator("#login-email").fill(profile.email);await page.locator("#login-senha").fill("isolated-password");await page.getByRole("button",{name:"Acessar central ARCD"}).click();
+  await page.goto("/");await page.locator("#login-email").fill(profile.email);await page.locator("#login-senha").fill("isolated-password");await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
   if(page.viewportSize().width<1100){
     await page.getByRole("button",{name:"Abrir Visão gerencial",exact:true}).click();await page.locator(".mobile-subnav").getByRole("button",{name:"DRE empresa",exact:true}).click();
   }else{

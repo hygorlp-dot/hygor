@@ -1,12 +1,12 @@
 /* Caixas e reservatórios — ARCD Carbon: ouro só para ação, foco e seleção;
    Plex Mono só para medidas e valores; painéis de 4px, campos de 8px. */
 .box-memory {
-  --bx-gold: var(--arcd-action-primary, #7C6039);
-  --bx-gold-hover: var(--arcd-action-primary-hover, #654C2C);
-  --bx-gold-strong: var(--arcd-action-primary-active, #7C6039);
+  --bx-gold: var(--arcd-action-primary, #7B6030);
+  --bx-gold-hover: var(--arcd-action-primary-hover, #18304C);
+  --bx-gold-strong: var(--arcd-action-primary-active, #7B6030);
   --bx-gold-subtle: var(--arcd-action-primary-subtle, #f8f1dc);
-  --bx-ink: var(--arcd-text-primary, #202421);
-  --bx-muted: var(--arcd-text-secondary, #62665F);
+  --bx-ink: var(--arcd-text-primary, #0D1B2E);
+  --bx-muted: var(--arcd-text-secondary, #536171);
   --bx-line: var(--arcd-border-subtle, #d6d6d6);
   --bx-line-strong: var(--arcd-border-strong, #8d8d8d);
   --bx-surface: var(--arcd-surface-card, #ffffff);
@@ -21,7 +21,7 @@
   --bx-ok-surface: var(--arcd-success-surface, #defbe6);
   --bx-ok-border: var(--arcd-success-border, #83bea0);
   color: var(--bx-ink);
-  font-family: var(--arcd-font-sans, "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif);
+  font-family: var(--arcd-font-sans, "Nimbus Sans", "Helvetica Neue", Arial, sans-serif);
   font-size: var(--arcd-type-label);
   letter-spacing: .16px;
 }
@@ -90,26 +90,26 @@
 /* Desenho técnico: parede em cinza, eixo tracejado, área medida em ouro. */
 .box-drawing { width: 100%; height: auto; display: block; background: var(--bx-surface); border: 1px solid var(--bx-line); border-radius: 4px; }
 .box-drawing text { font-family: var(--bx-mono); font-size:var(--arcd-type-caption); fill: #262626; }
-.box-drawing .box-drawing__caption { font-family: var(--arcd-font-sans, "IBM Plex Sans", sans-serif); font-size:var(--arcd-type-caption); fill: var(--bx-muted); letter-spacing: .4px; text-transform: uppercase; }
+.box-drawing .box-drawing__caption { font-family: var(--arcd-font-sans, "Nimbus Sans", sans-serif); font-size:var(--arcd-type-caption); fill: var(--bx-muted); letter-spacing: .4px; text-transform: uppercase; }
 .box-drawing[data-ready="false"] { opacity: .55; }
 .box-drawing__sobra { fill: none; stroke: #6f6f6f; stroke-width: .8; stroke-dasharray: 3 2; }
 .box-drawing__wall { fill: #c6c6c6; stroke: #6f6f6f; stroke-width: .8; }
-.box-drawing__inner { fill: #F5F2EC; stroke: #6f6f6f; stroke-width: .8; }
+.box-drawing__inner { fill: #F3F0E9; stroke: #6f6f6f; stroke-width: .8; }
 .box-drawing__axis { fill: none; stroke: #6f6f6f; stroke-width: .6; stroke-dasharray: 5 2 1 2; }
 .box-drawing__slab { fill: #a8a8a8; stroke: #6f6f6f; stroke-width: .6; }
-.box-drawing__water { fill: #F5F2EC; }
+.box-drawing__water { fill: #F3F0E9; }
 .box-drawing__line { fill: #6f6f6f; }
 .box-drawing__face { stroke: transparent; stroke-width: 2.4; }
 .box-drawing__face--axis { stroke-dasharray: 3 2; }
-.box-drawing__hot-fill { fill: #7C6039; fill-opacity: 0; transition: fill-opacity 180ms cubic-bezier(.16,1,.3,1); }
-.box-drawing__hot-stroke { fill: none; stroke: #7C6039; stroke-width: 0; transition: stroke-width 180ms cubic-bezier(.16,1,.3,1); }
+.box-drawing__hot-fill { fill: #7B6030; fill-opacity: 0; transition: fill-opacity 180ms cubic-bezier(.16,1,.3,1); }
+.box-drawing__hot-stroke { fill: none; stroke: #7B6030; stroke-width: 0; transition: stroke-width 180ms cubic-bezier(.16,1,.3,1); }
 .box-drawing__hot-fill.is-hot { fill-opacity: .42; }
 .box-drawing__hot-stroke.is-hot { stroke-width: 2.6; }
-.box-drawing__axis.is-hot { stroke: #7C6039; stroke-width: 2.4; }
-.box-drawing__face.is-hot { stroke: #7C6039; }
-.box-drawing__slab.is-hot, .box-drawing__line.is-hot { fill: #7C6039; }
+.box-drawing__axis.is-hot { stroke: #7B6030; stroke-width: 2.4; }
+.box-drawing__face.is-hot { stroke: #7B6030; }
+.box-drawing__slab.is-hot, .box-drawing__line.is-hot { fill: #7B6030; }
 .box-drawing__water.is-hot { fill: #ecd998; }
-.box-drawing__dim line { stroke: #62665F; stroke-width: .7; }
+.box-drawing__dim line { stroke: #536171; stroke-width: .7; }
 
 .box-note { margin: 0; padding: 10px 12px; border: 1px solid var(--bx-line); border-radius: 4px; background: var(--bx-page); font-size: var(--arcd-type-caption); line-height: 1.5; }
 .box-note--warning { background: var(--bx-warn-surface); border-color: var(--bx-warn-border); color: var(--bx-warn-text); }

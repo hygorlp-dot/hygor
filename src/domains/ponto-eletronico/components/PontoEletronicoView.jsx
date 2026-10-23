@@ -126,7 +126,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
   };
 
   if (!obras.length) {
-    return <div style={card}><p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Cadastre uma obra no ARCD para parear o primeiro aparelho de ponto.</p></div>;
+    return <div style={card}><p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Cadastre uma obra no MARCELL para parear o primeiro aparelho de ponto.</p></div>;
   }
 
   return (
@@ -197,7 +197,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
       <section style={card} aria-labelledby="pe-batidas">
         <h3 id="pe-batidas" style={tituloCard}><Ic n="clock" /> Batidas de {dia.split("-").reverse().join("/")}</h3>
         {!resumo.length
-          ? <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Nenhum funcionário ativo nesta obra no cadastro do ARCD.</p>
+          ? <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Nenhum funcionário ativo nesta obra no cadastro do MARCELL.</p>
           : <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--arcd-type-body)" }}>
               <thead><tr style={{ textAlign: "left", color: C.muted, fontSize:"var(--arcd-type-label)" }}>
@@ -244,7 +244,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
 
       {podeGerir && <section style={card} aria-labelledby="pe-resp">
         <h3 id="pe-resp" style={tituloCard}><Ic n="lock" /> Responsáveis com PIN do app</h3>
-        <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted, marginBottom: 8 }}>Quem pode cadastrar rostos e identificar um funcionário quando o reconhecimento falhar. O PIN do app é separado do PIN do ARCD.</p>
+        <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted, marginBottom: 8 }}>Quem pode cadastrar rostos e identificar um funcionário quando o reconhecimento falhar. O PIN do app é separado do PIN do MARCELL.</p>
         {responsaveis.map(r => <div key={r.userId} style={{ display: "flex", gap: 10, alignItems: "center", padding: "5px 0", borderTop: `1px solid ${C.line}`, fontSize: "var(--arcd-type-body)" }}>
           <span style={{ flex: 1 }}>{r.nome}</span>
           <span style={{ color: C.muted }}>{r.obras?.length ? r.obras.map(id => nomeObra.get(String(id)) || id).join(", ") : "todas as obras"}</span>

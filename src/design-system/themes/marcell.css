@@ -1,0 +1,104 @@
+/* MARCELL: official navy/gold/sand identity, with accessible operational tones. */
+:root {
+  --mrc-navy: #0d1b2e;
+  --mrc-gold: #b9985b;
+  --mrc-sand: #f3f0e9;
+  --mrc-slate: #78818b;
+  --arcd-surface-overlay: rgb(13 27 46 / 56%);
+}
+[data-theme="marcell"] {color-scheme:light;}
+[data-theme="marcell"] .arcd-app-shell,
+[data-theme="marcell"] .arcd-main {background:var(--mrc-sand);}
+[data-theme="marcell"] .arcd-sidebar {
+  --arcd-text-primary:#fff;
+  --arcd-text-secondary:#c4cfda;
+  --arcd-text-muted:#c4cfda;
+  background:var(--mrc-navy) !important;
+  border-right-color:#24354a !important;
+}
+[data-theme="marcell"] .arcd-sidebar button {
+  color:#d2dbe5 !important;
+  background:transparent !important;
+  border-color:#3c4b60 !important;
+}
+[data-theme="marcell"] .arcd-sidebar .nav-grp-hd,
+[data-theme="marcell"] .arcd-sidebar .nav-item,
+[data-theme="marcell"] .arcd-sidebar .nav-count {color:#c4cfda !important;}
+[data-theme="marcell"] .arcd-sidebar .nav-grp-hd:hover,
+[data-theme="marcell"] .arcd-sidebar .nav-item:hover {background:#1b2c42 !important;color:#fff !important;}
+[data-theme="marcell"] .arcd-sidebar .nav-item[data-active="true"] {
+  background:#243348 !important;
+  color:var(--mrc-gold) !important;
+  border-color:var(--mrc-gold) !important;
+}
+[data-theme="marcell"] .arcd-sidebar > div:first-child {background:var(--mrc-navy) !important;border-bottom-color:#304056 !important;}
+[data-theme="marcell"] .arcd-sidebar > div:last-child {background:var(--mrc-navy) !important;border-top-color:#304056 !important;}
+[data-theme="marcell"] .arcd-sidebar > div:last-child :is(p,span) {color:#d2dbe5 !important;}
+[data-theme="marcell"] .arcd-sidebar button svg {color:inherit;stroke:currentColor;}
+[data-theme="marcell"] .arcd-sidebar .nav-body {border-left-color:#3c4b60;}
+[data-theme="marcell"] .arcd-sidebar .arcd-brand-mark {gap:10px !important;}
+[data-theme="marcell"] .arcd-sidebar .arcd-brand-word p:last-child {font-size:12px;max-width:122px;line-height:1.35;}
+[data-theme="marcell"] .arcd-btn[data-variant="primary"] {background:var(--mrc-navy) !important;color:#fff !important;border-color:var(--mrc-navy) !important;}
+[data-theme="marcell"] .arcd-btn[data-variant="primary"]:hover {background:#1e3552 !important;}
+[data-theme="marcell"] .arcd-mobile-nav {background:var(--mrc-sand) !important;border-top-color:var(--arcd-border-default) !important;}
+[data-theme="marcell"] .login-tech-shell {
+  display:grid;
+  grid-template-columns:minmax(360px,1.05fr) minmax(420px,1fr);
+  background:var(--mrc-sand);
+  min-height:100svh;
+  overflow:visible;
+}
+[data-theme="marcell"] .mrc-login-brand {
+  position:relative;inset:auto;z-index:0;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;
+  min-height:100svh;padding:64px 40px;
+  background:var(--mrc-navy);perspective:none;isolation:isolate;
+}
+[data-theme="marcell"] .mrc-login-brand::after {display:none;}
+.mrc-login-signature {display:block;width:192px;height:auto;max-width:100%;}
+.mrc-login-statement {margin:48px 0 0;max-width:460px;color:var(--mrc-sand);font:400 clamp(26px,2.5vw,38px)/1.2 "P052",Georgia,serif;text-align:center;}
+.mrc-login-rule {width:64px;height:1px;margin-top:32px;background:var(--mrc-gold);}
+[data-theme="marcell"] .login-access-column {grid-column:2;min-height:100svh;padding:48px 40px;justify-content:center;background:var(--mrc-sand);}
+[data-theme="marcell"] .login-access-card {width:100%;max-width:430px;border:0;background:transparent;color:var(--mrc-navy);backdrop-filter:none;animation:none;}
+[data-theme="marcell"] .login-brand-mark {width:auto;height:auto;justify-content:flex-start;border:0;background:none;box-shadow:none;}
+[data-theme="marcell"] .login-brand-mark img {width:72px;height:auto;filter:none;}
+[data-theme="marcell"] .login-access-card h3 {font-size:28px;font-weight:600;color:var(--mrc-navy);}
+[data-theme="marcell"] .login-access-card :is(p,label,small) {color:#536171;font-size:14px;}
+[data-theme="marcell"] .login-access-card label {color:var(--mrc-navy);font-size:13px;}
+[data-theme="marcell"] .login-access-card [role="alert"] {color:var(--arcd-danger-text);}
+[data-theme="marcell"] .login-access-card [role="alert"] :is(p,div) {color:var(--arcd-danger-text) !important;}
+[data-theme="marcell"] .login-access-card .mrc-login-footer {font-size:12px;}
+[data-theme="marcell"] .login-access-card :is(input,select,textarea) {background:#fff;color:var(--mrc-navy);border:1px solid #7a8591;font-family:var(--arcd-font-sans);font-size:14px;min-height:44px;}
+[data-theme="marcell"] .login-access-card input::placeholder {color:#637081;}
+[data-theme="marcell"] .login-access-card [role="tablist"] {background:#e6e6e3;border:1px solid #d5d9de;}
+[data-theme="marcell"] .login-access-card [role="tab"] {color:#536171;font-size:14px;}
+[data-theme="marcell"] .login-access-card [role="tab"][data-state="active"] {background:#fff;color:var(--mrc-navy);box-shadow:none;}
+[data-theme="marcell"] .login-access-card button[type="button"] {font-family:var(--arcd-font-sans);}
+[data-theme="marcell"] .login-access-card button.bg-\[\#d4af37\] {background:var(--mrc-navy);color:#fff;}
+[data-theme="marcell"] .login-password-toggle {color:#536171;}
+[data-theme="marcell"] .login-password-toggle:hover {color:var(--mrc-navy);}
+::selection {background:#e3d1ae;color:#0d1b2e;}
+input,textarea {caret-color:#0d1b2e;}
+@media(max-width:900px) {
+  [data-theme="marcell"] .login-tech-shell {grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto;}
+  [data-theme="marcell"] .mrc-login-brand {min-height:196px;padding:24px;}
+  .mrc-login-signature {width:140px;}
+  .mrc-login-statement,.mrc-login-rule {display:none;}
+  [data-theme="marcell"] .login-access-column {grid-column:1;min-height:auto;padding:28px 24px 40px;}
+  [data-theme="marcell"] .login-brand-mark {display:none;}
+  [data-theme="marcell"] .login-access-card > div {padding-inline:0;}
+  [data-theme="marcell"] .login-access-card > div:first-child {padding-top:0;}
+  [data-theme="marcell"] .login-access-card .pt-4 {padding-top:0;}
+}
+@media(max-width:767px) {
+  [data-theme="marcell"] .login-access-card :is(input,select,textarea) {font-size:16px !important;}
+  [data-theme="marcell"] .login-access-card h3 {font-size:24px;}
+}
+
+/* Dialog notices occupy layout space instead of obscuring editable fields. */
+.arcd-modal-notice:empty {display:none;}
+.arcd-modal-notice {padding:12px 14px 0;}
+.arcd-modal-notice .arcd-toast--inline {
+  position:static !important;transform:none !important;max-width:100% !important;
+  width:auto;animation:none;margin:0;overflow-wrap:anywhere;
+}

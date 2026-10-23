@@ -1,16 +1,22 @@
 {
-  "name": "ARCD Obras",
-  "short_name": "ARCD Obras",
-  "description": "Gestão operacional de obras da ARCD Construtech.",
+  "name": "MARCELL — Gestão de obras",
+  "short_name": "MRC",
+  "description": "MARCELL · Engenharia e construção. Gestão de obras, equipes e financeiro.",
   "lang": "pt-BR",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f5f5f3",
-  "theme_color": "#f5f5f3",
+  "background_color": "#F3F0E9",
+  "theme_color": "#0D1B2E",
   "icons": [
     {
-      "src": "/logo-arcd.png",
-      "sizes": "any",
+      "src": "/brand/marcell/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/marcell/icon-512.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     }

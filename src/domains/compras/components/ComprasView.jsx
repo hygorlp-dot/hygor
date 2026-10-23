@@ -1799,7 +1799,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     const forn=fornecedorPorId.get(p.fornecedorId),obra=obraPorId.get(p.obraId);
     const itens=(p.itens||[]).map(i=>({descricao:materialPorId.get(i.materialId)?.descricao||i.descricaoRef||"Material",
       qtd:i.qtd,unidade:purchaseUnitOf(i),precoUnit:i.precoUnit}));
-    const base={empresa:"ARCD Construtech",numero:p.numero,data:p.data,fornecedorNome:forn?.nome||"",
+    const base={empresa:"MARCELL",numero:p.numero,data:p.data,fornecedorNome:forn?.nome||"",
       fornecedorCnpj:forn?.cnpj||"",obraNome:obra?.name||"",itens,previsao:p.previsao,observacao:p.obs||"",linkAceite:link};
     return {forn,texto:mensagemPedidoFornecedor(base),assunto:assuntoEmailPedido(base),html:documentoPedidoHtml(base)};
   };
@@ -2428,7 +2428,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                     if(!forn?.telefone)return null;
                     const obra=obraPorId.get(p.obraId);
                     const texto=mensagemWhatsAppCobranca({
-                      empresa:"ARCD Construtech",fornecedorNome:forn.nome,obraNome:obra?.name||"",
+                      empresa:"MARCELL",fornecedorNome:forn.nome,obraNome:obra?.name||"",
                       numero:p.numero,previsao:fmtDate(p.previsao),
                       diasAtraso:atrasoDe[p.id].diasAtraso,itens:atrasoDe[p.id].itensPendentes,
                     });
@@ -2445,7 +2445,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                       return { descricao: mat?.descricao || "Material", qtd: i.qtd, unidade: mat?.unidade || "" };
                     });
                     const texto = mensagemWhatsAppCompra({
-                      empresa: "ARCD Construtech", fornecedorNome: forn.nome,
+                      empresa: "MARCELL", fornecedorNome: forn.nome,
                       obraNome: obra?.name || "", prazo: p.previsao ? fmtDate(p.previsao) : "",
                       itens: itensMsg,
                     });

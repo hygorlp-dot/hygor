@@ -6,5 +6,5 @@ function WeeklyUpdate({ update }) { if (!update) return null; return <section cl
 
 export function ClientDashboard({ data }) {
   const project = data.project || {};
-  return <div className="arcd-client-dashboard"><section className="arcd-client-hero" style={project.coverImage ? { backgroundImage:`linear-gradient(90deg, rgba(21,25,29,.72), rgba(21,25,29,.2)), url(${project.coverImage})` } : undefined}><p>ARCD Construtech</p><h2>{project.name}</h2><span>Previsão atual: {project.estimatedCompletion || "a confirmar"}</span></section><ProgressSummary project={project} /><PendingActions decisions={data.decisions} measurements={data.measurements} media={data.publishedMedia} /><WeeklyUpdate update={data.weeklyUpdates?.[0]} /></div>;
+  return <div className="arcd-client-dashboard"><section className="arcd-client-hero" style={project.coverImage ? { backgroundImage:`linear-gradient(90deg, rgba(21,25,29,.72), rgba(21,25,29,.2)), url(${project.coverImage})` } : undefined}><p>MARCELL</p><h2>{project.name}</h2><span>Previsão atual: {project.estimatedCompletion || "a confirmar"}</span></section><ProgressSummary project={project} /><PendingActions decisions={data.decisions} measurements={data.measurements} media={data.publishedMedia} /><WeeklyUpdate update={data.weeklyUpdates?.[0]} /></div>;
 }

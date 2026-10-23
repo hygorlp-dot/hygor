@@ -711,7 +711,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   };
 
   const buildText = () => [
-    "FOLHA DE PAGAMENTO - ARCD OBRAS",
+    "FOLHA DE PAGAMENTO - MARCELL OBRAS",
     data.config.companyName || "",
     periodLabel,
     `Pagamento: ${paymentDateLabel}`,

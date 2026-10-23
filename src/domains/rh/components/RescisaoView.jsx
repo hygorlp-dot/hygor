@@ -252,7 +252,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
   </div>
 </div>
 
-<div class="footer">Documento gerado pelo ArcD Ponto PRO · ${new Date().toLocaleString("pt-BR")} · Via do empregador / Via do trabalhador</div>
+<div class="footer">Documento gerado pelo MARCELL · ${new Date().toLocaleString("pt-BR")} · Via do empregador / Via do trabalhador</div>
 </body></html>`;
     const w = window.open("","_blank");
     w.document.write(html);
