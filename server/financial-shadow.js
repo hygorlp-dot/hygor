@@ -1,6 +1,8 @@
 // A homologação em sombra precisa usar exatamente a mesma semântica do razão:
 // arquivamento preserva o fato econômico; cancelamento e estorno o anulam.
 import { active } from "../src/domains/financeiro/ledger.js";
+import { buildDreCashManagement } from "../src/domains/conciliacao/cash-allocations.js";
+import { buildProcurementFinancialFacts } from "./procurement-financial-facts.js";
 const amount = value => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 const isoDate = (value, fallback = "1970-01-01") => {
   const text = String(value || "");
@@ -97,20 +99,7 @@ export const buildLegacyFinancialFacts = (data, { includeDreSnapshots = true } =
     });
   }
 
-  for (const item of (data?.pedidos || []).filter(active).filter(item => String(item.status || "").toLowerCase() !== "rascunho")) {
-    const total = amount((item.itens || []).reduce((sum, row) =>
-      sum + Number(row.quantidade || row.qtd || 0) * Number(row.precoUnit || row.preco || row.valorUnitario || 0), 0)
-      || item.valorTotal || item.total);
-    const payments = (item.pagamentos || []).filter(active).map(payment =>
-      settlement("pagamento_pedido", payment.id || `${item.id}:${payment.data}`, payment.valor || payment.amount, payment.data, payment.transacaoId));
-    push({
-      legacyType:"pedido", legacyId:String(item.id), category:"purchases", direction:"payable",
-      obraId:String(item.obraId || ""), titleAmount:total, recognizedAmount:total,
-      recognitionType:"cost_recognized", date:item.data || item.criadoEm,
-      dueDate:item.previsao || item.data, settlements:payments,
-      metadata:{ numero:item.numero || "", fornecedorId:item.fornecedorId || "" },
-    });
-  }
+  buildProcurementFinancialFacts(data).forEach(push);
 
   const bankTransactions = (data?.transacoes || []).filter(active).map(item => ({
     legacyId:String(item.id), amount:Math.abs(amount(item.valor)), direction:Number(item.valor) >= 0 ? "in" : "out",
@@ -119,7 +108,9 @@ export const buildLegacyFinancialFacts = (data, { includeDreSnapshots = true } =
     metadata:{ extratoId:item.extratoId || "", legacyStatus:item.status || "pendente" },
   })).filter(item => item.legacyId && item.amount > 0);
 
-  return { facts, bankTransactions, dreSnapshots:includeDreSnapshots?buildDreProjectionRows(data):[] };
+  const cash=buildDreCashManagement(data);
+  return { facts, bankTransactions, cashEntries:cash.entries, cashAllocations:cash.allocations,
+    dreSnapshots:includeDreSnapshots?buildDreProjectionRows(data):[] };
 };
 
 export const summarizeLegacyFinancialFacts = ({ facts = [] } = {}) => {

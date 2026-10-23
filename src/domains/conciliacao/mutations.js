@@ -7,7 +7,10 @@
 // existir um segundo caminho que marque `transacoes` como conciliado sem
 // passar por aqui - é isso que garante que DRE, saldo e histórico nunca
 // duplicam o mesmo fato financeiro (requisito crítico da entrega).
-import { aplicarRecebimentoMedicao, removerRecebimentoMedicao } from "./calculations.js";
+import { aplicarRecebimentoMedicao, removerRecebimentoMedicao, totalRecebidoMedicao } from "./calculations.js";
+import { active } from "../financeiro/ledger.js";
+import { validatePurchasePayment } from "../financeiro/purchase-payment-validation.js";
+import { validateExistingPaymentLink, updatePaymentAssociation, stampChangedPurchaseParents } from "./existing-payment-link.js";
 import { saldoTituloFolha, situacaoTituloFolha, validarLiquidacaoFolha } from "./payroll.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
 
@@ -49,42 +52,12 @@ export const vincularPagamentoExistente = (data, { transacaoId, tipo, entidadeId
   const bloqueioPeriodo = motivoPeriodoFechado(data, tr.data);
   if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
 
-  const has=(collection,id)=>(data[collection]||[]).some(item=>item.id===id);
-  const note=(data.notasFiscais||[]).find(item=>item.id===entidadeId);
-  const order=(data.pedidos||[]).find(item=>item.id===entidadeId);
-  const validTarget=(
-    (["nota","nota_fiscal"].includes(tipo)&&!!note)
-    ||(tipo==="pedido"&&!!order)
-    ||(tipo==="medicao"&&has("medicoes",entidadeId))
-    ||(tipo==="medicaoTerc"&&has("medicoesTerc",entidadeId))
-    ||(tipo==="funcionario"&&has("employees",entidadeId))
-    ||(tipo==="caixaObra"&&has("caixaObra",entidadeId))
-    ||(tipo==="pagamentoNota"&&!!note&&(note.pagamentos||[]).some(item=>item.id===pagamentoId))
-    ||(tipo==="pagamentoPedido"&&!!order&&(order.pagamentos||[]).some(item=>item.id===pagamentoId))
-    ||(tipo==="pagsTerceiros"&&has("pagsTerceiros",pagamentoId||entidadeId))
-  );
-  if(!validTarget)return { data, resumo:{ok:false,motivo:"O fato financeiro selecionado não existe ou não pode ser vinculado"} };
-
-  const vinculo = { tipo, id: entidadeId };
-  const transacoes = marcarTransacao(data.transacoes, transacaoId, { status: "conciliado", vinculo, obs: observacao });
-
-  let caixaObra = data.caixaObra, notasFiscais = data.notasFiscais, pedidos = data.pedidos, pagsTerceiros = data.pagsTerceiros;
-  if (tipo === "caixaObra") {
-    caixaObra = (data.caixaObra || []).map(c => (c.id === entidadeId ? { ...c, conciliado: true, transacaoId } : c));
-  } else if (tipo === "pagamentoNota" && pagamentoId) {
-    // O pagamento já existia (ex.: criado pela Central de Pagamentos sem
-    // transação vinculada ainda) - só marca ele como conciliado, não cria nada.
-    notasFiscais = (data.notasFiscais || []).map(n => n.id === entidadeId
-      ? { ...n, pagamentos: (n.pagamentos || []).map(pg => pg.id === pagamentoId ? { ...pg, conciliado: true, transacaoId } : pg) }
-      : n);
-  } else if (tipo === "pagamentoPedido" && pagamentoId) {
-    pedidos = (data.pedidos || []).map(p => p.id === entidadeId
-      ? { ...p, pagamentos: (p.pagamentos || []).map(pg => pg.id === pagamentoId ? { ...pg, conciliado: true, transacaoId } : pg) }
-      : p);
-  } else if (tipo === "pagsTerceiros" && pagamentoId) {
-    pagsTerceiros = (data.pagsTerceiros || []).map(pg => pg.id === pagamentoId ? { ...pg, conciliado: true, transacaoId } : pg);
-  }
-
+  const checked=validateExistingPaymentLink(data,{transaction:tr,tipo,entidadeId,pagamentoId});
+  if(checked.error)return {data,resumo:{ok:false,motivo:checked.error}};
+  const vinculo={tipo,id:entidadeId,pagamentoId:checked.payment.id};
+  const linked=updatePaymentAssociation(data,{paymentId:checked.payment.id,transactionId:transacaoId,linked:true,actor:operador});
+  const transacoes=marcarTransacao(linked.transacoes,transacaoId,{status:"conciliado",vinculo,obs:observacao,
+    valorVinculado:Math.abs(Number(tr.valor)),saldoNaoVinculado:0});
   const historicoConc = registrarHistorico(data.historicoConc, {
     transacaoId, extratoId: tr.extratoId, acao: "vinculo_confirmado",
     statusAnterior: tr.status, statusNovo: "conciliado",
@@ -93,7 +66,7 @@ export const vincularPagamentoExistente = (data, { transacaoId, tipo, entidadeId
   });
 
   return {
-    data: { ...data, transacoes, caixaObra, notasFiscais, pedidos, pagsTerceiros, historicoConc },
+    data: { ...linked, transacoes, historicoConc },
     resumo: { ok: true, criados: [], vinculo },
   };
 };
@@ -119,11 +92,29 @@ export const registrarPagamentoEConciliar = (data, params) => {
   const collectionsByType={
     nota:["notasFiscais","Nota fiscal"],pedido:["pedidos","Pedido"],medicao:["medicoes","Medição"],
     medicaoTerc:["medicoesTerc","Medição de terceiro"],funcionario:["employees","Funcionário"],
+    terceiro:["terceirizados","Terceiro"],
     tituloFolha:["titulosFolha","Título de folha"],
   };
   const required=collectionsByType[tipo];
   if(required&&!(data[required[0]]||[]).some(item=>item.id===entidadeId)){
     return { data, resumo:{ok:false,motivo:`${required[1]} não encontrado`} };
+  }
+  const target=required?(data[required[0]]||[]).find(item=>item.id===entidadeId):null;
+  if(target&&(!active(target)||target.active===false))return {data,resumo:{ok:false,motivo:"A obrigação está cancelada ou inativa."}};
+  const value=Math.abs(Number(valor??tr.valor));
+  if(!(value>0)||!Number.isFinite(value)||Math.abs(value-Math.abs(Number(tr.valor)))>0.01)return {data,resumo:{ok:false,motivo:"O valor deve corresponder à transação bancária."}};
+  if(Math.sign(Number(tr.valor))!==(["medicao","entradaContrato"].includes(tipo)?1:-1))return {data,resumo:{ok:false,motivo:"A direção bancária é incompatível com a obrigação."}};
+  let conference={};
+  if(["nota","pedido"].includes(tipo)){
+    const check=validatePurchasePayment(data,{type:tipo,target,value,adiantamento:params.adiantamento,
+      motivo:params.motivoAdiantamento,actorRole:operador?.role});
+    if(check.error)return {data,resumo:{ok:false,motivo:check.error}};
+    conference=check.campos||{};
+  }
+  if(tipo==="medicao"&&value>Number(target.valorPrevisto||0)-totalRecebidoMedicao(target)+0.01)return {data,resumo:{ok:false,motivo:"O recebimento supera o saldo da medição. Classifique o excedente separadamente."}};
+  if(tipo==="medicaoTerc"){
+    const paid=(data.pagsTerceiros||[]).filter(active).filter(item=>item.medicaoTercId===entidadeId).reduce((sum,item)=>sum+Number(item.amount||item.valor||0),0);
+    if(value>Number(target.total||target.valorBruto||target.valor||0)-paid+0.01)return {data,resumo:{ok:false,motivo:"O pagamento supera o saldo da medição de terceiro."}};
   }
 
   const registradoPor = nomeOperador(operador);
@@ -140,6 +131,7 @@ export const registrarPagamentoEConciliar = (data, params) => {
     referencia: observacao,
     observacao,
     comprovantes: [],
+    ...conference,
     registradoPorId: operador?.id, registradoPor,
     registradoEm: new Date().toISOString(),
   });
@@ -281,7 +273,7 @@ export const registrarPagamentoEConciliar = (data, params) => {
     valor: tr.valor, detalhes: criados, operadorId: operador?.id, operador: registradoPor,
   });
 
-  return { data: { ...next, transacoes, historicoConc }, resumo: { ok: true, criados, vinculo } };
+  return { data: stampChangedPurchaseParents(data,{ ...next, transacoes, historicoConc },operador), resumo: { ok: true, criados, vinculo } };
 };
 
 //
@@ -487,6 +479,14 @@ export const desfazerConciliacao = (data, transacaoId, operador, motivo = "") =>
   if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
 
   const gerados = tr.gerados || [];
+  // Existing payments survive unmatching. Only undo their bank association.
+  if(!gerados.length||gerados.every(item=>typeof item==="string")){
+    const nested=[...(data.pedidos||[]).flatMap(p=>p.pagamentos||[]),...(data.notasFiscais||[]).flatMap(p=>p.pagamentos||[]),
+      ...(data.medicoes||[]).flatMap(p=>p.recebimentos||[]),...(data.titulosFolha||[]).flatMap(p=>p.liquidacoes||[]),
+      ...(data.pagsTerceiros||[]),...(data.pagamentosFolha||[]),...(data.caixaObra||[]),...(data.outrasDesp||[]),...(data.despesasEmpresa||[])];
+    const ids=new Set(nested.filter(p=>p.transacaoId===transacaoId).map(p=>p.id));
+    for(const paymentId of ids)data=updatePaymentAssociation(data,{paymentId,transactionId:transacaoId,linked:false,actor:operador});
+  }
   let next = { ...data };
   const estornar = item => ({
     ...item,status:"estornado",motivoEstorno:motivo||"Conciliação bancária desfeita",
@@ -496,7 +496,7 @@ export const desfazerConciliacao = (data, transacaoId, operador, motivo = "") =>
   gerados.forEach(g => {
     if (g.tipo === "pagamentoNota") {
       next = { ...next, notasFiscais: (next.notasFiscais || []).map(n => n.id === g.entidadeId
-        ? { ...n, pagamentos: (n.pagamentos || []).map(p => p.id === g.id ? estornar(p) : p) } : n) };
+        ? { ...n, ...(n.transacaoId===transacaoId?{transacaoId:null}:{}), pagamentos: (n.pagamentos || []).map(p => p.id === g.id ? estornar(p) : p) } : n) };
       next = { ...next, pedidos: (next.pedidos || []).map(p => ({ ...p, pagamentos: (p.pagamentos || []).map(pg => pg.id === g.id ? estornar(pg) : pg) })) };
     } else if (g.tipo === "pagamentoPedido") {
       next = { ...next, pedidos: (next.pedidos || []).map(p => p.id === g.entidadeId
@@ -568,7 +568,7 @@ export const desfazerConciliacao = (data, transacaoId, operador, motivo = "") =>
       : c) };
   }
 
-  const transacoes = marcarTransacao(next.transacoes, transacaoId, { status: "pendente", vinculo: null, gerados: [] });
+  const transacoes = marcarTransacao(next.transacoes, transacaoId, { status: "pendente", vinculo: null, gerados: [],valorVinculado:0,saldoNaoVinculado:Math.abs(Number(tr.valor)) });
   const historicoConc = registrarHistorico(next.historicoConc, {
     transacaoId, extratoId: tr.extratoId, acao: "desfeito",
     statusAnterior: "conciliado", statusNovo: "pendente",
@@ -576,5 +576,5 @@ export const desfazerConciliacao = (data, transacaoId, operador, motivo = "") =>
     valor: tr.valor, operadorId: operador?.id, operador: nomeOperador(operador),
   });
 
-  return { data: { ...next, transacoes, historicoConc }, resumo: { ok: true, revertidos: gerados } };
+  return { data: stampChangedPurchaseParents(data,{ ...next, transacoes, historicoConc },operador), resumo: { ok: true, revertidos: gerados } };
 };

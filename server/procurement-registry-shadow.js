@@ -32,11 +32,14 @@ const withHash = row => ({ ...row, sourceHash:hash(row.payload) });
 export const quotationRow = quote => withHash({
   id:text(quote?.id),
   projectId:text(quote?.obraId),
-  materialId:text(quote?.materialId),
+  // Structured legacy columns identify the first real line of a quote map;
+  // the full map (including different units) stays in payload. Do not sum
+  // quantities from unrelated materials into a fictitious aggregate.
+  materialId:text(quote?.materialId || quote?.itens?.[0]?.materialId),
   requestId:text(quote?.solicitacaoId),
   status:text(quote?.status || "aberta"),
   active:text(quote?.status) !== "cancelada",
-  quantity:Number(quote?.qtd) || 0,
+  quantity:Number(quote?.qtd ?? quote?.itens?.[0]?.qtd) || 0,
   sourceVersion:version(quote?.version),
   payload:quote || {},
 });

@@ -147,7 +147,7 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
       list.push(invoice); invoicesByOrder.set(invoice.pedidoId, list);
     }
     if (invoice.medicaoTercId) thirdMeasurementByInvoice.set(invoice.id, invoice.medicaoTercId);
-    (invoice.pagamentos || []).forEach(payment => {
+    (notaReconhecivel(invoice) ? invoice.pagamentos || [] : []).filter(active).forEach(payment => {
       if (payment.id) invoicePaymentIds.add(payment.id);
       if (payment.transacaoId) invoicePaymentTransactions.add(payment.transacaoId);
     });
@@ -422,7 +422,7 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
     };
     add({ ...base, id: `outra_despesa:${id}:cost`, effect: "cost" });
     const paid = expense.pago === true || expense.dataPagamento || expense.pagamentoId || expense.transacaoId || expense.caixaObraId;
-    if (paid) add({ ...base, id: `outra_despesa:${id}:cash`, effect: "cash_out", date: expense.dataPagamento || expense.data, transactionId: expense.transacaoId || "" });
+    if (paid) add({ ...base, id: `outra_despesa:${id}:cash`, effect: "cash_out", date: expense.dataPagamento || expense.data || transactions.get(expense.transacaoId)?.data, transactionId: expense.transacaoId || "" });
   });
 
   (data.despesasEmpresa || []).filter(active).forEach(expense => {
@@ -448,7 +448,7 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
     };
     add({ ...base, id: `despesa_empresa:${id}:${rawCents < 0 ? "reversal" : "cost"}`, effect: rawCents < 0 ? "cost_reversal" : "cost" });
     const paid = expense.pago === true || expense.dataPagamento || expense.pagamentoId || expense.transacaoId;
-    if (paid) add({ ...base, id: `despesa_empresa:${id}:cash`, effect: rawCents < 0 ? "cash_in" : "cash_out", date: expense.dataPagamento || expense.data, transactionId: expense.transacaoId || "" });
+    if (paid) add({ ...base, id: `despesa_empresa:${id}:cash`, effect: rawCents < 0 ? "cash_in" : "cash_out", date: expense.dataPagamento || expense.data || transactions.get(expense.transacaoId)?.data, transactionId: expense.transacaoId || "" });
   });
 
   const payrollSettlementTransactions = new Set();
@@ -659,7 +659,7 @@ export const selectDRE = (ledger, filters = {}) => {
 // controladoria não devem somar `despesasEmpresa` diretamente.
 export const selectCorporateOperatingCosts = (ledger, filters = {}) => {
   const events=(ledger?.events||[]).filter(event=>
-    !event.obraId&&event.sourceType==="despesa_empresa"
+    !event.obraId&&["despesa_empresa","canonical_title"].includes(event.sourceType)
     && eventMatches(event,filters,"competence")
     && ["cost","cost_reversal"].includes(event.effect));
   const costCents=sumEffects(events,["cost"],["cost_reversal"]);

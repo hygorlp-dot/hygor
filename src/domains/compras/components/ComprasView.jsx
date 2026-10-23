@@ -17,7 +17,7 @@ import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {
   ArcdChartTooltip, Badge, Btn, C, C_ARCD_SETOR, ChartPanel, FornecedorEditorPilot,
   Ic, Inp, LinksDocumentosAuditaveis, Modal, ModalCotacaoWhatsApp, ModalLegendaDocumento,
-  ModoIADocumento, PageHero, Sel, TabRow, TYPO,
+  ModoIADocumento, Sel, TabRow, TYPO,
   arquivoComoDataUrl, calcCompras, calcOrcadoComprado, compactNumber, fmt, fmtCompact,
   fmtDate, fornecedoresParaMateriais, guardaPreco, linkWhatsApp, maiusculoOrcamento,
   melhorPrecoHist, mensagemWhatsAppCobranca, mensagemWhatsAppCompra, niveisUmOrcamento,
@@ -35,6 +35,11 @@ import {
   historicoPrecoTodos, analisePreco, mapaGerencialCompras,
 } from "../calculations";
 import { canManagePurchases } from "../permissions";
+import { buildPurchaseWorkspace, matchesPurchaseSearch } from "../workspace";
+import { usePurchaseSave } from "../use-purchase-save";
+import { PurchaseNavigation, PurchaseWorkspace, PURCHASE_AREA_LABELS } from "./PurchaseWorkspace";
+import { Button } from "../../../design-system/primitives/Button";
+import { Select } from "../../../design-system/primitives/Select";
 import { conferenciaPagamentoPedido } from "../payment-conference";
 import { movementOfOrder } from "../purchase-cancellation-command";
 import { alertasOrcamentoDoPedido } from "../budget-tracking";
@@ -64,11 +69,25 @@ import {
   enviarArquivoOneDrive, gerarLinkAceitePedido, listarBasesReferencia, pesquisarInsumosReferencia,
 } from "../../../api";
 
-function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[],data,update,showToast}){
+function PurchaseSaveNotice({save}){
+  const [started,setStarted]=useState(save?.state==="saving");
+  useEffect(()=>{if(save?.state==="saving")setStarted(true);},[save?.state]);
+  return started&&save&&save.state!=="idle"?<p className="purchase-form-status purchase-save-state" data-state={save.state} role="status" aria-live="polite">{save.message}</p>:null;
+}
+
+function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[],data,update,showToast,save}){
   const {formGrid}=useBreakpoint();
   const [busca,setBusca]=useState("");const [resultados,setResultados]=useState([]);
   const [loading,setLoading]=useState(false);const [aviso,setAviso]=useState("");
   const [novoInsumo,setNovoInsumo]=useState(null);
+  const [buscaCatalogo,setBuscaCatalogo]=useState("");
+  const catalogo=useMemo(()=>buscaCatalogo.trim()?(data?.materiais||[]).filter(m=>m.ativo!==false&&matchesPurchaseSearch(buscaCatalogo,m.codigo,m.descricao,m.unidade)):[],[data?.materiais,buscaCatalogo]);
+  const adicionarCatalogo=material=>{
+    setForm(f=>({...f,itens:[...f.itens,{id:uid(),materialId:material.id,referenciaId:material.referenciaId||"",fonteRef:material.fonteRef||"PRÓPRIO",
+      codigoRef:material.codigo||"",descricaoRef:material.descricao,unidadeRef:String(material.unidade||"UN").toUpperCase(),unidadeCompra:String(material.unidade||"UN").toUpperCase(),
+      fatorConversao:1,quantidade:"",precoRef:Number(material.precoMedio||0),dataBaseRef:material.dataBaseRef||"",ufRef:material.ufRef||"",orcItemId:"",orcNivel1Id:"",observacao:""}]}));
+    setBuscaCatalogo("");
+  };
   const [salvando,setSalvando]=useState(false);
   const [erros,setErros]=useState({fieldErrors:{},items:[]});
   const [confirmarSaida,setConfirmarSaida]=useState(false);
@@ -83,6 +102,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
   const linhasOrc=niveisUmOrcamento(orcObra).map(n=>({v:n.id,l:`${n.descricao} · ${fmt(n.orcado)}`}));
   const F=k=>v=>{setErros(e=>({...e,fieldErrors:{...(e.fieldErrors||{}),[k]:""}}));setForm(f=>({...f,[k]:v}));};
   const fechar=()=>{
+    if(salvando)return;
     if(JSON.stringify(form)!==inicialRef.current){setConfirmarSaida(true);return;}
     setForm(null);
   };
@@ -98,6 +118,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
   });
   const desfazerRemocao=()=>{if(!removido)return;setForm(f=>{const itens=[...f.itens];itens.splice(Math.min(removido.index,itens.length),0,removido.item);return{...f,itens};});setRemovido(null);};
   const enviar=async()=>{
+    if(salvando)return;
     const validacao=validatePurchaseRequest(form);setErros(validacao);
     if(!validacao.valid){
       const primeiro=validacao.firstInvalidItem?.id;
@@ -166,7 +187,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
   const addProprio=()=>setForm(f=>({...f,itens:[...f.itens,{id:uid(),materialId:"",referenciaId:"",fonteRef:"PRÓPRIO",codigoRef:"",descricaoRef:"",unidadeRef:"UN",unidadeCompra:"UN",fatorConversao:1,quantidade:"",precoRef:0,dataBaseRef:"",ufRef:"",orcItemId:"",orcNivel1Id:"",observacao:""}]}));
 
   const resumo=purchaseRequestSummary(form);
-  return <Modal title={form.id?`Editar solicitação ${form.numero||""}`:"Solicitar materiais para Compras"} onClose={fechar} wide panelClass="purchase-request-modal"><div className="purchase-request-flow">
+  return <Modal title={form.id?`Editar solicitação ${form.numero||""}`:"Solicitar materiais para Compras"} onClose={fechar} wide panelClass="purchase-request-modal"><div className="purchase-request-flow"><fieldset className="purchase-request-fields" disabled={salvando}>
     <section className="purchase-request-section"><header><span>1</span><div><h3>Contexto da solicitação</h3><p>Defina onde e quando os materiais precisam chegar.</p></div></header>
     <div className="purchase-request-context" style={{gridTemplateColumns:formGrid(3)}}>
       <div><Sel label="Obra *" value={form.obraId} onChange={trocarObra} options={obras.map(o=>({v:o.id,l:o.name}))}/>{erros.fieldErrors?.obraId&&<small className="purchase-request-error" role="alert">{erros.fieldErrors.obraId}</small>}</div>
@@ -175,17 +196,28 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
     </div></section>
     <section className="purchase-request-section"><header><span>2</span><div><h3>Materiais</h3><p>Pesquise uma base oficial ou cadastre o insumo no catálogo.</p></div></header>
     <div className="purchase-request-search">
-      <h4>Pesquisar insumo SINAPI / ORSE</h4>
+      <h4>Reutilizar material do catálogo</h4>
+      <Inp label="Pesquisar no catálogo" value={buscaCatalogo} onChange={setBuscaCatalogo} placeholder="Ex.: cimento CP II…"/>
+      {buscaCatalogo.trim()&&<div className="purchase-catalog-results">
+        {catalogo.slice(0,12).map(material=><button type="button" className="purchase-request-result" key={material.id} onClick={()=>adicionarCatalogo(material)}>
+          <b>{material.codigo||"PRÓPRIO"}</b><span>{material.descricao}</span><strong>Adicionar · {material.unidade||"UN"}</strong></button>)}
+        {!catalogo.length&&<p className="purchase-request-hint">Nenhum material encontrado. Pesquise uma base oficial ou cadastre o material abaixo.</p>}
+        {catalogo.length>12&&<p className="purchase-request-hint">Mostrando 12 de {catalogo.length}. Acrescente uma palavra para refinar.</p>}
+      </div>}
+    </div>
+    <details className="purchase-reference-search"><summary>Pesquisar insumo SINAPI / ORSE</summary><div className="purchase-request-search">
+      <h4>Selecionar uma base oficial</h4>
       <Sel label="Base de referência" value={form.referenciaId||""} onChange={v=>{F("referenciaId")(v);setBusca("");setResultados([]);}}
         options={[{v:"",l:basesReferencia.length?"Selecione a base":"Nenhuma base de referência disponível"},...basesReferencia.map(b=>({v:b.id,l:`${b.fonte} · ${b.dataBase}${b.uf?` · ${b.uf}`:""}${b.fonte==="SINAPI"?` · ${b.desonerado===false?"NÃO DESONERADA":"DESONERADA"}`:""}`}))]}/>
       <Inp label="Código ou descrição" value={busca} onChange={setBusca} placeholder="Ex.: cimento, bloco, aço..."/>
       {form.referenciaId&&busca.trim().length===1&&<p className="purchase-request-hint">Digite pelo menos 2 caracteres para pesquisar.</p>}
-      {(loading||aviso||resultados.length>0||busca.trim().length>=2)&&<div style={{maxHeight:220,overflowY:"auto",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:4}}>
+      {form.referenciaId&&(loading||aviso||resultados.length>0||busca.trim().length>=2)&&<div style={{maxHeight:220,overflowY:"auto",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:4}}>
         {loading&&<p className="purchase-request-hint" role="status">Pesquisando na base selecionada...</p>}{aviso&&<div className="purchase-request-search-error" role="alert"><span>{aviso}</span><Btn size="sm" v="ghost" onClick={()=>setTentativaBusca(n=>n+1)}>Tentar novamente</Btn></div>}
         {resultados.map((item,index)=><button className="purchase-request-result" key={`${item.fonte}-${item.codigo}-${index}`} onClick={()=>addReferencia(item)} title={item.descricao}><b>{item.fonte} {item.codigo}</b><span>{item.descricao}</span><strong>{fmt(precoRef(item))}/{item.unidade}</strong></button>)}
         {!loading&&!resultados.length&&!aviso&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:8}}>Nenhum insumo encontrado.</p>}
       </div>}
     </div>
+    </details>
     <div className="purchase-request-material-head"><h4>Materiais da solicitação</h4><div><Btn size="sm" v="ghost" onClick={addProprio}><Ic n="plus"/> Adicionar somente a esta solicitação</Btn>{data&&<Btn size="sm" v="warning" onClick={abrirNovoInsumo}><Ic n="plus"/> Cadastrar no catálogo e adicionar</Btn>}</div></div>
     {novoInsumo&&<div style={{background:`${C.orange}0A`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"10px 11px",display:"flex",flexDirection:"column",gap:8}}>
       <p style={{fontSize:10.5,fontWeight:900,color:C.orange}}>NOVO INSUMO NO CATÁLOGO</p>
@@ -238,11 +270,13 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
     <p className="purchase-request-hint">Para usar o mesmo insumo em etapas diferentes, duplique o material e ajuste quantidade e etapa.</p></section>
     <section className="purchase-request-section"><header><span>3</span><div><h3>Revisar e formalizar</h3><p>Confira o conteúdo que será enviado oficialmente ao setor de Compras.</p></div></header>
     <Inp label={form.prioridade==="urgente"?"Justificativa da urgência *":"Observação geral"} value={form.observacao} onChange={F("observacao")} multiline error={erros.fieldErrors?.observacao} placeholder="Local de entrega, especificação e impacto do prazo..."/>
-    <div className="purchase-request-summary"><div><span>Obra</span><strong>{obras.find(o=>o.id===form.obraId)?.name||"Não selecionada"}</strong></div><div><span>Materiais</span><strong>{resumo.itemCount}</strong></div><div><span>Quantidade informada</span><strong>{resumo.totalQuantity.toLocaleString("pt-BR")}</strong></div><div><span>Prioridade</span><strong>{resumo.urgent?"Urgente":"Normal"}</strong></div></div>
+    <div className="purchase-request-summary"><div><span>Obra</span><strong>{obras.find(o=>o.id===form.obraId)?.name||"Não selecionada"}</strong></div><div><span>Materiais</span><strong>{resumo.itemCount}</strong></div><div><span>Quantidades por unidade</span><strong>{Object.entries(form.itens.reduce((groups,item)=>{const unit=purchaseUnitOf(item);groups[unit]=(groups[unit]||0)+Number(item.quantidade||0);return groups;},{})).map(([unit,quantity])=>`${quantity.toLocaleString("pt-BR")} ${unit}`).join(" · ")||"—"}</strong></div><div><span>Prioridade</span><strong>{resumo.urgent?"Urgente":"Normal"}</strong></div></div>
     {erros.fieldErrors?.itens&&<p className="purchase-request-error" role="alert">{erros.fieldErrors.itens}</p>}
     <p className="purchase-request-formal-notice"><Ic n="lock" s={14}/> Ao confirmar, a solicitação será formalizada e registrada com autor, data e horário.</p>
     <div className="purchase-request-actions"><Btn v="ghost" onClick={fechar} disabled={salvando} full>Cancelar</Btn><Btn onClick={enviar} loading={salvando&&"Formalizando..."} full><Ic n="check"/> {form.id?"Salvar alterações":"Formalizar e enviar para Compras"}</Btn></div></section>
+    </fieldset>
     {confirmarSaida&&<Modal title="Descartar alterações?" onClose={()=>setConfirmarSaida(false)}><p style={{fontSize:13,lineHeight:1.5,color:C.text}}>As alterações desta solicitação ainda não foram formalizadas.</p><div style={{display:"flex",gap:8,marginTop:16}}><Btn v="ghost" onClick={()=>setConfirmarSaida(false)} full>Continuar editando</Btn><Btn v="danger" onClick={()=>setForm(null)} full>Descartar alterações</Btn></div></Modal>}
+    <PurchaseSaveNotice save={save}/>
   </div></Modal>;
 }
 
@@ -251,8 +285,13 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
 const pedidoDoFormulario=f=>({...f,id:f.id||"__pedido_em_edicao",itens:(f.itens||[]).filter(i=>i.materialId&&Number(i.qtd)>0)
   .map(i=>({...i,qtd:Number(i.qtd),precoUnit:Number(i.precoUnit||0)}))});
 
-function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc, data, basesReferencia=[] }) {
+function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc, data, basesReferencia=[],save }) {
   const { formGrid } = useBreakpoint();
+  const [salvando,setSalvando]=useState(false);
+  const [confirmarSaida,setConfirmarSaida]=useState(false);
+  const inicial=useRef(JSON.stringify(form));
+  const fechar=()=>{if(salvando)return;if(inicial.current!==JSON.stringify(form)){setConfirmarSaida(true);return;}setForm(null);};
+  const enviar=async()=>{if(salvando)return;setSalvando(true);try{await onSave(form);}finally{setSalvando(false);}};
   const [buscaRef,setBuscaRef]=useState("");
   const [resultadosRef,setResultadosRef]=useState([]);
   const [buscandoRef,setBuscandoRef]=useState(false);
@@ -326,8 +365,9 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
   const totalReferencia = (form.itens||[]).reduce((s,i) => s + referenceTotalOf(i,i.qtd), 0);
 
   return (
-    <Modal title={form.id ? `Pedido ${form.numero}` : "Novo pedido"} onClose={()=>setForm(null)} wide>
-      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <Modal title={form.id ? `Pedido ${form.numero}` : "Novo pedido"} onClose={fechar} wide panelClass="purchase-form-panel">
+      <fieldset disabled={salvando} style={{display:"flex",flexDirection:"column",gap:12}}>
+        <p className="purchase-form-context"><b>Obra da compra:</b> {(data?.obras||[]).find(o=>o.id===form.obraId)?.name||"Obra não informada"}</p>
         <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
           <Sel label="Fornecedor *" value={form.fornecedorId} onChange={F("fornecedorId")}
                options={[{v:"",l:"Selecione..."}, ...fornecedores.map(f=>({v:f.id,l:f.nome}))]}/>
@@ -526,10 +566,12 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
             {alertas.map(a=><p key={a.etapaId} style={{fontSize:10,color:C.text,marginTop:3}}>{a.descricao}: {fmt(a.antes)} → <b>{fmt(a.depois)}</b> de {fmt(a.orcado)} orçado{a.orcado>0?` (${a.pct.toFixed(0)}%)`:""}</p>)}
           </div>;})()}
         <div style={{display:"flex",gap:8}}>
-          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
-          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
+          <Btn v="ghost" onClick={fechar} disabled={salvando} full>Cancelar</Btn>
+          <Btn onClick={enviar} disabled={salvando} loading={salvando&&"Salvando…"} full><Ic n="check"/> {form.status==="rascunho"?"Salvar rascunho":"Salvar pedido"}</Btn>
         </div>
-      </div>
+      </fieldset>
+      <PurchaseSaveNotice save={save}/>
+      {confirmarSaida&&<Modal title="Descartar alterações do pedido?" onClose={()=>setConfirmarSaida(false)}><p>As alterações ainda não foram salvas.</p><div className="purchase-header-actions"><Button variant="secondary" onClick={()=>setConfirmarSaida(false)}>Continuar editando</Button><Button variant="danger" onClick={()=>setForm(null)}>Descartar alterações</Button></div></Modal>}
     </Modal>
   );
 }
@@ -546,9 +588,12 @@ const formularioDaCotacao=cot=>{
       precos:Object.fromEntries(itens.map(i=>[i.id,precoDaProposta(cot,p,i.id)||""]))}))};
 };
 
-function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOrc=[] }) {
+function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOrc=[],save,obraNome }) {
   const [salvando,setSalvando]=useState(false);
-  const enviar=async()=>{setSalvando(true);try{await onSave(form);}finally{setSalvando(false);}};
+  const [confirmarSaida,setConfirmarSaida]=useState(false);
+  const inicial=useRef(JSON.stringify(form));
+  const fechar=()=>{if(salvando)return;if(inicial.current!==JSON.stringify(form)){setConfirmarSaida(true);return;}setForm(null);};
+  const enviar=async()=>{if(salvando)return;setSalvando(true);try{await onSave(form);}finally{setSalvando(false);}};
   const decididos=new Set(Object.keys(decisoesDaCotacao(form)));
   const setItem=(i,patch)=>setForm(f=>({...f,itens:f.itens.map((x,k)=>k===i?{...x,...patch}:x)}));
   const setP=(i,campo,v)=>setForm(f=>({...f,propostas:f.propostas.map((x,k)=>k===i?{...x,[campo]:v}:x)}));
@@ -566,8 +611,9 @@ function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOr
   const cel={padding:"6px 7px",borderBottom:`1px solid ${C.line}`,verticalAlign:"top"};
 
   return (
-    <Modal title={form.id?"Mapa de cotação":"Nova cotação"} onClose={()=>setForm(null)} wide>
-      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <Modal title={form.id?"Mapa de cotação":"Nova cotação"} onClose={fechar} wide panelClass="purchase-form-panel">
+      <fieldset disabled={salvando} style={{display:"flex",flexDirection:"column",gap:12}}>
+        <p className="purchase-form-context"><b>Obra da cotação:</b> {obraNome||"Obra não informada"}</p>
         <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:11}}>
           <Sel label="Etapa de 1º nível do orçamento" value={form.orcNivel1Id||""} onChange={v=>setForm(f=>({...f,orcNivel1Id:v,itens:f.itens.map(i=>({...i,orcNivel1Id:i.orcNivel1Id||v}))}))} options={[{v:"",l:linhasOrc.length?"Selecione a etapa principal":"Nenhuma etapa disponível"},...linhasOrc.map(l=>({v:l.id,l:`${l.descricao} · ${fmt(l.orcado)}`}))]}/>
         </div>
@@ -611,17 +657,21 @@ function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOr
           <Btn v="ghost" onClick={addP}><Ic n="plus"/> Fornecedor</Btn>
         </div>
         <div style={{display:"flex",gap:8}}>
-          <Btn v="ghost" onClick={()=>setForm(null)} disabled={salvando} full>Cancelar</Btn>
+          <Btn v="ghost" onClick={fechar} disabled={salvando} full>Cancelar</Btn>
           <Btn onClick={enviar} disabled={salvando} loading={salvando&&"Salvando..."} full><Ic n="check"/> Salvar cotação</Btn>
         </div>
-      </div>
+      </fieldset>
+      <PurchaseSaveNotice save={save}/>
+      {confirmarSaida&&<Modal title="Descartar alterações da cotação?" onClose={()=>setConfirmarSaida(false)}><p>As propostas ainda não foram salvas.</p><div className="purchase-header-actions"><Button variant="secondary" onClick={()=>setConfirmarSaida(false)}>Continuar editando</Button><Button variant="danger" onClick={()=>setForm(null)}>Descartar alterações</Button></div></Modal>}
     </Modal>
   );
 }
 
 // Recebimento - o único lugar onde Compras encosta no Estoque.
 // Aceita entrega PARCIAL, porque na obra o caminhão chega faltando item.
-function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeForn }) {
+function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeForn,save }) {
+  const [salvando,setSalvando]=useState(false);
+  const confirmar=async()=>{if(salvando)return;setSalvando(true);try{await onReceber(pedido,qtds);}finally{setSalvando(false);}};
   const [qtds, setQtds] = useState(() =>
     Object.fromEntries(pedido.itens.map(i => {
       const falta = Number(i.qtd) - Number(i.qtdRecebida || 0);
@@ -637,12 +687,12 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
     return { ...i, falta, chegou, excede: chegou > falta + 1e-6 };
   });
 
-  const temExcesso = linhas.some(l => l.excede);
+  const temExcesso = linhas.some(l => l.excede || !Number.isFinite(l.chegou) || l.chegou < 0);
   const valorTotal = linhas.reduce((s,l) => s + l.chegou * Number(l.precoUnit||0), 0);
 
   return (
-    <Modal title={`Receber - ${pedido.numero}`} onClose={onClose} wide>
-      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <Modal title={`Receber - ${pedido.numero}`} onClose={()=>!salvando&&onClose()} wide panelClass="purchase-form-panel">
+      <fieldset disabled={salvando} style={{display:"flex",flexDirection:"column",gap:12}}>
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
           <p style={{fontSize:12,fontWeight:700,color:C.text}}>{nomeForn(pedido.fornecedorId)}</p>
           <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>
@@ -662,8 +712,9 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
               Pedido: {l.qtd} {purchaseUnitOf(l)}
               {Number(l.qtdRecebida) > 0 && `  já recebido: ${l.qtdRecebida}`}
               {l.falta > 0 && `  falta: ${l.falta}`}
+              {` · saldo após esta entrada: ${Math.max(0,l.falta-l.chegou)} ${purchaseUnitOf(l)}`}
             </p>
-            <Inp label={`Chegou agora (${purchaseUnitOf(l)})`} type="number"
+            <Inp label={`Chegou agora (${purchaseUnitOf(l)})`} type="number" min="0" max={l.falta} disabled={salvando}
                  value={qtds[l.id]} onChange={v=>set(l.id, v)}/>
             {purchaseUnitOf(l)!==String(l.unidadeRef||"").toUpperCase()&&<p style={{fontSize:9,color:C.muted,marginTop:4}}>{l.chegou.toLocaleString("pt-BR")} {purchaseUnitOf(l)} equivalem a {referenceQuantityOf(l,l.chegou).toLocaleString("pt-BR",{maximumFractionDigits:4})} {l.unidadeRef} no estoque.</p>}
             {l.excede && (
@@ -682,25 +733,37 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
           <p style={{fontSize:16,fontWeight:800,color:C.green,marginTop:2,
                      fontFamily:"'Inter Display','Inter',sans-serif"}}>{fmt(valorTotal)}</p>
           <p style={{fontSize:10,color:C.muted,marginTop:4,lineHeight:1.45}}>
-            Pagamento já verificado. Esta ação confirma somente a chegada física e
-            atualiza o estoque; não duplica o lançamento financeiro.
+            Esta ação confirma a chegada física e atualiza o estoque.
+            O pagamento é acompanhado separadamente; receber não registra uma saída financeira.
           </p>
         </div>
 
         <div style={{display:"flex",gap:8}}>
-          <Btn v="ghost" onClick={onClose} full>Cancelar</Btn>
-          <Btn onClick={()=>onReceber(pedido, qtds)} full disabled={temExcesso || valorTotal <= 0}>
+          <Btn v="ghost" onClick={onClose} disabled={salvando} full>Cancelar</Btn>
+          <Btn onClick={confirmar} full loading={salvando&&"Confirmando…"} disabled={salvando || temExcesso || valorTotal <= 0}>
             <Ic n="check"/> Dar entrada no estoque
           </Btn>
         </div>
-      </div>
+      </fieldset>
+      <PurchaseSaveNotice save={save}/>
     </Modal>
   );
 }
 
-export default function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD_SETOR, dispatchCommand=null }) {
+export default function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD_SETOR, dispatchCommand:rawDispatchCommand=null }) {
   const { cols, pick, isDesktop } = useBreakpoint();
-  const [aba,     setAba]     = useState(["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":currentUser?.role==="financeiro"?"financeiro":"mapa");
+  const {save, dispatch:dispatchCommand} = usePurchaseSave(rawDispatchCommand);
+  const [filtrosFluxo,setFiltrosFluxo] = useState({query:"",stage:"",risk:""});
+  const [registroFoco,setRegistroFoco] = useState("");
+  useEffect(()=>{
+    if(!registroFoco)return;
+    const frame=window.requestAnimationFrame(()=>{
+      const target=document.getElementById(`purchase-record-${registroFoco}`);
+      target?.scrollIntoView({block:"center",behavior:"auto"});target?.focus({preventScroll:true});
+    });
+    return()=>window.cancelAnimationFrame(frame);
+  },[registroFoco]);
+  const [aba,     setAba]     = useState(["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":currentUser?.role==="financeiro"?"financeiro":"fila");
   const [obraSel, setObraSel] = useState(obraIdFixo);
   const [busca,   setBusca]   = useState("");
 
@@ -737,11 +800,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const [inicioCotacao,setInicioCotacao]=useState("");
   const [fimCotacao,setFimCotacao]=useState("");
   const [cotacaoExpandida,setCotacaoExpandida]=useState("");
-  const [menuComprasAberto,setMenuComprasAberto]=useState(false);
   const [escopoMapa,setEscopoMapa]=useState(obraIdFixo?"obra":"empresa");
   const [filtroKanban,setFiltroKanban]=useState("ativos");
 
-  const obras       = (data.obras || []).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId);
+  const obras = useMemo(()=>(data.obras || []).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId),[data.obras,currentUser?.obraId]);
   const obraAtual   = obraIdFixo || obraSel || obras[0]?.id || "";
   // Escopo de "todas as obras" (empresa) x obra única - fonte única para o
   // KPI, as listas e o kanban, para não mostrar números de recortes diferentes
@@ -821,10 +883,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     const t = busca.trim().toLowerCase();
     return (data.pedidos||[])
       .filter(p => obraIdsMapa.includes(p.obraId))
-      .filter(p => !t || (p.numero||"").toLowerCase().includes(t) ||
-                          nomeForn(p.fornecedorId).toLowerCase().includes(t))
+      .filter(p => matchesPurchaseSearch(t,p.numero,nomeForn(p.fornecedorId),
+        obras.find(o=>o.id===p.obraId)?.name,(p.itens||[]).map(i=>[nomeMat(i.materialId),i.descricaoRef,i.codigoRef])))
       .sort((a,b) => (b.data||"").localeCompare(a.data||""));
-  }, [data.pedidos, obraIdsMapa, busca, nomeForn]);
+  }, [data.pedidos, obraIdsMapa, busca, nomeForn, nomeMat, obras]);
 
   const resumoOperacional = useMemo(() => {
     const todos=(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)&&p.status!=="cancelado");
@@ -896,8 +958,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       const materiaisCotacao=itensDaCotacao(c).map(i=>materialPorId.get(i.materialId)).map(m=>`${m?.codigo||""} ${m?.descricao||""}`).join(" ");
       const fornecedoresCotacao=(c.propostas||[]).map(p=>fornecedorPorId.get(p.fornecedorId)?.nome||"").join(" ");
       const solicitacao=solicitacaoPorId.get(c.solicitacaoId);
-      return [c.numero,c.id,materiaisCotacao,fornecedoresCotacao,solicitacao?.numero]
-        .some(v=>String(v||"").toLocaleLowerCase("pt-BR").includes(termo));
+      return matchesPurchaseSearch(termo,c.numero,c.id,materiaisCotacao,fornecedoresCotacao,solicitacao?.numero);
     });
   },[cotacoes,buscaCotacao,statusCotacao,inicioCotacao,fimCotacao,materialPorId,fornecedorPorId,solicitacaoPorId]);
   const pedidoPorId     = useMemo(() => new Map((data.pedidos||[]).map(p => [p.id, p])), [data.pedidos]);
@@ -970,7 +1031,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       if(!termo)return true;
       const texto=[p.numero,fornecedorPorId.get(p.fornecedorId)?.nome,obraPorId.get(p.obraId)?.name,
         ...(p.itens||[]).map(i=>materialPorId.get(i.materialId)?.descricao||i.descricaoRef)].filter(Boolean).join(" ").toLowerCase();
-      return texto.includes(termo);
+      return matchesPurchaseSearch(termo,texto);
     });
   },[pedidosHistorico,buscaHistoricoCompra,statusHistoricoCompra,fornecedorHistoricoCompra,fornecedorPorId,obraPorId,materialPorId]);
   const resumoFornecedoresHistorico=useMemo(()=>{
@@ -1827,6 +1888,20 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     showToast("Esta movimentação deve ser concluída no registro de origem.","warn");
   };
 
+  const hojeFluxo=today();
+  const fluxoCompras=useMemo(()=>buildPurchaseWorkspace(data,obraIdsMapa,hojeFluxo),[data,obraIdsMapa,hojeFluxo]);
+  const abrirRegistroFluxo=row=>{
+    if(row.type==="order"){
+      if(row.stage==="recebimentos"){setRecModal(row.record);return;}
+      if(podeProcessar){setPedModal({...row.record,motivoAjuste:"",itens:(row.record.itens||[]).map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))});return;}
+      setBusca(row.code);setAba("pedidos");return;
+    }
+    if(row.type==="quote"){
+      setAba("cotacoes");setBuscaCotacao("");setStatusCotacao("todas");setInicioCotacao("");setFimCotacao("");
+      setCotacaoExpandida(row.id);setRegistroFoco(row.id);return;
+    }
+    setAba("solicitacoes");setRegistroFoco(row.id);
+  };
   const comprasAbas=[
     ["kanban","Kanban de compras"],
     ["mapa","Mapa gerencial"],
@@ -1836,66 +1911,41 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     ["cotacoes","Cotações"],["pedidos","Pedidos"],["historico_compras","Histórico de compras"],["orcado","Orçado x comprado"],
     ["forn","Fornecedores"],["contratos","Contratos de fornecimento"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]
   ];
-  const irParaArea=(id)=>{
-    setAba(id);setMenuComprasAberto(false);
-    window.requestAnimationFrame(()=>document.getElementById("compras-area-atual")?.scrollIntoView({behavior:"smooth",block:"start"}));
+  const irParaArea=id=>{
+    setAba(id);setRegistroFoco("");
+    window.requestAnimationFrame(()=>document.getElementById("compras-area-atual")?.focus({preventScroll:true}));
   };
-  const abrirModoAnalise=()=>{
-    setMenuComprasAberto(false);
-    setModoIA(true);
-  };
+  const abrirModoAnalise=()=>setModoIA(true);
   const abrirNovaSolicitacao=()=>setSolModal({obraId:currentUser?.obraId||obraAtual,necessidade:"",prioridade:"normal",referenciaId:basesCompra[0]?.id||"",observacao:"",itens:[]});
-  const etapasCompras=[
-    ["mapa","Painel",mapaCompras.alertas.length],
-    ["solicitacoes","Solicitar",solicitacoes.filter(s=>!["cancelada","pedido_gerado"].includes(s.status)).length],
-    ["cotacoes","Cotar",cotacoes.filter(c=>c.status==="aberta").length],
-    ["pedidos","Comprar",(data.pedidos||[]).filter(p=>p.obraId===obraAtual&&!["cancelado","rascunho","recebido"].includes(statusPedido(p))).length],
-    ["financeiro","Pagar",resumoFinanceiro.pendentes],
-    ["historico_compras","Histórico",pedidosHistorico.length],
-  ];
-  const abasSecundarias=comprasAbas.filter(([id])=>!etapasCompras.some(([etapaId])=>etapaId===id));
-  const tarefaPrioritaria=["engenheiro","engenheiro_auditor"].includes(currentUser?.role)
-    ? {titulo:"Solicitar material",descricao:"Registre o que a obra precisa e a data de necessidade.",acao:abrirNovaSolicitacao,rotulo:"Nova solicitação"}
-    : currentUser?.role==="financeiro"
-      ? {titulo:resumoFinanceiro.pendentes?`${resumoFinanceiro.pendentes} pagamento(s) aguardando`:"Financeiro em dia",descricao:resumoFinanceiro.pendentes?`${fmt(resumoFinanceiro.aPagar)} ainda precisa de registro ou conciliação.`:"Não há pedidos pendentes de quitação nesta obra.",acao:()=>setAba("financeiro"),rotulo:"Abrir financeiro"}
-      : {titulo:solicitacoesPendentes?`${solicitacoesPendentes} solicitação(ões) para analisar`:"Fila de compras em dia",descricao:solicitacoesPendentes?"A obra aguarda cotação ou geração de pedido.":"Não há novas solicitações aguardando Compras.",acao:()=>irParaArea(solicitacoesPendentes?"solicitacoes":"pedidos"),rotulo:solicitacoesPendentes?"Analisar agora":"Ver pedidos"};
+  const abasSecundarias=comprasAbas.filter(([id])=>!["solicitacoes","cotacoes","pedidos","financeiro","historico_compras"].includes(id));
+  const escopoFluxo=todasObras?"Todas as obras":obraPorId.get(obraAtual)?.name||"Selecione uma obra";
 
   return (
     <div className="anim compras-view" style={{display:"flex",flexDirection:"column",gap:isDesktop?12:10}}>
-      <PageHero
-        eyebrow="Suprimentos da obra"
-        title="Compras"
-        description="Da requisição ao recebimento, sem perder a responsabilidade de cada etapa."
-        actions={<Btn size="sm" v="ghost" onClick={abrirModoAnalise} title="Enviar PDF ou imagem para análise"><Ic n="brain"/> Analisar documento</Btn>}
-      />
-
-      <div className="compras-project-picker">{obraIdFixo
-        ? <Inp label="Obra" value={obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
-        : <Sel label="Obra" value={todasObras?"all":obraAtual} onChange={v=>{
-            if (v==="all") { setEscopoMapa("empresa"); return; }
-            setEscopoMapa("obra"); setObraSel(v);
-          }}
-            options={[{v:"all",l:"Todas as obras"},...obras.map(o => ({ v:o.id, l:o.name }))]}/>}</div>
-
-      <section className="compras-next-action" style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(0,1fr) auto":"1fr",gap:12,alignItems:"center",padding:isDesktop?"14px 16px":"12px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>
-        <div style={{minWidth:0}}><p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.7}}>Sua próxima ação</p><h3 style={{fontSize:15,fontWeight:750,marginTop:3}}>{tarefaPrioritaria.titulo}</h3><p style={{fontSize:10,color:C.muted,marginTop:3,lineHeight:1.45}}>{tarefaPrioritaria.descricao}</p></div>
-        <Btn onClick={tarefaPrioritaria.acao}>{tarefaPrioritaria.rotulo} <Ic n="chevR"/></Btn>
-      </section>
-
-      {/* Assinatura da tela: o processo real vira a própria navegação. */}
-      <div className="compras-journey" style={{display:"grid",gridTemplateColumns:`repeat(${etapasCompras.length},minmax(0,1fr))`,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden",background:C.card}}>
-        {etapasCompras.map(([id,label,quantidade],index)=>{const ativa=aba===id;return <button type="button" data-active={ativa} data-has-items={quantidade>0} key={id} onClick={()=>irParaArea(id)} aria-current={ativa?"step":undefined} style={{position:"relative",minWidth:0,border:0,borderLeft:index?`1px solid ${C.line}`:"none",background:ativa?`${C.yellow}12`:C.card,padding:isDesktop?"10px 12px":"9px 4px",cursor:"pointer",textAlign:"center",color:ativa?C.text:C.muted}}>
-          <span className="compras-step-number" style={{display:"block",fontSize:8,fontWeight:750,color:ativa?C.yellowD:C.muted,fontVariantNumeric:"tabular-nums"}}>{index+1}</span>
-          <b style={{...TYPO.tab,display:"block",marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{label}</b>
-          <span className="compras-step-count" style={{display:"block",fontSize:9,fontWeight:800,marginTop:2,fontVariantNumeric:"tabular-nums",color:quantidade?C.orange:C.muted}}>{quantidade||"—"}</span>
-          {ativa&&<i style={{position:"absolute",left:8,right:8,bottom:0,height:2,background:C.yellow}}/>}
-        </button>})}
+      <header className="purchase-header">
+        <div><span className="purchase-eyebrow">Suprimentos · da necessidade à entrega</span><h2>Compras</h2>
+          <p>Materiais na obra, no prazo. Acompanhe cada solicitação e saiba o que fazer a seguir.</p></div>
+        <div className="purchase-header-actions"><Button variant="secondary" onClick={abrirModoAnalise}>Analisar documento</Button>
+          <Button onClick={abrirNovaSolicitacao}>Nova solicitação</Button></div>
+      </header>
+      <div className="purchase-context-bar">
+        <div className="compras-project-picker">{obraIdFixo
+          ? <Inp label="Obra" value={obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+          : <Select label="Obra" value={todasObras?"all":obraAtual} onChange={event=>{const v=event.target.value;
+              setRegistroFoco("");
+              if(v==="all"){setEscopoMapa("empresa");return;}
+              setEscopoMapa("obra");setObraSel(v);
+            }} options={[{value:"all",label:"Todas as obras"},...obras.map(o=>({value:o.id,label:o.name}))]}/>}</div>
+        <p role="status" aria-live="polite" className="purchase-save-state" data-state={save.state}>{save.message}</p>
       </div>
-
-      <div id="compras-area-atual" className="compras-section-head" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,borderBottom:`1px solid ${C.line}`,paddingBottom:8}}>
-        <div><p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Área atual</p><b style={{fontSize:13}}>{comprasAbas.find(([id])=>id===aba)?.[1]}</b></div>
-        <div className="compras-more" style={{position:"relative"}}><button type="button" onClick={()=>setMenuComprasAberto(v=>!v)} aria-expanded={menuComprasAberto} style={{...TYPO.tab,border:`1px solid ${C.border}`,background:C.card,borderRadius:6,padding:"7px 10px",color:C.muted,cursor:"pointer"}}>Mais áreas <span>⌄</span></button>{menuComprasAberto&&<div className="compras-more-menu" style={{position:"absolute",right:0,top:"calc(100% + 5px)",zIndex:20,minWidth:220,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:4,boxShadow:"0 8px 24px rgba(18,18,18,.12)"}}>{abasSecundarias.map(([id,label])=><button type="button" key={id} onClick={()=>irParaArea(id)} style={{...TYPO.tab,display:"block",width:"100%",border:0,borderRadius:5,background:aba===id?C.surface:"transparent",padding:"8px 9px",textAlign:"left",fontWeight:aba===id?700:600,color:C.text,cursor:"pointer"}}>{label}</button>)}</div>}</div>
+      <PurchaseNavigation area={aba} onNavigate={irParaArea} counts={fluxoCompras.counts}
+        financeCount={resumoFinanceiro.pendentes} otherAreas={abasSecundarias}/>
+      <div id="compras-area-atual" className="purchase-area-heading" tabIndex={-1}>
+        <h3>{PURCHASE_AREA_LABELS[aba]||comprasAbas.find(([id])=>id===aba)?.[1]}</h3>
+        {aba!=="fila"&&<Button variant="ghost" size="sm" onClick={()=>irParaArea("fila")}>Voltar à fila</Button>}
       </div>
+      {["fila","aprovacoes","recebimentos"].includes(aba)&&<PurchaseWorkspace model={fluxoCompras} area={aba} scope={escopoFluxo}
+        filters={filtrosFluxo} onFiltersChange={setFiltrosFluxo} onOpen={abrirRegistroFluxo}/>}
 
       {aba==="kanban"&&<div className="purchase-kanban-view">
         <section className="purchase-kanban-head">
@@ -2145,7 +2195,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           const etapasApr=etapasPendentesParaMim(instanciaApr);
           const aprCor={aprovada:C.green,reprovada:C.red,bloqueada:C.orange,em_andamento:C.blue}[instanciaApr?.status];
           const aprRotulo={aprovada:"APROVADA",reprovada:"REPROVADA",bloqueada:"AGUARDANDO CONFIGURAÇÃO",em_andamento:"AGUARDANDO APROVAÇÃO"}[instanciaApr?.status];
-          return <div key={sol.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${corBorda}`,borderRadius:6,padding:"10px 12px"}}>
+          return <div id={`purchase-record-${sol.id}`} tabIndex={-1} data-purchase-highlight={registroFoco===sol.id} key={sol.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${corBorda}`,borderRadius:6,padding:"10px 12px"}}>
             <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}><div><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>{sol.numero}{sol.prioridade==="urgente"&&<span style={{color:C.red}}> · URGENTE</span>}</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Solicitado por {sol.solicitanteNome||"Engenharia"} · {sol.criadoEm?new Date(sol.criadoEm).toLocaleString("pt-BR"):""}{sol.necessidade?` · necessário em ${fmtDate(sol.necessidade)}`:""}</p></div><div style={{textAlign:"right",flexShrink:0}}><Badge color={status.c}>{status.l}</Badge>
               {instanciaApr&&instanciaApr.status!=="aprovada"&&<div style={{marginTop:3}}><Badge color={aprCor}>{aprRotulo}</Badge></div>}
               {sla&&<div style={{marginTop:3}}><Badge color={sla.status==="estourado"?C.red:sla.status==="no_limite"?C.orange:C.muted}>
@@ -2266,7 +2316,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             </p>
           </div>
         )}
-        <Inp value={busca} onChange={setBusca} placeholder="Buscar pedido ou fornecedor..."/>
+        <Inp label="Buscar pedidos" value={busca} onChange={setBusca} placeholder="Pedido, material, fornecedor ou obra…"/>
         <Btn onClick={()=>setPedModal({id:"",numero:"",obraId:obraAtual,fornecedorId:"",
           data:new Date().toISOString().slice(0,10),previsao:"",status:"enviado",
           origemPagamento:"empresa",pagamentos:[],referenciaId:basesCompra[0]?.id||"",itens:[{id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",orcNivel1Id:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",unidadeCompra:"",fatorConversao:1,precoRef:0,dataBaseRef:"",ufRef:""}],obs:""})} full>
@@ -2558,7 +2608,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
               const sol=solicitacaoPorId.get(c.solicitacaoId),expandida=cotacaoExpandida===c.id;
               const codigo=c.numero||`CT-${String(cotacoes.indexOf(c)+1).padStart(4,"0")}`;
               const prioridade=sol?.prioridade||"normal";
-              return <div key={c.id} style={{borderTop:index?`1px solid ${C.line}`:"none"}}>
+              return <div id={`purchase-record-${c.id}`} tabIndex={-1} data-purchase-highlight={registroFoco===c.id} key={c.id} style={{borderTop:index?`1px solid ${C.line}`:"none"}}>
                 <div role="button" tabIndex={0} onClick={()=>setCotacaoExpandida(expandida?"":c.id)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setCotacaoExpandida(expandida?"":c.id);}}} style={{display:"grid",gridTemplateColumns:isDesktop?"90px minmax(220px,1.5fr) 100px 115px 105px 100px 92px":"1fr auto",gap:10,width:"100%",alignItems:"center",padding:isDesktop?"11px":"12px",border:0,background:expandida?`${C.blue}05`:"transparent",textAlign:"left",cursor:"pointer"}}>
                   {isDesktop&&<b style={{fontSize:9.5,color:C.blue}}>{codigo}</b>}
                   <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:11,color:C.text}}>{multi?`${mapa.linhas.length} ${mapa.linhas.length===1?"item":"itens"} · ${nomeMat(c.materialId)}${mapa.linhas.length>1?" e outros":""}`:nomeMat(c.materialId)}</b><span style={{fontSize:8.8,color:C.muted}}>{multi?`${mapa.linhas.length-pendentes} de ${mapa.linhas.length} decidido(s)`:`${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`}{sol?.numero?` · ${sol.numero}`:""}{!isDesktop?` · ${codigo}`:""}</span></div>
@@ -2681,13 +2731,13 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {cotWpp&&<ModalCotacaoWhatsApp titulo={cotWpp.titulo} itens={cotWpp.itens} obraNome={cotWpp.obraNome} prazo={cotWpp.prazo}
         fornecedores={fornecedores} pedidos={data.pedidos} materiais={data.materiais} data={data} onClose={()=>setCotWpp(null)}
         onContato={(fornecedorId,fornecedorNome)=>registrarContatoSolicitacao(cotWpp.solicitacaoId,fornecedorId,fornecedorNome)}/>}
-      {solModal&&<ModalSolicitacaoCompra form={solModal} setForm={setSolModal} onSave={salvarSolicitacao} basesReferencia={basesCompra} obras={obras.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId)} data={data} update={update} showToast={showToast}/>}
+      {solModal&&<ModalSolicitacaoCompra form={solModal} setForm={setSolModal} onSave={salvarSolicitacao} save={save} basesReferencia={basesCompra} obras={obras.filter(o=>!currentUser?.obraId||o.id===currentUser.obraId)} data={data} update={update} showToast={showToast}/>}
       {fornModal && <FornecedorEditorPilot form={fornModal} setForm={setFornModal} onSave={salvarForn}/>}
       {pedModal  && <ModalPedido     form={pedModal}  setForm={setPedModal}  onSave={salvarPedido}
                                      fornecedores={fornecedores} materiais={materiais}
-                                     linhasOrc={linhasOrc} data={data} basesReferencia={basesCompra}/>}
+                                     linhasOrc={niveisUmOrcamento(getPlanningBudget(data,pedModal.obraId).budget)} data={data} basesReferencia={basesCompra} save={save}/>}
       {cotModal  && <ModalCotacao    form={cotModal}  setForm={setCotModal}  onSave={salvarCotacao}
-                                     fornecedores={fornecedores} materiais={materiais} linhasOrc={linhasOrc}/>}
+                                     fornecedores={fornecedores} materiais={materiais} linhasOrc={niveisUmOrcamento(getPlanningBudget(data,cotModal.obraId).budget)} save={save} obraNome={obraPorId.get(cotModal.obraId)?.name}/>}
       <ModalLegendaDocumento anexo={anexoCotacao} setAnexo={setAnexoCotacao} onClose={()=>!subindoAnexoCotacao&&setAnexoCotacao(null)} onSalvar={salvarDocumentoCotacao} salvando={subindoAnexoCotacao} titulo="Anexar documento da cotação" C={C}/>
       {envioPedido&&(()=>{const p=(data.pedidos||[]).find(x=>x.id===envioPedido.id)||envioPedido;const link=linkAceite?.pedidoId===p.id?linkAceite:null;const {forn,texto,assunto}=conteudoEnvioPedido(p,link?.url||"");
         return <Modal title={`Enviar pedido ${p.numero}`} onClose={()=>{setEnvioPedido(null);setLinkAceite(null);}} wide><div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -2732,7 +2782,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         </div></Modal>;})()}
       {recModal  && <ModalRecebimento pedido={recModal} onClose={()=>setRecModal(null)}
                                       onReceber={receber} nomeMat={nomeMat} unidMat={unidMat}
-                                      nomeForn={nomeForn}/>}
+                                      nomeForn={nomeForn} save={save}/>}
       {pagModal&&<Modal title={`Pagamento · ${pagModal.pedido.numero}`} onClose={()=>setPagModal(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 10px"}}><div><p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Total do pedido</p><p style={{fontSize:13,fontWeight:850,color:C.text}}>{fmt(totalPedido(pagModal.pedido))}</p></div><div><p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Saldo antes deste pagamento</p><p style={{fontSize:13,fontWeight:850,color:C.red}}>{fmt(saldoPagamentoPedido(pagModal.pedido))}</p></div></div>
         <Sel label="Origem real do pagamento *" value={pagModal.origem} onChange={v=>setPagModal(f=>({...f,origem:v,transacaoId:v==="empresa"?f.transacaoId:""}))} options={[{v:"empresa",l:"Conta bancária da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente pagou diretamente"}]}/>

@@ -1,4 +1,4 @@
-import { authenticateAppUser } from "./auth.js";
+import { authenticateAppUser } from "../server/app-auth.js";
 
 const somenteDigitos = value => String(value || "").replace(/\D/g, "");
 

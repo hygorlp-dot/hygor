@@ -9,7 +9,9 @@ import {
   registrarPagamentoEConciliar,
   vincularPagamentoExistente,
 } from "../src/domains/conciliacao/mutations.js";
-import { aplicarRecebimentoMedicao } from "../src/domains/conciliacao/calculations.js";
+import { aplicarRecebimentoMedicao, totalRecebidoMedicao } from "../src/domains/conciliacao/calculations.js";
+import { active } from "../src/domains/financeiro/ledger.js";
+import { activeCashAllocations, applyCashAllocation, reconciliationHold } from "../src/domains/conciliacao/cash-allocations.js";
 
 export const RECONCILIATION_COMMAND = Object.freeze({
   CONFIRM_RECEIPT: "CONFIRM_RECEIPT",
@@ -20,6 +22,8 @@ export const RECONCILIATION_COMMAND = Object.freeze({
   CONFIRM_REVERSAL: "CONFIRM_REVERSAL",
   CONFIRM_ALLOCATION: "CONFIRM_ALLOCATION",
   REVERSE_RECONCILIATION: "REVERSE_RECONCILIATION",
+  LINK_PARTIAL_CASH: "LINK_PARTIAL_CASH",
+  REVERSE_PARTIAL_CASH: "REVERSE_PARTIAL_CASH",
 });
 
 const findTransaction = (data, id) => (data?.transacoes || []).find(item => String(item.id) === String(id));
@@ -62,6 +66,9 @@ const allocateTransaction = (data, transaction, payload, actor) => {
   const measurement=measurementId?(data.medicoes||[]).find(item=>String(item.id)===measurementId):null;
   if(measurementId&&!measurement)return invalid(data,"A medição selecionada não existe mais.");
   if(measurement&&(!normalized.some(item=>item.destination==="obra"&&item.obraId===String(measurement.obraId))))return invalid(data,"A medição deve ser rateada para a própria obra.");
+  const measurementAmount=measurement?normalized.filter(item=>item.destination==="obra"&&item.obraId===String(measurement.obraId)).reduce((sum,item)=>sum+item.value,0):0;
+  if(measurement&&(!isIncome||!active(measurement)))return invalid(data,"A medição deve estar ativa e receber uma entrada bancária.");
+  if(measurement&&measurementAmount>Number(measurement.valorPrevisto||0)-totalRecebidoMedicao(measurement)+0.01)return invalid(data,"O recebimento supera o saldo da medição.");
 
   const newOtherExpenses=[];const newCompanyExpenses=[];const newReceipts=[];const generated=[];
   normalized.forEach(item=>{
@@ -85,7 +92,7 @@ const allocateTransaction = (data, transaction, payload, actor) => {
   });
   const receiptId=measurement?commandId("rec"):"";
   const medicoes=measurement?(data.medicoes||[]).map(item=>String(item.id)===measurementId
-    ?aplicarRecebimentoMedicao(item,{id:receiptId,valor:transactionAmount(transaction),data:transaction.data,origem:"conciliacao_bancaria",transacaoId:transaction.id,actor})
+    ?aplicarRecebimentoMedicao(item,{id:receiptId,valor:measurementAmount,data:transaction.data,origem:"conciliacao_bancaria",transacaoId:transaction.id,actor})
     :item):(data.medicoes||[]);
   if(measurement)generated.push({tipo:"recebimentoMedicao",id:receiptId,entidadeId:measurement.id});
   const worker=payload.worker&&positiveId(payload.worker.employeeId)?{
@@ -109,6 +116,16 @@ export const applyReconciliationCommand = (data, command = {}, actor = {}) => {
   const payload=command.payload || {};
   const transactionId=String(payload.transactionId || "");
   if(!positiveId(transactionId))return invalid(data,"Identificador da transação inválido.");
+  const hold = reconciliationHold(findTransaction(data, transactionId));
+  if(hold)return invalid(data,hold);
+  if([RECONCILIATION_COMMAND.LINK_PARTIAL_CASH,RECONCILIATION_COMMAND.REVERSE_PARTIAL_CASH].includes(command.type)){
+    return applyCashAllocation(data,{...payload,idempotencyKey:command.idempotencyKey},actor,command.type===RECONCILIATION_COMMAND.REVERSE_PARTIAL_CASH);
+  }
+  const partialLinks=activeCashAllocations(data);
+  if(partialLinks.some(link=>link.transactionId===transactionId))return invalid(data,"Este movimento possui vínculos parciais. Desfaça os vínculos pelo gestor do DRE antes de reclassificá-lo.");
+  if(command.type===RECONCILIATION_COMMAND.LINK_EXISTING_PAYMENT&&partialLinks.some(link=>[link.sourceId,link.sourceSubId].filter(Boolean).includes(String(payload.paymentId||payload.targetId))))return invalid(data,"O pagamento já possui vínculos parciais no DRE.");
+  if(command.type===RECONCILIATION_COMMAND.CONFIRM_TRANSFER&&reconciliationHold(findTransaction(data,payload.counterpartyTransactionId)))return invalid(data,"A outra ponta está bloqueada para conferência da composição do aporte.");
+  if(command.type===RECONCILIATION_COMMAND.CONFIRM_TRANSFER&&partialLinks.some(link=>link.transactionId===payload.counterpartyTransactionId))return invalid(data,"A outra ponta possui vínculos parciais no DRE.");
 
   if(command.type===RECONCILIATION_COMMAND.CONFIRM_RECEIPT){
     const checked=mustBePending(data,transactionId,1);
@@ -151,6 +168,7 @@ export const applyReconciliationCommand = (data, command = {}, actor = {}) => {
       transacaoId:transactionId,tipo:payload.targetType,entidadeId:payload.targetId,
       valor:transactionAmount(checked.transaction),dataPagamento:checked.transaction.data,
       obraId:targetObraId,observacao:text(payload.observacao),operador:actor,
+      adiantamento:payload.adiantamento,motivoAdiantamento:text(payload.motivoAdiantamento),
     });
   }
 

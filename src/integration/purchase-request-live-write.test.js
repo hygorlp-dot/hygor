@@ -170,13 +170,15 @@ describe("/api/data · SOLICITACAO_COMPRA_SALVA grava ao vivo em purchase_reques
     expect(row.payload.itens).toHaveLength(1);
   });
 
-  it("reenviar o mesmo idempotencyKey não grava de novo em purchase_requests",async()=>{
+  it("reenviar o mesmo idempotencyKey repara a projeção sem repetir o comando operacional",async()=>{
     const command=purchaseRequestCommand();
     await callApi(command);
     testState.upsertCalls.length=0;
     const repeated=await callApi(command);
     expect(repeated.body.idempotent).toBe(true);
-    expect(testState.upsertCalls).toHaveLength(0);
+    expect(testState.upsertCalls).toHaveLength(1);
+    expect(testState.upsertCalls[0].row.source_version).toBe(1);
+    expect(testState.rows[CORE_KEY].value.solicitacoesCompra).toHaveLength(1);
   });
 
   it("se a escrita em purchase_requests falhar, a resposta ao usuário continua ok",async()=>{

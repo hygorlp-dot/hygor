@@ -14,6 +14,7 @@ const testState=vi.hoisted(()=>({
   rows:{},
   upsertCalls:[],
   upsertShouldFail:false,
+  financialCalls:[],
 }));
 
 const queryFor=table=>{
@@ -24,6 +25,7 @@ const queryFor=table=>{
     in(){return query;},
     like(){return query;},
     order(){return query;},
+    range(){return query;},
     upsert(row,options){
       testState.upsertCalls.push({table,row,options});
       return Promise.resolve(
@@ -68,6 +70,10 @@ const valorJsonb=value=>value&&typeof value==="object"&&PG_JSON in value?value[P
 const comJson=tx=>Object.assign(tx,{json:value=>({[PG_JSON]:value})});
 const makeTransaction=()=>comJson(async(strings,...values)=>{
   const sql=strings.join("?");
+  if(sql.includes("financial_guard_source_reconciliation")||sql.includes("financial_sync_dre_allocations")){
+    testState.financialCalls.push({sql,values:values.map(valorJsonb)});
+    return[];
+  }
   if(sql.includes("for update")){
     const [,key]=values;
     const row=testState.rows[key];
@@ -93,10 +99,10 @@ vi.mock("postgres",()=>({
 }));
 
 let handler;
-const callApi=async body=>{
+const callApi=async(body,method="POST")=>{
   let statusCode=200;
   let payload;
-  const req={body,query:{},headers:{"x-forwarded-for":"127.0.0.1"}};
+  const req={method,body,query:{},headers:{"x-forwarded-for":"127.0.0.1"}};
   const res={
     status(code){statusCode=code;return res;},
     json(value){payload=value;return value;},
@@ -207,13 +213,15 @@ describe("/api/data · QUOTATION_SAVED e PURCHASE_ORDER_SAVED gravam ao vivo em 
     expect(row.payload.itens).toHaveLength(1);
   });
 
-  it("reenviar o mesmo idempotencyKey não grava de novo",async()=>{
+  it("repetição idempotente repara o espelho sem repetir a cotação",async()=>{
     const command=quotationCommand();
     await callApi(command);
     testState.upsertCalls.length=0;
     const repeated=await callApi(command);
     expect(repeated.body.idempotent).toBe(true);
-    expect(testState.upsertCalls).toHaveLength(0);
+    expect(testState.upsertCalls).toHaveLength(1);
+    expect(testState.rows[CORE_KEY].value.cotacoes).toHaveLength(1);
+    expect(testState.upsertCalls[0].row.source_version).toBe(1);
   });
 
   it("se a escrita em core_quotations falhar, a resposta ao usuário continua ok",async()=>{
@@ -224,6 +232,57 @@ describe("/api/data · QUOTATION_SAVED e PURCHASE_ORDER_SAVED gravam ao vivo em 
     expect(testState.upsertCalls).toHaveLength(1);
     // O blob foi gravado normalmente, mesmo com a escrita ao vivo falhando.
     expect(testState.rows[CORE_KEY].value.cotacoes).toHaveLength(1);
+  });
+  it("recebimento físico atualiza o payload relacional e uma repetição não duplica estoque",async()=>{
+    await callApi(orderCommand());testState.upsertCalls.length=0;
+    const request={action:"operational-command",accessToken:"valid-token",command:{
+      type:"PEDIDO_RECEBIMENTO_REGISTRADO",expectedVersion:1,idempotencyKey:"test-receipt-projection-001",
+      payload:{pedidoId:"ped-1",receivedQuantities:{"item-1":4},stockEntries:[{
+        id:"stock-1",pedidoItemId:"item-1",pedidoId:"ped-1",obraId:"obra-1",materialId:"mat-1",qtd:4,data:"2026-08-31",
+      }]}}};
+    const result=await callApi(request);
+    expect(result.body.ok).toBe(true);
+    expect(testState.upsertCalls).toHaveLength(1);
+    expect(testState.upsertCalls[0].row.payload.itens[0].qtdRecebida).toBe(4);
+    expect((await callApi(request)).body.idempotent).toBe(true);
+    expect(testState.rows[CORE_KEY].value.movEstoque).toHaveLength(1);
+  });
+  it("pagamento do pedido atualiza o espelho e preserva um único registro",async()=>{
+    await callApi(orderCommand());testState.upsertCalls.length=0;
+    const request={action:"operational-command",accessToken:"valid-token",command:{
+      type:"PAGAMENTO_OBRIGACAO_REGISTRADO",expectedVersion:1,idempotencyKey:"test-payment-projection-001",
+      payload:{targetType:"pedido",targetId:"ped-1",payment:{id:"pg-1",valor:40,data:"2026-08-31",origem:"empresa"}},
+    }};
+    const result=await callApi(request);
+    expect(result.body.ok,result.body.error).toBe(true);
+    expect(testState.upsertCalls).toHaveLength(1);
+    expect(testState.upsertCalls[0].row.payload.pagamentos[0]).toMatchObject({id:"pg-1",valor:40});
+    expect((await callApi(request)).body.idempotent).toBe(true);
+    expect(testState.rows[CORE_KEY].value.pedidos[0].pagamentos).toHaveLength(1);
+  });
+  it("cotar e gerar pedido atualiza também a solicitação de origem",async()=>{
+    testState.rows[CORE_KEY].value.solicitacoesCompra=[{id:"req-1",obraId:"obra-1",status:"enviada",version:1,cotacaoIds:[],
+      itens:[{id:"ri-1",materialId:"mat-1",descricaoRef:"Cimento",quantidade:10}]}];
+    const quote=quotationCommand();quote.command.payload.quote.solicitacaoId="req-1";
+    expect((await callApi(quote)).body.ok).toBe(true);
+    expect(testState.upsertCalls.find(call=>call.table==="purchase_requests").row.payload.status).toBe("em_analise");
+    testState.upsertCalls.length=0;
+    const generate={action:"operational-command",accessToken:"valid-token",command:{
+      type:"PEDIDO_COMPRA_GERADO_COTACAO",expectedVersion:0,idempotencyKey:"request-order-projection-001",
+      payload:{quoteId:"cot-1",proposalId:"prop-1",orderId:"ped-1",number:"PC-001",itemId:"item-1"},
+    }};
+    const result=await callApi(generate);
+    expect(result.body.ok,result.body.error).toBe(true);
+    expect(testState.upsertCalls.find(call=>call.table==="purchase_requests").row.payload.status).toBe("pedido_gerado");
+    testState.upsertCalls.length=0;
+    const cancel=await callApi({action:"operational-command",accessToken:"valid-token",command:{
+      type:"COMPRA_CANCELADA",expectedVersion:1,idempotencyKey:"request-cancel-projection-001",
+      payload:{orderId:"ped-1",reason:"Compra cancelada pelo solicitante"},
+    }});
+    expect(cancel.body.ok,cancel.body.error).toBe(true);
+    expect(testState.upsertCalls.find(call=>call.table==="purchase_requests").row.payload.status).toBe("enviada");
+    expect(testState.upsertCalls.find(call=>call.table==="core_quotations").row.status).toBe("aberta");
+    expect(testState.upsertCalls.find(call=>call.table==="core_purchase_orders").row.status).toBe("cancelado");
   });
 
   it("não grava em core_quotations/core_purchase_orders para comandos de outros domínios",async()=>{
@@ -347,4 +406,62 @@ describe("/api/data · QUOTATION_SAVED e PURCHASE_ORDER_SAVED gravam ao vivo em 
       expect(row.payload.documentos).toHaveLength(1);
     });
   });
+  it("concilia pagamento de nota, sincroniza pedido e recupera projeção na repetição sem duplicar",async()=>{
+    const data=testState.rows[CORE_KEY].value;
+    data.pedidos=[{id:"p1",obraId:"obra-1",fornecedorId:"forn-1",status:"enviado",version:2,itens:[{qtd:1,precoUnit:100}],pagamentos:[]}];
+    data.notasFiscais=[{id:"nf1",pedidoId:"p1",obraId:"obra-1",status:"aprovada",valorLiquido:100,pagamentos:[]}];
+    data.transacoes=[{id:"bank1",data:"2026-08-31",valor:-40,status:"pendente",gerados:[]}];
+    const request={action:"reconciliation-command",accessToken:"valid-token",command:{type:"CONFIRM_PAYMENT",idempotencyKey:"reconcile-payment-note-001",payload:{transactionId:"bank1",targetType:"nota",targetId:"nf1"}}};
+    const result=await callApi(request);
+    expect(result.status).toBe(200);
+    const writes=()=>testState.upsertCalls.filter(item=>item.table==="core_purchase_orders");
+    expect(writes()).toHaveLength(1);
+    expect(writes()[0].row.payload.pagamentos).toHaveLength(1);
+    expect(writes()[0].row.payload.pagamentos[0]).toMatchObject({valor:40,transacaoId:"bank1"});
+    expect(writes()[0].row.source_version).toBe(3);
+    testState.upsertCalls=[];
+    const replay=await callApi(request);
+    expect(replay.body.idempotent).toBe(true);
+    expect(writes()).toHaveLength(1);
+    expect(testState.rows[CORE_KEY].value.pedidos[0].pagamentos).toHaveLength(1);
+    testState.upsertCalls=[];
+    const undo=await callApi({...request,command:{type:"REVERSE_RECONCILIATION",idempotencyKey:"reconcile-payment-undo-001",payload:{transactionId:"bank1",reason:"Vínculo incorreto"}}});
+    expect(undo.status).toBe(200);
+    expect(writes()).toHaveLength(1);
+    expect(writes()[0].row.payload.pagamentos[0]).toMatchObject({valor:40,status:"estornado"});
+  });
+
+  it("recusa GET para gravações antes de alterar banco ou projeções",async()=>{
+    const before=structuredClone(testState.rows);
+    expect((await callApi(orderCommand(),"GET")).status).toBe(405);
+    expect(testState.rows).toEqual(before);
+    expect(testState.upsertCalls).toHaveLength(0);
+  });
+
+  it("API associa parcialmente caixa existente, relê saldos e desfaz somente a associação",async()=>{
+    const data=testState.rows[CORE_KEY].value;
+    data.caixaObra=[{id:"fund",obraId:"obra-1",tipo:"aporte",valor:150,data:"2026-10-20"}];
+    data.transacoes=[{id:"bank",valor:100,status:"pendente",data:"2026-10-20"},{id:"mt7l9lt5xrta",valor:7160,status:"pendente",data:"2026-07-21"}];
+    data.payments=[{id:"real-existing",amount:10,date:"2026-10-20"}];
+    const protectedRows=JSON.stringify([data.payments,data.caixaObra,data.notasFiscais]);
+    const request={action:"reconciliation-command",accessToken:"valid-token",command:{type:"LINK_PARTIAL_CASH",idempotencyKey:"api-partial-existing-001",payload:{transactionId:"bank",eventId:"caixa_obra:fund:cash_in",amount:60}}};
+    const report=await callApi({action:"financial-management-report",accessToken:"valid-token"});
+    expect(report.status).toBe(200);
+    expect(report.body.entries.find(item=>item.id==="caixa_obra:fund:cash_in").remainingCents).toBe(15000);
+    const result=await callApi(request);
+    expect(result.status).toBe(200);expect(result.body.resumo).toMatchObject({status:"parcial",remainingCents:4000,preservedPayments:true});
+    expect(testState.financialCalls.at(-1).sql).toContain("financial_sync_dre_allocations");
+    const replay=await callApi(request);expect(replay.body.idempotent).toBe(true);
+    const excess=await callApi({...request,command:{...request.command,idempotencyKey:"api-partial-existing-002",payload:{...request.command.payload,amount:70}}});
+    expect(excess.status).toBe(409);
+    const current=testState.rows[CORE_KEY].value;
+    const allocation=current.reconciliationLinks[0];
+    const undo=await callApi({...request,command:{type:"REVERSE_PARTIAL_CASH",idempotencyKey:"api-partial-reverse-001",payload:{transactionId:"bank",allocationId:allocation.id,reason:"Composição incorreta"}}});
+    expect(undo.status).toBe(200);
+    const saved=testState.rows[CORE_KEY].value;
+    expect(saved.reconciliationLinks[0].status).toBe("reversed");
+    expect(saved.transacoes.find(item=>item.id==="mt7l9lt5xrta").status).toBe("pendente");
+    expect(JSON.stringify([saved.payments,saved.caixaObra,saved.notasFiscais])).toBe(protectedRows);
+  });
+
 });
