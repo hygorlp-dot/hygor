@@ -91,6 +91,10 @@ import {
   applyConferenceCommand,
   CONFERENCE_COMMAND,
 } from "../qualidade/conference-commands.js";
+import {
+  applyApprovalCommand,
+  APPROVAL_COMMAND,
+} from "../aprovacoes/approval-commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
@@ -106,6 +110,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   ...WORK_CASH_COMMAND,
   ...PAYABLE_PAYMENT_COMMAND,
   ...PURCHASE_CANCELLATION_COMMAND,
+  ...APPROVAL_COMMAND,
   ...BANK_TRANSACTION_COMMAND,
   ...THIRD_PARTY_COMMAND,
   ...INVOICE_COMMAND,
@@ -300,6 +305,11 @@ export const applyOperationalCommand=(data,command)=>{
         purchaseOrderResult.data,command,purchaseOrderResult.entityId,now,
       ),
     };
+  }
+  const approvalResult=applyApprovalCommand(data,command,now);
+  if(approvalResult){
+    if(!approvalResult.ok)return approvalResult;
+    return {ok:true,data:appendReceipt(approvalResult.data,command,approvalResult.entityId,now)};
   }
   const purchaseRequestResult=applyPurchaseRequestCommand(data,command,now);
   if(purchaseRequestResult){

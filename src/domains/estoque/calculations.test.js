@@ -6,7 +6,10 @@ describe("SINAL_MOV", () => {
     expect(SINAL_MOV.entrada).toBe(1);
     expect(SINAL_MOV.consumo).toBe(-1);
     expect(SINAL_MOV.perda).toBe(-1);
+    // Decidido em 22/10/2026: é a sobra que a obra devolve ao estoque (+1),
+    // não devolução ao fornecedor.
     expect(SINAL_MOV.devolucao).toBe(1);
+    expect(TIPOS_MOV.find(t => t.v === "devolucao").l).toBe("Devolução da obra");
     expect(SINAL_MOV.ajuste).toBe(1);
     expect(Object.keys(SINAL_MOV)).toEqual(TIPOS_MOV.map(t => t.v));
   });

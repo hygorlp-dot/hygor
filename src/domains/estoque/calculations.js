@@ -2,7 +2,7 @@ export const TIPOS_MOV = [
   { v:"entrada",   l:"Entrada (compra)",       sinal:+1, cor:"#1E6B31" },
   { v:"consumo",   l:"Consumo (aplicado)",     sinal:-1, cor:"#0D47A1" },
   { v:"perda",     l:"Perda / quebra",         sinal:-1, cor:"#B71C1C" },
-  { v:"devolucao", l:"Devolução ao fornecedor",sinal:+1, cor:"#6B6459" },
+  { v:"devolucao", l:"Devolução da obra",      sinal:+1, cor:"#6B6459" },
   { v:"ajuste",    l:"Ajuste de inventário",   sinal:+1, cor:"#C2185B" },
 ];
 
