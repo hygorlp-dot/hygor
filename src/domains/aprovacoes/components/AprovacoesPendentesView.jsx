@@ -68,12 +68,12 @@ function AprovacoesPendentes({ data, showToast, currentUser, dispatchCommand = n
 
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
     <PageHero eyebrow="Aprovações" title="Minhas aprovações pendentes" description="Etapas de qualquer processo onde você está entre os aprovadores elegíveis."/>
-    {!pendentes.length && <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:30,textAlign:"center"}}><p style={{fontSize:11,color:C.muted}}>Nenhuma aprovação pendente para você no momento.</p></div>}
+    {!pendentes.length && <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:30,textAlign:"center"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma aprovação pendente para você no momento.</p></div>}
     {pendentes.map(({instancia,etapas})=><div key={instancia.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:12,display:"flex",flexDirection:"column",gap:9}}>
-      <b style={{fontSize:11.5,color:C.text}}>{rotuloEntidadeAprovacao(instancia,data)}</b>
+      <b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{rotuloEntidadeAprovacao(instancia,data)}</b>
       {etapas.map(({etapa,resultado})=><div key={etapa.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:10,display:"flex",flexDirection:"column",gap:7}}>
-        <p style={{fontSize:10.5,fontWeight:750,color:C.text}}>{etapa.nome||"Etapa de aprovação"}</p>
-        {(resultado.autoaprovacaoDestacada||resultado.semAprovadorEncontrado) && <p style={{fontSize:9,color:C.yellowD}}>{resultado.autoaprovacaoDestacada?"Você é o próprio solicitante - autoaprovação permitida pela política.":"Sem aprovador elegível originalmente - encaminhado à fila do administrador."}</p>}
+        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{etapa.nome||"Etapa de aprovação"}</p>
+        {(resultado.autoaprovacaoDestacada||resultado.semAprovadorEncontrado) && <p style={{fontSize:"var(--arcd-type-caption)",color:C.yellowD}}>{resultado.autoaprovacaoDestacada?"Você é o próprio solicitante - autoaprovação permitida pela política.":"Sem aprovador elegível originalmente - encaminhado à fila do administrador."}</p>}
         <Inp label="Justificativa (obrigatória para reprovar)" value={justificativas[etapa.id]||""} onChange={v=>setJustificativas(j=>({...j,[etapa.id]:v}))} multiline/>
         <div style={{display:"flex",gap:8}}>
           <Btn v="danger" onClick={()=>decidir(instancia,etapa.id,"reprovado")}><Ic n="x"/> Reprovar</Btn>

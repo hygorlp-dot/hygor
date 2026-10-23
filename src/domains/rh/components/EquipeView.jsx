@@ -456,19 +456,19 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
 
                 <Divider />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <p style={{ color: C.yellow, fontFamily:"'Inter Display','Inter',sans-serif", fontWeight: 900, textTransform: "uppercase" }}>Adiantamentos</p>
+                  <p style={{ color: C.yellow, fontFamily:"var(--arcd-font-sans)", fontWeight:600, textTransform: "uppercase" }}>Adiantamentos</p>
                   <Btn v="warning" size="sm" onClick={() => setAdvModal(e.id)}><Ic n="plus" /> Novo</Btn>
                 </div>
                 {advs.length === 0 && <p style={{ color: C.muted, fontSize: 12 }}>Nenhum adiantamento.</p>}
                 {advs.map(a => (
                   <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "7px 0",opacity:advanceActive(a)?1:.55 }}>
                     <div>
-                      <p style={{ fontWeight: 800, fontSize: 13 }}>{a.description}</p>
-                      <p style={{ color: C.muted, fontSize: 11 }}>{fmtDateFull(a.date)} · {a.installmentCount||1}x {a.frequency==="mensal"?"mensal":"quinzenal"}{!advanceActive(a)?" · cancelado":""}</p>
-                      {advanceActive(a)&&(a.installments||[]).length>0&&<p style={{color:C.subtle,fontSize:10,marginTop:2}}>{a.installments.map(item=>`${item.number}ª ${fmt(item.amount)} em ${fmtDate(item.dueDate)}`).join(" · ")}</p>}
+                      <p style={{ fontWeight:600, fontSize: 13 }}>{a.description}</p>
+                      <p style={{ color: C.muted, fontSize:"var(--arcd-type-label)" }}>{fmtDateFull(a.date)} · {a.installmentCount||1}x {a.frequency==="mensal"?"mensal":"quinzenal"}{!advanceActive(a)?" · cancelado":""}</p>
+                      {advanceActive(a)&&(a.installments||[]).length>0&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-label)",marginTop:2}}>{a.installments.map(item=>`${item.number}ª ${fmt(item.amount)} em ${fmtDate(item.dueDate)}`).join(" · ")}</p>}
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <span style={{ color: C.red, fontWeight: 900 }}>{fmt(a.amount)}</span>
+                      <span style={{ color: C.red, fontWeight:600 }}>{fmt(a.amount)}</span>
                       {advanceActive(a)&&<Btn v="danger" size="sm" ariaLabel={`Cancelar adiantamento ${a.description}`} title={`Cancelar adiantamento ${a.description}`} onClick={() => removeAdv(a)}><Ic n="trash" /></Btn>}
                     </div>
                   </div>
@@ -543,8 +543,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
         return <Modal title={dismissalModal.status==="desligamento_agendado"?"Corrigir desligamento":"Registrar desligamento"} onClose={()=>setDismissalModal(null)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <div style={{border:`1px solid ${C.red}55`,background:`${C.red}0A`,padding:"11px 12px",borderRadius:8}}>
-              <p style={{fontSize:14,fontWeight:850,color:C.text}}>{dismissalModal.name}</p>
-              <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>{dismissalModal.role||"Função não informada"} · {dismissalModal.workArea==="administrativo"?"Administrativo":obraName(dismissalModal.obra)}</p>
+              <p style={{fontSize:14,fontWeight:600,color:C.text}}>{dismissalModal.name}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>{dismissalModal.role||"Função não informada"} · {dismissalModal.workArea==="administrativo"?"Administrativo":obraName(dismissalModal.obra)}</p>
             </div>
             <Inp label="Último dia trabalhado *" type="date" min={dismissalModal.startDate} value={dismissalForm.endDate} onChange={value=>setDismissalForm(form=>({...form,endDate:value}))}/>
             <Sel label="Tipo de desligamento *" value={dismissalForm.reason} onChange={value=>setDismissalForm(form=>({...form,reason:value}))} options={[
@@ -556,10 +556,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
             ]}/>
             <Inp label={dismissalForm.reason==="outro"?"Observações *":"Observações"} value={dismissalForm.notes} onChange={value=>setDismissalForm(form=>({...form,notes:value}))} multiline placeholder="Aviso-prévio, documentos pendentes ou referência interna"/>
             {openAdvanceTotal>0&&<div style={{border:`1px solid ${C.orange}66`,background:`${C.orange}0A`,padding:"9px 10px",borderRadius:7}}>
-              <p style={{fontSize:10.5,fontWeight:800,color:C.orange}}>Atenção: existem {openAdvances.length} adiantamento(s), totalizando {fmt(openAdvanceTotal)}.</p>
-              <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Os lançamentos serão preservados para conferência no acerto da rescisão.</p>{onTab&&<Btn v="ghost" size="sm" onClick={()=>{setDismissalModal(null);onTab("resc");}}>Ir para Rescisões</Btn>}
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>Atenção: existem {openAdvances.length} adiantamento(s), totalizando {fmt(openAdvanceTotal)}.</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Os lançamentos serão preservados para conferência no acerto da rescisão.</p>{onTab&&<Btn v="ghost" size="sm" onClick={()=>{setDismissalModal(null);onTab("resc");}}>Ir para Rescisões</Btn>}
             </div>}
-            <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>A data informada é inclusiva. O funcionário permanece na folha e no ponto até o último dia trabalhado e sai a partir do dia seguinte. Datas futuras ficam agendadas. Todo o histórico é preservado.</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>A data informada é inclusiva. O funcionário permanece na folha e no ponto até o último dia trabalhado e sai a partir do dia seguinte. Datas futuras ficam agendadas. Todo o histórico é preservado.</p>
             <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setDismissalModal(null)}>Cancelar</Btn><Btn v="danger" full loading={pendingAction==="dismissal"} onClick={confirmDismissal}><Ic n="check"/> Confirmar desligamento</Btn></div>
           </div>
         </Modal>;
@@ -583,8 +583,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
               <Inp label="Primeiro desconto na folha" type="date" value={advForm.firstDueDate} onChange={v=>setAdvForm(f=>({...f,firstDueDate:v}))}/>
             </div>
             {Number(advForm.amount)>0&&Number(advForm.installmentCount)>0&&<div style={{padding:"9px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:6}}>
-              <p style={{fontSize:9,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Programação dos descontos</p>
-              <p style={{fontSize:10.5,color:C.text,marginTop:4,lineHeight:1.55}}>{buildAdvanceInstallments({
+              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Programação dos descontos</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:4,lineHeight:1.55}}>{buildAdvanceInstallments({
                 advanceId:"previa",amount:Number(advForm.amount),installmentCount:Number(advForm.installmentCount),
                 firstDueDate:advForm.firstDueDate,frequency:advForm.frequency,
               }).map(item=>`${item.number}ª ${fmt(item.amount)} · ${fmtDate(item.dueDate)}`).join("  |  ")||"Informe uma data válida."}</p>

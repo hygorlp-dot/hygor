@@ -13,7 +13,7 @@ describe("tokens do design system ARCD", () => {
     expect(source).toContain('"./primitives.css"');
     expect(source).toContain('"./semantic.css"');
     expect(source).toContain('"./density.css"');
-    expect(source).toContain('"../themes/carbon.css"');
+    expect(source).toContain('"../themes/executive.css"');
     expect(source).toContain('"../themes/print.css"');
     expect(source).toContain('"./breakpoints.css"');
     expect(source).toContain('"./touch.css"');

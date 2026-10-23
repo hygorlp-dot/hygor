@@ -1,0 +1,4 @@
+/* O tema aprovado usa os tokens semânticos como fonte de verdade. */
+[data-theme="executive"] { color-scheme: light; }
+[data-theme="executive"] .arcd-app-shell { background: var(--arcd-surface-page); }
+[data-theme="executive"] .arcd-main { background: var(--arcd-surface-page); }

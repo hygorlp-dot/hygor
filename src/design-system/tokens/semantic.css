@@ -14,26 +14,26 @@
 
   --arcd-border-subtle: var(--arcd-gray-200);
   --arcd-border-default: var(--arcd-gray-200);
-  --arcd-border-strong: #8d8d8d;
+  --arcd-border-strong: #8b8d84;
 
-  --arcd-action-primary: var(--arcd-gold-400);
+  --arcd-action-primary: var(--arcd-gray-900);
   --arcd-action-primary-hover: var(--arcd-gold-500);
   --arcd-action-primary-active: var(--arcd-gold-600);
-  --arcd-action-primary-subtle: #f8f1dc;
-  --arcd-action-primary-text: var(--arcd-gray-950);
+  --arcd-action-primary-subtle: #ede5d9;
+  --arcd-action-primary-text: var(--arcd-gray-0);
   --arcd-focus-ring: var(--arcd-gold-400);
 
   --arcd-success-text: var(--arcd-green-500);
-  --arcd-success-surface: #defbe6;
+  --arcd-success-surface: #edf4ef;
   --arcd-success-border: #83bea0;
   --arcd-warning-text: var(--arcd-orange-500);
-  --arcd-warning-surface: #fff2d5;
+  --arcd-warning-surface: #faf2e6;
   --arcd-warning-border: #d8a862;
   --arcd-danger-text: var(--arcd-red-500);
-  --arcd-danger-surface: #fff1f1;
+  --arcd-danger-surface: #faf0ef;
   --arcd-danger-border: #d68b8b;
   --arcd-info-text: var(--arcd-blue-500);
-  --arcd-info-surface: #edf5ff;
+  --arcd-info-surface: #eef3f4;
   --arcd-info-border: #8bb9d4;
   --arcd-auxiliary-text: var(--arcd-purple-500);
   --arcd-neutral-text: var(--arcd-gray-600);

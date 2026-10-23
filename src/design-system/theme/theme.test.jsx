@@ -22,13 +22,22 @@ afterEach(() => {
 });
 
 describe("ARCD Theme Engine", () => {
-  it("inicia Carbon confortável e persiste atributos no documento", () => {
+  it.each(["carbon","architectural"])("migra a preferência %s para o executivo sem apagar densidade ou outras preferências", oldTheme => {
+    localStorage.setItem(THEME_STORAGE_KEYS.theme,oldTheme);
+    localStorage.setItem(THEME_STORAGE_KEYS.density,"compact");
+    localStorage.setItem("financial-scope","preserve");
+    render(<ThemeProvider><Probe /></ThemeProvider>);
+    expect(document.documentElement.dataset.theme).toBe(DEFAULT_THEME);
+    expect(document.documentElement.dataset.density).toBe("compact");
+    expect(localStorage.getItem("financial-scope")).toBe("preserve");
+  });
+  it("inicia Executivo confortável e persiste atributos no documento", () => {
     const container = render(<ThemeProvider><Probe /></ThemeProvider>);
     expect(container.querySelector('[data-testid="theme"]').textContent).toBe(DEFAULT_THEME);
     expect(container.querySelector('[data-testid="density"]').textContent).toBe(DEFAULT_DENSITY);
-    expect(document.documentElement.dataset.theme).toBe("carbon");
+    expect(document.documentElement.dataset.theme).toBe(DEFAULT_THEME);
     expect(document.documentElement.dataset.density).toBe("comfortable");
-    expect(localStorage.getItem(THEME_STORAGE_KEYS.theme)).toBe("carbon");
+    expect(localStorage.getItem(THEME_STORAGE_KEYS.theme)).toBe(DEFAULT_THEME);
   });
 
   it("aceita densidade válida e faz fallback de tema desconhecido", () => {
@@ -36,11 +45,11 @@ describe("ARCD Theme Engine", () => {
     act(() => [...container.querySelectorAll("button")].find(button => button.textContent === "Compacto").click());
     expect(document.documentElement.dataset.density).toBe("compact");
     act(() => [...container.querySelectorAll("button")].find(button => button.textContent === "Tema inválido").click());
-    expect(document.documentElement.dataset.theme).toBe("carbon");
+    expect(document.documentElement.dataset.theme).toBe(DEFAULT_THEME);
   });
 
   it("valida preferências e tokens obrigatórios", () => {
-    expect(normalizeTheme("architectural")).toBe("architectural");
+    expect(normalizeTheme("architectural")).toBe(DEFAULT_THEME);
     expect(normalizeTheme("dark")).toBe(DEFAULT_THEME);
     expect(normalizeDensity("wide")).toBe(DEFAULT_DENSITY);
     expect(validateThemeTokens(token => token === "--arcd-focus-ring" ? "" : "#ffffff")).toEqual({ valid: false, missing: ["--arcd-focus-ring"], invalid: [] });
@@ -52,9 +61,9 @@ describe("ARCD Theme Engine", () => {
   it("permite ajustar densidade e restaurar o padrão no seletor", () => {
     const container = render(<ThemeProvider><ThemeSettings /></ThemeProvider>);
     const selects = container.querySelectorAll("select");
-    expect([...selects[0].options].map(option => option.value)).toEqual(["carbon", "architectural"]);
-    act(() => { selects[0].value = "architectural"; selects[0].dispatchEvent(new Event("change", { bubbles: true })); });
-    expect(document.documentElement.dataset.theme).toBe("architectural");
+    expect([...selects[0].options].map(option => option.value)).toEqual(["executive"]);
+    act(() => { selects[0].value = "executive"; selects[0].dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(document.documentElement.dataset.theme).toBe(DEFAULT_THEME);
     act(() => { selects[1].value = "spacious"; selects[1].dispatchEvent(new Event("change", { bubbles: true })); });
     expect(document.documentElement.dataset.density).toBe("spacious");
     act(() => [...container.querySelectorAll("button")].find(button => button.textContent === "Restaurar padrão").click());

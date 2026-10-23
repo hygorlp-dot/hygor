@@ -27,8 +27,8 @@ export default function BillingTrendChart({ points, formatMoney }) {
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barGap={2} barCategoryGap="28%">
         <CartesianGrid stroke="var(--arcd-border-default)" strokeDasharray="3 5" vertical={false} />
-        <XAxis dataKey="short" axisLine={false} tickLine={false} tick={{ fill: "var(--arcd-text-secondary)", fontSize: 11 }} />
-        <YAxis axisLine={false} tickLine={false} width={48} tick={{ fill: "var(--arcd-text-secondary)", fontSize: 11 }} tickFormatter={compact} />
+        <XAxis dataKey="short" axisLine={false} tickLine={false} tick={{ fill: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }} />
+        <YAxis axisLine={false} tickLine={false} width={48} tick={{ fill: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }} tickFormatter={compact} />
         <Tooltip cursor={{ fill: "var(--arcd-surface-muted)" }} content={<TrendTooltip formatMoney={formatMoney} />} />
         <Bar dataKey="receitaLiquida" name="Receita líquida" fill={TREND_SERIES[0].color} radius={[4, 4, 0, 0]} isAnimationActive={false} />
         <Bar dataKey="custo" name="Custo" fill={TREND_SERIES[1].color} radius={[4, 4, 0, 0]} isAnimationActive={false} />

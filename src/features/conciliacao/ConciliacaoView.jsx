@@ -571,7 +571,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     }
   };
 
-  //  Apropriar 
+  //  Apropriar
   const abrirApropriacao = (tr) => {
     const analise=analisesPorTransacao.get(tr.id);
     if(analise?.classificacaoOperacional==="bloqueada"){
@@ -790,7 +790,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         eyebrow={modoConciliacaoRh?"RH · pagamentos da equipe":"Financeiro · controle bancário"}
         title={modoConciliacaoRh?"Conciliação da folha":"Conciliação Bancária"}
         description={modoConciliacaoRh?"Confirme os PIX dos funcionários usando cadastro, ponto, obra e valor como evidências.":"Classifique, audite e reverta movimentos sem perder o histórico."}
-        actions={modoConciliacaoRh?null:(importando?<span style={{fontSize:9,fontWeight:800,color:C.yellowD}}>Lendo extrato...</span>:<label className="arcd-btn" data-variant="primary" data-size="sm" style={{border:`1px solid ${C.yellowD}`,background:C.yellow,color:C.ink,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontWeight:700}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><Ic n="download" s={12}/> Importar extrato</label>)}
+        actions={modoConciliacaoRh?null:(importando?<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD}}>Lendo extrato...</span>:<label className="arcd-btn" data-variant="primary" data-size="sm" style={{border:`1px solid ${C.yellowD}`,background:C.yellow,color:C.ink,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontWeight:600}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><Ic n="download" s={12}/> Importar extrato</label>)}
       />
 
       <section className="reconciliation-summary" aria-label="Resumo da conciliação">
@@ -827,14 +827,14 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
       {aba==="quinzena"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
         <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 12px"}}>
-          <p style={{fontSize:11,fontWeight:850,color:C.text}}>Resumo auditável da quinzena · {periodoQuinzenaConc.periodoPonto}</p>
-          <p style={{fontSize:9.5,color:C.muted,marginTop:3}}>Folha, liquidações e PIX conciliados; o pagamento não reconhece custo novamente.</p>
-          <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:7,marginTop:10}}>{[["Previsto",fmt(resumoQuinzena.totalPrevisto),C.text],["Pago",fmt(resumoQuinzena.totalPago),C.green],["Saldo pendente",fmt(resumoQuinzena.saldoPendente),resumoQuinzena.saldoPendente?C.orange:C.green],["Operários",resumoQuinzena.totalOperarios,C.blue]].map(([label,value,color])=><div key={label} style={{background:C.surface,border:`1px solid ${C.line}`,borderRadius:7,padding:"8px 9px"}}><p style={{fontSize:8,color:C.muted,textTransform:"uppercase",fontWeight:800}}>{label}</p><p style={{fontSize:14,fontWeight:900,color,marginTop:3}}>{value}</p></div>)}</div>
+          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Resumo auditável da quinzena · {periodoQuinzenaConc.periodoPonto}</p>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Folha, liquidações e PIX conciliados; o pagamento não reconhece custo novamente.</p>
+          <div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:7,marginTop:10}}>{[["Previsto",fmt(resumoQuinzena.totalPrevisto),C.text],["Pago",fmt(resumoQuinzena.totalPago),C.green],["Saldo pendente",fmt(resumoQuinzena.saldoPendente),resumoQuinzena.saldoPendente?C.orange:C.green],["Operários",resumoQuinzena.totalOperarios,C.blue]].map(([label,value,color])=><div key={label} style={{background:C.surface,border:`1px solid ${C.line}`,borderRadius:7,padding:"8px 9px"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{label}</p><p style={{fontSize:14,fontWeight:600,color,marginTop:3}}>{value}</p></div>)}</div>
         </div>
         <div className="scroll-x" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
-          <table style={{width:"100%",minWidth:580,borderCollapse:"collapse"}}><thead><tr>{["Pessoa","Obra","Previsto","Pago","Saldo"].map(label=><th key={label} style={{padding:"7px 9px",textAlign:label==="Pessoa"||label==="Obra"?"left":"right",fontSize:8,color:C.muted,textTransform:"uppercase"}}>{label}</th>)}</tr></thead><tbody>{resumoQuinzena.porPessoa.length?resumoQuinzena.porPessoa.map(row=><tr key={row.pessoaId}><td style={{padding:"7px 9px",fontSize:9.5,fontWeight:800,borderTop:`1px solid ${C.line}`}}>{row.nome}{row.pixTitular&&<small style={{display:"block",fontSize:8,color:C.muted}}>Titular PIX: {row.pixTitular}</small>}</td><td style={{padding:"7px 9px",fontSize:9,color:C.muted,borderTop:`1px solid ${C.line}`}}>{(data.obras||[]).find(item=>item.id===row.obraId)?.name||"Não definida"}</td><td style={{padding:"7px 9px",fontSize:9.5,textAlign:"right",borderTop:`1px solid ${C.line}`}}>{fmt(row.previsto)}</td><td style={{padding:"7px 9px",fontSize:9.5,textAlign:"right",color:C.green,borderTop:`1px solid ${C.line}`}}>{fmt(row.pago)}</td><td style={{padding:"7px 9px",fontSize:9.5,fontWeight:850,textAlign:"right",color:row.saldo?C.orange:C.green,borderTop:`1px solid ${C.line}`}}>{fmt(row.saldo)}</td></tr>):<tr><td colSpan="5" style={{padding:18,textAlign:"center",fontSize:10,color:C.muted}}>Nenhum título de folha nesta quinzena.</td></tr>}</tbody></table>
+          <table style={{width:"100%",minWidth:580,borderCollapse:"collapse"}}><thead><tr>{["Pessoa","Obra","Previsto","Pago","Saldo"].map(label=><th key={label} style={{padding:"7px 9px",textAlign:label==="Pessoa"||label==="Obra"?"left":"right",fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase"}}>{label}</th>)}</tr></thead><tbody>{resumoQuinzena.porPessoa.length?resumoQuinzena.porPessoa.map(row=><tr key={row.pessoaId}><td style={{padding:"7px 9px",fontSize:"var(--arcd-type-caption)",fontWeight:600,borderTop:`1px solid ${C.line}`}}>{row.nome}{row.pixTitular&&<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted}}>Titular PIX: {row.pixTitular}</small>}</td><td style={{padding:"7px 9px",fontSize:"var(--arcd-type-caption)",color:C.muted,borderTop:`1px solid ${C.line}`}}>{(data.obras||[]).find(item=>item.id===row.obraId)?.name||"Não definida"}</td><td style={{padding:"7px 9px",fontSize:"var(--arcd-type-caption)",textAlign:"right",borderTop:`1px solid ${C.line}`}}>{fmt(row.previsto)}</td><td style={{padding:"7px 9px",fontSize:"var(--arcd-type-caption)",textAlign:"right",color:C.green,borderTop:`1px solid ${C.line}`}}>{fmt(row.pago)}</td><td style={{padding:"7px 9px",fontSize:"var(--arcd-type-caption)",fontWeight:600,textAlign:"right",color:row.saldo?C.orange:C.green,borderTop:`1px solid ${C.line}`}}>{fmt(row.saldo)}</td></tr>):<tr><td colSpan="5" style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum título de folha nesta quinzena.</td></tr>}</tbody></table>
         </div>
-        {(resumoQuinzena.pagamentosParciais.length||resumoQuinzena.foraCompetencia.length||resumoQuinzena.pixTitularDivergente.length)>0&&<p style={{fontSize:9.5,color:C.orange,fontWeight:800}}>Atenção: {resumoQuinzena.pagamentosParciais.length} pagamento(s) parcial(is), {resumoQuinzena.foraCompetencia.length} fora da competência e {resumoQuinzena.pixTitularDivergente.length} PIX com titular divergente.</p>}
+        {(resumoQuinzena.pagamentosParciais.length||resumoQuinzena.foraCompetencia.length||resumoQuinzena.pixTitularDivergente.length)>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600}}>Atenção: {resumoQuinzena.pagamentosParciais.length} pagamento(s) parcial(is), {resumoQuinzena.foraCompetencia.length} fora da competência e {resumoQuinzena.pixTitularDivergente.length} PIX com titular divergente.</p>}
       </div>}
 
       {aba==="extratos"&&(
@@ -842,17 +842,17 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
           {/* Cadastro compacto de contas bancárias */}
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 10px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
-              <p style={{fontSize:10.5,fontWeight:800,color:C.text}}>Contas bancárias cadastradas</p>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Contas bancárias cadastradas</p>
               {podeOperarConc&&<Btn size="sm" onClick={()=>setContaBancariaModal({nome:"",banco:"",agencia:"",conta:"",tipo:"corrente",titular:"",documentoTitular:"",pixKey:"",ativa:true,saldoInicial:0})}><Ic n="plus"/> Nova conta</Btn>}
             </div>
             {(data.contasBancarias||[]).length===0
-              ? <p style={{fontSize:9.5,color:C.muted}}>Nenhuma conta cadastrada ainda. Cadastre para poder identificar transferências entre contas e fechar o período.</p>
+              ? <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Nenhuma conta cadastrada ainda. Cadastre para poder identificar transferências entre contas e fechar o período.</p>
               : <div style={{display:"flex",flexDirection:"column",gap:5}}>
                   {(data.contasBancarias||[]).map(c=>(
                     <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 9px"}}>
                       <div>
-                        <p style={{fontSize:10,fontWeight:750,color:C.text}}>{c.nome} {!c.ativa&&<Badge color={C.muted}>Inativa</Badge>}</p>
-                        <p style={{fontSize:8.8,color:C.muted,marginTop:1}}>{c.banco||"-"} · Ag {c.agencia||"-"} · Conta {c.conta||"-"} · {c.titular||"sem titular"}</p>
+                        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{c.nome} {!c.ativa&&<Badge color={C.muted}>Inativa</Badge>}</p>
+                        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>{c.banco||"-"} · Ag {c.agencia||"-"} · Conta {c.conta||"-"} · {c.titular||"sem titular"}</p>
                       </div>
                       <div style={{display:"flex",gap:6}}>
                         <Btn size="sm" v="ghost" onClick={()=>setContaBancariaModal(c)}>Editar</Btn>
@@ -866,32 +866,32 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
           {/* Importar novo extrato para uma conta específica */}
           {(data.contasBancarias||[]).length>0&&(
             <div style={{display:"flex",alignItems:"center",gap:8,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px"}}>
-              <span style={{fontSize:9.5,color:C.muted,fontWeight:700}}>Importar para a conta:</span>
-              <select value={contaBancariaImport} onChange={e=>setContaBancariaImport(e.target.value)} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 8px",fontSize:9}}>
+              <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>Importar para a conta:</span>
+              <select value={contaBancariaImport} onChange={e=>setContaBancariaImport(e.target.value)} style={{height:29,border:`1px solid ${C.border}`,borderRadius:6,background:C.bg,color:C.text,padding:"0 8px",fontSize:"var(--arcd-type-caption)"}}>
                 <option value="">Sem conta definida</option>
                 {(data.contasBancarias||[]).filter(c=>c.ativa).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             </div>
           )}
 
-          <label style={{display:"flex",alignItems:"center",gap:6,fontSize:9,color:C.muted,cursor:"pointer"}}>
+          <label style={{display:"flex",alignItems:"center",gap:6,fontSize:"var(--arcd-type-caption)",color:C.muted,cursor:"pointer"}}>
             <input type="checkbox" checked={mostrarArquivados} onChange={e=>setMostrarArquivados(e.target.checked)}/> Mostrar extratos arquivados
           </label>
 
           {(data.extratos||[]).filter(e=>mostrarArquivados||e.status!=="arquivado").length===0
-            ? <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:10}}>Nenhum extrato importado.</div>
+            ? <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:"var(--arcd-type-label)"}}>Nenhum extrato importado.</div>
             : <div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
                 <table style={{width:"100%",minWidth:760,borderCollapse:"collapse",background:C.card}}>
-                  <thead><tr>{["Arquivo / banco","Conta","Período","Transações","Importado em","Status",""].map(h=><th key={h} style={{padding:"6px 8px",textAlign:h==="Transações"?"right":"left",fontSize:7.8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+                  <thead><tr>{["Arquivo / banco","Conta","Período","Transações","Importado em","Status",""].map(h=><th key={h} style={{padding:"6px 8px",textAlign:h==="Transações"?"right":"left",fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
                   <tbody>
                     {(data.extratos||[]).filter(e=>mostrarArquivados||e.status!=="arquivado").slice().sort((a,b)=>String(b.importadoEm||"").localeCompare(String(a.importadoEm||""))).map(e=>{
                       const conc=(data.transacoes||[]).filter(t=>t.extratoId===e.id&&t.status==="conciliado").length;
                       return <tr key={e.id}>
-                        <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:800,borderBottom:`1px solid ${C.line}`}}>{e.banco||e.arquivo}<small style={{display:"block",fontSize:7.8,color:C.muted,marginTop:1}}>{e.arquivo}</small></td>
-                        <td style={{padding:"7px 8px",fontSize:9,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{(data.contasBancarias||[]).find(c=>c.id===e.contaBancariaId)?.nome||e.conta||"-"}</td>
-                        <td style={{padding:"7px 8px",fontSize:9,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{e.dataInicio?`${fmtDate(e.dataInicio)} a ${fmtDate(e.dataFim)}`:"-"}</td>
-                        <td style={{padding:"7px 8px",fontSize:10,fontWeight:800,textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.qtd}{conc>0&&<small style={{display:"block",fontSize:7.8,color:C.green,fontWeight:700}}>{conc} conciliada(s)</small>}</td>
-                        <td style={{padding:"7px 8px",fontSize:8.5,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{e.importadoEm?new Date(e.importadoEm).toLocaleString("pt-BR"):"-"}</td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",fontWeight:600,borderBottom:`1px solid ${C.line}`}}>{e.banco||e.arquivo}<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>{e.arquivo}</small></td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",color:C.muted,borderBottom:`1px solid ${C.line}`}}>{(data.contasBancarias||[]).find(c=>c.id===e.contaBancariaId)?.nome||e.conta||"-"}</td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",color:C.muted,borderBottom:`1px solid ${C.line}`}}>{e.dataInicio?`${fmtDate(e.dataInicio)} a ${fmtDate(e.dataFim)}`:"-"}</td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-label)",fontWeight:600,textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.qtd}{conc>0&&<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.green,fontWeight:600}}>{conc} conciliada(s)</small>}</td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",color:C.muted,borderBottom:`1px solid ${C.line}`}}>{e.importadoEm?new Date(e.importadoEm).toLocaleString("pt-BR"):"-"}</td>
                         <td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}><Badge color={e.status==="arquivado"?C.muted:C.green}>{e.status==="arquivado"?"Arquivado":"Ativo"}</Badge></td>
                         <td style={{padding:"5px 7px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{e.status!=="arquivado"&&<Btn size="sm" v="ghost" onClick={()=>arquivarExtrato(e)}>Arquivar</Btn>}</td>
                       </tr>;
@@ -902,31 +902,31 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         </div>
       )}
 
-      {aba==="historico"&&(historicoConc.length===0?<div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:10}}>O histórico começará a registrar as próximas operações.</div>:<div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}><table style={{width:"100%",minWidth:920,borderCollapse:"collapse",background:C.card}}><thead><tr>{["Data e hora","Ação","Transação / extrato","Valor","Mudança","Operador","Detalhes"].map(h=><th key={h} style={{padding:"6px 8px",textAlign:h==="Valor"?"right":"left",fontSize:7.8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{historicoConc.slice(0,limiteVisivel).map(item=><tr key={item.id}><td style={{padding:"7px 8px",fontSize:8.5,color:C.muted,whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{new Date(item.criadoEm).toLocaleString("pt-BR")}</td><td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}><Badge color={corAcao(item.acao)}>{rotuloAcao[item.acao]||item.acao}</Badge></td><td title={item.descricao} style={{padding:"7px 8px",fontSize:9.2,fontWeight:750,maxWidth:270,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",borderBottom:`1px solid ${C.line}`}}>{item.descricao||"-"}</td><td style={{padding:"7px 8px",fontSize:9.2,fontWeight:800,textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{item.valor?fmt(Math.abs(item.valor)):"-"}</td><td style={{padding:"7px 8px",fontSize:8.5,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{item.statusAnterior||"-"} → {item.statusNovo||"-"}</td><td style={{padding:"7px 8px",fontSize:8.8,fontWeight:750,borderBottom:`1px solid ${C.line}`}}>{item.operador||"Sistema"}</td><td title={item.detalhes} style={{padding:"7px 8px",fontSize:8.5,color:C.muted,maxWidth:290,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",borderBottom:`1px solid ${C.line}`}}>{item.detalhes||"-"}</td></tr>)}</tbody></table>{historicoConc.length>limiteVisivel&&<button onClick={()=>setLimiteVisivel(v=>v+50)} style={{width:"100%",border:0,borderTop:`1px solid ${C.line}`,padding:7,background:C.surface,color:C.blue,fontSize:9,fontWeight:800,cursor:"pointer"}}>Carregar mais registros</button>}</div>)}
+      {aba==="historico"&&(historicoConc.length===0?<div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:"var(--arcd-type-label)"}}>O histórico começará a registrar as próximas operações.</div>:<div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}><table style={{width:"100%",minWidth:920,borderCollapse:"collapse",background:C.card}}><thead><tr>{["Data e hora","Ação","Transação / extrato","Valor","Mudança","Operador","Detalhes"].map(h=><th key={h} style={{padding:"6px 8px",textAlign:h==="Valor"?"right":"left",fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead><tbody>{historicoConc.slice(0,limiteVisivel).map(item=><tr key={item.id}><td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>{new Date(item.criadoEm).toLocaleString("pt-BR")}</td><td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}><Badge color={corAcao(item.acao)}>{rotuloAcao[item.acao]||item.acao}</Badge></td><td title={item.descricao} style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",fontWeight:600,maxWidth:270,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",borderBottom:`1px solid ${C.line}`}}>{item.descricao||"-"}</td><td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",fontWeight:600,textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{item.valor?fmt(Math.abs(item.valor)):"-"}</td><td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",color:C.muted,borderBottom:`1px solid ${C.line}`}}>{item.statusAnterior||"-"} → {item.statusNovo||"-"}</td><td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",fontWeight:600,borderBottom:`1px solid ${C.line}`}}>{item.operador||"Sistema"}</td><td title={item.detalhes} style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",color:C.muted,maxWidth:290,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",borderBottom:`1px solid ${C.line}`}}>{item.detalhes||"-"}</td></tr>)}</tbody></table>{historicoConc.length>limiteVisivel&&<button onClick={()=>setLimiteVisivel(v=>v+50)} style={{width:"100%",border:0,borderTop:`1px solid ${C.line}`,padding:7,background:C.surface,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}>Carregar mais registros</button>}</div>)}
 
       {aba==="regras"&&(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <p style={{fontSize:10,color:C.muted,lineHeight:1.5,maxWidth:560}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5,maxWidth:560}}>
               Regras viram só uma <strong>sugestão</strong> na fila - nunca conciliam sozinhas.
               Cada regra guarda quantas vezes foi aplicada, confirmada e rejeitada.
             </p>
             {podeCriarRegra(currentUser?.role)&&<Btn size="sm" onClick={()=>setRegraModal({nome:"",ativa:true,prioridade:0,padrao:"",destino:"obra",obraId:"",categoria:"outros",exigirConfirmacao:true})}><Ic n="plus"/> Nova regra</Btn>}
           </div>
           {(data.regrasConc||[]).length===0
-            ? <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:10}}>Nenhuma regra criada ainda.</div>
+            ? <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:"var(--arcd-type-label)"}}>Nenhuma regra criada ainda.</div>
             : <div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
                 <table style={{width:"100%",minWidth:760,borderCollapse:"collapse",background:C.card}}>
-                  <thead><tr>{["Regra","Destino","Ativa","Aplicações","Confirmações","Rejeições",""].map(h=><th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:7.8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+                  <thead><tr>{["Regra","Destino","Ativa","Aplicações","Confirmações","Rejeições",""].map(h=><th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
                   <tbody>
                     {(data.regrasConc||[]).map(r=>
                       <tr key={r.id}>
-                        <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:750,borderBottom:`1px solid ${C.line}`}}>{r.nome||"Sem nome"}<small style={{display:"block",fontSize:8,color:C.muted,marginTop:1}}>contém "{r.padrao}"</small></td>
-                        <td style={{padding:"7px 8px",fontSize:9,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{r.destino==="obra"?nomeObra(r.obraId):"Empresa"} · {r.categoria}</td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",fontWeight:600,borderBottom:`1px solid ${C.line}`}}>{r.nome||"Sem nome"}<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>contém "{r.padrao}"</small></td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",color:C.muted,borderBottom:`1px solid ${C.line}`}}>{r.destino==="obra"?nomeObra(r.obraId):"Empresa"} · {r.categoria}</td>
                         <td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}><Badge color={r.ativa?C.green:C.muted}>{r.ativa?"Ativa":"Inativa"}</Badge></td>
-                        <td style={{padding:"7px 8px",fontSize:9,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{r.aplicacoes||0}</td>
-                        <td style={{padding:"7px 8px",fontSize:9,color:C.green,borderBottom:`1px solid ${C.line}`}}>{r.confirmacoes||0}</td>
-                        <td style={{padding:"7px 8px",fontSize:9,color:C.orange,borderBottom:`1px solid ${C.line}`}}>{r.rejeicoes||0}</td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",color:C.muted,borderBottom:`1px solid ${C.line}`}}>{r.aplicacoes||0}</td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",color:C.green,borderBottom:`1px solid ${C.line}`}}>{r.confirmacoes||0}</td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",color:C.orange,borderBottom:`1px solid ${C.line}`}}>{r.rejeicoes||0}</td>
                         <td style={{padding:"5px 7px",textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>
                           <Btn size="sm" v="ghost" onClick={()=>setRegraModal(r)}>Editar</Btn>{" "}
                           <Btn size="sm" v="ghost" onClick={()=>alternarAtivaRegra(r)}>{r.ativa?"Desativar":"Ativar"}</Btn>{" "}
@@ -943,25 +943,25 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       {aba==="fechamentos"&&(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {(data.contasBancarias||[]).length===0
-            ? <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:10}}>Cadastre uma conta bancária na aba Extratos para poder fechar um período.</div>
+            ? <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:"var(--arcd-type-label)"}}>Cadastre uma conta bancária na aba Extratos para poder fechar um período.</div>
             : <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                 {(data.contasBancarias||[]).map(c=>
                   <Btn key={c.id} size="sm" v="ghost" onClick={()=>abrirFechamento(c.id)}>Fechar período · {c.nome}</Btn>
                 )}
               </div>}
           {(data.fechamentosBancarios||[]).length===0
-            ? <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:10}}>Nenhum fechamento registrado ainda.</div>
+            ? <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:"var(--arcd-type-label)"}}>Nenhum fechamento registrado ainda.</div>
             : <div className="scroll-x" style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
                 <table style={{width:"100%",minWidth:820,borderCollapse:"collapse",background:C.card}}>
-                  <thead><tr>{["Conta","Período","Saldo calculado","Saldo do banco","Diferença","Status",""].map(h=><th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:7.8,color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+                  <thead><tr>{["Conta","Período","Saldo calculado","Saldo do banco","Diferença","Status",""].map(h=><th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
                   <tbody>
                     {(data.fechamentosBancarios||[]).slice().sort((a,b)=>String(b.dataFim||"").localeCompare(String(a.dataFim||""))).map(f=>
                       <tr key={f.id}>
-                        <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:750,borderBottom:`1px solid ${C.line}`}}>{(data.contasBancarias||[]).find(c=>c.id===f.contaBancariaId)?.nome||"-"}</td>
-                        <td style={{padding:"7px 8px",fontSize:9,color:C.muted,borderBottom:`1px solid ${C.line}`}}>{fmtDate(f.dataInicio)} a {fmtDate(f.dataFim)}</td>
-                        <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:700,borderBottom:`1px solid ${C.line}`}}>{fmt(deCentavos(f.saldoCalculadoCentavos))}</td>
-                        <td style={{padding:"7px 8px",fontSize:9.5,borderBottom:`1px solid ${C.line}`}}>{f.saldoBancoCentavos!=null?fmt(deCentavos(f.saldoBancoCentavos)):"-"}</td>
-                        <td style={{padding:"7px 8px",fontSize:9.5,fontWeight:700,color:Math.abs(f.diferencaCentavos||0)<=1?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{fmt(deCentavos(f.diferencaCentavos||0))}</td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",fontWeight:600,borderBottom:`1px solid ${C.line}`}}>{(data.contasBancarias||[]).find(c=>c.id===f.contaBancariaId)?.nome||"-"}</td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",color:C.muted,borderBottom:`1px solid ${C.line}`}}>{fmtDate(f.dataInicio)} a {fmtDate(f.dataFim)}</td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",fontWeight:600,borderBottom:`1px solid ${C.line}`}}>{fmt(deCentavos(f.saldoCalculadoCentavos))}</td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",borderBottom:`1px solid ${C.line}`}}>{f.saldoBancoCentavos!=null?fmt(deCentavos(f.saldoBancoCentavos)):"-"}</td>
+                        <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:Math.abs(f.diferencaCentavos||0)<=1?C.green:C.red,borderBottom:`1px solid ${C.line}`}}>{fmt(deCentavos(f.diferencaCentavos||0))}</td>
                         <td style={{padding:"7px 8px",borderBottom:`1px solid ${C.line}`}}><Badge color={f.status==="fechado"?C.green:C.orange}>{f.status==="fechado"?"Fechado":"Reaberto"}</Badge></td>
                         <td style={{padding:"5px 7px",textAlign:"right",borderBottom:`1px solid ${C.line}`}}>{f.status==="fechado"&&podeElevado&&<Btn size="sm" v="ghost" onClick={()=>reabrirFechamento(f)}>Reabrir</Btn>}</td>
                       </tr>
@@ -1028,7 +1028,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                     : <td className="reconciliation-cell reconciliation-cell--classification">
                         {tr.status==="conciliado"
                           ? ((tr.rateios||[]).length
-                              ? <details><summary style={{cursor:"pointer",fontWeight:800,color:C.green}}>{tr.rateios.length} rateio(s)</summary>{tr.rateios.map((r,i)=><p key={i} style={{marginTop:3}}>{r.destino==="obra"?nomeObra(r.obraId):"Empresa"} · {r.categoria} · {fmt(r.valor)}</p>)}</details>
+                              ? <details><summary style={{cursor:"pointer",fontWeight:600,color:C.green}}>{tr.rateios.length} rateio(s)</summary>{tr.rateios.map((r,i)=><p key={i} style={{marginTop:3}}>{r.destino==="obra"?nomeObra(r.obraId):"Empresa"} · {r.categoria} · {fmt(r.valor)}</p>)}</details>
                               : (tr.vinculo?`Vinculada · ${tr.vinculo.tipo}`:"Conciliada"))
                           : <span title={tr.ignoradoMotivo} style={{color:C.orange}}>{tr.ignoradoMotivo||"Sem motivo registrado"}</span>}
                       </td>}
@@ -1059,7 +1059,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
             {transacoes.length>limiteVisivel&&<button className="reconciliation-load-more" onClick={()=>setLimiteVisivel(v=>v+50)}>Mostrar mais · {transacoes.length-limiteVisivel} restante(s)</button>}
           </div>)}
 
-      {ignorarModal&&<Modal title={ignorarModal.titulo} onClose={()=>setIgnorarModal(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{padding:"9px 10px",border:`1px solid ${C.orange}55`,background:`${C.orange}0B`,borderRadius:8}}><b style={{fontSize:11,color:C.orange}}>{ignorarModal.ids.length} transação(ões) · {fmt(ignorarModal.valor)}</b><p style={{fontSize:9,color:C.muted,marginTop:3}}>Elas sairão da fila pendente, permanecerão auditáveis e poderão ser reabertas.</p></div><Inp label="Motivo obrigatório *" value={ignorarModal.motivo} onChange={v=>setIgnorarModal(f=>({...f,motivo:v}))} multiline placeholder="Ex.: transferência entre contas, estorno, movimento sem efeito no DRE..."/><div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setIgnorarModal(null)} full>Cancelar</Btn><Btn v="danger" onClick={confirmarIgnorar} full>Confirmar e ignorar</Btn></div></div></Modal>}
+      {ignorarModal&&<Modal title={ignorarModal.titulo} onClose={()=>setIgnorarModal(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{padding:"9px 10px",border:`1px solid ${C.orange}55`,background:`${C.orange}0B`,borderRadius:8}}><b style={{fontSize:"var(--arcd-type-label)",color:C.orange}}>{ignorarModal.ids.length} transação(ões) · {fmt(ignorarModal.valor)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Elas sairão da fila pendente, permanecerão auditáveis e poderão ser reabertas.</p></div><Inp label="Motivo obrigatório *" value={ignorarModal.motivo} onChange={v=>setIgnorarModal(f=>({...f,motivo:v}))} multiline placeholder="Ex.: transferência entre contas, estorno, movimento sem efeito no DRE..."/><div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setIgnorarModal(null)} full>Cancelar</Btn><Btn v="danger" onClick={confirmarIgnorar} full>Confirmar e ignorar</Btn></div></div></Modal>}
 
       {loteProntoModal&&(()=>{
         const excluidas=loteProntoModal.excluidas;
@@ -1072,8 +1072,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         return <Modal title={`Revisar e confirmar em lote · ${transacoesElegiveisLote.length} selecionável(is)`} onClose={()=>!confirmandoLote&&setLoteProntoModal(null)} wide>
           <div style={{display:"flex",flexDirection:"column",gap:9}}>
             <div style={{padding:"9px 10px",border:`1px solid ${C.green}55`,background:`${C.green}0B`,borderRadius:8}}>
-              <b style={{fontSize:11,color:C.green}}>Sem bloqueio e sem ambiguidade com outra candidata</b>
-              <p style={{fontSize:9,color:C.muted,marginTop:3}}>Cada linha mostra a candidata que o motor escolheu (PIX, CPF/CNPJ, nome ou valor exato) e a faixa de confiança dela. Desmarque qualquer uma que não pareça certa - só as marcadas são confirmadas.</p>
+              <b style={{fontSize:"var(--arcd-type-label)",color:C.green}}>Sem bloqueio e sem ambiguidade com outra candidata</b>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Cada linha mostra a candidata que o motor escolheu (PIX, CPF/CNPJ, nome ou valor exato) e a faixa de confiança dela. Desmarque qualquer uma que não pareça certa - só as marcadas são confirmadas.</p>
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:420,overflowY:"auto"}}>
               {transacoesElegiveisLote.map(({tr,analise})=>{
@@ -1084,14 +1084,14 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                   <input type="checkbox" checked={!excluida} onChange={()=>alternarExclusao(tr.id)} style={{marginTop:3}}/>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
-                      <b style={{fontSize:10.5,color:C.text}}>{tr.descricao}</b>
+                      <b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{tr.descricao}</b>
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
                         <Badge color={pronta?C.green:C.blue}>{pronta?"pronta":"revisar"}</Badge>
-                        <b style={{fontSize:10.5,color:tr.valor>0?C.green:C.red,whiteSpace:"nowrap"}}>{fmt(Math.abs(tr.valor))}</b>
+                        <b style={{fontSize:"var(--arcd-type-label)",color:tr.valor>0?C.green:C.red,whiteSpace:"nowrap"}}>{fmt(Math.abs(tr.valor))}</b>
                       </div>
                     </div>
-                    <p style={{fontSize:9,color:C.muted,marginTop:2}}>{fmtDate(tr.data)} → {c?.titulo||"Candidata"}{c?.subtitulo?` · ${c.subtitulo}`:""}</p>
-                    {c?.motivos?.length>0&&<p style={{fontSize:8.5,color:C.muted,marginTop:1}}>{c.motivos.join(" · ")}</p>}
+                    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{fmtDate(tr.data)} → {c?.titulo||"Candidata"}{c?.subtitulo?` · ${c.subtitulo}`:""}</p>
+                    {c?.motivos?.length>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>{c.motivos.join(" · ")}</p>}
                   </div>
                 </label>;
               })}
@@ -1114,17 +1114,17 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         const obraSelecionada=obrasParaEntrada.find(o=>o.id===entradaForm.obraId);
         const tipoSemDre=!["entradaContrato","medicao","recebimento_administracao"].includes(entradaForm.tipo);
         return <Modal title="Validar entrada bancária" onClose={()=>setEntradaModal(null)} wide><div style={{display:"flex",flexDirection:"column",gap:11}}>
-          <div style={{background:`${C.green}0B`,border:`1px solid ${C.green}44`,borderRadius:7,padding:"10px 12px"}}><p style={{fontSize:11.5,fontWeight:800,color:C.text}}>{tr.descricao}</p><p style={{fontSize:10,color:C.muted,marginTop:3}}>{fmtDate(tr.data)} · crédito no banco</p><p style={{fontSize:17,fontWeight:900,color:C.green,marginTop:4}}>{fmt(Math.abs(Number(tr.valor)))}</p></div>
-          <p style={{fontSize:10,color:C.muted,lineHeight:1.45}}>Escolha a origem real do dinheiro. A confirmação cria vínculo auditável; aporte e empréstimo não viram receita no DRE.</p>
+          <div style={{background:`${C.green}0B`,border:`1px solid ${C.green}44`,borderRadius:7,padding:"10px 12px"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{tr.descricao}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{fmtDate(tr.data)} · crédito no banco</p><p style={{fontSize:17,fontWeight:600,color:C.green,marginTop:4}}>{fmt(Math.abs(Number(tr.valor)))}</p></div>
+          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.45}}>Escolha a origem real do dinheiro. A confirmação cria vínculo auditável; aporte e empréstimo não viram receita no DRE.</p>
           <Sel label="Origem da entrada" value={entradaForm.tipo} onChange={v=>setEntradaForm(f=>({...f,tipo:v}))} options={[{v:"entradaContrato",l:"Entrada de contrato comercial"},{v:"medicao",l:"Parcela / medição da obra"},{v:"recebimento_administracao",l:"Recebimento manual · obra por administração"},{v:"entrada_caixa_obra",l:"Aporte do cliente no caixa da obra"},{v:"aporte_socio",l:"Aporte de sócio"},{v:"emprestimo",l:"Empréstimo ou financiamento"},{v:"outra_entrada",l:"Outra entrada sem efeito no DRE"}]}/>
           {entradaForm.tipo==="entradaContrato"&&<Sel label="Contrato" value={entradaForm.contratoId} onChange={v=>setEntradaForm(f=>({...f,contratoId:v}))} options={[{v:"",l:"Selecione o contrato..."},...contratosAbertos.map(k=>{const recebido=recebidoEntradaContrato(k);return {v:k.id,l:`${k.numero||"Contrato"} · ${k.contratante||"Cliente"} · saldo ${fmt(Number(k.entrada||0)-recebido)}`};})]}/>}
           {entradaForm.tipo==="medicao"&&<div style={{display:"flex",flexDirection:"column",gap:9,padding:"10px 11px",border:`1px solid ${C.border}`,borderRadius:8,background:C.surface}}>
-            <div><p style={{fontSize:10,fontWeight:900,color:C.text}}>1. OBRA QUE RECEBEU</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Escolha a obra antes da parcela para não misturar lançamentos.</p></div>
+            <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>1. OBRA QUE RECEBEU</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Escolha a obra antes da parcela para não misturar lançamentos.</p></div>
             <Sel label="Obra" value={entradaForm.obraId} onChange={v=>setEntradaForm(f=>({...f,obraId:v,medicaoId:"",novaParcela:false}))} options={[{v:"",l:"Selecione a obra..."},...obrasParaEntrada.map(o=>({v:o.id,l:o.name}))]}/>
             {obraSelecionada&&<Badge color={C.blue}>Obra selecionada · {obraSelecionada.name}</Badge>}
-            {entradaForm.obraId&&<><div style={{height:1,background:C.line}}/><div><p style={{fontSize:10,fontWeight:900,color:C.text}}>2. PARCELA DESTA OBRA</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>{medicoesDaObra.length?"Somente parcelas em aberto desta obra aparecem abaixo.":"Não há parcela em aberto para esta obra."}</p></div>
+            {entradaForm.obraId&&<><div style={{height:1,background:C.line}}/><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>2. PARCELA DESTA OBRA</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{medicoesDaObra.length?"Somente parcelas em aberto desta obra aparecem abaixo.":"Não há parcela em aberto para esta obra."}</p></div>
               <Sel label="Parcela ou medição" value={entradaForm.medicaoId} onChange={v=>setEntradaForm(f=>({...f,medicaoId:v}))} options={[{v:"",l:"Selecione a parcela..."},...medicoesDaObra.map(m=>({v:m.id,l:`${m.descricao||m.numeroParcela||"Medição"} · saldo ${fmt(Number(m.valorPrevisto||0)-totalRecebidoMedicao(m))}`}))]}/>
-              {!entradaForm.novaParcela?<Btn size="sm" v="ghost" onClick={()=>setEntradaForm(f=>({...f,novaParcela:true,novaParcelaDescricao:"",novaParcelaValor:String(Math.abs(Number(tr.valor||0)))}))}><Ic n="plus"/> Cadastrar parcela desta obra</Btn>:<div style={{display:"flex",flexDirection:"column",gap:8,padding:"9px 10px",background:C.bg,border:`1px solid ${C.blue}44`,borderRadius:7}}><p style={{fontSize:10,fontWeight:850,color:C.blue}}>Nova parcela · {obraSelecionada?.name}</p><Inp label="Identificação da parcela *" value={entradaForm.novaParcelaDescricao} onChange={v=>setEntradaForm(f=>({...f,novaParcelaDescricao:v}))} placeholder="Ex.: H-02 · 1ª quinzena de julho"/><div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}><Inp label="Competência" type="month" value={entradaForm.novaParcelaCompetencia} onChange={v=>setEntradaForm(f=>({...f,novaParcelaCompetencia:v}))}/><Inp label="Valor previsto *" type="number" value={entradaForm.novaParcelaValor} onChange={v=>setEntradaForm(f=>({...f,novaParcelaValor:v}))}/></div><div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" full onClick={()=>setEntradaForm(f=>({...f,novaParcela:false}))}>Cancelar</Btn><Btn size="sm" full onClick={cadastrarParcelaDaEntrada}><Ic n="check"/> Cadastrar e selecionar</Btn></div></div>}
+              {!entradaForm.novaParcela?<Btn size="sm" v="ghost" onClick={()=>setEntradaForm(f=>({...f,novaParcela:true,novaParcelaDescricao:"",novaParcelaValor:String(Math.abs(Number(tr.valor||0)))}))}><Ic n="plus"/> Cadastrar parcela desta obra</Btn>:<div style={{display:"flex",flexDirection:"column",gap:8,padding:"9px 10px",background:C.bg,border:`1px solid ${C.blue}44`,borderRadius:7}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>Nova parcela · {obraSelecionada?.name}</p><Inp label="Identificação da parcela *" value={entradaForm.novaParcelaDescricao} onChange={v=>setEntradaForm(f=>({...f,novaParcelaDescricao:v}))} placeholder="Ex.: H-02 · 1ª quinzena de julho"/><div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}><Inp label="Competência" type="month" value={entradaForm.novaParcelaCompetencia} onChange={v=>setEntradaForm(f=>({...f,novaParcelaCompetencia:v}))}/><Inp label="Valor previsto *" type="number" value={entradaForm.novaParcelaValor} onChange={v=>setEntradaForm(f=>({...f,novaParcelaValor:v}))}/></div><div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" full onClick={()=>setEntradaForm(f=>({...f,novaParcela:false}))}>Cancelar</Btn><Btn size="sm" full onClick={cadastrarParcelaDaEntrada}><Ic n="check"/> Cadastrar e selecionar</Btn></div></div>}
             </>}
           </div>}
           {entradaForm.tipo==="recebimento_administracao"&&<Sel label="Obra por administração" value={entradaForm.obraId} onChange={v=>setEntradaForm(f=>({...f,obraId:v}))} options={[{v:"",l:"Selecione a obra..."},...data.obras.filter(o=>["administracao","admin","management"].includes(String(o.contractType||"").toLowerCase())||String(o.billingType||"").toLowerCase().includes("administr")).map(o=>({v:o.id,l:o.name})),...data.obras.filter(o=>!["administracao","admin","management"].includes(String(o.contractType||"").toLowerCase())&&!String(o.billingType||"").toLowerCase().includes("administr")).map(o=>({v:o.id,l:`${o.name} · outra modalidade`}))]}/>}
@@ -1143,24 +1143,24 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
             <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
               <p style={{fontSize:12.5,color:C.text,fontWeight:600}}>{apropModal.descricao}</p>
               <div style={{display:"flex",justifyContent:"space-between",marginTop:5}}>
-                <p style={{fontSize:11,color:C.muted}}>{fmtDate(apropModal.data)}</p>
-                <p style={{fontSize:15,fontWeight:800,
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{fmtDate(apropModal.data)}</p>
+                <p style={{fontSize:15,fontWeight:600,
                            color: Number(apropModal.valor)>0 ? C.green : C.red}}>
                   {Number(apropModal.valor)>0 ? "+" : ""} {fmt(alvo)}
                 </p>
               </div>
             </div>
 
-            {/*  Casamento com medição em aberto 
+            {/*  Casamento com medição em aberto
                 Aparece só em ENTRADAS que têm candidata. Nada vem pré-marcado:
                 o app sugere, você decide. */}
             {candidatas.length > 0 && (
               <div style={{background:`${C.blue}08`,border:`1.5px solid ${C.blue}55`,
                            borderRadius:6,padding:"11px 12px"}}>
-                <p style={{fontSize:11.5,fontWeight:800,color:C.blue,marginBottom:2}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue,marginBottom:2}}>
                    Esta entrada parece quitar uma medição
                 </p>
-                <p style={{fontSize:10.5,color:C.muted,marginBottom:9,lineHeight:1.5}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:9,lineHeight:1.5}}>
                   Se você confirmar, a parcela é marcada como <strong>recebida</strong> e a
                   receita passa a ser reconhecida por ela - sem lançamento avulso em duplicidade.
                 </p>
@@ -1178,21 +1178,21 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                       }}>
                         <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}>
                           <div style={{minWidth:0,flex:1}}>
-                            <p style={{fontSize:12,fontWeight:700,color:C.text}}>
+                            <p style={{fontSize:12,fontWeight:600,color:C.text}}>
                               {sel ? "" : ""} {obra?.name || "-"}
                             </p>
-                            <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>
+                            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                               {c.m.descricao || `Parcela ${c.m.numeroParcela}`}
                               {c.m.dataVencimento && `  vence ${fmtDate(c.m.dataVencimento)}`}
                             </p>
-                            <p style={{fontSize:9.5,color:C.blue,marginTop:3}}>
+                            <p style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginTop:3}}>
                               {c.motivos.join(" · ")}
                             </p>
                           </div>
                           <div style={{textAlign:"right",flexShrink:0}}>
-                            <p style={{fontSize:12.5,fontWeight:800,color:C.text}}>{fmt(c.prev)}</p>
+                            <p style={{fontSize:12.5,fontWeight:600,color:C.text}}>{fmt(c.prev)}</p>
                             {c.parcial && (
-                              <p style={{fontSize:9,color:C.orange,fontWeight:700,marginTop:2}}>
+                              <p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600,marginTop:2}}>
                                 ! PARCIAL
                               </p>
                             )}
@@ -1206,8 +1206,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                 {medAlvo?.parcial && (
                   <div style={{marginTop:8,background:`${C.orange}10`,border:`1px solid ${C.orange}44`,
                                borderRadius:6,padding:"7px 10px"}}>
-                    <p style={{fontSize:10.5,color:C.orange,fontWeight:700}}>Pagamento parcial</p>
-                    <p style={{fontSize:10,color:C.muted,marginTop:2,lineHeight:1.45}}>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600}}>Pagamento parcial</p>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.45}}>
                       Recebido {fmt(alvo)} de {fmt(medAlvo.prev)} previstos.
                       A parcela será dada por quitada com o valor recebido - se o resto ainda vem,
                       talvez seja melhor não vincular agora.
@@ -1216,7 +1216,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                 )}
 
                 {!medAlvo && (
-                  <p style={{fontSize:10,color:C.muted,marginTop:8,fontStyle:"italic"}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:8,fontStyle:"italic"}}>
                     Nenhuma selecionada - a entrada será lançada como recebimento avulso da obra.
                   </p>
                 )}
@@ -1227,45 +1227,45 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                 de remontar um rateio que o ponto e o extrato já determinaram. */}
             {apropModal && Number(apropModal.valor||0)<0 && (
               <div style={{background:C.surface,border:`1px solid ${rateioMaoObraPreparado?(temDivergenciaRecebedor?`${C.orange}88`:`${C.green}66`):recebedorSelecionado?`${C.orange}66`:C.border}`,borderRadius:10,padding:"12px 13px"}}>
-                <p style={{fontSize:9,fontWeight:850,letterSpacing:1,textTransform:"uppercase",color:C.yellowD}}>Cartão PIX · saída bancária</p>
+                <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,textTransform:"uppercase",color:C.yellowD}}>Cartão PIX · saída bancária</p>
                 <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10,marginTop:8}}>
-                  <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Quem recebeu</p><p style={{fontSize:13,fontWeight:850,color:C.text,marginTop:2}}>{recebedorSelecionado?.emp.name||"Aguardando identificação"}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{recebedorSelecionado?.emp.pixHolder?`Titular PIX: ${recebedorSelecionado.emp.pixHolder}`:"Selecione apenas se o cruzamento não for inequívoco"}</p></div>
-                  <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Obra sugerida</p><p style={{fontSize:13,fontWeight:850,color:C.text,marginTop:2}}>{(data.obras||[]).find(o=>o.id===recebedorSelecionado?.emp.obra)?.name||"Definir nos detalhes"}</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{recebedorSelecionado?.periodoPonto?`Ponto: ${recebedorSelecionado.periodoPonto}`:`Quinzena a conferir`} · {recebedorSelecionado?.diasTrabalhados||0} dia(s)</p></div>
+                  <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Quem recebeu</p><p style={{fontSize:13,fontWeight:600,color:C.text,marginTop:2}}>{recebedorSelecionado?.emp.name||"Aguardando identificação"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{recebedorSelecionado?.emp.pixHolder?`Titular PIX: ${recebedorSelecionado.emp.pixHolder}`:"Selecione apenas se o cruzamento não for inequívoco"}</p></div>
+                  <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Obra sugerida</p><p style={{fontSize:13,fontWeight:600,color:C.text,marginTop:2}}>{(data.obras||[]).find(o=>o.id===recebedorSelecionado?.emp.obra)?.name||"Definir nos detalhes"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{recebedorSelecionado?.periodoPonto?`Ponto: ${recebedorSelecionado.periodoPonto}`:`Quinzena a conferir`} · {recebedorSelecionado?.diasTrabalhados||0} dia(s)</p></div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10,marginTop:9,paddingTop:9,borderTop:`1px solid ${C.line}`}}>
-                  <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Valor do ponto</p><p style={{fontSize:14,fontWeight:850,color:rateioMaoObraPreparado&&!temDivergenciaRecebedor?C.green:C.text,marginTop:2}}>{recebedorSelecionado?fmt(recebedorSelecionado.esperado||0):"—"}</p><p style={{fontSize:9.5,color:temDivergenciaRecebedor?C.orange:C.muted,marginTop:2}}>{temDivergenciaRecebedor?`${fmt(Math.abs(recebedorSelecionado.divergencia))} de divergência · PIX ${fmt(alvo)}`:`Pagamento PIX ${fmt(alvo)}`}</p></div>
-                  <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Evidência PIX</p><p style={{fontSize:10.5,fontWeight:750,color:C.text,marginTop:3,lineHeight:1.35,wordBreak:"break-word"}}>{apropModal.descricao||"Descrição não informada"}</p></div>
+                  <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Valor do ponto</p><p style={{fontSize:14,fontWeight:600,color:rateioMaoObraPreparado&&!temDivergenciaRecebedor?C.green:C.text,marginTop:2}}>{recebedorSelecionado?fmt(recebedorSelecionado.esperado||0):"—"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:temDivergenciaRecebedor?C.orange:C.muted,marginTop:2}}>{temDivergenciaRecebedor?`${fmt(Math.abs(recebedorSelecionado.divergencia))} de divergência · PIX ${fmt(alvo)}`:`Pagamento PIX ${fmt(alvo)}`}</p></div>
+                  <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Evidência PIX</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:3,lineHeight:1.35,wordBreak:"break-word"}}>{apropModal.descricao||"Descrição não informada"}</p></div>
                 </div>
-                {rateioPixAutomatico&&<p style={{fontSize:10,color:C.green,fontWeight:800,marginTop:10}}>Correspondência confirmável: titular/chave PIX, valor e quinzena de referência foram identificados. O rateio para mão de obra desta obra já foi preparado.</p>}
-                {rateioMaoObraPreparado&&!rateioPixAutomatico&&!temDivergenciaRecebedor&&<p style={{fontSize:10,color:C.green,fontWeight:800,marginTop:10}}>Operário selecionado. A obra e o rateio de mão de obra foram preparados; basta confirmar.</p>}
-                {rateioMaoObraPreparado&&temDivergenciaRecebedor&&<p style={{fontSize:10,color:C.orange,fontWeight:800,marginTop:10}}>Atenção: nome/titular foi encontrado, mas o PIX diverge do valor do ponto. Confirme somente se este pagamento estiver correto.</p>}
-                {!rateioMaoObraPreparado&&<p style={{fontSize:10,color:C.orange,fontWeight:800,marginTop:10}}>Escolha abaixo quem recebeu este PIX. A conciliação só será efetivada após sua confirmação.</p>}
+                {rateioPixAutomatico&&<p style={{fontSize:"var(--arcd-type-label)",color:C.green,fontWeight:600,marginTop:10}}>Correspondência confirmável: titular/chave PIX, valor e quinzena de referência foram identificados. O rateio para mão de obra desta obra já foi preparado.</p>}
+                {rateioMaoObraPreparado&&!rateioPixAutomatico&&!temDivergenciaRecebedor&&<p style={{fontSize:"var(--arcd-type-label)",color:C.green,fontWeight:600,marginTop:10}}>Operário selecionado. A obra e o rateio de mão de obra foram preparados; basta confirmar.</p>}
+                {rateioMaoObraPreparado&&temDivergenciaRecebedor&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600,marginTop:10}}>Atenção: nome/titular foi encontrado, mas o PIX diverge do valor do ponto. Confirme somente se este pagamento estiver correto.</p>}
+                {!rateioMaoObraPreparado&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600,marginTop:10}}>Escolha abaixo quem recebeu este PIX. A conciliação só será efetivada após sua confirmação.</p>}
                 {sugMaoObra.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6,marginTop:10,paddingTop:10,borderTop:`1px solid ${C.line}`}}>
-                  <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Quem recebeu este PIX?</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Quem recebeu este PIX?</p>
                   {sugMaoObra.map(s=>{
                     const selecionado=recebedorSelecionado?.emp.id===s.emp.id;
                     const temDivergencia=Math.abs(Number(s.divergencia||0))>=.01;
                     const cor=temDivergencia?C.orange:C.green;
                     return <button type="button" key={s.emp.id} onClick={()=>selecionarOperarioPix(s)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,width:"100%",textAlign:"left",padding:"9px 10px",background:selecionado?`${cor}0E`:C.card,border:`1px solid ${selecionado?`${cor}88`:C.line}`,borderRadius:7,cursor:"pointer"}}>
-                      <span style={{minWidth:0}}><b style={{fontSize:10.5,color:C.text}}>{s.emp.name}</b><span style={{fontSize:9.5,color:C.muted}}> · {s.motivos.join(" · ")}</span></span>
-                      <span style={{fontSize:10.5,fontWeight:850,color:cor,whiteSpace:"nowrap"}}>{temDivergencia?`Dif. ${fmt(Math.abs(s.divergencia))}`:fmt(s.esperado)}</span>
+                      <span style={{minWidth:0}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{s.emp.name}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}> · {s.motivos.join(" · ")}</span></span>
+                      <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:cor,whiteSpace:"nowrap"}}>{temDivergencia?`Dif. ${fmt(Math.abs(s.divergencia))}`:fmt(s.esperado)}</span>
                     </button>;
                   })}
                 </div>}
-                <button onClick={()=>setDetalhesPix(v=>!v)} style={{marginTop:10,border:0,background:"transparent",padding:0,color:C.yellowD,fontSize:10.5,fontWeight:850,cursor:"pointer"}}>{detalhesPix?"Ocultar ajustes e evidências":"Trocar operário ou obra / ver evidências"}</button>
+                <button onClick={()=>setDetalhesPix(v=>!v)} style={{marginTop:10,border:0,background:"transparent",padding:0,color:C.yellowD,fontSize:"var(--arcd-type-label)",fontWeight:600,cursor:"pointer"}}>{detalhesPix?"Ocultar ajustes e evidências":"Trocar operário ou obra / ver evidências"}</button>
                 {detalhesPix&&<div style={{display:"flex",flexDirection:"column",gap:7,marginTop:10,paddingTop:10,borderTop:`1px solid ${C.line}`}}>
                   <Sel label="Outro operário" value={recebedorMaoObraId} onChange={selecionarOperarioNosDetalhes} options={[{v:"",l:"Não vincular a um colaborador agora"},...recebedoresMaoObra.map(s=>({v:s.emp.id,l:[s.emp.name,s.emp.pixHolder?`PIX: ${s.emp.pixHolder}`:""].filter(Boolean).join(" · ")}))]}/>
                 </div>}
               </div>
             )}
 
-            {!rateioMaoObraPreparado&&<p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>Divida o valor entre obras e a empresa somente quando esta saída não puder ser associada de forma inequívoca.</p>}
+            {!rateioMaoObraPreparado&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>Divida o valor entre obras e a empresa somente quando esta saída não puder ser associada de forma inequívoca.</p>}
 
             {/* Linhas de rateio */}
             {!rateioMaoObraPreparado&&rateios.map((r,i)=>(
               <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 11px"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
-                  <p style={{fontSize:10,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>
                     Destino {i+1}
                   </p>
                   {rateios.length > 1 && (
@@ -1306,19 +1306,19 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
               border:`1.5px solid ${Math.abs(diferenca) < 0.01 ? C.green : C.orange}`,
               borderRadius:6, padding:"10px 12px",
             }}>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.muted}}>
                 <span>Valor da transação</span><span>{fmt(alvo)}</span>
               </div>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,marginTop:2}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                 <span>Rateado</span><span>{fmt(totalRateado)}</span>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
                            marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`}}>
-                <span style={{fontSize:12,fontWeight:700,
+                <span style={{fontSize:12,fontWeight:600,
                               color: Math.abs(diferenca) < 0.01 ? C.green : C.orange}}>
                   {Math.abs(diferenca) < 0.01 ? "Rateio fecha" : "Falta distribuir"}
                 </span>
-                <span style={{fontSize:15,fontWeight:800,
+                <span style={{fontSize:15,fontWeight:600,
                               color: Math.abs(diferenca) < 0.01 ? C.green : C.orange}}>
                   {fmt(Math.abs(diferenca))}
                 </span>
@@ -1335,9 +1335,9 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                     background:criarRegra?C.yellow:"transparent",
                     display:"flex",alignItems:"center",justifyContent:"center",
                   }}>
-                    {criarRegra && <span style={{color:"#fff",fontSize:12,fontWeight:900}}>ok</span>}
+                    {criarRegra && <span style={{color:"#fff",fontSize:12,fontWeight:600}}>ok</span>}
                   </div>
-                  <p style={{fontSize:12,fontWeight:700,color:C.text}}>
+                  <p style={{fontSize:12,fontWeight:600,color:C.text}}>
                     Classificar assim automaticamente das próximas vezes
                   </p>
                 </label>
@@ -1345,7 +1345,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                   <div style={{marginTop:9}}>
                     <Inp label="Quando a descrição contiver" value={padraoRegra} onChange={setPadraoRegra}
                       placeholder="Ex.: CELPE, ALUGUEL, PIX JOSE DAVID"/>
-                    <p style={{fontSize:10,color:C.muted,marginTop:4,lineHeight:1.45}}>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4,lineHeight:1.45}}>
                       Vira só uma <strong>sugestão</strong> - você continua confirmando cada transação.
                     </p>
                   </div>
@@ -1359,7 +1359,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                 <Ic n="check"/> {conciliando?"Conciliando no servidor...":"Confirmar conciliação"}
               </Btn>
             </div>
-            {conciliando&&<p role="status" aria-live="polite" style={{fontSize:10,color:C.yellowD,fontWeight:750,textAlign:"right"}}>Validando transação, funcionário, obra e valor. Aguarde a confirmação.</p>}
+            {conciliando&&<p role="status" aria-live="polite" style={{fontSize:"var(--arcd-type-label)",color:C.yellowD,fontWeight:600,textAlign:"right"}}>Validando transação, funcionário, obra e valor. Aguarde a confirmação.</p>}
           </div>
         </Modal>
       )}
@@ -1375,54 +1375,54 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
                 <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-                  <p style={{fontSize:9,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Movimento bancário</p>
-                  <p style={{fontSize:12,fontWeight:700,color:C.text,marginTop:4}}>{tr.descricao}</p>
-                  <p style={{fontSize:10,color:C.muted,marginTop:2}}>{fmtDate(tr.data)}</p>
-                  <p style={{fontSize:15,fontWeight:800,marginTop:4,color:Number(tr.valor)>0?C.green:C.red}}>{Number(tr.valor)>0?"+":""}{fmt(Math.abs(tr.valor))}</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Movimento bancário</p>
+                  <p style={{fontSize:12,fontWeight:600,color:C.text,marginTop:4}}>{tr.descricao}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>{fmtDate(tr.data)}</p>
+                  <p style={{fontSize:15,fontWeight:600,marginTop:4,color:Number(tr.valor)>0?C.green:C.red}}>{Number(tr.valor)>0?"+":""}{fmt(Math.abs(tr.valor))}</p>
                 </div>
                 <div style={{background:c?`${corFaixa(c.confianca)}0C`:C.surface,border:`1.5px solid ${c?corFaixa(c.confianca):C.border}`,borderRadius:6,padding:"10px 12px"}}>
-                  <p style={{fontSize:9,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Candidata sugerida</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Candidata sugerida</p>
                   {c ? <>
-                    <p style={{fontSize:12,fontWeight:700,color:C.text,marginTop:4}}>{c.titulo}</p>
-                    {c.contraparte && <p style={{fontSize:10,color:C.muted,marginTop:2}}>{c.contraparte}</p>}
+                    <p style={{fontSize:12,fontWeight:600,color:C.text,marginTop:4}}>{c.titulo}</p>
+                    {c.contraparte && <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>{c.contraparte}</p>}
                     <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
                       <Badge color={corFaixa(c.confianca)}>{c.score} pts · {rotuloFaixa[c.confianca]}</Badge>
-                      {cs.length>1 && <span style={{fontSize:9,color:C.muted}}>{candidatoModal.idx+1} de {cs.length}</span>}
+                      {cs.length>1 && <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{candidatoModal.idx+1} de {cs.length}</span>}
                     </div>
-                  </> : <p style={{fontSize:10.5,color:C.muted,marginTop:6}}>Nenhuma candidata encontrada para esta transação.</p>}
+                  </> : <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:6}}>Nenhuma candidata encontrada para esta transação.</p>}
                 </div>
               </div>
 
               {c && c.motivos.length>0 && (
                 <div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}44`,borderRadius:6,padding:"9px 11px"}}>
-                  <p style={{fontSize:9.5,fontWeight:800,color:C.blue,marginBottom:3}}>Por que esta candidata</p>
-                  {c.motivos.map((m,i)=><p key={i} style={{fontSize:10,color:C.muted,marginTop:2}}>· {m}</p>)}
+                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.blue,marginBottom:3}}>Por que esta candidata</p>
+                  {c.motivos.map((m,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>· {m}</p>)}
                 </div>
               )}
               {c?.tipo==="tituloFolha" && c.metadados?.payroll && (()=>{
                 const folha=c.metadados.payroll;
                 return <div style={{background:`${C.green}08`,border:`1px solid ${C.green}44`,borderRadius:6,padding:"10px 11px"}}>
-                  <p style={{fontSize:9.5,fontWeight:800,color:C.green}}>Título de folha · confira antes de liquidar</p>
-                  <p style={{fontSize:10,color:C.muted,marginTop:4}}>{folha.funcionario} · CPF {folha.cpfMascarado} · PIX {folha.chavePixMascarada}</p>
-                  <p style={{fontSize:10,color:C.muted,marginTop:2}}>Titular: {folha.titularPix||"não informado"} · Período: {folha.periodo||"não informado"}</p>
-                  <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:5,marginTop:7,fontSize:9.5,color:C.text}}>
+                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.green}}>Título de folha · confira antes de liquidar</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>{folha.funcionario} · CPF {folha.cpfMascarado} · PIX {folha.chavePixMascarada}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Titular: {folha.titularPix||"não informado"} · Período: {folha.periodo||"não informado"}</p>
+                  <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:5,marginTop:7,fontSize:"var(--arcd-type-caption)",color:C.text}}>
                     <span>Bruto: <b>{fmt(folha.bruto)}</b></span><span>Benefícios: <b>{fmt(folha.beneficios)}</b></span>
                     <span>Adiantamentos/descontos: <b>{fmt(folha.adiantamentos+folha.descontos)}</b></span><span>Líquido: <b>{fmt(folha.liquido)}</b></span>
                     <span style={{gridColumn:"1 / -1"}}>Saldo em aberto: <b>{fmt(folha.saldo)}</b> · Rateio: {(folha.rateiosPorObra||[]).map(r=>`${nomeObra(r.obraId)} ${fmt(r.valor)}`).join(" · ")||"não informado"}</span>
                   </div>
-                  <p style={{fontSize:9,color:C.muted,marginTop:7}}>Esta ação liquida somente o título e registra o vínculo bancário. Não cria outra despesa de mão de obra no DRE.</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:7}}>Esta ação liquida somente o título e registra o vínculo bancário. Não cria outra despesa de mão de obra no DRE.</p>
                 </div>;
               })()}
               {c && c.alertas.length>0 && (
                 <div style={{background:`${C.orange}0C`,border:`1px solid ${C.orange}55`,borderRadius:6,padding:"9px 11px"}}>
-                  <p style={{fontSize:9.5,fontWeight:800,color:C.orange,marginBottom:3}}>Alertas</p>
-                  {c.alertas.map((m,i)=><p key={i} style={{fontSize:10,color:C.orange,marginTop:2}}>! {m}</p>)}
+                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.orange,marginBottom:3}}>Alertas</p>
+                  {c.alertas.map((m,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.orange,marginTop:2}}>! {m}</p>)}
                 </div>
               )}
               {c && c.bloqueios.length>0 && (
                 <div style={{background:`${C.red}0C`,border:`1px solid ${C.red}55`,borderRadius:6,padding:"9px 11px"}}>
-                  <p style={{fontSize:9.5,fontWeight:800,color:C.red,marginBottom:3}}>Bloqueado</p>
-                  {c.bloqueios.map((m,i)=><p key={i} style={{fontSize:10,color:C.red,marginTop:2}}>· {m}</p>)}
+                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.red,marginBottom:3}}>Bloqueado</p>
+                  {c.bloqueios.map((m,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.red,marginTop:2}}>· {m}</p>)}
                 </div>
               )}
 
@@ -1459,17 +1459,17 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         return (
           <Modal title="Marcar como transferência interna" onClose={()=>setTransferModal(null)}>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
                 Escolha a outra ponta do movimento (mesma conta ou outra conta cadastrada, sinal oposto, valor e data próximos).
                 Nenhuma receita ou despesa é gerada - o DRE não é afetado.
               </p>
               {opcoes.length===0
-                ? <p style={{fontSize:10,color:C.orange}}>Nenhuma transação pendente com sinal oposto e valor parecido foi encontrada.</p>
+                ? <p style={{fontSize:"var(--arcd-type-label)",color:C.orange}}>Nenhuma transação pendente com sinal oposto e valor parecido foi encontrada.</p>
                 : <div style={{display:"flex",flexDirection:"column",gap:6}}>
                     {opcoes.map(o=>
                       <button key={o.id} onClick={()=>confirmarTransferencia(tr,o)} style={{textAlign:"left",cursor:"pointer",background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
-                        <p style={{fontSize:11,fontWeight:700,color:C.text}}>{o.descricao}</p>
-                        <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{fmtDate(o.data)} · {fmt(Math.abs(o.valor))}</p>
+                        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{o.descricao}</p>
+                        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{fmtDate(o.data)} · {fmt(Math.abs(o.valor))}</p>
                       </button>
                     )}
                   </div>}
@@ -1487,16 +1487,16 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         return (
           <Modal title="Vincular a um estorno" onClose={()=>setEstornoModal(null)}>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
                 Escolha o movimento original que está sendo estornado. O movimento original nunca é apagado.
               </p>
               {opcoes.length===0
-                ? <p style={{fontSize:10,color:C.orange}}>Nenhum movimento de sinal oposto e valor parecido foi encontrado - você pode marcar sem origem localizada.</p>
+                ? <p style={{fontSize:"var(--arcd-type-label)",color:C.orange}}>Nenhum movimento de sinal oposto e valor parecido foi encontrado - você pode marcar sem origem localizada.</p>
                 : <div style={{display:"flex",flexDirection:"column",gap:6}}>
                     {opcoes.map(o=>
                       <button key={o.id} onClick={()=>confirmarEstorno(tr,o)} style={{textAlign:"left",cursor:"pointer",background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
-                        <p style={{fontSize:11,fontWeight:700,color:C.text}}>{o.descricao}</p>
-                        <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{fmtDate(o.data)} · {fmt(Math.abs(o.valor))}</p>
+                        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{o.descricao}</p>
+                        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{fmtDate(o.data)} · {fmt(Math.abs(o.valor))}</p>
                       </button>
                     )}
                   </div>}
@@ -1524,7 +1524,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
               <Inp label="Chave PIX desta conta" value={contaBancariaModal.pixKey} onChange={v=>setContaBancariaModal(f=>({...f,pixKey:v}))}/>
               <Inp label="Saldo inicial (R$)" type="number" value={contaBancariaModal.saldoInicial} onChange={v=>setContaBancariaModal(f=>({...f,saldoInicial:v}))}/>
             </div>
-            <p style={{fontSize:9.5,color:C.muted,lineHeight:1.4}}>
+            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.4}}>
               Cadastrar a chave PIX permite que a Conciliação reconheça automaticamente uma
               transferência entre contas da própria empresa, em vez de sugerir como receita/despesa nova.
             </p>
@@ -1548,7 +1548,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                 ? <Sel label="Obra" value={regraModal.obraId} onChange={v=>setRegraModal(f=>({...f,obraId:v}))} options={[{v:"",l:"Selecione..."},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
                 : <Sel label="Categoria" value={regraModal.categoria} onChange={v=>setRegraModal(f=>({...f,categoria:v}))} options={CATS_DESP.map(c=>({v:c.v,l:c.l}))}/>}
             </div>
-            <p style={{fontSize:10,color:C.muted,lineHeight:1.45}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.45}}>
               Vira só uma sugestão na Fila inteligente - nunca conciliada sozinha. Uma regra nunca deve fixar a obra
               a partir só do fornecedor quando ele atende mais de uma obra.
             </p>
@@ -1573,13 +1573,13 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                 <Inp label="Saldo final no extrato (R$, opcional)" type="number" value={fecharModal.saldoBanco} onChange={v=>setFecharModal(f=>({...f,saldoBanco:v}))}/>
               </div>
               <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:C.muted}}><span>Saldo inicial</span><span>{fmt(deCentavos(r.saldoInicialCentavos))}</span></div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:C.green,marginTop:2}}><span>+ Créditos</span><span>{fmt(deCentavos(r.creditosCentavos))}</span></div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:C.red,marginTop:2}}><span>- Débitos</span><span>{fmt(deCentavos(r.debitosCentavos))}</span></div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:800,marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`}}><span>Saldo calculado</span><span>{fmt(deCentavos(r.saldoCalculadoCentavos))}</span></div>
-                {r.saldoBancoCentavos!=null && <div style={{display:"flex",justifyContent:"space-between",fontSize:11,fontWeight:700,marginTop:4,color:Math.abs(diferencaCentavos)<=1?C.green:C.red}}><span>Diferença vs. banco</span><span>{fmt(deCentavos(diferencaCentavos))}</span></div>}
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.muted}}><span>Saldo inicial</span><span>{fmt(deCentavos(r.saldoInicialCentavos))}</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.green,marginTop:2}}><span>+ Créditos</span><span>{fmt(deCentavos(r.creditosCentavos))}</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.red,marginTop:2}}><span>- Débitos</span><span>{fmt(deCentavos(r.debitosCentavos))}</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`}}><span>Saldo calculado</span><span>{fmt(deCentavos(r.saldoCalculadoCentavos))}</span></div>
+                {r.saldoBancoCentavos!=null && <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",fontWeight:600,marginTop:4,color:Math.abs(diferencaCentavos)<=1?C.green:C.red}}><span>Diferença vs. banco</span><span>{fmt(deCentavos(diferencaCentavos))}</span></div>}
               </div>
-              {r.pendentes.length>0 && <p style={{fontSize:10,color:C.orange,fontWeight:700}}>! {r.pendentes.length} transação(ões) ainda pendente(s) neste período.</p>}
+              {r.pendentes.length>0 && <p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600}}>! {r.pendentes.length} transação(ões) ainda pendente(s) neste período.</p>}
               <div style={{display:"flex",gap:8}}>
                 <Btn v="ghost" onClick={()=>setFecharModal(null)} full>Cancelar</Btn>
                 <Btn onClick={confirmarFechamento} full>Fechar período</Btn>

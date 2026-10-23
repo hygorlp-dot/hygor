@@ -166,7 +166,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
             {!!estabDaObra.pendencias?.length && <p style={{ color: C.orange }}>Pendências: {estabDaObra.pendencias.join("; ")}.</p>}
           </div>
           : <p style={{ fontSize: 12.5, color: C.muted }}>Nenhum estabelecimento ligado a esta obra.</p>}
-        {repP && <p style={{ fontSize: 11.5, color: C.muted, marginTop: 6 }}>{repP.rotulo}. Pendências formais: {repP.pendencias.join("; ")}.</p>}
+        {repP && <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 6 }}>{repP.rotulo}. Pendências formais: {repP.pendencias.join("; ")}.</p>}
         {podeFiscal && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginTop: 10 }}>
           {!!estabelecimentos.length && <div style={{ minWidth: 220 }}><Sel label="Estabelecimento desta obra" value={estabDaObra?.id || ""} onChange={vincularObra}
             options={[{ v: "", l: "Nenhum" }, ...estabelecimentos.map(e => ({ v: e.id, l: e.nome }))]} /></div>}
@@ -185,7 +185,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
               return <div key={d.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "8px 0", borderTop: `1px solid ${C.line}` }}>
                 <div style={{ flex: 1, minWidth: 180 }}>
                   <p style={{ fontSize: 13, fontWeight: 600 }}>{d.nome}</p>
-                  <p style={{ fontSize: 11.5, color: C.muted }}>App {d.appVersao || "-"}{d.aparelho?.modelo ? ` · ${[d.aparelho.marca, d.aparelho.modelo].filter(Boolean).join(" ")}` : ""}{d.aparelho?.android ? ` · Android ${d.aparelho.android}` : ""} · sequência local {d.ultimaSequenciaLocal}{d.estabelecimentoId ? ` · ${nomeEstab.get(d.estabelecimentoId) || "estabelecimento"}` : ""}{d.ultimoGps ? <> · <a href={`https://maps.google.com/?q=${d.ultimoGps.lat},${d.ultimoGps.lng}`} target="_blank" rel="noreferrer">localização</a></> : null}</p>
+                  <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>App {d.appVersao || "-"}{d.aparelho?.modelo ? ` · ${[d.aparelho.marca, d.aparelho.modelo].filter(Boolean).join(" ")}` : ""}{d.aparelho?.android ? ` · Android ${d.aparelho.android}` : ""} · sequência local {d.ultimaSequenciaLocal}{d.estabelecimentoId ? ` · ${nomeEstab.get(d.estabelecimentoId) || "estabelecimento"}` : ""}{d.ultimoGps ? <> · <a href={`https://maps.google.com/?q=${d.ultimoGps.lat},${d.ultimoGps.lng}`} target="_blank" rel="noreferrer">localização</a></> : null}</p>
                 </div>
                 <Badge color={corDoTom[s.tom]}>{s.rotulo}</Badge>
                 {podeGerir && d.status === "ativo" && <Btn size="sm" v="ghost" onClick={() => desativar(d)}>Desativar</Btn>}
@@ -200,7 +200,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
           ? <p style={{ color: C.muted, fontSize: 12.5 }}>Nenhum funcionário ativo nesta obra no cadastro do ARCD.</p>
           : <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
-              <thead><tr style={{ textAlign: "left", color: C.muted, fontSize: 11 }}>
+              <thead><tr style={{ textAlign: "left", color: C.muted, fontSize:"var(--arcd-type-label)" }}>
                 <th style={{ padding: "6px 8px" }}>Funcionário</th><th style={{ padding: "6px 8px" }}>Situação</th><th style={{ padding: "6px 8px" }}>Batidas (horário da obra)</th>
               </tr></thead>
               <tbody>{resumo.map(l => <tr key={l.employeeId} style={{ borderTop: `1px solid ${C.line}` }}>
@@ -220,7 +220,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
                 </td>
               </tr>)}</tbody>
             </table>
-            <p style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>"!" = identificada pelo encarregado, hora não confirmada pelo servidor ou relógio do celular alterado. A batida vale do mesmo jeito; o sinal é para conferência.</p>
+            <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 8 }}>"!" = identificada pelo encarregado, hora não confirmada pelo servidor ou relógio do celular alterado. A batida vale do mesmo jeito; o sinal é para conferência.</p>
           </div>}
         {!!acessosTerceiros.length && <p style={{ fontSize: 12, color: C.muted, marginTop: 10 }}>
           Acessos de terceirizados: {acessosTerceiros.map(a => `${horaLocal(a.marcadoEm).slice(0, 5)} ${(data?.terceirizados || []).find(t => String(t.id) === String(a.terceiroId))?.name || "terceirizado"}`).join(" · ")}
@@ -272,7 +272,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
             options={[{ v: "", l: "Selecione" }, ...(data?.usuarios || []).filter(u => u.active !== false).map(u => ({ v: String(u.id), l: u.nome || u.email }))]} />
           <Inp label="PIN do app (4 a 8 números)" type="password" value={pinModal.pin} onChange={v => setPinModal(p => ({ ...p, pin: String(v).replace(/\D/g, "").slice(0, 8) }))} />
           <fieldset style={{ border: `1px solid ${C.border}`, borderRadius: 4, padding: 10 }}>
-            <legend style={{ fontSize: 11.5, color: C.muted, padding: "0 4px" }}>Obras em que pode atuar (nenhuma marcada = todas)</legend>
+            <legend style={{ fontSize:"var(--arcd-type-label)", color: C.muted, padding: "0 4px" }}>Obras em que pode atuar (nenhuma marcada = todas)</legend>
             {obras.map(o => <label key={o.id} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12.5, padding: "3px 0" }}>
               <input type="checkbox" checked={pinModal.obras.includes(o.id)} onChange={e => setPinModal(p => ({ ...p, obras: e.target.checked ? [...p.obras, o.id] : p.obras.filter(x => x !== o.id) }))} />{o.name}
             </label>)}

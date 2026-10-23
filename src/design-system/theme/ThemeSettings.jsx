@@ -1,6 +1,6 @@
 import { Button } from "../primitives/Button.jsx";
 import { Select } from "../primitives/Select.jsx";
-import { themeRegistry } from "../themes/themeRegistry.js";
+import { DEFAULT_THEME, themeRegistry } from "../themes/themeRegistry.js";
 import { useTheme } from "./ThemeProvider.jsx";
 import { DEFAULT_DENSITY, densityOptions } from "./themeValidation.js";
 
@@ -11,7 +11,7 @@ const densityLabels = Object.freeze({ compact: "Compacta", comfortable: "Confort
 export function ThemeSettings() {
   const { theme, density, setTheme, setDensity } = useTheme();
   const availableThemes = Object.values(themeRegistry).filter(item => item.enabled);
-  const restoreDefaults = () => { setTheme("carbon"); setDensity(DEFAULT_DENSITY); };
+  const restoreDefaults = () => { setTheme(DEFAULT_THEME); setDensity(DEFAULT_DENSITY); };
   return <section className="arcd-form-section" aria-labelledby="theme-settings-title">
     <h2 id="theme-settings-title" className="arcd-form-section__title">Aparência operacional</h2>
     <p className="arcd-form-section__description">Tema e densidade alteram apenas a aparência e o tamanho dos controles. Dados e permissões não são modificados.</p>

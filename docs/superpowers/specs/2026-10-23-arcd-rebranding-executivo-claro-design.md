@@ -1,6 +1,6 @@
 # ARCD — rebranding executivo claro
 
-Status: proposta para aprovação antes da implementação.
+Status: direção aprovada pelo usuário, incluindo hierarquia dos textos, cores de estado e linguagem clara.
 
 ## Direção confirmada
 

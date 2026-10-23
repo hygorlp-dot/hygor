@@ -312,7 +312,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 
       {/* Selecionar funcionário */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,padding:14,borderRadius:10,display:"flex",flexDirection:"column",gap:10}}>
-        <p style={{fontSize:11,fontWeight:900,color:C.yellow,textTransform:"uppercase",letterSpacing:.8}}> Trabalhador</p>
+        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.8}}> Trabalhador</p>
         <Sel label="Selecionar da lista (ou preencha manualmente abaixo)"
           value={form.empId}
           onChange={selectEmp}
@@ -328,7 +328,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 
       {/* Datas e valores */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.orange}`,padding:14,borderRadius:10,display:"flex",flexDirection:"column",gap:10}}>
-        <p style={{fontSize:11,fontWeight:900,color:C.orange,textTransform:"uppercase",letterSpacing:.8}}> Período e Valores</p>
+        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange,textTransform:"uppercase",letterSpacing:.8}}> Período e Valores</p>
         <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
           <Inp label="Data de admissão *"  type="date" value={form.admissao}    onChange={F("admissao")}/>
           <Inp label="Data de rescisão *"  type="date" value={form.demissao}    onChange={F("demissao")}/>
@@ -337,13 +337,13 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         </div>
         <Sel label="Motivo da rescisão *" value={form.tipo} onChange={F("tipo")} options={RESCISSION_TYPES}/>
         {form.tipoHerdado && form.tipoHerdado === form.tipo && (
-          <p style={{fontSize:10.5,color:C.muted,marginTop:-4}}>Herdado do desligamento registrado em Equipe - revise se necessário.</p>
+          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:-4}}>Herdado do desligamento registrado em Equipe - revise se necessário.</p>
         )}
 
         {/* Acordo interno - campo especial */}
         {form.tipo === "acordo_interno" && (
-          <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderLeft:`4px solid ${C.yellow}`,padding:"12px 14px",borderRadius:8,display:"flex",flexDirection:"column",gap:10}}>
-            <p style={{fontSize:12,fontWeight:700,color:C.yellow}}> Acordo Interno - cálculo simplificado</p>
+          <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderLeft:`1px solid ${C.yellow}`,padding:"12px 14px",borderRadius:8,display:"flex",flexDirection:"column",gap:10}}>
+            <p style={{fontSize:12,fontWeight:600,color:C.yellow}}> Acordo Interno - cálculo simplificado</p>
             <p style={{fontSize:12,color:C.subtle}}>
               Total = Valor fixo mensal x meses ativos (+ fração proporcional de dias).
             </p>
@@ -356,10 +356,10 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
             />
             {calc && calc.isAcordoInterno && (
               <div style={{background:`${C.yellow}20`,borderRadius:8,padding:"10px 14px"}}>
-                <p style={{fontSize:13,color:C.yellow,fontWeight:900}}>
+                <p style={{fontSize:13,color:C.yellow,fontWeight:600}}>
                   {fmt(Number(form.valorFixoAcordo||form.valorMensal||0))} x {calc.mesesAtivos.toFixed(2)} meses = {fmt(calc.totalBruto)}
                 </p>
-                <p style={{fontSize:11,color:C.subtle,marginTop:3}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,marginTop:3}}>
                   ({calc.totalMeses} meses completos + {calc.diasResto} dias = {calc.mesesAtivos.toFixed(4)} meses)
                 </p>
               </div>
@@ -369,7 +369,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 
         {form.admissao && form.demissao && calc && (
           <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}33`,padding:"10px 14px",borderRadius:8}}>
-            <p style={{fontSize:12,color:C.yellow,fontWeight:700}}>
+            <p style={{fontSize:12,color:C.yellow,fontWeight:600}}>
                {calc.anos > 0 ? `${calc.anos} ano(s), ` : ""}{calc.totalMeses % 12} mês(es) e {calc.diasResto} dia(s) de serviço
                <span style={{color:C.subtle}}>{calc.avos13} avo(s) para 13º e férias</span>
             </p>
@@ -380,7 +380,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       {/* Verbas rescisórias - ocultar no acordo interno */}
       {form.tipo !== "acordo_interno" && (
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.green}`,padding:14,borderRadius:10,display:"flex",flexDirection:"column",gap:10}}>
-        <p style={{fontSize:11,fontWeight:900,color:C.green,textTransform:"uppercase",letterSpacing:.8}}> Verbas rescisórias</p>
+        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green,textTransform:"uppercase",letterSpacing:.8}}> Verbas rescisórias</p>
         {[
           ["incluirSaldo",  "Saldo de salário",              true],
           ["incluir13",     "13º salário proporcional",      true],
@@ -389,12 +389,12 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         ].map(([key, label, def]) => (
           <label key={key} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 10px",background:form[key]?`${C.green}0d`:"transparent",borderRadius:8,border:`1px solid ${form[key]?C.green+"33":C.line}`}}>
             <div onClick={()=>F(key)(!form[key])} style={{width:20,height:20,border:`2px solid ${form[key]?C.green:C.muted}`,background:form[key]?C.green:"transparent",borderRadius:5,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
-              {form[key] && <span style={{color:C.ink,fontSize:13,fontWeight:900,lineHeight:1}}>ok</span>}
+              {form[key] && <span style={{color:C.ink,fontSize:13,fontWeight:600,lineHeight:1}}>ok</span>}
             </div>
             <div style={{flex:1}}>
-              <p style={{fontSize:13,fontWeight:700,color:form[key]?C.text:C.muted}}>{label}</p>
+              <p style={{fontSize:13,fontWeight:600,color:form[key]?C.text:C.muted}}>{label}</p>
               {calc && form[key] && (
-                <p style={{fontSize:11,color:C.green,marginTop:1}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.green,marginTop:1}}>
                   {key==="incluirSaldo"  && `${form.diasNoMes||0} dias x R$ ${Number((Number(form.valorMensal||0)/30)).toFixed(2)} = ${fmt(calc.saldoSalario)}`}
                   {key==="incluir13"     && `${calc.avos13}/12 x ${fmt(Number(form.valorMensal||0))} = ${fmt(calc.dec13)}`}
                   {key==="incluirFerias" && `${calc.avosFerias}/12 x ${fmt(Number(form.valorMensal||0))} x 4/3 = ${fmt(calc.feriasTotal)}`}
@@ -410,7 +410,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 
       {/* Descontos */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.red}`,padding:14,borderRadius:10,display:"flex",flexDirection:"column",gap:10}}>
-        <p style={{fontSize:11,fontWeight:900,color:C.red,textTransform:"uppercase",letterSpacing:.8}}> Descontos</p>
+        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red,textTransform:"uppercase",letterSpacing:.8}}> Descontos</p>
         <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
           <Inp label="Adiantamentos (R$)" type="number" value={form.descAdiantamento} onChange={F("descAdiantamento")} placeholder="0,00"/>
           <Inp label="Outros descontos (R$)" type="number" value={form.descOutros} onChange={F("descOutros")} placeholder="0,00"/>
@@ -421,9 +421,9 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       {/* Resultado */}
       {calc ? (
         <div style={{background:`${C.yellow}12`,color:C.text,padding:"18px 20px",borderRadius:12,border:`1px solid ${C.yellow}44`}}>
-          <p style={{fontSize:11,fontWeight:900,letterSpacing:1.2,textTransform:"uppercase",color:C.yellowD}}>Total líquido a receber</p>
-          <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:"clamp(26px,11vw,48px)",letterSpacing:1,lineHeight:.95,color:C.text}}>{fmt(calc.totalLiquido)}</p>
-          <p style={{fontSize:12,fontWeight:700,marginTop:6,color:C.muted}}>{valorPorExtenso(calc.totalLiquido)}</p>
+          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,letterSpacing:1.2,textTransform:"uppercase",color:C.yellowD}}>Total líquido a receber</p>
+          <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"clamp(26px,11vw,48px)",letterSpacing:1,lineHeight:.95,color:C.text}}>{fmt(calc.totalLiquido)}</p>
+          <p style={{fontSize:12,fontWeight:600,marginTop:6,color:C.muted}}>{valorPorExtenso(calc.totalLiquido)}</p>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:14}}>
             {[
               ["Vencimentos",fmt(calc.totalBruto)],
@@ -431,8 +431,8 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
               ["Líquido",    fmt(calc.totalLiquido)],
             ].map(([l,v])=>(
               <div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,padding:"8px 10px",borderRadius:8}}>
-                <p style={{fontSize:9,fontWeight:900,textTransform:"uppercase",color:C.muted}}>{l}</p>
-                <p style={{fontWeight:900,fontSize:15,color:C.text}}>{v}</p>
+                <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",color:C.muted}}>{l}</p>
+                <p style={{fontWeight:600,fontSize:15,color:C.text}}>{v}</p>
               </div>
             ))}
           </div>
@@ -453,7 +453,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       <Btn onClick={salvar} full disabled={!calc||salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Salvar no histórico"}</Btn>
 
       {/* Histórico */}
-      <button onClick={()=>setHistory(h=>!h)} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"10px 14px",cursor:"pointer",borderRadius:8,fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:14,textTransform:"uppercase",letterSpacing:.5,textAlign:"left"}}>
+      <button onClick={()=>setHistory(h=>!h)} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"10px 14px",cursor:"pointer",borderRadius:8,fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:14,textTransform:"uppercase",letterSpacing:.5,textAlign:"left"}}>
         {history?" Ocultar":" Ver"} histórico de rescisões ({rescisoes.length})
       </button>
 
@@ -464,19 +464,19 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       )}
 
       {history && rescisoes.map(r => (
-        <div key={r.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${C.red}`,padding:"12px 16px",borderRadius:10}}>
+        <div key={r.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${C.red}`,padding:"12px 16px",borderRadius:10}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
             <div>
-              <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:900,fontSize:17}}>{r.empName}</p>
-              <p style={{fontSize:11,color:C.muted,marginTop:2}}>
+              <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:17}}>{r.empName}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                 {r.empFuncao&&`${r.empFuncao}  `}{r.obraName&&`${r.obraName}  `}
                 {fmtDateFull(r.admissao)} → {fmtDateFull(r.demissao)}
               </p>
-              <p style={{fontSize:11,color:C.subtle,marginTop:2}}>{RESCISSION_TYPE_LABEL[r.tipo]||r.tipo}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,marginTop:2}}>{RESCISSION_TYPE_LABEL[r.tipo]||r.tipo}</p>
             </div>
             <div style={{textAlign:"right",flexShrink:0}}>
-              <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:22,color:C.yellow,letterSpacing:.5}}>{fmt(r.totalLiquido)}</p>
-              <p style={{fontSize:10,color:C.muted}}>{new Date(r.createdAt).toLocaleDateString("pt-BR")}</p>
+              <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:22,color:C.yellow,letterSpacing:.5}}>{fmt(r.totalLiquido)}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{new Date(r.createdAt).toLocaleDateString("pt-BR")}</p>
             </div>
           </div>
           <div style={{display:"flex",gap:6,marginTop:10}}>

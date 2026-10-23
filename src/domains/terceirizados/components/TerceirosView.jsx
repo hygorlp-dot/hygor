@@ -396,7 +396,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     }
   };
 
-  //  KANBAN DE CONTRATOS 
+  //  KANBAN DE CONTRATOS
 
   // Cards visiveis no Kanban, ja filtrados por obra.
   // Avanco fisico de um contrato: medido / soma das etapas. Sem etapas, cai no
@@ -498,7 +498,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     if (t && col) moverSituacao(t, col);
   };
 
-  //  DOCUMENTOS DO TERCEIRIZADO 
+  //  DOCUMENTOS DO TERCEIRIZADO
 
   // Documentos dos contratos visíveis neste contexto, achatados para o painel.
   const documentosPendentes = useMemo(() => {
@@ -511,7 +511,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     return lista.sort((a, b) => a.dias - b.dias);
   }, [kanbanTerc]);
 
-  //  ETAPAS DO CONTRATO E MEDICOES 
+  //  ETAPAS DO CONTRATO E MEDICOES
   // "1.500,00" | "1500.50" | 1500 -> number. Decide pelo separador que aparece
   // por ultimo: quem vier depois e a virgula decimal, o outro e milhar.
   const num = v => {
@@ -981,7 +981,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     return s + (p ? Number(p.amount) : 0);
   }, 0);
 
-  //  JSX 
+  //  JSX
   return (
     <div className="anim terceiros-workspace">
 
@@ -1377,7 +1377,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
         {podeGerenciarPagamentos && medicoesAguardandoAprovacao.length>0 && (
           <div style={{ background:C.card, border:`1px solid ${C.orange}66`, borderRadius:4, padding:"13px 15px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-              <p style={{ fontSize:12.5, fontWeight:900, color:C.text, textTransform:"uppercase" }}>Medições aguardando aprovação</p>
+              <p style={{ fontSize:12.5, fontWeight:600, color:C.text, textTransform:"uppercase" }}>Medições aguardando aprovação</p>
               <Badge color={C.orange}>{medicoesAguardandoAprovacao.length}</Badge>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:7, marginTop:9 }}>
@@ -1387,8 +1387,8 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   <div key={m.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:9, flexWrap:"wrap",
                                             background:C.surface, border:`1px solid ${C.border}`, borderRadius:7, padding:"8px 11px" }}>
                     <div style={{ minWidth:0 }}>
-                      <p style={{ fontSize:12, fontWeight:800, color:C.text }}>{t?.name||"Prestador"} · {fmtDateFull(m.data)}</p>
-                      <p style={{ fontSize:10.5, color:C.muted, marginTop:2 }}>{specInfo(t?.specialty).l} · {obraName(m.obraId)} · {m.itens.length} etapa(s)</p>
+                      <p style={{ fontSize:12, fontWeight:600, color:C.text }}>{t?.name||"Prestador"} · {fmtDateFull(m.data)}</p>
+                      <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginTop:2 }}>{specInfo(t?.specialty).l} · {obraName(m.obraId)} · {m.itens.length} etapa(s)</p>
                     </div>
                     <div style={{ display:"flex", gap:7, alignItems:"center" }}>
                       <b style={{ fontSize:13.5, color:C.text }}>{fmt(m.total)}</b>
@@ -1424,13 +1424,13 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               <div style={{ background:C.card, border:`1px solid ${info.color}66`, borderRadius:4, padding:"13px 15px" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", gap:8, flexWrap:"wrap" }}>
                   <div style={{ minWidth:0 }}>
-                    <p style={{ fontSize:16, fontWeight:900, color:C.text }}>{tercAtual.name}</p>
-                    <p style={{ fontSize:11.5, color:info.color, fontWeight:700 }}>
+                    <p style={{ fontSize:16, fontWeight:600, color:C.text }}>{tercAtual.name}</p>
+                    <p style={{ fontSize:"var(--arcd-type-label)", color:info.color, fontWeight:600 }}>
                       {info.l} · {obraName(tercAtual.obraId)}
                     </p>
                   </div>
                   <div style={{ display:"flex", gap:6, alignItems:"flex-start" }}>
-                    <span style={{ fontSize:10, fontWeight:900, color:col.cor, background:`${col.cor}18`, borderRadius:99, padding:"4px 10px", whiteSpace:"nowrap" }}>{col.l}</span>
+                    <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:col.cor, background:`${col.cor}18`, borderRadius:99, padding:"4px 10px", whiteSpace:"nowrap" }}>{col.l}</span>
                     <Btn size="sm" v="info" onClick={()=>novoContratoDoPrestador(tercAtual)}>Outra obra</Btn>
                     <Btn size="sm" v="ghost" onClick={()=>editarTerc(tercAtual)}>Editar</Btn>
                   </div>
@@ -1438,21 +1438,21 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:"6px 14px", marginTop:10 }}>
                   {tercAtual.documento && (
                     <div>
-                      <p style={{ fontSize:9, fontWeight:900, color:C.muted, letterSpacing:.5 }}>{tercAtual.tipoPessoa==="PF"?"CPF":"CNPJ"}</p>
+                      <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>{tercAtual.tipoPessoa==="PF"?"CPF":"CNPJ"}</p>
                       <p style={{ fontSize:12, color:C.text }}>{maskDoc(tercAtual.documento, tercAtual.tipoPessoa)}
-                        <span style={{ marginLeft:6, fontSize:10, fontWeight:800, color: docOk?C.green:C.red }}>{docOk?"✓":"inválido"}</span>
+                        <span style={{ marginLeft:6, fontSize:"var(--arcd-type-label)", fontWeight:600, color: docOk?C.green:C.red }}>{docOk?"✓":"inválido"}</span>
                       </p>
                     </div>
                   )}
-                  {tercAtual.razaoSocial && <div><p style={{ fontSize:9, fontWeight:900, color:C.muted, letterSpacing:.5 }}>RAZÃO SOCIAL</p><p style={{ fontSize:12, color:C.text }}>{tercAtual.razaoSocial}</p></div>}
-                  {tercAtual.responsavel && <div><p style={{ fontSize:9, fontWeight:900, color:C.muted, letterSpacing:.5 }}>RESPONSÁVEL</p><p style={{ fontSize:12, color:C.text }}>{tercAtual.responsavel}</p></div>}
-                  {tercAtual.phone && <div><p style={{ fontSize:9, fontWeight:900, color:C.muted, letterSpacing:.5 }}>TELEFONE</p><p style={{ fontSize:12, color:C.text }}>{tercAtual.phone}</p></div>}
-                  {(tercAtual.startDate || tercAtual.endDate) && <div><p style={{ fontSize:9, fontWeight:900, color:C.muted, letterSpacing:.5 }}>PERÍODO</p><p style={{ fontSize:12, color:C.text }}>{tercAtual.startDate?fmtDateFull(tercAtual.startDate):"?"}{tercAtual.endDate?` → ${fmtDateFull(tercAtual.endDate)}`:""}</p></div>}
-                  {(Number(tercAtual.retISS)>0 || Number(tercAtual.retINSS)>0) && <div><p style={{ fontSize:9, fontWeight:900, color:C.muted, letterSpacing:.5 }}>RETENÇÕES</p><p style={{ fontSize:12, color:C.text }}>{Number(tercAtual.retISS)>0?`ISS ${tercAtual.retISS}% (${tercAtual.retISSQuem==="fonte"?"fonte":"prestador"})`:""}{Number(tercAtual.retISS)>0&&Number(tercAtual.retINSS)>0?" · ":""}{Number(tercAtual.retINSS)>0?`INSS ${tercAtual.retINSS}% (${tercAtual.retINSSQuem==="fonte"?"fonte":"prestador"})`:""}</p></div>}
+                  {tercAtual.razaoSocial && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>RAZÃO SOCIAL</p><p style={{ fontSize:12, color:C.text }}>{tercAtual.razaoSocial}</p></div>}
+                  {tercAtual.responsavel && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>RESPONSÁVEL</p><p style={{ fontSize:12, color:C.text }}>{tercAtual.responsavel}</p></div>}
+                  {tercAtual.phone && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>TELEFONE</p><p style={{ fontSize:12, color:C.text }}>{tercAtual.phone}</p></div>}
+                  {(tercAtual.startDate || tercAtual.endDate) && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>PERÍODO</p><p style={{ fontSize:12, color:C.text }}>{tercAtual.startDate?fmtDateFull(tercAtual.startDate):"?"}{tercAtual.endDate?` → ${fmtDateFull(tercAtual.endDate)}`:""}</p></div>}
+                  {(Number(tercAtual.retISS)>0 || Number(tercAtual.retINSS)>0) && <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>RETENÇÕES</p><p style={{ fontSize:12, color:C.text }}>{Number(tercAtual.retISS)>0?`ISS ${tercAtual.retISS}% (${tercAtual.retISSQuem==="fonte"?"fonte":"prestador"})`:""}{Number(tercAtual.retISS)>0&&Number(tercAtual.retINSS)>0?" · ":""}{Number(tercAtual.retINSS)>0?`INSS ${tercAtual.retINSS}% (${tercAtual.retINSSQuem==="fonte"?"fonte":"prestador"})`:""}</p></div>}
                   {(() => {
                     const dd = diasDiarioTerc[tercAtual.id];
                     if (!dd || (dd.dias + dd.meios) === 0) return null;
-                    return <div><p style={{ fontSize:9, fontWeight:900, color:C.muted, letterSpacing:.5 }}>PRESENÇA (DIÁRIO)</p><p style={{ fontSize:12, color:C.text }}>{dd.dias} dia(s){dd.meios?` + ${dd.meios} meio`:""} em obra</p></div>;
+                    return <div><p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:C.muted, letterSpacing:.5 }}>PRESENÇA (DIÁRIO)</p><p style={{ fontSize:12, color:C.text }}>{dd.dias} dia(s){dd.meios?` + ${dd.meios} meio`:""} em obra</p></div>;
                   })()}
                 </div>
                 {(tercAtual.documentos || []).length > 0 && (
@@ -1461,7 +1461,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                       const dias = diasAte(doc.validade);
                       const cor = dias===null?C.muted:dias<=0?C.red:dias<=30?C.orange:C.green;
                       return (
-                        <span key={doc.id} style={{ fontSize:9.5, fontWeight:800, color:cor, background:`${cor}14`, borderRadius:6, padding:"3px 8px" }}>
+                        <span key={doc.id} style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:cor, background:`${cor}14`, borderRadius:6, padding:"3px 8px" }}>
                           {docTercInfo(doc.tipo).l.split(" ")[0]} {dias===null?"":dias<0?`vencida`:dias<=30?`${dias}d`:"ok"}
                         </span>
                       );
@@ -1475,13 +1475,13 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
           {/* Curva de evolução: medido acumulado ao longo das medições */}
           {medicoesTercAtual.length > 1 && (
             <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 14px" }}>
-              <p style={{ fontSize:10, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>Evolução do medido</p>
+              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.muted, textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>Evolução do medido</p>
               <ResponsiveContainer width="100%" height={130}>
                 <LineChart data={(() => { let ac=0; return medicoesTercAtual.map(m => { ac+=Number(m.total||0); return { nome:`M${m.numero}`, acumulado:Math.round(ac) }; }); })()}
                   margin={{ top:4, right:8, bottom:0, left:-14 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={C.line}/>
-                  <XAxis dataKey="nome" tick={{ fontSize:10, fill:C.muted }} axisLine={{ stroke:C.border }} tickLine={false}/>
-                  <YAxis tick={{ fontSize:9, fill:C.muted }} axisLine={false} tickLine={false} tickFormatter={v=>`${(v/1000).toFixed(0)}k`}/>
+                  <XAxis dataKey="nome" tick={{ fontSize:"var(--arcd-type-label)", fill:C.muted }} axisLine={{ stroke:C.border }} tickLine={false}/>
+                  <YAxis tick={{ fontSize:"var(--arcd-type-caption)", fill:C.muted }} axisLine={false} tickLine={false} tickFormatter={v=>`${(v/1000).toFixed(0)}k`}/>
                   <Tooltip formatter={v=>fmt(v)} contentStyle={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:6, fontSize:12 }}/>
                   <Line type="monotone" dataKey="acumulado" stroke={C.blue} strokeWidth={2.5} dot={{ r:3, fill:C.blue }}/>
                 </LineChart>
@@ -1512,7 +1512,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               mede uma coisa e o contrato vale outra. */}
           {etapasTerc.length > 0 && Math.abs(somaEtapas - Number(tercAtual.contractValue||0)) > 0.5 && (
             <div style={{ background:`${C.orange}12`, border:`1px solid ${C.orange}55`, borderRadius:8, padding:"9px 12px" }}>
-              <p style={{ fontSize:11.5, color:C.orange, lineHeight:1.55 }}>
+              <p style={{ fontSize:"var(--arcd-type-label)", color:C.orange, lineHeight:1.55 }}>
                 As etapas somam <b>{fmt(somaEtapas)}</b> e o contrato é de <b>{fmt(tercAtual.contractValue)}</b> -
                 diferença de {fmt(Math.abs(somaEtapas - Number(tercAtual.contractValue||0)))}.
                 Ajuste os valores das etapas ou o valor do contrato no cadastro.
@@ -1530,7 +1530,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               <Btn size="sm" onClick={()=>abrirMedicao()} disabled={!podeRegistrarEvidencia}><Ic n="plus"/> Nova medição</Btn>
             </div>
           </div>
-          {!podeRegistrarEvidencia&&<div style={{background:`${C.orange}0D`,border:`1px solid ${C.orange}55`,borderRadius:8,padding:"8px 11px"}}><p style={{fontSize:10.5,color:C.orange,fontWeight:800}}>A medição e suas fotografias devem ser registradas por um engenheiro de campo ou engenheiro auditor.</p></div>}
+          {!podeRegistrarEvidencia&&<div style={{background:`${C.orange}0D`,border:`1px solid ${C.orange}55`,borderRadius:8,padding:"8px 11px"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600}}>A medição e suas fotografias devem ser registradas por um engenheiro de campo ou engenheiro auditor.</p></div>}
 
           <div className="terceiros-stage-list">
             {etapasTerc.map((e, i) => {
@@ -1563,7 +1563,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               );
             })}
             {!etapasTerc.length && (
-              <p style={{ padding:20, textAlign:"center", fontSize:11.5, color:C.muted }}>
+              <p style={{ padding:20, textAlign:"center", fontSize:"var(--arcd-type-label)", color:C.muted }}>
                 Contrato ainda inteiro. Use "Sugerir etapas" ou cadastre uma abaixo.
               </p>
             )}
@@ -1583,7 +1583,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
           </div>
 
           {/* Historico de medicoes */}
-          <p style={{ fontSize:10, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>
+          <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.muted, textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>
             Medições ({medicoesTercAtual.length})
           </p>
           <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
@@ -1597,16 +1597,16 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                                        borderRadius:4, padding:"10px 13px" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", gap:9, flexWrap:"wrap" }}>
                   <div>
-                    <p style={{ fontSize:13.5, fontWeight:900, color:C.text }}>
+                    <p style={{ fontSize:13.5, fontWeight:600, color:C.text }}>
                       Medição {m.numero||medicoesTercAtual.length-indiceMedicao} · {fmtDateFull(m.data)}
                     </p>
-                    <p style={{ fontSize:10.5, color:C.muted, marginTop:2 }}>
+                    <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginTop:2 }}>
                       {m.itens.length} etapa(s) · {statusLabel}
                     </p>
                   </div>
                   <div style={{ textAlign:"right" }}>
-                    <p style={{ fontSize:17, fontWeight:800, color:m.total>=0?C.green:C.red,
-                                fontFamily:"'Inter Display','Inter',sans-serif" }}>{fmt(m.total)}</p>
+                    <p style={{ fontSize:17, fontWeight:600, color:m.total>=0?C.green:C.red,
+                                fontFamily:"var(--arcd-font-sans)" }}>{fmt(m.total)}</p>
                     <span style={{ marginTop:4, display:"inline-flex" }}>
                       {m.status==="rascunho"
                         ? <Badge color={C.orange}><Ic n="clock" s={9}/> AGUARDANDO APROVAÇÃO</Badge>
@@ -1619,14 +1619,14 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   </div>
                 </div>
                 {m.status==="rejeitada"&&<div style={{marginTop:7,background:`${C.red}0B`,border:`1px solid ${C.red}44`,borderRadius:7,padding:"7px 9px"}}>
-                  <p style={{fontSize:10,fontWeight:850,color:C.red}}>Motivo da rejeição</p>
-                  <p style={{fontSize:10.5,color:C.text,marginTop:2}}>{m.motivoRejeicao}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red}}>Motivo da rejeição</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:2}}>{m.motivoRejeicao}</p>
                 </div>}
                 <div style={{ marginTop:7, display:"flex", flexDirection:"column", gap:3 }}>
                   {m.itens.map(i => {
                     const et = etapasTerc.find(e => e.id === i.etapaId);
                     return (
-                      <div key={i.etapaId} style={{ display:"flex", justifyContent:"space-between", gap:8, fontSize:11 }}>
+                      <div key={i.etapaId} style={{ display:"flex", justifyContent:"space-between", gap:8, fontSize:"var(--arcd-type-label)" }}>
                         <span style={{ color:C.subtle, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                           {et?.nome || "Etapa removida"}
                         </span>
@@ -1637,8 +1637,8 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                     );
                   })}
                 </div>
-                {m.observacao && <p style={{ fontSize:11, color:C.muted, fontStyle:"italic", marginTop:6 }}>"{m.observacao}"</p>}
-                {(m.fotos||[]).length?<div style={{marginTop:8}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:6}}><p style={{fontSize:9.5,fontWeight:900,color:C.green,textTransform:"uppercase"}}>Evidência fotográfica · {(m.fotos||[]).length}</p><p style={{fontSize:9.5,color:C.muted}}>Por {m.responsavelEvidencia||m.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(76px,1fr))",gap:6}}>{(m.fotos||[]).map(f=><a key={f.id||f.url} href={f.url} target="_blank" rel="noopener noreferrer" title="Ampliar fotografia" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:`1px solid ${C.border}`,background:C.surface}}><img src={f.url} alt={f.legenda||"Evidência da medição"} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a>)}</div></div>:<div style={{marginTop:8,background:`${C.red}0B`,border:`1px solid ${C.red}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:10,fontWeight:850,color:C.red}}>Medição sem evidência fotográfica</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Registro antigo: o financeiro será alertado antes do pagamento.</p></div>}
+                {m.observacao && <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, fontStyle:"italic", marginTop:6 }}>"{m.observacao}"</p>}
+                {(m.fotos||[]).length?<div style={{marginTop:8}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:6}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.green,textTransform:"uppercase"}}>Evidência fotográfica · {(m.fotos||[]).length}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Por {m.responsavelEvidencia||m.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(76px,1fr))",gap:6}}>{(m.fotos||[]).map(f=><a key={f.id||f.url} href={f.url} target="_blank" rel="noopener noreferrer" title="Ampliar fotografia" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:`1px solid ${C.border}`,background:C.surface}}><img src={f.url} alt={f.legenda||"Evidência da medição"} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a>)}</div></div>:<div style={{marginTop:8,background:`${C.red}0B`,border:`1px solid ${C.red}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red}}>Medição sem evidência fotográfica</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Registro antigo: o financeiro será alertado antes do pagamento.</p></div>}
                 {/* Previa de retencao antes de pagar / decomposicao apos pago */}
                 {(() => {
                   // Fonte da verdade: se ja pago, os valores gravados no
@@ -1651,21 +1651,21 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   if (iss + inss <= 0 && !pg) return null;
                   return (
                     <div style={{ marginTop:7, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:"7px 10px" }}>
-                      {pg && <div style={{ display:"flex", justifyContent:"space-between", fontSize:10.5, color:C.muted, marginBottom:4 }}>
+                      {pg && <div style={{ display:"flex", justifyContent:"space-between", fontSize:"var(--arcd-type-label)", color:C.muted, marginBottom:4 }}>
                         <span>Origem do pagamento</span>
                         <b style={{ color:pg.pagador === "empresa" ? C.blue : C.orange }}>
                           {pg.pagador === "empresa" ? "Empresa" : `Obra ${obraName(pg.obraId)}`}
                         </b>
                       </div>}
-                      <div style={{ display:"flex", justifyContent:"space-between", fontSize:10.5, color:C.muted }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontSize:"var(--arcd-type-label)", color:C.muted }}>
                         <span>Bruto (custo da obra)</span><b style={{ color:C.text }}>{fmt(m.total)}</b>
                       </div>
-                      {iss > 0 && <div style={{ display:"flex", justifyContent:"space-between", fontSize:10.5, color:C.muted }}>
+                      {iss > 0 && <div style={{ display:"flex", justifyContent:"space-between", fontSize:"var(--arcd-type-label)", color:C.muted }}>
                         <span>(-) ISS retido ({tercAtual.retISS}%)</span><span>{fmt(iss)}</span></div>}
-                      {inss > 0 && <div style={{ display:"flex", justifyContent:"space-between", fontSize:10.5, color:C.muted }}>
+                      {inss > 0 && <div style={{ display:"flex", justifyContent:"space-between", fontSize:"var(--arcd-type-label)", color:C.muted }}>
                         <span>(-) INSS retido ({tercAtual.retINSS}%)</span><span>{fmt(inss)}</span></div>}
-                      <div style={{ display:"flex", justifyContent:"space-between", fontSize:11.5, marginTop:3, borderTop:`1px solid ${C.line}`, paddingTop:3 }}>
-                        <span style={{ fontWeight:800, color:C.text }}>Líquido ao prestador</span>
+                      <div style={{ display:"flex", justifyContent:"space-between", fontSize:"var(--arcd-type-label)", marginTop:3, borderTop:`1px solid ${C.line}`, paddingTop:3 }}>
+                        <span style={{ fontWeight:600, color:C.text }}>Líquido ao prestador</span>
                         <b style={{ color:C.green }}>{fmt(liquido)}</b>
                       </div>
                     </div>
@@ -1685,7 +1685,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               );
             })}
             {!medicoesTercAtual.length && (
-              <p style={{ padding:18, textAlign:"center", fontSize:11.5, color:C.muted,
+              <p style={{ padding:18, textAlign:"center", fontSize:"var(--arcd-type-label)", color:C.muted,
                           background:C.card, border:`1px solid ${C.border}`, borderRadius:8 }}>
                 Nenhuma medição neste contrato.
               </p>
@@ -1696,7 +1696,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
       {/*  VIEW: PAGAMENTOS  */}
       {view === "pagamentos" && (<>
-        {pagamentosSemEvidencia.length>0&&<div style={{background:`${C.red}0D`,border:`1px solid ${C.red}66`,borderRadius:4,padding:"10px 12px"}}><p style={{fontSize:10.5,fontWeight:900,color:C.red,textTransform:"uppercase"}}>Auditoria financeira · {pagamentosSemEvidencia.length} pagamento(s) sem foto</p><p style={{fontSize:10,color:C.muted,lineHeight:1.45,marginTop:3}}>Foram pagos após reconhecimento explícito do risco. Revise as medições e solicite a comprovação da execução ao engenheiro responsável.</p></div>}
+        {pagamentosSemEvidencia.length>0&&<div style={{background:`${C.red}0D`,border:`1px solid ${C.red}66`,borderRadius:4,padding:"10px 12px"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red,textTransform:"uppercase"}}>Auditoria financeira · {pagamentosSemEvidencia.length} pagamento(s) sem foto</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.45,marginTop:3}}>Foram pagos após reconhecimento explícito do risco. Revise as medições e solicite a comprovação da execução ao engenheiro responsável.</p></div>}
         {/* Impostos retidos a recolher - mês da sexta atual. So aparece se ha
             retencao no periodo; e um lembrete de obrigacao, nao um card fixo. */}
         {(() => {
@@ -1707,15 +1707,15 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
           if (iss + inss <= 0) return null;
           return (
             <div style={{ background:`${C.purple}0C`, border:`1px solid ${C.purple}44`, borderRadius:10, padding:"11px 14px" }}>
-              <p style={{ fontSize:10, fontWeight:900, color:C.purple, textTransform:"uppercase", letterSpacing:.8 }}>
+              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.purple, textTransform:"uppercase", letterSpacing:.8 }}>
                 Impostos retidos a recolher · {compLabel(ym)}
               </p>
               <div style={{ display:"flex", gap:16, marginTop:6, flexWrap:"wrap" }}>
-                {iss > 0 && <div><p style={{ fontSize:9, color:C.muted, fontWeight:800 }}>ISS</p><p style={{ fontSize:17, fontWeight:800, color:C.text }}>{fmt(iss)}</p></div>}
-                {inss > 0 && <div><p style={{ fontSize:9, color:C.muted, fontWeight:800 }}>INSS</p><p style={{ fontSize:17, fontWeight:800, color:C.text }}>{fmt(inss)}</p></div>}
-                <div><p style={{ fontSize:9, color:C.muted, fontWeight:800 }}>TOTAL</p><p style={{ fontSize:17, fontWeight:800, color:C.purple }}>{fmt(iss + inss)}</p></div>
+                {iss > 0 && <div><p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, fontWeight:600 }}>ISS</p><p style={{ fontSize:17, fontWeight:600, color:C.text }}>{fmt(iss)}</p></div>}
+                {inss > 0 && <div><p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, fontWeight:600 }}>INSS</p><p style={{ fontSize:17, fontWeight:600, color:C.text }}>{fmt(inss)}</p></div>}
+                <div><p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, fontWeight:600 }}>TOTAL</p><p style={{ fontSize:17, fontWeight:600, color:C.purple }}>{fmt(iss + inss)}</p></div>
               </div>
-              <p style={{ fontSize:10, color:C.muted, marginTop:5, lineHeight:1.4 }}>
+              <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginTop:5, lineHeight:1.4 }}>
                 Valores que a empresa reteve dos prestadores e deve recolher à prefeitura (ISS) e à Receita (INSS).
               </p>
             </div>
@@ -2003,7 +2003,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
         <Modal title={medEditId?`Corrigir medição - ${tercAtual.name}`:`Medição ${medicoesTercAtual.length + 1} - ${tercAtual.name}`}
           onClose={()=>{setMedModal(false);setMedEditId("");}} wide>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-            <p style={{ fontSize:11.5, color:C.muted, lineHeight:1.55 }}>
+            <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, lineHeight:1.55 }}>
               Informe o percentual <b>acumulado</b> de cada etapa - o total executado até hoje, não o avanço da semana.
               O app calcula a diferença para a medição anterior e valoriza só o que avançou.
             </p>
@@ -2019,8 +2019,8 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                   <div key={e.id} style={{ padding:"9px 11px", borderTop:i?`1px solid ${C.line}`:0,
                                            display:"grid", gridTemplateColumns:"minmax(0,1fr) 84px 96px", gap:8, alignItems:"center" }}>
                     <div style={{ minWidth:0 }}>
-                      <p style={{ fontSize:12.5, fontWeight:700, color:C.text }}>{e.nome}</p>
-                      <p style={{ fontSize:10, color:C.muted, marginTop:2 }}>
+                      <p style={{ fontSize:12.5, fontWeight:600, color:C.text }}>{e.nome}</p>
+                      <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginTop:2 }}>
                         {fmt(e.valor)} · anterior {anterior.toFixed(1)}%
                       </p>
                     </div>
@@ -2030,10 +2030,10 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                       style={{ width:"100%", boxSizing:"border-box", background:C.bg,
                                border:`1.5px solid ${delta<0?C.red:delta>0?C.green:C.line}`,
                                color:C.text, padding:"7px 8px", borderRadius:7, fontSize:13, textAlign:"right",
-                               outline:"none", fontFamily:"'Inter',sans-serif" }}/>
+                               outline:"none", fontFamily:"var(--arcd-font-sans)" }}/>
                     <div style={{ textAlign:"right" }}>
-                      <p style={{ fontSize:12.5, fontWeight:800, color:delta<0?C.red:delta>0?C.green:C.muted }}>{fmt(valor)}</p>
-                      <p style={{ fontSize:9.5, color:C.muted }}>{delta>0?"+":""}{delta.toFixed(1)} p.p.</p>
+                      <p style={{ fontSize:12.5, fontWeight:600, color:delta<0?C.red:delta>0?C.green:C.muted }}>{fmt(valor)}</p>
+                      <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>{delta>0?"+":""}{delta.toFixed(1)} p.p.</p>
                     </div>
                   </div>
                 );
@@ -2044,7 +2044,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
                 deve passar despercebido. */}
             {itensDaMedicao().some(i => i.pctAcum < i.pctAnterior) && (
               <div style={{ background:`${C.orange}12`, border:`1px solid ${C.orange}55`, borderRadius:8, padding:"8px 11px" }}>
-                <p style={{ fontSize:11, color:C.orange, lineHeight:1.5 }}>
+                <p style={{ fontSize:"var(--arcd-type-label)", color:C.orange, lineHeight:1.5 }}>
                   Há etapa com percentual menor que o da medição anterior. Isso gera valor negativo -
                   um estorno de medição a maior. Se não é o caso, revise os percentuais.
                 </p>
@@ -2053,8 +2053,8 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
 
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8,
                           background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:"11px 13px" }}>
-              <span style={{ fontSize:11, fontWeight:900, color:C.muted, textTransform:"uppercase", letterSpacing:.8 }}>Total desta medição</span>
-              <b style={{ fontSize:21, color:C.green, fontFamily:"'Inter Display','Inter',sans-serif" }}>
+              <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.muted, textTransform:"uppercase", letterSpacing:.8 }}>Total desta medição</span>
+              <b style={{ fontSize:21, color:C.green, fontFamily:"var(--arcd-font-sans)" }}>
                 {fmt(itensDaMedicao().reduce((s,i)=>s+i.valor,0))}
               </b>
             </div>
@@ -2063,12 +2063,12 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               placeholder="Ex.: pendente o quadro do 2º pavimento"/>
 
             <div style={{background:C.surface,border:`1px solid ${(medForm.fotos||[]).length?C.green:C.orange}66`,borderRadius:9,padding:"11px 12px"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:9,flexWrap:"wrap"}}><div><p style={{fontSize:10.5,fontWeight:900,color:C.text,textTransform:"uppercase"}}>Evidência fotográfica obrigatória</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>As imagens ficam na pasta de fotos da obra e identificam o engenheiro responsável.</p></div><Btn size="sm" v={(medForm.fotos||[]).length?"ghost":"warning"} onClick={()=>inputFotosMedRef.current?.click()} disabled={subindoFotosMed}><Ic n="camera"/> {subindoFotosMed?"Enviando...":"Adicionar fotos"}</Btn><input ref={inputFotosMedRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/></div>
-              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:7,marginTop:9}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:`1px solid ${C.border}`}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:8.5,color:C.muted,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:10,color:C.orange,fontWeight:800,marginTop:8}}>Nenhuma fotografia anexada. Clique em “Confirmar e enviar para aprovação” para selecionar a evidência.</p>}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:9,flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,textTransform:"uppercase"}}>Evidência fotográfica obrigatória</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>As imagens ficam na pasta de fotos da obra e identificam o engenheiro responsável.</p></div><Btn size="sm" v={(medForm.fotos||[]).length?"ghost":"warning"} onClick={()=>inputFotosMedRef.current?.click()} disabled={subindoFotosMed}><Ic n="camera"/> {subindoFotosMed?"Enviando...":"Adicionar fotos"}</Btn><input ref={inputFotosMedRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/></div>
+              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:7,marginTop:9}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:`1px solid ${C.border}`}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600,marginTop:8}}>Nenhuma fotografia anexada. Clique em “Confirmar e enviar para aprovação” para selecionar a evidência.</p>}
             </div>
 
             <div style={{background:`${C.green}0B`,border:`1px solid ${C.green}44`,borderRadius:8,padding:"8px 11px"}}>
-              <p style={{fontSize:10,color:C.green,fontWeight:850,lineHeight:1.45}}>Ao confirmar, a medição é enviada para aprovação do financeiro. Só depois de aprovada ela é reconhecida como despesa de terceirizado no DRE; o pagamento continua sendo apenas a baixa financeira dessa obrigação.</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.green,fontWeight:600,lineHeight:1.45}}>Ao confirmar, a medição é enviada para aprovação do financeiro. Só depois de aprovada ela é reconhecida como despesa de terceirizado no DRE; o pagamento continua sendo apenas a baixa financeira dessa obrigação.</p>
             </div>
 
             <div style={{ display:"flex", gap:8 }}>
@@ -2082,8 +2082,8 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
       {notaTercModal&&<Modal title={`Vincular NF à medição ${notaTercModal.numero}`} onClose={()=>{setNotaTercModal(null);setNotaTercId("");}}>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           <div style={{padding:"8px 10px",background:`${C.blue}08`,border:`1px solid ${C.blue}55`,borderRadius:7}}>
-            <b style={{fontSize:11,color:C.blue}}>Obrigação já reconhecida: {fmt(notaTercModal.total)}</b>
-            <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>A nota será evidência fiscal da medição; não criará um segundo custo.</p>
+            <b style={{fontSize:"var(--arcd-type-label)",color:C.blue}}>Obrigação já reconhecida: {fmt(notaTercModal.total)}</b>
+            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A nota será evidência fiscal da medição; não criará um segundo custo.</p>
           </div>
           <Sel label="Nota fiscal" value={notaTercId} onChange={setNotaTercId} options={[{v:"",l:"Selecione"},...(data.notasFiscais||[]).filter(n=>!n.medicaoTercId&&n.obraId===notaTercModal.obraId&&!["cancelada","rejeitada"].includes(n.status)).map(n=>({v:n.id,l:`${n.numero||"NF"} · ${fmt(n.valorBruto)} · ${n.fornecedorNome||"Fornecedor"}`}))]}/>
           <div style={{display:"flex",gap:7}}><Btn v="ghost" full onClick={()=>{setNotaTercModal(null);setNotaTercId("");}}>Cancelar</Btn><Btn full onClick={confirmarVinculoNotaTerceiro} disabled={!notaTercId}>Vincular e conferir</Btn></div>
@@ -2093,7 +2093,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
       {medRejeitarModal&&<Modal title={`Rejeitar medição ${medRejeitarModal.numero}`} onClose={()=>{setMedRejeitarModal(null);setMotivoRejeicao("");}}>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           <div style={{padding:"8px 10px",background:`${C.red}08`,border:`1px solid ${C.red}55`,borderRadius:7}}>
-            <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>A medição volta para o engenheiro corrigir e reenviar. Ela não é lançada no DRE enquanto estiver rejeitada.</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>A medição volta para o engenheiro corrigir e reenviar. Ela não é lançada no DRE enquanto estiver rejeitada.</p>
           </div>
           <Inp label="Motivo da rejeição" value={motivoRejeicao} onChange={setMotivoRejeicao}
             placeholder="Ex.: percentual não confere com a obra"/>
@@ -2120,15 +2120,15 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               </div>
               <p className="terceiros-payment-review__date">Baixa em {fmtDateFull(today())} · custo reconhecido em {fmtDateFull(medPayModal.data)}</p>
             </div>
-            {!(medPayModal.fotos||[]).length?<label style={{display:"flex",alignItems:"flex-start",gap:9,background:`${C.red}0D`,border:`1px solid ${C.red}77`,borderRadius:8,padding:"10px 11px",marginBottom:12,cursor:"pointer"}}><input type="checkbox" checked={riscoSemFotoAceito} onChange={e=>setRiscoSemFotoAceito(e.target.checked)} style={{marginTop:2,accentColor:C.red}}/><span><b style={{fontSize:11,color:C.red}}>Risco financeiro: medição sem fotografia da execução</b><p style={{fontSize:9.8,color:C.muted,lineHeight:1.45,marginTop:3}}>Sem evidência do engenheiro, o pagamento pode antecipar serviço não executado, incompleto ou fora da especificação. Marque somente se decidiu prosseguir mesmo assim; a exceção ficará registrada.</p></span></label>:<div style={{display:"flex",alignItems:"center",gap:7,background:`${C.green}0B`,border:`1px solid ${C.green}44`,borderRadius:8,padding:"8px 10px",marginBottom:12}}><Ic n="check" color={C.green}/><p style={{fontSize:10.5,color:C.green,fontWeight:800}}>{(medPayModal.fotos||[]).length} fotografia(s) validada(s) · {medPayModal.responsavelEvidencia||medPayModal.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div>}
+            {!(medPayModal.fotos||[]).length?<label style={{display:"flex",alignItems:"flex-start",gap:9,background:`${C.red}0D`,border:`1px solid ${C.red}77`,borderRadius:8,padding:"10px 11px",marginBottom:12,cursor:"pointer"}}><input type="checkbox" checked={riscoSemFotoAceito} onChange={e=>setRiscoSemFotoAceito(e.target.checked)} style={{marginTop:2,accentColor:C.red}}/><span><b style={{fontSize:"var(--arcd-type-label)",color:C.red}}>Risco financeiro: medição sem fotografia da execução</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.45,marginTop:3}}>Sem evidência do engenheiro, o pagamento pode antecipar serviço não executado, incompleto ou fora da especificação. Marque somente se decidiu prosseguir mesmo assim; a exceção ficará registrada.</p></span></label>:<div style={{display:"flex",alignItems:"center",gap:7,background:`${C.green}0B`,border:`1px solid ${C.green}44`,borderRadius:8,padding:"8px 10px",marginBottom:12}}><Ic n="check" color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",color:C.green,fontWeight:600}}>{(medPayModal.fotos||[]).length} fotografia(s) validada(s) · {medPayModal.responsavelEvidencia||medPayModal.fotos?.[0]?.enviadoPor||"engenheiro"}</p></div>}
             <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
               <div>
-                <p style={{ fontSize:11, fontWeight:800, color:C.text, textTransform:"uppercase", letterSpacing:.7, marginBottom:6 }}>Quem realizou este pagamento? *</p>
+                <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.text, textTransform:"uppercase", letterSpacing:.7, marginBottom:6 }}>Quem realizou este pagamento? *</p>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}>
                   {[["empresa","Empresa","Despesa administrativa"],["obra","Obra","Custo direto da obra"]].map(([v,l,dica])=>(
                     <button key={v} onClick={()=>setPaySource(v)} style={{ padding:"10px 9px", border:`2px solid ${paySource===v?C.green:C.border}`, background:paySource===v?`${C.green}12`:C.surface, borderRadius:8, cursor:"pointer", textAlign:"left" }}>
-                      <p style={{ fontSize:13, fontWeight:900, color:paySource===v?C.text:C.muted }}>{l}</p>
-                      <p style={{ fontSize:9.5, color:C.muted, marginTop:2 }}>{v==="obra"?`${dica}: ${obraName(medPayModal.obraId)}`:dica}</p>
+                      <p style={{ fontSize:13, fontWeight:600, color:paySource===v?C.text:C.muted }}>{l}</p>
+                      <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, marginTop:2 }}>{v==="obra"?`${dica}: ${obraName(medPayModal.obraId)}`:dica}</p>
                     </button>
                   ))}
                 </div>
@@ -2146,16 +2146,16 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
         <Modal title={`Pagamento - ${payModal.name}`} onClose={()=>{setPayModal(null);setPayAmount("");setPayDesc("");setPaySource("");}}>
           <div className="terceiros-payment-review">
             <p style={{ fontSize:12, color:C.muted }}>{specInfo(payModal.specialty).emoji} {specInfo(payModal.specialty).l} · {obraName(payModal.obraId)}</p>
-            <p style={{ fontSize:13, color:C.orange, fontWeight:700, marginTop:2 }}>Sexta-feira: {fmtDateFull(friday)}</p>
+            <p style={{ fontSize:13, color:C.orange, fontWeight:600, marginTop:2 }}>Sexta-feira: {fmtDateFull(friday)}</p>
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
             <div>
-              <p style={{ fontSize:11, fontWeight:800, color:C.text, textTransform:"uppercase", letterSpacing:.7, marginBottom:6 }}>Quem realizou este pagamento? *</p>
+              <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.text, textTransform:"uppercase", letterSpacing:.7, marginBottom:6 }}>Quem realizou este pagamento? *</p>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:7 }}>
                 {[["empresa","Empresa","Despesa administrativa"],["obra","Obra","Custo direto da obra"]].map(([v,l,dica])=>(
                   <button key={v} onClick={()=>setPaySource(v)} style={{ padding:"10px 9px", border:`2px solid ${paySource===v?C.orange:C.border}`, background:paySource===v?`${C.orange}12`:C.surface, borderRadius:8, cursor:"pointer", textAlign:"left" }}>
-                    <p style={{ fontSize:13, fontWeight:900, color:paySource===v?C.text:C.muted }}>{l}</p>
-                    <p style={{ fontSize:9.5, color:C.muted, marginTop:2 }}>{v==="obra"?`${dica}: ${obraName(payModal.obraId)}`:dica}</p>
+                    <p style={{ fontSize:13, fontWeight:600, color:paySource===v?C.text:C.muted }}>{l}</p>
+                    <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, marginTop:2 }}>{v==="obra"?`${dica}: ${obraName(payModal.obraId)}`:dica}</p>
                   </button>
                 ))}
               </div>

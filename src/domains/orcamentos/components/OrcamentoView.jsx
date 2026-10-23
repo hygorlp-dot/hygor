@@ -194,8 +194,8 @@ const DISCIPLINAS_MEMORIA = [["itens","ITEM A ITEM"],["caixas","CAIXAS E RESERVA
 // ===================================================================
 const Metric = ({ label, value, unit }) => (
   <div style={{display:"flex",flexDirection:"column",gap:1}}>
-    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:700,color:C.muted}}>{label}</span>
-    <span style={{fontSize:14,fontWeight:600,color:C.text,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:700,color:C.muted,marginLeft:3}}>{unit}</span>}</span>
+    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{label}</span>
+    <span style={{fontSize:14,fontWeight:600,color:C.text,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,marginLeft:3}}>{unit}</span>}</span>
   </div>
 );
 
@@ -213,8 +213,8 @@ const EditableField = ({ label, value, onChange, unit, ariaLabel, width }) => (
 
 const CalculatedValue = ({ label, value, unit }) => (
   <div style={{display:"flex",flexDirection:"column",gap:2,background:C.card2,borderRadius:6,padding:"6px 9px"}}>
-    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:700,color:C.muted}}>{label}</span>
-    <span style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:700,color:C.muted,marginLeft:3}}>{unit}</span>}</span>
+    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{label}</span>
+    <span style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,marginLeft:3}}>{unit}</span>}</span>
   </div>
 );
 
@@ -222,8 +222,8 @@ const ResultValue = ({ label, value, unit, tone="purple" }) => {
   const cor = tone==="blue" ? C.blue : C.purple;
   return (
     <div style={{display:"flex",flexDirection:"column",gap:2,background:`${cor}0c`,border:`1px solid ${cor}33`,borderRadius:6,padding:"7px 10px"}}>
-      <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:700,color:cor}}>{label}</span>
-      <span style={{fontSize:17,fontWeight:600,color:cor,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:700,marginLeft:3}}>{unit}</span>}</span>
+      <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:cor}}>{label}</span>
+      <span style={{fontSize:17,fontWeight:600,color:cor,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,marginLeft:3}}>{unit}</span>}</span>
     </div>
   );
 };
@@ -232,7 +232,7 @@ const Warning = ({ children, tone="warn" }) => {
   const cor = tone==="error" ? C.red : C.orange;
   return (
     <div style={{background:`${cor}0d`,border:`1px solid ${cor}44`,borderRadius:6,padding:"7px 9px"}}>
-      <p style={{fontSize:"var(--arcd-type-caption)",color:cor,fontWeight:700,lineHeight:1.5}}>⚠ {children}</p>
+      <p style={{fontSize:"var(--arcd-type-caption)",color:cor,fontWeight:600,lineHeight:1.5}}>⚠ {children}</p>
     </div>
   );
 };
@@ -241,7 +241,7 @@ const Warning = ({ children, tone="warn" }) => {
 // usuário pedir (pedido explícito: resultado antes do detalhe).
 const CalculationDetails = ({ formula }) => (
   <details>
-    <summary style={{cursor:"pointer",fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:700}}>Ver memória do cálculo</summary>
+    <summary style={{cursor:"pointer",fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:600}}>Ver memória do cálculo</summary>
     <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4,lineHeight:1.5}}>{formula}</p>
   </details>
 );
@@ -294,7 +294,7 @@ const TabelaEditavel = ({ colunas, linhas, onChange, onAdd, onRemove, totalLabel
     <div style={{display:"flex",flexDirection:"column",gap:0}}>
       {linhas.length>0&&(
         <div style={{display:"grid",gridTemplateColumns:grid,gap:6,padding:"0 2px 4px",borderBottom:`1px solid ${C.line}`,marginBottom:4}}>
-          {colunas.map(c=><span key={c.chave} style={{fontSize:8.5,fontWeight:800,color:C.subtle,textAlign:c.numero?"right":"left"}}>{c.rotulo}</span>)}
+          {colunas.map(c=><span key={c.chave} style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.subtle,textAlign:c.numero?"right":"left"}}>{c.rotulo}</span>)}
           <span/>
         </div>
       )}
@@ -304,14 +304,14 @@ const TabelaEditavel = ({ colunas, linhas, onChange, onAdd, onRemove, totalLabel
             <span key={c.chave}>
               {c.opcoes ? (
                 <select aria-label={c.rotulo} value={linha[c.chave]||""} onChange={e=>onChange(i,{[c.chave]:e.target.value})}
-                  style={{width:"100%",boxSizing:"border-box",padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,fontSize:10.5}}>
+                  style={{width:"100%",boxSizing:"border-box",padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,fontSize:"var(--arcd-type-label)"}}>
                   <option value="">-</option>
                   {c.opcoes.map(o=><option key={o} value={o}>{o}</option>)}
                 </select>
               ) : (
                 <input type={c.numero?"number":"text"} min={c.numero?0:undefined} step={c.numero?"any":undefined} aria-label={c.rotulo} value={linha[c.chave]}
                   onChange={e=>onChange(i,{[c.chave]:c.numero?e.target.value.replace(",","."):e.target.value})}
-                  style={{width:"100%",boxSizing:"border-box",padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:c.numero?"right":"left",fontSize:10.5}}/>
+                  style={{width:"100%",boxSizing:"border-box",padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:c.numero?"right":"left",fontSize:"var(--arcd-type-label)"}}/>
               )}
             </span>
           ))}
@@ -319,8 +319,8 @@ const TabelaEditavel = ({ colunas, linhas, onChange, onAdd, onRemove, totalLabel
         </div>
       ))}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:8}}>
-        <button onClick={onAdd} style={{border:`1px dashed ${C.border}`,background:"transparent",color:C.blue,borderRadius:5,padding:"5px 9px",fontSize:9.5,fontWeight:800,cursor:"pointer"}}>+ Adicionar linha</button>
-        {totalLabel&&linhas.length>0&&<span style={{fontSize:10.5,color:C.text}}>{totalLabel}: <b style={{color:C.purple,fontSize:12}}>{totalValor}</b></span>}
+        <button onClick={onAdd} style={{border:`1px dashed ${C.border}`,background:"transparent",color:C.blue,borderRadius:5,padding:"5px 9px",fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}>+ Adicionar linha</button>
+        {totalLabel&&linhas.length>0&&<span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{totalLabel}: <b style={{color:C.purple,fontSize:12}}>{totalValor}</b></span>}
       </div>
     </div>
   );
@@ -711,7 +711,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   };
 
 
-  //  Preço efetivo de uma composição 
+  //  Preço efetivo de uma composição
   // Favoritos já vêm com preço congelado (precoUnit). Itens vindos da base
   // trazem as duas colunas; escolhemos conforme o orçamento (desonerado ou
   // não) e caímos na outra se a preferida estiver vazia - comum, já que
@@ -879,7 +879,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     return()=>{ativo=false;window.clearTimeout(timer);};
   },[compBuscaDebounced,compTipoBusca,orcAba,referenciaKey,selOrc,data.materiais,composicoesEmpresa]);
 
-  //  CRUD orçamento 
+  //  CRUD orçamento
   const criarOrc = () => {
     if (!form.nome.trim()) { showToast("Informe o nome do orçamento.","error"); return; }
     const id=uid(), agora=new Date().toISOString();
@@ -1161,26 +1161,26 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
       <div style={{display:"flex",flexDirection:"column",gap:0}}>
         {lista.length>0&&(
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 22px",gap:6,padding:"0 2px 4px",borderBottom:`1px solid ${C.line}`,marginBottom:4}}>
-            <span style={{fontSize:8.5,fontWeight:800,color:C.subtle,textTransform:"uppercase",letterSpacing:.3}}>Bitola</span>
-            <span style={{fontSize:8.5,fontWeight:800,color:C.subtle,textTransform:"uppercase",letterSpacing:.3,textAlign:"right"}}>Peso</span>
+            <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.subtle,textTransform:"uppercase",letterSpacing:.3}}>Bitola</span>
+            <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.subtle,textTransform:"uppercase",letterSpacing:.3,textAlign:"right"}}>Peso</span>
             <span/>
           </div>
         )}
         {lista.map((l,i)=>(
           <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 22px",gap:6,alignItems:"center",padding:"3px 0"}}>
-            <select aria-label="Bitola" value={l.bitola} onChange={e=>atualizarLinha(i,{bitola:e.target.value})} style={{padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.bg,color:C.text,fontSize:10.5}}>
+            <select aria-label="Bitola" value={l.bitola} onChange={e=>atualizarLinha(i,{bitola:e.target.value})} style={{padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.bg,color:C.text,fontSize:"var(--arcd-type-label)"}}>
               {BITOLAS_ACO.map(b=><option key={b} value={b}>∅{b}</option>)}
             </select>
             <div style={{position:"relative"}}>
-              <input type="number" min="0" step="any" aria-label="Peso em kg" value={l.kg} onChange={e=>atualizarLinha(i,{kg:e.target.value.replace(",",".")})} style={{width:"100%",boxSizing:"border-box",padding:"6px 26px 6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.bg,color:C.text,textAlign:"right",fontSize:10.5}}/>
-              <span style={{position:"absolute",right:7,top:"50%",transform:"translateY(-50%)",fontSize:8.5,color:C.subtle,pointerEvents:"none"}}>kg</span>
+              <input type="number" min="0" step="any" aria-label="Peso em kg" value={l.kg} onChange={e=>atualizarLinha(i,{kg:e.target.value.replace(",",".")})} style={{width:"100%",boxSizing:"border-box",padding:"6px 26px 6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.bg,color:C.text,textAlign:"right",fontSize:"var(--arcd-type-label)"}}/>
+              <span style={{position:"absolute",right:7,top:"50%",transform:"translateY(-50%)",fontSize:"var(--arcd-type-caption)",color:C.subtle,pointerEvents:"none"}}>kg</span>
             </div>
             <button aria-label="Remover esta bitola" title="Remover" onClick={()=>removerLinha(i)} style={{border:0,background:"transparent",color:C.subtle,cursor:"pointer",display:"flex",justifyContent:"center"}}><Ic n="trash" s={13}/></button>
           </div>
         ))}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:8}}>
-          <button onClick={adicionarLinha} style={{border:`1px dashed ${C.border}`,background:"transparent",color:C.blue,borderRadius:5,padding:"5px 9px",fontSize:9.5,fontWeight:800,cursor:"pointer"}}>+ Adicionar bitola</button>
-          {lista.length>0&&<span style={{fontSize:10.5,color:C.text}}>{totalLabel}: <b style={{color:C.purple,fontSize:12}}>{somaAcoPorBitola(lista).toFixed(1)} kg</b></span>}
+          <button onClick={adicionarLinha} style={{border:`1px dashed ${C.border}`,background:"transparent",color:C.blue,borderRadius:5,padding:"5px 9px",fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}>+ Adicionar bitola</button>
+          {lista.length>0&&<span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{totalLabel}: <b style={{color:C.purple,fontSize:12}}>{somaAcoPorBitola(lista).toFixed(1)} kg</b></span>}
         </div>
       </div>
     );
@@ -1214,7 +1214,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           <Metric label="Fôrma" value={fmtNum(pilar.formaM2)} unit="m²"/>
           <Metric label="Aço" value={fmtNum(acoPilares,1)} unit="kg"/>
         </>}>
-        <p style={{fontSize:10,color:C.muted,marginTop:-4}}>Total do pavimento inteiro (o orçamento sempre orça pilares assim, nunca pilar a pilar) - quando disponível, a importação usa o quadro-resumo do projeto. O quadro-resumo prevalece sobre os detalhamentos.</p>
+        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:-4}}>Total do pavimento inteiro (o orçamento sempre orça pilares assim, nunca pilar a pilar) - quando disponível, a importação usa o quadro-resumo do projeto. O quadro-resumo prevalece sobre os detalhamentos.</p>
         <div>
           <p style={LABEL_GRUPO}>Parâmetros</p>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
@@ -1250,7 +1250,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           <Metric label="Aço" value={fmtNum(acoVigas,1)} unit="kg"/>
         </>}
         warning={viga.avisoConcretoIncorreto&&<Warning>O próprio projeto avisa que não conseguiu calcular o volume de concreto das vigas deste pavimento com segurança ("por não dispor dos dados necessários"). Confira antes de confiar neste número.</Warning>}>
-        <p style={{fontSize:10,color:C.muted,marginTop:-4}}>O projeto detalha viga a viga (armadura), mas só entrega concreto/fôrma como total do pavimento inteiro - por isso é um valor só, não uma tabela por viga.</p>
+        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:-4}}>O projeto detalha viga a viga (armadura), mas só entrega concreto/fôrma como total do pavimento inteiro - por isso é um valor só, não uma tabela por viga.</p>
         <div>
           <p style={LABEL_GRUPO}>Parâmetros</p>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
@@ -1300,7 +1300,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         </>}>
         {laje.somenteTelaSoldada&&<p>Vigotas: somente tela soldada, calculada pela área × peso da malha. Aços em barras do projeto desconsiderados.</p>}
         {laje.acoSemBitolas&&<Warning>O quadro informa {laje.acoTotalProjetoKg} kg de aço sem separar bitolas. O resumo usa somente esse total; a estimativa de vigotas não é somada novamente. Confira o escopo antes de discriminar os insumos.</Warning>}
-        <p style={{fontSize:10,color:C.muted,marginTop:-4}}>Volumes, áreas e quantitativos de aço do pavimento - o mesmo jeito que o Quantitativos do projeto resume.</p>
+        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:-4}}>Volumes, áreas e quantitativos de aço do pavimento - o mesmo jeito que o Quantitativos do projeto resume.</p>
 
         <div>
           <p style={LABEL_GRUPO}>Volumes</p>
@@ -1324,24 +1324,24 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           <p style={LABEL_GRUPO}>Aço da laje</p>
           <div style={{display:"grid",gridTemplateColumns:isMobile||laje.somenteTelaSoldada?"1fr":"3fr 2fr",gap:10,alignItems:"start"}}>
             {!laje.somenteTelaSoldada&&<div style={{border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 11px",display:"flex",flexDirection:"column",gap:6}}>
-              <div><p style={{fontSize:10.5,fontWeight:800,color:C.text}}>Maciça - aço por bitola</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Não inclui vigota - a treliça pré-moldada não entra no Resumo Aço do projeto.</p></div>
+              <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Maciça - aço por bitola</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Não inclui vigota - a treliça pré-moldada não entra no Resumo Aço do projeto.</p></div>
               {renderEditorAcoPorBitola(laje.acoPorBitola, lista=>salvarLajeDoPavimento(pav,{acoPorBitola:lista}), "Total aço maciça")}
             </div>}
             <div style={{border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 11px",display:"flex",flexDirection:"column",gap:8}}>
-              <div><p style={{fontSize:10.5,fontWeight:800,color:C.text}}>Vigota - tela soldada</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Peso = área x peso/m² da malha - não soma com o aço da maciça.</p></div>
+              <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Vigota - tela soldada</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Peso = área x peso/m² da malha - não soma com o aço da maciça.</p></div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 <label style={{display:"flex",flexDirection:"column",gap:3}}>
-                  <span style={{fontSize:9,color:C.muted}}>MALHA</span>
+                  <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>MALHA</span>
                   <select aria-label="Malha da tela soldada da vigota" value={laje.malhaVigota}
                     onChange={e=>salvarLajeDoPavimento(pav,{malhaVigota:e.target.value,pesoMalhaVigotaKgM2:PESO_TELA_SOLDADA_KG_M2[e.target.value]})}
-                    style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,fontSize:11}}>
+                    style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,fontSize:"var(--arcd-type-label)"}}>
                     {MALHAS_TELA_SOLDADA.map(m=><option key={m} value={m}>{m}</option>)}
                   </select>
                 </label>
                 <EditableField label="PESO/M²" unit="kg" ariaLabel="Peso por m² da malha da vigota" value={laje.pesoMalhaVigotaKgM2} onChange={v=>salvarLajeDoPavimento(pav,{pesoMalhaVigotaKgM2:v})}/>
               </div>
               <ResultValue label="Peso calculado" value={acoVigota.toFixed(1)} unit="kg"/>
-              <p style={{fontSize:9,color:C.muted}}>{Number(laje.areaVigotaM2||0).toFixed(2)} m² × {Number(laje.pesoMalhaVigotaKgM2||0).toFixed(2)} kg/m² = {acoVigota.toFixed(1)} kg</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{Number(laje.areaVigotaM2||0).toFixed(2)} m² × {Number(laje.pesoMalhaVigotaKgM2||0).toFixed(2)} kg/m² = {acoVigota.toFixed(1)} kg</p>
             </div>
           </div>
         </div>
@@ -2366,7 +2366,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     showToast("Orçamento restaurado.");
   };
 
-  //  Itens 
+  //  Itens
   const addItem = () => {
     if (!qtdModal || !orc) return;
     const q = Number(qtd);
@@ -2535,7 +2535,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     showToast("Linha removida.");
   };
 
-  //  BDI (Acórdão 2622/2013) 
+  //  BDI (Acórdão 2622/2013)
   const abrirBDI = () => {
     setBdiTipo(orc.bdiTipo || "edificios");
     // A CPRB (4,5% sobre a receita) só incide na folha desonerada. Se o
@@ -2560,7 +2560,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     showToast(`BDI de ${Number(valor).toFixed(2)}% aplicado ao orçamento.`);
   };
 
-  //  Título: linha de texto puro dentro da planilha 
+  //  Título: linha de texto puro dentro da planilha
   // Serve para separar blocos de itens ("Pavimento térreo", "Área de
   // serviço") sem criar uma etapa com subtotal. Entra na numeração,
   // mas não soma custo.
@@ -2579,7 +2579,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     salvarOrc({ itens: orc.itens.map(it => it.id===itemId ? {...it, descricao: texto} : it) });
   };
 
-  //  Reordenar linhas dentro de uma etapa 
+  //  Reordenar linhas dentro de uma etapa
   // O título só é útil se puder ficar ANTES dos itens que ele rotula,
   // então mover linha para cima/baixo é parte do recurso, não extra.
   const moverLinha = (itemId, direcao) => {
@@ -2642,7 +2642,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const precoAlterado = (it) =>
     Number(it.precoRef) > 0 && Math.abs(Number(it.precoUnit) - Number(it.precoRef)) > 0.005;
 
-  //  Etapas: criar / renomear / excluir 
+  //  Etapas: criar / renomear / excluir
   const abrirNovaEtapa = (paiId = "") => {
     setEtapaModal({ modo: paiId ? "sub" : "novo", paiId, etapa: null });
     setEtapaNome("");
@@ -2734,7 +2734,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     }
   };
 
-  //  Exportar XLSX - planilha orçamentária hierárquica 
+  //  Exportar XLSX - planilha orçamentária hierárquica
   const exportXLSX = async () => {
     await carregarXLSX();
     if (!orc || !calc) return;
@@ -2804,7 +2804,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     showToast("Planilha exportada.");
   };
 
-  //  IMPORTAR ORCAMENTO (codigo + quantidade) 
+  //  IMPORTAR ORCAMENTO (codigo + quantidade)
   //  A planilha do orcamento NAO traz preco nem descricao: traz o codigo e a
   //  quantidade. Quem responde pelo resto e a base SINAPI/ORSE ja carregada no
   //  app - o codigo e a chave. Isso evita o vicio de importar preco velho junto
@@ -2995,7 +2995,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     showToast(`Importado: ${itens.length} linha(s) no orçamento${pulados?` - ${pulados} pendente(s) ignorada(s)`:""}.`);
   };
 
-  //  Exportar XLSX no layout "Exportado" 
+  //  Exportar XLSX no layout "Exportado"
   //  Reproduz o formato da planilha que o orcamentista usa fora do app:
   //  Codigo | Tipo | Item | Un. | Qtd. | Custo total | Status
   //  - Tipo: Nivel (etapa raiz), Subnivel (etapa filha), Composicao (item com
@@ -3041,7 +3041,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     showToast("Planilha exportada no formato padrão.");
   };
 
-  //  Exportar a curva ABC 
+  //  Exportar a curva ABC
   const exportXLSXCurvaABC = async () => {
     await carregarXLSX();
     if (!abc) return;
@@ -3068,7 +3068,7 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     showToast("Curva ABC exportada.");
   };
 
-  //  Exportar PDF 
+  //  Exportar PDF
   const exportPDF = () => {
     if (!orc || !calc) return;
     const exportacao=projectBudgetExport(orc);
@@ -3408,19 +3408,19 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           <Modal title="Como funciona o Orçamento" onClose={()=>setAjudaModal(false)} wide>
             <div style={{display:"flex",flexDirection:"column",gap:14,fontSize:12.5,color:C.text,lineHeight:1.6}}>
               <div>
-                <p style={{fontSize:11,fontWeight:800,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>Bases de preços</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>Bases de preços</p>
                 <p>Vincule uma base <b>SINAPI</b> ou <b>ORSE</b> (ou as duas) ao orçamento para pesquisar composições e insumos por código ou descrição. Sem base vinculada, só é possível lançar itens avulsos ou favoritos já salvos.</p>
               </div>
               <div>
-                <p style={{fontSize:11,fontWeight:800,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>BDI</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>BDI</p>
                 <p>O selo colorido ao lado do BDI mostra se o percentual está dentro da faixa auditável do TCU (Acórdão 2622/2013) para o tipo de obra escolhido. Fora da faixa não bloqueia o orçamento, mas fica sinalizado para justificar em auditoria.</p>
               </div>
               <div>
-                <p style={{fontSize:11,fontWeight:800,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>Versão e baseline</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>Versão e baseline</p>
                 <p>Um orçamento <b>aprovado</b> fica bloqueado para edição - crie uma <b>revisão</b> para alterar valores depois disso. A <b>baseline</b> é a versão que planejamento, medições e comparativos usam como referência da obra; sem baseline definida, essas telas não têm o que comparar.</p>
               </div>
               <div>
-                <p style={{fontSize:11,fontWeight:800,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>Copiar de outra obra</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>Copiar de outra obra</p>
                 <p>Traz a estrutura de etapas, itens e (se existir) o cronograma de um orçamento de outra obra. Você escolhe se as quantidades vêm repetidas (útil para obras quase idênticas) ou zeradas (a estrutura e o preço de referência vêm, você lança a medida real desta obra). As datas do cronograma copiado são deslocadas para começar hoje.</p>
               </div>
               <Btn v="ghost" onClick={()=>setAjudaModal(false)} full>Fechar</Btn>
@@ -3437,7 +3437,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         {orcamentos.length===0 && (
           <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,padding:30,textAlign:"center",boxShadow:`0 1px 4px ${C.shadow}`}}>
             <div style={{display:"flex",justifyContent:"center",marginBottom:8}}><Ic n="fileText" s={38} color={C.muted}/></div>
-            <p style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Nenhum orçamento criado</p>
+            <p style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:6}}>Nenhum orçamento criado</p>
             <p style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Crie um orçamento, importe a base SINAPI ou ORSE<br/>e monte a planilha por etapas.</p>
           </div>
         )}
@@ -3448,24 +3448,24 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           const ehBaseline=(data.budgetBaselines||[]).some(b=>b.ativo!==false&&b.tipo==="controle"&&b.budgetId===o.id);
           const bloqueado=budgetIsImmutable(o);
           return (
-            <div key={o.id} style={{background:C.bg,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${C.yellow}`,borderRadius:8,padding:"12px 14px",boxShadow:`0 1px 4px ${C.shadow}`}}>
+            <div key={o.id} style={{background:C.bg,border:`1.5px solid ${C.border}`,borderLeft:`1px solid ${C.yellow}`,borderRadius:8,padding:"12px 14px",boxShadow:`0 1px 4px ${C.shadow}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
                 <div style={{flex:1,minWidth:0}}>
-                  <p style={{fontSize:15,fontWeight:800,color:C.text}}>{o.nome}</p>
-                  {o.descricao && <p style={{fontSize:11,color:C.subtle,marginTop:2,lineHeight:1.4}}>{o.descricao}</p>}
-                  <p style={{fontSize:11,color:C.muted,marginTop:2}}>
+                  <p style={{fontSize:15,fontWeight:600,color:C.text}}>{o.nome}</p>
+                  {o.descricao && <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,marginTop:2,lineHeight:1.4}}>{o.descricao}</p>}
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                     {o.cliente && `${o.cliente}  `}
                     {obraNome && `${obraNome}  `}
                     {o.fonte} {o.uf} {o.dataBase && ` ${o.dataBase}`}  BDI {o.bdi}%
                   </p>
                   <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:5}}>{ehBaseline&&<Badge color={C.green}>BASELINE ATIVA</Badge>}<Badge color={bloqueado?C.blue:C.orange}>V{o.versionNumber||1} · {bloqueado?"APROVADA":"RASCUNHO"}</Badge></div>
-                  <p style={{fontSize:11,color:C.muted,marginTop:2}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                     {c.qtdItens} item(ns){o.areaM2>0 && ` · ${o.areaM2} m² · ${fmt(c.porM2)}/m²`}
                   </p>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:19,fontWeight:800,color:C.yellow}}>{fmt(c.total)}</p>
-                  <p style={{fontSize:10,color:C.muted}}>com BDI</p>
+                  <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:19,fontWeight:600,color:C.yellow}}>{fmt(c.total)}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>com BDI</p>
                 </div>
               </div>
               <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap"}}>
@@ -3496,7 +3496,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               </div>
               <Inp label="Local / Endereço" value={form.local} onChange={F("local")} placeholder="Ex.: Caruaru/PE"/>
               <div style={{height:1,background:C.line,margin:"2px 0"}}/>
-              <p style={{fontSize:11,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Base de preços</p>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Base de preços</p>
               <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
                 <Sel label="Fonte" value={form.fonte} onChange={F("fonte")} options={[
                   {v:"SINAPI",l:"SINAPI"},{v:"ORSE",l:"ORSE"},{v:"MISTO",l:"Misto (SINAPI + ORSE)"},
@@ -3510,12 +3510,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   <input type="checkbox" checked={form.desonerado!==false} onChange={e=>F("desonerado")(e.target.checked)}
                     style={{position:"absolute",inset:0,width:"100%",height:"100%",margin:0,opacity:0,cursor:"pointer"}}/>
                   <div aria-hidden="true" style={{width:19,height:19,border:`2px solid ${form.desonerado?C.green:C.muted}`,background:form.desonerado?C.green:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
-                    {form.desonerado && <span style={{color:"#fff",fontSize:12,fontWeight:900}}>ok</span>}
+                    {form.desonerado && <span style={{color:"#fff",fontSize:12,fontWeight:600}}>ok</span>}
                   </div>
                 </span>
                 <div>
-                  <p style={{fontSize:13,fontWeight:700,color:form.desonerado?C.green:C.text}}>Encargos desonerados</p>
-                  <p style={{fontSize:11,color:C.muted}}>Desmarque para usar a tabela não desonerada</p>
+                  <p style={{fontSize:13,fontWeight:600,color:form.desonerado?C.green:C.text}}>Encargos desonerados</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Desmarque para usar a tabela não desonerada</p>
                 </div>
               </label>
               <div style={{display:"flex",gap:8}}>
@@ -3549,10 +3549,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     ? <Sel label="Orçamento de origem *" value={copiarModal.orcOrigemId}
                            onChange={v=>setCopiarModal(m=>({...m,orcOrigemId:v}))}
                            options={[{v:"",l:"- Selecione -"}, ...orcsDaOrigem.map(o=>({v:o.id,l:`${o.nome} · V${o.versionNumber||1}`}))]}/>
-                    : <p style={{fontSize:11.5,color:C.orange}}>Esta obra ainda não tem nenhum orçamento.</p>
+                    : <p style={{fontSize:"var(--arcd-type-label)",color:C.orange}}>Esta obra ainda não tem nenhum orçamento.</p>
                 )}
                 {copiarModal.orcOrigemId && (
-                  <p style={{fontSize:11,color:C.muted}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>
                     {planoOrigemTemTarefas
                       ? "Esta origem tem um cronograma montado - será copiado junto, com as datas deslocadas para começar hoje."
                       : "Esta origem ainda não tem cronograma montado - só o orçamento será copiado."}
@@ -3570,12 +3570,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                            style={{width:18,height:18,borderRadius:4,
                                    border:`2px solid ${copiarModal.repetirQuantidades?C.yellow:C.muted}`,background:copiarModal.repetirQuantidades?C.yellow:"transparent",
                                    display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
-                        {copiarModal.repetirQuantidades && <span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
+                        {copiarModal.repetirQuantidades && <span style={{color:"#fff",fontSize:"var(--arcd-type-label)",fontWeight:600}}>ok</span>}
                       </div>
                     </span>
                     <div>
-                      <p style={{fontSize:12.5,fontWeight:700,color:copiarModal.repetirQuantidades?C.yellow:C.text}}>Repetir as quantidades da obra de origem</p>
-                      <p style={{fontSize:10.5,color:C.muted,marginTop:2,lineHeight:1.5}}>Desmarcado, os itens entram com quantidade zerada - a estrutura e o preço unitário de referência vêm, mas você lança a medida real desta obra.</p>
+                      <p style={{fontSize:12.5,fontWeight:600,color:copiarModal.repetirQuantidades?C.yellow:C.text}}>Repetir as quantidades da obra de origem</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.5}}>Desmarcado, os itens entram com quantidade zerada - a estrutura e o preço unitário de referência vêm, mas você lança a medida real desta obra.</p>
                     </div>
                   </label>
                 )}
@@ -3598,7 +3598,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
     );
   }
 
-  //  VIEW: EDITOR 
+  //  VIEW: EDITOR
   if (!orc || !calc) { setView("lista"); return null; }
 
   return (
@@ -3640,12 +3640,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:8,padding:"14px 16px",boxShadow:`0 1px 4px ${C.shadow}`}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
           <div style={{minWidth:0,flex:1}}>
-            <p style={{fontSize:16,fontWeight:800,color:C.text}}>{orc.nome}</p>
-            {orc.descricao && <p style={{fontSize:11,color:C.subtle,marginTop:3,lineHeight:1.45}}>{orc.descricao}</p>}
+            <p style={{fontSize:16,fontWeight:600,color:C.text}}>{orc.nome}</p>
+            {orc.descricao && <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,marginTop:3,lineHeight:1.45}}>{orc.descricao}</p>}
           </div>
           {!budgetIsImmutable(orc)&&<Btn size="sm" v="ghost" onClick={abrirEdicaoOrc}><Ic n="edit"/> Dados</Btn>}
         </div>
-        <p style={{fontSize:11,color:C.muted,marginTop:2}}>
+        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
           {orc.fonte} {orc.uf}  {orc.dataBase||"sem data-base"}  {orc.desonerado?"Desonerado":"Não desonerado"}  BDI {orc.bdi}%
         </p>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:7}}>{baselineAtiva.budget?.id===orc.id&&<Badge color={C.green}>BASELINE ATIVA</Badge>}<Badge color={budgetIsImmutable(orc)?C.blue:C.orange}>V{orc.versionNumber||1} · {budgetIsImmutable(orc)?"APROVADA E BLOQUEADA":"RASCUNHO EDITÁVEL"}</Badge>{budgetIsImmutable(orc)&&<Btn size="sm" onClick={criarRevisaoOrc}><Ic n="plus"/> Criar revisão</Btn>}{ehAdmin&&orc.obraId&&baselineAtiva.budget?.id!==orc.id&&<Btn size="sm" v="success" onClick={()=>aprovarEAdotarBaseline(orc.id)}>{budgetIsImmutable(orc)?"Adotar como baseline":"Aprovar e adotar baseline"}</Btn>}</div>
@@ -3679,10 +3679,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               background:`${sit.cor}0E`, border:`1px solid ${sit.cor}55`,
               borderRadius:6, padding:"8px 11px", cursor:"pointer",
             }}>
-              <p style={{fontSize:11,fontWeight:700,color:sit.cor}}>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:sit.cor}}>
                 ! BDI de {orc.bdi}% fora da faixa TCU para {sit.faixa.l.toLowerCase()}
               </p>
-              <p style={{fontSize:10,color:C.muted,marginTop:2,lineHeight:1.45}}>{sit.msg}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.45}}>{sit.msg}</p>
             </button>
           );
         })()}
@@ -3697,19 +3697,19 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         ].map(([valor,label])=><button key={valor} onClick={()=>setOrcAba(valor)} style={{
           flex:"1 1 180px",border:`1px solid ${orcAba===valor?C.blue:C.border}`,borderRadius:6,padding:"8px 10px",
           background:orcAba===valor?`${C.blue}12`:C.bg,color:orcAba===valor?C.blue:C.muted,
-          fontSize:10.5,fontWeight:800,cursor:"pointer",fontFamily:"var(--arcd-font-sans)",
+          fontSize:"var(--arcd-type-label)",fontWeight:600,cursor:"pointer",fontFamily:"var(--arcd-font-sans)",
         }}>{label}</button>)}
       </div>
 
-      {orcAba==="orcamento"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}><button onClick={()=>setFerramentasOrcAberto(v=>!v)} style={{width:"100%",border:0,background:"transparent",padding:"9px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,cursor:"pointer",textAlign:"left"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Ic n="settings" s={14} color={C.blue}/><div><p style={{fontSize:11.5,fontWeight:850,color:C.text}}>Ferramentas do orçamento</p><p style={{fontSize:9,color:C.muted,marginTop:1}}>Importar, analisar e exportar</p></div></div><Ic n={ferramentasOrcAberto?"chevron":"chevR"} s={14} color={C.muted}/></button>{ferramentasOrcAberto&&<div style={{borderTop:`1px solid ${C.line}`,padding:8,display:"grid",gridTemplateColumns:cols(2,3,6),gap:6}}><label style={{display:"flex"}}><input type="file" accept=".xlsx,.xls" disabled={basePorCodigo.size===0||impLoad} onChange={e=>{importarOrcamentoXLSX(e.target.files?.[0]);e.target.value="";}} style={{display:"none"}}/><span style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:5,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 8px",fontSize:9.5,fontWeight:800,color:basePorCodigo.size?C.blue:C.muted,cursor:basePorCodigo.size?"pointer":"not-allowed"}}><Ic n="download" s={12}/> Importar planilha</span></label><Btn size="sm" v="ghost" onClick={()=>setOrcAba("insumos")}><Ic n="chart"/> Curva ABC</Btn><Btn size="sm" v="danger" onClick={exportPDF}><Ic n="file"/> PDF</Btn><Btn size="sm" v="success" onClick={exportXLSX}><Ic n="download"/> Excel completo</Btn><Btn size="sm" v="success" onClick={exportXLSXExportado}><Ic n="download"/> Excel padrão</Btn><Btn size="sm" v="ghost" onClick={exportXLSXCurvaABC}><Ic n="download"/> Excel ABC</Btn></div>}</div>}
+      {orcAba==="orcamento"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}><button onClick={()=>setFerramentasOrcAberto(v=>!v)} style={{width:"100%",border:0,background:"transparent",padding:"9px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,cursor:"pointer",textAlign:"left"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Ic n="settings" s={14} color={C.blue}/><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Ferramentas do orçamento</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>Importar, analisar e exportar</p></div></div><Ic n={ferramentasOrcAberto?"chevron":"chevR"} s={14} color={C.muted}/></button>{ferramentasOrcAberto&&<div style={{borderTop:`1px solid ${C.line}`,padding:8,display:"grid",gridTemplateColumns:cols(2,3,6),gap:6}}><label style={{display:"flex"}}><input type="file" accept=".xlsx,.xls" disabled={basePorCodigo.size===0||impLoad} onChange={e=>{importarOrcamentoXLSX(e.target.files?.[0]);e.target.value="";}} style={{display:"none"}}/><span style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:5,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 8px",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:basePorCodigo.size?C.blue:C.muted,cursor:basePorCodigo.size?"pointer":"not-allowed"}}><Ic n="download" s={12}/> Importar planilha</span></label><Btn size="sm" v="ghost" onClick={()=>setOrcAba("insumos")}><Ic n="chart"/> Curva ABC</Btn><Btn size="sm" v="danger" onClick={exportPDF}><Ic n="file"/> PDF</Btn><Btn size="sm" v="success" onClick={exportXLSX}><Ic n="download"/> Excel completo</Btn><Btn size="sm" v="success" onClick={exportXLSXExportado}><Ic n="download"/> Excel padrão</Btn><Btn size="sm" v="ghost" onClick={exportXLSXCurvaABC}><Ic n="download"/> Excel ABC</Btn></div>}</div>}
 
       {orcAba==="orcamento"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-        <button onClick={()=>setControleCustosAberto(v=>!v)} style={{width:"100%",border:0,background:"transparent",padding:"11px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,cursor:"pointer",textAlign:"left"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Ic n="chart" s={15} color={C.green}/><div><p style={{fontSize:12,fontWeight:850,color:C.text}}>Controle integrado de custos</p><p style={{fontSize:9.5,color:C.muted,marginTop:1}}>Orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível</p></div></div><Ic n={controleCustosAberto?"chevron":"chevR"} s={14} color={C.muted}/></button>
+        <button onClick={()=>setControleCustosAberto(v=>!v)} style={{width:"100%",border:0,background:"transparent",padding:"11px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,cursor:"pointer",textAlign:"left"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Ic n="chart" s={15} color={C.green}/><div><p style={{fontSize:12,fontWeight:600,color:C.text}}>Controle integrado de custos</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>Orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível</p></div></div><Ic n={controleCustosAberto?"chevron":"chevR"} s={14} color={C.muted}/></button>
         {controleCustosAberto&&<div style={{borderTop:`1px solid ${C.line}`,padding:10}}>
-          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6,marginBottom:9}}>{[["Orçado",controleCustos.total.orcado,C.blue],["Comprometido",controleCustos.total.comprometido,C.orange],["Saldo",controleCustos.total.saldo,controleCustos.total.saldo<0?C.red:C.green],["Projeção",controleCustos.total.projecao,controleCustos.total.projecao>controleCustos.total.orcado?C.red:C.purple]].map(([l,v,c])=><div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:6,padding:"7px 9px"}}><p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:15,fontWeight:900,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>
-          <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:850,borderCollapse:"collapse",fontSize:10.5}}><thead><tr style={{background:C.surface,color:C.muted,textAlign:"right"}}>{["Etapa de 1º nível","Orçado","Solicitado","Comprometido","Recebido","Aplicado","Pago","Saldo"].map((h,i)=><th key={h} style={{padding:"7px 8px",textAlign:i?"right":"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead><tbody>{controleCustos.etapas.map(l=><tr key={l.id} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:"8px",fontWeight:800,color:C.text}}>{l.nome}</td>{[l.orcado,l.solicitado,l.comprometido,l.recebido,l.aplicado,l.pago,l.saldo].map((v,i)=><td key={i} style={{padding:"8px",textAlign:"right",whiteSpace:"nowrap",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontWeight:i===6?850:600,color:i===6&&v<0?C.red:C.text}}>{fmt(v)}</td>)}</tr>)}</tbody></table></div>
-          {Object.values(controleCustos.semApropriacao).some(v=>v>0)&&<p style={{fontSize:9.5,color:C.orange,marginTop:7,lineHeight:1.45}}>Atenção: existem valores sem linha orçamentária vinculada — solicitado {fmt(controleCustos.semApropriacao.solicitado)}, comprometido {fmt(controleCustos.semApropriacao.comprometido)}, recebido {fmt(controleCustos.semApropriacao.recebido)} e aplicado {fmt(controleCustos.semApropriacao.aplicado)}. Eles não foram distribuídos artificialmente entre as etapas.</p>}
-          <p style={{fontSize:9,color:C.muted,marginTop:6}}>Projeção atual = maior valor entre orçamento e compromissos assumidos. “Pago” exige pedido vinculado a uma transação conciliada.</p>
+          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6,marginBottom:9}}>{[["Orçado",controleCustos.total.orcado,C.blue],["Comprometido",controleCustos.total.comprometido,C.orange],["Saldo",controleCustos.total.saldo,controleCustos.total.saldo<0?C.red:C.green],["Projeção",controleCustos.total.projecao,controleCustos.total.projecao>controleCustos.total.orcado?C.red:C.purple]].map(([l,v,c])=><div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:6,padding:"7px 9px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:15,fontWeight:600,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>
+          <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:850,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}><thead><tr style={{background:C.surface,color:C.muted,textAlign:"right"}}>{["Etapa de 1º nível","Orçado","Solicitado","Comprometido","Recebido","Aplicado","Pago","Saldo"].map((h,i)=><th key={h} style={{padding:"7px 8px",textAlign:i?"right":"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead><tbody>{controleCustos.etapas.map(l=><tr key={l.id} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:"8px",fontWeight:600,color:C.text}}>{l.nome}</td>{[l.orcado,l.solicitado,l.comprometido,l.recebido,l.aplicado,l.pago,l.saldo].map((v,i)=><td key={i} style={{padding:"8px",textAlign:"right",whiteSpace:"nowrap",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontWeight:i===6?850:600,color:i===6&&v<0?C.red:C.text}}>{fmt(v)}</td>)}</tr>)}</tbody></table></div>
+          {Object.values(controleCustos.semApropriacao).some(v=>v>0)&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,marginTop:7,lineHeight:1.45}}>Atenção: existem valores sem linha orçamentária vinculada — solicitado {fmt(controleCustos.semApropriacao.solicitado)}, comprometido {fmt(controleCustos.semApropriacao.comprometido)}, recebido {fmt(controleCustos.semApropriacao.recebido)} e aplicado {fmt(controleCustos.semApropriacao.aplicado)}. Eles não foram distribuídos artificialmente entre as etapas.</p>}
+          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:6}}>Projeção atual = maior valor entre orçamento e compromissos assumidos. “Pago” exige pedido vinculado a uma transação conciliada.</p>
         </div>}
       </div>}
 
@@ -3723,21 +3723,21 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           <div style={{display:"flex",alignItems:"center",gap:9,minWidth:0}}>
             <Ic n="brain" s={17} color={C.purple}/>
             <div style={{minWidth:0}}>
-              <p style={{fontSize:13,fontWeight:800,color:C.text}}>Auditoria técnica do orçamento</p>
-              <p style={{fontSize:10.5,color:C.muted,marginTop:1}}>
+              <p style={{fontSize:13,fontWeight:600,color:C.text}}>Auditoria técnica do orçamento</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>
                 Escopo, preços, cotações, itens esquecidos, interfaces e quantitativos
               </p>
             </div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
             {checklistAuditoria.filter(item=>item.status==="pendente").length > 0 && (
-              <span style={{fontSize:10,fontWeight:800,color:C.red,background:`${C.red}14`,
+              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red,background:`${C.red}14`,
                             padding:"2px 8px",borderRadius:12}}>
                 {checklistAuditoria.filter(item=>item.status==="pendente").length} pendente(s)
               </span>
             )}
             {checklistAuditoria.length>0&&checklistAuditoria.every(item=>item.status!=="pendente") && (
-              <span style={{fontSize:10,fontWeight:800,color:C.green,background:`${C.green}14`,
+              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green,background:`${C.green}14`,
                             padding:"2px 8px",borderRadius:12}}>ok</span>
             )}
             <Ic n={confAberta ? "chevron" : "chevR"} s={16} color={C.muted}/>
@@ -3752,13 +3752,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 ["Atenções",auditoriaResultado?.resumo.atencoes||0,C.orange],
                 ["Cotações",auditoriaResultado?.resumo.cotacoes||0,C.blue],
                 ["Confirmar escopo",auditoriaResultado?.resumo.escopo||0,C.purple],
-              ].map(([label,value,color])=><div key={label} style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:`3px solid ${color}`,borderRadius:6,padding:"7px 9px"}}><p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>{label}</p><p style={{fontSize:18,fontWeight:900,color}}>{value}</p></div>)}
+              ].map(([label,value,color])=><div key={label} style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:`3px solid ${color}`,borderRadius:6,padding:"7px 9px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{label}</p><p style={{fontSize:18,fontWeight:600,color}}>{value}</p></div>)}
             </div>
 
             <div style={{display:"flex",gap:5,marginTop:9,overflowX:"auto"}}>
               {[["pendente","Pendentes"],["corrigido","Corrigidos"],["ignorado","Ignorados"],["todos","Todos"]].map(([valor,label])=>{
                 const quantidade=valor==="todos"?checklistAuditoria.length:checklistAuditoria.filter(item=>item.status===valor).length;
-                return <button key={valor} onClick={()=>setCheckFiltro(valor)} style={{border:`1px solid ${checkFiltro===valor?C.yellowD:C.border}`,background:checkFiltro===valor?`${C.yellow}18`:C.card,color:checkFiltro===valor?C.text:C.muted,borderRadius:6,padding:"5px 8px",fontSize:9,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>{label} · {quantidade}</button>;
+                return <button key={valor} onClick={()=>setCheckFiltro(valor)} style={{border:`1px solid ${checkFiltro===valor?C.yellowD:C.border}`,background:checkFiltro===valor?`${C.yellow}18`:C.card,color:checkFiltro===valor?C.text:C.muted,borderRadius:6,padding:"5px 8px",fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>{label} · {quantidade}</button>;
               })}
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:7}}>
@@ -3766,33 +3766,33 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 const cor=achado.nivel==="critico"?C.red:achado.nivel==="atencao"?C.orange:achado.nivel==="cotacao"?C.blue:C.purple;
                 const rotulo=achado.nivel==="critico"?"FALHA PROVÁVEL":achado.nivel==="atencao"?"ATENÇÃO":achado.nivel==="cotacao"?"COTAÇÃO":"CONFIRMAR ESCOPO";
                 const corStatus=achado.status==="corrigido"?C.green:achado.status==="ignorado"?C.muted:C.orange;
-                return <div key={achado.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`3px solid ${cor}`,borderRadius:7,padding:"8px 10px",opacity:achado.ativo===false?.72:1}}><div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:8,fontWeight:900,color:cor,background:`${cor}12`,padding:"2px 5px",borderRadius:4}}>{rotulo}</span><span style={{fontSize:8,fontWeight:900,color:corStatus,background:`${corStatus}12`,padding:"2px 5px",borderRadius:4}}>{achado.status==="corrigido"?"CORRIGIDO":achado.status==="ignorado"?"IGNORADO":"PENDENTE"}</span>{achado.origem==="ia"&&<span style={{fontSize:8,fontWeight:900,color:C.purple}}>IA</span>}<p style={{fontSize:11.5,fontWeight:800,color:C.text,flex:"1 1 220px"}}>{achado.titulo}</p><Btn size="sm" v="ghost" onClick={()=>setCheckEdit({...achado})}>Revisar</Btn></div><p style={{fontSize:9.5,color:C.muted,lineHeight:1.45,marginTop:3}}>{achado.detalhe}</p>{achado.acaoSugerida&&<p style={{fontSize:9.5,color:C.subtle,lineHeight:1.45,marginTop:4}}><b>Próxima ação:</b> {achado.acaoSugerida}</p>}{achado.observacao&&<p style={{fontSize:9,color:C.text,marginTop:5,padding:"5px 7px",background:C.card,borderRadius:5}}><b>Decisão:</b> {achado.observacao}{achado.atualizadoPor?` · ${achado.atualizadoPor}`:""}</p>}</div>;
+                return <div key={achado.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`1px solid ${cor}`,borderRadius:7,padding:"8px 10px",opacity:achado.ativo===false?.72:1}}><div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:cor,background:`${cor}12`,padding:"2px 5px",borderRadius:4}}>{rotulo}</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:corStatus,background:`${corStatus}12`,padding:"2px 5px",borderRadius:4}}>{achado.status==="corrigido"?"CORRIGIDO":achado.status==="ignorado"?"IGNORADO":"PENDENTE"}</span>{achado.origem==="ia"&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.purple}}>IA</span>}<p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,flex:"1 1 220px"}}>{achado.titulo}</p><Btn size="sm" v="ghost" onClick={()=>setCheckEdit({...achado})}>Revisar</Btn></div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.45,marginTop:3}}>{achado.detalhe}</p>{achado.acaoSugerida&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.subtle,lineHeight:1.45,marginTop:4}}><b>Próxima ação:</b> {achado.acaoSugerida}</p>}{achado.observacao&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.text,marginTop:5,padding:"5px 7px",background:C.card,borderRadius:5}}><b>Decisão:</b> {achado.observacao}{achado.atualizadoPor?` · ${achado.atualizadoPor}`:""}</p>}</div>;
               })}
-              {checklistAuditoria.filter(item=>checkFiltro==="todos"||item.status===checkFiltro).length===0&&<p style={{fontSize:10,color:C.muted,padding:"9px",textAlign:"center"}}>Nenhum item neste estado.</p>}
+              {checklistAuditoria.filter(item=>checkFiltro==="todos"||item.status===checkFiltro).length===0&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,padding:"9px",textAlign:"center"}}>Nenhum item neste estado.</p>}
             </div>
 
             <div style={{marginTop:11}}>
               <Btn v="ghost" size="sm" full onClick={analisarDimensionalIA} disabled={confIALoad||!(orc.itens||[]).some(item=>item.tipo!=="titulo")}>
                 {confIALoad ? "Auditando orçamento..." : (<><Ic n="brain" s={14}/> Pedir segunda análise da IA</>)}
               </Btn>
-              {confIA && <div style={{marginTop:9,background:`${C.purple}08`,border:`1px solid ${C.purple}33`,borderRadius:6,padding:"10px 12px"}}><p style={{fontSize:11,color:C.subtle,lineHeight:1.55}}>{confIA.resumo}</p>{confIA.achados?.length>0&&<p style={{fontSize:9,color:C.purple,fontWeight:800,marginTop:5}}>{confIA.achados.length} novo(s) item(ns) incluído(s) no checklist acima.</p>}{confIA.perguntas?.map((pergunta,i)=><p key={i} style={{fontSize:9.5,color:C.muted,marginTop:4}}>• {pergunta}</p>)}</div>}
+              {confIA && <div style={{marginTop:9,background:`${C.purple}08`,border:`1px solid ${C.purple}33`,borderRadius:6,padding:"10px 12px"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.55}}>{confIA.resumo}</p>{confIA.achados?.length>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.purple,fontWeight:600,marginTop:5}}>{confIA.achados.length} novo(s) item(ns) incluído(s) no checklist acima.</p>}{confIA.perguntas?.map((pergunta,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>• {pergunta}</p>)}</div>}
             </div>
 
-            <p style={{fontSize:10,fontWeight:900,color:C.text,marginTop:13,marginBottom:6,textTransform:"uppercase"}}>Conferência dimensional</p>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:13,marginBottom:6,textTransform:"uppercase"}}>Conferência dimensional</p>
             {!confResultado?.temArea ? (
-              <p style={{fontSize:11.5,color:C.muted,lineHeight:1.55,marginTop:10}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55,marginTop:10}}>
                 Para conferir, cadastre a <strong>area construida</strong> no orcamento (campo
                 "Area construida" na edicao) ou na obra vinculada. Sem area de referencia
                 nao da para comparar as quantidades.
               </p>
             ) : confResultado.linhas.length === 0 ? (
-              <p style={{fontSize:11.5,color:C.muted,lineHeight:1.55,marginTop:10}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55,marginTop:10}}>
                 Nenhum item medido em m2 reconhecido (forro, piso, paredes, pintura...).
                 A conferencia atua sobre itens de area.
               </p>
             ) : (
               <>
-                <p style={{fontSize:10.5,color:C.muted,marginTop:10,marginBottom:8}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:10,marginBottom:8}}>
                   Base: <strong>{areaRef.toFixed(0)} m2</strong> de area construida
                 </p>
                 <div style={{display:"flex",flexDirection:"column",gap:6}}>
@@ -3801,28 +3801,28 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                               : l.status === "baixo" ? C.orange : C.green;
                     return (
                       <div key={l.chave} style={{background:C.surface,border:`1px solid ${C.border}`,
-                           borderLeft:`3px solid ${cor}`,borderRadius:7,padding:"8px 11px"}}>
+                           borderLeft:`1px solid ${cor}`,borderRadius:7,padding:"8px 11px"}}>
                         <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}>
                           <div style={{minWidth:0,flex:1}}>
-                            <p style={{fontSize:12,fontWeight:700,color:C.text,textTransform:"capitalize"}}>{l.nome}</p>
-                            <p style={{fontSize:10,color:C.muted,marginTop:1}}>
+                            <p style={{fontSize:12,fontWeight:600,color:C.text,textTransform:"capitalize"}}>{l.nome}</p>
+                            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>
                               lancado {l.qtd.toLocaleString("pt-BR",{maximumFractionDigits:1})} m2
                               {" - "}esperado ~{l.esperado.toLocaleString("pt-BR",{maximumFractionDigits:0})} m2
                             </p>
                           </div>
-                          <span style={{fontSize:12,fontWeight:800,color:cor,flexShrink:0}}>
+                          <span style={{fontSize:12,fontWeight:600,color:cor,flexShrink:0}}>
                             {l.difPct > 0 ? "+" : ""}{l.difPct.toFixed(0)}%
                           </span>
                         </div>
                         {l.status !== "ok" && (
-                          <p style={{fontSize:9.5,color:C.muted,marginTop:4,lineHeight:1.4}}>{l.obs}</p>
+                          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4,lineHeight:1.4}}>{l.obs}</p>
                         )}
                       </div>
                     );
                   })}
                 </div>
 
-                <p style={{fontSize:9.5,color:C.muted,marginTop:10,lineHeight:1.45}}>
+                <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:10,lineHeight:1.45}}>
                   A conferencia e um alerta, nao uma regra: projetos com pe-direito alto, muitos
                   vazios ou sacadas fogem dos fatores medios. Voce decide o que ajustar.
                 </p>
@@ -3835,8 +3835,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       {/* Centro técnico de bases: fica resumido para a planilha continuar sendo o foco. */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
         <button onClick={()=>setBasesPainelAberto(v=>!v)} style={{width:"100%",border:0,background:"transparent",padding:"11px 13px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,cursor:"pointer",textAlign:"left"}}>
-          <div style={{display:"flex",alignItems:"center",gap:9,minWidth:0}}><span style={{width:31,height:31,borderRadius:8,display:"grid",placeItems:"center",background:`${C.blue}10`,color:C.blue,flexShrink:0}}><Ic n="box" s={15}/></span><div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:850,color:C.text}}>Bases e preços</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>{basesVinculadas.length} vinculada(s) · {basesConsolidadas.length} base(s) única(s) · atualização automática por código</p></div></div>
-          <div style={{display:"flex",alignItems:"center",gap:7,flexShrink:0}}>{totalBasesDuplicadas>0&&<span style={{fontSize:9,fontWeight:800,color:C.orange,background:`${C.orange}12`,padding:"3px 7px",borderRadius:99}}>{totalBasesDuplicadas} REPETIDA(S)</span>}{basesVinculadas.length>0&&<span style={{fontSize:9,fontWeight:800,color:C.green,background:`${C.green}12`,padding:"3px 7px",borderRadius:99}}>OPERACIONAL</span>}<Ic n={basesPainelAberto?"chevron":"chevR"} s={15} color={C.muted}/></div>
+          <div style={{display:"flex",alignItems:"center",gap:9,minWidth:0}}><span style={{width:31,height:31,borderRadius:8,display:"grid",placeItems:"center",background:`${C.blue}10`,color:C.blue,flexShrink:0}}><Ic n="box" s={15}/></span><div style={{minWidth:0}}><p style={{fontSize:12.5,fontWeight:600,color:C.text}}>Bases e preços</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{basesVinculadas.length} vinculada(s) · {basesConsolidadas.length} base(s) única(s) · atualização automática por código</p></div></div>
+          <div style={{display:"flex",alignItems:"center",gap:7,flexShrink:0}}>{totalBasesDuplicadas>0&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.orange,background:`${C.orange}12`,padding:"3px 7px",borderRadius:99}}>{totalBasesDuplicadas} REPETIDA(S)</span>}{basesVinculadas.length>0&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.green,background:`${C.green}12`,padding:"3px 7px",borderRadius:99}}>OPERACIONAL</span>}<Ic n={basesPainelAberto?"chevron":"chevR"} s={15} color={C.muted}/></div>
         </button>
       </div>
 
@@ -3845,34 +3845,34 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           administrador agora, em BasesPrecoAdmin (Central do Administrador).
           Aqui fica só pesquisa, vínculo a uma base já cadastrada e reprecificação -
           disponível para qualquer usuário com acesso ao orçamento. */}
-      <div style={{background:C.card,border:`1.5px solid ${C.blue}55`,borderLeft:`5px solid ${C.blue}`,borderRadius:8,padding:"13px 14px",display:"flex",flexDirection:"column",gap:11}}>
+      <div style={{background:C.card,border:`1.5px solid ${C.blue}55`,borderLeft:`1px solid ${C.blue}`,borderRadius:8,padding:"13px 14px",display:"flex",flexDirection:"column",gap:11}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
           <div style={{minWidth:0,flex:1}}>
-            <p style={{fontSize:14,fontWeight:800,color:C.text}}>Bases de referência no Supabase</p>
-            <p style={{fontSize:10.5,color:C.muted,marginTop:3,lineHeight:1.5}}>Vincule SINAPI e ORSE ao mesmo orçamento e atualize os preços pelos códigos já lançados.</p>
+            <p style={{fontSize:14,fontWeight:600,color:C.text}}>Bases de referência no Supabase</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3,lineHeight:1.5}}>Vincule SINAPI e ORSE ao mesmo orçamento e atualize os preços pelos códigos já lançados.</p>
           </div>
           <Btn size="sm" v="success" disabled={atualizandoPrecos || basesVinculadas.length===0} onClick={atualizarPrecosVinculados}>
             {atualizandoPrecos ? "Atualizando..." : "Atualizar preços dos itens"}
           </Btn>
         </div>
-        {basesCarregando ? <p style={{fontSize:11,color:C.muted}}>Carregando bases cadastradas...</p>
+        {basesCarregando ? <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Carregando bases cadastradas...</p>
         : basesVinculadas.length > 0 ? (
           <div style={{display:"flex",flexDirection:"column",gap:6}}>
             {basesVinculadas.map(base => { const cor=base.fonte==="ORSE"?C.purple:C.blue; return (
               <div key={base.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:`${cor}0B`,border:`1px solid ${cor}3D`,padding:"8px 10px",borderRadius:6}}>
                 <div style={{minWidth:0}}>
-                  <p style={{fontSize:11.5,fontWeight:800,color:cor}}>{base.fonte} · {base.dataBase}{base.uf?` · ${base.uf}`:""}</p>
-                  <p title={base.arquivo} style={{fontSize:9.5,color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{base.fonte==="ORSE"?"Pesquisa oficial CEHOP":`${base.total.toLocaleString("pt-BR")} composições no Supabase`}{base.arquivo?` · ${base.arquivo}`:""}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:cor}}>{base.fonte} · {base.dataBase}{base.uf?` · ${base.uf}`:""}</p>
+                  <p title={base.arquivo} style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{base.fonte==="ORSE"?"Pesquisa oficial CEHOP":`${base.total.toLocaleString("pt-BR")} composições no Supabase`}{base.arquivo?` · ${base.arquivo}`:""}</p>
                 </div>
-                {ehAdmin&&<button onClick={()=>desvincularBase(base)} title="Desvincular" style={{border:`1px solid ${C.border}`,background:C.bg,color:C.muted,width:28,height:28,borderRadius:6,cursor:"pointer",fontWeight:900}}>×</button>}
+                {ehAdmin&&<button onClick={()=>desvincularBase(base)} title="Desvincular" style={{border:`1px solid ${C.border}`,background:C.bg,color:C.muted,width:28,height:28,borderRadius:6,cursor:"pointer",fontWeight:600}}>×</button>}
               </div>); })}
           </div>
-        ) : <div style={{background:C.surface,border:`1px dashed ${C.border}`,padding:10,borderRadius:6}}><p style={{fontSize:11,color:C.muted}}>Nenhuma base do Supabase vinculada a este orçamento.</p></div>}
+        ) : <div style={{background:C.surface,border:`1px dashed ${C.border}`,padding:10,borderRadius:6}}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma base do Supabase vinculada a este orçamento.</p></div>}
 
         {basesDisponiveis.length>0 && <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}><Sel label="Vincular uma base já cadastrada" value={baseParaVincular} onChange={setBaseParaVincular} options={[{v:"",l:"Selecione"},...basesDisponiveis.map(base=>({v:base.id,l:`${base.fonte} ${base.dataBase}${base.uf?` · ${base.uf}`:""} · ${base.total||"oficial"}`}))]}/><Btn size="sm" v="info" disabled={!baseParaVincular} onClick={vincularBaseExistente}>Vincular</Btn></div>}
-        <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>Ao alterar um código na linha, fonte, descrição, unidade e custo unitário são consultados e atualizados automaticamente. Cadastro de novas bases é feito pelo administrador em Central do Administrador → Bases de preço.</p>
+        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.5}}>Ao alterar um código na linha, fonte, descrição, unidade e custo unitário são consultados e atualizados automaticamente. Cadastro de novas bases é feito pelo administrador em Central do Administrador → Bases de preço.</p>
         {(data.baseFavoritos||[]).length > 0 && (
-          <p style={{fontSize:11,color:C.muted,paddingTop:9,borderTop:`1px solid ${C.line}`}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,paddingTop:9,borderTop:`1px solid ${C.line}`}}>
             {(data.baseFavoritos||[]).length} composição(ões) na sua base de favoritos (sempre disponível, sem depender de nenhuma base vinculada)
           </p>
         )}
@@ -3938,7 +3938,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       {no.nome}{no.pavimentoId && no.nivelM!=null && <small> · Nível {fmtNum(no.nivelM)} m</small>}
                     </p>
                     {(no.itens.length > 0 || no.sub.length > 0) && (
-                      <p style={{ fontSize: 9, color: C.muted, marginTop: 1 }}>
+                      <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 1 }}>
                         {no.sub.length > 0 && `${no.sub.length} subnível(is)`}
                         {no.sub.length > 0 && no.itens.length > 0 && "  "}
                         {no.itens.length > 0 && `${no.itens.length} item(ns)`}
@@ -3952,11 +3952,11 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       title={recolhida?"Expandir nível":"Recolher nível"}
                       aria-expanded={!recolhida}
                       style={{background:recolhida?`${cor}12`:"transparent",border:`1px solid ${C.border}`,color:cor,
-                               borderRadius:5,width:alvoToque,height:alvoToque,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,lineHeight:1,fontWeight:900}}>
+                               borderRadius:5,width:alvoToque,height:alvoToque,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,lineHeight:1,fontWeight:600}}>
                       {recolhida?"▸":"▾"}
                     </button>
                     {no.total > 0 && (
-                      <p style={{ fontSize: 12, fontWeight: 800, color: cor, marginRight: 2 }}>{fmt(no.total)}</p>
+                      <p style={{ fontSize: 12, fontWeight:600, color: cor, marginRight: 2 }}>{fmt(no.total)}</p>
                     )}
                     <button onClick={() => { setEtapaAlvo(no.id); setBusca(""); setBuscaModal(true); }}
                       title="Adicionar item"
@@ -3965,12 +3965,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     <button onClick={() => abrirExterno(no.id)}
                       title="Nova composição externa ou cotação"
                       style={{background:"transparent",border:`1px solid ${C.border}`,color:C.green,
-                               borderRadius:5,width:alvoToque,height:alvoToque,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,lineHeight:1,fontWeight:800}}>R$</button>
+                               borderRadius:5,width:alvoToque,height:alvoToque,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"var(--arcd-type-label)",lineHeight:1,fontWeight:600}}>R$</button>
                     <button onClick={() => addTitulo(no.id)}
                       title="Adicionar título (texto sem valor)"
                       style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.muted,
-                               borderRadius:5, width:alvoToque, height:alvoToque, cursor:"pointer", display:"flex",alignItems:"center",justifyContent:"center", fontSize:10,
-                               lineHeight:1, fontWeight:800 }}>T</button>
+                               borderRadius:5, width:alvoToque, height:alvoToque, cursor:"pointer", display:"flex",alignItems:"center",justifyContent:"center", fontSize:"var(--arcd-type-label)",
+                               lineHeight:1, fontWeight:600 }}>T</button>
                     {podeSub && (
                       <button onClick={() => abrirNovaEtapa(no.id)}
                         title="Criar subnível"
@@ -4008,7 +4008,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   // React desmontar e remontar a linha inteira.
                   const setas = () => (
                     <div style={{ display:"flex", flexDirection:"column", gap:1, flexShrink:0 }}>
-                      <button title="Mover para posição" aria-label={`Mover item ${it.codigoItem} para posição`} onClick={()=>setItemPosition({id:it.id,position:idx+1})} style={{border:0,background:'transparent',cursor:'pointer',fontSize:10}}>↕</button>
+                      <button title="Mover para posição" aria-label={`Mover item ${it.codigoItem} para posição`} onClick={()=>setItemPosition({id:it.id,position:idx+1})} style={{border:0,background:'transparent',cursor:'pointer',fontSize:"var(--arcd-type-label)"}}>↕</button>
                       <button onClick={() => moverLinha(it.id, -1)} disabled={primeira}
                         title="Mover para cima"
                         style={{ background:"transparent", border:0, cursor: primeira?"default":"pointer",
@@ -4026,7 +4026,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     </div>
                   );
 
-                  //  Linha de TÍTULO: texto puro, sem código, sem valor 
+                  //  Linha de TÍTULO: texto puro, sem código, sem valor
                   if (it.tipo === "titulo") {
                     return (
                       <div key={it.id} style={{
@@ -4035,7 +4035,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                         background: `${C.surface}`,
                         display: "flex", gap: 8, alignItems: "center",
                       }}>
-                        <p style={{ fontSize:9, color:C.muted, fontWeight:700, minWidth:38 }}>
+                        <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, fontWeight:600, minWidth:38 }}>
                           {it.codigoItem}
                         </p>
                         <CelulaTexto
@@ -4046,7 +4046,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                             flex:1, minWidth:0,
                             background:"transparent", border:0, borderBottom:`1px dashed ${C.border}`,
                             color:C.text, padding:"3px 0", outline:"none",
-                            fontSize:11.5, fontWeight:700, letterSpacing:.3,
+                            fontSize:"var(--arcd-type-label)", fontWeight:600, letterSpacing:.3,
                             textTransform:"uppercase",
                             fontFamily:"var(--arcd-font-sans)",
                           }}
@@ -4059,7 +4059,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     );
                   }
 
-                  //  Linha de ITEM: composição com valor 
+                  //  Linha de ITEM: composição com valor
                   const tot = itemTotal(it, orc.bdi);
                   const codigoPendente = !!it.codigoNaoEncontrado || !String(it.codigo||"").trim();
                   const alterado = precoAlterado(it);
@@ -4099,18 +4099,18 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     }}>
                       {/* Alca de arrastar */}
                       <span title="Arraste para reordenar" style={{cursor:"grab",color:C.muted,fontSize:12,lineHeight:1,userSelect:"none",textAlign:"center"}}>::</span>
-                      <p style={{fontSize:9,color:C.muted,fontWeight:700,minWidth:0,whiteSpace:"nowrap"}}>
+                      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,minWidth:0,whiteSpace:"nowrap"}}>
                         {it.codigoItem}
                       </p>
                       <div title="Fonte" style={{minWidth:0,overflow:"hidden"}}>
-                        <span style={{display:"block",fontSize:9.5,fontWeight:800,color:it.fonte==="ORSE"?C.purple:C.blue,whiteSpace:"nowrap"}}>{it.fonte}</span>
+                        <span style={{display:"block",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:it.fonte==="ORSE"?C.purple:C.blue,whiteSpace:"nowrap"}}>{it.fonte}</span>
                       </div>
                       {colsOrc.codigo && (
                       <div style={{minWidth:0,overflow:"hidden"}}>
                           <CelulaTexto value={it.codigo||""}
                             onCommit={valor=>updItemCampo(it.id,"codigo",valor)}
                             placeholder="Sem código" title={codigoAtualizando===it.id?"Consultando código nas bases...":codigoPendente?"Código não localizado na base":"Código da composição"}
-                            style={{width:"100%",boxSizing:"border-box",background:codigoPendente?`${C.orange}12`:C.bg,border:`1.5px solid ${codigoPendente?C.orange:C.border}`,color:codigoPendente?C.orange:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",textTransform:"uppercase",fontFamily:"var(--arcd-font-mono)"}}/>
+                            style={{width:"100%",boxSizing:"border-box",background:codigoPendente?`${C.orange}12`:C.bg,border:`1.5px solid ${codigoPendente?C.orange:C.border}`,color:codigoPendente?C.orange:C.text,padding:"5px 7px",borderRadius:5,fontSize:"var(--arcd-type-label)",outline:"none",textTransform:"uppercase",fontFamily:"var(--arcd-font-mono)"}}/>
                       </div>
                       )}
                       <div style={{minWidth:0,overflow:"hidden"}}>
@@ -4126,21 +4126,21 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                             return false;
                           }}
                           title="Pesquise e selecione uma composição. A pesquisa não altera a descrição; use Editar para alterações manuais."
-                          style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11.5,outline:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textTransform:"uppercase",fontFamily:"var(--arcd-font-sans)"}}/>
+                          style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:"var(--arcd-type-label)",outline:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textTransform:"uppercase",fontFamily:"var(--arcd-font-sans)"}}/>
                       </div>
                       {colsOrc.unidade && (
                       <div style={{minWidth:0,overflow:"hidden"}}>
                           <CelulaTexto value={it.unidade||""}
                             onCommit={valor=>updItemCampo(it.id,"unidade",valor)}
                             title="Unidade do item"
-                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",textTransform:"uppercase",fontFamily:"var(--arcd-font-sans)"}}/>
+                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:"var(--arcd-type-label)",outline:"none",textTransform:"uppercase",fontFamily:"var(--arcd-font-sans)"}}/>
                       </div>
                       )}
                       <div style={{minWidth:0,overflow:"hidden"}}>
                           <CelulaTexto type="number" step="any" inputMode="decimal" value={String(it.quantidade ?? "")}
                             onCommit={valor => updItemQtd(it.id, valor)}
                             title="Quantidade"
-                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:11,outline:"none",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums"}}/>
+                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:"var(--arcd-type-label)",outline:"none",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums"}}/>
                       </div>
                       {colsOrc.custoUnit && (
                       <div title={alterado?`Base: ${fmt(it.precoRef)} - editado`:"Custo unitário sem BDI"} style={{minWidth:0,overflow:"hidden",position:"relative"}}>
@@ -4152,7 +4152,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                               background: alterado?`${C.yellow}14`:C.bg,
                               border:`1.5px solid ${alterado?C.yellowD:C.border}`,
                               color: alterado?C.yellowD:C.text, fontWeight: alterado?800:400,
-                              padding:"5px 7px",borderRadius:5,fontSize:10.5,outline:"none",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums"}}/>
+                              padding:"5px 7px",borderRadius:5,fontSize:"var(--arcd-type-label)",outline:"none",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums"}}/>
                       </div>
                       )}
                       {colsOrc.bdi && (
@@ -4164,21 +4164,21 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                             style={{width:"100%",boxSizing:"border-box",textAlign:"right",
                               background:C.bg,border:`1.5px solid ${C.border}`,
                               color: (it.bdi!==""&&it.bdi!=null)?C.text:C.muted,
-                              padding:"5px 7px",borderRadius:5,fontSize:10,outline:"none",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums"}}/>
+                              padding:"5px 7px",borderRadius:5,fontSize:"var(--arcd-type-label)",outline:"none",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums"}}/>
                       </div>
                       )}
                       {setas()}
                       {colsOrc.total && (
                       <div style={{minWidth:0,overflow:"hidden",textAlign:"right",whiteSpace:"nowrap"}}>
-                        <span title={`Preço total com BDI (${bdiEfetivo}%)`} style={{display:"block",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:12,fontWeight:800,color:alterado?C.yellowD:C.text}}>{fmt(tot)}</span>
+                        <span title={`Preço total com BDI (${bdiEfetivo}%)`} style={{display:"block",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:12,fontWeight:600,color:alterado?C.yellowD:C.text}}>{fmt(tot)}</span>
                         <button onClick={() => analisarItemDoOrcamento(it)}
                           title="Ver a composição analítica deste item"
-                          style={{background:"transparent",border:0,color:C.green,cursor:"pointer",fontSize:10,fontWeight:800,padding:"0 3px",marginLeft:4}}>Comp.</button>
+                          style={{background:"transparent",border:0,color:C.green,cursor:"pointer",fontSize:"var(--arcd-type-label)",fontWeight:600,padding:"0 3px",marginLeft:4}}>Comp.</button>
                         <button onClick={() => {setItemMemoryFocus(it.id);setOrcAba('memoria');setDisciplinaMemoria('itens');}}
-                          title="Abrir memória de cálculo deste item" style={{background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:10,padding:"0 3px"}}>Mem.</button>
+                          title="Abrir memória de cálculo deste item" style={{background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:"var(--arcd-type-label)",padding:"0 3px"}}>Mem.</button>
                         <button onClick={() => setEditItem({...it})}
                           title={it.composicao?"Editar item e composição":"Editar item"}
-                          style={{background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:10,padding:"0 3px"}}>Editar</button>
+                          style={{background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:"var(--arcd-type-label)",padding:"0 3px"}}>Editar</button>
                         <button onClick={() => delItem(it.id)} title="Excluir item"
                           style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:13,padding:0}}>x</button>
                       </div>
@@ -4194,10 +4194,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                             setSelecaoLinhaVersao(v=>({...v,[it.id]:(v[it.id]||0)+1}));
                             setBuscaLinha({itemId:"",termo:""});
                           }} style={{border:0,background:"transparent",color:C.blue,cursor:"pointer",padding:6,textDecoration:"underline"}}>Restaurar composição pelo código {it.codigo}</button>}
-                          <p style={{fontSize:9.5,color:C.muted,padding:"3px 6px 5px"}}>
+                          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,padding:"3px 6px 5px"}}>
                             {buscaLinhaLoading ? "Pesquisando nas bases vinculadas..." : "Selecione uma composição para atualizar código, unidade e preço"}
                           </p>
-                          {buscaLinhaAviso && <p style={{fontSize:9.5,color:C.orange,padding:"2px 6px 5px"}}>{buscaLinhaAviso}</p>}
+                          {buscaLinhaAviso && <p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,padding:"2px 6px 5px"}}>{buscaLinhaAviso}</p>}
                           {resultadosLinha.slice(0,12).map((resultado,indice)=>(
                             <button key={`${resultado.fonte}-${resultado.codigo}-${indice}`}
                               onMouseDown={e=>e.preventDefault()}
@@ -4205,19 +4205,19 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                               style={{width:"100%",display:"grid",gridTemplateColumns:"74px minmax(0,1fr) 78px",gap:7,
                                 alignItems:"center",background:"transparent",border:0,borderTop:indice?`1px solid ${C.line}`:"none",
                                 padding:"6px",textAlign:"left",cursor:"pointer",fontFamily:"var(--arcd-font-sans)"}}>
-                              <span style={{fontSize:9.5,fontWeight:800,color:resultado.fonte==="ORSE"?C.purple:C.blue,whiteSpace:"nowrap"}}>
+                              <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:resultado.fonte==="ORSE"?C.purple:C.blue,whiteSpace:"nowrap"}}>
                                 {resultado.fonte||"SINAPI"} {resultado.codigo}
                               </span>
-                              <span title={resultado.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                              <span title={resultado.descricao} style={{fontSize:"var(--arcd-type-label)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
                                 {resultado.descricao}
                               </span>
-                              <span style={{fontSize:10,fontWeight:800,color:C.yellowD,textAlign:"right",whiteSpace:"nowrap"}}>
+                              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD,textAlign:"right",whiteSpace:"nowrap"}}>
                                 {fmt(precoDoItem(resultado,orc))}/{resultado.unidade||"UN"}
                               </span>
                             </button>
                           ))}
                           {!buscaLinhaLoading && resultadosLinha.length===0 && (
-                            <p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:10}}>Nenhuma composição encontrada.</p>
+                            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"center",padding:10}}>Nenhuma composição encontrada.</p>
                           )}
                         </div>
                       )}
@@ -4226,7 +4226,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 })}
 
                 {!recolhida && no.itens.length === 0 && no.sub.length === 0 && (
-                  <p style={{ padding:"9px 12px", fontSize:10.5, color:C.muted }}>Vazia - use + para item, T para título ou ↳ para subnível.</p>
+                  <p style={{ padding:"9px 12px", fontSize:"var(--arcd-type-label)", color:C.muted }}>Vazia - use + para item, T para título ou ↳ para subnível.</p>
                 )}
               </div>
             </div>
@@ -4245,7 +4245,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 <div style={{position:"absolute",top:"100%",right:0,marginTop:4,zIndex:30,
                              background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:6,
                              boxShadow:`0 8px 24px ${C.shadow}`,padding:"10px 12px",minWidth:190}}>
-                  <p style={{fontSize:10,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>Colunas visíveis</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>Colunas visíveis</p>
                   {[["codigo","Código"],["unidade","Unidade"],["custoUnit","Custo unitário"],["bdi","BDI por item"],["total","Total"]].map(([k,l])=>(
                     <label key={k} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",cursor:"pointer",fontSize:12,color:C.text}}>
                       <input type="checkbox" checked={!!colsOrc[k]}
@@ -4254,7 +4254,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       {l}
                     </label>
                   ))}
-                  <p style={{fontSize:9.5,color:C.muted,marginTop:7,lineHeight:1.45,borderTop:`1px solid ${C.line}`,paddingTop:7}}>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:7,lineHeight:1.45,borderTop:`1px solid ${C.line}`,paddingTop:7}}>
                     Fonte, descrição e quantidade ficam sempre visíveis.
                   </p>
                 </div>
@@ -4270,13 +4270,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {/* Totais finais */}
       <div style={{background:C.text,color:"#fff",borderRadius:8,padding:"14px 16px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}><p style={{fontSize:12,opacity:.75}}>BDI ({orc.bdi}%)</p><p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:12,fontWeight:700}}>{fmt(calc.valorBDI)}</p></div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}><p style={{fontSize:12,opacity:.75}}>BDI ({orc.bdi}%)</p><p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:12,fontWeight:600}}>{fmt(calc.valorBDI)}</p></div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:9,marginTop:6,borderTop:`1px solid rgba(255,255,255,.2)`}}>
-          <p style={{fontSize:13,fontWeight:700}}>TOTAL GERAL</p>
-          <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:24,fontWeight:800,color:C.yellow}}>{fmt(calc.total)}</p>
+          <p style={{fontSize:13,fontWeight:600}}>TOTAL GERAL</p>
+          <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:24,fontWeight:600,color:C.yellow}}>{fmt(calc.total)}</p>
         </div>
         {orc.areaM2>0 && (
-          <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:11,opacity:.7,textAlign:"right",marginTop:2}}>{fmt(calc.porM2)}/m  {orc.areaM2} m</p>
+          <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-label)",opacity:.7,textAlign:"right",marginTop:2}}>{fmt(calc.porM2)}/m  {orc.areaM2} m</p>
         )}
       </div>
 
@@ -4287,16 +4287,16 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 style={{width:"100%",background:C.surface,border:0,borderBottom:abcAberta?`1.5px solid ${C.border}`:"0",
                         padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,textAlign:"left"}}>
           <div>
-            <p style={{fontSize:10.5,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>Análise de Pareto</p>
-            <p style={{fontSize:15,fontWeight:800,color:C.text,marginTop:1}}>Curva ABC</p>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>Análise de Pareto</p>
+            <p style={{fontSize:15,fontWeight:600,color:C.text,marginTop:1}}>Curva ABC</p>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             {abc && abc.itens.length>0 && (
-              <p style={{fontSize:11,color:C.muted,textAlign:"right"}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"right"}}>
                 <b style={{color:CLASSE_ABC.A.cor}}>{abc.resumo[0].qtd} itens</b> = {abc.resumo[0].pctValor.toFixed(1)}% do custo
               </p>
             )}
-            <span style={{fontSize:14,fontWeight:800,color:C.yellow}}>{abcAberta ? "-" : "+"}</span>
+            <span style={{fontSize:14,fontWeight:600,color:C.yellow}}>{abcAberta ? "-" : "+"}</span>
           </div>
         </button>
 
@@ -4324,21 +4324,21 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 {abc.resumo.map(r => (
                   <button key={r.classe} onClick={()=>setAbcFiltro(f=>f===r.classe?"todas":r.classe)}
                           style={{textAlign:"left",cursor:"pointer",background:abcFiltro===r.classe?`${r.cor}12`:C.surface,
-                                  border:`1.5px solid ${abcFiltro===r.classe?r.cor:C.border}`,borderLeft:`4px solid ${r.cor}`,
+                                  border:`1.5px solid ${abcFiltro===r.classe?r.cor:C.border}`,borderLeft:`1px solid ${r.cor}`,
                                   borderRadius:6,padding:"9px 11px"}}>
                     <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:6}}>
-                      <p style={{fontSize:12.5,fontWeight:800,color:r.cor}}>Classe {r.classe}</p>
-                      <p style={{fontSize:10.5,color:C.muted}}>{r.qtd} item(ns)  {r.pctItens.toFixed(0)}%</p>
+                      <p style={{fontSize:12.5,fontWeight:600,color:r.cor}}>Classe {r.classe}</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{r.qtd} item(ns)  {r.pctItens.toFixed(0)}%</p>
                     </div>
-                    <p style={{fontSize:16,fontWeight:800,color:C.text,marginTop:3}}>{r.pctValor.toFixed(1)}%</p>
-                    <p style={{fontSize:10.5,color:C.muted,marginTop:1}}>{fmt(r.custoDireto)} de custo direto</p>
+                    <p style={{fontSize:16,fontWeight:600,color:C.text,marginTop:3}}>{r.pctValor.toFixed(1)}%</p>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>{fmt(r.custoDireto)} de custo direto</p>
                   </button>
                 ))}
               </div>
 
               {/* Grafico: barras = custo, linha = % acumulado */}
               <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"11px 8px 4px"}}>
-                <p style={{fontSize:10.5,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.7,paddingLeft:6,marginBottom:6}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.7,paddingLeft:6,marginBottom:6}}>
                   20 itens de maior custo  linha = % acumulado
                 </p>
                 <div style={{height:250}}>
@@ -4346,9 +4346,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     <ComposedChart data={grafico} margin={{top:4,right:8,left:0,bottom:4}}>
                       <CartesianGrid strokeDasharray="3 3" stroke={C.line}/>
                       <XAxis dataKey="nome" tick={false} axisLine={{stroke:C.border}} height={6}/>
-                      <YAxis yAxisId="l" tick={{fontSize:10,fill:C.muted}} axisLine={false} tickLine={false}
+                      <YAxis yAxisId="l" tick={{fontSize:"var(--arcd-type-label)",fill:C.muted}} axisLine={false} tickLine={false}
                              tickFormatter={v=>`${Math.round(v/1000)}k`}/>
-                      <YAxis yAxisId="r" orientation="right" domain={[0,100]} tick={{fontSize:10,fill:C.muted}}
+                      <YAxis yAxisId="r" orientation="right" domain={[0,100]} tick={{fontSize:"var(--arcd-type-label)",fill:C.muted}}
                              axisLine={false} tickLine={false} tickFormatter={v=>`${v}%`}/>
                       <Tooltip
                         contentStyle={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,fontSize:12}}
@@ -4369,14 +4369,14 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                        style={{width:18,height:18,borderRadius:4,flexShrink:0,cursor:"pointer",
                                border:`2px solid ${abcAgrupar?C.green:C.muted}`,background:abcAgrupar?C.green:"transparent",
                                display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    {abcAgrupar && <span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
+                    {abcAgrupar && <span style={{color:"#fff",fontSize:"var(--arcd-type-label)",fontWeight:600}}>ok</span>}
                   </div>
-                  <p style={{fontSize:11.5,color:C.subtle}}>Agrupar o mesmo código somado entre etapas</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle}}>Agrupar o mesmo código somado entre etapas</p>
                 </label>
                 {abcFiltro!=="todas" && (
                   <button onClick={()=>setAbcFiltro("todas")}
                           style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"4px 10px",
-                                  borderRadius:4,fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                                  borderRadius:4,fontSize:"var(--arcd-type-label)",fontWeight:600,cursor:"pointer"}}>
                     Mostrando classe {abcFiltro}  limpar filtro
                   </button>
                 )}
@@ -4385,11 +4385,11 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               {/* Tabela */}
               <div style={{border:`1px solid ${C.border}`,borderRadius:6,overflow:"hidden"}}>
                 <div className="scroll-x" style={{maxHeight:360,overflowY:"auto"}}>
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11.5,minWidth:660}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:"var(--arcd-type-label)",minWidth:660}}>
                     <thead style={{position:"sticky",top:0,zIndex:1}}>
                       <tr style={{background:C.surface}}>
                         {["#","Cl.","Código","Descrição","Un.","Qtd.","Custo direto","% item","% acum."].map((h,i)=>(
-                          <th key={h} style={{padding:"7px 8px",textAlign:i>=4?"right":"left",fontSize:10,fontWeight:800,
+                          <th key={h} style={{padding:"7px 8px",textAlign:i>=4?"right":"left",fontSize:"var(--arcd-type-label)",fontWeight:600,
                                               color:C.muted,textTransform:"uppercase",letterSpacing:.5,
                                               borderBottom:`1.5px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>
                         ))}
@@ -4402,22 +4402,22 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                           <td style={{padding:"6px 8px"}}>
                             <span style={{display:"inline-block",minWidth:17,textAlign:"center",padding:"1px 5px",borderRadius:4,
                                           background:`${CLASSE_ABC[i.classe].cor}18`,color:CLASSE_ABC[i.classe].cor,
-                                          fontSize:10,fontWeight:800}}>{i.classe}</span>
+                                          fontSize:"var(--arcd-type-label)",fontWeight:600}}>{i.classe}</span>
                           </td>
                           <td style={{padding:"6px 8px",color:C.subtle,whiteSpace:"nowrap"}}>{i.codigo||"-"}</td>
                           <td style={{padding:"6px 8px",color:C.text,minWidth:230}}>
                             {i.descricao}
                             {i.ocorrencias>1 && (
-                              <span style={{marginLeft:6,fontSize:9.5,fontWeight:700,color:C.muted}}>({i.ocorrencias}x)</span>
+                              <span style={{marginLeft:6,fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>({i.ocorrencias}x)</span>
                             )}
                           </td>
                           <td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{i.unidade}</td>
                           <td style={{padding:"6px 8px",textAlign:"right",color:C.subtle,whiteSpace:"nowrap"}}>
                             {i.quantidade.toLocaleString("pt-BR",{maximumFractionDigits:2})}
                           </td>
-                          <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:C.text,whiteSpace:"nowrap"}}>{fmt(i.custoDireto)}</td>
+                          <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:C.text,whiteSpace:"nowrap"}}>{fmt(i.custoDireto)}</td>
                           <td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{i.pct.toFixed(2)}%</td>
-                          <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:CLASSE_ABC[i.classe].cor}}>{i.pctAcum.toFixed(1)}%</td>
+                          <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:CLASSE_ABC[i.classe].cor}}>{i.pctAcum.toFixed(1)}%</td>
                         </tr>
                       ))}
                     </tbody>
@@ -4425,7 +4425,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 </div>
               </div>
 
-              <p style={{fontSize:10.5,color:C.muted,lineHeight:1.6}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.6}}>
                 Classe A: itens até 80% do custo acumulado  B: até 95%  C: o restante.
                 Os valores são de <b>custo direto</b>, sem BDI. Negociar preço nos itens A
                 move o orçamento; nos itens C, quase não muda.
@@ -4437,12 +4437,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {/* Importar planilha do orçamento (código + qtd) */}
       <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,padding:"13px 15px",boxShadow:`0 1px 4px ${C.shadow}`}}>
-        <p style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:3}}>Importar planilha do orçamento</p>
-        <p style={{fontSize:11,color:C.muted,marginBottom:9,lineHeight:1.55}}>
+        <p style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:3}}>Importar planilha do orçamento</p>
+        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:9,lineHeight:1.55}}>
           A planilha precisa das colunas <b>Código</b> e <b>Qtd.</b> - descrição, unidade e preço
           vêm da base {orc.fonte} já carregada, na data-base deste orçamento.
           {basePorCodigo.size === 0
-            ? <span style={{color:C.red,fontWeight:700}}> Importe a base SINAPI/ORSE antes.</span>
+            ? <span style={{color:C.red,fontWeight:600}}> Importe a base SINAPI/ORSE antes.</span>
             : <> Base ativa: <b>{basePorCodigo.size.toLocaleString("pt-BR")}</b> códigos.</>}
         </p>
         <div style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}>
@@ -4453,12 +4453,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <span style={{display:"inline-flex",alignItems:"center",gap:6,background:C.yellow,color:"#fff",
                           border:`1.5px solid ${C.yellowD}`,padding:"8px 14px",borderRadius:6,
                           cursor: basePorCodigo.size===0||impLoad ? "not-allowed" : "pointer",
-                          fontFamily:"var(--arcd-font-sans)",fontWeight:700,fontSize:12,
+                          fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:12,
                           textTransform:"uppercase",letterSpacing:.5}}>
               {impLoad ? "Lendo..." : "Escolher planilha"}
             </span>
           </label>
-          <p style={{fontSize:10.5,color:C.muted}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>
             Use o <b>Excel padrão</b> abaixo como modelo do layout.
           </p>
         </div>
@@ -4508,8 +4508,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         const pend = impModal.linhas.filter(l => l.kind==="item" && (!l.achou || l.semPreco || l.semQtd));
         const Nm = ({v,l,cor}) => (
           <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 9px"}}>
-            <p style={{fontSize:16,fontWeight:800,color:cor||C.text}}>{v}</p>
-            <p style={{fontSize:10,color:C.muted,marginTop:1}}>{l}</p>
+            <p style={{fontSize:16,fontWeight:600,color:cor||C.text}}>{v}</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>{l}</p>
           </div>
         );
         return (
@@ -4524,18 +4524,18 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
               <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:6,padding:"9px 12px",
                            display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
-                <p style={{fontSize:11,color:C.muted}}>Custo direto que será importado</p>
-                <p style={{fontSize:17,fontWeight:800,color:C.yellow}}>{fmt(s.valor)}</p>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Custo direto que será importado</p>
+                <p style={{fontSize:17,fontWeight:600,color:C.yellow}}>{fmt(s.valor)}</p>
               </div>
 
               {pend.length > 0 && (
-                <div style={{border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.red}`,borderRadius:6,overflow:"hidden"}}>
-                  <p style={{fontSize:11.5,fontWeight:700,color:C.text,padding:"8px 11px",background:C.surface}}>
+                <div style={{border:`1px solid ${C.border}`,borderLeft:`1px solid ${C.red}`,borderRadius:6,overflow:"hidden"}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,padding:"8px 11px",background:C.surface}}>
                     {pend.length} linha(s) precisam de atenção
                   </p>
                   <div style={{maxHeight:150,overflowY:"auto",padding:"6px 11px"}}>
                     {pend.slice(0,40).map((p,i)=>(
-                      <p key={i} style={{fontSize:11,color:C.muted,lineHeight:1.7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                      <p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
                         Linha {p._i}: <b style={{color:C.subtle}}>{p.codigo||"sem código"}</b>
                         {" - "}
                         {!p.achou   ? "não existe na base carregada"
@@ -4543,7 +4543,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                          : "a base não tem preço para este código"}
                       </p>
                     ))}
-                    {pend.length>40 && <p style={{fontSize:10.5,color:C.muted,marginTop:4}}>...e mais {pend.length-40}.</p>}
+                    {pend.length>40 && <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>...e mais {pend.length-40}.</p>}
                   </div>
                 </div>
               )}
@@ -4561,11 +4561,11 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                        style={{width:18,height:18,borderRadius:4,flexShrink:0,marginTop:1,
                                border:`2px solid ${impModal[o.k]?o.cor:C.muted}`,background:impModal[o.k]?o.cor:"transparent",
                                display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    {impModal[o.k] && <span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
+                    {impModal[o.k] && <span style={{color:"#fff",fontSize:"var(--arcd-type-label)",fontWeight:600}}>ok</span>}
                   </div>
                   <div>
-                    <p style={{fontSize:12.5,fontWeight:700,color:impModal[o.k]?o.cor:C.text}}>{o.t}</p>
-                    <p style={{fontSize:10.5,color:C.muted,marginTop:2,lineHeight:1.5}}>{o.s}</p>
+                    <p style={{fontSize:12.5,fontWeight:600,color:impModal[o.k]?o.cor:C.text}}>{o.t}</p>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.5}}>{o.s}</p>
                   </div>
                 </label>
               ))}
@@ -4594,7 +4594,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <Inp label="Nome do orçamento *" value={form.nome} onChange={F("nome")}/>
             <label style={{display:"flex",flexDirection:"column",gap:5}}>
-              <span style={{fontSize:11,fontWeight:700,color:C.text}}>Descrição</span>
+              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Descrição</span>
               <textarea value={form.descricao||""} onChange={e=>F("descricao")(e.target.value)} rows={3}
                 placeholder="Escopo, objetivo ou observações do orçamento"
                 style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
@@ -4617,7 +4617,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             </div>
             <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"9px 12px",background:form.desonerado?`${C.green}08`:C.surface,borderRadius:6,border:`1.5px solid ${form.desonerado?C.green+"55":C.border}`}}>
               <input type="checkbox" checked={form.desonerado!==false} onChange={e=>F("desonerado")(e.target.checked)}/>
-              <span style={{fontSize:12,fontWeight:700,color:C.text}}>Encargos desonerados</span>
+              <span style={{fontSize:12,fontWeight:600,color:C.text}}>Encargos desonerados</span>
             </label>
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>setEditMetaModal(false)} full>Cancelar</Btn>
@@ -4648,7 +4648,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           const dica = hint || (ref ? `TCU edif.: ${f2p(ref.q1)} - ${f2p(ref.q3)}` : null);
           return (
             <label key={k} style={{display:"flex",flexDirection:"column",gap:3}}>
-              <span style={{fontSize:10,fontWeight:600,color:C.text,letterSpacing:.3}}>{label}</span>
+              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,letterSpacing:.3}}>{label}</span>
               <div style={{display:"flex",alignItems:"center",gap:4}}>
                 <input type="number" step="0.01" value={bdiP[k]}
                   onChange={e => P(k)(e.target.value)}
@@ -4656,10 +4656,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                           border:`1.5px solid ${fora ? C.orange : C.border}`,color:C.text,
                           padding:"7px 9px",borderRadius:6,fontSize:13,outline:"none",
                           fontFamily:"var(--arcd-font-sans)"}}/>
-                <span style={{fontSize:11,color:C.muted}}>%</span>
+                <span style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>%</span>
               </div>
               {dica && (
-                <span style={{fontSize:9,color: fora ? C.orange : C.muted}}>
+                <span style={{fontSize:"var(--arcd-type-caption)",color: fora ? C.orange : C.muted}}>
                   {fora ? "! " : ""}{dica}
                 </span>
               )}
@@ -4680,7 +4680,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     background:bdiAba===v?`${C.yellow}12`:"transparent",
                     color:bdiAba===v?C.text:C.muted,
                     fontFamily:"var(--arcd-font-sans)",
-                    fontWeight:700,fontSize:12,cursor:"pointer",borderRadius:6,
+                    fontWeight:600,fontSize:12,cursor:"pointer",borderRadius:6,
                   }}>{l}</button>
                 ))}
               </div>
@@ -4691,7 +4691,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
               {/*  ABA: FAIXA REFERENCIAL  */}
               {bdiAba === "faixa" && (<>
-                <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
                   O TCU não fixa um BDI: fixa um <strong style={{color:C.text}}>intervalo</strong>.
                   Dentro dele, o valor é aceito sem questionamento. Fora, é preciso justificar tecnicamente.
                 </p>
@@ -4709,19 +4709,19 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                         border:`2px solid ${atual ? cor : C.border}`,
                         borderRadius:6, padding:"11px 6px", cursor:"pointer", textAlign:"center",
                       }}>
-                        <p style={{fontSize:9,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{l}</p>
-                        <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:20,fontWeight:800,color:cor,marginTop:3,lineHeight:1}}>
+                        <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{l}</p>
+                        <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:20,fontWeight:600,color:cor,marginTop:3,lineHeight:1}}>
                           {val.toFixed(2)}%
                         </p>
-                        <p style={{fontSize:9,color:C.muted,marginTop:3}}>{sub}</p>
-                        {atual && <p style={{fontSize:9,fontWeight:700,color:cor,marginTop:3,display:"flex",alignItems:"center",justifyContent:"center",gap:3}}><Ic n="check" s={10} color={cor}/> EM USO</p>}
+                        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{sub}</p>
+                        {atual && <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:cor,marginTop:3,display:"flex",alignItems:"center",justifyContent:"center",gap:3}}><Ic n="check" s={10} color={cor}/> EM USO</p>}
                       </button>
                     );
                   })}
                 </div>
 
                 <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 12px"}}>
-                  <p style={{fontSize:10.5,color:C.muted,lineHeight:1.55}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>
                     Estes valores são o BDI <strong>total</strong>. Se você precisa demonstrar a
                     memória de cálculo (comum em perícia e em obra pública), use a aba
                     <strong style={{color:C.text}}> Cálculo detalhado</strong>.
@@ -4732,13 +4732,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               {/*  ABA: CÁLCULO DETALHADO  */}
               {bdiAba === "detalhado" && (<>
                 <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 12px"}}>
-                  <p style={{fontSize:10,fontWeight:700,color:C.text,textTransform:"uppercase",letterSpacing:.5,marginBottom:3}}>Fórmula do TCU</p>
-                  <p style={{fontSize:11,color:C.muted,fontFamily:"monospace",lineHeight:1.5}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,textTransform:"uppercase",letterSpacing:.5,marginBottom:3}}>Fórmula do TCU</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,fontFamily:"monospace",lineHeight:1.5}}>
                     BDI = [ (1+AC+S+R+G) x (1+DF) x (1+L)  (1I) ]  1
                   </p>
                 </div>
 
-                <p style={{fontSize:10,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Componentes</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Componentes</p>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
                   {pct("AC - Administração Central", "ac")}
                   {pct("S - Seguro", "seguro")}
@@ -4748,7 +4748,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   {pct("L - Lucro", "lucro")}
                 </div>
 
-                <p style={{fontSize:10,fontWeight:700,color:C.yellow,textTransform:"uppercase",letterSpacing:.7,marginTop:2}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.7,marginTop:2}}>
                   I - Tributos sobre o faturamento
                 </p>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
@@ -4764,8 +4764,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   const temCprb = Number(bdiP.cprb || 0) > 0;
                   if (usaDes && !temCprb) return (
                     <div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}44`,borderRadius:6,padding:"8px 11px"}}>
-                      <p style={{fontSize:11,color:C.orange,fontWeight:700}}>! Orçamento desonerado sem CPRB</p>
-                      <p style={{fontSize:10,color:C.muted,marginTop:2,lineHeight:1.5}}>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600}}>! Orçamento desonerado sem CPRB</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.5}}>
                         Você escolheu a tabela <strong>desonerada</strong>, então a empresa recolhe CPRB (4,5% sobre a
                         receita) - e isso precisa estar nos tributos do BDI. Deixar em zero subestima o BDI.
                       </p>
@@ -4773,8 +4773,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   );
                   if (!usaDes && temCprb) return (
                     <div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}44`,borderRadius:6,padding:"8px 11px"}}>
-                      <p style={{fontSize:11,color:C.orange,fontWeight:700}}>! Orçamento não desonerado com CPRB</p>
-                      <p style={{fontSize:10,color:C.muted,marginTop:2,lineHeight:1.5}}>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600}}>! Orçamento não desonerado com CPRB</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.5}}>
                         A tabela é <strong>não desonerada</strong> (encargos já na folha), logo não há CPRB.
                         Mantê-la infla o BDI indevidamente.
                       </p>
@@ -4787,21 +4787,21 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 <div style={{background:`${sit.cor}0A`,border:`2px solid ${sit.cor}`,borderRadius:8,padding:"13px 15px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
-                      <p style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.6}}>BDI calculado</p>
-                      <p style={{fontSize:10,color:C.muted,marginTop:2}}>Tributos (I) = {r.tributos.toFixed(2)}%</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.6}}>BDI calculado</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Tributos (I) = {r.tributos.toFixed(2)}%</p>
                     </div>
-                    <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"clamp(18px,8vw,32px)",fontWeight:800,color:sit.cor,lineHeight:1}}>
+                    <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"clamp(18px,8vw,32px)",fontWeight:600,color:sit.cor,lineHeight:1}}>
                       {r.erro ? "-" : `${r.bdi.toFixed(2)}%`}
                     </p>
                   </div>
                   <div style={{marginTop:9,paddingTop:9,borderTop:`1px solid ${sit.cor}33`}}>
-                    <p style={{fontSize:11,fontWeight:700,color:sit.cor}}>
+                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:sit.cor}}>
                       {sit.st==="dentro" ? "Dentro da faixa TCU" : sit.st==="acima" ? "Acima do 3º quartil" : "Abaixo do 1º quartil"}
                     </p>
-                    <p style={{fontSize:10,color:C.muted,marginTop:3,lineHeight:1.5}}>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3,lineHeight:1.5}}>
                       {r.erro || sit.msg}
                     </p>
-                    <p style={{fontSize:9.5,color:C.muted,marginTop:5}}>
+                    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:5}}>
                       Faixa para <strong>{t.l.toLowerCase()}</strong>: {t.q1}% (1ºQ)  {t.med}% (médio)  {t.q3}% (3ºQ)
                     </p>
                   </div>
@@ -4813,7 +4813,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 </Btn>
               </>)}
 
-              <p style={{fontSize:9.5,color:C.muted,textAlign:"center",lineHeight:1.5}}>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textAlign:"center",lineHeight:1.5}}>
                 Faixas do Acórdão 2622/2013-TCU-Plenário. Confira sempre contra a íntegra do
                 acórdão antes de usar em processo.
               </p>
@@ -4847,9 +4847,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               const nivelPai = nivelDaEtapa(orc.etapas, etapaModal.paiId);
               return (
                 <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"9px 12px"}}>
-                  <p style={{fontSize:10,color:C.muted,textTransform:"uppercase",fontWeight:700,letterSpacing:.6}}>Dentro de</p>
-                  <p style={{fontSize:13,fontWeight:700,color:C.text,marginTop:2}}>{pai?.nome}</p>
-                  <p style={{fontSize:10,color:C.muted,marginTop:3}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase",fontWeight:600,letterSpacing:.6}}>Dentro de</p>
+                  <p style={{fontSize:13,fontWeight:600,color:C.text,marginTop:2}}>{pai?.nome}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>
                     Será o nível {nivelPai+1} de {MAX_NIVEL}
                   </p>
                 </div>
@@ -4877,31 +4877,31 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 <p style={{fontSize:12,color:C.muted}}>Nenhuma base vinculada. Cadastre ou vincule uma base SINAPI/ORSE neste orçamento.</p>
               </div>
             )}
-            {buscaRemotaLoading && <p style={{fontSize:10.5,color:C.blue,fontWeight:700}}>Pesquisando nas bases vinculadas...</p>}
-            {buscaRemotaAviso && <div style={{background:`${C.orange}0B`,border:`1px solid ${C.orange}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:10.5,color:C.orange}}>{buscaRemotaAviso}</p></div>}
+            {buscaRemotaLoading && <p style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600}}>Pesquisando nas bases vinculadas...</p>}
+            {buscaRemotaAviso && <div style={{background:`${C.orange}0B`,border:`1px solid ${C.orange}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.orange}}>{buscaRemotaAviso}</p></div>}
 
             {!busca && baseBusca.some(i=>i._fav) && (
-              <p style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:.8,display:"flex",alignItems:"center",gap:4}}><Ic n="star" s={11} color={C.yellow}/> Seus favoritos</p>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.8,display:"flex",alignItems:"center",gap:4}}><Ic n="star" s={11} color={C.yellow}/> Seus favoritos</p>
             )}
 
             <div style={{maxHeight:340,overflowY:"auto",display:"flex",flexDirection:"column",gap:5}}>
               {resultados.map((r,i)=>(
                 <button key={`${r.codigo}-${i}`} onClick={()=>{setQtdModal(r);setQtd("");setBuscaModal(false);}} style={{
                   background:C.bg, border:`1.5px solid ${C.border}`,
-                  borderLeft:`3px solid ${r._fav?C.yellow:(r.fonte==="ORSE"?C.purple:C.blue)}`,
+                  borderLeft:`1px solid ${r._fav?C.yellow:(r.fonte==="ORSE"?C.purple:C.blue)}`,
                   borderRadius:6, padding:"8px 11px", textAlign:"left", cursor:"pointer",
                 }}>
                   <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start"}}>
                     <div style={{flex:1,minWidth:0}}>
                       <p style={{fontSize:12,color:C.text,lineHeight:1.4}}>{r.descricao}</p>
-                      <p style={{fontSize:10,color:C.muted,marginTop:2,display:"flex",alignItems:"center",gap:3,flexWrap:"wrap"}}>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,display:"flex",alignItems:"center",gap:3,flexWrap:"wrap"}}>
                         {r._fav && <Ic n="star" s={9} color={C.yellow}/>}
-                        <span style={{fontWeight:700,color:r.fonte==="ORSE"?C.purple:C.blue}}>{r.fonte||"SINAPI"}</span>
+                        <span style={{fontWeight:600,color:r.fonte==="ORSE"?C.purple:C.blue}}>{r.fonte||"SINAPI"}</span>
                         {" "}{r.codigo}  {r.unidade}
                         {r.dataBase?` · ${r.dataBase}`:""}{r.uf?` · ${r.uf}`:""}
                       </p>
                     </div>
-                    <p style={{fontSize:13,fontWeight:800,color:C.yellow,flexShrink:0}}>{fmt(precoDoItem(r, orc))}</p>
+                    <p style={{fontSize:13,fontWeight:600,color:C.yellow,flexShrink:0}}>{fmt(precoDoItem(r, orc))}</p>
                   </div>
                 </button>
               ))}
@@ -4923,14 +4923,14 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               return (<>
                 <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"11px 13px"}}>
                   <p style={{fontSize:12,color:C.text,lineHeight:1.4}}>{qtdModal.descricao}</p>
-                  <p style={{fontSize:11,color:C.muted,marginTop:4}}>
-                    <span style={{fontWeight:700,color:qtdModal.fonte==="ORSE"?C.purple:C.blue}}>{qtdModal.fonte||"SINAPI"}</span>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>
+                    <span style={{fontWeight:600,color:qtdModal.fonte==="ORSE"?C.purple:C.blue}}>{qtdModal.fonte||"SINAPI"}</span>
                     {" "}{qtdModal.codigo}  {fmt(pu)}/{qtdModal.unidade} <span style={{color:C.muted}}>(sem BDI)</span>
                     {qtdModal.dataBase?` · ${qtdModal.dataBase}`:""}{qtdModal.uf?` · ${qtdModal.uf}`:""}
                   </p>
-                  {qtdModal.detailUrl && <a href={qtdModal.detailUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:10,color:C.blue,marginTop:5,fontWeight:700}}>Ver composição oficial</a>}
+                  {qtdModal.detailUrl && <a href={qtdModal.detailUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:"var(--arcd-type-label)",color:C.blue,marginTop:5,fontWeight:600}}>Ver composição oficial</a>}
                   {substituido && (
-                    <p style={{fontSize:10,color:C.orange,marginTop:4,fontWeight:600}}>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:C.orange,marginTop:4,fontWeight:600}}>
                       ! Preço {orc.desonerado!==false ? "não desonerado" : "desonerado"} - a coluna escolhida no orçamento está vazia nesta base.
                     </p>
                   )}
@@ -4939,12 +4939,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 {qtd && Number(qtd)>0 && (
                   <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:6,padding:"9px 13px"}}>
                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                      <p style={{fontSize:11,color:C.muted}}>Custo direto</p>
-                      <p style={{fontSize:11,color:C.muted}}>{fmt(Number(qtd)*pu)}</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Custo direto</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{fmt(Number(qtd)*pu)}</p>
                     </div>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <p style={{fontSize:12,color:C.text,fontWeight:700}}>Total c/ BDI {orc.bdi}%</p>
-                      <p style={{fontSize:17,fontWeight:800,color:C.yellow}}>
+                      <p style={{fontSize:12,color:C.text,fontWeight:600}}>Total c/ BDI {orc.bdi}%</p>
+                      <p style={{fontSize:17,fontWeight:600,color:C.yellow}}>
                         {fmt(Number(qtd)*pu*(1+Number(orc.bdi||0)/100))}
                       </p>
                     </div>
@@ -4972,7 +4972,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <Inp label="Preço unitário sem BDI" type="number" value={editItem.precoUnit} onChange={v=>setEditItem(x=>({...x,precoUnit:v}))}/>
             </div>
             <label style={{display:"flex",flexDirection:"column",gap:5}}>
-              <span style={{fontSize:11,fontWeight:700,color:C.text}}>Composição / memória de preços</span>
+              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Composição / memória de preços</span>
               <textarea value={editItem.composicao||""} onChange={e=>setEditItem(x=>({...x,composicao:e.target.value}))}
                 placeholder="Material, mão de obra, equipamentos, coeficientes e valores..." rows={5}
                 style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
@@ -4988,7 +4988,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       {externoModal && (
         <Modal title="Nova composição externa / cotação" onClose={()=>setExternoModal(false)} wide>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
               Use para serviços próprios, cotações de fornecedores ou composições que não existem na base SINAPI/ORSE.
             </p>
             <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
@@ -5000,7 +5000,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <Inp label="Custo unitário sem BDI *" type="number" value={externoForm.precoUnit} onChange={v=>setExternoForm(f=>({...f,precoUnit:v}))}/>
             </div>
             <label style={{display:"flex",flexDirection:"column",gap:5}}>
-              <span style={{fontSize:11,fontWeight:700,color:C.text}}>Composição / detalhes da cotação</span>
+              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Composição / detalhes da cotação</span>
               <textarea value={externoForm.composicao} onChange={e=>setExternoForm(f=>({...f,composicao:e.target.value}))}
                 rows={5} placeholder="Materiais, mão de obra, fornecedor, validade, coeficientes..."
                 style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:12,outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
@@ -5016,49 +5016,49 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {orcAba==="insumos" && (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{background:C.bg,border:`1px solid ${C.border}`,borderLeft:`4px solid ${C.blue}`,borderRadius:6,padding:10}}>
+          <div style={{background:C.bg,border:`1px solid ${C.border}`,borderLeft:`1px solid ${C.blue}`,borderRadius:6,padding:10}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:7}}>
-              <div><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>CONSULTA ANALÍTICA DAS BASES</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Pesquise e abra separadamente os insumos ou as composições SINAPI/ORSE vinculadas.</p></div>
-              <div style={{display:"flex",gap:4}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>setCompTipoBusca(valor)} style={{border:`1px solid ${compTipoBusca===valor?C.blue:C.border}`,background:compTipoBusca===valor?`${C.blue}10`:C.bg,color:compTipoBusca===valor?C.blue:C.muted,borderRadius:5,padding:"5px 8px",fontSize:8.5,fontWeight:800,cursor:"pointer"}}>{label}</button>)}</div>
+              <div><p style={{fontSize:12.5,fontWeight:600,color:C.text}}>CONSULTA ANALÍTICA DAS BASES</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Pesquise e abra separadamente os insumos ou as composições SINAPI/ORSE vinculadas.</p></div>
+              <div style={{display:"flex",gap:4}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>setCompTipoBusca(valor)} style={{border:`1px solid ${compTipoBusca===valor?C.blue:C.border}`,background:compTipoBusca===valor?`${C.blue}10`:C.bg,color:compTipoBusca===valor?C.blue:C.muted,borderRadius:5,padding:"5px 8px",fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}>{label}</button>)}</div>
             </div>
             <Inp value={compBusca} onChange={setCompBusca} placeholder={compTipoBusca==="INSUMO"?"Pesquisar insumo por código ou descrição...":compTipoBusca==="COMPOSICAO"?"Pesquisar composição por código ou descrição...":"Pesquisar insumo ou composição por código ou descrição..."}/>
             {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:5,maxHeight:250,overflowY:"auto",border:`1px solid ${C.border}`,borderRadius:7}}>
-              {compBuscaLoading&&<p style={{fontSize:10,color:C.blue,padding:8,fontWeight:800}}>PESQUISANDO...</p>}
-              {compBuscaAviso&&<p style={{fontSize:10,color:C.orange,padding:8}}>{compBuscaAviso}</p>}
+              {compBuscaLoading&&<p style={{fontSize:"var(--arcd-type-label)",color:C.blue,padding:8,fontWeight:600}}>PESQUISANDO...</p>}
+              {compBuscaAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,padding:8}}>{compBuscaAviso}</p>}
               {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"115px minmax(0,1fr) 95px auto",gap:7,padding:"7px 8px",borderTop:index?`1px solid ${C.line}`:"none",alignItems:"center"}}>
-                <span><b style={{display:"block",fontSize:9.5,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b><small style={{fontSize:7.5,color:item.tipoItem==="COMPOSICAO"?C.green:C.orange,fontWeight:900}}>{item.tipoItem==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</small></span>
-                <span title={item.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span>
-                <span style={{fontSize:10,color:C.yellowD,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
-                <button onClick={()=>analisarItemReferencia(item)} style={{border:`1px solid ${C.blue}`,background:`${C.blue}08`,color:C.blue,borderRadius:5,padding:"5px 8px",fontSize:9,fontWeight:800,cursor:"pointer"}}>ANALISAR</button>
+                <span><b style={{display:"block",fontSize:"var(--arcd-type-caption)",color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b><small style={{fontSize:"var(--arcd-type-caption)",color:item.tipoItem==="COMPOSICAO"?C.green:C.orange,fontWeight:600}}>{item.tipoItem==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</small></span>
+                <span title={item.descricao} style={{fontSize:"var(--arcd-type-label)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span>
+                <span style={{fontSize:"var(--arcd-type-label)",color:C.yellowD,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
+                <button onClick={()=>analisarItemReferencia(item)} style={{border:`1px solid ${C.blue}`,background:`${C.blue}08`,color:C.blue,borderRadius:5,padding:"5px 8px",fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}>ANALISAR</button>
               </div>)}
-              {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:10}}>Nenhum resultado.</p>}
+              {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"center",padding:10}}>Nenhum resultado.</p>}
             </div>}
           </div>
 
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:5}}>
-            {[["insumos","CURVA ABC DE INSUMOS"],["composicoes","CURVA ABC DE COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>{setAbcTipo(valor);setAbcFiltro("todas");setAbcInsumoFiltro("todas");}} style={{border:`1px solid ${abcTipo===valor?C.blue:C.border}`,background:abcTipo===valor?C.blue:C.bg,color:abcTipo===valor?"#fff":C.muted,borderRadius:6,padding:"8px 10px",fontSize:10,fontWeight:900,cursor:"pointer"}}>{label}</button>)}
+            {[["insumos","CURVA ABC DE INSUMOS"],["composicoes","CURVA ABC DE COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>{setAbcTipo(valor);setAbcFiltro("todas");setAbcInsumoFiltro("todas");}} style={{border:`1px solid ${abcTipo===valor?C.blue:C.border}`,background:abcTipo===valor?C.blue:C.bg,color:abcTipo===valor?"#fff":C.muted,borderRadius:6,padding:"8px 10px",fontSize:"var(--arcd-type-label)",fontWeight:600,cursor:"pointer"}}>{label}</button>)}
           </div>
 
           {abcTipo==="insumos"&&<>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
             <div>
-              <p style={{fontSize:14,fontWeight:800,color:C.text}}>QUANTITATIVOS DE INSUMOS</p>
-              <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Expansão analítica das composições SINAPI, ORSE e próprias conforme as quantidades do orçamento. O que a base não abre em insumos fica marcado como COMPOSIÇÃO e não entra na curva de insumos.</p>
+              <p style={{fontSize:14,fontWeight:600,color:C.text}}>QUANTITATIVOS DE INSUMOS</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Expansão analítica das composições SINAPI, ORSE e próprias conforme as quantidades do orçamento. O que a base não abre em insumos fica marcado como COMPOSIÇÃO e não entra na curva de insumos.</p>
             </div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
               <Btn size="sm" v="info" onClick={carregarDetalhesComposicoes} disabled={detalhesLoading}>{detalhesLoading?"CARREGANDO...":"ATUALIZAR INSUMOS"}</Btn>
               <Btn size="sm" v="success" onClick={exportarABCInsumos}>EXCEL</Btn>
             </div>
           </div>
-          {detalhesAviso&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"8px 10px",fontSize:10.5,color:C.orange}}>{detalhesAviso}</div>}
+          {detalhesAviso&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"8px 10px",fontSize:"var(--arcd-type-label)",color:C.orange}}>{detalhesAviso}</div>}
 
           {/* Alerta acionavel: nao basta dizer "faltam N composicoes da fonte X" -
               sem o codigo e a descricao, o administrador nao sabe qual composicao
               especifica precisa ir buscar/importar na base analitica. Ordenada por
               custo para a mais cara (mais urgente) aparecer primeiro. */}
           {composicoesNaoDocumentadas.length>0&&<div style={{background:`${C.orange}0f`,border:`1px solid ${C.orange}66`,borderRadius:6,padding:"9px 11px"}}>
-            <p style={{fontSize:11,fontWeight:900,color:C.orange}}>⚠ COMPOSIÇÕES SEM DOCUMENTAÇÃO ANALÍTICA - BUSQUE A COMPOSIÇÃO CORRESPONDENTE</p>
-            <p style={{fontSize:10,color:C.muted,lineHeight:1.55,marginTop:3}}>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>⚠ COMPOSIÇÕES SEM DOCUMENTAÇÃO ANALÍTICA - BUSQUE A COMPOSIÇÃO CORRESPONDENTE</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55,marginTop:3}}>
               Estas composições entraram inteiras na curva (marcadas como COMPOSIÇÃO) porque a base vinculada não tem a relação delas com insumos.
               Localize o código na fonte oficial (SINAPI ou ORSE) e reenvie a planilha/tabelas analíticas em Administração → Bases de preço para documentá-las.
             </p>
@@ -5068,19 +5068,19 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   title="Ver só as composições não abertas"
                   style={{border:`1px solid ${linha.fonte==="ORSE"?C.purple:C.blue}55`,background:C.bg,
                           borderRadius:6,padding:"5px 9px",cursor:"pointer",textAlign:"left"}}>
-                  <b style={{fontSize:10,fontWeight:900,color:linha.fonte==="ORSE"?C.purple:C.blue}}>{linha.fonte}</b>
-                  <span style={{fontSize:9.5,color:C.muted,marginLeft:6}}>{linha.qtd} composição(ões) · {fmt(linha.custo)}</span>
+                  <b style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:linha.fonte==="ORSE"?C.purple:C.blue}}>{linha.fonte}</b>
+                  <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginLeft:6}}>{linha.qtd} composição(ões) · {fmt(linha.custo)}</span>
                 </button>
               ))}
             </div>
             <div style={{marginTop:8,maxHeight:180,overflowY:"auto",border:`1px solid ${C.orange}33`,borderRadius:5}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:10}}>
-                <thead><tr style={{background:C.bg}}>{["FONTE","CÓDIGO","DESCRIÇÃO","CUSTO NO ORÇAMENTO"].map(h=><th key={h} style={{padding:"5px 7px",textAlign:h==="CUSTO NO ORÇAMENTO"?"right":"left",color:C.muted,fontSize:8.5,position:"sticky",top:0,background:C.bg,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
+                <thead><tr style={{background:C.bg}}>{["FONTE","CÓDIGO","DESCRIÇÃO","CUSTO NO ORÇAMENTO"].map(h=><th key={h} style={{padding:"5px 7px",textAlign:h==="CUSTO NO ORÇAMENTO"?"right":"left",color:C.muted,fontSize:"var(--arcd-type-caption)",position:"sticky",top:0,background:C.bg,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
                 <tbody>{composicoesNaoDocumentadas.map(item=><tr key={`${item.fonte}-${item.codigo}`} style={{borderBottom:`1px solid ${C.line}`}}>
-                  <td style={{padding:"4px 7px",fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td>
+                  <td style={{padding:"4px 7px",fontWeight:600,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td>
                   <td style={{padding:"4px 7px",color:C.text}}>{item.codigo}</td>
                   <td title={item.descricao} style={{padding:"4px 7px",color:C.text,maxWidth:320,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td>
-                  <td style={{padding:"4px 7px",textAlign:"right",fontWeight:700,color:C.orange}}>{fmt(item.custo)}</td>
+                  <td style={{padding:"4px 7px",textAlign:"right",fontWeight:600,color:C.orange}}>{fmt(item.custo)}</td>
                 </tr>)}</tbody>
               </table>
             </div>
@@ -5092,18 +5092,18 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               [fmt(abcInsumosCurva.total),abcInsumoTipo==="INSUMO"?"CUSTO EM INSUMOS":abcInsumoTipo==="COMPOSICAO"?"CUSTO EM COMPOSIÇÕES":"CUSTO ANALÍTICO",C.yellow],
               [abcInsumos.semPreco.length,"SEM PREÇO",abcInsumos.semPreco.length?C.red:C.green],
             ].map(([valor,label,cor])=><div key={label} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${cor}`,borderRadius:6,padding:"9px 11px"}}>
-              <p style={{fontSize:15,fontWeight:800,color:cor}}>{valor}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>{label}</p>
+              <p style={{fontSize:15,fontWeight:600,color:cor}}>{valor}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,marginTop:2}}>{label}</p>
             </div>)}
           </div>
           {/* Familia primeiro: a curva e recalculada dentro do que voce escolheu. */}
           <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
-            <span style={{fontSize:9,fontWeight:800,color:C.muted,letterSpacing:.5}}>MOSTRAR</span>
+            <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,letterSpacing:.5}}>MOSTRAR</span>
             {[["INSUMO","SÓ INSUMOS"],["COMPOSICAO","SÓ COMPOSIÇÕES"],["TODOS","TUDO JUNTO"]].map(([valor,label])=>(
               <button key={valor} onClick={()=>{setAbcInsumoTipo(valor);setAbcInsumoFiltro("todas");}} style={{
                 border:`1px solid ${abcInsumoTipo===valor?C.blue:C.border}`,
                 background:abcInsumoTipo===valor?C.blue:C.bg,
                 color:abcInsumoTipo===valor?"#fff":C.muted,
-                borderRadius:6,padding:"5px 10px",fontSize:9.5,fontWeight:800,cursor:"pointer",
+                borderRadius:6,padding:"5px 10px",fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer",
               }}>{label}</button>
             ))}
           </div>
@@ -5111,59 +5111,59 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             {["todas","A","B","C"].map(classe=><button key={classe} onClick={()=>setAbcInsumoFiltro(classe)} style={{
               border:`1px solid ${abcInsumoFiltro===classe?(classe==="todas"?C.blue:CLASSE_ABC[classe].cor):C.border}`,
               background:abcInsumoFiltro===classe?`${classe==="todas"?C.blue:CLASSE_ABC[classe].cor}12`:C.bg,
-              color:classe==="todas"?C.blue:CLASSE_ABC[classe].cor,borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:800,cursor:"pointer",
+              color:classe==="todas"?C.blue:CLASSE_ABC[classe].cor,borderRadius:6,padding:"5px 10px",fontSize:"var(--arcd-type-label)",fontWeight:600,cursor:"pointer",
             }}>{classe==="todas"?"TODAS":`CLASSE ${classe}`}</button>)}
           </div>
           <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:6,background:C.bg}}>
-            <table style={{width:"100%",minWidth:940,borderCollapse:"collapse",fontSize:10.5}}>
-              <thead><tr style={{background:C.surface}}>{["CL.","TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"7px 8px",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:C.muted,fontSize:9,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+            <table style={{width:"100%",minWidth:940,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
+              <thead><tr style={{background:C.surface}}>{["CL.","TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"7px 8px",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:C.muted,fontSize:"var(--arcd-type-caption)",borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
               <tbody>{abcInsumosCurva.itens.filter(item=>abcInsumoFiltro==="todas"||item.classe===abcInsumoFiltro).map(item=><tr key={`${item.tipo}-${item.fonte}-${item.codigo}-${item.unidade}`} style={{borderBottom:`1px solid ${C.line}`}}>
-                <td style={{padding:"6px 8px",fontWeight:900,color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td>
-                <td title={item.tipo==="COMPOSICAO"?"Composição que a base analítica não abriu em insumos":"Insumo"} style={{padding:"6px 8px",fontWeight:900,fontSize:8.5,color:item.tipo==="COMPOSICAO"?C.green:C.orange}}>{item.tipo==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</td>
-                <td style={{padding:"6px 8px",fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td>
+                <td style={{padding:"6px 8px",fontWeight:600,color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td>
+                <td title={item.tipo==="COMPOSICAO"?"Composição que a base analítica não abriu em insumos":"Insumo"} style={{padding:"6px 8px",fontWeight:600,fontSize:"var(--arcd-type-caption)",color:item.tipo==="COMPOSICAO"?C.green:C.orange}}>{item.tipo==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</td>
+                <td style={{padding:"6px 8px",fontWeight:600,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td>
                 <td style={{padding:"6px 8px",color:C.text}}>{item.codigo}</td>
                 <td title={item.descricao} style={{padding:"6px 8px",color:C.text,maxWidth:440,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td>
                 <td style={{padding:"6px 8px",color:C.muted}}>{item.unidade}</td>
                 <td style={{padding:"6px 8px",textAlign:"right",color:C.text}}>{item.quantidade.toLocaleString("pt-BR",{maximumFractionDigits:6})}</td>
                 <td style={{padding:"6px 8px",textAlign:"right",color:item.precoUnit?C.text:C.red}}>{fmt(item.precoUnit)}</td>
-                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:800,color:C.text}}>{fmt(item.custo)}</td>
+                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:C.text}}>{fmt(item.custo)}</td>
                 <td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{item.pct.toFixed(2)}%</td>
-                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
+                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
               </tr>)}</tbody>
             </table>
-            {!abcInsumosCurva.itens.length&&!detalhesLoading&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>{abcInsumos.linhas.length?"Nenhuma linha nesta família. Troque o filtro acima.":"Nenhum quantitativo calculado. Confira se os itens possuem código, quantidade e custo unitário."}</p>}
+            {!abcInsumosCurva.itens.length&&!detalhesLoading&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>{abcInsumos.linhas.length?"Nenhuma linha nesta família. Troque o filtro acima.":"Nenhum quantitativo calculado. Confira se os itens possuem código, quantidade e custo unitário."}</p>}
           </div>
           {/* SEM DETALHAMENTO (chaves cruas fonte|codigo) some daqui - o alerta
               acionavel acima ja mostra a mesma informacao com codigo, descricao
               e custo, que e o que importa para ir buscar a composicao certa. */}
           {abcInsumos.semPreco.length>0&&<div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
-            <p style={{fontSize:10,color:C.red,lineHeight:1.6}}><b>SEM PREÇO:</b> {abcInsumos.semPreco.slice(0,20).join(", ")}{abcInsumos.semPreco.length>20?"...":""}</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.red,lineHeight:1.6}}><b>SEM PREÇO:</b> {abcInsumos.semPreco.slice(0,20).join(", ")}{abcInsumos.semPreco.length>20?"...":""}</p>
           </div>}
           </>}
 
           {abcTipo==="composicoes"&&<>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-              <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>CURVA ABC DE COMPOSIÇÕES</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Somente serviços e composições lançados no orçamento. Insumos analíticos não entram nesta curva.</p></div>
+              <div><p style={{fontSize:14,fontWeight:600,color:C.text}}>CURVA ABC DE COMPOSIÇÕES</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Somente serviços e composições lançados no orçamento. Insumos analíticos não entram nesta curva.</p></div>
               <Btn size="sm" v="success" onClick={exportXLSXCurvaABC}>EXCEL</Btn>
             </div>
             <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>
-              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.blue}`,borderRadius:6,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:800,color:C.blue}}>{abc?.itens?.length||0}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>COMPOSIÇÕES CONSOLIDADAS</p></div>
-              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:6,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:800,color:C.yellowD}}>{fmt(abc?.totalCD||0)}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>CUSTO DIRETO DAS COMPOSIÇÕES</p></div>
-              {(abc?.resumo||[]).map(r=><div key={r.classe} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${r.cor}`,borderRadius:6,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:800,color:r.cor}}>{r.qtd}</p><p style={{fontSize:9,color:C.muted,fontWeight:700,marginTop:2}}>CLASSE {r.classe} · {r.pctValor.toFixed(1)}%</p></div>)}
+              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.blue}`,borderRadius:6,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:600,color:C.blue}}>{abc?.itens?.length||0}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,marginTop:2}}>COMPOSIÇÕES CONSOLIDADAS</p></div>
+              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:6,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:600,color:C.yellowD}}>{fmt(abc?.totalCD||0)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,marginTop:2}}>CUSTO DIRETO DAS COMPOSIÇÕES</p></div>
+              {(abc?.resumo||[]).map(r=><div key={r.classe} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${r.cor}`,borderRadius:6,padding:"9px 11px"}}><p style={{fontSize:15,fontWeight:600,color:r.cor}}>{r.qtd}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,marginTop:2}}>CLASSE {r.classe} · {r.pctValor.toFixed(1)}%</p></div>)}
             </div>
             <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-              {["todas","A","B","C"].map(classe=><button key={classe} onClick={()=>setAbcFiltro(classe)} style={{border:`1px solid ${abcFiltro===classe?(classe==="todas"?C.blue:CLASSE_ABC[classe].cor):C.border}`,background:abcFiltro===classe?`${classe==="todas"?C.blue:CLASSE_ABC[classe].cor}12`:C.bg,color:classe==="todas"?C.blue:CLASSE_ABC[classe].cor,borderRadius:6,padding:"5px 10px",fontSize:10,fontWeight:800,cursor:"pointer"}}>{classe==="todas"?"TODAS":`CLASSE ${classe}`}</button>)}
+              {["todas","A","B","C"].map(classe=><button key={classe} onClick={()=>setAbcFiltro(classe)} style={{border:`1px solid ${abcFiltro===classe?(classe==="todas"?C.blue:CLASSE_ABC[classe].cor):C.border}`,background:abcFiltro===classe?`${classe==="todas"?C.blue:CLASSE_ABC[classe].cor}12`:C.bg,color:classe==="todas"?C.blue:CLASSE_ABC[classe].cor,borderRadius:6,padding:"5px 10px",fontSize:"var(--arcd-type-label)",fontWeight:600,cursor:"pointer"}}>{classe==="todas"?"TODAS":`CLASSE ${classe}`}</button>)}
             </div>
             <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:6,background:C.bg}}>
-              <table style={{width:"100%",minWidth:940,borderCollapse:"collapse",fontSize:10.5}}>
-                <thead><tr style={{background:C.surface}}>{["CL.","FONTE","CÓDIGO","DESCRIÇÃO DA COMPOSIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"7px 8px",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:C.muted,fontSize:9,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+              <table style={{width:"100%",minWidth:940,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
+                <thead><tr style={{background:C.surface}}>{["CL.","FONTE","CÓDIGO","DESCRIÇÃO DA COMPOSIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"7px 8px",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:C.muted,fontSize:"var(--arcd-type-caption)",borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
                 <tbody>{(abc?.itens||[]).filter(item=>abcFiltro==="todas"||item.classe===abcFiltro).map(item=><tr key={`${item.codigo}-${item.ordem}`} style={{borderBottom:`1px solid ${C.line}`}}>
-                  <td style={{padding:"6px 8px",fontWeight:900,color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td><td style={{padding:"6px 8px",fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte||"-"}</td><td style={{padding:"6px 8px",color:C.text}}>{item.codigo}</td>
+                  <td style={{padding:"6px 8px",fontWeight:600,color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td><td style={{padding:"6px 8px",fontWeight:600,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte||"-"}</td><td style={{padding:"6px 8px",color:C.text}}>{item.codigo}</td>
                   <td title={item.descricao} style={{padding:"6px 8px",color:C.text,maxWidth:440,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:"6px 8px",color:C.muted}}>{item.unidade}</td>
-                  <td style={{padding:"6px 8px",textAlign:"right"}}>{Number(item.quantidade||0).toLocaleString("pt-BR",{maximumFractionDigits:6})}</td><td style={{padding:"6px 8px",textAlign:"right"}}>{fmt(item.precoUnit)}</td><td style={{padding:"6px 8px",textAlign:"right",fontWeight:800}}>{fmt(item.custoDireto)}</td><td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{item.pct.toFixed(2)}%</td><td style={{padding:"6px 8px",textAlign:"right",fontWeight:700,color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
+                  <td style={{padding:"6px 8px",textAlign:"right"}}>{Number(item.quantidade||0).toLocaleString("pt-BR",{maximumFractionDigits:6})}</td><td style={{padding:"6px 8px",textAlign:"right"}}>{fmt(item.precoUnit)}</td><td style={{padding:"6px 8px",textAlign:"right",fontWeight:600}}>{fmt(item.custoDireto)}</td><td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{item.pct.toFixed(2)}%</td><td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
                 </tr>)}</tbody>
               </table>
-              {!(abc?.itens||[]).length&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhuma composição com quantidade e preço foi encontrada no orçamento.</p>}
+              {!(abc?.itens||[]).length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma composição com quantidade e preço foi encontrada no orçamento.</p>}
             </div>
           </>}
         </div>
@@ -5173,29 +5173,29 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","300px minmax(0,1fr)"),gap:10,alignItems:"start"}}>
           <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:10}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6,marginBottom:8}}>
-              <div><p style={{fontSize:13,fontWeight:800,color:C.text}}>COMPOSIÇÕES SALVAS</p><p style={{fontSize:9.5,color:C.muted}}>{composicoesEmpresa.length} cadastrada(s) na empresa</p></div>
+              <div><p style={{fontSize:13,fontWeight:600,color:C.text}}>COMPOSIÇÕES SALVAS</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{composicoesEmpresa.length} cadastrada(s) na empresa</p></div>
               <Btn size="sm" v="ghost" onClick={()=>novaComposicao()}>NOVA</Btn>
             </div>
             <Inp label="Buscar nas composições salvas" value={buscaComposicoesSalvas} onChange={setBuscaComposicoesSalvas} placeholder="Ex.: baldrame concreto — palavras em qualquer ordem"/>
             <div style={{display:"flex",flexDirection:"column",gap:5}}>{composicoesEmpresa.filter(comp=>correspondeBuscaComposicao(comp,buscaComposicoesSalvas)).map(comp=>{
               const custo=(comp.itens||[]).reduce((s,item)=>s+Number(item.coeficiente||0)*Number(item.precoUnit||0),0);
               return <div key={comp.id} style={{border:`1px solid ${compForm.id===comp.id?C.blue:C.border}`,borderRadius:7,padding:"8px 9px",background:compForm.id===comp.id?`${C.blue}08`:C.surface}}>
-                <p style={{fontSize:10,fontWeight:800,color:C.blue}}>{comp.codigo} · {comp.unidade}</p>
-                <p title={comp.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{comp.descricao}</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>{comp.codigo} · {comp.unidade}</p>
+                <p title={comp.descricao} style={{fontSize:"var(--arcd-type-label)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{comp.descricao}</p>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginTop:8,flexWrap:"wrap"}}>
-                  <b style={{fontSize:11,color:C.yellowD}}>{fmt(custo)}</b>
+                  <b style={{fontSize:"var(--arcd-type-label)",color:C.yellowD}}>{fmt(custo)}</b>
                   <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
-                    <button onClick={()=>setCompForm({...comp,itens:(comp.itens||[]).map(item=>({...item}))})} style={{display:"inline-flex",alignItems:"center",gap:4,minHeight:28,padding:"5px 8px",border:`1px solid ${C.blue}55`,borderRadius:6,background:`${C.blue}09`,color:C.blue,fontSize:9,fontWeight:800,cursor:"pointer"}}><Ic n="edit" s={11}/> EDITAR</button>
-                    <button title="Criar uma nova composição a partir desta" onClick={()=>novaComposicao({...comp,id:"",itens:(comp.itens||[]).map(item=>({...item,id:uid()})),codigo:proximoCodigoProprio()})} style={{display:"inline-flex",alignItems:"center",gap:4,minHeight:28,padding:"5px 8px",border:`1px solid ${C.green}55`,borderRadius:6,background:`${C.green}09`,color:C.green,fontSize:9,fontWeight:800,cursor:"pointer"}}><Ic n="copy" s={11}/> DUPLICAR</button>
-                    <button onClick={()=>excluirComposicaoPropria(comp)} style={{display:"inline-flex",alignItems:"center",gap:4,minHeight:28,padding:"5px 8px",border:`1px solid ${C.red}44`,borderRadius:6,background:`${C.red}08`,color:C.red,fontSize:9,fontWeight:800,cursor:"pointer"}}><Ic n="trash" s={11}/> EXCLUIR</button>
+                    <button onClick={()=>setCompForm({...comp,itens:(comp.itens||[]).map(item=>({...item}))})} style={{display:"inline-flex",alignItems:"center",gap:4,minHeight:28,padding:"5px 8px",border:`1px solid ${C.blue}55`,borderRadius:6,background:`${C.blue}09`,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}><Ic n="edit" s={11}/> EDITAR</button>
+                    <button title="Criar uma nova composição a partir desta" onClick={()=>novaComposicao({...comp,id:"",itens:(comp.itens||[]).map(item=>({...item,id:uid()})),codigo:proximoCodigoProprio()})} style={{display:"inline-flex",alignItems:"center",gap:4,minHeight:28,padding:"5px 8px",border:`1px solid ${C.green}55`,borderRadius:6,background:`${C.green}09`,color:C.green,fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}><Ic n="copy" s={11}/> DUPLICAR</button>
+                    <button onClick={()=>excluirComposicaoPropria(comp)} style={{display:"inline-flex",alignItems:"center",gap:4,minHeight:28,padding:"5px 8px",border:`1px solid ${C.red}44`,borderRadius:6,background:`${C.red}08`,color:C.red,fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}><Ic n="trash" s={11}/> EXCLUIR</button>
                   </div>
                 </div>
               </div>;
-            })}{!composicoesEmpresa.some(comp=>correspondeBuscaComposicao(comp,buscaComposicoesSalvas))&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:14}}>Nenhuma composição encontrada.</p>}</div>
+            })}{!composicoesEmpresa.some(comp=>correspondeBuscaComposicao(comp,buscaComposicoesSalvas))&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"center",padding:14}}>Nenhuma composição encontrada.</p>}</div>
           </div>
           <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:12,display:"flex",flexDirection:"column",gap:10}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
-              <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>{compForm.id?"EDITAR COMPOSIÇÃO":"NOVA COMPOSIÇÃO PRÓPRIA"}</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Comece do zero ou traga uma composição pronta da base e ajuste coeficientes e preços. O custo unitário é calculado pelos coeficientes.</p></div>
+              <div><p style={{fontSize:14,fontWeight:600,color:C.text}}>{compForm.id?"EDITAR COMPOSIÇÃO":"NOVA COMPOSIÇÃO PRÓPRIA"}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Comece do zero ou traga uma composição pronta da base e ajuste coeficientes e preços. O custo unitário é calculado pelos coeficientes.</p></div>
               <Btn size="sm" v="info" onClick={()=>{setCompTipoBusca("COMPOSICAO");buscaCompRef.current?.focus();}}>
                 <Ic n="copy"/> IMPORTAR DA BASE
               </Btn>
@@ -5203,42 +5203,42 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
               <Inp label="Código automático" value={compForm.codigo} onChange={()=>{}} disabled/>
               <Inp label="Unidade *" value={compForm.unidade} onChange={valor=>setCompForm(form=>({...form,unidade:valor}))} placeholder="M2"/>
-              <div style={{background:`${C.yellow}10`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:9,color:C.muted,fontWeight:700}}>CUSTO UNITÁRIO</p><p style={{fontSize:15,fontWeight:800,color:C.yellowD,marginTop:2}}>{fmt(custoCompForm)}</p></div>
+              <div style={{background:`${C.yellow}10`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>CUSTO UNITÁRIO</p><p style={{fontSize:15,fontWeight:600,color:C.yellowD,marginTop:2}}>{fmt(custoCompForm)}</p></div>
             </div>
             <Inp label="Descrição *" value={compForm.descricao} onChange={valor=>setCompForm(form=>({...form,descricao:valor}))} placeholder="DESCRIÇÃO DA COMPOSIÇÃO"/>
-            {compForm.origemCodigo&&<div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}35`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:9,color:C.muted,fontWeight:800}}>COMPOSIÇÃO COPIADA DE</p><p style={{fontSize:10.5,color:C.blue,fontWeight:800,marginTop:2}}>{compForm.origemFonte} {compForm.origemCodigo}{compForm.origemDataBase?` · ${compForm.origemDataBase}`:""}{compForm.origemUf?` · ${compForm.origemUf}`:""}</p></div>}
+            {compForm.origemCodigo&&<div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}35`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>COMPOSIÇÃO COPIADA DE</p><p style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600,marginTop:2}}>{compForm.origemFonte} {compForm.origemCodigo}{compForm.origemDataBase?` · ${compForm.origemDataBase}`:""}{compForm.origemUf?` · ${compForm.origemUf}`:""}</p></div>}
             <div style={{position:"relative"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:8,flexWrap:"wrap",marginBottom:5}}>
-                <p style={{fontSize:9.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Pesquisar nas bases vinculadas</p>
-                <div style={{display:"flex",gap:4}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>setCompTipoBusca(valor)} style={{border:`1px solid ${compTipoBusca===valor?C.blue:C.border}`,background:compTipoBusca===valor?`${C.blue}10`:C.bg,color:compTipoBusca===valor?C.blue:C.muted,borderRadius:5,padding:"4px 7px",fontSize:8.5,fontWeight:800,cursor:"pointer"}}>{label}</button>)}</div>
+                <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Pesquisar nas bases vinculadas</p>
+                <div style={{display:"flex",gap:4}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>setCompTipoBusca(valor)} style={{border:`1px solid ${compTipoBusca===valor?C.blue:C.border}`,background:compTipoBusca===valor?`${C.blue}10`:C.bg,color:compTipoBusca===valor?C.blue:C.muted,borderRadius:5,padding:"4px 7px",fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}>{label}</button>)}</div>
               </div>
               <Inp inputRef={buscaCompRef} value={compBusca} onChange={setCompBusca} placeholder={compTipoBusca==="INSUMO"?"Pesquisar insumo por código ou descrição...":compTipoBusca==="COMPOSICAO"?"Pesquisar composição pronta para importar...":"Pesquisar insumo ou composição..."}/>
-              {compItemSubstituirId&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:5,padding:"6px 8px",borderRadius:6,background:`${C.orange}10`,border:`1px solid ${C.orange}44`,fontSize:10,color:C.orange}}><span>Selecione abaixo o insumo que substituirá a linha escolhida.</span><button onClick={()=>{setCompItemSubstituirId("");setCompBusca("");}} style={{border:0,background:"transparent",color:C.orange,fontWeight:900,cursor:"pointer"}}>CANCELAR</button></div>}
+              {compItemSubstituirId&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:5,padding:"6px 8px",borderRadius:6,background:`${C.orange}10`,border:`1px solid ${C.orange}44`,fontSize:"var(--arcd-type-label)",color:C.orange}}><span>Selecione abaixo o insumo que substituirá a linha escolhida.</span><button onClick={()=>{setCompItemSubstituirId("");setCompBusca("");}} style={{border:0,background:"transparent",color:C.orange,fontWeight:600,cursor:"pointer"}}>CANCELAR</button></div>}
               {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:4,maxHeight:240,overflowY:"auto",border:`1px solid ${C.blue}`,borderRadius:7,padding:4}}>
-                {compBuscaLoading&&<p style={{fontSize:10,color:C.blue,padding:6}}>PESQUISANDO...</p>}
-                {compBuscaAviso&&<p style={{fontSize:10,color:C.orange,padding:6}}>{compBuscaAviso}</p>}
+                {compBuscaLoading&&<p style={{fontSize:"var(--arcd-type-label)",color:C.blue,padding:6}}>PESQUISANDO...</p>}
+                {compBuscaAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,padding:6}}>{compBuscaAviso}</p>}
                 {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"105px minmax(0,1fr) 82px auto",gap:7,padding:"6px 7px",borderTop:index?`1px solid ${C.line}`:"none",alignItems:"center"}}>
-                  <span><b style={{display:"block",fontSize:9.5,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b><small style={{fontSize:7.5,color:item.tipoItem==="COMPOSICAO"?C.green:C.orange,fontWeight:900}}>{item.tipoItem==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</small></span><span title={item.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span><span style={{fontSize:10,color:C.yellowD,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
+                  <span><b style={{display:"block",fontSize:"var(--arcd-type-caption)",color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b><small style={{fontSize:"var(--arcd-type-caption)",color:item.tipoItem==="COMPOSICAO"?C.green:C.orange,fontWeight:600}}>{item.tipoItem==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</small></span><span title={item.descricao} style={{fontSize:"var(--arcd-type-label)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span><span style={{fontSize:"var(--arcd-type-label)",color:C.yellowD,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
                   <span style={{display:"flex",gap:4}}>
-                    <button onClick={()=>analisarItemReferencia(item)} style={{border:`1px solid ${C.blue}`,background:`${C.blue}08`,color:C.blue,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer"}}>ANALISAR</button>
-                    <button onClick={()=>adicionarItemComposicao(item)} title={item.tipoItem==="COMPOSICAO"?"Usar como composição auxiliar":"Adicionar insumo"} style={{border:`1px solid ${C.border}`,background:C.bg,color:C.blue,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer"}}>+</button>
-                    {item.tipoItem==="COMPOSICAO"&&<button disabled={!!clonandoComposicao} onClick={()=>clonarComposicaoReferencia(item)} style={{border:`1px solid ${C.green}`,background:`${C.green}10`,color:C.green,borderRadius:5,padding:"4px 7px",fontSize:9,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>{clonandoComposicao===`${item.fonte}|${item.codigo}`?"COPIANDO...":"CLONAR"}</button>}
+                    <button onClick={()=>analisarItemReferencia(item)} style={{border:`1px solid ${C.blue}`,background:`${C.blue}08`,color:C.blue,borderRadius:5,padding:"4px 7px",fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}>ANALISAR</button>
+                    <button onClick={()=>adicionarItemComposicao(item)} title={item.tipoItem==="COMPOSICAO"?"Usar como composição auxiliar":"Adicionar insumo"} style={{border:`1px solid ${C.border}`,background:C.bg,color:C.blue,borderRadius:5,padding:"4px 7px",fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}>+</button>
+                    {item.tipoItem==="COMPOSICAO"&&<button disabled={!!clonandoComposicao} onClick={()=>clonarComposicaoReferencia(item)} style={{border:`1px solid ${C.green}`,background:`${C.green}10`,color:C.green,borderRadius:5,padding:"4px 7px",fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>{clonandoComposicao===`${item.fonte}|${item.codigo}`?"COPIANDO...":"CLONAR"}</button>}
                   </span>
                 </div>)}
-                {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:9}}>Nenhum resultado.</p>}
+                {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"center",padding:9}}>Nenhum resultado.</p>}
               </div>}
-              {compBusca.trim()&&compTipoBusca!=="COMPOSICAO"&&<button onClick={criarInsumoDaBusca} style={{display:"inline-flex",alignItems:"center",gap:5,marginTop:6,border:`1px solid ${C.green}`,background:`${C.green}0C`,color:C.green,borderRadius:6,padding:"6px 9px",fontSize:9.5,fontWeight:900,cursor:"pointer"}}><Ic n="plus"/> CRIAR INSUMO “{compBusca.trim().slice(0,55)}{compBusca.trim().length>55?"…":""}”</button>}
+              {compBusca.trim()&&compTipoBusca!=="COMPOSICAO"&&<button onClick={criarInsumoDaBusca} style={{display:"inline-flex",alignItems:"center",gap:5,marginTop:6,border:`1px solid ${C.green}`,background:`${C.green}0C`,color:C.green,borderRadius:6,padding:"6px 9px",fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}><Ic n="plus"/> CRIAR INSUMO “{compBusca.trim().slice(0,55)}{compBusca.trim().length>55?"…":""}”</button>}
             </div>
-            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:750,borderCollapse:"collapse",fontSize:10}}>
-              <thead><tr style={{background:C.surface}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL",""] .map(h=><th key={h} style={{padding:"6px",textAlign:h.includes("PREÇO")||h==="TOTAL"||h==="COEFICIENTE"?"right":"left",color:C.muted,fontSize:9,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:750,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
+              <thead><tr style={{background:C.surface}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL",""] .map(h=><th key={h} style={{padding:"6px",textAlign:h.includes("PREÇO")||h==="TOTAL"||h==="COEFICIENTE"?"right":"left",color:C.muted,fontSize:"var(--arcd-type-caption)",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
               <tbody>{(compForm.itens||[]).map(item=><tr key={item.id} style={{borderBottom:`1px solid ${C.line}`}}>
-                <td style={{padding:6,color:C.muted}}>{item.tipoItem}</td><td style={{padding:6,fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td><td style={{padding:6}}>{item.codigo}</td>
-                <td style={{padding:4,maxWidth:300}}><input title="Edite para pesquisar e substituir este insumo" value={compItemSubstituirId===item.id?compBusca:item.descricao} onFocus={()=>{setCompItemSubstituirId(item.id);setCompTipoBusca("INSUMO");setCompBusca(item.descricao||"");}} onChange={e=>{setCompItemSubstituirId(item.id);setCompTipoBusca("INSUMO");setCompBusca(e.target.value);}} style={{width:"100%",boxSizing:"border-box",padding:"5px 6px",border:`1px solid ${compItemSubstituirId===item.id?C.blue:C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:10}}/></td><td style={{padding:6}}>{item.unidade}</td>
+                <td style={{padding:6,color:C.muted}}>{item.tipoItem}</td><td style={{padding:6,fontWeight:600,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td><td style={{padding:6}}>{item.codigo}</td>
+                <td style={{padding:4,maxWidth:300}}><input title="Edite para pesquisar e substituir este insumo" value={compItemSubstituirId===item.id?compBusca:item.descricao} onFocus={()=>{setCompItemSubstituirId(item.id);setCompTipoBusca("INSUMO");setCompBusca(item.descricao||"");}} onChange={e=>{setCompItemSubstituirId(item.id);setCompTipoBusca("INSUMO");setCompBusca(e.target.value);}} style={{width:"100%",boxSizing:"border-box",padding:"5px 6px",border:`1px solid ${compItemSubstituirId===item.id?C.blue:C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:"var(--arcd-type-label)"}}/></td><td style={{padding:6}}>{item.unidade}</td>
                 <td style={{padding:4}}><input type="number" step="any" value={item.coeficiente} onChange={e=>setCompForm(form=>({...form,itens:form.itens.map(x=>x.id===item.id?{...x,coeficiente:e.target.value}:x)}))} style={{width:85,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right"}}/></td>
                 <td style={{padding:4}}><input type="number" step="any" value={item.precoUnit} onChange={e=>setCompForm(form=>({...form,itens:form.itens.map(x=>x.id===item.id?{...x,precoUnit:e.target.value}:x)}))} style={{width:90,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right"}}/></td>
-                <td style={{padding:6,textAlign:"right",fontWeight:800}}>{fmt(Number(item.coeficiente||0)*Number(item.precoUnit||0))}</td><td style={{padding:4}}><button onClick={()=>setCompForm(form=>({...form,itens:form.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>x</button></td>
+                <td style={{padding:6,textAlign:"right",fontWeight:600}}>{fmt(Number(item.coeficiente||0)*Number(item.precoUnit||0))}</td><td style={{padding:4}}><button onClick={()=>setCompForm(form=>({...form,itens:form.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>x</button></td>
               </tr>)}</tbody>
-            </table>{!(compForm.itens||[]).length&&<p style={{fontSize:10.5,color:C.muted,textAlign:"center",padding:13}}>Pesquise e adicione os insumos.</p>}</div>
+            </table>{!(compForm.itens||[]).length&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"center",padding:13}}>Pesquise e adicione os insumos.</p>}</div>
             <div style={{display:"flex",gap:7,justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>novaComposicao()}>LIMPAR</Btn><Btn onClick={salvarComposicaoPropria}><Ic n="check"/> SALVAR COMPOSIÇÃO</Btn></div>
           </div>
         </div>
@@ -5271,7 +5271,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           </details>}
 
           <div style={{background:`${C.blue}0a`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 11px"}}>
-            <p style={{fontSize:10.5,color:C.muted,lineHeight:1.55}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>
               Os quantitativos vinculados atualizam automaticamente o orçamento ao salvar as medidas. Os totais são recalculados. Dados ausentes ou incompatíveis preservam a quantidade anterior e aparecem na conferência abaixo.
             </p>
           </div>
@@ -5282,7 +5282,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 border:`1px solid ${disciplinaMemoria===valor?C.blue:C.border}`,
                 background:disciplinaMemoria===valor?`${C.blue}12`:C.bg,
                 color:disciplinaMemoria===valor?C.blue:C.muted,
-                borderRadius:6,padding:"8px 14px",fontSize:11,fontWeight:850,cursor:"pointer",
+                borderRadius:6,padding:"8px 14px",fontSize:"var(--arcd-type-label)",fontWeight:600,cursor:"pointer",
               }}>{label}</button>
             ))}
           </div>
@@ -5334,7 +5334,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           {disciplinaMemoria==="estrutural" && (<>
           {!budgetIsImmutable(orc) && <div><Btn onClick={()=>setAddFloorOpen(true)}>+ Adicionar pavimento</Btn></div>}
           <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 14px",display:"flex",flexWrap:"wrap",gap:"6px 28px",alignItems:"center"}}>
-            <span style={{fontSize:12,fontWeight:850,color:C.text}}>Resumo geral</span>
+            <span style={{fontSize:12,fontWeight:600,color:C.text}}>Resumo geral</span>
             <Metric label="Concreto total" value={fmtNum(resumoGeralMemoria.concreto)} unit="m³"/>
             <Metric label="Fôrma total" value={fmtNum(resumoGeralMemoria.forma)} unit="m²"/>
             <Metric label="Aço total" value={fmtNum(resumoGeralMemoria.aco,1)} unit="kg"/>
@@ -5350,8 +5350,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           <details className="memory-disclosure">
             <summary>Importar projeto PDF</summary>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div><p style={{fontSize:12,fontWeight:850,color:C.text}}>IMPORTAR PROJETO (PDF)</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Sinalize qual documento é e o sistema tenta preencher a memória de cálculo sozinho - você sempre confere antes de aplicar.</p></div>
-            <select aria-label="Tipo de documento do PDF" value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:10.5,fontWeight:700,maxWidth:360}}>
+            <div><p style={{fontSize:12,fontWeight:600,color:C.text}}>IMPORTAR PROJETO (PDF)</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Sinalize qual documento é e o sistema tenta preencher a memória de cálculo sozinho - você sempre confere antes de aplicar.</p></div>
+            <select aria-label="Tipo de documento do PDF" value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:"var(--arcd-type-label)",fontWeight:600,maxWidth:360}}>
               <option value="estrutural-completo">Projeto estrutural completo - Fundação, Pilares, Vigas e Laje</option>
               <option value="quantitativos">Quantitativos de superfícies e volumes - concreto/fôrma de vigas e laje</option>
             </select>
@@ -5360,10 +5360,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,border:`1.5px dashed ${pdfArrastando?C.blue:C.border}`,background:pdfArrastando?`${C.blue}0a`:"transparent",borderRadius:7,padding:"14px 10px",cursor:pdfProcessando?"wait":"pointer"}}>
               <input type="file" accept=".pdf" disabled={pdfProcessando} onChange={e=>{const arquivo=e.target.files?.[0];e.target.value="";if(arquivo)processarPdfProjeto(arquivo);}} style={{display:"none"}}/>
               <Ic n="download" s={16} color={C.muted}/>
-              <span style={{fontSize:10.5,fontWeight:800,color:C.blue}}>{pdfProcessando?"Lendo PDF...":"Selecionar PDF"}</span>
-              <span style={{fontSize:9,color:C.muted}}>ou arraste o arquivo aqui</span>
+              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>{pdfProcessando?"Lendo PDF...":"Selecionar PDF"}</span>
+              <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>ou arraste o arquivo aqui</span>
             </label>
-            {pdfAviso&&<p style={{fontSize:10,color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
+            {pdfAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
             {(pdfPreviewCompleto || pdfPreviewQuantitativos) && <div className="floor-create-form">
               <strong>Destino de cada pavimento do projeto</strong>
               <p>Escolha onde aplicar os dados. Os vínculos do destino serão preservados e suas quantidades atualizadas.</p>
@@ -5374,25 +5374,25 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               </label>)}
             </div>}
             {pdfPreviewCompleto&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
-              <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Encontrado - confira antes de aplicar.</p>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green}}>Encontrado - confira antes de aplicar.</p>
               {pdfPreviewCompleto.avisos?.map((aviso,i)=><Warning key={i}>{aviso}</Warning>)}
               <div style={{border:`1px solid ${C.orange}55`,background:`${C.orange}12`,borderRadius:6,padding:"7px 9px"}}>
-                <p style={{fontSize:10,fontWeight:850,color:C.orange}}>⚠ Reimportar substitui a versão anterior de cada pavimento - nunca soma/duplica. É possível desfazer a última alteração após salvar.</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>⚠ Reimportar substitui a versão anterior de cada pavimento - nunca soma/duplica. É possível desfazer a última alteração após salvar.</p>
               </div>
 
               {!!pdfPreviewCompleto.sapatas.length&&<div style={{display:"flex",flexDirection:"column",gap:5}}>
-                <p style={{fontSize:10,fontWeight:850,color:C.text}}>FUNDAÇÃO: {pdfPreviewCompleto.sapatas.length} tipo(s) de sapata</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>FUNDAÇÃO: {pdfPreviewCompleto.sapatas.length} tipo(s) de sapata</p>
                 {pdfPreviewCompleto.resumoAcoSapatas&&(()=>{
                   const totalCalculado=pdfPreviewCompleto.sapatas.reduce((s,sapata)=>s+calcularSapataTipo(sapata).pesoAcoTotal,0);
                   const diferenca=Math.abs(totalCalculado-pdfPreviewCompleto.resumoAcoSapatas.totalKg);
                   const bateu=diferenca<=pdfPreviewCompleto.resumoAcoSapatas.totalKg*0.02; // até 2% de diferença por arredondamento
                   return <div style={{border:`1px solid ${bateu?C.green:C.orange}55`,background:C.card,borderRadius:6,padding:"7px 9px"}}>
-                    <p style={{fontSize:10,fontWeight:850,color:bateu?C.green:C.orange}}>{bateu?"✓":"⚠"} Conferência com o Resumo Aço da folha</p>
-                    <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Extraído (com os comprimentos resolvidos): <b>{totalCalculado.toFixed(1)} kg</b> · Total pronto do projeto: <b>{pdfPreviewCompleto.resumoAcoSapatas.totalKg.toFixed(1)} kg</b>{!bateu&&" - confira comprimentos, armaduras superiores, repetições e arredondamentos do projeto."}</p>
+                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:bateu?C.green:C.orange}}>{bateu?"✓":"⚠"} Conferência com o Resumo Aço da folha</p>
+                    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Extraído (com os comprimentos resolvidos): <b>{totalCalculado.toFixed(1)} kg</b> · Total pronto do projeto: <b>{pdfPreviewCompleto.resumoAcoSapatas.totalKg.toFixed(1)} kg</b>{!bateu&&" - confira comprimentos, armaduras superiores, repetições e arredondamentos do projeto."}</p>
                   </div>;
                 })()}
                 <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:160,overflowY:"auto"}}>
-                  {pdfPreviewCompleto.sapatas.map(sapata=><div key={sapata.tipo} style={{fontSize:9.5,color:C.text}}>
+                  {pdfPreviewCompleto.sapatas.map(sapata=><div key={sapata.tipo} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>
                     <b>{sapata.tipo}</b> · {sapata.qtd} peça(s) · {(sapata.largura*100).toFixed(0)}x{(sapata.comprimento*100).toFixed(0)}cm · alt. do projeto {sapata.alturasProjetoCm}cm ({sapata.geometriaPendente ? "geometria não identificada" : "geometria extraída dos cortes"})
                     {" · X:"}{sapata.armaduraX.quantidade}∅{sapata.armaduraX.bitola}{sapata.armaduraX.comprimento?` (${sapata.armaduraX.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
                     {" · Y:"}{sapata.armaduraY.quantidade}∅{sapata.armaduraY.bitola}{sapata.armaduraY.comprimento?` (${sapata.armaduraY.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
@@ -5409,7 +5409,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   if(!pilares.length&&!acoPilares&&!acoVigas&&!acoLaje)return null;
                   const concretoPilares=pilares.reduce((s,p)=>s+Number(p.concretoUnit||0)*Number(p.qtd||0),0);
                   const formaPilares=pilares.reduce((s,p)=>s+Number(p.formaUnit||0)*Number(p.qtd||0),0);
-                  return <p key={pav} style={{fontSize:9.5,color:C.text}}>
+                  return <p key={pav} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>
                     <b>{label}:</b> {pilares.length>0?`pilares ${concretoPilares.toFixed(2)}m³ concreto / ${formaPilares.toFixed(2)}m² fôrma`:""}
                     {acoPilares?` · aço de pilares: ${acoPilares.totalKg.toFixed(1)}kg`:""}
                     {acoVigas?` · aço de vigas: ${acoVigas.totalKg.toFixed(1)}kg`:""}
@@ -5421,10 +5421,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             </div>}
 
             {pdfPreviewQuantitativos&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
-              <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Pavimentos encontrados - confira antes de aplicar:</p>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green}}>Pavimentos encontrados - confira antes de aplicar:</p>
               <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                {pdfPreviewQuantitativos.map(grupo=><p key={grupo.pavimento} style={{fontSize:9.5,color:C.text}}>
-                  <b>{grupo.pavimento}:</b> vigas {grupo.concretoVigasM3?.toFixed(2)}m³ concreto / {grupo.formaVigasM2?.toFixed(2)}m² fôrma{grupo.avisoConcretoIncorreto?<span style={{color:C.orange,fontWeight:800}}> ⚠ o próprio projeto avisa que este volume pode estar incorreto - confira</span>:""}
+                {pdfPreviewQuantitativos.map(grupo=><p key={grupo.pavimento} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>
+                  <b>{grupo.pavimento}:</b> vigas {grupo.concretoVigasM3?.toFixed(2)}m³ concreto / {grupo.formaVigasM2?.toFixed(2)}m² fôrma{grupo.avisoConcretoIncorreto?<span style={{color:C.orange,fontWeight:600}}> ⚠ o próprio projeto avisa que este volume pode estar incorreto - confira</span>:""}
                   {" · laje "}{grupo.volumeLajesM3?.toFixed(2)}m³{grupo.volumeLajesM3?` (${grupo.lajeMacicasM3?.toFixed(2)}m³ maciça + ${grupo.lajeVigotasM3?.toFixed(2)}m³ vigota)`:""}
                   {grupo.areaMacicaLajeM2||grupo.areaVigotaLajeM2?` · área da laje ${grupo.areaMacicaLajeM2?.toFixed(2)}m² maciça + ${grupo.areaVigotaLajeM2?.toFixed(2)}m² vigota`:""}
                 </p>)}
@@ -5454,7 +5454,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 const item=ITENS_NAV_MEMORIA.find(i=>i.elementos.some(el=>el.id===e.target.value));
                 navegarParaSecaoMemoria(e.target.value, item&&item.id!=="fundacao"?e.target.value:null);
               }}
-              style={{padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:11,fontWeight:700}}>
+              style={{padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:"var(--arcd-type-label)",fontWeight:600}}>
               {ITENS_NAV_MEMORIA.map(item=>(
                 <optgroup key={item.id} label={item.label}>
                   {item.elementos.map(el=><option key={el.id} value={el.id}>{el.label}</option>)}
@@ -5468,9 +5468,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <nav aria-label="Índice da memória de cálculo" style={{position:"sticky",top:SCROLL_MARGIN,width:160,flexShrink:0,display:"flex",flexDirection:"column",gap:14,maxHeight:`calc(100vh - ${SCROLL_MARGIN+16}px)`,overflowY:"auto",paddingBottom:8}}>
                 {ITENS_NAV_MEMORIA.map(item=>(
                   <div key={item.id} style={{display:"flex",flexDirection:"column",gap:3}}>
-                    <button onClick={()=>navegarParaSecaoMemoria(item.id)} style={{textAlign:"left",border:0,background:"transparent",cursor:"pointer",padding:"2px 0",fontSize:10.5,fontWeight:900,color:secaoAtivaMemoria===item.id?C.blue:C.subtle,letterSpacing:.3}}>{item.label}</button>
+                    <button onClick={()=>navegarParaSecaoMemoria(item.id)} style={{textAlign:"left",border:0,background:"transparent",cursor:"pointer",padding:"2px 0",fontSize:"var(--arcd-type-label)",fontWeight:600,color:secaoAtivaMemoria===item.id?C.blue:C.subtle,letterSpacing:.3}}>{item.label}</button>
                     {item.elementos.length>1 && item.elementos.map(el=>(
-                      <button key={el.id} onClick={()=>navegarParaSecaoMemoria(el.id,el.id)} style={{textAlign:"left",border:0,borderLeft:`2px solid ${secaoAtivaMemoria===el.id?C.blue:"transparent"}`,background:"transparent",cursor:"pointer",padding:"3px 0 3px 10px",fontSize:10,fontWeight:secaoAtivaMemoria===el.id?800:600,color:secaoAtivaMemoria===el.id?C.blue:C.muted}}>{el.label}</button>
+                      <button key={el.id} onClick={()=>navegarParaSecaoMemoria(el.id,el.id)} style={{textAlign:"left",border:0,borderLeft:`1px solid ${secaoAtivaMemoria===el.id?C.blue:"transparent"}`,background:"transparent",cursor:"pointer",padding:"3px 0 3px 10px",fontSize:"var(--arcd-type-label)",fontWeight:secaoAtivaMemoria===el.id?800:600,color:secaoAtivaMemoria===el.id?C.blue:C.muted}}>{el.label}</button>
                     ))}
                   </div>
                 ))}
@@ -5489,12 +5489,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   <summary>Dimensões, armaduras e conferência das sapatas · {sapatasFundacao.length} tipos</summary>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                <div><p style={{fontSize:14,fontWeight:800,color:C.text}}>SAPATAS</p><p style={{fontSize:10.5,color:C.muted,marginTop:2}}>Uma linha por tipo de sapata (peças com a mesma dimensão), com a quantidade de peças daquele tipo - mesmo agrupamento que o próprio projeto estrutural já usa.</p></div>
+                <div><p style={{fontSize:14,fontWeight:600,color:C.text}}>SAPATAS</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Uma linha por tipo de sapata (peças com a mesma dimensão), com a quantidade de peças daquele tipo - mesmo agrupamento que o próprio projeto estrutural já usa.</p></div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
                   <div title="Espaçamento das colunas na tela - vale para a memória de cálculo de todos os orçamentos até você trocar de novo" style={{display:"flex",border:`1px solid ${C.border}`,borderRadius:6,overflow:"hidden"}}>
                     {[["compacto","COMPACTO"],["normal","NORMAL"],["confortavel","CONFORTÁVEL"]].map(([valor,label])=>(
                       <button key={valor} aria-pressed={densidadeMemoria===valor} onClick={()=>salvarDensidadeMemoria(valor)} style={{
-                        border:0,padding:"7px 9px",fontSize:9,fontWeight:800,cursor:"pointer",
+                        border:0,padding:"7px 9px",fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer",
                         background:densidadeMemoria===valor?C.blue:C.bg,color:densidadeMemoria===valor?"#fff":C.muted,
                       }}>{label}</button>
                     ))}
@@ -5514,35 +5514,35 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   ["Conc. magro","concreto pobre só de regularização, sob a sapata"],
                   ["Fôrmas","molde para a concretagem da base (perímetro x altura)"],
                   ["Bitola","diâmetro da barra de aço, em milímetros"]].map(([termo,def])=>(
-                  <span key={termo} style={{fontSize:9.5,color:C.muted}}><b style={{color:C.text}}>{termo}:</b> {def}</span>
+                  <span key={termo} style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}><b style={{color:C.text}}>{termo}:</b> {def}</span>
                 ))}
               </div>
 
               {undoSapata && (
                 <div style={{background:`${C.blue}0C`,border:`1px solid ${C.blue}55`,borderRadius:8,padding:"9px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
-                  <p style={{fontSize:11.5,color:C.text}}>Tipo "{undoSapata.tipo?.tipo||"sem nome"}" removido.</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>Tipo "{undoSapata.tipo?.tipo||"sem nome"}" removido.</p>
                   <Btn size="sm" v="ghost" onClick={desfazerRemocaoSapata}><Ic n="refresh" s={13}/> Desfazer</Btn>
                 </div>
               )}
 
               <div style={{background:`${C.blue}0a`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
-                <p style={{fontSize:10.5,fontWeight:850,color:C.text}}>Vai usar o padrão de folga (20cm) e profundidade (1,5m) de escavação em todas as sapatas, ou tipos diferentes precisam de valores próprios?</p>
-                <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>Ajuste os dois valores abaixo e aplique de uma vez a todos os tipos - depois, se algum tipo específico precisar de um valor diferente (ex.: um pilar mais profundo), edite só a linha dele na tabela.</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Vai usar o padrão de folga (20cm) e profundidade (1,5m) de escavação em todas as sapatas, ou tipos diferentes precisam de valores próprios?</p>
+                <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.5}}>Ajuste os dois valores abaixo e aplique de uma vez a todos os tipos - depois, se algum tipo específico precisar de um valor diferente (ex.: um pilar mais profundo), edite só a linha dele na tabela.</p>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
-                  <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>FOLGA PADRÃO (m)</span><input type="number" step="any" min="0" value={padraoEscavacaoFundacao.folga} onChange={e=>salvarPadraoEscavacaoFundacao({folga:e.target.value.replace(",",".")})} style={{width:80,padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right"}}/></label>
-                  <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,fontWeight:800,color:C.muted}}>PROFUNDIDADE PADRÃO (m)</span><input type="number" step="any" min="0" value={padraoEscavacaoFundacao.profundidade} onChange={e=>salvarPadraoEscavacaoFundacao({profundidade:e.target.value.replace(",",".")})} style={{width:90,padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right"}}/></label>
+                  <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>FOLGA PADRÃO (m)</span><input type="number" step="any" min="0" value={padraoEscavacaoFundacao.folga} onChange={e=>salvarPadraoEscavacaoFundacao({folga:e.target.value.replace(",",".")})} style={{width:80,padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right"}}/></label>
+                  <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>PROFUNDIDADE PADRÃO (m)</span><input type="number" step="any" min="0" value={padraoEscavacaoFundacao.profundidade} onChange={e=>salvarPadraoEscavacaoFundacao({profundidade:e.target.value.replace(",",".")})} style={{width:90,padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right"}}/></label>
                   <Btn size="sm" onClick={aplicarPadraoEscavacaoATodos} disabled={!sapatasFundacao.length}><Ic n="check"/> APLICAR A TODOS OS TIPOS</Btn>
                 </div>
               </div>
 
               <details open={larguraColunasAberto} onToggle={e=>setLarguraColunasAberto(e.target.open)} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 11px"}}>
-                <summary style={{cursor:"pointer",fontSize:10.5,fontWeight:850,color:C.text}}>AJUSTAR LARGURA DAS COLUNAS <span style={{fontWeight:600,color:C.muted}}>(vale pra empresa inteira, até você trocar de novo)</span></summary>
+                <summary style={{cursor:"pointer",fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>AJUSTAR LARGURA DAS COLUNAS <span style={{fontWeight:600,color:C.muted}}>(vale pra empresa inteira, até você trocar de novo)</span></summary>
                 <div style={{display:"flex",flexWrap:"wrap",gap:"6px 10px",marginTop:8,maxHeight:180,overflowY:"auto"}}>
                   {COLUNAS_SAPATAS.filter(col=>col.chave!=="acoes").map(col=>(
                     <label key={col.chave} style={{display:"flex",alignItems:"center",gap:5}}>
-                      <span style={{fontSize:9,color:C.muted,minWidth:98}}>{col.rotulo||"AÇÕES"}</span>
+                      <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,minWidth:98}}>{col.rotulo||"AÇÕES"}</span>
                       <input type="number" min={col.largura} step="1" value={larguraColunaEfetiva(col.chave)} onChange={e=>salvarLarguraColunaSapatas(col.chave,e.target.value)}
-                        style={{width:52,padding:"3px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.card,color:C.text,textAlign:"right",fontSize:9.5}}/>
+                        style={{width:52,padding:"3px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.card,color:C.text,textAlign:"right",fontSize:"var(--arcd-type-caption)"}}/>
                     </label>
                   ))}
                 </div>
@@ -5569,7 +5569,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     <tr style={{background:C.surface}}>
                       <th colSpan={2} style={{position:"sticky",left:0,zIndex:2,background:C.surface,borderBottom:`1px solid ${C.border}`}}/>
                       {GRUPOS_CABECALHO_SAPATAS.filter(g=>g.nome).map(g=>
-                        <th key={g.nome} colSpan={g.span} style={{padding:dSapatas.pad,textAlign:"center",color:C.subtle,fontSize:dSapatas.fonteGrupo,fontWeight:800,letterSpacing:.4,borderBottom:`1px solid ${C.border}`,borderLeft:`1px solid ${C.line}`}}>{g.nome}</th>
+                        <th key={g.nome} colSpan={g.span} style={{padding:dSapatas.pad,textAlign:"center",color:C.subtle,fontSize:dSapatas.fonteGrupo,fontWeight:600,letterSpacing:.4,borderBottom:`1px solid ${C.border}`,borderLeft:`1px solid ${C.line}`}}>{g.nome}</th>
                       )}
                       <th colSpan={2} style={{borderBottom:`1px solid ${C.border}`}}/>
                     </tr>
@@ -5629,12 +5629,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                           <td style={{padding:dSapatas.pad}}>{alturaGeometria("alturaTronco")}</td>
                           <td style={{padding:dSapatas.pad}} title="Quanto a cova é maior que a sapata, de cada lado (2x este valor soma em largura e em comprimento)">{numInput("folgaEscavacao")}</td>
                           <td style={{padding:dSapatas.pad}}>{numInput("profundidadeEscavacao")}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",color:calc.escavacaoInsuficiente?C.red:C.blue,fontWeight:700}} title={calc.escavacaoInsuficiente?`⚠ A cova (${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m) é menor que o volume de concreto da sapata - confira as medidas, a sapata não cabe nessa escavação.`:`Cova: ${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m`}>{calc.escavacaoInsuficiente?"⚠ ":""}{calc.volumeEscavacaoTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:calc.escavacaoInsuficiente?C.red:C.blue,fontWeight:600}} title={calc.escavacaoInsuficiente?`⚠ A cova (${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m) é menor que o volume de concreto da sapata - confira as medidas, a sapata não cabe nessa escavação.`:`Cova: ${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m`}>{calc.escavacaoInsuficiente?"⚠ ":""}{calc.volumeEscavacaoTotal.toFixed(2)}</td>
                           <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{calc.areaConcretoMagroTotal.toFixed(2)}</td>
                           <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}} title="Laterais verticais da base e faces verticais do trecho superior, quando presentes">{resultadoGeometria(calc.formaAreaTotal,"formaConferidaM2")}</td>
                           <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{tipo.alturasProjetoCm && !tipo.geometriaProjeto ? <span title="O volume conferido da sapata não é decomposto em prismas nesta tabela">—</span> : calc.volumeBaseTotal.toFixed(2)}</td>
                           <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{tipo.alturasProjetoCm && !tipo.geometriaProjeto ? <span title="O volume conferido da sapata não é decomposto em prismas nesta tabela">—</span> : calc.volumeTroncoTotal.toFixed(2)}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:800,color:C.text}}>{resultadoGeometria(calc.volumeSapataTotal,"volumeConferidoM3")}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:600,color:C.text}}>{resultadoGeometria(calc.volumeSapataTotal,"volumeConferidoM3")}</td>
                           <td style={{padding:dSapatas.pad,textAlign:"right",color:C.orange}}>{resultadoGeometria(calc.reaterroTotal)}</td>
                           <td style={{padding:dSapatas.pad}}>{armSelect("armaduraX")}</td>
                           <td style={{padding:dSapatas.pad}}>{armInput("armaduraX","quantidade")}</td>
@@ -5642,17 +5642,17 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                           <td style={{padding:dSapatas.pad}}>{armSelect("armaduraY")}</td>
                           <td style={{padding:dSapatas.pad}}>{armInput("armaduraY","quantidade")}</td>
                           <td style={{padding:dSapatas.pad}}>{armInput("armaduraY","comprimento")}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:800,color:C.purple}}>{calc.pesoAcoTotal.toFixed(1)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:600,color:C.purple}}>{calc.pesoAcoTotal.toFixed(1)}</td>
                           <td style={{padding:dSapatas.pad}}><div className="sapata-row-actions">
                             <button aria-label="Duplicar este tipo" type="button" title="Duplicar" onClick={()=>duplicarSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.blue,cursor:"pointer",display:"flex"}}><Ic n="copy" s={13}/></button>
-                            <button aria-label="Remover este tipo" type="button" title="Remover" onClick={()=>removerSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.red,cursor:"pointer",fontWeight:800}}>×</button>
+                            <button aria-label="Remover este tipo" type="button" title="Remover" onClick={()=>removerSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.red,cursor:"pointer",fontWeight:600}}>×</button>
                           </div></td>
                         </tr>
                       );
                     })}
                   </tbody>
                   {resumoSapatasFundacao.linhas.length>0&&<tfoot>
-                    <tr style={{background:C.surface,fontWeight:800}}>
+                    <tr style={{background:C.surface,fontWeight:600}}>
                       <td style={{padding:dSapatas.padHeader,position:"sticky",left:0,zIndex:1,background:C.surface}}>TOTAIS</td>
                       <td style={{position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:1,background:C.surface,borderRight:`1px solid ${C.line}`}}/>
                       <td/><td/><td/><td/><td/><td/>
@@ -5669,7 +5669,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     </tr>
                   </tfoot>}
                 </table>
-                {!resumoSapatasFundacao.linhas.length&&<p style={{padding:20,textAlign:"center",fontSize:11,color:C.muted}}>Nenhum tipo de sapata cadastrado. Clique em "NOVO TIPO" para começar.</p>}
+                {!resumoSapatasFundacao.linhas.length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum tipo de sapata cadastrado. Clique em "NOVO TIPO" para começar.</p>}
               </div>
 
               <details className="memory-disclosure sapata-technical-details"><summary>Referências do projeto e armaduras superiores</summary>
@@ -5692,13 +5692,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               </details>)}
               </details>
               {resumoSapatasFundacao.acoPorBitola.length>0&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
-                <p style={{fontSize:10.5,fontWeight:900,color:C.purple}}>RESUMO DE AÇO POR BITOLA (já com 10% de perda)</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.purple}}>RESUMO DE AÇO POR BITOLA (já com 10% de perda)</p>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6}}>
                   {resumoSapatasFundacao.acoPorBitola.map(l=><div key={l.bitola} style={{border:`1px solid ${C.border}`,borderRadius:6,padding:"6px 10px"}}>
-                    <b style={{fontSize:11,color:C.text}}>∅{l.bitola}mm</b><span style={{fontSize:10.5,color:C.muted,marginLeft:6}}>{l.kg.toFixed(1)} kg</span>
+                    <b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>∅{l.bitola}mm</b><span style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginLeft:6}}>{l.kg.toFixed(1)} kg</span>
                   </div>)}
                   <div style={{border:`1px solid ${C.purple}55`,background:`${C.purple}0c`,borderRadius:6,padding:"6px 10px"}}>
-                    <b style={{fontSize:11,color:C.purple}}>TOTAL</b><span style={{fontSize:10.5,color:C.purple,marginLeft:6,fontWeight:800}}>{resumoSapatasFundacao.totais.pesoAco.toFixed(1)} kg</span>
+                    <b style={{fontSize:"var(--arcd-type-label)",color:C.purple}}>TOTAL</b><span style={{fontSize:"var(--arcd-type-label)",color:C.purple,marginLeft:6,fontWeight:600}}>{resumoSapatasFundacao.totais.pesoAco.toFixed(1)} kg</span>
                   </div>
                 </div>
               </div>}
@@ -5753,24 +5753,24 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             return (
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
                 <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
-                  <div><p style={{fontSize:12,fontWeight:850,color:C.text}}>IMPORTAR PROJETO HIDROSSANITÁRIO (PDF)</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Lê a folha "Tabelas e Detalhes" do projeto (a que consolida o quantitativo da obra inteira) e preenche as 8 tabelas abaixo - você sempre confere antes de aplicar.</p></div>
+                  <div><p style={{fontSize:12,fontWeight:600,color:C.text}}>IMPORTAR PROJETO HIDROSSANITÁRIO (PDF)</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Lê a folha "Tabelas e Detalhes" do projeto (a que consolida o quantitativo da obra inteira) e preenche as 8 tabelas abaixo - você sempre confere antes de aplicar.</p></div>
                   <label onDragOver={e=>{e.preventDefault();setPdfArrastando(true);}} onDragLeave={()=>setPdfArrastando(false)}
                     onDrop={e=>{e.preventDefault();setPdfArrastando(false);const arquivo=e.dataTransfer.files?.[0];if(arquivo)processarPdfProjeto(arquivo,"hidrossanitario");}}
                     style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,border:`1.5px dashed ${pdfArrastando?C.blue:C.border}`,background:pdfArrastando?`${C.blue}0a`:"transparent",borderRadius:7,padding:"14px 10px",cursor:pdfProcessando?"wait":"pointer"}}>
                     <input type="file" accept=".pdf" disabled={pdfProcessando} onChange={e=>{const arquivo=e.target.files?.[0];e.target.value="";if(arquivo)processarPdfProjeto(arquivo,"hidrossanitario");}} style={{display:"none"}}/>
                     <Ic n="download" s={16} color={C.muted}/>
-                    <span style={{fontSize:10.5,fontWeight:800,color:C.blue}}>{pdfProcessando?"Lendo PDF...":"Selecionar PDF"}</span>
-                    <span style={{fontSize:9,color:C.muted}}>ou arraste o arquivo aqui</span>
+                    <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>{pdfProcessando?"Lendo PDF...":"Selecionar PDF"}</span>
+                    <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>ou arraste o arquivo aqui</span>
                   </label>
-                  {pdfAviso&&<p style={{fontSize:10,color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
+                  {pdfAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
                   {pdfPreviewHidrossanitario&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
-                    <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Encontrado - confira antes de aplicar.</p>
+                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green}}>Encontrado - confira antes de aplicar.</p>
                     <div style={{border:`1px solid ${C.orange}55`,background:`${C.orange}12`,borderRadius:6,padding:"7px 9px"}}>
-                      <p style={{fontSize:10,fontWeight:850,color:C.orange}}>⚠ Reimportar substitui cada tabela inteira - nunca soma/duplica. É possível desfazer a última alteração após salvar.</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>⚠ Reimportar substitui cada tabela inteira - nunca soma/duplica. É possível desfazer a última alteração após salvar.</p>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:3}}>
                       {CHAVES_TABELAS_HIDROSSANITARIO.filter(([chave])=>pdfPreviewHidrossanitario[chave]?.length).map(([chave,label])=>(
-                        <p key={chave} style={{fontSize:9.5,color:C.text}}><b>{label}:</b> {pdfPreviewHidrossanitario[chave].length} linha(s)</p>
+                        <p key={chave} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}><b>{label}:</b> {pdfPreviewHidrossanitario[chave].length} linha(s)</p>
                       ))}
                     </div>
                     <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewHidrossanitario(null)}>DESCARTAR</Btn><Btn size="sm" onClick={()=>setConfirmarAplicarHidrossanitario(true)}><Ic n="check"/> APLICAR (SUBSTITUI A VERSÃO ANTERIOR)</Btn></div>
@@ -5785,14 +5785,14 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
                     <div>
-                      <p style={{fontSize:12,fontWeight:850,color:C.text}}>ASSOCIAR ÀS COMPOSIÇÕES (IA)</p>
-                      <p style={{fontSize:10,color:C.muted,marginTop:2,maxWidth:520}}>Busca a composição SINAPI/ORSE mais próxima nas bases vinculadas a este orçamento para cada peça/conexão/tubo já lançado - associa direto quando só existe um candidato compatível, e só chama a IA para desempatar quando sobra mais de uma opção plausível. Só propõe - nada é adicionado ao orçamento sozinho, você confere e adiciona manualmente na aba Itens.</p>
+                      <p style={{fontSize:12,fontWeight:600,color:C.text}}>ASSOCIAR ÀS COMPOSIÇÕES (IA)</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,maxWidth:520}}>Busca a composição SINAPI/ORSE mais próxima nas bases vinculadas a este orçamento para cada peça/conexão/tubo já lançado - associa direto quando só existe um candidato compatível, e só chama a IA para desempatar quando sobra mais de uma opção plausível. Só propõe - nada é adicionado ao orçamento sozinho, você confere e adiciona manualmente na aba Itens.</p>
                     </div>
                     <Btn size="sm" onClick={executarAssociacaoIA} disabled={matchIACarregando}>
                       <Ic n="ia" s={14}/> {matchIACarregando?"Associando...":"Associar automaticamente"}
                     </Btn>
                   </div>
-                  {matchIAAviso&&<p style={{fontSize:10,color:C.orange,lineHeight:1.5}}>{matchIAAviso}</p>}
+                  {matchIAAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,lineHeight:1.5}}>{matchIAAviso}</p>}
                   {matchIA&&(() => {
                     const porItemId = new Map(matchIA.matches.map(m=>[m.itemId,m]));
                     const associados = matchIA.matches.filter(m=>m.status==="associado").length;
@@ -5800,7 +5800,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     const porIA = associados - porRegra;
                     return (
                       <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                        <p style={{fontSize:10.5,fontWeight:800,color:C.text}}>
+                        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>
                           {associados} de {matchIA.itens.length} item(ns) com composição sugerida.
                           {associados>0&&<span style={{fontWeight:500,color:C.muted}}> ({porRegra} por candidato único, {porIA} desempatados pela IA)</span>}
                         </p>
@@ -5811,20 +5811,20 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                             return (
                               <div key={item.id} style={{border:`1px solid ${associado?C.green+"44":C.orange+"44"}`,background:associado?`${C.green}08`:`${C.orange}08`,borderRadius:6,padding:"7px 9px",display:"flex",flexDirection:"column",gap:3}}>
                                 <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}>
-                                  <p style={{fontSize:10.5,color:C.text,fontWeight:700}}>{item.descricao} <span style={{color:C.muted,fontWeight:500}}>({fmtNum(item.quantidade)} {item.unidade})</span></p>
-                                  <span style={{fontSize:8.5,fontWeight:850,color:associado?C.green:C.orange,whiteSpace:"nowrap"}}>{associado?"ASSOCIADO":"PENDENTE"}</span>
+                                  <p style={{fontSize:"var(--arcd-type-label)",color:C.text,fontWeight:600}}>{item.descricao} <span style={{color:C.muted,fontWeight:500}}>({fmtNum(item.quantidade)} {item.unidade})</span></p>
+                                  <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:associado?C.green:C.orange,whiteSpace:"nowrap"}}>{associado?"ASSOCIADO":"PENDENTE"}</span>
                                 </div>
                                 {associado ? (
-                                  <p style={{fontSize:10,color:C.text}}>
-                                    <span style={{fontWeight:700,color:m.fonte==="ORSE"?C.purple:C.blue}}>{m.fonte}</span> {m.codigo} - {m.descricao}
+                                  <p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>
+                                    <span style={{fontWeight:600,color:m.fonte==="ORSE"?C.purple:C.blue}}>{m.fonte}</span> {m.codigo} - {m.descricao}
                                     <span style={{color:C.muted}}> · {Math.round((m.confianca||0)*100)}% confiança · {m.origem==="ia"?"desempate por IA":"candidato único"}</span>
                                   </p>
                                 ) : null}
-                                {m?.justificativa&&<p style={{fontSize:9.5,color:C.muted,fontStyle:"italic"}}>{m.justificativa}</p>}
+                                {m?.justificativa&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontStyle:"italic"}}>{m.justificativa}</p>}
                                 {associado&&(
                                   <div style={{display:"flex",gap:12,alignItems:"center"}}>
-                                    <button onClick={()=>{navigator.clipboard?.writeText(m.codigo);showToast("Código copiado.");}} style={{fontSize:9.5,fontWeight:800,color:C.blue,background:"none",border:"none",padding:0,cursor:"pointer"}}>Copiar código</button>
-                                    <button onClick={()=>abrirAplicarMatchIA(m,item)} style={{fontSize:9.5,fontWeight:800,color:C.green,background:"none",border:"none",padding:0,cursor:"pointer"}}>+ Adicionar ao orçamento</button>
+                                    <button onClick={()=>{navigator.clipboard?.writeText(m.codigo);showToast("Código copiado.");}} style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.blue,background:"none",border:"none",padding:0,cursor:"pointer"}}>Copiar código</button>
+                                    <button onClick={()=>abrirAplicarMatchIA(m,item)} style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.green,background:"none",border:"none",padding:0,cursor:"pointer"}}>+ Adicionar ao orçamento</button>
                                   </div>
                                 )}
                               </div>
@@ -5876,10 +5876,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {checkEdit&&<Modal title="Revisar item do orçamento" onClose={()=>setCheckEdit(null)} wide>
         <div style={{display:"flex",flexDirection:"column",gap:11}}>
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 11px"}}><p style={{fontSize:12,fontWeight:850,color:C.text}}>{checkEdit.titulo}</p><p style={{fontSize:10,color:C.muted,lineHeight:1.5,marginTop:4}}>{checkEdit.detalhe}</p>{checkEdit.acaoSugerida&&<p style={{fontSize:10,color:C.subtle,lineHeight:1.5,marginTop:5}}><b>Próxima ação sugerida:</b> {checkEdit.acaoSugerida}</p>}</div>
-          <div><p style={{fontSize:9,fontWeight:850,color:C.muted,textTransform:"uppercase",marginBottom:5}}>Decisão do operador</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:6}}>{[["pendente","Pendente",C.orange],["corrigido","Corrigido",C.green],["ignorado","Ignorar",C.muted]].map(([status,label,color])=><button key={status} onClick={()=>setCheckEdit(item=>({...item,status}))} style={{border:`1.5px solid ${checkEdit.status===status?color:C.border}`,background:checkEdit.status===status?`${color}12`:C.card,color:checkEdit.status===status?color:C.muted,borderRadius:7,padding:"8px 9px",fontSize:10,fontWeight:850,cursor:"pointer"}}>{label}</button>)}</div></div>
-          <label style={{display:"flex",flexDirection:"column",gap:5}}><span style={{fontSize:10,fontWeight:800,color:C.text}}>Observação {checkEdit.status==="ignorado"?"*":""}</span><textarea rows={4} value={checkEdit.observacao||""} onChange={e=>setCheckEdit(item=>({...item,observacao:e.target.value}))} placeholder={checkEdit.status==="corrigido"?"Descreva o que foi corrigido e onde conferir.":checkEdit.status==="ignorado"?"Justifique por que o item não se aplica ao escopo.":"Registre a dúvida, responsável ou ação combinada."} style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 10px",borderRadius:7,fontSize:11,outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/></label>
-          <p style={{fontSize:9,color:C.muted}}>A decisão ficará vinculada a este orçamento com operador e data. A IA nunca marca um item como corrigido ou ignorado automaticamente.</p>
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 11px"}}><p style={{fontSize:12,fontWeight:600,color:C.text}}>{checkEdit.titulo}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5,marginTop:4}}>{checkEdit.detalhe}</p>{checkEdit.acaoSugerida&&<p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.5,marginTop:5}}><b>Próxima ação sugerida:</b> {checkEdit.acaoSugerida}</p>}</div>
+          <div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",marginBottom:5}}>Decisão do operador</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:6}}>{[["pendente","Pendente",C.orange],["corrigido","Corrigido",C.green],["ignorado","Ignorar",C.muted]].map(([status,label,color])=><button key={status} onClick={()=>setCheckEdit(item=>({...item,status}))} style={{border:`1.5px solid ${checkEdit.status===status?color:C.border}`,background:checkEdit.status===status?`${color}12`:C.card,color:checkEdit.status===status?color:C.muted,borderRadius:7,padding:"8px 9px",fontSize:"var(--arcd-type-label)",fontWeight:600,cursor:"pointer"}}>{label}</button>)}</div></div>
+          <label style={{display:"flex",flexDirection:"column",gap:5}}><span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Observação {checkEdit.status==="ignorado"?"*":""}</span><textarea rows={4} value={checkEdit.observacao||""} onChange={e=>setCheckEdit(item=>({...item,observacao:e.target.value}))} placeholder={checkEdit.status==="corrigido"?"Descreva o que foi corrigido e onde conferir.":checkEdit.status==="ignorado"?"Justifique por que o item não se aplica ao escopo.":"Registre a dúvida, responsável ou ação combinada."} style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 10px",borderRadius:7,fontSize:"var(--arcd-type-label)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/></label>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>A decisão ficará vinculada a este orçamento com operador e data. A IA nunca marca um item como corrigido ou ignorado automaticamente.</p>
           <div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setCheckEdit(null)} full>Cancelar</Btn><Btn onClick={salvarRevisaoChecklist} full><Ic n="check"/> Salvar revisão</Btn></div>
         </div>
       </Modal>}
@@ -5887,8 +5887,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       {analiseReferencia&&<Modal title={`${analiseReferencia.tipoItem==="COMPOSICAO"?"Composição":"Insumo"} ${analiseReferencia.fonte} ${analiseReferencia.codigo}`} onClose={()=>{setAnaliseReferencia(null);setAnaliseComponentes([]);setAnaliseReferenciaAviso("");}} wide>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:10}}>
-            <p style={{fontSize:13,fontWeight:900,color:C.text}}>{analiseReferencia.descricao}</p>
-            <div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:7,fontSize:10.5,color:C.muted}}>
+            <p style={{fontSize:13,fontWeight:600,color:C.text}}>{analiseReferencia.descricao}</p>
+            <div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:7,fontSize:"var(--arcd-type-label)",color:C.muted}}>
               <span><b>Tipo:</b> {analiseReferencia.tipoItem==="COMPOSICAO"?"Composição":"Insumo"}</span>
               <span><b>Unidade:</b> {analiseReferencia.unidade||"UN"}</span>
               <span><b>Preço:</b> {fmt(precoDoItem(analiseReferencia,orc))}</span>
@@ -5900,23 +5900,23 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             </div>
           </div>
 
-          {analiseReferenciaLoading&&<p style={{padding:18,textAlign:"center",fontSize:11,color:C.blue,fontWeight:800}}>CARREGANDO ANÁLISE...</p>}
-          {analiseReferenciaAviso&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"8px 10px",fontSize:10.5,color:C.orange}}>{analiseReferenciaAviso}</div>}
+          {analiseReferenciaLoading&&<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600}}>CARREGANDO ANÁLISE...</p>}
+          {analiseReferenciaAviso&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"8px 10px",fontSize:"var(--arcd-type-label)",color:C.orange}}>{analiseReferenciaAviso}</div>}
 
           {analiseReferencia.memoriaTexto&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 11px"}}>
-            <p style={{fontSize:11,fontWeight:900,color:C.text,marginBottom:5}}>MEMÓRIA DE PREÇOS DO ITEM</p>
-            <pre style={{fontSize:10.5,color:C.muted,lineHeight:1.6,whiteSpace:"pre-wrap",fontFamily:"var(--arcd-font-sans)",margin:0}}>{analiseReferencia.memoriaTexto}</pre>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginBottom:5}}>MEMÓRIA DE PREÇOS DO ITEM</p>
+            <pre style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.6,whiteSpace:"pre-wrap",fontFamily:"var(--arcd-font-sans)",margin:0}}>{analiseReferencia.memoriaTexto}</pre>
           </div>}
 
           {analiseReferencia.tipoItem==="COMPOSICAO"&&!analiseReferenciaLoading&&analiseComponentes.length>0&&<>
-            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}><p style={{fontSize:12,fontWeight:900,color:C.text}}>COMPOSIÇÃO ANALÍTICA DIRETA</p><b style={{fontSize:13,color:C.yellowD}}>{fmt(analiseComponentes.reduce((s,item)=>s+Number(item.coeficiente||0)*precoDoItem(item,orc),0))}</b></div>
-            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7,maxHeight:390,overflowY:"auto"}}><table style={{width:"100%",minWidth:760,borderCollapse:"collapse",fontSize:10}}>
-              <thead style={{position:"sticky",top:0,zIndex:1}}><tr style={{background:C.surface}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL"].map(h=><th key={h} style={{padding:"7px 6px",textAlign:["COEFICIENTE","PREÇO UNIT.","TOTAL"].includes(h)?"right":"left",color:C.muted,fontSize:8.5,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}><p style={{fontSize:12,fontWeight:600,color:C.text}}>COMPOSIÇÃO ANALÍTICA DIRETA</p><b style={{fontSize:13,color:C.yellowD}}>{fmt(analiseComponentes.reduce((s,item)=>s+Number(item.coeficiente||0)*precoDoItem(item,orc),0))}</b></div>
+            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7,maxHeight:390,overflowY:"auto"}}><table style={{width:"100%",minWidth:760,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
+              <thead style={{position:"sticky",top:0,zIndex:1}}><tr style={{background:C.surface}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL"].map(h=><th key={h} style={{padding:"7px 6px",textAlign:["COEFICIENTE","PREÇO UNIT.","TOTAL"].includes(h)?"right":"left",color:C.muted,fontSize:"var(--arcd-type-caption)",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
               <tbody>{analiseComponentes.map((item,index)=><tr key={`${item.itemType}-${item.itemCode}-${index}`} style={{borderBottom:`1px solid ${C.line}`}}>
-                <td style={{padding:6,color:item.itemType==="COMPOSICAO"?C.green:C.orange,fontWeight:800}}>{item.itemType}</td>
-                <td style={{padding:6,fontWeight:800,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td><td style={{padding:6}}>{item.itemCode}</td>
+                <td style={{padding:6,color:item.itemType==="COMPOSICAO"?C.green:C.orange,fontWeight:600}}>{item.itemType}</td>
+                <td style={{padding:6,fontWeight:600,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td><td style={{padding:6}}>{item.itemCode}</td>
                 <td title={item.descricao} style={{padding:6,maxWidth:310,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:6}}>{item.unidade}</td>
-                <td style={{padding:6,textAlign:"right"}}>{Number(item.coeficiente||0).toLocaleString("pt-BR",{maximumFractionDigits:8})}</td><td style={{padding:6,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}</td><td style={{padding:6,textAlign:"right",fontWeight:800}}>{fmt(Number(item.coeficiente||0)*precoDoItem(item,orc))}</td>
+                <td style={{padding:6,textAlign:"right"}}>{Number(item.coeficiente||0).toLocaleString("pt-BR",{maximumFractionDigits:8})}</td><td style={{padding:6,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}</td><td style={{padding:6,textAlign:"right",fontWeight:600}}>{fmt(Number(item.coeficiente||0)*precoDoItem(item,orc))}</td>
               </tr>)}</tbody>
             </table></div>
           </>}

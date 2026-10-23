@@ -215,13 +215,13 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
       {form.referenciaId&&(loading||aviso||resultados.length>0||busca.trim().length>=2)&&<div style={{maxHeight:220,overflowY:"auto",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:4}}>
         {loading&&<p className="purchase-request-hint" role="status">Pesquisando na base selecionada...</p>}{aviso&&<div className="purchase-request-search-error" role="alert"><span>{aviso}</span><Btn size="sm" v="ghost" onClick={()=>setTentativaBusca(n=>n+1)}>Tentar novamente</Btn></div>}
         {resultados.map((item,index)=><button className="purchase-request-result" key={`${item.fonte}-${item.codigo}-${index}`} onClick={()=>addReferencia(item)} title={item.descricao}><b>{item.fonte} {item.codigo}</b><span>{item.descricao}</span><strong>{fmt(precoRef(item))}/{item.unidade}</strong></button>)}
-        {!loading&&!resultados.length&&!aviso&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:8}}>Nenhum insumo encontrado.</p>}
+        {!loading&&!resultados.length&&!aviso&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"center",padding:8}}>Nenhum insumo encontrado.</p>}
       </div>}
     </div>
     </details>
     <div className="purchase-request-material-head"><h4>Materiais da solicitação</h4><div><Btn size="sm" v="ghost" onClick={addProprio}><Ic n="plus"/> Adicionar somente a esta solicitação</Btn>{data&&<Btn size="sm" v="warning" onClick={abrirNovoInsumo}><Ic n="plus"/> Cadastrar no catálogo e adicionar</Btn>}</div></div>
     {novoInsumo&&<div style={{background:`${C.orange}0A`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"10px 11px",display:"flex",flexDirection:"column",gap:8}}>
-      <p style={{fontSize:10.5,fontWeight:900,color:C.orange}}>NOVO INSUMO NO CATÁLOGO</p>
+      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>NOVO INSUMO NO CATÁLOGO</p>
       <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
         <Inp label="Descrição *" value={novoInsumo.descricao} onChange={v=>setNovoInsumo(f=>({...f,descricao:v}))} placeholder="Ex.: Cimento CP-II 50kg"/>
         <Sel label="Unidade *" value={novoInsumo.unidade} onChange={v=>setNovoInsumo(f=>({...f,unidade:v}))} options={UNIDADES_PADRAO.map(u=>({v:u.sigla,l:`${u.sigla} - ${u.nome}`}))}/>
@@ -233,7 +233,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
     {removido&&<div className="purchase-request-undo" role="status"><span>Material removido da solicitação.</span><button type="button" onClick={desfazerRemocao}>Desfazer</button></div>}
     <div className="purchase-request-items">{form.itens.map((item,itemIndex)=>{const itemErrors=erros.items?.find(e=>e.id===item.id)?.errors||{};return <article key={item.id} data-request-item={item.id} className="purchase-request-item">
       <div className="purchase-request-item-main">
-        <div><p style={{fontSize:8.5,color:C.muted,fontWeight:800,marginBottom:3}}>FONTE</p><b style={{fontSize:10,color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef}</b></div>
+        <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,marginBottom:3}}>FONTE</p><b style={{fontSize:"var(--arcd-type-label)",color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef}</b></div>
         <Inp label="Código" value={item.codigoRef} onChange={v=>setItem(item.id,"codigoRef",v)} placeholder="Opcional"/>
         <Inp label="Descrição *" value={item.descricaoRef} onChange={v=>setItem(item.id,"descricaoRef",v)} error={itemErrors.descricaoRef}/>
         <Inp label="Unidade *" value={item.unidadeRef} onChange={v=>setItem(item.id,"unidadeRef",v)} error={itemErrors.unidadeRef}/>
@@ -252,21 +252,21 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
           {conversaoAco?.purchaseUnit==="BR"&&<Inp label="Comprimento da barra (m) *" type="number" value={item.comprimentoBarra||12} onChange={v=>setComprimentoBarra(item.id,v)} placeholder="12"/>}
           {conversaoAtiva&&<Inp label={`Conteúdo de 1 ${unidadeCompra} em ${unidadeRef} *`} type="number" min="0.0001" value={item.fatorConversao||""} onChange={v=>setItem(item.id,"fatorConversao",v)} placeholder="Ex.: 20" error={itemErrors.fatorConversao}/>}
           <div style={{display:"flex",flexDirection:"column",justifyContent:"flex-end",paddingBottom:3}}>
-            <p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>Equivalência da solicitação</p>
-            <p style={{fontSize:10.5,fontWeight:800,color:hasValidUnitConversion(item)?C.text:C.red,marginTop:3}}>
+            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Equivalência da solicitação</p>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:hasValidUnitConversion(item)?C.text:C.red,marginTop:3}}>
               {hasValidUnitConversion(item)
                 ? `${Number(item.quantidade||0).toLocaleString("pt-BR")} ${unidadeCompra} = ${quantidadeReferencia.toLocaleString("pt-BR",{maximumFractionDigits:4})} ${unidadeRef}`
                 : `Informe quanto contém cada ${unidadeCompra}`}
             </p>
-            {conversaoAtiva&&precoCompraRef>0&&<p style={{fontSize:9,color:C.muted,marginTop:2}}>Referência convertida: {fmt(precoCompraRef)}/{unidadeCompra}</p>}
+            {conversaoAtiva&&precoCompraRef>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Referência convertida: {fmt(precoCompraRef)}/{unidadeCompra}</p>}
           </div>
-          {conversaoAco&&<p style={{gridColumn:"1/-1",fontSize:9.5,color:C.blue,lineHeight:1.45}}>
+          {conversaoAco&&<p style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.blue,lineHeight:1.45}}>
             Conversão automática do aço{conversaoAco.diameterMm?` Ø ${conversaoAco.diameterMm.toLocaleString("pt-BR")} mm`:""}: {conversaoAco.kgPerMeter.toLocaleString("pt-BR",{maximumFractionDigits:4})} kg/m{conversaoAco.purchaseUnit==="BR"?` · barra de ${conversaoAco.barLength.toLocaleString("pt-BR")} m`:""}. O fator pode ser ajustado conforme o certificado do fabricante.
           </p>}
         </div>;})()}
       <div style={{marginTop:7}}><Sel label="Etapa principal do orçamento" value={item.orcNivel1Id||""} onChange={v=>setItem(item.id,"orcNivel1Id",v)} options={[{v:"",l:orcObra?"Selecione a etapa principal":"A obra ainda não possui orçamento"},...linhasOrc]}/></div>
-      {contextoOrcamento.source==="rascunho"&&<p style={{fontSize:9,color:C.orange,marginTop:5}}>Vinculação ao orçamento em rascunho. A etapa organiza a compra, sem tornar esta versão uma baseline financeira.</p>}
-      {item.precoRef>0&&<p style={{fontSize:9.5,color:C.muted,marginTop:5}}>Referência {item.dataBaseRef}{item.ufRef?` · ${item.ufRef}`:""}: <b style={{color:C.text}}>{fmt(Number(item.precoRef))}/{item.unidadeRef}</b></p>}
+      {contextoOrcamento.source==="rascunho"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,marginTop:5}}>Vinculação ao orçamento em rascunho. A etapa organiza a compra, sem tornar esta versão uma baseline financeira.</p>}
+      {item.precoRef>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:5}}>Referência {item.dataBaseRef}{item.ufRef?` · ${item.ufRef}`:""}: <b style={{color:C.text}}>{fmt(Number(item.precoRef))}/{item.unidadeRef}</b></p>}
     </article>})}{!form.itens.length&&<div className="purchase-request-empty"><strong>Nenhum material adicionado</strong><p>Pesquise uma base oficial ou use uma das opções de cadastro acima.</p></div>}</div>
     <p className="purchase-request-hint">Para usar o mesmo insumo em etapas diferentes, duplique o material e ajuste quantidade e etapa.</p></section>
     <section className="purchase-request-section"><header><span>3</span><div><h3>Revisar e formalizar</h3><p>Confira o conteúdo que será enviado oficialmente ao setor de Compras.</p></div></header>
@@ -381,7 +381,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
         </div>
 
         <div style={{background:form.origemPagamento==="cliente_direto"?`${C.blue}0C`:`${C.green}0C`,border:`1px solid ${form.origemPagamento==="cliente_direto"?C.blue:C.green}55`,borderRadius:7,padding:"8px 10px"}}>
-          <p style={{fontSize:10.5,color:form.origemPagamento==="cliente_direto"?C.blue:C.green,fontWeight:800}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:form.origemPagamento==="cliente_direto"?C.blue:C.green,fontWeight:600}}>
             {form.origemPagamento==="cliente_direto"
               ? "PAGAMENTO DIRETO DO CLIENTE — a compra será controlada e recebida normalmente, mas não será considerada saída do caixa da empresa."
               : form.origemPagamento==="caixa_obra"?"CAIXA DA OBRA — a entrega só será liberada após o financeiro registrar o pagamento e o comprovante.":"CONTA DA EMPRESA — a entrega só será liberada após o financeiro registrar o pagamento; a conciliação bancária fica rastreada."}
@@ -392,7 +392,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
         {sugFornecedores.length > 0 && !form.fornecedorId && (
           <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}44`,
                        borderRadius:6,padding:"9px 11px"}}>
-            <p style={{fontSize:10.5,fontWeight:800,color:C.blue,marginBottom:6}}>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue,marginBottom:6}}>
               Fornecedores que servem estes materiais:
             </p>
             <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
@@ -400,10 +400,10 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
                 <button key={s.forn.id} onClick={()=>F("fornecedorId")(s.forn.id)} style={{
                   padding:"6px 10px",borderRadius:7,cursor:"pointer",
                   border:`1.5px solid ${C.blue}66`,background:C.card,
-                  fontSize:11,fontWeight:700,color:C.text,textAlign:"left",
+                  fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,textAlign:"left",
                 }}>
                   {s.forn.nome}
-                  <span style={{display:"block",fontSize:9,color:C.muted,fontWeight:500}}>
+                  <span style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:500}}>
                     {s.motivos[0]}
                   </span>
                 </button>
@@ -413,19 +413,19 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
         )}
 
         <div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}40`,borderRadius:6,padding:"10px 11px",display:"flex",flexDirection:"column",gap:8}}>
-          <div><p style={{fontSize:11.5,fontWeight:900,color:C.blue}}>SELECIONAR INSUMO SINAPI / ORSE</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Escolha a competência usada na comparação e pesquise por código ou descrição. Você pode trocar a base e incluir itens de fontes diferentes no mesmo pedido.</p></div>
+          <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>SELECIONAR INSUMO SINAPI / ORSE</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Escolha a competência usada na comparação e pesquise por código ou descrição. Você pode trocar a base e incluir itens de fontes diferentes no mesmo pedido.</p></div>
           <Sel label="Base de referência para a pesquisa" value={form.referenciaId||""} onChange={v=>{F("referenciaId")(v);setBuscaRef("");setResultadosRef([]);}}
             options={[{v:"",l:basesReferencia.length?"Selecione a fonte, competência e UF":"Nenhuma base pronta no Supabase"},...basesReferencia.map(base=>({v:base.id,l:`${base.fonte} · ${base.dataBase}${base.uf?` · ${base.uf}`:""}${base.fonte==="SINAPI"?` · ${base.desonerado===false?"NÃO DESONERADA":"DESONERADA"}`:""}`}))]}/>
           <Inp label="Pesquisar insumo" value={buscaRef} onChange={setBuscaRef} placeholder="Ex.: cimento, areia, aço ou código..."/>
           {(buscandoRef||avisoRef||resultadosRef.length>0||buscaRef.trim().length>=2)&&<div style={{maxHeight:235,overflowY:"auto",background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:4}}>
-            {buscandoRef&&<p style={{fontSize:10,color:C.blue,padding:7}}>PESQUISANDO NA BASE...</p>}
-            {avisoRef&&<p style={{fontSize:10,color:C.orange,padding:7}}>{avisoRef}</p>}
+            {buscandoRef&&<p style={{fontSize:"var(--arcd-type-label)",color:C.blue,padding:7}}>PESQUISANDO NA BASE...</p>}
+            {avisoRef&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,padding:7}}>{avisoRef}</p>}
             {resultadosRef.map((item,index)=>{const preco=precoReferenciaResultado(item);return <button key={`${item.fonte}-${item.codigo}-${index}`} onClick={()=>selecionarReferencia(item)} style={{display:"grid",gridTemplateColumns:"105px minmax(0,1fr) 105px",gap:8,alignItems:"center",width:"100%",border:0,borderTop:index?`1px solid ${C.line}`:"none",background:"transparent",padding:"7px 8px",cursor:"pointer",textAlign:"left"}}>
-              <b style={{fontSize:9.5,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b>
-              <span title={item.descricao} style={{fontSize:10.5,color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span>
-              <span style={{fontSize:10,color:C.yellowD,textAlign:"right",fontWeight:800}}>{fmt(preco)}/{item.unidade}</span>
+              <b style={{fontSize:"var(--arcd-type-caption)",color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b>
+              <span title={item.descricao} style={{fontSize:"var(--arcd-type-label)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span>
+              <span style={{fontSize:"var(--arcd-type-label)",color:C.yellowD,textAlign:"right",fontWeight:600}}>{fmt(preco)}/{item.unidade}</span>
             </button>;})}
-            {!buscandoRef&&!resultadosRef.length&&!avisoRef&&<p style={{fontSize:10,color:C.muted,textAlign:"center",padding:8}}>Nenhum insumo encontrado nesta base.</p>}
+            {!buscandoRef&&!resultadosRef.length&&!avisoRef&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"center",padding:8}}>Nenhum insumo encontrado nesta base.</p>}
           </div>}
         </div>
 
@@ -434,10 +434,10 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
           if(!contratos.length)return null;
           const nomeInsumo=id=>materiais.find(m=>m.id===id)?.descricao||"Insumo";
           return <div style={{background:`${C.green}08`,border:`1px solid ${C.green}55`,borderRadius:7,padding:"8px 10px"}}>
-            <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Contrato de fornecimento vigente · dispensa cotação</p>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green}}>Contrato de fornecimento vigente · dispensa cotação</p>
             {contratos.flatMap(c=>(c.itens||[]).map(ci=>{const saldo=saldoItemContrato(data,c,ci.id,{excetoPedidoId:form.id});const usado=(form.itens||[]).some(x=>x.contratoId===c.id&&x.contratoItemId===ci.id);
               return <div key={`${c.id}-${ci.id}`} style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginTop:5,flexWrap:"wrap"}}>
-                <span style={{fontSize:10,color:C.text,minWidth:0}} className="brk">{c.numero} · {nomeInsumo(ci.materialId)} · {fmt(ci.precoUnit)}/{purchaseUnitOf(ci)} · saldo {saldo.toLocaleString("pt-BR")} {purchaseUnitOf(ci)}</span>
+                <span style={{fontSize:"var(--arcd-type-label)",color:C.text,minWidth:0}} className="brk">{c.numero} · {nomeInsumo(ci.materialId)} · {fmt(ci.precoUnit)}/{purchaseUnitOf(ci)} · saldo {saldo.toLocaleString("pt-BR")} {purchaseUnitOf(ci)}</span>
                 <Btn size="sm" v="ghost" disabled={usado||saldo<=0} onClick={()=>setForm(f=>({...f,itens:[...(f.itens||[]).filter(x=>x.materialId||x.qtd),{id:uid(),materialId:ci.materialId,qtd:"",precoUnit:String(ci.precoUnit),qtdRecebida:0,orcItemId:"",orcNivel1Id:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:ci.unidadeRef||"",unidadeCompra:purchaseUnitOf(ci),fatorConversao:Number(ci.fatorConversao||1),precoRef:0,dataBaseRef:"",ufRef:"",contratoId:c.id,contratoItemId:ci.id}]}))}>{usado?"No pedido":"Usar"}</Btn>
               </div>;}))}
           </div>;})()}
@@ -445,7 +445,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
         {(form.itens||[]).map((it, i) => (
           <div key={i} style={{background:C.surface,border:`1px solid ${it.contratoId?`${C.green}88`:C.border}`,
                                borderRadius:6,padding:"9px 11px"}}>
-            {it.contratoId&&(()=>{const c=(data?.contratosFornecimento||[]).find(x=>x.id===it.contratoId);return <p style={{fontSize:9.5,fontWeight:800,color:C.green,marginBottom:5}}>Pelo contrato {c?.numero||""} · preço acordado{data&&c?` · saldo ${saldoItemContrato(data,c,it.contratoItemId,{excetoPedidoId:form.id}).toLocaleString("pt-BR")} ${purchaseUnitOf(it)}`:""} <button type="button" onClick={()=>setForm(f=>({...f,itens:f.itens.map((x,k)=>k===i?{...x,contratoId:"",contratoItemId:""}:x)}))} style={{background:"transparent",border:0,color:C.muted,fontSize:9,cursor:"pointer",textDecoration:"underline"}}>tirar do contrato</button></p>;})()}
+            {it.contratoId&&(()=>{const c=(data?.contratosFornecimento||[]).find(x=>x.id===it.contratoId);return <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.green,marginBottom:5}}>Pelo contrato {c?.numero||""} · preço acordado{data&&c?` · saldo ${saldoItemContrato(data,c,it.contratoItemId,{excetoPedidoId:form.id}).toLocaleString("pt-BR")} ${purchaseUnitOf(it)}`:""} <button type="button" onClick={()=>setForm(f=>({...f,itens:f.itens.map((x,k)=>k===i?{...x,contratoId:"",contratoItemId:""}:x)}))} style={{background:"transparent",border:0,color:C.muted,fontSize:"var(--arcd-type-caption)",cursor:"pointer",textDecoration:"underline"}}>tirar do contrato</button></p>;})()}
             <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
               <Sel label="Material" value={it.materialId} onChange={v=>setForm(f=>({...f,itens:f.itens.map((x,k)=>k===i?{...x,materialId:v,referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",unidadeCompra:"",fatorConversao:1,precoRef:0,dataBaseRef:"",ufRef:""}:x)}))}
                    options={[{v:"",l:"Selecione..."},...(it.codigoRef&&!materiais.some(m=>m.id===it.materialId)?[{v:it.materialId,l:`${it.descricaoRef} (${it.unidadeRef})`}]:[]), ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
@@ -464,24 +464,24 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
                     return (
                       <div style={{marginTop:3,background:`${cor}0F`,border:`1px solid ${cor}`,borderRadius:5,padding:"5px 7px"}}>
                         {g.avisos.map((a,ai)=>(
-                          <p key={ai} style={{fontSize:9.5,color:cor,fontWeight:800,lineHeight:1.35}}>
+                          <p key={ai} style={{fontSize:"var(--arcd-type-caption)",color:cor,fontWeight:600,lineHeight:1.35}}>
                             {a.nivel==="bom" ? "" : "! "}{a.texto}
                           </p>
                         ))}
-                        {g.compras>1&&<p style={{fontSize:8.5,color:C.muted,marginTop:1}}>{g.compras} compra(s) deste material no histórico</p>}
+                        {g.compras>1&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>{g.compras} compra(s) deste material no histórico</p>}
                       </div>
                     );
                   }
                   const mp = it.materialId && data ? melhorPrecoHist(h, fornecedores) : null;
                   return mp ? (
-                    <p style={{fontSize:9,color:C.green,marginTop:2}}>
+                    <p style={{fontSize:"var(--arcd-type-caption)",color:C.green,marginTop:2}}>
                       melhor ja pago: {fmt(mp.preco)}{mp.fornecedor ? ` (${mp.fornecedor})` : ""}
                     </p>
                   ) : null;
                 })()}
               </div>
               <div style={{display:"flex",alignItems:"flex-end"}}>
-                <p style={{fontSize:12,fontWeight:800,color:C.text,paddingBottom:9}}>
+                <p style={{fontSize:12,fontWeight:600,color:C.text,paddingBottom:9}}>
                   = {fmt(Number(it.qtd||0) * Number(it.precoUnit||0))}
                 </p>
               </div>
@@ -506,45 +506,45 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
                   <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9,alignItems:"end"}}>
                     <Inp label="Entrega deste item" type="date" value={it.previsao||""} onChange={v=>setItem(i,"previsao",v)}/>
                     <Btn size="sm" v="ghost" onClick={()=>setItem(i,"remessas",[{id:uid(),data:it.previsao||form.previsao||"",qtd:String(it.qtd||"")}])}>Programar remessas</Btn>
-                    {!it.previsao&&<p style={{gridColumn:"1/-1",fontSize:9,color:C.muted}}>Sem data própria, vale a previsão do pedido.</p>}
+                    {!it.previsao&&<p style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.muted}}>Sem data própria, vale a previsão do pedido.</p>}
                   </div>
                 ) : (
                   <div>
-                    <p style={{fontSize:10,fontWeight:800,color:C.text}}>Remessas programadas</p>
+                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Remessas programadas</p>
                     {(it.remessas||[]).map((r,ri)=>(
                       <div key={r.id||ri} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr) auto",gap:7,alignItems:"end",marginTop:5}}>
                         <Inp label={`Data ${ri+1}`} type="date" value={r.data||""} onChange={v=>setItem(i,"remessas",it.remessas.map((x,k)=>k===ri?{...x,data:v}:x))}/>
                         <Inp label={`Qtd. (${purchaseUnitOf(it)})`} type="number" value={r.qtd} onChange={v=>setItem(i,"remessas",it.remessas.map((x,k)=>k===ri?{...x,qtd:v}:x))}/>
-                        <button type="button" onClick={()=>setItem(i,"remessas",it.remessas.filter((_,k)=>k!==ri))} style={{background:"transparent",border:0,color:C.muted,fontSize:10,cursor:"pointer",textDecoration:"underline",paddingBottom:9}}>remover</button>
+                        <button type="button" onClick={()=>setItem(i,"remessas",it.remessas.filter((_,k)=>k!==ri))} style={{background:"transparent",border:0,color:C.muted,fontSize:"var(--arcd-type-label)",cursor:"pointer",textDecoration:"underline",paddingBottom:9}}>remover</button>
                       </div>
                     ))}
-                    {(()=>{const soma=(it.remessas||[]).reduce((t,r)=>t+Number(r.qtd||0),0),total=Number(it.qtd||0);return <p style={{fontSize:9,marginTop:4,color:soma>total+1e-6?C.red:C.muted}}>{soma.toLocaleString("pt-BR")} de {total.toLocaleString("pt-BR")} {purchaseUnitOf(it)} programados{soma>total+1e-6?" · passa da quantidade do item":soma<total-1e-6?" · o restante segue a data do item ou do pedido":""}</p>;})()}
+                    {(()=>{const soma=(it.remessas||[]).reduce((t,r)=>t+Number(r.qtd||0),0),total=Number(it.qtd||0);return <p style={{fontSize:"var(--arcd-type-caption)",marginTop:4,color:soma>total+1e-6?C.red:C.muted}}>{soma.toLocaleString("pt-BR")} de {total.toLocaleString("pt-BR")} {purchaseUnitOf(it)} programados{soma>total+1e-6?" · passa da quantidade do item":soma<total-1e-6?" · o restante segue a data do item ou do pedido":""}</p>;})()}
                     <Btn size="sm" v="ghost" onClick={()=>setItem(i,"remessas",[...(it.remessas||[]),{id:uid(),data:"",qtd:""}])}><Ic n="plus"/> Remessa</Btn>
                   </div>
                 )}
               </div>
             </div>
             {it.codigoRef&&<div style={{marginTop:7,background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 9px"}}>
-              <p style={{fontSize:10,fontWeight:800,color:it.fonteRef==="ORSE"?C.purple:C.blue}}>{it.fonteRef} {it.codigoRef} · {it.descricaoRef} · {it.unidadeRef}</p>
-              <p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Referência {it.dataBaseRef}{it.ufRef?` · ${it.ufRef}`:""}: <b style={{color:C.text}}>{fmt(referencePricePerPurchaseUnit(it))}/{purchaseUnitOf(it)}</b>{purchaseUnitOf(it)!==String(it.unidadeRef||"").toUpperCase()?` · 1 ${purchaseUnitOf(it)} = ${Number(it.fatorConversao||0).toLocaleString("pt-BR")} ${it.unidadeRef}`:""}</p>
-              {Number(it.precoUnit)>0&&referencePricePerPurchaseUnit(it)>0&&(()=>{const ref=referencePricePerPurchaseUnit(it),dif=Number(it.precoUnit)-ref,pct=dif/ref*100,cor=dif<=0?C.green:C.red;return <p style={{fontSize:10.5,color:cor,fontWeight:900,marginTop:3}}>{dif<=0?"ABAIXO DA REFERÊNCIA":"ACIMA DA REFERÊNCIA"}: {fmt(Math.abs(dif))} ({Math.abs(pct).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}%)</p>;})()}
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:it.fonteRef==="ORSE"?C.purple:C.blue}}>{it.fonteRef} {it.codigoRef} · {it.descricaoRef} · {it.unidadeRef}</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Referência {it.dataBaseRef}{it.ufRef?` · ${it.ufRef}`:""}: <b style={{color:C.text}}>{fmt(referencePricePerPurchaseUnit(it))}/{purchaseUnitOf(it)}</b>{purchaseUnitOf(it)!==String(it.unidadeRef||"").toUpperCase()?` · 1 ${purchaseUnitOf(it)} = ${Number(it.fatorConversao||0).toLocaleString("pt-BR")} ${it.unidadeRef}`:""}</p>
+              {Number(it.precoUnit)>0&&referencePricePerPurchaseUnit(it)>0&&(()=>{const ref=referencePricePerPurchaseUnit(it),dif=Number(it.precoUnit)-ref,pct=dif/ref*100,cor=dif<=0?C.green:C.red;return <p style={{fontSize:"var(--arcd-type-label)",color:cor,fontWeight:600,marginTop:3}}>{dif<=0?"ABAIXO DA REFERÊNCIA":"ACIMA DA REFERÊNCIA"}: {fmt(Math.abs(dif))} ({Math.abs(pct).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}%)</p>;})()}
             </div>}
             {!it.orcNivel1Id && !it.orcItemId && linhasOrc.length > 0 && Number(it.qtd) > 0 && (
-              <p style={{fontSize:10,color:C.orange,marginTop:5}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.orange,marginTop:5}}>
                 Sem apropriação: esta compra não entra na comparação com o orçamento.
               </p>
             )}
             {Number(it.qtdRecebida) > 0 && (
-              <p style={{fontSize:10,color:C.green,marginTop:5,fontWeight:700}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.green,marginTop:5,fontWeight:600}}>
                 ok {it.qtdRecebida} já recebido - não dá para reduzir abaixo disso
               </p>
             )}
             <div style={{display:"flex",gap:12,marginTop:6}}>
               <button onClick={()=>duplicarItem(i)} style={{background:"transparent",border:0,color:C.blue,
-                fontSize:10,cursor:"pointer",textDecoration:"underline"}}>duplicar (outra etapa)</button>
+                fontSize:"var(--arcd-type-label)",cursor:"pointer",textDecoration:"underline"}}>duplicar (outra etapa)</button>
               {form.itens.length > 1 && Number(it.qtdRecebida) === 0 && (
                 <button onClick={()=>delItem(i)} style={{background:"transparent",border:0,color:C.muted,
-                  fontSize:10,cursor:"pointer",textDecoration:"underline"}}>remover item</button>
+                  fontSize:"var(--arcd-type-label)",cursor:"pointer",textDecoration:"underline"}}>remover item</button>
               )}
             </div>
           </div>
@@ -554,17 +554,17 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
 
         <div style={{background:C.surface,border:`1.5px solid ${C.yellow}`,borderRadius:6,
                      padding:"10px 12px",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:9}}>
-          <div><span style={{fontSize:10,color:C.muted,fontWeight:800}}>TOTAL DO PEDIDO</span><p style={{fontSize:16,fontWeight:800,color:C.yellow,fontFamily:"'Inter Display','Inter',sans-serif",marginTop:2}}>{fmt(total)}</p></div>
-          <div><span style={{fontSize:10,color:C.muted,fontWeight:800}}>TOTAL NA REFERÊNCIA</span><p style={{fontSize:16,fontWeight:800,color:C.text,fontFamily:"'Inter Display','Inter',sans-serif",marginTop:2}}>{totalReferencia>0?fmt(totalReferencia):"-"}</p></div>
-          {totalReferencia>0&&total>0&&(()=>{const dif=total-totalReferencia;const pct=dif/totalReferencia*100;const cor=dif<=0?C.green:C.red;return <div><span style={{fontSize:10,color:C.muted,fontWeight:800}}>COMPARAÇÃO</span><p style={{fontSize:12.5,fontWeight:900,color:cor,marginTop:3}}>{dif<=0?"ABAIXO":"ACIMA"} {fmt(Math.abs(dif))} · {Math.abs(pct).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}%</p></div>;})()}
+          <div><span style={{fontSize:"var(--arcd-type-label)",color:C.muted,fontWeight:600}}>TOTAL DO PEDIDO</span><p style={{fontSize:16,fontWeight:600,color:C.yellow,fontFamily:"var(--arcd-font-sans)",marginTop:2}}>{fmt(total)}</p></div>
+          <div><span style={{fontSize:"var(--arcd-type-label)",color:C.muted,fontWeight:600}}>TOTAL NA REFERÊNCIA</span><p style={{fontSize:16,fontWeight:600,color:C.text,fontFamily:"var(--arcd-font-sans)",marginTop:2}}>{totalReferencia>0?fmt(totalReferencia):"-"}</p></div>
+          {totalReferencia>0&&total>0&&(()=>{const dif=total-totalReferencia;const pct=dif/totalReferencia*100;const cor=dif<=0?C.green:C.red;return <div><span style={{fontSize:"var(--arcd-type-label)",color:C.muted,fontWeight:600}}>COMPARAÇÃO</span><p style={{fontSize:12.5,fontWeight:600,color:cor,marginTop:3}}>{dif<=0?"ABAIXO":"ACIMA"} {fmt(Math.abs(dif))} · {Math.abs(pct).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}%</p></div>;})()}
         </div>
 
         {form.id&&<Inp label="Motivo do ajuste *" value={form.motivoAjuste||""} onChange={F("motivoAjuste")} multiline placeholder="Explique o que foi corrigido e por quê. Esta justificativa ficará no histórico do pedido."/>}
         {/* C3.2: o pedido leva alguma etapa a 90% ou além do orçado? */}
         {data&&(()=>{const alertas=alertasOrcamentoDoPedido(data,pedidoDoFormulario(form));if(!alertas.length)return null;
           return <div style={{background:`${alertas.some(a=>a.alerta==="estourou")?C.red:C.orange}0D`,border:`1.5px solid ${alertas.some(a=>a.alerta==="estourou")?C.red:C.orange}`,borderRadius:7,padding:"8px 10px"}}>
-            <p style={{fontSize:11,fontWeight:850,color:alertas.some(a=>a.alerta==="estourou")?C.red:C.orange}}>{alertas.some(a=>a.alerta==="estourou")?"Este pedido estoura o orçamento":"Este pedido leva a etapa a 90% do orçamento"}</p>
-            {alertas.map(a=><p key={a.etapaId} style={{fontSize:10,color:C.text,marginTop:3}}>{a.descricao}: {fmt(a.antes)} → <b>{fmt(a.depois)}</b> de {fmt(a.orcado)} orçado{a.orcado>0?` (${a.pct.toFixed(0)}%)`:""}</p>)}
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:alertas.some(a=>a.alerta==="estourou")?C.red:C.orange}}>{alertas.some(a=>a.alerta==="estourou")?"Este pedido estoura o orçamento":"Este pedido leva a etapa a 90% do orçamento"}</p>
+            {alertas.map(a=><p key={a.etapaId} style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:3}}>{a.descricao}: {fmt(a.antes)} → <b>{fmt(a.depois)}</b> de {fmt(a.orcado)} orçado{a.orcado>0?` (${a.pct.toFixed(0)}%)`:""}</p>)}
           </div>;})()}
         <div style={{display:"flex",gap:8}}>
           <Btn v="ghost" onClick={fechar} disabled={salvando} full>Cancelar</Btn>
@@ -618,16 +618,16 @@ function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOr
         <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:11}}>
           <Sel label="Etapa de 1º nível do orçamento" value={form.orcNivel1Id||""} onChange={v=>setForm(f=>({...f,orcNivel1Id:v,itens:f.itens.map(i=>({...i,orcNivel1Id:i.orcNivel1Id||v}))}))} options={[{v:"",l:linhasOrc.length?"Selecione a etapa principal":"Nenhuma etapa disponível"},...linhasOrc.map(l=>({v:l.id,l:`${l.descricao} · ${fmt(l.orcado)}`}))]}/>
         </div>
-        <p style={{fontSize:11,color:C.muted}}>Informe o preço unitário de cada fornecedor por item (mínimo 2 fornecedores). O menor preço de cada linha aparece em verde.</p>
+        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Informe o preço unitário de cada fornecedor por item (mínimo 2 fornecedores). O menor preço de cada linha aparece em verde.</p>
         <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}>
-          <table style={{borderCollapse:"collapse",width:"100%",minWidth:260+180*(form.propostas||[]).length,fontSize:10.5}}>
+          <table style={{borderCollapse:"collapse",width:"100%",minWidth:260+180*(form.propostas||[]).length,fontSize:"var(--arcd-type-label)"}}>
             <thead><tr style={{background:C.surface}}>
               <th style={{...cel,textAlign:"left",minWidth:230}}>Item</th>
               {(form.propostas||[]).map((p,i)=><th key={p.id} style={{...cel,minWidth:170,textAlign:"left"}}>
                 <Sel label={`Fornecedor ${i+1}`} value={p.fornecedorId} onChange={v=>setP(i,"fornecedorId",v)}
                   options={[{v:"",l:"Selecione..."},...fornecedores.filter(f=>f.id===p.fornecedorId||!usados.has(f.id)).map(f=>({v:f.id,l:f.nome}))]}/>
                 <Inp label="Prazo (dias)" type="number" value={p.prazoDias} onChange={v=>setP(i,"prazoDias",v)} placeholder="0"/>
-                {form.propostas.length>2&&!Object.values(decisoesDaCotacao(form)).some(d=>d.propostaId===p.id)&&<button type="button" onClick={()=>delP(i)} style={{background:"transparent",border:0,color:C.muted,fontSize:10,cursor:"pointer",textDecoration:"underline"}}>remover fornecedor</button>}
+                {form.propostas.length>2&&!Object.values(decisoesDaCotacao(form)).some(d=>d.propostaId===p.id)&&<button type="button" onClick={()=>delP(i)} style={{background:"transparent",border:0,color:C.muted,fontSize:"var(--arcd-type-label)",cursor:"pointer",textDecoration:"underline"}}>remover fornecedor</button>}
               </th>)}
             </tr></thead>
             <tbody>
@@ -637,19 +637,19 @@ function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOr
                     options={[{v:"",l:"Selecione..."},...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
                   <div style={{display:"flex",gap:6,alignItems:"flex-end"}}>
                     <div style={{flex:1}}><Inp label={`Quantidade (${purchaseUnitOf(item)})`} type="number" value={item.qtd} onChange={v=>!travado&&setItem(r,{qtd:v})} placeholder="0"/></div>
-                    {form.itens.length>1&&!travado&&<button type="button" onClick={()=>delItem(r)} style={{background:"transparent",border:0,color:C.muted,fontSize:10,cursor:"pointer",textDecoration:"underline",paddingBottom:9}}>remover</button>}
+                    {form.itens.length>1&&!travado&&<button type="button" onClick={()=>delItem(r)} style={{background:"transparent",border:0,color:C.muted,fontSize:"var(--arcd-type-label)",cursor:"pointer",textDecoration:"underline",paddingBottom:9}}>remover</button>}
                   </div>
-                  {purchaseUnitOf(item)!==String(item.unidadeRef||"").toUpperCase()&&<p style={{fontSize:9,color:C.muted}}>1 {purchaseUnitOf(item)} = {Number(item.fatorConversao||0).toLocaleString("pt-BR")} {item.unidadeRef}</p>}
+                  {purchaseUnitOf(item)!==String(item.unidadeRef||"").toUpperCase()&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>1 {purchaseUnitOf(item)} = {Number(item.fatorConversao||0).toLocaleString("pt-BR")} {item.unidadeRef}</p>}
                 </td>
                 {(form.propostas||[]).map((p,i)=>{const v=Number(p.precos?.[item.id]||0),eh=v>0&&v===menorPorItem[item.id];return <td key={p.id} style={{...cel,background:eh?`${C.green}0F`:"transparent"}}>
                   <Inp label="Preço unit. (R$)" type="number" value={p.precos?.[item.id]??""} onChange={val=>!travado&&setPreco(i,item.id,val)} placeholder="0,00"/>
-                  {v>0&&Number(item.qtd)>0&&<p style={{fontSize:9.5,fontWeight:800,color:eh?C.green:C.text}}>{fmt(v*Number(item.qtd))}{eh?" · menor":""}</p>}
+                  {v>0&&Number(item.qtd)>0&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:eh?C.green:C.text}}>{fmt(v*Number(item.qtd))}{eh?" · menor":""}</p>}
                 </td>;})}
               </tr>;})}
             </tbody>
             <tfoot><tr style={{background:C.surface}}>
-              <td style={{...cel,fontWeight:850}}>Total por fornecedor</td>
-              {(form.propostas||[]).map(p=><td key={p.id} style={{...cel,fontWeight:850}}>{fmt(totalProposta(p))}</td>)}
+              <td style={{...cel,fontWeight:600}}>Total por fornecedor</td>
+              {(form.propostas||[]).map(p=><td key={p.id} style={{...cel,fontWeight:600}}>{fmt(totalProposta(p))}</td>)}
             </tr></tfoot>
           </table>
         </div>
@@ -695,8 +695,8 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
     <Modal title={`Receber - ${pedido.numero}`} onClose={()=>!salvando&&onClose()} wide panelClass="purchase-form-panel">
       <fieldset disabled={salvando} style={{display:"flex",flexDirection:"column",gap:12}}>
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-          <p style={{fontSize:12,fontWeight:700,color:C.text}}>{nomeForn(pedido.fornecedorId)}</p>
-          <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>
+          <p style={{fontSize:12,fontWeight:600,color:C.text}}>{nomeForn(pedido.fornecedorId)}</p>
+          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
             Informe o que <strong>realmente chegou</strong>. Pode receber parcial - o
             pedido fica em aberto até completar.
           </p>
@@ -708,8 +708,8 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
             border:`1px solid ${l.excede ? C.red : C.border}`,
             borderRadius:6, padding:"10px 11px",
           }}>
-            <p className="brk" style={{fontSize:12,fontWeight:700,color:C.text}}>{nomeMat(l.materialId)}</p>
-            <p style={{fontSize:10,color:C.muted,marginTop:2,marginBottom:7}}>
+            <p className="brk" style={{fontSize:12,fontWeight:600,color:C.text}}>{nomeMat(l.materialId)}</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,marginBottom:7}}>
               Pedido: {l.qtd} {purchaseUnitOf(l)}
               {Number(l.qtdRecebida) > 0 && `  já recebido: ${l.qtdRecebida}`}
               {l.falta > 0 && `  falta: ${l.falta}`}
@@ -717,9 +717,9 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
             </p>
             <Inp label={`Chegou agora (${purchaseUnitOf(l)})`} type="number" min="0" max={l.falta} disabled={salvando}
                  value={qtds[l.id]} onChange={v=>set(l.id, v)}/>
-            {purchaseUnitOf(l)!==String(l.unidadeRef||"").toUpperCase()&&<p style={{fontSize:9,color:C.muted,marginTop:4}}>{l.chegou.toLocaleString("pt-BR")} {purchaseUnitOf(l)} equivalem a {referenceQuantityOf(l,l.chegou).toLocaleString("pt-BR",{maximumFractionDigits:4})} {l.unidadeRef} no estoque.</p>}
+            {purchaseUnitOf(l)!==String(l.unidadeRef||"").toUpperCase()&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>{l.chegou.toLocaleString("pt-BR")} {purchaseUnitOf(l)} equivalem a {referenceQuantityOf(l,l.chegou).toLocaleString("pt-BR",{maximumFractionDigits:4})} {l.unidadeRef} no estoque.</p>}
             {l.excede && (
-              <p style={{fontSize:10,color:C.red,marginTop:5,fontWeight:700}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.red,marginTop:5,fontWeight:600}}>
                 ! Só faltam {l.falta}. Receber a mais esconde erro de nota fiscal.
               </p>
             )}
@@ -728,12 +728,12 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
 
         <div style={{background:`${C.green}0A`,border:`1.5px solid ${C.green}`,
                      borderRadius:6,padding:"10px 12px"}}>
-          <p style={{fontSize:11,color:C.muted}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>
             Vai entrar no estoque da obra:
           </p>
-          <p style={{fontSize:16,fontWeight:800,color:C.green,marginTop:2,
-                     fontFamily:"'Inter Display','Inter',sans-serif"}}>{fmt(valorTotal)}</p>
-          <p style={{fontSize:10,color:C.muted,marginTop:4,lineHeight:1.45}}>
+          <p style={{fontSize:16,fontWeight:600,color:C.green,marginTop:2,
+                     fontFamily:"var(--arcd-font-sans)"}}>{fmt(valorTotal)}</p>
+          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4,lineHeight:1.45}}>
             Esta ação confirma a chegada física e atualiza o estoque.
             O pagamento é acompanhado separadamente; receber não registra uma saída financeira.
           </p>
@@ -1088,7 +1088,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     preco:x.preco,media:analiseMaterialAtual?.medio||0,fornecedor:fornecedorPorId.get(x.fornecedorId)?.nome||"-",obra:obraPorId.get(x.obraId)?.name||"-",qtd:x.qtd,pedido:x.pedidoNumero||"-",
   })),[evolucaoMaterial,analiseMaterialAtual,fornecedorPorId,obraPorId]);
 
-  //  Fornecedor 
+  //  Fornecedor
   const salvarForn = async (f) => {
     if (!f.nome.trim()) { showToast("Informe o nome do fornecedor.", "error"); return; }
     const p = { ...f, id: f.id || uid(), nome: f.nome.trim(),
@@ -1332,7 +1332,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       itens,propostas:[propostaVaziaCotacao(),propostaVaziaCotacao()]});
   };
 
-  //  Pedido 
+  //  Pedido
   const salvarPedido = async(f) => {
     if (!f.fornecedorId) { showToast("Selecione o fornecedor.", "error"); return; }
     const novosMateriais=[];
@@ -1929,7 +1929,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   return (
     <div className="anim compras-view" style={{display:"flex",flexDirection:"column",gap:isDesktop?12:10}}>
       <header className="purchase-header">
-        <div><span className="purchase-eyebrow">Suprimentos · da necessidade à entrega</span><h2>Compras</h2>
+        <div><h2 className="page-hero__title">Compras</h2>
           <p>Materiais na obra, no prazo. Acompanhe cada solicitação e saiba o que fazer a seguir.</p></div>
         <div className="purchase-header-actions"><Button variant="secondary" onClick={abrirModoAnalise}>Analisar documento</Button>
           <Button onClick={abrirNovaSolicitacao}>Nova solicitação</Button></div>
@@ -2004,8 +2004,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
       {aba==="mapa"&&<div className="compras-management-map" style={{display:"flex",flexDirection:"column",gap:10}}>
         <section style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap",padding:"14px 16px",background:C.card,border:`1px solid ${C.border}`,borderRadius:10}}>
-          <div><p style={{fontSize:8.5,fontWeight:850,color:C.yellowD,letterSpacing:.8,textTransform:"uppercase"}}>Comando de suprimentos</p><h3 style={{fontSize:18,fontWeight:780,marginTop:3}}>Mapa gerencial de Compras</h3><p style={{fontSize:10,color:C.muted,marginTop:3,maxWidth:680,lineHeight:1.5}}>Visão do compromisso até a entrega: demanda, concorrência, fornecedor, pagamento, estoque e risco de abastecimento.</p></div>
-          {!obraIdFixo&&<div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>{[["empresa","Empresa"],["obra","Obra selecionada"]].map(([v,l])=><button key={v} onClick={()=>setEscopoMapa(v)} style={{border:0,borderRadius:6,padding:"7px 10px",background:escopoMapa===v?C.card:"transparent",color:escopoMapa===v?C.text:C.muted,fontSize:9.5,fontWeight:800,cursor:"pointer",boxShadow:escopoMapa===v?"0 1px 4px rgba(0,0,0,.08)":"none"}}>{l}</button>)}</div>}
+          <div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD,letterSpacing:.8,textTransform:"uppercase"}}>Comando de suprimentos</p><h3 style={{fontSize:18,fontWeight:600,marginTop:3}}>Mapa gerencial de Compras</h3><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3,maxWidth:680,lineHeight:1.5}}>Visão do compromisso até a entrega: demanda, concorrência, fornecedor, pagamento, estoque e risco de abastecimento.</p></div>
+          {!obraIdFixo&&<div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>{[["empresa","Empresa"],["obra","Obra selecionada"]].map(([v,l])=><button key={v} onClick={()=>setEscopoMapa(v)} style={{border:0,borderRadius:6,padding:"7px 10px",background:escopoMapa===v?C.card:"transparent",color:escopoMapa===v?C.text:C.muted,fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer",boxShadow:escopoMapa===v?"0 1px 4px rgba(0,0,0,.08)":"none"}}>{l}</button>)}</div>}
         </section>
 
         <section style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:7}}>
@@ -2016,7 +2016,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             ["A pagar",fmt(mapaCompras.totalPendente),`${mapaCompras.fila.pagamentos} pedido(s)`,mapaCompras.totalPendente?C.red:C.green],
             ["Economia registrada",fmt(mapaCompras.economia),"Decisões de cotação",C.green],
             ["Qualidade dos dados",`${Math.round(mapaCompras.completude)}%`,"Base para decisões",mapaCompras.completude>=75?C.green:mapaCompras.completude>=50?C.orange:C.red],
-          ].map(([l,v,d,c])=><div key={l} style={{padding:"12px",background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:9,minWidth:0}}><p style={{fontSize:8.2,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.45}}>{l}</p><b style={{display:"block",fontSize:17,color:c,marginTop:4,fontVariantNumeric:"tabular-nums",overflowWrap:"anywhere"}}>{v}</b><span style={{display:"block",fontSize:8.8,color:C.muted,marginTop:3}}>{d}</span></div>)}
+          ].map(([l,v,d,c])=><div key={l} style={{padding:"12px",background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:9,minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.45}}>{l}</p><b style={{display:"block",fontSize:17,color:c,marginTop:4,fontVariantNumeric:"tabular-nums",overflowWrap:"anywhere"}}>{v}</b><span style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{d}</span></div>)}
         </section>
 
         <section className="purchase-dashboard-kanban">
@@ -2060,19 +2060,19 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
         <section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}>
-            <div><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Controle dos pedidos</p><h4 style={{fontSize:14,marginTop:2}}>{pedidosMapa.length} pedido(s) no escopo gerencial</h4></div>
-            <span style={{fontSize:9,color:C.muted}}>A exclusão exige motivo e confirmação pelo número do pedido.</span>
+            <div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Controle dos pedidos</p><h4 style={{fontSize:14,marginTop:2}}>{pedidosMapa.length} pedido(s) no escopo gerencial</h4></div>
+            <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>A exclusão exige motivo e confirmação pelo número do pedido.</span>
           </div>
-          {!pedidosMapa.length?<p style={{padding:20,textAlign:"center",fontSize:10,color:C.muted}}>Nenhum pedido de compra neste escopo.</p>:
+          {!pedidosMapa.length?<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum pedido de compra neste escopo.</p>:
           <div style={{maxHeight:360,overflowY:"auto"}}>
             {pedidosMapa.map((p,index)=>{
               const st=statusPedido(p),meta=STATUS_PEDIDO[st]||{l:st,c:C.muted};
               return <div key={p.id} style={{display:"grid",gridTemplateColumns:isDesktop?"110px minmax(190px,1fr) minmax(130px,.7fr) 110px auto":"1fr auto",gap:10,alignItems:"center",padding:"10px 12px",borderTop:index?`1px solid ${C.line}`:"none"}}>
-                <div><b style={{display:"block",fontSize:10.5,color:C.blue}}>{p.numero||"Sem número"}</b><span style={{fontSize:8.5,color:C.muted}}>{fmtDate(p.data)}</span></div>
-                <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:10.5,color:C.text}}>{nomeForn(p.fornecedorId)}</b><span className="brk" style={{fontSize:8.5,color:C.muted}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"} · {(p.itens||[]).length} item(ns)</span></div>
-                {isDesktop&&<div><Badge color={meta.c}>{meta.l}</Badge><span style={{display:"block",fontSize:8.5,color:C.muted,marginTop:3}}>{statusPagamentoPedido(p)==="pago"?"Pagamento concluído":`${fmt(saldoPagamentoPedido(p))} a pagar`}</span></div>}
-                <b style={{fontSize:11.5,textAlign:"right",whiteSpace:"nowrap"}}>{fmt(totalPedido(p))}</b>
-                {podeExcluirCompra?<Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir</Btn>:<span style={{fontSize:8.5,color:C.muted}}>Somente Compras, Financeiro ou Administração</span>}
+                <div><b style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.blue}}>{p.numero||"Sem número"}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{fmtDate(p.data)}</span></div>
+                <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text}}>{nomeForn(p.fornecedorId)}</b><span className="brk" style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"} · {(p.itens||[]).length} item(ns)</span></div>
+                {isDesktop&&<div><Badge color={meta.c}>{meta.l}</Badge><span style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{statusPagamentoPedido(p)==="pago"?"Pagamento concluído":`${fmt(saldoPagamentoPedido(p))} a pagar`}</span></div>}
+                <b style={{fontSize:"var(--arcd-type-label)",textAlign:"right",whiteSpace:"nowrap"}}>{fmt(totalPedido(p))}</b>
+                {podeExcluirCompra?<Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir</Btn>:<span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Somente Compras, Financeiro ou Administração</span>}
               </div>;
             })}
           </div>}
@@ -2080,7 +2080,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
         <section style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(0,1.35fr) minmax(280px,.65fr)":"1fr",gap:9}}>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-            <div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Fluxo sob responsabilidade</p><h4 style={{fontSize:14,marginTop:2}}>Onde o dinheiro e o material estão</h4></div>
+            <div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Fluxo sob responsabilidade</p><h4 style={{fontSize:14,marginTop:2}}>Onde o dinheiro e o material estão</h4></div>
             <div style={{display:"grid",gridTemplateColumns:isDesktop?"repeat(5,1fr)":"1fr 1fr"}}>
               {[
                 ["solicitacoes","Solicitações",mapaCompras.fila.solicitacoes,"Aguardam análise"],
@@ -2088,29 +2088,29 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                 ["pedidos","Pedidos",mapaCompras.fila.pedidos,"Em fornecimento"],
                 ["financeiro","Pagamentos",mapaCompras.fila.pagamentos,"Com saldo"],
                 ["pedidos","Recebimentos",mapaCompras.fila.recebimentos,"Enviados, não entregues"],
-              ].map(([dest,l,v,d],i)=><button key={l} onClick={()=>irParaArea(dest)} style={{border:0,borderLeft:isDesktop&&i?`1px solid ${C.line}`:"none",borderTop:!isDesktop&&i>1?`1px solid ${C.line}`:"none",background:"transparent",padding:"15px 12px",textAlign:"left",cursor:"pointer"}}><span style={{fontSize:8.5,color:C.muted,fontWeight:750}}>{l}</span><b style={{display:"block",fontSize:22,color:v?C.orange:C.green,marginTop:3}}>{v}</b><small style={{fontSize:8.5,color:C.muted}}>{d}</small></button>)}
+              ].map(([dest,l,v,d],i)=><button key={l} onClick={()=>irParaArea(dest)} style={{border:0,borderLeft:isDesktop&&i?`1px solid ${C.line}`:"none",borderTop:!isDesktop&&i>1?`1px solid ${C.line}`:"none",background:"transparent",padding:"15px 12px",textAlign:"left",cursor:"pointer"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>{l}</span><b style={{display:"block",fontSize:22,color:v?C.orange:C.green,marginTop:3}}>{v}</b><small style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{d}</small></button>)}
             </div>
           </div>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}>
-            <p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Maturidade do controle</p>
-            <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:12,alignItems:"center",marginTop:10}}><div style={{width:68,height:68,borderRadius:"50%",display:"grid",placeItems:"center",background:`conic-gradient(${mapaCompras.completude>=75?C.green:C.yellow} ${mapaCompras.completude}%,${C.surface} 0)`,position:"relative"}}><span style={{width:52,height:52,borderRadius:"50%",background:C.card,display:"grid",placeItems:"center",fontSize:14,fontWeight:900}}>{Math.round(mapaCompras.completude)}%</span></div><p style={{fontSize:9.5,color:C.muted,lineHeight:1.5}}>{mapaCompras.completude>=80?"Dados suficientes para decisões gerenciais consistentes.":mapaCompras.completude>=55?"A base já orienta decisões, mas ainda existem pontos cegos.":"A base é insuficiente para prever prazo, custo e risco com segurança."}</p></div>
+            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Maturidade do controle</p>
+            <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:12,alignItems:"center",marginTop:10}}><div style={{width:68,height:68,borderRadius:"50%",display:"grid",placeItems:"center",background:`conic-gradient(${mapaCompras.completude>=75?C.green:C.yellow} ${mapaCompras.completude}%,${C.surface} 0)`,position:"relative"}}><span style={{width:52,height:52,borderRadius:"50%",background:C.card,display:"grid",placeItems:"center",fontSize:14,fontWeight:600}}>{Math.round(mapaCompras.completude)}%</span></div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.5}}>{mapaCompras.completude>=80?"Dados suficientes para decisões gerenciais consistentes.":mapaCompras.completude>=55?"A base já orienta decisões, mas ainda existem pontos cegos.":"A base é insuficiente para prever prazo, custo e risco com segurança."}</p></div>
             <div style={{marginTop:11,display:"grid",gap:5}}>{[
               ["Cobertura por cotação",`${mapaCompras.coberturaCotacao.toFixed(0)}%`],
               ["Propostas por cotação",mapaCompras.concorrencia.toFixed(1)],
               ["Entregas no prazo",mapaCompras.pontualidade===null?"Sem base":`${mapaCompras.pontualidade.toFixed(0)}%`],
               ["Concentração top 3",`${mapaCompras.concentracaoTop3.toFixed(0)}%`],
-            ].map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",gap:8,paddingTop:5,borderTop:`1px solid ${C.line}`}}><span style={{fontSize:9,color:C.muted}}>{l}</span><b style={{fontSize:9.5}}>{v}</b></div>)}</div>
+            ].map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",gap:8,paddingTop:5,borderTop:`1px solid ${C.line}`}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</span><b style={{fontSize:"var(--arcd-type-caption)"}}>{v}</b></div>)}</div>
           </div>
         </section>
 
         <section style={{display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:9}}>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:8.5,fontWeight:850,color:C.red,textTransform:"uppercase"}}>Exceções para decidir agora</p><h4 style={{fontSize:14,marginTop:2}}>{mapaCompras.alertas.length?`${mapaCompras.alertas.length} risco(s) ativo(s)`:"Operação sem exceções críticas"}</h4></div><div>{mapaCompras.alertas.length?mapaCompras.alertas.slice(0,8).map((a,i)=>{const cor=a.nivel==="critico"?C.red:a.nivel==="alto"?C.orange:C.yellowD;return <button key={`${a.titulo}-${i}`} onClick={()=>irParaArea(a.destino)} style={{display:"grid",gridTemplateColumns:"8px 1fr auto",gap:10,alignItems:"center",width:"100%",border:0,borderTop:i?`1px solid ${C.line}`:"none",background:"transparent",padding:"10px 12px",textAlign:"left",cursor:"pointer"}}><i style={{width:8,height:8,borderRadius:99,background:cor}}/><span><b style={{display:"block",fontSize:10.5,color:C.text}}>{a.titulo}</b><small style={{fontSize:8.8,color:C.muted}}>{a.detalhe}</small></span><span style={{color:C.muted}}>›</span></button>}):<p style={{padding:20,textAlign:"center",fontSize:10,color:C.green}}>Nenhuma exceção automática encontrada.</p>}</div></div>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:8.5,fontWeight:850,color:C.blue,textTransform:"uppercase"}}>Dependência e poder de negociação</p><h4 style={{fontSize:14,marginTop:2}}>Maiores fornecedores por volume</h4></div><div>{mapaCompras.fornecedores.slice(0,6).map((f,i)=><div key={f.id} style={{padding:"9px 12px",borderTop:i?`1px solid ${C.line}`:"none"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontSize:10,fontWeight:750,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{i+1}. {f.nome}</span><b style={{fontSize:10}}>{fmt(f.valor)} · {f.participacao.toFixed(0)}%</b></div><div style={{height:4,background:C.surface,borderRadius:99,marginTop:5,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(100,f.participacao)}%`,background:i===0?C.yellowD:C.blue}}/></div></div>)}{!mapaCompras.fornecedores.length&&<p style={{padding:20,textAlign:"center",fontSize:10,color:C.muted}}>Ainda não há pedidos suficientes.</p>}</div><button onClick={()=>irParaArea("forn")} style={{width:"100%",border:0,borderTop:`1px solid ${C.line}`,background:C.surface,padding:"9px",fontSize:9.5,fontWeight:800,cursor:"pointer"}}>Abrir fornecedores →</button></div>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.red,textTransform:"uppercase"}}>Exceções para decidir agora</p><h4 style={{fontSize:14,marginTop:2}}>{mapaCompras.alertas.length?`${mapaCompras.alertas.length} risco(s) ativo(s)`:"Operação sem exceções críticas"}</h4></div><div>{mapaCompras.alertas.length?mapaCompras.alertas.slice(0,8).map((a,i)=>{const cor=a.nivel==="critico"?C.red:a.nivel==="alto"?C.orange:C.yellowD;return <button key={`${a.titulo}-${i}`} onClick={()=>irParaArea(a.destino)} style={{display:"grid",gridTemplateColumns:"8px 1fr auto",gap:10,alignItems:"center",width:"100%",border:0,borderTop:i?`1px solid ${C.line}`:"none",background:"transparent",padding:"10px 12px",textAlign:"left",cursor:"pointer"}}><i style={{width:8,height:8,borderRadius:99,background:cor}}/><span><b style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text}}>{a.titulo}</b><small style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{a.detalhe}</small></span><span style={{color:C.muted}}>›</span></button>}):<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.green}}>Nenhuma exceção automática encontrada.</p>}</div></div>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.blue,textTransform:"uppercase"}}>Dependência e poder de negociação</p><h4 style={{fontSize:14,marginTop:2}}>Maiores fornecedores por volume</h4></div><div>{mapaCompras.fornecedores.slice(0,6).map((f,i)=><div key={f.id} style={{padding:"9px 12px",borderTop:i?`1px solid ${C.line}`:"none"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{i+1}. {f.nome}</span><b style={{fontSize:"var(--arcd-type-label)"}}>{fmt(f.valor)} · {f.participacao.toFixed(0)}%</b></div><div style={{height:4,background:C.surface,borderRadius:99,marginTop:5,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(100,f.participacao)}%`,background:i===0?C.yellowD:C.blue}}/></div></div>)}{!mapaCompras.fornecedores.length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Ainda não há pedidos suficientes.</p>}</div><button onClick={()=>irParaArea("forn")} style={{width:"100%",border:0,borderTop:`1px solid ${C.line}`,background:C.surface,padding:"9px",fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}>Abrir fornecedores →</button></div>
         </section>
 
         <section style={{display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:9}}>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>Origem real dos pagamentos</p><div style={{display:"grid",gap:7,marginTop:9}}>{[["Empresa",mapaCompras.origens.empresa,C.blue],["Caixa das obras",mapaCompras.origens.caixa_obra,C.yellowD],["Cliente direto",mapaCompras.origens.cliente_direto,C.purple]].map(([l,v,c])=><div key={l} style={{display:"grid",gridTemplateColumns:"110px 1fr auto",gap:8,alignItems:"center"}}><span style={{fontSize:9,color:C.muted}}>{l}</span><div style={{height:6,background:C.surface,borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${mapaCompras.totalPago?Math.min(100,v/mapaCompras.totalPago*100):0}%`,background:c}}/></div><b style={{fontSize:9.5,color:c}}>{fmt(v)}</b></div>)}</div></div>
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}><p style={{fontSize:8.5,fontWeight:850,color:C.yellowD,textTransform:"uppercase"}}>Veredicto gerencial</p><h4 style={{fontSize:14,marginTop:3}}>{mapaCompras.completude>=80&&mapaCompras.alertas.length<=2?"Controle suficiente, com boa rastreabilidade":mapaCompras.completude>=55?"Controle operacional útil, ainda não completo":"Controle insuficiente para uma carteira de obras"}</h4><p style={{fontSize:9.5,color:C.muted,lineHeight:1.55,marginTop:6}}>Para o segmento de construção, o mapa precisa ligar necessidade da frente de serviço, orçamento SINAPI/ORSE, concorrência, frete, prazo prometido, qualidade recebida, pagamento, estoque e consumo. O sistema já cobre esse ciclo; os maiores ganhos agora vêm de preencher previsão, registrar ao menos três propostas e encerrar recebimentos com evidência.</p></div>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Origem real dos pagamentos</p><div style={{display:"grid",gap:7,marginTop:9}}>{[["Empresa",mapaCompras.origens.empresa,C.blue],["Caixa das obras",mapaCompras.origens.caixa_obra,C.yellowD],["Cliente direto",mapaCompras.origens.cliente_direto,C.purple]].map(([l,v,c])=><div key={l} style={{display:"grid",gridTemplateColumns:"110px 1fr auto",gap:8,alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</span><div style={{height:6,background:C.surface,borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${mapaCompras.totalPago?Math.min(100,v/mapaCompras.totalPago*100):0}%`,background:c}}/></div><b style={{fontSize:"var(--arcd-type-caption)",color:c}}>{fmt(v)}</b></div>)}</div></div>
+          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD,textTransform:"uppercase"}}>Veredicto gerencial</p><h4 style={{fontSize:14,marginTop:3}}>{mapaCompras.completude>=80&&mapaCompras.alertas.length<=2?"Controle suficiente, com boa rastreabilidade":mapaCompras.completude>=55?"Controle operacional útil, ainda não completo":"Controle insuficiente para uma carteira de obras"}</h4><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.55,marginTop:6}}>Para o segmento de construção, o mapa precisa ligar necessidade da frente de serviço, orçamento SINAPI/ORSE, concorrência, frete, prazo prometido, qualidade recebida, pagamento, estoque e consumo. O sistema já cobre esse ciclo; os maiores ganhos agora vêm de preencher previsão, registrar ao menos três propostas e encerrar recebimentos com evidência.</p></div>
         </section>
       </div>}
 
@@ -2120,18 +2120,18 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           const total=lista.reduce((s,p)=>s+totalPedido(p),0);
           return <section key={id} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${cor}`,borderRadius:10,overflow:"hidden"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}>
-              <div><p style={{fontSize:8.5,fontWeight:850,color:cor,textTransform:"uppercase"}}>{label}</p><h4 style={{fontSize:14,marginTop:2}}>{lista.length} pedido(s)</h4></div>
+              <div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:cor,textTransform:"uppercase"}}>{label}</p><h4 style={{fontSize:14,marginTop:2}}>{lista.length} pedido(s)</h4></div>
               <b style={{fontSize:15,color:cor}}>{fmt(total)}</b>
             </div>
-            {!lista.length?<p style={{padding:18,textAlign:"center",fontSize:10,color:C.muted}}>Nenhum pedido pago por {label.toLowerCase()}.</p>:
+            {!lista.length?<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum pedido pago por {label.toLowerCase()}.</p>:
             <div style={{maxHeight:300,overflowY:"auto"}}>
               {lista.map((p,index)=>{
                 const st=statusPedido(p),meta=STATUS_PEDIDO[st]||{l:st,c:C.muted};
                 return <div key={p.id} style={{display:"grid",gridTemplateColumns:isDesktop?"110px minmax(190px,1fr) minmax(130px,.7fr) 110px":"1fr auto",gap:10,alignItems:"center",padding:"10px 12px",borderTop:index?`1px solid ${C.line}`:"none"}}>
-                  <div><b style={{display:"block",fontSize:10.5,color:C.blue}}>{p.numero||"Sem número"}</b><span style={{fontSize:8.5,color:C.muted}}>{fmtDate(p.data)}</span></div>
-                  <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:10.5,color:C.text}}>{nomeForn(p.fornecedorId)}</b><span className="brk" style={{fontSize:8.5,color:C.muted}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"} · {(p.itens||[]).length} item(ns)</span></div>
-                  {isDesktop&&<div><Badge color={meta.c}>{meta.l}</Badge><span style={{display:"block",fontSize:8.5,color:C.muted,marginTop:3}}>{statusPagamentoPedido(p)==="pago"?"Pagamento concluído":`${fmt(saldoPagamentoPedido(p))} a pagar`}</span></div>}
-                  <b style={{fontSize:11.5,textAlign:"right",whiteSpace:"nowrap"}}>{fmt(totalPedido(p))}</b>
+                  <div><b style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.blue}}>{p.numero||"Sem número"}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{fmtDate(p.data)}</span></div>
+                  <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text}}>{nomeForn(p.fornecedorId)}</b><span className="brk" style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"} · {(p.itens||[]).length} item(ns)</span></div>
+                  {isDesktop&&<div><Badge color={meta.c}>{meta.l}</Badge><span style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{statusPagamentoPedido(p)==="pago"?"Pagamento concluído":`${fmt(saldoPagamentoPedido(p))} a pagar`}</span></div>}
+                  <b style={{fontSize:"var(--arcd-type-label)",textAlign:"right",whiteSpace:"nowrap"}}>{fmt(totalPedido(p))}</b>
                 </div>;
               })}
             </div>}
@@ -2141,51 +2141,51 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
       {aba==="financeiro"&&<>
         <section className="compras-finance-summary" style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(180px,.8fr) repeat(3,minmax(120px,1fr))":"1fr 1fr",background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-          <div style={{gridColumn:isDesktop?"auto":"1/-1",padding:"12px 14px",background:resumoFinanceiro.aPagar?`${C.red}08`:C.surface,borderRight:isDesktop?`1px solid ${C.line}`:"none",borderBottom:!isDesktop?`1px solid ${C.line}`:"none"}}><p style={{fontSize:8.5,color:C.muted,fontWeight:750,textTransform:"uppercase"}}>Total a pagar</p><p style={{fontSize:20,fontWeight:800,color:resumoFinanceiro.aPagar?C.red:C.text,marginTop:2,fontVariantNumeric:"tabular-nums"}}>{fmt(resumoFinanceiro.aPagar)}</p></div>
-          {[["Pedidos aguardando",resumoFinanceiro.pendentes,C.orange],["Liberados",resumoFinanceiro.liberados,C.green],["Sem conciliação",fmt(resumoFinanceiro.naoConciliado),resumoFinanceiro.naoConciliado?C.orange:C.muted]].map(([l,v,c],index)=><div key={l} style={{padding:"12px",borderLeft:index||!isDesktop?`1px solid ${C.line}`:"none"}}><p style={{fontSize:8.5,color:C.muted,fontWeight:700}}>{l}</p><p style={{fontSize:13,fontWeight:800,color:c,marginTop:3,fontVariantNumeric:"tabular-nums"}}>{v}</p></div>)}
+          <div style={{gridColumn:isDesktop?"auto":"1/-1",padding:"12px 14px",background:resumoFinanceiro.aPagar?`${C.red}08`:C.surface,borderRight:isDesktop?`1px solid ${C.line}`:"none",borderBottom:!isDesktop?`1px solid ${C.line}`:"none"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>Total a pagar</p><p style={{fontSize:20,fontWeight:600,color:resumoFinanceiro.aPagar?C.red:C.text,marginTop:2,fontVariantNumeric:"tabular-nums"}}>{fmt(resumoFinanceiro.aPagar)}</p></div>
+          {[["Pedidos aguardando",resumoFinanceiro.pendentes,C.orange],["Liberados",resumoFinanceiro.liberados,C.green],["Sem conciliação",fmt(resumoFinanceiro.naoConciliado),resumoFinanceiro.naoConciliado?C.orange:C.muted]].map(([l,v,c],index)=><div key={l} style={{padding:"12px",borderLeft:index||!isDesktop?`1px solid ${C.line}`:"none"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>{l}</p><p style={{fontSize:13,fontWeight:600,color:c,marginTop:3,fontVariantNumeric:"tabular-nums"}}>{v}</p></div>)}
         </section>
-        <div className="compras-funding" style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:6}}>{[["Conta da empresa",resumoFinanceiro.empresa,C.blue],["Caixa da obra",resumoFinanceiro.caixaObra,C.yellowD],["Cliente direto",resumoFinanceiro.cliente,C.purple]].map(([l,v,c])=><div key={l} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"8px 10px",border:`1px solid ${C.line}`,borderRadius:8,background:C.surface}}><span style={{fontSize:9.5,color:C.muted,fontWeight:750}}>{l}</span><b style={{fontSize:10.5,color:c}}>{fmt(v)}</b></div>)}</div>
-        {obraTemCaixa&&<div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap",padding:"10px 11px",border:`1px solid ${caixaPagamento.baixo?C.orange:C.green}`,borderLeft:`4px solid ${caixaPagamento.baixo?C.orange:C.green}`,borderRadius:9,background:caixaPagamento.baixo?`${C.orange}0A`:`${C.green}08`}}><div><p style={{fontSize:9,fontWeight:850,color:caixaPagamento.baixo?C.orange:C.green,textTransform:"uppercase"}}>{caixaPagamento.baixo?"Alerta · caixa da obra baixo":"Caixa da obra disponível"}</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Aportes {fmt(caixaPagamento.aportes)} · despesas {fmt(caixaPagamento.despesas)} · reserva recomendada {fmt(caixaPagamento.limiteBaixo)}</p></div><b style={{fontSize:16,color:caixaPagamento.saldo>=0?C.green:C.red}}>{fmt(caixaPagamento.saldo)}</b></div>}
+        <div className="compras-funding" style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:6}}>{[["Conta da empresa",resumoFinanceiro.empresa,C.blue],["Caixa da obra",resumoFinanceiro.caixaObra,C.yellowD],["Cliente direto",resumoFinanceiro.cliente,C.purple]].map(([l,v,c])=><div key={l} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"8px 10px",border:`1px solid ${C.line}`,borderRadius:8,background:C.surface}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>{l}</span><b style={{fontSize:"var(--arcd-type-label)",color:c}}>{fmt(v)}</b></div>)}</div>
+        {obraTemCaixa&&<div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap",padding:"10px 11px",border:`1px solid ${caixaPagamento.baixo?C.orange:C.green}`,borderLeft:`1px solid ${caixaPagamento.baixo?C.orange:C.green}`,borderRadius:9,background:caixaPagamento.baixo?`${C.orange}0A`:`${C.green}08`}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:caixaPagamento.baixo?C.orange:C.green,textTransform:"uppercase"}}>{caixaPagamento.baixo?"Alerta · caixa da obra baixo":"Caixa da obra disponível"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Aportes {fmt(caixaPagamento.aportes)} · despesas {fmt(caixaPagamento.despesas)} · reserva recomendada {fmt(caixaPagamento.limiteBaixo)}</p></div><b style={{fontSize:16,color:caixaPagamento.saldo>=0?C.green:C.red}}>{fmt(caixaPagamento.saldo)}</b></div>}
         <TabRow tabs={[["pendentes","Pendentes"],["liberados","Liberados"],["nao_conciliados","Sem conciliação"],["todos","Todos"]]} active={filtroFinanceiro} onChange={setFiltroFinanceiro}/>
-        {pedidosFinanceiros.length===0?<div className="compras-empty" style={{padding:28,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:12}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:7}}>Nenhuma pendência neste filtro</p></div>:pedidosFinanceiros.map(p=>{const st=statusPagamentoPedido(p),saldo=saldoPagamentoPedido(p),recebido=statusPedido(p)==="recebido",cor=st==="pago"?C.green:st==="parcial"?C.orange:C.red;return <div className="compras-payment-card" data-status={st} key={p.id} style={{background:C.card,border:`1px solid ${cor}55`,borderRadius:10,padding:"11px 12px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}><div style={{minWidth:0}}><p style={{fontSize:12,fontWeight:850,color:C.text}}>{p.numero} · {nomeForn(p.fornecedorId)}</p><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>{(p.itens||[]).map(i=>`${nomeMat(i.materialId)} (${Number(i.qtd||0).toLocaleString("pt-BR")} ${purchaseUnitOf(i)})`).join(" · ")}</p><p style={{fontSize:9,color:C.muted,marginTop:4}}>Pedido {fmtDate(p.data)}{p.previsao?` · entrega prevista ${fmtDate(p.previsao)}`:""}</p></div><div style={{textAlign:"right"}}><Badge color={cor}>{st==="pago"?"QUITADO / LIBERADO":st==="parcial"?"PAGAMENTO PARCIAL":"AGUARDANDO PAGAMENTO"}</Badge><p style={{fontSize:14,fontWeight:900,color:C.text,marginTop:4}}>{fmt(totalPedido(p))}</p>{saldo>0&&<p style={{fontSize:10,fontWeight:800,color:C.red}}>saldo {fmt(saldo)}</p>}</div></div>
-          {(p.pagamentos||[]).length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:8}}>{p.pagamentos.map(pg=><div key={pg.id} style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:8.5,fontWeight:750,color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0C`:`${C.orange}0C`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 5px 3px 7px"}}><span>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"a conciliar"}</span>{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,textDecoration:"underline",fontWeight:850}} title={a.legenda||a.nome}>comprovante ↗</a>)}{canManagePurchases(currentUser?.role)&&<button type="button" onClick={()=>excluirPagamento(p,pg)} title="Excluir pagamento" aria-label={`Excluir pagamento de ${fmt(pg.valor)}`} style={{display:"inline-grid",placeItems:"center",width:20,height:20,border:0,borderRadius:99,background:`${C.red}12`,color:C.red,cursor:"pointer"}}><Ic n="trash" s={10}/></button>}</div>)}</div>}
-          {recebido&&st!=="pago"&&<p style={{fontSize:9.5,fontWeight:800,color:C.red,marginTop:8}}>Registro legado: material recebido sem quitação vinculada. Regularize o financeiro para encerrar a inconsistência.</p>}
+        {pedidosFinanceiros.length===0?<div className="compras-empty" style={{padding:28,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:12}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:12,fontWeight:600,color:C.text,marginTop:7}}>Nenhuma pendência neste filtro</p></div>:pedidosFinanceiros.map(p=>{const st=statusPagamentoPedido(p),saldo=saldoPagamentoPedido(p),recebido=statusPedido(p)==="recebido",cor=st==="pago"?C.green:st==="parcial"?C.orange:C.red;return <div className="compras-payment-card" data-status={st} key={p.id} style={{background:C.card,border:`1px solid ${cor}55`,borderRadius:10,padding:"11px 12px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}><div style={{minWidth:0}}><p style={{fontSize:12,fontWeight:600,color:C.text}}>{p.numero} · {nomeForn(p.fornecedorId)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{(p.itens||[]).map(i=>`${nomeMat(i.materialId)} (${Number(i.qtd||0).toLocaleString("pt-BR")} ${purchaseUnitOf(i)})`).join(" · ")}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>Pedido {fmtDate(p.data)}{p.previsao?` · entrega prevista ${fmtDate(p.previsao)}`:""}</p></div><div style={{textAlign:"right"}}><Badge color={cor}>{st==="pago"?"QUITADO / LIBERADO":st==="parcial"?"PAGAMENTO PARCIAL":"AGUARDANDO PAGAMENTO"}</Badge><p style={{fontSize:14,fontWeight:600,color:C.text,marginTop:4}}>{fmt(totalPedido(p))}</p>{saldo>0&&<p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red}}>saldo {fmt(saldo)}</p>}</div></div>
+          {(p.pagamentos||[]).length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:8}}>{p.pagamentos.map(pg=><div key={pg.id} style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:"var(--arcd-type-caption)",fontWeight:600,color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0C`:`${C.orange}0C`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 5px 3px 7px"}}><span>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"a conciliar"}</span>{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,textDecoration:"underline",fontWeight:600}} title={a.legenda||a.nome}>comprovante ↗</a>)}{canManagePurchases(currentUser?.role)&&<button type="button" onClick={()=>excluirPagamento(p,pg)} title="Excluir pagamento" aria-label={`Excluir pagamento de ${fmt(pg.valor)}`} style={{display:"inline-grid",placeItems:"center",width:20,height:20,border:0,borderRadius:99,background:`${C.red}12`,color:C.red,cursor:"pointer"}}><Ic n="trash" s={10}/></button>}</div>)}</div>}
+          {recebido&&st!=="pago"&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.red,marginTop:8}}>Registro legado: material recebido sem quitação vinculada. Regularize o financeiro para encerrar a inconsistência.</p>}
           <div style={{display:"flex",gap:6,marginTop:9,flexWrap:"wrap"}}>{saldo>0&&canManagePurchases(currentUser?.role)&&<Btn size="sm" onClick={()=>abrirPagamento(p)}>Registrar pagamento</Btn>}{st==="pago"&&!recebido&&<Btn size="sm" v="success" onClick={()=>setRecModal(p)}><Ic n="check"/> Receber na obra</Btn>}<Btn size="sm" v="ghost" onClick={()=>{setBusca(p.numero);setAba("pedidos");}}>Abrir pedido</Btn>{podeExcluirCompra&&<Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir compra</Btn>}</div>
         </div>})}
       </>}
 
       {aba==="solicitacoes"&&<>
         <Btn onClick={abrirNovaSolicitacao} full><Ic n="plus"/> SOLICITAR MATERIAIS PARA A OBRA</Btn>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 10px"}}><p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>A Engenharia pode selecionar insumos SINAPI/ORSE ou criar itens próprios. Solicitações enviadas acendem o alerta de Compras até serem colocadas em análise.</p></div>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 10px"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>A Engenharia pode selecionar insumos SINAPI/ORSE ou criar itens próprios. Solicitações enviadas acendem o alerta de Compras até serem colocadas em análise.</p></div>
 
         {/* Consolidação multi-obra: mesmo material, obras diferentes, mesma janela.
             Comprar junto é o único jeito de ter volume com 11 obras rodando. */}
         {consolidar.length>0&&(
           <div style={{background:`${C.blue}0C`,border:`1.5px solid ${C.blue}`,borderRadius:6,padding:"10px 12px"}}>
-            <p style={{fontSize:11.5,fontWeight:900,color:C.blue}}>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>
               {consolidar.length} MATERIAL(IS) PEDIDO(S) POR MAIS DE UMA OBRA
             </p>
-            <p style={{fontSize:10,color:C.muted,marginTop:2,lineHeight:1.45}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.45}}>
               Solicitações abertas dos últimos 10 dias. Comprar junto dá volume para negociar; a entrega continua separada por obra.
             </p>
             <div style={{marginTop:7}}>
               {consolidar.slice(0,5).map((c,ix)=>(
                 <div key={ix} style={{borderTop:`1px solid ${C.line}`,paddingTop:6,marginTop:6}}>
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}>
-                    <p className="brk" style={{fontSize:11.5,fontWeight:800,color:C.text,minWidth:0}}>{c.descricao}</p>
-                    <p style={{fontSize:11.5,fontWeight:900,color:C.blue,whiteSpace:"nowrap",flexShrink:0}}>
+                    <p className="brk" style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,minWidth:0}}>{c.descricao}</p>
+                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue,whiteSpace:"nowrap",flexShrink:0}}>
                       {c.total.toLocaleString("pt-BR")} {c.unidade}
                     </p>
                   </div>
                   {c.obras.map(o=>(
-                    <p key={o.obraId} style={{fontSize:9.5,color:C.muted,marginTop:1}}>
+                    <p key={o.obraId} style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>
                       {o.obraNome}: {o.qtd.toLocaleString("pt-BR")} {c.unidade} <span style={{color:C.subtle}}>({o.solicitacoes.join(", ")})</span>
                     </p>
                   ))}
                 </div>
               ))}
-              {consolidar.length>5&&<p style={{fontSize:9.5,color:C.subtle,marginTop:6}}>e mais {consolidar.length-5} material(is)...</p>}
+              {consolidar.length>5&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.subtle,marginTop:6}}>e mais {consolidar.length-5} material(is)...</p>}
             </div>
             <div style={{marginTop:9}}>
               <Btn size="sm" v="info" full onClick={()=>setCotWpp({
@@ -2205,26 +2205,26 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           const etapasApr=etapasPendentesParaMim(instanciaApr);
           const aprCor={aprovada:C.green,reprovada:C.red,bloqueada:C.orange,em_andamento:C.blue}[instanciaApr?.status];
           const aprRotulo={aprovada:"APROVADA",reprovada:"REPROVADA",bloqueada:"AGUARDANDO CONFIGURAÇÃO",em_andamento:"AGUARDANDO APROVAÇÃO"}[instanciaApr?.status];
-          return <div id={`purchase-record-${sol.id}`} tabIndex={-1} data-purchase-highlight={registroFoco===sol.id} key={sol.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`4px solid ${corBorda}`,borderRadius:6,padding:"10px 12px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}><div><p style={{fontSize:12.5,fontWeight:900,color:C.text}}>{sol.numero}{sol.prioridade==="urgente"&&<span style={{color:C.red}}> · URGENTE</span>}</p><p style={{fontSize:10,color:C.muted,marginTop:2}}>Solicitado por {sol.solicitanteNome||"Engenharia"} · {sol.criadoEm?new Date(sol.criadoEm).toLocaleString("pt-BR"):""}{sol.necessidade?` · necessário em ${fmtDate(sol.necessidade)}`:""}</p></div><div style={{textAlign:"right",flexShrink:0}}><Badge color={status.c}>{status.l}</Badge>
+          return <div id={`purchase-record-${sol.id}`} tabIndex={-1} data-purchase-highlight={registroFoco===sol.id} key={sol.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${corBorda}`,borderRadius:6,padding:"10px 12px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}><div><p style={{fontSize:12.5,fontWeight:600,color:C.text}}>{sol.numero}{sol.prioridade==="urgente"&&<span style={{color:C.red}}> · URGENTE</span>}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Solicitado por {sol.solicitanteNome||"Engenharia"} · {sol.criadoEm?new Date(sol.criadoEm).toLocaleString("pt-BR"):""}{sol.necessidade?` · necessário em ${fmtDate(sol.necessidade)}`:""}</p></div><div style={{textAlign:"right",flexShrink:0}}><Badge color={status.c}>{status.l}</Badge>
               {instanciaApr&&instanciaApr.status!=="aprovada"&&<div style={{marginTop:3}}><Badge color={aprCor}>{aprRotulo}</Badge></div>}
               {sla&&<div style={{marginTop:3}}><Badge color={sla.status==="estourado"?C.red:sla.status==="no_limite"?C.orange:C.muted}>
                 {sla.status==="estourado"?`SLA ESTOURADO · ${sla.dias}d (limite ${sla.limite}d)`:sla.status==="no_limite"?`ÚLTIMO DIA DO SLA`:`${sla.dias}d de ${sla.limite}d`}
               </Badge></div>}
             </div></div>
             {etapasApr.length>0&&<div style={{marginTop:8,background:`${C.blue}0C`,border:`1px solid ${C.blue}44`,borderRadius:6,padding:"8px 10px"}}>
-              <p style={{fontSize:10.5,fontWeight:800,color:C.blue}}>Aguardando sua aprovação · {etapasApr[0].etapa.nome}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>Aguardando sua aprovação · {etapasApr[0].etapa.nome}</p>
               <div style={{display:"flex",gap:6,marginTop:6}}>
                 <Btn size="sm" onClick={()=>decidirAprovacao(instanciaApr,etapasApr[0].etapa.id,"aprovado")}><Ic n="check"/> Aprovar</Btn>
                 <Btn size="sm" v="danger" onClick={()=>{const motivo=window.prompt("Motivo da reprovação:");if(motivo)decidirAprovacao(instanciaApr,etapasApr[0].etapa.id,"reprovado",motivo);}}>Reprovar</Btn>
               </div>
             </div>}
-            <div style={{marginTop:8,borderTop:`1px solid ${C.line}`,paddingTop:6}}>{sol.itens.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:isDesktop?"95px minmax(0,1fr) auto auto":"78px minmax(0,1fr) auto",gap:7,fontSize:10.5,marginTop:4,alignItems:"center"}}><b style={{color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef} {item.codigoRef}</b><span style={{color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricaoRef}>{item.descricaoRef}</span><b style={{color:C.text,whiteSpace:"nowrap"}}>{Number(item.quantidade||0).toLocaleString("pt-BR")} {purchaseUnitOf(item)}{purchaseUnitOf(item)!==String(item.unidadeRef||"").toUpperCase()?<small style={{display:"block",color:C.muted,fontWeight:600}}>{referenceQuantityOf(item).toLocaleString("pt-BR",{maximumFractionDigits:4})} {item.unidadeRef}</small>:null}</b>{podeProcessar&&["enviada","em_analise"].includes(sol.status)&&<Btn size="sm" v="ghost" onClick={()=>abrirCotacaoDaSolicitacao(sol,item)}>COTAR</Btn>}</div>)}{podeProcessar&&["enviada","em_analise"].includes(sol.status)&&sol.itens.length>1&&<div style={{marginTop:7}}><Btn size="sm" onClick={()=>abrirCotacaoDaSolicitacao(sol)}>COTAR TODOS OS ITENS ({sol.itens.length})</Btn></div>}</div>
-            {sol.observacao&&<p style={{fontSize:10,color:C.muted,marginTop:7}}>{sol.observacao}</p>}
-            {sol.contatos?.length>0&&<p style={{fontSize:10,color:C.green,fontWeight:700,marginTop:7}}>
+            <div style={{marginTop:8,borderTop:`1px solid ${C.line}`,paddingTop:6}}>{sol.itens.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:isDesktop?"95px minmax(0,1fr) auto auto":"78px minmax(0,1fr) auto",gap:7,fontSize:"var(--arcd-type-label)",marginTop:4,alignItems:"center"}}><b style={{color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef} {item.codigoRef}</b><span style={{color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricaoRef}>{item.descricaoRef}</span><b style={{color:C.text,whiteSpace:"nowrap"}}>{Number(item.quantidade||0).toLocaleString("pt-BR")} {purchaseUnitOf(item)}{purchaseUnitOf(item)!==String(item.unidadeRef||"").toUpperCase()?<small style={{display:"block",color:C.muted,fontWeight:600}}>{referenceQuantityOf(item).toLocaleString("pt-BR",{maximumFractionDigits:4})} {item.unidadeRef}</small>:null}</b>{podeProcessar&&["enviada","em_analise"].includes(sol.status)&&<Btn size="sm" v="ghost" onClick={()=>abrirCotacaoDaSolicitacao(sol,item)}>COTAR</Btn>}</div>)}{podeProcessar&&["enviada","em_analise"].includes(sol.status)&&sol.itens.length>1&&<div style={{marginTop:7}}><Btn size="sm" onClick={()=>abrirCotacaoDaSolicitacao(sol)}>COTAR TODOS OS ITENS ({sol.itens.length})</Btn></div>}</div>
+            {sol.observacao&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:7}}>{sol.observacao}</p>}
+            {sol.contatos?.length>0&&<p style={{fontSize:"var(--arcd-type-label)",color:C.green,fontWeight:600,marginTop:7}}>
               Enviado para {sol.contatos.length} fornecedor(es): {sol.contatos.map(c=>c.fornecedorNome).filter(Boolean).join(", ")}
             </p>}
-            {pedido&&<p style={{fontSize:10.5,color:C.green,fontWeight:800,marginTop:7}}>Vinculada ao pedido {pedido.numero}</p>}
+            {pedido&&<p style={{fontSize:"var(--arcd-type-label)",color:C.green,fontWeight:600,marginTop:7}}>Vinculada ao pedido {pedido.numero}</p>}
             <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
               {["enviada","em_analise"].includes(sol.status)&&(podeProcessar||sol.solicitanteId===currentUser?.id)&&<Btn size="sm" v="ghost" onClick={()=>setSolModal({...sol,itens:(sol.itens||[]).map(i=>({...i,quantidade:String(i.quantidade||"")}))})}>EDITAR SOLICITAÇÃO</Btn>}
               {podeProcessar&&sol.status==="enviada"&&<Btn size="sm" v="ghost" onClick={()=>atualizarStatusSolicitacao(sol,"em_analise")}>MARCAR EM ANÁLISE</Btn>}
@@ -2244,9 +2244,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
       {/* HISTÓRICO DE COMPRAS — consulta e correção com trilha de auditoria */}
       {aba === "historico_compras" && (<>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.yellowD}`,borderRadius:7,padding:"10px 12px"}}>
-          <p style={{fontSize:11.5,fontWeight:850,color:C.text}}>Tudo o que foi comprado, em uma única linha do tempo</p>
-          <p style={{fontSize:9.5,color:C.muted,marginTop:3,lineHeight:1.5}}>Consulte itens, fornecedor, pagamento e recebimento. Ajustes exigem justificativa e ficam registrados no próprio pedido.</p>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`1px solid ${C.yellowD}`,borderRadius:7,padding:"10px 12px"}}>
+          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Tudo o que foi comprado, em uma única linha do tempo</p>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3,lineHeight:1.5}}>Consulte itens, fornecedor, pagamento e recebimento. Ajustes exigem justificativa e ficam registrados no próprio pedido.</p>
         </div>
         <div style={{display:"grid",gridTemplateColumns:pick("1fr","minmax(220px,1.4fr) 1fr","minmax(260px,1.5fr) 190px 190px 190px"),gap:8,alignItems:"end"}}>
           <Inp label="Buscar" value={buscaHistoricoCompra} onChange={setBuscaHistoricoCompra} placeholder="Pedido, material, fornecedor ou obra..."/>
@@ -2258,10 +2258,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           <Sel label="Período" value={periodoHistorico} onChange={setPeriodoHistorico} options={[["6","Últimos 6 meses"],["12","Últimos 12 meses"],["24","Últimos 24 meses"],["todos","Todo o histórico"]].map(([v,l])=>({v,l}))}/>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-          <p style={{fontSize:10,color:C.muted}}><b style={{color:C.text}}>{comprasHistoricoFiltradas.length}</b> compra(s) · total <b style={{color:C.text}}>{fmt(comprasHistoricoFiltradas.reduce((s,p)=>s+totalPedido(p),0))}</b> · empresa <b style={{color:C.blue}}>{fmt(comprasHistoricoFiltradas.reduce((s,p)=>s+(p.pagamentos||[]).filter(pg=>pg.origem==="empresa").reduce((a,pg)=>a+Number(pg.valor||0),0),0))}</b> · caixa das obras <b style={{color:C.yellowD}}>{fmt(comprasHistoricoFiltradas.reduce((s,p)=>s+(p.pagamentos||[]).filter(pg=>pg.origem==="caixa_obra").reduce((a,pg)=>a+Number(pg.valor||0),0),0))}</b> · cliente direto <b style={{color:C.purple}}>{fmt(comprasHistoricoFiltradas.reduce((s,p)=>s+(p.pagamentos||[]).filter(pg=>pg.origem==="cliente_direto").reduce((a,pg)=>a+Number(pg.valor||0),0),0))}</b></p>
-          {!obraIdFixo&&<div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7}}>{[["obra","Obra atual"],["todas","Todas visíveis"]].map(([v,l])=><button key={v} onClick={()=>setEscopoHistorico(v)} style={{border:0,borderRadius:5,padding:"6px 9px",background:escopoHistorico===v?C.text:"transparent",color:escopoHistorico===v?"#fff":C.muted,fontSize:9,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div>}
+          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}><b style={{color:C.text}}>{comprasHistoricoFiltradas.length}</b> compra(s) · total <b style={{color:C.text}}>{fmt(comprasHistoricoFiltradas.reduce((s,p)=>s+totalPedido(p),0))}</b> · empresa <b style={{color:C.blue}}>{fmt(comprasHistoricoFiltradas.reduce((s,p)=>s+(p.pagamentos||[]).filter(pg=>pg.origem==="empresa").reduce((a,pg)=>a+Number(pg.valor||0),0),0))}</b> · caixa das obras <b style={{color:C.yellowD}}>{fmt(comprasHistoricoFiltradas.reduce((s,p)=>s+(p.pagamentos||[]).filter(pg=>pg.origem==="caixa_obra").reduce((a,pg)=>a+Number(pg.valor||0),0),0))}</b> · cliente direto <b style={{color:C.purple}}>{fmt(comprasHistoricoFiltradas.reduce((s,p)=>s+(p.pagamentos||[]).filter(pg=>pg.origem==="cliente_direto").reduce((a,pg)=>a+Number(pg.valor||0),0),0))}</b></p>
+          {!obraIdFixo&&<div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7}}>{[["obra","Obra atual"],["todas","Todas visíveis"]].map(([v,l])=><button key={v} onClick={()=>setEscopoHistorico(v)} style={{border:0,borderRadius:5,padding:"6px 9px",background:escopoHistorico===v?C.text:"transparent",color:escopoHistorico===v?"#fff":C.muted,fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div>}
         </div>
-        {!comprasHistoricoFiltradas.length?<div style={{padding:26,textAlign:"center",background:C.card,border:`1px dashed ${C.border}`,borderRadius:8}}><p style={{fontSize:12,fontWeight:800,color:C.text}}>Nenhuma compra encontrada</p><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>Altere os filtros ou amplie o período.</p></div>:
+        {!comprasHistoricoFiltradas.length?<div style={{padding:26,textAlign:"center",background:C.card,border:`1px dashed ${C.border}`,borderRadius:8}}><p style={{fontSize:12,fontWeight:600,color:C.text}}>Nenhuma compra encontrada</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Altere os filtros ou amplie o período.</p></div>:
           <div style={{display:"flex",flexDirection:"column",gap:7}}>
             {comprasHistoricoFiltradas.map(p=>{
               const st=statusPedido(p),meta=STATUS_PEDIDO[st]||{l:st,c:C.muted};
@@ -2270,12 +2270,12 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
               const pagoCliente=(p.pagamentos||[]).filter(pg=>pg.origem==="cliente_direto").reduce((s,pg)=>s+Number(pg.valor||0),0);
               const recebido=(p.itens||[]).reduce((s,i)=>s+Number(i.qtdRecebida||0)*Number(i.precoUnit||0),0);
               const ultimoAjuste=(p.ajustes||[]).slice(-1)[0];
-              return <article key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${meta.c}`,borderRadius:7,padding:"11px 12px"}}>
+              return <article key={p.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${meta.c}`,borderRadius:7,padding:"11px 12px"}}>
                 <div style={{display:"grid",gridTemplateColumns:pick("1fr auto","1fr auto","100px minmax(170px,1.2fr) 115px auto"),gap:9,alignItems:"center"}}>
-                  <div><p style={{fontSize:11,fontWeight:850,color:C.blue}}>{p.numero}</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{fmtDate(p.data)}</p></div>
-                  {pick(null,<div><p style={{fontSize:10,fontWeight:750,color:C.text}}>{nomeForn(p.fornecedorId)}</p><p style={{fontSize:8.5,color:C.muted}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"}</p></div>,<div><p className="brk" style={{fontSize:10.5,fontWeight:800,color:C.text}}>{nomeForn(p.fornecedorId)}</p><p className="brk" style={{fontSize:8.5,color:C.muted,marginTop:2}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"} · {(p.itens||[]).length} item(ns)</p></div>)}
-                  {pick(null,null,<div><p style={{fontSize:8,color:C.muted,textTransform:"uppercase"}}>Recebido na obra</p><p style={{fontSize:10.5,fontWeight:800,color:C.text}}>{fmt(recebido)}</p></div>)}
-                  <div style={{textAlign:"right"}}><p style={{fontSize:12.5,fontWeight:850,color:C.text}}>{fmt(totalPedido(p))}</p><Badge color={meta.c}>{meta.l}</Badge></div>
+                  <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>{p.numero}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{fmtDate(p.data)}</p></div>
+                  {pick(null,<div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{nomeForn(p.fornecedorId)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"}</p></div>,<div><p className="brk" style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{nomeForn(p.fornecedorId)}</p><p className="brk" style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"} · {(p.itens||[]).length} item(ns)</p></div>)}
+                  {pick(null,null,<div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase"}}>Recebido na obra</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{fmt(recebido)}</p></div>)}
+                  <div style={{textAlign:"right"}}><p style={{fontSize:12.5,fontWeight:600,color:C.text}}>{fmt(totalPedido(p))}</p><Badge color={meta.c}>{meta.l}</Badge></div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:6,marginTop:8}}>
                   {[
@@ -2287,24 +2287,24 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                     onDragLeave={e=>{e.currentTarget.style.borderColor=`${cor}45`;}}
                     onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor=`${cor}45`;const pagamentoId=e.dataTransfer.getData("text/arcd-pagamento");if(pagamentoId)reclassificarOrigemPagamento(p,pagamentoId,origem);}}
                     style={{minHeight:76,padding:"7px 8px",border:`1px dashed ${cor}45`,background:`${cor}07`,borderRadius:5,transition:"border-color .15s,background .15s"}}>
-                    <span style={{fontSize:8,color:C.muted,textTransform:"uppercase"}}>{label}</span>
+                    <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase"}}>{label}</span>
                     <b style={{display:"block",fontSize:12,color:cor,marginTop:2}}>{fmt(totalOrigem)}</b>
                     <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>
                       {(p.pagamentos||[]).filter(pg=>pg.origem===origem).map(pg=><button type="button" draggable key={pg.id}
                         onDragStart={e=>{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/arcd-pagamento",pg.id);}}
                         title="Arraste para outra coluna para corrigir a origem"
-                        style={{border:`1px solid ${cor}55`,background:C.card,color:cor,borderRadius:4,padding:"3px 6px",fontSize:8.5,fontWeight:800,cursor:"grab"}}>
+                        style={{border:`1px solid ${cor}55`,background:C.card,color:cor,borderRadius:4,padding:"3px 6px",fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"grab"}}>
                         ⋮⋮ {fmt(pg.valor)} · {fmtDate(pg.data)}
                       </button>)}
-                      {!(p.pagamentos||[]).some(pg=>pg.origem===origem)&&<small style={{fontSize:8,color:C.muted}}>Arraste um pagamento para cá</small>}
+                      {!(p.pagamentos||[]).some(pg=>pg.origem===origem)&&<small style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Arraste um pagamento para cá</small>}
                     </div>
                   </div>)}
                 </div>
                 <div style={{marginTop:8,paddingTop:7,borderTop:`1px solid ${C.line}`,display:"flex",flexDirection:"column",gap:4}}>
-                  {(p.itens||[]).map(i=><div key={i.id} style={{display:"flex",justifyContent:"space-between",gap:10,fontSize:9.5}}><span className="brk" style={{color:C.muted}}>{nomeMat(i.materialId)} · {Number(i.qtd)} {purchaseUnitOf(i)} × {fmt(Number(i.precoUnit||0))}</span><b style={{color:C.text,whiteSpace:"nowrap"}}>{fmt(Number(i.qtd||0)*Number(i.precoUnit||0))}</b></div>)}
+                  {(p.itens||[]).map(i=><div key={i.id} style={{display:"flex",justifyContent:"space-between",gap:10,fontSize:"var(--arcd-type-caption)"}}><span className="brk" style={{color:C.muted}}>{nomeMat(i.materialId)} · {Number(i.qtd)} {purchaseUnitOf(i)} × {fmt(Number(i.precoUnit||0))}</span><b style={{color:C.text,whiteSpace:"nowrap"}}>{fmt(Number(i.qtd||0)*Number(i.precoUnit||0))}</b></div>)}
                 </div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap",marginTop:8}}>
-                  <p style={{fontSize:8.5,color:C.muted}}>{ultimoAjuste?`Último ajuste: ${ultimoAjuste.usuario||"Operador"} · ${new Date(ultimoAjuste.criadoEm).toLocaleString("pt-BR")} · ${ultimoAjuste.motivo}`:"Sem ajustes registrados"}</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{ultimoAjuste?`Último ajuste: ${ultimoAjuste.usuario||"Operador"} · ${new Date(ultimoAjuste.criadoEm).toLocaleString("pt-BR")} · ${ultimoAjuste.motivo}`:"Sem ajustes registrados"}</p>
                   <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
                     {st!=="cancelado"&&<Btn size="sm" v="ghost" onClick={()=>setPedModal({...p,motivoAjuste:"",itens:p.itens.map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))})}><Ic n="edit"/> Ajustar compra</Btn>}
                     {podeExcluirCompra&&<Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir</Btn>}
@@ -2319,8 +2319,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {aba === "pedidos" && (<>
         {atrasados.length>0&&(
           <div style={{background:`${C.red}0C`,border:`1.5px solid ${C.red}`,borderRadius:6,padding:"9px 11px"}}>
-            <p style={{fontSize:11.5,fontWeight:900,color:C.red}}>{atrasados.length} PEDIDO(S) COM ENTREGA ATRASADA</p>
-            <p style={{fontSize:10,color:C.muted,marginTop:2}}>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red}}>{atrasados.length} PEDIDO(S) COM ENTREGA ATRASADA</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
               {atrasados.slice(0,3).map(x=>`${x.pedido.numero} · ${nomeForn(x.pedido.fornecedorId)} · +${x.diasAtraso}d`).join(" | ")}
               {"  ·  Use o botão Cobrar entrega no pedido."}
             </p>
@@ -2342,16 +2342,16 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             return (
               <div key={p.id} style={{
                 background:C.card, border:`1px solid ${C.border}`,
-                borderLeft:`3px solid ${meta.c}`, borderRadius:6, padding:"10px 12px",
+                borderLeft:`1px solid ${meta.c}`, borderRadius:6, padding:"10px 12px",
               }}>
                 <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8}}>
                   <div style={{minWidth:0}}>
-                    <p style={{fontSize:12.5,fontWeight:800,color:C.text,
-                               fontFamily:"'Inter Display','Inter',sans-serif"}}>{p.numero}</p>
-                    <p className="brk" style={{fontSize:11,color:C.muted,marginTop:2}}>
+                    <p style={{fontSize:12.5,fontWeight:600,color:C.text,
+                               fontFamily:"var(--arcd-font-sans)"}}>{p.numero}</p>
+                    <p className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                       {nomeForn(p.fornecedorId)}
                     </p>
-                    <p style={{fontSize:10,color:C.muted,marginTop:1}}>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>
                       {fmtDate(p.data)}  {p.itens.length} item(ns)
                       {p.previsao && `  entrega ${fmtDate(p.previsao)}`}
                     </p>
@@ -2363,11 +2363,11 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                     {p.aceiteFornecedor?.nome
                       ?<div style={{marginTop:3}}><Badge color={C.green}>ACEITO · {p.aceiteFornecedor.nome} · {fmtDate(p.aceiteFornecedor.data)}</Badge></div>
                       :(p.envios||[]).length>0&&<div style={{marginTop:3}}><Badge color={C.orange}>ENVIADO · AGUARDANDO ACEITE</Badge></div>}
-                    <p style={{fontSize:14,fontWeight:800,color:C.text,marginTop:4,whiteSpace:"nowrap"}}>
+                    <p style={{fontSize:14,fontWeight:600,color:C.text,marginTop:4,whiteSpace:"nowrap"}}>
                       {fmt(totalPedido(p))}
                     </p>
                     {pend > 0.01 && st !== "rascunho" && st !== "cancelado" && (
-                      <p style={{fontSize:9.5,color:C.orange,marginTop:1}}>
+                      <p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,marginTop:1}}>
                         falta {fmt(pend)}
                       </p>
                     )}
@@ -2380,13 +2380,13 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                     const completo = Number(i.qtdRecebida) >= Number(i.qtd) - 1e-6;
                     return (
                       <div key={i.id} style={{display:"flex",justifyContent:"space-between",gap:8,
-                                              fontSize:10.5,marginTop:2,alignItems:"baseline"}}>
+                                              fontSize:"var(--arcd-type-label)",marginTop:2,alignItems:"baseline"}}>
                         <span className="brk" style={{color:C.muted,minWidth:0}}>
                           {nomeMat(i.materialId)}
                           {!i.orcNivel1Id&&!i.orcItemId && linhasOrc.length > 0 && (
-                            <span style={{color:C.orange,fontSize:9}}>  sem apropriação</span>
+                            <span style={{color:C.orange,fontSize:"var(--arcd-type-caption)"}}>  sem apropriação</span>
                           )}
-                          {referencePricePerPurchaseUnit(i)>0&&(Number(i.precoUnit)>0?(()=>{const ref=referencePricePerPurchaseUnit(i),dif=Number(i.precoUnit)-ref,pct=dif/ref*100,cor=dif<=0?C.green:C.red;return <span style={{display:"block",fontSize:9,color:cor,fontWeight:800,marginTop:1}}>{i.fonteRef} {i.codigoRef} · compra {fmt(Number(i.precoUnit))} · ref. {fmt(ref)}/{purchaseUnitOf(i)} · {dif<=0?"abaixo":"acima"} {Math.abs(pct).toLocaleString("pt-BR",{maximumFractionDigits:2})}%</span>;})():<span style={{display:"block",fontSize:9,color:C.muted,marginTop:1}}>{i.fonteRef} {i.codigoRef} · ref. {fmt(referencePricePerPurchaseUnit(i))}/{purchaseUnitOf(i)} · preço de compra não informado</span>)}
+                          {referencePricePerPurchaseUnit(i)>0&&(Number(i.precoUnit)>0?(()=>{const ref=referencePricePerPurchaseUnit(i),dif=Number(i.precoUnit)-ref,pct=dif/ref*100,cor=dif<=0?C.green:C.red;return <span style={{display:"block",fontSize:"var(--arcd-type-caption)",color:cor,fontWeight:600,marginTop:1}}>{i.fonteRef} {i.codigoRef} · compra {fmt(Number(i.precoUnit))} · ref. {fmt(ref)}/{purchaseUnitOf(i)} · {dif<=0?"abaixo":"acima"} {Math.abs(pct).toLocaleString("pt-BR",{maximumFractionDigits:2})}%</span>;})():<span style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>{i.fonteRef} {i.codigoRef} · ref. {fmt(referencePricePerPurchaseUnit(i))}/{purchaseUnitOf(i)} · preço de compra não informado</span>)}
                         </span>
                         <span style={{whiteSpace:"nowrap",flexShrink:0,textAlign:"right",
                                       color: completo ? C.green : C.text, fontWeight:600}}>
@@ -2394,14 +2394,14 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                           {completo && " ok"}
                           {/* C2.2: atraso e próxima entrega do item */}
                           {!completo&&(st==="enviado"||st==="parcial")&&(()=>{const a=atrasoDoItem(i,p,today());
-                            if(a.atrasada)return <small style={{display:"block",fontSize:8.5,color:C.red,fontWeight:800}}>atrasado {a.diasAtraso}d · {a.atrasada.toLocaleString("pt-BR")} {purchaseUnitOf(i)}</small>;
-                            return a.proximaData?<small style={{display:"block",fontSize:8.5,color:C.muted,fontWeight:600}}>entrega {fmtDate(a.proximaData)}</small>:null;})()}
+                            if(a.atrasada)return <small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600}}>atrasado {a.diasAtraso}d · {a.atrasada.toLocaleString("pt-BR")} {purchaseUnitOf(i)}</small>;
+                            return a.proximaData?<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>entrega {fmtDate(a.proximaData)}</small>:null;})()}
                         </span>
                       </div>
                     );
                   })}
 	                </div>
-	                {p.analiseIA&&<div style={{marginTop:7,padding:"7px 9px",background:`${C.purple}08`,border:`1px solid ${C.purple}2F`,borderRadius:7,display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:9.5,color:C.purple,fontWeight:800}}><Ic n="brain" s={11}/> Sugestão da IA revisada por {p.analiseIA.revisadoPor||"operador"} · confiança {Number(p.analiseIA.confianca||0)}%</span><span>{(p.documentos||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:9.5,color:C.blue,marginLeft:8}}>{a.nome} ↗</a>)}</span></div>}
+	                {p.analiseIA&&<div style={{marginTop:7,padding:"7px 9px",background:`${C.purple}08`,border:`1px solid ${C.purple}2F`,borderRadius:7,display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.purple,fontWeight:600}}><Ic n="brain" s={11}/> Sugestão da IA revisada por {p.analiseIA.revisadoPor||"operador"} · confiança {Number(p.analiseIA.confianca||0)}%</span><span>{(p.documentos||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginLeft:8}}>{a.nome} ↗</a>)}</span></div>}
 
 	                <div style={{display:"flex",gap:6,marginTop:9,flexWrap:"wrap"}}>
                   {(st === "enviado" || st === "parcial") && <Btn size="sm" onClick={()=>setRecModal(p)} full><Ic n="check"/> Receber material</Btn>}
@@ -2476,7 +2476,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           </p>
         ) : (<>
           <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-            <p style={{fontSize:11,color:C.muted,lineHeight:1.55}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>
               Comparação em <strong style={{color:C.text}}>reais</strong>, não em quantidade: o
               orçamento fala em serviço (m de alvenaria), a compra fala em material (saco de
               cimento). O orçado é o <strong style={{color:C.text}}>custo</strong>, sem BDI -
@@ -2497,9 +2497,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                   {[["Orçado",fmt(totOrc),C.text],["Comprometido",fmt(totComp),C.blue],["Recebido",fmt(totRec),C.purple],
                     ["Saldo",fmt(totOrc-totComp), totComp > totOrc ? C.red : C.green]].map(([l,v,c])=>(
                     <div key={l}>
-                      <p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{l}</p>
-                      <p style={{fontSize:"clamp(12px,3.4vw,15px)",fontWeight:800,color:c,
-                                 whiteSpace:"nowrap",fontFamily:"'Inter Display','Inter',sans-serif"}}>{v}</p>
+                      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p>
+                      <p style={{fontSize:"clamp(12px,3.4vw,15px)",fontWeight:600,color:c,
+                                 whiteSpace:"nowrap",fontFamily:"var(--arcd-font-sans)"}}>{v}</p>
                     </div>
                   ))}
                 </div>
@@ -2507,7 +2507,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                   <div style={{height:"100%",width:`${Math.min(100,pct)}%`,
                                background: pct > 100 ? C.red : C.yellow, borderRadius:99}}/>
                 </div>
-                <p style={{fontSize:10,color:C.muted,marginTop:4}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>
                   {pct.toFixed(1)}% do orçamento comprometido em pedidos enviados
                 </p>
               </div>
@@ -2518,10 +2518,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           {orcVs.semApropriacao > 0.01 && (
             <div style={{background:`${C.orange}0E`,border:`1.5px solid ${C.orange}`,
                          borderRadius:6,padding:"10px 12px"}}>
-              <p style={{fontSize:12,fontWeight:800,color:C.orange}}>
+              <p style={{fontSize:12,fontWeight:600,color:C.orange}}>
                 {fmt(orcVs.semApropriacao)} comprado sem apropriação
               </p>
-              <p style={{fontSize:10.5,color:C.muted,marginTop:3,lineHeight:1.5}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3,lineHeight:1.5}}>
                 Dinheiro gasto que não bate com nenhuma linha do orçamento. Ou faltou apontar
                 o item no pedido, ou o orçamento não previu esse gasto - e nos dois casos vale
                 descobrir qual.
@@ -2535,11 +2535,11 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             return (
               <div key={l.it.id} style={{
                 background:C.card, border:`1px solid ${C.border}`,
-                borderLeft:`3px solid ${cor}`, borderRadius:6, padding:"10px 12px",
+                borderLeft:`1px solid ${cor}`, borderRadius:6, padding:"10px 12px",
               }}>
-                <p style={{fontSize:9.5,color:C.muted,textTransform:"uppercase",
-                           fontWeight:700,letterSpacing:.5}}>{l.etapa}</p>
-                <p className="brk" style={{fontSize:12,fontWeight:700,color:C.text,marginTop:2}}>
+                <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",
+                           fontWeight:600,letterSpacing:.5}}>{l.etapa}</p>
+                <p className="brk" style={{fontSize:12,fontWeight:600,color:C.text,marginTop:2}}>
                   {l.it.descricao || l.it.codigo}
                 </p>
 
@@ -2547,8 +2547,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                   {[["Orçado",l.orcado,C.muted],["Comprometido",l.comprometido,C.text],["Recebido",l.recebido,C.purple],
                     ["Saldo",l.saldo,cor]].map(([lb,v,c])=>(
                     <div key={lb}>
-                      <p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{lb}</p>
-                      <p style={{fontSize:11.5,fontWeight:800,color:c,whiteSpace:"nowrap"}}>{fmt(v)}</p>
+                      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{lb}</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:c,whiteSpace:"nowrap"}}>{fmt(v)}</p>
                     </div>
                   ))}
                 </div>
@@ -2559,22 +2559,22 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                 </div>
 
                 {l.estourou && (
-                  <p style={{fontSize:10.5,color:C.red,marginTop:6,fontWeight:700}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.red,marginTop:6,fontWeight:600}}>
                      Estourou {fmt(l.comprometido - l.orcado)}{l.orcado>0?` (${(l.pct-100).toFixed(0)}% acima)`:" sem orçamento na etapa"}
                   </p>
                 )}
                 {l.alerta==="atencao" && (
-                  <p style={{fontSize:10.5,color:C.orange,marginTop:6,fontWeight:700}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.orange,marginTop:6,fontWeight:600}}>
                     Atenção: {l.pct.toFixed(0)}% do orçado já comprometido
                   </p>
                 )}
                 {l.alerta==="ok" && l.comprometido > 0 && (
-                  <p style={{fontSize:10,color:C.muted,marginTop:5}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:5}}>
                     {l.pct.toFixed(0)}% comprometido
                   </p>
                 )}
                 {l.previsto > 0.01 && (
-                  <p style={{fontSize:9.5,color:C.muted,marginTop:3}}>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>
                     + {fmt(l.previsto)} em pedidos ainda em rascunho
                   </p>
                 )}
@@ -2587,7 +2587,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {/*  COTAÇÕES  */}
       {aba === "cotacoes" && (<>
         <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-          <div><h3 style={{fontSize:16,fontWeight:800,color:C.text}}>Mapa de cotações</h3><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Compare propostas, prazo e economia antes de gerar a ordem de compra.</p></div>
+          <div><h3 style={{fontSize:16,fontWeight:600,color:C.text}}>Mapa de cotações</h3><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Compare propostas, prazo e economia antes de gerar a ordem de compra.</p></div>
           <Btn onClick={()=>setCotModal({id:"",obraId:obraAtual,orcNivel1Id:"",data:today(),
             itens:[itemVazioCotacao()],propostas:[propostaVaziaCotacao(),propostaVaziaCotacao()]})}>
             <Ic n="plus"/> Adicionar cotação
@@ -2604,15 +2604,15 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         <div style={{display:"grid",gridTemplateColumns:`repeat(3,minmax(0,1fr))`,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
           {[["aberta","Abertas",cotacoes.filter(c=>c.status==="aberta").length,C.orange],["decidida","Compra gerada",cotacoes.filter(c=>c.status==="decidida").length,C.green],["todas","Todas",cotacoes.length,C.blue]].map(([v,l,n,c],i)=>{
             const ativo=statusCotacao===v;return <button key={v} type="button" onClick={()=>setStatusCotacao(v)} style={{position:"relative",border:0,borderLeft:i?`1px solid ${C.line}`:"none",background:ativo?`${c}0B`:"transparent",padding:"10px 12px",textAlign:"left",cursor:"pointer"}}>
-              <span style={{fontSize:9.5,fontWeight:750,color:ativo?c:C.muted}}>{l}</span><b style={{float:"right",fontSize:10,color:ativo?c:C.muted}}>{n}</b>{ativo&&<i style={{position:"absolute",left:0,right:0,bottom:0,height:2,background:c}}/>}
+              <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:ativo?c:C.muted}}>{l}</span><b style={{float:"right",fontSize:"var(--arcd-type-label)",color:ativo?c:C.muted}}>{n}</b>{ativo&&<i style={{position:"absolute",left:0,right:0,bottom:0,height:2,background:c}}/>}
             </button>;
           })}
         </div>
 
         {!cotacoesFiltradas.length
-          ? <div style={{padding:30,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:9,background:C.card}}><p style={{fontSize:12,fontWeight:800,color:C.text}}>Nenhuma cotação encontrada</p><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>Ajuste os filtros ou adicione uma nova cotação.</p></div>
+          ? <div style={{padding:30,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:9,background:C.card}}><p style={{fontSize:12,fontWeight:600,color:C.text}}>Nenhuma cotação encontrada</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Ajuste os filtros ou adicione uma nova cotação.</p></div>
           : <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
-            {isDesktop&&<div style={{display:"grid",gridTemplateColumns:"90px minmax(220px,1.5fr) 100px 115px 105px 100px 92px",gap:10,padding:"8px 11px",background:C.surface,borderBottom:`1px solid ${C.border}`,fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}><span>Código</span><span>Insumo</span><span>Fornecedores</span><span>Necessidade</span><span>Status</span><span>Prioridade</span><span>Ações</span></div>}
+            {isDesktop&&<div style={{display:"grid",gridTemplateColumns:"90px minmax(220px,1.5fr) 100px 115px 105px 100px 92px",gap:10,padding:"8px 11px",background:C.surface,borderBottom:`1px solid ${C.border}`,fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}><span>Código</span><span>Insumo</span><span>Fornecedores</span><span>Necessidade</span><span>Status</span><span>Prioridade</span><span>Ações</span></div>}
             {cotacoesFiltradas.map((c,index)=>{
               const ord=c.propostas||[],mapa=mapaDaCotacao(c),multi=cotacaoMultiItens(c),pendentes=mapa.linhas.filter(l=>!l.decisao).length;
               const sol=solicitacaoPorId.get(c.solicitacaoId),expandida=cotacaoExpandida===c.id;
@@ -2620,31 +2620,31 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
               const prioridade=sol?.prioridade||"normal";
               return <div id={`purchase-record-${c.id}`} tabIndex={-1} data-purchase-highlight={registroFoco===c.id} key={c.id} style={{borderTop:index?`1px solid ${C.line}`:"none"}}>
                 <div role="button" tabIndex={0} onClick={()=>setCotacaoExpandida(expandida?"":c.id)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setCotacaoExpandida(expandida?"":c.id);}}} style={{display:"grid",gridTemplateColumns:isDesktop?"90px minmax(220px,1.5fr) 100px 115px 105px 100px 92px":"1fr auto",gap:10,width:"100%",alignItems:"center",padding:isDesktop?"11px":"12px",border:0,background:expandida?`${C.blue}05`:"transparent",textAlign:"left",cursor:"pointer"}}>
-                  {isDesktop&&<b style={{fontSize:9.5,color:C.blue}}>{codigo}</b>}
-                  <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:11,color:C.text}}>{multi?`${mapa.linhas.length} ${mapa.linhas.length===1?"item":"itens"} · ${nomeMat(c.materialId)}${mapa.linhas.length>1?" e outros":""}`:nomeMat(c.materialId)}</b><span style={{fontSize:8.8,color:C.muted}}>{multi?`${mapa.linhas.length-pendentes} de ${mapa.linhas.length} decidido(s)`:`${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`}{sol?.numero?` · ${sol.numero}`:""}{!isDesktop?` · ${codigo}`:""}</span></div>
-                  {isDesktop&&<span style={{fontSize:10,color:C.text}}>{ord.length}</span>}
-                  {isDesktop&&<span style={{fontSize:9.5,color:C.muted}}>{fmtDate(sol?.necessidade||c.data)}</span>}
+                  {isDesktop&&<b style={{fontSize:"var(--arcd-type-caption)",color:C.blue}}>{codigo}</b>}
+                  <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text}}>{multi?`${mapa.linhas.length} ${mapa.linhas.length===1?"item":"itens"} · ${nomeMat(c.materialId)}${mapa.linhas.length>1?" e outros":""}`:nomeMat(c.materialId)}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{multi?`${mapa.linhas.length-pendentes} de ${mapa.linhas.length} decidido(s)`:`${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`}{sol?.numero?` · ${sol.numero}`:""}{!isDesktop?` · ${codigo}`:""}</span></div>
+                  {isDesktop&&<span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{ord.length}</span>}
+                  {isDesktop&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{fmtDate(sol?.necessidade||c.data)}</span>}
                   {isDesktop&&<Badge color={c.status==="decidida"?C.green:C.blue}>{c.status==="decidida"?"Compra gerada":"Cotada"}</Badge>}
-                  {isDesktop&&<span style={{fontSize:9.5,fontWeight:800,color:prioridade==="urgente"?C.red:C.orange}}>{prioridade==="urgente"?"Alta":"Média"}</span>}
+                  {isDesktop&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prioridade==="urgente"?C.red:C.orange}}>{prioridade==="urgente"?"Alta":"Média"}</span>}
                   <div style={{display:"flex",gap:4,justifyContent:"flex-end",alignItems:"center"}}>{podeProcessar&&<Btn size="sm" v="danger" title="Excluir cotação" onClick={e=>{e.stopPropagation();excluirCotacao(c);}}><Ic n="trash" s={11}/>{isDesktop&&" Excluir"}</Btn>}<span aria-label={expandida?"Recolher":"Comparar propostas"} style={{display:"inline-block",color:C.muted,transform:expandida?"rotate(180deg)":"none",transition:"transform .15s"}}>⌄</span></div>
                 </div>
-                {!isDesktop&&<div style={{display:"flex",gap:5,padding:"0 12px 10px",flexWrap:"wrap"}}><Badge color={c.status==="decidida"?C.green:C.blue}>{c.status==="decidida"?"Compra gerada":"Cotada"}</Badge><Badge color={prioridade==="urgente"?C.red:C.orange}>{prioridade==="urgente"?"Alta":"Média"}</Badge><span style={{fontSize:9,color:C.muted,alignSelf:"center"}}>{ord.length} fornecedor(es) · {fmtDate(sol?.necessidade||c.data)}</span></div>}
+                {!isDesktop&&<div style={{display:"flex",gap:5,padding:"0 12px 10px",flexWrap:"wrap"}}><Badge color={c.status==="decidida"?C.green:C.blue}>{c.status==="decidida"?"Compra gerada":"Cotada"}</Badge><Badge color={prioridade==="urgente"?C.red:C.orange}>{prioridade==="urgente"?"Alta":"Média"}</Badge><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,alignSelf:"center"}}>{ord.length} fornecedor(es) · {fmtDate(sol?.necessidade||c.data)}</span></div>}
                 {expandida&&<div style={{padding:"0 11px 12px",background:C.surface,borderTop:`1px solid ${C.line}`}}>
                   <div style={{overflowX:"auto",marginTop:8,border:`1px solid ${C.border}`,borderRadius:7,background:C.card}}>
-                    <table style={{borderCollapse:"collapse",width:"100%",minWidth:240+150*ord.length,fontSize:10}}>
+                    <table style={{borderCollapse:"collapse",width:"100%",minWidth:240+150*ord.length,fontSize:"var(--arcd-type-label)"}}>
                       <thead><tr style={{background:C.surface}}>
-                        <th style={{textAlign:"left",padding:"7px 8px",fontSize:8.5,color:C.muted,textTransform:"uppercase"}}>Item</th>
-                        {ord.map(p=>{const av=avaliacaoForn.get(String(p.fornecedorId)),cor=av?.nota==null?C.muted:av.nota>=8?C.green:av.nota>=6?C.orange:C.red;return <th key={p.id} style={{textAlign:"left",padding:"7px 8px",verticalAlign:"top"}}><b className="brk" style={{display:"block",fontSize:10.5,color:C.text}}>{nomeForn(p.fornecedorId)}</b><span style={{fontSize:8.5,color:C.muted,fontWeight:600}}>{p.prazoDias||0} dia(s) · {fmt(mapa.totaisPorProposta[p.id]||0)}</span><span title={explicacaoNotaFornecedor(av)} style={{display:"block",fontSize:8.5,fontWeight:850,color:cor,marginTop:2}}>Nota {textoNotaFornecedor(av)}</span></th>;})}
+                        <th style={{textAlign:"left",padding:"7px 8px",fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase"}}>Item</th>
+                        {ord.map(p=>{const av=avaliacaoForn.get(String(p.fornecedorId)),cor=av?.nota==null?C.muted:av.nota>=8?C.green:av.nota>=6?C.orange:C.red;return <th key={p.id} style={{textAlign:"left",padding:"7px 8px",verticalAlign:"top"}}><b className="brk" style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text}}>{nomeForn(p.fornecedorId)}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>{p.prazoDias||0} dia(s) · {fmt(mapa.totaisPorProposta[p.id]||0)}</span><span title={explicacaoNotaFornecedor(av)} style={{display:"block",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:cor,marginTop:2}}>Nota {textoNotaFornecedor(av)}</span></th>;})}
                       </tr></thead>
                       <tbody>{mapa.linhas.map(l=><tr key={l.item.id} style={{borderTop:`1px solid ${C.line}`}}>
-                        <td style={{padding:"7px 8px"}}><b className="brk" style={{display:"block",color:C.text}}>{nomeMat(l.item.materialId)}</b><span style={{fontSize:8.5,color:C.muted}}>{l.qtd.toLocaleString("pt-BR")} {purchaseUnitOf(l.item)}{l.decisao?" · pedido gerado":""}</span></td>
-                        {ord.map(p=>{const v=precoDaProposta(c,p,l.item.id),eh=v>0&&p.id===l.melhorPropostaId,venceu=l.decisao?.propostaId===p.id;return <td key={p.id} style={{padding:"7px 8px",background:venceu?`${C.green}1A`:eh?`${C.green}0B`:"transparent"}}>{v>0?<><b style={{color:eh?C.green:C.text}}>{fmt(v)}</b>{venceu&&" ✓"}<small style={{display:"block",fontSize:8,color:C.muted}}>{fmt(v*l.qtd)}{eh?" · menor":""}</small></>:<span style={{color:C.muted}}>—</span>}</td>;})}
+                        <td style={{padding:"7px 8px"}}><b className="brk" style={{display:"block",color:C.text}}>{nomeMat(l.item.materialId)}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l.qtd.toLocaleString("pt-BR")} {purchaseUnitOf(l.item)}{l.decisao?" · pedido gerado":""}</span></td>
+                        {ord.map(p=>{const v=precoDaProposta(c,p,l.item.id),eh=v>0&&p.id===l.melhorPropostaId,venceu=l.decisao?.propostaId===p.id;return <td key={p.id} style={{padding:"7px 8px",background:venceu?`${C.green}1A`:eh?`${C.green}0B`:"transparent"}}>{v>0?<><b style={{color:eh?C.green:C.text}}>{fmt(v)}</b>{venceu&&" ✓"}<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted}}>{fmt(v*l.qtd)}{eh?" · menor":""}</small></>:<span style={{color:C.muted}}>—</span>}</td>;})}
                       </tr>)}</tbody>
                     </table>
                   </div>
-                  {ord.map(p=><div key={p.id} style={{marginTop:6,padding:"6px 8px",background:C.card,border:`1px solid ${C.border}`,borderRadius:7}}><b style={{fontSize:9.5,color:C.text}}>Documentos · {nomeForn(p.fornecedorId)}</b><LinksDocumentosAuditaveis documentos={p.documentos||[]} subindo={subindoAnexoCotacao&&anexoCotacao?.cotacao?.id===c.id&&anexoCotacao?.proposta?.id===p.id} onSelecionar={e=>selecionarDocumentoCotacao(c,p,e)} C={C}/></div>)}
+                  {ord.map(p=><div key={p.id} style={{marginTop:6,padding:"6px 8px",background:C.card,border:`1px solid ${C.border}`,borderRadius:7}}><b style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>Documentos · {nomeForn(p.fornecedorId)}</b><LinksDocumentosAuditaveis documentos={p.documentos||[]} subindo={subindoAnexoCotacao&&anexoCotacao?.cotacao?.id===c.id&&anexoCotacao?.proposta?.id===p.id} onSelecionar={e=>selecionarDocumentoCotacao(c,p,e)} C={C}/></div>)}
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap",marginTop:8}}>
-                    <span style={{fontSize:9,color:C.muted}}>{c.economia>0?`Economia registrada: ${fmt(c.economia||0)}`:"Escolha a proposta de cada item considerando preço, prazo e documentação."}</span>
+                    <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{c.economia>0?`Economia registrada: ${fmt(c.economia||0)}`:"Escolha a proposta de cada item considerando preço, prazo e documentação."}</span>
                     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                       {podeProcessar&&c.status==="aberta"&&<Btn size="sm" v="ghost" onClick={()=>setCotModal(formularioDaCotacao(c))}>Editar mapa</Btn>}
                       {podeProcessar&&c.status==="aberta"&&pendentes>0&&<Btn size="sm" v="success" onClick={()=>setCotDecisao({cotacaoId:c.id,escolhas:sugestaoDeEscolhas(c),justificativas:{}})}>Decidir e gerar pedidos</Btn>}
@@ -2669,25 +2669,25 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           : fornecedores.map(f => (
             <div key={f.id} onClick={()=>setFornModal(f)} style={{background:C.card,
               border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px",cursor:"pointer"}}>
-              <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>{f.nome}</p>
-              <p style={{fontSize:10.5,color:C.muted,marginTop:2}}>
+              <p className="brk" style={{fontSize:12.5,fontWeight:600,color:C.text}}>{f.nome}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                 {[f.cnpj, f.contato, f.telefone].filter(Boolean).join(" · ") || "sem contato"}
               </p>
               {(f.cidade || f.bairro) && (
-                <p style={{fontSize:10,color:C.muted,marginTop:2}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                   {[f.bairro, f.cidade, f.uf].filter(Boolean).join(", ")}
                 </p>
               )}
               {(f.categorias||[]).length > 0 && (
                 <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:6}}>
                   {(f.categorias||[]).slice(0,5).map(c=>(
-                    <span key={c} style={{fontSize:9,fontWeight:700,color:C.yellowD,
+                    <span key={c} style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD,
                           background:`${C.yellow}16`,padding:"2px 7px",borderRadius:99}}>
                       {rotuloRamo(c)}
                     </span>
                   ))}
                   {(f.categorias||[]).length > 5 && (
-                    <span style={{fontSize:9,color:C.muted,padding:"2px 4px"}}>
+                    <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,padding:"2px 4px"}}>
                       +{(f.categorias||[]).length - 5}
                     </span>
                   )}
@@ -2700,39 +2700,39 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {/*  HISTÓRICO POR FORNECEDOR  */}
       {aba === "hist_fornecedor" && (<>
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px"}}>
-          <p style={{fontSize:11,color:C.muted,lineHeight:1.55}}><strong style={{color:C.text}}>Memória comercial auditável.</strong> Consulte tudo o que foi pedido, recebido, em quais obras e quais insumos cada fornecedor entregou. Pedidos cancelados não entram nos indicadores.</p>
+          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}><strong style={{color:C.text}}>Memória comercial auditável.</strong> Consulte tudo o que foi pedido, recebido, em quais obras e quais insumos cada fornecedor entregou. Pedidos cancelados não entram nos indicadores.</p>
         </div>
         <div style={{display:"grid",gridTemplateColumns:pick("1fr","1fr 180px","1fr 190px 210px"),gap:8,alignItems:"end"}}>
           <Inp label="Buscar fornecedor" value={buscaFornecedorHistorico} onChange={setBuscaFornecedorHistorico} placeholder="Nome ou CNPJ..."/>
           <Sel label="Período" value={periodoHistorico} onChange={setPeriodoHistorico} options={[["6","Últimos 6 meses"],["12","Últimos 12 meses"],["24","Últimos 24 meses"],["todos","Todo o histórico"]].map(([v,l])=>({v,l}))}/>
-          {!obraIdFixo&&<div><p style={{fontSize:9,fontWeight:750,color:C.muted,textTransform:"uppercase",marginBottom:5}}>Abrangência</p><div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>{[["obra","Obra atual"],["todas","Todas visíveis"]].map(([v,l])=><button key={v} onClick={()=>setEscopoHistorico(v)} style={{flex:1,border:0,borderRadius:6,padding:"7px 8px",background:escopoHistorico===v?C.text:"transparent",color:escopoHistorico===v?"#fff":C.muted,fontSize:9.5,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div></div>}
+          {!obraIdFixo&&<div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",marginBottom:5}}>Abrangência</p><div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>{[["obra","Obra atual"],["todas","Todas visíveis"]].map(([v,l])=><button key={v} onClick={()=>setEscopoHistorico(v)} style={{flex:1,border:0,borderRadius:6,padding:"7px 8px",background:escopoHistorico===v?C.text:"transparent",color:escopoHistorico===v?"#fff":C.muted,fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div></div>}
         </div>
-        {resumoFornecedoresHistorico.length===0?<div style={{padding:28,textAlign:"center",background:C.card,border:`1px dashed ${C.border}`,borderRadius:12}}><Ic n="box" s={22} color={C.muted}/><p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:8}}>Nenhuma compra encontrada</p><p style={{fontSize:10,color:C.muted,marginTop:3}}>Ajuste o período, a obra ou o termo pesquisado.</p></div>:
+        {resumoFornecedoresHistorico.length===0?<div style={{padding:28,textAlign:"center",background:C.card,border:`1px dashed ${C.border}`,borderRadius:12}}><Ic n="box" s={22} color={C.muted}/><p style={{fontSize:12,fontWeight:600,color:C.text,marginTop:8}}>Nenhuma compra encontrada</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>Ajuste o período, a obra ou o termo pesquisado.</p></div>:
         <div style={{display:"grid",gridTemplateColumns:pick("1fr","minmax(230px,.8fr) minmax(0,1.2fr)","minmax(270px,.72fr) minmax(0,1.55fr)"),gap:10,alignItems:"start"}}>
           <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:570,overflowY:"auto",paddingRight:2}}>
-            {resumoFornecedoresHistorico.map((r,idx)=>{const ativo=r.fornecedorId===fornecedorHistoricoAtualId;return <button key={r.fornecedorId} onClick={()=>setFornecedorHistoricoId(r.fornecedorId)} style={{width:"100%",textAlign:"left",background:ativo?`${C.yellow}0D`:C.card,border:`1px solid ${ativo?C.yellow:C.border}`,borderLeft:`3px solid ${ativo?C.yellow:C.line}`,borderRadius:10,padding:"10px 11px",cursor:"pointer",boxShadow:ativo?`0 8px 22px ${C.yellow}12`:"none"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}><div style={{minWidth:0}}><p className="brk" style={{fontSize:11.5,fontWeight:850,color:C.text}}>{r.fornecedor?.nome||"Fornecedor não cadastrado"}</p><p style={{fontSize:9,color:C.muted,marginTop:3}}>{r.pedidos} pedido(s) · {r.obras.size} obra(s) · {r.materiais.size} insumo(s)</p></div><span style={{fontSize:8.5,fontWeight:850,color:idx<3?C.yellowD:C.muted}}>#{idx+1}</span></div><div style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:8,paddingTop:7,borderTop:`1px solid ${C.line}`}}><span style={{fontSize:9,color:C.muted}}>Recebido</span><b style={{fontSize:10.5,color:C.text}}>{fmt(r.recebido)}</b></div></button>})}
+            {resumoFornecedoresHistorico.map((r,idx)=>{const ativo=r.fornecedorId===fornecedorHistoricoAtualId;return <button key={r.fornecedorId} onClick={()=>setFornecedorHistoricoId(r.fornecedorId)} style={{width:"100%",textAlign:"left",background:ativo?`${C.yellow}0D`:C.card,border:`1px solid ${ativo?C.yellow:C.border}`,borderLeft:`1px solid ${ativo?C.yellow:C.line}`,borderRadius:10,padding:"10px 11px",cursor:"pointer",boxShadow:ativo?`0 8px 22px ${C.yellow}12`:"none"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}><div style={{minWidth:0}}><p className="brk" style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{r.fornecedor?.nome||"Fornecedor não cadastrado"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{r.pedidos} pedido(s) · {r.obras.size} obra(s) · {r.materiais.size} insumo(s)</p></div><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:idx<3?C.yellowD:C.muted}}>#{idx+1}</span></div><div style={{display:"flex",justifyContent:"space-between",gap:8,marginTop:8,paddingTop:7,borderTop:`1px solid ${C.line}`}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Recebido</span><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{fmt(r.recebido)}</b></div></button>})}
           </div>
           {resumoFornecedorAtual&&<div style={{display:"flex",flexDirection:"column",gap:10,minWidth:0}}>
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"13px 14px"}}><div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}><div><p style={{fontSize:8.5,fontWeight:850,letterSpacing:1,textTransform:"uppercase",color:C.yellowD}}>Fornecedor selecionado</p><h3 style={{fontSize:15,fontWeight:850,color:C.text,marginTop:3}}>{resumoFornecedorAtual.fornecedor?.nome||"Fornecedor não cadastrado"}</h3><p style={{fontSize:9.5,color:C.muted,marginTop:3}}>{[resumoFornecedorAtual.fornecedor?.cnpj,resumoFornecedorAtual.fornecedor?.telefone,resumoFornecedorAtual.fornecedor?.cidade].filter(Boolean).join(" · ")||"Dados cadastrais não informados"}</p></div><Badge color={C.blue}>Última compra {fmtDate(resumoFornecedorAtual.ultima)}</Badge></div><div style={{display:"grid",gridTemplateColumns:cols(2,2,4),gap:7,marginTop:12}}>{[["Total pedido",fmt(resumoFornecedorAtual.comprado),C.text],["Total recebido",fmt(resumoFornecedorAtual.recebido),C.green],["Pedidos",resumoFornecedorAtual.pedidos,C.blue],["Insumos",resumoFornecedorAtual.materiais.size,C.yellowD]].map(([l,v,c])=><div key={l} style={{background:C.surface,border:`1px solid ${C.line}`,borderRadius:8,padding:"8px 9px"}}><p style={{fontSize:8,color:C.muted,textTransform:"uppercase",fontWeight:800}}>{l}</p><p style={{fontSize:12.5,fontWeight:850,color:c,marginTop:3}}>{v}</p></div>)}</div></div>
-            {comprasMensaisFornecedor.length>0&&<ChartPanel eyebrow="Evolução das compras" title="Volume mensal com o fornecedor" subtitle="Pedido emitido versus material efetivamente recebido" height={205} legend={[{label:"Pedido",color:C.yellow},{label:"Recebido",color:C.green}]}><ResponsiveContainer width="100%" height="100%"><BarChart data={comprasMensaisFornecedor} barGap={3} barSize={13}><CartesianGrid stroke={C.line} vertical={false}/><XAxis dataKey="rotulo" tick={{fill:C.muted,fontSize:8.5}} axisLine={false} tickLine={false}/><YAxis tick={{fill:C.muted,fontSize:8.5}} axisLine={false} tickLine={false} tickFormatter={compactNumber}/><Tooltip cursor={{fill:`${C.yellow}08`}} content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/><Bar dataKey="comprado" name="Pedido" fill={C.yellow} radius={[4,4,1,1]}/><Bar dataKey="recebido" name="Recebido" fill={C.green} radius={[4,4,1,1]}/></BarChart></ResponsiveContainer></ChartPanel>}
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:11.5,fontWeight:850,color:C.text}}>Pedidos do fornecedor</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Clique em Pedidos para editar ou receber uma compra.</p></div><div style={{maxHeight:310,overflowY:"auto"}}>{pedidosFornecedorAtual.map(p=><div key={p.id} style={{display:"grid",gridTemplateColumns:pick("1fr auto","1fr auto","100px minmax(120px,1fr) 120px 100px"),gap:8,alignItems:"center",padding:"9px 12px",borderTop:`1px solid ${C.line}`}}><div><p style={{fontSize:10.5,fontWeight:850,color:C.blue}}>{p.numero}</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{fmtDate(p.data)}</p></div>{pick(null,null,<div><p className="brk" style={{fontSize:9.5,fontWeight:750,color:C.text}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"}</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{(p.itens||[]).length} item(ns)</p></div>)}{pick(null,null,<div><p style={{fontSize:8,color:C.muted,textTransform:"uppercase"}}>Recebido</p><p style={{fontSize:10,fontWeight:800,color:C.green,marginTop:2}}>{fmt(recebidoPedido(p))}</p></div>)}<div style={{textAlign:"right"}}><p style={{fontSize:10.5,fontWeight:850,color:C.text}}>{fmt(totalPedido(p))}</p><Badge color={statusPedido(p)==="recebido"?C.green:statusPedido(p)==="parcial"?C.orange:C.blue}>{statusPedido(p)}</Badge></div></div>)}</div></div>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:"13px 14px"}}><div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1,textTransform:"uppercase",color:C.yellowD}}>Fornecedor selecionado</p><h3 style={{fontSize:15,fontWeight:600,color:C.text,marginTop:3}}>{resumoFornecedorAtual.fornecedor?.nome||"Fornecedor não cadastrado"}</h3><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{[resumoFornecedorAtual.fornecedor?.cnpj,resumoFornecedorAtual.fornecedor?.telefone,resumoFornecedorAtual.fornecedor?.cidade].filter(Boolean).join(" · ")||"Dados cadastrais não informados"}</p></div><Badge color={C.blue}>Última compra {fmtDate(resumoFornecedorAtual.ultima)}</Badge></div><div style={{display:"grid",gridTemplateColumns:cols(2,2,4),gap:7,marginTop:12}}>{[["Total pedido",fmt(resumoFornecedorAtual.comprado),C.text],["Total recebido",fmt(resumoFornecedorAtual.recebido),C.green],["Pedidos",resumoFornecedorAtual.pedidos,C.blue],["Insumos",resumoFornecedorAtual.materiais.size,C.yellowD]].map(([l,v,c])=><div key={l} style={{background:C.surface,border:`1px solid ${C.line}`,borderRadius:8,padding:"8px 9px"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p><p style={{fontSize:12.5,fontWeight:600,color:c,marginTop:3}}>{v}</p></div>)}</div></div>
+            {comprasMensaisFornecedor.length>0&&<ChartPanel eyebrow="Evolução das compras" title="Volume mensal com o fornecedor" subtitle="Pedido emitido versus material efetivamente recebido" height={205} legend={[{label:"Pedido",color:C.yellow},{label:"Recebido",color:C.green}]}><ResponsiveContainer width="100%" height="100%"><BarChart data={comprasMensaisFornecedor} barGap={3} barSize={13}><CartesianGrid stroke={C.line} vertical={false}/><XAxis dataKey="rotulo" tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} axisLine={false} tickLine={false}/><YAxis tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} axisLine={false} tickLine={false} tickFormatter={compactNumber}/><Tooltip cursor={{fill:`${C.yellow}08`}} content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/><Bar dataKey="comprado" name="Pedido" fill={C.yellow} radius={[4,4,1,1]}/><Bar dataKey="recebido" name="Recebido" fill={C.green} radius={[4,4,1,1]}/></BarChart></ResponsiveContainer></ChartPanel>}
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Pedidos do fornecedor</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Clique em Pedidos para editar ou receber uma compra.</p></div><div style={{maxHeight:310,overflowY:"auto"}}>{pedidosFornecedorAtual.map(p=><div key={p.id} style={{display:"grid",gridTemplateColumns:pick("1fr auto","1fr auto","100px minmax(120px,1fr) 120px 100px"),gap:8,alignItems:"center",padding:"9px 12px",borderTop:`1px solid ${C.line}`}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>{p.numero}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{fmtDate(p.data)}</p></div>{pick(null,null,<div><p className="brk" style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{(p.itens||[]).length} item(ns)</p></div>)}{pick(null,null,<div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase"}}>Recebido</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green,marginTop:2}}>{fmt(recebidoPedido(p))}</p></div>)}<div style={{textAlign:"right"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{fmt(totalPedido(p))}</p><Badge color={statusPedido(p)==="recebido"?C.green:statusPedido(p)==="parcial"?C.orange:C.blue}>{statusPedido(p)}</Badge></div></div>)}</div></div>
           </div>}
         </div>}
       </>)}
 
       {/*  EVOLUÇÃO DOS PREÇOS DOS INSUMOS  */}
       {aba === "precos" && (<>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px"}}><p style={{fontSize:11,color:C.muted,lineHeight:1.55}}>A curva considera somente material <strong style={{color:C.text}}>efetivamente recebido</strong>. Assim, uma cotação ou pedido ainda não entregue não distorce o preço histórico. A média é ponderada pela quantidade comprada.</p></div>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>A curva considera somente material <strong style={{color:C.text}}>efetivamente recebido</strong>. Assim, uma cotação ou pedido ainda não entregue não distorce o preço histórico. A média é ponderada pela quantidade comprada.</p></div>
         <div style={{display:"grid",gridTemplateColumns:pick("1fr","1fr 1fr","minmax(280px,1.4fr) minmax(190px,.9fr) 180px 210px"),gap:8,alignItems:"end"}}>
           <Sel label="Insumo" value={materialHistoricoAtualId} onChange={v=>{setMaterialHistoricoId(v);setFornecedorPrecoId("");}} options={materiaisHistorico.map(x=>({v:x.material.id,l:`${x.material.codigo?`${x.material.codigo} · `:""}${x.material.descricao}`}))}/>
           <Sel label="Fornecedor" value={fornecedorPrecoAtualId} onChange={setFornecedorPrecoId} options={[{v:"",l:"Todos os fornecedores"},...fornecedoresDoMaterial.map(f=>({v:f.id,l:f.nome}))]}/>
           <Sel label="Período" value={periodoHistorico} onChange={setPeriodoHistorico} options={[["6","Últimos 6 meses"],["12","Últimos 12 meses"],["24","Últimos 24 meses"],["todos","Todo o histórico"]].map(([v,l])=>({v,l}))}/>
-          {!obraIdFixo&&<div><p style={{fontSize:9,fontWeight:750,color:C.muted,textTransform:"uppercase",marginBottom:5}}>Abrangência</p><div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>{[["obra","Obra atual"],["todas","Todas visíveis"]].map(([v,l])=><button key={v} onClick={()=>setEscopoHistorico(v)} style={{flex:1,border:0,borderRadius:6,padding:"7px 8px",background:escopoHistorico===v?C.text:"transparent",color:escopoHistorico===v?"#fff":C.muted,fontSize:9.5,fontWeight:800,cursor:"pointer"}}>{l}</button>)}</div></div>}
+          {!obraIdFixo&&<div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",marginBottom:5}}>Abrangência</p><div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>{[["obra","Obra atual"],["todas","Todas visíveis"]].map(([v,l])=><button key={v} onClick={()=>setEscopoHistorico(v)} style={{flex:1,border:0,borderRadius:6,padding:"7px 8px",background:escopoHistorico===v?C.text:"transparent",color:escopoHistorico===v?"#fff":C.muted,fontSize:"var(--arcd-type-caption)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div></div>}
         </div>
-        {!materialHistoricoAtual||!analiseMaterialAtual?<div style={{padding:28,textAlign:"center",background:C.card,border:`1px dashed ${C.border}`,borderRadius:12}}><Ic n="chart" s={22} color={C.muted}/><p style={{fontSize:12,fontWeight:800,color:C.text,marginTop:8}}>Ainda não há preços recebidos neste recorte</p><p style={{fontSize:10,color:C.muted,marginTop:3}}>Registre o recebimento de um pedido ou amplie o período analisado.</p></div>:<>
-          {(()=>{const primeiro=evolucaoMaterial[0];const ultimo=evolucaoMaterial[evolucaoMaterial.length-1];const variacao=primeiro?.preco?((Number(ultimo?.preco||0)-Number(primeiro.preco))/Number(primeiro.preco))*100:0;const corVar=variacao>0?C.red:variacao<0?C.green:C.muted;return <div style={{display:"grid",gridTemplateColumns:cols(2,3,5),gap:8}}>{[["Preço atual",fmt(ultimo?.preco||0),corVar],["Menor preço",fmt(analiseMaterialAtual.menor),C.green],["Média ponderada",fmt(analiseMaterialAtual.medio),C.blue],["Variação no período",`${variacao>0?"+":""}${variacao.toFixed(1)}%`,corVar],["Compras recebidas",analiseMaterialAtual.compras,C.text]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:10,padding:"10px 11px"}}><p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:800}}>{l}</p><p style={{fontSize:13,fontWeight:850,color:c,marginTop:4}}>{v}</p></div>)}</div>})()}
-          <ChartPanel eyebrow="Inteligência de suprimentos" title={materialHistoricoAtual.material.descricao} subtitle={`Preço por ${materialHistoricoAtual.material.unidade||"UN"} · ${evolucaoMaterial.length} recebimento(s) no período`} height={275} legend={[{label:"Preço recebido",color:C.yellow},{label:"Média ponderada",color:C.blue}]}><ResponsiveContainer width="100%" height="100%"><LineChart data={dadosGraficoPreco} margin={{left:4,right:14,top:8,bottom:2}}><CartesianGrid stroke={C.line} vertical={false}/><XAxis dataKey="rotulo" tick={{fill:C.muted,fontSize:8.5}} axisLine={false} tickLine={false}/><YAxis tick={{fill:C.muted,fontSize:8.5}} axisLine={false} tickLine={false} tickFormatter={compactNumber}/><Tooltip content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/><Line type="monotone" dataKey="media" name="Média ponderada" stroke={C.blue} strokeDasharray="5 5" strokeWidth={1.5} dot={false}/><Line type="monotone" dataKey="preco" name="Preço recebido" stroke={C.yellow} strokeWidth={2.5} activeDot={{r:5,fill:C.text,stroke:C.yellow,strokeWidth:2}} dot={{r:3,fill:C.yellow,stroke:C.card,strokeWidth:1.5}}/></LineChart></ResponsiveContainer></ChartPanel>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:11.5,fontWeight:850,color:C.text}}>Memória dos recebimentos</p><p style={{fontSize:9,color:C.muted,marginTop:2}}>Rastreabilidade até o pedido, fornecedor e obra.</p></div><Badge color={C.yellowD}>{materialHistoricoAtual.material.unidade||"UN"}</Badge></div><div style={{maxHeight:330,overflowY:"auto"}}>{[...dadosGraficoPreco].reverse().map(x=><div key={x.id} style={{display:"grid",gridTemplateColumns:pick("1fr auto","90px 1fr auto","90px minmax(150px,1.2fr) minmax(120px,1fr) 90px 105px"),gap:8,alignItems:"center",padding:"9px 12px",borderTop:`1px solid ${C.line}`}}><div><p style={{fontSize:9.5,fontWeight:800,color:C.text}}>{fmtDate(x.data)}</p><p style={{fontSize:8.5,color:C.blue,marginTop:2}}>{x.pedido}</p></div>{pick(null,<div><p className="brk" style={{fontSize:9.5,fontWeight:750,color:C.text}}>{x.fornecedor}</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>{x.obra}</p></div>,<><div><p className="brk" style={{fontSize:9.5,fontWeight:750,color:C.text}}>{x.fornecedor}</p></div><div><p className="brk" style={{fontSize:9.5,color:C.muted}}>{x.obra}</p></div><div style={{textAlign:"right"}}><p style={{fontSize:8,color:C.muted,textTransform:"uppercase"}}>Quantidade</p><p style={{fontSize:9.5,fontWeight:800,color:C.text}}>{x.qtd}</p></div></>)}<div style={{textAlign:"right"}}><p style={{fontSize:8,color:C.muted,textTransform:"uppercase"}}>Unitário</p><p style={{fontSize:10.5,fontWeight:850,color:C.yellowD}}>{fmt(x.preco)}</p></div></div>)}</div></div>
+        {!materialHistoricoAtual||!analiseMaterialAtual?<div style={{padding:28,textAlign:"center",background:C.card,border:`1px dashed ${C.border}`,borderRadius:12}}><Ic n="chart" s={22} color={C.muted}/><p style={{fontSize:12,fontWeight:600,color:C.text,marginTop:8}}>Ainda não há preços recebidos neste recorte</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>Registre o recebimento de um pedido ou amplie o período analisado.</p></div>:<>
+          {(()=>{const primeiro=evolucaoMaterial[0];const ultimo=evolucaoMaterial[evolucaoMaterial.length-1];const variacao=primeiro?.preco?((Number(ultimo?.preco||0)-Number(primeiro.preco))/Number(primeiro.preco))*100:0;const corVar=variacao>0?C.red:variacao<0?C.green:C.muted;return <div style={{display:"grid",gridTemplateColumns:cols(2,3,5),gap:8}}>{[["Preço atual",fmt(ultimo?.preco||0),corVar],["Menor preço",fmt(analiseMaterialAtual.menor),C.green],["Média ponderada",fmt(analiseMaterialAtual.medio),C.blue],["Variação no período",`${variacao>0?"+":""}${variacao.toFixed(1)}%`,corVar],["Compras recebidas",analiseMaterialAtual.compras,C.text]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:10,padding:"10px 11px"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p><p style={{fontSize:13,fontWeight:600,color:c,marginTop:4}}>{v}</p></div>)}</div>})()}
+          <ChartPanel eyebrow="Inteligência de suprimentos" title={materialHistoricoAtual.material.descricao} subtitle={`Preço por ${materialHistoricoAtual.material.unidade||"UN"} · ${evolucaoMaterial.length} recebimento(s) no período`} height={275} legend={[{label:"Preço recebido",color:C.yellow},{label:"Média ponderada",color:C.blue}]}><ResponsiveContainer width="100%" height="100%"><LineChart data={dadosGraficoPreco} margin={{left:4,right:14,top:8,bottom:2}}><CartesianGrid stroke={C.line} vertical={false}/><XAxis dataKey="rotulo" tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} axisLine={false} tickLine={false}/><YAxis tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} axisLine={false} tickLine={false} tickFormatter={compactNumber}/><Tooltip content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/><Line type="monotone" dataKey="media" name="Média ponderada" stroke={C.blue} strokeDasharray="5 5" strokeWidth={1.5} dot={false}/><Line type="monotone" dataKey="preco" name="Preço recebido" stroke={C.yellow} strokeWidth={2.5} activeDot={{r:5,fill:C.text,stroke:C.yellow,strokeWidth:2}} dot={{r:3,fill:C.yellow,stroke:C.card,strokeWidth:1.5}}/></LineChart></ResponsiveContainer></ChartPanel>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Memória dos recebimentos</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Rastreabilidade até o pedido, fornecedor e obra.</p></div><Badge color={C.yellowD}>{materialHistoricoAtual.material.unidade||"UN"}</Badge></div><div style={{maxHeight:330,overflowY:"auto"}}>{[...dadosGraficoPreco].reverse().map(x=><div key={x.id} style={{display:"grid",gridTemplateColumns:pick("1fr auto","90px 1fr auto","90px minmax(150px,1.2fr) minmax(120px,1fr) 90px 105px"),gap:8,alignItems:"center",padding:"9px 12px",borderTop:`1px solid ${C.line}`}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{fmtDate(x.data)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginTop:2}}>{x.pedido}</p></div>{pick(null,<div><p className="brk" style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{x.fornecedor}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{x.obra}</p></div>,<><div><p className="brk" style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{x.fornecedor}</p></div><div><p className="brk" style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{x.obra}</p></div><div style={{textAlign:"right"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase"}}>Quantidade</p><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{x.qtd}</p></div></>)}<div style={{textAlign:"right"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase"}}>Unitário</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD}}>{fmt(x.preco)}</p></div></div>)}</div></div>
         </>}
       </>)}
 
@@ -2751,20 +2751,20 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       <ModalLegendaDocumento anexo={anexoCotacao} setAnexo={setAnexoCotacao} onClose={()=>!subindoAnexoCotacao&&setAnexoCotacao(null)} onSalvar={salvarDocumentoCotacao} salvando={subindoAnexoCotacao} titulo="Anexar documento da cotação" C={C}/>
       {envioPedido&&(()=>{const p=(data.pedidos||[]).find(x=>x.id===envioPedido.id)||envioPedido;const link=linkAceite?.pedidoId===p.id?linkAceite:null;const {forn,texto,assunto}=conteudoEnvioPedido(p,link?.url||"");
         return <Modal title={`Enviar pedido ${p.numero}`} onClose={()=>{setEnvioPedido(null);setLinkAceite(null);}} wide><div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <p style={{fontSize:10.5,color:C.muted}}>Escolha o canal. O envio fica registrado no pedido com data e autor; o aceite do fornecedor é registrado depois.</p>
-          <pre style={{whiteSpace:"pre-wrap",fontFamily:"inherit",fontSize:10.5,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 11px",color:C.text,maxHeight:260,overflow:"auto"}}>{texto}</pre>
+          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Escolha o canal. O envio fica registrado no pedido com data e autor; o aceite do fornecedor é registrado depois.</p>
+          <pre style={{whiteSpace:"pre-wrap",fontFamily:"inherit",fontSize:"var(--arcd-type-label)",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 11px",color:C.text,maxHeight:260,overflow:"auto"}}>{texto}</pre>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             {forn?.telefone?<a href={linkWhatsApp(forn.telefone,texto)} target="_blank" rel="noreferrer" style={{textDecoration:"none"}} onClick={()=>registrarEnvioPedido(p,"whatsapp",forn.telefone)}><Btn size="sm">WhatsApp</Btn></a>:<Btn size="sm" disabled title="Fornecedor sem telefone">WhatsApp</Btn>}
             {forn?.email?<a href={linkEmailPedido(forn.email,assunto,texto)} style={{textDecoration:"none"}} onClick={()=>registrarEnvioPedido(p,"email",forn.email)}><Btn size="sm" v="ghost">E-mail</Btn></a>:<Btn size="sm" v="ghost" disabled title="Fornecedor sem e-mail">E-mail</Btn>}
             <Btn size="sm" v="ghost" onClick={()=>{if(imprimirPedido(p))registrarEnvioPedido(p,"impresso");}}>Imprimir / PDF</Btn>
             {!p.aceiteFornecedor?.nome&&<Btn size="sm" v="ghost" disabled={gerandoLinkAceite||!!link} loading={gerandoLinkAceite&&"Gerando..."} onClick={()=>gerarLinkAceite(p)}>{link?"Link de aceite incluído":"Gerar link de aceite"}</Btn>}
           </div>
-          {link&&<p style={{fontSize:9.5,color:C.muted}}>O fornecedor confirma pelo link, sem login, até {fmtDate(String(link.expiraEm).slice(0,10))}. Se o pedido for alterado, o link deixa de valer e é preciso gerar outro.</p>}
-          {(p.envios||[]).length>0&&<div style={{fontSize:9.5,color:C.muted}}>{p.envios.map(e=><p key={e.id}>{({whatsapp:"WhatsApp",email:"E-mail",impresso:"Impresso/PDF"})[e.canal]||e.canal} · {new Date(e.enviadoEm).toLocaleString("pt-BR")} · {e.enviadoPor}</p>)}</div>}
+          {link&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>O fornecedor confirma pelo link, sem login, até {fmtDate(String(link.expiraEm).slice(0,10))}. Se o pedido for alterado, o link deixa de valer e é preciso gerar outro.</p>}
+          {(p.envios||[]).length>0&&<div style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{p.envios.map(e=><p key={e.id}>{({whatsapp:"WhatsApp",email:"E-mail",impresso:"Impresso/PDF"})[e.canal]||e.canal} · {new Date(e.enviadoEm).toLocaleString("pt-BR")} · {e.enviadoPor}</p>)}</div>}
           <Btn v="ghost" full onClick={()=>{setEnvioPedido(null);setLinkAceite(null);}}>Fechar</Btn>
         </div></Modal>;})()}
       {aceitePedido&&<Modal title={`Aceite do pedido ${aceitePedido.pedido.numero}`} onClose={()=>setAceitePedido(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}>
-        <p style={{fontSize:10.5,color:C.muted}}>Registre quem confirmou o pedido no fornecedor e o prazo de entrega que ele assumiu.</p>
+        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Registre quem confirmou o pedido no fornecedor e o prazo de entrega que ele assumiu.</p>
         <Inp label="Quem confirmou no fornecedor *" value={aceitePedido.nome} onChange={v=>setAceitePedido(f=>({...f,nome:v}))} placeholder="Nome do vendedor ou responsável"/>
         <Inp label="Data do aceite *" type="date" value={aceitePedido.data} onChange={v=>setAceitePedido(f=>({...f,data:v}))}/>
         <Sel label="Canal *" value={aceitePedido.canal} onChange={v=>setAceitePedido(f=>({...f,canal:v}))} options={[{v:"whatsapp",l:"WhatsApp"},{v:"email",l:"E-mail"},{v:"telefone",l:"Telefone"},{v:"presencial",l:"Presencial"},{v:"documento",l:"Documento assinado"}]}/>
@@ -2776,41 +2776,41 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         const pendentesCot=itensPendentesDaCotacao(cot),escolhas=cotDecisao.escolhas||{},just=cotDecisao.justificativas||{};
         const avaliacao=avaliarEscolhasCotacao(cot,escolhas,just);
         return <Modal title="Decisão do mapa de cotação" onClose={()=>setCotDecisao(null)} wide><div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <p style={{fontSize:10,color:C.muted}}>Escolha o fornecedor de cada item. Item sem escolha fica pendente na cotação. Fora do menor preço ou com uma só proposta, registre o motivo.</p>
+          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Escolha o fornecedor de cada item. Item sem escolha fica pendente na cotação. Fora do menor preço ou com uma só proposta, registre o motivo.</p>
           {pendentesCot.map(l=>{const sel=escolhas[l.item.id]||"",exige=sel&&escolhaPrecisaJustificativa(l,sel);return <div key={l.item.id} style={{background:C.surface,border:`1px solid ${exige&&!String(just[l.item.id]||"").trim()?C.orange:C.border}`,borderRadius:7,padding:"8px 10px"}}>
-            <p className="brk" style={{fontSize:11,fontWeight:850,color:C.text}}>{nomeMat(l.item.materialId)} · {l.qtd.toLocaleString("pt-BR")} {purchaseUnitOf(l.item)}</p>
+            <p className="brk" style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{nomeMat(l.item.materialId)} · {l.qtd.toLocaleString("pt-BR")} {purchaseUnitOf(l.item)}</p>
             <Sel label="Fornecedor" value={sel} onChange={v=>setCotDecisao(d=>({...d,escolhas:{...d.escolhas,[l.item.id]:v}}))}
               options={[{v:"",l:"Deixar pendente"},...l.ofertas.map(o=>({v:o.proposta.id,l:`${nomeForn(o.proposta.fornecedorId)} · ${fmt(o.precoUnit)} · ${fmt(o.total)}${o.proposta.id===l.melhorPropostaId?" · menor":""} · nota ${textoNotaFornecedor(avaliacaoForn.get(String(o.proposta.fornecedorId)))}`}))]}/>
             {exige&&<Inp label="Justificativa obrigatória *" value={just[l.item.id]||""} onChange={v=>setCotDecisao(d=>({...d,justificativas:{...d.justificativas,[l.item.id]:v}}))} placeholder={l.ofertas.length<2?"Item com uma única proposta: por que comprar assim?":"Prazo, qualidade, disponibilidade, condição de pagamento..."}/>}
           </div>;})}
           {!avaliacao.erro&&<div style={{background:`${C.green}0A`,border:`1px solid ${C.green}`,borderRadius:7,padding:"8px 10px"}}>
-            <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>{avaliacao.grupos.length} pedido(s) · {fmt(avaliacao.total)}{avaliacao.restantes?` · ${avaliacao.restantes} item(ns) pendente(s)`:""}</p>
-            {avaliacao.grupos.map(g=><p key={g.fornecedorId} style={{fontSize:9.5,color:C.muted,marginTop:2}}>{nomeForn(g.fornecedorId)}: {g.itens.length} item(ns) · {fmt(g.total)}</p>)}
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green}}>{avaliacao.grupos.length} pedido(s) · {fmt(avaliacao.total)}{avaliacao.restantes?` · ${avaliacao.restantes} item(ns) pendente(s)`:""}</p>
+            {avaliacao.grupos.map(g=><p key={g.fornecedorId} style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{nomeForn(g.fornecedorId)}: {g.itens.length} item(ns) · {fmt(g.total)}</p>)}
           </div>}
-          {avaliacao.erro&&<p style={{fontSize:10,color:C.orange,fontWeight:800}}>{avaliacao.erro}</p>}
+          {avaliacao.erro&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600}}>{avaliacao.erro}</p>}
           <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setCotDecisao(null)}>Cancelar</Btn><Btn full onClick={()=>decidirCotacao(cot,escolhas,just)} disabled={!!avaliacao.erro}>Aprovar e gerar pedido(s)</Btn></div>
         </div></Modal>;})()}
       {recModal  && <ModalRecebimento pedido={recModal} onClose={()=>setRecModal(null)}
                                       onReceber={receber} nomeMat={nomeMat} unidMat={unidMat}
                                       nomeForn={nomeForn} save={save}/>}
       {pagModal&&<Modal title={`Pagamento · ${pagModal.pedido.numero}`} onClose={()=>setPagModal(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 10px"}}><div><p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Total do pedido</p><p style={{fontSize:13,fontWeight:850,color:C.text}}>{fmt(totalPedido(pagModal.pedido))}</p></div><div><p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:800}}>Saldo antes deste pagamento</p><p style={{fontSize:13,fontWeight:850,color:C.red}}>{fmt(saldoPagamentoPedido(pagModal.pedido))}</p></div></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 10px"}}><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Total do pedido</p><p style={{fontSize:13,fontWeight:600,color:C.text}}>{fmt(totalPedido(pagModal.pedido))}</p></div><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Saldo antes deste pagamento</p><p style={{fontSize:13,fontWeight:600,color:C.red}}>{fmt(saldoPagamentoPedido(pagModal.pedido))}</p></div></div>
         <Sel label="Origem real do pagamento *" value={pagModal.origem} onChange={v=>setPagModal(f=>({...f,origem:v,transacaoId:v==="empresa"?f.transacaoId:""}))} options={[{v:"empresa",l:"Conta bancária da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente pagou diretamente"}]}/>
-        {pagModal.origem==="caixa_obra"&&(()=>{const cx=situacaoCaixaObra(data,pagModal.pedido.obraId),valor=Number(String(pagModal.valor||"").replace(",","."))||0,projetado=cx.saldo-valor,negativo=projetado<-.001,baixo=!negativo&&projetado<=cx.limiteBaixo;return <div style={{background:negativo?`${C.red}0C`:baixo?`${C.orange}0C`:`${C.green}0C`,border:`1px solid ${negativo?C.red:baixo?C.orange:C.green}`,borderRadius:9,padding:"9px 10px"}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7}}>{[["Saldo disponível",cx.saldo,cx.saldo>0?C.green:C.red],["Após pagamento",projetado,negativo?C.red:baixo?C.orange:C.green],["Reserva mínima",cx.limiteBaixo,C.muted]].map(([l,v,c])=><div key={l}><p style={{fontSize:8,color:C.muted,textTransform:"uppercase",fontWeight:800}}>{l}</p><p style={{fontSize:11.5,fontWeight:850,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>{!((data.obras||[]).find(o=>o.id===pagModal.pedido.obraId)?.hasCaixa)&&<p style={{fontSize:9.5,color:C.red,fontWeight:800,marginTop:7}}>Caixa não ativado no cadastro desta obra.</p>}{negativo&&<p style={{fontSize:9.5,color:C.red,fontWeight:800,marginTop:7}}>Pagamento bloqueado: registre um aporte antes de continuar.</p>}{baixo&&<p style={{fontSize:9.5,color:C.orange,fontWeight:800,marginTop:7}}>Alerta de caixa baixo: o pagamento é possível, mas deixará a reserva abaixo do nível recomendado.</p>}</div>;})()}
+        {pagModal.origem==="caixa_obra"&&(()=>{const cx=situacaoCaixaObra(data,pagModal.pedido.obraId),valor=Number(String(pagModal.valor||"").replace(",","."))||0,projetado=cx.saldo-valor,negativo=projetado<-.001,baixo=!negativo&&projetado<=cx.limiteBaixo;return <div style={{background:negativo?`${C.red}0C`:baixo?`${C.orange}0C`:`${C.green}0C`,border:`1px solid ${negativo?C.red:baixo?C.orange:C.green}`,borderRadius:9,padding:"9px 10px"}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7}}>{[["Saldo disponível",cx.saldo,cx.saldo>0?C.green:C.red],["Após pagamento",projetado,negativo?C.red:baixo?C.orange:C.green],["Reserva mínima",cx.limiteBaixo,C.muted]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>{!((data.obras||[]).find(o=>o.id===pagModal.pedido.obraId)?.hasCaixa)&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:7}}>Caixa não ativado no cadastro desta obra.</p>}{negativo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:7}}>Pagamento bloqueado: registre um aporte antes de continuar.</p>}{baixo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600,marginTop:7}}>Alerta de caixa baixo: o pagamento é possível, mas deixará a reserva abaixo do nível recomendado.</p>}</div>;})()}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label="Valor pago *" type="number" value={pagModal.valor} onChange={v=>setPagModal(f=>({...f,valor:v}))}/><Inp label="Data *" type="date" value={pagModal.data} onChange={v=>setPagModal(f=>({...f,data:v}))}/></div>
         {pagModal.origem==="empresa"&&<Sel label="Vincular à transação bancária (opcional)" value={pagModal.transacaoId} onChange={v=>setPagModal(f=>({...f,transacaoId:v,conciliado:!!v}))} options={[{v:"",l:"Sem transação vinculada"},...(data.transacoes||[]).filter(t=>Number(t.valor)<0).slice().sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,80).map(t=>({v:t.id,l:`${fmtDate(t.data)} · ${fmt(Math.abs(Number(t.valor||0)))} · ${t.descricao||"Saída bancária"}`}))]}/>}
         <Inp label="Comprovante / referência" value={pagModal.referencia} onChange={v=>setPagModal(f=>({...f,referencia:v}))} placeholder="PIX, boleto, recibo ou identificação do cliente"/>
-        <label style={{padding:"11px 12px",border:`1.5px dashed ${pagModal.comprovanteFile?C.green:C.blue}66`,borderRadius:9,textAlign:"center",cursor:"pointer",background:pagModal.comprovanteFile?`${C.green}08`:C.surface}}><p style={{fontSize:10.5,fontWeight:850,color:pagModal.comprovanteFile?C.green:C.blue}}>{pagModal.comprovanteFile?pagModal.comprovanteFile.name:"Anexar comprovante de pagamento"}</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>PDF, JPG, PNG ou WEBP · salvo no OneDrive da obra</p><input type="file" accept=".pdf,image/jpeg,image/png,image/webp" style={{display:"none"}} onChange={e=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(file.size>5.5*1024*1024){showToast("O comprovante deve ter no máximo 5,5 MB.","error");return;}setPagModal(f=>({...f,comprovanteFile:file,comprovanteLegenda:String(file.name||"").replace(/\.[^.]+$/,"")}));}}/></label>
+        <label style={{padding:"11px 12px",border:`1.5px dashed ${pagModal.comprovanteFile?C.green:C.blue}66`,borderRadius:9,textAlign:"center",cursor:"pointer",background:pagModal.comprovanteFile?`${C.green}08`:C.surface}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:pagModal.comprovanteFile?C.green:C.blue}}>{pagModal.comprovanteFile?pagModal.comprovanteFile.name:"Anexar comprovante de pagamento"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>PDF, JPG, PNG ou WEBP · salvo no OneDrive da obra</p><input type="file" accept=".pdf,image/jpeg,image/png,image/webp" style={{display:"none"}} onChange={e=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(file.size>5.5*1024*1024){showToast("O comprovante deve ter no máximo 5,5 MB.","error");return;}setPagModal(f=>({...f,comprovanteFile:file,comprovanteLegenda:String(file.name||"").replace(/\.[^.]+$/,"")}));}}/></label>
         {pagModal.comprovanteFile&&<Inp label="Legenda do comprovante" value={pagModal.comprovanteLegenda} onChange={v=>setPagModal(f=>({...f,comprovanteLegenda:v}))} placeholder="Ex.: PIX pago ao fornecedor"/>}
-        <label style={{display:"flex",gap:8,alignItems:"center",fontSize:10,color:C.text,cursor:"pointer"}}><input type="checkbox" checked={!!pagModal.conciliado} onChange={e=>setPagModal(f=>({...f,conciliado:e.target.checked}))}/><span>Pagamento/comprovante já conferido e conciliado</span></label>
+        <label style={{display:"flex",gap:8,alignItems:"center",fontSize:"var(--arcd-type-label)",color:C.text,cursor:"pointer"}}><input type="checkbox" checked={!!pagModal.conciliado} onChange={e=>setPagModal(f=>({...f,conciliado:e.target.checked}))}/><span>Pagamento/comprovante já conferido e conciliado</span></label>
         {(()=>{
           // C1.4: o servidor só libera até o conferido (recebido e com nota)
           // mais a tolerância; o resto é adiantamento, com motivo.
           const conf=conferenciaPagamentoPedido(data,pagModal.pedido.id);if(!conf)return null;
           const valor=Number(String(pagModal.valor||"").replace(",","."))||0,liberado=conf.liberadoCents/100,acima=valor>liberado+0.005;
           return <div style={{background:acima?`${C.orange}0D`:C.surface,border:`1px solid ${acima?C.orange:C.border}`,borderRadius:8,padding:"9px 10px",display:"flex",flexDirection:"column",gap:7}}>
-            <p style={{fontSize:10,color:C.text}}>Conferido: recebido {fmt(conf.receivedCents/100)} · notas {fmt(conf.invoicedCents/100)} · liberado para pagar <b>{fmt(liberado)}</b></p>
-            {acima&&<label style={{display:"flex",gap:8,alignItems:"center",fontSize:10,color:C.text,cursor:"pointer"}}><input type="checkbox" checked={!!pagModal.adiantamento} onChange={e=>setPagModal(f=>({...f,adiantamento:e.target.checked}))}/><span>É adiantamento ao fornecedor (só Financeiro ou Administrador)</span></label>}
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>Conferido: recebido {fmt(conf.receivedCents/100)} · notas {fmt(conf.invoicedCents/100)} · liberado para pagar <b>{fmt(liberado)}</b></p>
+            {acima&&<label style={{display:"flex",gap:8,alignItems:"center",fontSize:"var(--arcd-type-label)",color:C.text,cursor:"pointer"}}><input type="checkbox" checked={!!pagModal.adiantamento} onChange={e=>setPagModal(f=>({...f,adiantamento:e.target.checked}))}/><span>É adiantamento ao fornecedor (só Financeiro ou Administrador)</span></label>}
             {acima&&pagModal.adiantamento&&<Inp label="Motivo do adiantamento *" value={pagModal.motivoAdiantamento||""} onChange={v=>setPagModal(f=>({...f,motivoAdiantamento:v}))} placeholder="Ex.: sinal de 30% exigido pelo fornecedor"/>}
           </div>;
         })()}
@@ -2819,8 +2819,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       </div></Modal>}
       {excluirCompraModal&&<Modal title={`Excluir compra · ${excluirCompraModal.pedido.numero}`} onClose={()=>setExcluirCompraModal(null)}><div style={{display:"flex",flexDirection:"column",gap:11}}>
         <div style={{padding:"11px 12px",border:`1px solid ${C.red}`,borderRadius:8,background:`${C.red}09`}}>
-          <p style={{fontSize:12,fontWeight:850,color:C.red}}>Esta exclusão remove a compra dos controles operacionais.</p>
-          <p style={{fontSize:9.5,color:C.muted,lineHeight:1.5,marginTop:4}}>Entradas no estoque e pagamentos criados diretamente pelo pedido serão retirados. Notas fiscais permanecem no Financeiro, são desvinculadas e recebem um alerta. A ação ficará registrada na auditoria.</p>
+          <p style={{fontSize:12,fontWeight:600,color:C.red}}>Esta exclusão remove a compra dos controles operacionais.</p>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.5,marginTop:4}}>Entradas no estoque e pagamentos criados diretamente pelo pedido serão retirados. Notas fiscais permanecem no Financeiro, são desvinculadas e recebem um alerta. A ação ficará registrada na auditoria.</p>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:6}}>
           {[
@@ -2830,7 +2830,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             ["Saídas no caixa",excluirCompraModal.caixas.length],
             ["Notas desvinculadas",excluirCompraModal.notas.length],
             ["Recebimentos",(excluirCompraModal.pedido.itens||[]).reduce((s,i)=>s+(i.recebimentos||[]).length,0)],
-          ].map(([label,valor])=><div key={label} style={{padding:"8px 9px",border:`1px solid ${C.border}`,borderRadius:6,background:C.surface}}><p style={{fontSize:8,color:C.muted,textTransform:"uppercase",fontWeight:800}}>{label}</p><b style={{display:"block",fontSize:11.5,color:C.text,marginTop:3}}>{valor}</b></div>)}
+          ].map(([label,valor])=><div key={label} style={{padding:"8px 9px",border:`1px solid ${C.border}`,borderRadius:6,background:C.surface}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{label}</p><b style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text,marginTop:3}}>{valor}</b></div>)}
         </div>
         <Inp label="Motivo da exclusão *" value={excluirCompraModal.motivo} onChange={v=>setExcluirCompraModal(f=>({...f,motivo:v}))} multiline placeholder="Ex.: compra duplicada, obra incorreta ou pedido criado por engano"/>
         <Inp label={`Digite ${excluirCompraModal.pedido.numero} para confirmar *`} value={excluirCompraModal.confirmacao} onChange={v=>setExcluirCompraModal(f=>({...f,confirmacao:v}))}/>

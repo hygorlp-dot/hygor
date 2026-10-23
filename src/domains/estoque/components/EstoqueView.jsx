@@ -101,24 +101,24 @@ function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiai
               border:`1.5px solid ${temFalta ? C.red : C.green}`,
               borderRadius:6, padding:"11px 12px",
             }}>
-              <p style={{fontSize:11.5,fontWeight:800,color: temFalta ? C.red : C.green,marginBottom:7}}>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color: temFalta ? C.red : C.green,marginBottom:7}}>
                 {temFalta ? "! Saldo insuficiente" : "Vai sair do estoque"}
               </p>
               {previa.map((p,i) => (
                 <div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,
-                                     fontSize:11,marginTop:3,alignItems:"baseline"}}>
+                                     fontSize:"var(--arcd-type-label)",marginTop:3,alignItems:"baseline"}}>
                   <span className="brk" style={{color:C.text,minWidth:0}}>{p.mat?.descricao || "-"}</span>
                   <span style={{whiteSpace:"nowrap",flexShrink:0,
-                                color: p.falta ? C.red : C.text, fontWeight:700}}>
+                                color: p.falta ? C.red : C.text, fontWeight:600}}>
                     {p.qtd} {p.mat?.unidade}
-                    <span style={{color:C.muted,fontWeight:400,fontSize:10}}>
+                    <span style={{color:C.muted,fontWeight:400,fontSize:"var(--arcd-type-label)"}}>
                       {" "}(tem {p.disp.toFixed(2)})
                     </span>
                   </span>
                 </div>
               ))}
               {temFalta && (
-                <p style={{fontSize:10,color:C.muted,marginTop:7,lineHeight:1.45}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:7,lineHeight:1.45}}>
                   Registre a entrada do que falta antes de baixar. O sistema não deixa o
                   saldo ficar negativo - estoque negativo contamina todo relatório depois.
                 </p>
@@ -209,7 +209,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
     [materiais]
   );
 
-  //  Saldo da obra selecionada 
+  //  Saldo da obra selecionada
   const linhasSaldo = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     return materiais
@@ -258,7 +258,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
       .slice(0, 120);
   }, [data.movEstoque, obraAtual, busca, matPorId]);
 
-  //  Material 
+  //  Material
   const salvarMaterial = async (form) => {
     if (!form.descricao.trim()) { showToast("Descreva o material.", "error"); return; }
     const p = {
@@ -434,7 +434,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
 
       {/* Aviso de regime - o motivo de o estoque não mexer no DRE */}
       <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}44`,borderRadius:6,padding:"9px 11px"}}>
-        <p style={{fontSize:10.5,color:C.subtle,lineHeight:1.55}}>
+        <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.55}}>
           <strong style={{color:C.blue}}>Controle físico.</strong> O custo do material já entra no DRE
           pela Conciliação, no momento da compra. O estoque não lança nada de novo - se lançasse,
           o mesmo material contaria duas vezes.
@@ -449,24 +449,24 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
       {/* Reposicao automatica: o minimo deixou de ser cosmetico */}
       {abaixoMin.length>0&&(
         <div style={{background:`${C.orange}0C`,border:`1.5px solid ${C.orange}`,borderRadius:6,padding:"10px 12px"}}>
-          <p style={{fontSize:11.5,fontWeight:900,color:C.orange}}>
+          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>
             {abaixoMin.length} MATERIAL(IS) ABAIXO DO ESTOQUE MÍNIMO
           </p>
           <div style={{marginTop:5,maxHeight:96,overflow:"auto"}}>
             {abaixoMin.slice(0,8).map((l,ix)=>(
-              <p key={ix} style={{fontSize:10,color:C.muted,marginTop:2}}>
+              <p key={ix} style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                 <b style={{color:C.text}}>{l.obraNome}</b> · {l.descricao} — saldo {l.saldo.toLocaleString("pt-BR")} de {l.minimo.toLocaleString("pt-BR")} {l.unidade}
                 <b style={{color:C.orange}}> · repor {l.deficit.toLocaleString("pt-BR")}</b>
               </p>
             ))}
-            {abaixoMin.length>8&&<p style={{fontSize:9.5,color:C.subtle,marginTop:3}}>e mais {abaixoMin.length-8} item(ns)...</p>}
+            {abaixoMin.length>8&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.subtle,marginTop:3}}>e mais {abaixoMin.length-8} item(ns)...</p>}
           </div>
           <div style={{marginTop:8}}>
             <Btn size="sm" v="warning" onClick={gerarReposicao} full>
               <Ic n="cart"/> GERAR SOLICITAÇÃO DE REPOSIÇÃO
             </Btn>
           </div>
-          <p style={{fontSize:9.5,color:C.subtle,marginTop:5,lineHeight:1.4}}>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:C.subtle,marginTop:5,lineHeight:1.4}}>
             Uma solicitação por obra, com o déficit já calculado. O setor de Compras recebe o alerta imediatamente.
           </p>
         </div>
@@ -480,9 +480,9 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
           ["Valor na obra",    fmt(valorEmObra), C.yellow],
         ].map(([l,v,c])=>(
           <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
-            <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700,letterSpacing:.5}}>{l}</p>
-            <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:"clamp(14px,4vw,17px)",
-                       fontWeight:800,color:c,marginTop:2}}>{v}</p>
+            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600,letterSpacing:.5}}>{l}</p>
+            <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(14px,4vw,17px)",
+                       fontWeight:600,color:c,marginTop:2}}>{v}</p>
           </div>
         ))}
       </div>
@@ -508,24 +508,24 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
           : linhasSaldo.map(({m, saldo, critico}) => (
             <div key={m.id} style={{
               background:C.card, border:`1px solid ${critico ? C.red : C.border}`,
-              borderLeft:`3px solid ${critico ? C.red : C.green}`,
+              borderLeft:`1px solid ${critico ? C.red : C.green}`,
               borderRadius:6, padding:"10px 12px",
             }}>
               <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8,alignItems:"center"}}>
                 <div style={{minWidth:0}}>
-                  <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>{m.descricao}</p>
-                  <p style={{fontSize:10,color:C.muted,marginTop:2}}>
+                  <p className="brk" style={{fontSize:12.5,fontWeight:600,color:C.text}}>{m.descricao}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                     {m.codigo && `${m.codigo}  `}mín. {m.estoqueMin} {m.unidade}
                     {Number(m.precoMedio)>0 && `  ${fmt(m.precoMedio)}/${m.unidade}`}
                   </p>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:15,fontWeight:800,
+                  <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:15,fontWeight:600,
                              color: critico ? C.red : C.text, whiteSpace:"nowrap"}}>
-                    {saldo.toFixed(2)} <span style={{fontSize:10,color:C.muted}}>{m.unidade}</span>
+                    {saldo.toFixed(2)} <span style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{m.unidade}</span>
                   </p>
                   {critico && (
-                    <p style={{fontSize:9,fontWeight:800,color:C.red,marginTop:1}}>! REPOR</p>
+                    <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.red,marginTop:1}}>! REPOR</p>
                   )}
                 </div>
               </div>
@@ -543,25 +543,25 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
             return (
               <div key={x.id} style={{
                 background:C.card, border:`1px solid ${C.border}`,
-                borderLeft:`3px solid ${t.cor}`, borderRadius:6, padding:"9px 11px",
+                borderLeft:`1px solid ${t.cor}`, borderRadius:6, padding:"9px 11px",
               }}>
                 <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8}}>
                   <div style={{minWidth:0}}>
-                    <p className="brk" style={{fontSize:12,fontWeight:700,color:C.text}}>{m?.descricao || "-"}</p>
-                    <p style={{fontSize:10,color:C.muted,marginTop:2}}>
+                    <p className="brk" style={{fontSize:12,fontWeight:600,color:C.text}}>{m?.descricao || "-"}</p>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                       {t.l}  {fmtDate(x.data)}
                       {x.servicoId && "  baixa automática"}
                     </p>
                     {x.descricao && (
-                      <p className="brk" style={{fontSize:10,color:C.subtle,marginTop:2}}>{x.descricao}</p>
+                      <p className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.subtle,marginTop:2}}>{x.descricao}</p>
                     )}
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
-                    <p style={{fontSize:13,fontWeight:800,color:t.cor,whiteSpace:"nowrap"}}>
+                    <p style={{fontSize:13,fontWeight:600,color:t.cor,whiteSpace:"nowrap"}}>
                       {t.sinal > 0 ? "+" : ""} {x.qtd} {m?.unidade}
                     </p>
                     <button onClick={()=>excluirMov(x.id)} style={{
-                      background:"transparent",border:0,color:C.muted,fontSize:10,
+                      background:"transparent",border:0,color:C.muted,fontSize:"var(--arcd-type-label)",
                       cursor:"pointer",marginTop:3,textDecoration:"underline",
                     }}>excluir</button>
                   </div>
@@ -583,8 +583,8 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
           <div key={m.id} onClick={()=>setMatModal({...m, estoqueMin:String(m.estoqueMin), precoMedio:String(m.precoMedio)})}
             style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,
                     padding:"9px 11px",cursor:"pointer"}}>
-            <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>{m.descricao}</p>
-            <p style={{fontSize:10,color:C.muted,marginTop:2}}>
+            <p className="brk" style={{fontSize:12.5,fontWeight:600,color:C.text}}>{m.descricao}</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
               {m.codigo && `${m.codigo}  `}{m.unidade}  mín. {m.estoqueMin}
               {Number(m.precoMedio)>0 && `  ${fmt(m.precoMedio)}`}
             </p>
@@ -595,7 +595,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
       {/*  COMPOSIÇÕES  */}
       {aba === "comp" && (<>
         <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-          <p style={{fontSize:11,color:C.muted,lineHeight:1.55}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>
             Cadastre <strong style={{color:C.text}}>uma vez</strong> quanto cada serviço consome por unidade.
             Depois é só informar quanto foi executado - o estoque baixa sozinho.
             <br/><br/>
@@ -610,8 +610,8 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
           <div key={c.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
             <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}>
               <div style={{minWidth:0,flex:1}}>
-                <p className="brk" style={{fontSize:12.5,fontWeight:700,color:C.text}}>{c.codigo} · {c.nome}</p>
-                <p style={{fontSize:10,color:C.muted,marginTop:1}}>por 1 {c.unidade}</p>
+                <p className="brk" style={{fontSize:12.5,fontWeight:600,color:C.text}}>{c.codigo} · {c.nome}</p>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>por 1 {c.unidade}</p>
               </div>
               <div style={{display:"flex",gap:4,flexShrink:0}}>
                 <Btn size="sm" v="ghost" onClick={()=>setCompModal({...c, itens: c.itens.map(i=>({...i,coef:String(i.coef)}))})}></Btn>
@@ -622,9 +622,9 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
               {c.itens.map((i,k) => {
                 const m = matPorId(i.materialId);
                 return (
-                  <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:C.muted,marginTop:2}}>
+                  <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                     <span className="brk">{m?.descricao || "-"}</span>
-                    <span style={{fontWeight:700,color:C.text,whiteSpace:"nowrap",marginLeft:8}}>
+                    <span style={{fontWeight:600,color:C.text,whiteSpace:"nowrap",marginLeft:8}}>
                       {i.coef} {m?.unidade}
                     </span>
                   </div>
@@ -648,18 +648,18 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
                 border:`2px solid ${abcModo===v?C.yellow:C.border}`,
                 background:abcModo===v?`${C.yellow}12`:"transparent",
                 color:abcModo===v?C.text:C.muted,
-                fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:800,fontSize:11.5,
+                fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-label)",
               }}>{l}</button>
             ))}
           </div>
 
           <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-            <p style={{fontSize:11,color:C.muted,lineHeight:1.5}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
               <strong style={{color:C.text}}>A</strong> = os poucos que valem 80% do gasto - controle rigoroso.
               <strong style={{color:C.text}}> B</strong> = 15%. <strong style={{color:C.text}}>C</strong> = os muitos que
               valem 5% - não vale a pena vigiar.
             </p>
-            <p style={{fontSize:10,color:C.subtle,lineHeight:1.5,marginTop:6}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.5,marginTop:6}}>
               {abcModo==="composicao"
                 ? "Serviços executados, com o material que cada um consumiu. Executar um serviço baixa os insumos da composição - aqui eles voltam a ser somados sob o serviço que os consumiu."
                 : "Insumos consumidos na obra. Um serviço não aparece aqui: ele se dissolve nos insumos que baixou. Para vê-lo inteiro, use Por composição."}
@@ -676,20 +676,20 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
               const cor = x.classe === "A" ? C.red : x.classe === "B" ? C.orange : C.muted;
               return (
                 <div key={x.id} style={{background:C.card,border:`1px solid ${C.border}`,
-                                        borderLeft:`3px solid ${cor}`,borderRadius:6,padding:"9px 11px"}}>
+                                        borderLeft:`1px solid ${cor}`,borderRadius:6,padding:"9px 11px"}}>
                   <div className="fluid-grid" style={{display:"grid",gridTemplateColumns:"auto 1fr auto",gap:8,alignItems:"center"}}>
                     <span style={{width:22,height:22,borderRadius:5,background:`${cor}18`,color:cor,
                                   display:"flex",alignItems:"center",justifyContent:"center",
-                                  fontWeight:900,fontSize:11,flexShrink:0}}>{x.classe}</span>
+                                  fontWeight:600,fontSize:"var(--arcd-type-label)",flexShrink:0}}>{x.classe}</span>
                     <div style={{minWidth:0}}>
                       <p className="brk" style={{fontSize:12,fontWeight:600,color:x.avulso?C.muted:C.text}}>{x.nome}</p>
                       {abcModo==="composicao"&&!x.avulso&&x.execucoes>0&&(
-                        <p style={{fontSize:9,color:C.muted,marginTop:1}}>{x.execucoes} execução(ões)</p>
+                        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>{x.execucoes} execução(ões)</p>
                       )}
                     </div>
                     <div style={{textAlign:"right",flexShrink:0}}>
-                      <p style={{fontSize:12.5,fontWeight:800,color:C.text,whiteSpace:"nowrap"}}>{fmt(x.valor)}</p>
-                      <p style={{fontSize:9,color:C.muted}}>{x.pctAcum.toFixed(0)}% acum.</p>
+                      <p style={{fontSize:12.5,fontWeight:600,color:C.text,whiteSpace:"nowrap"}}>{fmt(x.valor)}</p>
+                      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{x.pctAcum.toFixed(0)}% acum.</p>
                     </div>
                   </div>
                 </div>

@@ -1,0 +1,19 @@
+.financial-summary{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:16px;min-width:0}
+.financial-summary>section{min-width:0;background:var(--arcd-surface-card);border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-lg);padding:20px}
+.financial-summary h3{margin:0;color:var(--arcd-text-primary);font-size:var(--arcd-type-card-title);font-weight:600}
+.financial-summary__description{color:var(--arcd-text-secondary);font-size:var(--arcd-type-label);line-height:1.5;margin:8px 0 20px;max-width:45ch}
+.financial-summary dl{display:grid;gap:16px;margin:0}
+.financial-metric{min-width:0}
+.financial-metric dt{font-size:var(--arcd-type-label);font-weight:500;color:var(--arcd-text-secondary)}
+.financial-metric dd{font-size:1.25rem;font-weight:600;color:var(--arcd-text-primary);font-variant-numeric:tabular-nums;line-height:1.35;margin:4px 0 0;overflow-wrap:anywhere}
+.financial-metric[data-primary] dd{font-size:var(--arcd-type-kpi)}
+.financial-metric[data-tone=danger] dd{color:var(--arcd-danger-text)}
+.financial-metric small{display:block;margin:4px 0 0;color:var(--arcd-text-secondary);font-size:var(--arcd-type-label)}
+.financial-overview-filters>label{display:grid;gap:6px;font-size:var(--arcd-type-label);color:var(--arcd-text-secondary);min-width:0}
+.financial-secondary-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}
+.financial-secondary-metrics>div{padding:16px;background:var(--arcd-surface-card);border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-lg);min-width:0}
+.financial-secondary-metrics p{font-size:var(--arcd-type-label);color:var(--arcd-text-secondary);margin:0 0 6px}
+.financial-secondary-metrics b{display:block;font-size:1rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.financial-secondary-metrics small{display:block;font-size:var(--arcd-type-caption);color:var(--arcd-text-secondary);margin-top:6px}
+@media(max-width:1100px){.financial-summary{grid-template-columns:1fr}.financial-summary dl{grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))}}
+@media(max-width:600px){.financial-summary>section{padding:16px}.financial-summary dl{grid-template-columns:1fr}.financial-overview-filters{grid-template-columns:1fr!important}}

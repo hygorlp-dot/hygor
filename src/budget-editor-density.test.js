@@ -15,7 +15,7 @@ describe("densidade do editor de orçamento", () => {
     expect(app).toMatch(/className=\{?["`]budget-line-row\b/);
     expect(css).toContain(".arcd-main .budget-line-row input");
     expect(css).toContain("min-height: 30px");
-    expect(css).toContain("font-size: 10px !important");
+    expect(css).toContain("font-size:var(--arcd-type-caption) !important");
   });
 
   it("preserva o padrão global de toque no mobile", () => {

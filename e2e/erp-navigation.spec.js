@@ -1,5 +1,32 @@
 import {expect,test} from "@playwright/test";
 
+test("tema executivo migra a aparência e mantém leitura com ampliação",async({page})=>{
+  await page.addInitScript(()=>localStorage.setItem("arcd-theme","architectural"));
+  const app=await enter(page,"admin");
+  await expect(page.locator("html")).toHaveAttribute("data-theme","executive");
+  await page.keyboard.press("Control+k");
+  const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
+  await search.fill("Gestão financeira");
+  await search.locator("xpath=../..").getByRole("button").filter({hasText:"Gestão financeira"}).click();
+  await expect(page.locator(".financial-summary")).toBeVisible();
+  await expect(page.locator(".page-hero__title")).toHaveCSS("font-size","28px");
+  await expect(page.locator(".arcd-main")).toHaveCSS("background-image","none");
+  expect(await page.locator(".module-workflow").count()).toBe(0);
+  await expect(page.getByRole("combobox",{name:"Ano",exact:true})).toBeVisible();
+  await expect(page.getByRole("combobox",{name:"Mês",exact:true})).toBeVisible();
+  for(const scale of ["100%","200%"]){
+    await page.evaluate(value=>document.documentElement.style.fontSize=value,scale);
+    const layout=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth+1,clipped:[...document.querySelectorAll(".financial-metric dd")].some(e=>e.scrollWidth>e.clientWidth+1)}));
+    expect(layout).toEqual({overflow:false,clipped:false});
+  }
+  await page.evaluate(()=>document.documentElement.style.fontSize="100%");
+  await page.keyboard.press("Control+k");await search.fill("Folha");
+  await search.locator("xpath=../..").getByRole("button").filter({hasText:"Folha"}).first().click();
+  await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("color","rgb(255, 255, 255)");
+  await expect(page.locator(".payroll-summary-strip__net small")).toHaveCSS("color","rgb(218, 214, 206)");
+  expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
+});
+
 async function enter(page,role,accessTabs){
   const profile={id:"erp-qa",nome:"Operador QA",role,email:"erp@arcd.test",active:true,...(accessTabs?{accessTabs}:{})};
   let data={usuarios:[profile],obras:[],employees:[],attendance:{},config:{companyName:"ARCD",paymentHolidays:[]},payments:[],notasFiscais:[],pagamentosFolha:[],caixaObra:[],transacoes:[]};
