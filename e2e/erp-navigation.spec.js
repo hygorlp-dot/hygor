@@ -113,7 +113,7 @@ test("fluxos internos e atalho do DRE preservam competência e pagamentos",async
   await integration.getByRole("button",{name:"Abrir DRE neste recorte",exact:true}).click();
   await expect(page.locator(".app-breadcrumb")).toContainText("DRE obras");
   await expect.poll(()=>requests.filter(body=>body.year===2026&&body.month===8).length).toBeGreaterThan(1);
-  await open("Folha de pagamento");
+  await open("Folha");
   const controls=page.getByRole("region",{name:"Competência e escopo da folha"});await expect(controls).toBeVisible();
   const order=await page.locator(".payroll-workspace").evaluate(element=>{
     const filters=element.querySelector(".payroll-controls"),report=element.querySelector(".payroll-actionbar"),check=element.querySelector(".payroll-checklist");
