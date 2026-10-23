@@ -1,6 +1,7 @@
 import { active, toCents } from "../financeiro/ledger.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
 import { hasValidUnitConversion, purchaseUnitOf } from "./unit-conversion.js";
+import { instanciaDaSolicitacao, limiteAprovacaoEngenheiro, pedidoDentroDaAlcada } from "./purchase-approval.js";
 
 export const PURCHASE_ORDER_COMMAND=Object.freeze({
   PURCHASE_ORDER_SAVED:"PEDIDO_COMPRA_SALVO",
@@ -119,10 +120,13 @@ const normalizeOrder=(data,raw,current,{newMaterials=[]}={})=>{
   if(requestId&&!request)return {error:"A solicitação relacionada ao pedido não existe."};
   if(request&&String(request.obraId)!==obraId)return {error:"Pedido e solicitação precisam pertencer à mesma obra."};
   if(request&&request.status==="cancelada")return {error:"A solicitação relacionada foi cancelada e não pode gerar pedido."};
-  const approval=request?.aprovacaoInstanciaId
-    ?(data.instanciasAprovacao||[]).find(item=>String(item.id)===String(request.aprovacaoInstanciaId)):null;
-  if(!current&&["reprovada","cancelada"].includes(approval?.status)){
-    return {error:"A solicitação foi reprovada na aprovação e não pode gerar pedido."};
+  // Solicitação só vira pedido depois de aprovada. As antigas, criadas antes
+  // de a aprovação existir, não têm instância e seguem como antes.
+  const approval=instanciaDaSolicitacao(data,request);
+  if(!current&&approval&&approval.status!=="aprovada"){
+    return {error:["reprovada","cancelada"].includes(approval.status)
+      ?"A solicitação foi reprovada na aprovação e não pode gerar pedido."
+      :"A solicitação ainda aguarda aprovação e não pode gerar pedido."};
   }
   const requestOrder=request?.pedidoId&&String(request.pedidoId)!==id?orderById(data,request.pedidoId):null;
   if(orderAlive(requestOrder)){
@@ -185,6 +189,11 @@ const saveOrder=(data,command,now)=>{
   if(normalized.error)return fail(normalized.error);
   const actor=actorOf(command);
   const totalNew=orderTotalCents(normalized.order)/100;
+  const raisesTotal=!current||totalNew>orderTotalCents(current)/100+0.005;
+  if(raisesTotal&&!pedidoDentroDaAlcada(withCatalog,{total:totalNew,request:normalized.request,actorRole:command.actorRole})){
+    const limite=limiteAprovacaoEngenheiro(withCatalog).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+    return fail(`Pedido acima de ${limite} precisa de aprovação do Administrador: lance pela solicitação aprovada por ele ou peça ao Administrador para lançar.`);
+  }
   const saved={
     ...normalized.order,
     version:current?versionOf(current)+1:1,

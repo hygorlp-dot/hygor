@@ -32,7 +32,9 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
 
   it("solicitação reprovada não vira pedido",()=>{
     const gerar=trecho(compras,"const gerarPedidoSolicitacao=","const abrirCotacaoDaSolicitacao=");
-    expect(gerar).toMatch(/\["reprovada","cancelada"\]\.includes\(instanciaApr\?\.status\)/);
+    // Desde a C1.1, qualquer status diferente de "aprovada" bloqueia.
+    expect(gerar).toMatch(/instanciaApr&&instanciaApr\.status!=="aprovada"/);
+    expect(gerar).toMatch(/foi reprovada na aprovação/);
   });
 
   it("confirmação de chegada converte para a unidade do estoque",()=>{
