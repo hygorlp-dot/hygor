@@ -41,6 +41,9 @@ import {
   avaliarEscolhasCotacao, cotacaoMultiItens, decisoesDaCotacao, escolhaPrecisaJustificativa,
   itensDaCotacao, itensPendentesDaCotacao, mapaDaCotacao, precoDaProposta, sugestaoDeEscolhas,
 } from "../quote-map";
+import {
+  assuntoEmailPedido, documentoPedidoHtml, linkEmailPedido, mensagemPedidoFornecedor,
+} from "../order-dispatch";
 import { active } from "../../financeiro/ledger";
 import {
   changePurchaseRequestProject,
@@ -651,6 +654,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const [recModal,  setRecModal]  = useState(null);   // recebimento
   const [cotModal,  setCotModal]  = useState(null);
   const [cotDecisao,setCotDecisao]=useState(null);
+  const [envioPedido,setEnvioPedido]=useState(null);
+  const [aceitePedido,setAceitePedido]=useState(null);
   const [fornModal, setFornModal] = useState(null);
   const [solModal,setSolModal]=useState(null);
   const [modoIA,setModoIA]=useState(false);
@@ -712,6 +717,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     return [...basesReferenciaCompra].sort((a,b)=>Number((b.idsEquivalentes||[b.id]).some(id=>vinculadas.has(id)))-Number((a.idsEquivalentes||[a.id]).some(id=>vinculadas.has(id)))||String(b.dataBase||"").localeCompare(String(a.dataBase||"")));
   },[basesReferenciaCompra,contextoOrcamentoCompra.budget]);
   const podeProcessar=canManagePurchases(currentUser?.role);
+  // Enviar o pedido e registrar o aceite: mesmos perfis do servidor (C2.5).
+  const podeEnviarPedido=["admin","compras"].includes(currentUser?.role);
   const solicitacoes=useMemo(()=>(data.solicitacoesCompra||[]).filter(s=>obraIdsMapa.includes(s.obraId))
     .sort((a,b)=>{
       // SLA estourado sobe: solicitacao parada e obra parada.
@@ -1656,6 +1663,54 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     setAba("pedidos");
   };
 
+  // Envio do pedido ao fornecedor (C2.5): monta o conteúdo, abre o canal e
+  // registra o envio no servidor. O aceite é informado por Compras.
+  const conteudoEnvioPedido=p=>{
+    const forn=fornecedorPorId.get(p.fornecedorId),obra=obraPorId.get(p.obraId);
+    const itens=(p.itens||[]).map(i=>({descricao:materialPorId.get(i.materialId)?.descricao||i.descricaoRef||"Material",
+      qtd:i.qtd,unidade:purchaseUnitOf(i),precoUnit:i.precoUnit}));
+    const base={empresa:"ARCD Construtech",numero:p.numero,data:p.data,fornecedorNome:forn?.nome||"",
+      fornecedorCnpj:forn?.cnpj||"",obraNome:obra?.name||"",itens,previsao:p.previsao,observacao:p.obs||""};
+    return {forn,texto:mensagemPedidoFornecedor(base),assunto:assuntoEmailPedido(base),html:documentoPedidoHtml(base)};
+  };
+  const registrarEnvioPedido=async(p,canal,destino="")=>{
+    if(!dispatchCommand){showToast("Registrar o envio exige conexão com o servidor.","error");return;}
+    const result=await dispatchCommand(atual=>({
+      type:OPERATIONAL_COMMAND.PURCHASE_ORDER_SENT_TO_SUPPLIER,
+      idempotencyKey:`purchase-order-sent-${p.id}-${uid()}`,
+      expectedVersion:Number((atual.pedidos||[]).find(x=>x.id===p.id)?.version||0),
+      actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{orderId:p.id,channel:canal,destination:destino},
+    }));
+    if(!result?.ok){showToast(result?.reason||"O servidor não registrou o envio do pedido.","error");return;}
+    showToast(`Envio do pedido ${p.numero} registrado.`);
+  };
+  const imprimirPedido=p=>{
+    const janela=window.open("","_blank");
+    if(!janela){showToast("Permita a abertura de janelas para gerar o PDF do pedido.","error");return false;}
+    janela.document.write(conteudoEnvioPedido(p).html);
+    janela.document.close();
+    janela.focus();
+    janela.print();
+    return true;
+  };
+  const salvarAceitePedido=async()=>{
+    const f=aceitePedido;if(!f)return;
+    if(!String(f.nome||"").trim()){showToast("Informe quem confirmou o pedido no fornecedor.","error");return;}
+    if(!dispatchCommand){showToast("Registrar o aceite exige conexão com o servidor.","error");return;}
+    const result=await dispatchCommand(atual=>({
+      type:OPERATIONAL_COMMAND.PURCHASE_ORDER_SUPPLIER_ACCEPTED,
+      idempotencyKey:`purchase-order-accepted-${f.pedido.id}-${uid()}`,
+      expectedVersion:Number((atual.pedidos||[]).find(x=>x.id===f.pedido.id)?.version||0),
+      actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{orderId:f.pedido.id,acceptedBy:f.nome,acceptedAt:f.data,channel:f.canal,
+        confirmedForecast:f.previsao||"",note:f.obs||""},
+    }));
+    if(!result?.ok){showToast(result?.reason||"O servidor não registrou o aceite.","error");return;}
+    setAceitePedido(null);
+    showToast(`Aceite do pedido ${f.pedido.numero} registrado.`);
+  };
+
   const moverCardKanban=(chave,destino)=>{
     const [tipo,id]=String(chave||"").split(":");
     const origem=kanbanCompras.find(col=>col.cards.some(card=>card.tipo===tipo&&card.id===id));
@@ -2168,6 +2223,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                     <Badge color={meta.c}>{meta.l}</Badge>
                     <div style={{marginTop:3}}><Badge color={statusPagamentoPedido(p)==="pago"?C.green:C.orange}>{statusPagamentoPedido(p)==="pago"?`PAGO · ${origemPagamentoLabel(p.origemPagamento)}`:`PREVISTO · ${origemPagamentoLabel(p.origemPagamento)}`}</Badge></div>
                     {atrasoDe[p.id]&&<div style={{marginTop:3}}><Badge color={C.red}>ATRASADO +{atrasoDe[p.id].diasAtraso}d</Badge></div>}
+                    {p.aceiteFornecedor?.nome
+                      ?<div style={{marginTop:3}}><Badge color={C.green}>ACEITO · {p.aceiteFornecedor.nome} · {fmtDate(p.aceiteFornecedor.data)}</Badge></div>
+                      :(p.envios||[]).length>0&&<div style={{marginTop:3}}><Badge color={C.orange}>ENVIADO · AGUARDANDO ACEITE</Badge></div>}
                     <p style={{fontSize:14,fontWeight:800,color:C.text,marginTop:4,whiteSpace:"nowrap"}}>
                       {fmt(totalPedido(p))}
                     </p>
@@ -2206,6 +2264,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
 	                <div style={{display:"flex",gap:6,marginTop:9,flexWrap:"wrap"}}>
                   {(st === "enviado" || st === "parcial") && <Btn size="sm" onClick={()=>setRecModal(p)} full><Ic n="check"/> Receber material</Btn>}
+                  {podeEnviarPedido&&(st === "enviado" || st === "parcial") && <Btn size="sm" v="ghost" onClick={()=>setEnvioPedido(p)}>Enviar ao fornecedor</Btn>}
+                  {podeEnviarPedido&&(st === "enviado" || st === "parcial") && !p.aceiteFornecedor?.nome && <Btn size="sm" v="ghost" onClick={()=>setAceitePedido({pedido:p,nome:"",data:today(),canal:"whatsapp",previsao:p.previsao||"",obs:""})}>Registrar aceite</Btn>}
                   {(st === "enviado" || st === "parcial") && !pedidoLiberadoParaReceber(p) && (
                     <Btn size="sm" v="ghost" onClick={()=>{setAba("financeiro");setFiltroFinanceiro("pendentes");}} full>
                       Saldo em aberto · {fmt(saldoPagamentoPedido(p))}
@@ -2535,6 +2595,27 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {cotModal  && <ModalCotacao    form={cotModal}  setForm={setCotModal}  onSave={salvarCotacao}
                                      fornecedores={fornecedores} materiais={materiais} linhasOrc={linhasOrc}/>}
       <ModalLegendaDocumento anexo={anexoCotacao} setAnexo={setAnexoCotacao} onClose={()=>!subindoAnexoCotacao&&setAnexoCotacao(null)} onSalvar={salvarDocumentoCotacao} salvando={subindoAnexoCotacao} titulo="Anexar documento da cotação" C={C}/>
+      {envioPedido&&(()=>{const p=(data.pedidos||[]).find(x=>x.id===envioPedido.id)||envioPedido;const {forn,texto,assunto}=conteudoEnvioPedido(p);
+        return <Modal title={`Enviar pedido ${p.numero}`} onClose={()=>setEnvioPedido(null)} wide><div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <p style={{fontSize:10.5,color:C.muted}}>Escolha o canal. O envio fica registrado no pedido com data e autor; o aceite do fornecedor é registrado depois.</p>
+          <pre style={{whiteSpace:"pre-wrap",fontFamily:"inherit",fontSize:10.5,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 11px",color:C.text,maxHeight:260,overflow:"auto"}}>{texto}</pre>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {forn?.telefone?<a href={linkWhatsApp(forn.telefone,texto)} target="_blank" rel="noreferrer" style={{textDecoration:"none"}} onClick={()=>registrarEnvioPedido(p,"whatsapp",forn.telefone)}><Btn size="sm">WhatsApp</Btn></a>:<Btn size="sm" disabled title="Fornecedor sem telefone">WhatsApp</Btn>}
+            {forn?.email?<a href={linkEmailPedido(forn.email,assunto,texto)} style={{textDecoration:"none"}} onClick={()=>registrarEnvioPedido(p,"email",forn.email)}><Btn size="sm" v="ghost">E-mail</Btn></a>:<Btn size="sm" v="ghost" disabled title="Fornecedor sem e-mail">E-mail</Btn>}
+            <Btn size="sm" v="ghost" onClick={()=>{if(imprimirPedido(p))registrarEnvioPedido(p,"impresso");}}>Imprimir / PDF</Btn>
+          </div>
+          {(p.envios||[]).length>0&&<div style={{fontSize:9.5,color:C.muted}}>{p.envios.map(e=><p key={e.id}>{({whatsapp:"WhatsApp",email:"E-mail",impresso:"Impresso/PDF"})[e.canal]||e.canal} · {new Date(e.enviadoEm).toLocaleString("pt-BR")} · {e.enviadoPor}</p>)}</div>}
+          <Btn v="ghost" full onClick={()=>setEnvioPedido(null)}>Fechar</Btn>
+        </div></Modal>;})()}
+      {aceitePedido&&<Modal title={`Aceite do pedido ${aceitePedido.pedido.numero}`} onClose={()=>setAceitePedido(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <p style={{fontSize:10.5,color:C.muted}}>Registre quem confirmou o pedido no fornecedor e o prazo de entrega que ele assumiu.</p>
+        <Inp label="Quem confirmou no fornecedor *" value={aceitePedido.nome} onChange={v=>setAceitePedido(f=>({...f,nome:v}))} placeholder="Nome do vendedor ou responsável"/>
+        <Inp label="Data do aceite *" type="date" value={aceitePedido.data} onChange={v=>setAceitePedido(f=>({...f,data:v}))}/>
+        <Sel label="Canal *" value={aceitePedido.canal} onChange={v=>setAceitePedido(f=>({...f,canal:v}))} options={[{v:"whatsapp",l:"WhatsApp"},{v:"email",l:"E-mail"},{v:"telefone",l:"Telefone"},{v:"presencial",l:"Presencial"},{v:"documento",l:"Documento assinado"}]}/>
+        <Inp label="Entrega confirmada" type="date" value={aceitePedido.previsao} onChange={v=>setAceitePedido(f=>({...f,previsao:v}))}/>
+        <Inp label="Observação" value={aceitePedido.obs} onChange={v=>setAceitePedido(f=>({...f,obs:v}))} multiline/>
+        <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setAceitePedido(null)}>Cancelar</Btn><Btn full onClick={salvarAceitePedido}><Ic n="check"/> Registrar aceite</Btn></div>
+      </div></Modal>}
       {cotDecisao&&(()=>{const cot=(data.cotacoes||[]).find(c=>c.id===cotDecisao.cotacaoId);if(!cot)return null;
         const pendentesCot=itensPendentesDaCotacao(cot),escolhas=cotDecisao.escolhas||{},just=cotDecisao.justificativas||{};
         const avaliacao=avaliarEscolhasCotacao(cot,escolhas,just);

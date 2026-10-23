@@ -4,6 +4,7 @@ import { hasValidUnitConversion, purchaseUnitOf } from "./unit-conversion.js";
 import { proximoNumeroPedido } from "./calculations.js";
 import { instanciaDaSolicitacao, limiteAprovacaoEngenheiro, pedidoDentroDaAlcada } from "./purchase-approval.js";
 import { avaliarEscolhasCotacao, cotacaoMultiItens, decisoesDaCotacao, itensDaCotacao } from "./quote-map.js";
+import { CANAIS_ACEITE_PEDIDO, CANAIS_ENVIO_PEDIDO } from "./order-dispatch.js";
 
 export const PURCHASE_ORDER_COMMAND=Object.freeze({
   PURCHASE_ORDER_SAVED:"PEDIDO_COMPRA_SALVO",
@@ -13,6 +14,8 @@ export const PURCHASE_ORDER_COMMAND=Object.freeze({
   QUOTATION_SAVED:"COTACAO_COMPRA_SALVA",
   PURCHASE_QUOTE_DOCUMENT_ATTACHED:"DOCUMENTO_COTACAO_COMPRA_ANEXADO",
   QUOTE_MAP_DECIDED:"MAPA_COTACAO_DECIDIDO",
+  PURCHASE_ORDER_SENT_TO_SUPPLIER:"PEDIDO_COMPRA_ENVIADO_FORNECEDOR",
+  PURCHASE_ORDER_SUPPLIER_ACCEPTED:"PEDIDO_COMPRA_ACEITO_FORNECEDOR",
 });
 
 export const PURCHASE_ORDER_COMMAND_TYPES=new Set(Object.values(PURCHASE_ORDER_COMMAND));
@@ -579,6 +582,59 @@ const attachDocument=(data,command,now)=>{
   };
 };
 
+// Envio do pedido ao fornecedor (C2.5). Só pedido já enviado (não rascunho
+// nem cancelado) sai para o fornecedor; cada envio fica no histórico do
+// pedido com canal, data e autor. O status do pedido não muda aqui.
+const orderForSupplierAction=(data,command)=>{
+  const order=orderById(data,command.payload?.orderId);
+  if(!order)return {error:"Pedido não encontrado."};
+  if(!sameVersion(order,command.expectedVersion))return {error:"O pedido foi alterado por outra pessoa. Atualize a tela."};
+  if(!orderAlive(order))return {error:"Pedido cancelado não pode ser enviado nem aceito."};
+  if(order.status==="rascunho")return {error:"Envie o rascunho ao fornecedor (salve como enviado) antes de registrar o envio."};
+  return {order};
+};
+const replaceOrder=(data,order,now,actor,patch)=>{
+  const updated={...order,...patch,version:versionOf(order)+1,updatedAt:now,updatedById:actor.id,updatedBy:actor.nome};
+  return {ok:true,entityId:order.id,data:{...data,pedidos:(data.pedidos||[]).map(item=>item.id===order.id?updated:item)}};
+};
+
+const sendOrderToSupplier=(data,command,now)=>{
+  const found=orderForSupplierAction(data,command);
+  if(found.error)return fail(found.error);
+  const channel=String(command.payload?.channel||"");
+  if(!CANAIS_ENVIO_PEDIDO.includes(channel))return fail("Informe o canal de envio do pedido.");
+  const actor=actorOf(command);
+  const envio={id:`envio-${command.idempotencyKey}`,canal:channel,
+    destino:String(command.payload?.destination||"").trim().slice(0,200),
+    enviadoEm:now,enviadoPorId:actor.id,enviadoPor:actor.nome};
+  return replaceOrder(data,found.order,now,actor,{envios:[...(found.order.envios||[]),envio]});
+};
+
+const acceptOrderBySupplier=(data,command,now)=>{
+  const found=orderForSupplierAction(data,command);
+  if(found.error)return fail(found.error);
+  if(found.order.aceiteFornecedor?.nome)return fail("O aceite do fornecedor já foi registrado neste pedido.");
+  const payload=command.payload||{};
+  const nome=String(payload.acceptedBy||"").trim().slice(0,120);
+  const date=String(payload.acceptedAt||"");
+  const channel=String(payload.channel||"");
+  if(!nome)return fail("Informe o nome de quem confirmou o pedido no fornecedor.");
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date>now.slice(0,10))return fail("Informe uma data de aceite válida, até hoje.");
+  if(!CANAIS_ACEITE_PEDIDO.includes(channel))return fail("Informe por qual canal o fornecedor confirmou.");
+  const forecast=String(payload.confirmedForecast||"");
+  if(forecast&&!/^\d{4}-\d{2}-\d{2}$/.test(forecast))return fail("A data de entrega confirmada é inválida.");
+  const actor=actorOf(command);
+  // Prazo confirmado pelo fornecedor passa a ser a previsão de entrega (é
+  // ela que dispara o alerta de atraso); a anterior fica registrada.
+  const previsao=forecast&&forecast!==found.order.previsao
+    ?{previsao:forecast,previsaoAnterior:found.order.previsao||""}:{};
+  return replaceOrder(data,found.order,now,actor,{...previsao,aceiteFornecedor:{
+    nome,data:date,canal:channel,previsaoConfirmada:forecast,
+    observacao:String(payload.note||"").trim().slice(0,500),
+    registradoEm:now,registradoPorId:actor.id,registradoPor:actor.nome,
+  }});
+};
+
 const cancelQuote=(data,command,now)=>{
   const payload=command.payload||{},quote=quoteById(data,payload.quoteId);
   if(!quote||String(quote.status)==="cancelada")return fail("Cotação não encontrada ou já cancelada.");
@@ -666,7 +722,8 @@ export const purchaseOrderCommandObraId=(data={},command={})=>{
   if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE){
     return String(quoteById(data,payload.quoteId)?.obraId||"");
   }
-  if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED){
+  if([PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED,PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SENT_TO_SUPPLIER,
+    PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SUPPLIER_ACCEPTED].includes(command.type)){
     return String(orderById(data,payload.orderId)?.obraId||"");
   }
   if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_CANCELLED){
@@ -695,6 +752,8 @@ export const applyPurchaseOrderCommand=(data={},command={},now=new Date().toISOS
     return attachDocument(data,command,now);
   }
   if(command.type===PURCHASE_ORDER_COMMAND.QUOTATION_SAVED)return saveQuote(data,command,now);
+  if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SENT_TO_SUPPLIER)return sendOrderToSupplier(data,command,now);
+  if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SUPPLIER_ACCEPTED)return acceptOrderBySupplier(data,command,now);
   if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED){
     return attachQuoteDocument(data,command,now);
   }
