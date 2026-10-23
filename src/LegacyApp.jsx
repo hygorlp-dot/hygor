@@ -1,4 +1,5 @@
 import { Children, lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import DreReconciliationManager from "./features/financeiro/DreReconciliationManager.jsx";
 // Planilhas são um recurso pesado e opcional. O pacote só entra na memória
 // quando o usuário realmente importa ou exporta um arquivo.
 export let XLSX = null;
@@ -15775,6 +15776,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   <tr class="sec"><td>RECEITA BRUTA DA EMPRESA</td><td class="val">R$ ${fmt2(d.faturamentoTotal)}</td></tr>
   ${row("Faturamento de obras (medições emitidas)",d.faturamentoObras,"sub")}
   ${row("Locação de equipamentos da empresa",d.receitaLocacoes,"sub")}
+  ${d.receitaCorporativa>0?row("Outras receitas reconhecidas",d.receitaCorporativa,"sub"):""}
   <tr class="sec"><td>(-) DEDUÇÕES DA RECEITA</td><td class="val neg">(R$ ${fmt2(d.totalDeducoes)})</td></tr>
   ${d.descontoLocacoes>0?row("(-) Descontos comerciais das locações",-d.descontoLocacoes,"sub"):""}
   ${d.deducaoISS>0?row("(-) ISS "+data.config.aliquotaISS+"%",-d.deducaoISS,"sub"):""}
@@ -15982,6 +15984,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           <DSec title="Receita Bruta da Empresa" color={C.green} value={dre.faturamentoTotal}/>
           <DRow label="Faturamento de obras (medições emitidas)" value={dre.faturamentoObras} indent={1}/>
           <DRow label="Locação de equipamentos da empresa" value={dre.receitaLocacoes} color={C.green} indent={1}/>
+          {dre.receitaCorporativa>0&&<DRow label="Outras receitas reconhecidas" value={dre.receitaCorporativa} color={C.green} indent={1}/>}
           <DRow label="Recebido em caixa (referência)" value={dre.recebidoObras} color={C.muted} indent={1}/>
 
           <DSec title="(-) Deduções da Receita" color={C.red} value={-dre.totalDeducoes}/>
@@ -16159,8 +16162,8 @@ td.val{text-align:right;font-weight:700;min-width:110px}
               {Number(d.parcelas||1)>1&&<p style={{fontSize:9,color:C.muted}}>{d.parcelas} parcelas</p>}
             </div>
             <div style={{display:"flex",gap:5,alignItems:"center",justifyContent:"flex-end"}}>
-              <Btn size="sm" v="ghost" title="Editar" onClick={()=>openEditCompanyExpense(d)}><Ic n="edit"/></Btn>
-              <Btn size="sm" v="danger" disabled={expenseCommandPending} title="Excluir" onClick={()=>delDesp(d.id)}><Ic n="trash"/></Btn>
+              {d.native?<span style={{fontSize:10,color:C.muted}}>Gerido pelo título de origem</span>:<><Btn size="sm" v="ghost" title="Editar" onClick={()=>openEditCompanyExpense(d)}><Ic n="edit"/></Btn>
+              <Btn size="sm" v="danger" disabled={expenseCommandPending} title="Excluir" onClick={()=>delDesp(d.id)}><Ic n="trash"/></Btn></>}
             </div>
           </div>;
         })}
@@ -18442,6 +18445,7 @@ export default function App() {
           {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "rh_indic" && <Suspense fallback={<div className="arcd-page-loading">Carregando indicadores...</div>}><IndicadoresView data={data} /></Suspense>}
+          {["dre","dre_emp","conc"].includes(tab)&&<DreReconciliationManager data={data} update={update} currentUser={currentUser}/>}
           {tab === "dre_emp"  && <DREEmpresa  data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}

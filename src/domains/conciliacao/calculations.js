@@ -129,10 +129,10 @@ export const calcConciliacao = (data) => {
     .map(statement => String(statement.id)));
   const trans = (data?.transacoes || []).filter(transaction =>
     !archivedStatements.has(String(transaction?.extratoId || "")));
-  const pend = trans.filter(t => t.status === "pendente");
+  const pend = trans.filter(t => ["pendente","parcial"].includes(t.status));
   const conc = trans.filter(t => t.status === "conciliado");
   const ign = trans.filter(t => t.status === "ignorado");
-  const vPend = pend.reduce((s, t) => s + Math.abs(Number(t.valor || 0)), 0);
+  const vPend = pend.reduce((s, t) => s + (t.status==="parcial"?Math.max(0,Number(t.saldoNaoVinculado||0)):Math.abs(Number(t.valor || 0))), 0);
   const entradas = conc.filter(t => t.valor > 0).reduce((s, t) => s + t.valor, 0);
   const saidas = conc.filter(t => t.valor < 0).reduce((s, t) => s + Math.abs(t.valor), 0);
   return {

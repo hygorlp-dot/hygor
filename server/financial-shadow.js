@@ -1,6 +1,7 @@
 // A homologação em sombra precisa usar exatamente a mesma semântica do razão:
 // arquivamento preserva o fato econômico; cancelamento e estorno o anulam.
 import { active } from "../src/domains/financeiro/ledger.js";
+import { buildDreCashManagement } from "../src/domains/conciliacao/cash-allocations.js";
 import { buildProcurementFinancialFacts } from "./procurement-financial-facts.js";
 const amount = value => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 const isoDate = (value, fallback = "1970-01-01") => {
@@ -107,7 +108,9 @@ export const buildLegacyFinancialFacts = (data, { includeDreSnapshots = true } =
     metadata:{ extratoId:item.extratoId || "", legacyStatus:item.status || "pendente" },
   })).filter(item => item.legacyId && item.amount > 0);
 
-  return { facts, bankTransactions, dreSnapshots:includeDreSnapshots?buildDreProjectionRows(data):[] };
+  const cash=buildDreCashManagement(data);
+  return { facts, bankTransactions, cashEntries:cash.entries, cashAllocations:cash.allocations,
+    dreSnapshots:includeDreSnapshots?buildDreProjectionRows(data):[] };
 };
 
 export const summarizeLegacyFinancialFacts = ({ facts = [] } = {}) => {

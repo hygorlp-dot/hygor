@@ -26,6 +26,8 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   projects: [
+    {name:"dre-reconciliation-desktop",testMatch:/dre-reconciliation\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
+    {name:"dre-reconciliation-mobile",testMatch:/dre-reconciliation\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {
       name: "purchase-workspace",
       testMatch: /purchase-workspace\.spec\.js/,

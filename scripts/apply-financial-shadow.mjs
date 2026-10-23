@@ -30,6 +30,7 @@ for(const migration of [
   "../migrations/20261023144434_api_reconciliation_integrity.up.sql",
   "../migrations/004_financial_events_projection_conflict.up.sql",
   "../migrations/008_skip_dre_snapshot_sync_on_write.up.sql",
+  "../migrations/20261023154632_dre_cash_allocations.up.sql",
   "../migrations/20260726_auth_rate_limit.sql",
   "../migrations/20260727_auth_rate_limit_success.sql",
 ]){

@@ -60,6 +60,7 @@ export const createDreCalculations = ({
   calcObraLaborCost,
   calcEquipCustoObra,
   calcEquipFaturamentoEmpresa,
+  canonicalEvents = [],
 }) => {
   const diasPeriodoDRE = (year, month, periodo = "mes") => {
     if (periodo === "q1") return getQ(year, month).q1;
@@ -103,14 +104,14 @@ export const createDreCalculations = ({
       ? (data.obras || []).filter(work => work.id === onlyWorkId)
       : (data.obras || []);
     const supplemental = works.flatMap(work => supplementalForWork(data, work.id, ctx).events);
-    return buildFinancialLedger(data, { supplementalEvents: supplemental });
+    return buildFinancialLedger(data, { supplementalEvents: [...supplemental,...canonicalEvents] });
   };
 
   const calcDREObra = (data, obraId, year, month, periodo = "mes") => {
     const ctx = context(year, month, periodo);
     const obra = (data.obras || []).find(item => item.id === obraId);
     const supplemental = supplementalForWork(data, obraId, ctx);
-    const ledger = buildFinancialLedger(data, { supplementalEvents: supplemental.events });
+    const ledger = buildFinancialLedger(data, { supplementalEvents: [...supplemental.events,...canonicalEvents] });
     const filters = {
       obraId, startDate:ctx.per0, endDate:ctx.perF, asOfDate:ctx.perF,
       ...(periodo === "mes" ? { competence:ctx.ym } : {}),
@@ -149,7 +150,7 @@ export const createDreCalculations = ({
     const saldoCaixa = cash.balance;
     const tercCost = sumCategory("terceirizado");
     const rescTotal = sumCategory("rescisao");
-    const outrasTotal = sumSource("outra_despesa");
+    const outrasTotal = sumSource("outra_despesa")+fromCents(events.filter(event=>event.effect==="cost"&&event.sourceType==="canonical_title"&&!["terceirizado","rescisao"].includes(event.category)).reduce((sum,event)=>sum+event.amountCents,0));
     const comprasCost = sumSource("nota_fiscal");
     const equipCost = fromCents(supplemental.equipmentCents);
     const aReceber = fromCents(receivable.balanceCents);

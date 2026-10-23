@@ -50,6 +50,7 @@ import {
 } from "../../domains/conciliacao/index.js";
 import { createExactPixLaborCandidate, findRegisteredEmployeePix, hasEmployeePixNameEvidence, isExactPixLaborMatch } from "../../domains/conciliacao/pix-card";
 import { executarComandoConciliacao } from "../../api";
+import { activeCashAllocations, reconciliationHold } from "../../domains/conciliacao/cash-allocations.js";
 
 export default function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=null }) {
   const { formGrid } = useBreakpoint();
@@ -127,7 +128,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const transacoesElegiveisLote=useMemo(()=>{
     const extratosArquivados=new Set((data.extratos||[]).filter(e=>e.status==="arquivado").map(e=>String(e.id)));
     return (data.transacoes||[])
-      .filter(tr=>tr.status==="pendente"&&!extratosArquivados.has(String(tr.extratoId||"")))
+      .filter(tr=>tr.status==="pendente"&&!reconciliationHold(tr)&&!extratosArquivados.has(String(tr.extratoId||"")))
       .map(tr=>({tr,analise:analisesPorTransacao.get(tr.id)}))
       .filter(({analise})=>analise?.elegivelLote===true);
   },[data.transacoes,data.extratos,analisesPorTransacao]);
@@ -152,12 +153,13 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       }
       return (b.data||"").localeCompare(a.data||"");
     });
-    const porStatus=aba === "pendentes"?t.filter(x=>x.status==="pendente"):aba === "conciliadas"?t.filter(x=>x.status==="conciliado"):aba === "ignoradas"?t.filter(x=>x.status==="ignorado"):t;
+    const porStatus=aba === "pendentes"?t.filter(x=>["pendente","parcial"].includes(x.status)):aba === "conciliadas"?t.filter(x=>x.status==="conciliado"):aba === "ignoradas"?t.filter(x=>x.status==="ignorado"):t;
     const termo=semAcentoConc(buscaConc.trim());
     return porStatus.filter(x=>(tipoMovimento==="todos"||(tipoMovimento==="entradas"?Number(x.valor)>0:Number(x.valor)<0))&&(!termo||semAcentoConc(`${x.descricao} ${x.data} ${x.ignoradoMotivo||""}`).includes(termo)));
   }, [data.transacoes, data.extratos, aba, buscaConc, tipoMovimento, analisesPorTransacao]);
   const transacoesVisiveis=transacoes.slice(0,limiteVisivel);
-  const todosSelecionados=transacoes.length>0&&transacoes.every(t=>selecionadas.includes(t.id));
+  const selecionaveis=transacoes.filter(t=>t.status!=="parcial"&&!reconciliationHold(t));
+  const todosSelecionados=selecionaveis.length>0&&selecionaveis.every(t=>selecionadas.includes(t.id));
 
   // Candidatas pré-computadas só para a fatia visível da fila pendente -
   // nunca roda o motor inteiro dentro do map() de cada linha.
@@ -165,6 +167,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     const mapa = new Map();
     if (aba !== "pendentes") return mapa;
     transacoes.slice(0, limiteVisivel).forEach(tr => {
+      if(tr.status!=="pendente"||reconciliationHold(tr))return;
       const periodo=periodoPontoDaTransacao(tr.data);
       const candidataMaoObra=sugerirPagamentoMaoObra(tr,data,periodo.days)
         .map(item=>createExactPixLaborCandidate(tr,{...item,periodoPonto:periodo.periodoPonto,periodoConfirmavel:Boolean(tr.data&&periodo.days.length)}))
@@ -717,7 +720,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
   const abrirIgnorar = (alvos,titulo) => {
     const ids=[...new Set((alvos||[]).map(item=>typeof item==="string"?item:item.id))];
-    const itens=(data.transacoes||[]).filter(t=>ids.includes(t.id)&&t.status==="pendente");
+    const itens=(data.transacoes||[]).filter(t=>ids.includes(t.id)&&t.status==="pendente"&&!reconciliationHold(t));
     if(!itens.length){showToast("Nenhuma transação pendente selecionada.","warn");return;}
     setIgnorarModal({ids:itens.map(t=>t.id),titulo:titulo||"Ignorar transações",motivo:"",valor:itens.reduce((s,t)=>s+Math.abs(Number(t.valor||0)),0)});
   };
@@ -777,7 +780,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
   const nomeObra = (id) => (data.obras.find(o=>o.id===id)?.name) || "-";
   const alternarSelecao=id=>setSelecionadas(lista=>lista.includes(id)?lista.filter(item=>item!==id):[...lista,id]);
-  const alternarTodas=()=>setSelecionadas(todosSelecionados?[]:transacoes.map(t=>t.id));
+  const alternarTodas=()=>setSelecionadas(todosSelecionados?[]:selecionaveis.map(t=>t.id));
   const rotuloAcao={extrato_importado:"Extrato importado",extrato_arquivado:"Extrato arquivado",conciliada:"Conciliação confirmada",conciliacao_desfeita:"Conciliação desfeita",ignorada:"Transação ignorada",ignorada_em_lote:"Ignorada em lote",reaberta:"Transação reaberta",reaberta_em_lote:"Reaberta em lote",conciliacao_legada:"Conciliação anterior",ignorado_legado:"Ignorada anteriormente"};
   const corAcao=acao=>acao==="conciliada"||acao==="extrato_importado"?C.green:acao.includes("desfeita")||acao.includes("reaberta")?C.blue:acao.includes("ignorada")?C.orange:acao.includes("excluido")?C.red:C.muted;
 
@@ -979,6 +982,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
               </tr></thead>
               <tbody>{transacoesVisiveis.map(tr=>{
                 const entrada=Number(tr.valor)>0,sug=tr.status==="pendente"?sugerirRateio(tr,data.regrasConc,data.aprendizadoConc):null;
+                const hold=reconciliationHold(tr);
+                const hasPartialLinks=activeCashAllocations(data).some(link=>link.transactionId===tr.id);
                 const candidatas=aba==="pendentes"?(candidatosPorTransacao.get(tr.id)||[]):[];
                 const melhor=candidatas[0];
                 const analise=analisesPorTransacao.get(tr.id);
@@ -994,7 +999,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                 };
                 const rotuloPrincipal=modoConciliacaoRh?"Confirmar funcionário":pixFuncionario&&!entrada?"Confirmar PIX":melhorEhPixMaoDeObra?"Confirmar PIX":melhor?"Revisar sugestão":entrada?"Validar entrada":"Classificar saída";
                 return <tr key={tr.id} className="reconciliation-row" data-selected={selecionadas.includes(tr.id)} data-pix={Boolean(pixFuncionario)} data-direction={entrada?"in":"out"}>
-                  <td className="reconciliation-cell reconciliation-cell--select">{!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<input aria-label={`Selecionar ${tr.descricao}`} type="checkbox" checked={selecionadas.includes(tr.id)} onChange={()=>alternarSelecao(tr.id)}/>}</td>
+                  <td className="reconciliation-cell reconciliation-cell--select">{!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<input aria-label={`Selecionar ${tr.descricao}`} type="checkbox" disabled={Boolean(hold)||tr.status==="parcial"} checked={selecionadas.includes(tr.id)} onChange={()=>alternarSelecao(tr.id)}/>}</td>
                   <td className="reconciliation-cell reconciliation-cell--date">{fmtDate(tr.data)}</td>
                   <td className="reconciliation-cell reconciliation-cell--movement" title={tr.descricao}>
                     <div className="reconciliation-movement__title"><span className="reconciliation-movement__marker" style={{background:corMovimento}} aria-hidden="true"/><p>{tr.descricao}</p></div>
@@ -1003,7 +1008,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                   </td>
                   {aba==="pendentes"
                     ? <td className="reconciliation-cell reconciliation-cell--candidate">
-                        {melhor
+                        {hold?<span className="reconciliation-candidate__blocked">{hold}</span>:melhor
                           ? <div className="reconciliation-candidate">
                               <p className="reconciliation-candidate__title">{melhor.titulo}</p>
                               <div className="reconciliation-candidate__meta">
@@ -1029,7 +1034,9 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                       </td>}
                   <td className="reconciliation-cell reconciliation-cell--value">{entrada?"+ ":""}{fmt(Math.abs(tr.valor))}</td>
                   <td className="reconciliation-cell reconciliation-cell--actions">
-                    {tr.status==="pendente"&&<>
+                    {tr.status==="parcial"&&<span>Parcial · saldo {fmt(tr.saldoNaoVinculado||0)}. Complete os vínculos no gestor do DRE acima.</span>}
+                    {hold&&<span>Pendente de composição do aporte</span>}
+                    {tr.status==="pendente"&&!hold&&<>
                       <div className="reconciliation-actions__primary">
                         <Btn size="sm" v={entrada&&!melhor?"success":"primary"} onClick={abrirAcaoPrincipal}><Ic n="check"/> {rotuloPrincipal}</Btn>
                         {!modoConciliacaoRh&&<button type="button" className="reconciliation-actions__toggle" aria-expanded={acoesAbertas} aria-label={`${acoesAbertas?"Ocultar":"Mostrar"} outras ações de ${tr.descricao}`} onClick={()=>setAcoesTransacaoAberta(atual=>atual===tr.id?"":tr.id)}>•••</button>}
@@ -1042,7 +1049,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                         <Btn size="sm" v="ghost" onClick={()=>abrirIgnorar([tr],"Ignorar transação")}>Ignorar</Btn>
                       </div>}
                     </>}
-                    {tr.status==="conciliado"&&!modoConciliacaoRh&&<Btn size="sm" v="ghost" onClick={()=>desfazer(tr)}>Desfazer</Btn>}
+                    {tr.status==="conciliado"&&hasPartialLinks&&<span>Gerencie os vínculos no DRE acima.</span>}
+                    {tr.status==="conciliado"&&!hasPartialLinks&&!modoConciliacaoRh&&<Btn size="sm" v="ghost" onClick={()=>desfazer(tr)}>Desfazer</Btn>}
                     {tr.status==="ignorado"&&!modoConciliacaoRh&&<><Btn size="sm" onClick={()=>abrirApropriacao(tr)}>Reclassificar</Btn> <Btn size="sm" v="ghost" onClick={()=>reabrir([tr])}>Reabrir</Btn></>}
                   </td>
                 </tr>;
