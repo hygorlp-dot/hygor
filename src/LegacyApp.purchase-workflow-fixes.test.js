@@ -42,4 +42,12 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
     expect(chegada).toMatch(/valorUnit: referenceUnitCostOf\(i\)/);
     expect(legacy).toMatch(/receivedQuantities:Object\.fromEntries\(entradas\.map\(item=>\[item\.pedidoItemId,item\.qtdCompra\]\)\)/);
   });
+
+  it("C1.4: pagamento mostra o conferido e manda adiantamento com motivo ao servidor",()=>{
+    const pagar=trecho(compras,"const registrarPagamento=async","const reclassificarOrigemPagamento=");
+    expect(pagar).toMatch(/conferenciaPagamentoPedido\(data,pedido\.id\)/);
+    expect(pagar).toMatch(/adiantamento:!!f\.adiantamento,motivoAdiantamento:/);
+    expect(compras).toMatch(/Motivo do adiantamento \*/);
+  });
 });
+

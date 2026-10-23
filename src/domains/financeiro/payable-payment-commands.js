@@ -12,6 +12,7 @@ import {
   WORK_CASH_COMMAND,
 } from "./work-cash-commands.js";
 import { isDateInClosedPeriod } from "./workflows.js";
+import { avaliarPagamentoPedido } from "../compras/payment-conference.js";
 
 export const PAYABLE_PAYMENT_COMMAND=Object.freeze({
   PAYABLE_PAYMENT_RECORDED:"PAGAMENTO_OBRIGACAO_REGISTRADO",
@@ -160,7 +161,16 @@ const recordPayment=(data,command,now)=>{
     return fail("O pagamento pelo caixa precisa identificar seu movimento.");
   }
 
-  const payment=buildPayment(raw,actor,now);
+  // C1.4: pedido só é pago até o conferido (recebido e com nota); acima
+  // disso é adiantamento, com motivo e liberado pelo Financeiro/Admin.
+  let conference={};
+  if(type==="pedido"){
+    const check=avaliarPagamentoPedido(data,{pedidoId:target.id,valor:value,
+      adiantamento:payload.adiantamento,motivo:payload.motivoAdiantamento,actorRole:command.actorRole});
+    if(check.error)return fail(check.error);
+    conference=check.campos;
+  }
+  const payment={...buildPayment(raw,actor,now),tipo:"",motivoAdiantamento:"",...conference};
   let next=updateWorkspace(data,target.obraId,payload.workspace);
   const current=targetBy(next,type,target.id);
   next=updateTarget(next,type,target.id,updatePaidTarget(type,current,payment,actor,now));
