@@ -76,6 +76,10 @@ import {
   approvalCommandObraId,
 } from "../src/domains/aprovacoes/approval-commands.js";
 import {
+  PAPEIS_CONTRATO_FORNECIMENTO,
+  SUPPLY_CONTRACT_COMMAND_TYPES,
+} from "../src/domains/compras/supply-contracts.js";
+import {
   STOCK_COMMAND_TYPES,
   STOCK_COMPANY_COMMAND_TYPES,
   stockCommandObraId,
@@ -152,6 +156,11 @@ export const validateOperationalCommandScope=({user={},data={},command={}}={})=>
     return user?.role==="admin"
       ?{ok:true,obraId:"",scope:"company"}
       :{ok:false,error:"Somente o administrador pode alterar as configurações da empresa."};
+  }
+  if(SUPPLY_CONTRACT_COMMAND_TYPES.has(command.type)){
+    return PAPEIS_CONTRATO_FORNECIMENTO.includes(user?.role)
+      ?{ok:true,obraId:"",scope:"company"}
+      :{ok:false,error:"Seu perfil não pode alterar contratos de fornecimento."};
   }
   if(SUPPLIER_COMMAND_TYPES.has(command.type)){
     return ["admin","compras","financeiro"].includes(user?.role)

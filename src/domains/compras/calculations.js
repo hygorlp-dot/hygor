@@ -1,6 +1,7 @@
 // Regras puras do contexto de Compras. Sem React, DOM ou persistência.
 import { calculateWorkCash } from "../financeiro/work-cash.js";
 import { active } from "../financeiro/ledger.js";
+import { pedidoPorContrato } from "./supply-contracts.js";
 
 export const STATUS_PEDIDO = {
   rascunho:{l:"Rascunho",c:"#6B6459"},enviado:{l:"Enviado",c:"#0D47A1"},
@@ -113,7 +114,8 @@ export const mapaGerencialCompras = (data, obraIds = [], hoje = "") => {
   const atrasados = pedidosValidos.filter(p =>
     p.previsao && hoje && p.previsao < hoje && statusPedido(p) !== "recebido");
   const semPrevisao = pedidosValidos.filter(p => !p.previsao);
-  const semCotacao = pedidosValidos.filter(p => !p.cotacaoId);
+  // Pedido feito pelo contrato de fornecimento dispensa cotação (C2.4).
+  const semCotacao = pedidosValidos.filter(p => !p.cotacaoId && !pedidoPorContrato(p));
   const pagamentos = pedidos.flatMap(p => p.pagamentos || []).filter(active);
   const semConciliacao = pagamentos.filter(pg => !pg.conciliado);
   const recebidosSemQuitar = pedidosValidos.filter(p =>
