@@ -192,7 +192,7 @@ test("pagamento direto do cliente continua separado da entrega e do caixa da emp
   const delivery=page.locator(".purchase-queue-table tbody tr").filter({hasText:"PC-003"});
   await expect(delivery).toContainText("Pago");
   await expect(delivery.getByRole("button",{name:"Receber materiais · PC-003"})).toBeVisible();
-  await page.getByRole("navigation",{name:"Financeiro e consultas de compras"}).getByRole("button",{name:/^Pagamentos/}).click();
+  await page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button",{name:/^Pagamentos/}).click();
   await expect(page.locator(".compras-funding")).toContainText("Cliente direto");
   await expect(page.locator(".compras-funding")).toContainText("75,00");
   expect(app.state().pedidos.find(order=>order.id==="other").pagamentos[0]).toMatchObject({origem:"cliente_direto",conciliado:true});

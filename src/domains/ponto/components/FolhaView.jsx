@@ -1,3 +1,4 @@
+import { DreIntegration, FlowTabs, useRememberWorkflowScope, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
 // FolhaView — tela de Folha de pagamento extraída de LegacyApp.jsx
 //
@@ -30,12 +31,15 @@ import {
 import { advanceDeductionForPeriod } from "../../rh/advance-commands";
 
 function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
+  const {scopes}=useWorkflow();
+  const savedScope=scopes.folha;
   const now = new Date();
   const refInicial = now.getDate() <= 5 ? new Date(now.getFullYear(), now.getMonth()-1, 1) : now;
-  const [year, setYear] = useState(refInicial.getFullYear());
-  const [month, setMonth] = useState(refInicial.getMonth());
-  const [q, setQ] = useState(now.getDate() >= 6 && now.getDate() <= 20 ? "1" : "2");
-  const [filterObra, setFilterObra] = useState("all");
+  const [year, setYear] = useState(savedScope?.year??refInicial.getFullYear());
+  const [month, setMonth] = useState(savedScope?.month??refInicial.getMonth());
+  const [q, setQ] = useState(savedScope?.cycle||(now.getDate() >= 6 && now.getDate() <= 20 ? "1" : "2"));
+  const [filterObra, setFilterObra] = useState(currentUser?.obraId||savedScope?.obraId||"all");
+  useRememberWorkflowScope("folha",{obraId:filterObra==="all"?"":filterObra,year,month,period:"mes",cycle:q});
   const [expandedId, setExpandedId] = useState(null);
   const [relatorioPendente, setRelatorioPendente] = useState("");
   const [payrollView,setPayrollView]=useState("payroll");
@@ -731,6 +735,21 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
   return (
     <div className="anim payroll-workspace">
+      <section className="payroll-controls" aria-label="Competência e escopo da folha">
+        <div className="payroll-section-heading">
+          <div>
+            <h3>Competência e escopo</h3>
+            <p>{fmtDateFull(days[0])} a {fmtDateFull(days[days.length-1])}</p>
+          </div>
+          <span className="payroll-scope-chip">{filterObra==="all"?"Consolidado da empresa":obraName(filterObra)}</span>
+        </div>
+        <div className="payroll-filter-grid">
+          <Sel label="Ano" value={String(year)} onChange={v => setYear(Number(v))} options={years} />
+          <Sel label="Mês de referência" value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
+          <Sel label="Ciclo da folha" value={q} onChange={setQ} options={[{ v: "1", l: "1ª quinzena · 06 a 20" }, { v: "2", l: "2ª quinzena · 21 a 05" }]} />
+          <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
+        </div>
+      </section>
       <PageHero
         eyebrow="Recursos humanos"
         title="Folha de Pagamento"
@@ -751,10 +770,12 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         actions={pendenciasRelatorio.length?<Btn v="warning" onClick={()=>onTab?.("ponto_geral")}><Ic n="alert"/> Revisar ponto</Btn>:null}
       />
 
-      <nav className="payroll-view-tabs" aria-label="Áreas da folha">
-        <button type="button" aria-current={payrollView==="payroll"?"page":undefined} onClick={()=>setPayrollView("payroll")}><Ic n="file"/> Folha da quinzena</button>
-        <button type="button" aria-current={payrollView==="union"?"page":undefined} onClick={()=>setPayrollView("union")}><Ic n="building"/> Sindicato</button>
-      </nav>
+      <FlowTabs label="Áreas da folha" active={payrollView} onChange={setPayrollView}
+        steps={[{id:"payroll",label:"Folha da quinzena",description:"Confira as pendências e a composição por funcionário antes de gerar os relatórios."}]}
+        tools={[{id:"union",label:"Sindicato"}]} toolsLabel="Regras e descontos"/>
+      <DreIntegration kind="payroll" currentUser={currentUser} obraId={filterObra==="all"?"":filterObra} year={year} month={month}>
+        <p>Consulta do DRE mensal. A quinzena de 21 a 05 atravessa dois meses; o DRE mantém a competência de cada apontamento.</p>
+      </DreIntegration>
 
       {payrollView==="union"&&<section className="payroll-union" aria-labelledby="union-title">
         <header className="payroll-union__header">
@@ -796,21 +817,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
       {payrollView==="payroll"&&<>
 
-      <section className="payroll-controls" aria-label="Competência e escopo da folha">
-        <div className="payroll-section-heading">
-          <div>
-            <h3>Competência e escopo</h3>
-            <p>{fmtDateFull(days[0])} a {fmtDateFull(days[days.length-1])}</p>
-          </div>
-          <span className="payroll-scope-chip">{filterObra==="all"?"Consolidado da empresa":obraName(filterObra)}</span>
-        </div>
-        <div className="payroll-filter-grid">
-          <Sel label="Ano" value={String(year)} onChange={v => setYear(Number(v))} options={years} />
-          <Sel label="Mês de referência" value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
-          <Sel label="Ciclo da folha" value={q} onChange={setQ} options={[{ v: "1", l: "1ª quinzena · 06 a 20" }, { v: "2", l: "2ª quinzena · 21 a 05" }]} />
-          <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
-        </div>
-      </section>
+
 
       <section className="payroll-summary-strip" aria-label="Composição do pagamento">
         <div><span>Dias + horas extras</span><strong>{fmt(T.gross-T.holidayPay)}</strong></div>
@@ -821,19 +828,14 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         <div className="payroll-summary-strip__net"><span>Líquido a pagar</span><strong>{fmt(T.net)}</strong><small>Valor final dos pagamentos aos funcionários</small></div>
       </section>
 
-      <section className="payroll-actionbar" aria-label="Ações da folha">
-        <div>
-          <h3>Relatórios e compartilhamento</h3>
-          <p>Os arquivos respeitam a competência e a obra selecionadas acima.</p>
-        </div>
-        <div className="payroll-actions">
-          <Btn v="primary" onClick={() => solicitarRelatorio("excel")}><Ic n="download" /> Exportar Excel</Btn>
-          <Btn v="ghost" onClick={() => solicitarRelatorio("pdf")}><Ic n="file" /> Gerar PDF</Btn>
-          <Btn v="ghost" onClick={() => window.open(`mailto:${data.config.hrEmail || ""}?subject=${encodeURIComponent("Folha - " + periodLabel)}&body=${encodeURIComponent(buildText())}`)}><Ic n="mail" /> Enviar por e-mail</Btn>
-          <Btn v="ghost" onClick={() => navigator.clipboard.writeText(buildText()).then(() => showToast("Resumo copiado.")).catch(() => showToast("Não foi possível copiar o resumo.", "error"))}><Ic n="copy" /> Copiar resumo</Btn>
-        </div>
-      </section>
 
+
+      <section className="payroll-checklist" aria-label="Conferência da folha">
+        <h3>{pendenciasRelatorio.length?"Pendências para conferir":"Conferência da quinzena"}</h3>
+        <p>{pendenciasRelatorio.length} funcionário(s) com pendência · {totalDiasSemRegistro} dia(s) sem registro · {totalSemPix} PIX ausente(s).</p>
+        <p>Abra cada funcionário abaixo para conferir a composição. Gerar o relatório não registra um pagamento.</p>
+        {pendenciasRelatorio.length>0&&<Btn v="ghost" onClick={()=>onTab?.("ponto_geral")}>Abrir gestão do ponto</Btn>}
+      </section>
       <div className="payroll-list-heading">
         <div><h3>Funcionários da quinzena</h3><p>Abra uma linha para conferir composição, obras e espelho diário.</p></div>
         <span>{rows.length} registro(s)</span>
@@ -982,6 +984,18 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           </div>
         </Modal>
       )}
+      <section className="payroll-actionbar" aria-label="Ações da folha">
+        <div>
+          <h3>Relatórios e compartilhamento</h3>
+          <p>Os arquivos respeitam a competência e a obra selecionadas acima.</p>
+        </div>
+        <div className="payroll-actions">
+          <Btn v="primary" onClick={() => solicitarRelatorio("excel")}><Ic n="download" /> Exportar Excel</Btn>
+          <Btn v="ghost" onClick={() => solicitarRelatorio("pdf")}><Ic n="file" /> Gerar PDF</Btn>
+          <Btn v="ghost" onClick={() => window.open(`mailto:${data.config.hrEmail || ""}?subject=${encodeURIComponent("Folha - " + periodLabel)}&body=${encodeURIComponent(buildText())}`)}><Ic n="mail" /> Enviar por e-mail</Btn>
+          <Btn v="ghost" onClick={() => navigator.clipboard.writeText(buildText()).then(() => showToast("Resumo copiado.")).catch(() => showToast("Não foi possível copiar o resumo.", "error"))}><Ic n="copy" /> Copiar resumo</Btn>
+        </div>
+      </section>
       </>}
     </div>
   );

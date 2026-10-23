@@ -1,3 +1,4 @@
+import { FlowTabs, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
 // EquipamentosView — tela de Equipamentos extraída de LegacyApp.jsx
 //
@@ -122,10 +123,12 @@ function EquipmentImage({equipment,preview=false}) {
 }
 
 export default function Equipamentos({ data, update, showToast, currentUser, dispatchCommand, obraIdFixo="", contexto="engenharia" }) {
+  const {scopes}=useWorkflow();
+  const savedScope=scopes.equip_fin;
   const { formGrid } = useBreakpoint();
   const now = new Date();
   const [aba, setAba] = useState(contexto==="financeiro"?"gestao":"frota");   // frota | gestao | locacoes | manutencao | relatorio
-  const [ym, setYm]   = useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`);
+  const [ym, setYm]   = useState(savedScope?.year!=null&&savedScope?.month!=null?`${savedScope.year}-${String(savedScope.month+1).padStart(2,"0")}`:`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`);
 
   const [equipModal, setEquipModal] = useState(null);
   const [donoModal,  setDonoModal]  = useState(null);
@@ -885,6 +888,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
 
   return (
     <div className={`anim equipment-center ${contexto==="financeiro"?"is-financial":""}`} style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div className="equipment-workflow-context"><div><Sel label="Período de referência" value={ym} onChange={setYm} options={mesesOpts}/></div><p>Consulte disponibilidade, acompanhe as locações e prepare a cobrança. Cadastros e manutenção ficam nas áreas de apoio.</p></div>
       <PageHero
         eyebrow={contexto==="financeiro"?"Financeiro · ativos e locações":"Engenharia"}
         title={contexto==="financeiro"?"Central de locação de equipamentos":"Equipamentos"}
@@ -909,14 +913,15 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       />
 
       {/* Abas internas */}
-      <TabRow tabs={[
-        {v:"frota",l:"Frota",icon:"wrench",count:equipamentosAtivos.length},
-        {v:"fisico",l:"Cadastro físico",icon:"layers",count:physicalRegistry.units.length+physicalRegistry.lots.length},
-        {v:"gestao",l:"Mapa de ocupação",icon:"calendar",count:locacoesAtivas.length},
-        {v:"locacoes",l:"Locações",icon:"building",count:(data.locacoesEquip||[]).length},
-        {v:"manutencao",l:"Manutenção",icon:"settings",count:(data.manutencoesEquip||[]).length},
-        {v:"relatorio",l:"Cobrança por obra",icon:"chart"},
-      ]} active={aba} onChange={setAba}/>
+      <FlowTabs label="Fluxo de equipamentos e locações" active={aba} onChange={setAba} steps={[
+        {id:"gestao",label:"Mapa de ocupação",count:locacoesAtivas.length,description:"Confira a disponibilidade antes de reservar ou contratar."},
+        {id:"locacoes",label:"Locações",count:(data.locacoesEquip||[]).length,description:"Acompanhe contratos, equipamentos em obra e devoluções."},
+        {id:"relatorio",label:"Cobrança por obra",description:"Selecione competência e obra, confira a cobrança e exporte o documento para o cliente."},
+      ]} tools={[
+        {id:"frota",label:"Frota",count:equipamentosAtivos.length},
+        {id:"fisico",label:"Cadastro físico",count:physicalRegistry.units.length+physicalRegistry.lots.length},
+        {id:"manutencao",label:"Manutenção",count:(data.manutencoesEquip||[]).length},
+      ]} toolsLabel="Frota, cadastros e manutenção"/>
 
       {/* ---------- FROTA ---------- */}
       {aba==="frota" && <>
@@ -1267,7 +1272,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
 
       {/* ---------- RELATÓRIO MENSAL ---------- */}
       {aba==="relatorio" && <Suspense fallback={<div className="equipment-report-empty"><strong>Preparando relatórios</strong><p>Organizando dados gerenciais e memórias por obra...</p></div>}>
-        <LazyEquipmentBillingReports
+        <LazyEquipmentBillingReports currentUser={currentUser}
           data={data}
           period={ym}
           periodOptions={mesesOpts}

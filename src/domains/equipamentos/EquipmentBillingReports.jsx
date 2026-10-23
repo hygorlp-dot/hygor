@@ -1,3 +1,4 @@
+import { DreIntegration, useRememberWorkflowScope, useWorkflow } from "../../features/workflow/WorkflowNavigation.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, ChevronLeft, ChevronsUpDown, Info, RefreshCw, X } from "lucide-react";
 import { Button } from "../../design-system/primitives/Button.jsx";
@@ -57,11 +58,13 @@ function Term({ label, value, note, help, tone, children }) {
 // a exportação continuam sendo gerados pelo dono da tela (EquipamentosView),
 // sem mudança - o painel e o documento têm arquiteturas diferentes.
 export default function EquipmentBillingReports({
-  data, period, periodOptions, onPeriodChange, ownerName, hoje, formatDate, formatComposition,
+  data, currentUser, period, periodOptions, onPeriodChange, ownerName, hoje, formatDate, formatComposition,
   onPrintManagement, onPrintWork, onExportManagement, onExportWork, onEditRental, onDeleteRental, onAddRentalToWork,
 }) {
+  const {scopes}=useWorkflow();
   const [view, setView] = useState("geral");
-  const [filters, setFilters] = useState(DEFAULT_BILLING_FILTERS);
+  const [filters, setFilters] = useState(()=>({...DEFAULT_BILLING_FILTERS,obraId:currentUser?.obraId||scopes.equip_fin?.obraId||"all"}));
+  useRememberWorkflowScope("equip_fin",{obraId:filters.obraId==="all"?"":filters.obraId,year:Number(period?.slice(0,4)),month:Number(period?.slice(5,7))-1,period:"mes"});
   const [workSort, setWorkSort] = useState({ key: "receita", dir: "desc" });
   const [workId, setWorkId] = useState("");
   const [mapWorkId, setMapWorkId] = useState("");
@@ -105,6 +108,9 @@ export default function EquipmentBillingReports({
   const mapWorks = model.works;
   const mapWork = mapWorks.find(work => work.id === mapWorkId) || mapWorks[0] || null;
 
+  const dreIntegration=<DreIntegration kind="rentals" currentUser={currentUser} obraId={filters.obraId==="all"?"":filters.obraId} year={Number(period?.slice(0,4))} month={Number(period?.slice(5,7))-1}>
+    <p>O recorte do DRE usa obra e competência. Propriedade, situação da cobrança e busca são filtros operacionais desta tela.</p>
+  </DreIntegration>;
   const header = (
     <header className="bc-header">
       <div>
@@ -149,7 +155,7 @@ export default function EquipmentBillingReports({
   );
 
   if (!model.hasMonthData) {
-    return <section className="bc" aria-label="Central de cobranças">{header}{filterBar}
+    return <section className="bc" aria-label="Central de cobranças">{header}{filterBar}{dreIntegration}
       <EmptyState title={`Nenhuma cobrança encontrada para ${model.label}.`} description="Não há locações com permanência registrada nesta competência. Escolha outra competência acima." />
     </section>;
   }
@@ -160,6 +166,7 @@ export default function EquipmentBillingReports({
     <section className="bc" aria-label="Central de cobranças">
       {header}
       {filterBar}
+      {dreIntegration}
       {tabs}
 
       {filteredEmpty && <EmptyState title="Nenhum resultado para estes filtros." description={`Há ${model.allRows.length} locação(ões) em ${model.label} fora deste recorte.`} action={<Button variant="secondary" onClick={clearFilters}>Limpar filtros</Button>} />}

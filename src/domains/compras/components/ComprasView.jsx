@@ -1,3 +1,4 @@
+import { DreIntegration, useRememberWorkflowScope, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
 // ComprasView — tela de Compras extraída de LegacyApp.jsx
 //
@@ -752,6 +753,8 @@ function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeFo
 
 export default function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD_SETOR, dispatchCommand:rawDispatchCommand=null }) {
   const { cols, pick, isDesktop } = useBreakpoint();
+  const {scopes}=useWorkflow();
+  const savedScope=scopes.cmp;
   const {save, dispatch:dispatchCommand} = usePurchaseSave(rawDispatchCommand);
   const [filtrosFluxo,setFiltrosFluxo] = useState({query:"",stage:"",risk:""});
   const [registroFoco,setRegistroFoco] = useState("");
@@ -764,7 +767,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     return()=>window.cancelAnimationFrame(frame);
   },[registroFoco]);
   const [aba,     setAba]     = useState(["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":currentUser?.role==="financeiro"?"financeiro":"fila");
-  const [obraSel, setObraSel] = useState(obraIdFixo);
+  const [obraSel, setObraSel] = useState(obraIdFixo||currentUser?.obraId||savedScope?.obraId||"");
   const [busca,   setBusca]   = useState("");
 
   const [pedModal,  setPedModal]  = useState(null);
@@ -800,7 +803,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const [inicioCotacao,setInicioCotacao]=useState("");
   const [fimCotacao,setFimCotacao]=useState("");
   const [cotacaoExpandida,setCotacaoExpandida]=useState("");
-  const [escopoMapa,setEscopoMapa]=useState(obraIdFixo?"obra":"empresa");
+  const [escopoMapa,setEscopoMapa]=useState(obraIdFixo||currentUser?.obraId||savedScope?.obraId?"obra":"empresa");
   const [filtroKanban,setFiltroKanban]=useState("ativos");
 
   const obras = useMemo(()=>(data.obras || []).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId),[data.obras,currentUser?.obraId]);
@@ -1918,6 +1921,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const abrirModoAnalise=()=>setModoIA(true);
   const abrirNovaSolicitacao=()=>setSolModal({obraId:currentUser?.obraId||obraAtual,necessidade:"",prioridade:"normal",referenciaId:basesCompra[0]?.id||"",observacao:"",itens:[]});
   const abasSecundarias=comprasAbas.filter(([id])=>!["solicitacoes","cotacoes","pedidos","financeiro","historico_compras"].includes(id));
+  const [competenciaDre,setCompetenciaDre]=useState(()=>savedScope?.year!=null&&savedScope?.month!=null?`${savedScope.year}-${String(savedScope.month+1).padStart(2,"0")}`:new Date().toISOString().slice(0,7));
+  const escopoDre={obraId:todasObras?"":obraAtual,year:Number(competenciaDre.slice(0,4)),month:Number(competenciaDre.slice(5,7))-1,period:"mes"};
+  useRememberWorkflowScope("cmp",escopoDre);
   const escopoFluxo=todasObras?"Todas as obras":obraPorId.get(obraAtual)?.name||"Selecione uma obra";
 
   return (
@@ -1938,6 +1944,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             }} options={[{value:"all",label:"Todas as obras"},...obras.map(o=>({value:o.id,label:o.name}))]}/>}</div>
         <p role="status" aria-live="polite" className="purchase-save-state" data-state={save.state}>{save.message}</p>
       </div>
+      <DreIntegration kind="purchases" currentUser={currentUser} {...escopoDre}>
+        <label>Competência do DRE<input type="month" value={competenciaDre} onChange={event=>{if(event.target.value)setCompetenciaDre(event.target.value);}}/></label>
+        <p>Este mês é usado na consulta ao DRE. Os registros de compras mantêm os próprios filtros de prazo e histórico.</p>
+      </DreIntegration>
       <PurchaseNavigation area={aba} onNavigate={irParaArea} counts={fluxoCompras.counts}
         financeCount={resumoFinanceiro.pendentes} otherAreas={abasSecundarias}/>
       <div id="compras-area-atual" className="purchase-area-heading" tabIndex={-1}>
