@@ -190,6 +190,10 @@ export const consultarDreCanonico = ({year,month,period="mes",obraId=""}) =>
   chamar({ action:"financial-dre-report", ...credenciais(), year, month, period, obraId });
 export const consultarDreEmpresaCanonico = ({year,month}) =>
   chamar({ action:"financial-company-dre-report", ...credenciais(), year, month, period:"mes" });
+export const consultarDreAnual = year =>
+  chamar({ action:"financial-annual-dre-report", ...credenciais(), year });
+export const salvarLayoutDreAnual = ({rows,expectedVersion}) =>
+  chamar({ action:"financial-annual-dre-layout", ...credenciais(), rows, expectedVersion });
 export const gerenciarAcessoPortalCliente = payload =>
   chamar({ action:"client-portal-admin", ...credenciais(), ...payload });
 

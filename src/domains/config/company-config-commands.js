@@ -55,6 +55,9 @@ export const applyCompanyConfigCommand = (
   const config = {
     ...current,
     ...raw,
+    // A estrutura do DRE possui versão e comando próprios. Um formulário
+    // geral antigo nunca deve apagar os ajustes salvos pelo financeiro.
+    ...(current.dreAnnualLayout?{dreAnnualLayout:current.dreAnnualLayout}:{}),
     companyName,
     productName:String(raw.productName ?? current.productName ?? "").trim(),
     hrEmail:String(raw.hrEmail ?? current.hrEmail ?? "").trim().toLowerCase(),
