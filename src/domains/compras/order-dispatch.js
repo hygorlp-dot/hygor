@@ -3,7 +3,7 @@
 // tela e os testes usarem a mesma montagem.
 
 export const CANAIS_ENVIO_PEDIDO=Object.freeze(["whatsapp","email","impresso"]);
-export const CANAIS_ACEITE_PEDIDO=Object.freeze(["whatsapp","email","telefone","presencial","documento"]);
+export const CANAIS_ACEITE_PEDIDO=Object.freeze(["whatsapp","email","telefone","presencial","documento","link"]);
 
 const brl=value=>Number(value||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const qtd=value=>Number(value||0).toLocaleString("pt-BR",{maximumFractionDigits:4});
@@ -17,7 +17,7 @@ const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,char=>({
 export const totalItensPedido=itens=>(itens||[])
   .reduce((sum,item)=>sum+Number(item.qtd||0)*Number(item.precoUnit||0),0);
 
-export const mensagemPedidoFornecedor=({empresa,numero,fornecedorNome,obraNome,itens,previsao,observacao})=>{
+export const mensagemPedidoFornecedor=({empresa,numero,fornecedorNome,obraNome,itens,previsao,observacao,linkAceite})=>{
   const saudacao=fornecedorNome?`Olá, ${String(fornecedorNome).split(" ")[0]}! Tudo bem?`:"Olá! Tudo bem?";
   const linhas=(itens||[]).map(item=>
     `- ${item.descricao}: ${qtd(item.qtd)}${item.unidade?` ${item.unidade}`:""} × ${brl(item.precoUnit)} = ${brl(Number(item.qtd||0)*Number(item.precoUnit||0))}`,
@@ -27,7 +27,9 @@ export const mensagemPedidoFornecedor=({empresa,numero,fornecedorNome,obraNome,i
   const obs=observacao?`\n\nObservação: ${observacao}`:"";
   const assinatura=empresa?`\n\nObrigado!\n${empresa}`:"\n\nObrigado!";
   return `${saudacao}\n\nSegue o pedido de compra ${numero}.${obra}${entrega}\n\n${linhas}\n\nTotal: ${brl(totalItensPedido(itens))}${obs}`
-    +`\n\nPor favor, confirme o aceite do pedido (nome de quem confirma e prazo de entrega) respondendo esta mensagem.${assinatura}`;
+    +(linkAceite
+      ?`\n\nPara confirmar o pedido e o prazo de entrega, acesse: ${linkAceite}${assinatura}`
+      :`\n\nPor favor, confirme o aceite do pedido (nome de quem confirma e prazo de entrega) respondendo esta mensagem.${assinatura}`);
 };
 
 export const assuntoEmailPedido=({empresa,numero,obraNome})=>
