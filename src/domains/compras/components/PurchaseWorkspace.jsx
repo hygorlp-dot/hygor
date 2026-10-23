@@ -45,15 +45,15 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
   const filtered = Boolean(filters.query || (area === "fila" && filters.stage) || filters.risk);
   const clear = () => {setPage(0); onFiltersChange({query:"", stage:"", risk:""});};
   return <section className="purchase-workspace" aria-label={PURCHASE_AREA_LABELS[area]}>
-    <div className="purchase-queue-intro"><div><span className="purchase-eyebrow">{scope}</span>
+    <div className="purchase-queue-intro"><div>
       <h3>{area === "aprovacoes" ? "Decisões antes da compra" : area === "recebimentos" ? "O que precisa chegar à obra" : "O que precisa da sua atenção"}</h3>
-      <p>{area === "aprovacoes" ? "Consulte o bloqueio e os aprovadores. Somente pessoas elegíveis podem registrar uma decisão."
+      <p className="purchase-scope">{scope}</p><p>{area === "aprovacoes" ? "Consulte o bloqueio e os aprovadores. Somente pessoas elegíveis podem registrar uma decisão."
         : area === "recebimentos" ? "Confira a chegada real dos materiais. Recebimento e pagamento são acompanhados separadamente."
           : "Priorize por prazo e abra a próxima ação. Os filtros permanecem ao voltar dos detalhes."}</p></div><ClipboardList size={26} aria-hidden="true"/></div>
     {area === "fila" && <div className="purchase-queue-metrics" aria-label="Prioridades da fila">
       <button type="button" aria-pressed={!filters.risk && !filters.stage} onClick={() => patch({risk:"",stage:""})}><span>Em andamento</span><strong>{source.length}</strong><small>Solicitações, cotações e entregas</small></button>
-      <button type="button" data-tone="danger" aria-pressed={filters.risk === "overdue"} onClick={() => patch({risk:"overdue",stage:""})}><span>Prazo vencido</span><strong>{model.overdue}</strong><small>Tratar o atraso com a obra</small></button>
-      <button type="button" data-tone="warning" aria-pressed={filters.risk === "soon"} onClick={() => patch({risk:"soon",stage:""})}><span>Atenção ao prazo</span><strong>{model.attention}</strong><small>Vence hoje ou nos próximos 3 dias</small></button>
+      <button type="button" data-tone={model.overdue>0?"danger":undefined} aria-pressed={filters.risk === "overdue"} onClick={() => patch({risk:"overdue",stage:""})}><span>Prazo vencido</span><strong>{model.overdue}</strong><small>Tratar o atraso com a obra</small></button>
+      <button type="button" data-tone={model.attention>0?"warning":undefined} aria-pressed={filters.risk === "soon"} onClick={() => patch({risk:"soon",stage:""})}><span>Atenção ao prazo</span><strong>{model.attention}</strong><small>Vence hoje ou nos próximos 3 dias</small></button>
       <button type="button" aria-pressed={filters.stage === "aprovacoes"} onClick={() => patch({stage:"aprovacoes",risk:""})}><span>Em aprovação</span><strong>{model.counts.aprovacoes}</strong><small>Decisão ou configuração pendente</small></button>
     </div>}
     <div className="purchase-queue-panel">

@@ -256,23 +256,23 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {toast && <div style={{ background: toast.type === "error" ? `${C.red}12` : toast.type === "warn" ? `${C.orange}12` : `${C.green}12`, border: `1px solid ${toast.type === "error" ? C.red : toast.type === "warn" ? C.orange : C.green}44`, borderRadius: 7, padding: "9px 11px", fontSize: 11.5, color: C.text }}>{toast.msg}</div>}
+      {toast && <div style={{ background: toast.type === "error" ? `${C.red}12` : toast.type === "warn" ? `${C.orange}12` : `${C.green}12`, border: `1px solid ${toast.type === "error" ? C.red : toast.type === "warn" ? C.orange : C.green}44`, borderRadius: 7, padding: "9px 11px", fontSize:"var(--arcd-type-label)", color: C.text }}>{toast.msg}</div>}
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
-        <p style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Bases de preço - SINAPI e ORSE</p>
-        <p style={{ fontSize: 10.5, color: C.muted, marginTop: 3, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 13, fontWeight:600, color: C.text }}>Bases de preço - SINAPI e ORSE</p>
+        <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 3, lineHeight: 1.5 }}>
           Cadastro exclusivo do administrador. Depois de cadastrada, qualquer operador pode vincular a base ao orçamento e escolher UF / onerado ou desonerado por lá - nenhum arquivo é enviado de dentro do orçamento.
         </p>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 10 }}>
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
-          <p style={{ fontSize: 12, fontWeight: 800, color: C.blue, marginBottom: 8 }}>SINAPI · planilha oficial (XLSX)</p>
+          <p style={{ fontSize: 12, fontWeight:600, color: C.blue, marginBottom: 8 }}>SINAPI · planilha oficial (XLSX)</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <Sel label="UF dos preços" value={sinapiUf} onChange={setSinapiUf} options={SINAPI_UFS.map(uf => ({ v: uf, l: uf }))} />
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
               <input type="checkbox" checked={sinapiDesonerado} onChange={e => setSinapiDesonerado(e.target.checked)} />
-              <span style={{ fontSize: 11, color: C.text }}>Desonerada (desmarque para não desonerada)</span>
+              <span style={{ fontSize:"var(--arcd-type-label)", color: C.text }}>Desonerada (desmarque para não desonerada)</span>
             </label>
             <Inp label="Competência (opcional - sobrescreve a lida do arquivo)" type="month" value={competenciaSinapi} onChange={setCompetenciaSinapi} />
             <label
@@ -287,21 +287,21 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
               style={{ display: "block", border: `1.5px dashed ${arrastandoSinapi ? C.blue : "transparent"}`, borderRadius: 7, background: arrastandoSinapi ? `${C.blue}0C` : "transparent" }}
             >
               <input type="file" accept=".xlsx" disabled={importandoSinapi} onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; importarSinapi(file); }} style={{ display: "none" }} />
-              <span style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, background: C.blue, color: "#fff", padding: "8px 10px", borderRadius: 7, cursor: importandoSinapi ? "wait" : "pointer", fontSize: 10.5, fontWeight: 800, textTransform: "uppercase" }}>
+              <span style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, background: C.blue, color: "#fff", padding: "8px 10px", borderRadius: 7, cursor: importandoSinapi ? "wait" : "pointer", fontSize:"var(--arcd-type-label)", fontWeight:600, textTransform: "uppercase" }}>
                 <Ic n="download" s={13} /> {importandoSinapi ? "Enviando..." : "Enviar XLSX oficial"}
               </span>
-              <p style={{ fontSize: 9, color: C.muted, textAlign: "center", marginTop: 4 }}>ou arraste o arquivo aqui</p>
+              <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, textAlign: "center", marginTop: 4 }}>ou arraste o arquivo aqui</p>
             </label>
             {progressoSinapi > 0 && <div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9.5, color: C.muted, marginBottom: 3, gap: 10 }}><span>{etapaSinapi || "Preparando..."}</span><strong>{progressoSinapi}%</strong></div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize:"var(--arcd-type-caption)", color: C.muted, marginBottom: 3, gap: 10 }}><span>{etapaSinapi || "Preparando..."}</span><strong>{progressoSinapi}%</strong></div>
               <div style={{ height: 7, background: C.surface, borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", width: `${progressoSinapi}%`, background: C.blue, transition: "width .2s" }} /></div>
             </div>}
           </div>
         </div>
 
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
-          <p style={{ fontSize: 12, fontWeight: 800, color: C.purple, marginBottom: 8 }}>ORSE · tabelas oficiais (TXT, CEHOP)</p>
-          <p style={{ fontSize: 10, color: C.muted, marginBottom: 8, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 12, fontWeight:600, color: C.purple, marginBottom: 8 }}>ORSE · tabelas oficiais (TXT, CEHOP)</p>
+          <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginBottom: 8, lineHeight: 1.5 }}>
             Selecione de uma vez os 5 arquivos: TB_INSUMO, TB_INSUMO_PRECO, TB_SERVICO, TB_SERVICO_PRECO e TB_COMPOSICAO (os de detalhamento de equipamento não são usados). O app reconhece cada um pelo nome.
           </p>
           <Inp label="Competência (opcional - sobrescreve a lida dos arquivos)" type="month" value={competenciaOrse} onChange={setCompetenciaOrse} />
@@ -316,14 +316,14 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
             style={{ display: "block", marginTop: 8, marginBottom: 8, border: `1.5px dashed ${arrastandoOrse ? C.purple : "transparent"}`, borderRadius: 7, background: arrastandoOrse ? `${C.purple}0C` : "transparent" }}
           >
             <input type="file" accept=".txt" multiple disabled={importandoOrse} onChange={e => { selecionarArquivosOrse(e.target.files); e.target.value = ""; }} style={{ display: "none" }} />
-            <span style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, border: `1.5px solid ${C.purple}`, color: C.purple, padding: "8px 10px", borderRadius: 7, cursor: importandoOrse ? "wait" : "pointer", fontSize: 10.5, fontWeight: 800, textTransform: "uppercase" }}>
+            <span style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, border: `1.5px solid ${C.purple}`, color: C.purple, padding: "8px 10px", borderRadius: 7, cursor: importandoOrse ? "wait" : "pointer", fontSize:"var(--arcd-type-label)", fontWeight:600, textTransform: "uppercase" }}>
               <Ic n="file" s={13} /> Selecionar arquivos TXT
             </span>
-            <p style={{ fontSize: 9, color: C.muted, textAlign: "center", marginTop: 4 }}>ou arraste os arquivos aqui (pode soltar todos de uma vez)</p>
+            <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, textAlign: "center", marginTop: 4 }}>ou arraste os arquivos aqui (pode soltar todos de uma vez)</p>
           </label>
           <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 8 }}>
             {SLOTS_ORSE.map(slot => (
-              <p key={slot} style={{ fontSize: 9.5, color: arquivosOrse[slot] ? C.green : C.muted, display: "flex", alignItems: "center", gap: 5 }}>
+              <p key={slot} style={{ fontSize:"var(--arcd-type-caption)", color: arquivosOrse[slot] ? C.green : C.muted, display: "flex", alignItems: "center", gap: 5 }}>
                 <Ic n={arquivosOrse[slot] ? "check" : "x"} s={10} color={arquivosOrse[slot] ? C.green : C.muted} />
                 {ROTULO_SLOT_ORSE[slot]}{arquivosOrse[slot] ? ` · ${arquivosOrse[slot].name}` : " · pendente"}
               </p>
@@ -333,18 +333,18 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
             {importandoOrse ? "Enviando..." : "Enviar tabelas do ORSE"}
           </Btn>
           {progressoOrse > 0 && <div style={{ marginTop: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9.5, color: C.muted, marginBottom: 3, gap: 10 }}><span>{etapaOrse || "Preparando..."}</span><strong>{progressoOrse}%</strong></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize:"var(--arcd-type-caption)", color: C.muted, marginBottom: 3, gap: 10 }}><span>{etapaOrse || "Preparando..."}</span><strong>{progressoOrse}%</strong></div>
             <div style={{ height: 7, background: C.surface, borderRadius: 99, overflow: "hidden" }}><div style={{ height: "100%", width: `${progressoOrse}%`, background: C.purple, transition: "width .2s" }} /></div>
           </div>}
         </div>
       </div>
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
-        <p style={{ fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 8 }}>
+        <p style={{ fontSize: 12, fontWeight:600, color: C.text, marginBottom: 8 }}>
           Bases cadastradas · {bases.length} registro(s){duplicadas ? ` · ${duplicadas} repetição(ões)` : ""}
         </p>
-        {carregando ? <p style={{ fontSize: 11, color: C.muted }}>Carregando...</p>
-          : bases.length === 0 ? <p style={{ fontSize: 11, color: C.muted }}>Nenhuma base cadastrada ainda.</p>
+        {carregando ? <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Carregando...</p>
+          : bases.length === 0 ? <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Nenhuma base cadastrada ainda.</p>
           : <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             {bases.map(base => {
               const repetida = bases.filter(item => chaveBaseReferencia(item) === chaveBaseReferencia(base)).length > 1;
@@ -352,11 +352,11 @@ export default function BasesPrecoAdmin({ currentUser, data, update }) {
               return (
                 <div key={base.id} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 8, alignItems: "center", padding: "8px 10px", border: `1px solid ${repetida ? C.orange : C.border}`, borderRadius: 6, background: C.surface }}>
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 10.5, fontWeight: 850, color: base.fonte === "ORSE" ? C.purple : C.blue }}>
+                    <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: base.fonte === "ORSE" ? C.purple : C.blue }}>
                       {base.fonte} · {base.dataBase}{base.uf ? ` · ${base.uf}` : ""}{base.fonte === "SINAPI" ? ` · ${base.desonerado === false ? "NÃO DESONERADA" : "DESONERADA"}` : ""}
                       {" "}{repetida && <Badge color={C.orange}>REPETIDA</Badge>}{legado && <Badge color={C.orange}>PESQUISA AO VIVO (REIMPORTE)</Badge>}
                     </p>
-                    <p style={{ fontSize: 8.5, color: C.muted, marginTop: 2 }}>
+                    <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 2 }}>
                       {base.status === "ready" ? `${Number(base.total || 0).toLocaleString("pt-BR")} itens` : "Processamento incompleto"} · cadastrada em {base.criadoEm ? new Date(base.criadoEm).toLocaleString("pt-BR") : "data não informada"}
                     </p>
                   </div>

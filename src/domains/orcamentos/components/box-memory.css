@@ -1,21 +1,21 @@
 /* Caixas e reservatórios — ARCD Carbon: ouro só para ação, foco e seleção;
    Plex Mono só para medidas e valores; painéis de 4px, campos de 8px. */
 .box-memory {
-  --bx-gold: var(--arcd-action-primary, #d4af37);
-  --bx-gold-hover: var(--arcd-action-primary-hover, #b38c1b);
-  --bx-gold-strong: var(--arcd-action-primary-active, #8f6e00);
+  --bx-gold: var(--arcd-action-primary, #7C6039);
+  --bx-gold-hover: var(--arcd-action-primary-hover, #654C2C);
+  --bx-gold-strong: var(--arcd-action-primary-active, #7C6039);
   --bx-gold-subtle: var(--arcd-action-primary-subtle, #f8f1dc);
-  --bx-ink: var(--arcd-text-primary, #161616);
-  --bx-muted: var(--arcd-text-secondary, #525252);
+  --bx-ink: var(--arcd-text-primary, #202421);
+  --bx-muted: var(--arcd-text-secondary, #62665F);
   --bx-line: var(--arcd-border-subtle, #d6d6d6);
   --bx-line-strong: var(--arcd-border-strong, #8d8d8d);
   --bx-surface: var(--arcd-surface-card, #ffffff);
   --bx-page: var(--arcd-surface-muted, #ededed);
   --bx-mono: var(--arcd-font-mono, "IBM Plex Mono", ui-monospace, monospace);
-  --bx-warn-text: var(--arcd-warning-text, #8a3800);
+  --bx-warn-text: var(--arcd-warning-text, #855A24);
   --bx-warn-surface: var(--arcd-warning-surface, #fff2d5);
   --bx-warn-border: var(--arcd-warning-border, #d8a862);
-  --bx-danger-text: var(--arcd-danger-text, #da1e28);
+  --bx-danger-text: var(--arcd-danger-text, #A63B3B);
   --bx-danger-surface: var(--arcd-danger-surface, #fff1f1);
   --bx-danger-border: var(--arcd-danger-border, #d68b8b);
   --bx-ok-surface: var(--arcd-success-surface, #defbe6);
@@ -89,27 +89,27 @@
 
 /* Desenho técnico: parede em cinza, eixo tracejado, área medida em ouro. */
 .box-drawing { width: 100%; height: auto; display: block; background: var(--bx-surface); border: 1px solid var(--bx-line); border-radius: 4px; }
-.box-drawing text { font-family: var(--bx-mono); font-size: 9.5px; fill: #262626; }
-.box-drawing .box-drawing__caption { font-family: var(--arcd-font-sans, "IBM Plex Sans", sans-serif); font-size: 9px; fill: var(--bx-muted); letter-spacing: .4px; text-transform: uppercase; }
+.box-drawing text { font-family: var(--bx-mono); font-size:var(--arcd-type-caption); fill: #262626; }
+.box-drawing .box-drawing__caption { font-family: var(--arcd-font-sans, "IBM Plex Sans", sans-serif); font-size:var(--arcd-type-caption); fill: var(--bx-muted); letter-spacing: .4px; text-transform: uppercase; }
 .box-drawing[data-ready="false"] { opacity: .55; }
 .box-drawing__sobra { fill: none; stroke: #6f6f6f; stroke-width: .8; stroke-dasharray: 3 2; }
 .box-drawing__wall { fill: #c6c6c6; stroke: #6f6f6f; stroke-width: .8; }
-.box-drawing__inner { fill: #f4f4f4; stroke: #6f6f6f; stroke-width: .8; }
+.box-drawing__inner { fill: #F5F2EC; stroke: #6f6f6f; stroke-width: .8; }
 .box-drawing__axis { fill: none; stroke: #6f6f6f; stroke-width: .6; stroke-dasharray: 5 2 1 2; }
 .box-drawing__slab { fill: #a8a8a8; stroke: #6f6f6f; stroke-width: .6; }
-.box-drawing__water { fill: #f4f4f4; }
+.box-drawing__water { fill: #F5F2EC; }
 .box-drawing__line { fill: #6f6f6f; }
 .box-drawing__face { stroke: transparent; stroke-width: 2.4; }
 .box-drawing__face--axis { stroke-dasharray: 3 2; }
-.box-drawing__hot-fill { fill: #d4af37; fill-opacity: 0; transition: fill-opacity 180ms cubic-bezier(.16,1,.3,1); }
-.box-drawing__hot-stroke { fill: none; stroke: #8f6e00; stroke-width: 0; transition: stroke-width 180ms cubic-bezier(.16,1,.3,1); }
+.box-drawing__hot-fill { fill: #7C6039; fill-opacity: 0; transition: fill-opacity 180ms cubic-bezier(.16,1,.3,1); }
+.box-drawing__hot-stroke { fill: none; stroke: #7C6039; stroke-width: 0; transition: stroke-width 180ms cubic-bezier(.16,1,.3,1); }
 .box-drawing__hot-fill.is-hot { fill-opacity: .42; }
 .box-drawing__hot-stroke.is-hot { stroke-width: 2.6; }
-.box-drawing__axis.is-hot { stroke: #8f6e00; stroke-width: 2.4; }
-.box-drawing__face.is-hot { stroke: #8f6e00; }
-.box-drawing__slab.is-hot, .box-drawing__line.is-hot { fill: #d4af37; }
+.box-drawing__axis.is-hot { stroke: #7C6039; stroke-width: 2.4; }
+.box-drawing__face.is-hot { stroke: #7C6039; }
+.box-drawing__slab.is-hot, .box-drawing__line.is-hot { fill: #7C6039; }
 .box-drawing__water.is-hot { fill: #ecd998; }
-.box-drawing__dim line { stroke: #525252; stroke-width: .7; }
+.box-drawing__dim line { stroke: #62665F; stroke-width: .7; }
 
 .box-note { margin: 0; padding: 10px 12px; border: 1px solid var(--bx-line); border-radius: 4px; background: var(--bx-page); font-size: 12px; line-height: 1.5; }
 .box-note--warning { background: var(--bx-warn-surface); border-color: var(--bx-warn-border); color: var(--bx-warn-text); }

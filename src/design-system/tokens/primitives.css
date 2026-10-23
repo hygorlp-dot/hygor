@@ -1,29 +1,29 @@
 :root {
   --arcd-gray-0: #ffffff;
-  --arcd-gray-50: #f4f4f4;
-  --arcd-gray-100: #ededed;
-  --arcd-gray-200: #d6d6d6;
+  --arcd-gray-50: #f5f2ec;
+  --arcd-gray-100: #ede9e2;
+  --arcd-gray-200: #dad6ce;
   --arcd-gray-300: #c6c6c6;
   /* gray-400: mesmo valor do "cinza técnico" (C.cinza) do legado - séries de
      gráfico e texto neutro secundário. Bate com o gray-40 do IBM Carbon. */
-  --arcd-gray-400: #a8a8a8;
-  --arcd-gray-500: #6f6f6f;
-  --arcd-gray-600: #525252;
-  --arcd-gray-800: #393939;
-  --arcd-gray-900: #161616;
+  --arcd-gray-400: #75796f;
+  --arcd-gray-500: #62665f;
+  --arcd-gray-600: #62665f;
+  --arcd-gray-800: #444a43;
+  --arcd-gray-900: #202421;
   /* gray-950: mesmo valor de C.ink do legado - texto sobre fundo de ação
      (dourado). Mais escuro que gray-900, papel semântico próprio (ver
      --arcd-action-primary-text), não é "mais um passo de cinza genérico". */
-  --arcd-gray-950: #121212;
+  --arcd-gray-950: #202421;
 
-  --arcd-gold-300: #f0e6b8;
-  --arcd-gold-400: #d4af37;
-  --arcd-gold-500: #b38c1b;
-  --arcd-gold-600: #8f6e00;
+  --arcd-gold-300: #ede5d9;
+  --arcd-gold-400: #7c6039;
+  --arcd-gold-500: #654c2c;
+  --arcd-gold-600: #7c6039;
 
-  --arcd-green-500: #24a148;
-  --arcd-red-500: #da1e28;
-  --arcd-orange-500: #8a3800;
-  --arcd-blue-500: #0f62fe;
-  --arcd-purple-500: #4a148c;
+  --arcd-green-500: #2e6652;
+  --arcd-red-500: #a63b3b;
+  --arcd-orange-500: #855a24;
+  --arcd-blue-500: #42616b;
+  --arcd-purple-500: #62665f;
 }

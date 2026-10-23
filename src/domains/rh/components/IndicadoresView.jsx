@@ -54,12 +54,12 @@ function Indicadores({ data }) {
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
         <p style={TYPO.eyebrow}>Documentos e certificações vencidos</p>
-        {pendentes.length === 0 && <p style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>Nenhum funcionário ativo com ASO ou treinamento (NR) vencido.</p>}
+        {pendentes.length === 0 && <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 8 }}>Nenhum funcionário ativo com ASO ou treinamento (NR) vencido.</p>}
         {pendentes.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
             {pendentes.map(({ employee, expired }) => (
               <div key={employee.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{employee.name}</span>
+                <span style={{ fontSize: 12, fontWeight:600, color: C.text }}>{employee.name}</span>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
                   {expired.map(label => <Badge key={label} color={C.red}>{label}</Badge>)}
                 </div>
@@ -69,7 +69,7 @@ function Indicadores({ data }) {
         )}
       </div>
 
-      <p style={{ fontSize: 10.5, color: C.muted }}>Indicadores calculados em {fmtDateFull(asOf)}. Custo de folha por obra ainda não entra neste painel - depende do motor de custo de mão de obra por competência (src/domains/financeiro/labor-cost-engine.js), que exige seleção de obra e período; fica para uma próxima rodada.</p>
+      <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Indicadores calculados em {fmtDateFull(asOf)}. Custo de folha por obra ainda não entra neste painel - depende do motor de custo de mão de obra por competência (src/domains/financeiro/labor-cost-engine.js), que exige seleção de obra e período; fica para uma próxima rodada.</p>
     </div>
   );
 }

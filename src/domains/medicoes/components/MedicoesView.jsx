@@ -83,7 +83,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
   const pctRecebido   = obra?.contractValue>0 ? (totalRecebido/obra.contractValue)*100 : 0;
   const pctFaturado   = obra?.contractValue>0 ? (totalPrevisto/obra.contractValue)*100 : 0;
 
-  //  Abrir nova medição com defaults inteligentes 
+  //  Abrir nova medição com defaults inteligentes
   const openNew = () => {
     const defaultTipo = obra?.billingType || "mensal_fixo";
     const pctAtual = defaultTipo === "percentual"
@@ -150,7 +150,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
     }
   };
 
-  //  Geração automática de parcelas fixas 
+  //  Geração automática de parcelas fixas
   // Calcula a data de vencimento de uma parcela
   // Os dias vem da obra (diaVenc1/diaVenc2), nao mais fixos em 1 e 15.
   const calcDataVencimento = (contractStart, parcelaIdx, freq, dia1, dia2) => {
@@ -190,7 +190,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
     const total = obra.totalParcelas || 12;
     const novas = [];
 
-    //  Entrada (somente para MO fixo e Misto) 
+    //  Entrada (somente para MO fixo e Misto)
     if (tipo !== "admin_only" && Number(obra.entrada||0) > 0 && obra.entradaDate) {
       const existeEntrada = (data.medicoes||[]).some(x=>x.obraId===selObra && x.numeroParcela==="E");
       if (!existeEntrada || gerarOpts.sobreescrever) {
@@ -210,7 +210,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
       }
     }
 
-    //  Parcelas regulares 
+    //  Parcelas regulares
     for (let i=0; i<total; i++) {
       const dataVenc = calcDataVencimento(obra.contractStart, i, freq, obra.diaVenc1, obra.diaVenc2);
       const comp     = calcCompetencia(obra.contractStart, i, freq);
@@ -286,7 +286,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
     }
   };
 
-  //  Conciliacao das parcelas vencidas recem-geradas 
+  //  Conciliacao das parcelas vencidas recem-geradas
   const aplicarDecisoesParcelas = async decisoes => {
     if(!dispatchCommand||measurementCommandPending)return {ok:false};
     if(!Object.values(decisoes||{}).some(decisao=>decisao&&decisao.modo!=="aberto")){
@@ -475,7 +475,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
 
   const formPrevisto = calcPrevisto(form, obra);
 
-  //  Info do período do contrato 
+  //  Info do período do contrato
   const contratoInfo = (() => {
     if (!obra?.contractStart) return null;
     const start = new Date(obra.contractStart+"T12:00:00");
@@ -491,9 +491,9 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
 
       {/* Header */}
-      <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`4px solid ${C.blue}`,padding:"16px 18px",borderRadius:8}}>
-        <p style={{fontSize:11,fontWeight:700,color:C.blue,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Faturamento estruturado</p>
-        <p style={{fontFamily:"'Inter Display','Inter',sans-serif",fontSize:22,fontWeight:800,color:C.text,lineHeight:1}}>Medições por Obra</p>
+      <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`1px solid ${C.blue}`,padding:"16px 18px",borderRadius:8}}>
+        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Faturamento estruturado</p>
+        <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:22,fontWeight:600,color:C.text,lineHeight:1}}>Medições por Obra</p>
         <p style={{color:C.muted,fontSize:13,marginTop:4}}>Parcela fixa automática · Avanço % · Lançamento livre</p>
       </div>
 
@@ -519,23 +519,23 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
         return (
           <div style={{background:vencidas.length>0?`${C.red}06`:`${C.orange}06`,border:`1.5px solid ${vencidas.length>0?C.red:C.orange}`,borderRadius:8,overflow:"hidden"}}>
             <div style={{padding:"10px 14px",borderBottom:`1px solid ${vencidas.length>0?C.red+"33":C.orange+"33"}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <p style={{fontWeight:800,fontSize:14,color:vencidas.length>0?C.red:C.orange}}>
+              <p style={{fontWeight:600,fontSize:14,color:vencidas.length>0?C.red:C.orange}}>
                 {vencidas.length>0?` ${vencidas.length} vencida(s) + `:""}{proximasAll.length-vencidas.length} vencendo em até 7 dias
               </p>
-              <p style={{fontSize:13,fontWeight:800,color:C.text}}>{fmt(totalPendente)}</p>
+              <p style={{fontSize:13,fontWeight:600,color:C.text}}>{fmt(totalPendente)}</p>
             </div>
             {proximasAll.map(m=>(
               <div key={m.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 14px",borderBottom:`1px solid ${C.line}33`}}>
                 <div>
-                  <p style={{fontSize:13,fontWeight:700,color:C.text}}>{m.obraName}</p>
-                  <p style={{fontSize:11,color:m.diff<0?C.red:m.diff<=3?C.orange:C.muted}}>
+                  <p style={{fontSize:13,fontWeight:600,color:C.text}}>{m.obraName}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:m.diff<0?C.red:m.diff<=3?C.orange:C.muted}}>
                     {m.diff<0?`Venceu há ${Math.abs(m.diff)}d`:m.diff===0?"Vence HOJE":`Vence em ${m.diff}d`}
                     {" - "}{fmtDateFull(m.dataVencimento)}
                     {m.descricao?`  ${m.descricao}`:""}
                   </p>
                 </div>
                 <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-                  <p style={{fontSize:14,fontWeight:800,color:m.diff<0?C.red:C.text}}>{fmt(m.valorPrevisto)}</p>
+                  <p style={{fontSize:14,fontWeight:600,color:m.diff<0?C.red:C.text}}>{fmt(m.valorPrevisto)}</p>
                   <Btn size="sm" v="success" onClick={()=>setPagarModal({ m, data: today() })}>ok</Btn>
                 </div>
               </div>
@@ -552,14 +552,14 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
         <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
           <div style={{background:C.surface,borderBottom:`1.5px solid ${C.border}`,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
             <div style={{flex:1}}>
-              <p style={{fontWeight:800,fontSize:16,color:C.text}}>{obra.name}</p>
+              <p style={{fontWeight:600,fontSize:16,color:C.text}}>{obra.name}</p>
               <p style={{fontSize:12,color:C.muted,marginTop:2}}>
                 {CONTRACT_LABELS[obra.contractType]}  {BILLING_LABELS[obra.billingType]}
                 {obra.billingType==="mensal_fixo" && obra.parcelaMensal>0 && `  ${fmt(obra.parcelaMensal)}/mês`}
               </p>
               {/* Período do contrato */}
               {obra.contractStart && (
-                <p style={{fontSize:11,color:C.muted,marginTop:4}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>
                    {fmtDateFull(obra.contractStart)}{obra.contractEnd && ` → ${fmtDateFull(obra.contractEnd)}`}
                   {obra.totalParcelas>0 && `  ${obra.totalParcelas} parcelas`}
                 </p>
@@ -584,16 +584,16 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                   ["Prazo",        `${contratoInfo.pctTempo.toFixed(0)}%`,  contratoInfo.pctTempo>90?C.red:C.green],
                 ].map(([l,v,c])=>(
                   <div key={l} style={{background:C.surface,borderRadius:6,padding:"6px 10px"}}>
-                    <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{l}</p>
-                    <p style={{fontSize:13,fontWeight:800,color:c,marginTop:2}}>{v}</p>
+                    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p>
+                    <p style={{fontSize:13,fontWeight:600,color:c,marginTop:2}}>{v}</p>
                   </div>
                 ))}
               </div>
               {/* Barra dupla: tempo x financeiro */}
               <div style={{display:"flex",flexDirection:"column",gap:4}}>
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:1}}>
-                  <p style={{fontSize:9,color:C.muted,fontWeight:600}}>PRAZO {contratoInfo.pctTempo.toFixed(0)}%</p>
-                  <p style={{fontSize:9,color:C.muted,fontWeight:600}}>FINANCEIRO {pctFaturado.toFixed(0)}%</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>PRAZO {contratoInfo.pctTempo.toFixed(0)}%</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>FINANCEIRO {pctFaturado.toFixed(0)}%</p>
                 </div>
                 <div style={{height:5,background:C.surface,borderRadius:99,overflow:"hidden"}}>
                   <div style={{height:"100%",width:`${Math.min(contratoInfo.pctTempo,100)}%`,background:contratoInfo.pctTempo>100?C.red:C.blue,borderRadius:99}}/>
@@ -604,9 +604,9 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                 <div style={{height:3,background:C.surface,borderRadius:99,overflow:"hidden"}}>
                   <div style={{height:"100%",width:`${Math.min(pctRecebido,100)}%`,background:C.green,borderRadius:99}}/>
                 </div>
-                <p style={{fontSize:9,color:C.muted}}>
-                  <span style={{color:C.blue}}></span> Prazo  
-                  <span style={{color:C.yellow}}></span> Faturado {pctFaturado.toFixed(0)}%  
+                <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>
+                  <span style={{color:C.blue}}></span> Prazo
+                  <span style={{color:C.yellow}}></span> Faturado {pctFaturado.toFixed(0)}%
                   <span style={{color:C.green}}></span> Recebido {pctRecebido.toFixed(0)}%
                 </p>
               </div>
@@ -622,8 +622,8 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
               ["Saldo cto.", fmt(saldo),         saldo>=0?C.blue:C.red],
             ].map(([l,v,c])=>(
               <div key={l} style={{background:C.surface,padding:"7px 10px",borderRadius:6}}>
-                <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{l}</p>
-                <p style={{fontSize:13,fontWeight:800,color:c,marginTop:2}}>{v}</p>
+                <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p>
+                <p style={{fontSize:13,fontWeight:600,color:c,marginTop:2}}>{v}</p>
               </div>
             ))}
           </div>
@@ -676,53 +676,53 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
             <div key={m.id} style={{
               background:m.recebido?`${C.green}06`:C.bg,
               border:`1.5px solid ${statusColor}`,
-              borderLeft:`4px solid ${statusColor}`,
+              borderLeft:`1px solid ${statusColor}`,
               borderRadius:6, padding:"12px 14px",
               boxShadow:`0 1px 3px ${C.shadow}`,
             }}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
                 <div style={{flex:1}}>
                   <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
-                    {m.numeroParcela && <span style={{fontSize:11,fontWeight:800,color:C.muted}}>#{m.numeroParcela}</span>}
-                    <p style={{fontWeight:800,fontSize:15,color:C.text}}>{compLabel(m.competencia)}</p>
+                    {m.numeroParcela && <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted}}>#{m.numeroParcela}</span>}
+                    <p style={{fontWeight:600,fontSize:15,color:C.text}}>{compLabel(m.competencia)}</p>
                     <span style={{
-                      fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,
+                      fontSize:"var(--arcd-type-label)",fontWeight:600,padding:"2px 8px",borderRadius:4,
                       background:`${statusColor}18`,color:statusColor,
                     }}>{statusLabel}</span>
-                    {m.tipo==="percentual"&&<span style={{fontSize:10,color:C.blue,fontWeight:600,background:`${C.blue}10`,padding:"2px 8px",borderRadius:4}}>{prevPct}%→{m.percentualAcumulado}% (+{m.percentualPeriodo.toFixed(1)}%)</span>}
+                    {m.tipo==="percentual"&&<span style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600,background:`${C.blue}10`,padding:"2px 8px",borderRadius:4}}>{prevPct}%→{m.percentualAcumulado}% (+{m.percentualPeriodo.toFixed(1)}%)</span>}
                   </div>
-                  {m.descricao&&<p style={{fontSize:11,color:C.muted,marginBottom:4}}>{m.descricao}</p>}
+                  {m.descricao&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:4}}>{m.descricao}</p>}
 
                   <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
                     {/* Componente MO fixo */}
                     {m.valorMOFixo>0&&(
-                      <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>MO Fixo</p><p style={{fontSize:14,fontWeight:800,color:C.yellow}}>{fmt(m.valorMOFixo)}</p></div>
+                      <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>MO Fixo</p><p style={{fontSize:14,fontWeight:600,color:C.yellow}}>{fmt(m.valorMOFixo)}</p></div>
                     )}
                     {/* Componente Admin % */}
                     {m.valorAdminPct>0&&(
-                      <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Admin {obra?.adminPercentage||0}%</p><p style={{fontSize:14,fontWeight:800,color:C.purple}}>{fmt(m.valorAdminPct)}</p></div>
+                      <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Admin {obra?.adminPercentage||0}%</p><p style={{fontSize:14,fontWeight:600,color:C.purple}}>{fmt(m.valorAdminPct)}</p></div>
                     )}
                     {/* Total previsto */}
                     {m.valorPrevisto>0&&(
-                      <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Total previsto</p><p style={{fontSize:14,fontWeight:800,color:C.text}}>{fmt(m.valorPrevisto)}</p></div>
+                      <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Total previsto</p><p style={{fontSize:14,fontWeight:600,color:C.text}}>{fmt(m.valorPrevisto)}</p></div>
                     )}
                     {/* Recebido */}
-                    {totalRecebidoMedicao(m)>0&&<><div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Recebido</p><p style={{fontSize:14,fontWeight:800,color:C.green}}>{fmt(totalRecebidoMedicao(m))}</p></div>
-                    <div><p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:600}}>Data pgto</p><p style={{fontSize:12,color:C.muted}}>{fmtDateFull(m.dataPagamento)}</p></div></>}
+                    {totalRecebidoMedicao(m)>0&&<><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Recebido</p><p style={{fontSize:14,fontWeight:600,color:C.green}}>{fmt(totalRecebidoMedicao(m))}</p></div>
+                    <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Data pgto</p><p style={{fontSize:12,color:C.muted}}>{fmtDateFull(m.dataPagamento)}</p></div></>}
                   </div>
 
                   {/* Previsão + fechamento do valor de administração (se ainda não calculado) */}
                   {contemAdmin && m.valorAdminPct===0 && m.competencia && statusRecebimentoMedicao(m)!=="recebida" && previsaoAdmin && (
                     <div style={{marginTop:8,padding:"8px 10px",border:`1px solid ${C.purple}44`,borderRadius:6,background:`${C.purple}08`}}>
-                      <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700,marginBottom:4}}>
+                      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600,marginBottom:4}}>
                         Previsão de fechamento · {ehAdminOnly?"admin. sobre todos os custos":"admin. sobre materiais e terceirizados"}
                       </p>
-                      <p style={{fontSize:10.5,color:C.subtle,lineHeight:1.5}}>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.5}}>
                         {ehAdminOnly
                           ? `Custos do período: ${fmt(previsaoAdmin.totalCustos)} (MO, benefícios, materiais, terceirizados, equipamentos e rescisões).`
                           : `Materiais gastos: ${fmt(previsaoAdmin.materialCost)} · Terceirizados: ${fmt(previsaoAdmin.tercCost)}.`}
                       </p>
-                      <p style={{fontSize:13,fontWeight:800,color:C.purple,marginTop:4}}>
+                      <p style={{fontSize:13,fontWeight:600,color:C.purple,marginTop:4}}>
                         {obra?.adminPercentage||0}% de {fmt(previsaoAdmin.base)} = {fmt(previsaoAdmin.valor)}
                       </p>
                       <Btn size="sm" v="ghost" style={{marginTop:6}} onClick={()=>{
@@ -766,7 +766,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                   padding:"8px 4px",border:`2px solid ${form.tipo===v?C.yellow:C.border}`,
                   background:form.tipo===v?`${C.yellow}15`:"transparent",
                   color:form.tipo===v?C.text:C.muted,
-                  fontFamily:"'Inter Display','Inter',sans-serif",fontWeight:700,fontSize:12,
+                  fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:12,
                   cursor:"pointer",borderRadius:6,textAlign:"center",
                 }}>{l}</button>
               ))}
@@ -774,20 +774,20 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
 
             {/* Competência */}
             <div>
-              <p style={{fontSize:11,fontWeight:700,color:C.text,textTransform:"uppercase",marginBottom:5,letterSpacing:.7}}>Mês de competência *</p>
-              <input type="month" value={form.competencia} onChange={e=>F("competencia")(e.target.value)} style={{width:"100%",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"10px 12px",borderRadius:6,fontSize:14,outline:"none",fontFamily:"'Inter','Inter Display',sans-serif"}}/>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,textTransform:"uppercase",marginBottom:5,letterSpacing:.7}}>Mês de competência *</p>
+              <input type="month" value={form.competencia} onChange={e=>F("competencia")(e.target.value)} style={{width:"100%",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"10px 12px",borderRadius:6,fontSize:14,outline:"none",fontFamily:"var(--arcd-font-sans)"}}/>
             </div>
 
             {/* Fixo */}
             {form.tipo==="mensal_fixo"&&(
               <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"10px 14px"}}>
-                <p style={{fontSize:12,color:C.text,fontWeight:700,marginBottom:6}}>
+                <p style={{fontSize:12,color:C.text,fontWeight:600,marginBottom:6}}>
                   Parcela mensal fixa
                   {obra.parcelaMensal>0&&<span style={{color:C.yellow,marginLeft:8}}>→ {fmt(obra.parcelaMensal)}</span>}
                 </p>
                 <Inp label="Valor da parcela (R$)" type="number" value={form.valorPrevisto} onChange={F("valorPrevisto")} placeholder={obra.parcelaMensal>0?String(obra.parcelaMensal):"0,00"}/>
                 {!form.valorPrevisto && obra.parcelaMensal>0 && (
-                  <button onClick={()=>F("valorPrevisto")(String(obra.parcelaMensal))} style={{marginTop:6,background:"transparent",border:`1px solid ${C.yellow}`,color:C.yellow,padding:"4px 10px",borderRadius:4,fontSize:11,cursor:"pointer",fontWeight:700}}>
+                  <button onClick={()=>F("valorPrevisto")(String(obra.parcelaMensal))} style={{marginTop:6,background:"transparent",border:`1px solid ${C.yellow}`,color:C.yellow,padding:"4px 10px",borderRadius:4,fontSize:"var(--arcd-type-label)",cursor:"pointer",fontWeight:600}}>
                     Usar parcela configurada ({fmt(obra.parcelaMensal)})
                   </button>
                 )}
@@ -797,7 +797,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
             {/* % Avanço */}
             {form.tipo==="percentual"&&(
               <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"10px 14px",display:"flex",flexDirection:"column",gap:8}}>
-                <p style={{fontSize:12,fontWeight:700,color:C.text}}>
+                <p style={{fontSize:12,fontWeight:600,color:C.text}}>
                   % acumulado da obra até este mês
                   {obra.contractValue>0&&<span style={{color:C.muted,marginLeft:4,fontWeight:400}}> (Contrato: {fmt(obra.contractValue)})</span>}
                 </p>
@@ -808,8 +808,8 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                   const val = (periodo/100)*Number(obra.contractValue||0);
                   return (
                     <div style={{background:`${C.yellow}15`,borderRadius:6,padding:"8px 12px"}}>
-                      <p style={{fontSize:11,color:C.muted}}>Anterior: <strong>{prev}%</strong> → Este período: <strong>+{periodo.toFixed(1)}%</strong></p>
-                      <p style={{fontSize:16,fontWeight:800,color:C.yellow,marginTop:2}}>{fmt(val)}</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Anterior: <strong>{prev}%</strong> → Este período: <strong>+{periodo.toFixed(1)}%</strong></p>
+                      <p style={{fontSize:16,fontWeight:600,color:C.yellow,marginTop:2}}>{fmt(val)}</p>
                     </div>
                   );
                 })()}
@@ -824,9 +824,9 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
             {/* Recebido? */}
             <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 12px",background:form.recebido?`${C.green}10`:"transparent",borderRadius:6,border:`1.5px solid ${form.recebido?C.green+"55":C.border}`}}>
               <div onClick={()=>F("recebido")(!form.recebido)} style={{width:20,height:20,border:`2px solid ${form.recebido?C.green:C.muted}`,background:form.recebido?C.green:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
-                {form.recebido&&<span style={{color:"#fff",fontSize:13,fontWeight:900}}>ok</span>}
+                {form.recebido&&<span style={{color:"#fff",fontSize:13,fontWeight:600}}>ok</span>}
               </div>
-              <p style={{fontSize:13,fontWeight:700,color:form.recebido?C.green:C.muted}}>Valor já recebido</p>
+              <p style={{fontSize:13,fontWeight:600,color:form.recebido?C.green:C.muted}}>Valor já recebido</p>
             </label>
 
             {form.recebido&&(<>
@@ -838,8 +838,8 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
 
             {formPrevisto>0&&(
               <div style={{background:`${C.yellow}15`,border:`1px solid ${C.yellow}44`,borderRadius:6,padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <p style={{fontSize:11,color:C.muted}}>Valor que será registrado</p>
-                <p style={{fontSize:18,fontWeight:800,color:C.yellow}}>{fmt(formPrevisto)}</p>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Valor que será registrado</p>
+                <p style={{fontSize:18,fontWeight:600,color:C.yellow}}>{fmt(formPrevisto)}</p>
               </div>
             )}
 
@@ -867,26 +867,26 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
               {conciliar.modo===v && <div style={{width:9,height:9,borderRadius:"50%",background:cor}}/>}
             </div>
             <div>
-              <p style={{fontSize:13,fontWeight:700,color:conciliar.modo===v?cor:C.text}}>{titulo}</p>
-              <p style={{fontSize:11,color:C.muted,marginTop:2,lineHeight:1.5}}>{sub}</p>
+              <p style={{fontSize:13,fontWeight:600,color:conciliar.modo===v?cor:C.text}}>{titulo}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.5}}>{sub}</p>
             </div>
           </label>
         );
         return (
           <Modal title={`Parcela vencida ${conciliar.idx+1} de ${conciliar.fila.length}`} onClose={conciliarDecidirDepois}>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.red||"#C62828"}`,borderRadius:6,padding:"11px 13px"}}>
+              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`1px solid ${C.red||"#C62828"}`,borderRadius:6,padding:"11px 13px"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:8}}>
-                  <p style={{fontSize:13,fontWeight:800,color:C.text}}>{obra?.name}</p>
-                  <p style={{fontSize:15,fontWeight:800,color:C.yellow}}>{fmt(m.valorPrevisto)}</p>
+                  <p style={{fontSize:13,fontWeight:600,color:C.text}}>{obra?.name}</p>
+                  <p style={{fontSize:15,fontWeight:600,color:C.yellow}}>{fmt(m.valorPrevisto)}</p>
                 </div>
-                <p style={{fontSize:11.5,color:C.muted,marginTop:3,lineHeight:1.5}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3,lineHeight:1.5}}>
                   {m.descricao || "Parcela"}<br/>
                   Venceu em <b>{fmtDate(m.dataVencimento)}</b>{diasAtraso>0 && ` - há ${diasAtraso} dia(s)`}
                 </p>
               </div>
 
-              <p style={{fontSize:12.5,fontWeight:700,color:C.text}}>
+              <p style={{fontSize:12.5,fontWeight:600,color:C.text}}>
                 Esta parcela já foi paga?
               </p>
 
@@ -910,7 +910,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
               </div>
               {conciliar.fila.length - conciliar.idx > 1 && (
                 <button onClick={conciliarTodasNoVencimento}
-                        style={{background:"transparent",border:0,color:C.muted,fontSize:11,fontWeight:600,cursor:"pointer",textDecoration:"underline",padding:0}}>
+                        style={{background:"transparent",border:0,color:C.muted,fontSize:"var(--arcd-type-label)",fontWeight:600,cursor:"pointer",textDecoration:"underline",padding:0}}>
                   Todas as {conciliar.fila.length - conciliar.idx} restantes foram pagas no vencimento
                 </button>
               )}
@@ -925,7 +925,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
         <Modal title="Confirmar recebimento" onClose={()=>setPagarModal(null)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"11px 13px"}}>
-              <p style={{fontSize:13,fontWeight:700,color:C.text}}>{pagarModal.m.obraName}</p>
+              <p style={{fontSize:13,fontWeight:600,color:C.text}}>{pagarModal.m.obraName}</p>
               <p style={{fontSize:12,color:C.muted,marginTop:2}}>
                 {fmt(pagarModal.m.valorPrevisto)}
                 {pagarModal.m.descricao ? ` - ${pagarModal.m.descricao}` : ""}
@@ -937,11 +937,11 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
             {pagarModal.m.dataVencimento && pagarModal.data !== pagarModal.m.dataVencimento && (
               <button onClick={()=>setPagarModal(p=>({...p,data:p.m.dataVencimento}))}
                       style={{alignSelf:"flex-start",background:"transparent",border:`1px solid ${C.yellow}`,color:C.yellow,
-                              padding:"4px 10px",borderRadius:4,fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                              padding:"4px 10px",borderRadius:4,fontSize:"var(--arcd-type-label)",fontWeight:600,cursor:"pointer"}}>
                 Pagou no dia do contrato ({fmtDate(pagarModal.m.dataVencimento)})
               </button>
             )}
-            <p style={{fontSize:10.5,color:C.muted,lineHeight:1.5}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
               Informe quando o valor efetivamente entrou. Costuma ser diferente do dia
               em que voce confirma aqui.
             </p>
@@ -965,7 +965,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
         <Modal title="Gerar parcelas automaticamente" onClose={()=>setGerarModal(false)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"12px 14px"}}>
-              <p style={{fontWeight:700,fontSize:14,color:C.text,marginBottom:6}}>{obra.name}</p>
+              <p style={{fontWeight:600,fontSize:14,color:C.text,marginBottom:6}}>{obra.name}</p>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                 {[
                   ["Parcela mensal",  fmt(obra.parcelaMensal)],
@@ -974,16 +974,16 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
                   ["Fim previsto",    obra.contractEnd?fmtDateFull(obra.contractEnd):"-"],
                 ].map(([l,v])=>(
                   <div key={l}>
-                    <p style={{fontSize:9,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{l}</p>
-                    <p style={{fontSize:13,fontWeight:700,color:C.text,marginTop:1}}>{v}</p>
+                    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p>
+                    <p style={{fontSize:13,fontWeight:600,color:C.text,marginTop:1}}>{v}</p>
                   </div>
                 ))}
               </div>
               <div style={{marginTop:10,padding:"8px 0",borderTop:`1px solid ${C.line}`}}>
-                <p style={{fontSize:13,color:C.text,fontWeight:700}}>
+                <p style={{fontSize:13,color:C.text,fontWeight:600}}>
                   Total gerado: {fmt(Number(obra.parcelaMensal)*(obra.totalParcelas||12))}
                 </p>
-                <p style={{fontSize:11,color:C.muted,marginTop:2}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                   {obra.totalParcelas||12} parcelas de {fmt(obra.parcelaMensal)}
                 </p>
               </div>
@@ -991,11 +991,11 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
 
             <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"10px 12px",background:C.surface,borderRadius:6,border:`1.5px solid ${C.border}`}}>
               <div onClick={()=>setGerarOpts(o=>({...o,sobreescrever:!o.sobreescrever}))} style={{width:18,height:18,border:`2px solid ${gerarOpts.sobreescrever?C.red:C.muted}`,background:gerarOpts.sobreescrever?C.red:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
-                {gerarOpts.sobreescrever&&<span style={{color:"#fff",fontSize:11,fontWeight:900}}>ok</span>}
+                {gerarOpts.sobreescrever&&<span style={{color:"#fff",fontSize:"var(--arcd-type-label)",fontWeight:600}}>ok</span>}
               </div>
               <div>
-                <p style={{fontSize:13,fontWeight:700,color:gerarOpts.sobreescrever?C.red:C.muted}}>Substituir medições existentes</p>
-                <p style={{fontSize:11,color:C.muted}}>Se desmarcado, pula meses que já têm medição</p>
+                <p style={{fontSize:13,fontWeight:600,color:gerarOpts.sobreescrever?C.red:C.muted}}>Substituir medições existentes</p>
+                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Se desmarcado, pula meses que já têm medição</p>
               </div>
             </label>
 

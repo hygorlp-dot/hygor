@@ -20,18 +20,18 @@
 
   /* Escala operacional extraída do dashboard. Estes são os únicos tamanhos
      semânticos para títulos, conteúdo, rótulos e dados em todo o app. */
-  --arcd-type-page-title: clamp(1.3125rem, 2.2vw, 1.5625rem);
-  --arcd-type-section-title: clamp(1.0625rem, 1.7vw, 1.1875rem);
-  --arcd-type-card-title: 0.875rem;
-  --arcd-type-body: 0.75rem;
-  --arcd-type-label: 0.6875rem;
-  --arcd-type-caption: 0.625rem;
-  --arcd-type-kpi: clamp(1.1875rem, 2vw, 1.4375rem);
+  --arcd-type-page-title: 1.75rem;
+  --arcd-type-section-title: 1.25rem;
+  --arcd-type-card-title: 1rem;
+  --arcd-type-body: 0.875rem;
+  --arcd-type-label: 0.8125rem;
+  --arcd-type-caption: 0.75rem;
+  --arcd-type-kpi: 1.5rem;
   --arcd-icon-size-sm: 0.8125rem;
   --arcd-icon-size-md: 1rem;
   --arcd-icon-size-lg: 1.25rem;
   --arcd-letter-spacing-body: 0.01rem;
-  --arcd-letter-spacing-label: 0.04rem;
+  --arcd-letter-spacing-label: 0.01rem;
   --arcd-letter-spacing-tight: -0.02em;
 }
 
@@ -42,4 +42,4 @@
 .arcd-body-muted { color: var(--arcd-text-secondary); font-size: var(--arcd-type-body); letter-spacing: var(--arcd-letter-spacing-body); line-height: var(--arcd-line-height-normal); }
 .arcd-label { color: var(--arcd-text-primary); font-size: var(--arcd-type-label); font-weight: var(--arcd-font-weight-semibold); letter-spacing: var(--arcd-letter-spacing-label); }
 .arcd-caption { color: var(--arcd-text-muted); font-size: var(--arcd-type-caption); }
-.arcd-number { color: var(--arcd-text-primary); font-family: var(--arcd-font-mono); font-variant-numeric: tabular-nums; }
+.arcd-number { color: var(--arcd-text-primary); font-family: var(--arcd-font-sans); font-variant-numeric: tabular-nums; }
