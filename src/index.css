@@ -2603,7 +2603,8 @@ canvas {
 
 .obra-attendance__pending-count {
   color: #62665F;
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size:var(--arcd-type-caption);
   white-space: nowrap;
 }
@@ -2702,7 +2703,8 @@ canvas {
 .obra-attendance__summary-value {
   margin-left: 14px;
   color: #202421;
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size: var(--arcd-type-section-title);
   font-weight: 600;
   line-height: 1;
@@ -3064,7 +3066,8 @@ canvas {
   margin-top: 4px;
   overflow: hidden;
   color: var(--arcd-text-primary);
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size: var(--arcd-type-card-title);
   font-weight: 600;
   line-height: 1.1;
@@ -3247,7 +3250,8 @@ canvas {
 
 .reconciliation-cell--date {
   color: var(--arcd-text-secondary);
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size:var(--arcd-type-caption);
   white-space: nowrap;
 }
@@ -3357,7 +3361,8 @@ canvas {
 
 .reconciliation-cell--value {
   color: var(--arcd-danger-text);
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size:var(--arcd-type-caption);
   font-weight: 600;
   text-align: right;
@@ -5819,6 +5824,7 @@ canvas {
 
 .terceiros-kanban-card__actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--arcd-space-1);
@@ -5832,7 +5838,7 @@ canvas {
   gap: var(--arcd-space-1);
   border: 1px solid var(--arcd-border-default);
   border-radius: var(--arcd-radius-sm);
-  padding: 0 var(--arcd-space-2);
+  padding: var(--arcd-space-2);
   background: var(--arcd-surface-muted);
   color: var(--arcd-text-secondary);
   cursor: pointer;
@@ -5844,6 +5850,19 @@ canvas {
   border-color: var(--arcd-border-strong);
   background: var(--arcd-surface-card);
   color: var(--arcd-text-primary);
+}
+
+.ponto-employee-cell {
+  flex-direction: column;
+  align-items: stretch !important;
+}
+
+.ponto-employee-cell > div:first-child {
+  width: 100%;
+}
+
+.ponto-employee-cell .ponto-row-actions {
+  flex-wrap: wrap;
 }
 
 .terceiros-kanban-card__actions .terceiros-kanban-card__delete {
@@ -5978,7 +5997,8 @@ canvas {
 .terceiros-board__header strong {
   flex-shrink: 0;
   color: var(--arcd-text-primary);
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size: var(--arcd-font-size-sm);
   font-weight: var(--arcd-font-weight-semibold);
 }
@@ -6063,7 +6083,8 @@ canvas {
 
 .terceiros-kanban__column-total strong {
   color: var(--arcd-text-secondary);
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size:var(--arcd-type-caption);
   white-space: nowrap;
 }
@@ -6136,7 +6157,8 @@ canvas {
 .terceiros-kanban-card__header strong {
   flex-shrink: 0;
   color: var(--arcd-text-primary);
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size: var(--arcd-font-size-xs);
   font-weight: var(--arcd-font-weight-semibold);
 }
@@ -6239,7 +6261,8 @@ canvas {
   margin-top: 3px;
   overflow: hidden;
   color: var(--arcd-text-primary);
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size: 1rem;
   font-weight: var(--arcd-font-weight-semibold);
   text-overflow: ellipsis;
@@ -6346,7 +6369,8 @@ canvas {
 
 .terceiros-stage__value strong {
   color: var(--arcd-text-primary);
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size: var(--arcd-font-size-sm);
 }
 
@@ -6428,7 +6452,8 @@ canvas {
   display: block;
   margin-top: 2px;
   color: var(--arcd-text-primary);
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size: 1.25rem;
   font-weight: var(--arcd-font-weight-semibold);
 }
@@ -6466,7 +6491,8 @@ canvas {
   margin-top: 2px;
   overflow: hidden;
   color: var(--arcd-text-primary);
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size: 1rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -6599,7 +6625,7 @@ canvas {
 .terceiros-payment-review__values span { display: flex; flex-direction: column; }
 .terceiros-payment-review__values small,
 .terceiros-payment-review__date { color: var(--arcd-text-secondary); font-size: var(--arcd-font-size-xs); }
-.terceiros-payment-review__values b { color: var(--arcd-text-primary); font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: var(--arcd-font-size-md); }
+.terceiros-payment-review__values b { color: var(--arcd-text-primary); font-family: var(--arcd-font-numeric); font-variant-numeric: tabular-nums; font-size: var(--arcd-font-size-md); }
 .terceiros-payment-review__date { margin-top: var(--arcd-space-2); }
 
 .terceiros-audit-confirm { display: flex; flex-direction: column; gap: var(--arcd-space-3); }
@@ -6746,7 +6772,8 @@ canvas {
 .terceiros-registry-contract__balance strong {
   display: block;
   color: var(--arcd-success-text);
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size: 1rem;
   font-weight: var(--arcd-font-weight-semibold);
 }
@@ -6819,7 +6846,8 @@ canvas {
   display: block;
   margin-top: 2px;
   color: var(--arcd-text-primary);
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size: var(--arcd-font-size-sm);
 }
 
@@ -6878,7 +6906,8 @@ canvas {
 
 .terceiros-registry-payment strong {
   color: var(--arcd-success-text);
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-family: var(--arcd-font-numeric);
+  font-variant-numeric: tabular-nums;
   font-size: var(--arcd-font-size-sm);
 }
 
@@ -7470,7 +7499,8 @@ body.no-scroll .arcd-team-chat {
 
   .terceiros-kanban-card__actions button {
     min-width: 44px;
-    height: 44px;
+    min-height: 44px;
+    height: auto;
   }
 
   .terceiros-doc-alert {
@@ -7690,7 +7720,7 @@ body.no-scroll .arcd-team-chat {
 .team-summary__item:hover { background: #f5f3ee; }
 .team-summary__item.is-active { box-shadow: inset 0 -3px #d6ad2f; background: #f8f3df; }
 .team-summary__item span { display: block; color: #5e6266; font-size:var(--arcd-type-caption); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
-.team-summary__item strong { display: block; margin-top: 3px; font-family: "IBM Plex Mono", monospace; font-size: var(--arcd-type-section-title); font-weight: 600; }
+.team-summary__item strong { display: block; margin-top: 3px; font-family: var(--arcd-font-numeric); font-variant-numeric: tabular-nums; font-size: var(--arcd-type-section-title); font-weight: 600; }
 
 .team-toolbar {
   display: grid;

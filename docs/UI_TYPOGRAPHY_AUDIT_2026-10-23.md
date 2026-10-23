@@ -15,6 +15,7 @@ Inspeção de estilos computados em títulos, campos, botões, rótulos, célula
 - Estilos locais e condicionais usavam pesos 700–900 e tamanhos fora da escala. Os componentes passam a consumir os mesmos tokens por função.
 - Valores financeiros de folha, conciliação, terceiros e locações alternavam entre famílias; agora usam IBM Plex Sans com algarismos tabulares.
 - Campos em celular mantêm 16 px e área de toque apropriada; a grade de orçamento mantém densidade no desktop com texto de controle de 14 px.
+- Nomes na grade do ponto deixam de disputar largura com Ficha/Limpar. As ações de movimentação de terceiros permitem quebra de linha e altura automática no celular, sem cortar o texto.
 
 Resultado da varredura final: 96 estados sem família divergente, texto abaixo de 12 px, peso superior a 600 ou transbordamento da página nos elementos inspecionados. Isso cobre os estados acessíveis no conjunto de dados de teste, sem afirmar que todos os possíveis conteúdos de produção foram reproduzidos.
 
