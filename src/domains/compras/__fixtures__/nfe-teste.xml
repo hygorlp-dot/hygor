@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+  <NFe xmlns="http://www.portalfiscal.inf.br/nfe">
+    <infNFe Id="NFe26261012345678000190550010000045671000045675" versao="4.00">
+      <ide><cUF>26</cUF><natOp>VENDA DE MERCADORIA</natOp><mod>55</mod><serie>1</serie><nNF>4567</nNF><dhEmi>2026-10-20T09:15:00-03:00</dhEmi><tpNF>1</tpNF></ide>
+      <emit><CNPJ>12345678000190</CNPJ><xNome>CASA DOS MATERIAIS LTDA</xNome><xFant>Casa dos Materiais</xFant><enderEmit><xLgr>Rua A</xLgr></enderEmit><IE>0123456789</IE></emit>
+      <dest><CNPJ>98765432000110</CNPJ><xNome>ARCD CONSTRUTECH</xNome></dest>
+      <det nItem="1"><prod><cProd>CIM-50</cProd><cEAN>SEM GTIN</cEAN><xProd>CIMENTO CP II-E 32 50KG</xProd><NCM>25232910</NCM><CFOP>5102</CFOP><uCom>SC</uCom><qCom>100.0000</qCom><vUnCom>35.0000000000</vUnCom><vProd>3500.00</vProd></prod><imposto><ICMS><ICMS00><vICMS>630.00</vICMS></ICMS00></ICMS></imposto></det>
+      <det nItem="2"><prod><cProd>ARE-M</cProd><cEAN>SEM GTIN</cEAN><xProd>AREIA MEDIA LAVADA</xProd><NCM>25059000</NCM><CFOP>5102</CFOP><uCom>m3</uCom><qCom>12.0000</qCom><vUnCom>125.0000000000</vUnCom><vProd>1500.00</vProd></prod></det>
+      <det nItem="3"><prod><cProd>FRT</cProd><cEAN>SEM GTIN</cEAN><xProd>TAXA DE ENTREGA</xProd><NCM>00000000</NCM><CFOP>5102</CFOP><uCom>UN</uCom><qCom>1.0000</qCom><vUnCom>80.0000000000</vUnCom><vProd>80.00</vProd></prod></det>
+      <total><ICMSTot><vBC>3500.00</vBC><vICMS>630.00</vICMS><vProd>5080.00</vProd><vNF>5080.00</vNF></ICMSTot></total>
+      <cobr><fat><nFat>4567</nFat><vLiq>5080.00</vLiq></fat><dup><nDup>002</nDup><dVenc>2026-12-19</dVenc><vDup>2540.00</vDup></dup><dup><nDup>001</nDup><dVenc>2026-11-19</dVenc><vDup>2540.00</vDup></dup></cobr>
+      <infAdic><infCpl>Pedido PC-0012 &amp; obra Alameda</infCpl></infAdic>
+    </infNFe>
+  </NFe>
+  <protNFe versao="4.00"><infProt><chNFe>26261012345678000190550010000045671000045675</chNFe><nProt>126260000123456</nProt><cStat>100</cStat></infProt></protNFe>
+</nfeProc>
