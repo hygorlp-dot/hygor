@@ -38,6 +38,7 @@ import { canManagePurchases } from "../permissions";
 import { conferenciaPagamentoPedido } from "../payment-conference";
 import { movementOfOrder } from "../purchase-cancellation-command";
 import { atrasoDoItem } from "../delivery-schedule";
+import { avaliacoesFornecedores, explicacaoNotaFornecedor, textoNotaFornecedor } from "../supplier-rating";
 import {
   avaliarEscolhasCotacao, cotacaoMultiItens, decisoesDaCotacao, escolhaPrecisaJustificativa,
   itensDaCotacao, itensPendentesDaCotacao, mapaDaCotacao, precoDaProposta, sugestaoDeEscolhas,
@@ -852,6 +853,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   // Solicitações não fazerem .find() em data.fornecedores/obras/materiais/
   // pedidos por linha renderizada (era O(n) por linha, agora O(1)).
   const fornecedorPorId = useMemo(() => new Map((data.fornecedores||[]).map(f => [f.id, f])), [data.fornecedores]);
+  // C2.3: nota 0-10 do fornecedor (prazo, notas sem divergência, cancelamentos; 12 meses).
+  const avaliacaoForn = useMemo(() => avaliacoesFornecedores(data, today()), [data.fornecedores, data.pedidos, data.notasFiscais]);
   const obraPorId       = useMemo(() => new Map((data.obras||[]).map(o => [o.id, o])), [data.obras]);
   const materialPorId   = useMemo(() => new Map((data.materiais||[]).map(m => [m.id, m])), [data.materiais]);
   const solicitacaoPorId= useMemo(() => new Map((data.solicitacoesCompra||[]).map(s => [s.id, s])), [data.solicitacoesCompra]);
@@ -2514,7 +2517,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
               return <div key={c.id} style={{borderTop:index?`1px solid ${C.line}`:"none"}}>
                 <div role="button" tabIndex={0} onClick={()=>setCotacaoExpandida(expandida?"":c.id)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setCotacaoExpandida(expandida?"":c.id);}}} style={{display:"grid",gridTemplateColumns:isDesktop?"90px minmax(220px,1.5fr) 100px 115px 105px 100px 92px":"1fr auto",gap:10,width:"100%",alignItems:"center",padding:isDesktop?"11px":"12px",border:0,background:expandida?`${C.blue}05`:"transparent",textAlign:"left",cursor:"pointer"}}>
                   {isDesktop&&<b style={{fontSize:9.5,color:C.blue}}>{codigo}</b>}
-                  <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:11,color:C.text}}>{multi?`${mapa.linhas.length} itens · ${nomeMat(c.materialId)}${mapa.linhas.length>1?" e outros":""}`:nomeMat(c.materialId)}</b><span style={{fontSize:8.8,color:C.muted}}>{multi?`${mapa.linhas.length-pendentes} de ${mapa.linhas.length} decidido(s)`:`${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`}{sol?.numero?` · ${sol.numero}`:""}{!isDesktop?` · ${codigo}`:""}</span></div>
+                  <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:11,color:C.text}}>{multi?`${mapa.linhas.length} ${mapa.linhas.length===1?"item":"itens"} · ${nomeMat(c.materialId)}${mapa.linhas.length>1?" e outros":""}`:nomeMat(c.materialId)}</b><span style={{fontSize:8.8,color:C.muted}}>{multi?`${mapa.linhas.length-pendentes} de ${mapa.linhas.length} decidido(s)`:`${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`}{sol?.numero?` · ${sol.numero}`:""}{!isDesktop?` · ${codigo}`:""}</span></div>
                   {isDesktop&&<span style={{fontSize:10,color:C.text}}>{ord.length}</span>}
                   {isDesktop&&<span style={{fontSize:9.5,color:C.muted}}>{fmtDate(sol?.necessidade||c.data)}</span>}
                   {isDesktop&&<Badge color={c.status==="decidida"?C.green:C.blue}>{c.status==="decidida"?"Compra gerada":"Cotada"}</Badge>}
@@ -2527,7 +2530,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                     <table style={{borderCollapse:"collapse",width:"100%",minWidth:240+150*ord.length,fontSize:10}}>
                       <thead><tr style={{background:C.surface}}>
                         <th style={{textAlign:"left",padding:"7px 8px",fontSize:8.5,color:C.muted,textTransform:"uppercase"}}>Item</th>
-                        {ord.map(p=><th key={p.id} style={{textAlign:"left",padding:"7px 8px",verticalAlign:"top"}}><b className="brk" style={{display:"block",fontSize:10.5,color:C.text}}>{nomeForn(p.fornecedorId)}</b><span style={{fontSize:8.5,color:C.muted,fontWeight:600}}>{p.prazoDias||0} dia(s) · {fmt(mapa.totaisPorProposta[p.id]||0)}</span></th>)}
+                        {ord.map(p=>{const av=avaliacaoForn.get(String(p.fornecedorId)),cor=av?.nota==null?C.muted:av.nota>=8?C.green:av.nota>=6?C.orange:C.red;return <th key={p.id} style={{textAlign:"left",padding:"7px 8px",verticalAlign:"top"}}><b className="brk" style={{display:"block",fontSize:10.5,color:C.text}}>{nomeForn(p.fornecedorId)}</b><span style={{fontSize:8.5,color:C.muted,fontWeight:600}}>{p.prazoDias||0} dia(s) · {fmt(mapa.totaisPorProposta[p.id]||0)}</span><span title={explicacaoNotaFornecedor(av)} style={{display:"block",fontSize:8.5,fontWeight:850,color:cor,marginTop:2}}>Nota {textoNotaFornecedor(av)}</span></th>;})}
                       </tr></thead>
                       <tbody>{mapa.linhas.map(l=><tr key={l.item.id} style={{borderTop:`1px solid ${C.line}`}}>
                         <td style={{padding:"7px 8px"}}><b className="brk" style={{display:"block",color:C.text}}>{nomeMat(l.item.materialId)}</b><span style={{fontSize:8.5,color:C.muted}}>{l.qtd.toLocaleString("pt-BR")} {purchaseUnitOf(l.item)}{l.decisao?" · pedido gerado":""}</span></td>
@@ -2671,7 +2674,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           {pendentesCot.map(l=>{const sel=escolhas[l.item.id]||"",exige=sel&&escolhaPrecisaJustificativa(l,sel);return <div key={l.item.id} style={{background:C.surface,border:`1px solid ${exige&&!String(just[l.item.id]||"").trim()?C.orange:C.border}`,borderRadius:7,padding:"8px 10px"}}>
             <p className="brk" style={{fontSize:11,fontWeight:850,color:C.text}}>{nomeMat(l.item.materialId)} · {l.qtd.toLocaleString("pt-BR")} {purchaseUnitOf(l.item)}</p>
             <Sel label="Fornecedor" value={sel} onChange={v=>setCotDecisao(d=>({...d,escolhas:{...d.escolhas,[l.item.id]:v}}))}
-              options={[{v:"",l:"Deixar pendente"},...l.ofertas.map(o=>({v:o.proposta.id,l:`${nomeForn(o.proposta.fornecedorId)} · ${fmt(o.precoUnit)} · ${fmt(o.total)}${o.proposta.id===l.melhorPropostaId?" · menor":""}`}))]}/>
+              options={[{v:"",l:"Deixar pendente"},...l.ofertas.map(o=>({v:o.proposta.id,l:`${nomeForn(o.proposta.fornecedorId)} · ${fmt(o.precoUnit)} · ${fmt(o.total)}${o.proposta.id===l.melhorPropostaId?" · menor":""} · nota ${textoNotaFornecedor(avaliacaoForn.get(String(o.proposta.fornecedorId)))}`}))]}/>
             {exige&&<Inp label="Justificativa obrigatória *" value={just[l.item.id]||""} onChange={v=>setCotDecisao(d=>({...d,justificativas:{...d.justificativas,[l.item.id]:v}}))} placeholder={l.ofertas.length<2?"Item com uma única proposta: por que comprar assim?":"Prazo, qualidade, disponibilidade, condição de pagamento..."}/>}
           </div>;})}
           {!avaliacao.erro&&<div style={{background:`${C.green}0A`,border:`1px solid ${C.green}`,borderRadius:7,padding:"8px 10px"}}>
