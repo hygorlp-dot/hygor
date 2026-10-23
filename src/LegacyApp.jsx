@@ -85,6 +85,7 @@ import {
   historicoPreco, historicoPrecoTodos, analisePreco, mapaGerencialCompras,
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
+import { mapaDaCotacao } from "./domains/compras/quote-map";
 import {
   changePurchaseRequestProject,
   purchaseRequestSummary,
@@ -2326,6 +2327,8 @@ const normalizeData = incoming => {
         id:           p.id           || uid(),
         fornecedorId: p.fornecedorId || "",
         precoUnit:    Number(p.precoUnit || 0),
+        // Mapa de cotação (C1.3): preço por item da cotação.
+        ...(p.precos&&typeof p.precos==="object"?{precos:{...p.precos}}:{}),
         prazoDias:    Number(p.prazoDias || 0),
         obs:          p.obs || "",
         documentos: Array.isArray(p.documentos) ? p.documentos.map(a=>({
@@ -5071,7 +5074,7 @@ const destinosDocumentoIA=(data,modulo)=>{
     const fornecedores=new Map((data.fornecedores||[]).map(f=>[f.id,f.nome]));
     const materiais=new Map((data.materiais||[]).map(m=>[m.id,m.descricao]));
     const pedidos=(data.pedidos||[]).filter(p=>p.status!=="cancelado").map(p=>({id:`pedido-${p.id}`,entidade:"pedido",entidadeId:p.id,obraId:p.obraId||"",data:p.data||"",valor:totalPedido(p),pasta:`Pedidos/${p.numero||p.data||"Sem número"}`,label:`Pedido ${p.numero||"sem número"} · ${fornecedores.get(p.fornecedorId)||"Fornecedor"} · ${fmt(totalPedido(p))}`}));
-    const cotacoes=(data.cotacoes||[]).flatMap(c=>(c.propostas||[]).map(p=>({id:`cotacao-${c.id}-${p.id}`,entidade:"cotacao",entidadeId:c.id,propostaId:p.id,obraId:c.obraId||"",data:c.data||"",valor:Number(p.precoUnit||0)*Number(c.qtd||0),pasta:`Cotações/${c.data||today()}/${fornecedores.get(p.fornecedorId)||"Fornecedor"}`,label:`Cotação · ${materiais.get(c.materialId)||"Material"} · ${fornecedores.get(p.fornecedorId)||"Fornecedor"} · ${fmt(Number(p.precoUnit||0)*Number(c.qtd||0))}`})));
+    const cotacoes=(data.cotacoes||[]).flatMap(c=>{const totais=mapaDaCotacao(c).totaisPorProposta;return (c.propostas||[]).map(p=>({id:`cotacao-${c.id}-${p.id}`,entidade:"cotacao",entidadeId:c.id,propostaId:p.id,obraId:c.obraId||"",data:c.data||"",valor:Number(totais[p.id]||0),pasta:`Cotações/${c.data||today()}/${fornecedores.get(p.fornecedorId)||"Fornecedor"}`,label:`Cotação · ${materiais.get(c.materialId)||"Material"} · ${fornecedores.get(p.fornecedorId)||"Fornecedor"} · ${fmt(Number(totais[p.id]||0))}`}));});
     return[...cotacoes,...pedidos].sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
   }
   const medicoes=(data.medicoes||[]).map(m=>({id:`med-${m.id}`,entidade:"movimento",obraId:m.obraId||"",data:m.dataPagamento||m.dataVencimento||m.competencia||"",valor:Number(m.valorPrevisto||0),pasta:`Medições/${String(m.competencia||m.dataVencimento||today()).slice(0,7)}`,label:`Medição · ${m.descricao||m.numeroParcela||"obra"} · ${fmt(Number(m.valorPrevisto||0))}`}));
@@ -5529,7 +5532,7 @@ function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SE
     const noPeriodo=dataItem=>docPeriodo==="todos"||String(dataItem||"").startsWith(ym);
     const fiscais=notas.flatMap(n=>(n.documentos||[]).length?(n.documentos||[]).map(doc=>({id:`nf-${n.id}-${doc.id}`,tipo:"Nota fiscal",referencia:`${n.tipo?.toUpperCase()||"NF"} ${n.numero}`,nome:doc.legenda||doc.nome||`Nota ${n.numero}`,url:doc.url,obraId:n.obraId,data:n.emissao,fornecedor:n.fornecedorNome,status:n.status,valor:n.valorLiquido||n.valorBruto})): [{id:`nf-${n.id}`,tipo:"Nota fiscal",referencia:`${n.tipo?.toUpperCase()||"NF"} ${n.numero}`,nome:"Sem anexo",url:"",obraId:n.obraId,data:n.emissao,fornecedor:n.fornecedorNome,status:n.status,valor:n.valorLiquido||n.valorBruto}]);
     const compras=(data.pedidos||[]).filter(p=>(obraId==="all"||p.obraId===obraId)&&noPeriodo(p.data)&&p.documentos?.length).flatMap(p=>p.documentos.map(doc=>({id:`pc-${p.id}-${doc.id}`,tipo:"Compra",referencia:p.numero,nome:doc.legenda||doc.nome||"Documento da compra",url:doc.url,obraId:p.obraId,data:p.data,fornecedor:(data.fornecedores||[]).find(f=>f.id===p.fornecedorId)?.nome||"",status:p.status,valor:totalPedido(p)})));
-    const cotacoes=(data.cotacoes||[]).filter(c=>(obraId==="all"||c.obraId===obraId)&&noPeriodo(c.data)).flatMap(c=>(c.propostas||[]).flatMap(p=>(p.documentos||[]).map(doc=>({id:`cot-${c.id}-${p.id}-${doc.id}`,tipo:"Cotação",referencia:(data.materiais||[]).find(m=>m.id===c.materialId)?.descricao||"Cotação de material",nome:doc.legenda||doc.nome||"Proposta do fornecedor",url:doc.url,obraId:c.obraId,data:c.data,fornecedor:(data.fornecedores||[]).find(f=>f.id===p.fornecedorId)?.nome||"",status:c.status,valor:Number(p.precoUnit||0)*Number(c.qtd||0)}))));
+    const cotacoes=(data.cotacoes||[]).filter(c=>(obraId==="all"||c.obraId===obraId)&&noPeriodo(c.data)).flatMap(c=>(c.propostas||[]).flatMap(p=>(p.documentos||[]).map(doc=>({id:`cot-${c.id}-${p.id}-${doc.id}`,tipo:"Cotação",referencia:(data.materiais||[]).find(m=>m.id===c.materialId)?.descricao||"Cotação de material",nome:doc.legenda||doc.nome||"Proposta do fornecedor",url:doc.url,obraId:c.obraId,data:c.data,fornecedor:(data.fornecedores||[]).find(f=>f.id===p.fornecedorId)?.nome||"",status:c.status,valor:Number(mapaDaCotacao(c).totaisPorProposta[p.id]||0)}))));
     const movimentos=[...receitasMov,...despesasMov].flatMap(item=>documentosDoMovimento(item).filter(doc=>!String(doc.id||"").startsWith("legado-")).map(doc=>({id:`mov-${item.id}-${doc.id}`,tipo:item.tipo||"Movimentação",referencia:item.descricao||"Movimentação financeira",nome:doc.legenda||doc.nome,url:doc.url,obraId:item.obraId,data:item.data,fornecedor:"",status:item.status,valor:item.valor})));
     // O Financeiro audita os documentos pelo ArcD, sem receber acesso direto
     // à estrutura administrativa de pastas do OneDrive.

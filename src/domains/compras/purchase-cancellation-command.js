@@ -119,14 +119,36 @@ export const applyPurchaseCancellationCommand=(
     atualizadoEm:now,version:versionOf(invoice)+1,
     updatedAt:now,updatedById:actor.id,updatedBy:userName,
   });
-  const requests=(next.solicitacoesCompra||[]).map(request=>request.pedidoId!==order.id?request:{
-    ...request,status:"enviada",pedidoId:"",analisadoEm:"",analisadoPor:"",
-    version:versionOf(request)+1,updatedAt:now,updatedById:actor.id,updatedBy:userName,
+  // Pedidos irmãos (mesmo mapa de cotação) que seguem vivos mantêm a
+  // solicitação atendida; só os itens deste pedido voltam a ficar pendentes.
+  const siblingAlive=id=>{
+    const sibling=(next.pedidos||[]).find(item=>String(item.id)===String(id));
+    return sibling&&String(sibling.id)!==String(order.id)&&sibling.status!=="cancelado";
+  };
+  const requests=(next.solicitacoesCompra||[]).map(request=>{
+    const linked=request.pedidoId===order.id||(request.pedidoIds||[]).includes(order.id);
+    if(!linked)return request;
+    const remaining=(request.pedidoIds||[]).filter(siblingAlive);
+    const stamp={version:versionOf(request)+1,updatedAt:now,updatedById:actor.id,updatedBy:userName};
+    if(remaining.length)return {...request,...stamp,pedidoId:remaining[0],
+      pedidoIds:(request.pedidoIds||[]).filter(id=>id!==order.id)};
+    return {...request,...stamp,status:"enviada",pedidoId:"",analisadoEm:"",analisadoPor:"",
+      ...(request.pedidoIds?{pedidoIds:[]}:{})};
   });
-  const quotes=(next.cotacoes||[]).map(quote=>quote.pedidoId!==order.id?quote:{
-    ...quote,status:"aberta",pedidoId:"",escolhida:"",
-    decididoPorId:"",decididoPorNome:"",decididoEm:"",justificativaEscolha:"",
-    version:versionOf(quote)+1,updatedAt:now,updatedById:actor.id,updatedBy:userName,
+  const quotes=(next.cotacoes||[]).map(quote=>{
+    if(Array.isArray(quote.itens)&&quote.itens.length&&(quote.pedidoIds||[]).includes(order.id)){
+      const decisoes=Object.fromEntries(Object.entries(quote.decisoes||{})
+        .filter(([,decision])=>decision?.pedidoId!==order.id));
+      const pedidoIds=(quote.pedidoIds||[]).filter(id=>id!==order.id);
+      return {...quote,status:"aberta",decisoes,pedidoIds,
+        pedidoId:quote.pedidoId===order.id?(pedidoIds[0]||""):quote.pedidoId,
+        version:versionOf(quote)+1,updatedAt:now,updatedById:actor.id,updatedBy:userName};
+    }
+    return quote.pedidoId!==order.id?quote:{
+      ...quote,status:"aberta",pedidoId:"",escolhida:"",
+      decididoPorId:"",decididoPorNome:"",decididoEm:"",justificativaEscolha:"",
+      version:versionOf(quote)+1,updatedAt:now,updatedById:actor.id,updatedBy:userName,
+    };
   });
   const impact={
     pagamentos:directPayments.length,valorPago:totalPagoPedido(order),

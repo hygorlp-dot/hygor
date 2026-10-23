@@ -1,3 +1,5 @@
+import { cotacaoMultiItens, decisoesDaCotacao, mapaDaCotacao } from "../src/domains/compras/quote-map.js";
+
 const list = value => Array.isArray(value) ? value : [];
 const text = value => typeof value === "string" ? value.trim() : "";
 const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
@@ -265,6 +267,30 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
       .slice(0,20)
       .map(item=>{
         const material=materials.get(String(item.materialId));
+        // Mapa de cotação (C1.3): vários itens, preço por item; o cliente vê o
+        // total de cada fornecedor e quem venceu algum item.
+        if(cotacaoMultiItens(item)){
+          const mapa=mapaDaCotacao(item);
+          const vencedoras=new Set(Object.values(decisoesDaCotacao(item)).map(decision=>String(decision?.propostaId||"")));
+          return {
+            domain:"quotation",
+            payload:{
+              id:text(item.id),
+              date:text(item.data),
+              clientStatus:text(item.status) || "Aberta",
+              material:`${mapa.linhas.length} itens · ${material?.description || "Material"}`,
+              unit:"itens",
+              quantity:mapa.linhas.length,
+              proposals:list(item.propostas).map(proposal=>({
+                supplierName:suppliers.get(String(proposal?.fornecedorId)) || "Fornecedor",
+                unitPrice:0,
+                total:number(mapa.totaisPorProposta[proposal?.id]),
+                leadTimeDays:number(proposal?.prazoDias),
+                selected:vencedoras.has(String(proposal?.id || "")),
+              })),
+            },
+          };
+        }
         return {
           domain:"quotation",
           payload:{
