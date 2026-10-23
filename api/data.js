@@ -209,6 +209,7 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.SUPPLIER_SAVED]:["admin","compras","financeiro"],
   [OPERATIONAL_COMMAND.MATERIAL_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE]:["admin","compras"],
+  [OPERATIONAL_COMMAND.QUOTE_MAP_DECIDED]:["admin","compras"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED]:["admin","compras"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_SENT_TO_SUPPLIER]:["admin","compras"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_SUPPLIER_ACCEPTED]:["admin","compras"],
@@ -304,6 +305,7 @@ const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.INVOICE_APPROVED,
   OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED,
   OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE,
+  OPERATIONAL_COMMAND.QUOTE_MAP_DECIDED,
   OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED,
   OPERATIONAL_COMMAND.PURCHASE_ORDER_SENT_TO_SUPPLIER,
   OPERATIONAL_COMMAND.PURCHASE_ORDER_SUPPLIER_ACCEPTED,
@@ -2039,6 +2041,18 @@ export default async function handler(req, res) {
             companyId:COMPANY,orderId:command.payload?.orderId,
             mergedData:outcome.data,actor:usuario,
           });
+          await sincronizarCotacaoAoVivo({
+            companyId:COMPANY,quoteId:command.payload?.quoteId,
+            mergedData:outcome.data,actor:usuario,
+          });
+        }
+        if(command.type===OPERATIONAL_COMMAND.QUOTE_MAP_DECIDED&&outcome.kind==="save"){
+          for(const entry of Object.values(command.payload?.orders||{})){
+            if(!(outcome.data?.pedidos||[]).some(item=>String(item?.id)===String(entry?.orderId)))continue;
+            await sincronizarPedidoAoVivo({
+              companyId:COMPANY,orderId:entry.orderId,mergedData:outcome.data,actor:usuario,
+            });
+          }
           await sincronizarCotacaoAoVivo({
             companyId:COMPANY,quoteId:command.payload?.quoteId,
             mergedData:outcome.data,actor:usuario,

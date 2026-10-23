@@ -51,6 +51,12 @@ describe("buildClientPortalPublicationRows", () => {
     expect(rows.find(row=>row.domain==="purchase_order")?.payload).toMatchObject({number:"PC-001",total:250});
     expect(rows.find(row=>row.domain==="quotation")?.payload.proposals[0]).toMatchObject({supplierName:"Casa dos Materiais",total:250,selected:true});
     expect(JSON.stringify(rows)).not.toContain("Custo interno");
+    // Mapa de cotação (C1.3): total por fornecedor, não o preço vazio do formato antigo.
+    const mapRows=buildClientPortalPublicationRows({data:{...data,cotacoes:[{id:"ct-2",obraId:"obra-a",materialId:"mat-1",qtd:10,data:"2026-07-10",status:"aberta",
+      itens:[{id:"a",materialId:"mat-1",qtd:10},{id:"b",materialId:"mat-1",qtd:2}],decisoes:{a:{propostaId:"prop-1",pedidoId:"pc-1"}},
+      propostas:[{id:"prop-1",fornecedorId:"forn-1",precos:{a:25,b:5},prazoDias:3}]}]},projectId:"obra-a",publishedAt:"2026-07-26T12:00:00.000Z"});
+    expect(mapRows.find(row=>row.domain==="quotation")?.payload).toMatchObject({material:"2 itens · Cimento CP II",quantity:2});
+    expect(mapRows.find(row=>row.domain==="quotation")?.payload.proposals[0]).toMatchObject({total:260,selected:true});
     expect(JSON.stringify(rows)).not.toContain("999999");
     expect(JSON.stringify(rows)).not.toContain("não publicar");
   });

@@ -3,6 +3,7 @@ import { isDateInClosedPeriod } from "../financeiro/workflows.js";
 import { hasValidUnitConversion, purchaseUnitOf } from "./unit-conversion.js";
 import { proximoNumeroPedido } from "./calculations.js";
 import { instanciaDaSolicitacao, limiteAprovacaoEngenheiro, pedidoDentroDaAlcada } from "./purchase-approval.js";
+import { avaliarEscolhasCotacao, cotacaoMultiItens, decisoesDaCotacao, itensDaCotacao } from "./quote-map.js";
 import { CANAIS_ACEITE_PEDIDO, CANAIS_ENVIO_PEDIDO } from "./order-dispatch.js";
 
 export const PURCHASE_ORDER_COMMAND=Object.freeze({
@@ -12,6 +13,7 @@ export const PURCHASE_ORDER_COMMAND=Object.freeze({
   PURCHASE_QUOTE_CANCELLED:"COTACAO_COMPRA_CANCELADA",
   QUOTATION_SAVED:"COTACAO_COMPRA_SALVA",
   PURCHASE_QUOTE_DOCUMENT_ATTACHED:"DOCUMENTO_COTACAO_COMPRA_ANEXADO",
+  QUOTE_MAP_DECIDED:"MAPA_COTACAO_DECIDIDO",
   PURCHASE_ORDER_SENT_TO_SUPPLIER:"PEDIDO_COMPRA_ENVIADO_FORNECEDOR",
   PURCHASE_ORDER_SUPPLIER_ACCEPTED:"PEDIDO_COMPRA_ACEITO_FORNECEDOR",
 });
@@ -108,7 +110,7 @@ const normalizeItems=(data,rawItems,newMaterials,current)=>{
   return {items};
 };
 
-const normalizeOrder=(data,raw,current,{newMaterials=[]}={})=>{
+const normalizeOrder=(data,raw,current,{newMaterials=[],siblingQuoteId=""}={})=>{
   const id=String(raw.id||""),obraId=String(raw.obraId||"");
   const fornecedorId=String(raw.fornecedorId||"");
   const date=String(raw.data||""),forecast=String(raw.previsao||"");
@@ -133,7 +135,9 @@ const normalizeOrder=(data,raw,current,{newMaterials=[]}={})=>{
       :"A solicitação ainda aguarda aprovação e não pode gerar pedido."};
   }
   const requestOrder=request?.pedidoId&&String(request.pedidoId)!==id?orderById(data,request.pedidoId):null;
-  if(orderAlive(requestOrder)){
+  // Pedidos do mesmo mapa de cotação dividem a solicitação (um por fornecedor).
+  const sibling=siblingQuoteId&&String(requestOrder?.cotacaoId||"")===String(siblingQuoteId);
+  if(orderAlive(requestOrder)&&!sibling){
     return {error:`Esta solicitação já gerou o pedido ${requestOrder.numero}.`};
   }
   const quoteId=String(raw.cotacaoId||"");
@@ -167,7 +171,7 @@ const normalizeOrder=(data,raw,current,{newMaterials=[]}={})=>{
   return {order:candidate,request};
 };
 
-const saveOrder=(data,command,now)=>{
+const saveOrder=(data,command,now,{siblingQuoteId=""}={})=>{
   const payload=command.payload||{},sent=payload.order||{};
   const current=orderById(data,sent.id);
   // Pedido novo sem número digitado: o servidor numera sob a trava da linha.
@@ -192,7 +196,7 @@ const saveOrder=(data,command,now)=>{
   const withCatalog=materialResult.materials.length
     ?{...withSupplier,materiais:[...(withSupplier.materiais||[]),...materialResult.materials]}
     :withSupplier;
-  const normalized=normalizeOrder(withCatalog,raw,current,{newMaterials:materialResult.materials});
+  const normalized=normalizeOrder(withCatalog,raw,current,{newMaterials:materialResult.materials,siblingQuoteId});
   if(normalized.error)return fail(normalized.error);
   const actor=actorOf(command);
   const totalNew=orderTotalCents(normalized.order)/100;
@@ -216,7 +220,9 @@ const saveOrder=(data,command,now)=>{
   };
   const requests=normalized.request?(withCatalog.solicitacoesCompra||[]).map(item=>
     String(item.id)===String(normalized.request.id)?{
-      ...item,status:"pedido_gerado",pedidoId:saved.id,
+      ...item,status:"pedido_gerado",
+      pedidoId:siblingQuoteId&&orderAlive(orderById(withCatalog,item.pedidoId))?item.pedidoId:saved.id,
+      ...(siblingQuoteId?{pedidoIds:[...new Set([...(item.pedidoIds||[]),saved.id])]}:{}),
       analisadoEm:item.analisadoEm||now,analisadoPor:item.analisadoPor||actor.nome,
     }:item):(withCatalog.solicitacoesCompra||[]);
   return {
@@ -247,6 +253,7 @@ const normalizeQuote=(data,raw,current,now)=>{
   if(!id)return {error:"Cotação sem identificação única."};
   const obraId=String(raw.obraId||current?.obraId||"");
   if(!projectById(data,obraId))return {error:"Selecione uma obra existente para a cotação."};
+  if(Array.isArray(raw.itens))return normalizeQuoteMap(data,raw,current,now,{id,obraId});
   const materialId=String(raw.materialId||"");
   if(!(data.materiais||[]).some(item=>String(item.id)===materialId)){
     return {error:"Selecione um insumo existente para a cotação."};
@@ -297,6 +304,98 @@ const normalizeQuote=(data,raw,current,now)=>{
     propostas:proposals,solicitacaoId:requestId,
   };
   return {quote,request};
+};
+
+const materialExists=(data,id)=>(data.materiais||[]).some(item=>String(item.id)===String(id));
+
+const quoteRequestOf=(data,raw,current,obraId)=>{
+  const requestId=String(current?.solicitacaoId||raw.solicitacaoId||"");
+  const request=requestId?requestById(data,requestId):null;
+  if(requestId&&!request)return {error:"A solicitação relacionada à cotação não existe."};
+  if(request&&String(request.obraId)!==obraId){
+    return {error:"Cotação e solicitação precisam pertencer à mesma obra."};
+  }
+  return {requestId,request};
+};
+
+// Mapa de cotação (C1.3): vários itens, um preço por item em cada proposta.
+// Mesmas regras do formato antigo: insumo existente, quantidade, conversão
+// de unidade válida e ao menos 2 propostas. Cada fornecedor aparece uma vez,
+// porque a decisão gera um pedido por fornecedor.
+const normalizeQuoteMap=(data,raw,current,now,{id,obraId})=>{
+  if(!raw.itens.length||raw.itens.length>200)return {error:"A cotação precisa possuir entre 1 e 200 itens."};
+  const ids=new Set(),items=[];
+  for(const item of raw.itens){
+    const itemId=String(item?.id||""),materialId=String(item?.materialId||"");
+    if(!itemId||ids.has(itemId))return {error:"A cotação contém item sem identificação ou repetido."};
+    if(!materialExists(data,materialId))return {error:"Selecione um insumo existente para cada item da cotação."};
+    const quantity=Number(item.qtd);
+    if(!Number.isFinite(quantity)||quantity<=0)return {error:"Informe a quantidade de cada item da cotação."};
+    if(!hasValidUnitConversion(item)){
+      return {error:"A conversão entre a unidade de compra e a unidade de referência é inválida."};
+    }
+    ids.add(itemId);
+    items.push({
+      id:itemId,materialId,qtd:quantity,
+      unidadeRef:String(item.unidadeRef||"").trim()||"UN",unidadeCompra:purchaseUnitOf(item),
+      fatorConversao:Number(item.fatorConversao||1),precoRef:Number(item.precoRef||0),
+      orcItemId:String(item.orcItemId||""),orcNivel1Id:String(item.orcNivel1Id||""),
+      solicitacaoItemId:String(item.solicitacaoItemId||""),
+    });
+  }
+  if(current&&cotacaoMultiItens(current)){
+    const decided=new Set(Object.keys(decisoesDaCotacao(current)));
+    if([...decided].some(itemId=>!ids.has(itemId))){
+      return {error:"Um item que já virou pedido não pode sair da cotação."};
+    }
+  }
+  const proposals=[];
+  for(const item of raw.propostas||[]){
+    if(!item?.fornecedorId)continue;
+    const precos=Object.fromEntries(Object.entries(item.precos||{})
+      .filter(([itemId,value])=>ids.has(itemId)&&Number.isFinite(Number(value))&&Number(value)>0)
+      .map(([itemId,value])=>[itemId,Number(value)]));
+    if(!Object.keys(precos).length)continue;
+    proposals.push({
+      id:String(item.id||""),fornecedorId:String(item.fornecedorId),precos,
+      prazoDias:Number(item.prazoDias||0),obs:String(item.obs||""),
+      documentos:Array.isArray(item.documentos)?item.documentos.map(doc=>({...doc})):[],
+    });
+  }
+  if(proposals.length<2)return {error:"Uma cotação precisa de ao menos 2 propostas."};
+  if(proposals.some(item=>!item.id||!supplierById(data,item.fornecedorId))){
+    return {error:"A cotação contém proposta sem identificação ou fornecedor válido."};
+  }
+  if(new Set(proposals.map(item=>item.fornecedorId)).size!==proposals.length){
+    return {error:"Cada fornecedor deve aparecer em uma única proposta do mapa."};
+  }
+  if(current&&cotacaoMultiItens(current)){
+    const byId=new Map(items.map(item=>[item.id,item]));
+    const previous=new Map(current.itens.map(item=>[String(item.id),item]));
+    const changed=Object.entries(decisoesDaCotacao(current)).some(([itemId,decision])=>{
+      const before=previous.get(itemId),after=byId.get(itemId);
+      const proposal=proposals.find(item=>item.id===String(decision.propostaId));
+      const oldProposal=(current.propostas||[]).find(item=>String(item.id)===String(decision.propostaId));
+      return !proposal||!after||String(after.materialId)!==String(before?.materialId)
+        ||Math.abs(after.qtd-Number(before?.qtd||0))>1e-9
+        ||Math.abs(Number(proposal.precos[itemId]||0)-Number(oldProposal?.precos?.[itemId]||0))>1e-9;
+    });
+    if(changed)return {error:"Um item que já virou pedido não pode ser alterado na cotação."};
+  }
+  const link=quoteRequestOf(data,raw,current,obraId);
+  if(link.error)return link;
+  const first=items[0];
+  const quote={
+    // materialId/qtd do primeiro item mantêm a cotação visível no registro
+    // de compras (core_quotations exige material).
+    id,obraId,materialId:first.materialId,qtd:first.qtd,
+    unidadeRef:first.unidadeRef,unidadeCompra:first.unidadeCompra,fatorConversao:first.fatorConversao,
+    precoRef:first.precoRef,orcItemId:first.orcItemId,orcNivel1Id:first.orcNivel1Id,
+    itens:items,decisoes:current?.decisoes||{},pedidoIds:current?.pedidoIds||[],
+    data:String(raw.data||"").trim()||now.slice(0,10),
+    propostas:proposals,solicitacaoId:link.requestId,
+  };
+  return {quote,request:link.request};
 };
 
 const saveQuote=(data,command,now)=>{
@@ -377,6 +476,86 @@ const createFromQuote=(data,command,now)=>{
     version:versionOf(item)+1,updatedAt:now,
   }:item);
   return {ok:true,entityId:orderId,data:{...saved.data,cotacoes:quotes}};
+};
+
+// Decisão do mapa de cotação (C1.3): escolhe a proposta de cada item
+// pendente e gera um pedido por fornecedor vencedor, todos na mesma
+// operação. Itens sem escolha continuam pendentes na cotação. A alçada de
+// aprovação considera a soma dos pedidos gerados, para que dividir a compra
+// entre fornecedores não escape do Administrador.
+const decideQuoteMap=(data,command,now)=>{
+  const payload=command.payload||{},quote=quoteById(data,payload.quoteId);
+  if(!quote||quote.status!=="aberta")return fail("Cotação não encontrada ou já encerrada.");
+  if(!sameVersion(quote,command.expectedVersion)){
+    return fail("A cotação foi alterada por outra pessoa. Atualize a tela.");
+  }
+  const evaluation=avaliarEscolhasCotacao(quote,payload.choices,payload.justifications);
+  if(evaluation.erro)return fail(evaluation.erro);
+  const orders=payload.orders||{};
+  const orderIds=evaluation.grupos.map(group=>String(orders[group.fornecedorId]?.orderId||""));
+  if(orderIds.some(id=>!id||orderById(data,id))||new Set(orderIds).size!==orderIds.length){
+    return fail("Os novos pedidos possuem identificação inválida ou repetida.");
+  }
+  const request=quote.solicitacaoId?requestById(data,quote.solicitacaoId):null;
+  if(!pedidoDentroDaAlcada(data,{total:evaluation.total,request,actorRole:command.actorRole})){
+    const limite=limiteAprovacaoEngenheiro(data).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+    return fail(`Compra acima de ${limite} precisa de aprovação do Administrador: lance pela solicitação aprovada por ele ou peça ao Administrador para decidir.`);
+  }
+  const date=String(payload.date||now.slice(0,10));
+  let next=data;
+  const created=[];
+  for(const [index,group] of evaluation.grupos.entries()){
+    const orderId=orderIds[index];
+    const raw={
+      id:orderId,numero:String(orders[group.fornecedorId]?.number||"").trim(),obraId:quote.obraId,
+      fornecedorId:group.fornecedorId,data:date,previsao:String(payload.forecast||""),
+      status:"enviado",origemPagamento:"empresa",
+      solicitacaoId:quote.solicitacaoId||"",cotacaoId:quote.id,transacaoId:"",
+      itens:group.itens.map(({linha,precoUnit})=>({
+        id:`${orderId}-${linha.item.id}`,materialId:linha.item.materialId,qtd:linha.qtd,
+        precoUnit,qtdRecebida:0,orcItemId:linha.item.orcItemId||"",
+        orcNivel1Id:linha.item.orcNivel1Id||"",recebimentos:[],
+        unidadeRef:linha.item.unidadeRef||"",
+        unidadeCompra:linha.item.unidadeCompra||linha.item.unidadeRef||"",
+        fatorConversao:Number(linha.item.fatorConversao||1),precoRef:Number(linha.item.precoRef||0),
+        cotacaoItemId:linha.item.id,
+      })),
+      pagamentos:[],documentos:[],obs:"",
+    };
+    const saved=saveOrder(next,{...command,expectedVersion:0,payload:{order:raw}},now,{siblingQuoteId:quote.id});
+    if(!saved.ok)return saved;
+    next=saved.data;
+    created.push({orderId,group});
+  }
+  const actor=actorOf(command);
+  const multi=cotacaoMultiItens(quote);
+  const decisions={...(quote.decisoes||{})};
+  for(const {orderId,group} of created){
+    for(const {linha} of group.itens){
+      decisions[linha.item.id]={...evaluation.decisoes[linha.item.id],pedidoId:orderId,
+        decididoPorId:actor.id,decididoPorNome:actor.nome,decididoEm:now};
+    }
+  }
+  const allDecided=itensDaCotacao(quote).every(item=>multi?decisions[item.id]:true);
+  const first=created[0];
+  const quotes=(next.cotacoes||[]).map(item=>String(item.id)!==String(quote.id)?item:{
+    ...item,
+    ...(multi?{decisoes:decisions,pedidoIds:[...(item.pedidoIds||[]),...created.map(entry=>entry.orderId)]}
+      :{escolhida:first.group.propostaId,
+        justificativaEscolha:Object.values(evaluation.decisoes)[0]?.justificativa||""}),
+    status:allDecided?"decidida":"aberta",
+    pedidoId:item.pedidoId||first.orderId,
+    decididoPorId:actor.id,decididoPorNome:actor.nome,decididoEm:now,
+    // Soma das decisões vigentes: cancelar um pedido e decidir de novo não duplica.
+    economia:multi
+      ?Object.values(decisions).reduce((sum,decision)=>sum+Number(decision.economia||0),0)
+      :evaluation.economia,
+    version:versionOf(item)+1,updatedAt:now,
+  });
+  return {
+    ok:true,entityId:first.orderId,orderIds:created.map(entry=>entry.orderId),
+    data:{...next,cotacoes:quotes},
+  };
 };
 
 const attachDocument=(data,command,now)=>{
@@ -472,7 +651,9 @@ const cancelQuote=(data,command,now)=>{
     canceladaPor:actor.nome,motivoCancelamento:reason,
     version:versionOf(item)+1,updatedAt:now,
   }:item);
-  const orders=(data.pedidos||[]).map(item=>linked&&item.id===linked.id?{
+  // Mapa de cotação pode ter gerado um pedido por fornecedor: todos perdem o vínculo.
+  const linkedIds=new Set([linked?.id,...(quote.pedidoIds||[])].filter(Boolean).map(String));
+  const orders=(data.pedidos||[]).map(item=>linkedIds.has(String(item.id))&&String(item.cotacaoId||"")===String(quote.id)?{
     ...item,cotacaoId:"",version:versionOf(item)+1,updatedAt:now,
   }:item);
   const requests=(data.solicitacoesCompra||[]).map(item=>({
@@ -554,6 +735,9 @@ export const purchaseOrderCommandObraId=(data={},command={})=>{
   if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED){
     return String(quoteById(data,payload.quoteId)?.obraId||"");
   }
+  if(command.type===PURCHASE_ORDER_COMMAND.QUOTE_MAP_DECIDED){
+    return String(quoteById(data,payload.quoteId)?.obraId||"");
+  }
   return "";
 };
 
@@ -573,5 +757,6 @@ export const applyPurchaseOrderCommand=(data={},command={},now=new Date().toISOS
   if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED){
     return attachQuoteDocument(data,command,now);
   }
+  if(command.type===PURCHASE_ORDER_COMMAND.QUOTE_MAP_DECIDED)return decideQuoteMap(data,command,now);
   return cancelQuote(data,command,now);
 };

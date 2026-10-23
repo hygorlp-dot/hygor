@@ -4,6 +4,12 @@
 const records=value=>Array.isArray(value)?value:[];
 const index=value=>new Map(records(value).map(item=>[String(item?.id||""),item]).filter(([id])=>id));
 const sameWork=(left,right)=>String(left?.obraId||"")===String(right?.obraId||"");
+// Mapa de cotação (C1.3) gera um pedido por fornecedor: a cotação e a
+// solicitação listam todos em `pedidoIds`, e `pedidoId` guarda o primeiro.
+const linkedOrderIds=record=>new Set([record?.pedidoId,...records(record?.pedidoIds)].filter(Boolean).map(String));
+// Pedido cancelado é histórico: mantém o cotacaoId de origem, mas a cotação
+// volta a ficar aberta sem apontar para ele.
+const cancelled=order=>String(order?.status||"")==="cancelado";
 
 export const validateProcurementChain=(data={})=>{
   const requests=index(data.solicitacoesCompra);
@@ -13,6 +19,11 @@ export const validateProcurementChain=(data={})=>{
   for(const request of requests.values()){
     if(request.pedidoId){
       const order=orders.get(String(request.pedidoId));
+      if(!order)return "Solicitação de compra aponta para um pedido inexistente.";
+      if(!sameWork(request,order))return "Solicitação e pedido devem pertencer à mesma obra.";
+    }
+    for(const orderId of records(request.pedidoIds)){
+      const order=orders.get(String(orderId));
       if(!order)return "Solicitação de compra aponta para um pedido inexistente.";
       if(!sameWork(request,order))return "Solicitação e pedido devem pertencer à mesma obra.";
     }
@@ -29,8 +40,8 @@ export const validateProcurementChain=(data={})=>{
       if(!request)return "Cotação aponta para uma solicitação inexistente.";
       if(!sameWork(quote,request))return "Cotação e solicitação devem pertencer à mesma obra.";
     }
-    if(quote.pedidoId){
-      const order=orders.get(String(quote.pedidoId));
+    for(const orderId of linkedOrderIds(quote)){
+      const order=orders.get(orderId);
       if(!order)return "Cotação aponta para um pedido inexistente.";
       if(!sameWork(quote,order)||String(order.cotacaoId||"")!==String(quote.id))return "Pedido gerado pela cotação possui vínculo ou obra divergente.";
     }
@@ -40,7 +51,7 @@ export const validateProcurementChain=(data={})=>{
     if(order.cotacaoId){
       const quote=quotes.get(String(order.cotacaoId));
       if(!quote)return "Pedido aponta para uma cotação inexistente.";
-      if(!sameWork(order,quote)||String(quote.pedidoId||"")!==String(order.id))return "Pedido e cotação devem apontar um para o outro na mesma obra.";
+      if(!sameWork(order,quote)||(!cancelled(order)&&!linkedOrderIds(quote).has(String(order.id))))return "Pedido e cotação devem apontar um para o outro na mesma obra.";
     }
     if(order.solicitacaoId){
       const request=requests.get(String(order.solicitacaoId));

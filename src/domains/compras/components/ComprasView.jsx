@@ -38,6 +38,10 @@ import { canManagePurchases } from "../permissions";
 import { conferenciaPagamentoPedido } from "../payment-conference";
 import { movementOfOrder } from "../purchase-cancellation-command";
 import {
+  avaliarEscolhasCotacao, cotacaoMultiItens, decisoesDaCotacao, escolhaPrecisaJustificativa,
+  itensDaCotacao, itensPendentesDaCotacao, mapaDaCotacao, precoDaProposta, sugestaoDeEscolhas,
+} from "../quote-map";
+import {
   assuntoEmailPedido, documentoPedidoHtml, linkEmailPedido, mensagemPedidoFornecedor,
 } from "../order-dispatch";
 import { active } from "../../financeiro/ledger";
@@ -476,73 +480,82 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
   );
 }
 
+// Mapa de cotação (C1.3): itens nas linhas, fornecedores nas colunas. O
+// menor preço de cada linha fica destacado; cada fornecedor aparece uma vez.
+const propostaVaziaCotacao=()=>({id:uid(),fornecedorId:"",prazoDias:"",obs:"",documentos:[],precos:{}});
+const itemVazioCotacao=()=>({id:uid(),materialId:"",qtd:"",unidadeRef:"UN",unidadeCompra:"UN",fatorConversao:1,precoRef:0,orcItemId:"",orcNivel1Id:""});
+// Converte a cotação (antiga ou de vários itens) no formulário do mapa.
+const formularioDaCotacao=cot=>{
+  const itens=itensDaCotacao(cot);
+  return {...cot,itens:itens.map(i=>({...i,qtd:String(i.qtd??"")})),
+    propostas:(cot.propostas||[]).map(p=>({...p,documentos:p.documentos||[],
+      precos:Object.fromEntries(itens.map(i=>[i.id,precoDaProposta(cot,p,i.id)||""]))}))};
+};
+
 function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOrc=[] }) {
-  const { formGrid } = useBreakpoint();
   const [salvando,setSalvando]=useState(false);
   const enviar=async()=>{setSalvando(true);try{await onSave(form);}finally{setSalvando(false);}};
-  const F = k => v => setForm(f => ({ ...f, [k]: v }));
-  const setP = (i, campo, v) =>
-    setForm(f => ({ ...f, propostas: f.propostas.map((x,k) => k===i ? {...x,[campo]:v} : x) }));
-  const addP = () => setForm(f => ({ ...f, propostas:[...f.propostas,
-    {id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]}] }));
-  const delP = (i) => setForm(f => ({ ...f, propostas: f.propostas.filter((_,k)=>k!==i) }));
-
-  const validas = (form.propostas||[]).filter(p => Number(p.precoUnit) > 0);
-  const menor = validas.length ? Math.min(...validas.map(p => Number(p.precoUnit))) : 0;
-  const qtd = Number(form.qtd || 0);
+  const decididos=new Set(Object.keys(decisoesDaCotacao(form)));
+  const setItem=(i,patch)=>setForm(f=>({...f,itens:f.itens.map((x,k)=>k===i?{...x,...patch}:x)}));
+  const setP=(i,campo,v)=>setForm(f=>({...f,propostas:f.propostas.map((x,k)=>k===i?{...x,[campo]:v}:x)}));
+  const setPreco=(i,itemId,v)=>setForm(f=>({...f,propostas:f.propostas.map((x,k)=>k===i?{...x,precos:{...(x.precos||{}),[itemId]:v}}:x)}));
+  const addP=()=>setForm(f=>({...f,propostas:[...f.propostas,propostaVaziaCotacao()]}));
+  const delP=i=>setForm(f=>({...f,propostas:f.propostas.filter((_,k)=>k!==i)}));
+  const addItem=()=>setForm(f=>({...f,itens:[...f.itens,itemVazioCotacao()]}));
+  const delItem=i=>setForm(f=>({...f,itens:f.itens.filter((_,k)=>k!==i)}));
+  const menorPorItem=Object.fromEntries((form.itens||[]).map(item=>{
+    const precos=(form.propostas||[]).map(p=>Number(p.precos?.[item.id]||0)).filter(v=>v>0);
+    return [item.id,precos.length?Math.min(...precos):0];
+  }));
+  const totalProposta=p=>(form.itens||[]).reduce((s,item)=>s+Number(p.precos?.[item.id]||0)*Number(item.qtd||0),0);
+  const usados=new Set((form.propostas||[]).map(p=>p.fornecedorId).filter(Boolean));
+  const cel={padding:"6px 7px",borderBottom:`1px solid ${C.line}`,verticalAlign:"top"};
 
   return (
-    <Modal title="Nova cotação" onClose={()=>setForm(null)} wide>
+    <Modal title={form.id?"Mapa de cotação":"Nova cotação"} onClose={()=>setForm(null)} wide>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
-          <Sel label="Material *" value={form.materialId} onChange={v=>setForm(f=>{const material=materiais.find(m=>m.id===v);return{...f,materialId:v,unidadeRef:material?.unidade||"UN",unidadeCompra:material?.unidade||"UN",fatorConversao:1,precoRef:Number(material?.precoMedio||0)};})}
-               options={[{v:"",l:"Selecione..."}, ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
-          <Inp label={`Quantidade (${purchaseUnitOf(form)}) *`} type="number" value={form.qtd} onChange={F("qtd")} placeholder="0"/>
-          {form.unidadeCompra&&form.unidadeRef&&purchaseUnitOf(form)!==String(form.unidadeRef).toUpperCase()&&<p style={{gridColumn:"1/-1",fontSize:9.5,color:C.muted}}>Conversão herdada da solicitação: 1 {purchaseUnitOf(form)} = {Number(form.fatorConversao||0).toLocaleString("pt-BR")} {form.unidadeRef}. Referência equivalente: <b style={{color:C.text}}>{fmt(referencePricePerPurchaseUnit(form))}/{purchaseUnitOf(form)}</b>.</p>}
-          <div style={{gridColumn:"1/-1"}}><Sel label="Etapa de 1º nível do orçamento" value={form.orcNivel1Id||""} onChange={F("orcNivel1Id")} options={[{v:"",l:linhasOrc.length?"Selecione a etapa principal":"Nenhuma etapa disponível"},...linhasOrc.map(l=>({v:l.id,l:`${l.descricao} · ${fmt(l.orcado)}`}))]}/></div>
+        <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:11}}>
+          <Sel label="Etapa de 1º nível do orçamento" value={form.orcNivel1Id||""} onChange={v=>setForm(f=>({...f,orcNivel1Id:v,itens:f.itens.map(i=>({...i,orcNivel1Id:i.orcNivel1Id||v}))}))} options={[{v:"",l:linhasOrc.length?"Selecione a etapa principal":"Nenhuma etapa disponível"},...linhasOrc.map(l=>({v:l.id,l:`${l.descricao} · ${fmt(l.orcado)}`}))]}/>
         </div>
-
-        <p style={{fontSize:11,color:C.muted}}>Propostas recebidas (mínimo 2):</p>
-
-        {(form.propostas||[]).map((p, i) => {
-          const eh = Number(p.precoUnit) > 0 && Number(p.precoUnit) === menor;
-          const dif = (Number(p.precoUnit||0) - menor) * qtd;
-          return (
-            <div key={i} style={{
-              background: eh ? `${C.yellow}0A` : C.surface,
-              border:`1px solid ${eh ? C.yellow : C.border}`,
-              borderRadius:6, padding:"9px 11px",
-            }}>
-              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
-                <Sel label="Fornecedor" value={p.fornecedorId} onChange={v=>setP(i,"fornecedorId",v)}
-                     options={[{v:"",l:"Selecione..."}, ...fornecedores.map(f=>({v:f.id,l:f.nome}))]}/>
-                <Inp label="Preço unitário (R$)" type="number" value={p.precoUnit}
-                     onChange={v=>setP(i,"precoUnit",v)} placeholder="0,00"/>
-                <Inp label="Prazo (dias)" type="number" value={p.prazoDias}
-                     onChange={v=>setP(i,"prazoDias",v)} placeholder="0"/>
-                <div style={{display:"flex",alignItems:"flex-end",paddingBottom:9}}>
-                  {qtd > 0 && Number(p.precoUnit) > 0 && (
-                    <div>
-                      <p style={{fontSize:12,fontWeight:800,color:C.text}}>
-                        {eh && " "}{fmt(Number(p.precoUnit) * qtd)}
-                      </p>
-                      {dif > 0.01 && (
-                        <p style={{fontSize:10,color:C.red}}>+{fmt(dif)} vs. o menor</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              {form.propostas.length > 2 && (
-                <button onClick={()=>delP(i)} style={{background:"transparent",border:0,color:C.muted,
-                  fontSize:10,cursor:"pointer",marginTop:6,textDecoration:"underline"}}>remover proposta</button>
-              )}
-            </div>
-          );
-        })}
-
-        <Btn v="ghost" onClick={addP} full><Ic n="plus"/> Outra proposta</Btn>
-
+        <p style={{fontSize:11,color:C.muted}}>Informe o preço unitário de cada fornecedor por item (mínimo 2 fornecedores). O menor preço de cada linha aparece em verde.</p>
+        <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}>
+          <table style={{borderCollapse:"collapse",width:"100%",minWidth:260+180*(form.propostas||[]).length,fontSize:10.5}}>
+            <thead><tr style={{background:C.surface}}>
+              <th style={{...cel,textAlign:"left",minWidth:230}}>Item</th>
+              {(form.propostas||[]).map((p,i)=><th key={p.id} style={{...cel,minWidth:170,textAlign:"left"}}>
+                <Sel label={`Fornecedor ${i+1}`} value={p.fornecedorId} onChange={v=>setP(i,"fornecedorId",v)}
+                  options={[{v:"",l:"Selecione..."},...fornecedores.filter(f=>f.id===p.fornecedorId||!usados.has(f.id)).map(f=>({v:f.id,l:f.nome}))]}/>
+                <Inp label="Prazo (dias)" type="number" value={p.prazoDias} onChange={v=>setP(i,"prazoDias",v)} placeholder="0"/>
+                {form.propostas.length>2&&!Object.values(decisoesDaCotacao(form)).some(d=>d.propostaId===p.id)&&<button type="button" onClick={()=>delP(i)} style={{background:"transparent",border:0,color:C.muted,fontSize:10,cursor:"pointer",textDecoration:"underline"}}>remover fornecedor</button>}
+              </th>)}
+            </tr></thead>
+            <tbody>
+              {(form.itens||[]).map((item,r)=>{const travado=decididos.has(String(item.id));return <tr key={item.id}>
+                <td style={cel}>
+                  <Sel label={`Insumo ${r+1}${travado?" · já virou pedido":""}`} value={item.materialId} onChange={v=>{const m=materiais.find(x=>x.id===v);setItem(r,{materialId:v,unidadeRef:m?.unidade||"UN",unidadeCompra:m?.unidade||"UN",fatorConversao:1,precoRef:Number(m?.precoMedio||0)});}}
+                    options={[{v:"",l:"Selecione..."},...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
+                  <div style={{display:"flex",gap:6,alignItems:"flex-end"}}>
+                    <div style={{flex:1}}><Inp label={`Quantidade (${purchaseUnitOf(item)})`} type="number" value={item.qtd} onChange={v=>!travado&&setItem(r,{qtd:v})} placeholder="0"/></div>
+                    {form.itens.length>1&&!travado&&<button type="button" onClick={()=>delItem(r)} style={{background:"transparent",border:0,color:C.muted,fontSize:10,cursor:"pointer",textDecoration:"underline",paddingBottom:9}}>remover</button>}
+                  </div>
+                  {purchaseUnitOf(item)!==String(item.unidadeRef||"").toUpperCase()&&<p style={{fontSize:9,color:C.muted}}>1 {purchaseUnitOf(item)} = {Number(item.fatorConversao||0).toLocaleString("pt-BR")} {item.unidadeRef}</p>}
+                </td>
+                {(form.propostas||[]).map((p,i)=>{const v=Number(p.precos?.[item.id]||0),eh=v>0&&v===menorPorItem[item.id];return <td key={p.id} style={{...cel,background:eh?`${C.green}0F`:"transparent"}}>
+                  <Inp label="Preço unit. (R$)" type="number" value={p.precos?.[item.id]??""} onChange={val=>!travado&&setPreco(i,item.id,val)} placeholder="0,00"/>
+                  {v>0&&Number(item.qtd)>0&&<p style={{fontSize:9.5,fontWeight:800,color:eh?C.green:C.text}}>{fmt(v*Number(item.qtd))}{eh?" · menor":""}</p>}
+                </td>;})}
+              </tr>;})}
+            </tbody>
+            <tfoot><tr style={{background:C.surface}}>
+              <td style={{...cel,fontWeight:850}}>Total por fornecedor</td>
+              {(form.propostas||[]).map(p=><td key={p.id} style={{...cel,fontWeight:850}}>{fmt(totalProposta(p))}</td>)}
+            </tr></tfoot>
+          </table>
+        </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <Btn v="ghost" onClick={addItem}><Ic n="plus"/> Item</Btn>
+          <Btn v="ghost" onClick={addP}><Ic n="plus"/> Fornecedor</Btn>
+        </div>
         <div style={{display:"flex",gap:8}}>
           <Btn v="ghost" onClick={()=>setForm(null)} disabled={salvando} full>Cancelar</Btn>
           <Btn onClick={enviar} disabled={salvando} loading={salvando&&"Salvando..."} full><Ic n="check"/> Salvar cotação</Btn>
@@ -822,10 +835,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       if(inicioCotacao&&String(c.data||"")<inicioCotacao)return false;
       if(fimCotacao&&String(c.data||"")>fimCotacao)return false;
       if(!termo)return true;
-      const material=materialPorId.get(c.materialId);
+      const materiaisCotacao=itensDaCotacao(c).map(i=>materialPorId.get(i.materialId)).map(m=>`${m?.codigo||""} ${m?.descricao||""}`).join(" ");
       const fornecedoresCotacao=(c.propostas||[]).map(p=>fornecedorPorId.get(p.fornecedorId)?.nome||"").join(" ");
       const solicitacao=solicitacaoPorId.get(c.solicitacaoId);
-      return [c.numero,c.id,material?.codigo,material?.descricao,fornecedoresCotacao,solicitacao?.numero]
+      return [c.numero,c.id,materiaisCotacao,fornecedoresCotacao,solicitacao?.numero]
         .some(v=>String(v||"").toLocaleLowerCase("pt-BR").includes(termo));
     });
   },[cotacoes,buscaCotacao,statusCotacao,inicioCotacao,fimCotacao,materialPorId,fornecedorPorId,solicitacaoPorId]);
@@ -854,9 +867,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       const prazo=s.necessidade||s.dataNecessidade||s.prazo||"";
       porId.get("demanda").cards.push({id:s.id,tipo:"solicitacao",codigo:s.numero||"Solicitação",titulo:(s.itens||[])[0]?.descricaoRef||s.observacao||"Materiais da obra",detalhe:`${(s.itens||[]).length} item(ns) · ${s.prioridade||"normal"}`,prazo,risco:risco(prazo),registro:s});
     });
-    (data.cotacoes||[]).filter(c=>c.obraId===obraAtual&&c.status==="aberta"&&!c.pedidoId).forEach(c=>{
+    (data.cotacoes||[]).filter(c=>c.obraId===obraAtual&&c.status==="aberta"&&(cotacaoMultiItens(c)?itensPendentesDaCotacao(c).length>0:!c.pedidoId)).forEach(c=>{
       const sol=solicitacaoPorId.get(c.solicitacaoId);const prazo=sol?.necessidade||sol?.dataNecessidade||"";
-      porId.get("cotacao").cards.push({id:c.id,tipo:"cotacao",codigo:c.numero||"Cotação",titulo:materialPorId.get(c.materialId)?.descricao||"Material",detalhe:`${(c.propostas||[]).length} proposta(s) · ${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`,prazo,risco:risco(prazo),registro:c});
+      porId.get("cotacao").cards.push({id:c.id,tipo:"cotacao",codigo:c.numero||"Cotação",titulo:cotacaoMultiItens(c)&&c.itens.length>1?`${c.itens.length} itens · ${materialPorId.get(c.materialId)?.descricao||"Material"}`:materialPorId.get(c.materialId)?.descricao||"Material",detalhe:`${(c.propostas||[]).length} proposta(s) · ${cotacaoMultiItens(c)?`${itensPendentesDaCotacao(c).length} item(ns) a decidir`:`${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`}`,prazo,risco:risco(prazo),registro:c});
     });
     pedidosAtivos.forEach(p=>{
       // A coluna depende da entrega, não do pagamento (compra a prazo é o
@@ -1181,16 +1194,20 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       status:"enviado",origemPagamento:"empresa",referenciaId:itens.find(i=>i.referenciaId)?.referenciaId||"",solicitacaoId:sol.id,itens,obs:`Solicitação ${sol.numero}${sol.observacao?` · ${sol.observacao}`:""}`});
   };
 
+  // Sem `item`, cota todos os itens da solicitação num único mapa (C1.3).
   const abrirCotacaoDaSolicitacao=(sol,item)=>{
     if(!podeProcessar){showToast("Somente Compras pode iniciar a cotação.","error");return;}
-    const material=item.materialId&&materiais.find(m=>m.id===item.materialId);
-    if(!material){showToast("O insumo ainda não está vinculado. Edite e salve a solicitação para regularizar.","error");return;}
-    setCotModal({id:"",solicitacaoId:sol.id,obraId:sol.obraId,materialId:material.id,qtd:String(item.quantidade),
-      orcItemId:item.orcItemId||"",orcNivel1Id:item.orcNivel1Id||"",data:today(),
-      unidadeRef:item.unidadeRef||material.unidade||"UN",unidadeCompra:purchaseUnitOf(item),
-      fatorConversao:Number(item.fatorConversao||1),comprimentoBarra:Number(item.comprimentoBarra||0),precoRef:Number(item.precoRef||0),
-      propostas:[{id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]},
-        {id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]}]});
+    const origem=item?[item]:(sol.itens||[]);
+    const semInsumo=origem.filter(i=>!(i.materialId&&materiais.some(m=>m.id===i.materialId)));
+    if(!origem.length||semInsumo.length===origem.length){showToast("O insumo ainda não está vinculado. Edite e salve a solicitação para regularizar.","error");return;}
+    if(semInsumo.length)showToast(`${semInsumo.length} item(ns) sem insumo vinculado ficaram fora da cotação.`,"warn");
+    const itens=origem.filter(i=>!semInsumo.includes(i)).map(i=>{const material=materiais.find(m=>m.id===i.materialId);return{
+      id:uid(),materialId:material.id,qtd:String(i.quantidade),solicitacaoItemId:i.id||"",
+      orcItemId:i.orcItemId||"",orcNivel1Id:i.orcNivel1Id||"",
+      unidadeRef:i.unidadeRef||material.unidade||"UN",unidadeCompra:purchaseUnitOf(i),
+      fatorConversao:Number(i.fatorConversao||1),comprimentoBarra:Number(i.comprimentoBarra||0),precoRef:Number(i.precoRef||0)};});
+    setCotModal({id:"",solicitacaoId:sol.id,obraId:sol.obraId,data:today(),orcNivel1Id:itens[0]?.orcNivel1Id||"",
+      itens,propostas:[propostaVaziaCotacao(),propostaVaziaCotacao()]});
   };
 
   //  Pedido 
@@ -1533,23 +1550,24 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
   //  Cotação
   const salvarCotacao = async (f) => {
-    if (!f.materialId)      { showToast("Selecione o material.", "error"); return; }
-    if (Number(f.qtd) <= 0) { showToast("Informe a quantidade.", "error"); return; }
-    const props = (f.propostas||[])
-      .filter(p => p.fornecedorId && Number(p.precoUnit) > 0)
-      .map(p => ({ id: p.id || uid(), fornecedorId: p.fornecedorId,
-                   precoUnit: Number(p.precoUnit), prazoDias: Number(p.prazoDias||0), obs: p.obs||"",
-                   documentos:Array.isArray(p.documentos)?p.documentos:[] }));
+    const itens=(f.itens||[]).map(i=>({...i,qtd:Number(i.qtd)}));
+    if(!itens.length||itens.some(i=>!i.materialId)){showToast("Selecione o insumo de cada item.","error");return;}
+    if(itens.some(i=>!(i.qtd>0))){showToast("Informe a quantidade de cada item.","error");return;}
+    const props=(f.propostas||[])
+      .filter(p=>p.fornecedorId&&itens.some(i=>Number(p.precos?.[i.id])>0))
+      .map(p=>({id:p.id||uid(),fornecedorId:p.fornecedorId,prazoDias:Number(p.prazoDias||0),obs:p.obs||"",
+        documentos:Array.isArray(p.documentos)?p.documentos:[],
+        precos:Object.fromEntries(itens.filter(i=>Number(p.precos?.[i.id])>0).map(i=>[i.id,Number(p.precos[i.id])]))}));
     if (props.length < 2) { showToast("Uma cotação precisa de ao menos 2 propostas.", "error"); return; }
     if (!dispatchCommand) { showToast("Salvar a cotação exige conexão com o servidor.", "error"); return; }
     const quote = {
       id: f.id || uid(), obraId: f.obraId || obraAtual,
-      materialId: f.materialId, qtd: Number(f.qtd),
-      unidadeRef:f.unidadeRef||unidMat(f.materialId)||"UN",
-      unidadeCompra:purchaseUnitOf(f),
-      fatorConversao:Number(f.fatorConversao||1),
-      precoRef:Number(f.precoRef||0),
-      orcItemId:f.orcItemId||"",orcNivel1Id:f.orcNivel1Id||"",
+      itens:itens.map(i=>({id:i.id,materialId:i.materialId,qtd:i.qtd,
+        unidadeRef:i.unidadeRef||unidMat(i.materialId)||"UN",unidadeCompra:purchaseUnitOf(i),
+        fatorConversao:Number(i.fatorConversao||1),precoRef:Number(i.precoRef||0),
+        orcItemId:i.orcItemId||"",orcNivel1Id:i.orcNivel1Id||f.orcNivel1Id||"",
+        solicitacaoItemId:i.solicitacaoItemId||""})),
+      orcNivel1Id:f.orcNivel1Id||"",
       data: f.data || new Date().toISOString().slice(0,10),
       propostas: props, solicitacaoId:f.solicitacaoId||"",
     };
@@ -1619,32 +1637,30 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     setAnexoCotacao(null);showToast("Documento anexado à proposta da cotação.");
   }catch(err){showToast(err.message||"Não foi possível anexar o documento da cotação.","error");}finally{setSubindoAnexoCotacao(false);}};
 
-  // Cotação decidida vira pedido, sem redigitar nada
-  const gerarPedidoDaCotacao = async(cot, propostaId, justificativa="", navegar=true) => {
-    const prop = cot.propostas.find(p => p.id === propostaId);
-    if (!prop) return;
-    const menor=Math.min(...cot.propostas.map(p=>Number(p.precoUnit||0)).filter(v=>v>0));
-    const melhor=Number(prop.precoUnit||0)<=menor+0.000001;
-    if(!melhor&&!String(justificativa||"").trim()){showToast("Justifique a escolha de uma proposta que não é a mais barata.","error");return;}
-
-    const numero = "";
+  // Mapa de cotação decidido por item: um pedido por fornecedor vencedor,
+  // sem redigitar nada. Itens sem escolha ficam pendentes na cotação.
+  const decidirCotacao = async(cot, escolhas, justificativas={}) => {
+    const avaliacao=avaliarEscolhasCotacao(cot,escolhas,justificativas);
+    if(avaliacao.erro){showToast(avaliacao.erro,"error");return;}
     if(!dispatchCommand){showToast("A geração segura do pedido exige conexão com o servidor.","error");return;}
-    const orderId=uid(),itemId=uid();
-    const result=await dispatchCommand(()=>({
-      type:OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE,
-      idempotencyKey:`purchase-order-from-quote-${cot.id}-${orderId}-${uid()}`,
-      expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-      payload:{
-        quoteId:cot.id,proposalId:propostaId,orderId,itemId,number:numero,
-        date:new Date().toISOString().slice(0,10),forecast:"",
-        justification:String(justificativa||"").trim(),
-      },
-    }));
-    if(!result?.ok){showToast(result?.reason||"O servidor não confirmou o pedido da cotação.","error");return;}
+    const orders=Object.fromEntries(avaliacao.grupos.map(g=>[g.fornecedorId,{orderId:uid(),number:""}]));
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.cotacoes||[]).find(item=>item.id===cot.id);
+      return {
+        type:OPERATIONAL_COMMAND.QUOTE_MAP_DECIDED,
+        idempotencyKey:`purchase-quote-map-${cot.id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{quoteId:cot.id,choices:escolhas,justifications:justificativas,orders,
+          date:new Date().toISOString().slice(0,10),forecast:""},
+      };
+    });
+    if(!result?.ok){showToast(result?.reason||"O servidor não confirmou os pedidos da cotação.","error");return;}
+    const ids=new Set(Object.values(orders).map(o=>o.orderId));
+    const numeros=(result.data?.pedidos||[]).filter(p=>ids.has(p.id)).map(p=>p.numero).join(", ");
     setCotDecisao(null);
-    const numeroPedido=(result.data?.pedidos||[]).find(item=>item.id===orderId)?.numero||"";
-    showToast(`Pedido ${numeroPedido} gerado a partir da cotação.`);
-    if(navegar)setAba("pedidos");
+    showToast(`${ids.size>1?`Pedidos ${numeros} gerados`:`Pedido ${numeros} gerado`} a partir da cotação.`);
+    setAba("pedidos");
   };
 
   // Envio do pedido ao fornecedor (C2.5): monta o conteúdo, abre o canal e
@@ -1706,20 +1722,18 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       showToast(proxima<atual?"O retorno de etapa exige cancelar ou ajustar o registro original.":"Avance uma etapa por vez para preservar a rastreabilidade.","warn");return;
     }
     if(card.tipo==="solicitacao"&&destino==="cotacao"){
-      const item=(card.registro.itens||[])[0];
-      if(!item){showToast("A solicitação não possui item para cotar.","error");return;}
-      abrirCotacaoDaSolicitacao(card.registro,item);
+      if(!(card.registro.itens||[]).length){showToast("A solicitação não possui item para cotar.","error");return;}
+      abrirCotacaoDaSolicitacao(card.registro);
       showToast("Cotação preparada. Inclua as propostas para concluir a movimentação.");return;
     }
     if(card.tipo==="cotacao"&&destino==="pedido"){
-      const propostas=(card.registro.propostas||[]).filter(p=>p.fornecedorId&&Number(p.precoUnit)>0);
-      if(propostas.length<2){
-        setCotModal({...card.registro,propostas:(card.registro.propostas||[]).map(p=>({...p}))});
+      const mapa=mapaDaCotacao(card.registro);
+      if((card.registro.propostas||[]).length<2||mapa.linhas.every(l=>!l.ofertas.length)){
+        setCotModal(formularioDaCotacao(card.registro));
         showToast("Complete ao menos duas propostas antes de gerar o pedido.","warn");return;
       }
-      const melhor=[...propostas].sort((a,b)=>Number(a.precoUnit)-Number(b.precoUnit)||Number(a.prazoDias||999)-Number(b.prazoDias||999))[0];
-      // Arrastar não pode comprar sozinho: abre a confirmação da proposta.
-      setCotDecisao({cotacaoId:card.registro.id,propostaId:melhor.id,justificativa:""});return;
+      // Arrastar não pode comprar sozinho: abre a decisão por item.
+      setCotDecisao({cotacaoId:card.registro.id,escolhas:sugestaoDeEscolhas(card.registro),justificativas:{}});return;
     }
     if(card.tipo==="pedido"&&destino==="entrega"){
       // Do rascunho para "Aguardando entrega" = enviar ao fornecedor.
@@ -1836,7 +1850,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                   onDragEnd={e=>{delete e.currentTarget.dataset.dragging;}}
                   onClick={()=>{
                   if(card.tipo==="solicitacao")setSolModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
-                  else if(card.tipo==="cotacao")setCotModal({...card.registro,propostas:(card.registro.propostas||[]).map(p=>({...p}))});
+                  else if(card.tipo==="cotacao")setCotModal(formularioDaCotacao(card.registro));
                   else setPedModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
                 }}>
                   <div className="purchase-kanban-card-top"><span>{card.codigo}</span><b style={{color:card.risco.cor}}>{card.risco.rotulo}</b></div>
@@ -1897,7 +1911,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                   onDragEnd={e=>{delete e.currentTarget.dataset.dragging;}}
                   onClick={()=>{
                   if(card.tipo==="solicitacao")setSolModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
-                  else if(card.tipo==="cotacao")setCotModal({...card.registro,propostas:(card.registro.propostas||[]).map(p=>({...p}))});
+                  else if(card.tipo==="cotacao")setCotModal(formularioDaCotacao(card.registro));
                   else setPedModal({...card.registro,itens:(card.registro.itens||[]).map(i=>({...i}))});
                 }}><div className="purchase-kanban-card-top"><span>{card.codigo}</span><b style={{color:card.risco.cor}}>{card.risco.rotulo}</b></div><h4>{card.titulo}</h4><p>{card.detalhe}</p><footer><span>{card.prazo?fmtDate(card.prazo):"Defina o prazo"}</span>{card.valor>0&&<strong>{fmtCompact(card.valor)}</strong>}</footer></button>)}
                   {!cards.length&&<div className="purchase-kanban-empty">Nenhum cartão</div>}{cards.length>5&&<button className="purchase-kanban-more" onClick={()=>irParaArea("kanban")}>+ {cards.length-5} cartão(ões)</button>}
@@ -2068,7 +2082,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                 <Btn size="sm" v="danger" onClick={()=>{const motivo=window.prompt("Motivo da reprovação:");if(motivo)decidirAprovacao(instanciaApr,etapasApr[0].etapa.id,"reprovado",motivo);}}>Reprovar</Btn>
               </div>
             </div>}
-            <div style={{marginTop:8,borderTop:`1px solid ${C.line}`,paddingTop:6}}>{sol.itens.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:isDesktop?"95px minmax(0,1fr) auto auto":"78px minmax(0,1fr) auto",gap:7,fontSize:10.5,marginTop:4,alignItems:"center"}}><b style={{color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef} {item.codigoRef}</b><span style={{color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricaoRef}>{item.descricaoRef}</span><b style={{color:C.text,whiteSpace:"nowrap"}}>{Number(item.quantidade||0).toLocaleString("pt-BR")} {purchaseUnitOf(item)}{purchaseUnitOf(item)!==String(item.unidadeRef||"").toUpperCase()?<small style={{display:"block",color:C.muted,fontWeight:600}}>{referenceQuantityOf(item).toLocaleString("pt-BR",{maximumFractionDigits:4})} {item.unidadeRef}</small>:null}</b>{podeProcessar&&["enviada","em_analise"].includes(sol.status)&&<Btn size="sm" v="ghost" onClick={()=>abrirCotacaoDaSolicitacao(sol,item)}>COTAR</Btn>}</div>)}</div>
+            <div style={{marginTop:8,borderTop:`1px solid ${C.line}`,paddingTop:6}}>{sol.itens.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:isDesktop?"95px minmax(0,1fr) auto auto":"78px minmax(0,1fr) auto",gap:7,fontSize:10.5,marginTop:4,alignItems:"center"}}><b style={{color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef} {item.codigoRef}</b><span style={{color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={item.descricaoRef}>{item.descricaoRef}</span><b style={{color:C.text,whiteSpace:"nowrap"}}>{Number(item.quantidade||0).toLocaleString("pt-BR")} {purchaseUnitOf(item)}{purchaseUnitOf(item)!==String(item.unidadeRef||"").toUpperCase()?<small style={{display:"block",color:C.muted,fontWeight:600}}>{referenceQuantityOf(item).toLocaleString("pt-BR",{maximumFractionDigits:4})} {item.unidadeRef}</small>:null}</b>{podeProcessar&&["enviada","em_analise"].includes(sol.status)&&<Btn size="sm" v="ghost" onClick={()=>abrirCotacaoDaSolicitacao(sol,item)}>COTAR</Btn>}</div>)}{podeProcessar&&["enviada","em_analise"].includes(sol.status)&&sol.itens.length>1&&<div style={{marginTop:7}}><Btn size="sm" onClick={()=>abrirCotacaoDaSolicitacao(sol)}>COTAR TODOS OS ITENS ({sol.itens.length})</Btn></div>}</div>
             {sol.observacao&&<p style={{fontSize:10,color:C.muted,marginTop:7}}>{sol.observacao}</p>}
             {sol.contatos?.length>0&&<p style={{fontSize:10,color:C.green,fontWeight:700,marginTop:7}}>
               Enviado para {sol.contatos.length} fornecedor(es): {sol.contatos.map(c=>c.fornecedorNome).filter(Boolean).join(", ")}
@@ -2422,8 +2436,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {aba === "cotacoes" && (<>
         <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap"}}>
           <div><h3 style={{fontSize:16,fontWeight:800,color:C.text}}>Mapa de cotações</h3><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Compare propostas, prazo e economia antes de gerar a ordem de compra.</p></div>
-          <Btn onClick={()=>setCotModal({id:"",obraId:obraAtual,materialId:"",qtd:"",orcItemId:"",orcNivel1Id:"",data:today(),
-            propostas:[{id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]},{id:uid(),fornecedorId:"",precoUnit:"",prazoDias:"",obs:"",documentos:[]}]})}>
+          <Btn onClick={()=>setCotModal({id:"",obraId:obraAtual,orcNivel1Id:"",data:today(),
+            itens:[itemVazioCotacao()],propostas:[propostaVaziaCotacao(),propostaVaziaCotacao()]})}>
             <Ic n="plus"/> Adicionar cotação
           </Btn>
         </div>
@@ -2448,14 +2462,14 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           : <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
             {isDesktop&&<div style={{display:"grid",gridTemplateColumns:"90px minmax(220px,1.5fr) 100px 115px 105px 100px 92px",gap:10,padding:"8px 11px",background:C.surface,borderBottom:`1px solid ${C.border}`,fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}><span>Código</span><span>Insumo</span><span>Fornecedores</span><span>Necessidade</span><span>Status</span><span>Prioridade</span><span>Ações</span></div>}
             {cotacoesFiltradas.map((c,index)=>{
-              const ord=[...(c.propostas||[])].sort((a,b)=>Number(a.precoUnit||0)-Number(b.precoUnit||0));
-              const melhor=ord[0],sol=solicitacaoPorId.get(c.solicitacaoId),expandida=cotacaoExpandida===c.id;
+              const ord=c.propostas||[],mapa=mapaDaCotacao(c),multi=cotacaoMultiItens(c),pendentes=mapa.linhas.filter(l=>!l.decisao).length;
+              const sol=solicitacaoPorId.get(c.solicitacaoId),expandida=cotacaoExpandida===c.id;
               const codigo=c.numero||`CT-${String(cotacoes.indexOf(c)+1).padStart(4,"0")}`;
               const prioridade=sol?.prioridade||"normal";
               return <div key={c.id} style={{borderTop:index?`1px solid ${C.line}`:"none"}}>
                 <div role="button" tabIndex={0} onClick={()=>setCotacaoExpandida(expandida?"":c.id)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setCotacaoExpandida(expandida?"":c.id);}}} style={{display:"grid",gridTemplateColumns:isDesktop?"90px minmax(220px,1.5fr) 100px 115px 105px 100px 92px":"1fr auto",gap:10,width:"100%",alignItems:"center",padding:isDesktop?"11px":"12px",border:0,background:expandida?`${C.blue}05`:"transparent",textAlign:"left",cursor:"pointer"}}>
                   {isDesktop&&<b style={{fontSize:9.5,color:C.blue}}>{codigo}</b>}
-                  <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:11,color:C.text}}>{nomeMat(c.materialId)}</b><span style={{fontSize:8.8,color:C.muted}}>{Number(c.qtd||0).toLocaleString("pt-BR")} {unidMat(c.materialId)}{sol?.numero?` · ${sol.numero}`:""}{!isDesktop?` · ${codigo}`:""}</span></div>
+                  <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:11,color:C.text}}>{multi?`${mapa.linhas.length} itens · ${nomeMat(c.materialId)}${mapa.linhas.length>1?" e outros":""}`:nomeMat(c.materialId)}</b><span style={{fontSize:8.8,color:C.muted}}>{multi?`${mapa.linhas.length-pendentes} de ${mapa.linhas.length} decidido(s)`:`${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`}{sol?.numero?` · ${sol.numero}`:""}{!isDesktop?` · ${codigo}`:""}</span></div>
                   {isDesktop&&<span style={{fontSize:10,color:C.text}}>{ord.length}</span>}
                   {isDesktop&&<span style={{fontSize:9.5,color:C.muted}}>{fmtDate(sol?.necessidade||c.data)}</span>}
                   {isDesktop&&<Badge color={c.status==="decidida"?C.green:C.blue}>{c.status==="decidida"?"Compra gerada":"Cotada"}</Badge>}
@@ -2464,18 +2478,26 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                 </div>
                 {!isDesktop&&<div style={{display:"flex",gap:5,padding:"0 12px 10px",flexWrap:"wrap"}}><Badge color={c.status==="decidida"?C.green:C.blue}>{c.status==="decidida"?"Compra gerada":"Cotada"}</Badge><Badge color={prioridade==="urgente"?C.red:C.orange}>{prioridade==="urgente"?"Alta":"Média"}</Badge><span style={{fontSize:9,color:C.muted,alignSelf:"center"}}>{ord.length} fornecedor(es) · {fmtDate(sol?.necessidade||c.data)}</span></div>}
                 {expandida&&<div style={{padding:"0 11px 12px",background:C.surface,borderTop:`1px solid ${C.line}`}}>
-                  <div style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(170px,1fr) 120px 100px 120px auto":"1fr",gap:6,padding:"8px 7px 5px",fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>{isDesktop&&<><span>Fornecedor</span><span>Preço unitário</span><span>Prazo</span><span>Total</span><span>Ação</span></>}</div>
-                  {ord.map(p=>{const eh=p.id===melhor?.id,venceu=c.escolhida===p.id,dif=(Number(p.precoUnit||0)-Number(melhor?.precoUnit||0))*Number(c.qtd||0);return <div key={p.id} style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(170px,1fr) 120px 100px 120px auto":"1fr auto",gap:8,alignItems:"center",padding:"9px 8px",marginTop:5,background:C.card,border:`1px solid ${venceu?C.green:eh?`${C.green}66`:C.border}`,borderRadius:7}}>
-                    <div><b className="brk" style={{display:"block",fontSize:10.5,color:C.text}}>{nomeForn(p.fornecedorId)} {venceu&&"✓"}</b>{eh&&<span style={{fontSize:8.5,fontWeight:800,color:C.green}}>MENOR PREÇO</span>}</div>
-                    {isDesktop&&<b style={{fontSize:10.5}}>{fmt(p.precoUnit)}/{unidMat(c.materialId)}</b>}
-                    {isDesktop&&<span style={{fontSize:9.5,color:C.muted}}>{p.prazoDias||0} dia(s)</span>}
-                    <div style={{textAlign:isDesktop?"left":"right"}}><b style={{fontSize:11,color:C.text}}>{fmt(Number(p.precoUnit||0)*Number(c.qtd||0))}</b>{dif>.01&&<small style={{display:"block",fontSize:8,color:C.red}}>+{fmt(dif)}</small>}</div>
-                    {isDesktop&&<div>{c.status==="aberta"&&<Btn size="sm" v={eh?"success":"ghost"} onClick={e=>{e.stopPropagation();setCotDecisao({cotacaoId:c.id,propostaId:p.id,justificativa:""});}}>Escolher</Btn>}</div>}
-                    <div style={{gridColumn:isDesktop?"1/-1":"1/-1",paddingTop:5,borderTop:`1px solid ${C.line}`}}><LinksDocumentosAuditaveis documentos={p.documentos||[]} subindo={subindoAnexoCotacao&&anexoCotacao?.cotacao?.id===c.id&&anexoCotacao?.proposta?.id===p.id} onSelecionar={e=>selecionarDocumentoCotacao(c,p,e)} C={C}/>{!isDesktop&&c.status==="aberta"&&<Btn size="sm" v={eh?"success":"ghost"} full onClick={()=>setCotDecisao({cotacaoId:c.id,propostaId:p.id,justificativa:""})}>Escolher e gerar pedido</Btn>}</div>
-                  </div>;})}
+                  <div style={{overflowX:"auto",marginTop:8,border:`1px solid ${C.border}`,borderRadius:7,background:C.card}}>
+                    <table style={{borderCollapse:"collapse",width:"100%",minWidth:240+150*ord.length,fontSize:10}}>
+                      <thead><tr style={{background:C.surface}}>
+                        <th style={{textAlign:"left",padding:"7px 8px",fontSize:8.5,color:C.muted,textTransform:"uppercase"}}>Item</th>
+                        {ord.map(p=><th key={p.id} style={{textAlign:"left",padding:"7px 8px",verticalAlign:"top"}}><b className="brk" style={{display:"block",fontSize:10.5,color:C.text}}>{nomeForn(p.fornecedorId)}</b><span style={{fontSize:8.5,color:C.muted,fontWeight:600}}>{p.prazoDias||0} dia(s) · {fmt(mapa.totaisPorProposta[p.id]||0)}</span></th>)}
+                      </tr></thead>
+                      <tbody>{mapa.linhas.map(l=><tr key={l.item.id} style={{borderTop:`1px solid ${C.line}`}}>
+                        <td style={{padding:"7px 8px"}}><b className="brk" style={{display:"block",color:C.text}}>{nomeMat(l.item.materialId)}</b><span style={{fontSize:8.5,color:C.muted}}>{l.qtd.toLocaleString("pt-BR")} {purchaseUnitOf(l.item)}{l.decisao?" · pedido gerado":""}</span></td>
+                        {ord.map(p=>{const v=precoDaProposta(c,p,l.item.id),eh=v>0&&p.id===l.melhorPropostaId,venceu=l.decisao?.propostaId===p.id;return <td key={p.id} style={{padding:"7px 8px",background:venceu?`${C.green}1A`:eh?`${C.green}0B`:"transparent"}}>{v>0?<><b style={{color:eh?C.green:C.text}}>{fmt(v)}</b>{venceu&&" ✓"}<small style={{display:"block",fontSize:8,color:C.muted}}>{fmt(v*l.qtd)}{eh?" · menor":""}</small></>:<span style={{color:C.muted}}>—</span>}</td>;})}
+                      </tr>)}</tbody>
+                    </table>
+                  </div>
+                  {ord.map(p=><div key={p.id} style={{marginTop:6,padding:"6px 8px",background:C.card,border:`1px solid ${C.border}`,borderRadius:7}}><b style={{fontSize:9.5,color:C.text}}>Documentos · {nomeForn(p.fornecedorId)}</b><LinksDocumentosAuditaveis documentos={p.documentos||[]} subindo={subindoAnexoCotacao&&anexoCotacao?.cotacao?.id===c.id&&anexoCotacao?.proposta?.id===p.id} onSelecionar={e=>selecionarDocumentoCotacao(c,p,e)} C={C}/></div>)}
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap",marginTop:8}}>
-                    <span style={{fontSize:9,color:C.muted}}>{c.status==="decidida"?`Economia registrada: ${fmt(c.economia||0)}`:"Selecione a proposta considerando preço, prazo e documentação."}</span>
-                    {podeProcessar&&<Btn size="sm" v="danger" onClick={()=>excluirCotacao(c)}><Ic n="trash"/> Excluir cotação</Btn>}
+                    <span style={{fontSize:9,color:C.muted}}>{c.economia>0?`Economia registrada: ${fmt(c.economia||0)}`:"Escolha a proposta de cada item considerando preço, prazo e documentação."}</span>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {podeProcessar&&c.status==="aberta"&&<Btn size="sm" v="ghost" onClick={()=>setCotModal(formularioDaCotacao(c))}>Editar mapa</Btn>}
+                      {podeProcessar&&c.status==="aberta"&&pendentes>0&&<Btn size="sm" v="success" onClick={()=>setCotDecisao({cotacaoId:c.id,escolhas:sugestaoDeEscolhas(c),justificativas:{}})}>Decidir e gerar pedidos</Btn>}
+                      {podeProcessar&&<Btn size="sm" v="danger" onClick={()=>excluirCotacao(c)}><Ic n="trash"/> Excluir cotação</Btn>}
+                    </div>
                   </div>
                 </div>}
               </div>;
@@ -2594,7 +2616,24 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         <Inp label="Observação" value={aceitePedido.obs} onChange={v=>setAceitePedido(f=>({...f,obs:v}))} multiline/>
         <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setAceitePedido(null)}>Cancelar</Btn><Btn full onClick={salvarAceitePedido}><Ic n="check"/> Registrar aceite</Btn></div>
       </div></Modal>}
-      {cotDecisao&&(()=>{const cot=(data.cotacoes||[]).find(c=>c.id===cotDecisao.cotacaoId);const prop=cot?.propostas?.find(p=>p.id===cotDecisao.propostaId);if(!cot||!prop)return null;const menor=Math.min(...cot.propostas.map(p=>Number(p.precoUnit||0)).filter(v=>v>0));const fora=Number(prop.precoUnit)>menor+0.000001;return <Modal title="Decisão da cotação" onClose={()=>setCotDecisao(null)}><div style={{display:"flex",flexDirection:"column",gap:11}}><div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 12px"}}><p style={{fontSize:12,fontWeight:850,color:C.text}}>{nomeMat(cot.materialId)}</p><p style={{fontSize:10,color:C.muted,marginTop:3}}>{nomeForn(prop.fornecedorId)} · {fmt(prop.precoUnit*cot.qtd)} · prazo {prop.prazoDias||0} dia(s)</p></div>{fora&&<div style={{background:`${C.orange}0C`,border:`1px solid ${C.orange}`,borderRadius:6,padding:"8px 10px"}}><p style={{fontSize:10.5,color:C.orange,fontWeight:850}}>Esta não é a proposta de menor preço.</p><p style={{fontSize:9.5,color:C.muted,marginTop:2}}>Registre o motivo: prazo, qualidade, disponibilidade, condição de pagamento ou especificação.</p></div>}<Inp label={fora?"Justificativa obrigatória *":"Observação da decisão"} value={cotDecisao.justificativa} onChange={v=>setCotDecisao(d=>({...d,justificativa:v}))} multiline placeholder="Critério usado para escolher o fornecedor..."/><div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setCotDecisao(null)}>Cancelar</Btn><Btn full onClick={()=>gerarPedidoDaCotacao(cot,prop.id,cotDecisao.justificativa)} disabled={fora&&!cotDecisao.justificativa.trim()}>Aprovar e gerar pedido</Btn></div></div></Modal>;})()}
+      {cotDecisao&&(()=>{const cot=(data.cotacoes||[]).find(c=>c.id===cotDecisao.cotacaoId);if(!cot)return null;
+        const pendentesCot=itensPendentesDaCotacao(cot),escolhas=cotDecisao.escolhas||{},just=cotDecisao.justificativas||{};
+        const avaliacao=avaliarEscolhasCotacao(cot,escolhas,just);
+        return <Modal title="Decisão do mapa de cotação" onClose={()=>setCotDecisao(null)} wide><div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <p style={{fontSize:10,color:C.muted}}>Escolha o fornecedor de cada item. Item sem escolha fica pendente na cotação. Fora do menor preço ou com uma só proposta, registre o motivo.</p>
+          {pendentesCot.map(l=>{const sel=escolhas[l.item.id]||"",exige=sel&&escolhaPrecisaJustificativa(l,sel);return <div key={l.item.id} style={{background:C.surface,border:`1px solid ${exige&&!String(just[l.item.id]||"").trim()?C.orange:C.border}`,borderRadius:7,padding:"8px 10px"}}>
+            <p className="brk" style={{fontSize:11,fontWeight:850,color:C.text}}>{nomeMat(l.item.materialId)} · {l.qtd.toLocaleString("pt-BR")} {purchaseUnitOf(l.item)}</p>
+            <Sel label="Fornecedor" value={sel} onChange={v=>setCotDecisao(d=>({...d,escolhas:{...d.escolhas,[l.item.id]:v}}))}
+              options={[{v:"",l:"Deixar pendente"},...l.ofertas.map(o=>({v:o.proposta.id,l:`${nomeForn(o.proposta.fornecedorId)} · ${fmt(o.precoUnit)} · ${fmt(o.total)}${o.proposta.id===l.melhorPropostaId?" · menor":""}`}))]}/>
+            {exige&&<Inp label="Justificativa obrigatória *" value={just[l.item.id]||""} onChange={v=>setCotDecisao(d=>({...d,justificativas:{...d.justificativas,[l.item.id]:v}}))} placeholder={l.ofertas.length<2?"Item com uma única proposta: por que comprar assim?":"Prazo, qualidade, disponibilidade, condição de pagamento..."}/>}
+          </div>;})}
+          {!avaliacao.erro&&<div style={{background:`${C.green}0A`,border:`1px solid ${C.green}`,borderRadius:7,padding:"8px 10px"}}>
+            <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>{avaliacao.grupos.length} pedido(s) · {fmt(avaliacao.total)}{avaliacao.restantes?` · ${avaliacao.restantes} item(ns) pendente(s)`:""}</p>
+            {avaliacao.grupos.map(g=><p key={g.fornecedorId} style={{fontSize:9.5,color:C.muted,marginTop:2}}>{nomeForn(g.fornecedorId)}: {g.itens.length} item(ns) · {fmt(g.total)}</p>)}
+          </div>}
+          {avaliacao.erro&&<p style={{fontSize:10,color:C.orange,fontWeight:800}}>{avaliacao.erro}</p>}
+          <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setCotDecisao(null)}>Cancelar</Btn><Btn full onClick={()=>decidirCotacao(cot,escolhas,just)} disabled={!!avaliacao.erro}>Aprovar e gerar pedido(s)</Btn></div>
+        </div></Modal>;})()}
       {recModal  && <ModalRecebimento pedido={recModal} onClose={()=>setRecModal(null)}
                                       onReceber={receber} nomeMat={nomeMat} unidMat={unidMat}
                                       nomeForn={nomeForn}/>}
