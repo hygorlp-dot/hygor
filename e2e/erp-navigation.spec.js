@@ -104,6 +104,7 @@ test("fluxos internos e atalho do DRE preservam competência e pagamentos",async
   }
   await open("Compras");
   await expect(page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button",{name:/^Pagamentos/})).toBeVisible();
+  await page.getByRole("region",{name:"Integração com o DRE"}).locator("summary").click();
   await page.getByLabel("Competência do DRE").fill("2026-09");
   const requests=[];page.on("request",request=>{if(request.url().endsWith("/api/data")){const body=request.postDataJSON();if(body.action==="financial-dre-report")requests.push(body);}});
   const integration=page.getByRole("region",{name:"Integração com o DRE"});

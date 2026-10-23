@@ -66,6 +66,7 @@ export function DreIntegration({kind,currentUser,obraId="",year,month,period="me
   // A DRE empresarial é mensal e não está disponível para perfil de obra.
   const canNavigate=navigate&&allowed&&(target==="dre"||(!scope.obraId&&period==="mes"));
   return <section className="dre-integration" aria-label="Integração com o DRE">
+    <details className="dre-integration__disclosure"><summary>Resultado no DRE{validPeriod?` · ${String(scope.month+1).padStart(2,"0")}/${scope.year}`:""}</summary>
     <div className="dre-integration__intro"><div><strong>Como este fluxo aparece no DRE</strong><p>{notes[kind]}</p></div>{children}</div>
     {allowed&&validPeriod&&<div className="dre-integration__actions"><button type="button" onClick={()=>setOpen(value=>!value)} aria-expanded={open} aria-controls={id}>{open?"Ocultar valores do DRE":"Consultar valores no DRE"}</button>
       {canNavigate&&<button type="button" onClick={()=>navigate(target,scope)}>Abrir DRE neste recorte</button>}
@@ -74,5 +75,6 @@ export function DreIntegration({kind,currentUser,obraId="",year,month,period="me
       {state.loading?<p>Consultando o razão…</p>:state.error?<p role="alert">{state.error}</p>:metrics?.map(metric=><div key={metric.label}><span>{metric.label}</span><strong>{metric.value==null?"Não disponível neste recorte":metric.value.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</strong></div>)}
       {!!scope.obraId&&kind==="rentals"&&<p>Receita externa e manutenção da frota são consultadas no DRE consolidado da empresa.</p>}
     </div>}
+    </details>
   </section>;
 }

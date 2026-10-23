@@ -213,7 +213,7 @@ test("engenharia consulta propostas sem ganhar ações de decisão de Compras",a
 for(const width of [390,768,1280,1440])test(`layout, teclado e filtros em ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:1000});const app=await enter(page);await selectWork(page);
   await expect(page.getByRole("button",{name:"Receber materiais · PC-001"})).toBeVisible();
-  await expect(page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button")).toHaveCount(6);
+  await expect(page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button")).toHaveCount(7);
   for(const button of await page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button").all())await expect(button).toBeInViewport();
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1);
   expect(overflow,"a página não deve transbordar horizontalmente").toBe(false);
