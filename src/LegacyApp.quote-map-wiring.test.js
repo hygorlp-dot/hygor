@@ -33,3 +33,11 @@ describe("tela do mapa de cotação (C1.3)",()=>{
     expect(legacy).toMatch(/precos:\{\.\.\.p\.precos\}/);
   });
 });
+
+describe("nota do fornecedor no mapa de cotação (C2.3)",()=>{
+  it("o cabeçalho de cada fornecedor e a decisão por item mostram a nota",()=>{
+    expect(compras).toMatch(/avaliacoesFornecedores\(data, today\(\)\)/);
+    expect(compras).toMatch(/Nota \{textoNotaFornecedor\(av\)\}/);
+    expect(compras).toMatch(/nota \$\{textoNotaFornecedor\(avaliacaoForn\.get/);
+  });
+});
