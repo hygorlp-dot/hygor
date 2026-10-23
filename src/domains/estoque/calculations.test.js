@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SINAL_MOV, TIPOS_MOV, baixarPorComposicao, calcSaldos, saldoDe } from "./calculations.js";
+import { SINAL_MOV, TIPOS_MOV, baixarPorComposicao, calcSaldos, custoMedioPonderado, saldoDe } from "./calculations.js";
 
 describe("SINAL_MOV", () => {
   it("deriva o sinal de cada tipo de movimento a partir de TIPOS_MOV", () => {
@@ -51,3 +51,22 @@ describe("baixarPorComposicao", () => {
     expect(baixarPorComposicao(comp, 10)).toEqual([]);
   });
 });
+
+describe("custoMedioPonderado (C1.5)", () => {
+  it("pondera pelas quantidades das entradas ativas, de todas as obras", () => {
+    const movs = [
+      { materialId: "m1", obraId: "o1", tipo: "entrada", qtd: 100, valorUnit: 10 },
+      { materialId: "m1", obraId: "o2", tipo: "entrada", qtd: 300, valorUnit: 14 },
+      { materialId: "m1", obraId: "o1", tipo: "consumo", qtd: 50, valorUnit: 99 },
+      { materialId: "m1", obraId: "o1", tipo: "entrada", qtd: 999, valorUnit: 1, status: "cancelado" },
+      { materialId: "m2", obraId: "o1", tipo: "entrada", qtd: 1, valorUnit: 500 },
+    ];
+    expect(custoMedioPonderado(movs, "m1")).toBe(13);
+  });
+
+  it("sem entrada com custo devolve null", () => {
+    expect(custoMedioPonderado([{ materialId: "m1", tipo: "entrada", qtd: 5 }], "m1")).toBeNull();
+    expect(custoMedioPonderado([], "m1")).toBeNull();
+  });
+});
+

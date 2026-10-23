@@ -1,5 +1,5 @@
 import { active } from "../financeiro/ledger.js";
-import { calcSaldos, saldoDe } from "../estoque/calculations.js";
+import { calcSaldos, custoMedioPonderado, saldoDe } from "../estoque/calculations.js";
 import { cancelWorkCashMovementFromPayment } from "../financeiro/work-cash-commands.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
 import { totalPagoPedido } from "./calculations.js";
@@ -142,12 +142,22 @@ export const applyPurchaseCancellationCommand=(
     impactoCancelamento:impact,version:versionOf(order)+1,
     updatedAt:now,updatedById:actor.id,updatedBy:userName,
   };
+  // O custo médio sai das entradas ativas: sem as desta compra, recalcula.
+  // Sem nenhuma entrada restante, fica o valor cadastrado.
+  const affectedMaterials=new Set(stockMovements
+    .filter((movement,index)=>movement!==(next.movEstoque||[])[index]).map(movement=>movement.materialId));
+  const materials=(next.materiais||[]).map(material=>{
+    if(!affectedMaterials.has(material.id))return material;
+    const average=custoMedioPonderado(stockMovements,material.id);
+    return average==null?material:{...material,precoMedio:average};
+  });
   return {
     ok:true,entityId:order.id,impact,
     data:{
       ...next,pedidos:(next.pedidos||[]).map(item=>item.id===order.id?cancelledOrder:item),
       movEstoque:stockMovements,caixaObra:workCash,notasFiscais:invoices,
       solicitacoesCompra:requests,cotacoes:quotes,
+      ...(next.materiais?{materiais:materials}:{}),
     },
   };
 };
