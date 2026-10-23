@@ -16,9 +16,11 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
     expect(salvar).toMatch(/pagamentos\|\|\[\]\)\.filter\(active\)\.reduce/);
   });
 
-  it("numera pedido pelo maior número existente, não pela contagem",()=>{
+  it("numeração de pedido e solicitação fica com o servidor (C2.1)",()=>{
     expect(compras).not.toMatch(/PC-\$\{String\(\(data\.pedidos\|\|\[\]\)\.length \+ 1\)/);
-    expect(compras.match(/proximoNumeroPedido\(data\.pedidos\)/g)).toHaveLength(2);
+    expect(compras).not.toMatch(/proximoNumeroPedido\(/);
+    expect(compras).not.toMatch(/proximaSequencia/);
+    expect(compras).toMatch(/numero: f\.numero\?\.trim\(\) \|\| "",/);
   });
 
   it("kanban não compra nem finge liberar entrega ao arrastar",()=>{

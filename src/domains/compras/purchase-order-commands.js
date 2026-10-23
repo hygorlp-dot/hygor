@@ -1,6 +1,7 @@
 import { active, toCents } from "../financeiro/ledger.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
 import { hasValidUnitConversion, purchaseUnitOf } from "./unit-conversion.js";
+import { proximoNumeroPedido } from "./calculations.js";
 import { instanciaDaSolicitacao, limiteAprovacaoEngenheiro, pedidoDentroDaAlcada } from "./purchase-approval.js";
 
 export const PURCHASE_ORDER_COMMAND=Object.freeze({
@@ -164,8 +165,11 @@ const normalizeOrder=(data,raw,current,{newMaterials=[]}={})=>{
 };
 
 const saveOrder=(data,command,now)=>{
-  const payload=command.payload||{},raw=payload.order||{};
-  const current=orderById(data,raw.id);
+  const payload=command.payload||{},sent=payload.order||{};
+  const current=orderById(data,sent.id);
+  // Pedido novo sem número digitado: o servidor numera sob a trava da linha.
+  const raw=!current&&!String(sent.numero||"").trim()
+    ?{...sent,numero:proximoNumeroPedido(data.pedidos)}:sent;
   if(current&&!sameVersion(current,command.expectedVersion)){
     return fail("O pedido foi alterado por outra pessoa. Atualize a tela.");
   }

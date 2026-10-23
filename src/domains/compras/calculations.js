@@ -18,14 +18,17 @@ export const statusPedido = pedido => {
 // Próximo número livre de pedido. Contar os pedidos (antes: length+1) repete
 // número quando algum foi numerado à mão ou removido; o servidor recusa
 // número repetido e a compra travava.
-export const proximoNumeroPedido = pedidos => {
-  const lista=pedidos||[];
-  const maior=lista.reduce((max,pedido)=>{
-    const match=String(pedido?.numero||"").trim().match(/^PC-(\d+)$/i);
+const proximoNumero = (registros, prefixo) => {
+  const lista=registros||[];
+  const padrao=new RegExp(`^${prefixo}-(\\d+)$`,"i");
+  const maior=lista.reduce((max,registro)=>{
+    const match=String(registro?.numero||"").trim().match(padrao);
     return match?Math.max(max,Number(match[1])):max;
   },0);
-  return `PC-${String(Math.max(maior,lista.length)+1).padStart(4,"0")}`;
+  return `${prefixo}-${String(Math.max(maior,lista.length)+1).padStart(4,"0")}`;
 };
+export const proximoNumeroPedido = pedidos => proximoNumero(pedidos,"PC");
+export const proximoNumeroSolicitacao = solicitacoes => proximoNumero(solicitacoes,"SC");
 
 export const totalPedido = pedido => (pedido.itens||[])
   .reduce((s,i)=>s+Number(i.qtd||0)*Number(i.precoUnit||0),0);
