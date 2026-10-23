@@ -153,7 +153,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
       await expect(page.locator("main.arcd-main")).toBeVisible();
       await expect(page.getByText("Algo quebrou nesta tela")).toHaveCount(0);
       if(item==="Compras") {
-        await page.locator(".compras-journey").getByRole("button").filter({hasText:"Solicitar"}).click();
+        await page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button").filter({hasText:"Solicitar"}).click();
         await page.getByRole("button",{name:"SOLICITAR MATERIAIS PARA A OBRA"}).click();
         await page.getByRole("button",{name:"Adicionar somente a esta solicitação"}).click();
         await page.getByLabel("Unidade *").fill("KG");
