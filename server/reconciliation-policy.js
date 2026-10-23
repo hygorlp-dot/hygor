@@ -43,6 +43,7 @@ const rhAllocationError=(data,payload,actor)=>{
 // estreita: confirmar somente saídas de folha/mão de obra. Entradas,
 // fornecedores, transferências, estornos e reversões continuam financeiras.
 export const authorizeReconciliationCommand=(data,command={},actor={})=>{
+  if([RECONCILIATION_COMMAND.LINK_PARTIAL_CASH,RECONCILIATION_COMMAND.REVERSE_PARTIAL_CASH].includes(command.type)&&actor.obraId)return {ok:false,error:"A gestão de vínculos entre contas exige um perfil financeiro sem restrição de obra."};
   if(["admin","financeiro"].includes(actor?.role))return {ok:true};
   if(actor?.role!=="rh")return {ok:false,error:"Seu perfil não pode operar a conciliação."};
 

@@ -175,6 +175,7 @@ export const executarComandoOperacional = command => chamar({ action:"operationa
 export const executarComandoConciliacao = command => chamar({ action:"reconciliation-command", ...credenciais(), command });
 export const executarComandoPonto = command => chamar({ ...credenciais(), ...command });
 export const consultarSombraFinanceira = () => chamar({ action:"financial-shadow-report", ...credenciais() });
+export const consultarGestaoDre = () => chamar({ action:"financial-management-report", ...credenciais() });
 // CORE-001/002/003 (Fase 2, domínios em modo sombra) - até 01/09/2026 estas
 // ações só eram consultadas por scripts/check-*-shadow-status.mjs; ver
 // NucleoRelacionalAdmin.jsx (docs/BLUEPRINT_CONCORRENCIA_TRAVA.md) para o

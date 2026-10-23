@@ -80,22 +80,24 @@ const equipmentCompany = (data,ym) => {
     receitaBruta:total.receita+total.descontos,receitaProprios:0,receitaTerceiros:0};
 };
 
-const calculations=createDreCalculations({
+const makeCalculations=(canonicalEvents=[])=>createDreCalculations({
+  canonicalEvents,
   getDays,getQ,monthName:month=>String(month+1),
   calcObraLaborCost:laborCost,calcObraTercCost:thirdWork,
   calcTercEmpresaCost:thirdCompany,calcObraTercEmpresaCost:thirdCompanyWork,
   calcObraComprasCost:purchases,calcEquipCustoObra,
   calcEquipFaturamentoEmpresa:equipmentCompany,
 });
+const calculations=makeCalculations();
 
 const expenseCategories=COMPANY_EXPENSE_CATEGORIES.map(category=>[
   category.id,category.group,
 ]);
-const companyDre = (data,year,month) => {
+const companyDre = (data,year,month,engine=calculations) => {
   const ym=`${year}-${String(month+1).padStart(2,"0")}`,cfg=data?.config||{};
   // A DRE da empresa não pode reconstruir valores a partir das coleções
   // operacionais. A fonte é a mesma projeção de razão usada no DRE por obra.
-  const base=calculations.calcDREConsolidado(data,year,month,"mes");
+  const base=engine.calcDREConsolidado(data,year,month,"mes");
   const workRows=base.obras||[];
   const workRevenue=workRows.reduce((sum,row)=>sum+Number(row.faturamento||0),0);
   const workCosts=workRows.reduce((sum,row)=>sum+Number(row.totalCustos||0),0);
@@ -195,17 +197,17 @@ const yearsInData = data => {
   return Array.from({length:max-min+1},(_,index)=>min+index);
 };
 
-const buildProjectionRow = (data,{year,month,period="mes",scope="empresa"}) => {
+const buildProjectionRow = (data,{year,month,period="mes",scope="empresa"},engine=calculations) => {
   const sourceId=`${year}-${String(month+1).padStart(2,"0")}:${period}:${scope}`;
   if(scope==="company_dre"){
     if(period!=="mes")throw new Error("O DRE empresarial aceita apenas a competência mensal.");
-    return {sourceId,obraId:"",year,month,period,payload:companyDre(data,year,month)};
+    return {sourceId,obraId:"",year,month,period,payload:companyDre(data,year,month,engine)};
   }
   if(scope==="empresa"){
-    const result=calculations.calcDREConsolidado(data,year,month,period);
+    const result=engine.calcDREConsolidado(data,year,month,period);
     return {sourceId,obraId:"",year,month,period,payload:numericProjection(result)};
   }
-  const result=calculations.calcDREObra(data,scope,year,month,period);
+  const result=engine.calcDREObra(data,scope,year,month,period);
   return {sourceId,obraId:String(scope),year,month,period,payload:numericProjection(result)};
 };
 
@@ -213,7 +215,7 @@ const buildProjectionRow = (data,{year,month,period="mes",scope="empresa"}) => {
 // motor da carga integral, mas calcula somente as competências pedidas pela
 // tela. Assim uma projeção ausente ou desatualizada é reparada no servidor sem
 // obrigar o operador a executar a homologação completa da sombra.
-export const buildRequestedDreProjectionRows = (data,requests=[]) => {
+export const buildRequestedDreProjectionRows = (data,requests=[],canonicalEvents=[]) => {
   const unique=new Map();
   for(const request of requests){
     const year=Number(request?.year),month=Number(request?.month);
@@ -223,7 +225,8 @@ export const buildRequestedDreProjectionRows = (data,requests=[]) => {
     const key=`${year}-${month}:${period}:${scope}`;
     if(!unique.has(key))unique.set(key,{year,month,period,scope});
   }
-  return [...unique.values()].map(request=>buildProjectionRow(data,request));
+  const engine=canonicalEvents.length?makeCalculations(canonicalEvents):calculations;
+  return [...unique.values()].map(request=>buildProjectionRow(data,request,engine));
 };
 
 export const buildDreProjectionRows = data => {

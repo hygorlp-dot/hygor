@@ -60,6 +60,7 @@ export const createDreCalculations = ({
   calcObraLaborCost,
   calcEquipCustoObra,
   calcEquipFaturamentoEmpresa,
+  canonicalEvents = [],
 }) => {
   const diasPeriodoDRE = (year, month, periodo = "mes") => {
     if (periodo === "q1") return getQ(year, month).q1;
@@ -103,14 +104,14 @@ export const createDreCalculations = ({
       ? (data.obras || []).filter(work => work.id === onlyWorkId)
       : (data.obras || []);
     const supplemental = works.flatMap(work => supplementalForWork(data, work.id, ctx).events);
-    return buildFinancialLedger(data, { supplementalEvents: supplemental });
+    return buildFinancialLedger(data, { supplementalEvents: [...supplemental,...canonicalEvents] });
   };
 
   const calcDREObra = (data, obraId, year, month, periodo = "mes") => {
     const ctx = context(year, month, periodo);
     const obra = (data.obras || []).find(item => item.id === obraId);
     const supplemental = supplementalForWork(data, obraId, ctx);
-    const ledger = buildFinancialLedger(data, { supplementalEvents: supplemental.events });
+    const ledger = buildFinancialLedger(data, { supplementalEvents: [...supplemental.events,...canonicalEvents] });
     const filters = {
       obraId, startDate:ctx.per0, endDate:ctx.perF, asOfDate:ctx.perF,
       ...(periodo === "mes" ? { competence:ctx.ym } : {}),

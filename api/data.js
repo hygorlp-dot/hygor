@@ -42,6 +42,8 @@ import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/re
 import { authorizeReconciliationCommand } from "../server/reconciliation-policy.js";
 import { executeReconciliationWithRetry } from "../server/reconciliation-execution.js";
 import { projectReconciliationPatch } from "../server/reconciliation-response.js";
+import { cashAllocations } from "../src/domains/conciliacao/cash-allocations.js";
+import { buildIntegratedDreManagement, loadCanonicalDre } from "../server/financial-dre-integration.js";
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
@@ -911,6 +913,12 @@ const gravarMutacaoNaTransacao=async({
   // mutação em mãos (executarMutacaoEmpresaBloqueada); sem ele, o default
   // (true) preserva o comportamento de sempre - sincroniza incondicionalmente.
   const legacyFactsChanged=basePayload==null||legacyFinancialFactsChanged(basePayload,valorPersistido);
+  if(financial&&basePayload&&(String(action).startsWith("reconciliation_")||String(action).startsWith("operational_transacoes_bancarias_"))){
+    const previous=new Map((basePayload.transacoes||[]).map(item=>[item.id,item]));
+    const changes=(value.transacoes||[]).filter(item=>JSON.stringify(previous.get(item.id))!==JSON.stringify(item)).map(item=>({id:item.id,status:item.status}));
+    const partial=["reconciliation_link_partial_cash","reconciliation_reverse_partial_cash"].includes(action);
+    await transaction`select financial_guard_source_reconciliation(${COMPANY},${transaction.json(changes)}::jsonb,${partial})`;
+  }
   if(financial&&FINANCIAL_ENGINE_ENFORCE&&legacyFactsChanged){
     // Achado de 21/08/2026: financial_sync_legacy_facts reconstruía também
     // os ~1.764 snapshots de DRE da empresa a cada chamada, dominando o
@@ -937,6 +945,13 @@ const gravarMutacaoNaTransacao=async({
     `;
     if(!saved?.applied)throw new Error("A mutação financeira perdeu o bloqueio exclusivo da base.");
     return {updatedAt:saved.updated_at,syncResult:saved.sync_result||{}};
+  }
+
+  // Vínculos não são pagamentos. Mesmo no modo compatível, a associação e
+  // seus limites no razão são confirmados sob o mesmo lock do snapshot.
+  if(financial&&(cashAllocations(value).length||cashAllocations(basePayload).length)){
+    const snapshot=buildLegacyFinancialFacts(value,{includeDreSnapshots:false});
+    await transaction`select financial_sync_dre_allocations(${COMPANY},${transaction.json(snapshot)}::jsonb)`;
   }
 
   const [saved]=await transaction`
@@ -1863,6 +1878,22 @@ export default async function handler(req, res) {
       const authzFin=authorizeFinancialCommand(command.type,usuario.role);
       if(!authzFin.ok)return res.status(authzFin.status).json({error:authzFin.error});
       if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave de idempotência inválida."});
+      if(usuario.obraId)return res.status(403).json({error:"Comandos diretos do razão exigem um perfil financeiro sem restrição de obra."});
+      if(command.type==="CREATE_FINANCIAL_TITLE"&&!["cost","revenue","funding","loan","transfer"].includes(command.payload?.financialKind))return res.status(400).json({error:"Informe financialKind: cost, revenue, funding, loan ou transfer. A natureza determina o tratamento no DRE."});
+      if(command.type==="CREATE_FINANCIAL_TITLE"&&((command.payload?.financialKind==="cost"&&command.payload?.direction!=="payable")||(command.payload?.financialKind==="revenue"&&command.payload?.direction!=="receivable")))return res.status(400).json({error:"A direção do título é incompatível com a natureza do DRE."});
+      if(["REGISTER_SETTLEMENT","REVERSE_SETTLEMENT"].includes(command.type)){
+        let titleId=command.payload?.titleId;
+        if(command.type==="REVERSE_SETTLEMENT"){
+          const {data:settlement,error:lookupError}=await db.from("settlements").select("title_id").eq("company_id",COMPANY).eq("id",command.payload?.settlementId).maybeSingle();
+          if(lookupError)throw lookupError;
+          titleId=settlement?.title_id;
+        }
+        if(titleId){
+          const {data:title,error:lookupError}=await db.from("financial_titles").select("metadata").eq("company_id",COMPANY).eq("id",titleId).maybeSingle();
+          if(lookupError)throw lookupError;
+          if(title?.metadata?.legacyId)return res.status(409).json({error:"Este pagamento pertence a um módulo operacional. Use o comando de origem para preservar a integração com o DRE."});
+        }
+      }
       const {data:resultado,error}=await db.rpc("financial_execute_command",{p_company_id:COMPANY,p_actor_id:usuario.id,p_command:command});
       if(error){console.error("Falha no motor financeiro:",error.message);return res.status(409).json({error:"O comando não foi efetivado. Nenhum lançamento parcial foi salvo."});}
       return res.status(200).json(resultado);
@@ -1874,6 +1905,7 @@ export default async function handler(req, res) {
     if(action==="reconciliation-command"){
       const command=req.body?.command||{};
       if(!RECONCILIATION_COMMANDS.has(command.type))return res.status(400).json({error:"Comando de conciliação inválido."});
+      if([RECONCILIATION_COMMAND.LINK_PARTIAL_CASH,RECONCILIATION_COMMAND.REVERSE_PARTIAL_CASH].includes(command.type)&&!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({error:"Vínculos parciais exigem a conexão transacional do servidor. Nenhum vínculo foi salvo."});
       if(command.type===RECONCILIATION_COMMAND.REVERSE_RECONCILIATION&&usuario.role!=="admin")return res.status(403).json({error:"Somente administrador pode desfazer uma conciliação."});
       if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente de conciliação inválida."});
 
@@ -2226,6 +2258,8 @@ export default async function handler(req, res) {
         path.join(process.cwd(),"migrations","002_financial_transactional_projection.up.sql"),
         path.join(process.cwd(),"migrations","003_accounting_period_enforcement.up.sql"),
         path.join(process.cwd(),"migrations","20261023144434_api_reconciliation_integrity.up.sql"),
+        path.join(process.cwd(),"migrations","008_skip_dre_snapshot_sync_on_write.up.sql"),
+        path.join(process.cwd(),"migrations","20261023154632_dre_cash_allocations.up.sql"),
       ];
       if(migrationPaths.some(file=>!fs.existsSync(file)))return res.status(500).json({error:"As migrations financeiras versionadas não foram incluídas no deploy."});
       const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
@@ -2501,6 +2535,12 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok:true, removed:id });
     }
 
+    if(action==="financial-management-report"){
+      if(!["admin","financeiro"].includes(usuario.role)||usuario.obraId)return res.status(403).json({error:"A gestão de conciliação do DRE exige acesso financeiro sem restrição de obra."});
+      const canonical=await loadCanonicalDre(db,COMPANY);
+      return res.status(200).json({ok:true,...buildIntegratedDreManagement(atual,canonical),updatedAt});
+    }
+
     if(action==="financial-dre-report"||action==="financial-company-dre-report"){
       const year=Number(req.body?.year),month=Number(req.body?.month);
       const period=["mes","q1","q2"].includes(req.body?.period)?req.body.period:"mes";
@@ -2536,7 +2576,8 @@ export default async function handler(req, res) {
       if(error)throw error;
       let currentEvent=(events||[]).find(event=>
         event.source_id===currentId&&event.payload?.active!==false);
-      const sourceRevision=dreSourceRevision({updatedAt,rowVersions,rowVersionsPontoObra});
+      const canonical=await loadCanonicalDre(db,COMPANY);
+      const sourceRevision=`${dreSourceRevision({updatedAt,rowVersions,rowVersionsPontoObra})}|canonical:${canonical.revision}`;
       if(!currentEvent
         ||String(currentEvent.payload?.sourceRevision||"")!==sourceRevision
         ||String(currentEvent.payload?.projectionVersion||"")!==DRE_PROJECTION_VERSION){
@@ -2544,7 +2585,7 @@ export default async function handler(req, res) {
           {year,month,period,scope},
           ...historyRequests,
         ];
-        const rows=buildRequestedDreProjectionRows(atual,projectionRequests).map(row=>({
+        const rows=buildRequestedDreProjectionRows(atual,projectionRequests,canonical.events).map(row=>({
           company_id:COMPANY,event_type:"dre_snapshot",source_type:"dre_projection",
           source_id:row.sourceId,effective_date:`${row.year}-${String(row.month+1).padStart(2,"0")}-01`,
           payload:{...row.payload,active:true,obraId:row.obraId,year:row.year,month:row.month,
@@ -2574,6 +2615,7 @@ export default async function handler(req, res) {
       const byId=new Map(activeEvents.map(event=>[event.source_id,event.payload]));
       return res.status(200).json({
         ok:true,engineEnforced:FINANCIAL_ENGINE_ENFORCE,source:"canonical_ledger",
+        canonicalRevision:canonical.revision,issues:canonical.issues,
         current:byId.get(currentId)||null,
         history:historyIds.map(sourceId=>byId.get(sourceId)||null),
       });

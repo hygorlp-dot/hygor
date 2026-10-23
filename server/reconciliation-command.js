@@ -11,6 +11,7 @@ import {
 } from "../src/domains/conciliacao/mutations.js";
 import { aplicarRecebimentoMedicao, totalRecebidoMedicao } from "../src/domains/conciliacao/calculations.js";
 import { active } from "../src/domains/financeiro/ledger.js";
+import { activeCashAllocations, applyCashAllocation, reconciliationHold } from "../src/domains/conciliacao/cash-allocations.js";
 
 export const RECONCILIATION_COMMAND = Object.freeze({
   CONFIRM_RECEIPT: "CONFIRM_RECEIPT",
@@ -21,6 +22,8 @@ export const RECONCILIATION_COMMAND = Object.freeze({
   CONFIRM_REVERSAL: "CONFIRM_REVERSAL",
   CONFIRM_ALLOCATION: "CONFIRM_ALLOCATION",
   REVERSE_RECONCILIATION: "REVERSE_RECONCILIATION",
+  LINK_PARTIAL_CASH: "LINK_PARTIAL_CASH",
+  REVERSE_PARTIAL_CASH: "REVERSE_PARTIAL_CASH",
 });
 
 const findTransaction = (data, id) => (data?.transacoes || []).find(item => String(item.id) === String(id));
@@ -113,6 +116,16 @@ export const applyReconciliationCommand = (data, command = {}, actor = {}) => {
   const payload=command.payload || {};
   const transactionId=String(payload.transactionId || "");
   if(!positiveId(transactionId))return invalid(data,"Identificador da transação inválido.");
+  const hold = reconciliationHold(findTransaction(data, transactionId));
+  if(hold)return invalid(data,hold);
+  if([RECONCILIATION_COMMAND.LINK_PARTIAL_CASH,RECONCILIATION_COMMAND.REVERSE_PARTIAL_CASH].includes(command.type)){
+    return applyCashAllocation(data,{...payload,idempotencyKey:command.idempotencyKey},actor,command.type===RECONCILIATION_COMMAND.REVERSE_PARTIAL_CASH);
+  }
+  const partialLinks=activeCashAllocations(data);
+  if(partialLinks.some(link=>link.transactionId===transactionId))return invalid(data,"Este movimento possui vínculos parciais. Desfaça os vínculos pelo gestor do DRE antes de reclassificá-lo.");
+  if(command.type===RECONCILIATION_COMMAND.LINK_EXISTING_PAYMENT&&partialLinks.some(link=>[link.sourceId,link.sourceSubId].filter(Boolean).includes(String(payload.paymentId||payload.targetId))))return invalid(data,"O pagamento já possui vínculos parciais no DRE.");
+  if(command.type===RECONCILIATION_COMMAND.CONFIRM_TRANSFER&&reconciliationHold(findTransaction(data,payload.counterpartyTransactionId)))return invalid(data,"A outra ponta está bloqueada para conferência da composição do aporte.");
+  if(command.type===RECONCILIATION_COMMAND.CONFIRM_TRANSFER&&partialLinks.some(link=>link.transactionId===payload.counterpartyTransactionId))return invalid(data,"A outra ponta possui vínculos parciais no DRE.");
 
   if(command.type===RECONCILIATION_COMMAND.CONFIRM_RECEIPT){
     const checked=mustBePending(data,transactionId,1);

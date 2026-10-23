@@ -1,0 +1,41 @@
+import { describe, expect, it } from "vitest";
+import { canonicalDreEvents, buildIntegratedDreManagement } from "./financial-dre-integration.js";
+import { buildRequestedDreProjectionRows } from "./dre-projection.js";
+import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "./reconciliation-command.js";
+import { authorizeReconciliationCommand } from "./reconciliation-policy.js";
+
+const title={id:"native",direction:"receivable",status:"settled",original_amount:100,competence:"2026-10-01",obra_id:"work",metadata:{financialKind:"revenue"}};
+const paid={id:"real-settlement",title_id:"native",status:"active",amount:40,settlement_date:"2026-10-02"};
+describe("API nativa e DRE usam os mesmos fatos",()=>{
+  it("separa competência e caixa, sem reaproveitar projeções legadas",()=>{
+    const native=canonicalDreEvents({titles:[title,{...title,id:"legacy",metadata:{legacyId:"old"}}],settlements:[paid]});
+    expect(native.events).toHaveLength(2);
+    expect(native.events.map(event=>[event.effect,event.amountCents])).toEqual([["revenue",10000],["cash_in",4000]]);
+    const source={obras:[{id:"work",name:"Work",contractType:"fixed_labor"}],employees:[],attendance:{}};
+    const [report]=buildRequestedDreProjectionRows(source,[{year:2026,month:9,scope:"work"}],native.events);
+    expect(report.payload).toMatchObject({faturamento:100,entradasCaixa:40});
+    expect(canonicalDreEvents({titles:[title],settlements:[{...paid,status:"reversed"}]}).revision).not.toBe(native.revision);
+  });
+  it("aporte/financiamento produz caixa e nunca receita; classificação desconhecida fica explícita",()=>{
+    const funding=canonicalDreEvents({titles:[{...title,metadata:{financialKind:"funding"}}],settlements:[paid]});
+    expect(funding.events.map(event=>event.effect)).toEqual(["cash_in"]);
+    const unknown=canonicalDreEvents({titles:[{...title,metadata:{}}],settlements:[paid]});
+    expect(unknown.issues[0].code).toBe("NATIVE_TITLE_WITHOUT_DRE_CLASSIFICATION");
+    expect(unknown.events.map(event=>event.effect)).toEqual(["cash_in"]);
+  });
+  it("desconta vínculos nativos do saldo bancário do gestor",()=>{
+    const report=buildIntegratedDreManagement({transacoes:[{id:"bank",valor:100,status:"pendente"}]},
+      {events:[],issues:[],revision:"r",banks:[{id:"uuid",metadata:{legacyId:"bank"}}],links:[{bank_transaction_id:"uuid",amount:40,status:"active"}]});
+    expect(report.banks[0]).toMatchObject({allocatedCents:4000,remainingCents:6000});
+  });
+  it.each(Object.values(RECONCILIATION_COMMAND))("mantém o aporte de 7160 pendente em %s",type=>{
+    const data={transacoes:[{id:"mt7l9lt5xrta",valor:7160,status:"pendente"}]};
+    expect(applyReconciliationCommand(data,{type,payload:{transactionId:"mt7l9lt5xrta"}}).resumo.ok).toBe(false);
+  });
+  it("reserva a associação parcial para financeiro/admin sem restrição de obra",()=>{
+    const command={type:"LINK_PARTIAL_CASH"};
+    expect(authorizeReconciliationCommand({},command,{role:"admin"}).ok).toBe(true);
+    expect(authorizeReconciliationCommand({},command,{role:"rh"}).ok).toBe(false);
+    expect(authorizeReconciliationCommand({},command,{role:"financeiro",obraId:"work"}).ok).toBe(false);
+  });
+});

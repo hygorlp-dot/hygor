@@ -1,3 +1,5 @@
+import { activeCashAllocations, reconciliationHold } from "./cash-allocations.js";
+
 export const BANK_TRANSACTION_COMMAND=Object.freeze({
   BANK_TRANSACTIONS_IMPORTED:"TRANSACOES_BANCARIAS_IMPORTADAS",
   BANK_TRANSACTIONS_IGNORED:"TRANSACOES_BANCARIAS_IGNORADAS",
@@ -55,6 +57,8 @@ const validateTargets=(data,payload,expectedStatus)=>{
     ids.add(id);
     const current=transactionById(data,id);
     if(!current)return {error:"Uma das transações selecionadas não existe mais."};
+    if(reconciliationHold(current))return {error:reconciliationHold(current)};
+    if(activeCashAllocations(data).some(link=>link.transactionId===id))return {error:"Desfaça os vínculos parciais no DRE antes de alterar a situação bancária."};
     if(String(current.status||"pendente")!==expectedStatus){
       return {error:`A transação "${safeText(current.descricao,80)}" já mudou de situação. Atualize a tela.`};
     }
