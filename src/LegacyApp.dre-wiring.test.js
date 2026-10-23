@@ -97,7 +97,10 @@ describe("contrato de autoria do DRE", () => {
   });
 
   it("declara as ações do formulário corporativo dentro do DRE da empresa", () => {
-    const companyDre=source.split("function DREEmpresa(")[1]?.split("function ")[0]||"";
+    const workspace=source.split("function DREEmpresa(")[1]?.split("function ")[0]||"";
+    expect(workspace).toContain("<AnnualDre update={props.update}/>");
+    expect(workspace).toContain("<DREEmpresaMensal {...props}/>");
+    const companyDre=source.split("function DREEmpresaMensal(")[1]?.split("function ")[0]||"";
     const workFinance=source.split("function FinanceiroObraPainel(")[1]?.split("function ")[0]||"";
     expect(companyDre).toContain("const openNewCompanyExpense=");
     expect(companyDre).toContain("const openEditCompanyExpense=");
