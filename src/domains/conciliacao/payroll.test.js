@@ -34,6 +34,7 @@ describe("título de folha e PIX", () => {
 
   test("liquida parcialmente sem criar custo no DRE e mantém saldo", () => {
     const data=base();
+    data.transacoes[0].valor=-600;
     const result=registrarPagamentoEConciliar(data,{transacaoId:"t1",tipo:"tituloFolha",entidadeId:"tf1",valor:600,operador});
     expect(result.resumo.ok).toBe(true);
     expect(result.data.titulosFolha[0].status).toBe("parcial");

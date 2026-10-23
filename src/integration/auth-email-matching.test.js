@@ -71,7 +71,7 @@ describe("authenticateAppContext · correspondência por accessToken",()=>{
     process.env.SUPABASE_URL="https://auth-email-match.test";
     process.env.SUPABASE_SERVICE_ROLE_KEY="service-role-test";
     vi.resetModules();
-    ({authenticateAppContext}=await import("../../api/auth.js"));
+    ({authenticateAppContext}=await import("../../server/app-auth.js"));
   },30000);
 
   beforeEach(()=>{

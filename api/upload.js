@@ -18,7 +18,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { authenticateAppUser } from "./auth.js";
+import { authenticateAppUser } from "../server/app-auth.js";
 import {
   canUploadToDestination,
   isAcceptedUploadMime,

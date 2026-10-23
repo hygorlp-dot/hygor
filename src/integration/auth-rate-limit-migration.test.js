@@ -6,7 +6,7 @@ describe("SEC-002 — limite de tentativas compartilhado", () => {
   const sql=fs.readFileSync(path.join(process.cwd(),"migrations","20260726_auth_rate_limit.sql"),"utf8");
   const successSql=fs.readFileSync(path.join(process.cwd(),"migrations","20260727_auth_rate_limit_success.sql"),"utf8");
   const api=fs.readFileSync(path.join(process.cwd(),"api","data.js"),"utf8");
-  const auxiliaryAuth=fs.readFileSync(path.join(process.cwd(),"api","auth.js"),"utf8");
+  const auxiliaryAuth=fs.readFileSync(path.join(process.cwd(),"server","app-auth.js"),"utf8");
   const security=fs.readFileSync(path.join(process.cwd(),"server","app-auth-security.js"),"utf8");
   const productionMigration=fs.readFileSync(path.join(process.cwd(),"scripts","apply-financial-shadow.mjs"),"utf8");
 
