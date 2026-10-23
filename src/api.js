@@ -170,6 +170,7 @@ export const removerConfiguracaoIA = () => chamarRotaAutenticada("/api/ai-agent"
 export const consultarCNPJReceita = cnpj => chamarRotaAutenticada("/api/cnpj", { cnpj });
 export const buscarResumoDiario = () => chamarRotaAutenticada("/api/ai-agent", { action:"daily-brief" });
 export const executarComandoFinanceiro = command => chamar({ action:"financial-command", ...credenciais(), command });
+export const gerarLinkAceitePedido = orderId => chamar({ action:"pedido-aceite-link", ...credenciais(), orderId });
 export const executarComandoOperacional = command => chamar({ action:"operational-command", ...credenciais(), command });
 export const executarComandoConciliacao = command => chamar({ action:"reconciliation-command", ...credenciais(), command });
 export const executarComandoPonto = command => chamar({ ...credenciais(), ...command });

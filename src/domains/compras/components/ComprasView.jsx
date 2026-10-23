@@ -56,7 +56,7 @@ import {
   referenceUnitCostOf, suggestedSteelConversion,
 } from "../unit-conversion";
 import {
-  enviarArquivoOneDrive, listarBasesReferencia, pesquisarInsumosReferencia,
+  enviarArquivoOneDrive, gerarLinkAceitePedido, listarBasesReferencia, pesquisarInsumosReferencia,
 } from "../../../api";
 
 function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[],data,update,showToast}){
@@ -656,6 +656,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const [cotDecisao,setCotDecisao]=useState(null);
   const [envioPedido,setEnvioPedido]=useState(null);
   const [aceitePedido,setAceitePedido]=useState(null);
+  const [linkAceite,setLinkAceite]=useState(null);
+  const [gerandoLinkAceite,setGerandoLinkAceite]=useState(false);
   const [fornModal, setFornModal] = useState(null);
   const [solModal,setSolModal]=useState(null);
   const [modoIA,setModoIA]=useState(false);
@@ -1665,12 +1667,12 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
   // Envio do pedido ao fornecedor (C2.5): monta o conteúdo, abre o canal e
   // registra o envio no servidor. O aceite é informado por Compras.
-  const conteudoEnvioPedido=p=>{
+  const conteudoEnvioPedido=(p,link="")=>{
     const forn=fornecedorPorId.get(p.fornecedorId),obra=obraPorId.get(p.obraId);
     const itens=(p.itens||[]).map(i=>({descricao:materialPorId.get(i.materialId)?.descricao||i.descricaoRef||"Material",
       qtd:i.qtd,unidade:purchaseUnitOf(i),precoUnit:i.precoUnit}));
     const base={empresa:"ARCD Construtech",numero:p.numero,data:p.data,fornecedorNome:forn?.nome||"",
-      fornecedorCnpj:forn?.cnpj||"",obraNome:obra?.name||"",itens,previsao:p.previsao,observacao:p.obs||""};
+      fornecedorCnpj:forn?.cnpj||"",obraNome:obra?.name||"",itens,previsao:p.previsao,observacao:p.obs||"",linkAceite:link};
     return {forn,texto:mensagemPedidoFornecedor(base),assunto:assuntoEmailPedido(base),html:documentoPedidoHtml(base)};
   };
   const registrarEnvioPedido=async(p,canal,destino="")=>{
@@ -1684,6 +1686,17 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     }));
     if(!result?.ok){showToast(result?.reason||"O servidor não registrou o envio do pedido.","error");return;}
     showToast(`Envio do pedido ${p.numero} registrado.`);
+  };
+  // Link para o fornecedor aceitar sozinho: o servidor assina e nada fica
+  // guardado. Pedido alterado depois disso invalida o link.
+  const gerarLinkAceite=async p=>{
+    setGerandoLinkAceite(true);
+    try{
+      const result=await gerarLinkAceitePedido(p.id);
+      if(!result?.ok||!result.token){showToast(result?.error||"Não foi possível gerar o link de aceite.","error");return;}
+      setLinkAceite({pedidoId:p.id,url:`${window.location.origin}/aceite-pedido#${result.token}`,expiraEm:result.expiraEm});
+      showToast("Link de aceite gerado. Ele já vai na mensagem ao fornecedor.");
+    }finally{setGerandoLinkAceite(false);}
   };
   const imprimirPedido=p=>{
     const janela=window.open("","_blank");
@@ -2595,17 +2608,19 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {cotModal  && <ModalCotacao    form={cotModal}  setForm={setCotModal}  onSave={salvarCotacao}
                                      fornecedores={fornecedores} materiais={materiais} linhasOrc={linhasOrc}/>}
       <ModalLegendaDocumento anexo={anexoCotacao} setAnexo={setAnexoCotacao} onClose={()=>!subindoAnexoCotacao&&setAnexoCotacao(null)} onSalvar={salvarDocumentoCotacao} salvando={subindoAnexoCotacao} titulo="Anexar documento da cotação" C={C}/>
-      {envioPedido&&(()=>{const p=(data.pedidos||[]).find(x=>x.id===envioPedido.id)||envioPedido;const {forn,texto,assunto}=conteudoEnvioPedido(p);
-        return <Modal title={`Enviar pedido ${p.numero}`} onClose={()=>setEnvioPedido(null)} wide><div style={{display:"flex",flexDirection:"column",gap:10}}>
+      {envioPedido&&(()=>{const p=(data.pedidos||[]).find(x=>x.id===envioPedido.id)||envioPedido;const link=linkAceite?.pedidoId===p.id?linkAceite:null;const {forn,texto,assunto}=conteudoEnvioPedido(p,link?.url||"");
+        return <Modal title={`Enviar pedido ${p.numero}`} onClose={()=>{setEnvioPedido(null);setLinkAceite(null);}} wide><div style={{display:"flex",flexDirection:"column",gap:10}}>
           <p style={{fontSize:10.5,color:C.muted}}>Escolha o canal. O envio fica registrado no pedido com data e autor; o aceite do fornecedor é registrado depois.</p>
           <pre style={{whiteSpace:"pre-wrap",fontFamily:"inherit",fontSize:10.5,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 11px",color:C.text,maxHeight:260,overflow:"auto"}}>{texto}</pre>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             {forn?.telefone?<a href={linkWhatsApp(forn.telefone,texto)} target="_blank" rel="noreferrer" style={{textDecoration:"none"}} onClick={()=>registrarEnvioPedido(p,"whatsapp",forn.telefone)}><Btn size="sm">WhatsApp</Btn></a>:<Btn size="sm" disabled title="Fornecedor sem telefone">WhatsApp</Btn>}
             {forn?.email?<a href={linkEmailPedido(forn.email,assunto,texto)} style={{textDecoration:"none"}} onClick={()=>registrarEnvioPedido(p,"email",forn.email)}><Btn size="sm" v="ghost">E-mail</Btn></a>:<Btn size="sm" v="ghost" disabled title="Fornecedor sem e-mail">E-mail</Btn>}
             <Btn size="sm" v="ghost" onClick={()=>{if(imprimirPedido(p))registrarEnvioPedido(p,"impresso");}}>Imprimir / PDF</Btn>
+            {!p.aceiteFornecedor?.nome&&<Btn size="sm" v="ghost" disabled={gerandoLinkAceite||!!link} loading={gerandoLinkAceite&&"Gerando..."} onClick={()=>gerarLinkAceite(p)}>{link?"Link de aceite incluído":"Gerar link de aceite"}</Btn>}
           </div>
+          {link&&<p style={{fontSize:9.5,color:C.muted}}>O fornecedor confirma pelo link, sem login, até {fmtDate(String(link.expiraEm).slice(0,10))}. Se o pedido for alterado, o link deixa de valer e é preciso gerar outro.</p>}
           {(p.envios||[]).length>0&&<div style={{fontSize:9.5,color:C.muted}}>{p.envios.map(e=><p key={e.id}>{({whatsapp:"WhatsApp",email:"E-mail",impresso:"Impresso/PDF"})[e.canal]||e.canal} · {new Date(e.enviadoEm).toLocaleString("pt-BR")} · {e.enviadoPor}</p>)}</div>}
-          <Btn v="ghost" full onClick={()=>setEnvioPedido(null)}>Fechar</Btn>
+          <Btn v="ghost" full onClick={()=>{setEnvioPedido(null);setLinkAceite(null);}}>Fechar</Btn>
         </div></Modal>;})()}
       {aceitePedido&&<Modal title={`Aceite do pedido ${aceitePedido.pedido.numero}`} onClose={()=>setAceitePedido(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}>
         <p style={{fontSize:10.5,color:C.muted}}>Registre quem confirmou o pedido no fornecedor e o prazo de entrega que ele assumiu.</p>

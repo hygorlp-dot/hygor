@@ -44,6 +44,10 @@ import { projectReconciliationPatch } from "../server/reconciliation-response.js
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
+import {
+  avaliarAcessoAceite, chaveLinkAceite, comandoAceitePorLink, gerarTokenAceite, linkAceiteDisponivel,
+  podeGerarLinkAceite, verificarTokenAceite, visaoPublicaPedido,
+} from "../server/supplier-acceptance-link.js";
 import { RENTAL_COMMAND_ROLES } from "../src/domains/equipamentos/rental-command-roles.js";
 import {
   requiresFinancialOperationalPersistence,
@@ -1426,6 +1430,57 @@ export default async function handler(req, res) {
       if(pareamento)await rateLimitCentral(`ponto-parear|${ip}`,resposta.status===200?"success":"failure");
       return res.status(resposta.status).json(resposta.json);
     }
+    // Link de aceite do pedido (fornecedor, sem login). O código é assinado e
+    // não fica guardado; cada tentativa conta no limite persistente por IP.
+    if(action==="pedido-aceite-ver"||action==="pedido-aceite-confirmar"){
+      const sujeito=`pedido-aceite|${ip}`;
+      const limite=await rateLimitCentral(sujeito,"status");
+      if(limite?.blocked)return res.status(429).json({error:"Muitas tentativas. Aguarde alguns minutos e tente de novo."});
+      const key=chaveLinkAceite();
+      // Código inválido ou vencido não chega a ler a base da empresa.
+      if(!verificarTokenAceite({key,token:req.body?.token}).ok){
+        await rateLimitCentral(sujeito,"failure");
+        return res.status(404).json({error:avaliarAcessoAceite({key,token:req.body?.token,data:{}}).error});
+      }
+      const linhaAceite=await lerLinha();
+      const acesso=avaliarAcessoAceite({key,token:req.body?.token,data:linhaAceite.payload});
+      if(acesso.falha){
+        await rateLimitCentral(sujeito,"failure");
+        return res.status(acesso.status).json({error:acesso.error});
+      }
+      // Acerto não zera o contador de falhas do IP.
+      if(action==="pedido-aceite-ver"){
+        return res.status(200).json({ok:true,situacao:acesso.situacao,expiraEm:acesso.verificado.expiraEm,
+          pedido:visaoPublicaPedido(linhaAceite.payload,acesso.pedido)});
+      }
+      const preparado=comandoAceitePorLink({...acesso,body:req.body||{}});
+      if(preparado.error)return res.status(preparado.status).json({error:preparado.error});
+      if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({error:"O aceite está temporariamente indisponível."});
+      const outcome=await executarMutacaoEmpresaBloqueada({
+        actor:preparado.actor,action:"supplier_order_accepted_by_link",
+        domain:rowForOperationalCommand(OPERATIONAL_COMMAND.PURCHASE_ORDER_SUPPLIER_ACCEPTED),
+        linha:linhaAceite,
+        mutate:async({payload:current,updatedAt})=>{
+          // Confere de novo sobre a linha travada: o pedido pode ter mudado.
+          const travado=avaliarAcessoAceite({key,token:req.body?.token,data:current});
+          const novo=travado.falha?travado:comandoAceitePorLink({...travado,body:req.body||{}});
+          if(novo.error)return {kind:"error",status:novo.status,error:novo.error};
+          const command={type:OPERATIONAL_COMMAND.PURCHASE_ORDER_SUPPLIER_ACCEPTED,...novo.command};
+          const executed=applyOperationalCommand(current,command);
+          if(!executed.ok)return {kind:"error",status:409,error:executed.reason,currentUpdatedAt:updatedAt};
+          if(executed.idempotent)return {kind:"idempotent",data:current,updatedAt};
+          return {kind:"save",data:executed.data,basePayload:current,
+            before:{command:command.type,entityId:command.payload.orderId},
+            after:{command:command.type,idempotencyKey:command.idempotencyKey}};
+        },
+      });
+      if(outcome.kind==="error")return res.status(outcome.status||409).json({error:outcome.error});
+      if(outcome.kind==="save"){
+        await sincronizarPedidoAoVivo({companyId:COMPANY,orderId:acesso.verificado.orderId,
+          mergedData:outcome.data,actor:preparado.actor});
+      }
+      return res.status(200).json({ok:true});
+    }
     if (action === "client-portal") {
       const { payload: p } = await lerLinha();
       const obraId = String(req.body?.obraId || "");
@@ -2322,6 +2377,19 @@ export default async function handler(req, res) {
     // CORE-003, mesmo padrão do equipment-registry-report acima (24/08/2026,
     // ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md, seção "Comando de criação de
     // cotação: a lacuna fundamental fechada").
+    // Gera o link de aceite do pedido para o fornecedor (C2.5): mesmos perfis
+    // que enviam o pedido. Só o código assinado sai daqui; nada é gravado.
+    if(action==="pedido-aceite-link"){
+      if(!podeGerarLinkAceite(usuario.role))return res.status(403).json({error:"Somente Administração ou Compras geram o link de aceite."});
+      const pedido=(atual?.pedidos||[]).find(item=>String(item.id)===String(req.body?.orderId||""));
+      if(!linkAceiteDisponivel(pedido))return res.status(409).json({error:pedido?.aceiteFornecedor?.nome
+        ?"Este pedido já foi aceito pelo fornecedor."
+        :"Só pedido enviado e ainda não aceito recebe link de aceite."});
+      const key=chaveLinkAceite();
+      if(!key)return res.status(503).json({error:"A chave do link de aceite não está configurada no servidor."});
+      const {token,expiraEm}=gerarTokenAceite({key,order:pedido});
+      return res.status(200).json({ok:true,token,expiraEm});
+    }
     if(action==="procurement-registry-report"){
       if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores consultam a projeção de compras."});
       const { data: runs, error: runsError } = await db
