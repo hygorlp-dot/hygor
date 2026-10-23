@@ -192,7 +192,7 @@ test("pagamento direto do cliente continua separado da entrega e do caixa da emp
   const delivery=page.locator(".purchase-queue-table tbody tr").filter({hasText:"PC-003"});
   await expect(delivery).toContainText("Pago");
   await expect(delivery.getByRole("button",{name:"Receber materiais · PC-003"})).toBeVisible();
-  await page.getByRole("navigation",{name:"Financeiro e consultas de compras"}).getByRole("button",{name:/^Pagamentos/}).click();
+  await page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button",{name:/^Pagamentos/}).click();
   await expect(page.locator(".compras-funding")).toContainText("Cliente direto");
   await expect(page.locator(".compras-funding")).toContainText("75,00");
   expect(app.state().pedidos.find(order=>order.id==="other").pagamentos[0]).toMatchObject({origem:"cliente_direto",conciliado:true});
@@ -213,7 +213,7 @@ test("engenharia consulta propostas sem ganhar ações de decisão de Compras",a
 for(const width of [390,768,1280,1440])test(`layout, teclado e filtros em ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:1000});const app=await enter(page);await selectWork(page);
   await expect(page.getByRole("button",{name:"Receber materiais · PC-001"})).toBeVisible();
-  await expect(page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button")).toHaveCount(6);
+  await expect(page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button")).toHaveCount(7);
   for(const button of await page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button").all())await expect(button).toBeInViewport();
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1);
   expect(overflow,"a página não deve transbordar horizontalmente").toBe(false);

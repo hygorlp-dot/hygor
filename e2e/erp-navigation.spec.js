@@ -94,3 +94,32 @@ test("chat fica acima da navegação e cabe na tela em modo paisagem",async({pag
   await page.getByRole("button",{name:"Abrir chat da equipe",exact:true}).click();
   expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
 });
+
+
+test("fluxos internos e atalho do DRE preservam competência e pagamentos",async({page})=>{
+  const app=await enter(page,"admin");
+  async function open(label){
+    await page.keyboard.press("Control+k");const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");await search.fill(label);
+    await search.locator("xpath=../..").getByRole("button").filter({hasText:label}).first().click();
+  }
+  await open("Compras");
+  await expect(page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button",{name:/^Pagamentos/})).toBeVisible();
+  await page.getByRole("region",{name:"Integração com o DRE"}).locator("summary").click();
+  await page.getByLabel("Competência do DRE").fill("2026-09");
+  const requests=[];page.on("request",request=>{if(request.url().endsWith("/api/data")){const body=request.postDataJSON();if(body.action==="financial-dre-report")requests.push(body);}});
+  const integration=page.getByRole("region",{name:"Integração com o DRE"});
+  await integration.getByRole("button",{name:"Consultar valores no DRE",exact:true}).click();
+  await expect(integration).toContainText("Não foi possível consultar o DRE");
+  expect(requests.at(-1)).toMatchObject({year:2026,month:8,period:"mes",obraId:""});
+  await integration.getByRole("button",{name:"Abrir DRE neste recorte",exact:true}).click();
+  await expect(page.locator(".app-breadcrumb")).toContainText("DRE obras");
+  await expect.poll(()=>requests.filter(body=>body.year===2026&&body.month===8).length).toBeGreaterThan(1);
+  await open("Folha");
+  const controls=page.getByRole("region",{name:"Competência e escopo da folha"});await expect(controls).toBeVisible();
+  const order=await page.locator(".payroll-workspace").evaluate(element=>{
+    const filters=element.querySelector(".payroll-controls"),report=element.querySelector(".payroll-actionbar"),check=element.querySelector(".payroll-checklist");
+    return Boolean(filters.compareDocumentPosition(check)&Node.DOCUMENT_POSITION_FOLLOWING)&&Boolean(check.compareDocumentPosition(report)&Node.DOCUMENT_POSITION_FOLLOWING);
+  });expect(order).toBe(true);
+  await expect(page.getByRole("region",{name:"Áreas da folha"}).locator("details")).not.toHaveAttribute("open");
+  expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
+});

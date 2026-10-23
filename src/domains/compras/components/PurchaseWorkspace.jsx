@@ -15,14 +15,13 @@ export const PURCHASE_AREA_LABELS = { fila:"Fila de trabalho", aprovacoes:"Aprov
 export function PurchaseNavigation({ area, onNavigate, counts, financeCount, otherAreas }) {
   return <div className="purchase-navigation">
     <nav className="purchase-primary-nav" aria-label="Fluxo de compras">
-      {PURCHASE_AREAS.map(([id, label]) => <button key={id} type="button" aria-current={area === id ? "page" : undefined}
-        onClick={() => onNavigate(id)}><span>{label}</span><b>{id === "fila" ? Object.values(counts).reduce((a, b) => a + b, 0) : counts[id] || 0}</b></button>)}
+      {[...PURCHASE_AREAS,["financeiro","Pagamentos"]].map(([id, label]) => <button key={id} type="button" aria-current={area === id ? "page" : undefined}
+        onClick={() => onNavigate(id)}><span>{label}</span><b>{id === "financeiro" ? financeCount : id === "fila" ? Object.values(counts).reduce((a, b) => a + b, 0) : counts[id] || 0}</b></button>)}
     </nav>
     <nav className="purchase-secondary-nav" aria-label="Financeiro e consultas de compras">
       <span>Acompanhamento</span>
-      <button type="button" aria-current={area === "financeiro" ? "page" : undefined} onClick={() => onNavigate("financeiro")}>Pagamentos <b>{financeCount}</b></button>
       <button type="button" aria-current={area === "historico_compras" ? "page" : undefined} onClick={() => onNavigate("historico_compras")}>Histórico de compras</button>
-      <details className="purchase-tools" key={area}><summary>Consultas e cadastros</summary><div>
+      <details className="purchase-tools" key={area} open={otherAreas.some(([id])=>id===area)}><summary>Consultas e cadastros</summary><div>
         {otherAreas.map(([id, label]) => <button key={id} type="button" onClick={() => onNavigate(id)} aria-current={area === id ? "page" : undefined}>{label}</button>)}
       </div></details>
     </nav>

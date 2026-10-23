@@ -175,6 +175,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await pixRow.getByRole("button",{name:/Ocultar outras ações/}).click();
       }
       if(item==="Locação de equipamentos") {
+        if(!await page.getByRole("button",{name:/Cadastro físico/}).isVisible())await page.locator(".workflow-tools summary").filter({hasText:"Frota, cadastros e manutenção"}).click();
         await page.getByRole("button",{name:/Cadastro físico/}).click();
         await expect(page.getByText("Identidade e localização física")).toBeVisible();
         await expect(page.getByText("Prévia compatível calculada a partir da frota atual.")).toBeVisible();
@@ -316,6 +317,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await ownerDialog.getByRole("button",{name:"Salvar proprietário"}).click();
         await expect(page.getByText("Proprietário salvo.")).toBeVisible();
 
+        if(!await page.getByRole("button",{name:/^Manutenção/}).isVisible())await page.locator(".workflow-tools summary").filter({hasText:"Frota, cadastros e manutenção"}).click();
         await page.getByRole("button",{name:/^Manutenção/}).click();
         await page.getByRole("button",{name:"Registrar manutenção"}).click();
         // Diálogo "Nova manutenção" / botão "Salvar manutenção" desde 02/09/2026 (e8ea796).

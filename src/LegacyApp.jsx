@@ -1,6 +1,8 @@
 import { Children, lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import DreReconciliationManager from "./features/financeiro/DreReconciliationManager.jsx";
 import { activeErpModule, moduleForTab, visibleErpModules } from "./navigation/erp-navigation.js";
+import { FlowTabs, ModuleWorkflow, WorkflowContext, useWorkflow } from "./features/workflow/WorkflowNavigation.jsx";
+import { normalizeWorkflowScope } from "./features/workflow/workflow-model.js";
 import AnnualDre from "./features/financeiro/AnnualDre.jsx";
 // Planilhas são um recurso pesado e opcional. O pacote só entra na memória
 // quando o usuário realmente importa ou exporta um arquivo.
@@ -4311,6 +4313,7 @@ function DRE({data,showToast,currentUser=null,obraIdFixo="",dispatchCommand=null
 }
 
 function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchCommand=null }) {
+  const {intent}=useWorkflow();
   const { cols } = useBreakpoint();
   const now   = new Date();
   const [year,  setYear]   = useState(now.getFullYear());
@@ -4318,6 +4321,15 @@ function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchC
   const [periodoDRE,setPeriodoDRE] = useState("mes");
   const [view,  setView]   = useState(obraIdFixo?"obra":"consolidado"); // "consolidado" | "obra" | "historico"
   const [selObra, setSelObra] = useState(obraIdFixo||data.obras[0]?.id||"");
+  useEffect(()=>{
+    if(intent?.tabId!=="dre")return;
+    const scope=normalizeWorkflowScope(intent.scope,currentUser);
+    if(scope.year!=null)setYear(scope.year);
+    if(scope.month!=null)setMonth(scope.month);
+    setPeriodoDRE(scope.period);
+    if(scope.obraId){setSelObra(scope.obraId);setView("obra");}
+    else if(!obraIdFixo)setView("consolidado");
+  },[intent?.sequence]);
   const [despModal, setDespModal] = useState(false);
   const [expenseCommandPending,setExpenseCommandPending]=useState(false);
   const [despForm,  setDespForm]  = useState({ obraId:"", competencia:"", categoria:"material", descricao:"", valor:"" });
@@ -5841,7 +5853,9 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
 
   const podeAcessarAdministrativoFinanceiro=["admin","financeiro"].includes(currentUser?.role);
   const abasFinanceiras=[["visao","Visão financeira"],...(podeAcessarAdministrativoFinanceiro?[["pagamentos","Pagamentos"],["administrativo","Administrativo"],["fiscal","Notas fiscais"]]:[]),...(currentUser?.role==="admin"?[["fechamento","Fechamento"],["homologacao","Homologação"]]:[]),["ia","Modo IA"]];
-  const NavegacaoFinanceira=()=> <div className="financial-area-nav" style={{display:"grid",gridTemplateColumns:`repeat(${abasFinanceiras.length},minmax(0,1fr))`,gap:3,padding:3,border:`1px solid ${C.border}`,borderRadius:8,background:C.surface,overflowX:"auto"}}>{abasFinanceiras.map(([v,l])=><button key={v} onClick={()=>setAreaFinanceira(v)} style={{...TYPO.tab,padding:"6px 8px",border:`1px solid ${areaFinanceira===v?(v==="ia"?C.purple:C.green):"transparent"}`,borderRadius:5,background:areaFinanceira===v?C.card:"transparent",color:areaFinanceira===v?(v==="ia"?C.purple:C.green):C.muted,cursor:"pointer",whiteSpace:"nowrap"}}>{v==="ia"&&<><Ic n="brain" s={11}/> </>}{v==="pagamentos"&&<><Ic n="receipt" s={11}/> </>}{v==="administrativo"&&<><Ic n="building" s={11}/> </>}{v==="fiscal"&&<><Ic n="file" s={11}/> </>}{l}</button>)}</div>;
+  const NavegacaoFinanceira=()=> <FlowTabs label="Áreas do financeiro" active={areaFinanceira} onChange={setAreaFinanceira}
+    steps={abasFinanceiras.filter(([id])=>["visao","pagamentos","fiscal","fechamento"].includes(id)).map(([id,label])=>({id,label}))}
+    tools={abasFinanceiras.filter(([id])=>!["visao","pagamentos","fiscal","fechamento"].includes(id)).map(([id,label])=>({id,label}))}/>;
   if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralPagamentosFinanceiro data={data} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} dispatchCommand={dispatchCommand} C={C}/></div>;
   if(areaFinanceira==="administrativo"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><FinanceiroAdministrativo data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
   if(areaFinanceira==="fiscal"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralFiscal data={data} update={update} showToast={showToast} currentUser={currentUser} abrirCadastro={abrirCadastroFiscal} onCadastroAberto={confirmarAberturaFiscal} dispatchCommand={dispatchCommand}/></div>;
@@ -15413,10 +15427,16 @@ function DREEmpresa(props) {
 }
 
 function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=null }) {
+  const {intent}=useWorkflow();
   const { cols } = useBreakpoint();
   const now = new Date();
   const [year,  setYear]   = useState(now.getFullYear());
   const [month, setMonth]  = useState(now.getMonth());
+  useEffect(()=>{
+    if(intent?.tabId!=="dre_emp")return;
+    if(intent.scope.year!=null)setYear(intent.scope.year);
+    if(intent.scope.month!=null)setMonth(intent.scope.month);
+  },[intent?.sequence]);
   const [abaDRE, setAbaDRE] = useState("inteligencia");
   const [analiseIA, setAnaliseIA] = useState(null);
   const [analisandoIA, setAnalisandoIA] = useState(false);
@@ -17201,6 +17221,11 @@ export default function App() {
   const [buscaAberta, setBuscaAberta] = useState(false);
   // Obra aberta no painel detalhado. Vazio = lista/quadro normal.
   const [obraAberta,  setObraAberta]  = useState("");
+  const [workflowIntent,setWorkflowIntent]=useState(null);
+  const [workflowScopes,setWorkflowScopes]=useState({});
+  const rememberWorkflowScope=useCallback((screen,scope)=>{
+    setWorkflowScopes(previous=>JSON.stringify(previous[screen])===JSON.stringify(scope)?previous:{...previous,[screen]:scope});
+  },[]);
   const [loading,     setLoading]     = useState(true);
   const [erroInicial, setErroInicial] = useState("");
   const [firstSetup, setFirstSetup] = useState(false);
@@ -17732,6 +17757,12 @@ export default function App() {
     if (g) setGruposAbertos(prev => ({ ...prev, [g.id]: true }));
     setBuscaAberta(false);
   }, []);
+  const navigateWorkflow=useCallback((tabId,scope)=>{
+    if(!allowedTabs.includes(tabId))return;
+    const normalized=normalizeWorkflowScope(scope||workflowScopes[tabId]||{},currentUser);
+    setWorkflowIntent(previous=>({tabId,scope:normalized,sequence:(previous?.sequence||0)+1}));
+    irPara(tabId);
+  },[allowedTabsKey,currentUser?.obraId,workflowScopes,irPara]);
 
   // Índice de busca global: tudo que a pessoa pode querer achar por nome ou
   // número, com a aba de destino. Só monta quando há dados e usuário logado.
@@ -18352,6 +18383,8 @@ export default function App() {
         </div>
 
         <main className="arcd-main" style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "24px 24px" : 14 }}>
+          <WorkflowContext.Provider value={{navigate:navigateWorkflow,intent:workflowIntent,scopes:workflowScopes,rememberScope:rememberWorkflowScope}}>
+          <ModuleWorkflow moduleId={activeGroup?.id} allowedTabs={allowedTabs} active={tab} meta={TAB_META} onNavigate={navigateWorkflow}/>
           {tab === "home"   && (["engenheiro","engenheiro_auditor"].includes(currentUser?.role)
             ? <DashboardEngenheiro data={data} update={update} showToast={showToast} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser} saveState={estadoSalvar}/>
             : <Dashboard data={data} update={update} showToast={showToast} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}
@@ -18385,7 +18418,6 @@ export default function App() {
           {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "rh_indic" && <Suspense fallback={<div className="arcd-page-loading">Carregando indicadores...</div>}><IndicadoresView data={data} /></Suspense>}
-          {["dre","dre_emp","conc"].includes(tab)&&<DreReconciliationManager data={data} update={update} currentUser={currentUser}/>}
           {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
@@ -18404,6 +18436,8 @@ export default function App() {
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
           {tab === "ia_config" && <ConfiguracaoIA showToast={showToast}/>}
           {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={sairDoSistema} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} />}
+          {["dre","dre_emp","conc"].includes(tab)&&<DreReconciliationManager data={data} update={update} currentUser={currentUser}/>}
+          </WorkflowContext.Provider>
         </main>
 
         {/*  NAV INFERIOR - só celular/tablet (no desktop é sidebar)  */}

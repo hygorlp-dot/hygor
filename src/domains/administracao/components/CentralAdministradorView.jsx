@@ -1,3 +1,4 @@
+import { FlowTabs } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
 // CentralAdministradorView — orquestrador da Central do Administrador,
 // extraído de LegacyApp.jsx
@@ -66,7 +67,11 @@ export default function CentralAdministrador({data,update,showToast,currentUser}
       actions={<Badge color={C.green}>ACESSO TOTAL</Badge>}
     />
     <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8}}>{[["Alterações hoje",metricas.hoje,C.blue],["Últimos 7 dias",metricas.semana,C.purple],["Usuários ativos",metricas.usuarios,C.green],["Exclusões/cancelamentos",metricas.exclusoes,metricas.exclusoes?C.red:C.muted]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:9,padding:11}}><p style={{fontSize:8.5,fontWeight:850,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:21,fontWeight:900,color:c,marginTop:4}}>{v}</p></div>)}</div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:7}}><Btn v={secao==="auditoria"?"primary":"ghost"} onClick={()=>setSecao("auditoria")}><Ic n="clipboard"/> Auditoria e resumo por IA</Btn><Btn v={secao==="usuarios"?"primary":"ghost"} onClick={()=>setSecao("usuarios")}><Ic n="users"/> Usuários e permissões</Btn><Btn v={secao==="aprovacoes"?"primary":"ghost"} onClick={()=>setSecao("aprovacoes")}><Ic n="check"/> Aprovações</Btn><Btn v={secao==="bases"?"primary":"ghost"} onClick={()=>setSecao("bases")}><Ic n="fileText"/> Bases de preço</Btn><Btn v={secao==="nucleo"?"primary":"ghost"} onClick={()=>setSecao("nucleo")}><Ic n="refresh"/> Núcleo relacional</Btn></div>
+    <FlowTabs label="Áreas da administração" active={secao} onChange={setSecao} steps={[
+      {id:"usuarios",label:"Usuários e permissões",description:"Confira o perfil e o escopo do operador antes de conceder acesso."},
+      {id:"aprovacoes",label:"Aprovações",description:"Acompanhe as decisões que aguardam autorização."},
+      {id:"auditoria",label:"Auditoria e resumo por IA",description:"Consulte quem alterou cada registro e sua origem."},
+    ]} tools={[{id:"bases",label:"Bases de preço"},{id:"nucleo",label:"Núcleo relacional"}]} toolsLabel="Referências e ferramentas técnicas"/>
     {secao==="usuarios"?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:14}}><div style={{background:`${C.yellow}0B`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"9px 11px",marginBottom:12,fontSize:10.5,color:C.muted}}>Nesta tela o administrador pode criar operadores, editar perfil e e-mail, restringir por obra, escolher telas individualmente, definir limite comercial, ativar/inativar, trocar PIN, ativar login por e-mail e redefinir senha.</div><GestaoUsuarios data={data} update={update} showToast={showToast} currentUser={currentUser}/></div>
     :secao==="aprovacoes"?<GestaoAprovacoes data={data} update={update} showToast={showToast} currentUser={currentUser}/>
     :secao==="bases"?<BasesPrecoAdmin currentUser={currentUser} data={data} update={update}/>
