@@ -85,3 +85,14 @@ describe("entrega programada por item (C2.2)",()=>{
     expect(legacy).toMatch(/export const pedidosEmAtraso = \(data, hoje\) => pedidosComItensAtrasados\(data, hoje\);/);
   });
 });
+
+describe("orçado × comprometido × realizado (C3.2)",()=>{
+  it("a tela mostra comprometido e recebido e o pedido avisa antes de salvar",()=>{
+    expect(compras).toMatch(/\["Comprometido",fmt\(totComp\),C\.blue\],\["Recebido",fmt\(totRec\),C\.purple\]/);
+    expect(compras).toMatch(/Atenção: \{l\.pct\.toFixed\(0\)\}% do orçado já comprometido/);
+    expect(compras).toMatch(/alertasOrcamentoDoPedido\(data,pedidoDoFormulario\(form\)\)/);
+    const salvar=trecho(compras,"const salvarPedido = async","const abrirPagamento=");
+    expect(salvar).toMatch(/window\.confirm\(`Este pedido estoura o orçamento de/);
+    expect(legacy).toMatch(/export \{ calcOrcadoComprado \};/);
+  });
+});
