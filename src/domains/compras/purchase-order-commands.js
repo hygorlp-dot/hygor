@@ -28,6 +28,9 @@ const projectById=(data,id)=>(data.obras||[]).find(item=>String(item.id)===Strin
 const supplierById=(data,id)=>(data.fornecedores||[]).find(item=>String(item.id)===String(id));
 const requestById=(data,id)=>(data.solicitacoesCompra||[]).find(item=>String(item.id)===String(id));
 const activePayments=order=>(order?.pagamentos||[]).filter(active);
+// Pedido vivo = não cancelado. `active()` do razão trata rascunho como
+// inativo (não é compromisso financeiro), mas rascunho continua editável.
+const orderAlive=order=>order&&order.status!=="cancelado"&&order.deletedAt==null&&order.ativo!==false;
 const orderTotalCents=order=>(order?.itens||[])
   .reduce((sum,item)=>sum+toCents(Number(item.qtd||0)*Number(item.precoUnit||0)),0);
 
@@ -126,7 +129,7 @@ const normalizeOrder=(data,raw,current,{newMaterials=[]}={})=>{
       :"A solicitação ainda aguarda aprovação e não pode gerar pedido."};
   }
   const requestOrder=request?.pedidoId&&String(request.pedidoId)!==id?orderById(data,request.pedidoId):null;
-  if(requestOrder&&active(requestOrder)&&requestOrder.status!=="cancelado"){
+  if(orderAlive(requestOrder)){
     return {error:`Esta solicitação já gerou o pedido ${requestOrder.numero}.`};
   }
   const quoteId=String(raw.cotacaoId||"");
@@ -136,7 +139,11 @@ const normalizeOrder=(data,raw,current,{newMaterials=[]}={})=>{
   const candidate={
     ...current,...raw,id,obraId,fornecedorId,data:date,previsao:forecast,
     numero:String(raw.numero||"").trim(),
-    status:current?.status||(["rascunho","enviado"].includes(raw.status)?raw.status:"enviado"),
+    // Rascunho pode ser enviado ao fornecedor depois; o caminho inverso não
+    // existe (pedido enviado já é compromisso com o fornecedor).
+    status:current
+      ?(current.status==="rascunho"&&raw.status==="enviado"?"enviado":current.status)
+      :(["rascunho","enviado"].includes(raw.status)?raw.status:"enviado"),
     origemPagamento:["cliente_direto","caixa_obra","empresa"].includes(raw.origemPagamento)
       ?raw.origemPagamento:"empresa",
     solicitacaoId:requestId,cotacaoId:quoteId,itens:items.items,
@@ -163,7 +170,7 @@ const saveOrder=(data,command,now)=>{
     return fail("O pedido foi alterado por outra pessoa. Atualize a tela.");
   }
   if(!current&&command.expectedVersion!==0)return fail("A criação do pedido exige versão inicial zero.");
-  if(current&&(current.status==="cancelado"||!active(current))){
+  if(current&&!orderAlive(current)){
     return fail("Este pedido foi cancelado e não pode mais ser alterado.");
   }
   if(current&&!String(payload.adjustmentReason||"").trim()){

@@ -837,8 +837,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     const colunas=[
       {id:"demanda",titulo:"Demandas",sub:"Aguardam análise",cor:C.blue,cards:[]},
       {id:"cotacao",titulo:"Cotações",sub:"Comparação de propostas",cor:C.purple,cards:[]},
-      {id:"pedido",titulo:"Pedidos a pagar",sub:"Compromisso financeiro",cor:C.orange,cards:[]},
-      {id:"entrega",titulo:"Em entrega",sub:"Material a caminho",cor:C.yellowD,cards:[]},
+      {id:"pedido",titulo:"Pedidos a enviar",sub:"Rascunho",cor:C.orange,cards:[]},
+      {id:"entrega",titulo:"Aguardando entrega",sub:"Enviado ao fornecedor",cor:C.yellowD,cards:[]},
       {id:"concluido",titulo:"Concluídos",sub:"Recebimento confirmado",cor:C.green,cards:[]},
     ];
     const porId=new Map(colunas.map(c=>[c.id,c]));
@@ -851,11 +851,14 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       porId.get("cotacao").cards.push({id:c.id,tipo:"cotacao",codigo:c.numero||"Cotação",titulo:materialPorId.get(c.materialId)?.descricao||"Material",detalhe:`${(c.propostas||[]).length} proposta(s) · ${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`,prazo,risco:risco(prazo),registro:c});
     });
     pedidosAtivos.forEach(p=>{
-      const status=statusPedido(p),pago=statusPagamentoPedido(p)==="pago",concluido=status==="recebido";
-      const coluna=concluido?"concluido":pago?"entrega":"pedido";
+      // A coluna depende da entrega, não do pagamento (compra a prazo é o
+      // normal). O pagamento aparece no próprio cartão.
+      const status=statusPedido(p),concluido=status==="recebido";
+      const coluna=concluido?"concluido":status==="rascunho"?"pedido":"entrega";
+      const pagamento=statusPagamentoPedido(p)==="pago"?"pago":`a pagar ${fmtCompact(saldoPagamentoPedido(p))}`;
       const prazo=p.previsao||p.dataEntrega||"";
       const itens=(p.itens||[]);const primeiro=itens[0];
-      porId.get(coluna).cards.push({id:p.id,tipo:"pedido",codigo:p.numero||"Pedido",titulo:primeiro?(materialPorId.get(primeiro.materialId)?.descricao||primeiro.descricaoRef||"Material"):"Pedido de compra",detalhe:`${fornecedorPorId.get(p.fornecedorId)?.nome||"Fornecedor não definido"}${itens.length>1?` · +${itens.length-1} item(ns)`:""}`,valor:totalPedido(p),prazo,risco:risco(prazo,concluido),registro:p});
+      porId.get(coluna).cards.push({id:p.id,tipo:"pedido",codigo:p.numero||"Pedido",titulo:primeiro?(materialPorId.get(primeiro.materialId)?.descricao||primeiro.descricaoRef||"Material"):"Pedido de compra",detalhe:`${fornecedorPorId.get(p.fornecedorId)?.nome||"Fornecedor não definido"}${itens.length>1?` · +${itens.length-1} item(ns)`:""} · ${pagamento}`,valor:totalPedido(p),prazo,risco:risco(prazo,concluido),registro:p});
     });
     colunas.forEach(col=>col.cards.sort((a,b)=>{
       const ordem={atrasado:0,atencao:1,sem_prazo:2,no_prazo:3,concluido:4};
@@ -1303,7 +1306,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     const saldoProjetado=caixa.saldo-valor;
     setPagModal(null);
     if(f.origem==="caixa_obra"&&saldoProjetado<=caixa.limiteBaixo)showToast(`Pagamento registrado, mas o caixa ficou baixo: ${fmt(saldoProjetado)}. Recomenda-se novo aporte (reserva mínima ${fmt(caixa.limiteBaixo)}).`,"warn");
-    else showToast(quitado?`Pedido ${pedido.numero} quitado e liberado para recebimento.`:`Pagamento parcial registrado. Saldo: ${fmt(saldo-valor)}.`);
+    else showToast(quitado?`Pedido ${pedido.numero} quitado.`:`Pagamento parcial registrado. Saldo: ${fmt(saldo-valor)}.`);
     }catch(err){showToast(err.message||"Não foi possível registrar o pagamento.","error");}
     finally{setSubindoComprovantePagamento(false);}
   };
@@ -1655,8 +1658,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       setCotDecisao({cotacaoId:card.registro.id,propostaId:melhor.id,justificativa:""});return;
     }
     if(card.tipo==="pedido"&&destino==="entrega"){
-      // A coluna "Em entrega" é o pedido quitado: mover até ela é pagar.
-      abrirPagamento(card.registro);showToast("Registre o pagamento para mover o pedido.");return;
+      // Do rascunho para "Aguardando entrega" = enviar ao fornecedor.
+      setPedModal({...card.registro,status:"enviado",motivoAjuste:"Pedido enviado ao fornecedor.",
+        itens:(card.registro.itens||[]).map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))});
+      showToast("Confira e salve para enviar o pedido ao fornecedor.");return;
     }
     if(card.tipo==="pedido"&&destino==="concluido"){
       // Recebimento não depende de pagamento prévio (compra a prazo é o caso
@@ -1867,7 +1872,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                 ["cotacoes","Cotações",mapaCompras.fila.cotacoes,"Em concorrência"],
                 ["pedidos","Pedidos",mapaCompras.fila.pedidos,"Em fornecimento"],
                 ["financeiro","Pagamentos",mapaCompras.fila.pagamentos,"Com saldo"],
-                ["pedidos","Recebimentos",mapaCompras.fila.recebimentos,"Pagos, não entregues"],
+                ["pedidos","Recebimentos",mapaCompras.fila.recebimentos,"Enviados, não entregues"],
               ].map(([dest,l,v,d],i)=><button key={l} onClick={()=>irParaArea(dest)} style={{border:0,borderLeft:isDesktop&&i?`1px solid ${C.line}`:"none",borderTop:!isDesktop&&i>1?`1px solid ${C.line}`:"none",background:"transparent",padding:"15px 12px",textAlign:"left",cursor:"pointer"}}><span style={{fontSize:8.5,color:C.muted,fontWeight:750}}>{l}</span><b style={{display:"block",fontSize:22,color:v?C.orange:C.green,marginTop:3}}>{v}</b><small style={{fontSize:8.5,color:C.muted}}>{d}</small></button>)}
             </div>
           </div>
