@@ -37,6 +37,7 @@ import {
 import { canManagePurchases } from "../permissions";
 import { conferenciaPagamentoPedido } from "../payment-conference";
 import { movementOfOrder } from "../purchase-cancellation-command";
+import { alertasOrcamentoDoPedido } from "../budget-tracking";
 import { contratosDisponiveis, saldoItemContrato } from "../supply-contracts";
 import ContratosFornecimentoView from "./ContratosFornecimentoView";
 import { atrasoDoItem } from "../delivery-schedule";
@@ -244,6 +245,11 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
     {confirmarSaida&&<Modal title="Descartar alterações?" onClose={()=>setConfirmarSaida(false)}><p style={{fontSize:13,lineHeight:1.5,color:C.text}}>As alterações desta solicitação ainda não foram formalizadas.</p><div style={{display:"flex",gap:8,marginTop:16}}><Btn v="ghost" onClick={()=>setConfirmarSaida(false)} full>Continuar editando</Btn><Btn v="danger" onClick={()=>setForm(null)} full>Descartar alterações</Btn></div></Modal>}
   </div></Modal>;
 }
+
+// C3.2: pedido do formulário no formato do domínio, para simular o impacto
+// no orçamento antes de salvar.
+const pedidoDoFormulario=f=>({...f,id:f.id||"__pedido_em_edicao",itens:(f.itens||[]).filter(i=>i.materialId&&Number(i.qtd)>0)
+  .map(i=>({...i,qtd:Number(i.qtd),precoUnit:Number(i.precoUnit||0)}))});
 
 function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc, data, basesReferencia=[] }) {
   const { formGrid } = useBreakpoint();
@@ -513,6 +519,12 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
         </div>
 
         {form.id&&<Inp label="Motivo do ajuste *" value={form.motivoAjuste||""} onChange={F("motivoAjuste")} multiline placeholder="Explique o que foi corrigido e por quê. Esta justificativa ficará no histórico do pedido."/>}
+        {/* C3.2: o pedido leva alguma etapa a 90% ou além do orçado? */}
+        {data&&(()=>{const alertas=alertasOrcamentoDoPedido(data,pedidoDoFormulario(form));if(!alertas.length)return null;
+          return <div style={{background:`${alertas.some(a=>a.alerta==="estourou")?C.red:C.orange}0D`,border:`1.5px solid ${alertas.some(a=>a.alerta==="estourou")?C.red:C.orange}`,borderRadius:7,padding:"8px 10px"}}>
+            <p style={{fontSize:11,fontWeight:850,color:alertas.some(a=>a.alerta==="estourou")?C.red:C.orange}}>{alertas.some(a=>a.alerta==="estourou")?"Este pedido estoura o orçamento":"Este pedido leva a etapa a 90% do orçamento"}</p>
+            {alertas.map(a=><p key={a.etapaId} style={{fontSize:10,color:C.text,marginTop:3}}>{a.descricao}: {fmt(a.antes)} → <b>{fmt(a.depois)}</b> de {fmt(a.orcado)} orçado{a.orcado>0?` (${a.pct.toFixed(0)}%)`:""}</p>)}
+          </div>;})()}
         <div style={{display:"flex",gap:8}}>
           <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
           <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
@@ -777,7 +789,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const solicitacoesPendentes=solicitacoes.filter(s=>s.status==="enviada").length;
 
   const kpi = useMemo(() => calcCompras(data, obraIdsMapa), [data.pedidos, data.movEstoque, data.transacoes, obraIdsMapa]);
-  const orcVs = useMemo(() => calcOrcadoComprado(data, obraAtual), [data.orcamentos, data.pedidos, obraAtual]);
+  const orcVs = useMemo(() => calcOrcadoComprado(data, obraAtual), [data.orcamentos, data.budgetBaselines, data.pedidos, data.materiais, obraAtual]);
   // Entregas atrasadas (todas as obras visiveis) e mapa por pedido.
   const atrasados = useMemo(() => pedidosEmAtraso(data, today())
     .filter(x => obras.some(o => o.id === x.pedido.obraId)), [data.pedidos, data.materiais, obras]);
@@ -1296,6 +1308,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     if(f.id&&!String(f.motivoAjuste||"").trim()){
       showToast("Informe o motivo do ajuste para preservar a rastreabilidade.","error");return;
     }
+    // C3.2: pedido que estoura o orçamento só segue com confirmação explícita.
+    const estouros=alertasOrcamentoDoPedido(data,pedidoDoFormulario({...f,itens}))
+      .filter(a=>a.alerta==="estourou"&&f.status!=="rascunho");
+    if(estouros.length&&!window.confirm(`Este pedido estoura o orçamento de ${estouros.map(a=>a.descricao).join(", ")}. Salvar mesmo assim?`))return;
 
     const p = {
       id: f.id || uid(),
@@ -2411,13 +2427,14 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           {/* Total */}
           {(() => {
             const totOrc  = orcVs.linhas.reduce((s,l) => s + l.orcado, 0);
-            const totComp = orcVs.linhas.reduce((s,l) => s + l.comprado, 0);
+            const totComp = orcVs.linhas.reduce((s,l) => s + l.comprometido, 0);
+            const totRec  = orcVs.linhas.reduce((s,l) => s + l.recebido, 0);
             const pct = totOrc ? (totComp/totOrc)*100 : 0;
             return (
               <div style={{background:C.card,border:`1.5px solid ${C.yellow}`,
                            borderRadius:6,padding:"11px 13px"}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-                  {[["Orçado",fmt(totOrc),C.text],["Comprado",fmt(totComp),C.blue],
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:8}}>
+                  {[["Orçado",fmt(totOrc),C.text],["Comprometido",fmt(totComp),C.blue],["Recebido",fmt(totRec),C.purple],
                     ["Saldo",fmt(totOrc-totComp), totComp > totOrc ? C.red : C.green]].map(([l,v,c])=>(
                     <div key={l}>
                       <p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{l}</p>
@@ -2431,7 +2448,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                                background: pct > 100 ? C.red : C.yellow, borderRadius:99}}/>
                 </div>
                 <p style={{fontSize:10,color:C.muted,marginTop:4}}>
-                  {pct.toFixed(1)}% do orçamento já comprado
+                  {pct.toFixed(1)}% do orçamento comprometido em pedidos enviados
                 </p>
               </div>
             );
@@ -2454,7 +2471,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
           {/* Linhas */}
           {orcVs.linhas.map(l => {
-            const cor = l.estourou ? C.red : l.pct >= 90 ? C.orange : C.green;
+            const cor = l.alerta==="estourou" ? C.red : l.alerta==="atencao" ? C.orange : C.green;
             return (
               <div key={l.it.id} style={{
                 background:C.card, border:`1px solid ${C.border}`,
@@ -2466,8 +2483,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                   {l.it.descricao || l.it.codigo}
                 </p>
 
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginTop:8}}>
-                  {[["Orçado",l.orcado,C.muted],["Comprado",l.comprado,C.text],
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(105px,1fr))",gap:6,marginTop:8}}>
+                  {[["Orçado",l.orcado,C.muted],["Comprometido",l.comprometido,C.text],["Recebido",l.recebido,C.purple],
                     ["Saldo",l.saldo,cor]].map(([lb,v,c])=>(
                     <div key={lb}>
                       <p style={{fontSize:8.5,color:C.muted,textTransform:"uppercase",fontWeight:700}}>{lb}</p>
@@ -2483,12 +2500,22 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
                 {l.estourou && (
                   <p style={{fontSize:10.5,color:C.red,marginTop:6,fontWeight:700}}>
-                     Estourou {fmt(l.comprado - l.orcado)} ({(l.pct-100).toFixed(0)}% acima)
+                     Estourou {fmt(l.comprometido - l.orcado)}{l.orcado>0?` (${(l.pct-100).toFixed(0)}% acima)`:" sem orçamento na etapa"}
                   </p>
                 )}
-                {!l.estourou && l.comprado > 0 && (
+                {l.alerta==="atencao" && (
+                  <p style={{fontSize:10.5,color:C.orange,marginTop:6,fontWeight:700}}>
+                    Atenção: {l.pct.toFixed(0)}% do orçado já comprometido
+                  </p>
+                )}
+                {l.alerta==="ok" && l.comprometido > 0 && (
                   <p style={{fontSize:10,color:C.muted,marginTop:5}}>
-                    {l.pct.toFixed(0)}% comprado
+                    {l.pct.toFixed(0)}% comprometido
+                  </p>
+                )}
+                {l.previsto > 0.01 && (
+                  <p style={{fontSize:9.5,color:C.muted,marginTop:3}}>
+                    + {fmt(l.previsto)} em pedidos ainda em rascunho
                   </p>
                 )}
               </div>

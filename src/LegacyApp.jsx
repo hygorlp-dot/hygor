@@ -85,6 +85,7 @@ import {
   historicoPreco, historicoPrecoTodos, analisePreco, mapaGerencialCompras,
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
+import { calcOrcadoComprado, niveisUmOrcamento } from "./domains/compras/budget-tracking";
 import { mapaDaCotacao } from "./domains/compras/quote-map";
 import { entregasAvaliadas, pedidosComItensAtrasados } from "./domains/compras/delivery-schedule";
 import {
@@ -11413,14 +11414,9 @@ export const periodoPontoDaTransacao = (iso) => {
 // Retorna somente as etapas-raiz do orçamento. Compras não deve exigir que o
 // operador escolha uma composição detalhada: o vínculo financeiro é sempre
 // feito no primeiro nível e continua auditável mesmo quando a planilha muda.
-export const niveisUmOrcamento = (orc) => {
-  if(!orc)return[];
-  const etapas=orc.etapas||[],porId=new Map(etapas.map(e=>[e.id,e]));
-  const raiz=id=>{let e=porId.get(id),n=0;while(e?.parentId&&n++<30)e=porId.get(e.parentId)||e;return e;};
-  const valores=new Map();
-  (orc.itens||[]).filter(i=>i.tipo!=="titulo").forEach(i=>{const r=raiz(i.etapaId);if(r)valores.set(r.id,(valores.get(r.id)||0)+Number(i.quantidade||0)*Number(i.precoUnit||0));});
-  return etapas.filter(e=>!e.parentId).map(e=>({id:e.id,descricao:e.nome||"Etapa sem nome",orcado:valores.get(e.id)||0,ordem:Number(e.ordem||0)})).sort((a,b)=>a.ordem-b.ordem||a.descricao.localeCompare(b.descricao));
-};
+// Movida para src/domains/compras/budget-tracking.js (C3.2); reexportada aqui
+// porque telas antigas importam daqui.
+export { niveisUmOrcamento };
 
 // ==============================================================
 //  COMPRAS AUTOMATIZADAS
@@ -11631,49 +11627,8 @@ export const oportunidadesConsolidacao = (data, hoje, janelaDias = 10) => {
 // O "orçado" é o CUSTO da linha (quantidade x preço unitário SINAPI), sem BDI -
 // BDI é a sua margem, não entra no que você paga ao fornecedor. Comparar a
 // compra contra o preço COM BDI faria todo item parecer barato.
-export const calcOrcadoComprado = (data, obraId) => {
-  const orc = orcamentoDaObra(data, obraId);
-  if (!orc) return { orc: null, linhas: [], semApropriacao: 0 };
-  const etapas=orc.etapas||[],etapaPorId=new Map(etapas.map(e=>[e.id,e]));
-  const itemPorId=new Map((orc.itens||[]).filter(i=>i.tipo!=="titulo").map(i=>[i.id,i]));
-  const raizDaEtapa=id=>{let e=etapaPorId.get(id),n=0;while(e?.parentId&&n++<30)e=etapaPorId.get(e.parentId)||e;return e;};
-  const raizVinculo=i=>etapaPorId.get(i.orcNivel1Id)?.parentId?raizDaEtapa(i.orcNivel1Id):(etapaPorId.get(i.orcNivel1Id)||raizDaEtapa(itemPorId.get(i.orcItemId)?.etapaId));
-
-  // Quanto já foi comprometido em cada etapa de primeiro nível.
-  const comprado = {};
-  (data.pedidos||[])
-    .filter(p => p.obraId === obraId && p.status !== "cancelado")
-    .forEach(p => (p.itens||[]).forEach(i => {
-      const v = Number(i.qtd||0) * Number(i.precoUnit||0);
-      const raiz=raizVinculo(i);
-      if (raiz) comprado[raiz.id] = (comprado[raiz.id] || 0) + v;
-    }));
-
-  // Compras sem apropriação: dinheiro gasto que não bate com nenhuma linha.
-  // É o número que denuncia orçamento furado ou lançamento relaxado.
-  const semApropriacao = (data.pedidos||[])
-    .filter(p => p.obraId === obraId && p.status !== "cancelado")
-    .reduce((s,p) => s + (p.itens||[])
-      .filter(i => !raizVinculo(i))
-      .reduce((a,i) => a + Number(i.qtd||0) * Number(i.precoUnit||0), 0), 0);
-
-  const linhas = niveisUmOrcamento(orc)
-    .map(nivel => {
-      const orcado = nivel.orcado;
-      const comp   = comprado[nivel.id] || 0;
-      return {
-        it:{id:nivel.id,descricao:nivel.descricao,codigo:""}, etapa:"1º nível do orçamento",
-        orcado, comprado: comp,
-        saldo: orcado - comp,
-        pct: orcado ? (comp / orcado) * 100 : (comp > 0 ? 999 : 0),
-        estourou: comp > orcado + 0.01,
-      };
-    })
-    .filter(l => l.orcado > 0 || l.comprado > 0)
-    .sort((a,b) => b.comprado - a.comprado);
-
-  return { orc, linhas, semApropriacao };
-};
+// Orçado × comprometido × recebido por etapa: src/domains/compras/budget-tracking.js (C3.2).
+export { calcOrcadoComprado };
 
 // Visão executiva do orçamento por etapa de primeiro nível. Cada valor só é
 // apropriado quando a origem aponta para uma linha real do orçamento; valores
