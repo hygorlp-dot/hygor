@@ -53,6 +53,7 @@ describe("importação do XML da NF-e (C3.1)",()=>{
     const salva=result.data.notasFiscais[0];
     expect(salva.chave).toBe(CHAVE);
     expect(salva.itensNota).toHaveLength(3);
+    expect(Object.keys(salva.itensNota[0]).sort()).toEqual(["codigo","descricao","ncm","nItem","pedidoItemId","precoUnit","qtd","unidade","valorTotal"].sort());
     expect(salva.divergencias.some(d=>/AREIA MEDIA LAVADA: Quantidade da nota/.test(d))).toBe(true);
     expect(salva.divergencias.some(d=>/TAXA DE ENTREGA: sem item correspondente/.test(d))).toBe(true);
     expect(salva.divergencias.some(d=>/Notas fiscais acima do valor contratado/.test(d))).toBe(true);

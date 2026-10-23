@@ -117,6 +117,14 @@ const normalizeInvoice=(data,raw,current)=>{
       ...current,...raw,id,obraId,pedidoId,numero,emissao,vencimento,
       valorBruto:grossCents/100,valorLiquido:liquidCents/100,
       retencoes:retentions.retencoes,rateios:allocations.rateios,
+      // Só os campos conhecidos do item do XML (C3.1).
+      ...(Array.isArray(raw.itensNota)?{itensNota:raw.itensNota.map(item=>({
+        nItem:Number(item.nItem||0),codigo:String(item.codigo||"").slice(0,60),
+        descricao:String(item.descricao||"").slice(0,200),ncm:String(item.ncm||"").slice(0,10),
+        unidade:String(item.unidade||"").slice(0,10),qtd:Number(item.qtd||0),
+        precoUnit:Number(item.precoUnit||0),valorTotal:Number(item.valorTotal||0),
+        pedidoItemId:String(item.pedidoItemId||""),
+      }))}:{}),
       pagamentos:(current?.pagamentos||[]).map(item=>({...item})),
       documentos:(raw.documentos||current?.documentos||[]).map(item=>({...item})),
     },

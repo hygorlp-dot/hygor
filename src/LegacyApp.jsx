@@ -12317,7 +12317,8 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
       const comprado=(p.itens||[]).reduce((s,i)=>s+Number(i.qtd||0),0);
       const recebido=(p.itens||[]).reduce((s,i)=>s+Number(i.qtdRecebida||(i.recebimentos||[]).reduce((a,r)=>a+Number(r.qtd||0),0)),0);
       if(comprado>0&&(recebido>0||["recebido","finalizado","concluido"].includes(String(p.status||"").toLowerCase()))){
-        const divergencias=notas.filter(n=>n.pedidoId===p.id).reduce((s,n)=>s+(n.divergencias||[]).length,0);
+        // Conta notas com divergência (não cada linha): a C3.1 grava uma divergência por item do XML.
+        const divergencias=notas.filter(n=>n.pedidoId===p.id&&(n.divergencias||[]).length).length;
         qualidades.push(limitarNotaFornecedor(Math.min(100,(recebido/comprado)*100)-divergencias*12));
       }
     });
