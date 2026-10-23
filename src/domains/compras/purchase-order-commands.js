@@ -4,6 +4,7 @@ import { hasValidUnitConversion, purchaseUnitOf } from "./unit-conversion.js";
 import { validarProgramacaoItem } from "./delivery-schedule.js";
 import { proximoNumeroPedido } from "./calculations.js";
 import { instanciaDaSolicitacao, limiteAprovacaoEngenheiro, pedidoDentroDaAlcada } from "./purchase-approval.js";
+import { validarItensDeContrato } from "./supply-contracts.js";
 import { avaliarEscolhasCotacao, cotacaoMultiItens, decisoesDaCotacao, itensDaCotacao } from "./quote-map.js";
 import { CANAIS_ACEITE_PEDIDO, CANAIS_ENVIO_PEDIDO } from "./order-dispatch.js";
 
@@ -162,6 +163,10 @@ const normalizeOrder=(data,raw,current,{newMaterials=[],siblingQuoteId=""}={})=>
     documentos:(current?.documentos||raw.documentos||[]).map(item=>({...item})),
   };
   if(!candidate.numero)return {error:"Informe o número do pedido."};
+  // C2.4: item pelo contrato de fornecimento respeita fornecedor, vigência,
+  // preço acordado e saldo.
+  const contrato=validarItensDeContrato(data,candidate,current);
+  if(contrato)return {error:contrato};
   if((data.pedidos||[]).some(item=>
     String(item.id)!==id&&active(item)
     &&String(item.numero||"").trim().toLowerCase()===candidate.numero.toLowerCase())){

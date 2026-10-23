@@ -211,6 +211,8 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.PURCHASE_REQUEST_CANCELLED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.SUPPLIER_SAVED]:["admin","compras","financeiro"],
+  [OPERATIONAL_COMMAND.SUPPLY_CONTRACT_SAVED]:["admin","compras"],
+  [OPERATIONAL_COMMAND.SUPPLY_CONTRACT_CLOSED]:["admin","compras"],
   [OPERATIONAL_COMMAND.MATERIAL_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE]:["admin","compras"],
   [OPERATIONAL_COMMAND.QUOTE_MAP_DECIDED]:["admin","compras"],

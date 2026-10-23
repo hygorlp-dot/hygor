@@ -37,6 +37,8 @@ import {
 import { canManagePurchases } from "../permissions";
 import { conferenciaPagamentoPedido } from "../payment-conference";
 import { movementOfOrder } from "../purchase-cancellation-command";
+import { contratosDisponiveis, saldoItemContrato } from "../supply-contracts";
+import ContratosFornecimentoView from "./ContratosFornecimentoView";
 import { atrasoDoItem } from "../delivery-schedule";
 import { avaliacoesFornecedores, explicacaoNotaFornecedor, textoNotaFornecedor } from "../supplier-rating";
 import {
@@ -380,17 +382,31 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
           </div>}
         </div>
 
+        {/* C2.4: contratos vigentes do fornecedor - o item entra com o preço acordado */}
+        {data&&form.fornecedorId&&(()=>{const contratos=contratosDisponiveis(data,{fornecedorId:form.fornecedorId,obraId:form.obraId,dataPedido:form.data});
+          if(!contratos.length)return null;
+          const nomeInsumo=id=>materiais.find(m=>m.id===id)?.descricao||"Insumo";
+          return <div style={{background:`${C.green}08`,border:`1px solid ${C.green}55`,borderRadius:7,padding:"8px 10px"}}>
+            <p style={{fontSize:10.5,fontWeight:850,color:C.green}}>Contrato de fornecimento vigente · dispensa cotação</p>
+            {contratos.flatMap(c=>(c.itens||[]).map(ci=>{const saldo=saldoItemContrato(data,c,ci.id,{excetoPedidoId:form.id});const usado=(form.itens||[]).some(x=>x.contratoId===c.id&&x.contratoItemId===ci.id);
+              return <div key={`${c.id}-${ci.id}`} style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginTop:5,flexWrap:"wrap"}}>
+                <span style={{fontSize:10,color:C.text,minWidth:0}} className="brk">{c.numero} · {nomeInsumo(ci.materialId)} · {fmt(ci.precoUnit)}/{purchaseUnitOf(ci)} · saldo {saldo.toLocaleString("pt-BR")} {purchaseUnitOf(ci)}</span>
+                <Btn size="sm" v="ghost" disabled={usado||saldo<=0} onClick={()=>setForm(f=>({...f,itens:[...(f.itens||[]).filter(x=>x.materialId||x.qtd),{id:uid(),materialId:ci.materialId,qtd:"",precoUnit:String(ci.precoUnit),qtdRecebida:0,orcItemId:"",orcNivel1Id:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:ci.unidadeRef||"",unidadeCompra:purchaseUnitOf(ci),fatorConversao:Number(ci.fatorConversao||1),precoRef:0,dataBaseRef:"",ufRef:"",contratoId:c.id,contratoItemId:ci.id}]}))}>{usado?"No pedido":"Usar"}</Btn>
+              </div>;}))}
+          </div>;})()}
+
         {(form.itens||[]).map((it, i) => (
-          <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,
+          <div key={i} style={{background:C.surface,border:`1px solid ${it.contratoId?`${C.green}88`:C.border}`,
                                borderRadius:6,padding:"9px 11px"}}>
+            {it.contratoId&&(()=>{const c=(data?.contratosFornecimento||[]).find(x=>x.id===it.contratoId);return <p style={{fontSize:9.5,fontWeight:800,color:C.green,marginBottom:5}}>Pelo contrato {c?.numero||""} · preço acordado{data&&c?` · saldo ${saldoItemContrato(data,c,it.contratoItemId,{excetoPedidoId:form.id}).toLocaleString("pt-BR")} ${purchaseUnitOf(it)}`:""} <button type="button" onClick={()=>setForm(f=>({...f,itens:f.itens.map((x,k)=>k===i?{...x,contratoId:"",contratoItemId:""}:x)}))} style={{background:"transparent",border:0,color:C.muted,fontSize:9,cursor:"pointer",textDecoration:"underline"}}>tirar do contrato</button></p>;})()}
             <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
               <Sel label="Material" value={it.materialId} onChange={v=>setForm(f=>({...f,itens:f.itens.map((x,k)=>k===i?{...x,materialId:v,referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",unidadeCompra:"",fatorConversao:1,precoRef:0,dataBaseRef:"",ufRef:""}:x)}))}
                    options={[{v:"",l:"Selecione..."},...(it.codigoRef&&!materiais.some(m=>m.id===it.materialId)?[{v:it.materialId,l:`${it.descricaoRef} (${it.unidadeRef})`}]:[]), ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
               <Inp label={`Quantidade (${purchaseUnitOf(it)})`} type="number" value={it.qtd} onChange={v=>setItem(i,"qtd",v)}
                    placeholder="0"/>
               <div>
-                <Inp label="Preço unitário (R$)" type="number" value={it.precoUnit}
-                     onChange={v=>setItem(i,"precoUnit",v)} placeholder="0,00"/>
+                <Inp label={it.contratoId?"Preço acordado (R$)":"Preço unitário (R$)"} type="number" value={it.precoUnit}
+                     disabled={!!it.contratoId} onChange={v=>setItem(i,"precoUnit",v)} placeholder="0,00"/>
                 {(() => {
                   // Guarda de preço: avisa NA HORA da digitação, antes de o
                   // dinheiro sair. Sem preço digitado, mostra a referência.
@@ -1264,7 +1280,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                    dataBaseRef:i.dataBaseRef||"",ufRef:i.ufRef||"",
                    previsao:i.previsao||"",
                    remessas:(i.remessas||[]).filter(r=>r.data||Number(r.qtd)>0)
-                     .map(r=>({id:r.id||uid(),data:r.data||"",qtd:Number(r.qtd||0)})) };
+                     .map(r=>({id:r.id||uid(),data:r.data||"",qtd:Number(r.qtd||0)})),
+                   contratoId:i.contratoId||"",contratoItemId:i.contratoItemId||"" };
       });
     if (!itens.length) { showToast("Adicione ao menos um item.", "error"); return; }
     if(f.id&&itens.some(i=>Number(i.qtd)<Number(i.qtdRecebida||0))){
@@ -1801,7 +1818,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     ["financeiro",`Financeiro${resumoFinanceiro.pendentes?` · ${resumoFinanceiro.pendentes}`:""}`],
     ["solicitacoes",`Solicitações${solicitacoesPendentes?` · ${solicitacoesPendentes}`:""}`],
     ["cotacoes","Cotações"],["pedidos","Pedidos"],["historico_compras","Histórico de compras"],["orcado","Orçado x comprado"],
-    ["forn","Fornecedores"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]
+    ["forn","Fornecedores"],["contratos","Contratos de fornecimento"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]
   ];
   const irParaArea=(id)=>{
     setAba(id);setMenuComprasAberto(false);
@@ -2554,6 +2571,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       </>)}
 
       {/*  FORNECEDORES  */}
+      {aba === "contratos" && <ContratosFornecimentoView data={data} dispatchCommand={dispatchCommand} currentUser={currentUser} showToast={showToast} C={C} podeEditar={["admin","compras"].includes(currentUser?.role)}/>}
+
       {aba === "forn" && (<>
         <Btn onClick={()=>setFornModal({id:"",nome:"",nomeFantasia:"",razaoSocial:"",cnpj:"",contato:"",telefone:"",email:"",categorias:[],atividadeCnae:"",situacaoCadastral:"",dataAbertura:"",cep:"",endereco:"",numero:"",complemento:"",bairro:"",cidade:"",uf:"",obs:""})} full>
           <Ic n="plus"/> Novo fornecedor
