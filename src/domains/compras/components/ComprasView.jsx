@@ -35,6 +35,7 @@ import {
   historicoPrecoTodos, analisePreco, mapaGerencialCompras,
 } from "../calculations";
 import { canManagePurchases } from "../permissions";
+import { conferenciaPagamentoPedido } from "../payment-conference";
 import { movementOfOrder } from "../purchase-cancellation-command";
 import {
   avaliarEscolhasCotacao, cotacaoMultiItens, decisoesDaCotacao, escolhaPrecisaJustificativa,
@@ -1291,6 +1292,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     const caixa=situacaoCaixaObra(data,pedido.obraId);
     if(f.origem==="caixa_obra"&&!obra?.hasCaixa){showToast("O caixa desta obra não está ativado. Ative-o no cadastro da obra ou selecione outra origem.","error");return;}
     if(f.origem==="caixa_obra"&&valor>caixa.saldo+.001){showToast(`Pagamento bloqueado: o caixa possui ${fmt(caixa.saldo)} e ficaria negativo em ${fmt(valor-caixa.saldo)}. Registre um aporte antes de pagar.`,"error");return;}
+    const conferencia=conferenciaPagamentoPedido(data,pedido.id);
+    if(conferencia&&valor>conferencia.liberadoCents/100+.005&&(!f.adiantamento||!String(f.motivoAdiantamento||"").trim())){
+      showToast(`Só ${fmt(conferencia.liberadoCents/100)} está conferido (recebido e com nota). Para pagar antes, marque como adiantamento e informe o motivo.`,"error");return;
+    }
     setSubindoComprovantePagamento(true);
     try{
     const pagamentoId=uid();let comprovantes=[];let workspace=null;
@@ -1316,7 +1321,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         payload:{
           targetType:"pedido",targetId:pedido.id,payment:pagamento,
           workCashMovementId:f.origem==="caixa_obra"?uid():"",
-          workspace,
+          workspace,adiantamento:!!f.adiantamento,motivoAdiantamento:String(f.motivoAdiantamento||"").trim(),
         },
       };
     });
@@ -2561,6 +2566,17 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         <label style={{padding:"11px 12px",border:`1.5px dashed ${pagModal.comprovanteFile?C.green:C.blue}66`,borderRadius:9,textAlign:"center",cursor:"pointer",background:pagModal.comprovanteFile?`${C.green}08`:C.surface}}><p style={{fontSize:10.5,fontWeight:850,color:pagModal.comprovanteFile?C.green:C.blue}}>{pagModal.comprovanteFile?pagModal.comprovanteFile.name:"Anexar comprovante de pagamento"}</p><p style={{fontSize:8.5,color:C.muted,marginTop:2}}>PDF, JPG, PNG ou WEBP · salvo no OneDrive da obra</p><input type="file" accept=".pdf,image/jpeg,image/png,image/webp" style={{display:"none"}} onChange={e=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(file.size>5.5*1024*1024){showToast("O comprovante deve ter no máximo 5,5 MB.","error");return;}setPagModal(f=>({...f,comprovanteFile:file,comprovanteLegenda:String(file.name||"").replace(/\.[^.]+$/,"")}));}}/></label>
         {pagModal.comprovanteFile&&<Inp label="Legenda do comprovante" value={pagModal.comprovanteLegenda} onChange={v=>setPagModal(f=>({...f,comprovanteLegenda:v}))} placeholder="Ex.: PIX pago ao fornecedor"/>}
         <label style={{display:"flex",gap:8,alignItems:"center",fontSize:10,color:C.text,cursor:"pointer"}}><input type="checkbox" checked={!!pagModal.conciliado} onChange={e=>setPagModal(f=>({...f,conciliado:e.target.checked}))}/><span>Pagamento/comprovante já conferido e conciliado</span></label>
+        {(()=>{
+          // C1.4: o servidor só libera até o conferido (recebido e com nota)
+          // mais a tolerância; o resto é adiantamento, com motivo.
+          const conf=conferenciaPagamentoPedido(data,pagModal.pedido.id);if(!conf)return null;
+          const valor=Number(String(pagModal.valor||"").replace(",","."))||0,liberado=conf.liberadoCents/100,acima=valor>liberado+0.005;
+          return <div style={{background:acima?`${C.orange}0D`:C.surface,border:`1px solid ${acima?C.orange:C.border}`,borderRadius:8,padding:"9px 10px",display:"flex",flexDirection:"column",gap:7}}>
+            <p style={{fontSize:10,color:C.text}}>Conferido: recebido {fmt(conf.receivedCents/100)} · notas {fmt(conf.invoicedCents/100)} · liberado para pagar <b>{fmt(liberado)}</b></p>
+            {acima&&<label style={{display:"flex",gap:8,alignItems:"center",fontSize:10,color:C.text,cursor:"pointer"}}><input type="checkbox" checked={!!pagModal.adiantamento} onChange={e=>setPagModal(f=>({...f,adiantamento:e.target.checked}))}/><span>É adiantamento ao fornecedor (só Financeiro ou Administrador)</span></label>}
+            {acima&&pagModal.adiantamento&&<Inp label="Motivo do adiantamento *" value={pagModal.motivoAdiantamento||""} onChange={v=>setPagModal(f=>({...f,motivoAdiantamento:v}))} placeholder="Ex.: sinal de 30% exigido pelo fornecedor"/>}
+          </div>;
+        })()}
         <Inp label="Observação" value={pagModal.observacao} onChange={v=>setPagModal(f=>({...f,observacao:v}))} multiline/>
         <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setPagModal(null)} disabled={subindoComprovantePagamento}>Cancelar</Btn><Btn full onClick={registrarPagamento} disabled={subindoComprovantePagamento}><Ic n="check"/> {subindoComprovantePagamento?"Salvando comprovante...":"Registrar pagamento"}</Btn></div>
       </div></Modal>}

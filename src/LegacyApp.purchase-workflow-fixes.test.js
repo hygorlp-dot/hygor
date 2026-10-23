@@ -46,6 +46,13 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
     expect(legacy).toMatch(/receivedQuantities:Object\.fromEntries\(entradas\.map\(item=>\[item\.pedidoItemId,item\.qtdCompra\]\)\)/);
   });
 
+  it("C1.4: pagamento mostra o conferido e manda adiantamento com motivo ao servidor",()=>{
+    const pagar=trecho(compras,"const registrarPagamento=async","const reclassificarOrigemPagamento=");
+    expect(pagar).toMatch(/conferenciaPagamentoPedido\(data,pedido\.id\)/);
+    expect(pagar).toMatch(/adiantamento:!!f\.adiantamento,motivoAdiantamento:/);
+    expect(compras).toMatch(/Motivo do adiantamento \*/);
+  });
+
   it("C1.2: o kanban separa pedidos pela entrega, não pelo pagamento",()=>{
     expect(compras).not.toMatch(/Pedidos a pagar/);
     expect(compras).toMatch(/const coluna=concluido\?"concluido":status==="rascunho"\?"pedido":"entrega";/);
