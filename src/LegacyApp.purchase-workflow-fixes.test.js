@@ -62,3 +62,14 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
   });
 });
 
+
+describe("entrega programada por item (C2.2)",()=>{
+  it("o pedido grava data e remessas do item e o cartão mostra o atraso do item",()=>{
+    const salvar=trecho(compras,"const salvarPedido = async","const abrirPagamento=");
+    expect(salvar).toMatch(/previsao:i\.previsao\|\|"",/);
+    expect(salvar).toMatch(/remessas:\(i\.remessas\|\|\[\]\)/);
+    expect(compras).toMatch(/Programar remessas/);
+    expect(compras).toMatch(/atrasoDoItem\(i,p,today\(\)\)/);
+    expect(legacy).toMatch(/export const pedidosEmAtraso = \(data, hoje\) => pedidosComItensAtrasados\(data, hoje\);/);
+  });
+});
