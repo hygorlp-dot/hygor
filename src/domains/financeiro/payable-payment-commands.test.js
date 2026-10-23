@@ -11,12 +11,14 @@ import { calculateWorkCash } from "./work-cash.js";
 const now="2026-07-28T14:00:00.000Z";
 const order={
   id:"p-1",numero:"PC-001",obraId:"o-1",fornecedorId:"f-1",status:"enviado",version:1,
-  itens:[{id:"i-1",qtd:10,precoUnit:10}],pagamentos:[],
+  itens:[{id:"i-1",qtd:10,precoUnit:10,qtdRecebida:10}],pagamentos:[],
 };
+// Pedido recebido e com nota: o caso normal de pagamento depois da C1.4.
+const conferredInvoice={id:"nf-conf",numero:"55",pedidoId:"p-1",obraId:"o-1",valorBruto:100,status:"aprovada"};
 const base=()=>({
   obras:[{id:"o-1",name:"Obra 1",hasCaixa:true}],
   fornecedores:[{id:"f-1",nome:"Fornecedor 1"}],
-  pedidos:[order],notasFiscais:[],caixaObra:[],transacoes:[],historicoConc:[],
+  pedidos:[order],notasFiscais:[conferredInvoice],caixaObra:[],transacoes:[],historicoConc:[],
   fechamentosFinanceiros:[],
 });
 const command=(type,payload,expectedVersion=1)=>({
@@ -162,4 +164,43 @@ describe("comandos transacionais de pagamentos de obrigações",()=>{
     ),now);
     expect(record.reason).toMatch(/fechado/);
   });
+
+  describe("conferência pedido × recebimento × nota antes de pagar (C1.4)",()=>{
+    const pending=(patch={})=>({...base(),notasFiscais:[],pedidos:[{...order,
+      itens:[{id:"i-1",qtd:100,precoUnit:10,qtdRecebida:0}],...patch}]});
+    const pay=(data,valor,extra={},role="compras")=>applyPayablePaymentCommand(data,{...command(
+      PAYABLE_PAYMENT_COMMAND.PAYABLE_PAYMENT_RECORDED,
+      {targetType:"pedido",targetId:"p-1",payment:payment({valor}),...extra},
+    ),actorRole:role},now);
+
+    it("sem recebimento e sem nota, só a tolerância (maior entre 2% e R$ 50) passa",()=>{
+      expect(pay(pending(),50).ok).toBe(true);
+      const blocked=pay(pending(),60);
+      expect(blocked.ok).toBe(false);
+      expect(blocked.reason).toMatch(/acima do conferido/);
+    });
+
+    it("libera até o menor entre recebido e nota, mais a tolerância",()=>{
+      const data=pending({itens:[{id:"i-1",qtd:100,precoUnit:10,qtdRecebida:60}]});
+      data.notasFiscais=[{id:"nf-1",pedidoId:"p-1",obraId:"o-1",valorBruto:400,status:"aprovada"}];
+      // conferido = min(recebido 600, nota 400) = 400; tolerância R$ 50.
+      expect(pay(data,450).ok).toBe(true);
+      expect(pay(data,460).ok).toBe(false);
+    });
+
+    it("adiantamento exige motivo e perfil Financeiro/Administrador; fica marcado",()=>{
+      expect(pay(pending(),300,{adiantamento:true}).reason).toMatch(/motivo/);
+      expect(pay(pending(),300,{adiantamento:true,motivoAdiantamento:"Sinal de 30%"}).reason)
+        .toMatch(/Financeiro ou pelo Administrador/);
+      const ok=pay(pending(),300,{adiantamento:true,motivoAdiantamento:"Sinal de 30%"},"financeiro");
+      expect(ok.ok).toBe(true);
+      expect(ok.data.pedidos[0].pagamentos[0]).toMatchObject({tipo:"adiantamento",motivoAdiantamento:"Sinal de 30%"});
+    });
+
+    it("o navegador não marca sozinho o tipo do pagamento",()=>{
+      const result=pay(base(),60,{payment:payment({valor:60,tipo:"adiantamento",motivoAdiantamento:"x"})});
+      expect(result.data.pedidos[0].pagamentos[0]).toMatchObject({tipo:"conferido",motivoAdiantamento:""});
+    });
+  });
 });
+
