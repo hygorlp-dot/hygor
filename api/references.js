@@ -8,7 +8,9 @@
 // ===================================================================
 
 import { createClient } from "@supabase/supabase-js";
-import { authenticateAppUser } from "./auth.js";
+import { authenticateAppUser } from "../server/app-auth.js";
+
+const fetchOrse=(url,options={})=>fetch(url,{...options,signal:AbortSignal.timeout(12000)});
 import {
   normalizeText,
   parsePriceBR,
@@ -142,7 +144,7 @@ const fetchOrseByCode = async (code, competence) => {
   const cleanCode = String(code).replace(/\D/g, "").replace(/^0+(?=\d)/, "");
   if (!cleanCode) return [];
   const detailUrl = `${ORSE_URL}/composicao.asp?font_sg_fonte=ORSE&serv_nr_codigo=${encodeURIComponent(cleanCode)}&peri_nr_ano=${year}&peri_nr_mes=${month}&peri_nr_ordem=1`;
-  const response = await fetch(detailUrl, { headers: { accept: "text/html" } });
+  const response = await fetchOrse(detailUrl, { headers: { accept: "text/html" } });
   if (!response.ok) throw new Error(`ORSE respondeu ${response.status}`);
   const html = await decodeOrseResponse(response);
 
@@ -245,7 +247,7 @@ const fetchOrseCompositionDetails = async (code, competence) => {
   const cleanCode = String(code).replace(/\D/g, "").replace(/^0+(?=\d)/, "");
   if (!cleanCode) return [];
   const detailUrl = `${ORSE_URL}/composicao.asp?font_sg_fonte=ORSE&serv_nr_codigo=${encodeURIComponent(cleanCode)}&peri_nr_ano=${year}&peri_nr_mes=${month}&peri_nr_ordem=1`;
-  const response = await fetch(detailUrl, { headers:{ accept:"text/html" } });
+  const response = await fetchOrse(detailUrl, { headers:{ accept:"text/html" } });
   if (!response.ok) throw new Error(`ORSE respondeu ${response.status}`);
   return parseOrseCompositionRows(await decodeOrseResponse(response), cleanCode, competence);
 };
@@ -304,7 +306,7 @@ const searchOfficialOrse = async (term, competence) => {
     txtDescricao: term.trim().slice(0, 120),
     Submit: "Consultar",
   });
-  const response = await fetch(`${ORSE_URL}/servicosargumento.asp?tarefa=consultar`, {
+  const response = await fetchOrse(`${ORSE_URL}/servicosargumento.asp?tarefa=consultar`, {
     method: "POST",
     headers: {
       "content-type": "application/x-www-form-urlencoded",
@@ -327,7 +329,7 @@ const searchOfficialOrseInputs = async (term, competence) => {
     Submit: "Consultar",
   });
   
-  const response = await fetch(`${ORSE_URL}/insumosargumento.asp?tarefa=consultar`, {
+  const response = await fetchOrse(`${ORSE_URL}/insumosargumento.asp?tarefa=consultar`, {
     method: "POST",
     headers: {
       "content-type": "application/x-www-form-urlencoded",
@@ -1046,6 +1048,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Ação desconhecida." });
   } catch (error) {
     console.error("Falha em /api/references:", error);
+    if (["TimeoutError","AbortError"].includes(error?.name)) return res.status(504).json({error:"A consulta oficial do ORSE excedeu o tempo limite. Tente novamente."});
     const message = String(error?.message || "");
     if (/budget_reference_/i.test(message) && /does not exist|schema cache/i.test(message)) {
       return res.status(503).json({

@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import postgres from "postgres";
 import { createClient } from "@supabase/supabase-js";
-import { decodeAppData } from "../server/data-codec.js";
+import { repairLockedReconciliation } from "../server/reconciliation-repair.js";
+import { mergeFinancialSourceRows } from "../server/financial-source-snapshot.js";
 import { compareProcurementDreRecognition } from "../server/procurement-financial-facts.js";
 import {
   buildLegacyFinancialFacts, compareFinancialScopes,
@@ -26,6 +27,7 @@ for(const migration of [
   "../migrations/001_sync_legacy_financial.up.sql",
   "../migrations/002_financial_transactional_projection.up.sql",
   "../migrations/003_accounting_period_enforcement.up.sql",
+  "../migrations/20261023144434_api_reconciliation_integrity.up.sql",
   "../migrations/004_financial_events_projection_conflict.up.sql",
   "../migrations/008_skip_dre_snapshot_sync_on_write.up.sql",
   "../migrations/20260726_auth_rate_limit.sql",
@@ -33,19 +35,20 @@ for(const migration of [
 ]){
   await sql.unsafe(fs.readFileSync(new URL(migration,import.meta.url),"utf8"));
 }
-const {data:row,error:loadError}=await db.from("company_app_data").select("value").eq("company_id",company).eq("key",key).maybeSingle();
-if(loadError){await sql.end({timeout:2});throw loadError;}
-if(!row?.value){await sql.end({timeout:2});process.stdout.write("FIN-002: migration aplicada; não há dataset legado para carregar.\n");process.exit(0);}
-
-const sourceData=decodeAppData(row.value);
-const snapshot=buildLegacyFinancialFacts(sourceData);
-const [syncRow]=await sql`
-  select financial_sync_legacy_facts(
-    ${company}, ${"system:production-deploy"}, ${sql.json(snapshot)}
-  ) as result
-`;
-const sync=syncRow.result;
+const loaded=await sql.begin(async tx=>{
+  const [row]=await tx`select value from company_app_data where company_id=${company} and key=${key} for update`;
+  if(!row?.value)return null;
+  const repaired=await repairLockedReconciliation(tx,row,company);
+  const sourceRows=await tx`select key,value,updated_at from company_app_data where company_id=${company} and key like ${`${key}__%`}`;
+  const sourceData=mergeFinancialSourceRows(repaired.data,sourceRows,key);
+  const snapshot=buildLegacyFinancialFacts(sourceData);
+  const [syncRow]=await tx`select financial_sync_legacy_facts(${company},${"system:production-deploy"},${tx.json(snapshot)}) as result`;
+  return {sourceData,snapshot,sync:syncRow.result,repairs:repaired.changes.length};
+});
 await sql.end({timeout:2});
+if(!loaded){process.stdout.write("FIN-002: migration aplicada; não há dataset legado para carregar.\n");process.exit(0);}
+const {sourceData,snapshot,sync}=loaded;
+process.stdout.write(`REC-002: ${loaded.repairs} associações históricas corrigidas; pagamentos preservados.\n`);
 
 const all=async(table,columns)=>{
   const rows=[];

@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
-import { authenticateAppContext } from "../../api/auth.js";
+import { authenticateAppContext } from "../../server/app-auth.js";
 
 const CLIENT_ID = process.env.MICROSOFT_CLIENT_ID;
 const CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET;

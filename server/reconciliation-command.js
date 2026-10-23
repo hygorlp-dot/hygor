@@ -9,7 +9,8 @@ import {
   registrarPagamentoEConciliar,
   vincularPagamentoExistente,
 } from "../src/domains/conciliacao/mutations.js";
-import { aplicarRecebimentoMedicao } from "../src/domains/conciliacao/calculations.js";
+import { aplicarRecebimentoMedicao, totalRecebidoMedicao } from "../src/domains/conciliacao/calculations.js";
+import { active } from "../src/domains/financeiro/ledger.js";
 
 export const RECONCILIATION_COMMAND = Object.freeze({
   CONFIRM_RECEIPT: "CONFIRM_RECEIPT",
@@ -62,6 +63,9 @@ const allocateTransaction = (data, transaction, payload, actor) => {
   const measurement=measurementId?(data.medicoes||[]).find(item=>String(item.id)===measurementId):null;
   if(measurementId&&!measurement)return invalid(data,"A medição selecionada não existe mais.");
   if(measurement&&(!normalized.some(item=>item.destination==="obra"&&item.obraId===String(measurement.obraId))))return invalid(data,"A medição deve ser rateada para a própria obra.");
+  const measurementAmount=measurement?normalized.filter(item=>item.destination==="obra"&&item.obraId===String(measurement.obraId)).reduce((sum,item)=>sum+item.value,0):0;
+  if(measurement&&(!isIncome||!active(measurement)))return invalid(data,"A medição deve estar ativa e receber uma entrada bancária.");
+  if(measurement&&measurementAmount>Number(measurement.valorPrevisto||0)-totalRecebidoMedicao(measurement)+0.01)return invalid(data,"O recebimento supera o saldo da medição.");
 
   const newOtherExpenses=[];const newCompanyExpenses=[];const newReceipts=[];const generated=[];
   normalized.forEach(item=>{
@@ -85,7 +89,7 @@ const allocateTransaction = (data, transaction, payload, actor) => {
   });
   const receiptId=measurement?commandId("rec"):"";
   const medicoes=measurement?(data.medicoes||[]).map(item=>String(item.id)===measurementId
-    ?aplicarRecebimentoMedicao(item,{id:receiptId,valor:transactionAmount(transaction),data:transaction.data,origem:"conciliacao_bancaria",transacaoId:transaction.id,actor})
+    ?aplicarRecebimentoMedicao(item,{id:receiptId,valor:measurementAmount,data:transaction.data,origem:"conciliacao_bancaria",transacaoId:transaction.id,actor})
     :item):(data.medicoes||[]);
   if(measurement)generated.push({tipo:"recebimentoMedicao",id:receiptId,entidadeId:measurement.id});
   const worker=payload.worker&&positiveId(payload.worker.employeeId)?{
@@ -151,6 +155,7 @@ export const applyReconciliationCommand = (data, command = {}, actor = {}) => {
       transacaoId:transactionId,tipo:payload.targetType,entidadeId:payload.targetId,
       valor:transactionAmount(checked.transaction),dataPagamento:checked.transaction.data,
       obraId:targetObraId,observacao:text(payload.observacao),operador:actor,
+      adiantamento:payload.adiantamento,motivoAdiantamento:text(payload.motivoAdiantamento),
     });
   }
 

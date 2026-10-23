@@ -41,6 +41,7 @@ const migrarLicenciamentoLegado=async(token,ws)=>{
 export default async function handler(req,res){
   try{
     const action=req.query.action||req.body?.action||"status";
+    if(req.method&&req.method!=="POST"&&!(req.method==="GET"&&action==="file"))return res.status(405).json({error:"Método não permitido."});
     const appContext=action==="file"?null:await verifyAppUser(req.body?.userId,req.body?.pin,req.body?.accessToken);
     const appUser=appContext?.user;
     if(action!=="file"&&!appContext)return res.status(401).json({error:"Sessão do aplicativo inválida."});

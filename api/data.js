@@ -83,7 +83,7 @@ import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from ".
 import { applyPersistentAuthRateLimit, hashAppPin, verifyAppPin } from "../server/app-auth-security.js";
 import { buildClientPortalPublicationRows } from "../server/client-portal-publication.js";
 import { sanitizeClientError } from "../server/client-error-report.js";
-import { authenticateAppUser } from "./auth.js";
+import { authenticateAppUser } from "../server/app-auth.js";
 import { criarTratadorPonto, ehAcaoPonto } from "../server/ponto-eletronico/handler.js";
 import { enviarUdpComDgram, verificarHora } from "../server/ponto-eletronico/tempo/ntp.js";
 import dgram from "node:dgram";
@@ -771,6 +771,35 @@ const sincronizarPedidoAoVivo=async({companyId,orderId,mergedData,actor})=>{
   }
 };
 
+const sincronizarComprasAlteradas=async(before,after,actor)=>{
+  for(const [section,sync,idKey] of [
+    ["solicitacoesCompra",sincronizarSolicitacaoCompraAoVivo,"requestId"],
+    ["cotacoes",sincronizarCotacaoAoVivo,"quoteId"],
+    ["pedidos",sincronizarPedidoAoVivo,"orderId"],
+  ]){
+    const previous=new Map((before?.[section]||[]).map(record=>[record.id,record]));
+    for(const record of after?.[section]||[]){
+      if(JSON.stringify(previous.get(record.id))===JSON.stringify(record))continue;
+      await sync({companyId:COMPANY,[idKey]:record.id,mergedData:after,actor});
+    }
+  }
+};
+
+const sincronizarPedidosConciliacao=async(data,command,actor)=>{
+  const entry=(data.reconciliationCommandLog||[]).find(item=>item.idempotencyKey===command.idempotencyKey);
+  const ids=new Set(entry?.purchaseOrderIds||[]);
+  const payload=command.payload||{};
+  if(["pedido","pagamentoPedido"].includes(payload.targetType))ids.add(payload.targetId);
+  if(["nota","pagamentoNota"].includes(payload.targetType)){
+    const note=(data.notasFiscais||[]).find(item=>item.id===payload.targetId);
+    if(note?.pedidoId)ids.add(note.pedidoId);
+  }
+  for(const order of data.pedidos||[]){
+    if((order.pagamentos||[]).some(payment=>payment.transacaoId===payload.transactionId))ids.add(order.id);
+  }
+  for(const orderId of ids)await sincronizarPedidoAoVivo({companyId:COMPANY,orderId,mergedData:data,actor});
+};
+
 // `financialSnapshotData` é o `data` COMPLETO mesclado (todos os domínios),
 // usado só para calcular os fatos financeiros de sincronização
 // (buildLegacyFinancialFacts lê medicoes/pedidos/notasFiscais/etc., que não
@@ -1411,6 +1440,8 @@ export default async function handler(req, res) {
 
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || "desconhecido";
   let { action=req.query?.action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
+  const getActions=new Set(["profiles","client-portal","pedido-aceite-ver","backup-create","backup-verify","ponto-tempo-verificar"]);
+  if(req.method&&req.method!=="POST"&&!(req.method==="GET"&&getActions.has(action)))return res.status(405).json({error:"Método não permitido."});
 
   try {
     if(action==="client-error"){
@@ -1853,7 +1884,8 @@ export default async function handler(req, res) {
         if(already)return {idempotent:true,data:base,resumo:already.resumo||{ok:true}};
         const result=applyReconciliationCommand(base,command,usuario);
         if(!result?.resumo?.ok)return {error:result?.resumo?.motivo||"Não foi possível conciliar a transação."};
-        const auditEntry={id:crypto.randomUUID(),idempotencyKey:command.idempotencyKey,type:command.type,transactionId:String(command.payload?.transactionId||""),actorId:usuario.id,createdAt:new Date().toISOString(),resumo:result.resumo};
+        const purchaseOrderIds=(result.data.pedidos||[]).filter(order=>JSON.stringify(order)!==JSON.stringify((base.pedidos||[]).find(item=>item.id===order.id))).map(order=>order.id);
+        const auditEntry={id:crypto.randomUUID(),idempotencyKey:command.idempotencyKey,type:command.type,transactionId:String(command.payload?.transactionId||""),actorId:usuario.id,createdAt:new Date().toISOString(),resumo:result.resumo,purchaseOrderIds};
         return {data:{...result.data,reconciliationCommandLog:[...(result.data.reconciliationCommandLog||[]),auditEntry].slice(-1000)},resumo:result.resumo};
       };
       if(process.env.POSTGRES_URL_NON_POOLING){
@@ -1883,10 +1915,14 @@ export default async function handler(req, res) {
           error:outcome.error,
           ...(outcome.currentUpdatedAt?{currentUpdatedAt:outcome.currentUpdatedAt}:{}),
         });
-        if(outcome.kind==="idempotent")return res.status(200).json({
+        if(outcome.kind==="idempotent"){
+          await sincronizarPedidosConciliacao(outcome.data,command,usuario);
+          return res.status(200).json({
           ok:true,idempotent:true,resumo:outcome.resumo,
           data:projectDataForUser(outcome.data,usuario),updatedAt:outcome.updatedAt,
-        });
+          });
+        }
+        await sincronizarComprasAlteradas(outcome.basePayload,outcome.data,usuario);
         return res.status(200).json({
           ok:true,resumo:outcome.resumo,updatedAt:outcome.updatedAt,
           sections:projectReconciliationPatch(outcome.basePayload,outcome.data,usuario),
@@ -1915,10 +1951,13 @@ export default async function handler(req, res) {
           ...(outcome.forbidden?{}:{conflict:outcome.attempts>1,currentUpdatedAt:outcome.base?.updatedAt}),
         });
       }
-      if(outcome.kind==="idempotent")return res.status(200).json({
+      if(outcome.kind==="idempotent"){
+        await sincronizarPedidosConciliacao(outcome.base.payload,command,usuario);
+        return res.status(200).json({
         ok:true,idempotent:true,resumo:outcome.resumo,
         data:projectDataForUser(outcome.base.payload,usuario),updatedAt:outcome.base.updatedAt,
-      });
+        });
+      }
       if(outcome.kind==="busy")return res.status(503).json({
         error:"O servidor está processando outras alterações. A conciliação não foi perdida; tente confirmar novamente.",
         code:"RECONCILIATION_CONCURRENCY_BUSY",retryable:true,currentUpdatedAt:outcome.base?.updatedAt,
@@ -1927,6 +1966,7 @@ export default async function handler(req, res) {
       // comando. Se foi preciso reexecutar sobre uma versão mais nova, a
       // fotografia completa continua sendo enviada para incorporar também as
       // mudanças do outro operador.
+      await sincronizarComprasAlteradas(outcome.base.payload,outcome.executed.data,usuario);
       const resposta={
         ok:true,resumo:outcome.executed.resumo,
         updatedAt:outcome.saved.updatedAt||new Date().toISOString(),
@@ -2071,18 +2111,7 @@ export default async function handler(req, res) {
         // Project every record changed by the committed command, including
         // indirect request/quote changes when generating or cancelling orders.
         if(outcome.kind==="save"){
-          const projections=[
-            ["solicitacoesCompra",sincronizarSolicitacaoCompraAoVivo,"requestId"],
-            ["cotacoes",sincronizarCotacaoAoVivo,"quoteId"],
-            ["pedidos",sincronizarPedidoAoVivo,"orderId"],
-          ];
-          for(const [section,sync,idKey] of projections){
-            const previous=new Map((outcome.basePayload?.[section]||[]).map(record=>[record.id,record]));
-            for(const record of outcome.data?.[section]||[]){
-              if(JSON.stringify(previous.get(record.id))===JSON.stringify(record))continue;
-              await sync({companyId:COMPANY,[idKey]:record.id,mergedData:outcome.data,actor:usuario});
-            }
-          }
+          await sincronizarComprasAlteradas(outcome.basePayload,outcome.data,usuario);
         }
         if(outcome.kind==="idempotent"){
           const payload=command.payload||{};
@@ -2196,6 +2225,7 @@ export default async function handler(req, res) {
         path.join(process.cwd(),"migrations","001_sync_legacy_financial.up.sql"),
         path.join(process.cwd(),"migrations","002_financial_transactional_projection.up.sql"),
         path.join(process.cwd(),"migrations","003_accounting_period_enforcement.up.sql"),
+        path.join(process.cwd(),"migrations","20261023144434_api_reconciliation_integrity.up.sql"),
       ];
       if(migrationPaths.some(file=>!fs.existsSync(file)))return res.status(500).json({error:"As migrations financeiras versionadas não foram incluídas no deploy."});
       const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});

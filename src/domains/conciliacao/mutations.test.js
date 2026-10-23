@@ -13,8 +13,8 @@ const dataBase = () => ({
     { id: "t3", extratoId: "e1", data: "2026-01-12", valor: 500, status: "pendente", gerados: [] },
   ],
   notasFiscais: [
-    { id: "n1", numero: "100", pedidoId: "p1", valorLiquido: 500, pagamentos: [] },
-    { id: "n2", numero: "101", valorLiquido: 500, pagamentos: [{ id: "pgExistente", valor: 500, conciliado: false }] },
+    { id: "n1", numero: "100", pedidoId: "p1", status: "aprovada", valorLiquido: 500, pagamentos: [] },
+    { id: "n2", numero: "101", status: "aprovada", valorLiquido: 500, pagamentos: [{ id: "pgExistente", valor: 500, conciliado: false }] },
   ],
   pedidos: [{ id: "p1", numero: "P1", totalPedido: 500, pagamentos: [] }],
   medicoes: [{ id: "m1", valorPrevisto: 1000, recebimentos: [] }],
@@ -27,14 +27,14 @@ describe("A. vincular pagamento já existente - nunca cria lançamento novo", ()
   test("marca a transação conciliada sem tocar outrasDesp/despesasEmpresa/payments", () => {
     const data = dataBase();
     const { data: next, resumo } = vincularPagamentoExistente(data, {
-      transacaoId: "t2", tipo: "nota", entidadeId: "n2", operador,
+      transacaoId: "t1", tipo: "nota", entidadeId: "n2", operador,
     });
     expect(resumo.ok).toBe(true);
-    expect(next.transacoes.find(t => t.id === "t2").status).toBe("conciliado");
+    expect(next.transacoes.find(t => t.id === "t1").status).toBe("conciliado");
     expect(next.outrasDesp).toEqual(data.outrasDesp);
     expect(next.despesasEmpresa).toEqual(data.despesasEmpresa);
     expect(next.payments).toEqual(data.payments);
-    expect(next.notasFiscais).toBe(data.notasFiscais); // nem o registro de origem foi tocado
+    expect(next.notasFiscais[1].pagamentos).toEqual([{...data.notasFiscais[1].pagamentos[0],conciliado:true,transacaoId:"t1"}]);
   });
 
   test("recusa vincular uma transação já conciliada (bloqueio de dupla conciliação)", () => {
@@ -269,11 +269,11 @@ describe("N:N e fechamento em centavos", () => {
 describe("desfazer - nunca apaga registro pré-existente, só reverte o que a conciliação criou", () => {
   test("desfazer um vínculo simples (modo A) volta a transação para pendente sem tocar a nota", () => {
     const data = dataBase();
-    const { data: vinculado } = vincularPagamentoExistente(data, { transacaoId: "t2", tipo: "nota", entidadeId: "n2", operador });
-    const { data: revertido, resumo } = desfazerConciliacao(vinculado, "t2", operador, "teste");
+    const { data: vinculado } = vincularPagamentoExistente(data, { transacaoId: "t1", tipo: "nota", entidadeId: "n2", operador });
+    const { data: revertido, resumo } = desfazerConciliacao(vinculado, "t1", operador, "teste");
     expect(resumo.ok).toBe(true);
-    expect(revertido.transacoes.find(t => t.id === "t2").status).toBe("pendente");
-    expect(revertido.notasFiscais.find(n => n.id === "n2").pagamentos).toHaveLength(1); // pagamento pré-existente preservado
+    expect(revertido.transacoes.find(t => t.id === "t1").status).toBe("pendente");
+    expect(revertido.notasFiscais.find(n => n.id === "n2").pagamentos).toEqual([{...data.notasFiscais[1].pagamentos[0],conciliado:false,transacaoId:null}]);
   });
 
   test("desfazer um pagamento criado pela conciliação (modo B) remove só o que foi criado, preserva a nota", () => {
@@ -298,7 +298,7 @@ describe("período financeiro fechado - nenhuma conciliação altera fato dentro
   });
 
   test("bloqueia vincular pagamento existente numa transação de período fechado", () => {
-    const { resumo } = vincularPagamentoExistente(dataComPeriodoFechado(), { transacaoId: "t2", tipo: "nota", entidadeId: "n2", operador });
+    const { resumo } = vincularPagamentoExistente(dataComPeriodoFechado(), { transacaoId: "t1", tipo: "nota", entidadeId: "n2", operador });
     expect(resumo.ok).toBe(false);
     expect(resumo.motivo).toMatch(/período financeiro/i);
   });
@@ -338,7 +338,7 @@ describe("período financeiro fechado - nenhuma conciliação altera fato dentro
 
   test("bloqueia desfazer uma conciliação cujo fato está datado num período já fechado", () => {
     const livre = dataBase();
-    const { data: vinculado } = vincularPagamentoExistente(livre, { transacaoId: "t2", tipo: "nota", entidadeId: "n2", operador });
+    const { data: vinculado } = vincularPagamentoExistente(livre, { transacaoId: "t1", tipo: "nota", entidadeId: "n2", operador });
     const fechado = { ...vinculado, fechamentosFinanceiros: [{ status: "fechado", dataInicio: "2026-01-01", dataFim: "2026-01-31" }] };
     const { resumo } = desfazerConciliacao(fechado, "t2", operador, "tentativa");
     expect(resumo.ok).toBe(false);
@@ -347,7 +347,7 @@ describe("período financeiro fechado - nenhuma conciliação altera fato dentro
   test("não bloqueia quando a data cai fora do intervalo fechado", () => {
     const data = dataComPeriodoFechado();
     data.transacoes.push({ id: "t5", extratoId: "e3", data: "2026-02-10", valor: -200, status: "pendente", gerados: [] });
-    data.notasFiscais.push({ id: "n3", numero: "102", valorLiquido: 200, pagamentos: [] });
+    data.notasFiscais.push({ id: "n3", numero: "102", status: "aprovada", valorLiquido: 200, pagamentos: [] });
     const { resumo } = registrarPagamentoEConciliar(data, {
       transacaoId: "t5", tipo: "nota", entidadeId: "n3", valor: 200, dataPagamento: "2026-02-10", operador,
     });

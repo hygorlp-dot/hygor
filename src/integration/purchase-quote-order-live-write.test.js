@@ -93,10 +93,10 @@ vi.mock("postgres",()=>({
 }));
 
 let handler;
-const callApi=async body=>{
+const callApi=async(body,method="POST")=>{
   let statusCode=200;
   let payload;
-  const req={body,query:{},headers:{"x-forwarded-for":"127.0.0.1"}};
+  const req={method,body,query:{},headers:{"x-forwarded-for":"127.0.0.1"}};
   const res={
     status(code){statusCode=code;return res;},
     json(value){payload=value;return value;},
@@ -400,4 +400,36 @@ describe("/api/data · QUOTATION_SAVED e PURCHASE_ORDER_SAVED gravam ao vivo em 
       expect(row.payload.documentos).toHaveLength(1);
     });
   });
+  it("concilia pagamento de nota, sincroniza pedido e recupera projeção na repetição sem duplicar",async()=>{
+    const data=testState.rows[CORE_KEY].value;
+    data.pedidos=[{id:"p1",obraId:"obra-1",fornecedorId:"forn-1",status:"enviado",version:2,itens:[{qtd:1,precoUnit:100}],pagamentos:[]}];
+    data.notasFiscais=[{id:"nf1",pedidoId:"p1",obraId:"obra-1",status:"aprovada",valorLiquido:100,pagamentos:[]}];
+    data.transacoes=[{id:"bank1",data:"2026-08-31",valor:-40,status:"pendente",gerados:[]}];
+    const request={action:"reconciliation-command",accessToken:"valid-token",command:{type:"CONFIRM_PAYMENT",idempotencyKey:"reconcile-payment-note-001",payload:{transactionId:"bank1",targetType:"nota",targetId:"nf1"}}};
+    const result=await callApi(request);
+    expect(result.status).toBe(200);
+    const writes=()=>testState.upsertCalls.filter(item=>item.table==="core_purchase_orders");
+    expect(writes()).toHaveLength(1);
+    expect(writes()[0].row.payload.pagamentos).toHaveLength(1);
+    expect(writes()[0].row.payload.pagamentos[0]).toMatchObject({valor:40,transacaoId:"bank1"});
+    expect(writes()[0].row.source_version).toBe(3);
+    testState.upsertCalls=[];
+    const replay=await callApi(request);
+    expect(replay.body.idempotent).toBe(true);
+    expect(writes()).toHaveLength(1);
+    expect(testState.rows[CORE_KEY].value.pedidos[0].pagamentos).toHaveLength(1);
+    testState.upsertCalls=[];
+    const undo=await callApi({...request,command:{type:"REVERSE_RECONCILIATION",idempotencyKey:"reconcile-payment-undo-001",payload:{transactionId:"bank1",reason:"Vínculo incorreto"}}});
+    expect(undo.status).toBe(200);
+    expect(writes()).toHaveLength(1);
+    expect(writes()[0].row.payload.pagamentos[0]).toMatchObject({valor:40,status:"estornado"});
+  });
+
+  it("recusa GET para gravações antes de alterar banco ou projeções",async()=>{
+    const before=structuredClone(testState.rows);
+    expect((await callApi(orderCommand(),"GET")).status).toBe(405);
+    expect(testState.rows).toEqual(before);
+    expect(testState.upsertCalls).toHaveLength(0);
+  });
+
 });

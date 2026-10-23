@@ -12,7 +12,7 @@ import {
   WORK_CASH_COMMAND,
 } from "./work-cash-commands.js";
 import { isDateInClosedPeriod } from "./workflows.js";
-import { avaliarPagamentoPedido } from "../compras/payment-conference.js";
+import { validatePurchasePayment } from "./purchase-payment-validation.js";
 
 export const PAYABLE_PAYMENT_COMMAND=Object.freeze({
   PAYABLE_PAYMENT_RECORDED:"PAGAMENTO_OBRIGACAO_REGISTRADO",
@@ -129,16 +129,15 @@ const recordPayment=(data,command,now)=>{
   const target=targetBy(data,type,payload.targetId),actor=actorOf(command);
   const baseError=validateBase({data,command,target,type,actor});
   if(baseError)return fail(baseError);
-  if(type==="nota"&&!["aprovada","paga"].includes(String(target.status||""))){
-    return fail("A nota fiscal precisa estar aprovada antes do pagamento.");
-  }
   const raw=payload.payment||{},id=String(raw.id||""),value=Number(raw.valor);
   if(!id)return fail("Pagamento sem identificação.");
   if(paymentIdUsed(data,id))return fail("Já existe um pagamento com esta identificação.");
   if(!validDate(raw.data))return fail("Informe uma data válida para o pagamento.");
   if(isDateInClosedPeriod(data,raw.data))return fail("O período financeiro deste pagamento está fechado.");
   if(!(value>0)||!Number.isFinite(value))return fail("Informe um valor positivo para o pagamento.");
-  if(value>balanceOf(type,target)+0.01)return fail("O pagamento supera o saldo da obrigação.");
+  const purchaseCheck=validatePurchasePayment(data,{type,target,value,adiantamento:payload.adiantamento,
+    motivo:payload.motivoAdiantamento,actorRole:command.actorRole});
+  if(purchaseCheck.error)return fail(purchaseCheck.error);
   if(!validOrigin(raw.origem))return fail("Origem do pagamento inválida.");
 
   const transactionId=String(raw.transacaoId||"");
@@ -163,13 +162,7 @@ const recordPayment=(data,command,now)=>{
 
   // C1.4: pedido só é pago até o conferido (recebido e com nota); acima
   // disso é adiantamento, com motivo e liberado pelo Financeiro/Admin.
-  let conference={};
-  if(type==="pedido"){
-    const check=avaliarPagamentoPedido(data,{pedidoId:target.id,valor:value,
-      adiantamento:payload.adiantamento,motivo:payload.motivoAdiantamento,actorRole:command.actorRole});
-    if(check.error)return fail(check.error);
-    conference=check.campos;
-  }
+  const conference=purchaseCheck.campos||{};
   const payment={...buildPayment(raw,actor,now),tipo:"",motivoAdiantamento:"",...conference};
   let next=updateWorkspace(data,target.obraId,payload.workspace);
   const current=targetBy(next,type,target.id);

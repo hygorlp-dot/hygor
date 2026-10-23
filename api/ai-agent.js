@@ -1,4 +1,4 @@
-import { authenticateAppUser } from "./auth.js";
+import { authenticateAppUser } from "../server/app-auth.js";
 import { createClient } from "@supabase/supabase-js";
 import { buildDailyBrief } from "../server/daily-brief.js";
 import { decryptAiSecret, encryptAiSecret } from "../server/ai-secret.js";

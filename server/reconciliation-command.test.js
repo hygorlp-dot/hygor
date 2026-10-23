@@ -8,11 +8,23 @@ const fixture=()=>({
     {id:"debit",valor:-300,data:"2026-07-25",status:"pendente"},
   ],
   medicoes:[{id:"m1",obraId:"obra",valorPrevisto:700,recebimentos:[]}],
-  notasFiscais:[{id:"n1",valorLiquido:300,pagamentos:[]}],pedidos:[],historicoConc:[],
+  notasFiscais:[{id:"n1",status:"aprovada",valorLiquido:300,pagamentos:[]}],pedidos:[],historicoConc:[],
   outrasDesp:[],despesasEmpresa:[],payments:[],caixaObra:[],pagsTerceiros:[],medicoesTerc:[],pagamentosFolha:[],comercial:{contratos:[]},
 });
 
 describe("reconciliation command server boundary",()=>{
+  test("rateia somente a parcela destinada à medição sem duplicar o restante",()=>{
+    const data={...fixture(),obras:[{id:"obra"}]};
+    const result=applyReconciliationCommand(data,{type:RECONCILIATION_COMMAND.CONFIRM_ALLOCATION,payload:{transactionId:"credit",measurementId:"m1",allocations:[{destination:"obra",obraId:"obra",value:300},{destination:"empresa",value:200}]}},actor);
+    expect(result.resumo.ok).toBe(true);
+    expect(result.data.medicoes[0].recebimentos[0].valor).toBe(300);
+    expect(result.data.payments[0].amount).toBe(200);
+  });
+  test("o rateio também respeita o saldo da medição",()=>{
+    const data={...fixture(),obras:[{id:"obra"}]};data.medicoes[0].valorPrevisto=100;
+    const result=applyReconciliationCommand(data,{type:RECONCILIATION_COMMAND.CONFIRM_ALLOCATION,payload:{transactionId:"credit",measurementId:"m1",allocations:[{destination:"obra",obraId:"obra",value:500}]}},actor);
+    expect(result.resumo.ok).toBe(false);expect(result.data).toBe(data);
+  });
   test("confirma uma medição a partir do valor autoritativo da entrada",()=>{
     const result=applyReconciliationCommand(fixture(),{type:RECONCILIATION_COMMAND.CONFIRM_RECEIPT,payload:{transactionId:"credit",targetType:"medicao",targetId:"m1",observacao:"PIX"}},actor);
     expect(result.resumo.ok).toBe(true);

@@ -6,7 +6,7 @@ process.env.SUPABASE_URL = "https://example.supabase.co";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
 process.env.COMPANY_ID = "arcd";
 
-vi.mock("./auth.js", () => ({
+vi.mock("../server/app-auth.js", () => ({
   authenticateAppUser: vi.fn().mockResolvedValue({ id: "user-1", role: "admin" }),
 }));
 
@@ -136,4 +136,23 @@ describe("/api/references - ORSE reaproveita o pipeline do SINAPI", () => {
     expect(res.body.items).toEqual([expect.objectContaining({ fonte: "ORSE", codigo: "4", precoDes: 6.74 })]);
     expect(global.fetch).not.toHaveBeenCalled();
   });
+  it("limita a consulta oficial ORSE e informa indisponibilidade sem travar a pesquisa",async()=>{
+    supabaseMock.from.mockImplementationOnce(()=>{
+      const builder={then:resolve=>resolve({data:[{id:"official",source:"ORSE",mode:"official",competence:"2026-07",status:"ready"}],error:null})};
+      for(const method of ["select","eq","in"])builder[method]=()=>builder;
+      return builder;
+    });
+    const request=vi.fn().mockRejectedValue(Object.assign(new Error("Timed out"),{name:"TimeoutError"}));
+    vi.stubGlobal("fetch",request);
+    try{
+      const {req,res}=reqRes({action:"search",referenceIds:["official"],query:"123"});
+      await handler(req,res);
+      expect(res.statusCode).toBe(200);
+      expect(res.body.items).toEqual([]);
+      expect(res.body.warning).toBeTruthy();
+      expect(request).toHaveBeenCalled();
+      expect(request.mock.calls[0][1].signal).toBeDefined();
+    }finally{vi.unstubAllGlobals();}
+  });
+
 });

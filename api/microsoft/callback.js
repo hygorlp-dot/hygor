@@ -1,6 +1,7 @@
 import { configured, cookies, exchangeCode, rootItem, saveCentralSession, seal, setCookie, unseal } from "../../server/microsoft/graph.js";
 
 export default async function handler(req,res){
+  if(req.method&&req.method!=="GET")return res.status(405).json({error:"Método não permitido."});
   try{
     if(!configured())throw new Error("Integração Microsoft não configurada.");
     const saved=unseal(cookies(req).arcd_ms_state);
