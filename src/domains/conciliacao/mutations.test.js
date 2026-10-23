@@ -137,7 +137,7 @@ describe("B. registrar pagamento de obrigação existente e conciliar", () => {
   });
 
   test("pagamento direto a terceiro sem obraId informado cai para null (nunca inventa obra)", () => {
-    const data = dataBase();
+    const data = {...dataBase(),terceirizados:[{id:"tc1",nome:"Terceiro cadastrado"}]};
     const { data: next } = registrarPagamentoEConciliar(data, {
       transacaoId: "t1", tipo: "terceiro", entidadeId: "tc1", valor: 500, dataPagamento: "2026-01-10", operador,
     });

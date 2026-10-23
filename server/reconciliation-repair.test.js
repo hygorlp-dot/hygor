@@ -2,6 +2,7 @@ import {describe,test,expect} from "vitest";
 import {repairAuditedReconciliation,repairLockedReconciliation} from "./reconciliation-repair.js";
 import {buildLegacyFinancialFacts} from "./financial-shadow.js";
 import {desfazerConciliacao} from "../src/domains/conciliacao/mutations.js";
+import {buildRequestedDreProjectionRows} from "./dre-projection.js";
 
 const fixture=()=>({transacoes:[
   {id:"2f9mi4zbxupv",valor:-108.77,status:"conciliado",gerados:["0kjw0yag16sh"]},
@@ -13,6 +14,22 @@ outrasDesp:[{id:"r94yv49z1ltd",valor:1320,data:"2026-07-20"},{id:"h8uh6em62hkb",
 notasFiscais:[],pedidos:[],payments:[]});
 
 describe("reparo restrito das associações auditadas",()=>{
+  test("usa a data comprovada no banco quando o documento antigo não tem data de pagamento",()=>{
+    const source=fixture();
+    for(const item of [...source.outrasDesp,...source.despesasEmpresa]){delete item.data;item.competencia="2026-07";}
+    for(const bank of source.transacoes)bank.data=bank.id==="2f9mi4zbxupv"?"2026-07-06":"2026-07-20";
+    const repaired=repairAuditedReconciliation(source,"arcd").data;
+    const request=[{year:2026,month:6,scope:"empresa",period:"q1"}];
+    const before=buildRequestedDreProjectionRows(source,request)[0].payload;
+    const after=buildRequestedDreProjectionRows(repaired,request)[0].payload;
+    expect(after.saidasCaixa-before.saidasCaixa).toBe(3628.77);
+    expect(after.totalCustos).toBe(before.totalCustos);
+    expect(repaired.outrasDesp[0].data).toBeUndefined();
+    expect(repaired.outrasDesp[0].dataPagamento).toBeUndefined();
+    const unlinked=desfazerConciliacao(repaired,"budlh0lmxrta",{id:"admin"},"Corrigir destino").data;
+    expect(unlinked.outrasDesp[0]).toMatchObject({valor:1320,pago:true,transacaoId:null,dataPagamento:"2026-07-20"});
+    expect(buildRequestedDreProjectionRows(unlinked,request)[0].payload.saidasCaixa).toBe(after.saidasCaixa);
+  });
   test("desfazer uma associação histórica preserva a despesa paga e seu valor",()=>{
     const repaired=repairAuditedReconciliation(fixture(),"arcd").data;
     const result=desfazerConciliacao(repaired,"budlh0lmxrta",{id:"admin"},"Ajuste de vínculo");
@@ -32,7 +49,7 @@ describe("reparo restrito das associações auditadas",()=>{
     expect(result.data.transacoes[3]).toMatchObject({status:"pendente",gerados:[],reconciliationRepair:{previous:{gerados:["e9qk6c3xh3a1"]}}});
     expect(result.data.notasFiscais).toBe(before.notasFiscais);
     expect(result.data.payments).toBe(before.payments);
-    const recognition=snapshot=>snapshot.dreSnapshots.map(row=>({...row,payload:Object.fromEntries(Object.entries(row.payload).filter(([key])=>!["saidasCaixa","saldoCaixa"].includes(key)))}));
+    const recognition=snapshot=>snapshot.dreSnapshots.map(row=>({...row,payload:Object.fromEntries(Object.entries(row.payload).filter(([key])=>!["saidasCaixa","saldoCaixa","margemCaixa"].includes(key)))}));
     expect(recognition(buildLegacyFinancialFacts(result.data))).toEqual(recognition(buildLegacyFinancialFacts(before)));
     for(const section of ["outrasDesp","despesasEmpresa"])expect(result.data[section].map(({transacaoId:_bank,...item})=>item)).toEqual(before[section]);
     expect(repairAuditedReconciliation(result.data,"arcd")).toEqual({data:result.data,changes:[]});

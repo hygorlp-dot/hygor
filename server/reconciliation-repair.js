@@ -44,7 +44,7 @@ export const repairAuditedReconciliation=(data,companyId)=>{
 const economicSnapshot=data=>{
   const snapshot=buildLegacyFinancialFacts(data);
   return {facts:snapshot.facts.map(fact=>({...fact,settlements:fact.settlements.map(({bankTransactionLegacyId:_bank,...payment})=>payment)})),
-    dreSnapshots:snapshot.dreSnapshots.map(row=>({...row,payload:Object.fromEntries(Object.entries(row.payload||{}).filter(([key])=>!["saidasCaixa","saldoCaixa"].includes(key)))}))};
+    dreSnapshots:snapshot.dreSnapshots.map(row=>({...row,payload:Object.fromEntries(Object.entries(row.payload||{}).filter(([key])=>!["saidasCaixa","saldoCaixa","margemCaixa"].includes(key)))}))};
 };
 
 // Caller holds a transaction and the source-row lock through canonical sync.

@@ -46,14 +46,18 @@ export const updatePaymentAssociation=(data,{paymentId,transactionId,linked,acto
     return payments.some((p,i)=>p!==original[i])?{...parent,[field]:payments,version:Number(parent.version||0)+1,
       updatedAt:new Date().toISOString(),updatedById:actor?.id||""}:parent;
   });
+  const unlinkExpense=item=>{
+    if(linked||item.id!==paymentId||item.transacaoId!==transactionId)return item;
+    const bankDate=(data.transacoes||[]).find(transaction=>transaction.id===transactionId)?.data;
+    return {...update(item),pago:true,...(!item.dataPagamento&&!item.data&&bankDate?{dataPagamento:bankDate}:{})};
+  };
   return {...data,pedidos:parents(data.pedidos,"pagamentos"),notasFiscais:parents(data.notasFiscais,"pagamentos"),
     medicoes:parents(data.medicoes,"recebimentos"),titulosFolha:parents(data.titulosFolha,"liquidacoes"),
     pagsTerceiros:(data.pagsTerceiros||[]).map(update),pagamentosFolha:(data.pagamentosFolha||[]).map(update),
     caixaObra:(data.caixaObra||[]).map(update),
     // Legacy expenses already represent real settlements. Unmatching must
     // preserve their paid state even when the old record only had a bank ID.
-    ...Object.fromEntries(["outrasDesp","despesasEmpresa"].filter(section=>data[section]).map(section=>[section,data[section].map(item=>
-      !linked&&item.id===paymentId&&item.transacaoId===transactionId?{...update(item),pago:true}:item)]))};
+    ...Object.fromEntries(["outrasDesp","despesasEmpresa"].filter(section=>data[section]).map(section=>[section,data[section].map(unlinkExpense)]))};
 };
 
 export const stampChangedPurchaseParents=(before,after,actor)=>{
