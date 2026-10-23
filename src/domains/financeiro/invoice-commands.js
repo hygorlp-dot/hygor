@@ -1,5 +1,6 @@
 import { active, toCents } from "./ledger.js";
 import { analyzePurchaseThreeWayMatch, isDateInClosedPeriod } from "./workflows.js";
+import { divergenciasDoItem, validarItensNota } from "../compras/nfe-xml.js";
 
 export const INVOICE_COMMAND=Object.freeze({
   INVOICE_SAVED:"NOTA_FISCAL_SALVA",
@@ -92,6 +93,9 @@ const normalizeInvoice=(data,raw,current)=>{
     String(item.id)!==id&&!inactiveStatus(item.status)&&String(raw.chave||"")
     &&String(item.chave||"")===String(raw.chave));
   if(duplicate)return {error:"Já existe uma nota ativa com esta chave de acesso."};
+  // C3.1: itens lidos do XML, ligados (ou não) aos itens do pedido.
+  const itensNota=validarItensNota(raw.itensNota,pedido);
+  if(itensNota)return {error:itensNota};
   const retentions=normalizeRetentions(raw.retencoes,grossCents);
   if(retentions.error)return retentions;
   const allocations=normalizeAllocations(raw.rateios,obraId,grossCents);
@@ -150,8 +154,16 @@ const saveInvoice=(data,command,now)=>{
     INVOICE_EXCEEDS_ORDER:"Notas fiscais acima do valor contratado no pedido.",
     INVOICE_EXCEEDS_PHYSICAL_RECEIPT:"Valor fiscal acima do material fisicamente recebido.",
   };
-  const divergencias=(match?.issues||[]).map(issue=>
-    `${labels[issue.code]||issue.code} Diferença: R$ ${(Math.abs(issue.differenceCents||0)/100).toFixed(2)}.`);
+  const pedidoDaNota=(projection.pedidos||[]).find(item=>String(item.id)===String(candidate.pedidoId||""));
+  const itensPedido=new Map((pedidoDaNota?.itens||[]).map(item=>[String(item.id),item]));
+  const divergenciasItens=(Array.isArray(candidate.itensNota)?candidate.itensNota:[]).flatMap(item=>{
+    const nome=String(item.descricao||`Item ${item.nItem||""}`).trim();
+    if(!item.pedidoItemId)return candidate.pedidoId?[`${nome}: sem item correspondente no pedido.`]:[];
+    return divergenciasDoItem({qtd:Number(item.qtd||0),precoUnit:Number(item.precoUnit||0)},itensPedido.get(String(item.pedidoItemId)))
+      .map(texto=>`${nome}: ${texto}`);
+  });
+  const divergencias=[...(match?.issues||[]).map(issue=>
+    `${labels[issue.code]||issue.code} Diferença: R$ ${(Math.abs(issue.differenceCents||0)/100).toFixed(2)}.`),...divergenciasItens];
   const saved={
     ...candidate,divergencias,
     threeWayMatch:match?{
