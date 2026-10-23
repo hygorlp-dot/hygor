@@ -1,9 +1,23 @@
 import {expect,test} from "@playwright/test";
 
-test("tema executivo migra a aparência e mantém leitura com ampliação",async({page})=>{
+test("identidade MARCELL carrega as fontes locais e a marca oficial no acesso",async({page})=>{
+  await page.route("**/api/**",route=>route.fulfill({json:{ok:true,usuarios:[],precisaSetup:false}}));
+  await page.route("https://fonts.googleapis.com/**",route=>route.abort());
+  await page.goto("/");
+  const signature=page.locator(".mrc-login-signature");
+  await expect(signature).toBeVisible();
+  await expect(signature).toHaveAttribute("src","/brand/marcell/full-ouro.svg");
+  await expect(page.getByRole("button",{name:"Acessar central MARCELL"})).toBeVisible();
+  await page.evaluate(()=>document.fonts.ready);
+  expect(await page.evaluate(()=>[...document.fonts].filter(font=>font.family.includes("Nimbus Sans")&&font.status==="loaded").length)).toBeGreaterThan(0);
+  await expect(page.locator("#login-email")).toHaveCSS("font-family",/Nimbus Sans/);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
+});
+
+test("tema MARCELL migra a aparência e mantém leitura com ampliação",async({page})=>{
   await page.addInitScript(()=>localStorage.setItem("arcd-theme","architectural"));
   const app=await enter(page,"admin");
-  await expect(page.locator("html")).toHaveAttribute("data-theme","executive");
+  await expect(page.locator("html")).toHaveAttribute("data-theme","marcell");
   await page.keyboard.press("Control+k");
   const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
   await search.fill("Gestão financeira");
@@ -23,7 +37,7 @@ test("tema executivo migra a aparência e mantém leitura com ampliação",async
   await page.keyboard.press("Control+k");await search.fill("Folha");
   await search.locator("xpath=../..").getByRole("button").filter({hasText:"Folha"}).first().click();
   await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("color","rgb(255, 255, 255)");
-  await expect(page.locator(".payroll-summary-strip__net small")).toHaveCSS("color","rgb(218, 214, 206)");
+  await expect(page.locator(".payroll-summary-strip__net small")).toHaveCSS("color","rgb(217, 221, 226)");
   expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
 });
 
@@ -43,23 +57,32 @@ test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=
   const supplierFields=page.locator("main input:visible");
   expect(await supplierFields.count()).toBeGreaterThan(0);
   for(const field of await supplierFields.all()){
-    await expect(field).toHaveCSS("font-family",/IBM Plex Sans/);
+    await expect(field).toHaveCSS("font-family",/Nimbus Sans/);
     await expect(field).toHaveCSS("font-size",touch?"16px":"14px");
   }
   await open("Obras");
+  // Empty portfolio: this existing action emits a notice without saving a record.
+  await page.getByRole("button",{name:"Preparar pastas",exact:true}).click();
+  await expect(page.locator(".arcd-toast")).toContainText("Todas as obras já estão com a estrutura documental preparada.");
   await page.getByRole("button",{name:/Nova obra/}).first().click();
   const dialog=page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.locator("h3")).toHaveCSS("font-size","20px");
   await expect(dialog.locator("h3")).toHaveCSS("font-weight","600");
+  const notice=dialog.locator(".arcd-modal-notice .arcd-toast");
+  await expect(notice).toBeVisible();
+  await expect(notice).toHaveCSS("position","static");
+  const noticeBounds=await notice.boundingBox(),firstFieldBounds=await dialog.locator("input").first().boundingBox();
+  expect(noticeBounds.y+noticeBounds.height).toBeLessThanOrEqual(firstFieldBounds.y);
+
   for(const field of await dialog.locator('input:not([type="checkbox"]):not([type="radio"]):visible,select:visible,textarea:visible').all()){
-    await expect(field).toHaveCSS("font-family",/IBM Plex Sans/);
+    await expect(field).toHaveCSS("font-family",/Nimbus Sans/);
     await expect(field).toHaveCSS("font-size",touch?"16px":"14px");
   }
   await page.keyboard.press("Escape");
   await open("Folha");
   await expect(page.locator(".payroll-summary-strip__net small")).toHaveCSS("font-size","12px");
-  await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("font-family",/IBM Plex Sans/);
+  await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("font-family",/Nimbus Sans/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
   expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
 });
@@ -79,7 +102,7 @@ async function enter(page,role,accessTabs){
     return route.fulfill({json:{ok:true,accessToken:"isolated-access",refreshToken:"isolated-refresh",usuario:profile,data,updatedAt:"2026-10-23T12:00:00Z"}});
   });
   await page.goto("/");await page.locator("#login-email").fill(profile.email);await page.locator("#login-senha").fill("isolated-password");
-  await page.getByRole("button",{name:"Acessar central ARCD"}).click();
+  await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
   await expect(page.locator(".app-breadcrumb")).toContainText("Visão gerencial");
   return {errors,financialUnchanged:()=>JSON.stringify([data.payments,data.notasFiscais,data.pagamentosFolha,data.caixaObra,data.transacoes])===original};
 }

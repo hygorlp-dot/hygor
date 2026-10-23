@@ -1,4 +1,4 @@
-.structural-memory { --memory-line: #d6d6d6; --memory-muted: #62665F; color: #202421; }
+.structural-memory { --memory-line: #d6d6d6; --memory-muted: #536171; color: #0D1B2E; }
 .structural-memory .memory-disclosure { border: 1px solid var(--memory-line); border-radius: 4px; background: #fff; padding: 12px 16px; }
 .structural-memory .memory-disclosure > summary { cursor: pointer; font-size: var(--arcd-type-body, 14px); font-weight: 600; padding: 4px 0; }
 .structural-memory .memory-disclosure[open] > summary { margin-bottom: 12px; }
@@ -7,18 +7,18 @@
 .structural-links { border-top: 1px solid #d6d6d6; margin-top: 8px; padding-top: 12px; font-size: var(--arcd-type-body, 14px); min-width: 0; }
 .structural-links header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .structural-links h4 { margin: 0; font-size: var(--arcd-type-card-title, 14px); font-weight: 600; }
-.structural-links p, .structural-links small { margin: 4px 0 0; color: #62665F; font-size: var(--arcd-type-caption, 12px); line-height: 1.5; }
+.structural-links p, .structural-links small { margin: 4px 0 0; color: #536171; font-size: var(--arcd-type-caption, 12px); line-height: 1.5; }
 .structural-links small { display: block; }
-.structural-links button { background: #fff; border: 1px solid #8d8d8d; border-radius: 8px; padding: 8px 12px; cursor: pointer; color: #202421; font: inherit; }
-.structural-links select, .structural-links input { width: 100%; min-width: 0; box-sizing: border-box; padding: 10px; border: 1px solid #8d8d8d; border-radius: 8px; background: #fff; color: #202421; font: inherit; }
-.structural-links :is(button, input, select):focus-visible, .structural-memory summary:focus-visible { outline: 2px solid #42616B; outline-offset: 3px; }
+.structural-links button { background: #fff; border: 1px solid #8d8d8d; border-radius: 8px; padding: 8px 12px; cursor: pointer; color: #0D1B2E; font: inherit; }
+.structural-links select, .structural-links input { width: 100%; min-width: 0; box-sizing: border-box; padding: 10px; border: 1px solid #8d8d8d; border-radius: 8px; background: #fff; color: #0D1B2E; font: inherit; }
+.structural-links :is(button, input, select):focus-visible, .structural-memory summary:focus-visible { outline: 2px solid #355874; outline-offset: 3px; }
 .structural-link-head, .structural-link-row { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(0, 2fr); gap: 16px; padding: 12px 8px; border-bottom: 1px solid #e0e0e0; }
-.structural-link-head { color: #62665F; background: #F5F2EC; font-size: var(--arcd-type-label, 12px); }
+.structural-link-head { color: #536171; background: #F3F0E9; font-size: var(--arcd-type-label, 12px); }
 .structural-link-row > div { min-width: 0; overflow-wrap: anywhere; }
 .structural-link-row strong { font-weight: 600; }
 .structural-quantity { display: block; margin-top: 4px; font-variant-numeric: tabular-nums; }
 .structural-links .structural-pending { color: #855A24; }
-.structural-muted { color: #62665F; }
+.structural-muted { color: #536171; }
 .structural-link-search { display: grid; gap: 6px; margin-bottom: 12px; font-size: var(--arcd-type-label, 12px); }
 .structural-links .structural-link-note { margin-top: 12px; }
 .structural-memory .sapata-scroll-hint { margin: 0; color: var(--memory-muted); }
@@ -30,9 +30,9 @@
 .sapata-table tbody td:first-child { text-align: left; }
 .sapata-table :is(input, select) { min-width: 0; min-height: 36px; max-width: 100%; line-height: 1.4; }
 .sapata-table select { cursor: pointer; }
-.sapata-table :is(input, select, button):focus-visible, .sapata-table-scroll:focus-visible { outline: 2px solid #42616B; outline-offset: 2px; }
+.sapata-table :is(input, select, button):focus-visible, .sapata-table-scroll:focus-visible { outline: 2px solid #355874; outline-offset: 2px; }
 .sapata-table :is(th, td):is(:nth-child(3), :nth-child(7), :nth-child(10), :nth-child(16), :nth-child(19), :nth-child(22)) { border-left: 1px solid #d6d6d6; }
-.sapata-table tbody tr:hover { background-color: #F5F2EC !important; }
+.sapata-table tbody tr:hover { background-color: #F3F0E9 !important; }
 .sapata-row-actions { display: flex; justify-content: center; align-items: center; gap: 4px; }
 .sapata-row-actions button { box-sizing: border-box; flex: 0 0 36px; width: 36px; height: 36px; padding: 0; align-items: center; justify-content: center; border-radius: 4px; font-size: var(--arcd-type-control); }
 .sapata-row-actions button:hover { background: #e8e8e8 !important; }

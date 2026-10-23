@@ -42,7 +42,7 @@ async function abrirCentral(page) {
   await page.goto("/");
   await page.locator("#login-email").fill(PROFILE.email);
   await page.locator("#login-senha").fill("senha-isolada");
-  await page.getByRole("button", { name:"Acessar central ARCD" }).click();
+  await page.getByRole("button", { name:"Acessar central MARCELL" }).click();
   await expect(page.getByText("Administrador QA").first()).toBeVisible();
   const sidebar = page.locator(".arcd-sidebar");
   const group = sidebar.locator(".nav-grp-hd").filter({ hasText:/^Equipamentos e locações/ });

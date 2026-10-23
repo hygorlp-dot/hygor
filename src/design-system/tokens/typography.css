@@ -1,5 +1,9 @@
+@font-face {font-family:"Nimbus Sans";font-style:normal;font-weight:400 500;font-display:swap;src:url("/fonts/marcell/NimbusSans-Regular.woff2") format("woff2");}
+@font-face {font-family:"Nimbus Sans";font-style:normal;font-weight:600 700;font-display:swap;src:url("/fonts/marcell/NimbusSans-Bold.woff2") format("woff2");}
+@font-face {font-family:"P052";font-style:normal;font-weight:400;font-display:swap;src:url("/fonts/marcell/P052-Roman.woff2") format("woff2");}
+
 :root {
-  --arcd-font-sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --arcd-font-sans: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif;
   --arcd-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --arcd-font-numeric: var(--arcd-font-sans);
 

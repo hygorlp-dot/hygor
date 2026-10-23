@@ -133,7 +133,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
   await page.goto("/");
   await page.locator("#login-email").fill(PROFILE.email);
   await page.locator("#login-senha").fill("senha-isolada");
-  await page.getByRole("button",{name:"Acessar central ARCD"}).click();
+  await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
   await expect(page.getByText("Administrador QA").first()).toBeVisible();
 
   const sidebar=page.locator(".arcd-sidebar");
@@ -373,6 +373,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         for(const width of [1440,390]) {
           await page.setViewportSize({width,height:900});
           const buttons=page.locator(selector);
+          await expect(buttons.first()).toBeVisible();
           expect(await buttons.count()).toBeGreaterThan(0);
           const clipped=await buttons.evaluateAll(elements=>elements.filter(e=>e.getClientRects().length&&(e.scrollWidth>e.clientWidth+1||e.scrollHeight>e.clientHeight+1)).map(e=>e.textContent));
           expect(clipped).toEqual([]);

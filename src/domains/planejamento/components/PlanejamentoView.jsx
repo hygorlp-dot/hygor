@@ -670,7 +670,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       const dataLonga = iso => String(iso||"").split("-").reverse().join("/");
       const legenda = [["Concluída",COR_A2.concluida],["Em andamento",COR_A2.andamento],["A iniciar",COR_A2.aIniciar],["Caminho crítico",COR_A2.critica],["Etapa (resumo)",COR_A2.etapa]]
         .map(([rotulo,cor])=>`<span><i style="background:${cor}"></i>${rotulo}</span>`).join("");
-      return `<section class="page"><header><div class="id"><h1>Cronograma da obra</h1><p>${esc(nomeObra)}</p></div><div class="leg">${legenda}</div><div class="meta"><b>${esc(dataLonga(iniPag))} a ${esc(dataLonga(fimPag))}</b><span>A2 paisagem · folha ${pag+1} de ${folhas}</span></div></header><table><colgroup>${colsEscolhidas.map(c=>`<col style="width:${({atividade:70,inicio:24,fim:24,dias:15,custo:27,progresso:18,antecessora:38,sucessora:38}[c.id]||22)}mm">`).join("")}<col style="width:${larguraGraficoMm}mm"></colgroup><thead><tr>${cab}<th class="timeline"><div class="regua">${regua}</div></th></tr></thead><tbody>${linhas}</tbody></table><footer>${esc(data.config?.companyName||"ARCD Construtech")} · gerado em ${esc(new Date().toLocaleString("pt-BR"))} · ${tarefas.length} atividade(s)</footer></section>`;
+      return `<section class="page"><header><div class="id"><h1>Cronograma da obra</h1><p>${esc(nomeObra)}</p></div><div class="leg">${legenda}</div><div class="meta"><b>${esc(dataLonga(iniPag))} a ${esc(dataLonga(fimPag))}</b><span>A2 paisagem · folha ${pag+1} de ${folhas}</span></div></header><table><colgroup>${colsEscolhidas.map(c=>`<col style="width:${({atividade:70,inicio:24,fim:24,dias:15,custo:27,progresso:18,antecessora:38,sucessora:38}[c.id]||22)}mm">`).join("")}<col style="width:${larguraGraficoMm}mm"></colgroup><thead><tr>${cab}<th class="timeline"><div class="regua">${regua}</div></th></tr></thead><tbody>${linhas}</tbody></table><footer>${esc(data.config?.companyName||"MARCELL")} · gerado em ${esc(new Date().toLocaleString("pt-BR"))} · ${tarefas.length} atividade(s)</footer></section>`;
     }).join("");
     // Tipografia e paleta do ARCD Carbon (DESIGN.md): Plex Sans no texto, Plex
     // Mono em datas/valores, grafite/concreto/linha técnica; verde, azul e
@@ -678,7 +678,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
     const html=`<!doctype html><html><head><meta charset="utf-8"><title>Cronograma A2 - ${esc(nomeObra)}</title>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"><style>
       @page{size:A2 landscape;margin:8mm}*{box-sizing:border-box}
-      body{margin:0;font-family:"IBM Plex Sans",Arial,sans-serif;color:#161616;background:#fff;letter-spacing:.1px}
+      body{margin:0;font-family:"Nimbus Sans",Arial,sans-serif;color:#161616;background:#fff;letter-spacing:.1px}
       .page{width:100%;page-break-after:always}.page:last-child{page-break-after:auto}
       header{display:grid;grid-template-columns:auto 1fr auto;align-items:end;gap:10mm;padding-bottom:2.5mm;border-bottom:.5mm solid #161616;margin-bottom:2.5mm}
       h1{margin:0;font-size:17pt;font-weight:400;line-height:1.1}.id p{margin:1mm 0 0;font-size:9pt;color:#525252}

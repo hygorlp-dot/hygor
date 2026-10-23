@@ -1,3 +1,4 @@
+import { BRAND } from "../brand/identity.js";
 import { useEffect, useState } from "react";
 
 // Página pública do aceite do pedido pelo fornecedor (C2.5). O código vem no
@@ -14,7 +15,7 @@ const chamar=async body=>{
   return json;
 };
 
-const cores={fundo:"#f4f2ec",cartao:"#ffffff",texto:"#1d1d1b",suave:"#66645e",borda:"#dedbd2",ouro:"#b8901f",verde:"#1f7a4d",vermelho:"#b3261e"};
+const cores={fundo:"#F3F0E9",cartao:"#ffffff",texto:"#0D1B2E",suave:"#536171",borda:"#D9DDE2",ouro:"#7B6030",verde:"#1f7a4d",vermelho:"#b3261e"};
 const campo={width:"100%",boxSizing:"border-box",padding:"10px 12px",border:`1px solid ${cores.borda}`,borderRadius:8,fontSize:"var(--arcd-type-card-title)",fontFamily:"inherit",background:"#fff",color:cores.texto};
 const rotulo={display:"block",fontSize:"var(--arcd-type-body)",fontWeight:600,color:cores.suave,margin:"12px 0 4px"};
 
@@ -50,7 +51,7 @@ export default function SupplierAcceptancePage(){
   const pedido=dados?.pedido;
   return <main style={{minHeight:"100vh",background:cores.fundo,color:cores.texto,fontFamily:"var(--arcd-font-sans)",padding:"24px 16px"}}>
     <div style={{maxWidth:720,margin:"0 auto"}}>
-      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,letterSpacing:2,color:cores.ouro,margin:0}}>{pedido?.empresa||"ARCD CONSTRUTECH"}</p>
+      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,letterSpacing:2,color:cores.ouro,margin:0}}>{pedido?.empresa||BRAND.name}</p>
       <h1 style={{fontSize:"var(--arcd-type-kpi)",margin:"6px 0 16px"}}>Aceite do pedido de compra{pedido?.numero?` ${pedido.numero}`:""}</h1>
       {carregando&&<p>Carregando o pedido…</p>}
       {!carregando&&!pedido&&<div role="alert" style={{background:cores.cartao,border:`1px solid ${cores.borda}`,borderRadius:12,padding:16}}><p style={{margin:0,color:cores.vermelho,fontWeight:600}}>{erro||"Pedido indisponível."}</p></div>}
@@ -84,7 +85,7 @@ export default function SupplierAcceptancePage(){
           <label style={rotulo} htmlFor="aceite-obs">Observação</label>
           <textarea id="aceite-obs" style={{...campo,minHeight:72}} maxLength={500} value={form.observacao} onChange={e=>setForm(f=>({...f,observacao:e.target.value}))}/>
           {erro&&<p role="alert" style={{color:cores.vermelho,fontWeight:600,margin:"12px 0 0"}}>{erro}</p>}
-          <button type="submit" disabled={enviando} style={{marginTop:16,width:"100%",padding:"12px 16px",border:0,borderRadius:8,background:cores.ouro,color:"#fff",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:enviando?"wait":"pointer"}}>{enviando?"Enviando…":"Aceitar pedido"}</button>
+          <button type="submit" disabled={enviando} style={{marginTop:16,width:"100%",padding:"12px 16px",border:0,borderRadius:8,background:cores.texto,color:"#fff",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:enviando?"wait":"pointer"}}>{enviando?"Enviando…":"Aceitar pedido"}</button>
           <p style={{fontSize:"var(--arcd-type-body)",color:cores.suave,margin:"10px 0 0"}}>Link válido até {dataBr(String(dados.expiraEm||"").slice(0,10))}.</p>
         </form>}
       </>}

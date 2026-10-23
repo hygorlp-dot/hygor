@@ -65,7 +65,7 @@ async function entrar(page) {
   await page.goto("/");
   await page.locator("#login-email").fill(PROFILE.email);
   await page.locator("#login-senha").fill("senha-isolada");
-  await page.getByRole("button", { name:"Acessar central ARCD" }).click();
+  await page.getByRole("button", { name:"Acessar central MARCELL" }).click();
   await expect(page.getByText("Administrador QA").first()).toBeVisible();
 }
 

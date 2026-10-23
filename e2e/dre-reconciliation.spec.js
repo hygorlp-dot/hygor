@@ -26,7 +26,7 @@ async function enter(page,{failFirst=false}={}){
   });
   const errors=[];page.on("pageerror",error=>errors.push(error.message));
   await page.goto("/");await page.locator("#login-email").fill(profile.email);await page.locator("#login-senha").fill("senha-isolada");
-  await page.getByRole("button",{name:"Acessar central ARCD"}).click();
+  await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
   if(page.viewportSize().width<1100){
     await page.getByRole("button",{name:"Abrir Visão gerencial",exact:true}).click();
     await page.locator(".mobile-subnav").getByRole("button",{name:"DRE obras",exact:true}).click();

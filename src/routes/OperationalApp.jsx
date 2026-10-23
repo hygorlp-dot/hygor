@@ -9,7 +9,7 @@ const LegacyApp = lazy(() =>
 function RouteLoading() {
   return (
     <main className="route-loading" aria-busy="true" aria-live="polite">
-      <div className="route-loading-mark" aria-hidden="true">ARCD</div>
+      <div className="route-loading-mark" aria-hidden="true">MARCELL</div>
       <div>
         <strong>Preparando o ambiente operacional</strong>
         <span>Carregando somente os módulos necessários…</span>
@@ -21,7 +21,7 @@ function RouteLoading() {
 export default function OperationalApp() {
   useEffect(() => {
     const tituloAnterior = document.title;
-    document.title = "ArcD Ponto PRO";
+    document.title = "MARCELL";
     return () => { document.title = tituloAnterior; };
   }, []);
 

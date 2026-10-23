@@ -54,7 +54,7 @@ async function enter(page,{role="admin",failFirstRequest=false}={}) {
   });
   const errors=[];page.on("pageerror",error=>errors.push(error.message));
   await page.goto("/");await page.locator("#login-email").fill(PROFILE.email);await page.locator("#login-senha").fill("senha-isolada");
-  await page.getByRole("button",{name:"Acessar central ARCD"}).click();
+  await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
   await openPurchases(page);
   return {state:()=>state,commands,errors};
 }

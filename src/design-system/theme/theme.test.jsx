@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 describe("ARCD Theme Engine", () => {
-  it.each(["carbon","architectural"])("migra a preferência %s para o executivo sem apagar densidade ou outras preferências", oldTheme => {
+  it.each(["carbon","architectural","executive"])("migra a preferência %s para o executivo sem apagar densidade ou outras preferências", oldTheme => {
     localStorage.setItem(THEME_STORAGE_KEYS.theme,oldTheme);
     localStorage.setItem(THEME_STORAGE_KEYS.density,"compact");
     localStorage.setItem("financial-scope","preserve");
@@ -61,8 +61,8 @@ describe("ARCD Theme Engine", () => {
   it("permite ajustar densidade e restaurar o padrão no seletor", () => {
     const container = render(<ThemeProvider><ThemeSettings /></ThemeProvider>);
     const selects = container.querySelectorAll("select");
-    expect([...selects[0].options].map(option => option.value)).toEqual(["executive"]);
-    act(() => { selects[0].value = "executive"; selects[0].dispatchEvent(new Event("change", { bubbles: true })); });
+    expect([...selects[0].options].map(option => option.value)).toEqual(["marcell"]);
+    act(() => { selects[0].value = "marcell"; selects[0].dispatchEvent(new Event("change", { bubbles: true })); });
     expect(document.documentElement.dataset.theme).toBe(DEFAULT_THEME);
     act(() => { selects[1].value = "spacious"; selects[1].dispatchEvent(new Event("change", { bubbles: true })); });
     expect(document.documentElement.dataset.density).toBe("spacious");
