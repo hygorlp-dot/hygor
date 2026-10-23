@@ -2,6 +2,22 @@ import { createHash } from "node:crypto";
 import { buildFinancialLedger, toCents } from "../src/domains/financeiro/ledger.js";
 import { buildDreCashManagement } from "../src/domains/conciliacao/cash-allocations.js";
 
+export const validateNativeDreCommand = (command={}) => {
+  const payload=command.payload||{};
+  const uuid=value=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value||""));
+  if((command.type==="REGISTER_SETTLEMENT"&&(!uuid(payload.titleId)||(Object.hasOwn(payload,"bankTransactionId")&&!uuid(payload.bankTransactionId))))||(command.type==="REVERSE_SETTLEMENT"&&!uuid(payload.settlementId)))return "Identificador financeiro inválido.";
+  if(["CREATE_FINANCIAL_TITLE","REGISTER_SETTLEMENT"].includes(command.type)){
+    const amount=Number(payload.amount),cents=Math.round(amount*100);
+    if(!Number.isFinite(amount)||!Number.isSafeInteger(cents)||cents<=0||Math.abs(amount*100-cents)>0.000001)return "Informe um valor positivo com até duas casas decimais.";
+  }
+  if(command.type==="CREATE_FINANCIAL_TITLE"){
+    if(Object.hasOwn(payload,"legacyId")||Object.hasOwn(payload,"legacyType"))return "Identificadores de projeção operacional são reservados ao servidor.";
+    if(!["cost","revenue","funding","loan","transfer"].includes(payload.financialKind))return "Informe financialKind: cost, revenue, funding, loan ou transfer. A natureza determina o tratamento no DRE.";
+    if(!["payable","receivable"].includes(payload.direction)||(payload.financialKind==="cost"&&payload.direction!=="payable")||(payload.financialKind==="revenue"&&payload.direction!=="receivable"))return "A direção do título é incompatível com a natureza do DRE.";
+  }
+  return "";
+};
+
 const all = async (db, company, table, columns) => {
   const result=[];
   for(let offset=0;;offset+=1000){

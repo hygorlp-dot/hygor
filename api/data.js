@@ -43,7 +43,7 @@ import { authorizeReconciliationCommand } from "../server/reconciliation-policy.
 import { executeReconciliationWithRetry } from "../server/reconciliation-execution.js";
 import { projectReconciliationPatch } from "../server/reconciliation-response.js";
 import { cashAllocations } from "../src/domains/conciliacao/cash-allocations.js";
-import { buildIntegratedDreManagement, loadCanonicalDre } from "../server/financial-dre-integration.js";
+import { buildIntegratedDreManagement, loadCanonicalDre, validateNativeDreCommand } from "../server/financial-dre-integration.js";
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
@@ -1879,8 +1879,8 @@ export default async function handler(req, res) {
       if(!authzFin.ok)return res.status(authzFin.status).json({error:authzFin.error});
       if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave de idempotência inválida."});
       if(usuario.obraId)return res.status(403).json({error:"Comandos diretos do razão exigem um perfil financeiro sem restrição de obra."});
-      if(command.type==="CREATE_FINANCIAL_TITLE"&&!["cost","revenue","funding","loan","transfer"].includes(command.payload?.financialKind))return res.status(400).json({error:"Informe financialKind: cost, revenue, funding, loan ou transfer. A natureza determina o tratamento no DRE."});
-      if(command.type==="CREATE_FINANCIAL_TITLE"&&((command.payload?.financialKind==="cost"&&command.payload?.direction!=="payable")||(command.payload?.financialKind==="revenue"&&command.payload?.direction!=="receivable")))return res.status(400).json({error:"A direção do título é incompatível com a natureza do DRE."});
+      const validationError=validateNativeDreCommand(command);
+      if(validationError)return res.status(400).json({error:validationError});
       if(["REGISTER_SETTLEMENT","REVERSE_SETTLEMENT"].includes(command.type)){
         let titleId=command.payload?.titleId;
         if(command.type==="REVERSE_SETTLEMENT"){
@@ -2615,7 +2615,7 @@ export default async function handler(req, res) {
       const byId=new Map(activeEvents.map(event=>[event.source_id,event.payload]));
       return res.status(200).json({
         ok:true,engineEnforced:FINANCIAL_ENGINE_ENFORCE,source:"canonical_ledger",
-        canonicalRevision:canonical.revision,issues:canonical.issues,
+        canonicalRevision:canonical.revision,issues:canonical.issues.filter(issue=>!usuario.obraId||issue.obraId===String(usuario.obraId)),
         current:byId.get(currentId)||null,
         history:historyIds.map(sourceId=>byId.get(sourceId)||null),
       });

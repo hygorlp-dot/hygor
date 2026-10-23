@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalDreEvents, buildIntegratedDreManagement } from "./financial-dre-integration.js";
+import { canonicalDreEvents, buildIntegratedDreManagement, validateNativeDreCommand } from "./financial-dre-integration.js";
 import { buildRequestedDreProjectionRows } from "./dre-projection.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "./reconciliation-command.js";
 import { authorizeReconciliationCommand } from "./reconciliation-policy.js";
@@ -7,6 +7,15 @@ import { authorizeReconciliationCommand } from "./reconciliation-policy.js";
 const title={id:"native",direction:"receivable",status:"settled",original_amount:100,competence:"2026-10-01",obra_id:"work",metadata:{financialKind:"revenue"}};
 const paid={id:"real-settlement",title_id:"native",status:"active",amount:40,settlement_date:"2026-10-02"};
 describe("API nativa e DRE usam os mesmos fatos",()=>{
+  it("valida centavos, natureza, direção e referências antes de acessar o banco",()=>{
+    const payload={amount:100,direction:"payable",financialKind:"cost"};
+    const validate=fields=>validateNativeDreCommand({type:"CREATE_FINANCIAL_TITLE",payload:{...payload,...fields}});
+    expect(validate({})).toBe("");
+    for(const fields of [{amount:0},{amount:1.001},{amount:Infinity},{direction:"receivable"},{financialKind:""},{legacyId:0},{legacyType:""}])expect(validate(fields)).not.toBe("");
+    expect(validateNativeDreCommand({type:"REGISTER_SETTLEMENT",payload:{titleId:"malformed",amount:1}})).toMatch(/Identificador/);
+    expect(validateNativeDreCommand({type:"REVERSE_SETTLEMENT",payload:{settlementId:"malformed"}})).toMatch(/Identificador/);
+    expect(validateNativeDreCommand({type:"REGISTER_SETTLEMENT",payload:{titleId:"12345678-1234-1234-1234-123456789012",amount:1.25}})).toBe("");
+  });
   it("separa competência e caixa, sem reaproveitar projeções legadas",()=>{
     const native=canonicalDreEvents({titles:[title,{...title,id:"legacy",metadata:{legacyId:"old"}}],settlements:[paid]});
     expect(native.events).toHaveLength(2);
