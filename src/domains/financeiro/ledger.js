@@ -659,7 +659,7 @@ export const selectDRE = (ledger, filters = {}) => {
 // controladoria não devem somar `despesasEmpresa` diretamente.
 export const selectCorporateOperatingCosts = (ledger, filters = {}) => {
   const events=(ledger?.events||[]).filter(event=>
-    !event.obraId&&event.sourceType==="despesa_empresa"
+    !event.obraId&&["despesa_empresa","canonical_title"].includes(event.sourceType)
     && eventMatches(event,filters,"competence")
     && ["cost","cost_reversal"].includes(event.effect));
   const costCents=sumEffects(events,["cost"],["cost_reversal"]);

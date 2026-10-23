@@ -18,19 +18,36 @@ describe("API nativa e DRE usam os mesmos fatos",()=>{
   });
   it("separa competência e caixa, sem reaproveitar projeções legadas",()=>{
     const native=canonicalDreEvents({titles:[title,{...title,id:"legacy",metadata:{legacyId:"old"}}],settlements:[paid]});
-    expect(native.events).toHaveLength(2);
-    expect(native.events.map(event=>[event.effect,event.amountCents])).toEqual([["revenue",10000],["cash_in",4000]]);
+    expect(native.events).toHaveLength(4);
+    expect(native.events.filter(event=>["revenue","cost","cash_in","cash_out"].includes(event.effect)).map(event=>[event.effect,event.amountCents])).toEqual([["revenue",10000],["cash_in",4000]]);
     const source={obras:[{id:"work",name:"Work",contractType:"fixed_labor"}],employees:[],attendance:{}};
     const [report]=buildRequestedDreProjectionRows(source,[{year:2026,month:9,scope:"work"}],native.events);
-    expect(report.payload).toMatchObject({faturamento:100,entradasCaixa:40});
+    expect(report.payload).toMatchObject({faturamento:100,entradasCaixa:40,contasReceber:60});
     expect(canonicalDreEvents({titles:[title],settlements:[{...paid,status:"reversed"}]}).revision).not.toBe(native.revision);
   });
   it("aporte/financiamento produz caixa e nunca receita; classificação desconhecida fica explícita",()=>{
     const funding=canonicalDreEvents({titles:[{...title,metadata:{financialKind:"funding"}}],settlements:[paid]});
-    expect(funding.events.map(event=>event.effect)).toEqual(["cash_in"]);
+    expect(funding.events.filter(event=>["revenue","cost","cash_in","cash_out"].includes(event.effect)).map(event=>event.effect)).toEqual(["cash_in"]);
     const unknown=canonicalDreEvents({titles:[{...title,metadata:{}}],settlements:[paid]});
     expect(unknown.issues[0].code).toBe("NATIVE_TITLE_WITHOUT_DRE_CLASSIFICATION");
-    expect(unknown.events.map(event=>event.effect)).toEqual(["cash_in"]);
+    expect(unknown.events.filter(event=>["revenue","cost","cash_in","cash_out"].includes(event.effect)).map(event=>event.effect)).toEqual(["cash_in"]);
+  });
+  it("concilia saldo a pagar e detalhamento da despesa da obra",()=>{
+    const native=canonicalDreEvents({titles:[{...title,direction:"payable",metadata:{financialKind:"cost"}}],settlements:[paid]});
+    const [row]=buildRequestedDreProjectionRows({obras:[{id:"work"}]},[{year:2026,month:9,scope:"work"}],native.events);
+    expect(row.payload).toMatchObject({totalCustos:100,outrasTotal:100,saidasCaixa:40,contasPagar:60});
+  });
+  it("leva receitas e despesas nativas corporativas ao DRE da empresa e ao consolidado",()=>{
+    const native=canonicalDreEvents({titles:[{...title,obra_id:"",id:"company-revenue"},{...title,obra_id:"",id:"company-cost",direction:"payable",original_amount:25,metadata:{financialKind:"cost",dreCategory:"software"}}]});
+    const rows=buildRequestedDreProjectionRows({obras:[]},[{year:2026,month:9,scope:"company_dre"},{year:2026,month:9,scope:"empresa"}],native.events);
+    expect(rows[0].payload).toMatchObject({receitaCorporativa:100,faturamentoTotal:100,totalDespOp:25,lucroLiquido:75,contasPagar:25,contasReceber:100});
+    expect(rows[0].payload.despEmp[0]).toMatchObject({native:true,pago:false,categoria:"software",valor:25});
+    expect(rows[1].payload).toMatchObject({faturamento:100,totalCustos:25,lucroBruto:75});
+  });
+  it("mantém competência do título e caixa no mês efetivo da liquidação",()=>{
+    const native=canonicalDreEvents({titles:[title],settlements:[{...paid,settlement_date:"2026-11-02"}]});
+    const [row]=buildRequestedDreProjectionRows({obras:[{id:"work"}]},[{year:2026,month:10,scope:"work"}],native.events);
+    expect(row.payload).toMatchObject({faturamento:0,entradasCaixa:40,contasReceber:60});
   });
   it("desconta vínculos nativos do saldo bancário do gestor",()=>{
     const report=buildIntegratedDreManagement({transacoes:[{id:"bank",valor:100,status:"pendente"}]},

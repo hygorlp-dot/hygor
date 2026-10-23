@@ -105,9 +105,11 @@ const companyDre = (data,year,month,engine=calculations) => {
     !event.obraId&&event.competence===ym&&["cost","cost_reversal"].includes(event.effect));
   const signedAmount=event=>(event.effect==="cost_reversal"?-1:1)*Number(event.amountCents||0)/100;
   const faturamentoObras=workRevenue;
+  const receitaCorporativa=(base.ledger?.events||[]).filter(event=>!event.obraId&&event.competence===ym&&event.effect==="revenue")
+    .reduce((sum,event)=>sum+Number(event.amountCents||0)/100,0);
   const receitaLocacoes=Number(base.equipReceitaBruta??base.equipReceita??0);
   const descontoLocacoes=Number(base.equipDescontos||0);
-  const faturamentoTotal=faturamentoObras+receitaLocacoes;
+  const faturamentoTotal=faturamentoObras+receitaLocacoes+receitaCorporativa;
   const recebidoObras=base.entradasCaixa;
   const baseTributavel=Math.max(0,faturamentoTotal-descontoLocacoes);
   const deducaoISS=baseTributavel*Number(cfg.aliquotaISS||0)/100;
@@ -124,7 +126,7 @@ const companyDre = (data,year,month,engine=calculations) => {
   const totalCSP=workCosts+custoLocacoes;
   const lucroBruto=receitaLiquida-totalCSP,margemBruta=receitaLiquida?lucroBruto/receitaLiquida*100:0;
   const despPorCat=Object.fromEntries(expenseCategories.map(([category])=>[
-    category,round(corporateCosts.filter(event=>event.sourceType==="despesa_empresa"&&event.category===category)
+    category,round(corporateCosts.filter(event=>["despesa_empresa","canonical_title"].includes(event.sourceType)&&event.category===category)
       .reduce((sum,event)=>sum+signedAmount(event),0)),
   ]));
   const sumGroup=group=>expenseCategories.filter(([,itemGroup])=>itemGroup===group)
@@ -144,9 +146,10 @@ const companyDre = (data,year,month,engine=calculations) => {
   const provisaoCSLL=lair>0?lair*Number(cfg.aliquotaCSLL||0)/100:0;
   const totalImpostoLucro=provisaoIR+provisaoCSLL,lucroLiquido=lair-totalImpostoLucro;
   const margemLiquida=receitaLiquida?lucroLiquido/receitaLiquida*100:0;
-  const despEmp=corporateCosts.filter(event=>event.sourceType==="despesa_empresa").map(event=>({
+  const despEmp=corporateCosts.filter(event=>["despesa_empresa","canonical_title"].includes(event.sourceType)).map(event=>({
     id:event.sourceId,categoria:event.category,descricao:event.description,competencia:event.competence,
     data:event.date,valor:signedAmount(event),status:event.effect==="cost_reversal"?"estornado":"ativo",
+    ...(event.sourceType==="canonical_title"?{native:true,pago:Number(event.metadata?.paidAmountCents||0)>=event.amountCents,vencimento:event.metadata?.dueDate||"",dataPagamento:event.metadata?.lastSettlementDate||""}:{}),
     ...(event.metadata?.expenseDetails||{}),
   }));
   const porObra=workRows.map(row=>{
@@ -157,7 +160,7 @@ const companyDre = (data,year,month,engine=calculations) => {
       despesa:round(despesa),resultado:round(resultado),margemPct:receita?round(resultado/receita*100):null};
   }).filter(item=>item.receita||item.despesa).sort((a,b)=>b.resultado-a.resultado);
   return Object.fromEntries(Object.entries({
-    ym,faturamentoObras,receitaLocacoes,faturamentoTotal,recebidoObras,descontoLocacoes,deducoesTributarias,
+    ym,faturamentoObras,receitaLocacoes,receitaCorporativa,faturamentoTotal,recebidoObras,descontoLocacoes,deducoesTributarias,
     deducaoISS,deducaoPIS,deducaoCOFINS,totalDeducoes,receitaLiquida,
     laborTotal,benefTotal,tercTotal,rescTotal,outrasDiretas,repasseEquipamentosTerceiros,manutencaoLocacoes,custoLocacoes,totalCSP,lucroBruto,margemBruta,
     despPorCat,despPorGrupo,totalDespPessoal,totalDespOcupacao,totalDespAdministrativo,totalDespComercial,

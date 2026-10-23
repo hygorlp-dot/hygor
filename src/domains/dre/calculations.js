@@ -150,7 +150,7 @@ export const createDreCalculations = ({
     const saldoCaixa = cash.balance;
     const tercCost = sumCategory("terceirizado");
     const rescTotal = sumCategory("rescisao");
-    const outrasTotal = sumSource("outra_despesa");
+    const outrasTotal = sumSource("outra_despesa")+fromCents(events.filter(event=>event.effect==="cost"&&event.sourceType==="canonical_title"&&!["terceirizado","rescisao"].includes(event.category)).reduce((sum,event)=>sum+event.amountCents,0));
     const comprasCost = sumSource("nota_fiscal");
     const equipCost = fromCents(supplemental.equipmentCents);
     const aReceber = fromCents(receivable.balanceCents);
