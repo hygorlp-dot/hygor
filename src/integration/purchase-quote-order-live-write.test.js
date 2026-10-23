@@ -14,6 +14,7 @@ const testState=vi.hoisted(()=>({
   rows:{},
   upsertCalls:[],
   upsertShouldFail:false,
+  financialCalls:[],
 }));
 
 const queryFor=table=>{
@@ -24,6 +25,7 @@ const queryFor=table=>{
     in(){return query;},
     like(){return query;},
     order(){return query;},
+    range(){return query;},
     upsert(row,options){
       testState.upsertCalls.push({table,row,options});
       return Promise.resolve(
@@ -68,6 +70,10 @@ const valorJsonb=value=>value&&typeof value==="object"&&PG_JSON in value?value[P
 const comJson=tx=>Object.assign(tx,{json:value=>({[PG_JSON]:value})});
 const makeTransaction=()=>comJson(async(strings,...values)=>{
   const sql=strings.join("?");
+  if(sql.includes("financial_guard_source_reconciliation")||sql.includes("financial_sync_dre_allocations")){
+    testState.financialCalls.push({sql,values:values.map(valorJsonb)});
+    return[];
+  }
   if(sql.includes("for update")){
     const [,key]=values;
     const row=testState.rows[key];
@@ -430,6 +436,32 @@ describe("/api/data · QUOTATION_SAVED e PURCHASE_ORDER_SAVED gravam ao vivo em 
     expect((await callApi(orderCommand(),"GET")).status).toBe(405);
     expect(testState.rows).toEqual(before);
     expect(testState.upsertCalls).toHaveLength(0);
+  });
+
+  it("API associa parcialmente caixa existente, relê saldos e desfaz somente a associação",async()=>{
+    const data=testState.rows[CORE_KEY].value;
+    data.caixaObra=[{id:"fund",obraId:"obra-1",tipo:"aporte",valor:150,data:"2026-10-20"}];
+    data.transacoes=[{id:"bank",valor:100,status:"pendente",data:"2026-10-20"},{id:"mt7l9lt5xrta",valor:7160,status:"pendente",data:"2026-07-21"}];
+    data.payments=[{id:"real-existing",amount:10,date:"2026-10-20"}];
+    const protectedRows=JSON.stringify([data.payments,data.caixaObra,data.notasFiscais]);
+    const request={action:"reconciliation-command",accessToken:"valid-token",command:{type:"LINK_PARTIAL_CASH",idempotencyKey:"api-partial-existing-001",payload:{transactionId:"bank",eventId:"caixa_obra:fund:cash_in",amount:60}}};
+    const report=await callApi({action:"financial-management-report",accessToken:"valid-token"});
+    expect(report.status).toBe(200);
+    expect(report.body.entries.find(item=>item.id==="caixa_obra:fund:cash_in").remainingCents).toBe(15000);
+    const result=await callApi(request);
+    expect(result.status).toBe(200);expect(result.body.resumo).toMatchObject({status:"parcial",remainingCents:4000,preservedPayments:true});
+    expect(testState.financialCalls.at(-1).sql).toContain("financial_sync_dre_allocations");
+    const replay=await callApi(request);expect(replay.body.idempotent).toBe(true);
+    const excess=await callApi({...request,command:{...request.command,idempotencyKey:"api-partial-existing-002",payload:{...request.command.payload,amount:70}}});
+    expect(excess.status).toBe(409);
+    const current=testState.rows[CORE_KEY].value;
+    const allocation=current.reconciliationLinks[0];
+    const undo=await callApi({...request,command:{type:"REVERSE_PARTIAL_CASH",idempotencyKey:"api-partial-reverse-001",payload:{transactionId:"bank",allocationId:allocation.id,reason:"Composição incorreta"}}});
+    expect(undo.status).toBe(200);
+    const saved=testState.rows[CORE_KEY].value;
+    expect(saved.reconciliationLinks[0].status).toBe("reversed");
+    expect(saved.transacoes.find(item=>item.id==="mt7l9lt5xrta").status).toBe("pendente");
+    expect(JSON.stringify([saved.payments,saved.caixaObra,saved.notasFiscais])).toBe(protectedRows);
   });
 
 });
