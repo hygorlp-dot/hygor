@@ -81,3 +81,16 @@ test("todos os módulos ficam acessíveis e locações sai do Financeiro",async(
   await page.screenshot({path:`C:/tmp/erp-${testInfo.project.name}.png`});
   expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
 });
+
+test("chat fica acima da navegação e cabe na tela em modo paisagem",async({page})=>{
+  test.skip(page.viewportSize().width>=1100,"O limite de altura cobre a navegação do celular.");
+  const app=await enter(page,"rh");
+  await page.setViewportSize({width:844,height:390});
+  await page.getByRole("button",{name:"Abrir chat da equipe",exact:true}).click();
+  const panel=page.locator(".arcd-team-chat > div").first();
+  await expect(panel).toBeVisible();
+  const bounds=await panel.boundingBox(),navigation=await page.locator(".arcd-mobile-nav").boundingBox();
+  expect(bounds.y).toBeGreaterThanOrEqual(0);expect(bounds.y+bounds.height).toBeLessThanOrEqual(navigation.y);
+  await page.getByRole("button",{name:"Abrir chat da equipe",exact:true}).click();
+  expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
+});

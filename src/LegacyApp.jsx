@@ -16886,10 +16886,10 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
   if (!currentUser) return null;
 
   return (
-    <div className="no-print arcd-team-chat" style={{ position: "fixed", right: 20, bottom: bottomOffset, zIndex: 1300, display: "flex", flexDirection: "column", alignItems: "flex-end", fontFamily: "'Inter','Inter Display',sans-serif" }}>
+    <div className="no-print arcd-team-chat" style={{ "--chat-bottom":typeof bottomOffset==="number"?`${bottomOffset}px`:bottomOffset,position: "fixed", right: 20, bottom: bottomOffset, zIndex: 1300, display: "flex", flexDirection: "column", alignItems: "flex-end", fontFamily: "'Inter','Inter Display',sans-serif" }}>
       {aberto && (
         <div style={{
-          width: "min(360px, calc(100vw - 32px))", height: "min(520px, calc(100vh - 120px))",
+          width: "min(360px, calc(100vw - 32px))", height: "min(520px, calc(100dvh - var(--chat-bottom) - 88px))",
           background: WA.bg, borderRadius: 12, overflow: "hidden", marginBottom: 12,
           boxShadow: "0 12px 40px rgba(0,0,0,.28)", display: "flex", flexDirection: "column",
           border: "1px solid rgba(0,0,0,.08)",
