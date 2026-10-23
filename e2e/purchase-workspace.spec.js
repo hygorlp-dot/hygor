@@ -22,7 +22,7 @@ const fixture=()=>({
 
 async function openPurchases(page){
   if(page.viewportSize().width<1100){
-    await page.getByRole("button",{name:"Abrir Compras",exact:true}).click();
+    await page.getByRole("button",{name:"Abrir Compras e suprimentos",exact:true}).click();
   }else{
     const sidebar=page.locator(".arcd-sidebar");
     const group=sidebar.locator(".nav-grp-hd").filter({hasText:/^Compras/});

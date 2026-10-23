@@ -26,6 +26,8 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   projects: [
+    {name:"erp-navigation-desktop",testMatch:/erp-navigation\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
+    {name:"erp-navigation-mobile",testMatch:/erp-navigation\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"annual-dre-desktop",testMatch:/annual-dre\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
     {name:"annual-dre-mobile",testMatch:/annual-dre\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"dre-reconciliation-desktop",testMatch:/dre-reconciliation\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},

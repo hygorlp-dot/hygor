@@ -68,14 +68,14 @@ export function LegacyMobileNavigation({
           }}
         >
           {renderIcon?.(group.icon, active ? 20 : 18)}
-          <span className="mobile-primary-nav__label">{group.label}</span>
+          <span className="mobile-primary-nav__label">{group.shortLabel||group.label}</span>
           {badge && <span className="mobile-primary-nav__badge" aria-label="Há pendências" />}
         </button>;
       })}
       {overflow.length > 0 && <button
         type="button"
         className="mobile-primary-nav__more"
-        aria-label="Abrir mais setores"
+        aria-label="Abrir mais módulos"
         aria-expanded={moreOpen}
         aria-controls={moreMenuId}
         onClick={() => setMoreOpen(true)}

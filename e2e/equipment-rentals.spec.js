@@ -45,7 +45,7 @@ async function abrirCentral(page) {
   await page.getByRole("button", { name:"Acessar central ARCD" }).click();
   await expect(page.getByText("Administrador QA").first()).toBeVisible();
   const sidebar = page.locator(".arcd-sidebar");
-  const group = sidebar.locator(".nav-grp-hd").filter({ hasText:/^Financeiro/ });
+  const group = sidebar.locator(".nav-grp-hd").filter({ hasText:/^Equipamentos e locações/ });
   const body = group.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
   if (!await body.isVisible()) await group.click();
   await body.locator(".nav-item").filter({ hasText:/^Locação de equipamentos$/ }).click();
