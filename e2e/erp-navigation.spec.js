@@ -1,0 +1,83 @@
+import {expect,test} from "@playwright/test";
+
+async function enter(page,role,accessTabs){
+  const profile={id:"erp-qa",nome:"Operador QA",role,email:"erp@arcd.test",active:true,...(accessTabs?{accessTabs}:{})};
+  let data={usuarios:[profile],obras:[],employees:[],attendance:{},config:{companyName:"ARCD",paymentHolidays:[]},payments:[],notasFiscais:[],pagamentosFolha:[],caixaObra:[],transacoes:[]};
+  const original=JSON.stringify([data.payments,data.notasFiscais,data.pagamentosFolha,data.caixaObra,data.transacoes]);
+  const errors=[];page.on("pageerror",error=>errors.push(error.message));
+  await page.route("**/api/**",route=>route.fulfill({json:{ok:true,items:[],bases:[]}}));
+  await page.route("**/api/data",route=>{
+    const body=route.request().postDataJSON()||{};
+    if(body.action==="profiles")return route.fulfill({json:{usuarios:[profile],precisaSetup:false}});
+    if(body.action==="save-sections")data={...data,...body.sections};
+    if(body.action==="save")data=body.payload||data;
+    if(["financial-dre-report","financial-company-dre-report"].includes(body.action))return route.fulfill({json:{ok:true,current:null,history:[]}});
+    return route.fulfill({json:{ok:true,accessToken:"isolated-access",refreshToken:"isolated-refresh",usuario:profile,data,updatedAt:"2026-10-23T12:00:00Z"}});
+  });
+  await page.goto("/");await page.locator("#login-email").fill(profile.email);await page.locator("#login-senha").fill("isolated-password");
+  await page.getByRole("button",{name:"Acessar central ARCD"}).click();
+  await expect(page.locator(".app-breadcrumb")).toContainText("Visão gerencial");
+  return {errors,financialUnchanged:()=>JSON.stringify([data.payments,data.notasFiscais,data.pagamentosFolha,data.caixaObra,data.transacoes])===original};
+}
+
+for(const role of ["financeiro","engenheiro","rh"]){
+  test(`busca e atalhos mantêm as permissões de ${role}`,async({page})=>{
+    const app=await enter(page,role);
+    await page.keyboard.press("Control+k");
+    const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela..."),palette=search.locator("xpath=../..");
+    await search.fill("DRE empresa");
+    const dre=palette.getByRole("button").filter({hasText:"DRE empresa"});
+    await expect(dre).toHaveCount(role==="financeiro"?1:0);
+    if(role==="financeiro"){
+      await dre.click();await expect(page.locator(".app-breadcrumb")).toContainText("Visão gerencial");
+      await page.keyboard.press("Control+k");
+    }
+    await search.fill("Locação de equipamentos");
+    const rentals=palette.getByRole("button").filter({hasText:"Locação de equipamentos"});
+    await expect(rentals).toHaveCount(role==="financeiro"?1:0);
+    if(role==="financeiro"){
+      await rentals.click();await expect(page.locator(".app-breadcrumb")).toContainText("Equipamentos e locações");
+    }else await page.keyboard.press("Escape");
+    expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
+    if(page.viewportSize().width<1100)expect(await page.locator(".mobile-primary-nav").evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
+  });
+}
+
+test("permissão comercial personalizada mantém o destino antigo e o módulo correto",async({page})=>{
+  const app=await enter(page,"comercial",["com_clientes"]);
+  await page.keyboard.press("Control+k");
+  const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela..."),palette=search.locator("xpath=../..");
+  await search.fill("Clientes");await palette.getByRole("button").filter({hasText:"Clientes"}).click();
+  await expect(page.locator(".app-breadcrumb")).toContainText("Comercial");
+  await page.keyboard.press("Control+k");await search.fill("DRE");
+  await expect(palette.getByRole("button")).toHaveCount(0);await page.keyboard.press("Escape");
+  expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
+});
+
+test("todos os módulos ficam acessíveis e locações sai do Financeiro",async({page},testInfo)=>{
+  const app=await enter(page,"admin");
+  const modules=["Visão gerencial","Financeiro","Obras e projetos","Compras e suprimentos","Equipamentos e locações","Pessoas e terceiros","Comercial","Administração"];
+  if(page.viewportSize().width<1100){
+    await expect(page.locator(".mobile-primary-nav")).toBeVisible();
+    for(const label of modules){
+      const direct=page.getByRole("button",{name:`Abrir ${label}`,exact:true});
+      if(await direct.count())await direct.click();
+      else{
+        await page.getByRole("button",{name:"Abrir mais módulos",exact:true}).click();
+        await page.getByRole("dialog").getByRole("button",{name:label,exact:true}).click();
+      }
+      await expect(page.locator(".app-breadcrumb")).toContainText(label);
+      await expect(page.getByRole("button",{name:`Abrir ${label}`,exact:true})).toHaveAttribute("aria-current","page");
+    }
+    expect(await page.locator(".mobile-primary-nav > button").count()).toBeLessThanOrEqual(5);
+  }else{
+    const headers=page.locator(".arcd-sidebar .nav-grp-hd");
+    await expect(headers).toHaveCount(8);
+    const finance=headers.filter({hasText:/^Financeiro/});await finance.click();
+    const body=finance.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
+    await expect(body.getByRole("button",{name:"Locação de equipamentos",exact:true})).toHaveCount(0);
+    await expect(body.getByRole("button",{name:"DRE empresa",exact:true})).toHaveCount(0);
+  }
+  await page.screenshot({path:`C:/tmp/erp-${testInfo.project.name}.png`});
+  expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
+});

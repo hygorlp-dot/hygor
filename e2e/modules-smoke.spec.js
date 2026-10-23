@@ -9,19 +9,17 @@ const PROFILE = {
 };
 
 const groups = [
-  ["Administração", ["Central do administrador"]],
-  ["Painel", ["Dashboard", "Modo TV", "Comunicação", "Minhas aprovações"]],
-  ["Engenharia", ["Obras", "Marcos e Curva A"]],
+  ["Visão gerencial", ["Dashboard", "DRE empresa", "DRE obras", "Relatórios", "Modo TV", "Comunicação", "Minhas aprovações"]],
+  ["Financeiro", ["Gestão financeira", "Medições", "Caixa da obra", "Conciliação"]],
+  ["Obras e projetos", ["Obras", "Orçamento", "Planejamento", "Marcos e Curva A", "Diario de obra", "Medicao", "Conferência", "Licenciamento"]],
   // "Cotações" era "Suprimentos" até a desambiguação de 25/08/2026 (a51568c).
-  ["Compras", ["Compras", "Fornecedores", "Cotações", "Estoque"]],
-  ["Financeiro", ["DRE empresa", "DRE obras", "Gestão financeira", "Conciliação",
-    "Locação de equipamentos", "Medições", "Caixa da obra", "Relatórios"]],
-  ["Recursos humanos", ["Equipes", "Ponto por obra", "Gestão do ponto", "Ponto eletrônico (app)",
+  ["Compras e suprimentos", ["Compras", "Fornecedores", "Cotações", "Estoque"]],
+  ["Equipamentos e locações", ["Locação de equipamentos", "Equipamentos"]],
+  ["Pessoas e terceiros", ["Equipes", "Ponto por obra", "Gestão do ponto", "Ponto eletrônico (app)",
     "Terceirizados", "Folha", "Rescisão", "Indicadores"]],
   ["Comercial", ["Comercial da empresa", "Venda de imóveis", "Pipeline", "Relacionamentos",
     "Propostas e contratos", "Gestão comercial"]],
-  ["IA", ["IA", "Configurar Gemini"]],
-  ["Ajustes", ["Cadastros", "Ajustes", "Telas antigas"]],
+  ["Administração", ["Central do administrador", "Cadastros", "Ajustes", "IA", "Configurar Gemini", "Telas antigas"]],
 ];
 
 const escaped = value => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

@@ -5055,10 +5055,10 @@ canvas {
   }
 
   .arcd-mobile-nav .mobile-primary-nav {
-    display: flex !important;
-    grid-template-columns: none !important;
+    display: grid !important;
+    grid-template-columns: repeat(var(--arcd-mobile-primary-count, 5), minmax(0, 1fr)) !important;
     gap: 2px;
-    overflow-x: auto;
+    overflow-x: hidden;
     padding: 4px 7px 6px !important;
     scroll-padding-inline: 7px;
     scroll-snap-type: x proximity;
@@ -5071,8 +5071,7 @@ canvas {
   }
 
   .arcd-mobile-nav .mobile-primary-nav > button {
-    flex: 0 0 78px !important;
-    min-width: 78px;
+    min-width: 0;
     min-height: 52px;
     padding: 5px 3px 3px !important;
     scroll-snap-align: start;

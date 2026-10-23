@@ -71,7 +71,7 @@ async function entrar(page) {
 
 async function abrirObra(page) {
   const sidebar = page.locator(".arcd-sidebar");
-  const grupo = sidebar.locator(".nav-grp-hd").filter({ hasText:/^Engenharia/ });
+  const grupo = sidebar.locator(".nav-grp-hd").filter({ hasText:/^Obras e projetos/ });
   const corpo = grupo.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
   if (!await corpo.isVisible()) await grupo.click();
   await corpo.locator(".nav-item").filter({ hasText:/^Obras$/ }).click();

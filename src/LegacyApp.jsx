@@ -1,5 +1,6 @@
 import { Children, lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import DreReconciliationManager from "./features/financeiro/DreReconciliationManager.jsx";
+import { activeErpModule, moduleForTab, visibleErpModules } from "./navigation/erp-navigation.js";
 import AnnualDre from "./features/financeiro/AnnualDre.jsx";
 // Planilhas são um recurso pesado e opcional. O pacote só entra na memória
 // quando o usuário realmente importa ou exporta um arquivo.
@@ -16738,7 +16739,7 @@ function IconeChat({ size = 26 }) {
 
 // Destaca "@Nome" dentro do texto da mensagem para quem já foi resolvido como
 // menção real (não qualquer "@" digitado à toa).
-function ChatFlutuante({ currentUser, usuarios, showToast }) {
+function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
   const [aberto, setAberto] = useState(false);
   const [gestaoAberta, setGestaoAberta] = useState(false);
   const [mensagens, setMensagens] = useState([]);
@@ -16885,7 +16886,7 @@ function ChatFlutuante({ currentUser, usuarios, showToast }) {
   if (!currentUser) return null;
 
   return (
-    <div className="no-print arcd-team-chat" style={{ position: "fixed", right: 20, bottom: 20, zIndex: 1300, display: "flex", flexDirection: "column", alignItems: "flex-end", fontFamily: "'Inter','Inter Display',sans-serif" }}>
+    <div className="no-print arcd-team-chat" style={{ position: "fixed", right: 20, bottom: bottomOffset, zIndex: 1300, display: "flex", flexDirection: "column", alignItems: "flex-end", fontFamily: "'Inter','Inter Display',sans-serif" }}>
       {aberto && (
         <div style={{
           width: "min(360px, calc(100vw - 32px))", height: "min(520px, calc(100vh - 120px))",
@@ -17069,115 +17070,74 @@ function ChatFlutuante({ currentUser, usuarios, showToast }) {
 // NAVEGAÇÃO - grupos e sub-tabs
 //
 
-// Menu organizado pelos SETORES da empresa: Engenharia, Compras, Financeiro,
-// Comercial e RH têm grupos próprios. Ajustes e
-// Obsoletos ficam separados dos setores operacionais.
-const NAV_GROUPS = [
-  {
-    id: "admin_grp", label: "Administração", icon: "shield", color: C.yellow,
-    tabs: ["admin_central"],
-  },
-  {
-    id: "painel", label: "Painel", icon: "home", color: C.yellow,
-    tabs: ["home", "tv", "chat", "aprov_pend"],
-  },
-  {
-    id: "eng_grp", label: "Engenharia", icon: "building", color: C.blue,
-    // O fluxo da Engenharia parte da obra. Os módulos operacionais aparecem
-    // na barra superior da obra aberta, evitando uma lista lateral duplicada.
-    tabs: ["obras","plan_suprimentos"],
-  },
-  {
-    id: "compras_grp", label: "Compras", icon: "cart", color: C.orange,
-    tabs: ["cmp", "fornecedores", "suprimentos", "est"],
-  },
-  {
-    id: "fin_grp", label: "Financeiro", icon: "dollar", color: C.purple,
-    tabs: ["dre_emp", "dre", "fin", "conc", "equip_fin", "medicoes", "caixa", "relat"],
-  },
-  {
-    id: "rh_grp", label: "Recursos humanos", icon: "users", color: "#0F766E",
-    tabs: ["equipe", "ponto", "ponto_geral", "ponto_app", "terc", "folha", "resc", "rh_indic"],
-  },
-  {
-    id: "com_grp", label: "Comercial", icon: "users", color: C.green,
-    tabs: ["com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management"],
-  },
-  {
-    id: "ia_grp", label: "IA", icon: "ia", color: C.orange,
-    tabs: ["ia", "ia_config"],
-  },
-  {
-    id: "cfg_grp", label: "Ajustes", icon: "settings", color: C.muted,
-    tabs: ["cad", "config", "obsoletos"],
-  },
-];
-
-const TAB_META = {
-  admin_central:{ label:"Central do administrador", icon:"shield", group:"admin_grp" },
-  aprov_pend:{ label:"Minhas aprovações", icon:"check", group:"painel" },
-  home:   { label: "Dashboard",  icon: "home",     group: "painel"   },
-  tv:     { label: "Modo TV",    icon: "eye",      group: "painel"   },
-  chat:   { label: "Comunicação",icon: "mail",     group: "painel"   },
-  obras:  { label: "Obras",      icon: "building", group: "eng_grp"},
-  orc:    { label: "Orçamento",  icon: "fileText", group: "eng_grp"},
-  com_dash:{label:"Dashboard",icon:"chart",group:"com_grp"},
-  com_workspace:{label:"Comercial da empresa",icon:"clipboard",group:"com_grp"},
-  com_real_estate:{label:"Venda de imóveis",icon:"building",group:"com_grp"},
-  com_pipeline:{label:"Pipeline",icon:"funnel",group:"com_grp"},
-  com_relationships:{label:"Relacionamentos",icon:"users",group:"com_grp"},
-  com_deals:{label:"Propostas e contratos",icon:"fileText",group:"com_grp"},
-  com_management:{label:"Gestão comercial",icon:"chart",group:"com_grp"},
-  com_indicacoes:{label:"Indicações",icon:"users",group:"com_grp"},
-  com_leads:{label:"Leads",icon:"user",group:"com_grp"},
-  com_funil:{label:"Funil",icon:"funnel",group:"com_grp"},
-  com_jornada:{label:"Jornada",icon:"trending",group:"com_grp"},
-  com_agenda:{label:"Agenda",icon:"calendar",group:"com_grp"},
-  com_reunioes:{label:"Reuniões",icon:"users",group:"com_grp"},
-  com_tarefas:{label:"Tarefas",icon:"clipboard",group:"com_grp"},
-  com_propostas:{label:"Propostas",icon:"fileText",group:"com_grp"},
-  com_negociacoes:{label:"Negociações",icon:"handshake",group:"com_grp"},
-  com_contratos:{label:"Contratos",icon:"file",group:"com_grp"},
-  com_clientes:{label:"Clientes",icon:"users",group:"com_grp"},
-  com_parceiros:{label:"Parceiros",icon:"handshake",group:"com_grp"},
-  com_metas:{label:"Metas e comissões",icon:"target",group:"com_grp"},
-  com_perdas:{label:"Perdas",icon:"alert",group:"com_grp"},
-  com_relatorios:{label:"Relatórios",icon:"trending",group:"com_grp"},
-  plan:   { label: "Planejamento", icon: "calendar", group: "eng_grp"},
-  plan_suprimentos: { label:"Marcos e Curva A", icon:"trending", group:"eng_grp" },
-  rdo:    { label: "Diario de obra", icon: "clipboard", group: "eng_grp"},
-  conferencia: { label: "Conferência", icon: "check", group: "eng_grp"},
-  med:    { label: "Medicao",        icon: "ruler",  group: "eng_grp"},
-  ponto:  { label: "Ponto por obra", icon: "clock", group: "rh_grp"},
-  ponto_geral: { label: "Gestão do ponto", icon: "calendar", group: "rh_grp"},
-  ponto_app: { label: "Ponto eletrônico (app)", icon: "smartphone", group: "rh_grp"},
-  equipe: { label: "Equipes", icon: "users", group: "rh_grp"},
-  terc:   { label: "Terceirizados", icon: "handshake", group: "rh_grp" },
-  folha:  { label: "Folha",      icon: "wallet",   group: "rh_grp"  },
-  resc:   { label: "Rescisão",   icon: "briefcase",group: "rh_grp"  },
-  rh_indic: { label: "Indicadores", icon: "trending", group: "rh_grp" },
-  dre_emp:  { label: "DRE empresa", icon: "chart",  group: "fin_grp" },
-  dre:      { label: "DRE obras",   icon: "building", group: "fin_grp" },
-  fin:      { label: "Gestão financeira", icon: "trending", group: "fin_grp" },
-  conc:     { label: "Conciliação", icon: "receipt", group: "fin_grp" },
-  est:      { label: "Estoque",     icon: "box",    group: "compras_grp" },
-  equip:    { label: "Equipamentos", icon: "wrench", group: "eng_grp" },
-  equip_fin:{ label: "Locação de equipamentos", icon: "wrench", group: "fin_grp" },
-  licenca:  { label: "Licenciamento", icon: "file", group: "eng_grp" },
-  cmp:      { label: "Compras",     icon: "cart",   group: "compras_grp" },
-  fornecedores: { label: "Fornecedores", icon: "handshake", group: "compras_grp" },
-  suprimentos: { label: "Cotações", icon: "trending", group: "compras_grp" },
-  cad:      { label: "Cadastros",   icon: "settings", group: "cfg_grp" },
-  medicoes: { label: "Medições",   icon: "ruler",   group: "fin_grp" },
-  caixa:    { label: "Caixa da obra", icon: "wallet", group: "fin_grp" },
-  relat:    { label: "Relatórios", icon: "trending", group: "fin_grp" },
-  ia:     { label: "IA",         icon: "ia",       group: "ia_grp"  },
-  ia_config: { label: "Configurar Gemini", icon: "settings", group: "ia_grp" },
-  config: { label: "Ajustes",    icon: "settings", group: "cfg_grp" },
-  obsoletos: { label: "Telas antigas", icon: "trash",  group: "cfg_grp" },
+// Os módulos compartilham os mesmos destinos e permissões da aplicação.
+const TAB_META_BASE = {
+  admin_central:{ label:"Central do administrador", icon:"shield" },
+  aprov_pend:{ label:"Minhas aprovações", icon:"check" },
+  home:   { label: "Dashboard",  icon: "home"   },
+  tv:     { label: "Modo TV",    icon: "eye"   },
+  chat:   { label: "Comunicação",icon: "mail"   },
+  obras:  { label: "Obras",      icon: "building"},
+  orc:    { label: "Orçamento",  icon: "fileText"},
+  com_dash:{label:"Dashboard",icon:"chart"},
+  com_workspace:{label:"Comercial da empresa",icon:"clipboard"},
+  com_real_estate:{label:"Venda de imóveis",icon:"building"},
+  com_pipeline:{label:"Pipeline",icon:"funnel"},
+  com_relationships:{label:"Relacionamentos",icon:"users"},
+  com_deals:{label:"Propostas e contratos",icon:"fileText"},
+  com_management:{label:"Gestão comercial",icon:"chart"},
+  com_indicacoes:{label:"Indicações",icon:"users"},
+  com_leads:{label:"Leads",icon:"user"},
+  com_funil:{label:"Funil",icon:"funnel"},
+  com_jornada:{label:"Jornada",icon:"trending"},
+  com_agenda:{label:"Agenda",icon:"calendar"},
+  com_reunioes:{label:"Reuniões",icon:"users"},
+  com_tarefas:{label:"Tarefas",icon:"clipboard"},
+  com_propostas:{label:"Propostas",icon:"fileText"},
+  com_negociacoes:{label:"Negociações",icon:"handshake"},
+  com_contratos:{label:"Contratos",icon:"file"},
+  com_clientes:{label:"Clientes",icon:"users"},
+  com_parceiros:{label:"Parceiros",icon:"handshake"},
+  com_metas:{label:"Metas e comissões",icon:"target"},
+  com_perdas:{label:"Perdas",icon:"alert"},
+  com_relatorios:{label:"Relatórios",icon:"trending"},
+  plan:   { label: "Planejamento", icon: "calendar"},
+  plan_suprimentos: { label:"Marcos e Curva A", icon:"trending" },
+  rdo:    { label: "Diario de obra", icon: "clipboard"},
+  conferencia: { label: "Conferência", icon: "check"},
+  med:    { label: "Medicao",        icon: "ruler"},
+  ponto:  { label: "Ponto por obra", icon: "clock"},
+  ponto_geral: { label: "Gestão do ponto", icon: "calendar"},
+  ponto_app: { label: "Ponto eletrônico (app)", icon: "smartphone"},
+  equipe: { label: "Equipes", icon: "users"},
+  terc:   { label: "Terceirizados", icon: "handshake" },
+  folha:  { label: "Folha",      icon: "wallet"  },
+  resc:   { label: "Rescisão",   icon: "briefcase"  },
+  rh_indic: { label: "Indicadores", icon: "trending" },
+  dre_emp:  { label: "DRE empresa", icon: "chart" },
+  dre:      { label: "DRE obras",   icon: "building" },
+  fin:      { label: "Gestão financeira", icon: "trending" },
+  conc:     { label: "Conciliação", icon: "receipt" },
+  est:      { label: "Estoque",     icon: "box" },
+  equip:    { label: "Equipamentos", icon: "wrench" },
+  equip_fin:{ label: "Locação de equipamentos", icon: "wrench" },
+  licenca:  { label: "Licenciamento", icon: "file" },
+  cmp:      { label: "Compras",     icon: "cart" },
+  fornecedores: { label: "Fornecedores", icon: "handshake" },
+  suprimentos: { label: "Cotações", icon: "trending" },
+  cad:      { label: "Cadastros",   icon: "settings" },
+  medicoes: { label: "Medições",   icon: "ruler" },
+  caixa:    { label: "Caixa da obra", icon: "wallet" },
+  relat:    { label: "Relatórios", icon: "trending" },
+  ia:     { label: "IA",         icon: "ia"  },
+  ia_config: { label: "Configurar Gemini", icon: "settings" },
+  config: { label: "Ajustes",    icon: "settings" },
+  obsoletos: { label: "Telas antigas", icon: "trash" },
 };
 
 // 
+const TAB_META = Object.fromEntries(Object.entries(TAB_META_BASE).map(([id,meta])=>[id,{...meta,group:moduleForTab(id)?.id}]));
+
 // App principal
 // 
 
@@ -17782,17 +17742,16 @@ export default function App() {
   useEffect(()=>{if(currentUser&&!allowedTabs.includes(tab))setTab(allowedTabs[0]||"home");},[currentUser?.id,allowedTabsKey,tab]);
 
   // Filtra grupos para mostrar apenas os que o usuário pode acessar
-  const visibleGroups = NAV_GROUPS.map(g => ({
-    ...g,
-    tabs: g.tabs.filter(t => allowedTabs.includes(t)),
-  })).filter(g => g.tabs.length > 0);
-
-  const activeGroup  = visibleGroups.find(g => g.tabs.includes(tab)) || visibleGroups[0];
+  const visibleGroups = visibleErpModules(allowedTabs,C);
+  const activeGroup = activeErpModule(visibleGroups,tab);
 
   // Grupos abertos na sidebar. Só o grupo da aba atual começa aberto - a barra
   // abre no que importa e deixa o resto recolhido, em vez de despejar 20 abas.
   const [gruposAbertos, setGruposAbertos] = useState(() =>
     activeGroup ? { [activeGroup.id]: true } : {});
+  useEffect(()=>{
+    if(activeGroup?.id)setGruposAbertos(previous=>previous[activeGroup.id]?previous:{...previous,[activeGroup.id]:true});
+  },[activeGroup?.id]);
   const [sidebarCompacta, setSidebarCompacta] = useState(() => {
     try { return window.localStorage.getItem("arcd-sidebar-compacta") === "1"; }
     catch { return false; }
@@ -17805,7 +17764,7 @@ export default function App() {
 
   // Navegar para uma aba mantém o grupo dela aberto (você acabou de ir pra lá).
   const abrirGrupoDaAba = useCallback((tabId) => {
-    const g = NAV_GROUPS.find(x => x.tabs.includes(tabId));
+    const g = moduleForTab(tabId);
     if (g) setGruposAbertos(prev => ({ ...prev, [g.id]: true }));
   }, []);
 
@@ -17814,7 +17773,7 @@ export default function App() {
   const irPara = useCallback((tabId, obraId="") => {
     setObraAberta(obraId || "");
     setTab(tabId);
-    const g = NAV_GROUPS.find(x => x.tabs.includes(tabId));
+    const g = moduleForTab(tabId);
     if (g) setGruposAbertos(prev => ({ ...prev, [g.id]: true }));
     setBuscaAberta(false);
   }, []);
@@ -17924,14 +17883,14 @@ export default function App() {
 
   // Badges por grupo
   const groupBadge = {
-    obras_grp: pontoPending ? "!" : null,
-    rh_grp:    null,
+    eng_grp: null,
+    rh_grp: (allowedTabs.includes("ponto")&&pontoPending)||(allowedTabs.includes("terc")&&tercPending) ? "!" : null,
     fin_grp:   null,
     compras_grp: compraPending ? "!" : null,
     com_grp: comercialPending ? "!" : null,
-    ia_grp:    tercPending ? "!" : null,
+    equip_grp: null,
     painel:    aprovacaoPendente ? "!" : null,
-    cfg_grp:   null,
+    admin_grp: null,
   };
 
   // Pendência na aba exata que a causa - o ponto e os terceirizados.
@@ -18154,7 +18113,7 @@ export default function App() {
               {visibleGroups.map(group => {
                 const aberto = !!gruposAbertos[group.id];
                 const badge = groupBadge[group.id];
-                const contémAtiva = group.tabs.includes(tab);
+                const contémAtiva = activeGroup?.id===group.id;
 
                 if (sidebarCompacta) return (
                   <button
@@ -18196,6 +18155,7 @@ export default function App() {
                         vista onde está, mesmo com o grupo recolhido. */}
                     <button
                       className="nav-grp-hd"
+                      title={group.description}
                       data-open={aberto || contémAtiva}
                       onClick={() => toggleGrupo(group.id)}
                       aria-expanded={aberto}
@@ -18330,7 +18290,7 @@ export default function App() {
                 </span>
                 {hasSubTabs && (
                   <>
-                    <span style={{ fontSize:11, color:C.muted }}></span>
+                    <span aria-hidden="true" style={{ fontSize:11, color:C.muted }}>›</span>
                     <span style={{ fontSize:11, color:C.muted, fontWeight:600 }}>
                       {TAB_META[tab]?.label}
                     </span>
@@ -18573,7 +18533,7 @@ export default function App() {
         <BuscaGlobal indice={indiceBusca} allowedTabs={allowedTabs} onIr={irPara} onFechar={()=>setBuscaAberta(false)}/>
       )}
       {currentUser && tab!=="tv" && (
-        <ChatFlutuante currentUser={currentUser} usuarios={data?.usuarios||[]} showToast={showToast}/>
+        <ChatFlutuante currentUser={currentUser} usuarios={data?.usuarios||[]} showToast={showToast} bottomOffset={isDesktop||tab==="conferencia"?20:`calc(${navHeight+12}px + env(safe-area-inset-bottom))`}/>
       )}
     </>
   );

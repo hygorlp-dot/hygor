@@ -28,11 +28,12 @@ async function enter(page,{failFirst=false}={}){
   await page.goto("/");await page.locator("#login-email").fill(profile.email);await page.locator("#login-senha").fill("senha-isolada");
   await page.getByRole("button",{name:"Acessar central ARCD"}).click();
   if(page.viewportSize().width<1100){
-    await page.getByRole("button",{name:"Abrir Financeiro",exact:true}).click();
+    await page.getByRole("button",{name:"Abrir Visão gerencial",exact:true}).click();
     await page.locator(".mobile-subnav").getByRole("button",{name:"DRE obras",exact:true}).click();
   }else{
-    const sidebar=page.locator(".arcd-sidebar"),group=sidebar.locator(".nav-grp-hd").filter({hasText:/^Financeiro/});
+    const sidebar=page.locator(".arcd-sidebar"),group=sidebar.locator(".nav-grp-hd").filter({hasText:/^Visão gerencial/});
     const body=group.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
+    await expect(group).toBeVisible();
     if(!await body.isVisible())await group.click();
     await body.locator(".nav-item").filter({hasText:/^DRE obras$/}).click();
   }
