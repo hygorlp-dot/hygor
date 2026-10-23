@@ -178,13 +178,13 @@ export default function NucleoRelacionalAdmin({ currentUser }) {
               return (
                 <div key={secao} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 9, padding: 11 }}>
                   <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: C.muted, textTransform: "uppercase", letterSpacing: 0.3 }}>{dominio.rotuloSecao[secao]}</p>
-                  <p style={{ fontSize: 21, fontWeight:600, color: C.text, marginTop: 4 }}>{relatorio.liveCounts?.[secao] ?? 0}</p>
+                  <p style={{ fontSize: "var(--arcd-type-section-title)", fontWeight:600, color: C.text, marginTop: 4 }}>{relatorio.liveCounts?.[secao] ?? 0}</p>
                   <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 2 }}>linha(s) ativa(s)</p>
                   {!!amostra.length && (
                     <>
                       <button
                         onClick={() => setSecaoAberta(aberta ? "" : secao)}
-                        style={{ marginTop: 8, background: "none", border: "none", padding: 0, fontSize:"var(--arcd-type-caption)", color: C.blue, fontWeight:600, cursor: "pointer" }}
+                        style={{ marginTop: 8, background: "none", border: "none", padding: 0, fontSize:"var(--arcd-type-control)", color: C.blue, fontWeight:600, cursor: "pointer" }}
                       >
                         {aberta ? "Ocultar amostra" : `Ver amostra (${amostra.length})`}
                       </button>

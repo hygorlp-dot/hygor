@@ -380,7 +380,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
 
   if (!obras.length) {
     return <div style={{ padding: 24, textAlign: "center" }}>
-      <p style={{ fontSize: 13, color: C.muted }}>Cadastre uma obra para abrir o diario.</p>
+      <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>Cadastre uma obra para abrir o diario.</p>
     </div>;
   }
 
@@ -402,8 +402,8 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       </div>
       <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:9}}>
         {rdosFiltrados.map(item=>{const obra=obraPorIdRdo.get(item.obraId);const statusLabel=item.status==="concluido"?"Concluído":item.status==="cancelado"?"Cancelado":"Em preparação";const statusColor=item.status==="concluido"?C.green:item.status==="cancelado"?C.red:C.orange;return <article key={item.id} className="rdo-history-card" data-status={item.status||"preparacao"}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:7}}><div><b style={{fontSize:14,color:C.text}}>RDO-{String(item.codigo||0).padStart(3,"0")} · {fmtDate(item.data)}</b><p style={{fontSize:12,color:C.muted,marginTop:2}}>{obra?.name||"Obra removida"}</p></div><Badge color={statusColor}>{statusLabel}</Badge></div>
-          <p className="brk" style={{fontSize:13,color:C.subtle,marginTop:7,minHeight:28,lineHeight:1.5}}>{[item.descricao,item.ocorrencias,item.pendencias].filter(Boolean).join(" · ")||item.responsavel||"Sem descrição informada."}</p>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:7}}><div><b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>RDO-{String(item.codigo||0).padStart(3,"0")} · {fmtDate(item.data)}</b><p style={{fontSize:"var(--arcd-type-body)",color:C.muted,marginTop:2}}>{obra?.name||"Obra removida"}</p></div><Badge color={statusColor}>{statusLabel}</Badge></div>
+          <p className="brk" style={{fontSize:"var(--arcd-type-body)",color:C.subtle,marginTop:7,minHeight:28,lineHeight:1.5}}>{[item.descricao,item.ocorrencias,item.pendencias].filter(Boolean).join(" · ")||item.responsavel||"Sem descrição informada."}</p>
           {item.status==="cancelado"&&<p className="rdo-cancel-reason"><b>Motivo do cancelamento:</b> {item.motivoCancelamento||"Não informado"}</p>}
           {(item.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4,marginTop:8}}>{item.fotos.slice(0,4).map((foto,i)=><button key={foto.url} onClick={()=>setFotoPreviewRdo({foto,item,index:i})} title="Ver foto" style={{position:"relative",padding:0,border:`1px solid ${C.border}`,borderRadius:5,overflow:"hidden",height:58,cursor:"pointer",background:C.surface}}><img src={foto.url} alt={foto.legenda||`Foto ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>{i===3&&item.fotos.length>4&&<span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.55)",color:"#fff",fontWeight:600}}>+{item.fotos.length-4}</span>}</button>)}</div>}
           <p style={{fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:600,marginTop:7}}>{(item.fotos||[]).length} foto(s) · {(item.anexos||[]).length} documento(s)</p>
@@ -411,7 +411,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
         </article>})}
         {!rdosFiltrados.length&&<div className="rdo-empty"><strong>Nenhum diário encontrado</strong><p>Ajuste os filtros ou limpe a pesquisa para ver outros registros.</p><Btn v="ghost" onClick={()=>{setInicioRdo("");setFimRdo("");setFiltroObraRdo("all");setFiltroStatusRdo("all");setFiltroClimaRdo("all");setBuscaRdo("");}}>Limpar filtros</Btn></div>}
       </div>
-      {fotoPreviewRdo&&<Modal title={`RDO-${String(fotoPreviewRdo.item.codigo||0).padStart(3,"0")} · Foto ${fotoPreviewRdo.index+1}`} onClose={()=>setFotoPreviewRdo(null)} wide><img src={fotoPreviewRdo.foto.url} alt={fotoPreviewRdo.foto.legenda||"Foto do diário"} style={{display:"block",width:"100%",maxHeight:"70vh",objectFit:"contain",background:"#111",borderRadius:7}}/>{fotoPreviewRdo.foto.legenda&&<p style={{fontSize:12,color:C.text,marginTop:8}}>{fotoPreviewRdo.foto.legenda}</p>}<Btn full v="ghost" onClick={()=>setFotoPreviewRdo(null)} style={{marginTop:10}}>Fechar</Btn></Modal>}
+      {fotoPreviewRdo&&<Modal title={`RDO-${String(fotoPreviewRdo.item.codigo||0).padStart(3,"0")} · Foto ${fotoPreviewRdo.index+1}`} onClose={()=>setFotoPreviewRdo(null)} wide><img src={fotoPreviewRdo.foto.url} alt={fotoPreviewRdo.foto.legenda||"Foto do diário"} style={{display:"block",width:"100%",maxHeight:"70vh",objectFit:"contain",background:"#111",borderRadius:7}}/>{fotoPreviewRdo.foto.legenda&&<p style={{fontSize:"var(--arcd-type-body)",color:C.text,marginTop:8}}>{fotoPreviewRdo.foto.legenda}</p>}<Btn full v="ghost" onClick={()=>setFotoPreviewRdo(null)} style={{marginTop:10}}>Fechar</Btn></Modal>}
     </div>;
   }
 
@@ -419,7 +419,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-        <button onClick={voltarHistoricoRdo} style={{border:0,background:"transparent",padding:0,color:C.blue,fontSize:13,fontWeight:600,cursor:"pointer"}}>← Histórico dos diários</button>
+        <button onClick={voltarHistoricoRdo} style={{border:0,background:"transparent",padding:0,color:C.blue,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>← Histórico dos diários</button>
         <div style={{display:"flex",gap:5}}>
           {rdo.id&&!somenteLeituraRdo&&<Btn size="sm" v="danger" onClick={async()=>{if(await excluirRdo(rdo))setModoRdo("lista");}}><Ic n="x"/> Cancelar RDO</Btn>}
           {rdo.id&&<Btn size="sm" v="ghost" onClick={()=>imprimirRdo(rdo)}><Ic n="fileText"/> PDF</Btn>}
@@ -473,7 +473,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       <Bloco id="rdo-etapa-clima" titulo="Clima do dia · obrigatório" acao={<select aria-label="Aplicar o mesmo clima aos três períodos" defaultValue="" onChange={e=>{if(e.target.value){aplicarClimaTodos(e.target.value);e.target.value="";}}} className="rdo-apply-all"><option value="">Aplicar a todos...</option>{CLIMA_OPC.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>}>
         <div style={{marginBottom:9,padding:"8px 10px",borderRadius:6,background:C.surface,border:`1px solid ${C.border}`}}>
           <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Responsável pelo registro · automático</p>
-          <p style={{fontSize:12,fontWeight:600,color:C.text,marginTop:2}}>{rdo.responsavel||responsavelAutomatico?.nome||"Nenhum usuário identificado"}</p>
+          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:2}}>{rdo.responsavel||responsavelAutomatico?.nome||"Nenhum usuário identificado"}</p>
           {currentUser?.nome&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Lançado por {rdo.registradoPor||currentUser.nome}</p>}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
@@ -483,7 +483,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
               <select id={`rdo-clima-${p}`} value={rdo.clima[p]||""} onChange={e => setClima(p, e.target.value)}
                       style={{ width: "100%", padding: "7px 6px", borderRadius: 7,
                                border: `1px solid ${C.border}`, background: C.card,
-                               color: C.text, fontSize: 12 }}>
+                               color: C.text, fontSize: "var(--arcd-type-control)" }}>
                 <option value="">Não informado</option>
                 {CLIMA_OPC.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
               </select>
@@ -496,7 +496,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       <Bloco id="rdo-etapa-execucao" titulo="Serviços executados · obrigatório"
              acao={<Btn v="ghost" size="sm" onClick={() => setServicoModal({ novo: true })}>+ Serviço</Btn>}>
         {(rdo.servicos || []).length === 0 ? (
-          <p style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted, lineHeight: 1.5 }}>
             Indique quais servicos foram executados hoje. O progresso lancado aqui
             alimenta a medicao de evolucao da obra automaticamente.
           </p>
@@ -507,10 +507,10 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
               <button type="button" key={s.tarefaId} onClick={() => setServicoModal({ servico: s })} className="rdo-service-row"
                    style={{ padding: "9px 0", borderTop: `1px solid ${C.line}`, cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                  <span className="brk" style={{ fontSize: 12.5, fontWeight:600, color: C.text }}>
+                  <span className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>
                     {tarefa?.nome || s.descricao || "Servico"}
                   </span>
-                  <span style={{ fontSize: 12.5, fontWeight:600, color: C.blue, flexShrink: 0 }}>{s.progressoAte}%</span>
+                  <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.blue, flexShrink: 0 }}>{s.progressoAte}%</span>
                 </div>
                 <div style={{ marginTop: 5, height: 5, background: C.line, borderRadius: 99, overflow: "hidden" }}>
                   <div style={{ height: "100%", width: `${s.progressoAte}%`, background: C.blue, borderRadius: 99 }} />
@@ -539,7 +539,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
         <p className="rdo-help">Escolha um estado explícito para cada pessoa. O registro alimenta o ponto sem sair do diário.</p>
         {empregadosObra.length>8&&<input className="rdo-list-search" value={buscaEquipeRdo} onChange={e=>setBuscaEquipeRdo(e.target.value)} placeholder="Pesquisar funcionário..." aria-label="Pesquisar funcionário no efetivo"/>}
         {empregadosObra.length === 0 ? (
-          <p style={{ fontSize: 12, color: C.muted }}>Nenhum funcionario lotado nesta obra.</p>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>Nenhum funcionario lotado nesta obra.</p>
         ) : (
           <div className="rdo-attendance-list">
             {empregadosObra.filter(emp=>!buscaEquipeRdo||emp.name.toLocaleLowerCase("pt-BR").includes(buscaEquipeRdo.toLocaleLowerCase("pt-BR"))).map(emp => {
@@ -561,7 +561,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
           Escolha o estado de cada contrato e, quando houver trabalho, selecione a etapa executada.
         </p>
         {terceirizadosObra.length === 0 ? (
-          <p style={{ fontSize: 12, color: C.muted }}>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>
             Nenhum terceirizado ativo nesta obra. Cadastre em Terceirizados.
           </p>
         ) : (
@@ -579,7 +579,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
                   {(st === "presente" || st === "meio") && (terc.etapas || []).length > 0 && (
                     <select value={etapaSel} onChange={e => setEtapaTerc(terc.id, e.target.value)}
                       style={{ width: "100%", marginTop: 7, padding: "6px 8px", borderRadius: 7,
-                               border: `1px solid ${C.border}`, background: C.card, color: C.text, fontSize:"var(--arcd-type-label)" }}>
+                               border: `1px solid ${C.border}`, background: C.card, color: C.text, fontSize:"var(--arcd-type-control)" }}>
                       <option value="">Etapa do contrato (opcional)...</option>
                       {terc.etapas.map(et => <option key={et.id} value={et.id}>{et.nome}</option>)}
                     </select>
@@ -601,7 +601,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
         </p>
         {equipamentosDaObra.length>8&&<input className="rdo-list-search" value={buscaEquipRdo} onChange={e=>setBuscaEquipRdo(e.target.value)} placeholder="Pesquisar equipamento..." aria-label="Pesquisar equipamento"/>}
         {equipamentosDaObra.length === 0 ? (
-          <p style={{ fontSize: 12, color: C.muted }}>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>
             Nenhum equipamento cadastrado. Cadastre em Equipamentos.
           </p>
         ) : (
@@ -615,7 +615,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                     <button onClick={() => toggleEquip(eq.id)} aria-pressed={ativo} aria-label={`${ativo?"Remover":"Adicionar"} ${eq.nome} ${ativo?"do":"ao"} diário`} style={{
                       flex: 1, textAlign: "left", background: "transparent", border: 0, cursor: "pointer", minWidth: 0 }}>
-                      <span style={{ fontSize: 12.5, fontWeight:600, color: ativo ? C.blue : C.text }}>{eq.nome}</span>
+                      <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: ativo ? C.blue : C.text }}>{eq.nome}</span>
                       {eq.categoria && <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginLeft: 6 }}>{eq.categoria}</span>}
                       <span className="rdo-equipment-state">{ativo?"No diário":"Não utilizado"}</span>{!eq.proprietarioId
                         ? <span style={{ fontSize:"var(--arcd-type-caption)", color: C.green, marginLeft: 6, fontWeight:600 }}>PRÓPRIO</span>
@@ -628,7 +628,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
                       <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Horas trabalhadas:</span>
                       <input type="number" value={noRdo.horas || ""} onChange={e => setEquipHoras(eq.id, e.target.value)}
                         placeholder="0" style={{ width: 80, padding: "5px 8px", borderRadius: 6,
-                          border: `1px solid ${C.border}`, background: C.card, color: C.text, fontSize:"var(--arcd-type-label)" }} />
+                          border: `1px solid ${C.border}`, background: C.card, color: C.text, fontSize:"var(--arcd-type-control)" }} />
                     </div>
                   )}
                 </div>
@@ -644,7 +644,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
                   placeholder="Atrasos, impedimentos, visitas, acidentes, decisoes tomadas..."
                   rows={3} style={{ width: "100%", padding: "9px 11px", borderRadius: 6,
                            border: `1px solid ${C.border}`, background: C.card, color: C.text,
-                           fontSize: 12.5, fontFamily: "inherit", resize: "vertical" }} />
+                           fontSize: "var(--arcd-type-control)", fontFamily: "inherit", resize: "vertical" }} />
       </Bloco>
 
       <Bloco titulo="Pendências e providências · opcional">
@@ -671,7 +671,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
               <button onClick={() => removerFoto(f.url)} aria-label={`Remover foto ${f.legenda||"sem legenda"}`} className="rdo-photo-remove">×</button>
               <input value={f.legenda} onChange={e => setLegenda(f.url, e.target.value)} aria-label="Legenda da foto"
                      placeholder="Legenda" style={{ width: "100%", padding: "5px 7px", border: 0,
-                     borderTop: `1px solid ${C.line}`, fontSize:"var(--arcd-type-label)", color: C.text, background: C.surface }} />
+                     borderTop: `1px solid ${C.line}`, fontSize:"var(--arcd-type-control)", color: C.text, background: C.surface }} />
             </div>
           ))}
           {/* Botao de adicionar */}
@@ -694,7 +694,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       </Bloco>
 
       <Bloco id="rdo-etapa-revisao" titulo="Revisão obrigatória do engenheiro">
-        <div style={{padding:"13px 14px",border:`1px solid ${rdo.revisaoEngenheiro?.aprovado?C.green:C.orange}55`,borderRadius:10,background:rdo.revisaoEngenheiro?.aprovado?`${C.green}09`:`${C.orange}09`}}><label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&requisitosAntesRevisaoOk?"pointer":"not-allowed"}}><input type="checkbox" checked={!!rdo.revisaoEngenheiro?.aprovado} disabled={!['engenheiro','engenheiro_auditor'].includes(currentUser?.role)||!requisitosAntesRevisaoOk} onChange={e=>salvarRDO(r=>({...r,revisaoEngenheiro:{...r.revisaoEngenheiro,aprovado:e.target.checked,engenheiroId:e.target.checked?currentUser.id:"",engenheiro:e.target.checked?currentUser.nome:"",revisadoEm:e.target.checked?new Date().toISOString():""},atualizadoEm:new Date().toISOString()}))} style={{width:22,height:22,accentColor:C.green,marginTop:1}}/><span><b style={{fontSize:14,color:C.text}}>Revisei o relato, o clima, os serviços e todas as evidências disponíveis.</b><p style={{fontSize:13,color:C.muted,lineHeight:1.5,marginTop:4}}>Fotos, áudio e reflexão por IA são opcionais. O avanço físico e as pendências permanecem sob responsabilidade técnica do engenheiro.</p></span></label>{!requisitosAntesRevisaoOk&&<p style={{fontSize:13,color:C.orange,fontWeight:600,marginTop:9}}>Complete primeiro: {completionRdo.pending.filter(item=>item.id!=="revisao").map(item=>item.label).join(", ")}.</p>}{rdo.revisaoEngenheiro?.aprovado&&<p style={{fontSize:13,color:C.green,fontWeight:600,marginTop:9}}>Revisado por {rdo.revisaoEngenheiro.engenheiro} em {new Date(rdo.revisaoEngenheiro.revisadoEm).toLocaleString("pt-BR")}</p>}{!["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&<p style={{fontSize:13,color:C.orange,fontWeight:600,marginTop:9}}>Aguardando revisão do engenheiro responsável.</p>}</div>
+        <div style={{padding:"13px 14px",border:`1px solid ${rdo.revisaoEngenheiro?.aprovado?C.green:C.orange}55`,borderRadius:10,background:rdo.revisaoEngenheiro?.aprovado?`${C.green}09`:`${C.orange}09`}}><label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&requisitosAntesRevisaoOk?"pointer":"not-allowed"}}><input type="checkbox" checked={!!rdo.revisaoEngenheiro?.aprovado} disabled={!['engenheiro','engenheiro_auditor'].includes(currentUser?.role)||!requisitosAntesRevisaoOk} onChange={e=>salvarRDO(r=>({...r,revisaoEngenheiro:{...r.revisaoEngenheiro,aprovado:e.target.checked,engenheiroId:e.target.checked?currentUser.id:"",engenheiro:e.target.checked?currentUser.nome:"",revisadoEm:e.target.checked?new Date().toISOString():""},atualizadoEm:new Date().toISOString()}))} style={{width:22,height:22,accentColor:C.green,marginTop:1}}/><span><b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>Revisei o relato, o clima, os serviços e todas as evidências disponíveis.</b><p style={{fontSize:"var(--arcd-type-body)",color:C.muted,lineHeight:1.5,marginTop:4}}>Fotos, áudio e reflexão por IA são opcionais. O avanço físico e as pendências permanecem sob responsabilidade técnica do engenheiro.</p></span></label>{!requisitosAntesRevisaoOk&&<p style={{fontSize:"var(--arcd-type-body)",color:C.orange,fontWeight:600,marginTop:9}}>Complete primeiro: {completionRdo.pending.filter(item=>item.id!=="revisao").map(item=>item.label).join(", ")}.</p>}{rdo.revisaoEngenheiro?.aprovado&&<p style={{fontSize:"var(--arcd-type-body)",color:C.green,fontWeight:600,marginTop:9}}>Revisado por {rdo.revisaoEngenheiro.engenheiro} em {new Date(rdo.revisaoEngenheiro.revisadoEm).toLocaleString("pt-BR")}</p>}{!["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&<p style={{fontSize:"var(--arcd-type-body)",color:C.orange,fontWeight:600,marginTop:9}}>Aguardando revisão do engenheiro responsável.</p>}</div>
       </Bloco>
 
       </fieldset>
@@ -758,8 +758,8 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
         {tarefa && (tarefa.etapaNome || tarefa.custo > 0) && (
           <div style={{ background: `${C.yellow}12`, border: `1px solid ${C.yellow}44`,
                         borderRadius: 6, padding: "8px 11px", display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-            {tarefa.etapaNome && <div><p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, fontWeight:600 }}>ETAPA</p><p style={{ fontSize: 12.5, fontWeight:600, color: C.text }}>{tarefa.etapaNome}</p></div>}
-            {tarefa.custo > 0 && <div style={{ textAlign: "right" }}><p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, fontWeight:600 }}>CUSTO PREVISTO</p><p style={{ fontSize: 14, fontWeight:600, color: C.yellowD }}>{fmt(tarefa.custo)}</p></div>}
+            {tarefa.etapaNome && <div><p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, fontWeight:600 }}>ETAPA</p><p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>{tarefa.etapaNome}</p></div>}
+            {tarefa.custo > 0 && <div style={{ textAlign: "right" }}><p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, fontWeight:600 }}>CUSTO PREVISTO</p><p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.yellowD }}>{fmt(tarefa.custo)}</p></div>}
           </div>
         )}
         <div>
@@ -778,7 +778,7 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
                 const on = equipe.includes(emp.id);
                 return (
                   <button key={emp.id} aria-pressed={on} onClick={() => toggle(equipe, setEquipe, emp.id)} style={{
-                    padding: "6px 9px", borderRadius: 6, cursor: "pointer", fontSize:"var(--arcd-type-label)", fontWeight:600,
+                    padding: "6px 9px", borderRadius: 6, cursor: "pointer", fontSize:"var(--arcd-type-control)", fontWeight:600,
                     border: `1.5px solid ${on ? C.blue : C.border}`, background: on ? `${C.blue}16` : "transparent",
                     color: on ? C.blue : C.muted }}>
                     {presentesIds.has(emp.id) ? "• " : ""}{emp.name}
@@ -799,7 +799,7 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
                 const info = specInfo(terc.specialty);
                 return (
                   <button key={terc.id} aria-pressed={on} onClick={() => toggle(tercIds, setTercIds, terc.id)} style={{
-                    padding: "6px 9px", borderRadius: 6, cursor: "pointer", fontSize:"var(--arcd-type-label)", fontWeight:600,
+                    padding: "6px 9px", borderRadius: 6, cursor: "pointer", fontSize:"var(--arcd-type-control)", fontWeight:600,
                     border: `1.5px solid ${on ? info.color : C.border}`, background: on ? `${info.color}16` : "transparent",
                     color: on ? info.color : C.muted }}>
                     {tercPresentesIds.has(terc.id) ? "• " : ""}{terc.name}
@@ -812,7 +812,7 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
         )}
 
         <Inp label="Observacao (opcional)" value={obs} onChange={setObs} multiline />
-        {erro&&<p role="alert" style={{fontSize:12,color:C.red,fontWeight:600}}>{erro}</p>}
+        {erro&&<p role="alert" style={{fontSize:"var(--arcd-type-body)",color:C.red,fontWeight:600}}>{erro}</p>}
         <div style={{ display: "flex", gap: 8 }}>
           <Btn full onClick={salvar} disabled={!tarefaId}>Salvar</Btn>
           {onRemover && <Btn v="danger" onClick={onRemover} aria-label="Remover serviço executado"><Ic n="trash" /></Btn>}

@@ -73,8 +73,8 @@
 .ro-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--arcd-space-2); }
 .ro-icon-button { display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem; border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-radius-md); background: var(--arcd-surface-card); color: var(--arcd-text-primary); cursor: pointer; }
 .ro-icon-button:hover, .ro-icon-button[aria-expanded="true"] { background: var(--arcd-surface-muted); border-color: var(--arcd-border-strong); }
-.ro-group-row th { background: var(--arcd-surface-muted); color: var(--arcd-text-primary); font-size: var(--arcd-type-body); }
-.ro-group-name { margin-right: var(--arcd-space-4); font-weight: 700; }
+.ro-group-row th { background: var(--arcd-surface-muted); color: var(--arcd-text-primary); font-size: var(--arcd-type-label); }
+.ro-group-name { margin-right: var(--arcd-space-4); font-weight: 600; }
 .ro-group-row .ro-mono { color: var(--arcd-text-secondary); font-weight: 400; }
 .ro-pagination { display: flex; align-items: center; justify-content: flex-end; gap: var(--arcd-space-3); color: var(--arcd-text-secondary); }
 

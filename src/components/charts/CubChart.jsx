@@ -24,8 +24,8 @@ const CUB_PADRAO_ORDEM=["baixo","normal","alto","especial"];
 // carregamento terminou, para não piscar durante a busca normal.
 const CubIndisponivel=()=>(
   <section className="cub-chart" style={{padding:"12px 14px",border:"1px dashed #d5d9db",borderRadius:10,background:"#f8f9f9"}}>
-    <p style={{fontSize:11,fontWeight:800,color:"#5e666b"}}>Índice de custo (CUB-PE) indisponível no momento</p>
-    <p style={{fontSize:10,color:"#7a8287",marginTop:3}}>A fonte oficial (Sinduscon-PE) não respondeu a tempo. Recarregue a página em alguns minutos.</p>
+    <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"#5e666b"}}>Índice de custo (CUB-PE) indisponível no momento</p>
+    <p style={{fontSize:"var(--arcd-type-caption)",color:"#7a8287",marginTop:3}}>A fonte oficial (Sinduscon-PE) não respondeu a tempo. Recarregue a página em alguns minutos.</p>
   </section>
 );
 export default function CubChart({cub,carregando=false}){
@@ -94,20 +94,20 @@ export default function CubChart({cub,carregando=false}){
       legend={tiers.length>1?tiers.map(t=>({label:CUB_PADRAO_LABEL[t],color:CUB_PADRAO_COR[t]})):[]}
       action={<div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"flex-end",flexWrap:"wrap"}}>
         <label style={{display:"flex",flexDirection:"column",gap:3,textAlign:"left"}}>
-          <span style={{fontSize:8,fontWeight:800,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>Tipo de edificação</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>Tipo de edificação</span>
           <select aria-label="Tipo de edificação CUB" value={edificacao.id} onChange={e=>selecionar(e.target.value)}
-            style={{minWidth:205,height:34,padding:"0 28px 0 9px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:10.5,fontWeight:700,cursor:"pointer"}}>
+            style={{minWidth:205,height:34,padding:"0 28px 0 9px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>
             {categorias.map(cat=><optgroup key={cat} label={cat}>{edificacoes.filter(e=>e.categoria===cat).map(e=><option key={e.id} value={e.id}>{e.label} · {e.description}</option>)}</optgroup>)}
           </select>
         </label>
-        {Number.isFinite(destaqueUltimo)&&<span><b style={{fontSize:17,fontWeight:800,color:C.text}}>R$ {destaqueUltimo.toLocaleString("pt-BR",{minimumFractionDigits:2})}</b><small style={{fontSize:9,color:C.muted}}>/m² · {CUB_PADRAO_LABEL[destaqueTier].toLowerCase()}</small></span>}
-        {Number.isFinite(varMesPct)&&<span style={{fontSize:10.5,fontWeight:800,color:varMesPct>=0?C.orange:C.green}}>{varMesPct>=0?"+":""}{varMesPct.toFixed(2)}% no mês</span>}
+        {Number.isFinite(destaqueUltimo)&&<span><b style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text}}>R$ {destaqueUltimo.toLocaleString("pt-BR",{minimumFractionDigits:2})}</b><small style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>/m² · {CUB_PADRAO_LABEL[destaqueTier].toLowerCase()}</small></span>}
+        {Number.isFinite(varMesPct)&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:varMesPct>=0?C.orange:C.green}}>{varMesPct>=0?"+":""}{varMesPct.toFixed(2)}% no mês</span>}
       </div>}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={serie} margin={{top:26,right:10,left:0,bottom:0}}>
           <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
-          <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} interval={1}/>
-          <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={v=>`R$${(v/1000).toFixed(1)}k`} domain={["dataMin-60","dataMax+90"]}/>
+          <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} interval={1}/>
+          <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} tickFormatter={v=>`R$${(v/1000).toFixed(1)}k`} domain={["dataMin-60","dataMax+90"]}/>
           <Tooltip content={<ArcdChartTooltip formatter={v=>`R$ ${v.toLocaleString("pt-BR",{minimumFractionDigits:2})}/m²`}/>}/>
           {tiers.map(t=><Line key={t} type="monotone" dataKey={t} name={CUB_PADRAO_LABEL[t]} stroke={CUB_PADRAO_COR[t]} strokeWidth={t===destaqueTier?2.5:2} dot={false} activeDot={{r:5}} connectNulls>
             {t===destaqueTier&&<LabelList dataKey={t} content={CubPontoRotulo}/>}
@@ -115,7 +115,7 @@ export default function CubChart({cub,carregando=false}){
         </LineChart>
       </ResponsiveContainer>
     </ChartPanel>
-    {Number.isFinite(premiumPct)&&<p style={{fontSize:9.5,color:C.text,padding:"0 4px",fontWeight:600}}>{CUB_PADRAO_LABEL[maior.tier]} está <b style={{color:C.yellowD}}>{premiumPct.toFixed(1)}%</b> acima do {CUB_PADRAO_LABEL[menor.tier].toLowerCase()} nesta competência.</p>}
-    <p style={{fontSize:8.5,color:C.muted,padding:"0 4px"}}>Fonte oficial: relatório mensal de composição CUB/m² do Sinduscon-PE, com mão de obra e encargos sociais sem desoneração. Referência técnica; não substitui o orçamento da obra.</p>
+    {Number.isFinite(premiumPct)&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.text,padding:"0 4px",fontWeight:600}}>{CUB_PADRAO_LABEL[maior.tier]} está <b style={{color:C.yellowD}}>{premiumPct.toFixed(1)}%</b> acima do {CUB_PADRAO_LABEL[menor.tier].toLowerCase()} nesta competência.</p>}
+    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,padding:"0 4px"}}>Fonte oficial: relatório mensal de composição CUB/m² do Sinduscon-PE, com mão de obra e encargos sociais sem desoneração. Referência técnica; não substitui o orçamento da obra.</p>
   </section>;
 }

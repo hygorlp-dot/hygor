@@ -1,6 +1,7 @@
 :root {
   --arcd-font-sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
   --arcd-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --arcd-font-numeric: var(--arcd-font-sans);
 
   --arcd-font-size-xs: 0.75rem;
   --arcd-font-size-sm: 0.875rem;
@@ -27,6 +28,10 @@
   --arcd-type-label: 0.8125rem;
   --arcd-type-caption: 0.75rem;
   --arcd-type-kpi: 1.5rem;
+  --arcd-type-control: var(--arcd-type-body);
+  --arcd-type-control-touch: 1rem;
+  --arcd-type-table: var(--arcd-type-body);
+  --arcd-type-dialog-title: var(--arcd-type-section-title);
   --arcd-icon-size-sm: 0.8125rem;
   --arcd-icon-size-md: 1rem;
   --arcd-icon-size-lg: 1.25rem;
@@ -42,4 +47,5 @@
 .arcd-body-muted { color: var(--arcd-text-secondary); font-size: var(--arcd-type-body); letter-spacing: var(--arcd-letter-spacing-body); line-height: var(--arcd-line-height-normal); }
 .arcd-label { color: var(--arcd-text-primary); font-size: var(--arcd-type-label); font-weight: var(--arcd-font-weight-semibold); letter-spacing: var(--arcd-letter-spacing-label); }
 .arcd-caption { color: var(--arcd-text-muted); font-size: var(--arcd-type-caption); }
+.arcd-main small, .arcd-modal-body small { font-size: var(--arcd-type-caption); line-height: var(--arcd-line-height-normal); }
 .arcd-number { color: var(--arcd-text-primary); font-family: var(--arcd-font-sans); font-variant-numeric: tabular-nums; }

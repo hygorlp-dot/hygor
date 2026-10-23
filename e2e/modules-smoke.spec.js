@@ -368,6 +368,17 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await page.getByRole("button",{name:"Perdas",exact:true}).click();
         await expect(page.getByText("Análise, concorrentes e reativação futura")).toBeVisible();
       }
+      if(["Gestão do ponto","Terceirizados"].includes(item)) {
+        const selector=item==="Gestão do ponto"?".ponto-employee-cell button":".terceiros-kanban-card__actions button";
+        for(const width of [1440,390]) {
+          await page.setViewportSize({width,height:900});
+          const buttons=page.locator(selector);
+          expect(await buttons.count()).toBeGreaterThan(0);
+          const clipped=await buttons.evaluateAll(elements=>elements.filter(e=>e.getClientRects().length&&(e.scrollWidth>e.clientWidth+1||e.scrollHeight>e.clientHeight+1)).map(e=>e.textContent));
+          expect(clipped).toEqual([]);
+        }
+        await page.setViewportSize({width:1440,height:900});
+      }
       if(item==="Terceirizados") {
         if(process.env.ARCD_VISUAL_CAPTURE) {
           await page.screenshot({path:"/tmp/arcd-terceirizados-desktop.png",fullPage:true});

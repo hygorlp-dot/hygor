@@ -343,8 +343,8 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         {/* Acordo interno - campo especial */}
         {form.tipo === "acordo_interno" && (
           <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderLeft:`1px solid ${C.yellow}`,padding:"12px 14px",borderRadius:8,display:"flex",flexDirection:"column",gap:10}}>
-            <p style={{fontSize:12,fontWeight:600,color:C.yellow}}> Acordo Interno - cálculo simplificado</p>
-            <p style={{fontSize:12,color:C.subtle}}>
+            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.yellow}}> Acordo Interno - cálculo simplificado</p>
+            <p style={{fontSize:"var(--arcd-type-body)",color:C.subtle}}>
               Total = Valor fixo mensal x meses ativos (+ fração proporcional de dias).
             </p>
             <Inp
@@ -356,7 +356,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
             />
             {calc && calc.isAcordoInterno && (
               <div style={{background:`${C.yellow}20`,borderRadius:8,padding:"10px 14px"}}>
-                <p style={{fontSize:13,color:C.yellow,fontWeight:600}}>
+                <p style={{fontSize:"var(--arcd-type-body)",color:C.yellow,fontWeight:600}}>
                   {fmt(Number(form.valorFixoAcordo||form.valorMensal||0))} x {calc.mesesAtivos.toFixed(2)} meses = {fmt(calc.totalBruto)}
                 </p>
                 <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,marginTop:3}}>
@@ -369,7 +369,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 
         {form.admissao && form.demissao && calc && (
           <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}33`,padding:"10px 14px",borderRadius:8}}>
-            <p style={{fontSize:12,color:C.yellow,fontWeight:600}}>
+            <p style={{fontSize:"var(--arcd-type-body)",color:C.yellow,fontWeight:600}}>
                {calc.anos > 0 ? `${calc.anos} ano(s), ` : ""}{calc.totalMeses % 12} mês(es) e {calc.diasResto} dia(s) de serviço
                <span style={{color:C.subtle}}>{calc.avos13} avo(s) para 13º e férias</span>
             </p>
@@ -389,10 +389,10 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         ].map(([key, label, def]) => (
           <label key={key} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 10px",background:form[key]?`${C.green}0d`:"transparent",borderRadius:8,border:`1px solid ${form[key]?C.green+"33":C.line}`}}>
             <div onClick={()=>F(key)(!form[key])} style={{width:20,height:20,border:`2px solid ${form[key]?C.green:C.muted}`,background:form[key]?C.green:"transparent",borderRadius:5,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
-              {form[key] && <span style={{color:C.ink,fontSize:13,fontWeight:600,lineHeight:1}}>ok</span>}
+              {form[key] && <span style={{color:C.ink,fontSize:"var(--arcd-type-body)",fontWeight:600,lineHeight:1}}>ok</span>}
             </div>
             <div style={{flex:1}}>
-              <p style={{fontSize:13,fontWeight:600,color:form[key]?C.text:C.muted}}>{label}</p>
+              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:form[key]?C.text:C.muted}}>{label}</p>
               {calc && form[key] && (
                 <p style={{fontSize:"var(--arcd-type-label)",color:C.green,marginTop:1}}>
                   {key==="incluirSaldo"  && `${form.diasNoMes||0} dias x R$ ${Number((Number(form.valorMensal||0)/30)).toFixed(2)} = ${fmt(calc.saldoSalario)}`}
@@ -423,7 +423,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         <div style={{background:`${C.yellow}12`,color:C.text,padding:"18px 20px",borderRadius:12,border:`1px solid ${C.yellow}44`}}>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,letterSpacing:1.2,textTransform:"uppercase",color:C.yellowD}}>Total líquido a receber</p>
           <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"clamp(26px,11vw,48px)",letterSpacing:1,lineHeight:.95,color:C.text}}>{fmt(calc.totalLiquido)}</p>
-          <p style={{fontSize:12,fontWeight:600,marginTop:6,color:C.muted}}>{valorPorExtenso(calc.totalLiquido)}</p>
+          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,marginTop:6,color:C.muted}}>{valorPorExtenso(calc.totalLiquido)}</p>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:14}}>
             {[
               ["Vencimentos",fmt(calc.totalBruto)],
@@ -432,7 +432,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
             ].map(([l,v])=>(
               <div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,padding:"8px 10px",borderRadius:8}}>
                 <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",color:C.muted}}>{l}</p>
-                <p style={{fontWeight:600,fontSize:15,color:C.text}}>{v}</p>
+                <p style={{fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:C.text}}>{v}</p>
               </div>
             ))}
           </div>
@@ -453,7 +453,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       <Btn onClick={salvar} full disabled={!calc||salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Salvar no histórico"}</Btn>
 
       {/* Histórico */}
-      <button onClick={()=>setHistory(h=>!h)} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"10px 14px",cursor:"pointer",borderRadius:8,fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:14,textTransform:"uppercase",letterSpacing:.5,textAlign:"left"}}>
+      <button onClick={()=>setHistory(h=>!h)} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"10px 14px",cursor:"pointer",borderRadius:8,fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-control)",textTransform:"uppercase",letterSpacing:.5,textAlign:"left"}}>
         {history?" Ocultar":" Ver"} histórico de rescisões ({rescisoes.length})
       </button>
 
@@ -467,7 +467,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         <div key={r.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${C.red}`,padding:"12px 16px",borderRadius:10}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
             <div>
-              <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:17}}>{r.empName}</p>
+              <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-card-title)"}}>{r.empName}</p>
               <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
                 {r.empFuncao&&`${r.empFuncao}  `}{r.obraName&&`${r.obraName}  `}
                 {fmtDateFull(r.admissao)} → {fmtDateFull(r.demissao)}
@@ -475,7 +475,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
               <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,marginTop:2}}>{RESCISSION_TYPE_LABEL[r.tipo]||r.tipo}</p>
             </div>
             <div style={{textAlign:"right",flexShrink:0}}>
-              <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:22,color:C.yellow,letterSpacing:.5}}>{fmt(r.totalLiquido)}</p>
+              <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-section-title)",color:C.yellow,letterSpacing:.5}}>{fmt(r.totalLiquido)}</p>
               <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{new Date(r.createdAt).toLocaleDateString("pt-BR")}</p>
             </div>
           </div>

@@ -10,8 +10,8 @@ export default function DreMargemChart({ hist }) {
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={hist}>
           <CartesianGrid stroke={C.line} strokeDasharray="3 5" vertical={false}/>
-          <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}}/>
-          <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:9}} tickFormatter={v=>v.toFixed(0)+"%"}/>
+          <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}}/>
+          <YAxis axisLine={false} tickLine={false} tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} tickFormatter={v=>v.toFixed(0)+"%"}/>
           <Tooltip content={<ArcdChartTooltip formatter={v=>v.toFixed(1)+"%"}/>}/>
           <Line type="monotone" dataKey="margemBruta" name="Margem bruta" stroke={C.yellow} strokeWidth={2.5} dot={{r:3,fill:C.yellow,stroke:C.card,strokeWidth:2}} activeDot={{r:5}} isAnimationActive={false}/>
           <Line type="monotone" dataKey="margemCaixa" name="Margem de caixa" stroke={C.text} strokeWidth={2} dot={{r:3,fill:C.text,stroke:C.card,strokeWidth:2}} strokeDasharray="5 4" isAnimationActive={false}/>

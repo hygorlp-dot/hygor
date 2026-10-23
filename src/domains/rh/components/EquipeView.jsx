@@ -432,17 +432,17 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
             {exp && (
               <div id={detailId} className="team-row__detail">
                 <div className="team-detail-grid">
-                  <p style={{ color: C.subtle, fontSize: 12 }}>CPF: {e.cpf || "-"}</p>
-                  <p style={{ color: C.subtle, fontSize: 12 }}>Telefone: {e.phone || "-"}</p>
-                  <p style={{ color: C.subtle, fontSize: 12 }}>PIX: {e.pixKey || "-"}</p>
-                  <p style={{ color: C.subtle, fontSize: 12 }}>Admissão: {fmtDateFull(e.startDate)}</p>
-                  {e.endDate && <p style={{ color: lifecycle==="desligamento_agendado"?C.orange:C.red, fontSize: 12 }}>Último dia trabalhado: {fmtDateFull(e.endDate)}</p>}
-                  {e.terminationReason&&<p style={{color:C.subtle,fontSize:12}}>Tipo: {e.terminationReason}</p>}
-                  {e.terminationNotes&&<p style={{color:C.subtle,fontSize:12}}>Observações: {e.terminationNotes}</p>}
-                  {e.terminationRegisteredBy&&<p style={{color:C.subtle,fontSize:12}}>Registrado por: {e.terminationRegisteredBy}</p>}
-                  {e.examExpiresAt&&<p style={{color:overdue(e.examExpiresAt,today())?C.red:C.subtle,fontSize:12}}>ASO (exame ocupacional): {fmtDateFull(e.examExpiresAt)}{overdue(e.examExpiresAt,today())?" · vencido":""}</p>}
+                  <p style={{ color: C.subtle, fontSize: "var(--arcd-type-body)" }}>CPF: {e.cpf || "-"}</p>
+                  <p style={{ color: C.subtle, fontSize: "var(--arcd-type-body)" }}>Telefone: {e.phone || "-"}</p>
+                  <p style={{ color: C.subtle, fontSize: "var(--arcd-type-body)" }}>PIX: {e.pixKey || "-"}</p>
+                  <p style={{ color: C.subtle, fontSize: "var(--arcd-type-body)" }}>Admissão: {fmtDateFull(e.startDate)}</p>
+                  {e.endDate && <p style={{ color: lifecycle==="desligamento_agendado"?C.orange:C.red, fontSize: "var(--arcd-type-body)" }}>Último dia trabalhado: {fmtDateFull(e.endDate)}</p>}
+                  {e.terminationReason&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-body)"}}>Tipo: {e.terminationReason}</p>}
+                  {e.terminationNotes&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-body)"}}>Observações: {e.terminationNotes}</p>}
+                  {e.terminationRegisteredBy&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-body)"}}>Registrado por: {e.terminationRegisteredBy}</p>}
+                  {e.examExpiresAt&&<p style={{color:overdue(e.examExpiresAt,today())?C.red:C.subtle,fontSize:"var(--arcd-type-body)"}}>ASO (exame ocupacional): {fmtDateFull(e.examExpiresAt)}{overdue(e.examExpiresAt,today())?" · vencido":""}</p>}
                   {WORKER_TRAINING_TYPES.filter(t=>e.trainings?.[t.key]?.expiresAt).map(t=>(
-                    <p key={t.key} style={{color:overdue(e.trainings[t.key].expiresAt,today())?C.red:C.subtle,fontSize:12}}>{t.label}: {fmtDateFull(e.trainings[t.key].expiresAt)}{overdue(e.trainings[t.key].expiresAt,today())?" · vencido":""}</p>
+                    <p key={t.key} style={{color:overdue(e.trainings[t.key].expiresAt,today())?C.red:C.subtle,fontSize:"var(--arcd-type-body)"}}>{t.label}: {fmtDateFull(e.trainings[t.key].expiresAt)}{overdue(e.trainings[t.key].expiresAt,today())?" · vencido":""}</p>
                   ))}
                 </div>
 
@@ -459,11 +459,11 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                   <p style={{ color: C.yellow, fontFamily:"var(--arcd-font-sans)", fontWeight:600, textTransform: "uppercase" }}>Adiantamentos</p>
                   <Btn v="warning" size="sm" onClick={() => setAdvModal(e.id)}><Ic n="plus" /> Novo</Btn>
                 </div>
-                {advs.length === 0 && <p style={{ color: C.muted, fontSize: 12 }}>Nenhum adiantamento.</p>}
+                {advs.length === 0 && <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Nenhum adiantamento.</p>}
                 {advs.map(a => (
                   <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "7px 0",opacity:advanceActive(a)?1:.55 }}>
                     <div>
-                      <p style={{ fontWeight:600, fontSize: 13 }}>{a.description}</p>
+                      <p style={{ fontWeight:600, fontSize: "var(--arcd-type-body)" }}>{a.description}</p>
                       <p style={{ color: C.muted, fontSize:"var(--arcd-type-label)" }}>{fmtDateFull(a.date)} · {a.installmentCount||1}x {a.frequency==="mensal"?"mensal":"quinzenal"}{!advanceActive(a)?" · cancelado":""}</p>
                       {advanceActive(a)&&(a.installments||[]).length>0&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-label)",marginTop:2}}>{a.installments.map(item=>`${item.number}ª ${fmt(item.amount)} em ${fmtDate(item.dueDate)}`).join(" · ")}</p>}
                     </div>
@@ -543,7 +543,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
         return <Modal title={dismissalModal.status==="desligamento_agendado"?"Corrigir desligamento":"Registrar desligamento"} onClose={()=>setDismissalModal(null)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <div style={{border:`1px solid ${C.red}55`,background:`${C.red}0A`,padding:"11px 12px",borderRadius:8}}>
-              <p style={{fontSize:14,fontWeight:600,color:C.text}}>{dismissalModal.name}</p>
+              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{dismissalModal.name}</p>
               <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>{dismissalModal.role||"Função não informada"} · {dismissalModal.workArea==="administrativo"?"Administrativo":obraName(dismissalModal.obra)}</p>
             </div>
             <Inp label="Último dia trabalhado *" type="date" min={dismissalModal.startDate} value={dismissalForm.endDate} onChange={value=>setDismissalForm(form=>({...form,endDate:value}))}/>

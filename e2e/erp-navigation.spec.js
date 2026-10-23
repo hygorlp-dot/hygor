@@ -27,6 +27,43 @@ test("tema executivo migra a aparência e mantém leitura com ampliação",async
   expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
 });
 
+test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=>{
+  const app=await enter(page,"admin");
+  const touch=page.viewportSize().width<768;
+  async function open(label){
+    await page.keyboard.press("Control+k");
+    const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
+    await search.fill(label);
+    await search.locator("xpath=../..").getByRole("button").filter({hasText:label}).first().click();
+    await expect(page.locator(".arcd-page-loading:visible")).toHaveCount(0);
+  }
+  await open("Compras");
+  await expect(page.locator(".purchase-header h2")).toHaveCSS("font-size","28px");
+  await open("Fornecedores");
+  const supplierFields=page.locator("main input:visible");
+  expect(await supplierFields.count()).toBeGreaterThan(0);
+  for(const field of await supplierFields.all()){
+    await expect(field).toHaveCSS("font-family",/IBM Plex Sans/);
+    await expect(field).toHaveCSS("font-size",touch?"16px":"14px");
+  }
+  await open("Obras");
+  await page.getByRole("button",{name:/Nova obra/}).first().click();
+  const dialog=page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator("h3")).toHaveCSS("font-size","20px");
+  await expect(dialog.locator("h3")).toHaveCSS("font-weight","600");
+  for(const field of await dialog.locator('input:not([type="checkbox"]):not([type="radio"]):visible,select:visible,textarea:visible').all()){
+    await expect(field).toHaveCSS("font-family",/IBM Plex Sans/);
+    await expect(field).toHaveCSS("font-size",touch?"16px":"14px");
+  }
+  await page.keyboard.press("Escape");
+  await open("Folha");
+  await expect(page.locator(".payroll-summary-strip__net small")).toHaveCSS("font-size","12px");
+  await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("font-family",/IBM Plex Sans/);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
+  expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
+});
+
 async function enter(page,role,accessTabs){
   const profile={id:"erp-qa",nome:"Operador QA",role,email:"erp@arcd.test",active:true,...(accessTabs?{accessTabs}:{})};
   let data={usuarios:[profile],obras:[],employees:[],attendance:{},config:{companyName:"ARCD",paymentHolidays:[]},payments:[],notasFiscais:[],pagamentosFolha:[],caixaObra:[],transacoes:[]};

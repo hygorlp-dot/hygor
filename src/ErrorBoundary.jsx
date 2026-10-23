@@ -69,7 +69,7 @@ export default class ErrorBoundary extends Component {
       <div style={{
         minHeight: "100vh", background: "#F5F3EE",
         display: "flex", alignItems: "center", justifyContent: "center",
-        padding: 20, fontFamily: "'Inter',-apple-system,sans-serif",
+        padding: 20, fontFamily: "var(--arcd-font-sans)",
       }}>
         <div style={{
           maxWidth: 420, width: "100%",
@@ -81,27 +81,27 @@ export default class ErrorBoundary extends Component {
             width: 42, height: 42, borderRadius: 10,
             background: "#B71C1C12", color: "#B71C1C",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 22, marginBottom: 14,
+            fontSize: "var(--arcd-type-section-title)", marginBottom: 14,
           }}>!</div>
 
           <h1 style={{
-            fontFamily: "'Inter Display','Inter',sans-serif",
-            fontSize: 19, fontWeight: 800, color: "#121212", margin: "0 0 6px",
+            fontFamily: "var(--arcd-font-sans)",
+            fontSize: "var(--arcd-type-section-title)", fontWeight: 600, color: "#121212", margin: "0 0 6px",
           }}>
             Algo quebrou nesta tela
           </h1>
 
-          <p style={{ fontSize: 13, color: "#6B6459", lineHeight: 1.55, margin: "0 0 6px" }}>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: "#6B6459", lineHeight: 1.55, margin: "0 0 6px" }}>
             Ocorreu uma falha de exibição. Recarregar costuma resolver.
           </p>
 
-          <p style={{ fontSize: 11, color: "#6B6459", lineHeight: 1.5, margin: "0 0 18px" }}>
+          <p style={{ fontSize: "var(--arcd-type-caption)", color: "#6B6459", lineHeight: 1.5, margin: "0 0 18px" }}>
             Se havia uma ação em andamento, confirme o resultado após recarregar. Se continuar, envie o diagnóstico abaixo.
           </p>
 
           <pre style={{
             background: "#F9F7F2", border: "1px solid #E0DAD0", borderRadius: 8,
-            padding: "10px 12px", fontSize: 11, color: "#3D3530",
+            padding: "10px 12px", fontSize: "var(--arcd-type-caption)", color: "#3D3530",
             overflowX: "auto", margin: "0 0 18px", whiteSpace: "pre-wrap",
           }}>
             {diagnostic.text}
@@ -113,8 +113,8 @@ export default class ErrorBoundary extends Component {
             style={{
               width: "100%", padding: 10, borderRadius: 8, marginBottom: 8,
               background: "#FFFFFF", color: "#3D3530", border: "1px solid #C8C2B6",
-              fontFamily: "'Inter',-apple-system,sans-serif", fontWeight: 700,
-              fontSize: 12, cursor: "pointer",
+              fontFamily: "var(--arcd-font-sans)", fontWeight: 600,
+              fontSize: "var(--arcd-type-control)", cursor: "pointer",
             }}
           >
             Copiar diagnóstico
@@ -125,8 +125,8 @@ export default class ErrorBoundary extends Component {
             style={{
               width: "100%", padding: 12, borderRadius: 8,
               background: "#D4AF37", color: "#fff", border: "1.5px solid #B8930F",
-              fontFamily: "'Inter Display','Inter',sans-serif",
-              fontWeight: 700, fontSize: 13,
+              fontFamily: "var(--arcd-font-sans)",
+              fontWeight: 600, fontSize: "var(--arcd-type-control)",
               textTransform: "uppercase", letterSpacing: 0.6, cursor: "pointer",
             }}
           >
