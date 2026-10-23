@@ -1,6 +1,7 @@
 import { active, toCents } from "../financeiro/ledger.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
 import { hasValidUnitConversion, purchaseUnitOf } from "./unit-conversion.js";
+import { validarProgramacaoItem } from "./delivery-schedule.js";
 import { proximoNumeroPedido } from "./calculations.js";
 import { instanciaDaSolicitacao, limiteAprovacaoEngenheiro, pedidoDentroDaAlcada } from "./purchase-approval.js";
 import { validarItensDeContrato } from "./supply-contracts.js";
@@ -94,6 +95,8 @@ const normalizeItems=(data,rawItems,newMaterials,current)=>{
     if(!hasValidUnitConversion(raw)){
       return {error:"A conversão entre a unidade de compra e a unidade de referência é inválida."};
     }
+    const programacao=validarProgramacaoItem({...raw,qtd:quantity});
+    if(programacao)return {error:programacao};
     ids.add(id);
     const previous=currentItems.get(id);
     const received=Number(previous?.qtdRecebida||0);

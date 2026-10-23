@@ -86,6 +86,7 @@ import {
 } from "./domains/compras/calculations";
 import { canManagePurchases } from "./domains/compras/permissions";
 import { mapaDaCotacao } from "./domains/compras/quote-map";
+import { entregasAvaliadas, pedidosComItensAtrasados } from "./domains/compras/delivery-schedule";
 import {
   changePurchaseRequestProject,
   purchaseRequestSummary,
@@ -11504,23 +11505,8 @@ export const linkWhatsApp = (telefone, texto) => {
 // ── Entregas atrasadas ─────────────────────────────────────────────
 // Pedido enviado/parcial com previsao vencida e material ainda pendente.
 // Devolve o que falta chegar de cada um, pronto para a cobranca.
-export const pedidosEmAtraso = (data, hoje) => {
-  return (data.pedidos || [])
-    .filter(p => ["enviado", "parcial"].includes(p.status) && p.previsao && p.previsao < hoje)
-    .map(p => {
-      const itensPendentes = (p.itens || [])
-        .map(i => {
-          const mat = (data.materiais || []).find(m => m.id === i.materialId);
-          const falta = Number(i.qtd || 0) - Number(i.qtdRecebida || 0);
-          return { descricao: mat?.descricao || i.descricaoRef || "Material", unidade: mat?.unidade || i.unidadeRef || "", falta };
-        })
-        .filter(i => i.falta > 1e-6);
-      const diasAtraso = Math.round((new Date(hoje + "T00:00:00") - new Date(p.previsao + "T00:00:00")) / 86400000);
-      return { pedido: p, diasAtraso, itensPendentes };
-    })
-    .filter(x => x.itensPendentes.length > 0)
-    .sort((a, b) => b.diasAtraso - a.diasAtraso);
-};
+// C2.2: o atraso olha cada item e cada remessa programada, não o pedido.
+export const pedidosEmAtraso = (data, hoje) => pedidosComItensAtrasados(data, hoje);
 
 // Mensagem de cobranca de entrega - firme e educada, citando o combinado.
 export const mensagemWhatsAppCobranca = ({ empresa, fornecedorNome, obraNome, numero, previsao, diasAtraso, itens }) => {
@@ -12237,13 +12223,6 @@ function CotacoesMaterial({ data, update, showToast, onTab }) {
 }
 
 const limitarNotaFornecedor=n=>Math.max(0,Math.min(100,Math.round(Number(n)||0)));
-const diasEntreFornecedor=(inicio,fim)=>{
-  if(!inicio||!fim)return null;
-  const a=new Date(`${String(inicio).slice(0,10)}T12:00:00`);
-  const b=new Date(`${String(fim).slice(0,10)}T12:00:00`);
-  if(Number.isNaN(a.getTime())||Number.isNaN(b.getTime()))return null;
-  return Math.round((b-a)/86400000);
-};
 const textoFreteFornecedor=valor=>String(valor||"").toLowerCase();
 
 function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
@@ -12308,14 +12287,9 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
     const frete=fretes.length?Math.round(fretes.reduce((a,b)=>a+b,0)/fretes.length):null;
 
     const prazosPrometidos=propostas.filter(p=>p.prazo>0&&p.menorPrazo>0).map(p=>limitarNotaFornecedor((p.menorPrazo/p.prazo)*100));
-    const entregas=[];
-    pedidosF.forEach(p=>{
-      const recebimentos=(p.itens||[]).flatMap(i=>i.recebimentos||[]).filter(r=>r.data);
-      if(!recebimentos.length||!p.previsao)return;
-      const ultima=recebimentos.map(r=>String(r.data).slice(0,10)).sort().at(-1);
-      const atraso=diasEntreFornecedor(p.previsao,ultima);
-      if(atraso!==null)entregas.push(limitarNotaFornecedor(atraso<=0?100:100-atraso*8));
-    });
+    // C2.2: pontualidade por remessa do item, já recebida (a data do item vale).
+    const entregas=entregasAvaliadas(pedidosF,"").filter(e=>!e.pendente)
+      .map(e=>limitarNotaFornecedor(e.atraso<=0?100:100-e.atraso*8));
     const notasPrazo=[...entregas,...prazosPrometidos];
     const prazo=notasPrazo.length?Math.round(notasPrazo.reduce((a,b)=>a+b,0)/notasPrazo.length):null;
     const noPrazo=entregas.filter(n=>n===100).length;

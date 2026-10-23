@@ -2,6 +2,7 @@
 import { calculateWorkCash } from "../financeiro/work-cash.js";
 import { active } from "../financeiro/ledger.js";
 import { pedidoPorContrato } from "./supply-contracts.js";
+import { pedidosComItensAtrasados, pontualidadeEntregas, remessasDoItem } from "./delivery-schedule.js";
 
 export const STATUS_PEDIDO = {
   rascunho:{l:"Rascunho",c:"#6B6459"},enviado:{l:"Enviado",c:"#0D47A1"},
@@ -111,9 +112,10 @@ export const mapaGerencialCompras = (data, obraIds = [], hoje = "") => {
   const totalRecebido = pedidos.reduce((s, p) => s + recebidoPedido(p), 0);
   const totalPendente = pedidos.reduce((s, p) => s + saldoPagamentoPedido(p), 0);
   const pedidosValidos = pedidos.filter(p => !["rascunho", "cancelado"].includes(p.status));
-  const atrasados = pedidosValidos.filter(p =>
-    p.previsao && hoje && p.previsao < hoje && statusPedido(p) !== "recebido");
-  const semPrevisao = pedidosValidos.filter(p => !p.previsao);
+  // C2.2: atraso e previsão olham cada item (data própria ou remessas).
+  const atrasadosIds = new Set(hoje ? pedidosComItensAtrasados({ ...data, pedidos: pedidosValidos }, hoje).map(x => x.pedido.id) : []);
+  const atrasados = pedidosValidos.filter(p => atrasadosIds.has(p.id));
+  const semPrevisao = pedidosValidos.filter(p => (p.itens || []).every(i => !remessasDoItem(i, p).length));
   // Pedido feito pelo contrato de fornecimento dispensa cotação (C2.4).
   const semCotacao = pedidosValidos.filter(p => !p.cotacaoId && !pedidoPorContrato(p));
   const pagamentos = pedidos.flatMap(p => p.pagamentos || []).filter(active);
@@ -157,18 +159,11 @@ export const mapaGerencialCompras = (data, obraIds = [], hoje = "") => {
   const coberturaCotacao = pedidosValidos.length
     ? ((pedidosValidos.length - semCotacao.length) / pedidosValidos.length) * 100 : 0;
   const concorrencia = cotacoes.length ? propostas / cotacoes.length : 0;
-  const entrega = pedidosValidos.filter(p => p.previsao);
-  const entreguesNoPrazo = entrega.filter(p => {
-    if (statusPedido(p) !== "recebido") return false;
-    const datas = (p.itens || []).flatMap(i => i.recebimentos || [])
-      .map(r => String(r.data || "").slice(0, 10)).filter(Boolean).sort();
-    return datas.length && datas[datas.length - 1] <= p.previsao;
-  }).length;
-  const pontualidade = entrega.length ? (entreguesNoPrazo / entrega.length) * 100 : null;
+  const pontualidade = pontualidadeEntregas(pedidosValidos, hoje);
   const completude = [
     pedidosValidos.length > 0,
     pedidosValidos.some(p => p.cotacaoId),
-    pedidosValidos.some(p => p.previsao),
+    pedidosValidos.some(p => (p.itens || []).some(i => remessasDoItem(i, p).length)),
     pedidosValidos.some(p => (p.pagamentos || []).length),
     pedidosValidos.some(p => (p.itens || []).some(i => (i.recebimentos || []).length)),
     (data.fornecedores || []).some(f => f.cnpj && (f.categorias || []).length),

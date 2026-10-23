@@ -39,6 +39,7 @@ import { conferenciaPagamentoPedido } from "../payment-conference";
 import { movementOfOrder } from "../purchase-cancellation-command";
 import { contratosDisponiveis, saldoItemContrato } from "../supply-contracts";
 import ContratosFornecimentoView from "./ContratosFornecimentoView";
+import { atrasoDoItem } from "../delivery-schedule";
 import {
   avaliarEscolhasCotacao, cotacaoMultiItens, decisoesDaCotacao, escolhaPrecisaJustificativa,
   itensDaCotacao, itensPendentesDaCotacao, mapaDaCotacao, precoDaProposta, sugestaoDeEscolhas,
@@ -449,6 +450,30 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
                          l: `${l.descricao} (${fmt(l.orcado)})`,
                        })),
                      ]}/>
+              </div>
+
+              {/* C2.2: entrega do item - data própria ou remessas programadas */}
+              <div style={{gridColumn:"1/-1",borderTop:`1px dashed ${C.border}`,paddingTop:7}}>
+                {!(it.remessas||[]).length ? (
+                  <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9,alignItems:"end"}}>
+                    <Inp label="Entrega deste item" type="date" value={it.previsao||""} onChange={v=>setItem(i,"previsao",v)}/>
+                    <Btn size="sm" v="ghost" onClick={()=>setItem(i,"remessas",[{id:uid(),data:it.previsao||form.previsao||"",qtd:String(it.qtd||"")}])}>Programar remessas</Btn>
+                    {!it.previsao&&<p style={{gridColumn:"1/-1",fontSize:9,color:C.muted}}>Sem data própria, vale a previsão do pedido.</p>}
+                  </div>
+                ) : (
+                  <div>
+                    <p style={{fontSize:10,fontWeight:800,color:C.text}}>Remessas programadas</p>
+                    {(it.remessas||[]).map((r,ri)=>(
+                      <div key={r.id||ri} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr) auto",gap:7,alignItems:"end",marginTop:5}}>
+                        <Inp label={`Data ${ri+1}`} type="date" value={r.data||""} onChange={v=>setItem(i,"remessas",it.remessas.map((x,k)=>k===ri?{...x,data:v}:x))}/>
+                        <Inp label={`Qtd. (${purchaseUnitOf(it)})`} type="number" value={r.qtd} onChange={v=>setItem(i,"remessas",it.remessas.map((x,k)=>k===ri?{...x,qtd:v}:x))}/>
+                        <button type="button" onClick={()=>setItem(i,"remessas",it.remessas.filter((_,k)=>k!==ri))} style={{background:"transparent",border:0,color:C.muted,fontSize:10,cursor:"pointer",textDecoration:"underline",paddingBottom:9}}>remover</button>
+                      </div>
+                    ))}
+                    {(()=>{const soma=(it.remessas||[]).reduce((t,r)=>t+Number(r.qtd||0),0),total=Number(it.qtd||0);return <p style={{fontSize:9,marginTop:4,color:soma>total+1e-6?C.red:C.muted}}>{soma.toLocaleString("pt-BR")} de {total.toLocaleString("pt-BR")} {purchaseUnitOf(it)} programados{soma>total+1e-6?" · passa da quantidade do item":soma<total-1e-6?" · o restante segue a data do item ou do pedido":""}</p>;})()}
+                    <Btn size="sm" v="ghost" onClick={()=>setItem(i,"remessas",[...(it.remessas||[]),{id:uid(),data:"",qtd:""}])}><Ic n="plus"/> Remessa</Btn>
+                  </div>
+                )}
               </div>
             </div>
             {it.codigoRef&&<div style={{marginTop:7,background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 9px"}}>
@@ -1250,6 +1275,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                    unidadeCompra:purchaseUnitOf(i),fatorConversao:Number(i.fatorConversao||1),comprimentoBarra:Number(i.comprimentoBarra||0),
                    precoRef:Number(i.precoRef||0),
                    dataBaseRef:i.dataBaseRef||"",ufRef:i.ufRef||"",
+                   previsao:i.previsao||"",
+                   remessas:(i.remessas||[]).filter(r=>r.data||Number(r.qtd)>0)
+                     .map(r=>({id:r.id||uid(),data:r.data||"",qtd:Number(r.qtd||0)})),
                    contratoId:i.contratoId||"",contratoItemId:i.contratoItemId||"" };
       });
     if (!itens.length) { showToast("Adicione ao menos um item.", "error"); return; }
@@ -2281,10 +2309,14 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                           )}
                           {referencePricePerPurchaseUnit(i)>0&&(Number(i.precoUnit)>0?(()=>{const ref=referencePricePerPurchaseUnit(i),dif=Number(i.precoUnit)-ref,pct=dif/ref*100,cor=dif<=0?C.green:C.red;return <span style={{display:"block",fontSize:9,color:cor,fontWeight:800,marginTop:1}}>{i.fonteRef} {i.codigoRef} · compra {fmt(Number(i.precoUnit))} · ref. {fmt(ref)}/{purchaseUnitOf(i)} · {dif<=0?"abaixo":"acima"} {Math.abs(pct).toLocaleString("pt-BR",{maximumFractionDigits:2})}%</span>;})():<span style={{display:"block",fontSize:9,color:C.muted,marginTop:1}}>{i.fonteRef} {i.codigoRef} · ref. {fmt(referencePricePerPurchaseUnit(i))}/{purchaseUnitOf(i)} · preço de compra não informado</span>)}
                         </span>
-                        <span style={{whiteSpace:"nowrap",flexShrink:0,
+                        <span style={{whiteSpace:"nowrap",flexShrink:0,textAlign:"right",
                                       color: completo ? C.green : C.text, fontWeight:600}}>
                           {i.qtdRecebida > 0 && `${i.qtdRecebida}/`}{i.qtd} {purchaseUnitOf(i)}
                           {completo && " ok"}
+                          {/* C2.2: atraso e próxima entrega do item */}
+                          {!completo&&(st==="enviado"||st==="parcial")&&(()=>{const a=atrasoDoItem(i,p,today());
+                            if(a.atrasada)return <small style={{display:"block",fontSize:8.5,color:C.red,fontWeight:800}}>atrasado {a.diasAtraso}d · {a.atrasada.toLocaleString("pt-BR")} {purchaseUnitOf(i)}</small>;
+                            return a.proximaData?<small style={{display:"block",fontSize:8.5,color:C.muted,fontWeight:600}}>entrega {fmtDate(a.proximaData)}</small>:null;})()}
                         </span>
                       </div>
                     );
