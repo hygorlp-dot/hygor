@@ -143,6 +143,14 @@ describe("cancelamento de solicitação de compra (soft-delete)",()=>{
     expect(edit.reason).toContain("Ajuste o pedido");
   });
 
+  it("solicitação nova sem número é numerada pelo servidor (C2.1)",()=>{
+    const data=base();
+    data.solicitacoesCompra.push({id:"sol-x",numero:"SC-0007",obraId:"obra-1",version:1,itens:[]});
+    const result=applyPurchaseRequestCommand(data,command({payload:{request:{...command().payload.request,numero:""}}}));
+    expect(result.ok).toBe(true);
+    expect(result.data.solicitacoesCompra.find(item=>item.id==="sol-2").numero).toBe("SC-0008");
+  });
+
   describe("alçada da aprovação (decidida em 22/10/2026)",()=>{
     const usuarios=[
       {id:"eng-1",nome:"Eng. Ana",role:"engenheiro"},

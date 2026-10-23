@@ -316,6 +316,21 @@ describe("comando de anexação de documento à proposta (PURCHASE_QUOTE_DOCUMEN
     expect(result.reason).toContain("reprovada");
   });
 
+  it("pedido novo sem número é numerado pelo servidor, também a partir da cotação (C2.1)",()=>{
+    const data=base();
+    data.pedidos=[{id:"p-old",numero:"PC-0041",obraId:"o-1",status:"cancelado",itens:[]}];
+    const saved=applyPurchaseOrderCommand(data,command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:{...rawOrder(),numero:"",solicitacaoId:""}},
+    ),"2026-07-28T12:00:00.000Z");
+    expect(saved.data.pedidos.find(item=>item.id==="p-1").numero).toBe("PC-0042");
+    const fromQuote=applyPurchaseOrderCommand(saved.data,command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE,
+      {quoteId:"c-1",proposalId:"pr-1",orderId:"p-2",itemId:"i-2",number:"",date:"2026-07-29"},
+    ),"2026-07-29T12:00:00.000Z");
+    expect(fromQuote.ok).toBe(true);
+    expect(fromQuote.data.pedidos.find(item=>item.id==="p-2").numero).toBe("PC-0043");
+  });
+
   it("rascunho pode ser enviado ao fornecedor; enviado não volta a rascunho",()=>{
     const draft=applyPurchaseOrderCommand(base(),command(
       PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:{...rawOrder(),status:"rascunho"}},
