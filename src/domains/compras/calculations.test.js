@@ -83,3 +83,14 @@ describe("numeração de pedido de compra",()=>{
   });
 });
 
+describe("recebimento independente do pagamento (C1.2)",()=>{
+  it("pedido enviado e não pago entra na fila de recebimentos",()=>{
+    const data={pedidos:[
+      {id:"p-1",obraId:"o-1",status:"enviado",previsao:"",itens:[{qtd:10,precoUnit:5,qtdRecebida:0}],pagamentos:[]},
+      {id:"p-2",obraId:"o-1",status:"enviado",previsao:"",itens:[{qtd:1,precoUnit:5,qtdRecebida:1}],pagamentos:[]},
+      {id:"p-3",obraId:"o-1",status:"rascunho",itens:[{qtd:1,precoUnit:5,qtdRecebida:0}],pagamentos:[]},
+    ]};
+    expect(mapaGerencialCompras(data,["o-1"],"2026-10-22").fila.recebimentos).toBe(1);
+  });
+});
+

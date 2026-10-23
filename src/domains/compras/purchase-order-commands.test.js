@@ -331,6 +331,21 @@ describe("comando de anexação de documento à proposta (PURCHASE_QUOTE_DOCUMEN
     expect(fromQuote.data.pedidos.find(item=>item.id==="p-2").numero).toBe("PC-0043");
   });
 
+  it("rascunho pode ser enviado ao fornecedor; enviado não volta a rascunho",()=>{
+    const draft=applyPurchaseOrderCommand(base(),command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:{...rawOrder(),status:"rascunho"}},
+    ),"2026-07-28T12:00:00.000Z");
+    expect(draft.data.pedidos[0].status).toBe("rascunho");
+    const sent=applyPurchaseOrderCommand(draft.data,command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:{...rawOrder(),status:"enviado"},adjustmentReason:"Enviado"},1,
+    ),"2026-07-29T12:00:00.000Z");
+    expect(sent.data.pedidos[0].status).toBe("enviado");
+    const back=applyPurchaseOrderCommand(sent.data,command(
+      PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED,{order:{...rawOrder(),status:"rascunho"},adjustmentReason:"Voltar"},2,
+    ),"2026-07-30T12:00:00.000Z");
+    expect(back.data.pedidos[0].status).toBe("enviado");
+  });
+
   it("solicitação aguardando aprovação não vira pedido",()=>{
     const data=base();
     data.solicitacoesCompra[0].aprovacaoInstanciaId="apr-1";

@@ -126,4 +126,17 @@ describe("cancelamento transacional de compra",()=>{
     const result=applyPurchaseCancellationCommand(previous,command(),now);
     expect(result.data.movEstoque[0]).toEqual(previous.movEstoque[0]);
   });
+
+  it("cancelar a compra tira a entrada do custo médio (C1.5)",()=>{
+    const initial=data();
+    initial.movEstoque=[
+      {id:"me-1",pedidoId:"p-1",obraId:"o-1",materialId:"m-1",tipo:"entrada",qtd:100,valorUnit:0.9,status:"ativo",version:1},
+      {id:"me-2",pedidoId:"p-0",obraId:"o-1",materialId:"m-1",tipo:"entrada",qtd:5000,valorUnit:0.82,status:"ativo",version:1},
+    ];
+    initial.materiais=[{id:"m-1",precoMedio:0.9}];
+    const result=applyPurchaseCancellationCommand(initial,command(),now);
+    expect(result.ok).toBe(true);
+    expect(result.data.materiais[0].precoMedio).toBeCloseTo(0.82);
+  });
 });
+
