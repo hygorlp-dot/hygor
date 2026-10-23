@@ -1,3 +1,4 @@
+import { WorkflowContext } from "../../features/workflow/WorkflowNavigation.jsx";
 import React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -335,4 +336,20 @@ describe("análise explicável de próprios x terceiros", () => {
     expect(document.body.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
   });
+});
+
+
+it("o atalho do DRE preserva a obra do painel mesmo com o filtro local em todas",()=>{
+  const navigate=vi.fn(),container=document.createElement("div"),root=createRoot(container);
+  document.body.append(container);mounted.push({container,root});
+  const data=buildBillingData(),fixedId=data.obras[0].id;
+  act(()=>root.render(<WorkflowContext.Provider value={{navigate,scopes:{equip_fin:{obraId:data.obras[1].id}}}}>
+    <EquipmentBillingReports data={data} currentUser={{id:"admin",role:"admin"}} obraIdFixo={fixedId}
+      period="2026-09" periodOptions={PERIODS} hoje={BILLING_HOJE} ownerName={()=>"Proprietário"}/>
+  </WorkflowContext.Provider>));
+  expect(field(container,"Obra").value).toBe(fixedId);
+  choose(container,"Obra","all");
+  click(container.querySelector(".dre-integration summary"));
+  click(byText(container,"button","Abrir DRE neste recorte"));
+  expect(navigate).toHaveBeenCalledWith("dre",{obraId:fixedId,year:2026,month:8,period:"mes"});
 });

@@ -58,13 +58,14 @@ function Term({ label, value, note, help, tone, children }) {
 // a exportação continuam sendo gerados pelo dono da tela (EquipamentosView),
 // sem mudança - o painel e o documento têm arquiteturas diferentes.
 export default function EquipmentBillingReports({
-  data, currentUser, period, periodOptions, onPeriodChange, ownerName, hoje, formatDate, formatComposition,
+  data, currentUser, obraIdFixo="", period, periodOptions, onPeriodChange, ownerName, hoje, formatDate, formatComposition,
   onPrintManagement, onPrintWork, onExportManagement, onExportWork, onEditRental, onDeleteRental, onAddRentalToWork,
 }) {
   const {scopes}=useWorkflow();
   const [view, setView] = useState("geral");
-  const [filters, setFilters] = useState(()=>({...DEFAULT_BILLING_FILTERS,obraId:currentUser?.obraId||scopes.equip_fin?.obraId||"all"}));
-  useRememberWorkflowScope("equip_fin",{obraId:filters.obraId==="all"?"":filters.obraId,year:Number(period?.slice(0,4)),month:Number(period?.slice(5,7))-1,period:"mes"});
+  const [filters, setFilters] = useState(()=>({...DEFAULT_BILLING_FILTERS,obraId:obraIdFixo||currentUser?.obraId||scopes.equip_fin?.obraId||"all"}));
+  const dreObraId=obraIdFixo||(filters.obraId==="all"?"":filters.obraId);
+  useRememberWorkflowScope("equip_fin",{obraId:dreObraId,year:Number(period?.slice(0,4)),month:Number(period?.slice(5,7))-1,period:"mes"});
   const [workSort, setWorkSort] = useState({ key: "receita", dir: "desc" });
   const [workId, setWorkId] = useState("");
   const [mapWorkId, setMapWorkId] = useState("");
@@ -108,7 +109,7 @@ export default function EquipmentBillingReports({
   const mapWorks = model.works;
   const mapWork = mapWorks.find(work => work.id === mapWorkId) || mapWorks[0] || null;
 
-  const dreIntegration=<DreIntegration kind="rentals" currentUser={currentUser} obraId={filters.obraId==="all"?"":filters.obraId} year={Number(period?.slice(0,4))} month={Number(period?.slice(5,7))-1}>
+  const dreIntegration=<DreIntegration kind="rentals" currentUser={currentUser} obraId={dreObraId} year={Number(period?.slice(0,4))} month={Number(period?.slice(5,7))-1}>
     <p>O recorte do DRE usa obra e competência. Propriedade, situação da cobrança e busca são filtros operacionais desta tela.</p>
   </DreIntegration>;
   const header = (

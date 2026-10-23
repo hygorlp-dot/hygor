@@ -1272,7 +1272,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
 
       {/* ---------- RELATÓRIO MENSAL ---------- */}
       {aba==="relatorio" && <Suspense fallback={<div className="equipment-report-empty"><strong>Preparando relatórios</strong><p>Organizando dados gerenciais e memórias por obra...</p></div>}>
-        <LazyEquipmentBillingReports currentUser={currentUser}
+        <LazyEquipmentBillingReports currentUser={currentUser} obraIdFixo={obraIdFixo}
           data={data}
           period={ym}
           periodOptions={mesesOpts}
