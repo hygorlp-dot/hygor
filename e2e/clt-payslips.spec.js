@@ -113,3 +113,37 @@ test("provisões: total mensal, por funcionário, saldo informado e exportação
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   await region.screenshot({path:test.info().outputPath("provisoes-tela.png")});
 });
+
+test("simulação: RH escolhe CLT ou diária no mês sem alterar cadastro, folha ou DRE",async({page})=>{
+  const errors=[];page.on("pageerror",e=>errors.push(e.message));
+  const {commands,getState}=await enter(page);
+  await page.getByRole("button",{name:"Simulação CLT × diária",exact:true}).click();
+  const region=page.getByRole("region",{name:"Simulação CLT ou diária",exact:true});
+  await expect(region.getByRole("radio",{name:"CLT"})).toBeChecked();
+  await region.getByRole("button",{name:"Ajustar Operário QA",exact:true}).click();
+  await page.getByLabel("Dias trabalhados no mês",{exact:true}).fill("22");
+  // Simples Nacional Anexo IV (construção) é o padrão: CPP 20% + RAT 3% × FAP 1.
+  await expect(region.locator(".pay-mode-regime")).toContainText("23%");
+  await page.getByRole("combobox",{name:"Regime tributário",exact:true}).selectOption("normal");
+  await expect(region.locator(".pay-mode-regime")).toContainText("28,8%");
+  await page.getByRole("combobox",{name:"Regime tributário",exact:true}).selectOption("simples_iv");
+  await page.getByLabel("FAP da empresa",{exact:true}).fill("1.5");
+  await expect(region.locator(".pay-mode-regime")).toContainText("24,5%");
+  // Diária 120 × 22 = 2.640,00 líquido; custo soma VT/VR do cadastro (zero aqui).
+  await expect(region.locator("tbody")).toContainText("2.640,00");
+  await region.getByRole("radio",{name:"Diária"}).check();
+  await expect(region.locator(".clt-totals")).toContainText("2.640,00");
+  await region.getByRole("button",{name:/^Salvar simulação/}).click();
+  await expect(region.getByRole("status").first()).toContainText("Simulação salva");
+  const employee=getState().employees[0];
+  expect(employee.payModeSimulations["2026-09"]).toMatchObject({choice:"daily",workedDays:"22",regime:"simples_iv",rat:3,fap:"1.5"});
+  expect(employee).toMatchObject({remunerationMode:"clt",monthlySalary:2406.8});
+  expect(employee.cltPayroll??null).toBeNull();
+  expect(commands).toHaveLength(1);expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
+  await page.getByLabel("Competência da simulação",{exact:true}).fill("2026-10");await page.getByLabel("Competência da simulação",{exact:true}).fill("2026-09");
+  await expect(region.getByRole("radio",{name:"Diária"})).toBeChecked();
+  await expect(page.getByLabel("FAP da empresa",{exact:true})).toHaveValue("1.5");
+  expect(errors).toEqual([]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  await region.screenshot({path:test.info().outputPath("simulacao-tela.png")});
+});
