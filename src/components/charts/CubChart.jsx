@@ -25,7 +25,7 @@ const CUB_PADRAO_ORDEM=["baixo","normal","alto","especial"];
 const CubIndisponivel=()=>(
   <section className="cub-chart" style={{padding:"12px 14px",border:"1px dashed #d5d9db",borderRadius:10,background:"#f8f9f9"}}>
     <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:"#5e666b"}}>Índice de custo (CUB-PE) indisponível no momento</p>
-    <p style={{fontSize:"var(--arcd-type-caption)",color:"#7a8287",marginTop:3}}>A fonte oficial (Sinduscon-PE) não respondeu a tempo. Recarregue a página em alguns minutos.</p>
+    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>A fonte oficial (Sinduscon-PE) não respondeu a tempo. Recarregue a página em alguns minutos.</p>
   </section>
 );
 export default function CubChart({cub,carregando=false}){

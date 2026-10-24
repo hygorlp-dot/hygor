@@ -5256,19 +5256,21 @@ canvas {
 }
 
 .arcd-sidebar .nav-grp-hd {
-  font-size:var(--arcd-type-label) !important;
-  font-weight: 600 !important;
-  letter-spacing: .32px !important;
+  min-height:34px;
+  font-size:var(--arcd-type-caption) !important;
+  font-weight:400 !important;
+  letter-spacing:0 !important;
+  text-transform:none !important;
 }
 
 .arcd-sidebar .nav-item {
-  font-size:var(--arcd-type-label) !important;
-  font-weight: 500 !important;
+  font-size:var(--arcd-type-caption) !important;
+  font-weight:400 !important;
   letter-spacing: 0 !important;
 }
 
 .arcd-sidebar .nav-item[data-active="true"] {
-  font-weight: 600 !important;
+  font-weight:500 !important;
 }
 
 .arcd-tab,
@@ -7825,3 +7827,46 @@ body.no-scroll .arcd-team-chat {
     flex-direction: column;
   }
 }
+
+/* MARCELL Executivo: typography and colour stay local to navigation and home. */
+.arcd-sidebar .arcd-brand-word p:first-child {font-size:.875rem !important;font-weight:500 !important;letter-spacing:.08em !important;}
+.arcd-sidebar > div:last-child p {font-size:.75rem !important;font-weight:400 !important;}
+.arcd-sidebar [aria-label="Buscar no sistema"] span {font-size:.75rem !important;font-weight:400 !important;}
+.arcd-main .dashboard-tech-hero h1 {font-size:1.5rem !important;font-weight:500 !important;letter-spacing:-.02em !important;line-height:1.25 !important;}
+.dashboard-greeting > p:last-child {font-weight:400 !important;}
+.dashboard-actions-header {background:#f8f3e9;}
+.dashboard-action-filters button {font-size:.75rem !important;font-weight:400 !important;min-height:32px;}
+.dashboard-action-filters button[data-active="true"] {background:#eee5d5 !important;color:#7b6030 !important;border-color:#cdbd9f !important;}
+.dashboard-mission-rows > button {grid-template-columns:20px minmax(0,1fr) auto !important;padding:12px 16px !important;gap:12px !important;}
+.dashboard-mission-icon {width:20px !important;height:20px !important;background:transparent !important;border:0 !important;}
+.dashboard-mission-rows b {font-weight:400 !important;line-height:1.45;}
+.dashboard-mission-count {height:auto !important;background:transparent !important;font-weight:500 !important;font-variant-numeric:tabular-nums;}
+.dashboard-mission-rows > button:hover {transform:none;background:#f4f7f9;}
+.dashboard-news-header {background:#edf3f7;flex-wrap:wrap;row-gap:3px !important;}
+.dashboard-news-header > span {font-size:.75rem !important;font-weight:400 !important;}
+.dashboard-news-row > span:first-child > span {font-size:.8125rem !important;font-weight:400 !important;line-height:1.5 !important;}
+.dashboard-news-row {padding:10px 16px !important;}
+.dashboard-news-row:hover {background:#f0f5f8;}
+@media (max-width:767px) {
+  .dashboard-mission-rows > button {min-height:64px;}
+  .dashboard-mission-rows b {font-size:.875rem !important;}
+  .dashboard-action-filters button {min-height:44px;}
+  .dashboard-news-row {min-height:64px;}
+  .dashboard-news-row > span:first-child > span {font-size:.875rem !important;}
+}
+
+.arcd-main .dashboard-tech-motion h3:not(.arcd-dialog__title):not(.arcd-heading-page) {font-size:.875rem !important;font-weight:500 !important;line-height:1.4 !important;letter-spacing:0 !important;}
+.dashboard-tech-motion {font-variant-numeric:tabular-nums;}
+.dashboard-tech-motion .dashboard-kpi__icon,
+.dashboard-tech-motion .dashboard-quick-action > span:first-child {background:transparent !important;border:0 !important;box-shadow:none !important;}
+
+@media(max-width:1099px) {.dashboard-tech-motion {padding-inline:2px;}}
+@media(max-width:767px) {.dashboard-tech-motion {padding-inline:6px;scroll-padding-bottom:160px;}}
+
+@media(max-width:1099px) {
+  .arcd-app-shell[data-tab="home"] .app-header-inner {flex-wrap:wrap;}
+  .arcd-app-shell[data-tab="home"] .app-header-actions {min-width:0;max-width:100%;flex-shrink:1;flex-wrap:wrap;justify-content:flex-end;}
+}
+
+.dashboard-priority-actions {min-width:0;max-width:100%;}
+.dashboard-priority-actions > .arcd-btn {max-width:100%;white-space:normal !important;}
