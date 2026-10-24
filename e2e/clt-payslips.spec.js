@@ -1,10 +1,16 @@
 import {expect,test} from "@playwright/test";
 import {applyOperationalCommand} from "../src/domains/sync/operational-commands.js";
 const profile={id:"qa-rh",nome:"RH QA",email:"rh@qa.test",role:"rh",active:true};
-async function enter(page){
+async function enter(page,{point=false}={}){
   await page.context().addInitScript(()=>{window.print=()=>{};});
   await page.clock.setFixedTime(new Date("2026-09-25T12:00:00-03:00"));
   let state={usuarios:[profile],obras:[{id:"obra",name:"Obra QA",status:"active"}],employees:[{id:"emp",name:"Operário QA",cpf:"000.000.000-00",role:"Pedreiro",obra:"obra",dailyRate:120,monthlySalary:2406.8,remunerationMode:"clt",startDate:"2026-05-01",active:true,version:1}],advances:[{id:"adv",empId:"emp",date:"2026-09-20",amount:600,description:"Adiantamento 1ª quinzena",status:"ativo",version:1,installments:[{id:"i",dueDate:"2026-09-30",amount:600,status:"programada"}]}],attendance:{},attendanceLocks:{},unlockRequests:[],changeLog:[],config:{companyName:"Empresa QA",cnpj:"00.000.000/0001-00",paymentHolidays:[]},financialSettlements:[{id:"preservar",amount:600}]};
+  if(point){
+    for(let day=1;day<=30;day++){
+      const date=`2026-09-${String(day).padStart(2,"0")}`,weekday=new Date(date+"T12:00:00Z").getUTCDay();
+      if(weekday>0&&weekday<6&&day!==7){state.attendance.emp??={};state.attendance.emp[date]={status:day===2?"F":"P",obraId:"obra",ot:0};state.attendanceLocks[`${date}__obra`]={locked:true};}
+    }
+  }
   const commands=[];
   await page.route("**/api/**",r=>r.fulfill({json:{ok:true,presencas:[],items:[]}}));
   await page.route("**/api/data",async r=>{
@@ -151,4 +157,74 @@ test("simulação: RH escolhe CLT ou diária no mês sem alterar cadastro, folha
   expect(errors).toEqual([]);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   await region.screenshot({path:test.info().outputPath("simulacao-tela.png")});
+});
+
+
+test("ponto fechado: classificação, importação rastreável e campos protegidos",async({page})=>{
+  const {getState}=await enter(page,{point:true});
+  await page.getByText("Importar ponto aprovado do mês",{exact:true}).click();
+  await page.getByRole("combobox",{name:"Tratamento do DSR das faltas",exact:true}).selectOption("weekly");
+  await expect(page.getByRole("button",{name:"Aplicar ponto ao holerite",exact:true})).toBeDisabled();
+  await page.getByRole("combobox",{name:"Ausência 2026-09-02",exact:true}).selectOption("unjustified");
+  await page.getByLabel("Revisei justificativas, atrasos, compensações, jornada e adicionais da CCT.",{exact:true}).check();
+  await page.getByRole("button",{name:"Aplicar ponto ao holerite",exact:true}).click();
+  await expect(page.getByLabel("Faltas não justificadas (dias)",{exact:true})).toHaveValue("1");
+  await expect(page.getByLabel("Faltas não justificadas (dias)",{exact:true})).toBeDisabled();
+  await expect(page.getByLabel("DSR perdido (dias)",{exact:true})).toHaveValue("1");
+  await page.getByLabel("Matrícula",{exact:true}).fill("001");await page.getByLabel(/^Cbo$/i).fill("715210");
+  await page.getByLabel(/^Confirmo contrato/).check();
+  await page.getByRole("button",{name:"Salvar demonstrativo",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Exportar holerite PDF",exact:true})).toBeEnabled();
+  expect(getState().employees[0].cltPayroll.drafts["2026-09"].attendanceSource.importedBy).toBe("RH QA");
+  expect(getState().employees[0].cltPayroll.profile.attendancePolicy.dsrPolicy).toBe("weekly");
+  const opened=page.waitForEvent("popup");await page.getByRole("button",{name:"Exportar holerite PDF",exact:true}).click();const report=await opened;
+  await expect(report.locator("body")).toContainText("Eventos originados do ponto");await report.close();
+  await page.getByText(/Fechamento do mês/).click();
+  const batchOpened=page.waitForEvent("popup");await page.getByRole("button",{name:"Imprimir holerites aprovados em lote"}).click();const batch=await batchOpened;await batch.evaluate(()=>window.__marcellReportReady);await expect(batch.locator("body")).toContainText("Operário QA");await batch.pdf({path:test.info().outputPath("holerites-lote.pdf"),preferCSSPageSize:true});await batch.close();
+  expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
+  await page.locator(".clt-payslips").screenshot({path:test.info().outputPath("ponto-importado.png")});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+test("custos consolidados: fontes separadas e PDF sem inventar dados ausentes",async({page})=>{
+  const {commands,getState}=await enter(page);
+  await page.getByRole("button",{name:"Custos por funcionário",exact:true}).click();
+  await expect(page.getByRole("region",{name:"Custos por funcionário",exact:true})).toContainText("Não apurado");
+  const opened=page.waitForEvent("popup");await page.getByRole("button",{name:"Exportar custos PDF"}).click();const report=await opened;await report.evaluate(()=>window.__marcellReportReady);await expect(report.locator("body")).toContainText("Não apurado");await report.pdf({path:test.info().outputPath("custos-funcionario.pdf"),preferCSSPageSize:true});await report.close();
+  expect(commands).toHaveLength(0);expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
+  await page.getByRole("region",{name:"Custos por funcionário",exact:true}).screenshot({path:test.info().outputPath("custos.png")});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+test('preparação em lote cria rascunhos sem aprovar, pagar ou sobrescrever',async({page})=>{
+  const {commands,getState}=await enter(page);
+  await page.getByText(/Fechamento do mês/).click();
+  await page.getByRole('button',{name:'Preparar rascunhos da equipe',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Preparar rascunhos da equipe',exact:true})).toBeDisabled();
+  const saved=getState().employees[0].cltPayroll.drafts['2026-09'];
+  expect(saved.confirmed).toBe(false);expect(saved.salary).toBe(2406.8);expect(saved.advanceIds).toEqual(['adv']);
+  expect(commands).toHaveLength(1);expect(getState().financialSettlements).toEqual([{id:'preservar',amount:600}]);
+  await expect(page.getByRole('button',{name:'Imprimir holerites aprovados em lote',exact:true})).toBeDisabled();
+});
+
+test("prontuário privado: envia, lista e arquiva preservando o histórico",async({page})=>{
+  const {commands,getState}=await enter(page);let documents=[];
+  await page.route("**/api/upload",async route=>{
+    const body=route.request().postDataJSON();expect(body.folder).toBe("rh");expect(body.accessToken).toBe("qa");
+    if(body.documentAction==="list")return route.fulfill({json:{ok:true,documents}});
+    if(body.documentAction==="upload"){documents.push({id:body.documentId,name:body.fileName,category:body.category,employeeId:body.employeeId,createdByName:"RH QA",createdAt:"2026-09-25T15:00:00Z"});return route.fulfill({json:{ok:true,document:documents[0]}});}
+    if(body.documentAction==="archive"){documents[0]={...documents[0],archivedAt:"2026-09-25T15:00:00Z",archiveReason:body.reason};return route.fulfill({json:{ok:true,document:documents[0]}});}
+    return route.fulfill({status:400,json:{ok:false}});
+  });
+  await page.getByRole("button",{name:"Prontuário documental",exact:true}).click();
+  await page.getByRole("combobox",{name:"Funcionário do prontuário",exact:true}).selectOption("emp");
+  await expect(page.getByRole("button",{name:"Salvar documento",exact:true})).toBeDisabled();
+  await page.getByLabel("Arquivo do prontuário",{exact:true}).setInputFiles({name:"contrato-qa.pdf",mimeType:"application/pdf",buffer:Buffer.from("%PDF-1.4\nQA")});
+  await page.getByRole("button",{name:"Salvar documento",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Abrir contrato-qa.pdf",exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"Arquivar contrato-qa.pdf",exact:true}).click();await page.getByLabel("Motivo do arquivamento",{exact:true}).fill("Substituído pelo contrato atualizado");await page.getByRole("button",{name:"Confirmar arquivamento",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Abrir contrato-qa.pdf",exact:true})).toHaveCount(0);
+  await page.getByLabel("Mostrar documentos arquivados",{exact:true}).check();await expect(page.getByRole("button",{name:"Abrir contrato-qa.pdf",exact:true})).toBeVisible();
+  expect(documents).toHaveLength(1);expect(commands).toHaveLength(0);expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
+  await page.getByRole("region",{name:"Prontuário do funcionário",exact:true}).screenshot({path:test.info().outputPath("prontuario.png")});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });

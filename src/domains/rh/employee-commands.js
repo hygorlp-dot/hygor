@@ -1,4 +1,5 @@
 import { validDate } from "./date-validation.js";
+import {attendanceImportIssues} from '../ponto/clt-attendance.js';
 
 export const EMPLOYEE_COMMAND = Object.freeze({
   EMPLOYEE_SAVED:"FUNCIONARIO_SALVO",
@@ -131,6 +132,12 @@ export const applyEmployeeCommand = (
     return fail("A versão inicial do funcionário é inválida.");
   }
   const name = String(raw.name || "").trim();
+  for(const [period,draft] of Object.entries(raw.cltPayroll?.drafts||{})){
+    if(JSON.stringify(draft)===JSON.stringify(before?.cltPayroll?.drafts?.[period]))continue;
+    const issues=attendanceImportIssues(data,{...before,...raw},draft);
+    if(issues.length)return fail(issues[0]);
+    if(draft.attendanceSource?.manualReason&&String(draft.attendanceSource.manualReason).trim().length<10)return fail('Justifique o ajuste manual dos eventos importados.');
+  }
   if (!name) return fail("Informe o nome do funcionário.");
   if (!validDate(raw.startDate)) return fail("Informe uma data de admissão válida.");
   const dailyRate = Number(raw.dailyRate || 0);

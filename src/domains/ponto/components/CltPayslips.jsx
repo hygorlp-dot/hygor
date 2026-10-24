@@ -2,10 +2,14 @@ import { useState } from "react";
 import { Btn, Inp, Sel, fmt, uid } from "../../../LegacyApp";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { advanceDeductionForPeriod, isAdvanceActive } from "../../rh/advance-commands.js";
-import { calculateCltPayslip, CLT_SOURCES, newCltDraft } from "../clt-payslip.js";
+import { calculateCltPayslip, CLT_SOURCES } from "../clt-payslip.js";
 import { cltAdvanceHtml, cltPayslipHtml } from "../clt-report.js";
 import { remunerationModeOnDate } from "../../rh/remuneration-mode.js";
 import "./clt-payslips.css";
+import {ATTENDANCE_FIELDS,attendanceImportIssues,hasPartialContractMonth} from '../clt-attendance.js';
+import {CltAttendanceImport} from './CltAttendanceImport.jsx';
+import {prepareMonthlyPayslip} from '../clt-preparation.js';
+import {CltClosingSummary} from './CltClosingSummary.jsx';
 
 export function CltPayslips({data,currentUser,dispatchCommand,showToast,year,month}) {
   const [employeeId,setEmployeeId]=useState("");
@@ -15,13 +19,15 @@ export function CltPayslips({data,currentUser,dispatchCommand,showToast,year,mon
   const [status,setStatus]=useState("");
   const [saving,setSaving]=useState(false);
   const [dirty,setDirty]=useState(false);
+  const [prepareTransport,setPrepareTransport]=useState(false);
+  const [prepareAdvances,setPrepareAdvances]=useState(true);
   const employee=(data.employees||[]).find(e=>String(e.id)===employeeId);
   const canEdit=["admin","rh"].includes(currentUser?.role);
   const load=(id,period)=>{
     if(dirty&&!window.confirm("Há alterações não salvas. Deseja descartá-las?"))return;
     const emp=(data.employees||[]).find(e=>String(e.id)===id);
     setEmployeeId(id);setCompetence(period);setRevision(Number(emp?.version||0));
-    setDraft(emp?structuredClone(emp.cltPayroll?.drafts?.[period]||newCltDraft(period,{...emp.cltPayroll?.profile,salary:emp.monthlySalary||emp.cltPayroll?.profile?.salary})):null);
+    setDraft(emp?prepareMonthlyPayslip(data,emp,period,{advances:false}).draft:null);
     setStatus(emp?.cltPayroll?.drafts?.[period]?"Salvo":"Novo demonstrativo");setDirty(false);
   };
   const update=(key,value)=>{setDraft(d=>({...d,[key]:value,confirmed:key==="confirmed"?value:false}));setDirty(true);setStatus("Alterações não salvas");};
@@ -34,15 +40,17 @@ export function CltPayslips({data,currentUser,dispatchCommand,showToast,year,mon
   const changedAdvance=draft?.advances?.some(saved=>{const current=selected.find(a=>a.id===saved.id);return current&&(current.amount!==saved.amount||current.date!==saved.date);});
   const calculation=draft?calculateCltPayslip({...draft,advances:selected}):null;
   const errors=calculation?[...calculation.errors,...(!data.config?.companyName||!data.config?.cnpj?["Complete a razão social e o CNPJ nas configurações da empresa."]:[]),...(!employee?.cpf?["Informe o CPF no cadastro do funcionário."]:[]),...(!draft.registration||!draft.cbo?["Informe matrícula e CBO."]:[]),...(missingAdvance?["Um adiantamento selecionado foi cancelado ou alterado; confira os vínculos."]:[])]:[];
+  if(draft)errors.push(...attendanceImportIssues(data,employee,draft));
   if(changedAdvance&&!dirty)errors.push("O valor ou a data de um adiantamento mudou. Confira, confirme e salve novamente.");
   if(calculation&&remunerationModeOnDate(employee,periodEnd)!=="clt")errors.push("O RH precisa selecionar CLT mensal com vigência nesta competência no cadastro do funcionário.");
   const save=async()=>{
+    if(draft.attendanceSource&&attendanceImportIssues(data,employee,draft).length){showToast('Atualize o ponto importado antes de salvar.','error');return;}
     setSaving(true);setStatus("Salvando…");
     try{
       const result=await dispatchCommand(current=>{
         const emp=(current.employees||[]).find(e=>String(e.id)===employeeId);
         return {type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,idempotencyKey:`holerite-${uid()}`,expectedVersion:revision,actorId:currentUser?.id,actorName:currentUser?.nome,payload:{employee:{...emp,cltPayroll:{...emp.cltPayroll,
-          profile:{salary:draft.salary,category:draft.category,cbo:draft.cbo,registration:draft.registration,rules:draft.rules},
+          profile:{...emp.cltPayroll?.profile,salary:draft.salary,category:draft.category,cbo:draft.cbo,registration:draft.registration,rules:draft.rules,recurringRubrics:(draft.custom||[]).filter(r=>r.recurring),...(draft.attendanceSource&&!draft.attendanceSource.manualReason?{attendancePolicy:{saturdays:draft.attendanceSource.options.saturdays,dsrPolicy:draft.attendanceSource.options.dsrPolicy}}:{})},
           drafts:{...emp.cltPayroll?.drafts,[competence]:{...draft,advances:selected.map(a=>({id:a.id,amount:a.amount,date:a.date})),calculated:calculation,updatedAt:new Date().toISOString(),updatedBy:currentUser?.id}}}}}};
       });
       if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o salvamento.");
@@ -50,18 +58,25 @@ export function CltPayslips({data,currentUser,dispatchCommand,showToast,year,mon
     }catch(error){setStatus("Falha ao salvar");showToast(error.message,"error");}finally{setSaving(false);}
   };
   const print=html=>{const popup=window.open("","_blank");if(!popup){showToast("Permita abrir a janela do relatório.","error");return;}popup.document.write(html);popup.document.close();};
-  const number=(key,label)=><Inp key={key} label={label} type="number" value={String(draft[key]??"")} onChange={v=>update(key,v)}/>;
+  const number=(key,label)=><Inp key={key} label={label} type="number" disabled={!!draft.attendanceSource&&!draft.attendanceSource.manualReason&&ATTENDANCE_FIELDS.includes(key)} value={String(draft[key]??"")} onChange={v=>update(key,v)}/>;
   const toggle=(key,label)=><label className="clt-check"><input type="checkbox" checked={!!draft[key]} onChange={e=>update(key,e.target.checked)}/>{label}</label>;
   return <section className="clt-payslips" aria-label="Holerites CLT">
     <header><h3>Holerite mensal e adiantamentos</h3><p>Selecione o funcionário e preencha os eventos do mês. Os valores ficam separados da folha por diária e dos pagamentos.</p>{employee&&<p>Modalidade no cadastro: {employee.remunerationMode==="clt"?"CLT mensal":"Diária"}. A alteração é feita pelo RH em Pessoas e terceiros → Equipe.</p>}</header>
-    <div className="clt-grid"><Sel label="Funcionário do holerite" value={employeeId} onChange={v=>load(v,competence)} options={[{v:"",l:"Selecione um funcionário"},...(data.employees||[]).map(e=>({v:String(e.id),l:`${e.name} · ${e.role||"Sem função"}`}))]}/><Inp label="Competência mensal" type="month" value={competence} onChange={v=>{if(/^\d{4}-\d{2}$/.test(v))load(employeeId,v);}}/></div>
+    <div className="clt-grid"><Sel label="Funcionário do holerite" disabled={saving} value={employeeId} onChange={v=>load(v,competence)} options={[{v:"",l:"Selecione um funcionário"},...(data.employees||[]).map(e=>({v:String(e.id),l:`${e.name} · ${e.role||"Sem função"}`}))]}/><Inp label="Competência mensal" type="month" disabled={saving} value={competence} onChange={v=>{if(/^\d{4}-\d{2}$/.test(v))load(employeeId,v);}}/></div>
     {!canEdit&&<p role="status">Consulta e exportação. Somente RH e administradores podem alterar ou salvar demonstrativos.</p>}
+    <CltClosingSummary data={data} competence={competence} onSelect={load} showToast={showToast} dirty={dirty} currentUser={currentUser} dispatchCommand={dispatchCommand} onBusy={setSaving}/>
     {draft&&<>
+      <fieldset disabled={!canEdit||saving}><legend>Preparação automática</legend><p>Reutiliza contrato, perfil e rubricas recorrentes. Traz o ponto completo e fechado quando houver regra salva e nenhuma exceção. Faltas sem classificação, horários a analisar e dados ausentes permanecem como pendências para o RH.</p>
+        <label className="clt-check"><input type="checkbox" checked={prepareAdvances} onChange={e=>setPrepareAdvances(e.target.checked)}/>Selecionar os adiantamentos registrados com parcelas nesta competência</label>
+        <label className="clt-check"><input type="checkbox" checked={prepareTransport} onChange={e=>setPrepareTransport(e.target.checked)}/>Sugerir VT pelo valor diário cadastrado × dias com presença (inclusive meio período)</label>
+        <Btn v="secondary" onClick={()=>{const prepared=prepareMonthlyPayslip(data,employee,competence,{transport:prepareTransport,advances:prepareAdvances});const next={...draft,advanceIds:prepared.draft.advanceIds,transportCost:prepareTransport?prepared.draft.transportCost:draft.transportCost,confirmed:false};if(prepared.hasPolicy&&!prepared.point.errors.length){Object.assign(next,prepared.point.fields,{attendanceSource:{signature:prepared.point.signature,options:prepared.options,importedAt:new Date().toISOString(),importedBy:currentUser.nome||currentUser.id}});}setDraft(next);setDirty(true);setStatus(prepared.hasPolicy&&!prepared.point.errors.length?'Preparado com ponto aprovado · revise e confirme':'Dados preparados · revise as pendências do ponto');}}>Preparar dados do mês</Btn>
+      </fieldset>
+      <CltAttendanceImport key={`${employeeId}-${competence}`} data={data} employee={employee} draft={draft} disabled={!canEdit||saving} onImport={result=>{setDraft(d=>({...d,...result.fields,attendanceSource:{signature:result.signature,options:result.options,importedAt:new Date().toISOString(),importedBy:currentUser.nome||currentUser.id},confirmed:false}));setDirty(true);setStatus('Ponto importado · salvar demonstrativo');}} onManual={reason=>update('attendanceSource',{...draft.attendanceSource,manualReason:reason,adjustedBy:currentUser.id,adjustedAt:new Date().toISOString()})}/>
       <fieldset disabled={!canEdit||saving}><legend>1. Contrato e competência</legend><p>Informe o salário mensal contratado, sem conversão da diária. Para férias, 13º, rescisão, múltiplos vínculos ou situações especiais, utilize a apuração contábil.</p><div className="clt-grid">
         {number("salary","Salário contratual mensal (R$)")}<Sel label="Categoria do piso" value={draft.category} onChange={v=>update("category",v)} options={[{v:"professional",l:"Profissional / qualificado"},{v:"helper",l:"Servente / não qualificado"}]}/>
         <Inp label="Matrícula" value={draft.registration} onChange={v=>update("registration",v)}/><Inp label="CBO" value={draft.cbo} onChange={v=>update("cbo",v)}/><Inp label="Data prevista de pagamento" type="date" value={draft.paymentDate} onChange={v=>update("paymentDate",v)}/>
         {number("days","Dias de salário (base 30)")}{number("workedDays","Dias efetivamente trabalhados")}{number("absenceDays","Faltas não justificadas (dias)")}{number("dsrLostDays","DSR perdido (dias)")}
-      </div></fieldset>
+      </div>{hasPartialContractMonth(employee,competence)&&toggle('contractPeriodReviewed','Revisei a proporcionalidade e os dias de salário neste mês de admissão, desligamento ou mudança de modalidade.')}</fieldset>
       <fieldset disabled={!canEdit||saving}><legend>2. Eventos e benefícios</legend><div className="clt-grid">
         {number("overtimeHours",`Horas extras com adicional de ${draft.rules.overtimePercent}%`)}{number("extraordinaryHours",`Horas extras com adicional de ${draft.rules.extraordinaryPercent}%`)}{number("dsrWorkingDays","Dias úteis para DSR de extras")}{number("dsrRestDays","Domingos e feriados para DSR de extras")}
         {number("transportCost","Custo do vale-transporte concedido (R$)")}{number("transportDays","Dias de salário-base para limite VT (30 no mês integral)")}
@@ -78,6 +93,7 @@ export function CltPayslips({data,currentUser,dispatchCommand,showToast,year,mon
           <Inp label={`Valor da rubrica ${index+1} (R$)`} type="number" value={String(item.amount)} onChange={v=>update("custom",draft.custom.map((r,i)=>i===index?{...r,amount:v}:r))}/>
           <div>{["inss","irrf","fgts"].map(flag=><label className="clt-check" key={flag}><input type="checkbox" checked={!!item[flag]} onChange={e=>update("custom",draft.custom.map((r,i)=>i===index?{...r,[flag]:e.target.checked}:r))}/>Compõe base {flag.toUpperCase()}{item.kind==="deduction"?" (reduz)":""}</label>)}</div>
           <Btn v="ghost" onClick={()=>update("custom",draft.custom.filter((_,i)=>i!==index))}>Remover rubrica {index+1}</Btn>
+          <label className="clt-check"><input type="checkbox" checked={!!item.recurring} onChange={e=>update('custom',draft.custom.map((r,i)=>i===index?{...r,recurring:e.target.checked}:r))}/>Reutilizar esta rubrica nos próximos meses (revisar valor e incidências)</label>
         </div>)}<Btn v="secondary" onClick={()=>update("custom",[...draft.custom,{label:"",kind:"earning",amount:"",inss:false,irrf:false,fgts:false}])}>Adicionar rubrica</Btn>
       </fieldset>
       <fieldset disabled={!canEdit||saving}><legend>4. Tributos e deduções</legend><div className="clt-grid"><Sel label="Apuração de INSS e IRRF" value={draft.fiscalMode} onChange={v=>update("fiscalMode",v)} options={[{v:"automatic",l:"Automática · mensal ordinária 2026"},{v:"manual",l:"Valores apurados pela contabilidade"}]}/>

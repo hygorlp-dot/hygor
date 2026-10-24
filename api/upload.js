@@ -19,6 +19,7 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { authenticateAppUser } from "../server/app-auth.js";
+import {handleRhDocuments} from '../server/rh-documents.js';
 import {
   canUploadToDestination,
   isAcceptedUploadMime,
@@ -52,6 +53,11 @@ export default async function handler(req, res) {
   // 1. Autentica.
   const user = await authenticateAppUser({userId,pin,accessToken},{scope:"upload"});
   if (!user) return res.status(401).json({ error: "PIN invalido." });
+  if(folder==='rh'){
+    res.setHeader('Cache-Control','no-store');
+    try{const result=await handleRhDocuments({db,user,body:req.body,company:process.env.COMPANY_ID||'arcd'});return res.status(result.status).json(result.body);}
+    catch(error){console.error('Prontuário RH indisponível:',error?.message);return res.status(503).json({ok:false,error:'Prontuário indisponível. Tente novamente.'});}
+  }
   const requestedWork=String(obraId||"");
   if(!canUploadToDestination(user,{obraId:requestedWork,folder})){
     return res.status(403).json({error:"Você não pode enviar arquivos para outra obra."});
