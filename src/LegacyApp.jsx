@@ -4116,7 +4116,6 @@ function Dashboard({ data, update, showToast, onTab, ultimaSync, currentUser, on
 
   return <div className="anim dashboard-tech-motion dashboard-command-center" style={{position:"relative",display:"flex",flexDirection:"column",gap:14,paddingBottom:16}}>
     {/* Marca d'água institucional: grande, porém abaixo de todo o conteúdo. */}
-    <img src={ARCD_LOGO} alt="" aria-hidden="true" style={{position:"fixed",right:isDesktop?"4%":"-12%",bottom:"3%",width:isDesktop?430:280,height:isDesktop?430:280,objectFit:"contain",opacity:.018,pointerEvents:"none",zIndex:0}}/>
 
     <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={filaOperador} onBuscar={onBuscar} onAtualizar={onAtualizar} onAbrir={onTab} periodo={`${fullMonth(month)} ${year}`} onAnterior={()=>irMes(-1)} onProximo={()=>irMes(1)} proximoDesabilitado={ehAtual} clima={resumoDiario.clima} saveState={saveState}/>
     <FilaOperador fila={filaOperador} onTab={onTab}/>

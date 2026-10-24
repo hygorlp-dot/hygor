@@ -405,7 +405,7 @@
       "kind": "dashboard",
       "description": "Refinamento local aprovado em 2026-10-24. Nimbus Sans; navegação 12/400, ativo 500; título 24/500; seções 14/500; notícias 13/400 desktop e 14/400 celular. Marca, dados e permissões preservados.",
       "html": "<section class=\"mrc-dashboard\"><h1>Dashboard</h1><header>Ações da obra</header></section>",
-      "css": ".mrc-dashboard{font-family:\"Nimbus Sans\",Arial,sans-serif;font-variant-numeric:tabular-nums}.mrc-dashboard h1{font-size:24px;font-weight:500}.mrc-dashboard header{background:#F8F3E9;color:#0D1B2E;font-size:14px;font-weight:500}"
+      "css": ".mrc-dashboard{font-family:\"Nimbus Sans\",Arial,sans-serif;font-variant-numeric:tabular-nums}.mrc-dashboard h1{font-size:1.5rem;font-weight:500}.mrc-dashboard header{background:#F8F3E9;color:#0D1B2E;font-size:.875rem;font-weight:500}"
     }
   ],
   "narrative": {
