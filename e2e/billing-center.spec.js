@@ -11,6 +11,9 @@ const PROFILE = { id:"qa-admin", nome:"Administrador QA", email:"qa-admin@arcd.t
 const SHOTS = process.env.RENTALS_SHOTS || "";
 
 async function abrirCentral(page) {
+  // Printing is verified through printToPDF below, without opening a native
+  // printer dialog that can block screenshots in headless Chromium.
+  await page.context().addInitScript(() => { window.print = () => {}; });
   await page.clock.setFixedTime(new Date("2026-09-15T12:00:00-03:00"));
   let state = { usuarios:[PROFILE], attendance:{}, attendanceLocks:{}, unlockRequests:[], dailyCheckDate:"", changeLog:[], config:{ paymentHolidays:[] }, ...buildBillingData() };
   await page.route("**/api/**", route => route.fulfill({ json:{ ok:true, status:200, presencas:[], reply:"" } }));
@@ -67,6 +70,9 @@ test("cobrança ao cliente: edição salva, PDF atualizado da obra e total alinh
   await expect(report.locator("thead")).not.toContainText(/Repasse|Margem|Resultado/);
   await expect(report.locator("tfoot td")).toHaveCount(12);
   await expect(report.locator("tfoot td").last()).toContainText("R$ 1.850,00");
+  await report.evaluate(() => window.__marcellReportReady);
+  await expect(report.locator(".mrc-report-logo")).toHaveCount(1);
+  expect(await report.evaluate(() => [...document.fonts].filter(f => f.family.includes("Nimbus Sans")).every(f => f.status === "loaded"))).toBe(true);
   const pdf = await report.pdf({ path:test.info().outputPath("cobranca-cliente.pdf"), preferCSSPageSize:true, printBackground:true });
   expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
   await report.screenshot({ path:test.info().outputPath("cobranca-cliente.png"), fullPage:true });

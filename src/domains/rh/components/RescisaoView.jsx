@@ -1,3 +1,4 @@
+import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
 // RescisaoView — tela "Cálculo de Rescisão", extraída de
 // src/LegacyApp.jsx em 2026-08-20, mesma técnica já usada para os
@@ -255,7 +256,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 <div class="footer">Documento gerado pelo MARCELL · ${new Date().toLocaleString("pt-BR")} · Via do empregador / Via do trabalhador</div>
 </body></html>`;
     const w = window.open("","_blank");
-    w.document.write(html);
+    w.document.write(marcellReportHtml(html));
     w.document.close();
   };
 

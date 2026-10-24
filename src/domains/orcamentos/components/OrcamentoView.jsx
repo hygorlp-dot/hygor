@@ -1,3 +1,4 @@
+import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { copiedFloorRecoveries, recoverCopiedFloor } from '../copied-floor-recovery';
 import ItemMemoryPanel from './ItemMemoryPanel';
 import BoxMemoryPanel from './BoxMemoryPanel';
@@ -3267,7 +3268,7 @@ ${blocoBDI}
 </section>
 <div class="footer">${escapeHtml(empresaPDF)} · gerado em ${new Date().toLocaleString("pt-BR")} · preços congelados na data-base ${escapeHtml(dataBaseLegivel)}</div>
 </body></html>`;
-    const w = window.open("","_blank"); w.document.write(html); w.document.close();
+    const w = window.open("","_blank"); w.document.write(marcellReportHtml(html)); w.document.close();
   };
 
   // Exportações da tabela de Sapatas (Memória de Cálculo - Fundação) - pedido
@@ -3379,7 +3380,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 </table>
 <div class="footer">${escapeHtml(data.config?.companyName||"MARCELL")} · gerado em ${new Date().toLocaleString("pt-BR")}</div>
 </body></html>`;
-    const w = window.open("","_blank"); w.document.write(html); w.document.close();
+    const w = window.open("","_blank"); w.document.write(marcellReportHtml(html)); w.document.close();
   };
 
   //  VIEW: LISTA

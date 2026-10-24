@@ -26,6 +26,8 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   projects: [
+    {name:"clt-desktop",testMatch:/clt-payslips\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
+    {name:"clt-mobile",testMatch:/clt-payslips\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"erp-navigation-desktop",testMatch:/erp-navigation\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
     {name:"erp-navigation-mobile",testMatch:/erp-navigation\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"annual-dre-desktop",testMatch:/annual-dre\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},

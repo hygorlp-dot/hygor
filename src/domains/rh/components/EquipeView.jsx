@@ -79,6 +79,9 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     pixType: "",
     pixHolder: "",
     dailyRate: "",
+    remunerationMode: "daily",
+    monthlySalary: "",
+    remunerationEffectiveFrom: "",
     vtDaily: "",
     vrDaily: "",
     workdayHours: "8",
@@ -148,7 +151,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
   const saveEmp = async () => {
     const errors={};
     if (!form.name.trim()) errors.name="Informe o nome completo.";
-    if (!(Number(form.dailyRate)>0)) errors.dailyRate="Informe uma diária positiva.";
+    if (!(Number(form.dailyRate)>0)) errors.dailyRate="Informe uma diária positiva para o custeio do ponto.";
+    if (form.remunerationMode==="clt"&&!(Number(form.monthlySalary)>0)) errors.monthlySalary="Informe o salário contratual mensal.";
     if (!form.startDate) errors.startDate="Informe a admissão.";
     setFormErrors(errors);
     if (Object.keys(errors).length) {
@@ -161,6 +165,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       ...form,
       id: form.id || uid(),
       dailyRate: Number(form.dailyRate || 0),
+      remunerationMode: form.remunerationMode==="clt"?"clt":"daily",
+      monthlySalary: Number(form.monthlySalary || 0),
       vtDaily: Number(form.vtDaily || 0),
       vrDaily: Number(form.vrDaily || 0),
       workdayHours: Math.max(1, Number(form.workdayHours || 8)),
@@ -504,13 +510,17 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <p style={TYPO.eyebrow}>Remuneração</p>
               <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
-                <Inp label="Diária *" type="number" value={form.dailyRate} onChange={F("dailyRate")} error={formErrors.dailyRate}/>
+                <Sel label="Modalidade de remuneração" value={form.remunerationMode||"daily"} onChange={v=>setForm(f=>({...f,remunerationMode:v,remunerationEffectiveFrom:f.remunerationEffectiveFrom||today()}))} options={[{v:"daily",l:"Diária"},{v:"clt",l:"CLT mensal"}]}/>
+                <Inp label="Modalidade válida a partir de" type="date" value={form.remunerationEffectiveFrom||""} onChange={F("remunerationEffectiveFrom")}/>
+                {form.remunerationMode==="clt"&&<Inp label="Salário contratual mensal *" type="number" value={String(form.monthlySalary||"")} onChange={F("monthlySalary")} error={formErrors.monthlySalary}/>}
+                <Inp label={form.remunerationMode==="clt"?"Diária de referência para custeio do ponto *":"Diária *"} type="number" value={form.dailyRate} onChange={F("dailyRate")} error={formErrors.dailyRate}/>
                 <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} />
                 <Inp label="VR diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} />
                 <Inp label="Jornada padrão (horas)" type="number" min="1" max="24" value={form.workdayHours} onChange={F("workdayHours")} />
                 <Inp label="Início previsto da jornada" type="time" value={form.workStart} onChange={F("workStart")} />
                 <Inp label="Adicional de hora extra (%)" type="number" min="0" value={form.overtimeAdditionalPercent} onChange={F("overtimeAdditionalPercent")} />
               </div>
+              {form.remunerationMode==="clt"&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-label)"}}>O salário contratual alimenta o holerite mensal. A diária de referência mantém o custeio dos apontamentos no DRE; não define o salário CLT nem representa um novo pagamento. Alterar a modalidade não recalcula folhas anteriores.</p>}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <p style={TYPO.eyebrow}>PIX</p>

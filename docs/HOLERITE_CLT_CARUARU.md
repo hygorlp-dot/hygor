@@ -1,0 +1,31 @@
+# Holerite CLT mensal e adiantamentos
+
+RH e administradores selecionam a modalidade no cadastro da equipe: diária ou CLT mensal, com vigência. Cadastros antigos continuam como diária. O histórico resolve a modalidade por data; a planilha quinzenal de diárias não inclui dias CLT. A diária de referência continua como parâmetro explícito de custeio do ponto no DRE, separado do salário mensal contratado.
+
+Em Folha → Holerites CLT, selecionar funcionário e competência. Preencher salário, matrícula, CBO, dias e eventos. O perfil Caruaru é uma sugestão reutilizável por funcionário e preservado em cada competência salva. Não converte diária em salário. Salvar um demonstrativo utiliza FUNCIONARIO_SALVO, com versão esperada e permissão RH/admin já existente; não cria obrigação, baixa, conciliação ou novo custo no DRE. Nunca representa quitação bancária.
+
+## Fonte e vigência
+
+PDF fornecido pelo usuário: `cct-caruaru-2026-17853519576a6a4f1580c96 (2).pdf`, registro MTE PE000665/2026, registrado em 14/07/2026. Convenção geral: 01/05/2026 a 30/04/2028; pisos e várias cláusulas econômicas: até 30/04/2027. Abrangência: construção civil, Caruaru/PE. Não estender automaticamente os pisos para 2027/2028.
+
+- Cl. 3: pisos R$ 1.810,60 / R$ 2.406,80; classificação confirmada pelo RH.
+- Cl. 7 e 37: identificação, remuneração discriminada, referências, descontos, INSS e FGTS.
+- Cl. 39: extras 70% / 100%, com classificação dos eventos pelo operador. DSR sobre extras separado do DSR já incluído no salário mensal.
+- Cl. 14: incentivo de formação, mediante elegibilidade comprovada.
+- Cl. 18: cesta R$ 65,00, R$ 90,00 desde maio/2027, com requisitos de elegibilidade e mês de pagamento confirmado. Não confundir com refeição/ticket fornecido.
+- Cl. 19: VT limitado ao custo concedido e ao percentual proporcional informado.
+- Cl. 72: taxa assistencial 2%, teto do piso profissional; nunca aplicada sem confirmação de abrangência e oposição. Mensalidade associativa e taxa negocial não são automáticas.
+
+## Tributação e limites
+
+Automático: folha mensal ordinária 2026, INSS progressivo (Portaria MPS/MF 13/2026), IRRF mensal 2026 com redução da Lei 15.270/2025, dedução legal ou simplificada mais favorável. IRRF por mês de pagamento, com campos para outros rendimentos, deduções e retenções da mesma fonte no mês.
+
+Férias, 13º, rescisões, vínculos concomitantes, situações especiais e adiantamentos/saldo pagos em meses diferentes exigem valores apurados pela contabilidade. Apuração manual exige INSS, IRRF, base IRRF e referência/responsável. Não há extrapolação de tabela de 2026 para outro ano. FGTS é informativo como encargo do empregador, nunca desconto do líquido. Rubricas adicionais exigem definição das incidências pela contabilidade.
+
+Fontes oficiais consultadas: [INSS](https://www.gov.br/inss/pt-br/direitos-e-deveres/inscricao-e-contribuicao/tabela-de-contribuicao-mensal), [IRRF 2026](https://www.gov.br/receitafederal/pt-br/assuntos/meu-imposto-de-renda/tabelas/2026), [CLT](https://www.planalto.gov.br/ccivil_03/decreto-lei/del5452compilado.htm).
+
+## Adiantamentos e exportação
+
+Seleção de parcelas existentes pela competência de desconto; IDs únicos. Recibos utilizam registros existentes e ficam para assinatura após recebimento. Não criam transferência nem comprovam pagamento. Mudanças/cancelamento do adiantamento bloqueiam exportação sem nova conferência. Exportação mensal requer dados completos, confirmação e salvamento. PDF MARCELL com logo e fontes incorporadas.
+
+Validação isolada: cenários tributários, vigência, histórico de modalidade, eventos, adiantamentos, preservação financeira, persistência e PDFs em desktop e celular. Nenhum empregado, adiantamento ou pagamento fictício é criado em produção.

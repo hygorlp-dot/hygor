@@ -110,6 +110,7 @@ const employeeChangeLog = ({ data, before, employee, actorName, now }) => {
       message:`${employee.name} teve a diária alterada.`,
     });
   }
+  if((before.remunerationMode||"daily")!==employee.remunerationMode||Number(before.monthlySalary||0)!==Number(employee.monthlySalary||0))appendChange(events,{...common,type:"remuneration_change",message:`Modalidade/salário contratual de ${employee.name} alterado. Vigência: ${employee.remunerationEffectiveFrom||employee.startDate}.`,from:before.remunerationMode||"daily",to:employee.remunerationMode});
   return events;
 };
 
@@ -133,6 +134,8 @@ export const applyEmployeeCommand = (
   if (!name) return fail("Informe o nome do funcionário.");
   if (!validDate(raw.startDate)) return fail("Informe uma data de admissão válida.");
   const dailyRate = Number(raw.dailyRate || 0);
+  if(raw.remunerationMode&&!["daily","clt"].includes(raw.remunerationMode))return fail("Modalidade de remuneração inválida.");
+  if(raw.remunerationMode==="clt"&&!(Number.isFinite(Number(raw.monthlySalary))&&Number(raw.monthlySalary)>0))return fail("Informe o salário contratual mensal para a modalidade CLT.");
   if (!Number.isFinite(dailyRate) || dailyRate <= 0) {
     return fail("Informe uma diária positiva para o funcionário.");
   }
@@ -166,6 +169,13 @@ export const applyEmployeeCommand = (
   const actorId = String(command.actorId || "");
   const actorName = String(command.actorName || "").trim() || "Usuário autenticado";
   if (!actorId) return fail("Sessão do usuário indisponível para salvar o funcionário.");
+  const mode=raw.remunerationMode==="clt"?"clt":"daily";
+  const previousMode=before?.remunerationMode==="clt"?"clt":"daily";
+  const modeChanged=mode!==previousMode;
+  const modeDate=String(raw.remunerationEffectiveFrom||raw.startDate);
+  if(modeChanged&&(!validDate(modeDate)||modeDate<raw.startDate))return fail("Informe uma vigência da modalidade igual ou posterior à admissão.");
+  const baseHistory=before?.remunerationHistory?.length?before.remunerationHistory:[{date:before?.remunerationEffectiveFrom||before?.startDate||raw.startDate,mode:previousMode}];
+  const remunerationHistory=modeChanged?[...baseHistory,{date:modeDate,mode,changedAt:now,changedBy:actorId}]:before?.remunerationHistory||[];
   const employee = {
     ...raw,
     id,
@@ -174,6 +184,9 @@ export const applyEmployeeCommand = (
     workArea,
     obra:obraId,
     dailyRate,
+    remunerationMode:mode,
+    remunerationEffectiveFrom:modeChanged?modeDate:before?.remunerationEffectiveFrom||raw.remunerationEffectiveFrom||"",
+    remunerationHistory,
     vtDaily:Number(raw.vtDaily || 0),
     vrDaily:Number(raw.vrDaily || 0),
     workdayHours,
