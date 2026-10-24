@@ -742,7 +742,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
   return (
     <div className="anim payroll-workspace">
-      <section className="payroll-controls" aria-label="Competência e escopo da folha">
+      {(payrollView==="payroll"||payrollView==="union")&&<><section className="payroll-controls" aria-label="Competência e escopo da folha">
         <div className="payroll-section-heading">
           <div>
             <h3>Competência e escopo</h3>
@@ -776,13 +776,14 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         ]}
         actions={pendenciasRelatorio.length?<Btn v="warning" onClick={()=>onTab?.("ponto_geral")}><Ic n="alert"/> Revisar ponto</Btn>:null}
       />
+      </>}
 
       <FlowTabs label="Áreas da folha" active={payrollView} onChange={setPayrollView}
         steps={[{id:"payroll",label:"Folha da quinzena",description:"Confira as pendências e a composição por funcionário antes de gerar os relatórios."},{id:"clt",label:"Holerites CLT"},{id:"provisions",label:"Provisões trabalhistas"}]}
         tools={[{id:"union",label:"Sindicato"}]} toolsLabel="Regras e descontos"/>
-      <DreIntegration kind="payroll" currentUser={currentUser} obraId={filterObra==="all"?"":filterObra} year={year} month={month}>
+      {payrollView==="payroll"&&<DreIntegration kind="payroll" currentUser={currentUser} obraId={filterObra==="all"?"":filterObra} year={year} month={month}>
         <p>Consulta do DRE mensal. A quinzena de 21 a 05 atravessa dois meses; o DRE mantém a competência de cada apontamento.</p>
-      </DreIntegration>
+      </DreIntegration>}
 
       {payrollView==="clt"&&<CltPayslips data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
       {payrollView==="provisions"&&<LaborProvisions data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}

@@ -33,6 +33,7 @@ async function enter(page){
 test("RH: mensal CLT, vínculo de adiantamento, persistência, recibos e PDF sem baixa financeira",async({page})=>{
   const errors=[];page.on("pageerror",e=>errors.push(e.message));
   const {commands,getState}=await enter(page);
+  await expect(page.getByRole("region",{name:"Competência e escopo da folha"})).toHaveCount(0);
   await expect(page.getByLabel("Salário contratual mensal (R$)",{exact:true})).toHaveValue("2406.8");
   await page.getByLabel("Matrícula",{exact:true}).fill("001");await page.getByLabel(/^Cbo$/i).fill("715210");
   await page.getByLabel("Dias efetivamente trabalhados",{exact:true}).fill("22");
