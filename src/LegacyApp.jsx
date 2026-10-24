@@ -1554,6 +1554,7 @@ const normalizeData = incoming => {
       remunerationEffectiveFrom:e.remunerationEffectiveFrom||"",
       remunerationHistory:Array.isArray(e.remunerationHistory)?e.remunerationHistory:[],
       cltPayroll:e.cltPayroll&&typeof e.cltPayroll==="object"?e.cltPayroll:null,
+      laborProvisions:e.laborProvisions&&typeof e.laborProvisions==="object"?e.laborProvisions:null,
       vtDaily: Number(e.vtDaily || 0),
       vrDaily: Number(e.vrDaily || 0),
       obra: e.obra || "",

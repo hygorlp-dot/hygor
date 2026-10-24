@@ -26,7 +26,6 @@ async function enter(page){
   const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
   await search.fill("Folha");
   await search.locator("xpath=../..").getByRole("button").filter({hasText:"Folha"}).click();
-  await page.getByText("Holerites e regras",{exact:true}).click();
   await page.getByRole("button",{name:"Holerites CLT",exact:true}).click();
   await page.getByRole("combobox",{name:"Funcionário do holerite",exact:true}).selectOption("emp");
   return {commands,getState:()=>state};
@@ -86,4 +85,30 @@ test("RH escolhe diária ou CLT no cadastro, com salário mensal e vigência",as
   expect(getState().employees[0]).toMatchObject({remunerationMode:"clt",monthlySalary:2600,dailyRate:120});
   expect(getState().employees[0].remunerationHistory.at(-1)).toMatchObject({date:"2026-10-01",mode:"clt"});
   expect(commands).toHaveLength(2);expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
+});
+
+test("provisões: total mensal, por funcionário, saldo informado e exportação sem lançamentos",async({page})=>{
+  const {commands,getState}=await enter(page);
+  await page.getByRole("button",{name:"Provisões trabalhistas",exact:true}).click();
+  const region=page.getByRole("region",{name:"Provisões trabalhistas",exact:true});
+  await expect(region).toContainText("Não apurado");
+  await region.getByRole("button",{name:"Ajustar Operário QA",exact:true}).click();
+  await page.getByLabel("Base mensal para provisões (R$)",{exact:true}).fill("3000");
+  await page.getByLabel("Reserva existente antes desse mês (R$)",{exact:true}).fill("1000");
+  await page.getByLabel("Reserva já utilizada no período (R$)",{exact:true}).fill("500");
+  await page.getByLabel("Base FGTS para fins rescisórios — extrato (R$)",{exact:true}).fill("10000");
+  await page.getByRole("button",{name:"Salvar provisões",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Exportar provisões PDF",exact:true})).toBeEnabled();
+  await expect(region.locator(".clt-totals")).toContainText("744,67");
+  await expect(region).toContainText("4.000,00");
+  expect(getState().employees[0].laborProvisions["2026-09"]).toMatchObject({base:"3000",openingBalance:"1000",usedReserve:"500"});
+  await page.getByLabel("Competência das provisões",{exact:true}).fill("2026-10");await page.getByLabel("Competência das provisões",{exact:true}).fill("2026-09");
+  await region.getByRole("button",{name:"Ajustar Operário QA",exact:true}).click();
+  await expect(page.getByLabel("Base mensal para provisões (R$)",{exact:true})).toHaveValue("3000");
+  const opened=page.waitForEvent("popup");await page.getByRole("button",{name:"Exportar provisões PDF",exact:true}).click();const report=await opened;
+  await report.evaluate(()=>window.__marcellReportReady);await expect(report.locator("body")).toContainText("744,67");await expect(report.locator("body")).toContainText("1.244,67");
+  await report.pdf({path:test.info().outputPath("provisoes.pdf"),preferCSSPageSize:true,printBackground:true});await report.close();
+  expect(commands).toHaveLength(1);expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  await region.screenshot({path:test.info().outputPath("provisoes-tela.png")});
 });

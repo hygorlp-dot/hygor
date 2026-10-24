@@ -29,3 +29,13 @@ Fontes oficiais consultadas: [INSS](https://www.gov.br/inss/pt-br/direitos-e-dev
 Seleção de parcelas existentes pela competência de desconto; IDs únicos. Recibos utilizam registros existentes e ficam para assinatura após recebimento. Não criam transferência nem comprovam pagamento. Mudanças/cancelamento do adiantamento bloqueiam exportação sem nova conferência. Exportação mensal requer dados completos, confirmação e salvamento. PDF MARCELL com logo e fontes incorporadas.
 
 Validação isolada: cenários tributários, vigência, histórico de modalidade, eventos, adiantamentos, preservação financeira, persistência e PDFs em desktop e celular. Nenhum empregado, adiantamento ou pagamento fictício é criado em produção.
+
+## Provisões trabalhistas
+
+Folha → Provisões trabalhistas apresenta reserva mensal por funcionário e total no filtro de obra/competência. CLT mensal é incluído por padrão; diária exige inclusão explícita e base mensal informada. Base remuneratória + média de variáveis, sem conversão automática da diária.
+
+Componentes: 13º (1/12), férias (1/12), terço constitucional (1/36), FGTS das verbas conforme incidência e cenário de reserva de multa de FGTS (40% sem justa causa, 20% acordo ou sem reserva). A reserva mensal da multa usa FGTS ordinário estimado e FGTS das verbas provisionadas. O FGTS ordinário não integra o total de reservas. Outras reservas mensais podem ser informadas. Férias reservadas substituem o salário durante o gozo: não duplicar o custo salarial no DRE.
+
+São estimativas de planejamento para mês integral, com remuneração constante, não apuração automática de passivo ou rescisão. Avos efetivos e férias já gozadas não são inferidos. Saldo projetado exige mês inicial, abertura e utilização informados, inclusive zero: abertura + reserva atual × meses inclusivos − utilização. Sem dados, “Não apurado”; totais incompletos são parciais. Base FGTS para fins rescisórios do extrato gera exposição à multa separada da reserva projetada, sem somar ambas. Saques não substituem essa base. INSS patronal, RAT, terceiros e aviso-prévio não são presumidos.
+
+Persistência versionada no funcionário por competência, nas mesmas permissões de RH/admin. Não gera lançamento, pagamento ou provisão contábil no DRE. PDF gerencial MARCELL. Fontes: [Lei 4.090/1962](https://www.planalto.gov.br/ccivil_03/leis/l4090.htm), [Lei 8.036/1990, art. 18](https://www.planalto.gov.br/ccivil_03/leis/l8036compilada.htm), [CLT](https://www.planalto.gov.br/ccivil_03/decreto-lei/del5452compilado.htm) e [FGTS Digital/MTE](https://www.gov.br/trabalho-e-emprego/pt-br/servicos/empregador/fgtsdigital/perguntas-frequentes).
