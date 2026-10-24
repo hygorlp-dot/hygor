@@ -127,6 +127,10 @@
   }
 
   @media (max-width: 1099px) {
+    [data-theme="marcell"] .arcd-main {
+      padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)) !important;
+    }
+
     [data-theme="marcell"] .arcd-app-shell .app-header-inner {
       flex-wrap: wrap;
     }
@@ -141,10 +145,6 @@
   }
 
   @media (max-width: 767px) {
-    [data-theme="marcell"] .arcd-main {
-      padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)) !important;
-    }
-
     [data-theme="marcell"] .arcd-main .dashboard-tech-motion {
       padding-inline: 0;
     }
