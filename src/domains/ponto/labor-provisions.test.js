@@ -20,3 +20,8 @@ it("sinaliza totais parciais e excluídos, sem transformar dado ausente em zero"
   const rows=[{result:calculateLaborProvision(draft())},{result:calculateLaborProvision(draft({base:""}))},{result:calculateLaborProvision(draft({included:false}))}];
   expect(summarizeLaborProvisions(rows)).toMatchObject({employees:2,missing:1,monthly:744.67,missingAccumulated:2,missingFine:2});
 });
+it("mantém déficit visível sem eliminar a provisão mensal válida do total",()=>{
+  const result=calculateLaborProvision(draft({openingBalance:0,usedReserve:2000}));
+  expect(result.errors).toEqual([]);expect(result.accumulated).toBe(-1255.33);
+  expect(summarizeLaborProvisions([{result}])).toMatchObject({missing:0,monthly:744.67,accumulated:-1255.33});
+});
