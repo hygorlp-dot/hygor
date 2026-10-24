@@ -51,6 +51,12 @@ export function calculateCltPayslip(draft) {
   if(!r.name?.trim()||!(n(r.divisor)>0)||!r.effectiveFrom||!r.effectiveTo||r.effectiveTo<r.effectiveFrom)errors.push("Complete o nome, a vigência e o divisor do perfil.");
   for(const key of ["helperFloor","professionalFloor","overtimePercent","extraordinaryPercent","fgtsPercent","trainingPercent","transportPercent","unionPercent","unionCap"])if(!Number.isFinite(Number(r[key]))||n(r[key])<0)errors.push(`Regra inválida: ${key}.`);
   if(n(r.overtimePercent)<50||n(r.extraordinaryPercent)<100||n(r.transportPercent)>6)errors.push("Adicionais e desconto de transporte não podem reduzir os limites legais.");
+  if(d.competence>="2026-05"&&d.competence<="2027-04") {
+    if(n(r.helperFloor)<1810.60||n(r.professionalFloor)<2406.80||n(r.overtimePercent)<70)errors.push("Na vigência econômica da CCT Caruaru, preserve os pisos de R$ 1.810,60 / R$ 2.406,80 e o adicional mínimo de 70%.");
+    if(d.trainingEligible&&n(r.trainingPercent)<5)errors.push("O incentivo de formação elegível não pode ser inferior aos 5% previstos na CCT.");
+    if(d.unionAuthorized&&(n(r.unionPercent)>2||n(r.unionCap)>48.14))errors.push("A taxa assistencial da CCT está limitada a 2% e ao teto de R$ 48,14 nesta vigência.");
+  }
+  if(![2,8].includes(n(r.fgtsPercent))||(n(r.fgtsPercent)===2&&d.fiscalMode!=="manual"))errors.push("O FGTS ordinário é de 8%. A alíquota especial de 2% exige enquadramento e apuração contábil identificados.");
   const floor=n(d.category==="helper"?r.helperFloor:r.professionalFloor);
   if(n(d.salary)<floor)errors.push("Salário contratual abaixo do piso selecionado. Confira a categoria e o contrato.");
   if(d.fiscalMode==="automatic"&&(d.competence.slice(0,4)!=="2026"||d.paymentDate.slice(0,4)!=="2026"))errors.push("Cálculo automático disponível para competência e pagamento em 2026. Informe tributos apurados pela contabilidade para outro período.");

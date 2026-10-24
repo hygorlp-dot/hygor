@@ -37,6 +37,13 @@ describe("holerite CLT mensal · CCT Caruaru",()=>{
     expect(result.rows.find(r=>r.code==="110").amount).toBe(90);
     expect(calculateCltPayslip(draft({transportCost:20})).rows.find(r=>r.code==="110").amount).toBe(20);
   });
+  it("não permite reduzir mínimos da CCT ou aplicar FGTS especial automaticamente",()=>{
+    const d=draft();
+    expect(calculateCltPayslip({...d,rules:{...d.rules,overtimePercent:50}}).errors.join(" ")).toMatch(/70%/);
+    expect(calculateCltPayslip({...d,rules:{...d.rules,professionalFloor:2000}}).errors.join(" ")).toMatch(/pisos/);
+    expect(calculateCltPayslip({...d,unionAuthorized:true,rules:{...d.rules,unionPercent:3}}).errors.join(" ")).toMatch(/2%/);
+    expect(calculateCltPayslip({...d,rules:{...d.rules,fgtsPercent:2}}).errors.join(" ")).toMatch(/apuração contábil/);
+  });
   it("exige apuração contábil quando adiantamento e saldo caem em meses diferentes",()=>{
     const advances=[{id:"a",amount:600,date:"2026-09-20"}];
     expect(calculateCltPayslip(draft({advances})).errors.join(" ")).toMatch(/regime de caixa/);
