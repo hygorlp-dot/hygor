@@ -21,12 +21,22 @@ colors:
   warning: "#855A24"
   danger: "#A63B3B"
   info: "#355874"
+  dashboard-news-header: "#EDF3F7"
+  dashboard-actions-header: "#F8F3E9"
 typography:
   display:
     fontFamily: 'P052, Georgia, serif'
     fontSize: 'clamp(26px, 2.5vw, 38px)'
     fontWeight: 400
     lineHeight: 1.2
+  navigation:
+    fontFamily: 'Nimbus Sans, Helvetica Neue, Arial, sans-serif'
+    fontSize: '0.75rem'
+    fontWeight: 400
+  dashboard-title:
+    fontFamily: 'Nimbus Sans, Helvetica Neue, Arial, sans-serif'
+    fontSize: '1.5rem'
+    fontWeight: 500
   headline:
     fontFamily: 'Nimbus Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '1.75rem'
@@ -216,6 +226,12 @@ Campos claros, borda de controle e cantos de 8 px; descrição e erro permanecem
 ### Navigation
 
 A lateral usa azul-marinho, texto claro e separadores discretos. Hover altera a superfície e o texto; ativo recebe superfície azul e texto/borda em ouro. A marca usa o monograma oficial. A navegação inferior usa areia no celular. Uma navegação por nível e alvos claros preservam reconhecimento e acesso por teclado.
+
+### Dashboard executivo
+
+Refinamento local aprovado: menu desktop com 12 px e peso 400 (ativo 500), escrita normal e sem contagem de telas por grupo. Monograma e nome permanecem no topo, sem assinatura secundária na lateral. Dashboard: título 24/500, seções 14/500, chamadas e notícias 13/400 no desktop; textos das listas 14/400 no celular e metadados nunca abaixo de 12 px. Alvos de toque preservados.
+
+Cabeçalhos em azul suave (#EDF3F7) para notícias e areia dourada (#F8F3E9) para ações. Ícones simples, números tabulares e sinais semânticos preservados; sem caixas decorativas repetidas. O contraste, os filtros e os valores financeiros continuam operacionais. Demais módulos mantêm sua escala normativa.
 
 ## Do's and Don'ts
 
