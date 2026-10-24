@@ -510,8 +510,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <p style={TYPO.eyebrow}>Remuneração</p>
               <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
-                <Sel label="Modalidade de remuneração" value={form.remunerationMode||"daily"} onChange={v=>setForm(f=>({...f,remunerationMode:v,remunerationEffectiveFrom:f.remunerationEffectiveFrom||today()}))} options={[{v:"daily",l:"Diária"},{v:"clt",l:"CLT mensal"}]}/>
-                <Inp label="Modalidade válida a partir de" type="date" value={form.remunerationEffectiveFrom||""} onChange={F("remunerationEffectiveFrom")}/>
+                <Sel label="Modalidade de remuneração" value={form.remunerationMode||"daily"} onChange={v=>setForm(f=>({...f,remunerationMode:v,remunerationEffectiveFrom:today()}))} options={[{v:"daily",l:"Diária"},{v:"clt",l:"CLT mensal"}]}/>
+                <Inp label="Modalidade válida a partir de" type="date" value={form.remunerationEffectiveFrom||""} onChange={F("remunerationEffectiveFrom")} disabled={!!form.id&&(form.remunerationMode||"daily")===(data.employees.find(e=>e.id===form.id)?.remunerationMode||"daily")}/>
                 {form.remunerationMode==="clt"&&<Inp label="Salário contratual mensal *" type="number" value={String(form.monthlySalary||"")} onChange={F("monthlySalary")} error={formErrors.monthlySalary}/>}
                 <Inp label={form.remunerationMode==="clt"?"Diária de referência para custeio do ponto *":"Diária *"} type="number" value={form.dailyRate} onChange={F("dailyRate")} error={formErrors.dailyRate}/>
                 <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} />

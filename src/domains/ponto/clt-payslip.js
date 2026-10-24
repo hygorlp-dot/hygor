@@ -34,7 +34,7 @@ export function newCltDraft(competence,profile={}) {
   return {competence,paymentDate:new Date(Date.UTC(year,month,5)).toISOString().slice(0,10),
     salary:profile.salary||"",category:profile.category||"professional",days:30,workedDays:"",absenceDays:0,dsrLostDays:0,
     overtimeHours:0,extraordinaryHours:0,dsrWorkingDays:0,dsrRestDays:0,dependents:0,alimony:0,
-    transportCost:0,transportDays:0,trainingEligible:false,basketEligible:false,unionAuthorized:false,
+    transportCost:0,transportDays:30,trainingEligible:false,basketEligible:false,unionAuthorized:false,
     advanceIds:[],otherTaxable:0,otherDeductions:0,previousIrrf:0,custom:[],notes:"",cbo:profile.cbo||"",registration:profile.registration||"",
     fiscalMode:"automatic",manualInss:"",manualIrrf:"",manualIrrfBase:"",manualReason:"",confirmed:false,
     rules:{...CARUARU_PROFILE,...profile.rules}};
@@ -73,7 +73,7 @@ export function calculateCltPayslip(draft) {
   if(d.basketEligible)add("030","Cesta básica (CCT, cl. 18)",d.competence>="2027-05"?90:65,"earning",false,"Elegibilidade confirmada");
   add("100","Faltas não justificadas",n(d.salary)/30*n(d.absenceDays),"deduction",true,`${d.absenceDays} dias`);
   add("101","DSR perdido",n(d.salary)/30*n(d.dsrLostDays),"deduction",true,`${d.dsrLostDays} dias`);
-  add("110","Vale-transporte",Math.min(n(d.transportCost),n(d.salary)*n(r.transportPercent)/100*n(d.transportDays)/30),"deduction",false,`${d.transportDays} dias · custo ${money(d.transportCost)}`);
+  add("110","Vale-transporte",Math.min(n(d.transportCost),n(d.salary)*n(r.transportPercent)/100*Math.min(n(d.transportDays),n(d.days))/30),"deduction",false,`${Math.min(n(d.transportDays),n(d.days))} dias de base salarial · custo ${money(d.transportCost)}`);
   if(d.unionAuthorized)add("120","Taxa assistencial Caruaru (cl. 72)",Math.min(n(d.salary)*n(r.unionPercent)/100,n(r.unionCap)),"deduction",false,"Aplicabilidade e oposição verificadas");
   for(const item of d.custom||[]) {
     if(!item.label?.trim()||!Number.isFinite(Number(item.amount))||n(item.amount)<0||!["earning","deduction","info"].includes(item.kind))errors.push("Complete a descrição, o tipo e o valor de cada rubrica adicional.");

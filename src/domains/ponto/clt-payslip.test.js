@@ -32,6 +32,11 @@ describe("holerite CLT mensal · CCT Caruaru",()=>{
     expect(calculateCltPayslip(draft({competence:"2027-09"})).errors.join(" ")).toMatch(/vigência/);
     expect(calculateCltPayslip(draft({paymentDate:"2027-01-05"})).errors.join(" ")).toMatch(/2026/);
   });
+  it("limita VT ao custo e à base salarial do período, sem confundir dias de viagem",()=>{
+    const result=calculateCltPayslip(draft({salary:3000,days:15,workedDays:11,transportCost:300,transportDays:30}));
+    expect(result.rows.find(r=>r.code==="110").amount).toBe(90);
+    expect(calculateCltPayslip(draft({transportCost:20})).rows.find(r=>r.code==="110").amount).toBe(20);
+  });
   it("exige apuração contábil quando adiantamento e saldo caem em meses diferentes",()=>{
     const advances=[{id:"a",amount:600,date:"2026-09-20"}];
     expect(calculateCltPayslip(draft({advances})).errors.join(" ")).toMatch(/regime de caixa/);

@@ -64,12 +64,12 @@ export function CltPayslips({data,currentUser,dispatchCommand,showToast,year,mon
       </div></fieldset>
       <fieldset disabled={!canEdit||saving}><legend>2. Eventos e benefícios</legend><div className="clt-grid">
         {number("overtimeHours",`Horas extras com adicional de ${draft.rules.overtimePercent}%`)}{number("extraordinaryHours",`Horas extras com adicional de ${draft.rules.extraordinaryPercent}%`)}{number("dsrWorkingDays","Dias úteis para DSR de extras")}{number("dsrRestDays","Domingos e feriados para DSR de extras")}
-        {number("transportCost","Custo do vale-transporte concedido (R$)")}{number("transportDays","Dias de concessão de VT (base 30)")}
+        {number("transportCost","Custo do vale-transporte concedido (R$)")}{number("transportDays","Dias de salário-base para limite VT (30 no mês integral)")}
       </div><p>Primeiras duas horas extras de segunda a sábado: 70%. A partir da terceira, domingos, feriados não compensados e sábados após o segundo do mês: 100%. Classifique os eventos antes de informar. O DSR do salário mensal já está incluído; aqui se calcula somente o reflexo das extras.</p>
         {toggle("trainingEligible","Curso e elegibilidade comprovados — incentivo de formação (cl. 14)")}
         {toggle("basketEligible","Cesta devida neste pagamento: canteiro, salário até R$ 4.500, após experiência, 15 dias trabalhados, sem falta injustificada ou advertência de segurança (cl. 18)")}
         {toggle("unionAuthorized","Aplicabilidade e direito de oposição conferidos — taxa assistencial mensal (cl. 72)")}
-        <p>Alimentação fornecida não é salário em dinheiro. Registre tickets e refeições como informativos. Mensalidade associativa e taxa negocial não são descontadas automaticamente.</p>
+        <p>O limite do VT usa dias de base salarial, até o período de salário informado, e não o número de viagens; o desconto nunca excede o custo concedido. Alimentação fornecida não é salário em dinheiro. Registre tickets e refeições como informativos. Mensalidade associativa e taxa negocial não são descontadas automaticamente.</p>
       </fieldset>
       <fieldset disabled={!canEdit||saving}><legend>3. Rubricas adicionais</legend><p>Produção, adicionais, benefícios e descontos específicos. Confira as incidências com a contabilidade.</p>
         {(draft.custom||[]).map((item,index)=><div className="clt-custom" key={index}>
