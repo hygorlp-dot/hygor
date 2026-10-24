@@ -7867,3 +7867,6 @@ body.no-scroll .arcd-team-chat {
   .arcd-app-shell[data-tab="home"] .app-header-inner {flex-wrap:wrap;}
   .arcd-app-shell[data-tab="home"] .app-header-actions {min-width:0;max-width:100%;flex-shrink:1;flex-wrap:wrap;justify-content:flex-end;}
 }
+
+.dashboard-priority-actions {min-width:0;max-width:100%;}
+.dashboard-priority-actions > .arcd-btn {max-width:100%;white-space:normal !important;}
