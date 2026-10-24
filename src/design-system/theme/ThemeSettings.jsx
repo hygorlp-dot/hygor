@@ -15,7 +15,7 @@ export function ThemeSettings() {
   return <section className="arcd-form-section" aria-labelledby="theme-settings-title">
     <h2 id="theme-settings-title" className="arcd-form-section__title">Aparência operacional</h2>
     <p className="arcd-form-section__description">Tema e densidade alteram apenas a aparência e o tamanho dos controles. Dados e permissões não são modificados.</p>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(13rem, 1fr))", gap: "var(--arcd-layout-gap)" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 13rem), 1fr))", gap: "var(--arcd-layout-gap)" }}>
       <Select label="Tema" value={theme} onChange={event => setTheme(event.target.value)} options={availableThemes.map(item => ({ value: item.id, label: item.label }))} />
       <Select label="Densidade" value={density} onChange={event => setDensity(event.target.value)} options={densityOptions.map(value => ({ value, label: densityLabels[value] }))} />
     </div>

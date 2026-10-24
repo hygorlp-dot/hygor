@@ -350,7 +350,7 @@
       "refersTo": "button-primary",
       "description": "Ação operacional primary.",
       "html": "<button class=\"ds-button-primary\">Salvar</button>",
-      "css": ".ds-button-primary{display:inline-flex;align-items:center;justify-content:center;min-height:var(--arcd-control-height, 2.75rem);padding:0 var(--arcd-space-4, 1rem);border:1px solid transparent;border-radius:var(--arcd-radius-md, .375rem);font:600 .875rem var(--arcd-font-sans, \"Nimbus Sans\", Arial, sans-serif);cursor:pointer;transition:background-color var(--arcd-motion-fast, 120ms) var(--arcd-ease-standard, cubic-bezier(.2,0,0,1));background:var(--mrc-navy, #0D1B2E);color:#FFFFFF;border-color:var(--mrc-navy, #0D1B2E);}.ds-button-primary:hover{background:var(--arcd-action-primary-hover, #18304C);}.ds-button-primary:focus-visible{outline:3px solid color-mix(in srgb,var(--arcd-focus-ring, #7B6030) 62%,transparent);outline-offset:2px;}.ds-button-primary:active{transform:translateY(1px);}.ds-button-primary:disabled{opacity:.56;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-button-primary{transition-duration:1ms;}}"
+      "css": ".ds-button-primary{display:inline-flex;align-items:center;justify-content:center;min-height:var(--arcd-control-height, 2.75rem);padding:0 var(--arcd-space-4, 1rem);border:1px solid transparent;border-radius:var(--arcd-radius-md, .375rem);font:400 .875rem var(--arcd-font-sans, \"Nimbus Sans\", Arial, sans-serif);cursor:pointer;transition:background-color var(--arcd-motion-fast, 120ms) var(--arcd-ease-standard, cubic-bezier(.2,0,0,1));background:var(--mrc-navy, #0D1B2E);color:#FFFFFF;border-color:var(--mrc-navy, #0D1B2E);}.ds-button-primary:hover{background:var(--arcd-action-primary-hover, #18304C);}.ds-button-primary:focus-visible{outline:3px solid color-mix(in srgb,var(--arcd-focus-ring, #7B6030) 62%,transparent);outline-offset:2px;}.ds-button-primary:active{transform:translateY(1px);}.ds-button-primary:disabled{opacity:.56;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-button-primary{transition-duration:1ms;}}"
     },
     {
       "name": "Button secondary",
@@ -358,7 +358,7 @@
       "refersTo": "button-secondary",
       "description": "Ação operacional secondary.",
       "html": "<button class=\"ds-button-secondary\">Salvar</button>",
-      "css": ".ds-button-secondary{display:inline-flex;align-items:center;justify-content:center;min-height:var(--arcd-control-height, 2.75rem);padding:0 var(--arcd-space-4, 1rem);border:1px solid transparent;border-radius:var(--arcd-radius-md, .375rem);font:600 .875rem var(--arcd-font-sans, \"Nimbus Sans\", Arial, sans-serif);cursor:pointer;transition:background-color var(--arcd-motion-fast, 120ms) var(--arcd-ease-standard, cubic-bezier(.2,0,0,1));background:var(--arcd-surface-card, #FFFFFF);color:var(--arcd-text-primary, #0D1B2E);border-color:var(--arcd-border-strong, #7A8591);}.ds-button-secondary:hover{background:var(--arcd-surface-muted, #E8E5DF);}.ds-button-secondary:focus-visible{outline:3px solid color-mix(in srgb,var(--arcd-focus-ring, #7B6030) 62%,transparent);outline-offset:2px;}.ds-button-secondary:active{transform:translateY(1px);}.ds-button-secondary:disabled{opacity:.56;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-button-secondary{transition-duration:1ms;}}"
+      "css": ".ds-button-secondary{display:inline-flex;align-items:center;justify-content:center;min-height:var(--arcd-control-height, 2.75rem);padding:0 var(--arcd-space-4, 1rem);border:1px solid transparent;border-radius:var(--arcd-radius-md, .375rem);font:400 .875rem var(--arcd-font-sans, \"Nimbus Sans\", Arial, sans-serif);cursor:pointer;transition:background-color var(--arcd-motion-fast, 120ms) var(--arcd-ease-standard, cubic-bezier(.2,0,0,1));background:var(--arcd-surface-card, #FFFFFF);color:var(--arcd-text-primary, #0D1B2E);border-color:var(--arcd-border-strong, #7A8591);}.ds-button-secondary:hover{background:var(--arcd-surface-muted, #E8E5DF);}.ds-button-secondary:focus-visible{outline:3px solid color-mix(in srgb,var(--arcd-focus-ring, #7B6030) 62%,transparent);outline-offset:2px;}.ds-button-secondary:active{transform:translateY(1px);}.ds-button-secondary:disabled{opacity:.56;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-button-secondary{transition-duration:1ms;}}"
     },
     {
       "name": "Button ghost",
@@ -366,7 +366,7 @@
       "refersTo": "button-ghost",
       "description": "Ação operacional ghost.",
       "html": "<button class=\"ds-button-ghost\">Salvar</button>",
-      "css": ".ds-button-ghost{display:inline-flex;align-items:center;justify-content:center;min-height:var(--arcd-control-height, 2.75rem);padding:0 var(--arcd-space-4, 1rem);border:1px solid transparent;border-radius:var(--arcd-radius-md, .375rem);font:600 .875rem var(--arcd-font-sans, \"Nimbus Sans\", Arial, sans-serif);cursor:pointer;transition:background-color var(--arcd-motion-fast, 120ms) var(--arcd-ease-standard, cubic-bezier(.2,0,0,1));background:transparent;color:var(--arcd-text-primary, #0D1B2E);border-color:transparent;}.ds-button-ghost:hover{background:var(--arcd-surface-muted, #E8E5DF);}.ds-button-ghost:focus-visible{outline:3px solid color-mix(in srgb,var(--arcd-focus-ring, #7B6030) 62%,transparent);outline-offset:2px;}.ds-button-ghost:active{transform:translateY(1px);}.ds-button-ghost:disabled{opacity:.56;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-button-ghost{transition-duration:1ms;}}"
+      "css": ".ds-button-ghost{display:inline-flex;align-items:center;justify-content:center;min-height:var(--arcd-control-height, 2.75rem);padding:0 var(--arcd-space-4, 1rem);border:1px solid transparent;border-radius:var(--arcd-radius-md, .375rem);font:400 .875rem var(--arcd-font-sans, \"Nimbus Sans\", Arial, sans-serif);cursor:pointer;transition:background-color var(--arcd-motion-fast, 120ms) var(--arcd-ease-standard, cubic-bezier(.2,0,0,1));background:transparent;color:var(--arcd-text-primary, #0D1B2E);border-color:transparent;}.ds-button-ghost:hover{background:var(--arcd-surface-muted, #E8E5DF);}.ds-button-ghost:focus-visible{outline:3px solid color-mix(in srgb,var(--arcd-focus-ring, #7B6030) 62%,transparent);outline-offset:2px;}.ds-button-ghost:active{transform:translateY(1px);}.ds-button-ghost:disabled{opacity:.56;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-button-ghost{transition-duration:1ms;}}"
     },
     {
       "name": "Campo de texto",
@@ -432,6 +432,11 @@
         "name": "The Overlay Depth Rule",
         "body": "Reservar sombra estrutural a sobreposições; cartões operacionais permanecem planos.",
         "section": "elevation"
+      },
+      {
+        "name": "The Clean Internal Screens Rule",
+        "body": "MARCELL Executivo: páginas 24/500, seções 18/500, cartões 14/500, diálogos 18/500; controles e rótulos regulares. Tabelas 13 px no desktop e 14 px no celular; campos móveis 16 px, toque 44 px. TV e impressão preservam suas escalas.",
+        "section": "typography"
       }
     ],
     "dos": [

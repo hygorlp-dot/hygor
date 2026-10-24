@@ -10509,7 +10509,7 @@ export function GestaoUsuarios({ data, update, showToast, currentUser }) {
             opacity:u.active===false?0.55:1,
           }}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-              <div>
+              <div className="settings-user-details">
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
                   <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:C.text}}>{u.nome}</p>
                   {u.id===currentUser?.id&&<span style={{fontSize:"var(--arcd-type-label)",background:C.yellow,color:"#fff",padding:"2px 6px",borderRadius:4,fontWeight:600}}>VOCÊ</span>}
@@ -10524,7 +10524,7 @@ export function GestaoUsuarios({ data, update, showToast, currentUser }) {
                 <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>{setores.map(nome=><span key={nome} style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.blue,background:`${C.blue}0C`,border:`1px solid ${C.blue}35`,padding:"2px 5px",borderRadius:4}}>{nome}</span>)}</div>
               </div>
               {currentUser?.role==="admin"&&(
-                <div style={{display:"flex",gap:4,flexShrink:0}}>
+                <div className="settings-user-actions" style={{display:"flex",gap:4,flexShrink:0}}>
                   <Btn size="sm" v={u.authUserId?"success":"ghost"} onClick={()=>{if(!u.email){showToast("Cadastre o e-mail do operador antes de ativar a conta.","error");return;}setContaModal(u.id);setSenhaTemp("");setSenhaTemp2("");}}>{u.authUserId?"Senha":"Ativar login"}</Btn>
                   <Btn size="sm" v="ghost" onClick={()=>setPinModal(u.id)}>PIN</Btn>
                   <Btn size="sm" v="ghost" onClick={()=>{setForm({...u,accessTabs:[...allowedTabsForUser(u)]});setModal(true);}}><Ic n="edit"/></Btn>

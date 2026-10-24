@@ -39,20 +39,20 @@ typography:
     fontWeight: 500
   headline:
     fontFamily: 'Nimbus Sans, Helvetica Neue, Arial, sans-serif'
-    fontSize: '1.75rem'
-    fontWeight: 600
-    lineHeight: 1.15
+    fontSize: '1.5rem'
+    fontWeight: 500
+    lineHeight: 1.35
     letterSpacing: '-0.02em'
   title:
     fontFamily: 'Nimbus Sans, Helvetica Neue, Arial, sans-serif'
-    fontSize: '1.25rem'
-    fontWeight: 600
-    lineHeight: 1.15
+    fontSize: '1.125rem'
+    fontWeight: 500
+    lineHeight: 1.35
   card-title:
     fontFamily: 'Nimbus Sans, Helvetica Neue, Arial, sans-serif'
-    fontSize: '1rem'
-    fontWeight: 600
-    lineHeight: 1.25
+    fontSize: '0.875rem'
+    fontWeight: 500
+    lineHeight: 1.35
   body:
     fontFamily: 'Nimbus Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.875rem'
@@ -62,7 +62,7 @@ typography:
   label:
     fontFamily: 'Nimbus Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '0.8125rem'
-    fontWeight: 600
+    fontWeight: 400
     letterSpacing: '0.01rem'
   caption:
     fontFamily: 'Nimbus Sans, Helvetica Neue, Arial, sans-serif'
@@ -209,7 +209,7 @@ Bordas finas (1 px), cantos discretos de 6 px em botões e cartões compactos e 
 
 ### Buttons
 
-Ações diretas, com altura ligada à densidade e rótulo semibold. O primário usa azul-marinho e branco; secundário usa branco e borda de controle; ghost usa fundo transparente. O hover escurece a ação primária ou aplica superfície neutra. A família legada de botões do tema usa um hover azul próprio (`#1E3552`); os primitivos usam `action-hover`. Desabilitados reduzem opacidade e retiram o cursor de ação. Foco visível usa contorno de 3 px e afastamento de 2 px. Transições de estado usam 120 ms; movimento reduzido usa 1 ms.
+Ações diretas, com altura ligada à densidade e rótulo regular; seleção e ações destrutivas usam peso 500. O primário usa azul-marinho e branco; secundário usa branco e borda de controle; ghost usa fundo transparente. O hover escurece a ação primária ou aplica superfície neutra. A família legada de botões do tema usa um hover azul próprio (`#1E3552`); os primitivos usam `action-hover`. Desabilitados reduzem opacidade e retiram o cursor de ação. Foco visível usa contorno de 3 px e afastamento de 2 px. Transições de estado usam 120 ms; movimento reduzido usa 1 ms.
 
 ### Chips
 
@@ -231,7 +231,13 @@ A lateral usa azul-marinho, texto claro e separadores discretos. Hover altera a 
 
 Refinamento local aprovado: menu desktop com 12 px e peso 400 (ativo 500), escrita normal e sem contagem de telas por grupo. Monograma e nome permanecem no topo, sem assinatura secundária na lateral. Dashboard: título 24/500, seções 14/500, chamadas e notícias 13/400 no desktop; textos das listas 14/400 no celular e metadados nunca abaixo de 12 px. Alvos de toque preservados.
 
-Cabeçalhos em azul suave (#EDF3F7) para notícias e areia dourada (#F8F3E9) para ações. Ícones simples, números tabulares e sinais semânticos preservados; sem caixas decorativas repetidas. O contraste, os filtros e os valores financeiros continuam operacionais. Demais módulos mantêm sua escala normativa.
+Cabeçalhos em azul suave (#EDF3F7) para notícias e areia dourada (#F8F3E9) para ações. Ícones simples, números tabulares e sinais semânticos preservados; sem caixas decorativas repetidas. O contraste, os filtros e os valores financeiros continuam operacionais.
+
+### Telas internas
+
+O mesmo refinamento se estende aos módulos por `marcell-clean.css`, carregado depois da base. Títulos de página 24/500, seções 18/500, cartões 14/500 e diálogos 18/500; botões e rótulos regulares. Tabelas usam corpo de 13 px no computador e 14 px no celular, cabeçalhos de 12/500 e linhas em azul suave. Totais e alertas mantêm destaque e cor semântica. Os valores existentes nunca são abreviados por esta camada.
+
+Formulários preservam os estados de erro, foco, desabilitado e somente leitura. Campos no celular têm 16 px e altura mínima de 44 px; descrições e metadados não ficam abaixo de 12 px. Cabeçalhos dos modais usam #EDF3F7, título com quebra e botão de fechar sem compressão. Escala em rem, botões com quebra de rótulo e adaptação existente das tabelas preservam o uso com texto ampliado. TV e impressão mantêm suas escalas próprias. Esta camada altera apresentação, sem alterar dados, cálculos, vínculos ou permissões.
 
 ## Do's and Don'ts
 

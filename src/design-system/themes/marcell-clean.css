@@ -1,0 +1,163 @@
+/* MARCELL Executivo — shared operational hierarchy, after legacy styles.
+   Scope excludes the distance-reading TV and printed documents. Semantic
+   colours, totals, disabled/error states and focus rings keep their meaning. */
+@media screen {
+  [data-theme="marcell"] :is(.arcd-main:not(:has(.arcd-tv)), .arcd-modal-panel, .arcd-dialog, .arcd-drawer) {
+    --arcd-type-page-title: 1.5rem;
+    --arcd-type-section-title: 1.125rem;
+    --arcd-type-card-title: .875rem;
+    --arcd-type-control: .8125rem;
+    --arcd-type-table: .8125rem;
+    --arcd-type-dialog-title: 1.125rem;
+  }
+
+  [data-theme="marcell"] .arcd-main:not(:has(.arcd-tv)) :is(h1, h2, h3),
+  [data-theme="marcell"] :is(.arcd-dialog, .arcd-modal-panel, .arcd-drawer) :is(h1, h2, h3) {
+    font-weight: 500 !important;
+    line-height: 1.35 !important;
+    letter-spacing: -.015em !important;
+    overflow-wrap: anywhere;
+  }
+
+  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog, .arcd-drawer) :is(button, label, .arcd-field__label, .arcd-label) {
+    font-weight: 400 !important;
+    letter-spacing: normal;
+  }
+
+  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog, .arcd-drawer) button:is([aria-selected="true"], [data-state="active"], [data-active="true"], [aria-pressed="true"]),
+  [data-theme="marcell"] :is(.arcd-btn[data-variant="danger"], .arcd-button--destructive) {
+    font-weight: 500 !important;
+  }
+
+  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog, .arcd-drawer) :is(input, select, textarea) {
+    font-weight: 400 !important;
+    line-height: 1.45;
+  }
+
+  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) th {
+    font-size: var(--arcd-type-caption) !important;
+    font-weight: 500 !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    border-bottom-color: var(--arcd-border-default) !important;
+    background: #f5f7f9 !important;
+    line-height: 1.45;
+  }
+
+  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) :is(table, input[type="number"]) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) td {
+    font-size: var(--arcd-type-table);
+    line-height: 1.5;
+  }
+
+  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) tbody :is(b, strong) {
+    font-weight: 500;
+  }
+
+  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) tfoot {
+    font-weight: 600;
+  }
+
+  [data-theme="marcell"] :is(.arcd-modal-header, .arcd-dialog__header) {
+    background: #edf3f7 !important;
+    border-bottom-color: var(--arcd-border-default) !important;
+    gap: 1rem;
+  }
+
+  [data-theme="marcell"] :is(.arcd-modal-header, .arcd-dialog__header) .arcd-dialog__title {
+    font-size: var(--arcd-type-dialog-title) !important;
+    min-width: 0;
+  }
+
+  [data-theme="marcell"] :is(.arcd-modal-header, .arcd-dialog__header) button {
+    flex-shrink: 0;
+  }
+
+  [data-theme="marcell"] :is(.arcd-page-header__title, .arcd-form-section__title, .arcd-summary-card__label, .arcd-record-card__label, .arcd-mobile-record-card__fields dt, .team-list-head, .team-summary__item span) {
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  [data-theme="marcell"] .arcd-summary-card__icon {
+    background: transparent;
+    border: 0;
+  }
+
+  [data-theme="marcell"] :is(.arcd-btn, .arcd-button) {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  /* Keep wide data grids inside their own scroller at enlarged text sizes. */
+  [data-theme="marcell"] .arcd-main :is(div, section):has(> table) {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  [data-theme="marcell"] .arcd-sidebar .nav-body p {
+    color: #c4cfda !important;
+  }
+
+  [data-theme="marcell"] .settings-user-actions {
+    flex-wrap: wrap;
+    flex-shrink: 1 !important;
+    max-width: 100%;
+    justify-content: flex-end;
+  }
+
+  [data-theme="marcell"] .settings-user-details {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  [data-theme="marcell"] .settings-user-details > div {
+    flex-wrap: wrap;
+  }
+
+  [data-theme="marcell"] div:has(> .settings-user-actions) {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  @media (max-width: 1099px) {
+    [data-theme="marcell"] .arcd-app-shell .app-header-inner {
+      flex-wrap: wrap;
+    }
+
+    [data-theme="marcell"] .arcd-app-shell .app-header-actions {
+      min-width: 0;
+      max-width: 100%;
+      flex-shrink: 1;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+  }
+
+  @media (max-width: 767px) {
+    [data-theme="marcell"] .arcd-main {
+      padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)) !important;
+    }
+
+    [data-theme="marcell"] .arcd-main .dashboard-tech-motion {
+      padding-inline: 0;
+    }
+
+    [data-theme="marcell"] :is(.arcd-main:not(:has(.arcd-tv)), .arcd-modal-panel, .arcd-dialog, .arcd-drawer) {
+      --arcd-type-control: .875rem;
+      --arcd-type-table: .875rem;
+    }
+
+    /* 16px prevents automatic field zoom; dense metadata stays at 12px. */
+    [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]), select, textarea) {
+      font-size: var(--arcd-type-control-touch) !important;
+      min-height: 44px;
+    }
+  }
+}
