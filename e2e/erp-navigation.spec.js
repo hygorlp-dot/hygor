@@ -23,7 +23,7 @@ test("tema MARCELL migra a aparência e mantém leitura com ampliação",async({
   await search.fill("Gestão financeira");
   await search.locator("xpath=../..").getByRole("button").filter({hasText:"Gestão financeira"}).click();
   await expect(page.locator(".financial-summary")).toBeVisible();
-  await expect(page.locator(".page-hero__title")).toHaveCSS("font-size","28px");
+  await expect(page.locator(".page-hero__title")).toHaveCSS("font-size","24px");
   await expect(page.locator(".arcd-main")).toHaveCSS("background-image","none");
   expect(await page.locator(".module-workflow").count()).toBe(0);
   await expect(page.getByRole("combobox",{name:"Ano",exact:true})).toBeVisible();
@@ -52,7 +52,8 @@ test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=
     await expect(page.locator(".arcd-page-loading:visible")).toHaveCount(0);
   }
   await open("Compras");
-  await expect(page.locator(".purchase-header h2")).toHaveCSS("font-size","28px");
+  await expect(page.locator(".purchase-header h2")).toHaveCSS("font-size","24px");
+  await expect(page.locator(".purchase-header h2")).toHaveCSS("font-weight","500");
   await open("Fornecedores");
   const supplierFields=page.locator("main input:visible");
   expect(await supplierFields.count()).toBeGreaterThan(0);
@@ -67,8 +68,8 @@ test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=
   await page.getByRole("button",{name:/Nova obra/}).first().click();
   const dialog=page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator("h3")).toHaveCSS("font-size","20px");
-  await expect(dialog.locator("h3")).toHaveCSS("font-weight","600");
+  await expect(dialog.locator("h3")).toHaveCSS("font-size","18px");
+  await expect(dialog.locator("h3")).toHaveCSS("font-weight","500");
   const notice=dialog.locator(".arcd-modal-notice .arcd-toast");
   await expect(notice).toBeVisible();
   await expect(notice).toHaveCSS("position","static");
@@ -84,6 +85,13 @@ test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=
   await expect(page.locator(".payroll-summary-strip__net small")).toHaveCSS("font-size","12px");
   await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("font-family",/Nimbus Sans/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
+  await open("Ajustes");
+  await page.evaluate(()=>document.documentElement.style.fontSize="200%");
+  const themeSelect=page.getByRole("combobox",{name:"Tema",exact:true});
+  await expect(themeSelect).toBeVisible();
+  expect(await themeSelect.evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth;})).toBe(true);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
+  await page.evaluate(()=>document.documentElement.style.fontSize="100%");
   expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
 });
 
