@@ -133,15 +133,20 @@ test("simulação: RH escolhe CLT ou diária no mês sem alterar cadastro, folha
   await expect(region.locator("tbody")).toContainText("2.640,00");
   await region.getByRole("radio",{name:"Diária"}).check();
   await expect(region.locator(".clt-totals")).toContainText("2.640,00");
+  await page.getByLabel("Incluir custos de admissão nesta competência",{exact:true}).check();
+  for(const label of ["ASO / exame admissional (R$)","Exames complementares (R$)","EPIs e uniformes iniciais (R$)","Treinamentos e integração inicial (R$)","Registro e serviços de admissão (R$)","Outros custos de admissão (R$)"]){await page.getByLabel(label,{exact:true}).fill(label.startsWith("ASO")?"100":"0");}
+  await expect(region.locator(".clt-totals")).toContainText("2.740,00");
   await region.getByRole("button",{name:/^Salvar simulação/}).click();
   await expect(region.getByRole("status").first()).toContainText("Simulação salva");
   const employee=getState().employees[0];
   expect(employee.payModeSimulations["2026-09"]).toMatchObject({choice:"daily",workedDays:"22",regime:"simples_iv",rat:3,fap:"1.5"});
+  expect(employee.payModeSimulations["2026-09"]).toMatchObject({includeAdmissionCosts:true,admissionCosts:{admissionExam:"100"}});
   expect(employee).toMatchObject({remunerationMode:"clt",monthlySalary:2406.8});
   expect(employee.cltPayroll??null).toBeNull();
   expect(commands).toHaveLength(1);expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
   await page.getByLabel("Competência da simulação",{exact:true}).fill("2026-10");await page.getByLabel("Competência da simulação",{exact:true}).fill("2026-09");
   await expect(region.getByRole("radio",{name:"Diária"})).toBeChecked();
+  await expect(region.locator(".clt-totals")).toContainText("2.740,00");
   await expect(page.getByLabel("FAP da empresa",{exact:true})).toHaveValue("1.5");
   expect(errors).toEqual([]);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);

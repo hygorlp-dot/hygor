@@ -41,3 +41,9 @@ São estimativas de planejamento para mês integral, com remuneração constante
 Persistência versionada no funcionário por competência, nas mesmas permissões de RH/admin. Não gera lançamento, pagamento ou provisão contábil no DRE. PDF gerencial MARCELL. Fontes: [Lei 4.090/1962](https://www.planalto.gov.br/ccivil_03/leis/l4090.htm), [Lei 8.036/1990, art. 18](https://www.planalto.gov.br/ccivil_03/leis/l8036compilada.htm), [CLT](https://www.planalto.gov.br/ccivil_03/decreto-lei/del5452compilado.htm) e [FGTS Digital/MTE](https://www.gov.br/trabalho-e-emprego/pt-br/servicos/empregador/fgtsdigital/perguntas-frequentes).
 
 Déficit projetado é permitido e destacado, sem retirar a reserva mensal válida do total. Abertura negativa pode carregar déficit anterior. Utilização e base FGTS rescisória permanecem não negativas. Outras reservas aparecem separadas na tabela, permitindo conferir a soma.
+
+## Simulação mensal e admissão
+
+O RH escolhe diária ou CLT por funcionário e competência em Simulação CLT × diária. A escolha simulada não altera a modalidade contratual, holerites, provisões ou pagamentos. Custos de admissão são opcionais e exclusivos da competência: ASO, exames complementares, EPIs/uniformes iniciais, treinamento/integração, registro/serviços e outros custos. Não há preços presumidos: preencher valores conhecidos ou zero. Somam ao custo da empresa nos dois cenários, com subtotal separado do custo recorrente, sem reduzir o líquido. Não se repetem no próximo mês e não criam lançamentos financeiros. Diária é forma de cálculo, não dispensa de obrigações trabalhistas.
+
+Na transição CPRB de 2025–2027, a CPP reonerada é excluída do 13º provisionado (Lei 12.546/2011, art. 9-A, §1º, incluído pela Lei 14.973/2024). RAT e terceiros permanecem na base aplicável. A contribuição CPRB sobre receita não está estimada neste comparativo.

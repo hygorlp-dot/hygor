@@ -7,6 +7,14 @@ import { remunerationModeOnDate } from "../rh/remuneration-mode.js";
 
 const n = value => Number(value) || 0;
 const filled = value => value !== "" && value != null && Number.isFinite(Number(value)) && Number(value) >= 0;
+export const ADMISSION_COST_FIELDS = Object.freeze([
+  ["admissionExam","ASO / exame admissional (R$)"],
+  ["complementaryExams","Exames complementares (R$)"],
+  ["equipmentUniforms","EPIs e uniformes iniciais (R$)"],
+  ["initialTraining","Treinamentos e integração inicial (R$)"],
+  ["registrationFees","Registro e serviços de admissão (R$)"],
+  ["otherAdmissionCosts","Outros custos de admissão (R$)"],
+]);
 
 // Contribuição patronal sobre a folha por regime (2026). Fontes: LC 123/2006,
 // art. 13, §3º e art. 18, §5º-C (Anexo IV recolhe CPP fora do DAS e é dispensado
@@ -70,6 +78,8 @@ export function newPayModeSimulation(employee, competence, { workedDays = "" } =
     fap: 1,
     employerChargesPercent: "",
     notes: "",
+    includeAdmissionCosts:false,
+    admissionCosts:Object.fromEntries(ADMISSION_COST_FIELDS.map(([key])=>[key,""])),
   };
 }
 
@@ -102,7 +112,11 @@ function cltScenario(employee, sim) {
   // INSS patronal incide também sobre 13º e férias + 1/3 provisionados.
   const chargesRate = employerChargesRate(sim);
   const chargesBase = money(payslip.gross + n(provision.thirteenth) + n(provision.vacation) + n(provision.vacationThird));
-  const charges = chargesRate.rate === null ? null : money(chargesBase * chargesRate.rate / 100);
+  // Lei 12.546, art. 9-A, §1º: durante a transição 2025–2027, a CPP
+  // reonerada não incide no 13º. RAT/terceiros continuam na base aplicável.
+  const year=Number(sim.competence.slice(0,4));
+  const cppThirteenthExemption=sim.regime==="cprb"&&year>=2025&&year<=2027?n(provision.thirteenth)*n(chargesRate.parts?.cpp)/100:0;
+  const charges = chargesRate.rate === null ? null : money(chargesBase * chargesRate.rate / 100-cppThirteenthExemption);
   const errors = [...payslip.errors.filter(e => !e.startsWith("Confirme")), ...provision.errors];
   return {
     gross: payslip.gross, net: payslip.net, inss: payslip.inss, irrf: payslip.irrf, fgts: payslip.fgts,
@@ -114,7 +128,10 @@ function cltScenario(employee, sim) {
 }
 
 export function simulatePayMode(employee, sim) {
-  return { daily: dailyScenario(employee, sim), clt: cltScenario(employee, sim) };
+  const admissionErrors=sim.includeAdmissionCosts?ADMISSION_COST_FIELDS.filter(([key])=>!filled(sim.admissionCosts?.[key])).map(([,label])=>`Informe ${label}; use zero quando não houver custo.`):[];
+  const admissionCost=sim.includeAdmissionCosts?money(ADMISSION_COST_FIELDS.reduce((sum,[key])=>sum+n(sim.admissionCosts?.[key]),0)):0;
+  const scenarios={daily:dailyScenario(employee,sim),clt:cltScenario(employee,sim)};
+  return Object.fromEntries(Object.entries(scenarios).map(([mode,result])=>[mode,{...result,recurringCost:result.cost,admissionCost,cost:money(result.cost+admissionCost),errors:[...result.errors,...admissionErrors]}]));
 }
 
 export function summarizePayModeSimulation(rows) {
@@ -129,6 +146,8 @@ export function summarizePayModeSimulation(rows) {
     daily: chosen.filter(row => row.choice === "daily").length,
     missing: chosen.length - valid.length,
     cost: sum(valid, "cost"),
+    admissionCost:sum(valid,"admissionCost"),
+    recurringCost:sum(valid,"recurringCost"),
     net: sum(valid, "net"),
     chargesMissing: valid.filter(row => row.choice === "clt" && !row.scenario.costComplete).length,
     // Referências: toda a equipe numa só modalidade (apenas quem tem cálculo válido nas duas).

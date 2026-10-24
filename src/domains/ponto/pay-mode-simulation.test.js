@@ -56,3 +56,17 @@ it("conta P como 1 e M como meio dia no ponto do mês", () => {
   const att = { "2026-09-01": { status: "P" }, "2026-09-02": { status: "M" }, "2026-09-03": { status: "F" }, "2026-10-01": { status: "P" } };
   expect(attendanceDaysInMonth(date => att[date], "2026-09")).toBe(1.5);
 });
+it("admissão soma custos iniciais ao mês, sem reduzir líquido ou repetir no mês seguinte",()=>{
+  const setup=sim({includeAdmissionCosts:true,admissionCosts:{admissionExam:100,complementaryExams:50,equipmentUniforms:200,initialTraining:80,registrationFees:0,otherAdmissionCosts:20}});
+  const normal=simulatePayMode(employee,sim()),result=simulatePayMode(employee,setup);
+  expect(result.daily).toMatchObject({admissionCost:450,recurringCost:normal.daily.cost,cost:normal.daily.cost+450,net:normal.daily.net});
+  expect(result.clt).toMatchObject({admissionCost:450,cost:normal.clt.cost+450,net:normal.clt.net});
+  expect(summarizePayModeSimulation([{sim:setup,result}]).admissionCost).toBe(450);
+  expect(newPayModeSimulation(employee,"2026-10").includeAdmissionCosts).toBe(false);
+  expect(simulatePayMode(employee,sim({includeAdmissionCosts:true})).daily.errors.join(" ")).toMatch(/use zero/);
+});
+it("na CPRB 2026 exclui CPP do 13º, preservando RAT e terceiros",()=>{
+  const result=simulatePayMode(employee,sim({regime:"cprb"})).clt;
+  expect(result.charges).toBe(648.67);
+  expect(result.cost).toBe(5113.34);
+});
