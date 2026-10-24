@@ -31,6 +31,13 @@ const command = (record, expectedVersion = 0) => ({
 });
 
 describe("comando transacional de funcionários", () => {
+  it("valida CLT mensal sem modificar pagamentos ou a diária de custeio",()=>{
+    expect(applyEmployeeCommand(base(),command(employee({remunerationMode:"clt",monthlySalary:0}))).ok).toBe(false);
+    const state={...base(),financialSettlements:[{id:"real",amount:600}]};
+    const result=applyEmployeeCommand(state,command(employee({remunerationMode:"clt",monthlySalary:2406.8})));
+    expect(result.ok).toBe(true);expect(result.data.employees[0]).toMatchObject({dailyRate:150,monthlySalary:2406.8,remunerationMode:"clt"});
+    expect(result.data.financialSettlements).toEqual(state.financialSettlements);
+  });
   it("cria um cadastro validado e auditável", () => {
     const result = applyEmployeeCommand(
       base(),

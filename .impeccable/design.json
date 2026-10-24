@@ -437,6 +437,11 @@
         "name": "The Clean Internal Screens Rule",
         "body": "MARCELL Executivo: páginas 24/500, seções 18/500, cartões 14/500, diálogos 18/500; controles e rótulos regulares. Tabelas 13 px no desktop e 14 px no celular; campos móveis 16 px, toque 44 px. TV e impressão preservam suas escalas.",
         "section": "typography"
+      },
+      {
+        "name": "The Report Identity Rule",
+        "body": "Relatórios usam logo e Nimbus Sans incorporadas, títulos 18/13/11,5 px, corpo 11 px e tabelas 10 px. Células, valores, identificações legais e assinaturas são preservados. Tabelas com mais de 12 colunas usam A3 paisagem; cronogramas mantêm A2 com dimensões explícitas. A impressão aguarda fontes e logo.",
+        "section": "typography"
       }
     ],
     "dos": [

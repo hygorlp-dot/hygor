@@ -1,3 +1,4 @@
+import { marcellReportHtml } from "./reports/marcell-report.js";
 import { createPortal } from "react-dom";
 import { BRAND, MARCELL_LOGO } from "./brand/identity.js";
 import { FinancialOverviewMetrics } from "./features/financeiro/FinancialOverviewMetrics.jsx";
@@ -1548,6 +1549,13 @@ const normalizeData = incoming => {
       pixType: e.pixType || "",
       pixHolder: e.pixHolder || "",
       dailyRate: Number(e.dailyRate || 0),
+      remunerationMode:e.remunerationMode==="clt"?"clt":"daily",
+      monthlySalary:Number(e.monthlySalary||0),
+      remunerationEffectiveFrom:e.remunerationEffectiveFrom||"",
+      remunerationHistory:Array.isArray(e.remunerationHistory)?e.remunerationHistory:[],
+      cltPayroll:e.cltPayroll&&typeof e.cltPayroll==="object"?e.cltPayroll:null,
+      laborProvisions:e.laborProvisions&&typeof e.laborProvisions==="object"?e.laborProvisions:null,
+      payModeSimulations:e.payModeSimulations&&typeof e.payModeSimulations==="object"?e.payModeSimulations:null,
       vtDaily: Number(e.vtDaily || 0),
       vrDaily: Number(e.vrDaily || 0),
       obra: e.obra || "",
@@ -3062,7 +3070,7 @@ function BrandMark({ compact = false, dark = false, signature = true }) {
 }
 
 const SIGLAS_UI = new Set([
-  "MARCELL", "BDI", "CEP", "CFO", "CNPJ", "CPF", "CUB", "DRE", "EBITDA",
+  "MARCELL", "BDI", "CBO", "CLT", "CEP", "CFO", "CNPJ", "CPF", "CUB", "DRE", "EBITDA", "FGTS", "IRRF",
   "FVM", "FVS", "IA", "INSS", "ISS", "MO", "NFS-E", "ORSE", "PDF",
   "PIN", "RDO", "RG", "SINAPI", "SLA", "UF", "URL", "VR", "VT",
 ]);
@@ -4689,7 +4697,7 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
 
 <div class="footer">Gerado por MARCELL · ${new Date().toLocaleString("pt-BR")}</div>
 </body></html>`;
-    const w=window.open("","_blank"); w.document.write(html); w.document.close();
+    const w=window.open("","_blank"); w.document.write(marcellReportHtml(html)); w.document.close();
   };
 
   //  Excel do DRE
@@ -15084,7 +15092,7 @@ ${assinaturasHtml}
 export function abrirRelatorioPadrao(html, showToast) {
   const w = window.open("", "_blank");
   if (!w) { showToast?.("Não foi possível abrir a impressão. Permita pop-ups para este aplicativo e tente novamente.", "error"); return; }
-  w.document.open(); w.document.write(html); w.document.close(); w.focus();
+  w.document.open(); w.document.write(marcellReportHtml(html)); w.document.close(); w.focus();
   window.setTimeout(() => w.print(), 300);
 }
 
@@ -15589,7 +15597,7 @@ Regras: não inclua faturamento, folha, compras ou custos de execução das obra
 <h2 class="sec">Limitações e dados a conferir</h2>${lista(analiseIA.inconsistenciasDados)}
 <h2 class="sec">Veredicto do CFO</h2><p>${escapeHtml(analiseIA.conclusao||"")}</p>
 <p class="foot">Relatório gerencial baseado nos dados disponíveis no MARCELL. Não substitui validação contábil, fiscal ou documental.</p></body></html>`;
-    const w=window.open("","_blank");w.document.write(html);w.document.close();
+    const w=window.open("","_blank");w.document.write(marcellReportHtml(html));w.document.close();
   };
 
   // Despesas recorrentes - auto-copiar para o mês atual
@@ -15756,7 +15764,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 </tbody></table>
 <div class="footer">Gerado por MARCELL Ponto PRO · ${new Date().toLocaleString("pt-BR")} - uso gerencial, não substitui o balanço contábil oficial</div>
 </body></html>`;
-    const w=window.open("","_blank"); w.document.write(html); w.document.close();
+    const w=window.open("","_blank"); w.document.write(marcellReportHtml(html)); w.document.close();
   };
 
   //  Linha DRE reutilizável

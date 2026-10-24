@@ -239,6 +239,12 @@ O mesmo refinamento se estende aos módulos por `marcell-clean.css`, carregado d
 
 Formulários preservam os estados de erro, foco, desabilitado e somente leitura. Campos no celular têm 16 px e altura mínima de 44 px; descrições e metadados não ficam abaixo de 12 px. Cabeçalhos dos modais usam #EDF3F7, título com quebra e botão de fechar sem compressão. Escala em rem, botões com quebra de rótulo e adaptação existente das tabelas preservam o uso com texto ampliado. TV e impressão mantêm suas escalas próprias. Esta camada altera apresentação, sem alterar dados, cálculos, vínculos ou permissões.
 
+## Relatórios e PDFs
+
+As saídas de impressão usam `src/reports/marcell-report.js`: logo oficial e fontes Nimbus Sans incorporadas no HTML, sem conexão externa para carregar a identidade. Corpo compacto de 11 px, títulos de 18/13/11,5 px, dados de tabela de 10 px e cabeçalhos de 9 px; azul-marinho, linhas discretas e fundo azul suave no cabeçalho. Totais mantêm peso 600 e as cores funcionais dos dados permanecem intactas. A impressão aguarda o carregamento das fontes e da logo.
+
+Identificação legal cadastrada, conteúdos, valores, assinaturas e colunas não são recalculados pela camada visual. Cabeçalhos de tabelas repetem nas páginas; totais aparecem ao final. Os formatos A4 existentes são mantidos nas tabelas comuns. Anexos com mais de 12 colunas usam A3 paisagem para evitar cortes e redução excessiva; cronogramas A2 usam dimensões explícitas de 594 × 420 mm, pois o nome A2 não é reconhecido pelo Chromium. A marca se repete em cada folha do cronograma. A validação inclui PDF renderizado, fontes incorporadas, dimensões da página e comparação de células e valores.
+
 ## Do's and Don'ts
 
 ### Do:

@@ -1,3 +1,4 @@
+import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { DreIntegration, useRememberWorkflowScope, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
 // ComprasView — tela de Compras extraída de LegacyApp.jsx
@@ -1829,7 +1830,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const imprimirPedido=p=>{
     const janela=window.open("","_blank");
     if(!janela){showToast("Permita a abertura de janelas para gerar o PDF do pedido.","error");return false;}
-    janela.document.write(conteudoEnvioPedido(p).html);
+    janela.document.write(marcellReportHtml(conteudoEnvioPedido(p).html));
     janela.document.close();
     janela.focus();
     janela.print();

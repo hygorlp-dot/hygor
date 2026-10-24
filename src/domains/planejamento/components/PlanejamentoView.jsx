@@ -1,3 +1,4 @@
+import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
 // PlanejamentoView — tela de Planejamento extraída de LegacyApp.jsx
 //
@@ -709,7 +710,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
     const w=window.open("","_blank");
     if(!w){showToast?.("O navegador bloqueou a janela de exportacao. Permita pop-ups e tente novamente.","warn");return;}
     w.opener=null;
-    w.document.open();w.document.write(html);w.document.close();
+    w.document.open();w.document.write(marcellReportHtml(html));w.document.close();
     setExportA2Modal(false);
   };
 
