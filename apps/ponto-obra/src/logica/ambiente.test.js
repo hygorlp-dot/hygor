@@ -125,7 +125,7 @@ describe("execução: app e servidor precisam estar no mesmo ambiente", () => {
   it("conexão e sessão: sem fallback para a produção; toda requisição declara o ambiente; sessão presa ao ambiente e ao servidor", () => {
     const conexao = ler("src/servicos/conexao.js");
     expect(conexao).not.toMatch(/apiUrl \|\| "https/);
-    expect(conexao).toContain("if (!EXTRA.apiUrl) return null;");
+    expect(conexao).toContain("if (!AMBIENTE || !EXTRA.apiUrl) return null;");
     expect(conexao).toContain("ambienteApp: AMBIENTE");
     expect(conexao).toContain("JSON.stringify({ ...sessao, ambiente: AMBIENTE, servidor: infoDoServidor().host })");
     const app = ler("App.js");

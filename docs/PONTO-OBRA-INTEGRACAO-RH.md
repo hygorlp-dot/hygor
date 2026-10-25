@@ -26,7 +26,7 @@ facial foi alterado. #69 escrita única da confirmação fiscal reaproveitada.
 #70/71 (migration 019/livro/deploy) não aplicadas automaticamente: exigem
 reconciliação com o caminho de migrations atual e validação conjunta.
 
-## Contrato v1 — produtor disponível, integração ainda pendente
+## Contrato v1 — importação inicial integrada localmente
 
 `produzirPublicacaoRh(entrada, sha256)` em `src/domains/ponto-eletronico/publicacao-rh.js`.
 Preserva empresa, funcionário, data operacional, fuso, revisão, versão do
@@ -36,16 +36,25 @@ Não gera salários, faltas ou quatro horários artificiais. Terceiros são recu
 
 `publicacaoId` é estável para empresa/pessoa/dia/eventIds/revisão; `conteudoHash`
 detecta tentativa de reutilizar a mesma revisão com conteúdo diferente.
-O consumidor deve persistir um livro de publicações, com unicidade permanente
-por empresa/publicacaoId, antes de lançar jornada/custo. Não basta guardar
-somente a última chave: reprocessar revisões antigas também deve ser idempotente.
-Mesmo id/hash = retorno anterior; mesmo id/hash diferente = conflito; revisão
-nova em período fechado = pendência identificada, sem alterar valores aprovados.
+A ponte RH `5e96e4b` foi incorporada em `2503e48`; a publicação v1 em `c6956a8`.
+O leitor SQL relê eventos, ARP, estabelecimento e apropriações sob os locks
+existentes. O importador associa cada par de eventos ao intervalo conferido e
+persiste a publicação em `attendance.mobileSource.publicacao`, com reviewer e
+versões das apropriações. NSR ausente, fuso divergente, fonte alterada ou período
+fechado impedem importação. Presença, horas extras e atraso são decisões explícitas.
+A revisão 1 representa somente a primeira importação; o importador recusa dia
+já lançado. Repetir a operação retorna o recibo anterior, inclusive após fechar.
 
-Pendência confirmada na base: a proposta tem `eventos`, mas salvar/listar a
-apropriação ainda não persiste essa origem. O consumidor RH em desenvolvimento
-também precisa transportar esses ids. Não declarar ponta a ponta enquanto
-RPC/migration, produtor e consumidor não forem testados juntos.
+Teste independente confirmou app → ARP PGlite → leitor SQL real → consumidor →
+publicação e origem preservadas. Aprovação de título e pagamento parcial foram
+exercitados em domínio em memória, sem comprovar persistência financeira remota.
+Capturas 23:59/00:01 entram em dias separados e continuam pendentes sem par.
+Multiobra mantém os intervalos e exige tratamento; não gera presença duplicada.
+
+Limites: não há livro permanente de todas as revisões/publicações, nem fluxo de
+republicação retroativa. O recibo operacional e o bloqueio do dia existente não
+substituem esse livro. Não declarar integração completa para multiobra,
+meia-noite, revisões tardias ou reprocessamento histórico após alterações manuais.
 
 ## Ambiente e artefatos
 
@@ -71,7 +80,7 @@ Recursos conferidos em 25/10/2026:
 | Vercel | Nenhum projeto de homologação criado; deploy pendente por decisão expressa do usuário: “Manter deploy pendente, sem custo” |
 | API isolada | Ainda inexistente; URL Supabase não substitui `/api/data` |
 | EAS | Conta `hygorf` acessível; ambiente preview sem variáveis; PONTO_API_URL ainda não configurada |
-| Assinatura/APKs | Chave de homologação e dois APKs ainda pendentes; nenhum link de APK deste candidato |
+| Assinatura/APKs | Chave própria criada localmente, ainda não vinculada ao EAS; dois APKs pendentes, sem links |
 
 O time Vercel consultado é `hygor-s-projects1`,
 `team_poBZ5I1rwStzhvD73ar22b7v`. Nenhum upgrade ou contratação autorizado.
@@ -102,7 +111,7 @@ Nenhum aparelho acessível para instalação nesta sessão. Galaxy A15 é alvo d
 Manter os 18 cenários e H1–H6 pendentes até evidência do APK correto. H6 corrigido:
 offline só último contato e última telemetria; quantidade atual desconhecida.
 
-Próximo passo: receber contrato/persistência RH, rodar aceite conjunto e obter
+Próximo passo: resolver os limites de revisão acima e obter
 endpoint com banco/Storage isolados. Então build EAS homologacao, verificar
 SHA-256/pacote/certificado/permissões/endpoint/commit e testar atualização com
 fila pendente. Sem isso, código verificado não equivale a APK liberado.
@@ -118,13 +127,6 @@ fila pendente. Sem isso, código verificado não equivale a APK liberado.
 - npm audit do app: 5 achados altos, nenhum crítico; transitivos node-forge e zod. Não aplicar downgrade Expo sugerido nem troca major cega. Auditoria não aprovada.
 - Diretórios gerados android/dist-ci permanecem ignorados: limpeza recusada pela revisão automática; não contornada.
 
-A ponte RH em desenvolvimento usa `attendance.mobileSource`, relê eventos e
-apropriações sob locks e limita importação a jornadas confiáveis de obra única.
-É alternativa distinta ao produtor v1 acima; não declarar que o consome.
-Multiobra e revisões tardias exigem validação própria. A ausência de eventIds
-na apropriação não determina sozinha a solução, mas a origem precisa ser
-rastreável no caminho real e testada de ponta a ponta.
-
 ## Conciliação do commit de segurança RH
 
 Incorporado `cff3f2858ee1725d00dac64afe97c6b7acc1d46e`: autorização biométrica
@@ -135,3 +137,38 @@ impede entrada. Preservada a sessão com PIN apenas em memória, descartada ao
 sair, por inatividade e ao desmontar; o cadastro envia essa credencial ao servidor.
 A implementação SQLite anterior fica apenas como utilitário testado, sem uso
 na autenticação da tela. Nenhum APK anterior usou este candidato conciliado.
+
+## Candidato atual e entrega
+
+Base reconciliada na branch local `codex/ponto-android-candidato`; código RH
+`5e96e4b`, segurança RH `cff3f2`, publicação `c6956a8`, limites de pareamento
+`e2f6758`, perfil no scorecard `1548bd4`, runtime sem fallback `d22f0af`.
+Teste de aceite independente fornecido no commit `3814362`, incorporado somente
+nos dois arquivos de teste/fixture, sem substituir os documentos de outra sessão.
+
+Não foi feito push nem criado PR nesta sessão: o repositório dispara preview
+Vercel automaticamente, e o usuário manteve deploy pendente sem custo. O preview
+automático da PR RH #119 pertence ao projeto mrc; não é a API isolada autorizada.
+A revisão do candidato pode ser feita no worktree local, sem publicar.
+
+O release-check rápido executa testes e scorecard, mas omite doctor/bundle/prebuild;
+portanto seus gates nativos ficam não verificados e a liberação permanece bloqueada.
+O perfil antigo piloto foi corrigido no scorecard para homologacao/preview.
+Bundle conciliado exportado com sucesso em dist-candidato; não é APK.
+As evidências locais e os testes independentes não autorizam uso operacional,
+nem comprovam conformidade REP-P. Matriz física continua pendente.
+
+A4 preparado: chave RSA 2048, alias `ponto-homologacao`, destinada ao pacote
+`br.com.arcd.pontoobra.homologacao`; arquivo fora do repositório em
+`C:/Users/hygor/.codex/private/ponto-homologacao/ponto-homologacao.jks`.
+Pasta com ACL restrita; senha protegida pelo DPAPI do usuário Windows em
+`password.dpapi` (não é backup portátil). Não foi enviada ao EAS.
+Certificado SHA-256 público:
+`27:C5:69:BC:B1:61:3A:33:3A:B5:47:BE:71:60:19:76:A0:03:A0:48:EC:2B:AD:FC:07:2D:C2:70:54:D2:94:B3`.
+Nenhuma chave de produção reutilizada. Guardar esse material para assinar ambos
+os APKs e comprovar atualização com a mesma identidade; teste ainda pendente.
+
+Os números zero do banco acima são a fotografia da verificação inicial.
+A sessão RH comunicou autorização humana em seu chat para preparar Fulano e
+Siclano no banco isolado; não confundir ausência inicial com estado após o preparo.
+Lint e build web passaram no candidato conciliado. Aceite incorporado: 6/6.
