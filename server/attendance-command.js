@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { produzirPublicacaoRh } from "../src/domains/ponto-eletronico/publicacao-rh.js";
 import { normalizeAttendanceRecord } from "../src/domains/ponto/records.js";
 import {mobileAttendanceImportReview} from "../src/domains/ponto-eletronico/tratamento.js";
 import {
@@ -317,7 +319,21 @@ const applyMobileImport=({data,user,command,now,mobileSource})=>{
     entrada:preview.entrada.slice(0,5),intervaloSaida:preview.intervaloSaida.slice(0,5),intervaloRetorno:preview.intervaloRetorno.slice(0,5),saida:preview.saida.slice(0,5)};
   const validated=validatePatch({data,user,patch:{employeeId,date,selectedObraId:preview.obraId,record:{...record,obraId:preview.obraId}},now});
   if(!validated.ok)return validated;
-  validated.record={...validated.record,mobileSource:{eventIds:preview.sourceEventIds,appropriations:preview.appropriationVersions,captureObraId:preview.obraCapturaId,reviewedBy:String(user.id||""),reviewedAt:now}};
+  let publicacao;
+  try {
+    if (!mobileSource.eventos?.length || mobileSource.eventos.some(e => e.fuso !== mobileSource.fuso)) return fail("Origem fiscal ou fuso incompleto: encaminhe para revisão.",409);
+    const ordered = [...mobileSource.eventos].sort((a,b)=>Date.parse(a.marcadoEm)-Date.parse(b.marcadoEm));
+    const intervalos = mobileSource.appropriations.map(interval => {
+      const index = ordered.findIndex(e => Date.parse(e.marcadoEm) === Date.parse(interval.inicio));
+      if (index < 0 || index % 2 || Date.parse(ordered[index+1]?.marcadoEm) !== Date.parse(interval.fim)) throw Error('Origem do intervalo incompatível');
+      return {...interval,eventIds:[ordered[index].eventId,ordered[index+1].eventId]};
+    });
+    publicacao = produzirPublicacaoRh({companyId:mobileSource.companyId,employeeId,dataOperacional:date,fuso:mobileSource.fuso,revisao:1,
+      tratamentoVersao:JSON.stringify(preview.appropriationVersions),eventos:mobileSource.eventos,intervalos,
+      aprovacao:{estado:'aprovado',responsavelId:String(user.id||''),em:now}},value=>createHash('sha256').update(value).digest('hex'));
+    if(publicacao.estado!=='aprovado')return fail("Origem fiscal pendente: encaminhe para revisão sem importar.",409);
+  } catch { return fail("Não foi possível comprovar a origem integral dos intervalos.",409); }
+  validated.record={...validated.record,mobileSource:{publicacao,eventIds:preview.sourceEventIds,appropriations:preview.appropriationVersions,captureObraId:preview.obraCapturaId,reviewedBy:String(user.id||""),reviewedAt:now}};
   const result={attendance:[attendanceResult(validated)],dailyCheckDate:data.dailyCheckDate||""};
   const next=appendReceipt(applyValidatedPatch(data,validated),{operationId:command.operationId,action:command.action,result,user,now});
   return {ok:true,data:next,result,audit:{action:"attendance_import_mobile",before:{attendance:null},after:{attendance:result.attendance,operationId:command.operationId}}};
