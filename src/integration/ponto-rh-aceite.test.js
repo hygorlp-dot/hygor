@@ -17,6 +17,10 @@ let servidor;
 afterEach(async () => { await servidor?.pg.close(); servidor = null; });
 const sync = ap => sincronizarCadastro({ armazem: ap.armazem, api: ap.api, monotonico: ap.monotonico });
 const enviar = ap => enviarPendentes({ armazem: ap.armazem, api: ap.api });
+const lerFonte = date => servidor.pg.transaction(async tx => loadMobileAttendanceSource(async (parts, ...values) => {
+  const sql = parts.reduce((s, part, i) => s + (i ? `$${i}` : '') + part, '');
+  return (await tx.query(sql, values)).rows;
+}, { company: 'arcd', employeeId: 'e1', date }));
 
 describe('aceite operacional: trecho app → ARP → consulta → apropriação (SQL real local)', () => {
   it('encadeia captura SQL, releitura da origem, aprovação real do título e conciliação parcial', async () => {
@@ -45,13 +49,22 @@ describe('aceite operacional: trecho app → ARP → consulta → apropriação 
       const sql = parts.reduce((s, part, i) => s + (i ? `$${i}` : '') + part, '');
       return (await tx.query(sql, values)).rows;
     }, { company: 'arcd', employeeId: 'e1', date: '2026-10-01' }));
-    const imported = applyAttendanceCommand(dados, { id: 'u-rh', role: 'rh' }, {
+    const importCommand = {
       action: 'attendance-import-mobile', operationId: '10000000-0000-4000-8000-000000000099', employeeId: 'e1', date: '2026-10-01', status: 'P', ot: 0, atrasoMin: 0, note: 'Ensaio conferido',
       sourceEventIds: ids.sort(), appropriationVersions: source.appropriations.map(a => ({ id: a.id, version: a.version })),
-    }, '2026-10-06T12:00:00Z', source);
+    };
+    const imported = applyAttendanceCommand(dados, { id: 'u-rh', role: 'rh' }, importCommand, '2026-10-06T12:00:00Z', source);
     expect(imported.ok, JSON.stringify({ reason: imported.reason, error: imported.error, status: imported.status })).toBe(true);
     expect(imported.data.attendance.e1['2026-10-01'].mobileSource.eventIds).toEqual(ids);
+    const publication = imported.data.attendance.e1['2026-10-01'].mobileSource.publicacao;
+    expect(publication.estado).toBe('aprovado');
+    expect(publication.eventos.map(e => e.eventId).sort()).toEqual(ids);
+    expect(publication.eventos.every(e => Number(e.nsr)>0 && e.dispositivoId===ap.dispositivoId)).toBe(true);
+    expect(publication.intervalos.map(i => i.duracaoMs)).toEqual([14400000,14400000]);
     const reviewed = { ...imported.data, attendanceLocks: { '2026-10-01__obra-a': { locked: true } } };
+    const retry = applyAttendanceCommand(reviewed, { id: 'u-rh', role: 'rh' }, importCommand, '2026-10-07T12:00:00Z', source);
+    expect(retry.idempotent).toBe(true);
+    expect(retry.data.attendance.e1['2026-10-01'].mobileSource.publicacao).toEqual(publication);
     const period = { year: 2026, month: 8, cycle: '2' };
     const built = buildMixedPayroll(reviewed, period);
     expect(built.rows).toHaveLength(1);
@@ -68,6 +81,22 @@ describe('aceite operacional: trecho app → ARP → consulta → apropriação 
     expect(paid.data.titulosFolha[0]).toMatchObject({ saldo: 80, status: 'parcial' });
     expect(paid.data.outrasDesp).toEqual([]);
     expect(paid.data.despesasEmpresa).toEqual([]);
+  });
+
+  it('seleciona por dia local na meia-noite e mantém jornada cruzada como pendência', async () => {
+    servidor = await criarServidor({ dados: dadosEnsaio() });
+    servidor.relogioServidor = Date.parse('2026-10-02T02:59:00Z');
+    const ap = await criarAparelho(servidor); ap.paredeAdiantadaMs = 0;
+    await sync(ap);
+    const antes = await ap.bater(); ap.passar(120000); const depois = await ap.bater();
+    await enviar(ap);
+    const dia1 = await lerFonte('2026-10-01'), dia2 = await lerFonte('2026-10-02');
+    expect(dia1.eventos.map(e => e.eventId)).toEqual([antes.eventId]);
+    expect(dia2.eventos.map(e => e.eventId)).toEqual([depois.eventId]);
+    for (const source of [dia1,dia2]) {
+      expect(source.proposal.intervalos).toEqual([]);
+      expect(source.proposal.avisos).toHaveLength(1);
+    }
   });
 
   it('preserva identidade, quatro batidas offline, intervalo e duas obras após resposta perdida', async () => {

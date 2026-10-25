@@ -8,6 +8,10 @@ Critérios adotados: roadmap RH `docs/RH-PONTO-ROADMAP.md` e acompanhamento `doc
 
 ## Versões e limites da evidência
 
+**Reteste da ponte Android/RH em 25/10:** candidato `c6956a8d6c936143698d562492e5071b9f0ebd97`, incorporado apenas à worktree de aceite (merge `af6d8ec`). Diff da árvore contra o candidato restrito aos documentos e testes próprios de aceite; módulos candidatos preservados. **21/21 testes em três arquivos** (aceite, leitor/consumidor servidor e API) passaram em 69,71 s. Depois, ampliado aceite com publicação/replay/meia-noite: **6/6 passaram** em 49,37 s; 22 testes distintos neste recorte. Logs `C:/tmp/ponto-rh-aceite-evidencias/ponte-c6956a8.log` e `ponte-final-c6956a8.log`.
+
+O JOIN SQL real no PGlite entre evento, ARP e estabelecimento alimentou a publicação aprovada: IDs, NSRs e dispositivo iguais à captura, dois intervalos de 14.400.000 ms. Replay da mesma operação após fechamento manteve a publicação inalterada. Batidas 23:59 e 00:01 locais foram selecionadas em dias separados, cada uma com aviso de saída ausente; o teste **não aprova remuneração de jornada cruzando meia-noite**, que continua pendência de tratamento. Aprovação do título/parcial passa pelo mesmo encadeamento local já descrito, sem escrita financeira remota. APK, API implantada e ensaio físico continuam pendentes.
+
 **Reteste do candidato RH em 25/10:** incorporado localmente `5e96e4be4e77964f9c1c34ad3b4ccd322405b039` (pai `cff3f2858ee1725d00dac64afe97c6b7acc1d46e`) à branch de aceite, merge `3a9748e`. Nenhuma promoção para main/produção. O código app/servidor usado neste reteste é o incluído nesse candidato RH, não o RC Android posterior `23a9e52`.
 
 Passaram **75 testes / 8 arquivos** em 29,65 s: aceite, `server/attendance-mobile-import`, `src/integration/attendance-mobile-api`, `operational-command-locked-path`, `mixed-payroll`, `advance-commands`, `closed-period-protection`, `remuneration-values`. Depois foi acrescentado encadeamento independente no arquivo de aceite: **5/5 aprovados** em 11,47 s; 76 testes distintos neste recorte, não 80. Logs locais: `C:/tmp/ponto-rh-aceite-evidencias/candidato-5e96e4b.log` e `cadeia-5e96e4b.log`.
@@ -67,12 +71,12 @@ Evidência em 25/10: execução inicial conjunta **9 arquivos / 50 testes aprova
 
 | ID | Pendência | Responsável | Próximo passo |
 |---|---|---|---|
-| O01 | K1-10 confirmada como piloto; existência/configuração efetiva no sistema não conferida nesta sessão | Hygor + RH | Abrir obra e confirmar identificação, equipe, vínculos, remuneração e valores vigentes |
+| O01 | K1-10 existe; consulta agregada da sessão RH encontrou zero funcionários ativos lotados nela | Hygor + RH | Conferir equipe do piloto e lotações, vínculos, remuneração e valores vigentes; não transferir cadastros automaticamente |
 | O02 | Jornada, intervalos, regras aplicáveis, datas de pagamento e parcelas CLT não confirmados | Hygor + RH/contabilidade | Validar no cadastro; preservar cortes 06–20/21–05 sem inventar parcela |
 | O03 | Responsável provisório Hygor; contas e permissões de conferir/aprovar/pagar não verificadas | Hygor + RH | Identificar contas reais e testar acessos por papel/obra |
 | O04 | Saldos e adiantamentos de abertura desconhecidos | Hygor + financeiro | Conferir registros/comprovantes existentes sem criar saldo fictício |
 | I01 | RH 5e96e4b entregue e retestado localmente; candidato remoto conjunto ainda pendente | RH + Android | Entregar revisão conjunta implantada no ambiente isolado, com SHAs e API identificados |
-| I02 | RH informa importação com releitura sob trava e origem em attendance.mobileSource; ainda sem reteste independente | RH (importador), Android (captura), integração (teste) | Receber SHA; verificar origem/versões, reenvio e concorrência. Multiobra/tardio permanecem tratamento específico; produtor versionado Android não foi integrado |
+| I02 | Ponte versionada c6956a8 retestada com JOIN SQL real, publicação fiscal e replay preservados | RH + Android + integração | Verificar gravação pela API implantada e leitura após reconexão. Multiobra, tardio e jornada cruzada continuam tratamento específico |
 | I03 | Banco isolado verificado em leitura por integração; deploy aguarda decisão de custo no chat Android; API e APK de homologação ainda não entregues | Android + Hygor | Resolver decisão existente sem duplicar solicitação; entregar API, migrations compatíveis, SHA app/servidor e build/hash APK; só então parear |
 | I04 | Android disponível com Hygor, conforme acompanhamento RH; modelo/versão e conexão nesta sessão não confirmados | Hygor | Anotar modelo e versão; instalar candidato identificado e executar roteiro físico abaixo |
 | I05 | Recuperação, atualização e troca de aparelho sem ensaio físico | Android + Hygor | Usar runbook existente; preservar pendências e testar restauração em destino isolado |
@@ -87,6 +91,8 @@ Atualização de coordenação em 25/10: a sessão Android informou ter confirma
 Nova consulta de coordenação em 25/10: RH e Android continuam ativos. O `RH-PONTO-STATUS.md` da worktree RH relata testes focais e aprovação transacional implementada, mas seu HEAD continua `c7d4e77` com alterações ainda abertas. Essas evidências são relato da frente RH, não reteste independente desta sessão. Android relata banco isolado criado sem custo e decisão de plano Vercel pendente com o usuário; esta sessão não verificou o banco nem recebeu URL de API utilizável. Solicitados às duas frentes: SHAs estáveis, migrations, contrato compatível, URL/marcador de teste e identificação do APK. Foi perguntada a disponibilidade de backend local real autorizado enquanto o deploy estiver pendente. Nenhum teste completo novo executado sem essas dependências.
 
 Por solicitação do usuário, acompanhamento automático desta conversa ativo a cada hora (`aceite-k1-10-acompanhar-candidatos`): consultar entregas, executar o ensaio quando disponíveis e atualizar este documento, sem avisos quando não houver mudança relevante. A decisão de custo permanece no chat Android; o acompanhamento não autoriza custo, produção ou pagamento real.
+
+Equipe K1-10: relato da consulta somente leitura RH corroborado pelo log agregado `C:/tmp/rh-k110-readonly.log`: `workFound=true`, `activeEmployees=0`. Isso descreve lotação cadastral, não prova inexistência de equipe designada fora do sistema e não impede identificação global no aparelho. Jornada e valores dessa equipe precisam ser conferidos. Campos de calendário do log não foram usados para concluir ausência de calendário: RH ainda verifica as chaves corretas. Nenhum cadastro real alterado nesta sessão.
 
 ## Defeito D01
 
