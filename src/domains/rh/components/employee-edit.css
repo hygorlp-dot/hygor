@@ -1,0 +1,8 @@
+.employee-edit-modal{display:flex;flex-direction:column;overflow:hidden!important}
+.employee-edit-modal>.arcd-modal-header,.employee-edit-modal>.arcd-modal-notice,.employee-edit-modal>.arcd-modal-footer{flex:0 0 auto}
+.employee-edit-modal>.arcd-modal-body{min-height:0;flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain}
+.employee-edit-modal>.arcd-modal-footer{padding:12px 14px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--arcd-border,#d5dce4);background:var(--arcd-surface-card,#fff)}
+.employee-edit-actions{display:flex;gap:8px}.employee-edit-actions>button{flex:1;min-height:40px}
+.employee-edit-feedback{margin:0 0 8px;font-size:13px;line-height:1.4;overflow-wrap:anywhere}
+.employee-edit-feedback:empty{display:none}
+.employee-edit-hint{margin:0;color:var(--arcd-text-muted,#536171);font-size:12px;line-height:1.5}

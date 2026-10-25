@@ -1,10 +1,11 @@
 import {expect,test} from "@playwright/test";
 import {applyOperationalCommand} from "../src/domains/sync/operational-commands.js";
 const profile={id:"qa-rh",nome:"RH QA",email:"rh@qa.test",role:"rh",active:true};
-async function enter(page,{point=false,complete=false}={}){
+async function enter(page,{point=false,complete=false,legacy=false,profileOnly=false}={}){
   await page.context().addInitScript(()=>{window.print=()=>{};});
   await page.clock.setFixedTime(new Date("2026-09-25T12:00:00-03:00"));
   let state={usuarios:[profile],obras:[{id:"obra",name:"Obra QA",status:"active"}],employees:[{id:"emp",name:"Operário QA",cpf:"000.000.000-00",role:"Pedreiro",obra:"obra",dailyRate:120,monthlySalary:2406.8,remunerationMode:"clt",startDate:"2026-05-01",active:true,version:1}],advances:[{id:"adv",empId:"emp",date:"2026-09-20",amount:600,description:"Adiantamento 1ª quinzena",status:"ativo",version:1,installments:[{id:"i",dueDate:"2026-09-30",amount:600,status:"programada"}]}],attendance:{},attendanceLocks:{},unlockRequests:[],changeLog:[],config:{companyName:"Empresa QA",cnpj:"00.000.000/0001-00",paymentHolidays:[]},financialSettlements:[{id:"preservar",amount:600}]};
+  if(legacy)Object.assign(state.employees[0],{remunerationMode:"daily",monthlySalary:0,vtDaily:0,vrDaily:0,startDate:"2026-03-20",phone:"81977772299",cltPayroll:profileOnly?{profile:{salary:2600,registration:"007",cbo:"715210",category:"helper"}}:null});
   if(complete)Object.assign(state.employees[0],{cpf:"529.982.247-25",phone:"81999999999",workArea:"campo",workdayHours:8,workStart:"07:00",pixType:"CPF",pixKey:"52998224725",pixHolder:"Operário QA",examExpiresAt:"2027-05-01",remunerationMode:"daily",cltPayroll:{profile:{registration:"001",cbo:"715210",category:"professional"}}});
   if(point){
     for(let day=1;day<=30;day++){
@@ -257,4 +258,29 @@ test("pelo ponto: escolhe CLT com cadastro completo e abre o holerite correto",a
   await page.getByRole("button",{name:"Abrir holerite CLT deste funcionário",exact:true}).click();
   await expect(page.getByRole("combobox",{name:"Funcionário do holerite",exact:true})).toHaveValue("emp");await expect(page.getByLabel("Competência mensal",{exact:true})).toHaveValue("2026-09");await expect(page.getByLabel("Salário contratual mensal (R$)",{exact:true})).toHaveValue("2406.8");
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+
+async function openEmployeeEditor(page){
+  await page.keyboard.press("Control+k");const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");await search.fill("Equipes");await search.locator("xpath=../..").getByRole("button").filter({hasText:"Equipes"}).click();await page.getByRole("button",{name:"Editar",exact:true}).first().click();return page.getByRole("dialog");
+}
+
+test("editar legado: Salvar sempre visível, zeros mantidos e cadastro sem exigir CLT",async({page})=>{
+  await page.setViewportSize(test.info().project.name.includes("mobile")?{width:390,height:640}:{width:900,height:550});
+  const {getState}=await enter(page,{legacy:true}),dialog=await openEmployeeEditor(page);
+  const save=dialog.getByRole("button",{name:"Salvar",exact:true});
+  await expect.poll(async()=>{const b=await save.boundingBox();return !!b&&b.y>=0&&b.y+b.height<=page.viewportSize().height;}).toBe(true);
+  await expect(dialog.getByLabel("VT diário",{exact:true})).toHaveValue("0");await expect(dialog.getByLabel("VR diário",{exact:true})).toHaveValue("0");await expect(dialog.getByLabel("Salário mensal para opção CLT",{exact:true})).toHaveValue("");
+  await dialog.getByLabel("Telefone",{exact:true}).fill("81988887777");
+  await save.click();await expect(dialog).toHaveCount(0);
+  expect(getState().employees[0]).toMatchObject({dailyRate:120,vtDaily:0,vrDaily:0,monthlySalary:0});expect(getState().employees[0].phone.replace(/\D/g,"")).toBe("81988887777");expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
+  await page.getByRole("button",{name:"Editar",exact:true}).first().click();await page.getByRole("dialog").screenshot({path:test.info().outputPath("editar-legado-footer.png")});
+});
+
+test("editar funcionário reaproveita o perfil salvo e mantém o formulário após falha",async({page})=>{
+  const {getState}=await enter(page,{legacy:true,profileOnly:true}),dialog=await openEmployeeEditor(page);
+  await expect(dialog.getByLabel("Salário mensal para opção CLT",{exact:true})).toHaveValue("2600");await expect(dialog.getByLabel("Matrícula do funcionário",{exact:true})).toHaveValue("007");await expect(dialog.getByLabel("CBO do funcionário",{exact:true})).toHaveValue("715210");
+  await page.route("**/api/data",async route=>{if(route.request().postDataJSON()?.action==="operational-command")return route.fulfill({status:503,json:{ok:false,error:"Falha simulada para conferir preservação"}});return route.fallback();});
+  await dialog.getByLabel("Telefone",{exact:true}).fill("81988887777");await dialog.getByRole("button",{name:"Salvar",exact:true}).click();
+  await expect(dialog.locator('.employee-edit-feedback[role="alert"]')).toContainText("Falha");await expect(dialog.getByLabel("Salário mensal para opção CLT",{exact:true})).toHaveValue("2600");await expect(dialog.getByRole("button",{name:"Salvar",exact:true})).toBeEnabled();expect(getState().employees[0].monthlySalary).toBe(0);
 });

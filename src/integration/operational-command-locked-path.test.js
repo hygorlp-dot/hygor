@@ -228,6 +228,16 @@ describe("/api/data · caminho travado (executarMutacaoEmpresaBloqueada) roteia 
     expect(result.body.ok).toBe(true);
     expect(testState.rows[CORE_KEY].value.employees).toHaveLength(1);
   });
+  it('edita cadastro legado por diária sem exigir dados CLT e preserva ponto e pagamentos',async()=>{
+    const core=testState.rows[CORE_KEY].value;
+    const legacy={id:'e',name:'Legado QA',role:'SERVENTE',dailyRate:100,vtDaily:0,vrDaily:0,startDate:'2026-03-20',active:true,version:1};
+    core.employees=[legacy];core.pagamentosFolha=[{id:'real',employeeId:'e',valor:600,data:'2026-08-20'}];
+    const response=await callApi(opCommand('FUNCIONARIO_SALVO',{employee:{...legacy,phone:'81999999999',remunerationMode:'daily',monthlySalary:0,cltPayroll:null}},{expectedVersion:1}));
+    expect(response).toMatchObject({status:200,body:{ok:true}});
+    expect(testState.rows[CORE_KEY].value.employees[0]).toMatchObject({phone:'81999999999',dailyRate:100,vtDaily:0,vrDaily:0,version:2});
+    expect(testState.rows[CORE_KEY].value.pagamentosFolha).toEqual([{id:'real',employeeId:'e',valor:600,data:'2026-08-20'}]);
+    expect(testState.rows[PONTO_KEY].value).toEqual({attendance:{}});
+  });
 
   it('define modalidade pelo ponto na API real, com autorização e pagamentos preservados',async()=>{
     const core=testState.rows[CORE_KEY].value;
