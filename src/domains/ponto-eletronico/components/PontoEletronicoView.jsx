@@ -1,12 +1,16 @@
 // Aba "Ponto eletrônico (app)" - registros do app Android "Ponto de Obra"
 // (REP-P, Portaria 671/2021). EM TESTE: estas marcações ficam em tabelas
-// próprias e NÃO alimentam a Gestão do ponto nem a folha. Obras, funcionários
+// próprias; apenas a aprovação explícita importa dias elegíveis ao ponto. Obras, funcionários
 // e usuários vêm da base única do ARCD.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { chamarPontoEletronico } from "../../../api";
 import { Badge, Btn, C, Ic, Inp, Modal, PageHero, Sel } from "../../../LegacyApp";
 import { funcionariosAtivos, funcionariosDaObra } from "../funcionarios.js";
 import { ROTULO_SITUACAO, dataLocal, horaLocal, intervaloDoDia, resumoDoDia, situacaoAparelho } from "../painel.js";
+import {receivedDayQueue} from '../tratamento.js';
+import ReceivedPointReview from './ReceivedPointReview.jsx';
+import '../../ponto/components/clt-payslips.css';
+import './received-point.css';
 
 const ATUALIZAR_A_CADA_MS = 20_000;
 const corDoTom = { ok: C.green, atencao: C.orange, critico: C.red, neutro: C.muted };
@@ -14,7 +18,7 @@ const corSituacao = { em_jornada: C.blue, fechada: C.green, sem_batida: C.muted 
 const card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: 14 };
 const tituloCard = { fontSize: "var(--arcd-type-body)", fontWeight: 600, color: C.text, margin: "0 0 10px", display: "flex", alignItems: "center", gap: 8 };
 
-export default function PontoEletronicoView({ data, showToast, currentUser }) {
+export default function PontoEletronicoView({ data, showToast, currentUser, onTab, dispatchAttendanceCommand }) {
   const obras = useMemo(() => (data?.obras || []).filter(o => o?.id && o?.name), [data?.obras]);
   // Abre na obra com mais funcionários ativos (a primeira da lista pode ser
   // uma obra de apoio sem equipe, como "BASE DE DADOS").
@@ -34,6 +38,9 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
   const [estabelecimentos, setEstabelecimentos] = useState([]);
   const [repP, setRepP] = useState(null);
   const [estabModal, setEstabModal] = useState(null);   // formulário do estabelecimento
+  const [apropriacoes,setApropriacoes]=useState([]);
+  const [conferencia,setConferencia]=useState(null);
+  const loadSequence=useRef(0);
   const podeGerir = ["admin", "rh", "engenheiro"].includes(currentUser?.role);
   // Dados fiscais (inscrição, vínculo obra -> estabelecimento): admin e RH.
   const podeFiscal = ["admin", "rh"].includes(currentUser?.role);
@@ -45,26 +52,32 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
 
   const carregar = useCallback(async ({ silencioso = false } = {}) => {
     if (!obraId) return;
+    const sequence=++loadSequence.current;
     if (!silencioso) setCarregando(true);
     const { de, ate } = intervaloDoDia(dia);
-    const [rDisp, rMarc, rBio, rResp, rEst] = await Promise.all([
+    try{
+    const [rDisp, rMarc, rBio, rResp, rEst,rAprop] = await Promise.all([
       chamarPontoEletronico("ponto-dispositivos", { obraId }),
       chamarPontoEletronico("ponto-marcacoes", { obraId, de, ate }),
       chamarPontoEletronico("ponto-biometria-status", {}),
       podeGerir ? chamarPontoEletronico("ponto-responsaveis", {}) : Promise.resolve({ ok: true, responsaveis: [] }),
       chamarPontoEletronico("ponto-estabelecimentos", {}),
+      chamarPontoEletronico('ponto-apropriacoes',{de:dia,ate:dia}),
     ]);
-    const falha = [rDisp, rMarc, rBio, rResp, rEst].find(r => !r.ok);
+    if(sequence!==loadSequence.current)return;
+    const falha = [rDisp, rMarc, rBio, rResp, rEst,rAprop].find(r => !r.ok);
     if (rEst.ok) { setEstabelecimentos(rEst.estabelecimentos || []); setRepP(rEst.repP || null); }
     setErro(falha ? (falha.error || "Não foi possível carregar o ponto eletrônico.") : "");
     if (rDisp.ok) setDispositivos(rDisp.dispositivos || []);
     if (rMarc.ok) setMarcacoes(rMarc.marcacoes || []);
     if (rBio.ok) setBiometrias(rBio.biometrias || []);
     if (rResp.ok) setResponsaveis(rResp.responsaveis || []);
-    if (!silencioso) setCarregando(false);
+    if(rAprop.ok)setApropriacoes(rAprop.apropriacoes||[]);
+    }catch(error){if(sequence===loadSequence.current)setErro(error.message||'Não foi possível conectar. Atualize a lista.');}
+    finally{if(sequence===loadSequence.current&&!silencioso)setCarregando(false);}
   }, [obraId, dia, podeGerir]);
 
-  useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => {setMarcacoes([]);setApropriacoes([]);setConferencia(null);carregar();return()=>{loadSequence.current++;}; }, [carregar]);
   useEffect(() => {
     const timer = window.setInterval(() => { if (document.visibilityState === "visible") carregar({ silencioso: true }); }, ATUALIZAR_A_CADA_MS);
     return () => window.clearInterval(timer);
@@ -73,6 +86,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
   // Equipe lotada na obra + quem é de outra obra e bateu aqui (funcionário é global).
   const resumo = useMemo(() => resumoDoDia(marcacoes, funcionarios, funcionariosAtivos(data?.employees)), [marcacoes, funcionarios, data?.employees]);
   const acessosTerceiros = useMemo(() => marcacoes.filter(m => m.tipoRegistro === "acesso_terceiro"), [marcacoes]);
+  const fila=useMemo(()=>receivedDayQueue({summary:resumo,appropriations:apropriacoes,data,day:dia}),[resumo,apropriacoes,data,dia]);
   const bioPorFuncionario = useMemo(() => new Map(biometrias.map(b => [b.employeeId, b])), [biometrias]);
   const semBiometria = funcionarios.filter(f => !bioPorFuncionario.has(f.id)).length;
   const online = dispositivos.filter(d => situacaoAparelho(d).tom === "ok").length;
@@ -134,7 +148,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
       <PageHero
         eyebrow="Recursos humanos"
         title="Ponto eletrônico (app de obra)"
-        description="Batidas do app Ponto de Obra por reconhecimento facial. Em teste: estes registros são separados da Gestão do ponto e da folha."
+        description="Marcações recebidas do app Ponto de Obra. Confira as pendências e a obra dos intervalos. Em teste: conferir capturas não aprova folha nem pagamento."
         stats={[
           { label: "Aparelhos online", value: `${online} de ${dispositivos.filter(d => d.status === "ativo").length}`, color: online ? C.green : C.orange },
           { label: "Batidas no dia", value: String(marcacoes.filter(m => m.tipoRegistro === "ponto").length) },
@@ -151,6 +165,12 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
       </div>
 
       {erro && <div role="alert" style={{ ...card, borderColor: C.red, color: C.red, fontSize: "var(--arcd-type-body)" }}>{erro}</div>}
+
+      <section style={card} aria-labelledby="pe-conferir"><h3 id="pe-conferir" style={tituloCard}>Conferir ponto recebido</h3>
+        <p style={{fontSize:'var(--arcd-type-body)',color:C.muted}}>Recebido pelo sistema não significa dia conferido, fechamento aprovado ou pagamento confirmado. Registros ainda no celular não aparecem aqui e não são considerados faltas.</p>
+        {!fila.length?<p>Nenhuma marcação recebida nesta obra e dia. Confira a sincronização do aparelho antes de tratar ausências.</p>:<div className="received-point-table"><table><caption>Conferência das marcações recebidas</caption><thead><tr><th>Funcionário</th><th>Conferência necessária</th><th>Ação</th></tr></thead><tbody>{fila.map(row=><tr key={row.employeeId}><td data-label="Funcionário">{row.nome}<small>{row.batidas.length} marcação(ões) recebida(s)</small></td><td data-label="Conferência necessária">{row.reasons.map(reason=><small key={reason}>{reason}</small>)}</td><td data-label="Ação"><Btn v="secondary" disabled={carregando||!!erro} onClick={()=>setConferencia({employeeId:row.employeeId,name:row.nome,day:dia})}>{row.needsReview?'Resolver pendência de':'Ver conferência de'} {row.nome}</Btn></td></tr>)}</tbody></table></div>}
+        {onTab&&<Btn v="ghost" onClick={()=>onTab('ponto_geral')}>Abrir Gestão do ponto</Btn>}
+      </section>
 
       {!estabDaObra && <div role="status" style={{ ...card, borderColor: C.orange, fontSize: "var(--arcd-type-body)" }}>
         <b>Obra sem estabelecimento fiscal.</b> O NSR é contado por estabelecimento (CNPJ/CPF): enquanto esta obra não estiver ligada a um, as batidas ficam guardadas nos aparelhos e não recebem NSR.
@@ -309,6 +329,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
           {detalhe.marcacao.gps && <p><b>Local:</b> <a href={`https://maps.google.com/?q=${detalhe.marcacao.gps.lat},${detalhe.marcacao.gps.lng}`} target="_blank" rel="noreferrer">ver no mapa</a> (precisão {Math.round(detalhe.marcacao.gps.precisao || 0)} m)</p>}
         </div>
       </Modal>}
+      {conferencia&&<ReceivedPointReview {...conferencia} data={data} dispatchAttendanceCommand={dispatchAttendanceCommand} works={obras} canEdit={podeGerir} onClose={()=>setConferencia(null)} onSaved={()=>carregar({silencioso:true})} onTab={onTab}/>}
     </div>
   );
 }

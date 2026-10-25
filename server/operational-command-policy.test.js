@@ -3,6 +3,11 @@ import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js
 import { validateOperationalCommandScope } from "./operational-command-policy.js";
 
 describe("escopo servidor de comandos operacionais",()=>{
+  it('reserva aprovação da quinzena mista ao RH e administrador',()=>{
+    const command={type:OPERATIONAL_COMMAND.MIXED_PAYROLL_APPROVED,payload:{}};
+    for(const role of ['admin','rh'])expect(validateOperationalCommandScope({user:{role},data:{},command}).ok).toBe(true);
+    for(const role of ['financeiro','engenheiro','encarregado','visitante'])expect(validateOperationalCommandScope({user:{role},data:{},command}).ok).toBe(false);
+  });
   const data={
     medicoesObra:[{id:"m-a",obraId:"obra-a"}],rdos:[{id:"r-a",obraId:"obra-a"}],pedidos:[{id:"p-a",obraId:"obra-a"}],progressRecords:[{id:"av-a",obraId:"obra-a"}],weeklyCommitments:[{id:"c-a",obraId:"obra-a"}],qualidadeRegistros:[{id:"q-a",obraId:"obra-a"}],lookaheadWindows:[{id:"la-a",obraId:"obra-a"}],
     payments:[{id:"rec-a",obraId:"obra-a"}],medicoes:[{id:"med-a",obraId:"obra-a"}],

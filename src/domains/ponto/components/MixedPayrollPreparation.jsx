@@ -1,0 +1,32 @@
+import {useMemo,useState} from 'react';
+import {Btn,Inp,Sel,fmt,uid} from '../../../LegacyApp';
+import {buildMixedPayroll,MIXED_PAYROLL_COMMAND} from '../mixed-payroll.js';
+import {saldoTituloFolha,totalLiquidadoFolha} from '../../conciliacao/payroll.js';
+import './clt-payslips.css';
+
+export function MixedPayrollPreparation({data,currentUser,dispatchCommand,showToast,onTab,year,month}){
+  const [y,setYear]=useState(year),[m,setMonth]=useState(month),[cycle,setCycle]=useState('1'),[cltPlans,setPlans]=useState({}),[paymentDate,setPaymentDate]=useState(''),[selected,setSelected]=useState([]),[confirmed,setConfirmed]=useState(false),[saving,setSaving]=useState(false),[status,setStatus]=useState('');
+  const period={year:y,month:m,cycle,cltPlans},built=useMemo(()=>buildMixedPayroll(data,{year:y,month:m,cycle,cltPlans}),[data,y,m,cycle,cltPlans]);
+  const eligible=built.rows.filter(r=>!r.issues.length&&!r.existing),canEdit=['admin','rh'].includes(currentUser?.role);
+  const changePlan=(id,key,value)=>{setPlans(p=>({...p,[id]:{...p[id],[key]:value}}));setConfirmed(false);};
+  const approve=async()=>{
+    setSaving(true);setStatus('Aprovando…');
+    try{const result=await dispatchCommand({type:MIXED_PAYROLL_COMMAND,idempotencyKey:`mixed-payroll-${uid()}`,actorId:currentUser.id,actorName:currentUser.nome,payload:{period,rowIds:selected,sources:Object.fromEntries(built.rows.map(r=>[r.id,r.source])),paymentDate}});if(!result?.ok)throw Error(result?.reason||result?.error||'Não foi possível aprovar.');setStatus('Fechamento aprovado. Obrigações encaminhadas; nenhum pagamento foi efetuado.');setSelected([]);setConfirmed(false);}catch(e){setStatus(e.message);showToast(e.message,'error');}finally{setSaving(false);}
+  };
+  return <section className="clt-payslips" aria-label="Preparar quinzena mista"><h3>Preparar quinzena</h3><p>Diária e CLT na mesma conferência. O corte do ponto não altera a competência mensal do CLT. Aprovar cria obrigações no financeiro existente, sem marcar como pago ou gerar custo adicional no DRE.</p>
+    <fieldset disabled={saving}><div className="clt-grid"><Inp label="Mês do corte" type="month" value={`${y}-${String(Number(m)+1).padStart(2,'0')}`} onChange={v=>{if(/^\d{4}-(0[1-9]|1[0-2])$/.test(v)){setYear(Number(v.slice(0,4)));setMonth(Number(v.slice(5,7))-1);setSelected([]);setConfirmed(false);}}}/><Sel label="Corte da quinzena mista" value={cycle} onChange={v=>{setCycle(v);setSelected([]);setConfirmed(false);}} options={[{v:'1',l:'06 a 20'},{v:'2',l:'21 a 05 do mês seguinte'}]}/><Inp label="Data prevista para pagamento da quinzena" type="date" value={paymentDate} onChange={v=>{setPaymentDate(v);setConfirmed(false);}}/></div>
+      <p>Corte: {built.start} a {built.end}. A data de pagamento precisa ser conferida; o sistema não presume parcelas de 50%.</p>
+      <Btn v="secondary" onClick={()=>onTab?.('ponto_app')}>Conferir marcações do celular</Btn><Btn v="secondary" onClick={()=>onTab?.('ponto_geral')}>Conferir ponto</Btn>
+      <div className="provisions-table"><table><caption>Demonstrativos da quinzena</caption><thead><tr><th>Funcionário / modalidade</th><th>Valor previsto</th><th>Pendente de pagamento</th><th>Situação</th><th>Selecionar</th></tr></thead><tbody>{built.rows.map(row=><tr key={row.id}><td>{row.name}<small>{row.kind==='clt'?`CLT · competência ${row.competence}`:'Diária · dias do corte'}</small></td><td>{row.kind==='clt'&&!row.existing&&row.net<=0?'Parcela não informada':fmt(row.existing?.liquido??row.net)}</td><td>{row.existing?fmt(saldoTituloFolha(row.existing)):'Ainda não encaminhado'}</td><td>{row.existing?`${row.existing.status||'Em aberto'} · pago ${fmt(totalLiquidadoFolha(row.existing))}`:row.issues.length?`${row.issues.length} pendência(s)`:'Pronto para aprovação'}</td><td><input aria-label={`Selecionar ${row.name} ${row.kind}`} type="checkbox" disabled={!canEdit||row.issues.length>0||!!row.existing} checked={selected.includes(row.id)} onChange={e=>{setSelected(ids=>e.target.checked?[...ids,row.id]:ids.filter(id=>id!==row.id));setConfirmed(false);}}/></td></tr>)}</tbody></table></div>
+      {!built.rows.length&&<p>Nenhum funcionário com vínculo neste corte.</p>}
+      {built.rows.map(row=><details key={row.id}><summary>{row.name} · {row.kind==='clt'?'Parcela CLT':'Composição da diária'} · {row.issues.length} pendência(s)</summary>
+        {row.kind==='clt'&&!row.existing&&<div className="clt-grid"><Inp label={`Competência CLT ${row.name}`} type="month" value={cltPlans[row.employeeId]?.competence||row.competence} onChange={v=>changePlan(row.employeeId,'competence',v)}/><Inp label={`Parcela CLT ${row.name}`} type="number" value={cltPlans[row.employeeId]?.amount??''} onChange={v=>changePlan(row.employeeId,'amount',v)}/><Inp label={`Critério da parcela ${row.name}`} value={cltPlans[row.employeeId]?.reference||''} onChange={v=>changePlan(row.employeeId,'reference',v)}/><p>Líquido mensal apurado: {row.monthlyNet==null?'Não apurado':fmt(row.monthlyNet)} · já pago em parcelas vinculadas: {fmt(row.previousPaid)} · disponível para encaminhar: {fmt(row.available)}. Use holerite mensal salvo e conferido; não redigite o salário.</p></div>}
+        {row.kind==='daily'&&<p>{row.days} dias equivalentes · proventos {fmt(row.gross)} · benefícios {fmt(row.benefits)} · adiantamentos {fmt(row.advances)} · descontos {fmt(row.deductions)} · líquido {fmt(row.net)}.</p>}
+        {row.issues.length>0&&<ul>{row.issues.map((issue,i)=><li key={i}>{issue}</li>)}</ul>}
+        {row.existing&&<p>Obrigação: {row.existing.id}. Registrada em {row.existing.fechadoEm}. Pagamento e conciliação são tratados no financeiro; comprovante/relatório não realiza baixa.</p>}
+      </details>)}
+      {canEdit&&<><Btn v="secondary" onClick={()=>{setSelected(eligible.map(r=>r.id));setConfirmed(false);}}>Selecionar demonstrativos sem pendência</Btn><p>Total selecionado: {fmt(built.rows.filter(r=>selected.includes(r.id)&&!r.existing).reduce((s,r)=>s+r.net,0))}</p><label className="clt-check"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>Conferi dias, valores, parcelas, adiantamentos e data de pagamento. Aprovar não confirma pagamento.</label><Btn disabled={saving||!confirmed||!paymentDate||!selected.length} onClick={approve}>Aprovar e encaminhar ao financeiro</Btn></>}
+      <p role="status">{status}</p><Btn v="secondary" onClick={()=>onTab?.('conciliacao')}>Acompanhar pagamentos e conciliação</Btn>
+    </fieldset>
+  </section>;
+}

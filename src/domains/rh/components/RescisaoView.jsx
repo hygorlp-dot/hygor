@@ -15,7 +15,7 @@ import {
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { isAdvanceActive } from "../advance-commands";
 import {
-  calculateRescission, RESCISSION_TYPE_LABEL, RESCISSION_TYPES,
+  calculateRescission, suggestedRescissionMonthlyBase, RESCISSION_TYPE_LABEL, RESCISSION_TYPES,
 } from "../rescission-calculations";
 import { isRescissionActive } from "../rescission-commands";
 
@@ -42,6 +42,8 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
     incluirAviso: false,
     descAdiantamento: "", descOutros: "", obsDesc: "",
     obs: "",
+    baseSuggested:false,
+    accounting:{responsible:'',reference:'',confirmed:false,totalNet:''},
   };
 
   const [form, setForm]       = useState(emptyForm);
@@ -49,7 +51,14 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
   const [salvando, setSalvando] = useState(false);
   const [rescCancelModal, setRescCancelModal] = useState(null);
   const [rescCancelReason, setRescCancelReason] = useState("");
-  const F = k => v => setForm(f => ({ ...f, [k]: v }));
+  const F = k => v => setForm(f => {
+    const next={...f,[k]:v,accounting:{...f.accounting,confirmed:false}};
+    if(k==='valorMensal')next.baseSuggested=false;
+    if(k==='demissao'&&f.baseSuggested){const employee=data.employees.find(e=>e.id===f.empId);if(employee)next.valorMensal=suggestedRescissionMonthlyBase(employee,v);}
+    return next;
+  });
+  const accountingField=key=>value=>setForm(f=>({...f,accounting:{...f.accounting,[key]:value,confirmed:key==='confirmed'?value:false}}));
+  const accountingReady=Boolean(form.accounting?.confirmed&&String(form.accounting?.responsible||'').trim().length>=3&&String(form.accounting?.reference||'').trim().length>=3&&form.accounting?.totalNet!==''&&Number.isFinite(Number(form.accounting?.totalNet))&&Number(form.accounting?.totalNet)>=0);
 
   // Ao selecionar funcionário da lista
   const selectEmp = empId => {
@@ -57,7 +66,7 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
     const emp = data.employees.find(e => e.id === empId);
     if (!emp) return;
     const obra = data.obras.find(o => o.id === emp.obra);
-    const vm   = Number(emp.dailyRate || 0) * 26; // 26 dias úteis/mês
+    const vm=suggestedRescissionMonthlyBase(emp,emp.endDate||form.demissao);
     // Achado de auditoria de 20/08/2026: somava TODO adiantamento do
     // funcionário, inclusive os já cancelados/estornados, sugerindo um
     // desconto maior do que a dívida real na rescisão.
@@ -73,10 +82,12 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
       empId, empName: emp.name, empCPF: emp.cpf||"",
       empFuncao: emp.role||"", obraId: obra?.id||"", obraName: obra?.name||"",
       admissao: emp.startDate||"",
-      valorMensal: String(Math.round(vm)),
+      valorMensal: vm,
+      baseSuggested:true,
       descAdiantamento: pendAdv > 0 ? String(pendAdv) : "",
       tipo: tipoHerdado || f.tipo,
       tipoHerdado,
+      accounting:{responsible:'',reference:'',confirmed:false,totalNet:''},
     }));
   };
 
@@ -85,6 +96,7 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
   // Salvar rescisão
   const salvar = async () => {
     if (!form.empName.trim() || !calc) { showToast("Preencha os dados obrigatórios.", "error"); return; }
+    if(!accountingReady){showToast('Informe a apuração recebida da contabilidade, a referência e o responsável antes de registrar.','error');return;}
     if (!dispatchCommand) { showToast("A rescisão exige conexão com o servidor.", "error"); return; }
     setSalvando(true);
     let result;
@@ -144,8 +156,9 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
   // reemitir o PDF direto do histórico, sem reabrir o formulário.
   const gerarPDF = (registro = null) => {
     const fonte = registro || form;
-    const c     = registro || calc;
+    const c     = registro?.preliminaryCalculation || registro || calc;
     if (!c) { showToast("Complete o cálculo primeiro.", "error"); return; }
+    const received=Boolean(fonte.accounting?.confirmed&&fonte.accounting?.reference&&fonte.accounting?.responsible&&fonte.accounting?.totalNet!==''&&Number.isFinite(Number(fonte.accounting?.totalNet)));
     const tempoStr = `${c.anos > 0 ? c.anos+"a " : ""}${c.totalMeses % 12}m ${c.diasResto}d`;
     const rows = c.isAcordoInterno
       ? [["Acordo interno - valor fixo x tempo ativo",
@@ -163,7 +176,7 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
     ].filter(Boolean);
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Rescisão - ${escapeHtml(fonte.empName)}</title>
+<title>${received?'Apuração contábil recebida':'Prévia de rescisão'} - ${escapeHtml(fonte.empName)}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Arial',sans-serif;color:#111;background:#fff;padding:32px;font-size:12px}
@@ -200,10 +213,12 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
   <div class="company-info">
     <h1>${escapeHtml(data.config.companyName||"ArcD Construtora")}</h1>
     ${data.config.cnpj?`<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>`:""}
-    <p>Recibo de Rescisão de Contrato de Trabalho</p>
+    <p>${received?'Apuração contábil recebida · rescisão':'Prévia de rescisão para conferência contábil'}</p>
   </div>
 </div>
 
+<p>Não é TRCT, recibo de pagamento ou quitação. A prévia não apura todas as verbas: aviso proporcional e sua projeção, férias vencidas, médias, afastamentos, tributos e FGTS dependem da contabilidade. Valores do histórico são preservados.</p>
+${received?`<p><strong>Líquido informado pela contabilidade: ${fmt(Number(fonte.accounting.totalNet))}</strong><br>Responsável: ${escapeHtml(fonte.accounting.responsible)} · Referência: ${escapeHtml(fonte.accounting.reference)}${fonte.accounting.documentId?` · Documento: ${escapeHtml(fonte.accounting.documentId)}`:''}. O detalhamento automático abaixo é somente uma simulação; não é a memória de cálculo contábil recebida.</p>`:''}
 <h2>Dados do Trabalhador</h2>
 <div class="info-grid">
   <div class="info-item"><p class="lbl">Nome</p><p class="val">${escapeHtml(fonte.empName)}</p></div>
@@ -217,14 +232,14 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
   <div class="info-item"><p class="lbl">Valor Mensal</p><p class="val">R$ ${Number(fonte.valorMensal||0).toLocaleString("pt-BR",{minimumFractionDigits:2})}</p></div>
 </div>
 
-<h2>Demonstrativo de Valores</h2>
+<h2>Detalhamento automático da prévia</h2>
 <table>
   <thead><tr><th>Verba</th><th>Base de Cálculo</th><th style="text-align:right">Valor (R$)</th></tr></thead>
   <tbody>
     ${rows.map(([v,b,val])=>`<tr><td>${escapeHtml(v)}</td><td style="color:#555">${escapeHtml(b)}</td><td class="right">R$ ${Number(val).toLocaleString("pt-BR",{minimumFractionDigits:2})}</td></tr>`).join("")}
     <tr class="subtotal"><td colspan="2">Subtotal de Vencimentos</td><td class="right">R$ ${c.totalBruto.toLocaleString("pt-BR",{minimumFractionDigits:2})}</td></tr>
     ${descs.map(([v,val])=>`<tr class="desc"><td>(-) ${escapeHtml(v)}</td><td></td><td class="right">R$ ${Number(val).toLocaleString("pt-BR",{minimumFractionDigits:2})}</td></tr>`).join("")}
-    <tr class="total"><td colspan="2">TOTAL LÍQUIDO A RECEBER</td><td class="right">R$ ${c.totalLiquido.toLocaleString("pt-BR",{minimumFractionDigits:2})}</td></tr>
+    <tr class="total"><td colspan="2">LÍQUIDO ESTIMADO DA PRÉVIA</td><td class="right">R$ ${c.totalLiquido.toLocaleString("pt-BR",{minimumFractionDigits:2})}</td></tr>
   </tbody>
 </table>
 
@@ -233,9 +248,7 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
 ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtml(fonte.obs)}</div>`:""}
 
 <div class="declaracao">
-  Declaro ter recebido da empresa <strong>${escapeHtml(data.config.companyName||"ArcD Construtora")}</strong> a importância acima discriminada,
-  referente à rescisão do meu contrato de trabalho, dando plena, geral e irrevogável quitação de todos
-  os valores acima mencionados, nada mais tendo a reclamar a qualquer título.
+  Documento para análise. Os valores dependem da conferência da contabilidade e não declaram recebimento ou quitação.
   <br><br>
   <strong>Caruaru - PE, ${new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})}</strong>
 </div>
@@ -243,7 +256,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 <div class="signs">
   <div class="sign-box">
     <p class="name">${escapeHtml(fonte.empName)}</p>
-    <p>Trabalhador(a)</p>
+    <p>Trabalhador(a) · identificação para conferência</p>
     <p>CPF: ${escapeHtml(fonte.empCPF||"________________")}</p>
   </div>
   <div class="sign-box">
@@ -308,7 +321,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       <PageHero
         eyebrow="Documentos"
         title="Cálculo de Rescisão"
-        description="Gere o cálculo e o PDF para assinatura do trabalhador."
+        description="Prepare uma prévia e confira as verbas com a contabilidade antes da apuração final."
       />
 
       {/* Selecionar funcionário */}
@@ -333,9 +346,10 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
           <Inp label="Data de admissão *"  type="date" value={form.admissao}    onChange={F("admissao")}/>
           <Inp label="Data de rescisão *"  type="date" value={form.demissao}    onChange={F("demissao")}/>
-          <Inp label="Valor mensal (R$) *" type="number" value={form.valorMensal} onChange={F("valorMensal")} placeholder="Diária x 26 dias"/>
+          <Inp label="Valor mensal (R$) *" type="number" value={form.valorMensal} onChange={F("valorMensal")} placeholder="Salário contratual ou base apurada pela contabilidade"/>
           <Inp label="Dias trabalhados no mês" type="number" value={form.diasNoMes} onChange={F("diasNoMes")} placeholder="Ex: 12"/>
         </div>
+        <p>Para mensalista CLT, a sugestão usa o salário contratual cadastrado na data de desligamento. Para diária, a base mensal deve ser apurada; não multiplicamos a diária por 26. Não há cálculo automático completo de verbas, tributos e projeções rescisórias nesta prévia.</p>
         <Sel label="Motivo da rescisão *" value={form.tipo} onChange={F("tipo")} options={RESCISSION_TYPES}/>
         {form.tipoHerdado && form.tipoHerdado === form.tipo && (
           <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:-4}}>Herdado do desligamento registrado em Equipe - revise se necessário.</p>
@@ -422,7 +436,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       {/* Resultado */}
       {calc ? (
         <div style={{background:`${C.yellow}12`,color:C.text,padding:"18px 20px",borderRadius:12,border:`1px solid ${C.yellow}44`}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,letterSpacing:1.2,textTransform:"uppercase",color:C.yellowD}}>Total líquido a receber</p>
+          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,letterSpacing:1.2,textTransform:"uppercase",color:C.yellowD}}>Líquido estimado da prévia</p>
           <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"clamp(26px,11vw,48px)",letterSpacing:1,lineHeight:.95,color:C.text}}>{fmt(calc.totalLiquido)}</p>
           <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,marginTop:6,color:C.muted}}>{valorPorExtenso(calc.totalLiquido)}</p>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:14}}>
@@ -447,11 +461,22 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       {/* Observações e ações */}
       <Inp label="Observações (aparece no documento)" value={form.obs} onChange={F("obs")} multiline placeholder="Informações adicionais, acordos, pendências..."/>
 
+      <section aria-label="Apuração recebida da contabilidade" style={{border:`1px solid ${C.border}`,borderRadius:8,padding:14}}>
+        <h3>Apuração recebida da contabilidade</h3><p>A prévia não é o cálculo final. Informe a apuração conferida para registrar a obrigação no financeiro. O registro não confirma pagamento ou conciliação.</p>
+        <div style={{display:'grid',gridTemplateColumns:formGrid(2),gap:10}}>
+          <Inp label="Responsável pela apuração contábil" value={form.accounting?.responsible||''} onChange={accountingField('responsible')}/>
+          <Inp label="Referência da apuração contábil" value={form.accounting?.reference||''} onChange={accountingField('reference')}/>
+          <Inp label="Líquido apurado pela contabilidade (R$)" type="number" value={String(form.accounting?.totalNet??'')} onChange={accountingField('totalNet')}/>
+          <Inp label="Documento de referência (opcional)" value={form.accounting?.documentId||''} onChange={accountingField('documentId')}/>
+        </div>
+        <label style={{display:'flex',alignItems:'flex-start',gap:8,marginTop:12}}><input type="checkbox" checked={!!form.accounting?.confirmed} onChange={e=>accountingField('confirmed')(e.target.checked)}/><span>Recebi e conferi a apuração identificada, incluindo verbas, descontos e adiantamentos. O líquido informado é o valor a registrar.</span></label>
+      </section>
+
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <Btn v="ghost" onClick={()=>setForm(emptyForm)} full><Ic n="x"/> Limpar</Btn>
         <Btn v="ghost" onClick={()=>gerarPDF()} full disabled={!calc}><Ic n="file"/> Gerar PDF</Btn>
       </div>
-      <Btn onClick={salvar} full disabled={!calc||salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Salvar no histórico"}</Btn>
+      <Btn onClick={salvar} full disabled={!calc||!accountingReady||salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Registrar apuração conferida"}</Btn>
 
       {/* Histórico */}
       <button onClick={()=>setHistory(h=>!h)} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"10px 14px",cursor:"pointer",borderRadius:8,fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-control)",textTransform:"uppercase",letterSpacing:.5,textAlign:"left"}}>

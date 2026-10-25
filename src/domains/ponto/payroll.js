@@ -1,4 +1,5 @@
-import { calculateTimekeeping } from "./timekeeping.js";
+import { calculateTimekeeping, delayAfterClockTolerance } from "./timekeeping.js";
+import {effectiveEmployeeOnDate} from '../rh/remuneration-values.js';
 
 const positiveNumber = (value, fallback = 0) => {
   const number = Number(value);
@@ -38,12 +39,13 @@ export const calculateAttendanceDayCost = ({
   employee: employeeInput,
   record: recordInput,
   config: configInput,
+  date,
 } = {}) => {
   // Dia sem lançamento é representado por `null` no legado. Defaults de
   // desestruturação só tratam `undefined`, portanto o valor nulo atravessava
   // até `record.status` e derrubava Dashboard/DRE. Registro ausente equivale
   // corretamente a custo zero, nunca a presença presumida.
-  const employee = safeRecord(employeeInput);
+  const employee = safeRecord(date?effectiveEmployeeOnDate(safeRecord(employeeInput),date):employeeInput);
   const record = safeRecord(recordInput);
   const config = safeRecord(configInput);
   const factor = attendanceFactor(record.status);
@@ -71,13 +73,22 @@ export const calculateAttendanceDayCost = ({
       ?? employee.workStart
       ?? config.payrollWorkStart
       ?? "07:00",
+    jornadaFim:record.archivedWorkEnd??employee.workEnd??config.payrollWorkEnd??'',
+    intervaloPrevistoSaida:employee.breakStart??config.payrollBreakStart??'',
+    intervaloPrevistoRetorno:employee.breakEnd??config.payrollBreakEnd??'',
   });
   const delayMinutes = timekeeping.valid && !timekeeping.empty
     ? timekeeping.delayMinutes
     : positiveNumber(record.atrasoMin);
+  // Fotografia restaurada de fechamento mantém o resultado da regra da
+  // época. Corrigir tolerância em dias abertos não reapura períodos pagos.
+  const archived=record.archivedDailyRate!=null;
+  const deductibleDelayMinutes=archived?delayMinutes:
+    timekeeping.valid&&!timekeeping.empty?timekeeping.deductibleDelayMinutes:
+    delayAfterClockTolerance(delayMinutes).deductibleDelayMinutes;
   const delayDeduction = Math.min(
     basePay,
-    workdayHours ? (dailyRate / workdayHours) * (delayMinutes / 60) : 0,
+    workdayHours ? (dailyRate / workdayHours) * (deductibleDelayMinutes / 60) : 0,
   );
   const laborCost = basePay - delayDeduction + overtimePay;
 
@@ -90,8 +101,13 @@ export const calculateAttendanceDayCost = ({
     overtimePay,
     workedMinutes:timekeeping.valid ? timekeeping.workedMinutes : 0,
     delayMinutes,
+    deductibleDelayMinutes,
+    delayToleranceApplied:!archived&&delayMinutes>0&&deductibleDelayMinutes===0,
+    delayReviewRequired:!archived&&Boolean(timekeeping.delayReviewRequired||!(timekeeping.valid&&!timekeeping.empty)&&delayMinutes>0&&delayMinutes<=5),
     delayDeduction,
     benefitCost,
+    transportCost:vtDaily*factor,
+    mealCost:vrDaily*factor,
     laborCost,
     totalCost: laborCost + benefitCost,
     workdayHours,
