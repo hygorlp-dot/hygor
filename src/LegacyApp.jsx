@@ -1,3 +1,4 @@
+import {AttendancePayMode} from "./domains/rh/components/AttendancePayMode.jsx";
 import { marcellReportHtml } from "./reports/marcell-report.js";
 import { createPortal } from "react-dom";
 import { BRAND, MARCELL_LOGO } from "./brand/identity.js";
@@ -1546,6 +1547,8 @@ const normalizeData = incoming => {
       cpf: e.cpf || "",
       phone: e.phone || "",
       pixKey: e.pixKey || "",
+      paymentInstructions:e.paymentInstructions||"",
+      payModeDecisions:Array.isArray(e.payModeDecisions)?e.payModeDecisions:[],
       pixType: e.pixType || "",
       pixHolder: e.pixHolder || "",
       dailyRate: Number(e.dailyRate || 0),
@@ -7272,7 +7275,7 @@ function UnlockRequestModal({ data, dispatchAttendanceCommand, showToast, obraId
 // Ponto
 //
 
-function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAttendanceCommand }) {
+function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAttendanceCommand, dispatchCommand }) {
   const agora = new Date();
   const refInicial = agora.getDate() <= 5 ? new Date(agora.getFullYear(), agora.getMonth()-1, 1) : agora;
   const [year,setYear]=useState(refInicial.getFullYear());
@@ -7441,6 +7444,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
   const rotuloCurto=st=>st==="P"?"P":st==="M"?"½":st==="F"?"F":"·";
   return <div className="anim ponto-geral" style={{display:"flex",flexDirection:"column",gap:12}}>
+    <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
     <PageHero
       eyebrow="Gestão do ponto"
       title="Ponto da quinzena"
@@ -7619,7 +7623,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   </div>;
 }
 
-function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchAttendanceCommand, dispatchCommand }) {
+function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchAttendanceCommand, dispatchCommand, onTab }) {
   const obraInicial=obraIdFixo||currentUser?.obraId||
     (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:"all");
   const [selDate, setSelDate] = useState(today());
@@ -7914,6 +7918,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
 
   return (
     <div className="anim obra-attendance">
+      <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
       <PageHero
         eyebrow="Registro de ponto"
         title={selectedObra?.name || "Todas as obras"}
@@ -18360,8 +18365,8 @@ export default function App() {
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "equipe" && <Suspense fallback={<div className="arcd-page-loading">Carregando equipe...</div>}><EquipeView data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={setTab} /></Suspense>}
           {tab === "terc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando terceiros...</div>}><Terceiros data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
+          {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} onTab={setTab}/>}
+          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser}/>}
           {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}

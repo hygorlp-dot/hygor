@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect,useState } from "react";
 import { Btn, Inp, Sel, fmt, uid } from "../../../LegacyApp";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { advanceDeductionForPeriod, isAdvanceActive } from "../../rh/advance-commands.js";
@@ -10,13 +10,18 @@ import {ATTENDANCE_FIELDS,attendanceImportIssues,hasPartialContractMonth} from '
 import {CltAttendanceImport} from './CltAttendanceImport.jsx';
 import {prepareMonthlyPayslip} from '../clt-preparation.js';
 import {CltClosingSummary} from './CltClosingSummary.jsx';
+import {readPayrollHandoff,PAYROLL_HANDOFF_KEY} from '../../rh/payroll-handoff.js';
 
 export function CltPayslips({data,currentUser,dispatchCommand,showToast,year,month}) {
-  const [employeeId,setEmployeeId]=useState("");
-  const [competence,setCompetence]=useState(`${year}-${String(month+1).padStart(2,"0")}`);
-  const [draft,setDraft]=useState(null);
-  const [revision,setRevision]=useState(0);
-  const [status,setStatus]=useState("");
+  const [entry]=useState(()=>{const handoff=readPayrollHandoff();return handoff?.mode==='clt'&&(data.employees||[]).some(e=>String(e.id)===handoff.employeeId)?handoff:null;});
+  const initialEmployee=(data.employees||[]).find(e=>String(e.id)===entry?.employeeId);
+  const initialCompetence=entry?.competence||`${year}-${String(month+1).padStart(2,"0")}`;
+  const [employeeId,setEmployeeId]=useState(entry?.employeeId||'');
+  const [competence,setCompetence]=useState(initialCompetence);
+  const [draft,setDraft]=useState(()=>initialEmployee?prepareMonthlyPayslip(data,initialEmployee,initialCompetence,{advances:false}).draft:null);
+  const [revision,setRevision]=useState(Number(initialEmployee?.version||0));
+  const [status,setStatus]=useState(initialEmployee?.cltPayroll?.drafts?.[initialCompetence]?'Salvo':'Novo demonstrativo');
+  useEffect(()=>{if(entry)window.sessionStorage.removeItem(PAYROLL_HANDOFF_KEY);},[entry]);
   const [saving,setSaving]=useState(false);
   const [dirty,setDirty]=useState(false);
   const [prepareTransport,setPrepareTransport]=useState(false);

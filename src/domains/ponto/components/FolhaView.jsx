@@ -36,20 +36,23 @@ import { LaborProvisions } from "./LaborProvisions.jsx";
 import { PayModeSimulation } from "./PayModeSimulation.jsx";
 import {EmployeeCosts} from '../../rh/components/EmployeeCosts.jsx';
 import {EmployeeDossier} from '../../rh/components/EmployeeDossier.jsx';
+import {readPayrollHandoff,PAYROLL_HANDOFF_KEY} from '../../rh/payroll-handoff.js';
 
 function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const {scopes}=useWorkflow();
   const savedScope=scopes.folha;
+  const [entryScope]=useState(()=>readPayrollHandoff());
   const now = new Date();
   const refInicial = now.getDate() <= 5 ? new Date(now.getFullYear(), now.getMonth()-1, 1) : now;
-  const [year, setYear] = useState(savedScope?.year??refInicial.getFullYear());
-  const [month, setMonth] = useState(savedScope?.month??refInicial.getMonth());
+  const [year, setYear] = useState(entryScope?Number(entryScope.competence.slice(0,4)):savedScope?.year??refInicial.getFullYear());
+  const [month, setMonth] = useState(entryScope?Number(entryScope.competence.slice(5,7))-1:savedScope?.month??refInicial.getMonth());
   const [q, setQ] = useState(savedScope?.cycle||(now.getDate() >= 6 && now.getDate() <= 20 ? "1" : "2"));
   const [filterObra, setFilterObra] = useState(currentUser?.obraId||savedScope?.obraId||"all");
   useRememberWorkflowScope("folha",{obraId:filterObra==="all"?"":filterObra,year,month,period:"mes",cycle:q});
-  const [expandedId, setExpandedId] = useState(null);
+  const [expandedId, setExpandedId] = useState(entryScope?.employeeId||null);
   const [relatorioPendente, setRelatorioPendente] = useState("");
-  const [payrollView,setPayrollView]=useState("payroll");
+  const [payrollView,setPayrollView]=useState(entryScope?.mode==='clt'?'clt':'payroll');
+  useEffect(()=>{if(entryScope?.mode==='daily')window.sessionStorage.removeItem(PAYROLL_HANDOFF_KEY);},[entryScope]);
   const [unionDraft,setUnionDraft]=useState(()=>normalizeUnionDuesConfig(data.config?.unionDues));
   const [savingUnion,setSavingUnion]=useState(false);
   useEffect(()=>setUnionDraft(normalizeUnionDuesConfig(data.config?.unionDues)),[data.config?.unionDues]);

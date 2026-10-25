@@ -1,10 +1,11 @@
 import {expect,test} from "@playwright/test";
 import {applyOperationalCommand} from "../src/domains/sync/operational-commands.js";
 const profile={id:"qa-rh",nome:"RH QA",email:"rh@qa.test",role:"rh",active:true};
-async function enter(page,{point=false}={}){
+async function enter(page,{point=false,complete=false}={}){
   await page.context().addInitScript(()=>{window.print=()=>{};});
   await page.clock.setFixedTime(new Date("2026-09-25T12:00:00-03:00"));
   let state={usuarios:[profile],obras:[{id:"obra",name:"Obra QA",status:"active"}],employees:[{id:"emp",name:"Operário QA",cpf:"000.000.000-00",role:"Pedreiro",obra:"obra",dailyRate:120,monthlySalary:2406.8,remunerationMode:"clt",startDate:"2026-05-01",active:true,version:1}],advances:[{id:"adv",empId:"emp",date:"2026-09-20",amount:600,description:"Adiantamento 1ª quinzena",status:"ativo",version:1,installments:[{id:"i",dueDate:"2026-09-30",amount:600,status:"programada"}]}],attendance:{},attendanceLocks:{},unlockRequests:[],changeLog:[],config:{companyName:"Empresa QA",cnpj:"00.000.000/0001-00",paymentHolidays:[]},financialSettlements:[{id:"preservar",amount:600}]};
+  if(complete)Object.assign(state.employees[0],{cpf:"529.982.247-25",phone:"81999999999",workArea:"campo",workdayHours:8,workStart:"07:00",pixType:"CPF",pixKey:"52998224725",pixHolder:"Operário QA",examExpiresAt:"2027-05-01",remunerationMode:"daily",cltPayroll:{profile:{registration:"001",cbo:"715210",category:"professional"}}});
   if(point){
     for(let day=1;day<=30;day++){
       const date=`2026-09-${String(day).padStart(2,"0")}`,weekday=new Date(date+"T12:00:00Z").getUTCDay();
@@ -227,4 +228,33 @@ test("prontuário privado: envia, lista e arquiva preservando o histórico",asyn
   await page.getByLabel("Mostrar documentos arquivados",{exact:true}).check();await expect(page.getByRole("button",{name:"Abrir contrato-qa.pdf",exact:true})).toBeVisible();
   expect(documents).toHaveLength(1);expect(commands).toHaveLength(0);expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
   await page.getByRole("region",{name:"Prontuário do funcionário",exact:true}).screenshot({path:test.info().outputPath("prontuario.png")});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+
+async function openAttendancePayMode(page){
+  await page.keyboard.press("Control+k");const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");await search.fill("ponto");await search.locator("xpath=../..").getByRole("button").filter({hasText:"Gestão do ponto"}).click();
+  await page.getByRole("button",{name:"Definir diária ou CLT pelo ponto",exact:true}).click();
+  await page.getByRole("combobox",{name:"Funcionário para definir pagamento",exact:true}).selectOption("emp");
+}
+
+test("pelo ponto: cadastro incompleto bloqueia e abre a edição do funcionário",async({page})=>{
+  const {commands}=await enter(page);await openAttendancePayMode(page);
+  await page.getByRole("combobox",{name:"Pagar por",exact:true}).selectOption("daily");
+  const dialog=page.getByRole("dialog");await expect(dialog).toContainText("CPF válido");
+  await expect(page.getByRole("button",{name:"Salvar modalidade pelo ponto",exact:true})).toBeDisabled();
+  await page.getByRole("button",{name:"Completar cadastro de Operário QA",exact:true}).click();
+  await expect(page.getByRole("dialog")).toContainText("Editar funcionário");await expect(page.getByLabel("CBO do funcionário",{exact:true})).toBeVisible();expect(commands).toHaveLength(0);
+});
+
+test("pelo ponto: escolhe CLT com cadastro completo e abre o holerite correto",async({page})=>{
+  const {commands,getState}=await enter(page,{complete:true});await openAttendancePayMode(page);
+  await page.getByRole("combobox",{name:"Pagar por",exact:true}).selectOption("clt");
+  await page.getByLabel("Vigência da modalidade pelo ponto",{exact:true}).fill("2026-09-26");await page.getByLabel("Justificativa da modalidade pelo ponto",{exact:true}).fill("Contrato mensal formalizado pelo RH");await page.getByLabel(/^Conferi cadastro, documentação e condições contratuais/).check();
+  await page.getByRole("button",{name:"Salvar modalidade pelo ponto",exact:true}).click();
+  await expect(page.getByRole("dialog")).toContainText("Modalidade salva. Folhas anteriores e pagamentos preservados.");
+  expect(commands).toHaveLength(1);expect(getState().employees[0].remunerationMode).toBe("clt");expect(getState().employees[0].payModeDecisions[0]).toMatchObject({source:"attendance",effectiveFrom:"2026-09-26"});expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
+  await page.getByRole("dialog").screenshot({path:test.info().outputPath("pagamento-pelo-ponto.png")});
+  await page.getByRole("button",{name:"Abrir holerite CLT deste funcionário",exact:true}).click();
+  await expect(page.getByRole("combobox",{name:"Funcionário do holerite",exact:true})).toHaveValue("emp");await expect(page.getByLabel("Competência mensal",{exact:true})).toHaveValue("2026-09");await expect(page.getByLabel("Salário contratual mensal (R$)",{exact:true})).toHaveValue("2406.8");
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });

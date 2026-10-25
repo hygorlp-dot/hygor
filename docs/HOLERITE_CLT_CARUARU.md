@@ -63,3 +63,11 @@ Prontuário: somente RH/admin, verificado no servidor. PDF/JPEG/PNG até 3 MB co
 Referências de fluxo (não dependências): Convenia (dados existentes e contabilidade), Sólides (ponto/benefícios integrados), Factorial (aprovação e bloqueio da fonte). Sem integração automática com eSocial/DCTFWeb/FGTS Digital e sem portal/assinatura de funcionário nesta entrega. Nenhum envio a terceiros é executado.
 
 Preparação em lote cria somente rascunhos inexistentes, mantém confirmação desmarcada, preserva demonstrativos existentes e informa falhas por funcionário. Não confirma elegibilidade automaticamente nem gera pagamento. A importação considera somente os dias de modalidade CLT vigente; dias por diária continuam na folha própria.
+
+## Escolha real de modalidade pela gestão do ponto
+
+RH/admin podem abrir Definir diária ou CLT pelo ponto em Gestão de ponto e Ponto por obra. O servidor confere cadastro necessário à modalidade: identificação/CPF válido, função, admissão, telefone, lotação ou área administrativa, diária de custeio, jornada e dados PIX ou instrução de pagamento. Para CLT, salário mensal, matrícula, CBO, categoria e ASO válido na vigência. O cadastro da Equipe permite preencher esses campos antes da escolha; documentos são tratados no prontuário conforme função e contratação, não inferidos pelo simples preenchimento.
+
+A alteração usa FUNCIONARIO_MODALIDADE_DEFINIDA, versão esperada e papéis RH/admin; vigência e justificativa são obrigatórias. Preserva histórico de modalidade por data e decisões feitas pelo ponto com autoria. Não recalcula folhas fechadas: impede vigência até o último holerite confirmado, título de folha ou quinzena arquivada. A ação não liquida pagamento, não muda diária/salário cadastrados e não gera lançamentos no DRE. Diária é forma de remuneração e não elimina obrigações de vínculo. A comparação simulada continua separada.
+
+Após definir/conferir a modalidade, o atalho abre Folha na competência e no funcionário escolhidos (holerite CLT ou folha por diária). O holerite recebe o perfil cadastrado, mas continua exigindo ponto aprovado, análise de exceções e confirmação antes da emissão. Instrução de pagamento não comprova quitação.
