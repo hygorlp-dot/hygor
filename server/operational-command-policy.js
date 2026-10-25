@@ -1,4 +1,5 @@
 import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
+import {EMPLOYEE_ENGINEERING_TYPES,employeeEngineeringScope} from '../src/domains/rh/employee-engineering.js';
 import { canOperateTechnicalMeasurement } from "../src/domains/medicoes/permissions.js";
 import { EQUIPMENT_COMMAND_TYPES, equipmentCommandObraId } from "../src/domains/equipamentos/commands.js";
 import {
@@ -131,6 +132,7 @@ const operationalCommandObraId=(data={},command={})=>{
 };
 
 export const validateOperationalCommandScope=({user={},data={},command={}}={})=>{
+  if(EMPLOYEE_ENGINEERING_TYPES.has(command.type))return employeeEngineeringScope(user,data,command);
   if(command.type===OPERATIONAL_COMMAND.MIXED_PAYROLL_APPROVED)return ['admin','rh'].includes(user?.role)?{ok:true,obraId:'',scope:'company'}:{ok:false,error:'Somente RH e administradores aprovam fechamento de folha.'};
   const obraId=operationalCommandObraId(data,command);
   if(command.type===OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED){

@@ -13,7 +13,14 @@
 //   - obra APROPRIADA: a que recebe o período de trabalho no tratamento do
 //     ponto (ponto_apropriacoes). Fora da ARP, corrigível com auditoria.
 
-const ativo = e => e && e.active !== false && !e.endDate && String(e.status || "").toLowerCase() !== "desligado";
+import { validDate } from "../rh/date-validation.js";
+import { dataLocal } from "./painel.js";
+
+// endDate é o último dia trabalhado, inclusive. Agendar o desligamento no
+// RH não pode retirar a pessoa antes desse dia. Inativação explícita e
+// término inválido continuam excluídos; o servidor fornece seu dia civil.
+const ativo = (e, referenceDate) => e && e.active !== false && String(e.status || "").toLowerCase() !== "desligado"
+  && (!e.endDate || (validDate(e.endDate) && validDate(referenceDate) && e.endDate >= referenceDate));
 const soDigitos = v => String(v || "").replace(/\D/g, "");
 
 const paraOPonto = e => ({
@@ -33,15 +40,15 @@ const porNome = (a, b) => a.nome.localeCompare(b.nome, "pt-BR");
 
 // Todos os funcionários ativos da empresa - quem pode bater ponto e
 // cadastrar o rosto em qualquer aparelho.
-export function funcionariosAtivos(employees) {
-  return (employees || []).filter(ativo).map(paraOPonto).filter(f => f.nome).sort(porNome);
+export function funcionariosAtivos(employees, referenceDate = dataLocal(new Date())) {
+  return (employees || []).filter(e => ativo(e, referenceDate)).map(paraOPonto).filter(f => f.nome).sort(porNome);
 }
 
 // Funcionários LOTADOS (administrativamente) numa obra. Uso só de exibição
 // (ex.: a equipe da obra na tela do ARCD). Nunca usar para decidir quem pode
 // bater ponto num aparelho.
-export function funcionariosDaObra(employees, obraId) {
-  return funcionariosAtivos(employees).filter(f => f.lotacaoObraId === String(obraId || ""));
+export function funcionariosDaObra(employees, obraId, referenceDate = dataLocal(new Date())) {
+  return funcionariosAtivos(employees, referenceDate).filter(f => f.lotacaoObraId === String(obraId || ""));
 }
 
 // Terceirizados entram só como controle de acesso (fora do ponto CLT/AFD) e

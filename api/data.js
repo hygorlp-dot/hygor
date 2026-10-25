@@ -47,6 +47,7 @@ import { cashAllocations } from "../src/domains/conciliacao/cash-allocations.js"
 import { buildIntegratedDreManagement, loadCanonicalDre, validateNativeDreCommand } from "../server/financial-dre-integration.js";
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
+import {stampEmployeeEngineeringCommand} from '../src/domains/rh/employee-engineering.js';
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
 import {
   avaliarAcessoAceite, chaveLinkAceite, comandoAceitePorLink, gerarTokenAceite, linkAceiteDisponivel,
@@ -90,6 +91,8 @@ import { sanitizeClientError } from "../server/client-error-report.js";
 import { authenticateAppUser } from "../server/app-auth.js";
 import { criarTratadorPonto, ehAcaoPonto } from "../server/ponto-eletronico/handler.js";
 import { enviarUdpComDgram, verificarHora } from "../server/ponto-eletronico/tempo/ntp.js";
+import {enviarUdpViaVercel} from '../server/ponto-eletronico/tempo/ntp-vercel.js';
+import { criarRenovacaoHoraHomologacao } from "../server/ponto-eletronico/tempo/renovacao-homologacao.js";
 import dgram from "node:dgram";
 
 const URL     = process.env.SUPABASE_URL;
@@ -230,6 +233,8 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CREATED]:["admin","rh"],
   [OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CANCELLED]:["admin","rh"],
   [OPERATIONAL_COMMAND.EMPLOYEE_SAVED]:["admin","rh"],
+  [OPERATIONAL_COMMAND.EMPLOYEE_ENGINEERING_CREATED]:['admin','rh','engenheiro'],
+  [OPERATIONAL_COMMAND.EMPLOYEE_ENGINEERING_STATUS_SET]:['admin','rh','engenheiro'],
   [OPERATIONAL_COMMAND.MIXED_PAYROLL_APPROVED]:["admin","rh"],
   [OPERATIONAL_COMMAND.EMPLOYEE_PAY_MODE_SET]:["admin","rh"],
   [OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED]:["admin","rh"],
@@ -520,9 +525,21 @@ const lerBasePonto = async () => {
 };
 // Hora do ponto: relógio do host + medição periódica contra o NTP.br (HLB)
 // gravada por "ponto-tempo-verificar" (rotina agendada ou admin).
+const verificarHoraPonto = () => verificarHora({ enviarUdp: process.env.PONTO_AMBIENTE === "homologacao" && process.env.PONTO_NTP_BRIDGE === "vercel"
+  ? enviarUdpViaVercel() : enviarUdpComDgram(dgram) });
+const renovarHoraPonto = criarRenovacaoHoraHomologacao({
+  ambiente: process.env.PONTO_AMBIENTE, modo: process.env.PONTO_NTP_RENOVACAO, supabaseUrl: URL,
+  verificarHoraNtp: verificarHoraPonto,
+  transacao: async executar => {
+    const sql = postgres(process.env.POSTGRES_URL_NON_POOLING, { ssl: "require", max: 1, connect_timeout: 10, idle_timeout: 5 });
+    try { return await sql.begin(tx => executar((query, params = []) => tx.unsafe(query, params))); }
+    finally { await sql.end({ timeout: 2 }); }
+  },
+});
 const tratarAcaoPonto = criarTratadorPonto({
   db, company: COMPANY, lerDados: lerBasePonto,
-  verificarHoraNtp: () => verificarHora({ enviarUdp: enviarUdpComDgram(dgram) }),
+  ambienteDeclarado: process.env.PONTO_AMBIENTE, supabaseUrl: URL,
+  verificarHoraNtp: verificarHoraPonto, renovarHoraNtp: renovarHoraPonto,
   autenticarUsuario: body => authenticateAppUser(
     { userId: body.userId, pin: body.pin, accessToken: body.accessToken }, { scope: "ponto-eletronico" }),
 });
@@ -998,7 +1015,7 @@ const gravarMutacaoNaTransacao=async({
 // consistência de quem É travado/escrito é garantida pelo lock real; a
 // consistência de quem só é lido continua garantida por `expectedVersion`
 // checado dentro de `mutate()`, não por um lock de leitura.
-const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain=DOMAIN_ROW.CORE,linha:linhaConhecida=null,mutate})=>{
+const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain=DOMAIN_ROW.CORE,linha:linhaConhecida=null,consistentPayrollSource=false,mutate})=>{
   // Achado de 21/08/2026: todo chamador já fez lerLinha() uma vez no topo
   // do handler, antes de qualquer branch. Reaproveitar essa leitura em vez
   // de repeti-la aqui evita um round-trip de rede inteiro - a mesma
@@ -1013,7 +1030,7 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
   });
   try{
     return await connection.begin(async transaction=>{
-      const consistentPayrollSource=action===`operational_${OPERATIONAL_COMMAND.MIXED_PAYROLL_APPROVED.toLowerCase()}`;
+      consistentPayrollSource ||= action===`operational_${OPERATIONAL_COMMAND.MIXED_PAYROLL_APPROVED.toLowerCase()}`;
       if(consistentPayrollSource)await transaction`set local lock_timeout = '2s'`;
       const [locked]=await transaction`
         select value,updated_at
@@ -1038,7 +1055,8 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
       let current=mergeDomainRows(corePayload,rowPayloadsByDomain);
       let sourceRowVersions=linha.rowVersions;
       if(consistentPayrollSource){
-        // Mixed approval reads payroll inputs, not only core entities. Keep
+        // Approval and saving an imported payslip read payroll inputs, not
+        // only core entities. Keep
         // core -> Ponto -> work buckets (sorted) -> config lock order and
         // compare the UI signature only against this transaction's source.
         const [pointRow]=await transaction`
@@ -1185,12 +1203,16 @@ const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linh
 // Uma alteração real na mesma entidade continua sendo recusada por
 // `expectedVersion`; concorrência em outro módulo apenas aguarda o bloqueio.
 const executarComandoOperacionalBloqueado=async({command,usuario,financial,linha})=>{
+  const employee=command.payload?.employee;
+  const previous=(linha?.payload?.employees||[]).find(item=>String(item.id)===String(employee?.id));
+  const hasImportedPayslip=record=>Object.values(record?.cltPayroll?.drafts||{}).some(draft=>draft?.attendanceSource);
   return executarMutacaoEmpresaBloqueada({
     actor:usuario,
     action:`operational_${command.type.toLowerCase()}`,
     financial,
     domain:rowForOperationalCommand(command.type),
     linha,
+    consistentPayrollSource:command.type===OPERATIONAL_COMMAND.EMPLOYEE_SAVED&&(hasImportedPayslip(employee)||hasImportedPayslip(previous)),
     mutate:async({payload:current,updatedAt})=>{
       const scope=validateOperationalCommandScope({user:usuario,data:current,command});
       if(!scope.ok)return {kind:"error",status:scope.error.includes("vinculado")?400:403,error:scope.error};
@@ -1408,7 +1430,7 @@ const encontrarUsuarioAuth = (payload, authUser) => {
   if (!authUser) return null;
   const email = String(authUser.email || "").trim().toLowerCase();
   return (payload?.usuarios || []).find(u => u.active !== false &&
-    (u.authUserId === authUser.id || String(u.email || "").trim().toLowerCase() === email)) || null;
+    (u.authUserId === authUser.id || (email && String(u.email || "").trim().toLowerCase() === email))) || null;
 };
 
 const igual = (a,b) => JSON.stringify(a) === JSON.stringify(b);
@@ -2171,7 +2193,7 @@ export default async function handler(req, res) {
     // insegura de "último snapshot vence". A rota ainda devolve a projeção
     // filtrada pelo papel para poder substituir o save legado gradualmente.
     if(action==="operational-command"){
-      const command=req.body?.command||{};
+      const command=stampEmployeeEngineeringCommand(req.body?.command||{},usuario,new Date().toISOString());
       const authz=authorizeOperationalCommand(command.type,usuario.role);
       if(!authz.ok)return res.status(authz.status).json({error:authz.error});
       if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente operacional inválida."});
@@ -2784,7 +2806,7 @@ export default async function handler(req, res) {
       }
       if (!objeto(sections)) return res.status(400).json({ error: "Nenhuma seção para salvar." });
       const chaves = Object.keys(sections).filter(k => k && !k.startsWith("__")).slice(0, 120);
-      const commandOnlySections=["attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
+      const commandOnlySections=["attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog","employeeEngineeringRecords"];
       const legacyPointWrite=chaves.find(key=>commandOnlySections.includes(key));
       if(legacyPointWrite)return res.status(409).json({
         error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
@@ -2983,7 +3005,7 @@ export default async function handler(req, res) {
     // ── 4b. Salvar blob completo (compatibilidade / primeiro acesso) ─
     if (action === "save") {
       if (!payload) return res.status(400).json({ error: "Nada para salvar." });
-      const commandOnlySections=["attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
+      const commandOnlySections=["attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog","employeeEngineeringRecords"];
       const attemptedCommandOnly=commandOnlySections.find(key=>
         Object.prototype.hasOwnProperty.call(payload,key)&&!igual(payload?.[key],atual?.[key]));
       if(attemptedCommandOnly)return res.status(409).json({

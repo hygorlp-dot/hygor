@@ -52,9 +52,9 @@ export const createMonthlyFinancialReportEngine = ({
       const monthEnd=`${competence}-${String(new Date(Number(competence.slice(0,4)),Number(competence.slice(5,7)),0).getDate()).padStart(2,"0")}`;
       const advanceDetails = (data?.advances || []).filter(advance =>
         employeeIds.includes(advance.empId)
-        && advanceDeductionForPeriod(advance,monthStart,monthEnd)>0);
+        && advanceDeductionForPeriod(advance,monthStart,monthEnd,data)>0);
       const advanceTotal = advanceDetails.reduce((total, advance) =>
-        total + advanceDeductionForPeriod(advance,monthStart,monthEnd), 0);
+        total + advanceDeductionForPeriod(advance,monthStart,monthEnd,data), 0);
       const receiptDetails = movements(dre.ledger, {
         obraId:work.id,
         startDate,

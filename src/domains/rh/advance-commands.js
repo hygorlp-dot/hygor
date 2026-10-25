@@ -2,6 +2,7 @@ import { validDate } from "./date-validation.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
 import { active as activeFinancialRecord } from "../financeiro/ledger.js";
 import { latestClosedPayrollDate } from "./attendance-pay-mode.js";
+import {paidAdvanceDeductions, advancePaymentStatus, advanceClaimedInPayroll} from './advance-settlements.js';
 
 export const ADVANCE_COMMAND = Object.freeze({
   PAYROLL_ADVANCE_CREATED:"ADIANTAMENTO_FOLHA_CRIADO",
@@ -71,22 +72,20 @@ const advanceInstallmentsForPeriod=(advance,startDate,endDate)=>{
     :[];
 };
 
-export const advanceDeductionForPeriod=(advance,startDate,endDate)=>
-  advanceInstallmentsForPeriod(advance,startDate,endDate)
-    .reduce((sum,item)=>sum+Number(item.amount||0),0);
+export const advanceDeductionForPeriod=(advance,startDate,endDate,data)=> {
+  const rows=advance?.paymentTitleId
+    ?paidAdvanceDeductions(advance,data).filter(item=>item.date>=startDate&&item.date<=endDate)
+    :advanceInstallmentsForPeriod(advance,startDate,endDate);
+  return rows.reduce((sum,item)=>sum+Math.round(Number(item.amount||0)*100),0)/100;
+};
 
 // Both issue date and every active deduction date are protected. Cancelling
 // an entire advance also cancels its past instalments, not just the future ones.
 const advanceDates=advance=>[advance.date,...(advance.installments||[]).filter(active).map(i=>i.dueDate)].filter(validDate);
 const advanceProtectionIssue=(data,advance)=>{
-  const id=String(advance.id),employee=(data.employees||[]).find(e=>String(e.id)===String(advance.empId));
+  const employee=(data.employees||[]).find(e=>String(e.id)===String(advance.empId));
   const titles=(data.titulosFolha||[]).filter(activeFinancialRecord);
-  if(titles.some(t=>{
-    const snapshot=t.snapshotCalculo||{};
-    return (snapshot.advanceRefs||[]).some(a=>String(a.id)===id)
-      ||(snapshot.advanceIds||[]).some(a=>String(a)===id)
-      ||(snapshot.advances||[]).some(a=>String(a.id)===id);
-  }))return 'O adiantamento já está compensado ou reservado em um título de folha. Registre um ajuste identificado, preservando o fechamento.';
+  if(advanceClaimedInPayroll(data,advance))return 'O adiantamento já está compensado ou reservado em um título de folha ou demonstrativo. Registre um ajuste identificado, preservando o fechamento.';
   if((advance.installments||[]).some(i=>['compensada','compensado','descontada','descontado','liquidada','liquidado','quitada','quitado'].includes(String(i.status||'').toLowerCase())))return 'O adiantamento possui parcela já compensada; preserve o histórico e registre um ajuste identificado.';
   const dates=advanceDates(advance);
   if(dates.some(date=>isDateInClosedPeriod(data,date)))return 'A emissão ou parcela do adiantamento pertence a período financeiro fechado. Registre um ajuste identificado.';
@@ -116,7 +115,7 @@ export const applyAdvanceCommand=(data={},command={},now=new Date().toISOString(
     if(!id||advances.some(item=>String(item.id)===id))return fail("O adiantamento já existe ou não possui identificação.");
     const employee=(data.employees||[]).find(item=>String(item.id)===empId&&item.active!==false);
     if(!employee)return fail("Selecione um funcionário ativo, de campo ou administrativo.");
-    const amount=Number(raw.amount||0),installmentCount=Number(raw.installmentCount||1);
+    const amount=Math.round(Number(raw.amount||0)*100)/100,installmentCount=Number(raw.installmentCount||1);
     const date=String(raw.date||""),firstDueDate=String(raw.firstDueDate||date);
     const frequency=["quinzenal","mensal"].includes(raw.frequency)?raw.frequency:"quinzenal";
     if(!Number.isFinite(amount)||!(amount>0))return fail("Informe um valor positivo para o adiantamento.");
@@ -130,13 +129,22 @@ export const applyAdvanceCommand=(data={},command={},now=new Date().toISOString(
     if(!installments.length)return fail("Não foi possível gerar as parcelas do adiantamento.");
     const protection=advanceProtectionIssue(data,{id,empId,date,installments});
     if(protection)return fail(protection);
+    if(firstDueDate<date)return fail("A data do primeiro desconto deve ser igual ou posterior à solicitação.");
+    const paymentTitleId=`advance:${empId}:${id}`;
+    if((data.titulosFolha||[]).some(title=>String(title.id)===paymentTitleId))return fail("Já existe uma obrigação financeira para este adiantamento.");
     const record={
-      ...raw,id,empId,date,firstDueDate,amount,installmentCount,frequency,installments,obraId:String(employee.obra||""),
+      ...raw,id,empId,date,firstDueDate,amount,installmentCount,frequency,installments,paymentTitleId,obraId:String(employee.obra||""),
       description:String(raw.description||"Adiantamento").trim()||"Adiantamento",
       status:"ativo",version:1,createdAt:now,createdById:String(command.actorId||""),
       createdBy:String(command.actorName||""),
     };
-    return {ok:true,entityId:id,data:{...data,advances:[...advances,record]}};
+    const title={id:paymentTitleId,employeeId:empId,funcionarioNome:employee.name||employee.nome||empId,
+      competencia:date.slice(0,7),periodoInicio:date,periodoFim:date,vencimento:date,
+      bruto:amount,descontos:0,adiantamentos:0,liquido:amount,valorPago:0,saldo:amount,
+      status:"em_aberto",liquidacoes:[],rateiosPorObra:[{obraId:record.obraId,valor:amount}],
+      snapshotCalculo:{kind:"advance",advanceId:id,description:record.description,installments},
+      criadoEm:now,criadoPorId:record.createdById,criadoPor:record.createdBy,version:1};
+    return {ok:true,entityId:id,data:{...data,advances:[...advances,record],titulosFolha:[...(data.titulosFolha||[]),title]}};
   }
   const id=String(command.payload?.advanceId||"");
   const current=advances.find(item=>String(item.id)===id);
@@ -147,6 +155,7 @@ export const applyAdvanceCommand=(data={},command={},now=new Date().toISOString(
   if(!reason)return fail("Informe o motivo do cancelamento do adiantamento.");
   const protection=advanceProtectionIssue(data,current);
   if(protection)return fail(protection);
+  if(advancePaymentStatus(current,data).paid>0)return fail("O adiantamento já possui pagamento. Reverta a liquidação identificada antes de cancelar a solicitação.");
   const cancelled={
     ...current,status:"cancelado",motivoCancelamento:reason,canceladoEm:now,
     canceladoPorId:String(command.actorId||""),canceladoPor:String(command.actorName||""),
@@ -154,6 +163,8 @@ export const applyAdvanceCommand=(data={},command={},now=new Date().toISOString(
   };
   return {
     ok:true,entityId:id,
-    data:{...data,advances:advances.map(item=>String(item.id)===id?cancelled:item)},
+    data:{...data,advances:advances.map(item=>String(item.id)===id?cancelled:item),
+      ...(current.paymentTitleId?{titulosFolha:(data.titulosFolha||[]).map(title=>String(title.id)===String(current.paymentTitleId)
+        ?{...title,status:"cancelado",motivoCancelamento:reason,canceladoEm:now,canceladoPorId:cancelled.canceladoPorId,version:versionOf(title)+1}:title)}:{})},
   };
 };

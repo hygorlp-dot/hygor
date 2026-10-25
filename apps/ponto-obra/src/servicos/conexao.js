@@ -6,8 +6,19 @@ import * as Device from "expo-device";
 import * as SecureStore from "expo-secure-store";
 import RelogioConfiavel from "../../modules/relogio-confiavel";
 import { horaDaMarcacao } from "../../../../src/domains/ponto-eletronico/relogio.js";
+import { AMBIENTES, NOME_AMBIENTE, resolverServidor, sessaoConfereCom } from "../../config/ambiente";
 
-export const URL_API = Constants.expoConfig?.extra?.apiUrl || "https://pontosarcd.vercel.app/api/data";
+const EXTRA = Constants.expoConfig?.extra || {};
+export const AMBIENTE = AMBIENTES.includes(EXTRA.ambiente) ? EXTRA.ambiente : "";
+export const URL_API = (() => {
+  if (!EXTRA.apiUrl) return null;
+  try { return resolverServidor({ ambiente: AMBIENTE, urlEnv: EXTRA.apiUrl }).apiUrl; }
+  catch { return null; }
+})();
+export const infoDoServidor = () => ({
+  host: URL_API ? new URL(URL_API).host : "",
+  ambiente: AMBIENTE, nomeAmbiente: NOME_AMBIENTE[AMBIENTE] || "SEM CONFIGURAÇÃO", bloqueado: !URL_API,
+});
 const CHAVE_SESSAO = "ponto-obra.sessao";
 const TEMPO_LIMITE_MS = 30_000;
 
@@ -20,6 +31,7 @@ export const infoDoApp = () => ({
   perfil: Constants.expoConfig?.extra?.buildPerfil || "",
   buildId: Constants.expoConfig?.extra?.buildId || "",
   buildEm: Constants.expoConfig?.extra?.buildEm || "",
+  ambiente: AMBIENTE,
 });
 export const infoDoAparelho = () => ({
   plataforma: "android", marca: Device.brand || Device.manufacturer || "", modelo: Device.modelName || "", android: Device.osVersion || "",
@@ -32,8 +44,9 @@ export async function lerSessao() {
   try { return JSON.parse(bruto); } catch { return null; }  // sessão corrompida = parear de novo
 }
 export async function salvarSessao(sessao) {
-  await SecureStore.setItemAsync(CHAVE_SESSAO, JSON.stringify(sessao));
+  await SecureStore.setItemAsync(CHAVE_SESSAO, JSON.stringify({ ...sessao, ambiente: AMBIENTE, servidor: infoDoServidor().host }));
 }
+export const sessaoConfere = sessao => sessaoConfereCom(sessao, AMBIENTE, infoDoServidor().host);
 export async function apagarSessao() {
   await SecureStore.deleteItemAsync(CHAVE_SESSAO);
 }
@@ -45,12 +58,13 @@ export function criarApi(obterToken) {
     const controle = new AbortController();
     const timer = setTimeout(() => controle.abort(), TEMPO_LIMITE_MS);
     try {
+      if (!URL_API) return { ok: false, status: -1, code: "SERVIDOR_NAO_CONFIGURADO", error: "Este aplicativo não tem servidor configurado. Nada foi enviado." };
       const token = await obterToken?.();
       const r = await fetch(URL_API, {
         method: "POST",
         signal: controle.signal,
         headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ action, ...corpo }),
+        body: JSON.stringify({ action, ...corpo, ambienteApp: AMBIENTE }),
       });
       const json = await r.json().catch(() => ({}));
       return { ok: r.ok, status: r.status, ...json };

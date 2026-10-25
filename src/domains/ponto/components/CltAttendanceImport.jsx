@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {Btn,Inp,Sel} from '../../../LegacyApp';
 import {buildAttendanceImport} from '../clt-attendance.js';
 
-export function CltAttendanceImport({data,employee,draft,onImport,onManual,disabled}){
+export function CltAttendanceImport({data,employee,draft,onImport,onManual,disabled,allowManualOverride=true}){
   const [options,setOptions]=useState(draft.attendanceSource?.options||{classifications:{},dsrPolicy:'',reviewed:false,saturdays:false});
   const [reason,setReason]=useState('');
   const result=buildAttendanceImport(data,employee,draft.competence,options);
@@ -19,7 +19,7 @@ export function CltAttendanceImport({data,employee,draft,onImport,onManual,disab
       <p>Prévia: {result.fields.workedDays} dias trabalhados · {result.fields.absenceDays} faltas · {result.fields.dsrLostDays} DSR · {result.fields.overtimeHours} h normais · {result.fields.extraordinaryHours} h especiais.</p>
       {result.errors.length>0&&<p role="status">{result.errors.length} pendência(s). {result.errors.slice(0,3).join(' ')}</p>}
       <Btn disabled={result.errors.length>0} onClick={()=>onImport({...result,options})}>Aplicar ponto ao holerite</Btn>
-      {draft.attendanceSource&&<><p>Origem registrada em {draft.attendanceSource.importedAt} por {draft.attendanceSource.importedBy}. {draft.attendanceSource.manualReason&&`Ajuste manual: ${draft.attendanceSource.manualReason}`}</p><Inp label="Justificativa para ajustar os eventos manualmente" value={reason} onChange={setReason}/><Btn v="secondary" disabled={reason.trim().length<10} onClick={()=>onManual(reason.trim())}>Registrar ajuste e liberar campos</Btn></>}
+      {draft.attendanceSource&&<><p>Origem registrada em {draft.attendanceSource.importedAt} por {draft.attendanceSource.importedBy}. {draft.attendanceSource.manualReason&&`Ajuste manual: ${draft.attendanceSource.manualReason}`}</p>{allowManualOverride?<><Inp label="Justificativa para ajustar os eventos manualmente" value={reason} onChange={setReason}/><Btn v="secondary" disabled={reason.trim().length<10} onClick={()=>onManual(reason.trim())}>Registrar ajuste e liberar campos</Btn></>:<p>Para corrigir dias ou horários, revise o ponto na origem e importe novamente. Registre os efeitos financeiros na memória de apuração.</p>}</>}
     </fieldset>
   </details>;
 }

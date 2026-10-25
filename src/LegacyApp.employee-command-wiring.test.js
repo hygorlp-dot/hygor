@@ -26,6 +26,6 @@ describe("persistência transacional dos funcionários", () => {
     expect(equipeSource).toContain("OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED");
     expect(equipeSource).toContain("OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CANCELLED");
     expect(equipeSource).not.toMatch(/update\s*\(\s*\{[^}]*advances\s*:/s);
-    expect(folhaSource).toContain("advanceDeductionForPeriod(advance,periIni,periFim)");
+    expect(folhaSource).toContain("advanceDeductionForPeriod(advance,periIni,periFim,data)");
   });
 });

@@ -1,5 +1,7 @@
 import { normalizeAttendanceRecord } from "../src/domains/ponto/records.js";
 import {mobileAttendanceImportReview} from "../src/domains/ponto-eletronico/tratamento.js";
+import {payrollProtectedPeriod} from '../src/domains/rh/payroll-protected-period.js';
+import {active as activeFinancialRecord} from '../src/domains/financeiro/ledger.js';
 import {
   resolveEmployeeAttendanceObraId,
 } from "../src/domains/ponto/permissions.js";
@@ -310,7 +312,10 @@ const applyMobileImport=({data,user,command,now,mobileSource})=>{
   if(JSON.stringify(ids)!==JSON.stringify(preview.sourceEventIds)||JSON.stringify(refs)!==JSON.stringify(preview.appropriationVersions))return fail("As marcações ou apropriações mudaram. Atualize a conferência antes de importar.",409);
   if(!["P","M"].includes(command.status)||typeof command.ot!=="number"||!Number.isFinite(command.ot)||command.ot<0||command.ot>preview.workedMinutes/60||typeof command.atrasoMin!=="number"||!Number.isInteger(command.atrasoMin)||command.atrasoMin<0||command.atrasoMin>1440||!String(command.note||"").trim())return fail("Confira presença, horas extras, atraso e justificativa antes de importar.");
   const archived=Object.values(data.quinzenasArquivadas||{}).some(p=>p.inicio<=date&&p.fim>=date);
-  const title=(data.titulosFolha||[]).some(t=>String(t.employeeId)===employeeId&&!["cancelado","cancelada"].includes(t.status)&&t.periodoInicio<=date&&t.periodoFim>=date);
+  const title=(data.titulosFolha||[]).some(t=>{
+    const period=payrollProtectedPeriod(t);
+    return String(t.employeeId)===employeeId&&activeFinancialRecord(t)&&period&&period.start<=date&&period.end>=date;
+  });
   const financialClosed=(data.fechamentosFinanceiros||[]).some(p=>p.status==="fechado"&&p.dataInicio<=date&&p.dataFim>=date);
   if(archived||title||financialClosed)return fail("Período arquivado, folha aprovada ou financeiro fechado: encaminhe revisão sem alterar o histórico.",409);
   const record={status:command.status,ot:command.ot,atrasoMin:command.atrasoMin,note:command.note,workedMinutes:preview.workedMinutes,

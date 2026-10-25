@@ -5,6 +5,7 @@ import {
   findRegisteredEmployeePix,
   hasEmployeePixNameEvidence,
 } from "../src/domains/conciliacao/pix-card.js";
+import {employeeEngineeringBusinessDate,employeeEngineeringCurrentObra} from '../src/domains/rh/employee-engineering.js';
 
 // Projeção de leitura do blob legado. Enquanto os domínios ainda compartilham
 // um único documento, a fronteira de segurança precisa existir no servidor:
@@ -32,19 +33,11 @@ const sanitizeEmployee = (employee, role = "") => {
   if(role === "rh") return employee;
   // Engenharia, compras e financeiro precisam da identificação operacional,
   // não de documentos pessoais, remuneração ou coordenadas de pagamento.
-  // dailyRate/vtDaily/vrDaily/overtimeAdditionalPercent são os campos reais
-  // do cadastro atual (src/domains/rh/employee-commands.js) - os nomes
-  // legados abaixo (salario, valorHora...) não existem mais na gravação,
-  // mas ficam para não reabrir uma projeção antiga em sombra.
-  const {
-    cpf,rg,pis,ctps,email,telefone,phone,celular,endereco,address,
-    banco,agencia,conta,contaBancaria,bankAccount,bankAgency,
-    pix,pixKey,pixChave,chavePix,pixTipo,pixType,
-    salario,salarioBase,valorHora,valorDia,valorDiaria,remuneracao,
-    custoHora,custoDia,custoMensal,valorFolha,
-    dailyRate,vtDaily,vrDaily,overtimeAdditionalPercent,...safe
-  }=employee||{};
-  return safe;
+  // Uma lista explícita evita expor novos campos pessoais ou de folha
+  // quando o cadastro cresce. O RH conserva a visão privada completa.
+  const operational=['id','name','role','obra','obraId','workArea','lastObra','active','status','startDate','endDate',
+    'workdayHours','workStart','examExpiresAt','trainings','obraHistory','version'];
+  return Object.fromEntries(operational.filter(key=>Object.hasOwn(employee||{},key)).map(key=>[key,employee[key]]));
 };
 const sanitizeRescission = (rescission, role) => {
   if (role === "rh") return rescission;
@@ -70,8 +63,8 @@ const filterByObra = (value, allowed) => Array.isArray(value) ? value.filter(ite
 const resolvedRecordObraId=(payload,employee,date,record)=>resolveEmployeeAttendanceObraId({
   data:payload,employee,date,record,
 });
-const employeeHasScopedAttendance=(payload,employee,allowedObras)=>{
-  if(!allowedObras.size||hasObra(employee,allowedObras))return true;
+const employeeHasScopedAttendance=(payload,employee,allowedObras,referenceDate)=>{
+  if(!allowedObras.size||allowedObras.has(employeeEngineeringCurrentObra(payload,employee,referenceDate)))return true;
   return Object.entries(payload?.attendance?.[employee?.id]||{}).some(([date,record])=>
     allowedObras.has(resolvedRecordObraId(payload,employee,date,record)));
 };
@@ -84,13 +77,17 @@ const isRhLaborTransaction=(transaction,employees)=>{
     ||employees.some(employee=>hasEmployeePixNameEvidence(transaction,employee));
 };
 
-export const projectDataForUser = (payload = {}, user = {}) => {
+export const projectDataForUser = (payload = {}, user = {},referenceDate=employeeEngineeringBusinessDate()) => {
   if (user.role === "admin") return payload;
   const allowedSections = new Set(ROLE_SECTIONS[user.role] || []);
+  if(['rh','engenheiro','engenheiro_auditor'].includes(user.role))allowedSections.add('employeeEngineeringRecords');
+  if(user.role==='rh')allowedSections.add('changeLog');
   const allowedObras = new Set(user.obraId ? [String(user.obraId)] : []);
   const out = {};
-  const scopedEmployees=(payload.employees||[])
-    .filter(item=>employeeHasScopedAttendance(payload,item,allowedObras));
+  const regularEmployeeIds=new Set((payload.employees||[]).filter(item=>employeeHasScopedAttendance(payload,item,allowedObras,referenceDate)).map(item=>String(item.id)));
+  const noticeEmployeeIds=new Set(['engenheiro','engenheiro_auditor'].includes(user.role)
+    ?(payload.employeeEngineeringRecords||[]).filter(record=>hasObra(record,allowedObras)).map(record=>String(record.employeeId)):[]);
+  const scopedEmployees=(payload.employees||[]).filter(item=>regularEmployeeIds.has(String(item.id))||noticeEmployeeIds.has(String(item.id)));
   const rhTransactionIds=user.role==="rh"
     ?new Set((payload.transacoes||[]).filter(item=>isRhLaborTransaction(item,scopedEmployees)).map(item=>String(item.id)))
     :null;
@@ -110,9 +107,19 @@ export const projectDataForUser = (payload = {}, user = {}) => {
     if (value === undefined) continue;
     if (key === "obras") { out.obras = (value || []).filter(item => hasObra({ obraId:item.id }, allowedObras)).map(sanitizeObra); continue; }
     if (key === "employees") {
-      out.employees=(value||[])
-        .filter(item=>employeeHasScopedAttendance(payload,item,allowedObras))
-        .map(item=>sanitizeEmployee(item,user.role));
+      out.employees=scopedEmployees.map(item=>regularEmployeeIds.has(String(item.id))?sanitizeEmployee(item,user.role):{
+        id:item.id,name:item.name,role:item.role,engineeringHistoryOnly:true,engineeringScopeObraId:String(user.obraId||''),
+      });
+      continue;
+    }
+    if(key==='employeeEngineeringRecords'){
+      const ids=new Set(scopedEmployees.map(employee=>String(employee.id)));
+      out[key]=(value||[]).filter(record=>ids.has(String(record.employeeId))&&hasObra(record,allowedObras));
+      continue;
+    }
+    if(key==='changeLog'){
+      const ids=new Set(scopedEmployees.map(employee=>String(employee.id)));
+      out.changeLog=(value||[]).filter(record=>ids.has(String(record.empId||record.employeeId||'')));
       continue;
     }
     if (key === "attendance") {

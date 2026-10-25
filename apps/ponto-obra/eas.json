@@ -4,18 +4,26 @@
     "appVersionSource": "remote"
   },
   "build": {
-    "piloto": {
+    "homologacao": {
+      "environment": "preview",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       },
-      "autoIncrement": true
+      "autoIncrement": false,
+      "env": {
+        "PONTO_AMBIENTE": "homologacao"
+      }
     },
     "producao": {
+      "environment": "production",
       "android": {
         "buildType": "app-bundle"
       },
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "PONTO_AMBIENTE": "producao"
+      }
     }
   },
   "submit": {

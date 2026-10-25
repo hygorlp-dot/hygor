@@ -13,6 +13,7 @@ import { validatePurchasePayment } from "../financeiro/purchase-payment-validati
 import { validateExistingPaymentLink, updatePaymentAssociation, stampChangedPurchaseParents } from "./existing-payment-link.js";
 import { saldoTituloFolha, situacaoTituloFolha, validarLiquidacaoFolha } from "./payroll.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
+import {advancePaymentIssue, advancePaymentReversalIssue} from '../rh/advance-settlements.js';
 
 // Nenhuma conciliação pode alterar um fato datado dentro de um período já
 // fechado sem reabertura formal (§ integridade financeira não é opcional).
@@ -233,6 +234,8 @@ export const registrarPagamentoEConciliar = (data, params) => {
   } else if (tipo === "tituloFolha") {
     const title = (data.titulosFolha || []).find(item => item.id === entidadeId);
     if (!title) return { data, resumo: { ok: false, motivo: "Título de folha não encontrado" } };
+    const advanceIssue=advancePaymentIssue(data,title,dataPagamento||tr.data);
+    if(advanceIssue)return {data,resumo:{ok:false,motivo:advanceIssue}};
     const valorLiquidado = Math.abs(Number(valor ?? tr.valor));
     const erro = validarLiquidacaoFolha(title, valorLiquidado);
     if (erro) return { data, resumo: { ok: false, motivo: erro } };
@@ -244,7 +247,7 @@ export const registrarPagamentoEConciliar = (data, params) => {
     const titulosFolha = (next.titulosFolha || []).map(item => {
       if (item.id !== entidadeId) return item;
       const liquidacoes = [...(item.liquidacoes || []), liquidacao];
-      const valorPago = liquidacoes.reduce((sum, current) => sum + Number(current.valor || 0), 0);
+      const valorPago = liquidacoes.filter(active).reduce((sum, current) => sum + Number(current.valor || 0), 0);
       const atualizado = { ...item, liquidacoes, valorPago, saldo: Math.max(0, Number(item.liquido || 0) - valorPago) };
       return { ...atualizado, status: situacaoTituloFolha(atualizado), fechadoEm: situacaoTituloFolha(atualizado) === "pago" ? new Date().toISOString() : item.fechadoEm || "" };
     });
@@ -399,6 +402,8 @@ export const marcarEstorno = (data, { transacaoId, transacaoOrigemId, operador }
   if (tr.status === "conciliado") return { data, resumo: { ok: false, motivo: "Transação já está conciliada" } };
   const origem = transacaoOrigemId ? transacaoPorId(data, transacaoOrigemId) : null;
   if (transacaoOrigemId && !origem) return { data, resumo: { ok: false, motivo: "Movimento original não encontrado" } };
+  const advanceIssue=transacaoOrigemId?advancePaymentReversalIssue(data,transacaoOrigemId,{bankRefund:true}):'';
+  if(advanceIssue)return {data,resumo:{ok:false,motivo:advanceIssue}};
   if (origem && Math.sign(Number(origem.valor)) === Math.sign(Number(tr.valor))) return { data, resumo: { ok: false, motivo: "Estorno deve ter sinal oposto ao movimento original" } };
   const bloqueioPeriodo = motivoPeriodoFechado(data, tr.data);
   if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
@@ -475,6 +480,8 @@ export const desfazerConciliacao = (data, transacaoId, operador, motivo = "") =>
   const tr = transacaoPorId(data, transacaoId);
   if (!tr) return { data, resumo: { ok: false, motivo: "Transação não encontrada" } };
   if (tr.status !== "conciliado") return { data, resumo: { ok: false, motivo: "Transação não está conciliada" } };
+  const advanceIssue=advancePaymentReversalIssue(data,transacaoId);
+  if(advanceIssue)return {data,resumo:{ok:false,motivo:advanceIssue}};
   const bloqueioPeriodo = motivoPeriodoFechado(data, tr.data);
   if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
 

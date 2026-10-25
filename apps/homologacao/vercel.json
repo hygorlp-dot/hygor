@@ -1,0 +1,31 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "cd ../.. && npm ci --ignore-scripts --include=dev",
+  "buildCommand": "node build.mjs",
+  "outputDirectory": "public",
+  "functions": {
+    "api/homologacao-time.js": {
+      "maxDuration": 10
+    }
+  },
+  "regions": ["gru1"],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [{"key": "X-Robots-Tag", "value": "noindex, nofollow"}]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/data",
+      "destination": "https://ukkzpttnbyylkyujzwnv.supabase.co/functions/v1/ponto-api-homologacao"
+    },
+    {
+      "source": "/api/upload",
+      "destination": "https://ukkzpttnbyylkyujzwnv.supabase.co/functions/v1/ponto-api-homologacao/upload"
+    },
+    {"source": "/cliente/:route*", "destination": "/index.html"},
+    {"source": "/aceite-pedido", "destination": "/index.html"}
+  ]
+}

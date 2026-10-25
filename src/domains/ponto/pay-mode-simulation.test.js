@@ -24,6 +24,12 @@ it("CLT: holerite, FGTS, provisões, VT líquido e encargos do Simples Anexo IV 
   expect(clt.benefits).toBe(480);
   expect(clt.cost).toBe(5288.84);
 });
+it('cenário hipotético mensal não herda o método da reserva real do CLT por diária',()=>{
+  const worker={...employee,employmentRelationship:'clt',remunerationMode:'daily',remunerationHistory:[{date:'2026-01-01',mode:'daily'}]},before=structuredClone(worker);
+  const result=simulatePayMode(worker,sim()).clt;
+  expect(result).toMatchObject({errors:[],provisions:744.67,cost:5288.84});
+  expect(worker).toEqual(before);
+});
 
 it("calcula a alíquota patronal de cada regime", () => {
   const rate = overrides => employerChargesRate(sim(overrides)).rate;

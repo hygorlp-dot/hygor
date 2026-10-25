@@ -26,11 +26,11 @@ function Indicadores({ data }) {
 
   const headcount = rhHeadcountSummary(employees, asOf);
   const turnover = rhTurnoverForMonth(employees, monthStr);
-  const advances = rhOpenAdvancesSummary(data.advances || []);
+  const advances = rhOpenAdvancesSummary(data.advances || [],data);
   const compliance = rhComplianceSummary(employees, asOf);
 
   const pendentes = employees
-    .filter(e => employeeLifecycleStatus(e, asOf) === "ativo")
+    .filter(e => ['ativo','desligamento_agendado'].includes(employeeLifecycleStatus(e, asOf)))
     .map(e => ({ employee: e, expired: employeeComplianceStatus(e, asOf).expired }))
     .filter(item => item.expired.length > 0)
     .sort((a, b) => a.employee.name.localeCompare(b.employee.name));
@@ -48,9 +48,10 @@ function Indicadores({ data }) {
         <MiniKpi label="Desligamento agendado" value={headcount.desligamento_agendado} cor={headcount.desligamento_agendado ? C.orange : C.muted} />
         <MiniKpi label="Admissões no mês" value={turnover.admissions} cor={turnover.admissions ? C.green : C.muted} />
         <MiniKpi label="Desligamentos no mês" value={turnover.terminations} cor={turnover.terminations ? C.orange : C.muted} />
-        <MiniKpi label="Adiantamentos em aberto" value={fmt(advances.total)} cor={advances.total ? C.red : C.muted} sub={`${advances.count} lançamento(s)`} />
+        <MiniKpi label="Adiantamentos a pagar" value={fmt(advances.total)} cor={advances.total ? C.red : C.muted} sub={`${advances.count} solicitação(ões) com saldo`} />
         <MiniKpi label="Documentação vencida" value={compliance.withExpiredCount} cor={compliance.withExpiredCount ? C.red : C.green} sub={`de ${compliance.activeCount} ativos`} />
       </div>
+      {advances.legacyCount>0&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{advances.legacyCount} adiantamento(s) anterior(es), no total de {fmt(advances.legacyTotal)}, permanecem no histórico. Não entram como novos valores a pagar.</p>}
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
         <p style={TYPO.eyebrow}>Documentos e certificações vencidos</p>

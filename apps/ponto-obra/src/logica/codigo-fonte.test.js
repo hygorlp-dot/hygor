@@ -66,6 +66,8 @@ describe("código-fonte do app", () => {
     expect(app.android.blockedPermissions).toContain("android.permission.SYSTEM_ALERT_WINDOW");
     // Brilho só da janela do app: nada de alterar configuração do sistema.
     expect(app.android.blockedPermissions).toContain("android.permission.WRITE_SETTINGS");
+    // A dependência LiteRT adicionava essa permissão pelo manifest merger.
+    expect(app.android.blockedPermissions).toContain("android.permission.READ_PHONE_STATE");
     expect(app.plugins.flat()).not.toContain("expo-brightness");
     expect(app.plugins).toContainEqual(["expo-sqlite", { useSQLCipher: true }]);
   });

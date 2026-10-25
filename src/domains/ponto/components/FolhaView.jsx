@@ -32,7 +32,7 @@ import {
 } from "../union-dues";
 import { advanceDeductionForPeriod } from "../../rh/advance-commands";
 import { CltPayslips } from "./CltPayslips.jsx";
-import { remunerationModeOnDate } from "../../rh/remuneration-mode.js";
+import {isCltPayrollOnDate} from '../../rh/payroll-classification.js';
 import { LaborProvisions } from "./LaborProvisions.jsx";
 import { PayModeSimulation } from "./PayModeSimulation.jsx";
 import {EmployeeCosts} from '../../rh/components/EmployeeCosts.jsx';
@@ -133,7 +133,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
     days.forEach(d => {
       if (!isEmployeeEmployedOnDate(employee, d)) return;
-      if (remunerationModeOnDate(employee,d)==="clt") return;
+      if (isCltPayrollOnDate(employee,d)) return;
       if (holidaysInPeriod.includes(d)) return;
 
       const a = getAtt(data, employee.id, d);
@@ -172,7 +172,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       }
     });
 
-    const employeeHolidays = holidaysInPeriod.filter(h => isEmployeeEmployedOnDate(employee, h)&&remunerationModeOnDate(employee,h)!=="clt");
+    const employeeHolidays = holidaysInPeriod.filter(h => isEmployeeEmployedOnDate(employee, h)&&!isCltPayrollOnDate(employee,h));
     const holidayRules = employeeHolidays.map(h => getHolidayPayRule(data, employee, h, paymentHolidays));
     const feriadosPagos = holidayRules.filter(h => !h.losesHoliday).length;
     const feriadosPerdidos = holidayRules.filter(h => h.losesHoliday).length;
@@ -188,10 +188,10 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
     const periIni = diasCiclo.length > 0 ? diasCiclo[0] : "";
     const periFim = diasCiclo.length > 0 ? diasCiclo[diasCiclo.length - 1] : "";
-    const dailyDates=diasCiclo.filter(d=>remunerationModeOnDate(employee,d)!=="clt");
+    const dailyDates=diasCiclo.filter(d=>!isCltPayrollOnDate(employee,d));
     const advTotal = (data.advances||[])
       .filter(a => a.empId === employee.id)
-      .reduce((sum,advance)=>sum+(dailyDates.length===diasCiclo.length?advanceDeductionForPeriod(advance,periIni,periFim):dailyDates.reduce((total,d)=>total+advanceDeductionForPeriod(advance,d,d),0)),0);
+      .reduce((sum,advance)=>sum+(dailyDates.length===diasCiclo.length?advanceDeductionForPeriod(advance,periIni,periFim,data):dailyDates.reduce((total,d)=>total+advanceDeductionForPeriod(advance,d,d,data),0)),0);
     const unionResult=calculateUnionDue({employee,config:data.config?.unionDues,payrollCycle:q,periodEnd:periFim,periodKey:unionPeriodKey,hasPayrollMovement:gross>0||advTotal>0});
 
     // Converte mapa para array ordenado por dias trabalhados desc
@@ -254,12 +254,12 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   // digitar em qualquer campo de um modal aberto por cima da folha).
   const rows = useMemo(() => data.employees
     .filter(e => e.active !== false || hasAttendanceInPeriod(e))
-    .filter(e => diasCiclo.some(d=>remunerationModeOnDate(e,d)!=="clt"))
+    .filter(e => diasCiclo.some(d=>!isCltPayrollOnDate(e,d)))
     .map(calcRow)
     .filter(belongsToSelectedObra)
     .filter(r => r.presentes > 0 || r.meiodia > 0 || r.faltas > 0 || r.feriadosPagos > 0 || r.feriadosPerdidos > 0 || r.advances > 0 || r.gross > 0)
     .sort((a, b) => a.name.localeCompare(b.name)),
-    [data.employees, data.attendance, data.changeLog, data.obras, data.advances, data.config?.unionDues, days, holidaysInPeriod, filterObra, q]);
+    [data.employees, data.attendance, data.changeLog, data.obras, data.advances, data.titulosFolha, data.config, days, holidaysInPeriod, filterObra, q]);
 
   // Valores EFETIVOS de uma linha conforme o filtro de obra. Com "all", usa os
   // totais do funcionario. Com uma obra selecionada, usa apenas a parcela
@@ -287,7 +287,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   // vinculados ao periodo/obra, inclusive quem ainda nao aparece na folha por
   // nao possuir nenhum apontamento.
   const funcionariosParaConferencia = useMemo(() => (data.employees || [])
-    .filter(e => days.some(d => isEmployeeEmployedOnDate(e, d)&&remunerationModeOnDate(e,d)!=="clt"))
+    .filter(e => days.some(d => isEmployeeEmployedOnDate(e, d)&&!isCltPayrollOnDate(e,d)))
     .filter(e => e.active !== false || hasAttendanceInPeriod(e) || (e.endDate && e.endDate >= (days[0] || "")))
     .filter(e => filterObra === "all" || e.obra === filterObra || e.lastObra === filterObra || days.some(d => {
       if (!isEmployeeEmployedOnDate(e, d)) return false;
@@ -300,7 +300,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const hojeConferencia = today();
   const pendenciasRelatorio = useMemo(() => funcionariosParaConferencia.map(e => {
     const datasEsperadas = days.filter(d => {
-      if (d > hojeConferencia || !isEmployeeEmployedOnDate(e, d) || holidaysInPeriod.includes(d)||remunerationModeOnDate(e,d)==="clt") return false;
+      if (d > hojeConferencia || !isEmployeeEmployedOnDate(e, d) || holidaysInPeriod.includes(d)||isCltPayrollOnDate(e,d)) return false;
       if (filterObra === "all") return true;
       const a = getAtt(data, e.id, d);
       return (a?.obraId || getEmpObraIdOnDate(e, d)) === filterObra;
@@ -791,6 +791,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       {payrollView==="payroll"&&<DreIntegration kind="payroll" currentUser={currentUser} obraId={filterObra==="all"?"":filterObra} year={year} month={month}>
         <p>Consulta do DRE mensal. A quinzena de 21 a 05 atravessa dois meses; o DRE mantém a competência de cada apontamento.</p>
       </DreIntegration>}
+      {payrollView==='payroll'&&data.employees.some(employee=>days.some(date=>isCltPayrollOnDate(employee,date)))&&<p className="payroll-clt-guidance">Empregados CLT, inclusive por diária, são conferidos em Holerites CLT e enviados ao Financeiro em Preparar quinzena.</p>}
 
       {payrollView==="mixed"&&<MixedPayrollPreparation data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab} year={year} month={month}/>}
       {payrollView==="clt"&&<CltPayslips data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}

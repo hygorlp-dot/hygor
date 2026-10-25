@@ -1,5 +1,16 @@
 // Ordinary monthly payroll. Does not settle a payment or write to the DRE.
 // Tax tables are deliberately versioned: never extrapolate these to a new year.
+import {validDate} from '../rh/date-validation.js';
+
+export const MANUAL_DAILY_CLT_METHOD='manual_daily_clt';
+export const MANUAL_DAILY_CLT_CHECKS=Object.freeze([
+  {key:'days',label:'Conferi diárias, vigências, admissão e dias trabalhados.'},
+  {key:'rest',label:'Conferi DSR, feriados e dias sem trabalho.'},
+  {key:'events',label:'Conferi extras, faltas, afastamentos e demais eventos.'},
+  {key:'benefits',label:'Conferi benefícios, elegibilidade e descontos.'},
+  {key:'taxes',label:'Conferi bases, incidências, INSS, IRRF e FGTS.'},
+  {key:'payments',label:'Conferi pagamentos anteriores, adiantamentos e regime de caixa.'},
+]);
 export const CLT_SOURCES = Object.freeze({
   cct:"PE000665/2026 · CCT Caruaru 2026/2028 · cláusulas 3, 7, 14, 18, 19, 37, 39 e 72",
   inss:"https://www.gov.br/inss/pt-br/direitos-e-deveres/inscricao-e-contribuicao/tabela-de-contribuicao-mensal",
@@ -39,7 +50,50 @@ export function newCltDraft(competence,profile={}) {
     fiscalMode:"automatic",manualInss:"",manualIrrf:"",manualIrrfBase:"",manualReason:"",confirmed:false,
     rules:{...CARUARU_PROFILE,...profile.rules}};
 }
+export function newManualDailyCltDraft(competence,profile={}){
+  return {...newCltDraft(competence,profile),assessmentMethod:MANUAL_DAILY_CLT_METHOD,
+    salary:0,dailyRate:profile.dailyRate??'',fiscalMode:'manual',custom:[],
+    manualFgts:'',assessmentReference:'',assessmentResponsible:'',assessmentMemory:'',
+    assessmentReviewChecklist:Object.fromEntries(MANUAL_DAILY_CLT_CHECKS.map(item=>[item.key,false]))};
+}
+
+// A contabilidade informa cada rubrica e os tributos. Este caminho apenas
+// valida e soma a memória identificada; não converte diária em salário,
+// presume direitos incluídos, nem reapura tributos automaticamente.
+export function calculateManualDailyCltPayslip(draft){
+  const d=draft,errors=[],rows=[];
+  if(d.fiscalMode!=='manual')errors.push('Empregado CLT por diária exige apuração manual identificada.');
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(d.competence||'')||!validDate(d.paymentDate))errors.push('Informe competência e data de pagamento válidas.');
+  if(!(Number(d.dailyRate)>0)||!Number.isFinite(Number(d.dailyRate)))errors.push('Informe a diária contratual de referência.');
+  if(!String(d.assessmentReference||'').trim()||!String(d.assessmentResponsible||'').trim()||String(d.assessmentMemory||'').trim().length<20)errors.push('Informe referência, responsável e memória de cálculo da apuração por diária.');
+  if(MANUAL_DAILY_CLT_CHECKS.some(item=>d.assessmentReviewChecklist?.[item.key]!==true))errors.push('Conclua a conferência de diárias, descansos, eventos, benefícios, tributos e pagamentos.');
+  if(!d.attendanceSource?.signature)errors.push('Importe e confira o ponto da competência antes de concluir a apuração por diária.');
+  if(!d.rules?.name?.trim()||!validDate(d.rules?.effectiveFrom)||!validDate(d.rules?.effectiveTo)||d.rules.effectiveTo<d.rules.effectiveFrom||d.competence<d.rules.effectiveFrom.slice(0,7)||d.competence>d.rules.effectiveTo.slice(0,7))errors.push('Identifique o perfil e a vigência das regras utilizadas na memória.');
+  for(const key of ['manualInss','manualIrrf','manualIrrfBase','manualFgts'])if(d[key]===''||d[key]==null||!Number.isFinite(Number(d[key]))||Number(d[key])<0)errors.push('Informe INSS, IRRF, base do IRRF e FGTS apurados, inclusive zeros conferidos.');
+  if(!Array.isArray(d.custom)||!d.custom.some(item=>item.kind==='earning'&&Number(item.amount)>0))errors.push('Informe as rubricas de provento da competência; a diária isolada não é uma folha completa.');
+  for(const [index,item] of (Array.isArray(d.custom)?d.custom:[]).entries()){
+    if(!item.label?.trim()||!['earning','deduction','info'].includes(item.kind)||item.amount===''||item.amount==null||!Number.isFinite(Number(item.amount))||Number(item.amount)<0||String(item.reference||'').trim().length<3||['inss','irrf','fgts'].some(flag=>typeof item[flag]!=='boolean'))errors.push('Complete descrição, referência, valor, tipo e incidências de cada rubrica da memória.');
+    if(item.kind==='deduction'&&/^(INSS|IRRF|adiantamento)/i.test(String(item.label||'').trim()))errors.push('Informe INSS, IRRF e adiantamentos nos campos próprios, sem repetir nas rubricas.');
+    rows.push({...item,code:`MAN-${index+1}`,amount:money(item.amount)});
+  }
+  const base=flag=>money(Math.max(0,rows.reduce((sum,row)=>sum+(row.kind==='info'||row[flag]!==true?0:row.amount*(row.kind==='deduction'?-1:1)),0)));
+  const inssBase=base('inss'),fgtsBase=base('fgts');
+  const inss=money(d.manualInss),irrf=money(d.manualIrrf),fgts=money(d.manualFgts);
+  const add=(code,label,amount,reference)=>{if(amount>0)rows.push({code,label,amount,kind:'deduction',inss:false,irrf:false,fgts:false,reference});};
+  add('200','INSS do empregado',inss,'Apuração identificada');
+  add('201','IRRF',irrf,'Apuração identificada por mês de pagamento');
+  const advances=Array.isArray(d.advances)?d.advances:[];
+  if(advances.some(a=>!a.id||!validDate(a.date)||!Number.isFinite(Number(a.amount))||Number(a.amount)<0))errors.push('Confira os adiantamentos vinculados à apuração.');
+  add('210','Adiantamentos compensados',money(advances.reduce((sum,a)=>sum+Number(a.amount||0),0)),advances.map(a=>a.id).join(', '));
+  const gross=money(rows.filter(row=>row.kind==='earning').reduce((sum,row)=>sum+row.amount,0));
+  const deductions=money(rows.filter(row=>row.kind==='deduction').reduce((sum,row)=>sum+row.amount,0));
+  const net=money(gross-deductions);
+  if(net<0)errors.push('Os descontos excedem os proventos. Revise a memória antes de concluir.');
+  if(!d.confirmed)errors.push('Confirme a memória de cálculo, as incidências e os pagamentos antes de concluir.');
+  return {rows,gross,deductions,net,inss,inssBase,irrf,irrfBase:money(d.manualIrrfBase),fgtsBase,fgts,errors:[...new Set(errors)]};
+}
 export function calculateCltPayslip(draft) {
+  if(draft.assessmentMethod===MANUAL_DAILY_CLT_METHOD)return calculateManualDailyCltPayslip(draft);
   const d=draft,r=d.rules,errors=[];
   const numeric=["salary","days","workedDays","absenceDays","dsrLostDays","overtimeHours","extraordinaryHours","dsrWorkingDays","dsrRestDays","dependents","alimony","transportCost","transportDays","otherTaxable","otherDeductions","previousIrrf"];
   for(const key of numeric) if(d[key]===""||!Number.isFinite(Number(d[key]))||n(d[key])<0) errors.push("Preencha os campos numéricos com valores válidos, sem deixar vazios ou negativos.");

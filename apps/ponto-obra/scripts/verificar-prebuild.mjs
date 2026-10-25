@@ -26,7 +26,12 @@ conferir(ativa("CAMERA"), "permissão de câmera declarada");
 conferir(ativa("ACCESS_FINE_LOCATION"), "permissão de localização declarada");
 // WRITE_SETTINGS: o expo-brightness só mexe no brilho da janela do app, que
 // não precisa dela - nunca alterar configuração do sistema do aparelho.
-for (const proibida of ["RECORD_AUDIO", "SYSTEM_ALERT_WINDOW", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "WRITE_SETTINGS"]) conferir(!ativa(proibida), `permissão ${proibida} removida`);
+for (const proibida of ["RECORD_AUDIO", "SYSTEM_ALERT_WINDOW", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "WRITE_SETTINGS", "READ_PHONE_STATE"]) {
+  conferir(!ativa(proibida), `permissão ${proibida} removida`);
+  // Ausência no manifesto principal não impede uma biblioteca de adicioná-la
+  // depois. Exige também a instrução de remoção usada pelo manifest merger.
+  conferir(linhasPermissao.some(l => l.includes(`"android.permission.${proibida}"`) && l.includes('tools:node="remove"')), `bloqueio de ${proibida} no manifesto mesclado`);
+}
 
 const modulosExpo = autolinking("resolve").modules.map(m => m.packageName);
 for (const m of ["relogio-confiavel", "expo-sqlite", "expo-camera", "expo-secure-store", "expo-font", "expo-haptics", "expo-speech", "expo-brightness"]) conferir(modulosExpo.includes(m), `módulo Expo autolinkado: ${m}`);

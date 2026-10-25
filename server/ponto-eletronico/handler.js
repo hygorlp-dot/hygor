@@ -24,10 +24,11 @@ import { LIMITE_FOTO_BYTES } from "../../src/domains/ponto-eletronico/foto.js";
 import { validarEstabelecimento, pendenciasFiscais } from "../../src/domains/ponto-eletronico/estabelecimento.js";
 import { situacaoRepP } from "../../src/domains/ponto-eletronico/rep-p.js";
 import { proporApropriacoes, validarApropriacao } from "../../src/domains/ponto-eletronico/apropriacao.js";
-import { intervaloDoDia } from "../../src/domains/ponto-eletronico/painel.js";
+import { dataLocal, intervaloDoDia } from "../../src/domains/ponto-eletronico/painel.js";
 import { criarArp } from "./arp/arp.js";
 import { POLITICA_PADRAO, criarFonteHora } from "./tempo/fonte-hora.js";
 import { applyPersistentAuthRateLimit } from '../app-auth-security.js';
+import { criarAmbiente } from './ambiente.js';
 
 export const BUCKET_PONTO = "ponto-obra";
 export const PAPEIS_GESTAO = new Set(["admin", "rh", "engenheiro"]);
@@ -60,7 +61,7 @@ const decodificarFoto = base64 => {
 
 // Identificação do aparelho que o app manda (ponto-parear / ponto-sincronizar):
 // só campos conhecidos, texto curto - nada pessoal e nada arbitrário no banco.
-const CAMPOS_APARELHO = ["marca", "modelo", "android", "build", "commit"];
+const CAMPOS_APARELHO = ["marca", "modelo", "android", "build", "commit", "ambiente"];
 export const limparAparelho = bruto => Object.fromEntries(CAMPOS_APARELHO
   .filter(k => bruto && typeof bruto === "object" && bruto[k] !== undefined && bruto[k] !== null && texto(bruto[k]))
   .map(k => [k, texto(bruto[k]).slice(0, 80)]));
@@ -114,7 +115,8 @@ const caminhoFotoMarcacao = (obraId, marcadoEm, id) => `marcacoes/${obraId}/${St
 // existe para os testes fixarem o relógio do host.
 // verificarHoraNtp: async () => medição (tempo/ntp.js verificarHora), usada
 // pela ação ponto-tempo-verificar.
-export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO }) {
+export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, renovarHoraNtp, politicaHora = POLITICA_PADRAO, ambienteDeclarado, supabaseUrl }) {
+  const ambiente = criarAmbiente({ db, declarado: ambienteDeclarado, supabaseUrl });
   const fonte = fonteHora || criarFonteHora({
     relogioHost: agoraDoHost ? () => agoraDoHost().getTime() : () => Date.now(),
     politica: politicaHora,
@@ -466,7 +468,9 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
     },
 
     // ---------------- aparelho da obra ----------------
-    async "ponto-parear"({ body }) {
+    async "ponto-ambiente"({ ambiente }) { return ok({ ok: true, ambiente }); },
+
+    async "ponto-parear"({ body, ambiente }) {
       const codigo = texto(body.codigo).replace(/\D/g, "");
       if (codigo.length !== 8) return erro(400, "O código tem 8 números.");
       const { data: par, error } = await db.from("ponto_pareamentos").select("*")
@@ -496,10 +500,10 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       if (errIns) throw errIns;
       const dados = await lerDados();
       const obra = (dados?.obras || []).find(o => String(o.id) === String(par.obra_id));
-      return ok({ dispositivoId: id, token, obra: { id: par.obra_id, nome: obra?.name || "" }, estabelecimento: estab, nome: par.nome, servidorMs: agora().getTime() });
+      return ok({ dispositivoId: id, token, obra: { id: par.obra_id, nome: obra?.name || "" }, estabelecimento: estab, nome: par.nome, servidorMs: agora().getTime(), ambiente });
     },
 
-    async "ponto-sincronizar"({ body, headers }) {
+    async "ponto-sincronizar"({ body, headers, ambiente }) {
       const { dispositivo, falha } = await doAparelho(headers, body);
       if (falha) return falha;
       const dados = await lerDados();
@@ -507,7 +511,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const obraId = dispositivo.obra_id;
       // Funcionário é GLOBAL: o aparelho recebe TODOS os ativos da empresa, não
       // só os lotados nesta obra - quem muda de obra no dia bate em qualquer uma.
-      const funcionarios = funcionariosAtivos(dados?.employees);
+      const funcionarios = funcionariosAtivos(dados?.employees, dataLocal(agora()));
       const ids = new Set(funcionarios.map(f => f.id));
       const [{ data: metas, error: errBio }, { data: resps, error: errResp }] = await Promise.all([
         db.from("ponto_biometrias").select("id,employee_id,criado_em").eq("company_id", company).order("criado_em", { ascending: false }),
@@ -541,8 +545,15 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       if (errUp) throw errUp;
       const obra = (dados?.obras || []).find(o => String(o.id) === String(obraId));
       const estabelecimento = await estabelecimentoDoAparelho(dispositivo);
+      if (ambiente === "homologacao" && renovarHoraNtp) {
+        await renovarHoraNtp();
+        // Outra instância pode ter renovado. A ARP usa esta mesma fonte;
+        // invalidar o cache evita entregar a medição antiga por mais 60 s.
+        fonte.limparCache();
+      }
       const tempo = await fonte.evidencia();
       return ok({
+        ambiente,
         servidorMs: tempo.serverTimeMs,
         tempo,
         repP: situacaoRepP(),
@@ -626,7 +637,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       // Qualquer funcionário ATIVO da empresa pode ter o rosto cadastrado em
       // qualquer aparelho (a lotação dele não importa). O RESPONSÁVEL é que
       // precisa estar autorizado na obra deste aparelho (conferido abaixo).
-      const funcionario = funcionariosAtivos(dados?.employees).find(f => f.id === texto(body.employeeId));
+      const funcionario = funcionariosAtivos(dados?.employees, dataLocal(agora())).find(f => f.id === texto(body.employeeId));
       if (!funcionario) return erro(400, "Funcionário não está ativo no cadastro do ARCD.");
       const vetor = Array.isArray(body.vetor) ? body.vetor.map(Number) : [];
       if (vetor.length < 64 || vetor.length > 1024 || vetor.some(v => !Number.isFinite(v))) return erro(400, "Vetor facial inválido.");
@@ -678,7 +689,14 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
   return async function tratar({ action, body = {}, headers = {}, cron = false }) {
     const acao = acoes[action];
     if (!acao) return erro(400, "Ação do ponto eletrônico desconhecida.");
-    return acao({ body, headers, cron });
+    const amb = await ambiente();
+    if (amb.erro) return erro(503, amb.erro, { ok: false, code: "AMBIENTE_NAO_CONFIRMADO" });
+    const doApp = texto(body.ambienteApp).toLowerCase();
+    const aparelho = ["ponto-parear", "ponto-sincronizar", "ponto-enviar-marcacoes", "ponto-enviar-foto", "ponto-cadastrar-biometria"].includes(action);
+    if ((doApp && doApp !== amb.ambiente) || (amb.ambiente === "homologacao" && aparelho && !doApp)) {
+      return erro(409, "Confira o ambiente do aplicativo. Nenhum registro foi alterado.", { ok: false, code: "AMBIENTE_INCOMPATIVEL", ambiente: amb.ambiente });
+    }
+    return acao({ body, headers, cron, ambiente: amb.ambiente });
   };
 }
 

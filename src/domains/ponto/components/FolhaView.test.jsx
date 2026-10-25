@@ -2,9 +2,39 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, expect, it, vi } from 'vitest';
 import Folha from './FolhaView';
+import {applyAdvanceCommand,ADVANCE_COMMAND} from '../../rh/advance-commands.js';
+import {registrarPagamentoEConciliar} from '../../conciliacao/mutations.js';
 
 let root, container;
 afterEach(() => { if(root) act(()=>root.unmount()); container?.remove(); vi.useRealTimers(); });
+
+function octoberData(employee={}){
+  const attendance=Object.fromEntries([6,7,8,9,13,14,15,16,19,20].map(day=>[`2026-10-${String(day).padStart(2,'0')}`,{status:'P',obraId:'A'}]));
+  return {config:{},employees:[{id:'e',name:'Siclano QA',active:true,obra:'A',dailyRate:100,...employee}],
+    obras:[{id:'A',name:'Obra A'}],attendance:{e:attendance},changeLog:[],advances:[],titulosFolha:[]};
+}
+it('CLT por diária usa Holerites CLT e não recebe líquido final automático no relatório de diária comum',()=>{
+  vi.useFakeTimers();vi.setSystemTime(new Date(2026,9,20,12));
+  const data=octoberData({employmentRelationship:'clt',remunerationMode:'daily'});
+  container=document.createElement('div');document.body.append(container);root=createRoot(container);
+  act(()=>root.render(<Folha data={data} showToast={()=>{}}/>));
+  expect(container.querySelector('.payroll-summary-strip__net strong').textContent).toMatch(/^R\$\s*0,00$/);
+  expect(container.querySelectorAll('article')).toHaveLength(0);
+  expect(container.textContent).toContain('Holerites CLT');
+});
+it('pagamento de adiantamento atualiza imediatamente a prévia sem alterar ponto ou cadastro',()=>{
+  vi.useFakeTimers();vi.setSystemTime(new Date(2026,9,20,12));
+  const created=applyAdvanceCommand(octoberData(),{type:ADVANCE_COMMAND.PAYROLL_ADVANCE_CREATED,actorId:'rh',
+    payload:{advance:{id:'advance-view',empId:'e',amount:200,date:'2026-10-14',firstDueDate:'2026-10-20'}}}).data;
+  container=document.createElement('div');document.body.append(container);root=createRoot(container);
+  const render=data=>act(()=>root.render(<Folha data={data} showToast={()=>{}}/>));
+  const total=()=>container.querySelector('.payroll-summary-strip__net strong').textContent;
+  render(created);expect(total()).toMatch(/1\.100,00/);
+  const paid=registrarPagamentoEConciliar({...created,transacoes:[{id:'bank',data:'2026-10-14',valor:-80,status:'pendente'}]},
+    {transacaoId:'bank',tipo:'tituloFolha',entidadeId:created.advances[0].paymentTitleId,operador:{id:'financeiro'}});
+  expect(paid.resumo.ok).toBe(true);expect(paid.data.attendance).toBe(created.attendance);
+  render(paid.data);expect(total()).toMatch(/1\.020,00/);
+});
 
 // Feriado é pago pela obra do último dia trabalhado antes dele (decisão de
 // 20/10/2026), não pela lotação: trabalhou na obra de trabalho na sexta

@@ -4,10 +4,11 @@ import {reviewMonthlyPayslip,cltBatchReport} from '../clt-closing.js';
 import {remunerationModeOnDate} from '../../rh/remuneration-mode.js';
 import {prepareMonthlyPayslip} from '../clt-preparation.js';
 import {OPERATIONAL_COMMAND} from '../../sync/operational-commands.js';
+import {employmentRelationshipOnDate} from '../../rh/employment-relationship.js';
 
 export function CltClosingSummary({data,competence,onSelect,showToast,dirty,currentUser,dispatchCommand,onBusy}){
   const [preparing,setPreparing]=useState(false),[progress,setProgress]=useState('');
-  const reviews=useMemo(()=>(data.employees||[]).filter(e=>remunerationModeOnDate(e,competence+'-31')==='clt'&&(!e.endDate||e.endDate>=competence+'-01')&&e.startDate<=competence+'-31').map(e=>reviewMonthlyPayslip(data,e,competence)),[data,competence]);
+  const reviews=useMemo(()=>(data.employees||[]).filter(e=>(remunerationModeOnDate(e,competence+'-31')==='clt'||employmentRelationshipOnDate(e,competence+'-31')==='clt')&&(!e.endDate||e.endDate>=competence+'-01')&&e.startDate<=competence+'-31').map(e=>reviewMonthlyPayslip(data,e,competence)),[data,competence]);
   const ready=reviews.filter(r=>!r.errors.length),gross=ready.reduce((s,r)=>s+r.result.gross,0),net=ready.reduce((s,r)=>s+r.result.net,0);
   const print=()=>{try{const html=cltBatchReport(data,reviews),popup=window.open('','_blank');if(!popup)throw Error('Permita abrir a janela de impressão.');popup.document.write(html);popup.document.close();}catch(e){showToast(e.message,'error');}};
   const prepareTeam=async()=>{

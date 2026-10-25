@@ -3,6 +3,11 @@ import {active as activeFinancialRecord} from "../financeiro/ledger.js";
 import {attendanceImportIssues} from '../ponto/clt-attendance.js';
 import {attendancePayModeDecision,latestClosedPayrollDate} from './attendance-pay-mode.js';
 import {REMUNERATION_VALUE_FIELDS,remunerationValues} from './remuneration-values.js';
+import {prepareEmploymentRelationship} from './employment-relationship.js';
+import {MANUAL_DAILY_CLT_METHOD} from '../ponto/clt-payslip.js';
+import {reviewMonthlyPayslip} from '../ponto/clt-review.js';
+import {payrollProtectedPeriod} from './payroll-protected-period.js';
+import {calculateLaborProvision,laborProvisionDraftForEmployee,MANUAL_DAILY_CLT_PROVISION,provisionReferenceDate} from '../ponto/labor-provisions.js';
 
 export const EMPLOYEE_COMMAND = Object.freeze({
   EMPLOYEE_SAVED:"FUNCIONARIO_SALVO",
@@ -116,6 +121,7 @@ const employeeChangeLog = ({ data, before, employee, actorName, now }) => {
     });
   }
   if((before.remunerationMode||"daily")!==employee.remunerationMode||Number(before.monthlySalary||0)!==Number(employee.monthlySalary||0))appendChange(events,{...common,type:"remuneration_change",message:`Modalidade/salário contratual de ${employee.name} alterado. Vigência: ${employee.remunerationEffectiveFrom||employee.startDate}.`,from:before.remunerationMode||"daily",to:employee.remunerationMode});
+  if((before.employmentRelationship||'')!==employee.employmentRelationship)appendChange(events,{...common,type:'employment_relationship_change',message:`Vínculo contratual de ${employee.name} definido ou alterado. Vigência: ${employee.employmentRelationshipEffectiveFrom}.`,from:before.employmentRelationship||'',to:employee.employmentRelationship,reason:employee.employmentRelationshipReason});
   return events;
 };
 
@@ -127,8 +133,11 @@ const protectedDraft=(data,employee,period)=>{
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(period))return false;
   const first=period+'-01',last=new Date(Date.UTC(Number(period.slice(0,4)),Number(period.slice(5,7)),0)).toISOString().slice(0,10);
   if((data.fechamentosFinanceiros||[]).some(p=>p.status==='fechado'&&p.dataInicio<=last&&p.dataFim>=first))return true;
-  if((data.titulosFolha||[]).some(t=>activeFinancialRecord(t)&&String(t.employeeId)===String(employee.id)
-    &&(t.competencia===period||validDate(t.periodoInicio)&&validDate(t.periodoFim)&&t.periodoInicio<=last&&t.periodoFim>=first)))return true;
+  if((data.titulosFolha||[]).some(title=>{
+    if(!activeFinancialRecord(title)||String(title.employeeId)!==String(employee.id))return false;
+    const range=payrollProtectedPeriod(title);
+    return range&&(title.competencia===period||range.start<=last&&range.end>=first);
+  }))return true;
   // Archives are an existing global payroll boundary, shared with pay-mode
   // and value protection. Preserve old drafts even when only the key remains.
   const archiveBoundary=latestClosedPayrollDate({...data,titulosFolha:[],employees:[]},{...employee,cltPayroll:{}});
@@ -161,7 +170,7 @@ export const applyEmployeeCommand = (
   const name = String(raw.name || "").trim();
   for(const [period,draft] of Object.entries(raw.cltPayroll?.drafts||{})){
     if(JSON.stringify(draft)===JSON.stringify(before?.cltPayroll?.drafts?.[period]))continue;
-    const issues=attendanceImportIssues(data,{...before,...raw},draft);
+    const issues=draft.assessmentMethod===MANUAL_DAILY_CLT_METHOD&&!draft.confirmed?[]:attendanceImportIssues(data,{...before,...raw},draft);
     if(issues.length)return fail(issues[0]);
     if(draft.attendanceSource?.manualReason&&String(draft.attendanceSource.manualReason).trim().length<10)return fail('Justifique o ajuste manual dos eventos importados.');
   }
@@ -209,6 +218,8 @@ export const applyEmployeeCommand = (
   const modeDate=String(raw.remunerationEffectiveFrom||raw.startDate);
   if(modeChanged&&(!validDate(modeDate)||modeDate<raw.startDate))return fail("Informe uma vigência da modalidade igual ou posterior à admissão.");
   const protectedUntil=before?[latestClosedPayrollDate(data,before),financialClosedUntil(data)].sort().at(-1)||'':'';
+  const relationship=prepareEmploymentRelationship({before,raw,mode,protectedUntil,actorId,now});
+  if(!relationship.ok)return fail(relationship.reason);
   const lifecycleChanged=before&&(String(before.endDate||'')!==endDate||(before.active!==false)!==active);
   if(lifecycleChanged&&(data.rescisoes||[]).some(r=>activeFinancialRecord(r)&&String(r.empId)===String(before.id)))return fail('O vínculo possui rescisão registrada. Solicite revisão identificada da rescisão antes de alterar desligamento ou reativação.');
   if(lifecycleChanged&&protectedUntil&&[before.endDate,endDate].some(date=>validDate(date)&&date<=protectedUntil))return fail('O desligamento ou reativação altera vínculo de período fechado. Solicite revisão identificada, preservando o histórico de ponto e custos.');
@@ -220,12 +231,13 @@ export const applyEmployeeCommand = (
   if(valueChanged&&(!validDate(valueDate)||valueDate<raw.startDate||protectedUntil&&valueDate<=protectedUntil))return fail(`Alterações de valor/jornada exigem reajuste com vigência válida${protectedUntil?` posterior a ${protectedUntil}`:''}; o cadastro não recalcula períodos pagos.`);
   if(valueChanged&&String(raw.remunerationValueReason||'').trim().length<10)return fail('Informe o motivo do reajuste de valor/jornada (ao menos 10 caracteres).');
   const valuesOf=remunerationValues;
-  const existingValues=before?.remunerationValuesHistory?.length?before.remunerationValuesHistory:before?[{date:before.startDate,...valuesOf(before),source:'baseline_preservada'}]:[];
+  const existingValues=before?.remunerationValuesHistory?.length?before.remunerationValuesHistory:before&&validDate(before.startDate)?[{date:before.startDate,...valuesOf(before),source:'baseline_preservada'}]:[];
   const remunerationValuesHistory=valueChanged?[...existingValues,{date:valueDate,...valuesOf(raw),reason:String(raw.remunerationValueReason).trim().slice(0,1000),changedAt:now,changedBy:actorId}]:before?.remunerationValuesHistory||[];
   const baseHistory=before?.remunerationHistory?.length?before.remunerationHistory:[{date:before?.remunerationEffectiveFrom||before?.startDate||raw.startDate,mode:previousMode}];
   const remunerationHistory=modeChanged?[...baseHistory,{date:modeDate,mode,changedAt:now,changedBy:actorId}]:before?.remunerationHistory||[];
   const employee = {
     ...raw,
+    ...relationship.fields,
     id,
     name,
     role:String(raw.role || "").trim(),
@@ -260,6 +272,29 @@ export const applyEmployeeCommand = (
     updatedById:actorId,
     updatedBy:actorName,
   };
+  for(const [period,draft] of Object.entries(employee.laborProvisions||{})){
+    if(sameDraft(draft,before?.laborProvisions?.[period]))continue;
+    if(!provisionReferenceDate(period))return fail('Informe uma competência válida para a reserva trabalhista.');
+    if(!draft||typeof draft!=='object'||Array.isArray(draft))return fail('Informe os dados da apuração da reserva trabalhista.');
+    const values=laborProvisionDraftForEmployee(employee,period,draft);
+    if(values.assessmentMethod!==MANUAL_DAILY_CLT_PROVISION)continue;
+    if(draft.included!==true)return fail('O vínculo CLT por diária exige apuração da reserva; não pode ser excluído sem conferência.');
+    const result=calculateLaborProvision(values);
+    if(result.errors.length)return fail(result.errors[0]);
+    employee.laborProvisions={...employee.laborProvisions,[period]:{...values,updatedAt:now,updatedBy:actorId,
+      manualAssessmentAudit:{reviewedBy:actorId,reviewedByName:actorName,reviewedAt:now,reference:values.assessmentReference,responsible:values.assessmentResponsible},
+    }};
+  }
+  for(const [period,draft] of Object.entries(employee.cltPayroll?.drafts||{})){
+    if(draft.assessmentMethod!==MANUAL_DAILY_CLT_METHOD||sameDraft(draft,before?.cltPayroll?.drafts?.[period]))continue;
+    const review=draft.confirmed?reviewMonthlyPayslip(data,employee,period,{requireManualAudit:false}):null;
+    if(review?.errors.length)return fail(review.errors[0]);
+    const audited={...draft,calculated:review?.result||null,manualAssessmentAudit:draft.confirmed?{
+      reviewedBy:actorId,reviewedByName:actorName,reviewedAt:now,
+      reference:draft.assessmentReference,responsible:draft.assessmentResponsible,
+    }:null};
+    employee.cltPayroll={...employee.cltPayroll,drafts:{...employee.cltPayroll.drafts,[period]:audited}};
+  }
   const employees = before
     ? (data.employees || []).map(item => String(item.id) === id ? employee : item)
     : [...(data.employees || []), employee];

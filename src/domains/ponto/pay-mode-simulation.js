@@ -106,7 +106,11 @@ function cltScenario(employee, sim) {
     confirmed: true,
   };
   const payslip = calculateCltPayslip(draft);
-  const provision = calculateLaborProvision({ ...newProvisionDraft(employee, sim.competence), included: true, base: sim.salary });
+  // A comparação usa premissas mensais do cenário, não o contrato real do
+  // funcionário (que pode exigir uma memória própria de CLT por diária).
+  const monthlyScenario={remunerationMode:'clt',startDate:sim.competence+'-01',monthlySalary:sim.salary,
+    cltPayroll:{profile:{rules:employee?.cltPayroll?.profile?.rules}}};
+  const provision = calculateLaborProvision({ ...newProvisionDraft(monthlyScenario, sim.competence), included: true, base: sim.salary });
   const transportDeduction = payslip.rows.find(row => row.code === "110")?.amount || 0;
   const benefits = money(days * (n(employee?.vtDaily) + n(employee?.vrDaily)) - transportDeduction);
   // INSS patronal incide também sobre 13º e férias + 1/3 provisionados.

@@ -1,8 +1,11 @@
 import {getAtt,getDays,getPayrollHolidays,isEmployeeEmployedOnDate,isAttendanceLocked} from './attendance-engine.js';
 import {resolveEmployeeAttendanceObraId} from './permissions.js';
-import {money} from './clt-payslip.js';
+import {money,MANUAL_DAILY_CLT_METHOD} from './clt-payslip.js';
 import {calculateTimekeeping} from './timekeeping.js';
 import {remunerationModeOnDate} from '../rh/remuneration-mode.js';
+import {employmentRelationshipOnDate} from '../rh/employment-relationship.js';
+import {effectiveEmployeeOnDate} from '../rh/remuneration-values.js';
+import {isCltPayrollOnDate} from '../rh/payroll-classification.js';
 
 export const ATTENDANCE_FIELDS=['workedDays','absenceDays','dsrLostDays','overtimeHours','extraordinaryHours','dsrWorkingDays','dsrRestDays'];
 export const hasPartialContractMonth=(employee,competence)=>{
@@ -13,7 +16,7 @@ export const hasPartialContractMonth=(employee,competence)=>{
 export function monthlyAttendance(data,employee,competence,options={}) {
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(competence))return {rows:[],errors:['Competência inválida.'],signature:''};
   const [year,month]=competence.split('-').map(Number),holidays=new Set(getPayrollHolidays(data,year));
-  const days=getDays(year,month-1).filter(d=>isEmployeeEmployedOnDate(employee,d)&&remunerationModeOnDate(employee,d)==='clt');
+  const days=getDays(year,month-1).filter(d=>isEmployeeEmployedOnDate(employee,d)&&isCltPayrollOnDate(employee,d));
   const rows=days.map(date=>{
     const record=getAtt(data,employee.id,date),weekday=new Date(date+'T12:00:00Z').getUTCDay();
     const scheduled=weekday>0&&(weekday<6||options.saturdays)&&!holidays.has(date);
@@ -30,7 +33,11 @@ export function monthlyAttendance(data,employee,competence,options={}) {
   }
   // Full source material, not a weak numeric hash. Includes locks and clocks,
   // so reopening or correcting the source invalidates the payroll snapshot.
-  const signature=JSON.stringify({employee:[employee.id,employee.startDate||'',employee.endDate||'',employee.obra||''],rows});
+  const signature=JSON.stringify({employee:[employee.id,employee.startDate||'',employee.endDate||'',employee.obra||''],
+    ...(days.some(date=>remunerationModeOnDate(employee,date)==='daily')?{dailyContract:days.map(date=>{
+      const effective=effectiveEmployeeOnDate(employee,date);
+      return {date,mode:remunerationModeOnDate(employee,date),relationship:employmentRelationshipOnDate(employee,date),dailyRate:Number(effective.dailyRate),workdayHours:Number(effective.workdayHours||8),workStart:effective.workStart||'07:00',overtimeAdditionalPercent:Number(effective.overtimeAdditionalPercent??50)};
+    })}:{}),rows});
   return {rows,errors,signature};
 }
 export function buildAttendanceImport(data,employee,competence,options={}) {
@@ -56,7 +63,7 @@ export function buildAttendanceImport(data,employee,competence,options={}) {
       if(!['P','M'].includes(r.status)||choice.normal==null||choice.special==null||!Number.isFinite(normal)||!Number.isFinite(special)||normal<0||special<0||Math.abs(normal+special-Number(r.ot))>.001)errors.push(`${row.date}: distribua as ${r.ot} horas extras entre os adicionais da CCT.`);
       else {fields.overtimeHours+=normal;fields.extraordinaryHours+=special;}
     }
-    const clocks=calculateTimekeeping({...r,jornadaInicio:employee.workStart||'07:00'});
+    const clocks=calculateTimekeeping({...r,jornadaInicio:effectiveEmployeeOnDate(employee,row.date).workStart||'07:00'});
     if((!clocks.valid||clocks.delayMinutes>0||Number(r.atrasoMin)>0)&&String(options.timeReview||'').trim().length<10)errors.push('Há horários incompletos ou atrasos. Registre a decisão sobre descontos/compensações e as rubricas correspondentes.');
   }
   if(!['none','weekly'].includes(options.dsrPolicy))errors.push('Defina o tratamento de DSR após analisar as justificativas.');
@@ -64,13 +71,29 @@ export function buildAttendanceImport(data,employee,competence,options={}) {
   if(!options.reviewed)errors.push('O RH precisa confirmar a classificação e as regras da importação.');
   return {fields:Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,money(v)])),rows:source.rows,errors:[...new Set(errors)],signature:source.signature};
 }
+// A assinatura original continua guardada no demonstrativo. Para comparar,
+// considere a vigência dentro do mês: desligamento/lotação futuros não mudam
+// uma jornada histórica já registrada na sua obra. Aceita o formato legado.
+const comparableAttendanceSignature=(signature,competence)=>{
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(competence||''))return signature;
+  try{
+    const value=JSON.parse(signature);
+    if(!Array.isArray(value.employee)||!Array.isArray(value.rows))return signature;
+    const first=competence+'-01',last=new Date(Date.UTC(Number(competence.slice(0,4)),Number(competence.slice(5,7)),0)).toISOString().slice(0,10);
+    const [id,start,end]=value.employee;
+    return JSON.stringify({...value,employee:[id,start>first?start:first,end&&end<last?end:last],
+      rows:value.rows.map(row=>row.scheduled||row.record?.status?row:{...row,obraId:'',lock:undefined,approved:false})});
+  }catch{return signature;}
+};
 export function attendanceImportIssues(data,employee,draft){
   const source=draft?.attendanceSource;
+  const manualDaily=draft?.assessmentMethod===MANUAL_DAILY_CLT_METHOD;
   const contractIssues=draft&&hasPartialContractMonth(employee,draft.competence)&&!draft.contractPeriodReviewed?['Mês de admissão, desligamento ou mudança de modalidade: revise dias de salário e confirme a proporcionalidade.']:[];
-  if(!source||source.manualReason)return contractIssues;
+  if(manualDaily&&!source)return [...contractIssues,'Importe e confira o ponto da competência antes de concluir a apuração por diária.'];
+  if(!source||source.manualReason&&!manualDaily)return contractIssues;
   const current=buildAttendanceImport(data,employee,draft.competence,source.options);
   const errors=[...contractIssues,...current.errors];
-  if(current.signature!==source.signature)errors.push('O ponto mudou ou foi reaberto. Atualize a importação antes de salvar ou imprimir.');
+  if(comparableAttendanceSignature(current.signature,draft.competence)!==comparableAttendanceSignature(source.signature,draft.competence))errors.push('O ponto mudou ou foi reaberto. Atualize a importação antes de salvar ou imprimir.');
   if(ATTENDANCE_FIELDS.some(key=>Number(draft[key])!==current.fields[key]))errors.push('Os eventos divergem do ponto importado. Reimporte ou registre um ajuste manual justificado.');
   return errors;
 }

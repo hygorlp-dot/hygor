@@ -1,73 +1,111 @@
 # RH e ponto — acompanhamento
 
-Atualizado em 25/10/2026. [Roadmap oficial](RH-PONTO-ROADMAP.md).
+Atualizado em **25/10/2026**. [Roadmap](RH-PONTO-ROADMAP.md) · [Simulação completa](SIMULACAO_COMPLETA_FULANO_SICLANO.md) · [Revisão financeira](REVISAO_FINANCEIRA_HOMOLOGACAO.md).
 
-Branch: `codex/rh-ponto-week-one`. Base: `c7d4e777e7263b823bd2ce60797346ea69bca402` (#118, edição acessível e reaproveitamento). Referência da auditoria: `23d6ed5d3b88cf25cf999184ed62cc3074b9f9d5`, sem retorno do código.
+## Decisão atual
 
-Candidato de código: `5e96e4be4e77964f9c1c34ad3b4ccd322405b039`; segurança móvel independente em `cff3f2858ee1725d00dac64afe97c6b7acc1d46e`. Entregues às sessões Android e Testes para reconciliação/aceite independente. Nenhum desses commits foi promovido a produção nesta execução.
+O usuário pediu a execução autônoma, a simulação completa e a compilação do APK, com **custo adicional zero**. A frente atual usa a Vercel e o Supabase de homologação. Reaproveita o PR #119 e os módulos existentes. A decisão antiga de aguardar o ambiente ficou registrada no [histórico do PR #119](RH-PONTO-STATUS-PR119.md); não descreve a autorização atual.
 
-[PR #119](https://github.com/hygorlp-dot/hygor/pull/119), em rascunho para aceite. Checks GitHub em execução; preview automático do projeto mrc não é a API isolada de homologação e não deve receber dados fictícios.
+**O sistema por diária será mantido.** A escolha é por funcionário: diária, com seu valor, ou CLT mensal, com seu salário. As duas formas coexistem na mesma quinzena. Diária e salário são campos independentes; preencher o salário não converte um cadastro diário. Alterações usam vigência e histórico, preservando fechamentos anteriores. A produção atual e o APK de produção permanecem separados desta homologação. Evidências: [preservação da diária](PRESERVACAO_DIARIA.md).
 
-## Concluído antes deste recorte
+Branch de trabalho: `codex/fulano-siclano-integracao`. Base reaproveitada: `900a6b1ff12dea5f308f2a7f7288c73f846468f6`, do [PR #119](https://github.com/hygorlp-dot/hygor/pull/119). A árvore de trabalho contém alterações posteriores a essa base. O identificador da base não comprova sozinho as fontes de um APK.
 
-- #115/#116/#117: mensal CLT, adiantamentos, provisões, simulação/admissão, ponto importado, escolha com vigência, custos separados e prontuário privado.
-- #118: salvar sempre visível, zeros preservados, perfil reaproveitado, erro sem perder campos e versão de abertura. 2.850 testes locais; 24 fluxos desktop/celular; checks do PR verdes. Publicada: produção c7d4e77, quatro testes de edição/reaproveitamento na versão publicada aprovados.
-- Auditoria de leitura: 210 pagamentos, 925 movimentos bancários, 56 vínculos e nove perfis preservados; 12 meses do DRE sem divergências. R$ 7.160 pendentes.
+## Ambiente isolado
 
-## Implementado nesta execução; candidato em validação
+| Item | Destino |
+|---|---|
+| Gestão web e API | `https://ponto-homologacao.vercel.app` e `/api/data` |
+| Projeto Vercel | `ponto-homologacao`, plano Hobby, sem conexão com a main |
+| Banco | Supabase `ukkzpttnbyylkyujzwnv`, plano Free |
+| Marcador obrigatório | `arcd_ambiente.ambiente = homologacao` |
+| Pacote Android | `br.com.arcd.pontoobra.homologacao` |
+| Obra fictícia | `piloto-k110`, nome K1-10 |
 
-- Cadastro: valores e jornada com vigência, motivo, autor e histórico; valores antigos continuam disponíveis por data. Edição pessoal não exige reajuste. Proteção retroativa também no salvamento geral.
-- Cálculos: 13º por mês civil com 15 dias; salário mensal CLT na base rescisória; tolerância de atraso. Rescisão automática é prévia; registro final exige apuração identificada da contabilidade.
-- Biometria: PIN autorizado no servidor, limite persistente de tentativas no servidor e no aparelho. Referência de hora ausente/vencida não aparece como confiável.
-- Ponto recebido: fila de pendências, apropriação e importação revisada ao ponto existente sem redigitar horários. Originais preservados. Dia incompleto, múltiplas obras, hora não confiável e períodos fechados exigem tratamento específico.
-- Quinzena mista: diária por dias conferidos/valor vigente; CLT por holerite mensal e parcela informada. Aprovação cria título no financeiro atual; não paga nem duplica custo no DRE. Adiantamentos, títulos legados e saldos parciais protegidos contra duplicação.
+As credenciais ficam fora do repositório. A API não oferece bootstrap público de administrador. O app confere o ambiente antes de parear e sincronizar. O endpoint de produção não recebe esta massa de teste. Não houve upgrade, contratação ou pagamento real nesta execução.
 
-## Evidências disponíveis
+## O que avançou
 
-- Build web, lint, TypeScript e fronteiras arquiteturais aprovados. Logs: `C:/tmp/rh-weekone-{build,lint,types,architecture}-release.log`.
-- Rescisão/atraso: 56 testes focais. Mobile após corrigir fechamento dos bancos de teste: 324 testes aprovados, cinco ignorados; Expo Doctor 21/21; bundle Hermes aprovado (`rh-mobile-lifecycle-tests.log`).
-- Quinzena, conciliação/adiantamentos: 74 testes focais aprovados; snapshot de aprovação e ponte móvel: 29 testes de API/comando aprovados, incluindo concorrência (`rh-mixed-race-final.log`). Testes de navegador: **28/28** desktop/celular (`rh-weekone-browser-release.log`).
-- Consulta de preservação em 25/10/2026: 210 pagamentos, 925 bancos, 56 vínculos e nove perfis preservados; 12 meses DRE sem divergência, R$ 7.160 continuam pendentes (`rh-weekone-preservation-{finance,permissions,dre}.log`). Somente leitura.
-- Validação integrada completa ainda em curso; não considerar estes testes focais como liberação final.
-- A publicação da branch executa o gate obrigatório (lint, arquitetura, suíte geral e build); log `C:/tmp/rh-weekone-prepush.log`. O resultado dos checks do PR e o aceite independente complementam as evidências acima. Não equivalem a teste em Android físico.
-- Gate obrigatório concluído verde no candidato: **2.958 testes aprovados, 13 ignorados, 399 arquivos aprovados e dois ignorados**, lint/arquitetura/build aprovados. TypeScript separado aprovado. Aceite independente da sessão Testes: 76 cenários distintos; parte do encadeamento financeiro foi em memória após leitura SQL real, sem alegar ensaio completo API→persistência financeira ou teste físico.
-- Android nativo EAS concluído: [build 3150aa14](https://expo.dev/accounts/hygorf/projects/ponto-obra/builds/3150aa14-fe38-4074-a00e-b6b8582f8290), versão 1.1.0/código 4. [APK piloto](https://expo.dev/artifacts/eas/ibd9YPUuFwcBDKp0a0EnHDLiWq0fqsLSmbqEFVVS8yM.apk). API de **produção** `pontosarcd.vercel.app/api/data`: não inserir pessoas ou batidas fictícias. Gerado da árvore em trabalho; SHA incorporado c7d4e77 é o HEAD anterior, não uma certificação do commit integrado final. Não instalado/testado fisicamente.
-- Esse APK não substitui o candidato de homologação. Na sessão Android, usuário preservou A1–A5 (13/10/2026 19:21 UTC), sem custos novos, merge/main ou produção por essa autorização. Supabase isolado `ukkzpttnbyylkyujzwnv` foi criado/verificado pela sessão Android e consultado pela sessão Testes; não foi criado por esta frente. Usuário decidiu **manter deploy Vercel de homologação pendente, sem custo**. URL isolada e dois APKs correspondentes ainda não entregues. Não usar o APK de produção para contornar essa decisão.
+| Frente do roadmap | Entrega |
+|---|---|
+| Regras e saldos | Vigência de vínculo, remuneração, jornada e desligamento. Adiantamento novo só é compensado depois da liquidação comprovada. Pagamento parcial, reversão e repetição protegidos. |
+| Diária e CLT mensal | Escolha individual preservada, valores independentes e aprovação dos dois na mesma quinzena. Cadastros antigos sem vínculo informado continuam por diária. |
+| Cadastro único | Fulano profissional mensalista e Siclano ajudante por diária, com vínculo CLT explícito. Históricos, contatos, jornada, matrícula e dados fictícios para os testes. |
+| Ficha do operário | Sete seções no cadastro existente: resumo/pendências, dados, documentos/fotos, ponto, pagamentos, histórico e engenharia. Consulta de ponto arquivado sem restaurar ou duplicar registros. Permissões e avisos auditados no servidor. |
+| Celular integrado | APK 7 compilado, assinado, conferido e disponibilizado como arquivo de entrega. Endpoint e pacote isolados; contratos de pareamento, catálogo e sincronização testados. Instalação e uso em Android estável ainda pendentes. |
+| Documentos do RH | Dezesseis PDFs sintéticos, oito por pessoa, enviados ao prontuário privado remoto. Upload, abertura autorizada e download conferidos; os hashes dos arquivos baixados correspondem aos originais. |
+| Quinzena e competência | Cortes 06–20 e 21–05 mantidos. Adiantamento pago no dia 20 separado do saldo mensal. CLT por diária exige memória identificada; o app não inventa salário mensal. |
+| Financeiro e obra | A aprovação cria a obrigação no financeiro existente. Baixas parciais e finais zeram o saldo sem criar novamente o custo da mão de obra. |
+| Registrador formal | A ARP e os NSRs foram preservados. A conformidade formal do REP-P continua sendo uma etapa própria. |
+| Piloto contínuo | Roteiro disponível. Duas quinzenas e um fechamento mensal reais continuam necessários para operação ampliada. |
+| Expansão | Deve partir dos resultados do piloto. Rotinas adicionais e integrações não são declaradas concluídas apenas porque a simulação passou. |
 
-## Pendente / configuração necessária
+## Simulação local completa
 
-- Obra piloto **K1-10**; **Hygor** responsável pelo celular e conferência. Usuário confirmou Android disponível; instalação e teste físico ainda não executados. Conferir calendário, jornada/regra coletiva e prática das parcelas CLT, sem presumir 50%.
-- Leitura da produção encontrou K1-10 cadastrada, sem funcionários ativos com lotação fixa nela. Não foram feitas transferências. A equipe real continua a definir; lotação fixa não impede captura global conforme a arquitetura existente.
-- Concluir validação integrada de parcela, saldo, comprovante, conciliação, repetição e captura→ponto web. Confirmar comportamento das pendências de múltiplas obras sem transformar apropriações em salários duplicados.
-- Teste físico Android e definição do meio oficial enquanto REP-P tiver pendências formais. Não há evidência de aparelho conectado nesta execução.
-- Documentação formal do registrador, responsáveis e acompanhamento real de duas quinzenas/um mês. Não declarar operação ampliada.
+O ensaio de `src/integration/simulacao-completa.test.js` passou usando os handlers reais da API, PostgreSQL em memória, migrations reais e comandos financeiros reais. A identidade autenticada, o relógio e os sensores foram controlados pelo teste; isso está detalhado no [relatório](SIMULACAO_COMPLETA_FULANO_SICLANO.md).
 
-## Próximo passo exato
+- **180 marcações e 180 NSRs únicos**, com fila offline e reenvio de resposta perdida sem duplicação.
+- Fulano: salário de R$ 3.300,00, adiantamento pago de R$ 1.320,00 e saldo de teste de **R$ 1.695,40**.
+- Siclano: diária de R$ 120,00, adiantamento pago de R$ 600,00 e saldo de teste de **R$ 1.891,71**, calculado pela memória fictícia identificada.
+- Baixa parcial, saldo restante e reenvio idempotente. Saídas simuladas de **R$ 5.507,11** e contas a pagar da folha zeradas.
+- Origem de ponto, auditoria, permissões, competência seguinte e desligamento posterior preservados.
+- Um dia em duas obras permaneceu como pendência identificada; não foi duplicado nem aprovado silenciosamente.
 
-1. Encerrar controles gerais e disponibilizar o candidato identificado/PR à sessão Testes; manter roadmap/acompanhamento aqui e aceite independente na branch de Testes.
-2. Reconciliar candidato Android e ambiente isolado dentro da decisão de custo do usuário. Não substituir homologação por produção. Depois executar ensaio integrado com persistência isolada.
-3. Com o APK correto e Hygor no aparelho disponível, executar roteiro físico abaixo; só então avaliar liberação assistida K1-10. Publicação do candidato depende dessa liberação, sem confundir build aprovado com operação pronta.
+O fechamento de outubro foi ensaiado com o relógio local avançado para novembro. O sistema remoto não foi autorizado a fechar um mês ainda em andamento. Os valores tributários são premissas da memória de teste, não validação fiscal.
 
-## Cadastros de teste autorizados
+## Ensaio remoto financeiro aprovado
 
-Em 25/10/2026, ao perguntar pela equipe, o usuário respondeu: “Por enquanto crie Fulano e Siclano..”. Criados **somente** no projeto isolado `ukkzpttnbyylkyujzwnv`, após conferir `arcd_ambiente.ambiente = homologacao`, em transação idempotente que preserva dados existentes:
+O relatório `.tools/homologacao-adiantamentos-report.json` terminou com `status: completed` em **25/10/2026, às 20:53:02 UTC**. Foram usados a API real de homologação, os comandos oficiais, persistência remota e um extrato sintético identificado. A data de emissão/pagamento registrada no cenário é 20/10; a execução ocorreu em 25/10, sem alterar o relógio.
 
-- Obra de teste `piloto-k110`, nome K1-10; funcionários `piloto-k110-fulano` (Fulano) e `piloto-k110-siclano` (Siclano).
-- Ambos com `testData` e `cadastroPendente`; sem data de início, modalidade escolhida, salários/diárias, CPF, PIX ou documentos inventados. Não aptos ao fechamento da folha até completar os dados necessários.
-- Leitura posterior confirmou dois cadastros, nenhum evento de ponto e nenhum título, pagamento ou movimento financeiro. Produção não recebeu esses nomes.
-- São preparação de dados de homologação; ainda não acessíveis pelo aplicativo, porque a API isolada continua pendente. Não representam equipe real definida nem ensaio de admissão concluído.
+| Verificação remota | Resultado |
+| --- | --- |
+| Adiantamento de Fulano | R$ 1.320,00; baixa de R$ 660,00 e outra de R$ 660,00; saldo zero. |
+| Adiantamento de Siclano | R$ 600,00; baixa de R$ 300,00 e outra de R$ 300,00; saldo zero. |
+| Extrato e reenvio | Quatro movimentos, duas liquidações por título; repetição verificada sem duplicação. |
+| Caixa do cenário | R$ 1.920,00 de saídas registradas; R$ 0,00 a pagar nesses adiantamentos. |
+| DRE operacional | R$ 270,00 de custo de mão de obra antes e depois das baixas. O pagamento não duplicou o custo. |
+| Cadastros e ponto | Permaneceram iguais à fotografia anterior do ensaio. |
+| Fechamento e transferência | Outubro permanece aberto; nenhuma transferência bancária real ou mudança de relógio. |
 
-## Roteiro físico K1-10
+O relatório `.tools/homologacao-dre-report.json` confirma respostas bem-sucedidas das consultas reais de DRE da obra e da empresa, com `source: canonical_ledger`, nenhuma questão reportada, custo de R$ 270,00 e saídas de R$ 1.920,00. O caixa de teste ficou em −R$ 1.920,00, pois não houve entradas. Esses valores pertencem a dimensões diferentes: custo operacional e movimentação de caixa. As respostas registram `engineEnforced: false`; a prova é das consultas e dos valores retornados, não de uma imposição nova de motor ou de uma contabilidade fiscal completa.
 
-1. Confirmar responsável, equipe real, jornada e meio oficial de ponto. Aguardar APK de homologação autorizado com API isolada válida; conferir endereço antes de parear. Não usar o APK de produção para ensaios fictícios.
-2. Parear o aparelho. Cadastrar biometria com PIN do responsável; conferir bloqueio após tentativas incorretas, inclusive após reiniciar.
-3. Capturar marcação real permitida sem rede; verificar “salvo no aparelho/aguardando envio”. Fechar e reiniciar o aparelho; confirmar a fila preservada.
-4. Restabelecer rede. Conferir recebimento e reenvio sem duplicar. Verificar contingências câmera/GPS/reconhecimento e aviso de hora não confiável.
-5. No web, conferir origem e apropriação. Importar dia completo com classificação explícita; fechar o ponto. Batida tardia continua pendente, sem sobrescrever dia/folha fechados.
-6. Preparar diária e parcela CLT, conferir composição com contabilidade e aprovar. Registrar pagamento real somente pelo procedimento financeiro autorizado; conferir saldo parcial e conciliação. Recibo não realiza baixa.
+Os adiantamentos pagos ficam disponíveis para a compensação programada, conforme suas datas. O ensaio não aprovou antecipadamente a folha mensal de outubro. O relatório local completo e este ensaio remoto têm escopos distintos; os R$ 5.507,11 da simulação local não foram lançados como pagamento remoto.
 
-## Registro oficial
+## Validação desta árvore
 
-`rep-p.js` continua não conforme. A [orientação oficial do MTE](https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/fiscalizacao-do-trabalho/rep) e suas [perguntas e respostas](https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/fiscalizacao-do-trabalho/Perguntas%20e%20Respostas%20REP) exigem comprovações próprias (incluindo INPI, atestado/termo, arquivos e assinaturas aplicáveis). O APK funcional não comprova essas obrigações; manter o meio oficial da empresa enquanto pendentes.
+No checkpoint anterior, lint, TypeScript, fronteiras arquiteturais e build Vite passaram. A revisão financeira encontrou dois problemas na tela de folha — classificação do CLT por diária e atualização após baixa de adiantamento — reproduzidos em testes e corrigidos.
 
-Nenhum pagamento real será executado nesta implantação. Alterações remotas desta frente foram consultas e os dois cadastros de teste expressamente autorizados, somente em homologação; cenários financeiros usam testes isolados.
+A suíte geral desse checkpoint terminou sem falhas: **3.059 testes passaram e 13 foram ignorados; 411 arquivos passaram e dois foram ignorados**, em 881,22 segundos. A execução anterior, interrompida quando o Android e os testes disputaram recursos, não conta como aprovação.
+
+**O novo gate completo final, execução 12925, terminou em 25/10/2026 às 21:15:55 UTC: 3.113 testes aprovados, nenhuma falha e 13 ignorados, de 3.126 testes; 423 arquivos aprovados e dois ignorados, em 433,47 segundos.** Os relatórios `.tools/validation-delivery/tests-exit.json` e `tests.json` registram `success: true` e código de saída zero. A coordenação também confirmou 58 testes adicionais da frente NTP, lint, fronteiras arquiteturais e TypeScript aprovados após o congelamento da infraestrutura. **O build Vite final passou em 3,00 segundos**, com saída zero em `.tools/validation-delivery/build-exit.json`. A publicação do frontend e o ensaio do navegador remoto ainda aguardam o deployment `READY`.
+
+No navegador, 29 dos 30 casos passaram na primeira execução. O único caso de navegação móvel que falhou passou na repetição isolada, sem alteração de código. O fluxo novo de CLT por diária passou tanto no computador quanto na tela de celular; o relatório preserva a ocorrência e as evidências.
+
+Depois disso, a [ficha do operário](FICHA_DO_OPERARIO.md) passou nos dois cenários locais de navegador, desktop e celular, em 27,4 segundos, além das verificações de autorização, auditoria, transferência de obra e arquivo. As respostas de rede do navegador são fictícias; a prova de persistência dos avisos usa API real e Postgres local. A [preservação da diária](PRESERVACAO_DIARIA.md) passou em **59 testes de oito arquivos**, incluindo coexistência com CLT mensal, valores independentes, adiantamentos antigos, histórico fechado e montagem dos relatórios PDF/Excel.
+
+O relatório `.tools/homologacao-seed-report.json` confirma os dois funcionários e **16 documentos com `uploadAndDownloadVerified: true`**, incluindo a conferência SHA256. Isso comprova o envio e a recuperação dos anexos privados. A conferência da ficha pelo navegador remoto ainda está pendente; os ensaios de API e os testes locais não a substituem.
+
+## APK 7 disponível; teste físico pendente
+
+O arquivo final **`ponto-obra-homologacao-7.apk`** foi compilado localmente e disponibilizado para entrega, com 121.489.302 bytes e SHA256 `2a7b20d2329b731b8ac5c3aef19386fde07208a8ee8d1737fad0bf2c1c856014`. Foram conferidos assinatura, pacote isolado, versão 7, endpoint, modelos faciais e correspondência das fontes. A permissão desnecessária `READ_PHONE_STATE` foi removida. Os builds 5 e 7 mantêm pacote e certificado compatíveis para o ensaio de atualização.
+
+A conferência final voltou a validar os 63 arquivos do manifesto de fontes móveis, sem alteração em relação ao APK 7, com `fontesSha256` igual a `316884caba0bca7dc1676f0ce3322e0e40fcbdd41aad1d17fcc3a072781b1dc7`.
+
+**O emulador não chegou a instalar o aplicativo.** Sem aceleração KVM, as tentativas com Android 35 e AOSP 30 falharam nos serviços do próprio sistema; a instalação terminou com `Can't find service: package`. Não houve abertura do app, pareamento nem marcação por esse ensaio. Compilação e assinatura foram aprovadas; instalação, atualização 5→7, persistência da fila no aparelho, câmera, GPS e biometria permanecem para o Android estável da equipe. Detalhes e manifestos estão no [relatório do build](../apps/ponto-obra/docs/BUILD-LOCAL-HOMOLOGACAO.md).
+
+## Critério para liberar a obra
+
+O resultado técnico é um **candidato de homologação para simulação e operação assistida**, com as evidências descritas separadamente e os critérios pendentes acima. A compilação e a verificação da assinatura não comprovam instalação, câmera, GPS ou biometria no aparelho de Hygor.
+
+Antes do uso com a equipe real: conferir jornada, calendário e regra coletiva; cadastrar as pessoas reais; executar o roteiro físico abaixo; indicar o responsável e o meio oficial de registro. O app mantém a situação formal declarada em `rep-p.js`. A [orientação oficial do MTE](https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/fiscalizacao-do-trabalho/rep) e as [perguntas e respostas](https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/fiscalizacao-do-trabalho/Perguntas%20e%20Respostas%20REP) são referências do roteiro formal, não uma certificação deste candidato.
+
+## Roteiro no Android de Hygor
+
+1. Instalar o APK de homologação e conferir o nome do ambiente.
+2. Abrir a gestão web, gerar o pareamento da obra fictícia e parear o aparelho.
+3. Cadastrar a biometria com o PIN autorizado. Conferir câmera, identificação, localização e aviso de hora.
+4. Fazer uma marcação de teste sem internet. Fechar o app, reiniciar o aparelho e conferir que a fila permanece.
+5. Restabelecer a rede. Conferir recebimento no web e repetir a sincronização, verificando que não há duplicata.
+6. Conferir o dia no RH. Um dia incompleto ou com pendência permanece para revisão.
+7. Atualizar o APK mantendo os dados. Conferir pareamento, histórico e fila novamente.
+
+O ensaio financeiro usa somente extratos e pagamentos fictícios. Recibo ou demonstrativo não efetua transferência nem prova que houve pagamento.

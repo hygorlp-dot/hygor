@@ -1,6 +1,8 @@
 import { employeeLifecycleStatus } from "./employee-commands";
 import { employeeComplianceStatus } from "./compliance";
 import { isAdvanceActive } from "./advance-commands";
+import {advancePaymentStatus} from './advance-settlements.js';
+import {fromCents,toCents} from '../financeiro/ledger.js';
 
 const monthOf = dateStr => String(dateStr || "").slice(0, 7);
 
@@ -26,11 +28,18 @@ export const rhTurnoverForMonth = (employees = [], monthStr = "") => {
   return { admissions, terminations };
 };
 
-// Soma e contagem de adiantamentos ainda ativos (não cancelados/estornados),
-// reaproveitando isAdvanceActive de advance-commands.js em vez de duplicar a
-// lista de status cancelados.
-export const rhOpenAdvancesSummary = (advances = []) => {
+// Com o estado financeiro, o painel mostra o que falta pagar. Legados sem
+// título mantêm sua semântica de valor já adiantado e não criam nova obrigação.
+// A assinatura antiga permanece disponível para consumidores de totais brutos.
+export const rhOpenAdvancesSummary = (advances = [], data = null) => {
   const active = (advances || []).filter(isAdvanceActive);
+  if(data){
+    const legacy=active.filter(advance=>!advance.paymentTitleId);
+    const pending=active.filter(advance=>advance.paymentTitleId).map(advance=>advancePaymentStatus(advance,data))
+      .filter(payment=>['pending','partial'].includes(payment.status)&&payment.balance>0);
+    return {count:pending.length,total:fromCents(pending.reduce((sum,payment)=>sum+toCents(payment.balance),0)),
+      legacyCount:legacy.length,legacyTotal:fromCents(legacy.reduce((sum,advance)=>sum+toCents(advance.amount),0))};
+  }
   return {
     count: active.length,
     total: active.reduce((sum, advance) => sum + Number(advance.amount || 0), 0),
@@ -41,7 +50,7 @@ export const rhOpenAdvancesSummary = (advances = []) => {
 // treinamento), reaproveitando employeeComplianceStatus - mesma regra usada
 // no alerta por funcionário em EquipeView.
 export const rhComplianceSummary = (employees = [], asOf = "") => {
-  const active = (employees || []).filter(employee => employeeLifecycleStatus(employee, asOf) === "ativo");
+  const active = (employees || []).filter(employee => ['ativo','desligamento_agendado'].includes(employeeLifecycleStatus(employee, asOf)));
   const withExpired = active.filter(employee => employeeComplianceStatus(employee, asOf).expired.length > 0);
   return { activeCount: active.length, withExpiredCount: withExpired.length };
 };

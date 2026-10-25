@@ -35,3 +35,5 @@ ruvector.db
 bundle-metrics.json
 skills-lock.json
 PRODUCT.md
+__pycache__/
+*.pyc

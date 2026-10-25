@@ -6,7 +6,8 @@ import { useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, StyleSheet, View } from "react-native";
 import { classificarResposta, mensagemDeErro } from "../logica/falhas";
 import { casasDoCodigo } from "../logica/apresentacao";
-import { infoDoAparelho, infoDoApp } from "../servicos/conexao";
+import { AMBIENTE, infoDoAparelho, infoDoApp, infoDoServidor } from "../servicos/conexao";
+import { decidirAmbienteDoPareamento } from "../../config/ambiente";
 import { Botao, COR, CampoCodigo, Corpo, ESPACO, EstadoCentral, Legenda, Mensagem, Tela, Texto, Titulo } from "../ui";
 
 export default function TelaPareamento({ api, aoParear }) {
@@ -18,6 +19,12 @@ export default function TelaPareamento({ api, aoParear }) {
   const parear = async () => {
     setEnviando(true); setErro("");
     try {
+      const respostaAmbiente = await api("ponto-ambiente");
+      const ambiente = decidirAmbienteDoPareamento(respostaAmbiente, AMBIENTE);
+      if (!ambiente.ok) {
+        setErro(ambiente.mensagem || classificarResposta(respostaAmbiente).mensagem);
+        return;
+      }
       const app = infoDoApp(), aparelho = infoDoAparelho();
       const r = await api("ponto-parear", {
         codigo,
@@ -56,6 +63,7 @@ export default function TelaPareamento({ api, aoParear }) {
           <Texto variante="secao" cor={COR.ouro}>PONTO DE OBRA</Texto>
           <Titulo>Vincular aparelho</Titulo>
           <Corpo secundario>Digite o código exibido no ARCD.</Corpo>
+          {AMBIENTE === "homologacao" && <Legenda>{infoDoServidor().nomeAmbiente}</Legenda>}
         </View>
         <CampoCodigo casas={casasDoCodigo(codigo)} valor={codigo} rotulo="Código de pareamento, 8 números"
           aoMudar={v => { setCodigo(v.replace(/\D/g, "").slice(0, 8)); if (erro) setErro(""); }} />

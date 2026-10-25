@@ -1,0 +1,178 @@
+[
+  {
+    "employeeId": "piloto-k110-fulano",
+    "category": "identity",
+    "fileName": "fulano-identity-simulacao.pdf",
+    "documentId": "d3eaf3df-7e42-5354-a87c-757f6153a18a",
+    "sha256": "21dfa9d2aec8424f116c6d382b44f30dba6a34e9a792070d3a30551195248157",
+    "size": 2674,
+    "issuedAt": "2026-10-01",
+    "expiresAt": "",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-fulano",
+    "category": "address",
+    "fileName": "fulano-address-simulacao.pdf",
+    "documentId": "59062591-68e5-59c6-b7d3-3683e8a74a6b",
+    "sha256": "95adbeec31349d6b69016d8e41dffe7d323f6d79876fc5a68146f24451e6c7ba",
+    "size": 2456,
+    "issuedAt": "2026-10-01",
+    "expiresAt": "",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-fulano",
+    "category": "contract",
+    "fileName": "fulano-contract-simulacao.pdf",
+    "documentId": "d2c6ba4e-eeb9-5240-a69c-961f5884ee4b",
+    "sha256": "b9ae6a0d05ab89fd3625df78df0e1a201dfd4289fbb851f20f3de2fd24f9327e",
+    "size": 2813,
+    "issuedAt": "2026-10-01",
+    "expiresAt": "",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-fulano",
+    "category": "registration",
+    "fileName": "fulano-registration-simulacao.pdf",
+    "documentId": "ed35bbb1-21dd-5763-999b-6a6f936fe2cb",
+    "sha256": "65555117e62e5942ea5b66e892375c33ff8b873378a70b308870bfc3054df30b",
+    "size": 2541,
+    "issuedAt": "2026-10-01",
+    "expiresAt": "",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-fulano",
+    "category": "dependents",
+    "fileName": "fulano-dependents-simulacao.pdf",
+    "documentId": "c45dfa11-c760-5080-8969-a743a5b01881",
+    "sha256": "63a744ee2475c9e70a36d888824dc88385f00262d96b1399a586aa69e718fc20",
+    "size": 2634,
+    "issuedAt": "2026-10-01",
+    "expiresAt": "",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-fulano",
+    "category": "aso",
+    "fileName": "fulano-aso-simulacao.pdf",
+    "documentId": "5a2be7ee-93a5-591c-8167-8dec9481a257",
+    "sha256": "b8e814af8a2fa8dcd6e95e15569cfc0523ffbf7a5d78f4ef7afa45a6a3fc3180",
+    "size": 2647,
+    "issuedAt": "2026-09-28",
+    "expiresAt": "2027-09-27",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-fulano",
+    "category": "training",
+    "fileName": "fulano-training-simulacao.pdf",
+    "documentId": "df160dbb-d246-507f-b7f6-4b230c0195fa",
+    "sha256": "1f3b0717f54256a8bbd2d5041ed81980750e47f46ba4df59a08ebe6c3914c81f",
+    "size": 2608,
+    "issuedAt": "2026-10-01",
+    "expiresAt": "2027-09-27",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-fulano",
+    "category": "ppe",
+    "fileName": "fulano-ppe-simulacao.pdf",
+    "documentId": "b8e77df3-d65b-554b-9e8d-dd88598d5e3f",
+    "sha256": "43f7a072bc8b7c3c131e2e995e52eec70daa9180cf70a1930e73f7fbb3837c91",
+    "size": 2610,
+    "issuedAt": "2026-10-01",
+    "expiresAt": "",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-siclano",
+    "category": "identity",
+    "fileName": "siclano-identity-simulacao.pdf",
+    "documentId": "708a3fff-34eb-5f77-8354-43d2396fde77",
+    "sha256": "f3e5dc77e5f69235ba8062ba9eea6a7a6af303a985f795134a3a913f9aa84359",
+    "size": 2680,
+    "issuedAt": "2026-10-06",
+    "expiresAt": "",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-siclano",
+    "category": "address",
+    "fileName": "siclano-address-simulacao.pdf",
+    "documentId": "8cb145de-e163-5b60-a677-27c46f56756c",
+    "sha256": "846dccf351415404b3e95c4f2a7b60a07640d831455192cb28d550af162a1a8a",
+    "size": 2458,
+    "issuedAt": "2026-10-06",
+    "expiresAt": "",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-siclano",
+    "category": "contract",
+    "fileName": "siclano-contract-simulacao.pdf",
+    "documentId": "6d877aa2-7327-5876-8498-22c462f11591",
+    "sha256": "0d190b37d7bc3655b9dd34abcce266ffa9c7e748f25d3843b8a99fa8b8d25d7d",
+    "size": 2839,
+    "issuedAt": "2026-10-06",
+    "expiresAt": "",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-siclano",
+    "category": "registration",
+    "fileName": "siclano-registration-simulacao.pdf",
+    "documentId": "71d2772a-f2de-50d5-9a93-c47e211e3e4f",
+    "sha256": "842de007b8d224618465bc798503f11501db3457d75b4ef692b6ff0d221706d1",
+    "size": 2540,
+    "issuedAt": "2026-10-06",
+    "expiresAt": "",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-siclano",
+    "category": "dependents",
+    "fileName": "siclano-dependents-simulacao.pdf",
+    "documentId": "2bb6861c-4168-5e3f-bf78-b219640368d1",
+    "sha256": "e1d6c9b3f9d8a42732e6804e5287658942cf36e1d36c807495a2ccd971540376",
+    "size": 2635,
+    "issuedAt": "2026-10-06",
+    "expiresAt": "",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-siclano",
+    "category": "aso",
+    "fileName": "siclano-aso-simulacao.pdf",
+    "documentId": "61fdf379-fd88-5bc8-9a76-fd0aead59521",
+    "sha256": "8dd48d09d83f490c284c78e62ad64de7008fd833271de510bd4ae3cd4db7d7ec",
+    "size": 2647,
+    "issuedAt": "2026-10-02",
+    "expiresAt": "2027-10-01",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-siclano",
+    "category": "training",
+    "fileName": "siclano-training-simulacao.pdf",
+    "documentId": "0694ad1b-7007-56fa-9c14-2115e50a3350",
+    "sha256": "9da66f985761d06647905868c0bbffcb50184b2d74f5906b16d123c0b8a34d3d",
+    "size": 2609,
+    "issuedAt": "2026-10-06",
+    "expiresAt": "2027-10-01",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  },
+  {
+    "employeeId": "piloto-k110-siclano",
+    "category": "ppe",
+    "fileName": "siclano-ppe-simulacao.pdf",
+    "documentId": "cdcf9606-b4cb-54e6-abdb-ef1675b6833e",
+    "sha256": "8aec3b40dc3dc6b7c89d79a905dd23231bb721f89235c2781e2e2b0153f7a7eb",
+    "size": 2611,
+    "issuedAt": "2026-10-06",
+    "expiresAt": "",
+    "notes": "SIMULAÇÃO - SEM VALIDADE. Dados e registros fictícios; nenhum documento oficial ou assinatura."
+  }
+]

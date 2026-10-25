@@ -154,4 +154,60 @@ describe("fonte de hora", () => {
     expect(st.json.tempo.source).toBe("host");
     expect(st.json.verificacoes[0]).toMatchObject({ ok: false, erro: "UDP bloqueado" });
   });
+
+  it("renova depois de autenticar o aparelho e entrega a mesma evidência ao sync e à ARP, mesmo com cache quente", async () => {
+    const renovarHoraNtp = vi.fn(async () => {
+      const { error } = await db.from("ponto_tempo_verificacoes").insert({
+        fonte: "ntp.br", servidor: medicao.servidor, verificado_em: medicao.verificadoEm,
+        offset_ms: medicao.offsetMs, atraso_ms: medicao.atrasoMs, incerteza_ms: medicao.incertezaMs,
+        estrato: medicao.estrato, ok: true, erro: null,
+      });
+      if (error) throw error;
+    });
+    await pg.exec("create table public.arcd_ambiente (id boolean primary key, ambiente text not null); insert into public.arcd_ambiente values (true, 'homologacao')");
+    const homologacao = criar({ renovarHoraNtp, ambienteDeclarado: "homologacao", supabaseUrl: "https://isoladoteste.supabase.co" });
+    tratar = req => homologacao({ ...req, body: { ambienteApp: "homologacao", ...req.body } });
+    expect((await como("admin", "ponto-tempo-status")).json.tempo.confiavel).toBe(false);
+    expect((await tratar({ action: "ponto-sincronizar", body: {} })).status).toBe(401);
+    expect((await tratar({ action: "ponto-sincronizar", body: { ambienteApp: "producao" } })).status).toBe(409);
+    expect(renovarHoraNtp).not.toHaveBeenCalled();
+    const { json: { estabelecimento } } = await como("admin", "ponto-estabelecimento-salvar", { estabelecimento: { nome: "Teste de hora" } });
+    await como("admin", "ponto-estabelecimento-vincular-obra", { obraId: "obra-a", estabelecimentoId: estabelecimento.id });
+    const dispositivo = await parear();
+    const sync = await dispositivo.api("ponto-sincronizar");
+    expect(renovarHoraNtp).toHaveBeenCalledTimes(1);
+    expect(sync.json.tempo).toMatchObject({ confiavel: true, lastVerifiedAt: medicao.verificadoEm });
+    const evento = await eventoDe(dispositivo, 1);
+    expect((await dispositivo.api("ponto-enviar-marcacoes", { eventos: [evento] })).json.resultados[0]).toMatchObject({ status: "registrado", nsr: 1 });
+    const { rows: [registro] } = await pg.query("select evidencia_hora from public.ponto_arp_registros where event_id=$1", [evento.eventId]);
+    for (const campo of ["lastVerifiedAt", "source", "offsetMs", "uncertaintyMs", "status", "confiavel"]) {
+      expect(registro.evidencia_hora[campo]).toBe(sync.json.tempo[campo]);
+    }
+  });
+
+  it("não chama renovação oportunista no fluxo de produção", async () => {
+    const renovarHoraNtp = vi.fn();
+    tratar = criar({ renovarHoraNtp });
+    const dispositivo = await parear();
+    expect((await dispositivo.api("ponto-sincronizar")).status).toBe(200);
+    expect(renovarHoraNtp).not.toHaveBeenCalled();
+  });
+
+  it("limpa o cache quando outra instância renovou e mantém falha sem falsa confiança", async () => {
+    const renovarHoraNtp = vi.fn(async () => ({ status: "aguardando" }));
+    await pg.exec("create table public.arcd_ambiente (id boolean primary key, ambiente text not null); insert into public.arcd_ambiente values (true, 'homologacao')");
+    const homologacao = criar({ renovarHoraNtp, ambienteDeclarado: "homologacao", supabaseUrl: "https://isoladoteste.supabase.co" });
+    tratar = req => homologacao({ ...req, body: { ambienteApp: "homologacao", ...req.body } });
+    expect((await como("admin", "ponto-tempo-status")).json.tempo.confiavel).toBe(false);
+    const dispositivo = await parear();
+    expect((await dispositivo.api("ponto-sincronizar")).json.tempo.confiavel).toBe(false);
+    await db.from("ponto_tempo_verificacoes").insert({
+      fonte: "ntp", servidor: medicao.servidor, verificado_em: medicao.verificadoEm,
+      offset_ms: medicao.offsetMs, incerteza_ms: medicao.incertezaMs, ok: true,
+    });
+    renovarHoraNtp.mockResolvedValue({ status: "atual" });
+    expect((await dispositivo.api("ponto-sincronizar")).json.tempo).toMatchObject({
+      confiavel: true, lastVerifiedAt: medicao.verificadoEm, source: "host+ntp:b.st1.ntp.br",
+    });
+  });
 });

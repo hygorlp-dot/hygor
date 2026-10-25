@@ -1,12 +1,25 @@
 import {describe,it,expect,vi} from 'vitest';
 import {applyAttendanceCommand,ATTENDANCE_COMMAND} from './attendance-command.js';
 import {loadMobileAttendanceSource} from './attendance-mobile-source.js';
+import {applyAdvanceCommand,ADVANCE_COMMAND} from '../src/domains/rh/advance-commands.js';
 const day='2026-10-01',user={id:'rh',role:'rh'};
 const data=()=>({employees:[{id:'e',active:true,obra:'A'}],obras:[{id:'A'},{id:'B'}],attendance:{},attendanceLocks:{},titulosFolha:[],payments:[{id:'real',amount:800}],bankTransactions:[{id:'pix',amount:800}]});
 const source=()=>({employeeId:'e',date:day,proposal:{marcacoes:[{eventId:'1',marcadoEm:`${day}T10:00:00Z`,obraCapturaId:'A',horaConfiavel:true},{eventId:'2',marcadoEm:`${day}T15:00:00Z`,obraCapturaId:'A',horaConfiavel:true}],avisos:[]},appropriations:[{id:'a',version:1,inicio:`${day}T10:00:00Z`,fim:`${day}T15:00:00Z`,obraApropriadaId:'A',status:'ativa'}]});
 const command=()=>({action:ATTENDANCE_COMMAND.IMPORT_MOBILE,operationId:'10000000-0000-4000-8000-000000000001',employeeId:'e',date:day,status:'P',ot:0,atrasoMin:0,note:'Jornada conferida pelo RH',sourceEventIds:['1','2'],appropriationVersions:[{id:'a',version:1}],record:{entrada:'00:00',obraId:'B'}});
 const run=(d=data(),c=command(),s=source(),u=user)=>applyAttendanceCommand(d,u,c,'2026-10-02T12:00:00Z',s);
 describe('importação móvel para ponto operacional',()=>{
+  it('solicitação de adiantamento não fecha o dia e permite importar as batidas conferidas',()=>{
+    const request=applyAdvanceCommand(data(),{type:ADVANCE_COMMAND.PAYROLL_ADVANCE_CREATED,
+      actorId:user.id,payload:{advance:{id:'advance-import',empId:'e',date:day,firstDueDate:'2026-10-20',amount:200}}},`${day}T12:00:00Z`);
+    expect(request.ok).toBe(true);expect(request.data.titulosFolha[0].snapshotCalculo.kind).toBe('advance');
+    const imported=run(request.data);
+    expect(imported.ok).toBe(true);expect(imported.data.titulosFolha).toEqual(request.data.titulosFolha);
+  });
+  it('título CLT do mês anterior não fecha ponto do mês seguinte incluído no corte de pagamento',()=>{
+    const d=data();d.titulosFolha=[{employeeId:'e',competencia:'2026-09',periodoInicio:'2026-09-21',periodoFim:'2026-10-05',status:'pago',snapshotCalculo:{kind:'clt'}}];
+    expect(run(d).ok).toBe(true);
+    d.titulosFolha[0].competencia='2026-10';expect(run(d).ok).toBe(false);
+  });
   it('referência de hora ausente também exige tratamento próprio',()=>{
     const s=source();delete s.proposal.marcacoes[0].horaConfiavel;
     expect(run(data(),command(),s)).toMatchObject({ok:false,status:409});

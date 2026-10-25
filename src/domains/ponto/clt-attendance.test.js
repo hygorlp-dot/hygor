@@ -41,6 +41,12 @@ describe('ponto aprovado → holerite',()=>{
     const data=fixture(),result=buildAttendanceImport(data,employee,'2026-09',options);
     expect(attendanceImportIssues(data,employee,{competence:'2026-09',...result.fields,absenceDays:8,attendanceSource:{options,signature:result.signature}}).join(' ')).toContain('divergem');
   });
+  it('preserva a origem histórica após desligamento ou lotação posteriores ao mês',()=>{
+    const data=fixture(),source=buildAttendanceImport(data,employee,'2026-09',options);
+    const draft={competence:'2026-09',...source.fields,attendanceSource:{options,signature:source.signature}};
+    expect(attendanceImportIssues(data,{...employee,endDate:'2026-11-06',active:false,obra:'outra-obra'},draft)).toEqual([]);
+    expect(attendanceImportIssues(data,{...employee,endDate:'2026-09-20',active:false},draft).join(' ')).toContain('reaberto');
+  });
   it('separa dias CLT dos dias por diária no mês de transição e exige proporcionalidade',()=>{
     const data=fixture(),mixed={...employee,remunerationEffectiveFrom:'2026-09-15',remunerationHistory:[{date:'2026-05-01',mode:'daily'},{date:'2026-09-15',mode:'clt'}]};
     const result=buildAttendanceImport(data,mixed,'2026-09',options);

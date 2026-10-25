@@ -16,9 +16,13 @@ import { WORKER_TRAINING_TYPES } from "../../seguranca/constants";
 import { employeeComplianceStatus } from "../compliance";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { buildAdvanceInstallments } from "../advance-commands";
+import {advancePaymentStatus} from '../advance-settlements.js';
 import {employeeEditDraft} from '../employee-edit-draft.js';
+import {EMPLOYMENT_RELATIONSHIP_OPTIONS} from '../employment-relationship.js';
 import './employee-edit.css';
 import { employeeLifecycleStatus } from "../employee-commands";
+import {EmployeeFile} from './EmployeeFile.jsx';
+import {employeeEngineeringBusinessDate,employeeEngineeringCurrentObra} from '../employee-engineering.js';
 
 // Estado inicial dos documentos/certificações de cada funcionário: um mapa
 // key->{expiresAt} com uma entrada por NR do catálogo (ver
@@ -70,6 +74,7 @@ const RESCISSION_TYPE_TO_DISMISSAL = {
 
 function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, currentUser=null, onTab=null }) {
   const { formGrid } = useBreakpoint();
+  const canManage=['admin','rh'].includes(currentUser?.role);
   const emptyEmp = {
     id: "",
     name: "",
@@ -77,10 +82,16 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     workArea: "campo",
     cpf: "",
     phone: "",
+    email:"",birthDate:"",maritalStatus:"",
+    address:{street:'',number:'',district:'',city:'',state:'',postalCode:''},
+    emergencyContact:{name:'',phone:''},
     pixKey: "",
     pixType: "",
     pixHolder: "",
     dailyRate: "",
+    employmentRelationship: "",
+    employmentRelationshipEffectiveFrom: "",
+    employmentRelationshipReason: "",
     remunerationMode: "daily",
     monthlySalary: "",
     remunerationEffectiveFrom: "",
@@ -107,6 +118,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
   const [filterObra, setFilterObra] = useState(obraIdFixo||"all");
   const [statusFilter, setStatusFilter] = useState("ativo");
   const [expandedId, setExpandedId] = useState(null);
+  const [fileEmployeeId,setFileEmployeeId]=useState('');
   const [dismissalModal, setDismissalModal] = useState(null);
   const [dismissalForm, setDismissalForm] = useState({ endDate:today(), reason:"demissao_sem_justa_causa", notes:"" });
   const [archiveModal, setArchiveModal] = useState(null);
@@ -342,7 +354,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     }
     setAdvModal(null);
     setAdvForm({amount:"",description:"",date:today(),installmentCount:"1",frequency:"quinzenal",firstDueDate:today()});
-    showToast(`Adiantamento registrado em ${installmentCount} parcela(s).`);
+    showToast('Adiantamento enviado ao Financeiro. Desconto após pagamento.');
   };
 
   const removeAdv = advance => { setAdvCancelModal(advance); setAdvCancelReason(""); };
@@ -367,13 +379,15 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     showToast("Adiantamento cancelado e preservado para auditoria.");
   };
 
-  const lifecycleOf=e=>employeeLifecycleStatus(e,today());
+  const businessDate=employeeEngineeringBusinessDate();
+  const currentObra=e=>e.engineeringHistoryOnly?e.engineeringScopeObraId:employeeEngineeringCurrentObra(data,e,businessDate);
+  const lifecycleOf=e=>e.engineeringHistoryOnly?'historico':employeeLifecycleStatus(e,businessDate);
   const list = data.employees
     .filter(e => statusFilter === "todos" || lifecycleOf(e) === statusFilter)
     .filter(e => filterObra === "all"
       || (filterObra==="__administrativo__"&&e.workArea==="administrativo")
       || (filterObra==="__sem_obra__"&&!e.obra&&e.workArea!=="administrativo")
-      || e.obra === filterObra || e.lastObra === filterObra)
+      || currentObra(e) === filterObra || e.lastObra === filterObra)
     .filter(e => [e.name, e.role, e.cpf, e.phone].join(" ").toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name));
   const ativos = data.employees.filter(e=>lifecycleOf(e)==="ativo");
@@ -381,8 +395,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
   const administrativos = ativos.filter(e=>e.workArea==="administrativo").length;
   const lifecycleCounts=(data.employees||[]).reduce((acc,e)=>({...acc,[lifecycleOf(e)]:(acc[lifecycleOf(e)]||0)+1}),{});
   const clearFilters=()=>{setSearch("");setFilterObra(obraIdFixo||"all");setStatusFilter("ativo");};
-  const lifecycleLabel={ativo:"Ativo",desligamento_agendado:"Desligamento agendado",desligado:"Desligado",arquivado:"Arquivado"};
-  const lifecycleColor={ativo:C.green,desligamento_agendado:C.orange,desligado:C.muted,arquivado:C.red};
+  const lifecycleLabel={ativo:"Ativo",desligamento_agendado:"Desligamento agendado",desligado:"Desligado",arquivado:"Arquivado",historico:'Somente histórico'};
+  const lifecycleColor={ativo:C.green,desligamento_agendado:C.orange,desligado:C.muted,arquivado:C.red,historico:C.muted};
+  const openEmployeeEditor=employee=>{setForm({...employeeEditDraft(employee),trainings:{...EMPTY_TRAININGS,...(employee.trainings||{})}});setFormErrors({});setEmployeeSaveError('');setModal(true);};
+  const fileEmployee=(data.employees||[]).find(employee=>String(employee.id)===String(fileEmployeeId));
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth:1280, margin:"0 auto" }}>
@@ -390,7 +406,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
         eyebrow="Recursos Humanos"
         title="Equipes"
         description="Pessoas, lotação e dados trabalhistas em uma visão única."
-        actions={<Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setFormErrors({}); setModal(true); }}><Ic n="plus" /> Cadastrar funcionário</Btn>}
+        actions={canManage?<Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setFormErrors({}); setModal(true); }}><Ic n="plus" /> Cadastrar funcionário</Btn>:null}
       />
 
       <div className="team-summary" aria-label="Resumo e filtros por situação">
@@ -399,6 +415,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
           ["desligamento_agendado","Agendados",lifecycleCounts.desligamento_agendado||0],
           ["desligado","Desligados",lifecycleCounts.desligado||0],
           ["arquivado","Arquivados",lifecycleCounts.arquivado||0],
+          ...(lifecycleCounts.historico?[["historico","Histórico da engenharia",lifecycleCounts.historico]]:[]),
           ["todos","Todas as situações",(data.employees||[]).length],
         ].map(([value,label,count])=><button key={value} type="button" className={`team-summary__item${statusFilter===value?" is-active":""}`} onClick={()=>setStatusFilter(value)} aria-pressed={statusFilter===value}><span>{label}</span><strong>{count}</strong></button>)}
         <button type="button" className={`team-summary__item${filterObra==="__sem_obra__"?" is-active":""}`} onClick={()=>{setFilterObra("__sem_obra__");setStatusFilter("ativo");}} aria-pressed={filterObra==="__sem_obra__"}><span>Sem lotação</span><strong>{semObra-administrativos}</strong></button>
@@ -410,35 +427,37 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       </div>
 
       <div className="team-list-head" aria-hidden="true"><span>Funcionário</span><span>Função</span><span>Lotação</span><span>Pendências</span><span>Situação</span><span>Ações</span></div>
-      {list.length === 0 && <div className="team-empty"><strong>{(data.employees||[]).length?"Nenhum resultado com estes filtros.":"Nenhum funcionário cadastrado."}</strong><p>{(data.employees||[]).length?"Limpe os filtros ou selecione outra situação.":"Cadastre o primeiro funcionário para iniciar a gestão da equipe."}</p>{(data.employees||[]).length?<Btn v="ghost" onClick={clearFilters}>Limpar filtros</Btn>:<Btn onClick={()=>{setForm({...emptyEmp,obra:obraIdFixo||data.obras[0]?.id||""});setModal(true);}}>Cadastrar funcionário</Btn>}</div>}
+      {list.length === 0 && <div className="team-empty"><strong>{(data.employees||[]).length?"Nenhum resultado com estes filtros.":"Nenhum funcionário cadastrado."}</strong><p>{(data.employees||[]).length?"Limpe os filtros ou selecione outra situação.":"Cadastre o primeiro funcionário para iniciar a gestão da equipe."}</p>{(data.employees||[]).length?<Btn v="ghost" onClick={clearFilters}>Limpar filtros</Btn>:canManage?<Btn onClick={()=>{setForm({...emptyEmp,obra:obraIdFixo||data.obras[0]?.id||""});setModal(true);}}>Cadastrar funcionário</Btn>:null}</div>}
 
       {list.map(e => {
         const advs = empAdvances(e.id);
         const totalAdv = advs.filter(advanceActive).reduce((s, a) => s + Number(a.amount || 0), 0);
         const compliance = employeeComplianceStatus(e, today());
+        const engineeringPending=(data.employeeEngineeringRecords||[]).filter(record=>String(record.employeeId)===String(e.id)&&['pending','acknowledged'].includes(record.status)).length;
         const exp = expandedId === e.id;
         const lifecycle=lifecycleOf(e);
         const detailId=`employee-detail-${e.id}`;
         return (
           <article key={e.id} className={`team-row team-row--${lifecycle}`}>
             <div className="team-row__main">
-              <button type="button" className="team-row__employee" onClick={() => setExpandedId(exp ? null : e.id)} aria-expanded={exp} aria-controls={detailId}>
-                <span className="team-row__initials">{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><span><strong>{e.name}</strong><small>{fmt(e.dailyRate)}/dia</small></span><Ic n={exp?"chevronUp":"chevronDown"} s={13}/>
+              <button type="button" className="team-row__employee" onClick={() => canManage?setExpandedId(exp ? null : e.id):setFileEmployeeId(e.id)} aria-expanded={canManage&&exp} aria-controls={canManage?detailId:undefined}>
+                <span className="team-row__initials">{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><span><strong>{e.name}</strong><small>{canManage&&e.dailyRate?`${fmt(e.dailyRate)}/dia`:'Ficha e registros'}</small></span><Ic n={exp?"chevronUp":"chevronDown"} s={13}/>
               </button>
               <span className="team-row__cell" data-label="Função">{e.role||"Não informada"}</span>
-              <span className="team-row__cell" data-label="Lotação">{e.workArea==="administrativo"?"Administrativo":(e.obra?obraName(e.obra):"Sem lotação")}</span>
+              <span className="team-row__cell" data-label="Lotação">{e.engineeringHistoryOnly?'Histórico nesta obra':e.workArea==="administrativo"?"Administrativo":(currentObra(e)?obraName(currentObra(e)):"Sem lotação")}</span>
               <span className="team-row__cell" data-label="Pendências">
                 <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-start"}}>
-                  {totalAdv>0&&<Badge color={C.red}>Adiant. {fmt(totalAdv)}</Badge>}
+                  {canManage&&totalAdv>0&&<Badge color={C.red}>Adiantamentos registrados {fmt(totalAdv)}</Badge>}
                   {compliance.expired.length>0&&<Badge color={C.orange}>{compliance.expired.length===1?"1 doc. vencido":`${compliance.expired.length} docs. vencidos`}</Badge>}
-                  {totalAdv<=0&&compliance.expired.length===0&&<span className="team-row__none">Nenhuma</span>}
+                  {engineeringPending>0&&<Badge color={C.orange}>{engineeringPending} aviso(s) de engenharia</Badge>}
+                  {totalAdv<=0&&compliance.expired.length===0&&engineeringPending===0&&<span className="team-row__none">Conferir ficha</span>}
                 </div>
               </span>
               <span className="team-row__cell" data-label="Situação"><Badge color={lifecycleColor[lifecycle]}>{lifecycleLabel[lifecycle]}</Badge></span>
-              <div className="team-row__actions"><Btn v="ghost" size="sm" onClick={() => gerarFichaFuncionarioPDF(data, e, showToast)}><Ic n="file"/> Ficha</Btn><Btn v="ghost" size="sm" onClick={() => { setForm({...employeeEditDraft(e),trainings:{...EMPTY_TRAININGS,...(e.trainings||{})}}); setFormErrors({}); setEmployeeSaveError(''); setModal(true); }}><Ic n="edit"/> Editar</Btn></div>
+              <div className="team-row__actions"><Btn v="ghost" size="sm" onClick={()=>setFileEmployeeId(e.id)}><Ic n="file"/> Abrir ficha</Btn>{canManage&&<Btn v="ghost" size="sm" onClick={()=>openEmployeeEditor(e)}><Ic n="edit"/> Editar</Btn>}</div>
             </div>
 
-            {exp && (
+            {exp && canManage && (
               <div id={detailId} className="team-row__detail">
                 <div className="team-detail-grid">
                   <p style={{ color: C.subtle, fontSize: "var(--arcd-type-body)" }}>CPF: {e.cpf || "-"}</p>
@@ -469,26 +488,31 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                   <Btn v="warning" size="sm" onClick={() => setAdvModal(e.id)}><Ic n="plus" /> Novo</Btn>
                 </div>
                 {advs.length === 0 && <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Nenhum adiantamento.</p>}
-                {advs.map(a => (
+                {advs.map(a => {
+                  const payment=advancePaymentStatus(a,data);
+                  const paymentLabel=!a.paymentTitleId?'Registro legado · confira o comprovante':({pending:'Aguardando pagamento',partial:'Parcial',paid:'Pago',cancelled:'Cancelado'}[payment.status]||'Aguardando pagamento');
+                  return (
                   <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "7px 0",opacity:advanceActive(a)?1:.55 }}>
                     <div>
                       <p style={{ fontWeight:600, fontSize: "var(--arcd-type-body)" }}>{a.description}</p>
                       <p style={{ color: C.muted, fontSize:"var(--arcd-type-label)" }}>{fmtDateFull(a.date)} · {a.installmentCount||1}x {a.frequency==="mensal"?"mensal":"quinzenal"}{!advanceActive(a)?" · cancelado":""}</p>
+                      <p style={{color:C.subtle,fontSize:'var(--arcd-type-label)'}}>{paymentLabel}{a.paymentTitleId?` · pago ${fmt(payment.paid)} · falta pagar ${fmt(payment.balance)}`:''}</p>
                       {advanceActive(a)&&(a.installments||[]).length>0&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-label)",marginTop:2}}>{a.installments.map(item=>`${item.number}ª ${fmt(item.amount)} em ${fmtDate(item.dueDate)}`).join(" · ")}</p>}
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <span style={{ color: C.red, fontWeight:600 }}>{fmt(a.amount)}</span>
+                      <span style={{ color: C.red, fontWeight:600 }}>Valor registrado: {fmt(a.amount)}</span>
                       {advanceActive(a)&&<Btn v="danger" size="sm" ariaLabel={`Cancelar adiantamento ${a.description}`} title={`Cancelar adiantamento ${a.description}`} onClick={() => removeAdv(a)}><Ic n="trash" /></Btn>}
                     </div>
                   </div>
-                ))}
+                );})}
               </div>
             )}
           </article>
         );
       })}
 
-      {modal && (
+      {fileEmployee&&!modal&&<EmployeeFile key={fileEmployee.id} employee={fileEmployee} data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onClose={()=>setFileEmployeeId('')} onEdit={()=>openEmployeeEditor(fileEmployee)} onExport={()=>gerarFichaFuncionarioPDF(data,fileEmployee,showToast)} onNavigate={onTab}/>}
+      {modal && canManage && (
         <Modal title={form.id ? "Editar funcionário" : "Novo funcionário"} onClose={() => {if(!savingEmployee)setModal(false);}} wide panelClass="employee-edit-modal" footer={<><p className="employee-edit-feedback" role={employeeSaveError?'alert':'status'}>{employeeSaveError||(savingEmployee?'Salvando funcionário…':'')}</p><div className="employee-edit-actions"><Btn v="ghost" disabled={savingEmployee} onClick={()=>setModal(false)}>Cancelar</Btn><Btn disabled={savingEmployee} onClick={saveEmp}><Ic n="check"/> {savingEmployee?'Salvando…':'Salvar'}</Btn></div></>}>
           <fieldset disabled={savingEmployee} style={{border:0,padding:0,margin:0,minWidth:0}} aria-label="Dados do funcionário">
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -499,7 +523,11 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 <Inp label="Função" value={form.role} onChange={F("role")} />
                 <Inp label="CPF" value={form.cpf} onChange={v => F("cpf")(fmtCPF(v))} />
                 <Inp label="Telefone" value={form.phone} onChange={v => F("phone")(fmtPhone(v))} />
+                <Inp label="E-mail do funcionário" type="email" value={form.email||''} onChange={F('email')}/>
+                <Inp label="Data de nascimento" type="date" value={form.birthDate||''} onChange={F('birthDate')}/>
+                <Inp label="Estado civil" value={form.maritalStatus||''} onChange={F('maritalStatus')}/>
               </div>
+              <details><summary>Endereço e contato de emergência</summary><div style={{display:'grid',gridTemplateColumns:formGrid(2),gap:12,marginTop:12}}>{[['street','Rua'],['number','Número'],['district','Bairro'],['city','Cidade'],['state','UF'],['postalCode','CEP']].map(([key,label])=><Inp key={key} label={label} value={form.address?.[key]||''} onChange={value=>setForm(current=>({...current,address:{...(typeof current.address==='object'?current.address:{}),[key]:value}}))}/>)}<Inp label="Nome do contato de emergência" value={form.emergencyContact?.name||''} onChange={value=>setForm(current=>({...current,emergencyContact:{...current.emergencyContact,name:value}}))}/><Inp label="Telefone do contato de emergência" value={form.emergencyContact?.phone||''} onChange={value=>setForm(current=>({...current,emergencyContact:{...current.emergencyContact,phone:fmtPhone(value)}}))}/></div></details>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <p style={TYPO.eyebrow}>Lotação</p>
@@ -514,13 +542,16 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <p style={TYPO.eyebrow}>Remuneração</p><p className="employee-edit-hint">Valores cadastrados são mantidos, inclusive zero. Dados salvos no perfil do holerite são reaproveitados. Salário mensal, matrícula e CBO sem registro ficam em branco; a diária não é convertida em salário mensal.</p>
               <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
+                <Sel label="Vínculo contratual" value={form.employmentRelationship||""} onChange={v=>setForm(f=>({...f,employmentRelationship:v,employmentRelationshipEffectiveFrom:f.id?today():f.startDate||today(),employmentRelationshipReason:""}))} options={EMPLOYMENT_RELATIONSHIP_OPTIONS}/>
+                <p className="employee-edit-hint">Informe o vínculo conforme o contrato. Receber por diária não define o vínculo.</p>
+                {form.employmentRelationship&&(!form.id||form.employmentRelationship!==(data.employees.find(e=>e.id===form.id)?.employmentRelationship||""))&&<><Inp label="Vínculo válido a partir de" type="date" value={form.employmentRelationshipEffectiveFrom||form.startDate||""} onChange={F("employmentRelationshipEffectiveFrom")}/>{form.id&&<Inp label="Motivo da definição ou alteração do vínculo" value={form.employmentRelationshipReason||""} onChange={F("employmentRelationshipReason")}/>}</>}
                 <Sel label="Modalidade de remuneração" value={form.remunerationMode||"daily"} onChange={v=>setForm(f=>({...f,remunerationMode:v,remunerationEffectiveFrom:today()}))} options={[{v:"daily",l:"Diária"},{v:"clt",l:"CLT mensal"}]}/>
                 {(!form.id||(form.remunerationMode||"daily")!==(data.employees.find(e=>e.id===form.id)?.remunerationMode||"daily"))?<Inp label="Modalidade válida a partir de" type="date" value={form.remunerationEffectiveFrom||""} onChange={F("remunerationEffectiveFrom")}/>:<p className="employee-edit-hint">Modalidade atual preservada. Para mudar, selecione outra modalidade e informe a vigência.</p>}
                 <Inp label={form.remunerationMode==="clt"?"Salário contratual mensal *":"Salário mensal para opção CLT"} type="number" value={String(form.monthlySalary||"")} onChange={F("monthlySalary")} error={formErrors.monthlySalary}/>
                 <Inp label="Matrícula do funcionário" value={form.cltPayroll?.profile?.registration||""} onChange={v=>setForm(f=>({...f,cltPayroll:{...f.cltPayroll,profile:{...f.cltPayroll?.profile,registration:v}}}))}/>
                 <Inp label="CBO do funcionário" value={form.cltPayroll?.profile?.cbo||""} onChange={v=>setForm(f=>({...f,cltPayroll:{...f.cltPayroll,profile:{...f.cltPayroll?.profile,cbo:v}}}))}/>
                 <Sel label="Categoria contratual na CCT" value={form.cltPayroll?.profile?.category||""} onChange={v=>setForm(f=>({...f,cltPayroll:{...f.cltPayroll,profile:{...f.cltPayroll?.profile,category:v}}}))} options={[{v:"",l:"Selecione"},{v:"professional",l:"Profissional"},{v:"helper",l:"Servente / ajudante"}]}/>
-                <Inp label={form.remunerationMode==="clt"?"Diária de referência para custeio do ponto *":"Diária *"} type="number" value={form.dailyRate} onChange={F("dailyRate")} error={formErrors.dailyRate}/>
+                <Inp label={form.remunerationMode==="clt"?"Diária de referência para custeio *":"Diária *"} type="number" value={form.dailyRate} onChange={F("dailyRate")} error={formErrors.dailyRate}/>
                 {form.id&&<><Inp label="Valores e jornada válidos a partir de" type="date" value={form.remunerationValueEffectiveFrom||""} onChange={F("remunerationValueEffectiveFrom")}/><Inp label="Motivo do reajuste de valores ou jornada" value={form.remunerationValueReason||""} onChange={F("remunerationValueReason")}/></>}
                 <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} />
                 <Inp label="VR diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} />
@@ -528,7 +559,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 <Inp label="Início previsto da jornada" type="time" value={form.workStart} onChange={F("workStart")} />
                 <Inp label="Adicional de hora extra (%)" type="number" min="0" value={form.overtimeAdditionalPercent} onChange={F("overtimeAdditionalPercent")} />
               </div>
-              {form.remunerationMode==="clt"&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-label)"}}>O salário contratual alimenta o holerite mensal. A diária de referência mantém o custeio dos apontamentos no DRE; não define o salário CLT nem representa um novo pagamento. Alterar a modalidade não recalcula folhas anteriores.</p>}
+              {form.remunerationMode==="clt"&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-label)"}}>Usada no custo do ponto. O salário mensal define o holerite. Alterar a modalidade não recalcula folhas anteriores.</p>}
+              {form.employmentRelationship==='clt'&&form.remunerationMode==='daily'&&<p className="employee-edit-hint">Empregado CLT por diária: confira o ponto e prepare a memória de apuração em Holerites. A aprovação exige rubricas, incidências e pagamentos conferidos.</p>}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <p style={TYPO.eyebrow}>PIX</p>
@@ -588,15 +620,16 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       {advCancelModal&&<Modal title="Cancelar adiantamento" onClose={()=>setAdvCancelModal(null)}><div className="team-confirm"><p>Cancele o adiantamento de <strong>{fmt(Number(advCancelModal.amount||0))}</strong>{advCancelModal.description?` (${advCancelModal.description})`:""}. O lançamento é preservado para auditoria.</p><Inp label="Motivo do cancelamento *" value={advCancelReason} onChange={setAdvCancelReason} multiline placeholder="Explique por que este adiantamento está sendo cancelado"/><div><Btn v="ghost" full onClick={()=>setAdvCancelModal(null)}>Cancelar</Btn><Btn v="danger" full loading={pendingAction==="advCancel"} onClick={confirmRemoveAdv}>Confirmar cancelamento</Btn></div></div></Modal>}
 
       {advModal && (
-        <Modal title="Solicitar ou registrar adiantamento" onClose={() => setAdvModal(null)}>
+        <Modal title="Enviar adiantamento ao Financeiro" onClose={() => setAdvModal(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <p>Salvar cria uma obrigação no Financeiro. O desconto na folha será liberado após a confirmação do pagamento.</p>
             <Inp label="Valor *" type="number" value={advForm.amount} onChange={v => setAdvForm(f => ({ ...f, amount: v }))} />
             <Inp label="Descrição" value={advForm.description} onChange={v => setAdvForm(f => ({ ...f, description: v }))} />
-            <Inp label="Data da solicitação/liberação" type="date" value={advForm.date} onChange={v => setAdvForm(f => ({ ...f, date: v }))} />
+            <Inp label="Data prevista para pagamento" type="date" value={advForm.date} onChange={v => setAdvForm(f => ({ ...f, date: v }))} />
             <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
               <Inp label="Quantidade de parcelas" type="number" min="1" max="24" value={advForm.installmentCount} onChange={v=>setAdvForm(f=>({...f,installmentCount:v}))}/>
               <Sel label="Frequência do desconto" value={advForm.frequency} onChange={v=>setAdvForm(f=>({...f,frequency:v}))} options={[{v:"quinzenal",l:"A cada quinzena"},{v:"mensal",l:"Uma vez por mês"}]}/>
-              <Inp label="Primeiro desconto na folha" type="date" value={advForm.firstDueDate} onChange={v=>setAdvForm(f=>({...f,firstDueDate:v}))}/>
+              <Inp label="Primeiro desconto previsto na folha" type="date" value={advForm.firstDueDate} onChange={v=>setAdvForm(f=>({...f,firstDueDate:v}))}/>
             </div>
             {Number(advForm.amount)>0&&Number(advForm.installmentCount)>0&&<div style={{padding:"9px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:6}}>
               <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Programação dos descontos</p>
@@ -607,7 +640,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
             </div>}
             <div style={{ display: "flex", gap: 8 }}>
               <Btn v="ghost" onClick={() => setAdvModal(null)} full>Cancelar</Btn>
-              <Btn v="warning" onClick={saveAdv} full><Ic n="check" /> Confirmar parcelamento</Btn>
+              <Btn v="warning" onClick={saveAdv} full><Ic n="check" /> Enviar ao Financeiro</Btn>
             </div>
           </div>
         </Modal>

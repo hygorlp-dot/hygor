@@ -16,9 +16,11 @@ import { novaReferencia } from "../../../../src/domains/ponto-eletronico/relogio
 import { gpsParaMarcacao } from "../../../../src/domains/ponto-eletronico/marcacao.js";
 import { LIMITE_FOTO_BYTES, bytesDoBase64 } from "../../../../src/domains/ponto-eletronico/foto.js";
 import { enviarLegado } from "./legado-v1.js";
+import { conferirAmbiente } from "../../config/ambiente";
 
 const LOTE = 200;
 const HEX64 = /^[0-9a-f]{64}$/i;
+const ambienteRecusado = codigo => codigo === "AMBIENTE_INCOMPATIVEL" || codigo === "AMBIENTE_NAO_CONFIRMADO";
 // Status da ARP em que o evento está definitivamente gravado.
 export const STATUS_GRAVADO = Object.freeze(["registrado", "ja_registrado", "acesso_registrado", "acesso_ja_registrado"]);
 // GPS mais velho que isto não é mandado (nem na sincronização, nem na batida):
@@ -129,6 +131,7 @@ export async function enviarFotos({ armazem, api, lerFotoBase64, aposEnviar = as
     if (!foto) { await armazem.fotoSemArquivo(item.id); semArquivo++; continue; }
     if (bytesDoBase64(foto) > LIMITE_FOTO_BYTES) { await armazem.fotoRecusada(item.id, "acima do limite do servidor"); recusadas++; continue; }
     const r = await api("ponto-enviar-foto", { marcacaoId: item.id, foto });
+    if (ambienteRecusado(r.code)) return { enviadas, falhas, semArquivo, recusadas, ambienteIncompativel: true, erro: r.error, status: r.status };
     if (r.ok) {
       await armazem.fotoEnviada(item.id);
       try { await aposEnviar(item); } catch { /* apagar o arquivo local não pode travar a fila */ }
@@ -149,7 +152,7 @@ export async function enviarFotos({ armazem, api, lerFotoBase64, aposEnviar = as
 // `monotonico()` devolve { ms, bootId } do relógio que não muda com ajuste.
 // Não renumera nada: se o servidor já tiver uma cadeia local deste aparelho
 // mais adiante do que a do banco local, só sinaliza (cadeiaDivergente).
-export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {} }) {
+export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}, ambienteApp = "producao" }) {
   // Funcionários e biometrias são GLOBAIS da empresa. Os vetores só descem
   // quando mudaram: o aparelho manda a assinatura do conjunto que já tem.
   const anterior = await armazem.cadastro();
@@ -157,6 +160,8 @@ export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}
   const r = await api("ponto-sincronizar", { ...corpo, biometriasAssinatura: anterior?.biometriasAssinatura || "" });
   const resposta = monotonico();
   if (!r.ok) return { ok: false, erro: r.error || `HTTP ${r.status}`, codigo: r.code || null, semRede: r.status === 0, status: r.status };
+  const ambiente = conferirAmbiente(ambienteApp, r.ambiente);
+  if (!ambiente.ok) return { ok: false, erro: ambiente.mensagem, codigo: "AMBIENTE_INCOMPATIVEL", status: 409 };
   // Referência só com leitura monotônica válida e sem reboot no meio.
   if (envio.bootId === resposta.bootId && Number.isFinite(envio.ms) && Number.isFinite(resposta.ms)) {
     await armazem.salvarReferenciaHora(novaReferencia({
@@ -181,10 +186,13 @@ export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}
 // cadastro/hora quando pedido ou vencido → eventos → fotos. Nunca lança por
 // falha de rede/servidor: devolve o resumo para a tela e o diagnóstico.
 // Exceção inesperada (ex.: banco) sobe para quem chamou registrar no estado.
-export async function rodadaDeSincronizacao({ armazem, api, monotonico, corpo, cadastroVencido, lerFotoBase64, aposEnviarFoto }) {
+export async function rodadaDeSincronizacao({ armazem, api, monotonico, corpo, cadastroVencido, lerFotoBase64, aposEnviarFoto, ambienteApp = "producao" }) {
   const resumo = { online: true, cadastroAtualizado: false, revogado: false, desconhecido: false, erro: null, envio: null, fotos: null, cadeiaDivergente: false };
-  if (cadastroVencido) {
-    const s = await sincronizarCadastro({ armazem, api, monotonico, corpo });
+  // Homologação confirma o ambiente em toda rodada, inclusive quando o
+  // catálogo ainda é recente. Nenhuma fila atravessa uma troca de backend.
+  if (cadastroVencido || ambienteApp === "homologacao") {
+    const s = await sincronizarCadastro({ armazem, api, monotonico, corpo, ambienteApp });
+    if (ambienteRecusado(s.codigo)) return { ...resumo, ambienteIncompativel: true, erro: s.erro, status: s.status };
     if (s.codigo === "APARELHO_REVOGADO") return { ...resumo, online: true, revogado: true, erro: s.erro };
     if (s.codigo === "APARELHO_DESCONHECIDO" || s.codigo === "APARELHO_SEM_TOKEN") return { ...resumo, online: true, desconhecido: true, erro: s.erro };
     if (!s.ok) { resumo.online = !s.semRede; resumo.erro = s.erro; resumo.status = s.status; }
@@ -193,11 +201,13 @@ export async function rodadaDeSincronizacao({ armazem, api, monotonico, corpo, c
   }
   const envio = await enviarPendentes({ armazem, api });
   resumo.envio = envio;
+  if (ambienteRecusado(envio.codigo)) return { ...resumo, ambienteIncompativel: true, erro: envio.erro, status: envio.status };
   if (envio.codigo === "APARELHO_REVOGADO") return { ...resumo, revogado: true, erro: envio.erro };
   if (envio.codigo === "APARELHO_DESCONHECIDO") return { ...resumo, desconhecido: true, erro: envio.erro };
   if (envio.semRede) resumo.online = false;
   if (envio.erro && !resumo.erro) { resumo.erro = envio.erro; resumo.status = envio.status; }
   resumo.aguardandoEstabelecimento = !!envio.aguardandoEstabelecimento;
   if (resumo.online) resumo.fotos = await enviarFotos({ armazem, api, lerFotoBase64, aposEnviar: aposEnviarFoto });
+  if (resumo.fotos?.ambienteIncompativel) return { ...resumo, ambienteIncompativel: true, erro: resumo.fotos.erro, status: resumo.fotos.status };
   return resumo;
 }

@@ -2,7 +2,7 @@ import {buildFinancialLedger,active} from '../financeiro/ledger.js';
 import {getDays,getAtt,getPayrollHolidays,getHolidayPayRule,isEmployeeEmployedOnDate,prIsWeekdayIso} from '../ponto/attendance-engine.js';
 import {calculateAttendanceDayCost} from '../ponto/payroll.js';
 import {money} from '../ponto/clt-payslip.js';
-import {calculateLaborProvision} from '../ponto/labor-provisions.js';
+import {calculateLaborProvision,laborProvisionDraftForEmployee} from '../ponto/labor-provisions.js';
 import {simulatePayMode} from '../ponto/pay-mode-simulation.js';
 import {reviewMonthlyPayslip} from '../ponto/clt-review.js';
 
@@ -23,7 +23,7 @@ export function employeeCostReport(data,competence){
     }
     const reviewed=reviewMonthlyPayslip(data,employee,competence),calculation=reviewed.result;
     const payrollIssues=reviewed.errors;
-    const provisionDraft=employee.laborProvisions?.[competence],provision=provisionDraft?calculateLaborProvision(provisionDraft):null;
+    const provisionDraft=employee.laborProvisions?.[competence],provision=provisionDraft?calculateLaborProvision(laborProvisionDraftForEmployee(employee,competence,provisionDraft)):null;
     const scenarioDraft=employee.payModeSimulations?.[competence],scenario=scenarioDraft?simulatePayMode(employee,scenarioDraft):null;
     const selectedScenario=scenario?.[scenarioDraft?.choice];
     const cash=allCash.filter(e=>String(e.settlesSourceType==='titulo_folha'?titleOwners.get(String(e.sourceId)):paymentOwners.get(String(e.sourceId)))===String(employee.id));

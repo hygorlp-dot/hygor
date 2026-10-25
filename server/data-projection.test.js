@@ -56,6 +56,12 @@ const payload={
 };
 
 describe("SEC-001 · projeção de leitura por obra",()=>{
+  it('não entrega salário, memória de holerite ou dados pessoais novos à engenharia',()=>{
+    const source={...payload,employees:[{...payload.employees[0],monthlySalary:3300,cltPayroll:{drafts:{secret:true}},laborProvisions:{private:true},birthDate:'1990-01-01',emergencyContact:{name:'Privado'},paymentInstructions:'Privado',photoDocumentId:'foto-privada'}]};
+    const projected=projectDataForUser(source,{id:'eng',role:'engenheiro',obraId:'obra-a'});
+    expect(projected.employees).toEqual([{id:'e-a',obra:'obra-a',name:'Equipe A'}]);
+    expect(projectDataForUser(source,{id:'rh',role:'rh'}).employees[0].cltPayroll).toEqual(source.employees[0].cltPayroll);
+  });
   it("entrega somente obra, fatos e presença do escopo",()=>{
     const projected=projectDataForUser(payload,{id:"u-a",role:"engenheiro",obraId:"obra-a"});
     expect(projected.obras).toEqual([{id:"obra-a",name:"Obra A"}]);

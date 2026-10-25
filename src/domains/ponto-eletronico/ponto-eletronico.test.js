@@ -153,18 +153,18 @@ describe("base única de funcionários", () => {
     { id: "e4", name: "Carlos Desligado", obra: "obra-a", active: true, endDate: "2026-09-01" },
   ];
   it("funcionário é global: o app recebe TODOS os ativos da empresa (de qualquer obra), com CPF mascarado e a lotação só como informação", () => {
-    expect(funcionariosAtivos(employees)).toEqual([
+    expect(funcionariosAtivos(employees, "2026-10-01")).toEqual([
       { id: "e3", nome: "Bruno", funcao: "", cpf: "", cpfMascarado: "", telefone: "", inicioJornada: "", horasJornada: null, lotacaoObraId: "obra-b" },
       { id: "e1", nome: "Zé da Obra", funcao: "Pedreiro", cpf: "12345678909", cpfMascarado: "***.***.789-09",
         telefone: "81999990000", inicioJornada: "07:00", horasJornada: 8, lotacaoObraId: "obra-a" },
     ]);
     // inativo (e2) e desligado (e4) não aparecem
-    expect(funcionariosAtivos(employees).map(f => f.id)).not.toEqual(expect.arrayContaining(["e2"]));
+    expect(funcionariosAtivos(employees, "2026-10-01").map(f => f.id)).not.toEqual(expect.arrayContaining(["e2"]));
   });
 
   it("equipe LOTADA numa obra continua disponível só para exibição", () => {
-    expect(funcionariosDaObra(employees, "obra-a").map(f => f.id)).toEqual(["e1"]);
-    expect(funcionariosDaObra(employees, "obra-b").map(f => f.id)).toEqual(["e3"]);
+    expect(funcionariosDaObra(employees, "obra-a", "2026-10-01").map(f => f.id)).toEqual(["e1"]);
+    expect(funcionariosDaObra(employees, "obra-b", "2026-10-01").map(f => f.id)).toEqual(["e3"]);
   });
   it("terceirizados da obra para controle de acesso", () => {
     expect(terceirizadosDaObra([{ id: "t1", name: "Elétrica X", specialty: "eletricista", obraId: "obra-a" }, { id: "t2", name: "Y", obraId: "obra-b" }], "obra-a"))

@@ -64,7 +64,8 @@ describe("funcionário é global da empresa", () => {
     s.dados.employees.find(e => e.id === "e1").obra = "obra-b";                   // RH muda a lotação
     await sincronizar(A); await sincronizar(B);
     for (const ap of [A, B]) expect((await ap.armazem.cadastro()).biometrias.map(b => b.employeeId)).toEqual(["e1"]);
-    s.dados.employees.find(e => e.id === "e1").endDate = "2026-10-01";             // desligado: sai de todos os aparelhos
+    s.dados.employees.find(e => e.id === "e1").endDate = "2026-10-01";
+    s.relogioServidor = Date.parse("2026-10-02T03:00:00.000Z");                  // depois do último dia em Recife: sai de todos os aparelhos
     await sincronizar(A);
     const cad = await A.armazem.cadastro();
     expect(cad.funcionarios.map(f => f.id)).not.toContain("e1");

@@ -94,3 +94,22 @@ it('exige revisão se a mesma dedução CLT já reservada muda de valor',()=>{
   const {data,period}=cltAdvanceFixture();data.titulosFolha=[{id:'prior',employeeId:'clt',competencia:'2026-09',liquido:100,snapshotCalculo:{kind:'clt',advanceRefs:[{id:'clt-advance',date:'2026-09-30',amount:40}]}}];
   const row=rowOf(data,period,'clt');expect(row.issues.join(' ')).toContain('diverge');expect(approve(data,period,[row]).ok).toBe(false);
 });
+it('não transforma subtotal de empregado CLT por diária em folha líquida aprovada',()=>{
+  const {data,period}=fixture();
+  data.employees[0].employmentRelationship='clt';
+  const snapshot=structuredClone(data),row=buildMixedPayroll(data,period).rows.find(r=>r.employeeId==='daily');
+  expect(row.requiresCltAssessment).toBe(true);
+  expect(row.net).toBeNull();
+  expect(row.issues.join(' ')).toMatch(/CLT por diária.*apuração/i);
+  expect(approve(data,period,[row]).ok).toBe(false);
+  expect(data).toEqual(snapshot);
+  expect(data.titulosFolha).toBeUndefined();
+});
+it('respeita vínculo CLT vigente no corte mesmo após uma mudança futura no cadastro',()=>{
+  const {data,period}=fixture();
+  Object.assign(data.employees[0],{employmentRelationship:'other',employmentRelationshipEffectiveFrom:'2026-11-01',
+    employmentRelationshipHistory:[{date:'2026-01-01',relationship:'clt'},{date:'2026-11-01',relationship:'other'}]});
+  const row=buildMixedPayroll(data,period).rows.find(r=>r.employeeId==='daily');
+  expect(row.requiresCltAssessment).toBe(true);
+  expect(approve(data,period,[row]).ok).toBe(false);
+});

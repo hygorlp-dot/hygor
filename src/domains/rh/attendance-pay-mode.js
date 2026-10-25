@@ -1,6 +1,8 @@
 import {validateCPF} from '../data/brazilian-documents.js';
 import {validDate} from './date-validation.js';
 import {getQ} from '../ponto/attendance-engine.js';
+import {employmentRelationshipOnDate} from './employment-relationship.js';
+import {payrollProtectedPeriod} from './payroll-protected-period.js';
 
 export function payModeRegistrationIssues(employee,mode,effectiveFrom){
   if(!employee)return ['Selecione um funcionário cadastrado.'];
@@ -14,8 +16,10 @@ export function payModeRegistrationIssues(employee,mode,effectiveFrom){
   if(!(Number(employee.dailyRate)>0))issues.push('Valor da diária / referência para custeio');
   if(!(Number(employee.workdayHours)>0)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(employee.workStart||''))issues.push('Jornada e horário de início');
   if(!(employee.pixKey?.trim()&&employee.pixHolder?.trim()&&employee.pixType?.trim())&&String(employee.paymentInstructions||'').trim().length<10)issues.push('Dados PIX completos ou instrução de pagamento');
-  if(mode==='clt'){
-    if(!(Number(employee.monthlySalary)>0))issues.push('Salário contratual mensal');
+  const relationship=employmentRelationshipOnDate(employee,effectiveFrom);
+  if(mode==='clt'&&relationship&&relationship!=='clt')issues.push('Vínculo compatível com a remuneração mensal CLT');
+  if(mode==='clt'||relationship==='clt'){
+    if(mode==='clt'&&!(Number(employee.monthlySalary)>0))issues.push('Salário contratual mensal');
     if(!employee.cltPayroll?.profile?.registration?.trim())issues.push('Matrícula');
     if(!/^\d{6}$/.test(String(employee.cltPayroll?.profile?.cbo||'').replace(/\D/g,'')))issues.push('CBO (seis dígitos)');
     if(!['professional','helper'].includes(employee.cltPayroll?.profile?.category))issues.push('Categoria na CCT');
@@ -30,9 +34,8 @@ export function latestClosedPayrollDate(data,employee){
     if(validDate(archive.fim)){dates.push(archive.fim);continue;}
     const match=/^(\d{4})-(\d{2})-Q([12])$/.exec(key);if(match){const q=getQ(Number(match[1]),Number(match[2])-1);dates.push((match[3]==='1'?q.q1:q.q2).at(-1));}
   }
-  for(const title of data.titulosFolha||[])if(String(title.employeeId)===String(employee.id)&&!['cancelado','cancelada','estornado','estornada'].includes(title.status)){
-    if(validDate(title.periodoFim))dates.push(title.periodoFim);
-    else if(/^\d{4}-(0[1-9]|1[0-2])$/.test(title.competencia))dates.push(new Date(Date.UTC(Number(title.competencia.slice(0,4)),Number(title.competencia.slice(5,7)),0)).toISOString().slice(0,10));
+  for(const title of data.titulosFolha||[])if(title.snapshotCalculo?.kind!=='advance'&&String(title.employeeId)===String(employee.id)&&!['cancelado','cancelada','estornado','estornada'].includes(title.status)){
+    const period=payrollProtectedPeriod(title);if(period)dates.push(period.end);
   }
   return dates.sort().at(-1)||'';
 }

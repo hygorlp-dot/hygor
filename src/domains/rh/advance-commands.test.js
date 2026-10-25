@@ -2,8 +2,17 @@ import { describe,expect,it } from "vitest";
 import {
   ADVANCE_COMMAND,advanceDeductionForPeriod,applyAdvanceCommand,buildAdvanceInstallments,advanceCommandObraId,
 } from "./advance-commands.js";
+import { registrarPagamentoEConciliar } from "../conciliacao/mutations.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
 import { RESCISSION_COMMAND,applyRescissionCommand } from "./rescission-commands.js";
+
+function settle(data) {
+  const advance=data.advances[0],id=`bank-${advance.id}`;
+  const result=registrarPagamentoEConciliar({...data,transacoes:[...(data.transacoes||[]),{id,valor:-advance.amount,data:advance.date,status:"pendente"}]},
+    {transacaoId:id,tipo:"tituloFolha",entidadeId:advance.paymentTitleId,operador:{id:"financeiro",role:"financeiro"}});
+  expect(result.resumo.ok).toBe(true);
+  return result.data;
+}
 
 describe("adiantamentos parcelados",()=>{
   it("divide os centavos sem perder o total e alterna as quinzenas",()=>{
@@ -37,8 +46,9 @@ describe("adiantamentos parcelados",()=>{
     expect(result.data.advances[0]).toMatchObject({
       empId:"e1",amount:600,installmentCount:3,status:"ativo",
     });
-    expect(advanceDeductionForPeriod(result.data.advances[0],"2026-07-21","2026-08-05")).toBe(200);
-    expect(advanceDeductionForPeriod(result.data.advances[0],"2026-08-06","2026-08-20")).toBe(200);
+    const paid=settle(result.data);
+    expect(advanceDeductionForPeriod(paid.advances[0],"2026-07-21","2026-08-05",paid)).toBe(200);
+    expect(advanceDeductionForPeriod(paid.advances[0],"2026-08-06","2026-08-20",paid)).toBe(200);
   });
 
   it("cancelamento preserva o registro e zera descontos futuros",()=>{
@@ -68,7 +78,7 @@ describe("ciclo completo do adiantamento: criação -> desconto na folha -> canc
     fechamentosFinanceiros:[],
   };
 
-  it("o adiantamento criado aparece no desconto calculado da folha do período", () => {
+  it("o adiantamento criado e pago aparece no desconto calculado da folha do período", () => {
     const created = applyAdvanceCommand(baseData, {
       type:ADVANCE_COMMAND.PAYROLL_ADVANCE_CREATED, actorId:"rh", actorName:"RH",
       payload:{advance:{
@@ -79,7 +89,8 @@ describe("ciclo completo do adiantamento: criação -> desconto na folha -> canc
     expect(created.ok).toBe(true);
     // Esta é exatamente a chamada que FolhaView faz para montar a coluna
     // "Adiantamentos" da folha da quinzena que contém 2026-07-05.
-    expect(advanceDeductionForPeriod(created.data.advances[0],"2026-06-21","2026-07-05")).toBe(300);
+    const paid=settle(created.data);
+    expect(advanceDeductionForPeriod(paid.advances[0],"2026-06-21","2026-07-05",paid)).toBe(300);
   });
 
   it("bloqueia cancelar adiantamento em período financeiro fechado, preservando o desconto e a rescisão", () => {
@@ -94,7 +105,7 @@ describe("ciclo completo do adiantamento: criação -> desconto na folha -> canc
     // financeiro (mesma estrutura que rescission-commands.js usa para
     // bloquear rescisões em período fechado - ver isDateInClosedPeriod).
     const dataComPeriodoFechado = {
-      ...created.data,
+      ...settle(created.data),
       fechamentosFinanceiros:[
         {competencia:"2026-07",status:"fechado",dataInicio:"2026-07-01",dataFim:"2026-07-31"},
       ],
@@ -107,7 +118,7 @@ describe("ciclo completo do adiantamento: criação -> desconto na folha -> canc
     },"2026-08-01T12:00:00.000Z");
     expect(cancelled.ok).toBe(false);
     expect(cancelled.reason).toMatch(/período financeiro/i);
-    expect(advanceDeductionForPeriod(dataComPeriodoFechado.advances[0],"2026-06-21","2026-07-05")).toBe(300);
+    expect(advanceDeductionForPeriod(dataComPeriodoFechado.advances[0],"2026-06-21","2026-07-05",dataComPeriodoFechado)).toBe(300);
 
     // Contraste: a mesma tentativa de cancelar uma RESCISÃO cujo desligamento
     // caiu num período fechado É bloqueada pelo código existente.

@@ -29,7 +29,7 @@ import { batidasDoDia, fusoDoCadastro } from "./src/logica/apresentacao";
 import { criarSessaoCalibracao, relatorioDeCampo, resumoDeCampo } from "./src/logica/calibracao-campo";
 import { REP_P, situacaoRepP } from "../../src/domains/ponto-eletronico/rep-p.js";
 import { estadoDaReferencia } from "../../src/domains/ponto-eletronico/relogio.js";
-import { apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoApp, lerSessao, salvarSessao } from "./src/servicos/conexao";
+import { AMBIENTE, apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoApp, lerSessao, salvarSessao, sessaoConfere } from "./src/servicos/conexao";
 import { apagarFotoLocal, carregarModelos, lerFotoBase64, prepararFotoDaBatida } from "./src/servicos/rosto-nativo";
 import TelaEncarregado from "./src/telas/TelaEncarregado";
 import TelaPareamento from "./src/telas/TelaPareamento";
@@ -84,10 +84,13 @@ export default function App() {
     try {
       const r = await rodadaDeSincronizacao({
         armazem, api, monotonico: () => relogio.monotonico(),
+        ambienteApp: AMBIENTE,
         corpo: montarCorpoSincronizacao({ app: infoDoApp(), aparelho: infoDoAparelho(), gps: ref.current.gps, agoraMs: Date.now() }),
         cadastroVencido: forcarCadastro || Date.now() - ref.current.ultimoCadastro > CADASTRO_A_CADA_MS,
         lerFotoBase64, aposEnviarFoto: item => apagarFotoLocal(item.caminhoFoto),
       });
+      // Um problema no backend interrompe o envio, nunca a batida local de
+      // um aparelho que já foi pareado. O aviso fica na situação do terminal.
       if (r.revogado || r.desconhecido) {
         // Sessão sai; banco e batidas ficam (registro legal) - ver aoParear.
         await apagarSessao().catch(() => {});
@@ -100,7 +103,8 @@ export default function App() {
         em: Date.now(), ok, erro: ok ? null : String(r.erro).slice(0, 120), ultimoOkEm: ok ? Date.now() : anterior?.ultimoOkEm ?? null,
         aguardandoEstabelecimento: !!r.aguardandoEstabelecimento, cadeiaDivergente: !!r.cadeiaDivergente,
       });
-      const aviso = r.aguardandoEstabelecimento
+      const aviso = r.ambienteIncompativel ? "O servidor não confirmou o ambiente. As batidas continuam guardadas neste aparelho; chame o suporte."
+        : r.aguardandoEstabelecimento
         ? "A obra deste aparelho ainda não está ligada a um estabelecimento no ARCD. As batidas ficam guardadas aqui e são enviadas quando o vínculo for feito."
         : ok ? "" : classificarResposta({ ok: false, status: r.online ? r.status || 500 : 0, error: r.erro }).mensagem;
       await atualizarSituacao({ online: r.online, aviso });
@@ -126,6 +130,11 @@ export default function App() {
         await relogio.carregar();
         let sessao = null;
         try { sessao = await lerSessao(); } catch { sessao = null; }
+        if (sessao && !sessaoConfere(sessao)) {
+          const erro = new Error("Este pareamento pertence a outro ambiente ou servidor. Nenhuma batida foi apagada ou enviada. Reinstale a versão correspondente ou chame o suporte.");
+          erro.code = "AMBIENTE_INCOMPATIVEL";
+          throw erro;
+        }
         // Bancos de antes desta versão: guarda de qual aparelho são as batidas.
         if (sessao && !(await armazem.lerEstado("dispositivo_id"))) await armazem.gravarEstado("dispositivo_id", sessao.dispositivoId);
         if (cancelado) return;
@@ -137,7 +146,7 @@ export default function App() {
         setFase(sessao ? "ponto" : "parear");
       } catch (e) {
         if (cancelado) return;
-        setErroFatal({ texto: mensagemDeErro("banco", e), bancoIlegivel: e?.tipo === "ilegivel" });
+        setErroFatal({ texto: e?.code === "AMBIENTE_INCOMPATIVEL" ? e.message : mensagemDeErro("banco", e), bancoIlegivel: e?.tipo === "ilegivel" });
         setFase("erro");
       }
     })();
@@ -304,6 +313,9 @@ export default function App() {
 
   return <SafeAreaProvider initialMetrics={initialWindowMetrics} style={estilos.raiz}>
     <StatusBar style="light" />
+    {AMBIENTE === "homologacao" && <View style={{ paddingTop: initialWindowMetrics?.insets.top ?? ESPACO.lg }}>
+      <Texto variante="legenda" centro cor={COR.ouro}>HOMOLOGAÇÃO — NÃO OFICIAL</Texto>
+    </View>}
     {conteudo}
   </SafeAreaProvider>;
 }

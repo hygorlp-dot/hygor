@@ -46,7 +46,15 @@ const rodar = (nome, titulo, fn) => {
 };
 // EXPO_OFFLINE só existe quando é offline: a CLI do Expo recusa valor vazio
 // (GetEnv.NoBoolean) e quebrava o bundle e o prebuild na CI.
-const ambienteExpo = OFFLINE ? { ...process.env, EXPO_OFFLINE: "1" } : process.env;
+// Estes passos só analisam bundle/prebuild descartável. O domínio reservado
+// .invalid impede contato com um servidor quando a CI não informa ambiente.
+// O script de APK exige endpoint real e o confirma antes de compilar.
+const ambienteExpo = {
+  ...process.env,
+  PONTO_AMBIENTE: process.env.PONTO_AMBIENTE || "homologacao",
+  PONTO_API_URL: process.env.PONTO_API_URL || "https://homologacao.invalid/api/data",
+  ...(OFFLINE ? { EXPO_OFFLINE: "1" } : {}),
+};
 // Primeira linha de erro da ferramenta (não o fim do stack trace).
 const primeiroErro = texto => {
   const linhas = `${texto}`.split("\n").map(l => l.trim()).filter(Boolean);
@@ -74,7 +82,7 @@ rodar("testes", "Testes do Ponto de Obra (app, domínio compartilhado e servidor
 
 if (!RAPIDO) {
   rodar("expoDoctor", "expo-doctor", () => {
-    const r = exec("npx", ["expo-doctor"]);
+    const r = exec("npx", ["expo-doctor"], { env: ambienteExpo });
     const saida = `${r.stdout}${r.stderr}`;
     const falhas = [...saida.matchAll(/^✖ (.+)$/gm)].map(m => m[1].trim());
     // Sem rede, estes dois checks consultam serviços externos e não dizem nada sobre o app.

@@ -45,9 +45,21 @@ describe("rhOpenAdvancesSummary", () => {
     ];
     expect(rhOpenAdvancesSummary(advances)).toEqual({ count: 2, total: 700 });
   });
+  it('com financeiro, conta apenas o saldo ainda a pagar e preserva legados fora da nova obrigação',()=>{
+    const advances=[{id:'a',empId:'e',amount:600,date:'2026-10-20',paymentTitleId:'t',status:'ativo'},{id:'old',amount:500,status:'ativo'},{id:'cancel',amount:100,status:'cancelado'}];
+    const title={id:'t',employeeId:'e',snapshotCalculo:{kind:'advance',advanceId:'a'},status:'parcial',liquidacoes:[{id:'p1',data:'2026-10-20',valor:250,status:'confirmado'}]};
+    expect(rhOpenAdvancesSummary(advances,{titulosFolha:[title]})).toEqual({count:1,total:350,legacyCount:1,legacyTotal:500});
+    const paid={...title,status:'pago',liquidacoes:[...title.liquidacoes,{id:'p2',data:'2026-10-20',valor:350,status:'confirmado'}]};
+    expect(rhOpenAdvancesSummary(advances,{titulosFolha:[paid]})).toEqual({count:0,total:0,legacyCount:1,legacyTotal:500});
+  });
 });
 
 describe("rhComplianceSummary", () => {
+  it('mantém vencimentos visíveis até o último dia de desligamento agendado',()=>{
+    const employees=[{active:true,endDate:'2026-10-31',examExpiresAt:'2026-10-24'}];
+    expect(rhComplianceSummary(employees,'2026-10-25')).toEqual({activeCount:1,withExpiredCount:1});
+    expect(rhComplianceSummary(employees,'2026-11-01')).toEqual({activeCount:0,withExpiredCount:0});
+  });
   it("conta só funcionários ativos com documento/treinamento vencido", () => {
     const employees = [
       { id: "1", active: true, examExpiresAt: "2026-01-01" },

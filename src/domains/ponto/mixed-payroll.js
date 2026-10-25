@@ -7,15 +7,17 @@ import {reviewMonthlyPayslip} from './clt-review.js';
 import {calculateUnionDue,buildUnionDuePeriodKey} from './union-dues.js';
 import {active} from '../financeiro/ledger.js';
 import {totalLiquidadoFolha} from '../conciliacao/payroll.js';
-import {money} from './clt-payslip.js';
+import {money,MANUAL_DAILY_CLT_METHOD} from './clt-payslip.js';
 import {validDate} from '../rh/date-validation.js';
 import {isDateInClosedPeriod} from '../financeiro/workflows.js';
 import {effectiveEmployeeOnDate} from '../rh/remuneration-values.js';
+import {employmentRelationshipOnDate} from '../rh/employment-relationship.js';
+import {isCltPayrollOnDate} from '../rh/payroll-classification.js';
 
 export const MIXED_PAYROLL_COMMAND='QUINZENA_MISTA_APROVADA';
 const titleId=(employeeId,start,end,kind)=>`folha:${employeeId}:${start}:${end}:${kind}`;
 const sum=rows=>money(rows.reduce((s,v)=>s+Number(v||0),0));
-const sourceEmployee=e=>({id:String(e.id),name:e.name||'',version:Number(e.version||0),startDate:e.startDate||'',endDate:e.endDate||'',obra:e.obra||'',dailyRate:Number(e.dailyRate||0),vtDaily:Number(e.vtDaily||0),vrDaily:Number(e.vrDaily||0),workdayHours:Number(e.workdayHours||8),workStart:e.workStart||'07:00',overtimeAdditionalPercent:Number(e.overtimeAdditionalPercent??50),monthlySalary:Number(e.monthlySalary||0),remunerationMode:e.remunerationMode||'daily',remunerationHistory:e.remunerationHistory||[],remunerationValuesHistory:e.remunerationValuesHistory||[]});
+const sourceEmployee=e=>({id:String(e.id),name:e.name||'',version:Number(e.version||0),startDate:e.startDate||'',endDate:e.endDate||'',obra:e.obra||'',dailyRate:Number(e.dailyRate||0),vtDaily:Number(e.vtDaily||0),vrDaily:Number(e.vrDaily||0),workdayHours:Number(e.workdayHours||8),workStart:e.workStart||'07:00',overtimeAdditionalPercent:Number(e.overtimeAdditionalPercent??50),monthlySalary:Number(e.monthlySalary||0),remunerationMode:e.remunerationMode||'daily',remunerationHistory:e.remunerationHistory||[],remunerationValuesHistory:e.remunerationValuesHistory||[],employmentRelationship:e.employmentRelationship||'',employmentRelationshipEffectiveFrom:e.employmentRelationshipEffectiveFrom||'',employmentRelationshipHistory:e.employmentRelationshipHistory||[]});
 // Only calculation inputs enter the optimistic-concurrency signature. Transport
 // defaults and object insertion order must not invalidate an unchanged preview.
 const stable=value=>Array.isArray(value)?value.map(stable):value&&typeof value==='object'
@@ -35,10 +37,11 @@ export function buildMixedPayroll(data,{year,month,cycle='1',cltPlans={}}={}){
   if(!Number.isInteger(Number(year))||Number(year)<2020||Number(year)>2100||!Number.isInteger(Number(month))||Number(month)<0||Number(month)>11||!['1','2'].includes(String(cycle)))return {rows:[],errors:['Período inválido.'],total:0};
   const period=String(cycle)==='1'?getQ(Number(year),Number(month)).q1:getQ(Number(year),Number(month)).q2,start=period[0],end=period.at(-1);
   const holidaySet=new Set([...new Set(period.map(d=>Number(d.slice(0,4))))].flatMap(y=>getPayrollHolidays(data,y)));
-  const titles=(data.titulosFolha||[]).filter(active),rows=[];
+  const titles=(data.titulosFolha||[]).filter(t=>active(t)&&t.snapshotCalculo?.kind!=='advance'),rows=[];
   for(const employee of data.employees||[]){
     const employed=period.filter(d=>isEmployeeEmployedOnDate(employee,d));if(!employed.length)continue;
-    const dailyDates=employed.filter(d=>remunerationModeOnDate(employee,d)==='daily');
+    const dailyCltDates=employed.filter(d=>remunerationModeOnDate(employee,d)==='daily'&&employmentRelationshipOnDate(employee,d)==='clt');
+    const dailyDates=employed.filter(d=>!isCltPayrollOnDate(employee,d));
     if(dailyDates.length){
       const issues=[],details=[],advanceRefs=[],workWeights=new Map();let gross=0,benefits=0,advances=0,days=0;
       const addWork=(obraId,value)=>workWeights.set(obraId,(workWeights.get(obraId)||0)+value);
@@ -58,7 +61,7 @@ export function buildMixedPayroll(data,{year,month,cycle='1',cltPlans={}}={}){
         details.push({date,status:record.status,record,lock:data.attendanceLocks?.[`${date}__${obraId}`],obraId,cost});
       }
       for(const advance of (data.advances||[]).filter(a=>String(a.empId)===String(employee.id)&&isAdvanceActive(a))){
-        for(const date of dailyDates){const amount=advanceDeductionForPeriod(advance,date,date);if(amount>0){advances+=amount;advanceRefs.push({id:advance.id,date,amount});}}
+        for(const date of dailyDates){const amount=advanceDeductionForPeriod(advance,date,date,data);if(amount>0){advances+=amount;advanceRefs.push({id:advance.id,date,amount});}}
       }
       const union=calculateUnionDue({employee,config:data.config?.unionDues,payrollCycle:String(cycle),periodEnd:end,periodKey:buildUnionDuePeriodKey(Number(year),Number(month),String(cycle)),hasPayrollMovement:gross>0||advances>0});
       const net=money(gross+benefits-advances-Number(union.amount||0));if(net<0)issues.push('Descontos excedem o valor apurado; encaminhar ajuste identificado.');
@@ -71,8 +74,11 @@ export function buildMixedPayroll(data,{year,month,cycle='1',cltPlans={}}={}){
       const weights=[...workWeights].filter(([,weight])=>weight>0).map(([obraId,weight])=>({obraId,weight}));
       rows.push({id,kind:'daily',employeeId:employee.id,name:employee.name,start,end,competence:end.slice(0,7),gross:money(gross),benefits:money(benefits),advances:money(advances),deductions:money(union.amount||0),net,days,issues,advanceRefs,details,allocations:proportional(weights,Math.max(0,net)),existing,source:signature({employee:sourceEmployee(employee),details:details.map(d=>d.record?{date:d.date,status:d.status,record:sourceRecord(d.record),locked:true,obraId:d.obraId,cost:d.cost}:d),advanceRefs:sourceClaims(advanceRefs),union,existing:existing?.id})});
     }
-    if(employed.some(d=>remunerationModeOnDate(employee,d)==='clt')){
+    if(employed.some(d=>isCltPayrollOnDate(employee,d))){
       const plan=cltPlans?.[employee.id]||{},competence=String(plan.competence||`${year}-${String(Number(month)+1).padStart(2,'0')}`),review=/^\d{4}-(0[1-9]|1[0-2])$/.test(competence)?reviewMonthlyPayslip(data,employee,competence):{errors:['Competência inválida.'],draft:null,result:null},issues=[...review.errors];
+      const isDailyClt=dailyCltDates.length>0;
+      if(isDailyClt&&review.draft?.assessmentMethod!==MANUAL_DAILY_CLT_METHOD)issues.unshift('Empregado CLT por diária: apuração da competência pendente de memória identificada.');
+      const requiresCltAssessment=isDailyClt&&issues.length>0;
       const id=titleId(employee.id,start,end,`clt:${competence}`),existing=titles.find(t=>t.id===id);
       const legacy=titles.filter(t=>String(t.employeeId)===String(employee.id)&&t.id!==id&&unknownKind(t)&&(t.competencia===competence||overlaps(t,start,end)));
       if(legacy.length)issues.push('Já existe obrigação de folha legada nesta competência ou corte; identifique o vínculo antes de aprovar outra parcela CLT.');
@@ -86,14 +92,14 @@ export function buildMixedPayroll(data,{year,month,cycle='1',cltPlans={}}={}){
       const advanceRefs=[];
       for(const advance of (data.advances||[]).filter(a=>String(a.empId)===String(employee.id)&&isAdvanceActive(a)&&(review.draft?.advanceIds||[]).includes(a.id))){
         const last=new Date(Date.UTC(Number(competence.slice(0,4)),Number(competence.slice(5,7)),0)).getUTCDate();
-        for(let day=1;day<=last;day++){const date=`${competence}-${String(day).padStart(2,'0')}`,amount=advanceDeductionForPeriod(advance,date,date);if(amount>0)advanceRefs.push({id:advance.id,date,amount});}
+        for(let day=1;day<=last;day++){const date=`${competence}-${String(day).padStart(2,'0')}`,amount=advanceDeductionForPeriod(advance,date,date,data);if(amount>0)advanceRefs.push({id:advance.id,date,amount});}
       }
       if(previous.some(t=>(t.snapshotCalculo?.advanceRefs||[]).some(a=>advanceRefs.some(b=>sameClaim(a,b)&&money(a.amount)!==money(b.amount)))))issues.push('Valor de adiantamento diverge do holerite já encaminhado; revisar o fechamento anterior.');
       // A monthly deduction is shared by instalments of that same CLT payslip,
       // never by a daily title, another competence or an unidentified legacy title.
       const claimed=titles.filter(t=>t.id!==id&&!(t.snapshotCalculo?.kind==='clt'&&String(t.employeeId)===String(employee.id)&&t.competencia===competence)).flatMap(t=>t.snapshotCalculo?.advanceRefs||[]);
       if(advanceRefs.some(a=>claimed.some(b=>sameClaim(a,b))))issues.push('Adiantamento do holerite já reservado em outro fechamento; revisar a fonte mensal.');
-      rows.push({id,kind:'clt',employeeId:employee.id,name:employee.name,start,end,competence,gross:review.result?.gross||0,benefits:0,advances:review.result?.deductions||0,deductions:0,net:money(amount),monthlyNet:review.result?.net??null,previousPaid:paid,available,issues,advanceRefs,details:[],allocations:[],existing,source:signature({employee:sourceEmployee(employee),review:{draft:review.draft,result:review.result,errors:review.errors},previous:previous.map(t=>({id:t.id,net:Number(t.liquido)})).sort((a,b)=>String(a.id).localeCompare(String(b.id))),plan:{competence,amount:Number(plan.amount),reference:String(plan.reference||'').trim()}})});
+      rows.push({id,kind:'clt',employeeId:employee.id,name:employee.name,start,end,competence,gross:review.result?.gross||0,benefits:0,advances:review.result?.deductions||0,deductions:0,net:requiresCltAssessment&&!review.result?null:money(amount),monthlyNet:review.result?.net??null,isDailyClt,requiresCltAssessment,previousPaid:paid,available,issues,advanceRefs,details:[],allocations:[],existing,source:signature({employee:sourceEmployee(employee),review:{draft:review.draft,result:review.result,errors:review.errors},previous:previous.map(t=>({id:t.id,net:Number(t.liquido)})).sort((a,b)=>String(a.id).localeCompare(String(b.id))),plan:{competence,amount:Number(plan.amount),reference:String(plan.reference||'').trim()}})});
     }
   }
   for(const row of rows)if((data.titulosFolha||[]).some(t=>t.id===row.id&&!active(t)))row.issues.push('Este fechamento foi cancelado ou estornado; utilize um ajuste identificado, sem recriar a obrigação.');
@@ -114,6 +120,7 @@ export function applyMixedPayroll(data,command,now){
   if(!pending.length)return {ok:true,data,entityId:ids.join('|'),idempotent:true};
   if(!Number.isFinite(new Date(now).getTime()))return {ok:false,reason:'Data de aprovação inválida.'};
   if(new Date(now).toISOString().slice(0,10)<built.end)return {ok:false,reason:'O corte ainda está em andamento. Prepare a prévia e aprove depois do último dia.'};
+  if(pending.some(row=>row.kind==='clt'&&/^\d{4}-(0[1-9]|1[0-2])$/.test(row.competence)&&new Date(Date.UTC(Number(row.competence.slice(0,4)),Number(row.competence.slice(5,7)),0)).toISOString().slice(0,10)>new Date(now).toISOString().slice(0,10)))return {ok:false,reason:'A competência CLT ainda está em andamento. Para pagamento antes do fechamento mensal, registre um adiantamento.'};
   for(const row of pending)if(row.issues.length||sources?.[row.id]!==row.source)return {ok:false,reason:row.issues[0]||'Os dados de origem mudaram. Atualize e aprove novamente.'};
   const claims=pending.flatMap(r=>r.advanceRefs.map(a=>({...a,kind:r.kind})));
   if(claims.some((a,i)=>claims.some((b,j)=>i!==j&&a.kind!==b.kind&&sameClaim(a,b))))return {ok:false,reason:'A mesma parcela está na diária e no CLT. Revise antes de aprovar.'};

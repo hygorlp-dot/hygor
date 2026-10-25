@@ -66,6 +66,7 @@ import {
   applyEmployeeCommand,
   EMPLOYEE_COMMAND,
 } from "../rh/employee-commands.js";
+import {applyEmployeeEngineeringCommand,EMPLOYEE_ENGINEERING_COMMAND} from '../rh/employee-engineering.js';
 import {
   applyAdvanceCommand,
   ADVANCE_COMMAND,
@@ -127,6 +128,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   ...MATERIAL_COMMAND,
   ...RESCISSION_COMMAND,
   ...EMPLOYEE_COMMAND,
+  ...EMPLOYEE_ENGINEERING_COMMAND,
   ...ADVANCE_COMMAND,
   ...COMPANY_CONFIG_COMMAND,
   ...PROJECT_COMMAND,
@@ -352,6 +354,8 @@ export const applyOperationalCommand=(data,command)=>{
       ),
     };
   }
+  const engineeringResult=applyEmployeeEngineeringCommand(data,command,now);
+  if(engineeringResult){if(!engineeringResult.ok)return engineeringResult;return {ok:true,data:appendReceipt(engineeringResult.data,command,engineeringResult.entityId,now)};}
   const employeeResult=applyEmployeeCommand(data,command,now);
   if(employeeResult){
     if(!employeeResult.ok)return employeeResult;
