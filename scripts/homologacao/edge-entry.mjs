@@ -3,6 +3,7 @@ import { Buffer } from "node:buffer";
 import { createClient } from "@supabase/supabase-js";
 import { criarAmbiente } from "../../server/ponto-eletronico/ambiente.js";
 import { criarAdaptadorHttp } from "./http-adapter.mjs";
+import { criarRoteadorHomologacao } from "./route-handlers.mjs";
 
 // Credenciais já fornecidas pelo runtime do projeto isolado. Não são lidas
 // no build, serializadas, exportadas nem enviadas para Vercel/Android.
@@ -30,11 +31,15 @@ const confirmarAmbiente = criarAmbiente({ db, declarado: "homologacao", supabase
 // Import dinâmico: api/data lê process.env quando é carregado.
 const { default: handler } = await import("../../api/data.js");
 const { default: upload } = await import("../../api/upload.js");
+const { default: presence } = await import("../../api/presence.js");
 // A preparação administrativa do bucket também exige o marcador real.
 if ((await confirmarAmbiente()).ambiente !== "homologacao") throw new Error("Marcador de homologação ausente.");
 await import("../ensure-rh-storage.mjs");
 Deno.serve(criarAdaptadorHttp({
-  handler: (req, res) => req.url.split("?")[0].endsWith("/upload") ? upload(req, res) : handler(req, res),
+  handler: criarRoteadorHomologacao({
+    data: handler, upload, presence,
+    dailyBrief: async (req, res) => (await import("../../api/ai-agent.js")).default(req, res),
+  }),
   confirmarAmbiente,
   origensPermitidas: [
     "https://ponto-homologacao.vercel.app",

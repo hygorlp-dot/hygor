@@ -29,6 +29,7 @@ files.push({ name: "postgres-runtime.mjs", content: `import driver from "npm:pos
 files.push({ name: "deno.json", content: JSON.stringify({ imports: {
   "@supabase/supabase-js": `npm:@supabase/supabase-js@${version("@supabase/supabase-js")}`,
   postgres: "./postgres-runtime.mjs",
+  "pdf-parse/lib/pdf-parse.js": `npm:pdf-parse@${version("pdf-parse")}/lib/pdf-parse.js`,
 } }, null, 2) + "\n" });
 const bytes = files.reduce((sum, file) => sum + Buffer.byteLength(file.content), 0);
 if (bytes > 4_500_000) throw new Error("Artefato excede a margem do limite Edge. Deploy bloqueado.");

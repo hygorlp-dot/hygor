@@ -13,6 +13,8 @@ para CLT.
 | Site | https://ponto-homologacao.vercel.app |
 | API usada pelo Android | https://ponto-homologacao.vercel.app/api/data |
 | Documentos do RH | https://ponto-homologacao.vercel.app/api/upload |
+| Presença do usuário | https://ponto-homologacao.vercel.app/api/presence |
+| Resumo diário público | https://ponto-homologacao.vercel.app/api/ai-agent, ação `daily-brief` |
 | Projeto Vercel | `ponto-homologacao`, `prj_W7s5zALWmMuV4Wt5WePSz8ABAefp` |
 | Equipe Vercel | `team_poBZ5I1rwStzhvD73ar22b7v` |
 | Projeto Supabase | `ponto-homologacao`, `ukkzpttnbyylkyujzwnv` |
@@ -33,6 +35,13 @@ pedidos para uma função Supabase que empacota os mesmos arquivos
 `api/data.js` e `api/upload.js` usados pelo aplicativo. O adaptador muda apenas
 o contrato HTTP de entrada e saída. Autenticação, permissões por papel,
 comandos, auditoria e regras financeiras continuam nos handlers originais.
+
+As rotas auxiliares de presença e resumo diário também reutilizam
+`api/presence.js` e `api/ai-agent.js`. No segundo caso, somente a ação
+`daily-brief` chega ao handler: ela consulta clima, notícias e CUB em fontes
+públicas e retorna antes de carregar qualquer configuração Gemini. Todas as
+demais ações de IA externa recebem `503 / AI_DISABLED_HOMOLOGACAO`, antes do
+import do handler. Não há chave de provedor nem chamada de IA paga.
 
 As credenciais do banco ficam no runtime Supabase. O build não lê arquivos
 de segredos e não envia chaves para a Vercel, para o navegador nem para o APK.
@@ -91,11 +100,15 @@ e `.tools/homologacao-edge`. Antes de publicar, conferir `projectId`, os
 arquivos e o estado `dirty` do manifest. Um bundle gerado com alterações
 locais não deve ser apresentado como idêntico ao commit base.
 
-Na Vercel, enviar os arquivos do manifest e criar o deployment exclusivamente
-no projeto `ponto-homologacao`. O target técnico `production` nesse projeto
-isolado mantém seu domínio estável; não se refere ao projeto de produção da
-construtora. No Supabase, publicar `deploy-payload.json` com a ferramenta de
-deploy de Edge Functions, mantendo nome e projeto do manifest.
+Na Vercel, a publicação completa usa o commit exato pelo `gitSource`, com
+`rootDirectory:apps/homologacao` e `sourceFilesOutsideRootDirectory:true`.
+O [procedimento do wrapper](../apps/homologacao/README.md) informa os comandos
+de instalação sem scripts e build sem migrações. O upload de assets grandes
+pelo conector apresentou demora e não é o procedimento principal. O target
+técnico `production` somente no projeto `ponto-homologacao` mantém seu domínio
+estável; não se refere ao projeto operacional da construtora. No Supabase,
+publicar `deploy-payload.json` com a ferramenta de deploy de Edge Functions,
+mantendo nome e projeto do manifest.
 
 ## Banco: fases pequenas e auditáveis
 
@@ -178,9 +191,9 @@ Critérios básicos de acesso:
 | Documentos RH sem sessão | 401 |
 | Login do operador sintético e leitura permitida | 200 |
 
-Checkpoint conferido em 25/10/2026: Edge versão 7 ativa, com a ficha do operário
-e a renovação de hora de homologação; bundle de 752.141 bytes, hash de deployment
-`90cf63a7afd781d39817c46a7a322bf3b04c7d3f26b98a7ccfdfcd8ebecfb4e7`;
+Checkpoint conferido em 25/10/2026: Edge versão 8 ativa, com a ficha do operário,
+renovação de hora e rotas auxiliares; bundle de 791.325 bytes, hash de deployment
+`96a4d1bd974f110f2da98a96abb663050626db90c50a3cc288500da208344da1`;
 marcador público pela
 URL Vercel retornou 200; upload direto na Edge sem sessão retornou 401; o
 bucket `rh-prontuarios` está privado, com limite de 3 MiB; o login real do
@@ -189,6 +202,24 @@ de documentos retornou 200. O checkpoint Vercel
 `dpl_7V5Unwcz3Mr4uzATLGpMtC79vze9` está READY e acrescenta NTP e a rota de
 upload. A página desse checkpoint informa que a versão completa está em
 atualização. O frontend final usa o wrapper Git em `apps/homologacao`.
+
+Na versão 8, o teste real das rotas auxiliares confirmou heartbeat e listagem
+de presença autenticados, com encerramento da própria sessão de teste.
+Presença e resumo diário sem sessão retornaram 401; configurar IA externa
+retornou 503 com o código explícito de desativação. Com cache CUB inicialmente
+ausente, o resumo diário retornou 200 em 13,03 segundos, com clima e CUB reais.
+A leitura posterior confirmou o cache CUB preenchido e nenhuma configuração
+Gemini. Os logs não registraram encerramento por CPU/memória nessa janela;
+registraram uma falha da fonte de notícias, devolvida como lista vazia pelo
+fallback existente. Não foram criadas manchetes ou cotações fictícias.
+
+As rotas auxiliares passaram por 32 testes focais, lint, arquitetura e
+typecheck. O roteiro reproduzível é
+`python scripts/homologacao/check-auxiliary.py --access /caminho/privado/access.json`;
+`--edge` confere diretamente o backend isolado antes da publicação das
+rewrites. O relatório real dessa rodada está em
+`.tools/homologacao-auxiliary-v8-edge-report.json`. O tempo e o resultado
+medidos não garantem disponibilidade permanente das fontes públicas.
 
 ## Hora do ponto
 

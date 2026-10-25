@@ -44,6 +44,8 @@ const configuration = {
   rewrites: [
     { source: "/api/data", destination: "https://ukkzpttnbyylkyujzwnv.supabase.co/functions/v1/ponto-api-homologacao" },
     { source: "/api/upload", destination: "https://ukkzpttnbyylkyujzwnv.supabase.co/functions/v1/ponto-api-homologacao/upload" },
+    { source: "/api/presence", destination: "https://ukkzpttnbyylkyujzwnv.supabase.co/functions/v1/ponto-api-homologacao/presence" },
+    { source: "/api/ai-agent", destination: "https://ukkzpttnbyylkyujzwnv.supabase.co/functions/v1/ponto-api-homologacao/ai-agent" },
     { source: "/cliente/:route*", destination: "/index.html" },
     { source: "/aceite-pedido", destination: "/index.html" },
   ],

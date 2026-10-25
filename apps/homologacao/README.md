@@ -22,7 +22,7 @@ O build chama o Vite diretamente com a configuração canônica e uma pasta de s
 
 A saída pública contém apenas os arquivos do manifesto atual, `index.html` e os arquivos públicos originais. Mapas de código e o manifesto de conferência não são servidos. Os relatórios locais `build-report.json` e `build-manifest.json` também ficam fora da saída e são ignorados pelo Git.
 
-`/api/data` e `/api/upload` usam as mesmas rewrites do gerador de homologação. A única função Node local é `/api/homologacao-time`, que reexporta a ponte NTP existente. Não há credencial do banco, cron ou configuração de recurso pago nesta entrada.
+`/api/data`, `/api/upload`, `/api/presence` e `/api/ai-agent` usam as mesmas rewrites do gerador de homologação. A rota de IA permite somente `daily-brief`, que usa fontes públicas; ações de provedor externo são explicitamente desativadas no roteador isolado. A única função Node local é `/api/homologacao-time`, que reexporta a ponte NTP existente. Não há credencial do banco, cron ou configuração de recurso pago nesta entrada.
 
 Com dependências já instaladas, a conferência local é:
 
