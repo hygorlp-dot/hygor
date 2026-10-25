@@ -13,16 +13,16 @@ import { AMBIENTES, NOME_AMBIENTE, conferirAmbiente, ehHostDeProducao, sessaoCon
 // produção em silêncio. Homologação com host de produção (o build já recusa)
 // também fica sem servidor: segunda trava, em execução.
 const EXTRA = Constants.expoConfig?.extra || {};
-export const AMBIENTE = AMBIENTES.includes(EXTRA.ambiente) ? EXTRA.ambiente : "producao";
+export const AMBIENTE = AMBIENTES.includes(EXTRA.ambiente) ? EXTRA.ambiente : null;
 export const URL_API = (() => {
-  if (!EXTRA.apiUrl) return null;
+  if (!AMBIENTE || !EXTRA.apiUrl) return null;
   try { if (AMBIENTE === "homologacao" && ehHostDeProducao(new URL(EXTRA.apiUrl).host)) return null; } catch { return null; }
   return EXTRA.apiUrl;
 })();
 // Só para MOSTRAR (Diagnóstico, pareamento, tela de ponto).
 export const infoDoServidor = () => ({
   host: (() => { try { return URL_API ? new URL(URL_API).host : ""; } catch { return ""; } })(),
-  ambiente: AMBIENTE, nomeAmbiente: NOME_AMBIENTE[AMBIENTE], bloqueado: !URL_API,
+  ambiente: AMBIENTE, nomeAmbiente: NOME_AMBIENTE[AMBIENTE] || "NÃO CONFIGURADO", bloqueado: !URL_API,
 });
 export { conferirAmbiente };
 const CHAVE_SESSAO = "ponto-obra.sessao";
