@@ -49,3 +49,6 @@ dist-ci/
 
 # Saída do release-check/scorecard (vai como artifact na CI)
 quality-out/
+
+# Export local conciliado, preservado para inspeção
+dist-candidato/

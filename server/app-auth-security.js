@@ -38,11 +38,15 @@ export const verifyAppPin=(pin,stored)=>{
 export const authRateLimitSubject=(company,subject)=>
   crypto.createHash("sha256").update(`${company}|${subject||"unknown"}`).digest("hex");
 
-export const applyPersistentAuthRateLimit=async(db,{company,subject,action})=>{
+export const applyPersistentAuthRateLimit=async(db,{company,subject,action,limit,windowSeconds})=>{
   const rpc=action==="status"?"auth_rate_limit_status":action==="success"?"auth_rate_limit_success":"auth_rate_limit_failure";
+  const extra=rpc==="auth_rate_limit_failure"?{
+    ...(Number.isInteger(limit)&&limit>0?{p_limit:limit}:{}),
+    ...(Number.isInteger(windowSeconds)&&windowSeconds>0?{p_window_seconds:windowSeconds}:{}),
+  }:{};
   try{
     const {data,error}=await db.rpc(rpc,{
-      p_company_id:company,p_subject_hash:authRateLimitSubject(company,subject),
+      p_company_id:company,p_subject_hash:authRateLimitSubject(company,subject),...extra,
     });
     if(error)return null;
     const row=Array.isArray(data)?data[0]:data;

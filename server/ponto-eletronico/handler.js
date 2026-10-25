@@ -1,3 +1,5 @@
+import { limparMetricasAparelho } from "../../src/domains/ponto-eletronico/metricas-aparelho.js";
+import { criarLimitePareamento } from "./limite-pareamento.js";
 import { NOME_AMBIENTE, criarAmbiente } from "./ambiente.js";
 // Ações do app "Ponto de Obra" (REP-P) - despachadas por api/data.js para
 // toda action que começa com "ponto-" (sem criar uma rota nova na Vercel).
@@ -62,14 +64,15 @@ const decodificarFoto = base64 => {
 // Identificação do aparelho que o app manda (ponto-parear / ponto-sincronizar):
 // só campos conhecidos, texto curto - nada pessoal e nada arbitrário no banco.
 const CAMPOS_APARELHO = ["marca", "modelo", "android", "build", "commit", "ambiente"];
-export const limparAparelho = bruto => Object.fromEntries(CAMPOS_APARELHO
+const identificacaoDoAparelho = bruto => Object.fromEntries(CAMPOS_APARELHO
   .filter(k => bruto && typeof bruto === "object" && bruto[k] !== undefined && bruto[k] !== null && texto(bruto[k]))
   .map(k => [k, texto(bruto[k]).slice(0, 80)]));
+export const limparAparelho = bruto => ({ ...identificacaoDoAparelho(bruto), ...limparMetricasAparelho(bruto) });
 const limparVersao = v => texto(v).slice(0, 40);
 
 const linhaDispositivo = d => ({
   id: d.id, obraId: d.obra_id, nome: d.nome, status: d.status, appVersao: d.app_versao,
-  aparelho: d.aparelho || {}, ultimoContatoEm: d.ultimo_contato_em, ultimoGps: d.ultimo_gps,
+  aparelho: identificacaoDoAparelho(d.aparelho), fila: Object.keys(limparMetricasAparelho(d.aparelho)).length ? limparMetricasAparelho(d.aparelho) : null, ultimoContatoEm: d.ultimo_contato_em, ultimoGps: d.ultimo_gps,
   estabelecimentoId: d.estabelecimento_id || null,
   // Sequência LOCAL do aparelho (não é NSR). A "legada" é a do formato 1.
   ultimaSequenciaLocal: Number(d.ultima_sequencia_local || 0), ultimaSequenciaLegada: Number(d.ultimo_nsr || 0),
@@ -116,6 +119,7 @@ const caminhoFotoMarcacao = (obraId, marcadoEm, id) => `marcacoes/${obraId}/${St
 // verificarHoraNtp: async () => medição (tempo/ntp.js verificarHora), usada
 // pela ação ponto-tempo-verificar.
 export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO, ambienteDeclarado = process.env.PONTO_AMBIENTE, supabaseUrl = process.env.SUPABASE_URL }) {
+  const limitePareamento = criarLimitePareamento({ db, company });
   const ambiente = criarAmbiente({ db, declarado: ambienteDeclarado, supabaseUrl });
   const fonte = fonteHora || criarFonteHora({
     relogioHost: agoraDoHost ? () => agoraDoHost().getTime() : () => Date.now(),
@@ -470,9 +474,12 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
     // ---------------- aparelho da obra ----------------
     async "ponto-ambiente"({ ambiente }) { return ok({ ambiente }); },
 
-    async "ponto-parear"({ body, ambiente }) {
+    async "ponto-parear"({ body, headers, ambiente }) {
       const codigo = texto(body.codigo).replace(/\D/g, "");
       if (codigo.length !== 8) return erro(400, "O código tem 8 números.");
+      const limite = await limitePareamento.tentar(headers);
+      if (limite.indisponivel) return erro(503, "Proteção do pareamento indisponível. Tente novamente mais tarde.");
+      if (limite.bloqueado) return erro(429, `Muitas tentativas de pareamento. Pareamento bloqueado por ${Math.ceil(limite.tentarDeNovoEmSegundos / 60)} min.`, { code: "PAREAMENTO_BLOQUEADO", tentarDeNovoEmSegundos: limite.tentarDeNovoEmSegundos });
       const { data: par, error } = await db.from("ponto_pareamentos").select("*")
         .eq("company_id", company).eq("codigo_hash", sha256(codigo)).maybeSingle();
       if (error) throw error;
@@ -500,6 +507,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       if (errIns) throw errIns;
       const dados = await lerDados();
       const obra = (dados?.obras || []).find(o => String(o.id) === String(par.obra_id));
+      await limitePareamento.acertou(headers);
       return ok({ ambiente, dispositivoId: id, token, obra: { id: par.obra_id, nome: obra?.name || "" }, estabelecimento: estab, nome: par.nome, servidorMs: agora().getTime() });
     },
 
