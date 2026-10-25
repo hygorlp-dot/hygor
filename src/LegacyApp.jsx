@@ -3526,7 +3526,7 @@ export function Divider() {
   return <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${C.line}, transparent)`, margin: "12px 0" }} />;
 }
 
-export function Modal({ title, children, onClose, wide = false, panelClass = "" }) {
+export function Modal({ title, children, onClose, wide = false, panelClass = "", footer = null }) {
   const { isDesktop } = useBreakpoint();
   const panelRef = useRef(null);
   const previousFocusRef = useRef(null);
@@ -3599,6 +3599,7 @@ export function Modal({ title, children, onClose, wide = false, panelClass = "" 
         </div>
         <div className="arcd-modal-notice" />
         <div className="arcd-modal-body" style={{padding:14}}>{children}</div>
+        {footer&&<div className="arcd-modal-footer">{footer}</div>}
       </div>
     </div>
   );

@@ -16,6 +16,8 @@ import { WORKER_TRAINING_TYPES } from "../../seguranca/constants";
 import { employeeComplianceStatus } from "../compliance";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { buildAdvanceInstallments } from "../advance-commands";
+import {employeeEditDraft} from '../employee-edit-draft.js';
+import './employee-edit.css';
 import { employeeLifecycleStatus } from "../employee-commands";
 
 // Estado inicial dos documentos/certificações de cada funcionário: um mapa
@@ -114,6 +116,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
   const [advCancelReason, setAdvCancelReason] = useState("");
   const [pendingAction, setPendingAction] = useState("");
   const [formErrors, setFormErrors] = useState({});
+  const [savingEmployee,setSavingEmployee]=useState(false);
+  const [employeeSaveError,setEmployeeSaveError]=useState('');
   const nameInputRef = useRef(null);
   const [advForm, setAdvForm] = useState({
     amount:"",description:"",date:today(),installmentCount:"1",
@@ -127,18 +131,9 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     window.sessionStorage.removeItem("arcd_editar_funcionario");
     if (!employee) return;
     setStatusFilter(employeeLifecycleStatus(employee, today()));
-    setForm({
-      ...employee,
-      dailyRate: String(employee.dailyRate || ""),
-      vtDaily: String(employee.vtDaily || ""),
-      vrDaily: String(employee.vrDaily || ""),
-      workdayHours: String(employee.workdayHours || 8),
-      workStart: String(employee.workStart || "07:00"),
-      overtimeAdditionalPercent: String(employee.overtimeAdditionalPercent ?? 50),
-      examExpiresAt: String(employee.examExpiresAt || ""),
-      trainings: { ...EMPTY_TRAININGS, ...(employee.trainings || {}) },
-    });
+    setForm({...employeeEditDraft(employee),trainings:{...EMPTY_TRAININGS,...(employee.trainings||{})}});
     setModal(true);
+    setEmployeeSaveError('');
   }, [data.employees]);
 
   const F = key => value => setForm(f => ({ ...f, [key]: value }));
@@ -149,6 +144,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     .sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
 
   const saveEmp = async () => {
+    if(savingEmployee)return;
+    setEmployeeSaveError('');
     const errors={};
     if (!form.name.trim()) errors.name="Informe o nome completo.";
     if (!(Number(form.dailyRate)>0)) errors.dailyRate="Informe uma diária positiva para o custeio do ponto.";
@@ -156,6 +153,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     if (!form.startDate) errors.startDate="Informe a admissão.";
     setFormErrors(errors);
     if (Object.keys(errors).length) {
+      setEmployeeSaveError(Object.values(errors).join(' '));
       window.setTimeout(()=>nameInputRef.current?.focus(),0);
       return;
     }
@@ -183,21 +181,26 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       lastObra: form.lastObra || before?.lastObra || "",
     };
 
+    setSavingEmployee(true);
+    try{
     const result=await dispatchCommand(atual=>{
       const vigente=(atual.employees||[]).find(item=>item.id===payload.id);
       return {
         type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
         idempotencyKey:`funcionario-salvar-${payload.id}-${uid()}`,
-        expectedVersion:Number(before?.version||0),
+        expectedVersion:Number(form.version??before?.version??0),
         payload:{employee:{...(vigente||{}),...payload}},
       };
     });
     if(!result?.ok){
-      showToast(result?.reason||"O funcionário não foi confirmado pelo servidor.","error");
+      const message=result?.reason||result?.error||"O funcionário não foi confirmado pelo servidor.";
+      setEmployeeSaveError(message);
       return;
     }
     setModal(false); setFormErrors({});
     showToast(form.id ? "Funcionário atualizado." : "Funcionário cadastrado.");
+    }catch(error){const message=error?.message||'Falha ao salvar. Seus dados continuam no formulário.';setEmployeeSaveError(message);}
+    finally{setSavingEmployee(false);}
   };
 
   const archiveEmp = id => {
@@ -432,7 +435,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 </div>
               </span>
               <span className="team-row__cell" data-label="Situação"><Badge color={lifecycleColor[lifecycle]}>{lifecycleLabel[lifecycle]}</Badge></span>
-              <div className="team-row__actions"><Btn v="ghost" size="sm" onClick={() => gerarFichaFuncionarioPDF(data, e, showToast)}><Ic n="file"/> Ficha</Btn><Btn v="ghost" size="sm" onClick={() => { setForm({ ...e, dailyRate: String(e.dailyRate || ""), vtDaily: String(e.vtDaily || ""), vrDaily: String(e.vrDaily || ""), workdayHours:String(e.workdayHours||8), workStart:String(e.workStart||"07:00"), overtimeAdditionalPercent:String(e.overtimeAdditionalPercent??50), examExpiresAt:String(e.examExpiresAt||""), trainings:{...EMPTY_TRAININGS,...(e.trainings||{})} }); setFormErrors({}); setModal(true); }}><Ic n="edit"/> Editar</Btn></div>
+              <div className="team-row__actions"><Btn v="ghost" size="sm" onClick={() => gerarFichaFuncionarioPDF(data, e, showToast)}><Ic n="file"/> Ficha</Btn><Btn v="ghost" size="sm" onClick={() => { setForm({...employeeEditDraft(e),trainings:{...EMPTY_TRAININGS,...(e.trainings||{})}}); setFormErrors({}); setEmployeeSaveError(''); setModal(true); }}><Ic n="edit"/> Editar</Btn></div>
             </div>
 
             {exp && (
@@ -486,7 +489,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       })}
 
       {modal && (
-        <Modal title={form.id ? "Editar funcionário" : "Novo funcionário"} onClose={() => setModal(false)} wide>
+        <Modal title={form.id ? "Editar funcionário" : "Novo funcionário"} onClose={() => {if(!savingEmployee)setModal(false);}} wide panelClass="employee-edit-modal" footer={<><p className="employee-edit-feedback" role={employeeSaveError?'alert':'status'}>{employeeSaveError||(savingEmployee?'Salvando funcionário…':'')}</p><div className="employee-edit-actions"><Btn v="ghost" disabled={savingEmployee} onClick={()=>setModal(false)}>Cancelar</Btn><Btn disabled={savingEmployee} onClick={saveEmp}><Ic n="check"/> {savingEmployee?'Salvando…':'Salvar'}</Btn></div></>}>
+          <fieldset disabled={savingEmployee} style={{border:0,padding:0,margin:0,minWidth:0}} aria-label="Dados do funcionário">
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <p style={TYPO.eyebrow}>Identificação</p>
@@ -508,10 +512,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <p style={TYPO.eyebrow}>Remuneração</p>
+              <p style={TYPO.eyebrow}>Remuneração</p><p className="employee-edit-hint">Valores cadastrados são mantidos, inclusive zero. Dados salvos no perfil do holerite são reaproveitados. Salário mensal, matrícula e CBO sem registro ficam em branco; a diária não é convertida em salário mensal.</p>
               <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
                 <Sel label="Modalidade de remuneração" value={form.remunerationMode||"daily"} onChange={v=>setForm(f=>({...f,remunerationMode:v,remunerationEffectiveFrom:today()}))} options={[{v:"daily",l:"Diária"},{v:"clt",l:"CLT mensal"}]}/>
-                <Inp label="Modalidade válida a partir de" type="date" value={form.remunerationEffectiveFrom||""} onChange={F("remunerationEffectiveFrom")} disabled={!!form.id&&(form.remunerationMode||"daily")===(data.employees.find(e=>e.id===form.id)?.remunerationMode||"daily")}/>
+                {(!form.id||(form.remunerationMode||"daily")!==(data.employees.find(e=>e.id===form.id)?.remunerationMode||"daily"))?<Inp label="Modalidade válida a partir de" type="date" value={form.remunerationEffectiveFrom||""} onChange={F("remunerationEffectiveFrom")}/>:<p className="employee-edit-hint">Modalidade atual preservada. Para mudar, selecione outra modalidade e informe a vigência.</p>}
                 <Inp label={form.remunerationMode==="clt"?"Salário contratual mensal *":"Salário mensal para opção CLT"} type="number" value={String(form.monthlySalary||"")} onChange={F("monthlySalary")} error={formErrors.monthlySalary}/>
                 <Inp label="Matrícula do funcionário" value={form.cltPayroll?.profile?.registration||""} onChange={v=>setForm(f=>({...f,cltPayroll:{...f.cltPayroll,profile:{...f.cltPayroll?.profile,registration:v}}}))}/>
                 <Inp label="CBO do funcionário" value={form.cltPayroll?.profile?.cbo||""} onChange={v=>setForm(f=>({...f,cltPayroll:{...f.cltPayroll,profile:{...f.cltPayroll?.profile,cbo:v}}}))}/>
@@ -544,10 +548,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
               </div>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <Btn v="ghost" onClick={() => setModal(false)} full>Cancelar</Btn>
-            <Btn onClick={saveEmp} full><Ic n="check" /> Salvar</Btn>
-          </div>
+          </fieldset>
         </Modal>
       )}
 

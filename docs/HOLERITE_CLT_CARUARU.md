@@ -71,3 +71,9 @@ RH/admin podem abrir Definir diária ou CLT pelo ponto em Gestão de ponto e Pon
 A alteração usa FUNCIONARIO_MODALIDADE_DEFINIDA, versão esperada e papéis RH/admin; vigência e justificativa são obrigatórias. Preserva histórico de modalidade por data e decisões feitas pelo ponto com autoria. Não recalcula folhas fechadas: impede vigência até o último holerite confirmado, título de folha ou quinzena arquivada. A ação não liquida pagamento, não muda diária/salário cadastrados e não gera lançamentos no DRE. Diária é forma de remuneração e não elimina obrigações de vínculo. A comparação simulada continua separada.
 
 Após definir/conferir a modalidade, o atalho abre Folha na competência e no funcionário escolhidos (holerite CLT ou folha por diária). O holerite recebe o perfil cadastrado, mas continua exigindo ponto aprovado, análise de exceções e confirmação antes da emissão. Instrução de pagamento não comprova quitação.
+
+## Edição de cadastros antigos
+
+A edição usa uma preparação única para abertura pela Equipe e pelo atalho do ponto. Preserva zeros de VT/VR, reaproveita salário contratual do perfil salvo quando o campo principal não existe e mantém identificação, regras e demonstrativos. Não converte diária em salário nem cria matrícula/CBO inexistentes. Modalidade inalterada mantém sua vigência, sem exibir uma data vazia bloqueada como se fosse um campo a preencher.
+
+O formulário tem rodapé fixo com Salvar/Cancelar e rolagem apenas dos campos; ações permanecem visíveis em telas baixas e celulares. Falhas ficam visíveis e não descartam valores; gravação em andamento bloqueia reenvio e fechamento. A versão esperada é a da abertura do formulário, impedindo sobrescrita silenciosa de alterações concorrentes. Cadastro por diária continua editável sem exigir informações exclusivas de CLT.
