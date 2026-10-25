@@ -65,7 +65,7 @@ Evidência em 25/10: execução inicial conjunta **9 arquivos / 50 testes aprova
 | O04 | Saldos e adiantamentos de abertura desconhecidos | Hygor + financeiro | Conferir registros/comprovantes existentes sem criar saldo fictício |
 | I01 | Candidato web/servidor/RH final ainda em construção | RH | Entregar SHA e ligação recebimento→tratamento→fechamento→obrigação para reteste |
 | I02 | Publicação RH versionada sem consumo/persistência ponta a ponta comprovados | Android (produtor), RH (consumidor), integração (teste) | Entregar commits compatíveis; testar multiobra, meia-noite, reenvio, conflito e tardio |
-| I03 | Ambiente isolado e APK apontando para ele indisponíveis | Android + responsável de infraestrutura | Entregar URL identificada, marcador de ambiente, SHA app/servidor, build/hash APK; só então parear |
+| I03 | Ambiente isolado e APK ainda não entregues; Android iniciou verificação para provisionamento | Android + responsável de infraestrutura | Entregar URL identificada, marcador de ambiente, SHA app/servidor, build/hash APK; só então parear |
 | I04 | Modelo/Android/aparelho acessível não informados | Hygor | Informar e executar roteiro físico abaixo |
 | I05 | Recuperação, atualização e troca de aparelho sem ensaio físico | Android + Hygor | Usar runbook existente; preservar pendências e testar restauração em destino isolado |
 | I06 | Fluxo misto, compensação única e revisão de obrigação não verificados | RH + financeiro | Gerar aprovação real no teste e seguir até conciliação/custo |
@@ -73,6 +73,8 @@ Evidência em 25/10: execução inicial conjunta **9 arquivos / 50 testes aprova
 | D01 | Cancelamento de adiantamento muda desconto de período fechado | RH | Corrigir proteção e entregar SHA para reteste; reprodução abaixo |
 
 Esses itens impedem declarar prontidão do fluxo digital completo. Não são afirmação de que a obra física não pode iniciar por um procedimento oficial alternativo definido pela empresa.
+
+Atualização de coordenação em 25/10: a sessão Android informou ter confirmado a autorização histórica A1–A5 no chat “Análise do Roadmap”, de 13/10/2026 às 19:21 UTC: Supabase isolado, Vercel separado, URL EAS preview, keystore de homologação e dois APKs, condicionados a nenhum custo novo sem aprovação específica. A sessão Android verificará planos/custos e executará o provisionamento; esta sessão não consultou diretamente a autorização original nem provisionou recursos. O escopo informado não inclui main, produção, APKs antigos ou A6–A9. RC1 segue em reconciliação. Isso atualiza a dependência I03, sem aprovar ambiente, build ou teste ainda não entregues.
 
 ## Defeito D01
 
