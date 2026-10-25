@@ -89,7 +89,7 @@ describe("cadastro facial e ponto facial", () => {
   it("cadastra o rosto com consentimento, sincroniza e o ponto facial chega à ARP com NSR", async () => {
     const r = await a.api("ponto-cadastrar-biometria", {
       employeeId: "e1", modelo: "mobilefacenet-192-apache2", vetor: vetorDoCadastro([vetor(3), vetor(3, 0.05), vetor(3, -0.05)]),
-      fotos: [JPEG.toString("base64")], consentimento: { termoVersao: "2026-10", aceitoEm: "2026-10-01T10:00:00.000Z", textoSha256: "x" }, responsavelId: "u-enc",
+      fotos: [JPEG.toString("base64")], consentimento: { termoVersao: "2026-10", aceitoEm: "2026-10-01T10:00:00.000Z", textoSha256: "x" }, responsavelId: "u-enc",pinResponsavel:"2468",
     });
     expect(r.ok).toBe(true);
     await sincronizar();
@@ -212,14 +212,14 @@ describe("fila de eventos e cadeia local", () => {
 });
 
 describe("hora: reboot e relógio do celular alterado", () => {
-  it("reboot: bate com a hora do celular sinalizada; depois de sincronizar volta a ser confiável", async () => {
+  it("reboot: bate com a hora do celular sinalizada; depois de sincronizar sem medição segue sinalizada", async () => {
     await sincronizar();
     a.bootId = "boot-2"; a.monotonicoMs = 1_000;
     const antes = await a.bater();
     expect(antes.horaConfiavel).toBe(false);
     await sincronizar();
     const depois = await a.bater();
-    expect(depois).toMatchObject({ horaConfiavel: true, fonteHora: "host", idadeReferenciaMs: 0 });
+    expect(depois).toMatchObject({ horaConfiavel: false, fonteHora: "host", idadeReferenciaMs: 0 });
     expect(depois.marcadoEm).toBe(new Date(s.relogioServidor).toISOString());
     expect((await a.armazem.eventosPendentes(5))[0]).toMatchObject({ eventId: antes.eventId, marcadoEm: antes.marcadoEm, localHash: antes.localHash });
   });
@@ -233,24 +233,24 @@ describe("hora: reboot e relógio do celular alterado", () => {
     const b2 = await a.bater();
     expect((await a.armazem.eventosPendentes(1))[0]).toEqual(guardado);
     expect(b2.marcadoEm).toBe(new Date(s.relogioServidor).toISOString());
-    expect(b2).toMatchObject({ horaConfiavel: true, relogioAlterado: true, idadeReferenciaMs: 60_000 });
+    expect(b2).toMatchObject({ horaConfiavel: false, relogioAlterado: true, idadeReferenciaMs: 60_000 });
     expect(b1.relogioAlterado).toBe(false);
   });
 
-  it("validade da referência: offline dentro da validade continua confiável; vencida marca sem confiar; renovação depois volta ao normal", async () => {
+  it("validade da referência: referência sem medição nunca se torna confiável, mesmo após renovação", async () => {
     await sincronizar();
     a.online = false;                                         // offline durante a renovação
     const sincronizacoesAntes = a.chamadas.filter(x => x.action === "ponto-sincronizar").length;
     expect(await sincronizar()).toMatchObject({ ok: false, semRede: true });
     a.passar(6 * 24 * 3_600_000);
-    expect(await a.bater()).toMatchObject({ horaConfiavel: true, idadeReferenciaMs: 6 * 24 * 3_600_000 });   // a falha não apagou a referência
+    expect(await a.bater()).toMatchObject({ horaConfiavel: false, idadeReferenciaMs: 6 * 24 * 3_600_000 });   // a referência existe, mas não há medição HLB válida
     a.passar(2 * 24 * 3_600_000);
     const vencida = await a.bater();
     expect(vencida).toMatchObject({ horaConfiavel: false });
     expect(vencida.idadeReferenciaMs).toBeGreaterThan(IDADE_MAXIMA_REFERENCIA_MS);
     a.online = true;                                          // renovação posterior
     expect(await sincronizar()).toMatchObject({ ok: true });
-    expect(await a.bater()).toMatchObject({ horaConfiavel: true, idadeReferenciaMs: 0 });
+    expect(await a.bater()).toMatchObject({ horaConfiavel: false, idadeReferenciaMs: 0 });
     expect(a.chamadas.filter(x => x.action === "ponto-sincronizar").length).toBe(sincronizacoesAntes + 2);
     expect((await a.armazem.eventosPendentes(10)).length).toBe(3);                                         // nenhuma batida impedida
   });

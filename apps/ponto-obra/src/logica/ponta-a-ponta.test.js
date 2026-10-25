@@ -32,7 +32,7 @@ describe("aparelho + servidor, ponta a ponta", () => {
     a.passar(4 * 3_600_000);
     const b2 = await a.bater();
     expect(b1.marcadoEm).toBe("2026-10-01T12:00:00.000Z");   // hora do servidor, não a do celular adiantado
-    expect(b1).toMatchObject({ horaConfiavel: true, localSequence: 1, formatVersion: 2 });
+    expect(b1).toMatchObject({ horaConfiavel: false, localSequence: 1, formatVersion: 2 });
     expect(b1).not.toHaveProperty("nsr");                      // evento local não tem NSR
     expect((await enviar()).semRede).toBe(true);
 

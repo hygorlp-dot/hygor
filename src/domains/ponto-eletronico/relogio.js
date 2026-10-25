@@ -33,7 +33,7 @@ export const REFERENCIA_VELHA_MS = IDADE_MAXIMA_REFERENCIA_MS;
 export function horaDaMarcacao({ referencia, monotonicoMs, bootId, relogioParedeMs }) {
   const parede = Number(relogioParedeMs);
   const ref = referencia || null;
-  const mesmaSessao = ref && ref.bootId === bootId && Number.isFinite(Number(ref.monotonicoMs)) && Number(monotonicoMs) >= Number(ref.monotonicoMs);
+  const mesmaSessao = ref && ref.bootId === bootId && ref.servidorMs!=null&&Number.isFinite(Number(ref.servidorMs))&&ref.monotonicoMs!=null&&Number.isFinite(Number(ref.monotonicoMs)) && Number(monotonicoMs) >= Number(ref.monotonicoMs);
   if (!mesmaSessao) {
     return { marcadoEmMs: parede, horaConfiavel: false, fonteHora: "relogio-do-aparelho", idadeReferenciaMs: null, motivo: ref ? "aparelho reiniciou desde a última sincronização" : "aparelho ainda não sincronizou a hora" };
   }
@@ -45,7 +45,7 @@ export function horaDaMarcacao({ referencia, monotonicoMs, bootId, relogioParede
   }
   // Fonte do servidor sem verificação válida contra a HLB: a hora estimada é
   // usada, mas a batida não sai como confiável.
-  if (ref.fonteConfiavel === false) {
+  if (ref.fonteConfiavel !== true) {
     return { marcadoEmMs: estimada, horaConfiavel: false, fonteHora, idadeReferenciaMs: decorrido, divergenciaMs: Math.abs(parede - estimada), relogioAlterado: Math.abs(parede - estimada) > DIVERGENCIA_TOLERADA_MS, motivo: "hora do servidor sem verificação recente contra a Hora Legal Brasileira" };
   }
   const divergencia = Math.abs(parede - estimada);
@@ -67,7 +67,7 @@ export function horaDaMarcacao({ referencia, monotonicoMs, bootId, relogioParede
 export function estadoDaReferencia({ referencia, monotonicoMs, bootId }) {
   const ref = referencia || null;
   if (!ref || !Number.isFinite(Number(ref.servidorMs))) return { estado: "nunca_validada", idadeMs: null, ultimaValidacao: null, fonte: null };
-  const base = { ultimaValidacao: new Date(Number(ref.servidorMs)).toISOString(), fonte: ref.fonte || "servidor", fonteConfiavel: ref.fonteConfiavel !== false };
+  const base = { ultimaValidacao: new Date(Number(ref.servidorMs)).toISOString(), fonte: ref.fonte || "servidor", fonteConfiavel: ref.fonteConfiavel === true };
   if (ref.bootId !== bootId || !(Number(monotonicoMs) >= Number(ref.monotonicoMs))) return { ...base, estado: "invalida_apos_reinicio", idadeMs: null };
   const idadeMs = Number(monotonicoMs) - Number(ref.monotonicoMs);
   if (idadeMs > IDADE_MAXIMA_REFERENCIA_MS) return { ...base, estado: "expirada", idadeMs };
@@ -78,14 +78,14 @@ export function estadoDaReferencia({ referencia, monotonicoMs, bootId }) {
 // Nova referência a partir de uma resposta do servidor. Desconta metade do
 // tempo de ida e volta da requisição (estimativa simples de latência).
 // tempo = evidência da fonte de hora do servidor ({ source, offsetMs,
-// lastVerifiedAt, confiavel, ... }); sem ela (servidor antigo), a referência
-// vale como antes e a origem fica "servidor".
+// lastVerifiedAt, confiavel, ... }); sem evidência (servidor antigo), usa a
+// hora estimada mas deixa a marcação sinalizada, sem bloquear captura.
 export function novaReferencia({ servidorMs, monotonicoEnvioMs, monotonicoRespostaMs, bootId, tempo = null }) {
   const ida = Math.max(0, Number(monotonicoRespostaMs) - Number(monotonicoEnvioMs));
   return {
     servidorMs: Number(servidorMs) + ida / 2, monotonicoMs: Number(monotonicoRespostaMs), bootId, latenciaMs: ida,
     fonte: tempo?.source || "servidor",
-    fonteConfiavel: tempo ? tempo.confiavel !== false : true,
+    fonteConfiavel: tempo?.confiavel === true&&['verificada','dentro_da_tolerancia'].includes(tempo.status)&&Number.isFinite(Date.parse(tempo.lastVerifiedAt)),
     offsetHlbMs: tempo?.offsetMs ?? null,
     verificadaEm: tempo?.lastVerifiedAt ?? null,
   };

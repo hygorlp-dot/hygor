@@ -26,10 +26,9 @@ export const POLITICA_PADRAO = Object.freeze({
   toleranciaMs: TOLERANCIA_HLB_MS,
   metaMs: META_INTERNA_MS,
   validadeVerificacaoMs: VALIDADE_VERIFICACAO_MS,
-  // false: sem verificação nenhuma, a hora do host continua valendo como
-  // confiável (comportamento anterior) - mas a evidência diz "nao_verificada".
-  // true: só verificação recente e dentro da tolerância dá batida confiável.
-  exigirVerificacao: false,
+  // A falta de medição não impede o ponto, mas nunca pode ser mostrada como
+  // hora confiável. A opção permanece por compatibilidade do contrato.
+  exigirVerificacao: true,
 });
 
 const iso = ms => new Date(ms).toISOString();
@@ -38,13 +37,14 @@ const iso = ms => new Date(ms).toISOString();
 // incertezaMs, ok }) ou null.
 export function avaliarVerificacao(v, agoraMs, politica = POLITICA_PADRAO) {
   if (!v || !v.ok) {
-    return { status: "nao_verificada", confiavel: !politica.exigirVerificacao, idadeMs: null };
+    return { status: "nao_verificada", confiavel: false, idadeMs: null };
   }
   const idadeMs = agoraMs - Date.parse(v.verificadoEm);
   if (!(idadeMs >= 0) || idadeMs > politica.validadeVerificacaoMs) {
-    return { status: "verificacao_vencida", confiavel: !politica.exigirVerificacao, idadeMs };
+    return { status: "verificacao_vencida", confiavel: false, idadeMs };
   }
-  const desvio = Math.abs(Number(v.offsetMs) || 0) + Math.abs(Number(v.incertezaMs) || 0);
+  if(v.offsetMs==null||v.incertezaMs==null||!Number.isFinite(Number(v.offsetMs))||!Number.isFinite(Number(v.incertezaMs)))return {status:'nao_verificada',confiavel:false,idadeMs};
+  const desvio = Math.abs(Number(v.offsetMs)) + Math.abs(Number(v.incertezaMs));
   if (desvio > politica.toleranciaMs) return { status: "fora_da_tolerancia", confiavel: false, idadeMs };
   return { status: desvio > politica.metaMs ? "dentro_da_tolerancia" : "verificada", confiavel: true, idadeMs };
 }
