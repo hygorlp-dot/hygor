@@ -149,8 +149,11 @@ prebuild; `--offline` sem rede). Ele salva e restaura o `package.json`, apaga
 Use `npx expo install <pacote>` para dependências (versão compatível com o
 SDK). Biblioteca com código nativo exige novo build (não roda no Expo Go).
 
-## Build piloto
+## Build de homologação
 
 ```bash
-npx eas-cli build -p android --profile piloto
+PONTO_AMBIENTE=homologacao PONTO_API_URL=https://<api-isolada>/api/data npx eas-cli build -p android --profile homologacao
 ```
+
+O endpoint deve estar publicado e validado com o banco isolado. `.invalid`
+serve somente para compilação local, nunca para gerar um APK de teste.

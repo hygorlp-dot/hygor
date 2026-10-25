@@ -68,7 +68,7 @@ rodar("gitLimpo", "Árvore de trabalho limpa", () => {
 
 rodar("testes", "Testes do Ponto de Obra (app, domínio compartilhado e servidor)", () => {
   const r = exec("npx", ["vitest", "run", "apps/ponto-obra", "src/domains/ponto-eletronico", "server/ponto-eletronico", "server/ponto-eletronico-migration.pglite.test.js",
-    "--reporter=default", "--reporter=json", `--outputFile.json=${path.join(SAIDA, "vitest.json")}`], { cwd: RAIZ, stdio: ["ignore", "inherit", "inherit"] });
+    "--maxWorkers=1", "--reporter=default", "--reporter=json", `--outputFile.json=${path.join(SAIDA, "vitest.json")}`], { cwd: RAIZ, stdio: ["ignore", "inherit", "inherit"] });
   if (r.error) return { ok: false, detalhe: r.error.message };
   const j = JSON.parse(readFileSync(path.join(SAIDA, "vitest.json"), "utf8"));
   return { ok: r.status === 0 && j.numFailedTests === 0, detalhe: `${j.numPassedTests}/${j.numTotalTests} passando`, total: j.numTotalTests, falhas: j.numFailedTests };
