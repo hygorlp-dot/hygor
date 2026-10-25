@@ -124,3 +124,14 @@ apropriações sob locks e limita importação a jornadas confiáveis de obra ú
 Multiobra e revisões tardias exigem validação própria. A ausência de eventIds
 na apropriação não determina sozinha a solução, mas a origem precisa ser
 rastreável no caminho real e testada de ponta a ponta.
+
+## Conciliação do commit de segurança RH
+
+Incorporado `cff3f2858ee1725d00dac64afe97c6b7acc1d46e`: autorização biométrica
+no servidor com PIN e limite persistente, relógio sem confiança presumida,
+e fechamento dos bancos dos testes. A tela usa a proteção SecureStore desse
+commit, que grava a tentativa antes da derivação; falha de leitura/gravação
+impede entrada. Preservada a sessão com PIN apenas em memória, descartada ao
+sair, por inatividade e ao desmontar; o cadastro envia essa credencial ao servidor.
+A implementação SQLite anterior fica apenas como utilitário testado, sem uso
+na autenticação da tela. Nenhum APK anterior usou este candidato conciliado.

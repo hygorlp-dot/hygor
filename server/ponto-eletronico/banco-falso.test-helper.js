@@ -7,6 +7,7 @@ export function bancoFalso() {
   const tabelas = { ponto_dispositivos: [], ponto_pareamentos: [], ponto_marcacoes: [], ponto_biometrias: [], ponto_responsaveis: [],
     ponto_estabelecimentos: [], ponto_estabelecimento_obras: [], ponto_eventos: [], ponto_arp_registros: [], ponto_arp_contadores: [], ponto_tempo_verificacoes: [] };
   const arquivos = new Map();
+  const tentativas=new Map();
   const consulta = tabela => {
     const filtros = [];
     let modo = "select", patch = null, novo = null, ordem = null, limite = null, retornar = false, conflito = null;
@@ -54,6 +55,13 @@ export function bancoFalso() {
     tabelas, arquivos,
     from: consulta,
     async rpc(nome, p) {
+      if(nome.startsWith('auth_rate_limit_')){
+        const key=`${p.p_company_id}|${p.p_subject_hash}`,previous=tentativas.get(key)||0;
+        if(nome==='auth_rate_limit_success')tentativas.delete(key);
+        if(nome==='auth_rate_limit_failure')tentativas.set(key,previous+1);
+        const blocked=(tentativas.get(key)||0)>=8;
+        return {data:[{blocked,retry_after_seconds:blocked?300:0}],error:null};
+      }
       if (nome !== "ponto_registrar_marcacoes") throw new Error(`rpc inesperada: ${nome}`);
       const d = tabelas.ponto_dispositivos.find(x => x.id === p.p_dispositivo_id);
       let aceitas = 0;

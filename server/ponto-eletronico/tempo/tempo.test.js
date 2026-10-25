@@ -65,8 +65,8 @@ describe("fonte de hora oficial (TimeAuthority)", () => {
     expect(avaliarVerificacao(verif(), AGORA)).toMatchObject({ status: "verificada", confiavel: true });
     expect(avaliarVerificacao(verif({ offsetMs: 5000 }), AGORA)).toMatchObject({ status: "dentro_da_tolerancia", confiavel: true });
     expect(avaliarVerificacao(verif({ offsetMs: TOLERANCIA_HLB_MS + 1 }), AGORA)).toMatchObject({ status: "fora_da_tolerancia", confiavel: false });
-    expect(avaliarVerificacao(verif({ verificadoEm: new Date(AGORA - 2 * 86_400_000).toISOString() }), AGORA)).toMatchObject({ status: "verificacao_vencida", confiavel: true });
-    expect(avaliarVerificacao(null, AGORA)).toMatchObject({ status: "nao_verificada", confiavel: true });
+    expect(avaliarVerificacao(verif({ verificadoEm: new Date(AGORA - 2 * 86_400_000).toISOString() }), AGORA)).toMatchObject({ status: "verificacao_vencida", confiavel: false });
+    expect(avaliarVerificacao(null, AGORA)).toMatchObject({ status: "nao_verificada", confiavel: false });
     expect(avaliarVerificacao(null, AGORA, { ...POLITICA_PADRAO, exigirVerificacao: true })).toMatchObject({ confiavel: false });
   });
 

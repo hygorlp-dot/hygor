@@ -27,6 +27,7 @@ import { proporApropriacoes, validarApropriacao } from "../../src/domains/ponto-
 import { intervaloDoDia } from "../../src/domains/ponto-eletronico/painel.js";
 import { criarArp } from "./arp/arp.js";
 import { POLITICA_PADRAO, criarFonteHora } from "./tempo/fonte-hora.js";
+import { applyPersistentAuthRateLimit } from '../app-auth-security.js';
 
 export const BUCKET_PONTO = "ponto-obra";
 export const PAPEIS_GESTAO = new Set(["admin", "rh", "engenheiro"]);
@@ -632,9 +633,26 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const consentimento = body.consentimento || {};
       if (!texto(consentimento.termoVersao) || !texto(consentimento.aceitoEm)) return erro(400, "Sem o consentimento do funcionário a biometria não pode ser cadastrada (LGPD).");
       const responsavelId = texto(body.responsavelId);
-      const { data: resp, error: errResp } = await db.from("ponto_responsaveis").select("user_id,obras,ativo").eq("company_id", company).eq("user_id", responsavelId).maybeSingle();
+      const subject=`ponto-biometria:${dispositivo.id}`;
+      const throttle=await applyPersistentAuthRateLimit(db,{company,subject,action:'status'});
+      // Cadastro biométrico exige internet. Se a proteção persistente estiver
+      // indisponível, falha fechado apenas aqui; a captura de ponto continua.
+      if(!throttle)return erro(503,'Não foi possível verificar a autorização. Tente novamente.');
+      if(throttle.blocked)return erro(429,'Muitas tentativas de PIN. Aguarde antes de tentar novamente.',{retryAfter:throttle.retryAfter});
+      const { data: resp, error: errResp } = await db.from("ponto_responsaveis").select("user_id,obras,ativo,pin_hash,pin_salt,pin_iteracoes").eq("company_id", company).eq("user_id", responsavelId).maybeSingle();
       if (errResp) throw errResp;
-      if (!resp?.ativo || ((resp.obras || []).length && !(resp.obras || []).map(String).includes(String(dispositivo.obra_id)))) return erro(403, "Responsável sem permissão nesta obra.");
+      const pin=texto(body.pinResponsavel);
+      const iterations=Number(resp?.pin_iteracoes);
+      const allowed=resp?.ativo&&(!(resp.obras||[]).length||(resp.obras||[]).map(String).includes(String(dispositivo.obra_id)));
+      const expected=String(resp?.pin_hash||'');
+      const valid=allowed&&/^\d{4,8}$/.test(pin)&&/^[a-f0-9]{64}$/i.test(expected)&&Number.isInteger(iterations)&&iterations>=10000&&iterations<=1000000
+        &&crypto.timingSafeEqual(Buffer.from(hashPin(pin,resp.pin_salt,iterations),'hex'),Buffer.from(expected,'hex'));
+      if(!valid){
+        const failure=await applyPersistentAuthRateLimit(db,{company,subject,action:'failure'});
+        if(!failure)return erro(503,'Não foi possível verificar a autorização. Tente novamente.');
+        return erro(failure.blocked?429:403,'PIN incorreto ou responsável sem permissão nesta obra.',{retryAfter:failure.retryAfter});
+      }
+      if(!await applyPersistentAuthRateLimit(db,{company,subject,action:'success'}))return erro(503,'Não foi possível confirmar a autorização.');
       const id = crypto.randomUUID();
       const fotos = [];
       for (const [i, bruto] of (Array.isArray(body.fotos) ? body.fotos.slice(0, 5) : []).entries()) {

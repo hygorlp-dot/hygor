@@ -23,13 +23,17 @@ end $$;`;
 let base = null;
 async function montarBase() {
   const db = new PGlite({ extensions: { pgcrypto } });
-  await db.exec(PAPEIS_SUPABASE);
-  await db.exec(lerMigration("016_create_ponto_eletronico.up.sql"));
-  await db.exec(lerMigration("017_ponto_arp_estabelecimento_nsr.up.sql"));
-  await db.exec(lerMigration("018_ponto_apropriacoes.up.sql"));
-  const dump = await db.dumpDataDir();
-  await db.close();
-  return dump;
+  try {
+    await db.exec(PAPEIS_SUPABASE);
+    await db.exec(lerMigration("016_create_ponto_eletronico.up.sql"));
+    await db.exec(lerMigration("017_ponto_arp_estabelecimento_nsr.up.sql"));
+    await db.exec(lerMigration("018_ponto_apropriacoes.up.sql"));
+    await db.exec(lerMigration('20260726_auth_rate_limit.sql'));
+    await db.exec(lerMigration('20260727_auth_rate_limit_success.sql'));
+    return await db.dumpDataDir();
+  } finally {
+    if (!db.closed) await db.close();
+  }
 }
 
 export async function novoPglite() {

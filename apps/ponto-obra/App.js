@@ -33,7 +33,6 @@ import { AMBIENTE, apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoA
 import { apagarFotoLocal, carregarModelos, lerFotoBase64, prepararFotoDaBatida } from "./src/servicos/rosto-nativo";
 import { CHAVE_DESEMPENHO, registrarTentativa } from "./src/logica/desempenho";
 import { conferirTrocaDeAparelho } from "./src/logica/recuperacao";
-import { criarTravaPin } from "./src/logica/trava-pin";
 import TelaEncarregado from "./src/telas/TelaEncarregado";
 import TelaPareamento from "./src/telas/TelaPareamento";
 import TelaPonto from "./src/telas/TelaPonto";
@@ -66,11 +65,7 @@ export default function App() {
   // Preferências da tela (não são registro): confirmação por voz.
   const [preferencias, setPreferencias] = useState({ voz: true });
   const ref = useRef({ armazem: null, relogio: null, sessao: null, gps: null, gpsEstado: "aguardando", ultimoCadastro: 0, sincronizando: false, pedirDeNovo: null });
-  const travaPinDoArmazem = () => {
-    const armazem = ref.current.armazem;
-    if (ref.current.travaPin?.armazem !== armazem) ref.current.travaPin = { armazem, trava: criarTravaPin({ armazem }) };
-    return ref.current.travaPin.trava;
-  };
+
   const anotarMedicao = m => {
     Object.assign(desempenho.current, m);
     ref.current.estatisticas = registrarTentativa(ref.current.estatisticas, { tempos: {
@@ -313,7 +308,7 @@ export default function App() {
   </Tela>;
   else if (fase === "parear") conteudo = <TelaPareamento api={api} aoParear={aoParear} antesDeParear={() => conferirTrocaDeAparelho(ref.current.armazem)} />;
   else if (fase === "encarregado") conteudo = <TelaEncarregado cadastro={cadastro} modelos={modelos} registrar={registrar} api={api} obra={ref.current.sessao?.obra}
-    situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico} travaPin={travaPinDoArmazem()}
+    situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico}
     voz={preferencias.voz} alternarVoz={alternarVoz}
     calibracao={{ ativa: calibrando, alternar: () => setCalibrando(v => !v), resumo: () => resumoDeCampo(relatorioDeCampo(sessaoCalibracao.linhas())), limpar: () => sessaoCalibracao.limpar() }} />;
   else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos}

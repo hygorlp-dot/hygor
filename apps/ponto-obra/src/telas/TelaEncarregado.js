@@ -9,6 +9,7 @@ import { bytesToHex } from "@noble/hashes/utils.js";
 import RelogioConfiavel from "../../modules/relogio-confiavel";
 import { abrirSessaoResponsavel, corpoCadastroBiometria, verificarPinResponsavel } from "../logica/pin";
 import { textoEsperaPin } from "../logica/trava-pin";
+import { protecaoPin } from "../servicos/protecao-pin.js";
 import { vetorDoCadastro } from "../logica/rosto";
 import { PARAMETROS_FACIAIS as P } from "../logica/calibracao";
 import { mensagemDeErro } from "../logica/falhas";
@@ -33,7 +34,7 @@ const CAPTURAS_CADASTRO = P.capturasCadastro;
 export const TERMO_VERSAO = "2026-10";
 export const TERMO_TEXTO = "Autorizo a ARCD a usar a imagem do meu rosto para gerar um código biométrico usado SOMENTE para registrar o meu ponto nas obras da empresa. O código e as fotos ficam protegidos, não são compartilhados com terceiros e serão apagados quando eu deixar a empresa ou se eu pedir. Posso pedir a exclusão a qualquer momento; nesse caso meu ponto passa a ser registrado pelo encarregado.";
 
-export default function TelaEncarregado({ cadastro, modelos, registrar, sincronizarAgora, situacao, fechar, api, obra, diagnostico, travaPin, voz = true, alternarVoz = () => {}, calibracao = null }) {
+export default function TelaEncarregado({ cadastro, modelos, registrar, sincronizarAgora, situacao, fechar, api, obra, diagnostico, voz = true, alternarVoz = () => {}, calibracao = null }) {
   // Sessão do responsável (logica/pin.js abrirSessaoResponsavel): { userId, nome }
   // + o PIN só em memória, para o servidor conferir no cadastro facial.
   const [responsavel, setResponsavel] = useState(null);
@@ -52,7 +53,7 @@ export default function TelaEncarregado({ cadastro, modelos, registrar, sincroni
     return () => clearInterval(t);
   }, [sair]);
 
-  if (!responsavel) return <EntrarComPin responsaveis={cadastro?.responsaveis || []} aoEntrar={entrar} fechar={sair} sincronizarAgora={sincronizarAgora} trava={travaPin} />;
+  if (!responsavel) return <EntrarComPin responsaveis={cadastro?.responsaveis || []} aoEntrar={entrar} fechar={sair} sincronizarAgora={sincronizarAgora} />;
 
   const voltar = () => setTela("menu");
   const abrir = id => {
@@ -87,37 +88,25 @@ export default function TelaEncarregado({ cadastro, modelos, registrar, sincroni
   );
 }
 
-function EntrarComPin({ responsaveis, aoEntrar, fechar, sincronizarAgora, trava }) {
+function EntrarComPin({ responsaveis, aoEntrar, fechar, sincronizarAgora }) {
   const [escolhido, setEscolhido] = useState(null);
   const [pin, setPin] = useState("");
   const [erro, setErro] = useState("");
-  // Erros seguidos e espera ficam no banco local (logica/trava-pin.js, criada
-  // no App): fechar e abrir o app não zera a trava.
+  // Tentativas são persistidas no SecureStore antes de conferir o PIN.
   const [conferindo, setConferindo] = useState(false);
   const [buscando, setBuscando] = useState(false);
-
-  useEffect(() => {
-    let viva = true;
-    trava.situacao().then(s => { if (viva && s.bloqueado) setErro(`Muitos PINs errados. Aguarde ${textoEsperaPin(s.esperaMs)} para tentar de novo.`); }).catch(() => {});
-    return () => { viva = false; };
-  }, [trava]);
 
   const entrar = async () => {
     if (conferindo) return;
     setConferindo(true);
     try {
-      const agora = await trava.situacao();
-      if (agora.bloqueado) { setErro(`Aguarde ${textoEsperaPin(agora.esperaMs)} para tentar de novo.`); return; }
       await new Promise(resolve => setTimeout(resolve, 50));
-      const ok = verificarPinResponsavel(pin, [escolhido], pbkdf2Hex);
-      if (ok) { await trava.acertou(); aoEntrar(abrirSessaoResponsavel(ok, pin)); setPin(""); return; }
-      const { esperaMs } = await trava.falhou();
-      setPin("");
-      setErro(esperaMs ? `PIN incorreto. Aguarde ${textoEsperaPin(esperaMs)}.` : "PIN incorreto.");
+      const resultado = await protecaoPin.tentar(() => verificarPinResponsavel(pin, [escolhido], pbkdf2Hex));
+      if (resultado.ok) { aoEntrar(abrirSessaoResponsavel(resultado.responsavel, pin)); return; }
+      setErro(resultado.esperaMs ? `Aguarde ${textoEsperaPin(resultado.esperaMs)} para tentar de novo.` : "PIN incorreto.");
     } catch {
-      setPin("");
       setErro("Não foi possível verificar a proteção do PIN no aparelho. Chame o suporte; não limpe os dados.");
-    } finally { setConferindo(false); }
+    } finally { setPin(""); setConferindo(false); }
   };
 
   if (!responsaveis.length) return <Tela>

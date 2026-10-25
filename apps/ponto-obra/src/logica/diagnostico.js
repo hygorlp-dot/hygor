@@ -40,7 +40,8 @@ export function alertaDaHora({ hora = null, referencia = null, statusHora = null
   if (referencia.estado === "expirada") return r("erro", "Mais de 7 dias sem sincronizar a hora. As batidas saem sinalizadas.", "Conecte à internet para sincronizar a hora.");
   if (statusHora === "fora_da_tolerancia") return r("erro", "A hora do servidor do ARCD está fora da tolerância medida contra o NTP.br. As batidas saem sinalizadas.", "Avise o suporte do ARCD.");
   if (referencia.estado === "proxima_do_vencimento") return r("atencao", "A referência de hora vence em breve.", "Conecte à internet para sincronizar a hora.");
-  if (statusHora === "nao_verificada" || statusHora === "verificacao_vencida") return r("atencao", `Hora do servidor ${ROTULO_STATUS_HORA_SERVIDOR[statusHora]}; a referência do aparelho é válida.`, "Nada a fazer na obra; o suporte acompanha a medição.");
+  if (statusHora === "nao_verificada" || statusHora === "verificacao_vencida") return r("atencao", `Hora do servidor ${ROTULO_STATUS_HORA_SERVIDOR[statusHora]}; as batidas saem sinalizadas.`, "Avise o suporte para verificar a fonte de hora.");
+  if(hora?.horaConfiavel!==true)return r('atencao','A referência de hora não tem verificação válida. As batidas continuam sendo salvas, sinalizadas.','Conecte e sincronize; se persistir, avise o suporte.');
   if (hora?.relogioAlterado) return r("ok", "Hora válida. O relógio do celular está diferente, mas a batida usa a hora do ARCD.", null);
   return r("ok", "Hora válida.", null);
 }
