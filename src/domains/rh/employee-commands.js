@@ -1,7 +1,10 @@
 import { validDate } from "./date-validation.js";
+import {attendanceImportIssues} from '../ponto/clt-attendance.js';
+import {attendancePayModeDecision} from './attendance-pay-mode.js';
 
 export const EMPLOYEE_COMMAND = Object.freeze({
   EMPLOYEE_SAVED:"FUNCIONARIO_SALVO",
+  EMPLOYEE_PAY_MODE_SET:'FUNCIONARIO_MODALIDADE_DEFINIDA',
 });
 
 export const EMPLOYEE_COMMAND_TYPES = new Set(Object.values(EMPLOYEE_COMMAND));
@@ -24,7 +27,7 @@ export const employeeLifecycleStatus = (employee, referenceDate = new Date().toI
 
 export const employeeCommandObraId = (data = {}, command = {}) => {
   const raw = command.payload?.employee || {};
-  const current = employeeById(data, raw.id);
+  const current = employeeById(data, raw.id||command.payload?.employeeId);
   return String(raw.obra || current?.obra || "");
 };
 
@@ -120,7 +123,9 @@ export const applyEmployeeCommand = (
   now = new Date().toISOString(),
 ) => {
   if (!EMPLOYEE_COMMAND_TYPES.has(command.type)) return null;
-  const raw = command.payload?.employee || {};
+  const decision=command.type===EMPLOYEE_COMMAND.EMPLOYEE_PAY_MODE_SET?attendancePayModeDecision(data,command,now):null;
+  if(decision&&!decision.ok)return fail(decision.reason);
+  const raw = decision?.employee||command.payload?.employee || {};
   const id = String(raw.id || "").trim();
   const before = employeeById(data, id);
   if (!id) return fail("O funcionário precisa de uma identificação única.");
@@ -131,6 +136,12 @@ export const applyEmployeeCommand = (
     return fail("A versão inicial do funcionário é inválida.");
   }
   const name = String(raw.name || "").trim();
+  for(const [period,draft] of Object.entries(raw.cltPayroll?.drafts||{})){
+    if(JSON.stringify(draft)===JSON.stringify(before?.cltPayroll?.drafts?.[period]))continue;
+    const issues=attendanceImportIssues(data,{...before,...raw},draft);
+    if(issues.length)return fail(issues[0]);
+    if(draft.attendanceSource?.manualReason&&String(draft.attendanceSource.manualReason).trim().length<10)return fail('Justifique o ajuste manual dos eventos importados.');
+  }
   if (!name) return fail("Informe o nome do funcionário.");
   if (!validDate(raw.startDate)) return fail("Informe uma data de admissão válida.");
   const dailyRate = Number(raw.dailyRate || 0);
@@ -187,6 +198,7 @@ export const applyEmployeeCommand = (
     remunerationMode:mode,
     remunerationEffectiveFrom:modeChanged?modeDate:before?.remunerationEffectiveFrom||raw.remunerationEffectiveFrom||"",
     remunerationHistory,
+    payModeDecisions:decision?raw.payModeDecisions:before?.payModeDecisions||[],
     vtDaily:Number(raw.vtDaily || 0),
     vrDaily:Number(raw.vrDaily || 0),
     workdayHours,

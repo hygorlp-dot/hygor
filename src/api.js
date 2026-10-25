@@ -168,6 +168,7 @@ export const verificarStatusIA = () => chamarRotaAutenticada("/api/ai-agent", { 
 export const configurarGemini = apiKey => chamarRotaAutenticada("/api/ai-agent", { action:"configure", apiKey });
 export const removerConfiguracaoIA = () => chamarRotaAutenticada("/api/ai-agent", { action:"remove" });
 export const consultarCNPJReceita = cnpj => chamarRotaAutenticada("/api/cnpj", { cnpj });
+export const employeeDocumentsRequest = payload => chamarRotaAutenticada('/api/upload',{...payload,folder:'rh'});
 export const buscarResumoDiario = () => chamarRotaAutenticada("/api/ai-agent", { action:"daily-brief" });
 export const executarComandoFinanceiro = command => chamar({ action:"financial-command", ...credenciais(), command });
 export const gerarLinkAceitePedido = orderId => chamar({ action:"pedido-aceite-link", ...credenciais(), orderId });

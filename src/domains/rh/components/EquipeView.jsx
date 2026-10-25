@@ -512,7 +512,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
               <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
                 <Sel label="Modalidade de remuneração" value={form.remunerationMode||"daily"} onChange={v=>setForm(f=>({...f,remunerationMode:v,remunerationEffectiveFrom:today()}))} options={[{v:"daily",l:"Diária"},{v:"clt",l:"CLT mensal"}]}/>
                 <Inp label="Modalidade válida a partir de" type="date" value={form.remunerationEffectiveFrom||""} onChange={F("remunerationEffectiveFrom")} disabled={!!form.id&&(form.remunerationMode||"daily")===(data.employees.find(e=>e.id===form.id)?.remunerationMode||"daily")}/>
-                {form.remunerationMode==="clt"&&<Inp label="Salário contratual mensal *" type="number" value={String(form.monthlySalary||"")} onChange={F("monthlySalary")} error={formErrors.monthlySalary}/>}
+                <Inp label={form.remunerationMode==="clt"?"Salário contratual mensal *":"Salário mensal para opção CLT"} type="number" value={String(form.monthlySalary||"")} onChange={F("monthlySalary")} error={formErrors.monthlySalary}/>
+                <Inp label="Matrícula do funcionário" value={form.cltPayroll?.profile?.registration||""} onChange={v=>setForm(f=>({...f,cltPayroll:{...f.cltPayroll,profile:{...f.cltPayroll?.profile,registration:v}}}))}/>
+                <Inp label="CBO do funcionário" value={form.cltPayroll?.profile?.cbo||""} onChange={v=>setForm(f=>({...f,cltPayroll:{...f.cltPayroll,profile:{...f.cltPayroll?.profile,cbo:v}}}))}/>
+                <Sel label="Categoria contratual na CCT" value={form.cltPayroll?.profile?.category||""} onChange={v=>setForm(f=>({...f,cltPayroll:{...f.cltPayroll,profile:{...f.cltPayroll?.profile,category:v}}}))} options={[{v:"",l:"Selecione"},{v:"professional",l:"Profissional"},{v:"helper",l:"Servente / ajudante"}]}/>
                 <Inp label={form.remunerationMode==="clt"?"Diária de referência para custeio do ponto *":"Diária *"} type="number" value={form.dailyRate} onChange={F("dailyRate")} error={formErrors.dailyRate}/>
                 <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} />
                 <Inp label="VR diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} />
@@ -525,6 +528,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <p style={TYPO.eyebrow}>PIX</p>
               <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
+                <Inp label="Instruções de pagamento (se não usar PIX)" value={form.paymentInstructions||""} onChange={F("paymentInstructions")}/>
                 <Inp label="Tipo PIX" value={form.pixType} onChange={F("pixType")} />
                 <Inp label="Titular PIX" value={form.pixHolder} onChange={F("pixHolder")} />
                 <div style={{ gridColumn: "1/-1" }}><Inp label="Chave PIX" value={form.pixKey} onChange={F("pixKey")} /></div>
