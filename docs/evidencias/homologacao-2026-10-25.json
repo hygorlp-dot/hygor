@@ -1,0 +1,839 @@
+{
+  "escopo": "Homologação isolada com dados fictícios. Produção e sistema diário preservados.",
+  "consolidadoEm": "2026-10-25T21:41:19.055298+00:00",
+  "codigoPublicado": "012604ac698a8fcd14c2c0f65f5b2e9128661ea5",
+  "pullRequest": "https://github.com/hygorlp-dot/hygor/pull/120",
+  "producaoPreservada": {
+    "main": "c7d4e777e7263b823bd2ce60797346ea69bca402",
+    "promocaoRealizada": false
+  },
+  "contratacoesPagas": false,
+  "publicacao": {
+    "environment": "homologacao",
+    "url": "https://ponto-homologacao.vercel.app",
+    "projectId": "prj_W7s5zALWmMuV4Wt5WePSz8ABAefp",
+    "teamId": "team_poBZ5I1rwStzhvD73ar22b7v",
+    "deploymentId": "dpl_Ag6g6VF5Pbf6Ee2qzynm3B1tYVdQ",
+    "state": "READY",
+    "aliasError": null,
+    "commit": "012604ac698a8fcd14c2c0f65f5b2e9128661ea5",
+    "branch": "codex/fulano-siclano-integracao",
+    "rootDirectory": "apps/homologacao",
+    "installCommand": "cd ../.. && npm ci --ignore-scripts --include=dev",
+    "buildCommand": "node build.mjs",
+    "outputDirectory": "public",
+    "edge": {
+      "projectId": "ukkzpttnbyylkyujzwnv",
+      "name": "ponto-api-homologacao",
+      "version": 8,
+      "status": "ACTIVE",
+      "deploymentHash": "96a4d1bd974f110f2da98a96abb663050626db90c50a3cc288500da208344da1",
+      "bytes": 791325
+    },
+    "evidence": {
+      "source": {
+        "commit": "012604ac698a8fcd14c2c0f65f5b2e9128661ea5",
+        "dirty": false,
+        "samePublishedFiles": true,
+        "bytes": 791325
+      },
+      "api": {
+        "endpoint": "https://ponto-homologacao.vercel.app/api/data",
+        "projectId": "ukkzpttnbyylkyujzwnv",
+        "checks": [
+          {
+            "action": "ponto-ambiente",
+            "status": 200,
+            "passed": true
+          },
+          {
+            "action": "ponto-parear",
+            "status": 409,
+            "passed": true
+          },
+          {
+            "action": "setup",
+            "status": 403,
+            "passed": true
+          },
+          {
+            "action": "ponto-sincronizar",
+            "status": 401,
+            "passed": true
+          },
+          {
+            "action": "upload-list",
+            "status": 401,
+            "passed": true
+          },
+          {
+            "action": "auth-login",
+            "status": 200,
+            "passed": true
+          },
+          {
+            "action": "load",
+            "status": 200,
+            "passed": true
+          },
+          {
+            "action": "upload-list",
+            "status": 200,
+            "passed": true
+          },
+          {
+            "action": "ponto-tempo-verificar",
+            "status": 200,
+            "passed": true
+          }
+        ],
+        "environment": "homologacao",
+        "syntheticEmployeeCount": 2,
+        "fulanoDocuments": 8,
+        "time": {
+          "ntpOk": true,
+          "trusted": true,
+          "offsetMs": 9.234375,
+          "uncertaintyMs": 114.01513671875
+        },
+        "passed": true
+      },
+      "html": {
+        "url": "https://ponto-homologacao.vercel.app/",
+        "status": 200,
+        "htmlSha256": "de5d8b1436e2dc65f4722d67b7c066c6db73a828328442360e5a9ffd1476a475",
+        "scripts": [
+          "/assets/index-SdDjjOmQ.js"
+        ],
+        "placeholderAbsent": true,
+        "noindex": "noindex, nofollow"
+      },
+      "auxiliary": {
+        "projectId": "ukkzpttnbyylkyujzwnv",
+        "via": "edge",
+        "checks": [
+          {
+            "route": "data",
+            "action": "ponto-ambiente",
+            "status": 200,
+            "passed": true,
+            "seconds": 5.39
+          },
+          {
+            "route": "presence",
+            "action": "heartbeat",
+            "status": 401,
+            "passed": true,
+            "seconds": 4.54
+          },
+          {
+            "route": "ai-agent",
+            "action": "daily-brief",
+            "status": 401,
+            "passed": true,
+            "seconds": 4.63
+          },
+          {
+            "route": "ai-agent",
+            "action": "configure",
+            "status": 503,
+            "passed": true,
+            "seconds": 2.31
+          },
+          {
+            "route": "data",
+            "action": "auth-login",
+            "status": 200,
+            "passed": true,
+            "seconds": 5.85
+          },
+          {
+            "route": "presence",
+            "action": "heartbeat",
+            "status": 200,
+            "passed": true,
+            "seconds": 4.25
+          },
+          {
+            "route": "presence",
+            "action": "list",
+            "status": 200,
+            "passed": true,
+            "seconds": 2.78
+          },
+          {
+            "route": "ai-agent",
+            "action": "daily-brief",
+            "status": 200,
+            "passed": true,
+            "seconds": 13.03
+          },
+          {
+            "route": "presence",
+            "action": "offline",
+            "status": 200,
+            "passed": true,
+            "seconds": 4.6
+          }
+        ],
+        "ownPresenceVisible": true,
+        "dailyBrief": {
+          "ok": true,
+          "weatherPresent": true,
+          "newsCount": 0,
+          "cubPresent": true
+        },
+        "externalAiDisabled": true,
+        "passed": true
+      }
+    },
+    "publicSources": {
+      "cubCacheBefore": false,
+      "cubCacheAfter": true,
+      "externalAiConfigExists": false,
+      "resourceFailuresObserved": 0,
+      "newsErrorsObserved": 1
+    }
+  },
+  "testes": {
+    "rodadaCompleta": {
+      "startedAt": "2026-10-25T21:08:41.392290+00:00",
+      "finishedAt": "2026-10-25T21:15:55.734478+00:00",
+      "exitCode": 0,
+      "reportExists": true,
+      "success": true,
+      "passed": 3113,
+      "failed": 0,
+      "pending": 13,
+      "total": 3126
+    },
+    "arquivosAprovados": 423,
+    "arquivosIgnorados": 2,
+    "duracaoVitestSegundos": 433.47,
+    "lint": "aprovado",
+    "typecheck": "aprovado",
+    "arquitetura": "aprovada",
+    "buildVite": {
+      "exitCode": 0,
+      "finishedAt": "2026-10-25T21:16:34.752167+00:00",
+      "log": ".tools/validation-delivery/build.log"
+    },
+    "regressaoDiaria": {
+      "testes": 59,
+      "arquivos": 8,
+      "resultado": "aprovado"
+    },
+    "renovacaoNtp": {
+      "testes": 58,
+      "arquivos": 6,
+      "resultado": "aprovado"
+    },
+    "rotasAuxiliares": {
+      "testes": 32,
+      "arquivos": 4,
+      "resultado": "aprovado"
+    },
+    "limiteContagem": "Rodadas focais podem repetir testes da suíte; os números não devem ser somados como casos únicos."
+  },
+  "simulacaoLocal": {
+    "arquivo": "src/integration/simulacao-completa.test.js",
+    "marcacoes": 180,
+    "nsrsUnicos": 180,
+    "caixaSimuladoCentavos": 550711,
+    "contasPagarFolhaCentavos": 0,
+    "limite": "API e SQL reais locais; autenticação, relógio e captura física controlados pelo teste. Outubro foi fechado apenas com relógio local em novembro."
+  },
+  "documentosRemotos": {
+    "funcionarios": [
+      {
+        "id": "piloto-k110-fulano",
+        "result": "preserved"
+      },
+      {
+        "id": "piloto-k110-siclano",
+        "result": "preserved"
+      }
+    ],
+    "documentosVerificados": 16,
+    "todosDownloadsConferidos": true,
+    "documentos": [
+      {
+        "employeeId": "piloto-k110-fulano",
+        "documentId": "d3eaf3df-7e42-5354-a87c-757f6153a18a",
+        "category": "identity",
+        "sha256": "21dfa9d2aec8424f116c6d382b44f30dba6a34e9a792070d3a30551195248157",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-fulano",
+        "documentId": "59062591-68e5-59c6-b7d3-3683e8a74a6b",
+        "category": "address",
+        "sha256": "95adbeec31349d6b69016d8e41dffe7d323f6d79876fc5a68146f24451e6c7ba",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-fulano",
+        "documentId": "d2c6ba4e-eeb9-5240-a69c-961f5884ee4b",
+        "category": "contract",
+        "sha256": "b9ae6a0d05ab89fd3625df78df0e1a201dfd4289fbb851f20f3de2fd24f9327e",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-fulano",
+        "documentId": "ed35bbb1-21dd-5763-999b-6a6f936fe2cb",
+        "category": "registration",
+        "sha256": "65555117e62e5942ea5b66e892375c33ff8b873378a70b308870bfc3054df30b",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-fulano",
+        "documentId": "c45dfa11-c760-5080-8969-a743a5b01881",
+        "category": "dependents",
+        "sha256": "63a744ee2475c9e70a36d888824dc88385f00262d96b1399a586aa69e718fc20",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-fulano",
+        "documentId": "5a2be7ee-93a5-591c-8167-8dec9481a257",
+        "category": "aso",
+        "sha256": "b8e814af8a2fa8dcd6e95e15569cfc0523ffbf7a5d78f4ef7afa45a6a3fc3180",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-fulano",
+        "documentId": "df160dbb-d246-507f-b7f6-4b230c0195fa",
+        "category": "training",
+        "sha256": "1f3b0717f54256a8bbd2d5041ed81980750e47f46ba4df59a08ebe6c3914c81f",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-fulano",
+        "documentId": "b8e77df3-d65b-554b-9e8d-dd88598d5e3f",
+        "category": "ppe",
+        "sha256": "43f7a072bc8b7c3c131e2e995e52eec70daa9180cf70a1930e73f7fbb3837c91",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-siclano",
+        "documentId": "708a3fff-34eb-5f77-8354-43d2396fde77",
+        "category": "identity",
+        "sha256": "f3e5dc77e5f69235ba8062ba9eea6a7a6af303a985f795134a3a913f9aa84359",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-siclano",
+        "documentId": "8cb145de-e163-5b60-a677-27c46f56756c",
+        "category": "address",
+        "sha256": "846dccf351415404b3e95c4f2a7b60a07640d831455192cb28d550af162a1a8a",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-siclano",
+        "documentId": "6d877aa2-7327-5876-8498-22c462f11591",
+        "category": "contract",
+        "sha256": "0d190b37d7bc3655b9dd34abcce266ffa9c7e748f25d3843b8a99fa8b8d25d7d",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-siclano",
+        "documentId": "71d2772a-f2de-50d5-9a93-c47e211e3e4f",
+        "category": "registration",
+        "sha256": "842de007b8d224618465bc798503f11501db3457d75b4ef692b6ff0d221706d1",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-siclano",
+        "documentId": "2bb6861c-4168-5e3f-bf78-b219640368d1",
+        "category": "dependents",
+        "sha256": "e1d6c9b3f9d8a42732e6804e5287658942cf36e1d36c807495a2ccd971540376",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-siclano",
+        "documentId": "61fdf379-fd88-5bc8-9a76-fd0aead59521",
+        "category": "aso",
+        "sha256": "8dd48d09d83f490c284c78e62ad64de7008fd833271de510bd4ae3cd4db7d7ec",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-siclano",
+        "documentId": "0694ad1b-7007-56fa-9c14-2115e50a3350",
+        "category": "training",
+        "sha256": "9da66f985761d06647905868c0bbffcb50184b2d74f5906b16d123c0b8a34d3d",
+        "uploadAndDownloadVerified": true
+      },
+      {
+        "employeeId": "piloto-k110-siclano",
+        "documentId": "cdcf9606-b4cb-54e6-abdb-ef1675b6833e",
+        "category": "ppe",
+        "sha256": "8aec3b40dc3dc6b7c89d79a905dd23231bb721f89235c2781e2e2b0153f7a7eb",
+        "uploadAndDownloadVerified": true
+      }
+    ]
+  },
+  "financeiroRemoto": {
+    "scenario": "qa_adiantamentos_202610_v1",
+    "status": "completed",
+    "startedAt": "2026-10-25T20:50:05.516621+00:00",
+    "completedAt": "2026-10-25T20:53:02.691589+00:00",
+    "businessDate": "2026-10-20",
+    "deductionDate": "2026-10-31",
+    "realTransfer": false,
+    "monthlyPayrollClosed": false,
+    "clockChanged": false,
+    "dreUnchanged": true,
+    "employeesAndAttendanceUnchanged": true,
+    "resultado": {
+      "advances": [
+        {
+          "employeeId": "piloto-k110-fulano",
+          "id": "qa_adiantamentos_202610_v1_fulano",
+          "titleId": "advance:piloto-k110-fulano:qa_adiantamentos_202610_v1_fulano",
+          "exists": true,
+          "paidCents": 132000,
+          "balanceCents": 0,
+          "status": "paid",
+          "paidTransactionIds": [
+            "qa_adiantamentos_202610_v1_fulano_parcial",
+            "qa_adiantamentos_202610_v1_fulano_restante"
+          ],
+          "liquidationCount": 2,
+          "eligibleDeductionCents": 132000
+        },
+        {
+          "employeeId": "piloto-k110-siclano",
+          "id": "qa_adiantamentos_202610_v1_siclano",
+          "titleId": "advance:piloto-k110-siclano:qa_adiantamentos_202610_v1_siclano",
+          "exists": true,
+          "paidCents": 60000,
+          "balanceCents": 0,
+          "status": "paid",
+          "paidTransactionIds": [
+            "qa_adiantamentos_202610_v1_siclano_parcial",
+            "qa_adiantamentos_202610_v1_siclano_restante"
+          ],
+          "liquidationCount": 2,
+          "eligibleDeductionCents": 60000
+        }
+      ],
+      "transactionCount": 4,
+      "cashOutCents": 192000,
+      "payableCents": 0,
+      "costs": [
+        {
+          "total": 270,
+          "labor": 270,
+          "benefits": 0
+        }
+      ]
+    }
+  },
+  "dreRemota": [
+    {
+      "action": "financial-dre-report",
+      "ok": true,
+      "source": "canonical_ledger",
+      "engineEnforced": false,
+      "issueCount": 0,
+      "valores": {
+        "ym": "2026-10",
+        "saidasCaixa": 1920,
+        "saldoCaixa": -1920,
+        "contasPagar": 0,
+        "totalCustos": 270,
+        "moData": {
+          "laborCost": 270,
+          "totalCost": 270,
+          "benefitCost": 0
+        },
+        "projectionVersion": "2026-10-feriado-obra-dia-anterior-v6"
+      }
+    },
+    {
+      "action": "financial-company-dre-report",
+      "ok": true,
+      "source": "canonical_ledger",
+      "engineEnforced": false,
+      "issueCount": 0,
+      "valores": {
+        "ym": "2026-10",
+        "saidasCaixa": 1920,
+        "saldoCaixa": -1920,
+        "contasPagar": 0,
+        "laborTotal": 270,
+        "projectionVersion": "2026-10-feriado-obra-dia-anterior-v6"
+      }
+    }
+  ],
+  "navegadorRemoto": {
+    "scenario": "homologacao-web-readonly-v1",
+    "environment": "homologacao",
+    "endpoint": "https://ponto-homologacao.vercel.app",
+    "status": "passed",
+    "executed": true,
+    "startedAt": "2026-10-25T21:38:38.608Z",
+    "frontendReadyConfirmed": true,
+    "readOnly": true,
+    "clockChanged": false,
+    "screenshots": false,
+    "video": false,
+    "trace": false,
+    "credentialValuesLogged": false,
+    "profiles": [
+      {
+        "name": "desktop",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "status": "passed",
+        "stage": "completed",
+        "employees": [
+          {
+            "alias": "Fulano",
+            "status": "passed",
+            "tabs": [
+              "Resumo e pendências",
+              "Dados",
+              "Documentos e fotos",
+              "Ponto",
+              "Pagamentos",
+              "Histórico",
+              "Engenharia"
+            ],
+            "readOnly": true,
+            "remuneration": {
+              "mode": "clt",
+              "relationship": "clt",
+              "daily": 150,
+              "monthlySalary": 3300,
+              "valuesIndependent": true
+            },
+            "documents": {
+              "activeCount": 8,
+              "downloadTriggeredThroughUi": true,
+              "temporarySignedUrl": true,
+              "downloadVerified": true,
+              "sha256MatchesSeed": true,
+              "persistentFileSaved": false,
+              "temporaryDownloadDeleted": true
+            },
+            "pointRows": 25,
+            "payments": {
+              "approved": 1320,
+              "paid": 1320,
+              "balance": 0,
+              "liquidations": 2
+            }
+          },
+          {
+            "alias": "Siclano",
+            "status": "passed",
+            "tabs": [
+              "Resumo e pendências",
+              "Dados",
+              "Documentos e fotos",
+              "Ponto",
+              "Pagamentos",
+              "Histórico",
+              "Engenharia"
+            ],
+            "readOnly": true,
+            "remuneration": {
+              "mode": "daily",
+              "relationship": "clt",
+              "daily": 120,
+              "monthlySalary": 0,
+              "valuesIndependent": true
+            },
+            "documents": {
+              "activeCount": 8,
+              "downloadTriggeredThroughUi": true,
+              "temporarySignedUrl": true,
+              "downloadVerified": true,
+              "sha256MatchesSeed": true,
+              "persistentFileSaved": false,
+              "temporaryDownloadDeleted": true
+            },
+            "pointRows": 20,
+            "payments": {
+              "approved": 600,
+              "paid": 600,
+              "balance": 0,
+              "liquidations": 2
+            }
+          }
+        ],
+        "jsErrors": [],
+        "consoleErrors": [],
+        "httpErrors": [],
+        "requestFailures": [
+          {
+            "route": "private-document",
+            "method": "GET",
+            "reason": "net::ERR_ABORTED",
+            "expectedDownload": true
+          },
+          {
+            "route": "private-document",
+            "method": "GET",
+            "reason": "net::ERR_ABORTED",
+            "expectedDownload": true
+          }
+        ],
+        "blockedMutations": [],
+        "apiActions": {
+          "/api/data:profiles": 1,
+          "/api/data:auth-login": 1,
+          "/api/ai-agent:daily-brief": 1,
+          "/api/presence:chat-list": 4,
+          "/api/presence:heartbeat": 2,
+          "/api/upload:list": 6,
+          "/api/upload:open": 2
+        },
+        "readOnlyVerified": true,
+        "environmentVerified": true,
+        "login": "email_password"
+      },
+      {
+        "name": "mobile",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "status": "passed",
+        "stage": "completed",
+        "employees": [
+          {
+            "alias": "Fulano",
+            "status": "passed",
+            "tabs": [
+              "Resumo e pendências",
+              "Dados",
+              "Documentos e fotos",
+              "Ponto",
+              "Pagamentos",
+              "Histórico",
+              "Engenharia"
+            ],
+            "readOnly": true,
+            "remuneration": {
+              "mode": "clt",
+              "relationship": "clt",
+              "daily": 150,
+              "monthlySalary": 3300,
+              "valuesIndependent": true
+            },
+            "documents": {
+              "activeCount": 8,
+              "downloadTriggeredThroughUi": true,
+              "temporarySignedUrl": true,
+              "downloadVerified": true,
+              "sha256MatchesSeed": true,
+              "persistentFileSaved": false,
+              "temporaryDownloadDeleted": true
+            },
+            "pointRows": 25,
+            "payments": {
+              "approved": 1320,
+              "paid": 1320,
+              "balance": 0,
+              "liquidations": 2
+            }
+          },
+          {
+            "alias": "Siclano",
+            "status": "passed",
+            "tabs": [
+              "Resumo e pendências",
+              "Dados",
+              "Documentos e fotos",
+              "Ponto",
+              "Pagamentos",
+              "Histórico",
+              "Engenharia"
+            ],
+            "readOnly": true,
+            "remuneration": {
+              "mode": "daily",
+              "relationship": "clt",
+              "daily": 120,
+              "monthlySalary": 0,
+              "valuesIndependent": true
+            },
+            "documents": {
+              "activeCount": 8,
+              "downloadTriggeredThroughUi": true,
+              "temporarySignedUrl": true,
+              "downloadVerified": true,
+              "sha256MatchesSeed": true,
+              "persistentFileSaved": false,
+              "temporaryDownloadDeleted": true
+            },
+            "pointRows": 20,
+            "payments": {
+              "approved": 600,
+              "paid": 600,
+              "balance": 0,
+              "liquidations": 2
+            }
+          }
+        ],
+        "jsErrors": [],
+        "consoleErrors": [],
+        "httpErrors": [],
+        "requestFailures": [
+          {
+            "route": "private-document",
+            "method": "GET",
+            "reason": "net::ERR_ABORTED",
+            "expectedDownload": true
+          },
+          {
+            "route": "private-document",
+            "method": "GET",
+            "reason": "net::ERR_ABORTED",
+            "expectedDownload": true
+          }
+        ],
+        "blockedMutations": [],
+        "apiActions": {
+          "/api/data:profiles": 1,
+          "/api/data:auth-login": 1,
+          "/api/ai-agent:daily-brief": 1,
+          "/api/presence:chat-list": 4,
+          "/api/presence:heartbeat": 2,
+          "/api/upload:list": 6,
+          "/api/upload:open": 2
+        },
+        "readOnlyVerified": true,
+        "environmentVerified": true,
+        "login": "email_password"
+      }
+    ],
+    "limitations": [
+      "Tela de celular em Chromium; não é teste do APK ou de hardware."
+    ],
+    "wrapperReview": {
+      "localOnly": true,
+      "spaInternalState": true,
+      "absoluteAssets": true,
+      "apiRewrites": [
+        "/api/data",
+        "/api/upload",
+        "/api/presence",
+        "/api/ai-agent"
+      ],
+      "nativeFunction": "/api/homologacao-time",
+      "auxiliaryRequestsToObserve": [
+        "/api/presence",
+        "/api/ai-agent"
+      ],
+      "spaRoutes": [
+        "/cliente/:route*",
+        "/aceite-pedido"
+      ],
+      "auxiliaryRoutesConfigured": true
+    },
+    "transport": {
+      "environmentProxy": true,
+      "tlsValidationEnabled": true,
+      "caConfigured": true,
+      "browserTrustStore": "Task-local NSS via child-process XDG_DATA_HOME",
+      "globalTrustModified": false,
+      "homeModified": false,
+      "initialFailure": "DNS_EAI_AGAIN before login; then browser CA trust before login",
+      "earlierAttempts": [
+        "homologacao-web-report-attempt-1.json",
+        "homologacao-web-report-attempt-2.json"
+      ]
+    },
+    "success": true,
+    "completedAt": "2026-10-25T21:39:52.967Z"
+  },
+  "android": {
+    "arquivo": "ponto-obra-homologacao-7.apk",
+    "sha256": "2a7b20d2329b731b8ac5c3aef19386fde07208a8ee8d1737fad0bf2c1c856014",
+    "bytes": 121489302,
+    "package": "br.com.arcd.pontoobra.homologacao",
+    "versionCode": 7,
+    "versionName": "1.1.1",
+    "ambiente": "homologacao",
+    "apiUrl": "https://ponto-homologacao.vercel.app/api/data",
+    "certificadoSha256": "6e0c29e918a04d6557a93da646f9df01426a90cdbbe2b43bc881bba9ada0d795",
+    "fonteSha256": "c0373f40ebd9c53646d899e467871d3c3000479971fad24ea8d95a7ebe302ef6",
+    "compiladoEm": "2026-10-25T20:08:46.150Z",
+    "arquiteturas": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86_64"
+    ],
+    "custoNuvem": 0,
+    "fontesConferidas": 63,
+    "fontesSha256": "316884caba0bca7dc1676f0ce3322e0e40fcbdd41aad1d17fcc3a072781b1dc7",
+    "instalacao": {
+      "inicio": "2026-10-25T20:49:42.631686+00:00",
+      "fimInstalacao": "2026-10-25T20:50:44.595433+00:00",
+      "instalacaoComprovada": false,
+      "aberturaComprovada": false,
+      "atualizacaoRealComprovada": false,
+      "offlineReinicioSyncComprovados": false,
+      "dadosDePontoInseridosNoTeste": 0,
+      "motivo": "AOSP30 apresentou sys.boot_completed=1, mas o próprio system_server/NetworkStack reiniciou; a instalação falhou porque o serviço package não estava disponível. Aplicativo não chegou a abrir. Android35 havia falhado antes com sistema instável. Emulação sem KVM encerrada, sem novas tentativas semelhantes.",
+      "limites": [
+        "Sem /dev/kvm: emulação por software",
+        "Android35 não ficou estável para instalar; tentativa terminou com PackageManagerInternal.freeStorage indisponível",
+        "Android30 anunciou boot completo, mas PackageManager e Wi-Fi ficaram indisponíveis após reinício do sistema",
+        "Não houve teste físico, instalação concluída, abertura, pareamento, batida, atualização instalada ou sincronização pelo APK",
+        "Não foi criado workflow, release ou build em serviço de nuvem para contornar o limite"
+      ]
+    }
+  },
+  "limites": [
+    "A instalação e o uso em celular real continuam pendentes.",
+    "A DRE mantém o custeio operacional existente; encargos e provisões contábeis completos não foram automatizados.",
+    "Reservas gerenciais não separam dinheiro na conta bancária.",
+    "Não houve transferência bancária real nem fechamento antecipado de outubro no servidor.",
+    "Requisitos formais REP-P, jornadas e banco de horas, rateio no mesmo dia e piloto prolongado continuam como etapas próprias."
+  ],
+  "origens": [
+    {
+      "arquivo": ".tools/validation-delivery/tests-exit.json",
+      "sha256": "7882f4f4ede302d4b38c5e1b307da64c9031f9f6fdef588f08eeb6c6d7b87d94"
+    },
+    {
+      "arquivo": ".tools/validation-delivery/build-exit.json",
+      "sha256": "11e87921e1cb55fabc010987b4de2b839a2f8f56806ddeca8353366b6838c8d5"
+    },
+    {
+      "arquivo": ".tools/homologacao-seed-report.json",
+      "sha256": "a27617a48d5138da9144a6ae1b0d20ef6ae3832ddf160a17b1043fe565d9051d"
+    },
+    {
+      "arquivo": ".tools/homologacao-adiantamentos-report.json",
+      "sha256": "56ac224f7e039106be4be2379080c6a0984d7b1a22c6aa92308c465d65d5770f"
+    },
+    {
+      "arquivo": ".tools/homologacao-dre-report.json",
+      "sha256": "aef6cd21bcf17a501d063321e569b97031510a7ed002e2f39ff506bb2d8f30f1"
+    },
+    {
+      "arquivo": ".tools/homologacao-final-deployment-report.json",
+      "sha256": "49b9173487d6e5960c57347097ac26a3a109439aff1172d76a70f62bf802e4a6"
+    },
+    {
+      "arquivo": ".tools/homologacao-web-report.json",
+      "sha256": "622ca9603f7cbcf326b4c7b81c2e5dc16173f56fe2995aab8785820b57835a89"
+    }
+  ],
+  "preparacaoDoNavegador": {
+    "configured": true,
+    "scope": "Chromium child process only",
+    "tlsValidationEnabled": true,
+    "globalTrustModified": false,
+    "homeModified": false,
+    "publicCaSha256": "c71b4d1e9d7775c538c688ab10cea9ce417d7312e89838f9d15ff73256cd7fc3",
+    "tentativasAnteriores": "Duas tentativas pararam antes do login por DNS do transporte e confiança TLS do navegador do runner. O proxy e a CA oficial foram configurados apenas no processo de teste, preservando TLS; o site abriu no navegador gerenciado.",
+    "downloadsPdf": "Quatro ERR_ABORTED são navegações convertidas em downloads pelo Chromium; os quatro downloads privados foram concluídos e tiveram SHA conferido."
+  }
+}

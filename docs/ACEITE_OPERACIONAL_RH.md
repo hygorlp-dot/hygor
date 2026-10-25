@@ -2,6 +2,8 @@
 
 Atualizado em 25/10/2026. Este documento responde às perguntas finais de Hygor e inclui a ficha individual do operário. O resultado de cada execução e de cada publicação fica em `RH-PONTO-STATUS.md`; capacidade implementada não equivale a teste físico concluído.
 
+O candidato está no [PR #120](https://github.com/hygorlp-dot/hygor/pull/120), com frontend completo publicado em homologação e consulta real aprovada em computador e tela de celular. Os resultados e seus limites estão na [evidência consolidada da entrega](evidencias/homologacao-2026-10-25.json).
+
 ## Fluxo de trabalho
 
 1. **Cadastrar a pessoa.** Escolher para cada funcionário diária, com seu valor, ou CLT mensal, com seu salário. Informar jornada, obra e vigência. Diária e salário são campos independentes; informar um salário não muda automaticamente um cadastro diário. O vínculo contratual permanece separado da forma de remuneração.
@@ -42,7 +44,7 @@ Atestados e documentos pessoais ficam restritos ao RH e administrador. Engenhari
 
 Um arquivo disponível ainda precisa ser conferido pelo RH. O checklist orienta a operação; ele não declara que todos os documentos possíveis de qualquer contrato foram validados. Anexar um PDF de ASO também não altera automaticamente a validade informada no cadastro.
 
-Os 16 documentos sintéticos foram enviados ao prontuário remoto, oito por funcionário. O relatório `.tools/homologacao-seed-report.json` confirma upload e download verificados para os 16 arquivos, com conferência SHA256 após abertura autorizada. Isso comprova a presença e a recuperação dos anexos da simulação; não certifica o conteúdo de documentos reais de admissão. A ficha passou nos cenários locais de navegador desktop e celular e nos testes de domínio/API descritos em `FICHA_DO_OPERARIO.md`. A conferência visual no navegador remoto ainda aguarda o frontend publicado.
+Os 16 documentos sintéticos foram enviados ao prontuário remoto, oito por funcionário. O relatório `.tools/homologacao-seed-report.json` confirma upload e download verificados para os 16 arquivos, com conferência SHA256 após abertura autorizada. Isso comprova a presença e a recuperação dos anexos da simulação; não certifica o conteúdo de documentos reais de admissão. Além dos testes locais descritos em `FICHA_DO_OPERARIO.md`, a ficha passou na consulta real pelo navegador, com login, listagem privada, download do PDF e pagamentos visíveis em computador e tela de celular.
 
 ## Respostas às perguntas de aceite
 
@@ -51,7 +53,7 @@ Os 16 documentos sintéticos foram enviados ao prontuário remoto, oito por func
 | O RH consegue organizar os pagamentos de CLT e de quem recebe por diária? | Sim, com escolha por funcionário e coexistência na mesma quinzena, preservando o caminho diário existente. O fluxo cobre cadastro, ponto, preparação, aprovação, título, pagamento parcial, saldo e histórico. CLT por diária explícito exige apuração identificada. A liberação para operação real depende dos dados e regras reais da empresa e dos critérios finais ainda pendentes. |
 | É possível deixar o valor provisionado? | Há cálculo e registro de reserva gerencial, com pendência quando falta apuração. Para CLT por diária, base, incidências, responsável e memória precisam ser informados. Isso não separa dinheiro em conta bancária nem cria automaticamente uma provisão contábil. |
 | Os pagamentos quinzenais ficam registrados? | Novos adiantamentos geram obrigação; a baixa efetiva altera o caixa e libera a compensação conforme as datas. O ensaio remoto aprovou R$ 1.920,00 de adiantamentos fictícios, com baixas parciais, saldo final zero e reenvio sem duplicação. Os registros antigos mantêm o tratamento legado. |
-| Web e APK usam o mesmo fluxo? | O APK 7 foi compilado, assinado, conferido e disponibilizado para entrega, apontando para a API isolada usada pela gestão. Contratos de identificação, vigência, sincronização e idempotência foram testados. O emulador falhou antes de instalar o app; não há evidência de abertura ou pareamento nessa tentativa. Instalação, fila no aparelho, atualização, câmera, GPS e biometria continuam pendentes no Android estável. |
+| Web e APK usam o mesmo fluxo? | O navegador real passou na consulta de cadastro, documentos e pagamentos nas duas telas. O APK 7 foi compilado, assinado, conferido e disponibilizado, apontando para a API isolada usada pela gestão; os contratos de identificação, vigência, sincronização e idempotência foram testados. O emulador falhou antes de instalar o app. Instalação, pareamento, fila no aparelho, atualização, câmera, GPS e biometria continuam pendentes no Android estável. |
 | A DRE registra automaticamente? | O ponto alimenta o custeio operacional da obra. A API real de homologação confirmou R$ 270,00 de custo antes e depois de R$ 1.920,00 de saídas de caixa simuladas, sem duplicar o custo. Isso não representa automaticamente todos os encargos patronais, provisões contábeis e ajustes da folha oficial. |
 | Toda a documentação pessoal pode ser registrada? | O prontuário oferece as categorias operacionais listadas acima, anexos privados e histórico. A completude real depende de o RH enviar e conferir os documentos aplicáveis a cada pessoa, função e contrato. |
 | As pendências aparecem? | A ficha e o prontuário mostram cadastro incompleto, documentos a conferir, vencimento, emissão futura, ASO sem validade, avisos abertos e obrigações pendentes. Falha de consulta é apresentada como falha, sem transformar erro em prontuário vazio. |
@@ -71,6 +73,16 @@ O ensaio remoto concluído em 25/10/2026 persistiu adiantamentos fictícios de R
 | Reserva gerencial | Estimativa/apuração identificada para planejamento. Não é dinheiro separado em banco nem lançamento contábil automático. |
 
 As consultas reais de DRE da obra e da empresa retornaram esses valores, pela fonte `canonical_ledger`, sem questões reportadas. A evidência está em `.tools/homologacao-adiantamentos-report.json` e `.tools/homologacao-dre-report.json`; o segundo relatório informa `engineEnforced: false`. O aceite cobre os valores e a separação entre custo e caixa nessas consultas, sem declarar um motor fiscal obrigatório ou provisões contábeis completas. Nenhuma transferência bancária real foi feita.
+
+## Consulta real pela gestão publicada
+
+O ensaio remoto de leitura passou em **74,359 segundos**, entre **21:38:38 e 21:39:52 UTC de 25/10/2026**, no frontend do commit `012604ac698a8fcd14c2c0f65f5b2e9128661ea5`. Foram conferidos computador, 1440 × 1000, e tela de celular, 390 × 844, com login real e respostas reais da API.
+
+Nas duas telas, Fulano e Siclano tiveram as sete abas conferidas. O cadastro mostrou salário mensal de R$ 3.300,00 e referência de custeio de R$ 150,00 para Fulano; diária de R$ 120,00 para Siclano, sem conversão em salário mensal. A massa fictícia mantém vínculo CLT explícito nos dois; a preservação do funcionário diário antigo continua coberta pela regressão própria. O editor foi somente consultado, sem salvar alterações.
+
+O prontuário listou oito documentos por pessoa. Quatro downloads privados foram acionados pela tela, um PDF de cada pessoa em cada contexto, e tiveram seu SHA256 conferido; os arquivos temporários foram apagados. Os pagamentos mostraram R$ 1.320,00 e R$ 600,00 pagos, duas baixas por título e saldo zero. Os hashes de cadastro, ponto e financeiro ficaram iguais antes e depois, sem tentativa de mutação.
+
+O relatório `.tools/homologacao-web-report.json` terminou aprovado, sem erros JavaScript, de console ou HTTP, e sem falhas inesperadas de requisição. Os quatro cancelamentos de navegação associados ao início dos downloads são esperados e estão identificados no relatório. As duas tentativas anteriores pararam antes do login por configuração de rede/CA do runner; a correção ficou restrita ao proxy e à confiança do processo temporário de testes, mantendo TLS ativo e sem alteração do app. Não foram gerados screenshots pessoais, vídeos ou traces. Essa prova é do web e não do APK instalado em Android.
 
 ## Uso do código e limpeza
 
@@ -97,8 +109,8 @@ As provas têm escopos diferentes e devem continuar identificadas:
 - `apps/ponto-obra/docs/BUILD-LOCAL-HOMOLOGACAO.md`: compilação, assinatura, identidade das fontes e verificação do APK.
 - `RH-PONTO-STATUS.md`: situação final da execução, testes e pendências reais de aceite.
 
-O gate final da árvore, execução 12925, terminou às 21:15:55 UTC de 25/10/2026: **3.113 testes aprovados, nenhuma falha e 13 ignorados, de 3.126 testes; 423 arquivos aprovados e dois ignorados, em 433,47 segundos**, com `success: true` e saída zero nos relatórios de validação. A frente NTP teve mais 58 testes aprovados, e a coordenação confirmou lint, fronteiras arquiteturais e TypeScript aprovados após o congelamento da infraestrutura. **O build Vite final passou em 3,00 segundos.** Os 16 documentos remotos também têm relatório de envio e recuperação conferidos.
+Na rodada final, encerrada às 21:15:55 UTC de 25/10/2026, foram **3.113 testes aprovados, nenhuma falha e 13 ignorados, de 3.126 testes; 423 arquivos aprovados e dois ignorados, em 433,47 segundos**, com `success: true` e saída zero em `.tools/validation-delivery/tests-exit.json` e `tests.json`. Os lotes de NTP e das rotas auxiliares tiveram 58 e 32 testes aprovados, respectivamente; seus resultados estão descritos em `HOMOLOGACAO-VERCEL-SUPABASE.md`. Os registros `lint.log`, `architecture.log` e `typecheck.log` confirmam os demais gates. **O build Vite final passou em 3,00 segundos**, com saída zero em `build-exit.json`. Os 16 documentos remotos e a consulta real da gestão também têm os relatórios de aprovação descritos acima.
 
-As fontes do APK 7 foram reconferidas: 63 arquivos, sem alterações, com hash de fontes `316884caba0bca7dc1676f0ce3322e0e40fcbdd41aad1d17fcc3a072781b1dc7`. Permanecem pendentes a publicação final do frontend, o ensaio do navegador remoto após `READY` e o teste físico do APK; build, assinatura e testes anteriores não substituem esses critérios.
+As fontes do APK 7 foram reconferidas: 63 arquivos, sem alterações, com hash de fontes `316884caba0bca7dc1676f0ce3322e0e40fcbdd41aad1d17fcc3a072781b1dc7`. A publicação final do frontend e o ensaio do navegador remoto estão aprovados. **Permanece pendente o teste físico do APK**; build, assinatura e navegação web não comprovam instalação, pareamento ou captura no aparelho.
 
 A validação para a obra precisa usar o Android da equipe e dados reais conferidos pelo responsável. A simulação não deve ser migrada para o cadastro operacional. A declaração formal do registrador de ponto permanece a que está no código; não é alterada por este relatório.

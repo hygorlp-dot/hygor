@@ -10,6 +10,8 @@ O usuário pediu a execução autônoma, a simulação completa e a compilação
 
 Branch de trabalho: `codex/fulano-siclano-integracao`. Base reaproveitada: `900a6b1ff12dea5f308f2a7f7288c73f846468f6`, do [PR #119](https://github.com/hygorlp-dot/hygor/pull/119). A árvore de trabalho contém alterações posteriores a essa base. O identificador da base não comprova sozinho as fontes de um APK.
 
+O candidato está no [PR #120](https://github.com/hygorlp-dot/hygor/pull/120). O frontend completo foi publicado a partir de `012604ac698a8fcd14c2c0f65f5b2e9128661ea5`, no deployment `dpl_Ag6g6VF5Pbf6Ee2qzynm3B1tYVdQ`, e passou na conferência real de navegador descrita abaixo. Publicação, testes, documentos, financeiro e APK estão reunidos na [evidência consolidada da entrega](evidencias/homologacao-2026-10-25.json).
+
 ## Ambiente isolado
 
 | Item | Destino |
@@ -76,13 +78,33 @@ No checkpoint anterior, lint, TypeScript, fronteiras arquiteturais e build Vite 
 
 A suíte geral desse checkpoint terminou sem falhas: **3.059 testes passaram e 13 foram ignorados; 411 arquivos passaram e dois foram ignorados**, em 881,22 segundos. A execução anterior, interrompida quando o Android e os testes disputaram recursos, não conta como aprovação.
 
-**O novo gate completo final, execução 12925, terminou em 25/10/2026 às 21:15:55 UTC: 3.113 testes aprovados, nenhuma falha e 13 ignorados, de 3.126 testes; 423 arquivos aprovados e dois ignorados, em 433,47 segundos.** Os relatórios `.tools/validation-delivery/tests-exit.json` e `tests.json` registram `success: true` e código de saída zero. A coordenação também confirmou 58 testes adicionais da frente NTP, lint, fronteiras arquiteturais e TypeScript aprovados após o congelamento da infraestrutura. **O build Vite final passou em 3,00 segundos**, com saída zero em `.tools/validation-delivery/build-exit.json`. A publicação do frontend e o ensaio do navegador remoto ainda aguardam o deployment `READY`.
+**A rodada final terminou em 25/10/2026 às 21:15:55 UTC: 3.113 testes aprovados, nenhuma falha e 13 ignorados, de 3.126 testes; 423 arquivos aprovados e dois ignorados, em 433,47 segundos.** Os relatórios `.tools/validation-delivery/tests-exit.json` e `tests.json` registram `success: true` e código de saída zero. Os lotes específicos de NTP e das rotas auxiliares tiveram, respectivamente, 58 e 32 testes aprovados, descritos no [relatório do ambiente](HOMOLOGACAO-VERCEL-SUPABASE.md). Lint, fronteiras arquiteturais e TypeScript passaram; os registros estão em `lint.log`, `architecture.log` e `typecheck.log` no diretório de validação. **O build Vite final passou em 3,00 segundos**, com saída zero em `.tools/validation-delivery/build-exit.json`. O frontend final ficou `READY` e foi conferido pelo navegador real.
 
-No navegador, 29 dos 30 casos passaram na primeira execução. O único caso de navegação móvel que falhou passou na repetição isolada, sem alteração de código. O fluxo novo de CLT por diária passou tanto no computador quanto na tela de celular; o relatório preserva a ocorrência e as evidências.
+No primeiro lote local de navegador, 29 dos 30 casos passaram na primeira execução. O único caso de navegação móvel que falhou passou na repetição isolada, sem alteração de código. O fluxo novo de CLT por diária passou tanto no computador quanto na tela de celular; o relatório preserva a ocorrência e as evidências.
 
 Depois disso, a [ficha do operário](FICHA_DO_OPERARIO.md) passou nos dois cenários locais de navegador, desktop e celular, em 27,4 segundos, além das verificações de autorização, auditoria, transferência de obra e arquivo. As respostas de rede do navegador são fictícias; a prova de persistência dos avisos usa API real e Postgres local. A [preservação da diária](PRESERVACAO_DIARIA.md) passou em **59 testes de oito arquivos**, incluindo coexistência com CLT mensal, valores independentes, adiantamentos antigos, histórico fechado e montagem dos relatórios PDF/Excel.
 
-O relatório `.tools/homologacao-seed-report.json` confirma os dois funcionários e **16 documentos com `uploadAndDownloadVerified: true`**, incluindo a conferência SHA256. Isso comprova o envio e a recuperação dos anexos privados. A conferência da ficha pelo navegador remoto ainda está pendente; os ensaios de API e os testes locais não a substituem.
+O relatório `.tools/homologacao-seed-report.json` confirma os dois funcionários e **16 documentos com `uploadAndDownloadVerified: true`**, incluindo a conferência SHA256. Isso comprova o envio e a recuperação dos anexos privados. A consulta pela tela também foi conferida no ensaio remoto abaixo.
+
+## Navegador real de homologação — aprovado
+
+O ensaio de leitura em [ponto-homologacao.vercel.app](https://ponto-homologacao.vercel.app) passou entre **21:38:38 e 21:39:52 UTC de 25/10/2026**, em **74,359 segundos**. Foram executados dois contextos sequenciais de Chromium: computador, 1440 × 1000, e tela de celular, 390 × 844. O login usou a conta real de homologação por e-mail e senha; não houve resposta simulada da API.
+
+| Conferência nas duas telas | Resultado |
+| --- | --- |
+| Fichas de Fulano e Siclano | As sete abas abriram, com pendências, dados, ponto, documentos, pagamentos, histórico e engenharia. |
+| Escolha e valores no cadastro | Fulano: CLT mensal de R$ 3.300,00 e referência de custeio de R$ 150,00. Siclano: diária de R$ 120,00, sem salário mensal criado por conversão. Os dois vínculos CLT foram definidos explicitamente na massa fictícia. O editor foi aberto apenas para consulta. |
+| Documentos privados | Oito documentos ativos por pessoa. Um PDF de cada pessoa foi baixado pelo botão da tela em cada contexto: quatro downloads, com URL temporária e SHA256 igual ao arquivo enviado. Os temporários foram apagados. |
+| Ponto de outubro | Consulta de 25 linhas de calendário para Fulano e 20 para Siclano, conforme suas admissões e a data do ensaio. Essas linhas não equivalem a dias de presença confirmada. |
+| Pagamentos visíveis | Fulano: R$ 1.320,00 aprovado e pago; Siclano: R$ 600,00 aprovado e pago. Cada título mostrou duas baixas e saldo zero. |
+| Preservação | Os hashes de cadastro, ponto e financeiro permaneceram iguais antes e depois. Nenhum comando de mutação foi tentado. |
+| Erros | Nenhum erro JavaScript, de console ou resposta HTTP de erro. Nenhuma falha inesperada de requisição. |
+
+O relatório `.tools/homologacao-web-report.json` terminou com `status: passed` e `success: true`. Ele registra quatro eventos `ERR_ABORTED` esperados quando a navegação do PDF se transforma em download; os quatro arquivos foram recebidos e conferidos, portanto esses eventos não representam download perdido.
+
+As duas tentativas anteriores pararam antes do login por DNS e confiança da CA no ambiente do runner. O ajuste usou o proxy e a CA pública oficial em uma base NSS isolada, aplicada apenas ao processo filho do Chromium. A validação TLS permaneceu ativa, sem mudança de `HOME`, da confiança global ou do app. As tentativas e o ajuste estão preservados na evidência da entrega.
+
+Não foram produzidos screenshots pessoais, vídeos ou traces. O navegador em tela de celular comprova este fluxo web; não substitui o teste físico do APK.
 
 ## APK 7 disponível; teste físico pendente
 
