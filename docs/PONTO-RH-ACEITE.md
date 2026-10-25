@@ -8,6 +8,14 @@ Critérios adotados: roadmap RH `docs/RH-PONTO-ROADMAP.md` e acompanhamento `doc
 
 ## Versões e limites da evidência
 
+**Reteste do candidato RH em 25/10:** incorporado localmente `5e96e4be4e77964f9c1c34ad3b4ccd322405b039` (pai `cff3f2858ee1725d00dac64afe97c6b7acc1d46e`) à branch de aceite, merge `3a9748e`. Nenhuma promoção para main/produção. O código app/servidor usado neste reteste é o incluído nesse candidato RH, não o RC Android posterior `23a9e52`.
+
+Passaram **75 testes / 8 arquivos** em 29,65 s: aceite, `server/attendance-mobile-import`, `src/integration/attendance-mobile-api`, `operational-command-locked-path`, `mixed-payroll`, `advance-commands`, `closed-period-protection`, `remuneration-values`. Depois foi acrescentado encadeamento independente no arquivo de aceite: **5/5 aprovados** em 11,47 s; 76 testes distintos neste recorte, não 80. Logs locais: `C:/tmp/ponto-rh-aceite-evidencias/candidato-5e96e4b.log` e `cadeia-5e96e4b.log`.
+
+Novo encadeamento: quatro batidas de uma pessoa por diária, com intervalo de almoço → ARP PGlite → apropriações → leitor SQL real `loadMobileAttendanceSource` dentro de transação → importação revisada com IDs em `mobileSource` → aprovação canônica que **gera** título de 120 → conciliação de 40 → saldo 80, sem segunda despesa. Não injeta título pronto. A referência de hora é medição sintética no banco local; a ausência dela foi corretamente recusada antes de completar a fixture. O fechamento do ponto é entrada explícita revisada do teste. Após o leitor SQL, os comandos RH/financeiro executam em memória: **não prova persistência financeira remota, UI, transporte HTTP ou APK**. A suíte mista separada cobre diária/CLT, corte entre meses, parcela explícita, repetição e parcial 200/700 = saldo 500; ainda falta encadear tudo no ambiente remoto real.
+
+D01: proteção retestada com sucesso no candidato acima pela suíte `advance-commands`, incluindo períodos fechados e obrigações. I02: leitor SQL e importador reais encadeados com origem preservada; API/permissões/concorrência cobertas pelos testes existentes com dependências simuladas. Multiobra/tardio/fechado permanecem bloqueados para importação automática, sem substituir tratamento operacional específico. Meia-noite não foi comprovada neste encadeamento. Resultados históricos abaixo continuam identificados por sua base; não são aprovação de RC posterior.
+
 | Componente | Referência usada | Alcance |
 |---|---|---|
 | Web/RH, servidor e lógica Android da primeira execução | `c7d4e777e7263b823bd2ce60797346ea69bca402` (main consultada por fetch em 25/10) | Base da suíte; não comprova os próximos candidatos |
@@ -63,14 +71,14 @@ Evidência em 25/10: execução inicial conjunta **9 arquivos / 50 testes aprova
 | O02 | Jornada, intervalos, regras aplicáveis, datas de pagamento e parcelas CLT não confirmados | Hygor + RH/contabilidade | Validar no cadastro; preservar cortes 06–20/21–05 sem inventar parcela |
 | O03 | Responsável provisório Hygor; contas e permissões de conferir/aprovar/pagar não verificadas | Hygor + RH | Identificar contas reais e testar acessos por papel/obra |
 | O04 | Saldos e adiantamentos de abertura desconhecidos | Hygor + financeiro | Conferir registros/comprovantes existentes sem criar saldo fictício |
-| I01 | RH relata quinzena mista e criação de título implementadas; árvore ainda sem commit candidato, HEAD c7d4e77 | RH | Encerrar validação e entregar SHA da árvore efetivamente testada, com ligação recebimento→tratamento→fechamento→obrigação |
+| I01 | RH 5e96e4b entregue e retestado localmente; candidato remoto conjunto ainda pendente | RH + Android | Entregar revisão conjunta implantada no ambiente isolado, com SHAs e API identificados |
 | I02 | RH informa importação com releitura sob trava e origem em attendance.mobileSource; ainda sem reteste independente | RH (importador), Android (captura), integração (teste) | Receber SHA; verificar origem/versões, reenvio e concorrência. Multiobra/tardio permanecem tratamento específico; produtor versionado Android não foi integrado |
 | I03 | Banco isolado verificado em leitura por integração; deploy aguarda decisão de custo no chat Android; API e APK de homologação ainda não entregues | Android + Hygor | Resolver decisão existente sem duplicar solicitação; entregar API, migrations compatíveis, SHA app/servidor e build/hash APK; só então parear |
 | I04 | Android disponível com Hygor, conforme acompanhamento RH; modelo/versão e conexão nesta sessão não confirmados | Hygor | Anotar modelo e versão; instalar candidato identificado e executar roteiro físico abaixo |
 | I05 | Recuperação, atualização e troca de aparelho sem ensaio físico | Android + Hygor | Usar runbook existente; preservar pendências e testar restauração em destino isolado |
 | I06 | Fluxo misto, compensação única e revisão de obrigação não verificados | RH + financeiro | Gerar aprovação real no teste e seguir até conciliação/custo |
 | I07 | Meio oficial de contingência ainda não confirmado nesta sessão | Hygor | Definir procedimento usado pela empresa enquanto registrador é candidato; orientar equipe |
-| D01 | Defeito reproduzido na base; RH informa proteção implementada, sem reteste independente ainda | RH + integração | Entregar SHA e retestar financeiro fechado, títulos/arquivos/claims e reuso de ID |
+| D01 | Corrigido e retestado em 5e96e4b; falha histórica em c7d4e77 | RH + integração | Confirmar inclusão da correção no candidato remoto final |
 
 Esses itens impedem declarar prontidão do fluxo digital completo. Não são afirmação de que a obra física não pode iniciar por um procedimento oficial alternativo definido pela empresa.
 
@@ -86,7 +94,7 @@ Por solicitação do usuário, acompanhamento automático desta conversa ativo a
 - Ocorreu: cancelamento aceito e desconto histórico caiu de 300 para zero.
 - Esperado: preservar o período fechado; correção por revisão/ajuste identificado, conforme roadmap.
 - Versão: `c7d4e777e7263b823bd2ce60797346ea69bca402`; RH avisado pelo canal entre sessões em 25/10.
-- Responsável: RH. Reteste: pendente do commit de correção. O teste atual passa porque documenta o defeito; não é aprovação de comportamento.
+- Responsável: RH. Reteste: suíte de proteção aprovada em `5e96e4b`. O teste histórico de `c7d4e77` documentava o defeito; o candidato corrige a proteção. Implantação final ainda pendente.
 
 Detalhe histórico de I02 em `c7d4e77`: `ponto-apropriacao-propor` devolve `intervalos[].eventos`; salvar/listar apropriações não persiste/devolve essa lista. O teste inicial comprova pessoa/obra/horário, sem perda dos eventos originais na ARP. Em atualização de 25/10, RH informou alternativa: `attendance-import-mobile` relê eventos e intervalos atuais no servidor sob trava, valida IDs/versões e grava origem em `attendance.mobileSource`. Persistir eventIds na própria apropriação não será exigido como solução única; o reteste deve comprovar a rastreabilidade e a consistência do mecanismo entregue. Importação limitada a duas/quatro marcas confiáveis em obra única, classificação P/M/OT explícita; multiobra e tardios/fechados não são convertidos automaticamente.
 

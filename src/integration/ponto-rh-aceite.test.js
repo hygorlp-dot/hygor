@@ -6,6 +6,10 @@ import { calculateAttendanceDayCost } from '../domains/ponto/payroll.js';
 import { ADVANCE_COMMAND, applyAdvanceCommand, advanceDeductionForPeriod } from '../domains/rh/advance-commands.js';
 import { registrarPagamentoEConciliar } from '../domains/conciliacao/mutations.js';
 import { cltAdvanceHtml } from '../domains/ponto/clt-report.js';
+import { loadMobileAttendanceSource } from '../../server/attendance-mobile-source.js';
+import { applyAttendanceCommand } from '../../server/attendance-command.js';
+import { buildMixedPayroll, MIXED_PAYROLL_COMMAND } from '../domains/ponto/mixed-payroll.js';
+import { applyOperationalCommand } from '../domains/sync/operational-commands.js';
 import { dadosEnsaio, ensaio } from './ponto-rh-aceite.fixture.js';
 
 vi.setConfig({ testTimeout: 60000, hookTimeout: 60000 });
@@ -15,6 +19,57 @@ const sync = ap => sincronizarCadastro({ armazem: ap.armazem, api: ap.api, monot
 const enviar = ap => enviarPendentes({ armazem: ap.armazem, api: ap.api });
 
 describe('aceite operacional: trecho app → ARP → consulta → apropriação (SQL real local)', () => {
+  it('encadeia captura SQL, releitura da origem, aprovação real do título e conciliação parcial', async () => {
+    const dados = dadosEnsaio();
+    // Uma diária de teste dentro do corte 21/09–05/10, sem criar faltas nos demais dias.
+    dados.employees = [{ ...dados.employees[0], startDate: '2026-10-01', endDate: '2026-10-01' }];
+    dados.config = {};
+    servidor = await criarServidor({ dados });
+    // Medição sintética só no banco local; não comprova NTP do ambiente remoto.
+    await servidor.pg.query("insert into ponto_tempo_verificacoes(fonte,servidor,verificado_em,offset_ms,incerteza_ms,ok) values ('ensaio','relogio.test','2026-10-01T09:59:00Z',0,1,true)");
+    const ap = await criarAparelho(servidor);
+    ap.paredeAdiantadaMs = 0;
+    await sync(ap);
+    const ids = [(await ap.bater()).eventId];
+    ap.passar(4 * 3600000); ids.push((await ap.bater()).eventId);
+    ap.passar(3600000); ids.push((await ap.bater()).eventId);
+    ap.passar(4 * 3600000); ids.push((await ap.bater()).eventId);
+    expect(await enviar(ap)).toMatchObject({ enviadas: 4 });
+    const proposta = await servidor.admin('ponto-apropriacao-propor', { employeeId: 'e1', data: '2026-10-01' });
+    for (const intervalo of proposta.json.intervalos) {
+      expect((await servidor.admin('ponto-apropriacao-salvar', { apropriacao: { ...intervalo, employeeId: 'e1', data: '2026-10-01' } })).status).toBe(200);
+    }
+    // Adaptador de transporte SQL do teste: executa o leitor real sobre PGlite.
+    // Não substitui a transação completa de /api/data nem suas permissões remotas.
+    const source = await servidor.pg.transaction(async tx => loadMobileAttendanceSource(async (parts, ...values) => {
+      const sql = parts.reduce((s, part, i) => s + (i ? `$${i}` : '') + part, '');
+      return (await tx.query(sql, values)).rows;
+    }, { company: 'arcd', employeeId: 'e1', date: '2026-10-01' }));
+    const imported = applyAttendanceCommand(dados, { id: 'u-rh', role: 'rh' }, {
+      action: 'attendance-import-mobile', operationId: '10000000-0000-4000-8000-000000000099', employeeId: 'e1', date: '2026-10-01', status: 'P', ot: 0, atrasoMin: 0, note: 'Ensaio conferido',
+      sourceEventIds: ids.sort(), appropriationVersions: source.appropriations.map(a => ({ id: a.id, version: a.version })),
+    }, '2026-10-06T12:00:00Z', source);
+    expect(imported.ok, JSON.stringify({ reason: imported.reason, error: imported.error, status: imported.status })).toBe(true);
+    expect(imported.data.attendance.e1['2026-10-01'].mobileSource.eventIds).toEqual(ids);
+    const reviewed = { ...imported.data, attendanceLocks: { '2026-10-01__obra-a': { locked: true } } };
+    const period = { year: 2026, month: 8, cycle: '2' };
+    const built = buildMixedPayroll(reviewed, period);
+    expect(built.rows).toHaveLength(1);
+    expect(built.rows[0].issues).toEqual([]);
+    expect(built.rows[0].net).toBe(120);
+    const command = { type: MIXED_PAYROLL_COMMAND, idempotencyKey: 'aceite-quinzena-integrada-0001', actorId: 'u-rh', now: '2026-10-06T12:00:00Z', payload: { period, rowIds: [built.rows[0].id], sources: { [built.rows[0].id]: built.rows[0].source }, paymentDate: '2026-10-06' } };
+    const approved = applyOperationalCommand(reviewed, command);
+    expect(approved.ok).toBe(true);
+    expect(approved.data.titulosFolha).toHaveLength(1);
+    expect(approved.data.pagamentosFolha).toEqual([]);
+    const withBank = { ...approved.data, transacoes: [{ id: 'ensaio-integrado-banco', data: '2026-10-06', valor: -40, status: 'pendente' }] };
+    const paid = registrarPagamentoEConciliar(withBank, { transacaoId: 'ensaio-integrado-banco', tipo: 'tituloFolha', entidadeId: built.rows[0].id, valor: 40, operador: { id: 'u-fin' } });
+    expect(paid.resumo.ok).toBe(true);
+    expect(paid.data.titulosFolha[0]).toMatchObject({ saldo: 80, status: 'parcial' });
+    expect(paid.data.outrasDesp).toEqual([]);
+    expect(paid.data.despesasEmpresa).toEqual([]);
+  });
+
   it('preserva identidade, quatro batidas offline, intervalo e duas obras após resposta perdida', async () => {
     servidor = await criarServidor({ dados: dadosEnsaio() });
     const a = await criarAparelho(servidor, { obraId: 'obra-a' });

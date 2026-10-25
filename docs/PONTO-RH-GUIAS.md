@@ -1,6 +1,6 @@
 # Guias curtos — piloto K1-10
 
-Versão 25/10/2026, base `c7d4e77`. Nomes conferidos no código existente. Responsável operacional provisório: Hygor. Confirmar os nomes no candidato final antes de distribuir. Pendências e aceite ficam somente em [PONTO-RH-ACEITE.md](PONTO-RH-ACEITE.md).
+Versão 25/10/2026, base `c7d4e77`, com aprovação RH atualizada pelo candidato `5e96e4b`. Nomes conferidos no código existente. Responsável operacional provisório: Hygor. Confirmar os nomes no candidato final antes de distribuir. Pendências e aceite ficam somente em [PONTO-RH-ACEITE.md](PONTO-RH-ACEITE.md).
 
 ## Trabalhador
 
@@ -24,7 +24,7 @@ Em **Equipe**, confira identificação, vínculo, modalidade, valores e vigênci
 
 Na **Gestão do ponto**, compare registros recebidos e ocorrências. Registro não recebido não vira falta. Falta de saída, hora duvidosa ou mudança de obra exige conferência; preserve o registro original e os intervalos. Marcações posteriores ao fechamento exigem revisão identificada.
 
-Em **Folha de Pagamento → Folha da quinzena**, confira o corte, pessoas, bruto, benefícios, adiantamentos e líquido. Use **Holerites CLT** para competência mensal; corte entre meses não muda a competência automaticamente. Compare o total com os demonstrativos. A ação final de aprovação/geração da obrigação depende do candidato RH em construção; este guia não inventa um botão disponível.
+Em **Folha de Pagamento → Folha da quinzena**, confira o corte, pessoas, bruto, benefícios, adiantamentos e líquido. Use **Holerites CLT** para competência mensal; corte entre meses não muda a competência automaticamente. No candidato RH, informe **Parcela CLT** e **Critério da parcela**, confira a data de pagamento e use **Selecionar demonstrativos sem pendência**. Compare o total com os demonstrativos, marque a conferência e use **Aprovar e encaminhar ao financeiro**. Isso cria a obrigação; não confirma pagamento. A implantação desse candidato ainda precisa ser confirmada.
 
 Se o aparelho/rede falhar, mantenha a pendência identificada e cobre a conferência posterior com o encarregado. Não feche valores com ausência de sincronização tratada como falta. Recibo/demonstrativo deve manter assinatura pendente até o recebimento efetivo.
 
