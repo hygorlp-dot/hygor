@@ -1,3 +1,4 @@
+import { NOME_AMBIENTE, criarAmbiente } from "./ambiente.js";
 // Ações do app "Ponto de Obra" (REP-P) - despachadas por api/data.js para
 // toda action que começa com "ponto-" (sem criar uma rota nova na Vercel).
 //
@@ -60,7 +61,7 @@ const decodificarFoto = base64 => {
 
 // Identificação do aparelho que o app manda (ponto-parear / ponto-sincronizar):
 // só campos conhecidos, texto curto - nada pessoal e nada arbitrário no banco.
-const CAMPOS_APARELHO = ["marca", "modelo", "android", "build", "commit"];
+const CAMPOS_APARELHO = ["marca", "modelo", "android", "build", "commit", "ambiente"];
 export const limparAparelho = bruto => Object.fromEntries(CAMPOS_APARELHO
   .filter(k => bruto && typeof bruto === "object" && bruto[k] !== undefined && bruto[k] !== null && texto(bruto[k]))
   .map(k => [k, texto(bruto[k]).slice(0, 80)]));
@@ -114,7 +115,8 @@ const caminhoFotoMarcacao = (obraId, marcadoEm, id) => `marcacoes/${obraId}/${St
 // existe para os testes fixarem o relógio do host.
 // verificarHoraNtp: async () => medição (tempo/ntp.js verificarHora), usada
 // pela ação ponto-tempo-verificar.
-export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO }) {
+export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO, ambienteDeclarado = process.env.PONTO_AMBIENTE, supabaseUrl = process.env.SUPABASE_URL }) {
+  const ambiente = criarAmbiente({ db, declarado: ambienteDeclarado, supabaseUrl });
   const fonte = fonteHora || criarFonteHora({
     relogioHost: agoraDoHost ? () => agoraDoHost().getTime() : () => Date.now(),
     politica: politicaHora,
@@ -466,7 +468,9 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
     },
 
     // ---------------- aparelho da obra ----------------
-    async "ponto-parear"({ body }) {
+    async "ponto-ambiente"({ ambiente }) { return ok({ ambiente }); },
+
+    async "ponto-parear"({ body, ambiente }) {
       const codigo = texto(body.codigo).replace(/\D/g, "");
       if (codigo.length !== 8) return erro(400, "O código tem 8 números.");
       const { data: par, error } = await db.from("ponto_pareamentos").select("*")
@@ -496,10 +500,10 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       if (errIns) throw errIns;
       const dados = await lerDados();
       const obra = (dados?.obras || []).find(o => String(o.id) === String(par.obra_id));
-      return ok({ dispositivoId: id, token, obra: { id: par.obra_id, nome: obra?.name || "" }, estabelecimento: estab, nome: par.nome, servidorMs: agora().getTime() });
+      return ok({ ambiente, dispositivoId: id, token, obra: { id: par.obra_id, nome: obra?.name || "" }, estabelecimento: estab, nome: par.nome, servidorMs: agora().getTime() });
     },
 
-    async "ponto-sincronizar"({ body, headers }) {
+    async "ponto-sincronizar"({ body, headers, ambiente }) {
       const { dispositivo, falha } = await doAparelho(headers, body);
       if (falha) return falha;
       const dados = await lerDados();
@@ -543,7 +547,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const estabelecimento = await estabelecimentoDoAparelho(dispositivo);
       const tempo = await fonte.evidencia();
       return ok({
-        servidorMs: tempo.serverTimeMs,
+        ambiente, servidorMs: tempo.serverTimeMs,
         tempo,
         repP: situacaoRepP(),
         estabelecimento,
@@ -678,7 +682,13 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
   return async function tratar({ action, body = {}, headers = {}, cron = false }) {
     const acao = acoes[action];
     if (!acao) return erro(400, "Ação do ponto eletrônico desconhecida.");
-    return acao({ body, headers, cron });
+    const amb = await ambiente();
+    if (amb.erro) return erro(503, `${amb.erro} As ações do ponto estão bloqueadas.`, { code: "AMBIENTE_NAO_CONFIRMADO" });
+    const doApp = texto(body?.ambienteApp).toLowerCase();
+    if (doApp && doApp !== amb.ambiente) {
+      return erro(409, `Este aplicativo é de ${NOME_AMBIENTE[doApp] || doApp} e este servidor é de ${NOME_AMBIENTE[amb.ambiente]}. Nada foi gravado.`, { code: "AMBIENTE_INCOMPATIVEL", ambiente: amb.ambiente });
+    }
+    return acao({ body, headers, cron, ambiente: amb.ambiente });
   };
 }
 

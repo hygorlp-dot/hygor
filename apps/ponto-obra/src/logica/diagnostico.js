@@ -1,3 +1,4 @@
+import { ETAPAS_DESEMPENHO, linhasDoDesempenho } from "./desempenho.js";
 // Diagnóstico do aparelho (modo Encarregado → Diagnóstico). Puro.
 //
 // Mostra o necessário para o suporte entender o estado do aparelho SEM
@@ -52,7 +53,7 @@ const duracao = ms => (ms === null || ms === undefined ? "-" : ms < 3_600_000 ? 
 // rep = { versao, situacao } do software REP (rep-p.js) - versão TÉCNICA,
 // não registrada; modelos = { estado, erro, detector, identidade, cargaMs };
 // desempenho = medições anônimas da sessão (ms). fuso = do estabelecimento.
-export function montarDiagnostico({ app = {}, rep = {}, aparelho = {}, sessao = null, contagem = {}, ultimaSincronizacao = null, modelos = {}, hora = null, gps = {}, fiscal = {}, referencia = null, desempenho = {}, fuso }) {
+export function montarDiagnostico({ app = {}, rep = {}, aparelho = {}, sessao = null, contagem = {}, ultimaSincronizacao = null, modelos = {}, hora = null, gps = {}, fiscal = {}, referencia = null, desempenho = {}, estatisticas = null, servidor = null, fuso }) {
   const sinc = ultimaSincronizacao;
   const fmt = ms => formatarDataHora(ms, fuso);
   const ms = v => (Number.isFinite(v) ? `${Math.round(v)} ms` : "-");
@@ -61,6 +62,7 @@ export function montarDiagnostico({ app = {}, rep = {}, aparelho = {}, sessao = 
     : sinc?.aguardandoEstabelecimento ? "aguardando vínculo da obra a um estabelecimento"
       : fiscal.ultimoNsr !== null && fiscal.ultimoNsr !== undefined ? "aceitando eventos" : "sem eventos confirmados ainda";
   const itens = [
+    ["Servidor do ARCD", servidor ? `${servidor.host || "SEM SERVIDOR"} · ${servidor.nomeAmbiente || servidor.ambiente}` : "-"],
     ["Versão do app", app.versao || "-"],
     ["Versão do software REP", rep.versao ? `${rep.versao} · não registrada` : "-"],
     ["Build (versionCode)", app.build || "-"],
@@ -98,12 +100,16 @@ export function montarDiagnostico({ app = {}, rep = {}, aparelho = {}, sessao = 
     ["Última identificação", ms(desempenho.identificacaoMs)],
     ["Última batida (total)", ms(desempenho.batidaMs)],
   ];
+  itens.push(...linhasDoDesempenho(estatisticas || desempenho));
   return itens.map(([rotulo, valor]) => ({ rotulo, valor: String(valor) }));
 }
 
 // Agrupa a lista fechada em seções (página de Ajustes, não dashboard). Item
 // sem seção conhecida cai em "Outros" - nada some da tela.
 const SECAO_DO_ITEM = {
+  "Servidor do ARCD": "Aplicativo",
+  ...Object.fromEntries(ETAPAS_DESEMPENHO.map(([, rotulo]) => [rotulo, "Desempenho"])),
+  "Resultado da prova de vida": "Desempenho", "Resultado do reconhecimento": "Desempenho",
   "Versão do app": "Aplicativo", "Versão do software REP": "Aplicativo", "Build (versionCode)": "Aplicativo", "Commit": "Aplicativo", "Perfil do build": "Aplicativo", "Data do build": "Aplicativo",
   "Plataforma": "Aparelho", "Android": "Aparelho", "Aparelho": "Aparelho", "Aparelho no ARCD": "Aparelho", "Obra": "Aparelho", "GPS": "Aparelho",
   "Última sincronização": "Sincronização", "Último envio com sucesso": "Sincronização", "Batidas a enviar": "Sincronização", "Fotos a enviar": "Sincronização", "Fotos com problema": "Sincronização",

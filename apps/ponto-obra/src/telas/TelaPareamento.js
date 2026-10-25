@@ -2,14 +2,16 @@
 // números gerado no ARCD (aba Ponto eletrônico → Parear aparelho).
 // Depois do OK do ARCD, mostra "Aparelho vinculado" enquanto o App guarda a
 // sessão e baixa o cadastro (aoParear) - a ordem das operações não mudou.
+import regrasDeAmbiente from "../../config/ambiente";
+const { decidirAmbienteDoPareamento } = regrasDeAmbiente;
 import { useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, StyleSheet, View } from "react-native";
 import { classificarResposta, mensagemDeErro } from "../logica/falhas";
 import { casasDoCodigo } from "../logica/apresentacao";
-import { infoDoAparelho, infoDoApp } from "../servicos/conexao";
+import { AMBIENTE, infoDoServidor, infoDoAparelho, infoDoApp } from "../servicos/conexao";
 import { Botao, COR, CampoCodigo, Corpo, ESPACO, EstadoCentral, Legenda, Mensagem, Tela, Texto, Titulo } from "../ui";
 
-export default function TelaPareamento({ api, aoParear }) {
+export default function TelaPareamento({ api, aoParear, antesDeParear = async () => {} }) {
   const [codigo, setCodigo] = useState("");
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -18,6 +20,9 @@ export default function TelaPareamento({ api, aoParear }) {
   const parear = async () => {
     setEnviando(true); setErro("");
     try {
+      await antesDeParear();
+      const ambiente = decidirAmbienteDoPareamento(await api("ponto-ambiente"), AMBIENTE);
+      if (!ambiente.ok) { setErro(ambiente.mensagem || "Não foi possível confirmar o ambiente do servidor. Tente novamente com conexão."); return; }
       const app = infoDoApp(), aparelho = infoDoAparelho();
       const r = await api("ponto-parear", {
         codigo,
@@ -55,6 +60,7 @@ export default function TelaPareamento({ api, aoParear }) {
         <View style={estilos.cabeca}>
           <Texto variante="secao" cor={COR.ouro}>PONTO DE OBRA</Texto>
           <Titulo>Vincular aparelho</Titulo>
+          <Legenda>{infoDoServidor().nomeAmbiente} · {infoDoServidor().host || "Servidor não configurado"}</Legenda>
           <Corpo secundario>Digite o código exibido no ARCD.</Corpo>
         </View>
         <CampoCodigo casas={casasDoCodigo(codigo)} valor={codigo} rotulo="Código de pareamento, 8 números"

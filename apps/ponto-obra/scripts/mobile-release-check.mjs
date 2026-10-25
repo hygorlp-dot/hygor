@@ -16,9 +16,10 @@
 //   --offline     expo-doctor sem rede: checks que dependem de rede ficam
 //                 "não verificado", não aprovados
 //   --passada N   número da passada da rodada (1 a 3) - ver docs/QUALITY-SCORECARD.md
-import { execSync, spawnSync } from "node:child_process";
+import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { executarFerramenta, tamanhoDiretorio, avaliarDoctor } from "./release-tools.mjs";
 import { fileURLToPath } from "node:url";
 
 const APP = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -52,7 +53,7 @@ const primeiroErro = texto => {
   const linhas = `${texto}`.split("\n").map(l => l.trim()).filter(Boolean);
   return (linhas.find(l => /error|erro|falha/i.test(l) && !/^at\s/.test(l)) || linhas.filter(l => !/^at\s/.test(l)).slice(-2).join(" ")).slice(0, 300);
 };
-const exec = (cmd, args, opcoes = {}) => spawnSync(cmd, args, { cwd: APP, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024, ...opcoes });
+const exec = (cmd, args, opcoes = {}) => executarFerramenta(cmd, args, { cwd: APP, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024, ...opcoes });
 
 // Passadas da rodada: no máximo 3 (AUDIT→TEST→SCORE, POLISH→TEST→SCORE, final).
 if (PASSADA) {
@@ -68,6 +69,7 @@ rodar("gitLimpo", "Árvore de trabalho limpa", () => {
 rodar("testes", "Testes do Ponto de Obra (app, domínio compartilhado e servidor)", () => {
   const r = exec("npx", ["vitest", "run", "apps/ponto-obra", "src/domains/ponto-eletronico", "server/ponto-eletronico", "server/ponto-eletronico-migration.pglite.test.js",
     "--reporter=default", "--reporter=json", `--outputFile.json=${path.join(SAIDA, "vitest.json")}`], { cwd: RAIZ, stdio: ["ignore", "inherit", "inherit"] });
+  if (r.error) return { ok: false, detalhe: r.error.message };
   const j = JSON.parse(readFileSync(path.join(SAIDA, "vitest.json"), "utf8"));
   return { ok: r.status === 0 && j.numFailedTests === 0, detalhe: `${j.numPassedTests}/${j.numTotalTests} passando`, total: j.numTotalTests, falhas: j.numFailedTests };
 });
@@ -75,14 +77,7 @@ rodar("testes", "Testes do Ponto de Obra (app, domínio compartilhado e servidor
 if (!RAPIDO) {
   rodar("expoDoctor", "expo-doctor", () => {
     const r = exec("npx", ["expo-doctor"]);
-    const saida = `${r.stdout}${r.stderr}`;
-    const falhas = [...saida.matchAll(/^✖ (.+)$/gm)].map(m => m[1].trim());
-    // Sem rede, estes dois checks consultam serviços externos e não dizem nada sobre o app.
-    const DE_REDE = [/Expo config .*schema/i, /React Native Directory/i];
-    const reais = OFFLINE ? falhas.filter(f => !DE_REDE.some(p => p.test(f))) : falhas;
-    if (r.status === 0) return { ok: true, detalhe: (saida.match(/\d+\/\d+ checks passed/) || ["ok"])[0] };
-    if (!reais.length) return { ok: !CI, detalhe: `só checks de rede falharam offline (${falhas.length}) - não verificados`, naoVerificado: falhas };
-    return { ok: false, detalhe: reais.join("; ") };
+    return avaliarDoctor(r, { offline: OFFLINE, ci: CI });
   });
 
   rodar("bundle", "Bundle Android (Metro + modelos .tflite)", () => {
@@ -91,7 +86,7 @@ if (!RAPIDO) {
     if (r.status !== 0) return { ok: false, detalhe: primeiroErro(`${r.stderr}${r.stdout}`) };
     const meta = readFileSync(path.join(APP, "dist-ci/metadata.json"), "utf8");
     const tflite = (meta.match(/"ext":"tflite"/g) || []).length;
-    const tamanho = Number(execSync(`du -sk dist-ci`, { cwd: APP, encoding: "utf8" }).split("\t")[0]);
+    const tamanho = Math.ceil(tamanhoDiretorio(path.join(APP, "dist-ci")) / 1024);
     ev.metricas.bundleKb = tamanho;
     rmSync(path.join(APP, "dist-ci"), { recursive: true, force: true });
     return { ok: tflite >= 2, tflite, detalhe: `${tflite} .tflite, ${Math.round(tamanho / 1024 * 10) / 10} MB` };
@@ -124,7 +119,7 @@ rodar("versoes", "Versões de release", () => {
 });
 
 writeFileSync(path.join(SAIDA, "evidencias.json"), `${JSON.stringify(ev, null, 2)}\n`);
-const score = spawnSync("node", ["scripts/mobile-quality-score.mjs", ...(CI ? ["--exigir-evidencias"] : [])], { cwd: APP, stdio: "inherit" });
+const score = exec("node", ["scripts/mobile-quality-score.mjs", ...(CI ? ["--exigir-evidencias"] : [])], { cwd: APP, stdio: "inherit" });
 
 // Histórico das passadas da rodada (sem dado pessoal; só notas e gates).
 if (PASSADA) {
