@@ -61,6 +61,7 @@ import {
   rowForOperationalCommand, SPLITTABLE_DOMAINS,
 } from "../server/domain-row-routing.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
+import {loadMobileAttendanceSource} from "../server/attendance-mobile-source.js";
 import {
   applyEntriesToAttendance, attendanceObraKey, attendanceObraKeyPrefix,
   groupAttendanceEntriesByObra, groupObraDeparturesByBucket, mergeAttendanceObjects,
@@ -229,6 +230,7 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CREATED]:["admin","rh"],
   [OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CANCELLED]:["admin","rh"],
   [OPERATIONAL_COMMAND.EMPLOYEE_SAVED]:["admin","rh"],
+  [OPERATIONAL_COMMAND.MIXED_PAYROLL_APPROVED]:["admin","rh"],
   [OPERATIONAL_COMMAND.EMPLOYEE_PAY_MODE_SET]:["admin","rh"],
   [OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED]:["admin","rh"],
   [OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CANCELLED]:["admin","rh"],
@@ -326,6 +328,7 @@ const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CREATED,
   OPERATIONAL_COMMAND.PAYROLL_RESCISSION_CANCELLED,
   OPERATIONAL_COMMAND.EMPLOYEE_SAVED,
+  OPERATIONAL_COMMAND.MIXED_PAYROLL_APPROVED,
   OPERATIONAL_COMMAND.EMPLOYEE_PAY_MODE_SET,
   OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CREATED,
   OPERATIONAL_COMMAND.PAYROLL_ADVANCE_CANCELLED,
@@ -1010,6 +1013,8 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
   });
   try{
     return await connection.begin(async transaction=>{
+      const consistentPayrollSource=action===`operational_${OPERATIONAL_COMMAND.MIXED_PAYROLL_APPROVED.toLowerCase()}`;
+      if(consistentPayrollSource)await transaction`set local lock_timeout = '2s'`;
       const [locked]=await transaction`
         select value,updated_at
           from company_app_data
@@ -1030,7 +1035,31 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
         ]),
       );
       const corePayload=effectiveDomain===DOMAIN_ROW.CORE?freshSlice:coreFieldsOnly(linha.payload,linha.rowVersions);
-      const current=mergeDomainRows(corePayload,rowPayloadsByDomain);
+      let current=mergeDomainRows(corePayload,rowPayloadsByDomain);
+      let sourceRowVersions=linha.rowVersions;
+      if(consistentPayrollSource){
+        // Mixed approval reads payroll inputs, not only core entities. Keep
+        // core -> Ponto -> work buckets (sorted) -> config lock order and
+        // compare the UI signature only against this transaction's source.
+        const [pointRow]=await transaction`
+          select value,updated_at from company_app_data
+           where company_id=${COMPANY} and key=${PONTO_KEY} for update
+        `;
+        const workRows=await transaction`
+          select key,value from company_app_data
+           where company_id=${COMPANY} and key like ${`${PONTO_OBRA_KEY_PREFIX}%`}
+           order by key for update
+        `;
+        const [configRow]=await transaction`
+          select value,updated_at from company_app_data
+           where company_id=${COMPANY} and key=${SPLIT_ROW_KEYS[DOMAIN_ROW.CONFIG]} for share
+        `;
+        const pointSource=pointRow?decodeAppData(pointRow.value):corePayload;
+        const configSource=configRow?decodeAppData(configRow.value):corePayload;
+        sourceRowVersions={...linha.rowVersions,[DOMAIN_ROW.PONTO]:pointRow?.updated_at||null,[DOMAIN_ROW.CONFIG]:configRow?.updated_at||null};
+        const sources=[corePayload.attendance||{},pointSource.attendance||{},...workRows.map(row=>{const value=decodeAppData(row.value);return withAttendanceSyncedAt(value.attendance,value.attendanceSyncedAt);})];
+        current={...current,attendanceLocks:{},unlockRequests:[],dailyCheckDate:"",attendanceOperationReceipts:[],...pickDomainFields(pointSource,DOMAIN_ROW.PONTO),config:configSource.config||{},attendance:mergeAttendanceObjects(...sources)};
+      }
       const outcome=await mutate({payload:current,updatedAt:locked.updated_at});
       if(!outcome||outcome.kind!=="save")return outcome;
       const valueToWrite=effectiveDomain===DOMAIN_ROW.CORE?outcome.data:pickDomainFields(outcome.data,effectiveDomain);
@@ -1054,7 +1083,7 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
         valueToWrite.attendance=freshSlice.attendance;
       }
       const saved=await gravarMutacaoNaTransacao({
-        transaction,key,rowVersions:linha.rowVersions,keepDomain:effectiveDomain,
+        transaction,key,rowVersions:sourceRowVersions,keepDomain:effectiveDomain,
         value:valueToWrite,basePayload:freshSlice,actor,action,
         before:outcome.before,after:outcome.after,financial,
       });
@@ -1214,6 +1243,13 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
   });
   try{
     return await connection.begin(async transaction=>{
+      if(command.action===ATTENDANCE_COMMAND.IMPORT_MOBILE){
+        // Closure, archived fortnights, approved payroll titles and employee
+        // registration live in core. Match the core -> Ponto lock order used
+        // by financial/archive flows; never take core after holding Ponto.
+        await transaction`set local lock_timeout = '2s'`;
+        await transaction`select value from company_app_data where company_id=${COMPANY} and key=${KEY} for share`;
+      }
       const [lockedPonto]=await transaction`
         select value,updated_at from company_app_data
          where company_id=${COMPANY} and key=${pontoKeyAlvo}
@@ -1225,14 +1261,27 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
       // TRAVADA (nunca de `linha`, que pode estar desatualizada) - é o que
       // garante que ensureUnlocked e a checagem de idempotência (via
       // attendanceOperationReceipts) enxerguem o estado mais novo possível.
-      const current={
+      let current={
         ...linha.payload,
         attendanceLocks:freshPontoSlice.attendanceLocks||{},
         unlockRequests:freshPontoSlice.unlockRequests||[],
         dailyCheckDate:freshPontoSlice.dailyCheckDate||"",
         attendanceOperationReceipts:freshPontoSlice.attendanceOperationReceipts||[],
       };
-      const applied=applyAttendanceCommand(current,usuario,command,operationNow);
+      let mobileSource=null;
+      if(command.action===ATTENDANCE_COMMAND.IMPORT_MOBILE){
+        // All attendance writers hold the Ponto meta lock. Reload every
+        // source now, so a competing manual day cannot be overwritten using
+        // the pre-transaction photograph. Other domains are read, never saved.
+        const rows=await transaction`select key,value from company_app_data where company_id=${COMPANY}`;
+        const core=rows.find(row=>row.key===KEY);
+        const domains=Object.fromEntries(Object.entries(SPLIT_ROW_KEYS).flatMap(([domain,key])=>{const row=rows.find(r=>r.key===key);return row?[[domain,decodeAppData(row.value)]]:[];}));
+        const merged=mergeDomainRows(core?decodeAppData(core.value):{},domains);
+        const sources=[merged.attendance||{},...rows.filter(row=>row.key.startsWith(PONTO_OBRA_KEY_PREFIX)).map(row=>{const value=decodeAppData(row.value);return withAttendanceSyncedAt(value.attendance,value.attendanceSyncedAt);})];
+        current={...merged,...pickDomainFields(current,DOMAIN_ROW.PONTO),attendance:mergeAttendanceObjects(...sources)};
+        mobileSource=await loadMobileAttendanceSource(transaction,{company:COMPANY,employeeId:command.employeeId,date:command.date});
+      }
+      const applied=applyAttendanceCommand(current,usuario,command,operationNow,mobileSource);
       if(!applied.ok)return {kind:"error",status:applied.status||400,error:applied.error};
       if(applied.idempotent)return {kind:"idempotent",result:applied.result,updatedAt:lockedPonto.updated_at};
 
@@ -2025,7 +2074,8 @@ export default async function handler(req, res) {
       // os outros 5 (lock/unlock/daily-check) só mexem nos campos "meta" que
       // continuam numa única linha compartilhada, então seguem no caminho
       // genérico de sempre.
-      const isAttendanceWrite=action===ATTENDANCE_COMMAND.UPSERT||action===ATTENDANCE_COMMAND.BATCH_UPSERT;
+      const isAttendanceWrite=action===ATTENDANCE_COMMAND.UPSERT||action===ATTENDANCE_COMMAND.BATCH_UPSERT||action===ATTENDANCE_COMMAND.IMPORT_MOBILE;
+      if(action===ATTENDANCE_COMMAND.IMPORT_MOBILE&&!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({ok:false,error:"A importação móvel requer persistência transacional. Nenhum ponto foi alterado."});
       if(process.env.POSTGRES_URL_NON_POOLING&&isAttendanceWrite){
         const outcome=await executarComandoPontoBloqueado({
           usuario,command,operationNow,linha:{payload:atual,rowVersions},

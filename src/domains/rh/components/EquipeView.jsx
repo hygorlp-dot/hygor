@@ -521,6 +521,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 <Inp label="CBO do funcionário" value={form.cltPayroll?.profile?.cbo||""} onChange={v=>setForm(f=>({...f,cltPayroll:{...f.cltPayroll,profile:{...f.cltPayroll?.profile,cbo:v}}}))}/>
                 <Sel label="Categoria contratual na CCT" value={form.cltPayroll?.profile?.category||""} onChange={v=>setForm(f=>({...f,cltPayroll:{...f.cltPayroll,profile:{...f.cltPayroll?.profile,category:v}}}))} options={[{v:"",l:"Selecione"},{v:"professional",l:"Profissional"},{v:"helper",l:"Servente / ajudante"}]}/>
                 <Inp label={form.remunerationMode==="clt"?"Diária de referência para custeio do ponto *":"Diária *"} type="number" value={form.dailyRate} onChange={F("dailyRate")} error={formErrors.dailyRate}/>
+                {form.id&&<><Inp label="Valores e jornada válidos a partir de" type="date" value={form.remunerationValueEffectiveFrom||""} onChange={F("remunerationValueEffectiveFrom")}/><Inp label="Motivo do reajuste de valores ou jornada" value={form.remunerationValueReason||""} onChange={F("remunerationValueReason")}/></>}
                 <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} />
                 <Inp label="VR diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} />
                 <Inp label="Jornada padrão (horas)" type="number" min="1" max="24" value={form.workdayHours} onChange={F("workdayHours")} />

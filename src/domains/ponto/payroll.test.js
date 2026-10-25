@@ -6,6 +6,10 @@ import {
 } from "./payroll.js";
 
 describe("cálculo canônico de Ponto e folha", () => {
+  it('benefícios individuais usam o valor congelado e compõem o mesmo custo do DRE',()=>{
+    const result=calculateAttendanceDayCost({employee:{dailyRate:120,vtDaily:30,vrDaily:40},record:{status:'M',archivedVtDaily:10,archivedVrDaily:20},date:'2026-09-21'});
+    expect(result.transportCost).toBe(5);expect(result.mealCost).toBe(10);expect(result.benefitCost).toBe(15);
+  });
   it("pondera presença, meio período e falta sem alterar o registro", () => {
     expect(attendanceFactor("P")).toBe(1);
     expect(attendanceFactor("M")).toBe(0.5);
@@ -65,6 +69,21 @@ describe("cálculo canônico de Ponto e folha", () => {
     expect(result.delayDeduction).toBe(5);
     expect(result.laborCost).toBe(75);
     expect(result.benefitCost).toBe(20);
+  });
+
+  it.each([1,5])('não desconta atraso de %i minutos dentro da tolerância e preserva a marcação',minutes=>{
+    const record={status:'P',entrada:`07:0${minutes}`,saida:'16:00'};
+    const result=calculateAttendanceDayCost({employee:{dailyRate:80,workdayHours:8,workStart:'07:00'},record});
+    expect(result).toMatchObject({delayMinutes:minutes,deductibleDelayMinutes:0,delayDeduction:0,laborCost:80,delayReviewRequired:true});
+    expect(record.entrada).toBe(`07:0${minutes}`);
+  });
+  it('também aplica tolerância ao atraso numérico legado sem horários',()=>{
+    expect(calculateAttendanceDayCost({employee:{dailyRate:80},record:{status:'P',atrasoMin:5}})).toMatchObject({delayMinutes:5,delayDeduction:0,laborCost:80,delayReviewRequired:true});
+    expect(calculateAttendanceDayCost({employee:{dailyRate:80},record:{status:'P',atrasoMin:6}})).toMatchObject({delayMinutes:6,delayDeduction:1,laborCost:79});
+  });
+  it('preserva a regra da fotografia arquivada em vez de recalcular fechamento pago',()=>{
+    const result=calculateAttendanceDayCost({employee:{dailyRate:999},record:{status:'P',atrasoMin:5,archivedDailyRate:80,archivedWorkdayHours:8}});
+    expect(result).toMatchObject({delayMinutes:5,delayToleranceApplied:false});expect(result.delayDeduction).toBeCloseTo(5/6,10);expect(result.laborCost).toBeCloseTo(80-5/6,10);
   });
 
   it("aplica política padrão explícita quando o cadastro antigo não possui regra", () => {

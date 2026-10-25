@@ -1,11 +1,14 @@
 import {expect,test} from "@playwright/test";
 import {applyOperationalCommand} from "../src/domains/sync/operational-commands.js";
+import {newCltDraft} from '../src/domains/ponto/clt-payslip.js';
 const profile={id:"qa-rh",nome:"RH QA",email:"rh@qa.test",role:"rh",active:true};
-async function enter(page,{point=false,complete=false,legacy=false,profileOnly=false}={}){
+async function enter(page,{point=false,complete=false,legacy=false,profileOnly=false,mixedReady=false}={}){
   await page.context().addInitScript(()=>{window.print=()=>{};});
-  await page.clock.setFixedTime(new Date("2026-09-25T12:00:00-03:00"));
+  const now=mixedReady?'2026-10-06T15:00:00Z':'2026-09-25T15:00:00Z';
+  await page.clock.setFixedTime(new Date(now));
   let state={usuarios:[profile],obras:[{id:"obra",name:"Obra QA",status:"active"}],employees:[{id:"emp",name:"Operário QA",cpf:"000.000.000-00",role:"Pedreiro",obra:"obra",dailyRate:120,monthlySalary:2406.8,remunerationMode:"clt",startDate:"2026-05-01",active:true,version:1}],advances:[{id:"adv",empId:"emp",date:"2026-09-20",amount:600,description:"Adiantamento 1ª quinzena",status:"ativo",version:1,installments:[{id:"i",dueDate:"2026-09-30",amount:600,status:"programada"}]}],attendance:{},attendanceLocks:{},unlockRequests:[],changeLog:[],config:{companyName:"Empresa QA",cnpj:"00.000.000/0001-00",paymentHolidays:[]},financialSettlements:[{id:"preservar",amount:600}]};
   if(legacy)Object.assign(state.employees[0],{remunerationMode:"daily",monthlySalary:0,vtDaily:0,vrDaily:0,startDate:"2026-03-20",phone:"81977772299",cltPayroll:profileOnly?{profile:{salary:2600,registration:"007",cbo:"715210",category:"helper"}}:null});
+  if(mixedReady)state.employees[0].cltPayroll={drafts:{'2026-09':{...newCltDraft('2026-09',{salary:2406.8}),paymentDate:'2026-09-30',workedDays:22,registration:'001',cbo:'715210',confirmed:true}}};
   if(complete)Object.assign(state.employees[0],{cpf:"529.982.247-25",phone:"81999999999",workArea:"campo",workdayHours:8,workStart:"07:00",pixType:"CPF",pixKey:"52998224725",pixHolder:"Operário QA",examExpiresAt:"2027-05-01",remunerationMode:"daily",cltPayroll:{profile:{registration:"001",cbo:"715210",category:"professional"}}});
   if(point){
     for(let day=1;day<=30;day++){
@@ -21,7 +24,7 @@ async function enter(page,{point=false,complete=false,legacy=false,profileOnly=f
     if(body.action==="operational-command"){
       commands.push(body.command);
       // The real handler stamps the authenticated actor before applying.
-      const result=applyOperationalCommand(state,{...body.command,actorId:profile.id,actorName:profile.nome},"2026-09-25T15:00:00Z");
+      const result=applyOperationalCommand(state,{...body.command,actorId:profile.id,actorName:profile.nome},now);
       if(result.ok)state=result.data;
       return r.fulfill({json:{...result,updatedAt:"2026-09-25T15:00:00Z"}});
     }
@@ -90,6 +93,7 @@ test("RH escolhe diária ou CLT no cadastro, com salário mensal e vigência",as
   await dialog.getByRole("combobox",{name:"Modalidade de remuneração",exact:true}).selectOption("clt");
   await dialog.getByLabel("Modalidade válida a partir de",{exact:true}).fill("2026-10-01");
   await dialog.getByLabel("Salário contratual mensal *",{exact:true}).fill("2600");
+  await dialog.getByLabel("Valores e jornada válidos a partir de",{exact:true}).fill("2026-10-01");await dialog.getByLabel("Motivo do reajuste de valores ou jornada",{exact:true}).fill("Reajuste contratual confirmado");
   await dialog.getByRole("button",{name:"Salvar",exact:true}).click();await expect(dialog).toHaveCount(0);
   expect(getState().employees[0]).toMatchObject({remunerationMode:"clt",monthlySalary:2600,dailyRate:120});
   expect(getState().employees[0].remunerationHistory.at(-1)).toMatchObject({date:"2026-10-01",mode:"clt"});
@@ -283,4 +287,36 @@ test("editar funcionário reaproveita o perfil salvo e mantém o formulário ap�
   await page.route("**/api/data",async route=>{if(route.request().postDataJSON()?.action==="operational-command")return route.fulfill({status:503,json:{ok:false,error:"Falha simulada para conferir preservação"}});return route.fallback();});
   await dialog.getByLabel("Telefone",{exact:true}).fill("81988887777");await dialog.getByRole("button",{name:"Salvar",exact:true}).click();
   await expect(dialog.locator('.employee-edit-feedback[role="alert"]')).toContainText("Falha");await expect(dialog.getByLabel("Salário mensal para opção CLT",{exact:true})).toHaveValue("2600");await expect(dialog.getByRole("button",{name:"Salvar",exact:true})).toBeEnabled();expect(getState().employees[0].monthlySalary).toBe(0);
+});
+
+
+test('quinzena mista: aprova parcela conferida e mostra saldo sem registrar pagamento',async({page})=>{
+  const {commands,getState}=await enter(page,{mixedReady:true});
+  await page.getByRole('button',{name:'Preparar quinzena',exact:true}).click();
+  const section=page.getByRole('region',{name:'Preparar quinzena mista',exact:true});
+  await section.getByLabel('Mês do corte',{exact:true}).fill('2026-09');
+  await section.getByRole('combobox',{name:'Corte da quinzena mista',exact:true}).selectOption('2');
+  await section.locator('summary').filter({hasText:'Parcela CLT'}).click();
+  await section.getByLabel('Parcela CLT Operário QA',{exact:true}).fill('700');
+  await section.getByLabel('Critério da parcela Operário QA',{exact:true}).fill('Parcela conferida pelo RH');
+  await section.getByLabel('Data prevista para pagamento da quinzena',{exact:true}).fill('2026-10-06');
+  await section.getByRole('button',{name:'Selecionar demonstrativos sem pendência',exact:true}).click();
+  await section.getByRole('checkbox',{name:/Conferi dias, valores/}).check();
+  await section.getByRole('button',{name:'Aprovar e encaminhar ao financeiro',exact:true}).click();
+  await expect(section.getByRole('status')).toContainText('Fechamento aprovado');
+  expect(getState().titulosFolha).toHaveLength(1);expect(getState().titulosFolha[0].liquido).toBe(700);
+  expect(getState().pagamentosFolha||[]).toEqual([]);expect(getState().financialSettlements).toEqual([{id:'preservar',amount:600}]);expect(commands).toHaveLength(1);
+  await expect(section.getByRole('checkbox',{name:'Selecionar Operário QA clt',exact:true})).toBeDisabled();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+test("quinzena mista: sem ponto recebido não aprova nem cria pagamento",async({page})=>{
+  const {commands,getState}=await enter(page);
+  await page.getByRole("button",{name:"Preparar quinzena",exact:true}).click();
+  const section=page.getByRole("region",{name:"Preparar quinzena mista",exact:true});
+  await expect(section).toContainText("06 a 20");await expect(section).toContainText("pendência");
+  await section.getByRole("button",{name:"Selecionar demonstrativos sem pendência",exact:true}).click();
+  await expect(section.getByRole("button",{name:"Aprovar e encaminhar ao financeiro",exact:true})).toBeDisabled();
+  expect(commands).toHaveLength(0);expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
+  await section.screenshot({path:test.info().outputPath("preparar-quinzena.png")});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 });

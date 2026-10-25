@@ -16,7 +16,7 @@ const raw = overrides => ({
   demissao:"2026-07-28", valorMensal:3000, diasNoMes:10,
   tipo:"sem_justa_causa", incluirSaldo:true, incluir13:true,
   incluirFerias:true, incluirAviso:false, descAdiantamento:0,
-  descOutros:0, ...overrides,
+  descOutros:0, accounting:{responsible:"Contabilidade QA",reference:"Memória conferida QA",totalNet:5083.33,confirmed:true}, ...overrides,
 });
 const command = (type, payload, expectedVersion) => ({
   type, payload, expectedVersion,
@@ -25,7 +25,11 @@ const command = (type, payload, expectedVersion) => ({
 });
 
 describe("comandos de rescisão trabalhista", () => {
-  it("recalcula e vincula a obra pelo funcionário no servidor", () => {
+  it('não transforma prévia automática em custo definitivo sem contabilidade identificada',()=>{
+    const result=applyRescissionCommand(base(),command(RESCISSION_COMMAND.PAYROLL_RESCISSION_CREATED,{rescission:raw({accounting:null})}));
+    expect(result.ok).toBe(false);expect(result.reason).toContain('apuração conferida');
+  });
+  it("usa apuração identificada e vincula a obra pelo funcionário no servidor", () => {
     const cmd = command(RESCISSION_COMMAND.PAYROLL_RESCISSION_CREATED, {
       rescission:raw({ totalLiquido:999999, obraId:"obra-inventada" }),
     });

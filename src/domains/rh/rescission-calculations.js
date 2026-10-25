@@ -1,3 +1,16 @@
+import {validDate} from './date-validation.js';
+import {remunerationModeOnDate} from './remuneration-mode.js';
+import {effectiveEmployeeOnDate} from './remuneration-values.js';
+
+// Diária é forma de remuneração, não uma base mensal presumida. O valor
+// mensal do diarista depende da apuração identificada da contabilidade.
+export const suggestedRescissionMonthlyBase=(employee={},date='')=>{
+  if(remunerationModeOnDate(employee,date)!=='clt')return '';
+  const effective=effectiveEmployeeOnDate(employee,date);
+  const salary=Number(effective.monthlySalary)>0?Number(effective.monthlySalary):Number(effective.cltPayroll?.profile?.salary);
+  return Number.isFinite(salary)&&salary>0?String(salary):'';
+};
+
 export const RESCISSION_TYPES = Object.freeze([
   { v:"sem_justa_causa", l:"Dispensa sem justa causa (empregador)" },
   { v:"justa_causa", l:"Dispensa por justa causa" },
@@ -17,7 +30,7 @@ export const calculateRescission = (form = {}) => {
     incluirSaldo, incluir13, incluirFerias, incluirAviso,
     valorFixoAcordo, descAdiantamento, descOutros,
   } = form;
-  if (!admissao || !demissao) return null;
+  if (!validDate(admissao) || !validDate(demissao)) return null;
 
   const dataAdm = new Date(`${admissao}T12:00:00`);
   const dataDem = new Date(`${demissao}T12:00:00`);
@@ -47,9 +60,18 @@ export const calculateRescission = (form = {}) => {
   // mês cheio, máximo 12. Não acumula anos anteriores - o 13º desses anos já
   // deveria ter sido quitado ao longo do próprio ano (duas parcelas), fora
   // deste cálculo.
-  const inicioAno13 = new Date(dataDem.getFullYear(), 0, 1, 12, 0, 0);
-  const janela13 = diffMeses(dataAdm > inicioAno13 ? dataAdm : inicioAno13, dataDem);
-  const avos13 = Math.min(12, Math.max(0, janela13.totalMeses + (janela13.dias >= 15 ? 1 : 0)));
+  // Lei 4.090/1962, art. 1º, §§1º–2º: cada mês CIVIL com pelo menos
+  // 15 dias de serviço gera um avo. Dias de admissão e desligamento são
+  // inclusivos; não contar meses transcorridos desde a admissão.
+  let avos13=0;
+  const year13=dataDem.getFullYear();
+  for(let month=0;month<=dataDem.getMonth();month++){
+    const first=Date.UTC(year13,month,1),last=Date.UTC(year13,month+1,0);
+    const from=Math.max(first,Date.UTC(dataAdm.getFullYear(),dataAdm.getMonth(),dataAdm.getDate()));
+    const through=Math.min(last,Date.UTC(dataDem.getFullYear(),dataDem.getMonth(),dataDem.getDate()));
+    const serviceDays=through>=from?(through-from)/86400000+1:0;
+    if(serviceDays>=15)avos13++;
+  }
 
   // Avos de férias: meses do período aquisitivo em aberto (12 meses a partir
   // do aniversário de admissão mais recente que já passou), fração ≥15 dias

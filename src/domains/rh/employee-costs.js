@@ -4,7 +4,7 @@ import {calculateAttendanceDayCost} from '../ponto/payroll.js';
 import {money} from '../ponto/clt-payslip.js';
 import {calculateLaborProvision} from '../ponto/labor-provisions.js';
 import {simulatePayMode} from '../ponto/pay-mode-simulation.js';
-import {reviewMonthlyPayslip} from '../ponto/clt-closing.js';
+import {reviewMonthlyPayslip} from '../ponto/clt-review.js';
 
 export function employeeCostReport(data,competence){
   const [year,month]=competence.split('-').map(Number),days=getDays(year,month-1),holidays=getPayrollHolidays(data,year);
@@ -17,7 +17,7 @@ export function employeeCostReport(data,competence){
     for(const date of days){
       if(!isEmployeeEmployedOnDate(employee,date))continue;
       const holiday=holidays.includes(date)&&prIsWeekdayIso(date);
-      const cost=holiday?{laborCost:getHolidayPayRule(data,employee,date,holidays).amount,benefitCost:0}:calculateAttendanceDayCost({employee,record:getAtt(data,employee.id,date),config:data.config});
+      const cost=holiday?{laborCost:getHolidayPayRule(data,employee,date,holidays).amount,benefitCost:0}:calculateAttendanceDayCost({employee,record:getAtt(data,employee.id,date),config:data.config,date});
       point+=cost.laborCost;benefits+=cost.benefitCost;
       if(cost.laborCost||cost.benefitCost)pointDetails.push({date,labor:money(cost.laborCost),benefits:money(cost.benefitCost)});
     }

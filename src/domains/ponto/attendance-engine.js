@@ -1,4 +1,5 @@
 import { normalizeAttendanceRecord } from "./records.js";
+import {effectiveEmployeeOnDate} from '../rh/remuneration-values.js';
 
 export const toLocalISODate = value => {
   const date=value instanceof Date?value:new Date(value);
@@ -224,7 +225,7 @@ export const getHolidayPayRule=(data,employee,holidayIso,holidays)=>{
     missedBefore,
     missedAfter,
     losesHoliday:missedBefore||missedAfter,
-    amount:missedBefore||missedAfter?0:Number(employee.dailyRate||0),
+    amount:missedBefore||missedAfter?0:Number(effectiveEmployeeOnDate(employee,holidayIso).dailyRate||0),
   };
 };
 

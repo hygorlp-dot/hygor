@@ -1,6 +1,8 @@
 import { validDate } from "./date-validation.js";
+import {active as activeFinancialRecord} from "../financeiro/ledger.js";
 import {attendanceImportIssues} from '../ponto/clt-attendance.js';
-import {attendancePayModeDecision} from './attendance-pay-mode.js';
+import {attendancePayModeDecision,latestClosedPayrollDate} from './attendance-pay-mode.js';
+import {REMUNERATION_VALUE_FIELDS,remunerationValues} from './remuneration-values.js';
 
 export const EMPLOYEE_COMMAND = Object.freeze({
   EMPLOYEE_SAVED:"FUNCIONARIO_SALVO",
@@ -117,6 +119,22 @@ const employeeChangeLog = ({ data, before, employee, actorName, now }) => {
   return events;
 };
 
+const stableDraft=value=>Array.isArray(value)?value.map(stableDraft):value&&typeof value==='object'
+  ?Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,stableDraft(value[key])])):value;
+const sameDraft=(a,b)=>JSON.stringify(stableDraft(a))===JSON.stringify(stableDraft(b));
+const financialClosedUntil=data=>(data.fechamentosFinanceiros||[]).filter(p=>p.status==='fechado'&&validDate(p.dataFim)).map(p=>p.dataFim).sort().at(-1)||'';
+const protectedDraft=(data,employee,period)=>{
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(period))return false;
+  const first=period+'-01',last=new Date(Date.UTC(Number(period.slice(0,4)),Number(period.slice(5,7)),0)).toISOString().slice(0,10);
+  if((data.fechamentosFinanceiros||[]).some(p=>p.status==='fechado'&&p.dataInicio<=last&&p.dataFim>=first))return true;
+  if((data.titulosFolha||[]).some(t=>activeFinancialRecord(t)&&String(t.employeeId)===String(employee.id)
+    &&(t.competencia===period||validDate(t.periodoInicio)&&validDate(t.periodoFim)&&t.periodoInicio<=last&&t.periodoFim>=first)))return true;
+  // Archives are an existing global payroll boundary, shared with pay-mode
+  // and value protection. Preserve old drafts even when only the key remains.
+  const archiveBoundary=latestClosedPayrollDate({...data,titulosFolha:[],employees:[]},{...employee,cltPayroll:{}});
+  return !!archiveBoundary&&first<=archiveBoundary;
+};
+
 export const applyEmployeeCommand = (
   data = {},
   command = {},
@@ -134,6 +152,11 @@ export const applyEmployeeCommand = (
   }
   if (!before && Number(command.expectedVersion || 0) !== 0) {
     return fail("A versão inicial do funcionário é inválida.");
+  }
+  if(before){
+    for(const period of new Set([...Object.keys(before.cltPayroll?.drafts||{}),...Object.keys(raw.cltPayroll?.drafts||{})])){
+      if(protectedDraft(data,before,period)&&!sameDraft(before.cltPayroll?.drafts?.[period],raw.cltPayroll?.drafts?.[period]))return fail('O holerite pertence a mês fechado, arquivado ou já encaminhado ao financeiro. Registre revisão identificada, sem alterar ou remover o demonstrativo histórico.');
+    }
   }
   const name = String(raw.name || "").trim();
   for(const [period,draft] of Object.entries(raw.cltPayroll?.drafts||{})){
@@ -185,6 +208,20 @@ export const applyEmployeeCommand = (
   const modeChanged=mode!==previousMode;
   const modeDate=String(raw.remunerationEffectiveFrom||raw.startDate);
   if(modeChanged&&(!validDate(modeDate)||modeDate<raw.startDate))return fail("Informe uma vigência da modalidade igual ou posterior à admissão.");
+  const protectedUntil=before?[latestClosedPayrollDate(data,before),financialClosedUntil(data)].sort().at(-1)||'':'';
+  const lifecycleChanged=before&&(String(before.endDate||'')!==endDate||(before.active!==false)!==active);
+  if(lifecycleChanged&&(data.rescisoes||[]).some(r=>activeFinancialRecord(r)&&String(r.empId)===String(before.id)))return fail('O vínculo possui rescisão registrada. Solicite revisão identificada da rescisão antes de alterar desligamento ou reativação.');
+  if(lifecycleChanged&&protectedUntil&&[before.endDate,endDate].some(date=>validDate(date)&&date<=protectedUntil))return fail('O desligamento ou reativação altera vínculo de período fechado. Solicite revisão identificada, preservando o histórico de ponto e custos.');
+  if(before&&modeChanged&&protectedUntil&&modeDate<=protectedUntil)return fail(`A vigência deve ser posterior a ${protectedUntil}; folhas fechadas são preservadas também na edição do cadastro.`);
+  if(before&&protectedUntil&&String(raw.startDate)!==String(before.startDate))return fail('A admissão participa de períodos fechados. Solicite revisão identificada, sem alterar o histórico pelo cadastro.');
+  const previousValues=remunerationValues(before),nextValues=remunerationValues(raw);
+  const valueChanged=before&&REMUNERATION_VALUE_FIELDS.some(key=>previousValues[key]!==nextValues[key]);
+  const valueDate=String(raw.remunerationValueEffectiveFrom||'');
+  if(valueChanged&&(!validDate(valueDate)||valueDate<raw.startDate||protectedUntil&&valueDate<=protectedUntil))return fail(`Alterações de valor/jornada exigem reajuste com vigência válida${protectedUntil?` posterior a ${protectedUntil}`:''}; o cadastro não recalcula períodos pagos.`);
+  if(valueChanged&&String(raw.remunerationValueReason||'').trim().length<10)return fail('Informe o motivo do reajuste de valor/jornada (ao menos 10 caracteres).');
+  const valuesOf=remunerationValues;
+  const existingValues=before?.remunerationValuesHistory?.length?before.remunerationValuesHistory:before?[{date:before.startDate,...valuesOf(before),source:'baseline_preservada'}]:[];
+  const remunerationValuesHistory=valueChanged?[...existingValues,{date:valueDate,...valuesOf(raw),reason:String(raw.remunerationValueReason).trim().slice(0,1000),changedAt:now,changedBy:actorId}]:before?.remunerationValuesHistory||[];
   const baseHistory=before?.remunerationHistory?.length?before.remunerationHistory:[{date:before?.remunerationEffectiveFrom||before?.startDate||raw.startDate,mode:previousMode}];
   const remunerationHistory=modeChanged?[...baseHistory,{date:modeDate,mode,changedAt:now,changedBy:actorId}]:before?.remunerationHistory||[];
   const employee = {
@@ -198,6 +235,9 @@ export const applyEmployeeCommand = (
     remunerationMode:mode,
     remunerationEffectiveFrom:modeChanged?modeDate:before?.remunerationEffectiveFrom||raw.remunerationEffectiveFrom||"",
     remunerationHistory,
+    remunerationValuesHistory,
+    remunerationValueEffectiveFrom:valueChanged?valueDate:before?.remunerationValueEffectiveFrom||'',
+    remunerationValueReason:valueChanged?String(raw.remunerationValueReason).trim():before?.remunerationValueReason||'',
     payModeDecisions:decision?raw.payModeDecisions:before?.payModeDecisions||[],
     vtDaily:Number(raw.vtDaily || 0),
     vrDaily:Number(raw.vrDaily || 0),

@@ -89,6 +89,8 @@ describe("comando transacional de funcionários", () => {
       command(employee({
         obra:"obra-2",
         dailyRate:180,
+        remunerationValueEffectiveFrom:'2026-07-29',
+        remunerationValueReason:'Reajuste registrado na data informada',
         active:false,
         endDate:"2026-07-29",
         terminationReason:"Demitido",

@@ -1,4 +1,5 @@
 import { normalizeAttendanceRecord } from "../src/domains/ponto/records.js";
+import {mobileAttendanceImportReview} from "../src/domains/ponto-eletronico/tratamento.js";
 import {
   resolveEmployeeAttendanceObraId,
 } from "../src/domains/ponto/permissions.js";
@@ -6,6 +7,7 @@ import {
 export const ATTENDANCE_COMMAND = Object.freeze({
   UPSERT:"attendance-upsert",
   BATCH_UPSERT:"attendance-batch-upsert",
+  IMPORT_MOBILE:"attendance-import-mobile",
   DAILY_CHECK:"attendance-daily-check",
   LOCK:"attendance-lock",
   UNLOCK_REQUEST:"attendance-unlock-request",
@@ -296,9 +298,36 @@ const applyUnlockDecision=({data,user,command,now,approved})=>{
   }};
 };
 
-export const applyAttendanceCommand=(data={},user={},command={},now=new Date().toISOString())=>{
+const applyMobileImport=({data,user,command,now,mobileSource})=>{
+  const writer=ensureWriter(user);if(!writer.ok)return writer;
+  if(!mobileSource)return fail("A fonte móvel precisa ser consultada pelo servidor.",409);
+  const date=String(command.date||""),employeeId=String(command.employeeId||"");
+  if(mobileSource.employeeId!==employeeId||mobileSource.date!==date)return fail("Fonte móvel incompatível com o dia solicitado.",409);
+  const preview=mobileAttendanceImportReview({proposal:mobileSource.proposal,saved:mobileSource.appropriations,day:date,point:data.attendance?.[employeeId]?.[date],locks:data.attendanceLocks});
+  if(!preview.ok)return fail(preview.reason,409);
+  const refs=Array.isArray(command.appropriationVersions)?command.appropriationVersions.map(v=>({id:String(v.id),version:Number(v.version)})).sort((a,b)=>a.id.localeCompare(b.id)):[];
+  const ids=Array.isArray(command.sourceEventIds)?command.sourceEventIds.map(String).sort():[];
+  if(JSON.stringify(ids)!==JSON.stringify(preview.sourceEventIds)||JSON.stringify(refs)!==JSON.stringify(preview.appropriationVersions))return fail("As marcações ou apropriações mudaram. Atualize a conferência antes de importar.",409);
+  if(!["P","M"].includes(command.status)||typeof command.ot!=="number"||!Number.isFinite(command.ot)||command.ot<0||command.ot>preview.workedMinutes/60||typeof command.atrasoMin!=="number"||!Number.isInteger(command.atrasoMin)||command.atrasoMin<0||command.atrasoMin>1440||!String(command.note||"").trim())return fail("Confira presença, horas extras, atraso e justificativa antes de importar.");
+  const archived=Object.values(data.quinzenasArquivadas||{}).some(p=>p.inicio<=date&&p.fim>=date);
+  const title=(data.titulosFolha||[]).some(t=>String(t.employeeId)===employeeId&&!["cancelado","cancelada"].includes(t.status)&&t.periodoInicio<=date&&t.periodoFim>=date);
+  const financialClosed=(data.fechamentosFinanceiros||[]).some(p=>p.status==="fechado"&&p.dataInicio<=date&&p.dataFim>=date);
+  if(archived||title||financialClosed)return fail("Período arquivado, folha aprovada ou financeiro fechado: encaminhe revisão sem alterar o histórico.",409);
+  const record={status:command.status,ot:command.ot,atrasoMin:command.atrasoMin,note:command.note,workedMinutes:preview.workedMinutes,
+    entrada:preview.entrada.slice(0,5),intervaloSaida:preview.intervaloSaida.slice(0,5),intervaloRetorno:preview.intervaloRetorno.slice(0,5),saida:preview.saida.slice(0,5)};
+  const validated=validatePatch({data,user,patch:{employeeId,date,selectedObraId:preview.obraId,record:{...record,obraId:preview.obraId}},now});
+  if(!validated.ok)return validated;
+  validated.record={...validated.record,mobileSource:{eventIds:preview.sourceEventIds,appropriations:preview.appropriationVersions,captureObraId:preview.obraCapturaId,reviewedBy:String(user.id||""),reviewedAt:now}};
+  const result={attendance:[attendanceResult(validated)],dailyCheckDate:data.dailyCheckDate||""};
+  const next=appendReceipt(applyValidatedPatch(data,validated),{operationId:command.operationId,action:command.action,result,user,now});
+  return {ok:true,data:next,result,audit:{action:"attendance_import_mobile",before:{attendance:null},after:{attendance:result.attendance,operationId:command.operationId}}};
+};
+
+export const applyAttendanceCommand=(data={},user={},command={},now=new Date().toISOString(),mobileSource=null)=>{
+  if(command.action===ATTENDANCE_COMMAND.IMPORT_MOBILE){const writer=ensureWriter(user);if(!writer.ok)return writer;}
   const base=ensureCommandBase({data,user,command});
   if(!base.ok||base.idempotent)return base;
+  if(command.action===ATTENDANCE_COMMAND.IMPORT_MOBILE)return applyMobileImport({data,user,command,now,mobileSource});
   if(command.action===ATTENDANCE_COMMAND.UPSERT)return applyUpsert({data,user,command,now});
   if(command.action===ATTENDANCE_COMMAND.BATCH_UPSERT)return applyBatch({data,user,command,now});
   if(command.action===ATTENDANCE_COMMAND.DAILY_CHECK)return applyDailyCheck({data,user,command,now});

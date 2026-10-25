@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateRescission } from "./rescission-calculations.js";
+import { calculateRescission, suggestedRescissionMonthlyBase } from "./rescission-calculations.js";
 
 const form = overrides => ({
   admissao:"2024-01-10", demissao:"2024-07-15", valorMensal:3000,
@@ -17,9 +17,9 @@ describe("calculateRescission - avos de 13º e férias", () => {
     // números diferentes, cada um dentro do período aquisitivo em aberto.
     const result = calculateRescission(form({ admissao:"2024-01-10", demissao:"2025-07-15" }));
     expect(result.totalMeses).toBe(18); // tempo de casa continua correto (informativo)
-    // 13º: do início do ano civil da rescisão (2025-01-10, já que a
-    // admissão é anterior) até 2025-07-15 = 6 meses e 5 dias -> 6 avos.
-    expect(result.avos13).toBe(6);
+    // Janeiro a junho têm mês integral; julho tem 15 dias inclusivos.
+    expect(result.avos13).toBe(7);
+    expect(result.dec13).toBe(1750);
     // Férias: do aniversário de admissão mais recente (2025-01-10, início
     // do 2º período aquisitivo) até 2025-07-15 = 6 meses e 5 dias -> 6 avos.
     expect(result.avosFerias).toBe(6);
@@ -78,5 +78,44 @@ describe("calculateRescission - avos de 13º e férias", () => {
     expect(result.avos13).toBe(0);
     expect(result.avosFerias).toBe(0);
     expect(result.totalMeses).toBe(18);
+  });
+});
+
+
+describe("13º por mês civil, com dias inclusivos",()=>{
+  it.each([
+    ["2025-01-01","2025-01-14",0],
+    ["2025-01-01","2025-01-15",1],
+    ["2025-01-17","2025-01-31",1],
+    ["2025-01-18","2025-01-31",0],
+    ["2025-01-20","2025-02-10",0],
+    ["2024-02-15","2024-02-29",1],
+    ["2024-02-16","2024-02-29",0],
+    ["2023-05-01","2025-12-15",12],
+    ["2025-09-16","2025-12-14",3],
+  ])("%s a %s corresponde a %i avos",(admissao,demissao,expected)=>{
+    const result=calculateRescission(form({admissao,demissao}));
+    expect(result.avos13).toBe(expected);expect(result.dec13).toBe(250*expected);
+  });
+  it("rejeita data impossível em vez de mudar o mês silenciosamente",()=>{
+    expect(calculateRescission(form({admissao:"2025-02-30"}))).toBeNull();
+  });
+});
+
+describe("base mensal sugerida para rescisão",()=>{
+  it("usa salário CLT contratual com centavos e respeita modalidade na data",()=>{
+    const employee={startDate:"2026-01-01",dailyRate:150,monthlySalary:2406.8,remunerationMode:"clt",remunerationEffectiveFrom:"2026-08-01"};
+    expect(suggestedRescissionMonthlyBase(employee,"2026-09-01")).toBe("2406.8");
+    expect(suggestedRescissionMonthlyBase(employee,"2026-07-31")).toBe("");
+  });
+  it("reaproveita salário declarado no perfil, nunca diária vezes 26",()=>{
+    expect(suggestedRescissionMonthlyBase({startDate:"2026-01-01",remunerationMode:"clt",monthlySalary:0,dailyRate:100,cltPayroll:{profile:{salary:3000}}},"2026-09-01")).toBe("3000");
+    expect(suggestedRescissionMonthlyBase({startDate:"2026-01-01",dailyRate:100,monthlySalary:3000},"2026-09-01")).toBe("");
+    expect(suggestedRescissionMonthlyBase({startDate:"2026-01-01",remunerationMode:"clt",dailyRate:100},"2026-09-01")).toBe("");
+  });
+  it('respeita salário vigente no desligamento, sem usar reajuste futuro',()=>{
+    const employee={startDate:'2026-01-01',remunerationMode:'clt',monthlySalary:3000,remunerationValuesHistory:[{date:'2026-01-01',monthlySalary:2406.8},{date:'2026-10-01',monthlySalary:3000}]};
+    expect(suggestedRescissionMonthlyBase(employee,'2026-09-30')).toBe('2406.8');
+    expect(suggestedRescissionMonthlyBase(employee,'2026-10-01')).toBe('3000');
   });
 });

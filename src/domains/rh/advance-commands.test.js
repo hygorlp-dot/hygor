@@ -1,6 +1,6 @@
 import { describe,expect,it } from "vitest";
 import {
-  ADVANCE_COMMAND,advanceDeductionForPeriod,applyAdvanceCommand,buildAdvanceInstallments,
+  ADVANCE_COMMAND,advanceDeductionForPeriod,applyAdvanceCommand,buildAdvanceInstallments,advanceCommandObraId,
 } from "./advance-commands.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
 import { RESCISSION_COMMAND,applyRescissionCommand } from "./rescission-commands.js";
@@ -61,14 +61,7 @@ describe("adiantamentos parcelados",()=>{
 });
 
 describe("ciclo completo do adiantamento: criação -> desconto na folha -> cancelamento",()=>{
-  // Não existe hoje, em nenhum domínio, um passo que grave o adiantamento em
-  // `transacoes`/caixa nem em `titulosFolha`: o desconto que a folha (FolhaView)
-  // mostra é sempre recalculado na hora, a partir de `data.advances`, via
-  // advanceDeductionForPeriod (ver src/domains/ponto/components/FolhaView.jsx:180-182).
-  // Este teste cobre por isso o ciclo real que existe - criar, aparecer no
-  // cálculo da folha de um período já fechado, e cancelar depois disso -
-  // em vez de inventar uma integração com caixa/titulosFolha que o código
-  // não tem.
+  // O fechamento e os títulos são protegidos sem recriar pagamentos.
   const baseData = {
     employees:[{id:"e1",name:"Campo",obra:"o1",active:true}],
     advances:[],
@@ -89,7 +82,7 @@ describe("ciclo completo do adiantamento: criação -> desconto na folha -> canc
     expect(advanceDeductionForPeriod(created.data.advances[0],"2026-06-21","2026-07-05")).toBe(300);
   });
 
-  it("achado: cancelar um adiantamento cujo desconto já caiu num período financeiro FECHADO é aceito sem trava - ao contrário da rescisão, que bloqueia no mesmo cenário", () => {
+  it("bloqueia cancelar adiantamento em período financeiro fechado, preservando o desconto e a rescisão", () => {
     const created = applyAdvanceCommand(baseData, {
       type:ADVANCE_COMMAND.PAYROLL_ADVANCE_CREATED, actorId:"rh", actorName:"RH",
       payload:{advance:{
@@ -108,21 +101,13 @@ describe("ciclo completo do adiantamento: criação -> desconto na folha -> canc
     };
     expect(isDateInClosedPeriod(dataComPeriodoFechado,"2026-07-05")).toBe(true);
 
-    // Comportamento real de hoje: applyAdvanceCommand NÃO consulta
-    // fechamentosFinanceiros em nenhum momento (nem para criar, nem para
-    // cancelar) - o cancelamento é aceito mesmo com o desconto já
-    // computado dentro do período fechado.
     const cancelled = applyAdvanceCommand(dataComPeriodoFechado, {
       type:ADVANCE_COMMAND.PAYROLL_ADVANCE_CANCELLED, actorId:"rh", actorName:"RH",
       payload:{advanceId:"a1",reason:"Lançamento incorreto"},expectedVersion:1,
     },"2026-08-01T12:00:00.000Z");
-    expect(cancelled.ok).toBe(true);
-
-    // E, como a dedução nunca foi congelada em titulosFolha, o mesmo período
-    // fechado agora recalcularia desconto ZERO se a folha fosse reaberta -
-    // o histórico do que foi efetivamente descontado do funcionário muda
-    // silenciosamente depois do cancelamento.
-    expect(advanceDeductionForPeriod(cancelled.data.advances[0],"2026-06-21","2026-07-05")).toBe(0);
+    expect(cancelled.ok).toBe(false);
+    expect(cancelled.reason).toMatch(/período financeiro/i);
+    expect(advanceDeductionForPeriod(dataComPeriodoFechado.advances[0],"2026-06-21","2026-07-05")).toBe(300);
 
     // Contraste: a mesma tentativa de cancelar uma RESCISÃO cujo desligamento
     // caiu num período fechado É bloqueada pelo código existente.
@@ -139,5 +124,52 @@ describe("ciclo completo do adiantamento: criação -> desconto na folha -> canc
     },"2026-08-01T12:00:00.000Z");
     expect(rescissionCancel.ok).toBe(false);
     expect(rescissionCancel.reason).toMatch(/período financeiro/i);
+  });
+});
+
+describe('proteção de adiantamentos já encaminhados e períodos fechados',()=>{
+  const now='2026-08-01T12:00:00.000Z';
+  const creation=(advance={})=>({type:ADVANCE_COMMAND.PAYROLL_ADVANCE_CREATED,actorId:'rh',expectedVersion:0,payload:{advance:{id:'a',empId:'e',date:'2026-07-29',amount:100,firstDueDate:'2026-08-05',...advance}}});
+  const cancellation={type:ADVANCE_COMMAND.PAYROLL_ADVANCE_CANCELLED,actorId:'rh',expectedVersion:1,payload:{advanceId:'a',reason:'Correção identificada'}};
+  const base=()=>({employees:[{id:'e',name:'QA',obra:'original',active:true}],advances:[],pagamentosFolha:[{id:'real',valor:100}],transacoes:[{id:'real-bank',valor:-100}]});
+  const created=()=>applyAdvanceCommand(base(),creation(),now).data;
+  it.each(['date','firstDueDate'])('bloqueia criação retroativa pela data %s e preserva pagamentos',field=>{
+    const data=base();data.fechamentosFinanceiros=[{status:'fechado',dataInicio:'2026-07-01',dataFim:'2026-07-31'}];
+    const before=structuredClone(data),cmd=creation({date:'2026-08-01',firstDueDate:'2026-08-05',[field]:'2026-07-30'});
+    expect(applyAdvanceCommand(data,cmd,now).reason).toMatch(/período financeiro/);expect(data).toEqual(before);
+  });
+  it('bloqueia parcela posterior fechada mesmo com emissão e primeira parcela abertas',()=>{
+    const data=base();data.fechamentosFinanceiros=[{status:'fechado',dataInicio:'2026-08-06',dataFim:'2026-08-31'}];
+    expect(applyAdvanceCommand(data,creation({installmentCount:2}),now).ok).toBe(false);
+  });
+  it.each(['daily','clt',undefined])('impede cancelar claim de título %s, inclusive ID normalizado e quitação parcial',kind=>{
+    const data=created();data.advances[0].id=123;data.titulosFolha=[{id:'title',employeeId:'e',liquido:900,valorPago:300,liquidacoes:[{id:'real-settlement',valor:300}],snapshotCalculo:{kind,advanceRefs:[{id:'123',date:'2026-08-05',amount:100}]}}];
+    const before=structuredClone(data);const result=applyAdvanceCommand(data,{...cancellation,payload:{...cancellation.payload,advanceId:'123'}},now);
+    expect(result.ok).toBe(false);expect(result.reason).toContain('título de folha');expect(data).toEqual(before);
+  });
+  it('protege título legado agregado sem referência nem período, mas ignora obrigação estornada',()=>{
+    const data=created();data.titulosFolha=[{id:'legacy',employeeId:'e',adiantamentos:100,liquido:900}];
+    expect(applyAdvanceCommand(data,cancellation,now).reason).toContain('legada');
+    data.titulosFolha[0].status='estornado';expect(applyAdvanceCommand(data,cancellation,now).ok).toBe(true);
+  });
+  it('protege folha arquivada mesmo sem fechamento financeiro e sem título',()=>{
+    const data=created();data.quinzenasArquivadas={'2026-08-Q1':{fim:'2026-08-20'}};
+    expect(applyAdvanceCommand(data,cancellation,now).reason).toContain('arquivada');
+    expect(applyAdvanceCommand(data,creation({id:'retroactive',date:'2026-08-01',firstDueDate:'2026-08-20'}),now).ok).toBe(false);
+  });
+  it('não permite reprogramar vencimento fechado via cancelamento e reuso do ID',()=>{
+    const data=created();data.fechamentosFinanceiros=[{status:'fechado',dataInicio:'2026-08-01',dataFim:'2026-08-31'}];
+    expect(applyAdvanceCommand(data,cancellation,now).ok).toBe(false);
+    expect(applyAdvanceCommand(data,creation({date:'2026-09-01',firstDueDate:'2026-09-05',installments:[{dueDate:'2026-09-05',amount:100}]}),now).reason).toContain('já existe');
+    expect(data.advances[0].installments[0].dueDate).toBe('2026-08-05');expect(data.pagamentosFolha[0]).toEqual({id:'real',valor:100});
+  });
+  it('fixa obra de origem e transferência de lotação não libera cancelamento fechado',()=>{
+    const data=base(),result=applyAdvanceCommand(data,creation({obraId:'injected'}),now);expect(result.data.advances[0].obraId).toBe('original');
+    result.data.employees[0].obra='new-project';result.data.fechamentosFinanceiros=[{status:'fechado',dataInicio:'2026-08-01',dataFim:'2026-08-31'}];
+    expect(advanceCommandObraId(result.data,cancellation)).toBe('original');expect(applyAdvanceCommand(result.data,cancellation,now).ok).toBe(false);
+  });
+  it('rejeita valores não finitos antes de gerar parcelas',()=>{
+    expect(buildAdvanceInstallments({advanceId:'a',amount:Infinity,firstDueDate:'2026-08-05'})).toEqual([]);
+    expect(applyAdvanceCommand(base(),creation({amount:Infinity}),now).ok).toBe(false);
   });
 });

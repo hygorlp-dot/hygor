@@ -1,8 +1,11 @@
+import {effectiveEmployeeOnDate} from '../rh/remuneration-values.js';
 import {newCltDraft} from './clt-payslip.js';
 import {advanceDeductionForPeriod,isAdvanceActive} from '../rh/advance-commands.js';
 import {buildAttendanceImport} from './clt-attendance.js';
 
 export function prepareMonthlyPayslip(data,employee,competence,{transport=false,advances=true}={}){
+  const endDate=new Date(Date.UTC(Number(competence.slice(0,4)),Number(competence.slice(5,7)),0)).toISOString().slice(0,10);
+  employee=effectiveEmployeeOnDate(employee,endDate);
   const previous=employee.cltPayroll?.drafts?.[competence];
   const profile=employee.cltPayroll?.profile||{};
   const draft=structuredClone(previous||newCltDraft(competence,{...profile,salary:employee.monthlySalary||profile.salary}));
