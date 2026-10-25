@@ -38,6 +38,8 @@ O checkout original estava em `feat/ponto-livro-migracoes`, `554ab31`, com um ar
 
 ## Ensaio executável
 
+**Cadastros iniciais remotos de homologação, atualização 25/10:** RH informou pedido humano “Por enquanto crie Fulano e Siclano” e criou somente no projeto isolado `ukkzpttnbyylkyujzwnv` a obra `piloto-k110` e os IDs `piloto-k110-fulano`/`piloto-k110-siclano`. Segundo RH, sem CPF, PIX, documentos, modalidade, datas ou remuneração; marcados `testData` e `cadastroPendente`. Conferência independente agregada, somente leitura: marcador `homologacao`, **2 empregados / 2 cadastros de teste pendentes / 0 eventos / 0 registros fiscais / 0 títulos / 0 pagamentos de folha**. Esta atualização substitui a contagem inicial de zero cadastros, preservada abaixo como histórico. Não são equipe real nem fixture financeira completa; não liberam captura ou cálculo. A produção segue com equipe K1-10 pendente. Backend isolado ainda indisponível para abrir esses cadastros pelo app. Não preencher modalidade/valores por suposição nem reproduzir esses cadastros em produção.
+
 Na raiz da worktree, com dependências instaladas, executar sem credenciais de produção:
 
 ```powershell
