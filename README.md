@@ -2,6 +2,8 @@
 
 ## Documentação operacional
 
+- [Roadmap de RH, ponto e pagamentos](docs/RH-PONTO-ROADMAP.md) · [Acompanhamento da implantação](docs/RH-PONTO-STATUS.md)
+
 - [Manual completo do sistema](docs/MANUAL_COMPLETO_ARCD.md)
 - [Auditoria funcional, técnica e de produto](docs/AUDITORIA_SISTEMA_ARCD.md)
 - [Arquitetura do sistema](docs/ARQUITETURA_ARCD.md)
