@@ -63,10 +63,10 @@ Evidência em 25/10: execução inicial conjunta **9 arquivos / 50 testes aprova
 | O02 | Jornada, intervalos, regras aplicáveis, datas de pagamento e parcelas CLT não confirmados | Hygor + RH/contabilidade | Validar no cadastro; preservar cortes 06–20/21–05 sem inventar parcela |
 | O03 | Responsável provisório Hygor; contas e permissões de conferir/aprovar/pagar não verificadas | Hygor + RH | Identificar contas reais e testar acessos por papel/obra |
 | O04 | Saldos e adiantamentos de abertura desconhecidos | Hygor + financeiro | Conferir registros/comprovantes existentes sem criar saldo fictício |
-| I01 | Candidato web/servidor/RH final ainda em construção | RH | Entregar SHA e ligação recebimento→tratamento→fechamento→obrigação para reteste |
+| I01 | RH relata quinzena mista e criação de título implementadas; árvore ainda sem commit candidato, HEAD c7d4e77 | RH | Encerrar validação e entregar SHA da árvore efetivamente testada, com ligação recebimento→tratamento→fechamento→obrigação |
 | I02 | Publicação RH versionada sem consumo/persistência ponta a ponta comprovados | Android (produtor), RH (consumidor), integração (teste) | Entregar commits compatíveis; testar multiobra, meia-noite, reenvio, conflito e tardio |
-| I03 | Ambiente isolado e APK ainda não entregues; Android iniciou verificação para provisionamento | Android + responsável de infraestrutura | Entregar URL identificada, marcador de ambiente, SHA app/servidor, build/hash APK; só então parear |
-| I04 | Modelo/Android/aparelho acessível não informados | Hygor | Informar e executar roteiro físico abaixo |
+| I03 | Android informou banco Supabase isolado criado; deploy aguarda decisão de custo no chat Android; URL e APK de homologação ainda não entregues | Android + Hygor | Resolver decisão existente sem duplicar solicitação; entregar URL/marcador, migrations, SHA app/servidor e build/hash APK; só então parear |
+| I04 | Android disponível com Hygor, conforme acompanhamento RH; modelo/versão e conexão nesta sessão não confirmados | Hygor | Anotar modelo e versão; instalar candidato identificado e executar roteiro físico abaixo |
 | I05 | Recuperação, atualização e troca de aparelho sem ensaio físico | Android + Hygor | Usar runbook existente; preservar pendências e testar restauração em destino isolado |
 | I06 | Fluxo misto, compensação única e revisão de obrigação não verificados | RH + financeiro | Gerar aprovação real no teste e seguir até conciliação/custo |
 | I07 | Meio oficial de contingência ainda não confirmado nesta sessão | Hygor | Definir procedimento usado pela empresa enquanto registrador é candidato; orientar equipe |
@@ -75,6 +75,10 @@ Evidência em 25/10: execução inicial conjunta **9 arquivos / 50 testes aprova
 Esses itens impedem declarar prontidão do fluxo digital completo. Não são afirmação de que a obra física não pode iniciar por um procedimento oficial alternativo definido pela empresa.
 
 Atualização de coordenação em 25/10: a sessão Android informou ter confirmado a autorização histórica A1–A5 no chat “Análise do Roadmap”, de 13/10/2026 às 19:21 UTC: Supabase isolado, Vercel separado, URL EAS preview, keystore de homologação e dois APKs, condicionados a nenhum custo novo sem aprovação específica. A sessão Android verificará planos/custos e executará o provisionamento; esta sessão não consultou diretamente a autorização original nem provisionou recursos. O escopo informado não inclui main, produção, APKs antigos ou A6–A9. RC1 segue em reconciliação. Isso atualiza a dependência I03, sem aprovar ambiente, build ou teste ainda não entregues.
+
+Nova consulta de coordenação em 25/10: RH e Android continuam ativos. O `RH-PONTO-STATUS.md` da worktree RH relata testes focais e aprovação transacional implementada, mas seu HEAD continua `c7d4e77` com alterações ainda abertas. Essas evidências são relato da frente RH, não reteste independente desta sessão. Android relata banco isolado criado sem custo e decisão de plano Vercel pendente com o usuário; esta sessão não verificou o banco nem recebeu URL de API utilizável. Solicitados às duas frentes: SHAs estáveis, migrations, contrato compatível, URL/marcador de teste e identificação do APK. Foi perguntada a disponibilidade de backend local real autorizado enquanto o deploy estiver pendente. Nenhum teste completo novo executado sem essas dependências.
+
+Por solicitação do usuário, acompanhamento automático desta conversa ativo a cada hora (`aceite-k1-10-acompanhar-candidatos`): consultar entregas, executar o ensaio quando disponíveis e atualizar este documento, sem avisos quando não houver mudança relevante. A decisão de custo permanece no chat Android; o acompanhamento não autoriza custo, produção ou pagamento real.
 
 ## Defeito D01
 
