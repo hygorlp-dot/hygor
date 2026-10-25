@@ -1,3 +1,4 @@
+import {MixedPayrollPreparation} from './MixedPayrollPreparation.jsx';
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { DreIntegration, FlowTabs, useRememberWorkflowScope, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
@@ -143,25 +144,25 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       const obraId = a?.obraId || getEmpObraIdOnDate(employee, d);
 
       if (st === "P") {
-        const custo=calculateAttendanceDayCost({employee,record:a,config:data.config});
+        const custo=calculateAttendanceDayCost({employee,record:a,config:data.config,date:d});
         gross += custo.laborCost;
         overtimePay += custo.overtimePay;
         presentes++;
         ot += extra;
-        vt += Number(employee.vtDaily || 0);
-        vr += Number(employee.vrDaily || 0);
+        vt += custo.transportCost;
+        vr += custo.mealCost;
         addToObra(obraId, "P", { valorDias:custo.basePay-custo.delayDeduction, overtimePay:custo.overtimePay,
-          vt:Number(employee.vtDaily||0), vr:Number(employee.vrDaily||0), ot:extra });
+          vt:custo.transportCost, vr:custo.mealCost, ot:extra });
       } else if (st === "M") {
-        const custo=calculateAttendanceDayCost({employee,record:a,config:data.config});
+        const custo=calculateAttendanceDayCost({employee,record:a,config:data.config,date:d});
         gross += custo.laborCost;
         overtimePay += custo.overtimePay;
         meiodia++;
         ot += extra;
-        vt += Number(employee.vtDaily || 0) * 0.5;
-        vr += Number(employee.vrDaily || 0) * 0.5;
+        vt += custo.transportCost;
+        vr += custo.mealCost;
         addToObra(obraId, "M", { valorDias:custo.basePay-custo.delayDeduction, overtimePay:custo.overtimePay,
-          vt:Number(employee.vtDaily||0)*0.5, vr:Number(employee.vrDaily||0)*0.5, ot:extra });
+          vt:custo.transportCost, vr:custo.mealCost, ot:extra });
       } else if (st === "F") {
         faltas++;
         addToObra(obraId, "F");
@@ -431,15 +432,15 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       : a?.status === "P" ? "Presente" : a?.status === "M" ? "Meio periodo"
       : a?.status === "F" ? "Falta" : "Sem registro";
     const equivalente = a?.status === "P" ? 1 : a?.status === "M" ? 0.5 : 0;
-    const custoDia=feriado?null:calculateAttendanceDayCost({employee:r,record:a,config:data.config});
+    const custoDia=feriado?null:calculateAttendanceDayCost({employee:r,record:a,config:data.config,date:d});
     const valorDia = feriado ? Number(regraFer?.amount || 0) : Number(custoDia?.laborCost || 0);
-    const valorVT = feriado ? 0 : Number(r.vtDaily || 0) * equivalente;
-    const valorVR = feriado ? 0 : Number(r.vrDaily || 0) * equivalente;
+    const valorVT = Number(custoDia?.transportCost||0);
+    const valorVR = Number(custoDia?.mealCost||0);
     return {
       data:d, diaSemana:["Domingo","Segunda","Terca","Quarta","Quinta","Sexta","Sabado"][new Date(d+"T00:00:00").getDay()],
       funcionario:r.name, cargo:r.role || "", obraId,
       obraName:data.obras.find(o => o.id === obraId)?.name || "Sem obra identificada",
-      status:st, equivalente, ot:Number(a?.ot || 0), diaria:Number(r.dailyRate || 0),
+      status:st, equivalente, ot:Number(a?.ot || 0), diaria:Number(custoDia?.dailyRate||0),
       valorDia, vt:valorVT, vr:valorVR, totalDia:valorDia+valorVT+valorVR,
       observacao:a?.note || "",
     };
@@ -785,12 +786,13 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       </>}
 
       <FlowTabs label="Áreas da folha" active={payrollView} onChange={setPayrollView}
-        steps={[{id:"payroll",label:"Folha da quinzena",description:"Confira as pendências e a composição por funcionário antes de gerar os relatórios."},{id:"clt",label:"Holerites CLT"},{id:"provisions",label:"Provisões trabalhistas"},{id:"simulation",label:"Simulação CLT × diária"},{id:'costs',label:'Custos por funcionário'},...(['admin','rh'].includes(currentUser?.role)?[{id:'dossier',label:'Prontuário documental'}]:[])]}
+        steps={[{id:"mixed",label:"Preparar quinzena"},{id:"payroll",label:"Folha da quinzena",description:"Confira as pendências e a composição por funcionário antes de gerar os relatórios."},{id:"clt",label:"Holerites CLT"},{id:"provisions",label:"Provisões trabalhistas"},{id:"simulation",label:"Simulação CLT × diária"},{id:'costs',label:'Custos por funcionário'},...(['admin','rh'].includes(currentUser?.role)?[{id:'dossier',label:'Prontuário documental'}]:[])]}
         tools={[{id:"union",label:"Sindicato"}]} toolsLabel="Regras e descontos"/>
       {payrollView==="payroll"&&<DreIntegration kind="payroll" currentUser={currentUser} obraId={filterObra==="all"?"":filterObra} year={year} month={month}>
         <p>Consulta do DRE mensal. A quinzena de 21 a 05 atravessa dois meses; o DRE mantém a competência de cada apontamento.</p>
       </DreIntegration>}
 
+      {payrollView==="mixed"&&<MixedPayrollPreparation data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab} year={year} month={month}/>}
       {payrollView==="clt"&&<CltPayslips data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
       {payrollView==="provisions"&&<LaborProvisions data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
       {payrollView==="simulation"&&<PayModeSimulation data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}

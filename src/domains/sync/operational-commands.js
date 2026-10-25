@@ -9,6 +9,7 @@ import {
   validateTechnicalMeasurement,
 } from "../medicoes/index.js";
 import { inactive } from "../financeiro/workflows.js";
+import {applyMixedPayroll,MIXED_PAYROLL_COMMAND} from '../ponto/mixed-payroll.js';
 import { cancelProgressRecord, completeWeeklyCommitment, createProgressRecord, createWeeklyCommitment, releaseWeeklyCommitment } from "../producao/mutations.js";
 import { buildQualityProjection, canReleaseForMeasurement } from "../qualidade/calculations.js";
 import { validateActivitySafety } from "../seguranca/calculations.js";
@@ -100,6 +101,7 @@ import {
   SUPPLY_CONTRACT_COMMAND,
 } from "../compras/supply-contracts.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
+  MIXED_PAYROLL_APPROVED:MIXED_PAYROLL_COMMAND,
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
   FIELD_REPORT_CHANGED:"RDO_CAMPO_ALTERADO",
@@ -221,6 +223,8 @@ export const applyOperationalCommand=(data,command)=>{
   if(!commandIsValid(command))return fail("Comando operacional sem chave idempotente válida.");
   if(duplicate(data,command.idempotencyKey))return {ok:true,idempotent:true,data};
   const now=command.now||new Date().toISOString();
+  const mixedPayroll=applyMixedPayroll(data,command,now);
+  if(mixedPayroll){if(!mixedPayroll.ok)return mixedPayroll;return {...mixedPayroll,data:appendReceipt(mixedPayroll.data,command,mixedPayroll.entityId,now)};}
   const equipmentResult=applyEquipmentCommand(data,command,now);
   if(equipmentResult){
     if(!equipmentResult.ok)return equipmentResult;

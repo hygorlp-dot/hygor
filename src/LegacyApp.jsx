@@ -1556,6 +1556,9 @@ const normalizeData = incoming => {
       monthlySalary:Number(e.monthlySalary||0),
       remunerationEffectiveFrom:e.remunerationEffectiveFrom||"",
       remunerationHistory:Array.isArray(e.remunerationHistory)?e.remunerationHistory:[],
+      remunerationValuesHistory:Array.isArray(e.remunerationValuesHistory)?e.remunerationValuesHistory:[],
+      remunerationValueEffectiveFrom:e.remunerationValueEffectiveFrom||"",
+      remunerationValueReason:e.remunerationValueReason||"",
       cltPayroll:e.cltPayroll&&typeof e.cltPayroll==="object"?e.cltPayroll:null,
       laborProvisions:e.laborProvisions&&typeof e.laborProvisions==="object"?e.laborProvisions:null,
       payModeSimulations:e.payModeSimulations&&typeof e.payModeSimulations==="object"?e.payModeSimulations:null,
@@ -9015,7 +9018,7 @@ function Relatorios({ data, showToast }) {
         record,
       });
       if (filterObra !== "all" && obraDoDia !== filterObra) return;
-      total += calculateAttendanceDayCost({ employee:e, record, config:data.config }).laborCost;
+      total += calculateAttendanceDayCost({ employee:e, record, config:data.config,date:d }).laborCost;
     });
 
     holidaysInMonth.forEach(h => {
@@ -18368,7 +18371,7 @@ export default function App() {
           {tab === "terc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando terceiros...</div>}><Terceiros data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} onTab={setTab}/>}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser}/>}
+          {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand}/>}
           {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "rh_indic" && <Suspense fallback={<div className="arcd-page-loading">Carregando indicadores...</div>}><IndicadoresView data={data} /></Suspense>}

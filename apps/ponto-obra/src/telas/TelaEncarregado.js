@@ -7,7 +7,8 @@ import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import RelogioConfiavel from "../../modules/relogio-confiavel";
-import { proximaEsperaPin, verificarPinResponsavel } from "../logica/pin";
+import { verificarPinResponsavel } from "../logica/pin";
+import {protecaoPin} from '../servicos/protecao-pin.js';
 import { vetorDoCadastro } from "../logica/rosto";
 import { PARAMETROS_FACIAIS as P } from "../logica/calibracao";
 import { mensagemDeErro } from "../logica/falhas";
@@ -82,24 +83,21 @@ function EntrarComPin({ responsaveis, aoEntrar, fechar, sincronizarAgora }) {
   const [escolhido, setEscolhido] = useState(null);
   const [pin, setPin] = useState("");
   const [erro, setErro] = useState("");
-  const [erros, setErros] = useState(0);
-  const [bloqueadoAte, setBloqueadoAte] = useState(0);
   const [conferindo, setConferindo] = useState(false);
   const [buscando, setBuscando] = useState(false);
 
   const entrar = () => {
-    if (Date.now() < bloqueadoAte) { setErro(`Aguarde ${Math.ceil((bloqueadoAte - Date.now()) / 1000)} s para tentar de novo.`); return; }
+    if(conferindo)return;
     setConferindo(true);
     // PBKDF2 leva cerca de 1 s no aparelho: deixa a tela mostrar o carregando.
-    setTimeout(() => {
-      const ok = verificarPinResponsavel(pin, [escolhido], pbkdf2Hex);
-      setConferindo(false);
-      if (ok) { aoEntrar(ok); return; }
-      const n = erros + 1;
-      setErros(n); setPin("");
-      const espera = proximaEsperaPin(n);
-      if (espera) setBloqueadoAte(Date.now() + espera);
-      setErro(espera ? `PIN incorreto. Aguarde ${Math.round(espera / 1000)} s.` : "PIN incorreto.");
+    setTimeout(async () => {
+      try{
+        const result=await protecaoPin.tentar(()=>verificarPinResponsavel(pin,[escolhido],pbkdf2Hex));
+        setPin('');
+        if(result.ok){aoEntrar(result.responsavel);return;}
+        setErro(result.esperaMs?`Aguarde ${Math.ceil(result.esperaMs/1000)} s para tentar de novo.`:'PIN incorreto.');
+      }catch{setErro('Não foi possível conferir a proteção do PIN. Avise o suporte.');}
+      finally{setConferindo(false);}
     }, 50);
   };
 
@@ -174,6 +172,7 @@ function CadastroFacial({ cadastro, modelos, api, responsavel, aoTerminar, volta
   const [mensagem, setMensagem] = useState(null);
   const [ocupado, setOcupado] = useState(false);
   const [concluido, setConcluido] = useState(false);
+  const [pinAutorizacao,setPinAutorizacao]=useState('');
   const comBiometria = new Set((cadastro?.biometrias || []).map(b => b.employeeId));
   const recomecar = () => { setPessoa(null); setIntroVista(false); setAceitoEm(null); setCapturas([]); setFotoBase64(null); setMensagem(null); };
   const passo = passoDoCadastro({ pessoa, introVista, aceitoEm, concluido });
@@ -236,11 +235,11 @@ function CadastroFacial({ cadastro, modelos, api, responsavel, aoTerminar, volta
       const textoSha256 = bytesToHex(sha256(new TextEncoder().encode(TERMO_TEXTO)));
       r = await api("ponto-cadastrar-biometria", {
         employeeId: pessoa.id, modelo: modelos.modelo, vetor: vetorDoCadastro(capturas), fotos: fotoBase64 ? [fotoBase64] : [],
-        consentimento: { termoVersao: TERMO_VERSAO, aceitoEm, textoSha256 }, responsavelId: responsavel.userId,
+        consentimento: { termoVersao: TERMO_VERSAO, aceitoEm, textoSha256 }, responsavelId: responsavel.userId,pinResponsavel:pinAutorizacao,
       });
     } catch (e) {
       setMensagem({ tom: "erro", texto: mensagemDeErro("cadastro", e) }); return;
-    } finally { setOcupado(false); }
+    } finally { setOcupado(false);setPinAutorizacao(''); }
     if (!r.ok) { setMensagem({ tom: r.status === 0 ? "atencao" : "erro", texto: r.status === 0 ? "O cadastro do rosto precisa de internet. Tente quando o aparelho estiver conectado." : r.status >= 500 ? "O ARCD está temporariamente indisponível. Tente de novo em alguns minutos." : (r.error || "Falha ao cadastrar.") }); return; }
     setConcluido(true);
     vibrar("registro");
@@ -256,8 +255,9 @@ function CadastroFacial({ cadastro, modelos, api, responsavel, aoTerminar, volta
     </MolduraCamera>
     <Passos total={CAPTURAS_CADASTRO} feitos={capturas.length} />
     {mensagem && <Mensagem tom={mensagem.tom}>{mensagem.texto}</Mensagem>}
+    {completas&&<Campo rotulo="PIN do responsável para autorizar o cadastro" value={pinAutorizacao} onChangeText={v=>setPinAutorizacao(v.replace(/\D/g,'').slice(0,8))} keyboardType="number-pad" secureTextEntry/>}
     {completas
-      ? <Botao titulo="Salvar cadastro" onPress={enviar} carregando={ocupado} />
+      ? <Botao titulo="Salvar cadastro" onPress={enviar} carregando={ocupado} desabilitado={pinAutorizacao.length<4}/>
       : <Botao titulo="Tirar foto" onPress={capturar} carregando={ocupado} />}
     <BotaoTexto titulo="Cancelar" onPress={voltar} />
   </Tela>;

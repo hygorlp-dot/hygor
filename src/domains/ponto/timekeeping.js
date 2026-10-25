@@ -16,6 +16,19 @@ export const formatMinutes = value => {
   return `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`;
 };
 
+// CLT, art. 58, §1º: até 5 minutos por marcação e 10 no dia.
+// Devolve os minutos de atraso descontáveis, sem alterar as batidas nem o
+// atraso bruto. Variações adicionais só entram quando a jornada prevista
+// estiver informada; um único desvio superior a 5 já excede a tolerância.
+export const delayAfterClockTolerance = (delayMinutes, variations = []) => {
+  const raw=Math.max(0,Number(delayMinutes)||0);
+  const punches=variations.length?variations.map(value=>Math.abs(Number(value)||0)):[raw];
+  const tolerated=punctualVariationsWithinTolerance(punches);
+  return {deductibleDelayMinutes:tolerated?0:raw,delayToleranceApplied:tolerated&&raw>0};
+};
+const punctualVariationsWithinTolerance=variations=>
+  variations.every(value=>value<=5)&&variations.reduce((sum,value)=>sum+value,0)<=10;
+
 /**
  * Calcula a jornada informada sem depender da interface.
  * Horários de entrada/saída podem atravessar meia-noite. O intervalo precisa
@@ -27,6 +40,9 @@ export const calculateTimekeeping = ({
   intervaloRetorno = "",
   saida = "",
   jornadaInicio = "07:00",
+  jornadaFim = "",
+  intervaloPrevistoSaida = "",
+  intervaloPrevistoRetorno = "",
 } = {}) => {
   const hasAnyClock = [entrada, intervaloSaida, intervaloRetorno, saida].some(Boolean);
   if (!hasAnyClock) {
@@ -72,11 +88,21 @@ export const calculateTimekeeping = ({
 
   const scheduledStart = parseClock(jornadaInicio);
   const delayMinutes = scheduledStart == null ? 0 : Math.max(0, start - scheduledStart);
+  const expectedEnd=parseClock(jornadaFim);
+  const expectedBreakStart=parseClock(intervaloPrevistoSaida),expectedBreakEnd=parseClock(intervaloPrevistoRetorno);
+  const deviations=[scheduledStart==null?null:Math.abs(start-scheduledStart)];
+  if(expectedEnd!=null)deviations.push(Math.abs(end-expectedEnd));
+  if(hasBreakStart&&expectedBreakStart!=null)deviations.push(Math.abs(parseClock(intervaloSaida)-expectedBreakStart));
+  if(hasBreakEnd&&expectedBreakEnd!=null)deviations.push(Math.abs(parseClock(intervaloRetorno)-expectedBreakEnd));
+  const completeSchedule=scheduledStart!=null&&expectedEnd!=null&&(!hasBreakStart||(expectedBreakStart!=null&&expectedBreakEnd!=null));
+  const tolerance=delayAfterClockTolerance(delayMinutes,deviations.filter(value=>value!=null));
   return {
     valid:true,
     empty:false,
     workedMinutes,
     breakMinutes,
     delayMinutes,
+    ...tolerance,
+    delayReviewRequired:delayMinutes>0&&!completeSchedule&&delayMinutes<=5,
   };
 };

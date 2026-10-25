@@ -94,7 +94,7 @@ describe("validarMarcacao", () => {
 });
 
 describe("hora confiável", () => {
-  const referencia = { servidorMs: Date.UTC(2026, 9, 1, 10, 0, 0), monotonicoMs: 1_000_000, bootId: "boot-1" };
+  const referencia = { servidorMs: Date.UTC(2026, 9, 1, 10, 0, 0), monotonicoMs: 1_000_000, bootId: "boot-1",fonteConfiavel:true };
 
   it("usa hora do servidor + relógio monotônico, mesmo que o celular tenha a hora mudada", () => {
     const r = horaDaMarcacao({ referencia, bootId: "boot-1", monotonicoMs: 1_000_000 + 3_600_000, relogioParedeMs: Date.UTC(2026, 9, 1, 8, 0, 0) });
@@ -117,11 +117,11 @@ describe("hora confiável", () => {
 
   it("nova referência desconta metade da latência", () => {
     const r = novaReferencia({ servidorMs: 1_000_000, monotonicoEnvioMs: 100, monotonicoRespostaMs: 500, bootId: "b" });
-    expect(r).toEqual({ servidorMs: 1_000_200, monotonicoMs: 500, bootId: "b", latenciaMs: 400, fonte: "servidor", fonteConfiavel: true, offsetHlbMs: null, verificadaEm: null });
+    expect(r).toEqual({ servidorMs: 1_000_200, monotonicoMs: 500, bootId: "b", latenciaMs: 400, fonte: "servidor", fonteConfiavel: false, offsetHlbMs: null, verificadaEm: null });
   });
 
   it("referência guarda a evidência da fonte de hora e a marcação leva origem e idade", () => {
-    const tempo = { source: "host+ntp:a.st1.ntp.br", offsetMs: 12, lastVerifiedAt: "2026-10-01T09:00:00.000Z", confiavel: true };
+    const tempo = { source: "host+ntp:a.st1.ntp.br", offsetMs: 12,status:"verificada", lastVerifiedAt: "2026-10-01T09:00:00.000Z", confiavel: true };
     const ref = novaReferencia({ servidorMs: Date.parse("2026-10-01T10:00:00Z"), monotonicoEnvioMs: 1000, monotonicoRespostaMs: 1000, bootId: "b", tempo });
     expect(ref).toMatchObject({ fonte: "host+ntp:a.st1.ntp.br", fonteConfiavel: true, offsetHlbMs: 12, verificadaEm: "2026-10-01T09:00:00.000Z" });
     const h = horaDaMarcacao({ referencia: ref, monotonicoMs: 61_000, bootId: "b", relogioParedeMs: Date.parse("2026-10-01T10:01:00Z") });
@@ -137,6 +137,11 @@ describe("hora confiável", () => {
 
   it("sem referência ou depois de reboot a origem é o relógio do aparelho", () => {
     expect(horaDaMarcacao({ referencia: null, monotonicoMs: 1, bootId: "b", relogioParedeMs: 7 })).toMatchObject({ fonteHora: "relogio-do-aparelho", idadeReferenciaMs: null, horaConfiavel: false });
+  });
+  it('referência legada sem comprovação não recebe rótulo confiável',()=>{
+    const h=horaDaMarcacao({referencia:{servidorMs:1000,monotonicoMs:10,bootId:'b'},monotonicoMs:20,bootId:'b',relogioParedeMs:1010});
+    expect(h).toMatchObject({marcadoEmMs:1010,horaConfiavel:false});
+    expect(novaReferencia({servidorMs:1000,monotonicoEnvioMs:0,monotonicoRespostaMs:10,bootId:'b',tempo:{confiavel:true}}).fonteConfiavel).toBe(false);
   });
 });
 

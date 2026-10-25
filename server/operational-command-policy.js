@@ -131,6 +131,7 @@ const operationalCommandObraId=(data={},command={})=>{
 };
 
 export const validateOperationalCommandScope=({user={},data={},command={}}={})=>{
+  if(command.type===OPERATIONAL_COMMAND.MIXED_PAYROLL_APPROVED)return ['admin','rh'].includes(user?.role)?{ok:true,obraId:'',scope:'company'}:{ok:false,error:'Somente RH e administradores aprovam fechamento de folha.'};
   const obraId=operationalCommandObraId(data,command);
   if(command.type===OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED){
     return user?.role==="admin"

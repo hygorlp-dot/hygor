@@ -138,7 +138,7 @@ describe("ponto eletrônico - servidor", () => {
     const p = await parear();
     const auth = { authorization: `Bearer ${p.token}` };
     await tratar({ action: "ponto-responsavel-pin", body: { accessToken: "ok", userId: "u-enc", pin: "4321", obras: ["obra-a"] } });
-    const base = { employeeId: "e1", modelo: "mobilefacenet-v1", vetor: Array.from({ length: 128 }, (_, i) => i / 128), fotos: [JPEG.toString("base64")], responsavelId: "u-enc" };
+    const base = { employeeId: "e1", modelo: "mobilefacenet-v1", vetor: Array.from({ length: 128 }, (_, i) => i / 128), fotos: [JPEG.toString("base64")], responsavelId: "u-enc", pinResponsavel:"4321" };
     expect((await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: base })).json.error).toMatch(/consentimento/);
     const consentimento = { termoVersao: "2026-10", aceitoEm: "2026-10-01T09:59:00.000Z" };
     // Funcionário lotado em OUTRA obra pode ter o rosto cadastrado aqui.
@@ -159,6 +159,22 @@ describe("ponto eletrônico - servidor", () => {
 });
 
 describe("identificação do aparelho no servidor", () => {
+  it('ID do responsável não basta: verifica PIN e mantém bloqueio entre instâncias',async()=>{
+    const paired=await parear(),headers={authorization:`Bearer ${paired.token}`};
+    await tratar({action:'ponto-responsavel-pin',body:{accessToken:'ok',userId:'u-enc',pin:'4321',obras:['obra-a']}});
+    const body={employeeId:'e1',responsavelId:'u-enc',vetor:Array.from({length:128},()=>.1),modelo:'teste',consentimento:{termoVersao:'2026-10',aceitoEm:'2026-10-01T09:59:00Z'}};
+    expect((await tratar({action:'ponto-cadastrar-biometria',headers,body})).status).toBe(403);
+    expect(db.tabelas.ponto_biometrias).toHaveLength(0);
+    for(let i=0;i<7;i++)await tratar({action:'ponto-cadastrar-biometria',headers,body:{...body,pinResponsavel:'1111'}});
+    const novo=criarTratadorPonto({db,company:'arcd',lerDados:async()=>DADOS,agora:()=>new Date('2026-10-01T10:00:00Z'),autenticarUsuario:async()=>ADMIN});
+    expect((await novo({action:'ponto-cadastrar-biometria',headers,body:{...body,pinResponsavel:'4321'}})).status).toBe(429);
+    expect(db.tabelas.ponto_biometrias).toHaveLength(0);
+  });
+  it('sem proteção de tentativas no servidor não cadastra biometria',async()=>{
+    const paired=await parear();db.rpc=async()=>({error:{message:'indisponível'}});
+    const r=await tratar({action:'ponto-cadastrar-biometria',headers:{authorization:`Bearer ${paired.token}`},body:{employeeId:'e1',responsavelId:'u-enc',pinResponsavel:'4321',vetor:Array.from({length:128},()=>.1),consentimento:{termoVersao:'2026-10',aceitoEm:'2026-10-01T10:00:00Z'}}});
+    expect(r.status).toBe(503);expect(db.tabelas.ponto_biometrias).toHaveLength(0);
+  });
   it("guarda só campos conhecidos, em texto curto", () => {
     expect(limparAparelho({ marca: "samsung", modelo: "x".repeat(200), android: 14, serial: "NAO", imei: "NAO", build: null })).toEqual({ marca: "samsung", modelo: "x".repeat(80), android: "14" });
     expect(limparAparelho("lixo")).toEqual({});

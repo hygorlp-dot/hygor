@@ -61,6 +61,7 @@ export const createLaborCostEngine = ({
           employee,
           record,
           config:data?.config,
+          date,
         });
         if (!cost.laborCost && !cost.benefitCost) return;
         const item = bucket(resolveEmployeeAttendanceObraId({ data, employee, date }));

@@ -22,6 +22,8 @@ const RDO_KEY="arced_ponto_v1__rdo";
 const testState=vi.hoisted(()=>({
   rows:{},
   transactionCalls:[],
+  transactionKeys:[],
+  beforeTransaction:null,
 }));
 
 const queryFor=table=>{
@@ -99,9 +101,16 @@ const valorJsonb=value=>value&&typeof value==="object"&&PG_JSON in value?value[P
 const comJson=tx=>Object.assign(tx,{json:value=>({[PG_JSON]:value})});
 const makeTransaction=()=>comJson(async(strings,...values)=>{
   const sql=strings.join("?");
-  testState.transactionCalls.push(sql.slice(0,40));
-  if(sql.includes("for update")){
+  testState.transactionCalls.push(sql);
+  if(sql.includes("set local lock_timeout"))return [];
+  if(sql.includes("key like")&&sql.includes("for update")){
+    const prefix=values[1].replace(/%$/,"");
+    const rows=Object.values(testState.rows).filter(row=>row.key.startsWith(prefix)).sort((a,b)=>a.key.localeCompare(b.key));
+    testState.transactionKeys.push(...rows.map(row=>row.key));return rows;
+  }
+  if(sql.includes("for update")||sql.includes("for share")){
     const [,key]=values;
+    testState.transactionKeys.push(key);
     const row=testState.rows[key];
     if(!row)return[];
     return[{value:row.value,updated_at:row.updated_at}];
@@ -125,7 +134,7 @@ const makeTransaction=()=>comJson(async(strings,...values)=>{
 
 vi.mock("postgres",()=>({
   default:vi.fn(()=>({
-    begin:async callback=>callback(makeTransaction()),
+    begin:async callback=>{testState.beforeTransaction?.();return callback(makeTransaction());},
     end:async()=>{},
   })),
 }));
@@ -168,6 +177,8 @@ describe("/api/data · caminho travado (executarMutacaoEmpresaBloqueada) roteia 
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-21T12:00:00.000Z"));
     testState.transactionCalls.length=0;
+    testState.transactionKeys.length=0;
+    testState.beforeTransaction=null;
     testState.rows={
       [CORE_KEY]:{company_id:"arcd",key:CORE_KEY,value:initialData(),updated_at:"2026-08-21T10:00:00.000Z"},
       [PONTO_KEY]:{company_id:"arcd",key:PONTO_KEY,value:{attendance:{}},updated_at:"2026-08-21T10:00:00.000Z"},
@@ -179,6 +190,62 @@ describe("/api/data · caminho travado (executarMutacaoEmpresaBloqueada) roteia 
     fakeDb.from.mockClear();
   });
   afterAll(()=>vi.useRealTimers());
+
+  it('aprova parcela CLT na API com bloqueio transacional, sem pagamento e sem duplicar no retry',async()=>{
+    vi.setSystemTime(new Date('2026-10-06T12:00:00Z'));
+    const {newCltDraft}=await import('../domains/ponto/clt-payslip.js');
+    const {buildMixedPayroll}=await import('../domains/ponto/mixed-payroll.js');
+    const employee={id:'emp-mixed',name:'Teste isolado',cpf:'000',startDate:'2026-01-01',active:true,remunerationMode:'clt',dailyRate:100,monthlySalary:2406.8,cltPayroll:{drafts:{'2026-09':{...newCltDraft('2026-09',{salary:2406.8}),paymentDate:'2026-09-30',workedDays:22,registration:'001',cbo:'715210',confirmed:true}}}};
+    testState.rows[CORE_KEY].value={...initialData(),employees:[employee],financialSettlements:[{id:'preservado',amount:200}]};
+    testState.rows[CONFIG_KEY].value={config:{companyName:'Teste isolado',cnpj:'00'}};
+    const period={year:2026,month:8,cycle:'2',cltPlans:{'emp-mixed':{competence:'2026-09',amount:700,reference:'Parcela conferida pelo RH'}}};
+    const data={...testState.rows[CORE_KEY].value,...testState.rows[CONFIG_KEY].value},row=buildMixedPayroll(data,period).rows[0];
+    expect(row.issues).toEqual([]);
+    const request=opCommand('QUINZENA_MISTA_APROVADA',{period,rowIds:[row.id],sources:{[row.id]:row.source},paymentDate:'2026-10-06'});
+    const sourcesBefore=structuredClone({point:testState.rows[PONTO_KEY],config:testState.rows[CONFIG_KEY]});
+    const first=await callApi(request);expect(first.status).toBe(200);expect(first.body.ok).toBe(true);
+    expect(testState.rows[CORE_KEY].value.titulosFolha).toHaveLength(1);
+    expect(testState.rows[CORE_KEY].value.financialSettlements).toEqual([{id:'preservado',amount:200}]);
+    expect(testState.rows[CORE_KEY].value).not.toHaveProperty('attendance');
+    expect(testState.rows[CORE_KEY].value).not.toHaveProperty('attendanceLocks');
+    expect(testState.rows[CORE_KEY].value).not.toHaveProperty('config');
+    expect({point:testState.rows[PONTO_KEY],config:testState.rows[CONFIG_KEY]}).toEqual(sourcesBefore);
+    const second=await callApi(request);expect(second.body.ok).toBe(true);
+    expect(testState.rows[CORE_KEY].value.titulosFolha).toHaveLength(1);
+    expect(testState.rows[CORE_KEY].value.pagamentosFolha||[]).toEqual([]);
+    expect(testState.transactionCalls.some(sql=>sql.includes('for update'))).toBe(true);
+  });
+
+  it.each(['work-record','unlock','cleared-locks','config'])('recusa aprovação mista quando %s muda após lerLinha e antes do lock',async changed=>{
+    const {getQ,prIsWeekdayIso}=await import('../domains/ponto/attendance-engine.js');
+    const {buildMixedPayroll}=await import('../domains/ponto/mixed-payroll.js');
+    const dates=getQ(2026,7).q1.filter(prIsWeekdayIso),firstDay=dates[0];
+    const employee={id:'daily-race',name:'Teste isolado',obra:'a',startDate:'2026-01-01',active:true,remunerationMode:'daily',dailyRate:100};
+    const attendance={'daily-race':Object.fromEntries(dates.map(day=>[day,{status:'P',obraId:'a',ot:1}]))};
+    const locks=Object.fromEntries(dates.map(day=>[`${day}__a`,{locked:true}]));
+    const obraA=`${PONTO_KEY}__obra__a`,obraZ=`${PONTO_KEY}__obra__z`;
+    testState.rows[CORE_KEY].value={...initialData(),employees:[employee],obras:[{id:'a',name:'Obra A'}],financialSettlements:[{id:'real',amount:200}]};
+    testState.rows[PONTO_KEY].value={attendanceLocks:locks};
+    // Insertion order deliberately reversed; the lock query must order keys.
+    testState.rows[obraZ]={company_id:'arcd',key:obraZ,value:{attendance:{}},updated_at:'2026-08-21T10:00:00Z'};
+    testState.rows[obraA]={company_id:'arcd',key:obraA,value:{attendance},updated_at:'2026-08-21T10:00:00Z'};
+    testState.rows[CONFIG_KEY].value={config:{payrollOvertimeAdditionalPercent:50}};
+    const period={year:2026,month:7,cycle:'1'},source={...testState.rows[CORE_KEY].value,...testState.rows[PONTO_KEY].value,...testState.rows[CONFIG_KEY].value,attendance};
+    const row=buildMixedPayroll(source,period).rows[0];expect(row.issues).toEqual([]);
+    testState.beforeTransaction=()=>{
+      if(changed==='work-record')testState.rows[obraA].value={attendance:{'daily-race':{...attendance['daily-race'],[firstDay]:{status:'M',obraId:'a',ot:0}}}};
+      if(changed==='unlock')testState.rows[PONTO_KEY].value={attendanceLocks:{...locks,[`${firstDay}__a`]:{locked:false}}};
+      if(changed==='cleared-locks')testState.rows[PONTO_KEY].value={};
+      if(changed==='config')testState.rows[CONFIG_KEY].value={config:{payrollOvertimeAdditionalPercent:100}};
+    };
+    const coreBefore=structuredClone(testState.rows[CORE_KEY]);
+    const response=await callApi(opCommand('QUINZENA_MISTA_APROVADA',{period,rowIds:[row.id],sources:{[row.id]:row.source},paymentDate:'2026-08-21'}));
+    expect(response.status).toBe(409);expect(response.body.error).toMatch(/origem mudaram|conferir e fechar/);
+    expect(testState.rows[CORE_KEY]).toEqual(coreBefore);
+    expect(testState.transactionKeys).toEqual([CORE_KEY,PONTO_KEY,obraA,obraZ,CONFIG_KEY]);
+    expect(testState.transactionCalls.some(sql=>sql.includes('order by key for update'))).toBe(true);
+    expect(testState.transactionCalls.some(sql=>sql.includes("lock_timeout = '2s'"))).toBe(true);
+  });
 
   it("reaproveita a lerLinha() já feita no topo do handler - não relê pelo Supabase dentro de executarMutacaoEmpresaBloqueada",async()=>{
     await callApi(opCommand("EQUIPAMENTO_SALVO",{equipment:{id:"eq-reuse",nome:"Compactador"}}));

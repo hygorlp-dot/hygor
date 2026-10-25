@@ -20,7 +20,7 @@ const JOAO = { tipo: "funcionario", id: "e1", cpf: "12345678909" };   // "Zé Pe
 const CONSENTIMENTO = { termoVersao: "2026-10", aceitoEm: "2026-10-01T09:00:00.000Z", textoSha256: "x" };
 const cadastrarRosto = (ap, employeeId, i) => ap.api("ponto-cadastrar-biometria", {
   employeeId, modelo: "mobilefacenet-192-apache2", vetor: vetorDoCadastro([vetor(i), vetor(i, 0.04)]), fotos: [JPEG.toString("base64")],
-  consentimento: CONSENTIMENTO, responsavelId: "u-enc",
+  consentimento: CONSENTIMENTO, responsavelId: "u-enc",pinResponsavel:"2468",
 });
 
 let s, A, B;

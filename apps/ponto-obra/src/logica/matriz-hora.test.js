@@ -4,9 +4,8 @@
 // registrada? sai confiável? o que fica de evidência? o que o diagnóstico
 // avisa? Junta as três peças reais: a fonte de hora do servidor
 // (fonte-hora.js + ntp.js), a referência do aparelho (relogio.js) e o
-// diagnóstico. A política continua exigirVerificacao=false (decisão
-// pendente - ver docs/REP-P-TEMPO-CONFIAVEL.md): os testes provam o que muda
-// SE ela virar true, sem mudá-la.
+// diagnóstico. Evidência ausente/vencida nunca recebe rótulo confiável;
+// isso não bloqueia a gravação nem altera eventos anteriores.
 import { describe, expect, it } from "vitest";
 import { POLITICA_PADRAO, avaliarVerificacao, criarFonteHora } from "../../../../server/ponto-eletronico/tempo/fonte-hora.js";
 import { verificarHora } from "../../../../server/ponto-eletronico/tempo/ntp.js";
@@ -31,11 +30,11 @@ const evidenciaDoServidor = async (v, politica = POLITICA_PADRAO) =>
   criarFonteHora({ relogioHost: () => AGORA, ultimaVerificacao: async () => v, politica }).evidencia();
 
 describe("matriz de comportamento da hora", () => {
-  it("sem medição: servidor diz 'nao_verificada', batida confiável pela política atual, diagnóstico pede acompanhamento", async () => {
+  it("sem medição: servidor diz 'nao_verificada', batida sinalizada sem bloquear a captura", async () => {
     const tempo = await evidenciaDoServidor(null);
-    expect(tempo).toMatchObject({ status: "nao_verificada", confiavel: true, source: "host", offsetMs: null, lastVerifiedAt: null });
+    expect(tempo).toMatchObject({ status: "nao_verificada", confiavel: false, source: "host", offsetMs: null, lastVerifiedAt: null });
     const { hora, alerta } = aparelho(tempo);
-    expect(hora).toMatchObject({ horaConfiavel: true, fonteHora: "host" });
+    expect(hora).toMatchObject({ horaConfiavel: false, fonteHora: "host" });
     expect(alerta).toMatchObject({ tom: "atencao", texto: expect.stringContaining("sem medição contra o NTP.br") });
     // Se a política exigir verificação, a mesma situação vira batida sinalizada (não recusada).
     const exigente = await evidenciaDoServidor(null, EXIGENTE);
@@ -57,9 +56,9 @@ describe("matriz de comportamento da hora", () => {
     expect(mexido.alerta.texto).toMatch(/relógio do celular está diferente/);
   });
 
-  it("medição vencida: depois de 30 h sem medir, 'verificacao_vencida' - confiável pela política atual, sinalizada se exigida", async () => {
+  it("medição vencida: depois de 30 h sem medir, 'verificacao_vencida' - não confiável mesmo na política legada", async () => {
     const velha = verificacao({ verificadoEm: new Date(AGORA - 31 * HORA).toISOString() });
-    expect(avaliarVerificacao(velha, AGORA)).toMatchObject({ status: "verificacao_vencida", confiavel: true });
+    expect(avaliarVerificacao(velha, AGORA)).toMatchObject({ status: "verificacao_vencida", confiavel: false });
     expect(avaliarVerificacao(velha, AGORA, EXIGENTE)).toMatchObject({ status: "verificacao_vencida", confiavel: false });
     const tempo = await evidenciaDoServidor(velha);
     expect(aparelho(tempo).alerta).toMatchObject({ tom: "atencao", texto: expect.stringContaining("medição vencida") });
@@ -90,13 +89,13 @@ describe("matriz de comportamento da hora", () => {
     expect(reboot.hora).toMatchObject({ horaConfiavel: false, fonteHora: "relogio-do-aparelho" });
     expect(reboot.alerta).toMatchObject({ tom: "atencao", texto: expect.stringContaining("reiniciou") });
 
-    // Ponta a ponta: sincroniza, perde a rede, bate 2 dias depois - confiável e com NSR quando volta.
+    // Sem medição HLB no cenário: sincroniza, perde rede e grava sinalizado; NSR vem ao reenviar.
     const { s, a } = await criarCenario();
     await sincronizarCadastro({ armazem: a.armazem, api: a.api, monotonico: a.monotonico });
     a.online = false;
     a.passar(2 * 24 * HORA);
     const b = await a.bater();
-    expect(b).toMatchObject({ horaConfiavel: true, idadeReferenciaMs: expect.any(Number) });
+    expect(b).toMatchObject({ horaConfiavel: false, idadeReferenciaMs: expect.any(Number) });
     expect(b.idadeReferenciaMs).toBeGreaterThanOrEqual(2 * 24 * HORA);
     a.online = true;
     expect(await enviarPendentes({ armazem: a.armazem, api: a.api })).toMatchObject({ enviadas: 1, erro: null });
@@ -107,10 +106,10 @@ describe("matriz de comportamento da hora", () => {
     const v = await verificarHora({ enviarUdp: async () => { throw new Error("UDP bloqueado"); }, relogio: () => AGORA });
     expect(v).toMatchObject({ ok: false, erro: expect.stringContaining("UDP bloqueado") });
     expect(v.erro.split("; ")).toHaveLength(4);                               // os 4 servidores stratum 1 tentados
-    expect(avaliarVerificacao(v, AGORA)).toMatchObject({ status: "nao_verificada", confiavel: true });
+    expect(avaliarVerificacao(v, AGORA)).toMatchObject({ status: "nao_verificada", confiavel: false });
     // Falha ao LER a última medição (banco fora) também não derruba a hora.
     const fonte = criarFonteHora({ relogioHost: () => AGORA, ultimaVerificacao: async () => { throw new Error("banco fora"); } });
     expect(await fonte.evidencia()).toMatchObject({ serverTimeMs: AGORA, status: "nao_verificada", source: "host" });
-    expect(POLITICA_PADRAO.exigirVerificacao).toBe(false);                     // decisão pendente, não alterada aqui
+    expect(POLITICA_PADRAO.exigirVerificacao).toBe(true);                     // evidência ausente nunca é confiável
   });
 });

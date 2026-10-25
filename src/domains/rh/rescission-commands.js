@@ -94,10 +94,17 @@ const createRescission = (data, command, now) => {
   const calculation = calculateRescission(input);
   if (!calculation) return fail("A data de rescisão não pode anteceder a admissão.");
   if (isDateInClosedPeriod(data, input.demissao)) return fail("O período financeiro desta rescisão está fechado.");
+  const accounting=raw.accounting;
+  if(!accounting?.confirmed||String(accounting.responsible||'').trim().length<3||String(accounting.reference||'').trim().length<3||accounting.totalNet===''||!nonNegativeNumber(accounting.totalNet))return fail('A prévia não gera custo definitivo. Informe o total líquido e a apuração conferida pela contabilidade, com responsável e referência.');
+  const accountedNet=Math.round(Number(accounting.totalNet)*100)/100;
   const record = {
     ...input,
     id,
     ...calculation,
+    preliminaryCalculation:calculation,
+    accounting:{responsible:String(accounting.responsible).trim().slice(0,200),reference:String(accounting.reference).trim().slice(0,500),confirmed:true,totalNet:accountedNet,documentId:String(accounting.documentId||'').slice(0,200),receivedAt:now,receivedBy:command.actorId},
+    totalLiquido:accountedNet,
+    calculationSource:'contabilidade_identificada',
     status:"ativa",
     version:1,
     createdAt:now,
