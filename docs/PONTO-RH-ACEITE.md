@@ -64,13 +64,13 @@ Evidência em 25/10: execução inicial conjunta **9 arquivos / 50 testes aprova
 | O03 | Responsável provisório Hygor; contas e permissões de conferir/aprovar/pagar não verificadas | Hygor + RH | Identificar contas reais e testar acessos por papel/obra |
 | O04 | Saldos e adiantamentos de abertura desconhecidos | Hygor + financeiro | Conferir registros/comprovantes existentes sem criar saldo fictício |
 | I01 | RH relata quinzena mista e criação de título implementadas; árvore ainda sem commit candidato, HEAD c7d4e77 | RH | Encerrar validação e entregar SHA da árvore efetivamente testada, com ligação recebimento→tratamento→fechamento→obrigação |
-| I02 | Publicação RH versionada sem consumo/persistência ponta a ponta comprovados | Android (produtor), RH (consumidor), integração (teste) | Entregar commits compatíveis; testar multiobra, meia-noite, reenvio, conflito e tardio |
-| I03 | Android informou banco Supabase isolado criado; deploy aguarda decisão de custo no chat Android; URL e APK de homologação ainda não entregues | Android + Hygor | Resolver decisão existente sem duplicar solicitação; entregar URL/marcador, migrations, SHA app/servidor e build/hash APK; só então parear |
+| I02 | RH informa importação com releitura sob trava e origem em attendance.mobileSource; ainda sem reteste independente | RH (importador), Android (captura), integração (teste) | Receber SHA; verificar origem/versões, reenvio e concorrência. Multiobra/tardio permanecem tratamento específico; produtor versionado Android não foi integrado |
+| I03 | Banco isolado verificado em leitura por integração; deploy aguarda decisão de custo no chat Android; API e APK de homologação ainda não entregues | Android + Hygor | Resolver decisão existente sem duplicar solicitação; entregar API, migrations compatíveis, SHA app/servidor e build/hash APK; só então parear |
 | I04 | Android disponível com Hygor, conforme acompanhamento RH; modelo/versão e conexão nesta sessão não confirmados | Hygor | Anotar modelo e versão; instalar candidato identificado e executar roteiro físico abaixo |
 | I05 | Recuperação, atualização e troca de aparelho sem ensaio físico | Android + Hygor | Usar runbook existente; preservar pendências e testar restauração em destino isolado |
 | I06 | Fluxo misto, compensação única e revisão de obrigação não verificados | RH + financeiro | Gerar aprovação real no teste e seguir até conciliação/custo |
 | I07 | Meio oficial de contingência ainda não confirmado nesta sessão | Hygor | Definir procedimento usado pela empresa enquanto registrador é candidato; orientar equipe |
-| D01 | Cancelamento de adiantamento muda desconto de período fechado | RH | Corrigir proteção e entregar SHA para reteste; reprodução abaixo |
+| D01 | Defeito reproduzido na base; RH informa proteção implementada, sem reteste independente ainda | RH + integração | Entregar SHA e retestar financeiro fechado, títulos/arquivos/claims e reuso de ID |
 
 Esses itens impedem declarar prontidão do fluxo digital completo. Não são afirmação de que a obra física não pode iniciar por um procedimento oficial alternativo definido pela empresa.
 
@@ -88,7 +88,9 @@ Por solicitação do usuário, acompanhamento automático desta conversa ativo a
 - Versão: `c7d4e777e7263b823bd2ce60797346ea69bca402`; RH avisado pelo canal entre sessões em 25/10.
 - Responsável: RH. Reteste: pendente do commit de correção. O teste atual passa porque documenta o defeito; não é aprovação de comportamento.
 
-Detalhe reproduzível de I02: `ponto-apropriacao-propor` devolve `intervalos[].eventos`; `ponto-apropriacao-salvar` não passa essa lista à RPC, e `ponto-apropriacoes` não a devolve. O teste novo comprova somente pessoa/obra/horário persistidos. Na base `c7d4e77`, os eventos originais seguem íntegros na ARP, mas falta o vínculo explícito persistido usado pelo produtor RH novo. RH e Android foram avisados. Reteste pendente; não se declarou perda das próprias marcações.
+Detalhe histórico de I02 em `c7d4e77`: `ponto-apropriacao-propor` devolve `intervalos[].eventos`; salvar/listar apropriações não persiste/devolve essa lista. O teste inicial comprova pessoa/obra/horário, sem perda dos eventos originais na ARP. Em atualização de 25/10, RH informou alternativa: `attendance-import-mobile` relê eventos e intervalos atuais no servidor sob trava, valida IDs/versões e grava origem em `attendance.mobileSource`. Persistir eventIds na própria apropriação não será exigido como solução única; o reteste deve comprovar a rastreabilidade e a consistência do mecanismo entregue. Importação limitada a duas/quatro marcas confiáveis em obra única, classificação P/M/OT explícita; multiobra e tardios/fechados não são convertidos automaticamente.
+
+Verificação independente do banco isolado em 25/10, somente leitura pelo conector Supabase: projeto `ponto-homologacao`, ref `ukkzpttnbyylkyujzwnv`, região `sa-east-1`, estado `ACTIVE_HEALTHY`, PostgreSQL 17.11. Marcador `arcd_ambiente.ambiente = homologacao`; contagens exatas: eventos 0, registros fiscais 0, company_app_data 0, dispositivos 0. As 16 tabelas public listadas têm RLS habilitada; bucket `ponto-obra` privado. Isso confirma preparação inicial, não políticas completas nem migrations equivalentes ao candidato final. Android relata 016–018 e auth rate limit aplicadas, sete avisos search_path a tratar e `adb devices` vazio. Não houve escrita, seed, leitura de credenciais ou execução do fluxo remoto por esta sessão.
 
 ## Ensaio físico curto — pendente
 
@@ -103,4 +105,4 @@ Reaproveitar `apps/ponto-obra/docs/HOMOLOGACAO-PILOTO.md` e `homologacao-registr
 
 Guardar resultado APROVADO/REPROVADO/BLOQUEADO por passo e evidência sem CPF completo, rosto, PIN, token ou dados bancários. Fotos de outra versão, emulador e testes Node não aprovam aparelho. Registro físico atual: **PENDENTE, nenhuma execução**.
 
-Próximo teste: receber candidato RH/Android compatível e testar a publicação persistida de um dia conferido até a obrigação financeira; depois repetir com duas obras e marcação tardia. Guias por papel: [PONTO-RH-GUIAS.md](PONTO-RH-GUIAS.md).
+Próximo teste: receber SHA RH/Android compatível e executar importação revisada com origem persistida → QUINZENA_MISTA_APROVADA → título → pagamento parcial → conciliação → custo. Conferir D01, repetição e concorrência; depois verificar que duas obras e marcação tardia permanecem pendências identificadas sem sobrescrever fechamento ou duplicar remuneração. A conclusão completa desses casos depende do tratamento específico entregue. Guias por papel: [PONTO-RH-GUIAS.md](PONTO-RH-GUIAS.md).
