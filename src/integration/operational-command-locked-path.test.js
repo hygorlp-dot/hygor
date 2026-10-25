@@ -229,6 +229,17 @@ describe("/api/data · caminho travado (executarMutacaoEmpresaBloqueada) roteia 
     expect(testState.rows[CORE_KEY].value.employees).toHaveLength(1);
   });
 
+  it('define modalidade pelo ponto na API real, com autorização e pagamentos preservados',async()=>{
+    const core=testState.rows[CORE_KEY].value;
+    core.obras=[{id:'o',name:'Obra QA'}];
+    core.employees=[{id:'e',name:'Operário QA',cpf:'529.982.247-25',phone:'81999999999',role:'Pedreiro',obra:'o',startDate:'2026-05-01',active:true,dailyRate:120,monthlySalary:2406.8,workdayHours:8,workStart:'07:00',pixType:'CPF',pixKey:'52998224725',pixHolder:'Operário QA',examExpiresAt:'2027-05-01',remunerationMode:'daily',version:1,cltPayroll:{profile:{registration:'001',cbo:'715210',category:'professional'}}}];
+    core.pagamentosFolha=[{id:'preservar',employeeId:'e',data:'2026-08-20',valor:600}];
+    const response=await callApi(opCommand('FUNCIONARIO_MODALIDADE_DEFINIDA',{employeeId:'e',mode:'clt',effectiveFrom:'2026-09-01',reason:'Contrato mensal formalizado'},{expectedVersion:1}));
+    expect(response).toMatchObject({status:200,body:{ok:true}});
+    expect(testState.rows[CORE_KEY].value.employees[0]).toMatchObject({remunerationMode:'clt',remunerationEffectiveFrom:'2026-09-01',version:2});
+    expect(testState.rows[CORE_KEY].value.pagamentosFolha).toEqual([{id:'preservar',employeeId:'e',data:'2026-08-20',valor:600}]);
+  });
+
   it("cai de volta a gravar a linha core quando a linha separada ainda não foi semeada",async()=>{
     delete testState.rows[EQUIPAMENTOS_KEY];
     const result=await callApi(opCommand("EQUIPAMENTO_SALVO",{equipment:{id:"eq-2",nome:"Guincho"}}));
