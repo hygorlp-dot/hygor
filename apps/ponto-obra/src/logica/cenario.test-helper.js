@@ -1,3 +1,4 @@
+import { afterEach } from "vitest";
 // Cenário dos testes do app: lógica REAL do aparelho (terminal,
 // sincronização, armazém) falando com o tratador REAL do servidor
 // (server/ponto-eletronico/handler.js) sobre um Postgres REAL em memória
@@ -10,6 +11,12 @@ import { camadaSupabase, novoPglite } from "../../../../server/ponto-eletronico/
 import { horaDaMarcacao } from "../../../../src/domains/ponto-eletronico/relogio.js";
 import { criarArmazemMemoria } from "./armazem-memoria.js";
 import { registrarBatida } from "./terminal.js";
+
+const bancosAbertos = new Set();
+afterEach(async () => {
+  for (const banco of bancosAbertos) await banco.close();
+  bancosAbertos.clear();
+});
 
 export const sha256 = v => createHash("sha256").update(v).digest("hex");
 export const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 7, 7, 7]);
@@ -29,6 +36,7 @@ export const DADOS_BASE = () => ({
 // Servidor (tratador + Postgres) compartilhado por vários aparelhos.
 export async function criarServidor({ dados = DADOS_BASE(), estabelecimento = true, comResponsavel = true } = {}) {
   const s = { dados, relogioServidor: Date.parse("2026-10-01T10:00:00.000Z"), pg: await novoPglite() };
+  bancosAbertos.add(s.pg);
   s.db = camadaSupabase(s.pg);
   s.tratar = criarTratadorPonto({
     db: s.db, company: EMPRESA, lerDados: async () => s.dados, agora: () => new Date(s.relogioServidor),

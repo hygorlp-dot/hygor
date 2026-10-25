@@ -16,7 +16,7 @@
 //   --offline     expo-doctor sem rede: checks que dependem de rede ficam
 //                 "não verificado", não aprovados
 //   --passada N   número da passada da rodada (1 a 3) - ver docs/QUALITY-SCORECARD.md
-import { execSync, spawnSync } from "node:child_process";
+import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { executarFerramenta, tamanhoDiretorio, avaliarDoctor } from "./release-tools.mjs";

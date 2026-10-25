@@ -15,7 +15,11 @@
 import { novaReferencia } from "../../../../src/domains/ponto-eletronico/relogio.js";
 import { gpsParaMarcacao } from "../../../../src/domains/ponto-eletronico/marcacao.js";
 import { LIMITE_FOTO_BYTES, bytesDoBase64 } from "../../../../src/domains/ponto-eletronico/foto.js";
+import { limparMetricasAparelho } from "../../../../src/domains/ponto-eletronico/metricas-aparelho.js";
 import { enviarLegado } from "./legado-v1.js";
+import regrasDeAmbiente from "../../config/ambiente.js";
+
+const { conferirAmbiente } = regrasDeAmbiente;
 
 const LOTE = 200;
 const HEX64 = /^[0-9a-f]{64}$/i;
@@ -37,15 +41,38 @@ export function gpsRecente(gps, agoraMs, idadeMaximaMs = GPS_IDADE_MAXIMA_MS) {
 
 const textoCurto = (v, max = 80) => (v === null || v === undefined ? "" : String(v).slice(0, max));
 
+const minutosDesde = (ms, agoraMs) => (Number.isFinite(ms) ? Math.max(0, Math.floor((agoraMs - ms) / 60_000)) : null);
+
+// Métricas de fila/desempenho para o ARCD ver aparelho com fila parada
+// (contrato em src/domains/ponto-eletronico/metricas-aparelho.js). Só
+// números, nada pessoal. Só LÊ o estado da fila - não muda nada nela.
+//   contagem             = armazem.contagem() { pendentes, fotos }
+//   pendenteMaisAntiga   = 1º de armazem.eventosPendentes(1) (só marcadoEm é lido)
+//   ultimaSincronizacao  = estado "ultima_sincronizacao" (ultimoOkEm em ms)
+//   reconhecimentoP95Ms  = p95DoReconhecimento() (desempenho.js)
+// Valor desconhecido fica de fora (o servidor não inventa zero).
+export function metricasDaFila({ contagem = {}, pendenteMaisAntiga = null, ultimaSincronizacao = null, reconhecimentoP95Ms = null, agoraMs = Date.now() } = {}) {
+  return limparMetricasAparelho({
+    batidasPendentes: Number(contagem?.pendentes),
+    fotosPendentes: Number(contagem?.fotos),
+    // Relógio do celular adiantado/atrasado não gera idade negativa (vira 0).
+    pendenteMaisAntigaMin: pendenteMaisAntiga ? minutosDesde(Date.parse(pendenteMaisAntiga.marcadoEm), agoraMs) : null,
+    minDesdeEnvioOk: minutosDesde(Number(ultimaSincronizacao?.ultimoOkEm ?? NaN), agoraMs),
+    reconhecimentoP95Ms,
+  });
+}
+
 // Corpo de "ponto-sincronizar": versão do app e identificação do aparelho
-// (sem nada pessoal) + último GPS válido. Sem GPS a sincronização segue.
-export function montarCorpoSincronizacao({ app = {}, aparelho = {}, gps = null, agoraMs = Date.now() } = {}) {
+// (sem nada pessoal) + último GPS válido + métricas de fila (metricasDaFila).
+// Sem GPS ou sem métricas a sincronização segue.
+export function montarCorpoSincronizacao({ app = {}, aparelho = {}, gps = null, metricas = null, agoraMs = Date.now() } = {}) {
   const versao = textoCurto(app.versao, 20), build = textoCurto(app.build, 20);
   const corpo = {
     appVersao: versao ? (build ? `${versao} (${build})` : versao) : "",
     aparelho: {
       marca: textoCurto(aparelho.marca), modelo: textoCurto(aparelho.modelo), android: textoCurto(aparelho.android, 20),
-      build, commit: textoCurto(app.commit, 12),
+      build, commit: textoCurto(app.commit, 12), ...(app.ambiente ? { ambiente: textoCurto(app.ambiente, 20) } : {}),
+      ...limparMetricasAparelho(metricas),
     },
   };
   const g = gpsRecente(gps, agoraMs);
@@ -88,10 +115,34 @@ export async function enviarPendentes({ armazem, api, lote = LOTE, maxRodadas = 
     for (const e of pendentes) {
       const resultado = porEvento.get(String(e.eventId));
       if (!fiscalValido(e, resultado)) { parada = { evento: e, resultado }; break; }
-      await armazem.confirmarEvento(e.eventId, {
+      const gravou = await armazem.confirmarEvento(e.eventId, {
         nsr: resultado.nsr ?? null, fiscalHash: resultado.fiscalHash ?? null,
         estabelecimentoId: resultado.estabelecimentoId ?? null, gravadoEm: resultado.gravadoEm ?? null,
       });
+      if (!gravou) {
+        // Já confirmado antes (escrita única). Mesma resposta: tudo certo.
+        // Resposta diferente da ARP para o mesmo eventId: nada é trocado no
+        // aparelho e a rodada para, para o problema aparecer.
+        const guardado = await armazem.registroFiscal(e.eventId);
+        if (guardado && (Number(guardado.nsr ?? -1) !== Number(resultado.nsr ?? -1) || String(guardado.fiscalHash ?? "") !== String(resultado.fiscalHash ?? ""))) {
+          // Evidência para o suporte: a PRIMEIRA divergência fica guardada no
+          // banco do aparelho (não some na próxima rodada). Só NSR, hash e
+          // ids - nada pessoal.
+          if (!(await armazem.lerEstado("divergencia_fiscal"))) {
+            await armazem.gravarEstado("divergencia_fiscal", {
+              eventId: e.eventId, localSequence: e.localSequence, em: new Date().toISOString(),
+              guardado: { nsr: guardado.nsr ?? null, fiscalHash: guardado.fiscalHash ?? null },
+              recebido: { nsr: resultado.nsr ?? null, fiscalHash: resultado.fiscalHash ?? null, status: resultado.status },
+            });
+          }
+          enviadas += nesta;
+          return {
+            enviadas, pendentes: pendentes.length - nesta, status: "fiscal_divergente", fiscalDivergente: true,
+            erro: `a ARP respondeu outro registro fiscal para o evento ${e.localSequence}, já confirmado - nada foi alterado no aparelho; chame o suporte`,
+          };
+        }
+        continue;
+      }
       nesta++;
     }
     enviadas += nesta;
@@ -149,7 +200,10 @@ export async function enviarFotos({ armazem, api, lerFotoBase64, aposEnviar = as
 // `monotonico()` devolve { ms, bootId } do relógio que não muda com ajuste.
 // Não renumera nada: se o servidor já tiver uma cadeia local deste aparelho
 // mais adiante do que a do banco local, só sinaliza (cadeiaDivergente).
-export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {} }) {
+// ambienteApp: o ambiente deste build. Servidor de OUTRO ambiente: para ANTES
+// de guardar qualquer coisa (funcionários/biometrias de outro banco nunca
+// entram no aparelho) e a rodada não envia batida.
+export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}, ambienteApp = null }) {
   // Funcionários e biometrias são GLOBAIS da empresa. Os vetores só descem
   // quando mudaram: o aparelho manda a assinatura do conjunto que já tem.
   const anterior = await armazem.cadastro();
@@ -157,6 +211,10 @@ export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}
   const r = await api("ponto-sincronizar", { ...corpo, biometriasAssinatura: anterior?.biometriasAssinatura || "" });
   const resposta = monotonico();
   if (!r.ok) return { ok: false, erro: r.error || `HTTP ${r.status}`, codigo: r.code || null, semRede: r.status === 0, status: r.status };
+  if (ambienteApp) {
+    const amb = conferirAmbiente(ambienteApp, r.ambiente);
+    if (!amb.ok) return { ok: false, erro: amb.mensagem, codigo: "AMBIENTE_INCOMPATIVEL", status: 409 };
+  }
   // Referência só com leitura monotônica válida e sem reboot no meio.
   if (envio.bootId === resposta.bootId && Number.isFinite(envio.ms) && Number.isFinite(resposta.ms)) {
     await armazem.salvarReferenciaHora(novaReferencia({
@@ -177,27 +235,48 @@ export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}
   return { ok: true, cadeiaDivergente: noServidor > Number(local.localSequence || 0), estabelecimento: r.estabelecimento || null };
 }
 
+// Aparelho revogado ou desconhecido NO ARCD (resposta do servidor - nunca por
+// falta de token local): o que só serve para operar sai do banco local -
+// hashes de PIN dos responsáveis e vetores faciais. Batidas, fotos de batida e
+// cadeia local ficam (registro legal). Um aparelho perdido e revogado deixa de
+// guardar material para atacar o PIN offline ou a biometria. Re-parear baixa
+// tudo de novo. Falha do banco aqui não esconde a revogação da tela.
+export async function apagarSegredosDoCadastro(armazem) {
+  try {
+    const c = await armazem.cadastro();
+    if (!c || (!(c.responsaveis || []).length && !(c.biometrias || []).length)) return false;
+    await armazem.salvarCadastro({ ...c, responsaveis: [], biometrias: [], biometriasAssinatura: "" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+const revogadoOuDesconhecido = async (armazem, resumo) => ({ ...resumo, segredosApagados: await apagarSegredosDoCadastro(armazem) });
+
 // Uma rodada completa (o App chama a cada minuto e depois de cada batida):
 // cadastro/hora quando pedido ou vencido → eventos → fotos. Nunca lança por
 // falha de rede/servidor: devolve o resumo para a tela e o diagnóstico.
 // Exceção inesperada (ex.: banco) sobe para quem chamou registrar no estado.
-export async function rodadaDeSincronizacao({ armazem, api, monotonico, corpo, cadastroVencido, lerFotoBase64, aposEnviarFoto }) {
+export async function rodadaDeSincronizacao({ armazem, api, monotonico, corpo, cadastroVencido, lerFotoBase64, aposEnviarFoto, ambienteApp = null }) {
   const resumo = { online: true, cadastroAtualizado: false, revogado: false, desconhecido: false, erro: null, envio: null, fotos: null, cadeiaDivergente: false };
   if (cadastroVencido) {
-    const s = await sincronizarCadastro({ armazem, api, monotonico, corpo });
-    if (s.codigo === "APARELHO_REVOGADO") return { ...resumo, online: true, revogado: true, erro: s.erro };
-    if (s.codigo === "APARELHO_DESCONHECIDO" || s.codigo === "APARELHO_SEM_TOKEN") return { ...resumo, online: true, desconhecido: true, erro: s.erro };
+    const s = await sincronizarCadastro({ armazem, api, monotonico, corpo, ambienteApp });
+    if (s.codigo === "AMBIENTE_INCOMPATIVEL") return { ...resumo, ambienteIncompativel: true, erro: s.erro, status: 409 };
+    if (s.codigo === "APARELHO_REVOGADO") return revogadoOuDesconhecido(armazem, { ...resumo, online: true, revogado: true, erro: s.erro });
+    if (s.codigo === "APARELHO_DESCONHECIDO") return revogadoOuDesconhecido(armazem, { ...resumo, online: true, desconhecido: true, erro: s.erro });
+    if (s.codigo === "APARELHO_SEM_TOKEN") return { ...resumo, online: true, desconhecido: true, erro: s.erro };
     if (!s.ok) { resumo.online = !s.semRede; resumo.erro = s.erro; resumo.status = s.status; }
     resumo.cadastroAtualizado = s.ok;
     resumo.cadeiaDivergente = !!s.cadeiaDivergente;
   }
   const envio = await enviarPendentes({ armazem, api });
   resumo.envio = envio;
-  if (envio.codigo === "APARELHO_REVOGADO") return { ...resumo, revogado: true, erro: envio.erro };
-  if (envio.codigo === "APARELHO_DESCONHECIDO") return { ...resumo, desconhecido: true, erro: envio.erro };
+  if (envio.codigo === "APARELHO_REVOGADO") return revogadoOuDesconhecido(armazem, { ...resumo, revogado: true, erro: envio.erro });
+  if (envio.codigo === "APARELHO_DESCONHECIDO") return revogadoOuDesconhecido(armazem, { ...resumo, desconhecido: true, erro: envio.erro });
   if (envio.semRede) resumo.online = false;
   if (envio.erro && !resumo.erro) { resumo.erro = envio.erro; resumo.status = envio.status; }
   resumo.aguardandoEstabelecimento = !!envio.aguardandoEstabelecimento;
+  resumo.fiscalDivergente = !!envio.fiscalDivergente;
   if (resumo.online) resumo.fotos = await enviarFotos({ armazem, api, lerFotoBase64, aposEnviar: aposEnviarFoto });
   return resumo;
 }

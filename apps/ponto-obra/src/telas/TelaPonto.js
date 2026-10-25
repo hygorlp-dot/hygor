@@ -64,11 +64,11 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     // Capturas cruas da câmera: apagadas no fim, aconteça o que acontecer (a
     // foto da batida é uma cópia preparada por registrar()).
     const cruas = [];
-    const inicio = Date.now();
+    const inicio = performance.now();
     // Calibração de campo (só se o encarregado ligou): uma linha de números
     // por tentativa - nada de vetor, foto, nome ou id (calibracao-campo.js).
     const anotar = (resultado, a = {}, id = null) => calibrar?.({
-      resultado, duracaoMs: Date.now() - inicio, confiancaDeteccao: a.confiancaDeteccao, larguraRosto: a.larguraRosto, luminancia: a.luminancia,
+      resultado, duracaoMs: performance.now() - inicio, confiancaDeteccao: a.confiancaDeteccao, larguraRosto: a.larguraRosto, luminancia: a.luminancia,
       top1: id?.melhor?.similaridade, top2: id?.segundo?.similaridade,
     });
     // Tela no brilho máximo durante a captura (sol forte, rosto escuro).
@@ -82,9 +82,9 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       const frente = await analisarFoto(modelos, fotoFrente);
       if (frente.erro) { anotar(RESULTADO_CALIBRACAO.SEM_ROSTO); return falha({ mensagem: frente.erro, podeEncarregado: true }); }
       if (Math.abs(frente.giro) > P.giroMaximoDeFrente) { anotar(RESULTADO_CALIBRACAO.FORA_DE_POSE, frente); return falha({ mensagem: "Olhe de frente para a câmera e tente de novo." }); }
-      const tId = Date.now();
+      const tId = performance.now();
       const id = identificar(frente.vetor, cadastro?.biometrias || []);
-      medir({ identificacaoMs: Date.now() - tId });
+      medir({ identificacaoMs: performance.now() - tId });
       if (!id.reconhecido) anotar(id.motivo === MOTIVO.AMBIGUO ? RESULTADO_CALIBRACAO.AMBIGUO : RESULTADO_CALIBRACAO.NAO_CADASTRADO, frente, id);
       if (!id.reconhecido) return falha({ mensagem: id.motivo === MOTIVO.NAO_CADASTRADO ? "Se o seu rosto ainda não foi cadastrado, chame o encarregado." : "Olhe de frente e tente novamente.", podeEncarregado: true });
       const funcionario = (cadastro.funcionarios || []).find(f => f.id === id.employeeId);
@@ -106,7 +106,7 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       etapa = "batida";
       const comprovante = await registrar({ pessoa: { tipo: "funcionario", ...funcionario }, identificacao: { metodo: "facial", confianca: id.confianca }, foto: fotoFrente });
       setFluxo({ etapa: "sucesso", fase: FASE.PRONTO, comprovante });
-      medir({ batidaMs: Date.now() - inicio });
+      medir({ batidaMs: performance.now() - inicio });
       vibrar("registro");
       if (voz) falar(falaDeConfirmacao(comprovante.nome, Date.parse(comprovante.marcadoEm), fuso));
       clearTimeout(timerSucesso.current);

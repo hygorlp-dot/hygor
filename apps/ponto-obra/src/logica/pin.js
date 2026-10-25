@@ -11,6 +11,30 @@ export function verificarPinResponsavel(pin, responsaveis, pbkdf2Hex) {
   return null;
 }
 
+// Sessão do modo encarregado depois do PIN conferido. O servidor também
+// confere o PIN no cadastro facial (handler.js, PONTO_EXIGIR_PIN_NO_SERVIDOR),
+// então o PIN digitado fica guardado SÓ em memória, numa closure: não é
+// propriedade do objeto (não sai em JSON.stringify, spread, log nem estado do
+// React), nunca vai para disco/SecureStore/SQLite. descartar() apaga - a tela
+// chama ao sair do modo encarregado (botão, inatividade ou desmontagem).
+export function abrirSessaoResponsavel(responsavel, pin) {
+  let guardado = String(pin || "").replace(/\D/g, "");
+  return Object.freeze({
+    userId: responsavel.userId,
+    nome: responsavel.nome,
+    pinParaServidor: () => guardado || null,
+    descartar: () => { guardado = ""; },
+  });
+}
+
+// Corpo de ponto-cadastrar-biometria com a prova do PIN. Sessão descartada =
+// sem pinResponsavel (o servidor com o flag ligado recusa; não há como
+// cadastrar com sessão encerrada).
+export function corpoCadastroBiometria(sessao, campos) {
+  const pin = sessao?.pinParaServidor?.() || null;
+  return { ...campos, responsavelId: sessao.userId, ...(pin ? { pinResponsavel: pin } : {}) };
+}
+
 // Trava contra tentativa e erro no aparelho: depois de 5 erros seguidos,
 // espera crescente (30 s, 60 s, 120 s...).
 export function proximaEsperaPin(errosSeguidos) {

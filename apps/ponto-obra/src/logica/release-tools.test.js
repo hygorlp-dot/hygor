@@ -1,8 +1,9 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { avaliarDoctor, tamanhoDiretorio, executarFerramenta } from "./release-tools.mjs";
+import { avaliarDoctor, tamanhoDiretorio, executarFerramenta } from "../../scripts/release-tools.mjs";
 
 describe("evidências do release check", () => {
   it("não aprova falha de lançamento, interrupção ou saída desconhecida", () => {

@@ -22,15 +22,18 @@ import * as Crypto from "expo-crypto";
 import * as Location from "expo-location";
 import { abrirArmazem, arquivarBanco } from "./src/dados/armazem-sqlite";
 import { registrarBatida } from "./src/logica/terminal";
-import { gpsRecente, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./src/logica/sincronizacao";
+import { gpsRecente, metricasDaFila, montarCorpoSincronizacao, rodadaDeSincronizacao } from "./src/logica/sincronizacao";
 import { classificarResposta, mensagemDeErro } from "./src/logica/falhas";
 import { montarDiagnostico } from "./src/logica/diagnostico";
 import { batidasDoDia, fusoDoCadastro } from "./src/logica/apresentacao";
 import { criarSessaoCalibracao, relatorioDeCampo, resumoDeCampo } from "./src/logica/calibracao-campo";
 import { REP_P, situacaoRepP } from "../../src/domains/ponto-eletronico/rep-p.js";
 import { estadoDaReferencia } from "../../src/domains/ponto-eletronico/relogio.js";
-import { apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoApp, lerSessao, salvarSessao } from "./src/servicos/conexao";
+import { AMBIENTE, apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoApp, infoDoServidor, lerSessao, salvarSessao, sessaoConfere } from "./src/servicos/conexao";
 import { apagarFotoLocal, carregarModelos, lerFotoBase64, prepararFotoDaBatida } from "./src/servicos/rosto-nativo";
+import { CHAVE_DESEMPENHO, registrarTentativa } from "./src/logica/desempenho";
+import { conferirTrocaDeAparelho } from "./src/logica/recuperacao";
+import { criarTravaPin } from "./src/logica/trava-pin";
 import TelaEncarregado from "./src/telas/TelaEncarregado";
 import TelaPareamento from "./src/telas/TelaPareamento";
 import TelaPonto from "./src/telas/TelaPonto";
@@ -63,6 +66,19 @@ export default function App() {
   // Preferências da tela (não são registro): confirmação por voz.
   const [preferencias, setPreferencias] = useState({ voz: true });
   const ref = useRef({ armazem: null, relogio: null, sessao: null, gps: null, gpsEstado: "aguardando", ultimoCadastro: 0, sincronizando: false, pedirDeNovo: null });
+  const travaPinDoArmazem = () => {
+    const armazem = ref.current.armazem;
+    if (ref.current.travaPin?.armazem !== armazem) ref.current.travaPin = { armazem, trava: criarTravaPin({ armazem }) };
+    return ref.current.travaPin.trava;
+  };
+  const anotarMedicao = m => {
+    Object.assign(desempenho.current, m);
+    ref.current.estatisticas = registrarTentativa(ref.current.estatisticas, { tempos: {
+      ...(Number.isFinite(m.identificacaoMs) ? { identificacao: m.identificacaoMs } : {}),
+      ...(Number.isFinite(m.batidaMs) ? { total: m.batidaMs } : {}),
+    } });
+    ref.current.armazem?.gravarEstado(CHAVE_DESEMPENHO, ref.current.estatisticas).catch(() => {});
+  };
   const api = useRef(criarApi(() => ref.current.sessao?.token)).current;
 
   const atualizarSituacao = useCallback(async (extra = {}) => {
@@ -84,8 +100,9 @@ export default function App() {
     try {
       const r = await rodadaDeSincronizacao({
         armazem, api, monotonico: () => relogio.monotonico(),
-        corpo: montarCorpoSincronizacao({ app: infoDoApp(), aparelho: infoDoAparelho(), gps: ref.current.gps, agoraMs: Date.now() }),
+        corpo: montarCorpoSincronizacao({ app: infoDoApp(), aparelho: infoDoAparelho(), gps: ref.current.gps, metricas: metricasDaFila({ contagem: await armazem.contagem(), pendenteMaisAntiga: (await armazem.eventosPendentes(1))[0], ultimaSincronizacao: anterior }), agoraMs: Date.now() }),
         cadastroVencido: forcarCadastro || Date.now() - ref.current.ultimoCadastro > CADASTRO_A_CADA_MS,
+        ambienteApp: AMBIENTE,
         lerFotoBase64, aposEnviarFoto: item => apagarFotoLocal(item.caminhoFoto),
       });
       if (r.revogado || r.desconhecido) {
@@ -129,7 +146,13 @@ export default function App() {
         // Bancos de antes desta versão: guarda de qual aparelho são as batidas.
         if (sessao && !(await armazem.lerEstado("dispositivo_id"))) await armazem.gravarEstado("dispositivo_id", sessao.dispositivoId);
         if (cancelado) return;
+        if (sessao && !sessaoConfere(sessao)) {
+          setErroFatal({ texto: "A sessão pertence a outro servidor ou ambiente. Registros preservados; chame o suporte.", bancoIlegivel: false });
+          setFase("erro");
+          return;
+        }
         Object.assign(ref.current, { armazem, relogio, sessao });
+        ref.current.estatisticas = await armazem.lerEstado(CHAVE_DESEMPENHO);
         setCadastro(await armazem.cadastro());
         const pref = await armazem.lerEstado("preferencias_tela").catch(() => null);
         if (pref) setPreferencias(p => ({ ...p, ...pref }));
@@ -212,6 +235,7 @@ export default function App() {
   // - as batidas antigas não podem ir com o token novo.
   const aoParear = async sessao => {
     let { armazem } = ref.current;
+    await conferirTrocaDeAparelho(armazem);
     const dono = await armazem.dispositivoDoBanco();
     if (dono && dono !== sessao.dispositivoId) {
       await armazem.fechar();
@@ -220,6 +244,7 @@ export default function App() {
       ref.current.relogio.trocarArmazem(armazem);
       ref.current.armazem = armazem;
       ref.current.ultimoCadastro = 0;
+      ref.current.estatisticas = null;
     }
     await armazem.gravarEstado("dispositivo_id", sessao.dispositivoId);
     await salvarSessao(sessao);
@@ -241,7 +266,7 @@ export default function App() {
     const mono = relogio.monotonico();
     const referencia = estadoDaReferencia({ referencia: await armazem.referenciaHora().catch(() => null), monotonicoMs: mono.ms, bootId: mono.bootId });
     return montarDiagnostico({
-      referencia, fuso: fusoDoCadastro(cad), desempenho: desempenho.current,
+      referencia, fuso: fusoDoCadastro(cad), desempenho: desempenho.current, estatisticas: ref.current.estatisticas, servidor: infoDoServidor(),
       rep: { versao: REP_P.versao, situacao: situacaoRepP().rotulo },
       app: infoDoApp(), aparelho: infoDoAparelho(), sessao,
       contagem: await armazem.contagem().catch(() => ({})),
@@ -260,16 +285,9 @@ export default function App() {
   // (vira outro dispositivo no ARCD). Assim a sequência local nunca recomeça
   // dentro do mesmo dispositivo e nada precisa ser renumerado.
   const recomecarBancoIlegivel = () => Alert.alert(
-    "Começar um banco novo?",
-    "O arquivo atual NÃO será apagado: fica guardado no aparelho com outro nome para o suporte. Batidas que estavam nele e ainda não tinham sido enviadas não poderão ser enviadas por este aparelho. O aparelho precisará ser pareado de novo com um código do ARCD.",
-    [{ text: "Cancelar", style: "cancel" }, {
-      text: "Começar banco novo", style: "destructive",
-      onPress: async () => {
-        try { await arquivarBanco("ilegivel"); } catch { /* tenta abrir mesmo assim */ }
-        try { await apagarSessao(); } catch { /* sem sessão o app pede pareamento */ }
-        setFase("carregando"); setTentativa(n => n + 1);
-      },
-    }],
+    "Recuperação exige suporte",
+    "Banco, chave e fotos foram preservados. Não limpe dados nem reinstale. Sem ler o banco não é possível saber quais registros faltam enviar; o suporte deve reconciliar o aparelho com o servidor antes de autorizar uma troca.",
+    [{ text: "Entendi" }],
   );
 
   let conteudo;
@@ -283,7 +301,7 @@ export default function App() {
   else if (fase === "erro") conteudo = <Tela>
     <EstadoCentral tom="erro" titulo="O app não abriu" acoes={<>
       <Botao titulo="Tentar de novo" onPress={() => { setFase("carregando"); setTentativa(n => n + 1); }} />
-      {erroFatal.bancoIlegivel && <BotaoSecundario titulo="Guardar banco atual e começar outro" onPress={recomecarBancoIlegivel} />}
+      {erroFatal.bancoIlegivel && <BotaoSecundario titulo="Orientações para recuperação" onPress={recomecarBancoIlegivel} />}
     </>}>
       <Mensagem tom="erro">{erroFatal.texto}</Mensagem>
     </EstadoCentral>
@@ -293,17 +311,18 @@ export default function App() {
       <Corpo secundario centro>Este aparelho foi desativado no ARCD. Nenhuma batida foi apagada: {situacao.pendentes} ainda não {situacao.pendentes === 1 ? "enviada continua guardada" : "enviadas continuam guardadas"} nele. Para voltar a usar, gere um código novo no ARCD.</Corpo>
     </EstadoCentral>
   </Tela>;
-  else if (fase === "parear") conteudo = <TelaPareamento api={api} aoParear={aoParear} />;
+  else if (fase === "parear") conteudo = <TelaPareamento api={api} aoParear={aoParear} antesDeParear={() => conferirTrocaDeAparelho(ref.current.armazem)} />;
   else if (fase === "encarregado") conteudo = <TelaEncarregado cadastro={cadastro} modelos={modelos} registrar={registrar} api={api} obra={ref.current.sessao?.obra}
-    situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico}
+    situacao={situacao} sincronizarAgora={() => sincronizar({ forcarCadastro: true })} fechar={() => setFase("ponto")} diagnostico={diagnostico} travaPin={travaPinDoArmazem()}
     voz={preferencias.voz} alternarVoz={alternarVoz}
     calibracao={{ ativa: calibrando, alternar: () => setCalibrando(v => !v), resumo: () => resumoDeCampo(relatorioDeCampo(sessaoCalibracao.linhas())), limpar: () => sessaoCalibracao.limpar() }} />;
   else conteudo = <TelaPonto obra={ref.current.sessao?.obra} relogio={ref.current.relogio} modelos={modelos}
     cadastro={cadastro} registrar={registrar} situacao={situacao} abrirEncarregado={() => setFase("encarregado")} voz={preferencias.voz}
-    medir={m => Object.assign(desempenho.current, m)} calibrar={calibrando ? linha => sessaoCalibracao.registrar(linha) : null} />;
+    medir={anotarMedicao} calibrar={calibrando ? linha => sessaoCalibracao.registrar(linha) : null} />;
 
   return <SafeAreaProvider initialMetrics={initialWindowMetrics} style={estilos.raiz}>
     <StatusBar style="light" />
+    {AMBIENTE === "homologacao" && <Mensagem tom="atencao" titulo="HOMOLOGAÇÃO — NÃO OFICIAL">{infoDoServidor().host}</Mensagem>}
     {conteudo}
   </SafeAreaProvider>;
 }
