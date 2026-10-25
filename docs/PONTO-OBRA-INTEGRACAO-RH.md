@@ -172,3 +172,24 @@ Os números zero do banco acima são a fotografia da verificação inicial.
 A sessão RH comunicou autorização humana em seu chat para preparar Fulano e
 Siclano no banco isolado; não confundir ausência inicial com estado após o preparo.
 Lint e build web passaram no candidato conciliado. Aceite incorporado: 6/6.
+
+## Fechamento desta entrega
+
+Código testado em `4c86c98`: mobile-release-check --rapido executou **393 testes
+aprovados e 5 ignorados**, em 42 arquivos aprovados e um ignorado. O processo
+terminou com código 1: gates nativos não executados no modo rápido e regressão
+de evidência de atividades exportadas. Não é release aprovado. O teste estático
+de ambiente foi corrigido para reconhecer a guarda mais restritiva sem fallback.
+Aceite conjunto separado: **6/6**, com SQL PGlite real e consumidor RH.
+Lint e build web aprovados; auditoria de dependências mantém 5 achados altos.
+
+Última leitura independente de `ukkzpttnbyylkyujzwnv`: marcador homologacao,
+2 cadastros, 0 eventos, 0 registros fiscais e 0 dispositivos. Os dois cadastros
+foram preparados pela sessão RH após autorização humana naquele chat.
+A2 permanece pendente por decisão “Manter deploy pendente, sem custo”; A3 e A5
+dependem da API isolada. A4 está preparado localmente, sem vínculo EAS.
+
+Próxima entrega: acordar persistência histórica de publicações/revisões com RH,
+resolver integração dos casos pendentes e, quando houver API isolada e acesso ao
+aparelho, configurar preview/assinatura, gerar os dois APKs e testar atualização.
+Nenhum merge main, deploy, APK ou teste físico foi feito por esta sessão.
