@@ -31,8 +31,10 @@ As janelas descrevem o plano original; a posição comprovada está registrada a
 documentados em seus respectivos checkpoints; isso não declara concluído o
 histórico de operação real. Sete mensagens visíveis foram corrigidas, com
 33 testes focais aprovados. A alteração de layout entrou no APK 10, mas foi
-reprovada no ensaio com teclado. O patch do APK 11 foi aplicado ao código,
-com gates previstos, build e ensaio nativo ainda pendentes.
+reprovada no ensaio com teclado. O APK 11, fonte `832c440`, tem gates locais
+e build conferidos, atualização interna reconciliada e recusa MARCELL
+confirmada. A largura das oito casas passou; o aceite visual integral é
+inconclusivo.
 
 Os gates locais gerais terminaram com **3.155 testes aprovados, 13 ignorados
 e nenhuma falha**, em 427 arquivos aprovados e dois ignorados. Lint,
@@ -45,9 +47,10 @@ Vercel está READY no mesmo commit em https://ponto-homologacao.vercel.app.
 Os identificadores completos ficam no acompanhamento único. Não houve
 promoção para produção.
 
-O CI remoto deste commit não foi repetido (`[skip ci]`), por restrição de custo
+O CI remoto de `64c8b7b` não foi repetido (`[skip ci]`), por restrição de custo
 e sem cota de artefatos confirmada. Os gates acima são locais, registrados e
-vinculados a `64c8b7b`; não aprovam o patch do APK 11 ainda sem validação final.
+vinculados a `64c8b7b`. A fonte `832c440` tem um lote próprio, descrito abaixo;
+a suíte geral de 3.155 testes não foi repetida para ela.
 Não há nova nota de scorecard mobile nesta rodada. A consulta pública da API
 retornou HTTP 200 e houve smoke de login em desktop; viewport mobile web e
 consulta autenticada não foram executados nesta rodada.
@@ -70,8 +73,52 @@ pareamento usado e código ausente. O app permaneceu não pareado.
 **O layout do APK 10 foi reprovado:** teclado cobre o botão, swipe não revela
 a ação e a linha das oito células está cortada nas extremidades. Sem teclado,
 o erro é legível, mas o botão fica fora da área inicial; o alcance por rolagem
-complementar não foi estabelecido. O patch do APK 11 está aplicado ao código;
-seus gates previstos, build e validação nativa ainda não estão comprovados.
+complementar não foi estabelecido. Esse resultado do APK 10 permanece
+reprovado, independentemente da aprovação técnica do build seguinte.
+
+O APK 11 usa o commit `832c440fe7f8227407699011b357474a98e9b717`. Seus gates
+locais terminaram às 15:52:40 UTC, com **401 testes aprovados, cinco ignorados
+e nenhuma falha**, em 42 arquivos aprovados e um ignorado. Cobrem todo o app
+mobile e os domínios/servidor de ponto eletrônico; lint, arquitetura,
+TypeScript, build Vite e diff-check também passaram, com 1.421 fontes estáveis.
+
+O build do APK 11 terminou às 16:07:15 UTC e foi conferido às 16:09:16 UTC:
+61.200.638 bytes, x86_64, 69 fontes móveis estáveis e checkout limpo ao final.
+O ZIP de recursos e os CRCs das 947 entradas foram aprovados. O certificado
+é o mesmo do APK 10 e diferente dos APKs 8/9. A atualização interna 10→11
+teve timeout do cliente após 180 s e foi reconciliada sem repetição, por
+PackageManager versão 11 e SHA instalado às 16:30:15 UTC. firstInstallTime e
+dataDir foram preservados; não houve prova de fila ou sessão pareada.
+
+Uma única tentativa sintética, às 16:45:08.773 UTC, exibiu a recusa MARCELL
+às 16:45:34.882 UTC. SQL antes/depois manteve ambiente homologacao, código
+ausente, um dispositivo e um pareamento usado, sem afirmar imutabilidade
+de toda a base. A sonda Java HTTP 200 foi uma verificação separada.
+
+**As oito casas passaram em largura; o gate visual integral é inconclusivo.**
+A rolagem com IME deslocou o conteúdo, mas o alcance completo da mensagem e
+do botão não foi demonstrado. Na captura 03, ambos estavam fora do viewport
+inicial e não houve novo gesto. A causa não foi determinada. Não se conclui
+corte persistente nem aprovação visual completa. A limpeza às 16:47:58 UTC
+terminou sem erros, com AVD/relay parados e 28 hashes protegidos iguais.
+
+Uma segunda rodada no mesmo APK 11, sem recompilar ou reinstalar, completou
+o boot entre 16:58:17.142 e 17:01:32.263 UTC e confirmou a versão pelo
+PackageManager. A reconferência de integridade foi interrompida por timeout:
+40 segundos no `sha256sum` Android e 60 segundos na leitura integral via ADB,
+registrados às 17:03:01.125 e 17:06:11.918 UTC, respectivamente. A causa da
+lentidão não foi determinada. Não houve configuração de rede, interação
+de UI ou outro envio sintético. O total do APK 11 permanece em uma tentativa;
+as provas da primeira rodada continuam válidas. O gate visual não foi
+resolvido. A limpeza final da segunda rodada terminou às 17:08:27.645 UTC,
+sem erros, com cópia/monitor parados e 28 hashes protegidos iguais. O relay
+nunca foi iniciado; a limpeza de proxy, CA e reverse da primeira rodada
+permaneceu preservada.
+
+O APK não foi distribuído. Edge/web continuam em `64c8b7b`; o commit documental
+posterior não altera a fonte de nenhum APK. A nota automática 9,7 é histórica,
+sem nova nota desta rodada. **PR #121 permanece aberta, sem merge até demonstrar
+o gate visual; PR #120 permanece draft. D6 parcial e D7 não liberado.**
 
 A tentativa anterior em AVD virgem falhou antes de instalar o app; sua limpeza
 registrou zero erros e 28 hashes originais iguais. A limpeza do clone usado
@@ -80,12 +127,13 @@ AVD/relay parados, zero erros e 28 hashes protegidos iguais. Cópia e assinatura
 do ensaio foram preservadas offline. O ANR inicial era
 do System UI e recebeu “Aguardar” uma vez; não há avaliação de desempenho.
 
-A chave antiga não foi recuperada. O certificado do APK 10 difere do APK 9;
+A chave antiga não foi recuperada nesta sessão. O certificado do APK 10 difere do APK 9;
 esse build não comprova upgrade da linhagem 8/9 nem migração de pareamento,
 histórico ou fila. Os artefatos e dados antigos permanecem preservados.
 Os hashes e o escopo estão na [evidência atual](evidencias/d6-fechamento-2026-10-26.json).
-A fonte do APK e do frontend permanece `64c8b7b`, distinta desta atualização
-documental posterior ao build.
+APK 10 e frontend publicado permanecem vinculados a `64c8b7b`; o APK 11
+compilado corresponde a `832c440`. A documentação posterior não recompila
+nem altera essas fontes.
 
 A disponibilidade do Android físico precisa ser confirmada. O acesso legítimo
 do operador é necessário para gerar o pareamento e realizar a conferência RH.

@@ -6,8 +6,10 @@
 de código passaram pelos gates locais e foram publicadas em homologação.
 O APK 10 foi instalado como app novo sobre um sistema Android clonado e
 recebeu a recusa real com a marca MARCELL. **O layout com teclado foi
-reprovado**; a nova correção para o APK 11 foi aplicada ao código e aguarda
-validação própria. Ainda
+reprovado**. O APK 11, fonte `832c440`, passou pelos gates locais e foi
+compilado/verificado. Sua atualização e recusa MARCELL foram confirmadas; a
+largura das oito casas passou, mas o alcance integral com teclado continua
+inconclusivo. Ainda
 faltam o percurso autenticado completo e sua conferência pelo RH. O candidato
 não é declarado liberado para operação ampliada.
 
@@ -22,22 +24,26 @@ não representa nova compilação ou mudança dessa fonte.
   códigos de erro, identificadores técnicos e persistência foram preservados.
 - A alteração de layout entrou no APK 10, mas a prova nativa reprovou o estado
   com teclado: botão encoberto, swipe sem revelar a ação e células do código
-  cortadas nas extremidades. O ajuste para o APK 11 foi aplicado ao código,
-  com seus gates, build e ensaio nativo ainda pendentes.
+  cortadas nas extremidades. O APK 11 tem gates locais e build aprovados
+  em `832c440`; atualização e recusa foram confirmadas, com aceite visual
+  ainda inconclusivo apesar da largura das oito casas aprovada.
 - Os testes focais do servidor/transporte tiveram seis falhas reproduzidas
   antes da correção da marca e **33 testes aprovados em quatro arquivos**
-  depois. Os cenários verificam respostas do handler real, código inexistente,
+  depois. Os cenários de pareamento usam **handler e transporte reais, com
+  banco em memória e relógio controlado pelo teste**. Cobrem código inexistente,
   expiração, reutilização e uso único diante de tentativas simultâneas.
+  A conferência em PostgreSQL real pertence a outro gate; não é comprovada
+  por esses casos em memória.
 - Os gates gerais terminaram em 26/10/2026 às 14:09:11 UTC: **3.155 testes
   aprovados, 13 ignorados e nenhuma falha**, em 427 arquivos aprovados e dois
   ignorados. Lint, fronteiras arquiteturais, TypeScript, build web e diff-check
   terminaram com código zero. As **1.420 fontes verificadas permaneceram
   inalteradas** durante a execução.
-- O CI remoto deste commit não foi repetido (`[skip ci]`), para respeitar a
+- O CI remoto de `64c8b7b` não foi repetido (`[skip ci]`), para respeitar a
   restrição de custo enquanto a cota de artefatos não estava confirmada. Os
   resultados acima são dos gates locais do commit `64c8b7b`, fonte do APK 10;
-  não aprovam o patch do APK 11 ainda sem validação final. Não há nova nota de
-  scorecard mobile nesta rodada.
+  o APK 11 tem um lote próprio de 401 testes em `832c440`, descrito abaixo.
+  Não há nova nota de scorecard mobile nesta rodada.
 
 ### Código publicado e homologação identificada
 
@@ -118,7 +124,7 @@ cópia descartável do sistema operacional do clone 9 offline**. O APK 9 foi
 removido somente dessa cópia, sem manter os dados do app. A ausência do pacote
 foi comprovada antes da instalação do APK 10, executada sem `-r`.
 
-A chave original não foi recuperada, e o certificado do APK 10 é diferente
+A chave original não foi recuperada **nesta sessão**, e o certificado do APK 10 é diferente
 do APK 9. O ensaio **não é upgrade 9→10, migração de fila/sessão nem execução
 em Android virgem**. Os APKs 8/9 e os dados originais não foram usados como
 instalação a substituir.
@@ -153,12 +159,97 @@ Com o teclado fechado, a recusa era legível, mas o botão ficou fora da área
 inicial visível; o alcance pela rolagem complementar não foi estabelecido.
 A presença de ScrollView no código não constituiu solução comprovada.
 
-### Próximas ações e dependências
+### APK 11 — atualização e recusa confirmadas; aceite visual inconclusivo
 
-A nova correção de layout para o **APK 11 foi aplicada ao código**. Os gates
-previstos, o build, a instalação e o aceite visual desse novo candidato ainda
-não foram comprovados neste checkpoint.
-Os resultados do APK 10 permanecem identificados com a fonte `64c8b7b`.
+A nova fonte foi publicada no commit
+`832c440fe7f8227407699011b357474a98e9b717`. Seus gates locais terminaram em
+**26/10/2026 às 15:52:40 UTC**: **401 testes aprovados, cinco ignorados e
+nenhuma falha**, em 42 arquivos aprovados e um ignorado. O lote cobre todo o
+app mobile e os domínios/servidor de ponto eletrônico. Lint, arquitetura,
+TypeScript, testes desse escopo, build Vite e diff-check passaram. As
+**1.421 fontes verificadas permaneceram estáveis**.
+
+A suíte geral de **3.155 aprovados e 13 ignorados pertence a `64c8b7b`** e
+não foi repetida para `832c440`. Edge v9 e frontend publicado permanecem em
+`64c8b7b`. Nenhuma nova nota de scorecard foi produzida.
+
+O build Android do APK 11 terminou com código zero às **16:07:15 UTC**, com
+verificação final às **16:09:16 UTC**. O checkout estava limpo ao fim do build;
+o manifesto de **69 fontes móveis** permaneceu estável. O arquivo de recursos
+foi validado antes do empacotamento: ZIP íntegro e CRC das **947 entradas**
+conferido.
+
+- Arquitetura: **x86_64**, somente ensaio privado.
+- Tamanho: **61.200.638 bytes**.
+- SHA256 do APK: `6158bdac9dc732e2d967782ce9a3e1de6f45fc9895a7d261f0ef9b3cfb893d23`.
+- SHA256 do certificado público: `a82b8b69c1b7ae7856aa5e05c6548f502cd943f248174d0ce351263c5bc89c23`.
+- Fonte: `832c440fe7f8227407699011b357474a98e9b717`.
+
+#### Primeira rodada nativa do APK 11
+
+O certificado é o mesmo do APK 10 e diferente dos APKs 8/9. A atualização
+interna **10→11 foi confirmada por reconciliação após o timeout do cliente**:
+a chamada de instalação excedeu 180 segundos, sem retorno de sucesso e sem
+ser repetida. A leitura posterior do PackageManager mostrou versão 11, e o
+SHA256 do APK instalado coincidiu com o artefato verificado às **16:30:15 UTC**.
+`firstInstallTime` e `dataDir` foram preservados. O ensaio usou instalação
+não pareada e sem fila de ponto; não comprova persistência de fila ou sessão
+pareada, upgrade da linhagem 8/9 ou Android virgem.
+
+A sonda Java pública separada retornou HTTP 200 e ambiente `homologacao`,
+com verificação TLS/hostname padrão. Uma única tentativa com o código sintético
+`00000000`, iniciada às **16:45:08.773 UTC**, exibiu às **16:45:34.882 UTC**:
+**“Código inválido ou já usado. Gere outro no MARCELL.”** O app permaneceu não
+pareado. O status HTTP dessa chamada do app não foi observado.
+
+SQL antes, às 16:35:02.992972 UTC, e depois, às 16:46:50.375897 UTC: ambiente
+`homologacao`, código ausente, um dispositivo e um pareamento usado, sem
+alteração dessas contagens. Isso não afirma imutabilidade de toda a base.
+Não houve pareamento válido ou captura de ponto.
+
+**O aceite visual do APK 11 é inconclusivo.** A largura das oito casas do
+código foi aprovada. A rolagem com teclado deslocou o conteúdo, mas o alcance
+integral da mensagem e do botão não foi demonstrado. Na captura `03`, com
+teclado aberto após o erro, mensagem/botão ficaram fora do viewport inicial;
+não houve novo gesto nessa condição. A causa da limitação da prova não foi
+determinada. Esse resultado não estabelece corte persistente nem aprovação
+visual completa. As imagens canônicas `01b` e `04` registram a tela vazia e a
+recusa; `02b` e `03` documentam os limites da prova com teclado.
+
+A limpeza terminou às **16:47:58 UTC**, com AVD/relay parados, zero erros e
+**28 arquivos protegidos com hashes iguais**, sem diferenças. O binário não
+foi distribuído. Um commit documental posterior não muda a fonte executável
+`832c440` do APK 11 nem a fonte `64c8b7b` do APK 10.
+
+#### Segunda rodada — interrompida antes da interação
+
+Uma rodada adicional na mesma cópia do APK 11, sem novo build ou reinstalação,
+tentou completar o gesto pendente. O boot passou de **16:58:17.142 a
+17:01:32.263 UTC**, e o PackageManager confirmou a versão 11. A reconferência
+do binário não produziu um novo marcador de integridade: `sha256sum` no Android
+atingiu timeout de 40 segundos e a leitura integral via ADB atingiu timeout
+de 60 segundos, registrados às **17:03:01.125** e **17:06:11.918 UTC**,
+respectivamente. A causa da lentidão da leitura não foi determinada.
+
+O ensaio parou nesse gate. Não houve configuração de rede, interação de UI,
+nova captura ou segunda tentativa sintética. A primeira rodada mantém a
+prova de SHA instalado, atualização e resposta MARCELL; o total do APK 11
+continua sendo **um envio de código**. A segunda rodada não resolveu o gate
+visual nem invalida as provas anteriores. A limpeza final da segunda rodada
+terminou às **17:08:27.645 UTC**, com código zero, nenhum erro, cópia/monitor
+parados e processos ausentes. Os **28 hashes protegidos permaneceram iguais**.
+O relay não foi iniciado e não houve nova configuração de proxy, CA ou reverse;
+a limpeza da primeira rodada permaneceu preservada.
+
+**PR #121 permanece aberta, sem merge enquanto o gate visual não estiver
+demonstrado; PR #120 permanece draft. D6 continua parcial e D7 não foi
+liberado.** A nota automática 9,7 pertence a um baseline histórico; nenhuma
+nova nota de scorecard foi atribuída a este ensaio.
+
+### Dependências operacionais
+
+Os resultados do APK 10 permanecem identificados com `64c8b7b`, incluindo sua
+UI reprovada. A compilação do APK 11 não altera esse resultado histórico.
 
 O `access.json` da sessão antiga também não foi recuperado na busca legítima.
 Essa é uma dependência de acesso operacional, separada da assinatura do APK.
@@ -208,7 +299,7 @@ O usuário informou que a recuperação de 63 arquivos não foi salva em pasta, 
 
 **Histórico da retomada do APK:** na sessão Windows, o AVD remoto ainda não estava acessível e os resultados anteriores eram relatados. O ensaio posterior do APK 9 comprovou atualização 8→9, abertura e recusa pública de código inexistente. Isso atualiza aquele bloqueio específico, sem comprovar pareamento válido, captura ou fila no aparelho físico. Os registros anteriores permanecem em [retomada Android](../apps/ponto-obra/docs/RETOMADA-ANDROID-2026-10-26.md) e [evidência declarada](evidencias/android-retomada-2026-10-26.json).
 
-O gate da alteração `b17f532` registrou **3.151 testes aprovados e 13 ignorados**, lint, arquitetura, TypeScript e build aprovados. Esse checkpoint histórico permanece preservado. A correção D6 atual tem **3.155 testes aprovados e 13 ignorados**, os demais gates locais concluídos e homologação implantada no commit `64c8b7b`. O APK 10 foi compilado e instalado como app novo x86_64 sobre uma cópia do SO do clone 9, com assinatura diferente. A recusa MARCELL foi observada, mas o layout com teclado foi reprovado; APK 11 tem correção aplicada ao código e ensaio pendente. O CI remoto do novo commit não foi repetido.
+O gate da alteração `b17f532` registrou **3.151 testes aprovados e 13 ignorados**, lint, arquitetura, TypeScript e build aprovados. Esse checkpoint histórico permanece preservado. A correção D6 atual tem **3.155 testes aprovados e 13 ignorados**, os demais gates locais concluídos e homologação implantada no commit `64c8b7b`. O APK 10 foi compilado e instalado como app novo x86_64 sobre uma cópia do SO do clone 9, com assinatura diferente. A recusa MARCELL foi observada, mas o layout com teclado foi reprovado; APK 11, fonte 832c440, teve atualização 10→11 reconciliada e recusa MARCELL confirmada; largura das oito casas aprovada e aceite visual completo inconclusivo. O CI remoto de `64c8b7b` não foi repetido.
 
 Checkpoint de **25/10/2026**. A continuidade atual do D6 está registrada no início deste documento. [Roadmap](RH-PONTO-ROADMAP.md) · [Simulação completa](SIMULACAO_COMPLETA_FULANO_SICLANO.md) · [Revisão financeira](REVISAO_FINANCEIRA_HOMOLOGACAO.md).
 
@@ -243,7 +334,7 @@ As credenciais ficam fora do repositório. A API não oferece bootstrap público
 | Diária e CLT mensal | Escolha individual preservada, valores independentes e aprovação dos dois na mesma quinzena. Cadastros antigos sem vínculo informado continuam por diária. |
 | Cadastro único | Fulano profissional mensalista e Siclano ajudante por diária, com vínculo CLT explícito. Históricos, contatos, jornada, matrícula e dados fictícios para os testes. |
 | Ficha do operário | Sete seções no cadastro existente: resumo/pendências, dados, documentos/fotos, ponto, pagamentos, histórico e engenharia. Consulta de ponto arquivado sem restaurar ou duplicar registros. Permissões e avisos auditados no servidor. |
-| Celular integrado | Histórico 8→9 preservado. APK 10, fonte 64c8b7b, instalado como app novo sobre cópia descartável do SO do clone 9, com outro certificado; sem distribuição, upgrade ou migração da linhagem anterior. Uma recusa real MARCELL foi observada e as contagens remotas permaneceram iguais. UI com teclado reprovada; patch do APK 11 ainda sem validação final. Pareamento válido, captura/fila, ponte RH e teste físico continuam pendentes. |
+| Celular integrado | Histórico 8→9 preservado. APK 10, fonte 64c8b7b, instalado como app novo sobre cópia descartável do SO do clone 9, com outro certificado; sem distribuição, upgrade ou migração da linhagem anterior. Uma recusa real MARCELL foi observada e as contagens remotas permaneceram iguais. UI com teclado reprovada; APK 11, fonte 832c440, com atualização e recusa confirmadas, largura das oito casas aprovada e alcance integral com teclado inconclusivo. Pareamento válido, captura/fila, ponte RH e teste físico continuam pendentes. |
 | Documentos do RH | Dezesseis PDFs sintéticos, oito por pessoa, enviados ao prontuário privado remoto. Upload, abertura autorizada e download conferidos; os hashes dos arquivos baixados correspondem aos originais. |
 | Quinzena e competência | Cortes 06–20 e 21–05 mantidos. Adiantamento pago no dia 20 separado do saldo mensal. CLT por diária exige memória identificada; o app não inventa salário mensal. |
 | Financeiro e obra | A aprovação cria a obrigação no financeiro existente. Baixas parciais e finais zeram o saldo sem criar novamente o custo da mão de obra. |

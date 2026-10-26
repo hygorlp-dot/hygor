@@ -20,7 +20,9 @@
     "typecheck": 0,
     "viteBuild": 0,
     "diffCheck": 0,
-    "remoteCiRerun": false
+    "remoteCiRerun": false,
+    "sourceCommit": "64c8b7b52b256e0d83847bbdf84cbe6dc9f13936",
+    "scope": "Suíte geral do repositório, anterior ao patch do APK11."
   },
   "edge": {
     "name": "ponto-api-homologacao",
@@ -30,7 +32,8 @@
     "authentication": "Preservada pelo handler existente",
     "previousVersion": 8,
     "remoteFilesCompared": 12,
-    "remoteFilesEqualToPayload": true
+    "remoteFilesEqualToPayload": true,
+    "sourceCommit": "64c8b7b52b256e0d83847bbdf84cbe6dc9f13936"
   },
   "web": {
     "projectName": "ponto-homologacao",
@@ -47,7 +50,8 @@
     "status": 200,
     "environment": "homologacao",
     "ok": true,
-    "tlsVerificationDisabled": false
+    "tlsVerificationDisabled": false,
+    "sourceCommit": "64c8b7b52b256e0d83847bbdf84cbe6dc9f13936"
   },
   "publicWeb": {
     "observedAt": "2026-10-26T14:32:11.464635Z",
@@ -63,7 +67,8 @@
     "mobileViewportExecuted": false,
     "mobileLimit": "A API do navegador remoto não oferece resize ou emulação documentada.",
     "localChromiumAttempt": "Interrompida por ERR_CERT_AUTHORITY_INVALID antes de HTTP; processo encerrado, sem bypass TLS.",
-    "imageReview": "Imagem pública inspecionada pela coordenação; sem dados pessoais. Não incluída neste staging."
+    "imageReview": "Imagem pública inspecionada pela coordenação; sem dados pessoais. Não incluída neste staging.",
+    "sourceCommit": "64c8b7b52b256e0d83847bbdf84cbe6dc9f13936"
   },
   "baselineBeforeNativeNegative": {
     "observedAt": "2026-10-26T14:24:16.536551Z",
@@ -113,7 +118,8 @@
     "remoteCiRerun": false,
     "newMobileScorecardResult": false,
     "fullHttpCollectionAvailable": false,
-    "mobileWebViewportExecuted": false
+    "mobileWebViewportExecuted": false,
+    "oldSigningLineageRecoveryScope": "Não recuperada nesta sessão; não constitui afirmação de perda global da chave original."
   },
   "evidenceInputs": [
     {
@@ -179,6 +185,90 @@
     {
       "name": "network-copy/originals-after-cleanup.json",
       "sha256": "a7fd1733bd28ce2f1bdb4af506ba15dd1a804003ece8b91565030976d295929d"
+    },
+    {
+      "name": "gates-ui11/result.json",
+      "sha256": "00c569905430fdc809b04a33f416cb279c1fcabf985b17c60962c803c7b9fa27"
+    },
+    {
+      "name": "gates-ui11/tests.json",
+      "sha256": "02003b53b1b837e9bae43abe6d0207db8c8c18471047b0596732b5db49a554ab"
+    },
+    {
+      "name": "build11-result.json",
+      "sha256": "32783ed919e3559effc8fd07e05046e9b230d93ae123de09644a38314e6c91b1"
+    },
+    {
+      "name": "build11-final-verification.json",
+      "sha256": "45781a9a938544d3b15cddf6c472b1571b5e3269dbb3502aced6397f23b76e1d"
+    },
+    {
+      "name": "d6-ui11-20261026/resource-zip-before-package.json",
+      "sha256": "4d61022f7ddeee1a4138ab61d35dfd416d5eb68e03196c0ef75e87b9f6476902"
+    },
+    {
+      "name": "d6-ui11-20261026/update11-result.json",
+      "sha256": "23c1a1d44e39ee6e4182f845cdc4971b5b46c197193ccb0fc94fc97616f8d1fb"
+    },
+    {
+      "name": "d6-ui11-20261026/update11-after-client-timeout.json",
+      "sha256": "69d7133d41790c4c5f4dd9feda05e5ac969d7f1653e21d728fe692b2cafb57a7"
+    },
+    {
+      "name": "d6-ui11-20261026/installed-apk11-hash-after-timeout.json",
+      "sha256": "2a3596bf7859ed665754cc71301e436e63a41f5afc010bdc69417691d1fce286"
+    },
+    {
+      "name": "d6-ui11-20261026/negative11-single-attempt.json",
+      "sha256": "3aea7e15e42e28fdd612cc66ffa22461fe589390f47f4815ec3cf69839af1ea0"
+    },
+    {
+      "name": "d6-ui11-20261026/network/probe-result.json",
+      "sha256": "0d7163ac07a864fb7a6214d7dea0b7561ed8866720533421bcdb322e43f0bed9"
+    },
+    {
+      "name": "pareamento11-negativo-conferencia.json",
+      "sha256": "8b589be329b1ff9ae5aa76aecb002f0a8abea596b0f065ae871ff7cd816401d6"
+    },
+    {
+      "name": "d6-ui11-20261026/network/cleanup-result.json",
+      "sha256": "47302af60deb1d2738360a488abcfbf931efd2c35aae1dae5bfa77f659710cb1"
+    },
+    {
+      "name": "d6-ui11-20261026/network/originals-after-cleanup.json",
+      "sha256": "809c190562e3f147094b39bce896776a2250ec159a49bfa4d81527da253c408d"
+    },
+    {
+      "name": "d6-ui11-20261026/ui11/01b-empty-keyboard-closed.json",
+      "sha256": "7102210f13d0f64347e519e15bf725c7fa1ed9e1b0578f8b2a15e54fdc8f3dab"
+    },
+    {
+      "name": "d6-ui11-20261026/ui11/04-error-keyboard-closed.json",
+      "sha256": "eebddc874453243ee95bdf88a7b2847991996090d4c93f00e3600420a912118d"
+    },
+    {
+      "name": "d6-ui11-20261026/ui11/02b-filled-after-natural-scroll.json",
+      "sha256": "8652e9b4f2b60b503036e95d8323a6bc78743ec389e96dcef5184e575dcb3311"
+    },
+    {
+      "name": "d6-ui11-20261026/ui11/03-error-keyboard-open.json",
+      "sha256": "647d91fb9a26ada6887e096c1e59ef17d25e5d73b1f89a2722a101318c78bc9b"
+    },
+    {
+      "name": "d6-ui11-20261026/resultado-apk11-sanitizado.json",
+      "sha256": "2c4feef9b7a22db86768cd5298d997fefba0c7bd1db8a3ffbe265fd4bf24247f"
+    },
+    {
+      "name": "d6-ui11-replay2-20261026/resultado-replay2-sanitizado.json",
+      "sha256": "ce31945fe9489035c1124224576d40caaa9cc77d5616c852a60f20752a3df08d"
+    },
+    {
+      "name": "d6-ui11-replay2-20261026/network/cleanup-result.json",
+      "sha256": "aca9f35edd765b6822401f5b0c7116f02be17e08cf9d86ac60513236767e6198"
+    },
+    {
+      "name": "d6-ui11-replay2-20261026/network/originals-after-cleanup.json",
+      "sha256": "0d7c2483612679f17b6d53295cc6b33d46736a4338f01dec64d88962cdb13dd0"
     }
   ],
   "communication": {
@@ -199,11 +289,14 @@
     "WindowsSessionReadAcknowledged": false,
     "source": "Atualizações confirmadas pela coordenação."
   },
-  "reportState": "apk10_installed_negative_response_verified_layout_failed_apk11_pending",
-  "checkpointAt": "2026-10-26T15:45:41.412324+00:00",
+  "reportState": "native_checkpoint_complete_visual_gate_inconclusive",
+  "checkpointAt": "2026-10-26T17:08:49.080963+00:00",
   "sourceScope": {
-    "apkAndFrontendCommit": "64c8b7b52b256e0d83847bbdf84cbe6dc9f13936",
-    "laterDocumentationDoesNotChangeExecutableSource": true
+    "apk10AndPublishedFrontendCommit": "64c8b7b52b256e0d83847bbdf84cbe6dc9f13936",
+    "apk11SourceCommit": "832c440fe7f8227407699011b357474a98e9b717",
+    "apk11SourcePublished": true,
+    "publishedFrontendUpdatedToApk11SourceProven": false,
+    "laterDocumentationCommitIsNotAnApkSource": true
   },
   "nativeCandidate": {
     "versionLabel": "APK10",
@@ -319,7 +412,14 @@
     "passed": 33,
     "files": 4,
     "beforeFixObservedBrandFailures": 6,
-    "scope": "Mensagens reais do handler e transporte, incluindo expiração, reutilização e consumo concorrente."
+    "scope": "Mensagens reais do handler e transporte, incluindo expiração, reutilização e consumo concorrente.",
+    "sourceCommit": "64c8b7b52b256e0d83847bbdf84cbe6dc9f13936",
+    "environment": {
+      "pairingHandlerAndTransport": "real",
+      "database": "in_memory",
+      "clock": "controlled_by_test",
+      "realPostgresqlVerificationClaimedForTheseCases": false
+    }
   },
   "historicalApk9": {
     "sourceCommit": "b17f5320c8eff9b422af092c357ff95ed0b3abed",
@@ -383,10 +483,275 @@
   },
   "nextCandidate": {
     "versionLabel": "APK11",
-    "state": "ui_patch_applied_awaiting_planned_gates_build_and_native_trial",
-    "sourceCommit": null,
-    "gatesVerified": false,
-    "buildVerified": false,
-    "nativeLayoutApproved": false
+    "state": "update_reconciled_negative_response_verified_visual_gate_inconclusive",
+    "sourceCommit": "832c440fe7f8227407699011b357474a98e9b717",
+    "gatesVerified": true,
+    "buildVerified": true,
+    "nativeLayoutApproved": false,
+    "sourcePublished": true,
+    "localGates": {
+      "passed": true,
+      "finishedAt": "2026-10-26T15:52:40.828952+00:00",
+      "passedTests": 401,
+      "skippedTests": 5,
+      "failedTests": 0,
+      "passedFiles": 42,
+      "skippedFiles": 1,
+      "sourceFiles": 1421,
+      "sourceStable": true,
+      "fullRepositoryTestsRerun": false,
+      "scope": "Regressão integral do app mobile e domínios/servidor ponto-eletronico",
+      "sourceCommit": "832c440fe7f8227407699011b357474a98e9b717"
+    },
+    "buildState": "passed_verified",
+    "nativeTrialState": "first_trial_complete_second_trial_stopped_before_interaction",
+    "versionCode": 11,
+    "package": "br.com.arcd.pontoobra.homologacao",
+    "architecture": [
+      "x86_64"
+    ],
+    "artifactBytes": 61200638,
+    "artifactSha256": "6158bdac9dc732e2d967782ce9a3e1de6f45fc9895a7d261f0ef9b3cfb893d23",
+    "certificateSha256": "a82b8b69c1b7ae7856aa5e05c6548f502cd943f248174d0ce351263c5bc89c23",
+    "signatureVerified": true,
+    "buildStartedAt": "2026-10-26T15:54:54.454045+00:00",
+    "buildFinishedAt": "2026-10-26T16:07:15.564598+00:00",
+    "buildVerifiedAt": "2026-10-26T16:09:16.963215+00:00",
+    "sourceCleanAfterBuild": true,
+    "mobileSourceFileCount": 69,
+    "sourceManifestStable": true,
+    "sameSignatureAsApk10": true,
+    "sameSignatureAsApk8or9": false,
+    "resourceZipGate": {
+      "validZip": true,
+      "allEntryCrcsVerified": true,
+      "entries": 947,
+      "beforeTask": ":app:packageRelease",
+      "resourceArchiveSha256": "e65202cf418f0bfbe32b7c155330956986eab50b60ed757597c73351fca6b549"
+    },
+    "artifactDistributed": false,
+    "intendedTrial": "Atualização interna 10→11 no SO descartável já inicializado; nenhuma prova de upgrade da linhagem 8/9.",
+    "upgrade10To11Proven": true,
+    "queuePersistenceProven": false,
+    "nativeVisualReviewCompleted": false,
+    "nativeVisualEvidenceCollected": true,
+    "publicNegativePairingProven": true,
+    "pairedDevice": false,
+    "attendanceSubmitted": false,
+    "pairedSessionPersistenceProven": false,
+    "updateReconciliation": {
+      "sourceCommit": "832c440fe7f8227407699011b357474a98e9b717",
+      "fromVersion": 10,
+      "toVersion": 11,
+      "method": "adb install -r",
+      "clientInstallTimedOut": true,
+      "clientTimeoutSeconds": 180,
+      "installerReportedSuccess": false,
+      "clientReturnCode": null,
+      "retryPerformed": false,
+      "packageManagerVersionConfirmed": 11,
+      "installedHashVerifiedAt": "2026-10-26T16:30:15.630275+00:00",
+      "installedArtifactSha256": "6158bdac9dc732e2d967782ce9a3e1de6f45fc9895a7d261f0ef9b3cfb893d23",
+      "matchesVerifiedArtifact": true,
+      "firstInstallTimePreserved": true,
+      "dataDirPreserved": true,
+      "uninstallPerformed": false,
+      "clearDataPerformed": false,
+      "scope": "Instalação não pareada, sem fila de ponto; somente linhagem privada 10→11.",
+      "oldApk8or9LineageContinued": false,
+      "trialNumber": 1
+    },
+    "negativePairing": {
+      "sourceCommit": "832c440fe7f8227407699011b357474a98e9b717",
+      "syntheticCode": "00000000",
+      "attemptCount": 1,
+      "startedAt": "2026-10-26T16:45:08.773216+00:00",
+      "responseObservedAt": "2026-10-26T16:45:34.882860+00:00",
+      "responseText": "Código inválido ou já usado. Gere outro no MARCELL.",
+      "appHttpStatus": null,
+      "pairedDevice": false,
+      "validPairingRequested": false,
+      "attendanceSubmitted": false,
+      "trialNumber": 1
+    },
+    "negativeDatabaseComparison": {
+      "sourceCommit": "832c440fe7f8227407699011b357474a98e9b717",
+      "scope": "Uma tentativa sintética inválida do APK 11; somente contagens indicadas, sem afirmação de imutabilidade de toda a base.",
+      "before": {
+        "observado_em": "2026-10-26 16:35:02.992972+00",
+        "ambiente": "homologacao",
+        "codigo_sintetico_existe": false,
+        "dispositivos": 1,
+        "pareamentos_usados": 1
+      },
+      "after": {
+        "observado_em": "2026-10-26 16:46:50.375897+00",
+        "ambiente": "homologacao",
+        "codigo_sintetico_existe": false,
+        "dispositivos": 1,
+        "pareamentos_usados": 1
+      },
+      "countsUnchanged": true,
+      "codeAbsentBeforeAfter": true,
+      "wholeDatabaseImmutabilityClaimed": false,
+      "trialNumber": 1
+    },
+    "publicProbe": {
+      "sourceCommit": "832c440fe7f8227407699011b357474a98e9b717",
+      "serverSourceCommit": "64c8b7b52b256e0d83847bbdf84cbe6dc9f13936",
+      "observedAt": "2026-10-26T16:33:36.609251+00:00",
+      "target": "https://ponto-homologacao.vercel.app/api/data",
+      "action": "ponto-ambiente",
+      "httpStatus": 200,
+      "environment": "homologacao",
+      "trustManager": "platform default",
+      "hostnameVerifier": "platform default",
+      "separateJavaProbe": true,
+      "appHttpStatusInferredFromProbe": false,
+      "trialNumber": 1
+    },
+    "visualVerdict": {
+      "result": "partial_inconclusive",
+      "eightCodeSlotWidthApproved": true,
+      "imeContentMovementObserved": true,
+      "fullMessageAndCtaReachabilityDemonstrated": false,
+      "errorImeFrame03MessageAndCtaOutsideInitialViewport": true,
+      "additionalScrollAfterErrorImeFrame03": false,
+      "cause": "undetermined",
+      "persistentClippingConclusionEstablished": false,
+      "completeVisualApproval": false,
+      "performanceApproved": false,
+      "trialNumber": 1
+    },
+    "cleanup": {
+      "sourceCommit": "832c440fe7f8227407699011b357474a98e9b717",
+      "finishedAt": "2026-10-26T16:47:58.287133+00:00",
+      "cloneStopped": true,
+      "relayStopped": true,
+      "errors": [],
+      "protectedFilesChecked": 28,
+      "protectedFilesUnchanged": true,
+      "differences": [],
+      "proxyRestoredExactly": true,
+      "reverseRemovedAt": "2026-10-26T16:47:25.187214+00:00",
+      "managedCaRemovedAfterFingerprintCheckAt": "2026-10-26T16:47:26.023350+00:00",
+      "monitorStoppedAt": "2026-10-26T16:47:28.508702+00:00",
+      "ownedProcessesAbsent": true,
+      "trialNumber": 1
+    },
+    "canonicalEvidenceImages": [
+      {
+        "name": "01b-empty-keyboard-closed.png",
+        "sha256": "6238b1f0c6d1be6f4c6e9fbb9fa837580a026c2b12a58b83e09715e054d767a4",
+        "capturedAt": "2026-10-26T16:36:46.762998+00:00",
+        "caption": "Tela vazia canônica; largura das oito casas e botão inicial visíveis.",
+        "nativeOriginal": true,
+        "pixelsEdited": false,
+        "trialNumber": 1
+      },
+      {
+        "name": "04-error-keyboard-closed.png",
+        "sha256": "2bfd4f9b14c8f0618ea76fedcac8792d3984b5383aac628263f54a7559509302",
+        "capturedAt": "2026-10-26T16:45:34.882860+00:00",
+        "caption": "Recusa real MARCELL com teclado fechado; não comprova alcance integral com IME.",
+        "nativeOriginal": true,
+        "pixelsEdited": false,
+        "trialNumber": 1
+      },
+      {
+        "name": "02b-filled-after-natural-scroll.png",
+        "sha256": "0093b726f61175989e94d271686e21a2400ea11a2cce76d7b97cb8451e413ab1",
+        "capturedAt": "2026-10-26T16:38:54.947355+00:00",
+        "caption": "Conteúdo deslocado após rolagem com IME; limite da prova de alcance integral.",
+        "nativeOriginal": true,
+        "pixelsEdited": false,
+        "trialNumber": 1
+      },
+      {
+        "name": "03-error-keyboard-open.png",
+        "sha256": "a0d24feffa315a557a19b4335c9c919324c9d6c32c5726c9044f27c922df0a66",
+        "capturedAt": "2026-10-26T16:46:31.225616+00:00",
+        "caption": "Erro com IME; mensagem e botão fora do viewport inicial, sem novo gesto nessa condição.",
+        "nativeOriginal": true,
+        "pixelsEdited": false,
+        "trialNumber": 1
+      }
+    ],
+    "nativeTrialCount": 2,
+    "syntheticAttemptCountTotal": 1,
+    "firstTrialEvidenceRetained": true,
+    "replayTrial2": {
+      "sourceCommit": "832c440fe7f8227407699011b357474a98e9b717",
+      "scope": "Rodada adicional na mesma cópia descartável do APK 11 para tentar completar o gesto visual pendente.",
+      "buildRepeated": false,
+      "reinstalled": false,
+      "bootStartedAt": "2026-10-26T16:58:17.142+00:00",
+      "bootCompletedAt": "2026-10-26T17:01:32.263044+00:00",
+      "bootPassed": true,
+      "packageManagerVersionConfirmed": 11,
+      "integrityRecheck": {
+        "newInstalledHashProven": false,
+        "androidSha256sumTimeoutSeconds": 40,
+        "adbFullStreamTimeoutSeconds": 60,
+        "timeoutsRecordedAt": [
+          "2026-10-26T17:03:01.125590+00:00",
+          "2026-10-26T17:06:11.918795+00:00"
+        ],
+        "firstTrialInstalledHashEvidenceRetained": true,
+        "result": "timeouts_no_new_integrity_marker",
+        "causeOfSlowRead": "undetermined",
+        "thirdReadAttempted": false,
+        "guardRelaxed": false
+      },
+      "networkConfigured": false,
+      "uiInteractionPerformed": false,
+      "newScreenshotsCaptured": false,
+      "syntheticPairingAttempts": 0,
+      "attendanceSubmitted": false,
+      "visualGateResolved": false,
+      "firstTrialEvidenceInvalidated": false,
+      "result": "stopped_before_network_and_ui",
+      "cleanup": {
+        "sourceCommit": "832c440fe7f8227407699011b357474a98e9b717",
+        "finishedAt": "2026-10-26T17:08:27.645498+00:00",
+        "exitCode": 0,
+        "errors": [],
+        "cloneStopped": true,
+        "monitorStoppedAt": "2026-10-26T17:07:47.650958+00:00",
+        "ownedProcessesAbsent": true,
+        "relayNeverStarted": true,
+        "testNetworkNeverConfigured": true,
+        "protectedFilesChecked": 28,
+        "protectedFilesUnchanged": true,
+        "differences": [],
+        "noProxyCaOrReverseRestorationRequiredInThisTrial": true,
+        "priorTrialProxyCaReverseCleanupPreserved": true,
+        "retainedCopyOffline": true
+      },
+      "evidenceReport": {
+        "packageFilename": "replay2-sanitizado.json",
+        "sha256": "ce31945fe9489035c1124224576d40caaa9cc77d5616c852a60f20752a3df08d"
+      }
+    }
+  },
+  "publicationState": {
+    "pr121": {
+      "url": "https://github.com/hygorlp-dot/hygor/pull/121",
+      "state": "open",
+      "merged": false,
+      "mergeBlockedUntilVisualGateDemonstrated": true
+    },
+    "pr120": {
+      "url": "https://github.com/hygorlp-dot/hygor/pull/120",
+      "draft": true
+    },
+    "D6": "partially_validated",
+    "D7Released": false,
+    "source": "Coordenação da rodada; sem publicação ou merge executado por esta preparação."
+  },
+  "scorecardScope": {
+    "newScoreProduced": false,
+    "historicalAutomaticBaselineScore": 9.7,
+    "historicalScoreIsCurrentNativeEvaluation": false
   }
 }
