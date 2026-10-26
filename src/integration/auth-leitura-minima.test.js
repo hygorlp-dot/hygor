@@ -58,9 +58,10 @@ vi.mock("@supabase/supabase-js", () => ({ createClient: () => bancoFalso }));
 let handler;
 const chamar = async body => {
   let status = 200, corpo;
-  const res = { status(codigo) { status = codigo; return res; }, json(valor) { corpo = valor; return valor; } };
+  const cabecalhos = {};
+  const res = { headersSent: false, setHeader(k, v) { cabecalhos[k] = v; }, status(codigo) { status = codigo; return res; }, json(valor) { corpo = valor; return valor; } };
   await handler({ body, query: {}, headers: { "x-forwarded-for": "127.0.0.1" } }, res);
-  return { status, corpo };
+  return { status, corpo, cabecalhos };
 };
 
 describe("/api/data · autenticação lê só a linha core", () => {
@@ -78,6 +79,11 @@ describe("/api/data · autenticação lê só a linha core", () => {
     const resposta = await chamar({ action: "load", accessToken: "token-ruim" });
     expect(resposta.status).toBe(401);
     expect(estado.consultas).toEqual({ nucleo: 1, separadas: 0, pontoObra: 0 });
+  });
+
+  it("até a resposta 401 informa o tempo das fases já percorridas", async () => {
+    const resposta = await chamar({ action: "load", accessToken: "token-ruim" });
+    expect(resposta.cabecalhos["Server-Timing"]).toMatch(/^auth;dur=\d+\.\d, acao;dur=\d+\.\d, total;dur=\d+\.\d$/);
   });
 
   it("PIN de usuário inexistente responde 401 sem consultar as linhas auxiliares", async () => {

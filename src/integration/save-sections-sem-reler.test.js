@@ -83,9 +83,10 @@ vi.mock("postgres", () => ({
 let handler;
 const chamar = async body => {
   let status = 200, json;
-  const res = { status(c) { status = c; return res; }, json(v) { json = v; return v; } };
+  const cabecalhos = {};
+  const res = { headersSent: false, setHeader(k, v) { cabecalhos[k] = v; }, status(c) { status = c; return res; }, json(v) { json = v; return v; } };
   await handler({ body: { accessToken: "token", ...body }, query: {}, headers: { "x-forwarded-for": "127.0.0.1" } }, res);
-  return { status, body: json };
+  return { status, body: json, cabecalhos };
 };
 
 const orc = (id, nome = id) => ({ id, obraId: "obra-a", nome, versionStatus: "rascunho", itens: [] });
@@ -125,6 +126,13 @@ describe("/api/data save-sections · reaproveita as linhas já lidas dentro da t
     expect(buscasDeValor()).toEqual([]);
     expect(estado.sql.filter(s => s.includes("for update"))).toHaveLength(2); // core + orçamentos
     expect(idsDeOrcamentos()).toEqual(["orc-a", "orc-c"]);
+  });
+
+  it("devolve o tempo de cada fase do salvamento em Server-Timing", async () => {
+    const r = await salvar(orc("orc-c"));
+    const fases = r.cabecalhos["Server-Timing"].split(", ").map(p => p.split(";")[0]);
+    expect(fases).toEqual(["auth", "leitura", "conexao", "locks", "validacao", "gravacao", "commit", "acao", "total"]);
+    r.cabecalhos["Server-Timing"].split(", ").forEach(p => expect(p).toMatch(/^[a-z]+;dur=\d+\.\d$/));
   });
 
   it("trava a core antes da linha de orçamentos e seleciona só o carimbo", async () => {

@@ -4251,3 +4251,64 @@ sem validação de intervalo de data hoje) chega são no `prebuild`.
 Testes de referência: `server/core-registry-shadow.test.js` e
 `server/equipment-registry-shadow.test.js` (casos "não projeta
 .../endDate anterior ao startDate").
+
+## Desempenho do salvamento: da região à medição (26/10/2026)
+
+**Sintoma**: salvar alterações do orçamento demorava de forma perceptível.
+
+**O que foi medido** (e o que não foi). Em produção, a função `/api/data`
+roda em `iad1` (Virgínia: `x-vercel-id: gru1::iad1::...`), o banco
+("Ponto ArcD") está em `us-west-2` (Oregon) e o navegador entra por `gru1`.
+Uma chamada **sem sessão** (401) já levava 1,2 a 3,4 s, porque o handler lia o
+dataset inteiro antes de autenticar. O banco todo tem ~1 MB (core ~265 KB,
+orçamentos ~103 KB comprimidos): o problema não é volume, é a quantidade de
+idas e voltas sequenciais (~15 por salvamento) entre duas regiões. **Não
+medido**: CPU de merge/validação no servidor e custo no navegador
+(`update()` normaliza o dataset inteiro; `salvarOrc` reconcilia duas vezes).
+
+**O que mudou** (PRs #124-#127 e este):
+
+1. `vercel.json` → `"regions": ["pdx1"]` (#124): função ao lado do banco.
+2. `server/pg-conexao.js` (#125): o cliente Postgres é reaproveitado entre
+   chamadas da mesma instância. Antes de abrir a transação, um cliente ocioso
+   há mais de 3 s é validado com `select 1` (conexão morta nunca vira commit
+   ambíguo); erro de conexão descarta o cliente; `PG_REUSE_CONNECTION=0`
+   restaura o comportamento antigo sem novo deploy de código. As ações
+   administrativas raras (migração e carga em sombra) seguem com conexão
+   própria.
+3. `lerNucleo()` / `completarLinha()` (#126): a autenticação lê só a linha
+   core (os `usuarios` moram só nela); o resto do dataset só é lido depois
+   que a sessão é aceita. Trade-off: chamadas autenticadas ganham uma ida e
+   volta ao banco (≈65 ms entre iad1 e Oregon; ≈2 ms em pdx1).
+4. `server/row-version.js` (#127): `save-sections` trava as linhas pedindo só
+   `updated_at` e o carimbo em texto; se o carimbo é **exatamente** o lido
+   antes, reaproveita a fatia já decodificada (`linhasBrutas`). A comparação é
+   em microssegundos: o driver `postgres` devolve `Date` (milissegundos) e
+   duas gravações no mesmo milissegundo pareceriam a mesma versão. Validado
+   em PGlite: `updated_at::text` e o JSON do PostgREST comparam iguais,
+   inclusive com zeros finais cortados e fuso de sessão diferente.
+5. **Medição** (este PR): `server/server-timing.js` devolve o cabeçalho
+   `Server-Timing` com as fases (`auth`, `leitura`, `conexao`, `locks`,
+   `validacao`, `gravacao`, `commit`, `acao`, `total`);
+   `src/domains/sync/call-timing.js` guarda as últimas 200 chamadas no
+   navegador. **Como usar**: no console do navegador, `arcdTemposResumo()`
+   mostra p50/p95 por ação, a mediana de cada fase e o tempo dentro do
+   servidor (a diferença para o tempo do cliente é rede). Só carrega nomes de
+   ação, status e milissegundos.
+
+**Como aplicar**: toda otimização de salvamento daqui em diante deve ser
+confirmada com `arcdTemposResumo()` antes e depois, em produção; o plano
+Hobby guarda só 1 h de log, então o cabeçalho é a única medição disponível.
+Pendências conhecidas, em ordem: validar o token localmente (`getClaims`, o
+projeto assina com ES256) em vez de chamar o Supabase Auth em toda requisição;
+pausar o polling do chat de 8 s com a aba oculta; só depois mexer no cliente
+(`update()`) e no modelo (orçamentos por registro, versão por linha em vez do
+carimbo global da core).
+
+**Verificação**: testes novos `server/pg-conexao.test.js`,
+`server/row-version.test.js`, `server/server-timing.test.js`,
+`src/domains/sync/call-timing.test.js`,
+`src/integration/auth-leitura-minima.test.js` e
+`src/integration/save-sections-sem-reler.test.js` (este último falha se o
+reaproveitamento ignorar o carimbo). O teste com Postgres real
+`server/orcamentos-linha-propria.pg.test.js` só roda na CI.
