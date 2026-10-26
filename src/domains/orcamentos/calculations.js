@@ -100,7 +100,10 @@ export const projectBudgetABC = (budget, { group = true } = {}) => {
 export const getActiveBudgetBaseline=(data,obraId,purpose="controle")=>{
   const all=(data?.budgetBaselines||[]).filter(x=>x.obraId===obraId&&x.ativo!==false&&x.tipo===purpose);
   if(all.length!==1)return {budget:null,case:all.length?"baseline_ambigua":"baseline_ausente"};
-  const budget=(data?.orcamentos||[]).find(x=>x.id===all[0].budgetId||x.versionId===all[0].budgetVersionId);
+  // Só casa por versão quando a baseline tem budgetVersionId: com os dois lados
+  // indefinidos (dado não normalizado), `undefined === undefined` fazia
+  // qualquer baseline resolver para o primeiro orçamento da lista, de outra obra.
+  const budget=(data?.orcamentos||[]).find(x=>x.id===all[0].budgetId||(all[0].budgetVersionId&&x.versionId===all[0].budgetVersionId));
   return budget?{budget,baseline:all[0],case:null}:{budget:null,baseline:all[0],case:"versao_ausente"};
 };
 

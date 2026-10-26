@@ -40,6 +40,8 @@ import { canManagePurchases } from "../permissions";
 import { buildPurchaseWorkspace, matchesPurchaseSearch } from "../workspace";
 import { usePurchaseSave } from "../use-purchase-save";
 import { PurchaseNavigation, PurchaseWorkspace, PURCHASE_AREA_LABELS } from "./PurchaseWorkspace";
+import { PurchasesByWork, motivoSemControle } from "./PurchasesByWork";
+import { buildPurchasesByWork } from "../by-work";
 import { Button } from "../../../design-system/primitives/Button";
 import { Select } from "../../../design-system/primitives/Select";
 import { conferenciaPagamentoPedido } from "../payment-conference";
@@ -1894,6 +1896,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
   const hojeFluxo=today();
   const fluxoCompras=useMemo(()=>buildPurchaseWorkspace(data,obraIdsMapa,hojeFluxo),[data,obraIdsMapa,hojeFluxo]);
+  // Comparativo entre obras: só faz sentido (e só é calculado) no escopo "Todas as obras".
+  const porObra=useMemo(()=>todasObras?buildPurchasesByWork(data,obras,hojeFluxo):null,[todasObras,data,obras,hojeFluxo]);
   const abrirRegistroFluxo=row=>{
     if(row.type==="order"){
       if(row.stage==="recebimentos"){setRecModal(row.record);return;}
@@ -1919,6 +1923,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     setAba(id);setRegistroFoco("");
     window.requestAnimationFrame(()=>document.getElementById("compras-area-atual")?.focus({preventScroll:true}));
   };
+  // Abre a obra escolhida no comparativo: troca o escopo, zera os filtros da fila e vai para a área pedida.
+  const abrirObra=(obraId,area="fila")=>{setEscopoMapa("obra");setObraSel(obraId);setFiltrosFluxo({query:"",stage:"",risk:""});irParaArea(area);};
   const abrirModoAnalise=()=>setModoIA(true);
   const abrirNovaSolicitacao=()=>setSolModal({obraId:currentUser?.obraId||obraAtual,necessidade:"",prioridade:"normal",referenciaId:basesCompra[0]?.id||"",observacao:"",itens:[]});
   const abasSecundarias=comprasAbas.filter(([id])=>!["solicitacoes","cotacoes","pedidos","financeiro","historico_compras"].includes(id));
@@ -1956,7 +1962,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         {aba!=="fila"&&<Button variant="ghost" size="sm" onClick={()=>irParaArea("fila")}>Voltar à fila</Button>}
       </div>
       {["fila","aprovacoes","recebimentos"].includes(aba)&&<PurchaseWorkspace model={fluxoCompras} area={aba} scope={escopoFluxo}
-        filters={filtrosFluxo} onFiltersChange={setFiltrosFluxo} onOpen={abrirRegistroFluxo}/>}
+        filters={filtrosFluxo} onFiltersChange={setFiltrosFluxo} onOpen={abrirRegistroFluxo}
+        afterMetrics={porObra&&porObra.linhas.length>1?<PurchasesByWork model={porObra} onOpenWork={id=>abrirObra(id,"fila")}/>:null}/>}
 
       {aba==="kanban"&&<div className="purchase-kanban-view">
         <section className="purchase-kanban-head">
@@ -2466,14 +2473,14 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {/*  ORÇADO x COMPRADO  */}
       {aba === "orcado" && (
         todasObras ? (
-          <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20,lineHeight:1.6}}>
-            Orçado × comprado compara com o orçamento de uma obra específica.<br/>
-            Selecione uma obra no filtro acima para ver esta comparação.
-          </p>
+          porObra&&porObra.linhas.length
+            ? <PurchasesByWork model={porObra} titulo="Orçado × comprado por obra" onOpenWork={id=>abrirObra(id,"orcado")}
+                legenda="Compare as obras e abra uma para ver o detalhe por etapa do orçamento. Ordenado por risco."/>
+            : <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20,lineHeight:1.6}}>Nenhuma obra disponível para comparar.</p>
         ) : !orcVs.orc ? (
-          <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20,lineHeight:1.6}}>
-            Esta obra ainda não tem orçamento vinculado.<br/>
-            Crie um em <strong>Orçamento</strong> e amarre-o à obra.
+          <p role="status" style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20,lineHeight:1.6}}>
+            <strong style={{color:C.text}}>{motivoSemControle(orcVs).label}.</strong><br/>
+            {motivoSemControle(orcVs).dica}
           </p>
         ) : (<>
           <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>

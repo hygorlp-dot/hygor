@@ -1,0 +1,43 @@
+/* Comparativo "Compras por obra". Só tokens do design system (DESIGN.md), sem cores literais. */
+.purchase-by-work{border:1px solid var(--purchase-line);border-radius:var(--arcd-radius-lg);background:var(--purchase-paper);min-width:0;overflow:hidden}
+.purchase-by-work>header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:16px 18px 12px}
+.purchase-by-work h4{margin:0;font-size:var(--arcd-type-card-title);line-height:1.35;color:var(--purchase-ink)}
+.purchase-by-work header p{margin:4px 0 0;max-width:640px;color:var(--purchase-muted);font-size:var(--arcd-type-caption);line-height:1.5}
+.purchase-by-work__note{padding:4px 8px;border-radius:var(--arcd-radius-sm);background:var(--arcd-color-surface-muted);color:var(--arcd-color-text-muted);font-size:var(--arcd-type-caption);font-weight:600}
+
+.purchase-work-table{width:100%;border-collapse:collapse;text-align:left;font-size:var(--arcd-type-caption);color:var(--purchase-ink)}
+.purchase-work-table thead th{padding:10px 14px;background:var(--arcd-color-surface-muted);border-block:1px solid var(--purchase-line);color:var(--purchase-muted);font-size:var(--arcd-type-label);font-weight:600;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.purchase-work-table tbody td,.purchase-work-table tfoot td{padding:14px;vertical-align:top;border-bottom:1px solid var(--arcd-border-subtle);line-height:1.5}
+.purchase-work-name{min-width:190px}
+.purchase-work-table tbody .purchase-work-name b{display:block;font-weight:600}
+.purchase-work-table tbody tr:hover{background:var(--arcd-color-surface-subtle)}
+.purchase-work-table tfoot td{background:var(--arcd-color-surface-subtle);border-bottom:0;border-top:2px solid var(--purchase-line);font-weight:600}
+.purchase-work-table .purchase-num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.purchase-work-table .purchase-num>span:first-child{display:block}
+.purchase-work-table small{display:block;margin-top:4px;color:var(--purchase-muted);font-weight:400;white-space:normal}
+.purchase-work-table small[data-tone=danger]{color:var(--arcd-color-danger);font-weight:600}
+.purchase-work-table small[data-tone=warning]{color:var(--arcd-color-warning);font-weight:600}
+.purchase-work-action{width:112px;white-space:nowrap}
+.purchase-work-action .arcd-button{min-width:88px;white-space:nowrap}
+
+.purchase-chip{display:inline-block;margin-top:4px;margin-right:4px;padding:3px 6px;border-radius:var(--arcd-radius-sm);background:var(--arcd-color-surface-muted);color:var(--arcd-color-text-muted);font-size:var(--arcd-type-caption);font-weight:600;line-height:1.4}
+.purchase-chip[data-tone=danger]{background:var(--arcd-color-danger-subtle);color:var(--arcd-color-danger)}
+.purchase-chip[data-tone=warning]{background:var(--arcd-color-warning-subtle);color:var(--arcd-color-warning)}
+.purchase-chip[data-tone=success]{background:var(--arcd-color-success-subtle);color:var(--arcd-color-success)}
+
+.purchase-work-bar{display:block;width:100%;min-width:96px;height:6px;margin-top:8px;border-radius:var(--arcd-radius-sm);background:var(--arcd-border-default);overflow:hidden}
+.purchase-work-bar i{display:block;height:100%;border-radius:var(--arcd-radius-sm);background:var(--arcd-color-success)}
+.purchase-work-bar[data-tone=warning] i{background:var(--arcd-color-warning)}
+.purchase-work-bar[data-tone=danger] i{background:var(--arcd-color-danger)}
+
+@media(max-width:1100px){.purchase-work-table .purchase-chip{white-space:normal}}
+@media(max-width:700px){
+  .purchase-work-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .purchase-work-table,.purchase-work-table tbody,.purchase-work-table tfoot,.purchase-work-table tr,.purchase-work-table td{display:block;width:100%}
+  .purchase-work-table tr{padding:12px 14px;border-bottom:1px solid var(--purchase-line)}
+  .purchase-work-table tbody td,.purchase-work-table tfoot td{padding:6px 0;border:0;min-width:0;background:transparent}
+  .purchase-work-table td[data-label]{display:flex;justify-content:space-between;gap:12px;text-align:right}
+  .purchase-work-table td[data-label]::before{content:attr(data-label);flex:0 0 auto;color:var(--purchase-muted);font-weight:600;text-align:left}
+  .purchase-work-table td[data-label]>*{max-width:62%}
+  .purchase-work-action{width:100%}.purchase-work-action .arcd-button{width:100%;justify-content:center}
+}

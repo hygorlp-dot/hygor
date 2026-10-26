@@ -244,3 +244,40 @@ test("formulários no celular cabem na tela e protegem alterações ao sair",asy
   await dialog.screenshot({path:test.info().outputPath("cotacao-mobile.png")});
   expect(app.errors).toEqual([]);
 });
+
+test("comparativo por obra ordena por risco, abre a obra escolhida e explica a falta de baseline",async({page})=>{
+  const app=await enter(page);
+  const table=page.locator(".purchase-work-table");
+  await expect(table).toBeVisible();
+  await expect(table.locator("tbody tr")).toHaveCount(2);
+  await expect(table.locator("tfoot")).toContainText("Todas as obras (2)");
+  await expect(page.getByText("2 de 2 obra(s) sem orçamento de controle")).toBeVisible();
+
+  await page.getByRole("button",{name:"Abrir compras de Residencial Horizonte",exact:true}).click();
+  await expect(page.locator(".purchase-context-bar").getByLabel("Obra",{exact:true})).toHaveValue("b");
+  await expect(page.locator(".purchase-work-table")).toHaveCount(0);
+  await expect(page.locator(".purchase-queue-table tbody tr")).toHaveCount(1);
+  await expect(page.locator(".purchase-queue-table tbody tr").first()).toContainText("PC-003");
+
+  // Obra com orçamento em rascunho: o motivo real é "sem baseline aprovada", não "sem orçamento".
+  await selectWork(page);
+  const tools=page.locator("details.purchase-tools");
+  const openOrcado=async()=>{
+    await tools.locator("summary").click();
+    await tools.getByRole("button",{name:"Orçado x comprado",exact:true}).click();
+    // O menu fecha ao escolher e não cobre o conteúdo; o botão mostra onde você está.
+    await expect(tools.locator("summary")).toHaveText("Consultas e cadastros · Orçado x comprado");
+    await expect.poll(()=>tools.evaluate(element=>element.open)).toBe(false);
+  };
+  await openOrcado();
+  await expect(page.getByRole("status").filter({hasText:"Sem baseline aprovada."})).toBeVisible();
+
+  // Em "Todas as obras" o orçado × comprado vira o comparativo, não um beco sem saída.
+  await page.locator(".purchase-context-bar").getByLabel("Obra",{exact:true}).selectOption("all");
+  await openOrcado();
+  await expect(page.getByRole("heading",{name:"Orçado × comprado por obra"})).toBeVisible();
+  await page.getByRole("button",{name:"Abrir compras de Residencial Alameda",exact:true}).click();
+  await expect(page.locator(".purchase-context-bar").getByLabel("Obra",{exact:true})).toHaveValue("a");
+  await expect(page.getByRole("status").filter({hasText:"Sem baseline aprovada."})).toBeVisible();
+  expect(app.errors).toEqual([]);
+});

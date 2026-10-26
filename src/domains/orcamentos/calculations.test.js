@@ -6,6 +6,16 @@ describe("motor canônico de orçamento",()=>{
  test("projeção ABC respeita BDI específico e agrupamento",()=>{const input={bdi:10,itens:[{id:"1",codigo:"A",unidade:"UN",quantidade:1,precoUnit:100,bdi:20},{id:"2",codigo:"A",unidade:"UN",quantidade:1,precoUnit:100,bdi:0}]};const grouped=projectBudgetABC(input);expect(grouped.itens).toHaveLength(1);expect(grouped.totalCD).toBe(200);expect(grouped.totalComBDI).toBe(220);expect(grouped.itens[0].total).toBe(220);expect(projectBudgetABC(input,{group:false}).itens).toHaveLength(2);});
  test("projeção de exportação preserva os mesmos centavos e BDI do motor",()=>{const motor=calculateBudget(budget),exportacao=projectBudgetExport(budget);expect(exportacao.totalCentavos).toBe(motor.totalCentavos);expect(exportacao.rows.map(item=>item.totalCentavos)).toEqual(motor.items.map(item=>item.totalCentavos));expect(exportacao.rows.map(item=>item.bdi)).toEqual([20,10]);expect(exportacao.rows.map(item=>item.precoUnitario)).toEqual([120,110]);});
  test("não escolhe orçamento sem baseline explícita",()=>{expect(getActiveBudgetBaseline({orcamentos:[budget]},"obra").case).toBe("baseline_ausente");});
+ test("baseline sem budgetVersionId só casa por id e nunca cai no primeiro orçamento da lista",()=>{
+  const a={id:"a",obraId:"obra-a"},b={id:"b",obraId:"obra-b"};
+  const data={orcamentos:[a,b],budgetBaselines:[{obraId:"obra-b",tipo:"controle",ativo:true,budgetId:"b"},{obraId:"obra-c",tipo:"controle",ativo:true,budgetId:"nao-existe"}]};
+  expect(getActiveBudgetBaseline(data,"obra-b").budget.id).toBe("b");
+  expect(getActiveBudgetBaseline(data,"obra-c")).toMatchObject({budget:null,case:"versao_ausente"});
+ });
+ test("baseline com budgetVersionId continua casando pela versão",()=>{
+  const data={orcamentos:[{id:"x",versionId:"v-1",obraId:"o"}],budgetBaselines:[{obraId:"o",tipo:"controle",ativo:true,budgetId:"outro-id",budgetVersionId:"v-1"}]};
+  expect(getActiveBudgetBaseline(data,"o").budget.id).toBe("x");
+ });
  test("planejamento usa rascunho sem transformá-lo em baseline",()=>{const draft={...budget,obraId:"obra",versionStatus:"rascunho"};const data={orcamentos:[draft],budgetBaselines:[]};expect(getPlanningBudget(data,"obra").budget.id).toBe("o1");expect(getPlanningBudget(data,"obra").source).toBe("rascunho");expect(getActiveBudgetBaseline(data,"obra").budget).toBeNull();});
  test("vínculo operacional escolhe o rascunho mais recente da obra",()=>{const antigo={...budget,id:"o1",obraId:"obra",versionStatus:"rascunho",updatedAt:"2026-06-01"},novo={...budget,id:"o2",obraId:"obra",versionStatus:"rascunho",updatedAt:"2026-07-29"};const outraObra={...budget,id:"o3",obraId:"outra",updatedAt:"2026-07-30"};const contexto=getPlanningBudget({orcamentos:[antigo,outraObra,novo],budgetBaselines:[]},"obra");expect(contexto.budget.id).toBe("o2");expect(contexto.source).toBe("rascunho");expect(getActiveBudgetBaseline({orcamentos:[antigo,novo]},"obra").budget).toBeNull();});
  test("planejamento conserva a versão explicitamente vinculada",()=>{const antigo={...budget,id:"o1",obraId:"obra",updatedAt:"2026-01-01"},novo={...budget,id:"o2",obraId:"obra",updatedAt:"2026-07-01"};expect(getPlanningBudget({orcamentos:[antigo,novo]}, "obra", {budgetId:"o1"}).budget.id).toBe("o1");});
