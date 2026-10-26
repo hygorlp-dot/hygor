@@ -249,7 +249,8 @@ export function Campo({ rotulo, grande = false, mono = false, style, ...props })
 }
 
 // Código de 8 casas (pareamento). Um TextInput invisível sobre as casas
-// recebe o teclado; as casas só desenham. Casa ativa em ouro (foco).
+// recebe o teclado; as casas só desenham e encolhem juntas em telas estreitas.
+// O campo inteiro mantém o alvo de toque de 56. Casa ativa em ouro (foco).
 export function CampoCodigo({ casas, valor, aoMudar, rotulo, total = 8 }) {
   const entrada = useRef(null);
   const [foco, setFoco] = useState(false);
@@ -358,9 +359,9 @@ const estilos = StyleSheet.create({
   campoGrande: { minHeight: TOQUE.primario, textAlign: "center", letterSpacing: ESPACO.sm },
   campoFoco: { borderColor: COR.ouro, borderWidth: 2 },
   casas: { flexDirection: "row", justifyContent: "center", gap: ESPACO.lg },
-  casasGrupo: { flexDirection: "row", gap: ESPACO.xs },
+  casasGrupo: { flexDirection: "row", flexShrink: 1, gap: ESPACO.xs },
   casa: {
-    width: ESPACO.x3, height: TOQUE.secundario, borderRadius: RAIO.pequeno, backgroundColor: COR.superficie,
+    width: ESPACO.x3, flexShrink: 1, height: TOQUE.secundario, borderRadius: RAIO.pequeno, backgroundColor: COR.superficie,
     borderWidth: 1, borderColor: COR.borda, alignItems: "center", justifyContent: "center",
   },
   casaAtiva: { borderColor: COR.ouro, borderWidth: 2 },

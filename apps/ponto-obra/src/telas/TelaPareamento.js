@@ -3,7 +3,7 @@
 // Depois do OK do MARCELL, mostra "Aparelho vinculado" enquanto o App guarda a
 // sessão e baixa o cadastro (aoParear) - a ordem das operações não mudou.
 import { useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { classificarResposta, mensagemDeErro } from "../logica/falhas";
 import { casasDoCodigo } from "../logica/apresentacao";
 import { AMBIENTE, infoDoAparelho, infoDoApp, infoDoServidor } from "../servicos/conexao";
@@ -56,29 +56,34 @@ export default function TelaPareamento({ api, aoParear }) {
     </EstadoCentral>
   </Tela>;
 
-  // O Android já redimensiona a janela com adjustResize. A rolagem fica
-  // dentro da área segura; o conteúdo só centraliza quando cabe inteiro.
+  // No Android com barras translúcidas, adjustResize pode não reduzir a janela.
+  // Na raiz, o KAV mede também a posição abaixo do banner do App; dentro de
+  // Tela, a origem do pai e seu padding confundiriam a coordenada do teclado.
+  // A área segura fica dentro da altura ajustada, e o conteúdo excedente rola.
   return (
-    <Tela>
-      <ScrollView style={estilos.rolagem} contentContainerStyle={estilos.conteudo}
-        keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-        <View style={estilos.cabeca}>
-          <Texto variante="secao" cor={COR.ouro}>PONTO DE OBRA</Texto>
-          <Titulo>Vincular aparelho</Titulo>
-          <Corpo secundario>Digite o código exibido no MARCELL.</Corpo>
-          {AMBIENTE === "homologacao" && <Legenda>{infoDoServidor().nomeAmbiente}</Legenda>}
-        </View>
-        <CampoCodigo casas={casasDoCodigo(codigo)} valor={codigo} rotulo="Código de pareamento, 8 números"
-          aoMudar={v => { setCodigo(v.replace(/\D/g, "").slice(0, 8)); if (erro) setErro(""); }} />
-        <Legenda>No MARCELL: Recursos humanos → Ponto eletrônico (app) → Parear aparelho.</Legenda>
-        {!!erro && <Mensagem tom="erro" titulo="Não foi possível vincular">{erro}</Mensagem>}
-        <Botao titulo="Vincular aparelho" onPress={parear} carregando={enviando} desabilitado={codigo.length !== 8} />
-      </ScrollView>
-    </Tela>
+    <KeyboardAvoidingView style={estilos.areaTeclado} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <Tela>
+        <ScrollView style={estilos.rolagem} contentContainerStyle={estilos.conteudo}
+          keyboardShouldPersistTaps="handled" keyboardDismissMode="none">
+          <View style={estilos.cabeca}>
+            <Texto variante="secao" cor={COR.ouro}>PONTO DE OBRA</Texto>
+            <Titulo>Vincular aparelho</Titulo>
+            <Corpo secundario>Digite o código exibido no MARCELL.</Corpo>
+            {AMBIENTE === "homologacao" && <Legenda>{infoDoServidor().nomeAmbiente}</Legenda>}
+          </View>
+          <CampoCodigo casas={casasDoCodigo(codigo)} valor={codigo} rotulo="Código de pareamento, 8 números"
+            aoMudar={v => { setCodigo(v.replace(/\D/g, "").slice(0, 8)); if (erro) setErro(""); }} />
+          <Legenda>No MARCELL: Recursos humanos → Ponto eletrônico (app) → Parear aparelho.</Legenda>
+          {!!erro && <Mensagem tom="erro" titulo="Não foi possível vincular">{erro}</Mensagem>}
+          <Botao titulo="Vincular aparelho" onPress={parear} carregando={enviando} desabilitado={codigo.length !== 8} />
+        </ScrollView>
+      </Tela>
+    </KeyboardAvoidingView>
   );
 }
 
 const estilos = StyleSheet.create({
+  areaTeclado: { flex: 1 },
   rolagem: { flex: 1 },
   conteudo: { flexGrow: 1, justifyContent: "center", gap: ESPACO.lg },
   cabeca: { gap: ESPACO.sm },

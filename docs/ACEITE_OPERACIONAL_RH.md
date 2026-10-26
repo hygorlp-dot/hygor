@@ -1,8 +1,44 @@
 # Aceite operacional de RH, ponto e pagamentos
 
-Atualizado em 25/10/2026. Este documento responde às perguntas finais de Hygor e inclui a ficha individual do operário. O resultado de cada execução e de cada publicação fica em `RH-PONTO-STATUS.md`; capacidade implementada não equivale a teste físico concluído.
+Este documento reúne o aceite de RH, ponto e pagamentos e os limites de cada
+prova. O histórico de 25/10/2026 permanece identificado nas seções seguintes.
+O resultado de cada execução, publicação e continuidade do D6 fica em
+`RH-PONTO-STATUS.md`; capacidade implementada, ensaio local e operação real
+são evidências distintas.
 
-O candidato está no [PR #120](https://github.com/hygorlp-dot/hygor/pull/120), com frontend completo publicado em homologação e consulta real aprovada em computador e tela de celular. Os resultados e seus limites estão na [evidência consolidada da entrega](evidencias/homologacao-2026-10-25.json).
+O candidato da PR #120 teve frontend publicado em homologação e consulta real
+aprovada em computador e tela de celular, conforme a [evidência histórica da
+entrega](evidencias/homologacao-2026-10-25.json). A rodada D6 corrige mensagens
+do servidor e layout do pareamento. **D6 permanece parcialmente validado;
+D7 continua condicionado.** Os gates locais terminaram com **3.155 testes
+aprovados, 13 ignorados e nenhuma falha**, em 427 arquivos aprovados e dois
+ignorados. Lint, arquitetura, TypeScript, build web e diff-check passaram;
+as 1.420 fontes conferidas permaneceram estáveis durante a validação.
+
+O commit `64c8b7b52b256e0d83847bbdf84cbe6dc9f13936` foi publicado na
+[PR #121](https://github.com/hygorlp-dot/hygor/pull/121). O Edge de homologação
+está na versão 9, ACTIVE, com os 12 arquivos remotos iguais byte a byte ao
+payload revisado e autenticação preservada. O frontend está READY no deploy
+`dpl_CF9poo7VUKPVManpcHJDK1nhxBtF`, no mesmo commit, acessível em
+https://ponto-homologacao.vercel.app. Não houve promoção para produção.
+O build do APK 10 foi concluído na segunda tentativa, para ensaio x86_64 e
+instalação nova com outro certificado; o artefato não foi distribuído.
+A instalação nova do app foi comprovada sobre uma cópia descartável do SO do
+clone 9, após remover o APK 9 somente dessa cópia. A recusa real MARCELL foi
+observada; **o layout com teclado foi reprovado**. O patch do APK 11 foi aplicado ao código; gates, build e ensaio nativo permanecem pendentes.
+
+O CI remoto deste commit não foi repetido (`[skip ci]`) em respeito à restrição
+de custo, sem cota de artefatos confirmada. A aprovação registrada é a dos
+gates locais de `64c8b7b`; eles não aprovam o patch do APK 11. Não há novo
+resultado de scorecard mobile nesta rodada.
+
+A [evidência D6 de 26/10/2026](evidencias/d6-fechamento-2026-10-26.json) reúne os
+resultados atuais. O APK e o frontend usam as fontes de `64c8b7b`; esta
+atualização documental não representa recompilação. A consulta pública da
+API retornou HTTP 200 e houve smoke do login em desktop 1363 × 936, sem sessão
+autenticada ou envio de formulário. O viewport mobile web não foi executado
+nesta rodada. As consultas autenticadas em duas telas descritas abaixo são
+as do ensaio histórico de 25/10.
 
 ## Fluxo de trabalho
 
@@ -52,15 +88,17 @@ Os 16 documentos sintéticos foram enviados ao prontuário remoto, oito por func
 | --- | --- |
 | O RH consegue organizar os pagamentos de CLT e de quem recebe por diária? | Sim, com escolha por funcionário e coexistência na mesma quinzena, preservando o caminho diário existente. O fluxo cobre cadastro, ponto, preparação, aprovação, título, pagamento parcial, saldo e histórico. CLT por diária explícito exige apuração identificada. A liberação para operação real depende dos dados e regras reais da empresa e dos critérios finais ainda pendentes. |
 | É possível deixar o valor provisionado? | Há cálculo e registro de reserva gerencial, com pendência quando falta apuração. Para CLT por diária, base, incidências, responsável e memória precisam ser informados. Isso não separa dinheiro em conta bancária nem cria automaticamente uma provisão contábil. |
-| Os pagamentos quinzenais ficam registrados? | Novos adiantamentos geram obrigação; a baixa efetiva altera o caixa e libera a compensação conforme as datas. O ensaio remoto aprovou R$ 1.920,00 de adiantamentos fictícios, com baixas parciais, saldo final zero e reenvio sem duplicação. Os registros antigos mantêm o tratamento legado. |
-| Web e APK usam o mesmo fluxo? | O navegador real passou na consulta de cadastro, documentos e pagamentos nas duas telas. O APK 7 foi compilado, assinado, conferido e disponibilizado, apontando para a API isolada usada pela gestão; os contratos de identificação, vigência, sincronização e idempotência foram testados. O emulador falhou antes de instalar o app. Instalação, pareamento, fila no aparelho, atualização, câmera, GPS e biometria continuam pendentes no Android estável. |
-| A DRE registra automaticamente? | O ponto alimenta o custeio operacional da obra. A API real de homologação confirmou R$ 270,00 de custo antes e depois de R$ 1.920,00 de saídas de caixa simuladas, sem duplicar o custo. Isso não representa automaticamente todos os encargos patronais, provisões contábeis e ajustes da folha oficial. |
+| Os pagamentos quinzenais ficam registrados? | Novos adiantamentos geram obrigação; a baixa efetiva altera o caixa e libera a compensação conforme as datas. O ensaio remoto de 25/10/2026 aprovou R$ 1.920,00 de adiantamentos fictícios, com baixas parciais, saldo final zero e reenvio sem duplicação. Os registros antigos mantêm o tratamento legado. |
+| Web e APK usam o mesmo fluxo? | O web autenticado em duas telas pertence ao ensaio histórico de 25/10. Nesta rodada houve smoke público desktop e consulta de ambiente HTTP 200. O APK 10 foi instalado como app novo no SO clonado, sem reaproveitar a sessão do APK 9, e recebeu a recusa real MARCELL para um código sintético. Permaneceu não pareado. O layout com teclado foi reprovado. Esse resultado não prova percurso autenticado, captura/fila, ponte RH, upgrade ou Android virgem. APK 11 com correção em código e ensaio pendente. |
+| A DRE registra automaticamente? | O ponto alimenta o custeio operacional da obra. No ensaio de 25/10/2026, a API real de homologação confirmou R$ 270,00 de custo antes e depois de R$ 1.920,00 de saídas de caixa simuladas, sem duplicar o custo. Isso não representa automaticamente todos os encargos patronais, provisões contábeis e ajustes da folha oficial. |
 | Toda a documentação pessoal pode ser registrada? | O prontuário oferece as categorias operacionais listadas acima, anexos privados e histórico. A completude real depende de o RH enviar e conferir os documentos aplicáveis a cada pessoa, função e contrato. |
 | As pendências aparecem? | A ficha e o prontuário mostram cadastro incompleto, documentos a conferir, vencimento, emissão futura, ASO sem validade, avisos abertos e obrigações pendentes. Falha de consulta é apresentada como falha, sem transformar erro em prontuário vazio. |
 | A construtora está organizada? | O fluxo de RH/ponto/financeiro foi organizado e tem ensaios reproduzíveis. Isso não comprova, por si, cadastro real completo, quitação bancária, cumprimento de obrigações ou organização de todos os outros setores. |
 | Todo o código é útil? | Não há evidência para declarar 100%. A análise estática encontrou candidatos de limpeza e falsos positivos; a avaliação e os limites estão abaixo. |
 
-## DRE, caixa e provisões: o que foi comprovado
+## DRE, caixa e provisões: prova histórica de 25/10/2026
+
+Não houve nova consulta financeira para reconfirmar estes saldos ou o estado da competência na rodada D6 de 26/10. Nenhum fechamento remoto foi executado nesta rodada.
 
 O ensaio remoto concluído em 25/10/2026 persistiu adiantamentos fictícios de R$ 1.320,00 para Fulano e R$ 600,00 para Siclano. Cada título teve uma baixa parcial e outra pelo restante. Os reenvios não duplicaram os quatro movimentos, e o saldo desses títulos ficou zerado. A emissão/pagamento foi registrada em 20/10; outubro permaneceu aberto e o relógio não foi alterado.
 
@@ -74,7 +112,7 @@ O ensaio remoto concluído em 25/10/2026 persistiu adiantamentos fictícios de R
 
 As consultas reais de DRE da obra e da empresa retornaram esses valores, pela fonte `canonical_ledger`, sem questões reportadas. A evidência está em `.tools/homologacao-adiantamentos-report.json` e `.tools/homologacao-dre-report.json`; o segundo relatório informa `engineEnforced: false`. O aceite cobre os valores e a separação entre custo e caixa nessas consultas, sem declarar um motor fiscal obrigatório ou provisões contábeis completas. Nenhuma transferência bancária real foi feita.
 
-## Consulta real pela gestão publicada
+## Histórico — consulta real pela gestão publicada em 25/10/2026
 
 O ensaio remoto de leitura passou em **74,359 segundos**, entre **21:38:38 e 21:39:52 UTC de 25/10/2026**, no frontend do commit `012604ac698a8fcd14c2c0f65f5b2e9128661ea5`. Foram conferidos computador, 1440 × 1000, e tela de celular, 390 × 844, com login real e respostas reais da API.
 
@@ -96,9 +134,82 @@ Foi executada a ferramenta Knip com a configuração já existente no repositór
 
 O gerador de publicação passou a usar o manifesto do build atual. No checkpoint medido, isso retirou **54 arquivos compilados antigos** do pacote enviado, reduzindo-o de 169 para 115 arquivos e de 13.975.768 para 9.898.323 bytes. É limpeza do artefato de publicação; não significa exclusão de 54 arquivos-fonte úteis.
 
+## Situação do aceite D6
+
+| Critério | Evidência disponível neste checkpoint | Limite / próximo resultado necessário |
+| --- | --- | --- |
+| Mensagens MARCELL no servidor | Sete textos corrigidos, 33 testes focais aprovados e Edge v9 conferido. No APK 10, um envio sintético recebeu “Código inválido ou já usado. Gere outro no MARCELL.”. | A resposta negativa não comprova pareamento válido ou operação autenticada. |
+| Layout de pareamento | UI do APK 10 reprovada: teclado cobre o botão; swipe não revela a ação; linha de oito células cortada nas extremidades. Erro sem teclado legível, com botão fora da área inicial; alcance por rolagem complementar não estabelecido. | Patch para APK 11 aplicado ao código; gates previstos, build e aceite nativo ainda pendentes. |
+| Controles gerais do código | Gates locais concluídos: 3.155 testes aprovados, 13 ignorados, nenhuma falha; 427 arquivos aprovados e dois ignorados. Lint, arquitetura, TypeScript, build web e diff-check com código zero; 1.420 fontes estáveis. | CI remoto do commit não repetido; gates técnicos não atestam execução autenticada ou operação real. |
+| Publicação de homologação | PR #121, commit 64c8b7b; Edge v9 ACTIVE; Vercel dpl_CF9poo7VUKPVManpcHJDK1nhxBtF READY. Sonda pública HTTP 200/TLS padrão e recusa MARCELL observada no APK 10. | Sem promoção para produção. HTTP da chamada negativa do app não foi observado. Publicação e gates de 64c8b7b não aprovam o patch do APK 11. |
+| Histórico de execução do APK 9 | Atualização 8→9, instalação preservada, abertura e recusa pública de código inexistente. | Não houve pareamento válido nem captura de ponto; fila pendente não foi comprovada por esse ensaio. |
+| APK 10 | Build 2 aprovado e conferido; 61.200.534 bytes, x86_64, fonte 64c8b7b. Instalado às 15:25:27 UTC como app novo sobre cópia do SO do clone 9; ausência prévia do pacote comprovada, instalação sem -r, nova assinatura. Não distribuído. | Não é upgrade 9→10 nem Android virgem. Resposta negativa comprovada, UI com teclado reprovada; sem prova de fila, captura ou uso autenticado. |
+| Linhagem de assinatura Android | Chave original da instalação antiga não recuperada após busca legítima. | Preservar APKs 8/9 e seus dados. A nova chave não permite atestar upgrade ou migração de pareamento/fila dessa linhagem. |
+| Acesso operacional autenticado | access.json antigo não recuperado após busca legítima; o percurso autenticado está pendente por falta de acesso legítimo de operador para gerar o pareamento e realizar a conferência RH. | PIN autorizado nos fluxos pertinentes, como cadastro biométrico, sem exigência a cada marcação; contrato exigirVerificacao: false preservado. Nesta rodada não houve redefinição de credenciais, remoção de validação de autenticação ou edição direta dos dados de pareamento. |
+| Vinte capturas nativas | Roteiro preparado para persistência e reenvio, separado da jornada de folha. | Executar após pareamento autorizado, preservando relógio e IDs reais. |
+| Ponte nativa para conferência RH | Fluxo existente de apropriação e attendance-import-mobile identificado. | Executar com duas ou quatro batidas por pessoa/dia, sem ponto conflitante e com origem confiável. |
+| Fechamento mensal | Ciclo local controlado existente; adiantamentos sintéticos documentados no ensaio histórico. Nenhum fechamento remoto executado nesta rodada. | Saldos e estado da competência não foram reconfirmados por nova consulta financeira neste relatório. Reconferir os registros antes de continuar, sem antecipar fechamento nem duplicar adiantamentos/baixas. |
+| Uso da equipe e expansão | Roteiro operacional e responsáveis previstos no roadmap. A disponibilidade de Android físico não foi confirmada nesta sessão. | Confirmar o aparelho, executar testes físicos e acompanhar duas quinzenas e um fechamento mensal reais. |
+
+A chave original não foi recuperada. O APK 10 foi instalado como app novo,
+com outro certificado, em uma cópia descartável do SO do clone 9 offline.
+O APK 9 foi removido somente dessa cópia, sem preservar seus dados de app;
+a ausência do pacote foi conferida antes da instalação sem `-r`. O ensaio
+não comprova upgrade, migração de fila/sessão ou Android virgem. O histórico
+8→9 mantém seu escopo próprio.
+
+A tentativa anterior em AVD virgem terminou sem sistema utilizável; sua
+limpeza às 15:06:55 UTC registrou zero erros e 28 hashes originais iguais.
+A limpeza do clone usado no APK 10 terminou às 15:42:23 UTC, sem erros,
+com proxy restaurado exatamente, reverse/CA removidos, AVD/relay parados
+e 28 hashes protegidos iguais. Cópia e assinatura do ensaio foram preservadas
+offline. O ANR inicial observado era do System UI; “Aguardar” foi acionado
+uma vez. Essa ocorrência não é avaliação de desempenho do app.
+
+Um código sintético `00000000` foi enviado uma vez às 15:33:25 UTC e recebeu
+a recusa MARCELL, sem pareamento. As consultas SQL de 15:30:15 e 15:35:06 UTC
+confirmaram um dispositivo, um pareamento usado e código ausente antes/depois.
+Não houve captura de ponto. O botão `[30,600][450,699]` ficou sob o teclado
+iniciado em y=473; o swipe não o revelou. A correção para o APK 11 foi aplicada
+ao código; seus gates previstos, build e ensaio nativo permanecem pendentes.
+
+O acesso legítimo de operador é necessário para gerar o pareamento e realizar
+a conferência RH. O PIN autorizado é exigido nos fluxos pertinentes, como o
+cadastro biométrico, e não em cada marcação. O contrato
+`exigirVerificacao: false` foi preservado. O percurso autenticado permanece
+pendente por falta de acesso legítimo. Nesta rodada, nenhuma credencial foi
+redefinida, nenhuma validação de autenticação foi removida e nenhum dado de
+pareamento foi editado diretamente. Os testes públicos de UI/erro e as
+validações técnicas não comprovam esse percurso autenticado.
+
+O roteiro do lote de 20 batidas busca verificar captura, persistência e reenvio. Ele não constitui
+jornada automaticamente importável. A ponte para RH exige duas ou quatro
+batidas completas por pessoa/dia e lê todas as capturas daquele dia. Usar
+participantes separados quando necessário, sempre sintéticos e cadastrados
+pelos comandos oficiais. Não falsificar relógio nem excluir eventos para
+aparentar uma jornada válida. Nenhum desses novos cadastros ou ensaios foi
+declarado realizado neste checkpoint.
+
+A classificação de presença, extras e atraso continua sendo conferência
+explícita. Capturas feitas em um ensaio curto não comprovam jornada integral.
+Origem não confiável, batida sem par, dia em várias obras ou período protegido
+devem permanecer como pendência identificada. A prova nativa e o ciclo mensal
+local controlado têm escopos de evidência distintos.
+
+No ensaio histórico, outubro estava aberto e os adiantamentos sintéticos de
+R$ 1.320,00 e R$ 600,00 estavam registrados. Esses valores e o estado da
+competência não foram reconfirmados por nova consulta financeira nesta rodada.
+Nenhum fechamento remoto foi executado. Uma continuidade autorizada deverá
+reconferir e reaproveitar os registros pelos mesmos IDs, sem criar novo
+pagamento para repetir a evidência. A apuração mensal completa pode ser
+reproduzida localmente com relógio controlado e fontes identificadas; não será
+apresentada como fechamento remoto ou como histórico de operação real.
+
 ## Evidências e próximos critérios
 
 As provas têm escopos diferentes e devem continuar identificadas:
+
+- [D6 — fechamento técnico e limites](evidencias/d6-fechamento-2026-10-26.json): gates locais, PR121, implantações, verificações públicas e build do APK 10; instalação nova do app e recusa real MARCELL comprovadas, UI com teclado reprovada e APK 11 com correção em código e ensaio pendente.
 
 - `SIMULACAO_COMPLETA_FULANO_SICLANO.md`: ciclo local completo com API real e Postgres local, marcações, folha, pagamentos, DRE e auditoria; relógio e captura física controlados no teste.
 - `FICHA_DO_OPERARIO.md`: sete seções, privacidade, avisos auditados, consulta ao ponto arquivado e provas locais de API e navegador.
@@ -111,6 +222,6 @@ As provas têm escopos diferentes e devem continuar identificadas:
 
 Na rodada final, encerrada às 21:15:55 UTC de 25/10/2026, foram **3.113 testes aprovados, nenhuma falha e 13 ignorados, de 3.126 testes; 423 arquivos aprovados e dois ignorados, em 433,47 segundos**, com `success: true` e saída zero em `.tools/validation-delivery/tests-exit.json` e `tests.json`. Os lotes de NTP e das rotas auxiliares tiveram 58 e 32 testes aprovados, respectivamente; seus resultados estão descritos em `HOMOLOGACAO-VERCEL-SUPABASE.md`. Os registros `lint.log`, `architecture.log` e `typecheck.log` confirmam os demais gates. **O build Vite final passou em 3,00 segundos**, com saída zero em `build-exit.json`. Os 16 documentos remotos e a consulta real da gestão também têm os relatórios de aprovação descritos acima.
 
-As fontes do APK 7 foram reconferidas: 63 arquivos, sem alterações, com hash de fontes `316884caba0bca7dc1676f0ce3322e0e40fcbdd41aad1d17fcc3a072781b1dc7`. A publicação final do frontend e o ensaio do navegador remoto estão aprovados. **Permanece pendente o teste físico do APK**; build, assinatura e navegação web não comprovam instalação, pareamento ou captura no aparelho.
+As verificações do APK 7, a publicação anterior do frontend e o ensaio autenticado de navegador acima pertencem ao checkpoint histórico de 25/10. O ensaio posterior do APK 9 comprovou atualização 8→9 e abertura, com limites próprios. Para o candidato D6 atual, os gates locais e as implantações de homologação estão identificados no commit 64c8b7b. O APK 10 foi instalado como app novo x86_64 sobre cópia do SO do clone 9, com assinatura diferente, e não foi distribuído. A recusa MARCELL foi observada, mas a UI com teclado foi reprovada. Não há prova de upgrade da linhagem anterior, Android virgem ou conclusão de pareamento válido/captura. O patch do APK 11 foi aplicado ao código; gates, build e ensaio nativo permanecem pendentes. O CI remoto deste commit não foi repetido.
 
-A validação para a obra precisa usar o Android da equipe e dados reais conferidos pelo responsável. A simulação não deve ser migrada para o cadastro operacional. A declaração formal do registrador de ponto permanece a que está no código; não é alterada por este relatório.
+**D6 não está integralmente fechado neste checkpoint.** O percurso autenticado completo, a conferência RH e o ensaio em Android físico com dados reais conferidos pelo responsável continuam necessários. A disponibilidade do aparelho precisa ser confirmada. D7 permanece condicionado. A simulação permanece no ambiente isolado. Operação ampliada depende de duas quinzenas consecutivas e um fechamento mensal reais acompanhados; testes automatizados e emulador não atestam esse histórico. A situação formal do registrador permanece a declarada no código e no checklist do projeto.

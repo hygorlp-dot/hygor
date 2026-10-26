@@ -1,0 +1,392 @@
+{
+  "schemaVersion": 1,
+  "scope": "Homologação isolada MARCELL Ponto/RH — rodada D6 de 26/10/2026",
+  "sourceCommit": "64c8b7b52b256e0d83847bbdf84cbe6dc9f13936",
+  "sourceTree": "23c0f412b01f02fcb58be1add5d32c6fc27f478a",
+  "pullRequest": "https://github.com/hygorlp-dot/hygor/pull/121",
+  "localGatesSummary": {
+    "passed": true,
+    "passedTests": 3155,
+    "skippedTests": 13,
+    "failedTests": 0,
+    "passedFiles": 427,
+    "skippedFiles": 2,
+    "sourceFiles": 1420,
+    "sourceStable": true,
+    "sourceChanges": [],
+    "finishedAt": "2026-10-26T14:09:11.405835Z",
+    "lint": 0,
+    "architecture": 0,
+    "typecheck": 0,
+    "viteBuild": 0,
+    "diffCheck": 0,
+    "remoteCiRerun": false
+  },
+  "edge": {
+    "name": "ponto-api-homologacao",
+    "version": 9,
+    "status": "ACTIVE",
+    "deploymentSha256": "909ddb7f4807e541bee318b7b1197cee2c79ab3e972256cf31fe098c31d545e4",
+    "authentication": "Preservada pelo handler existente",
+    "previousVersion": 8,
+    "remoteFilesCompared": 12,
+    "remoteFilesEqualToPayload": true
+  },
+  "web": {
+    "projectName": "ponto-homologacao",
+    "deploymentId": "dpl_CF9poo7VUKPVManpcHJDK1nhxBtF",
+    "state": "READY",
+    "url": "https://ponto-homologacao.vercel.app",
+    "sourceCommit": "64c8b7b52b256e0d83847bbdf84cbe6dc9f13936",
+    "readyAt": "2026-10-26T14:24:01.456Z"
+  },
+  "publicApi": {
+    "observedAt": "2026-10-26T14:27:48.282031Z",
+    "url": "https://ponto-homologacao.vercel.app/api/data",
+    "action": "ponto-ambiente",
+    "status": 200,
+    "environment": "homologacao",
+    "ok": true,
+    "tlsVerificationDisabled": false
+  },
+  "publicWeb": {
+    "observedAt": "2026-10-26T14:32:11.464635Z",
+    "scope": "Tela pública de login, desktop 1363x936",
+    "brandRendered": true,
+    "fieldsEmpty": true,
+    "authenticatedSessionObserved": false,
+    "formSubmitted": false,
+    "applicationConsoleErrorsObserved": 0,
+    "extensionMessages": 2,
+    "fullHttpCollectionAvailable": false,
+    "tabClosed": true,
+    "mobileViewportExecuted": false,
+    "mobileLimit": "A API do navegador remoto não oferece resize ou emulação documentada.",
+    "localChromiumAttempt": "Interrompida por ERR_CERT_AUTHORITY_INVALID antes de HTTP; processo encerrado, sem bypass TLS.",
+    "imageReview": "Imagem pública inspecionada pela coordenação; sem dados pessoais. Não incluída neste staging."
+  },
+  "baselineBeforeNativeNegative": {
+    "observedAt": "2026-10-26T14:24:16.536551Z",
+    "environment": "homologacao",
+    "syntheticCodeExists": false,
+    "devices": 1,
+    "usedPairings": 1
+  },
+  "authenticationScope": {
+    "legitimateOperatorAccessRequired": true,
+    "operatorAccessPurpose": [
+      "Gerar o pareamento",
+      "Realizar a conferência RH"
+    ],
+    "pinAuthorizationScope": {
+      "appliesTo": "Fluxos pertinentes que exigem PIN autorizado, como cadastro biométrico.",
+      "requiredForEachPunch": false
+    },
+    "captureContract": {
+      "exigirVerificacao": false,
+      "changedThisRound": false
+    },
+    "credentialsResetThisRound": false,
+    "authenticationValidationRemovedThisRound": false,
+    "pairingDataDirectlyEditedThisRound": false,
+    "authenticatedNativeFlowProven": false,
+    "pendingReason": "Falta de acesso legítimo de operador."
+  },
+  "financeScope": {
+    "newFinancialStateClaimed": false,
+    "remoteClosingExecutedThisRound": false,
+    "historicalEvidenceOnly": "Adiantamentos, saldos e situação de competência pertencem ao ensaio histórico; não são apresentados como valores ou estado remoto atuais.",
+    "newNativeAttendanceImported": false
+  },
+  "roadmap": {
+    "D6": "partially_validated",
+    "D7": "conditional_on_authenticated_native_flow_RH_review_and_operational_acceptance",
+    "physicalDeviceAvailabilityConfirmed": false,
+    "twoRealFortnightsAndOneRealMonthProven": false
+  },
+  "limits": {
+    "productionPromoted": false,
+    "newPaidService": false,
+    "authenticatedNativeFlowProven": false,
+    "physicalDeviceProven": false,
+    "oldSigningLineageRecovered": false,
+    "remoteCiRerun": false,
+    "newMobileScorecardResult": false,
+    "fullHttpCollectionAvailable": false,
+    "mobileWebViewportExecuted": false
+  },
+  "evidenceInputs": [
+    {
+      "name": "implantacoes-verificadas.json",
+      "sha256": "7b9d5c495e631dc98e6e12c0da0795b1e346758180d094ff224c68c00f584aff"
+    },
+    {
+      "name": "gates/result.json",
+      "sha256": "44a6edf626536924cfdacbf0fb7b402b3a1ebfc843197c8f80e4725123e21366"
+    },
+    {
+      "name": "gates/tests.json",
+      "sha256": "cc9ab4ffd644bcf19f5f9827ea460cb679a8a7e71c64337a8cfafaba7a6f9ce6"
+    },
+    {
+      "name": "build10-final-verification.json",
+      "sha256": "a9f71c6fc1fe619a53230906679f44ca70c495c7832af6e35adcf4a5591c4bd1"
+    },
+    {
+      "name": "virgin-avd-result.json",
+      "sha256": "7d29f037349575e8aa11d48d5519b6ad82bacd32ca5463e50d1fcae25d4041cb"
+    },
+    {
+      "name": "copied-apk9-removal.json",
+      "sha256": "b6f406102f21a07273f0646b3f774d5ad19f46591725a7b8a0bba59b5f4bed02"
+    },
+    {
+      "name": "fresh-install10-copy.json",
+      "sha256": "447691404ee4347d15c62c97da3e437914d57dd4f29d44be240e5b9e1719cb73"
+    },
+    {
+      "name": "ui10-copy/negative-pairing-attempt.json",
+      "sha256": "3ba1afec8a473e1cb9082ececb6a94c3f9584783685437c44f7ecf08c228013b"
+    },
+    {
+      "name": "network-copy/probe-result.json",
+      "sha256": "fd77149651bdcdb05bd434cc84305f5c851a38cf65a5143528b9e0181e8f1fa9"
+    },
+    {
+      "name": "ui10-copy/02b-filled-after-natural-scroll.json",
+      "sha256": "c08dffee21a3958cff1c8b57be3832fb4d7c1cddb7ea96ad5f0008140662fef4"
+    },
+    {
+      "name": "ui10-copy/04-error-keyboard-closed.json",
+      "sha256": "18926141f1e99a0fa78aada1a9155c8c10dd57687f312535244c735fe58e796f"
+    },
+    {
+      "name": "ui10-copy/system-ui-delay.json",
+      "sha256": "27631d1c000f0cd0549bf2eb7500e325372278952fda8f125cd530ccca6dab7a"
+    },
+    {
+      "name": "pareamento-negativo-conferencia.json",
+      "sha256": "46d9949cade51aab56e523df623ff40eddff8c696788837293f451340e4aab66"
+    },
+    {
+      "name": "resultado-apk10-sanitizado.json",
+      "sha256": "879bcfffd4ee9abf1a38014ed238dbaacd3f5e1956b9d1f3f0d2a8114ed554cb"
+    },
+    {
+      "name": "network-copy/cleanup-result.json",
+      "sha256": "b48629701bbd6f6172bf985d8a036c0f4e54fbdb9a89bef1f795b7bb35ae256c"
+    },
+    {
+      "name": "network-copy/originals-after-cleanup.json",
+      "sha256": "a7fd1733bd28ce2f1bdb4af506ba15dd1a804003ece8b91565030976d295929d"
+    }
+  ],
+  "communication": {
+    "channel": "pull_request_descriptions",
+    "updates": [
+      {
+        "url": "https://github.com/hygorlp-dot/hygor/pull/121",
+        "updatedAt": "2026-10-26T15:41:54Z"
+      },
+      {
+        "url": "https://github.com/hygorlp-dot/hygor/pull/120",
+        "sectionMarker": "marcell-d6-status",
+        "updatedAt": "2026-10-26T15:41:56Z"
+      }
+    ],
+    "content": "APK10 instalado como app novo no SO clonado; recusa MARCELL observada; UI com teclado reprovada; correção para APK11 em desenvolvimento.",
+    "directWindowsCodexContact": false,
+    "WindowsSessionReadAcknowledged": false,
+    "source": "Atualizações confirmadas pela coordenação."
+  },
+  "reportState": "apk10_installed_negative_response_verified_layout_failed_apk11_pending",
+  "checkpointAt": "2026-10-26T15:45:41.412324+00:00",
+  "sourceScope": {
+    "apkAndFrontendCommit": "64c8b7b52b256e0d83847bbdf84cbe6dc9f13936",
+    "laterDocumentationDoesNotChangeExecutableSource": true
+  },
+  "nativeCandidate": {
+    "versionLabel": "APK10",
+    "architecture": [
+      "x86_64"
+    ],
+    "state": "fresh_app_install_verified_layout_failed",
+    "buildAttempt": 2,
+    "buildSucceeded": true,
+    "buildFinishedAt": "2026-10-26T14:47:41Z",
+    "verifiedAt": "2026-10-26T14:48:56.879826+00:00",
+    "artifactBytes": 61200534,
+    "artifactSha256": "dce808d9fadab64eed5cfcffef73d58f541e3ef871eea6a1fbfe615417880f0c",
+    "certificateSha256": "a82b8b69c1b7ae7856aa5e05c6548f502cd943f248174d0ce351263c5bc89c23",
+    "sourceCommit": "64c8b7b52b256e0d83847bbdf84cbe6dc9f13936",
+    "sourceManifestVerifiedBeforeAfter": true,
+    "sourceCleanAfterBuild": true,
+    "attempt1Preserved": true,
+    "attempt1Failure": "Recurso Android gerado truncado.",
+    "retryScope": "Mesma fonte, chave e versão.",
+    "installScope": "Instalação nova do aplicativo sobre cópia descartável do SO do clone 9 offline, com nova chave.",
+    "artifactDistributed": false,
+    "sameSignatureAsApk9": false,
+    "oldLineageUpgradeProven": false,
+    "historicalArtifactsPreserved": true,
+    "freshInstallProven": true,
+    "nativeVisualReviewCompleted": true,
+    "publicNegativePairingProven": true,
+    "nativeScreenshotsIncluded": 0,
+    "nativeLayoutApproved": false,
+    "installedAt": "2026-10-26T15:25:27.274613+00:00",
+    "virginAndroidOS": false,
+    "operatingSystemCopiedFromOfflineClone9": true,
+    "packageAbsentBeforeInstall": true,
+    "usedReplaceFlag": false,
+    "oldAppSessionReused": false,
+    "pairedDevice": false,
+    "attendanceSubmitted": false,
+    "copiedAppRemoval": {
+      "removedOnlyInDisposableCopy": true,
+      "keepDataFlag": false,
+      "packageAbsentAfter": true,
+      "testNetworkConfiguredBeforeRemoval": false
+    },
+    "negativePairing": {
+      "syntheticCode": "00000000",
+      "attemptCount": 1,
+      "sentAt": "2026-10-26T15:33:25.705139+00:00",
+      "responseObservedAt": "2026-10-26T15:34:59.577633+00:00",
+      "responseText": "Código inválido ou já usado. Gere outro no MARCELL.",
+      "appHttpStatusObserved": false,
+      "appHttpStatus": null,
+      "validPairingRequested": false,
+      "pairedDevice": false
+    },
+    "uiFindings": {
+      "result": "failed",
+      "buttonBounds": [
+        [
+          30,
+          600
+        ],
+        [
+          450,
+          699
+        ]
+      ],
+      "keyboardTopY": 473,
+      "buttonCoveredByKeyboard": true,
+      "naturalSwipeRevealedButton": false,
+      "codeCells": 8,
+      "codeCellRowClippedAtSides": true,
+      "closedKeyboardErrorReadable": true,
+      "scrollViewAloneProvenToResolveKeyboard": false,
+      "closedKeyboardErrorCtaOutsideInitialVisibleArea": true,
+      "closedKeyboardErrorScrollReachabilityEstablished": false
+    },
+    "platformInterruption": {
+      "component": "System UI",
+      "action": "Aguardar acionado uma vez",
+      "observedAt": "2026-10-26T15:28:06.240541+00:00",
+      "appRestarted": false,
+      "performanceAssessed": false
+    },
+    "publicProbe": {
+      "observedAt": "2026-10-26T15:26:35.995294+00:00",
+      "target": "https://ponto-homologacao.vercel.app/api/data",
+      "action": "ponto-ambiente",
+      "httpStatus": 200,
+      "environment": "homologacao",
+      "trustManager": "platform default",
+      "hostnameVerifier": "platform default",
+      "separateFromAppRequest": true
+    },
+    "screenshotsReferenced": [
+      {
+        "name": "02b-filled-after-natural-scroll.png",
+        "sha256": "8ab349086e93ace5a4082444a3b332ae65d36fe3e3be134e724375955dd152e8",
+        "nativeOriginal": true,
+        "pixelsEdited": false,
+        "includedInPackage": false
+      },
+      {
+        "name": "04-error-keyboard-closed.png",
+        "sha256": "728f82cb74d7912faa1a35531ff9a8a1cf3b8f8ca9887e71dcd9b9affeeed98a",
+        "nativeOriginal": true,
+        "pixelsEdited": false,
+        "includedInPackage": false
+      }
+    ]
+  },
+  "focusedTests": {
+    "passed": 33,
+    "files": 4,
+    "beforeFixObservedBrandFailures": 6,
+    "scope": "Mensagens reais do handler e transporte, incluindo expiração, reutilização e consumo concorrente."
+  },
+  "historicalApk9": {
+    "sourceCommit": "b17f5320c8eff9b422af092c357ff95ed0b3abed",
+    "update8To9Proven": true,
+    "firstInstallTimePreserved": true,
+    "dataDirectoryPreserved": true,
+    "openedInAndroid9Api28Clone": true,
+    "invalidCodeServerResponseObserved": true,
+    "validPairingProven": false,
+    "pointCaptureProven": false,
+    "pendingQueueMigrationProven": false,
+    "technicalComment": "https://github.com/hygorlp-dot/hygor/pull/120#issuecomment-6417030728"
+  },
+  "negativePairingDatabaseComparison": {
+    "before": {
+      "observado_em": "2026-10-26 15:30:15.148207+00",
+      "ambiente": "homologacao",
+      "codigo_sintetico_existe": false,
+      "dispositivos": 1,
+      "pareamentos_usados": 1
+    },
+    "after": {
+      "observado_em": "2026-10-26 15:35:06.654436+00",
+      "ambiente": "homologacao",
+      "codigo_sintetico_existe": false,
+      "dispositivos": 1,
+      "pareamentos_usados": 1
+    },
+    "countsUnchanged": true,
+    "codeRemainsAbsent": true,
+    "environmentConfirmed": true
+  },
+  "virginAvdAttempt": {
+    "result": "boot_not_usable_within_bounded_wait",
+    "bootAttempts": 2,
+    "apkInstalled": false,
+    "publicProbeExecuted": false,
+    "cleanup": {
+      "completedUtc": "2026-10-26T15:06:55.047311+00:00",
+      "cloneStopped": true,
+      "relayStopped": true,
+      "errors": [],
+      "protectedFilesChecked": 28,
+      "protectedFilesUnchanged": true
+    }
+  },
+  "nativeCloneCleanup": {
+    "state": "completed_verified",
+    "finalVerified": true,
+    "finishedAt": "2026-10-26T15:42:23.320551+00:00",
+    "proxyRestoredExactly": true,
+    "reverseRemoved": true,
+    "managedCaRemovedAfterFingerprintCheck": true,
+    "cloneStopped": true,
+    "relayStopped": true,
+    "errors": [],
+    "protectedFilesChecked": 28,
+    "protectedFilesUnchanged": true,
+    "clone10RetainedOffline": true,
+    "exclusiveSigningMaterialPreservedPrivately": true
+  },
+  "nextCandidate": {
+    "versionLabel": "APK11",
+    "state": "ui_patch_applied_awaiting_planned_gates_build_and_native_trial",
+    "sourceCommit": null,
+    "gatesVerified": false,
+    "buildVerified": false,
+    "nativeLayoutApproved": false
+  }
+}
