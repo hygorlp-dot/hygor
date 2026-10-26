@@ -525,35 +525,31 @@ const tratarAcaoPonto = criarTratadorPonto({
     { userId: body.userId, pin: body.pin, accessToken: body.accessToken }, { scope: "ponto-eletronico" }),
 });
 
-const lerLinha = async () => {
-  // Achado de 21/08/2026: as três leituras abaixo (linha core, linhas
-  // separadas de domínio fixo, linhas de Ponto por obra) são independentes
-  // - não há motivo para uma esperar a outra terminar. Rodá-las em
-  // paralelo (em vez de sequencialmente) tira round-trips inteiros de rede
-  // do caminho crítico de toda gravação. A terceira usa LIKE (padrão de
-  // chave), não um .in() de lista fixa, porque o número de obras muda com
-  // o tempo - ver server/attendance-obra-routing.js.
-  const splitEntries = Object.entries(SPLIT_ROW_KEYS);
-  const [{ data, error }, { data: splitRows, error: splitError }, { data: pontoObraRows, error: pontoObraError }] = await Promise.all([
-    db.from("company_app_data").select("value, updated_at")
-      .eq("company_id", COMPANY).eq("key", KEY).maybeSingle(),
-    db.from("company_app_data").select("key, value, updated_at")
-      .eq("company_id", COMPANY).in("key", splitEntries.map(([, key]) => key)),
-    // Achado de 04/09/2026 (ver server/attendance-obra-routing.js): ordenar
-    // por updated_at aqui já não é mais o que garante a correção - esse
-    // campo é da LINHA inteira (compartilhado por todo funcionário/dia que
-    // mora nela) e pode ser "refrescado" por uma gravação totalmente alheia
-    // na mesma obra. mergeAttendanceObjects agora compara um carimbo POR
-    // CÉLULA (withAttendanceSyncedAt, abaixo) - o `.order()` aqui fica só
-    // como reforço inofensivo para dados antigos sem esse carimbo.
-    db.from("company_app_data").select("key, value, updated_at")
-      .eq("company_id", COMPANY).like("key", `${PONTO_OBRA_KEY_PREFIX}%`)
-      .order("updated_at", { ascending: true }),
-  ]);
-  if (error) throw error;
-  if (!data) return { payload: null, updatedAt: null, rowVersions: {}, rowVersionsPontoObra: {} };
-  if (splitError) throw splitError;
-  if (pontoObraError) throw pontoObraError;
+// Consultas à base. Ficam separadas para que a autenticação leia SÓ a linha
+// core (onde moram os `usuarios`) e deixe as demais linhas para depois de a
+// sessão ser aceita. Uma chamada sem sessão válida não precisa baixar nem
+// decodificar o resto do dataset - ver lerNucleo/completarLinha e o handler.
+const splitEntries = Object.entries(SPLIT_ROW_KEYS);
+const consultarNucleo = () => db.from("company_app_data").select("value, updated_at")
+  .eq("company_id", COMPANY).eq("key", KEY).maybeSingle();
+const consultarLinhasAuxiliares = () => Promise.all([
+  db.from("company_app_data").select("key, value, updated_at")
+    .eq("company_id", COMPANY).in("key", splitEntries.map(([, key]) => key)),
+  // Achado de 04/09/2026 (ver server/attendance-obra-routing.js): ordenar
+  // por updated_at aqui já não é mais o que garante a correção - esse
+  // campo é da LINHA inteira (compartilhado por todo funcionário/dia que
+  // mora nela) e pode ser "refrescado" por uma gravação totalmente alheia
+  // na mesma obra. mergeAttendanceObjects agora compara um carimbo POR
+  // CÉLULA (withAttendanceSyncedAt, abaixo) - o `.order()` aqui fica só
+  // como reforço inofensivo para dados antigos sem esse carimbo.
+  // A busca usa LIKE (padrão de chave), não um .in() de lista fixa, porque o
+  // número de obras muda com o tempo - ver server/attendance-obra-routing.js.
+  db.from("company_app_data").select("key, value, updated_at")
+    .eq("company_id", COMPANY).like("key", `${PONTO_OBRA_KEY_PREFIX}%`)
+    .order("updated_at", { ascending: true }),
+]);
+
+const decodificarNucleo = async data => {
   const payload = decodeAppData(data.value);
   // Migração transparente: preserva o mesmo updated_at para não criar um
   // falso conflito nos navegadores que já estavam editando. Se outra gravação
@@ -566,7 +562,10 @@ const lerLinha = async () => {
       if(migrated.error)console.error("Não foi possível compactar o dataset:",migrated.error.message);
     }
   }
+  return payload;
+};
 
+const montarLinha = ({ data, payload, splitRows, pontoObraRows }) => {
   const rowVersions = { [DOMAIN_ROW.CORE]: data.updated_at || null };
   const rowPayloadsByDomain = {};
   for (const [domain, key] of splitEntries) {
@@ -591,6 +590,39 @@ const lerLinha = async () => {
   merged = { ...merged, attendance: mergeAttendanceObjects(...attendanceSources) };
 
   return { payload: merged, updatedAt: data.updated_at || null, rowVersions, rowVersionsPontoObra };
+};
+
+const lerLinha = async () => {
+  // Achado de 21/08/2026: as três leituras (linha core, linhas separadas de
+  // domínio fixo, linhas de Ponto por obra) são independentes - não há motivo
+  // para uma esperar a outra terminar. Rodá-las em paralelo tira round-trips
+  // inteiros de rede do caminho crítico de toda gravação.
+  const [{ data, error }, [{ data: splitRows, error: splitError }, { data: pontoObraRows, error: pontoObraError }]] = await Promise.all([
+    consultarNucleo(), consultarLinhasAuxiliares(),
+  ]);
+  if (error) throw error;
+  if (!data) return { payload: null, updatedAt: null, rowVersions: {}, rowVersionsPontoObra: {} };
+  if (splitError) throw splitError;
+  if (pontoObraError) throw pontoObraError;
+  return montarLinha({ data, payload: await decodificarNucleo(data), splitRows, pontoObraRows });
+};
+
+// Leitura em duas etapas, para autenticar antes de baixar o resto: lerNucleo()
+// traz só a linha core (suficiente para conferir PIN ou vincular o token a um
+// usuário) e completarLinha() devolve o MESMO resultado de lerLinha(), reaproveitando
+// a core já decodificada. Só quem foi autenticado paga a segunda etapa.
+const lerNucleo = async () => {
+  const { data, error } = await consultarNucleo();
+  if (error) throw error;
+  if (!data) return { data: null, payload: null, updatedAt: null };
+  return { data, payload: await decodificarNucleo(data), updatedAt: data.updated_at || null };
+};
+const completarLinha = async nucleo => {
+  if (!nucleo.data) return { payload: null, updatedAt: null, rowVersions: {}, rowVersionsPontoObra: {} };
+  const [{ data: splitRows, error: splitError }, { data: pontoObraRows, error: pontoObraError }] = await consultarLinhasAuxiliares();
+  if (splitError) throw splitError;
+  if (pontoObraError) throw pontoObraError;
+  return montarLinha({ data: nucleo.data, payload: nucleo.payload, splitRows, pontoObraRows });
 };
 
 const salvarIndicePerfis = async payload => {
@@ -1664,16 +1696,16 @@ export default async function handler(req, res) {
       }
     }
 
-    // A leitura do dataset e a validação do token não dependem uma da outra.
-    // Em sessões por e-mail, fazê-las em paralelo reduz o tempo até o dashboard
-    // ao maior dos dois tempos, em vez de somar as duas esperas de rede.
-    const [linha,tokenAuth] = await Promise.all([
-      lerLinha(),
+    // Autenticar só exige a linha core (os `usuarios` moram nela). A validação
+    // do token não depende dessa leitura e corre em paralelo com ela. As demais
+    // linhas do dataset só são baixadas depois que a sessão é aceita: uma
+    // chamada sem sessão válida nunca paga a leitura completa.
+    const [nucleo,tokenAuth] = await Promise.all([
+      lerNucleo(),
       accessToken ? authDb.auth.getUser(accessToken) : Promise.resolve({data:null,error:null}),
     ]);
-    let { payload: atual, updatedAt, rowVersions, rowVersionsPontoObra } = linha;
-    const pinAuth=usaPin?conferirPin(atual,userId,pin):{usuario:null,upgradeHash:""};
-    const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(atual,tokenAuth.data.user):null) || pinAuth.usuario;
+    const pinAuth=usaPin?conferirPin(nucleo.payload,userId,pin):{usuario:null,upgradeHash:""};
+    const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(nucleo.payload,tokenAuth.data.user):null) || pinAuth.usuario;
 
     if (!usuario) {
       if(usaPin){
@@ -1682,9 +1714,15 @@ export default async function handler(req, res) {
       }
       return res.status(401).json({ error: "Sessão inválida ou PIN incorreto." });
     }
+    // Sessão aceita: completa a leitura do dataset. O contador de tentativas
+    // do PIN é uma chamada de rede independente e segue em paralelo.
+    const [linha] = await Promise.all([
+      completarLinha(nucleo),
+      usaPin ? rateLimitCentral(ip,"success") : null,
+    ]);
+    let { payload: atual, updatedAt, rowVersions, rowVersionsPontoObra } = linha;
     if(usaPin){
       limparFalhas(ip);
-      await rateLimitCentral(ip,"success");
       if(pinAuth.upgradeHash){
         const atualizado={...atual,usuarios:(atual.usuarios||[]).map(item=>item.id===usuario.id?{...item,pin:pinAuth.upgradeHash}:item)};
         const migration=await salvarComAuditoria({
