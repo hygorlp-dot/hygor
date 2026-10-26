@@ -19,6 +19,12 @@ export const PARAMETROS_FACIAIS = Object.freeze({
   inclinacaoMaximaGraus: 15,       // olhos fora da horizontal = "cabeça reta"
   limiarIouMesmoRosto: 0.3,        // candidatos sobrepostos = mesmo rosto
 
+  // Captura robusta antes da identificação. Não muda limiar nem margem:
+  // reduz a chance de um único quadro borrado/ruim causar falsa rejeição.
+  capturasReconhecimento: 3,
+  capturasConsolidadas: 2,         // usa as duas melhores capturas válidas
+  intervaloCapturasReconhecimentoMs: 140,
+
   // Identificação 1:N (MobileFaceNet)
   limiarReconhecimento: 0.6,       // similaridade mínima do 1º candidato
   margemSobreSegundo: 0.08,        // 1º precisa passar o 2º por pelo menos isto
