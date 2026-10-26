@@ -15,6 +15,9 @@ const RAIZ = path.resolve(APP, "../..");
 const arg = nome => { const i = process.argv.indexOf(`--${nome}`); return i < 0 ? "" : process.argv[i + 1] || ""; };
 const versao = Number(arg("version-code") || process.env.PONTO_VERSION_CODE || 5);
 if (!Number.isSafeInteger(versao) || versao < 5) throw new Error("version-code deve ser inteiro a partir de 5.");
+const varianteHomologacao = String(process.env.PONTO_HOMOLOGACAO_VARIANT || "").trim().toLowerCase();
+if (varianteHomologacao && !/^[a-z][a-z0-9]{0,15}$/.test(varianteHomologacao)) throw new Error("PONTO_HOMOLOGACAO_VARIANT inválida.");
+const pacoteEsperado = `br.com.arcd.pontoobra.homologacao${varianteHomologacao ? `.${varianteHomologacao}` : ""}`;
 const workers = Number(process.env.PONTO_GRADLE_WORKERS || 2);
 if (![1, 2].includes(workers)) throw new Error("Use um ou dois workers Gradle neste build local.");
 const servidor = resolverServidor({ ambiente: process.env.PONTO_AMBIENTE, urlEnv: process.env.PONTO_API_URL });
@@ -88,7 +91,7 @@ try {
   if (!certificadoSha256 || /CN=Android Debug/i.test(assinaturaPublica)) throw new Error("APK sem certificado exclusivo válido.");
   const manifesto = executar(path.join(buildTools, "aapt"), ["dump", "badging", apkGerado], { stdio: ["ignore", "pipe", "pipe"] });
   const identidade = manifesto.match(/package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'/);
-  if (!identidade || identidade[1] !== "br.com.arcd.pontoobra.homologacao" || Number(identidade[2]) !== versao) throw new Error("Pacote ou versão do APK não corresponde à homologação solicitada.");
+  if (!identidade || identidade[1] !== pacoteEsperado || Number(identidade[2]) !== versao) throw new Error("Pacote ou versão do APK não corresponde à homologação solicitada.");
   const configAndroid = JSON.parse(readFileSync(path.join(APP, "app.json"), "utf8")).expo.android;
   const permissoes = conferirPermissoesApk(
     executar(path.join(buildTools, "aapt"), ["dump", "permissions", apkGerado], { stdio: ["ignore", "pipe", "pipe"] }),
@@ -121,7 +124,7 @@ try {
   const sha256 = createHash("sha256").update(readFileSync(apk)).digest("hex");
   const evidencias = {
     arquivo: nome, sha256, bytes: statSync(apk).size, package: identidade[1], versionCode: versao, versionName: identidade[3],
-    ambiente: servidor.ambiente, apiUrl: servidor.apiUrl, backendConfirmadoEm: inicioConsulta,
+    ambiente: servidor.ambiente, apiUrl: servidor.apiUrl, varianteHomologacao: varianteHomologacao || null, backendConfirmadoEm: inicioConsulta,
     certificadoSha256, commit, fonteComAlteracoesLocais: sujo, fonteSha256: env.PONTO_SOURCE_FINGERPRINT,
     compiladoEm: new Date().toISOString(), arquiteturas: arquiteturas.split(","),
     custoNuvem: 0, compilador: "Gradle local 9.3.1", buildTools: "36.0.0", ndk: "27.1.12297006",
