@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it } from "vitest";
 import { criarTratadorPonto } from "./handler.js";
 import { bancoFalso } from "./banco-falso.test-helper.js";
