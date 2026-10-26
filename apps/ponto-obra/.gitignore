@@ -49,3 +49,7 @@ dist-ci/
 
 # Saída do release-check/scorecard (vai como artifact na CI)
 quality-out/
+
+# FaceNet-512 experimental: baixado de commit fixo e validado por SHA-256.
+assets/modelos/facenet_512.tflite
+assets/modelos/facenet_512.tflite.part
