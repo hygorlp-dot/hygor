@@ -1,6 +1,16 @@
 # Aceite operacional — K1-10
 
-Atualizado em 25/10/2026. Responsável provisório da operação: **Hygor**, informado nesta sessão. Responsável por este documento/testes: sessão de integração, branch `codex/ponto-rh-aceite`.
+Atualizado em 26/10/2026. Responsável provisório da operação: **Hygor**, informado nesta sessão. Responsável por este documento/testes: sessão de integração, branch `codex/ponto-rh-aceite`.
+
+## Atualização de 26/10 — novo candidato e API disponível
+
+Monitoramento detectou nova entrega RH na [PR #120](https://github.com/hygorlp-dot/hygor/pull/120), confirmada OPEN/DRAFT, HEAD `71810eb0110e8ac2719f13e9cf2dc500d7cc92eb`, branch remota `codex/fulano-siclano-integracao`; checkout local `ponto-rh-pr120`. A antiga worktree RH permanece em 900a6b1 e deixou de representar a frente mais recente. Android original permanece em 8362672.
+
+**Verificação independente desta sessão:** POST de leitura `ponto-ambiente` em `https://ponto-homologacao.vercel.app/api/data`, com `ambienteApp=homologacao`, retornou `ok:true, ambiente:homologacao` em 26/10. Portanto a ausência de API registrada nos checkpoints anteriores está superada. Não foi usado o preview mrc da PR119. Ainda não confirmados por esta sessão: SHA efetivamente implantado, autenticação e fluxo financeiro desse novo candidato. Solicitado handoff à RH com versões, manifests, acesso seguro e escopo de autorização atualizado, sem solicitar contratação ou duplicar pedido de custo.
+
+O documento versionado `HOMOLOGACAO-VERCEL-SUPABASE.md` no novo candidato identifica projeto Vercel separado `ponto-homologacao`, proxy para função Supabase `ponto-api-homologacao` no banco isolado já conhecido `ukkzpttnbyylkyujzwnv`, sem upgrade contratado. RH relata ensaio remoto web com persistência, documentos privados e títulos fictícios liquidados, além de 3.151 testes e 32 fluxos de navegador na entrega mais recente. Esses resultados e os novos valores fictícios são **relatos da frente RH, não retestes independentes deste aceite**; não reutilizar os totais dos candidatos antigos para aprovar 71810eb.
+
+Há divergência de atualização dos artefatos: documentação consultada descreve APK7 e manifesto de fontes, mas a última mensagem RH exige **APK9 ou superior** após novas alterações. Não instalar APK7 presumindo equivalência ao HEAD novo. Pareamento continua pendente; emulador remoto anterior não está acessível e nenhum teste físico foi comprovado. Próximo passo: identificar build/hash/fontes compatíveis e acesso autorizado para executar a cadeia real no ambiente isolado. As linhas antigas sobre inexistência de API/APK e cadastros incompletos abaixo são histórico de 25/10, não fotografia atual do ambiente.
 
 **Resultado: prontidão ainda não demonstrada para iniciar pelo fluxo completo.** Há evidência automática do trecho cadastro → lógica do aparelho → recebimento → consulta → apropriação e de cálculos/conciliação separados. Falta integrar e verificar a quinzena mista, obrigação financeira e aparelho no ambiente isolado. Nenhum dado fictício foi enviado ao registro fiscal de produção. Nenhum pagamento real foi executado.
 
