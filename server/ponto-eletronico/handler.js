@@ -36,6 +36,7 @@ export const PAPEIS_CONSULTA = new Set(["admin", "rh", "engenheiro", "engenheiro
 // Dados fiscais do estabelecimento (inscrição, CNO...): só admin e RH.
 export const PAPEIS_FISCAL = new Set(["admin", "rh"]);
 export const PIN_ITERACOES = 60000;
+export const MODELO_BIOMETRIA_PADRAO = "mobilefacenet-192-apache2";
 const VALIDADE_CODIGO_MS = 30 * 60 * 1000;
 const MAX_MARCACOES_POR_LOTE = 500;
 const MAX_FOTO_BYTES = LIMITE_FOTO_BYTES;  // mesmo limite que o app respeita antes de enviar
@@ -509,12 +510,15 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const dados = await lerDados();
       // obra_id do aparelho = obra de CAPTURA (onde as batidas acontecem).
       const obraId = dispositivo.obra_id;
+      // Cada APK declara o modelo de embedding que consegue comparar. Isso
+      // permite coexistir MobileFaceNet-192 e FaceNet-512 sem misturar vetores.
+      const modeloBiometria = texto(body.modeloBiometria) || MODELO_BIOMETRIA_PADRAO;
       // Funcionário é GLOBAL: o aparelho recebe TODOS os ativos da empresa, não
       // só os lotados nesta obra - quem muda de obra no dia bate em qualquer uma.
       const funcionarios = funcionariosAtivos(dados?.employees, dataLocal(agora()));
       const ids = new Set(funcionarios.map(f => f.id));
       const [{ data: metas, error: errBio }, { data: resps, error: errResp }] = await Promise.all([
-        db.from("ponto_biometrias").select("id,employee_id,criado_em").eq("company_id", company).order("criado_em", { ascending: false }),
+        db.from("ponto_biometrias").select("id,employee_id,criado_em").eq("company_id", company).eq("modelo", modeloBiometria).order("criado_em", { ascending: false }),
         db.from("ponto_responsaveis").select("user_id,nome,pin_hash,pin_salt,pin_iteracoes,obras,ativo").eq("company_id", company).eq("ativo", true),
       ]);
       if (errBio) throw errBio;
@@ -526,7 +530,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       // Os vetores só descem quando o conjunto mudou: com a base global (até
       // centenas de pessoas) reenviar tudo a cada 5 min gastaria dados móveis.
       // Apps antigos não mandam a assinatura e recebem a lista inteira.
-      const biometriasAssinatura = sha256([...vigentes.values()].map(b => `${b.employee_id}:${b.id}`).sort().join("|"));
+      const biometriasAssinatura = sha256(`${modeloBiometria}|${[...vigentes.values()].map(b => `${b.employee_id}:${b.id}`).sort().join("|")}`);
       let biometrias = null;
       if (texto(body.biometriasAssinatura) !== biometriasAssinatura) {
         const idsBio = [...vigentes.values()].map(b => b.id);
@@ -565,7 +569,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
         funcionarios,
         terceirizados: terceirizadosDaObra(dados?.terceirizados, obraId),
         // null = conjunto igual ao que o aparelho já tem (mesma assinatura).
-        biometrias, biometriasAssinatura,
+        biometrias, biometriasAssinatura, modeloBiometria,
         responsaveis: (resps || [])
           .filter(r => !(r.obras || []).length || (r.obras || []).map(String).includes(String(obraId)))
           .map(r => ({ userId: r.user_id, nome: r.nome, pinHash: r.pin_hash, pinSalt: r.pin_salt, pinIteracoes: r.pin_iteracoes })),
