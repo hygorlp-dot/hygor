@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useKeepAwake } from "expo-keep-awake";
-import { MOTIVO, avaliarProvaDeVida, identificar } from "../logica/rosto";
+import { MOTIVO, avaliarProvaDeVida, consolidarCapturasFrontais, identificar } from "../logica/rosto";
 import { PARAMETROS_FACIAIS as P } from "../logica/calibracao";
 import { estadoPermissaoCamera, mensagemParaTrabalhador } from "../logica/falhas";
 import { resumoCadastro } from "../logica/cadastro";
@@ -24,6 +24,8 @@ import { Botao, BotaoTexto, COMPROVANTE_MS, COR, COR_DO_TOM, Corpo, ESPACO, Icon
 import Comprovante from "./Comprovante";
 
 const esperar = ms => new Promise(r => setTimeout(r, ms));
+const CAPTURAS_IDENTIFICACAO = 3;
+const INTERVALO_CAPTURAS_MS = 180;
 
 export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar, situacao, abrirEncarregado, voz = true, medir = () => {}, calibrar = null }) {
   useKeepAwake();
@@ -75,13 +77,30 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     brilhoMaximo();
     try {
       fase(FASE.OLHAR);
-      const fotoFrente = await foto();
-      cruas.push(fotoFrente.uri);
-      etapa = "modelos";
-      fase(FASE.ANALISAR);
-      const frente = await analisarFoto(modelos, fotoFrente);
-      if (frente.erro) { anotar(RESULTADO_CALIBRACAO.SEM_ROSTO); return falha({ mensagem: frente.erro, podeEncarregado: true }); }
-      if (Math.abs(frente.giro) > P.giroMaximoDeFrente) { anotar(RESULTADO_CALIBRACAO.FORA_DE_POSE, frente); return falha({ mensagem: "Olhe de frente para a câmera e tente de novo." }); }
+      const amostras = [];
+      const problemas = [];
+      // Um único toque gera uma pequena rajada. Cada quadro continua sujeito
+      // às mesmas regras de detecção e pose; quadros ruins são descartados,
+      // não "forçados" para dentro do reconhecimento.
+      for (let i = 0; i < CAPTURAS_IDENTIFICACAO; i++) {
+        const captura = await foto();
+        cruas.push(captura.uri);
+        etapa = "modelos";
+        fase(FASE.ANALISAR);
+        const analise = await analisarFoto(modelos, captura);
+        if (analise.erro) problemas.push({ tipo: RESULTADO_CALIBRACAO.SEM_ROSTO, mensagem: analise.erro });
+        else if (Math.abs(analise.giro) > P.giroMaximoDeFrente) problemas.push({ tipo: RESULTADO_CALIBRACAO.FORA_DE_POSE, mensagem: "Olhe de frente para a câmera e tente de novo.", analise });
+        else amostras.push({ foto: captura, analise });
+        if (i < CAPTURAS_IDENTIFICACAO - 1) await esperar(INTERVALO_CAPTURAS_MS);
+      }
+      if (!amostras.length) {
+        const ultimo = problemas.at(-1) || { tipo: RESULTADO_CALIBRACAO.SEM_ROSTO, mensagem: "Olhe de frente para a câmera e tente de novo." };
+        anotar(ultimo.tipo, ultimo.analise || {});
+        return falha({ mensagem: ultimo.mensagem, podeEncarregado: true });
+      }
+      const frente = consolidarCapturasFrontais(amostras.map(a => a.analise));
+      const principal = [...amostras].sort((a, b) => Number(b.analise.confiancaDeteccao || 0) - Number(a.analise.confiancaDeteccao || 0))[0];
+      const fotoFrente = principal.foto;
       const tId = Date.now();
       const id = identificar(frente.vetor, cadastro?.biometrias || []);
       medir({ identificacaoMs: Date.now() - tId });
