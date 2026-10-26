@@ -22,6 +22,9 @@ module.exports = ({ config }) => {
   if (varianteHomologacao && !/^[a-z][a-z0-9]{0,15}$/.test(varianteHomologacao)) {
     throw new Error("PONTO_HOMOLOGACAO_VARIANT inválida: use 1 a 16 caracteres minúsculos, começando por letra.");
   }
+  const faceEngine = String(process.env.PONTO_FACE_ENGINE || "legacy").trim().toLowerCase();
+  if (!["legacy", "facenet512"].includes(faceEngine)) throw new Error("PONTO_FACE_ENGINE inválido.");
+  const modeloBiometria = faceEngine === "facenet512" ? "facenet-512-apache2" : "mobilefacenet-192-apache2";
   const versionCode = Number(process.env.PONTO_VERSION_CODE || 5);
   if (ambiente === "homologacao" && (!Number.isSafeInteger(versionCode) || versionCode < 5)) throw new Error("PONTO_VERSION_CODE precisa ser inteiro, a partir de 5, para homologação.");
   return {
@@ -38,6 +41,7 @@ module.exports = ({ config }) => {
       buildPerfil: process.env.PONTO_BUILD_PROFILE || process.env.EAS_BUILD_PROFILE || "local",
       buildId: process.env.PONTO_BUILD_ID || process.env.EAS_BUILD_ID || "",
       homologacaoVariante: varianteHomologacao || "",
+      faceEngine, modeloBiometria,
       buildEm: process.env.PONTO_BUILD_TIMESTAMP || new Date().toISOString(),
       sourceFingerprint: process.env.PONTO_SOURCE_FINGERPRINT || "",
       sourceDirty: process.env.PONTO_SOURCE_DIRTY === "1",
