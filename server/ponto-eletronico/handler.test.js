@@ -91,6 +91,30 @@ describe("ponto eletrônico - servidor", () => {
     expect(db.tabelas.ponto_dispositivos[0].ultimo_gps).toMatchObject({ lat: -8.2, lng: -35.9 });
   });
 
+  it("separa biometrias MobileFaceNet e FaceNet-512 na sincronização", async () => {
+    const p = await parear();
+    const headers = { authorization: `Bearer ${p.token}` };
+    db.tabelas.ponto_biometrias.push(
+      { company_id: "arcd", id: "bio-mobile", employee_id: "e1", modelo: "mobilefacenet-192-apache2", vetor: [0.1, 0.2], criado_em: "2026-10-01T09:00:00.000Z" },
+      { company_id: "arcd", id: "bio-face512", employee_id: "e1", modelo: "facenet-512-apache2", vetor: [0.7, 0.8, 0.9], criado_em: "2026-10-01T09:01:00.000Z" },
+    );
+
+    const legado = await tratar({ action: "ponto-sincronizar", headers, body: {} });
+    expect(legado.status).toBe(200);
+    expect(legado.json.modeloBiometria).toBe("mobilefacenet-192-apache2");
+    expect(legado.json.biometrias).toEqual([
+      expect.objectContaining({ employeeId: "e1", modelo: "mobilefacenet-192-apache2", vetor: [0.1, 0.2] }),
+    ]);
+
+    const facenet = await tratar({ action: "ponto-sincronizar", headers, body: { modeloBiometria: "facenet-512-apache2" } });
+    expect(facenet.status).toBe(200);
+    expect(facenet.json.modeloBiometria).toBe("facenet-512-apache2");
+    expect(facenet.json.biometrias).toEqual([
+      expect.objectContaining({ employeeId: "e1", modelo: "facenet-512-apache2", vetor: [0.7, 0.8, 0.9] }),
+    ]);
+    expect(facenet.json.biometriasAssinatura).not.toBe(legado.json.biometriasAssinatura);
+  });
+
   it("aparelho sem token, desconhecido ou revogado não sincroniza", async () => {
     expect((await tratar({ action: "ponto-sincronizar" })).json.code).toBe("APARELHO_SEM_TOKEN");
     expect(await tratar({ action: "ponto-sincronizar", headers: { authorization: "Bearer xyz" } })).toMatchObject({
