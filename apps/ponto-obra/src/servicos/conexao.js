@@ -31,6 +31,8 @@ export const infoDoApp = () => ({
   perfil: Constants.expoConfig?.extra?.buildPerfil || "",
   buildId: Constants.expoConfig?.extra?.buildId || "",
   buildEm: Constants.expoConfig?.extra?.buildEm || "",
+  modeloBiometria: Constants.expoConfig?.extra?.modeloBiometria || "mobilefacenet-192-apache2",
+  faceEngine: Constants.expoConfig?.extra?.faceEngine || "legacy",
   ambiente: AMBIENTE,
 });
 export const infoDoAparelho = () => ({
