@@ -17,6 +17,8 @@ const versao = Number(arg("version-code") || process.env.PONTO_VERSION_CODE || 5
 if (!Number.isSafeInteger(versao) || versao < 5) throw new Error("version-code deve ser inteiro a partir de 5.");
 const varianteHomologacao = String(process.env.PONTO_HOMOLOGACAO_VARIANT || "").trim().toLowerCase();
 if (varianteHomologacao && !/^[a-z][a-z0-9]{0,15}$/.test(varianteHomologacao)) throw new Error("PONTO_HOMOLOGACAO_VARIANT inválida.");
+const faceEngine = String(process.env.PONTO_FACE_ENGINE || "legacy").trim().toLowerCase();
+if (!["legacy", "facenet512"].includes(faceEngine)) throw new Error("PONTO_FACE_ENGINE inválido.");
 const pacoteEsperado = `br.com.arcd.pontoobra.homologacao${varianteHomologacao ? `.${varianteHomologacao}` : ""}`;
 const workers = Number(process.env.PONTO_GRADLE_WORKERS || 2);
 if (![1, 2].includes(workers)) throw new Error("Use um ou dois workers Gradle neste build local.");
@@ -71,6 +73,8 @@ env.PONTO_SOURCE_FINGERPRINT = hashFonte.digest("hex");
 env.PONTO_SOURCE_DIRTY = sujo ? "1" : "0";
 const pacoteAntes = readFileSync(path.join(APP, "package.json"));
 try {
+  // O FaceNet-512 experimental não fica no Git: baixa de commit fixo e confere SHA-256.
+  executar(process.execPath, ["scripts/baixar-modelo-facenet512.mjs"]);
   process.stdout.write("Gerando o projeto Android e conferindo módulos, SQLCipher e permissões…\n");
   executar("npx", ["--no-install", "expo", "prebuild", "--platform", "android", "--no-install"]);
   executar(process.execPath, ["scripts/verificar-prebuild.mjs"]);
@@ -105,7 +109,8 @@ try {
   const modelosEmpacotados = new Map(entradas.filter(e => e.endsWith(".tflite")).map(entrada => [
     createHash("sha256").update(executar("unzip", ["-p", apkGerado, entrada], { encoding: null, stdio: ["ignore", "pipe", "pipe"] })).digest("hex"), entrada,
   ]));
-  const modelos = ["face_detection_front.tflite", "mobilefacenet.tflite"].map(arquivo => {
+  const modelosEsperados = ["face_detection_front.tflite", "mobilefacenet.tflite", "facenet_512.tflite"];
+  const modelos = modelosEsperados.map(arquivo => {
     const sha256 = createHash("sha256").update(readFileSync(path.join(APP, "assets/modelos", arquivo))).digest("hex");
     const recurso = modelosEmpacotados.get(sha256);
     if (!recurso) throw new Error(`Modelo ${arquivo} ausente ou diferente no APK.`);
@@ -124,7 +129,7 @@ try {
   const sha256 = createHash("sha256").update(readFileSync(apk)).digest("hex");
   const evidencias = {
     arquivo: nome, sha256, bytes: statSync(apk).size, package: identidade[1], versionCode: versao, versionName: identidade[3],
-    ambiente: servidor.ambiente, apiUrl: servidor.apiUrl, varianteHomologacao: varianteHomologacao || null, backendConfirmadoEm: inicioConsulta,
+    ambiente: servidor.ambiente, apiUrl: servidor.apiUrl, varianteHomologacao: varianteHomologacao || null, faceEngine, backendConfirmadoEm: inicioConsulta,
     certificadoSha256, commit, fonteComAlteracoesLocais: sujo, fonteSha256: env.PONTO_SOURCE_FINGERPRINT,
     compiladoEm: new Date().toISOString(), arquiteturas: arquiteturas.split(","),
     custoNuvem: 0, compilador: "Gradle local 9.3.1", buildTools: "36.0.0", ndk: "27.1.12297006",
