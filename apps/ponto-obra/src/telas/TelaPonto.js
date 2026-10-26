@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useKeepAwake } from "expo-keep-awake";
-import { MOTIVO, avaliarProvaDeVida, identificar } from "../logica/rosto";
+import { MOTIVO, avaliarProvaDeVida, consolidarCapturasFrontais, identificar } from "../logica/rosto";
 import { PARAMETROS_FACIAIS as P } from "../logica/calibracao";
 import { estadoPermissaoCamera, mensagemParaTrabalhador } from "../logica/falhas";
 import { resumoCadastro } from "../logica/cadastro";
@@ -75,15 +75,29 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     brilhoMaximo();
     try {
       fase(FASE.OLHAR);
-      const fotoFrente = await foto();
-      cruas.push(fotoFrente.uri);
-      etapa = "modelos";
-      fase(FASE.ANALISAR);
-      const frente = await analisarFoto(modelos, fotoFrente);
-      if (frente.erro) { anotar(RESULTADO_CALIBRACAO.SEM_ROSTO); return falha({ mensagem: frente.erro, podeEncarregado: true }); }
-      if (Math.abs(frente.giro) > P.giroMaximoDeFrente) { anotar(RESULTADO_CALIBRACAO.FORA_DE_POSE, frente); return falha({ mensagem: "Olhe de frente para a câmera e tente de novo." }); }
+      const capturasFrontais = [];
+      const falhasDeCaptura = [];
+      for (let i = 0; i < P.capturasReconhecimento; i++) {
+        etapa = "camera";
+        const imagem = await foto();
+        cruas.push(imagem.uri);
+        etapa = "modelos";
+        fase(FASE.ANALISAR);
+        const analise = await analisarFoto(modelos, imagem);
+        if (analise.erro) falhasDeCaptura.push(analise.erro);
+        else if (Math.abs(analise.giro) > P.giroMaximoDeFrente) falhasDeCaptura.push("Olhe de frente para a câmera e mantenha a cabeça reta.");
+        else capturasFrontais.push({ ...analise, foto: imagem });
+        if (i + 1 < P.capturasReconhecimento) await esperar(P.intervaloCapturasReconhecimentoMs);
+      }
+      const consolidada = consolidarCapturasFrontais(capturasFrontais);
+      if (!consolidada.ok) {
+        anotar(capturasFrontais.length ? RESULTADO_CALIBRACAO.FORA_DE_POSE : RESULTADO_CALIBRACAO.SEM_ROSTO);
+        return falha({ mensagem: falhasDeCaptura[0] || "Não consegui uma foto frontal nítida. Centralize o rosto e tente novamente.", podeEncarregado: true });
+      }
+      const frente = consolidada.melhor;
+      const fotoFrente = frente.foto;
       const tId = Date.now();
-      const id = identificar(frente.vetor, cadastro?.biometrias || []);
+      const id = identificar(consolidada.vetor, cadastro?.biometrias || []);
       medir({ identificacaoMs: Date.now() - tId });
       if (!id.reconhecido) anotar(id.motivo === MOTIVO.AMBIGUO ? RESULTADO_CALIBRACAO.AMBIGUO : RESULTADO_CALIBRACAO.NAO_CADASTRADO, frente, id);
       if (!id.reconhecido) return falha({ mensagem: id.motivo === MOTIVO.NAO_CADASTRADO ? "Se o seu rosto ainda não foi cadastrado, chame o encarregado." : "Olhe de frente e tente novamente.", podeEncarregado: true });
