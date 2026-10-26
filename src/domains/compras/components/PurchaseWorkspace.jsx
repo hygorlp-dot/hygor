@@ -21,8 +21,8 @@ export function PurchaseNavigation({ area, onNavigate, counts, financeCount, oth
     <nav className="purchase-secondary-nav" aria-label="Financeiro e consultas de compras">
       <span>Acompanhamento</span>
       <button type="button" aria-current={area === "historico_compras" ? "page" : undefined} onClick={() => onNavigate("historico_compras")}>Histórico de compras</button>
-      <details className="purchase-tools" key={area} open={otherAreas.some(([id])=>id===area)}><summary>Consultas e cadastros</summary><div>
-        {otherAreas.map(([id, label]) => <button key={id} type="button" onClick={() => onNavigate(id)} aria-current={area === id ? "page" : undefined}>{label}</button>)}
+      <details className="purchase-tools" key={area}><summary>{otherAreas.find(([id]) => id === area)?.[1] ? `Consultas e cadastros · ${otherAreas.find(([id]) => id === area)[1]}` : "Consultas e cadastros"}</summary><div>
+        {otherAreas.map(([id, label]) => <button key={id} type="button" onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); onNavigate(id); }} aria-current={area === id ? "page" : undefined}>{label}</button>)}
       </div></details>
     </nav>
   </div>;
@@ -32,7 +32,7 @@ const stageLabels = {solicitacoes:"Solicitação", cotacoes:"Cotação", aprovac
 const money = value => new Intl.NumberFormat("pt-BR", {style:"currency", currency:"BRL"}).format(value);
 const dateLabel = value => value ? new Date(`${value}T12:00:00`).toLocaleDateString("pt-BR") : "Data não informada";
 
-export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpen, scope }) {
+export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpen, scope, afterMetrics = null }) {
   const [page, setPage] = useState(0);
   const patch = next => { setPage(0); onFiltersChange({...filters, ...next}); };
   const source = model.rows.filter(row => area === "fila" || row.stage === area);
@@ -56,6 +56,7 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
       <button type="button" data-tone={model.attention>0?"warning":undefined} aria-pressed={filters.risk === "soon"} onClick={() => patch({risk:"soon",stage:""})}><span>Atenção ao prazo</span><strong>{model.attention}</strong><small>Vence hoje ou nos próximos 3 dias</small></button>
       <button type="button" aria-pressed={filters.stage === "aprovacoes"} onClick={() => patch({stage:"aprovacoes",risk:""})}><span>Em aprovação</span><strong>{model.counts.aprovacoes}</strong><small>Decisão ou configuração pendente</small></button>
     </div>}
+    {area === "fila" && afterMetrics}
     <div className="purchase-queue-panel">
       <div className="purchase-queue-filters">
         <Input label="Buscar na fila" name="purchase-search" autoComplete="off" value={filters.query} onChange={event => patch({query:event.target.value})} placeholder="Ex.: cimento Alameda…"/>

@@ -46,6 +46,7 @@ Casos automatizados em `e2e/purchase-workspace.spec.js`:
 8. Engenharia consulta cotações sem obter botões de decisão de Compras.
 9. Layout e teclado em 390, 768, 1280 e 1440 px, com as seis ações visíveis e sem transbordamento da página.
 10. Solicitação e cotação no celular, sem transbordamento e com confirmação de descarte.
+11. Comparativo "Compras por obra": ordem por risco, abrir a obra escolhida, motivo da falta de baseline e menu de consultas fechando ao escolher (ver `docs/COMPRAS_ROADMAP.md`).
 
 As capturas de fila, solicitação, cotação e recebimento são geradas em `test-results/`, que permanece ignorado pelo Git. Executar também smoke dos módulos, ações críticas, lint, typecheck, arquitetura, testes e build antes da publicação.
 

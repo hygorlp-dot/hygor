@@ -8,7 +8,7 @@
 //   previsto     = pedidos ainda em rascunho (não somam no comprometido)
 // Item sem preço é valorado pelo custo médio do insumo (C1.5).
 // Alerta: 90% do orçado = atenção; acima de 100% = estourou.
-import { orcamentoDaObra } from "../planejamento/legacy-engine.js";
+import { getActiveBudgetBaseline } from "../orcamentos/calculations.js";
 import { referenceQuantityOf } from "./unit-conversion.js";
 
 export const LIMITE_ATENCAO_ORCAMENTO=90;
@@ -45,8 +45,13 @@ const valorDoItem=(item,materiais,quantidade)=>{
 // `pedidoSimulado` substitui (ou acrescenta) um pedido, para avaliar o
 // impacto de um pedido em edição antes de salvar.
 export const calcOrcadoComprado=(data,obraId,{pedidoSimulado=null}={})=>{
-  const orc=orcamentoDaObra(data,obraId);
-  if(!orc)return {orc:null,linhas:[],semApropriacao:0};
+  const baseline=getActiveBudgetBaseline(data,obraId,"controle");
+  const orc=baseline.budget;
+  // `motivo` explica a ausência: sem baseline de controle aprovada, baseline
+  // ambígua (mais de uma ativa) ou baseline apontando para versão inexistente.
+  // `temOrcamento` distingue "nunca criou orçamento" de "falta aprovar".
+  if(!orc)return {orc:null,linhas:[],semApropriacao:0,motivo:baseline.case||"baseline_ausente",
+    temOrcamento:(data.orcamentos||[]).some(o=>o.obraId===obraId)};
   const etapas=orc.etapas||[],etapaPorId=new Map(etapas.map(e=>[e.id,e]));
   const itemPorId=new Map((orc.itens||[]).filter(i=>i.tipo!=="titulo").map(i=>[i.id,i]));
   const raizDaEtapa=id=>{let e=etapaPorId.get(id),n=0;while(e?.parentId&&n++<30)e=etapaPorId.get(e.parentId)||e;return e;};
@@ -79,7 +84,7 @@ export const calcOrcadoComprado=(data,obraId,{pedidoSimulado=null}={})=>{
     };
   }).filter(l=>l.orcado>0||l.comprometido>0||l.previsto>0)
     .sort((a,b)=>b.comprometido-a.comprometido);
-  return {orc,linhas,semApropriacao};
+  return {orc,linhas,semApropriacao,motivo:null,temOrcamento:true};
 };
 
 // Etapas que o pedido em edição leva a 90% ou além do orçado. O pedido é
