@@ -5,11 +5,12 @@
 import { loadTensorflowModel } from "react-native-fast-tflite";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { Asset } from "expo-asset";
+import Constants from "expo-constants";
 import { File, Paths } from "expo-file-system";
 import * as Crypto from "expo-crypto";
 import UPNG from "upng-js";
 import {
-  BLAZEFACE, MOBILEFACENET, decodificarBlazeFace, giroDaCabeca, luminanciaMedia, normalizarL2, olhosENariz,
+  BLAZEFACE, FACENET512, MOBILEFACENET, decodificarBlazeFace, giroDaCabeca, luminanciaMedia, normalizarL2, olhosENariz,
   pixelsParaTensor, recorteParaIdentidade, rostosDistintos,
 } from "../logica/rosto.js";
 import { PARAMETROS_FACIAIS as P } from "../logica/calibracao.js";
@@ -17,9 +18,13 @@ import { fotoDentroDoLimite } from "../logica/foto.js";
 
 // SHA-256 dos arquivos de face_detection_tflite (Apache-2.0, ver NOTICE).
 // Modelo trocado = app recusa carregar (o reconhecimento é prova de ponto).
+const FACE_ENGINE = String(Constants.expoConfig?.extra?.faceEngine || "legacy");
+const CONFIG_IDENTIDADE = FACE_ENGINE === "facenet512" ? FACENET512 : MOBILEFACENET;
 const MODELOS = {
   detector: { modulo: require("../../assets/modelos/face_detection_front.tflite"), sha256: "3bc182eb9f33925d9e58b5c8d59308a760f4adea8f282370e428c51212c26633" },
-  identidade: { modulo: require("../../assets/modelos/mobilefacenet.tflite"), sha256: "be4bc7cfc53f7bc336d0f28b1ab92535f618c913a422b683210750f6b5354854" },
+  identidade: FACE_ENGINE === "facenet512"
+    ? { modulo: require("../../assets/modelos/facenet_512.tflite"), sha256: "f0dede2fdf5fd10248aad1d85393d2d40e3494464440bd8fccb2c957baa430b7" }
+    : { modulo: require("../../assets/modelos/mobilefacenet.tflite"), sha256: "be4bc7cfc53f7bc336d0f28b1ab92535f618c913a422b683210750f6b5354854" },
 };
 
 const hex = buffer => Array.from(new Uint8Array(buffer), b => b.toString(16).padStart(2, "0")).join("");
@@ -39,7 +44,10 @@ async function carregarConferido({ modulo, sha256 }) {
 
 export async function carregarModelos() {
   const [detector, identidade] = await Promise.all([carregarConferido(MODELOS.detector), carregarConferido(MODELOS.identidade)]);
-  return { detector, identidade, modelo: MOBILEFACENET.modelo };
+  return {
+    detector, identidade, modelo: CONFIG_IDENTIDADE.modelo, tamanhoIdentidade: CONFIG_IDENTIDADE.tamanho,
+    parametrosIdentificacao: { limiar: CONFIG_IDENTIDADE.limiar, margem: CONFIG_IDENTIDADE.margem },
+  };
 }
 
 const base64ParaBuffer = b64 => {
@@ -96,8 +104,9 @@ export async function analisarFoto(modelos, foto) {
   };
 
   // 3. Vetor de identidade.
-  const pixelsRosto = await pixelsDoRecorte(foto.uri, recorte, MOBILEFACENET.tamanho);
-  const [saida] = await modelos.identidade.run([pixelsParaTensor(pixelsRosto, MOBILEFACENET.tamanho, MOBILEFACENET.tamanho).buffer]);
+  const tamanhoIdentidade = Number(modelos.tamanhoIdentidade || MOBILEFACENET.tamanho);
+  const pixelsRosto = await pixelsDoRecorte(foto.uri, recorte, tamanhoIdentidade);
+  const [saida] = await modelos.identidade.run([pixelsParaTensor(pixelsRosto, tamanhoIdentidade, tamanhoIdentidade).buffer]);
   return { vetor: normalizarL2(new Float32Array(saida)), giro: giroDaCabeca(rosto), confiancaDeteccao: rosto.score, larguraRosto, luminancia: luminanciaMedia(pixelsRosto) };
 }
 
