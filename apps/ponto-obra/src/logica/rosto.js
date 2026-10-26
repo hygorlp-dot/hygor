@@ -117,7 +117,8 @@ export function recorteParaIdentidade(olhoEsquerdo, olhoDireito) {
 }
 
 // ---------------- MobileFaceNet (identidade) ----------------
-export const MOBILEFACENET = Object.freeze({ tamanho: 112, dimensao: 192, modelo: "mobilefacenet-192-apache2" });
+export const MOBILEFACENET = Object.freeze({ tamanho: 112, dimensao: 192, modelo: "mobilefacenet-192-apache2", limiar: 0.60, margem: 0.08 });
+export const FACENET512 = Object.freeze({ tamanho: 160, dimensao: 512, modelo: "facenet-512-apache2", limiar: 0.65, margem: 0.08 });
 
 // RGBA (como o decodificador de PNG entrega) -> Float32 RGB em [-1, 1], NHWC.
 // Mesma normalização dos dois modelos: x / 127.5 - 1.
