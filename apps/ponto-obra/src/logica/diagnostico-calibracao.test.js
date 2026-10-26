@@ -95,13 +95,14 @@ describe("payload da sincronização", () => {
       gps: { lat: -8.1, lng: -34.9, precisao: 8, em: agoraMs - 5000 }, agoraMs,
     })).toEqual({
       appVersao: "1.0.0 (7)",
+      modeloBiometria: "mobilefacenet-192-apache2",
       aparelho: { marca: "motorola", modelo: "moto g54", android: "14", build: "7", commit: "abcdef123456" },
       gps: { lat: -8.1, lng: -34.9, precisao: 8 },
     });
   });
 
   it("sem informação nenhuma ainda sai um corpo válido", () => {
-    expect(montarCorpoSincronizacao()).toEqual({ appVersao: "", aparelho: { marca: "", modelo: "", android: "", build: "", commit: "" } });
+    expect(montarCorpoSincronizacao()).toEqual({ appVersao: "", modeloBiometria: "mobilefacenet-192-apache2", aparelho: { marca: "", modelo: "", android: "", build: "", commit: "" } });
   });
 });
 
