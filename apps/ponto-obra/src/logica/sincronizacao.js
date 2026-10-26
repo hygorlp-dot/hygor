@@ -171,11 +171,17 @@ export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}
       servidorMs: r.servidorMs, monotonicoEnvioMs: envio.ms, monotonicoRespostaMs: resposta.ms, bootId: resposta.bootId, tempo: r.tempo || null,
     }));
   }
+  const recebidas = Array.isArray(r.biometrias)
+    ? r.biometrias.filter(b => !b?.modelo || String(b.modelo) === modeloBiometria)
+    : null;
   await armazem.salvarCadastro({
     obra: r.obra, dispositivo: r.dispositivo, estabelecimento: r.estabelecimento || null,
     funcionarios: r.funcionarios || [], terceirizados: r.terceirizados || [],
-    // biometrias null = inalteradas desde a última sincronização.
-    biometrias: (r.biometrias === null || (r.biometrias === undefined && r.biometriasAssinatura)) ? anterior?.biometrias || [] : r.biometrias || [],
+    // Backend antigo pode devolver modelos misturados. O aparelho nunca
+    // compara embeddings de dimensões/modelos diferentes.
+    biometrias: (recebidas === null || (r.biometrias === undefined && r.biometriasAssinatura))
+      ? (anterior?.modeloBiometria === modeloBiometria ? anterior?.biometrias || [] : [])
+      : recebidas,
     biometriasAssinatura: r.biometriasAssinatura || "",
     modeloBiometria: r.modeloBiometria || modeloBiometria,
     responsaveis: r.responsaveis || [], sincronizadoEm: new Date(r.servidorMs).toISOString(),
