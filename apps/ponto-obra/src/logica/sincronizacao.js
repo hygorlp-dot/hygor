@@ -45,6 +45,7 @@ export function montarCorpoSincronizacao({ app = {}, aparelho = {}, gps = null, 
   const versao = textoCurto(app.versao, 20), build = textoCurto(app.build, 20);
   const corpo = {
     appVersao: versao ? (build ? `${versao} (${build})` : versao) : "",
+    modeloBiometria: textoCurto(app.modeloBiometria || "mobilefacenet-192-apache2", 80),
     aparelho: {
       marca: textoCurto(aparelho.marca), modelo: textoCurto(aparelho.modelo), android: textoCurto(aparelho.android, 20),
       build, commit: textoCurto(app.commit, 12),
@@ -157,7 +158,9 @@ export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}
   // quando mudaram: o aparelho manda a assinatura do conjunto que já tem.
   const anterior = await armazem.cadastro();
   const envio = monotonico();
-  const r = await api("ponto-sincronizar", { ...corpo, biometriasAssinatura: anterior?.biometriasAssinatura || "" });
+  const modeloBiometria = textoCurto(corpo.modeloBiometria || "mobilefacenet-192-apache2", 80);
+  const assinaturaAnterior = anterior?.modeloBiometria === modeloBiometria ? anterior?.biometriasAssinatura || "" : "";
+  const r = await api("ponto-sincronizar", { ...corpo, modeloBiometria, biometriasAssinatura: assinaturaAnterior });
   const resposta = monotonico();
   if (!r.ok) return { ok: false, erro: r.error || `HTTP ${r.status}`, codigo: r.code || null, semRede: r.status === 0, status: r.status };
   const ambiente = conferirAmbiente(ambienteApp, r.ambiente);
@@ -174,6 +177,7 @@ export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}
     // biometrias null = inalteradas desde a última sincronização.
     biometrias: (r.biometrias === null || (r.biometrias === undefined && r.biometriasAssinatura)) ? anterior?.biometrias || [] : r.biometrias || [],
     biometriasAssinatura: r.biometriasAssinatura || "",
+    modeloBiometria: r.modeloBiometria || modeloBiometria,
     responsaveis: r.responsaveis || [], sincronizadoEm: new Date(r.servidorMs).toISOString(),
     tempo: r.tempo || null,
   });
