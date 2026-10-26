@@ -1,9 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import {
-  BLAZEFACE, ancorasBlazeFaceFront, decodificarBlazeFace, giroDaCabeca, identificar, normalizarL2,
-  olhosENariz, pixelsParaTensor, recorteParaIdentidade, rostosDistintos, similaridadeCosseno, vetorDoCadastro,
-} from "./rosto.js";
+import {BLAZEFACE, ancorasBlazeFaceFront, decodificarBlazeFace, giroDaCabeca, identificar, normalizarL2,
+  olhosENariz, pixelsParaTensor, recorteParaIdentidade, rostosDistintos, similaridadeCosseno, vetorDoCadastro,, consolidarCapturasFrontais} from "./rosto.js";
 
 // Monta a saída crua do BlazeFace com UM rosto na âncora `i`.
 function saidaComRosto(i, { score = 4, cx = 0, cy = 0, w = 40, h = 40, olhos = [[-10, -6], [10, -6]], nariz = [0, 4] } = {}) {
@@ -91,5 +89,24 @@ describe("identificação 1:N", () => {
     expect(Math.hypot(...v)).toBeCloseTo(1);
     expect(similaridadeCosseno(v, unitario(1))).toBeGreaterThan(0.99);
     expect(() => vetorDoCadastro([])).toThrow();
+  });
+});
+
+
+describe("consolidarCapturasFrontais", () => {
+  it("combina vetores válidos sem alterar os parâmetros de reconhecimento", () => {
+    const a = { vetor: [1, 0, 0], confiancaDeteccao: 0.8, giro: 0.01 };
+    const b = { vetor: [0.8, 0.2, 0], confiancaDeteccao: 0.95, giro: 0.02 };
+    const combinado = consolidarCapturasFrontais([a, b]);
+    expect(combinado.capturasUsadas).toBe(2);
+    expect(combinado.confiancaDeteccao).toBe(0.95);
+    expect(combinado.vetor).toHaveLength(3);
+    expect(Math.hypot(...combinado.vetor)).toBeCloseTo(1, 6);
+  });
+
+  it("ignora capturas inválidas e falha fechado sem nenhuma válida", () => {
+    const valida = { vetor: [1, 0], confiancaDeteccao: 0.7 };
+    expect(consolidarCapturasFrontais([{ erro: "sem rosto" }, valida]).capturasUsadas).toBe(1);
+    expect(() => consolidarCapturasFrontais([{ erro: "sem rosto" }])).toThrow("Nenhuma captura frontal válida.");
   });
 });
