@@ -83,6 +83,25 @@ describe("primeira sincronização e situação do cadastro", () => {
   it("biometria de quem saiu da obra não conta como rosto cadastrado", () => {
     expect(resumoCadastro({ funcionarios: [{ id: "e1" }], biometrias: [{ employeeId: "x" }] }).semRostos).toBe(true);
   });
+
+  it("descarta template de outro modelo mesmo se backend antigo o devolver", async () => {
+    const apiMisturada = async (action, body) => {
+      const r = await a.api(action, body);
+      if (action !== "ponto-sincronizar" || !r.ok) return r;
+      return {
+        ...r,
+        modeloBiometria: undefined,
+        biometrias: [{ employeeId: "e1", modelo: "mobilefacenet-192-apache2", vetor: vetor(3) }],
+      };
+    };
+    await sincronizarCadastro({
+      armazem: a.armazem, api: apiMisturada, monotonico: a.monotonico,
+      corpo: { modeloBiometria: "facenet-512-apache2" },
+    });
+    const cad = await a.armazem.cadastro();
+    expect(cad.modeloBiometria).toBe("facenet-512-apache2");
+    expect(cad.biometrias).toEqual([]);
+  });
 });
 
 describe("cadastro facial e ponto facial", () => {
