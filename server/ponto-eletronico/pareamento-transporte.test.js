@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it } from "vitest";
 import { criarTransporte } from "../../apps/ponto-obra/src/servicos/transporte.js";
 import { classificarResposta } from "../../apps/ponto-obra/src/logica/falhas.js";
