@@ -2,18 +2,19 @@
 
 ## O que roda no aparelho
 
-1. **Detecção** — BlazeFace "front" (128×128) acha o rosto e 6 pontos
+1. **Captura robusta** — um toque faz um pequeno burst automático de até 3 fotos frontais. Quadros sem rosto ou fora de pose são descartados; as duas melhores capturas válidas são escolhidas por qualidade física (detecção, tamanho do rosto e pose) e seus vetores são consolidados. Isso reduz falsa rejeição por um quadro ruim sem baixar o limiar de identidade.
+2. **Detecção** — BlazeFace "front" (128×128) acha o rosto e 6 pontos
    (olhos, nariz, boca, orelhas) no quadrado central da foto.
-2. **Alinhamento** — recorte quadrado de 2,5× a distância entre os olhos,
+3. **Alinhamento** — recorte quadrado de 2,5× a distância entre os olhos,
    centro 15% abaixo do meio dos olhos. O recorte **não é girado**: a cabeça
    inclinada é recusada acima de `inclinacaoMaximaGraus`.
-3. **Identidade** — MobileFaceNet (112×112) gera um vetor de 192 números,
+4. **Identidade** — MobileFaceNet (112×112) gera um vetor de 192 números,
    normalizado (L2).
-4. **Identificação 1:N** — o vetor é comparado (cosseno) com os cadastros de
+5. **Identificação 1:N** — o vetor é comparado (cosseno) com os cadastros de
    todos os funcionários ativos da empresa (funcionário global). A batida só é aceita se o 1º candidato passar de
    `limiarReconhecimento` **e** ficar pelo menos `margemSobreSegundo` à frente
    do 2º. Caso contrário, vai para o encarregado — nunca se chuta.
-5. **Prova de vida** — o app pede para a pessoa virar o rosto. A 2ª foto
+6. **Prova de vida** — o app pede para a pessoa virar o rosto. A 2ª foto
    precisa estar virada (`giroMinimoVirado`) e ainda parecer a mesma pessoa
    (`similaridadeMinimaVirado`).
 
