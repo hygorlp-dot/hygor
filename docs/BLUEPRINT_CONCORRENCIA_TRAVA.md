@@ -4341,3 +4341,28 @@ cadastrado. Corrigido; teste em `src/integration/auth-leitura-minima.test.js`
 **Verificação**: `server/token-auth.test.js` (12 casos, incluindo um JWT ES256
 assinado no teste e verificado offline pelo supabase-js: aceita o válido,
 rejeita assinatura adulterada e token vencido).
+
+### Polling do chat e da presença: ritmo curto só com a aba visível (26/10/2026)
+
+**Achado**: o chat consultava `/api/presence` a cada 8 s mesmo com a aba em
+segundo plano (a lista de presença do administrador, a cada 30 s; só o
+heartbeat de presença tratava visibilidade). Eram ~3.600 chamadas por usuário
+por dia, cada uma com validação do token e consultas ao banco, sem ninguém
+olhando - carga constante que compete com os salvamentos.
+
+**Corrigido**: `src/domains/sync/polling.js` (`criarPollingAdaptativo`) usa
+`setTimeout` encadeado: com a aba visível o ritmo é o de antes (chat 8 s,
+presença 30 s); oculta, passa a 60 s (chat) e 120 s (presença); ao voltar a
+ficar visível, consulta na hora; uma consulta lenta nunca se sobrepõe à
+seguinte; falha não encerra o polling. Usado em `LegacyApp.jsx` nos dois
+efeitos. O heartbeat de presença (45 s) não mudou: é ele que mantém o
+operador "on-line" para o administrador.
+
+**Decisão a conhecer**: mensagens novas do chat chegam em até 60 s com a aba
+em segundo plano (antes, 8 s). Navegadores já limitam timers de abas ocultas,
+então na prática a diferença é menor. Para mudar, ajustar `ocultoMs` no
+`LegacyApp.jsx`.
+
+**Verificação**: `src/domains/sync/polling.test.js` (8 casos: ritmo visível e
+oculto, retomada imediata, sem consulta extra ao ocultar, sem sobreposição,
+falha, parar e dupla inicialização).
