@@ -193,3 +193,36 @@ Próxima entrega: acordar persistência histórica de publicações/revisões co
 resolver integração dos casos pendentes e, quando houver API isolada e acesso ao
 aparelho, configurar preview/assinatura, gerar os dois APKs e testar atualização.
 Nenhum merge main, deploy, APK ou teste físico foi feito por esta sessão.
+
+## Atualização independente — 26/10/2026
+
+A sessão de aceite solicitou avaliar o candidato PR #120 `71810eb0110e8ac2719f13e9cf2dc500d7cc92eb`,
+no worktree `ponto-rh-pr120`. A base local deste documento permanece separada;
+nenhum módulo foi substituído nem build/deploy iniciado nesta avaliação.
+
+Verificação atual somente leitura:
+- `https://ponto-homologacao.vercel.app/api/data`: HTTP 200, `ok=true`, `ambiente=homologacao`.
+- Alias Vercel READY: `dpl_Ag6g6VF5Pbf6Ee2qzynm3B1tYVdQ`, metadado Git
+  `012604ac698a8fcd14c2c0f65f5b2e9128661ea5`. Esse é o frontend publicado, não o novo candidato Android.
+- API Supabase `ponto-api-homologacao`, projeto `ukkzpttnbyylkyujzwnv`, ACTIVE, versão 8,
+  hash remoto `96a4d1bd974f110f2da98a96abb663050626db90c50a3cc288500da208344da1`.
+  O hash coincide com a evidência consolidada da PR #120, que o associa a `012604a`;
+  não foi refeita nesta avaliação a comparação byte a byte do bundle com esse commit.
+- O estado antigo “API inexistente” descreve somente a entrega de 25/10 desta sessão.
+  O status RH registra autorização posterior para homologação com custo adicional zero;
+  esta avaliação não criou, promoveu nem contratou recursos.
+
+Bloqueio de atualização identificado: certificado do APK 7 documentado na PR #120
+`6e0c29e918a04d6557a93da646f9df01426a90cdbbe2b43bc881bba9ada0d795`
+é diferente da chave Windows A4 registrada acima. Essa chave Windows NÃO deve ser
+usada para atualizar os APKs 7/8. É necessário disponibilizar com segurança o
+keystore original e a identidade verificável do APK anterior; nenhum segredo por chat.
+A sessão RH foi consultada sobre os arquivos da sessão Linux remota.
+
+ADB local disponível em `C:/tmp/ponto-android-tools/platform-tools/adb.exe`;
+`adb devices -l` retornou vazio. Só Java 8 localizado; JDK 17/SDK/NDKs do roteiro
+não foram encontrados. O script de build novo usa comandos e permissões Unix e
+precisa adaptação/revisão para Windows, coordenada com RH antes de editar.
+APK 8 instalado/erro CA proxy são relatos recuperados, sem artefato local conferido.
+Não desativar TLS. APK 9 não foi gerado por esta sessão. A avaliação preserva
+produção, instalação/fila existentes e a condição de custo adicional zero.
