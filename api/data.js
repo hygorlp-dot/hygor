@@ -26,6 +26,7 @@ import postgres from "postgres";
 import { comSql } from "../server/pg-conexao.js";
 import { mesmoCarimboExato } from "../server/row-version.js";
 import { anexarCronometro, criarCronometro } from "../server/server-timing.js";
+import { criarValidadorDeToken } from "../server/token-auth.js";
 import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData, profileIndexOutdated } from "../server/data-codec.js";
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
@@ -362,6 +363,7 @@ const db = URL&&SERVICE ? createClient(URL, SERVICE, {
 const authDb = URL&&SERVICE ? createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
 }) : null;
+const validarToken = criarValidadorDeToken(authDb);
 
 const listarLinhasBackup=async()=>{
   const rows=[];let from=0;
@@ -1403,7 +1405,7 @@ const encontrarUsuarioAuth = (payload, authUser) => {
   if (!authUser) return null;
   const email = String(authUser.email || "").trim().toLowerCase();
   return (payload?.usuarios || []).find(u => u.active !== false &&
-    (u.authUserId === authUser.id || String(u.email || "").trim().toLowerCase() === email)) || null;
+    (u.authUserId === authUser.id || (email && String(u.email || "").trim().toLowerCase() === email))) || null;
 };
 
 const igual = (a,b) => JSON.stringify(a) === JSON.stringify(b);
@@ -1741,7 +1743,7 @@ export default async function handler(req, res) {
     // chamada sem sessão válida nunca paga a leitura completa.
     const [nucleo,tokenAuth] = await Promise.all([
       lerNucleo(),
-      accessToken ? authDb.auth.getUser(accessToken) : Promise.resolve({data:null,error:null}),
+      validarToken(accessToken),
     ]);
     cronometro.marcar("auth");
     const pinAuth=usaPin?conferirPin(nucleo.payload,userId,pin):{usuario:null,upgradeHash:""};

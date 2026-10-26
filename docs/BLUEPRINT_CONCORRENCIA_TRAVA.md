@@ -4312,3 +4312,32 @@ carimbo global da core).
 `src/integration/save-sections-sem-reler.test.js` (este último falha se o
 reaproveitamento ignorar o carimbo). O teste com Postgres real
 `server/orcamentos-linha-propria.pg.test.js` só roda na CI.
+
+### Validação local do token e a trava `email &&` (26/10/2026)
+
+**Validação local (`AUTH_LOCAL_JWT=1`, desligada por padrão)**.
+`server/token-auth.js` troca o `auth.getUser(token)` (uma ida ao Supabase Auth
+em TODA requisição: salvar, carregar, presença, chat) por `auth.getClaims(token)`
+quando a variável está ligada: assinatura e validade conferidas localmente com o
+JWKS do projeto (ES256, confirmado em `/auth/v1/.well-known/jwks.json`), em
+cache no cliente da instância. Só um sucesso local encerra a validação; erro,
+JWKS inacessível, token sem `sub` ou com role diferente de `authenticated`
+caem no `getUser`, que continua sendo a autoridade. `server/app-auth.js` passou
+a usar um cliente de validação compartilhado (o cache do JWKS mora no cliente).
+
+**Por que vem desligada - decisão sua**: o `getUser` enxerga na hora uma sessão
+revogada no Supabase (usuário banido, "sair de todos os dispositivos"); a
+validação local só percebe no vencimento do token (até 1 h). Desativar o
+operador DENTRO do ArcD (`usuarios[].active=false`) vale imediatamente nos dois
+modos, porque é conferido em cada requisição. Para ligar: `AUTH_LOCAL_JWT=1`
+na Vercel. Para medir o ganho: `arcdTemposResumo()` mostra a fase `auth`.
+
+**Achado**: `encontrarUsuarioAuth` (api/data.js) não tinha a trava `email &&`
+que `server/app-auth.js` ganhou em 24/08/2026. Um token Supabase sem e-mail e
+sem vínculo casava, por `"" === ""`, com o primeiro operador sem e-mail
+cadastrado. Corrigido; teste em `src/integration/auth-leitura-minima.test.js`
+(falha sem a trava).
+
+**Verificação**: `server/token-auth.test.js` (12 casos, incluindo um JWT ES256
+assinado no teste e verificado offline pelo supabase-js: aceita o válido,
+rejeita assinatura adulterada e token vencido).
