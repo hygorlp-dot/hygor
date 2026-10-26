@@ -152,6 +152,38 @@ export function vetorDoCadastro(capturas) {
   return normalizarL2(media);
 }
 
+// Qualidade para ESCOLHER quadros frontais; não usa identidade/top1 e, por
+// isso, não favorece uma pessoa conhecida. Detecção forte, rosto maior e pose
+// mais frontal ganham prioridade. O limiar de reconhecimento continua igual.
+export function qualidadeCapturaFrontal(captura, parametros = P) {
+  if (!captura?.vetor || captura.erro) return Number.NEGATIVE_INFINITY;
+  const detector = Math.max(0, Math.min(1, Number(captura.confiancaDeteccao) || 0));
+  const largura = Math.max(0, Math.min(1, (Number(captura.larguraRosto) || 0) / 0.5));
+  const limiteGiro = Math.max(0.0001, Number(parametros.giroMaximoDeFrente) || 0.15);
+  const pose = Math.max(0, 1 - Math.abs(Number(captura.giro) || 0) / limiteGiro);
+  return Number((detector * 0.55 + largura * 0.25 + pose * 0.20).toFixed(6));
+}
+
+// Consolida um pequeno burst automático. Quadros inválidos/virados ficam fora;
+// entre os válidos, usa só os melhores por qualidade física e tira a média L2.
+// Isso reduz ruído de captura sem relaxar limiar/margem da identificação 1:N.
+export function consolidarCapturasFrontais(capturas, { maximas = P.capturasConsolidadas || 2, parametros = P } = {}) {
+  const validas = (capturas || [])
+    .map((captura, indice) => ({ captura, indice, qualidade: qualidadeCapturaFrontal(captura, parametros) }))
+    .filter(item => Number.isFinite(item.qualidade)
+      && Math.abs(Number(item.captura.giro) || 0) <= parametros.giroMaximoDeFrente)
+    .sort((a, b) => b.qualidade - a.qualidade || a.indice - b.indice);
+  if (!validas.length) return { ok: false, vetor: null, melhor: null, escolhidas: [] };
+  const escolhidas = validas.slice(0, Math.max(1, Math.min(Number(maximas) || 1, validas.length)));
+  const vetor = vetorDoCadastro(escolhidas.map(item => item.captura.vetor));
+  return {
+    ok: true,
+    vetor,
+    melhor: escolhidas[0].captura,
+    escolhidas: escolhidas.map(item => ({ indice: item.indice, qualidade: item.qualidade })),
+  };
+}
+
 // Identificação 1:N. Só aceita quando o melhor passa do limiar E está
 // claramente à frente do segundo - dois parecidos (irmãos, por exemplo) não
 // viram uma batida no nome errado; vai para o encarregado.
