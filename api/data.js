@@ -24,6 +24,7 @@ import fs from "node:fs";
 import path from "node:path";
 import postgres from "postgres";
 import { comSql } from "../server/pg-conexao.js";
+import { mesmoCarimboExato } from "../server/row-version.js";
 import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData, profileIndexOutdated } from "../server/data-codec.js";
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
@@ -589,7 +590,11 @@ const montarLinha = ({ data, payload, splitRows, pontoObraRows }) => {
   }
   merged = { ...merged, attendance: mergeAttendanceObjects(...attendanceSources) };
 
-  return { payload: merged, updatedAt: data.updated_at || null, rowVersions, rowVersionsPontoObra };
+  // `linhasBrutas`: o que cada linha guarda, já decodificado e ANTES do merge.
+  // A transação de várias linhas reaproveita estas fatias quando o carimbo
+  // travado confirma que a linha não mudou (ver executarMutacaoMultiLinha).
+  const linhasBrutas = { [DOMAIN_ROW.CORE]: payload, ...rowPayloadsByDomain };
+  return { payload: merged, updatedAt: data.updated_at || null, rowVersions, rowVersionsPontoObra, linhasBrutas };
 };
 
 const lerLinha = async () => {
@@ -1102,19 +1107,40 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
 const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linha,mutate})=>{
   const separados=[...new Set(domains)].filter(d=>d!==DOMAIN_ROW.CORE&&SPLIT_ROW_KEYS[d]);
   return comSql(connection=>connection.begin(async transaction=>{
-      const travar=async key=>(await transaction`
-        select value,updated_at from company_app_data
-         where company_id=${COMPANY} and key=${key}
-         for update
-      `)[0];
+      // A leitura sem lock do topo do handler (lerLinha) já decodificou estas
+      // mesmas linhas. O lock pede só o carimbo: se ele é EXATAMENTE o que foi
+      // lido, a linha não mudou e a fatia já decodificada vale como se fosse
+      // lida agora (o lock impede mudança a partir daqui). Só quando o carimbo
+      // difere - outra gravação passou entre a leitura e o lock - o valor é
+      // baixado, na mesma transação. Assim o caso comum não baixa nem
+      // decodifica de novo a core e a linha de orçamentos.
+      const conhecidas=new Map([
+        [KEY,{versao:linha.rowVersions?.[DOMAIN_ROW.CORE],fatia:linha.linhasBrutas?.[DOMAIN_ROW.CORE]}],
+        ...separados.map(dominio=>[SPLIT_ROW_KEYS[dominio],{versao:linha.rowVersions?.[dominio],fatia:linha.linhasBrutas?.[dominio]}]),
+      ]);
+      const travar=async key=>{
+        const [travada]=await transaction`
+          select updated_at,updated_at::text as carimbo_exato from company_app_data
+           where company_id=${COMPANY} and key=${key}
+           for update
+        `;
+        if(!travada)return undefined;
+        const conhecida=conhecidas.get(key);
+        if(conhecida?.fatia&&mesmoCarimboExato(travada.carimbo_exato??travada.updated_at,conhecida.versao)){
+          return {updated_at:travada.updated_at,fatia:conhecida.fatia};
+        }
+        const valor=travada.value!==undefined?travada.value
+          :(await transaction`select value from company_app_data where company_id=${COMPANY} and key=${key}`)[0]?.value;
+        return {updated_at:travada.updated_at,fatia:decodeAppData(valor)};
+      };
       const coreTravada=await travar(KEY);
       if(!coreTravada)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
-      const coreFresca=decodeAppData(coreTravada.value);
+      const coreFresca=coreTravada.fatia;
       const travadas={};
       for(const dominio of separados)travadas[dominio]=await travar(SPLIT_ROW_KEYS[dominio]);
       // Linha existente: valor travado. Ausente: o campo ainda mora na core.
       const fatias=Object.fromEntries(separados.map(dominio=>[
-        dominio,travadas[dominio]?decodeAppData(travadas[dominio].value):pickDomainFields(coreFresca,dominio),
+        dominio,travadas[dominio]?travadas[dominio].fatia:pickDomainFields(coreFresca,dominio),
       ]));
       const versoes={...linha.rowVersions,...Object.fromEntries(separados.map(d=>[d,travadas[d]?.updated_at||"criando"]))};
       const rowPayloadsByDomain=Object.fromEntries(SPLITTABLE_DOMAINS.map(dominio=>[
@@ -2770,7 +2796,7 @@ export default async function handler(req, res) {
           action:sincronizaFinanceiro?"financial_shadow_save_sections":"save_sections",
           financial:sincronizaFinanceiro,
           domains:chaves.map(domainForField),
-          linha:{payload:atual,rowVersions},
+          linha:{payload:atual,rowVersions,linhasBrutas:linha.linhasBrutas},
           mutate:async({payload:current,updatedAt:lockedUpdatedAt})=>{
             const houveConcorrencia=expectedUpdatedAt&&lockedUpdatedAt
               &&!mesmoInstante(expectedUpdatedAt,lockedUpdatedAt);
