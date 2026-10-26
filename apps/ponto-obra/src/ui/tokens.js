@@ -1,26 +1,26 @@
-// ARCD Precision / Cupertino Industrial - tokens do Ponto de Obra.
+// MARCELL Ponto - tokens do Ponto de Obra.
 // Fonte única de cor, tipografia, espaço, raio e movimento do app. Puro (sem
 // React Native) para o teste conferir que nenhuma tela inventa valor próprio.
 // Documentação: apps/ponto-obra/DESIGN.md.
 
 export const COR = Object.freeze({
-  fundo: "#0B0B0C",
-  superficie: "#1C1C1E",
-  superficieElevada: "#242426",
+  fundo: "#0D1B2E",
+  superficie: "#18283C",
+  superficieElevada: "#21334A",
   divisor: "#38383A",
   borda: "rgba(255,255,255,0.08)",
   texto: "#F5F5F7",
   textoSecundario: "#A1A1A6",
   // 3,9:1 sobre o fundo: só para texto grande ou dispensável (nunca legenda).
   textoTerciario: "#6E6E73",
-  ouro: "#D4AF37",
-  sobreOuro: "#0B0B0C",
+  ouro: "#B9985B",
+  sobreOuro: "#000000",
   sucesso: "#30D158",
   atencao: "#FFD60A",
   erro: "#FF453A",
   camera: "#000000",
   // Véu sobre a câmera (instrução legível sem esconder o rosto).
-  veu: "rgba(11,11,12,0.72)",
+  veu: "rgba(13,27,46,0.72)",
   // Guia facial em repouso: presente sem competir com o rosto.
   guiaNeutra: "rgba(245,245,247,0.45)",
 });
@@ -37,10 +37,10 @@ export const TOQUE = Object.freeze({ minimo: 44, linha: 56, secundario: 56, prim
 // Uma família por peso: no Android, fonte carregada + fontWeight sintetiza
 // negrito falso. Sem a fonte (falha ao carregar) o Android usa a do sistema.
 export const FAMILIA = Object.freeze({
-  leve: "IBMPlexSans_300Light",
-  regular: "IBMPlexSans_400Regular",
-  media: "IBMPlexSans_500Medium",
-  semi: "IBMPlexSans_600SemiBold",
+  leve: "NimbusSans_400",
+  regular: "NimbusSans_400",
+  media: "NimbusSans_400",
+  semi: "NimbusSans_600",
   mono: "IBMPlexMono_400Regular",
   monoMedia: "IBMPlexMono_500Medium",
 });

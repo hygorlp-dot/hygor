@@ -88,13 +88,13 @@ export function telaSemCamera(estado) {
 // ---------- Comprovante (estado de sucesso) ----------
 // A Portaria exige acesso do trabalhador ao registro: tudo o que o
 // comprovante antigo mostrava continua aqui, em hierarquia. NSR: o app
-// nunca mostra um número - só diz que o ARCD atribui depois do envio.
+// nunca mostra um número - só diz que o MARCELL atribui depois do envio.
 // c = retorno de registrar() (App.js); hora já formatada pela tela.
 export function linhasDoComprovante(c, { obra = null, online = false, fuso = FUSO_PADRAO } = {}) {
   const detalhes = [
     { rotulo: "CPF", valor: c.cpfMascarado || "não informado", mono: true },
     { rotulo: "Código do registro", valor: String(c.hash || "").slice(0, 16), mono: true },
-    { rotulo: "NSR", valor: "atribuído pelo ARCD após o envio" },
+    { rotulo: "NSR", valor: "atribuído pelo MARCELL após o envio" },
   ];
   const avisos = [];
   if (!c.horaConfiavel) avisos.push("Hora do aparelho: será conferida na sincronização.");
@@ -111,7 +111,7 @@ export function linhasDoComprovante(c, { obra = null, online = false, fuso = FUS
     registro: `Registro local nº ${c.localSequence}`,
     numeroRegistro: String(c.localSequence),
     envio: online
-      ? { tom: "neutro", icone: "sincronizando", texto: "Enviando ao ARCD" }
+      ? { tom: "neutro", icone: "sincronizando", texto: "Enviando ao MARCELL" }
       : { tom: "neutro", icone: "offline", texto: "Salvo no aparelho", detalhe: "Será enviado automaticamente." },
     detalhes,
     avisos,
@@ -120,7 +120,7 @@ export function linhasDoComprovante(c, { obra = null, online = false, fuso = FUS
 
 // ---------- Fuso horário ----------
 // Hora mostrada no fuso do ESTABELECIMENTO da obra do aparelho (cadastrado no
-// ARCD, vem no cadastro sincronizado). Sem estabelecimento ou com fuso
+// MARCELL, vem no cadastro sincronizado). Sem estabelecimento ou com fuso
 // inválido, o padrão do domínio (o mesmo default do banco).
 export function fusoDoCadastro(cadastro) {
   const fuso = String(cadastro?.estabelecimento?.timezone || "").trim();
@@ -146,7 +146,7 @@ export function saudacao(ms, fuso = FUSO_PADRAO) {
 
 // Horários (HH:MM, fuso do estabelecimento) em que a pessoa marcou no dia da batida,
 // em ordem. Só leitura dos eventos já gravados; não classifica entrada/saída
-// (isso é do tratamento no ARCD). eventos = armazem.eventosRecentes().
+// (isso é do tratamento no MARCELL). eventos = armazem.eventosRecentes().
 export function batidasDoDia(eventos, { tipo = "funcionario", id, marcadoEm, fuso = FUSO_PADRAO }) {
   const ref = Date.parse(marcadoEm);
   if (!id || !Number.isFinite(ref)) return [];
@@ -222,7 +222,7 @@ export function passoDoCadastro({ pessoa = null, introVista = false, aceitoEm = 
 export const rotuloDaCaptura = (feitas, total) => `${Math.min(feitas + 1, total)} de ${total}`;
 
 // ---------- Pareamento ----------
-// 8 casas, em dois grupos de 4 (mais fácil de copiar do ARCD).
+// 8 casas, em dois grupos de 4 (mais fácil de copiar do MARCELL).
 export function casasDoCodigo(codigo, total = 8) {
   const digitos = String(codigo || "").replace(/\D/g, "").slice(0, total);
   return Array.from({ length: total }, (_, i) => ({ digito: digitos[i] || "", ativa: i === Math.min(digitos.length, total - 1) && digitos.length < total }));

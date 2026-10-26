@@ -77,7 +77,8 @@ describe('plano remoto de adiantamentos fictícios',()=>{
     data.titulosFolha[0].saldo=0;expect(()=>inspect(data)).toThrow(/Saldo ou situação/);
   });
   it('modo padrão do cliente apenas prepara plano, mesmo com caminho de acesso inexistente',()=>{
-    const result=spawnSync('python3',['scripts/simulacao/simular-adiantamentos-homologacao.py','--access','/nao-existe/credenciais.json'],{cwd:process.cwd(),encoding:'utf8'});
+    const python=process.env.PYTHON||(process.platform==='win32'?'python':'python3');
+    const result=spawnSync(python,['scripts/simulacao/simular-adiantamentos-homologacao.py','--access','/nao-existe/credenciais.json'],{cwd:process.cwd(),encoding:'utf8'});
     expect(result.status,result.stderr).toBe(0);
     const output=JSON.parse(result.stdout);expect(output.mode).toBe('plan_only');expect(output.executed).toBe(false);
     expect(output.plan.people).toHaveLength(2);

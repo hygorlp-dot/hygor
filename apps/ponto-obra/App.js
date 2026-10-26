@@ -1,19 +1,15 @@
 // App "Ponto de Obra" (REP-P, Portaria 671/2021) - aparelho dedicado a uma
 // obra. Liga: armazém criptografado, relógio confiável, modelos de rosto,
-// sincronização com o ARCD a cada minuto e as telas.
+// sincronização com o MARCELL a cada minuto e as telas.
 //
 // Máquina de estados simples (sem roteador):
 //   carregando → parear | ponto ⇄ encarregado
-//   erro (banco/sessão), revogado (aparelho desativado no ARCD)
+//   erro (banco/sessão), revogado (aparelho desativado no MARCELL)
 // Nenhuma falha de rede, GPS, câmera ou reconhecimento apaga batida guardada.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
 import { useFonts } from "expo-font";
 // Só os 6 pesos usados (importar a raiz do pacote embutiria as 30 variantes).
-import { IBMPlexSans_300Light } from "@expo-google-fonts/ibm-plex-sans/300Light";
-import { IBMPlexSans_400Regular } from "@expo-google-fonts/ibm-plex-sans/400Regular";
-import { IBMPlexSans_500Medium } from "@expo-google-fonts/ibm-plex-sans/500Medium";
-import { IBMPlexSans_600SemiBold } from "@expo-google-fonts/ibm-plex-sans/600SemiBold";
 import { IBMPlexMono_400Regular } from "@expo-google-fonts/ibm-plex-mono/400Regular";
 import { IBMPlexMono_500Medium } from "@expo-google-fonts/ibm-plex-mono/500Medium";
 import { StatusBar } from "expo-status-bar";
@@ -38,9 +34,9 @@ import { Botao, BotaoSecundario, COR, Corpo, ESPACO, EstadoCentral, Mensagem, Te
 
 const SINCRONIZAR_A_CADA_MS = 60_000;
 const CADASTRO_A_CADA_MS = 5 * 60_000;
-// IBM Plex (identidade ARCD) embutida no app: abre offline. Se a fonte não
+// Nimbus Sans (MARCELL) e fonte numérica embutidas: abrem offline. Se a fonte não
 // carregar, o app segue com a do sistema - nunca fica preso esperando.
-const FONTES = { IBMPlexSans_300Light, IBMPlexSans_400Regular, IBMPlexSans_500Medium, IBMPlexSans_600SemiBold, IBMPlexMono_400Regular, IBMPlexMono_500Medium };
+const FONTES = { NimbusSans_400: require("./assets/fonts/marcell/NimbusSans-Regular.otf"), NimbusSans_600: require("./assets/fonts/marcell/NimbusSans-Bold.otf"), IBMPlexMono_400Regular, IBMPlexMono_500Medium };
 const ESPERA_MAXIMA_FONTES_MS = 3000;
 const sha256Texto = texto => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, texto);
 
@@ -105,7 +101,7 @@ export default function App() {
       });
       const aviso = r.ambienteIncompativel ? "O servidor não confirmou o ambiente. As batidas continuam guardadas neste aparelho; chame o suporte."
         : r.aguardandoEstabelecimento
-        ? "A obra deste aparelho ainda não está ligada a um estabelecimento no ARCD. As batidas ficam guardadas aqui e são enviadas quando o vínculo for feito."
+        ? "A obra deste aparelho ainda não está ligada a um estabelecimento no MARCELL. As batidas ficam guardadas aqui e são enviadas quando o vínculo for feito."
         : ok ? "" : classificarResposta({ ok: false, status: r.online ? r.status || 500 : 0, error: r.erro }).mensagem;
       await atualizarSituacao({ online: r.online, aviso });
     } catch (e) {
@@ -266,11 +262,11 @@ export default function App() {
   };
 
   // Banco novo = cadeia local nova: o aparelho precisa ser pareado de novo
-  // (vira outro dispositivo no ARCD). Assim a sequência local nunca recomeça
+  // (vira outro dispositivo no MARCELL). Assim a sequência local nunca recomeça
   // dentro do mesmo dispositivo e nada precisa ser renumerado.
   const recomecarBancoIlegivel = () => Alert.alert(
     "Começar um banco novo?",
-    "O arquivo atual NÃO será apagado: fica guardado no aparelho com outro nome para o suporte. Batidas que estavam nele e ainda não tinham sido enviadas não poderão ser enviadas por este aparelho. O aparelho precisará ser pareado de novo com um código do ARCD.",
+    "O arquivo atual NÃO será apagado: fica guardado no aparelho com outro nome para o suporte. Batidas que estavam nele e ainda não tinham sido enviadas não poderão ser enviadas por este aparelho. O aparelho precisará ser pareado de novo com um código do MARCELL.",
     [{ text: "Cancelar", style: "cancel" }, {
       text: "Começar banco novo", style: "destructive",
       onPress: async () => {
@@ -299,7 +295,7 @@ export default function App() {
   </Tela>;
   else if (fase === "revogado") conteudo = <Tela>
     <EstadoCentral tom="atencao" titulo="Aparelho desativado" acoes={<Botao titulo="Parear de novo" onPress={() => setFase("parear")} />}>
-      <Corpo secundario centro>Este aparelho foi desativado no ARCD. Nenhuma batida foi apagada: {situacao.pendentes} ainda não {situacao.pendentes === 1 ? "enviada continua guardada" : "enviadas continuam guardadas"} nele. Para voltar a usar, gere um código novo no ARCD.</Corpo>
+      <Corpo secundario centro>Este aparelho foi desativado no MARCELL. Nenhuma batida foi apagada: {situacao.pendentes} ainda não {situacao.pendentes === 1 ? "enviada continua guardada" : "enviadas continuam guardadas"} nele. Para voltar a usar, gere um código novo no MARCELL.</Corpo>
     </EstadoCentral>
   </Tela>;
   else if (fase === "parear") conteudo = <TelaPareamento api={api} aoParear={aoParear} />;

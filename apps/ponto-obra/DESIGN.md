@@ -1,21 +1,21 @@
-# ARCD Precision / Cupertino Industrial — Ponto de Obra
+# MARCELL Precision / Cupertino Industrial — Ponto de Obra
 
-## Família de sistemas visuais ARCD
+## Família de sistemas visuais MARCELL
 
 | Sistema | Onde | Caráter |
 | --- | --- | --- |
-| **ARCD Carbon** (`/DESIGN.md`) | Web, ERP, desktop administrativo | Denso, estrutural, claro, grade de dados |
-| **ARCD Precision** | Aplicativos mobile e quiosques | Uma tarefa por tela, alvos grandes, leitura a distância |
-| **ARCD Precision / Cupertino Industrial** (este documento) | Ponto de Obra | Precision em tema escuro, para um aparelho fixo na obra |
+| **MARCELL Carbon** (`/DESIGN.md`) | Web, ERP, desktop administrativo | Denso, estrutural, claro, grade de dados |
+| **MARCELL Precision** | Aplicativos mobile e quiosques | Uma tarefa por tela, alvos grandes, leitura a distância |
+| **MARCELL Precision / Cupertino Industrial** (este documento) | Ponto de Obra | Precision em tema escuro, para um aparelho fixo na obra |
 
-Os três compartilham a mesma identidade: **ouro ARCD `#D4AF37` como única cor de
-marca**, IBM Plex, verde, amarelo e vermelho só para estado, e nenhuma decoração
+Os três compartilham a mesma identidade: **ouro MARCELL `#B9985B` como única cor de
+marca**, Nimbus Sans (texto) e IBM Plex Mono (números), verde, amarelo e vermelho só para estado, e nenhuma decoração
 gratuita. O que muda entre eles é a densidade e o contexto de uso.
 
 ## Filosofia
 
 Equipamento confiável instalado em uma obra de alto padrão. Clareza e
-refinamento de produto premium, identidade ARCD e robustez de equipamento
+refinamento de produto premium, identidade MARCELL e robustez de equipamento
 industrial.
 
 - **Uma tarefa por tela.** A tela de ponto é entendida em menos de 1 segundo:
@@ -49,15 +49,15 @@ Fonte única. As telas não definem cor, raio, fonte nem espaço próprios; o te
 
 | Token | Valor | Uso |
 | --- | --- | --- |
-| `fundo` | `#0B0B0C` | Canvas |
-| `superficie` | `#1C1C1E` | Grupos, mensagens, pílula de status |
-| `superficieElevada` | `#242426` | Botão secundário, linha pressionada |
+| `fundo` | `#0D1B2E` | Canvas |
+| `superficie` | `#18283C` | Grupos, mensagens, pílula de status |
+| `superficieElevada` | `#21334A` | Botão secundário, linha pressionada |
 | `divisor` | `#38383A` | Linhas entre itens de um grupo |
 | `borda` | `rgba(255,255,255,0.08)` | Borda discreta de superfície |
 | `texto` | `#F5F5F7` | Texto principal |
 | `textoSecundario` | `#A1A1A6` | Texto de apoio, legendas (≥ 4,5:1 em todas as superfícies) |
 | `textoTerciario` | `#6E6E73` | Chevrons, placeholder, texto desabilitado. **Nunca** para legenda (3,9:1) |
-| `ouro` | `#D4AF37` | CTA principal, foco, seleção, progresso ativo, "‹ Voltar" e detalhes de marca |
+| `ouro` | `#B9985B` | CTA principal, foco, seleção, progresso ativo, "‹ Voltar" e detalhes de marca |
 | `sucesso` | `#30D158` | Estado: confirmado, sincronizado |
 | `atencao` | `#FFD60A` | Estado: hora não verificada, envio pendente, câmera sem permissão |
 | `erro` | `#FF453A` | Estado: falha real (batida não gravada, câmera ou banco quebrado) |
@@ -67,7 +67,7 @@ neutro. Os tons `neutro` e `info` usam `textoSecundario`, nunca uma cor de estad
 
 ### Tipografia
 
-IBM Plex Sans para a interface e IBM Plex Mono para valores técnicos (CPF
+Nimbus Sans (texto) e IBM Plex Mono (números) Sans para a interface e Nimbus Sans (texto) e IBM Plex Mono (números) Mono para valores técnicos (CPF
 mascarado, código do registro, versão, build, commit, contagens). As fontes vêm
 embutidas no app pelo `expo-font` (sem dependência nativa nova); são só 6
 arquivos, cerca de 1,1 MB. Se a fonte não carregar em até 3 s, o app segue com a
@@ -209,9 +209,9 @@ rostos) e o caminho do encarregado. A batida nunca fica impedida.
 É uma tela inteira: selo verde, **Ponto registrado**, saudação com o nome ("Bom
 dia, João Silva"), hora com segundos, obra, número do registro local, as
 marcações da pessoa no dia neste aparelho ("Hoje: 06:58 · 07:42", lidas do banco
-local, sem classificar entrada ou saída) e a pílula de envio ("Enviando ao ARCD" ou "Será
+local, sem classificar entrada ou saída) e a pílula de envio ("Enviando ao MARCELL" ou "Será
 enviado quando houver conexão."). Embaixo, em hierarquia menor, ficam o CPF
-mascarado, o código do registro e "NSR: atribuído pelo ARCD após o envio". O app
+mascarado, o código do registro e "NSR: atribuído pelo MARCELL após o envio". O app
 nunca mostra um NSR que a ARP não devolveu. Avisos de hora ou foto aparecem como
 mensagem de atenção.
 
@@ -255,8 +255,8 @@ valores técnicos em mono e problemas sinalizados com ícone e texto.
 ## Pareamento
 
 "PONTO DE OBRA" (detalhe em ouro), **Vincular aparelho**, a frase "Digite o
-código exibido no ARCD.", 8 casas (4 + 4) com a casa ativa em ouro, o caminho no
-ARCD como legenda e o botão primário. Após o OK do ARCD, a tela mostra ✓
+código exibido no MARCELL.", 8 casas (4 + 4) com a casa ativa em ouro, o caminho no
+MARCELL como legenda e o botão primário. Após o OK do MARCELL, a tela mostra ✓
 **Aparelho vinculado**, a obra e "Preparando o aparelho" enquanto a sessão é
 guardada e o cadastro baixado. A ordem das operações não mudou.
 
@@ -302,7 +302,7 @@ sistema (status, gestos ou 3 botões) às margens de 16 em cima e 20 embaixo.
 
 ## Ícone e splash
 
-A marca é um mostrador fino em ouro sobre grafite `#0B0B0C`: um anel (que é ao
+A marca é um mostrador fino em ouro sobre grafite `#0D1B2E`: um anel (que é ao
 mesmo tempo a guia facial e o relógio), a marcação das 12 h e os ponteiros. Os
 arquivos ficam em `assets/`: ícone, ícone adaptativo (fundo, primeiro plano na
 zona segura e versão monocromática para o ícone temático do Android 13+),

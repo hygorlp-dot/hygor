@@ -38,7 +38,7 @@ describe("tela de ponto - estado normal", () => {
   });
 
   it("problema de envio com internet: atenção curta; o detalhe fica no modo Encarregado", () => {
-    const s = statusDoAparelho({ online: true, pendentes: 4, aviso: "A obra deste aparelho ainda não está ligada a um estabelecimento no ARCD..." });
+    const s = statusDoAparelho({ online: true, pendentes: 4, aviso: "A obra deste aparelho ainda não está ligada a um estabelecimento no MARCELL..." });
     expect(s).toMatchObject({ tom: "atencao", texto: "Envio pendente", detalhe: "4 pendentes" });
     expect(s.texto.length).toBeLessThan(20);
   });
@@ -131,7 +131,7 @@ describe("tela de ponto - sucesso (comprovante)", () => {
   it("mostra o que o trabalhador precisa ver: título, nome, obra, registro local e envio", () => {
     const l = linhasDoComprovante(c, { obra: { nome: "Terras Alpha" }, online: true });
     expect(l).toMatchObject({ titulo: "Ponto registrado", nome: "João Silva", obra: "Terras Alpha", registro: "Registro local nº 18" });
-    expect(l.envio).toMatchObject({ icone: "sincronizando", texto: "Enviando ao ARCD" });
+    expect(l.envio).toMatchObject({ icone: "sincronizando", texto: "Enviando ao MARCELL" });
     expect(l.avisos).toEqual([]);
   });
 
@@ -141,7 +141,7 @@ describe("tela de ponto - sucesso (comprovante)", () => {
     expect(l.detalhes.find(d => d.rotulo === "Código do registro").valor).toBe("f".repeat(16));
     const nsr = l.detalhes.find(d => d.rotulo === "NSR").valor;
     expect(nsr).not.toMatch(/\d/);
-    expect(nsr).toContain("ARCD");
+    expect(nsr).toContain("MARCELL");
   });
 
   it("hora não confiável e foto não guardada viram avisos visíveis", () => {

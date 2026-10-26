@@ -34,14 +34,14 @@ const ROTULO_STATUS_HORA_SERVIDOR = {
 // Devolve { tom: "ok" | "atencao" | "erro", texto, acao, batidaConfiavel }.
 export function alertaDaHora({ hora = null, referencia = null, statusHora = null } = {}) {
   const r = (tom, texto, acao) => ({ tom, texto, acao, batidaConfiavel: !!hora?.horaConfiavel });
-  if (!referencia || referencia.estado === "nunca_validada") return r("erro", "O aparelho ainda não pegou a hora do ARCD. As batidas saem com a hora do celular, sinalizadas.", "Conecte o aparelho à internet e sincronize.");
+  if (!referencia || referencia.estado === "nunca_validada") return r("erro", "O aparelho ainda não pegou a hora do MARCELL. As batidas saem com a hora do celular, sinalizadas.", "Conecte o aparelho à internet e sincronize.");
   if (referencia.estado === "invalida_apos_reinicio") return r("atencao", "O aparelho reiniciou. Até a próxima sincronização as batidas saem com a hora do celular, sinalizadas.", "Conecte à internet para sincronizar a hora.");
   if (referencia.estado === "expirada") return r("erro", "Mais de 7 dias sem sincronizar a hora. As batidas saem sinalizadas.", "Conecte à internet para sincronizar a hora.");
-  if (statusHora === "fora_da_tolerancia") return r("erro", "A hora do servidor do ARCD está fora da tolerância medida contra o NTP.br. As batidas saem sinalizadas.", "Avise o suporte do ARCD.");
+  if (statusHora === "fora_da_tolerancia") return r("erro", "A hora do servidor do MARCELL está fora da tolerância medida contra o NTP.br. As batidas saem sinalizadas.", "Avise o suporte do MARCELL.");
   if (referencia.estado === "proxima_do_vencimento") return r("atencao", "A referência de hora vence em breve.", "Conecte à internet para sincronizar a hora.");
   if (statusHora === "nao_verificada" || statusHora === "verificacao_vencida") return r("atencao", `Hora do servidor ${ROTULO_STATUS_HORA_SERVIDOR[statusHora]}; as batidas saem sinalizadas.`, "Avise o suporte para verificar a fonte de hora.");
   if(hora?.horaConfiavel!==true)return r('atencao','A referência de hora não tem verificação válida. As batidas continuam sendo salvas, sinalizadas.','Conecte e sincronize; se persistir, avise o suporte.');
-  if (hora?.relogioAlterado) return r("ok", "Hora válida. O relógio do celular está diferente, mas a batida usa a hora do ARCD.", null);
+  if (hora?.relogioAlterado) return r("ok", "Hora válida. O relógio do celular está diferente, mas a batida usa a hora do MARCELL.", null);
   return r("ok", "Hora válida.", null);
 }
 
@@ -70,7 +70,7 @@ export function montarDiagnostico({ app = {}, rep = {}, aparelho = {}, sessao = 
     ["Plataforma", aparelho.plataforma || "android"],
     ["Android", aparelho.android || "-"],
     ["Aparelho", [aparelho.marca, aparelho.modelo].filter(Boolean).join(" ") || "-"],
-    ["Aparelho no ARCD", sessao?.nome || "não pareado"],
+    ["Aparelho no MARCELL", sessao?.nome || "não pareado"],
     ["Obra", sessao?.obra?.nome || "-"],
     ["GPS", gps.estado || "desconhecido"],
     ["Última sincronização", sinc ? `${fmt(sinc.em)}${sinc.ok ? "" : ` (falhou: ${sinc.erro || "erro"})`}` : "nunca"],
@@ -78,7 +78,7 @@ export function montarDiagnostico({ app = {}, rep = {}, aparelho = {}, sessao = 
     ["Batidas a enviar", String(contagem.pendentes ?? 0)],
     ["Fotos a enviar", String(contagem.fotos ?? 0)],
     ["Fotos com problema", String(contagem.fotosComProblema ?? 0)],
-    ["Estabelecimento", fiscal.estabelecimento || (sinc?.aguardandoEstabelecimento ? "obra sem estabelecimento no ARCD" : "-")],
+    ["Estabelecimento", fiscal.estabelecimento || (sinc?.aguardandoEstabelecimento ? "obra sem estabelecimento no MARCELL" : "-")],
     ["Sequência local (último registro)", fiscal.ultimaSequenciaLocal ?? "-"],
     ["Último NSR recebido da ARP", fiscal.ultimoNsr ?? "-"],
     ["ARP", arp],
@@ -105,7 +105,7 @@ export function montarDiagnostico({ app = {}, rep = {}, aparelho = {}, sessao = 
 // sem seção conhecida cai em "Outros" - nada some da tela.
 const SECAO_DO_ITEM = {
   "Versão do app": "Aplicativo", "Versão do software REP": "Aplicativo", "Build (versionCode)": "Aplicativo", "Commit": "Aplicativo", "Perfil do build": "Aplicativo", "Data do build": "Aplicativo",
-  "Plataforma": "Aparelho", "Android": "Aparelho", "Aparelho": "Aparelho", "Aparelho no ARCD": "Aparelho", "Obra": "Aparelho", "GPS": "Aparelho",
+  "Plataforma": "Aparelho", "Android": "Aparelho", "Aparelho": "Aparelho", "Aparelho no MARCELL": "Aparelho", "Obra": "Aparelho", "GPS": "Aparelho",
   "Última sincronização": "Sincronização", "Último envio com sucesso": "Sincronização", "Batidas a enviar": "Sincronização", "Fotos a enviar": "Sincronização", "Fotos com problema": "Sincronização",
   "Estabelecimento": "REP-P", "Sequência local (último registro)": "REP-P", "Último NSR recebido da ARP": "REP-P", "ARP": "REP-P", "Cadeia local": "REP-P", "Situação formal REP-P": "REP-P",
   "Referência de hora": "Hora", "Estado da referência": "Hora", "Última validação da hora": "Hora", "Idade da referência": "Hora", "Fonte de hora do servidor": "Hora", "Alerta da hora": "Hora", "Fuso horário": "Hora",

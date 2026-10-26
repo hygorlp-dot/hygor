@@ -5,7 +5,7 @@
 // GPS → mostra o comprovante. Se não reconhecer, o encarregado identifica:
 // a batida nunca é impedida (Portaria 671/2021).
 //
-// Desenho (ARCD Cupertino Industrial): hora e câmera protagonistas, uma ação
+// Desenho (MARCELL Cupertino Industrial): hora e câmera protagonistas, uma ação
 // dominante ("Bater ponto"), status conciso no canto, detalhe técnico só no
 // modo Encarregado. Fases e textos vêm de logica/apresentacao.js.
 import { useEffect, useRef, useState } from "react";
@@ -157,7 +157,7 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       <Painel tom="info" titulo="Cadastre os rostos da equipe">
         <Corpo secundario centro>{temResponsavel
           ? "Nenhum funcionário tem rosto cadastrado ainda. O encarregado entra com o PIN e cadastra cada um."
-          : "Primeiro cadastre o PIN do encarregado no ARCD: Ponto eletrônico (app) → Responsáveis com PIN do app. Depois toque abaixo e em \"Buscar no ARCD\"."}</Corpo>
+          : "Primeiro cadastre o PIN do encarregado no MARCELL: Ponto eletrônico (app) → Responsáveis com PIN do app. Depois toque abaixo e em \"Buscar no MARCELL\"."}</Corpo>
       </Painel>
       <Botao titulo="Cadastrar rostos" onPress={abrirEncarregado} rotuloAcessivel="Cadastrar rostos, abre o modo Encarregado" />
     </Tela>;

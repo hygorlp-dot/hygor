@@ -28,9 +28,9 @@ const contraste = (a, b) => { const [x, y] = [luminancia(a), luminancia(b)].sort
 describe("tokens", () => {
   it("paleta oficial do Ponto de Obra", () => {
     expect(COR).toMatchObject({
-      fundo: "#0B0B0C", superficie: "#1C1C1E", superficieElevada: "#242426", divisor: "#38383A",
+      fundo: "#0D1B2E", superficie: "#18283C", superficieElevada: "#21334A", divisor: "#38383A",
       texto: "#F5F5F7", textoSecundario: "#A1A1A6", textoTerciario: "#6E6E73",
-      ouro: "#D4AF37", sucesso: "#30D158", atencao: "#FFD60A", erro: "#FF453A",
+      ouro: "#B9985B", sucesso: "#30D158", atencao: "#FFD60A", erro: "#FF453A",
     });
   });
 
@@ -48,8 +48,8 @@ describe("tokens", () => {
   it("tipografia: nenhum peso pesado (800/900) e nada abaixo de 13 px", () => {
     expect(Object.values(TIPO).every(t => t.fontSize >= 13)).toBe(true);
     expect(Object.values(TIPO).map(t => t.fontFamily).join(" ")).not.toMatch(/(?<!Semi)Bold|Black|Heavy/);
-    expect(TIPO.relogio).toMatchObject({ fontSize: 80, fontFamily: "IBMPlexSans_300Light" });
-    expect(TIPO.botao).toMatchObject({ fontSize: 20, fontFamily: "IBMPlexSans_600SemiBold" });
+    expect(TIPO.relogio).toMatchObject({ fontSize: 80, fontFamily: "NimbusSans_400" });
+    expect(TIPO.botao).toMatchObject({ fontSize: 20, fontFamily: "NimbusSans_600" });
   });
 
   it("contraste: texto principal e secundário legíveis no fundo e na superfície; CTA legível", () => {

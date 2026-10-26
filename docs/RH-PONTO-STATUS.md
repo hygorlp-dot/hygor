@@ -1,5 +1,20 @@
 # RH e ponto — acompanhamento
 
+## Retomada MARCELL — 26/10/2026
+
+O usuário informou que a recuperação de 63 arquivos não foi salva em pasta, patch ou commit. Esta retomada parte do checkpoint remoto `61c9e456a59264af2d62d60812b8a4b21cb268fa` da PR #120; não declara recuperada uma árvore local indisponível.
+
+- Refeitos textos visíveis do aplicativo, nome de exibição, ícone, cores MARCELL e Nimbus Sans embutida/offline. Identificadores de pacote, banco, API, assinatura, permissões e históricos permanecem compatíveis. O nome do REP-P continua provisório, sem declaração de conformidade. O texto de consentimento com a nova marca recebeu versão própria; consentimentos antigos não foram regravados.
+- Transporte diferencia servidor ausente, leitura de sessão local, timeout, falha de conexão e resposta inválida. Erro genérico de fetch não afirma mais “Sem internet”. HTTP 200 com corpo inválido não confirma uma operação. Falhas locais/de rede continuam permitindo repetição; não eliminam batidas ou fotos.
+- PDFs: fallbacks MARCELL preservam a identificação empresarial preenchida. Cabeçalho e totais seguem a apresentação comum, sem mudar células ou valores. Quatro modelos renderizados: holerite CLT, folha diária, rescisão e relatório longo (cinco páginas, 130 linhas conferidas, zero e negativo preservados). Evidências locais: `C:/tmp/pr120-pdfs/` e `C:/tmp/pr120-pdf-qa.log`.
+- Validação: 233 testes focais mobile/relatórios aprovados; 32 cenários de navegador desktop/celular aprovados; 22 testes focais de transporte, relatórios, parser e plano de adiantamento aprovados. Lint, TypeScript e arquitetura aprovados. A suíte geral inicial revelou preparação Windows com Python/UTF-8 e dependência externa por junction; os dois problemas foram corrigidos. O gate final de publicação registra a suíte geral e build em `C:/tmp/pr120-retomada-push.log`.
+- Exportação Hermes Android concluída com as fontes e modelos locais (`C:/tmp/pr120-android-export`); não é um APK novo nem prova de execução nativa. APKs anteriores não contêm estes ajustes.
+- A ação pública `ponto-ambiente` respondeu HTTP 200 e `ambiente=homologacao` em `https://ponto-homologacao.vercel.app/api/data`. Nenhum pareamento, cadastro, pagamento ou lançamento remoto foi executado nesta retomada.
+
+**Bloqueio atual do APK:** o usuário esclareceu que o emulador anterior era online. Ele não foi localizado nesta sessão; SDK/ADB/emulador local também não estão disponíveis. Foi solicitado o serviço ou link para retomar o teste. Não declarar resolvido o pareamento ou atribuir sua falha à internet sem execução nesse ambiente. Produção e homologação continuam separadas; sem promoção a produção.
+
+Próximo passo: verificar os checks da atualização da PR #120, localizar o emulador online e recompilar/testar o APK com as novas fontes. Preservar assinatura, instalação existente e fila ao atualizar; só então registrar o resultado do pareamento e do ensaio offline.
+
 Atualizado em **25/10/2026**. [Roadmap](RH-PONTO-ROADMAP.md) · [Simulação completa](SIMULACAO_COMPLETA_FULANO_SICLANO.md) · [Revisão financeira](REVISAO_FINANCEIRA_HOMOLOGACAO.md).
 
 ## Decisão atual

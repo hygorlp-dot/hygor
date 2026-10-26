@@ -209,9 +209,9 @@ function Rescisao({ data, showToast, currentUser, dispatchCommand }) {
 <button onclick="window.print()" style="position:fixed;top:10px;right:10px;background:#111;color:#D4AF37;border:none;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;z-index:99"> Imprimir / PDF</button>
 
 <div class="header">
-  <div class="logo-box">ArcD</div>
+  <div class="logo-box">MARCELL</div>
   <div class="company-info">
-    <h1>${escapeHtml(data.config.companyName||"ArcD Construtora")}</h1>
+    <h1>${escapeHtml(data.config.companyName||"MARCELL")}</h1>
     ${data.config.cnpj?`<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>`:""}
     <p>${received?'Apuração contábil recebida · rescisão':'Prévia de rescisão para conferência contábil'}</p>
   </div>
@@ -261,7 +261,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
   </div>
   <div class="sign-box">
     <p class="name">${escapeHtml(data.config.hrName||"Responsável")}</p>
-    <p>${escapeHtml(data.config.companyName||"ArcD Construtora")}</p>
+    <p>${escapeHtml(data.config.companyName||"MARCELL")}</p>
     ${data.config.cnpj?`<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>`:""}
   </div>
 </div>

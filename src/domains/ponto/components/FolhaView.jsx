@@ -506,7 +506,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         </head>
         <body>
           <div class="cabecalho">
-            <h1>${escapeHtml(data.config.companyName || "ArcD Obras")}</h1>
+            <h1>${escapeHtml(data.config.companyName || "MARCELL")}</h1>
             ${data.config.cnpj ? `<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>` : ""}
             <h2>Folha de Pagamento - ${escapeHtml(periodLabel)}</h2>
             <div class="meta">

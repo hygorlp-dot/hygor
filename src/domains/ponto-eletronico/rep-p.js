@@ -6,7 +6,7 @@
 // Enquanto houver pendência, nenhuma tela pode dizer "REP-P conforme".
 export const REP_P = Object.freeze({
   nomeOficial: null,                  // nome do programa como será registrado (a definir)
-  nomeProvisorio: "ARCD Ponto de Obra",
+  nomeProvisorio: "MARCELL Ponto de Obra",
   versao: "0.2.0-tecnica",            // versão técnica (não é versão registrada)
   desenvolvedor: null,                // razão social/CNPJ do desenvolvedor (a definir)
   inpiRegistrationNumber: null,       // certificado de registro no INPI (pendente)

@@ -49,7 +49,7 @@ describe("matriz de comportamento da hora", () => {
     expect(hora).toMatchObject({ horaConfiavel: true, fonteHora: "host+ntp:a.st1.ntp.br", relogioAlterado: false });
     expect(estado.estado).toBe("valida");
     expect(alerta).toMatchObject({ tom: "ok", texto: "Hora válida.", acao: null, batidaConfiavel: true });
-    // Relógio do celular mexido não invalida: a batida usa a hora do ARCD e registra a divergência.
+    // Relógio do celular mexido não invalida: a batida usa a hora do MARCELL e registra a divergência.
     const mexido = aparelho(tempo, { paredeDesviaMs: 10 * 60_000 });
     expect(mexido.hora).toMatchObject({ horaConfiavel: true, relogioAlterado: true });
     expect(Math.abs(mexido.hora.divergenciaMs - 10 * 60_000)).toBeLessThanOrEqual(100);   // meia latência descontada
@@ -73,7 +73,7 @@ describe("matriz de comportamento da hora", () => {
     const tempo = await evidenciaDoServidor(fora);
     const { hora, alerta } = aparelho(tempo);
     expect(hora).toMatchObject({ horaConfiavel: false, marcadoEmMs: expect.any(Number) });
-    expect(alerta).toMatchObject({ tom: "erro", acao: "Avise o suporte do ARCD.", batidaConfiavel: false });
+    expect(alerta).toMatchObject({ tom: "erro", acao: "Avise o suporte do MARCELL.", batidaConfiavel: false });
     const diag = montarDiagnostico({ hora, referencia: aparelho(tempo).estado, fiscal: { fonteHora: tempo.source, statusHora: tempo.status } });
     expect(diag.find(i => i.rotulo === "Fonte de hora do servidor").valor).toMatch(/FORA da tolerância/);
   });

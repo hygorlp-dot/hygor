@@ -1,4 +1,4 @@
-// Conexão do aparelho com o ARCD (/api/data, ações ponto-*), sessão do
+// Conexão do aparelho com o MARCELL (/api/data, ações ponto-*), sessão do
 // aparelho (token no SecureStore) e relógio confiável.
 import Constants from "expo-constants";
 import * as Application from "expo-application";
@@ -7,6 +7,7 @@ import * as SecureStore from "expo-secure-store";
 import RelogioConfiavel from "../../modules/relogio-confiavel";
 import { horaDaMarcacao } from "../../../../src/domains/ponto-eletronico/relogio.js";
 import { AMBIENTES, NOME_AMBIENTE, resolverServidor, sessaoConfereCom } from "../../config/ambiente";
+import {criarTransporte} from './transporte.js';
 
 const EXTRA = Constants.expoConfig?.extra || {};
 export const AMBIENTE = AMBIENTES.includes(EXTRA.ambiente) ? EXTRA.ambiente : "";
@@ -20,7 +21,6 @@ export const infoDoServidor = () => ({
   ambiente: AMBIENTE, nomeAmbiente: NOME_AMBIENTE[AMBIENTE] || "SEM CONFIGURAÇÃO", bloqueado: !URL_API,
 });
 const CHAVE_SESSAO = "ponto-obra.sessao";
-const TEMPO_LIMITE_MS = 30_000;
 
 // ---------- identificação do app e do aparelho (sem dado pessoal) ----------
 // commit: injetado no build por app.config.js (EAS_BUILD_GIT_COMMIT_HASH).
@@ -54,26 +54,7 @@ export async function apagarSessao() {
 // ---------- API ----------
 // Nunca lança: devolve { ok, status, ...json }. status 0 = sem conexão.
 export function criarApi(obterToken) {
-  return async function api(action, corpo = {}) {
-    const controle = new AbortController();
-    const timer = setTimeout(() => controle.abort(), TEMPO_LIMITE_MS);
-    try {
-      if (!URL_API) return { ok: false, status: -1, code: "SERVIDOR_NAO_CONFIGURADO", error: "Este aplicativo não tem servidor configurado. Nada foi enviado." };
-      const token = await obterToken?.();
-      const r = await fetch(URL_API, {
-        method: "POST",
-        signal: controle.signal,
-        headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ action, ...corpo, ambienteApp: AMBIENTE }),
-      });
-      const json = await r.json().catch(() => ({}));
-      return { ok: r.ok, status: r.status, ...json };
-    } catch {
-      return { ok: false, status: 0, error: "Sem conexão com o ARCD. A batida fica guardada no aparelho." };
-    } finally {
-      clearTimeout(timer);
-    }
-  };
+  return criarTransporte({url:URL_API,ambiente:AMBIENTE,obterToken});
 }
 
 // ---------- relógio confiável ----------

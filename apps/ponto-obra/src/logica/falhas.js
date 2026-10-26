@@ -14,12 +14,14 @@ export const TIPO_FALHA = Object.freeze({
 // r = resposta de api() (conexao.js): { ok, status, error, code }.
 export function classificarResposta(r) {
   if (r?.ok) return { tipo: TIPO_FALHA.OK, mensagem: "" };
-  if (r?.code === "APARELHO_REVOGADO") return { tipo: TIPO_FALHA.REVOGADO, mensagem: "Este aparelho foi desativado no ARCD. As batidas que ainda não foram enviadas continuam guardadas nele." };
-  if (r?.code === "APARELHO_DESCONHECIDO" || r?.code === "APARELHO_SEM_TOKEN") return { tipo: TIPO_FALHA.DESCONHECIDO, mensagem: "O ARCD não reconhece mais este aparelho. Pareie de novo com um código gerado no ARCD." };
+  if(r?.code==='SESSAO_LOCAL_INDISPONIVEL')return {tipo:TIPO_FALHA.RECUSADO,mensagem:'Não foi possível ler a sessão deste aparelho. Tente novamente ou procure o responsável. Os registros locais continuam guardados.'};
+  if(r?.code==='TEMPO_ESGOTADO')return {tipo:TIPO_FALHA.SERVIDOR,mensagem:'O servidor não respondeu a tempo. Os registros locais continuam guardados; tente novamente.'};
+  if (r?.code === "APARELHO_REVOGADO") return { tipo: TIPO_FALHA.REVOGADO, mensagem: "Este aparelho foi desativado no MARCELL. As batidas que ainda não foram enviadas continuam guardadas nele." };
+  if (r?.code === "APARELHO_DESCONHECIDO" || r?.code === "APARELHO_SEM_TOKEN") return { tipo: TIPO_FALHA.DESCONHECIDO, mensagem: "O MARCELL não reconhece mais este aparelho. Pareie de novo com um código gerado no MARCELL." };
   const status = Number(r?.status || 0);
-  if (status === 0) return { tipo: TIPO_FALHA.SEM_REDE, mensagem: "Sem internet. As batidas ficam guardadas no aparelho e são enviadas quando a conexão voltar." };
-  if (status >= 500 || status === 408 || status === 429) return { tipo: TIPO_FALHA.SERVIDOR, mensagem: "O ARCD está temporariamente indisponível. As batidas ficam guardadas e o envio é repetido sozinho." };
-  return { tipo: TIPO_FALHA.RECUSADO, mensagem: resumirTexto(r?.error) || `O ARCD recusou o pedido (HTTP ${status}).` };
+  if (status === 0) return { tipo: TIPO_FALHA.SEM_REDE, mensagem: "Não foi possível alcançar o servidor. As batidas ficam guardadas e o envio será repetido automaticamente." };
+  if (status >= 500 || status === 408 || status === 429) return { tipo: TIPO_FALHA.SERVIDOR, mensagem: "O MARCELL está temporariamente indisponível. As batidas ficam guardadas e o envio é repetido sozinho." };
+  return { tipo: TIPO_FALHA.RECUSADO, mensagem: resumirTexto(r?.error) || `O MARCELL recusou o pedido (HTTP ${status}).` };
 }
 
 // Primeira linha, sem "at ..."/nomes de classe Java, limitada.
@@ -33,9 +35,9 @@ export function resumirTexto(texto, limite = 160) {
 const CONTEXTO = {
   modelos: "O reconhecimento facial não carregou neste aparelho. O encarregado pode registrar o ponto pelo modo Encarregado.",
   camera: "A câmera não respondeu. Tente de novo; se continuar, o encarregado pode registrar o ponto.",
-  banco: "O banco de dados do aparelho não abriu. Nenhuma batida foi apagada. Toque em \"Tentar de novo\"; se continuar, chame o suporte do ARCD.",
+  banco: "O banco de dados do aparelho não abriu. Nenhuma batida foi apagada. Toque em \"Tentar de novo\"; se continuar, chame o suporte do MARCELL.",
   sessao: "Não foi possível ler o pareamento guardado no aparelho. Toque em \"Tentar de novo\".",
-  pareamento: "O pareamento não foi concluído. Gere um código novo no ARCD e tente de novo.",
+  pareamento: "O pareamento não foi concluído. Gere um código novo no MARCELL e tente de novo.",
   batida: "A batida NÃO foi registrada. Tente de novo; se continuar, avise o encarregado.",
   sincronizacao: "A sincronização falhou. As batidas continuam guardadas e o envio é repetido sozinho.",
   cadastro: "O cadastro do rosto não foi concluído. Tente de novo.",

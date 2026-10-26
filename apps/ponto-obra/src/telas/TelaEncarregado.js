@@ -1,4 +1,4 @@
-// Modo encarregado: responsável da obra (PIN do app definido no ARCD).
+// Modo encarregado: responsável da obra (PIN do app definido no MARCELL).
 // Tudo o que é feito aqui fica registrado com o id do responsável.
 import { useEffect, useRef, useState } from "react";
 import { FlatList, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -30,8 +30,8 @@ const CAPTURAS_CADASTRO = P.capturasCadastro;
 
 // Termo de consentimento (LGPD, dado biométrico). Versionado: a versão e o
 // hash do texto vão junto com o cadastro. Revisar com o jurídico.
-export const TERMO_VERSAO = "2026-10";
-export const TERMO_TEXTO = "Autorizo a ARCD a usar a imagem do meu rosto para gerar um código biométrico usado SOMENTE para registrar o meu ponto nas obras da empresa. O código e as fotos ficam protegidos, não são compartilhados com terceiros e serão apagados quando eu deixar a empresa ou se eu pedir. Posso pedir a exclusão a qualquer momento; nesse caso meu ponto passa a ser registrado pelo encarregado.";
+export const TERMO_VERSAO = "2026-10-26-mrc";
+export const TERMO_TEXTO = "Autorizo a MARCELL a usar a imagem do meu rosto para gerar um código biométrico usado SOMENTE para registrar o meu ponto nas obras da empresa. O código e as fotos ficam protegidos, não são compartilhados com terceiros e serão apagados quando eu deixar a empresa ou se eu pedir. Posso pedir a exclusão a qualquer momento; nesse caso meu ponto passa a ser registrado pelo encarregado.";
 
 export default function TelaEncarregado({ cadastro, modelos, registrar, sincronizarAgora, situacao, fechar, api, obra, diagnostico, voz = true, alternarVoz = () => {}, calibracao = null }) {
   const [responsavel, setResponsavel] = useState(null);   // { userId, nome } depois do PIN
@@ -104,10 +104,10 @@ function EntrarComPin({ responsaveis, aoEntrar, fechar, sincronizarAgora }) {
   if (!responsaveis.length) return <Tela>
     <EstadoCentral tom="atencao" titulo="Sem responsáveis" acoes={<>
       {/* Só baixa o cadastro da obra: não precisa de PIN e é o único jeito de sair daqui. */}
-      <Botao titulo="Buscar no ARCD" carregando={buscando} onPress={async () => { setBuscando(true); try { await sincronizarAgora(); } finally { setBuscando(false); } }} />
+      <Botao titulo="Buscar no MARCELL" carregando={buscando} onPress={async () => { setBuscando(true); try { await sincronizarAgora(); } finally { setBuscando(false); } }} />
       <BotaoTexto titulo="Voltar" onPress={fechar} />
     </>}>
-      <Corpo secundario centro>Nenhum responsável com PIN autorizado para a obra deste aparelho. No ARCD: Ponto eletrônico (app) → Responsáveis com PIN do app. Depois toque em "Buscar no ARCD".</Corpo>
+      <Corpo secundario centro>Nenhum responsável com PIN autorizado para a obra deste aparelho. No MARCELL: Ponto eletrônico (app) → Responsáveis com PIN do app. Depois toque em "Buscar no MARCELL".</Corpo>
     </EstadoCentral>
   </Tela>;
 
@@ -240,7 +240,7 @@ function CadastroFacial({ cadastro, modelos, api, responsavel, aoTerminar, volta
     } catch (e) {
       setMensagem({ tom: "erro", texto: mensagemDeErro("cadastro", e) }); return;
     } finally { setOcupado(false);setPinAutorizacao(''); }
-    if (!r.ok) { setMensagem({ tom: r.status === 0 ? "atencao" : "erro", texto: r.status === 0 ? "O cadastro do rosto precisa de internet. Tente quando o aparelho estiver conectado." : r.status >= 500 ? "O ARCD está temporariamente indisponível. Tente de novo em alguns minutos." : (r.error || "Falha ao cadastrar.") }); return; }
+    if (!r.ok) { setMensagem({ tom: r.status === 0 ? "atencao" : "erro", texto: r.status === 0 ? "O cadastro do rosto precisa de internet. Tente quando o aparelho estiver conectado." : r.status >= 500 ? "O MARCELL está temporariamente indisponível. Tente de novo em alguns minutos." : (r.error || "Falha ao cadastrar.") }); return; }
     setConcluido(true);
     vibrar("registro");
     setTimeout(aoTerminar, 2000);
@@ -334,7 +334,7 @@ function Sincronizacao({ cadastro, situacao, sincronizarAgora, voltar }) {
   return <Tela>
     <ScrollView contentContainerStyle={estilos.rolagem}>
       <Cabecalho voltar={voltar} rotuloVoltar="Encarregado" titulo="Sincronização" />
-      <Mensagem tom={situacao.online ? "sucesso" : "info"} titulo={situacao.online ? "Conectado ao ARCD" : "Offline"}>
+      <Mensagem tom={situacao.online ? "sucesso" : "info"} titulo={situacao.online ? "Conectado ao MARCELL" : "Offline"}>
         {situacao.online ? "As batidas são enviadas automaticamente a cada minuto." : "O ponto continua funcionando. As batidas ficam guardadas e são enviadas quando a conexão voltar."}
       </Mensagem>
       {!!situacao.aviso && <Mensagem tom="atencao" titulo="Envio pendente">{situacao.aviso}</Mensagem>}

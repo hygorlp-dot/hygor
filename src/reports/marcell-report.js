@@ -47,7 +47,8 @@ body[data-marcell-report] tfoot{display:table-row-group}
 body[data-marcell-report] tr{break-inside:avoid;page-break-inside:avoid}
 body[data-marcell-report] :is(tfoot,.total){font-weight:600}
 body[data-marcell-report] tfoot tr.tot td{background:#f3f0e9!important;color:#0d1b2e!important}
-body[data-marcell-report] :is(.cabecalho,.ph,.head){border-bottom:1px solid #b9985b!important}
+body[data-marcell-report] :is(.cabecalho,.ph,.head,.header){border-bottom:1px solid #b9985b!important}
+body[data-marcell-report] :is(tr.total,tr.subtotal) td{background:#f3f0e9!important;color:#0d1b2e!important;font-size:11px!important;font-weight:600!important}
 body[data-marcell-report]>header{background:#fff!important;color:#0d1b2e!important;border-bottom:1px solid #b9985b!important;padding:12px 0!important}
 body[data-marcell-report]>header p{color:#536171!important}
 body[data-marcell-report] :is(.kpi,.box,.summary){box-shadow:none}

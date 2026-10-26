@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 
@@ -18,7 +19,7 @@ HELPER = ROOT / 'scripts/simulacao/adiantamentos-homologacao.mjs'
 
 
 def local_helper(mode, data=None):
-    result = subprocess.run(['node', str(HELPER), mode], cwd=ROOT, text=True,
+    result = subprocess.run(['node', str(HELPER), mode], cwd=ROOT, text=True, encoding='utf-8',
                             input=json.dumps(data) if data is not None else None,
                             capture_output=True, check=False)
     if result.returncode:
@@ -202,6 +203,7 @@ def main():
 
 
 if __name__ == '__main__':
+    sys.stdout.reconfigure(encoding='utf-8')
     try:
         main()
     except Exception as error:
