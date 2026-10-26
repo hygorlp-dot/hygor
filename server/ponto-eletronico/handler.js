@@ -159,8 +159,8 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
     if (!bruto) return { falha: erro(401, "Aparelho não identificado.", { code: "APARELHO_SEM_TOKEN" }) };
     const { data, error } = await db.from("ponto_dispositivos").select("*").eq("company_id", company).eq("token_hash", sha256(bruto)).maybeSingle();
     if (error) throw error;
-    if (!data) return { falha: erro(401, "Aparelho não reconhecido. Pareie de novo pelo ARCD.", { code: "APARELHO_DESCONHECIDO" }) };
-    if (data.status !== "ativo") return { falha: erro(403, "Este aparelho foi desativado no ARCD.", { code: "APARELHO_REVOGADO" }) };
+    if (!data) return { falha: erro(401, "Aparelho não reconhecido. Pareie de novo pelo MARCELL.", { code: "APARELHO_DESCONHECIDO" }) };
+    if (data.status !== "ativo") return { falha: erro(403, "Este aparelho foi desativado no MARCELL.", { code: "APARELHO_REVOGADO" }) };
     return { dispositivo: data };
   };
 
@@ -476,8 +476,8 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const { data: par, error } = await db.from("ponto_pareamentos").select("*")
         .eq("company_id", company).eq("codigo_hash", sha256(codigo)).maybeSingle();
       if (error) throw error;
-      if (!par || par.usado_em) return erro(400, "Código inválido ou já usado. Gere outro no ARCD.", { code: "CODIGO_INVALIDO" });
-      if (new Date(par.expira_em).getTime() < agora().getTime()) return erro(400, "Código expirado. Gere outro no ARCD.", { code: "CODIGO_EXPIRADO" });
+      if (!par || par.usado_em) return erro(400, "Código inválido ou já usado. Gere outro no MARCELL.", { code: "CODIGO_INVALIDO" });
+      if (new Date(par.expira_em).getTime() < agora().getTime()) return erro(400, "Código expirado. Gere outro no MARCELL.", { code: "CODIGO_EXPIRADO" });
       const token = gerarTokenAparelho();
       const id = crypto.randomUUID();
       // Consome o código ANTES de criar o aparelho, com a condição de ainda
@@ -488,7 +488,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
         .eq("company_id", company).eq("codigo_hash", sha256(codigo)).is("usado_em", null)
         .select("codigo_hash");
       if (errUso) throw errUso;
-      if (!consumido?.length) return erro(400, "Código inválido ou já usado. Gere outro no ARCD.", { code: "CODIGO_INVALIDO" });
+      if (!consumido?.length) return erro(400, "Código inválido ou já usado. Gere outro no MARCELL.", { code: "CODIGO_INVALIDO" });
       const estab = await estabelecimentoDoAparelho({ obra_id: par.obra_id });
       const { error: errIns } = await db.from("ponto_dispositivos").insert({
         company_id: company, id, obra_id: par.obra_id, nome: par.nome, token_hash: sha256(token),
@@ -579,7 +579,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       // fiscalHash); nada de confirmar lote por "último NSR".
       if (Array.isArray(body.eventos)) {
         const { resultados, hora } = await arp.registrarEventos({ dispositivo, eventos: body.eventos });
-        if (resultados.some(r => r.status === "dispositivo_revogado")) return erro(403, "Este aparelho foi desativado no ARCD.", { code: "APARELHO_REVOGADO" });
+        if (resultados.some(r => r.status === "dispositivo_revogado")) return erro(403, "Este aparelho foi desativado no MARCELL.", { code: "APARELHO_REVOGADO" });
         const { data: d, error: errD } = await db.from("ponto_dispositivos").select("ultima_sequencia_local,ultimo_hash_local")
           .eq("company_id", company).eq("id", dispositivo.id).maybeSingle();
         if (errD) throw errD;
@@ -638,7 +638,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       // qualquer aparelho (a lotação dele não importa). O RESPONSÁVEL é que
       // precisa estar autorizado na obra deste aparelho (conferido abaixo).
       const funcionario = funcionariosAtivos(dados?.employees, dataLocal(agora())).find(f => f.id === texto(body.employeeId));
-      if (!funcionario) return erro(400, "Funcionário não está ativo no cadastro do ARCD.");
+      if (!funcionario) return erro(400, "Funcionário não está ativo no cadastro do MARCELL.");
       const vetor = Array.isArray(body.vetor) ? body.vetor.map(Number) : [];
       if (vetor.length < 64 || vetor.length > 1024 || vetor.some(v => !Number.isFinite(v))) return erro(400, "Vetor facial inválido.");
       const consentimento = body.consentimento || {};

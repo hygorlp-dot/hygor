@@ -3,7 +3,7 @@
 // Depois do OK do MARCELL, mostra "Aparelho vinculado" enquanto o App guarda a
 // sessão e baixa o cadastro (aoParear) - a ordem das operações não mudou.
 import { useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { classificarResposta, mensagemDeErro } from "../logica/falhas";
 import { casasDoCodigo } from "../logica/apresentacao";
 import { AMBIENTE, infoDoAparelho, infoDoApp, infoDoServidor } from "../servicos/conexao";
@@ -56,9 +56,12 @@ export default function TelaPareamento({ api, aoParear }) {
     </EstadoCentral>
   </Tela>;
 
+  // O Android já redimensiona a janela com adjustResize. A rolagem fica
+  // dentro da área segura; o conteúdo só centraliza quando cabe inteiro.
   return (
-    <KeyboardAvoidingView behavior="height" style={estilos.teclado}>
-      <Tela centro>
+    <Tela>
+      <ScrollView style={estilos.rolagem} contentContainerStyle={estilos.conteudo}
+        keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <View style={estilos.cabeca}>
           <Texto variante="secao" cor={COR.ouro}>PONTO DE OBRA</Texto>
           <Titulo>Vincular aparelho</Titulo>
@@ -70,13 +73,14 @@ export default function TelaPareamento({ api, aoParear }) {
         <Legenda>No MARCELL: Recursos humanos → Ponto eletrônico (app) → Parear aparelho.</Legenda>
         {!!erro && <Mensagem tom="erro" titulo="Não foi possível vincular">{erro}</Mensagem>}
         <Botao titulo="Vincular aparelho" onPress={parear} carregando={enviando} desabilitado={codigo.length !== 8} />
-      </Tela>
-    </KeyboardAvoidingView>
+      </ScrollView>
+    </Tela>
   );
 }
 
 const estilos = StyleSheet.create({
-  teclado: { flex: 1, backgroundColor: COR.fundo },
+  rolagem: { flex: 1 },
+  conteudo: { flexGrow: 1, justifyContent: "center", gap: ESPACO.lg },
   cabeca: { gap: ESPACO.sm },
   preparando: { flexDirection: "row", alignItems: "center", gap: ESPACO.sm, paddingTop: ESPACO.lg },
 });

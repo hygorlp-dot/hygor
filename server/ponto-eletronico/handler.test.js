@@ -93,10 +93,14 @@ describe("ponto eletrônico - servidor", () => {
 
   it("aparelho sem token, desconhecido ou revogado não sincroniza", async () => {
     expect((await tratar({ action: "ponto-sincronizar" })).json.code).toBe("APARELHO_SEM_TOKEN");
-    expect((await tratar({ action: "ponto-sincronizar", headers: { authorization: "Bearer xyz" } })).json.code).toBe("APARELHO_DESCONHECIDO");
+    expect(await tratar({ action: "ponto-sincronizar", headers: { authorization: "Bearer xyz" } })).toMatchObject({
+      status: 401, json: { code: "APARELHO_DESCONHECIDO", error: "Aparelho não reconhecido. Pareie de novo pelo MARCELL." },
+    });
     const p = await parear();
     await tratar({ action: "ponto-dispositivo-revogar", body: { accessToken: "ok", dispositivoId: p.dispositivoId } });
-    expect((await tratar({ action: "ponto-sincronizar", headers: { authorization: `Bearer ${p.token}` } })).json.code).toBe("APARELHO_REVOGADO");
+    expect(await tratar({ action: "ponto-sincronizar", headers: { authorization: `Bearer ${p.token}` } })).toMatchObject({
+      status: 403, json: { code: "APARELHO_REVOGADO", error: "Este aparelho foi desativado no MARCELL." },
+    });
   });
 
   it("recebe marcações encadeadas, é idempotente e recusa marcação adulterada", async () => {
@@ -144,7 +148,9 @@ describe("ponto eletrônico - servidor", () => {
     // Funcionário lotado em OUTRA obra pode ter o rosto cadastrado aqui.
     expect((await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: { ...base, employeeId: "e2", consentimento } })).status).toBe(200);
     // Quem não existe ou não está ativo, não.
-    expect((await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: { ...base, employeeId: "nao-existe", consentimento } })).json.error).toMatch(/não está ativo/);
+    expect(await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: { ...base, employeeId: "nao-existe", consentimento } })).toMatchObject({
+      status: 400, json: { error: "Funcionário não está ativo no cadastro do MARCELL." },
+    });
     // Responsável SEM autorização na obra deste aparelho não cadastra.
     await tratar({ action: "ponto-responsavel-pin", body: { accessToken: "ok", userId: "u-enc", pin: "4321", obras: ["obra-b"] } });
     expect((await tratar({ action: "ponto-cadastrar-biometria", headers: auth, body: { ...base, consentimento } })).status).toBe(403);
