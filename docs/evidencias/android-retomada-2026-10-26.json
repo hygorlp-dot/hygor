@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-26",
+  "previousSessionEvidenceSource": "user_report",
+  "originalArtifactsRecovered": false,
+  "previousEnvironment": {
+    "host": "ChatGPT remote Linux session",
+    "emulatorVersion": "35.3.11",
+    "avd": "marcell-aosp28",
+    "android": "9",
+    "apiLevel": 28,
+    "architecture": "x86_64",
+    "acceleration": "software_without_KVM",
+    "avdPathRemoteOnly": "/tmp/hygor-android-toolchain/alternative/avd/marcell-aosp28.avd",
+    "closedAtEndOfPreviousSession": true,
+    "diskReportedPreservedInRemoteSession": true
+  },
+  "reportedPreviousApk": {
+    "version": "1.1.1",
+    "versionCode": 8,
+    "updatedFromVersionCode": 7,
+    "uninstalledOrClearedData": false,
+    "openedTo": "Vincular aparelho",
+    "pairingCompleted": false,
+    "tlsError": "Trust anchor for certification path not found",
+    "tlsValidationDisabled": false,
+    "stableHeaderCaptureVerified": false,
+    "sourceHashVerifiedHere": false
+  },
+  "currentSession": {
+    "host": "Windows",
+    "nativeRuntimeAvailable": false,
+    "nativeInstallVerified": false,
+    "nativePairingVerified": false,
+    "nativeOfflineSyncVerified": false,
+    "publicEnvironmentEndpointHttpStatus": 200,
+    "publicEnvironmentMarker": "homologacao",
+    "remoteBusinessWritesPerformed": false,
+    "transportChangeFixesProxyTrustChain": false
+  },
+  "nextApkMinimumVersionCode": 9,
+  "productionPromoted": false,
+  "pilotApproved": false
+}

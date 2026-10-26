@@ -52,9 +52,9 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
+          "image": "./assets/marcell-icon.png",
           "imageWidth": 160,
-          "backgroundColor": "#0B0B0C"
+          "backgroundColor": "#0D1B2E"
         }
       ]
     ],
