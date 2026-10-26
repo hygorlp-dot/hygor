@@ -21,13 +21,14 @@ export function criarSessaoCalibracao({ limite = LIMITE_PADRAO } = {}) {
   const linhas = [];
   return {
     // Só os campos abaixo entram; qualquer outro (vetor, foto, id) é ignorado.
-    registrar({ top1, top2, confiancaDeteccao, larguraRosto, luminancia, resultado, duracaoMs } = {}) {
+    registrar({ top1, top2, confiancaDeteccao, larguraRosto, luminancia, capturasUsadas, resultado, duracaoMs } = {}) {
       if (!Object.values(RESULTADO).includes(resultado)) return;
       linhas.push({
         top1: numero(top1), top2: numero(top2),
         margem: numero(top1) !== null && numero(top2) !== null ? numero(top1 - top2) : null,
         confiancaDeteccao: numero(confiancaDeteccao), larguraRosto: numero(larguraRosto),
-        luminancia: numero(luminancia), resultado, duracaoMs: Number.isFinite(duracaoMs) ? Math.round(duracaoMs) : null,
+        luminancia: numero(luminancia), capturasUsadas: Number.isInteger(capturasUsadas) && capturasUsadas > 0 ? capturasUsadas : null,
+        resultado, duracaoMs: Number.isFinite(duracaoMs) ? Math.round(duracaoMs) : null,
       });
       if (linhas.length > limite) linhas.shift();
     },
@@ -60,6 +61,7 @@ export function relatorioDeCampo(linhas, parametros = PARAMETROS_FACIAIS, { faix
     confiancaDeteccao: distribuicao(linhas.map(l => l.confiancaDeteccao)),
     luminancia: distribuicao(linhas.map(l => l.luminancia)),
     duracaoMs: distribuicao(linhas.map(l => l.duracaoMs)),
+    capturasUsadas: distribuicao(linhas.map(l => l.capturasUsadas)),
     aceitasPertoDoLimiar: aceitas.filter(l => l.top1 < parametros.limiarReconhecimento + faixa).length,
     parametros: { limiarReconhecimento: parametros.limiarReconhecimento, margemSobreSegundo: parametros.margemSobreSegundo },
   };
@@ -77,6 +79,7 @@ export function resumoDeCampo(rel) {
     ["Aceitas perto do limiar", String(rel.aceitasPertoDoLimiar)],
     ["Margem sobre o 2º (mediana)", f(rel.margem)],
     ["Luminância do rosto (mediana)", f(rel.luminancia)],
+    ["Capturas frontais usadas (mediana)", rel.capturasUsadas.n ? String(rel.capturasUsadas.mediana) : "-"],
     ["Duração (mediana)", rel.duracaoMs.n ? `${rel.duracaoMs.mediana} ms` : "-"],
   ].map(([rotulo, valor]) => ({ rotulo, valor }));
 }
