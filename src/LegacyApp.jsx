@@ -128,6 +128,7 @@ import { calculateWorkCash as calcCaixaObra } from "./domains/financeiro/work-ca
 import { saldoPagamentoNota, statusPagamentoNota, totalPagoNota } from "./domains/financeiro/payables";
 import { createExecutiveSummaryEngine } from "./domains/controladoria/executive-summary";
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
+import { criarPollingAdaptativo } from "./domains/sync/polling";
 import { reconcileOptimisticSnapshot } from "./domains/sync/optimistic-merge";
 import { OPERATIONAL_COMMAND } from "./domains/sync/operational-commands";
 import { createOfflineOperationStore } from "./domains/campo-offline/local-store";
@@ -10464,9 +10465,9 @@ export function GestaoUsuarios({ data, update, showToast, currentUser }) {
 
   useEffect(() => {
     if (currentUser?.role !== "admin") return undefined;
-    carregarPresencas();
-    const timer = window.setInterval(carregarPresencas, 30000);
-    return () => window.clearInterval(timer);
+    const polling = criarPollingAdaptativo({ tarefa: carregarPresencas, visivelMs: 30000, ocultoMs: 120000 });
+    polling.iniciar();
+    return polling.parar;
   }, [currentUser?.role, carregarPresencas]);
 
   const presencasPorUsuario = useMemo(() => {
@@ -16727,11 +16728,12 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
     primeiraCargaRef.current = false;
   }, [currentUser?.id, showToast]);
 
+  // 8 s com a aba visível; oculta, 60 s (ver domains/sync/polling.js).
   useEffect(() => {
-    if (!currentUser) return;
-    carregarChat();
-    const id = setInterval(carregarChat, 8000);
-    return () => clearInterval(id);
+    if (!currentUser) return undefined;
+    const polling = criarPollingAdaptativo({ tarefa: carregarChat, visivelMs: 8000, ocultoMs: 60000 });
+    polling.iniciar();
+    return polling.parar;
   }, [carregarChat, currentUser]);
 
   useEffect(() => {
