@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { HASH_INICIAL, calcularHashMarcacao, canonicalizarMarcacao, validarMarcacao, verificarCadeia } from "./marcacao.js";
