@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import {
-  BLAZEFACE, ancorasBlazeFaceFront, decodificarBlazeFace, giroDaCabeca, identificar, normalizarL2,
-  olhosENariz, pixelsParaTensor, recorteParaIdentidade, rostosDistintos, similaridadeCosseno, vetorDoCadastro,
+  BLAZEFACE, ancorasBlazeFaceFront, consolidarCapturasFrontais, decodificarBlazeFace, giroDaCabeca, identificar, normalizarL2,
+  olhosENariz, pixelsParaTensor, qualidadeCapturaFrontal, recorteParaIdentidade, rostosDistintos, similaridadeCosseno, vetorDoCadastro,
 } from "./rosto.js";
 
 // Monta a saída crua do BlazeFace com UM rosto na âncora `i`.
@@ -91,5 +91,26 @@ describe("identificação 1:N", () => {
     expect(Math.hypot(...v)).toBeCloseTo(1);
     expect(similaridadeCosseno(v, unitario(1))).toBeGreaterThan(0.99);
     expect(() => vetorDoCadastro([])).toThrow();
+  });
+
+  it("burst facial consolida as melhores capturas físicas sem relaxar a identificação", () => {
+    const fraca = { vetor: unitario(2, 0.18), giro: 0.12, confiancaDeteccao: 0.72, larguraRosto: 0.24 };
+    const boa = { vetor: unitario(2, 0.08), giro: 0.01, confiancaDeteccao: 0.97, larguraRosto: 0.36 };
+    const boa2 = { vetor: unitario(2, -0.06), giro: -0.02, confiancaDeteccao: 0.93, larguraRosto: 0.34 };
+    const virada = { vetor: unitario(9), giro: 0.3, confiancaDeteccao: 0.99, larguraRosto: 0.4 };
+    expect(qualidadeCapturaFrontal(boa)).toBeGreaterThan(qualidadeCapturaFrontal(fraca));
+    const r = consolidarCapturasFrontais([fraca, virada, boa, boa2], { maximas: 2 });
+    expect(r.ok).toBe(true);
+    expect(r.escolhidas.map(x => x.indice)).toEqual([2, 3]);
+    expect(Math.hypot(...r.vetor)).toBeCloseTo(1);
+    expect(identificar(r.vetor, cadastros)).toMatchObject({ reconhecido: true, employeeId: "e2" });
+  });
+
+  it("burst sem captura frontal válida falha fechado", () => {
+    const r = consolidarCapturasFrontais([
+      { erro: "sem rosto" },
+      { vetor: unitario(2), giro: 0.25, confiancaDeteccao: 0.98, larguraRosto: 0.4 },
+    ]);
+    expect(r).toMatchObject({ ok: false, melhor: null, escolhidas: [] });
   });
 });
