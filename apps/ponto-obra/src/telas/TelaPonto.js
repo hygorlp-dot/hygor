@@ -71,7 +71,7 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     // por tentativa - nada de vetor, foto, nome ou id (calibracao-campo.js).
     const anotar = (resultado, a = {}, id = null) => calibrar?.({
       resultado, duracaoMs: Date.now() - inicio, confiancaDeteccao: a.confiancaDeteccao, larguraRosto: a.larguraRosto, luminancia: a.luminancia,
-      top1: id?.melhor?.similaridade, top2: id?.segundo?.similaridade,
+      top1: id?.melhor?.similaridade, top2: id?.segundo?.similaridade, capturasUsadas: a.capturasUsadas,
     });
     // Tela no brilho máximo durante a captura (sol forte, rosto escuro).
     brilhoMaximo();
