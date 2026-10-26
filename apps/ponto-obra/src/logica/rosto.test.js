@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import {BLAZEFACE, ancorasBlazeFaceFront, decodificarBlazeFace, giroDaCabeca, identificar, normalizarL2,
-  olhosENariz, pixelsParaTensor, recorteParaIdentidade, rostosDistintos, similaridadeCosseno, vetorDoCadastro,, consolidarCapturasFrontais} from "./rosto.js";
+  olhosENariz, pixelsParaTensor, recorteParaIdentidade, rostosDistintos, similaridadeCosseno, vetorDoCadastro, consolidarCapturasFrontais} from "./rosto.js";
 
 // Monta a saída crua do BlazeFace com UM rosto na âncora `i`.
 function saidaComRosto(i, { score = 4, cx = 0, cy = 0, w = 40, h = 40, olhos = [[-10, -6], [10, -6]], nariz = [0, 4] } = {}) {
