@@ -23,6 +23,7 @@ import crypto from "crypto";
 import fs from "node:fs";
 import path from "node:path";
 import postgres from "postgres";
+import { comSql } from "../server/pg-conexao.js";
 import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData, profileIndexOutdated } from "../server/data-codec.js";
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
@@ -824,8 +825,7 @@ const salvarFinanceiroComAuditoria = async ({ key=KEY, expectedUpdatedAt, value,
   }
   if(!process.env.POSTGRES_URL_NON_POOLING)throw new Error("A conexão transacional do motor financeiro não está configurada.");
   const correlationId=crypto.randomUUID();
-  const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
-  try{
+  return comSql(async sql=>{
     const snapshot=buildLegacyFinancialFacts(financialSnapshotData,{includeDreSnapshots:false});
     const valorPersistido=key===KEY?coreFieldsOnly(value,rowVersions,keepDomain):value;
     const [result]=await sql`
@@ -840,7 +840,7 @@ const salvarFinanceiroComAuditoria = async ({ key=KEY, expectedUpdatedAt, value,
       applied:!!result?.applied,updatedAt:result?.updated_at||null,
       correlationId,syncResult:result?.sync_result||{},
     };
-  }finally{await sql.end({timeout:2});}
+  });
 };
 
 const operationalCommandEntityId=command=>
@@ -1005,11 +1005,7 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
   const linha=linhaConhecida||await lerLinha();
   const effectiveDomain=linhaEfetivaParaEscrita(domain,linha.rowVersions);
   const key=keyForDomain(effectiveDomain);
-  const connection=postgres(process.env.POSTGRES_URL_NON_POOLING,{
-    ssl:"require",max:1,connect_timeout:20,idle_timeout:5,
-  });
-  try{
-    return await connection.begin(async transaction=>{
+  return comSql(connection=>connection.begin(async transaction=>{
       const [locked]=await transaction`
         select value,updated_at
           from company_app_data
@@ -1059,10 +1055,7 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
         before:outcome.before,after:outcome.after,financial,
       });
       return {...outcome,updatedAt:saved.updatedAt,syncResult:saved.syncResult};
-    });
-  }finally{
-    await connection.end({timeout:2});
-  }
+  }));
 };
 
 // Gravação de seções que moram em linhas diferentes (save-sections), numa
@@ -1076,11 +1069,7 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
 // e a partir do valor dela: nenhuma gravação concorrente se perde na troca.
 const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linha,mutate})=>{
   const separados=[...new Set(domains)].filter(d=>d!==DOMAIN_ROW.CORE&&SPLIT_ROW_KEYS[d]);
-  const connection=postgres(process.env.POSTGRES_URL_NON_POOLING,{
-    ssl:"require",max:1,connect_timeout:20,idle_timeout:5,
-  });
-  try{
-    return await connection.begin(async transaction=>{
+  return comSql(connection=>connection.begin(async transaction=>{
       const travar=async key=>(await transaction`
         select value,updated_at from company_app_data
          where company_id=${COMPANY} and key=${key}
@@ -1147,10 +1136,7 @@ const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linh
         saved={updatedAt:carimbo.updated_at,syncResult:{}};
       }
       return {...outcome,updatedAt:saved.updatedAt,syncResult:saved.syncResult};
-    });
-  }finally{
-    await connection.end({timeout:2});
-  }
+  }));
 };
 
 // Uma alteração real na mesma entidade continua sendo recusada por
@@ -1209,11 +1195,7 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
   const linha=linhaConhecida||await lerLinha();
   const pontoEfetiva=linhaEfetivaParaEscrita(DOMAIN_ROW.PONTO,linha.rowVersions);
   const pontoKeyAlvo=keyForDomain(pontoEfetiva);
-  const connection=postgres(process.env.POSTGRES_URL_NON_POOLING,{
-    ssl:"require",max:1,connect_timeout:20,idle_timeout:5,
-  });
-  try{
-    return await connection.begin(async transaction=>{
+  return comSql(connection=>connection.begin(async transaction=>{
       const [lockedPonto]=await transaction`
         select value,updated_at from company_app_data
          where company_id=${COMPANY} and key=${pontoKeyAlvo}
@@ -1341,10 +1323,7 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
       }
 
       return {kind:"save",result:applied.result,updatedAt:savedPonto.updated_at};
-    });
-  }finally{
-    await connection.end({timeout:2});
-  }
+  }));
 };
 
 // Confere o PIN contra o hash guardado no próprio dataset
