@@ -2,12 +2,24 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import { compactProfiles, decodeAppData, encodeAppData } from "./data-codec.js";
 import { applyPersistentAuthRateLimit, hashAppPin, verifyAppPin } from "./app-auth-security.js";
+import { criarValidadorDeToken } from "./token-auth.js";
 
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const COMPANY = process.env.COMPANY_ID || "arcd";
 const DATA_KEY = "arced_ponto_v1";
 const PROFILE_KEY = "arced_auth_profiles_v1";
+
+// Cliente só para validar tokens, compartilhado entre requisições da mesma
+// instância: o cache das chaves públicas (JWKS) do getClaims mora no cliente, e
+// um cliente novo a cada chamada o perderia. Nunca é usado para .from()/.rpc().
+let validadorDeToken = null;
+const validarToken = accessToken => {
+  validadorDeToken ??= criarValidadorDeToken(createClient(URL, SERVICE, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  }));
+  return validadorDeToken(accessToken);
+};
 
 const attempts = new Map();
 const WINDOW_MS = 5 * 60 * 1000;
@@ -35,16 +47,10 @@ export const authenticateAppContext = async ({ userId, pin, accessToken } = {}, 
   const db = createClient(URL, SERVICE, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  // Mesmo achado de api/data.js (24/08/2026, ver
-  // docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): db.auth.getUser(accessToken)
-  // muda o estado interno de autenticação do cliente, afetando .from()/.rpc()
-  // POSTERIORES no mesmo cliente. Aqui o risco é menor (db é criado por
-  // chamada, não compartilhado entre requisições, e os caminhos que usam o
-  // resultado ficam em branches majoritariamente exclusivos), mas isolar
-  // custa nada e evita repetir o mesmo bug por engano numa mudança futura.
-  const authDb = createClient(URL, SERVICE, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  // db.auth.getUser(accessToken) muda o estado interno de autenticação do
+  // cliente (achado de 24/08/2026, ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md),
+  // afetando .from()/.rpc() posteriores. Por isso a validação do token usa um
+  // cliente à parte (validarToken), nunca `db`.
   const centralSubject=`pin:${String(userId||"anonymous")}`;
   if(!accessToken){
     const central=await applyPersistentAuthRateLimit(db,{company:COMPANY,subject:centralSubject,action:"status"});
@@ -78,7 +84,7 @@ export const authenticateAppContext = async ({ userId, pin, accessToken } = {}, 
     if(indexError)console.error("Não foi possível atualizar o índice de autenticação:",indexError.message);
   }
   if (accessToken) {
-    const { data: auth, error: authError } = await authDb.auth.getUser(accessToken);
+    const { data: auth, error: authError } = await validarToken(accessToken);
     if (!authError && auth?.user) {
       const email = String(auth.user.email || "").toLowerCase();
       // Achado de 24/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md):

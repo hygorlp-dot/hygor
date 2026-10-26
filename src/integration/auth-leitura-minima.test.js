@@ -28,7 +28,8 @@ const queryFor = () => {
       return {
         data: {
           value: {
-            usuarios: [{ id: "admin-a", nome: "Admin", role: "admin", authUserId: "auth-admin", email: "admin@arcd.test", active: true }],
+            usuarios: [{ id: "admin-a", nome: "Admin", role: "admin", authUserId: "auth-admin", email: "admin@arcd.test", active: true },
+              { id: "operador-sem-email", nome: "Sem e-mail", role: "engenheiro", active: true }],
             obras: [], employees: [],
           },
           updated_at: "2026-10-26T12:00:00.000Z",
@@ -99,6 +100,15 @@ describe("/api/data · autenticação lê só a linha core", () => {
       const resposta = await chamar({ action: "load", accessToken: "token-valido" });
       expect(resposta.status).toBe(401);
       expect(estado.consultas).toEqual({ nucleo: 1, separadas: 0, pontoObra: 0 });
+    } finally { estado.usuarioDoToken = "auth-admin"; estado.emailDoToken = "admin@arcd.test"; }
+  });
+
+  it("token sem e-mail e sem vínculo não casa com um operador que também não tem e-mail", async () => {
+    estado.usuarioDoToken = "auth-sem-vinculo";
+    estado.emailDoToken = "";
+    try {
+      const resposta = await chamar({ action: "load", accessToken: "token-valido" });
+      expect(resposta.status).toBe(401);
     } finally { estado.usuarioDoToken = "auth-admin"; estado.emailDoToken = "admin@arcd.test"; }
   });
 
