@@ -255,7 +255,18 @@ function CadastroFacial({ cadastro, modelos, api, responsavel, aoTerminar, volta
     </MolduraCamera>
     <Passos total={CAPTURAS_CADASTRO} feitos={capturas.length} />
     {mensagem && <Mensagem tom={mensagem.tom}>{mensagem.texto}</Mensagem>}
-    {completas&&<Campo rotulo="PIN do responsável para autorizar o cadastro" value={pinAutorizacao} onChangeText={v=>setPinAutorizacao(v.replace(/\D/g,'').slice(0,8))} keyboardType="number-pad" secureTextEntry/>}
+    {completas&&<View style={{ gap: ESPACO.xs }}>
+      <Rotulo secundario>PIN do responsável</Rotulo>
+      <Campo
+        rotulo="PIN do responsável para autorizar o cadastro"
+        placeholder="Digite o PIN para autorizar"
+        value={pinAutorizacao}
+        onChangeText={v=>setPinAutorizacao(v.replace(/\D/g,'').slice(0,8))}
+        keyboardType="number-pad"
+        secureTextEntry
+      />
+      <Rotulo secundario>Obrigatório para salvar o cadastro biométrico.</Rotulo>
+    </View>}
     {completas
       ? <Botao titulo="Salvar cadastro" onPress={enviar} carregando={ocupado} desabilitado={pinAutorizacao.length<4}/>
       : <Botao titulo="Tirar foto" onPress={capturar} carregando={ocupado} />}
