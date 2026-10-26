@@ -102,7 +102,7 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       const principal = [...amostras].sort((a, b) => Number(b.analise.confiancaDeteccao || 0) - Number(a.analise.confiancaDeteccao || 0))[0];
       const fotoFrente = principal.foto;
       const tId = Date.now();
-      const id = identificar(frente.vetor, cadastro?.biometrias || []);
+      const id = identificar(frente.vetor, cadastro?.biometrias || [], modelos?.parametrosIdentificacao);
       medir({ identificacaoMs: Date.now() - tId });
       if (!id.reconhecido) anotar(id.motivo === MOTIVO.AMBIGUO ? RESULTADO_CALIBRACAO.AMBIGUO : RESULTADO_CALIBRACAO.NAO_CADASTRADO, frente, id);
       if (!id.reconhecido) return falha({ mensagem: id.motivo === MOTIVO.NAO_CADASTRADO ? "Se o seu rosto ainda não foi cadastrado, chame o encarregado." : "Olhe de frente e tente novamente.", podeEncarregado: true });
