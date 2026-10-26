@@ -95,6 +95,8 @@ if (!RAPIDO) {
 
   rodar("bundle", "Bundle Android (Metro + modelos .tflite)", () => {
     rmSync(path.join(APP, "dist-ci"), { recursive: true, force: true });
+    const modelo = exec(process.execPath, ["scripts/baixar-modelo-facenet512.mjs"], { env: ambienteExpo });
+    if (modelo.status !== 0) return { ok: false, detalhe: primeiroErro(`${modelo.stderr}${modelo.stdout}`) };
     const r = exec("npx", ["expo", "export", "--platform", "android", "--output-dir", "dist-ci"], { env: ambienteExpo });
     if (r.status !== 0) return { ok: false, detalhe: primeiroErro(`${r.stderr}${r.stdout}`) };
     const meta = readFileSync(path.join(APP, "dist-ci/metadata.json"), "utf8");
@@ -102,7 +104,7 @@ if (!RAPIDO) {
     const tamanho = Number(execSync(`du -sk dist-ci`, { cwd: APP, encoding: "utf8" }).split("\t")[0]);
     ev.metricas.bundleKb = tamanho;
     rmSync(path.join(APP, "dist-ci"), { recursive: true, force: true });
-    return { ok: tflite >= 2, tflite, detalhe: `${tflite} .tflite, ${Math.round(tamanho / 1024 * 10) / 10} MB` };
+    return { ok: tflite >= 3, tflite, detalhe: `${tflite} .tflite, ${Math.round(tamanho / 1024 * 10) / 10} MB` };
   });
 
   rodar("prebuild", "Prebuild Android descartável + verificar-prebuild", () => {
