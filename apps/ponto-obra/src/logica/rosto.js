@@ -152,6 +152,21 @@ export function vetorDoCadastro(capturas) {
   return normalizarL2(media);
 }
 
+// Identificação em campo: combina várias capturas frontais válidas em um único
+// vetor. Não reduz limiar nem margem; apenas reduz o ruído entre quadros da
+// mesma tentativa. Métricas de qualidade exibidas no diagnóstico usam a
+// captura com maior confiança de detecção.
+export function consolidarCapturasFrontais(capturas) {
+  const validas = (capturas || []).filter(c => c && !c.erro && Array.isArray(c.vetor) && c.vetor.length);
+  if (!validas.length) throw new Error("Nenhuma captura frontal válida.");
+  const principal = [...validas].sort((a, b) => Number(b.confiancaDeteccao || 0) - Number(a.confiancaDeteccao || 0))[0];
+  return {
+    ...principal,
+    vetor: vetorDoCadastro(validas.map(c => c.vetor)),
+    capturasUsadas: validas.length,
+  };
+}
+
 // Identificação 1:N. Só aceita quando o melhor passa do limiar E está
 // claramente à frente do segundo - dois parecidos (irmãos, por exemplo) não
 // viram uma batida no nome errado; vai para o encarregado.
