@@ -6,11 +6,11 @@ import { luminanciaMedia } from "./rosto.js";
 describe("calibração de campo (modo técnico)", () => {
   it("sessão de calibração guarda só métricas: vetor, foto, nome, id e CPF nunca entram", () => {
     const s = criarSessaoCalibracao();
-    s.registrar({ top1: 0.7312, top2: 0.4123, confiancaDeteccao: 0.98, larguraRosto: 0.31, luminancia: 121.4, resultado: RESULTADO.RECONHECIDO, duracaoMs: 2412.7,
+    s.registrar({ top1: 0.7312, top2: 0.4123, confiancaDeteccao: 0.98, larguraRosto: 0.31, luminancia: 121.4, capturasUsadas: 3, resultado: RESULTADO.RECONHECIDO, duracaoMs: 2412.7,
       vetor: [0.1, 0.2], foto: "file:///x.jpg", employeeId: "e1", nome: "Zé", cpf: "12345678909" });
     const [linha] = s.linhas();
-    expect(Object.keys(linha).sort()).toEqual(["confiancaDeteccao", "duracaoMs", "larguraRosto", "luminancia", "margem", "resultado", "top1", "top2"]);
-    expect(linha).toMatchObject({ top1: 0.7312, top2: 0.4123, margem: 0.3189, duracaoMs: 2413 });
+    expect(Object.keys(linha).sort()).toEqual(["capturasUsadas", "confiancaDeteccao", "duracaoMs", "larguraRosto", "luminancia", "margem", "resultado", "top1", "top2"]);
+    expect(linha).toMatchObject({ top1: 0.7312, top2: 0.4123, margem: 0.3189, capturasUsadas: 3, duracaoMs: 2413 });
     expect(JSON.stringify(s.linhas())).not.toMatch(/vetor|file:|e1|Zé|12345678909/);
     s.registrar({ resultado: "inventado" });                      // resultado fora da lista: ignorado
     expect(s.total).toBe(1);
