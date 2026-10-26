@@ -9,9 +9,25 @@
 // A credencial do usuário é o PIN — conferido lá, não aqui.
 // ═══════════════════════════════════════════════════════════════════
 
+import { criarRegistroDeTempos, lerServerTiming } from "./domains/sync/call-timing.js";
 import { buildSectionDelta } from "./domains/sync/section-delta.js";
 
 const ROTA = "/api/data";
+
+// Quanto cada chamada ao servidor leva e em que fase (Server-Timing). Para o
+// administrador investigar lentidão: no console do navegador, arcdTemposResumo().
+const tempos = criarRegistroDeTempos();
+const registrarTempo = (acao, response, inicio) => {
+  try {
+    tempos.registrar({
+      acao, status: response?.status, clienteMs: performance.now() - inicio,
+      servidor: lerServerTiming(response?.headers?.get?.("server-timing")),
+    });
+  } catch { /* medir nunca pode atrapalhar a chamada */ }
+};
+if (typeof window !== "undefined") {
+  window.arcdTemposResumo = () => { const resumo = tempos.resumo(); console.table(resumo); return resumo; };
+}
 
 // Guardado só em memória (não em localStorage): fechou a aba, tem que
 // digitar o PIN de novo. Se ficasse no disco, quem pegasse o celular
@@ -90,6 +106,7 @@ export const temSessao = () => {
 };
 
 const chamar = async (body) => {
+  const inicioDaChamada = performance.now();
   const requisitar = async payload => {
     const controller=new AbortController();
     const timer=window.setTimeout(()=>controller.abort(),45000);
@@ -115,6 +132,7 @@ const chamar = async (body) => {
     }
   }
   const json = await r.json().catch(() => ({}));
+  registrarTempo(body.action, r, inicioDaChamada);
   const retryAfterHeader=Number(r.headers?.get?.("retry-after")||0);
   return {
     status:r.status,...json,

@@ -25,6 +25,7 @@ import path from "node:path";
 import postgres from "postgres";
 import { comSql } from "../server/pg-conexao.js";
 import { mesmoCarimboExato } from "../server/row-version.js";
+import { anexarCronometro, criarCronometro } from "../server/server-timing.js";
 import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData, profileIndexOutdated } from "../server/data-codec.js";
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
@@ -1104,9 +1105,10 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
 // valor - é por ele que a tela detecta que outra pessoa salvou antes.
 // Uma linha separada que ainda não existe é criada aqui, com a core travada
 // e a partir do valor dela: nenhuma gravação concorrente se perde na troca.
-const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linha,mutate})=>{
+const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linha,mutate,cronometro})=>{
   const separados=[...new Set(domains)].filter(d=>d!==DOMAIN_ROW.CORE&&SPLIT_ROW_KEYS[d]);
-  return comSql(connection=>connection.begin(async transaction=>{
+  const resultado=await comSql(connection=>connection.begin(async transaction=>{
+      cronometro?.marcar("conexao");
       // A leitura sem lock do topo do handler (lerLinha) já decodificou estas
       // mesmas linhas. O lock pede só o carimbo: se ele é EXATAMENTE o que foi
       // lido, a linha não mudou e a fatia já decodificada vale como se fosse
@@ -1147,7 +1149,9 @@ const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linh
         dominio,fatias[dominio]||pickDomainFields(linha.payload,dominio),
       ]));
       const current=mergeDomainRows(coreFieldsOnly(coreFresca,linha.rowVersions),rowPayloadsByDomain);
+      cronometro?.marcar("locks");
       const outcome=await mutate({payload:current,updatedAt:coreTravada.updated_at});
+      cronometro?.marcar("validacao");
       if(!outcome||outcome.kind!=="save")return outcome;
 
       // Linhas separadas: grava só a que mudou (ou cria a que faltava).
@@ -1193,8 +1197,11 @@ const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linh
         `;
         saved={updatedAt:carimbo.updated_at,syncResult:{}};
       }
+      cronometro?.marcar("gravacao");
       return {...outcome,updatedAt:saved.updatedAt,syncResult:saved.syncResult};
   }));
+  cronometro?.marcar("commit");
+  return resultado;
 };
 
 // Uma alteração real na mesma entidade continua sendo recusada por
@@ -1493,6 +1500,12 @@ export default async function handler(req, res) {
     });
   }
 
+  // Tempo por fase da requisição, devolvido em `Server-Timing` (ver
+  // server/server-timing.js). Mostra no DevTools e em window.arcdTemposResumo()
+  // onde cada ação gasta tempo.
+  const cronometro=criarCronometro();
+  anexarCronometro(res,cronometro);
+
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || "desconhecido";
   let { action=req.query?.action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
   const getActions=new Set(["profiles","client-portal","pedido-aceite-ver","backup-create","backup-verify","ponto-tempo-verificar"]);
@@ -1730,6 +1743,7 @@ export default async function handler(req, res) {
       lerNucleo(),
       accessToken ? authDb.auth.getUser(accessToken) : Promise.resolve({data:null,error:null}),
     ]);
+    cronometro.marcar("auth");
     const pinAuth=usaPin?conferirPin(nucleo.payload,userId,pin):{usuario:null,upgradeHash:""};
     const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(nucleo.payload,tokenAuth.data.user):null) || pinAuth.usuario;
 
@@ -1746,6 +1760,7 @@ export default async function handler(req, res) {
       completarLinha(nucleo),
       usaPin ? rateLimitCentral(ip,"success") : null,
     ]);
+    cronometro.marcar("leitura");
     let { payload: atual, updatedAt, rowVersions, rowVersionsPontoObra } = linha;
     if(usaPin){
       limparFalhas(ip);
@@ -2797,6 +2812,7 @@ export default async function handler(req, res) {
           financial:sincronizaFinanceiro,
           domains:chaves.map(domainForField),
           linha:{payload:atual,rowVersions,linhasBrutas:linha.linhasBrutas},
+          cronometro,
           mutate:async({payload:current,updatedAt:lockedUpdatedAt})=>{
             const houveConcorrencia=expectedUpdatedAt&&lockedUpdatedAt
               &&!mesmoInstante(expectedUpdatedAt,lockedUpdatedAt);
