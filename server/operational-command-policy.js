@@ -1,6 +1,7 @@
 import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { canOperateTechnicalMeasurement } from "../src/domains/medicoes/permissions.js";
 import { EQUIPMENT_COMMAND_TYPES, equipmentCommandObraId } from "../src/domains/equipamentos/commands.js";
+import { PATRIMONY_COMMAND_TYPES } from "../src/domains/patrimonio/commands.js";
 import {
   CLIENT_MEASUREMENT_COMMAND_TYPES,
   clientMeasurementCommandObraId,
@@ -87,6 +88,7 @@ import {
 
 const operationalCommandObraId=(data={},command={})=>{
   const payload=command?.payload||{};
+  if(PATRIMONY_COMMAND_TYPES.has(command?.type))return "";
   if(EQUIPMENT_COMMAND_TYPES.has(command?.type))return equipmentCommandObraId(data,command);
   if(CLIENT_MEASUREMENT_COMMAND_TYPES.has(command?.type))return clientMeasurementCommandObraId(data,command);
   if(EXPENSE_COMMAND_TYPES.has(command?.type))return expenseCommandObraId(data,command);
@@ -201,6 +203,13 @@ export const validateOperationalCommandScope=({user={},data={},command={}}={})=>
     return ["admin","rh"].includes(user?.role)
       ?{ok:true,obraId,scope:obraId?"work":"company"}
       :{ok:false,error:"Seu perfil não pode alterar adiantamentos de funcionários."};
+  }
+  if(PATRIMONY_COMMAND_TYPES.has(command.type)){
+    const roleAllowed=["admin","financeiro","compras"].includes(user?.role);
+    const companyScope=user?.role==="admin"||!user?.obraId;
+    return roleAllowed&&companyScope
+      ?{ok:true,obraId:"",scope:"company"}
+      :{ok:false,error:"O patrimônio da empresa exige perfil administrativo, financeiro ou compras sem restrição de obra."};
   }
   if(EQUIPMENT_COMMAND_TYPES.has(command.type)&&!obraId){
     return user?.role==="admin"||!user?.obraId
