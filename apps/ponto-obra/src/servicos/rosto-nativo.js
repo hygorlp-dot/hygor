@@ -1,8 +1,8 @@
-// Reconhecimento facial no aparelho: foto da câmera → BlazeFace (onde está o
-// rosto e os olhos) → recorte alinhado → MobileFaceNet (vetor de 192).
+// Reconhecimento facial direto no aparelho: foto frontal → BlazeFace → recorte
+// alinhado → MobileFaceNet, executados pelo react-native-fast-tflite 3.0.1.
 // A matemática está em src/logica/rosto.js (testada); aqui só a parte que
 // depende do React Native: modelos TFLite, recorte/redução e pixels.
-import { loadTensorflowModel } from "react-native-fast-tflite";
+import { loadTensorflowModel } from "react-native-fast-tflite"; // versão fixada em 3.0.1
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { Asset } from "expo-asset";
 import { File, Paths } from "expo-file-system";
