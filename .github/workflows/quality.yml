@@ -147,3 +147,76 @@ jobs:
           path: |
             playwright-report
             test-results
+
+
+  # APK experimental FaceNet-512: só nesta branch de homologação.
+  # Usa pacote separado e chave efêmera para não tocar nos APKs já instalados.
+  apk15-facenet:
+    if: github.ref_name == 'feat/face-auth-mit-adapter-d6'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PONTO_AMBIENTE: homologacao
+      PONTO_API_URL: https://ponto-homologacao.vercel.app/api/data
+      PONTO_VERSION_CODE: "15"
+      PONTO_HOMOLOGACAO_VARIANT: facenet
+      PONTO_ANDROID_ARCHITECTURES: arm64-v8a
+      PONTO_GRADLE_WORKERS: "2"
+      CMAKE_BUILD_PARALLEL_LEVEL: "2"
+      EXPO_NO_TELEMETRY: "1"
+      NODE_ENV: production
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/ponto-obra/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Dependências
+        run: |
+          npm ci --ignore-scripts --include=dev
+          cd apps/ponto-obra
+          npm ci --ignore-scripts
+      - name: Android SDK/NDK
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "ndk;27.0.12077973" "cmake;3.22.1"
+      - name: FaceNet-512 verificado
+        working-directory: apps/ponto-obra
+        run: node scripts/garantir-modelo-facenet.mjs
+      - name: Assinatura efêmera da variante facenet
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/ponto-facenet-lab.jks"
+          SIGNING="$RUNNER_TEMP/ponto-facenet-signing.json"
+          PASS="$(openssl rand -hex 24)"
+          ALIAS="ponto-facenet-lab"
+          keytool -genkeypair -v -keystore "$KEYSTORE" -alias "$ALIAS" -keyalg RSA -keysize 3072 -validity 3650 -storepass "$PASS" -keypass "$PASS" -dname "CN=MARCELL Ponto FaceNet Homologacao, OU=QA, O=MARCELL, C=BR"
+          node -e 'const fs=require("fs"); const [p,s,a,k]=process.argv.slice(1); fs.writeFileSync(p,JSON.stringify({path:k,password:s,alias:a,keyPassword:s},null,2));' "$SIGNING" "$PASS" "$ALIAS" "$KEYSTORE"
+          chmod 600 "$KEYSTORE" "$SIGNING"
+          echo "PONTO_SIGNING_FILE=$SIGNING" >> "$GITHUB_ENV"
+      - name: Testes focais
+        run: npx vitest run apps/ponto-obra/src/logica/fluxo-facial-direto.test.js apps/ponto-obra/src/logica/rosto.test.js apps/ponto-obra/src/logica/diagnostico-calibracao.test.js apps/ponto-obra/src/logica/escala-reconhecimento.test.js apps/ponto-obra/src/logica/regressao.test.js
+      - name: Build APK 15
+        working-directory: apps/ponto-obra
+        run: node scripts/build-apk-homologacao.mjs --version-code 15 --output quality-out/apk15
+      - name: Publicar APK 15
+        uses: actions/upload-artifact@v4
+        with:
+          name: marcell-ponto-facenet-apk15
+          path: |
+            apps/ponto-obra/quality-out/apk15/ponto-obra-homologacao-15.apk
+            apps/ponto-obra/quality-out/apk15/ponto-obra-homologacao-15.json
+            apps/ponto-obra/quality-out/apk15/ponto-obra-homologacao-15.apk.sha256
+          if-no-files-found: error
+          retention-days: 7
