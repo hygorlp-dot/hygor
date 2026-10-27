@@ -1,6 +1,6 @@
 import {useMemo,useState} from "react";
 import {Badge,Btn,C,Ic,Inp,Modal,PageHero,Sel,uid} from "../../../LegacyApp";
-import {extrairNotaPatrimonioIA,subirDocumentoPatrimonio} from "../../../api";
+import {extrairNotaPatrimonioIA,obterDocumentoPatrimonio,subirDocumentoPatrimonio} from "../../../api";
 import {fornecedorPorDocumento,lerXmlNfe} from "../../compras/nfe-xml";
 import {OPERATIONAL_COMMAND} from "../../sync/operational-commands";
 
@@ -36,7 +36,7 @@ function AssetForm({asset,setAsset,onSave,onClose,busy}){
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Sel label="Situação" value={asset.status||"ativo"} onChange={F("status")} options={STATUS}/><Sel label="Localização" value={asset.location?.type||"empresa"} onChange={v=>setAsset(s=>({...s,location:{...(s.location||{}),type:v}}))} options={LOCAIS}/></div>
     <Inp label="Local atual" value={asset.location?.label||""} onChange={v=>setAsset(s=>({...s,location:{...(s.location||{}),label:v}}))} placeholder="Sede, almoxarifado ou local atual"/>
     <Inp label="Responsável pelo bem" value={asset.custodian?.name||""} onChange={v=>setAsset(s=>({...s,custodian:{...(s.custodian||{}),name:v,type:v?"external":""}}))}/>
-    <div style={card}><b>Nota fiscal</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>{asset.invoice?.number?"NF "+asset.invoice.number+" · "+(asset.invoice.supplierName||"Fornecedor"):"Sem nota vinculada"}</p>{asset.invoice?.document?.url&&<a href={asset.invoice.document.url} target="_blank" rel="noreferrer">Abrir documento fiscal</a>}</div>
+    <div style={card}><b>Nota fiscal</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>{asset.invoice?.number?"NF "+asset.invoice.number+" · "+(asset.invoice.supplierName||"Fornecedor"):"Sem nota vinculada"}</p>{asset.invoice?.document?.path&&<button type="button" onClick={async()=>{const r=await obterDocumentoPatrimonio(asset.invoice.document.path);if(r.ok&&r.url)window.open(r.url,"_blank","noopener,noreferrer");}} style={{border:0,background:"transparent",padding:0,color:C.blue,textAlign:"left",cursor:"pointer"}}>Abrir documento fiscal</button>}</div>
     <Inp label="Observações" value={asset.notes||""} onChange={F("notes")}/>
     <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={onSave} disabled={busy||!String(asset.name||"").trim()}>{busy?"Salvando...":"Salvar"}</Btn></div>
   </div></Modal>;
@@ -65,7 +65,7 @@ function ImportInvoice({data,dispatchCommand,showToast,onClose}){
     try{
       const ext=String(file.name||"").split(".").pop()?.toLowerCase()||"pdf";
       const up=await subirDocumentoPatrimonio({dataUrl:raw,ext});if(!up.ok)throw new Error(up.error||"Não foi possível arquivar a nota.");
-      const doc={name:file.name,url:up.url||"",path:up.path||"",mime:file.type||"",size:file.size||0};let count=0;
+      const doc={name:file.name,url:"",path:up.path||"",mime:file.type||"",size:file.size||0};let count=0;
       for(const item of selected){
         const qty=Math.max(1,Math.min(50,Math.trunc(Number(item.quantidade)||1)));
         for(let unit=1;unit<=qty;unit++){
@@ -93,7 +93,7 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
   const [search,setSearch]=useState(""),[status,setStatus]=useState("ativos"),[editor,setEditor]=useState(null),[importing,setImporting]=useState(false),[busy,setBusy]=useState(false);
   const assets=Array.isArray(data?.companyAssets)?data.companyAssets:[];
   const filtered=useMemo(()=>assets.filter(a=>(status==="todos"||status==="ativos"&&a.active!==false||a.status===status)&&(!search.trim()||[a.assetTag,a.name,a.category,a.serialNumber,a.imei,a.invoice?.number,a.invoice?.supplierName].some(v=>String(v||"").toLowerCase().includes(search.toLowerCase())))),[assets,search,status]);
-  const active=assets.filter(a=>a.active!==false),total=active.reduce((s,a)=>s+Number(a.acquisitionValue||0),0),docs=active.filter(a=>a.invoice?.document?.url||a.invoice?.number).length;
+  const active=assets.filter(a=>a.active!==false),total=active.reduce((s,a)=>s+Number(a.acquisitionValue||0),0),docs=active.filter(a=>a.invoice?.document?.path||a.invoice?.number).length;
   const save=async()=>{setBusy(true);try{const r=await dispatchCommand({type:OPERATIONAL_COMMAND.ASSET_SAVED,idempotencyKey:key("asset-save"),expectedVersion:Number(editor?.version||0),payload:{asset:editor}});if(!r.ok)throw new Error(r.reason||"Falha ao salvar.");showToast(editor.version?"Patrimônio atualizado.":"Patrimônio cadastrado.");setEditor(null);}catch(e){showToast(e.message,"error");}finally{setBusy(false);}};
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
     <PageHero eyebrow="Administração" title="Patrimônio da empresa" description="Bens corporativos da empresa, com nota fiscal, identificação física, localização atual e histórico." stats={[{label:"Bens ativos",value:String(active.length),color:C.green},{label:"Valor de aquisição",value:money(total)},{label:"Com nota/documento",value:String(docs)+"/"+String(active.length),color:docs===active.length?C.green:C.orange}]} actions={<div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setImporting(true)}><Ic n="receipt"/> Importar NF</Btn><Btn onClick={()=>setEditor(vazio())}><Ic n="plus"/> Novo bem</Btn></div>}/>
