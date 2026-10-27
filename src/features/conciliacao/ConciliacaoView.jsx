@@ -47,6 +47,7 @@ import {
   podeOperarConciliacao, podeOperarConciliacaoTrabalhista, podeDesfazerConciliacao,
   podeReabrirFechamento, podeArquivarExtrato, podeFecharPeriodo, podeCriarRegra,
   hashArquivo, parseOFX,
+  possiveisDuplicidades, textoAvisoDuplicidade,
 } from "../../domains/conciliacao/index.js";
 import { createExactPixLaborCandidate, findRegisteredEmployeePix, hasEmployeePixNameEvidence, isExactPixLaborMatch } from "../../domains/conciliacao/pix-card";
 import { executarComandoConciliacao } from "../../api";
@@ -699,6 +700,9 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       return false;
     }
     const autoRule=criarRegra&&padraoRegra.trim()?{pattern:padraoRegra.trim()}:null;
+    // D-E: avisa (sem bloquear) quando já há nota ou pedido de mesmo valor na obra.
+    const duplicidades=possiveisDuplicidades(data,apropModal,rs);
+    if(duplicidades.length&&!window.confirm(textoAvisoDuplicidade(duplicidades)))return false;
     const ok=await executarConciliacaoNoServidor({type:"CONFIRM_ALLOCATION",payload:{transactionId:apropModal.id,allocations:rs,measurementId:medAlvo?.m?.id||"",worker,autoRule}},"O servidor não confirmou o rateio.");
     if(!ok)return false;
     const compraMaterial=Number(apropModal.valor)<0&&rs.some(item=>item.destination==="obra"&&item.category==="material");

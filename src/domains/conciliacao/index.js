@@ -6,3 +6,4 @@ export * from "./permissions.js";
 export * from "./payroll.js";
 export * from "./identity.js";
 export * from "./engine.js";
+export * from "./duplicidade.js";
