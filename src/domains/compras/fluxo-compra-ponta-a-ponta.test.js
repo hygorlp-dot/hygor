@@ -165,13 +165,15 @@ describe("fluxo de uma compra de obra: pagamento, caixa e origem", () => {
     expect(pay(data, { payment, adiantamento: true, motivoAdiantamento: "Sinal" }).ok).toBe(true);
   });
 
-  it("cliente_direto entra como saída de caixa da empresa no razão", () => {
+  it("D-C: cliente_direto baixa a obrigação, mas não é saída de caixa da empresa", () => {
     const data = must(pay(withOrder(), {
       payment: { id: "pg-1", data: "2026-10-10", valor: 1000, origem: "cliente_direto", comprovantes: [] },
       adiantamento: true, motivoAdiantamento: "Sinal",
     }));
     const cash = selectCashFlow(buildFinancialLedger(data), { obraId: "o-1" });
-    expect(cash.cashOut).toBe(1000);
+    expect(cash.cashOut).toBe(0);
+    expect(cash.balance).toBe(0);
+    expect(cash.thirdPartyPaid).toBe(1000);
   });
 
   it("pagamento de pedido sem nota não vira custo: só caixa, marcado como não alocado", () => {
