@@ -32,6 +32,26 @@ describe("patrimônio corporativo",()=>{
     expect(result.ok).toBe(false);
   });
 
+  it("importa lote da NF atomicamente: todos entram ou nenhum entra",()=>{
+    const invoice={number:"10",accessKey:"2".repeat(44),issueDate:"2026-10-27",supplierName:"Fornecedor",itemNumber:1,itemDescription:"Notebook",itemValue:3000,source:"xml"};
+    const assets=[
+      {id:"a1",assetTag:"PAT-001",name:"Notebook 1",serialNumber:"SN-A",invoice:{...invoice,unitIndex:1}},
+      {id:"a2",assetTag:"PAT-002",name:"Notebook 2",serialNumber:"SN-B",invoice:{...invoice,unitIndex:2}},
+    ];
+    const ok=applyPatrimonyCommand({},command(PATRIMONY_COMMAND.ASSETS_IMPORTED,{assets,invoiceAccessKey:invoice.accessKey}),"2026-10-27T23:00:00.000Z");
+    expect(ok.ok).toBe(true);
+    expect(ok.data.companyAssets.map(a=>a.id)).toEqual(["a1","a2"]);
+
+    const invalid=[
+      {id:"b1",assetTag:"PAT-010",name:"Celular 1",imei:"111",invoice:{...invoice,itemNumber:2,unitIndex:1}},
+      {id:"b2",assetTag:"PAT-011",name:"Celular 2",imei:"111",invoice:{...invoice,itemNumber:2,unitIndex:2}},
+    ];
+    const failed=applyPatrimonyCommand({},command(PATRIMONY_COMMAND.ASSETS_IMPORTED,{assets:invalid,invoiceAccessKey:invoice.accessKey}),"2026-10-27T23:00:00.000Z");
+    expect(failed.ok).toBe(false);
+    expect(failed.reason).toMatch(/Item 2/);
+    expect(failed.data).toBeUndefined();
+  });
+
   it("movimenta custodiante/local sem transformar o bem em patrimônio da obra",()=>{
     const base={companyAssets:[{id:"a1",assetTag:"PAT-001",name:"Furadeira",status:"ativo",active:true,version:1,operationalHistory:[]}]};
     const result=applyPatrimonyCommand(base,{...command(PATRIMONY_COMMAND.ASSET_MOVED,{assetId:"a1",location:{type:"obra",label:"H2 04",referenceId:"h204"},custodian:{type:"employee",id:"e1",name:"João"},reason:"Uso temporário"}),expectedVersion:1},"2026-10-27T23:05:00.000Z");
