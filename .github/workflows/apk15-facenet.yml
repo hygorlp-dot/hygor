@@ -6,7 +6,7 @@ on:
     branches:
       - feat/face-auth-mit-adapter-d6
     paths:
-      - ".github/workflows/apk16-facenet.yml"
+      - ".github/workflows/apk15-facenet.yml"
       - "apps/ponto-obra/**"
       - "server/ponto-eletronico/**"
       - "package.json"
