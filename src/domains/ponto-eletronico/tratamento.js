@@ -67,6 +67,10 @@ export function receivedClockPreview(proposal={},day,employee={}){
   let workedMinutes=0,breakMinutes=0;
   if(policy.punchMode===PUNCH_MODE.ENTRY_EXIT){
     const gross=(Date.parse(marks[1].marcadoEm)-Date.parse(marks[0].marcadoEm))/60000;
+    const clockMinutes=value=>{const [hour,minute]=String(value||"").slice(0,5).split(":").map(Number);return hour*60+minute;};
+    const actualStart=clockMinutes(horaLocal(marks[0].marcadoEm)),actualEnd=clockMinutes(horaLocal(marks[1].marcadoEm));
+    const plannedStart=clockMinutes(policy.workBreakStart),plannedEnd=clockMinutes(policy.workBreakEnd);
+    if(plannedStart<actualStart||plannedEnd>actualEnd)return {ok:false,reason:'O intervalo pré-assinalado está fora do período entre entrada e saída. Confira a jornada ou use o tratamento manual.',policy};
     breakMinutes=policy.plannedBreakMinutes;
     workedMinutes=Math.round(gross-breakMinutes);
     if(gross<=0||workedMinutes<=0)return {ok:false,reason:'Entrada, saída ou intervalo pré-assinalado produzem uma jornada inválida.',policy};
