@@ -362,3 +362,109 @@ test("cabeçalho compacto mostra a primeira linha da fila em 1000 px e o menu n�
   await expect(page.locator("#compras-area-atual h3")).toHaveText(/^Pagamentos/);
   expect(app.errors).toEqual([]);
 });
+
+test("pedidos: uma ação principal por cartão, destrutivas só no menu ⋯ e filtros por status, fornecedor, atraso e obra",async({page})=>{
+  await page.setViewportSize({width:1280,height:1000});
+  const app=await enter(page,{prepare:state=>{
+    // PC-001 já foi enviado ao fornecedor por WhatsApp: o menu oferece "Reenviar", não "Enviar".
+    state.pedidos[0].envios=[{id:"env1",canal:"whatsapp",data:"2026-10-21"}];
+    state.fornecedores[0].telefone="11999990000";
+  }});
+  await navigate(page,"Pedidos");
+  const cartao=numero=>page.getByRole("article",{name:`Pedido ${numero}`});
+  const nomesVisiveis=async()=>(await page.getByRole("article").evaluateAll(els=>els.map(el=>el.getAttribute("aria-label")))).sort();
+
+  // Enviado: só "Receber material" + o botão do menu. Nada destrutivo, nada de "Enviar" na linha.
+  const enviado=cartao("PC-001");
+  await expect(enviado.getByRole("button")).toHaveCount(2);
+  await expect(enviado.getByRole("button",{name:"Receber material"})).toBeVisible();
+  await expect(enviado.getByRole("button",{name:/Cancelar pedido|Excluir definitivamente|Enviar ao fornecedor|Reenviar/})).toHaveCount(0);
+  // Rascunho: a ação principal é revisar.
+  await expect(cartao("PC-002").getByRole("button")).toHaveCount(2);
+  await expect(cartao("PC-002").getByRole("button",{name:"Revisar pedido"})).toBeVisible();
+  await expect(cartao("PC-002").getByRole("button",{name:"Receber material"})).toHaveCount(0);
+
+  // Menu por teclado: abre no primeiro item, navega, Esc fecha e o foco volta ao botão.
+  const gatilho=enviado.getByRole("button",{name:"Mais ações do pedido PC-001"});
+  await gatilho.focus();
+  await page.keyboard.press("ArrowDown");
+  const menu=enviado.getByRole("menu");
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("menuitem").first()).toBeFocused();
+  const itens=(await menu.getByRole("menuitem").allInnerTexts()).map(texto=>texto.trim());
+  expect(itens).toContain("Reenviar ao fornecedor");
+  expect(itens).not.toContain("Enviar ao fornecedor");
+  expect(itens.slice(-2)).toEqual(["Cancelar pedido…","Excluir definitivamente…"]);
+  await page.keyboard.press("End");
+  await expect(menu.getByRole("menuitem",{name:"Excluir definitivamente…"})).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(gatilho).toBeFocused();
+
+  // Excluir continua pedindo motivo e a confirmação digitada (agora a partir do menu).
+  await gatilho.click();
+  await menu.getByRole("menuitem",{name:"Excluir definitivamente…"}).click();
+  const dialog=page.getByRole("dialog");
+  await expect(dialog).toContainText("Excluir compra · PC-001");
+  await expect(dialog.getByLabel("Digite PC-001 para confirmar *")).toBeVisible();
+  await dialog.getByRole("button",{name:"Fechar",exact:true}).click();
+  await expect(dialog).toHaveCount(0);
+  expect(app.state().pedidos.map(order=>order.id)).toContain("delivery");
+
+  // Filtros: status, fornecedor, atraso e obra se combinam, com contagem e "Limpar filtros".
+  const filtros=page.getByRole("group",{name:"Filtros de pedidos"});
+  await expect(page.getByText("3 de 3 pedido(s)")).toBeVisible();
+  await filtros.getByLabel("Status",{exact:true}).selectOption("rascunho");
+  expect(await nomesVisiveis()).toEqual(["Pedido PC-002"]);
+  await filtros.getByLabel("Status",{exact:true}).selectOption("a_receber");
+  expect(await nomesVisiveis()).toEqual(["Pedido PC-001","Pedido PC-003"]);
+  await filtros.getByLabel("Fornecedor",{exact:true}).selectOption("central");
+  await filtros.getByLabel("Obra",{exact:true}).selectOption("b");
+  expect(await nomesVisiveis()).toEqual(["Pedido PC-003"]);
+  await filtros.getByRole("button",{name:"Limpar filtros"}).click();
+  await expect(page.getByText("3 de 3 pedido(s)")).toBeVisible();
+  await filtros.getByLabel(/Só entregas atrasadas/).check();
+  expect(await nomesVisiveis()).toEqual(["Pedido PC-003"]);
+  await expect(cartao("PC-003").getByText("ATRASADO +2d")).toBeVisible();
+  // Atrasado com telefone do fornecedor: "Cobrar entrega" está no menu, como link do WhatsApp.
+  await cartao("PC-003").getByRole("button",{name:"Mais ações do pedido PC-003"}).click();
+  const cobrar=cartao("PC-003").getByRole("menuitem",{name:"Cobrar entrega"});
+  await expect(cobrar).toHaveAttribute("href",/wa\.me\/.*11999990000/);
+  await page.keyboard.press("Escape");
+  await filtros.getByRole("button",{name:"Limpar filtros"}).click();
+  await filtros.getByLabel("Fornecedor",{exact:true}).selectOption("central");
+  await filtros.getByLabel("Status",{exact:true}).selectOption("cancelado");
+  await expect(page.getByText("Nenhum pedido com estes filtros.")).toBeVisible();
+  expect(app.errors).toEqual([]);
+});
+
+test("pedidos: engenharia não ganha 'Enviar', 'Registrar aceite' nem 'Excluir' no menu",async({page})=>{
+  const app=await enter(page,{role:"engenheiro"});
+  await navigate(page,"Pedidos");
+  const gatilho=page.getByRole("article",{name:"Pedido PC-001"}).getByRole("button",{name:"Mais ações do pedido PC-001"});
+  await gatilho.click();
+  const itens=(await page.getByRole("menu").getByRole("menuitem").allInnerTexts()).map(texto=>texto.trim());
+  expect(itens).not.toContain("Enviar ao fornecedor");
+  expect(itens).not.toContain("Reenviar ao fornecedor");
+  expect(itens).not.toContain("Registrar aceite");
+  expect(itens).not.toContain("Excluir definitivamente…");
+  expect(app.errors).toEqual([]);
+});
+
+for(const width of [390,768,1280,1440])test(`pedidos: cartões, menu ⋯ e filtros sem rolagem lateral em ${width}px`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  const app=await enter(page);
+  await navigate(page,"Pedidos");
+  const gatilho=page.getByRole("article",{name:"Pedido PC-003"}).getByRole("button",{name:"Mais ações do pedido PC-003"});
+  await gatilho.click();
+  const menu=page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  const caixa=await menu.boundingBox();
+  expect(caixa.x).toBeGreaterThanOrEqual(0);
+  expect(caixa.x+caixa.width).toBeLessThanOrEqual(width);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1),"a página não deve transbordar horizontalmente").toBe(false);
+  if(width===390)expect((await gatilho.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({path:test.info().outputPath(`pedidos-${width}.png`),fullPage:true});
+  await page.keyboard.press("Escape");
+  expect(app.errors).toEqual([]);
+});

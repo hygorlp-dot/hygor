@@ -50,6 +50,10 @@ import { alertasOrcamentoDoPedido, segmentosBarraOrcamento } from "../budget-tra
 import { contratosDisponiveis, saldoItemContrato } from "../supply-contracts";
 import ContratosFornecimentoView from "./ContratosFornecimentoView";
 import { atrasoDoItem } from "../delivery-schedule";
+import {
+  acoesDoPedido, contarPedidosPorStatus, FILTROS_PEDIDOS_VAZIOS, filtrarPedidos, filtrosPedidosAtivos, OPCOES_STATUS_PEDIDO,
+} from "../order-list";
+import { OrderActionMenu } from "./OrderActionMenu";
 import { avaliacoesFornecedores, explicacaoNotaFornecedor, textoNotaFornecedor } from "../supplier-rating";
 import {
   avaliarEscolhasCotacao, cotacaoMultiItens, decisoesDaCotacao, escolhaPrecisaJustificativa,
@@ -772,6 +776,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const [aba,     setAba]     = useState(["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":currentUser?.role==="financeiro"?"financeiro":"fila");
   const [obraSel, setObraSel] = useState(obraIdFixo||currentUser?.obraId||savedScope?.obraId||"");
   const [busca,   setBusca]   = useState("");
+  const [filtroPedidos,setFiltroPedidos]=useState(FILTROS_PEDIDOS_VAZIOS);
 
   const [pedModal,  setPedModal]  = useState(null);
   const [recModal,  setRecModal]  = useState(null);   // recebimento
@@ -894,6 +899,23 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         obras.find(o=>o.id===p.obraId)?.name,(p.itens||[]).map(i=>[nomeMat(i.materialId),i.descricaoRef,i.codigoRef])))
       .sort((a,b) => (b.data||"").localeCompare(a.data||""));
   }, [data.pedidos, obraIdsMapa, busca, nomeForn, nomeMat, obras]);
+  // R4: filtros da aba Pedidos por cima da busca. As contagens e as opções de
+  // fornecedor/obra saem do mesmo recorte (escopo + busca), para não oferecer
+  // um filtro que dá lista vazia.
+  const atrasadoIds = useMemo(() => new Set(atrasados.map(x => x.pedido.id)), [atrasados]);
+  const pedidosVisiveis = useMemo(() => filtrarPedidos(pedidos, filtroPedidos, atrasadoIds), [pedidos, filtroPedidos, atrasadoIds]);
+  const contagemPedidos = useMemo(() => contarPedidosPorStatus(pedidos), [pedidos]);
+  const qtdAtrasadosNaLista = useMemo(() => pedidos.filter(p => atrasadoIds.has(p.id)).length, [pedidos, atrasadoIds]);
+  const fornecedoresDosPedidos = useMemo(() =>
+    [...new Set(pedidos.map(p => p.fornecedorId).filter(Boolean))].map(id => ({ value: id, label: nomeForn(id) }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR")), [pedidos, nomeForn]);
+  const obrasDosPedidos = useMemo(() =>
+    [...new Set(pedidos.map(p => p.obraId).filter(Boolean))].map(id => ({ value: id, label: obras.find(o => o.id === id)?.name || "Obra não informada" }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR")), [pedidos, obras]);
+  const patchFiltroPedidos = patch => setFiltroPedidos(atual => ({ ...atual, ...patch }));
+  // Quem manda para a aba Pedidos já sabe qual pedido quer ver: filtro velho
+  // não pode escondê-lo.
+  const irParaPedidos = (termo = "") => { setBusca(termo); setFiltroPedidos(FILTROS_PEDIDOS_VAZIOS); setAba("pedidos"); };
 
   const resumoOperacional = useMemo(() => {
     const todos=(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)&&p.status!=="cancelado");
@@ -1650,6 +1672,19 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     });
   };
 
+  // Único ponto de entrada das ações do cartão de pedido (botão principal e
+  // menu "⋯"). Cancelar e excluir seguem pelos mesmos fluxos de antes, com o
+  // mesmo motivo e a mesma confirmação.
+  const executarAcaoPedido=(p,acao)=>{
+    if(acao==="receber")return setRecModal(p);
+    if(acao==="revisar"||acao==="editar")return setPedModal({...p,itens:p.itens.map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))});
+    if(acao==="enviar")return setEnvioPedido(p);
+    if(acao==="aceite")return setAceitePedido({pedido:p,nome:"",data:today(),canal:"whatsapp",previsao:p.previsao||"",obs:""});
+    if(acao==="saldo"){setAba("financeiro");setFiltroFinanceiro("pendentes");return;}
+    if(acao==="cancelar")return cancelarPedido(p);
+    if(acao==="excluir")return abrirExclusaoCompra(p);
+  };
+
   const excluirCompraDefinitivamente=async()=>{
     if(cancelandoCompra)return;
     const f=excluirCompraModal,p=f?.pedido;
@@ -1794,7 +1829,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     const numeros=(result.data?.pedidos||[]).filter(p=>ids.has(p.id)).map(p=>p.numero).join(", ");
     setCotDecisao(null);
     showToast(`${ids.size>1?`Pedidos ${numeros} gerados`:`Pedido ${numeros} gerado`} a partir da cotação.`);
-    setAba("pedidos");
+    setFiltroPedidos(FILTROS_PEDIDOS_VAZIOS);setAba("pedidos");
   };
 
   // Envio do pedido ao fornecedor (C2.5): monta o conteúdo, abre o canal e
@@ -1903,7 +1938,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     if(row.type==="order"){
       if(row.stage==="recebimentos"){setRecModal(row.record);return;}
       if(podeProcessar){setPedModal({...row.record,motivoAjuste:"",itens:(row.record.itens||[]).map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))});return;}
-      setBusca(row.code);setAba("pedidos");return;
+      irParaPedidos(row.code);return;
     }
     if(row.type==="quote"){
       setAba("cotacoes");setBuscaCotacao("");setStatusCotacao("todas");setInicioCotacao("");setFimCotacao("");
@@ -2163,7 +2198,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{p.numero} · {nomeForn(p.fornecedorId)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{(p.itens||[]).map(i=>`${nomeMat(i.materialId)} (${Number(i.qtd||0).toLocaleString("pt-BR")} ${purchaseUnitOf(i)})`).join(" · ")}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>Pedido {fmtDate(p.data)}{p.previsao?` · entrega prevista ${fmtDate(p.previsao)}`:""}</p></div><div style={{textAlign:"right"}}><Badge color={cor}>{st==="pago"?"QUITADO / LIBERADO":st==="parcial"?"PAGAMENTO PARCIAL":"AGUARDANDO PAGAMENTO"}</Badge><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:4}}>{fmt(totalPedido(p))}</p>{saldo>0&&<p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red}}>saldo {fmt(saldo)}</p>}</div></div>
           {(p.pagamentos||[]).length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:8}}>{p.pagamentos.map(pg=><div key={pg.id} style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:"var(--arcd-type-caption)",fontWeight:600,color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0C`:`${C.orange}0C`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 5px 3px 7px"}}><span>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"a conciliar"}</span>{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,textDecoration:"underline",fontWeight:600}} title={a.legenda||a.nome}>comprovante ↗</a>)}{canManagePurchases(currentUser?.role)&&<button type="button" onClick={()=>excluirPagamento(p,pg)} title="Excluir pagamento" aria-label={`Excluir pagamento de ${fmt(pg.valor)}`} style={{display:"inline-grid",placeItems:"center",width:20,height:20,border:0,borderRadius:99,background:`${C.red}12`,color:C.red,cursor:"pointer"}}><Ic n="trash" s={10}/></button>}</div>)}</div>}
           {recebido&&st!=="pago"&&<p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.red,marginTop:8}}>Registro legado: material recebido sem quitação vinculada. Regularize o financeiro para encerrar a inconsistência.</p>}
-          <div style={{display:"flex",gap:6,marginTop:9,flexWrap:"wrap"}}>{saldo>0&&canManagePurchases(currentUser?.role)&&<Btn size="sm" onClick={()=>abrirPagamento(p)}>Registrar pagamento</Btn>}{st==="pago"&&!recebido&&<Btn size="sm" v="success" onClick={()=>setRecModal(p)}><Ic n="check"/> Receber na obra</Btn>}<Btn size="sm" v="ghost" onClick={()=>{setBusca(p.numero);setAba("pedidos");}}>Abrir pedido</Btn>{podeExcluirCompra&&<Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir compra</Btn>}</div>
+          <div style={{display:"flex",gap:6,marginTop:9,flexWrap:"wrap"}}>{saldo>0&&canManagePurchases(currentUser?.role)&&<Btn size="sm" onClick={()=>abrirPagamento(p)}>Registrar pagamento</Btn>}{st==="pago"&&!recebido&&<Btn size="sm" v="success" onClick={()=>setRecModal(p)}><Ic n="check"/> Receber na obra</Btn>}<Btn size="sm" v="ghost" onClick={()=>irParaPedidos(p.numero)}>Abrir pedido</Btn>{podeExcluirCompra&&<Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir compra</Btn>}</div>
         </div>})}
       </>}
 
@@ -2334,8 +2369,11 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red}}>{atrasados.length} PEDIDO(S) COM ENTREGA ATRASADA</p>
             <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
               {atrasados.slice(0,3).map(x=>`${x.pedido.numero} · ${nomeForn(x.pedido.fornecedorId)} · +${x.diasAtraso}d`).join(" | ")}
-              {"  ·  Use o botão Cobrar entrega no pedido."}
+              {"  ·  Cobre pelo menu ⋯ do pedido."}
             </p>
+            <Button variant="ghost" size="sm" aria-pressed={filtroPedidos.atrasados} onClick={()=>patchFiltroPedidos({atrasados:!filtroPedidos.atrasados})} style={{marginTop:6}}>
+              {filtroPedidos.atrasados?"Mostrar todos os pedidos":"Ver só os atrasados"}
+            </Button>
           </div>
         )}
         <Inp label="Buscar pedidos" value={busca} onChange={setBusca} placeholder="Pedido, material, fornecedor ou obra…"/>
@@ -2345,14 +2383,30 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           <Ic n="plus"/> Novo pedido
         </Btn>
 
+        {pedidos.length>0&&(
+          <div className="purchase-order-filters" role="group" aria-label="Filtros de pedidos">
+            <Select label="Status" value={filtroPedidos.status} onChange={e=>patchFiltroPedidos({status:e.target.value})}
+              options={OPCOES_STATUS_PEDIDO.map(o=>({value:o.value,label:o.value==="todos"?`${o.label} (${contagemPedidos.todos})`:`${o.label} (${contagemPedidos[o.value]||0})`}))}/>
+            <Select label="Fornecedor" value={filtroPedidos.fornecedorId} onChange={e=>patchFiltroPedidos({fornecedorId:e.target.value})}
+              options={[{value:"",label:"Todos os fornecedores"},...fornecedoresDosPedidos]}/>
+            {obrasDosPedidos.length>1&&<Select label="Obra" value={filtroPedidos.obraId} onChange={e=>patchFiltroPedidos({obraId:e.target.value})}
+              options={[{value:"",label:"Todas as obras"},...obrasDosPedidos]}/>}
+            <label className="purchase-order-filters__toggle"><input type="checkbox" checked={filtroPedidos.atrasados} onChange={e=>patchFiltroPedidos({atrasados:e.target.checked})}/> Só entregas atrasadas ({qtdAtrasadosNaLista})</label>
+            {filtrosPedidosAtivos(filtroPedidos)&&<Button variant="ghost" onClick={()=>setFiltroPedidos(FILTROS_PEDIDOS_VAZIOS)}>Limpar filtros</Button>}
+          </div>
+        )}
+        {pedidos.length>0&&<p className="purchase-order-count" role="status">{pedidosVisiveis.length} de {pedidos.length} pedido(s)</p>}
+
         {pedidos.length === 0
           ? <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20}}>Nenhum pedido nesta obra.</p>
-          : pedidos.map(p => {
+          : pedidosVisiveis.length === 0
+          ? <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20}}>Nenhum pedido com estes filtros.</p>
+          : pedidosVisiveis.map(p => {
             const st = statusPedido(p);
             const meta = STATUS_PEDIDO[st];
             const pend = pendentePedido(p);
             return (
-              <div key={p.id} style={{
+              <article key={p.id} aria-label={`Pedido ${p.numero}`} style={{
                 background:C.card, border:`1px solid ${C.border}`,
                 borderLeft:`1px solid ${meta.c}`, borderRadius:6, padding:"10px 12px",
               }}>
@@ -2415,61 +2469,40 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 	                </div>
 	                {p.analiseIA&&<div style={{marginTop:7,padding:"7px 9px",background:`${C.purple}08`,border:`1px solid ${C.purple}2F`,borderRadius:7,display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.purple,fontWeight:600}}><Ic n="brain" s={11}/> Sugestão da IA revisada por {p.analiseIA.revisadoPor||"operador"} · confiança {Number(p.analiseIA.confianca||0)}%</span><span>{(p.documentos||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginLeft:8}}>{a.nome} ↗</a>)}</span></div>}
 
-	                <div style={{display:"flex",gap:6,marginTop:9,flexWrap:"wrap"}}>
-                  {(st === "enviado" || st === "parcial") && <Btn size="sm" onClick={()=>setRecModal(p)} full><Ic n="check"/> Receber material</Btn>}
-                  {podeEnviarPedido&&(st === "enviado" || st === "parcial") && <Btn size="sm" v="ghost" onClick={()=>setEnvioPedido(p)}>Enviar ao fornecedor</Btn>}
-                  {podeEnviarPedido&&(st === "enviado" || st === "parcial") && !p.aceiteFornecedor?.nome && <Btn size="sm" v="ghost" onClick={()=>setAceitePedido({pedido:p,nome:"",data:today(),canal:"whatsapp",previsao:p.previsao||"",obs:""})}>Registrar aceite</Btn>}
-                  {(st === "enviado" || st === "parcial") && !pedidoLiberadoParaReceber(p) && (
-                    <Btn size="sm" v="ghost" onClick={()=>{setAba("financeiro");setFiltroFinanceiro("pendentes");}} full>
-                      Saldo em aberto · {fmt(saldoPagamentoPedido(p))}
-                    </Btn>
-                  )}
-                  {st !== "cancelado" && st !== "recebido" && (
-                    <Btn size="sm" v="ghost" onClick={()=>setPedModal({
-                      ...p, itens: p.itens.map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))
-                    })}><Ic n="edit"/> Editar pedido</Btn>
-                  )}
-                  {st !== "cancelado" && st !== "recebido" && (
-                    <Btn size="sm" v="danger" disabled={cancelandoCompra} onClick={()=>cancelarPedido(p)}><Ic n="trash"/> Cancelar pedido</Btn>
-                  )}
-                  {podeExcluirCompra&&(
-                    <Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir definitivamente</Btn>
-                  )}
-                  {atrasoDe[p.id]&&(()=>{
-                    const forn=fornecedorPorId.get(p.fornecedorId);
-                    if(!forn?.telefone)return null;
-                    const obra=obraPorId.get(p.obraId);
-                    const texto=mensagemWhatsAppCobranca({
-                      empresa:"MARCELL",fornecedorNome:forn.nome,obraNome:obra?.name||"",
-                      numero:p.numero,previsao:fmtDate(p.previsao),
-                      diasAtraso:atrasoDe[p.id].diasAtraso,itens:atrasoDe[p.id].itensPendentes,
-                    });
-                    return <a href={linkWhatsApp(forn.telefone,texto)} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
-                      <Btn size="sm" v="danger">Cobrar entrega</Btn>
-                    </a>;
-                  })()}
-                  {st !== "cancelado" && st !== "recebido" && (() => {
-                    const forn = fornecedorPorId.get(p.fornecedorId);
-                    if (!forn?.telefone) return null;
-                    const obra = obraPorId.get(p.obraId);
-                    const itensMsg = (p.itens||[]).map(i => {
-                      const mat = materialPorId.get(i.materialId);
-                      return { descricao: mat?.descricao || "Material", qtd: i.qtd, unidade: mat?.unidade || "" };
-                    });
-                    const texto = mensagemWhatsAppCompra({
-                      empresa: "MARCELL", fornecedorNome: forn.nome,
-                      obraNome: obra?.name || "", prazo: p.previsao ? fmtDate(p.previsao) : "",
-                      itens: itensMsg,
-                    });
-                    return (
-                      <a href={linkWhatsApp(forn.telefone, texto)} target="_blank" rel="noreferrer"
-                         style={{ textDecoration: "none" }}>
-                        <Btn size="sm" v="ghost">WhatsApp</Btn>
-                      </a>
-                    );
-                  })()}
-                </div>
-              </div>
+                {(() => {
+                  const forn = fornecedorPorId.get(p.fornecedorId);
+                  const telefone = forn?.telefone;
+                  const acoes = acoesDoPedido({
+                    pedido:p, podeEnviar:podeEnviarPedido, podeExcluir:podeExcluirCompra,
+                    atrasado:!!atrasoDe[p.id], temTelefone:!!telefone, liberadoParaReceber:pedidoLiberadoParaReceber(p),
+                  });
+                  const obra = obraPorId.get(p.obraId);
+                  const hrefs = !telefone ? {} : {
+                    cobrar: atrasoDe[p.id] ? linkWhatsApp(telefone, mensagemWhatsAppCobranca({
+                      empresa:"MARCELL", fornecedorNome:forn.nome, obraNome:obra?.name||"", numero:p.numero,
+                      previsao:fmtDate(p.previsao), diasAtraso:atrasoDe[p.id].diasAtraso, itens:atrasoDe[p.id].itensPendentes,
+                    })) : "",
+                    whatsapp: linkWhatsApp(telefone, mensagemWhatsAppCompra({
+                      empresa:"MARCELL", fornecedorNome:forn.nome, obraNome:obra?.name||"", prazo:p.previsao?fmtDate(p.previsao):"",
+                      itens:(p.itens||[]).map(i => { const mat=materialPorId.get(i.materialId); return { descricao:mat?.descricao||"Material", qtd:i.qtd, unidade:mat?.unidade||"" }; }),
+                    })),
+                  };
+                  const comuns = acoes.comuns.map(a => ({
+                    ...a, href:hrefs[a.id]||undefined,
+                    label:a.id==="saldo" ? `${a.label} · ${fmt(saldoPagamentoPedido(p))}` : a.label,
+                  }));
+                  if (!acoes.principal && !comuns.length && !acoes.destrutivas.length) return null;
+                  return (
+                    <div className="purchase-order-actions">
+                      {acoes.principal && <Btn size="sm" onClick={()=>executarAcaoPedido(p, acoes.principal.id)} full>
+                        <Ic n={acoes.principal.id==="receber"?"check":"edit"}/> {acoes.principal.label}
+                      </Btn>}
+                      <OrderActionMenu label={`Mais ações do pedido ${p.numero}`} comuns={comuns} destrutivas={acoes.destrutivas}
+                        busy={cancelandoCompra} onSelect={id=>executarAcaoPedido(p, id)}/>
+                    </div>
+                  );
+                })()}
+              </article>
             );
           })}
       </>)}
