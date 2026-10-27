@@ -12,8 +12,9 @@ const groups = [
   ["Visão gerencial", ["Dashboard", "DRE empresa", "DRE obras", "Relatórios", "Modo TV", "Comunicação", "Minhas aprovações"]],
   ["Financeiro", ["Gestão financeira", "Medições", "Caixa da obra", "Conciliação"]],
   ["Obras e projetos", ["Obras", "Orçamento", "Planejamento", "Marcos e Curva A", "Diario de obra", "Medicao", "Conferência", "Licenciamento"]],
-  // "Cotações" era "Suprimentos" até a desambiguação de 25/08/2026 (a51568c).
-  ["Compras e suprimentos", ["Compras", "Fornecedores", "Cotações", "Estoque"]],
+  // "Preços e curva ABC" era "Cotações" (e antes "Suprimentos"): a cotação de
+  // compra é a aba "Cotar" de Compras, então o nome do menu não pode repeti-la.
+  ["Compras e suprimentos", ["Compras", "Fornecedores", "Preços e curva ABC", "Estoque"]],
   ["Equipamentos e locações", ["Locação de equipamentos", "Equipamentos"]],
   ["Pessoas e terceiros", ["Equipes", "Ponto por obra", "Gestão do ponto", "Ponto eletrônico (app)",
     "Terceirizados", "Folha", "Rescisão", "Indicadores"]],

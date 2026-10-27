@@ -324,3 +324,30 @@ test("orçado × comprado mostra o maior estouro primeiro, a barra proporcional 
   await expect(etapas.nth(0).locator("li")).toContainText("R$ 2.000,00");
   expect(app.errors).toEqual([]);
 });
+
+test("R3: a primeira linha da fila cabe em 1000 px e nenhum nome se repete entre menu e abas",async({page})=>{
+  await page.setViewportSize({width:1440,height:1000});
+  const app=await enter(page);await selectWork(page);
+
+  const primeira=page.locator(".purchase-queue-table tbody tr").first();
+  await expect(primeira).toBeVisible();
+  const caixa=await primeira.boundingBox();
+  await page.screenshot({path:test.info().outputPath("fila-1440x1000.png")});
+  expect(caixa.y+caixa.height,"a primeira linha da fila deve aparecer sem rolar").toBeLessThanOrEqual(1000);
+
+  // "Fila de trabalho" é o nome da aba; o título da área não pode repeti-lo à vista.
+  // (o título da área segue no DOM só para leitor de tela, com 1 px; não conta como texto à vista)
+  const aVista=await page.evaluate(()=>[...document.querySelectorAll("body *")]
+    .filter(el=>[...el.childNodes].some(no=>no.nodeType===3&&no.textContent.trim()==="Fila de trabalho"))
+    .filter(el=>{const r=el.getBoundingClientRect();return r.width>2&&r.height>2;}).length);
+  expect(aVista,"\"Fila de trabalho\" aparece uma única vez à vista").toBe(1);
+  await expect(page.locator("#compras-area-atual h3")).toHaveClass(/purchase-sr-only/);
+
+  // O item do menu lateral que abre a curva ABC não se chama mais "Cotações" (a cotação de compra é a aba "Cotar").
+  const grupo=page.locator(".arcd-sidebar .nav-grp-hd").filter({hasText:/^Compras/});
+  const corpo=grupo.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
+  await expect(corpo.locator(".nav-item").filter({hasText:/^Cotações$/})).toHaveCount(0);
+  await expect(corpo.locator(".nav-item").filter({hasText:/^Preços e curva ABC$/})).toHaveCount(1);
+  await expect(page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button",{name:/^Cotar/})).toBeVisible();
+  expect(app.errors).toEqual([]);
+});

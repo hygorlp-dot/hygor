@@ -11917,7 +11917,7 @@ export function ModalCotacaoWhatsApp({ titulo, itens, obraNome, prazo, fornecedo
     .sort((a, b) => Number(jaVendeu.has(b.id)) - Number(jaVendeu.has(a.id)) || a.nome.localeCompare(b.nome));
   return <Modal title={titulo || "Cotação por WhatsApp"} onClose={onClose}>
     <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginBottom: 8, lineHeight: 1.5 }}>
-      {itens.length} item(ns) na lista. Toque em cada fornecedor para abrir o WhatsApp com o pedido de orçamento completo. Quando as respostas chegarem, registre os preços em Cotações ou Suprimentos.
+      {itens.length} item(ns) na lista. Toque em cada fornecedor para abrir o WhatsApp com o pedido de orçamento completo. Quando as respostas chegarem, registre os preços aqui, em Preços e curva ABC, ou abra a cotação na aba Cotar de Compras.
     </p>
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", marginBottom: 10, maxHeight: 120, overflow: "auto" }}>
       {itens.map((i, ix) => <p key={ix} style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>• {i.descricao} — <b style={{ color: C.text }}>{i.qtd} {i.unidade}</b></p>)}
@@ -12008,7 +12008,7 @@ function CotacoesMaterial({ data, update, showToast, onTab }) {
     <div className="anim" style={{ display:"flex", flexDirection:"column", gap:12 }}>
       <PageHero
         eyebrow="Compras"
-        title="Cotações e curva de compra"
+        title="Preços e curva ABC"
         description={`${curva.linhas.length} materiais na carteira de obras · ${curva.alertasPesquisa.length} a pesquisar`}
         actions={itensUrgentes.length>0&&<Btn size="sm" v="warning" onClick={()=>setCotWppS(true)}><Ic n="cart"/> Cotar urgentes ({itensUrgentes.length})</Btn>}
       />
@@ -17099,7 +17099,9 @@ const TAB_META_BASE = {
   licenca:  { label: "Licenciamento", icon: "file" },
   cmp:      { label: "Compras",     icon: "cart" },
   fornecedores: { label: "Fornecedores", icon: "handshake" },
-  suprimentos: { label: "Cotações", icon: "trending" },
+  // Esta tela é a curva ABC de materiais e a pesquisa de preços de referência; a
+  // cotação de compra (propostas e pedido) fica na aba "Cotar" de Compras.
+  suprimentos: { label: "Preços e curva ABC", icon: "trending" },
   cad:      { label: "Cadastros",   icon: "settings" },
   medicoes: { label: "Medições",   icon: "ruler" },
   caixa:    { label: "Caixa da obra", icon: "wallet" },

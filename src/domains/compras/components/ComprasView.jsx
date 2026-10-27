@@ -1959,7 +1959,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       <PurchaseNavigation area={aba} onNavigate={irParaArea} counts={fluxoCompras.counts}
         financeCount={resumoFinanceiro.pendentes} otherAreas={abasSecundarias}/>
       <div id="compras-area-atual" className="purchase-area-heading" tabIndex={-1}>
-        <h3>{PURCHASE_AREA_LABELS[aba]||comprasAbas.find(([id])=>id===aba)?.[1]}</h3>
+        {/* Na fila o título repetiria o nome da própria aba logo acima: fica só para leitor de tela. */}
+        <h3 className={aba==="fila"?"purchase-sr-only":undefined}>{PURCHASE_AREA_LABELS[aba]||comprasAbas.find(([id])=>id===aba)?.[1]}</h3>
         {aba!=="fila"&&<Button variant="ghost" size="sm" onClick={()=>irParaArea("fila")}>Voltar à fila</Button>}
       </div>
       {["fila","aprovacoes","recebimentos"].includes(aba)&&<PurchaseWorkspace model={fluxoCompras} area={aba} scope={escopoFluxo}

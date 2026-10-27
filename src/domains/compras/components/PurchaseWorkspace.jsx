@@ -45,11 +45,11 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
   const filtered = Boolean(filters.query || (area === "fila" && filters.stage) || filters.risk);
   const clear = () => {setPage(0); onFiltersChange({query:"", stage:"", risk:""});};
   return <section className="purchase-workspace" aria-label={PURCHASE_AREA_LABELS[area]}>
-    <div className="purchase-queue-intro"><div>
-      <h3>{area === "aprovacoes" ? "Decisões antes da compra" : area === "recebimentos" ? "O que precisa chegar à obra" : "O que precisa da sua atenção"}</h3>
-      <p className="purchase-scope">{scope}</p><p>{area === "aprovacoes" ? "Consulte o bloqueio e os aprovadores. Somente pessoas elegíveis podem registrar uma decisão."
-        : area === "recebimentos" ? "Confira a chegada real dos materiais. Recebimento e pagamento são acompanhados separadamente."
-          : "Priorize por prazo e abra a próxima ação. Os filtros permanecem ao voltar dos detalhes."}</p></div><ClipboardList size={26} aria-hidden="true"/></div>
+    {/* Na fila o cabeçalho é uma linha só (título e escopo); o texto de apoio e o ícone ficam nas outras áreas. */}
+    <div className={area === "fila" ? "purchase-queue-intro purchase-queue-intro--compact" : "purchase-queue-intro"}><div>
+      <h3 title={area === "fila" ? "Priorize por prazo e abra a próxima ação. Os filtros permanecem ao voltar dos detalhes." : undefined}>{area === "aprovacoes" ? "Decisões antes da compra" : area === "recebimentos" ? "O que precisa chegar à obra" : "O que precisa da sua atenção"}</h3>
+      <p className="purchase-scope">{scope}</p>{area !== "fila" && <p>{area === "aprovacoes" ? "Consulte o bloqueio e os aprovadores. Somente pessoas elegíveis podem registrar uma decisão."
+        : "Confira a chegada real dos materiais. Recebimento e pagamento são acompanhados separadamente."}</p>}</div>{area !== "fila" && <ClipboardList size={26} aria-hidden="true"/>}</div>
     {area === "fila" && <div className="purchase-queue-metrics" aria-label="Prioridades da fila">
       <button type="button" aria-pressed={!filters.risk && !filters.stage} onClick={() => patch({risk:"",stage:""})}><span>Em andamento</span><strong>{source.length}</strong><small>Solicitações, cotações e entregas</small></button>
       <button type="button" data-tone={model.overdue>0?"danger":undefined} aria-pressed={filters.risk === "overdue"} onClick={() => patch({risk:"overdue",stage:""})}><span>Prazo vencido</span><strong>{model.overdue}</strong><small>Tratar o atraso com a obra</small></button>
