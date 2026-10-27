@@ -35,6 +35,13 @@ describe("avaliação de fornecedor (C2.3)",()=>{
     expect(explicacaoNotaFornecedor(av)).toBe("Prazo 7,5 (3/4 remessas no prazo) · Notas 5,0 (1/2 sem divergência) · Cancelamentos 8,0 (4/5 pedidos mantidos)");
   });
 
+  it("nota rejeitada ou estornada não entra na avaliação, como no razão",()=>{
+    const extra=status=>({id:`n-${status}`,fornecedorId:"f-1",emissao:"2026-10-02",status,divergencias:["x"]});
+    const dados=data();
+    dados.notasFiscais=[...dados.notasFiscais,extra("rejeitada"),extra("rejeitado"),extra("estornado")];
+    expect(avaliacaoFornecedor(dados,"f-1",hoje).criterios.notas).toEqual({nota:5,positivos:1,total:2});
+  });
+
   it("redistribui os pesos quando falta um critério e não dá nota sem histórico",()=>{
     const semNotas={...data(),notasFiscais:[]};
     // (7,5 × 0,5 + 8 × 0,2) ÷ 0,7 = 7,64

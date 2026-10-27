@@ -1,5 +1,6 @@
 import { describe,expect,it } from "vitest";
 import { applyInvoiceCommand,INVOICE_COMMAND } from "./invoice-commands.js";
+import { buildFinancialLedger } from "./ledger.js";
 
 const base=()=>({
   obras:[{id:"o-1"},{id:"o-2"}],
@@ -21,6 +22,27 @@ const invoice=(overrides={})=>({
 });
 
 describe("comandos de notas fiscais",()=>{
+  it("a nota sem fornecedor herda o do pedido, sem sobrescrever o que já existe",()=>{
+    const data={...base(),pedidos:[{...base().pedidos[0],fornecedorId:"f-9"}]};
+    const inherited=applyInvoiceCommand(data,command(INVOICE_COMMAND.INVOICE_SAVED,{invoice:invoice({fornecedorId:""})}));
+    expect(inherited.ok).toBe(true);
+    expect(inherited.data.notasFiscais[0].fornecedorId).toBe("f-9");
+    const kept=applyInvoiceCommand(data,command(INVOICE_COMMAND.INVOICE_SAVED,{invoice:invoice({id:"nf-2",chave:"chave-2",fornecedorId:"f-1"})}));
+    expect(kept.data.notasFiscais[0].fornecedorId).toBe("f-1");
+    const semPedido=applyInvoiceCommand(data,command(INVOICE_COMMAND.INVOICE_SAVED,{invoice:invoice({id:"nf-3",chave:"chave-3",pedidoId:"",fornecedorId:""})}));
+    expect(semPedido.data.notasFiscais[0].fornecedorId).toBe("");
+  });
+
+  it("herdar o fornecedor do pedido não muda nenhum valor, id ou competência do razão",()=>{
+    const data={...base(),fornecedores:[{id:"f-9",nome:"Cimentos SA"}],pedidos:[{...base().pedidos[0],fornecedorId:"f-9"}]};
+    const eventos=nota=>buildFinancialLedger({...data,notasFiscais:[nota]}).events
+      .map(({counterparty,...resto})=>resto);
+    const heranca=applyInvoiceCommand(data,command(INVOICE_COMMAND.INVOICE_SAVED,{invoice:invoice({fornecedorId:""})})).data.notasFiscais[0];
+    const explicito=applyInvoiceCommand(data,command(INVOICE_COMMAND.INVOICE_SAVED,{invoice:invoice({fornecedorId:"f-9"})})).data.notasFiscais[0];
+    expect(eventos(heranca).length).toBeGreaterThan(0);
+    expect(eventos(heranca)).toEqual(eventos(explicito));
+  });
+
   it("cria nota, calcula líquido no servidor e confere as três vias",()=>{
     const forged=invoice({
       pagamentos:[{id:"forged",status:"ativo",valor:100}],

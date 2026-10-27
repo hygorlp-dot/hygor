@@ -14485,7 +14485,7 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
   const salvarForn = async (f) => {
     if (!f.nome.trim()) { showToast("Informe o nome.", "error"); return; }
     const p = { ...f, id: f.id || uid(), nome: f.nome.trim(),
-      categorias: Array.isArray(f.categorias) ? f.categorias : [], ativo: true };
+      categorias: Array.isArray(f.categorias) ? f.categorias : [], ativo: f.ativo !== false };
     delete p.ramosSugeridos;
     if(!dispatchCommand){await persistirCadastro({ ...data, fornecedores:f.id?(data.fornecedores||[]).map(x=>x.id===f.id?p:x):[...(data.fornecedores||[]),p]},f.id?"Fornecedor atualizado e salvo.":"Fornecedor cadastrado e salvo.",()=>setFornModal(null));return;}
     const result=await dispatchCommand(atual=>{const vigente=(atual.fornecedores||[]).find(x=>x.id===p.id);return {type:OPERATIONAL_COMMAND.SUPPLIER_SAVED,idempotencyKey:`fornecedor-${p.id}-${uid()}`,expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{supplier:p}};});
