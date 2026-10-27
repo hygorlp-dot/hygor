@@ -103,7 +103,7 @@ const SHARED_RECEIPTS_FIELD = "operationalCommandReceipts";
 export const DOMAIN_FIELDS = Object.freeze({
   [DOMAIN_ROW.PONTO]: [
     "attendanceLocks", "unlockRequests",
-    "dailyCheckDate", "attendanceOperationReceipts",
+    "dailyCheckDate", "attendanceOperationReceipts", "timeBankAdjustments",
   ],
   [DOMAIN_ROW.LOOKAHEAD]: ["lookaheadWindows", SHARED_RECEIPTS_FIELD],
   [DOMAIN_ROW.CONFIG]: ["config", SHARED_RECEIPTS_FIELD],
