@@ -3,9 +3,9 @@ import {applyAttendanceCommand,ATTENDANCE_COMMAND} from './attendance-command.js
 import {loadMobileAttendanceSource} from './attendance-mobile-source.js';
 import {applyAdvanceCommand,ADVANCE_COMMAND} from '../src/domains/rh/advance-commands.js';
 const day='2026-10-01',user={id:'rh',role:'rh'};
-const data=()=>({employees:[{id:'e',active:true,obra:'A'}],obras:[{id:'A'},{id:'B'}],attendance:{},attendanceLocks:{},titulosFolha:[],payments:[{id:'real',amount:800}],bankTransactions:[{id:'pix',amount:800}]});
+const data=()=>({employees:[{id:'e',active:true,obra:'A',attendancePunchMode:'entry_exit',workBreakStart:'08:00',workBreakEnd:'09:00',workdayHours:4,timeBankEnabled:true}],obras:[{id:'A'},{id:'B'}],attendance:{},attendanceLocks:{},titulosFolha:[],payments:[{id:'real',amount:800}],bankTransactions:[{id:'pix',amount:800}]});
 const source=()=>({employeeId:'e',date:day,proposal:{marcacoes:[{eventId:'1',marcadoEm:`${day}T10:00:00Z`,obraCapturaId:'A',horaConfiavel:true},{eventId:'2',marcadoEm:`${day}T15:00:00Z`,obraCapturaId:'A',horaConfiavel:true}],avisos:[]},appropriations:[{id:'a',version:1,inicio:`${day}T10:00:00Z`,fim:`${day}T15:00:00Z`,obraApropriadaId:'A',status:'ativa'}]});
-const command=()=>({action:ATTENDANCE_COMMAND.IMPORT_MOBILE,operationId:'10000000-0000-4000-8000-000000000001',employeeId:'e',date:day,status:'P',ot:0,atrasoMin:0,note:'Jornada conferida pelo RH',sourceEventIds:['1','2'],appropriationVersions:[{id:'a',version:1}],record:{entrada:'00:00',obraId:'B'}});
+const command=()=>({action:ATTENDANCE_COMMAND.IMPORT_MOBILE,operationId:'10000000-0000-4000-8000-000000000001',employeeId:'e',date:day,status:'P',ot:0,atrasoMin:0,bankMinutes:0,note:'Jornada conferida pelo RH',sourceEventIds:['1','2'],appropriationVersions:[{id:'a',version:1}],record:{entrada:'00:00',obraId:'B'}});
 const run=(d=data(),c=command(),s=source(),u=user)=>applyAttendanceCommand(d,u,c,'2026-10-02T12:00:00Z',s);
 describe('importação móvel para ponto operacional',()=>{
   it('solicitação de adiantamento não fecha o dia e permite importar as batidas conferidas',()=>{
@@ -27,7 +27,7 @@ describe('importação móvel para ponto operacional',()=>{
   it('usa fonte exclusiva do servidor, registra uma presença e preserva originais e pagamentos',()=>{
     const d=data(),s=source(),before=structuredClone({d,s}),r=run(d,command(),s);
     expect(r.ok).toBe(true);expect(r.result.attendance).toHaveLength(1);
-    expect(r.data.attendance.e[day]).toMatchObject({entrada:'07:00',saida:'12:00',workedMinutes:300,status:'P',obraId:'A',mobileSource:{eventIds:['1','2'],reviewedBy:'rh'}});
+    expect(r.data.attendance.e[day]).toMatchObject({entrada:'07:00',intervaloSaida:'08:00',intervaloRetorno:'09:00',saida:'12:00',workedMinutes:240,breakSource:'preassigned',punchMode:'entry_exit',bankMinutes:0,status:'P',obraId:'A',mobileSource:{eventIds:['1','2'],reviewedBy:'rh'}});
     expect(r.data.payments).toEqual(d.payments);expect(r.data.bankTransactions).toEqual(d.bankTransactions);expect({d,s}).toEqual(before);
     expect(run(data(),{...command(),mobileSource:s},null).ok).toBe(false);
   });
@@ -51,6 +51,14 @@ describe('importação móvel para ponto operacional',()=>{
     expect(run(data(),{...command(),status:''}).ok).toBe(false);expect(run(data(),{...command(),ot:6}).ok).toBe(false);expect(run(data(),{...command(),note:''}).ok).toBe(false);
     expect(run(data(),command(),source(),{id:'a',role:'auditor'}).status).toBe(403);
     expect(run(data(),command(),source(),{id:'b',role:'engenheiro',obraId:'B'}).status).toBe(403);
+  });
+  it('separa hora extra paga de crédito no banco e limita o saldo ao excedente real',()=>{
+    const s=source();s.proposal.marcacoes[1].marcadoEm=`${day}T16:00:00Z`;s.appropriations[0].fim=`${day}T16:00:00Z`;
+    expect(run(data(),{...command(),bankMinutes:60},s).data.attendance.e[day].bankMinutes).toBe(60);
+    expect(run(data(),{...command(),bankMinutes:61},s).ok).toBe(false);
+    expect(run(data(),{...command(),ot:1,bankMinutes:1},s).ok).toBe(false);
+    const disabled=data();disabled.employees[0].timeBankEnabled=false;
+    expect(run(disabled,{...command(),bankMinutes:1},s).ok).toBe(false);
   });
   it('apropriação em outra obra mantém captura, mas multiobra e relógio inseguro exigem tratamento',()=>{
     const s=source();s.appropriations[0].obraApropriadaId='B';expect(run(data(),command(),s).data.attendance.e[day]).toMatchObject({obraId:'B',mobileSource:{captureObraId:'A'}});
