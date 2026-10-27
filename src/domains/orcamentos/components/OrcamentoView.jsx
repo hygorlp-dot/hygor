@@ -62,6 +62,14 @@ import {
   consolidateReferenceBases as consolidarBasesReferencia,
 } from "../reference-bases";
 import { BudgetTextCell as CelulaTexto } from "../BudgetTextCell";
+import "./budget-sheet.css";
+
+// Ícones da planilha do orçamento: desenhados aqui para herdar `currentColor`
+// e manter o mesmo traço em alça, dobra de etapa, menu e preço editado.
+const IconeMais = () => <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg>;
+const IconeAlca = () => <svg width="10" height="14" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.2"/><circle cx="7.5" cy="3" r="1.2"/><circle cx="2.5" cy="8" r="1.2"/><circle cx="7.5" cy="8" r="1.2"/><circle cx="2.5" cy="13" r="1.2"/><circle cx="7.5" cy="13" r="1.2"/></svg>;
+const IconeSeta = ({aberta}) => <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">{aberta?<path d="M1 3l4 4 4-4z"/>:<path d="M3 1l4 4-4 4z"/>}</svg>;
+const IconeEditado = () => <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{marginRight:4,flexShrink:0}}><path d="M1.5 10.5l.7-2.8 6.3-6.3 2.1 2.1-6.3 6.3z"/></svg>;
 import {
   detectarColunasImportacao, montarLinhasImportacao, resumoImportacao,
 } from "../budget-import-mapping";
@@ -437,6 +445,8 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const COLS_ORC_DEF = { codigo:true, unidade:true, custoUnit:true, bdi:false, total:true };
   const [colsOrc, setColsOrc] = useState(COLS_ORC_DEF);
   const [colsOrcAberto, setColsOrcAberto] = useState(false);
+  // Id do menu "⋯" aberto (linha, etapa ou orçamento); só um por vez.
+  const [menuAberto, setMenuAberto] = useState("");
   // Item sendo arrastado para reordenar (drag-and-drop), e sobre qual linha esta.
   const [arrastandoItem, setArrastandoItem] = useState(null);
   const [sobreItem, setSobreItem] = useState(null);
@@ -3602,16 +3612,32 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
   //  VIEW: EDITOR
   if (!orc || !calc) { setView("lista"); return null; }
 
+  // Menu "⋯" de uma linha, etapa ou do orçamento. Função comum (não componente)
+  // pelo mesmo motivo de renderEtapa: identidade estável entre renders. O menu
+  // fecha ao clicar fora (película) ou com Esc, e só um fica aberto por vez.
+  const renderMenu = (id, rotulo, itens) => {
+    const aberto = menuAberto === id;
+    return (
+      <div className="budget-menu-wrap" onKeyDown={e=>{ if(e.key==="Escape") setMenuAberto(""); }}>
+        <button type="button" className="budget-more" aria-haspopup="menu" aria-expanded={aberto}
+          aria-label={rotulo} title={rotulo} onClick={()=>setMenuAberto(aberto?"":id)}><IconeMais/></button>
+        {aberto && <>
+          <div className="budget-menu-scrim" onClick={()=>setMenuAberto("")}/>
+          <div className="budget-menu" role="menu">
+            {itens.filter(Boolean).map(item=>(
+              <button key={item.rotulo} type="button" role="menuitem" disabled={item.desabilitado}
+                className={item.perigo?"is-danger":undefined}
+                onClick={()=>{ setMenuAberto(""); item.acao(); }}>{item.rotulo}</button>
+            ))}
+          </div>
+        </>}
+      </div>
+    );
+  };
+
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
 
-      <div className="budget-workflow-bar">
-        <span role="status">{memorySave?.id===selOrc ? (memorySave.state==='saving'?'Salvando…':memorySave.state==='saved'?'Salvo':'Falha ao salvar') : 'Nenhuma alteração pendente'}</span>
-        {memorySave?.id===selOrc && memorySave.message && <span>{memorySave.message}</span>}
-        <Btn size="sm" v="ghost" disabled={!budgetReceipt || budgetReceipt.budgetId!==selOrc || memorySave?.state!=='saved' || budgetIsImmutable(orc)} onClick={desfazerAlteracaoOrcamento}>Desfazer última alteração</Btn>
-        <Btn size="sm" v="ghost" disabled={budgetIsImmutable(orc)} onClick={()=>setFloorEditorOpen(true)}>Gerenciar pavimentos</Btn>
-      </div>
-      <BudgetAuditPanel issues={budgetIssues} onNavigate={abrirOcorrenciaOrcamento} readOnly={budgetIsImmutable(orc)} onRemoveLink={source=>salvarOrc({memoriaCalculo:{...orc.memoriaCalculo,vinculosEstruturais:{...orc.memoriaCalculo?.vinculosEstruturais,[source]:''}}})}/>
 
       {floorEditorOpen && <Modal title="Pavimentos do orçamento" onClose={()=>setFloorEditorOpen(false)}>
         <BudgetFloorEditor budget={orc} onClose={()=>setFloorEditorOpen(false)} onSave={(id,patch)=>{
@@ -3625,128 +3651,87 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         <Inp label="Posição na etapa" type="number" value={itemPosition.position} onChange={position=>setItemPosition({...itemPosition,position})}/>
         <Btn onClick={()=>{try{const stageId=itemPosition.stageId ?? orc.itens.find(i=>i.id===itemPosition.id)?.etapaId;if(!orc.etapas.some(s=>s.id===stageId))throw new Error('Selecione uma etapa.');salvarOrc({itens:repositionBudgetItem(orc.itens,itemPosition.id,itemPosition.position,stageId)});setItemPosition(null);}catch(error){showToast(error.message,'warn');}}}>Mover</Btn>
       </Modal>}
-      {/* Voltar + título */}
-      <button onClick={()=>{setView("lista");setSelOrc(null);}} style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:"var(--arcd-type-control)",fontWeight:600,padding:0,textAlign:"left",display:"flex",alignItems:"center",gap:4}}>
-        ← Todos os orçamentos
-      </button>
-
       {undoEtapa && (
-        <div style={{background:`${C.blue}0C`,border:`1px solid ${C.blue}55`,borderRadius:8,padding:"10px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
-          <p style={{fontSize:"var(--arcd-type-body)",color:C.text}}>Etapa removida.</p>
-          <Btn size="sm" v="ghost" onClick={desfazerDelEtapa}><Ic n="refresh" s={13}/> Desfazer</Btn>
+        <div style={{background:`${C.blue}0C`,border:`1px solid ${C.blue}55`,borderRadius:4,padding:"6px 10px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+          <p style={{fontSize:12,color:C.text}}>Etapa removida.</p>
+          <button type="button" className="budget-tool" onClick={desfazerDelEtapa}>Desfazer</button>
         </div>
       )}
 
-      {/* Resumo */}
-      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:8,padding:"14px 16px",boxShadow:`0 1px 4px ${C.shadow}`}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
-          <div style={{minWidth:0,flex:1}}>
-            <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text}}>{orc.nome}</p>
-            {orc.descricao && <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,marginTop:3,lineHeight:1.45}}>{orc.descricao}</p>}
-          </div>
-          {!budgetIsImmutable(orc)&&<Btn size="sm" v="ghost" onClick={abrirEdicaoOrc}><Ic n="edit"/> Dados</Btn>}
-        </div>
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
-          {orc.fonte} {orc.uf}  {orc.dataBase||"sem data-base"}  {orc.desonerado?"Desonerado":"Não desonerado"}  BDI {orc.bdi}%
-        </p>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:7}}>{baselineAtiva.budget?.id===orc.id&&<Badge color={C.green}>BASELINE ATIVA</Badge>}<Badge color={budgetIsImmutable(orc)?C.blue:C.orange}>V{orc.versionNumber||1} · {budgetIsImmutable(orc)?"APROVADA E BLOQUEADA":"RASCUNHO EDITÁVEL"}</Badge>{budgetIsImmutable(orc)&&<Btn size="sm" onClick={criarRevisaoOrc}><Ic n="plus"/> Criar revisão</Btn>}{ehAdmin&&orc.obraId&&baselineAtiva.budget?.id!==orc.id&&<Btn size="sm" v="success" onClick={()=>aprovarEAdotarBaseline(orc.id)}>{budgetIsImmutable(orc)?"Adotar como baseline":"Aprovar e adotar baseline"}</Btn>}</div>
-        <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8,marginTop:12}}>
-          <SummaryCard label="Custo direto" value={fmt(calc.custoDireto)} tone="neutral"/>
-
-          {/* BDI - clicável, com semáforo da faixa TCU */}
-          {(() => {
-            const sit = situacaoBDI(Number(orc.bdi||0), orc.bdiTipo || "edificios");
-            const tomBDI = sit.st==="dentro" ? "info" : "warning";
-            const detalheBDI = sit.st==="dentro" ? "Dentro da faixa TCU" : sit.st==="acima" ? "Acima do 3º quartil" : "Abaixo do 1º quartil";
-            return (
-              <SummaryCard label={`BDI ${orc.bdi}%`} value={fmt(calc.valorBDI)} detail={detalheBDI}
-                tone={tomBDI} onClick={abrirBDI}/>
-            );
-          })()}
-
-          <SummaryCard label="Total" value={fmt(calc.total)} tone="primary"/>
-
-          <SummaryCard label={orc.areaM2>0?"Por m2":"Itens"} tone="success"
-            value={orc.areaM2>0 ? fmt(calc.porM2) : String(calc.qtdItens)}/>
+      {/* Barra única: identidade, estado e ações do orçamento. A descrição
+          fica numa linha só; o resto que era card vira a faixa de totais. */}
+      <div style={{display:"flex",flexDirection:"column"}}>
+        <div className="budget-bar">
+          <button type="button" className="budget-tool" onClick={()=>{setView("lista");setSelOrc(null);}}>← Orçamentos</button>
+          <span className="budget-bar__name" title={orc.nome}>{orc.nome}</span>
+          <span className="budget-bar__meta">{orc.fonte} {orc.uf} · {orc.dataBase||"sem data-base"} · {orc.desonerado?"Desonerado":"Não desonerado"} · BDI {orc.bdi}%</span>
+          {baselineAtiva.budget?.id===orc.id&&<span className="budget-badge" style={{background:`${C.green}1F`,color:C.green}}>BASELINE ATIVA</span>}
+          <span className="budget-badge" title={budgetIsImmutable(orc)?"Versão aprovada e bloqueada para edição":"Rascunho editável"} style={{background:`${budgetIsImmutable(orc)?C.blue:C.orange}1F`,color:budgetIsImmutable(orc)?C.blue:C.orange}}>V{orc.versionNumber||1} · {budgetIsImmutable(orc)?"APROVADA":"RASCUNHO"}</span>
+          <span className="budget-bar__spacer"/>
+          {memorySave?.id===selOrc && <span className="budget-bar__status" role="status">{memorySave.state==='saving'?'Salvando…':memorySave.state==='saved'?'Salvo':'Falha ao salvar'}</span>}
+          {memorySave?.id===selOrc && memorySave.message && <span className="budget-bar__status">{memorySave.message}</span>}
+          <button type="button" className="budget-tool" disabled={!budgetReceipt || budgetReceipt.budgetId!==selOrc || memorySave?.state!=='saved' || budgetIsImmutable(orc)} onClick={desfazerAlteracaoOrcamento}>Desfazer última alteração</button>
+          <button type="button" className="budget-tool" disabled={budgetIsImmutable(orc)} onClick={()=>setFloorEditorOpen(true)}>Gerenciar pavimentos</button>
+          {!budgetIsImmutable(orc)&&<button type="button" className="budget-tool" onClick={abrirEdicaoOrc}>Dados</button>}
+          {budgetIsImmutable(orc)&&<button type="button" className="budget-tool" onClick={criarRevisaoOrc}>Criar revisão</button>}
+          {ehAdmin&&orc.obraId&&baselineAtiva.budget?.id!==orc.id&&<button type="button" className="budget-tool budget-tool--primary" onClick={()=>aprovarEAdotarBaseline(orc.id)}>{budgetIsImmutable(orc)?"Adotar como baseline":"Aprovar e adotar baseline"}</button>}
+          {orc.descricao && <span className="budget-bar__meta" title={orc.descricao} style={{flexBasis:"100%",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{orc.descricao}</span>}
         </div>
 
-        {/* Alerta quando o BDI está fora da faixa auditável */}
+        {/* Totais em faixa, como a barra de status de uma planilha */}
         {(() => {
           const sit = situacaoBDI(Number(orc.bdi||0), orc.bdiTipo || "edificios");
-          if (sit.st === "dentro") return null;
+          const foraDaFaixa = sit.st !== "dentro";
+          const detalheBDI = sit.st==="dentro" ? "Dentro da faixa TCU" : sit.st==="acima" ? "Acima do 3º quartil da faixa TCU" : "Abaixo do 1º quartil da faixa TCU";
           return (
-            <button onClick={abrirBDI} style={{
-              width:"100%", marginTop:8, textAlign:"left",
-              background:`${sit.cor}0E`, border:`1px solid ${sit.cor}55`,
-              borderRadius:6, padding:"8px 11px", cursor:"pointer",
-            }}>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:sit.cor}}>
-                ! BDI de {orc.bdi}% fora da faixa TCU para {sit.faixa.l.toLowerCase()}
-              </p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.45}}>{sit.msg}</p>
-            </button>
+            <div className="budget-kpis">
+              <div className="budget-kpi"><span>Custo direto</span><strong>{fmt(calc.custoDireto)}</strong></div>
+              <button type="button" className="budget-kpi" onClick={abrirBDI} title={foraDaFaixa?`${detalheBDI}. ${sit.msg}`:`${detalheBDI}. Abrir cálculo do BDI`}>
+                <span>BDI {orc.bdi}%{foraDaFaixa&&<b className="budget-kpi__alert"> · fora da faixa TCU para {sit.faixa.l.toLowerCase()}</b>}</span>
+                <strong>{fmt(calc.valorBDI)}</strong>
+              </button>
+              <div className="budget-kpi budget-kpi--total"><span>Total</span><strong>{fmt(calc.total)}</strong></div>
+              <div className="budget-kpi"><span>{orc.areaM2>0?"Por m²":"Itens"}</span><strong>{orc.areaM2>0 ? fmt(calc.porM2) : String(calc.qtdItens)}</strong></div>
+            </div>
           );
         })()}
+
+        <div className="budget-tabs">
+          {[
+            ["orcamento","Orçamento"],
+            ["insumos","Insumos e composições / Curva ABC"],
+            ["proprias","Composições próprias"],
+            ["memoria","Memória de cálculo"],
+          ].map(([valor,label])=><button key={valor} type="button" className="budget-tab" aria-pressed={orcAba===valor} aria-selected={orcAba===valor} onClick={()=>setOrcAba(valor)}>{label}</button>)}
+          {orcAba==="orcamento"&&<div className="budget-tabs__chips">
+            <button type="button" className="budget-tool" aria-expanded={ferramentasOrcAberto} onClick={()=>setFerramentasOrcAberto(v=>!v)} title="Importar, analisar e exportar">Ferramentas do orçamento</button>
+            <button type="button" className="budget-tool" aria-expanded={controleCustosAberto} onClick={()=>setControleCustosAberto(v=>!v)} title="Orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível">Controle de custos</button>
+            <button type="button" className="budget-tool" aria-expanded={confAberta} onClick={()=>setConfAberta(v=>!v)} title="Escopo, preços, cotações, itens esquecidos, interfaces e quantitativos">Auditoria técnica{checklistAuditoria.filter(item=>item.status==="pendente").length>0?` · ${checklistAuditoria.filter(item=>item.status==="pendente").length} pendente(s)`:""}</button>
+            <button type="button" className="budget-tool" aria-expanded={basesPainelAberto} onClick={()=>setBasesPainelAberto(v=>!v)} title="Bases de referência SINAPI e ORSE vinculadas">Bases e preços · {basesVinculadas.length}{totalBasesDuplicadas>0?` · ${totalBasesDuplicadas} repetida(s)`:""}</button>
+          </div>}
+        </div>
       </div>
 
-      <div style={{display:"flex",gap:5,flexWrap:"wrap",background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:5}}>
-        {[
-          ["orcamento","ORÇAMENTO"],
-          ["insumos","INSUMOS E COMPOSIÇÕES / CURVA ABC"],
-          ["proprias","COMPOSIÇÕES PRÓPRIAS"],
-          ["memoria","MEMÓRIA DE CÁLCULO"],
-        ].map(([valor,label])=><button key={valor} onClick={()=>setOrcAba(valor)} style={{
-          flex:"1 1 180px",border:`1px solid ${orcAba===valor?C.blue:C.border}`,borderRadius:6,padding:"8px 10px",
-          background:orcAba===valor?`${C.blue}12`:C.bg,color:orcAba===valor?C.blue:C.muted,
-          fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",fontFamily:"var(--arcd-font-sans)",
-        }}>{label}</button>)}
-      </div>
+      <BudgetAuditPanel issues={budgetIssues} onNavigate={abrirOcorrenciaOrcamento} readOnly={budgetIsImmutable(orc)} onRemoveLink={source=>salvarOrc({memoriaCalculo:{...orc.memoriaCalculo,vinculosEstruturais:{...orc.memoriaCalculo?.vinculosEstruturais,[source]:''}}})}/>
 
-      {orcAba==="orcamento"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}><button onClick={()=>setFerramentasOrcAberto(v=>!v)} style={{width:"100%",border:0,background:"transparent",padding:"9px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,cursor:"pointer",textAlign:"left"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Ic n="settings" s={14} color={C.blue}/><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Ferramentas do orçamento</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>Importar, analisar e exportar</p></div></div><Ic n={ferramentasOrcAberto?"chevron":"chevR"} s={14} color={C.muted}/></button>{ferramentasOrcAberto&&<div style={{borderTop:`1px solid ${C.line}`,padding:8,display:"grid",gridTemplateColumns:cols(2,3,6),gap:6}}><label style={{display:"flex"}}><input type="file" accept=".xlsx,.xls" disabled={basePorCodigo.size===0||impLoad} onChange={e=>{importarOrcamentoXLSX(e.target.files?.[0]);e.target.value="";}} style={{display:"none"}}/><span style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:5,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 8px",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:basePorCodigo.size?C.blue:C.muted,cursor:basePorCodigo.size?"pointer":"not-allowed"}}><Ic n="download" s={12}/> Importar planilha</span></label><Btn size="sm" v="ghost" onClick={()=>setOrcAba("insumos")}><Ic n="chart"/> Curva ABC</Btn><Btn size="sm" v="danger" onClick={exportPDF}><Ic n="file"/> PDF</Btn><Btn size="sm" v="success" onClick={exportXLSX}><Ic n="download"/> Excel completo</Btn><Btn size="sm" v="success" onClick={exportXLSXExportado}><Ic n="download"/> Excel padrão</Btn><Btn size="sm" v="ghost" onClick={exportXLSXCurvaABC}><Ic n="download"/> Excel ABC</Btn></div>}</div>}
+      {orcAba==="orcamento"&&ferramentasOrcAberto&&<div className="budget-panel"><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:6}}><label style={{display:"flex"}}><input type="file" accept=".xlsx,.xls" disabled={basePorCodigo.size===0||impLoad} onChange={e=>{importarOrcamentoXLSX(e.target.files?.[0]);e.target.value="";}} style={{display:"none"}}/><span style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:5,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 8px",fontSize:9.5,fontWeight:800,color:basePorCodigo.size?C.blue:C.muted,cursor:basePorCodigo.size?"pointer":"not-allowed"}}><Ic n="download" s={12}/> Importar planilha</span></label><Btn size="sm" v="ghost" onClick={()=>setOrcAba("insumos")}><Ic n="chart"/> Curva ABC</Btn><Btn size="sm" v="danger" onClick={exportPDF}><Ic n="file"/> PDF</Btn><Btn size="sm" v="success" onClick={exportXLSX}><Ic n="download"/> Excel completo</Btn><Btn size="sm" v="success" onClick={exportXLSXExportado}><Ic n="download"/> Excel padrão</Btn><Btn size="sm" v="ghost" onClick={exportXLSXCurvaABC}><Ic n="download"/> Excel ABC</Btn></div></div>}
 
-      {orcAba==="orcamento"&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-        <button onClick={()=>setControleCustosAberto(v=>!v)} style={{width:"100%",border:0,background:"transparent",padding:"11px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,cursor:"pointer",textAlign:"left"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Ic n="chart" s={15} color={C.green}/><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>Controle integrado de custos</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1}}>Orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível</p></div></div><Ic n={controleCustosAberto?"chevron":"chevR"} s={14} color={C.muted}/></button>
-        {controleCustosAberto&&<div style={{borderTop:`1px solid ${C.line}`,padding:10}}>
-          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6,marginBottom:9}}>{[["Orçado",controleCustos.total.orcado,C.blue],["Comprometido",controleCustos.total.comprometido,C.orange],["Saldo",controleCustos.total.saldo,controleCustos.total.saldo<0?C.red:C.green],["Projeção",controleCustos.total.projecao,controleCustos.total.projecao>controleCustos.total.orcado?C.red:C.purple]].map(([l,v,c])=><div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:6,padding:"7px 9px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>
-          <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:850,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}><thead><tr style={{background:C.surface,color:C.muted,textAlign:"right"}}>{["Etapa de 1º nível","Orçado","Solicitado","Comprometido","Recebido","Aplicado","Pago","Saldo"].map((h,i)=><th key={h} style={{padding:"7px 8px",textAlign:i?"right":"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead><tbody>{controleCustos.etapas.map(l=><tr key={l.id} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:"8px",fontWeight:600,color:C.text}}>{l.nome}</td>{[l.orcado,l.solicitado,l.comprometido,l.recebido,l.aplicado,l.pago,l.saldo].map((v,i)=><td key={i} style={{padding:"8px",textAlign:"right",whiteSpace:"nowrap",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontWeight:i===6?600:600,color:i===6&&v<0?C.red:C.text}}>{fmt(v)}</td>)}</tr>)}</tbody></table></div>
-          {Object.values(controleCustos.semApropriacao).some(v=>v>0)&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,marginTop:7,lineHeight:1.45}}>Atenção: existem valores sem linha orçamentária vinculada — solicitado {fmt(controleCustos.semApropriacao.solicitado)}, comprometido {fmt(controleCustos.semApropriacao.comprometido)}, recebido {fmt(controleCustos.semApropriacao.recebido)} e aplicado {fmt(controleCustos.semApropriacao.aplicado)}. Eles não foram distribuídos artificialmente entre as etapas.</p>}
-          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:6}}>Projeção atual = maior valor entre orçamento e compromissos assumidos. “Pago” exige pedido vinculado a uma transação conciliada.</p>
-        </div>}
+      {orcAba==="orcamento"&&controleCustosAberto&&<div className="budget-panel">
+        <div>
+          <p style={{fontSize:12,fontWeight:600,color:C.text,marginBottom:6}}>Controle integrado de custos <span style={{fontSize:11,fontWeight:400,color:C.muted}}>· orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível</span></p>
+          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6,marginBottom:9}}>{[["Orçado",controleCustos.total.orcado,C.blue],["Comprometido",controleCustos.total.comprometido,C.orange],["Saldo",controleCustos.total.saldo,controleCustos.total.saldo<0?C.red:C.green],["Projeção",controleCustos.total.projecao,controleCustos.total.projecao>controleCustos.total.orcado?C.red:C.purple]].map(([l,v,c])=><div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:6,padding:"7px 9px"}}><p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:15,fontWeight:900,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>
+          <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:850,borderCollapse:"collapse",fontSize:10.5}}><thead><tr style={{background:C.surface,color:C.muted,textAlign:"right"}}>{["Etapa de 1º nível","Orçado","Solicitado","Comprometido","Recebido","Aplicado","Pago","Saldo"].map((h,i)=><th key={h} style={{padding:"7px 8px",textAlign:i?"right":"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead><tbody>{controleCustos.etapas.map(l=><tr key={l.id} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:"8px",fontWeight:800,color:C.text}}>{l.nome}</td>{[l.orcado,l.solicitado,l.comprometido,l.recebido,l.aplicado,l.pago,l.saldo].map((v,i)=><td key={i} style={{padding:"8px",textAlign:"right",whiteSpace:"nowrap",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontWeight:i===6?850:600,color:i===6&&v<0?C.red:C.text}}>{fmt(v)}</td>)}</tr>)}</tbody></table></div>
+          {Object.values(controleCustos.semApropriacao).some(v=>v>0)&&<p style={{fontSize:9.5,color:C.orange,marginTop:7,lineHeight:1.45}}>Atenção: existem valores sem linha orçamentária vinculada — solicitado {fmt(controleCustos.semApropriacao.solicitado)}, comprometido {fmt(controleCustos.semApropriacao.comprometido)}, recebido {fmt(controleCustos.semApropriacao.recebido)} e aplicado {fmt(controleCustos.semApropriacao.aplicado)}. Eles não foram distribuídos artificialmente entre as etapas.</p>}
+          <p style={{fontSize:11,color:C.muted,marginTop:6}}>Projeção atual = maior valor entre orçamento e compromissos assumidos. “Pago” exige pedido vinculado a uma transação conciliada.</p>
+        </div>
       </div>}
 
       {orcAba==="orcamento" && <>
       {/* CONFERENCIA DIMENSIONAL (IA) - forro x area construida etc */}
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-        <button onClick={()=>setConfAberta(v=>!v)} style={{
-          width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",
-          gap:8,padding:"12px 14px",background:"transparent",border:0,cursor:"pointer",textAlign:"left",
-        }}>
-          <div style={{display:"flex",alignItems:"center",gap:9,minWidth:0}}>
-            <Ic n="brain" s={17} color={C.purple}/>
-            <div style={{minWidth:0}}>
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>Auditoria técnica do orçamento</p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>
-                Escopo, preços, cotações, itens esquecidos, interfaces e quantitativos
-              </p>
-            </div>
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-            {checklistAuditoria.filter(item=>item.status==="pendente").length > 0 && (
-              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red,background:`${C.red}14`,
-                            padding:"2px 8px",borderRadius:12}}>
-                {checklistAuditoria.filter(item=>item.status==="pendente").length} pendente(s)
-              </span>
-            )}
-            {checklistAuditoria.length>0&&checklistAuditoria.every(item=>item.status!=="pendente") && (
-              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green,background:`${C.green}14`,
-                            padding:"2px 8px",borderRadius:12}}>ok</span>
-            )}
-            <Ic n={confAberta ? "chevron" : "chevR"} s={16} color={C.muted}/>
-          </div>
-        </button>
-
+      <>
         {confAberta && (
-          <div style={{padding:"0 14px 14px",borderTop:`1px solid ${C.line}`}}>
+          <div className="budget-panel">
+            <p style={{fontSize:12,fontWeight:600,color:C.text}}>Auditoria técnica do orçamento <span style={{fontSize:11,fontWeight:400,color:C.muted}}>· escopo, preços, cotações, itens esquecidos, interfaces e quantitativos</span></p>
             <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6,marginTop:10}}>
               {[
                 ["Falhas prováveis",auditoriaResultado?.resumo.criticos||0,C.red],
@@ -3831,26 +3816,19 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             )}
           </div>
         )}
-      </div>
-
-      {/* Centro técnico de bases: fica resumido para a planilha continuar sendo o foco. */}
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
-        <button onClick={()=>setBasesPainelAberto(v=>!v)} style={{width:"100%",border:0,background:"transparent",padding:"11px 13px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,cursor:"pointer",textAlign:"left"}}>
-          <div style={{display:"flex",alignItems:"center",gap:9,minWidth:0}}><span style={{width:31,height:31,borderRadius:8,display:"grid",placeItems:"center",background:`${C.blue}10`,color:C.blue,flexShrink:0}}><Ic n="box" s={15}/></span><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>Bases e preços</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{basesVinculadas.length} vinculada(s) · {basesConsolidadas.length} base(s) única(s) · atualização automática por código</p></div></div>
-          <div style={{display:"flex",alignItems:"center",gap:7,flexShrink:0}}>{totalBasesDuplicadas>0&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.orange,background:`${C.orange}12`,padding:"3px 7px",borderRadius:99}}>{totalBasesDuplicadas} REPETIDA(S)</span>}{basesVinculadas.length>0&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.green,background:`${C.green}12`,padding:"3px 7px",borderRadius:99}}>OPERACIONAL</span>}<Ic n={basesPainelAberto?"chevron":"chevR"} s={15} color={C.muted}/></div>
-        </button>
-      </div>
+      </>
 
       {basesPainelAberto&&<>
       {/* Cadastro/importação de bases (SINAPI/ORSE) é exclusivo do
           administrador agora, em BasesPrecoAdmin (Central do Administrador).
           Aqui fica só pesquisa, vínculo a uma base já cadastrada e reprecificação -
-          disponível para qualquer usuário com acesso ao orçamento. */}
-      <div style={{background:C.card,border:`1.5px solid ${C.blue}55`,borderLeft:`1px solid ${C.blue}`,borderRadius:8,padding:"13px 14px",display:"flex",flexDirection:"column",gap:11}}>
+          disponível para qualquer usuário com acesso ao orçamento. O painel abre
+          pelo chip "Bases e preços" da barra de abas. */}
+      <div className="budget-panel" style={{display:"flex",flexDirection:"column",gap:11}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
           <div style={{minWidth:0,flex:1}}>
-            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>Bases de referência no Supabase</p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3,lineHeight:1.5}}>Vincule SINAPI e ORSE ao mesmo orçamento e atualize os preços pelos códigos já lançados.</p>
+            <p style={{fontSize:12,fontWeight:600,color:C.text}}>Bases de referência no Supabase <span style={{fontWeight:400,color:C.muted}}>· {basesConsolidadas.length} base(s) única(s)</span></p>
+            <p style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.5}}>Vincule SINAPI e ORSE ao mesmo orçamento e atualize os preços pelos códigos já lançados.</p>
           </div>
           <Btn size="sm" v="success" disabled={atualizandoPrecos || basesVinculadas.length===0} onClick={atualizarPrecosVinculados}>
             {atualizandoPrecos ? "Atualizando..." : "Atualizar preços dos itens"}
@@ -3882,9 +3860,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {/* Árvore de etapas + itens */}
       {(() => {
-        // Render recursivo. Cada nível recua um pouco e afina a barra lateral,
-        // dando a leitura de hierarquia sem depender de ícones de expandir.
-        const CoresNivel = [C.yellow, C.blue, C.purple, C.green, C.orange];
+        // Render recursivo. Cada nível recua o cabeçalho da etapa e clareia o
+        // fundo; as linhas de todas as etapas compartilham a mesma grade.
 
         // Funcao de render, NAO componente. Declarar um componente dentro do
         // corpo do render cria um tipo novo a cada passagem: o React joga fora
@@ -3892,304 +3869,205 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         // altura da pagina - e o navegador, sem conteudo abaixo, jogava o
         // scroll para o topo a cada tecla. Como funcao comum, o React reconhece
         // os mesmos elementos, atualiza so o que mudou e o scroll fica parado.
+        // Colunas da planilha: a mesma grade serve ao cabeçalho fixo e a todas
+        // as linhas, então ficam num lugar só. Alça, nº, fonte, descrição e
+        // quantidade são fixas; as demais entram conforme colsOrc.
+        const gc = ["16px","44px","60px"];
+        if (colsOrc.codigo)    gc.push("84px");
+        gc.push("minmax(160px,1fr)");
+        if (colsOrc.unidade)   gc.push("40px");
+        gc.push("72px");
+        if (colsOrc.custoUnit) gc.push("84px");
+        if (colsOrc.bdi)       gc.push("52px");
+        if (colsOrc.total)     gc.push("116px");
+        gc.push("28px");                           // menu de ações da linha
+
         const renderEtapa = (no) => {
-          const cor = CoresNivel[(no.nivel - 1) % CoresNivel.length];
           const podeSub = no.nivel < MAX_NIVEL;
-          const recuo = (no.nivel - 1) * 10;
+          const recuo = (no.nivel - 1) * 14;
           const recolhida = !!etapasFechadas[no.id];
 
           return (
-            <div key={no.id} id={`budget-stage-${no.id}`} style={{ marginLeft: recuo }}>
-              <div style={{
-                background: C.bg,
-                border: `1.5px solid ${C.border}`,
-                borderLeft: `${Math.max(4 - (no.nivel - 1), 2)}px solid ${cor}`,
-                borderRadius: 6,
-                overflow: "hidden",
-                boxShadow: `0 1px 3px ${C.shadow}`,
-                marginBottom: 6,
-              }}>
-                {/* Cabeçalho da etapa */}
-                <div onDragOver={e=>{if(draggedStage){e.preventDefault();e.stopPropagation();setStageDrop(no.id);}}}
-                  onDrop={e=>{if(!draggedStage)return;e.preventDefault();e.stopPropagation();
-                    try{
-                      const source=orc.etapas.find(s=>s.id===draggedStage);
-                      if((source?.parentId || '')!==(no.parentId || ''))throw new Error('Arraste entre etapas do mesmo nível. Para trocar a etapa superior, use Editar.');
-                      const position=orc.etapas.filter(s=>(s.parentId || '')===(no.parentId || '')).findIndex(s=>s.id===no.id)+1;
-                      salvarOrc({etapas:reorderBudgetStage(orc.etapas,draggedStage,position)});
-                    }catch(error){showToast(error.message,'warn');}
-                    setDraggedStage(null);setStageDrop(null);
-                  }} style={{
+            <div key={no.id} id={`budget-stage-${no.id}`}>
+              {/* Cabeçalho da etapa: faixa da planilha, hierarquia por recuo e fundo */}
+              <div className="budget-stage__head"
+                onDragOver={e=>{if(draggedStage){e.preventDefault();e.stopPropagation();setStageDrop(no.id);}}}
+                onDrop={e=>{if(!draggedStage)return;e.preventDefault();e.stopPropagation();
+                  try{
+                    const source=orc.etapas.find(s=>s.id===draggedStage);
+                    if((source?.parentId || '')!==(no.parentId || ''))throw new Error('Arraste entre etapas do mesmo nível. Para trocar a etapa superior, use Editar.');
+                    const position=orc.etapas.filter(s=>(s.parentId || '')===(no.parentId || '')).findIndex(s=>s.id===no.id)+1;
+                    salvarOrc({etapas:reorderBudgetStage(orc.etapas,draggedStage,position)});
+                  }catch(error){showToast(error.message,'warn');}
+                  setDraggedStage(null);setStageDrop(null);
+                }} style={{
                   outline:stageDrop===no.id?'2px solid #3377ff':undefined,
-                  background: no.nivel === 1 ? C.surface : `${cor}06`,
-                  padding: no.nivel === 1 ? "9px 12px" : "7px 12px",
-                  borderBottom: (no.itens.length || no.sub.length) ? `1px solid ${C.line}55` : "none",
-                  display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8,
+                  outlineOffset:-2,
+                  background: no.nivel === 1 ? "#e8e8e8" : "#f4f4f4",
+                  paddingLeft: 8 + recuo,
                 }}>
-                  <button draggable={!budgetIsImmutable(orc)} aria-label={`Arrastar etapa ${no.codigo}`} title="Arraste para reordenar etapas"
-                    onDragStart={e=>{e.stopPropagation();setDraggedStage(no.id);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',no.id);}}
-                    onDragEnd={()=>{setDraggedStage(null);setStageDrop(null);}} className="budget-drag-handle">⠿</button>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <p style={{
-                      fontSize: Math.max(12 - (no.nivel - 1), 10),
-                      fontWeight: no.nivel === 1 ? 600 : 600,
-                      color: C.text, lineHeight: 1.3,
-                    }}>
-                      <span style={{ color: cor, marginRight: 5 }}>{no.codigo}</span>
-                      {no.nome}{no.pavimentoId && no.nivelM!=null && <small> · Nível {fmtNum(no.nivelM)} m</small>}
-                    </p>
-                    {(no.itens.length > 0 || no.sub.length > 0) && (
-                      <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 1 }}>
-                        {no.sub.length > 0 && `${no.sub.length} subnível(is)`}
-                        {no.sub.length > 0 && no.itens.length > 0 && "  "}
-                        {no.itens.length > 0 && `${no.itens.length} item(ns)`}
-                        {no.total > 0 && `  ${no.pct.toFixed(1)}%`}
-                      </p>
-                    )}
-                  </div>
+                <button draggable={!budgetIsImmutable(orc)} aria-label={`Arrastar etapa ${no.codigo}`} title="Arraste para reordenar etapas"
+                  onDragStart={e=>{e.stopPropagation();setDraggedStage(no.id);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',no.id);}}
+                  onDragEnd={()=>{setDraggedStage(null);setStageDrop(null);}} className="budget-drag-handle"><IconeAlca/></button>
+                <button type="button" className="budget-stage__fold" onClick={()=>setEtapasFechadas(f=>({...f,[no.id]:!f[no.id]}))}
+                  title={recolhida?"Expandir nível":"Recolher nível"} aria-label={`${recolhida?"Expandir":"Recolher"} etapa ${no.codigo}`}
+                  aria-expanded={!recolhida}><IconeSeta aberta={!recolhida}/></button>
+                <span className="budget-stage__name" title={no.nome}>
+                  <span style={{fontFamily:"var(--arcd-font-mono)",marginRight:6}}>{no.codigo}</span>
+                  {no.nome}{no.pavimentoId && no.nivelM!=null && <span className="budget-stage__meta">Nível {fmtNum(no.nivelM)} m</span>}
+                  {(no.itens.length > 0 || no.sub.length > 0) && (
+                    <span className="budget-stage__meta">
+                      {no.sub.length > 0 && `${no.sub.length} subnível(is)`}
+                      {no.sub.length > 0 && no.itens.length > 0 && " · "}
+                      {no.itens.length > 0 && `${no.itens.length} item(ns)`}
+                      {no.total > 0 && ` · ${no.pct.toFixed(1)}%`}
+                    </span>
+                  )}
+                </span>
+                {no.total > 0 && <span className="budget-stage__total">{fmt(no.total)}</span>}
+                <button type="button" className="budget-tool" title="Adicionar item"
+                  onClick={() => { setEtapaAlvo(no.id); setBusca(""); setBuscaModal(true); }}>+ Item</button>
+                {renderMenu(`etapa-${no.id}`, `Mais ações da etapa ${no.codigo}`, [
+                  {rotulo:"Nova composição externa ou cotação", acao:()=>abrirExterno(no.id)},
+                  {rotulo:"Adicionar título (texto sem valor)", acao:()=>addTitulo(no.id)},
+                  podeSub && {rotulo:"Criar subnível", acao:()=>abrirNovaEtapa(no.id)},
+                  {rotulo:"Editar nome e posição", acao:()=>abrirEditarEtapa(no)},
+                  {rotulo:"Excluir etapa", perigo:true, acao:()=>delEtapa(no)},
+                ])}
+              </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                    <button onClick={()=>setEtapasFechadas(f=>({...f,[no.id]:!f[no.id]}))}
-                      title={recolhida?"Expandir nível":"Recolher nível"}
-                      aria-expanded={!recolhida}
-                      style={{background:recolhida?`${cor}12`:"transparent",border:`1px solid ${C.border}`,color:cor,
-                               borderRadius:5,width:alvoToque,height:alvoToque,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"var(--arcd-type-control)",lineHeight:1,fontWeight:600}}>
-                      {recolhida?"▸":"▾"}
-                    </button>
-                    {no.total > 0 && (
-                      <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: cor, marginRight: 2 }}>{fmt(no.total)}</p>
-                    )}
-                    <button onClick={() => { setEtapaAlvo(no.id); setBusca(""); setBuscaModal(true); }}
-                      title="Adicionar item"
-                      style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.text,
-                               borderRadius:5, width:alvoToque, height:alvoToque, cursor:"pointer", display:"flex",alignItems:"center",justifyContent:"center", fontSize:"var(--arcd-type-control)", lineHeight:1 }}>+</button>
-                    <button onClick={() => abrirExterno(no.id)}
-                      title="Nova composição externa ou cotação"
-                      style={{background:"transparent",border:`1px solid ${C.border}`,color:C.green,
-                               borderRadius:5,width:alvoToque,height:alvoToque,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"var(--arcd-type-control)",lineHeight:1,fontWeight:600}}>R$</button>
-                    <button onClick={() => addTitulo(no.id)}
-                      title="Adicionar título (texto sem valor)"
-                      style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.muted,
-                               borderRadius:5, width:alvoToque, height:alvoToque, cursor:"pointer", display:"flex",alignItems:"center",justifyContent:"center", fontSize:"var(--arcd-type-control)",
-                               lineHeight:1, fontWeight:600 }}>T</button>
-                    {podeSub && (
-                      <button onClick={() => abrirNovaEtapa(no.id)}
-                        title="Criar subnível"
-                        style={{ background:"transparent", border:`1px solid ${C.border}`, color:cor,
-                                 borderRadius:5, width:alvoToque, height:alvoToque, cursor:"pointer", display:"flex",alignItems:"center",justifyContent:"center" }}>
-                        <Ic n="cornerDownRight" s={13}/>
-                      </button>
-                    )}
-                    <button onClick={() => abrirEditarEtapa(no)}
-                      title="Editar nome e posição"
-                      style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer", width:alvoToque, height:alvoToque, display:"flex",alignItems:"center",justifyContent:"center" }}>
-                      <Ic n="edit" s={13}/>
-                    </button>
-                    <button onClick={() => delEtapa(no)}
-                      title="Excluir"
-                      style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer", width:alvoToque, height:alvoToque, display:"flex",alignItems:"center",justifyContent:"center", fontSize:"var(--arcd-type-control)", lineHeight:1 }}>x</button>
-                  </div>
-                </div>
+              {/* Sub-etapas: entram na mesma grade, só o recuo do cabeçalho muda */}
+              {!recolhida && no.sub.map(sn => renderEtapa(sn))}
 
-                {/* Sub-etapas */}
-                {!recolhida && no.sub.length > 0 && (
-                  <div style={{ padding: "6px 6px 0" }}>
-                    {no.sub.map(sn => renderEtapa(sn))}
-                  </div>
-                )}
+              {/* Linhas desta etapa: títulos e itens */}
+              {!recolhida && no.itens.map((it, idx) => {
+                const primeira = idx === 0;
+                const ultima   = idx === no.itens.length - 1;
+                const ehTitulo = it.tipo === "titulo";
 
-                {/* Linhas desta etapa: títulos e itens */}
-                {!recolhida && no.itens.map((it, idx) => {
-                  const primeira = idx === 0;
-                  const ultima   = idx === no.itens.length - 1;
+                // Menu de ações da linha. Função comum, NAO componente: um
+                // componente declarado aqui dentro nasce com identidade nova a
+                // cada render e faria o React desmontar e remontar a linha.
+                const menuLinha = () => renderMenu(`item-${it.id}`, `Mais ações do item ${it.codigoItem}`, [
+                  !ehTitulo && {rotulo:"Composição analítica", acao:()=>analisarItemDoOrcamento(it)},
+                  !ehTitulo && {rotulo:"Memória de cálculo", acao:()=>{setItemMemoryFocus(it.id);setOrcAba('memoria');setDisciplinaMemoria('itens');}},
+                  !ehTitulo && {rotulo:it.composicao?"Editar item e composição":"Editar item", acao:()=>setEditItem({...it})},
+                  {rotulo:"Mover para posição…", acao:()=>setItemPosition({id:it.id,position:idx+1})},
+                  {rotulo:"Subir", desabilitado:primeira, acao:()=>moverLinha(it.id, -1)},
+                  {rotulo:"Descer", desabilitado:ultima, acao:()=>moverLinha(it.id, +1)},
+                  {rotulo:ehTitulo?"Excluir título":"Excluir item", perigo:true, acao:()=>delItem(it.id)},
+                ]);
 
-                  // Setas de reordenar - compartilhadas pelos dois tipos de linha.
-                  // Funcao comum, NAO componente: um componente declarado aqui
-                  // dentro nasce com identidade nova a cada render e faria o
-                  // React desmontar e remontar a linha inteira.
-                  const setas = () => (
-                    <div style={{ display:"flex", flexDirection:"column", gap:1, flexShrink:0 }}>
-                      <button title="Mover para posição" aria-label={`Mover item ${it.codigoItem} para posição`} onClick={()=>setItemPosition({id:it.id,position:idx+1})} style={{border:0,background:'transparent',cursor:'pointer',fontSize:"var(--arcd-type-control)"}}>↕</button>
-                      <button onClick={() => moverLinha(it.id, -1)} disabled={primeira}
-                        title="Mover para cima"
-                        style={{ background:"transparent", border:0, cursor: primeira?"default":"pointer",
-                                 color: primeira ? C.line : C.muted, width:isMobile?44:14, height:isMobile?22:11,
-                                 display:"flex",alignItems:"center",justifyContent:"center", lineHeight:1 }}>
-                        <Ic n="chevUp" s={isMobile?13:9}/>
-                      </button>
-                      <button onClick={() => moverLinha(it.id, +1)} disabled={ultima}
-                        title="Mover para baixo"
-                        style={{ background:"transparent", border:0, cursor: ultima?"default":"pointer",
-                                 color: ultima ? C.line : C.muted, width:isMobile?44:14, height:isMobile?22:11,
-                                 display:"flex",alignItems:"center",justifyContent:"center", lineHeight:1 }}>
-                        <Ic n="chevron" s={isMobile?13:9}/>
-                      </button>
+                //  Linha de TÍTULO: texto puro, sem código, sem valor
+                if (ehTitulo) {
+                  return (
+                    <div key={it.id} className="budget-title-row" style={{paddingLeft: 13 + recuo}}>
+                      <span className="budget-plain" style={{minWidth:44,color:C.muted,fontWeight:600}}>{it.codigoItem}</span>
+                      <CelulaTexto
+                        className="budget-cell"
+                        aria-label={`Título ${it.codigoItem}`}
+                        value={it.descricao||""}
+                        onCommit={valor => updTituloTexto(it.id, valor)}
+                        placeholder="Título - ex.: Pavimento térreo"
+                        style={{flex:1,minWidth:0}}
+                      />
+                      {menuLinha()}
                     </div>
                   );
+                }
 
-                  //  Linha de TÍTULO: texto puro, sem código, sem valor
-                  if (it.tipo === "titulo") {
-                    return (
-                      <div key={it.id} style={{
-                        padding: "7px 12px",
-                        borderTop: `1px solid ${C.line}33`,
-                        background: `${C.surface}`,
-                        display: "flex", gap: 8, alignItems: "center",
+                //  Linha de ITEM: composição com valor
+                const tot = itemTotal(it, orc.bdi);
+                const codigoPendente = !!it.codigoNaoEncontrado || !String(it.codigo||"").trim();
+                const alterado = precoAlterado(it);
+                const bdiEfetivo = bdiDoItem(it, orc.bdi);
+                const arrastando = arrastandoItem === it.id;
+                const alvoDrop   = sobreItem === it.id && arrastandoItem && arrastandoItem !== it.id;
+                const rotuloItem = `item ${it.codigoItem}`;
+
+                return (
+                  <div key={it.id} id={`budget-item-${it.id}`}
+                    className={`budget-line-row ${auditTarget===`budget-item-${it.id}`?"budget-audit-target":""}`}
+                    draggable
+                    onDragStart={e => { e.stopPropagation(); setArrastandoItem(it.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData('text/plain',it.id); }}
+                    onDragEnd={() => { setArrastandoItem(null); setSobreItem(null); }}
+                    onDragOver={e => { e.preventDefault(); if (sobreItem !== it.id) setSobreItem(it.id); }}
+                    onDrop={e => { e.preventDefault(); moverItemPara(arrastandoItem, it.id); setArrastandoItem(null); setSobreItem(null); }}
+                    style={{
+                    display:"grid",gridTemplateColumns:gc.join(" "),width:"100%",boxSizing:"border-box",
+                    borderLeft: alvoDrop ? `3px solid ${C.blue}` : codigoPendente ? `3px solid ${C.orange}` : "3px solid transparent",
+                    background: arrastando ? `${C.blue}12` : codigoPendente ? `${C.orange}09` : undefined,
+                    opacity: arrastando ? .5 : 1,
+                  }}>
+                    <span title="Arraste para reordenar" className="budget-plain" style={{cursor:"grab",color:C.muted,userSelect:"none",justifyContent:"center",padding:0}}><IconeAlca/></span>
+                    <span className="budget-plain" style={{color:C.muted,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{it.codigoItem}</span>
+                    <span className="budget-plain" title="Fonte" style={{fontWeight:600,color:it.fonte==="ORSE"?C.purple:C.blue}}>{it.fonte}</span>
+                    {colsOrc.codigo && (
+                    <div>
+                        <CelulaTexto className="budget-cell is-code" aria-label={`Código do ${rotuloItem}`} value={it.codigo||""}
+                          onCommit={valor=>updItemCampo(it.id,"codigo",valor)}
+                          placeholder="Sem código" title={codigoAtualizando===it.id?"Consultando código nas bases...":codigoPendente?"Código não localizado na base":"Código da composição"}
+                          style={codigoPendente?{background:`${C.orange}12`,color:C.orange}:undefined}/>
+                    </div>
+                    )}
+                    <div>
+                      <CelulaTexto className="budget-cell" aria-label={`Descrição do ${rotuloItem} (pesquisa de composição)`} value={it.descricao||""} searchOnly resetKey={selecaoLinhaVersao[it.id]||0}
+                        onDigitar={e=>setBuscaLinha({itemId:it.id,termo:e.target.value})}
+                        onSearchEnd={()=>setBuscaLinha(atual=>atual.itemId===it.id?{itemId:"",termo:""}:atual)}
+                        onEscape={()=>setBuscaLinha({itemId:"",termo:""})}
+                        onEnter={()=>{
+                          if(buscaLinha.itemId===it.id && resultadosLinha.length) {
+                            selecionarReferenciaLinha(it.id,resultadosLinha[0]);
+                            return true;   // a referencia manda: nao gravar o texto digitado
+                          }
+                          return false;
+                        }}
+                        title="Pesquise e selecione uma composição. A pesquisa não altera a descrição; use Editar para alterações manuais."
+                        style={{textTransform:"uppercase",textOverflow:"ellipsis"}}/>
+                    </div>
+                    {colsOrc.unidade && (
+                    <div>
+                        <CelulaTexto className="budget-cell" aria-label={`Unidade do ${rotuloItem}`} value={it.unidade||""}
+                          onCommit={valor=>updItemCampo(it.id,"unidade",valor)}
+                          title="Unidade do item"
+                          style={{textTransform:"uppercase"}}/>
+                    </div>
+                    )}
+                    <div>
+                        <CelulaTexto className="budget-cell is-num" aria-label={`Quantidade do ${rotuloItem}`} type="number" step="any" inputMode="decimal" value={String(it.quantidade ?? "")}
+                          onCommit={valor => updItemQtd(it.id, valor)}
+                          title="Quantidade"/>
+                    </div>
+                    {colsOrc.custoUnit && (
+                    <div title={alterado?`Base: ${fmt(it.precoRef)} - editado`:"Custo unitário sem BDI"}>
+                        <CelulaTexto className="budget-cell is-num" aria-label={`Custo unitário do ${rotuloItem}${alterado?" (preço editado)":""}`} type="number" step="any" inputMode="decimal" value={String(it.precoUnit ?? "")}
+                          onCommit={valor => updItemNumero(it.id, "precoUnit", valor)}
+                          title={alterado?`Preço editado. Base da composição: ${fmt(it.precoRef)}. Duplo clique para restaurar.`:"Custo unitário sem BDI"}
+                          onDoubleClick={()=>{ if(alterado) restaurarPrecoRef(it.id); }}
+                          style={alterado?{background:`${C.yellow}14`,color:C.yellowD,fontWeight:700}:undefined}/>
+                    </div>
+                    )}
+                    {colsOrc.bdi && (
+                    <div title="BDI desta linha (vazio = usa o BDI global)">
+                        <CelulaTexto className="budget-cell is-num" aria-label={`BDI do ${rotuloItem}`} type="number" step="any" inputMode="decimal"
+                          value={it.bdi===""||it.bdi==null?"":String(it.bdi)}
+                          placeholder={String(orc.bdi)}
+                          onCommit={valor => updItemNumero(it.id, "bdi", valor===""?"":valor)}
+                          style={{color: (it.bdi!==""&&it.bdi!=null)?C.text:C.muted}}/>
+                    </div>
+                    )}
+                    {colsOrc.total && (
+                    <div className="budget-total" title={`Preço total com BDI (${bdiEfetivo}%)${alterado?" · preço unitário editado":""}`} style={{color:alterado?C.yellowD:C.text}}>
+                      {alterado&&<IconeEditado/>}{fmt(tot)}
+                    </div>
+                    )}
+                    {menuLinha()}
+                    {buscaLinha.itemId===it.id && buscaLinha.termo.trim().length>=2 && (
+                      <div className="budget-search-pop" style={{
+                        gridColumn:"4 / -1",minWidth:0,maxHeight:230,overflowY:"auto",
+                        background:C.bg,border:`1px solid ${C.blue}`,borderRadius:4,
+                        boxShadow:`0 4px 12px ${C.shadow}`,padding:5,zIndex:20,margin:"2px 0",
                       }}>
-                        <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, fontWeight:600, minWidth:38 }}>
-                          {it.codigoItem}
-                        </p>
-                        <CelulaTexto
-                          value={it.descricao||""}
-                          onCommit={valor => updTituloTexto(it.id, valor)}
-                          placeholder="Título - ex.: Pavimento térreo"
-                          style={{
-                            flex:1, minWidth:0,
-                            background:"transparent", border:0, borderBottom:`1px dashed ${C.border}`,
-                            color:C.text, padding:"3px 0", outline:"none",
-                            fontSize:"var(--arcd-type-label)", fontWeight:600, letterSpacing:.3,
-                            textTransform:"uppercase",
-                            fontFamily:"var(--arcd-font-sans)",
-                          }}
-                        />
-                        {setas()}
-                        <button onClick={() => delItem(it.id)} title="Excluir título"
-                          style={{ background:"transparent", border:0, color:C.muted, cursor:"pointer",
-                                   fontSize:"var(--arcd-type-control)", padding:"0 2px", lineHeight:1, flexShrink:0 }}>x</button>
-                      </div>
-                    );
-                  }
-
-                  //  Linha de ITEM: composição com valor
-                  const tot = itemTotal(it, orc.bdi);
-                  const codigoPendente = !!it.codigoNaoEncontrado || !String(it.codigo||"").trim();
-                  const alterado = precoAlterado(it);
-                  const bdiEfetivo = bdiDoItem(it, orc.bdi);
-                  const arrastando = arrastandoItem === it.id;
-                  const alvoDrop   = sobreItem === it.id && arrastandoItem && arrastandoItem !== it.id;
-
-                  // Monta a grade conforme as colunas visiveis. A alca de arrastar,
-                  // fonte, descricao e quantidade sao fixas; as demais entram por colsOrc.
-                  const gc = ["16px"];                       // alca de arrastar
-                  gc.push("38px");                           // codigoItem (numeracao)
-                  gc.push("58px");                           // fonte
-                  if (colsOrc.codigo)    gc.push("92px");    // codigo editavel
-                  gc.push("minmax(80px,1fr)");               // descricao (busca)
-                  if (colsOrc.unidade)   gc.push("52px");    // unidade
-                  gc.push("56px");                           // quantidade
-                  if (colsOrc.custoUnit) gc.push("84px");    // custo unitario
-                  if (colsOrc.bdi)       gc.push("56px");    // BDI proprio
-                  gc.push("18px");                           // setas
-                  if (colsOrc.total)     gc.push("165px");   // total + acoes (comp./editar/x)
-
-                  return (
-                    <div key={it.id} id={`budget-item-${it.id}`}
-                      className={`budget-line-row ${auditTarget===`budget-item-${it.id}`?"budget-audit-target":""}`}
-                      draggable
-                      onDragStart={e => { e.stopPropagation(); setArrastandoItem(it.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData('text/plain',it.id); }}
-                      onDragEnd={() => { setArrastandoItem(null); setSobreItem(null); }}
-                      onDragOver={e => { e.preventDefault(); if (sobreItem !== it.id) setSobreItem(it.id); }}
-                      onDrop={e => { e.preventDefault(); moverItemPara(arrastandoItem, it.id); setArrastandoItem(null); setSobreItem(null); }}
-                      style={{
-                      padding: "7px 10px", borderTop: `1px solid ${C.line}33`,
-                      display:"grid",gridTemplateColumns:gc.join(" "),
-                      gap:6,alignItems:"center",width:"100%",boxSizing:"border-box",overflow:"hidden",
-                      borderLeft: alvoDrop ? `3px solid ${C.blue}` : codigoPendente ? `3px solid ${C.orange}` : "3px solid transparent",
-                      background: arrastando ? `${C.blue}12` : codigoPendente ? `${C.orange}09` : "transparent",
-                      opacity: arrastando ? .5 : 1,
-                    }}>
-                      {/* Alca de arrastar */}
-                      <span title="Arraste para reordenar" style={{cursor:"grab",color:C.muted,fontSize:"var(--arcd-type-body)",lineHeight:1,userSelect:"none",textAlign:"center"}}>::</span>
-                      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,minWidth:0,whiteSpace:"nowrap"}}>
-                        {it.codigoItem}
-                      </p>
-                      <div title="Fonte" style={{minWidth:0,overflow:"hidden"}}>
-                        <span style={{display:"block",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:it.fonte==="ORSE"?C.purple:C.blue,whiteSpace:"nowrap"}}>{it.fonte}</span>
-                      </div>
-                      {colsOrc.codigo && (
-                      <div style={{minWidth:0,overflow:"hidden"}}>
-                          <CelulaTexto value={it.codigo||""}
-                            onCommit={valor=>updItemCampo(it.id,"codigo",valor)}
-                            placeholder="Sem código" title={codigoAtualizando===it.id?"Consultando código nas bases...":codigoPendente?"Código não localizado na base":"Código da composição"}
-                            style={{width:"100%",boxSizing:"border-box",background:codigoPendente?`${C.orange}12`:C.bg,border:`1.5px solid ${codigoPendente?C.orange:C.border}`,color:codigoPendente?C.orange:C.text,padding:"5px 7px",borderRadius:5,fontSize:"var(--arcd-type-label)",outline:"none",textTransform:"uppercase",fontFamily:"var(--arcd-font-mono)"}}/>
-                      </div>
-                      )}
-                      <div style={{minWidth:0,overflow:"hidden"}}>
-                        <CelulaTexto value={it.descricao||""} searchOnly resetKey={selecaoLinhaVersao[it.id]||0}
-                          onDigitar={e=>setBuscaLinha({itemId:it.id,termo:e.target.value})}
-                          onSearchEnd={()=>setBuscaLinha(atual=>atual.itemId===it.id?{itemId:"",termo:""}:atual)}
-                          onEscape={()=>setBuscaLinha({itemId:"",termo:""})}
-                          onEnter={()=>{
-                            if(buscaLinha.itemId===it.id && resultadosLinha.length) {
-                              selecionarReferenciaLinha(it.id,resultadosLinha[0]);
-                              return true;   // a referencia manda: nao gravar o texto digitado
-                            }
-                            return false;
-                          }}
-                          title="Pesquise e selecione uma composição. A pesquisa não altera a descrição; use Editar para alterações manuais."
-                          style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:"var(--arcd-type-label)",outline:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",textTransform:"uppercase",fontFamily:"var(--arcd-font-sans)"}}/>
-                      </div>
-                      {colsOrc.unidade && (
-                      <div style={{minWidth:0,overflow:"hidden"}}>
-                          <CelulaTexto value={it.unidade||""}
-                            onCommit={valor=>updItemCampo(it.id,"unidade",valor)}
-                            title="Unidade do item"
-                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:"var(--arcd-type-label)",outline:"none",textTransform:"uppercase",fontFamily:"var(--arcd-font-sans)"}}/>
-                      </div>
-                      )}
-                      <div style={{minWidth:0,overflow:"hidden"}}>
-                          <CelulaTexto type="number" step="any" inputMode="decimal" value={String(it.quantidade ?? "")}
-                            onCommit={valor => updItemQtd(it.id, valor)}
-                            title="Quantidade"
-                            style={{width:"100%",boxSizing:"border-box",background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"5px 7px",borderRadius:5,fontSize:"var(--arcd-type-label)",outline:"none",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums"}}/>
-                      </div>
-                      {colsOrc.custoUnit && (
-                      <div title={alterado?`Base: ${fmt(it.precoRef)} - editado`:"Custo unitário sem BDI"} style={{minWidth:0,overflow:"hidden",position:"relative"}}>
-                          <CelulaTexto type="number" step="any" inputMode="decimal" value={String(it.precoUnit ?? "")}
-                            onCommit={valor => updItemNumero(it.id, "precoUnit", valor)}
-                            title={alterado?`Preço editado. Base da composição: ${fmt(it.precoRef)}. Duplo clique para restaurar.`:"Custo unitário sem BDI"}
-                            onDoubleClick={()=>{ if(alterado) restaurarPrecoRef(it.id); }}
-                            style={{width:"100%",boxSizing:"border-box",textAlign:"right",
-                              background: alterado?`${C.yellow}14`:C.bg,
-                              border:`1.5px solid ${alterado?C.yellowD:C.border}`,
-                              color: alterado?C.yellowD:C.text, fontWeight: alterado?600:400,
-                              padding:"5px 7px",borderRadius:5,fontSize:"var(--arcd-type-label)",outline:"none",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums"}}/>
-                      </div>
-                      )}
-                      {colsOrc.bdi && (
-                      <div title="BDI desta linha (vazio = usa o BDI global)" style={{minWidth:0,overflow:"hidden"}}>
-                          <CelulaTexto type="number" step="any" inputMode="decimal"
-                            value={it.bdi===""||it.bdi==null?"":String(it.bdi)}
-                            placeholder={String(orc.bdi)}
-                            onCommit={valor => updItemNumero(it.id, "bdi", valor===""?"":valor)}
-                            style={{width:"100%",boxSizing:"border-box",textAlign:"right",
-                              background:C.bg,border:`1.5px solid ${C.border}`,
-                              color: (it.bdi!==""&&it.bdi!=null)?C.text:C.muted,
-                              padding:"5px 7px",borderRadius:5,fontSize:"var(--arcd-type-label)",outline:"none",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums"}}/>
-                      </div>
-                      )}
-                      {setas()}
-                      {colsOrc.total && (
-                      <div style={{minWidth:0,overflow:"hidden",textAlign:"right",whiteSpace:"nowrap"}}>
-                        <span title={`Preço total com BDI (${bdiEfetivo}%)`} style={{display:"block",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-body)",fontWeight:600,color:alterado?C.yellowD:C.text}}>{fmt(tot)}</span>
-                        <button onClick={() => analisarItemDoOrcamento(it)}
-                          title="Ver a composição analítica deste item"
-                          style={{background:"transparent",border:0,color:C.green,cursor:"pointer",fontSize:"var(--arcd-type-control)",fontWeight:600,padding:"0 3px",marginLeft:4}}>Comp.</button>
-                        <button onClick={() => {setItemMemoryFocus(it.id);setOrcAba('memoria');setDisciplinaMemoria('itens');}}
-                          title="Abrir memória de cálculo deste item" style={{background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:"var(--arcd-type-control)",padding:"0 3px"}}>Mem.</button>
-                        <button onClick={() => setEditItem({...it})}
-                          title={it.composicao?"Editar item e composição":"Editar item"}
-                          style={{background:"transparent",border:0,color:C.blue,cursor:"pointer",fontSize:"var(--arcd-type-control)",padding:"0 3px"}}>Editar</button>
-                        <button onClick={() => delItem(it.id)} title="Excluir item"
-                          style={{background:"transparent",border:0,color:C.muted,cursor:"pointer",fontSize:"var(--arcd-type-control)",padding:0}}>x</button>
-                      </div>
-                      )}
-                      {buscaLinha.itemId===it.id && buscaLinha.termo.trim().length>=2 && (
-                        <div style={{
-                          gridColumn:"4 / -1",minWidth:0,maxHeight:230,overflowY:"auto",
-                          background:C.bg,border:`1.5px solid ${C.blue}`,borderRadius:7,
-                          boxShadow:`0 8px 20px ${C.shadow}`,padding:5,zIndex:20,
-                        }}>
                           {it.codigo&&<button type="button" disabled={codigoAtualizando===it.id} onMouseDown={e=>e.preventDefault()} onClick={async()=>{
                             await updItemCampo(it.id,"codigo",it.codigo);
                             setSelecaoLinhaVersao(v=>({...v,[it.id]:(v[it.id]||0)+1}));
@@ -4227,26 +4105,24 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 })}
 
                 {!recolhida && no.itens.length === 0 && no.sub.length === 0 && (
-                  <p style={{ padding:"9px 12px", fontSize:"var(--arcd-type-label)", color:C.muted }}>Vazia - use + para item, T para título ou ↳ para subnível.</p>
+                  <p style={{ padding:"9px 12px", fontSize:10.5, color:C.muted }}>Vazia - use + Item ou o menu ⋯ da etapa para título, subnível ou cotação.</p>
                 )}
-              </div>
             </div>
           );
         };
 
         return (
           <>
-            <div style={{display:"flex",justifyContent:"flex-end",flexWrap:"wrap",gap:6,marginBottom:6,position:"relative"}}>
-              {!budgetIsImmutable(orc) && <Btn v="ghost" size="sm" onClick={()=>setAddFloorOpen(true)}>+ Adicionar pavimento</Btn>}
-              {memorySave?.id===selOrc && <span role="status" style={{fontSize:"var(--arcd-type-body)",alignSelf:'center'}}>{memorySave.state==='saving'?'Salvando…':memorySave.state==='saved'?'Salvo':'Falha ao salvar'}</span>}
-              <Btn v="ghost" size="sm" onClick={()=>setColsOrcAberto(a=>!a)}>Colunas</Btn>
-              <Btn v="ghost" size="sm" onClick={()=>setEtapasFechadas({})}>Expandir todos</Btn>
-              <Btn v="ghost" size="sm" onClick={()=>setEtapasFechadas(Object.fromEntries((orc.etapas||[]).map(e=>[e.id,true])))}>Recolher todos</Btn>
+            <div style={{display:"flex",justifyContent:"flex-end",flexWrap:"wrap",gap:4,position:"relative"}}>
+              {!budgetIsImmutable(orc) && <button type="button" className="budget-tool" onClick={()=>setAddFloorOpen(true)}>+ Adicionar pavimento</button>}
+              <button type="button" className="budget-tool" aria-expanded={colsOrcAberto} onClick={()=>setColsOrcAberto(a=>!a)}>Colunas</button>
+              <button type="button" className="budget-tool" onClick={()=>setEtapasFechadas({})}>Expandir todos</button>
+              <button type="button" className="budget-tool" onClick={()=>setEtapasFechadas(Object.fromEntries((orc.etapas||[]).map(e=>[e.id,true])))}>Recolher todos</button>
               {colsOrcAberto && (
-                <div style={{position:"absolute",top:"100%",right:0,marginTop:4,zIndex:30,
-                             background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:6,
-                             boxShadow:`0 8px 24px ${C.shadow}`,padding:"10px 12px",minWidth:190}}>
-                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>Colunas visíveis</p>
+                <div style={{position:"absolute",top:"100%",right:0,marginTop:4,zIndex:41,
+                             background:C.bg,border:`1px solid ${C.border}`,borderRadius:4,
+                             boxShadow:`0 4px 12px ${C.shadow}`,padding:"10px 12px",minWidth:190}}>
+                  <p style={{fontSize:11,fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>Colunas visíveis</p>
                   {[["codigo","Código"],["unidade","Unidade"],["custoUnit","Custo unitário"],["bdi","BDI por item"],["total","Total"]].map(([k,l])=>(
                     <label key={k} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:C.text}}>
                       <input type="checkbox" checked={!!colsOrc[k]}
@@ -4255,31 +4131,44 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       {l}
                     </label>
                   ))}
-                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:7,lineHeight:1.45,borderTop:`1px solid ${C.line}`,paddingTop:7}}>
+                  <p style={{fontSize:11,color:C.muted,marginTop:7,lineHeight:1.45,borderTop:`1px solid ${C.line}`,paddingTop:7}}>
                     Fonte, descrição e quantidade ficam sempre visíveis.
                   </p>
                 </div>
               )}
             </div>
-            {calc.arvore.map(no => renderEtapa(no))}
-            <Btn v="ghost" full onClick={() => abrirNovaEtapa("")} style={{ marginTop: 2 }}>
-              <Ic n="plus"/> Nova etapa de 1º nível
-            </Btn>
+            <div className="budget-sheet">
+              <div className="budget-sheet__inner">
+                {/* Cabeçalho fixo de colunas: a mesma grade (gc) das linhas */}
+                <div className="budget-cols" role="row" style={{gridTemplateColumns:gc.join(" ")}}>
+                  <span aria-hidden="true"/>
+                  <span>Item</span>
+                  <span>Fonte</span>
+                  {colsOrc.codigo && <span>Código</span>}
+                  <span>Descrição</span>
+                  {colsOrc.unidade && <span>Un.</span>}
+                  <span className="is-num">Qtd.</span>
+                  {colsOrc.custoUnit && <span className="is-num" title="Custo unitário sem BDI">Custo unit.</span>}
+                  {colsOrc.bdi && <span className="is-num">BDI %</span>}
+                  {colsOrc.total && <span className="is-num" title="Preço total com BDI">Total</span>}
+                  <span aria-hidden="true"/>
+                </div>
+                {calc.arvore.map(no => renderEtapa(no))}
+                {/* Totais como última linha da planilha */}
+                <div className="budget-foot">
+                  <span>BDI ({orc.bdi}%) <b>{fmt(calc.valorBDI)}</b></span>
+                  <span>Total geral <b className="is-total">{fmt(calc.total)}</b></span>
+                  {orc.areaM2>0 && <span>{fmt(calc.porM2)}/m² · {orc.areaM2} m²</span>}
+                </div>
+              </div>
+            </div>
+            <div style={{display:"flex",justifyContent:"flex-start"}}>
+              <button type="button" className="budget-tool" onClick={() => abrirNovaEtapa("")}>+ Nova etapa de 1º nível</button>
+            </div>
           </>
         );
       })()}
 
-      {/* Totais finais */}
-      <div style={{background:C.text,color:"#fff",borderRadius:8,padding:"14px 16px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",padding:"3px 0"}}><p style={{fontSize:"var(--arcd-type-body)",opacity:.75}}>BDI ({orc.bdi}%)</p><p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-body)",fontWeight:600}}>{fmt(calc.valorBDI)}</p></div>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:9,marginTop:6,borderTop:`1px solid rgba(255,255,255,.2)`}}>
-          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600}}>TOTAL GERAL</p>
-          <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-kpi)",fontWeight:600,color:C.yellow}}>{fmt(calc.total)}</p>
-        </div>
-        {orc.areaM2>0 && (
-          <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-label)",opacity:.7,textAlign:"right",marginTop:2}}>{fmt(calc.porM2)}/m  {orc.areaM2} m</p>
-        )}
-      </div>
 
       {false&&<>
       {/*  CURVA ABC  */}
