@@ -445,6 +445,16 @@ export const subirDocumentoPatrimonio = async ({ dataUrl, ext }) => {
   return {ok:r.ok&&j.ok!==false&&!j.error,...j};
 };
 
+export const obterDocumentoPatrimonio = async path => {
+  if (!temSessao()) return {ok:false,error:"Sem sessão."};
+  const r=await fetch("/api/upload",{
+    method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify({...credenciais(),folder:"patrimonio",action:"signed-url",path}),
+  });
+  const j=await r.json().catch(()=>({error:"Falha ao abrir documento patrimonial."}));
+  return {ok:r.ok&&j.ok!==false&&!j.error,...j};
+};
+
 export const subirAnexoChat = async ({ dataUrl, ext }) => {
   if (!temSessao()) return { ok: false, error: "Sem sessão." };
   const r = await fetch("/api/upload", {
