@@ -33,9 +33,12 @@ function AssetForm({asset,setAsset,onSave,onClose,busy}){
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label="Fabricante" value={asset.manufacturer||""} onChange={F("manufacturer")}/><Inp label="Modelo" value={asset.model||""} onChange={F("model")}/></div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}><Inp label="Nº de série" value={asset.serialNumber||""} onChange={F("serialNumber")}/><Inp label="IMEI" value={asset.imei||""} onChange={F("imei")}/><Inp label="Placa" value={asset.plate||""} onChange={F("plate")}/></div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label="Valor de aquisição" type="number" value={asset.acquisitionValue||0} onChange={F("acquisitionValue")}/><Inp label="Data de aquisição" type="date" value={asset.acquisitionDate||""} onChange={F("acquisitionDate")}/></div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Sel label="Situação" value={asset.status||"ativo"} onChange={F("status")} options={STATUS}/><Sel label="Localização" value={asset.location?.type||"empresa"} onChange={v=>setAsset(s=>({...s,location:{...(s.location||{}),type:v}}))} options={LOCAIS}/></div>
-    <Inp label="Local atual" value={asset.location?.label||""} onChange={v=>setAsset(s=>({...s,location:{...(s.location||{}),label:v}}))} placeholder="Sede, almoxarifado ou local atual"/>
-    <Inp label="Responsável pelo bem" value={asset.custodian?.name||""} onChange={v=>setAsset(s=>({...s,custodian:{...(s.custodian||{}),name:v,type:v?"external":""}}))}/>
+    {!asset.version&&<>
+      <Sel label="Localização inicial" value={asset.location?.type||"empresa"} onChange={v=>setAsset(s=>({...s,location:{...(s.location||{}),type:v}}))} options={LOCAIS}/>
+      <Inp label="Local inicial" value={asset.location?.label||""} onChange={v=>setAsset(s=>({...s,location:{...(s.location||{}),label:v}}))} placeholder="Sede, almoxarifado ou local atual"/>
+      <Inp label="Responsável inicial pelo bem" value={asset.custodian?.name||""} onChange={v=>setAsset(s=>({...s,custodian:{...(s.custodian||{}),name:v,type:v?"external":""}}))}/>
+    </>}
+    {!!asset.version&&<div style={card}><b>Controle operacional</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>Situação: {STATUS.find(s=>s.v===asset.status)?.l||asset.status} · Local: {asset.location?.label||"Sede"}. Use as ações "Mover" e "Status" na lista para manter o histórico auditável.</p></div>}
     <div style={card}><b>Nota fiscal</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>{asset.invoice?.number?"NF "+asset.invoice.number+" · "+(asset.invoice.supplierName||"Fornecedor"):"Sem nota vinculada"}</p>{asset.invoice?.document?.path&&<button type="button" onClick={async()=>{const r=await obterDocumentoPatrimonio(asset.invoice.document.path);if(r.ok&&r.url)window.open(r.url,"_blank","noopener,noreferrer");}} style={{border:0,background:"transparent",padding:0,color:C.blue,textAlign:"left",cursor:"pointer"}}>Abrir documento fiscal</button>}</div>
     <Inp label="Observações" value={asset.notes||""} onChange={F("notes")}/>
     <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={onSave} disabled={busy||!String(asset.name||"").trim()}>{busy?"Salvando...":"Salvar"}</Btn></div>
@@ -91,10 +94,13 @@ function ImportInvoice({data,dispatchCommand,showToast,onClose}){
 
 export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
   const [search,setSearch]=useState(""),[status,setStatus]=useState("ativos"),[editor,setEditor]=useState(null),[importing,setImporting]=useState(false),[busy,setBusy]=useState(false);
+  const [move,setMove]=useState(null),[statusEdit,setStatusEdit]=useState(null),[history,setHistory]=useState(null);
   const assets=Array.isArray(data?.companyAssets)?data.companyAssets:[];
   const filtered=useMemo(()=>assets.filter(a=>(status==="todos"||status==="ativos"&&a.active!==false||a.status===status)&&(!search.trim()||[a.assetTag,a.name,a.category,a.serialNumber,a.imei,a.invoice?.number,a.invoice?.supplierName].some(v=>String(v||"").toLowerCase().includes(search.toLowerCase())))),[assets,search,status]);
   const active=assets.filter(a=>a.active!==false),total=active.reduce((s,a)=>s+Number(a.acquisitionValue||0),0),docs=active.filter(a=>a.invoice?.document?.path||a.invoice?.number).length;
   const save=async()=>{setBusy(true);try{const r=await dispatchCommand({type:OPERATIONAL_COMMAND.ASSET_SAVED,idempotencyKey:key("asset-save"),expectedVersion:Number(editor?.version||0),payload:{asset:editor}});if(!r.ok)throw new Error(r.reason||"Falha ao salvar.");showToast(editor.version?"Patrimônio atualizado.":"Patrimônio cadastrado.");setEditor(null);}catch(e){showToast(e.message,"error");}finally{setBusy(false);}};
+  const saveMove=async()=>{setBusy(true);try{const r=await dispatchCommand({type:OPERATIONAL_COMMAND.ASSET_MOVED,idempotencyKey:key("asset-move"),expectedVersion:Number(move?.version||0),payload:{assetId:move.id,location:move.location,custodian:move.custodian,reason:move.reason||""}});if(!r.ok)throw new Error(r.reason||"Falha ao movimentar patrimônio.");showToast("Movimentação patrimonial registrada.");setMove(null);}catch(e){showToast(e.message||"Falha ao movimentar.","error");}finally{setBusy(false);}};
+  const saveStatus=async()=>{setBusy(true);try{const r=await dispatchCommand({type:OPERATIONAL_COMMAND.ASSET_STATUS_CHANGED,idempotencyKey:key("asset-status"),expectedVersion:Number(statusEdit?.version||0),payload:{assetId:statusEdit.id,status:statusEdit.nextStatus,reason:statusEdit.reason||""}});if(!r.ok)throw new Error(r.reason||"Falha ao alterar situação.");showToast("Situação patrimonial atualizada.");setStatusEdit(null);}catch(e){showToast(e.message||"Falha ao alterar situação.","error");}finally{setBusy(false);}};
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
     <PageHero eyebrow="Administração" title="Patrimônio da empresa" description="Bens corporativos da empresa, com nota fiscal, identificação física, localização atual e histórico." stats={[{label:"Bens ativos",value:String(active.length),color:C.green},{label:"Valor de aquisição",value:money(total)},{label:"Com nota/documento",value:String(docs)+"/"+String(active.length),color:docs===active.length?C.green:C.orange}]} actions={<div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setImporting(true)}><Ic n="receipt"/> Importar NF</Btn><Btn onClick={()=>setEditor(vazio())}><Ic n="plus"/> Novo bem</Btn></div>}/>
     <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}><div style={{flex:"1 1 280px"}}><Inp label="Buscar" value={search} onChange={setSearch} placeholder="Código, bem, série, IMEI, NF ou fornecedor"/></div><div style={{width:180}}><Sel label="Situação" value={status} onChange={setStatus} options={[{v:"ativos",l:"Ativos"},{v:"todos",l:"Todos"}].concat(STATUS)}/></div></div>
@@ -103,10 +109,32 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
         <div><b>{a.name}</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{a.assetTag||"Sem código"}{a.serialNumber?" · Série "+a.serialNumber:""}{a.imei?" · IMEI "+a.imei:""}</p></div>
         <div><Badge color={a.status==="baixado"?C.muted:a.status==="extraviado"?C.red:a.status==="manutencao"?C.orange:C.green}>{STATUS.find(s=>s.v===a.status)?.l||a.status}</Badge></div>
         <div><p style={{fontSize:"var(--arcd-type-label)"}}>{a.location?.label||"Sede"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{a.invoice?.number?"NF "+a.invoice.number:"Sem NF"}</p></div>
-        <Btn size="sm" v="ghost" onClick={()=>setEditor(JSON.parse(JSON.stringify(a)))}>Editar</Btn>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap",justifyContent:"flex-end"}}>
+          <Btn size="sm" v="ghost" onClick={()=>setHistory(a)}>Histórico</Btn>
+          <Btn size="sm" v="ghost" onClick={()=>setEditor(JSON.parse(JSON.stringify(a)))}>Editar</Btn>
+          {a.active!==false&&<Btn size="sm" v="ghost" onClick={()=>setMove({...JSON.parse(JSON.stringify(a)),reason:""})}>Mover</Btn>}
+          {a.active!==false&&<Btn size="sm" v="ghost" onClick={()=>setStatusEdit({...a,nextStatus:a.status,reason:""})}>Status</Btn>}
+        </div>
       </div>)}
     </section>
     {editor&&<AssetForm asset={editor} setAsset={setEditor} onSave={save} onClose={()=>setEditor(null)} busy={busy}/>}
     {importing&&<ImportInvoice data={data} dispatchCommand={dispatchCommand} showToast={showToast} onClose={()=>setImporting(false)}/>}
+    {move&&<Modal title="Movimentar patrimônio" onClose={()=>setMove(null)}><div style={{display:"grid",gap:9}}>
+      <b>{move.name}</b>
+      <Sel label="Tipo de localização" value={move.location?.type||"empresa"} onChange={v=>setMove(s=>({...s,location:{...(s.location||{}),type:v}}))} options={LOCAIS}/>
+      <Inp label="Local atual" value={move.location?.label||""} onChange={v=>setMove(s=>({...s,location:{...(s.location||{}),label:v}}))} placeholder="Ex.: Sede, almoxarifado, H2 04"/>
+      <Inp label="Responsável pelo bem" value={move.custodian?.name||""} onChange={v=>setMove(s=>({...s,custodian:{...(s.custodian||{}),name:v,type:v?"external":""}}))}/>
+      <Inp label="Motivo / observação" value={move.reason||""} onChange={v=>setMove(s=>({...s,reason:v}))}/>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><Btn v="ghost" onClick={()=>setMove(null)}>Cancelar</Btn><Btn onClick={saveMove} disabled={busy}>{busy?"Salvando...":"Registrar movimentação"}</Btn></div>
+    </div></Modal>}
+    {statusEdit&&<Modal title="Alterar situação patrimonial" onClose={()=>setStatusEdit(null)}><div style={{display:"grid",gap:9}}>
+      <b>{statusEdit.name}</b>
+      <Sel label="Nova situação" value={statusEdit.nextStatus||"ativo"} onChange={v=>setStatusEdit(s=>({...s,nextStatus:v}))} options={STATUS}/>
+      <Inp label="Motivo" value={statusEdit.reason||""} onChange={v=>setStatusEdit(s=>({...s,reason:v}))} placeholder="Obrigatório para baixa ou extravio"/>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><Btn v="ghost" onClick={()=>setStatusEdit(null)}>Cancelar</Btn><Btn onClick={saveStatus} disabled={busy}>{busy?"Salvando...":"Confirmar"}</Btn></div>
+    </div></Modal>}
+    {history&&<Modal title={"Histórico · "+history.name} onClose={()=>setHistory(null)}><div style={{display:"grid",gap:8,maxHeight:"60vh",overflowY:"auto"}}>
+      {!(history.operationalHistory||[]).length?<p style={{color:C.muted}}>Sem eventos registrados.</p>:[...(history.operationalHistory||[])].reverse().map(event=><div key={event.id} style={card}><b style={{fontSize:"var(--arcd-type-body)"}}>{event.type}</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{event.at?new Date(event.at).toLocaleString("pt-BR"):""}{event.actorName?" · "+event.actorName:""}</p>{event.after?.reason&&<p style={{fontSize:"var(--arcd-type-label)",marginTop:4}}>{event.after.reason}</p>}</div>)}
+    </div></Modal>}
   </div>;
 }
