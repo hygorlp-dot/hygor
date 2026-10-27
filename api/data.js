@@ -273,9 +273,9 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED]:["admin"],
   [OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED]:["admin"],
   [OPERATIONAL_COMMAND.EQUIPMENT_SAVED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
-  [OPERATIONAL_COMMAND.PATRIMONIO_EMPRESA_SALVO]:["admin","financeiro","compras"],
-  [OPERATIONAL_COMMAND.PATRIMONIO_EMPRESA_MOVIMENTADO]:["admin","financeiro","compras"],
-  [OPERATIONAL_COMMAND.PATRIMONIO_EMPRESA_STATUS_ALTERADO]:["admin","financeiro","compras"],
+  [OPERATIONAL_COMMAND.ASSET_SAVED]:["admin","financeiro","compras"],
+  [OPERATIONAL_COMMAND.ASSET_MOVED]:["admin","financeiro","compras"],
+  [OPERATIONAL_COMMAND.ASSET_STATUS_CHANGED]:["admin","financeiro","compras"],
   [OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_OWNER_SAVED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
   // Papéis dos comandos de locação: fonte única compartilhada com a Central de locações.
