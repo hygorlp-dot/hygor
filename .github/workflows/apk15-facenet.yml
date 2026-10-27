@@ -22,7 +22,7 @@ jobs:
     env:
       PONTO_AMBIENTE: homologacao
       PONTO_API_URL: https://ponto-homologacao.vercel.app/api/data
-      PONTO_VERSION_CODE: "16"
+      PONTO_VERSION_CODE: "15"
       PONTO_HOMOLOGACAO_VARIANT: facenet
       PONTO_ANDROID_ARCHITECTURES: arm64-v8a
       PONTO_GRADLE_WORKERS: "2"
@@ -81,22 +81,22 @@ jobs:
       - name: Testes focais do reconhecimento
         run: npx vitest run apps/ponto-obra/src/logica/fluxo-facial-direto.test.js apps/ponto-obra/src/logica/rosto.test.js apps/ponto-obra/src/logica/diagnostico-calibracao.test.js apps/ponto-obra/src/logica/escala-reconhecimento.test.js apps/ponto-obra/src/logica/regressao.test.js
 
-      - name: Compilar e verificar APK 16 FaceNet
+      - name: Compilar e verificar APK 15 FaceNet
         working-directory: apps/ponto-obra
-        run: node scripts/build-apk-homologacao.mjs --version-code 16 --output quality-out/apk16
+        run: node scripts/build-apk-homologacao.mjs --version-code 15 --output quality-out/apk15
 
       - name: Resumo do artefato
         working-directory: apps/ponto-obra
         run: |
-          cat quality-out/apk16/ponto-obra-homologacao-16.json
-          cat quality-out/apk16/ponto-obra-homologacao-16.apk.sha256
+          cat quality-out/apk15/ponto-obra-homologacao-15.json
+          cat quality-out/apk15/ponto-obra-homologacao-15.apk.sha256
 
       - uses: actions/upload-artifact@v4
         with:
-          name: marcell-ponto-facenet-apk16
+          name: marcell-ponto-facenet-apk15
           path: |
-            apps/ponto-obra/quality-out/apk16/ponto-obra-homologacao-16.apk
-            apps/ponto-obra/quality-out/apk16/ponto-obra-homologacao-16.json
-            apps/ponto-obra/quality-out/apk16/ponto-obra-homologacao-16.apk.sha256
+            apps/ponto-obra/quality-out/apk15/ponto-obra-homologacao-15.apk
+            apps/ponto-obra/quality-out/apk15/ponto-obra-homologacao-15.json
+            apps/ponto-obra/quality-out/apk15/ponto-obra-homologacao-15.apk.sha256
           if-no-files-found: error
           retention-days: 7
