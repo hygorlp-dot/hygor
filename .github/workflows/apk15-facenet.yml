@@ -79,7 +79,7 @@ jobs:
           echo "PONTO_SIGNING_FILE=$SIGNING" >> "$GITHUB_ENV"
 
       - name: Testes focais do reconhecimento
-        run: npx vitest run apps/ponto-obra/src/logica/fluxo-facial-direto.test.js apps/ponto-obra/src/logica/rosto.test.js apps/ponto-obra/src/logica/diagnostico-calibracao.test.js apps/ponto-obra/src/logica/escala-reconhecimento.test.js
+        run: npx vitest run apps/ponto-obra/src/logica/fluxo-facial-direto.test.js apps/ponto-obra/src/logica/rosto.test.js apps/ponto-obra/src/logica/diagnostico-calibracao.test.js apps/ponto-obra/src/logica/escala-reconhecimento.test.js apps/ponto-obra/src/logica/regressao.test.js
 
       - name: Compilar e verificar APK 16 FaceNet
         working-directory: apps/ponto-obra
