@@ -38,6 +38,7 @@ export const PAPEIS_FISCAL = new Set(["admin", "rh"]);
 export const PIN_ITERACOES = 60000;
 const VALIDADE_CODIGO_MS = 30 * 60 * 1000;
 const MAX_MARCACOES_POR_LOTE = 500;
+const MODELO_FACIAL_LEGADO = "mobilefacenet-192-apache2";
 const MAX_FOTO_BYTES = LIMITE_FOTO_BYTES;  // mesmo limite que o app respeita antes de enviar
 
 const sha256 = valor => crypto.createHash("sha256").update(valor).digest("hex");
@@ -513,20 +514,27 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       // só os lotados nesta obra - quem muda de obra no dia bate em qualquer uma.
       const funcionarios = funcionariosAtivos(dados?.employees, dataLocal(agora()));
       const ids = new Set(funcionarios.map(f => f.id));
+      // Apps novos declaram qual motor conseguem usar. Apps antigos não
+      // enviam o campo e continuam recebendo MobileFaceNet-192, preservando
+      // compatibilidade durante a migração para FaceNet-512.
+      const modeloSolicitado = texto(body.modeloFacial).slice(0, 80);
+      const modeloFacial = /^[A-Za-z0-9._-]{3,80}$/.test(modeloSolicitado) ? modeloSolicitado : MODELO_FACIAL_LEGADO;
       const [{ data: metas, error: errBio }, { data: resps, error: errResp }] = await Promise.all([
-        db.from("ponto_biometrias").select("id,employee_id,criado_em").eq("company_id", company).order("criado_em", { ascending: false }),
+        db.from("ponto_biometrias").select("id,employee_id,modelo,criado_em").eq("company_id", company).order("criado_em", { ascending: false }),
         db.from("ponto_responsaveis").select("user_id,nome,pin_hash,pin_salt,pin_iteracoes,obras,ativo").eq("company_id", company).eq("ativo", true),
       ]);
       if (errBio) throw errBio;
       if (errResp) throw errResp;
-      // Biometria vigente (a mais recente) de cada funcionário ATIVO, de
-      // qualquer obra. Mudar a lotação não apaga nem invalida o cadastro facial.
+      // Biometria vigente = a mais recente POR funcionário E pelo motor que o
+      // aparelho declarou. Um cadastro FaceNet nunca substitui o template
+      // MobileFaceNet que ainda é usado pelos APKs antigos, e vice-versa.
       const vigentes = new Map();
-      (metas || []).forEach(b => { if (ids.has(b.employee_id) && !vigentes.has(b.employee_id)) vigentes.set(b.employee_id, b); });
-      // Os vetores só descem quando o conjunto mudou: com a base global (até
-      // centenas de pessoas) reenviar tudo a cada 5 min gastaria dados móveis.
-      // Apps antigos não mandam a assinatura e recebem a lista inteira.
-      const biometriasAssinatura = sha256([...vigentes.values()].map(b => `${b.employee_id}:${b.id}`).sort().join("|"));
+      (metas || []).forEach(b => {
+        if (ids.has(b.employee_id) && b.modelo === modeloFacial && !vigentes.has(b.employee_id)) vigentes.set(b.employee_id, b);
+      });
+      // A assinatura inclui o motor. Trocar de APK/motor força a atualização
+      // mesmo quando os ids biométricos por acaso forem iguais.
+      const biometriasAssinatura = sha256(`${modeloFacial}|${[...vigentes.values()].map(b => `${b.employee_id}:${b.id}`).sort().join("|")}`);
       let biometrias = null;
       if (texto(body.biometriasAssinatura) !== biometriasAssinatura) {
         const idsBio = [...vigentes.values()].map(b => b.id);
@@ -565,7 +573,7 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
         funcionarios,
         terceirizados: terceirizadosDaObra(dados?.terceirizados, obraId),
         // null = conjunto igual ao que o aparelho já tem (mesma assinatura).
-        biometrias, biometriasAssinatura,
+        modeloFacial, biometrias, biometriasAssinatura,
         responsaveis: (resps || [])
           .filter(r => !(r.obras || []).length || (r.obras || []).map(String).includes(String(obraId)))
           .map(r => ({ userId: r.user_id, nome: r.nome, pinHash: r.pin_hash, pinSalt: r.pin_salt, pinIteracoes: r.pin_iteracoes })),
