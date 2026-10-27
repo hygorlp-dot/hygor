@@ -106,6 +106,12 @@ const normalizeSubmittedRecord=({input,current,obraId})=>{
     if(input[field]&&!CLOCK.test(String(input[field])))return fail("Horário do ponto inválido.");
   }
   const previous=normalizeAttendanceRecord(current)||{};
+  const bankMinutes=finiteBetween(input.bankMinutes??previous.bankMinutes??0,-1440,1440);
+  if(bankMinutes==null||!Number.isInteger(bankMinutes))return fail("Saldo diário do banco de horas é inválido.");
+  const breakSource=String(input.breakSource??previous.breakSource??"");
+  if(breakSource&&!["punched","preassigned","manual"].includes(breakSource))return fail("Origem do intervalo inválida.");
+  const punchMode=String(input.punchMode??previous.punchMode??"");
+  if(punchMode&&!["with_break","entry_exit","manual"].includes(punchMode))return fail("Política de marcação inválida.");
   const keepsWorkedTime=["P","M"].includes(status);
   const record={
     ...previous,
@@ -119,6 +125,10 @@ const normalizeSubmittedRecord=({input,current,obraId})=>{
     saida:keepsWorkedTime?String(input.saida??previous.saida??""):"",
     workedMinutes:keepsWorkedTime?workedMinutes:0,
     atrasoMin:keepsWorkedTime?atrasoMin:0,
+    bankMinutes:keepsWorkedTime?bankMinutes:0,
+    bankReason:keepsWorkedTime?String(input.bankReason??previous.bankReason??"").trim().slice(0,1000):"",
+    breakSource:keepsWorkedTime?breakSource:"",
+    punchMode:keepsWorkedTime?punchMode:"",
     obraId:String(obraId||""),
   };
   return {ok:true,record:status?record:null};
