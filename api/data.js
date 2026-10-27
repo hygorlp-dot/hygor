@@ -926,6 +926,7 @@ const operationalCommandEntityId=command=>
   ||command.payload?.commitment?.id
   ||command.payload?.equipment?.id
   ||command.payload?.asset?.id
+  ||command.payload?.assets?.[0]?.id
   ||command.payload?.rental?.id
   ||command.payload?.unavailability?.id
   ||command.payload?.maintenance?.id
