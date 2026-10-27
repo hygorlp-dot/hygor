@@ -51,6 +51,9 @@ const normalizeInvoice=invoice=>({
   supplierDocument:normalizeKey(invoice?.supplierDocument||invoice?.documentoFornecedor).slice(0,14),
   totalValue:Math.max(0,number(invoice?.totalValue||invoice?.valorBruto)),
   itemNumber:Math.max(0,Math.trunc(number(invoice?.itemNumber||invoice?.nItem))),
+  unitIndex:Math.max(1,Math.trunc(number(invoice?.unitIndex)||1)),
+  sourceQuantity:Math.max(0,number(invoice?.sourceQuantity||invoice?.quantidade)),
+  supplierId:text(invoice?.supplierId,120),
   itemDescription:text(invoice?.itemDescription||invoice?.descricaoItem,500),
   itemValue:Math.max(0,number(invoice?.itemValue||invoice?.valorItem)),
   source:["xml","ai","manual"].includes(String(invoice?.source))?String(invoice.source):"manual",
@@ -121,6 +124,7 @@ export const applyPatrimonyCommand=(data={},command={},now=new Date().toISOStrin
       &&assets.some(item=>String(item.id)!==input.id&&item.active!==false
         &&normalizeKey(item?.invoice?.accessKey)===input.invoice.accessKey
         &&Number(item?.invoice?.itemNumber||0)===input.invoice.itemNumber
+        &&Number(item?.invoice?.unitIndex||1)===input.invoice.unitIndex
         &&normalizeIdentity(item?.name)===normalizeIdentity(input.name));
     if(duplicateInvoiceItem)return fail("Este item da NF-e já parece ter sido cadastrado como patrimônio.");
     let record={
