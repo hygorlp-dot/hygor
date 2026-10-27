@@ -29,6 +29,8 @@ jobs:
       CMAKE_BUILD_PARALLEL_LEVEL: "2"
       EXPO_NO_TELEMETRY: "1"
       NODE_ENV: production
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
       - uses: actions/checkout@v4
@@ -46,8 +48,6 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
-
       - name: Instalar dependências da raiz
         run: npm ci --ignore-scripts
 
@@ -57,8 +57,9 @@ jobs:
 
       - name: Instalar SDK/NDK Android homologados
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "ndk;27.0.12077973" "cmake;3.22.1"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "ndk;27.0.12077973" "cmake;3.22.1"
 
       - name: Baixar e conferir FaceNet-512
         working-directory: apps/ponto-obra
