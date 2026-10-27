@@ -164,6 +164,13 @@ export async function sincronizarCadastro({ armazem, api, monotonico, corpo = {}
   if (!r.ok) return { ok: false, erro: r.error || `HTTP ${r.status}`, codigo: r.code || null, semRede: r.status === 0, status: r.status };
   const ambiente = conferirAmbiente(ambienteApp, r.ambiente);
   if (!ambiente.ok) return { ok: false, erro: ambiente.mensagem, codigo: "AMBIENTE_INCOMPATIVEL", status: 409 };
+  const modeloPedido=String(corpo?.modeloFacial||"").trim();
+  if(modeloPedido&&String(r.modeloFacial||"").trim()!==modeloPedido){
+    return {
+      ok:false,status:409,codigo:"MODELO_FACIAL_NAO_CONFIRMADO",
+      erro:"O servidor ainda não confirmou o motor facial deste aparelho. O terminal foi pareado, mas o ponto facial permanece bloqueado até a atualização segura do servidor.",
+    };
+  }
   // Referência só com leitura monotônica válida e sem reboot no meio.
   if (envio.bootId === resposta.bootId && Number.isFinite(envio.ms) && Number.isFinite(resposta.ms)) {
     await armazem.salvarReferenciaHora(novaReferencia({
@@ -197,6 +204,7 @@ export async function rodadaDeSincronizacao({ armazem, api, monotonico, corpo, c
     if (ambienteRecusado(s.codigo)) return { ...resumo, ambienteIncompativel: true, erro: s.erro, status: s.status };
     if (s.codigo === "APARELHO_REVOGADO") return { ...resumo, online: true, revogado: true, erro: s.erro };
     if (s.codigo === "APARELHO_DESCONHECIDO" || s.codigo === "APARELHO_SEM_TOKEN") return { ...resumo, online: true, desconhecido: true, erro: s.erro };
+    if (s.codigo === "MODELO_FACIAL_NAO_CONFIRMADO") return { ...resumo, online: true, erro: s.erro, status: s.status, modeloFacialNaoConfirmado:true };
     if (!s.ok) { resumo.online = !s.semRede; resumo.erro = s.erro; resumo.status = s.status; }
     resumo.cadastroAtualizado = s.ok;
     resumo.cadeiaDivergente = !!s.cadeiaDivergente;
