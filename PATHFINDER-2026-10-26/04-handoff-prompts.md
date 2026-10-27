@@ -1,5 +1,7 @@
 # Fase 4 · Prompts de implementação (um por correção)
 
+> **Estado em 27/10/2026:** todas as correções C1–C10 e as decisões D-A a D-G já foram implementadas (ver `03-unified-proposal.md`, seção 7). Os prompts abaixo ficam como registro do que foi pedido.
+
 Cada prompt é autocontido para uma sessão nova. Regras comuns (do `CLAUDE.md`): branch nova a partir de `origin/main`; teste novo que falhe sem a correção; `npm run lint`, `npm run architecture:check`, `npm run typecheck`, `npm test`, `npx vite build` verdes antes do PR; só somar campos (nada de apagar informação); alteração que afete DRE roda o agente `dre-integration-guardian` e sobe `DRE_PROJECTION_VERSION`; em português.
 
 ## C1 · Status inicial da solicitação (S1)
