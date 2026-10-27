@@ -9,6 +9,7 @@ const fail=reason=>({ok:false,reason});
 
 export const PATRIMONY_COMMAND=Object.freeze({
   ASSET_SAVED:"PATRIMONIO_EMPRESA_SALVO",
+  ASSETS_IMPORTED:"PATRIMONIO_EMPRESA_IMPORTADO_NF",
   ASSET_MOVED:"PATRIMONIO_EMPRESA_MOVIMENTADO",
   ASSET_STATUS_CHANGED:"PATRIMONIO_EMPRESA_STATUS_ALTERADO",
 });
@@ -109,6 +110,28 @@ export const applyPatrimonyCommand=(data={},command={},now=new Date().toISOStrin
   if(!PATRIMONY_COMMAND_TYPES.has(command?.type))return null;
   const assets=list(data,"companyAssets");
   const payload=command.payload||{};
+
+  if(command.type===PATRIMONY_COMMAND.ASSETS_IMPORTED){
+    const rawAssets=Array.isArray(payload.assets)?payload.assets:[];
+    if(!rawAssets.length||rawAssets.length>500)return fail("A importação precisa conter entre 1 e 500 bens patrimoniais.");
+    let next=data;
+    const ids=[];
+    for(let index=0;index<rawAssets.length;index+=1){
+      const raw=rawAssets[index];
+      const subKey=`${command.idempotencyKey||"asset-import"}-${index+1}`;
+      const result=applyPatrimonyCommand(next,{
+        ...command,
+        type:PATRIMONY_COMMAND.ASSET_SAVED,
+        expectedVersion:0,
+        idempotencyKey:subKey,
+        payload:{asset:raw},
+      },now);
+      if(!result?.ok)return fail(`Item ${index+1}: ${result?.reason||"bem patrimonial inválido"}`);
+      next=result.data;
+      ids.push(result.entityId);
+    }
+    return {ok:true,data:next,entityId:`patrimony-import:${text(payload.invoiceAccessKey||command.idempotencyKey,120)}`,summary:{created:ids.length,assetIds:ids}};
+  }
 
   if(command.type===PATRIMONY_COMMAND.ASSET_SAVED){
     const input=normalizeCompanyAsset(payload.asset||{});
