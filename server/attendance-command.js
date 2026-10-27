@@ -20,6 +20,7 @@ export const ATTENDANCE_COMMAND = Object.freeze({
 });
 
 const WRITE_ROLES=new Set(["admin","rh","engenheiro"]);
+const BANK_DECISION_ROLES=new Set(["admin","rh"]);
 const UNLOCK_REQUEST_ROLES=new Set(["admin","rh","engenheiro"]);
 const OPERATION_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ISO_DATE=/^\d{4}-\d{2}-\d{2}$/;
@@ -153,6 +154,11 @@ const validatePatch=({data,user,patch,now})=>{
   if(!unlocked.ok)return unlocked;
   const normalized=normalizeSubmittedRecord({input:patch.record,current:currentRecord,obraId});
   if(!normalized.ok)return normalized;
+  const previousBank=Math.round(Number(normalizeAttendanceRecord(currentRecord)?.bankMinutes||0));
+  const nextBank=Math.round(Number(normalized.record?.bankMinutes||0));
+  const bankChanged=nextBank!==previousBank;
+  if(bankChanged&&!BANK_DECISION_ROLES.has(String(user?.role||"")))return fail("Somente RH ou administrador pode decidir lançamentos no banco de horas.",403);
+  if(bankChanged&&nextBank!==0&&String(normalized.record?.bankReason||"").trim().length<10)return fail("Informe o motivo do lançamento no banco de horas com ao menos 10 caracteres.");
   if(normalized.record?.bankMinutes){
     const effectiveEmployee=effectiveEmployeeOnDate(employee,date)||employee;
     if(effectiveEmployee.timeBankEnabled!==true)return fail("O banco de horas está desativado para este funcionário.",409);
