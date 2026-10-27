@@ -204,7 +204,9 @@ export function situacaoDosFuncionarios(cadastro) {
         id: f.id, nome: f.nome, funcao: f.funcao || "",
         rosto: temRosto ? { tom: "sucesso", icone: "ok", texto: "Rosto cadastrado" } : { tom: "neutro", icone: "offline", texto: "Sem rosto" },
         // Lotação é só informação (pode bater em qualquer obra).
-        lotacao: outraObra ? "Lotado em outra obra" : "",
+        lotacao: f.lotacaoObraNome
+          ? `Lotação: ${f.lotacaoObraNome}`
+          : (outraObra ? "Lotado em outra obra" : ""),
       };
     })
     .sort((a, b) => Number(a.rosto.icone === "ok") - Number(b.rosto.icone === "ok") || a.nome.localeCompare(b.nome, "pt-BR"));
