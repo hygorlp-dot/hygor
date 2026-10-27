@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { possiveisDuplicidades, textoAvisoDuplicidade } from "./duplicidade.js";
 
 const saida = (extra = {}) => ({ id: "t1", valor: -800, data: "2026-10-10", descricao: "PIX CIMENTOS SILVA LTDA", status: "pendente", ...extra });
@@ -46,5 +47,15 @@ describe("aviso de duplicidade ao apropriar o extrato (D-E)", () => {
     expect(texto).toContain("NF 10");
     expect(texto).toContain("Cimentos Silva");
     expect(texto.trim().endsWith("Apropriar mesmo assim?")).toBe(true);
+  });
+
+  it("a tela pergunta antes de enviar CONFIRM_ALLOCATION e respeita o cancelamento", () => {
+    const tela = readFileSync(`${process.cwd()}/src/features/conciliacao/ConciliacaoView.jsx`, "utf8");
+    const confirmar = tela.slice(tela.indexOf("const confirmarApropriacao"), tela.indexOf("// Estornos também passam pelo servidor"));
+    const aviso = confirmar.indexOf("possiveisDuplicidades(data,apropModal,rs)");
+    const envio = confirmar.indexOf('type:"CONFIRM_ALLOCATION"');
+    expect(aviso).toBeGreaterThan(-1);
+    expect(aviso).toBeLessThan(envio);
+    expect(confirmar).toMatch(/window\.confirm\(textoAvisoDuplicidade\(duplicidades\)\)\)return false;/);
   });
 });
