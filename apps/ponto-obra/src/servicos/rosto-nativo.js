@@ -22,6 +22,8 @@ const MODELOS = {
   identidade: { modulo: require("../../assets/modelos/facenet_512.tflite"), sha256: "f0dede2fdf5fd10248aad1d85393d2d40e3494464440bd8fccb2c957baa430b7" },
 };
 
+export const MODELO_FACIAL_ATIVO = FACENET512.modelo;
+
 const hex = buffer => Array.from(new Uint8Array(buffer), b => b.toString(16).padStart(2, "0")).join("");
 
 // No APK de produção o require() vira um recurso interno
@@ -39,7 +41,7 @@ async function carregarConferido({ modulo, sha256 }) {
 
 export async function carregarModelos() {
   const [detector, identidade] = await Promise.all([carregarConferido(MODELOS.detector), carregarConferido(MODELOS.identidade)]);
-  return { detector, identidade, modelo: FACENET512.modelo };
+  return { detector, identidade, modelo: MODELO_FACIAL_ATIVO };
 }
 
 const base64ParaBuffer = b64 => {
