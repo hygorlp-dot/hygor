@@ -207,6 +207,26 @@ describe("cancelamento de solicitação de compra (soft-delete)",()=>{
       expect(more.data.solicitacoesCompra.find(item=>item.id==="sol-2").aprovacaoInstanciaId).not.toBe(first);
     });
 
+    it("cancelar a solicitação encerra a aprovação que estava pendente (C10)",()=>{
+      const created=applyPurchaseRequestCommand(withPeople(),{...command(priced(10)),actorId:"cmp-1"});
+      expect(created.data.instanciasAprovacao[0].status).toBe("em_andamento");
+      const cancelled=applyPurchaseRequestCommand(created.data,cancelCommand({
+        payload:{requestId:"sol-2",reason:"Duplicada"},expectedVersion:1}));
+      expect(cancelled.ok).toBe(true);
+      expect(cancelled.data.instanciasAprovacao).toHaveLength(1);
+      expect(cancelled.data.instanciasAprovacao[0]).toMatchObject({
+        status:"cancelada",motivoCancelamento:"Duplicada",canceladaPorId:"user-1"});
+      expect(cancelled.data.instanciasAprovacao[0].concluidoEm).toBeTruthy();
+    });
+
+    it("cancelar não mexe em aprovação já concluída",()=>{
+      const data=withPeople();
+      data.solicitacoesCompra[0]={...data.solicitacoesCompra[0],aprovacaoInstanciaId:"apr-ok"};
+      data.instanciasAprovacao=[{id:"apr-ok",status:"aprovada",concluidoEm:"2026-08-01T00:00:00.000Z"}];
+      const cancelled=applyPurchaseRequestCommand(data,cancelCommand());
+      expect(cancelled.data.instanciasAprovacao[0]).toMatchObject({status:"aprovada"});
+    });
+
     it("política própria da empresa substitui a padrão",()=>{
       const data={...withPeople(),politicasAprovacao:[{id:"pol-1",nome:"Sem etapas",ativa:true,
         entidadeTipo:"solicitacaoCompra",versao:1,condicoes:[],etapas:[]}]};

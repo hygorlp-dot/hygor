@@ -113,7 +113,13 @@ export const createApprovalEngine = (resolvedores = {}) => {
         return;
       }
       const admins = (resolvedores.administrador?.(null, contexto, data)) || [];
-      resultados[i] = { ...resultados[i], status: "em_andamento", aprovadoresElegiveis: admins, iniciadaEm: agora, vencimentoEm: calcularVencimento(agora, etapa.prazoValor, etapa.prazoUnidade), semAprovadorEncontrado: true };
+      // O fallback para administradores também respeita a autoaprovação da
+      // política. Só quando o solicitante é o único administrador a lista
+      // original é mantida (e destacada), para a etapa não ficar sem ninguém.
+      const regra = aplicarRegraAutoaprovacao(admins, politica.autoaprovacao, contexto);
+      const aprovadoresFallback = regra.elegiveis.length > 0 ? regra.elegiveis : admins;
+      const destacada = regra.elegiveis.length > 0 ? regra.autoaprovacaoDestacada : admins.some(u => u.id === contexto?.solicitanteId);
+      resultados[i] = { ...resultados[i], status: "em_andamento", aprovadoresElegiveis: aprovadoresFallback, iniciadaEm: agora, vencimentoEm: calcularVencimento(agora, etapa.prazoValor, etapa.prazoUnidade), semAprovadorEncontrado: true, autoaprovacaoDestacada: destacada };
       algumaAtiva = true;
     });
     return { resultadosEtapas: resultados, algumaAtiva, auditoria };
