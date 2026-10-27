@@ -3,6 +3,7 @@ import {Badge,Btn,C,Ic,Inp,Modal,PageHero,Sel,uid} from "../../../LegacyApp";
 import {extrairNotaPatrimonioIA,obterDocumentoPatrimonio,subirDocumentoPatrimonio} from "../../../api";
 import {fornecedorPorDocumento,lerXmlNfe} from "../../compras/nfe-xml";
 import {OPERATIONAL_COMMAND} from "../../sync/operational-commands";
+import {useBreakpoint} from "../../../hooks/useBreakpoint";
 
 const CATEGORIAS=["Informática","Telefonia","Ferramentas","Máquinas","Móveis","Eletroeletrônicos","Veículos","Segurança","Outros"];
 const STATUS=[{v:"ativo",l:"Ativo"},{v:"em_uso",l:"Em uso"},{v:"manutencao",l:"Manutenção"},{v:"extraviado",l:"Extraviado"},{v:"baixado",l:"Baixado"}];
@@ -27,12 +28,12 @@ const vazio=()=>({id:uid(),assetTag:tag(),name:"",category:"Outros",description:
 function AssetForm({asset,setAsset,onSave,onClose,busy}){
   const F=k=>v=>setAsset(s=>({...s,[k]:v}));
   return <Modal title={asset.version?"Editar patrimônio":"Novo patrimônio"} onClose={onClose}><div style={{display:"grid",gap:9}}>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label="Código patrimonial" value={asset.assetTag||""} onChange={F("assetTag")}/><Sel label="Categoria" value={asset.category||"Outros"} onChange={F("category")} options={CATEGORIAS.map(v=>({v,l:v}))}/></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:8}}><Inp label="Código patrimonial" value={asset.assetTag||""} onChange={F("assetTag")}/><Sel label="Categoria" value={asset.category||"Outros"} onChange={F("category")} options={CATEGORIAS.map(v=>({v,l:v}))}/></div>
     <Inp label="Bem *" value={asset.name||""} onChange={F("name")} placeholder="Ex.: Notebook Dell Latitude"/>
     <Inp label="Descrição" value={asset.description||""} onChange={F("description")}/>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label="Fabricante" value={asset.manufacturer||""} onChange={F("manufacturer")}/><Inp label="Modelo" value={asset.model||""} onChange={F("model")}/></div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}><Inp label="Nº de série" value={asset.serialNumber||""} onChange={F("serialNumber")}/><Inp label="IMEI" value={asset.imei||""} onChange={F("imei")}/><Inp label="Placa" value={asset.plate||""} onChange={F("plate")}/></div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label="Valor de aquisição" type="number" value={asset.acquisitionValue||0} onChange={F("acquisitionValue")}/><Inp label="Data de aquisição" type="date" value={asset.acquisitionDate||""} onChange={F("acquisitionDate")}/></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:8}}><Inp label="Fabricante" value={asset.manufacturer||""} onChange={F("manufacturer")}/><Inp label="Modelo" value={asset.model||""} onChange={F("model")}/></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8}}><Inp label="Nº de série" value={asset.serialNumber||""} onChange={F("serialNumber")}/><Inp label="IMEI" value={asset.imei||""} onChange={F("imei")}/><Inp label="Placa" value={asset.plate||""} onChange={F("plate")}/></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:8}}><Inp label="Valor de aquisição" type="number" value={asset.acquisitionValue||0} onChange={F("acquisitionValue")}/><Inp label="Data de aquisição" type="date" value={asset.acquisitionDate||""} onChange={F("acquisitionDate")}/></div>
     {!asset.version&&<>
       <Sel label="Localização inicial" value={asset.location?.type||"empresa"} onChange={v=>setAsset(s=>({...s,location:{...(s.location||{}),type:v}}))} options={LOCAIS}/>
       <Inp label="Local inicial" value={asset.location?.label||""} onChange={v=>setAsset(s=>({...s,location:{...(s.location||{}),label:v}}))} placeholder="Sede, almoxarifado ou local atual"/>
@@ -90,12 +91,13 @@ function ImportInvoice({data,dispatchCommand,showToast,onClose}){
     {proposal&&<><div style={card}><b>{"NF "+(proposal.invoice?.numero||"—")}</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{(proposal.invoice?.fornecedorNome||"Fornecedor não identificado")+" · "+money(proposal.invoice?.valorBruto)}{fornecedor?" · fornecedor já cadastrado":""}</p>{proposal.source==="ai"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange}}>Leitura por IA: revise antes de gravar.</p>}</div>
     <div style={{display:"grid",gap:7,maxHeight:"44vh",overflowY:"auto"}}>{(proposal.items||[]).map((i,index)=><div key={index} style={{...card,borderColor:i.patrimonial?C.green:C.border}}>
       <label style={{display:"flex",gap:8}}><input type="checkbox" checked={!!i.patrimonial} onChange={e=>patch(index,{patrimonial:e.target.checked})}/><span><b>{i.descricao||"Item"}</b><small style={{display:"block",color:C.muted}}>{String(i.quantidade||1)+" un. · "+money(i.valorUnitario||i.valorTotal)}</small></span></label>
-      {i.patrimonial&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginTop:8}}><Sel label="Categoria" value={i.categoria||"Outros"} onChange={v=>patch(index,{categoria:v})} options={CATEGORIAS.map(v=>({v,l:v}))}/><Inp label="Qtd. patrimonial" type="number" value={i.quantidade||1} onChange={v=>patch(index,{quantidade:v})}/><Inp label="Marca" value={i.marca||""} onChange={v=>patch(index,{marca:v})}/><Inp label="Modelo" value={i.modelo||""} onChange={v=>patch(index,{modelo:v})}/><Inp label="Série" value={i.numeroSerie||""} onChange={v=>patch(index,{numeroSerie:v})}/><Inp label="IMEI" value={i.imei||""} onChange={v=>patch(index,{imei:v})}/></div>}
+      {i.patrimonial&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:6,marginTop:8}}><Sel label="Categoria" value={i.categoria||"Outros"} onChange={v=>patch(index,{categoria:v})} options={CATEGORIAS.map(v=>({v,l:v}))}/><Inp label="Qtd. patrimonial" type="number" value={i.quantidade||1} onChange={v=>patch(index,{quantidade:v})}/><Inp label="Marca" value={i.marca||""} onChange={v=>patch(index,{marca:v})}/><Inp label="Modelo" value={i.modelo||""} onChange={v=>patch(index,{modelo:v})}/><Inp label="Série" value={i.numeroSerie||""} onChange={v=>patch(index,{numeroSerie:v})}/><Inp label="IMEI" value={i.imei||""} onChange={v=>patch(index,{imei:v})}/></div>}
     </div>)}</div><div style={{display:"flex",justifyContent:"flex-end",gap:8}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={save} disabled={busy}>{busy?"Salvando...":"Cadastrar selecionados"}</Btn></div></>}
   </div></Modal>;
 }
 
 export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
+  const {isMobile}=useBreakpoint();
   const [search,setSearch]=useState(""),[status,setStatus]=useState("ativos"),[editor,setEditor]=useState(null),[importing,setImporting]=useState(false),[busy,setBusy]=useState(false);
   const [move,setMove]=useState(null),[statusEdit,setStatusEdit]=useState(null),[history,setHistory]=useState(null);
   const assets=Array.isArray(data?.companyAssets)?data.companyAssets:[];
@@ -108,7 +110,7 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
     <PageHero eyebrow="Administração" title="Patrimônio da empresa" description="Bens corporativos da empresa, com nota fiscal, identificação física, localização atual e histórico." stats={[{label:"Bens ativos",value:String(active.length),color:C.green},{label:"Valor de aquisição",value:money(total)},{label:"Com nota/documento",value:String(docs)+"/"+String(active.length),color:docs===active.length?C.green:C.orange}]} actions={<div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setImporting(true)}><Ic n="receipt"/> Importar NF</Btn><Btn onClick={()=>setEditor(vazio())}><Ic n="plus"/> Novo bem</Btn></div>}/>
     <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}><div style={{flex:"1 1 280px"}}><Inp label="Buscar" value={search} onChange={setSearch} placeholder="Código, bem, série, IMEI, NF ou fornecedor"/></div><div style={{width:180}}><Sel label="Situação" value={status} onChange={setStatus} options={[{v:"ativos",l:"Ativos"},{v:"todos",l:"Todos"}].concat(STATUS)}/></div></div>
     <section style={card}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:8}}>O bem pertence à empresa. Uma obra pode aparecer apenas como localização temporária.</p>
-      {!filtered.length?<p style={{padding:20,textAlign:"center",color:C.muted}}>Nenhum patrimônio encontrado.</p>:filtered.map(a=><div key={a.id} style={{display:"grid",gridTemplateColumns:"minmax(220px,1.5fr) minmax(120px,.7fr) minmax(120px,.7fr) auto",gap:10,alignItems:"center",padding:"10px 0",borderTop:"1px solid "+C.line}}>
+      {!filtered.length?<p style={{padding:20,textAlign:"center",color:C.muted}}>Nenhum patrimônio encontrado.</p>:filtered.map(a=><div key={a.id} style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(220px,1.5fr) minmax(120px,.7fr) minmax(120px,.7fr) auto",gap:10,alignItems:"center",padding:"10px 0",borderTop:"1px solid "+C.line}}>
         <div><b>{a.name}</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{a.assetTag||"Sem código"}{a.serialNumber?" · Série "+a.serialNumber:""}{a.imei?" · IMEI "+a.imei:""}</p></div>
         <div><Badge color={a.status==="baixado"?C.muted:a.status==="extraviado"?C.red:a.status==="manutencao"?C.orange:C.green}>{STATUS.find(s=>s.v===a.status)?.l||a.status}</Badge></div>
         <div><p style={{fontSize:"var(--arcd-type-label)"}}>{a.location?.label||"Sede"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{a.invoice?.number?"NF "+a.invoice.number:"Sem NF"}</p></div>
