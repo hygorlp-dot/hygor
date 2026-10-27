@@ -3,6 +3,7 @@ import {active as activeFinancialRecord} from "../financeiro/ledger.js";
 import {attendanceImportIssues} from '../ponto/clt-attendance.js';
 import {attendancePayModeDecision,latestClosedPayrollDate} from './attendance-pay-mode.js';
 import {REMUNERATION_VALUE_FIELDS,remunerationValues} from './remuneration-values.js';
+import {PUNCH_MODE,validateBreakSchedule} from '../ponto/attendance-policy.js';
 import {prepareEmploymentRelationship} from './employment-relationship.js';
 import {MANUAL_DAILY_CLT_METHOD} from '../ponto/clt-payslip.js';
 import {reviewMonthlyPayslip} from '../ponto/clt-review.js';
@@ -122,6 +123,12 @@ const employeeChangeLog = ({ data, before, employee, actorName, now }) => {
   }
   if((before.remunerationMode||"daily")!==employee.remunerationMode||Number(before.monthlySalary||0)!==Number(employee.monthlySalary||0))appendChange(events,{...common,type:"remuneration_change",message:`Modalidade/salário contratual de ${employee.name} alterado. Vigência: ${employee.remunerationEffectiveFrom||employee.startDate}.`,from:before.remunerationMode||"daily",to:employee.remunerationMode});
   if((before.employmentRelationship||'')!==employee.employmentRelationship)appendChange(events,{...common,type:'employment_relationship_change',message:`Vínculo contratual de ${employee.name} definido ou alterado. Vigência: ${employee.employmentRelationshipEffectiveFrom}.`,from:before.employmentRelationship||'',to:employee.employmentRelationship,reason:employee.employmentRelationshipReason});
+  if((before.attendancePunchMode||PUNCH_MODE.WITH_BREAK)!==employee.attendancePunchMode||String(before.workBreakStart||"12:00")!==employee.workBreakStart||String(before.workBreakEnd||"13:00")!==employee.workBreakEnd){
+    appendChange(events,{...common,type:"attendance_policy_change",message:`Política de marcação de ${employee.name} alterada para ${employee.attendancePunchMode===PUNCH_MODE.ENTRY_EXIT?"entrada/saída com intervalo pré-assinalado":"quatro batidas com intervalo registrado"}.`});
+  }
+  if((before.timeBankEnabled===true)!==employee.timeBankEnabled){
+    appendChange(events,{...common,type:"time_bank_policy_change",message:`Banco de horas de ${employee.name}: ${employee.timeBankEnabled?"ativado":"desativado"}.`});
+  }
   return events;
 };
 
@@ -209,6 +216,12 @@ export const applyEmployeeCommand = (
   if (!Number.isFinite(workdayHours) || workdayHours < 1 || workdayHours > 24) {
     return fail("A jornada padrão precisa estar entre 1 e 24 horas.");
   }
+  const attendancePunchMode=raw.attendancePunchMode===PUNCH_MODE.ENTRY_EXIT?PUNCH_MODE.ENTRY_EXIT:PUNCH_MODE.WITH_BREAK;
+  const workBreakStart=String(raw.workBreakStart||"12:00");
+  const workBreakEnd=String(raw.workBreakEnd||"13:00");
+  const breakSchedule=validateBreakSchedule({attendancePunchMode,workBreakStart,workBreakEnd});
+  if(!breakSchedule.ok)return fail(breakSchedule.error);
+  const timeBankEnabled=raw.timeBankEnabled===true;
   const actorId = String(command.actorId || "");
   const actorName = String(command.actorName || "").trim() || "Usuário autenticado";
   if (!actorId) return fail("Sessão do usuário indisponível para salvar o funcionário.");
@@ -255,6 +268,10 @@ export const applyEmployeeCommand = (
     vrDaily:Number(raw.vrDaily || 0),
     workdayHours,
     workStart:String(raw.workStart || "07:00"),
+    attendancePunchMode,
+    workBreakStart,
+    workBreakEnd,
+    timeBankEnabled,
     overtimeAdditionalPercent:Number(raw.overtimeAdditionalPercent ?? 50),
     active,
     startDate:String(raw.startDate),
