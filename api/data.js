@@ -111,6 +111,7 @@ const PONTO_KEY = `${KEY}__ponto`;
 const LOOKAHEAD_KEY = `${KEY}__lookahead`;
 const CONFIG_KEY = `${KEY}__config`;
 const EQUIPAMENTOS_KEY = `${KEY}__equipamentos`;
+const PATRIMONIO_KEY = `${KEY}__patrimonio`;
 const RDO_KEY = `${KEY}__rdo`;
 const ORCAMENTOS_KEY = `${KEY}__orcamentos`;
 const SPLIT_ROW_KEYS = Object.freeze({
@@ -118,6 +119,7 @@ const SPLIT_ROW_KEYS = Object.freeze({
   [DOMAIN_ROW.LOOKAHEAD]: LOOKAHEAD_KEY,
   [DOMAIN_ROW.CONFIG]: CONFIG_KEY,
   [DOMAIN_ROW.EQUIPAMENTOS]: EQUIPAMENTOS_KEY,
+  [DOMAIN_ROW.PATRIMONIO]: PATRIMONIO_KEY,
   [DOMAIN_ROW.RDO]: RDO_KEY,
   [DOMAIN_ROW.ORCAMENTOS]: ORCAMENTOS_KEY,
 });
@@ -271,6 +273,9 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED]:["admin"],
   [OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED]:["admin"],
   [OPERATIONAL_COMMAND.EQUIPMENT_SAVED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
+  [OPERATIONAL_COMMAND.PATRIMONIO_EMPRESA_SALVO]:["admin","financeiro","compras"],
+  [OPERATIONAL_COMMAND.PATRIMONIO_EMPRESA_MOVIMENTADO]:["admin","financeiro","compras"],
+  [OPERATIONAL_COMMAND.PATRIMONIO_EMPRESA_STATUS_ALTERADO]:["admin","financeiro","compras"],
   [OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
   [OPERATIONAL_COMMAND.EQUIPMENT_OWNER_SAVED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
   // Papéis dos comandos de locação: fonte única compartilhada com a Central de locações.
