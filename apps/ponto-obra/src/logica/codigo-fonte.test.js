@@ -60,6 +60,20 @@ describe("código-fonte do app", () => {
     expect(guia).toMatch(/NSR fiscal\*\* é atribuído \*\*só pela ARP/);
   });
 
+  it("piloto autônomo deixa o Android dormir e só mantém câmera durante a tentativa", () => {
+    const tela = ler("src/telas/TelaPonto.js");
+    const app = ler("App.js");
+    expect(tela).not.toMatch(/useKeepAwake/);
+    expect(tela).toMatch(/AppState\.addEventListener\("change"/);
+    expect(tela).toMatch(/const cameraLigada = terminalAtivo/);
+    expect(tela).toMatch(/onCameraReady=\{aoCameraPronta\}/);
+    expect(tela).toMatch(/CAMERA_ESPERA_MAX_MS = 15_000/);
+    expect(tela).not.toMatch(/titulo=.*Bater ponto/);
+    expect(app).toMatch(/SINCRONIZAR_A_CADA_MS = 5 \* 60_000/);
+    expect(app).toMatch(/estadoApp === "active"/);
+    expect(app).toMatch(/timeInterval: 5 \* 60_000, distanceInterval: 25/);
+  });
+
   it("configuração Android: sem backup do banco, SQLCipher ligado, sem sobreposição de tela", () => {
     const app = JSON.parse(ler("app.json")).expo;
     expect(app.android.allowBackup).toBe(false);
