@@ -12,7 +12,7 @@ function saidaComRosto(i, { score = 4, cx = 0, cy = 0, w = 40, h = 40, olhos = [
   caixas.set([cx, cy, w, h, olhos[0][0], olhos[0][1], olhos[1][0], olhos[1][1], nariz[0], nariz[1], 0, 14, -20, 0, 20, 0], b);
   return { scores, caixas };
 }
-const unitario = (n, desvio = 0) => normalizarL2(Array.from({ length: 192 }, (_, i) => Math.sin(i * (n + 1)) + desvio * Math.cos(i)));
+const unitario = (n, desvio = 0) => normalizarL2(Array.from({ length: 512 }, (_, i) => Math.sin(i * (n + 1)) + desvio * Math.cos(i)));
 
 describe("BlazeFace", () => {
   it("gera as 896 âncoras do modelo front (16x16x2 + 8x8x6)", () => {
@@ -72,7 +72,7 @@ describe("identificação 1:N", () => {
   it("reconhece a pessoa certa com variação pequena da foto", () => {
     const r = identificar(unitario(2, 0.15), cadastros);
     expect(r).toMatchObject({ reconhecido: true, employeeId: "e2" });
-    expect(r.confianca).toBeGreaterThan(0.6);
+    expect(r.confianca).toBeGreaterThan(0.65);
   });
 
   it("rosto desconhecido não vira batida de ninguém", () => {
