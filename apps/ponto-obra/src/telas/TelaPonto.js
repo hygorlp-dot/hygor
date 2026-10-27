@@ -43,7 +43,12 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
   }, [estadoCamera, pedirPermissao]);
 
   // Obra recém-pareada: sem rosto cadastrado, "Bater ponto" só falharia.
-  const { semRostos, temResponsavel } = resumoCadastro(cadastro);
+  const resumo = resumoCadastro(cadastro);
+  const biometriasCompativeis = modelos
+    ? (cadastro?.biometrias || []).filter(b => b?.modelo === modelos.modelo && Array.isArray(b?.vetor)).length
+    : null;
+  const semRostos = biometriasCompativeis === null ? resumo.semRostos : biometriasCompativeis === 0;
+  const temResponsavel = resumo.temResponsavel;
   const fuso = fusoDoCadastro(cadastro);
 
   const fase = (f, nome = "") => setFluxo({ etapa: "analisando", fase: f, nome });
@@ -157,7 +162,7 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
       {topo}
       <Painel tom="info" titulo="Cadastre os rostos da equipe">
         <Corpo secundario centro>{temResponsavel
-          ? "Nenhum funcionário tem rosto cadastrado ainda. O encarregado entra com o PIN e cadastra cada um."
+          ? (biometriasCompativeis === 0 && (cadastro?.biometrias || []).length ? "A biometria deste aparelho usa outro motor. Recadastre os rostos uma vez nesta versão." : "Nenhum funcionário tem rosto cadastrado ainda. O encarregado entra com o PIN e cadastra cada um.")
           : "Primeiro cadastre o PIN do encarregado no MARCELL: Ponto eletrônico (app) → Responsáveis com PIN do app. Depois toque abaixo e em \"Buscar no MARCELL\"."}</Corpo>
       </Painel>
       <Botao titulo="Cadastrar rostos" onPress={abrirEncarregado} rotuloAcessivel="Cadastrar rostos, abre o modo Encarregado" />
