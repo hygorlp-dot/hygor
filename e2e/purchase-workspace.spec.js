@@ -362,3 +362,43 @@ test("cabeçalho compacto mostra a primeira linha da fila em 1000 px e o menu n�
   await expect(page.locator("#compras-area-atual h3")).toHaveText(/^Pagamentos/);
   expect(app.errors).toEqual([]);
 });
+
+test("pedidos mostram uma ação principal, destrutivas no menu ⋯ e filtros por situação, atraso e obra",async({page})=>{
+  const app=await enter(page,{prepare:state=>{state.fornecedores[0].telefone="81999990000";}});
+  await navigate(page,"Pedidos");
+  const cartoes=page.locator(".purchase-order-actions");
+  await expect(cartoes).toHaveCount(3);
+  for(const cartao of await cartoes.all())await expect(cartao.locator("[data-principal]")).toHaveCount(1);
+
+  const enviado=page.locator('.purchase-order-actions[data-pedido="PC-001"]');
+  await expect(enviado.locator("[data-principal]")).toHaveText("Enviar ao fornecedor");
+  await expect(enviado.locator('[data-acao="receber"]')).toBeVisible();
+  // Destrutivas fora da linha de ações comuns, dentro do menu.
+  await expect(enviado.getByRole("button",{name:"Cancelar pedido"})).toBeHidden();
+  await enviado.getByLabel("Mais ações do pedido PC-001").click();
+  const menu=enviado.getByRole("menu");
+  await expect(menu.getByRole("menuitem",{name:"Cancelar pedido"})).toBeVisible();
+  await expect(menu.getByRole("menuitem",{name:"Excluir definitivamente"})).toBeVisible();
+  await expect(menu.getByRole("menuitem",{name:"Enviar ao fornecedor"})).toHaveCount(0);
+  await enviado.getByLabel("Mais ações do pedido PC-001").click();
+
+  await expect(page.locator('.purchase-order-actions[data-pedido="PC-002"] [data-principal]')).toHaveText("Editar pedido");
+  await expect(page.locator('.purchase-order-actions[data-pedido="PC-003"] [data-principal]')).toHaveText("Cobrar entrega");
+
+  const filtros=page.getByRole("group",{name:"Filtros de pedidos"});
+  await filtros.getByLabel("Situação").selectOption("rascunho");
+  await expect(cartoes).toHaveCount(1);
+  await expect(cartoes.first()).toHaveAttribute("data-pedido","PC-002");
+  await filtros.getByLabel("Situação").selectOption("");
+  await filtros.getByLabel("Entrega").selectOption("atrasados");
+  await expect(cartoes).toHaveCount(1);
+  await expect(cartoes.first()).toHaveAttribute("data-pedido","PC-003");
+  await filtros.getByLabel("Entrega").selectOption("");
+  await filtros.getByLabel("Obra").selectOption("a");
+  await filtros.getByLabel("Fornecedor").selectOption("norte");
+  await expect(cartoes).toHaveCount(1);
+  await expect(filtros.getByRole("status")).toContainText("1 de 3 pedido(s)");
+  await filtros.getByRole("button",{name:"Limpar filtros"}).click();
+  await expect(cartoes).toHaveCount(3);
+  expect(app.errors).toEqual([]);
+});

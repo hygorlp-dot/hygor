@@ -50,6 +50,7 @@ import { alertasOrcamentoDoPedido, segmentosBarraOrcamento } from "../budget-tra
 import { contratosDisponiveis, saldoItemContrato } from "../supply-contracts";
 import ContratosFornecimentoView from "./ContratosFornecimentoView";
 import { atrasoDoItem } from "../delivery-schedule";
+import { acoesDoPedido, FILTROS_PEDIDO_VAZIOS, filtrarPedidos, filtrosPedidoAtivos, ROTULO_ACAO_PEDIDO } from "../order-card";
 import { avaliacoesFornecedores, explicacaoNotaFornecedor, textoNotaFornecedor } from "../supplier-rating";
 import {
   avaliarEscolhasCotacao, cotacaoMultiItens, decisoesDaCotacao, escolhaPrecisaJustificativa,
@@ -772,6 +773,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const [aba,     setAba]     = useState(["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":currentUser?.role==="financeiro"?"financeiro":"fila");
   const [obraSel, setObraSel] = useState(obraIdFixo||currentUser?.obraId||savedScope?.obraId||"");
   const [busca,   setBusca]   = useState("");
+  const [filtrosPedido, setFiltrosPedido] = useState(FILTROS_PEDIDO_VAZIOS);
 
   const [pedModal,  setPedModal]  = useState(null);
   const [recModal,  setRecModal]  = useState(null);   // recebimento
@@ -894,6 +896,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         obras.find(o=>o.id===p.obraId)?.name,(p.itens||[]).map(i=>[nomeMat(i.materialId),i.descricaoRef,i.codigoRef])))
       .sort((a,b) => (b.data||"").localeCompare(a.data||""));
   }, [data.pedidos, obraIdsMapa, busca, nomeForn, nomeMat, obras]);
+
+  const pedidosFiltrados = useMemo(() => filtrarPedidos(pedidos, filtrosPedido, atrasoDe), [pedidos, filtrosPedido, atrasoDe]);
+  const fornecedoresDosPedidos = useMemo(() => [...new Set(pedidos.map(p => p.fornecedorId).filter(Boolean))]
+    .map(id => ({value:id,label:nomeForn(id)})).sort((a,b) => a.label.localeCompare(b.label)), [pedidos, nomeForn]);
 
   const resumoOperacional = useMemo(() => {
     const todos=(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)&&p.status!=="cancelado");
@@ -2345,9 +2351,25 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           <Ic n="plus"/> Novo pedido
         </Btn>
 
+        {pedidos.length > 0 && (
+          <div className="purchase-order-filters" role="group" aria-label="Filtros de pedidos">
+            <Select label="Situação" value={filtrosPedido.status} onChange={event=>setFiltrosPedido(f=>({...f,status:event.target.value}))}
+              options={[{value:"",label:"Todas"},...Object.entries(STATUS_PEDIDO).map(([value,meta])=>({value,label:meta.l}))]}/>
+            <Select label="Fornecedor" value={filtrosPedido.fornecedorId} onChange={event=>setFiltrosPedido(f=>({...f,fornecedorId:event.target.value}))}
+              options={[{value:"",label:"Todos"},...fornecedoresDosPedidos]}/>
+            <Select label="Entrega" value={filtrosPedido.atraso} onChange={event=>setFiltrosPedido(f=>({...f,atraso:event.target.value}))}
+              options={[{value:"",label:"Todas"},{value:"atrasados",label:"Só atrasadas"}]}/>
+            {todasObras&&<Select label="Obra" value={filtrosPedido.obraId} onChange={event=>setFiltrosPedido(f=>({...f,obraId:event.target.value}))}
+              options={[{value:"",label:"Todas"},...obras.filter(o=>obraIdsMapa.includes(o.id)).map(o=>({value:o.id,label:o.name}))]}/>}
+            <p role="status" aria-live="polite">{pedidosFiltrados.length} de {pedidos.length} pedido(s)
+              {filtrosPedidoAtivos(filtrosPedido)>0&&<Btn size="sm" v="ghost" onClick={()=>setFiltrosPedido(FILTROS_PEDIDO_VAZIOS)}>Limpar filtros</Btn>}</p>
+          </div>
+        )}
         {pedidos.length === 0
           ? <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20}}>Nenhum pedido nesta obra.</p>
-          : pedidos.map(p => {
+          : pedidosFiltrados.length === 0
+          ? <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20}}>Nenhum pedido com esses filtros.</p>
+          : pedidosFiltrados.map(p => {
             const st = statusPedido(p);
             const meta = STATUS_PEDIDO[st];
             const pend = pendentePedido(p);
@@ -2415,60 +2437,59 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 	                </div>
 	                {p.analiseIA&&<div style={{marginTop:7,padding:"7px 9px",background:`${C.purple}08`,border:`1px solid ${C.purple}2F`,borderRadius:7,display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.purple,fontWeight:600}}><Ic n="brain" s={11}/> Sugestão da IA revisada por {p.analiseIA.revisadoPor||"operador"} · confiança {Number(p.analiseIA.confianca||0)}%</span><span>{(p.documentos||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginLeft:8}}>{a.nome} ↗</a>)}</span></div>}
 
-	                <div style={{display:"flex",gap:6,marginTop:9,flexWrap:"wrap"}}>
-                  {(st === "enviado" || st === "parcial") && <Btn size="sm" onClick={()=>setRecModal(p)} full><Ic n="check"/> Receber material</Btn>}
-                  {podeEnviarPedido&&(st === "enviado" || st === "parcial") && <Btn size="sm" v="ghost" onClick={()=>setEnvioPedido(p)}>Enviar ao fornecedor</Btn>}
-                  {podeEnviarPedido&&(st === "enviado" || st === "parcial") && !p.aceiteFornecedor?.nome && <Btn size="sm" v="ghost" onClick={()=>setAceitePedido({pedido:p,nome:"",data:today(),canal:"whatsapp",previsao:p.previsao||"",obs:""})}>Registrar aceite</Btn>}
-                  {(st === "enviado" || st === "parcial") && !pedidoLiberadoParaReceber(p) && (
-                    <Btn size="sm" v="ghost" onClick={()=>{setAba("financeiro");setFiltroFinanceiro("pendentes");}} full>
-                      Saldo em aberto · {fmt(saldoPagamentoPedido(p))}
-                    </Btn>
-                  )}
-                  {st !== "cancelado" && st !== "recebido" && (
-                    <Btn size="sm" v="ghost" onClick={()=>setPedModal({
-                      ...p, itens: p.itens.map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))
-                    })}><Ic n="edit"/> Editar pedido</Btn>
-                  )}
-                  {st !== "cancelado" && st !== "recebido" && (
-                    <Btn size="sm" v="danger" disabled={cancelandoCompra} onClick={()=>cancelarPedido(p)}><Ic n="trash"/> Cancelar pedido</Btn>
-                  )}
-                  {podeExcluirCompra&&(
-                    <Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir definitivamente</Btn>
-                  )}
-                  {atrasoDe[p.id]&&(()=>{
-                    const forn=fornecedorPorId.get(p.fornecedorId);
-                    if(!forn?.telefone)return null;
+	                {(()=>{
+                  // R4: uma ação principal pela situação; raras e destrutivas no menu "⋯".
+                  const forn=fornecedorPorId.get(p.fornecedorId);
+                  const acoes=acoesDoPedido(st,{
+                    enviadoAoFornecedor:(p.envios||[]).length>0,aceito:Boolean(p.aceiteFornecedor?.nome),
+                    liberadoParaReceber:pedidoLiberadoParaReceber(p),atrasado:Boolean(atrasoDe[p.id]),
+                    temTelefone:Boolean(forn?.telefone),podeEnviar:podeEnviarPedido,podeExcluir:podeExcluirCompra,
+                  });
+                  const linkWhats=tipo=>{
                     const obra=obraPorId.get(p.obraId);
-                    const texto=mensagemWhatsAppCobranca({
-                      empresa:"MARCELL",fornecedorNome:forn.nome,obraNome:obra?.name||"",
-                      numero:p.numero,previsao:fmtDate(p.previsao),
-                      diasAtraso:atrasoDe[p.id].diasAtraso,itens:atrasoDe[p.id].itensPendentes,
-                    });
-                    return <a href={linkWhatsApp(forn.telefone,texto)} target="_blank" rel="noreferrer" style={{textDecoration:"none"}}>
-                      <Btn size="sm" v="danger">Cobrar entrega</Btn>
-                    </a>;
-                  })()}
-                  {st !== "cancelado" && st !== "recebido" && (() => {
-                    const forn = fornecedorPorId.get(p.fornecedorId);
-                    if (!forn?.telefone) return null;
-                    const obra = obraPorId.get(p.obraId);
-                    const itensMsg = (p.itens||[]).map(i => {
-                      const mat = materialPorId.get(i.materialId);
-                      return { descricao: mat?.descricao || "Material", qtd: i.qtd, unidade: mat?.unidade || "" };
-                    });
-                    const texto = mensagemWhatsAppCompra({
-                      empresa: "MARCELL", fornecedorNome: forn.nome,
-                      obraNome: obra?.name || "", prazo: p.previsao ? fmtDate(p.previsao) : "",
-                      itens: itensMsg,
-                    });
-                    return (
-                      <a href={linkWhatsApp(forn.telefone, texto)} target="_blank" rel="noreferrer"
-                         style={{ textDecoration: "none" }}>
-                        <Btn size="sm" v="ghost">WhatsApp</Btn>
-                      </a>
-                    );
-                  })()}
-                </div>
+                    const texto=tipo==="cobrar"
+                      ?mensagemWhatsAppCobranca({empresa:"MARCELL",fornecedorNome:forn.nome,obraNome:obra?.name||"",
+                        numero:p.numero,previsao:fmtDate(p.previsao),diasAtraso:atrasoDe[p.id].diasAtraso,itens:atrasoDe[p.id].itensPendentes})
+                      :mensagemWhatsAppCompra({empresa:"MARCELL",fornecedorNome:forn.nome,obraNome:obra?.name||"",
+                        prazo:p.previsao?fmtDate(p.previsao):"",
+                        itens:(p.itens||[]).map(i=>{const mat=materialPorId.get(i.materialId);return {descricao:mat?.descricao||"Material",qtd:i.qtd,unidade:mat?.unidade||""};})});
+                    return linkWhatsApp(forn.telefone,texto);
+                  };
+                  const executar=id=>{
+                    if(id==="receber")setRecModal(p);
+                    else if(id==="enviar"||id==="reenviar")setEnvioPedido(p);
+                    else if(id==="registrar_aceite")setAceitePedido({pedido:p,nome:"",data:today(),canal:"whatsapp",previsao:p.previsao||"",obs:""});
+                    else if(id==="editar")setPedModal({...p,itens:p.itens.map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))});
+                    else if(id==="saldo"){setAba("financeiro");setFiltroFinanceiro("pendentes");}
+                    else if(id==="cancelar")cancelarPedido(p);
+                    else if(id==="excluir")abrirExclusaoCompra(p);
+                  };
+                  const rotulo=id=>id==="saldo"?`${ROTULO_ACAO_PEDIDO.saldo} · ${fmt(saldoPagamentoPedido(p))}`:ROTULO_ACAO_PEDIDO[id];
+                  const botao=(id,variante)=>["cobrar","whatsapp"].includes(id)
+                    ?<a key={id} href={linkWhats(id)} target="_blank" rel="noreferrer" style={{textDecoration:"none"}} data-acao={id} data-principal={variante==="primary"||undefined}><Btn size="sm" v={variante}>{rotulo(id)}</Btn></a>
+                    :<Btn key={id} size="sm" v={variante} data-acao={id} data-principal={variante==="primary"||undefined} onClick={()=>executar(id)}>{rotulo(id)}</Btn>;
+                  const itemMenu=(id,perigo)=>["cobrar","whatsapp"].includes(id)
+                    ?<a key={id} role="menuitem" href={linkWhats(id)} target="_blank" rel="noreferrer">{rotulo(id)}</a>
+                    :<button key={id} type="button" role="menuitem" data-perigo={perigo||undefined} disabled={id==="cancelar"&&cancelandoCompra}
+                        onClick={event=>{event.currentTarget.closest("details")?.removeAttribute("open");executar(id);}}>{rotulo(id)}</button>;
+                  if(!acoes.principal&&!acoes.comuns.length&&!acoes.menu.length&&!acoes.destrutivas.length)return null;
+                  return (
+                    <div className="purchase-order-actions" data-pedido={p.numero}>
+                      {acoes.principal&&botao(acoes.principal,"primary")}
+                      {acoes.comuns.map(id=>botao(id,"ghost"))}
+                      {(acoes.menu.length>0||acoes.destrutivas.length>0)&&(
+                        <details className="purchase-order-menu">
+                          <summary aria-label={`Mais ações do pedido ${p.numero}`}>⋯</summary>
+                          <div role="menu">
+                            {acoes.menu.map(id=>itemMenu(id,false))}
+                            {acoes.menu.length>0&&acoes.destrutivas.length>0&&<hr/>}
+                            {acoes.destrutivas.map(id=>itemMenu(id,true))}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
