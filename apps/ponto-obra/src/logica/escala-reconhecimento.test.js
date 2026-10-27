@@ -10,14 +10,14 @@
 // só se mede em campo (relatorio-calibracao.js).
 import { describe, expect, it } from "vitest";
 import { identificar, normalizarL2 } from "./rosto.js";
-import { MOBILEFACENET } from "./rosto.js";
+import { FACENET512 } from "./rosto.js";
 
 // Gerador determinístico (os números do relatório não variam entre execuções).
 function gerador(semente) {
   let x = semente >>> 0;
   return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 2 ** 32 - 0.5; };
 }
-const base = (n, aleatorio) => Array.from({ length: n }, (_, i) => ({ employeeId: `e${i}`, vetor: normalizarL2(Array.from({ length: MOBILEFACENET.dimensao }, aleatorio)) }));
+const base = (n, aleatorio) => Array.from({ length: n }, (_, i) => ({ employeeId: `e${i}`, vetor: normalizarL2(Array.from({ length: FACENET512.dimensao }, aleatorio)) }));
 
 describe("escala do reconhecimento 1:N com a base global", () => {
   it("50 / 100 / 250 / 500 funcionários: tempo por identificação e tamanho da base no aparelho", () => {
