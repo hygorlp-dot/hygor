@@ -108,6 +108,20 @@ it("FaceNet-512 também é global entre obras no piloto", async () => {
   expect(identificar(vetor512(3,0.08),cad.biometrias)).toMatchObject({reconhecido:true,employeeId:"e1"});
 });
 
+it("piloto FaceNet bloqueia a ativação enquanto o servidor não confirma o motor", async () => {
+  const apiSemConfirmacao=async(action,corpo)=>{
+    const r=await A.api(action,corpo);
+    if(action!=="ponto-sincronizar"||!r.ok)return r;
+    const {modeloFacial:_omitido,...rest}=r;
+    return rest;
+  };
+  const resultado=await sincronizarCadastro({
+    armazem:A.armazem,api:apiSemConfirmacao,monotonico:A.monotonico,
+    corpo:{modeloFacial:FACENET512.modelo},
+  });
+  expect(resultado).toMatchObject({ok:false,status:409,codigo:"MODELO_FACIAL_NAO_CONFIRMADO"});
+});
+
 describe("João muda de obra no mesmo dia", () => {
   async function diaDoJoao() {
     s.relogioServidor = Date.parse("2026-10-01T10:00:00.000Z");             // 07:00 em Recife
