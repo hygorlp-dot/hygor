@@ -49,3 +49,6 @@ dist-ci/
 
 # Saída do release-check/scorecard (vai como artifact na CI)
 quality-out/
+
+# modelo externo baixado com SHA fixo pelo build
+assets/modelos/facenet_512.tflite
