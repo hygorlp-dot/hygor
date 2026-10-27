@@ -55,10 +55,9 @@ export const suggestedTimeBankMinutes=({employee,status="P",workedMinutes=0,paid
 
 export const validateBreakSchedule=({attendancePunchMode,workBreakStart,workBreakEnd}={})=>{
   const mode=normalizePunchMode(attendancePunchMode);
-  if(mode!==PUNCH_MODE.ENTRY_EXIT)return {ok:true};
   const start=clockMinutes(workBreakStart),end=clockMinutes(workBreakEnd);
-  if(start==null||end==null)return {ok:false,error:"Informe o início e o retorno do intervalo pré-assinalado."};
+  if(start==null||end==null)return {ok:false,error:"Informe o início e o retorno previstos do intervalo."};
   if(end<=start)return {ok:false,error:"O retorno do intervalo precisa ser posterior ao início."};
-  if(end-start<15||end-start>180)return {ok:false,error:"O intervalo pré-assinalado precisa ter entre 15 minutos e 3 horas."};
-  return {ok:true,minutes:end-start};
+  if(end-start<15||end-start>180)return {ok:false,error:"O intervalo previsto precisa ter entre 15 minutos e 3 horas."};
+  return {ok:true,mode,minutes:end-start};
 };
