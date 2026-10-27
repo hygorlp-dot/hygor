@@ -8,7 +8,7 @@ export const timeBankAttendanceEntries=(data,employeeId)=>{
   return Object.entries(days).flatMap(([date,value])=>{
     const record=normalizeAttendanceRecord(value);
     const minutes=Math.round(Number(record?.bankMinutes||0));
-    if(!record?.status||!minutes)return [];
+    if(!["P","M"].includes(record?.status)||!minutes)return [];
     return [{
       id:`attendance:${employeeId}:${date}`,
       employeeId:String(employeeId),
