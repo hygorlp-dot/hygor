@@ -8,6 +8,7 @@ import { Badge, Btn, C, Ic, Inp, Modal, PageHero, Sel } from "../../../LegacyApp
 import { funcionariosAtivos, funcionariosDaObra } from "../funcionarios.js";
 import { ROTULO_SITUACAO, dataLocal, horaLocal, intervaloDoDia, resumoDoDia, situacaoAparelho } from "../painel.js";
 import {receivedDayQueue} from '../tratamento.js';
+import {formatTimeBankMinutes,timeBankBalanceMinutes} from '../../ponto/time-bank.js';
 import ReceivedPointReview from './ReceivedPointReview.jsx';
 import '../../ponto/components/clt-payslips.css';
 import './received-point.css';
@@ -46,6 +47,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser, onTa
   const podeFiscal = ["admin", "rh"].includes(currentUser?.role);
 
   const funcionarios = useMemo(() => funcionariosDaObra(data?.employees, obraId), [data?.employees, obraId]);
+  const bankEmployees=useMemo(()=>(data?.employees||[]).filter(employee=>employee?.active!==false&&String(employee.obra||"")===String(obraId)&&employee.timeBankEnabled===true),[data?.employees,obraId]);
   const nomeFuncionario = useMemo(() => new Map((data?.employees || []).map(e => [String(e.id), e.name])), [data?.employees]);
   const nomeUsuario = useMemo(() => new Map((data?.usuarios || []).map(u => [String(u.id), u.nome || u.email])), [data?.usuarios]);
   const nomeObra = useMemo(() => new Map(obras.map(o => [String(o.id), o.name])), [obras]);
@@ -170,6 +172,16 @@ export default function PontoEletronicoView({ data, showToast, currentUser, onTa
         <p style={{fontSize:'var(--arcd-type-body)',color:C.muted}}>Recebido pelo sistema não significa dia conferido, fechamento aprovado ou pagamento confirmado. Registros ainda no celular não aparecem aqui e não são considerados faltas.</p>
         {!fila.length?<p>Nenhuma marcação recebida nesta obra e dia. Confira a sincronização do aparelho antes de tratar ausências.</p>:<div className="received-point-table"><table><caption>Conferência das marcações recebidas</caption><thead><tr><th>Funcionário</th><th>Conferência necessária</th><th>Ação</th></tr></thead><tbody>{fila.map(row=><tr key={row.employeeId}><td data-label="Funcionário">{row.nome}<small>{row.batidas.length} marcação(ões) recebida(s)</small></td><td data-label="Conferência necessária">{row.reasons.map(reason=><small key={reason}>{reason}</small>)}</td><td data-label="Ação"><Btn v="secondary" disabled={carregando||!!erro} onClick={()=>setConferencia({employeeId:row.employeeId,name:row.nome,day:dia})}>{row.needsReview?'Resolver pendência de':'Ver conferência de'} {row.nome}</Btn></td></tr>)}</tbody></table></div>}
         {onTab&&<Btn v="ghost" onClick={()=>onTab('ponto_geral')}>Abrir Gestão do ponto</Btn>}
+      </section>
+
+      <section style={card} aria-labelledby="pe-banco-horas">
+        <h3 id="pe-banco-horas" style={tituloCard}><Ic n="clock" /> Banco de horas</h3>
+        <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>O saldo nasce apenas de dias conferidos pelo RH. Horas extras pagas não são creditadas novamente no banco. Débitos e créditos mantêm a referência do dia de ponto que os originou.</p>
+        {!bankEmployees.length
+          ?<p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>Nenhum funcionário desta obra está com banco de horas ativo. O RH ativa a política no cadastro do funcionário.</p>
+          :<div className="received-point-table"><table><caption>Saldos do banco de horas da equipe</caption><thead><tr><th>Funcionário</th><th>Política de marcação</th><th>Saldo atual</th></tr></thead><tbody>
+            {bankEmployees.map(employee=>{const balance=timeBankBalanceMinutes(data,employee.id);return <tr key={employee.id}><td data-label="Funcionário">{employee.name}</td><td data-label="Política de marcação">{employee.attendancePunchMode==="entry_exit"?"Entrada e saída · almoço pré-assinalado":"4 batidas · intervalo registrado"}</td><td data-label="Saldo atual"><strong style={{color:balance<0?C.orange:balance>0?C.green:C.text}}>{formatTimeBankMinutes(balance)}</strong></td></tr>;})}
+          </tbody></table></div>}
       </section>
 
       {!estabDaObra && <div role="status" style={{ ...card, borderColor: C.orange, fontSize: "var(--arcd-type-body)" }}>
