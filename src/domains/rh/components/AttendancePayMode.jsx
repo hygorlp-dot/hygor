@@ -61,6 +61,15 @@ export function AttendancePayMode({data,currentUser,dispatchCommand,showToast,on
         {bankEmployee&&<><div className="clt-grid"><div><small>Saldo atual</small><p><strong>{formatTimeBankMinutes(bankBalance)}</strong></p></div><div><small>Política de marcação</small><p>{bankEmployee.attendancePunchMode==='entry_exit'?'Entrada e saída · intervalo pré-assinalado':'4 batidas · intervalo registrado'}</p></div></div>
           {!bankEntries.length?<p>Sem movimentos no banco.</p>:<div style={{overflowX:'auto'}}><table><caption>Extrato do banco de horas</caption><thead><tr><th>Data</th><th>Movimento</th><th>Origem</th><th>Motivo</th></tr></thead><tbody>{bankEntries.map(item=><tr key={item.id}><td>{String(item.date||'').split('-').reverse().join('/')}</td><td><strong>{formatTimeBankMinutes(item.minutes)}</strong></td><td>{item.source==='attendance'?'Ponto conferido':'Compensação / ajuste'}</td><td>{item.reason||'—'}</td></tr>)}</tbody></table></div>}
           <p>Crédito/débito do dia é decidido na conferência das batidas. Compensações avulsas ficam registradas separadamente e nunca criam presença ou alteram o REP-P.</p>
+          <fieldset disabled={bankSaving}><legend>Compensação / ajuste manual</legend>
+            <div className="clt-grid">
+              <Inp label="Data de referência" type="date" value={bankAction.date} onChange={v=>{setBankAction(a=>({...a,date:v}));bankOperationId.current='';}}/>
+              <Inp label="Minutos (+ crédito / − compensação)" type="number" value={bankAction.minutes} onChange={v=>{setBankAction(a=>({...a,minutes:v}));bankOperationId.current='';}}/>
+            </div>
+            <Inp label="Motivo obrigatório" value={bankAction.reason} onChange={v=>{setBankAction(a=>({...a,reason:v}));bankOperationId.current='';}}/>
+            <p role="status">{bankStatus}</p>
+            <Btn disabled={!bankAction.date||!bankAction.minutes||bankAction.reason.trim().length<10} onClick={saveBankAdjustment}>{bankSaving?'Salvando…':'Registrar movimento no banco'}</Btn>
+          </fieldset>
           {onTab&&<Btn v="secondary" onClick={()=>{setBankOpen(false);onTab('ponto');}}>Abrir ponto eletrônico para conferir batidas</Btn>}
         </>}
       </>}
