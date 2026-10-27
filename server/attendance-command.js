@@ -2,6 +2,7 @@ import { normalizeAttendanceRecord } from "../src/domains/ponto/records.js";
 import {mobileAttendanceImportReview} from "../src/domains/ponto-eletronico/tratamento.js";
 import {expectedWorkedMinutes} from "../src/domains/ponto/attendance-policy.js";
 import {effectiveEmployeeOnDate} from "../src/domains/rh/remuneration-values.js";
+import {timeBankBalanceMinutes} from "../src/domains/ponto/time-bank.js";
 import {payrollProtectedPeriod} from '../src/domains/rh/payroll-protected-period.js';
 import {active as activeFinancialRecord} from '../src/domains/financeiro/ledger.js';
 import {
@@ -12,6 +13,7 @@ export const ATTENDANCE_COMMAND = Object.freeze({
   UPSERT:"attendance-upsert",
   BATCH_UPSERT:"attendance-batch-upsert",
   IMPORT_MOBILE:"attendance-import-mobile",
+  TIME_BANK_ADJUST:"attendance-time-bank-adjust",
   DAILY_CHECK:"attendance-daily-check",
   LOCK:"attendance-lock",
   UNLOCK_REQUEST:"attendance-unlock-request",
@@ -369,11 +371,41 @@ const applyMobileImport=({data,user,command,now,mobileSource})=>{
   return {ok:true,data:next,result,audit:{action:"attendance_import_mobile",before:{attendance:null},after:{attendance:result.attendance,operationId:command.operationId}}};
 };
 
+const applyTimeBankAdjustment=({data,user,command,now})=>{
+  if(!BANK_DECISION_ROLES.has(String(user?.role||"")))return fail("Somente RH ou administrador pode ajustar o banco de horas.",403);
+  const employeeId=String(command.employeeId||"");
+  const employee=findEmployee(data,employeeId);
+  if(!employee)return fail("Funcionário não encontrado.",404);
+  const date=String(command.date||"");
+  if(!validDate(date))return fail("Data de referência do banco de horas inválida.");
+  const effectiveEmployee=effectiveEmployeeOnDate(employee,date)||employee;
+  if(effectiveEmployee.timeBankEnabled!==true)return fail("O banco de horas está desativado para este funcionário.",409);
+  const minutes=Number(command.minutes);
+  if(!Number.isInteger(minutes)||minutes===0||minutes<-10080||minutes>10080)return fail("O ajuste deve informar minutos inteiros entre -168h e +168h, diferentes de zero.");
+  const reason=String(command.reason||"").trim();
+  if(reason.length<10)return fail("Informe o motivo do ajuste do banco de horas com ao menos 10 caracteres.");
+  const entry={
+    id:String(command.operationId),employeeId,date,minutes,
+    type:minutes<0?"compensation":"adjustment",status:"active",
+    reason:reason.slice(0,1000),createdAt:now,
+    createdById:String(user?.id||""),createdBy:String(user?.nome||user?.email||""),
+  };
+  const updated={...data,timeBankAdjustments:[...(data.timeBankAdjustments||[]),entry]};
+  const result={timeBankAdjustment:entry,timeBankBalanceMinutes:timeBankBalanceMinutes(updated,employeeId)};
+  const next=appendReceipt(updated,{operationId:command.operationId,action:command.action,result,user,now});
+  return {ok:true,data:next,result,audit:{
+    action:"attendance_time_bank_adjust",
+    before:{employeeId,balanceMinutes:timeBankBalanceMinutes(data,employeeId)},
+    after:{entry,balanceMinutes:result.timeBankBalanceMinutes,operationId:command.operationId},
+  }};
+};
+
 export const applyAttendanceCommand=(data={},user={},command={},now=new Date().toISOString(),mobileSource=null)=>{
   if(command.action===ATTENDANCE_COMMAND.IMPORT_MOBILE){const writer=ensureWriter(user);if(!writer.ok)return writer;}
   const base=ensureCommandBase({data,user,command});
   if(!base.ok||base.idempotent)return base;
   if(command.action===ATTENDANCE_COMMAND.IMPORT_MOBILE)return applyMobileImport({data,user,command,now,mobileSource});
+  if(command.action===ATTENDANCE_COMMAND.TIME_BANK_ADJUST)return applyTimeBankAdjustment({data,user,command,now});
   if(command.action===ATTENDANCE_COMMAND.UPSERT)return applyUpsert({data,user,command,now});
   if(command.action===ATTENDANCE_COMMAND.BATCH_UPSERT)return applyBatch({data,user,command,now});
   if(command.action===ATTENDANCE_COMMAND.DAILY_CHECK)return applyDailyCheck({data,user,command,now});
