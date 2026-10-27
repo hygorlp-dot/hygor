@@ -125,6 +125,7 @@ import {
 } from "./domains/financeiro/ledger";
 import { createFinancialCalculationEngine } from "./domains/financeiro/calculation-engine";
 import { calculateWorkCash as calcCaixaObra } from "./domains/financeiro/work-cash";
+import { pedidoVivo } from "./domains/compras/purchase-position";
 import { notaSemEfeito, saldoPagamentoNota, statusPagamentoNota, totalPagoNota } from "./domains/financeiro/payables";
 import { createExecutiveSummaryEngine } from "./domains/controladoria/executive-summary";
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
@@ -11668,7 +11669,7 @@ export const calcControleCustosOrcamento = (data, orc) => {
     if(raiz)linha(raiz).solicitado+=valor;else sem.solicitado+=valor;
   }));
   const transacaoPorId=new Map((data.transacoes||[]).map(t=>[t.id,t]));
-  (data.pedidos||[]).filter(p=>p.obraId===orc.obraId&&p.status!=="cancelado").forEach(p=>{
+  (data.pedidos||[]).filter(p=>p.obraId===orc.obraId&&pedidoVivo(p)).forEach(p=>{
     const pago=statusPagamentoPedido(p)==="pago"||(!!p.transacaoId&&transacaoPorId.get(p.transacaoId)?.status==="conciliado");
     (p.itens||[]).forEach(i=>{const raiz=raizVinculo(i),total=Number(i.qtd||0)*Number(i.precoUnit||0),recebido=Number(i.qtdRecebida||0)*Number(i.precoUnit||0);
       if(raiz){const l=linha(raiz);l.comprometido+=total;l.recebido+=recebido;if(pago)l.pago+=total;}else{sem.comprometido+=total;sem.recebido+=recebido;}
@@ -11822,8 +11823,10 @@ const calcCurvaMateriais = (data, hojeIso) => {
 export const calcCompras = (data, obraIds) => {
   const ids = Array.isArray(obraIds) ? obraIds : [obraIds];
   const peds = (data.pedidos||[]).filter(p => ids.includes(p.obraId) && p.status !== "cancelado");
-  const comprado = peds.reduce((s,p) => s + totalPedido(p), 0);
-  const recebido = peds.reduce((s,p) => s + recebidoPedido(p), 0);
+  // Rascunho ainda não é compra: fora do comprado, do recebido e do pago.
+  const vivos = peds.filter(pedidoVivo);
+  const comprado = vivos.reduce((s,p) => s + totalPedido(p), 0);
+  const recebido = vivos.reduce((s,p) => s + recebidoPedido(p), 0);
   const pagamentos=peds.flatMap(p=>(p.pagamentos||[]));
   const clienteDireto = pagamentos.filter(pg=>pg.origem==="cliente_direto").reduce((s,pg)=>s+Number(pg.valor||0),0);
   const caixaObra = pagamentos.filter(pg=>pg.origem==="caixa_obra").reduce((s,pg)=>s+Number(pg.valor||0),0);
@@ -11833,7 +11836,7 @@ export const calcCompras = (data, obraIds) => {
     .filter(m => ids.includes(m.obraId) && m.tipo === "consumo")
     .reduce((s,m) => s + Number(m.qtd||0) * Number(m.valorUnit||0), 0);
 
-  const pago=peds.reduce((s,p)=>s+Math.min(totalPedido(p),totalPagoPedido(p)),0);
+  const pago=vivos.reduce((s,p)=>s+Math.min(totalPedido(p),totalPagoPedido(p)),0);
   const naoConciliado=pagamentos.filter(pg=>!pg.conciliado).reduce((s,pg)=>s+Number(pg.valor||0),0);
 
   return {

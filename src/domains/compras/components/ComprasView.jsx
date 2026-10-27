@@ -2018,8 +2018,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
         <section style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:7}}>
           {[
-            ["Comprometido",fmt(mapaCompras.totalComprometido),"Pedidos emitidos",C.text],
-            ["Pago",fmt(mapaCompras.totalPago),`${mapaCompras.totalComprometido?Math.round(mapaCompras.totalPago/mapaCompras.totalComprometido*100):0}% do compromisso`,C.blue],
+            ["Comprometido",fmt(mapaCompras.totalComprometido),`A faturar ${fmt(mapaCompras.totalAFaturar)}`,C.text],
+            ["Pago",fmt(mapaCompras.totalPago),`${mapaCompras.totalComprometido?Math.min(100,Math.round(mapaCompras.totalPago/mapaCompras.totalComprometido*100)):0}% do compromisso`,C.blue],
             ["Recebido físico",fmt(mapaCompras.totalRecebido),`${mapaCompras.totalComprometido?Math.round(mapaCompras.totalRecebido/mapaCompras.totalComprometido*100):0}% entregue`,C.green],
             ["A pagar",fmt(mapaCompras.totalPendente),`${mapaCompras.fila.pagamentos} pedido(s)`,mapaCompras.totalPendente?C.red:C.green],
             ["Economia registrada",fmt(mapaCompras.economia),"Decisões de cotação",C.green],

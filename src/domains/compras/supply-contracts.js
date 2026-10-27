@@ -1,8 +1,10 @@
 // Contratos de fornecimento (C2.4): preço acordado por insumo, fornecedor e
 // período, com quantidade contratada. Pedido feito pelo contrato dispensa
 // cotação e consome o saldo. O saldo nunca é gravado: é sempre o contratado
-// menos o que os pedidos vivos (não cancelados) já pediram por aquele item
-// do contrato. Cancelar o pedido devolve o saldo sem passo extra.
+// menos o que os pedidos vivos (enviados; rascunho e cancelado não contam) já
+// pediram por aquele item do contrato. Cancelar o pedido devolve o saldo sem
+// passo extra, e o rascunho só consome o saldo quando é enviado.
+import { pedidoVivo } from "./purchase-position.js";
 import { hasValidUnitConversion, purchaseUnitOf } from "./unit-conversion.js";
 
 export const SUPPLY_CONTRACT_COMMAND=Object.freeze({
@@ -17,7 +19,6 @@ const DATA=/^\d{4}-\d{2}-\d{2}$/;
 const fail=reason=>({ok:false,reason});
 const versionOf=item=>Number(item?.version||0);
 const actorOf=command=>({id:String(command.actorId||""),nome:String(command.actorName||"").trim()||"Usuário autenticado"});
-const pedidoVivo=pedido=>pedido&&pedido.status!=="cancelado"&&pedido.deletedAt==null&&pedido.ativo!==false;
 
 export const contratoPorId=(data,id)=>(data?.contratosFornecimento||[]).find(item=>String(item.id)===String(id||""));
 

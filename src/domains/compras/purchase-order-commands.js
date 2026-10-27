@@ -165,7 +165,10 @@ const normalizeOrder=(data,raw,current,{newMaterials=[],siblingQuoteId=""}={})=>
   if(!candidate.numero)return {error:"Informe o número do pedido."};
   // C2.4: item pelo contrato de fornecimento respeita fornecedor, vigência,
   // preço acordado e saldo.
-  const contrato=validarItensDeContrato(data,candidate,current);
+  // Rascunho não consome saldo de contrato; ao virar enviado o pedido passa a
+  // consumir, então todos os itens são conferidos de novo contra o saldo atual.
+  const virouEnviado=current?.status==="rascunho"&&candidate.status==="enviado";
+  const contrato=validarItensDeContrato(data,candidate,virouEnviado?null:current);
   if(contrato)return {error:contrato};
   if((data.pedidos||[]).some(item=>
     String(item.id)!==id&&active(item)
