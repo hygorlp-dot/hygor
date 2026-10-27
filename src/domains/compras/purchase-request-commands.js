@@ -141,7 +141,14 @@ const cancelRequest=(data,command,now)=>{
     updatedById:String(command.actorId||""),
     canceladoEm:now,canceladoPor:actorName,canceladoPorId:String(command.actorId||""),
     motivoCancelamento:reason};
-  const next={...data,solicitacoesCompra:(data.solicitacoesCompra||[])
+  // A aprovação pendente da solicitação cancelada sai da fila de quem aprova.
+  // A instância é mantida (com motivo e data) para a auditoria.
+  const approvalId=String(current.aprovacaoInstanciaId||"");
+  const instanciasAprovacao=(data.instanciasAprovacao||[]).map(item=>
+    approvalId&&String(item.id)===approvalId&&item.status==="em_andamento"
+      ?{...item,status:"cancelada",concluidoEm:now,canceladaPorId:String(command.actorId||""),
+        motivoCancelamento:reason||"Solicitação cancelada"}:item);
+  const next={...data,instanciasAprovacao,solicitacoesCompra:(data.solicitacoesCompra||[])
     .map(item=>String(item.id)===id?saved:item)};
   return {ok:true,entityId:id,data:next};
 };

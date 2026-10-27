@@ -157,6 +157,28 @@ describe("cenário 8 - grupo sem nenhum usuário ativo", () => {
     expect(instancia.resultadosEtapas[0].aprovadoresElegiveis[0].id).toBe("admin1");
   });
 
+  test("fallback para administrador não devolve a aprovação ao próprio solicitante (C10)", () => {
+    const engine = createApprovalEngine(criarResolvedoresTeste({ grupos: { vazio: [] }, administrador: [{ id: "admin1", nome: "Admin" }, { id: "admin2", nome: "Outro" }] }));
+    const data = dataBase({
+      politicasAprovacao: [{ id: "p1", ativa: true, prioridade: 1, entidadeTipo: "solicitacaoCompra", versao: 1, condicoes: [], etapas: [{ id: "e1", ordem: 1, nome: "Coordenação", tipoAprovador: "grupo", referenciasAprovadores: ["vazio"], modoQuorum: "qualquer" }] }],
+    });
+    const { data: iniciado } = engine.iniciarInstancia(data, { entidadeTipo: "solicitacaoCompra", entidadeId: "s1", contexto: { solicitanteId: "admin1" } });
+    const etapa = iniciado.instanciasAprovacao[0].resultadosEtapas[0];
+    expect(etapa.aprovadoresElegiveis.map(u => u.id)).toEqual(["admin2"]);
+    expect(etapa.autoaprovacaoDestacada).toBe(false);
+  });
+
+  test("solicitante que é o único administrador continua elegível, destacado na instância (C10)", () => {
+    const engine = createApprovalEngine(criarResolvedoresTeste({ grupos: { vazio: [] }, administrador: [{ id: "admin1", nome: "Admin" }] }));
+    const data = dataBase({
+      politicasAprovacao: [{ id: "p1", ativa: true, prioridade: 1, entidadeTipo: "solicitacaoCompra", versao: 1, condicoes: [], etapas: [{ id: "e1", ordem: 1, nome: "Coordenação", tipoAprovador: "grupo", referenciasAprovadores: ["vazio"], modoQuorum: "qualquer" }] }],
+    });
+    const { data: iniciado } = engine.iniciarInstancia(data, { entidadeTipo: "solicitacaoCompra", entidadeId: "s1", contexto: { solicitanteId: "admin1" } });
+    const etapa = iniciado.instanciasAprovacao[0].resultadosEtapas[0];
+    expect(etapa.aprovadoresElegiveis.map(u => u.id)).toEqual(["admin1"]);
+    expect(etapa.autoaprovacaoDestacada).toBe(true);
+  });
+
   test("grupo vazio com semAprovadorAcao pular_etapa avança para a etapa seguinte", () => {
     const engine = createApprovalEngine(criarResolvedoresTeste({ grupos: { vazio: [] } }));
     const data = dataBase({
