@@ -328,7 +328,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
       payload: { movementId: id, reason: String(motivo).trim() },
     });
     if(!result?.ok){showToast(result?.reason||"Não foi possível estornar o movimento.","error");return;}
-    showToast("Movimento estornado e preservado para auditoria. O saldo foi recalculado.");
+    showToast("Movimento estornado e preservado para auditoria. O saldo foi recalculado; se a entrada veio de um pedido, o recebimento dele foi reaberto.");
   };
 
   //  Composição

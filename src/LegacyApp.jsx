@@ -2414,7 +2414,7 @@ const normalizeData = incoming => {
       pagamentos:Array.isArray(x.pagamentos)?x.pagamentos.map(pg=>({
         ...pg,
         id:pg.id||uid(),data:pg.data||x.data||"",valor:Number(pg.valor||0),
-        origem:pg.origem==="cliente_direto"?"cliente_direto":pg.origem==="empresa"?"empresa":"caixa_obra",
+        origem:pg.origem==="cliente_direto"?"cliente_direto":(pg.origem==="empresa"||pg.origem==="banco")?"empresa":"caixa_obra",...(pg.viaExtrato===true||pg.origem==="banco"?{viaExtrato:true}:{}),
         conciliado:!!pg.conciliado,transacaoId:pg.transacaoId||"",referencia:pg.referencia||"",observacao:pg.observacao||"",
         comprovantes:Array.isArray(pg.comprovantes)?pg.comprovantes.map(a=>({id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Comprovante de pagamento",url:a.url||"",path:a.path||"",tipo:a.tipo||"",tamanho:Number(a.tamanho||0),enviadoEm:a.enviadoEm||"",enviadoPorId:a.enviadoPorId||"",enviadoPor:a.enviadoPor||""})).filter(a=>a.url):[],
         registradoPorId:pg.registradoPorId||"",registradoPor:pg.registradoPor||"",registradoEm:pg.registradoEm||"",
@@ -12675,6 +12675,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
 
   // Pop-up de chegada de material: qual pedido esta sendo confirmado.
   const [chegadaModal, setChegadaModal] = useState(null);
+  const [chegadaEnviando, setChegadaEnviando] = useState(false);
   // Capa da obra: input escondido + estado de envio.
   const inputCapaRef = useRef(null);
   const inputDocumentoRef = useRef(null);
@@ -12872,6 +12873,8 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   // ENTRADA no estoque (apropriacao automatica), sem abrir o recebimento
   // completo. Aceita tudo de uma vez; ajustes finos ficam para a aba Compras.
   const confirmarChegada = async pedido => {
+    // Um segundo clique durante o envio mandaria outro recebimento do mesmo saldo.
+    if (chegadaEnviando) return;
     if (!dispatchCommand) {
       showToast?.("O recebimento seguro exige conexão com o servidor.","error");
       return;
@@ -12899,20 +12902,26 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       setChegadaModal(null);
       return;
     }
-    const result=await dispatchCommand(atual=>{
-      const vigente=(atual.pedidos||[]).find(item=>item.id===pedido.id);
-      return {
-        type:OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,
-        idempotencyKey:`pedido-chegada-${pedido.id}-${uid()}`,
-        expectedVersion:Number(vigente?.version||0),
-        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{
-          pedidoId:pedido.id,
-          receivedQuantities:Object.fromEntries(entradas.map(item=>[item.pedidoItemId,item.qtdCompra])),
-          stockEntries:entradas,
-        },
-      };
-    });
+    setChegadaEnviando(true);
+    let result;
+    try{
+      result=await dispatchCommand(atual=>{
+        const vigente=(atual.pedidos||[]).find(item=>item.id===pedido.id);
+        return {
+          type:OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,
+          idempotencyKey:`pedido-chegada-${pedido.id}-${uid()}`,
+          expectedVersion:Number(vigente?.version||0),
+          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+          payload:{
+            pedidoId:pedido.id,
+            receivedQuantities:Object.fromEntries(entradas.map(item=>[item.pedidoItemId,item.qtdCompra])),
+            stockEntries:entradas,
+          },
+        };
+      });
+    }finally{
+      setChegadaEnviando(false);
+    }
     if(!result?.ok){
       showToast?.(result?.reason||"O servidor não confirmou a chegada do material.","error");
       return;
@@ -13260,7 +13269,8 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
                   <div key={i.id} style={{display:"flex",justifyContent:"space-between",gap:8,
                        padding:"4px 0",fontSize:"var(--arcd-type-body)"}}>
                     <span style={{color:C.text}}>{mat?.descricao || "Material"}</span>
-                    <span style={{color:C.muted,fontWeight:600}}>{falta} {mat?.unidade || ""}</span>
+                    {/* A quantidade do pedido está na embalagem comprada (ex.: SC), não na unidade do cadastro (ex.: KG). */}
+                    <span style={{color:C.muted,fontWeight:600}}>{falta} {purchaseUnitOf(i) || mat?.unidade || ""}</span>
                   </div>
                 );
               })}
@@ -13269,8 +13279,8 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
               Se chegou so uma parte, use a aba Compras para registrar o recebimento parcial.
             </p>
             <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={() => setChegadaModal(null)} full>Ainda nao</Btn>
-              <Btn onClick={() => confirmarChegada(chegadaModal)} full><Ic n="check"/> Sim, chegou tudo</Btn>
+              <Btn v="ghost" onClick={() => setChegadaModal(null)} disabled={chegadaEnviando} full>Ainda nao</Btn>
+              <Btn onClick={() => confirmarChegada(chegadaModal)} disabled={chegadaEnviando} loading={chegadaEnviando} full><Ic n="check"/> Sim, chegou tudo</Btn>
             </div>
           </div>
         </Modal>
