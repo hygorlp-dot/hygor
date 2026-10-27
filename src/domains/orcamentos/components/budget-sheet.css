@@ -1,8 +1,51 @@
 /* Orçamento como planilha (aba Orçamento de OrcamentoView.jsx).
    Barra única no topo, grade com cabeçalho fixo de colunas, células sem
    moldura (só o foco desenha a célula ativa) e ações num menu por linha.
-   Fontes, cores e bordas vêm dos tokens --arcd-* do tema MARCELL; os
-   fallbacks só valem se o tema não estiver carregado. */
+
+   Sistema tipográfico da planilha — uma família só (Nimbus Sans, do tema
+   MARCELL), dois pesos reais (400 e 600: são os dois arquivos carregados em
+   tokens/typography.css; "500" renderizaria igual ao 400). Números e códigos
+   usam a mesma família com algarismos tabulares, sem trocar de fonte.
+     nível 1 .......... 13px / 600     (nunca menor que o subnível)
+     subnível ......... 12px / 600
+     título (linha) ... 12px / 600
+     item, número ..... 12px / 400
+   A hierarquia vem de peso, fundo e recuo; o tamanho nunca cresce ao descer
+   de nível.
+
+   Papéis de cor das células (cada um tem uma função, nenhum é decoração):
+     editável ......... branco
+     calculado ........ cinza-azulado leve (nº, fonte, total: não se digita)
+     estrutura ........ tons de azul-marinho (nível 1 mais denso que subnível)
+     título ........... areia (rótulo de grupo entre itens)
+     estado ........... âmbar = código não localizado; dourado = preço editado
+   Fontes, cores e bordas vêm dos tokens --arcd-* do tema; os fallbacks só
+   valem se o tema não estiver carregado. */
+
+.budget-sheet {
+  --bs-font: var(--arcd-font-sans, "Nimbus Sans", "Helvetica Neue", Arial, sans-serif);
+  --bs-ink: var(--arcd-text-primary, #0d1b2e);
+  --bs-ink-2: var(--arcd-text-secondary, #536171);
+  --bs-ink-3: var(--arcd-text-muted, #78818b);
+  --bs-line: var(--arcd-border-subtle, #d9dde2);
+  --bs-line-strong: #b8c0c9;
+  --bs-fs-n1: .8125rem;
+  --bs-fs-n2: .75rem;
+  --bs-fs-body: var(--arcd-type-caption, .75rem);
+  --bs-lh: 18px;
+  --bs-pad-y: 4px;
+  --bs-row: 26px;
+  --bs-edit: var(--arcd-surface-card, #fff);
+  --bs-calc: color-mix(in srgb, var(--bs-ink) 4%, #fff);
+  --bs-n1: color-mix(in srgb, var(--bs-ink) 13%, #fff);
+  --bs-n2: color-mix(in srgb, var(--bs-ink) 6%, #fff);
+  --bs-title: var(--arcd-surface-subtle, #f3f0e9);
+  --bs-hover: color-mix(in srgb, var(--bs-ink) 5%, #fff);
+  --bs-pending-ink: var(--arcd-warning-text, #855a24);
+  --bs-pending-bg: color-mix(in srgb, var(--bs-pending-ink) 20%, #fff);
+  --bs-edited-ink: var(--arcd-focus, #7b6030);
+  --bs-edited-bg: color-mix(in srgb, var(--arcd-gold-400, #b9985b) 34%, #fff);
+}
 
 .budget-bar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
@@ -11,14 +54,14 @@
 }
 .budget-bar__name {
   min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: var(--arcd-font-size-md, 1rem); font-weight: 500; color: var(--arcd-text-primary, #0d1b2e);
+  font-size: var(--arcd-font-size-md, 1rem); font-weight: 600; color: var(--arcd-text-primary, #0d1b2e);
 }
 .budget-bar__meta { font-size: var(--arcd-type-caption, .75rem); color: var(--arcd-text-secondary, #536171); font-variant-numeric: tabular-nums; }
 .budget-bar__spacer { flex: 1 1 0; }
 .budget-bar__status { font-size: var(--arcd-type-caption, .75rem); color: var(--arcd-text-secondary, #536171); }
 .budget-badge {
   display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: var(--arcd-radius-sm, .375rem);
-  font-size: var(--arcd-type-caption, .75rem); font-weight: 500; letter-spacing: .02em; white-space: nowrap;
+  font-size: var(--arcd-type-caption, .75rem); font-weight: 600; letter-spacing: .02em; white-space: nowrap;
 }
 
 .budget-tool {
@@ -32,7 +75,7 @@
 .budget-tool:focus-visible, .budget-tab:focus-visible, .budget-more:focus-visible, .budget-stage__fold:focus-visible {
   outline: 2px solid var(--arcd-focus-ring, #7b6030); outline-offset: 1px;
 }
-.budget-tool--primary { border-color: var(--arcd-action-primary, #0d1b2e); background: var(--arcd-action-primary, #0d1b2e); color: var(--arcd-action-primary-text, #fff); font-weight: 500; }
+.budget-tool--primary { border-color: var(--arcd-action-primary, #0d1b2e); background: var(--arcd-action-primary, #0d1b2e); color: var(--arcd-action-primary-text, #fff); font-weight: 600; }
 .budget-tool--primary:hover:not(:disabled) { background: var(--arcd-action-primary-hover, #18304c); }
 .budget-tool[aria-expanded="true"] { background: var(--arcd-action-primary, #0d1b2e); border-color: var(--arcd-action-primary, #0d1b2e); color: var(--arcd-action-primary-text, #fff); }
 
@@ -47,13 +90,12 @@
 }
 .budget-kpi span { font-size: var(--arcd-type-caption, .75rem); color: var(--arcd-text-secondary, #536171); }
 .budget-kpi strong {
-  font: 500 var(--arcd-font-size-sm, .875rem)/1.2 var(--arcd-font-mono, ui-monospace, monospace);
-  font-variant-numeric: tabular-nums; color: var(--arcd-text-primary, #0d1b2e);
+  font: 600 var(--arcd-font-size-sm, .875rem)/1.2 var(--arcd-font-sans, "Nimbus Sans", Arial, sans-serif);
+  font-variant-numeric: tabular-nums lining-nums; color: var(--arcd-text-primary, #0d1b2e);
 }
-.budget-kpi--total strong { font-weight: 700; }
 button.budget-kpi { cursor: pointer; }
 button.budget-kpi:hover { background: var(--arcd-surface-muted, #e8e5df); }
-.budget-kpi__alert { color: var(--arcd-warning-text, #855a24); font-size: var(--arcd-type-caption, .75rem); font-weight: 500; }
+.budget-kpi__alert { color: var(--arcd-warning-text, #855a24); font-size: var(--arcd-type-caption, .75rem); font-weight: 600; }
 
 .budget-tabs {
   display: flex; flex-wrap: wrap; align-items: center; gap: 0 2px; padding-right: 6px;
@@ -65,87 +107,124 @@ button.budget-kpi:hover { background: var(--arcd-surface-muted, #e8e5df); }
   font: 400 var(--arcd-type-control, .8125rem)/1 var(--arcd-font-sans, "Nimbus Sans", Arial, sans-serif); cursor: pointer; white-space: nowrap;
 }
 .budget-tab:hover { color: var(--arcd-text-primary, #0d1b2e); background: var(--arcd-surface-subtle, #f3f0e9); }
-.budget-tab[aria-selected="true"] { color: var(--arcd-text-primary, #0d1b2e); font-weight: 500; border-bottom-color: var(--arcd-gold-400, #b9985b); }
+.budget-tab[aria-selected="true"] { color: var(--arcd-text-primary, #0d1b2e); font-weight: 600; border-bottom-color: var(--arcd-gold-400, #b9985b); }
 .budget-tabs__chips { margin-left: auto; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0; }
 .budget-panel { background: var(--arcd-surface-card, #fff); border: 1px solid var(--arcd-border-subtle, #d9dde2); border-top: 0; padding: 10px 12px; }
 
-.budget-sheet { background: var(--arcd-surface-card, #fff); border: 1px solid var(--arcd-border-subtle, #d9dde2); }
+/* ── Grade ─────────────────────────────────────────────────────────────── */
+.budget-sheet { background: var(--bs-edit); border: 1px solid var(--bs-line); font-family: var(--bs-font); color: var(--bs-ink); }
 .budget-cols {
   border-left: 3px solid transparent;
-  position: sticky; top: 58px; z-index: 5; display: grid; align-items: center; min-height: 24px;
-  padding: 0 10px; background: var(--arcd-surface-subtle, #f3f0e9); border-bottom: 1px solid var(--arcd-border-default, #d9dde2);
-  font-size: var(--arcd-type-caption, .75rem); font-weight: 500; color: var(--arcd-text-secondary, #536171);
+  position: sticky; top: 58px; z-index: 5; display: grid; align-items: center; min-height: 26px;
+  padding: 0 10px; background: var(--bs-n2); border-bottom: 1px solid var(--bs-line-strong);
+  font-size: var(--bs-fs-body); font-weight: 600; color: var(--bs-ink-2);
 }
 .budget-cols > span { padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .budget-cols > .is-num { text-align: right; }
 
+/* Etapas: faixa de estrutura. O tamanho NÃO cresce ao descer de nível. */
 .budget-stage__head {
-  display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 8px;
-  border-top: 1px solid var(--arcd-border-default, #d9dde2);
+  display: flex; align-items: center; gap: 6px; padding: 3px 8px;
+  border-top: 1px solid var(--bs-line-strong); color: var(--bs-ink);
+  font-family: var(--bs-font); font-weight: 600; line-height: var(--bs-lh);
 }
+.budget-stage__head.is-n1 { min-height: 30px; background: var(--bs-n1); font-size: var(--bs-fs-n1); }
+.budget-stage__head.is-n2 { min-height: 26px; background: var(--bs-n2); font-size: var(--bs-fs-n2); }
 .budget-stage__name {
-  min-width: 0; flex: 1; font-size: var(--arcd-type-control, .8125rem); font-weight: 500; color: var(--arcd-text-primary, #0d1b2e);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0; flex: 1; font-size: inherit; font-weight: 600; color: var(--bs-ink);
+  white-space: normal; overflow-wrap: anywhere;
 }
-.budget-stage__meta { font-size: var(--arcd-type-caption, .75rem); font-weight: 400; color: var(--arcd-text-secondary, #536171); margin-left: 8px; }
-.budget-stage__total {
-  font: 500 var(--arcd-type-control, .8125rem) var(--arcd-font-mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; white-space: nowrap;
-}
+.budget-stage__code { margin-right: 6px; font-variant-numeric: tabular-nums lining-nums; }
+.budget-stage__meta { font-size: var(--bs-fs-body); font-weight: 400; color: var(--bs-ink-2); margin-left: 8px; }
+.budget-stage__total { font-size: inherit; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
 .budget-stage__fold {
-  width: 20px; height: 20px; border: 0; background: transparent; color: var(--arcd-text-secondary, #536171); cursor: pointer;
+  width: 20px; height: 20px; border: 0; background: transparent; color: var(--bs-ink-2); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; padding: 0;
 }
-.budget-sheet .budget-drag-handle { padding: 2px 3px; line-height: 0; color: var(--arcd-text-muted, #78818b); }
+.budget-sheet .budget-drag-handle { padding: 2px 3px; line-height: 0; color: var(--bs-ink-3); }
 
+/* Linhas: a altura mínima é a de uma linha de texto; descrição longa quebra e
+   a linha cresce. Tudo se alinha pelo topo, para a primeira linha de cada
+   célula ficar na mesma altura (leitura em faixa, como numa tabela). */
 .budget-line-row {
-  min-height: 26px; border-top: 1px solid var(--arcd-border-subtle, #d9dde2); gap: 0 !important; align-items: stretch !important;
-  padding: 0 10px !important; overflow: visible !important;
+  min-height: var(--bs-row); border-top: 1px solid var(--bs-line); border-left: 3px solid transparent;
+  gap: 0 !important; align-items: stretch !important; padding: 0 10px !important; overflow: visible !important;
+  font-size: var(--bs-fs-body); line-height: var(--bs-lh);
 }
-.budget-line-row:hover { background: var(--arcd-surface-subtle, #f3f0e9); }
-.budget-line-row > * { min-width: 0; border-right: 1px solid var(--arcd-border-subtle, #d9dde2); display: flex; align-items: center; }
-.budget-line-row > div { align-items: stretch; }
+.budget-line-row:hover { background: var(--bs-hover); }
+.budget-line-row.is-pending { border-left-color: var(--bs-pending-ink); }
+.budget-line-row > * { min-width: 0; border-right: 1px solid var(--bs-line); display: flex; align-items: flex-start; }
 .budget-line-row > *:last-child { border-right: 0; }
 .budget-line-row > .budget-search-pop { display: block; border-right: 0; }
 
 /* A regra global de campos (index.css) usa !important em borda e raio e tem
    especificidade alta; a célula da planilha precisa vencê-la para ficar sem
    moldura. A altura mínima de 44px do celular continua valendo. */
-.arcd-main .budget-sheet input.budget-cell:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]) {
-  border: 0 !important; border-radius: 0 !important; background-color: transparent; box-shadow: none;
+.arcd-main .budget-sheet :is(input, textarea).budget-cell:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]) {
+  border: 0 !important; border-radius: 0 !important; box-shadow: none;
+  background-color: var(--bs-cell-bg, transparent);
+  font-family: var(--bs-font); font-size: var(--bs-fs-body) !important; line-height: var(--bs-lh);
+  letter-spacing: var(--arcd-letter-spacing-body, .01rem);
+  padding: var(--bs-pad-y) 6px !important;
 }
 @media (min-width: 768px) {
-  .arcd-main .budget-sheet input.budget-cell:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]) { min-height: 0 !important; height: 100%; }
+  .arcd-main .budget-sheet :is(input, textarea).budget-cell:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]) { min-height: var(--bs-row) !important; }
 }
 .budget-cell {
-  width: 100%; height: 100%; box-sizing: border-box; border: 0; border-radius: 0; background: transparent;
-  color: var(--arcd-text-primary, #0d1b2e); padding: 0 6px; outline: 0; text-overflow: ellipsis;
-  font-family: var(--arcd-font-sans, "Nimbus Sans", Arial, sans-serif);
+  width: 100%; box-sizing: border-box; border: 0; border-radius: 0; background: transparent;
+  color: var(--bs-ink); outline: 0; text-overflow: ellipsis;
 }
-.arcd-main .budget-sheet input.budget-cell:hover { background-color: var(--arcd-surface-muted, #e8e5df); }
-.arcd-main .budget-sheet input.budget-cell:focus {
-  background-color: var(--arcd-surface-card, #fff); outline: 2px solid var(--arcd-focus-ring, #7b6030); outline-offset: -2px;
+textarea.budget-cell { display: block; resize: none; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; }
+.arcd-main .budget-sheet :is(input, textarea).budget-cell:hover { background-color: var(--bs-cell-bg-hover, var(--arcd-surface-muted, #e8e5df)); }
+.arcd-main .budget-sheet :is(input, textarea).budget-cell:focus {
+  background-color: var(--bs-edit); outline: 2px solid var(--arcd-focus-ring, #7b6030); outline-offset: -2px;
   position: relative; z-index: 1;
 }
 .budget-cell[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .budget-cell[type="number"]::-webkit-inner-spin-button, .budget-cell[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.budget-cell.is-num { text-align: right; font-family: var(--arcd-font-mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; }
-.budget-cell.is-code { text-transform: uppercase; font-family: var(--arcd-font-mono, ui-monospace, monospace); }
-.budget-cell::placeholder { color: var(--arcd-text-muted, #78818b); }
+.budget-cell.is-num { text-align: right; font-variant-numeric: tabular-nums lining-nums; }
+.budget-cell.is-code, .budget-cell.is-unit { text-transform: uppercase; font-variant-numeric: tabular-nums lining-nums; }
+.budget-cell.is-inherited { color: var(--bs-ink-3); }
+.budget-cell::placeholder { color: var(--bs-ink-3); }
+
+/* Estados: o texto continua legível sozinho (rótulo, ícone, tooltip); a cor só reforça. */
+.budget-cell.is-pending { --bs-cell-bg: var(--bs-pending-bg); --bs-cell-bg-hover: var(--bs-pending-bg); color: var(--bs-pending-ink); }
+.budget-cell.is-edited { --bs-cell-bg: var(--bs-edited-bg); --bs-cell-bg-hover: var(--bs-edited-bg); color: var(--bs-edited-ink); font-weight: 600; }
+
+/* Células calculadas (não se digita): nº, fonte e total */
 .budget-line-row .budget-plain {
-  padding: 0 6px; font-size: var(--arcd-type-caption, .75rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  padding: var(--bs-pad-y) 6px; font-size: var(--bs-fs-body); line-height: var(--bs-lh);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.budget-line-row .budget-plain.budget-num-item { color: var(--bs-ink-2); background: var(--bs-calc); font-variant-numeric: tabular-nums lining-nums; }
 .budget-line-row .budget-total {
-  align-items: center; justify-content: flex-end; padding: 0 6px;
-  font: 500 var(--arcd-type-caption, .75rem) var(--arcd-font-mono, ui-monospace, monospace);
-  font-variant-numeric: tabular-nums; background: var(--arcd-surface-subtle, #f3f0e9); white-space: nowrap;
+  align-items: flex-start; justify-content: flex-end; padding: var(--bs-pad-y) 6px;
+  font-size: var(--bs-fs-body); font-weight: 400; line-height: var(--bs-lh);
+  font-variant-numeric: tabular-nums lining-nums; background: var(--bs-calc); white-space: nowrap;
 }
+.budget-line-row .budget-total.is-edited { color: var(--bs-edited-ink); font-weight: 600; }
+
+/* Etiqueta da fonte do preço: neutra, mesma forma para todas; só o tom muda */
+.budget-src {
+  display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; border-radius: var(--arcd-radius-sm, .375rem);
+  font-size: var(--bs-fs-body); line-height: 16px; color: var(--bs-ink);
+  background: color-mix(in srgb, var(--bs-ink) 8%, #fff);
+}
+.budget-src--sinapi { background: color-mix(in srgb, var(--arcd-info-text, #355874) 14%, #fff); color: var(--arcd-info-text, #355874); }
+.budget-src--orse { background: var(--bs-edited-bg); color: var(--bs-edited-ink); }
+.budget-src--propria { background: var(--arcd-surface-muted, #e8e5df); color: var(--bs-ink-2); }
+
+/* Linha de título: rótulo de grupo entre itens (areia); quebra como as demais */
 .budget-title-row {
-  display: flex; align-items: stretch; height: 26px; padding: 0 10px;
-  border-top: 1px solid var(--arcd-border-subtle, #d9dde2); background: var(--arcd-surface-muted, #e8e5df);
+  display: flex; align-items: flex-start; min-height: var(--bs-row); padding: 0 10px 0 13px;
+  border-top: 1px solid var(--bs-line); background: var(--bs-title);
 }
-.budget-title-row .budget-cell { font-weight: 500; text-transform: uppercase; letter-spacing: .02em; }
+.budget-title-row .budget-plain { padding: var(--bs-pad-y) 6px; font-size: var(--bs-fs-body); line-height: var(--bs-lh); color: var(--bs-ink-2); font-variant-numeric: tabular-nums lining-nums; }
+.budget-title-row .budget-cell.is-title { font-weight: 600; flex: 1; min-width: 0; }
+.budget-title-row .budget-menu-wrap { align-self: flex-start; padding-top: 2px; }
 
 .budget-menu-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+.budget-line-row .budget-menu-wrap { padding-top: 2px; }
 .budget-more {
   width: 24px; height: 22px; padding: 0; border: 0; border-radius: var(--arcd-radius-sm, .375rem); background: transparent;
   color: var(--arcd-text-secondary, #536171); opacity: .45; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
@@ -171,13 +250,13 @@ button.budget-kpi:hover { background: var(--arcd-surface-muted, #e8e5df); }
 .budget-foot {
   display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px 24px;
   min-height: 32px; padding: 0 14px; border-top: 2px solid var(--arcd-text-primary, #0d1b2e);
-  background: var(--arcd-surface-subtle, #f3f0e9); font-size: var(--arcd-type-control, .8125rem); color: var(--arcd-text-secondary, #536171);
+  background: var(--bs-n1); font-size: var(--arcd-type-control, .8125rem); color: var(--arcd-text-secondary, #536171);
 }
 .budget-foot b {
   margin-left: 8px; color: var(--arcd-text-primary, #0d1b2e);
-  font: 500 var(--arcd-type-control, .8125rem) var(--arcd-font-mono, ui-monospace, monospace); font-variant-numeric: tabular-nums;
+  font: 600 var(--arcd-type-control, .8125rem) var(--arcd-font-sans, "Nimbus Sans", Arial, sans-serif); font-variant-numeric: tabular-nums lining-nums;
 }
-.budget-foot b.is-total { font-size: var(--arcd-font-size-md, 1rem); font-weight: 700; }
+.budget-foot b.is-total { font-size: var(--arcd-font-size-md, 1rem); font-weight: 600; }
 
 @media (hover: none) { .budget-more { opacity: 1; } }
 
@@ -190,7 +269,9 @@ button.budget-kpi:hover { background: var(--arcd-surface-muted, #e8e5df); }
   .budget-tool { height: 36px; }
 }
 
-/* O campo da linha de título também precisa vencer o tamanho global de campos. */
-.arcd-main .budget-title-row input.budget-cell:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]) {
-  font-size: var(--arcd-type-control, .8125rem) !important;
+/* O tema impõe peso 400 em todo campo (!important); título e preço editado
+   precisam de 600 para se distinguirem sem depender só de cor. */
+.arcd-main .budget-sheet :is(input, textarea).budget-cell:is(.is-title, .is-edited):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]) {
+  font-weight: 600 !important;
 }
+.budget-line-row, .budget-title-row { box-sizing: border-box; }

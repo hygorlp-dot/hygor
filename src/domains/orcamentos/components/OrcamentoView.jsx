@@ -3872,8 +3872,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         // Colunas da planilha: a mesma grade serve ao cabeçalho fixo e a todas
         // as linhas, então ficam num lugar só. Alça, nº, fonte, descrição e
         // quantidade são fixas; as demais entram conforme colsOrc.
-        const gc = ["16px","44px","60px"];
-        if (colsOrc.codigo)    gc.push("84px");
+        const gc = ["16px","52px","78px"];
+        if (colsOrc.codigo)    gc.push("100px");
         gc.push("minmax(160px,1fr)");
         if (colsOrc.unidade)   gc.push("40px");
         gc.push("72px");
@@ -3890,7 +3890,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           return (
             <div key={no.id} id={`budget-stage-${no.id}`}>
               {/* Cabeçalho da etapa: faixa da planilha, hierarquia por recuo e fundo */}
-              <div className="budget-stage__head"
+              <div className={`budget-stage__head ${no.nivel === 1 ? "is-n1" : "is-n2"}`}
                 onDragOver={e=>{if(draggedStage){e.preventDefault();e.stopPropagation();setStageDrop(no.id);}}}
                 onDrop={e=>{if(!draggedStage)return;e.preventDefault();e.stopPropagation();
                   try{
@@ -3903,7 +3903,6 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 }} style={{
                   outline:stageDrop===no.id?'2px solid #3377ff':undefined,
                   outlineOffset:-2,
-                  background: no.nivel === 1 ? "#e8e8e8" : "#f4f4f4",
                   paddingLeft: 8 + recuo,
                 }}>
                 <button draggable={!budgetIsImmutable(orc)} aria-label={`Arrastar etapa ${no.codigo}`} title="Arraste para reordenar etapas"
@@ -3913,7 +3912,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   title={recolhida?"Expandir nível":"Recolher nível"} aria-label={`${recolhida?"Expandir":"Recolher"} etapa ${no.codigo}`}
                   aria-expanded={!recolhida}><IconeSeta aberta={!recolhida}/></button>
                 <span className="budget-stage__name" title={no.nome}>
-                  <span style={{fontFamily:"var(--arcd-font-mono)",marginRight:6}}>{no.codigo}</span>
+                  <span className="budget-stage__code">{no.codigo}</span>
                   {no.nome}{no.pavimentoId && no.nivelM!=null && <span className="budget-stage__meta">Nível {fmtNum(no.nivelM)} m</span>}
                   {(no.itens.length > 0 || no.sub.length > 0) && (
                     <span className="budget-stage__meta">
@@ -3962,9 +3961,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 if (ehTitulo) {
                   return (
                     <div key={it.id} className="budget-title-row" style={{paddingLeft: 13 + recuo}}>
-                      <span className="budget-plain" style={{minWidth:44,color:C.muted,fontWeight:600}}>{it.codigoItem}</span>
+                      <span className="budget-plain budget-num-item" style={{minWidth:52}}>{it.codigoItem}</span>
                       <CelulaTexto
-                        className="budget-cell"
+                        multiline
+                        className="budget-cell is-title"
                         aria-label={`Título ${it.codigoItem}`}
                         value={it.descricao||""}
                         onCommit={valor => updTituloTexto(it.id, valor)}
@@ -3987,7 +3987,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
                 return (
                   <div key={it.id} id={`budget-item-${it.id}`}
-                    className={`budget-line-row ${auditTarget===`budget-item-${it.id}`?"budget-audit-target":""}`}
+                    className={`budget-line-row ${codigoPendente?"is-pending":""} ${auditTarget===`budget-item-${it.id}`?"budget-audit-target":""}`}
                     draggable
                     onDragStart={e => { e.stopPropagation(); setArrastandoItem(it.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData('text/plain',it.id); }}
                     onDragEnd={() => { setArrastandoItem(null); setSobreItem(null); }}
@@ -3995,23 +3995,22 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     onDrop={e => { e.preventDefault(); moverItemPara(arrastandoItem, it.id); setArrastandoItem(null); setSobreItem(null); }}
                     style={{
                     display:"grid",gridTemplateColumns:gc.join(" "),width:"100%",boxSizing:"border-box",
-                    borderLeft: alvoDrop ? `3px solid ${C.blue}` : codigoPendente ? `3px solid ${C.orange}` : "3px solid transparent",
-                    background: arrastando ? `${C.blue}12` : codigoPendente ? `${C.orange}09` : undefined,
+                    borderLeftColor: alvoDrop ? C.blue : undefined,
+                    background: arrastando ? `${C.blue}12` : undefined,
                     opacity: arrastando ? .5 : 1,
                   }}>
-                    <span title="Arraste para reordenar" className="budget-plain" style={{cursor:"grab",color:C.muted,userSelect:"none",justifyContent:"center",padding:0}}><IconeAlca/></span>
-                    <span className="budget-plain" style={{color:C.muted,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{it.codigoItem}</span>
-                    <span className="budget-plain" title="Fonte" style={{fontWeight:600,color:it.fonte==="ORSE"?C.purple:C.blue}}>{it.fonte}</span>
+                    <span title="Arraste para reordenar" className="budget-plain" style={{cursor:"grab",color:C.muted,userSelect:"none",justifyContent:"center",padding:"6px 0 0"}}><IconeAlca/></span>
+                    <span className="budget-plain budget-num-item">{it.codigoItem}</span>
+                    <span className="budget-plain" title="Fonte do preço"><span className={`budget-src budget-src--${String(it.fonte||"").normalize("NFD").replace(/[^A-Za-z]/g,"").toLowerCase()||"outra"}`}>{it.fonte}</span></span>
                     {colsOrc.codigo && (
                     <div>
-                        <CelulaTexto className="budget-cell is-code" aria-label={`Código do ${rotuloItem}`} value={it.codigo||""}
+                        <CelulaTexto className={`budget-cell is-code ${codigoPendente?"is-pending":""}`} aria-label={`Código do ${rotuloItem}`} value={it.codigo||""}
                           onCommit={valor=>updItemCampo(it.id,"codigo",valor)}
-                          placeholder="Sem código" title={codigoAtualizando===it.id?"Consultando código nas bases...":codigoPendente?"Código não localizado na base":"Código da composição"}
-                          style={codigoPendente?{background:`${C.orange}12`,color:C.orange}:undefined}/>
+                          placeholder="Sem código" title={codigoAtualizando===it.id?"Consultando código nas bases...":codigoPendente?"Código não localizado na base":"Código da composição"}/>
                     </div>
                     )}
                     <div>
-                      <CelulaTexto className="budget-cell" aria-label={`Descrição do ${rotuloItem} (pesquisa de composição)`} value={it.descricao||""} searchOnly resetKey={selecaoLinhaVersao[it.id]||0}
+                      <CelulaTexto multiline className="budget-cell is-desc" aria-label={`Descrição do ${rotuloItem} (pesquisa de composição)`} value={it.descricao||""} searchOnly resetKey={selecaoLinhaVersao[it.id]||0}
                         onDigitar={e=>setBuscaLinha({itemId:it.id,termo:e.target.value})}
                         onSearchEnd={()=>setBuscaLinha(atual=>atual.itemId===it.id?{itemId:"",termo:""}:atual)}
                         onEscape={()=>setBuscaLinha({itemId:"",termo:""})}
@@ -4022,15 +4021,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                           }
                           return false;
                         }}
-                        title="Pesquise e selecione uma composição. A pesquisa não altera a descrição; use Editar para alterações manuais."
-                        style={{textTransform:"uppercase",textOverflow:"ellipsis"}}/>
+                        title="Pesquise e selecione uma composição. A pesquisa não altera a descrição; use Editar para alterações manuais."/>
                     </div>
                     {colsOrc.unidade && (
                     <div>
-                        <CelulaTexto className="budget-cell" aria-label={`Unidade do ${rotuloItem}`} value={it.unidade||""}
+                        <CelulaTexto className="budget-cell is-unit" aria-label={`Unidade do ${rotuloItem}`} value={it.unidade||""}
                           onCommit={valor=>updItemCampo(it.id,"unidade",valor)}
-                          title="Unidade do item"
-                          style={{textTransform:"uppercase"}}/>
+                          title="Unidade do item"/>
                     </div>
                     )}
                     <div>
@@ -4040,24 +4037,22 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     </div>
                     {colsOrc.custoUnit && (
                     <div title={alterado?`Base: ${fmt(it.precoRef)} - editado`:"Custo unitário sem BDI"}>
-                        <CelulaTexto className="budget-cell is-num" aria-label={`Custo unitário do ${rotuloItem}${alterado?" (preço editado)":""}`} type="number" step="any" inputMode="decimal" value={String(it.precoUnit ?? "")}
+                        <CelulaTexto className={`budget-cell is-num ${alterado?"is-edited":""}`} aria-label={`Custo unitário do ${rotuloItem}${alterado?" (preço editado)":""}`} type="number" step="any" inputMode="decimal" value={String(it.precoUnit ?? "")}
                           onCommit={valor => updItemNumero(it.id, "precoUnit", valor)}
                           title={alterado?`Preço editado. Base da composição: ${fmt(it.precoRef)}. Duplo clique para restaurar.`:"Custo unitário sem BDI"}
-                          onDoubleClick={()=>{ if(alterado) restaurarPrecoRef(it.id); }}
-                          style={alterado?{background:`${C.yellow}14`,color:C.yellowD,fontWeight:700}:undefined}/>
+                          onDoubleClick={()=>{ if(alterado) restaurarPrecoRef(it.id); }}/>
                     </div>
                     )}
                     {colsOrc.bdi && (
                     <div title="BDI desta linha (vazio = usa o BDI global)">
-                        <CelulaTexto className="budget-cell is-num" aria-label={`BDI do ${rotuloItem}`} type="number" step="any" inputMode="decimal"
+                        <CelulaTexto className={`budget-cell is-num ${it.bdi===""||it.bdi==null?"is-inherited":""}`} aria-label={`BDI do ${rotuloItem}`} type="number" step="any" inputMode="decimal"
                           value={it.bdi===""||it.bdi==null?"":String(it.bdi)}
                           placeholder={String(orc.bdi)}
-                          onCommit={valor => updItemNumero(it.id, "bdi", valor===""?"":valor)}
-                          style={{color: (it.bdi!==""&&it.bdi!=null)?C.text:C.muted}}/>
+                          onCommit={valor => updItemNumero(it.id, "bdi", valor===""?"":valor)}/>
                     </div>
                     )}
                     {colsOrc.total && (
-                    <div className="budget-total" title={`Preço total com BDI (${bdiEfetivo}%)${alterado?" · preço unitário editado":""}`} style={{color:alterado?C.yellowD:C.text}}>
+                    <div className={`budget-total ${alterado?"is-edited":""}`} title={`Preço total com BDI (${bdiEfetivo}%)${alterado?" · preço unitário editado":""}`}>
                       {alterado&&<IconeEditado/>}{fmt(tot)}
                     </div>
                     )}

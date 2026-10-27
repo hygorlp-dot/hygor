@@ -77,3 +77,46 @@ describe("célula editável do orçamento", () => {
     expect(onCommit).not.toHaveBeenCalled();
   });
 });
+
+describe("célula multilinha (descrição que quebra)", () => {
+  function renderMulti(props) {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    act(() => root.render(<BudgetTextCell multiline {...props}/>));
+    mounted.push({ container, root });
+    return container.querySelector("textarea");
+  }
+  const typeArea = (area, text) => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(area, text);
+    area.dispatchEvent(new Event("input", { bubbles:true }));
+  };
+
+  it("usa textarea de uma linha e mantém o texto inteiro, sem reticências", () => {
+    const longo = "FORNECIMENTO E INSTALAÇÃO DE PLACA DE OBRA COM CHAPA GALVANIZADA E ESTRUTURA DE MADEIRA";
+    const area = renderMulti({ value:longo });
+    expect(area).not.toBeNull();
+    expect(area.rows).toBe(1);
+    expect(area.value).toBe(longo);
+  });
+
+  it("Enter confirma e nunca insere quebra de linha", () => {
+    const onCommit = vi.fn();
+    const area = renderMulti({ value:"antigo", onCommit });
+    act(() => { area.focus(); typeArea(area, "novo texto"); });
+    const evento = new KeyboardEvent("keydown", { key:"Enter", bubbles:true, cancelable:true });
+    act(() => { area.dispatchEvent(evento); });
+    expect(evento.defaultPrevented).toBe(true);
+    expect(onCommit).toHaveBeenCalledWith("novo texto");
+    expect(area.value).not.toContain("\n");
+  });
+
+  it("no modo de pesquisa descarta o texto digitado ao sair, como o campo simples", () => {
+    const onCommit = vi.fn();
+    const area = renderMulti({ value:"Descrição original", searchOnly:true, onCommit });
+    act(() => { area.focus(); typeArea(area, "busca"); });
+    act(() => area.blur());
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(area.value).toBe("Descrição original");
+  });
+});
