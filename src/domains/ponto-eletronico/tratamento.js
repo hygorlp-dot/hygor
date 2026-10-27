@@ -1,5 +1,6 @@
 import {proporApropriacoes} from './apropriacao.js';
 import {dataLocal,horaLocal} from './painel.js';
+import {attendancePolicyForEmployee,PUNCH_MODE} from '../ponto/attendance-policy.js';
 
 const active = item => item?.status !== 'cancelada' && item?.status !== 'cancelado';
 const stamp = value => Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : '';
@@ -51,20 +52,54 @@ export function defaultReviewInterval(interval,employeeId,day){
   return {employeeId:String(employeeId),data:day,inicio:interval.inicio,fim:interval.fim,obraApropriadaId:String(interval.obraApropriadaId),origem:'proposta_capturas',motivo:'Conferência das marcações recebidas no aplicativo'};
 }
 
-export function receivedClockPreview(proposal={},day){
+export function receivedClockPreview(proposal={},day,employee={}){
   const marks=[...(proposal.marcacoes||[])].sort((a,b)=>Date.parse(a.marcadoEm)-Date.parse(b.marcadoEm));
   const works=new Set(marks.map(m=>String(m.obraCapturaId||m.obraId||'')));
-  if(![2,4].includes(marks.length)||works.size!==1||works.has('')||(proposal.avisos||[]).length)return {ok:false,reason:'Prévia automática apenas para duas ou quatro batidas completas na mesma obra. Outros casos exigem análise dos intervalos.'};
-  if(marks.some(m=>!Number.isFinite(Date.parse(m.marcadoEm))||dataLocal(m.marcadoEm)!==day))return {ok:false,reason:'Há horário fora do dia escolhido ou inválido.'};
-  let minutes=0;
-  for(let index=0;index<marks.length;index+=2){const duration=(Date.parse(marks[index+1].marcadoEm)-Date.parse(marks[index].marcadoEm))/60000;if(duration<=0)return {ok:false,reason:'Batidas com horários iguais ou fora de ordem.'};minutes+=duration;}
-  return {ok:true,date:day,obraCapturaId:[...works][0],entrada:horaLocal(marks[0].marcadoEm),saida:horaLocal(marks.at(-1).marcadoEm),intervaloSaida:marks.length===4?horaLocal(marks[1].marcadoEm):'',intervaloRetorno:marks.length===4?horaLocal(marks[2].marcadoEm):'',workedMinutes:Math.round(minutes),status:'Capturas completas; pendente de conferência na folha'};
+  const policy=attendancePolicyForEmployee(employee);
+  if(marks.length!==policy.expectedPunchCount||works.size!==1||works.has('')||(proposal.avisos||[]).length){
+    const expected=policy.expectedPunchCount===2
+      ?'duas batidas (entrada e saída; intervalo pré-assinalado)'
+      :'quatro batidas (entrada, saída para intervalo, retorno e saída)';
+    return {ok:false,reason:`A política atual do RH exige ${expected}. Quantidade diferente ou mudança de obra exige análise dos intervalos.`,policy};
+  }
+  if(marks.some(m=>!Number.isFinite(Date.parse(m.marcadoEm))||dataLocal(m.marcadoEm)!==day))return {ok:false,reason:'Há horário fora do dia escolhido ou inválido.',policy};
+
+  let workedMinutes=0,breakMinutes=0;
+  if(policy.punchMode===PUNCH_MODE.ENTRY_EXIT){
+    const gross=(Date.parse(marks[1].marcadoEm)-Date.parse(marks[0].marcadoEm))/60000;
+    breakMinutes=policy.plannedBreakMinutes;
+    workedMinutes=Math.round(gross-breakMinutes);
+    if(gross<=0||workedMinutes<=0)return {ok:false,reason:'Entrada, saída ou intervalo pré-assinalado produzem uma jornada inválida.',policy};
+  }else{
+    for(let index=0;index<marks.length;index+=2){
+      const duration=(Date.parse(marks[index+1].marcadoEm)-Date.parse(marks[index].marcadoEm))/60000;
+      if(duration<=0)return {ok:false,reason:'Batidas com horários iguais ou fora de ordem.',policy};
+      workedMinutes+=duration;
+    }
+    breakMinutes=Math.round((Date.parse(marks[2].marcadoEm)-Date.parse(marks[1].marcadoEm))/60000);
+    if(breakMinutes<0)return {ok:false,reason:'O intervalo registrado está fora de ordem.',policy};
+    workedMinutes=Math.round(workedMinutes);
+  }
+  return {
+    ok:true,date:day,obraCapturaId:[...works][0],
+    entrada:horaLocal(marks[0].marcadoEm),
+    saida:horaLocal(marks.at(-1).marcadoEm),
+    intervaloSaida:policy.punchMode===PUNCH_MODE.ENTRY_EXIT?policy.workBreakStart:horaLocal(marks[1].marcadoEm),
+    intervaloRetorno:policy.punchMode===PUNCH_MODE.ENTRY_EXIT?policy.workBreakEnd:horaLocal(marks[2].marcadoEm),
+    workedMinutes,breakMinutes,
+    breakSource:policy.punchMode===PUNCH_MODE.ENTRY_EXIT?'preassigned':'punched',
+    punchMode:policy.punchMode,
+    policy,
+    status:policy.punchMode===PUNCH_MODE.ENTRY_EXIT
+      ?'Capturas completas; intervalo pré-assinalado conforme política do RH'
+      :'Capturas completas; intervalo registrado nas batidas',
+  };
 }
 
 // Eligibility is repeated against server-owned rows before writing. Times
 // shown here are never accepted as client authority by the import command.
-export function mobileAttendanceImportReview({proposal={},saved=[],day,point=null,locks={}}){
-  const preview=receivedClockPreview(proposal,day);
+export function mobileAttendanceImportReview({proposal={},saved=[],day,point=null,locks={},employee={}}){
+  const preview=receivedClockPreview(proposal,day,employee);
   if(!preview.ok)return preview;
   if(point!=null)return {ok:false,reason:'Já existe ponto neste dia. Compare os registros na Gestão do ponto; a importação não substitui lançamentos.'};
   const marks=proposal.marcacoes||[],ids=marks.map(m=>String(m.eventId||''));
