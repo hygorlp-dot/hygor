@@ -23,6 +23,10 @@ const buildRecord = ({ previous, status, obraId }) => {
     saida:keepsWorkedTime ? (record.saida || "") : "",
     workedMinutes:keepsWorkedTime ? Number(record.workedMinutes || 0) : 0,
     atrasoMin:keepsWorkedTime ? Number(record.atrasoMin || 0) : 0,
+    bankMinutes:keepsWorkedTime ? Math.round(Number(record.bankMinutes || 0)) : 0,
+    bankReason:keepsWorkedTime ? String(record.bankReason || "") : "",
+    breakSource:keepsWorkedTime ? String(record.breakSource || "") : "",
+    punchMode:keepsWorkedTime ? String(record.punchMode || "") : "",
     obraId:status ? String(obraId || record.obraId || "") : String(record.obraId || ""),
   };
 };
