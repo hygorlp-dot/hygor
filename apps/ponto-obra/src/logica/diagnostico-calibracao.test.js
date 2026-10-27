@@ -92,10 +92,11 @@ describe("payload da sincronização", () => {
     const agoraMs = Date.parse("2026-10-01T12:00:00Z");
     expect(montarCorpoSincronizacao({
       app: { versao: "1.0.0", build: "7", commit: "abcdef1234567" }, aparelho: { marca: "motorola", modelo: "moto g54", android: "14", serial: "NAO-VAI" },
-      gps: { lat: -8.1, lng: -34.9, precisao: 8, em: agoraMs - 5000 }, agoraMs,
+      gps: { lat: -8.1, lng: -34.9, precisao: 8, em: agoraMs - 5000 }, modeloFacial: "facenet-512-mit-v1", agoraMs,
     })).toEqual({
       appVersao: "1.0.0 (7)",
       aparelho: { marca: "motorola", modelo: "moto g54", android: "14", build: "7", commit: "abcdef123456" },
+      modeloFacial: "facenet-512-mit-v1",
       gps: { lat: -8.1, lng: -34.9, precisao: 8 },
     });
   });
