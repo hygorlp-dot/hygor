@@ -1915,10 +1915,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     ["kanban","Kanban de compras"],
     ["mapa","Mapa gerencial"],
     ["por_pagador","Por quem pagou"],
-    ["financeiro",`Financeiro${resumoFinanceiro.pendentes?` · ${resumoFinanceiro.pendentes}`:""}`],
+    ["financeiro",`Pagamentos${resumoFinanceiro.pendentes?` · ${resumoFinanceiro.pendentes}`:""}`],
     ["solicitacoes",`Solicitações${solicitacoesPendentes?` · ${solicitacoesPendentes}`:""}`],
     ["cotacoes","Cotações"],["pedidos","Pedidos"],["historico_compras","Histórico de compras"],["orcado","Orçado x comprado"],
-    ["forn","Fornecedores"],["contratos","Contratos de fornecimento"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]
+    ["forn","Cadastro de fornecedores"],["contratos","Contratos de fornecimento"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]
   ];
   const irParaArea=id=>{
     setAba(id);setRegistroFoco("");
@@ -1937,28 +1937,31 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   return (
     <div className="anim compras-view" style={{display:"flex",flexDirection:"column",gap:isDesktop?12:10}}>
       <header className="purchase-header">
-        <div><h2 className="page-hero__title">Compras</h2>
-          <p>Materiais na obra, no prazo. Acompanhe cada solicitação e saiba o que fazer a seguir.</p></div>
+        <div className="purchase-header-title"><h2 className="page-hero__title">Compras</h2>
+          <p>Materiais na obra, no prazo.</p></div>
+        <div className="purchase-context-bar">
+          <div className="compras-project-picker">{obraIdFixo
+            ? <Inp label="Obra" value={obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
+            : <Select label="Obra" value={todasObras?"all":obraAtual} onChange={event=>{const v=event.target.value;
+                setRegistroFoco("");
+                if(v==="all"){setEscopoMapa("empresa");return;}
+                setEscopoMapa("obra");setObraSel(v);
+              }} options={[{value:"all",label:"Todas as obras"},...obras.map(o=>({value:o.id,label:o.name}))]}/>}</div>
+          <p role="status" aria-live="polite" className="purchase-save-state" data-state={save.state}>{save.message}</p>
+        </div>
         <div className="purchase-header-actions"><Button variant="secondary" onClick={abrirModoAnalise}>Analisar documento</Button>
           <Button onClick={abrirNovaSolicitacao}>Nova solicitação</Button></div>
       </header>
-      <div className="purchase-context-bar">
-        <div className="compras-project-picker">{obraIdFixo
-          ? <Inp label="Obra" value={obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
-          : <Select label="Obra" value={todasObras?"all":obraAtual} onChange={event=>{const v=event.target.value;
-              setRegistroFoco("");
-              if(v==="all"){setEscopoMapa("empresa");return;}
-              setEscopoMapa("obra");setObraSel(v);
-            }} options={[{value:"all",label:"Todas as obras"},...obras.map(o=>({value:o.id,label:o.name}))]}/>}</div>
-        <p role="status" aria-live="polite" className="purchase-save-state" data-state={save.state}>{save.message}</p>
-      </div>
       <DreIntegration kind="purchases" currentUser={currentUser} {...escopoDre}>
         <label>Competência do DRE<input type="month" value={competenciaDre} onChange={event=>{if(event.target.value)setCompetenciaDre(event.target.value);}}/></label>
         <p>Este mês é usado na consulta ao DRE. Os registros de compras mantêm os próprios filtros de prazo e histórico.</p>
       </DreIntegration>
       <PurchaseNavigation area={aba} onNavigate={irParaArea} counts={fluxoCompras.counts}
         financeCount={resumoFinanceiro.pendentes} otherAreas={abasSecundarias}/>
-      <div id="compras-area-atual" className="purchase-area-heading" tabIndex={-1}>
+      {/* Na fila, aprovações e recebimentos o painel abaixo já tem título próprio:
+          o nome da área fica só para leitor de tela e como destino do foco. */}
+      <div id="compras-area-atual" className="purchase-area-heading" tabIndex={-1}
+        data-compact={["fila","aprovacoes","recebimentos"].includes(aba)||undefined}>
         <h3>{PURCHASE_AREA_LABELS[aba]||comprasAbas.find(([id])=>id===aba)?.[1]}</h3>
         {aba!=="fila"&&<Button variant="ghost" size="sm" onClick={()=>irParaArea("fila")}>Voltar à fila</Button>}
       </div>
