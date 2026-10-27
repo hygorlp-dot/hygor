@@ -26,7 +26,7 @@ import { criarSessaoCalibracao, relatorioDeCampo, resumoDeCampo } from "./src/lo
 import { REP_P, situacaoRepP } from "../../src/domains/ponto-eletronico/rep-p.js";
 import { estadoDaReferencia } from "../../src/domains/ponto-eletronico/relogio.js";
 import { AMBIENTE, apagarSessao, criarApi, criarRelogio, infoDoAparelho, infoDoApp, lerSessao, salvarSessao, sessaoConfere } from "./src/servicos/conexao";
-import { apagarFotoLocal, carregarModelos, lerFotoBase64, prepararFotoDaBatida } from "./src/servicos/rosto-nativo";
+import { apagarFotoLocal, carregarModelos, lerFotoBase64, MODELO_FACIAL_ATIVO, prepararFotoDaBatida } from "./src/servicos/rosto-nativo";
 import TelaEncarregado from "./src/telas/TelaEncarregado";
 import TelaPareamento from "./src/telas/TelaPareamento";
 import TelaPonto from "./src/telas/TelaPonto";
@@ -81,7 +81,7 @@ export default function App() {
       const r = await rodadaDeSincronizacao({
         armazem, api, monotonico: () => relogio.monotonico(),
         ambienteApp: AMBIENTE,
-        corpo: montarCorpoSincronizacao({ app: infoDoApp(), aparelho: infoDoAparelho(), gps: ref.current.gps, agoraMs: Date.now() }),
+        corpo: montarCorpoSincronizacao({ app: infoDoApp(), aparelho: infoDoAparelho(), gps: ref.current.gps, modeloFacial: MODELO_FACIAL_ATIVO, agoraMs: Date.now() }),
         cadastroVencido: forcarCadastro || Date.now() - ref.current.ultimoCadastro > CADASTRO_A_CADA_MS,
         lerFotoBase64, aposEnviarFoto: item => apagarFotoLocal(item.caminhoFoto),
       });
