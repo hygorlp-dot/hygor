@@ -1,5 +1,5 @@
 import { statusRecebimentoMedicao } from "../conciliacao/calculations.js";
-import { saldoPagamentoNota } from "../financeiro/payables.js";
+import { notaSemEfeito, saldoPagamentoNota } from "../financeiro/payables.js";
 
 const limitarNota = valor => Math.max(0, Math.min(100, Number(valor) || 0));
 
@@ -18,7 +18,7 @@ export const createFinancialRankingEngine = ({ calculateWorkDre } = {}) => {
       const dre = calculateWorkDre(data, work.id, year, month);
       const invoices = (data?.notasFiscais || []).filter(invoice =>
         invoice.obraId === work.id
-        && invoice.status !== "cancelada"
+        && !notaSemEfeito(invoice)
         && String(invoice.emissao || invoice.criadoEm || endDate).slice(0, 10) <= endDate);
       const overdueInvoices = invoices.filter(invoice =>
         saldoPagamentoNota(invoice) > 0.01
