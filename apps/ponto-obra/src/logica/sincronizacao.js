@@ -41,7 +41,7 @@ const textoCurto = (v, max = 80) => (v === null || v === undefined ? "" : String
 
 // Corpo de "ponto-sincronizar": versão do app e identificação do aparelho
 // (sem nada pessoal) + último GPS válido. Sem GPS a sincronização segue.
-export function montarCorpoSincronizacao({ app = {}, aparelho = {}, gps = null, agoraMs = Date.now() } = {}) {
+export function montarCorpoSincronizacao({ app = {}, aparelho = {}, gps = null, modeloFacial = "", agoraMs = Date.now() } = {}) {
   const versao = textoCurto(app.versao, 20), build = textoCurto(app.build, 20);
   const corpo = {
     appVersao: versao ? (build ? `${versao} (${build})` : versao) : "",
@@ -50,6 +50,8 @@ export function montarCorpoSincronizacao({ app = {}, aparelho = {}, gps = null, 
       build, commit: textoCurto(app.commit, 12),
     },
   };
+  const facial = textoCurto(modeloFacial, 80);
+  if (facial) corpo.modeloFacial = facial;
   const g = gpsRecente(gps, agoraMs);
   if (g) corpo.gps = g;
   return corpo;
