@@ -58,6 +58,11 @@ const sumOrder = order => {
 export const invoiceAmount = invoice => positiveCents(invoice?.valorBruto, invoice?.valorTotal, invoice?.total, invoice?.valor);
 const thirdMeasurementAmount = measurement => positiveCents(measurement?.total, measurement?.valor, measurement?.valorPrevisto, measurement?.valorBruto);
 
+// Pagamento direto do cliente ao fornecedor baixa a obrigação da obra, mas o
+// dinheiro nunca passou pela conta da empresa: não é saída de caixa dela.
+// Vira o efeito próprio `third_party_payment` (visível, fora do caixa).
+const paidByClient = origin => String(origin || "") === "cliente_direto";
+
 export const notaReconhecivel = invoice => {
   if (!active(invoice)) return false;
   const status = statusOf(invoice);
@@ -281,7 +286,8 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
         || (payment.transacaoId && invoicePaymentTransactions.has(payment.transacaoId))) return;
       const paymentId = sourceId(payment, `${id}|${payment.data}|${payment.valor}|${payment.transacaoId}`);
       add({
-        ...base, id: `pedido:${id}:payment:${paymentId}:cash`, effect: "cash_out",
+        ...base, id: `pedido:${id}:payment:${paymentId}:cash`,
+        effect: paidByClient(payment.origem || order.origemPagamento) ? "third_party_payment" : "cash_out",
         amountCents: positiveCents(payment.valor, payment.amount), date: payment.data,
         sourceSubId: paymentId, transactionId: payment.transacaoId || "",
         unallocated: true,
@@ -348,7 +354,7 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
           : id,
         metadata:{ conciliado:!!payment.conciliado, origem:payment.origem || "" },
       };
-      add({ ...base, id: `nota_fiscal:${id}:payment:${paymentId}:cash`, effect: "cash_out" });
+      add({ ...base, id: `nota_fiscal:${id}:payment:${paymentId}:cash`, effect: paidByClient(payment.origem) ? "third_party_payment" : "cash_out" });
       add({ ...base, id: `nota_fiscal:${id}:payment:${paymentId}:settle`, effect: "payable_decrease" });
     });
   });
@@ -670,9 +676,13 @@ export const selectCashFlow = (ledger, filters = {}) => {
   const events = ledger.events.filter(event => eventMatches(event, filters, "date") && ["cash_in", "cash_out"].includes(event.effect));
   const cashInCents = sumEffects(events, ["cash_in"], []);
   const cashOutCents = sumEffects(events, ["cash_out"], []);
+  // Pago pelo cliente direto ao fornecedor: baixa a obrigação, não mexe no saldo.
+  const thirdPartyEvents = ledger.events.filter(event => eventMatches(event, filters, "date") && event.effect === "third_party_payment");
+  const thirdPartyPaidCents = sumEffects(thirdPartyEvents, ["third_party_payment"], []);
   return {
     cashInCents, cashOutCents, balanceCents: cashInCents - cashOutCents,
     cashIn: fromCents(cashInCents), cashOut: fromCents(cashOutCents), balance: fromCents(cashInCents - cashOutCents), events,
+    thirdPartyPaidCents, thirdPartyPaid: fromCents(thirdPartyPaidCents), thirdPartyEvents,
   };
 };
 

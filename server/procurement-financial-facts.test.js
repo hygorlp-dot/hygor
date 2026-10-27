@@ -79,3 +79,12 @@ describe("Compras usa o mesmo reconhecimento do DRE",()=>{
     expect(compareProcurementDreRecognition({},[{...events[0],payload:{...events[0].payload,active:false}}])).toEqual([]);
   });
 });
+
+describe("pagamento direto do cliente (D-C)", () => {
+  it("continua sendo liquidação do título, mesmo fora do caixa da empresa", () => {
+    const data = {pedidos:[{...order, pagamentos:[{id:"pg-cli", valor:250, data:"2026-07-01", origem:"cliente_direto"}]}], notasFiscais:[]};
+    const facts = buildProcurementFinancialFacts(data);
+    expect(facts.find(f=>f.legacyType==="pedido").settlements).toMatchObject([{legacyId:"pg-cli", amount:250}]);
+    expect(selectCashFlow(buildFinancialLedger(data)).cashOut).toBe(0);
+  });
+});

@@ -245,3 +245,25 @@ describe("calcProjecaoContratoObra — base de administração de materiais", ()
     expect(projecao.adminEligibleMaterialCost).toBe(5000);
   });
 });
+
+describe("pagamento direto do cliente no DRE da obra (D-C)", () => {
+  const comPagamento = origem => ({
+    ...data,
+    pedidos:[{id:"p1",obraId:"obra-1",numero:"PC-1",status:"enviado",data:"2026-07-01",itens:[{id:"i",qtd:1,precoUnit:800}]}],
+    notasFiscais:[{id:"nf1",pedidoId:"p1",obraId:"obra-1",numero:"10",status:"aprovada",emissao:"2026-07-05",valorBruto:800,
+      pagamentos:[{id:"pg1",valor:800,data:"2026-07-20",origem}]}],
+  });
+
+  test("cliente_direto baixa a conta a pagar sem entrar em saidasCaixa nem reduzir o saldo de caixa", () => {
+    const cliente = regras.calcDREObra(comPagamento("cliente_direto"), "obra-1", 2026, 6);
+    const empresa = regras.calcDREObra(comPagamento("empresa"), "obra-1", 2026, 6);
+    expect(cliente.saidasCaixa).toBe(0);
+    expect(cliente.pagoPeloCliente).toBe(800);
+    expect(cliente.contasPagar).toBe(0);
+    expect(empresa.saidasCaixa).toBe(800);
+    expect(empresa.pagoPeloCliente).toBe(0);
+    expect(cliente.saldoCaixa - empresa.saldoCaixa).toBe(800);
+    // quem pagou não muda o custo reconhecido
+    expect(cliente.totalCustos).toBe(empresa.totalCustos);
+  });
+});

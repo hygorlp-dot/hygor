@@ -13,7 +13,7 @@ export const buildProcurementFinancialFacts = data => {
       legacyType:"pedido", legacyId:String(order.id), category:"purchases", direction:"payable",
       obraId:commitment.obraId, titleAmount:commitment.amountCents / 100,
       recognizedAmount:0, date:commitment.date, dueDate:order.previsao || commitment.date,
-      settlements:events.filter(event => event.effect === "cash_out").map(event => ({
+      settlements:events.filter(event => ["cash_out", "third_party_payment"].includes(event.effect)).map(event => ({
         legacyType:"pagamento_pedido", legacyId:event.sourceSubId,
         amount:event.amountCents / 100, date:event.date, bankTransactionLegacyId:event.transactionId,
       })),
@@ -30,7 +30,7 @@ export const buildProcurementFinancialFacts = data => {
   for (const event of allocatedCosts.values()) {
     const invoice = (data?.notasFiscais || []).find(item => String(item.id) === event.sourceId);
     const allocations = [...allocatedCosts.values()].filter(item => item.sourceId === event.sourceId);
-    const payments = ledger.events.filter(item => item.sourceType === "pagamento_nota" && item.sourceId === event.sourceId && item.effect === "cash_out");
+    const payments = ledger.events.filter(item => item.sourceType === "pagamento_nota" && item.sourceId === event.sourceId && ["cash_out", "third_party_payment"].includes(item.effect));
     // A settlement belongs to one allocation only. Preserve the original
     // payment identity and work; do not manufacture proportional payments.
     if (payments.some(payment => !allocations.some(item => item.obraId === payment.obraId))) {
