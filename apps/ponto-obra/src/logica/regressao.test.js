@@ -32,7 +32,9 @@ const rodada = (extra = {}) => rodadaDeSincronizacao({
   lerFotoBase64: async () => JPEG.toString("base64"), aposEnviarFoto: async () => {}, ...extra,
 });
 const dispositivo = async () => (await s.sql("select * from public.ponto_dispositivos where id = $1", [a.dispositivoId]))[0];
-const vetor = (i, ruido = 0) => { const v = Array.from({ length: 192 }, (_, k) => (k === i ? 1 : 0) + (k === i + 1 ? ruido : 0)); const n = Math.hypot(...v); return v.map(x => x / n); };
+const vetorN = (dimensao, i, ruido = 0) => { const v = Array.from({ length: dimensao }, (_, k) => (k === i ? 1 : 0) + (k === i + 1 ? ruido : 0)); const n = Math.hypot(...v); return v.map(x => x / n); };
+const vetor = (i, ruido = 0) => vetorN(192, i, ruido);
+const vetorFaceNet = (i, ruido = 0) => vetorN(512, i, ruido);
 
 describe("pareamento", () => {
   it("válido: aparelho fica ativo, preso à obra e ao estabelecimento, e só o hash do token vai para o banco", async () => {
@@ -103,6 +105,33 @@ describe("cadastro facial e ponto facial", () => {
     expect(e).toMatchObject({ employee_id: "e1", metodo: "facial" });
     expect(Number(e.confianca)).toBe(id.confianca);
     expect((await a.armazem.registroFiscal(b.eventId)).nsr).toBe(1);
+  });
+
+  it("mantém MobileFaceNet e FaceNet em paralelo durante a migração", async () => {
+    const comum = {
+      employeeId: "e1", fotos: [JPEG.toString("base64")],
+      consentimento: { termoVersao: "2026-10", aceitoEm: "2026-10-01T10:00:00.000Z", textoSha256: "x" },
+      responsavelId: "u-enc", pinResponsavel: "2468",
+    };
+    expect((await a.api("ponto-cadastrar-biometria", {
+      ...comum, modelo: "mobilefacenet-192-apache2", vetor: vetorDoCadastro([vetor(2), vetor(2, 0.03), vetor(2, -0.03)]),
+    })).ok).toBe(true);
+    expect((await a.api("ponto-cadastrar-biometria", {
+      ...comum, modelo: "facenet-512-mit-v1", vetor: vetorDoCadastro([vetorFaceNet(4), vetorFaceNet(4, 0.03), vetorFaceNet(4, -0.03)]),
+    })).ok).toBe(true);
+
+    const legado = await a.api("ponto-sincronizar", { biometriasAssinatura: "" });
+    expect(legado.modeloFacial).toBe("mobilefacenet-192-apache2");
+    expect(legado.biometrias).toHaveLength(1);
+    expect(legado.biometrias[0]).toMatchObject({ employeeId: "e1", modelo: "mobilefacenet-192-apache2" });
+    expect(legado.biometrias[0].vetor).toHaveLength(192);
+
+    const novo = await a.api("ponto-sincronizar", { modeloFacial: "facenet-512-mit-v1", biometriasAssinatura: "" });
+    expect(novo.modeloFacial).toBe("facenet-512-mit-v1");
+    expect(novo.biometrias).toHaveLength(1);
+    expect(novo.biometrias[0]).toMatchObject({ employeeId: "e1", modelo: "facenet-512-mit-v1" });
+    expect(novo.biometrias[0].vetor).toHaveLength(512);
+    expect(novo.biometriasAssinatura).not.toBe(legado.biometriasAssinatura);
   });
 
   it("ponto pelo encarregado registra quem identificou", async () => {
