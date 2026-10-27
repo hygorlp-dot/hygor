@@ -57,6 +57,7 @@ describe("pickDomainFields", () => {
       unlockRequests: [{ id: "r1" }],
       dailyCheckDate: "2026-08-20",
       attendanceOperationReceipts: [{ operationId: "op1" }],
+      timeBankAdjustments: [{ id: "bh1", employeeId: "e1", minutes: -60 }],
       config: { companyName: "ARCD" },
     };
     expect(pickDomainFields(data, DOMAIN_ROW.PONTO)).toEqual({
@@ -64,6 +65,7 @@ describe("pickDomainFields", () => {
       unlockRequests: data.unlockRequests,
       dailyCheckDate: data.dailyCheckDate,
       attendanceOperationReceipts: data.attendanceOperationReceipts,
+      timeBankAdjustments: data.timeBankAdjustments,
     });
   });
 
@@ -168,7 +170,7 @@ describe("coreFieldsOnly", () => {
   const merged = {
     employees: [{ id: "e1" }],
     attendance: { e1: {} }, attendanceLocks: {}, unlockRequests: [],
-    dailyCheckDate: "", attendanceOperationReceipts: [],
+    dailyCheckDate: "", attendanceOperationReceipts: [], timeBankAdjustments: [],
     lookaheadWindows: [{ id: "l1" }],
     config: { companyName: "ARCD" },
     equipamentos: [{ id: "eq1" }], equipmentLots: [], equipmentModels: [],
