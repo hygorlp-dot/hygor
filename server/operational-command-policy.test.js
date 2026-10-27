@@ -299,6 +299,15 @@ describe("escopo servidor de comandos operacionais",()=>{
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_SAVED,payload:{equipment:{obraAtualId:"obra-b"}}}})).toMatchObject({ok:false});
     expect(validateOperationalCommandScope({user,data,command:{type:OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,payload:{transfer:{equipamentoId:"eq-b",paraObraId:"obra-a"}}}})).toMatchObject({ok:false});
   });
+  it("trata patrimônio como empresa e bloqueia operador restrito a obra",()=>{
+    const command={type:OPERATIONAL_COMMAND.ASSET_SAVED,payload:{asset:{id:"a1",name:"Notebook"}}};
+    expect(validateOperationalCommandScope({user:{role:"admin",obraId:"obra-a"},data,command})).toMatchObject({ok:true,scope:"company"});
+    expect(validateOperationalCommandScope({user:{role:"financeiro",obraId:""},data,command})).toMatchObject({ok:true,scope:"company"});
+    expect(validateOperationalCommandScope({user:{role:"compras",obraId:""},data,command})).toMatchObject({ok:true,scope:"company"});
+    expect(validateOperationalCommandScope({user:{role:"financeiro",obraId:"obra-a"},data,command})).toMatchObject({ok:false});
+    expect(validateOperationalCommandScope({user:{role:"engenheiro",obraId:""},data,command})).toMatchObject({ok:false});
+  });
+
   it("permite cadastro corporativo apenas para perfil sem restrição de obra",()=>{
     const companyCommand={type:OPERATIONAL_COMMAND.EQUIPMENT_SAVED,payload:{equipment:{obraAtualId:""}}};
     expect(validateOperationalCommandScope({user,data,command:companyCommand})).toMatchObject({ok:false});
