@@ -54,6 +54,24 @@ describe("contratos de fornecimento (C2.4)",()=>{
     expect(salvarPedido(data,dois).reason).toMatch(/saldo/);
   });
 
+  it("rascunho não consome saldo do contrato; ao virar enviado o saldo é conferido de novo (D-D)",()=>{
+    let data=comContrato();
+    const a=salvarPedido(data,pedido({id:"p-a",numero:"PC-A",status:"rascunho"},{id:"i-a",qtd:60}));
+    expect(a.ok).toBe(true);
+    data=a.data;
+    const b=salvarPedido(data,pedido({id:"p-b",numero:"PC-B",status:"rascunho"},{id:"i-b",qtd:60}));
+    expect(b.ok).toBe(true);
+    data=b.data;
+    // os dois rascunhos juntos passam do contrato (120 > 100), mas nenhum consumiu nada ainda
+    expect(saldoItemContrato(data,data.contratosFornecimento[0],"ci-1")).toBe(100);
+    const enviaA=salvarPedido(data,{...data.pedidos.find(p=>p.id==="p-a"),status:"enviado"},1);
+    expect(enviaA.ok).toBe(true);
+    expect(saldoItemContrato(enviaA.data,enviaA.data.contratosFornecimento[0],"ci-1")).toBe(40);
+    const enviaB=salvarPedido(enviaA.data,{...enviaA.data.pedidos.find(p=>p.id==="p-b"),status:"enviado"},1);
+    expect(enviaB.ok).toBe(false);
+    expect(enviaB.reason).toMatch(/saldo/);
+  });
+
   it("cancelar o pedido devolve o saldo; editar o próprio pedido não conta duas vezes",()=>{
     const salvo=salvarPedido(comContrato(),pedido());
     const editado=salvarPedido(salvo.data,{...salvo.data.pedidos[0],itens:[{...salvo.data.pedidos[0].itens[0],qtd:90}]},1);

@@ -2,6 +2,7 @@
 import { calculateWorkCash } from "../financeiro/work-cash.js";
 import { active } from "../financeiro/ledger.js";
 import { pedidoPorContrato } from "./supply-contracts.js";
+import { pedidoVivo, posicaoDasCompras, valorBrutoDoPedido } from "./purchase-position.js";
 import { pedidosComItensAtrasados, pontualidadeEntregas, remessasDoItem } from "./delivery-schedule.js";
 
 export const STATUS_PEDIDO = {
@@ -32,8 +33,7 @@ const proximoNumero = (registros, prefixo) => {
 export const proximoNumeroPedido = pedidos => proximoNumero(pedidos,"PC");
 export const proximoNumeroSolicitacao = solicitacoes => proximoNumero(solicitacoes,"SC");
 
-export const totalPedido = pedido => (pedido.itens||[])
-  .reduce((s,i)=>s+Number(i.qtd||0)*Number(i.precoUnit||0),0);
+export const totalPedido = pedido => valorBrutoDoPedido(pedido);
 export const recebidoPedido = pedido => (pedido.itens||[])
   .reduce((s,i)=>s+Number(i.qtdRecebida||0)*Number(i.precoUnit||0),0);
 export const pendentePedido = pedido => totalPedido(pedido)-recebidoPedido(pedido);
@@ -111,11 +111,14 @@ export const mapaGerencialCompras = (data, obraIds = [], hoje = "") => {
   const pedidos = (data.pedidos || []).filter(p => noEscopo(p) && p.status !== "cancelado");
   const solicitacoes = (data.solicitacoesCompra || []).filter(noEscopo);
   const cotacoes = (data.cotacoes || []).filter(noEscopo);
-  const totalComprometido = pedidos.reduce((s, p) => s + totalPedido(p), 0);
+  // Comprometido e "a pagar" só contam pedido vivo (enviado); o rascunho ainda
+  // não é compra. O que já foi pago continua contando, mesmo em rascunho.
+  const { comprometido: totalComprometido, aFaturar: totalAFaturar } =
+    posicaoDasCompras(pedidos.filter(pedidoVivo), data.notasFiscais);
   const totalPago = pedidos.reduce((s, p) => s + totalPagoPedido(p), 0);
   const totalRecebido = pedidos.reduce((s, p) => s + recebidoPedido(p), 0);
-  const totalPendente = pedidos.reduce((s, p) => s + saldoPagamentoPedido(p), 0);
-  const pedidosValidos = pedidos.filter(p => !["rascunho", "cancelado"].includes(p.status));
+  const pedidosValidos = pedidos.filter(pedidoVivo);
+  const totalPendente = pedidosValidos.reduce((s, p) => s + saldoPagamentoPedido(p), 0);
   // C2.2: atraso e previsão olham cada item (data própria ou remessas).
   const atrasadosIds = new Set(hoje ? pedidosComItensAtrasados({ ...data, pedidos: pedidosValidos }, hoje).map(x => x.pedido.id) : []);
   const atrasados = pedidosValidos.filter(p => atrasadosIds.has(p.id));
@@ -130,7 +133,7 @@ export const mapaGerencialCompras = (data, obraIds = [], hoje = "") => {
   const propostas = cotacoes.reduce((s, c) => s + (c.propostas || []).length, 0);
   const economia = cotacoes.reduce((s, c) => s + Number(c.economia || 0), 0);
   const porFornecedor = new Map();
-  pedidos.forEach(p => {
+  pedidosValidos.forEach(p => {
     if (!p.fornecedorId) return;
     porFornecedor.set(
       p.fornecedorId,
@@ -182,7 +185,7 @@ export const mapaGerencialCompras = (data, obraIds = [], hoje = "") => {
     concentracaoTop3 > 75 && { nivel: "medio", titulo: `${concentracaoTop3.toFixed(0)}% concentrado nos 3 maiores fornecedores`, detalhe: "Avalie alternativas para itens críticos e risco de dependência.", destino: "forn" },
   ].filter(Boolean);
   return {
-    pedidos, solicitacoes, cotacoes, fila, totalComprometido, totalPago,
+    pedidos, solicitacoes, cotacoes, fila, totalComprometido, totalAFaturar, totalPago,
     totalRecebido, totalPendente, economia, coberturaCotacao, concorrencia,
     pontualidade, completude, atrasados, semPrevisao, semCotacao,
     semConciliacao, recebidosSemQuitar, cotacoesCompetitivas, fornecedores,
