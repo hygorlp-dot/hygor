@@ -1,9 +1,8 @@
 // Tela de batida (fica sempre aberta no aparelho da obra).
-// Fluxo: foto de frente → reconhece entre todos os funcionários ativos da
-// empresa (funcionário é global) → pede para
-// virar o rosto (prova de vida contra foto impressa) → registra com foto e
-// GPS → mostra o comprovante. Se não reconhecer, o encarregado identifica:
-// a batida nunca é impedida (Portaria 671/2021).
+// Fluxo simplificado: uma foto frontal → TFLite local → identificação 1:N →
+// registro com foto e GPS → comprovante. A autenticação complementar por
+// múltiplas capturas/virada foi removida porque prejudicou a operação em campo.
+// Se não reconhecer, o encarregado identifica: a batida nunca fica impedida.
 //
 // Desenho (MARCELL Cupertino Industrial): hora e câmera protagonistas, uma ação
 // dominante ("Bater ponto"), status conciso no canto, detalhe técnico só no
@@ -12,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useKeepAwake } from "expo-keep-awake";
-import { MOTIVO, avaliarProvaDeVida, consolidarCapturasFrontais, identificar } from "../logica/rosto";
+import { MOTIVO, identificar } from "../logica/rosto";
 import { PARAMETROS_FACIAIS as P } from "../logica/calibracao";
 import { estadoPermissaoCamera, mensagemParaTrabalhador } from "../logica/falhas";
 import { resumoCadastro } from "../logica/cadastro";
@@ -22,10 +21,6 @@ import { brilhoMaximo, brilhoNormal, falar, vibrar } from "../servicos/feedback"
 import { RESULTADO as RESULTADO_CALIBRACAO } from "../logica/calibracao-campo";
 import { Botao, BotaoTexto, COMPROVANTE_MS, COR, COR_DO_TOM, Corpo, ESPACO, Icone, Mensagem, MolduraCamera, RAIO, Rotulo, Status, Tela, Texto, TituloSecao } from "../ui";
 import Comprovante from "./Comprovante";
-
-const esperar = ms => new Promise(r => setTimeout(r, ms));
-const CAPTURAS_IDENTIFICACAO = 3;
-const INTERVALO_CAPTURAS_MS = 180;
 
 export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar, situacao, abrirEncarregado, voz = true, medir = () => {}, calibrar = null }) {
   useKeepAwake();
@@ -77,48 +72,35 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     brilhoMaximo();
     try {
       fase(FASE.OLHAR);
-      const amostras = [];
-      const problemas = [];
-      // Um único toque gera uma pequena rajada. Cada quadro continua sujeito
-      // às mesmas regras de detecção e pose; quadros ruins são descartados,
-      // não "forçados" para dentro do reconhecimento.
-      for (let i = 0; i < CAPTURAS_IDENTIFICACAO; i++) {
-        const captura = await foto();
-        cruas.push(captura.uri);
-        etapa = "modelos";
-        fase(FASE.ANALISAR);
-        const analise = await analisarFoto(modelos, captura);
-        if (analise.erro) problemas.push({ tipo: RESULTADO_CALIBRACAO.SEM_ROSTO, mensagem: analise.erro });
-        else if (Math.abs(analise.giro) > P.giroMaximoDeFrente) problemas.push({ tipo: RESULTADO_CALIBRACAO.FORA_DE_POSE, mensagem: "Olhe de frente para a câmera e tente de novo.", analise });
-        else amostras.push({ foto: captura, analise });
-        if (i < CAPTURAS_IDENTIFICACAO - 1) await esperar(INTERVALO_CAPTURAS_MS);
+      const fotoFrente = await foto();
+      cruas.push(fotoFrente.uri);
+      etapa = "modelos";
+      fase(FASE.ANALISAR);
+      const frente = await analisarFoto(modelos, fotoFrente);
+      if (frente.erro) {
+        anotar(RESULTADO_CALIBRACAO.SEM_ROSTO);
+        return falha({ mensagem: frente.erro, podeEncarregado: true });
       }
-      if (!amostras.length) {
-        const ultimo = problemas.at(-1) || { tipo: RESULTADO_CALIBRACAO.SEM_ROSTO, mensagem: "Olhe de frente para a câmera e tente de novo." };
-        anotar(ultimo.tipo, ultimo.analise || {});
-        return falha({ mensagem: ultimo.mensagem, podeEncarregado: true });
+      if (Math.abs(frente.giro) > P.giroMaximoDeFrente) {
+        anotar(RESULTADO_CALIBRACAO.FORA_DE_POSE, frente);
+        return falha({ mensagem: "Olhe de frente para a câmera e tente de novo.", podeEncarregado: true });
       }
-      const frente = consolidarCapturasFrontais(amostras.map(a => a.analise));
-      const principal = [...amostras].sort((a, b) => Number(b.analise.confiancaDeteccao || 0) - Number(a.analise.confiancaDeteccao || 0))[0];
-      const fotoFrente = principal.foto;
       const tId = Date.now();
-      const id = identificar(frente.vetor, cadastro?.biometrias || []);
+      const compatíveis = (cadastro?.biometrias || []).filter(b =>
+        b?.modelo === modelos.modelo && Array.isArray(b?.vetor) && b.vetor.length === frente.vetor.length);
+      const id = identificar(frente.vetor, compatíveis);
       medir({ identificacaoMs: Date.now() - tId });
-      if (!id.reconhecido) anotar(id.motivo === MOTIVO.AMBIGUO ? RESULTADO_CALIBRACAO.AMBIGUO : RESULTADO_CALIBRACAO.NAO_CADASTRADO, frente, id);
-      if (!id.reconhecido) return falha({ mensagem: id.motivo === MOTIVO.NAO_CADASTRADO ? "Se o seu rosto ainda não foi cadastrado, chame o encarregado." : "Olhe de frente e tente novamente.", podeEncarregado: true });
+      if (!id.reconhecido) {
+        anotar(id.motivo === MOTIVO.AMBIGUO ? RESULTADO_CALIBRACAO.AMBIGUO : RESULTADO_CALIBRACAO.NAO_CADASTRADO, frente, id);
+        return falha({
+          mensagem: compatíveis.length
+            ? (id.motivo === MOTIVO.NAO_CADASTRADO ? "Rosto não reconhecido. Olhe de frente e tente novamente." : "Rosto ambíguo. Chame o encarregado.")
+            : "Este aparelho ainda não tem biometria compatível. Recadastre o rosto com esta versão.",
+          podeEncarregado: true,
+        });
+      }
       const funcionario = (cadastro.funcionarios || []).find(f => f.id === id.employeeId);
       if (!funcionario) return falha({ tipo: "atencao", contexto: "cadastro", mensagem: "O cadastro deste aparelho está desatualizado. Chame o encarregado.", podeEncarregado: true });
-
-      fase(FASE.VIRAR, funcionario.nome);
-      vibrar("leve");
-      await esperar(P.esperaAntesDaViradaMs);
-      etapa = "camera";
-      const fotoVirada = await foto();
-      cruas.push(fotoVirada.uri);
-      etapa = "modelos";
-      const virado = await analisarFoto(modelos, fotoVirada);
-      const { vivo } = avaliarProvaDeVida(frente, virado);
-      if (!vivo) { anotar(RESULTADO_CALIBRACAO.PROVA_DE_VIDA, frente, id); return falha({ mensagem: "Olhe de frente e, quando pedir, vire o rosto devagar.", podeEncarregado: true }); }
 
       anotar(RESULTADO_CALIBRACAO.RECONHECIDO, frente, id);
       fase(FASE.CONFIRMADO, funcionario.nome);
