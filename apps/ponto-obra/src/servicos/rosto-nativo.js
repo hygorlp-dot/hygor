@@ -9,7 +9,7 @@ import { File, Paths } from "expo-file-system";
 import * as Crypto from "expo-crypto";
 import UPNG from "upng-js";
 import {
-  BLAZEFACE, MOBILEFACENET, decodificarBlazeFace, giroDaCabeca, luminanciaMedia, normalizarL2, olhosENariz,
+  BLAZEFACE, FACENET512, decodificarBlazeFace, giroDaCabeca, luminanciaMedia, normalizarL2, olhosENariz,
   pixelsParaTensor, recorteParaIdentidade, rostosDistintos,
 } from "../logica/rosto.js";
 import { PARAMETROS_FACIAIS as P } from "../logica/calibracao.js";
@@ -19,7 +19,7 @@ import { fotoDentroDoLimite } from "../logica/foto.js";
 // Modelo trocado = app recusa carregar (o reconhecimento é prova de ponto).
 const MODELOS = {
   detector: { modulo: require("../../assets/modelos/face_detection_front.tflite"), sha256: "3bc182eb9f33925d9e58b5c8d59308a760f4adea8f282370e428c51212c26633" },
-  identidade: { modulo: require("../../assets/modelos/mobilefacenet.tflite"), sha256: "be4bc7cfc53f7bc336d0f28b1ab92535f618c913a422b683210750f6b5354854" },
+  identidade: { modulo: require("../../assets/modelos/facenet_512.tflite"), sha256: "f0dede2fdf5fd10248aad1d85393d2d40e3494464440bd8fccb2c957baa430b7" },
 };
 
 const hex = buffer => Array.from(new Uint8Array(buffer), b => b.toString(16).padStart(2, "0")).join("");
@@ -39,7 +39,7 @@ async function carregarConferido({ modulo, sha256 }) {
 
 export async function carregarModelos() {
   const [detector, identidade] = await Promise.all([carregarConferido(MODELOS.detector), carregarConferido(MODELOS.identidade)]);
-  return { detector, identidade, modelo: MOBILEFACENET.modelo };
+  return { detector, identidade, modelo: FACENET512.modelo };
 }
 
 const base64ParaBuffer = b64 => {
@@ -96,8 +96,8 @@ export async function analisarFoto(modelos, foto) {
   };
 
   // 3. Vetor de identidade.
-  const pixelsRosto = await pixelsDoRecorte(foto.uri, recorte, MOBILEFACENET.tamanho);
-  const [saida] = await modelos.identidade.run([pixelsParaTensor(pixelsRosto, MOBILEFACENET.tamanho, MOBILEFACENET.tamanho).buffer]);
+  const pixelsRosto = await pixelsDoRecorte(foto.uri, recorte, FACENET512.tamanho);
+  const [saida] = await modelos.identidade.run([pixelsParaTensor(pixelsRosto, FACENET512.tamanho, FACENET512.tamanho).buffer]);
   return { vetor: normalizarL2(new Float32Array(saida)), giro: giroDaCabeca(rosto), confiancaDeteccao: rosto.score, larguraRosto, luminancia: luminanciaMedia(pixelsRosto) };
 }
 
