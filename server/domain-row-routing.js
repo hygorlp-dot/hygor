@@ -1,5 +1,6 @@
 import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { EQUIPMENT_COMMAND_TYPES } from "../src/domains/equipamentos/commands.js";
+import { PATRIMONY_COMMAND_TYPES } from "../src/domains/patrimonio/commands.js";
 import { COMPANY_CONFIG_COMMAND_TYPES } from "../src/domains/config/company-config-commands.js";
 
 // Cada "linha separada" abaixo é a mesma tabela company_app_data, só com uma
@@ -30,6 +31,7 @@ export const DOMAIN_ROW = Object.freeze({
   LOOKAHEAD: "lookahead",
   CONFIG: "config",
   EQUIPAMENTOS: "equipamentos",
+  PATRIMONIO: "patrimonio",
   RDO: "rdo",
   ORCAMENTOS: "orcamentos",
 });
@@ -60,6 +62,7 @@ export const rowForOperationalCommand = commandType => {
   if (LOOKAHEAD_COMMAND_TYPES.has(commandType)) return DOMAIN_ROW.LOOKAHEAD;
   if (COMPANY_CONFIG_COMMAND_TYPES.has(commandType)) return DOMAIN_ROW.CONFIG;
   if (EQUIPMENT_COMMAND_TYPES.has(commandType)) return DOMAIN_ROW.EQUIPAMENTOS;
+  if (PATRIMONY_COMMAND_TYPES.has(commandType)) return DOMAIN_ROW.PATRIMONIO;
   if (RDO_COMMAND_TYPES.has(commandType)) return DOMAIN_ROW.RDO;
   return DOMAIN_ROW.CORE;
 };
@@ -115,6 +118,7 @@ export const DOMAIN_FIELDS = Object.freeze({
     "equipmentRegistryMigration", "equipmentRegistryRevision",
     "equipmentRegistryHistory", SHARED_RECEIPTS_FIELD,
   ],
+  [DOMAIN_ROW.PATRIMONIO]: ["companyAssets", SHARED_RECEIPTS_FIELD],
   [DOMAIN_ROW.RDO]: ["rdos", SHARED_RECEIPTS_FIELD],
   // Orçamentos (21/10/2026): só a tela grava (save-sections), nenhum comando
   // do servidor. Uma linha própria faz cada salvamento de orçamento gravar só
