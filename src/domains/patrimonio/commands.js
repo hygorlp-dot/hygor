@@ -170,6 +170,7 @@ export const applyPatrimonyCommand=(data={},command={},now=new Date().toISOStrin
   }
 
   if(command.type===PATRIMONY_COMMAND.ASSET_STATUS_CHANGED){
+    if(current.status===COMPANY_ASSET_STATUS.DISPOSED)return fail("Patrimônio baixado é histórico e não pode ser reativado. Cadastre outro bem ou crie um estorno formal de baixa.");
     const status=String(payload.status||"");
     if(!STATUSES.has(status))return fail("Situação patrimonial inválida.");
     const reason=text(payload.reason,500);
