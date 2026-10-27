@@ -116,8 +116,10 @@ export function recorteParaIdentidade(olhoEsquerdo, olhoDireito) {
   };
 }
 
-// ---------------- MobileFaceNet (identidade) ----------------
-export const MOBILEFACENET = Object.freeze({ tamanho: 112, dimensao: 192, modelo: "mobilefacenet-192-apache2" });
+// ---------------- FaceNet-512 (identidade) ----------------
+// Modelo aberto usado pelo projeto react-native-offline-face-auth. O runtime
+// continua sendo react-native-fast-tflite 3.0.1; não importamos o SDK completo.
+export const FACENET512 = Object.freeze({ tamanho: 160, dimensao: 512, modelo: "facenet-512-mit-v1" });
 
 // RGBA (como o decodificador de PNG entrega) -> Float32 RGB em [-1, 1], NHWC.
 // Mesma normalização dos dois modelos: x / 127.5 - 1.
