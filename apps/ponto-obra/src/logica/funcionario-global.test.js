@@ -71,6 +71,36 @@ describe("funcionário é global da empresa", () => {
     expect(cad.biometrias.map(b => b.employeeId)).not.toContain("e1");
   });
 
+  it("coexiste MobileFaceNet legado com FaceNet-512 sem um sobrescrever o outro", async () => {
+    const vetor512=(i,ruido=0)=>{const v=Array.from({length:512},(_,k)=>(k===i?1:0)+(k===i+1?ruido:0));const n=Math.hypot(...v);return v.map(x=>x/n);};
+    expect((await cadastrarRosto(B,"e1",3)).ok).toBe(true);
+    expect((await B.api("ponto-cadastrar-biometria",{
+      employeeId:"e1",modelo:"facenet-512-mit-v1",vetor:vetorDoCadastro([vetor512(3),vetor512(3,0.04)]),
+      fotos:[JPEG.toString("base64")],consentimento:CONSENTIMENTO,responsavelId:"u-enc",
+    })).ok).toBe(true);
+
+    const legado=await s.tratar({
+      action:"ponto-sincronizar",body:{biometriasAssinatura:""},
+      headers:{authorization:`Bearer ${A.token}`},
+    });
+    expect(legado.status).toBe(200);
+    expect(legado.json.modeloFacial).toBe("mobilefacenet-192-apache2");
+    expect(legado.json.biometrias).toHaveLength(1);
+    expect(legado.json.biometrias[0]).toMatchObject({employeeId:"e1",modelo:"mobilefacenet-192-apache2"});
+    expect(legado.json.biometrias[0].vetor).toHaveLength(192);
+
+    const face=await s.tratar({
+      action:"ponto-sincronizar",body:{modeloFacial:"facenet-512-mit-v1",biometriasAssinatura:""},
+      headers:{authorization:`Bearer ${A.token}`},
+    });
+    expect(face.status).toBe(200);
+    expect(face.json.modeloFacial).toBe("facenet-512-mit-v1");
+    expect(face.json.biometrias).toHaveLength(1);
+    expect(face.json.biometrias[0]).toMatchObject({employeeId:"e1",modelo:"facenet-512-mit-v1"});
+    expect(face.json.biometrias[0].vetor).toHaveLength(512);
+    expect(face.json.biometriasAssinatura).not.toBe(legado.json.biometriasAssinatura);
+  });
+
   it("vetores só descem quando o conjunto muda (assinatura) e o aparelho guarda os que já tem", async () => {
     await cadastrarRosto(B, "e1", 3);
     await sincronizar(A);
