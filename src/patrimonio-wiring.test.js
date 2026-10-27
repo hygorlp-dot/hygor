@@ -1,6 +1,6 @@
 import {describe,expect,it} from "vitest";
 import {readFileSync} from "node:fs";
-import {ROLE_TABS} from "./domains/administracao/abas-acesso.js";
+import {ROLE_TABS,allowedTabsForUser} from "./domains/administracao/abas-acesso.js";
 import {ERP_MODULES} from "./navigation/erp-navigation.js";
 import {DOMAIN_FIELDS,DOMAIN_ROW,rowForOperationalCommand} from "../server/domain-row-routing.js";
 import {PATRIMONY_COMMAND} from "./domains/patrimonio/commands.js";
@@ -22,6 +22,8 @@ describe("Patrimônio da empresa — integração",()=>{
     expect(ROLE_TABS.financeiro).toContain("patrimonio");
     expect(ROLE_TABS.engenheiro).not.toContain("patrimonio");
     expect(ROLE_TABS.rh).not.toContain("patrimonio");
+    expect(allowedTabsForUser({id:"fin",role:"financeiro",obraId:"obra-a"})).not.toContain("patrimonio");
+    expect(allowedTabsForUser({id:"compras",role:"compras",obraId:"obra-a"})).not.toContain("patrimonio");
   });
 
   it("grava companyAssets numa linha corporativa própria",()=>{
