@@ -20,7 +20,7 @@ export const PARAMETROS_FACIAIS = Object.freeze({
   limiarIouMesmoRosto: 0.3,        // candidatos sobrepostos = mesmo rosto
 
   // Identificação 1:N (MobileFaceNet)
-  limiarReconhecimento: 0.6,       // similaridade mínima do 1º candidato
+  limiarReconhecimento: 0.65,      // FaceNet-512 single-frame: ponto de partida do projeto MIT
   margemSobreSegundo: 0.08,        // 1º precisa passar o 2º por pelo menos isto
 
   // Prova de vida por mudança de pose (ver aviso em docs/calibracao-facial.md:
