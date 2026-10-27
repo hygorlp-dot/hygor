@@ -14,9 +14,11 @@ describe("densidade do editor de orçamento", () => {
     // é continuar aplicando budget-line-row, estática ou em template string.
     expect(app).toMatch(/className=\{?["`]budget-line-row\b/);
     expect(css).toContain(".arcd-main .budget-line-row input");
-    expect(css).toContain("min-height: 30px");
+    // Planilha: linha de 26px, células no tamanho de legenda do tema (token, não
+    // pixel solto) e sem moldura própria; o foco desenha a célula ativa em budget-sheet.css.
+    expect(css).toContain("min-height: 26px");
     const desktopRow = css.match(/\.arcd-main \.budget-line-row input[^{}]*\{([^}]+)\}/)?.[1];
-    expect(desktopRow).toContain("font-size:var(--arcd-type-control) !important");
+    expect(desktopRow).toContain("font-size: var(--arcd-type-caption");
   });
 
   it("preserva o padrão global de toque no mobile", () => {

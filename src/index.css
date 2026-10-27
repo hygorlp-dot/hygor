@@ -5158,18 +5158,19 @@ canvas {
     min-height: 36px;
   }
 
-  /* A grade mantém linhas compactas no desktop e texto de controle legível.
-     O celular conserva a altura de toque dos formulários convencionais. */
+  /* Orçamento é uma planilha: as células não têm moldura própria, só a
+     grade (ver .budget-sheet abaixo). Os campos acompanham a altura da
+     linha de 26px em vez de herdar a de formulários convencionais. */
   .arcd-main .budget-line-row {
-    padding-block: 4px !important;
+    padding-block: 0 !important;
   }
 
   .arcd-main .budget-line-row input:not([type="checkbox"]):not([type="radio"]) {
-    min-height: 30px;
-    height: 30px;
-    padding: 3px 6px !important;
-    border-radius: 6px !important;
-    font-size:var(--arcd-type-control) !important;
+    min-height: 26px;
+    height: 100%;
+    padding: 0 6px !important;
+    border-radius: 0 !important;
+    font-size: var(--arcd-type-caption, .75rem) !important;
     line-height: 1.2;
   }
 

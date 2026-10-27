@@ -13099,7 +13099,10 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
 
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:0}}>
-      <div style={{position:"sticky",top:0,zIndex:30,background:C.bg,paddingTop:2,boxShadow:"0 10px 24px rgba(20,24,28,.04)"}}>
+      {/* Capa + abas ficam fixas no topo, exceto no Orçamento: ali o banner e as
+          duas linhas de abas somavam ~340px e cobriam a planilha, que já traz o
+          próprio cabeçalho fixo de colunas (.budget-cols). */}
+      <div style={abaConteudo==="orc"?{background:C.bg,paddingTop:2}:{position:"sticky",top:0,zIndex:30,background:C.bg,paddingTop:2,boxShadow:"0 10px 24px rgba(20,24,28,.04)"}}>
       <button onClick={onVoltar} style={{background:"transparent",border:0,color:C.muted,
         cursor:"pointer",fontSize:"var(--arcd-type-control)",padding:0,textAlign:"left",marginBottom:11,
         fontFamily:"var(--arcd-font-sans)",fontWeight:600}}>← Todas as obras</button>
