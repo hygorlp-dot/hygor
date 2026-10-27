@@ -160,6 +160,28 @@ describe("comandos granulares do ponto",()=>{
     }),NOW)).toMatchObject({ok:false,status:409});
   });
 
+  it("registra compensação do banco sem criar presença e mantém idempotência",()=>{
+    const data=base();
+    data.employees[0]={...data.employees[0],timeBankEnabled:true};
+    const rh={id:"rh-1",nome:"RH",role:"rh"};
+    const command={
+      action:ATTENDANCE_COMMAND.TIME_BANK_ADJUST,operationId:ids[2],
+      employeeId:"e-a",date:"2026-07-28",minutes:-240,
+      reason:"Folga compensatória autorizada pelo RH",
+    };
+    expect(applyAttendanceCommand(data,engineer,command,NOW)).toMatchObject({ok:false,status:403});
+    const applied=applyAttendanceCommand(data,rh,command,NOW);
+    expect(applied.ok).toBe(true);
+    expect(applied.data.attendance).toEqual({});
+    expect(applied.data.timeBankAdjustments).toEqual([expect.objectContaining({
+      employeeId:"e-a",minutes:-240,type:"compensation",
+    })]);
+    expect(applied.result.timeBankBalanceMinutes).toBe(-240);
+    const repeated=applyAttendanceCommand(applied.data,rh,command,NOW);
+    expect(repeated).toMatchObject({ok:true,idempotent:true});
+    expect(repeated.data.timeBankAdjustments).toHaveLength(1);
+  });
+
   it("gera contexto de auditoria exclusivamente no resultado do servidor",()=>{
     const result=applyAttendanceCommand(base(),engineer,upsert(),NOW);
     expect(result.audit).toMatchObject({
