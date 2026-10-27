@@ -274,6 +274,7 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED]:["admin"],
   [OPERATIONAL_COMMAND.EQUIPMENT_SAVED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
   [OPERATIONAL_COMMAND.ASSET_SAVED]:["admin","financeiro","compras"],
+  [OPERATIONAL_COMMAND.ASSETS_IMPORTED]:["admin","financeiro","compras"],
   [OPERATIONAL_COMMAND.ASSET_MOVED]:["admin","financeiro","compras"],
   [OPERATIONAL_COMMAND.ASSET_STATUS_CHANGED]:["admin","financeiro","compras"],
   [OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED]:["admin","engenheiro","engenheiro_auditor","compras","financeiro"],
