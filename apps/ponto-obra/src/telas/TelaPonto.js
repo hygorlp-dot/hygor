@@ -86,14 +86,14 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
         return falha({ mensagem: "Olhe de frente para a câmera e tente de novo.", podeEncarregado: true });
       }
       const tId = Date.now();
-      const compatíveis = (cadastro?.biometrias || []).filter(b =>
+      const compativeis = (cadastro?.biometrias || []).filter(b =>
         b?.modelo === modelos.modelo && Array.isArray(b?.vetor) && b.vetor.length === frente.vetor.length);
-      const id = identificar(frente.vetor, compatíveis);
+      const id = identificar(frente.vetor, compativeis);
       medir({ identificacaoMs: Date.now() - tId });
       if (!id.reconhecido) {
         anotar(id.motivo === MOTIVO.AMBIGUO ? RESULTADO_CALIBRACAO.AMBIGUO : RESULTADO_CALIBRACAO.NAO_CADASTRADO, frente, id);
         return falha({
-          mensagem: compatíveis.length
+          mensagem: compativeis.length
             ? (id.motivo === MOTIVO.NAO_CADASTRADO ? "Rosto não reconhecido. Olhe de frente e tente novamente." : "Rosto ambíguo. Chame o encarregado.")
             : "Este aparelho ainda não tem biometria compatível. Recadastre o rosto com esta versão.",
           podeEncarregado: true,
