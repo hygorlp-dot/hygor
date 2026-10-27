@@ -9,7 +9,9 @@ Licenciado sob a Apache License, Version 2.0
 (http://www.apache.org/licenses/LICENSE-2.0)
 
 - assets/modelos/face_detection_front.tflite (BlazeFace, Google MediaPipe, Apache-2.0)
-- assets/modelos/mobilefacenet.tflite (baseado em MobileFaceNets, arXiv 1804.07573, Apache-2.0)
+- assets/modelos/facenet_512.tflite (FaceNet-512 distribuído pelo projeto
+  react-native-offline-face-auth, commit e SHA-256 fixados no script de build;
+  licença declarada pelo projeto-fonte: Apache-2.0 / MIT)
 - src/logica/rosto.js: decodificação das âncoras SSD e recorte alinhado para o
   vetor facial, portados do código Dart da biblioteca acima.
 
@@ -18,3 +20,5 @@ e @expo-google-fonts/ibm-plex-mono)
 Copyright IBM Corp.
 Licenciadas sob a SIL Open Font License, Version 1.1
 (https://openfontlicense.org)
+
+Fonte do FaceNet-512: https://github.com/aashup/face-auth
