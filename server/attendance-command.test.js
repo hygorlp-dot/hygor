@@ -135,6 +135,26 @@ describe("comandos granulares do ponto",()=>{
     expect(Object.values(data.attendance).every(days=>days["2026-07-28"].status==="P")).toBe(true);
   });
 
+  it("valida banco de horas também no lançamento manual, sem depender da interface",()=>{
+    const data=base();
+    data.employees[0]={...data.employees[0],workdayHours:8,timeBankEnabled:true};
+    const valid=applyAttendanceCommand(data,engineer,upsert({
+      record:{status:"P",ot:0,workedMinutes:540,bankMinutes:60,obraId:"obra-a"},
+    }),NOW);
+    expect(valid.ok).toBe(true);
+    expect(valid.data.attendance["e-a"]["2026-07-28"].bankMinutes).toBe(60);
+    expect(applyAttendanceCommand(data,engineer,upsert({
+      operationId:ids[1],record:{status:"P",ot:0,workedMinutes:540,bankMinutes:61,obraId:"obra-a"},
+    }),NOW)).toMatchObject({ok:false,status:409});
+    expect(applyAttendanceCommand(data,engineer,upsert({
+      operationId:ids[1],record:{status:"P",ot:1,workedMinutes:540,bankMinutes:1,obraId:"obra-a"},
+    }),NOW)).toMatchObject({ok:false,status:409});
+    data.employees[0].timeBankEnabled=false;
+    expect(applyAttendanceCommand(data,engineer,upsert({
+      operationId:ids[1],record:{status:"P",workedMinutes:540,bankMinutes:1,obraId:"obra-a"},
+    }),NOW)).toMatchObject({ok:false,status:409});
+  });
+
   it("gera contexto de auditoria exclusivamente no resultado do servidor",()=>{
     const result=applyAttendanceCommand(base(),engineer,upsert(),NOW);
     expect(result.audit).toMatchObject({
