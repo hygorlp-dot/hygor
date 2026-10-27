@@ -49,7 +49,7 @@ jobs:
           java-version: "17"
 
       - name: Instalar dependências da raiz
-        run: npm ci --ignore-scripts
+        run: npm ci --ignore-scripts --include=dev
 
       - name: Instalar dependências do app
         working-directory: apps/ponto-obra
