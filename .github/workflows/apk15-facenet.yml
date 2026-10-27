@@ -83,7 +83,7 @@ jobs:
 
       - name: Compilar e verificar APK 16 FaceNet
         working-directory: apps/ponto-obra
-        run: node scripts/build-apk-homologacao.mjs --version-code 15 --output quality-out/apk16
+        run: node scripts/build-apk-homologacao.mjs --version-code 16 --output quality-out/apk16
 
       - name: Resumo do artefato
         working-directory: apps/ponto-obra
