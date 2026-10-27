@@ -39,7 +39,7 @@ function AssetForm({asset,setAsset,onSave,onClose,busy}){
       <Inp label="Responsável inicial pelo bem" value={asset.custodian?.name||""} onChange={v=>setAsset(s=>({...s,custodian:{...(s.custodian||{}),name:v,type:v?"external":""}}))}/>
     </>}
     {!!asset.version&&<div style={card}><b>Controle operacional</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>Situação: {STATUS.find(s=>s.v===asset.status)?.l||asset.status} · Local: {asset.location?.label||"Sede"}. Use as ações "Mover" e "Status" na lista para manter o histórico auditável.</p></div>}
-    <div style={card}><b>Nota fiscal</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>{asset.invoice?.number?"NF "+asset.invoice.number+" · "+(asset.invoice.supplierName||"Fornecedor"):"Sem nota vinculada"}</p>{asset.invoice?.document?.path&&<button type="button" onClick={async()=>{const r=await obterDocumentoPatrimonio(asset.invoice.document.path);if(r.ok&&r.url)window.open(r.url,"_blank","noopener,noreferrer");}} style={{border:0,background:"transparent",padding:0,color:C.blue,textAlign:"left",cursor:"pointer"}}>Abrir documento fiscal</button>}</div>
+    <div style={card}><b>Nota fiscal</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>{asset.invoice?.number?"NF "+asset.invoice.number+" · "+(asset.invoice.supplierName||"Fornecedor"):"Sem nota vinculada"}</p>{asset.invoice?.document?.path&&<button type="button" onClick={async()=>{const tab=window.open("about:blank","_blank");const r=await obterDocumentoPatrimonio(asset.invoice.document.path);if(r.ok&&r.url&&tab){tab.location.href=r.url;}else{tab?.close();}}} style={{border:0,background:"transparent",padding:0,color:C.blue,textAlign:"left",cursor:"pointer"}}>Abrir documento fiscal</button>}</div>
     <Inp label="Observações" value={asset.notes||""} onChange={F("notes")}/>
     <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={onSave} disabled={busy||!String(asset.name||"").trim()}>{busy?"Salvando...":"Salvar"}</Btn></div>
   </div></Modal>;
@@ -52,7 +52,10 @@ function ImportInvoice({data,dispatchCommand,showToast,onClose}){
     setFile(f);setProposal(null);if(!f)return;setBusy(true);
     try{
       const ext=String(f.name||"").split(".").pop()?.toLowerCase();
-      const encoded=await dataUrl(f);setRaw(encoded);
+      if(Number(f.size||0)>4*1024*1024)throw new Error("Documento fiscal acima de 4 MB. Comprima o arquivo antes de importar.");
+      let encoded=await dataUrl(f);
+      if(ext==="xml")encoded=encoded.replace(/^data:[^;]*;base64,/,"data:application/xml;base64,");
+      setRaw(encoded);
       if(ext==="xml"||["application/xml","text/xml"].includes(f.type)){
         const n=lerXmlNfe(await f.text());if(n.erro)throw new Error(n.erro);
         setProposal({source:"xml",invoice:n,items:(n.itens||[]).map(i=>({...i,quantidade:Number(i.qtd||1),valorUnitario:Number(i.precoUnit||0),categoria:"Outros",marca:"",modelo:"",numeroSerie:"",imei:"",patrimonial:durable(i.descricao),confianca:1,justificativa:"Extraído diretamente do XML."}))});
