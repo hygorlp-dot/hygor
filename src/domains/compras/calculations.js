@@ -148,7 +148,7 @@ export const mapaGerencialCompras = (data, obraIds = [], hoje = "") => {
   const concentracaoTop3 = fornecedores.slice(0, 3)
     .reduce((s, f) => s + f.participacao, 0);
   const origens = {
-    empresa: pagamentos.filter(p => p.origem === "empresa").reduce((s, p) => s + Number(p.valor || 0), 0),
+    empresa: pagamentos.filter(p => p.origem === "empresa" || p.origem === "banco").reduce((s, p) => s + Number(p.valor || 0), 0),
     caixa_obra: pagamentos.filter(p => p.origem === "caixa_obra").reduce((s, p) => s + Number(p.valor || 0), 0),
     cliente_direto: pagamentos.filter(p => p.origem === "cliente_direto").reduce((s, p) => s + Number(p.valor || 0), 0),
   };

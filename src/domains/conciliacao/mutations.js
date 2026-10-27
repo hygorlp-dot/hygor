@@ -9,6 +9,7 @@
 // duplicam o mesmo fato financeiro (requisito crítico da entrega).
 import { aplicarRecebimentoMedicao, removerRecebimentoMedicao, totalRecebidoMedicao } from "./calculations.js";
 import { active } from "../financeiro/ledger.js";
+import { saldoPagamentoPedido } from "../compras/calculations.js";
 import { validatePurchasePayment } from "../financeiro/purchase-payment-validation.js";
 import { validateExistingPaymentLink, updatePaymentAssociation, stampChangedPurchaseParents } from "./existing-payment-link.js";
 import { saldoTituloFolha, situacaoTituloFolha, validarLiquidacaoFolha } from "./payroll.js";
@@ -125,7 +126,11 @@ export const registrarPagamentoEConciliar = (data, params) => {
     id: gerarIdConc("pg"),
     data: dataPagamento || tr.data,
     valor: Math.abs(Number(valor ?? tr.valor)),
-    origem: "banco",
+    // Pagamento conciliado com o extrato sai da conta da empresa: mesma origem
+    // que o Pagamento de obrigação usa, o que mantém os totais por origem.
+    // `viaExtrato` guarda o que "banco" dizia antes, sem perder a informação.
+    origem: "empresa",
+    viaExtrato: true,
     conciliado: true,
     transacaoId,
     referencia: observacao,
@@ -145,10 +150,17 @@ export const registrarPagamentoEConciliar = (data, params) => {
     let pedidos = next.pedidos;
     // Uma nota vinculada a pedido pode aparecer nas duas estruturas com o
     // mesmo id de pagamento - sincroniza para não duplicar entre elas.
+    // O espelho no pedido nunca passa do saldo dele (a nota pode ser maior que
+    // o pedido) e aponta a nota de origem, como o Pagamento de obrigação faz.
     if (notaOriginal?.pedidoId) {
-      pedidos = (next.pedidos || []).map(p => p.id === notaOriginal.pedidoId
-        ? { ...p, pagamentos: [...(p.pagamentos || []), { ...pagamento, referencia: `Nota ${notaOriginal.numero || ""}` }] }
-        : p);
+      pedidos = (next.pedidos || []).map(p => {
+        if (p.id !== notaOriginal.pedidoId) return p;
+        const valorPedido = Math.min(pagamento.valor, saldoPagamentoPedido(p));
+        if (!(valorPedido > 0.001)) return p;
+        return { ...p, pagamentos: [...(p.pagamentos || []), {
+          ...pagamento, valor: valorPedido, notaFiscalId: notaOriginal.id, referencia: `Nota ${notaOriginal.numero || ""}`,
+        }] };
+      });
     }
     next = { ...next, notasFiscais, pedidos };
     criados.push({ tipo: "pagamentoNota", id: pagamento.id, entidadeId });

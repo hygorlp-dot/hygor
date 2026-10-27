@@ -2414,7 +2414,7 @@ const normalizeData = incoming => {
       pagamentos:Array.isArray(x.pagamentos)?x.pagamentos.map(pg=>({
         ...pg,
         id:pg.id||uid(),data:pg.data||x.data||"",valor:Number(pg.valor||0),
-        origem:pg.origem==="cliente_direto"?"cliente_direto":pg.origem==="empresa"?"empresa":"caixa_obra",
+        origem:pg.origem==="cliente_direto"?"cliente_direto":(pg.origem==="empresa"||pg.origem==="banco")?"empresa":"caixa_obra",...(pg.viaExtrato===true||pg.origem==="banco"?{viaExtrato:true}:{}),
         conciliado:!!pg.conciliado,transacaoId:pg.transacaoId||"",referencia:pg.referencia||"",observacao:pg.observacao||"",
         comprovantes:Array.isArray(pg.comprovantes)?pg.comprovantes.map(a=>({id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Comprovante de pagamento",url:a.url||"",path:a.path||"",tipo:a.tipo||"",tamanho:Number(a.tamanho||0),enviadoEm:a.enviadoEm||"",enviadoPorId:a.enviadoPorId||"",enviadoPor:a.enviadoPor||""})).filter(a=>a.url):[],
         registradoPorId:pg.registradoPorId||"",registradoPor:pg.registradoPor||"",registradoEm:pg.registradoEm||"",
