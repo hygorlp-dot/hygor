@@ -47,7 +47,8 @@ const env = {
 };
 
 // Só consulta pública de ambiente. Não pareia, não envia batidas ou dados pessoais.
-executar(process.execPath, ["scripts/garantir-modelo-facenet.mjs"]);\nprocess.stdout.write("Confirmando o backend isolado antes da compilação…\\n");
+executar(process.execPath, ["scripts/garantir-modelo-facenet.mjs"]);
+process.stdout.write("Confirmando o backend isolado antes da compilação…\\n");
 const inicioConsulta = new Date().toISOString();
 const resposta = await fetch(servidor.apiUrl, {
   method: "POST", headers: { "content-type": "application/json" }, redirect: "error",
