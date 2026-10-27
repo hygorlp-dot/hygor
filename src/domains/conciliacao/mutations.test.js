@@ -16,7 +16,7 @@ const dataBase = () => ({
     { id: "n1", numero: "100", pedidoId: "p1", status: "aprovada", valorLiquido: 500, pagamentos: [] },
     { id: "n2", numero: "101", status: "aprovada", valorLiquido: 500, pagamentos: [{ id: "pgExistente", valor: 500, conciliado: false }] },
   ],
-  pedidos: [{ id: "p1", numero: "P1", totalPedido: 500, pagamentos: [] }],
+  pedidos: [{ id: "p1", numero: "P1", itens: [{ id: "i1", qtd: 5, precoUnit: 100 }], pagamentos: [] }],
   medicoes: [{ id: "m1", valorPrevisto: 1000, recebimentos: [] }],
   outrasDesp: [], despesasEmpresa: [], payments: [], caixaObra: [], historicoConc: [],
   pagsTerceiros: [], medicoesTerc: [], pagamentosFolha: [],
@@ -81,9 +81,34 @@ describe("B. registrar pagamento de obrigação existente e conciliar", () => {
     expect(nota.pagamentos).toHaveLength(1);
     expect(pedido.pagamentos).toHaveLength(1);
     expect(pedido.pagamentos[0].id).toBe(nota.pagamentos[0].id); // mesmo id nas duas estruturas, não duplicado
+    expect(pedido.pagamentos[0].notaFiscalId).toBe("n1");
+    expect(nota.pagamentos[0]).toMatchObject({ origem: "empresa", viaExtrato: true, conciliado: true, transacaoId: "t1" });
     expect(next.transacoes.find(t => t.id === "t1").status).toBe("conciliado");
     expect(next.outrasDesp).toHaveLength(0);
     expect(next.despesasEmpresa).toHaveLength(0);
+  });
+
+  test("o espelho no pedido não passa do saldo do pedido quando a nota é maior (C7)", () => {
+    const data = dataBase();
+    data.notasFiscais[0].valorLiquido = 800;
+    data.transacoes[0].valor = -800;
+    const { data: next, resumo } = registrarPagamentoEConciliar(data, {
+      transacaoId: "t1", tipo: "nota", entidadeId: "n1", valor: 800, dataPagamento: "2026-01-10", operador,
+    });
+    expect(resumo.ok).toBe(true);
+    expect(next.notasFiscais[0].pagamentos[0].valor).toBe(800);
+    expect(next.pedidos[0].pagamentos[0].valor).toBe(500);
+    expect(next.pedidos[0].pagamentos[0].id).toBe(next.notasFiscais[0].pagamentos[0].id);
+  });
+
+  test("pedido já quitado não recebe espelho de novo pagamento da nota (C7)", () => {
+    const data = dataBase();
+    data.pedidos[0].pagamentos = [{ id: "pg-antigo", valor: 500, data: "2026-01-02", origem: "empresa" }];
+    const { data: next } = registrarPagamentoEConciliar(data, {
+      transacaoId: "t1", tipo: "nota", entidadeId: "n1", valor: 500, dataPagamento: "2026-01-10", operador,
+    });
+    expect(next.pedidos[0].pagamentos).toHaveLength(1);
+    expect(next.notasFiscais[0].pagamentos).toHaveLength(1);
   });
 
   test("registrar recebimento de medição aplica valor PARCIAL (não força recebido=true)", () => {
