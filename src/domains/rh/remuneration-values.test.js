@@ -27,3 +27,14 @@ it('reajuste com vigência preserva custo anterior e o histórico pertence ao se
   expect(calculateAttendanceDayCost({employee,record:{status:'P',archivedDailyRate:80},date:'2026-09-21'}).laborCost).toBe(80);
   expect(employee.remunerationValuesHistory.some(r=>r.dailyRate===1)).toBe(false);
 });
+
+it('mudança da política de batidas e banco exige vigência e preserva a regra anterior',()=>{
+  const old={id:'e',name:'QA',startDate:'2026-03-20',dailyRate:100,version:1,workdayHours:8,workStart:'07:00',attendancePunchMode:'with_break',workBreakStart:'12:00',workBreakEnd:'13:00',timeBankEnabled:false};
+  const command={type:'FUNCIONARIO_SALVO',actorId:'rh',expectedVersion:1,payload:{employee:{...old,attendancePunchMode:'entry_exit',timeBankEnabled:true}}};
+  expect(applyEmployeeCommand({employees:[old]},command).ok).toBe(false);
+  Object.assign(command.payload.employee,{remunerationValueEffectiveFrom:'2026-10-15',remunerationValueReason:'Nova política de jornada aprovada pelo RH'});
+  const result=applyEmployeeCommand({employees:[old]},command);expect(result.ok).toBe(true);
+  const employee=result.data.employees[0];
+  expect(effectiveEmployeeOnDate(employee,'2026-10-14')).toMatchObject({attendancePunchMode:'with_break',timeBankEnabled:false});
+  expect(effectiveEmployeeOnDate(employee,'2026-10-15')).toMatchObject({attendancePunchMode:'entry_exit',timeBankEnabled:true});
+});
