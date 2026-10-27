@@ -92,7 +92,7 @@ export const normalizeCompanyAsset=asset=>({
 const identityConflict=(assets,currentId,field,value)=>{
   const wanted=normalizeIdentity(value);
   if(!wanted)return false;
-  return assets.some(item=>String(item.id)!==String(currentId)&&item.active!==false
+  return assets.some(item=>String(item.id)!==String(currentId)
     &&normalizeIdentity(item?.[field])===wanted);
 };
 
@@ -129,7 +129,7 @@ export const applyPatrimonyCommand=(data={},command={},now=new Date().toISOStrin
     if(identityConflict(assets,input.id,"serialNumber",input.serialNumber))return fail("Já existe um bem ativo com este número de série.");
     if(identityConflict(assets,input.id,"imei",input.imei))return fail("Já existe um bem ativo com este IMEI.");
     const duplicateInvoiceItem=input.invoice.accessKey&&input.invoice.itemNumber
-      &&assets.some(item=>String(item.id)!==input.id&&item.active!==false
+      &&assets.some(item=>String(item.id)!==input.id
         &&normalizeKey(item?.invoice?.accessKey)===input.invoice.accessKey
         &&Number(item?.invoice?.itemNumber||0)===input.invoice.itemNumber
         &&Number(item?.invoice?.unitIndex||1)===input.invoice.unitIndex
