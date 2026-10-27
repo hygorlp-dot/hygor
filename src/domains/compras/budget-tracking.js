@@ -8,6 +8,8 @@
 //   previsto     = pedidos ainda em rascunho (não somam no comprometido)
 // Item sem preço é valorado pelo custo médio do insumo (C1.5).
 // Alerta: 90% do orçado = atenção; acima de 100% = estourou.
+// Linhas em ordem de risco (R2): estourou, atenção, ok; dentro de cada grupo,
+// o maior percentual primeiro. Cada linha traz os pedidos que a compõem.
 import { getActiveBudgetBaseline } from "../orcamentos/calculations.js";
 import { pedidoVivo } from "./purchase-position.js";
 import { referenceQuantityOf } from "./unit-conversion.js";
@@ -42,6 +44,20 @@ const valorDoItem=(item,materiais,quantidade)=>{
   return porReferencia?referenceQuantityOf(item,quantidade)*preco:Number(quantidade||0)*preco;
 };
 
+const GRAVIDADE={estourou:0,atencao:1,ok:2};
+export const ordemDeRisco=(a,b)=>GRAVIDADE[a.alerta]-GRAVIDADE[b.alerta]||b.pct-a.pct||b.comprometido-a.comprometido;
+
+// Barra proporcional à gravidade: a escala é o maior entre o orçado e o
+// comprometido. `dentro` é a parte coberta pelo orçado e `excesso` o que passou
+// dele, em % da largura (105% vira uma faixa fina; 2.000% fica quase toda no
+// excesso). `marcaOrcado` é onde fica o 100% do orçado na barra.
+export const segmentosBarraOrcamento=pct=>{
+  const p=Math.max(0,Number(pct)||0);
+  if(p<=100)return {dentro:p,excesso:0,marcaOrcado:100};
+  const marcaOrcado=10000/p;
+  return {dentro:marcaOrcado,excesso:100-marcaOrcado,marcaOrcado};
+};
+
 // `pedidoSimulado` substitui (ou acrescenta) um pedido, para avaliar o
 // impacto de um pedido em edição antes de salvar.
 export const calcOrcadoComprado=(data,obraId,{pedidoSimulado=null}={})=>{
@@ -61,6 +77,7 @@ export const calcOrcadoComprado=(data,obraId,{pedidoSimulado=null}={})=>{
   if(pedidoSimulado)pedidos.push(pedidoSimulado);
 
   const soma={comprometido:{},recebido:{},previsto:{}};
+  const pedidosDaEtapa={};
   let semApropriacao=0;
   pedidos.filter(p=>p.obraId===obraId&&p.status!=="cancelado"&&p.deletedAt==null&&p.ativo!==false).forEach(p=>(p.itens||[]).forEach(i=>{
     const valor=valorDoItem(i,materiais,i.qtd);
@@ -68,6 +85,11 @@ export const calcOrcadoComprado=(data,obraId,{pedidoSimulado=null}={})=>{
     if(!raiz){if(pedidoVivo(p))semApropriacao+=valor;return;}
     const destino=pedidoVivo(p)?soma.comprometido:soma.previsto;
     destino[raiz.id]=(destino[raiz.id]||0)+valor;
+    const porPedido=pedidosDaEtapa[raiz.id]||(pedidosDaEtapa[raiz.id]=new Map());
+    const atual=porPedido.get(String(p.id))||{id:String(p.id),numero:p.numero||"",fornecedorId:p.fornecedorId||"",
+      status:p.status||"",data:p.data||"",rascunho:!pedidoVivo(p),valor:0};
+    atual.valor+=valor;
+    porPedido.set(String(p.id),atual);
     if(pedidoVivo(p))soma.recebido[raiz.id]=(soma.recebido[raiz.id]||0)+valorDoItem(i,materiais,i.qtdRecebida);
   }));
 
@@ -81,9 +103,11 @@ export const calcOrcadoComprado=(data,obraId,{pedidoSimulado=null}={})=>{
       saldo:orcado-comprometido,
       pct:orcado?(comprometido/orcado)*100:(comprometido>0?999:0),
       alerta,estourou:alerta==="estourou",
+      pedidos:[...(pedidosDaEtapa[nivel.id]?.values()||[])]
+        .sort((a,b)=>Number(a.rascunho)-Number(b.rascunho)||b.valor-a.valor),
     };
   }).filter(l=>l.orcado>0||l.comprometido>0||l.previsto>0)
-    .sort((a,b)=>b.comprometido-a.comprometido);
+    .sort(ordemDeRisco);
   return {orc,linhas,semApropriacao,motivo:null,temOrcamento:true};
 };
 

@@ -33,8 +33,8 @@ async function openPurchases(page){
   await expect(page.locator(".purchase-header")).toBeVisible();
 }
 
-async function enter(page,{role="admin",failFirstRequest=false}={}) {
-  let state=fixture();state.usuarios=[{...PROFILE,role}];
+async function enter(page,{role="admin",failFirstRequest=false,prepare=null}={}) {
+  let state=fixture();state.usuarios=[{...PROFILE,role}];prepare?.(state);
   let fail=failFirstRequest;const commands=[];
   await page.clock.setFixedTime(new Date("2026-10-23T12:00:00-03:00"));
   await page.route("**/api/**",route=>route.fulfill({json:{ok:true,bases:[],items:[],components:[],presencas:[],reply:""}}));
@@ -279,5 +279,48 @@ test("comparativo por obra ordena por risco, abre a obra escolhida e explica a f
   await page.getByRole("button",{name:"Abrir compras de Residencial Alameda",exact:true}).click();
   await expect(page.locator(".purchase-context-bar").getByLabel("Obra",{exact:true})).toHaveValue("a");
   await expect(page.getByRole("status").filter({hasText:"Sem baseline aprovada."})).toBeVisible();
+  expect(app.errors).toEqual([]);
+});
+
+test("orçado × comprado mostra o maior estouro primeiro, a barra proporcional e os pedidos da etapa",async({page})=>{
+  const app=await enter(page,{prepare:state=>{
+    state.orcamentos=[{id:"budget",obraId:"a",nome:"Orçamento aprovado",versionStatus:"aprovado",status:"aprovado",
+      etapas:[{id:"foundation",nome:"FUNDAÇÕES",parentId:"",ordem:1},{id:"paint",nome:"PINTURA",parentId:"",ordem:2},{id:"roof",nome:"COBERTURA",parentId:"",ordem:3}],
+      itens:[{id:"f",etapaId:"foundation",quantidade:1,precoUnit:1000},{id:"p",etapaId:"paint",quantidade:1,precoUnit:100},{id:"r",etapaId:"roof",quantidade:1,precoUnit:10000}]}];
+    state.budgetBaselines=[{id:"bl",obraId:"a",tipo:"controle",ativo:true,budgetId:"budget"}];
+    // PC-001 (enviado): R$ 250 na fundação (25%). PC-004: R$ 2.000 na pintura (2.000%) e R$ 1.050 na cobertura.
+    state.pedidos.push({id:"paint-order",numero:"PC-004",obraId:"a",fornecedorId:"norte",status:"enviado",data:"2026-10-21",previsao:"2026-10-25",
+      origemPagamento:"empresa",pagamentos:[],itens:[{...item("pi","cement",80,25),orcNivel1Id:"paint"},{...item("ri","cement",42,25),orcNivel1Id:"roof"}]});
+  }});
+  await selectWork(page);
+  const tools=page.locator("details.purchase-tools");
+  await tools.locator("summary").click();
+  await tools.getByRole("button",{name:"Orçado x comprado",exact:true}).click();
+
+  const etapas=page.locator(".orc-etapa");
+  await expect(etapas).toHaveCount(3);
+  await expect(etapas.nth(0)).toContainText("PINTURA");
+  await expect(etapas.nth(0)).toHaveAttribute("data-alerta","estourou");
+  await expect(etapas.nth(1)).toContainText("FUNDAÇÕES");
+  await expect(etapas.nth(2)).toContainText("COBERTURA");
+
+  // 2.000%: o trecho vermelho ocupa 95% da barra.
+  const excesso=etapas.nth(0).locator("[data-segmento=excesso]");
+  await expect(excesso).toBeVisible();
+  const largura=await excesso.evaluate(el=>el.getBoundingClientRect().width/el.parentElement.getBoundingClientRect().width);
+  expect(largura).toBeGreaterThan(0.94);
+  expect(largura).toBeLessThan(0.96);
+  await expect(etapas.nth(1).locator("[data-segmento=excesso]")).toHaveCount(0);
+
+  // Detalhe: a fundação lista o pedido enviado e o rascunho separado.
+  await etapas.nth(1).getByText("Ver os 2 pedidos desta etapa").click();
+  await expect(etapas.nth(1).locator("li")).toHaveCount(2);
+  await expect(etapas.nth(1).locator("li").nth(0)).toContainText("PC-001");
+  await expect(etapas.nth(1).locator("li").nth(0)).toContainText("Depósito Central");
+  await expect(etapas.nth(1).locator("li").nth(1)).toContainText("PC-002");
+  await expect(etapas.nth(1).locator("li").nth(1)).toContainText("(não comprometido)");
+  await etapas.nth(0).getByText("Ver o pedido desta etapa").click();
+  await expect(etapas.nth(0).locator("li")).toContainText("PC-004");
+  await expect(etapas.nth(0).locator("li")).toContainText("R$ 2.000,00");
   expect(app.errors).toEqual([]);
 });

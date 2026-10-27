@@ -19,7 +19,7 @@ Complementa `docs/COMPRAS_UX_FLUXO.md` (fila operacional, feita antes). Este roa
 | Fase | Entrega | Critério de aceite | Status |
 | --- | --- | --- | --- |
 | R1 | Tabela "Compras por obra" (orçado, comprometido, % do orçamento, a receber, a pagar, prazos) na fila e no "Orçado × comprado" em "Todas as obras"; mensagem correta quando falta baseline. | Uma linha por obra, ordenada por risco; clicar abre aquela obra; obra sem baseline explica o motivo real; totais conferem com as telas por obra. | Entregue (PR R1) |
-| R2 | "Orçado × comprado": ordenar por risco, barra proporcional à gravidade, detalhe dos pedidos de cada etapa. | O maior estouro percentual aparece primeiro; cada etapa lista os pedidos que a compõem. | Planejado |
+| R2 | "Orçado × comprado": ordenar por risco, barra proporcional à gravidade, detalhe dos pedidos de cada etapa. | O maior estouro percentual aparece primeiro; cada etapa lista os pedidos que a compõem. | Entregue (PR R2) |
 | R3 | Cabeçalho compacto, título sem repetição; renomear o item "Cotações" do menu para o que ele é. | A primeira linha da fila aparece em 1000 px; nenhum nome duplicado entre menu e abas. | Planejado |
 | R4 | Pedidos: ação principal conforme o status, "Cancelar" e "Excluir" num menu "⋯", filtros por status, fornecedor, atraso e obra. | No máximo uma ação principal visível por cartão; destrutivas fora da linha de ações comuns. | Planejado |
 | R5 | Painel: separar "Resumo" (KPIs, exceções clicáveis, tabela por obra) de "Análises" (Kanban, maturidade, veredicto); sem "Excluir" em tela de leitura. | Cada exceção abre a fila já filtrada; nenhuma ação destrutiva no painel. | Planejado |
@@ -43,3 +43,12 @@ Dados fictícios; só o papel administrador foi observado (engenharia, compras e
 - **Menu "Consultas e cadastros"**: ficava aberto depois de escolher um item e cobria o conteúdo. Agora fecha ao escolher e o botão mostra onde você está ("Consultas e cadastros · Orçado x comprado").
 - **Design**: o CSS novo usa só tokens do design system (`--arcd-color-*`, `--arcd-radius-*`); o hook de design apontou 17 cores/raios literais e todos foram trocados por tokens, nenhum suprimido. As células de cabeçalho de linha são `<td role="rowheader">` porque a regra global `.arcd-main th` (pensada para cabeçalho de coluna) força fundo e borda em qualquer `th`.
 - **Verificação**: `by-work.test.js` (10 casos, inclusive a conferência com a tela "Orçado × comprado"), `PurchasesByWork.test.jsx` (9), dois testes novos em `orcamentos/calculations.test.js` e o caso 11 do `e2e/purchase-workspace.spec.js` (ordem por risco, abrir a obra, motivo da baseline, menu fechando); os 4 testes de layout em 390, 768, 1280 e 1440 px seguem passando com a tabela na página.
+
+### R2 · Orçado × comprado em ordem de risco (27/10/2026)
+
+- **Ordem**: `calcOrcadoComprado` (`src/domains/compras/budget-tracking.js`) ordena as etapas por `ordemDeRisco`: estourou, atenção (90%), ok; dentro de cada grupo, o maior percentual primeiro e, no empate, o maior comprometido. Antes a ordem era só pelo valor comprometido, e um estouro de 2.000% numa etapa pequena ficava no fim da lista.
+- **Barra proporcional à gravidade**: `segmentosBarraOrcamento(pct)` usa como escala o maior entre orçado e comprometido. Até 100% a barra é a de sempre; acima disso, o trecho dentro do orçado fica neutro e o excesso em vermelho, na proporção real (105% vira uma faixa fina; 2.000% ocupa 95% da barra). Vale também para a barra do total.
+- **Pedidos de cada etapa**: cada linha traz `pedidos` (número, fornecedor, situação, valor na etapa). Pedidos vivos primeiro, pelo valor; rascunho aparece marcado como "não comprometido"; cancelado não aparece. A soma dos pedidos vivos é o comprometido da linha (conferido em teste). Na tela, "Ver os N pedidos desta etapa" abre a lista.
+- **Sem mudança de regra**: comprometido continua sendo o de `pedidoVivo` (`purchase-position.js`); nada muda no que é gravado nem na DRE.
+- **Verificação**: três testes novos em `budget-tracking.test.js` (falham no código anterior) e o caso 12 do `e2e/purchase-workspace.spec.js` (ordem, largura do trecho vermelho, lista de pedidos com o rascunho separado).
+

@@ -46,7 +46,7 @@ import { Button } from "../../../design-system/primitives/Button";
 import { Select } from "../../../design-system/primitives/Select";
 import { conferenciaPagamentoPedido } from "../payment-conference";
 import { movementOfOrder } from "../purchase-cancellation-command";
-import { alertasOrcamentoDoPedido } from "../budget-tracking";
+import { alertasOrcamentoDoPedido, segmentosBarraOrcamento } from "../budget-tracking";
 import { contratosDisponiveis, saldoItemContrato } from "../supply-contracts";
 import ContratosFornecimentoView from "./ContratosFornecimentoView";
 import { atrasoDoItem } from "../delivery-schedule";
@@ -858,6 +858,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
   const kpi = useMemo(() => calcCompras(data, obraIdsMapa), [data.pedidos, data.movEstoque, data.transacoes, obraIdsMapa]);
   const orcVs = useMemo(() => calcOrcadoComprado(data, obraAtual), [data.orcamentos, data.budgetBaselines, data.pedidos, data.materiais, obraAtual]);
+  const pedidoPorIdOrc = useMemo(() => new Map((data.pedidos||[]).map(p=>[String(p.id),p])), [data.pedidos]);
   // Entregas atrasadas (todas as obras visiveis) e mapa por pedido.
   const atrasados = useMemo(() => pedidosEmAtraso(data, today())
     .filter(x => obras.some(o => o.id === x.pedido.obraId)), [data.pedidos, data.materiais, obras]);
@@ -2511,10 +2512,12 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                     </div>
                   ))}
                 </div>
-                <div style={{marginTop:9,height:6,background:C.line,borderRadius:99,overflow:"hidden"}}>
-                  <div style={{height:"100%",width:`${Math.min(100,pct)}%`,
-                               background: pct > 100 ? C.red : C.yellow, borderRadius:99}}/>
-                </div>
+                {(()=>{const barra=segmentosBarraOrcamento(pct);return(
+                  <div style={{marginTop:9,height:6,background:C.line,borderRadius:99,overflow:"hidden",display:"flex"}}>
+                    <div style={{height:"100%",width:`${barra.dentro}%`,background:pct>100?C.muted:C.yellow}}/>
+                    {barra.excesso>0&&<div style={{height:"100%",width:`${barra.excesso}%`,background:C.red}}/>}
+                  </div>
+                );})()}
                 <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>
                   {pct.toFixed(1)}% do orçamento comprometido em pedidos enviados
                 </p>
@@ -2538,10 +2541,15 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           )}
 
           {/* Linhas */}
+          {orcVs.linhas.length > 1 && (
+            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>
+              Etapas em ordem de risco: primeiro as que estouraram, depois as que passaram de 90%, sempre o maior percentual antes. Na barra, o trecho vermelho é o que passou do orçado.
+            </p>
+          )}
           {orcVs.linhas.map(l => {
             const cor = l.alerta==="estourou" ? C.red : l.alerta==="atencao" ? C.orange : C.green;
             return (
-              <div key={l.it.id} style={{
+              <div key={l.it.id} className="orc-etapa" data-alerta={l.alerta} style={{
                 background:C.card, border:`1px solid ${C.border}`,
                 borderLeft:`1px solid ${cor}`, borderRadius:6, padding:"10px 12px",
               }}>
@@ -2561,10 +2569,14 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                   ))}
                 </div>
 
-                <div style={{marginTop:8,height:5,background:C.line,borderRadius:99,overflow:"hidden"}}>
-                  <div style={{height:"100%",width:`${Math.min(100,l.pct)}%`,
-                               background:cor,borderRadius:99}}/>
-                </div>
+                {(()=>{const barra=segmentosBarraOrcamento(l.pct);return(
+                  <div className="orc-barra" role="img"
+                       aria-label={l.orcado>0?`${l.pct.toFixed(0)}% do orçado comprometido`:"Comprometido sem orçamento na etapa"}
+                       style={{position:"relative",marginTop:8,height:5,background:C.line,borderRadius:99,overflow:"hidden",display:"flex"}}>
+                    <div data-segmento="dentro" style={{height:"100%",width:`${barra.dentro}%`,background:l.alerta==="estourou"?C.muted:cor}}/>
+                    {barra.excesso>0&&<div data-segmento="excesso" style={{height:"100%",width:`${barra.excesso}%`,background:C.red}}/>}
+                  </div>
+                );})()}
 
                 {l.estourou && (
                   <p style={{fontSize:"var(--arcd-type-label)",color:C.red,marginTop:6,fontWeight:600}}>
@@ -2585,6 +2597,31 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                   <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>
                     + {fmt(l.previsto)} em pedidos ainda em rascunho
                   </p>
+                )}
+                {l.pedidos.length > 0 && (
+                  <details style={{marginTop:6}}>
+                    <summary style={{fontSize:"var(--arcd-type-label)",color:C.blue,cursor:"pointer",fontWeight:600}}>
+                      Ver {l.pedidos.length===1?"o pedido":`os ${l.pedidos.length} pedidos`} desta etapa
+                    </summary>
+                    <ul style={{listStyle:"none",margin:"6px 0 0",padding:0,display:"grid",gap:4}}>
+                      {l.pedidos.map(item=>{
+                        const pedido=pedidoPorIdOrc.get(item.id);
+                        const st=pedido?statusPedido(pedido):item.status;
+                        const meta=STATUS_PEDIDO[st]||{l:st||"-",c:C.muted};
+                        return (
+                          <li key={item.id} style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap",
+                                                    fontSize:"var(--arcd-type-label)",borderTop:`1px solid ${C.line}`,paddingTop:4}}>
+                            <span className="brk" style={{color:C.text,minWidth:0}}>
+                              <strong>{item.numero||"Sem número"}</strong> · {nomeForn(item.fornecedorId)}
+                              <span style={{color:meta.c}}> · {meta.l}</span>
+                              {item.rascunho&&<span style={{color:C.muted}}> (não comprometido)</span>}
+                            </span>
+                            <strong style={{color:C.text,whiteSpace:"nowrap"}}>{fmt(item.valor)}</strong>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </details>
                 )}
               </div>
             );
