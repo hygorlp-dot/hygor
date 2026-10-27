@@ -5,6 +5,7 @@ import { divergenciasDoItem, validarItensNota } from "../compras/nfe-xml.js";
 export const INVOICE_COMMAND=Object.freeze({
   INVOICE_SAVED:"NOTA_FISCAL_SALVA",
   INVOICE_APPROVED:"NOTA_FISCAL_APROVADA",
+  INVOICE_REJECTED:"NOTA_FISCAL_REJEITADA",
 });
 
 export const INVOICE_COMMAND_TYPES=new Set(Object.values(INVOICE_COMMAND));
@@ -208,12 +209,48 @@ const approveInvoice=(data,command,now)=>{
   const approved={
     ...invoice,status:"aprovada",aprovadoPorId:actor.id,aprovadoPor:actor.nome,
     aprovadoEm:now,atualizadoEm:now,updatedAt:now,
+    // Quem aprovou aceitando divergências fica registrado, com quais eram.
+    ...((invoice.divergencias||[]).length?{
+      riscoAceito:true,divergenciasAceitas:[...invoice.divergencias],
+      riscoAceitoPorId:actor.id,riscoAceitoPor:actor.nome,riscoAceitoEm:now,
+    }:{}),
     updatedById:actor.id,updatedBy:actor.nome,version:versionOf(invoice)+1,
   };
   return {
     ok:true,entityId:approved.id,
     data:{...data,notasFiscais:(data.notasFiscais||[])
       .map(item=>item.id===approved.id?approved:item)},
+  };
+};
+
+// Rejeitar a nota tira o custo e a conta a pagar dela do razão (a nota vira
+// `rejeitada`, que o razão não reconhece) sem apagar nada: o registro, o
+// vínculo com o pedido e o motivo ficam para auditoria.
+const rejectInvoice=(data,command,now)=>{
+  const payload=command.payload||{};
+  const invoice=invoiceById(data,payload.invoiceId);
+  if(!invoice)return fail("Nota fiscal não encontrada.");
+  if(inactiveStatus(invoice.status))return fail("Esta nota já foi rejeitada ou cancelada.");
+  if(!sameVersion(invoice,command.expectedVersion)){
+    return fail("A nota fiscal foi alterada por outra pessoa. Atualize a tela.");
+  }
+  const reason=String(payload.reason||"").trim();
+  if(!reason)return fail("Informe o motivo da rejeição da nota fiscal.");
+  if(isDateInClosedPeriod(data,invoice.emissao))return fail("O período financeiro desta nota está fechado.");
+  if(invoicePayments(invoice).length){
+    return fail("A nota possui pagamento ativo. Estorne o pagamento antes de rejeitá-la.");
+  }
+  const actor=actorOf(command);
+  const rejected={
+    ...invoice,status:"rejeitada",statusAnterior:invoice.status||"",
+    motivoRejeicao:reason,rejeitadoPorId:actor.id,rejeitadoPor:actor.nome,rejeitadoEm:now,
+    atualizadoEm:now,updatedAt:now,updatedById:actor.id,updatedBy:actor.nome,
+    version:versionOf(invoice)+1,
+  };
+  return {
+    ok:true,entityId:rejected.id,
+    data:{...data,notasFiscais:(data.notasFiscais||[])
+      .map(item=>item.id===rejected.id?rejected:item)},
   };
 };
 
@@ -228,6 +265,7 @@ export const invoiceCommandObraId=(data={},command={})=>{
 export const applyInvoiceCommand=(data={},command={},now=new Date().toISOString())=>{
   if(!INVOICE_COMMAND_TYPES.has(command.type))return null;
   if(!command.actorId)return fail("Sessão do usuário indisponível para alterar notas fiscais.");
-  return command.type===INVOICE_COMMAND.INVOICE_SAVED
-    ?saveInvoice(data,command,now):approveInvoice(data,command,now);
+  if(command.type===INVOICE_COMMAND.INVOICE_SAVED)return saveInvoice(data,command,now);
+  if(command.type===INVOICE_COMMAND.INVOICE_REJECTED)return rejectInvoice(data,command,now);
+  return approveInvoice(data,command,now);
 };

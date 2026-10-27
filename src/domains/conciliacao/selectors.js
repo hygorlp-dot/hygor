@@ -71,7 +71,7 @@ export const criarIndicesFinanceiros = (data) => {
   (data.proprietariosEquip || []).forEach(p => p.chavePix && registrarPix(p.chavePix, { tipo: "proprietarioEquip", nome: p.nome, id: p.id }));
 
   (data.notasFiscais || []).forEach(n => {
-    if (n.status === "cancelada") return;
+    if (["cancelada", "rejeitada", "estornada"].includes(n.status)) return;
     // Pagamento JÁ registrado (ex.: pela Central de Pagamentos) mas ainda sem
     // transação vinculada - candidata de VÍNCULO (modo A), não de novo pagamento.
     (n.pagamentos || []).forEach(pg => {

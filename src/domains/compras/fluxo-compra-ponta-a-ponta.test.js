@@ -54,6 +54,18 @@ describe("fluxo de uma compra de obra: pedido -> recebimento -> nota -> DRE", ()
     expect(payable).toBe(508000);
   });
 
+  it("D-A: rejeitar a nota tira o custo do DRE e devolve o compromisso do pedido", () => {
+    let data = must(receive(withOrder(), 60, "r"));
+    data = must(invoice(data));
+    expect(selectDRE(buildFinancialLedger(data), { obraId: "o-1", competence: "2026-10" }).costs).toBe(5080);
+    data = must(run(data, OPERATIONAL_COMMAND.INVOICE_REJECTED, { invoiceId: "nf-1", reason: "Valor acima do pedido" }, data.notasFiscais[0].version));
+    expect(data.notasFiscais[0]).toMatchObject({ status: "rejeitada", pedidoId: "p-1", motivoRejeicao: "Valor acima do pedido" });
+    const ledger = buildFinancialLedger(data);
+    expect(selectDRE(ledger, { obraId: "o-1", competence: "2026-10" }).costs).toBe(0);
+    // sem nota reconhecida, o pedido volta a ser compromisso integral
+    expect(selectCommitments(ledger, { obraId: "o-1", endDate: "2026-10-31" }).balanceCents).toBe(350000);
+  });
+
   it("S5: o abatimento do compromisso leva a data do pedido, não a da nota", () => {
     let data = withOrder();
     data = must(invoice(data));

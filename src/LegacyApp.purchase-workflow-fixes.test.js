@@ -46,6 +46,21 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
     expect(legacy).toMatch(/receivedQuantities:Object\.fromEntries\(entradas\.map\(item=>\[item\.pedidoItemId,item\.qtdCompra\]\)\)/);
   });
 
+  it("D-A: Central de Pagamentos e obrigações do DRE ignoram nota rejeitada",()=>{
+    expect(legacy).toMatch(/const notasAtivas=useMemo\(\(\)=>notas\.filter\(n=>!notaSemEfeito\(n\)\),\[notas\]\);/);
+    expect(legacy).toMatch(/const notasAbertas=notas\.filter\(n=>n\.status!=="paga"&&!notaSemEfeito\(n\)\);/);
+  });
+
+  it("C8: confirmação de chegada mostra a unidade de compra e bloqueia clique duplo",()=>{
+    const modal=trecho(legacy,"{chegadaModal && (","{/* ==== SECOES EM ACORDEAO");
+    // a quantidade do pedido está na embalagem comprada (SC), não na unidade do cadastro (KG)
+    expect(modal).toMatch(/\{falta\} \{purchaseUnitOf\(i\) \|\| mat\?\.unidade/);
+    expect(modal).toMatch(/onClick=\{\(\) => confirmarChegada\(chegadaModal\)\} disabled=\{chegadaEnviando\}/);
+    const chegada=trecho(legacy,"const confirmarChegada = async","const atividade = useMemo");
+    expect(chegada).toMatch(/if \(chegadaEnviando\) return;/);
+    expect(chegada).toMatch(/setChegadaEnviando\(true\);[\s\S]*finally\{\s*setChegadaEnviando\(false\);/);
+  });
+
   it("C1.4: pagamento mostra o conferido e manda adiantamento com motivo ao servidor",()=>{
     const pagar=trecho(compras,"const registrarPagamento=async","const reclassificarOrigemPagamento=");
     expect(pagar).toMatch(/conferenciaPagamentoPedido\(data,pedido\.id\)/);

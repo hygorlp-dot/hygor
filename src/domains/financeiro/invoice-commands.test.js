@@ -1,6 +1,6 @@
 import { describe,expect,it } from "vitest";
 import { applyInvoiceCommand,INVOICE_COMMAND } from "./invoice-commands.js";
-import { buildFinancialLedger } from "./ledger.js";
+import { buildFinancialLedger,selectDRE } from "./ledger.js";
 
 const base=()=>({
   obras:[{id:"o-1"},{id:"o-2"}],
@@ -108,5 +108,68 @@ describe("comandos de notas fiscais",()=>{
     expect(applyInvoiceCommand(closed,command(
       INVOICE_COMMAND.INVOICE_SAVED,{invoice:invoice()},
     )).reason).toMatch(/período financeiro/i);
+  });
+
+  describe("rejeição da nota fiscal (D-A)",()=>{
+    const saved=(extra={})=>{
+      const created=applyInvoiceCommand(base(),command(INVOICE_COMMAND.INVOICE_SAVED,{invoice:invoice(extra)}));
+      expect(created.ok).toBe(true);
+      return created.data;
+    };
+    const reject=(data,payload={invoiceId:"nf-1",reason:"Valor não confere com o pedido"},version=1)=>
+      applyInvoiceCommand(data,command(INVOICE_COMMAND.INVOICE_REJECTED,payload,version));
+
+    it("a nota salva já é custo; rejeitada, sai do DRE e da conta a pagar sem ser apagada",()=>{
+      const data=saved();
+      const dreAntes=selectDRE(buildFinancialLedger(data),{obraId:"o-1",competence:"2026-07"});
+      expect(dreAntes.costs).toBeGreaterThan(0);
+      const result=reject(data);
+      expect(result.ok).toBe(true);
+      const nota=result.data.notasFiscais[0];
+      expect(nota).toMatchObject({
+        status:"rejeitada",statusAnterior:"recebida",motivoRejeicao:"Valor não confere com o pedido",
+        rejeitadoPorId:"u-1",pedidoId:"p-1",version:2,
+      });
+      expect(nota.rejeitadoEm).toBeTruthy();
+      const ledger=buildFinancialLedger(result.data);
+      expect(selectDRE(ledger,{obraId:"o-1",competence:"2026-07"}).costs).toBe(0);
+      expect(ledger.events.filter(event=>event.effect==="payable_increase")).toHaveLength(0);
+    });
+
+    it("exige motivo, versão atual e nota ainda ativa",()=>{
+      const data=saved();
+      expect(reject(data,{invoiceId:"nf-1",reason:"  "}).reason).toMatch(/motivo/i);
+      expect(reject(data,{invoiceId:"nf-1",reason:"x"},9).reason).toMatch(/alterada por outra pessoa/i);
+      expect(reject(data,{invoiceId:"nao-existe",reason:"x"}).reason).toMatch(/não encontrada/i);
+      const feita=reject(data).data;
+      expect(reject(feita,{invoiceId:"nf-1",reason:"x"},2).reason).toMatch(/já foi rejeitada/i);
+    });
+
+    it("recusa rejeitar nota com pagamento ativo e em período fechado",()=>{
+      const data=saved();
+      const comPagamento={...data,notasFiscais:[{...data.notasFiscais[0],pagamentos:[{id:"pg-1",status:"ativo",valor:50}]}]};
+      expect(reject(comPagamento).reason).toMatch(/pagamento ativo/i);
+      const fechado={...data,fechamentosFinanceiros:[{status:"fechado",dataInicio:"2026-07-01",dataFim:"2026-07-31"}]};
+      expect(reject(fechado).reason).toMatch(/período financeiro/i);
+    });
+
+    it("não vale mais a conferência de três vias: a nota rejeitada deixa de contar no pedido",()=>{
+      const data=saved();
+      const rejeitada=reject(data).data;
+      const outra=applyInvoiceCommand(rejeitada,command(INVOICE_COMMAND.INVOICE_SAVED,
+        {invoice:invoice({id:"nf-2",chave:"chave-2",numero:"124"})}));
+      expect(outra.ok).toBe(true);
+      expect(outra.data.notasFiscais.find(nota=>nota.id==="nf-2").threeWayMatch.status).toBe("conciliado");
+    });
+
+    it("aprovar com divergência registra quem aceitou o risco e quais divergências eram",()=>{
+      const data=saved({valorBruto:300});
+      const nota=data.notasFiscais[0];
+      expect(nota.divergencias.length).toBeGreaterThan(0);
+      const approved=applyInvoiceCommand(data,command(INVOICE_COMMAND.INVOICE_APPROVED,{invoiceId:"nf-1",riskAccepted:true},1));
+      expect(approved.data.notasFiscais[0]).toMatchObject({
+        status:"aprovada",riscoAceito:true,riscoAceitoPorId:"u-1",divergenciasAceitas:nota.divergencias,
+      });
+    });
   });
 });
