@@ -47,7 +47,7 @@ const env = {
 };
 
 // Só consulta pública de ambiente. Não pareia, não envia batidas ou dados pessoais.
-process.stdout.write("Confirmando o backend isolado antes da compilação…\n");
+executar(process.execPath, ["scripts/garantir-modelo-facenet.mjs"]);\nprocess.stdout.write("Confirmando o backend isolado antes da compilação…\\n");
 const inicioConsulta = new Date().toISOString();
 const resposta = await fetch(servidor.apiUrl, {
   method: "POST", headers: { "content-type": "application/json" }, redirect: "error",
@@ -105,7 +105,7 @@ try {
   const modelosEmpacotados = new Map(entradas.filter(e => e.endsWith(".tflite")).map(entrada => [
     createHash("sha256").update(executar("unzip", ["-p", apkGerado, entrada], { encoding: null, stdio: ["ignore", "pipe", "pipe"] })).digest("hex"), entrada,
   ]));
-  const modelos = ["face_detection_front.tflite", "mobilefacenet.tflite"].map(arquivo => {
+  const modelos = ["face_detection_front.tflite", "facenet_512.tflite"].map(arquivo => {
     const sha256 = createHash("sha256").update(readFileSync(path.join(APP, "assets/modelos", arquivo))).digest("hex");
     const recurso = modelosEmpacotados.get(sha256);
     if (!recurso) throw new Error(`Modelo ${arquivo} ausente ou diferente no APK.`);
