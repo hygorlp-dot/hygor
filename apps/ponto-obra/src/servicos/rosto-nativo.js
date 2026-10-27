@@ -1,5 +1,5 @@
 // Reconhecimento facial direto no aparelho: foto frontal → BlazeFace → recorte
-// alinhado → MobileFaceNet, executados pelo react-native-fast-tflite 3.0.1.
+// alinhado → FaceNet-512, executados pelo react-native-fast-tflite 3.0.1.
 // A matemática está em src/logica/rosto.js (testada); aqui só a parte que
 // depende do React Native: modelos TFLite, recorte/redução e pixels.
 import { loadTensorflowModel } from "react-native-fast-tflite"; // versão fixada em 3.0.1
