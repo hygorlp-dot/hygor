@@ -72,7 +72,8 @@ function ImportInvoice({data,dispatchCommand,showToast,onClose}){
     try{
       const ext=String(file.name||"").split(".").pop()?.toLowerCase()||"pdf";
       const up=await subirDocumentoPatrimonio({dataUrl:raw,ext});if(!up.ok)throw new Error(up.error||"Não foi possível arquivar a nota.");
-      const doc={name:file.name,url:"",path:up.path||"",mime:file.type||"",size:file.size||0};let count=0;
+      const doc={name:file.name,url:"",path:up.path||"",mime:file.type||"",size:file.size||0};
+      const assets=[];
       for(const item of selected){
         const qty=Math.max(1,Math.trunc(Number(item.quantidade)||1));
         if(qty>200)throw new Error("Um item da nota possui mais de 200 unidades patrimoniais. Divida o cadastro em lotes para confirmar a individualização.");
@@ -80,10 +81,14 @@ function ImportInvoice({data,dispatchCommand,showToast,onClose}){
           const a=vazio();a.id=uid();a.assetTag=tag();a.name=item.descricao||"Bem patrimonial";a.category=item.categoria||"Outros";a.manufacturer=item.marca||"";a.model=item.modelo||"";
           a.serialNumber=unit===1?(item.numeroSerie||""):"";a.imei=unit===1?(item.imei||""):"";a.acquisitionValue=Number(item.valorUnitario||item.valorTotal||0);a.acquisitionDate=proposal.invoice?.emissao||a.acquisitionDate;
           a.invoice={number:proposal.invoice?.numero||"",series:proposal.invoice?.serie||"",accessKey:digits(proposal.invoice?.chave),issueDate:proposal.invoice?.emissao||"",supplierName:proposal.invoice?.fornecedorNome||"",supplierDocument:digits(proposal.invoice?.documentoFornecedor),supplierId:fornecedor?.id||"",totalValue:Number(proposal.invoice?.valorBruto||0),itemNumber:Number(item.nItem||0),unitIndex:unit,sourceQuantity:Number(item.quantidade||1),itemDescription:item.descricao||"",itemValue:Number(item.valorUnitario||item.valorTotal||0),source:proposal.source,confidence:Number(item.confianca||0),document:doc};
-          const r=await dispatchCommand({type:OPERATIONAL_COMMAND.ASSET_SAVED,idempotencyKey:key("asset-import"),expectedVersion:0,payload:{asset:a}});if(!r.ok)throw new Error(r.reason||"Falha ao cadastrar um bem.");count++;
+          assets.push(a);
         }
       }
-      showToast(String(count)+" bem(ns) incluído(s) no patrimônio da empresa.");onClose();
+      if(assets.length>500)throw new Error("A nota gerou mais de 500 bens patrimoniais. Divida a importação em lotes menores.");
+      const operationKey=key("asset-import");
+      const r=await dispatchCommand({type:OPERATIONAL_COMMAND.ASSETS_IMPORTED,idempotencyKey:operationKey,payload:{assets,invoiceAccessKey:digits(proposal.invoice?.chave)}});
+      if(!r.ok)throw new Error(r.reason||"Falha ao cadastrar os bens da nota.");
+      showToast(String(assets.length)+" bem(ns) incluído(s) no patrimônio da empresa.");onClose();
     }catch(e){showToast(e.message||"Falha ao gravar patrimônio.","error");}finally{setBusy(false);}
   };
   return <Modal title="Importar NF para patrimônio" onClose={onClose}><div style={{display:"grid",gap:10}}>
