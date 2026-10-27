@@ -9,10 +9,10 @@
 // Item sem preço é valorado pelo custo médio do insumo (C1.5).
 // Alerta: 90% do orçado = atenção; acima de 100% = estourou.
 import { getActiveBudgetBaseline } from "../orcamentos/calculations.js";
+import { pedidoVivo } from "./purchase-position.js";
 import { referenceQuantityOf } from "./unit-conversion.js";
 
 export const LIMITE_ATENCAO_ORCAMENTO=90;
-const COMPROMETIDO=new Set(["enviado","parcial","recebido"]);
 
 // Etapas-raiz do orçamento: o vínculo de compras é sempre no 1º nível.
 export const niveisUmOrcamento=orc=>{
@@ -62,13 +62,13 @@ export const calcOrcadoComprado=(data,obraId,{pedidoSimulado=null}={})=>{
 
   const soma={comprometido:{},recebido:{},previsto:{}};
   let semApropriacao=0;
-  pedidos.filter(p=>p.obraId===obraId&&p.status!=="cancelado").forEach(p=>(p.itens||[]).forEach(i=>{
+  pedidos.filter(p=>p.obraId===obraId&&p.status!=="cancelado"&&p.deletedAt==null&&p.ativo!==false).forEach(p=>(p.itens||[]).forEach(i=>{
     const valor=valorDoItem(i,materiais,i.qtd);
     const raiz=raizVinculo(i);
-    if(!raiz){if(COMPROMETIDO.has(p.status))semApropriacao+=valor;return;}
-    const destino=COMPROMETIDO.has(p.status)?soma.comprometido:soma.previsto;
+    if(!raiz){if(pedidoVivo(p))semApropriacao+=valor;return;}
+    const destino=pedidoVivo(p)?soma.comprometido:soma.previsto;
     destino[raiz.id]=(destino[raiz.id]||0)+valor;
-    if(COMPROMETIDO.has(p.status))soma.recebido[raiz.id]=(soma.recebido[raiz.id]||0)+valorDoItem(i,materiais,i.qtdRecebida);
+    if(pedidoVivo(p))soma.recebido[raiz.id]=(soma.recebido[raiz.id]||0)+valorDoItem(i,materiais,i.qtdRecebida);
   }));
 
   const linhas=niveisUmOrcamento(orc).map(nivel=>{

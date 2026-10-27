@@ -2,10 +2,10 @@
 // o orçado × comprometido (budget-tracking) e a fila (workspace) para que os
 // números daqui batam com as telas de cada obra; nada é gravado.
 import { calcOrcadoComprado } from "./budget-tracking.js";
-import { pendentePedido, saldoPagamentoPedido, statusPedido, totalPedido } from "./calculations";
+import { pendentePedido, saldoPagamentoPedido, statusPedido } from "./calculations";
+import { pedidoVivo, posicaoDasCompras } from "./purchase-position";
 import { buildPurchaseWorkspace } from "./workspace";
 
-const COMPROMETIDO = new Set(["enviado", "parcial", "recebido"]);
 const A_RECEBER = new Set(["enviado", "parcial"]);
 const soma = (lista, valor) => lista.reduce((total, item) => total + valor(item), 0);
 
@@ -34,7 +34,7 @@ export function buildPurchasesByWork(data, obras, today) {
 
   const linhas = obras.map(obra => {
     const pedidos = (data.pedidos || []).filter(pedido => pedido.obraId === obra.id && pedido.status !== "cancelado");
-    const comPedido = pedidos.filter(pedido => COMPROMETIDO.has(statusPedido(pedido)));
+    const comPedido = pedidos.filter(pedidoVivo);
     const controle = calcOrcadoComprado(data, obra.id);
     const temControle = Boolean(controle.orc);
     const orcado = temControle ? soma(controle.linhas, linha => linha.orcado) : 0;
@@ -43,7 +43,7 @@ export function buildPurchasesByWork(data, obras, today) {
     // soma direta dos pedidos enviados, parciais e recebidos.
     const comprometido = temControle
       ? soma(controle.linhas, linha => linha.comprometido) + controle.semApropriacao
-      : soma(comPedido, totalPedido);
+      : posicaoDasCompras(comPedido, data.notasFiscais).comprometido;
     const resumoPrazos = prazos.get(obra.id);
     const linha = {
       obraId: obra.id, obra: obra.name || "Obra sem nome",
