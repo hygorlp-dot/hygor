@@ -74,7 +74,8 @@ function ImportInvoice({data,dispatchCommand,showToast,onClose}){
       const up=await subirDocumentoPatrimonio({dataUrl:raw,ext});if(!up.ok)throw new Error(up.error||"Não foi possível arquivar a nota.");
       const doc={name:file.name,url:"",path:up.path||"",mime:file.type||"",size:file.size||0};let count=0;
       for(const item of selected){
-        const qty=Math.max(1,Math.min(50,Math.trunc(Number(item.quantidade)||1)));
+        const qty=Math.max(1,Math.trunc(Number(item.quantidade)||1));
+        if(qty>200)throw new Error("Um item da nota possui mais de 200 unidades patrimoniais. Divida o cadastro em lotes para confirmar a individualização.");
         for(let unit=1;unit<=qty;unit++){
           const a=vazio();a.id=uid();a.assetTag=tag();a.name=item.descricao||"Bem patrimonial";a.category=item.categoria||"Outros";a.manufacturer=item.marca||"";a.model=item.modelo||"";
           a.serialNumber=unit===1?(item.numeroSerie||""):"";a.imei=unit===1?(item.imei||""):"";a.acquisitionValue=Number(item.valorUnitario||item.valorTotal||0);a.acquisitionDate=proposal.invoice?.emissao||a.acquisitionDate;
