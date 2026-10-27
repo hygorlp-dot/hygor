@@ -11,8 +11,9 @@ vi.mock('../../../api.js',()=>({chamarPontoEletronico:vi.fn()}));
 import ReceivedPointReview from './ReceivedPointReview.jsx';
 const interval={inicio:'2026-10-01T10:00:00Z',fim:'2026-10-01T15:00:00Z',obraApropriadaId:'A'};
 async function setup({existing=[],canEdit=true,fail=false,dispatchAttendanceCommand,data={},trustedTime=true}={}){
+  const viewData={employees:[{id:'e',attendancePunchMode:'entry_exit',workBreakStart:'08:00',workBreakEnd:'09:00',workdayHours:4,timeBankEnabled:true}],...data};
   const calls=[];const request=vi.fn(async(action,body)=>{calls.push({action,body});if(action==='ponto-apropriacao-propor')return {ok:true,marcacoes:[{eventId:'1',marcadoEm:interval.inicio,obraCapturaId:'A',horaConfiavel:trustedTime},{eventId:'2',marcadoEm:interval.fim,obraCapturaId:'A',horaConfiavel:trustedTime}],intervalos:[interval],avisos:[]};if(action==='ponto-apropriacoes')return {ok:true,apropriacoes:existing};if(action==='ponto-apropriacao-salvar')return fail?{ok:false,error:'Falha simulada'}:{ok:true,id:'saved',version:1};return {ok:true,auditoria:[]};});
-  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);await act(async()=>{root.render(<ReceivedPointReview employeeId="e" name="Operário" day="2026-10-01" works={[{id:'A',name:'Obra A'}]} canEdit={canEdit} data={data} dispatchAttendanceCommand={dispatchAttendanceCommand} request={request}/>);});
+  const host=document.createElement('div');document.body.append(host);const root=createRoot(host);await act(async()=>{root.render(<ReceivedPointReview employeeId="e" name="Operário" day="2026-10-01" works={[{id:'A',name:'Obra A'}]} canEdit={canEdit} data={viewData} dispatchAttendanceCommand={dispatchAttendanceCommand} request={request}/>);});
   return {host,calls,close:()=>{act(()=>root.unmount());host.remove();}};
 }
 it('conferência exige confirmação e grava o intervalo sem alterar marcação/folha',async()=>{
@@ -27,7 +28,7 @@ it('dia conferido exige classificação/confirmacão e importa IDs e versões se
   const fieldset=f.host.querySelector('fieldset'),select=fieldset.querySelector('select');await act(async()=>{select.value='P';select.dispatchEvent(new Event('change',{bubbles:true}));});
   const note=[...fieldset.querySelectorAll('label')].find(l=>l.textContent==='Justificativa da conferência').querySelector('input');await act(async()=>{note.value='Jornada aprovada';note.dispatchEvent(new Event('input',{bubbles:true}));});
   await act(async()=>fieldset.querySelector('input[type=checkbox]').click());await act(async()=>button.click());expect(f.host.querySelector('[role=alert]').textContent).toContain('indisponível');await act(async()=>button.click());
-  expect(dispatch).toHaveBeenCalledTimes(2);expect(dispatch.mock.calls[0][0]).toEqual(dispatch.mock.calls[1][0]);expect(dispatch.mock.calls[0][0]).toMatchObject({action:'attendance-import-mobile',sourceEventIds:['1','2'],appropriationVersions:[{id:'a',version:1}],status:'P',ot:0,atrasoMin:0});expect(dispatch.mock.calls[0][0]).not.toHaveProperty('record');expect(f.host.textContent).toContain('Dia registrado no ponto');f.close();
+  expect(dispatch).toHaveBeenCalledTimes(2);expect(dispatch.mock.calls[0][0]).toEqual(dispatch.mock.calls[1][0]);expect(dispatch.mock.calls[0][0]).toMatchObject({action:'attendance-import-mobile',sourceEventIds:['1','2'],appropriationVersions:[{id:'a',version:1}],status:'P',ot:0,atrasoMin:0,bankMinutes:0});expect(dispatch.mock.calls[0][0]).not.toHaveProperty('record');expect(f.host.textContent).toContain('Dia registrado no ponto');f.close();
 });
 it('dia existente ou fechado não habilita importação e consulta não exibe aprovação',async()=>{
   for(const options of [{data:{attendance:{e:{'2026-10-01':'P'}}}},{data:{attendanceLocks:{'2026-10-01__A':{locked:true}}}},{canEdit:false},{trustedTime:false}]){
