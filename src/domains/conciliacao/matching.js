@@ -8,6 +8,7 @@
 import { paraCentavos, semAcento, diasEntre } from "./calculations.js";
 import { transacoesConsumidas, buscarPixRegistrado } from "./selectors.js";
 import { resumoTituloFolha, saldoTituloFolha } from "./payroll.js";
+import { saldoPagamentoPedido } from "../compras/calculations.js";
 
 const soNumeros = s => String(s || "").replace(/\D/g, "");
 
@@ -172,8 +173,7 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
       podeRegistrarPagamento = saldoCentavos > 0;
     } else if (tipo === "pedido") {
       if (isEntrada) return;
-      const totalPago = (item.pagamentos || []).reduce((s, p) => s + Number(p.valor || 0), 0);
-      saldoCentavos = paraCentavos(Number(item.totalPedido || 0) - totalPago);
+      saldoCentavos = paraCentavos(saldoPagamentoPedido(item));
       documento = item.numero;
       dataPrevista = item.previsao;
       titulo = `Pedido ${item.numero || ""}`.trim();

@@ -96,7 +96,11 @@ export const analisePreco = historico => {
   const precos=historico.map(x=>x.preco);
   const quantidade=historico.reduce((s,x)=>s+x.qtd,0);
   const medio=quantidade?historico.reduce((s,x)=>s+x.preco*x.qtd,0)/quantidade:0;
-  const menor=Math.min(...precos),ultimo=historico[0].preco;
+  // O "último" é a compra mais recente pela data, não a primeira da lista: a tela
+  // de Preços entrega a lista em ordem crescente. Em empate (ou sem data) vale a
+  // primeira, como era com a lista em ordem decrescente.
+  const maisRecente=historico.reduce((melhor,x)=>(String(x.data||"")>String(melhor.data||"")?x:melhor),historico[0]);
+  const menor=Math.min(...precos),ultimo=maisRecente.preco;
   return {ultimo,menor,maior:Math.max(...precos),medio,compras:historico.length,
     variacao:menor?((ultimo-menor)/menor)*100:0};
 };
