@@ -7,6 +7,8 @@ export const normalizeAttendanceRecord = value => {
     ...value,
     status:value.status || null,
     ot:Number(value.ot || 0),
+    bankMinutes:Math.round(Number(value.bankMinutes || 0)),
+    bankReason:value.bankReason || "",
     note:value.note || "",
     obraId:value.obraId || "",
     // Função exercida NESTE dia - independente do cadastro do funcionário
