@@ -63,3 +63,28 @@ Regra para qualquer correção: **somar campos, nunca remover**; migrações só
 
 ## 6. Sequência sugerida
 1. C1–C3 (hoje). 2. C4–C6 e C8. 3. Decisões D-A…D-G. 4. C7, C9, C10. 5. Módulo de posição (item 4.1) e converter escritas diretas. 6. Roadmap R2–R8 de `docs/COMPRAS_ROADMAP.md` sobre a base unificada.
+
+## 7. Resultado da implementação (27/10/2026)
+
+As decisões D-A a D-G foram aplicadas com as recomendações acima, mais as correções C7 a C10. Cada item entrou por PR próprio, com teste que falha sem a correção; mudanças financeiras passaram pelo `dre-integration-guardian`.
+
+| Item | O que ficou | PR |
+|---|---|---|
+| C1–C3 | status inicial `enviada`; pedido como candidato do extrato; "último preço" independente da ordem | #132 |
+| C4 | portal: status feminino, andamento da entrega, unidade de compra, caixa sem pedido/fornecedor | #133 |
+| C5/C6 | NF herda `fornecedorId` do pedido; avaliação ignora NF rejeitada; `ativo` do fornecedor preservado | #134 |
+| C10 | cancelar solicitação encerra a aprovação pendente; fallback de admin respeita autoaprovação | #138 |
+| C9 + D-F | estornar entrada de pedido reabre o recebimento (`recebimentosEstornados`); recusa com NF ativa ou material consumido | #139 |
+| C7 | pagamento do extrato é `empresa` + `viaExtrato`; espelho no pedido com teto no saldo e `notaFiscalId` | #140 |
+| C8 | "Chegou" com unidade de compra e sem clique duplo | #141 |
+| D-A | comando `NOTA_FISCAL_REJEITADA`; aprovar com divergência grava `riscoAceito` | #142 |
+| D-B + D-D | `purchase-position.js` (comprometido, faturado, a faturar); rascunho fora do saldo de contrato | #143 |
+| D-C | `cliente_direto` vira `third_party_payment` (baixa a obrigação, fora do caixa); `DRE_PROJECTION_VERSION` v7 | #144 |
+| D-E | aviso (não bloqueia) ao apropriar o extrato quando há nota/pedido de mesmo valor na obra | #145 |
+| D-G | motor de Suprimentos abre a composição serializada do orçamento e liga insumo por código único | #146 |
+
+### Ainda aberto
+- **D-G, itens SINAPI/ORSE puros:** o analítico deles só existe na base externa (consulta do servidor); o adaptador cobre composição própria. Falta ligar a consulta.
+- **Dados antigos:** pagamentos `cliente_direto` já gravados mudam de efeito retroativamente (por isso a versão v7 da DRE).
+- **Arquitetura-alvo (seção 4):** converter as escritas diretas restantes (suprimentos, cotação de material, três ações da solicitação) para comandos; `validateProcurementChain` no caminho de comando; trilha de informação (`solicitacaoItemId`, snapshot do pedido enviado, diff por item em `ajustes[]`).
+- **Roadmap R2–R8** de `docs/COMPRAS_ROADMAP.md`.
