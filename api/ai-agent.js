@@ -381,10 +381,12 @@ export default async function handler(req,res){
       documentoFornecedor:digits(parsed?.invoice?.documentoFornecedor).slice(0,14),
       valorBruto:money(parsed?.invoice?.valorBruto),
     };
+    const categoriasPatrimonio=new Set(["Informática","Telefonia","Ferramentas","Máquinas","Móveis","Eletroeletrônicos","Veículos","Segurança","Outros"]);
+    const categoriaPatrimonio=value=>categoriasPatrimonio.has(String(value||""))?String(value):"Outros";
     const items=(Array.isArray(parsed?.items)?parsed.items:[]).slice(0,300).map((item,index)=>({
       nItem:Math.max(1,Math.trunc(Number(item?.nItem)||index+1)),
       descricao:String(item?.descricao||"").slice(0,500),
-      categoria:String(item?.categoria||"").slice(0,120),
+      categoria:categoriaPatrimonio(item?.categoria),
       marca:String(item?.marca||"").slice(0,120),modelo:String(item?.modelo||"").slice(0,120),
       numeroSerie:String(item?.numeroSerie||"").slice(0,120),imei:String(item?.imei||"").slice(0,40),
       quantidade:money(item?.quantidade),valorUnitario:money(item?.valorUnitario),valorTotal:money(item?.valorTotal),
