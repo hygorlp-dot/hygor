@@ -5,7 +5,9 @@ const SUPPLY_ENGINE_VERSION = "supply-engine-1";
 
 const number = value => Number(value || 0);
 const dayMs = 24 * 60 * 60 * 1000;
-const cancelled = record => ["cancelado", "cancelada", "estornado", "rejeitado", "rejeitada", "arquivado"]
+// Mesma lista de status inativos do estoque (estornada incluída): o mesmo
+// movimento não pode contar de um lado e não contar do outro.
+const cancelled = record => ["cancelado", "cancelada", "estornado", "estornada", "rejeitado", "rejeitada", "arquivado", "arquivada"]
   .includes(String(record?.status || "").toLowerCase());
 
 export const parseLocalDate = value => {
@@ -69,24 +71,53 @@ export const defaultSupplySettings = () => ({
 });
 
 const materialKey = item => String(item?.materialId || item?.insumoId || item?.codigoMaterial || item?.codigo || "").trim();
-const analyticalInputs = item => {
+// O orçamento grava a composição de item próprio como TEXTO JSON (lista de
+// insumos e subcomposições); o motor só enxergava listas já abertas e por isso
+// não achava insumo nenhum com dado real. Aqui a lista é aberta, e as
+// subcomposições próprias são expandidas (coeficientes multiplicados) até os
+// insumos, com limite de profundidade contra ciclo.
+const parseComposicao = value => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return [];
+  try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
+};
+const expandComposition = (entries, budget, factor = 1, depth = 0) => entries.flatMap(entry => {
+  const coef = number(entry?.coeficiente ?? entry?.coef ?? 1) * factor;
+  if (String(entry?.tipoItem || "").toUpperCase() === "COMPOSICAO") {
+    const own = (budget?.composicoesProprias || []).find(comp => String(comp?.codigo || "").trim() === String(entry?.codigo || "").trim());
+    return own && depth < 3 ? expandComposition(parseComposicao(own.itens), budget, coef, depth + 1) : [{ ...entry, coeficiente:coef, semAbertura:true }];
+  }
+  return [{ ...entry, coeficiente:coef, composicaoId:entry?.composicaoId || "" }];
+});
+const analyticalInputs = (item, budget) => {
   const direct = item?.materialId || item?.insumoId ? [item] : [];
   const nested = [item?.insumos, item?.analitico, item?.composicao?.itens, item?.composicaoAnalitica]
     .find(Array.isArray) || [];
-  return nested.length ? nested : direct;
+  if (nested.length) return nested;
+  const serialized = parseComposicao(item?.composicao);
+  const expanded = serialized.length ? expandComposition(serialized, budget).filter(entry => !entry.semAbertura) : [];
+  return expanded.length ? expanded : direct;
 };
 
 // Consolida somente relações explícitas (ID/código): nunca liga insumo e tarefa
 // por semelhança de texto, pois isso comprometeria o planejamento oficial.
 export const buildBudgetMaterialDemand = ({ budget, materials = [], tasks = [] }) => {
   const materialById = new Map(materials.map(item => [String(item.id), item]));
+  // Vínculo por código só vale quando o código é único no catálogo.
+  const materialByCode = new Map();
+  materials.forEach(item => {
+    const code = String(item?.codigo || "").trim();
+    if (!code) return;
+    materialByCode.set(code, materialByCode.has(code) ? null : item);
+  });
   const grouped = new Map();
   (budget?.itens || []).filter(item => item?.tipo !== "titulo" && !cancelled(item)).forEach(item => {
     const stageTasks = tasks.filter(task => task.etapaId && task.etapaId === item.etapaId && !cancelled(task));
-    analyticalInputs(item).forEach(input => {
+    analyticalInputs(item, budget).forEach(input => {
       const id = materialKey(input);
-      const material = materialById.get(id);
-      const code = String(input?.codigoRef || input?.codigo || material?.codigo || "").trim();
+      const inputCode = String(input?.codigoRef || input?.codigo || "").trim();
+      const material = materialById.get(id) || (inputCode ? materialByCode.get(inputCode) : undefined) || undefined;
+      const code = String(inputCode || material?.codigo || "").trim();
       // Sem materialId/código explícito o dado entra como pendência, mas não é
       // colocado em um plano de compra automaticamente.
       const reliable = Boolean(id && material) || Boolean(code && material && code === String(material.codigo || ""));
@@ -151,8 +182,9 @@ export const availableStock = ({ movements = [], reservations = [], obraId, mate
   return { fisico:Math.max(0, physical), reservado:Math.max(0, reserved), livre:Math.max(0, physical - reserved) };
 };
 
+// Rascunho ainda não é compra: não cobre a necessidade (mesma regra do comprometido).
 const validOpenOrderQuantity = ({ orders = [], obraId, materialId }) => orders
-  .filter(order => order.obraId === obraId && !cancelled(order))
+  .filter(order => order.obraId === obraId && !cancelled(order) && order.status !== "rascunho")
   .reduce((sum,order) => sum + (order.itens || []).filter(item => item.materialId === materialId && !cancelled(item))
     .reduce((subtotal,item) => subtotal + Math.max(0, number(item.qtd) - number(item.qtdRecebida)), 0), 0);
 

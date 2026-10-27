@@ -11769,10 +11769,12 @@ const calcCurvaMateriais = (data, hojeIso) => {
   linhas.sort((a,b) => b.valor - a.valor);
   const totalValor = linhas.reduce((s,l)=>s+l.valor, 0);
   let acum = 0;
+  // Mesma regra do motor de Suprimentos (classifyAbc): a classe vem do
+  // acumulado ANTES do item, então o item que cruza o limite continua na classe de cima.
   linhas.forEach(l => {
+    const antes = totalValor ? acum/totalValor*100 : 0;
     acum += l.valor;
-    const pct = totalValor ? acum/totalValor*100 : 0;
-    l.classe = pct <= 80 ? "A" : pct <= 95 ? "B" : "C";
+    l.classe = antes < 80 ? "A" : antes < 95 ? "B" : "C";
   });
 
   // 3. Data-alvo de compra = início da etapa − antecedência da classe.
