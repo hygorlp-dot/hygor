@@ -16,12 +16,21 @@ const arg = nome => { const i = process.argv.indexOf(`--${nome}`); return i < 0 
 const versao = Number(arg("version-code") || process.env.PONTO_VERSION_CODE || 5);
 if (!Number.isSafeInteger(versao) || versao < 5) throw new Error("version-code deve ser inteiro a partir de 5.");
 const varianteHomologacao = String(process.env.PONTO_HOMOLOGACAO_VARIANT || "").trim().toLowerCase();
-if (varianteHomologacao && !/^[a-z][a-z0-9]{0,15}$/.test(varianteHomologacao)) throw new Error("PONTO_HOMOLOGACAO_VARIANT inválida.");
-const pacoteEsperado = `br.com.arcd.pontoobra.homologacao${varianteHomologacao ? `.${varianteHomologacao}` : ""}`;
+const variantePilotoProducao = String(process.env.PONTO_PRODUCAO_PILOTO_VARIANT || "").trim().toLowerCase();
+for (const [nome,valor] of [["PONTO_HOMOLOGACAO_VARIANT",varianteHomologacao],["PONTO_PRODUCAO_PILOTO_VARIANT",variantePilotoProducao]]) {
+  if (valor && !/^[a-z][a-z0-9]{0,15}$/.test(valor)) throw new Error(`${nome} inválida.`);
+}
+if (varianteHomologacao && variantePilotoProducao) throw new Error("Build não pode ser homologação e piloto de produção ao mesmo tempo.");
+const pilotoProducao = !!variantePilotoProducao;
+const pacoteEsperado = pilotoProducao
+  ? `br.com.arcd.pontoobra.piloto.${variantePilotoProducao}`
+  : `br.com.arcd.pontoobra.homologacao${varianteHomologacao ? `.${varianteHomologacao}` : ""}`;
 const workers = Number(process.env.PONTO_GRADLE_WORKERS || 2);
 if (![1, 2].includes(workers)) throw new Error("Use um ou dois workers Gradle neste build local.");
-const servidor = resolverServidor({ ambiente: process.env.PONTO_AMBIENTE, urlEnv: process.env.PONTO_API_URL });
-if (servidor.ambiente !== "homologacao" || new URL(servidor.apiUrl).hostname.endsWith(".invalid")) throw new Error("Este script só gera APK de homologação com endpoint real.");
+const servidor = resolverServidor({ ambiente: process.env.PONTO_AMBIENTE, urlEnv: process.env.PONTO_API_URL, urlPadrao: "https://pontosarcd.vercel.app/api/data" });
+if (new URL(servidor.apiUrl).hostname.endsWith(".invalid")) throw new Error("Endpoint real obrigatório.");
+if (pilotoProducao && servidor.ambiente !== "producao") throw new Error("Piloto de produção exige PONTO_AMBIENTE=producao.");
+if (!pilotoProducao && servidor.ambiente !== "homologacao") throw new Error("Sem PONTO_PRODUCAO_PILOTO_VARIANT este script só gera homologação.");
 const saida = path.resolve(arg("output") || path.join(APP, "quality-out/apk"));
 const sdk = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
 if (!sdk) throw new Error("Informe ANDROID_HOME com o SDK local.");
@@ -48,14 +57,14 @@ const env = {
 
 // Só consulta pública de ambiente. Não pareia, não envia batidas ou dados pessoais.
 executar(process.execPath, ["scripts/garantir-modelo-facenet.mjs"]);
-process.stdout.write("Confirmando o backend isolado antes da compilação…\\n");
+process.stdout.write(`Confirmando backend ${servidor.ambiente} antes da compilação…\\n`);
 const inicioConsulta = new Date().toISOString();
 const resposta = await fetch(servidor.apiUrl, {
   method: "POST", headers: { "content-type": "application/json" }, redirect: "error",
-  body: JSON.stringify({ action: "ponto-ambiente", ambienteApp: "homologacao" }), signal: AbortSignal.timeout(30_000),
+  body: JSON.stringify({ action: "ponto-ambiente", ambienteApp: servidor.ambiente }), signal: AbortSignal.timeout(30_000),
 });
 const confirmacao = await resposta.json().catch(() => ({}));
-if (resposta.status !== 200 || confirmacao.ok !== true || confirmacao.ambiente !== "homologacao") throw new Error(`Backend não confirmou homologação (HTTP ${resposta.status}). Compilação interrompida.`);
+if (resposta.status !== 200 || confirmacao.ok !== true || confirmacao.ambiente !== servidor.ambiente) throw new Error(`Backend não confirmou ${servidor.ambiente} (HTTP ${resposta.status}). Compilação interrompida.`);
 
 const git = args => executar("git", args, { cwd: RAIZ, stdio: ["ignore", "pipe", "pipe"] }).trim();
 const commit = git(["rev-parse", "HEAD"]);
@@ -119,7 +128,8 @@ try {
     if (n.package !== identidade[1] || n.certificadoSha256 !== certificadoSha256 || n.versionCode >= versao) throw new Error("Atualização incompatível: pacote/chave precisam ser os mesmos e versionCode maior.");
   }
   mkdirSync(saida, { recursive: true });
-  const nome = `ponto-obra-homologacao-${versao}.apk`;
+  const prefixo = pilotoProducao ? "ponto-obra-piloto-producao" : "ponto-obra-homologacao";
+  const nome = `${prefixo}-${versao}.apk`;
   const apk = path.join(saida, nome);
   copyFileSync(apkGerado, apk);
   const sha256 = createHash("sha256").update(readFileSync(apk)).digest("hex");
@@ -131,7 +141,7 @@ try {
     custoNuvem: 0, compilador: "Gradle local 9.3.1", buildTools: "36.0.0", ndk: "27.1.12297006",
     modelos, permissoes, verificacoes: { assinatura: true, pacoteHomologacao: true, endpointEmbutido: true, backendIsolado: true, permissoesFinais: true, atualizacaoCompativel: !!anterior, testeFisico: false },
   };
-  writeFileSync(path.join(saida, `ponto-obra-homologacao-${versao}.json`), JSON.stringify(evidencias, null, 2) + "\n");
+  writeFileSync(path.join(saida, `${prefixo}-${versao}.json`), JSON.stringify({...evidencias,pilotoProducao,variantePilotoProducao:variantePilotoProducao||null}, null, 2) + "\n");
   writeFileSync(path.join(saida, `${nome}.sha256`), `${sha256}  ${nome}\n`);
   process.stdout.write(`APK conferido: ${apk}\nSHA256: ${sha256}\nTeste físico de câmera, reinício, offline e atualização continua obrigatório antes do uso em obra.\n`);
 } finally {
