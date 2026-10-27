@@ -160,7 +160,11 @@ export const applyPatrimonyCommand=(data={},command={},now=new Date().toISOStrin
       id:text(payload.custodian?.id,120),name:text(payload.custodian?.name,200),
     };
     const reason=text(payload.reason,500);
-    let record={...current,location,custodian,status:current.status===COMPANY_ASSET_STATUS.DISPOSED?current.status:COMPANY_ASSET_STATUS.IN_USE,version:versionOf(current)+1,updatedAt:now};
+    const preserveStatus=[COMPANY_ASSET_STATUS.DISPOSED,COMPANY_ASSET_STATUS.LOST,COMPANY_ASSET_STATUS.MAINTENANCE].includes(current.status);
+    const movedStatus=preserveStatus?current.status
+      :[COMPANY_ASSET_LOCATION_TYPES.COMPANY,COMPANY_ASSET_LOCATION_TYPES.WAREHOUSE].includes(location.type)
+        ?COMPANY_ASSET_STATUS.ACTIVE:COMPANY_ASSET_STATUS.IN_USE;
+    let record={...current,location,custodian,status:movedStatus,version:versionOf(current)+1,updatedAt:now};
     record=appendHistory(record,{type:"ASSET_MOVED",actorId:command.actorId,actorName:command.actorName,now,before:{location:current.location,custodian:current.custodian},details:{location,custodian,reason},key:command.idempotencyKey});
     return {ok:true,data:{...data,companyAssets:assets.map(item=>item.id===assetId?record:item)},entityId:assetId};
   }
