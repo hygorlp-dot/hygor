@@ -34,11 +34,14 @@ describe('conferência de capturas recebidas',()=>{
   it('proposta mantém funcionário, data e captura; grava só a apropriação externa',()=>{
     const result=defaultReviewInterval(interval,'e','2026-10-01');expect(result).toMatchObject({employeeId:'e',data:'2026-10-01',origem:'proposta_capturas',obraApropriadaId:'A'});expect(result).not.toHaveProperty('status');expect(intervalKey(result)).toBe(intervalKey(interval));
   });
-  it('prévia mostra duas ou quatro batidas sem inferir presença ou horas extras',()=>{
+  it('prévia respeita a política do RH e nunca mistura duas e quatro batidas',()=>{
     const marks=['10:00','15:00','16:00','20:00'].map((time,index)=>({eventId:String(index),marcadoEm:`2026-10-01T${time}:00Z`,obraCapturaId:'A'}));
-    expect(receivedClockPreview({marcacoes:marks},'2026-10-01')).toMatchObject({ok:true,entrada:'07:00:00',intervaloSaida:'12:00:00',intervaloRetorno:'13:00:00',saida:'17:00:00',workedMinutes:540});
+    expect(receivedClockPreview({marcacoes:marks},'2026-10-01')).toMatchObject({ok:true,entrada:'07:00:00',intervaloSaida:'12:00:00',intervaloRetorno:'13:00:00',saida:'17:00:00',workedMinutes:540,breakSource:'punched'});
+    expect(receivedClockPreview({marcacoes:[marks[0],marks[3]]},'2026-10-01').ok).toBe(false);
+    expect(receivedClockPreview({marcacoes:[marks[0],marks[3]]},'2026-10-01',{attendancePunchMode:'entry_exit',workBreakStart:'12:00',workBreakEnd:'13:00'}))
+      .toMatchObject({ok:true,entrada:'07:00:00',intervaloSaida:'12:00',intervaloRetorno:'13:00',saida:'17:00:00',workedMinutes:540,breakSource:'preassigned'});
     expect(receivedClockPreview({marcacoes:marks},'2026-10-01')).not.toHaveProperty('ot');
     expect(receivedClockPreview({marcacoes:marks.slice(0,3)},'2026-10-01').ok).toBe(false);
-    expect(receivedClockPreview({marcacoes:[marks[0],{...marks[1],obraCapturaId:'B'}]},'2026-10-01').ok).toBe(false);
+    expect(receivedClockPreview({marcacoes:[marks[0],{...marks[3],obraCapturaId:'B'}]},'2026-10-01',{attendancePunchMode:'entry_exit'}).ok).toBe(false);
   });
 });
