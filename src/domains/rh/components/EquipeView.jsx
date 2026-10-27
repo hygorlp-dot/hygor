@@ -99,6 +99,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     vrDaily: "",
     workdayHours: "8",
     workStart: "07:00",
+    attendancePunchMode: "with_break",
+    workBreakStart: "12:00",
+    workBreakEnd: "13:00",
+    timeBankEnabled: false,
     overtimeAdditionalPercent: "50",
     obra: "",
     active: true,
@@ -181,6 +185,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       vrDaily: Number(form.vrDaily || 0),
       workdayHours: Math.max(1, Number(form.workdayHours || 8)),
       workStart: form.workStart || "07:00",
+      attendancePunchMode: form.attendancePunchMode==="entry_exit"?"entry_exit":"with_break",
+      workBreakStart: form.workBreakStart || "12:00",
+      workBreakEnd: form.workBreakEnd || "13:00",
+      timeBankEnabled: form.timeBankEnabled===true,
       overtimeAdditionalPercent: Math.max(0, Number(form.overtimeAdditionalPercent ?? 50)),
       examExpiresAt: form.examExpiresAt || "",
       trainings: form.trainings || EMPTY_TRAININGS,
@@ -555,10 +563,21 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 {form.id&&<><Inp label="Valores e jornada válidos a partir de" type="date" value={form.remunerationValueEffectiveFrom||""} onChange={F("remunerationValueEffectiveFrom")}/><Inp label="Motivo do reajuste de valores ou jornada" value={form.remunerationValueReason||""} onChange={F("remunerationValueReason")}/></>}
                 <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} />
                 <Inp label="VR diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} />
-                <Inp label="Jornada padrão (horas)" type="number" min="1" max="24" value={form.workdayHours} onChange={F("workdayHours")} />
+                <Inp label="Jornada padrão (horas líquidas)" type="number" min="1" max="24" value={form.workdayHours} onChange={F("workdayHours")} />
                 <Inp label="Início previsto da jornada" type="time" value={form.workStart} onChange={F("workStart")} />
+                <Sel label="Marcações no intervalo" value={form.attendancePunchMode||"with_break"} onChange={F("attendancePunchMode")} options={[
+                  {v:"with_break",l:"Bater saída e retorno do almoço · 4 batidas"},
+                  {v:"entry_exit",l:"Somente entrada e saída · intervalo pré-assinalado"},
+                ]}/>
+                <Inp label="Início previsto do intervalo" type="time" value={form.workBreakStart||"12:00"} onChange={F("workBreakStart")} />
+                <Inp label="Retorno previsto do intervalo" type="time" value={form.workBreakEnd||"13:00"} onChange={F("workBreakEnd")} />
+                <Sel label="Banco de horas" value={form.timeBankEnabled?"enabled":"disabled"} onChange={v=>setForm(current=>({...current,timeBankEnabled:v==="enabled"}))} options={[
+                  {v:"disabled",l:"Desativado · excedente tratado fora do banco"},
+                  {v:"enabled",l:"Ativado · RH decide crédito/débito diário"},
+                ]}/>
                 <Inp label="Adicional de hora extra (%)" type="number" min="0" value={form.overtimeAdditionalPercent} onChange={F("overtimeAdditionalPercent")} />
               </div>
+              <p className="employee-edit-hint">{form.attendancePunchMode==="entry_exit"?"O intervalo será pré-assinalado no ponto com os horários acima e descontado do período entrada→saída.":"O funcionário registra entrada, saída para intervalo, retorno e saída final."} {form.timeBankEnabled?"O banco de horas fica disponível na Gestão do ponto; horas não entram no saldo sem decisão do RH.":""}</p>
               {form.remunerationMode==="clt"&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-label)"}}>Usada no custo do ponto. O salário mensal define o holerite. Alterar a modalidade não recalcula folhas anteriores.</p>}
               {form.employmentRelationship==='clt'&&form.remunerationMode==='daily'&&<p className="employee-edit-hint">Empregado CLT por diária: confira o ponto e prepare a memória de apuração em Holerites. A aprovação exige rubricas, incidências e pagamentos conferidos.</p>}
             </div>
