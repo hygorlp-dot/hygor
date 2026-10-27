@@ -1,10 +1,14 @@
 import { cotacaoMultiItens, decisoesDaCotacao, mapaDaCotacao } from "../src/domains/compras/quote-map.js";
+import { statusPedido } from "../src/domains/compras/calculations.js";
 
 const list = value => Array.isArray(value) ? value : [];
 const text = value => typeof value === "string" ? value.trim() : "";
 const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 const cappedPercent = value => Math.max(0, Math.min(100, number(value)));
-const active = item => !["cancelado", "cancelled", "estornado", "reversed"].includes(text(item?.status).toLowerCase());
+// Os comandos do ERP gravam "cancelada"/"estornada"/"rejeitada" (feminino) para
+// notas e cotações, "cancelado"/"estornado" para o resto: os dois têm de sair.
+const INACTIVE_STATUS = ["cancelado", "cancelada", "cancelled", "estornado", "estornada", "reversed", "rejeitado", "rejeitada"];
+const active = item => !INACTIVE_STATUS.includes(text(item?.status).toLowerCase());
 const byNewest = (a, b) => String(b?.data || b?.date || "").localeCompare(String(a?.data || a?.date || ""));
 
 function receivedAmount(measurement = {}) {
@@ -190,7 +194,11 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
           date:text(item.data),
           type:item.tipo==="aporte" ? "Aporte" : "Despesa",
           category:text(item.categoria) || (item.tipo==="aporte" ? "Aporte" : "Outros"),
-          description:text(item.descricao) || (item.tipo==="aporte" ? "Aporte para a obra" : "Despesa da obra"),
+          // A descrição de uma despesa paga por pedido/nota traz o número do pedido e
+          // o fornecedor; sem "publicarCompras" o cliente não deve ver isso.
+          description:(item.pedidoId || item.notaFiscalId) && !portal.publicarCompras
+            ? "Pagamento de compra de material"
+            : text(item.descricao) || (item.tipo==="aporte" ? "Aporte para a obra" : "Despesa da obra"),
           amount,
           balance,
         },
@@ -207,7 +215,7 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
 
   if (portal.publicarNotasFiscais) {
     rows.push(...list(data.notasFiscais)
-      .filter(item=>String(item?.obraId)===obraId && active(item) && text(item?.status).toLowerCase()!=="rejeitada")
+      .filter(item=>String(item?.obraId)===obraId && active(item) && text(item?.status).toLowerCase()!=="rascunho")
       .sort((a,b)=>String(b?.emissao || "").localeCompare(String(a?.emissao || "")))
       .slice(0,30)
       .map(item=>({
@@ -238,7 +246,9 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
           const material=materials.get(String(entry?.materialId));
           return {
             description:text(entry?.descricaoRef) || material?.description || "Material",
-            unit:text(entry?.unidadeRef) || material?.unit || "UN",
+            // Quantidade e preço do pedido estão na unidade de COMPRA (saco, barra);
+            // mostrar a unidade de referência (kg, m) enganava o cliente.
+            unit:text(entry?.unidadeCompra) || text(entry?.unidadeRef) || material?.unit || "UN",
             quantity:number(entry?.qtd),
             receivedQuantity:number(entry?.qtdRecebida),
             unitPrice:number(entry?.precoUnit),
@@ -252,7 +262,9 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
             date:text(item.data),
             expectedAt:text(item.previsao),
             supplierName:suppliers.get(String(item.fornecedorId)) || "Fornecedor",
-            clientStatus:text(item.status) || "Enviado",
+            // O status gravado fica "enviado" até o fim; o cliente precisa ver o
+            // andamento real da entrega (parcial / recebido).
+            clientStatus:statusPedido(item) || "enviado",
             total:items.reduce((sum,entry)=>sum+entry.quantity*entry.unitPrice,0),
             items,
           },
