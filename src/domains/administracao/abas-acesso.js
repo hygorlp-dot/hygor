@@ -24,6 +24,7 @@ export const allowedTabsForUser=user=>{
   const herdadas=user.role==="financeiro"?["equip_fin","patrimonio"]:user.role==="compras"?["patrimonio"]:user.role==="engenheiro"?["ponto"]:user.role==="rh"?["terc","conc"]:[];
   return [...new Set(["home","tv","chat","aprov_pend",...base,...herdadas])]
     .filter(tab=>valid.has(tab)&&tab!=="config")
+    .filter(tab=>!(user.obraId&&tab==="patrimonio"))
     .filter(tab=>user.role!=="engenheiro_auditor"||!["ponto","ponto_geral"].includes(tab));
 };
 
