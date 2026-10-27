@@ -96,10 +96,10 @@ const identityConflict=(assets,currentId,field,value)=>{
     &&normalizeIdentity(item?.[field])===wanted);
 };
 
-const appendHistory=(record,{type,actorId,actorName,now,before,details})=>({
+const appendHistory=(record,{type,actorId,actorName,now,before,details,key})=>({
   ...record,
   operationalHistory:[...(record?.operationalHistory||[]),{
-    id:`asset_${String(type).toLowerCase()}_${String(now).replace(/[^0-9]/g,"")}_${Math.random().toString(36).slice(2,8)}`,
+    id:`asset_${String(type).toLowerCase()}_${String(key||now).replace(/[^a-zA-Z0-9_-]/g,"").slice(0,120)}`,
     type,at:now,actorId:actorId||"",actorName:actorName||"",
     before:before||null,after:details||null,
   }].slice(-300),
@@ -140,7 +140,7 @@ export const applyPatrimonyCommand=(data={},command={},now=new Date().toISOStrin
       version:versionOf(current)+1,updatedAt:now,
       ...(!current?{createdAt:now,createdById:command.actorId||""}:{}),
     };
-    record=appendHistory(record,{type:current?"ASSET_UPDATED":"ASSET_CREATED",actorId:command.actorId,actorName:command.actorName,now,before:current||null,details:{assetTag:record.assetTag,status:record.status}});
+    record=appendHistory(record,{type:current?"ASSET_UPDATED":"ASSET_CREATED",actorId:command.actorId,actorName:command.actorName,now,before:current||null,details:{assetTag:record.assetTag,status:record.status,location:record.location,custodian:record.custodian},key:command.idempotencyKey});
     return {ok:true,data:{...data,companyAssets:current?assets.map(item=>item.id===record.id?record:item):[...assets,record]},entityId:record.id};
   }
 
@@ -161,7 +161,7 @@ export const applyPatrimonyCommand=(data={},command={},now=new Date().toISOStrin
     };
     const reason=text(payload.reason,500);
     let record={...current,location,custodian,status:current.status===COMPANY_ASSET_STATUS.DISPOSED?current.status:COMPANY_ASSET_STATUS.IN_USE,version:versionOf(current)+1,updatedAt:now};
-    record=appendHistory(record,{type:"ASSET_MOVED",actorId:command.actorId,actorName:command.actorName,now,before:{location:current.location,custodian:current.custodian},details:{location,custodian,reason}});
+    record=appendHistory(record,{type:"ASSET_MOVED",actorId:command.actorId,actorName:command.actorName,now,before:{location:current.location,custodian:current.custodian},details:{location,custodian,reason},key:command.idempotencyKey});
     return {ok:true,data:{...data,companyAssets:assets.map(item=>item.id===assetId?record:item)},entityId:assetId};
   }
 
@@ -171,7 +171,7 @@ export const applyPatrimonyCommand=(data={},command={},now=new Date().toISOStrin
     const reason=text(payload.reason,500);
     if([COMPANY_ASSET_STATUS.DISPOSED,COMPANY_ASSET_STATUS.LOST].includes(status)&&reason.length<5)return fail("Informe o motivo da baixa ou do extravio.");
     let record={...current,status,active:status!==COMPANY_ASSET_STATUS.DISPOSED,version:versionOf(current)+1,updatedAt:now};
-    record=appendHistory(record,{type:"ASSET_STATUS_CHANGED",actorId:command.actorId,actorName:command.actorName,now,before:{status:current.status,active:current.active},details:{status,reason}});
+    record=appendHistory(record,{type:"ASSET_STATUS_CHANGED",actorId:command.actorId,actorName:command.actorName,now,before:{status:current.status,active:current.active},details:{status,reason},key:command.idempotencyKey});
     return {ok:true,data:{...data,companyAssets:assets.map(item=>item.id===assetId?record:item)},entityId:assetId};
   }
   return null;
