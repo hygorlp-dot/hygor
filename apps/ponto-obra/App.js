@@ -7,7 +7,7 @@
 //   erro (banco/sessão), revogado (aparelho desativado no MARCELL)
 // Nenhuma falha de rede, GPS, câmera ou reconhecimento apaga batida guardada.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, AppState, StyleSheet, View } from "react-native";
 import { useFonts } from "expo-font";
 // Só os 6 pesos usados (importar a raiz do pacote embutiria as 30 variantes).
 import { IBMPlexMono_400Regular } from "@expo-google-fonts/ibm-plex-mono/400Regular";
@@ -32,7 +32,7 @@ import TelaPareamento from "./src/telas/TelaPareamento";
 import TelaPonto from "./src/telas/TelaPonto";
 import { Botao, BotaoSecundario, COR, Corpo, ESPACO, EstadoCentral, Mensagem, Tela, Texto } from "./src/ui";
 
-const SINCRONIZAR_A_CADA_MS = 60_000;
+const SINCRONIZAR_A_CADA_MS = 5 * 60_000;
 const CADASTRO_A_CADA_MS = 5 * 60_000;
 // Nimbus Sans (MARCELL) e fonte numérica embutidas: abrem offline. Se a fonte não
 // carregar, o app segue com a do sistema - nunca fica preso esperando.
@@ -58,6 +58,7 @@ export default function App() {
   const [calibrando, setCalibrando] = useState(false);
   // Preferências da tela (não são registro): confirmação por voz.
   const [preferencias, setPreferencias] = useState({ voz: true });
+  const [estadoApp, setEstadoApp] = useState(AppState.currentState);
   const ref = useRef({ armazem: null, relogio: null, sessao: null, gps: null, gpsEstado: "aguardando", ultimoCadastro: 0, sincronizando: false, pedirDeNovo: null });
   const api = useRef(criarApi(() => ref.current.sessao?.token)).current;
 
@@ -157,8 +158,15 @@ export default function App() {
       .catch(e => setEstadoModelos({ estado: "erro", erro: mensagemDeErro("modelos", e) }));
   }, []);
 
+  // O terminal dorme junto com o Android. Em background/tela apagada,
+  // não mantém GPS nem timer periódico ativos. Ao voltar para "active" o
+  // efeito abaixo sincroniza imediatamente e reabre a posição da sessão.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", setEstadoApp);
+    return () => sub.remove();
+  }, []);
   // Sincronização periódica e posição (registrada na batida, nunca a impede).
-  const ativo = fase === "ponto" || fase === "encarregado";
+  const ativo = (fase === "ponto" || fase === "encarregado") && estadoApp === "active";
   useEffect(() => {
     if (!ativo) return undefined;
     sincronizar();
@@ -168,8 +176,10 @@ export default function App() {
       try {
         const { granted } = await Location.requestForegroundPermissionsAsync();
         if (!granted) { ref.current.gpsEstado = "permissão negada (a batida segue sem GPS)"; return; }
-        // distanceInterval 0: aparelho parado na parede também recebe posição nova.
-        const a = await Location.watchPositionAsync({ accuracy: Location.Accuracy.Balanced, timeInterval: 60_000, distanceInterval: 0 },
+        // Em aparelho de parede não precisamos manter o GPS acordando a cada
+        // minuto. Ao voltar para active esta assinatura é recriada e recebe a
+        // posição da sessão; depois atualiza no máximo a cada 5 min ou 25 m.
+        const a = await Location.watchPositionAsync({ accuracy: Location.Accuracy.Balanced, timeInterval: 5 * 60_000, distanceInterval: 25 },
           p => { ref.current.gps = { lat: p.coords.latitude, lng: p.coords.longitude, precisao: p.coords.accuracy ?? null, em: Date.now() }; ref.current.gpsEstado = "ok"; });
         if (encerrado) a.remove(); else { assinatura = a; ref.current.gpsEstado = ref.current.gps ? "ok" : "aguardando sinal"; }
       } catch {
