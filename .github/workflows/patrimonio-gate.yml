@@ -1,0 +1,47 @@
+name: Patrimonio Empresa — gate focal
+
+on:
+  push:
+    branches:
+      - feat/patrimonio-empresa-nf-ai-d10
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: patrimonio-empresa-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  patrimonio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Testes de dominio, autorizacao, projecao e upload
+        run: >
+          npx vitest run
+          src/domains/patrimonio/commands.test.js
+          src/patrimonio-wiring.test.js
+          server/domain-row-routing.test.js
+          server/operational-command-policy.test.js
+          server/data-projection.test.js
+          server/upload-policy.test.js
+      - name: Fronteiras e typecheck
+        run: |
+          npm run lint
+          npm run architecture:check
+          npm run typecheck
+      - name: Sintaxe das rotas alteradas
+        run: |
+          node --check api/data.js
+          node --check api/upload.js
+          node --check api/ai-agent.js
+      - name: Build de producao
+        run: npm run build
