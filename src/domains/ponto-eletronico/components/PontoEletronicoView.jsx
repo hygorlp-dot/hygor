@@ -8,7 +8,7 @@ import { Badge, Btn, C, Ic, Inp, Modal, PageHero, Sel } from "../../../LegacyApp
 import { funcionariosAtivos, funcionariosDaObra } from "../funcionarios.js";
 import { ROTULO_SITUACAO, dataLocal, horaLocal, intervaloDoDia, resumoDoDia, situacaoAparelho } from "../painel.js";
 import {receivedDayQueue} from '../tratamento.js';
-import {formatTimeBankMinutes,timeBankBalanceMinutes} from '../../ponto/time-bank.js';
+import {formatTimeBankMinutes,timeBankBalanceMinutes,timeBankStatement} from '../../ponto/time-bank.js';
 import ReceivedPointReview from './ReceivedPointReview.jsx';
 import '../../ponto/components/clt-payslips.css';
 import './received-point.css';
@@ -41,6 +41,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser, onTa
   const [estabModal, setEstabModal] = useState(null);   // formulário do estabelecimento
   const [apropriacoes,setApropriacoes]=useState([]);
   const [conferencia,setConferencia]=useState(null);
+  const [bankDetail,setBankDetail]=useState(null);
   const loadSequence=useRef(0);
   const podeGerir = ["admin", "rh", "engenheiro"].includes(currentUser?.role);
   // Dados fiscais (inscrição, vínculo obra -> estabelecimento): admin e RH.
@@ -179,8 +180,8 @@ export default function PontoEletronicoView({ data, showToast, currentUser, onTa
         <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>O saldo nasce apenas de dias conferidos pelo RH. Horas extras pagas não são creditadas novamente no banco. Débitos e créditos mantêm a referência do dia de ponto que os originou.</p>
         {!bankEmployees.length
           ?<p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>Nenhum funcionário desta obra está com banco de horas ativo. O RH ativa a política no cadastro do funcionário.</p>
-          :<div className="received-point-table"><table><caption>Saldos do banco de horas da equipe</caption><thead><tr><th>Funcionário</th><th>Política de marcação</th><th>Saldo atual</th></tr></thead><tbody>
-            {bankEmployees.map(employee=>{const balance=timeBankBalanceMinutes(data,employee.id);return <tr key={employee.id}><td data-label="Funcionário">{employee.name}</td><td data-label="Política de marcação">{employee.attendancePunchMode==="entry_exit"?"Entrada e saída · almoço pré-assinalado":"4 batidas · intervalo registrado"}</td><td data-label="Saldo atual"><strong style={{color:balance<0?C.orange:balance>0?C.green:C.text}}>{formatTimeBankMinutes(balance)}</strong></td></tr>;})}
+          :<div className="received-point-table"><table><caption>Saldos do banco de horas da equipe</caption><thead><tr><th>Funcionário</th><th>Política de marcação</th><th>Saldo atual</th><th>Extrato</th></tr></thead><tbody>
+            {bankEmployees.map(employee=>{const balance=timeBankBalanceMinutes(data,employee.id);return <tr key={employee.id}><td data-label="Funcionário">{employee.name}</td><td data-label="Política de marcação">{employee.attendancePunchMode==="entry_exit"?"Entrada e saída · almoço pré-assinalado":"4 batidas · intervalo registrado"}</td><td data-label="Saldo atual"><strong style={{color:balance<0?C.orange:balance>0?C.green:C.text}}>{formatTimeBankMinutes(balance)}</strong></td><td data-label="Extrato"><Btn size="sm" v="ghost" onClick={()=>setBankDetail({id:employee.id,name:employee.name})}>Ver extrato</Btn></td></tr>;})}
           </tbody></table></div>}
       </section>
 
@@ -341,6 +342,12 @@ export default function PontoEletronicoView({ data, showToast, currentUser, onTa
           {detalhe.marcacao.gps && <p><b>Local:</b> <a href={`https://maps.google.com/?q=${detalhe.marcacao.gps.lat},${detalhe.marcacao.gps.lng}`} target="_blank" rel="noreferrer">ver no mapa</a> (precisão {Math.round(detalhe.marcacao.gps.precisao || 0)} m)</p>}
         </div>
       </Modal>}
+      {bankDetail&&(()=>{const entries=timeBankStatement(data,bankDetail.id);const balance=timeBankBalanceMinutes(data,bankDetail.id);return <Modal title={`Banco de horas · ${bankDetail.name}`} onClose={()=>setBankDetail(null)} wide>
+        <div style={{display:"grid",gap:10}}>
+          <p><b>Saldo atual:</b> {formatTimeBankMinutes(balance)}. O extrato abaixo é formado pelos dias conferidos; o registro fiscal original permanece separado.</p>
+          {!entries.length?<p style={{color:C.muted}}>Ainda não há créditos ou débitos no banco.</p>:<div className="received-point-table"><table><caption>Extrato do banco de horas</caption><thead><tr><th>Data</th><th>Movimento</th><th>Origem</th><th>Motivo</th></tr></thead><tbody>{[...entries].reverse().map(entry=><tr key={entry.id}><td data-label="Data">{String(entry.date||"").split("-").reverse().join("/")}</td><td data-label="Movimento"><strong>{formatTimeBankMinutes(entry.minutes)}</strong></td><td data-label="Origem">{entry.source==="attendance"?"Ponto conferido":"Ajuste identificado"}</td><td data-label="Motivo">{entry.reason||"—"}</td></tr>)}</tbody></table></div>}
+        </div>
+      </Modal>;})()}
       {conferencia&&<ReceivedPointReview {...conferencia} data={data} dispatchAttendanceCommand={dispatchAttendanceCommand} works={obras} canEdit={podeGerir} onClose={()=>setConferencia(null)} onSaved={()=>carregar({silencioso:true})} onTab={onTab}/>}
     </div>
   );
