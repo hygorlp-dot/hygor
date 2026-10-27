@@ -78,12 +78,61 @@ describe("fluxo de uma compra de obra: pedido -> recebimento -> nota -> DRE", ()
     expect(statusPedido(data.pedidos[0])).toBe("recebido");
   });
 
-  it("estorno manual da entrada de estoque não desfaz o recebimento do pedido", () => {
+  it("estornar a entrada de estoque de um pedido reabre o recebimento (C9/D-F)", () => {
     let data = must(receive(withOrder(), 100, "d"));
+    expect(statusPedido(data.pedidos[0])).toBe("recebido");
     data = must(run(data, OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_REVERSED, { movementId: "mv-d", reason: "lançado errado" }, 0));
     expect(data.movEstoque[0].status).toBe("estornado");
-    expect(data.pedidos[0].itens[0].qtdRecebida).toBe(100);
+    const item = data.pedidos[0].itens[0];
+    expect(item.qtdRecebida).toBe(0);
+    expect(item.recebimentos).toEqual([]);
+    // o recebimento estornado fica guardado, com motivo e autor
+    expect(item.recebimentosEstornados).toHaveLength(1);
+    expect(item.recebimentosEstornados[0]).toMatchObject({ id: "rc-d", qtd: 100, motivoEstorno: "lançado errado", movimentoEstoqueId: "mv-d" });
+    expect(statusPedido(data.pedidos[0])).toBe("enviado");
+    // e dá para receber de novo
+    data = must(run(data, OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED, {
+      pedidoId: "p-1", receivedQuantities: { "i-1": 100 },
+      stockEntries: [{ id: "mv-d2", receiptId: "rc-d2", pedidoItemId: "i-1", pedidoId: "p-1", obraId: "o-1", materialId: "m-1", qtd: 100, qtdCompra: 100, valorUnit: 35, data: "2026-10-09" }],
+    }, data.pedidos[0].version));
     expect(statusPedido(data.pedidos[0])).toBe("recebido");
+  });
+
+  it("estorno parcial devolve só a quantidade daquela entrada", () => {
+    let data = must(receive(withOrder(), 60, "f"));
+    data = must(receive(data, 40, "g"));
+    data = must(run(data, OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_REVERSED, { movementId: "mv-g", reason: "conferência" }, 0));
+    expect(data.pedidos[0].itens[0].qtdRecebida).toBe(60);
+    expect(data.pedidos[0].itens[0].recebimentos.map(r => r.id)).toEqual(["rc-f"]);
+    expect(statusPedido(data.pedidos[0])).toBe("parcial");
+  });
+
+  it("recusa estornar a entrada de um pedido que já tem nota fiscal ativa", () => {
+    let data = must(receive(withOrder(), 100, "h"));
+    data = must(invoice(data));
+    const result = run(data, OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_REVERSED, { movementId: "mv-h", reason: "teste" }, 0);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain("nota fiscal");
+  });
+
+  it("recusa estornar a entrada cujo material já foi consumido", () => {
+    let data = must(receive(withOrder(), 100, "i"));
+    data = must(run(data, OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_RECORDED, {
+      movement: { id: "mv-uso", obraId: "o-1", materialId: "m-1", tipo: "consumo", qtd: 80, data: "2026-10-10" },
+    }, 0));
+    const result = run(data, OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_REVERSED, { movementId: "mv-i", reason: "teste" }, 0);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain("consumida");
+  });
+
+  it("entrada manual (sem pedido) continua estornável e não mexe em pedido", () => {
+    let data = withOrder();
+    data = must(run(data, OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_RECORDED, {
+      movement: { id: "mv-man", obraId: "o-1", materialId: "m-1", tipo: "entrada", qtd: 10, valorUnit: 30, data: "2026-10-10" },
+    }, 0));
+    data = must(run(data, OPERATIONAL_COMMAND.MATERIAL_MOVEMENT_REVERSED, { movementId: "mv-man", reason: "digitado errado" }, 0));
+    expect(data.movEstoque[0].status).toBe("estornado");
+    expect(data.pedidos[0].itens[0].qtdRecebida ?? 0).toBe(0);
   });
 
   it("preço do item pode ser alterado depois do recebimento sem tocar no estoque", () => {
