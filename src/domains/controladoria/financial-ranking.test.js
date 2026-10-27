@@ -2,6 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import { createFinancialRankingEngine } from "./financial-ranking.js";
 
 describe("ranking financeiro por obra", () => {
+  it("nota rejeitada não conta como vencida nem como prova de que o pedido tem nota (D-A)", () => {
+    const calculateWorkDre = vi.fn(() => ({ faturamento:0, recebido:0, totalCustos:0, faturadoAcum:0, recebidoAcum:0, lucroBruto:0, margemBruta:0, margemCaixa:0, saldoCaixa:0 }));
+    const { calculateFinancialRanking } = createFinancialRankingEngine({ calculateWorkDre });
+    const [obra] = calculateFinancialRanking({
+      obras:[{ id:"o1", name:"Obra 1", code:"B1" }],
+      notasFiscais:[{ id:"n1", obraId:"o1", pedidoId:"p1", status:"rejeitada", emissao:"2026-07-01", vencimento:"2026-07-15", valorLiquido:300, pagamentos:[] }],
+      pedidos:[{ id:"p1", obraId:"o1", status:"enviado", data:"2026-07-01", pagamentos:[] }],
+      medicoes:[],
+    }, 2026, 6);
+    expect(obra.notasVencidas).toBe(0);
+    expect(obra.pedidosSemNota).toBe(1);
+  });
+
   it("combina o DRE canônico com pendências sem duplicar pagamentos", () => {
     const calculateWorkDre = vi.fn(() => ({
       faturamento:1000,

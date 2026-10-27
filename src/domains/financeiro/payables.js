@@ -9,6 +9,11 @@ export const totalPagoNota = nota =>
 export const saldoPagamentoNota = nota =>
   Math.max(0, Number(nota?.valorLiquido || nota?.valorBruto || 0) - totalPagoNota(nota));
 
+// Nota que o razão não reconhece (cancelada, rejeitada ou estornada): não é
+// obrigação a pagar nem prova de que o pedido tem nota.
+export const notaSemEfeito = nota =>
+  ["cancelada", "rejeitada", "estornada"].includes(String(nota?.status || "").toLowerCase());
+
 export const statusPagamentoNota = nota => {
   if (nota?.status === "cancelada") return "cancelada";
   const total = Number(nota?.valorLiquido || nota?.valorBruto || 0);

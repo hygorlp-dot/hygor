@@ -46,6 +46,11 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
     expect(legacy).toMatch(/receivedQuantities:Object\.fromEntries\(entradas\.map\(item=>\[item\.pedidoItemId,item\.qtdCompra\]\)\)/);
   });
 
+  it("D-A: Central de Pagamentos e obrigações do DRE ignoram nota rejeitada",()=>{
+    expect(legacy).toMatch(/const notasAtivas=useMemo\(\(\)=>notas\.filter\(n=>!notaSemEfeito\(n\)\),\[notas\]\);/);
+    expect(legacy).toMatch(/const notasAbertas=notas\.filter\(n=>n\.status!=="paga"&&!notaSemEfeito\(n\)\);/);
+  });
+
   it("C1.4: pagamento mostra o conferido e manda adiantamento com motivo ao servidor",()=>{
     const pagar=trecho(compras,"const registrarPagamento=async","const reclassificarOrigemPagamento=");
     expect(pagar).toMatch(/conferenciaPagamentoPedido\(data,pedido\.id\)/);
