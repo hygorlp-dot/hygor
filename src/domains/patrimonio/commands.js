@@ -117,6 +117,14 @@ export const applyPatrimonyCommand=(data={},command={},now=new Date().toISOStrin
     if(input.invoice.accessKey&&input.invoice.accessKey.length!==44)return fail("A chave da NF-e precisa ter 44 dígitos.");
     const current=assets.find(item=>String(item.id)===input.id);
     if(command.expectedVersion!=null&&versionOf(current)!==Number(command.expectedVersion))return fail("Este patrimônio foi alterado por outra pessoa. Atualize a tela.");
+    if(current){
+      if(String(input.status)!==String(current.status))return fail("Altere a situação pela ação própria de status para manter o histórico patrimonial.");
+      const currentLocation=JSON.stringify(current.location||{});
+      const nextLocation=JSON.stringify(input.location||{});
+      const currentCustodian=JSON.stringify(current.custodian||{});
+      const nextCustodian=JSON.stringify(input.custodian||{});
+      if(currentLocation!==nextLocation||currentCustodian!==nextCustodian)return fail("Movimente o patrimônio pela ação própria de localização/responsável para manter a rastreabilidade.");
+    }
     if(identityConflict(assets,input.id,"assetTag",input.assetTag))return fail("Já existe um bem ativo com este código patrimonial.");
     if(identityConflict(assets,input.id,"serialNumber",input.serialNumber))return fail("Já existe um bem ativo com este número de série.");
     if(identityConflict(assets,input.id,"imei",input.imei))return fail("Já existe um bem ativo com este IMEI.");
