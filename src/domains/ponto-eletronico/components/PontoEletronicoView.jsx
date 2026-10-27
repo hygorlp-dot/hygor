@@ -348,7 +348,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser, onTa
           {!entries.length?<p style={{color:C.muted}}>Ainda não há créditos ou débitos no banco.</p>:<div className="received-point-table"><table><caption>Extrato do banco de horas</caption><thead><tr><th>Data</th><th>Movimento</th><th>Origem</th><th>Motivo</th></tr></thead><tbody>{[...entries].reverse().map(entry=><tr key={entry.id}><td data-label="Data">{String(entry.date||"").split("-").reverse().join("/")}</td><td data-label="Movimento"><strong>{formatTimeBankMinutes(entry.minutes)}</strong></td><td data-label="Origem">{entry.source==="attendance"?"Ponto conferido":"Ajuste identificado"}</td><td data-label="Motivo">{entry.reason||"—"}</td></tr>)}</tbody></table></div>}
         </div>
       </Modal>;})()}
-      {conferencia&&<ReceivedPointReview {...conferencia} data={data} dispatchAttendanceCommand={dispatchAttendanceCommand} works={obras} canEdit={podeGerir} onClose={()=>setConferencia(null)} onSaved={()=>carregar({silencioso:true})} onTab={onTab}/>}
+      {conferencia&&<ReceivedPointReview {...conferencia} data={data} dispatchAttendanceCommand={dispatchAttendanceCommand} works={obras} canEdit={podeGerir} canManageBank={["admin","rh"].includes(currentUser?.role)} onClose={()=>setConferencia(null)} onSaved={()=>carregar({silencioso:true})} onTab={onTab}/>}
     </div>
   );
 }
