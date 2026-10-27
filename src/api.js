@@ -266,7 +266,7 @@ export const saveDataDetailed = async (payload,basePayload=null) => {
   // daqui impede que um snapshot antigo substitua lançamentos ou histórico.
   const commandOnlyKeys=new Set([
     "attendance","attendanceLocks","unlockRequests","dailyCheckDate",
-    "attendanceOperationReceipts","operationalCommandReceipts","changeLog",
+    "attendanceOperationReceipts","timeBankAdjustments","operationalCommandReceipts","changeLog",
   ]);
   const safePayload=Object.fromEntries(Object.entries(payload||{}).filter(([key])=>!commandOnlyKeys.has(key)));
   const safeBase=basePayload
