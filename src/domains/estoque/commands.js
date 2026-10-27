@@ -1,4 +1,4 @@
-import { SINAL_MOV, baixarPorComposicao, calcSaldos, saldoDe } from "./calculations.js";
+import { SINAL_MOV, baixarPorComposicao, calcSaldos, custoMedioPonderado, saldoDe } from "./calculations.js";
 
 export const STOCK_COMMAND = Object.freeze({
   MATERIAL_MOVEMENT_RECORDED: "MOVIMENTO_ESTOQUE_REGISTRADO",
@@ -23,6 +23,58 @@ export const stockCommandObraId = (data = {}, command = {}) => {
 const fail = reason => ({ ok: false, reason });
 const versionOf = item => Number(item?.version || 0);
 const inactiveStatus = status => ["cancelado","cancelada","estornado","estornada"].includes(String(status||"").toLowerCase());
+
+const STATUS_NOTA_SEM_EFEITO = ["cancelada","cancelado","estornada","estornado","rejeitada","rejeitado","rascunho"];
+
+// Desfaz, no pedido, o recebimento que originou a entrada de estoque. O
+// recebimento estornado sai de `recebimentos` (que alimenta histórico de
+// preço e prazo) e fica guardado em `recebimentosEstornados`: nada se perde.
+const reabrirRecebimentoDoPedido = (data, pedido, entrada, estornada, movimentos, command, now) => {
+  if (pedido.status === "cancelado") return { ok: true, data: { ...data, movEstoque: movimentos } };
+  const notaAtiva = (data.notasFiscais || []).some(nota =>
+    String(nota.pedidoId || "") === String(pedido.id)
+    && !STATUS_NOTA_SEM_EFEITO.includes(String(nota.status || "").toLowerCase()));
+  if (notaAtiva) return fail("Este pedido já tem nota fiscal lançada. Cancele ou rejeite a nota antes de estornar o recebimento.");
+  const depois = saldoDe(calcSaldos(movimentos), entrada.obraId, entrada.materialId);
+  if (depois < -1e-6) return fail("Parte desse material já foi consumida na obra. Registre a devolução ou o ajuste de estoque antes de estornar o recebimento.");
+  const item = (pedido.itens || []).find(x => String(x.id) === String(entrada.pedidoItemId || ""));
+  if (!item) return { ok: true, data: { ...data, movEstoque: movimentos } };
+  const fator = Number(entrada.fatorConversao) > 0 ? Number(entrada.fatorConversao) : 1;
+  const qtdCompra = Number(entrada.qtdCompra ?? Number(entrada.qtd || 0) / fator);
+  const recebimentoId = String(entrada.receiptId || "");
+  const evento = (item.recebimentos || []).find(r => recebimentoId && String(r.id) === recebimentoId);
+  const estornadoEvento = evento && {
+    ...evento, estornadoEm: now, motivoEstorno: estornada.motivoEstorno,
+    estornadoPorId: command.actorId || "", estornadoPor: command.actorName || "",
+    movimentoEstoqueId: entrada.id,
+  };
+  const itens = (pedido.itens || []).map(x => x !== item ? x : {
+    ...x,
+    qtdRecebida: Math.max(0, Number(x.qtdRecebida || 0) - qtdCompra),
+    recebimentos: (x.recebimentos || []).filter(r => r !== evento),
+    recebimentosEstornados: [...(x.recebimentosEstornados || []),
+      ...(estornadoEvento ? [estornadoEvento] : [{
+        id: recebimentoId || entrada.id, qtd: qtdCompra, data: entrada.data || "",
+        estornadoEm: now, motivoEstorno: estornada.motivoEstorno,
+        estornadoPorId: command.actorId || "", estornadoPor: command.actorName || "",
+        movimentoEstoqueId: entrada.id,
+      }])],
+  });
+  const atualizado = { ...pedido, itens, version: versionOf(pedido) + 1, updatedAt: now };
+  const materiais = (data.materiais || []).map(material => {
+    if (material.id !== entrada.materialId) return material;
+    const medio = custoMedioPonderado(movimentos, material.id);
+    return medio == null ? material : { ...material, precoMedio: medio };
+  });
+  return {
+    ok: true,
+    data: {
+      ...data, movEstoque: movimentos,
+      pedidos: (data.pedidos || []).map(x => x.id === pedido.id ? atualizado : x),
+      ...(data.materiais ? { materiais } : {}),
+    },
+  };
+};
 
 export const applyStockCommand = (data = {}, command = {}, now = new Date().toISOString()) => {
   if (!STOCK_COMMAND_TYPES.has(command.type)) return null;
@@ -92,10 +144,19 @@ export const applyStockCommand = (data = {}, command = {}, now = new Date().toIS
       ...current, status: "estornado", motivoEstorno: reason, estornadoEm: now,
       estornadoPorId: command.actorId || "", estornadoPor: command.actorName || "",
     };
-    return {
-      ok: true, entityId: id,
-      data: { ...data, movEstoque: movEstoque.map(item => item.id === id ? reversed : item) },
-    };
+    const movimentos = movEstoque.map(item => item.id === id ? reversed : item);
+    // Entrada que veio do recebimento de um pedido não é só estoque: o pedido
+    // conta o que já chegou. Estornar só o movimento deixaria o pedido
+    // "recebido" sem material na obra e sem como receber de novo.
+    if (current.pedidoId && SINAL_MOV[current.tipo] > 0) {
+      const pedido = (data.pedidos || []).find(item => String(item.id) === String(current.pedidoId));
+      if (pedido) {
+        const reaberto = reabrirRecebimentoDoPedido(data, pedido, current, reversed, movimentos, command, now);
+        if (!reaberto.ok) return reaberto;
+        return { ok: true, entityId: id, data: reaberto.data };
+      }
+    }
+    return { ok: true, entityId: id, data: { ...data, movEstoque: movimentos } };
   }
 
   const raw = command.payload?.composition || {};
