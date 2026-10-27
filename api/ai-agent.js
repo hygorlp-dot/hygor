@@ -24,10 +24,11 @@ const MODULE_POLICIES = {
   qualidade: "Atue como especialista em FVS/FVM. Trabalhe com critérios auditáveis, evidências, responsável, resultado, rastreabilidade e tratamento de não conformidade.",
   comercial: "Atue como analista comercial de construção. Considere cliente, necessidade, escopo, proposta, riscos, próximos passos e histórico, sem prometer prazo ou preço não confirmado.",
   rh: "Atue como analista de operações e pessoas. Considere lotação, ponto, capacidade, pendências e responsabilidades, sem inferir dados pessoais não fornecidos.",
+  patrimonio: "Atue como analista patrimonial corporativo. Extraia somente dados visíveis da nota e identifique bens duráveis da empresa. Não invente série, IMEI, marca, modelo, valor ou classificação patrimonial.",
 };
 const normalizeModule = value => {
   const key=String(value||"geral").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z]/g,"");
-  const aliases={compras:"compras",financeiro:"financeiro",dre:"dre",dreempresa:"dre",controladoria:"dre",diario:"diario",diariodeobra:"diario",rdo:"diario",orcamento:"orcamento",planejamento:"planejamento",administracao:"administracao",admin:"administracao",conferencia:"conferencia",qualidade:"qualidade",comercial:"comercial",rh:"rh",recursoshumanos:"rh"};
+  const aliases={compras:"compras",financeiro:"financeiro",dre:"dre",dreempresa:"dre",controladoria:"dre",diario:"diario",diariodeobra:"diario",rdo:"diario",orcamento:"orcamento",planejamento:"planejamento",administracao:"administracao",admin:"administracao",conferencia:"conferencia",qualidade:"qualidade",comercial:"comercial",rh:"rh",recursoshumanos:"rh",patrimonio:"patrimonio",patrimoniodaempresa:"patrimonio"};
   return aliases[key]||"geral";
 };
 
@@ -316,6 +317,82 @@ export default async function handler(req,res){
     error:"Muitas solicitações de IA em pouco tempo. Aguarde alguns minutos e tente novamente.",
     code:"AI_RATE_LIMIT_LOCAL",
   });
+
+  if(req.body?.action==="asset-invoice-extract"){
+    if(!["admin","financeiro","compras"].includes(user.role)||user.obraId){
+      return res.status(403).json({error:"A leitura patrimonial da nota exige acesso corporativo de Administração, Financeiro ou Compras."});
+    }
+    const nome=String(req.body?.fileName||"nota").slice(0,180);
+    const raw=String(req.body?.dataUrl||"");
+    const match=raw.match(/^data:(application\/pdf|image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
+    if(!match)return res.status(400).json({error:"Envie PDF, JPG, PNG ou WEBP da nota fiscal."});
+    if(match[2].length>8_000_000)return res.status(413).json({error:"O documento é grande demais para análise por IA. Comprima o PDF ou a foto."});
+    const schema={type:"OBJECT",properties:{
+      invoice:{type:"OBJECT",properties:{
+        numero:{type:"STRING"},serie:{type:"STRING"},chave:{type:"STRING"},emissao:{type:"STRING"},
+        fornecedorNome:{type:"STRING"},documentoFornecedor:{type:"STRING"},valorBruto:{type:"NUMBER"},
+      },required:["numero","serie","chave","emissao","fornecedorNome","documentoFornecedor","valorBruto"]},
+      items:{type:"ARRAY",items:{type:"OBJECT",properties:{
+        nItem:{type:"INTEGER"},descricao:{type:"STRING"},categoria:{type:"STRING"},marca:{type:"STRING"},
+        modelo:{type:"STRING"},numeroSerie:{type:"STRING"},imei:{type:"STRING"},quantidade:{type:"NUMBER"},
+        valorUnitario:{type:"NUMBER"},valorTotal:{type:"NUMBER"},patrimonial:{type:"BOOLEAN"},
+        confianca:{type:"NUMBER"},justificativa:{type:"STRING"},
+      },required:["nItem","descricao","categoria","marca","modelo","numeroSerie","imei","quantidade","valorUnitario","valorTotal","patrimonial","confianca","justificativa"]}},
+    },required:["invoice","items"]};
+    const system=[
+      "Você extrai dados de nota fiscal brasileira para o patrimônio CORPORATIVO da empresa, não para patrimônio de obra.",
+      "Use somente o que estiver legível no documento. Campo não visível deve ser string vazia ou zero; nunca invente.",
+      "Classifique patrimonial=true somente para bem durável e individualizável ou controlável: celular, notebook, ferramenta elétrica, máquina, móvel, eletroeletrônico, veículo e similares.",
+      "Materiais incorporados à obra, alimentos, EPIs descartáveis, combustível, material de limpeza e consumíveis devem ser patrimonial=false.",
+      "IMEI, número de série, marca e modelo só podem ser preenchidos quando constarem no documento ou estiverem inequivocamente embutidos na descrição.",
+      "A confiança varia de 0 a 1 e deve cair quando a leitura estiver ambígua. A justificativa deve ser curta e objetiva.",
+      "Não determine depreciação, vida útil contábil ou classificação fiscal.",
+    ].join(" ");
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),50000);
+    let response;
+    try{
+      response=await geminiRequest(apiKey,aiConfig.model,{
+        systemInstruction:{parts:[{text:system}]},
+        contents:[{role:"user",parts:[
+          {text:`Documento: ${nome}. Extraia a nota e proponha os itens que podem entrar no patrimônio da empresa.`},
+          {inlineData:{mimeType:match[1],data:match[2]}},
+        ]}],
+        generationConfig:{maxOutputTokens:8000,temperature:0.03,responseMimeType:"application/json",responseSchema:schema},
+      },controller.signal);
+    }finally{clearTimeout(timeout);}
+    if(!response.ok){
+      const bodyErr=await response.json().catch(()=>({})),providerMessage=providerMessageFrom(bodyErr);
+      if(isInvalidKey(response.status,providerMessage))return res.status(502).json({error:"A autenticação do Gemini precisa ser atualizada pelo administrador.",code:"AI_AUTH_INVALID"});
+      if(response.status===429)return res.status(429).json({error:"O limite do Gemini foi atingido. Tente novamente mais tarde.",code:"AI_RATE_LIMIT"});
+      return res.status(502).json({error:"A IA não conseguiu ler a nota fiscal.",code:"AI_PROVIDER_ERROR"});
+    }
+    const body=await response.json();
+    const rawJson=(body.candidates?.[0]?.content?.parts||[]).map(part=>part.text||"").join("").trim();
+    let parsed;
+    try{parsed=JSON.parse(rawJson);}catch{return res.status(422).json({error:"A IA não devolveu dados estruturados válidos.",code:"AI_INVALID_JSON"});}
+    const digits=value=>String(value||"").replace(/\D/g,"");
+    const money=value=>Number.isFinite(Number(value))?Math.max(0,Number(value)):0;
+    const invoice={
+      numero:String(parsed?.invoice?.numero||"").slice(0,40),
+      serie:String(parsed?.invoice?.serie||"").slice(0,20),
+      chave:digits(parsed?.invoice?.chave).slice(0,44),
+      emissao:/^\d{4}-\d{2}-\d{2}$/.test(String(parsed?.invoice?.emissao||""))?String(parsed.invoice.emissao):"",
+      fornecedorNome:String(parsed?.invoice?.fornecedorNome||"").slice(0,200),
+      documentoFornecedor:digits(parsed?.invoice?.documentoFornecedor).slice(0,14),
+      valorBruto:money(parsed?.invoice?.valorBruto),
+    };
+    const items=(Array.isArray(parsed?.items)?parsed.items:[]).slice(0,300).map((item,index)=>({
+      nItem:Math.max(1,Math.trunc(Number(item?.nItem)||index+1)),
+      descricao:String(item?.descricao||"").slice(0,500),
+      categoria:String(item?.categoria||"").slice(0,120),
+      marca:String(item?.marca||"").slice(0,120),modelo:String(item?.modelo||"").slice(0,120),
+      numeroSerie:String(item?.numeroSerie||"").slice(0,120),imei:String(item?.imei||"").slice(0,40),
+      quantidade:money(item?.quantidade),valorUnitario:money(item?.valorUnitario),valorTotal:money(item?.valorTotal),
+      patrimonial:item?.patrimonial===true,confianca:Math.max(0,Math.min(1,Number(item?.confianca)||0)),
+      justificativa:String(item?.justificativa||"").slice(0,300),
+    }));
+    return res.status(200).json({ok:true,source:"ai",invoice,items});
+  }
 
   try{
     const {messages,contexto,prompt,question,context,imagens,documentos,modulo}=req.body||{};
