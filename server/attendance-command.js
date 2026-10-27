@@ -153,6 +153,17 @@ const validatePatch=({data,user,patch,now})=>{
   if(!unlocked.ok)return unlocked;
   const normalized=normalizeSubmittedRecord({input:patch.record,current:currentRecord,obraId});
   if(!normalized.ok)return normalized;
+  if(normalized.record?.bankMinutes){
+    const effectiveEmployee=effectiveEmployeeOnDate(employee,date)||employee;
+    if(effectiveEmployee.timeBankEnabled!==true)return fail("O banco de horas está desativado para este funcionário.",409);
+    const expected=expectedWorkedMinutes(effectiveEmployee,normalized.record.status);
+    const delta=Math.round(Number(normalized.record.workedMinutes||0)-expected);
+    const maxCredit=Math.max(0,delta-Math.round(Number(normalized.record.ot||0)*60));
+    const minDebit=Math.min(0,delta);
+    if(normalized.record.bankMinutes>maxCredit||normalized.record.bankMinutes<minDebit){
+      return fail("O lançamento no banco de horas excede a diferença entre a jornada realizada, a prevista e as horas extras pagas.",409);
+    }
+  }
   return {ok:true,employeeId,date,employee,obraId,currentRecord,record:normalized.record};
 };
 
