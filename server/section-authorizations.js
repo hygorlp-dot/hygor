@@ -4,6 +4,13 @@ import { orcamentoAprovado } from "../src/domains/orcamentos/budget-approval.js"
 const SECTION_ROLES = Object.freeze({
   usuarios:["admin"], config:["admin"], obras:["admin"], condominios:["admin"],
   orcamentos:["admin","engenheiro","engenheiro_auditor"], budgetBaselines:["admin"],
+  // Achado de 27/10/2026: adicionar um item SINAPI ao orçamento também grava
+  // o item em baseFavoritos, e salvar/excluir composição própria grava
+  // composicoesEmpresa (OrcamentoView.jsx). Sem entrada aqui, todo
+  // engenheiro recebia "A seção baseFavoritos não pode ser alterada por esta
+  // rota" e, como a seção pendente segue em todo salvamento seguinte, nada
+  // mais do orçamento salvava. Mesmos perfis que editam `orcamentos`.
+  baseFavoritos:["admin","engenheiro","engenheiro_auditor"], composicoesEmpresa:["admin","engenheiro","engenheiro_auditor"],
   planos:["admin","engenheiro","engenheiro_auditor"], rdos:["admin","engenheiro"],
   productionWbs:["admin","engenheiro","engenheiro_auditor","planejamento"], scheduleCalendars:["admin","engenheiro","planejamento"], scheduleBaselines:["admin","diretoria"], scheduleActivities:["admin","engenheiro","engenheiro_auditor","planejamento"], scheduleDependencies:["admin","engenheiro","engenheiro_auditor","planejamento"], activityResources:["admin","engenheiro","planejamento"], activityLocations:["admin","engenheiro","planejamento"], lookaheadWindows:["admin","engenheiro","engenheiro_auditor","planejamento","mestre"], constraints:["admin","engenheiro","engenheiro_auditor","planejamento","mestre","qualidade","seguranca"], weeklyPlans:["admin","engenheiro","planejamento","mestre"], weeklyCommitments:["admin","engenheiro","planejamento","mestre"], progressRecords:["admin","engenheiro","planejamento","mestre"], productivityRecords:["admin","engenheiro","planejamento","mestre"], dailyLogs:["admin","engenheiro","mestre"],
   curvaAbcSnapshots:["admin","engenheiro","engenheiro_auditor"], planosSuprimento:["admin","engenheiro","engenheiro_auditor","compras"], marcosSuprimento:["admin","engenheiro","engenheiro_auditor","compras"], alertasSuprimento:["admin","engenheiro","engenheiro_auditor","compras"], reservasEstoque:["admin","compras","engenheiro","engenheiro_auditor"], suprimentosConfig:["admin","engenheiro","engenheiro_auditor"],
@@ -41,7 +48,7 @@ const hasUnscopedRecord = value => scoped(value).some(item => item && !item.obra
 // deve ser obrigado a gravar um obraId artificial nesses registros.
 const CATALOG_SECTIONS=new Set([
   "unidades","materiais","fornecedores","composicoes","composicoesEmpresa",
-  "fases","categoriasDesp",
+  "fases","categoriasDesp","baseFavoritos",
 ]);
 
 export const authorizeSectionChanges = (user = {}, sections = {}) => {
