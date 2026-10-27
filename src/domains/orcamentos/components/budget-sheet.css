@@ -1,0 +1,177 @@
+/* Orçamento como planilha (aba Orçamento de OrcamentoView.jsx).
+   Barra única no topo, grade com cabeçalho fixo de colunas, células sem
+   moldura (só o foco desenha a célula ativa) e ações num menu por linha.
+   Cores seguem DESIGN.md (ARCD Carbon): grafite, concreto, linha técnica e
+   ouro como única cor de marca. */
+
+.budget-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+  padding: 6px 10px; background: #fff; border: 1px solid #d6d6d6; border-radius: 4px 4px 0 0;
+}
+.budget-bar__name {
+  min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 14px; font-weight: 600; color: #161616;
+}
+.budget-bar__meta { font-size: 11px; color: #525252; font-variant-numeric: tabular-nums; }
+.budget-bar__spacer { flex: 1 1 0; }
+.budget-bar__status { font-size: 11px; color: #525252; }
+.budget-badge {
+  display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 2px;
+  font-size: 11px; font-weight: 600; letter-spacing: .02em; white-space: nowrap;
+}
+
+.budget-tool {
+  height: 24px; padding: 0 8px; border: 1px solid #d6d6d6; border-radius: 4px; background: #fff;
+  color: #161616; font: 500 11px/1 "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  white-space: nowrap; cursor: pointer;
+}
+.budget-tool:hover:not(:disabled) { background: #f4f4f4; }
+.budget-tool:disabled { color: #8d8d8d; background: #f4f4f4; cursor: not-allowed; }
+.budget-tool:focus-visible, .budget-tab:focus-visible, .budget-more:focus-visible, .budget-stage__fold:focus-visible {
+  outline: 2px solid #d4af37; outline-offset: 1px;
+}
+.budget-tool--primary { border-color: #d4af37; background: #d4af37; font-weight: 600; }
+.budget-tool--primary:hover:not(:disabled) { background: #c19d2e; }
+.budget-tool[aria-expanded="true"] { background: #161616; border-color: #161616; color: #fff; }
+
+.budget-kpis {
+  display: flex; flex-wrap: wrap; background: #f4f4f4; border: 1px solid #d6d6d6; border-top: 0;
+}
+.budget-kpi {
+  display: flex; flex-direction: column; justify-content: center; gap: 1px;
+  min-height: 38px; padding: 3px 14px; border: 0; border-right: 1px solid #d6d6d6;
+  background: transparent; text-align: left; font-family: inherit;
+}
+.budget-kpi span { font-size: 11px; color: #525252; }
+.budget-kpi strong {
+  font: 600 13px/1.2 "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #161616;
+}
+.budget-kpi--total strong { font-weight: 700; }
+button.budget-kpi { cursor: pointer; }
+button.budget-kpi:hover { background: #e8e8e8; }
+.budget-kpi__alert { color: #8a3800; font-size: 11px; font-weight: 600; }
+
+.budget-tabs {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0 2px; padding-right: 6px;
+  background: #fff; border: 1px solid #d6d6d6; border-top: 0;
+}
+.budget-tab {
+  height: 32px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: transparent;
+  color: #525252; font: 500 12px/1 "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif; cursor: pointer; white-space: nowrap;
+}
+.budget-tab:hover { color: #161616; background: #f4f4f4; }
+.budget-tab[aria-selected="true"] { color: #161616; font-weight: 600; border-bottom-color: #d4af37; }
+.budget-tabs__chips { margin-left: auto; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0; }
+.budget-panel { background: #fff; border: 1px solid #d6d6d6; border-top: 0; padding: 10px 12px; }
+
+.budget-sheet { background: #fff; border: 1px solid #d6d6d6; }
+.budget-cols {
+  border-left: 3px solid transparent;
+  position: sticky; top: 58px; z-index: 5; display: grid; align-items: center; min-height: 24px;
+  padding: 0 10px; background: #f4f4f4; border-bottom: 1px solid #c6c6c6;
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #525252;
+}
+.budget-cols > span { padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.budget-cols > .is-num { text-align: right; }
+
+.budget-stage__head {
+  display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 8px;
+  border-top: 1px solid #c6c6c6;
+}
+.budget-stage__name {
+  min-width: 0; flex: 1; font-size: 12px; font-weight: 600; color: #161616;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.budget-stage__meta { font-size: 11px; font-weight: 400; color: #525252; margin-left: 8px; }
+.budget-stage__total {
+  font: 600 12px "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.budget-stage__fold {
+  width: 20px; height: 20px; border: 0; background: transparent; color: #525252; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; padding: 0;
+}
+.budget-sheet .budget-drag-handle { padding: 2px 3px; line-height: 0; color: #8d8d8d; }
+
+.budget-line-row {
+  min-height: 26px; border-top: 1px solid #e5e5e5; gap: 0 !important; align-items: stretch !important;
+  padding: 0 10px !important; overflow: visible !important;
+}
+.budget-line-row:hover { background: #fafafa; }
+.budget-line-row > * { min-width: 0; border-right: 1px solid #efefef; display: flex; align-items: center; }
+.budget-line-row > div { align-items: stretch; }
+.budget-line-row > *:last-child { border-right: 0; }
+.budget-line-row > .budget-search-pop { display: block; border-right: 0; }
+/* A regra global de campos (index.css) usa !important em borda e raio e tem
+   especificidade alta; a célula da planilha precisa vencê-la para ficar sem
+   moldura. A altura mínima de 44px do celular continua valendo. */
+.arcd-main .budget-sheet input.budget-cell:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]) {
+  border: 0 !important; border-radius: 0 !important; background-color: transparent; box-shadow: none;
+}
+@media (min-width: 768px) {
+  .arcd-main .budget-sheet input.budget-cell:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]) { min-height: 0 !important; height: 100%; }
+}
+.budget-cell {
+  width: 100%; height: 100%; box-sizing: border-box; border: 0; border-radius: 0; background: transparent;
+  color: #161616; padding: 0 6px; outline: 0; text-overflow: ellipsis; font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+}
+.arcd-main .budget-sheet input.budget-cell:hover { background-color: #f4f4f4; }
+.arcd-main .budget-sheet input.budget-cell:focus { background-color: #fff; outline: 2px solid #d4af37; outline-offset: -2px; position: relative; z-index: 1; }
+.budget-cell[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.budget-cell[type="number"]::-webkit-inner-spin-button, .budget-cell[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.budget-cell.is-num {
+  text-align: right; font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums;
+}
+.budget-cell.is-code { text-transform: uppercase; font-family: "IBM Plex Mono", ui-monospace, monospace; }
+.budget-cell::placeholder { color: #8d8d8d; }
+.budget-line-row .budget-plain {
+  padding: 0 6px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.budget-line-row .budget-total {
+  align-items: center; justify-content: flex-end; padding: 0 6px; font: 600 11px "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums; background: #f9f9f9; white-space: nowrap;
+}
+.budget-title-row {
+  display: flex; align-items: stretch; height: 26px; padding: 0 10px;
+  border-top: 1px solid #e5e5e5; background: #f4f4f4;
+}
+.budget-title-row .budget-cell { font-weight: 600; text-transform: uppercase; letter-spacing: .02em; }
+
+.budget-menu-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+.budget-more {
+  width: 24px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: transparent;
+  color: #525252; opacity: .45; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+}
+.budget-line-row:hover .budget-more, .budget-stage__head:hover .budget-more, .budget-title-row:hover .budget-more,
+.budget-more:focus-visible, .budget-more[aria-expanded="true"] { opacity: 1; }
+.budget-more:hover { background: #e8e8e8; }
+.budget-menu-scrim { position: fixed; inset: 0; z-index: 39; }
+.budget-menu {
+  position: absolute; right: 0; top: 100%; z-index: 40; min-width: 200px; padding: 4px 0;
+  background: #fff; border: 1px solid #c6c6c6; border-radius: 4px; box-shadow: 0 4px 12px rgba(22, 22, 22, .16);
+}
+.budget-menu button {
+  display: block; width: 100%; height: 28px; padding: 0 12px; border: 0; background: transparent;
+  text-align: left; font: 400 12px "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif; color: #161616; cursor: pointer;
+}
+.budget-menu button:hover:not(:disabled), .budget-menu button:focus-visible { background: #f4f4f4; outline: 0; }
+.budget-menu button:disabled { color: #8d8d8d; cursor: not-allowed; }
+.budget-menu button.is-danger { color: #da1e28; }
+
+@media (hover: none) { .budget-more { opacity: 1; } }
+
+@media (max-width: 767px) {
+  .budget-sheet { overflow-x: auto; }
+  .budget-sheet__inner { min-width: 760px; }
+  .budget-cols { position: static; }
+  .budget-more { width: 44px; height: 44px; }
+  .budget-tab { height: 44px; }
+  .budget-tool { height: 36px; }
+}
+
+.budget-foot {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px 24px;
+  min-height: 32px; padding: 0 14px; border-top: 2px solid #161616; background: #f4f4f4;
+  font-size: 12px; color: #525252;
+}
+.budget-foot b { margin-left: 8px; color: #161616; font: 600 12px "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.budget-foot b.is-total { font-size: 14px; font-weight: 700; }
