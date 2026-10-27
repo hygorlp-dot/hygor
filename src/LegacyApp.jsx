@@ -12008,7 +12008,7 @@ function CotacoesMaterial({ data, update, showToast, onTab }) {
     <div className="anim" style={{ display:"flex", flexDirection:"column", gap:12 }}>
       <PageHero
         eyebrow="Compras"
-        title="Cotações e curva de compra"
+        title="Curva de compra e preços"
         description={`${curva.linhas.length} materiais na carteira de obras · ${curva.alertasPesquisa.length} a pesquisar`}
         actions={itensUrgentes.length>0&&<Btn size="sm" v="warning" onClick={()=>setCotWppS(true)}><Ic n="cart"/> Cotar urgentes ({itensUrgentes.length})</Btn>}
       />
@@ -17099,7 +17099,7 @@ const TAB_META_BASE = {
   licenca:  { label: "Licenciamento", icon: "file" },
   cmp:      { label: "Compras",     icon: "cart" },
   fornecedores: { label: "Fornecedores", icon: "handshake" },
-  suprimentos: { label: "Cotações", icon: "trending" },
+  suprimentos: { label: "Curva e preços", icon: "trending" },
   cad:      { label: "Cadastros",   icon: "settings" },
   medicoes: { label: "Medições",   icon: "ruler" },
   caixa:    { label: "Caixa da obra", icon: "wallet" },

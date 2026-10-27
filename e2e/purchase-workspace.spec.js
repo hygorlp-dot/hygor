@@ -324,3 +324,41 @@ test("orçado × comprado mostra o maior estouro primeiro, a barra proporcional 
   await expect(etapas.nth(0).locator("li")).toContainText("R$ 2.000,00");
   expect(app.errors).toEqual([]);
 });
+
+test("cabeçalho compacto mostra a primeira linha da fila em 1000 px e o menu não repete nomes das abas",async({page})=>{
+  await page.setViewportSize({width:1280,height:1000});
+  const app=await enter(page);
+  await selectWork(page);
+  // Obra, aviso de salvamento e ações ficam no próprio cabeçalho.
+  await expect(page.locator(".purchase-header .purchase-context-bar").getByLabel("Obra",{exact:true})).toHaveValue("a");
+  const primeira=page.locator(".purchase-queue-table tbody tr").first();
+  await expect(primeira).toBeVisible();
+  const caixa=await primeira.boundingBox();
+  expect(caixa.y+40).toBeLessThan(1000);
+  // "Fila de trabalho" aparece uma vez (na navegação); o painel tem título próprio.
+  await expect(page.locator("#compras-area-atual")).toHaveAttribute("data-compact","true");
+  await expect(page.locator("#compras-area-atual h3")).toHaveText("Fila de trabalho");
+  const titulo=await page.locator("#compras-area-atual h3").boundingBox();
+  expect(titulo.width*titulo.height).toBeLessThanOrEqual(1);
+
+  // Menu lateral de Compras e abas internas: nenhum nome igual para telas diferentes.
+  const grupo=page.locator(".arcd-sidebar .nav-grp-hd").filter({hasText:/^Compras/});
+  const corpo=grupo.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
+  const menu=(await corpo.locator(".nav-item").allInnerTexts()).map(texto=>texto.trim());
+  expect(menu).toContain("Curva e preços");
+  expect(menu).not.toContain("Cotações");
+  const tools=page.locator("details.purchase-tools");
+  await tools.locator("summary").click();
+  const abas=[
+    ...(await page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button").allInnerTexts()).map(texto=>texto.split("\n")[0].trim()),
+    ...(await tools.getByRole("button").allInnerTexts()).map(texto=>texto.trim()),
+  ];
+  expect(abas).toContain("Cadastro de fornecedores");
+  expect(abas.filter(aba=>aba!=="Compras"&&menu.includes(aba))).toEqual([]);
+
+  // A área de pagamentos tem o mesmo nome na navegação e no título.
+  await tools.locator("summary").click();
+  await navigate(page,"Pagamentos");
+  await expect(page.locator("#compras-area-atual h3")).toHaveText(/^Pagamentos/);
+  expect(app.errors).toEqual([]);
+});
