@@ -906,6 +906,7 @@ const operationalCommandEntityId=command=>
   ||command.payload?.rentalId
   ||command.payload?.unavailabilityId
   ||command.payload?.equipmentId
+  ||command.payload?.assetId
   ||command.payload?.rescissionId
   ||command.payload?.advanceId
   ||command.payload?.projectId
@@ -923,6 +924,7 @@ const operationalCommandEntityId=command=>
   ||command.payload?.record?.id
   ||command.payload?.commitment?.id
   ||command.payload?.equipment?.id
+  ||command.payload?.asset?.id
   ||command.payload?.rental?.id
   ||command.payload?.unavailability?.id
   ||command.payload?.maintenance?.id
