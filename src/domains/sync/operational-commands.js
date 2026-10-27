@@ -14,6 +14,7 @@ import { buildQualityProjection, canReleaseForMeasurement } from "../qualidade/c
 import { validateActivitySafety } from "../seguranca/calculations.js";
 import { addConstraint, commitWorkPackage, createLookahead, releaseConstraint } from "../lookahead/commands.js";
 import { applyEquipmentCommand, EQUIPMENT_COMMAND } from "../equipamentos/commands.js";
+import { applyPatrimonyCommand, PATRIMONY_COMMAND } from "../patrimonio/commands.js";
 import { createManualReceipt, reverseManualReceipt } from "../dre/mutations.js";
 import {
   applyClientMeasurementCommand,
@@ -148,6 +149,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   LOOKAHEAD_CONSTRAINT_RELEASED:"RESTRICAO_LOOKAHEAD_LIBERADA",
   LOOKAHEAD_PACKAGE_COMMITTED:"PACOTE_LOOKAHEAD_COMPROMETIDO",
   ...EQUIPMENT_COMMAND,
+  ...PATRIMONY_COMMAND,
 });
 
 const receipts=data=>Array.isArray(data?.operationalCommandReceipts)?data.operationalCommandReceipts:[];
@@ -225,6 +227,11 @@ export const applyOperationalCommand=(data,command)=>{
   if(equipmentResult){
     if(!equipmentResult.ok)return equipmentResult;
     return {ok:true,data:appendReceipt(equipmentResult.data,command,equipmentResult.entityId,now)};
+  }
+  const patrimonyResult=applyPatrimonyCommand(data,command,now);
+  if(patrimonyResult){
+    if(!patrimonyResult.ok)return patrimonyResult;
+    return {ok:true,data:appendReceipt(patrimonyResult.data,command,patrimonyResult.entityId,now)};
   }
   const financialMeasurementResult=applyClientMeasurementCommand(data,command,now);
   if(financialMeasurementResult){
