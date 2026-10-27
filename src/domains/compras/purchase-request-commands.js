@@ -79,7 +79,10 @@ const saveRequest=(data,command,now)=>{
     return fail("Todos os itens precisam estar vinculados a insumos persistidos no catálogo.");
   }
   const actorName=String(command.actorName||"").trim()||"Usuário autenticado";
-  const saved={...current,...raw,id,obraId,status:current?.status||"aberta",
+  // O status inicial é decidido aqui, nunca pelo navegador. Tem de ser
+  // "enviada": é o único valor que a aba Solicitações, o KPI do mapa, o SLA
+  // e os botões Cotar/Gerar pedido reconhecem (achado S1 do pathfinder).
+  const saved={...current,...raw,id,obraId,status:current?.status||"enviada",
     version:versionOf(current)+1,atualizadoEm:now,updatedAt:now,
     atualizadoPor:actorName,updatedBy:actorName,updatedById:String(command.actorId||""),
     ...(!current?{criadoEm:raw.criadoEm||now,criadoPor:raw.criadoPor||actorName,

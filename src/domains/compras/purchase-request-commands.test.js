@@ -45,6 +45,19 @@ describe("comando transacional de solicitação de compra",()=>{
     expect(request.aprovacaoInstanciaId).toBe(result.data.instanciasAprovacao[0].id);
   });
 
+  it("grava a solicitação nova como enviada, o status que a aba, o KPI e os botões reconhecem",()=>{
+    const created=applyPurchaseRequestCommand(base(),command(),"2026-08-05T12:00:00.000Z");
+    const request=created.data.solicitacoesCompra.find(item=>item.id==="sol-2");
+    expect(request.status).toBe("enviada");
+    // O servidor decide o status inicial: o que o navegador manda não vale.
+    const forged=applyPurchaseRequestCommand(base(),command({payload:{request:{...command().payload.request,status:"pedido_gerado"}}}),"2026-08-05T12:00:00.000Z");
+    expect(forged.data.solicitacoesCompra.find(item=>item.id==="sol-2").status).toBe("enviada");
+    // Editar preserva o status que a solicitação já tinha (ex.: em_analise).
+    const analysing={...created.data,solicitacoesCompra:created.data.solicitacoesCompra.map(item=>item.id==="sol-2"?{...item,status:"em_analise"}:item)};
+    const edited=applyPurchaseRequestCommand(analysing,command({expectedVersion:1,idempotencyKey:"solicitacao-unique-002",payload:{request:{...command().payload.request,observacao:"ajuste"}}}),"2026-08-05T13:00:00.000Z");
+    expect(edited.data.solicitacoesCompra.find(item=>item.id==="sol-2").status).toBe("em_analise");
+  });
+
   it("recusa item cujo insumo não será persistido",()=>{
     const result=applyPurchaseRequestCommand(base(),command({payload:{catalogMaterials:[]}}));
     expect(result).toEqual({ok:false,reason:"Todos os itens precisam estar vinculados a insumos persistidos no catálogo."});
