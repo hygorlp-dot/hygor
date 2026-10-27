@@ -57,6 +57,13 @@ describe("patrimônio corporativo",()=>{
     expect(result.data.companyAssets[0]).toMatchObject({status:"ativo",location:{type:"almoxarifado",label:"Almoxarifado central"}});
   });
 
+  it("bem baixado não pode ser reativado silenciosamente",()=>{
+    const base={companyAssets:[{id:"a1",name:"Notebook antigo",status:"baixado",active:false,version:3,operationalHistory:[]}]};
+    const result=applyPatrimonyCommand(base,{...command(PATRIMONY_COMMAND.ASSET_STATUS_CHANGED,{assetId:"a1",status:"ativo",reason:"voltar"}),expectedVersion:3});
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/não pode ser reativado/i);
+  });
+
   it("baixa exige motivo e mantém registro",()=>{
     const base={companyAssets:[{id:"a1",name:"Notebook",status:"ativo",active:true,version:1,operationalHistory:[]}]};
     expect(applyPatrimonyCommand(base,{...command(PATRIMONY_COMMAND.ASSET_STATUS_CHANGED,{assetId:"a1",status:"baixado",reason:""}),expectedVersion:1}).ok).toBe(false);
