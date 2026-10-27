@@ -152,7 +152,7 @@ jobs:
   # APK experimental FaceNet-512: só nesta branch de homologação.
   # Usa pacote separado e chave efêmera para não tocar nos APKs já instalados.
   apk15-facenet:
-    if: github.ref_name == 'feat/face-auth-mit-adapter-d6'
+    if: github.ref_name == 'feat/face-auth-mit-adapter-d6' || github.head_ref == 'feat/face-auth-mit-adapter-d6'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
