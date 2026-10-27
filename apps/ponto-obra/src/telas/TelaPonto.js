@@ -19,7 +19,7 @@ import { Botao, BotaoTexto, COMPROVANTE_MS, COR, COR_DO_TOM, Corpo, ESPACO, Icon
 import Comprovante from "./Comprovante";
 
 const CAMERA_ESPERA_MAX_MS = 15_000;
-const ATRASO_CAPTURA_AUTOMATICA_MS = 300;
+const ATRASO_CAPTURA_AUTOMATICA_MS = 750;
 const RELOGIO_TELA_MS = 30_000;
 
 export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar, situacao, abrirEncarregado, voz = true, medir = () => {}, calibrar = null }) {
@@ -207,7 +207,7 @@ export default function TelaPonto({ obra, relogio, modelos, cadastro, registrar,
     autoDisparou.current = true;
     clearTimeout(timerAuto.current);
     timerAuto.current = setTimeout(() => {
-      if (terminalAtivo && fluxoRef.current?.etapa === "pronto") baterPonto();
+      if (AppState.currentState === "active" && camera.current && fluxoRef.current?.etapa === "pronto") baterPonto();
     }, ATRASO_CAPTURA_AUTOMATICA_MS);
   };
 
