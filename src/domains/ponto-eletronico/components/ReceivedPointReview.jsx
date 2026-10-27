@@ -7,7 +7,7 @@ import {formatTimeBankMinutes} from '../../ponto/time-bank.js';
 import {horaLocal} from '../painel.js';
 import './received-point.css';
 
-export default function ReceivedPointReview({employeeId,name,day,works,onClose,onSaved,canEdit,onTab,data={},dispatchAttendanceCommand,request=chamarPontoEletronico}){
+export default function ReceivedPointReview({employeeId,name,day,works,onClose,onSaved,canEdit,canManageBank=false,onTab,data={},dispatchAttendanceCommand,request=chamarPontoEletronico}){
   const [proposal,setProposal]=useState(null),[saved,setSaved]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[saving,setSaving]=useState(''),[decisions,setDecisions]=useState({}),[confirmed,setConfirmed]=useState(false),[history,setHistory]=useState(null);
   const [classification,setClassification]=useState({status:'',ot:'0',atrasoMin:'0',bankMinutes:'0',note:''}),[importConfirmed,setImportConfirmed]=useState(false),[imported,setImported]=useState(false);
   const importCommand=useRef(null);
@@ -59,10 +59,10 @@ export default function ReceivedPointReview({employeeId,name,day,works,onClose,o
         {canEdit&&<><div className="received-point-classification">
           <Sel label="Presença a registrar" value={classification.status} disabled={!!saving} onChange={v=>changeClassification('status',v)} options={[{v:'',l:'Escolha após conferir'},{v:'P',l:'Presente — jornada integral'},{v:'M',l:'Meia jornada'}]}/>
           <Inp label="Horas extras a pagar" type="number" value={classification.ot} disabled={!!saving} onChange={v=>changeClassification('ot',v)}/>
-          <Inp label="Banco de horas (minutos)" type="number" value={classification.bankMinutes} disabled={!!saving||employee.timeBankEnabled!==true} onChange={v=>changeClassification('bankMinutes',v)}/>
+          <Inp label="Banco de horas (minutos)" type="number" value={classification.bankMinutes} disabled={!!saving||employee.timeBankEnabled!==true||!canManageBank} onChange={v=>changeClassification('bankMinutes',v)}/>
           <Inp label="Atraso conferido (minutos)" type="number" value={classification.atrasoMin} disabled={!!saving} onChange={v=>changeClassification('atrasoMin',v)}/>
           <Inp label="Justificativa da conferência" value={classification.note} disabled={!!saving} onChange={v=>changeClassification('note',v)}/>
-        </div><p>Presença, horas extras e atraso dependem da jornada e das justificativas. {employee.timeBankEnabled===true?`Sugestão de banco para a combinação atual: ${formatTimeBankMinutes(suggestedBank)}. O RH pode destinar menos ao banco, mas hora extra paga + crédito positivo não podem superar o excedente apurado.`:'Banco de horas desativado neste cadastro; ative-o no funcionário antes de lançar saldo.'}</p>
+        </div><p>Presença, horas extras e atraso dependem da jornada e das justificativas. {employee.timeBankEnabled===true?(canManageBank?`Sugestão de banco para a combinação atual: ${formatTimeBankMinutes(suggestedBank)}. O RH pode destinar menos ao banco, mas hora extra paga + crédito positivo não podem superar o excedente apurado.`:'Banco de horas ativo; somente RH/Admin pode decidir crédito ou débito. Esta conferência seguirá com movimento zero.'):'Banco de horas desativado neste cadastro; ative-o no funcionário antes de lançar saldo.'}</p>
         <label className="clt-check"><input type="checkbox" checked={importConfirmed} disabled={!!saving} onChange={e=>setImportConfirmed(e.target.checked)}/>Conferi jornada, presença, horas extras, atraso e obra. Autorizo registrar este único dia no ponto.</label>
         <Btn disabled={!!saving||!importConfirmed||!classification.status||!classification.note.trim()||classification.ot===''||classification.atrasoMin===''||classification.bankMinutes===''} onClick={importDay}>{saving==='attendance'?'Registrando…':'Aprovar e registrar no ponto'}</Btn></>}
       </>}</fieldset>}
