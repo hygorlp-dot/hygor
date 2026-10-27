@@ -147,7 +147,7 @@ function ListaPessoas({ pessoas, aoEscolher, marcador }) {
         style={({ pressed }) => [estilos.pessoa, pressed && estilos.pessoaPressionada]}>
         <View style={estilos.pessoaTexto}>
           <Texto variante="corpo">{item.nome}</Texto>
-          {!!item.funcao && <Rotulo secundario>{item.funcao}</Rotulo>}
+          {!!(item.funcao || item.lotacaoObraNome) && <Rotulo secundario>{[item.funcao, item.lotacaoObraNome ? `Lotação: ${item.lotacaoObraNome}` : ""].filter(Boolean).join(" · ")}</Rotulo>}
         </View>
         {marcador && <Marcador {...marcador(item)} />}
         <Icone nome="chevron" cor={COR.textoTerciario} tamanho={16} />
@@ -179,7 +179,7 @@ function CadastroFacial({ cadastro, modelos, api, responsavel, aoTerminar, volta
   const primeiroNome = pessoa?.nome?.split(" ")[0] || "";
 
   if (passo === PASSO_CADASTRO.PESSOA) return <Tela>
-    <Cabecalho voltar={voltar} rotuloVoltar="Encarregado" titulo="Cadastrar rosto" />
+    <Cabecalho voltar={voltar} rotuloVoltar="Encarregado" titulo="Cadastrar rosto" subtitulo="Cadastro unificado: qualquer funcionário ativo da empresa pode ser cadastrado neste aparelho, independentemente da lotação." />
     <ListaPessoas pessoas={cadastro?.funcionarios || []} aoEscolher={setPessoa}
       marcador={p => comBiometria.has(p.id) ? { tom: "sucesso", icone: "ok", texto: "Cadastrado" } : { tom: "neutro", icone: "offline", texto: "Sem rosto" }} />
   </Tela>;
@@ -346,7 +346,7 @@ function Sincronizacao({ cadastro, situacao, sincronizarAgora, voltar }) {
     <ScrollView contentContainerStyle={estilos.rolagem}>
       <Cabecalho voltar={voltar} rotuloVoltar="Encarregado" titulo="Sincronização" />
       <Mensagem tom={situacao.online ? "sucesso" : "info"} titulo={situacao.online ? "Conectado ao MARCELL" : "Offline"}>
-        {situacao.online ? "As batidas são enviadas automaticamente a cada minuto." : "O ponto continua funcionando. As batidas ficam guardadas e são enviadas quando a conexão voltar."}
+        {situacao.online ? "As batidas são enviadas imediatamente após o registro. Em repouso, o terminal faz uma verificação periódica a cada 5 minutos." : "O ponto continua funcionando. As batidas ficam guardadas e são enviadas quando a conexão voltar."}
       </Mensagem>
       {!!situacao.aviso && <Mensagem tom="atencao" titulo="Envio pendente">{situacao.aviso}</Mensagem>}
       <Secao titulo="Fila">
