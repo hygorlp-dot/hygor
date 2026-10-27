@@ -192,7 +192,7 @@ export const createDreCalculations = ({
       aReceberAcum:aReceber, backlog:Math.max(0,contratoTotal-faturadoAcum),
       pctFaturado:contratoTotal?faturadoAcum/contratoTotal*100:0,
       pctRecebido:contratoTotal?recebidoAcum/contratoTotal*100:0, pctAvanco,
-      entradasCaixa:cash.cashIn, saidasCaixa:cash.cashOut, contasReceber:aReceber,
+      entradasCaixa:cash.cashIn, saidasCaixa:cash.cashOut, pagoPeloCliente:cash.thirdPartyPaid, contasReceber:aReceber,
       contasPagar, comprometido, recebimentosNaoAlocados, pagamentosNaoAlocados,
       recebidoDasMedicoes, dataIssues:ledger.issues, conference,
       revenueByCategory:dre.revenueByCategory, costByCategory:dre.costByCategory,

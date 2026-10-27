@@ -214,3 +214,44 @@ describe("compatibilidade e pendências financeiras", () => {
     expect(validateFinancialReconciliation(ledger,{obraId:"o"}).ok).toBe(false);
   });
 });
+
+describe("pagamento direto do cliente ao fornecedor (D-C)", () => {
+  const compra = origem => ({
+    obras:[{id:"o",name:"Obra"}],
+    pedidos:[{id:"p",obraId:"o",numero:"PC-1",status:"enviado",data:"2026-07-01",origemPagamento:origem,
+      itens:[{id:"i",qtd:10,precoUnit:100}]}],
+    notasFiscais:[{id:"nf",pedidoId:"p",obraId:"o",numero:"10",status:"aprovada",emissao:"2026-07-05",valorBruto:1000,
+      pagamentos:[{id:"pg",valor:1000,data:"2026-07-20",origem}]}],
+  });
+
+  test("baixa a conta a pagar, mas não é saída de caixa da empresa", () => {
+    const ledger = buildFinancialLedger(compra("cliente_direto"));
+    const pagamento = ledger.events.filter(event => event.sourceType === "pagamento_nota");
+    expect(pagamento.map(event => event.effect).sort()).toEqual(["payable_decrease", "third_party_payment"]);
+    const caixa = selectCashFlow(ledger, {obraId:"o"});
+    expect(caixa.cashOutCents).toBe(0);
+    expect(caixa.balanceCents).toBe(0);
+    expect(caixa.thirdPartyPaidCents).toBe(toCents(1000));
+    expect(selectAccountsPayable(ledger, {obraId:"o"}).balanceCents).toBe(0);
+    // o custo continua o mesmo: quem pagou não muda a competência
+    expect(selectDRE(ledger, {obraId:"o", competence:"2026-07"}).costs).toBe(1000);
+  });
+
+  test("pagamento da empresa segue como saída de caixa", () => {
+    const ledger = buildFinancialLedger(compra("empresa"));
+    const caixa = selectCashFlow(ledger, {obraId:"o"});
+    expect(caixa.cashOutCents).toBe(toCents(1000));
+    expect(caixa.thirdPartyPaidCents).toBe(0);
+  });
+
+  test("pagamento de pedido sem nota, feito pelo cliente, também fica fora do caixa", () => {
+    const data = {
+      obras:[{id:"o"}],
+      pedidos:[{id:"p",obraId:"o",numero:"PC-1",status:"enviado",data:"2026-07-01",itens:[{id:"i",qtd:10,precoUnit:100}],
+        pagamentos:[{id:"pg",valor:400,data:"2026-07-10",origem:"cliente_direto"}]}],
+    };
+    const ledger = buildFinancialLedger(data);
+    expect(selectCashFlow(ledger, {obraId:"o"}).cashOutCents).toBe(0);
+    expect(selectCashFlow(ledger, {obraId:"o"}).thirdPartyPaidCents).toBe(toCents(400));
+  });
+});
