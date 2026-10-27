@@ -48,7 +48,7 @@ describe("funcionário é global da empresa", () => {
     expect(noA.map(f => f.id)).toContain("e3");                                   // lotado na obra-b, no tablet A
     for (const lista of [noA, noB]) expect(lista.map(f => f.id)).not.toContain("e5");
     expect(noA.map(f => f.id)).toEqual(noB.map(f => f.id));                       // a mesma base em todo aparelho
-    expect(noA.find(f => f.id === "e4").lotacaoObraId).toBe("obra-x");            // lotação só como informação
+    expect(noA.find(f => f.id === "e4")).toMatchObject({ lotacaoObraId:"obra-x", lotacaoObraNome:"Outra empresa" }); // lotação só como informação
   });
 
   it("rosto cadastrado no Tablet B (responsável da obra B) de quem é lotado na A é reconhecido no Tablet A", async () => {
