@@ -135,23 +135,28 @@ describe("comandos granulares do ponto",()=>{
     expect(Object.values(data.attendance).every(days=>days["2026-07-28"].status==="P")).toBe(true);
   });
 
-  it("valida banco de horas também no lançamento manual, sem depender da interface",()=>{
+  it("valida banco de horas no lançamento manual e reserva a decisão ao RH",()=>{
     const data=base();
     data.employees[0]={...data.employees[0],workdayHours:8,timeBankEnabled:true};
-    const valid=applyAttendanceCommand(data,engineer,upsert({
-      record:{status:"P",ot:0,workedMinutes:540,bankMinutes:60,obraId:"obra-a"},
+    const rh={id:"rh-1",nome:"RH",role:"rh"};
+    const engineerAttempt=applyAttendanceCommand(data,engineer,upsert({
+      record:{status:"P",ot:0,workedMinutes:540,bankMinutes:60,bankReason:"Excedente destinado ao banco",obraId:"obra-a"},
+    }),NOW);
+    expect(engineerAttempt).toMatchObject({ok:false,status:403});
+    const valid=applyAttendanceCommand(data,rh,upsert({
+      record:{status:"P",ot:0,workedMinutes:540,bankMinutes:60,bankReason:"Excedente destinado ao banco",obraId:"obra-a"},
     }),NOW);
     expect(valid.ok).toBe(true);
     expect(valid.data.attendance["e-a"]["2026-07-28"].bankMinutes).toBe(60);
-    expect(applyAttendanceCommand(data,engineer,upsert({
-      operationId:ids[1],record:{status:"P",ot:0,workedMinutes:540,bankMinutes:61,obraId:"obra-a"},
+    expect(applyAttendanceCommand(data,rh,upsert({
+      operationId:ids[1],record:{status:"P",ot:0,workedMinutes:540,bankMinutes:61,bankReason:"Excedente destinado ao banco",obraId:"obra-a"},
     }),NOW)).toMatchObject({ok:false,status:409});
-    expect(applyAttendanceCommand(data,engineer,upsert({
-      operationId:ids[1],record:{status:"P",ot:1,workedMinutes:540,bankMinutes:1,obraId:"obra-a"},
+    expect(applyAttendanceCommand(data,rh,upsert({
+      operationId:ids[1],record:{status:"P",ot:1,workedMinutes:540,bankMinutes:1,bankReason:"Excedente destinado ao banco",obraId:"obra-a"},
     }),NOW)).toMatchObject({ok:false,status:409});
     data.employees[0].timeBankEnabled=false;
-    expect(applyAttendanceCommand(data,engineer,upsert({
-      operationId:ids[1],record:{status:"P",workedMinutes:540,bankMinutes:1,obraId:"obra-a"},
+    expect(applyAttendanceCommand(data,rh,upsert({
+      operationId:ids[1],record:{status:"P",workedMinutes:540,bankMinutes:1,bankReason:"Excedente destinado ao banco",obraId:"obra-a"},
     }),NOW)).toMatchObject({ok:false,status:409});
   });
 
