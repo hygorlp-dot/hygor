@@ -47,8 +47,10 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Metodo nao permitido." });
   if (!URL || !SERVICE) return res.status(500).json({ error: "Storage nao configurado." });
 
-  const { userId, pin, accessToken, dataUrl, obraId, ext, folder } = req.body || {};
-  const paraChat = uploadDestination(folder) === UPLOAD_DESTINATION.CHAT;
+  const { userId, pin, accessToken, dataUrl, obraId, ext, folder, action, path: requestedPath } = req.body || {};
+  const destination = uploadDestination(folder);
+  const paraChat = destination === UPLOAD_DESTINATION.CHAT;
+  const paraPatrimonio = destination === UPLOAD_DESTINATION.PATRIMONIO;
 
   // 1. Autentica.
   const user = await authenticateAppUser({userId,pin,accessToken},{scope:"upload"});
@@ -57,6 +59,15 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control','no-store');
     try{const result=await handleRhDocuments({db,user,body:req.body,company:process.env.COMPANY_ID||'arcd'});return res.status(result.status).json(result.body);}
     catch(error){console.error('Prontuário RH indisponível:',error?.message);return res.status(503).json({ok:false,error:'Prontuário indisponível. Tente novamente.'});}
+  }
+  if(paraPatrimonio&&action==="signed-url"){
+    if(!canUploadToDestination(user,{folder:"patrimonio"}))return res.status(403).json({error:"Você não pode acessar documentos patrimoniais."});
+    const safePath=String(requestedPath||"");
+    if(!/^patrimonio\/[0-9]{4}\/[0-9a-f-]+\.[a-z0-9]+$/i.test(safePath))return res.status(400).json({error:"Documento patrimonial inválido."});
+    const {data:signed,error:signedError}=await db.storage.from(BUCKET).createSignedUrl(safePath,300);
+    if(signedError||!signed?.signedUrl)return res.status(404).json({error:"Documento patrimonial não encontrado."});
+    res.setHeader("Cache-Control","no-store");
+    return res.status(200).json({ok:true,url:signed.signedUrl,expiraEmSegundos:300});
   }
   const requestedWork=String(obraId||"");
   if(!canUploadToDestination(user,{obraId:requestedWork,folder})){
@@ -96,6 +107,10 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "bucket_ausente", detalhe: upErr.message });
       }
       throw upErr;
+    }
+    if(paraPatrimonio){
+      res.setHeader("Cache-Control","no-store");
+      return res.status(200).json({ok:true,path});
     }
     const { data: pub } = db.storage.from(BUCKET).getPublicUrl(path);
     return res.status(200).json({ ok: true, url: pub.publicUrl, path });
