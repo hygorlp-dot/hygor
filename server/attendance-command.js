@@ -1,7 +1,6 @@
 import { normalizeAttendanceRecord } from "../src/domains/ponto/records.js";
 import {mobileAttendanceImportReview} from "../src/domains/ponto-eletronico/tratamento.js";
 import {expectedWorkedMinutes} from "../src/domains/ponto/attendance-policy.js";
-import {timeBankBalanceMinutes} from "../src/domains/ponto/time-bank.js";
 import {effectiveEmployeeOnDate} from "../src/domains/rh/remuneration-values.js";
 import {payrollProtectedPeriod} from '../src/domains/rh/payroll-protected-period.js';
 import {active as activeFinancialRecord} from '../src/domains/financeiro/ledger.js';
@@ -13,7 +12,6 @@ export const ATTENDANCE_COMMAND = Object.freeze({
   UPSERT:"attendance-upsert",
   BATCH_UPSERT:"attendance-batch-upsert",
   IMPORT_MOBILE:"attendance-import-mobile",
-  TIME_BANK_ADJUST:"attendance-time-bank-adjust",
   DAILY_CHECK:"attendance-daily-check",
   LOCK:"attendance-lock",
   UNLOCK_REQUEST:"attendance-unlock-request",
@@ -22,7 +20,6 @@ export const ATTENDANCE_COMMAND = Object.freeze({
 });
 
 const WRITE_ROLES=new Set(["admin","rh","engenheiro"]);
-const TIME_BANK_ROLES=new Set(["admin","rh"]);
 const UNLOCK_REQUEST_ROLES=new Set(["admin","rh","engenheiro"]);
 const OPERATION_ID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ISO_DATE=/^\d{4}-\d{2}-\d{2}$/;
