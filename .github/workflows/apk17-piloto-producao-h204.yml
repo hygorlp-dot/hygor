@@ -1,0 +1,107 @@
+name: APK 17 Piloto Producao H2 04
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - release/ponto-h204-piloto-producao-d9
+    paths:
+      - ".github/workflows/apk17-piloto-producao-h204.yml"
+      - "apps/ponto-obra/**"
+      - "server/ponto-eletronico/**"
+      - "src/domains/ponto-eletronico/**"
+      - "package.json"
+      - "package-lock.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apk17-piloto-producao-h204-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-apk-piloto-producao:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PONTO_AMBIENTE: producao
+      PONTO_API_URL: https://pontosarcd.vercel.app/api/data
+      PONTO_VERSION_CODE: "17"
+      PONTO_PRODUCAO_PILOTO_VARIANT: h204
+      PONTO_ANDROID_ARCHITECTURES: arm64-v8a
+      PONTO_GRADLE_WORKERS: "2"
+      CMAKE_BUILD_PARALLEL_LEVEL: "2"
+      EXPO_NO_TELEMETRY: "1"
+      NODE_ENV: production
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/ponto-obra/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Instalar dependencias da raiz
+        run: npm ci --ignore-scripts --include=dev
+
+      - name: Instalar dependencias do app
+        working-directory: apps/ponto-obra
+        run: npm ci --ignore-scripts
+
+      - name: Instalar SDK/NDK Android homologados
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "ndk;27.0.12077973" "cmake;3.22.1"
+
+      - name: Baixar e conferir FaceNet-512
+        working-directory: apps/ponto-obra
+        run: node scripts/garantir-modelo-facenet.mjs
+
+      - name: Criar chave efemera exclusiva do piloto
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/ponto-h204-piloto.jks"
+          SIGNING="$RUNNER_TEMP/ponto-h204-piloto-signing.json"
+          PASS="$(openssl rand -hex 24)"
+          ALIAS="ponto-h204-piloto"
+          keytool -genkeypair -v -keystore "$KEYSTORE" -alias "$ALIAS"             -keyalg RSA -keysize 3072 -validity 3650             -storepass "$PASS" -keypass "$PASS"             -dname "CN=MARCELL Ponto Piloto Producao H204, OU=QA, O=MARCELL, C=BR"
+          node -e 'const fs=require("fs"); const [p,s,a,k]=process.argv.slice(1); fs.writeFileSync(p,JSON.stringify({path:k,password:s,alias:a,keyPassword:s},null,2));' "$SIGNING" "$PASS" "$ALIAS" "$KEYSTORE"
+          chmod 600 "$KEYSTORE" "$SIGNING"
+          echo "PONTO_SIGNING_FILE=$SIGNING" >> "$GITHUB_ENV"
+
+      - name: Testes do terminal autonomo e cadastro global
+        run: npx vitest run           apps/ponto-obra/src/logica/codigo-fonte.test.js           apps/ponto-obra/src/logica/funcionario-global.test.js           apps/ponto-obra/src/logica/fluxo-facial-direto.test.js           apps/ponto-obra/src/logica/rosto.test.js           apps/ponto-obra/src/logica/regressao.test.js
+
+      - name: Compilar e verificar APK 17 Piloto Producao H2 04
+        working-directory: apps/ponto-obra
+        run: node scripts/build-apk-homologacao.mjs --version-code 17 --output quality-out/piloto-producao-h204
+
+      - name: Resumo do artefato
+        working-directory: apps/ponto-obra
+        run: |
+          cat quality-out/piloto-producao-h204/ponto-obra-piloto-producao-17.json
+          cat quality-out/piloto-producao-h204/ponto-obra-piloto-producao-17.apk.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marcell-ponto-h204-piloto-producao-apk17
+          path: |
+            apps/ponto-obra/quality-out/piloto-producao-h204/ponto-obra-piloto-producao-17.apk
+            apps/ponto-obra/quality-out/piloto-producao-h204/ponto-obra-piloto-producao-17.json
+            apps/ponto-obra/quality-out/piloto-producao-h204/ponto-obra-piloto-producao-17.apk.sha256
+          if-no-files-found: error
+          retention-days: 7
