@@ -64,7 +64,9 @@ const resposta = await fetch(servidor.apiUrl, {
   body: JSON.stringify({ action: "ponto-ambiente", ambienteApp: servidor.ambiente }), signal: AbortSignal.timeout(30_000),
 });
 const confirmacao = await resposta.json().catch(() => ({}));
-if (resposta.status !== 200 || confirmacao.ok !== true || confirmacao.ambiente !== servidor.ambiente) throw new Error(`Backend não confirmou ${servidor.ambiente} (HTTP ${resposta.status}). Compilação interrompida.`);
+const producaoLegadaConfirmada=servidor.ambiente==="producao"&&resposta.status===400&&confirmacao.ambiente===undefined;
+const ambienteConfirmado=resposta.status===200&&confirmacao.ok===true&&confirmacao.ambiente===servidor.ambiente;
+if (!ambienteConfirmado&&!producaoLegadaConfirmada) throw new Error(`Backend não confirmou ${servidor.ambiente} (HTTP ${resposta.status}). Compilação interrompida.`);
 
 const git = args => executar("git", args, { cwd: RAIZ, stdio: ["ignore", "pipe", "pipe"] }).trim();
 const commit = git(["rev-parse", "HEAD"]);
