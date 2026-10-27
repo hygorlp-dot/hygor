@@ -34,6 +34,23 @@ describe("patrimônio corporativo",()=>{
     expect(result.data.companyAssets[0].operationalHistory.at(-1).type).toBe("ASSET_MOVED");
   });
 
+  it("impede alteração silenciosa de status/localização pelo cadastro",()=>{
+    const base={companyAssets:[{id:"a1",assetTag:"PAT-001",name:"Notebook",status:"ativo",active:true,version:1,location:{type:"empresa",label:"Sede",referenceId:""},custodian:{type:"",id:"",name:""},invoice:{},operationalHistory:[]}]};
+    const directStatus=applyPatrimonyCommand(base,{...command(PATRIMONY_COMMAND.ASSET_SAVED,{asset:{...base.companyAssets[0],status:"baixado"}}),expectedVersion:1});
+    expect(directStatus.ok).toBe(false);
+    expect(directStatus.reason).toMatch(/situação/i);
+    const directMove=applyPatrimonyCommand(base,{...command(PATRIMONY_COMMAND.ASSET_SAVED,{asset:{...base.companyAssets[0],location:{type:"obra",label:"H2 04",referenceId:"h204"}}}),expectedVersion:1});
+    expect(directMove.ok).toBe(false);
+    expect(directMove.reason).toMatch(/movimente/i);
+  });
+
+  it("voltar para sede/almoxarifado tira o bem de em uso",()=>{
+    const base={companyAssets:[{id:"a1",name:"Furadeira",status:"em_uso",active:true,version:2,location:{type:"obra",label:"H2 04"},custodian:{type:"external",id:"",name:"João"},operationalHistory:[]}]};
+    const result=applyPatrimonyCommand(base,{...command(PATRIMONY_COMMAND.ASSET_MOVED,{assetId:"a1",location:{type:"almoxarifado",label:"Almoxarifado central"},custodian:{type:"",id:"",name:""},reason:"Retorno da obra"}),expectedVersion:2});
+    expect(result.ok).toBe(true);
+    expect(result.data.companyAssets[0]).toMatchObject({status:"ativo",location:{type:"almoxarifado",label:"Almoxarifado central"}});
+  });
+
   it("baixa exige motivo e mantém registro",()=>{
     const base={companyAssets:[{id:"a1",name:"Notebook",status:"ativo",active:true,version:1,operationalHistory:[]}]};
     expect(applyPatrimonyCommand(base,{...command(PATRIMONY_COMMAND.ASSET_STATUS_CHANGED,{assetId:"a1",status:"baixado",reason:""}),expectedVersion:1}).ok).toBe(false);
