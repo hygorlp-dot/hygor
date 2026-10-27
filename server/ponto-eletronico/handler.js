@@ -512,7 +512,13 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const obraId = dispositivo.obra_id;
       // Funcionário é GLOBAL: o aparelho recebe TODOS os ativos da empresa, não
       // só os lotados nesta obra - quem muda de obra no dia bate em qualquer uma.
-      const funcionarios = funcionariosAtivos(dados?.employees, dataLocal(agora()));
+      const obrasPorId = new Map((dados?.obras || []).map(o => [String(o.id), String(o.name || "")]));
+      const funcionarios = funcionariosAtivos(dados?.employees, dataLocal(agora())).map(f => ({
+        ...f,
+        // Apenas informação para o encarregado. Nunca restringe onde o
+        // funcionário pode cadastrar o rosto ou bater ponto.
+        lotacaoObraNome: f.lotacaoObraId ? (obrasPorId.get(String(f.lotacaoObraId)) || "Outra obra") : "",
+      }));
       const ids = new Set(funcionarios.map(f => f.id));
       // Apps novos declaram qual motor conseguem usar. Apps antigos não
       // enviam o campo e continuam recebendo MobileFaceNet-192, preservando
