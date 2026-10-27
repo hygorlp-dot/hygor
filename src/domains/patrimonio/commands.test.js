@@ -26,6 +26,12 @@ describe("patrimônio corporativo",()=>{
     }
   });
 
+  it("não reutiliza código, série ou IMEI de bem já baixado",()=>{
+    const base={companyAssets:[{id:"a1",assetTag:"PAT-001",name:"Celular antigo",serialNumber:"SN1",imei:"35310186907542301",active:false,status:"baixado",version:2}]};
+    const result=applyPatrimonyCommand(base,command(PATRIMONY_COMMAND.ASSET_SAVED,{asset:{id:"a2",assetTag:"PAT-001",name:"Celular novo"}}),"2026-10-27T23:00:00.000Z");
+    expect(result.ok).toBe(false);
+  });
+
   it("movimenta custodiante/local sem transformar o bem em patrimônio da obra",()=>{
     const base={companyAssets:[{id:"a1",assetTag:"PAT-001",name:"Furadeira",status:"ativo",active:true,version:1,operationalHistory:[]}]};
     const result=applyPatrimonyCommand(base,{...command(PATRIMONY_COMMAND.ASSET_MOVED,{assetId:"a1",location:{type:"obra",label:"H2 04",referenceId:"h204"},custodian:{type:"employee",id:"e1",name:"João"},reason:"Uso temporário"}),expectedVersion:1},"2026-10-27T23:05:00.000Z");
