@@ -106,13 +106,13 @@ describe("payload da sincronização", () => {
 });
 
 describe("calibração facial", () => {
-  it("parâmetros centralizados com os MESMOS valores da versão anterior", () => {
+  it("parâmetros centralizados refletem o motor FaceNet-512 atual", () => {
     expect(PARAMETROS_FACIAIS).toMatchObject({
-      scoreMinimoDeteccao: 0.5, limiarReconhecimento: 0.6, margemSobreSegundo: 0.08, giroMaximoDeFrente: 0.15,
+      scoreMinimoDeteccao: 0.5, limiarReconhecimento: 0.65, margemSobreSegundo: 0.08, giroMaximoDeFrente: 0.15,
       giroMinimoVirado: 0.2, similaridadeMinimaVirado: 0.35, segundoRostoScoreMaximo: 0.75, larguraMinimaRosto: 0.22,
       inclinacaoMaximaGraus: 15, capturasCadastro: 3,
     });
-    expect([LIMIAR_RECONHECIMENTO, MARGEM_SOBRE_SEGUNDO, BLAZEFACE.scoreMinimo]).toEqual([0.6, 0.08, 0.5]);
+    expect([LIMIAR_RECONHECIMENTO, MARGEM_SOBRE_SEGUNDO, BLAZEFACE.scoreMinimo]).toEqual([0.65, 0.08, 0.5]);
     expect(Object.isFrozen(PARAMETROS_FACIAIS)).toBe(true);
   });
 
@@ -134,8 +134,8 @@ describe("calibração facial", () => {
     const r = relatorioCalibracao(amostras);
     expect(r.noCampo).toMatchObject({ tentativas: 4, genuinas: 2, impostoras: 2, falsoAceite: 1, falsaRejeicao: 1, acertos: 1, taxaFalsoAceite: 0.25, taxaFalsaRejeicao: 0.5 });
     expect(r.distribuicao.genuinas.top1.n).toBe(2);
-    expect(r.parametros).toEqual({ limiarReconhecimento: 0.6, margemSobreSegundo: 0.08 });
-    const curva = varrerLimiares(amostras, [{ limiar: 0.6, margem: 0.08 }, { limiar: 0.999, margem: 0.08 }]);
+    expect(r.parametros).toEqual({ limiarReconhecimento: 0.65, margemSobreSegundo: 0.08 });
+    const curva = varrerLimiares(amostras, [{ limiar: 0.65, margem: 0.08 }, { limiar: 0.999, margem: 0.08 }]);
     expect(curva[0]).toMatchObject({ falsoAceite: 1 });
     expect(curva[1]).toMatchObject({ falsoAceite: 0, falsaRejeicao: 2 });
   });
