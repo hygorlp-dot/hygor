@@ -8,7 +8,7 @@
 // Aparelho, servidor e Postgres reais (PGlite, migrations 016 + 017 + 018).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { enviarPendentes, sincronizarCadastro } from "./sincronizacao.js";
-import { identificar, vetorDoCadastro } from "./rosto.js";
+import { FACENET512, identificar, vetorDoCadastro } from "./rosto.js";
 import { DADOS_BASE, JPEG, criarAparelho, criarServidor } from "./cenario.test-helper.js";
 
 vi.setConfig({ testTimeout: 60000, hookTimeout: 60000 });
@@ -89,6 +89,23 @@ describe("funcionário é global da empresa", () => {
     // As fotos do cadastro nunca vão para os aparelhos - só o vetor.
     expect(JSON.stringify(cad.biometrias)).not.toMatch(/foto|base64|\/9j\//);
   });
+});
+
+it("FaceNet-512 também é global entre obras no piloto", async () => {
+  const vetor512=(i,ruido=0)=>{const v=Array.from({length:FACENET512.dimensao},(_,k)=>(k===i?1:0)+(k===i+1?ruido:0));const n=Math.hypot(...v);return v.map(x=>x/n);};
+  const cadastrar=()=>B.api("ponto-cadastrar-biometria",{
+    employeeId:"e1",modelo:FACENET512.modelo,vetor:vetorDoCadastro([vetor512(3),vetor512(3,0.04)]),fotos:[JPEG.toString("base64")],
+    consentimento:CONSENTIMENTO,responsavelId:"u-enc",pinResponsavel:"2468",
+  });
+  const syncFace=ap=>sincronizarCadastro({armazem:ap.armazem,api:ap.api,monotonico:ap.monotonico,corpo:{modeloFacial:FACENET512.modelo}});
+  expect((await cadastrar()).ok).toBe(true);
+  await syncFace(A);
+  const cad=await A.armazem.cadastro();
+  expect(cad.funcionarios.map(f=>f.id)).toContain("e1");
+  expect(cad.biometrias).toHaveLength(1);
+  expect(cad.biometrias[0]).toMatchObject({employeeId:"e1",modelo:FACENET512.modelo});
+  expect(cad.biometrias[0].vetor).toHaveLength(FACENET512.dimensao);
+  expect(identificar(vetor512(3,0.08),cad.biometrias)).toMatchObject({reconhecido:true,employeeId:"e1"});
 });
 
 describe("João muda de obra no mesmo dia", () => {
