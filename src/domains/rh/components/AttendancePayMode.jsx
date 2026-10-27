@@ -21,7 +21,9 @@ export function AttendancePayMode({data,currentUser,dispatchCommand,showToast,on
     setSaving(true);setStatus('Salvando…');
     try{const result=await dispatchCommand({type:OPERATIONAL_COMMAND.EMPLOYEE_PAY_MODE_SET,idempotencyKey:`pay-mode-${uid()}`,expectedVersion:Number(employee.version||0),actorId:currentUser.id,actorName:currentUser.nome,payload:{employeeId,mode,effectiveFrom:date,reason}});if(!result?.ok)throw Error(result?.reason||'Servidor não confirmou.');setStatus('Modalidade salva. Folhas anteriores e pagamentos preservados.');setConfirmed(false);showToast('Modalidade salva com vigência e histórico.');}catch(error){setStatus(`Falha ao salvar: ${error.message}`);showToast(error.message,'error');}finally{setSaving(false);}
   };
-  const bankData=bankLocalEntries.length?{...data,timeBankAdjustments:[...(data.timeBankAdjustments||[]),...bankLocalEntries]}:data;
+  const persistedBankIds=new Set((data.timeBankAdjustments||[]).map(item=>String(item?.id||"")));
+  const pendingLocalBankEntries=bankLocalEntries.filter(item=>!persistedBankIds.has(String(item?.id||"")));
+  const bankData=pendingLocalBankEntries.length?{...data,timeBankAdjustments:[...(data.timeBankAdjustments||[]),...pendingLocalBankEntries]}:data;
   const bankEmployees=(data.employees||[]).filter(e=>e.active!==false&&e.timeBankEnabled===true);
   const bankEmployee=bankEmployees.find(e=>String(e.id)===bankEmployeeId);
   const bankBalance=bankEmployee?timeBankBalanceMinutes(bankData,bankEmployee.id):0;
