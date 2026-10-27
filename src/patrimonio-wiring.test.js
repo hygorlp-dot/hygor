@@ -43,6 +43,15 @@ describe("Patrimônio da empresa — integração",()=>{
     expect(uploadStoragePrefix({folder:"patrimonio"})).toBe("patrimonio");
   });
 
+  it("arquiva NF em bucket privado dedicado e só serve link assinado",()=>{
+    const upload=readFileSync("api/upload.js","utf8");
+    expect(upload).toMatch(/PATRIMONIO_BUCKET.*patrimonio-empresa/);
+    expect(upload).toMatch(/createBucket\(PATRIMONIO_BUCKET/);
+    expect(upload).toMatch(/public:false/);
+    expect(upload).toMatch(/createSignedUrl\(safePath,300\)/);
+    expect(upload).toMatch(/if\(paraPatrimonio\).*return res\.status\(200\)\.json\(\{ok:true,path\}\)/);
+  });
+
   it("a tela usa XML determinístico e IA apenas para PDF/foto, sempre com confirmação",()=>{
     const view=readFileSync("src/domains/patrimonio/components/PatrimonioEmpresaView.jsx","utf8");
     expect(view).toMatch(/lerXmlNfe/);
