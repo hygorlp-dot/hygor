@@ -29,6 +29,13 @@ describe("rowForOperationalCommand", () => {
     expect(rowForOperationalCommand(OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED)).toBe(DOMAIN_ROW.EQUIPAMENTOS);
   });
 
+  it("classifica patrimônio corporativo na própria linha", () => {
+    expect(rowForOperationalCommand(OPERATIONAL_COMMAND.ASSET_SAVED)).toBe(DOMAIN_ROW.PATRIMONIO);
+    expect(rowForOperationalCommand(OPERATIONAL_COMMAND.ASSET_MOVED)).toBe(DOMAIN_ROW.PATRIMONIO);
+    expect(rowForOperationalCommand(OPERATIONAL_COMMAND.ASSET_STATUS_CHANGED)).toBe(DOMAIN_ROW.PATRIMONIO);
+    expect(pickDomainFields({companyAssets:[{id:"a1"}],obras:[{id:"o1"}]},DOMAIN_ROW.PATRIMONIO)).toEqual({companyAssets:[{id:"a1"}]});
+  });
+
   it("classifica os 3 comandos de RDO na própria linha", () => {
     expect(rowForOperationalCommand(OPERATIONAL_COMMAND.FIELD_REPORT_CHANGED)).toBe(DOMAIN_ROW.RDO);
     expect(rowForOperationalCommand(OPERATIONAL_COMMAND.FIELD_REPORT_CANCELLED)).toBe(DOMAIN_ROW.RDO);
