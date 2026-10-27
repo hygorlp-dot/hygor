@@ -30,7 +30,8 @@ const CI = flag("ci"), RAPIDO = flag("rapido"), OFFLINE = flag("offline");
 const PASSADA = Number(arg("passada", 0));
 const MAX_PASSADAS = 3;
 
-mkdirSync(SAIDA, { recursive: true });\nexecSync(`${process.execPath} scripts/garantir-modelo-facenet.mjs`, { cwd: APP, stdio: "inherit" });
+mkdirSync(SAIDA, { recursive: true });
+execSync(`${process.execPath} scripts/garantir-modelo-facenet.mjs`, { cwd: APP, stdio: "inherit" });
 const ev = { geradoEm: new Date().toISOString(), sha: "", modo: { ci: CI, rapido: RAPIDO, offline: OFFLINE }, passos: {}, metricas: {} };
 const git = cmd => execSync(`git ${cmd}`, { cwd: RAIZ, encoding: "utf8" }).trim();
 ev.sha = git("rev-parse HEAD");
