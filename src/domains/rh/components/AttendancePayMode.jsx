@@ -1,5 +1,6 @@
-import {useState} from 'react';
+import {useRef,useState} from 'react';
 import {Btn,Modal,Inp,Sel,today,uid} from '../../../LegacyApp';
+import {executarComandoPonto} from '../../../api.js';
 import {OPERATIONAL_COMMAND} from '../../sync/operational-commands.js';
 import {payModeRegistrationIssues,latestClosedPayrollDate} from '../attendance-pay-mode.js';
 import {remunerationModeOnDate} from '../remuneration-mode.js';
@@ -10,6 +11,8 @@ import '../../ponto/components/clt-payslips.css';
 export function AttendancePayMode({data,currentUser,dispatchCommand,showToast,onTab}){
   const [open,setOpen]=useState(false),[employeeId,setEmployeeId]=useState(''),[mode,setMode]=useState('daily'),[date,setDate]=useState(today()),[reason,setReason]=useState(''),[confirmed,setConfirmed]=useState(false),[saving,setSaving]=useState(false),[status,setStatus]=useState('');
   const [bankOpen,setBankOpen]=useState(false),[bankEmployeeId,setBankEmployeeId]=useState('');
+  const [bankAction,setBankAction]=useState({date:today(),minutes:'',reason:''}),[bankSaving,setBankSaving]=useState(false),[bankStatus,setBankStatus]=useState(''),[bankLocalEntries,setBankLocalEntries]=useState([]);
+  const bankOperationId=useRef('');
   if(!['admin','rh'].includes(currentUser?.role))return null;
   const employee=(data.employees||[]).find(e=>String(e.id)===employeeId);
   const missing=payModeRegistrationIssues(employee,mode,date),closed=employee?latestClosedPayrollDate(data,employee):'';
@@ -18,10 +21,32 @@ export function AttendancePayMode({data,currentUser,dispatchCommand,showToast,on
     setSaving(true);setStatus('Salvando…');
     try{const result=await dispatchCommand({type:OPERATIONAL_COMMAND.EMPLOYEE_PAY_MODE_SET,idempotencyKey:`pay-mode-${uid()}`,expectedVersion:Number(employee.version||0),actorId:currentUser.id,actorName:currentUser.nome,payload:{employeeId,mode,effectiveFrom:date,reason}});if(!result?.ok)throw Error(result?.reason||'Servidor não confirmou.');setStatus('Modalidade salva. Folhas anteriores e pagamentos preservados.');setConfirmed(false);showToast('Modalidade salva com vigência e histórico.');}catch(error){setStatus(`Falha ao salvar: ${error.message}`);showToast(error.message,'error');}finally{setSaving(false);}
   };
+  const bankData=bankLocalEntries.length?{...data,timeBankAdjustments:[...(data.timeBankAdjustments||[]),...bankLocalEntries]}:data;
   const bankEmployees=(data.employees||[]).filter(e=>e.active!==false&&e.timeBankEnabled===true);
   const bankEmployee=bankEmployees.find(e=>String(e.id)===bankEmployeeId);
-  const bankBalance=bankEmployee?timeBankBalanceMinutes(data,bankEmployee.id):0;
-  const bankEntries=bankEmployee?[...timeBankStatement(data,bankEmployee.id)].reverse():[];
+  const bankBalance=bankEmployee?timeBankBalanceMinutes(bankData,bankEmployee.id):0;
+  const bankEntries=bankEmployee?[...timeBankStatement(bankData,bankEmployee.id)].reverse():[];
+  const saveBankAdjustment=async()=>{
+    if(!bankEmployee)return;
+    const minutes=Number(bankAction.minutes),reason=bankAction.reason.trim();
+    if(!Number.isInteger(minutes)||minutes===0||minutes<-10080||minutes>10080){setBankStatus('Informe minutos inteiros diferentes de zero, entre -10080 e 10080.');return;}
+    if(reason.length<10){setBankStatus('Informe um motivo com ao menos 10 caracteres.');return;}
+    if(!bankAction.date){setBankStatus('Informe a data de referência.');return;}
+    if(!bankOperationId.current)bankOperationId.current=crypto.randomUUID();
+    setBankSaving(true);setBankStatus('Salvando movimento…');
+    try{
+      const response=await executarComandoPonto({action:'attendance-time-bank-adjust',operationId:bankOperationId.current,employeeId:String(bankEmployee.id),date:bankAction.date,minutes,reason});
+      if(!response?.ok)throw Error(response?.error||'Servidor não confirmou o movimento.');
+      const entry=response.result?.timeBankAdjustment;
+      if(entry)setBankLocalEntries(current=>current.some(item=>item.id===entry.id)?current:[...current,entry]);
+      bankOperationId.current='';
+      setBankAction(current=>({...current,minutes:'',reason:''}));
+      const nextBalance=response.result?.timeBankBalanceMinutes??bankBalance+minutes;
+      setBankStatus('Movimento registrado. Novo saldo: '+formatTimeBankMinutes(nextBalance)+'.');
+      showToast(minutes<0?'Compensação registrada no banco de horas.':'Ajuste de crédito registrado no banco de horas.');
+    }catch(error){setBankStatus('Falha: '+error.message);showToast(error.message,'error');}
+    finally{setBankSaving(false);}
+  };
   return <><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="secondary" onClick={()=>setOpen(true)}>Definir diária ou CLT pelo ponto</Btn><Btn v="secondary" onClick={()=>setBankOpen(true)}>Banco de horas</Btn></div>{open&&<Modal title="Modalidade de pagamento do funcionário" wide onClose={()=>{if(!saving)setOpen(false);}}><section className="clt-payslips"><p>O ponto alimenta o cálculo; a modalidade segue o cadastro e sua vigência. Esta é uma alteração real do contrato no sistema. A simulação mensal continua separada em Folha.</p><fieldset disabled={saving}><div className="clt-grid"><Sel label="Funcionário para definir pagamento" value={employeeId} onChange={select} options={[{v:'',l:'Selecione'},...(data.employees||[]).filter(e=>e.active!==false).map(e=>({v:String(e.id),l:e.name}))]}/><Sel label="Pagar por" value={mode} onChange={v=>{setMode(v);setConfirmed(false);}} options={[{v:'daily',l:'Diária'},{v:'clt',l:'CLT mensal'}]}/><Inp label="Vigência da modalidade pelo ponto" type="date" value={date} onChange={v=>{setDate(v);setConfirmed(false);}}/></div>
       {employee&&<><p>Na data escolhida: {remunerationModeOnDate(employee,date)==='clt'?'CLT mensal':'Diária'} · salário mensal cadastrado: {employee.monthlySalary||'Não informado'} · diária cadastrada: {employee.dailyRate||'Não informada'}.</p>{closed&&<p>Último fechamento protegido: {closed}. A nova vigência deve ser posterior.</p>}{missing.length>0?<div role="status"><p>Complete o cadastro antes de definir esta modalidade:</p><ul>{missing.map(item=><li key={item}>{item}</li>)}</ul></div>:<p>Cadastro necessário para esta modalidade preenchido. Confira contratos e documentação no prontuário.</p>}<Btn v="secondary" onClick={()=>{window.sessionStorage.setItem('arcd_editar_funcionario',employee.id);setOpen(false);onTab?.('equipe');}}>Completar cadastro de {employee.name}</Btn></>}
       <Inp label="Justificativa da modalidade pelo ponto" value={reason} onChange={v=>{setReason(v);setConfirmed(false);}}/>
