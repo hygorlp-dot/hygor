@@ -6,6 +6,7 @@
 // (o que seria O(n×m) e pesado com listas grandes).
 import { paraCentavos, semAcento } from "./calculations.js";
 import { saldoTituloFolha, situacaoTituloFolha } from "./payroll.js";
+import { saldoPagamentoPedido } from "../compras/calculations.js";
 
 const push = (mapa, chave, item) => {
   if (!chave) return;
@@ -94,9 +95,10 @@ export const criarIndicesFinanceiros = (data) => {
       if (pg.conciliado || pg.transacaoId) return;
       indexar({ id: pg.id, pedido: p }, { tipo: "pagamentoPedido", valor: pg.valor, documento: p.numero, obraId: p.obraId });
     });
-    const totalPago = (p.pagamentos || []).reduce((s, pg) => s + Number(pg.valor || 0), 0);
-    const saldo = Number(p.totalPedido || 0) - totalPago;
-    indexar(p, { tipo: "pedido", valor: saldo, documento: p.numero, obraId: p.obraId });
+    // `totalPedido` é uma função de compras/calculations.js (soma dos itens);
+    // nenhum pedido guarda esse campo. Ler `p.totalPedido` deixava o saldo em
+    // zero e o pedido invisível para o extrato.
+    indexar(p, { tipo: "pedido", valor: saldoPagamentoPedido(p), documento: p.numero, obraId: p.obraId });
   });
 
   // Achado de 25/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md): faltava

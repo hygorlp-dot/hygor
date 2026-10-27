@@ -20,6 +20,10 @@ const umDecimal=valor=>Math.round(valor*10)/10;
 const inicioJanela=hoje=>new Date(Date.parse(`${hoje}T00:00:00Z`)-JANELA_AVALIACAO_DIAS*86400000).toISOString().slice(0,10);
 const criterio=(positivos,total)=>total?{nota:umDecimal(10*positivos/total),positivos,total}:{nota:null,positivos:0,total:0};
 
+// Mesma lista que o razão e o comando de nota tratam como inativa
+// (financeiro/ledger.js, invoice-commands.js): nota rejeitada ou estornada não conta.
+const STATUS_NOTA_INATIVA=["cancelada","cancelado","estornada","estornado","rejeitada","rejeitado"];
+
 export const avaliacaoFornecedor=(data,fornecedorId,hoje)=>{
   const inicio=inicioJanela(hoje);
   const doFornecedor=item=>String(item?.fornecedorId||"")===String(fornecedorId);
@@ -28,7 +32,7 @@ export const avaliacaoFornecedor=(data,fornecedorId,hoje)=>{
 
   const entregas=entregasAvaliadas(pedidos,hoje).filter(entrega=>entrega.data>=inicio);
   const notasFiscais=(data?.notasFiscais||[]).filter(nota=>doFornecedor(nota)
-    &&!["cancelada","cancelado","estornada"].includes(String(nota.status||""))
+    &&!STATUS_NOTA_INATIVA.includes(String(nota.status||"").toLowerCase())
     &&String(nota.emissao||nota.data||"").slice(0,10)>=inicio);
 
   const criterios={

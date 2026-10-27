@@ -1095,7 +1095,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const salvarForn = async (f) => {
     if (!f.nome.trim()) { showToast("Informe o nome do fornecedor.", "error"); return; }
     const p = { ...f, id: f.id || uid(), nome: f.nome.trim(),
-      categorias: Array.isArray(f.categorias) ? f.categorias : [], ativo: true };
+      categorias: Array.isArray(f.categorias) ? f.categorias : [], ativo: f.ativo !== false };
     delete p.ramosSugeridos;
     if(!dispatchCommand){showToast("O cadastro seguro do fornecedor exige conexão com o servidor.","error");return;}
     const result=await dispatchCommand(atual=>{const vigente=(atual.fornecedores||[]).find(x=>x.id===p.id);return {type:OPERATIONAL_COMMAND.SUPPLIER_SAVED,idempotencyKey:`fornecedor-${p.id}-${uid()}`,expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",payload:{supplier:p}};});

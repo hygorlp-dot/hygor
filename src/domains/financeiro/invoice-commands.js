@@ -115,6 +115,9 @@ const normalizeInvoice=(data,raw,current)=>{
   return {
     invoice:{
       ...current,...raw,id,obraId,pedidoId,numero,emissao,vencimento,
+      // Nota manual ou lida pela IA nasce sem fornecedor; sem isso a avaliação do
+      // fornecedor não enxerga a nota. Herda do pedido, nunca sobrescreve o que existe.
+      fornecedorId:String(raw.fornecedorId||current?.fornecedorId||pedido?.fornecedorId||""),
       valorBruto:grossCents/100,valorLiquido:liquidCents/100,
       retencoes:retentions.retencoes,rateios:allocations.rateios,
       // Só os campos conhecidos do item do XML (C3.1).

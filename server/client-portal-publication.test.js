@@ -70,6 +70,39 @@ describe("buildClientPortalPublicationRows", () => {
     expect(rows.map(row=>row.domain)).toEqual(["project_summary","weekly_update"]);
   });
 
+  it("não publica nota ou cotação cancelada/estornada/rejeitada no feminino nem nota em rascunho", () => {
+    const nota=(id,status)=>({id,obraId:"obra-a",tipo:"nfe",numero:id,emissao:"2026-07-12",valorBruto:100,status});
+    const quote=(id,status)=>({id,obraId:"obra-a",materialId:"mat-1",qtd:1,data:"2026-07-09",status,propostas:[]});
+    const rows=buildClientPortalPublicationRows({data:{...data,
+      notasFiscais:[nota("ok","aprovada"),nota("c","cancelada"),nota("e","estornada"),nota("r","rejeitada"),nota("d","rascunho")],
+      cotacoes:[quote("q-ok","aberta"),quote("q-c","cancelada")]},projectId:"obra-a"});
+    expect(rows.filter(row=>row.domain==="invoice").map(row=>row.payload.number)).toEqual(["ok"]);
+    expect(rows.filter(row=>row.domain==="quotation").map(row=>row.payload.id)).toEqual(["q-ok"]);
+  });
+
+  it("mostra o andamento real da entrega e a unidade em que o pedido foi comprado", () => {
+    const order=(id,itens)=>({id,obraId:"obra-a",numero:id,fornecedorId:"forn-1",data:"2026-07-11",status:"enviado",pagamentos:[],itens});
+    const item={materialId:"mat-1",qtd:10,precoUnit:35,unidadeRef:"KG",unidadeCompra:"SC",fatorConversao:50};
+    const rows=buildClientPortalPublicationRows({data:{...data,pedidos:[
+      order("A",[{...item,qtdRecebida:0}]),order("B",[{...item,qtdRecebida:4}]),order("C",[{...item,qtdRecebida:10}]),
+    ]},projectId:"obra-a"});
+    const byNumber=Object.fromEntries(rows.filter(row=>row.domain==="purchase_order").map(row=>[row.payload.number,row.payload]));
+    expect([byNumber.A.clientStatus,byNumber.B.clientStatus,byNumber.C.clientStatus]).toEqual(["enviado","parcial","recebido"]);
+    expect(byNumber.A.items[0]).toMatchObject({unit:"SC",quantity:10,unitPrice:35});
+  });
+
+  it("não revela pedido nem fornecedor na descrição do caixa quando as compras não são publicadas", () => {
+    const paga={id:"cx-p",obraId:"obra-a",data:"2026-07-14",tipo:"despesa",valor:100,pedidoId:"pc-1",descricao:"Pagamento do pedido PC-001 · Casa dos Materiais"};
+    const closed={...data.obras[0],portalCliente:{...data.obras[0].portalCliente,publicarCompras:false}};
+    const hidden=buildClientPortalPublicationRows({data:{...data,obras:[closed],caixaObra:[paga]},projectId:"obra-a"});
+    const cash=JSON.stringify(hidden.filter(row=>row.domain==="cash_movement"));
+    expect(cash).not.toContain("PC-001");
+    expect(cash).not.toContain("Casa dos Materiais");
+    expect(hidden.find(row=>row.domain==="cash_movement").payload.description).toBe("Pagamento de compra de material");
+    const open=buildClientPortalPublicationRows({data:{...data,caixaObra:[paga]},projectId:"obra-a"});
+    expect(open.find(row=>row.domain==="cash_movement").payload.description).toContain("PC-001");
+  });
+
   it("falha fechado quando a obra não existe", () => {
     expect(()=>buildClientPortalPublicationRows({data,projectId:"outra"})).toThrow("Obra não encontrada");
   });

@@ -52,6 +52,14 @@ describe("domínio de compras", () => {
     expect(resultado.ultimo).toBe(20);
   });
 
+  test("o último preço é o da compra mais recente, em qualquer ordem da lista", () => {
+    const antiga = { data: "2026-01-12", preco: 10, qtd: 10 };
+    const recente = { data: "2026-06-12", preco: 20, qtd: 10 };
+    expect(analisePreco([recente, antiga]).ultimo).toBe(20);
+    expect(analisePreco([antiga, recente]).ultimo).toBe(20);
+    expect(analisePreco([antiga, recente]).variacao).toBe(100);
+  });
+
   test("consolida riscos e cobertura do mapa gerencial", () => {
     const data = {
       obras: [{ id: "o1" }],
