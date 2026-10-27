@@ -8,6 +8,7 @@ import {
   pickDomainFields,
   rowForAttendanceCommand,
   rowForOperationalCommand,
+  SPLITTABLE_DOMAINS,
 } from "./domain-row-routing.js";
 
 describe("rowForOperationalCommand", () => {
@@ -30,6 +31,7 @@ describe("rowForOperationalCommand", () => {
   });
 
   it("classifica patrimônio corporativo na própria linha", () => {
+    expect(SPLITTABLE_DOMAINS).toContain(DOMAIN_ROW.PATRIMONIO);
     expect(rowForOperationalCommand(OPERATIONAL_COMMAND.ASSET_SAVED)).toBe(DOMAIN_ROW.PATRIMONIO);
     expect(rowForOperationalCommand(OPERATIONAL_COMMAND.ASSET_MOVED)).toBe(DOMAIN_ROW.PATRIMONIO);
     expect(rowForOperationalCommand(OPERATIONAL_COMMAND.ASSET_STATUS_CHANGED)).toBe(DOMAIN_ROW.PATRIMONIO);
@@ -122,12 +124,14 @@ describe("mergeDomainRows", () => {
       [DOMAIN_ROW.LOOKAHEAD]: { lookaheadWindows: [{ id: "l1" }] },
       [DOMAIN_ROW.CONFIG]: { config: { companyName: "ARCD" } },
       [DOMAIN_ROW.EQUIPAMENTOS]: { equipamentos: [{ id: "eq1" }] },
+      [DOMAIN_ROW.PATRIMONIO]: { companyAssets: [{ id: "asset1" }] },
       [DOMAIN_ROW.RDO]: { rdos: [{ id: "rdo1" }] },
     });
     expect(merged.employees).toEqual([{ id: "e1" }]);
     expect(merged.lookaheadWindows).toEqual([{ id: "l1" }]);
     expect(merged.config).toEqual({ companyName: "ARCD" });
     expect(merged.equipamentos).toEqual([{ id: "eq1" }]);
+    expect(merged.companyAssets).toEqual([{ id: "asset1" }]);
     expect(merged.rdos).toEqual([{ id: "rdo1" }]);
   });
 
