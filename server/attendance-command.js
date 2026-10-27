@@ -1,5 +1,7 @@
 import { normalizeAttendanceRecord } from "../src/domains/ponto/records.js";
 import {mobileAttendanceImportReview} from "../src/domains/ponto-eletronico/tratamento.js";
+import {expectedWorkedMinutes} from "../src/domains/ponto/attendance-policy.js";
+import {effectiveEmployeeOnDate} from "../src/domains/rh/remuneration-values.js";
 import {payrollProtectedPeriod} from '../src/domains/rh/payroll-protected-period.js';
 import {active as activeFinancialRecord} from '../src/domains/financeiro/ledger.js';
 import {
@@ -305,12 +307,22 @@ const applyMobileImport=({data,user,command,now,mobileSource})=>{
   if(!mobileSource)return fail("A fonte móvel precisa ser consultada pelo servidor.",409);
   const date=String(command.date||""),employeeId=String(command.employeeId||"");
   if(mobileSource.employeeId!==employeeId||mobileSource.date!==date)return fail("Fonte móvel incompatível com o dia solicitado.",409);
-  const preview=mobileAttendanceImportReview({proposal:mobileSource.proposal,saved:mobileSource.appropriations,day:date,point:data.attendance?.[employeeId]?.[date],locks:data.attendanceLocks});
+  const employee=findEmployee(data,employeeId);
+  const effectiveEmployee=effectiveEmployeeOnDate(employee,date)||employee||{};
+  const preview=mobileAttendanceImportReview({proposal:mobileSource.proposal,saved:mobileSource.appropriations,day:date,point:data.attendance?.[employeeId]?.[date],locks:data.attendanceLocks,employee:effectiveEmployee});
   if(!preview.ok)return fail(preview.reason,409);
   const refs=Array.isArray(command.appropriationVersions)?command.appropriationVersions.map(v=>({id:String(v.id),version:Number(v.version)})).sort((a,b)=>a.id.localeCompare(b.id)):[];
   const ids=Array.isArray(command.sourceEventIds)?command.sourceEventIds.map(String).sort():[];
   if(JSON.stringify(ids)!==JSON.stringify(preview.sourceEventIds)||JSON.stringify(refs)!==JSON.stringify(preview.appropriationVersions))return fail("As marcações ou apropriações mudaram. Atualize a conferência antes de importar.",409);
   if(!["P","M"].includes(command.status)||typeof command.ot!=="number"||!Number.isFinite(command.ot)||command.ot<0||command.ot>preview.workedMinutes/60||typeof command.atrasoMin!=="number"||!Number.isInteger(command.atrasoMin)||command.atrasoMin<0||command.atrasoMin>1440||!String(command.note||"").trim())return fail("Confira presença, horas extras, atraso e justificativa antes de importar.");
+  const bankMinutes=Number(command.bankMinutes??0);
+  if(!Number.isInteger(bankMinutes)||bankMinutes<-1440||bankMinutes>1440)return fail("Informe o banco de horas em minutos inteiros.");
+  if(bankMinutes!==0&&effectiveEmployee.timeBankEnabled!==true)return fail("O banco de horas está desativado para este funcionário.");
+  const expected=expectedWorkedMinutes(effectiveEmployee,command.status);
+  const delta=Math.round(preview.workedMinutes-expected);
+  const maxCredit=Math.max(0,delta-Math.round(command.ot*60));
+  const minDebit=Math.min(0,delta);
+  if(bankMinutes>maxCredit||bankMinutes<minDebit)return fail("O lançamento no banco de horas excede a diferença entre a jornada realizada, a prevista e as horas extras pagas.");
   const archived=Object.values(data.quinzenasArquivadas||{}).some(p=>p.inicio<=date&&p.fim>=date);
   const title=(data.titulosFolha||[]).some(t=>{
     const period=payrollProtectedPeriod(t);
@@ -319,6 +331,8 @@ const applyMobileImport=({data,user,command,now,mobileSource})=>{
   const financialClosed=(data.fechamentosFinanceiros||[]).some(p=>p.status==="fechado"&&p.dataInicio<=date&&p.dataFim>=date);
   if(archived||title||financialClosed)return fail("Período arquivado, folha aprovada ou financeiro fechado: encaminhe revisão sem alterar o histórico.",409);
   const record={status:command.status,ot:command.ot,atrasoMin:command.atrasoMin,note:command.note,workedMinutes:preview.workedMinutes,
+    bankMinutes,bankReason:bankMinutes?`Conferência do ponto móvel: ${String(command.note).trim()}`:"",
+    breakSource:preview.breakSource,punchMode:preview.punchMode,
     entrada:preview.entrada.slice(0,5),intervaloSaida:preview.intervaloSaida.slice(0,5),intervaloRetorno:preview.intervaloRetorno.slice(0,5),saida:preview.saida.slice(0,5)};
   const validated=validatePatch({data,user,patch:{employeeId,date,selectedObraId:preview.obraId,record:{...record,obraId:preview.obraId}},now});
   if(!validated.ok)return validated;
