@@ -185,6 +185,9 @@ export const chamarIA = payload => chamarRotaAutenticada("/api/ai-agent", payloa
 export const verificarStatusIA = () => chamarRotaAutenticada("/api/ai-agent", { action:"status" });
 export const configurarGemini = apiKey => chamarRotaAutenticada("/api/ai-agent", { action:"configure", apiKey });
 export const removerConfiguracaoIA = () => chamarRotaAutenticada("/api/ai-agent", { action:"remove" });
+export const extrairNotaPatrimonioIA = ({dataUrl,fileName}) => chamarRotaAutenticada("/api/ai-agent", {
+  action:"asset-invoice-extract",dataUrl,fileName,
+});
 export const consultarCNPJReceita = cnpj => chamarRotaAutenticada("/api/cnpj", { cnpj });
 export const employeeDocumentsRequest = payload => chamarRotaAutenticada('/api/upload',{...payload,folder:'rh'});
 export const buscarResumoDiario = () => chamarRotaAutenticada("/api/ai-agent", { action:"daily-brief" });
@@ -432,6 +435,16 @@ export const enviarMensagemChat = (texto, { mentions = [], attachment = null } =
 export const listarMensagensChat = () => chamarRotaAutenticada("/api/presence", { action: "chat-list" });
 // Anexo de chat: sobe pro Storage num caminho próprio ("chat/"), sem exigir
 // obra (o chat é da empresa toda) e aceitando mais tipos que a foto do diário.
+export const subirDocumentoPatrimonio = async ({ dataUrl, ext }) => {
+  if (!temSessao()) return { ok:false, error:"Sem sessão." };
+  const r = await fetch("/api/upload", {
+    method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify({ ...credenciais(), dataUrl, ext, folder:"patrimonio" }),
+  });
+  const j=await r.json().catch(()=>({error:"Falha no upload patrimonial."}));
+  return {ok:r.ok&&j.ok!==false&&!j.error,...j};
+};
+
 export const subirAnexoChat = async ({ dataUrl, ext }) => {
   if (!temSessao()) return { ok: false, error: "Sem sessão." };
   const r = await fetch("/api/upload", {
