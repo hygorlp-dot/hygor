@@ -55,7 +55,7 @@ const sumOrder = order => {
   return (order?.itens || []).reduce((sum, item) =>
     sum + toCents(Number(item.quantidade || item.qtd || 0) * Number(item.precoUnit || item.preco || item.valorUnitario || 0)), 0);
 };
-const invoiceAmount = invoice => positiveCents(invoice?.valorBruto, invoice?.valorTotal, invoice?.total, invoice?.valor);
+export const invoiceAmount = invoice => positiveCents(invoice?.valorBruto, invoice?.valorTotal, invoice?.total, invoice?.valor);
 const thirdMeasurementAmount = measurement => positiveCents(measurement?.total, measurement?.valor, measurement?.valorPrevisto, measurement?.valorBruto);
 
 // Pagamento direto do cliente ao fornecedor baixa a obrigação da obra, mas o
@@ -63,7 +63,7 @@ const thirdMeasurementAmount = measurement => positiveCents(measurement?.total, 
 // Vira o efeito próprio `third_party_payment` (visível, fora do caixa).
 const paidByClient = origin => String(origin || "") === "cliente_direto";
 
-const notaReconhecivel = invoice => {
+export const notaReconhecivel = invoice => {
   if (!active(invoice)) return false;
   const status = statusOf(invoice);
   return !status || RECOGNIZABLE_INVOICE.has(status);
