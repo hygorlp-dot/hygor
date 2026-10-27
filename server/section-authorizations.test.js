@@ -97,6 +97,24 @@ describe("autorização de produção",()=>{
     expect(authorizeSectionChanges({role:"financeiro"},{fechamentosBancarios:[{id:"f1"}]})).toBe("");
     expect(authorizeSectionChanges({role:"financeiro"},{rejeicoesConc:[{id:"j1"}]})).toBe("");
   });
+  // Achado de 27/10/2026: incluir item SINAPI no orçamento grava baseFavoritos
+  // junto com orcamentos; sem entrada em SECTION_ROLES o engenheiro não
+  // conseguia salvar mais nada no orçamento.
+  it("permite ao engenheiro salvar orçamento com favoritos e composições próprias",()=>{
+    const engenheiro={role:"engenheiro"};
+    const sections={
+      orcamentos:[{id:"orc1",obraId:"o1",itens:[{id:"i1",codigo:"103946",fonte:"SINAPI"}]}],
+      baseFavoritos:[{codigo:"103946",fonte:"SINAPI",descricao:"PLANTIO DE GRAMA",unidade:"M2",precoUnit:28.18}],
+      composicoesEmpresa:[{id:"c1",codigo:"ARCD-01",descricao:"Composição própria"}],
+    };
+    expect(authorizeSectionChanges(engenheiro,sections)).toBe("");
+    expect(authorizeSectionChanges({role:"engenheiro_auditor"},sections)).toBe("");
+    expect(authorizeSectionChanges({role:"engenheiro",obraId:"o1"},{baseFavoritos:sections.baseFavoritos})).toBe("");
+  });
+  it("não abre favoritos e composições a perfis fora do orçamento",()=>{
+    expect(authorizeSectionChanges({role:"rh"},{baseFavoritos:[{codigo:"1"}]})).toMatch(/permissão/);
+    expect(authorizeSectionChanges({role:"financeiro"},{composicoesEmpresa:[{id:"c1"}]})).toMatch(/permissão/);
+  });
   it("não permite que rh ou engenheiro alterem a conciliação bancária",()=>{
     expect(authorizeSectionChanges({role:"rh"},{fechamentosBancarios:[{id:"f1"}]})).toMatch(/permissão/);
     expect(authorizeSectionChanges({role:"engenheiro"},{contasBancarias:[{id:"c1"}]})).toMatch(/permissão/);
