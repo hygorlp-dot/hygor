@@ -149,7 +149,7 @@ const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // migra sozinha para ela - sem exigir nenhuma ordem de deploy específica.
 const linhaEfetivaParaEscrita = (domain, rowVersions) =>
   (domain!==DOMAIN_ROW.CORE && rowVersions[domain]==null) ? DOMAIN_ROW.CORE : domain;
-const DRE_PROJECTION_VERSION = "2026-10-cliente-direto-fora-do-caixa-v7";
+const DRE_PROJECTION_VERSION = "2026-10-custos-arquivados-autoritativos-v8";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
   "changeLog",
@@ -2990,18 +2990,20 @@ export default async function handler(req, res) {
       }
       const year=Number(req.body?.year);
       if(!Number.isInteger(year)||year<2000||year>2100)return res.status(400).json({error:"Ano inválido."});
+      const fonteFinanceira=await exigirCustosArquivados(atual);
       const canonical=await loadCanonicalDre(db,COMPANY);
       const requests=Array.from({length:12},(_,month)=>({year,month,period:"mes",scope:"company_dre"}));
-      const months=buildRequestedDreProjectionRows(atual,requests,canonical.events).map(row=>row.payload);
-      return res.status(200).json({ok:true,year,months,layout:readAnnualLayout(atual.config),
+      const months=buildRequestedDreProjectionRows(fonteFinanceira,requests,canonical.events).map(row=>row.payload);
+      return res.status(200).json({ok:true,year,months,layout:readAnnualLayout(fonteFinanceira.config),
         source:"canonical_ledger",sourceRevision:`${dreSourceRevision({updatedAt,rowVersions,rowVersionsPontoObra})}|canonical:${canonical.revision}`,
         issues:canonical.issues});
     }
 
     if(action==="financial-management-report"){
       if(!["admin","financeiro"].includes(usuario.role)||usuario.obraId)return res.status(403).json({error:"A gestão de conciliação do DRE exige acesso financeiro sem restrição de obra."});
+      const fonteFinanceira=await exigirCustosArquivados(atual);
       const canonical=await loadCanonicalDre(db,COMPANY);
-      return res.status(200).json({ok:true,...buildIntegratedDreManagement(atual,canonical),updatedAt});
+      return res.status(200).json({ok:true,...buildIntegratedDreManagement(fonteFinanceira,canonical),updatedAt});
     }
 
     if(action==="financial-dre-report"||action==="financial-company-dre-report"){
@@ -3022,6 +3024,7 @@ export default async function handler(req, res) {
       if(!companyStatement&&usuario.obraId&&requestedWork!==String(usuario.obraId)){
         return res.status(403).json({error:"O DRE solicitado está fora do escopo da obra do usuário."});
       }
+      const fonteFinanceira=await exigirCustosArquivados(atual);
       const scope=companyStatement?"company_dre":(requestedWork||"empresa");
       const currentId=`${year}-${String(month+1).padStart(2,"0")}:${period}:${scope}`;
       const historyRequests=Array.from({length:6},(_,index)=>{
@@ -3048,7 +3051,7 @@ export default async function handler(req, res) {
           {year,month,period,scope},
           ...historyRequests,
         ];
-        const rows=buildRequestedDreProjectionRows(atual,projectionRequests,canonical.events).map(row=>({
+        const rows=buildRequestedDreProjectionRows(fonteFinanceira,projectionRequests,canonical.events).map(row=>({
           company_id:COMPANY,event_type:"dre_snapshot",source_type:"dre_projection",
           source_id:row.sourceId,effective_date:`${row.year}-${String(row.month+1).padStart(2,"0")}-01`,
           payload:{...row.payload,active:true,obraId:row.obraId,year:row.year,month:row.month,
