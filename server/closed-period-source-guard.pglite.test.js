@@ -47,7 +47,8 @@ describe("FIN 9.6 — fatos operacionais respeitam competência fechada",()=>{
     metadata:{descricao:"Despesa "+id},
   });
   const bank=(id,date,amount=100)=>({
-    legacyId:id,amount,direction:"out",date,description:"Banco "+id,status:"pending",metadata:{},
+    legacyId:id,amount,direction:"out",date,description:"Banco "+id,status:"pending",
+    obraId:"obra-1",metadata:{extratoId:"ext-1"},
   });
   const snapshot=({facts=[],bankTransactions=[]}={})=>({
     facts,bankTransactions,cashEntries:[],cashAllocations:[],dreSnapshots:[],
@@ -137,6 +138,19 @@ describe("FIN 9.6 — fatos operacionais respeitam competência fechada",()=>{
     await expect(sync(company,snapshot({
       bankTransactions:[bank("b1","2026-07-15",100),bank("b2","2026-07-20",50)],
     }))).rejects.toThrow(/Período contábil fechado/i);
+  },30000);
+
+  test("obra e extrato de origem do movimento fechado também são imutáveis",async()=>{
+    const company="closed-bank-metadata";
+    const original=snapshot({bankTransactions:[bank("b1","2026-07-15",100)]});
+    await sync(company,original);
+    await close(company);
+
+    const changed=bank("b1","2026-07-15",100);
+    changed.obraId="obra-2";
+    changed.metadata={extratoId:"ext-2"};
+    await expect(sync(company,snapshot({bankTransactions:[changed]})))
+      .rejects.toThrow(/Período contábil fechado/i);
   },30000);
 
   test("movimento bancário de julho também não pode ser removido do snapshot após fechamento",async()=>{
