@@ -5,6 +5,7 @@ import {ERP_MODULES} from "./navigation/erp-navigation.js";
 import {DOMAIN_FIELDS,DOMAIN_ROW,rowForOperationalCommand} from "../server/domain-row-routing.js";
 import {PATRIMONY_COMMAND} from "./domains/patrimonio/commands.js";
 import {canUploadToDestination,isAcceptedUploadMime,uploadStoragePrefix} from "../server/upload-policy.js";
+import {base64DecodedSize,isPatrimonyAssetPhotoMime,PATRIMONY_DOCUMENT_MAX_BYTES} from "./domains/patrimonio/document-policy.js";
 
 describe("Patrimônio da empresa — integração",()=>{
   it("fica em Administração e não em Obras/Equipamentos",()=>{
@@ -43,11 +44,21 @@ describe("Patrimônio da empresa — integração",()=>{
     expect(uploadStoragePrefix({folder:"patrimonio"})).toBe("patrimonio");
   });
 
+  it("foto do bem aceita só formatos web seguros e respeita 3 MB reais",()=>{
+    expect(isPatrimonyAssetPhotoMime("image/jpeg")).toBe(true);
+    expect(isPatrimonyAssetPhotoMime("image/png")).toBe(true);
+    expect(isPatrimonyAssetPhotoMime("image/webp")).toBe(true);
+    expect(isPatrimonyAssetPhotoMime("image/gif")).toBe(false);
+    expect(base64DecodedSize("YQ==")).toBe(1);
+    expect(PATRIMONY_DOCUMENT_MAX_BYTES).toBe(3*1024*1024);
+  });
+
   it("arquiva NF em bucket privado dedicado e só serve link assinado",()=>{
     const upload=readFileSync("api/upload.js","utf8");
     expect(upload).toMatch(/PATRIMONIO_BUCKET.*patrimonio-empresa/);
     expect(upload).toMatch(/createBucket\(PATRIMONIO_BUCKET/);
     expect(upload).toMatch(/public:false/);
+    expect(upload).toMatch(/fileSizeLimit:"3MB"/);
     expect(upload).toMatch(/createSignedUrl\(safePath,300\)/);
     // O bloco do patrimônio devolve só o caminho (nunca URL pública) e fecha a resposta.
     // O padrão aceita quebra de linha: o handler também grava Cache-Control: no-store.
@@ -63,6 +74,9 @@ describe("Patrimônio da empresa — integração",()=>{
     expect(view).toMatch(/extrairNotaPatrimonioIA/);
     expect(view).toMatch(/Cadastrar selecionados/);
     expect(view).toMatch(/Leitura por IA: revise antes de gravar/);
+    expect(view).toMatch(/Foto do bem/);
+    expect(view).toMatch(/Abrir foto atual/);
+    expect(view).toMatch(/_photoUpload/);
     expect(view).not.toMatch(/document\.url\} target="_blank"/);
   });
 
