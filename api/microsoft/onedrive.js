@@ -1,5 +1,6 @@
-import { fileSignature, getOrCreateFolder, graph, refresh, rootItem, safeName, seal, setCookie, verifyAppUser, workspace } from "../../server/microsoft/graph.js";
+import { fileSignature, getOrCreateFolder, graph, refresh, rootItem, safeName, seal, setCookie, unseal, verifyAppUser, workspace } from "../../server/microsoft/graph.js";
 import { findScopedWork, knownWorkspace, scopedWorks } from "../../server/onedrive-scope.js";
+import { LICENSING_UPLOAD_MAX_BYTES, ONEDRIVE_UPLOAD_CHUNK_BYTES, ONEDRIVE_UPLOAD_GRANULARITY_BYTES } from "../../src/onedrive-upload-policy.js";
 
 export const config={api:{bodyParser:{sizeLimit:"8mb"}}};
 const categoryNames={capa:"06 - Capa da Obra",diario:"04 - Diário de Obras",fotos:"05 - Fotos",conferencia:"07 - Conferências Técnicas",financeiro:"08 - Financeiro e Fiscal",compras:"09 - Compras e Suprimentos",licenciamento:"03 - Documentos",contratos:"01 - Contratos",projetos:"02 - Projetos",documentos:"03 - Documentos",outros:"11 - Outros"};
@@ -37,6 +38,30 @@ const migrarLicenciamentoLegado=async(token,ws)=>{
   }
   return {movidos,conflitos};
 };
+
+const resolverDestinoUpload=async(accessToken,appContext,body,obraEscopo)=>{
+  if(!obraEscopo)throw Object.assign(new Error("A obra não está disponível para este usuário."),{status:403});
+  let ws=knownWorkspace(obraEscopo);
+  if(!ws.driveId||!ws.folderId)ws=await workspace(accessToken,obraEscopo.name,null,ws);
+  if(body.targetFolderId)await assertInsideWorkspace(accessToken,appContext,ws.driveId,body.targetFolderId);
+  const categoryName=categoryNames[body.category]||categoryNames.documentos;
+  let parentId=body.targetFolderId||ws.folders?.[categoryName]||ws.folderId;
+  if(!body.targetFolderId&&!ws.folders?.[categoryName]){
+    const categoryFolder=await getOrCreateFolder(accessToken,ws.driveId,ws.folderId,categoryName);
+    parentId=categoryFolder.id;
+    ws={...ws,folders:{...(ws.folders||{}),[categoryName]:parentId}};
+  }
+  if(["diario","conferencia"].includes(body.category)&&body.date){
+    parentId=(await getOrCreateFolder(accessToken,ws.driveId,parentId,body.date)).id;
+  }
+  const caminho=body.category==="licenciamento"?`Licenciamento/${body.subfolder||""}`:String(body.subfolder||"");
+  const subpastas=caminho.split("/").map(x=>x.trim()).filter(Boolean).slice(0,3).map(safeName);
+  for(const subpasta of subpastas)parentId=(await getOrCreateFolder(accessToken,ws.driveId,parentId,subpasta)).id;
+  return{ws,parentId};
+};
+
+const workspacePublico=(ws,appUser)=>appUser.role==="admin"?ws:{...ws,webUrl:undefined};
+const itemPublico=(item,appUser)=>appUser.role==="admin"?item:{...item,webUrl:undefined};
 
 export default async function handler(req,res){
   try{
@@ -102,22 +127,66 @@ export default async function handler(req,res){
       }).sort((a,b)=>a.type===b.type?a.name.localeCompare(b.name,"pt-BR",{sensitivity:"base"}):a.type==="folder"?-1:1);
       return res.json({ok:true,items});
     }
-    if(action==="upload"){
+    if(action==="upload-start"){
+      if(body.category!=="licenciamento")return res.status(400).json({error:"Upload em partes é exclusivo do Licenciamento."});
+      const fileSize=Math.trunc(Number(body.fileSize||0));
+      if(fileSize<=0)return res.status(400).json({error:"Tamanho do arquivo inválido."});
+      if(fileSize>LICENSING_UPLOAD_MAX_BYTES)return res.status(413).json({error:"O arquivo de licenciamento deve ter no máximo 20 MB."});
+      const {ws,parentId}=await resolverDestinoUpload(accessToken,appContext,body,obraEscopo);
+      const fileName=safeName(body.fileName||`arquivo-${Date.now()}`);
+      const sessionResponse=await graph(accessToken,`/drives/${encodeURIComponent(ws.driveId)}/items/${encodeURIComponent(parentId)}:/${encodeURIComponent(fileName)}:/createUploadSession`,{
+        method:"POST",headers:{"content-type":"application/json"},
+        body:JSON.stringify({item:{"@microsoft.graph.conflictBehavior":"rename",name:fileName}}),
+      });
+      const uploadSession=await sessionResponse.json();
+      if(!uploadSession?.uploadUrl)throw new Error("O OneDrive não abriu a sessão de upload.");
+      const uploadToken=seal({
+        kind:"onedrive-upload-v1",uploadUrl:uploadSession.uploadUrl,driveId:ws.driveId,
+        fileName,fileSize,mime:String(body.mime||"application/octet-stream").slice(0,160),
+        nextStart:0,expiresAt:uploadSession.expirationDateTime||"",
+      });
+      return res.json({ok:true,uploadToken,nextStart:0,workspace:workspacePublico(ws,appUser)});
+    }
+    if(action==="upload-chunk"){
       if(!obraEscopo)return res.status(403).json({error:"A obra não está disponível para este usuário."});
-      let ws=knownWorkspace(obraEscopo);
-      if(!ws.driveId||!ws.folderId)ws=await workspace(accessToken,obraEscopo.name,null,ws);
-      if(body.targetFolderId)await assertInsideWorkspace(accessToken,appContext,ws.driveId,body.targetFolderId);
-      const categoryName=categoryNames[body.category]||categoryNames.documentos;
-      let parentId=body.targetFolderId||ws.folders?.[categoryName]||ws.folderId;
-      if(!body.targetFolderId&&!ws.folders?.[categoryName]){
-        const categoryFolder=await getOrCreateFolder(accessToken,ws.driveId,ws.folderId,categoryName);
-        parentId=categoryFolder.id;
-        ws={...ws,folders:{...(ws.folders||{}),[categoryName]:parentId}};
+      const state=unseal(String(body.uploadToken||""));
+      if(!state||state.kind!=="onedrive-upload-v1")return res.status(400).json({error:"Sessão de upload inválida."});
+      if(state.expiresAt&&Date.parse(state.expiresAt)<=Date.now())return res.status(410).json({error:"A sessão de upload expirou. Inicie o envio novamente."});
+      const start=Math.trunc(Number(body.start));
+      const total=Math.trunc(Number(body.total));
+      if(total!==Number(state.fileSize)||start!==Number(state.nextStart))return res.status(409).json({error:"O fragmento está fora da sequência esperada."});
+      const dataBase64=String(body.dataBase64||"");
+      if(!/^[A-Za-z0-9+/]+={0,2}$/.test(dataBase64))return res.status(400).json({error:"Fragmento inválido."});
+      const buffer=Buffer.from(dataBase64,"base64");
+      if(!buffer.length||buffer.length>ONEDRIVE_UPLOAD_CHUNK_BYTES)return res.status(413).json({error:"Fragmento acima do limite permitido."});
+      const end=start+buffer.length-1;
+      if(start<0||end>=total)return res.status(400).json({error:"Faixa do fragmento inválida."});
+      const final=end===total-1;
+      if(!final&&buffer.length%ONEDRIVE_UPLOAD_GRANULARITY_BYTES!==0)return res.status(400).json({error:"Fragmento intermediário fora da granularidade exigida pelo OneDrive."});
+      const uploadResponse=await fetch(state.uploadUrl,{
+        method:"PUT",
+        headers:{"content-length":String(buffer.length),"content-range":`bytes ${start}-${end}/${total}`},
+        body:buffer,
+      });
+      const result=await uploadResponse.json().catch(()=>({}));
+      if(!uploadResponse.ok){
+        const message=result?.error?.message||`OneDrive recusou o fragmento (HTTP ${uploadResponse.status}).`;
+        return res.status(uploadResponse.status>=400&&uploadResponse.status<500?uploadResponse.status:502).json({error:message});
       }
-      if(["diario","conferencia"].includes(body.category)&&body.date)parentId=(await getOrCreateFolder(accessToken,ws.driveId,parentId,body.date)).id;
-      const caminho=body.category==="licenciamento"?`Licenciamento/${body.subfolder||""}`:String(body.subfolder||"");
-      const subpastas=caminho.split("/").map(x=>x.trim()).filter(Boolean).slice(0,3).map(safeName);
-      for(const subpasta of subpastas)parentId=(await getOrCreateFolder(accessToken,ws.driveId,parentId,subpasta)).id;
+      if(uploadResponse.status===202){
+        const informado=String(result?.nextExpectedRanges?.[0]||"").split("-")[0];
+        const nextStart=Number.isFinite(Number(informado))?Number(informado):end+1;
+        const uploadToken=seal({...state,nextStart,expiresAt:result?.expirationDateTime||state.expiresAt});
+        return res.json({ok:true,complete:false,uploadToken,nextStart});
+      }
+      const item=result;
+      if(!item?.id)throw new Error("O OneDrive concluiu o envio sem identificar o arquivo.");
+      const sig=fileSignature(state.driveId,item.id);
+      const url=`/api/microsoft/onedrive?action=file&driveId=${encodeURIComponent(state.driveId)}&itemId=${encodeURIComponent(item.id)}&sig=${encodeURIComponent(sig)}`;
+      return res.json({ok:true,complete:true,url,path:item.id,item:itemPublico(item,appUser)});
+    }
+    if(action==="upload"){
+      const {ws,parentId}=await resolverDestinoUpload(accessToken,appContext,body,obraEscopo);
       const match=String(body.dataUrl||"").match(/^data:([^;]+);base64,(.+)$/);
       if(!match) return res.status(400).json({error:"Arquivo inválido."});
       const buffer=Buffer.from(match[2],"base64"); if(buffer.length>6*1024*1024)return res.status(413).json({error:"Arquivo maior que 6 MB."});
@@ -125,7 +194,7 @@ export default async function handler(req,res){
       const item=await (await graph(accessToken,`/drives/${ws.driveId}/items/${parentId}:/${encodeURIComponent(fileName)}:/content`,{method:"PUT",headers:{"content-type":match[1]},body:buffer})).json();
       const sig=fileSignature(ws.driveId,item.id);
       const url=`/api/microsoft/onedrive?action=file&driveId=${encodeURIComponent(ws.driveId)}&itemId=${encodeURIComponent(item.id)}&sig=${encodeURIComponent(sig)}`;
-      return res.json({ok:true,url,path:item.id,item:appUser.role==="admin"?item:{...item,webUrl:undefined},workspace:appUser.role==="admin"?ws:{...ws,webUrl:undefined}});
+      return res.json({ok:true,url,path:item.id,item:itemPublico(item,appUser),workspace:workspacePublico(ws,appUser)});
     }
     res.status(400).json({error:"Ação inválida."});
   }catch(e){res.status(e.status||500).json({error:String(e.message||e),needsConnection:e.status===401});}
