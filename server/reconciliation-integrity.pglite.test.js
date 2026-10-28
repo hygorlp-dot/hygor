@@ -46,12 +46,17 @@ describe("RPC financeira: direção bancária e fechamento",()=>{
     expect((await db.query("select status from financial_titles where id=$1",[titleId])).rows[0].status).toBe("settled");
     expect((await db.query("select status from bank_transactions where id=$1",[bankTransactionId])).rows[0].status).toBe("reconciled");
 
-    await command("REVERSE_SETTLEMENT","reversal-reverse",{settlementId:paid.settlementId});
+    const reversed=await command("REVERSE_SETTLEMENT","reversal-reverse",{settlementId:paid.settlementId});
 
     expect((await db.query("select status from financial_titles where id=$1",[titleId])).rows[0].status).toBe("open");
-    expect((await db.query("select status from bank_transactions where id=$1",[bankTransactionId])).rows[0].status).toBe("pending");
+    const bankAfter=(await db.query("select status,version from bank_transactions where id=$1",[bankTransactionId])).rows[0];
+    expect(bankAfter.status).toBe("pending");
     expect((await db.query("select status from settlements where id=$1",[paid.settlementId])).rows[0].status).toBe("reversed");
     expect((await db.query("select status from reconciliation_links where settlement_id=$1",[paid.settlementId])).rows[0].status).toBe("reversed");
+
+    const replay=await command("REVERSE_SETTLEMENT","reversal-reverse",{settlementId:paid.settlementId});
+    expect(replay).toMatchObject({ok:true,idempotent:true,reversedSettlementId:reversed.reversedSettlementId});
+    expect((await db.query("select version from bank_transactions where id=$1",[bankTransactionId])).rows[0].version).toBe(bankAfter.version);
   });
 
   test("mantém o bloqueio de período e os pagamentos já registrados",async()=>{
