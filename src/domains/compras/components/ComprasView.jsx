@@ -50,6 +50,7 @@ import { alertasOrcamentoDoPedido, segmentosBarraOrcamento } from "../budget-tra
 import { contratosDisponiveis, saldoItemContrato } from "../supply-contracts";
 import ContratosFornecimentoView from "./ContratosFornecimentoView";
 import { atrasoDoItem } from "../delivery-schedule";
+import { linhaAtrasada, mensagemCobrancaFornecedor } from "../queue-groups";
 import {
   acoesDoPedido, contarPedidosPorStatus, FILTROS_PEDIDOS_VAZIOS, filtrarPedidos, filtrosPedidosAtivos, OPCOES_STATUS_PEDIDO,
 } from "../order-list";
@@ -972,6 +973,18 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   // Solicitações não fazerem .find() em data.fornecedores/obras/materiais/
   // pedidos por linha renderizada (era O(n) por linha, agora O(1)).
   const fornecedorPorId = useMemo(() => new Map((data.fornecedores||[]).map(f => [f.id, f])), [data.fornecedores]);
+  // R7: cobrar numa só mensagem todas as entregas atrasadas de um fornecedor.
+  const linkCobrancaDoGrupo = grupo => {
+    const forn=fornecedorPorId.get(grupo.chave);
+    if(!forn?.telefone)return null;
+    const pedidosAtrasados=grupo.linhas.filter(linhaAtrasada).map(linha=>{
+      const atraso=atrasoDe[linha.id];
+      return {numero:linha.code,obra:linha.obra,previsao:fmtDate(atraso?.pedido?.previsao||linha.date),
+        diasAtraso:atraso?.diasAtraso??Math.abs(Number(String(linha.deadline.label).match(/\d+/)?.[0]||0)),itens:atraso?.itensPendentes||[]};
+    });
+    if(!pedidosAtrasados.length)return null;
+    return linkWhatsApp(forn.telefone,mensagemCobrancaFornecedor({empresa:"MARCELL",fornecedorNome:forn.nome,pedidos:pedidosAtrasados}));
+  };
   // C2.3: nota 0-10 do fornecedor (prazo, notas sem divergência, cancelamentos; 12 meses).
   const avaliacaoForn = useMemo(() => avaliacoesFornecedores(data, today()), [data.fornecedores, data.pedidos, data.notasFiscais]);
   const obraPorId       = useMemo(() => new Map((data.obras||[]).map(o => [o.id, o])), [data.obras]);
@@ -2013,6 +2026,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       </div>
       {["fila","aprovacoes","recebimentos"].includes(aba)&&<PurchaseWorkspace model={fluxoCompras} area={aba} scope={escopoFluxo}
         filters={filtrosFluxo} onFiltersChange={setFiltrosFluxo} onOpen={abrirRegistroFluxo}
+        supplierName={nomeForn} supplierChargeLink={linkCobrancaDoGrupo}
         afterMetrics={porObra&&porObra.linhas.length>1?<PurchasesByWork model={porObra} onOpenWork={id=>abrirObra(id,"fila")}/>:null}/>}
 
       {aba==="kanban"&&<div className="purchase-kanban-view">
