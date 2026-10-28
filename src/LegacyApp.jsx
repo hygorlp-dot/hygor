@@ -223,7 +223,10 @@ import {
   referenceUnitCostOf,
   suggestedSteelConversion,
 } from "./domains/compras/unit-conversion";
+import { montarRecebimento } from "./domains/compras/receipt";
 const Compras = lazy(() => import("./domains/compras/components/ComprasView"));
+// R6: "Chegou" (tela da obra) usa o mesmo modal de recebimento de Compras.
+const ModalRecebimentoCompras = lazy(() => import("./domains/compras/components/ReceiptModal").then(m => ({ default: m.ModalRecebimento })));
 import { migrateCommercial } from "./domains/comercial/migrations";
 import { normalizeRealEstateCommercial } from "./domains/comercial/real-estate";
 import { selectCommercialWorkspace } from "./domains/comercial/selectors";
@@ -12875,10 +12878,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     finally{setCriandoPasta(false);}
   };
 
-  // A equipe de campo confirma que o material chegou -> tudo do pedido vira
-  // ENTRADA no estoque (apropriacao automatica), sem abrir o recebimento
-  // completo. Aceita tudo de uma vez; ajustes finos ficam para a aba Compras.
-  const confirmarChegada = async pedido => {
+  // A equipe de campo confirma a chegada no mesmo modal de recebimento de
+  // Compras (R6): já vem com tudo o que falta e aceita recebimento parcial.
+  const confirmarChegada = async (pedido, recebidos) => {
     // Um segundo clique durante o envio mandaria outro recebimento do mesmo saldo.
     if (chegadaEnviando) return;
     if (!dispatchCommand) {
@@ -12886,26 +12888,13 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       return;
     }
     // Recebimento não depende de pagamento prévio - compra a prazo é o caso
-    // normal. O saldo em aberto (se houver) segue visível em Compras > Financeiro.
-    const quando = today();
-    const entradas = (pedido.itens || [])
-      .map(i => ({ ...i, falta: Number(i.qtd || 0) - Number(i.qtdRecebida || 0) }))
-      .filter(i => i.falta > 0)
-      .map(i => ({
-        id: uid(),receiptId:uid(),pedidoId:pedido.id,pedidoItemId:i.id,
-        obraId: pedido.obraId, materialId: i.materialId,
-        // O pedido conta na embalagem comprada (ex.: SC); o estoque fica na
-        // unidade do cadastro (ex.: KG), igual ao recebimento da aba Compras.
-        tipo: "entrada", qtd: referenceQuantityOf(i,i.falta),
-        valorUnit: referenceUnitCostOf(i),
-        qtdCompra:i.falta,unidadeCompra:purchaseUnitOf(i),fatorConversao:conversionFactorOf(i),unidadeRef:i.unidadeRef||"",
-        data: quando,
-        descricao: `Chegada confirmada - pedido ${pedido.numero}`,
-        transacaoId: "", servicoId: "",orcItemId:i.orcItemId||"",orcNivel1Id:i.orcNivel1Id||"", etapa: "",
-      }));
-    if(!entradas.length){
-      showToast?.(`O pedido ${pedido.numero} já foi recebido por completo.`,"warn");
-      setChegadaModal(null);
+    // normal. O saldo em aberto (se houver) aparece no próprio modal.
+    const montado = montarRecebimento(pedido, recebidos, { quando: today(), novoId: uid,
+      descricao: `Chegada confirmada - pedido ${pedido.numero}` });
+    if (!montado.ok) {
+      const item = (pedido.itens||[]).find(i => i.id === montado.itemId);
+      const mat = item && (data.materiais||[]).find(m => m.id === item.materialId);
+      showToast?.(mat ? `"${mat.descricao}": ${montado.erro}` : montado.erro, "error");
       return;
     }
     setChegadaEnviando(true);
@@ -12920,8 +12909,8 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
           actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
           payload:{
             pedidoId:pedido.id,
-            receivedQuantities:Object.fromEntries(entradas.map(item=>[item.pedidoItemId,item.qtdCompra])),
-            stockEntries:entradas,
+            receivedQuantities:montado.receivedQuantities,
+            stockEntries:montado.stockEntries,
           },
         };
       });
@@ -12933,7 +12922,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       return;
     }
     setChegadaModal(null);
-    showToast?.(`Material do pedido ${pedido.numero} apropriado ao estoque.`);
+    showToast?.(montado.completo?`Material do pedido ${pedido.numero} apropriado ao estoque.`:`Recebimento parcial do pedido ${pedido.numero} registrado no estoque.`);
   };
 
   const atividade = useMemo(() => {
@@ -13263,36 +13252,14 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         </div>
       )}
 
-      {/* Confirmacao da chegada */}
+      {/* Confirmacao da chegada: o mesmo modal do "Receber" de Compras (R6) */}
       {chegadaModal && (
-        <Modal title={`Confirmar chegada - pedido ${chegadaModal.numero}`} onClose={() => setChegadaModal(null)}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <p style={{fontSize:"var(--arcd-type-body)",color:C.text,lineHeight:1.5}}>
-              Confirma que <strong>todo o material</strong> deste pedido chegou na obra?
-            </p>
-            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-              {(chegadaModal.itens||[]).filter(i => Number(i.qtd||0) > Number(i.qtdRecebida||0)).map(i => {
-                const mat = (data.materiais||[]).find(m => m.id === i.materialId);
-                const falta = Number(i.qtd||0) - Number(i.qtdRecebida||0);
-                return (
-                  <div key={i.id} style={{display:"flex",justifyContent:"space-between",gap:8,
-                       padding:"4px 0",fontSize:"var(--arcd-type-body)"}}>
-                    <span style={{color:C.text}}>{mat?.descricao || "Material"}</span>
-                    {/* A quantidade do pedido está na embalagem comprada (ex.: SC), não na unidade do cadastro (ex.: KG). */}
-                    <span style={{color:C.muted,fontWeight:600}}>{falta} {purchaseUnitOf(i) || mat?.unidade || ""}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
-              Se chegou so uma parte, use a aba Compras para registrar o recebimento parcial.
-            </p>
-            <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={() => setChegadaModal(null)} disabled={chegadaEnviando} full>Ainda nao</Btn>
-              <Btn onClick={() => confirmarChegada(chegadaModal)} disabled={chegadaEnviando} loading={chegadaEnviando} full><Ic n="check"/> Sim, chegou tudo</Btn>
-            </div>
-          </div>
-        </Modal>
+        <Suspense fallback={null}>
+          <ModalRecebimentoCompras pedido={chegadaModal} titulo={`Confirmar chegada - pedido ${chegadaModal.numero}`}
+            onClose={() => !chegadaEnviando && setChegadaModal(null)} onReceber={confirmarChegada}
+            nomeMat={id => (data.materiais||[]).find(m => m.id === id)?.descricao || "Material"}
+            nomeForn={id => (data.fornecedores||[]).find(f => f.id === id)?.nome || "-"}/>
+        </Suspense>
       )}
 
       {/* ==== SECOES EM ACORDEAO ==== */}

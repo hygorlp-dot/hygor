@@ -3,6 +3,8 @@ import {readFileSync} from "node:fs";
 
 const legacy=readFileSync(`${process.cwd()}/src/LegacyApp.jsx`,"utf8");
 const compras=readFileSync(`${process.cwd()}/src/domains/compras/components/ComprasView.jsx`,"utf8");
+const recebimento=readFileSync(`${process.cwd()}/src/domains/compras/receipt.js`,"utf8");
+const modalRecebimento=readFileSync(`${process.cwd()}/src/domains/compras/components/ReceiptModal.jsx`,"utf8");
 const trecho=(source,inicio,fim)=>source.slice(source.indexOf(inicio),source.indexOf(fim,source.indexOf(inicio)));
 
 describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
@@ -40,10 +42,13 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
   });
 
   it("confirmação de chegada converte para a unidade do estoque",()=>{
-    const chegada=trecho(legacy,"const confirmarChegada = async","setChegadaModal(null);\n      return;");
-    expect(chegada).toMatch(/qtd: referenceQuantityOf\(i,i\.falta\)/);
-    expect(chegada).toMatch(/valorUnit: referenceUnitCostOf\(i\)/);
-    expect(legacy).toMatch(/receivedQuantities:Object\.fromEntries\(entradas\.map\(item=>\[item\.pedidoItemId,item\.qtdCompra\]\)\)/);
+    // R6: a conversão mora na regra única de recebimento (receipt.js), usada
+    // pelo "Chegou" da obra e pelo "Receber" de Compras.
+    const chegada=trecho(legacy,"const confirmarChegada = async","const atividade = useMemo");
+    expect(chegada).toMatch(/montarRecebimento\(pedido, recebidos,/);
+    expect(chegada).toMatch(/receivedQuantities:montado\.receivedQuantities,\s*stockEntries:montado\.stockEntries,/);
+    expect(recebimento).toMatch(/qtd: referenceQuantityOf\(item, chegou\), valorUnit: referenceUnitCostOf\(item\)/);
+    expect(compras).toMatch(/montarRecebimento\(pedido,recebidos,/);
   });
 
   it("D-A: Central de Pagamentos e obrigações do DRE ignoram nota rejeitada",()=>{
@@ -53,9 +58,13 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
 
   it("C8: confirmação de chegada mostra a unidade de compra e bloqueia clique duplo",()=>{
     const modal=trecho(legacy,"{chegadaModal && (","{/* ==== SECOES EM ACORDEAO");
+    // R6: o "Chegou" abre o mesmo modal de recebimento de Compras.
+    expect(modal).toMatch(/<ModalRecebimentoCompras pedido=\{chegadaModal\}/);
+    expect(modal).toMatch(/onReceber=\{confirmarChegada\}/);
     // a quantidade do pedido está na embalagem comprada (SC), não na unidade do cadastro (KG)
-    expect(modal).toMatch(/\{falta\} \{purchaseUnitOf\(i\) \|\| mat\?\.unidade/);
-    expect(modal).toMatch(/onClick=\{\(\) => confirmarChegada\(chegadaModal\)\} disabled=\{chegadaEnviando\}/);
+    expect(modalRecebimento).toMatch(/label=\{`Chegou agora \(\$\{purchaseUnitOf\(l\)\}\)`\}/);
+    // o modal trava o segundo clique enquanto confirma
+    expect(modalRecebimento).toMatch(/const confirmar=async\(\)=>\{if\(salvando\)return;setSalvando\(true\)/);
     const chegada=trecho(legacy,"const confirmarChegada = async","const atividade = useMemo");
     expect(chegada).toMatch(/if \(chegadaEnviando\) return;/);
     expect(chegada).toMatch(/setChegadaEnviando\(true\);[\s\S]*finally\{\s*setChegadaEnviando\(false\);/);
