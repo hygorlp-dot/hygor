@@ -181,8 +181,28 @@ begin
         v_bank_json->>'legacyId';
     end if;
   end loop;
+
+  -- Remoção do extrato legado: o sync não apaga fisicamente a linha canônica,
+  -- mas a ausência no snapshot não pode alterar a fotografia histórica de uma
+  -- competência já encerrada.
+  for v_bank in
+    select bank.*
+      from public.bank_transactions bank
+     where bank.company_id=p_company_id
+       and coalesce(bank.metadata->>'legacyId','') <> ''
+       and not exists(
+         select 1
+           from jsonb_array_elements(coalesce(p_snapshot->'bankTransactions','[]'::jsonb)) incoming
+          where incoming->>'legacyId'=bank.metadata->>'legacyId'
+       )
+  loop
+    if public.financial_date_is_closed(p_company_id,v_bank.booking_date) then
+      raise exception 'Período contábil fechado: movimento bancário % não pode ser removido',
+        v_bank.metadata->>'legacyId';
+    end if;
+  end loop;
 end;
-$$;
+$;
 
 revoke all on function public.financial_guard_closed_legacy_snapshot(text,jsonb)
   from public,anon,authenticated;
