@@ -503,6 +503,36 @@ test("fila agrupada por fornecedor cobra três entregas atrasadas numa só visã
   expect(app.errors).toEqual([]);
 });
 
+test("'Chegou' na tela da obra abre o mesmo recebimento de Compras, preenchido e aceitando parcial",async({page})=>{
+  const app=await enter(page);
+  const sidebar=page.locator(".arcd-sidebar");
+  const grupo=sidebar.locator(".nav-grp-hd").filter({hasText:/^Obras e projetos/});
+  const corpo=grupo.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
+  if(!await corpo.isVisible())await grupo.click();
+  await corpo.locator(".nav-item").filter({hasText:/^Obras$/}).click();
+  await page.getByText("Residencial Alameda").first().click();
+  await expect(page.getByText("O material ja chegou na obra?")).toBeVisible();
+  await page.getByRole("button",{name:"Chegou",exact:true}).click();
+
+  const dialog=page.getByRole("dialog");
+  await expect(dialog).toContainText("Confirmar chegada - pedido PC-001");
+  // Mesmo modal do "Receber": já vem com tudo o que falta, na unidade de compra.
+  await expect(dialog.getByLabel("Chegou agora (UN)")).toHaveValue("10");
+  await expect(dialog.locator(".purchase-receipt-payment")).toContainText("R$ 250,00 em aberto. O recebimento não depende dele.");
+  // A mesma regra: acima do que falta não confirma; parcial confirma.
+  await dialog.getByLabel("Chegou agora (UN)").fill("11");
+  await expect(dialog.getByRole("button",{name:/Dar entrada no estoque/})).toBeDisabled();
+  await dialog.getByLabel("Chegou agora (UN)").fill("4");
+  await dialog.getByRole("button",{name:/Dar entrada no estoque/}).click();
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(()=>app.commands.filter(c=>c.type===OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED).length).toBe(1);
+  const comando=app.commands.find(c=>c.type===OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED);
+  expect(comando.payload.receivedQuantities).toEqual({di:4});
+  expect(comando.payload.stockEntries[0]).toMatchObject({qtd:4,descricao:"Chegada confirmada - pedido PC-001"});
+  expect(app.state().pedidos.find(p=>p.id==="delivery").itens[0].qtdRecebida).toBe(4);
+  expect(app.errors).toEqual([]);
+});
+
 test("painel separa Resumo de Análises, sem ação destrutiva, e cada exceção abre a lista filtrada",async({page})=>{
   const app=await enter(page);
   const tools=page.locator("details.purchase-tools");
