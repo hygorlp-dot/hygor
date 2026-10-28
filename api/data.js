@@ -29,6 +29,7 @@ import { anexarCronometro, criarCronometro } from "../server/server-timing.js";
 import { criarValidadorDeToken } from "../server/token-auth.js";
 import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData, profileIndexOutdated } from "../server/data-codec.js";
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
+import { archivedLaborKeys, rebuildArchivedLaborCosts } from "../server/financial-archived-costs-source.js";
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
 import { validatePurchaseChanges } from "../server/permission-policies.js";
 import { podeAcessarAba } from "../src/domains/administracao/abas-acesso.js";
@@ -511,24 +512,43 @@ const relatorioSombraFinanceira = async atual => {
 // O ponto arquivado sai do dataset principal, mas seu custo não pode sair do
 // DRE. O resumo abaixo é pequeno, não contém dados pessoais e conserva a
 // competência e a obra de cada lançamento.
-const anexarCustosArquivados = async payload => {
-  const marcadores = payload?.quinzenasArquivadas || {};
-  const ids = Object.keys(marcadores);
-  if (!ids.length) return { ...payload, archivedLaborCosts: {} };
-  // Nunca confia no cache que voltou do navegador: cada leitura recompõe os
-  // custos diretamente dos arquivos imutáveis mantidos no servidor.
-  const existentes = {};
-  const keys = ids.map(qid => `${KEY}__arq__${qid}`);
-  const { data: linhas, error } = await db.from("company_app_data")
-    .select("key,value").eq("company_id", COMPANY).in("key", keys);
-  if (error) throw error;
-  for (const linha of linhas || []) {
-    const qid = String(linha.key || "").slice(`${KEY}__arq__`.length);
-    // Recalcula sempre a partir da fonte arquivada. Um resumo persistido por
-    // versões antigas nunca é tratado como verdade financeira.
-    existentes[qid] = normalizeArchivedCosts(summarizeArchivedCosts(linha.value, payload?.config));
+const carregarCustosArquivados = async payload => {
+  const expected=archivedLaborKeys(payload,KEY);
+  if(!expected.length)return {data:{...payload,archivedLaborCosts:{}},missing:[],rebuilt:0};
+  const {data:linhas,error}=await db.from("company_app_data")
+    .select("key,value").eq("company_id",COMPANY).in("key",expected.map(item=>item.key));
+  if(error)throw error;
+  return rebuildArchivedLaborCosts({data:payload,archiveRows:linhas||[],key:KEY});
+};
+
+const anexarCustosArquivados = async payload =>
+  (await carregarCustosArquivados(payload)).data;
+
+const exigirCustosArquivados = async payload => {
+  const rebuilt=await carregarCustosArquivados(payload);
+  if(rebuilt.missing.length){
+    const error=new Error("Existem quinzenas arquivadas sem o arquivo imutável correspondente.");
+    error.code="ARCHIVED_LABOR_SOURCE_MISSING";
+    error.missing=rebuilt.missing;
+    throw error;
   }
-  return { ...payload, archivedLaborCosts: existentes };
+  return rebuilt.data;
+};
+
+const carregarCustosArquivadosNaTransacao=async(transaction,payload)=>{
+  const expected=archivedLaborKeys(payload,KEY);
+  if(!expected.length)return {data:{...payload,archivedLaborCosts:{}},missing:[],rebuilt:0};
+  // O fechamento já trava a core antes daqui. Arquivar/restaurar quinzena
+  // também precisa da core, então os marcadores não podem mudar enquanto
+  // esta fotografia lê os arquivos imutáveis.
+  const linhas=await transaction`
+    select key,value
+      from company_app_data
+     where company_id=${COMPANY}
+       and key like ${`${KEY}__arq__%`}
+     order by key
+  `;
+  return rebuildArchivedLaborCosts({data:payload,archiveRows:linhas||[],key:KEY});
 };
 
 // Dois carimbos de tempo apontam para o mesmo instante?
