@@ -1,5 +1,7 @@
 import { calculateAttendanceDayCost } from "../ponto/payroll.js";
 import { resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "../ponto/permissions.js";
+import { remunerationModeOnDate } from "../rh/remuneration-mode.js";
+import { laborChargeFactor } from "./labor-charges.js";
 
 const requiredFunction = (value, name) => {
   if (typeof value !== "function") {
@@ -48,10 +50,19 @@ export const createLaborCostEngine = ({
     const byWork = new Map();
     const bucket = obraId => {
       let item = byWork.get(obraId);
-      if (!item) { item = { laborCost:0, benefitCost:0 }; byWork.set(obraId, item); }
+      if (!item) { item = { laborCost:0, benefitCost:0, chargesCost:0 }; byWork.set(obraId, item); }
       return item;
     };
 
+    // Encargos e provisões (labor-charges.js) entram no custo de mão de obra
+    // da competência: CLT pelo fator de encargos, diarista pelo percentual
+    // configurado (0 por padrão). VT/VR não são base de encargo.
+    const factorByMode = { clt:laborChargeFactor("clt", data?.config), daily:laborChargeFactor("daily", data?.config) };
+    const addLabor = (item, employee, date, amount) => {
+      const charges = amount * (factorByMode[remunerationModeOnDate(employee, date)] || 0);
+      item.laborCost += amount + charges;
+      item.chargesCost += charges;
+    };
     (data?.employees || []).forEach(employee => {
       days.forEach(date => {
         if (holidaySet.has(date)) return;
@@ -64,7 +75,7 @@ export const createLaborCostEngine = ({
         });
         if (!cost.laborCost && !cost.benefitCost) return;
         const item = bucket(resolveEmployeeAttendanceObraId({ data, employee, date }));
-        item.laborCost += cost.laborCost;
+        addLabor(item, employee, date, cost.laborCost);
         item.benefitCost += cost.benefitCost;
       });
 
@@ -73,7 +84,7 @@ export const createLaborCostEngine = ({
         if (!employedOnDate(employee, date)) return;
         const amount = Number(holidayPayRule(data, employee, date, holidays).amount || 0);
         if (!amount) return;
-        bucket(resolveHolidayObraId({ data, employee, holidayIso:date })).laborCost += amount;
+        addLabor(bucket(resolveHolidayObraId({ data, employee, holidayIso:date })), employee, date, amount);
       });
     });
 
@@ -82,8 +93,8 @@ export const createLaborCostEngine = ({
   };
 
   const calculateCurrentCost = (data, obraId, days = []) => {
-    const item = costsByWorkForPeriod(data, days).get(String(obraId ?? "")) || { laborCost:0, benefitCost:0 };
-    return { laborCost:item.laborCost, benefitCost:item.benefitCost, totalCost:item.laborCost + item.benefitCost };
+    const item = costsByWorkForPeriod(data, days).get(String(obraId ?? "")) || { laborCost:0, benefitCost:0, chargesCost:0 };
+    return { laborCost:item.laborCost, benefitCost:item.benefitCost, chargesCost:item.chargesCost, totalCost:item.laborCost + item.benefitCost };
   };
 
   const calculateWorkLaborCost = (data, obraId, days = []) => {
@@ -109,6 +120,7 @@ export const createLaborCostEngine = ({
     });
 
     const result = {
+      chargesCost:current.chargesCost,
       laborCost:current.laborCost + archivedLabor,
       benefitCost:current.benefitCost + archivedBenefits,
       totalCost:current.totalCost + archivedLabor + archivedBenefits,
