@@ -129,6 +129,17 @@ describe("gate FIN-003 de persistência",()=>{
     expect(blocked.blockers).toContain("shadow_has_facts");
   });
 
+  it("bloqueia FIN-003 quando a estrutura canônica possui erro mesmo com totais reconciliados",()=>{
+    const blocked=financialActivationEvidenceGate({
+      factsCount:3,
+      shadowRun:{id:"run-1"},
+      canonicalIntegrity:{ok:false,counts:{errors:2,warnings:0}},
+    });
+    expect(blocked.ready).toBe(false);
+    expect(blocked.blockers).toContain("canonical_integrity");
+    expect(blocked.checks.find(check=>check.code==="canonical_integrity")).toMatchObject({ok:false});
+  });
+
   it("permite dados operacionais da obra, mas bloqueia contrato por snapshot",()=>{
     const before={obras:[{
       id:"o-1",name:"B2-04",faseId:"f-1",contractValue:100000,
