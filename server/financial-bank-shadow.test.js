@@ -4,12 +4,12 @@ import {compareLegacyBankTransactions} from "./financial-bank-shadow.js";
 describe("FIN 9.6 — paridade do extrato bancário legado",()=>{
   const legacy=[{
     legacyId:"b1",date:"2026-07-10",direction:"out",amount:123.45,
-    description:"Fornecedor XPTO",obraId:"obra-1",
+    description:"Fornecedor XPTO",obraId:"obra-1",metadata:{extratoId:"ext-1"},
   }];
   const canonical=[{
     id:"bank-1",booking_date:"2026-07-10",direction:"out",amount:123.45,
     raw_description:"Fornecedor XPTO",
-    metadata:{legacyId:"b1",obraId:"obra-1"},
+    metadata:{legacyId:"b1",obraId:"obra-1",extratoId:"ext-1"},
   }];
 
   it("aprova movimento idêntico",()=>{
@@ -29,14 +29,14 @@ describe("FIN 9.6 — paridade do extrato bancário legado",()=>{
       direction:"in",
       amount:123.46,
       raw_description:"Outro texto",
-      metadata:{legacyId:"b1",obraId:"obra-2"},
+      metadata:{legacyId:"b1",obraId:"obra-2",extratoId:"ext-2"},
     }];
     const result=compareLegacyBankTransactions(legacy,changed);
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       code:"legacy_bank_stale",
       legacyId:"b1",
-      fields:["date","direction","amountCents","description","obraId"],
+      fields:["date","direction","amountCents","description","obraId","statementId"],
       expected:{amountCents:12345},
       actual:{amountCents:12346},
     });
@@ -49,7 +49,7 @@ describe("FIN 9.6 — paridade do extrato bancário legado",()=>{
       legacyId:"b1",
       actual:{
         date:"2026-07-10",direction:"out",amountCents:12345,
-        description:"Fornecedor XPTO",obraId:"obra-1",
+        description:"Fornecedor XPTO",obraId:"obra-1",statementId:"ext-1",
       },
     }]);
   });
