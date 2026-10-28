@@ -10,7 +10,10 @@ describe("FIN 9.6 — fatos operacionais respeitam competência fechada",()=>{
 
   beforeAll(async()=>{
     db=new PGlite({extensions:{pgcrypto}});
-    await db.exec("create role service_role;");
+    await db.exec("create role service_role; create role anon; create role authenticated;");
+    // O Supabase real sempre possui service_role/anon/authenticated. O PGlite
+    // isolado nasce sem esses papéis, então o fixture os cria antes de aplicar
+    // as migrations que fazem REVOKE/GRANT explícitos.
     // Algumas migrations financeiras de integração referenciam a tabela-base
     // do ERP. Este teste não precisa de dados nela, mas precisa do contrato
     // estrutural mínimo para que as migrations reais sejam carregadas.
