@@ -1254,10 +1254,22 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   // cancelarSolicitacao (abaixo, via dispatchCommand); esta função agora só
   // cobre a transição "em_analise", que não tem comando próprio ainda (não
   // altera dado financeiro nem de auditoria crítica).
-  const atualizarStatusSolicitacao=(sol,status)=>{
-    update({...data,solicitacoesCompra:(data.solicitacoesCompra||[]).map(s=>s.id===sol.id?{...s,status,
-      analisadoEm:status==="em_analise"?new Date().toISOString():s.analisadoEm,
-      analisadoPor:status==="em_analise"?(currentUser?.nome||""):s.analisadoPor}:s)});
+  // Agora também por comando (versionado, com papel conferido no servidor).
+  const atualizarStatusSolicitacao=async(sol,status)=>{
+    if(status!=="em_analise")return;
+    if(!dispatchCommand){showToast("Marcar a solicitação em análise exige conexão com o servidor.","error");return;}
+    const result=await dispatchCommand(atual=>{
+      const vigente=(atual.solicitacoesCompra||[]).find(item=>item.id===sol.id);
+      return {
+        type:OPERATIONAL_COMMAND.PURCHASE_REQUEST_ANALYSIS_STARTED,
+        idempotencyKey:`purchase-request-analysis-${sol.id}-${uid()}`,
+        expectedVersion:Number(vigente?.version||0),
+        actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+        payload:{requestId:sol.id},
+      };
+    });
+    if(!result?.ok){showToast(result?.reason||"Não foi possível marcar a solicitação em análise.","error");return;}
+    showToast(`Solicitação ${sol.numero} em análise.`);
   };
 
   const cancelarSolicitacao=async sol=>{
@@ -1281,17 +1293,16 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   // Registra que a solicitacao foi "emitida" para um fornecedor por WhatsApp
   // (clique no link wa.me em ModalCotacaoWhatsApp). Upsert por fornecedorId -
   // clicar de novo so atualiza o horario, nao duplica a linha.
-  const registrarContatoSolicitacao=(solicitacaoId,fornecedorId,fornecedorNome)=>{
-    if(!solicitacaoId)return;
-    update({...data,solicitacoesCompra:(data.solicitacoesCompra||[]).map(s=>{
-      if(s.id!==solicitacaoId)return s;
-      const agora=new Date().toISOString();
-      const existe=(s.contatos||[]).some(c=>c.fornecedorId===fornecedorId);
-      const contatos=existe
-        ? s.contatos.map(c=>c.fornecedorId===fornecedorId?{...c,enviadoEm:agora}:c)
-        : [...(s.contatos||[]),{fornecedorId,fornecedorNome,enviadoEm:agora}];
-      return {...s,contatos};
-    })});
+  const registrarContatoSolicitacao=async(solicitacaoId,fornecedorId,fornecedorNome)=>{
+    if(!solicitacaoId||!dispatchCommand)return;
+    // O link do WhatsApp já abriu; um erro aqui só avisa, não desfaz o contato.
+    const result=await dispatchCommand({
+      type:OPERATIONAL_COMMAND.PURCHASE_REQUEST_SUPPLIER_CONTACTED,
+      idempotencyKey:`purchase-request-contact-${solicitacaoId}-${fornecedorId}-${uid()}`,
+      actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
+      payload:{requestId:solicitacaoId,supplierId:fornecedorId,supplierName:fornecedorNome},
+    });
+    if(!result?.ok)showToast(result?.reason||"Não foi possível registrar o contato com o fornecedor.","error");
   };
 
   const gerarPedidoSolicitacao=(sol)=>{

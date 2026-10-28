@@ -221,6 +221,9 @@ export const OPERATIONAL_COMMAND_ROLES = {
   [OPERATIONAL_COMMAND.APPROVAL_DECISION_RECORDED]:["admin","compras","financeiro","engenheiro","engenheiro_auditor","rh","diretoria"],
   [OPERATIONAL_COMMAND.PURCHASE_REQUEST_SAVED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.PURCHASE_REQUEST_CANCELLED]:["admin","compras","engenheiro","engenheiro_auditor"],
+  // Mesmos perfis que a tela libera (canManagePurchases) para assumir a solicitação.
+  [OPERATIONAL_COMMAND.PURCHASE_REQUEST_ANALYSIS_STARTED]:["admin","compras","financeiro"],
+  [OPERATIONAL_COMMAND.PURCHASE_REQUEST_SUPPLIER_CONTACTED]:["admin","compras","engenheiro","engenheiro_auditor"],
   [OPERATIONAL_COMMAND.SUPPLIER_SAVED]:["admin","compras","financeiro"],
   [OPERATIONAL_COMMAND.SUPPLY_CONTRACT_SAVED]:["admin","compras"],
   [OPERATIONAL_COMMAND.SUPPLY_CONTRACT_CLOSED]:["admin","compras"],

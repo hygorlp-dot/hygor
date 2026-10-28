@@ -4,6 +4,8 @@ import {
   PURCHASE_REQUEST_COMMAND,
   purchaseRequestCommandObraId,
 } from "./purchase-request-commands.js";
+import { authorizeOperationalCommand } from "../../../api/data.js";
+import { applyOperationalCommand } from "../sync/operational-commands.js";
 
 const base=()=>({
   obras:[{id:"obra-1",name:"Obra 1"}],
@@ -237,3 +239,66 @@ describe("cancelamento de solicitação de compra (soft-delete)",()=>{
   });
 });
 
+describe("ações da solicitação por comando (antes eram update() direto)",()=>{
+  const open=(patch={})=>({...base(),fornecedores:[{id:"f-1",nome:"Depósito Central"}],
+    solicitacoesCompra:[{id:"sol-a",numero:"SC-0001",obraId:"obra-1",status:"enviada",version:2,itens:[],...patch}]});
+  const analysis=(overrides={})=>({type:PURCHASE_REQUEST_COMMAND.PURCHASE_REQUEST_ANALYSIS_STARTED,
+    idempotencyKey:"solicitacao-analise-001",expectedVersion:2,actorId:"u-compras",actorName:"Compras",
+    payload:{requestId:"sol-a"},...overrides});
+  const contact=(overrides={})=>({type:PURCHASE_REQUEST_COMMAND.PURCHASE_REQUEST_SUPPLIER_CONTACTED,
+    idempotencyKey:"solicitacao-contato-001",actorId:"u-compras",actorName:"Compras",
+    payload:{requestId:"sol-a",supplierId:"f-1"},...overrides});
+
+  it("marcar em análise: enviada vira em_analise com autor, data e versão nova",()=>{
+    const result=applyPurchaseRequestCommand(open(),analysis(),"2026-10-27T15:00:00.000Z");
+    expect(result.ok).toBe(true);
+    expect(result.data.solicitacoesCompra[0]).toMatchObject({status:"em_analise",version:3,
+      analisadoPor:"Compras",analisadoPorId:"u-compras",analisadoEm:"2026-10-27T15:00:00.000Z"});
+  });
+
+  it("só uma solicitação enviada entra em análise; versão desatualizada e inexistente são recusadas",()=>{
+    expect(applyPurchaseRequestCommand(open({status:"em_analise"}),analysis()).reason).toMatch(/já está em análise/);
+    expect(applyPurchaseRequestCommand(open({status:"cancelada"}),analysis()).reason).toMatch(/Só uma solicitação enviada/);
+    expect(applyPurchaseRequestCommand(open({status:"pedido_gerado"}),analysis()).reason).toMatch(/Só uma solicitação enviada/);
+    expect(applyPurchaseRequestCommand(open(),analysis({expectedVersion:1})).reason).toMatch(/alterada por outra pessoa/);
+    expect(applyPurchaseRequestCommand(open(),analysis({payload:{requestId:"nao-existe"}})).reason).toMatch(/não encontrada/);
+  });
+
+  it("registrar contato: cria a linha com o nome do cadastro e, ao repetir, só atualiza o horário",()=>{
+    const first=applyPurchaseRequestCommand(open(),contact(),"2026-10-27T15:00:00.000Z");
+    expect(first.ok).toBe(true);
+    expect(first.data.solicitacoesCompra[0].contatos).toEqual([
+      {fornecedorId:"f-1",fornecedorNome:"Depósito Central",enviadoEm:"2026-10-27T15:00:00.000Z"}]);
+    const again=applyPurchaseRequestCommand(first.data,contact({idempotencyKey:"solicitacao-contato-002"}),"2026-10-27T16:30:00.000Z");
+    expect(again.data.solicitacoesCompra[0].contatos).toHaveLength(1);
+    expect(again.data.solicitacoesCompra[0].contatos[0].enviadoEm).toBe("2026-10-27T16:30:00.000Z");
+    // fornecedor fora do cadastro usa o nome enviado
+    const avulso=applyPurchaseRequestCommand(open(),contact({payload:{requestId:"sol-a",supplierId:"f-9",supplierName:"Avulso"}}));
+    expect(avulso.data.solicitacoesCompra[0].contatos[0].fornecedorNome).toBe("Avulso");
+  });
+
+  it("não registra contato em solicitação cancelada ou que já virou pedido, nem sem fornecedor",()=>{
+    expect(applyPurchaseRequestCommand(open({status:"cancelada"}),contact()).reason).toMatch(/não está mais aberta/);
+    expect(applyPurchaseRequestCommand(open({status:"pedido_gerado",pedidoId:"p-1"}),contact()).reason).toMatch(/não está mais aberta/);
+    expect(applyPurchaseRequestCommand(open(),contact({payload:{requestId:"sol-a",supplierId:""}})).reason).toMatch(/Informe o fornecedor/);
+  });
+
+  it("o escopo por obra é o da solicitação nos dois comandos",()=>{
+    expect(purchaseRequestCommandObraId(open(),analysis())).toBe("obra-1");
+    expect(purchaseRequestCommandObraId(open(),contact())).toBe("obra-1");
+  });
+
+  it("o servidor confere o papel: análise para quem gere compras; contato também para engenharia; o resto leva 403",()=>{
+    const A=PURCHASE_REQUEST_COMMAND.PURCHASE_REQUEST_ANALYSIS_STARTED,C=PURCHASE_REQUEST_COMMAND.PURCHASE_REQUEST_SUPPLIER_CONTACTED;
+    for(const role of ["admin","compras","financeiro"])expect(authorizeOperationalCommand(A,role).ok,`análise ${role}`).toBe(true);
+    for(const role of ["engenheiro","rh","mestre"])expect(authorizeOperationalCommand(A,role),`análise ${role}`).toMatchObject({ok:false,status:403});
+    for(const role of ["admin","compras","engenheiro","engenheiro_auditor"])expect(authorizeOperationalCommand(C,role).ok,`contato ${role}`).toBe(true);
+    for(const role of ["rh","financeiro","mestre"])expect(authorizeOperationalCommand(C,role),`contato ${role}`).toMatchObject({ok:false,status:403});
+  });
+
+  it("passa pelo redutor compartilhado do navegador e do servidor",()=>{
+    const result=applyOperationalCommand(open(),{...analysis(),actorRole:"compras",now:"2026-10-27T15:00:00.000Z"});
+    expect(result.ok).toBe(true);
+    expect(result.data.solicitacoesCompra[0].status).toBe("em_analise");
+  });
+});

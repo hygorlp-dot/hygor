@@ -6,6 +6,8 @@ import { iniciarAprovacaoSolicitacao } from "./purchase-approval.js";
 export const PURCHASE_REQUEST_COMMAND=Object.freeze({
   PURCHASE_REQUEST_SAVED:"SOLICITACAO_COMPRA_SALVA",
   PURCHASE_REQUEST_CANCELLED:"SOLICITACAO_COMPRA_CANCELADA",
+  PURCHASE_REQUEST_ANALYSIS_STARTED:"SOLICITACAO_COMPRA_EM_ANALISE",
+  PURCHASE_REQUEST_SUPPLIER_CONTACTED:"SOLICITACAO_COMPRA_CONTATO_REGISTRADO",
 });
 
 export const PURCHASE_REQUEST_COMMAND_TYPES=new Set(Object.values(PURCHASE_REQUEST_COMMAND));
@@ -153,6 +155,51 @@ const cancelRequest=(data,command,now)=>{
   return {ok:true,entityId:id,data:next};
 };
 
+// Compras assume a solicitação: enviada -> em_analise. Antes era um update()
+// direto, sem controle de versão nem checagem de papel no servidor.
+const startAnalysis=(data,command,now)=>{
+  const id=String(command.payload?.requestId||"");
+  const current=requestById(data,id);
+  if(!id||!current)return fail("Solicitação não encontrada.");
+  if(current.status!=="enviada"){
+    return fail(current.status==="em_analise"?"Esta solicitação já está em análise.":"Só uma solicitação enviada pode ser marcada em análise.");
+  }
+  if(versionOf(current)!==Number(command.expectedVersion)){
+    return fail("A solicitação foi alterada por outra pessoa. Atualize a tela e tente novamente.");
+  }
+  const actorName=String(command.actorName||"").trim()||"Usuário autenticado";
+  const saved={...current,status:"em_analise",version:versionOf(current)+1,
+    analisadoEm:now,analisadoPor:actorName,analisadoPorId:String(command.actorId||""),
+    atualizadoEm:now,updatedAt:now,atualizadoPor:actorName,updatedBy:actorName,updatedById:String(command.actorId||"")};
+  return {ok:true,entityId:id,data:{...data,solicitacoesCompra:(data.solicitacoesCompra||[])
+    .map(item=>String(item.id)===id?saved:item)}};
+};
+
+// Registra que o pedido de orçamento foi enviado a um fornecedor (link do
+// WhatsApp). Upsert por fornecedor: clicar de novo só atualiza o horário. Não
+// exige a versão (é um registro de log idempotente, e o clique acontece
+// depois de a tela já ter aberto outras coisas), mas só vale para solicitação
+// ainda em aberto.
+const registerSupplierContact=(data,command,now)=>{
+  const id=String(command.payload?.requestId||""),supplierId=String(command.payload?.supplierId||"");
+  const current=requestById(data,id);
+  if(!id||!current)return fail("Solicitação não encontrada.");
+  if(!supplierId)return fail("Informe o fornecedor contatado.");
+  if(["cancelada","pedido_gerado"].includes(current.status)||current.pedidoId){
+    return fail("Esta solicitação não está mais aberta para cotação.");
+  }
+  const supplier=(data.fornecedores||[]).find(item=>String(item.id)===supplierId);
+  const supplierName=String(supplier?.nome||command.payload?.supplierName||"").trim();
+  const contacts=Array.isArray(current.contatos)?current.contatos:[];
+  const exists=contacts.some(item=>String(item.fornecedorId)===supplierId);
+  const nextContacts=exists
+    ?contacts.map(item=>String(item.fornecedorId)===supplierId?{...item,enviadoEm:now}:item)
+    :[...contacts,{fornecedorId:supplierId,fornecedorNome:supplierName,enviadoEm:now}];
+  const saved={...current,contatos:nextContacts,version:versionOf(current)+1,updatedAt:now};
+  return {ok:true,entityId:id,data:{...data,solicitacoesCompra:(data.solicitacoesCompra||[])
+    .map(item=>String(item.id)===id?saved:item)}};
+};
+
 export const purchaseRequestCommandObraId=(data={},command={})=>{
   if(!PURCHASE_REQUEST_COMMAND_TYPES.has(command?.type))return "";
   const requestId=command.payload?.request?.id||command.payload?.requestId;
@@ -164,5 +211,7 @@ export const applyPurchaseRequestCommand=(data={},command={},now=new Date().toIS
   if(!PURCHASE_REQUEST_COMMAND_TYPES.has(command.type))return null;
   if(!command.actorId)return fail("Sessão do usuário indisponível para salvar a solicitação.");
   if(command.type===PURCHASE_REQUEST_COMMAND.PURCHASE_REQUEST_CANCELLED)return cancelRequest(data,command,now);
+  if(command.type===PURCHASE_REQUEST_COMMAND.PURCHASE_REQUEST_ANALYSIS_STARTED)return startAnalysis(data,command,now);
+  if(command.type===PURCHASE_REQUEST_COMMAND.PURCHASE_REQUEST_SUPPLIER_CONTACTED)return registerSupplierContact(data,command,now);
   return saveRequest(data,command,now);
 };
