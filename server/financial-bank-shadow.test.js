@@ -4,7 +4,7 @@ import {compareLegacyBankTransactions} from "./financial-bank-shadow.js";
 describe("FIN 9.6 — paridade do extrato bancário legado",()=>{
   const legacy=[{
     legacyId:"b1",date:"2026-07-10",direction:"out",amount:123.45,
-    description:"Fornecedor XPTO",obraId:"obra-1",metadata:{extratoId:"ext-1"},
+    description:"Fornecedor XPTO",obraId:"obra-1",metadata:{extratoId:"ext-1"},metadata:{extratoId:"ext-1"},
   }];
   const canonical=[{
     id:"bank-1",booking_date:"2026-07-10",direction:"out",amount:123.45,
@@ -22,7 +22,7 @@ describe("FIN 9.6 — paridade do extrato bancário legado",()=>{
     ]);
   });
 
-  it("detecta alteração de data, direção, valor, descrição ou obra",()=>{
+  it("detecta alteração de data, direção, valor, descrição ou extrato de origem",()=>{
     const changed=[{
       ...canonical[0],
       booking_date:"2026-07-11",
@@ -49,9 +49,17 @@ describe("FIN 9.6 — paridade do extrato bancário legado",()=>{
       legacyId:"b1",
       actual:{
         date:"2026-07-10",direction:"out",amountCents:12345,
-        description:"Fornecedor XPTO",obraId:"obra-1",statementId:"ext-1",
+        description:"Fornecedor XPTO",statementId:"ext-1",statementId:"ext-1",
       },
     }]);
+  });
+
+  it("mudança de obra não contamina a prova do extrato bruto",()=>{
+    const reclassified=[{
+      ...canonical[0],
+      metadata:{...canonical[0].metadata,obraId:"obra-2"},
+    }];
+    expect(compareLegacyBankTransactions(legacy,reclassified)).toEqual([]);
   });
 
   it("normaliza centavos e datas antes da comparação",()=>{
