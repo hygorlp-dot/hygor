@@ -15,6 +15,18 @@ describe("patrimônio corporativo",()=>{
     expect(result.data.companyAssets[0].operationalHistory[0].type).toBe("ASSET_CREATED");
   });
 
+  it("gera código patrimonial sequencial no servidor",()=>{
+    const base={companyAssets:[{id:"old",assetTag:"PAT-000009",name:"Antigo",active:true,version:1}]};
+    const first=applyPatrimonyCommand(base,command(PATRIMONY_COMMAND.ASSET_SAVED,{asset:{id:"a1",name:"Notebook"}}),"2026-10-27T23:00:00.000Z");
+    expect(first.ok).toBe(true);
+    expect(first.data.companyAssets.find(a=>a.id==="a1").assetTag).toBe("PAT-000010");
+    const batch=applyPatrimonyCommand(first.data,command(PATRIMONY_COMMAND.ASSETS_IMPORTED,{assets:[
+      {id:"a2",name:"Celular A"},{id:"a3",name:"Celular B"},
+    ]}),"2026-10-27T23:01:00.000Z");
+    expect(batch.ok).toBe(true);
+    expect(batch.data.companyAssets.filter(a=>["a2","a3"].includes(a.id)).map(a=>a.assetTag)).toEqual(["PAT-000011","PAT-000012"]);
+  });
+
   it("impede patrimônio, série e IMEI duplicados",()=>{
     const base={companyAssets:[{id:"a1",assetTag:"PAT-001",name:"Celular",serialNumber:"SN1",imei:"353101869075423/01",active:true,version:1}]};
     for(const asset of [
