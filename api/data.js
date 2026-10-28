@@ -2022,6 +2022,22 @@ export default async function handler(req, res) {
       const period=monthlyClosingPeriodFromCommand(command);
       if(!period.ok)return res.status(400).json({error:period.error});
 
+      // Competência já encerrada deve ser consultável pela fotografia histórica
+      // mesmo que o razão vivo de meses posteriores tenha pendências novas.
+      const stored=previewMonthlyFinancialClosing({
+        data:atual,command,actor:usuario,requireCanonicalDre:true,
+      });
+      if(stored?.ok&&stored.alreadyClosed){
+        return res.status(200).json({
+          ok:true,source:"closed_snapshot",engineEnforced:FINANCIAL_ENGINE_ENFORCE,
+          period:stored.period,closing:stored.closing,conference:stored.conference,
+          alreadyClosed:true,
+          sourceRevision:stored.closing?.snapshot?.canonicalDre?.sourceRevision||"",
+          canonicalRevision:stored.closing?.snapshot?.canonicalDre?.canonicalRevision||"",
+          projectionVersion:stored.closing?.snapshot?.canonicalDre?.projectionVersion||"",
+        });
+      }
+
       const canonical=await loadCanonicalDre(db,COMPANY);
       if(canonical.issues.length){
         return res.status(409).json({
