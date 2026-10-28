@@ -11,6 +11,7 @@ import {
 } from "../server/financial-shadow.js";
 import {compareProcurementDreRecognition} from "../server/procurement-financial-facts.js";
 import {auditCanonicalFinancialIntegrity} from "../server/financial-integrity.js";
+import {compareLegacyBankTransactions} from "../server/financial-bank-shadow.js";
 import {findStaleFinancialLegacyLinks} from "../server/financial-legacy-link-integrity.js";
 import {financialActivationEvidenceGate} from "../server/financial-write-policy.js";
 import {comSql,fecharConexaoSql} from "../server/pg-conexao.js";
@@ -75,7 +76,7 @@ try{
     all("financial_titles","id,obra_id,direction,original_amount,status,metadata"),
     all("settlements","id,title_id,bank_transaction_id,amount,status,metadata"),
     all("financial_events","id,event_type,source_id,effective_date,payload"),
-    all("bank_transactions","id,direction,amount,status,metadata"),
+    all("bank_transactions","id,booking_date,direction,amount,raw_description,status,metadata"),
     all("reconciliation_links","id,bank_transaction_id,title_id,settlement_id,amount,status"),
     all("legacy_record_links","legacy_type,legacy_id,canonical_type,canonical_id"),
     all("accounting_periods","id,starts_on,ends_on,status"),
@@ -105,6 +106,7 @@ try{
   const canonicalIntegrity=auditCanonicalFinancialIntegrity({
     titles,settlements,banks,reconciliationLinks,legacyLinks,accountingPeriods,
   });
+  const bankDivergences=compareLegacyBankTransactions(snapshot.bankTransactions,banks);
   const gate=financialActivationEvidenceGate({
     factsCount:snapshot.facts.length,
     shadowRun,
@@ -114,6 +116,8 @@ try{
     missingLegacyLinks,
     legacyHashesVerified:true,
     staleLegacyLinks,
+    bankComparisonVerified:true,
+    bankDivergences,
     openQualityCases,
     canonicalIntegrity,
   });
@@ -132,6 +136,7 @@ try{
       legacyLinks:legacyLinks.length,
       missingLegacyLinks:missingLegacyLinks.length,
       staleLegacyLinks:staleLegacyLinks.length,
+      bankDivergences:bankDivergences.length,
       ledgerDivergences:divergences.length,
       dreDivergences:dreDivergences.length,
       procurementDreDivergences:procurementDreDivergences.length,
@@ -151,6 +156,7 @@ try{
       staleLegacyLinks:staleLegacyLinks.slice(0,20).map(item=>({
         legacyType:item.legacyType,legacyId:item.legacyId,
       })),
+      bankDivergences:bankDivergences.slice(0,20),
       canonicalIntegrityErrors:canonicalIntegrity.errors.slice(0,20),
       ledgerDivergences:divergences.slice(0,20),
       dreDivergences:dreDivergences.slice(0,20),
