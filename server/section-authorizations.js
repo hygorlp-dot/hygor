@@ -90,7 +90,6 @@ const APPEND_ONLY_SECTIONS=new Set([
   "fechamentosFinanceiros",
   "employees","advances","terceirizados","rescisoes",
 ]);
-const ids=value=>new Set((Array.isArray(value)?value:[]).map(item=>String(item?.id||"")).filter(Boolean));
 const cancelado=item=>[
   "cancelado","cancelada","cancelled","canceled","estornado","estornada","reversed","arquivado","arquivada",
 ].includes(String(item?.status||"").toLowerCase());

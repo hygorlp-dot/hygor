@@ -130,7 +130,6 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
   });
   const aplicarClimaTodos=valor=>salvarRDO(r=>({...r,clima:{manha:valor,tarde:valor,noite:valor},atualizadoEm:new Date().toISOString()}));
 
-  const setOcorrencias = (txt) => salvarRDO(r => { r.ocorrencias = txt; return r; });
   const setCampoRdo = (campo, valor) => salvarRDO(r => ({...r,[campo]:valor,atualizadoEm:new Date().toISOString()}));
   const valorCampoRdo=campo=>Object.prototype.hasOwnProperty.call(camposRdoLocais,campo)?camposRdoLocais[campo]:(rdo[campo]||"");
   const salvarCampoRdoPendente=async(campo,valor)=>{timersCamposRdoRef.current.delete(campo);const result=await setCampoRdo(campo,valor);if(result?.ok&&camposRdoLocaisRef.current[campo]===valor){const next={...camposRdoLocaisRef.current};delete next[campo];camposRdoLocaisRef.current=next;setCamposRdoLocais(next);}return result;};

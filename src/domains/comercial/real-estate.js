@@ -20,7 +20,6 @@ const REAL_ESTATE_LEAD_STAGES=Object.freeze([
 const list=value=>Array.isArray(value)?value:[];
 const number=value=>Number.isFinite(Number(value))?Number(value):0;
 const text=value=>String(value||"");
-const statusActive=value=>!["cancelada","cancelado","expirada","distratada","arquivada","arquivado"].includes(text(value).toLowerCase());
 
 export const normalizeRealEstateCommercial=(commercial={})=>({
   ...commercial,

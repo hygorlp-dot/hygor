@@ -346,9 +346,6 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const orcamentosParaCopia = todosOrcamentosGlobais || data.orcamentos || [];
   const planosParaCopia = todosPlanosGlobais || data.planos || [];
   const { cols, formGrid, isMobile } = useBreakpoint();
-  // DESIGN.md exige 44px como alvo mínimo de toque no mobile; no desktop (mouse)
-  // os mesmos botões ficam compactos como sempre foram.
-  const alvoToque = isMobile ? 44 : 24;
   const ehAdmin = currentUser?.role === "admin";
   const dataAtualRef = useRef(data);
   const [memorySave, setMemorySave] = useState(null);

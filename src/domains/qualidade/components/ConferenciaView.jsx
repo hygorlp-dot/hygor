@@ -238,7 +238,6 @@ export default function Conferencia({ data, showToast, currentUser, obraIdFixo="
   const obrasNoEscopo=obras.filter(o=>!currentUser?.obraId||currentUser.obraId===o.id);
   const obrasCriaveis=ehAdmin?obras:ehAuditor?obrasNoEscopo:[];
   const podeCriarConferencia=(ehAdmin||ehAuditor)&&obrasCriaveis.length>0;
-  const nomeNormalizado=valor=>String(valor||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
   // Conferências antigas podem guardar um responsávelId anterior à recriação
   // do usuário. Bloquear toda a prancheta por igualdade estrita deixava o
   // auditor autenticado em modo somente leitura no celular. Auditores ativos
@@ -247,14 +246,8 @@ export default function Conferencia({ data, showToast, currentUser, obraIdFixo="
   // filtro da listagem já protege o escopo; repetir a trava aqui criava telas
   // visíveis porém inutilizáveis quando a lotação do usuário era atualizada.
   const auditorNoEscopo=ehAuditor;
-  const ehVistoriador=auditorNoEscopo&&(
-    !conferencia?.responsavelId||
-    currentUser?.id===conferencia.responsavelId||
-    nomeNormalizado(currentUser?.nome)===nomeNormalizado(conferencia?.responsavel)
-  );
   const podeGerirVistoria=ehAdmin||auditorNoEscopo;
   const ehResponsavelAjuste=p=>ehEngenheiro&&!!currentUser?.id&&currentUser.id===p?.responsavelAjusteId;
-  const obraDaConferencia=obraAtual;
   const responsavelAutomatico=useMemo(()=>vistoriadores.find(u=>u.id===conferencia?.responsavelId)||(ehAuditor?currentUser:null),[vistoriadores,conferencia?.responsavelId,ehAuditor,currentUser]);
 
   const dispatch=async(factory,fallbackMsg)=>{
@@ -479,7 +472,6 @@ export default function Conferencia({ data, showToast, currentUser, obraIdFixo="
     {!lista.length?<div style={{padding:"34px 18px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="clipboard" s={26} color={C.muted}/><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:9}}>Nenhuma conferência nesta obra</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>Crie a primeira vistoria técnica para começar a rastrear ajustes.</p></div>:
     <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:10}}>{lista.map(c=>{
       const abertas=(c.pendencias||[]).filter(p=>!["resolvida","cancelada"].includes(p.status)).length;
-      const criticas=(c.pendencias||[]).filter(p=>!["resolvida","cancelada"].includes(p.status)&&p.impacto==="critico").length;
       return <button className="conference-list-item" key={c.id} onClick={()=>setSelecionadaId(c.id)}>
         <div style={{display:"flex",justifyContent:"space-between",gap:8}}><strong>CONF-{String(c.codigo).padStart(3,"0")}</strong><Badge color={c.status==="cancelada"?C.muted:c.status==="concluida"?C.green:c.status==="nao_iniciada"?C.muted:C.orange}>{c.status==="cancelada"?"Cancelada":c.status==="concluida"?"Concluída":c.status==="nao_iniciada"?"Não iniciada":"Em andamento"}</Badge></div>
         <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,marginTop:7}}>{fmtDate(c.data)} · {c.responsavel||"Sem responsável"}</p>

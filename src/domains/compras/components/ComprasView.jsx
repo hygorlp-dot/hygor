@@ -20,7 +20,7 @@ import {
   ArcdChartTooltip, Badge, Btn, C, C_ARCD_SETOR, ChartPanel, FornecedorEditorPilot,
   Ic, Inp, LinksDocumentosAuditaveis, Modal, ModalCotacaoWhatsApp, ModalLegendaDocumento,
   ModoIADocumento, Sel, TabRow,
-  arquivoComoDataUrl, calcCompras, calcOrcadoComprado, compactNumber, fmt, fmtCompact,
+  arquivoComoDataUrl, calcOrcadoComprado, compactNumber, fmt, fmtCompact,
   fmtDate, fornecedoresParaMateriais, guardaPreco, linkWhatsApp, maiusculoOrcamento,
   melhorPrecoHist, mensagemWhatsAppCobranca, mensagemWhatsAppCompra, niveisUmOrcamento,
   oportunidadesConsolidacao, pedidosEmAtraso, proximoCodigoArcd, rotuloRamo, slaSolicitacao,
@@ -861,7 +861,6 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   // obras visíveis e podia anunciar "2 para analisar" sobre uma lista vazia.
   const solicitacoesPendentes=solicitacoes.filter(s=>s.status==="enviada").length;
 
-  const kpi = useMemo(() => calcCompras(data, obraIdsMapa), [data.pedidos, data.movEstoque, data.transacoes, obraIdsMapa]);
   const orcVs = useMemo(() => calcOrcadoComprado(data, obraAtual), [data.orcamentos, data.budgetBaselines, data.pedidos, data.materiais, obraAtual]);
   const pedidoPorIdOrc = useMemo(() => new Map((data.pedidos||[]).map(p=>[String(p.id),p])), [data.pedidos]);
   // Entregas atrasadas (todas as obras visiveis) e mapa por pedido.
@@ -917,13 +916,6 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   // não pode escondê-lo.
   const irParaPedidos = (termo = "") => { setBusca(termo); setFiltroPedidos(FILTROS_PEDIDOS_VAZIOS); setAba("pedidos"); };
 
-  const resumoOperacional = useMemo(() => {
-    const todos=(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)&&p.status!=="cancelado");
-    const porStatus={rascunho:0,enviado:0,parcial:0,recebido:0};
-    todos.forEach(p=>{const s=statusPedido(p);porStatus[s]=(porStatus[s]||0)+1;});
-    const ultima=[...todos].sort((a,b)=>(b.data||"").localeCompare(a.data||""))[0];
-    return {total:todos.length,porStatus,ultima,fornecedores:new Set(todos.map(p=>p.fornecedorId).filter(Boolean)).size};
-  },[data.pedidos,obraIdsMapa]);
   const pedidosFinanceiros=useMemo(()=>{
     const lista=(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)&&!['cancelado','rascunho'].includes(p.status));
     return lista.filter(p=>filtroFinanceiro==="todos"||

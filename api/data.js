@@ -66,7 +66,7 @@ import {
 } from "../server/domain-row-routing.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
 import {
-  applyEntriesToAttendance, attendanceObraKey, attendanceObraKeyPrefix,
+  applyEntriesToAttendance, attendanceObraKeyPrefix,
   groupAttendanceEntriesByObra, groupObraDeparturesByBucket, mergeAttendanceObjects,
   obraBucketFromKey, tombstoneAttendanceEntries, withAttendanceSyncedAt,
 } from "../server/attendance-obra-routing.js";
@@ -132,7 +132,6 @@ const SPLIT_ROW_KEYS = Object.freeze({
 // escopo). `pontoObraKey(obraId)` gera a chave de uma obra;
 // PONTO_OBRA_KEY_PREFIX é o padrão usado no filtro LIKE de lerLinha().
 const PONTO_OBRA_KEY_PREFIX = attendanceObraKeyPrefix(PONTO_KEY);
-const pontoObraKey = obraId => attendanceObraKey(PONTO_KEY, obraId);
 const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // A linha separada de um domínio só existe depois que
 // scripts/seed-split-domain-rows.mjs roda contra a empresa. Enquanto isso
@@ -3105,7 +3104,6 @@ export default async function handler(req, res) {
         const conflicts=findSectionConflicts(basePayload,incomingPayload,recente.payload,Object.keys(secoesAlteradas));
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
         valor=mergeThreeWay(basePayload,incomingPayload,recente.payload);
-        const novoAgora=new Date().toISOString();
         const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,rowVersions:recente.rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",
           before:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,valor?.[key]]))});
         if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
