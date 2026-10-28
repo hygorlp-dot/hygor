@@ -917,6 +917,18 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   // Quem manda para a aba Pedidos já sabe qual pedido quer ver: filtro velho
   // não pode escondê-lo.
   const irParaPedidos = (termo = "") => { setBusca(termo); setFiltroPedidos(FILTROS_PEDIDOS_VAZIOS); setAba("pedidos"); };
+  const [vistaPainel,setVistaPainel]=useState("resumo");
+  // R5: a exceção do painel abre a lista já filtrada pelo que ela aponta.
+  const abrirExcecao = alerta => {
+    const filtro=alerta.filtro;
+    if(filtro?.area==="pedidos"){
+      setBusca("");
+      setFiltroPedidos({...FILTROS_PEDIDOS_VAZIOS,...(filtro.pedidos||{}),origem:filtro.pedidos?.ids?alerta.titulo:""});
+      setAba("pedidos");return;
+    }
+    if(filtro?.area==="financeiro"){setFiltroFinanceiro(filtro.financeiro||"todos");setAba("financeiro");return;}
+    setAba(filtro?.area||alerta.destino);
+  };
 
   const resumoOperacional = useMemo(() => {
     const todos=(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)&&p.status!=="cancelado");
@@ -2079,7 +2091,11 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           <div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD,letterSpacing:.8,textTransform:"uppercase"}}>Comando de suprimentos</p><h3 style={{fontSize:"var(--arcd-type-section-title)",fontWeight:600,marginTop:3}}>Mapa gerencial de Compras</h3><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3,maxWidth:680,lineHeight:1.5}}>Visão do compromisso até a entrega: demanda, concorrência, fornecedor, pagamento, estoque e risco de abastecimento.</p></div>
           {!obraIdFixo&&<div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>{[["empresa","Empresa"],["obra","Obra selecionada"]].map(([v,l])=><button key={v} onClick={()=>setEscopoMapa(v)} style={{border:0,borderRadius:6,padding:"7px 10px",background:escopoMapa===v?C.card:"transparent",color:escopoMapa===v?C.text:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",boxShadow:escopoMapa===v?"0 1px 4px rgba(0,0,0,.08)":"none"}}>{l}</button>)}</div>}
         </section>
-
+        {/* R5: "Resumo" responde o que fazer agora; "Análises" guarda o retrato gerencial. Nenhuma ação destrutiva aqui. */}
+        <div className="purchase-panel-views" role="tablist" aria-label="Vistas do painel de compras">
+          {[["resumo","Resumo"],["analises","Análises"]].map(([id,label])=><button key={id} type="button" role="tab" aria-selected={vistaPainel===id} onClick={()=>setVistaPainel(id)}>{label}</button>)}
+        </div>
+        {vistaPainel==="resumo"?<>
         <section style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:7}}>
           {[
             ["Comprometido",fmt(mapaCompras.totalComprometido),`A faturar ${fmt(mapaCompras.totalAFaturar)}`,C.text],
@@ -2090,7 +2106,23 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             ["Qualidade dos dados",`${Math.round(mapaCompras.completude)}%`,"Base para decisões",mapaCompras.completude>=75?C.green:mapaCompras.completude>=50?C.orange:C.red],
           ].map(([l,v,d,c])=><div key={l} style={{padding:"12px",background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:9,minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.45}}>{l}</p><b style={{display:"block",fontSize:"var(--arcd-type-card-title)",color:c,marginTop:4,fontVariantNumeric:"tabular-nums",overflowWrap:"anywhere"}}>{v}</b><span style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{d}</span></div>)}
         </section>
-
+        <section style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(0,1fr) minmax(0,1fr)":"1fr",gap:9}}>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.red,textTransform:"uppercase"}}>Exceções para decidir agora</p><h4 style={{fontSize:"var(--arcd-type-body)",marginTop:2}}>{mapaCompras.alertas.length?`${mapaCompras.alertas.length} risco(s) ativo(s)`:"Operação sem exceções críticas"}</h4></div><div>{mapaCompras.alertas.length?mapaCompras.alertas.slice(0,8).map((a,i)=>{const cor=a.nivel==="critico"?C.red:a.nivel==="alto"?C.orange:C.yellowD;return <button key={`${a.titulo}-${i}`} onClick={()=>abrirExcecao(a)} style={{display:"grid",gridTemplateColumns:"8px 1fr auto",gap:10,alignItems:"center",width:"100%",border:0,borderTop:i?`1px solid ${C.line}`:"none",background:"transparent",padding:"10px 12px",textAlign:"left",cursor:"pointer"}}><i style={{width:8,height:8,borderRadius:99,background:cor}}/><span><b style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text}}>{a.titulo}</b><small style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{a.detalhe}</small></span><span style={{color:C.muted}}>›</span></button>}):<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.green}}>Nenhuma exceção automática encontrada.</p>}</div></div>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+            <div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Fluxo sob responsabilidade</p><h4 style={{fontSize:"var(--arcd-type-body)",marginTop:2}}>Onde o dinheiro e o material estão</h4></div>
+            <div style={{display:"grid",gridTemplateColumns:isDesktop?"repeat(5,1fr)":"1fr 1fr"}}>
+              {[
+                [{area:"solicitacoes"},"Solicitações",mapaCompras.fila.solicitacoes,"Aguardam análise"],
+                [{area:"cotacoes"},"Cotações",mapaCompras.fila.cotacoes,"Em concorrência"],
+                [{area:"pedidos"},"Pedidos",mapaCompras.fila.pedidos,"Em fornecimento"],
+                [{area:"financeiro",financeiro:"pendentes"},"Pagamentos",mapaCompras.fila.pagamentos,"Com saldo"],
+                [{area:"pedidos",pedidos:{status:"a_receber"}},"Recebimentos",mapaCompras.fila.recebimentos,"Enviados, não entregues"],
+              ].map(([filtro,l,v,d],i)=><button key={l} onClick={()=>abrirExcecao({titulo:l,filtro})} style={{border:0,borderLeft:isDesktop&&i?`1px solid ${C.line}`:"none",borderTop:!isDesktop&&i>1?`1px solid ${C.line}`:"none",background:"transparent",padding:"15px 12px",textAlign:"left",cursor:"pointer"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>{l}</span><b style={{display:"block",fontSize:"var(--arcd-type-section-title)",color:v?C.orange:C.green,marginTop:3}}>{v}</b><small style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{d}</small></button>)}
+            </div>
+          </div>
+        </section>
+        {porObra&&porObra.linhas.length>1&&<PurchasesByWork model={porObra} titulo="Compras por obra" onOpenWork={id=>abrirObra(id,"fila")}/>}
+        </>:<>
         <section className="purchase-dashboard-kanban">
           <div className="purchase-kanban-head">
             <div><p>Controle visual Andon</p><h3>Fluxo de compras e prazos</h3><span>Prioridades organizadas da necessidade ao recebimento, sem ocultar os indicadores gerenciais.</span></div>
@@ -2129,40 +2161,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             })}
           </div>
         </section>
-
-        <section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}>
-            <div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Controle dos pedidos</p><h4 style={{fontSize:"var(--arcd-type-body)",marginTop:2}}>{pedidosMapa.length} pedido(s) no escopo gerencial</h4></div>
-            <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>A exclusão exige motivo e confirmação pelo número do pedido.</span>
-          </div>
-          {!pedidosMapa.length?<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum pedido de compra neste escopo.</p>:
-          <div style={{maxHeight:360,overflowY:"auto"}}>
-            {pedidosMapa.map((p,index)=>{
-              const st=statusPedido(p),meta=STATUS_PEDIDO[st]||{l:st,c:C.muted};
-              return <div key={p.id} style={{display:"grid",gridTemplateColumns:isDesktop?"110px minmax(190px,1fr) minmax(130px,.7fr) 110px auto":"1fr auto",gap:10,alignItems:"center",padding:"10px 12px",borderTop:index?`1px solid ${C.line}`:"none"}}>
-                <div><b style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.blue}}>{p.numero||"Sem número"}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{fmtDate(p.data)}</span></div>
-                <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text}}>{nomeForn(p.fornecedorId)}</b><span className="brk" style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"} · {(p.itens||[]).length} item(ns)</span></div>
-                {isDesktop&&<div><Badge color={meta.c}>{meta.l}</Badge><span style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{statusPagamentoPedido(p)==="pago"?"Pagamento concluído":`${fmt(saldoPagamentoPedido(p))} a pagar`}</span></div>}
-                <b style={{fontSize:"var(--arcd-type-label)",textAlign:"right",whiteSpace:"nowrap"}}>{fmt(totalPedido(p))}</b>
-                {podeExcluirCompra?<Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir</Btn>:<span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Somente Compras, Financeiro ou Administração</span>}
-              </div>;
-            })}
-          </div>}
-        </section>
-
-        <section style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(0,1.35fr) minmax(280px,.65fr)":"1fr",gap:9}}>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-            <div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Fluxo sob responsabilidade</p><h4 style={{fontSize:"var(--arcd-type-body)",marginTop:2}}>Onde o dinheiro e o material estão</h4></div>
-            <div style={{display:"grid",gridTemplateColumns:isDesktop?"repeat(5,1fr)":"1fr 1fr"}}>
-              {[
-                ["solicitacoes","Solicitações",mapaCompras.fila.solicitacoes,"Aguardam análise"],
-                ["cotacoes","Cotações",mapaCompras.fila.cotacoes,"Em concorrência"],
-                ["pedidos","Pedidos",mapaCompras.fila.pedidos,"Em fornecimento"],
-                ["financeiro","Pagamentos",mapaCompras.fila.pagamentos,"Com saldo"],
-                ["pedidos","Recebimentos",mapaCompras.fila.recebimentos,"Enviados, não entregues"],
-              ].map(([dest,l,v,d],i)=><button key={l} onClick={()=>irParaArea(dest)} style={{border:0,borderLeft:isDesktop&&i?`1px solid ${C.line}`:"none",borderTop:!isDesktop&&i>1?`1px solid ${C.line}`:"none",background:"transparent",padding:"15px 12px",textAlign:"left",cursor:"pointer"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>{l}</span><b style={{display:"block",fontSize:"var(--arcd-type-section-title)",color:v?C.orange:C.green,marginTop:3}}>{v}</b><small style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{d}</small></button>)}
-            </div>
-          </div>
+        <section style={{display:"grid",gridTemplateColumns:isDesktop?"minmax(0,1fr) minmax(0,1fr)":"1fr",gap:9}}>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}>
             <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Maturidade do controle</p>
             <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:12,alignItems:"center",marginTop:10}}><div style={{width:68,height:68,borderRadius:"50%",display:"grid",placeItems:"center",background:`conic-gradient(${mapaCompras.completude>=75?C.green:C.yellow} ${mapaCompras.completude}%,${C.surface} 0)`,position:"relative"}}><span style={{width:52,height:52,borderRadius:"50%",background:C.card,display:"grid",placeItems:"center",fontSize:"var(--arcd-type-body)",fontWeight:600}}>{Math.round(mapaCompras.completude)}%</span></div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.5}}>{mapaCompras.completude>=80?"Dados suficientes para decisões gerenciais consistentes.":mapaCompras.completude>=55?"A base já orienta decisões, mas ainda existem pontos cegos.":"A base é insuficiente para prever prazo, custo e risco com segurança."}</p></div>
@@ -2173,17 +2172,32 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
               ["Concentração top 3",`${mapaCompras.concentracaoTop3.toFixed(0)}%`],
             ].map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",gap:8,paddingTop:5,borderTop:`1px solid ${C.line}`}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</span><b style={{fontSize:"var(--arcd-type-caption)"}}>{v}</b></div>)}</div>
           </div>
-        </section>
-
-        <section style={{display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:9}}>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.red,textTransform:"uppercase"}}>Exceções para decidir agora</p><h4 style={{fontSize:"var(--arcd-type-body)",marginTop:2}}>{mapaCompras.alertas.length?`${mapaCompras.alertas.length} risco(s) ativo(s)`:"Operação sem exceções críticas"}</h4></div><div>{mapaCompras.alertas.length?mapaCompras.alertas.slice(0,8).map((a,i)=>{const cor=a.nivel==="critico"?C.red:a.nivel==="alto"?C.orange:C.yellowD;return <button key={`${a.titulo}-${i}`} onClick={()=>irParaArea(a.destino)} style={{display:"grid",gridTemplateColumns:"8px 1fr auto",gap:10,alignItems:"center",width:"100%",border:0,borderTop:i?`1px solid ${C.line}`:"none",background:"transparent",padding:"10px 12px",textAlign:"left",cursor:"pointer"}}><i style={{width:8,height:8,borderRadius:99,background:cor}}/><span><b style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text}}>{a.titulo}</b><small style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{a.detalhe}</small></span><span style={{color:C.muted}}>›</span></button>}):<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.green}}>Nenhuma exceção automática encontrada.</p>}</div></div>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.blue,textTransform:"uppercase"}}>Dependência e poder de negociação</p><h4 style={{fontSize:"var(--arcd-type-body)",marginTop:2}}>Maiores fornecedores por volume</h4></div><div>{mapaCompras.fornecedores.slice(0,6).map((f,i)=><div key={f.id} style={{padding:"9px 12px",borderTop:i?`1px solid ${C.line}`:"none"}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{i+1}. {f.nome}</span><b style={{fontSize:"var(--arcd-type-label)"}}>{fmt(f.valor)} · {f.participacao.toFixed(0)}%</b></div><div style={{height:4,background:C.surface,borderRadius:99,marginTop:5,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(100,f.participacao)}%`,background:i===0?C.yellowD:C.blue}}/></div></div>)}{!mapaCompras.fornecedores.length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Ainda não há pedidos suficientes.</p>}</div><button onClick={()=>irParaArea("forn")} style={{width:"100%",border:0,borderTop:`1px solid ${C.line}`,background:C.surface,padding:"9px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>Abrir fornecedores →</button></div>
         </section>
-
         <section style={{display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:9}}>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Origem real dos pagamentos</p><div style={{display:"grid",gap:7,marginTop:9}}>{[["Empresa",mapaCompras.origens.empresa,C.blue],["Caixa das obras",mapaCompras.origens.caixa_obra,C.yellowD],["Cliente direto",mapaCompras.origens.cliente_direto,C.purple]].map(([l,v,c])=><div key={l} style={{display:"grid",gridTemplateColumns:"110px 1fr auto",gap:8,alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</span><div style={{height:6,background:C.surface,borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${mapaCompras.totalPago?Math.min(100,v/mapaCompras.totalPago*100):0}%`,background:c}}/></div><b style={{fontSize:"var(--arcd-type-caption)",color:c}}>{fmt(v)}</b></div>)}</div></div>
           <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 13px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD,textTransform:"uppercase"}}>Veredicto gerencial</p><h4 style={{fontSize:"var(--arcd-type-body)",marginTop:3}}>{mapaCompras.completude>=80&&mapaCompras.alertas.length<=2?"Controle suficiente, com boa rastreabilidade":mapaCompras.completude>=55?"Controle operacional útil, ainda não completo":"Controle insuficiente para uma carteira de obras"}</h4><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.55,marginTop:6}}>Para o segmento de construção, o mapa precisa ligar necessidade da frente de serviço, orçamento SINAPI/ORSE, concorrência, frete, prazo prometido, qualidade recebida, pagamento, estoque e consumo. O sistema já cobre esse ciclo; os maiores ganhos agora vêm de preencher previsão, registrar ao menos três propostas e encerrar recebimentos com evidência.</p></div>
         </section>
+        <section style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",padding:"11px 13px",borderBottom:`1px solid ${C.line}`}}>
+            <div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Controle dos pedidos</p><h4 style={{fontSize:"var(--arcd-type-body)",marginTop:2}}>{pedidosMapa.length} pedido(s) no escopo gerencial</h4></div>
+            <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Painel só de leitura: para editar, cancelar ou excluir, abra o pedido.</span>
+          </div>
+          {!pedidosMapa.length?<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum pedido de compra neste escopo.</p>:
+          <div style={{maxHeight:360,overflowY:"auto"}}>
+            {pedidosMapa.map((p,index)=>{
+              const st=statusPedido(p),meta=STATUS_PEDIDO[st]||{l:st,c:C.muted};
+              return <div key={p.id} style={{display:"grid",gridTemplateColumns:isDesktop?"110px minmax(190px,1fr) minmax(130px,.7fr) 110px auto":"1fr auto",gap:10,alignItems:"center",padding:"10px 12px",borderTop:index?`1px solid ${C.line}`:"none"}}>
+                <div><b style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.blue}}>{p.numero||"Sem número"}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{fmtDate(p.data)}</span></div>
+                <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text}}>{nomeForn(p.fornecedorId)}</b><span className="brk" style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{obraPorId.get(p.obraId)?.name||"Obra não informada"} · {(p.itens||[]).length} item(ns)</span></div>
+                {isDesktop&&<div><Badge color={meta.c}>{meta.l}</Badge><span style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{statusPagamentoPedido(p)==="pago"?"Pagamento concluído":`${fmt(saldoPagamentoPedido(p))} a pagar`}</span></div>}
+                <b style={{fontSize:"var(--arcd-type-label)",textAlign:"right",whiteSpace:"nowrap"}}>{fmt(totalPedido(p))}</b>
+                <Btn size="sm" v="ghost" onClick={()=>irParaPedidos(p.numero||"")} ariaLabel={`Abrir o pedido ${p.numero||""} na aba Pedidos`}>Abrir</Btn>
+              </div>;
+            })}
+          </div>}
+        </section>
+        </>}
       </div>}
 
       {aba==="por_pagador"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -2421,6 +2435,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           </div>
         )}
         {pedidos.length>0&&<p className="purchase-order-count" role="status">{pedidosVisiveis.length} de {pedidos.length} pedido(s)</p>}
+        {Array.isArray(filtroPedidos.ids)&&<p className="purchase-order-origin" role="note">
+          Mostrando os pedidos da exceção do painel <strong>{filtroPedidos.origem||"selecionada"}</strong>.
+          <Button variant="ghost" size="sm" onClick={()=>patchFiltroPedidos({ids:null,origem:""})}>Ver todos os pedidos</Button></p>}
 
         {pedidos.length === 0
           ? <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:20}}>Nenhum pedido nesta obra.</p>

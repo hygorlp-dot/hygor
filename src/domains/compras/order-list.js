@@ -3,7 +3,8 @@
 // o que aparece e onde; quem pode executar continua sendo o servidor.
 import { statusPedido } from "./calculations";
 
-export const FILTROS_PEDIDOS_VAZIOS = Object.freeze({ status: "todos", fornecedorId: "", obraId: "", atrasados: false });
+// `ids` + `origem` (R5): pedidos exatos de uma exceção do painel, com o nome dela.
+export const FILTROS_PEDIDOS_VAZIOS = Object.freeze({ status: "todos", fornecedorId: "", obraId: "", atrasados: false, ids: null, origem: "" });
 
 export const OPCOES_STATUS_PEDIDO = Object.freeze([
   { value: "todos", label: "Todos os status" },
@@ -29,7 +30,8 @@ export function filtrarPedidos(pedidos, filtros = FILTROS_PEDIDOS_VAZIOS, atrasa
     combinaStatus(statusPedido(pedido), filtros.status)
     && (!filtros.fornecedorId || pedido.fornecedorId === filtros.fornecedorId)
     && (!filtros.obraId || pedido.obraId === filtros.obraId)
-    && (!filtros.atrasados || atrasadoIds.has(pedido.id)));
+    && (!filtros.atrasados || atrasadoIds.has(pedido.id))
+    && (!Array.isArray(filtros.ids) || filtros.ids.includes(pedido.id)));
 }
 
 export function contarPedidosPorStatus(pedidos) {
