@@ -7,6 +7,7 @@ async function request(url, options = {}) {
 
 export const readClientPortalSession=()=>request("/api/client/auth/session");
 export const readClientPortalDashboard=projectId=>request(`/api/client/projects/${encodeURIComponent(projectId)}/dashboard`);
+export const decideClientPortalChange=(projectId,changeId,decision,comment="")=>request(`/api/client/projects/${encodeURIComponent(projectId)}/changes/${encodeURIComponent(changeId)}/decision`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({decision,comment})});
 
 const normalizeLegacyPortal = source => {
   const portal=source?.portal || {};

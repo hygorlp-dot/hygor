@@ -75,7 +75,8 @@ function projectClientTimeline(input) { const c=context(input); return c.can("vi
 function projectClientWeeklyUpdates(input) { const c=context(input); return c.can("viewWeeklyUpdates") ? publishedRecords(c.sourceData,"weeklyUpdates",c.projectId,c.user).map(weeklyUpdate) : []; }
 function projectClientMedia(input) { const c=context(input); return c.can("viewMedia") ? publishedRecords(c.sourceData,"media",c.projectId,c.user).map(mediaItem).filter(item => item.url) : []; }
 function projectClientDecisions(input) { const c=context(input); return c.can("viewDecisions") ? publishedRecords(c.sourceData,"decisions",c.projectId,c.user).map(decisionItem) : []; }
-function projectClientChangeOrders(input) { const c=context(input); return c.can("viewChanges") ? publishedRecords(c.sourceData,"changeOrders",c.projectId,c.user).map(decisionItem) : []; }
+// Aditivo proposto: o cliente com approveChanges pode aprovar ou recusar (4.3).
+function projectClientChangeOrders(input) { const c=context(input); return c.can("viewChanges") ? publishedRecords(c.sourceData,"changeOrders",c.projectId,c.user).map(item => ({ ...decisionItem(item), pendingClient:item.pendingClient === true, canDecide:item.pendingClient === true && c.can("approveChanges") })) : []; }
 export function projectClientFinancialSummary(input) { const c=context(input); return c.can("viewFinancial") ? publishedRecords(c.sourceData,"financialSummaries",c.projectId,c.user).map(financialSummary) : []; }
 function projectClientMeasurements(input) { const c=context(input); return c.can("viewFinancial") ? publishedRecords(c.sourceData,"measurements",c.projectId,c.user).map(measurementItem) : []; }
 function projectClientDocuments(input) { const c=context(input); return c.can("downloadDocuments") ? publishedRecords(c.sourceData,"documents",c.projectId,c.user).map(documentItem).filter(item => item.url) : []; }

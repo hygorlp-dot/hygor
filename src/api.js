@@ -219,6 +219,8 @@ export const salvarLayoutDreAnual = ({rows,expectedVersion}) =>
   chamar({ action:"financial-annual-dre-layout", ...credenciais(), rows, expectedVersion });
 export const gerenciarAcessoPortalCliente = payload =>
   chamar({ action:"client-portal-admin", ...credenciais(), ...payload });
+export const consultarDecisoesAditivosPortal = obraId =>
+  chamar({ action:"client-portal-amendment-decisions", ...credenciais(), obraId });
 
 // ── Tela de login: quem existe? ────────────────────────────────────
 // Devolve só nome e papel. O hash do PIN nunca sai do servidor.

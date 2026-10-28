@@ -1,7 +1,8 @@
 import { cotacaoMultiItens, decisoesDaCotacao, mapaDaCotacao } from "../src/domains/compras/quote-map.js";
 import { statusPedido } from "../src/domains/compras/calculations.js";
 import { isApprovedTechnicalMeasurement } from "../src/domains/medicoes/constants.js";
-import { aditivosAprovados, valorAditivosAprovados, valorContratoVigente } from "../src/domains/obras/contract-amendments.js";
+import { AMENDMENT_STATUS, aditivosAprovados, valorAditivosAprovados, valorContratoVigente } from "../src/domains/obras/contract-amendments.js";
+import { PORTAL_CHANGE_PREFIX } from "../src/domains/obras/portal-amendment-decisions.js";
 
 const list = value => Array.isArray(value) ? value : [];
 const text = value => typeof value === "string" ? value.trim() : "";
@@ -162,16 +163,19 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
     rows.push(...photos);
   }
 
-  // Aditivos aprovados aparecem em "Alterações aprovadas" (Onda 4.2): só o
-  // que o cliente vê no contrato - sem justificativa interna nem autor.
+  // Aditivos (Onda 4.2/4.3): aprovados em "Alterações aprovadas"; propostos
+  // aguardando a decisão do cliente pelo portal. Só o que o cliente vê no
+  // contrato - sem justificativa interna nem autor.
   if (portal.publicarFinanceiro) {
-    rows.push(...aditivosAprovados(obra).slice(0, 40).map(item => ({
+    const propostos = list(obra.aditivosContrato).filter(item => item?.status === AMENDMENT_STATUS.PROPOSED);
+    rows.push(...[...propostos, ...aditivosAprovados(obra)].slice(0, 40).map(item => ({
       domain: "change_order",
       payload: {
-        id: `aditivo-${item.id}`,
+        id: `${PORTAL_CHANGE_PREFIX}${item.id}`,
         title: `Aditivo ${item.numero || ""}`.trim(),
         description: text(item.descricao),
-        status: "Aprovado",
+        status: item.status === AMENDMENT_STATUS.PROPOSED ? "Aguardando sua aprovação" : "Aprovado",
+        pendingClient: item.status === AMENDMENT_STATUS.PROPOSED,
         financialImpact: number(item.valor),
         scheduleImpactDays: Math.trunc(number(item.prazoDias)),
         publishedAt,

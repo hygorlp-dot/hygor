@@ -18,6 +18,7 @@
 // conferido AQUI, no servidor. Sem PIN válido, esta função não devolve dado.
 // ═══════════════════════════════════════════════════════════════════
 
+import { PORTAL_AMENDMENT_EVENT, decisoesDoClientePorAditivo } from "../src/domains/obras/portal-amendment-decisions.js";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import fs from "node:fs";
@@ -1939,6 +1940,18 @@ export default async function handler(req, res) {
       if(error)throw error;
       await salvarIndicePerfis(novo);
       return res.status(200).json({ok:true,data:novo,updatedAt:gravado?.updated_at||agora});
+    }
+
+    // Decisões que o cliente deu no portal sobre aditivos (Onda 4.3): só
+    // leitura; efetivar no contrato é ADITIVO_CONTRATO_DECIDIDO.
+    if (action === "client-portal-amendment-decisions") {
+      if(!["admin","financeiro","engenheiro"].includes(usuario.role))return res.status(403).json({error:"Seu perfil não acompanha aditivos do contrato."});
+      const obraId=String(req.body?.obraId || "");
+      if(!(atual.obras || []).some(item=>String(item.id)===obraId))return res.status(404).json({error:"Obra não encontrada."});
+      const {data:events,error}=await db.from("client_portal_audit_events").select("event_type,metadata,created_at,correlation_id")
+        .eq("company_id",COMPANY).eq("project_id",obraId).eq("event_type",PORTAL_AMENDMENT_EVENT).order("created_at",{ascending:true}).limit(500);
+      if(error)throw error;
+      return res.status(200).json({ok:true,decisions:Object.fromEntries(decisoesDoClientePorAditivo(events || []))});
     }
 
     if (action === "client-portal-admin") {

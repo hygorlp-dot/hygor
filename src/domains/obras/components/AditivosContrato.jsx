@@ -1,7 +1,9 @@
 // Aditivos do contrato do cliente (Onda 4.1). Registrar e cancelar: quem
 // cuida do contrato (admin, engenharia, financeiro); registrar a decisão do
 // cliente, enquanto o portal não aprova sozinho (4.3): administrador.
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { consultarDecisoesAditivosPortal } from "../../../api";
+import { evidenciaDoPortal } from "../portal-amendment-decisions";
 import { Btn, C, Inp, Modal, fmt, fmtDate, uid } from "../../../LegacyApp";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { AMENDMENT_STATUS, fimContratoVigente, valorContratoVigente } from "../contract-amendments";
@@ -18,6 +20,15 @@ export function AditivosContrato({ obra, currentUser, dispatchCommand, showToast
   const podeDecidir = papel === "admin";
   const podeCancelar = ["admin", "financeiro"].includes(papel);
   const aditivos = Array.isArray(obra?.aditivosContrato) ? obra.aditivosContrato : [];
+  // Decisões dadas pelo cliente no portal (4.3), ainda não efetivadas.
+  const [doPortal, setDoPortal] = useState({});
+  const temProposto = aditivos.some(item => item.status === AMENDMENT_STATUS.PROPOSED);
+  useEffect(() => {
+    if (!obra?.id || !temProposto || !podeRegistrar) return;
+    let vivo = true;
+    Promise.resolve(consultarDecisoesAditivosPortal(obra.id)).then(r => { if (vivo && r?.ok !== false) setDoPortal(r?.decisions || {}); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [obra?.id, temProposto, podeRegistrar]);
 
   const enviar = async (command, ok) => {
     if (!dispatchCommand) { showToast("Registrar aditivo exige conexão com o servidor.", "error"); return false; }
@@ -44,6 +55,14 @@ export function AditivosContrato({ obra, currentUser, dispatchCommand, showToast
     if (feito) setDecisao(null);
   };
 
+  const efetivarDoPortal = async item => {
+    const d = doPortal[item.id];
+    await enviar({
+      type:OPERATIONAL_COMMAND.CONTRACT_AMENDMENT_DECIDED,
+      payload:{ obraId:obra.id, amendmentId:item.id, expectedVersion:item.version, decision:d.decision, origem:"portal", evidencia:evidenciaDoPortal(d) },
+    }, d.decision === AMENDMENT_STATUS.APPROVED ? "Aprovação do cliente efetivada: o contrato vigente foi atualizado." : "Recusa do cliente registrada.");
+  };
+
   const cancelar = async item => {
     const motivo = window.prompt("Motivo do cancelamento do aditivo:");
     if (!String(motivo || "").trim()) return;
@@ -62,11 +81,14 @@ export function AditivosContrato({ obra, currentUser, dispatchCommand, showToast
     {aditivos.map(item => <div key={item.id} style={{ display:"flex", justifyContent:"space-between", gap:10, flexWrap:"wrap", borderTop:`1px solid ${C.line}`, paddingTop:8 }}>
       <div style={{ minWidth:0 }}>
         <p style={{ fontSize:"var(--arcd-type-label)", color:C.text }}><b>Aditivo {item.numero}</b> · {item.descricao}</p>
+        {item.status === AMENDMENT_STATUS.PROPOSED && doPortal[item.id] && <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color:doPortal[item.id].decision === AMENDMENT_STATUS.APPROVED ? C.green : C.red }}>Cliente {doPortal[item.id].decision === AMENDMENT_STATUS.APPROVED ? "aprovou" : "recusou"} pelo portal em {fmtDate(doPortal[item.id].at.slice(0, 10))}{doPortal[item.id].comment ? ` · "${doPortal[item.id].comment}"` : ""}</p>}
         <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>{fmt(item.valor)}{item.prazoDias ? ` · ${item.prazoDias > 0 ? "+" : ""}${item.prazoDias} dia(s)` : ""} · <span style={{ color:COR[item.status] }}>{ROTULO[item.status] || item.status}</span>{item.evidenciaDecisao ? ` · ${item.evidenciaDecisao}` : ""}</p>
       </div>
       <div style={{ display:"flex", gap:6 }}>
         {item.status === AMENDMENT_STATUS.PROPOSED && podeRegistrar && <Btn v="ghost" size="sm" onClick={() => setForm({ ...item, valor:String(item.valor), prazoDias:String(item.prazoDias || "") })}>Editar</Btn>}
-        {item.status === AMENDMENT_STATUS.PROPOSED && podeDecidir && <Btn size="sm" onClick={() => setDecisao({ item, decision:AMENDMENT_STATUS.APPROVED, evidencia:"" })}>Registrar decisão</Btn>}
+        {item.status === AMENDMENT_STATUS.PROPOSED && podeDecidir && (doPortal[item.id]
+          ? <Btn size="sm" disabled={salvando} onClick={() => efetivarDoPortal(item)}>Efetivar decisão do cliente</Btn>
+          : <Btn size="sm" onClick={() => setDecisao({ item, decision:AMENDMENT_STATUS.APPROVED, evidencia:"" })}>Registrar decisão</Btn>)}
         {item.status !== AMENDMENT_STATUS.CANCELLED && podeCancelar && <Btn v="ghost" size="sm" onClick={() => cancelar(item)}>Cancelar</Btn>}
       </div>
     </div>)}

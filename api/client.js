@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { clearPortalSessionCookie, createPortalSessionCookie, createPortalSessionToken, hashPortalSessionToken, normalizePortalEmail, parseCookies, PORTAL_SESSION_COOKIE, verifyPortalPassword } from "../server/client-portal-auth.js";
 import { isPortalRecordVisible, projectClientPortalData } from "../server/client-portal-projection.js";
+import { PORTAL_AMENDMENT_EVENT, amendmentIdFromChangeId, validarDecisaoDoCliente } from "../src/domains/obras/portal-amendment-decisions.js";
 import { COMPANY, auditPortalEvent, clearLoginFailures, genericAuthFailure, hashIdentifier, loginBlocked, noStore, portalDb, portalUnavailable, readPortalSession, registerLoginFailure, requestIp, secureCookie } from "../server/client-portal-runtime.js";
 
 const DOMAINS = Object.freeze({
@@ -108,6 +109,35 @@ async function dashboard(req, res, db, projectId) {
   }
 }
 
+// Decisão do cliente sobre um aditivo proposto (Onda 4.3). Não grava no ERP:
+// registra na trilha de auditoria do portal, e o ERP efetiva o aditivo pelo
+// comando financeiro (ver src/domains/obras/portal-amendment-decisions.js).
+async function changeDecision(req, res, db, projectId, changeId) {
+  if (req.method !== "POST") return noStore(res).status(405).json({error:"Método não permitido."});
+  try {
+    const active=await readPortalSession(req,db);
+    if (!active) return noStore(res).status(401).json({error:"Sessão do portal inválida ou expirada."});
+    const membership=active.projects.find(item=>item.projectId===projectId);
+    if (!membership) return noStore(res).status(403).json({error:"Você não possui acesso a esta obra."});
+    if (!membership.permissions?.approveChanges) return noStore(res).status(403).json({error:"Seu acesso não permite aprovar alterações do contrato."});
+    const decision=String(req.body?.decision || ""), comment=String(req.body?.comment || "").trim();
+    const invalid=validarDecisaoDoCliente({decision,comment});
+    if (invalid) return noStore(res).status(400).json({error:invalid});
+    const amendmentId=amendmentIdFromChangeId(changeId);
+    if (!amendmentId) return noStore(res).status(404).json({error:"Alteração não encontrada."});
+    const { data:rows, error }=await db.from("client_portal_publications").select("payload").eq("company_id",COMPANY).eq("project_id",projectId).eq("domain","change_order").eq("status","published");
+    if (error) throw error;
+    const change=(rows || []).map(row=>row.payload || {}).find(payload=>String(payload.id)===String(changeId));
+    if (!change) return noStore(res).status(404).json({error:"Alteração não encontrada."});
+    if (change.pendingClient!==true) return noStore(res).status(409).json({error:"Esta alteração já foi decidida."});
+    const reference=await auditPortalEvent(db,{userId:active.user.id,projectId,eventType:PORTAL_AMENDMENT_EVENT,metadata:{changeId,amendmentId,decision,comment,email:active.user.email||"",title:String(change.title||""),financialImpact:Number(change.financialImpact||0)}});
+    return noStore(res).status(200).json({ok:true,reference});
+  } catch (error) {
+    console.error("client portal change decision failed",error?.message);
+    return noStore(res).status(503).json({error:"Não foi possível registrar sua decisão agora. Tente novamente."});
+  }
+}
+
 /** Uma única função reduz a superfície de deploy Hobby sem mudar as URLs públicas. */
 export default async function handler(req, res) {
   const db=portalDb();
@@ -117,5 +147,6 @@ export default async function handler(req, res) {
   if (route[0]==="auth" && route[1]==="session") return session(req,res,db);
   if (route[0]==="auth" && route[1]==="logout") return logout(req,res,db);
   if (route[0]==="projects" && route[2]==="dashboard" && route[1]) return dashboard(req,res,db,route[1]);
+  if (route[0]==="projects" && route[2]==="changes" && route[1] && route[3] && route[4]==="decision") return changeDecision(req,res,db,route[1],route[3]);
   return noStore(res).status(404).json({error:"Rota do Portal do Cliente não encontrada."});
 }
