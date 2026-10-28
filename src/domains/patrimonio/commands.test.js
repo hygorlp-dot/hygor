@@ -15,6 +15,17 @@ describe("patrimônio corporativo",()=>{
     expect(result.data.companyAssets[0].operationalHistory[0].type).toBe("ASSET_CREATED");
   });
 
+  it("persiste a foto privada do bem sem URL pública",()=>{
+    const result=applyPatrimonyCommand({},command(PATRIMONY_COMMAND.ASSET_SAVED,{asset:{
+      id:"foto-1",name:"Martelete",photo:{name:"martelete.jpg",path:"patrimonio/2026/11111111-1111-4111-8111-111111111111.jpg",mime:"image/jpeg",size:245000,url:"https://nao-deve-ser-usada.example"},
+    }}),"2026-10-28T15:30:00.000Z");
+    expect(result.ok).toBe(true);
+    expect(result.data.companyAssets[0].photo).toMatchObject({
+      name:"martelete.jpg",path:"patrimonio/2026/11111111-1111-4111-8111-111111111111.jpg",mime:"image/jpeg",size:245000,url:"",
+    });
+    expect(result.data.companyAssets[0].operationalHistory[0].after.photo.path).toContain("patrimonio/2026/");
+  });
+
   it("gera código patrimonial sequencial no servidor",()=>{
     const base={companyAssets:[{id:"old",assetTag:"PAT-000009",name:"Antigo",active:true,version:1}]};
     const first=applyPatrimonyCommand(base,command(PATRIMONY_COMMAND.ASSET_SAVED,{asset:{id:"a1",name:"Notebook"}}),"2026-10-27T23:00:00.000Z");

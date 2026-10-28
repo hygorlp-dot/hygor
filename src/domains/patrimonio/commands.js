@@ -44,7 +44,9 @@ const LOCATION_TYPES=new Set(Object.values(COMPANY_ASSET_LOCATION_TYPES));
 
 const normalizeDocument=doc=>({
   name:text(doc?.name||doc?.nome,180),
-  url:text(doc?.url,2000),
+  // Documento patrimonial é privado: persistimos somente o caminho interno.
+  // URL pública ou externa recebida no payload é deliberadamente descartada.
+  url:"",
   path:text(doc?.path,600),
   mime:text(doc?.mime||doc?.tipo,120),
   size:Math.max(0,number(doc?.size||doc?.tamanho)),
@@ -94,6 +96,7 @@ export const normalizeCompanyAsset=asset=>({
     name:text(asset?.custodian?.name,200),
   },
   invoice:normalizeInvoice(asset?.invoice),
+  photo:normalizeDocument(asset?.photo),
   notes:text(asset?.notes||asset?.observacoes,2000),
 });
 
@@ -171,7 +174,7 @@ export const applyPatrimonyCommand=(data={},command={},now=new Date().toISOStrin
       version:versionOf(current)+1,updatedAt:now,
       ...(!current?{createdAt:now,createdById:command.actorId||""}:{}),
     };
-    record=appendHistory(record,{type:current?"ASSET_UPDATED":"ASSET_CREATED",actorId:command.actorId,actorName:command.actorName,now,before:current||null,details:{assetTag:record.assetTag,status:record.status,location:record.location,custodian:record.custodian},key:command.idempotencyKey});
+    record=appendHistory(record,{type:current?"ASSET_UPDATED":"ASSET_CREATED",actorId:command.actorId,actorName:command.actorName,now,before:current||null,details:{assetTag:record.assetTag,status:record.status,location:record.location,custodian:record.custodian,photo:record.photo},key:command.idempotencyKey});
     return {ok:true,data:{...data,companyAssets:current?assets.map(item=>item.id===record.id?record:item):[...assets,record]},entityId:record.id};
   }
 

@@ -1,3 +1,5 @@
+import {isPatrimonyDocumentMime} from "../src/domains/patrimonio/document-policy.js";
+
 export const UPLOAD_DESTINATION = Object.freeze({
   WORK: "work",
   CHAT: "chat",
@@ -38,7 +40,7 @@ export function isAcceptedUploadMime(mime, folder) {
     return CHAT_MIME_ALLOWLIST.some(prefix => value.startsWith(prefix));
   }
   if (destination === UPLOAD_DESTINATION.PATRIMONIO) {
-    return value.startsWith("image/") || ["application/pdf","application/xml","text/xml"].includes(value);
+    return isPatrimonyDocumentMime(value);
   }
   return value.startsWith("image/");
 }

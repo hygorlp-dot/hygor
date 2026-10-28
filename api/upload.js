@@ -27,12 +27,13 @@ import {
   uploadStoragePrefix,
   UPLOAD_DESTINATION,
 } from "../server/upload-policy.js";
+import {PATRIMONY_DOCUMENT_MAX_BYTES,PATRIMONY_DOCUMENT_MIME_TYPES} from "../src/domains/patrimonio/document-policy.js";
 
 const URL     = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const BUCKET  = process.env.SUPABASE_BUCKET || "diario-obra";
 const PATRIMONIO_BUCKET = process.env.SUPABASE_PATRIMONIO_BUCKET || "patrimonio-empresa";
-const PATRIMONIO_MIMES = ["application/pdf","application/xml","text/xml","image/jpeg","image/png","image/webp"];
+const PATRIMONIO_MIMES = PATRIMONY_DOCUMENT_MIME_TYPES;
 
 const db = createClient(URL, SERVICE, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -44,12 +45,12 @@ const garantirBucketPatrimonio = async () => {
   const { data: existing } = await db.storage.getBucket(PATRIMONIO_BUCKET);
   if (!existing) {
     const { error } = await db.storage.createBucket(PATRIMONIO_BUCKET, {
-      public:false, fileSizeLimit:"4MB", allowedMimeTypes:PATRIMONIO_MIMES,
+      public:false, fileSizeLimit:"3MB", allowedMimeTypes:PATRIMONIO_MIMES,
     });
     if (error && !/already exists|duplicate/i.test(String(error.message||""))) throw error;
-  } else if (existing.public) {
+  } else {
     const { error } = await db.storage.updateBucket(PATRIMONIO_BUCKET, {
-      public:false, fileSizeLimit:"4MB", allowedMimeTypes:PATRIMONIO_MIMES,
+      public:false, fileSizeLimit:"3MB", allowedMimeTypes:PATRIMONIO_MIMES,
     });
     if (error) throw error;
   }
@@ -107,9 +108,11 @@ export default async function handler(req, res) {
   }
   const base64  = dataUrl.slice(virgula + 1);
   const buffer  = Buffer.from(base64, "base64");
-  // Limite de seguranca: ~4MB por arquivo ja descomprimido.
-  if (buffer.length > 4 * 1024 * 1024) {
-    return res.status(413).json({ error: paraChat ? "Arquivo muito grande (máx. 4MB)." : "Foto muito grande. Comprima antes." });
+  // Patrimônio viaja em base64 dentro de JSON; 3 MB mantém a requisição
+  // abaixo do teto da plataforma mesmo com o overhead da codificação.
+  const limiteBytes = paraPatrimonio ? PATRIMONY_DOCUMENT_MAX_BYTES : 4 * 1024 * 1024;
+  if (buffer.length > limiteBytes) {
+    return res.status(413).json({ error: paraPatrimonio ? "Arquivo patrimonial muito grande (máx. 3 MB)." : paraChat ? "Arquivo muito grande (máx. 4MB)." : "Foto muito grande. Comprima antes." });
   }
   const extensao = (ext || mime.split("/")[1] || "jpg").replace(/[^a-z0-9]/gi, "");
 
