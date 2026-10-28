@@ -2182,6 +2182,17 @@ export default async function handler(req, res) {
             })=>{
               const period=monthlyClosingPeriodFromCommand(command);
               if(!period.ok)return {kind:"error",status:400,error:period.error};
+              const replayProbe=prepareMonthlyFinancialClosing({
+                data:current,command,actor:usuario,requireCanonicalDre:true,
+              });
+              if(replayProbe?.ok&&replayProbe.idempotent)return {
+                kind:"idempotent",data:current,updatedAt:lockedUpdatedAt,
+                closing:replayProbe.closing,
+                result:{ok:true,idempotent:true,periodClosed:true},
+              };
+              if(replayProbe?.ok===false&&/já possui fechamento auditável/i.test(String(replayProbe.error||""))){
+                return {kind:"error",status:409,error:replayProbe.error};
+              }
 
               // Ponto por obra alimenta custo de mão de obra no DRE, mas vive
               // fora do dicionário fixo de linhas. Trava e relê essas linhas
@@ -3716,6 +3727,15 @@ export default async function handler(req, res) {
   } catch (err) {
     const correlationId=crypto.randomUUID();
     console.error(`Falha em /api/data [${correlationId}]:`, err);
+    if(err?.code==="ARCHIVED_LABOR_SOURCE_MISSING"){
+      return res.status(409).json({
+        error:"Há quinzena arquivada sem a fonte imutável necessária para calcular o financeiro.",
+        code:err.code,
+        missingArchivedPeriods:Array.isArray(err.missing)?err.missing:[],
+        correlationId,
+        retryable:false,
+      });
+    }
     if(err?.code==="ATTENDANCE_ARCHIVE_MIGRATION_REQUIRED"){
       return res.status(503).json({
         error:"O arquivamento seguro ainda não está instalado no banco. Execute migrations/006_attendance_archive_transaction.up.sql.",
