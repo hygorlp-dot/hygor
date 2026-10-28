@@ -335,6 +335,11 @@ as $$
 declare
   v_result jsonb;
 begin
+  -- O guard e a mutação precisam observar a mesma fotografia canônica.
+  -- A função envolvida adquire a mesma trava novamente (reentrante na
+  -- transação), mas o wrapper a toma antes de validar para fechar a janela
+  -- TOCTOU entre duas sincronizações concorrentes.
+  perform pg_advisory_xact_lock(hashtextextended(p_company_id || ':financial-shadow-sync',0));
   perform public.financial_guard_closed_legacy_snapshot(p_company_id,p_snapshot);
   v_result:=public.financial_sync_legacy_facts_before_closed_period_guard(
     p_company_id,p_actor_id,p_snapshot,p_sync_dre_snapshots
