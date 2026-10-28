@@ -2091,6 +2091,11 @@ export default async function handler(req, res) {
                 `,
               ]);
               const canonical=canonicalDreEvents({titles,settlements,banks});
+              if(canonical.issues.length)return {
+                kind:"error",status:409,
+                error:"Existem títulos canônicos sem classificação suficiente para fechar o DRE.",
+                canonicalIssues:canonical.issues,
+              };
               const [year,monthNumber]=period.competencia.split("-").map(Number);
               const dreRow=buildRequestedDreProjectionRows(closingData,[{
                 year,month:monthNumber-1,period:"mes",scope:"company_dre",
@@ -2155,6 +2160,7 @@ export default async function handler(req, res) {
             return res.status(outcome.status||409).json({
               error:outcome.error,
               ...(outcome.conference?{conference:outcome.conference}:{}),
+              ...(outcome.canonicalIssues?{canonicalIssues:outcome.canonicalIssues}:{}),
             });
           }
           if(outcome.kind==="idempotent"){
