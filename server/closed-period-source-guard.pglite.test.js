@@ -11,6 +11,18 @@ describe("FIN 9.6 — fatos operacionais respeitam competência fechada",()=>{
   beforeAll(async()=>{
     db=new PGlite({extensions:{pgcrypto}});
     await db.exec("create role service_role;");
+    // Algumas migrations financeiras de integração referenciam a tabela-base
+    // do ERP. Este teste não precisa de dados nela, mas precisa do contrato
+    // estrutural mínimo para que as migrations reais sejam carregadas.
+    await db.exec(`
+      create table company_app_data (
+        company_id text not null,
+        key text not null,
+        value jsonb not null default '{}'::jsonb,
+        updated_at timestamptz not null default now(),
+        primary key(company_id,key)
+      );
+    `);
     for(const name of [
       "20260725_financial_engine.sql",
       "001_sync_legacy_financial.up.sql",
