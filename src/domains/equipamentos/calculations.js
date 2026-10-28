@@ -149,7 +149,7 @@ export const calcEquipMes = (data,equipId,ym) => {
     if (equip?.proprietarioId) custoDono+=cobranca.liquido;
   });
   const manut=(data.manutencoesEquip||[])
-    .filter(m=>m.equipamentoId===equipId&&(m.data||"").slice(0,7)===ym&&m.pagoPor!=="proprietario")
+    .filter(m=>m.equipamentoId===equipId&&m.status!=="cancelada"&&(m.data||"").slice(0,7)===ym&&m.pagoPor!=="proprietario")
     .reduce((s,m)=>s+Number(m.custo||0),0);
   const custo=custoDono+manut;
   return {receita,descontos,custoDono,manut,custo,lucro:receita-custo,
