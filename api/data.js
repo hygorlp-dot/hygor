@@ -2559,6 +2559,7 @@ export default async function handler(req, res) {
         path.join(process.cwd(),"migrations","002_financial_transactional_projection.up.sql"),
         path.join(process.cwd(),"migrations","003_accounting_period_enforcement.up.sql"),
         path.join(process.cwd(),"migrations","20261023144434_api_reconciliation_integrity.up.sql"),
+        path.join(process.cwd(),"migrations","021_financial_reversal_status_integrity.up.sql"),
         path.join(process.cwd(),"migrations","008_skip_dre_snapshot_sync_on_write.up.sql"),
         path.join(process.cwd(),"migrations","20261023154632_dre_cash_allocations.up.sql"),
       ];
