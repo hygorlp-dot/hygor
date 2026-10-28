@@ -84,7 +84,7 @@ import {
 } from "../server/attendance-registry-shadow-status.js";
 import { buildPurchaseRequestLiveRow } from "../server/purchase-request-live-write.js";
 import { buildPurchaseOrderLiveRow, buildQuotationLiveRow } from "../server/purchase-quote-order-live-write.js";
-import { financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
+import { financialActivationEvidenceGate, financialPersistenceMode, hasLegacyFinancialWrite, validateFinancialWritePath, validateProjectFinancialSnapshotPolicy } from "../server/financial-write-policy.js";
 import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft/graph.js";
 import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
 import { applyPersistentAuthRateLimit, hashAppPin, verifyAppPin } from "../server/app-auth-security.js";
@@ -420,11 +420,12 @@ const listarTabelaFinanceira = async (table, columns) => {
 const relatorioSombraFinanceira = async atual => {
   const snapshot=buildLegacyFinancialFacts(atual);
   const legado=summarizeLegacyFinancialFacts(snapshot);
-  const [titles,settlements,events,links,qualityCases,runs]=await Promise.all([
+  const [titles,settlements,events,reconciliationLinks,legacyLinks,qualityCases,runs]=await Promise.all([
     listarTabelaFinanceira("financial_titles","id,obra_id,direction,status,metadata"),
     listarTabelaFinanceira("settlements","id,title_id,amount,status,metadata"),
     listarTabelaFinanceira("financial_events","id,event_type,source_id,effective_date,payload"),
     listarTabelaFinanceira("reconciliation_links","id,status"),
+    listarTabelaFinanceira("legacy_record_links","legacy_type,legacy_id,canonical_type,canonical_id"),
     listarTabelaFinanceira("data_quality_cases","id,status,category,details"),
     listarTabelaFinanceira("financial_shadow_runs","id,created_at,result"),
   ]);
@@ -433,19 +434,46 @@ const relatorioSombraFinanceira = async atual => {
   const divergenciasDRE=compareDreProjectionRows(snapshot.dreSnapshots,events);
   const divergenciasComprasDRE=compareProcurementDreRecognition(atual,events);
   const lastRun=[...runs].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)))[0]||null;
+
+  const linkedLegacyKeys=new Set(legacyLinks.map(link=>`${String(link.legacy_type||"")}:${String(link.legacy_id||"")}`));
+  const missingLegacyLinks=snapshot.facts
+    .filter(fact=>!linkedLegacyKeys.has(`${String(fact.legacyType||"")}:${String(fact.legacyId||"")}`))
+    .map(fact=>({legacyType:String(fact.legacyType||""),legacyId:String(fact.legacyId||"")}));
+  const openFinancialQualityCases=qualityCases.filter(item=>
+    item.status==="open"
+    && /^(financial_|reconciliation_)/.test(String(item.category||""))
+  );
+  const activationGate=financialActivationEvidenceGate({
+    factsCount:snapshot.facts.length,
+    shadowRun:lastRun,
+    divergences:divergencias,
+    dreDivergences:divergenciasDRE,
+    procurementDreDivergences:divergenciasComprasDRE,
+    missingLegacyLinks,
+    openQualityCases:openFinancialQualityCases,
+  });
+
   return {
     ok:true,modo:"sombra",engineEnforced:FINANCIAL_ENGINE_ENFORCE,
     legado,canonico,divergencias,divergenciasDRE,divergenciasComprasDRE,
-    prontoParaAtivar:divergencias.length===0&&divergenciasDRE.length===0&&divergenciasComprasDRE.length===0&&snapshot.facts.length>0,
-    contagens:{fatosLegados:snapshot.facts.length,transacoesLegadas:snapshot.bankTransactions.length,
-      titulos:titles.length,liquidacoes:settlements.filter(row=>row.status==="active").length,
-      vinculosConciliacao:links.filter(row=>row.status==="active").length,
-      projecoesDRE:snapshot.dreSnapshots.length,divergenciasDRE:divergenciasDRE.length,
-      divergenciasAbertas:qualityCases.filter(row=>row.status==="open"&&row.category==="financial_shadow_divergence").length},
+    missingLegacyLinks,
+    activationGate,
+    prontoParaAtivar:activationGate.ready,
+    contagens:{
+      fatosLegados:snapshot.facts.length,
+      transacoesLegadas:snapshot.bankTransactions.length,
+      titulos:titles.length,
+      liquidacoes:settlements.filter(row=>row.status==="active").length,
+      vinculosConciliacao:reconciliationLinks.filter(row=>row.status==="active").length,
+      vinculosLegado:legacyLinks.length,
+      vinculosLegadoAusentes:missingLegacyLinks.length,
+      projecoesDRE:snapshot.dreSnapshots.length,
+      divergenciasDRE:divergenciasDRE.length,
+      divergenciasAbertas:openFinancialQualityCases.length,
+    },
     ultimaCarga:lastRun,
   };
 };
-
 // O ponto arquivado sai do dataset principal, mas seu custo não pode sair do
 // DRE. O resumo abaixo é pequeno, não contém dados pessoais e conserva a
 // competência e a obra de cada lançamento.
