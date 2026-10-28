@@ -1,3 +1,4 @@
+import { ATTENDANCE_STATUSES } from "./attendance-status.js";
 import { normalizeAttendanceRecord } from "./records.js";
 
 export const toLocalISODate = value => {
@@ -284,7 +285,8 @@ export const buildPermissionEmail=({
 
 const getAttendanceStatusForDate=(data,employeeId,date)=>
   getAtt(data,employeeId,date)?.status||null;
-const isValidAttendanceStatus=status=>["P","M","F"].includes(status);
+// FE/AT/FG (férias, atestado, folga) contam como dia registrado.
+const isValidAttendanceStatus=status=>ATTENDANCE_STATUSES.includes(status);
 
 export const getObraAttendanceSummary=(data,date)=>{
   const obras=(data?.obras||[]).filter(obra=>obra.status!=="done");

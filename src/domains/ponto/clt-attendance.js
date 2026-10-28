@@ -1,3 +1,4 @@
+import {ATTENDANCE_STATUSES} from "./attendance-status.js";
 import {getAtt,getDays,getPayrollHolidays,isEmployeeEmployedOnDate,isAttendanceLocked} from './attendance-engine.js';
 import {resolveEmployeeAttendanceObraId} from './permissions.js';
 import {money} from './clt-payslip.js';
@@ -26,7 +27,7 @@ export function monthlyAttendance(data,employee,competence,options={}) {
   for(const row of rows)if(row.scheduled||row.record?.status){
     if(!row.record?.status&&row.scheduled)errors.push(`${row.date}: ponto sem registro; não é considerado falta.`);
     if(!row.approved)errors.push(`${row.date}: feche o ponto da obra antes de importar.`);
-    if(row.record?.status&&!['P','M','F'].includes(row.record.status))errors.push(`${row.date}: situação não reconhecida.`);
+    if(row.record?.status&&!ATTENDANCE_STATUSES.includes(row.record.status))errors.push(`${row.date}: situação não reconhecida.`);
   }
   // Full source material, not a weak numeric hash. Includes locks and clocks,
   // so reopening or correcting the source invalidates the payroll snapshot.

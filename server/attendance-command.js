@@ -1,3 +1,4 @@
+import { ATTENDANCE_STATUSES } from "../src/domains/ponto/attendance-status.js";
 import { normalizeAttendanceRecord } from "../src/domains/ponto/records.js";
 import {
   resolveEmployeeAttendanceObraId,
@@ -91,7 +92,7 @@ const finiteBetween=(value,min,max)=>{
 const normalizeSubmittedRecord=({input,current,obraId})=>{
   if(!input||typeof input!=="object")return fail("Registro de ponto inválido.");
   const status=input.status==null||input.status===""?null:String(input.status);
-  if(![null,"P","M","F"].includes(status))return fail("Status de ponto inválido.");
+  if(status!==null&&!ATTENDANCE_STATUSES.includes(status))return fail("Status de ponto inválido.");
   const ot=finiteBetween(input.ot,0,24);
   const workedMinutes=finiteBetween(input.workedMinutes,0,1440);
   const atrasoMin=finiteBetween(input.atrasoMin,0,1440);
