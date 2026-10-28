@@ -17,3 +17,34 @@ test("projeção financeira usa configuração, equipamentos e ponto das linhas 
   expect(merged.pedidos).toEqual(core.pedidos);
   expect(core).toEqual(before);
 });
+
+test("projeção financeira recalcula a quinzena arquivada e ignora o resumo persistido",()=>{
+  const core={
+    config:{},
+    quinzenasArquivadas:{"2026-07-Q1":{inicio:"2026-07-06",fim:"2026-07-20"}},
+    archivedLaborCosts:{"2026-07-Q1":{byDate:{"2026-07-10":{o1:{laborCost:9999,benefitCost:9999}}}}},
+  };
+  const archive={
+    meta:{quinzenaId:"2026-07-Q1"},
+    attendance:{e1:{"2026-07-10":{status:"P",obraId:"o1"}}},
+    employeesSnapshot:[{
+      id:"e1",name:"Operário",obra:"o1",dailyRate:100,vtDaily:10,
+      workdayHours:8,startDate:"2026-01-01",
+    }],
+    financialSnapshot:{byDate:{"2026-07-10":{o1:{laborCost:9999,benefitCost:9999}}}},
+  };
+  const merged=mergeFinancialSourceRows(core,[
+    {key:"arced_ponto_v1__arq__2026-07-Q1",value:archive},
+  ]);
+  expect(merged.archivedLaborCosts["2026-07-Q1"].byDate["2026-07-10"].o1).toEqual({
+    laborCost:100,benefitCost:10,
+  });
+});
+
+test("projeção financeira falha fechado quando existe marcador sem arquivo imutável",()=>{
+  expect(()=>mergeFinancialSourceRows({
+    config:{},
+    quinzenasArquivadas:{"2026-07-Q1":{inicio:"2026-07-06",fim:"2026-07-20"}},
+    archivedLaborCosts:{"2026-07-Q1":{byDate:{}}},
+  },[])).toThrow(/Arquivo de ponto ausente/);
+});
