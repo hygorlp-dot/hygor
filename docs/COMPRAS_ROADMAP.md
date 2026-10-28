@@ -23,7 +23,7 @@ Complementa `docs/COMPRAS_UX_FLUXO.md` (fila operacional, feita antes). Este roa
 | R3 | Cabeçalho compacto, título sem repetição; renomear o item "Cotações" do menu para o que ele é. | A primeira linha da fila aparece em 1000 px; nenhum nome duplicado entre menu e abas. | Entregue (PR R3) |
 | R4 | Pedidos: ação principal conforme o status, "Cancelar" e "Excluir" num menu "⋯", filtros por status, fornecedor, atraso e obra. | No máximo uma ação principal visível por cartão; destrutivas fora da linha de ações comuns. | Entregue (PR R4) |
 | R5 | Painel: separar "Resumo" (KPIs, exceções clicáveis, tabela por obra) de "Análises" (Kanban, maturidade, veredicto); sem "Excluir" em tela de leitura. | Cada exceção abre a fila já filtrada; nenhuma ação destrutiva no painel. | Entregue (PR R5) |
-| R6 | Recebimento único: "Chegou" abre o mesmo modal de recebimento, já preenchido com tudo. | Uma só regra de recebimento (parcial, conferência de pagamento) nos dois caminhos. | Planejado |
+| R6 | Recebimento único: "Chegou" abre o mesmo modal de recebimento, já preenchido com tudo. | Uma só regra de recebimento (parcial, conferência de pagamento) nos dois caminhos. | Entregue (PR R6) |
 | R7 | Fila agrupável por obra e por fornecedor, contadores com valor em R$. | Cobrar três entregas atrasadas do mesmo fornecedor em uma visão. | Entregue (PR R7) |
 | R8 | Avaliação e ajuste em celular real. | Roteiro de uso em 390 px sem rolagem lateral e com ações alcançáveis. | Planejado (precisa de dispositivo) |
 
@@ -83,4 +83,12 @@ Dados fictícios; só o papel administrador foi observado (engenharia, compras e
 - **Filtro por ids**: `FILTROS_PEDIDOS_VAZIOS` ganhou `ids` e `origem`; `filtrarPedidos` respeita a lista, e "Limpar filtros" a remove.
 - **Sem mudança de regra**: só navegação e leitura.
 - **Verificação**: `panel-exceptions.test.js` (5 casos) e o caso novo do `e2e/purchase-workspace.spec.js` (Resumo por padrão, nenhum "Excluir" nas duas vistas, exceção de atraso abre "só atrasadas", exceção sem concorrência abre os 2 pedidos com a origem visível, "Abrir" leva ao pedido), que falha no código anterior; conferido em 1280 e 390 px.
+
+### R6 · Recebimento único (28/10/2026)
+
+- **Uma regra**: `montarRecebimento` (`src/domains/compras/receipt.js`, função pura) valida e monta o recebimento para os dois caminhos: ao menos uma quantidade, nenhuma acima do que falta (receber a mais esconde erro de nota), nada negativo ou inválido; converte da unidade de compra para a do cadastro e devolve `receivedQuantities` e `stockEntries` para o comando `PURCHASE_RECEIPT_RECORDED`. `quantidadesQueFaltam` dá o "chegou tudo" sugerido.
+- **Um modal**: o modal de recebimento saiu da `ComprasView` para `components/ReceiptModal.jsx`. O "Receber" de Compras e o "Chegou" da tela da obra abrem o mesmo modal, já preenchido com tudo o que falta; quem recebeu só uma parte ajusta a quantidade. Antes, o "Chegou" tinha um modal próprio que só aceitava "Sim, chegou tudo" e mandava fazer o parcial em Compras. Na obra o modal é carregado sob demanda (`lazy`), para não puxar a tela de Compras inteira.
+- **Conferência de pagamento**: o modal mostra a situação do pagamento ("quitado" ou "R$ X em aberto. O recebimento não depende dele."), nos dois caminhos. Receber continua sem depender de pagamento (decisão da C1.2).
+- **Sem mudança no servidor**: o comando, as permissões e o que é gravado são os mesmos; a trava de clique duplo da obra (C8) continua.
+- **Verificação**: `receipt.test.js` (5 casos, inclusive o comando real do servidor aceitando o recebimento montado sem pagamento), os testes de formato do `LegacyApp.purchase-workflow-fixes.test.js` atualizados para o novo lugar das mesmas garantias (conversão de unidade, unidade de compra no rótulo, trava de clique duplo) e o caso novo do `e2e/purchase-workspace.spec.js` (na obra, "Chegou" abre o modal preenchido com 10 UN e o saldo em aberto, recusa 11, registra 4), que falha no código anterior; conferido em 1280 e 390 px.
 

@@ -55,6 +55,8 @@ import {
   acoesDoPedido, contarPedidosPorStatus, FILTROS_PEDIDOS_VAZIOS, filtrarPedidos, filtrosPedidosAtivos, OPCOES_STATUS_PEDIDO,
 } from "../order-list";
 import { OrderActionMenu } from "./OrderActionMenu";
+import { ModalRecebimento } from "./ReceiptModal";
+import { montarRecebimento } from "../receipt";
 import { avaliacoesFornecedores, explicacaoNotaFornecedor, textoNotaFornecedor } from "../supplier-rating";
 import {
   avaliarEscolhasCotacao, cotacaoMultiItens, decisoesDaCotacao, escolhaPrecisaJustificativa,
@@ -70,9 +72,9 @@ import {
   validatePurchaseRequest,
 } from "../purchase-request-workflow";
 import {
-  conversionFactorOf, hasValidUnitConversion, purchaseUnitOf,
+  hasValidUnitConversion, purchaseUnitOf,
   referencePricePerPurchaseUnit, referenceQuantityOf, referenceTotalOf,
-  referenceUnitCostOf, suggestedSteelConversion,
+  suggestedSteelConversion,
 } from "../unit-conversion";
 import {
   enviarArquivoOneDrive, gerarLinkAceitePedido, listarBasesReferencia, pesquisarInsumosReferencia,
@@ -678,86 +680,6 @@ function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOr
 
 // Recebimento - o único lugar onde Compras encosta no Estoque.
 // Aceita entrega PARCIAL, porque na obra o caminhão chega faltando item.
-function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, unidMat, nomeForn,save }) {
-  const [salvando,setSalvando]=useState(false);
-  const confirmar=async()=>{if(salvando)return;setSalvando(true);try{await onReceber(pedido,qtds);}finally{setSalvando(false);}};
-  const [qtds, setQtds] = useState(() =>
-    Object.fromEntries(pedido.itens.map(i => {
-      const falta = Number(i.qtd) - Number(i.qtdRecebida || 0);
-      return [i.id, String(falta > 0 ? falta : 0)];   // sugere o que falta
-    }))
-  );
-
-  const set = (id, v) => setQtds(q => ({ ...q, [id]: v }));
-
-  const linhas = pedido.itens.map(i => {
-    const falta = Number(i.qtd) - Number(i.qtdRecebida || 0);
-    const chegou = Number(qtds[i.id] || 0);
-    return { ...i, falta, chegou, excede: chegou > falta + 1e-6 };
-  });
-
-  const temExcesso = linhas.some(l => l.excede || !Number.isFinite(l.chegou) || l.chegou < 0);
-  const valorTotal = linhas.reduce((s,l) => s + l.chegou * Number(l.precoUnit||0), 0);
-
-  return (
-    <Modal title={`Receber - ${pedido.numero}`} onClose={()=>!salvando&&onClose()} wide panelClass="purchase-form-panel">
-      <fieldset disabled={salvando} style={{display:"flex",flexDirection:"column",gap:12}}>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{nomeForn(pedido.fornecedorId)}</p>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
-            Informe o que <strong>realmente chegou</strong>. Pode receber parcial - o
-            pedido fica em aberto até completar.
-          </p>
-        </div>
-
-        {linhas.map(l => (
-          <div key={l.id} style={{
-            background: l.excede ? `${C.red}08` : C.card,
-            border:`1px solid ${l.excede ? C.red : C.border}`,
-            borderRadius:6, padding:"10px 11px",
-          }}>
-            <p className="brk" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{nomeMat(l.materialId)}</p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,marginBottom:7}}>
-              Pedido: {l.qtd} {purchaseUnitOf(l)}
-              {Number(l.qtdRecebida) > 0 && `  já recebido: ${l.qtdRecebida}`}
-              {l.falta > 0 && `  falta: ${l.falta}`}
-              {` · saldo após esta entrada: ${Math.max(0,l.falta-l.chegou)} ${purchaseUnitOf(l)}`}
-            </p>
-            <Inp label={`Chegou agora (${purchaseUnitOf(l)})`} type="number" min="0" max={l.falta} disabled={salvando}
-                 value={qtds[l.id]} onChange={v=>set(l.id, v)}/>
-            {purchaseUnitOf(l)!==String(l.unidadeRef||"").toUpperCase()&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>{l.chegou.toLocaleString("pt-BR")} {purchaseUnitOf(l)} equivalem a {referenceQuantityOf(l,l.chegou).toLocaleString("pt-BR",{maximumFractionDigits:4})} {l.unidadeRef} no estoque.</p>}
-            {l.excede && (
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.red,marginTop:5,fontWeight:600}}>
-                ! Só faltam {l.falta}. Receber a mais esconde erro de nota fiscal.
-              </p>
-            )}
-          </div>
-        ))}
-
-        <div style={{background:`${C.green}0A`,border:`1.5px solid ${C.green}`,
-                     borderRadius:6,padding:"10px 12px"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>
-            Vai entrar no estoque da obra:
-          </p>
-          <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.green,marginTop:2,
-                     fontFamily:"var(--arcd-font-sans)"}}>{fmt(valorTotal)}</p>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4,lineHeight:1.45}}>
-            Esta ação confirma a chegada física e atualiza o estoque.
-            O pagamento é acompanhado separadamente; receber não registra uma saída financeira.
-          </p>
-        </div>
-
-        <div style={{display:"flex",gap:8}}>
-          <Btn v="ghost" onClick={onClose} disabled={salvando} full>Cancelar</Btn>
-          <Btn onClick={confirmar} full loading={salvando&&"Confirmando…"} disabled={salvando || temExcesso || valorTotal <= 0}>
-            <Ic n="check"/> Dar entrada no estoque
-          </Btn>
-        </div>
-      </fieldset>
-      <PurchaseSaveNotice save={save}/>
-    </Modal>
-  );
-}
 
 export default function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD_SETOR, dispatchCommand:rawDispatchCommand=null }) {
   const { cols, pick, isDesktop } = useBreakpoint();
@@ -1604,43 +1526,16 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   // chegar antes, durante ou depois da quitação (compra a prazo é o caso
   // normal). O saldo em aberto continua visível, só não bloqueia mais.
   const receber = async (pedido, recebidos) => {
-    // recebidos: { [itemId]: qtd que chegou AGORA }
-    const linhas = pedido.itens.map(i => ({
-      ...i,
-      chegou: Number(recebidos[i.id] || 0),
-      falta: Number(i.qtd) - Number(i.qtdRecebida || 0),
-    }));
-
-    if (linhas.every(l => l.chegou <= 0)) {
-      showToast("Informe ao menos uma quantidade recebida.", "error");
+    // recebidos: { [itemId]: qtd que chegou AGORA }. R6: a mesma regra do
+    // "Chegou" da tela da obra (montarRecebimento).
+    const montado=montarRecebimento(pedido,recebidos,{quando:new Date().toISOString().slice(0,10),novoId:uid,
+      descricao:`Pedido ${pedido.numero} · ${nomeForn(pedido.fornecedorId)}`});
+    if(!montado.ok){
+      const item=(pedido.itens||[]).find(i=>i.id===montado.itemId);
+      showToast(item?`"${nomeMat(item.materialId)}": ${montado.erro}`:montado.erro,"error");
       return;
     }
-    // Receber MAIS que o pedido esconde erro de nota fiscal - trava.
-    const excedeu = linhas.filter(l => l.chegou > l.falta + 1e-6);
-    if (excedeu.length) {
-      showToast(`"${nomeMat(excedeu[0].materialId)}": só faltam ${excedeu[0].falta}.`, "error");
-      return;
-    }
-
-    const quando = new Date().toISOString().slice(0,10);
-
-    // Cada item recebido vira ENTRADA no estoque da obra. É aqui que Compras
-    // encosta no Estoque - e é a única coisa física que um pedido gera.
-    const entradas = linhas.filter(l => l.chegou > 0).map(l => ({
-      id: uid(), receiptId:uid(), pedidoItemId:l.id, pedidoId: pedido.id,
-      obraId: pedido.obraId,
-      materialId: l.materialId,
-      tipo: "entrada",
-      // O pedido é conferido na embalagem comprada, mas o estoque permanece
-      // na unidade canônica do cadastro/SINAPI.
-      qtd: referenceQuantityOf(l,l.chegou),
-      valorUnit: referenceUnitCostOf(l),
-      qtdCompra:l.chegou,unidadeCompra:purchaseUnitOf(l),
-      fatorConversao:conversionFactorOf(l),unidadeRef:l.unidadeRef||"",
-      data: quando,
-      descricao: `Pedido ${pedido.numero} · ${nomeForn(pedido.fornecedorId)}`,
-      transacaoId: "", servicoId: "", orcItemId:l.orcItemId||"",orcNivel1Id:l.orcNivel1Id||"", etapa: "",
-    }));
+    const entradas=montado.stockEntries;
 
     if(!dispatchCommand){
       showToast("O recebimento seguro exige conexão com o servidor.","error");
@@ -1651,7 +1546,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       return {type:OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,
         idempotencyKey:`pedido-recebimento-${pedido.id}-${uid()}`,
         expectedVersion:Number(vigente?.version||0),actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{pedidoId:pedido.id,receivedQuantities:Object.fromEntries(linhas.filter(l=>l.chegou>0).map(l=>[l.id,l.chegou])),stockEntries:entradas}};
+        payload:{pedidoId:pedido.id,receivedQuantities:montado.receivedQuantities,stockEntries:entradas}};
     });
     if(!result?.ok){showToast(result?.reason||"Não foi possível registrar o recebimento.","error");return;}
     const pedidoConfirmado=(result.data?.pedidos||[]).find(item=>item.id===pedido.id)||pedido;
@@ -2914,8 +2809,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setCotDecisao(null)}>Cancelar</Btn><Btn full onClick={()=>decidirCotacao(cot,escolhas,just)} disabled={!!avaliacao.erro}>Aprovar e gerar pedido(s)</Btn></div>
         </div></Modal>;})()}
       {recModal  && <ModalRecebimento pedido={recModal} onClose={()=>setRecModal(null)}
-                                      onReceber={receber} nomeMat={nomeMat} unidMat={unidMat}
-                                      nomeForn={nomeForn} save={save}/>}
+                                      onReceber={receber} nomeMat={nomeMat}
+                                      nomeForn={nomeForn} notice={<PurchaseSaveNotice save={save}/>}/>}
       {pagModal&&<Modal title={`Pagamento · ${pagModal.pedido.numero}`} onClose={()=>setPagModal(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 10px"}}><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Total do pedido</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{fmt(totalPedido(pagModal.pedido))}</p></div><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Saldo antes deste pagamento</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.red}}>{fmt(saldoPagamentoPedido(pagModal.pedido))}</p></div></div>
         <Sel label="Origem real do pagamento *" value={pagModal.origem} onChange={v=>setPagModal(f=>({...f,origem:v,transacaoId:v==="empresa"?f.transacaoId:""}))} options={[{v:"empresa",l:"Conta bancária da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente pagou diretamente"}]}/>
