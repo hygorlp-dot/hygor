@@ -63,6 +63,54 @@ describe("comandos de licenciamento", () => {
     });
   });
 
+  it("grava a pasta do OneDrive na obra junto com o checklist", () => {
+    const command = {
+      type: LICENSING_COMMAND.LICENSE_CHECKLIST_SAVED,
+      idempotencyKey: "lic-0005", expectedVersion: 0,
+      payload: {
+        license: { id: "lic1", obraId: "obra1" },
+        workspace: { driveId: "drv", folderId: "fld", folders: { licenciamento: "x" }, webUrl: "https://od/x" },
+      },
+    };
+    const result = applyLicensingCommand(BASE, command);
+    expect(result.ok).toBe(true);
+    expect(result.data.obras[0]).toMatchObject({
+      id: "obra1", name: "Obra 1", oneDriveDriveId: "drv", oneDriveFolderId: "fld",
+      oneDriveFolders: { licenciamento: "x" }, oneDriveUrl: "https://od/x",
+    });
+  });
+
+  it("vincula e desvincula o condomínio da obra usando o nome do cadastro", () => {
+    const base = { ...BASE, condominios: [{ id: "cond1", nome: "Terras Alpha" }] };
+    const link = applyLicensingCommand(base, {
+      type: LICENSING_COMMAND.LICENSE_CHECKLIST_SAVED, expectedVersion: 0,
+      payload: { license: { id: "lic1", obraId: "obra1" }, obraCondominioId: "cond1" },
+    });
+    expect(link.data.obras[0]).toMatchObject({ condominioId: "cond1", condominioNome: "Terras Alpha" });
+
+    const unlink = applyLicensingCommand(link.data, {
+      type: LICENSING_COMMAND.LICENSE_CHECKLIST_SAVED, expectedVersion: 1,
+      payload: { license: { id: "lic1", obraId: "obra1" }, obraCondominioId: "" },
+    });
+    expect(unlink.data.obras[0]).toMatchObject({ condominioId: "", condominioNome: "" });
+  });
+
+  it("rejeita vínculo com condomínio inexistente", () => {
+    const result = applyLicensingCommand(BASE, {
+      type: LICENSING_COMMAND.LICENSE_CHECKLIST_SAVED, expectedVersion: 0,
+      payload: { license: { id: "lic1", obraId: "obra1" }, obraCondominioId: "cond-fantasma" },
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("sem workspace nem condomínio, não altera a obra", () => {
+    const result = applyLicensingCommand(BASE, {
+      type: LICENSING_COMMAND.LICENSE_CHECKLIST_SAVED, expectedVersion: 0,
+      payload: { license: { id: "lic1", obraId: "obra1" } },
+    });
+    expect(result.data.obras[0]).toEqual(BASE.obras[0]);
+  });
+
   it("cria um condomínio na versão 0", () => {
     const command = {
       type: LICENSING_COMMAND.CONDOMINIUM_SAVED,
