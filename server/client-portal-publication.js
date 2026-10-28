@@ -1,5 +1,6 @@
 import { cotacaoMultiItens, decisoesDaCotacao, mapaDaCotacao } from "../src/domains/compras/quote-map.js";
 import { statusPedido } from "../src/domains/compras/calculations.js";
+import { isApprovedTechnicalMeasurement } from "../src/domains/medicoes/constants.js";
 
 const list = value => Array.isArray(value) ? value : [];
 const text = value => typeof value === "string" ? value.trim() : "";
@@ -46,6 +47,24 @@ function measurementPayments(measurements) {
   }).slice(0, 40);
 }
 
+// O % que o cliente vê tem de ser o mesmo do boletim técnico: o último
+// boletim aprovado já traz o avanço físico ponderado por custo. Sem boletim,
+// pondera as tarefas pelo custo previsto (a média simples fazia uma tarefa de
+// R$ 500 pesar o mesmo que a estrutura inteira).
+export function clientPortalProgress({ data = {}, obraId = "", tasks = [] } = {}) {
+  const latest = list(data.medicoesObra)
+    .filter(item => String(item?.obraId) === obraId && isApprovedTechnicalMeasurement(item) && Number.isFinite(Number(item?.avancoFisico)))
+    .sort((a, b) => String(a?.dataMedicao || a?.data || "").localeCompare(String(b?.dataMedicao || b?.data || "")))
+    .at(-1);
+  if (latest) return { value: Math.round(cappedPercent(latest.avancoFisico)), source: "medicao_tecnica" };
+  if (!tasks.length) return { value: 0, source: "sem_dados" };
+  const totalCost = tasks.reduce((sum, item) => sum + Math.max(0, number(item?.custo)), 0);
+  const value = totalCost > 0
+    ? tasks.reduce((sum, item) => sum + Math.max(0, number(item?.custo)) * cappedPercent(item?.progresso), 0) / totalCost
+    : tasks.reduce((sum, item) => sum + cappedPercent(item?.progresso), 0) / tasks.length;
+  return { value: Math.round(value), source: totalCost > 0 ? "cronograma_ponderado" : "cronograma" };
+}
+
 /**
  * Monta somente o contrato editorial do Portal do Cliente. Nenhum array
  * financeiro operacional, custo, colaborador, conciliação ou dado bancário
@@ -58,10 +77,9 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
 
   const portal = obra.portalCliente || {};
   const plano = list(data.planos).find(item => String(item?.obraId) === obraId);
-  const tasks = list(plano?.tarefas).filter(item => !item?.titulo).slice(0, 50);
-  const progress = tasks.length
-    ? Math.round(tasks.reduce((sum, item) => sum + cappedPercent(item?.progresso), 0) / tasks.length)
-    : 0;
+  const allTasks = list(plano?.tarefas).filter(item => !item?.titulo);
+  const tasks = allTasks.slice(0, 50);
+  const progress = clientPortalProgress({ data, obraId, tasks: allTasks }).value;
   const reports = list(data.rdos)
     .filter(item => String(item?.obraId) === obraId && ["concluido", "concluído"].includes(text(item?.status).toLowerCase()))
     .sort(byNewest)

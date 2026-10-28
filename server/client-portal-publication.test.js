@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildClientPortalPublicationRows } from "./client-portal-publication.js";
+import { buildClientPortalPublicationRows, clientPortalProgress } from "./client-portal-publication.js";
 
 const data = {
   obras:[{
@@ -105,5 +105,22 @@ describe("buildClientPortalPublicationRows", () => {
 
   it("falha fechado quando a obra não existe", () => {
     expect(()=>buildClientPortalPublicationRows({data,projectId:"outra"})).toThrow("Obra não encontrada");
+  });
+});
+
+describe("clientPortalProgress", () => {
+  const tasks=[{id:"a",custo:9000,progresso:50},{id:"b",custo:1000,progresso:100}];
+  it("usa o avanço do último boletim técnico aprovado da obra", () => {
+    const medicoesObra=[
+      {id:"b1",obraId:"o",status:"aprovada",dataMedicao:"2026-09-01",avancoFisico:30},
+      {id:"b2",obraId:"o",status:"aprovada",dataMedicao:"2026-10-01",avancoFisico:42.4},
+      {id:"b3",obraId:"o",status:"rascunho",dataMedicao:"2026-10-20",avancoFisico:90},
+      {id:"x",obraId:"outra",status:"aprovada",dataMedicao:"2026-10-25",avancoFisico:99},
+    ];
+    expect(clientPortalProgress({data:{medicoesObra},obraId:"o",tasks})).toEqual({value:42,source:"medicao_tecnica"});
+  });
+  it("sem boletim, pondera as tarefas pelo custo, não pela média simples", () => {
+    expect(clientPortalProgress({data:{},obraId:"o",tasks})).toEqual({value:55,source:"cronograma_ponderado"});
+    expect(clientPortalProgress({data:{},obraId:"o",tasks:[{progresso:50},{progresso:100}]})).toEqual({value:75,source:"cronograma"});
   });
 });
