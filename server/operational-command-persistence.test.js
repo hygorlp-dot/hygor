@@ -11,7 +11,9 @@ const financialCommands=new Set([
   OPERATIONAL_COMMAND.EQUIPMENT_SAVED,
   OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_COMMERCIAL_OVERRIDDEN,
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CANCELLED,
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,
   OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED,
@@ -30,6 +32,8 @@ describe("persistência de comandos operacionais",()=>{
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_SAVED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,financialCommands)).toBe(false);
+    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_COMMERCIAL_OVERRIDDEN,financialCommands)).toBe(false);
+    expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CANCELLED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,financialCommands)).toBe(false);
     expect(requiresFinancialOperationalPersistence(OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,financialCommands)).toBe(false);
