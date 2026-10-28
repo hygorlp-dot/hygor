@@ -45,12 +45,12 @@ const garantirBucketPatrimonio = async () => {
   const { data: existing } = await db.storage.getBucket(PATRIMONIO_BUCKET);
   if (!existing) {
     const { error } = await db.storage.createBucket(PATRIMONIO_BUCKET, {
-      public:false, fileSizeLimit:"4MB", allowedMimeTypes:PATRIMONIO_MIMES,
+      public:false, fileSizeLimit:"3MB", allowedMimeTypes:PATRIMONIO_MIMES,
     });
     if (error && !/already exists|duplicate/i.test(String(error.message||""))) throw error;
-  } else if (existing.public) {
+  } else {
     const { error } = await db.storage.updateBucket(PATRIMONIO_BUCKET, {
-      public:false, fileSizeLimit:"4MB", allowedMimeTypes:PATRIMONIO_MIMES,
+      public:false, fileSizeLimit:"3MB", allowedMimeTypes:PATRIMONIO_MIMES,
     });
     if (error) throw error;
   }
