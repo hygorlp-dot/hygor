@@ -41,6 +41,14 @@ describe("FIN 9.6 — fatos operacionais respeitam competência fechada",()=>{
 
   afterAll(async()=>{await db?.close();});
 
+  test("migration 022 mantém delimitadores PL/pgSQL completos",()=>{
+    const sql=fs.readFileSync(path.resolve("migrations","022_closed_period_legacy_source_guard.up.sql"),"utf8");
+    expect(sql).not.toMatch(/\n\$;\n/);
+    expect((sql.match(/as \$\$/g)||[]).length).toBe((sql.match(/\n\$\$;/g)||[]).length);
+  });
+
+
+
   const fact=(id,date,amount=100,settlements=[])=>({
     legacyType:"despesa_obra",legacyId:id,category:"expenses",direction:"payable",
     obraId:"obra-1",titleAmount:amount,recognizedAmount:amount,
