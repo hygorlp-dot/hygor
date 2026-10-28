@@ -18,6 +18,16 @@ describe("FIN 9.6 — prévia do fechamento mensal",()=>{
     expect(block).toContain("sourceRevision");
   });
 
+  it("competência já fechada é lida do snapshot antes de consultar o razão vivo",()=>{
+    const start=api.indexOf('if(action==="financial-closing-preview")');
+    const end=api.indexOf('// Motor Financeiro Canônico:',start);
+    const block=api.slice(start,end);
+    expect(block).toContain("stored?.ok&&stored.alreadyClosed");
+    expect(block).toContain('source:"closed_snapshot"');
+    expect(block.indexOf("stored?.ok&&stored.alreadyClosed"))
+      .toBeLessThan(block.indexOf("loadCanonicalDre"));
+  });
+
   it("não executa comando, migration ou escrita durante a prévia",()=>{
     const start=api.indexOf('if(action==="financial-closing-preview")');
     const end=api.indexOf('// Motor Financeiro Canônico:',start);
