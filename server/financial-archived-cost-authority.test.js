@@ -35,6 +35,18 @@ describe("FIN 9.6 — custo arquivado autoritativo no servidor",()=>{
     expect(sync).toContain("custosArquivadosAnexados:true");
   });
 
+  it("prévia aberta usa custo arquivado autoritativo sem recalcular competência já fechada",()=>{
+    const start=api.indexOf('if(action==="financial-closing-preview")');
+    const end=api.indexOf("// Motor Financeiro Canônico:",start);
+    const block=api.slice(start,end);
+    expect(block).toContain("stored?.ok&&stored.alreadyClosed");
+    expect(block).toContain("fonteFinanceira=await anexarCustosArquivados(atual,{strict:true})");
+    expect(block.indexOf("stored?.ok&&stored.alreadyClosed"))
+      .toBeLessThan(block.indexOf("anexarCustosArquivados(atual,{strict:true})"));
+    expect(block).toContain("buildRequestedDreProjectionRows(fonteFinanceira");
+    expect(block).toContain("data:fonteFinanceira");
+  });
+
   it("DRE anual, mensal e gestão financeira usam fonte autoritativa",()=>{
     const annualStart=api.indexOf('if(action==="financial-annual-dre-report"');
     const dreEnd=api.indexOf('if(action==="backup-status")',annualStart);
