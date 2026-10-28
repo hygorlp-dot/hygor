@@ -142,7 +142,7 @@ export default async function handler(req,res){
       if(!uploadSession?.uploadUrl)throw new Error("O OneDrive não abriu a sessão de upload.");
       const uploadToken=seal({
         kind:"onedrive-upload-v1",uploadUrl:uploadSession.uploadUrl,driveId:ws.driveId,
-        fileName,fileSize,mime:String(body.mime||"application/octet-stream").slice(0,160),
+        workId:String(obraEscopo.id||""),fileName,fileSize,mime:String(body.mime||"application/octet-stream").slice(0,160),
         nextStart:0,expiresAt:uploadSession.expirationDateTime||"",
       });
       return res.json({ok:true,uploadToken,nextStart:0,workspace:workspacePublico(ws,appUser)});
@@ -151,6 +151,8 @@ export default async function handler(req,res){
       if(!obraEscopo)return res.status(403).json({error:"A obra não está disponível para este usuário."});
       const state=unseal(String(body.uploadToken||""));
       if(!state||state.kind!=="onedrive-upload-v1")return res.status(400).json({error:"Sessão de upload inválida."});
+      if(String(state.workId||"")!==String(obraEscopo.id||""))return res.status(403).json({error:"A sessão de upload pertence a outra obra."});
+      if(Number(state.fileSize)>LICENSING_UPLOAD_MAX_BYTES)return res.status(413).json({error:"O arquivo de licenciamento excede 20 MB."});
       if(state.expiresAt&&Date.parse(state.expiresAt)<=Date.now())return res.status(410).json({error:"A sessão de upload expirou. Inicie o envio novamente."});
       const start=Math.trunc(Number(body.start));
       const total=Math.trunc(Number(body.total));
