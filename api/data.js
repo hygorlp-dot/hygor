@@ -464,7 +464,7 @@ const anexarCustosArquivados = async payload => {
     const qid = String(linha.key || "").slice(`${KEY}__arq__`.length);
     // Recalcula sempre a partir da fonte arquivada. Um resumo persistido por
     // versões antigas nunca é tratado como verdade financeira.
-    existentes[qid] = normalizeArchivedCosts(summarizeArchivedCosts(linha.value));
+    existentes[qid] = normalizeArchivedCosts(summarizeArchivedCosts(linha.value, payload?.config));
   }
   return { ...payload, archivedLaborCosts: existentes };
 };
@@ -3202,7 +3202,7 @@ export default async function handler(req, res) {
       // Valores são calculados exclusivamente pelo servidor com a fotografia
       // de ponto, lotação, diária e benefícios que acabou de ler do banco.
       const resumoFinanceiro = normalizeArchivedCosts(
-        summarizeArchivedCosts({ attendance: fatia, employeesSnapshot })
+        summarizeArchivedCosts({ attendance: fatia, employeesSnapshot }, atual?.config)
       );
 
       const novoPrincipal = {

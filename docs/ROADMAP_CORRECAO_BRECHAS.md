@@ -241,12 +241,12 @@ quando a ponte 1.5 vira desnecessária e é removida.
 |---|---|---|
 | Onda 0 — D1…D6, L1 | ⬜ aguardando dono | — |
 | 1.1 Fechar quinzena | ✅ em produção | #164 |
-| 1.2 FE/AT/FG | ⬜ | — |
-| 1.3 Não salvo visível | ⬜ | — |
-| 1.4 LGPD ponto | ⬜ | — |
-| 1.5 Ponte REP-P | ⬜ | — |
-| 1.6a CPI falso | 🟨 em revisão | `fix/fisico-financeiro-cpi` |
-| 1.6b % portal | 🟨 em revisão | `fix/fisico-financeiro-cpi` |
-| Onda 2 Encargos | ⬜ | — |
+| 1.2 FE/AT/FG | ✅ em produção | #166 |
+| 1.3 Não salvo visível | ✅ em produção | #167 |
+| 1.4 LGPD ponto | ⬜ aguardando termo e prazo (L1) | — |
+| 1.5 Ponte REP-P | ✅ em produção | #169 |
+| 1.6a CPI falso | ✅ em produção | #165 |
+| 1.6b % portal | ✅ em produção | #165 |
+| Onda 2 Encargos | 🟨 em revisão | `feat/dre-encargos-clt` |
 | Gate do piloto | ⬜ | — |
 | Ondas 3–6 | ⬜ | — |

@@ -1,4 +1,6 @@
 import { calculateAttendanceDayCost } from "../src/domains/ponto/payroll.js";
+import { remunerationModeOnDate } from "../src/domains/rh/remuneration-mode.js";
+import { laborChargeFactor } from "../src/domains/financeiro/labor-charges.js";
 
 const employedOn = (employee, date) =>
   (!employee?.startDate || date >= employee.startDate) &&
@@ -6,7 +8,9 @@ const employedOn = (employee, date) =>
 
 // Fonte financeira autoritativa de uma quinzena encerrada. O cálculo usa
 // somente o arquivo imutável criado pelo servidor, nunca valores do cliente.
-export const summarizeArchivedCosts = archive => {
+// Encargos (labor-charges.js) entram no custo arquivado como no custo vivo,
+// pela configuração atual da empresa (o resumo é recalculado a cada leitura).
+export const summarizeArchivedCosts = (archive, config = {}) => {
   const snapshots = new Map((archive?.employeesSnapshot || []).map(employee => [String(employee.id), employee]));
   const byDate = {};
   for (const [employeeId, attendance] of Object.entries(archive?.attendance || {})) {
@@ -18,11 +22,12 @@ export const summarizeArchivedCosts = archive => {
       const factor = cost.factor;
       const workId = String(record.obraId || employee.obra || "");
       if (!factor || !workId) continue;
+      const charges = cost.laborCost * laborChargeFactor(remunerationModeOnDate(employee, date), config);
       const previous = byDate[date]?.[workId] || {laborCost: 0, benefitCost: 0};
       byDate[date] = {
         ...(byDate[date] || {}),
         [workId]: {
-          laborCost: previous.laborCost + cost.laborCost,
+          laborCost: previous.laborCost + cost.laborCost + charges,
           benefitCost: previous.benefitCost + cost.benefitCost,
         },
       };

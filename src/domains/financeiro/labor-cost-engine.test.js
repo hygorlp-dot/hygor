@@ -29,6 +29,7 @@ describe("motor financeiro de mão de obra", () => {
     };
 
     expect(engine.calculateWorkLaborCost(data, "o1", ["2026-07-01"])).toEqual({
+      chargesCost:0,
       laborCost:150,
       benefitCost:15,
       totalCost:165,
@@ -51,7 +52,7 @@ describe("motor financeiro de mão de obra", () => {
     const first = engine.calculateWorkLaborCost(data, "o1", days);
     const second = engine.calculateWorkLaborCost(data, "o1", days);
 
-    expect(first).toEqual({ laborCost:100, benefitCost:0, totalCost:100 });
+    expect(first).toEqual({ chargesCost:0, laborCost:100, benefitCost:0, totalCost:100 });
     expect(second).toBe(first);
     expect(holidayPay).toHaveBeenCalledTimes(1);
   });

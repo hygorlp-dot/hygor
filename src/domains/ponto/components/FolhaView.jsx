@@ -38,6 +38,7 @@ import { advanceDeductionForPeriod } from "../../rh/advance-commands";
 import { CltPayslips } from "./CltPayslips.jsx";
 import { remunerationModeOnDate } from "../../rh/remuneration-mode.js";
 import { LaborProvisions } from "./LaborProvisions.jsx";
+import { LaborChargesSettings } from "./LaborChargesSettings.jsx";
 import { PayModeSimulation } from "./PayModeSimulation.jsx";
 import {EmployeeCosts} from '../../rh/components/EmployeeCosts.jsx';
 import {EmployeeDossier} from '../../rh/components/EmployeeDossier.jsx';
@@ -852,7 +853,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
       <FlowTabs label="Áreas da folha" active={payrollView} onChange={setPayrollView}
         steps={[{id:"payroll",label:"Folha da quinzena",description:"Confira as pendências e a composição por funcionário antes de gerar os relatórios."},{id:"clt",label:"Holerites CLT"},{id:"provisions",label:"Provisões trabalhistas"},{id:"simulation",label:"Simulação CLT × diária"},{id:'costs',label:'Custos por funcionário'},...(['admin','rh'].includes(currentUser?.role)?[{id:'dossier',label:'Prontuário documental'}]:[])]}
-        tools={[{id:"union",label:"Sindicato"}]} toolsLabel="Regras e descontos"/>
+        tools={[{id:"union",label:"Sindicato"},{id:"charges",label:"Encargos"}]} toolsLabel="Regras e descontos"/>
       {payrollView==="payroll"&&<DreIntegration kind="payroll" currentUser={currentUser} obraId={filterObra==="all"?"":filterObra} year={year} month={month}>
         <p>Consulta do DRE mensal. A quinzena de 21 a 05 atravessa dois meses; o DRE mantém a competência de cada apontamento.</p>
       </DreIntegration>}
@@ -862,6 +863,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       {payrollView==="simulation"&&<PayModeSimulation data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
       {payrollView==='costs'&&<EmployeeCosts data={data} year={year} month={month} showToast={showToast}/>}
       {payrollView==='dossier'&&<EmployeeDossier data={data} currentUser={currentUser} showToast={showToast}/>}
+      {payrollView==="charges"&&<LaborChargesSettings data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast}/>}
       {payrollView==="union"&&<section className="payroll-union" aria-labelledby="union-title">
         <header className="payroll-union__header">
           <div><h3 id="union-title">Desconto e recolhimento sindical</h3><p>Defina uma regra por função. O valor reduz o líquido do funcionário e fica separado como sindicato a recolher pela construtora.</p></div>
