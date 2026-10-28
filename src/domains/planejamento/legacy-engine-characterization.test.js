@@ -360,6 +360,22 @@ describe("distribuicaoMensal / fisicoFinanceiroMensal / curvaS / fisicoFinanceir
     expect(ff.total.previsaoFinal).toBeCloseTo(2062.5, 6);
   });
 
+  it("fisicoFinanceiro sem custo lançado não inventa realizado nem CPI = 1", () => {
+    const semCusto = tarefasFixtureC().map(t => ({ ...t, custoReal: 0 }));
+    const ff = legacy.fisicoFinanceiro(semCusto);
+    expect(ff.total.realizado).toBe(0);
+    expect(ff.total.cpi).toBeNull();
+    expect(ff.total.previsaoFinal).toBeNull();
+    expect(ff.total.desvio).toBeNull();
+    expect(ff.total.semCustoLancado).toBe(2);
+    expect(ff.linhas[0]).toMatchObject({ comCusto: false, realizado: 0, desvio: null });
+    // Uma tarefa medida: CPI só sobre ela (EV 1000 / AC 900), a outra não dilui.
+    const parcial = legacy.fisicoFinanceiro([tarefasFixtureC()[0], semCusto[1]]);
+    expect(parcial.total.cpi).toBeCloseTo(1000 / 900, 6);
+    expect(parcial.total.semCustoLancado).toBe(1);
+    expect(legacy.fisicoFinanceiroMensal(semCusto, calSegSex, { realizado: true }).totalGeral).toBe(0);
+  });
+
   it("fisicoFinanceiro exclui tarefas-título da lista de linhas", () => {
     const comTitulo = [...tarefasFixtureC(), { id: "T", titulo: true, custo: 999999, progresso: 0 }];
     const ff = legacy.fisicoFinanceiro(comTitulo);

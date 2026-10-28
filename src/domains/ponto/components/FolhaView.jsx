@@ -21,6 +21,7 @@ import {
   prIsWeekdayIso, prUniqueDates, toLocalISODate,
 } from "../attendance-engine";
 import { calculateAttendanceDayCost } from "../payroll";
+import { ATTENDANCE_STATUS_LABEL, isLeaveStatus, isValidAttendanceStatus } from "../attendance-status";
 import { resolveHistoricalEmployeeObraId, resolveHolidayObraId } from "../permissions";
 import { allocateAdvancesByWork } from "../advance-allocation";
 import { payrollPayerForWork, splitPayrollResponsibility } from "../payroll-responsibility";
@@ -107,6 +108,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     let meiodia = 0;
     let faltas = 0;
     let semRegistro = 0;
+    let afastamentos = 0;
     let ot = 0;
     let overtimePay = 0;
     let vt = 0;
@@ -119,7 +121,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       const chave = obraId || "__sem_obra__";
       if (!obrasPorDia[chave]) obrasPorDia[chave] = {
         obraId: obraId || "", presentes: 0, meiodia: 0, faltas: 0,
-        semRegistro: 0, feriadosPagos: 0, feriadosPerdidos: 0,
+        semRegistro: 0, afastamentos: 0, feriadosPagos: 0, feriadosPerdidos: 0,
         valorDias: 0, valorFeriados: 0, overtimePay:0, vt: 0, vr: 0, ot: 0,
       };
       const o = obrasPorDia[chave];
@@ -127,6 +129,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       else if (tipo === "M") o.meiodia++;
       else if (tipo === "F") o.faltas++;
       else if (tipo === "S") o.semRegistro++;
+      else if (tipo === "L") o.afastamentos++;
       else if (tipo === "HP") o.feriadosPagos++;
       else if (tipo === "HD") o.feriadosPerdidos++;
       o.valorDias += Number(valores.valorDias || 0);
@@ -172,6 +175,13 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       } else if (st === "F") {
         faltas++;
         addToObra(obraId, "F");
+      } else if (isLeaveStatus(st)) {
+        // Férias/atestado/folga: paga a diária pelo fator do afastamento,
+        // sem VT/VR e sem hora extra (calculateAttendanceDayCost).
+        const custo=calculateAttendanceDayCost({employee,record:a,config:data.config});
+        gross += custo.laborCost;
+        afastamentos++;
+        addToObra(obraId, "L", { valorDias:custo.laborCost });
       } else {
         semRegistro++;
         addToObra(obraId, "S");
@@ -225,6 +235,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       meiodia,
       faltas,
       semRegistro,
+      afastamentos,
       ot,
       overtimePay,
       vt,
@@ -311,7 +322,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       const a = getAtt(data, e.id, d);
       return (a?.obraId || getEmpObraIdOnDate(e, d)) === filterObra;
     });
-    const semRegistro = datasEsperadas.filter(d => !["P", "M", "F"].includes(getAtt(data, e.id, d)?.status));
+    const semRegistro = datasEsperadas.filter(d => !isValidAttendanceStatus(getAtt(data, e.id, d)?.status));
     const temObraNoPeriodo = datasEsperadas.some(d => {
       const a = getAtt(data, e.id, d);
       return !!(a?.obraId || getEmpObraIdOnDate(e, d));
@@ -484,7 +495,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     if (filterObra !== "all" && obraId !== filterObra) return null;
     const st = feriado ? (regraFer?.losesHoliday ? "Feriado perdido" : "Feriado pago")
       : a?.status === "P" ? "Presente" : a?.status === "M" ? "Meio periodo"
-      : a?.status === "F" ? "Falta" : "Sem registro";
+      : a?.status === "F" ? "Falta" : ATTENDANCE_STATUS_LABEL[a?.status] || "Sem registro";
     const equivalente = a?.status === "P" ? 1 : a?.status === "M" ? 0.5 : 0;
     const custoDia=feriado?null:calculateAttendanceDayCost({employee:r,record:a,config:data.config});
     const valorDia = feriado ? Number(regraFer?.amount || 0) : Number(custoDia?.laborCost || 0);

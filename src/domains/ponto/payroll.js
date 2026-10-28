@@ -1,4 +1,5 @@
 import { calculateTimekeeping } from "./timekeeping.js";
+import { payFactor, workedFactor } from "./attendance-status.js";
 
 const positiveNumber = (value, fallback = 0) => {
   const number = Number(value);
@@ -9,8 +10,9 @@ const safeRecord = value => value && typeof value === "object" && !Array.isArray
   ? value
   : {};
 
-export const attendanceFactor = status =>
-  status === "P" ? 1 : status === "M" ? 0.5 : 0;
+// Fator de pagamento da diária. Férias/atestado/folga pagam pelo fator de
+// afastamento (attendance-status.js); falta e dia sem registro pagam zero.
+export const attendanceFactor = (status, config = {}) => payFactor(status, config);
 
 export const resolveOvertimePolicy = input => {
   const employee = safeRecord(input?.employee);
@@ -46,11 +48,14 @@ export const calculateAttendanceDayCost = ({
   const employee = safeRecord(employeeInput);
   const record = safeRecord(recordInput);
   const config = safeRecord(configInput);
-  const factor = attendanceFactor(record.status);
+  const factor = attendanceFactor(record.status, config);
+  // Hora extra e VT/VR só existem em dia trabalhado (P/M), nunca em
+  // férias, atestado ou folga.
+  const worked = workedFactor(record.status);
   const dailyRate = positiveNumber(record.archivedDailyRate ?? employee.dailyRate);
   const vtDaily = positiveNumber(record.archivedVtDaily ?? employee.vtDaily);
   const vrDaily = positiveNumber(record.archivedVrDaily ?? employee.vrDaily);
-  const overtimeHours = factor > 0 ? positiveNumber(record.ot) : 0;
+  const overtimeHours = worked > 0 ? positiveNumber(record.ot) : 0;
   const { workdayHours, additionalPercent } = resolveOvertimePolicy({
     employee,
     record,
@@ -61,7 +66,7 @@ export const calculateAttendanceDayCost = ({
     : 0;
   const basePay = dailyRate * factor;
   const overtimePay = overtimeHours * overtimeHourlyRate;
-  const benefitCost = (vtDaily + vrDaily) * factor;
+  const benefitCost = (vtDaily + vrDaily) * worked;
   const timekeeping = calculateTimekeeping({
     entrada:record.entrada,
     intervaloSaida:record.intervaloSaida,
@@ -72,7 +77,7 @@ export const calculateAttendanceDayCost = ({
       ?? config.payrollWorkStart
       ?? "07:00",
   });
-  const delayMinutes = timekeeping.valid && !timekeeping.empty
+  const delayMinutes = worked <= 0 ? 0 : timekeeping.valid && !timekeeping.empty
     ? timekeeping.delayMinutes
     : positiveNumber(record.atrasoMin);
   const delayDeduction = Math.min(
@@ -83,6 +88,7 @@ export const calculateAttendanceDayCost = ({
 
   return {
     factor,
+    worked,
     dailyRate,
     basePay,
     overtimeHours,
