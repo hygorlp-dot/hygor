@@ -21,6 +21,12 @@ const SECTION_ROLES = Object.freeze({
   changeEvents:["admin","engenheiro","diretoria"], cashflowScenarios:["admin","diretoria","financeiro"], cashflowProjectionItems:["admin","diretoria","financeiro"],
   wasteRecords:["admin","engenheiro","ambiental"], resourceConsumption:["admin","engenheiro","ambiental"], environmentalLicenses:["admin","engenheiro","ambiental"], punchItems:["admin","engenheiro","qualidade"], warranties:["admin","engenheiro","assistencia"], serviceTickets:["admin","engenheiro","assistencia"],
   solicitacoesCompra:["admin","compras","engenheiro","engenheiro_auditor"], pedidos:["admin","compras","financeiro"], cotacoes:["admin","compras"],
+  // Achado do Pathfinder de Compras (27/10/2026): a tela "Preços e curva ABC"
+  // grava a pesquisa de preços em `cotacoesMaterial` por update() direto, mas a
+  // seção não tinha entrada aqui. Só o administrador conseguia registrar um
+  // preço; compras e engenharia (que têm a aba) recebiam "a seção não pode ser
+  // alterada por esta rota". Mesmos perfis que acessam a aba `suprimentos`.
+  cotacoesMaterial:["admin","compras","engenheiro","engenheiro_auditor"],
   fornecedores:["admin","compras","financeiro"], materiais:["admin","compras","engenheiro","engenheiro_auditor"], estoque:["admin","compras","engenheiro","engenheiro_auditor"], movEstoque:["admin","compras","engenheiro","engenheiro_auditor"],
   employees:["admin","rh"], advances:["admin","rh"],
   titulosFolha:["admin","rh","financeiro"], pagamentosFolha:["admin","rh","financeiro"], rescisoes:["admin","rh","financeiro"], quinzenasArquivadas:["admin","rh"],
@@ -48,7 +54,7 @@ const hasUnscopedRecord = value => scoped(value).some(item => item && !item.obra
 // deve ser obrigado a gravar um obraId artificial nesses registros.
 const CATALOG_SECTIONS=new Set([
   "unidades","materiais","fornecedores","composicoes","composicoesEmpresa",
-  "fases","categoriasDesp","baseFavoritos",
+  "fases","categoriasDesp","baseFavoritos","cotacoesMaterial",
 ]);
 
 export const authorizeSectionChanges = (user = {}, sections = {}) => {
