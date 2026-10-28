@@ -939,15 +939,16 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         <div style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: 8 }}>
           <MiniKpi label="Avanco fisico" value={`${ff.total.pctFisico.toFixed(0)}%`} cor={C.blue}
                    sub="valor agregado / previsto" />
-          <MiniKpi label="Custo realizado" value={fmt(ff.total.realizado)} cor={C.purple} />
+          <MiniKpi label="Custo realizado" value={fmt(ff.total.realizado)} cor={C.purple}
+                   sub={ff.total.semCustoLancado ? `${ff.total.semCustoLancado} tarefa(s) com avanço e sem custo lançado` : "lançado nas tarefas"} />
           <MiniKpi label="Previsao de custo final"
-                   value={fmt(ff.total.previsaoFinal)}
-                   cor={ff.total.previsaoFinal > ff.total.previsto ? C.red : C.green}
-                   sub={ff.total.previsaoFinal > ff.total.previsto ? "acima do orcado" : "dentro do orcado"} />
+                   value={ff.total.previsaoFinal == null ? "Sem custo lançado" : fmt(ff.total.previsaoFinal)}
+                   cor={ff.total.previsaoFinal == null ? C.muted : ff.total.previsaoFinal > ff.total.previsto ? C.red : C.green}
+                   sub={ff.total.previsaoFinal == null ? "lance o custo real para projetar" : ff.total.previsaoFinal > ff.total.previsto ? "acima do orcado" : "dentro do orcado"} />
           <MiniKpi label="Eficiencia (CPI)"
-                   value={ff.total.cpi ? ff.total.cpi.toFixed(2) : "-"}
-                   cor={ff.total.cpi >= 1 ? C.green : C.red}
-                   sub={ff.total.cpi >= 1 ? "no custo ou abaixo" : "gastando mais que o avanco"} />
+                   value={ff.total.cpi == null ? "-" : ff.total.cpi.toFixed(2)}
+                   cor={ff.total.cpi == null ? C.muted : ff.total.cpi >= 1 ? C.green : C.red}
+                   sub={ff.total.cpi == null ? "sem custo lançado para medir" : ff.total.cpi >= 1 ? "no custo ou abaixo" : "gastando mais que o avanco"} />
         </div>
       )}
 
@@ -1417,7 +1418,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                     </p>
                     <CurvaSGrafico dados={dadosS} real={ffMensalReal} />
                     <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginTop:10, lineHeight:1.5 }}>
-                      A linha amarela é o avanço financeiro <b>planejado</b> acumulado; a azul, o <b>realizado</b> (quando há custo lançado ou avanço físico). Quando a azul fica abaixo da amarela, a obra está mais lenta que o previsto. As barras claras mostram o peso de cada mês.
+                      A linha amarela é o avanço financeiro <b>planejado</b> acumulado; a azul, o <b>realizado</b> (só o custo lançado nas tarefas). Quando a azul fica abaixo da amarela, a obra está mais lenta que o previsto. As barras claras mostram o peso de cada mês.
                     </p>
                   </div>
                 )
@@ -1474,7 +1475,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginBottom: 10, lineHeight: 1.5 }}>
                     {ffModo === "previsto"
                       ? "Custo previsto de cada etapa distribuido pelos meses (rateio por dias uteis do planejamento). Cada celula: valor e % da etapa naquele mes."
-                      : "Custo realizado por etapa (lancado; na ausencia, estimado pelo avanco fisico), distribuido pelos meses."}
+                      : "Custo realizado por etapa (lancado; so o lancado; etapa sem custo lancado fica zerada), distribuido pelos meses."}
                   </p>
 
                   {ffM.linhas.length === 0 ? (
@@ -1544,8 +1545,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                     <MiniFF label="Previsto total" v={fmt(ff.total.previsto)} c={C.text} />
                     <MiniFF label="Valor agregado" v={fmt(ff.total.valorAgregado)} c={C.blue} />
                     <MiniFF label="Realizado" v={fmt(ff.total.realizado)} c={C.purple} />
-                    <MiniFF label="Previsao final" v={fmt(ff.total.previsaoFinal)}
-                            c={ff.total.previsaoFinal > ff.total.previsto ? C.red : C.green} />
+                    <MiniFF label="Previsao final" v={ff.total.previsaoFinal == null ? "Sem custo lançado" : fmt(ff.total.previsaoFinal)}
+                            c={ff.total.previsaoFinal == null ? C.muted : ff.total.previsaoFinal > ff.total.previsto ? C.red : C.green} />
                   </div>
                 </div>
               );

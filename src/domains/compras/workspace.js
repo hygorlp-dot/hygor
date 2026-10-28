@@ -33,7 +33,7 @@ export function buildPurchaseWorkspace(data, obraIds, today) {
   const quotedRequests = new Set(activeQuotes.map(item => item.solicitacaoId).filter(Boolean));
   const rows = [];
   const add = (record, details) => rows.push({
-    id:record.id, record, obra:obras.get(record.obraId)?.name || "Obra não informada",
+    id:record.id, record, obraId:record.obraId || "", obra:obras.get(record.obraId)?.name || "Obra não informada",
     code:record.numero || record.id, ...details,
     deadline:purchaseDeadline(details.date, today),
   });
@@ -71,6 +71,7 @@ export function buildPurchaseWorkspace(data, obraIds, today) {
       title:(order.itens || []).map(item => materials.get(item.materialId)?.descricao || item.descricaoRef || "Material não informado").join(" · "),
       detail:`${status === "rascunho" ? "Rascunho · conferir antes de enviar" : status === "parcial" ? "Entrega parcial · conferir o saldo" : "Aguardando entrega"} · ${statusPagamentoPedido(order) === "pago" ? "Pago" : "Pagamento em aberto"}`,
       responsible:suppliers.get(order.fornecedorId)?.nome || "Fornecedor não informado",
+      supplierId:order.fornecedorId || "",
       date:dates[0] || order.previsao, action:status === "rascunho" ? "Revisar pedido" : "Receber materiais", total:totalPedido(order),
     });
   }

@@ -145,6 +145,7 @@ import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId, resolveH
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
+import { ATTENDANCE_STATUS_LABEL, isLeaveStatus, isValidAttendanceStatus } from "./domains/ponto/attendance-status";
 import { normalizeUnionDuesConfig } from "./domains/ponto/union-dues";
 import {
   attStatus,
@@ -3937,7 +3938,7 @@ const construirFilaOperador=(data,currentUser)=>{
     const semRdo=escopoEngenharia.filter(o=>!(data.rdos||[]).some(r=>r.obraId===o.id&&r.data===hoje&&r.status==="concluido"));
     incluir("rdo-hoje","Engenharia","Diário de obra do dia",`${semRdo.slice(0,3).map(o=>o.name).join(", ")}${semRdo.length>3?` e mais ${semRdo.length-3}`:""}`,semRdo.length,2,"rdo","clipboard",C.blue);
     const equipe=(data.employees||[]).filter(e=>e.active!==false&&(!idsObras.size||idsObras.has(e.obra)));
-    const semPonto=equipe.filter(e=>!["P","M","F"].includes(attStatus(data,e.id,hoje)));
+    const semPonto=equipe.filter(e=>!isValidAttendanceStatus(attStatus(data,e.id,hoje)));
     incluir("ponto-hoje","Campo","Apontamentos de equipe incompletos",`${semPonto.length} de ${equipe.length} profissional(is) sem situação registrada hoje`,semPonto.length,semPonto.length===equipe.length?3:2,"ponto","clock",C.orange);
     const fichas=(data.qualidadeRegistros||[]).filter(q=>idsObras.has(q.obraId)&&q.status!=="aprovada"&&(role==="admin"||!q.responsavelId||q.responsavelId===userId));
     incluir("qualidade","Qualidade","FVS/FVM aguardando inspeção",`${fichas.filter(q=>q.status==="reprovada").length} ficha(s) reprovada(s) exigem correção`,fichas.length,fichas.some(q=>q.status==="reprovada")?3:1,"obras","check",C.purple);
@@ -3963,7 +3964,7 @@ const construirFilaOperador=(data,currentUser)=>{
 
   if(role==="admin"||role==="rh"||acessos.has("ponto_geral")){
     const ativos=(data.employees||[]).filter(e=>e.active!==false);
-    const semPonto=ativos.filter(e=>!["P","M","F"].includes(attStatus(data,e.id,hoje)));
+    const semPonto=ativos.filter(e=>!isValidAttendanceStatus(attStatus(data,e.id,hoje)));
     incluir("rh-ponto","RH","Fechamento diário do ponto",`${semPonto.length} de ${ativos.length} cadastro(s) sem apontamento`,semPonto.length,semPonto.length===ativos.length?3:2,"ponto_geral","users",C.green);
     const incompletos=ativos.filter(e=>!e.pixKey||!e.dailyRate||!e.obra);
     incluir("rh-cadastro","RH","Cadastros de equipe incompletos",`${incompletos.filter(e=>!e.pixKey).length} sem PIX · ${incompletos.filter(e=>!e.obra).length} sem lotação`,incompletos.length,1,"equipe","user",C.blue);
@@ -6937,6 +6938,7 @@ function calcFrequenciaMensalFuncionario(data, employee, meses = 12) {
       if (st === "P") presentes++;
       else if (st === "M") meiodia++;
       else if (st === "F") faltas++;
+      else if (isLeaveStatus(st)) return;
       else semRegistro++;
     });
     if (diasNoVinculo === 0) continue;
@@ -7329,8 +7331,9 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     .sort((a,b)=>a.name.localeCompare(b.name));
   const diaLabel=iso=>{const d=prParseIso(iso);return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;};
   const semana=iso=>["DOM","SEG","TER","QUA","QUI","SEX","SÁB"][prParseIso(iso).getDay()];
-  const corStatus=st=>st==="P"?C.green:st==="M"?C.yellow:st==="F"?C.red:C.muted;
-  const proxStatus=st=>st==="P"?"M":st==="M"?"F":st==="F"?null:"P";
+  const corStatus=st=>st==="P"?C.green:st==="M"?C.yellow:st==="F"?C.red:isLeaveStatus(st)?C.blue:C.muted;
+  // Clique avança P → ½ → F → Férias → Atestado → Folga → vazio.
+  const proxStatus=st=>({P:"M",M:"F",F:"FE",FE:"AT",AT:"FG",FG:null})[st]??"P";
   const cellKeyFor=(employeeId,date)=>`${employeeId}::${date}`;
   const attendanceFor=(employeeId,date)=>{
     const pending=pendingCellsRef.current.get(cellKeyFor(employeeId,date));
@@ -7402,7 +7405,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   };
 
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
-  const rotuloCurto=st=>st==="P"?"P":st==="M"?"½":st==="F"?"F":"·";
+  const rotuloCurto=st=>st==="M"?"½":isValidAttendanceStatus(st)?st:"·";
   return <div className="anim ponto-geral" style={{display:"flex",flexDirection:"column",gap:12}}>
     <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
     <PageHero
@@ -7497,7 +7500,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
               {fora?<div style={{textAlign:"center",color:C.muted,fontSize:"var(--arcd-type-label)"}}>—</div>:<>
                 <button onClick={()=>salvarCelula(emp,date,{status:proxStatus(st)})}
                   aria-busy={pending}
-                  title={pending?"Salvando...":st==="P"?"Presente":st==="M"?"Meio dia":st==="F"?"Falta":"Sem registro"}
+                  title={pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
                   style={{width:"100%",height:30,border:`1.5px solid ${st?corStatus(st):C.border}`,borderRadius:5,
                           background:st?corStatus(st):C.bg,color:st?"#fff":C.muted,
                           fontWeight:600,cursor:"pointer",fontSize:"var(--arcd-type-control)",fontFamily:"var(--arcd-font-sans)",
@@ -8024,6 +8027,9 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
                     ["P", "check", "Presente"],
                     ["M", "money", "Meio dia"],
                     ["F", "x", "Falta"],
+                    ["FE", "calendar", "Férias"],
+                    ["AT", "file", "Atestado"],
+                    ["FG", "clock", "Folga"],
                   ].map(([st, icon, label]) => (
                     <button key={st} type="button" onClick={() => setAtt(e.id, st)}
                       className="obra-attendance-card__status"
@@ -8882,6 +8888,8 @@ function Relatorios({ data, showToast }) {
           meiodia++;
         } else if (s === "F") {
           faltas++;
+        } else if (isLeaveStatus(s)) {
+          // Afastamento (férias/atestado/folga): não é falta nem pendência.
         } else if (e.obra === o.id && e.active !== false) {
           semRegistro++;
         }
@@ -9485,6 +9493,8 @@ const getAgentMonthCostByObra = (data, year = new Date().getFullYear(), month = 
           meiodia++;
         } else if (status === "F") {
           faltas++;
+        } else if (isLeaveStatus(status)) {
+          // Afastamento: não conta como falta nem como dia sem registro.
         } else if (emp.active !== false && emp.obra === obra.id) {
           semRegistro++;
         }

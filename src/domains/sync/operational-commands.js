@@ -71,6 +71,10 @@ import {
   ADVANCE_COMMAND,
 } from "../rh/advance-commands.js";
 import {
+  applyPayrollClosingCommand,
+  PAYROLL_CLOSING_COMMAND,
+} from "../ponto/payroll-closing.js";
+import {
   applyCompanyConfigCommand,
   COMPANY_CONFIG_COMMAND,
 } from "../config/company-config-commands.js";
@@ -127,6 +131,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   ...RESCISSION_COMMAND,
   ...EMPLOYEE_COMMAND,
   ...ADVANCE_COMMAND,
+  ...PAYROLL_CLOSING_COMMAND,
   ...COMPANY_CONFIG_COMMAND,
   ...PROJECT_COMMAND,
   ...LICENSING_COMMAND,
@@ -374,6 +379,11 @@ export const applyOperationalCommand=(data,command)=>{
         advanceResult.data,command,advanceResult.entityId,now,
       ),
     };
+  }
+  const payrollClosingResult=applyPayrollClosingCommand(data,command,now);
+  if(payrollClosingResult){
+    if(!payrollClosingResult.ok)return payrollClosingResult;
+    return {ok:true,data:appendReceipt(payrollClosingResult.data,command,payrollClosingResult.entityId,now)};
   }
   const companyConfigResult=applyCompanyConfigCommand(data,command,now);
   if(companyConfigResult){
