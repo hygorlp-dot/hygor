@@ -2835,6 +2835,9 @@ canvas {
 .obra-attendance-card__status[data-tone="P"] { --status-color: #198038; }
 .obra-attendance-card__status[data-tone="M"] { --status-color: #8e6a00; }
 .obra-attendance-card__status[data-tone="F"] { --status-color: #A63B3B; }
+.obra-attendance-card__status[data-tone="FE"],
+.obra-attendance-card__status[data-tone="AT"],
+.obra-attendance-card__status[data-tone="FG"] { --status-color: #0f62fe; }
 
 .obra-attendance-card__status:hover {
   border-color: var(--status-color);
