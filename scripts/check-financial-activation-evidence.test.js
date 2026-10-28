@@ -13,6 +13,10 @@ describe("FIN 9.6 — check explícito de ativação",()=>{
   it("consulta todas as evidências do gate, inclusive o hash exato dos vínculos",()=>{
     for(const token of [
       "buildLegacyFinancialFacts",
+      "mergeFinancialSourceRows",
+      "summarizeArchivedCosts",
+      "normalizeArchivedCosts",
+      "quinzenasArquivadas",
       "compareFinancialScopes",
       "compareDreProjectionRows",
       "compareProcurementDreRecognition",
