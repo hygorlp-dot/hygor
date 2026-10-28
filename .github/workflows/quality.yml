@@ -2,9 +2,18 @@ name: Qualidade
 
 on:
   workflow_dispatch:
+  # Branches de trabalho são validadas pelo evento pull_request. Rodar também
+  # em cada push duplicava a mesma suíte pesada (5 jobs) e criava filas de
+  # dezenas de execuções intermediárias.
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
+
+# Um novo commit no mesmo PR torna a execução anterior obsoleta. Main e
+# workflow_dispatch nunca são cancelados automaticamente.
+concurrency:
+  group: qualidade-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   financial-and-security:
