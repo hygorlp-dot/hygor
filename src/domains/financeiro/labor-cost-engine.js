@@ -34,6 +34,48 @@ export const createLaborCostEngine = ({
   // 20 passadas). O resultado fica em cache por período enquanto o objeto
   // `data` for o mesmo (o dataset é imutável entre renders/requisições).
   let periodCache = new WeakMap();
+  const archivedCltIndexCache=new WeakMap();
+  const archivedCltIndex=data=>{
+    if(!data||typeof data!=="object")return new Map();
+    const cached=archivedCltIndexCache.get(data);
+    if(cached)return cached;
+    const index=new Map();
+    for(const archive of Object.values(data?.archivedLaborCosts||{})){
+      for(const [date,employees] of Object.entries(archive?.cltAllocationByDate||{})){
+        for(const [employeeId,allocation] of Object.entries(employees||{})){
+          index.set(`${employeeId}|${date}`,allocation);
+        }
+      }
+    }
+    archivedCltIndexCache.set(data,index);
+    return index;
+  };
+  const archivedCltAllocation=(data,employeeId,date)=>
+    archivedCltIndex(data).get(`${String(employeeId||"")}|${date}`)||null;
+  const statusOf=record=>(typeof record==="string"?record:record?.status)||"";
+  const previousIso=value=>{
+    const [year,month,day]=String(value||"").split("-").map(Number);
+    if(!year||!month||!day)return "";
+    const date=new Date(Date.UTC(year,month-1,day-1));
+    return date.toISOString().slice(0,10);
+  };
+  const salaryHolidayObraId=(data,employee,date)=>{
+    let cursor=date;
+    for(let index=0;index<31;index+=1){
+      cursor=previousIso(cursor);
+      if(!cursor)break;
+      const archived=archivedCltAllocation(data,employee?.id,cursor);
+      if(archived&&["P","M"].includes(statusOf(archived))){
+        return String(archived.obraId||"");
+      }
+      const live=attendanceForDate(data,employee?.id,cursor);
+      if(["P","M"].includes(statusOf(live))){
+        return resolveEmployeeAttendanceObraId({data,employee,date:cursor,record:live});
+      }
+    }
+    return resolveHolidayObraId({data,employee,holidayIso:date});
+  };
+
   const costsByWorkForPeriod = (data, days = []) => {
     const key = `${days[0] || ""}|${days[days.length - 1] || ""}|${days.length}`;
     const cacheable = data !== null && typeof data === "object";
@@ -89,12 +131,13 @@ export const createLaborCostEngine = ({
         if (salario > 0) {
           if (!weekday(date) || !employedOnDate(employee, date)) return;
           const feriado = holidaySet.has(date);
+          const archived=archivedCltAllocation(data,employee.id,date);
           const obraId = feriado
-            ? resolveHolidayObraId({ data, employee, holidayIso:date })
-            : resolveEmployeeAttendanceObraId({ data, employee, date });
+            ? salaryHolidayObraId(data,employee,date)
+            : String(archived?.obraId||resolveEmployeeAttendanceObraId({ data, employee, date }));
           const item = bucket(obraId);
           addLabor(item, employee, date, salario / diasUteisDoMes(date));
-          if (!feriado) {
+          if (!feriado&&!archived) {
             const record = attendanceForDate(data, employee.id, date);
             item.benefitCost += calculateAttendanceDayCost({ employee, record, config:data?.config }).benefitCost;
           }
