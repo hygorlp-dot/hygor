@@ -11,6 +11,7 @@ const CHECK_LABELS={
   procurement_dre_divergence:"Compras × DRE",
   legacy_links:"Vínculos legado → canônico",
   legacy_hashes:"Hashes legado atualizados",
+  bank_shadow:"Extrato legado × banco canônico",
   quality_cases:"Casos de qualidade financeira",
   canonical_integrity:"Integridade estrutural do razão",
 };
@@ -63,7 +64,8 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
   const blockers=Array.isArray(gate?.blockers)?gate.blockers:[];
   const divergencias=(relatorio?.divergencias?.length||0)
     +(relatorio?.divergenciasDRE?.length||0)
-    +(relatorio?.divergenciasComprasDRE?.length||0);
+    +(relatorio?.divergenciasComprasDRE?.length||0)
+    +(relatorio?.bankDivergences?.length||0);
   const totalChecks=checks.length;
   const passedChecks=checks.filter(check=>check.ok).length;
 
@@ -99,6 +101,7 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
         ["Vínculos legado",counts.vinculosLegado??0,C.blue],
         ["Vínculos ausentes",counts.vinculosLegadoAusentes??0,(counts.vinculosLegadoAusentes??0)?C.red:C.green],
         ["Hashes desatualizados",counts.vinculosLegadoDesatualizados??0,(counts.vinculosLegadoDesatualizados??0)?C.red:C.green],
+        ["Divergências banco",counts.divergenciasBancoLegado??0,(counts.divergenciasBancoLegado??0)?C.red:C.green],
         ["Divergências",divergencias,divergencias?C.red:C.green],
         ["Casos qualidade abertos",counts.divergenciasAbertas??0,(counts.divergenciasAbertas??0)?C.red:C.green],
         ["Erros estruturais",counts.errosIntegridadeCanonica??0,(counts.errosIntegridadeCanonica??0)?C.red:C.green],
@@ -160,7 +163,7 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
 
     <div style={{padding:"10px 12px",borderRadius:9,border:`1px solid ${C.blue}33`,background:`${C.blue}07`}}>
       <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.5}}>
-        Próximo gate operacional após 8/8: executar criação, liquidação, reversão e fechamento de competência em homologação, conferir o Golden Master e só então avaliar a ativação de produção.
+        Próximo gate operacional após todas as evidências verdes: executar criação, liquidação, reversão e fechamento de competência em homologação, conferir o Golden Master e só então avaliar a ativação de produção.
       </p>
     </div>
   </div>;
