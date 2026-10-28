@@ -49,7 +49,12 @@ describe("Patrimônio da empresa — integração",()=>{
     expect(upload).toMatch(/createBucket\(PATRIMONIO_BUCKET/);
     expect(upload).toMatch(/public:false/);
     expect(upload).toMatch(/createSignedUrl\(safePath,300\)/);
-    expect(upload).toMatch(/if\(paraPatrimonio\).*return res\.status\(200\)\.json\(\{ok:true,path\}\)/);
+    // O bloco do patrimônio devolve só o caminho (nunca URL pública) e fecha a resposta.
+    // O padrão aceita quebra de linha: o handler também grava Cache-Control: no-store.
+    expect(upload).toMatch(/if\(paraPatrimonio\)\{[^}]*return res\.status\(200\)\.json\(\{ok:true,path\}\)/);
+    const bloco=upload.slice(upload.indexOf("if(paraPatrimonio){"),upload.indexOf("getPublicUrl"));
+    expect(bloco).not.toMatch(/getPublicUrl|publicUrl/);
+    expect(bloco).toMatch(/Cache-Control.*no-store/);
   });
 
   it("a tela usa XML determinístico e IA apenas para PDF/foto, sempre com confirmação",()=>{
