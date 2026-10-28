@@ -4,6 +4,13 @@ const number=value=>Number.isFinite(Number(value))?Number(value):0;
 const normalizeKey=value=>String(value||"").replace(/\D/g,"");
 const normalizeIdentity=value=>String(value||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
 const versionOf=value=>Number(value?.version||0);
+const nextAssetTag=assets=>{
+  const max=(assets||[]).reduce((current,item)=>{
+    const match=String(item?.assetTag||"").match(/^PAT-(\d{1,12})$/i);
+    return match?Math.max(current,Number(match[1])||0):current;
+  },0);
+  return `PAT-${String(max+1).padStart(6,"0")}`;
+};
 const validDate=value=>!value||/^\d{4}-\d{2}-\d{2}$/.test(String(value));
 const fail=reason=>({ok:false,reason});
 
@@ -134,7 +141,8 @@ export const applyPatrimonyCommand=(data={},command={},now=new Date().toISOStrin
   }
 
   if(command.type===PATRIMONY_COMMAND.ASSET_SAVED){
-    const input=normalizeCompanyAsset(payload.asset||{});
+    const normalized=normalizeCompanyAsset(payload.asset||{});
+    const input={...normalized,assetTag:normalized.assetTag||nextAssetTag(assets)};
     if(!input.id||!input.name)return fail("Informe o bem e a identificação do cadastro.");
     if(!validDate(input.acquisitionDate)||!validDate(input.invoice.issueDate))return fail("Data de aquisição ou da nota fiscal inválida.");
     if(input.invoice.accessKey&&input.invoice.accessKey.length!==44)return fail("A chave da NF-e precisa ter 44 dígitos.");
