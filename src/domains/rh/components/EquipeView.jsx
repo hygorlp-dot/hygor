@@ -100,6 +100,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
   };
   const setTraining = key => value => setForm(f => ({ ...f, trainings: { ...(f.trainings || EMPTY_TRAININGS), [key]: { expiresAt: value } } }));
 
+  const [teamSection,setTeamSection]=useState("funcionarios");
   const [modal, setModal] = useState(false);
   const [advModal, setAdvModal] = useState(null);
   const [form, setForm] = useState(emptyEmp);
@@ -393,6 +394,11 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
         actions={<Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setFormErrors({}); setModal(true); }}><Ic n="plus" /> Cadastrar funcionário</Btn>}
       />
 
+      {!obraIdFixo&&<div role="tablist" aria-label="Cadastros de RH" style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <button role="tab" type="button" aria-selected={teamSection==="funcionarios"} onClick={()=>setTeamSection("funcionarios")}>Funcionários</button>
+        <button role="tab" type="button" aria-selected={teamSection==="mei"} onClick={()=>setTeamSection("mei")}>Contratos MEI ({(data.config?.meiContracts||[]).length})</button>
+      </div>}
+      {teamSection==="mei"&&!obraIdFixo?<MeiContractsPanel data={data} dispatchCommand={dispatchCommand} showToast={showToast} currentUser={currentUser}/>:<>
       <div className="team-summary" aria-label="Resumo e filtros por situação">
         {[
           ["ativo","Ativos",lifecycleCounts.ativo||0],
@@ -489,6 +495,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
         );
       })}
 
+      </>}
       {modal && (
         <Modal title={form.id ? "Editar funcionário" : "Novo funcionário"} onClose={() => {if(!savingEmployee)setModal(false);}} wide panelClass="employee-edit-modal" footer={<><p className="employee-edit-feedback" role={employeeSaveError?'alert':'status'}>{employeeSaveError||(savingEmployee?'Salvando funcionário…':'')}</p><div className="employee-edit-actions"><Btn v="ghost" disabled={savingEmployee} onClick={()=>setModal(false)}>Cancelar</Btn><Btn disabled={savingEmployee} onClick={saveEmp}><Ic n="check"/> {savingEmployee?'Salvando…':'Salvar'}</Btn></div></>}>
           <fieldset disabled={savingEmployee} style={{border:0,padding:0,margin:0,minWidth:0}} aria-label="Dados do funcionário">
