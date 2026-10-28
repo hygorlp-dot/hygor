@@ -6,6 +6,7 @@ import {
   FINANCIAL_SNAPSHOT_WRITER_SECTIONS,
   financialPersistenceMode,
   financialEnforcementReadiness,
+  financialActivationEvidenceGate,
   hasLegacyFinancialWrite,
   validateProjectFinancialSnapshotPolicy,
   validateFinancialWritePath,
@@ -81,6 +82,51 @@ describe("gate FIN-003 de persistência",()=>{
   it("mantém todos os escritores associados a um módulo funcional",()=>{
     const mapped=new Set(Object.values(FINANCIAL_MODULE_SECTION_MATRIX).flat());
     expect(mapped).toEqual(new Set(FINANCIAL_SNAPSHOT_WRITER_SECTIONS));
+  });
+
+  it("só libera FIN-003 quando todas as evidências operacionais estão verdes",()=>{
+    const ready=financialActivationEvidenceGate({
+      factsCount:12,
+      shadowRun:{id:"run-1"},
+      divergences:[],
+      dreDivergences:[],
+      procurementDreDivergences:[],
+      missingLegacyLinks:[],
+      openQualityCases:[],
+    });
+    expect(ready.ready).toBe(true);
+    expect(ready.blockers).toEqual([]);
+    expect(ready.checks.every(check=>check.ok)).toBe(true);
+  });
+
+  it("bloqueia ativação quando falta carga, vínculo, qualidade ou existe divergência",()=>{
+    const blocked=financialActivationEvidenceGate({
+      factsCount:4,
+      shadowRun:null,
+      divergences:[{scope:"obra-1",metric:"expenses"}],
+      dreDivergences:[{sourceId:"2026-10"}],
+      procurementDreDivergences:[{orderId:"p-1"}],
+      missingLegacyLinks:[{legacyType:"pedido",legacyId:"p-1"}],
+      openQualityCases:[{id:"dq-1",category:"financial_shadow_divergence"}],
+    });
+    expect(blocked.ready).toBe(false);
+    expect(blocked.blockers).toEqual([
+      "shadow_run",
+      "ledger_divergence",
+      "dre_divergence",
+      "procurement_dre_divergence",
+      "legacy_links",
+      "quality_cases",
+    ]);
+  });
+
+  it("bloqueia ativação sem fatos mesmo que as listas de divergência estejam vazias",()=>{
+    const blocked=financialActivationEvidenceGate({
+      factsCount:0,
+      shadowRun:{id:"run-vazia"},
+    });
+    expect(blocked.ready).toBe(false);
+    expect(blocked.blockers).toContain("shadow_has_facts");
   });
 
   it("permite dados operacionais da obra, mas bloqueia contrato por snapshot",()=>{

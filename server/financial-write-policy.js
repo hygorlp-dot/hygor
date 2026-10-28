@@ -115,3 +115,80 @@ export const financialEnforcementReadiness=()=>{
     .filter(([,sections])=>sections.length));
   return {ready:pending.length===0,pending,modules};
 };
+
+export const financialActivationEvidenceGate=({
+  writerReadiness=financialEnforcementReadiness(),
+  factsCount=0,
+  shadowRun=null,
+  divergences=[],
+  dreDivergences=[],
+  procurementDreDivergences=[],
+  missingLegacyLinks=[],
+  openQualityCases=[],
+}={})=>{
+  const safeList=value=>Array.isArray(value)?value:[];
+  const checks=[
+    {
+      code:"snapshot_writers",
+      ok:!!writerReadiness?.ready,
+      detail:writerReadiness?.ready
+        ?"Nenhum escritor financeiro por snapshot permanece."
+        :`${safeList(writerReadiness?.pending).length} seção(ões) ainda escrevem por snapshot.`,
+    },
+    {
+      code:"shadow_has_facts",
+      ok:Number(factsCount)>0,
+      detail:Number(factsCount)>0
+        ?`${Number(factsCount)} fato(s) financeiro(s) cobertos pela sombra.`
+        :"A sombra não contém fatos financeiros para comparar.",
+    },
+    {
+      code:"shadow_run",
+      ok:!!shadowRun,
+      detail:shadowRun
+        ?"Existe carga financeira em sombra registrada."
+        :"Nenhuma carga financeira em sombra foi registrada.",
+    },
+    {
+      code:"ledger_divergence",
+      ok:safeList(divergences).length===0,
+      detail:safeList(divergences).length===0
+        ?"Razão legado e canônico sem divergências."
+        :`${safeList(divergences).length} divergência(s) entre legado e razão canônico.`,
+    },
+    {
+      code:"dre_divergence",
+      ok:safeList(dreDivergences).length===0,
+      detail:safeList(dreDivergences).length===0
+        ?"DRE legado e projeção canônica sem divergências."
+        :`${safeList(dreDivergences).length} divergência(s) de DRE.`,
+    },
+    {
+      code:"procurement_dre_divergence",
+      ok:safeList(procurementDreDivergences).length===0,
+      detail:safeList(procurementDreDivergences).length===0
+        ?"Compras e reconhecimento no DRE sem divergências."
+        :`${safeList(procurementDreDivergences).length} divergência(s) Compras × DRE.`,
+    },
+    {
+      code:"legacy_links",
+      ok:safeList(missingLegacyLinks).length===0,
+      detail:safeList(missingLegacyLinks).length===0
+        ?"Todos os fatos legados possuem vínculo canônico."
+        :`${safeList(missingLegacyLinks).length} fato(s) legado(s) sem legacy_record_link.`,
+    },
+    {
+      code:"quality_cases",
+      ok:safeList(openQualityCases).length===0,
+      detail:safeList(openQualityCases).length===0
+        ?"Nenhum caso financeiro de qualidade permanece aberto."
+        :`${safeList(openQualityCases).length} caso(s) financeiro(s) de qualidade permanecem abertos.`,
+    },
+  ];
+  const blockers=checks.filter(check=>!check.ok);
+  return {
+    ready:blockers.length===0,
+    checks,
+    blockers:blockers.map(check=>check.code),
+  };
+};
