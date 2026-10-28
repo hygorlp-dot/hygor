@@ -48,7 +48,8 @@ import { authorizeReconciliationCommand } from "../server/reconciliation-policy.
 import { executeReconciliationWithRetry } from "../server/reconciliation-execution.js";
 import { projectReconciliationPatch } from "../server/reconciliation-response.js";
 import { cashAllocations } from "../src/domains/conciliacao/cash-allocations.js";
-import { buildIntegratedDreManagement, loadCanonicalDre, validateNativeDreCommand } from "../server/financial-dre-integration.js";
+import { buildIntegratedDreManagement, canonicalDreEvents, loadCanonicalDre, validateNativeDreCommand } from "../server/financial-dre-integration.js";
+import { prepareMonthlyFinancialClosing } from "../server/financial-closing.js";
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
@@ -1198,7 +1199,7 @@ const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linh
       ]));
       const current=mergeDomainRows(coreFieldsOnly(coreFresca,linha.rowVersions),rowPayloadsByDomain);
       cronometro?.marcar("locks");
-      const outcome=await mutate({payload:current,updatedAt:coreTravada.updated_at});
+      const outcome=await mutate({payload:current,updatedAt:coreTravada.updated_at,transaction});
       cronometro?.marcar("validacao");
       if(!outcome||outcome.kind!=="save")return outcome;
 
@@ -2003,6 +2004,111 @@ export default async function handler(req, res) {
           if(title?.metadata?.legacyId)return res.status(409).json({error:"Este pagamento pertence a um módulo operacional. Use o comando de origem para preservar a integração com o DRE."});
         }
       }
+      if(command.type==="CLOSE_ACCOUNTING_PERIOD"){
+        if(!process.env.POSTGRES_URL_NON_POOLING){
+          return res.status(503).json({
+            error:"O fechamento mensal exige a conexão transacional do servidor. Nenhum fechamento foi salvo.",
+            code:"FINANCIAL_CLOSING_TRANSACTION_REQUIRED",
+          });
+        }
+        try{
+          const outcome=await executarMutacaoMultiLinha({
+            actor:usuario,
+            action:"financial_close_accounting_period",
+            financial:true,
+            domains:[DOMAIN_ROW.CORE,...SPLITTABLE_DOMAINS],
+            linha,
+            mutate:async({payload:current,updatedAt:lockedUpdatedAt,transaction})=>{
+              const [titles,settlements,banks]=await Promise.all([
+                transaction`
+                  select id,origin_type,obra_id,direction,competence,due_date,created_at,
+                         original_amount,status,metadata
+                    from financial_titles
+                   where company_id=${COMPANY}
+                   order by id
+                `,
+                transaction`
+                  select id,title_id,bank_transaction_id,amount,settlement_date,status
+                    from settlements
+                   where company_id=${COMPANY}
+                   order by id
+                `,
+                transaction`
+                  select id,amount,status,metadata
+                    from bank_transactions
+                   where company_id=${COMPANY}
+                   order by id
+                `,
+              ]);
+              const canonical=canonicalDreEvents({titles,settlements,banks});
+              const prepared=prepareMonthlyFinancialClosing({
+                data:current,command,actor:usuario,
+                supplementalEvents:canonical.events,
+                now:new Date().toISOString(),
+              });
+              if(!prepared?.ok)return {
+                kind:"error",status:409,error:prepared?.error||"A competência não pode ser fechada.",
+                ...(prepared?.conference?{conference:prepared.conference}:{}),
+              };
+              if(prepared.idempotent)return {
+                kind:"idempotent",data:current,updatedAt:lockedUpdatedAt,
+                closing:prepared.closing,
+                result:{ok:true,idempotent:true,periodClosed:true},
+              };
+
+              const [executed]=await transaction`
+                select financial_execute_command(
+                  ${COMPANY},
+                  ${String(usuario.id||"")},
+                  ${transaction.json(command)}::jsonb
+                ) as result
+              `;
+              if(!executed?.result?.ok)throw new Error("O razão canônico não confirmou o fechamento.");
+
+              return {
+                kind:"save",
+                data:prepared.data,
+                basePayload:current,
+                closing:prepared.closing,
+                result:executed.result,
+                before:{competencia:prepared.period.competencia,status:"aberto"},
+                after:{
+                  competencia:prepared.period.competencia,status:"fechado",
+                  snapshot:prepared.closing.snapshot,
+                  idempotencyKey:command.idempotencyKey,
+                },
+              };
+            },
+          });
+
+          if(outcome.kind==="error"){
+            return res.status(outcome.status||409).json({
+              error:outcome.error,
+              ...(outcome.conference?{conference:outcome.conference}:{}),
+            });
+          }
+          if(outcome.kind==="idempotent"){
+            return res.status(200).json({
+              ...outcome.result,
+              closing:outcome.closing,
+              updatedAt:outcome.updatedAt,
+            });
+          }
+          return res.status(200).json({
+            ...outcome.result,
+            closing:outcome.closing,
+            updatedAt:outcome.updatedAt,
+            sections:projectChangedSectionsPatch(outcome.basePayload,outcome.data,usuario),
+          });
+        }catch(error){
+          console.error("Falha no fechamento financeiro mensal:",error.message);
+          return res.status(409).json({
+            error:"O fechamento não foi efetivado. O período e o snapshot auditável permaneceram inalterados.",
+            code:"FINANCIAL_CLOSING_NOT_COMMITTED",
+          });
+        }
+      }
+
       const {data:resultado,error}=await db.rpc("financial_execute_command",{p_company_id:COMPANY,p_actor_id:usuario.id,p_command:command});
       if(error){console.error("Falha no motor financeiro:",error.message);return res.status(409).json({error:"O comando não foi efetivado. Nenhum lançamento parcial foi salvo."});}
       return res.status(200).json(resultado);
