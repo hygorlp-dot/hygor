@@ -204,7 +204,7 @@ begin
     end if;
   end loop;
 end;
-$;
+$$;
 
 revoke all on function public.financial_guard_closed_legacy_snapshot(text,jsonb)
   from public,anon,authenticated;
