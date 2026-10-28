@@ -13,7 +13,8 @@ import { saldoPagamentoPedido } from "../compras/calculations.js";
 import { validatePurchasePayment } from "../financeiro/purchase-payment-validation.js";
 import { validateExistingPaymentLink, updatePaymentAssociation, stampChangedPurchaseParents } from "./existing-payment-link.js";
 import { saldoTituloFolha, situacaoTituloFolha, validarLiquidacaoFolha } from "./payroll.js";
-import { isDateInClosedPeriod } from "../financeiro/workflows.js";
+import { isDateInClosedPeriod, isCompetenceInClosedPeriod } from "../financeiro/workflows.js";
+import { classifyReceiptForDre } from "../dre/receipt-classification.js";
 
 // Nenhuma conciliação pode alterar um fato datado dentro de um período já
 // fechado sem reabertura formal (§ integridade financeira não é opcional).
@@ -235,7 +236,7 @@ export const registrarPagamentoEConciliar = (data, params) => {
     const pagamentoId = gerarIdConc("pgfolha");
     const emp = (data.employees || []).find(e => e.id === entidadeId);
     const novoPagamentoFolha = {
-      id: pagamentoId, employeeId: entidadeId, data: dataPagamento || tr.data,
+      id: pagamentoId, employeeId: entidadeId, data: dataPagamento || tr.data, obraId, conciliado:true,
       valor: Math.abs(Number(valor ?? tr.valor)), transacaoId,
       pixHolder: emp?.pixHolder || "", alertaTitularDivergente: !!(emp?.pixHolder && emp?.pixHolder !== (emp?.name || emp?.nome)),
       registradoPorId: operador?.id, registradoPor, registradoEm: new Date().toISOString(),
@@ -491,11 +492,19 @@ export const desfazerConciliacao = (data, transacaoId, operador, motivo = "") =>
   if (bloqueioPeriodo) return { data, resumo: { ok: false, motivo: bloqueioPeriodo } };
 
   const gerados = tr.gerados || [];
+  // A conciliação pode criar receita/despesa com competência anterior ao
+  // crédito/débito. Reverter não pode reabrir esse resultado implicitamente.
+  for(const generated of gerados){
+    if(!["outrasDesp","despesasEmpresa","payments"].includes(generated?.tipo))continue;
+    const source=(data[generated.tipo]||[]).find(item=>item.id===generated.id);
+    const affectsDre=generated.tipo!=="payments"||classifyReceiptForDre(source).recognizeRevenue;
+    if(source&&affectsDre&&isCompetenceInClosedPeriod(data,source.competencia))return {data,resumo:{ok:false,motivo:"A competência do lançamento está fechada. Reabra o período antes de desfazer a conciliação."}};
+  }
   // Existing payments survive unmatching. Only undo their bank association.
   if(!gerados.length||gerados.every(item=>typeof item==="string")){
     const nested=[...(data.pedidos||[]).flatMap(p=>p.pagamentos||[]),...(data.notasFiscais||[]).flatMap(p=>p.pagamentos||[]),
       ...(data.medicoes||[]).flatMap(p=>p.recebimentos||[]),...(data.titulosFolha||[]).flatMap(p=>p.liquidacoes||[]),
-      ...(data.pagsTerceiros||[]),...(data.pagamentosFolha||[]),...(data.caixaObra||[]),...(data.outrasDesp||[]),...(data.despesasEmpresa||[])];
+      ...(data.pagsTerceiros||[]),...(data.pagamentosFolha||[]),...(data.caixaObra||[]),...(data.outrasDesp||[]),...(data.despesasEmpresa||[]),...(data.payments||[])];
     const ids=new Set(nested.filter(p=>p.transacaoId===transacaoId).map(p=>p.id));
     for(const paymentId of ids)data=updatePaymentAssociation(data,{paymentId,transactionId:transacaoId,linked:false,actor:operador});
   }

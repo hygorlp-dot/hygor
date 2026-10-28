@@ -1,6 +1,7 @@
 // A homologação em sombra precisa usar exatamente a mesma semântica do razão:
 // arquivamento preserva o fato econômico; cancelamento e estorno o anulam.
 import { active } from "../src/domains/financeiro/ledger.js";
+import { classifyReceiptForDre, receiptRecognitionDate } from "../src/domains/dre/receipt-classification.js";
 import { buildDreCashManagement } from "../src/domains/conciliacao/cash-allocations.js";
 import { buildProcurementFinancialFacts } from "./procurement-financial-facts.js";
 const amount = value => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
@@ -57,11 +58,14 @@ export const buildLegacyFinancialFacts = (data, { includeDreSnapshots = true } =
   }
 
   for (const item of (data?.payments || []).filter(active)) {
+    const classification=classifyReceiptForDre(item);
     push({
-      legacyType:"recebimento_avulso", legacyId:String(item.id), category:"received", direction:"receivable",
-      obraId:String(item.obraId || ""), titleAmount:item.amount, date:item.date,
+      legacyType:"recebimento_avulso", legacyId:String(item.id), category:classification.recognizeRevenue?"billed":"received", direction:"receivable",
+      obraId:String(item.obraId || ""), titleAmount:item.amount, date:classification.recognizeRevenue?receiptRecognitionDate(item):item.date,
+      recognizedAmount:classification.recognizeRevenue?item.amount:0,
+      ...(classification.recognizeRevenue?{recognitionType:"revenue_recognized"}:{}),
       settlements:[settlement("recebimento_avulso", item.id, item.amount, item.date, item.transacaoId)],
-      metadata:{ descricao:item.description || item.descricao || "" },
+      metadata:{ descricao:item.description || item.descricao || "", categoria:classification.category, competencia:item.competencia || "", efeitoDRE:item.efeitoDRE || "a_classificar" },
     });
   }
 
@@ -84,8 +88,8 @@ export const buildLegacyFinancialFacts = (data, { includeDreSnapshots = true } =
       legacyType:"despesa_obra", legacyId:String(item.id), category:"expenses", direction:"payable",
       obraId:String(item.obraId || ""), titleAmount:item.valor, recognizedAmount:item.valor,
       recognitionType:"cost_recognized", date:item.data || item.competencia,
-      settlements:[settlement("despesa_obra", item.id, item.valor, item.data || item.competencia, item.transacaoId)],
-      metadata:{ categoria:item.categoria || "", descricao:item.descricao || "" },
+      settlements:[settlement("despesa_obra", item.id, item.valor, item.dataPagamento || item.data || item.competencia, item.transacaoId)],
+      metadata:{ categoria:item.categoria || "", descricao:item.descricao || "", competencia:item.competencia || "" },
     });
   }
 
@@ -94,8 +98,8 @@ export const buildLegacyFinancialFacts = (data, { includeDreSnapshots = true } =
       legacyType:"despesa_empresa", legacyId:String(item.id), category:"companyExpenses", direction:"payable",
       titleAmount:item.valor, recognizedAmount:item.valor, recognitionType:"cost_recognized",
       date:item.data || item.competencia,
-      settlements:[settlement("despesa_empresa", item.id, item.valor, item.data || item.competencia, item.transacaoId)],
-      metadata:{ categoria:item.categoria || "", descricao:item.descricao || "" },
+      settlements:[settlement("despesa_empresa", item.id, item.valor, item.dataPagamento || item.data || item.competencia, item.transacaoId)],
+      metadata:{ categoria:item.categoria || "", descricao:item.descricao || "", competencia:item.competencia || "" },
     });
   }
 

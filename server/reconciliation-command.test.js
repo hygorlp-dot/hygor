@@ -92,6 +92,7 @@ describe("reconciliation command server boundary",()=>{
     const data={
       ...fixture(),
       obras:[{id:"alphaville",nome:"ALPHAVILLE"}],
+      employees:[{id:"jose-henrique",name:"JOSÉ HENRIQUE DE LIRA LIMA",pixHolder:"José Silva de Lima",obra:"alphaville",active:true}],
       transacoes:[{id:"pix-jose",valor:-1000,data:"2026-07-20",status:"pendente",descricao:"Pix enviado: José Silva de Lima"}],
     };
     const result=applyReconciliationCommand(data,{
@@ -112,9 +113,10 @@ describe("reconciliation command server boundary",()=>{
         valorPago:1000,
       },
     });
-    expect(result.data.outrasDesp[0]).toMatchObject({
+    expect(result.data.outrasDesp).toEqual([]);
+    expect(result.data.pagamentosFolha[0]).toMatchObject({
       obraId:"alphaville",
-      categoria:"mao_obra",
+      employeeId:"jose-henrique",
       valor:1000,
       transacaoId:"pix-jose",
     });

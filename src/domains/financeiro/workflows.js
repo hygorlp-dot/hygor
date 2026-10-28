@@ -139,6 +139,11 @@ export const isDateInClosedPeriod = (data = {}, date = "") =>
   (data.fechamentosFinanceiros || []).some(period =>
     period.status==="fechado" && date>=period.dataInicio && date<=period.dataFim);
 
+export const isCompetenceInClosedPeriod = (data = {}, competence = "") =>
+  Boolean(competence) && (data.fechamentosFinanceiros || []).some(period =>
+    period.status === "fechado" && (period.competencia === competence
+      || (period.dataInicio && period.dataFim && competence >= period.dataInicio.slice(0,7) && competence <= period.dataFim.slice(0,7))));
+
 /**
  * Snapshot auditável da conferência mensal. No caminho autoritativo do
  * servidor, esta fotografia e CLOSE_ACCOUNTING_PERIOD são confirmados na

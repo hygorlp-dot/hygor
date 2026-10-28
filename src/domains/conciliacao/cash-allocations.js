@@ -20,7 +20,7 @@ export const buildDreCashManagement = (data = {}, { events = null, obraId = "" }
     const direct = event.transactionId && transactionMap.get(String(event.transactionId))?.status === "conciliado";
     return { ...event, allocatedCents: direct ? event.amountCents : linked,
       remainingCents: direct ? 0 : Math.max(0, event.amountCents - linked),
-      funding: event.sourceType === "caixa_obra" && event.effect === "cash_in",
+      funding: event.effect === "cash_in" && (event.sourceType === "caixa_obra" || event.metadata?.funding === true),
     };
   }).filter(event => !obraId || event.obraId === obraId);
   const banks = transactions.map(item => {

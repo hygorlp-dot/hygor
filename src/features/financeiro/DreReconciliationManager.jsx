@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { consultarGestaoDre, executarComandoConciliacao } from "../../api.js";
+import { findReconciliationCategory, normalizeCategorySearch } from "../../domains/conciliacao/categories.js";
+import CategoryCombobox from "../conciliacao/CategoryCombobox.jsx";
 import "./dre-reconciliation-manager.css";
 
 const money = cents => (Number(cents || 0) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const normalized = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const normalized = normalizeCategorySearch;
 const matches = (value, query) => normalized(query).split(/\s+/).every(word => normalized(value).includes(word));
 
 export default function DreReconciliationManager({ data, currentUser, update }) {
@@ -14,6 +16,9 @@ export default function DreReconciliationManager({ data, currentUser, update }) 
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
+  const [bankSearch, setBankSearch] = useState("");
+  const [direction, setDirection] = useState("");
+  const [category, setCategory] = useState("");
   const [bankId, setBankId] = useState("");
   const [eventId, setEventId] = useState("");
   const [amount, setAmount] = useState("");
@@ -46,11 +51,22 @@ export default function DreReconciliationManager({ data, currentUser, update }) 
   const banks=report?.banks||[];
   const bank=banks.find(item=>item.id===bankId);
   const entry=entries.find(item=>item.id===eventId);
+  const categoryInfo=item=>{
+    const rawCategory=item.category||"outros";
+    const categoryId=["faturamento","recebimento_avulso"].includes(rawCategory)?"receita":rawCategory;
+    return findReconciliationCategory(data,{direction:item.effect==="cash_in"?"entrada":"saida",destination:item.obraId?"obra":"empresa",category:categoryId})
+      ||{id:rawCategory,label:rawCategory,groupLabel:item.effect==="cash_in"?"Entradas":"Saídas"};
+  };
+  const categoryOptions=[...new Map(entries.filter(item=>(!direction||item.effect===(direction==="in"?"cash_in":"cash_out")))
+    .map(item=>[item.category||"outros",{...categoryInfo(item),id:item.category||"outros"}])).values()];
   const candidates=entries.filter(item=>!item.metadata?.native&&!item.transactionId&&item.remainingCents>0
     &&(!bank||item.effect===(bank.direction==="in"?"cash_in":"cash_out"))
-    &&matches(`${item.date} ${item.description} ${workName(item.obraId)} ${item.sourceId}`,search));
+    &&(!direction||item.effect===(direction==="in"?"cash_in":"cash_out"))
+    &&(!category||(item.category||"outros")===category)
+    &&matches(`${item.date} ${item.description} ${workName(item.obraId)} ${item.sourceId} ${item.category} ${categoryInfo(item).label} ${categoryInfo(item).groupLabel}`,search));
   const available=banks.filter(item=>["pendente","parcial"].includes(item.status)&&item.remainingCents>0&&!item.hold&&!item.canonicalSettlementLinked
-    &&matches(`${item.date} ${item.description} ${workName(item.obraId)}`,search));
+    &&(!direction||item.direction===direction)
+    &&matches(`${item.date} ${item.description} ${workName(item.obraId)}`,bankSearch));
   const allocations=(report?.allocations||[]).filter(item=>item.status==="active");
   const held=banks.filter(item=>item.hold);
   const save = async (type,payload) => {
@@ -83,14 +99,20 @@ export default function DreReconciliationManager({ data, currentUser, update }) 
       {held.map(item=><div key={item.id} className="dre-reconciliation__hold"><strong>{money(item.amountCents)} · Pendente de composição</strong><p>{item.hold}</p></div>)}
       {report&&<>
         <div className="dre-reconciliation__totals"><span>Movimentos parciais <strong>{banks.filter(item=>item.status==="parcial").length}</strong></span><span>Vínculos ativos <strong>{allocations.length}</strong></span><span>Saldo bancário a vincular <strong>{money(banks.filter(item=>item.status!=="ignorado").reduce((sum,item)=>sum+item.remainingCents,0))}</strong></span></div>
-        <label className="dre-reconciliation__field">Buscar por obra, descrição ou data<input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Ex.: B2-04 aporte"/></label>
+        <div className="dre-reconciliation__filters">
+          <label className="dre-reconciliation__field">Buscar movimento bancário<input type="search" value={bankSearch} onChange={event=>{setBankSearch(event.target.value);setBankId("");setEventId("");setAmount("");}} placeholder="Descrição, obra ou data no extrato"/></label>
+          <label className="dre-reconciliation__field">Buscar registro no DRE<input type="search" value={search} onChange={event=>{setSearch(event.target.value);setEventId("");setAmount("");}} placeholder="Descrição, obra, categoria ou data"/></label>
+          <label className="dre-reconciliation__field">Tipo de movimento<select value={direction} onChange={event=>{setDirection(event.target.value);setBankId("");setEventId("");setAmount("");setCategory("");}}><option value="">Entradas e saídas</option><option value="in">Entradas</option><option value="out">Saídas</option></select></label>
+          <CategoryCombobox label="Categoria do registro" value={category} options={categoryOptions} onChange={value=>{setCategory(value);setEventId("");setAmount("");}} clearable/>
+        </div>
         <form ref={linkForm} onSubmit={event=>{event.preventDefault();save("LINK_PARTIAL_CASH",{transactionId:bankId,eventId,amount:Number(amount)});}}>
           <div className="dre-reconciliation__grid">
             <label className="dre-reconciliation__field">1. Movimento bancário<select required disabled={busy||loading} value={bankId} onChange={event=>{setBankId(event.target.value);setEventId("");setAmount("");}}><option value="">Selecione uma entrada ou saída</option>{available.map(item=><option key={item.id} value={item.id}>{item.date} · {item.direction==="in"?"Entrada":"Saída"} · {item.description} · saldo {money(item.remainingCents)}</option>)}</select></label>
-            <label className="dre-reconciliation__field">2. Registro existente no DRE<select required disabled={!bank||busy||loading} value={eventId} onChange={event=>{setEventId(event.target.value);setAmount("");}}><option value="">Selecione um registro já lançado</option>{candidates.map(item=><option key={item.id} value={item.id}>{workName(item.obraId)} · {item.date} · {item.description} · {item.funding?"Aporte · ":""}saldo {money(item.remainingCents)}</option>)}</select></label>
+            <label className="dre-reconciliation__field">2. Registro existente no DRE<select required disabled={!bank||busy||loading} value={eventId} onChange={event=>{setEventId(event.target.value);setAmount("");}}><option value="">Selecione um registro já lançado</option>{candidates.map(item=><option key={item.id} value={item.id}>{workName(item.obraId)} · {item.date} · {item.description} · {categoryInfo(item).label} · {item.funding?"Aporte · ":""}saldo {money(item.remainingCents)}</option>)}</select></label>
             <label className="dre-reconciliation__field">3. Valor a vincular (R$)<input required type="number" min="0.01" step="0.01" max={bank&&entry?Math.min(bank.remainingCents,entry.remainingCents)/100:undefined} disabled={!entry||busy||loading} value={amount} onChange={event=>setAmount(event.target.value)}/></label>
           </div>
-          {bank&&entry&&<p className="dre-reconciliation__preview">{workName(entry.obraId)} → {entry.description}<br/>Disponível no banco: <strong>{money(bank.remainingCents)}</strong> · disponível no registro: <strong>{money(entry.remainingCents)}</strong></p>}
+          {bank&&entry&&<p className="dre-reconciliation__preview">{workName(entry.obraId)} → {entry.description}<br/>{categoryInfo(entry).label} · competência {entry.competence||"do lançamento original"}<br/>Disponível no banco: <strong>{money(bank.remainingCents)}</strong> · disponível no registro: <strong>{money(entry.remainingCents)}</strong><br/>O vínculo preserva a categoria, a competência e os valores já registrados.</p>}
+          {bank&&!candidates.length&&<p className="dre-reconciliation__preview">Nenhum registro disponível neste filtro. Ajuste a categoria ou a busca para localizar o pagamento existente.</p>}
           <button className="arcd-btn" data-variant="primary" data-size="sm" type="submit" disabled={!entry||!bank||busy||loading}>{busy?"Salvando…":"Confirmar vínculo"}</button>
         </form>
         {allocations.length>0&&<div className="dre-reconciliation__history"><h3>Vínculos confirmados</h3>{allocations.map(link=>{

@@ -29,7 +29,6 @@ import { useBreakpoint } from "../../hooks/useBreakpoint";
 import {
   Badge, Btn, C, Ic, Inp, Modal, PageHero, Sel, TabRow,
   XLSX, carregarXLSX, fmt, fmtDate, today, uid,
-  CATS_DESP, CATS_OBRA_CONC,
   semAcentoConc, parseBRConc, chaveTransacao, somaRateios,
   sugerirRateio, diasEntre, sugerirMedicoes, sugerirPagamentoMaoObra,
   periodoPontoDaTransacao,
@@ -52,6 +51,25 @@ import {
 import { createExactPixLaborCandidate, findRegisteredEmployeePix, hasEmployeePixNameEvidence, isExactPixLaborMatch } from "../../domains/conciliacao/pix-card";
 import { executarComandoConciliacao } from "../../api";
 import { activeCashAllocations, reconciliationHold } from "../../domains/conciliacao/cash-allocations.js";
+import { reconciliationCategories, findReconciliationCategory, normalizeCategorySearch } from "../../domains/conciliacao/categories.js";
+import CategoryCombobox from "./CategoryCombobox.jsx";
+import { confirmedClassificationContext } from "./classification-context.js";
+
+const movementDirection = transaction => Number(transaction?.valor) > 0 ? "entrada" : "saida";
+const allocationCategory = item => item.category || item.categoria || "";
+const allocationDestination = item => item.destination || item.destino || "empresa";
+const allocationValue = item => Number(item.value ?? item.valor ?? 0);
+const categoryForCandidate = item => {
+  const category = item?.categoria || item?.metadados?.categoria || "";
+  return ["faturamento", "recebimento_avulso"].includes(category) ? "receita" : category;
+};
+const effectLabels = {
+  cost: "Custo ou despesa no DRE por competência",
+  revenue: "Nova receita no DRE por competência",
+  unallocated: "Recebimento em caixa · sem nova receita no DRE",
+  funding: "Aporte em caixa · sem efeito no resultado do DRE",
+  loan: "Empréstimo em caixa · sem efeito no resultado do DRE",
+};
 
 export default function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=null }) {
   const { formGrid } = useBreakpoint();
@@ -64,6 +82,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const [medAlvo,    setMedAlvo]    = useState(null);   // medição que a entrada vai quitar
   const [buscaConc,setBuscaConc]=useState("");
   const [tipoMovimento,setTipoMovimento]=useState("todos");
+  const [filtroCategoria,setFiltroCategoria]=useState("");
+  const [competenciaApropriacao,setCompetenciaApropriacao]=useState("");
   const [selecionadas,setSelecionadas]=useState([]);
   const [limiteVisivel,setLimiteVisivel]=useState(30);
   const [acoesTransacaoAberta,setAcoesTransacaoAberta]=useState("");
@@ -111,6 +131,10 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const indicesFinanceiros = useMemo(() => criarIndicesFinanceiros(data), [
     data.notasFiscais, data.pedidos, data.medicoes, data.medicoesTerc,
     data.terceirizados, data.employees, data.caixaObra, data.transacoes,
+    data.titulosFolha, data.pagamentosFolha, data.fornecedores, data.clientes,
+    data.comercial, data.obras, data.outrasDesp, data.despesasEmpresa,
+    data.payments, data.pagsTerceiros, data.reconciliationLinks,
+    data.contasBancarias, data.proprietariosEquip,
   ]);
   const registroIdentidades=useMemo(()=>criarRegistroIdentidades(data),[
     data.contasBancarias,data.employees,data.terceirizados,data.fornecedores,
@@ -141,6 +165,17 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     (data.rejeicoesConc||[]).map(r=>`${r.transacaoId}:${r.candidatoTipo}:${r.candidatoId}`)
   ), [data.rejeicoesConc]);
 
+  const categoriasFila=useMemo(()=>{
+    const directions=tipoMovimento==="entradas"?["entrada"]:tipoMovimento==="saidas"?["saida"]:["entrada","saida"];
+    const unique=new Map();
+    directions.forEach(direction=>["obra","empresa"].forEach(destination=>{
+      reconciliationCategories(data,{direction,destination}).forEach(category=>{
+        if(!unique.has(category.id))unique.set(category.id,category);
+      });
+    }));
+    return [...unique.values()];
+  },[data,tipoMovimento]);
+
   const transacoes = useMemo(() => {
     const extratosArquivados = new Set((data.extratos || []).filter(e => e.status === "arquivado").map(e => String(e.id)));
     const t = (data.transacoes || []).filter(item => !extratosArquivados.has(String(item.extratoId || "")));
@@ -155,9 +190,25 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       return (b.data||"").localeCompare(a.data||"");
     });
     const porStatus=aba === "pendentes"?t.filter(x=>["pendente","parcial"].includes(x.status)):aba === "conciliadas"?t.filter(x=>x.status==="conciliado"):aba === "ignoradas"?t.filter(x=>x.status==="ignorado"):t;
-    const termo=semAcentoConc(buscaConc.trim());
-    return porStatus.filter(x=>(tipoMovimento==="todos"||(tipoMovimento==="entradas"?Number(x.valor)>0:Number(x.valor)<0))&&(!termo||semAcentoConc(`${x.descricao} ${x.data} ${x.ignoradoMotivo||""}`).includes(termo)));
-  }, [data.transacoes, data.extratos, aba, buscaConc, tipoMovimento, analisesPorTransacao]);
+    const termos=normalizeCategorySearch(buscaConc).split(/\s+/).filter(Boolean);
+    return porStatus.filter(x=>{
+      if(tipoMovimento!=="todos"&&(tipoMovimento==="entradas"?Number(x.valor)<=0:Number(x.valor)>=0))return false;
+      const analysis=analisesPorTransacao.get(x.id);
+      const candidates=x.status==="pendente"?[analysis?.melhorCandidata,...(analysis?.alternativas||[])].filter(Boolean):[];
+      const confirmed=confirmedClassificationContext(data,x);
+      const suggestion=x.status==="pendente"?sugerirRateio(x,data.regrasConc,data.aprendizadoConc):null;
+      const categories=[...(x.rateios||[]).map(allocationCategory),x.categoria,...confirmed.categories,...candidates.map(categoryForCandidate),suggestion?.categoria].filter(Boolean);
+      if(filtroCategoria&&!categories.includes(filtroCategoria))return false;
+      const categoryText=categories.map(id=>{
+        const category=categoriasFila.find(item=>item.id===id);
+        return `${id} ${category?.label||""} ${category?.groupLabel||""}`;
+      }).join(" ");
+      const workIds=[...(x.rateios||[]).map(item=>item.obraId),...confirmed.works,...candidates.map(item=>item.obraId),suggestion?.obraId];
+      const works=(data.obras||[]).filter(work=>workIds.includes(work.id)).map(work=>work.name).join(" ");
+      const haystack=normalizeCategorySearch(`${x.descricao} ${x.data} ${x.ignoradoMotivo||""} ${works} ${categoryText} ${confirmed.text} ${candidates.map(item=>`${item.titulo} ${item.contraparte||""}`).join(" ")}`);
+      return termos.every(term=>haystack.includes(term));
+    });
+  }, [data, aba, buscaConc, tipoMovimento, filtroCategoria, categoriasFila, analisesPorTransacao]);
   const transacoesVisiveis=transacoes.slice(0,limiteVisivel);
   const selecionaveis=transacoes.filter(t=>t.status!=="parcial"&&!reconciliationHold(t));
   const todosSelecionados=selecionaveis.length>0&&selecionaveis.every(t=>selecionadas.includes(t.id));
@@ -173,9 +224,13 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       const candidataMaoObra=sugerirPagamentoMaoObra(tr,data,periodo.days)
         .map(item=>createExactPixLaborCandidate(tr,{...item,periodoPonto:periodo.periodoPonto,periodoConfirmavel:Boolean(tr.data&&periodo.days.length)}))
         .find(Boolean);
+      const existentes=gerarCandidatosConciliacao(tr, data, indicesFinanceiros);
+      // Um título fechado ou seu pagamento existente prevalece sobre uma
+      // estimativa do ponto. Essa estimativa não pode criar outra despesa.
+      const temTituloFolha=existentes.some(item=>(item.tipo==="tituloFolha"&&(!candidataMaoObra||(data.titulosFolha||[]).some(title=>title.id===item.entidadeId&&title.employeeId===candidataMaoObra.entidadeId)))||(item.tipo==="funcionario"&&item.podeVincular&&(!candidataMaoObra||item.entidadeId===candidataMaoObra.entidadeId)));
       const brutas=[
-        ...(candidataMaoObra?[candidataMaoObra]:[]),
-        ...gerarCandidatosConciliacao(tr, data, indicesFinanceiros),
+        ...(candidataMaoObra&&!temTituloFolha?[candidataMaoObra]:[]),
+        ...existentes,
       ].sort((a,b)=>Number(b.score||0)-Number(a.score||0));
       mapa.set(tr.id, brutas.filter(c => !rejeitadasSet.has(`${tr.id}:${c.tipo}:${c.entidadeId}`)));
     });
@@ -188,7 +243,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     const termo=semAcentoConc(buscaConc.trim());
     return [...registrados,...legados].filter(item=>!termo||semAcentoConc(`${item.descricao} ${item.acao} ${item.operador} ${item.detalhes}`).includes(termo)).sort((a,b)=>String(b.criadoEm||"").localeCompare(String(a.criadoEm||"")));
   },[data.historicoConc,data.transacoes,buscaConc]);
-  useEffect(()=>{setSelecionadas([]);setLimiteVisivel(30);},[aba,buscaConc,tipoMovimento]);
+  useEffect(()=>{setSelecionadas([]);setLimiteVisivel(30);},[aba,buscaConc,tipoMovimento,filtroCategoria]);
   const eventoHistorico=(acao,tr,statusAnterior,statusNovo,detalhes="",extra={})=>({id:uid(),transacaoId:tr?.id||"",extratoId:tr?.extratoId||extra.extratoId||"",acao,statusAnterior,statusNovo,descricao:tr?.descricao||extra.descricao||"",valor:Number(tr?.valor||extra.valor||0),detalhes,operadorId:currentUser?.id||"",operador:currentUser?.nome||currentUser?.email||"Operador",criadoEm:new Date().toISOString(),loteId:extra.loteId||""});
   const executarComandoBancario=async commandOrFactory=>{
     if(!dispatchCommand||transacaoCommandPendingRef.current||transacaoCommandPending)return {ok:false};
@@ -212,16 +267,16 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const rotuloFaixa={[FAIXA_CONFIANCA.FORTE]:"Candidata forte",[FAIXA_CONFIANCA.CONFIRMAR]:"Confirmar",[FAIXA_CONFIANCA.LISTA]:"Possível",[FAIXA_CONFIANCA.FRACA]:"Fraca"};
   const corFaixa=f=>f===FAIXA_CONFIANCA.FORTE?C.green:f===FAIXA_CONFIANCA.CONFIRMAR?C.blue:f===FAIXA_CONFIANCA.LISTA?C.orange:C.muted;
 
-  const abrirCandidato = (tr) => {
+  const abrirCandidato = (tr, preferredIndex = 0) => {
     const analise=analisesPorTransacao.get(tr.id);
-    if(analise?.classificacaoOperacional==="bloqueada"){
-      showToast("A confirmação está bloqueada: corrija o cadastro duplicado antes de conciliar.","error");
+    if(analise?.identidadeProvavel?.conflito){
+      showToast("A confirmação está bloqueada: corrija o conflito de identidade antes de conciliar.","error");
       return;
     }
     const cs = candidatosPorTransacao.get(tr.id) || [];
-    const c = cs[0];
+    const c = cs[preferredIndex];
     setPagamentoForm({ valor: c ? String(Math.min(Math.abs(tr.valor), deCentavos(c.saldoCentavos||0)||Math.abs(tr.valor)).toFixed(2)) : String(Math.abs(tr.valor).toFixed(2)), data: tr.data });
-    setCandidatoModal({ trId: tr.id, idx: 0 });
+    setCandidatoModal({ trId: tr.id, idx: preferredIndex });
   };
   const fecharCandidato = () => { setCandidatoModal(null); setPagamentoForm({valor:"",data:""}); };
   const trocarCandidato = (delta) => setCandidatoModal(m => {
@@ -301,10 +356,11 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     const valor = Number(String(pagamentoForm.valor||"").replace(",", "."));
     if (!(valor > 0)) { showToast("Informe o valor pago.", "error"); return; }
     if(Math.abs(valor-Math.abs(Number(tr.valor||0)))>0.01){showToast("Para baixa parcial, use o rateio N:N. A confirmação simples usa todo o valor do extrato.","warn");return;}
-    const ok=await executarConciliacaoNoServidor({type:"CONFIRM_PAYMENT",payload:{transactionId:tr.id,targetType:c.tipo,targetId:c.entidadeId,targetObraId:c.obraId||"",observacao:`Sugestão ${c.confianca||""}`}},"O servidor não confirmou o pagamento.");
+    const entrada=Number(tr.valor)>0;
+    const ok=await executarConciliacaoNoServidor({type:entrada?"CONFIRM_RECEIPT":"CONFIRM_PAYMENT",payload:{transactionId:tr.id,targetType:c.tipo,targetId:c.entidadeId,targetObraId:c.obraId||"",observacao:`Sugestão ${c.confianca||""}`}},"O servidor não confirmou a liquidação.");
     if(!ok)return;
     fecharCandidato();
-    showToast("Pagamento registrado e conciliado.");
+    showToast(entrada?"Recebimento registrado e conciliado.":"Pagamento registrado e conciliado.");
   };
   const abrirValidarEntrada = (tr) => {
     setEntradaForm({
@@ -406,6 +462,9 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   //  Regras de auto-classificação
   const salvarRegra = (form) => {
     if (!String(form.padrao||"").trim()) { showToast("Informe o trecho da descrição.", "error"); return; }
+    if(!findReconciliationCategory(data,{direction:form.direction||"saida",destination:form.destino,category:form.categoria})){
+      showToast("Selecione uma categoria compatível com o tipo de movimento e o destino.","error");return;
+    }
     const existe = form.id && (data.regrasConc||[]).some(r=>r.id===form.id);
     const regrasConc = existe
       ? (data.regrasConc||[]).map(r=>r.id===form.id?{...r,...form,atualizadoEm:new Date().toISOString()}:r)
@@ -582,7 +641,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     const sug = sugerirRateio(tr, data.regrasConc, data.aprendizadoConc);
     setRateios(
       (tr.rateios && tr.rateios.length)
-        ? tr.rateios.map(r => ({...r, valor: String(r.valor)}))
+        ? tr.rateios.map(r => ({...r,destino:allocationDestination(r),categoria:allocationCategory(r),valor:String(allocationValue(r))}))
         : [{
             destino:   sug?.destino   || (tr.valor > 0 ? "obra" : "empresa"),
             obraId:    sug?.obraId    || "",
@@ -590,6 +649,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
             valor:     String(Math.abs(tr.valor).toFixed(2)),
           }]
     );
+    setCompetenciaApropriacao(String(tr.competencia||tr.data||today()).slice(0,7));
     setPadraoRegra("");
     setCriarRegra(false);
     setMedAlvo(null);          // nada pré-selecionado: quem casa é o usuário
@@ -656,15 +716,25 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   };
 
   const addRateio = () => setRateios(rs => [...rs, {
-    destino:"obra", obraId:"", categoria:"material", valor:"",
+    destino:"obra", obraId:"", categoria:movementDirection(apropModal)==="entrada"?"receita":"material", valor:"",
   }]);
-  const updRateio = (i, campo, v) =>
-    setRateios(rs => rs.map((r,k) => k===i ? {...r, [campo]: v} : r));
+  const updRateio = (i, campo, v) => setRateios(rs => rs.map((r,k) => {
+    if(k!==i)return r;
+    const next={...r,[campo]:v};
+    if(campo==="destino"){
+      next.obraId="";
+      if(!findReconciliationCategory(data,{direction:movementDirection(apropModal),destination:v,category:r.categoria}))next.categoria="";
+    }
+    return next;
+  }));
   const delRateio = (i) => setRateios(rs => rs.filter((_,k) => k!==i));
 
   const totalRateado = somaRateios(rateios.map(r => ({...r, valor: Number(r.valor||0)})));
   const alvo = apropModal ? Math.abs(Number(apropModal.valor)) : 0;
   const diferenca = alvo - totalRateado;
+  const categoriasRateio=rateios.map(item=>findReconciliationCategory(data,{direction:movementDirection(apropModal),destination:item.destino,category:item.categoria}));
+  const categoriasRateioValidas=categoriasRateio.every(Boolean);
+  const sugestoesExistentesApropriacao=apropModal?(candidatosPorTransacao.get(apropModal.id)||[]).filter(item=>item.tipo!=="maoObraPonto"&&(item.tipo!=="funcionario"||item.podeVincular)):[];
   const temDivergenciaRecebedor=Math.abs(Number(recebedorSelecionado?.divergencia||0))>=.01;
   const rateioMaoObraPreparado=!!(recebedorSelecionado?.emp?.obra&&rateios.length===1&&rateios[0]?.destino==="obra"&&rateios[0]?.obraId===recebedorSelecionado.emp.obra&&rateios[0]?.categoria==="mao_obra"&&Math.abs(Number(rateios[0]?.valor||0)-alvo)<.01);
   const rateioPixAutomatico=!!(rateioMaoObraPreparado&&correspondenciaPixExata?.emp.id===recebedorSelecionado?.emp.id);
@@ -694,20 +764,30 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     if(!apropModal)return;
     const rs=rateios.map(item=>({destination:item.destino,obraId:item.obraId,category:item.categoria,value:Number(item.valor||0)}));
     if(!rs.length||rs.some(item=>!(item.value>0))||Math.abs(diferenca)>=0.01){showToast("Confira os destinos: o rateio precisa fechar exatamente o valor do extrato.","error");return false;}
+    if(!categoriasRateioValidas){showToast("Selecione uma categoria válida para cada destino.","error");return false;}
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(competenciaApropriacao)){showToast("Informe a competência do novo lançamento.","error");return false;}
     const worker=recebedorSelecionado?{employeeId:recebedorSelecionado.emp.id,employeeName:recebedorSelecionado.emp.name,pixHolder:recebedorSelecionado.emp.pixHolder||""}:null;
+    const tituloExistente=worker?sugestoesExistentesApropriacao.find(item=>(item.tipo==="tituloFolha"&&(item.metadados?.payroll?.employeeId===worker.employeeId||(data.titulosFolha||[]).some(title=>title.id===item.entidadeId&&title.employeeId===worker.employeeId)))||(item.tipo==="funcionario"&&item.podeVincular&&item.entidadeId===worker.employeeId)):null;
+    if(tituloExistente){
+      showToast("Há um título ou pagamento de folha cadastrado para este funcionário. Revise o vínculo para preservar o custo original.","warn");
+      setApropModal(null);
+      abrirCandidato(apropModal,(candidatosPorTransacao.get(apropModal.id)||[]).indexOf(tituloExistente));
+      return false;
+    }
     if(modoConciliacaoRh&&(!podeOperarConcTrabalhista||!worker||rs.some(item=>item.destination!=="obra"||item.category!=="mao_obra"))){
       showToast("O RH deve selecionar o funcionário e a obra para conciliar como Mão de obra.","error");
       return false;
     }
-    const autoRule=criarRegra&&padraoRegra.trim()?{pattern:padraoRegra.trim()}:null;
+    const autoRule=criarRegra&&padraoRegra.trim()?{pattern:padraoRegra.trim(),direction:movementDirection(apropModal)}:null;
     // D-E: avisa (sem bloquear) quando já há nota ou pedido de mesmo valor na obra.
     const duplicidades=possiveisDuplicidades(data,apropModal,rs);
     if(duplicidades.length&&!window.confirm(textoAvisoDuplicidade(duplicidades)))return false;
-    const ok=await executarConciliacaoNoServidor({type:"CONFIRM_ALLOCATION",payload:{transactionId:apropModal.id,allocations:rs,measurementId:medAlvo?.m?.id||"",worker,autoRule}},"O servidor não confirmou o rateio.");
+    const ok=await executarConciliacaoNoServidor({type:"CONFIRM_ALLOCATION",payload:{transactionId:apropModal.id,allocations:rs,competence:competenciaApropriacao,measurementId:medAlvo?.m?.id||"",worker,autoRule}},"O servidor não confirmou o rateio.");
     if(!ok)return false;
     const compraMaterial=Number(apropModal.valor)<0&&rs.some(item=>item.destination==="obra"&&item.category==="material");
     setApropModal(null);setRateios([]);setMedAlvo(null);setRecebedorMaoObraId("");
-    showToast(compraMaterial?"Conciliação confirmada. Lembre de registrar a entrada física no estoque.":"Conciliação confirmada e refletida no DRE.");
+    const criaResultado=!worker&&categoriasRateio.some(category=>["cost","revenue"].includes(category?.effect));
+    showToast(worker?"Pagamento do funcionário conciliado. O custo do ponto e da folha foi preservado.":compraMaterial?"Conciliação confirmada. Lembre de registrar a entrada física no estoque.":criaResultado?"Conciliação confirmada e classificada no DRE por competência.":"Conciliação confirmada no caixa, preservando o resultado do DRE.");
     return true;
   };
 
@@ -819,9 +899,10 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         <label className="reconciliation-search">
           <span className="sr-only">Buscar na conciliação</span>
           <Ic n="search" s={13} color={C.muted}/>
-          <input value={buscaConc} onChange={e=>setBuscaConc(e.target.value)} placeholder={aba==="historico"?"Buscar ação, operador ou transação...":"Buscar funcionário, data ou PIX..."}/>
+          <input value={buscaConc} onChange={e=>setBuscaConc(e.target.value)} placeholder={aba==="historico"?"Buscar ação, operador ou transação...":"Buscar categoria, obra, fornecedor, funcionário ou data..."}/>
         </label>
-        {aba!=="historico"&&!modoConciliacaoRh&&<select aria-label="Tipo de movimento" value={tipoMovimento} onChange={e=>setTipoMovimento(e.target.value)}><option value="todos">Entradas e saídas</option><option value="entradas">Somente entradas</option><option value="saidas">Somente saídas</option></select>}
+        {aba!=="historico"&&!modoConciliacaoRh&&<select aria-label="Tipo de movimento" value={tipoMovimento} onChange={e=>{setTipoMovimento(e.target.value);setFiltroCategoria("");}}><option value="todos">Entradas e saídas</option><option value="entradas">Somente entradas</option><option value="saidas">Somente saídas</option></select>}
+        {["pendentes","conciliadas","ignoradas"].includes(aba)&&!modoConciliacaoRh&&<CategoryCombobox label="Filtrar categoria" options={categoriasFila} value={filtroCategoria} onChange={setFiltroCategoria} clearable/>}
         {!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<button type="button" className="reconciliation-toolbar__select-all" onClick={alternarTodas}>{todosSelecionados?"Desmarcar todas":"Selecionar todas"}</button>}
         {!modoConciliacaoRh&&aba==="pendentes"&&transacoesElegiveisLote.length>0&&<Btn size="sm" onClick={()=>setLoteProntoModal({excluidas:new Set()})}><Ic n="check"/> Revisar e confirmar em lote · {transacoesElegiveisLote.length}</Btn>}
         {!modoConciliacaoRh&&aba==="pendentes"&&selecionadas.length>0&&<Btn size="sm" v="ghost" onClick={()=>abrirIgnorar(selecionadas,"Ignorar selecionadas")}>Ignorar selecionadas · {selecionadas.length}</Btn>}
@@ -915,7 +996,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
               Regras viram só uma <strong>sugestão</strong> na fila - nunca conciliam sozinhas.
               Cada regra guarda quantas vezes foi aplicada, confirmada e rejeitada.
             </p>
-            {podeCriarRegra(currentUser?.role)&&<Btn size="sm" onClick={()=>setRegraModal({nome:"",ativa:true,prioridade:0,padrao:"",destino:"obra",obraId:"",categoria:"outros",exigirConfirmacao:true})}><Ic n="plus"/> Nova regra</Btn>}
+            {podeCriarRegra(currentUser?.role)&&<Btn size="sm" onClick={()=>setRegraModal({nome:"",ativa:true,prioridade:0,padrao:"",direction:"saida",destino:"obra",obraId:"",categoria:"outros",exigirConfirmacao:true})}><Ic n="plus"/> Nova regra</Btn>}
           </div>
           {(data.regrasConc||[]).length===0
             ? <div style={{padding:24,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:8,color:C.muted,fontSize:"var(--arcd-type-label)"}}>Nenhuma regra criada ainda.</div>
@@ -932,7 +1013,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                         <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",color:C.green,borderBottom:`1px solid ${C.line}`}}>{r.confirmacoes||0}</td>
                         <td style={{padding:"7px 8px",fontSize:"var(--arcd-type-table)",color:C.orange,borderBottom:`1px solid ${C.line}`}}>{r.rejeicoes||0}</td>
                         <td style={{padding:"5px 7px",textAlign:"right",whiteSpace:"nowrap",borderBottom:`1px solid ${C.line}`}}>
-                          <Btn size="sm" v="ghost" onClick={()=>setRegraModal(r)}>Editar</Btn>{" "}
+                          <Btn size="sm" v="ghost" onClick={()=>setRegraModal({...r,direction:r.direction||(findReconciliationCategory(data,{direction:"entrada",destination:r.destino,category:r.categoria})?"entrada":"saida")})}>Editar</Btn>{" "}
                           <Btn size="sm" v="ghost" onClick={()=>alternarAtivaRegra(r)}>{r.ativa?"Desativar":"Ativar"}</Btn>{" "}
                           {podeElevado&&<Btn size="sm" v="danger" onClick={()=>excluirRegra(r)}><Ic n="trash"/></Btn>}
                         </td>
@@ -977,7 +1058,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       )}
 
       {["pendentes","conciliadas","ignoradas"].includes(aba)&&(transacoes.length===0
-        ? <div className="reconciliation-empty"><Ic n={aba==="pendentes"?"check":"receipt"} s={20} color={aba==="pendentes"?C.green:C.muted}/><p>{aba==="pendentes"?"Fila totalmente classificada":"Nenhuma transação neste filtro"}</p><span>{aba==="pendentes"?"Todos os movimentos importados receberam uma decisão.":"Ajuste a busca ou selecione outro período."}</span></div>
+        ? <div className="reconciliation-empty"><Ic n={aba==="pendentes"?"check":"receipt"} s={20} color={aba==="pendentes"?C.green:C.muted}/><p>{aba==="pendentes"&&!buscaConc&&!filtroCategoria&&tipoMovimento==="todos"?"Fila totalmente classificada":"Nenhuma transação neste filtro"}</p><span>{aba==="pendentes"&&!buscaConc&&!filtroCategoria&&tipoMovimento==="todos"?"Todos os movimentos importados receberam uma decisão.":"Ajuste a busca, a categoria ou o tipo de movimento."}</span></div>
         : <div className="scroll-x reconciliation-queue">
             <table className="reconciliation-table">
               <thead><tr>
@@ -993,15 +1074,20 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                 const analise=analisesPorTransacao.get(tr.id);
                 const melhorEhPixMaoDeObra=melhor?.tipo==="maoObraPonto";
                 const pixFuncionario=findRegisteredEmployeePix(tr,data.employees);
+                const tituloFolhaIndex=candidatas.findIndex((item,index)=>item.tipo==="tituloFolha"&&(index===0||(pixFuncionario&&(data.titulosFolha||[]).some(title=>title.id===item.entidadeId&&title.employeeId===pixFuncionario.employee.id))));
+                const principal=tituloFolhaIndex>=0?candidatas[tituloFolhaIndex]:melhor;
+                const classificacaoConfirmada=tr.status==="conciliado"?confirmedClassificationContext(data,tr):null;
                 const corMovimento=entrada?C.green:pixFuncionario?C.yellow:C.red;
                 const acoesAbertas=acoesTransacaoAberta===tr.id;
                 const abrirAcaoPrincipal=()=>{
+                  if(tituloFolhaIndex>=0){abrirCandidato(tr,tituloFolhaIndex);return;}
+                  if(melhor?.podeVincular){abrirCandidato(tr);return;}
                   if(modoConciliacaoRh){melhor&&melhor.tipo==="tituloFolha"?abrirCandidato(tr):abrirApropriacao(tr);return;}
                   if(pixFuncionario&&!entrada){abrirApropriacao(tr);return;}
                   if(melhor){melhorEhPixMaoDeObra?abrirApropriacao(tr):abrirCandidato(tr);return;}
                   entrada?abrirValidarEntrada(tr):abrirApropriacao(tr);
                 };
-                const rotuloPrincipal=modoConciliacaoRh?"Confirmar funcionário":pixFuncionario&&!entrada?"Confirmar PIX":melhorEhPixMaoDeObra?"Confirmar PIX":melhor?"Revisar sugestão":entrada?"Validar entrada":"Classificar saída";
+                const rotuloPrincipal=principal?.podeVincular?"Vincular existente":tituloFolhaIndex>=0?"Revisar folha":modoConciliacaoRh?"Confirmar funcionário":pixFuncionario&&!entrada?"Confirmar PIX":melhorEhPixMaoDeObra?"Confirmar PIX":melhor?"Revisar sugestão":entrada?"Validar entrada":"Classificar saída";
                 return <tr key={tr.id} className="reconciliation-row" data-selected={selecionadas.includes(tr.id)} data-pix={Boolean(pixFuncionario)} data-direction={entrada?"in":"out"}>
                   <td className="reconciliation-cell reconciliation-cell--select">{!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<input aria-label={`Selecionar ${tr.descricao}`} type="checkbox" disabled={Boolean(hold)||tr.status==="parcial"} checked={selecionadas.includes(tr.id)} onChange={()=>alternarSelecao(tr.id)}/>}</td>
                   <td className="reconciliation-cell reconciliation-cell--date">{fmtDate(tr.data)}</td>
@@ -1032,8 +1118,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                     : <td className="reconciliation-cell reconciliation-cell--classification">
                         {tr.status==="conciliado"
                           ? ((tr.rateios||[]).length
-                              ? <details><summary style={{cursor:"pointer",fontWeight:600,color:C.green}}>{tr.rateios.length} rateio(s)</summary>{tr.rateios.map((r,i)=><p key={i} style={{marginTop:3}}>{r.destino==="obra"?nomeObra(r.obraId):"Empresa"} · {r.categoria} · {fmt(r.valor)}</p>)}</details>
-                              : (tr.vinculo?`Vinculada · ${tr.vinculo.tipo}`:"Conciliada"))
+                              ? <details><summary style={{cursor:"pointer",fontWeight:600,color:C.green}}>{tr.rateios.length} rateio(s)</summary>{tr.rateios.map((r,i)=><p key={i} style={{marginTop:3}}>{allocationDestination(r)==="obra"?nomeObra(r.obraId):"Empresa"} · {findReconciliationCategory(data,{direction:movementDirection(tr),destination:allocationDestination(r),category:allocationCategory(r)})?.label||allocationCategory(r)} · {fmt(allocationValue(r))}</p>)}</details>
+                              : (tr.vinculo?<span>{classificacaoConfirmada?.categories.length?classificacaoConfirmada.categories.map(id=>categoriasFila.find(category=>category.id===id)?.label||id).join(" · "):`Vinculada · ${tr.vinculo.tipo}`}{classificacaoConfirmada?.works.length>0&&<small style={{display:"block",marginTop:3}}>{classificacaoConfirmada.works.map(nomeObra).join(" · ")}</small>}</span>:"Conciliada"))
                           : <span title={tr.ignoradoMotivo} style={{color:C.orange}}>{tr.ignoradoMotivo||"Sem motivo registrado"}</span>}
                       </td>}
                   <td className="reconciliation-cell reconciliation-cell--value">{entrada?"+ ":""}{fmt(Math.abs(tr.valor))}</td>
@@ -1120,7 +1206,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         return <Modal title="Validar entrada bancária" onClose={()=>setEntradaModal(null)} wide><div style={{display:"flex",flexDirection:"column",gap:11}}>
           <div style={{background:`${C.green}0B`,border:`1px solid ${C.green}44`,borderRadius:7,padding:"10px 12px"}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{tr.descricao}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{fmtDate(tr.data)} · crédito no banco</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.green,marginTop:4}}>{fmt(Math.abs(Number(tr.valor)))}</p></div>
           <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.45}}>Escolha a origem real do dinheiro. A confirmação cria vínculo auditável; aporte e empréstimo não viram receita no DRE.</p>
-          <Sel label="Origem da entrada" value={entradaForm.tipo} onChange={v=>setEntradaForm(f=>({...f,tipo:v}))} options={[{v:"entradaContrato",l:"Entrada de contrato comercial"},{v:"medicao",l:"Parcela / medição da obra"},{v:"recebimento_administracao",l:"Recebimento manual · obra por administração"},{v:"entrada_caixa_obra",l:"Aporte do cliente no caixa da obra"},{v:"aporte_socio",l:"Aporte de sócio"},{v:"emprestimo",l:"Empréstimo ou financiamento"},{v:"outra_entrada",l:"Outra entrada sem efeito no DRE"}]}/>
+          <Sel label="Origem da entrada" value={entradaForm.tipo} onChange={v=>setEntradaForm(f=>({...f,tipo:v,categoria:({entrada_caixa_obra:"aporte_cliente",aporte_socio:"capital_socio",emprestimo:"credito",outra_entrada:"outros_recursos"})[v]||f.categoria}))} options={[{v:"entradaContrato",l:"Entrada de contrato comercial"},{v:"medicao",l:"Parcela / medição da obra"},{v:"recebimento_administracao",l:"Recebimento manual · obra por administração"},{v:"entrada_caixa_obra",l:"Aporte do cliente no caixa da obra"},{v:"aporte_socio",l:"Aporte de sócio"},{v:"emprestimo",l:"Empréstimo ou financiamento"},{v:"outra_entrada",l:"Outra entrada sem efeito no DRE"}]}/>
           {entradaForm.tipo==="entradaContrato"&&<Sel label="Contrato" value={entradaForm.contratoId} onChange={v=>setEntradaForm(f=>({...f,contratoId:v}))} options={[{v:"",l:"Selecione o contrato..."},...contratosAbertos.map(k=>{const recebido=recebidoEntradaContrato(k);return {v:k.id,l:`${k.numero||"Contrato"} · ${k.contratante||"Cliente"} · saldo ${fmt(Number(k.entrada||0)-recebido)}`};})]}/>}
           {entradaForm.tipo==="medicao"&&<div style={{display:"flex",flexDirection:"column",gap:9,padding:"10px 11px",border:`1px solid ${C.border}`,borderRadius:8,background:C.surface}}>
             <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>1. OBRA QUE RECEBEU</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Escolha a obra antes da parcela para não misturar lançamentos.</p></div>
@@ -1133,8 +1219,9 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
           </div>}
           {entradaForm.tipo==="recebimento_administracao"&&<Sel label="Obra por administração" value={entradaForm.obraId} onChange={v=>setEntradaForm(f=>({...f,obraId:v}))} options={[{v:"",l:"Selecione a obra..."},...data.obras.filter(o=>["administracao","admin","management"].includes(String(o.contractType||"").toLowerCase())||String(o.billingType||"").toLowerCase().includes("administr")).map(o=>({v:o.id,l:o.name})),...data.obras.filter(o=>!["administracao","admin","management"].includes(String(o.contractType||"").toLowerCase())&&!String(o.billingType||"").toLowerCase().includes("administr")).map(o=>({v:o.id,l:`${o.name} · outra modalidade`}))]}/>}
           {entradaForm.tipo==="entrada_caixa_obra"&&<Sel label="Obra do caixa" value={entradaForm.obraId} onChange={v=>setEntradaForm(f=>({...f,obraId:v}))} options={[{v:"",l:"Selecione a obra..."},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>}
-          {tipoSemDre&&<Sel label="Classificação" value={entradaForm.categoria} onChange={v=>setEntradaForm(f=>({...f,categoria:v}))} options={[{v:"aporte_cliente",l:"Recurso do cliente"},{v:"capital_socio",l:"Capital de sócio"},{v:"credito",l:"Crédito / empréstimo"},{v:"outros",l:"Outros recursos"}]}/>}
+          {tipoSemDre&&<CategoryCombobox label="Classificação da entrada" value={entradaForm.categoria} onChange={v=>setEntradaForm(f=>({...f,categoria:v,tipo:({aporte_cliente:"entrada_caixa_obra",capital_socio:"aporte_socio",credito:"emprestimo",outros_recursos:"outra_entrada"})[v]||f.tipo}))} options={reconciliationCategories(data,{direction:"entrada",destination:entradaForm.obraId?"obra":"empresa"}).filter(category=>["funding","loan"].includes(category.effect))}/>}
           <Inp label="Observação" value={entradaForm.descricao} onChange={v=>setEntradaForm(f=>({...f,descricao:v}))} placeholder="Identificação no extrato, contrato ou comprovante"/>
+          <div className="reconciliation-existing-first"><strong>Categoria de entrada e competência</strong><p>Para classificar uma receita nova ou dividir o recebimento entre destinos, use as categorias integradas ao DRE.</p><Btn size="sm" v="ghost" onClick={()=>{setEntradaModal(null);abrirApropriacao(tr);}}>Classificar por categoria / ratear entrada</Btn></div>
           <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setEntradaModal(null)} full disabled={conciliando}>Cancelar</Btn><Btn onClick={confirmarEntrada} full disabled={conciliando}>{conciliando?"Confirmando no servidor…":<><Ic n="check"/> Confirmar entrada</>}</Btn></div>
         </div></Modal>;
       })()}
@@ -1155,6 +1242,19 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
               </div>
             </div>
 
+            {sugestoesExistentesApropriacao.length>0&&<div className="reconciliation-existing-first">
+              <strong>Há {sugestoesExistentesApropriacao.length} lançamento(s) existente(s) para revisar</strong>
+              <p>Vincule a compra, folha ou recebimento já cadastrado para preservar a categoria, a competência e o custo ou receita de origem.</p>
+              <div>{sugestoesExistentesApropriacao.slice(0,3).map(candidate=><Btn key={`${candidate.tipo}-${candidate.entidadeId}-${candidate.pagamentoId||""}`} size="sm" v="ghost" onClick={()=>{
+                setApropModal(null);abrirCandidato(apropModal,(candidatosPorTransacao.get(apropModal.id)||[]).indexOf(candidate));
+              }}>{candidate.podeVincular?"Vincular":"Revisar"} · {candidate.titulo}</Btn>)}</div>
+            </div>}
+
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
+              <Inp label={rateioMaoObraPreparado?"Referência do pagamento":"Competência do novo lançamento"} type="month" value={competenciaApropriacao} onChange={setCompetenciaApropriacao} disabled={Boolean(medAlvo)||rateioMaoObraPreparado}/>
+              <div className="reconciliation-dre-effect"><strong>{movementDirection(apropModal)==="entrada"?"Entrada bancária":"Saída bancária"} · {fmtDate(apropModal.data)}</strong><p>{rateioMaoObraPreparado?"O pagamento movimenta o caixa. O custo e a competência continuam apurados pelo ponto e pela folha, sem uma nova despesa.":medAlvo?"O vínculo preserva a competência da medição existente.":"A data do extrato registra o caixa. A competência define o mês do custo ou receita nova no DRE."}</p></div>
+            </div>
+
             {/*  Casamento com medição em aberto
                 Aparece só em ENTRADAS que têm candidata. Nada vem pré-marcado:
                 o app sugere, você decide. */}
@@ -1165,8 +1265,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                    Esta entrada parece quitar uma medição
                 </p>
                 <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:9,lineHeight:1.5}}>
-                  Se você confirmar, a parcela é marcada como <strong>recebida</strong> e a
-                  receita passa a ser reconhecida por ela - sem lançamento avulso em duplicidade.
+                  Ao confirmar, o recebimento é vinculado à parcela existente, preservando
+                  sua competência e a receita já registrada.
                 </p>
 
                 <div style={{display:"flex",flexDirection:"column",gap:6}}>
@@ -1213,15 +1313,14 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                     <p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600}}>Pagamento parcial</p>
                     <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.45}}>
                       Recebido {fmt(alvo)} de {fmt(medAlvo.prev)} previstos.
-                      A parcela será dada por quitada com o valor recebido - se o resto ainda vem,
-                      talvez seja melhor não vincular agora.
+                      O valor recebido será abatido e o saldo restante da parcela continuará em aberto.
                     </p>
                   </div>
                 )}
 
                 {!medAlvo && (
                   <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:8,fontStyle:"italic"}}>
-                    Nenhuma selecionada - a entrada será lançada como recebimento avulso da obra.
+                    Nenhuma selecionada. Confira abaixo a categoria e seu efeito no DRE antes de criar um lançamento.
                   </p>
                 )}
               </div>
@@ -1243,6 +1342,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                 {rateioPixAutomatico&&<p style={{fontSize:"var(--arcd-type-label)",color:C.green,fontWeight:600,marginTop:10}}>Correspondência confirmável: titular/chave PIX, valor e quinzena de referência foram identificados. O rateio para mão de obra desta obra já foi preparado.</p>}
                 {rateioMaoObraPreparado&&!rateioPixAutomatico&&!temDivergenciaRecebedor&&<p style={{fontSize:"var(--arcd-type-label)",color:C.green,fontWeight:600,marginTop:10}}>Operário selecionado. A obra e o rateio de mão de obra foram preparados; basta confirmar.</p>}
                 {rateioMaoObraPreparado&&temDivergenciaRecebedor&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600,marginTop:10}}>Atenção: nome/titular foi encontrado, mas o PIX diverge do valor do ponto. Confirme somente se este pagamento estiver correto.</p>}
+                {rateioMaoObraPreparado&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:8}}>A confirmação registra o pagamento do funcionário no caixa e preserva o custo calculado pelo ponto e pela folha. Se houver um título cadastrado para este período, revise a sugestão e vincule esse título.</p>}
                 {!rateioMaoObraPreparado&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600,marginTop:10}}>Escolha abaixo quem recebeu este PIX. A conciliação só será efetivada após sua confirmação.</p>}
                 {sugMaoObra.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6,marginTop:10,paddingTop:10,borderTop:`1px solid ${C.line}`}}>
                   <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Quem recebeu este PIX?</p>
@@ -1263,7 +1363,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
               </div>
             )}
 
-            {!rateioMaoObraPreparado&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>Divida o valor entre obras e a empresa somente quando esta saída não puder ser associada de forma inequívoca.</p>}
+            {!rateioMaoObraPreparado&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>Escolha categorias de {movementDirection(apropModal)==="entrada"?"entrada":"saída"} para cada destino. Se a compra, salário ou recebimento já existir, revise as sugestões antes de criar um lançamento.</p>}
 
             {/* Linhas de rateio */}
             {!rateioMaoObraPreparado&&rateios.map((r,i)=>(
@@ -1280,25 +1380,26 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
                 <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
                   <Sel label="Vai para" value={r.destino}
-                    onChange={v=>{ updRateio(i,"destino",v); updRateio(i,"obraId",""); }}
+                    onChange={v=>updRateio(i,"destino",v)}
                     options={[{v:"obra",l:" Uma obra"},{v:"empresa",l:" A empresa"}]}/>
 
-                  {r.destino === "obra" ? (
+                  {r.destino === "obra" && (
                     <Sel label="Obra" value={r.obraId} onChange={v=>updRateio(i,"obraId",v)}
                       options={[{v:"",l:"Selecione..."}, ...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
-                  ) : (
-                    <Sel label="Categoria" value={r.categoria} onChange={v=>updRateio(i,"categoria",v)}
-                      options={CATS_DESP.map(c=>({v:c.v,l:c.l}))}/>
                   )}
 
-                  {r.destino === "obra" && (
-                    <Sel label="Categoria" value={r.categoria} onChange={v=>updRateio(i,"categoria",v)}
-                      options={CATS_OBRA_CONC.map(c=>({v:c.v,l:c.l}))}/>
-                  )}
+                  <CategoryCombobox label={`Categoria de ${movementDirection(apropModal)==="entrada"?"entrada":"saída"} · destino ${i+1}`} required
+                    value={r.categoria} onChange={v=>updRateio(i,"categoria",v)}
+                    options={reconciliationCategories(data,{direction:movementDirection(apropModal),destination:r.destino})}/>
 
                   <Inp label="Valor (R$)" type="number" value={r.valor}
                     onChange={v=>updRateio(i,"valor",v)} placeholder="0,00"/>
                 </div>
+                {categoriasRateio[i]&&<div className="reconciliation-dre-effect" data-effect={categoriasRateio[i].effect} style={{marginTop:9}}>
+                  <strong>{medAlvo&&r.categoria==="receita"?"Vínculo com receita existente · competência preservada":effectLabels[categoriasRateio[i].effect]}</strong>
+                  <p>{categoriasRateio[i].groupLabel} · {categoriasRateio[i].label}</p>
+                  <p>{categoriasRateio[i].description}</p>
+                </div>}
               </div>
             ))}
 
@@ -1359,7 +1460,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
             <div style={{display:"flex",gap:8}}>
               <Btn v="ghost" onClick={()=>{setApropModal(null);setRateios([]);setMedAlvo(null);}} full>Cancelar</Btn>
-              <Btn onClick={confirmarApropriacao} full loading={conciliando} disabled={Math.abs(diferenca) >= 0.01}>
+              <Btn onClick={confirmarApropriacao} full loading={conciliando} disabled={Math.abs(diferenca) >= 0.01||!categoriasRateioValidas}>
                 <Ic n="check"/> {conciliando?"Conciliando no servidor...":"Confirmar conciliação"}
               </Btn>
             </div>
@@ -1406,7 +1507,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
               {c?.tipo==="tituloFolha" && c.metadados?.payroll && (()=>{
                 const folha=c.metadados.payroll;
                 return <div style={{background:`${C.green}08`,border:`1px solid ${C.green}44`,borderRadius:6,padding:"10px 11px"}}>
-                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.green}}>Título de folha · confira antes de liquidar</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.green}}>Título de folha · {c.podeVincular?"pagamento já registrado":"confira antes de liquidar"}</p>
                   <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>{folha.funcionario} · CPF {folha.cpfMascarado} · PIX {folha.chavePixMascarada}</p>
                   <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Titular: {folha.titularPix||"não informado"} · Período: {folha.periodo||"não informado"}</p>
                   <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:5,marginTop:7,fontSize:"var(--arcd-type-caption)",color:C.text}}>
@@ -1414,7 +1515,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                     <span>Adiantamentos/descontos: <b>{fmt(folha.adiantamentos+folha.descontos)}</b></span><span>Líquido: <b>{fmt(folha.liquido)}</b></span>
                     <span style={{gridColumn:"1 / -1"}}>Saldo em aberto: <b>{fmt(folha.saldo)}</b> · Rateio: {(folha.rateiosPorObra||[]).map(r=>`${nomeObra(r.obraId)} ${fmt(r.valor)}`).join(" · ")||"não informado"}</span>
                   </div>
-                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:7}}>Esta ação liquida somente o título e registra o vínculo bancário. Não cria outra despesa de mão de obra no DRE.</p>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:7}}>{c.podeVincular?"O vínculo confirma o pagamento já registrado e preserva a competência e o rateio de mão de obra no DRE.":"Esta ação liquida o título e registra o vínculo bancário, preservando o custo de mão de obra existente no DRE."}</p>
                 </div>;
               })()}
               {c && c.alertas.length>0 && (
@@ -1432,15 +1533,15 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
               {c && c.podeRegistrarPagamento && (
                 <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
-                  <Inp label="Valor a registrar (R$)" type="number" value={pagamentoForm.valor} onChange={v=>setPagamentoForm(f=>({...f,valor:v}))}/>
-                  <Inp label="Data do pagamento" type="date" value={pagamentoForm.data} onChange={v=>setPagamentoForm(f=>({...f,data:v}))}/>
+                  <Inp label="Valor do extrato (R$)" type="number" value={String(Math.abs(Number(tr.valor)))} disabled/>
+                  <Inp label="Data do extrato" type="date" value={tr.data} disabled/>
                 </div>
               )}
 
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {c?.tipo==="maoObraPonto" && <Btn onClick={()=>{fecharCandidato();abrirApropriacao(tr);}}><Ic n="check"/> Abrir cartão PIX</Btn>}
-                {c && c.podeVincular && c.bloqueios.length===0 && <Btn onClick={()=>executarVincular(tr,c)}><Ic n="check"/> Confirmar vínculo</Btn>}
-                {c && c.podeRegistrarPagamento && c.bloqueios.length===0 && <Btn onClick={()=>executarRegistrarPagamento(tr,c)}><Ic n="check"/> Registrar pagamento e conciliar</Btn>}
+                {c && c.podeVincular && c.bloqueios.length===0 && <Btn disabled={conciliando} onClick={()=>executarVincular(tr,c)}><Ic n="check"/> Confirmar vínculo</Btn>}
+                {c && !c.podeVincular && c.podeRegistrarPagamento && c.bloqueios.length===0 && <Btn disabled={conciliando} onClick={()=>executarRegistrarPagamento(tr,c)}><Ic n="check"/> {Number(tr.valor)>0?"Registrar recebimento e conciliar":"Registrar pagamento e conciliar"}</Btn>}
                 {cs.length>1 && <Btn v="ghost" onClick={()=>trocarCandidato(1)}>Outro candidato</Btn>}
                 {c && !modoConciliacaoRh&&<Btn v="ghost" onClick={()=>rejeitarCandidato(tr,c)}>Não corresponde</Btn>}
               </div>
@@ -1547,10 +1648,10 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
             <Inp label="Nome da regra" value={regraModal.nome} onChange={v=>setRegraModal(f=>({...f,nome:v}))}/>
             <Inp label="Quando a descrição contiver *" value={regraModal.padrao} onChange={v=>setRegraModal(f=>({...f,padrao:v}))} placeholder="Ex.: CELPE, ALUGUEL, PIX JOSE DAVID"/>
             <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
-              <Sel label="Vai para" value={regraModal.destino} onChange={v=>setRegraModal(f=>({...f,destino:v,obraId:""}))} options={[{v:"obra",l:"Uma obra"},{v:"empresa",l:"A empresa"}]}/>
-              {regraModal.destino==="obra"
-                ? <Sel label="Obra" value={regraModal.obraId} onChange={v=>setRegraModal(f=>({...f,obraId:v}))} options={[{v:"",l:"Selecione..."},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
-                : <Sel label="Categoria" value={regraModal.categoria} onChange={v=>setRegraModal(f=>({...f,categoria:v}))} options={CATS_DESP.map(c=>({v:c.v,l:c.l}))}/>}
+              <Sel label="Tipo de movimento da regra" value={regraModal.direction||"saida"} onChange={v=>setRegraModal(f=>({...f,direction:v,categoria:findReconciliationCategory(data,{direction:v,destination:f.destino,category:f.categoria})?f.categoria:""}))} options={[{v:"entrada",l:"Entrada"},{v:"saida",l:"Saída"}]}/>
+              <Sel label="Vai para" value={regraModal.destino} onChange={v=>setRegraModal(f=>({...f,destino:v,obraId:"",categoria:findReconciliationCategory(data,{direction:f.direction||"saida",destination:v,category:f.categoria})?f.categoria:""}))} options={[{v:"obra",l:"Uma obra"},{v:"empresa",l:"A empresa"}]}/>
+              {regraModal.destino==="obra"&&<Sel label="Obra" value={regraModal.obraId} onChange={v=>setRegraModal(f=>({...f,obraId:v}))} options={[{v:"",l:"Selecione..."},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>}
+              <CategoryCombobox label="Categoria da regra" required value={regraModal.categoria} onChange={v=>setRegraModal(f=>({...f,categoria:v}))} options={reconciliationCategories(data,{direction:regraModal.direction||"saida",destination:regraModal.destino})}/>
             </div>
             <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.45}}>
               Vira só uma sugestão na Fila inteligente - nunca conciliada sozinha. Uma regra nunca deve fixar a obra

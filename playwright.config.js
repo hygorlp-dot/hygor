@@ -21,6 +21,7 @@ export default defineConfig({
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: `http://127.0.0.1:${port}`,
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? {launchOptions:{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}} : {}),
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "retain-on-failure",
@@ -36,6 +37,8 @@ export default defineConfig({
     {name:"annual-dre-mobile",testMatch:/annual-dre\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"dre-reconciliation-desktop",testMatch:/dre-reconciliation\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
     {name:"dre-reconciliation-mobile",testMatch:/dre-reconciliation\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
+    {name:"reconciliation-categories-desktop",testMatch:/reconciliation-categories\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
+    {name:"reconciliation-categories-mobile",testMatch:/reconciliation-categories\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {
       name: "purchase-workspace",
       testMatch: /purchase-workspace\.spec\.js/,
