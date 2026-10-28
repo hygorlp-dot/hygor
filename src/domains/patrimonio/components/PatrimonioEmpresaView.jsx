@@ -77,10 +77,13 @@ function ImportInvoice({data,dispatchCommand,showToast,onClose}){
       for(const item of selected){
         const qty=Math.max(1,Math.trunc(Number(item.quantidade)||1));
         if(qty>200)throw new Error("Um item da nota possui mais de 200 unidades patrimoniais. Divida o cadastro em lotes para confirmar a individualização.");
+        const valorUnitario=Number(item.valorUnitario||0)>0
+          ?Number(item.valorUnitario)
+          :(Number(item.valorTotal||0)>0?Number(item.valorTotal)/qty:0);
         for(let unit=1;unit<=qty;unit++){
           const a=vazio();a.id=uid();a.assetTag=tag();a.name=item.descricao||"Bem patrimonial";a.category=item.categoria||"Outros";a.manufacturer=item.marca||"";a.model=item.modelo||"";
-          a.serialNumber=unit===1?(item.numeroSerie||""):"";a.imei=unit===1?(item.imei||""):"";a.acquisitionValue=Number(item.valorUnitario||item.valorTotal||0);a.acquisitionDate=proposal.invoice?.emissao||a.acquisitionDate;
-          a.invoice={number:proposal.invoice?.numero||"",series:proposal.invoice?.serie||"",accessKey:digits(proposal.invoice?.chave),issueDate:proposal.invoice?.emissao||"",supplierName:proposal.invoice?.fornecedorNome||"",supplierDocument:digits(proposal.invoice?.documentoFornecedor),supplierId:fornecedor?.id||"",totalValue:Number(proposal.invoice?.valorBruto||0),itemNumber:Number(item.nItem||0),unitIndex:unit,sourceQuantity:Number(item.quantidade||1),itemDescription:item.descricao||"",itemValue:Number(item.valorUnitario||item.valorTotal||0),source:proposal.source,confidence:Number(item.confianca||0),document:doc};
+          a.serialNumber=unit===1?(item.numeroSerie||""):"";a.imei=unit===1?(item.imei||""):"";a.acquisitionValue=valorUnitario;a.acquisitionDate=proposal.invoice?.emissao||a.acquisitionDate;
+          a.invoice={number:proposal.invoice?.numero||"",series:proposal.invoice?.serie||"",accessKey:digits(proposal.invoice?.chave),issueDate:proposal.invoice?.emissao||"",supplierName:proposal.invoice?.fornecedorNome||"",supplierDocument:digits(proposal.invoice?.documentoFornecedor),supplierId:fornecedor?.id||"",totalValue:Number(proposal.invoice?.valorBruto||0),itemNumber:Number(item.nItem||0),unitIndex:unit,sourceQuantity:Number(item.quantidade||1),itemDescription:item.descricao||"",itemValue:valorUnitario,source:proposal.source,confidence:Number(item.confianca||0),document:doc};
           assets.push(a);
         }
       }
