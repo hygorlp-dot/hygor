@@ -71,6 +71,7 @@ const LazyLegacyMobileNavigation = lazy(() => import("./mobile/LegacyMobileNavig
   .then(module => ({ default:module.LegacyMobileNavigation })));
 const LazyLoginBrandPanel = lazy(() => import("./components/login/LoginProjectParallax"));
 const Equipamentos = lazy(() => import("./domains/equipamentos/components/EquipamentosView"));
+const PatrimonioEmpresa = lazy(() => import("./domains/patrimonio/components/PatrimonioEmpresaView"));
 const DiarioObra = lazy(() => import("./domains/obras/components/DiarioObraView.jsx"));
 const Estoque = lazy(() => import("./domains/estoque/components/EstoqueView.jsx"));
 const Licenciamento = lazy(() => import("./domains/licenciamento/components/LicenciamentoView.jsx"));
@@ -10193,7 +10194,7 @@ const ACCESS_SECTORS=[
     ["com_workspace","Comercial da empresa"],["com_real_estate","Venda de imóveis"],["com_pipeline","Pipeline"],["com_relationships","Relacionamentos"],["com_deals","Propostas e contratos"],["com_management","Gestão comercial"],
   ]},
   {id:"geral",label:"Recursos gerais",color:"#6B6459",tabs:[
-    ["ia","Inteligência artificial"],["cad","Cadastros gerais"],
+    ["patrimonio","Patrimônio da empresa"],["ia","Inteligência artificial"],["cad","Cadastros gerais"],
   ]},
 ];
 
@@ -17096,6 +17097,7 @@ const TAB_META_BASE = {
   est:      { label: "Estoque",     icon: "box" },
   equip:    { label: "Equipamentos", icon: "wrench" },
   equip_fin:{ label: "Locação de equipamentos", icon: "wrench" },
+  patrimonio:{ label: "Patrimônio da empresa", icon: "box" },
   licenca:  { label: "Licenciamento", icon: "file" },
   cmp:      { label: "Compras",     icon: "cart" },
   fornecedores: { label: "Fornecedores", icon: "handshake" },
@@ -18423,6 +18425,7 @@ export default function App() {
           {tab === "est"      && <Suspense fallback={<div className="arcd-page-loading">Carregando estoque...</div>}><Estoque data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "equip"    && <Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "equip_fin"&& <Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} contexto="financeiro"/></Suspense>}
+          {tab === "patrimonio"&& <Suspense fallback={<div className="arcd-page-loading">Carregando patrimônio...</div>}><PatrimonioEmpresa data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "licenca"  && <Suspense fallback={<div className="arcd-page-loading">Carregando licenciamento...</div>}><Licenciamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "cmp"      && <Suspense fallback={<div className="arcd-page-loading">Carregando compras...</div>}><Compras      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "fornecedores" && <RankingFornecedores data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}

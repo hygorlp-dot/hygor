@@ -29,6 +29,7 @@ const payload={
   },
   dailyCheckDate:"2026-07-27",
   pedidos:[{id:"p-a",obraId:"obra-a"},{id:"p-b",obraId:"obra-b"}],
+  companyAssets:[{id:"asset-1",assetTag:"PAT-001",name:"Notebook",location:{type:"empresa",label:"Sede"},active:true}],
   orcamentos:[{id:"orc-a",obraId:"obra-a",versionStatus:"rascunho"},{id:"orc-b",obraId:"obra-b",versionStatus:"rascunho"}],
   budgetBaselines:[{id:"base-a",obraId:"obra-a",budgetId:"orc-a"},{id:"base-b",obraId:"obra-b",budgetId:"orc-b"}],
   terceirizados:[{id:"t-a",obraId:"obra-a",name:"Prestador A"},{id:"t-b",obraId:"obra-b",name:"Prestador B"}],
@@ -75,6 +76,17 @@ describe("SEC-001 · projeção de leitura por obra",()=>{
     expect(projected).toEqual(expect.objectContaining({obras:[{id:"obra-a",name:"Obra A"}]}));
     expect(projected.pedidos).toBeUndefined();
     expect(projected.attendance).toBeUndefined();
+  });
+
+  it("patrimônio corporativo só é projetado para perfil sem restrição de obra",()=>{
+    const comprasEmpresa=projectDataForUser(payload,{id:"compras",role:"compras"});
+    const financeiroEmpresa=projectDataForUser(payload,{id:"fin",role:"financeiro"});
+    const comprasObra=projectDataForUser(payload,{id:"compras-a",role:"compras",obraId:"obra-a"});
+    const financeiroObra=projectDataForUser(payload,{id:"fin-a",role:"financeiro",obraId:"obra-a"});
+    expect(comprasEmpresa.companyAssets).toEqual(payload.companyAssets);
+    expect(financeiroEmpresa.companyAssets).toEqual(payload.companyAssets);
+    expect(comprasObra.companyAssets).toEqual([]);
+    expect(financeiroObra.companyAssets).toEqual([]);
   });
 
   it("entrega ao setor de Compras o orçamento necessário à apropriação da sua obra",()=>{

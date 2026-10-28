@@ -25,7 +25,7 @@ export const ERP_MODULES = [
     aliases:["com_dash","com_indicacoes","com_leads","com_funil","com_jornada","com_agenda","com_reunioes","com_tarefas","com_propostas","com_negociacoes","com_contratos","com_clientes","com_parceiros","com_metas","com_perdas","com_relatorios"]},
   {id:"admin_grp",label:"Administração",shortLabel:"Admin.",icon:"settings",colorKey:"muted",
     description:"Cadastros compartilhados, acessos, auditoria, configurações e ferramentas.",
-    tabs:["admin_central","cad","config","ia","ia_config","obsoletos"]},
+    tabs:["admin_central","patrimonio","cad","config","ia","ia_config","obsoletos"]},
 ];
 
 export const moduleForTab = tabId => ERP_MODULES.find(group=>[...group.tabs,...(group.aliases||[])].includes(tabId));
