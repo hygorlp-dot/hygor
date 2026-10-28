@@ -12,13 +12,14 @@ import { marcellReportHtml } from "../../../reports/marcell-report.js";
 
 import { useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import { enviarArquivoOneDrive } from "../../../api";
+import { enviarArquivoOneDriveEmPartes } from "../../../api";
 import {
   Badge, Btn, C, Ic, Inp, LICENCAS, LIC_STATUS, LIC_TERRAS_ALPHA_VERIFICACAO,
   Modal, PageHero, Sel, escapeHtml, fmtDate, licStatusInfo, licencaPorId,
   preRequisitosOk, progressoChecklist, today, uid,
 } from "../../../LegacyApp";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
+import { LICENSING_UPLOAD_MAX_BYTES, LICENSING_UPLOAD_MAX_MB } from "../../../onedrive-upload-policy.js";
 
 // ============================================================================
 //  EQUIPAMENTOS LOCADOS
@@ -93,11 +94,10 @@ export default function Licenciamento({ data, update, showToast, obraIdFixo="", 
 
   const anexarDocumento=async(doc,file,grupo)=>{
     if(!file||!obra)return;
-    if(file.size>6*1024*1024){showToast?.("O arquivo deve ter no máximo 6 MB.","error");return;}
+    if(file.size>LICENSING_UPLOAD_MAX_BYTES){showToast?.(`O arquivo deve ter no máximo ${LICENSING_UPLOAD_MAX_MB} MB.`,"error");return;}
     setAnexandoId(doc.id);
     try{
-      const dataUrl=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);});
-      const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra.name,driveId:obra.oneDriveDriveId,folderId:obra.oneDriveFolderId,folders:obra.oneDriveFolders,category:"licenciamento",subfolder:`${lic.orgao}/${grupo}`,fileName:file.name});
+      const resp=await enviarArquivoOneDriveEmPartes({file,obraName:obra.name,driveId:obra.oneDriveDriveId,folderId:obra.oneDriveFolderId,folders:obra.oneDriveFolders,category:"licenciamento",subfolder:`${lic.orgao}/${grupo}`});
       if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha no envio ao OneDrive.");
       const anexo={id:resp.item?.id||uid(),nome:resp.item?.name||file.name,url:resp.url||resp.item?.webUrl||"",path:resp.path||"",tipo:file.type,tamanho:file.size,enviadoEm:new Date().toISOString()};
       const documentos=[...(check.itens?.[doc.id]?.documentos||[]),anexo];
