@@ -1,3 +1,4 @@
+import { herdarVinculoDaSolicitacao } from "./budget-link.js";
 import { active, toCents } from "../financeiro/ledger.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
 import { hasValidUnitConversion, purchaseUnitOf } from "./unit-conversion.js";
@@ -158,7 +159,7 @@ const normalizeOrder=(data,raw,current,{newMaterials=[],siblingQuoteId=""}={})=>
       :(["rascunho","enviado"].includes(raw.status)?raw.status:"enviado"),
     origemPagamento:["cliente_direto","caixa_obra","empresa"].includes(raw.origemPagamento)
       ?raw.origemPagamento:"empresa",
-    solicitacaoId:requestId,cotacaoId:quoteId,itens:items.items,
+    solicitacaoId:requestId,cotacaoId:quoteId,itens:herdarVinculoDaSolicitacao(items.items,request),
     pagamentos:(current?.pagamentos||[]).map(item=>({...item})),
     documentos:(current?.documentos||raw.documentos||[]).map(item=>({...item})),
   };
@@ -469,7 +470,7 @@ const createFromQuote=(data,command,now)=>{
     itens:[{
       id:String(payload.itemId||""),materialId:quote.materialId,qtd:Number(quote.qtd),
       precoUnit:selected,qtdRecebida:0,orcItemId:quote.orcItemId||"",
-      orcNivel1Id:quote.orcNivel1Id||"",recebimentos:[],
+      orcNivel1Id:quote.orcNivel1Id||"",solicitacaoItemId:quote.solicitacaoItemId||"",recebimentos:[],
       unidadeRef:quote.unidadeRef||"",unidadeCompra:quote.unidadeCompra||quote.unidadeRef||"",
       fatorConversao:Number(quote.fatorConversao||1),precoRef:Number(quote.precoRef||0),
     }],
@@ -525,7 +526,7 @@ const decideQuoteMap=(data,command,now)=>{
       itens:group.itens.map(({linha,precoUnit})=>({
         id:`${orderId}-${linha.item.id}`,materialId:linha.item.materialId,qtd:linha.qtd,
         precoUnit,qtdRecebida:0,orcItemId:linha.item.orcItemId||"",
-        orcNivel1Id:linha.item.orcNivel1Id||"",recebimentos:[],
+        orcNivel1Id:linha.item.orcNivel1Id||"",solicitacaoItemId:linha.item.solicitacaoItemId||"",recebimentos:[],
         unidadeRef:linha.item.unidadeRef||"",
         unidadeCompra:linha.item.unidadeCompra||linha.item.unidadeRef||"",
         fatorConversao:Number(linha.item.fatorConversao||1),precoRef:Number(linha.item.precoRef||0),
