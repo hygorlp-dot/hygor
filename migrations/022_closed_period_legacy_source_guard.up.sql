@@ -171,7 +171,9 @@ begin
       v_bank.booking_date is distinct from v_new_bank_date
       or v_bank.direction is distinct from (v_bank_json->>'direction')
       or v_bank.amount is distinct from (v_bank_json->>'amount')::numeric
-      or coalesce(v_bank.raw_description,'') is distinct from coalesce(v_bank_json->>'description','');
+      or coalesce(v_bank.raw_description,'') is distinct from coalesce(v_bank_json->>'description','')
+      or coalesce(v_bank.metadata->>'obraId','') is distinct from coalesce(v_bank_json->>'obraId','')
+      or coalesce(v_bank.metadata->>'extratoId','') is distinct from coalesce(v_bank_json->'metadata'->>'extratoId','');
 
     if v_changed and (
       public.financial_date_is_closed(p_company_id,v_bank.booking_date)
