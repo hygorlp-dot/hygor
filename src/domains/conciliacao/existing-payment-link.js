@@ -1,5 +1,15 @@
 import {active} from "../financeiro/ledger.js";
 
+// A origem real fica no pagamento. A origem prevista no pedido só é fallback
+// para registros antigos sem origem própria; "pagador: obra" dos terceiros
+// não significa pagamento pelo caixa físico. UI e servidor usam a mesma regra.
+export const canLinkPaymentToCompanyBank=(payment,parent={})=>{
+  const explicit=[payment?.origem,payment?.origemPagamento,payment?.pagador]
+    .map(value=>String(value||"").trim().toLowerCase()).filter(Boolean);
+  const origins=explicit.length?explicit:[String(parent?.origemPagamento||"").trim().toLowerCase()];
+  return !payment?.caixaObraId&&!origins.some(origin=>["cliente_direto","caixa_obra"].includes(origin));
+};
+
 export const validateExistingPaymentLink=(data,{transaction,tipo,entidadeId,pagamentoId})=>{
   const find=(section,id)=>(data[section]||[]).find(item=>item.id===id);
   let candidates=[],sign=-1,parent;
@@ -19,6 +29,11 @@ export const validateExistingPaymentLink=(data,{transaction,tipo,entidadeId,paga
     parent=find("employees",entidadeId);candidates=(data.pagamentosFolha||[]).filter(item=>(item.employeeId||item.funcionarioId)===entidadeId);
   }else if(tipo==="tituloFolha"){
     parent=find("titulosFolha",entidadeId);candidates=parent?.liquidacoes||[];
+  }else if(["outrasDesp","despesasEmpresa","payments"].includes(tipo)){
+    parent=find(tipo,entidadeId);
+    if(tipo==="payments")sign=1;
+    else if(parent&&!(parent.pago===true||parent.dataPagamento||parent.pagamentoId||parent.transacaoId))return {error:"A despesa ainda não possui pagamento registrado. Confirme o pagamento no módulo de origem."};
+    candidates=parent?[parent]:[];
   }
   if(!parent||!active(parent)||parent.active===false)return {error:"O fato financeiro selecionado não existe ou está inativo."};
   const value=Math.abs(Number(transaction.valor));
@@ -26,6 +41,7 @@ export const validateExistingPaymentLink=(data,{transaction,tipo,entidadeId,paga
   candidates=candidates.filter(active).filter(item=>pagamentoId?item.id===pagamentoId:Math.abs(amount(item)-value)<=0.01);
   if(candidates.length!==1)return {error:"Selecione um único pagamento existente com valor compatível."};
   const payment=candidates[0];
+  if(!canLinkPaymentToCompanyBank(payment,parent))return {error:"O pagamento foi feito pelo cliente ou pelo caixa da obra e não pode ser vinculado à conta bancária da empresa."};
   if(Math.sign(Number(transaction.valor))!==sign)return {error:"A direção bancária é incompatível com o pagamento ou recebimento."};
   if(Math.abs(amount(payment)-value)>0.01)return {error:"O valor da transação bancária diverge do pagamento existente."};
   if(payment.transacaoId&&payment.transacaoId!==transaction.id)return {error:"O pagamento já está vinculado a outra transação bancária."};
@@ -47,7 +63,8 @@ export const updatePaymentAssociation=(data,{paymentId,transactionId,linked,acto
       updatedAt:new Date().toISOString(),updatedById:actor?.id||""}:parent;
   });
   const unlinkExpense=item=>{
-    if(linked||item.id!==paymentId||item.transacaoId!==transactionId)return item;
+    if(linked)return update(item);
+    if(item.id!==paymentId||item.transacaoId!==transactionId)return item;
     const bankDate=(data.transacoes||[]).find(transaction=>transaction.id===transactionId)?.data;
     return {...update(item),pago:true,...(!item.dataPagamento&&!item.data&&bankDate?{dataPagamento:bankDate}:{})};
   };
@@ -55,6 +72,7 @@ export const updatePaymentAssociation=(data,{paymentId,transactionId,linked,acto
     medicoes:parents(data.medicoes,"recebimentos"),titulosFolha:parents(data.titulosFolha,"liquidacoes"),
     pagsTerceiros:(data.pagsTerceiros||[]).map(update),pagamentosFolha:(data.pagamentosFolha||[]).map(update),
     caixaObra:(data.caixaObra||[]).map(update),
+    ...(data.payments?{payments:data.payments.map(update)}:{}),
     // Legacy expenses already represent real settlements. Unmatching must
     // preserve their paid state even when the old record only had a bank ID.
     ...Object.fromEntries(["outrasDesp","despesasEmpresa"].filter(section=>data[section]).map(section=>[section,data[section].map(unlinkExpense)]))};

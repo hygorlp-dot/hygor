@@ -6,7 +6,7 @@
 // regressão do app. O antigo "realinhamento" (renumerar batidas) não existe
 // mais: os testes dele viraram testes de que NADA é renumerado.
 import { randomUUID } from "node:crypto";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { registrarBatida } from "./terminal.js";
 import {
   GPS_IDADE_MAXIMA_MS, enviarFotos, enviarPendentes, gpsRecente, montarCorpoSincronizacao,
@@ -24,7 +24,15 @@ import { IDADE_MAXIMA_REFERENCIA_MS } from "../../../../src/domains/ponto-eletro
 vi.setConfig({ testTimeout: 60000, hookTimeout: 60000 });
 
 let s, a;
+const encerrarCenario = async () => {
+  const pg = s?.pg;
+  s = undefined; a = undefined;
+  if (pg && !pg.closed) await pg.close();
+};
 beforeEach(async () => { ({ s, a } = await criarCenario()); });
+// Cada cenário abre seu próprio Postgres/WASM; liberar após cada teste evita
+// acumular dezenas de bancos em memória durante a suíte completa.
+afterEach(encerrarCenario);
 const sincronizar = () => sincronizarCadastro({ armazem: a.armazem, api: a.api, monotonico: a.monotonico });
 const enviar = () => enviarPendentes({ armazem: a.armazem, api: a.api });
 const rodada = (extra = {}) => rodadaDeSincronizacao({
@@ -70,6 +78,7 @@ describe("primeira sincronização e situação do cadastro", () => {
   });
 
   it("cadastro sem responsáveis: a tela leva primeiro ao ARCD", async () => {
+    await encerrarCenario();
     ({ s, a } = await criarCenario({ comResponsavel: false }));
     await sincronizar();
     expect(resumoCadastro(await a.armazem.cadastro())).toMatchObject({ temResponsavel: false, semRostos: true, totalFuncionarios: 3, sincronizado: true });

@@ -5,7 +5,7 @@ import { gerarCandidatosConciliacao } from "./matching.js";
 import { paraCentavos } from "./calculations.js";
 import { active } from "../financeiro/ledger.js";
 
-const VERSAO_MOTOR_CONCILIACAO="2026.07.01";
+const VERSAO_MOTOR_CONCILIACAO="2026.10.28";
 const ACAO_CONCILIACAO=Object.freeze({
   VINCULAR_PAGAMENTO_EXISTENTE:"VINCULAR_PAGAMENTO_EXISTENTE",
   REGISTRAR_PAGAMENTO_E_CONCILIAR:"REGISTRAR_PAGAMENTO_E_CONCILIAR",
@@ -32,7 +32,7 @@ const actionFor=(transaction,candidate,identity)=>{
   if(identity?.conflito)return ACAO_CONCILIACAO.SOLICITAR_CORRECAO_CADASTRAL;
   if(!candidate)return ACAO_CONCILIACAO.SEM_CORRESPONDENCIA;
   if(candidate.tipo==="pixRegistrado"&&candidate.metadados?.pixTipo==="empresa")return ACAO_CONCILIACAO.MARCAR_TRANSFERENCIA_INTERNA;
-  if(candidate.tipo==="pagamentoNota"||candidate.tipo==="pagamentoPedido")return ACAO_CONCILIACAO.VINCULAR_PAGAMENTO_EXISTENTE;
+  if(candidate.podeVincular || candidate.pagamentoId)return ACAO_CONCILIACAO.VINCULAR_PAGAMENTO_EXISTENTE;
   if(candidate.tipo==="medicao"||candidate.tipo==="entradaContrato")return ACAO_CONCILIACAO.REGISTRAR_RECEBIMENTO_E_CONCILIAR;
   if(["nota","pedido","medicaoTerc","terceiro","funcionario","tituloFolha"].includes(candidate.tipo))return ACAO_CONCILIACAO.REGISTRAR_PAGAMENTO_E_CONCILIAR;
   return Number(transaction?.valor)>0?ACAO_CONCILIACAO.REGISTRAR_RECEBIMENTO_E_CONCILIAR:ACAO_CONCILIACAO.CRIAR_LANCAMENTO_NOVO_COM_REVISAO;
@@ -74,7 +74,7 @@ export const analisarMovimentoConciliacao=(transaction,data,options={})=>{
     classificacaoOperacional:operational,elegivelLote,melhorCandidata:bestOut,alternativas:candidates.slice(1),
     identidadeProvavel:{tipo:identity.registro?.tipo||"outro",id:identity.registro?.id||null,nome:identity.registro?.nome||"",score:identity.registro?(identity.conflito?0:Math.min(100,identity.evidencias.length*35)):0,evidencias:identity.evidencias,conflito:identity.conflito},
     acaoRecomendada:actionFor(transaction,bestOut,identity),camposParaConfirmacao:operational==="pronta"?["confirmação humana"]:["contraparte","fato financeiro","confirmação humana"],
-    efeitoDRE:best?.tipo==="medicao"||best?.tipo==="entradaContrato"?"receita_existente":best?"custo_existente":"novo_lancamento_revisado",
+    efeitoDRE:best?.podeVincular?"vinculo_sem_novo_efeito":best?.tipo==="medicao"||best?.tipo==="entradaContrato"?"receita_existente":best?"custo_existente":"novo_lancamento_revisado",
     auditoria:{versaoMotor:VERSAO_MOTOR_CONCILIACAO,regraIds:[],dadosUsados:[...identity.evidencias,...(best?.motivos||[])],dadosAusentes:missing},
   };
 };
