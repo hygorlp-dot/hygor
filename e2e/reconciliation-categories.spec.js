@@ -8,10 +8,10 @@ const transaction = (id, valor, descricao) => ({ id, valor, descricao, data:"202
 async function openReconciliation(page) {
   if (await page.locator(".reconciliation-workspace").isVisible()) return;
   if (page.viewportSize().width < 1100) {
-    await page.getByRole("button", { name:"Abrir Visão gerencial", exact:true }).click();
+    await page.getByRole("button", { name:"Abrir Financeiro", exact:true }).click();
     await page.locator(".mobile-subnav").getByRole("button", { name:"Conciliação", exact:true }).click();
   } else {
-    const group=page.locator(".arcd-sidebar .nav-grp-hd").filter({hasText:/^Visão gerencial/});
+    const group=page.locator(".arcd-sidebar .nav-grp-hd").filter({hasText:/^Financeiro/});
     const body=group.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
     await expect(group).toBeVisible();
     if (!await body.isVisible()) await group.click();
@@ -60,13 +60,49 @@ async function enter(page, { payroll = false } = {}) {
   return {state:()=>state,commands,errors};
 }
 
+test("menu de categorias tem superfície opaca e seleção acessível no tema real", async ({page}, testInfo) => {
+  const app=await enter(page);
+  await page.locator(".reconciliation-row").filter({hasText:"Taxa de ensaio estrutural"}).getByRole("button",{name:"Classificar saída",exact:true}).click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByRole("combobox",{name:"Vai para",exact:true}).selectOption("empresa");
+  const category=dialog.getByRole("combobox",{name:/Categoria de saída/});
+  await category.fill("ocupacao");
+  const popup=dialog.locator(".reconciliation-category__popup");
+  await expect(popup).toBeVisible();
+  await expect(popup.getByRole("option",{name:/Limpeza e conservação/})).toBeVisible();
+  // O tema legado também está carregado: uma cor inválida deixa o fundo
+  // transparente mesmo quando o CSS declara um fallback.
+  const surface=await popup.evaluate(element=>{
+    const style=getComputedStyle(element);
+    const context=document.createElement("canvas").getContext("2d");
+    context.fillStyle=style.backgroundColor;
+    context.fillRect(0,0,1,1);
+    return {alpha:context.getImageData(0,0,1,1).data[3],opacity:Number(style.opacity)};
+  });
+  expect(surface).toEqual({alpha:255,opacity:1});
+  await expect(popup).toBeInViewport({ratio:0.99});
+  expect(await dialog.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
+  await dialog.screenshot({path:testInfo.outputPath("category-popup-opaque.png")});
+  await category.press("ArrowDown");
+  await category.press("Enter");
+  await expect(popup).toHaveCount(0);
+  await expect(category).not.toHaveValue("");
+  await category.fill("categoria inexistente");
+  await expect(dialog.getByRole("status")).toContainText("Nenhuma categoria encontrada");
+  await category.press("Escape");
+  await expect(dialog).toBeVisible();
+  await expect(category).toBeFocused();
+  expect(app.commands).toEqual([]);
+  expect(app.errors).toEqual([]);
+});
+
 test("categoria de entrada preserva competência distinta e classificação após recarregar", async ({page}, testInfo) => {
   const app=await enter(page);
   const row=page.locator(".reconciliation-row").filter({hasText:"Crédito por serviço novo"});
   await row.getByRole("button",{name:"Validar entrada",exact:true}).click();
   await page.getByRole("button",{name:"Classificar por categoria / ratear entrada"}).click();
   const dialog=page.getByRole("dialog");
-  await dialog.getByLabel("Vai para",{exact:true}).selectOption("empresa");
+  await dialog.getByRole("combobox",{name:"Vai para",exact:true}).selectOption("empresa");
   const category=dialog.getByRole("combobox",{name:/Categoria de entrada/});
   await category.fill("servicos");
   await expect(dialog.getByRole("option",{name:/Salários administrativos/})).toHaveCount(0);
@@ -94,16 +130,16 @@ test("categoria personalizada de saída é pesquisável e incompatibilidade de d
   const app=await enter(page);
   await page.locator(".reconciliation-row").filter({hasText:"Taxa de ensaio estrutural"}).getByRole("button",{name:"Classificar saída",exact:true}).click();
   const dialog=page.getByRole("dialog");
-  await dialog.getByLabel("Vai para",{exact:true}).selectOption("obra");
-  await dialog.getByLabel("Obra",{exact:true}).selectOption("work");
+  await dialog.getByRole("combobox",{name:"Vai para",exact:true}).selectOption("obra");
+  await dialog.getByRole("combobox",{name:"Obra",exact:true}).selectOption("work");
   const category=dialog.getByRole("combobox",{name:/Categoria de saída/});
   await category.fill("tecnologicos");
   await dialog.getByRole("option",{name:/Ensaios tecnológicos/}).click();
-  await dialog.getByLabel("Vai para",{exact:true}).selectOption("empresa");
+  await dialog.getByRole("combobox",{name:"Vai para",exact:true}).selectOption("empresa");
   await expect(category).toHaveValue("");
   await expect(dialog.getByRole("button",{name:"Confirmar conciliação",exact:true})).toBeDisabled();
-  await dialog.getByLabel("Vai para",{exact:true}).selectOption("obra");
-  await dialog.getByLabel("Obra",{exact:true}).selectOption("work");
+  await dialog.getByRole("combobox",{name:"Vai para",exact:true}).selectOption("obra");
+  await dialog.getByRole("combobox",{name:"Obra",exact:true}).selectOption("work");
   await category.fill("ensaios"); await dialog.getByRole("option",{name:/Ensaios tecnológicos/}).click();
   await dialog.screenshot({path:testInfo.outputPath("work-category.png")});
   await dialog.getByRole("button",{name:"Confirmar conciliação",exact:true}).click();

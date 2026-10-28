@@ -1,4 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { Check, X } from "lucide-react";
+import { Button } from "../../components/ui/button.jsx";
+import { Input } from "../../components/ui/input.jsx";
+import { Label } from "../../components/ui/label.jsx";
+import { Popover, PopoverAnchor, PopoverContent } from "../../components/ui/popover.jsx";
 import { normalizeCategorySearch } from "../../domains/conciliacao/categories.js";
 import "./category-combobox.css";
 
@@ -13,7 +18,10 @@ export default function CategoryCombobox({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const rootRef = useRef(null);
+  const anchorRef = useRef(null);
   const optionsRef = useRef(null);
+  const dialog = rootRef.current?.closest('[role="dialog"]');
   const selected = options.find(option => option.id === value);
   const terms = normalizeCategorySearch(query).split(/\s+/).filter(Boolean);
   const filtered = options.filter(option => {
@@ -42,35 +50,42 @@ export default function CategoryCombobox({
       event.preventDefault();
       event.stopPropagation();
       setOpen(false);
+    } else if (event.key === "Tab" && open) {
+      setOpen(false);
     } else if (open && (event.key === "Home" || event.key === "End")) {
       event.preventDefault();
       setActive(event.key === "Home" ? 0 : Math.max(0, filtered.length - 1));
     }
   };
-  return <div className="reconciliation-category" onBlur={event => {
+  return <Popover open={open} onOpenChange={setOpen} modal={false}><div ref={rootRef} className="reconciliation-category" onBlur={event => {
     if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
   }}>
-    <label htmlFor={`${id}-input`}>{label}{required ? " *" : ""}</label>
-    <div className="reconciliation-category__control">
-      <input id={`${id}-input`} role="combobox" aria-autocomplete="list" aria-expanded={open}
+    <Label htmlFor={`${id}-input`}>{label}{required ? " *" : ""}</Label>
+    <PopoverAnchor asChild><div ref={anchorRef} className="reconciliation-category__control">
+      <Input className="reconciliation-category__input" id={`${id}-input`} role="combobox" aria-autocomplete="list" aria-expanded={open}
         aria-controls={`${id}-options`} aria-activedescendant={open && filtered.length ? `${id}-option-${activeIndex}` : undefined}
         aria-required={required} disabled={disabled} autoComplete="off"
         value={open ? query : (selected?.label || "")} placeholder={value ? placeholder : (clearable ? emptyLabel : placeholder)}
         onFocus={showOptions} onClick={() => { if (!open) showOptions(); }}
         onChange={event => { setQuery(event.target.value); setActive(0); setOpen(true); }} onKeyDown={onKeyDown}/>
-      {clearable && value && <button type="button" disabled={disabled} aria-label={`Limpar ${label.toLowerCase()}`}
-        onClick={() => { onChange(""); setOpen(false); setQuery(""); }}>×</button>}
-    </div>
-    {open && <div className="reconciliation-category__popup">
+      {clearable && value && <Button className="reconciliation-category__clear" type="button" variant="ghost" size="icon" disabled={disabled} aria-label={`Limpar ${label.toLowerCase()}`}
+        onClick={() => { onChange(""); setOpen(false); setQuery(""); }}><X size={16} aria-hidden="true"/></Button>}
+    </div></PopoverAnchor>
+    <PopoverContent className="reconciliation-category__popup" role="presentation" align="start"
+      container={dialog || rootRef.current} collisionBoundary={dialog || undefined} collisionPadding={8}
+      onOpenAutoFocus={event => event.preventDefault()} onCloseAutoFocus={event => event.preventDefault()}
+      onInteractOutside={event => { if (anchorRef.current?.contains(event.target)) event.preventDefault(); }}
+      onEscapeKeyDown={event => { event.preventDefault(); event.stopPropagation(); setOpen(false); }}>
       <ul ref={optionsRef} id={`${id}-options`} role="listbox" aria-label={label}>
         {filtered.map((option, index) => <li key={option.id} id={`${id}-option-${index}`} role="option"
           aria-selected={value === option.id} data-active={index === activeIndex}
           onMouseDown={event => event.preventDefault()} onMouseMove={() => setActive(index)} onClick={() => choose(option)}>
-          <strong>{option.label}</strong>
-          {option.groupLabel && <small>{option.groupLabel}</small>}
+          <span className="reconciliation-category__option-text"><strong>{option.label}</strong>
+            {option.groupLabel && <small>{option.groupLabel}</small>}</span>
+          <span className="reconciliation-category__check" aria-hidden="true">{value === option.id && <Check size={16}/>}</span>
         </li>)}
       </ul>
       {!filtered.length && <p role="status">Nenhuma categoria encontrada. Ajuste a busca.</p>}
-    </div>}
-  </div>;
+    </PopoverContent>
+  </div></Popover>;
 }
