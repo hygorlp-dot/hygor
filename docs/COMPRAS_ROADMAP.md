@@ -92,3 +92,11 @@ Dados fictícios; só o papel administrador foi observado (engenharia, compras e
 - **Sem mudança no servidor**: o comando, as permissões e o que é gravado são os mesmos; a trava de clique duplo da obra (C8) continua.
 - **Verificação**: `receipt.test.js` (5 casos, inclusive o comando real do servidor aceitando o recebimento montado sem pagamento), os testes de formato do `LegacyApp.purchase-workflow-fixes.test.js` atualizados para o novo lugar das mesmas garantias (conversão de unidade, unidade de compra no rótulo, trava de clique duplo) e o caso novo do `e2e/purchase-workspace.spec.js` (na obra, "Chegou" abre o modal preenchido com 10 UN e o saldo em aberto, recusa 11, registra 4), que falha no código anterior; conferido em 1280 e 390 px.
 
+
+### A0.3 · Exportar para Excel (28/10/2026)
+
+- **Onde**: botão "Exportar para Excel" ao lado da contagem em **Pedidos**, na **fila de trabalho**/aprovações/recebimentos e no topo de **Orçado × comprado** (uma obra ou todas).
+- **O que vai no arquivo** (`src/domains/compras/export-sheets.js`, funções puras): exatamente a lista que a tela mostra, com os filtros aplicados. Pedidos saem com três abas: Pedidos (valor, recebido, pago, a pagar, situação, quem paga), Itens dos pedidos (quantidade, recebida, falta, preço) e Notas fiscais dos pedidos exportados (valores e divergências). Orçado × comprometido sai por etapa (uma obra) ou por obra (todas).
+- **Número é número**: valores em R$, quantidades e percentuais vão como número, com formato de exibição (`"R$" #,##0.00`, `0.0%`); datas vão como data (`dd/mm/aaaa`), sem fuso. Cabeçalho em negrito, congelado e com filtro.
+- **Perfil**: o arquivo é montado no navegador a partir do que a pessoa já vê na tela; nada novo sai do servidor. A biblioteca de planilha (`exceljs`, via `writeTables` em `src/lib/spreadsheet.js`) só é carregada no clique.
+- **Verificação**: `export-sheets.test.js` (6 casos; gera o `.xlsx` de verdade com ExcelJS, lê de volta e confere número, data e formato) e o caso novo do `e2e/purchase-workspace.spec.js` (Pedidos filtrados por "só atrasadas" baixam só o PC-001 nas três abas; a fila baixa a mesma quantidade de registros da tela); conferido em 390 e 1280 px.

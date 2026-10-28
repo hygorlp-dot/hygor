@@ -568,3 +568,34 @@ test("painel separa Resumo de Análises, sem ação destrutiva, e cada exceção
   await expect(page.locator(".purchase-order-count")).toContainText("1 de 1 pedido(s)");
   expect(app.errors).toEqual([]);
 });
+
+test("exportar para Excel baixa só o que a tela mostra, com valores em número e datas como data (A0.3)",async({page})=>{
+  const ExcelJS=(await import("exceljs")).default;
+  const lerDownload=async acao=>{
+    const [download]=await Promise.all([page.waitForEvent("download"),acao()]);
+    const livro=new ExcelJS.Workbook();await livro.xlsx.readFile(await download.path());
+    return {nome:download.suggestedFilename(),livro};
+  };
+  const app=await enter(page,{prepare:state=>{state.pedidos[0].previsao="2026-10-20";}});await selectWork(page);
+
+  // Pedidos filtrados por "só atrasadas": a planilha traz só o PC-001, com itens e notas.
+  await navigate(page,"Pedidos");
+  await page.locator(".purchase-order-filters__toggle input").check();
+  await expect(page.locator(".purchase-order-count")).toContainText("1 de 2 pedido(s)");
+  const pedidos=await lerDownload(()=>page.getByRole("button",{name:/Exportar para Excel os 1 pedido/}).click());
+  expect(pedidos.nome).toMatch(/^compras-pedidos-\d{4}-\d{2}-\d{2}\.xlsx$/);
+  expect(pedidos.livro.worksheets.map(aba=>aba.name)).toEqual(["Pedidos","Itens dos pedidos","Notas fiscais"]);
+  const aba=pedidos.livro.getWorksheet("Pedidos");
+  expect(aba.rowCount).toBe(2);
+  expect(aba.getCell("A2").value).toBe("PC-001");
+  expect(aba.getCell("G2").value).toBe(250);
+  expect(aba.getCell("D2").value).toBeInstanceOf(Date);
+  expect(pedidos.livro.getWorksheet("Itens dos pedidos").getCell("E2").value).toBe(10);
+
+  // Fila: o botão exporta os registros listados.
+  await navigate(page,"Fila");
+  const fila=await lerDownload(()=>page.getByRole("button",{name:/Exportar para Excel os \d+ registro/}).click());
+  const linhasFila=fila.livro.getWorksheet("Fila de trabalho").rowCount-1;
+  await expect(page.locator(".purchase-result-count")).toContainText(`${linhasFila} registro(s)`);
+  expect(app.errors).toEqual([]);
+});

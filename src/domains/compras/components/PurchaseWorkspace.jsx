@@ -36,7 +36,7 @@ const dateLabel = value => value ? new Date(`${value}T12:00:00`).toLocaleDateStr
 // `supplierName(id)` dá o nome do fornecedor; `supplierChargeLink(grupo)` devolve
 // o link de cobrança das entregas atrasadas do grupo (ou null, sem telefone).
 export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpen, scope, afterMetrics = null,
-  supplierName = id => id, supplierChargeLink = () => null }) {
+  supplierName = id => id, supplierChargeLink = () => null, exportButton = null }) {
   const [page, setPage] = useState(0);
   const patch = next => { setPage(0); onFiltersChange({...filters, ...next}); };
   const source = model.rows.filter(row => area === "fila" || row.stage === area);
@@ -83,7 +83,10 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
           options={[{value:"",label:"Sem agrupamento"},...Object.entries(AGRUPAMENTOS_FILA).map(([value,label]) => ({value,label}))]}/>
         {filtered && <Button variant="ghost" onClick={clear}>Limpar filtros</Button>}
       </div>
-      <p className="purchase-result-count" role="status">{rows.length} registro(s){filtered ? ` de ${source.length}` : ""}{moneyHint(resumoDaFila(rows).valor)} · {groups.length ? `${groups.length} grupo(s), mais atrasados primeiro` : "prioridades por prazo"}</p>
+      <div className="purchase-order-count-row">
+        <p className="purchase-result-count" role="status">{rows.length} registro(s){filtered ? ` de ${source.length}` : ""}{moneyHint(resumoDaFila(rows).valor)} · {groups.length ? `${groups.length} grupo(s), mais atrasados primeiro` : "prioridades por prazo"}</p>
+        {exportButton?.(rows)}
+      </div>
       {rows.length ? <div className="purchase-table-scroll" tabIndex={0} role="region" aria-label="Registros da fila de compras"><table className="purchase-queue-table">
         <caption className="purchase-sr-only">Compras em andamento com obra, prazo e próxima ação</caption>
         <thead><tr><th scope="col">Registro / obra</th><th scope="col">Material e situação</th><th scope="col">Prazo</th><th scope="col">Contato / solicitante</th><th scope="col">Próxima ação</th></tr></thead>

@@ -42,6 +42,9 @@ import { usePurchaseSave } from "../use-purchase-save";
 import { PurchaseNavigation, PurchaseWorkspace, PURCHASE_AREA_LABELS } from "./PurchaseWorkspace";
 import { PurchasesByWork, motivoSemControle } from "./PurchasesByWork";
 import { buildPurchasesByWork } from "../by-work";
+import {
+  nomeArquivoCompras, planilhaFila, planilhaItensDosPedidos, planilhaNotas, planilhaOrcadoComprado, planilhaOrcadoPorObra, planilhaPedidos,
+} from "../export-sheets";
 import { Button } from "../../../design-system/primitives/Button";
 import { Select } from "../../../design-system/primitives/Select";
 import { conferenciaPagamentoPedido } from "../payment-conference";
@@ -1865,6 +1868,21 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const fluxoCompras=useMemo(()=>buildPurchaseWorkspace(data,obraIdsMapa,hojeFluxo),[data,obraIdsMapa,hojeFluxo]);
   // Comparativo entre obras: só faz sentido (e só é calculado) no escopo "Todas as obras".
   const porObra=useMemo(()=>todasObras?buildPurchasesByWork(data,obras,hojeFluxo):null,[todasObras,data,obras,hojeFluxo]);
+  // A0.3: exporta exatamente o que a tela mostra (lista filtrada e escopo da obra).
+  // A biblioteca de planilha só é carregada no clique.
+  const [exportando,setExportando]=useState("");
+  const exportarExcel=async(assunto,planilhas)=>{
+    if(exportando)return;
+    setExportando(assunto);
+    try{
+      const {writeTables}=await import("../../../lib/spreadsheet");
+      await writeTables(planilhas,nomeArquivoCompras(assunto,today()));
+    }catch{showToast?.("Não foi possível gerar a planilha. Tente novamente.","error");}
+    finally{setExportando("");}
+  };
+  const botaoExportar=(assunto,planilhas,rotulo)=><Button variant="secondary" size="sm" className="purchase-export"
+    disabled={!!exportando||!planilhas.some(p=>p.linhas.length)} onClick={()=>exportarExcel(assunto,planilhas)}
+    aria-label={rotulo}>{exportando===assunto?"Gerando planilha…":"Exportar para Excel"}</Button>;
   const abrirRegistroFluxo=row=>{
     if(row.type==="order"){
       if(row.stage==="recebimentos"){setRecModal(row.record);return;}
@@ -1934,6 +1952,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {["fila","aprovacoes","recebimentos"].includes(aba)&&<PurchaseWorkspace model={fluxoCompras} area={aba} scope={escopoFluxo}
         filters={filtrosFluxo} onFiltersChange={setFiltrosFluxo} onOpen={abrirRegistroFluxo}
         supplierName={nomeForn} supplierChargeLink={linkCobrancaDoGrupo}
+        exportButton={linhas=>botaoExportar(aba,[planilhaFila(linhas)],`Exportar para Excel os ${linhas.length} registro(s) da lista`)}
         afterMetrics={porObra&&porObra.linhas.length>1?<PurchasesByWork model={porObra} onOpenWork={id=>abrirObra(id,"fila")}/>:null}/>}
 
       {aba==="kanban"&&<div className="purchase-kanban-view">
@@ -2329,7 +2348,11 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             {filtrosPedidosAtivos(filtroPedidos)&&<Button variant="ghost" onClick={()=>setFiltroPedidos(FILTROS_PEDIDOS_VAZIOS)}>Limpar filtros</Button>}
           </div>
         )}
-        {pedidos.length>0&&<p className="purchase-order-count" role="status">{pedidosVisiveis.length} de {pedidos.length} pedido(s)</p>}
+        {pedidos.length>0&&<div className="purchase-order-count-row">
+          <p className="purchase-order-count" role="status">{pedidosVisiveis.length} de {pedidos.length} pedido(s)</p>
+          {botaoExportar("pedidos",[planilhaPedidos(data,pedidosVisiveis),planilhaItensDosPedidos(data,pedidosVisiveis),planilhaNotas(data,pedidosVisiveis)],
+            `Exportar para Excel os ${pedidosVisiveis.length} pedido(s) da lista, com itens e notas`)}
+        </div>}
         {Array.isArray(filtroPedidos.ids)&&<p className="purchase-order-origin" role="note">
           Mostrando os pedidos da exceção do painel <strong>{filtroPedidos.origem||"selecionada"}</strong>.
           <Button variant="ghost" size="sm" onClick={()=>patchFiltroPedidos({ids:null,origem:""})}>Ver todos os pedidos</Button></p>}
@@ -2445,6 +2468,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       </>)}
 
       {/*  ORÇADO x COMPRADO  */}
+      {aba === "orcado" && todasObras && porObra?.linhas.length>0 && <div className="purchase-export-row">
+        {botaoExportar("orcado",[planilhaOrcadoPorObra(porObra)],"Exportar para Excel o orçado × comprometido das obras")}</div>}
+      {aba === "orcado" && !todasObras && orcVs.orc && <div className="purchase-export-row">
+        {botaoExportar("orcado",[planilhaOrcadoComprado(orcVs,(obras||[]).find(o=>o.id===obraAtual)?.name||"")],"Exportar para Excel o orçado × comprometido da obra")}</div>}
       {aba === "orcado" && (
         todasObras ? (
           porObra&&porObra.linhas.length
