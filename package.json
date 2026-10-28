@@ -60,7 +60,8 @@
     "prepare": "node scripts/install-git-hooks.mjs",
     "ponto-eletronico:migrate": "node scripts/apply-ponto-eletronico.mjs",
     "manutencao-banco:migrate": "node scripts/apply-manutencao-banco.mjs",
-    "acesso-publico:migrate": "node scripts/apply-acesso-publico.mjs"
+    "acesso-publico:migrate": "node scripts/apply-acesso-publico.mjs",
+    "financial:activation-check": "node scripts/check-financial-activation-evidence.mjs"
   },
   "browserslist": {
     "production": [
