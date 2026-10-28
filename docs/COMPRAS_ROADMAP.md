@@ -22,7 +22,7 @@ Complementa `docs/COMPRAS_UX_FLUXO.md` (fila operacional, feita antes). Este roa
 | R2 | "Orçado × comprado": ordenar por risco, barra proporcional à gravidade, detalhe dos pedidos de cada etapa. | O maior estouro percentual aparece primeiro; cada etapa lista os pedidos que a compõem. | Entregue (PR R2) |
 | R3 | Cabeçalho compacto, título sem repetição; renomear o item "Cotações" do menu para o que ele é. | A primeira linha da fila aparece em 1000 px; nenhum nome duplicado entre menu e abas. | Entregue (PR R3) |
 | R4 | Pedidos: ação principal conforme o status, "Cancelar" e "Excluir" num menu "⋯", filtros por status, fornecedor, atraso e obra. | No máximo uma ação principal visível por cartão; destrutivas fora da linha de ações comuns. | Entregue (PR R4) |
-| R5 | Painel: separar "Resumo" (KPIs, exceções clicáveis, tabela por obra) de "Análises" (Kanban, maturidade, veredicto); sem "Excluir" em tela de leitura. | Cada exceção abre a fila já filtrada; nenhuma ação destrutiva no painel. | Planejado |
+| R5 | Painel: separar "Resumo" (KPIs, exceções clicáveis, tabela por obra) de "Análises" (Kanban, maturidade, veredicto); sem "Excluir" em tela de leitura. | Cada exceção abre a fila já filtrada; nenhuma ação destrutiva no painel. | Entregue (PR R5) |
 | R6 | Recebimento único: "Chegou" abre o mesmo modal de recebimento, já preenchido com tudo. | Uma só regra de recebimento (parcial, conferência de pagamento) nos dois caminhos. | Entregue (PR R6) |
 | R7 | Fila agrupável por obra e por fornecedor, contadores com valor em R$. | Cobrar três entregas atrasadas do mesmo fornecedor em uma visão. | Entregue (PR R7) |
 | R8 | Avaliação e ajuste em celular real. | Roteiro de uso em 390 px sem rolagem lateral e com ações alcançáveis. | Planejado (precisa de dispositivo) |
@@ -74,6 +74,15 @@ Dados fictícios; só o papel administrador foi observado (engenharia, compras e
 - **Valores em R$**: os contadores da fila (em andamento, prazo vencido, atenção ao prazo) e a contagem de registros mostram o valor dos pedidos envolvidos; solicitações e cotações não têm valor e não entram na soma.
 - **Sem mudança de regra**: só projeção e leitura; nada é gravado.
 - **Verificação**: `queue-groups.test.js` (4 casos: três atrasos do mesmo fornecedor em duas obras, agrupamento por obra, resumo, mensagem) e o caso novo do `e2e/purchase-workspace.spec.js` (grupo do fornecedor primeiro, link com os três pedidos atrasados e sem o que está no prazo, fornecedor sem atraso sem botão, agrupamento mantido ao limpar filtros), que falha no código anterior; conferido em 1280 e 390 px.
+
+### R5 · Painel com Resumo e Análises (28/10/2026)
+
+- **Duas vistas**: o "Mapa gerencial" ganhou as abas **Resumo** (indicadores, "Exceções para decidir agora", "Fluxo sob responsabilidade" e a tabela "Compras por obra" quando há mais de uma obra) e **Análises** (Kanban, maturidade do controle, dependência de fornecedores, origem dos pagamentos, veredicto e a lista de controle dos pedidos). Abre no Resumo.
+- **Sem ação destrutiva**: a lista "Controle dos pedidos" perdeu o botão "Excluir"; cada linha tem "Abrir", que leva à aba Pedidos já buscando aquele número (cancelar e excluir continuam lá, no menu "⋯", com as mesmas regras).
+- **Exceção abre a lista filtrada**: `mapaGerencialCompras` passou a devolver `filtro` em cada exceção. Entregas atrasadas → Pedidos com "Só entregas atrasadas"; pedidos sem previsão, sem concorrência ou recebidos sem quitação → Pedidos com a lista exata (`ids`) e o aviso "Mostrando os pedidos da exceção … · Ver todos os pedidos"; valor a pagar → Financeiro "pendentes"; pagamentos sem conciliação → Financeiro "não conciliados". A concentração em fornecedores continua levando ao cadastro de fornecedores (não é lista de pendências). Os atalhos do "Fluxo sob responsabilidade" também filtram: Pagamentos → pendentes, Recebimentos → pedidos a receber.
+- **Filtro por ids**: `FILTROS_PEDIDOS_VAZIOS` ganhou `ids` e `origem`; `filtrarPedidos` respeita a lista, e "Limpar filtros" a remove.
+- **Sem mudança de regra**: só navegação e leitura.
+- **Verificação**: `panel-exceptions.test.js` (5 casos) e o caso novo do `e2e/purchase-workspace.spec.js` (Resumo por padrão, nenhum "Excluir" nas duas vistas, exceção de atraso abre "só atrasadas", exceção sem concorrência abre os 2 pedidos com a origem visível, "Abrir" leva ao pedido), que falha no código anterior; conferido em 1280 e 390 px.
 
 ### R6 · Recebimento único (28/10/2026)
 
