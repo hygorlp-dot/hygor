@@ -4,7 +4,7 @@ import {extrairNotaPatrimonioIA,obterDocumentoPatrimonio,subirDocumentoPatrimoni
 import {fornecedorPorDocumento,lerXmlNfe} from "../../compras/nfe-xml";
 import {OPERATIONAL_COMMAND} from "../../sync/operational-commands";
 import {useBreakpoint} from "../../../hooks/useBreakpoint";
-import {PATRIMONY_DOCUMENT_MAX_BYTES,PATRIMONY_DOCUMENT_MAX_MB} from "../document-policy";
+import {isPatrimonyAssetPhotoMime,PATRIMONY_DOCUMENT_MAX_BYTES,PATRIMONY_DOCUMENT_MAX_MB} from "../document-policy";
 
 const CATEGORIAS=["Informática","Telefonia","Ferramentas","Máquinas","Móveis","Eletroeletrônicos","Veículos","Segurança","Outros"];
 const STATUS=[{v:"ativo",l:"Ativo"},{v:"em_uso",l:"Em uso"},{v:"manutencao",l:"Manutenção"},{v:"extraviado",l:"Extraviado"},{v:"baixado",l:"Baixado"}];
@@ -23,10 +23,20 @@ const vazio=()=>({id:uid(),assetTag:"",name:"",category:"Outros",description:"",
   acquisitionValue:0,acquisitionDate:new Date().toISOString().slice(0,10),status:"ativo",
   location:{type:"empresa",label:"Sede",referenceId:""},custodian:{type:"",id:"",name:""},
   invoice:{number:"",series:"",accessKey:"",issueDate:"",supplierName:"",supplierDocument:"",supplierId:"",totalValue:0,itemNumber:0,unitIndex:1,sourceQuantity:1,itemDescription:"",itemValue:0,source:"manual",confidence:0,document:{}},
-  notes:"",version:0});
+  photo:{name:"",url:"",path:"",mime:"",size:0},notes:"",version:0});
 
-function AssetForm({asset,setAsset,onSave,onClose,busy}){
+function AssetForm({asset,setAsset,onSave,onClose,busy,showToast}){
   const F=k=>v=>setAsset(s=>({...s,[k]:v}));
+  const selectPhoto=async f=>{
+    if(!f)return;
+    if(!isPatrimonyAssetPhotoMime(f.type)){showToast("Use JPG, PNG ou WEBP para a foto do patrimônio.","error");return;}
+    if(Number(f.size||0)>PATRIMONY_DOCUMENT_MAX_BYTES){showToast(`A foto ultrapassa ${PATRIMONY_DOCUMENT_MAX_MB} MB. Comprima a imagem antes de anexar.`,"error");return;}
+    try{
+      const preview=await dataUrl(f);
+      const ext=String(f.name||"").split(".").pop()?.toLowerCase()||String(f.type||"image/jpeg").split("/")[1]||"jpg";
+      setAsset(current=>({...current,_photoUpload:{dataUrl:preview,ext,name:f.name||"foto",mime:f.type||"",size:Number(f.size||0)},_photoPreview:preview}));
+    }catch(error){showToast(error?.message||"Não foi possível preparar a foto.","error");}
+  };
   return <Modal title={asset.version?"Editar patrimônio":"Novo patrimônio"} onClose={onClose}><div style={{display:"grid",gap:9}}>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:8}}><Inp label="Código patrimonial" value={asset.assetTag||""} onChange={F("assetTag")} placeholder="Gerado ao salvar: PAT-000001"/><Sel label="Categoria" value={asset.category||"Outros"} onChange={F("category")} options={CATEGORIAS.map(v=>({v,l:v}))}/></div>
     <Inp label="Bem *" value={asset.name||""} onChange={F("name")} placeholder="Ex.: Notebook Dell Latitude"/>
@@ -40,6 +50,14 @@ function AssetForm({asset,setAsset,onSave,onClose,busy}){
       <Inp label="Responsável inicial pelo bem" value={asset.custodian?.name||""} onChange={v=>setAsset(s=>({...s,custodian:{...(s.custodian||{}),name:v,type:v?"external":""}}))}/>
     </>}
     {!!asset.version&&<div style={card}><b>Controle operacional</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>Situação: {STATUS.find(s=>s.v===asset.status)?.l||asset.status} · Local: {asset.location?.label||"Sede"}. Use as ações "Mover" e "Status" na lista para manter o histórico auditável.</p></div>}
+    <div style={card}>
+      <b>Foto do bem</b>
+      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>Tire uma foto ou escolha da galeria. JPG, PNG ou WEBP, até {PATRIMONY_DOCUMENT_MAX_MB} MB.</p>
+      {asset._photoPreview&&<img src={asset._photoPreview} alt={"Prévia de "+(asset.name||"patrimônio")} style={{width:120,height:90,objectFit:"cover",borderRadius:7,border:"1px solid "+C.border,marginTop:8}}/>}
+      {!asset._photoPreview&&asset.photo?.path&&<button type="button" onClick={async()=>{const tab=window.open("about:blank","_blank");const r=await obterDocumentoPatrimonio(asset.photo.path);if(r.ok&&r.url&&tab){tab.location.href=r.url;}else{tab?.close();showToast(r.error||"Não foi possível abrir a foto.","error");}}} style={{display:"block",border:0,background:"transparent",padding:"6px 0 0",color:C.blue,textAlign:"left",cursor:"pointer"}}>Abrir foto atual</button>}
+      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>selectPhoto(e.target.files?.[0]||null)} style={{marginTop:8}}/>
+      {asset._photoUpload&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.green,marginTop:4}}>Nova foto pronta para salvar.</p>}
+    </div>
     <div style={card}><b>Nota fiscal</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>{asset.invoice?.number?"NF "+asset.invoice.number+" · "+(asset.invoice.supplierName||"Fornecedor"):"Sem nota vinculada"}</p>{asset.invoice?.document?.path&&<button type="button" onClick={async()=>{const tab=window.open("about:blank","_blank");const r=await obterDocumentoPatrimonio(asset.invoice.document.path);if(r.ok&&r.url&&tab){tab.location.href=r.url;}else{tab?.close();}}} style={{border:0,background:"transparent",padding:0,color:C.blue,textAlign:"left",cursor:"pointer"}}>Abrir documento fiscal</button>}</div>
     <Inp label="Observações" value={asset.notes||""} onChange={F("notes")}/>
     <div style={{display:"flex",justifyContent:"flex-end",gap:8}}><Btn v="ghost" onClick={onClose}>Cancelar</Btn><Btn onClick={onSave} disabled={busy||!String(asset.name||"").trim()}>{busy?"Salvando...":"Salvar"}</Btn></div>
@@ -112,7 +130,18 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
   const assets=Array.isArray(data?.companyAssets)?data.companyAssets:[];
   const filtered=useMemo(()=>assets.filter(a=>(status==="todos"||status==="ativos"&&a.active!==false||a.status===status)&&(!search.trim()||[a.assetTag,a.name,a.category,a.serialNumber,a.imei,a.invoice?.number,a.invoice?.supplierName].some(v=>String(v||"").toLowerCase().includes(search.toLowerCase())))),[assets,search,status]);
   const active=assets.filter(a=>a.active!==false),total=active.reduce((s,a)=>s+Number(a.acquisitionValue||0),0),docs=active.filter(a=>a.invoice?.document?.path||a.invoice?.number).length;
-  const save=async()=>{setBusy(true);try{const r=await dispatchCommand({type:OPERATIONAL_COMMAND.ASSET_SAVED,idempotencyKey:key("asset-save"),expectedVersion:Number(editor?.version||0),payload:{asset:editor}});if(!r.ok)throw new Error(r.reason||"Falha ao salvar.");showToast(editor.version?"Patrimônio atualizado.":"Patrimônio cadastrado.");setEditor(null);}catch(e){showToast(e.message,"error");}finally{setBusy(false);}};
+  const save=async()=>{setBusy(true);try{
+    const {_photoUpload,_photoPreview,...assetBase}=editor||{};
+    let assetToSave=assetBase;
+    if(_photoUpload){
+      const up=await subirDocumentoPatrimonio({dataUrl:_photoUpload.dataUrl,ext:_photoUpload.ext});
+      if(!up.ok)throw new Error(up.error||"Não foi possível arquivar a foto do patrimônio.");
+      assetToSave={...assetBase,photo:{name:_photoUpload.name,url:"",path:up.path||"",mime:_photoUpload.mime,size:_photoUpload.size}};
+    }
+    const r=await dispatchCommand({type:OPERATIONAL_COMMAND.ASSET_SAVED,idempotencyKey:key("asset-save"),expectedVersion:Number(editor?.version||0),payload:{asset:assetToSave}});
+    if(!r.ok)throw new Error(r.reason||"Falha ao salvar.");
+    showToast(editor.version?"Patrimônio atualizado.":"Patrimônio cadastrado.");setEditor(null);
+  }catch(e){showToast(e.message,"error");}finally{setBusy(false);}};
   const saveMove=async()=>{setBusy(true);try{const r=await dispatchCommand({type:OPERATIONAL_COMMAND.ASSET_MOVED,idempotencyKey:key("asset-move"),expectedVersion:Number(move?.version||0),payload:{assetId:move.id,location:move.location,custodian:move.custodian,reason:move.reason||""}});if(!r.ok)throw new Error(r.reason||"Falha ao movimentar patrimônio.");showToast("Movimentação patrimonial registrada.");setMove(null);}catch(e){showToast(e.message||"Falha ao movimentar.","error");}finally{setBusy(false);}};
   const saveStatus=async()=>{setBusy(true);try{const r=await dispatchCommand({type:OPERATIONAL_COMMAND.ASSET_STATUS_CHANGED,idempotencyKey:key("asset-status"),expectedVersion:Number(statusEdit?.version||0),payload:{assetId:statusEdit.id,status:statusEdit.nextStatus,reason:statusEdit.reason||""}});if(!r.ok)throw new Error(r.reason||"Falha ao alterar situação.");showToast("Situação patrimonial atualizada.");setStatusEdit(null);}catch(e){showToast(e.message||"Falha ao alterar situação.","error");}finally{setBusy(false);}};
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -124,6 +153,7 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
         <div><Badge color={a.status==="baixado"?C.muted:a.status==="extraviado"?C.red:a.status==="manutencao"?C.orange:C.green}>{STATUS.find(s=>s.v===a.status)?.l||a.status}</Badge></div>
         <div><p style={{fontSize:"var(--arcd-type-label)"}}>{a.location?.label||"Sede"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{a.invoice?.number?"NF "+a.invoice.number:"Sem NF"}</p></div>
         <div style={{display:"flex",gap:5,flexWrap:"wrap",justifyContent:"flex-end"}}>
+          {a.photo?.path&&<Btn size="sm" v="ghost" onClick={async()=>{const tab=window.open("about:blank","_blank");const r=await obterDocumentoPatrimonio(a.photo.path);if(r.ok&&r.url&&tab){tab.location.href=r.url;}else{tab?.close();showToast(r.error||"Não foi possível abrir a foto.","error");}}}>Foto</Btn>}
           <Btn size="sm" v="ghost" onClick={()=>setHistory(a)}>Histórico</Btn>
           <Btn size="sm" v="ghost" onClick={()=>setEditor(JSON.parse(JSON.stringify(a)))}>Editar</Btn>
           {a.active!==false&&<Btn size="sm" v="ghost" onClick={()=>setMove({...JSON.parse(JSON.stringify(a)),reason:""})}>Mover</Btn>}
@@ -131,7 +161,7 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
         </div>
       </div>)}
     </section>
-    {editor&&<AssetForm asset={editor} setAsset={setEditor} onSave={save} onClose={()=>setEditor(null)} busy={busy}/>}
+    {editor&&<AssetForm asset={editor} setAsset={setEditor} onSave={save} onClose={()=>setEditor(null)} busy={busy} showToast={showToast}/>}
     {importing&&<ImportInvoice data={data} dispatchCommand={dispatchCommand} showToast={showToast} onClose={()=>setImporting(false)}/>}
     {move&&<Modal title="Movimentar patrimônio" onClose={()=>setMove(null)}><div style={{display:"grid",gap:9}}>
       <b>{move.name}</b>
