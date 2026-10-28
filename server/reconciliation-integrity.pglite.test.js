@@ -78,8 +78,9 @@ describe("RPC financeira: direção bancária e fechamento",()=>{
   });
 
   test("mantém o bloqueio de período e os pagamentos já registrados",async()=>{
+    const before=(await db.query("select count(*)::int n from settlements")).rows[0].n;
     await command("CLOSE_ACCOUNTING_PERIOD","close-october",{startsOn:"2026-10-01",endsOn:"2026-10-31"});
     await expect(command("CREATE_FINANCIAL_TITLE","closed-title",{direction:"payable",amount:1,competence:"2026-10-23"})).rejects.toThrow(/fechado/);
-    expect((await db.query("select count(*)::int n from settlements")).rows[0].n).toBe(2);
+    expect((await db.query("select count(*)::int n from settlements")).rows[0].n).toBe(before);
   });
 });
