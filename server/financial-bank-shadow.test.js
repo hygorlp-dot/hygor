@@ -4,7 +4,7 @@ import {compareLegacyBankTransactions} from "./financial-bank-shadow.js";
 describe("FIN 9.6 — paridade do extrato bancário legado",()=>{
   const legacy=[{
     legacyId:"b1",date:"2026-07-10",direction:"out",amount:123.45,
-    description:"Fornecedor XPTO",obraId:"obra-1",metadata:{extratoId:"ext-1"},metadata:{extratoId:"ext-1"},
+    description:"Fornecedor XPTO",obraId:"obra-1",metadata:{extratoId:"ext-1"},
   }];
   const canonical=[{
     id:"bank-1",booking_date:"2026-07-10",direction:"out",amount:123.45,
@@ -36,7 +36,7 @@ describe("FIN 9.6 — paridade do extrato bancário legado",()=>{
     expect(result[0]).toMatchObject({
       code:"legacy_bank_stale",
       legacyId:"b1",
-      fields:["date","direction","amountCents","description","obraId","statementId"],
+      fields:["date","direction","amountCents","description","statementId"],
       expected:{amountCents:12345},
       actual:{amountCents:12346},
     });
@@ -49,7 +49,7 @@ describe("FIN 9.6 — paridade do extrato bancário legado",()=>{
       legacyId:"b1",
       actual:{
         date:"2026-07-10",direction:"out",amountCents:12345,
-        description:"Fornecedor XPTO",statementId:"ext-1",statementId:"ext-1",
+        description:"Fornecedor XPTO",statementId:"ext-1",
       },
     }]);
   });
