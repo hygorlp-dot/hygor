@@ -240,13 +240,13 @@ quando a ponte 1.5 vira desnecessária e é removida.
 | Item | Status | PR |
 |---|---|---|
 | Onda 0 — D1…D6, L1 | ⬜ aguardando dono | — |
-| 1.1 Fechar quinzena | 🟨 em revisão | branch `feat/folha-fechar-quinzena` |
+| 1.1 Fechar quinzena | ✅ em produção | #164 |
 | 1.2 FE/AT/FG | ⬜ | — |
 | 1.3 Não salvo visível | ⬜ | — |
 | 1.4 LGPD ponto | ⬜ | — |
 | 1.5 Ponte REP-P | ⬜ | — |
-| 1.6a CPI falso | ⬜ | — |
-| 1.6b % portal | ⬜ | — |
+| 1.6a CPI falso | 🟨 em revisão | `fix/fisico-financeiro-cpi` |
+| 1.6b % portal | 🟨 em revisão | `fix/fisico-financeiro-cpi` |
 | Onda 2 Encargos | ⬜ | — |
 | Gate do piloto | ⬜ | — |
 | Ondas 3–6 | ⬜ | — |
