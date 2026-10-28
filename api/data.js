@@ -49,7 +49,8 @@ import { authorizeReconciliationCommand } from "../server/reconciliation-policy.
 import { executeReconciliationWithRetry } from "../server/reconciliation-execution.js";
 import { projectReconciliationPatch } from "../server/reconciliation-response.js";
 import { cashAllocations } from "../src/domains/conciliacao/cash-allocations.js";
-import { buildIntegratedDreManagement, loadCanonicalDre, validateNativeDreCommand } from "../server/financial-dre-integration.js";
+import { buildIntegratedDreManagement, canonicalDreEvents, loadCanonicalDre, validateNativeDreCommand } from "../server/financial-dre-integration.js";
+import { monthlyClosingPeriodFromCommand, prepareMonthlyFinancialClosing } from "../server/financial-closing.js";
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
@@ -1163,8 +1164,13 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
 // valor - é por ele que a tela detecta que outra pessoa salvou antes.
 // Uma linha separada que ainda não existe é criada aqui, com a core travada
 // e a partir do valor dela: nenhuma gravação concorrente se perde na troca.
-const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linha,mutate,cronometro})=>{
+const executarMutacaoMultiLinha=async({
+  actor,action,financial=false,domains,writeDomains=domains,linha,mutate,cronometro,
+})=>{
   const separados=[...new Set(domains)].filter(d=>d!==DOMAIN_ROW.CORE&&SPLIT_ROW_KEYS[d]);
+  const separadosGravaveis=new Set(
+    [...new Set(writeDomains||domains)].filter(d=>d!==DOMAIN_ROW.CORE&&SPLIT_ROW_KEYS[d]),
+  );
   const resultado=await comSql(connection=>connection.begin(async transaction=>{
       cronometro?.marcar("conexao");
       // A leitura sem lock do topo do handler (lerLinha) já decodificou estas
@@ -1202,18 +1208,28 @@ const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linh
       const fatias=Object.fromEntries(separados.map(dominio=>[
         dominio,travadas[dominio]?travadas[dominio].fatia:pickDomainFields(coreFresca,dominio),
       ]));
-      const versoes={...linha.rowVersions,...Object.fromEntries(separados.map(d=>[d,travadas[d]?.updated_at||"criando"]))};
+      // Domínio travado só para leitura não pode virar "criando": isso faria
+      // coreFieldsOnly remover sua cópia de fallback da core sem materializar
+      // a linha separada. "criando" fica restrito aos domínios realmente escritos.
+      const versoes={...linha.rowVersions,...Object.fromEntries(separados.map(d=>[
+        d,
+        travadas[d]?.updated_at
+          ||(separadosGravaveis.has(d)?"criando":linha.rowVersions?.[d]||null),
+      ]))};
       const rowPayloadsByDomain=Object.fromEntries(SPLITTABLE_DOMAINS.map(dominio=>[
         dominio,fatias[dominio]||pickDomainFields(linha.payload,dominio),
       ]));
       const current=mergeDomainRows(coreFieldsOnly(coreFresca,linha.rowVersions),rowPayloadsByDomain);
       cronometro?.marcar("locks");
-      const outcome=await mutate({payload:current,updatedAt:coreTravada.updated_at});
+      const outcome=await mutate({
+        payload:current,updatedAt:coreTravada.updated_at,transaction,rowVersions:versoes,
+      });
       cronometro?.marcar("validacao");
       if(!outcome||outcome.kind!=="save")return outcome;
 
       // Linhas separadas: grava só a que mudou (ou cria a que faltava).
       for(const dominio of separados){
+        if(!separadosGravaveis.has(dominio))continue;
         const proximo=pickDomainFields(outcome.data,dominio);
         if(travadas[dominio]&&igual(proximo,fatias[dominio]))continue;
         await transaction`
@@ -2013,6 +2029,172 @@ export default async function handler(req, res) {
           if(title?.metadata?.legacyId)return res.status(409).json({error:"Este pagamento pertence a um módulo operacional. Use o comando de origem para preservar a integração com o DRE."});
         }
       }
+      if(command.type==="CLOSE_ACCOUNTING_PERIOD"){
+        if(!process.env.POSTGRES_URL_NON_POOLING){
+          return res.status(503).json({
+            error:"O fechamento mensal exige a conexão transacional do servidor. Nenhum fechamento foi salvo.",
+            code:"FINANCIAL_CLOSING_TRANSACTION_REQUIRED",
+          });
+        }
+        try{
+          const outcome=await executarMutacaoMultiLinha({
+            actor:usuario,
+            action:"financial_close_accounting_period",
+            financial:true,
+            // O fechamento lê e trava todos os domínios que alimentam o DRE,
+            // mas grava somente a core, onde vive fechamentosFinanceiros.
+            domains:[DOMAIN_ROW.CORE,...SPLITTABLE_DOMAINS],
+            writeDomains:[DOMAIN_ROW.CORE],
+            linha,
+            mutate:async({
+              payload:current,updatedAt:lockedUpdatedAt,transaction,rowVersions:lockedRowVersions,
+            })=>{
+              const period=monthlyClosingPeriodFromCommand(command);
+              if(!period.ok)return {kind:"error",status:400,error:period.error};
+
+              // Ponto por obra alimenta custo de mão de obra no DRE, mas vive
+              // fora do dicionário fixo de linhas. Trava e relê essas linhas
+              // aqui, depois da linha meta de Ponto, na mesma ordem usada pelo
+              // pipeline de marcação. Elas são somente leitura neste fechamento.
+              const lockedAttendanceRows=await transaction`
+                select key,value,updated_at
+                  from company_app_data
+                 where company_id=${COMPANY}
+                   and key like ${`${PONTO_OBRA_KEY_PREFIX}%`}
+                 order by key
+                 for update
+              `;
+              const attendanceSources=[current.attendance||{}];
+              const closingPontoVersions={};
+              for(const row of lockedAttendanceRows){
+                const decoded=decodeAppData(row.value);
+                const bucket=obraBucketFromKey(PONTO_KEY,row.key);
+                closingPontoVersions[bucket]=row.updated_at||null;
+                attendanceSources.push(
+                  withAttendanceSyncedAt(decoded?.attendance,decoded?.attendanceSyncedAt),
+                );
+              }
+              const closingData={
+                ...current,
+                attendance:mergeAttendanceObjects(...attendanceSources),
+              };
+
+              const [titles,settlements,banks]=await Promise.all([
+                transaction`
+                  select id,origin_type,obra_id,direction,competence,due_date,created_at,
+                         original_amount,status,metadata
+                    from financial_titles
+                   where company_id=${COMPANY}
+                   order by id
+                `,
+                transaction`
+                  select id,title_id,bank_transaction_id,amount,settlement_date,status
+                    from settlements
+                   where company_id=${COMPANY}
+                   order by id
+                `,
+                transaction`
+                  select id,amount,status,metadata
+                    from bank_transactions
+                   where company_id=${COMPANY}
+                   order by id
+                `,
+              ]);
+              const canonical=canonicalDreEvents({titles,settlements,banks});
+              if(canonical.issues.length)return {
+                kind:"error",status:409,
+                error:"Existem títulos canônicos sem classificação suficiente para fechar o DRE.",
+                canonicalIssues:canonical.issues,
+              };
+              const [year,monthNumber]=period.competencia.split("-").map(Number);
+              const dreRow=buildRequestedDreProjectionRows(closingData,[{
+                year,month:monthNumber-1,period:"mes",scope:"company_dre",
+              }],canonical.events)[0];
+              if(!dreRow?.payload)return {
+                kind:"error",status:409,error:"Não foi possível materializar o DRE canônico da competência.",
+              };
+              const canonicalDreSnapshot={
+                sourceId:dreRow.sourceId,
+                canonicalRevision:canonical.revision,
+                sourceRevision:dreSourceRevision({
+                  updatedAt:lockedUpdatedAt,
+                  rowVersions:lockedRowVersions,
+                  rowVersionsPontoObra:closingPontoVersions,
+                }),
+                projectionVersion:DRE_PROJECTION_VERSION,
+                payload:dreRow.payload,
+              };
+              const prepared=prepareMonthlyFinancialClosing({
+                data:closingData,command,actor:usuario,
+                supplementalEvents:canonical.events,
+                canonicalDreSnapshot,
+                requireCanonicalDre:true,
+                now:new Date().toISOString(),
+              });
+              if(!prepared?.ok)return {
+                kind:"error",status:409,error:prepared?.error||"A competência não pode ser fechada.",
+                ...(prepared?.conference?{conference:prepared.conference}:{}),
+              };
+              if(prepared.idempotent)return {
+                kind:"idempotent",data:current,updatedAt:lockedUpdatedAt,
+                closing:prepared.closing,
+                result:{ok:true,idempotent:true,periodClosed:true},
+              };
+
+              const [executed]=await transaction`
+                select financial_execute_command(
+                  ${COMPANY},
+                  ${String(usuario.id||"")},
+                  ${transaction.json(command)}::jsonb
+                ) as result
+              `;
+              if(!executed?.result?.ok)throw new Error("O razão canônico não confirmou o fechamento.");
+
+              return {
+                kind:"save",
+                data:prepared.data,
+                basePayload:current,
+                closing:prepared.closing,
+                result:executed.result,
+                before:{competencia:prepared.period.competencia,status:"aberto"},
+                after:{
+                  competencia:prepared.period.competencia,status:"fechado",
+                  snapshot:prepared.closing.snapshot,
+                  idempotencyKey:command.idempotencyKey,
+                },
+              };
+            },
+          });
+
+          if(outcome.kind==="error"){
+            return res.status(outcome.status||409).json({
+              error:outcome.error,
+              ...(outcome.conference?{conference:outcome.conference}:{}),
+              ...(outcome.canonicalIssues?{canonicalIssues:outcome.canonicalIssues}:{}),
+            });
+          }
+          if(outcome.kind==="idempotent"){
+            return res.status(200).json({
+              ...outcome.result,
+              closing:outcome.closing,
+              updatedAt:outcome.updatedAt,
+            });
+          }
+          return res.status(200).json({
+            ...outcome.result,
+            closing:outcome.closing,
+            updatedAt:outcome.updatedAt,
+            sections:projectChangedSectionsPatch(outcome.basePayload,outcome.data,usuario),
+          });
+        }catch(error){
+          console.error("Falha no fechamento financeiro mensal:",error.message);
+          return res.status(409).json({
+            error:"O fechamento não foi efetivado. O período e o snapshot auditável permaneceram inalterados.",
+            code:"FINANCIAL_CLOSING_NOT_COMMITTED",
+          });
+        }
+      }
+
       const {data:resultado,error}=await db.rpc("financial_execute_command",{p_company_id:COMPANY,p_actor_id:usuario.id,p_command:command});
       if(error){console.error("Falha no motor financeiro:",error.message);return res.status(409).json({error:"O comando não foi efetivado. Nenhum lançamento parcial foi salvo."});}
       return res.status(200).json(resultado);

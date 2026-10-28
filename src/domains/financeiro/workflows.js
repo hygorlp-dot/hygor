@@ -138,11 +138,13 @@ export const isDateInClosedPeriod = (data = {}, date = "") =>
     period.status==="fechado" && date>=period.dataInicio && date<=period.dataFim);
 
 /**
- * Snapshot local auditável. O fechamento canônico é efetivado separadamente
- * pela RPC CLOSE_ACCOUNTING_PERIOD; este registro preserva a conferência que
- * foi apresentada ao administrador no instante do fechamento.
+ * Snapshot auditável da conferência mensal. No caminho autoritativo do
+ * servidor, esta fotografia e CLOSE_ACCOUNTING_PERIOD são confirmados na
+ * mesma transação PostgreSQL; chamadas puras continuam úteis para prévia/teste.
  */
-export const createMonthlyClosingSnapshot = (data = {}, { competencia, actor = {}, closedAt = "" } = {}) => {
+export const createMonthlyClosingSnapshot = (data = {}, {
+  competencia, actor = {}, closedAt = "", supplementalEvents = [], canonicalDreSnapshot = null,
+} = {}) => {
   if(!/^\d{4}-\d{2}$/.test(String(competencia||"")))return {ok:false,error:"Competência inválida."};
   if((data.fechamentosFinanceiros||[]).some(item=>item.competencia===competencia&&item.status==="fechado")){
     return {ok:false,error:"A competência já está fechada."};
@@ -150,7 +152,7 @@ export const createMonthlyClosingSnapshot = (data = {}, { competencia, actor = {
   const startDate=`${competencia}-01`;
   const endDate=new Date(Number(competencia.slice(0,4)),Number(competencia.slice(5,7)),0)
     .toISOString().slice(0,10);
-  const ledger=buildFinancialLedger(data);
+  const ledger=buildFinancialLedger(data,{supplementalEvents});
   const filters={startDate,endDate,competence:competencia};
   const dre=selectDRE(ledger,filters);
   const cash=selectCashFlow(ledger,{startDate,endDate});
@@ -171,6 +173,7 @@ export const createMonthlyClosingSnapshot = (data = {}, { competencia, actor = {
         receivableCents:receivable.balanceCents,payableCents:payable.balanceCents,
         commitmentCents:commitments.balanceCents,eventCount:ledger.events.length,
         eventIds:ledger.events.map(event=>event.id),
+        ...(canonicalDreSnapshot?{canonicalDre:canonicalDreSnapshot}:{}),
       },
       conference:{checks:conference.checks},
     },
