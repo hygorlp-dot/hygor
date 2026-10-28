@@ -7,6 +7,8 @@
 // docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #8.
 // ===================================================================
 
+import { valorContratoVigente } from "../../obras/contract-amendments";
+import { AditivosContrato } from "../../obras/components/AditivosContrato";
 import { useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {
@@ -68,7 +70,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
     if (f.tipo === "percentual") {
       const prev = prevAcumulado(f.competencia, editId || undefined);
       const periodo = Math.max(0, Number(f.percentualAcumulado||0) - prev);
-      return (periodo / 100) * Number(o.contractValue || 0);
+      return (periodo / 100) * valorContratoVigente(o);
     }
     return Number(f.valorPrevisto || 0);
   };
@@ -79,9 +81,10 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
     totalRecebido: medicoes.reduce((s,m) => s+totalRecebidoMedicao(m), 0),
     totalPendente: medicoes.reduce((s,m) => s+Math.max(0,Number(m.valorPrevisto||0)-totalRecebidoMedicao(m)), 0),
   }), [medicoes]);
-  const saldo         = Number(obra?.contractValue||0) - totalRecebido;
-  const pctRecebido   = obra?.contractValue>0 ? (totalRecebido/obra.contractValue)*100 : 0;
-  const pctFaturado   = obra?.contractValue>0 ? (totalPrevisto/obra.contractValue)*100 : 0;
+  const contratoVigente = valorContratoVigente(obra);
+  const saldo         = contratoVigente - totalRecebido;
+  const pctRecebido   = contratoVigente>0 ? (totalRecebido/contratoVigente)*100 : 0;
+  const pctFaturado   = contratoVigente>0 ? (totalPrevisto/contratoVigente)*100 : 0;
 
   //  Abrir nova medição com defaults inteligentes
   const openNew = () => {
@@ -747,7 +750,8 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
           );
         })}
 
-        {obra.contractValue>0&&(
+        <AditivosContrato obra={obra} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast}/>
+        {contratoVigente>0&&(
           <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:`0 1px 3px ${C.shadow}`}}>
             <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>Saldo do contrato: <strong style={{color:C.text}}>{fmt(saldo)}</strong></p>
             <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>Recebido: <strong style={{color:C.green}}>{pctRecebido.toFixed(1)}%</strong></p>
@@ -799,13 +803,13 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
               <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"10px 14px",display:"flex",flexDirection:"column",gap:8}}>
                 <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>
                   % acumulado da obra até este mês
-                  {obra.contractValue>0&&<span style={{color:C.muted,marginLeft:4,fontWeight:400}}> (Contrato: {fmt(obra.contractValue)})</span>}
+                  {contratoVigente>0&&<span style={{color:C.muted,marginLeft:4,fontWeight:400}}> (Contrato vigente: {fmt(contratoVigente)})</span>}
                 </p>
                 <Inp label="% acumulado *" type="number" value={form.percentualAcumulado} onChange={F("percentualAcumulado")} placeholder="Ex.: 35"/>
-                {Number(form.percentualAcumulado)>0 && obra.contractValue>0 && (() => {
+                {Number(form.percentualAcumulado)>0 && contratoVigente>0 && (() => {
                   const prev = prevAcumulado(form.competencia, editId||undefined);
                   const periodo = Math.max(0, Number(form.percentualAcumulado||0) - prev);
-                  const val = (periodo/100)*Number(obra.contractValue||0);
+                  const val = (periodo/100)*contratoVigente;
                   return (
                     <div style={{background:`${C.yellow}15`,borderRadius:6,padding:"8px 12px"}}>
                       <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Anterior: <strong>{prev}%</strong> → Este período: <strong>+{periodo.toFixed(1)}%</strong></p>

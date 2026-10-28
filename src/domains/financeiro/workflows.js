@@ -1,3 +1,4 @@
+import { valorAditivosAprovados, valorContratoVigente } from "../obras/contract-amendments.js";
 import {
   active,
   buildFinancialLedger,
@@ -23,9 +24,10 @@ const activeTechnicalBilling=item=>!inactive(item)
 const resolveTechnicalBillingContract=(data={},obraId="")=>{
   const contract=(data?.comercial?.contratos||[]).find(item=>
     item?.obraId===obraId&&["contratado","assinado"].includes(String(item?.status||"").toLowerCase())&&Number(item?.valor)>0);
-  if(contract)return {ok:true,source:"contrato_comercial",sourceId:contract.id,valueCents:toCents(contract.valor)};
   const work=(data?.obras||[]).find(item=>item?.id===obraId);
-  if(Number(work?.contractValue)>0)return {ok:true,source:"obra",sourceId:work.id,valueCents:toCents(work.contractValue)};
+  // Aditivos aprovados somam ao contrato (comercial ou da obra) - Onda 4.1.
+  if(contract)return {ok:true,source:"contrato_comercial",sourceId:contract.id,valueCents:toCents(Number(contract.valor)+valorAditivosAprovados(work))};
+  if(Number(work?.contractValue)>0)return {ok:true,source:"obra",sourceId:work.id,valueCents:toCents(valorContratoVigente(work))};
   return {ok:false,error:"A obra não possui contrato comercial ou valor contratado para faturamento físico."};
 };
 

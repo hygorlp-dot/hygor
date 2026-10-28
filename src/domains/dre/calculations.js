@@ -1,3 +1,4 @@
+import { valorContratoVigente } from "../obras/contract-amendments.js";
 import {
   buildFinancialLedger,
   selectDRE,
@@ -14,7 +15,8 @@ import {
 
 export const calculateContractProjection = (work, laborCost, extraCosts = {}) => {
   const contractType = work?.contractType || "fixed_labor";
-  const contractValue = Number(work?.contractValue || 0);
+  // Contrato vigente = original + aditivos aprovados (Onda 4.1).
+  const contractValue = valorContratoVigente(work);
   const administrationRate = Number(work?.adminPercentage || 0) / 100;
   const {
     benefitCost = 0, materialCost = 0, tercCost = 0,
@@ -142,7 +144,7 @@ export const createDreCalculations = ({
       && active(expense));
     const faturadoAcum = fromCents(selectDRE(ledger, { obraId, endDate:ctx.perF }).revenueCents);
     const recebidoAcum = fromCents(selectCashFlow(ledger, { obraId, endDate:ctx.perF }).cashInCents);
-    const contratoTotal = Number(obra?.contractValue || 0);
+    const contratoTotal = valorContratoVigente(obra);
     const faturamento = dre.revenue;
     const recebido = cash.cashIn;
     const totalCustos = dre.costs;
@@ -317,8 +319,8 @@ export const createDreCalculations = ({
       const dre = calcDREObra(data, work.id, year, month);
       const laborCost = Number(dre.moData?.laborCost || 0);
       const benefitCost = Number(dre.moData?.benefitCost || 0);
-      const commitmentPct = Number(work.contractValue || 0) > 0
-        ? dre.comprometido / Number(work.contractValue) * 100 : null;
+      const commitmentPct = valorContratoVigente(work) > 0
+        ? dre.comprometido / valorContratoVigente(work) * 100 : null;
       return {
         ...work,
         laborCost,

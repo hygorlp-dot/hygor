@@ -75,6 +75,10 @@ import {
   PAYROLL_CLOSING_COMMAND,
 } from "../ponto/payroll-closing.js";
 import {
+  applyAmendmentCommand,
+  AMENDMENT_COMMAND,
+} from "../obras/contract-amendments.js";
+import {
   applyCompanyConfigCommand,
   COMPANY_CONFIG_COMMAND,
 } from "../config/company-config-commands.js";
@@ -132,6 +136,7 @@ export const OPERATIONAL_COMMAND = Object.freeze({
   ...EMPLOYEE_COMMAND,
   ...ADVANCE_COMMAND,
   ...PAYROLL_CLOSING_COMMAND,
+  ...AMENDMENT_COMMAND,
   ...COMPANY_CONFIG_COMMAND,
   ...PROJECT_COMMAND,
   ...LICENSING_COMMAND,
@@ -384,6 +389,11 @@ export const applyOperationalCommand=(data,command)=>{
   if(payrollClosingResult){
     if(!payrollClosingResult.ok)return payrollClosingResult;
     return {ok:true,data:appendReceipt(payrollClosingResult.data,command,payrollClosingResult.entityId,now)};
+  }
+  const amendmentResult=applyAmendmentCommand(data,command,now);
+  if(amendmentResult){
+    if(!amendmentResult.ok)return amendmentResult;
+    return {ok:true,data:appendReceipt(amendmentResult.data,command,amendmentResult.entityId,now)};
   }
   const companyConfigResult=applyCompanyConfigCommand(data,command,now);
   if(companyConfigResult){
