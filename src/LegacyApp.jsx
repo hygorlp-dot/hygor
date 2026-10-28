@@ -77,6 +77,7 @@ const ImportarDoREP = lazy(() => import("./domains/ponto-eletronico/components/I
 const Estoque = lazy(() => import("./domains/estoque/components/EstoqueView.jsx"));
 const Licenciamento = lazy(() => import("./domains/licenciamento/components/LicenciamentoView.jsx"));
 const Conferencia = lazy(() => import("./domains/qualidade/components/ConferenciaView.jsx"));
+const EquipeObrasTV = lazy(() => import("./domains/ponto-eletronico/components/EquipeObrasTV.jsx"));
 const EquipeObras = lazy(() => import("./domains/ponto-eletronico/components/EquipeObrasView.jsx"));
 const PontoEletronico = lazy(() => import("./domains/ponto-eletronico/components/PontoEletronicoView.jsx"));
 // Onda 4 do raio-X (item 12, 26/08/2026): cada tela de gráfico vira seu
@@ -16402,7 +16403,9 @@ const Comercial = lazy(() => import("./domains/comercial/components/ComercialVie
 // Painel corporativo para monitor/TV. É deliberadamente somente leitura:
 // sintetiza progresso, qualidade, campo e suprimentos sem permitir que um
 // clique acidental em uma tela compartilhada altere a operação.
-function PainelTV({data,ultimaSync,onAtualizar}){
+function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
+  const [visao,setVisao]=useState("panorama");
+  const podeVerEquipe=allowedTabs.includes("equipe_obras");
   const raizRef=useRef(null);
   const {isDesktop}=useBreakpoint();
   const [pagina,setPagina]=useState(0);
@@ -16464,10 +16467,12 @@ function PainelTV({data,ultimaSync,onAtualizar}){
     <img src={imagem} alt="" aria-hidden="true" style={{position:"absolute",right:"3%",top:"5%",width:"min(30vw,420px)",height:"min(30vw,420px)",objectFit:"contain",opacity:.035,pointerEvents:"none"}}/>
     <div aria-hidden="true" className="arcd-tv-scan" style={{position:"absolute",left:0,right:0,height:1,background:`linear-gradient(90deg,transparent,${C.yellow}88,transparent)`,boxShadow:`0 0 18px ${C.yellow}`}}/>
     <header className="arcd-tv-header" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:18}}>
-      <div><div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:8,height:8,borderRadius:99,background:C.green,boxShadow:`0 0 18px ${C.green}`}}/><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:2,textTransform:"uppercase",color:C.yellow}}>MARCELL · Centro de operações</span></div><h1 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(24px,3vw,46px)",fontWeight:600,letterSpacing:-1.2,lineHeight:1,marginTop:9}}>Panorama executivo das obras</h1><p style={{fontSize:"var(--arcd-type-label)",color:"rgba(245,243,238,.5)",marginTop:7}}>Visão contínua de avanço, campo, qualidade, suprimentos e prazos</p></div>
+      <div><div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:8,height:8,borderRadius:99,background:C.green,boxShadow:`0 0 18px ${C.green}`}}/><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:2,textTransform:"uppercase",color:C.yellow}}>MARCELL · Centro de operações</span></div><h1 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(24px,3vw,46px)",fontWeight:600,letterSpacing:-1.2,lineHeight:1,marginTop:9}}>{visao==="equipe"&&podeVerEquipe?"Equipe nas Obras":"Panorama executivo das obras"}</h1><p style={{fontSize:"var(--arcd-type-label)",color:"rgba(245,243,238,.5)",marginTop:7}}>{visao==="equipe"&&podeVerEquipe?"Equipe por obra e registros recebidos do ponto":"Visão contínua de avanço, campo, qualidade, suprimentos e prazos"}</p></div>
       <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{textAlign:"right"}}><p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(20px,2.2vw,34px)",fontWeight:600,color:C.yellow,lineHeight:1}}>{agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(245,243,238,.45)",marginTop:5}}>{agora.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</p></div><button onClick={alternarTelaCheia} title="Alternar tela cheia" style={{width:40,height:40,borderRadius:11,border:`1px solid ${C.yellow}44`,background:"rgba(212,175,55,.08)",color:C.yellow,cursor:"pointer"}}><Ic n={telaCheia?"x":"eye"} s={15}/></button></div>
     </header>
 
+    <Tabs value={podeVerEquipe?visao:"panorama"} onValueChange={setVisao} style={{display:"flex",flexDirection:"column",gap:16,flex:1,minHeight:0}}><TabsList className="arcd-tv-visoes" aria-label="Visão do Modo TV"><TabsTrigger value="panorama">Panorama executivo</TabsTrigger>{podeVerEquipe&&<TabsTrigger value="equipe">Equipe nas Obras</TabsTrigger>}</TabsList>
+    <TabsContent value="panorama" style={{display:visao==="panorama"||!podeVerEquipe?"flex":"none",flexDirection:"column",gap:16,flex:1,minHeight:0}}>
     <div className="arcd-tv-summary" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"repeat(4,minmax(0,1fr))":"repeat(2,minmax(0,1fr))",gap:"clamp(7px,1vw,11px)"}}>{[
       ["Obras em operação",linhas.length,"carteira ativa",C.yellow],
       ["Planejado × executado",linhasPlanejadas.length?`${planejadoGeral}% · ${progressoGeral}%`:"—",linhasPlanejadas.length?`${progressoGeral-planejadoGeral>=0?"+":""}${progressoGeral-planejadoGeral} p.p.`:"sem cronograma",linhasPlanejadas.length&&progressoGeral>=planejadoGeral?C.green:C.yellow],
@@ -16493,6 +16498,9 @@ function PainelTV({data,ultimaSync,onAtualizar}){
     </section>
 
     <footer className="arcd-tv-footer" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,color:"rgba(245,243,238,.46)",fontSize:"var(--arcd-type-caption)"}}><span>Sincronização automática · {ultimaSync?ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"agora"}</span><div style={{display:"flex",alignItems:"center",gap:6}}><button onClick={()=>setPagina(p=>(p-1+totalPaginas)%totalPaginas)} aria-label="Página anterior" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:C.surface,cursor:"pointer"}}>‹</button>{Array.from({length:totalPaginas},(_,i)=><button key={i} onClick={()=>setPagina(i)} aria-label={`Página ${i+1}`} style={{width:i===pagina?18:6,height:6,border:0,borderRadius:99,background:i===pagina?C.yellow:"rgba(245,243,238,.22)",cursor:"pointer",transition:"width .2s"}}/>)}<span style={{margin:"0 2px"}}>{pagina+1}/{totalPaginas}</span><button onClick={()=>setPagina(p=>(p+1)%totalPaginas)} aria-label="Próxima página" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:C.surface,cursor:"pointer"}}>›</button></div></footer>
+    </TabsContent>
+    {podeVerEquipe&&<TabsContent value="equipe" style={{flex:1}}><Suspense fallback={<p role="status">Carregando equipe…</p>}><EquipeObrasTV /></Suspense></TabsContent>}
+    </Tabs>
   </div>;
 }
 
@@ -18372,7 +18380,7 @@ export default function App() {
             ? <DashboardEngenheiro data={data} update={update} showToast={showToast} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser} saveState={estadoSalvar}/>
             : <Dashboard data={data} update={update} showToast={showToast} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}
                               onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} saveState={estadoSalvar} />)}
-          {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV}/>}
+          {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV} allowedTabs={allowedTabs}/>}
           {tab === "chat" && <Comunicacao data={data} currentUser={currentUser} showToast={showToast}/>}
           {tab === "admin_central" && <Suspense fallback={<div className="arcd-page-loading">Carregando central do administrador...</div>}><CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/></Suspense>}
           {tab === "aprov_pend" && <Suspense fallback={<div className="arcd-page-loading">Carregando aprovações...</div>}><AprovacoesPendentesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}

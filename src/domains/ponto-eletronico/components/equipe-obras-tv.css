@@ -1,0 +1,20 @@
+.equipe-tv { --arcd-text-primary: #f5f3ee; --arcd-text-secondary: #d4d2cc; --arcd-surface-card: #1b1c18; --arcd-surface-muted: #30332d; --arcd-border-strong: #78818b; --arcd-focus-ring: #d4af37; display: flex; flex-direction: column; flex: 1; gap: 14px; position: relative; }
+.equipe-tv__resumo { display: flex; flex-wrap: wrap; gap: 16px 32px; border-block: 1px solid #78818b; padding-block: 14px; font-size: clamp(16px, 1.4vw, 24px); }
+.equipe-tv__resumo strong { font-variant-numeric: tabular-nums; color: #d4af37; }
+.equipe-tv__aviso, .equipe-tv__nota { color: #d4d2cc; font-size: clamp(14px, 1.1vw, 18px); margin: 0; }
+.equipe-tv__obra { flex: 1; }
+.equipe-tv__obra > header { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding-block: 8px 16px; }
+.equipe-tv__obra header span { color: #d4d2cc; white-space: nowrap; }
+.equipe-tv__grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.equipe-tv__pessoa { display: flex; align-items: center; gap: 16px; border-top: 1px solid #78818b; padding-block: 20px; min-width: 0; }
+.equipe-tv__pessoa > div { min-width: 0; }
+.equipe-tv__pessoa .equipe-obras__avatar { width: clamp(56px, 5vw, 88px); height: clamp(56px, 5vw, 88px); background: #30332d; color: #f5f3ee; }
+.equipe-tv__pessoa h3 { color: #fff; font-size: clamp(20px, 1.6vw, 28px); font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; margin: 0 0 8px; }
+.equipe-tv__pessoa p { font-size: clamp(15px, 1.15vw, 20px); color: #d4d2cc; margin: 4px 0; }
+.equipe-tv__pessoa .equipe-tv__situacao { color: #f5f3ee; font-weight: 600; }
+.equipe-tv time { font-variant-numeric: tabular-nums; }
+.equipe-tv__controles { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 12px; }
+.equipe-tv__controles > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.arcd-tv .arcd-tv-visoes { align-self: flex-start; }
+@media (max-width: 1100px) { .equipe-tv__grade { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .equipe-tv__grade { grid-template-columns: 1fr; gap: 0; } .equipe-tv__obra > header { flex-wrap: wrap; } .equipe-tv__resumo { gap: 12px; } }

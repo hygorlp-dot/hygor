@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Building2, RefreshCw, Wifi, WifiOff, UserRound, Clock, AlertCircle } from "lucide-react";
-import { chamarPontoEletronico } from "../../../api";
+import { useEquipeObras } from "../useEquipeObras";
 import { Card } from "../../../components/ui/card";
 import { Button, Input, Select, Dialog } from "../../../design-system/primitives";
 import { PageHeader, SummaryCard } from "../../../design-system/patterns";
@@ -12,7 +12,7 @@ const GRUPOS = ["falta", "sem_registro", "conferir", "sem_obra", "aguardando", "
 const TITULOS = { falta: "Faltas confirmadas", sem_registro: "Sem registro / verificar ausência", conferir: "Registros pendentes de conferência", sem_obra: SITUACOES_EQUIPE.sem_obra, aguardando: SITUACOES_EQUIPE.aguardando, encerrada: SITUACOES_EQUIPE.encerrada };
 const hora = (iso, fuso) => iso ? new Date(iso).toLocaleTimeString("pt-BR", { timeZone: fuso, hour: "2-digit", minute: "2-digit" }) : "";
 
-function Avatar({ pessoa }) {
+export function Avatar({ pessoa }) {
   const [falhou, setFalhou] = useState(false);
   const nomes = pessoa.nome.trim().split(/\s+/);
   const iniciais = `${nomes[0]?.[0] || ""}${nomes.length > 1 ? nomes.at(-1)[0] : ""}`.toUpperCase();
@@ -30,38 +30,11 @@ function Pessoa({ pessoa, fuso, onOpen }) {
 }
 
 export default function EquipeObrasView({ onTab, allowedTabs = [] }) {
-  const [snapshot, setSnapshot] = useState(null);
-  const [erro, setErro] = useState("");
-  const [carregando, setCarregando] = useState(false);
-  const [online, setOnline] = useState(() => navigator.onLine);
+  const { snapshot, erro, carregando, online, carregar } = useEquipeObras();
   const [busca, setBusca] = useState("");
   const [obraId, setObraId] = useState("");
   const [situacao, setSituacao] = useState("");
   const [selecionado, setSelecionado] = useState(null);
-  const ocupado = useRef(false);
-  const ativo = useRef(false);
-  const carregar = useCallback(async () => {
-    if (ocupado.current || !navigator.onLine) return;
-    ocupado.current = true; setCarregando(true);
-    try {
-      const r = await chamarPontoEletronico("ponto-equipe-obras");
-      if (!r.ok) {
-        if (ativo.current && [401, 403].includes(r.status)) setSnapshot(null);
-        throw new Error(r.error || "Não foi possível atualizar a equipe.");
-      }
-      if (ativo.current) { setSnapshot(r); setErro(""); }
-    } catch (e) { if (ativo.current) setErro(e.message || "Falha de conexão."); }
-    finally { ocupado.current = false; if (ativo.current) setCarregando(false); }
-  }, []);
-  useEffect(() => {
-    ativo.current = true; carregar();
-    const reconectar = () => { setOnline(navigator.onLine); if (navigator.onLine) carregar(); };
-    const visibilidade = () => { if (document.visibilityState === "visible") carregar(); };
-    const timer = setInterval(visibilidade, 20000);
-    window.addEventListener("online", reconectar); window.addEventListener("offline", reconectar);
-    document.addEventListener("visibilitychange", visibilidade);
-    return () => { ativo.current = false; clearInterval(timer); window.removeEventListener("online", reconectar); window.removeEventListener("offline", reconectar); document.removeEventListener("visibilitychange", visibilidade); };
-  }, [carregar]);
   const filtrado = useMemo(() => filtrarEquipeObras(snapshot?.pessoas || [], snapshot?.obras || [], { busca, obraId, situacao }), [snapshot, busca, obraId, situacao]);
   const porObra = useMemo(() => {
     const mapa = new Map();

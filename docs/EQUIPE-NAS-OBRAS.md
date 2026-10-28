@@ -36,3 +36,8 @@ Testes de domínio cobrem estados, duplicatas, ordem atrasada, transferência, m
 Build web e exportação Android validados localmente. Expo Doctor: 20/21 verificações passaram; seis dependências Expo têm patches disponíveis (expo, expo-asset, expo-constants, expo-crypto, expo-location e expo-splash-screen). ERP e backend publicados em 28/10/2026, deployment dpl_5PyKLLZ3wzCjZEvE6j6xLaJQTV4n, sobre a versão de produção 01bbc8809e20aeb6ebea6271abaa7ea88e647040. Não houve distribuição de APK. A rotina de build existente da Vercel executou suas verificações e migrations habituais; esta funcionalidade não adicionou migrations.
 
 Validação da publicação: 85 testes de domínio, navegação, acesso e integração, lint e 2 cenários Playwright (desktop/celular) aprovados. Endereços públicos responderam 200; endpoint do painel respondeu 401 sem sessão, como esperado. Homologação com credencial real de usuário não executada.
+
+## Modo TV
+No Modo TV, a opção Equipe nas Obras alterna com o panorama executivo. Exibe nomes, fotos ou iniciais, situação e hora da última batida, em páginas por obra. A troca ocorre a cada 12 segundos, com pausa e navegação manual; a consulta continua a cada 20 segundos mesmo com a troca pausada. Em telas largas abaixo de 850px de altura, mostra três pessoas por página; nas demais, até seis. O botão de tela cheia permanece disponível.
+A opção usa a mesma permissão equipe_obras e o mesmo endpoint da aba operacional. Sem permissão, não aparece nem consulta dados. Obra do último registro não confirma presença: os registros sem tipo do APK atual permanecem como Conferir jornada, agrupados pela obra da última batida. Sem registro de obra e ausências ficam em grupo próprio. Não exige atualização de APK.
+
