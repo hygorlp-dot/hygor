@@ -25,6 +25,7 @@ import { validarEstabelecimento, pendenciasFiscais } from "../../src/domains/pon
 import { situacaoRepP } from "../../src/domains/ponto-eletronico/rep-p.js";
 import { proporApropriacoes, validarApropriacao } from "../../src/domains/ponto-eletronico/apropriacao.js";
 import { intervaloDoDia } from "../../src/domains/ponto-eletronico/painel.js";
+import { consultarBancoHoras } from "./consulta-banco-horas.js";
 import { criarArp } from "./arp/arp.js";
 import { POLITICA_PADRAO, criarFonteHora } from "./tempo/fonte-hora.js";
 
@@ -233,6 +234,15 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const marcacoes = [...atuais.map(linhaEvento), ...(data || []).map(linhaMarcacao)]
         .sort((a, b) => String(b.marcadoEm).localeCompare(String(a.marcadoEm)));
       return ok({ marcacoes, servidorMs: agora().getTime() });
+    },
+
+    async "ponto-banco-horas"({ body }) {
+      const { falha } = await doUsuario(body, PAPEIS_CONSULTA);
+      if (falha) return falha;
+      return consultarBancoHoras({
+        db, company, de: texto(body.de), ate: texto(body.ate),
+        employeeId: texto(body.employeeId), consultadoEm: agora().toISOString(),
+      });
     },
 
     async "ponto-foto-url"({ body }) {
