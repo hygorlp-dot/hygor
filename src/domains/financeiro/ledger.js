@@ -4,6 +4,7 @@
  */
 
 import { companyExpenseCategory } from "../dre/expense-taxonomy.js";
+import { classifyReceiptForDre, receiptRecognitionDate } from "../dre/receipt-classification.js";
 
 export const toCents = value => Math.round(Number(value || 0) * 100);
 export const fromCents = value => Number(value || 0) / 100;
@@ -196,7 +197,14 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
     }
     if (!event.date) issue("INVALID_DATE", event.sourceType, { id: event.sourceId, obraId: event.obraId }, "Documento sem data financeira válida.");
     if (event.transactionId && ["cash_in", "cash_out"].includes(event.effect)) {
-      const key = `${event.effect}|${event.transactionId}|${event.amountCents}`;
+      // Dois destinos legítimos podem ter o mesmo valor. Só os fatos que o
+      // comando registrou explicitamente como parcelas do rateio recebem
+      // chaves próprias; espelhos de nota/pedido continuam deduplicados.
+      const generated = transactions.get(event.transactionId)?.gerados || [];
+      const sourceSection = { recebimento_avulso:"payments", outra_despesa:"outrasDesp", despesa_empresa:"despesasEmpresa", medicao:"recebimentoMedicao" }[event.sourceType];
+      const explicitSplit = generated.length > 1 && sourceSection && generated.some(item => item?.tipo === sourceSection
+        && String(item.id) === String(event.sourceSubId || event.sourceId));
+      const key = `${event.effect}|${event.transactionId}|${event.amountCents}${explicitSplit ? `|rateio:${event.sourceType}:${event.sourceId}:${event.sourceSubId}` : ""}`;
       if (cashTransactions.has(key)) {
         issue("DUPLICATE_TRANSACTION_EFFECT", event.sourceType, { id: event.sourceId, obraId: event.obraId },
           `A transação ${event.transactionId} já produziu o mesmo efeito de caixa.`, {
@@ -251,17 +259,20 @@ export const buildFinancialLedger = (data = {}, options = {}) => {
   const recebimentosAvulsos = data.payments || [];
   recebimentosAvulsos.filter(active).forEach(receipt => {
     const id = sourceId(receipt, `${receipt.obraId}|${receipt.date}|${receipt.amount}|${receipt.description}`);
-    const linked = receipt.medicaoId || receipt.contratoId || "";
+    const classification = classifyReceiptForDre(receipt);
     const base = {
       amountCents: positiveCents(receipt.amount, receipt.valor), date: receipt.date || receipt.data,
-      obraId: receipt.obraId || "", category: "recebimento_avulso",
+      competence:receipt.competencia || competenceOf(receipt.date || receipt.data),
+      obraId: receipt.obraId || "", category: classification.category,
       description: receipt.description || receipt.descricao || "Recebimento avulso",
       sourceType: "recebimento_avulso", sourceId: id, transactionId: receipt.transacaoId || "",
-      unallocated: !linked, metadata: { origem: receipt.origem || "manual", conciliado: !!receipt.conciliado },
+      unallocated: classification.unallocated, metadata: { origem: receipt.origem || "manual", conciliado: !!receipt.conciliado,
+        efeitoDRE:receipt.efeitoDRE || "a_classificar", funding:classification.funding },
     };
+    if (classification.recognizeRevenue) add({ ...base, id:`recebimento_avulso:${id}:revenue`, effect:"revenue", date:receiptRecognitionDate(receipt) });
     add({ ...base, id: `recebimento_avulso:${id}:cash`, effect: "cash_in" });
     if (receipt.medicaoId) add({ ...base, id: `recebimento_avulso:${id}:settle`, effect: "receivable_decrease", settlesSourceType: "medicao", settlesSourceId: receipt.medicaoId });
-    if (!linked) issue("RECEIPT_UNALLOCATED", "recebimento_avulso", receipt, "Recebimento sem vínculo com medição ou contrato.", { severity: "info" });
+    if (classification.unallocated) issue("RECEIPT_UNALLOCATED", "recebimento_avulso", receipt, "Recebimento sem vínculo com medição ou contrato.", { severity: "info" });
   });
 
   (data.pedidos || []).filter(active).forEach(order => {

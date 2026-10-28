@@ -57,6 +57,13 @@ const payload={
 };
 
 describe("SEC-001 · projeção de leitura por obra",()=>{
+  it("o Financeiro consulta o mesmo catálogo personalizado de categorias do DRE, inclusive por obra",()=>{
+    const data={...payload,categoriasDesp:[{v:"sondagem",l:"Sondagem do solo"}]};
+    for(const obraId of ["","obra-a"]){
+      expect(projectDataForUser(data,{id:"fin",role:"financeiro",obraId}).categoriasDesp).toEqual(data.categoriasDesp);
+    }
+    expect(projectDataForUser(data,{id:"view",role:"visualizador"}).categoriasDesp).toBeUndefined();
+  });
   it("entrega somente obra, fatos e presença do escopo",()=>{
     const projected=projectDataForUser(payload,{id:"u-a",role:"engenheiro",obraId:"obra-a"});
     expect(projected.obras).toEqual([{id:"obra-a",name:"Obra A"}]);

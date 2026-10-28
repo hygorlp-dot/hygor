@@ -12,6 +12,9 @@ import {
 import { aplicarRecebimentoMedicao, totalRecebidoMedicao } from "../src/domains/conciliacao/calculations.js";
 import { active } from "../src/domains/financeiro/ledger.js";
 import { activeCashAllocations, applyCashAllocation, reconciliationHold } from "../src/domains/conciliacao/cash-allocations.js";
+import { findReconciliationCategory } from "../src/domains/conciliacao/categories.js";
+import { isCompetenceInClosedPeriod, isDateInClosedPeriod } from "../src/domains/financeiro/workflows.js";
+import { saldoTituloFolha } from "../src/domains/conciliacao/payroll.js";
 
 export const RECONCILIATION_COMMAND = Object.freeze({
   CONFIRM_RECEIPT: "CONFIRM_RECEIPT",
@@ -49,44 +52,75 @@ const commandId = prefix => `${prefix}_${Date.now().toString(36)}_${Math.random(
 const allocateTransaction = (data, transaction, payload, actor) => {
   const allocations=Array.isArray(payload.allocations)?payload.allocations:[];
   if(!allocations.length)return invalid(data,"Informe ao menos um destino para o rateio.");
+  const isIncome=Number(transaction.valor)>0;
+  const direction=isIncome?"entrada":"saida";
+  const competence=String(payload.competence||transaction.data?.slice(0,7)||"");
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(competence))return invalid(data,"Informe uma competência válida para o lançamento.");
+  if(isDateInClosedPeriod(data,transaction.data))return invalid(data,"O período da data bancária está fechado. Reabra o fechamento antes de conciliar.");
+  if(allocations.some(item=>!item||!["obra","empresa"].includes(item.destination)))return invalid(data,"Selecione um destino válido para cada rateio.");
   const normalized=allocations.map(item=>({
-    destination:item?.destination==="empresa"?"empresa":"obra",obraId:String(item?.obraId||""),
-    category:text(item?.category)||"outros",value:Number(item?.value||0),
+    destination:item.destination,obraId:item.destination==="obra"?String(item.obraId||""):"",
+    category:isIncome&&["aporte","outros"].includes(item.category)?(item.category==="aporte"?"aporte_cliente":"outros_recursos"):(text(item.category)||(isIncome?"receita":"outros")),value:Number(item.value||0),
   }));
-  if(normalized.some(item=>!(item.value>0)))return invalid(data,"Todo rateio precisa ter valor maior que zero.");
+  if(normalized.some(item=>!(item.value>0)||!Number.isFinite(item.value)||!Number.isSafeInteger(Math.round(item.value*100))||Math.abs(item.value*100-Math.round(item.value*100))>0.000001))return invalid(data,"Todo rateio precisa ter valor válido, maior que zero e com até dois decimais.");
+  const categories=normalized.map(item=>findReconciliationCategory(data,{direction,destination:item.destination,category:item.category}));
+  if(categories.some(category=>!category))return invalid(data,"Selecione uma categoria válida para a direção e o destino do movimento.");
   if(normalized.some(item=>item.destination==="obra"&&!positiveId(item.obraId)))return invalid(data,"Selecione a obra de cada rateio.");
   const amountInCents=Math.round(transactionAmount(transaction)*100);
+  if(!Number.isSafeInteger(amountInCents)||amountInCents<=0)return invalid(data,"O valor bancário é inválido.");
   const allocatedInCents=normalized.reduce((sum,item)=>sum+Math.round(item.value*100),0);
   if(allocatedInCents!==amountInCents)return invalid(data,"O rateio não fecha exatamente o valor do extrato.");
   const knownWorks=new Set((data.obras||[]).map(work=>String(work.id)));
   if(normalized.some(item=>item.destination==="obra"&&!knownWorks.has(item.obraId)))return invalid(data,"Uma obra selecionada não existe mais no servidor.");
 
-  const isIncome=Number(transaction.valor)>0;
+  if(payload.worker?.employeeId){
+    const employee=(data.employees||[]).find(item=>String(item.id)===String(payload.worker.employeeId));
+    if(!employee||!active(employee)||employee.active===false)return invalid(data,"Selecione um funcionário cadastrado e ativo para confirmar o pagamento.");
+    if(isIncome||normalized.length!==1||normalized[0].destination!=="obra"||normalized[0].category!=="mao_obra")return invalid(data,"Para um funcionário, use um único pagamento de mão de obra ou vincule o título da folha com seu rateio original.");
+    const relatedTitle=(data.titulosFolha||[]).find(title=>String(title.employeeId)===String(employee.id)&&active(title)
+      &&(saldoTituloFolha(title)>0.01||String(title.competencia||title.periodoFim?.slice(0,7)||"")===competence));
+    if(relatedTitle)return invalid(data,"Já existe título de folha para este funcionário no período ou com saldo em aberto. Vincule o pagamento ao título da folha para não duplicar o custo no DRE.");
+    // O ponto já reconheceu o salário. O cartão PIX registra apenas o caixa,
+    // reutilizando a mutação de folha, inclusive antes do fechamento do título.
+    const result=registrarPagamentoEConciliar(data,{transacaoId:transaction.id,tipo:"funcionario",entidadeId:employee.id,
+      valor:transactionAmount(transaction),dataPagamento:transaction.data,obraId:normalized[0].obraId,operador:actor});
+    if(!result.resumo.ok)return result;
+    return {...result,data:{...result.data,transacoes:result.data.transacoes.map(item=>item.id===transaction.id?{...item,
+      rateios:[{destino:"obra",obraId:normalized[0].obraId,categoria:"mao_obra",valor:transactionAmount(transaction),competencia:competence}],
+      recebedorMaoObra:{employeeId:employee.id,employeeName:employee.name||employee.nome||"",pixHolder:employee.pixHolder||"",valorPago:transactionAmount(transaction),
+        confirmadoEm:new Date().toISOString(),confirmadoPorId:actor?.id||"",confirmadoPor:actor?.nome||actor?.email||"Operador"},
+    }:item)}};
+  }
+  if(categories.some(category=>["cost","revenue"].includes(category.effect))&&isCompetenceInClosedPeriod(data,competence))return invalid(data,"A competência do lançamento está fechada. Reabra o período antes de conciliar.");
+
   const measurementId=String(payload.measurementId||"");
   const measurement=measurementId?(data.medicoes||[]).find(item=>String(item.id)===measurementId):null;
   if(measurementId&&!measurement)return invalid(data,"A medição selecionada não existe mais.");
   if(measurement&&(!normalized.some(item=>item.destination==="obra"&&item.obraId===String(measurement.obraId))))return invalid(data,"A medição deve ser rateada para a própria obra.");
   const measurementAmount=measurement?normalized.filter(item=>item.destination==="obra"&&item.obraId===String(measurement.obraId)).reduce((sum,item)=>sum+item.value,0):0;
   if(measurement&&(!isIncome||!active(measurement)))return invalid(data,"A medição deve estar ativa e receber uma entrada bancária.");
+  if(measurement&&normalized.some(item=>item.destination==="obra"&&item.obraId===String(measurement.obraId)&&item.category!=="receita"))return invalid(data,"Use a categoria Recebimento de cliente a vincular para liquidar a medição existente sem reconhecer nova receita.");
   if(measurement&&measurementAmount>Number(measurement.valorPrevisto||0)-totalRecebidoMedicao(measurement)+0.01)return invalid(data,"O recebimento supera o saldo da medição.");
 
   const newOtherExpenses=[];const newCompanyExpenses=[];const newReceipts=[];const generated=[];
-  normalized.forEach(item=>{
+  const recognitionDate=String(transaction.data||"").startsWith(competence)?transaction.data:`${competence}-01`;
+  normalized.forEach((item,index)=>{
     if(isIncome&&measurement&&item.destination==="obra"&&item.obraId===String(measurement.obraId))return;
     const id=commandId("alloc");
-    if(item.destination==="obra"){
-      if(isIncome){newReceipts.push({id,obraId:item.obraId,date:transaction.data,amount:item.value,description:`[Extrato] ${text(transaction.descricao)}`.slice(0,120),tipo:"recebimento_avulso",origem:"conciliacao_bancaria",transacaoId:transaction.id,conciliado:true,registradoPorId:actor?.id||"",registradoPor:actor?.nome||actor?.email||"Operador",registradoEm:new Date().toISOString()});generated.push({tipo:"payments",id,entidadeId:id});}
-      else {newOtherExpenses.push({id,obraId:item.obraId,competencia:String(transaction.data||"").slice(0,7),data:transaction.data,dataPagamento:transaction.data,pago:true,categoria:item.category,descricao:`[Extrato] ${text(transaction.descricao)}`.slice(0,120),valor:item.value,transacaoId:transaction.id});generated.push({tipo:"outrasDesp",id,entidadeId:id});}
+    if(isIncome){
+      const effect=categories[index].effect;
+      newReceipts.push({id,obraId:item.obraId,date:transaction.data,amount:item.value,description:`[Extrato] ${text(transaction.descricao)}`.slice(0,120),
+        categoria:item.category,competencia:competence,dataReconhecimento:recognitionDate,
+        efeitoDRE:effect==="revenue"?"receita":effect==="unallocated"?"a_classificar":"sem_efeito",
+        naturezaEntrada:effect,tipo:"recebimento_avulso",origem:"conciliacao_bancaria",transacaoId:transaction.id,conciliado:true,
+        registradoPorId:actor?.id||"",registradoPor:actor?.nome||actor?.email||"Operador",registradoEm:new Date().toISOString()});
+      generated.push({tipo:"payments",id,entidadeId:id});
     }else{
-      // Crédito sem obra/medição é caixa ainda não alocado, não estorno de
-      // despesa. Estornar custo para representar uma entrada aumentaria o DRE
-      // sem receita por competência correspondente.
-      if(isIncome){
-        newReceipts.push({id,obraId:"",date:transaction.data,amount:item.value,description:`[Extrato] ${text(transaction.descricao)}`.slice(0,120),tipo:"recebimento_avulso",origem:"conciliacao_bancaria",transacaoId:transaction.id,conciliado:true,registradoPorId:actor?.id||"",registradoPor:actor?.nome||actor?.email||"Operador",registradoEm:new Date().toISOString()});
-        generated.push({tipo:"payments",id,entidadeId:id});
+      const expense={id,competencia:competence,data:recognitionDate,dataPagamento:transaction.data,pago:true,categoria:item.category,descricao:`[Extrato] ${text(transaction.descricao)}`.slice(0,120),valor:item.value,transacaoId:transaction.id};
+      if(item.destination==="obra"){
+        newOtherExpenses.push({...expense,obraId:item.obraId});generated.push({tipo:"outrasDesp",id,entidadeId:id});
       }else{
-        newCompanyExpenses.push({id,competencia:String(transaction.data||"").slice(0,7),data:transaction.data,dataPagamento:transaction.data,pago:true,categoria:item.category,descricao:`[Extrato] ${text(transaction.descricao)}`.slice(0,120),valor:item.value,recorrente:false,transacaoId:transaction.id});
-        generated.push({tipo:"despesasEmpresa",id,entidadeId:id});
+        newCompanyExpenses.push({...expense,recorrente:false});generated.push({tipo:"despesasEmpresa",id,entidadeId:id});
       }
     }
   });
@@ -103,9 +137,10 @@ const allocateTransaction = (data, transaction, payload, actor) => {
     id:commandId("rule"),nome:text(payload.autoRule.name)||`Regra ${text(payload.autoRule.pattern)}`,
     padrao:text(payload.autoRule.pattern),destino:normalized[0].destination,obraId:normalized[0].obraId,
     categoria:normalized[0].category,ativa:true,criadoPorId:actor?.id||"",criadoPor:actor?.nome||actor?.email||"Operador",criadoEm:new Date().toISOString(),
+    direction,
   }:null;
   const transactions=(data.transacoes||[]).map(item=>String(item.id)===String(transaction.id)?{
-    ...item,status:"conciliado",rateios:normalized,gerados:generated,vinculo:measurement?{tipo:"medicao",id:measurement.id}:null,recebedorMaoObra:worker,
+    ...item,status:"conciliado",rateios:normalized.map(row=>({destino:row.destination,obraId:row.obraId,categoria:row.category,valor:row.value,competencia:competence})),gerados:generated,vinculo:measurement?{tipo:"medicao",id:measurement.id}:null,recebedorMaoObra:worker,
     statusAtualizadoEm:new Date().toISOString(),statusAtualizadoPorId:actor?.id||"",statusAtualizadoPor:actor?.nome||actor?.email||"Operador",
   }:item);
   const historico=[...(data.historicoConc||[]),{id:commandId("hist"),criadoEm:new Date().toISOString(),transacaoId:transaction.id,extratoId:transaction.extratoId,acao:"conciliada",statusAnterior:transaction.status,statusNovo:"conciliado",descricao:measurement?`Medição ${measurement.descricao||measurement.id} conciliada`:`${normalized.length} rateio(s) confirmado(s)`,valor:transaction.valor,operadorId:actor?.id||"",operador:actor?.nome||actor?.email||"Operador"}];

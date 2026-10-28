@@ -5,10 +5,11 @@
 // nunca uma decisão automática. A decisão de vincular, pagar ou criar
 // sempre passa por confirmação do usuário (ou por regra explícita
 // aprovada), conforme as faixas de confiança abaixo.
-import { paraCentavos, semAcento, diasEntre } from "./calculations.js";
-import { transacoesConsumidas, buscarPixRegistrado } from "./selectors.js";
+import { paraCentavos, semAcento, diasEntre, totalRecebidoMedicao } from "./calculations.js";
+import { transacoesConsumidas, buscarPixRegistrado, tokensContraparte } from "./selectors.js";
 import { resumoTituloFolha, saldoTituloFolha } from "./payroll.js";
 import { saldoPagamentoPedido } from "../compras/calculations.js";
+import { saldoPagamentoNota } from "../financeiro/payables.js";
 
 const soNumeros = s => String(s || "").replace(/\D/g, "");
 
@@ -45,6 +46,7 @@ export const candidata = (base) => ({
   dataPrevista: base.dataPrevista || "",
   documento: base.documento || "",
   contraparte: base.contraparte || "",
+  categoria: base.categoria || "",
   score: 0,
   confianca: FAIXA_CONFIANCA.FRACA,
   motivos: [],
@@ -74,10 +76,11 @@ const pontuarDocumento = (docTransacao, docCandidato) => {
 };
 
 const pontuarContraparte = (nomeTransacao, nomeCandidato) => {
-  const a = semAcento(nomeTransacao), b = semAcento(nomeCandidato);
+  const normalizar = value => semAcento(value).replace(/[^a-z0-9]+/g, " ").trim();
+  const a = normalizar(nomeTransacao), b = normalizar(nomeCandidato);
   if (!a || !b) return { pts: 0, motivo: null };
   if (a === b) return { pts: 15, motivo: "Nome da contraparte exato" };
-  if (a.includes(b) || b.includes(a)) return { pts: 10, motivo: "Nome da contraparte semelhante" };
+  if (Math.min(a.length, b.length) >= 5 && (` ${a} `.includes(` ${b} `) || ` ${b} `.includes(` ${a} `))) return { pts: 10, motivo: "Nome da contraparte semelhante" };
   return { pts: 0, motivo: null };
 };
 
@@ -95,7 +98,7 @@ const pontuarPix = (transacao, pixKeyCandidato) => {
   if (!pixKeyCandidato) return { pts: 0, motivo: null };
   // Só considera chave quando ela veio estruturada do extrato. Trechos da
   // descrição são evidência fraca e jamais uma confirmação conclusiva.
-  const chave = normalizarChavePix(transacao.chavePix || transacao.pixKey || "");
+  const chave = normalizarChavePix(transacao.chavePix || transacao.pixKey || transacao.chave || "");
   if (chave && chave === normalizarChavePix(pixKeyCandidato)) return { pts: 35, motivo: "Chave PIX exata e exclusiva" };
   return { pts: 0, motivo: null };
 };
@@ -124,72 +127,86 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
   const valorCentavos = paraCentavos(transacao.valor);
   const isEntrada = Number(transacao.valor) > 0;
   const relevantes = new Map();
+  if (!Number.isFinite(valorCentavos) || valorCentavos === 0) return [];
 
-  const coletar = (chave, mapa) => (mapa.get(chave) || []).forEach(e => relevantes.set(`${e.tipo}:${e.item.id}`, e));
+  const coletar = (chave, mapa) => (mapa?.get(chave) || []).forEach(e => relevantes.set(`${e.tipo}:${e.item.id}`, e));
 
   coletar(paraCentavos(Math.abs(Number(transacao.valor))), indices.porValorCentavos);
-  if (transacao.contraparteDocumento) coletar(soNumeros(transacao.contraparteDocumento), indices.porDocumento);
-  if (transacao.contraparteNome) coletar(semAcento(transacao.contraparteNome), indices.porContraparte);
+  // Busca por faixa em índice ordenado: encontra diferenças de centavos
+  // sem varrer toda a carteira para cada linha do extrato. Tolerância só
+  // descobre candidatas; a validação do saldo continua estrita abaixo.
+  const valores = indices.valoresOrdenados || [];
+  const tolerancia = Math.max(0, Number(config.toleranciaCentavos ?? 100));
+  const minimo = Math.abs(valorCentavos) - tolerancia, maximo = Math.abs(valorCentavos) + tolerancia;
+  let esquerda = 0, direita = valores.length;
+  while (esquerda < direita) {
+    const meio = Math.floor((esquerda + direita) / 2);
+    if (valores[meio] < minimo) esquerda = meio + 1; else direita = meio;
+  }
+  for (let index = esquerda; index < valores.length && valores[index] <= maximo; index += 1) coletar(valores[index], indices.porValorCentavos);
+  const documentoTransacao = transacao.contraparteDocumento || transacao.cpfCnpj;
+  const nomeTransacao = transacao.contraparteNome || transacao.nomeContraparte || transacao.descricao;
+  if (documentoTransacao) coletar(soNumeros(documentoTransacao), indices.porDocumento);
+  if (nomeTransacao) coletar(semAcento(nomeTransacao), indices.porContraparte);
+  // Bancos frequentemente entregam só "PIX NOME DO FORNECEDOR". O índice
+  // invertido reduz a busca por descrição aos nomes que compartilham tokens;
+  // exigimos o nome completo antes de incluí-los como evidência semelhante.
+  tokensContraparte(nomeTransacao).forEach(token => (indices.porTokenContraparte?.get(token) || []).forEach(entry => {
+    if (pontuarContraparte(nomeTransacao, entry.contraparte).pts) relevantes.set(`${entry.tipo}:${entry.item.id}`, entry);
+  }));
+  [transacao.fitid, transacao.endToEndId, transacao.txid].filter(Boolean).forEach(id => coletar(String(id), indices.porIdentificadorBancario));
   // `chave` é o campo estruturado legado do importador; não é a descrição.
   if (transacao.chavePix || transacao.pixKey || transacao.chave) coletar(normalizarChavePix(transacao.chavePix || transacao.pixKey || transacao.chave), indices.porPixChave);
 
   const candidatas = [];
 
-  relevantes.forEach(({ tipo, item, obraId }) => {
-    // Medições e entradas de contrato admitem recebimentos parciais. Elas
-    // continuam elegíveis enquanto o índice apontar saldo em aberto; os demais
-    // fatos são de vínculo único e não podem ser reutilizados.
+  relevantes.forEach(({ tipo, item, obraId, documento: documentoIndice = "", contraparte: contraparteIndice = "", pixKey: pixIndice = "", categoria = "", valorCentavos: valorIndexado = 0 }) => {
+    // Vínculos antigos sem uma liquidação identificável continuam reservando
+    // o fato inteiro. Liquidações comprovadas são consumidas pelo ID do
+    // pagamento, preservando o saldo residual do título no índice.
     if (usados.has(`${tipo}:${item.id}`) && !["medicao", "entradaContrato"].includes(tipo)) return;
 
-    let saldoCentavos = 0, documento = "", contraparte = "", dataPrevista = "", pixKey = "", titulo = "", podeVincular = false, podeRegistrarPagamento = false, entidadeId = item.id, pagamentoId = null;
+    let saldoCentavos = 0, documento = documentoIndice, contraparte = contraparteIndice, dataPrevista = "", pixKey = pixIndice, titulo = "", podeVincular = false, podeRegistrarPagamento = false, entidadeId = item.id, pagamentoId = null, tipoCandidata = tipo;
 
     if (tipo === "pagamentoNota") {
       // Pagamento JÁ registrado (ex.: pela Central de Pagamentos), só falta
       // ligar a transação bancária a ele - modo A, não cria nada novo.
       if (isEntrada) return;
-      saldoCentavos = Math.abs(valorCentavos);
-      documento = item.nota?.documentoFornecedor;
-      contraparte = item.nota?.fornecedorNome;
+      saldoCentavos = paraCentavos(item.valor);
+      dataPrevista = item.data || item.date;
       titulo = `Pagamento já registrado · Nota ${item.nota?.numero || ""}`.trim();
       podeVincular = true;
       entidadeId = item.nota?.id;
       pagamentoId = item.id;
     } else if (tipo === "pagamentoPedido") {
       if (isEntrada) return;
-      saldoCentavos = valorCentavos ? Math.abs(valorCentavos) : 0;
-      documento = item.pedido?.numero;
+      saldoCentavos = paraCentavos(item.valor);
+      dataPrevista = item.data || item.date;
       titulo = `Pagamento já registrado · Pedido ${item.pedido?.numero || ""}`.trim();
       podeVincular = true;
       entidadeId = item.pedido?.id;
       pagamentoId = item.id;
     } else if (tipo === "nota") {
       if (isEntrada) return; // nota fiscal só se paga com saída
-      const totalPago = (item.pagamentos || []).reduce((s, p) => s + Number(p.valor || 0), 0);
-      saldoCentavos = paraCentavos(Number(item.valorLiquido || item.valorBruto || 0) - totalPago);
-      documento = item.documentoFornecedor;
-      contraparte = item.fornecedorNome;
+      saldoCentavos = paraCentavos(saldoPagamentoNota(item));
       dataPrevista = item.vencimento;
       titulo = `Nota Fiscal ${item.numero || ""}`.trim();
       podeRegistrarPagamento = saldoCentavos > 0;
     } else if (tipo === "pedido") {
       if (isEntrada) return;
       saldoCentavos = paraCentavos(saldoPagamentoPedido(item));
-      documento = item.numero;
       dataPrevista = item.previsao;
       titulo = `Pedido ${item.numero || ""}`.trim();
       podeRegistrarPagamento = saldoCentavos > 0;
     } else if (tipo === "medicaoTerc") {
       if (isEntrada) return;
-      saldoCentavos = paraCentavos(item.total);
+      saldoCentavos = valorIndexado;
       dataPrevista = item.data;
       titulo = `Medição de terceiro nº${item.numero || ""}`.trim();
       podeRegistrarPagamento = true;
     } else if (tipo === "medicao") {
       if (!isEntrada) return; // recebimento de medição/parcela de contrato é sempre entrada
-      const totalRec = Array.isArray(item.recebimentos) && item.recebimentos.length
-        ? item.recebimentos.reduce((s, r) => s + Number(r.valor || 0), 0)
-        : Number(item.valorRecebido || 0);
-      saldoCentavos = paraCentavos(Number(item.valorPrevisto || 0) - totalRec);
+      saldoCentavos = paraCentavos(Number(item.valorPrevisto || 0) - totalRecebidoMedicao(item));
       dataPrevista = item.dataVencimento;
       // "medicao" no banco de dados cobre tanto parcela fixa de contrato
       // (mensal_fixo/livre) quanto medição técnica por % de avanço - o
@@ -202,25 +219,43 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
         ? item.recebimentosEntrada.reduce((s, recebimento) => s + Number(recebimento.valor || 0), 0)
         : (item.entradaPaga ? Number(item.entrada || 0) : 0);
       saldoCentavos = paraCentavos(Number(item.entrada || 0) - totalRecebido);
-      documento = item.numero;
-      contraparte = item.contratante;
       dataPrevista = item.inicio;
       titulo = `Entrada do contrato ${item.numero || ""}`.trim();
       podeRegistrarPagamento = saldoCentavos > 0;
-    } else if (tipo === "tituloFolha") {
+    } else if (tipo === "recebimentoMedicao") {
+      if (!isEntrada) return;
+      tipoCandidata = "medicao";
+      saldoCentavos = paraCentavos(item.valor);
+      dataPrevista = item.data || item.date;
+      titulo = `Recebimento já registrado · ${item.medicao?.descricao || "Parcela do contrato"}`;
+      entidadeId = item.medicao?.id;
+      pagamentoId = item.id;
+      podeVincular = true;
+    } else if (tipo === "tituloFolha" || tipo === "liquidacaoFolha") {
       if (isEntrada) return;
-      const employee = (data.employees || []).find(e => e.id === item.employeeId) || {};
-      const resumoFolha = resumoTituloFolha(item, employee);
-      saldoCentavos = paraCentavos(saldoTituloFolha(item));
-      documento = employee.cpf || employee.documento || item.documentoFuncionario;
+      const title = item.tituloFolha || item;
+      const employee = (data.employees || []).find(e => e.id === title.employeeId) || {};
+      const resumoFolha = resumoTituloFolha(title, employee);
+      saldoCentavos = paraCentavos(tipo === "liquidacaoFolha" ? item.valor : saldoTituloFolha(title));
       contraparte = resumoFolha.funcionario;
-      pixKey = employee.pixKey || item.chavePix;
-      dataPrevista = item.vencimento || item.periodoFim;
-      titulo = `Folha · ${resumoFolha.funcionario} · ${resumoFolha.periodo}`;
-      podeRegistrarPagamento = saldoCentavos > 0;
+      dataPrevista = tipo === "liquidacaoFolha" ? item.data || item.date : title.vencimento || title.periodoFim;
+      titulo = `${tipo === "liquidacaoFolha" ? "Pagamento de folha já registrado" : "Folha"} · ${resumoFolha.funcionario} · ${resumoFolha.periodo}`;
+      podeRegistrarPagamento = tipo === "tituloFolha" && saldoCentavos > 0;
+      podeVincular = tipo === "liquidacaoFolha";
+      pagamentoId = podeVincular ? item.id : null;
+      tipoCandidata = "tituloFolha";
       // A tela usa estes dados para exibir o cálculo/rateio antes de qualquer
       // confirmação. Não cria despesa no DRE: só liquida o título.
-      entidadeId = item.id;
+      entidadeId = title.id;
+    } else if (tipo === "pagamentoFolha") {
+      if (isEntrada) return;
+      tipoCandidata = "funcionario";
+      saldoCentavos = paraCentavos(item.valor);
+      dataPrevista = item.data || item.date;
+      titulo = `Pagamento de salário já registrado · ${contraparte}`;
+      entidadeId = item.employee?.id;
+      pagamentoId = item.id;
+      podeVincular = true;
     } else if (tipo === "funcionario") {
       if (isEntrada) return;
       contraparte = item.name || item.nome;
@@ -230,9 +265,7 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
       entidadeId = item.id;
     } else if (tipo === "terceiro") {
       if (isEntrada) return;
-      contraparte = item.nome;
-      documento = item.documento;
-      pixKey = item.pixKey;
+      contraparte = item.nome || item.name;
       titulo = `Terceiro ${contraparte || ""}`.trim();
       podeRegistrarPagamento = true;
     } else if (tipo === "caixaObra") {
@@ -244,6 +277,14 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
       dataPrevista = item.data;
       titulo = item._direcao === "entrada" ? "Aporte no caixa da obra" : "Despesa do caixa da obra";
       podeVincular = true;
+      pagamentoId = item.id;
+    } else if (["outrasDesp", "despesasEmpresa", "payments"].includes(tipo)) {
+      if ((tipo === "payments") !== isEntrada) return;
+      saldoCentavos = paraCentavos(item.amount || item.valor);
+      dataPrevista = item.dataPagamento || item.data || item.date;
+      titulo = `${tipo === "payments" ? "Recebimento já registrado" : "Despesa já registrada"} · ${item.description || item.descricao || categoria}`;
+      pagamentoId = item.id;
+      podeVincular = true;
     } else {
       return;
     }
@@ -251,8 +292,8 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
     let score = 0;
     const motivos = [], alertas = [], bloqueios = [];
 
-    if (item.status === "cancelado" || item.status === "cancelada" || item.archived === true || item.arquivado === true) {
-      bloqueios.push("O fato financeiro está cancelado ou arquivado");
+    if (item.status === "cancelado" || item.status === "cancelada") {
+      bloqueios.push("O fato financeiro está cancelado");
     }
     if (periodoFechado(data, transacao)) bloqueios.push("A transação pertence a um período financeiro fechado");
     if (saldoCentavos > 0) {
@@ -262,13 +303,16 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
         bloqueios.push("Valor do movimento é maior que o saldo em aberto");
       }
     }
-    const d = pontuarDocumento(transacao.contraparteDocumento, documento);
+    if (podeVincular && Math.abs(Math.abs(valorCentavos) - saldoCentavos) > 1) {
+      bloqueios.push("O valor do movimento diverge do pagamento existente. Use os vínculos parciais para distribuir valores.");
+    }
+    const d = pontuarDocumento(documentoTransacao, documento);
     score += d.pts; if (d.motivo) motivos.push(d.motivo);
-    if (transacao.contraparteDocumento && documento && soNumeros(transacao.contraparteDocumento) !== soNumeros(documento) && d.pts === 0 && documento) {
+    if (documentoTransacao && documento && soNumeros(documentoTransacao) !== soNumeros(documento) && d.pts === 0 && documento) {
       alertas.push("CPF/CNPJ informado não confere com o candidato");
       bloqueios.push("CPF/CNPJ incompatível com o fato financeiro");
     }
-    const c = pontuarContraparte(transacao.contraparteNome || transacao.descricao, contraparte);
+    const c = pontuarContraparte(nomeTransacao, contraparte);
     score += c.pts; if (c.motivo) motivos.push(c.motivo);
     const dt = pontuarData(transacao.data, dataPrevista);
     score += dt.pts; if (dt.motivo) motivos.push(dt.motivo);
@@ -279,16 +323,22 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
     const ob = pontuarObra(transacao.obraId, obraId);
     score += ob.pts;
 
-    if (documento && titulo) score += 0; // já contabilizado via pontuarDocumento
+    // Identificar a pessoa não comprova o valor devido. Cadastros sem um
+    // título nunca entram na confirmação em lote só por CPF + PIX + nome.
+    if (["funcionario", "terceiro"].includes(tipo)) {
+      score = Math.min(score, 59);
+      alertas.push("Cadastro identificado; confira a obrigação e o valor antes de registrar o pagamento.");
+    }
 
     score = Math.max(0, Math.min(100, Math.round(score)));
     const confianca = faixaDoScore(score, alertas.length > 0);
 
-    const metadados = tipo === "tituloFolha"
-      ? { itemId: item.id, payroll: resumoTituloFolha(item, (data.employees || []).find(e => e.id === item.employeeId) || {}) }
-      : { itemId: item.id };
+    const title = item.tituloFolha || item;
+    const metadados = tipoCandidata === "tituloFolha"
+      ? { itemId: item.id, categoria, payroll: resumoTituloFolha(title, (data.employees || []).find(e => e.id === title.employeeId) || {}) }
+      : { itemId: item.id, categoria };
     candidatas.push(candidata({
-      tipo, entidadeId, pagamentoId, obraId, titulo, contraparte, documento,
+      tipo: tipoCandidata, entidadeId, pagamentoId, obraId, titulo, contraparte, documento, categoria,
       dataPrevista, valorOriginalCentavos: saldoCentavos, saldoCentavos,
       podeVincular: podeVincular && bloqueios.length === 0,
       podeRegistrarPagamento: podeRegistrarPagamento && bloqueios.length === 0,

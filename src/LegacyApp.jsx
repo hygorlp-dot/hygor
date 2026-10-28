@@ -107,6 +107,9 @@ import {
   validatePurchaseRequest,
 } from "./domains/compras/purchase-request-workflow";
 import { calculateContractProjection } from "./domains/dre/calculations";
+import { DEFAULT_WORK_EXPENSE_CATEGORIES, workExpenseCategories } from "./domains/dre/work-expense-categories.js";
+import { suggestClassificationRule } from "./domains/conciliacao/classification-rules.js";
+import { reconciliationCategories } from "./domains/conciliacao/categories.js";
 import {
   COMPANY_EXPENSE_CATEGORIES,
   COMPANY_EXPENSE_GROUPS,
@@ -1897,15 +1900,16 @@ const normalizeData = incoming => {
       // como formato legado - a fonte primária de conciliação N:N agora é
       // `conciliacoes`, mas rateios antigos continuam sendo lidos.
       rateios:   Array.isArray(x.rateios) ? x.rateios.map(r => ({
-        destino:   r.destino   || "obra",       // "obra" | "empresa"
+        destino:   r.destino || r.destination || "obra",       // "obra" | "empresa"
         obraId:    r.obraId    || "",
-        categoria: r.categoria || "outros",
-        valor:     Number(r.valor || 0),
+        categoria: r.categoria || r.category || "outros",
+        valor:     Number(r.valor ?? r.value ?? 0),
+        competencia: r.competencia || "",
       })) : [],
       // Ids dos lançamentos gerados - permite desfazer sem deixar lixo no DRE
       gerados:   Array.isArray(x.gerados) ? x.gerados : [],
       // Vínculo com o registro que esta transação quitou/confirmou.
-      vinculo:   x.vinculo && x.vinculo.tipo ? { tipo:x.vinculo.tipo, id:x.vinculo.id } : null,
+      vinculo:   x.vinculo && x.vinculo.tipo ? { ...x.vinculo, tipo:x.vinculo.tipo, id:x.vinculo.id } : null,
       obs:       x.obs || "",
       ignoradoMotivo:x.ignoradoMotivo||"",
       statusAtualizadoEm:x.statusAtualizadoEm||"",
@@ -1959,6 +1963,7 @@ const normalizeData = incoming => {
       nome:      x.nome      || "",
       ativa:     x.ativa !== false,
       prioridade: Number(x.prioridade || 0),
+      direction: ["entrada","saida"].includes(x.direction) ? x.direction : "",
       padrao:    x.padrao    || "",             // trecho da descrição (compat legado)
       condicoes: Array.isArray(x.condicoes) ? x.condicoes : [],
       acao:      x.acao || "",
@@ -1985,6 +1990,7 @@ const normalizeData = incoming => {
 
     aprendizadoConc: Array.isArray(d.aprendizadoConc) ? d.aprendizadoConc.map(a => ({
       id:a.id||uid(), chave:a.chave||"", padrao:a.padrao||"", destino:a.destino||"obra", obraId:a.obraId||"", categoria:a.categoria||"outros",
+      direction:["entrada","saida"].includes(a.direction)?a.direction:"",
       confirmacoes:Number(a.confirmacoes||0), ultimaConfirmacaoEm:a.ultimaConfirmacaoEm||"", ultimoOperador:a.ultimoOperador||"",
     })) : [],
 
@@ -4188,24 +4194,8 @@ function Dashboard({ data, update, showToast, onTab, ultimaSync, currentUser, on
 // DRE GERENCIAL - helpers e componente
 //
 
-const OUTRAS_CATEGORIAS = [
-  { v:"material",       l:"Material / Insumos"     },
-  { v:"equipamento",    l:"Equipamentos / Locação"  },
-  { v:"subempreitada",  l:"Subempreitada"           },
-  { v:"taxa",           l:"Taxa / Licença / Imposto"},
-  { v:"overhead",       l:"Overhead / Administrativo"},
-  { v:"outros",         l:"Outros"                  },
-];
-
-// Categorias efetivas: as que o operador cadastrou, ou as padrao se ainda
-// nao mexeu. "Outros" fica sempre disponivel como rede de seguranca, mesmo
-// que o operador apague tudo - senao uma despesa antiga ficaria sem rotulo.
-const categoriasDesp = (data) => {
-  const custom = (data?.categoriasDesp || []);
-  if (custom.length === 0) return OUTRAS_CATEGORIAS;
-  const temOutros = custom.some(c => c.v === "outros");
-  return temOutros ? custom : [...custom, { v: "outros", l: "Outros" }];
-};
+const OUTRAS_CATEGORIAS = DEFAULT_WORK_EXPENSE_CATEGORIES;
+const categoriasDesp = workExpenseCategories;
 
 // Rotulo de uma categoria por chave (cai na propria chave se nao achar).
 const rotuloCategoria = (data, v) =>
@@ -11202,15 +11192,8 @@ export const SINAPI_UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG
 //
 
 // Categorias de custo direto de obra (usadas no rateio p/ obra)
-export const CATS_OBRA_CONC = [
-  { v:"material",     l:"Material" },
-  { v:"mao_obra",     l:"Mão de obra" },
-  { v:"terceirizado", l:"Terceirizado" },
-  { v:"equipamento",  l:"Equipamento / Locação" },
-  { v:"transporte",   l:"Transporte / Frete" },
-  { v:"receita",      l:"Recebimento do cliente" },
-  { v:"outros",       l:"Outros" },
-];
+export const CATS_OBRA_CONC = reconciliationCategories({}, {direction:"saida",destination:"obra"})
+  .map(category => ({v:category.id,l:category.label}));
 
 export const semAcentoConc = (s) =>
   String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -11255,15 +11238,7 @@ const registrarAprendizadoConc = (historico, tr, rateio, operador) => {
   return [...(historico||[]),{id:uid(),chave,padrao,destino:rateio.destino,obraId:rateio.obraId||"",categoria:rateio.categoria||"",confirmacoes:1,ultimaConfirmacaoEm:agora,ultimoOperador:operador?.id||""}];
 };
 
-export const sugerirRateio = (tr, regras, aprendizados=[]) => {
-  const d = String(tr.descricao||"").toLowerCase();
-  const regra = (regras||[]).find(r => r.ativa!==false && r.padrao && d.includes(r.padrao.toLowerCase()));
-  if (regra) return { destino: regra.destino, obraId: regra.obraId, categoria: regra.categoria, origem:"regra" };
-  // O aprendizado nunca concilia sozinho: só sugere depois de duas decisões
-  // idênticas do operador para um padrão textual estável.
-  const aprendizado=(aprendizados||[]).filter(a=>Number(a.confirmacoes||0)>=2&&a.padrao&&a.padrao.split(" ").every(p=>d.includes(p))).sort((a,b)=>Number(b.confirmacoes||0)-Number(a.confirmacoes||0))[0];
-  return aprendizado?{destino:aprendizado.destino,obraId:aprendizado.obraId,categoria:aprendizado.categoria,origem:"aprendizado",confirmacoes:aprendizado.confirmacoes}:null;
-};
+export const sugerirRateio = suggestClassificationRule;
 
 // Distância em dias entre duas datas ISO
 export const diasEntre = (a, b) => {
