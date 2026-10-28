@@ -23,6 +23,7 @@ describe("FIN 9.6 — fatos operacionais respeitam competência fechada",()=>{
         key text not null,
         value jsonb not null default '{}'::jsonb,
         updated_at timestamptz not null default now(),
+        updated_by text,
         primary key(company_id,key)
       );
     `);
