@@ -94,6 +94,8 @@ describe("gate FIN-003 de persistência",()=>{
       missingLegacyLinks:[],
       legacyHashesVerified:true,
       staleLegacyLinks:[],
+      bankComparisonVerified:true,
+      bankDivergences:[],
       openQualityCases:[],
     });
     expect(ready.ready).toBe(true);
@@ -111,6 +113,8 @@ describe("gate FIN-003 de persistência",()=>{
       missingLegacyLinks:[{legacyType:"pedido",legacyId:"p-1"}],
       legacyHashesVerified:true,
       staleLegacyLinks:[],
+      bankComparisonVerified:true,
+      bankDivergences:[],
       openQualityCases:[{id:"dq-1",category:"financial_shadow_divergence"}],
     });
     expect(blocked.ready).toBe(false);
@@ -122,6 +126,28 @@ describe("gate FIN-003 de persistência",()=>{
       "legacy_links",
       "quality_cases",
     ]);
+  });
+
+  it("bloqueia FIN-003 quando a paridade bancária não foi verificada",()=>{
+    const blocked=financialActivationEvidenceGate({
+      factsCount:3,shadowRun:{id:"run-1"},
+      legacyHashesVerified:true,
+      bankComparisonVerified:false,
+    });
+    expect(blocked.ready).toBe(false);
+    expect(blocked.blockers).toContain("bank_shadow");
+  });
+
+  it("bloqueia FIN-003 quando o extrato legado diverge do banco canônico",()=>{
+    const blocked=financialActivationEvidenceGate({
+      factsCount:3,shadowRun:{id:"run-1"},
+      legacyHashesVerified:true,
+      bankComparisonVerified:true,
+      bankDivergences:[{code:"legacy_bank_stale",legacyId:"b1"}],
+    });
+    expect(blocked.ready).toBe(false);
+    expect(blocked.blockers).toContain("bank_shadow");
+    expect(blocked.checks.find(check=>check.code==="bank_shadow")).toMatchObject({ok:false});
   });
 
   it("bloqueia FIN-003 quando os hashes legados não foram verificados",()=>{

@@ -24,7 +24,7 @@ describe("Central do Administrador — gate FIN 9.6",()=>{
     const panel=readFileSync("src/domains/administracao/components/FinanceiroCanonicoAdmin.jsx","utf8");
     for(const code of [
       "snapshot_writers","shadow_has_facts","shadow_run","ledger_divergence",
-      "dre_divergence","procurement_dre_divergence","legacy_links","legacy_hashes","quality_cases",
+      "dre_divergence","procurement_dre_divergence","legacy_links","legacy_hashes","bank_shadow","quality_cases",
       "canonical_integrity",
     ])expect(panel).toContain(code);
     expect(panel).toContain("passedChecks");
@@ -32,6 +32,9 @@ describe("Central do Administrador — gate FIN 9.6",()=>{
     expect(panel).toContain("Erros estruturais");
     expect(panel).toContain("Hashes desatualizados");
     expect(panel).toContain("staleLegacyLinks");
+    expect(panel).toContain("Divergências banco");
+    expect(panel).toContain("bankDivergences");
+    expect(panel).not.toContain("após 8/8");
     expect(panel).not.toContain("8/8 GATES");
   });
 });

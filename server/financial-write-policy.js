@@ -126,6 +126,8 @@ export const financialActivationEvidenceGate=({
   missingLegacyLinks=[],
   legacyHashesVerified=false,
   staleLegacyLinks=[],
+  bankComparisonVerified=false,
+  bankDivergences=[],
   openQualityCases=[],
   canonicalIntegrity={ok:true,counts:{errors:0,warnings:0}},
 }={})=>{
@@ -188,6 +190,15 @@ export const financialActivationEvidenceGate=({
         :safeList(staleLegacyLinks).length===0
           ?"Hashes dos vínculos legados correspondem exatamente à fotografia atual."
           :`${safeList(staleLegacyLinks).length} vínculo(s) legado(s) possuem hash desatualizado.`,
+    },
+    {
+      code:"bank_shadow",
+      ok:bankComparisonVerified===true&&safeList(bankDivergences).length===0,
+      detail:bankComparisonVerified!==true
+        ?"A paridade do extrato bancário legado ainda não foi verificada."
+        :safeList(bankDivergences).length===0
+          ?"Extrato bancário legado e banco canônico estão alinhados."
+          :`${safeList(bankDivergences).length} divergência(s) no extrato bancário legado.`,
     },
     {
       code:"quality_cases",
