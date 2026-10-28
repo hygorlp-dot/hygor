@@ -163,6 +163,13 @@ export const createMonthlyClosingSnapshot = (data = {}, {
   const commitments=selectCommitments(ledger,{asOfDate:endDate});
   const conference=validateFinancialReconciliation(ledger,filters);
   if(!conference.ok)return {ok:false,error:"Existem pendências financeiras que impedem o fechamento.",conference};
+  // A evidência do fechamento precisa representar a fotografia existente até
+  // o último dia da competência. Eventos futuros não participam de DRE, caixa
+  // ou saldos "as of" do mês encerrado e não devem contaminar eventIds.
+  const evidenceEvents=ledger.events.filter(event=>{
+    const date=String(event?.date||"").slice(0,10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(date)&&date<=endDate;
+  });
   const now=closedAt||new Date().toISOString();
   return {
     ok:true,
@@ -173,8 +180,8 @@ export const createMonthlyClosingSnapshot = (data = {}, {
         revenueCents:dre.revenueCents,costCents:dre.costCents,resultCents:dre.resultCents,
         cashInCents:cash.cashInCents,cashOutCents:cash.cashOutCents,cashBalanceCents:cash.balanceCents,
         receivableCents:receivable.balanceCents,payableCents:payable.balanceCents,
-        commitmentCents:commitments.balanceCents,eventCount:ledger.events.length,
-        eventIds:ledger.events.map(event=>event.id),
+        commitmentCents:commitments.balanceCents,eventCount:evidenceEvents.length,
+        eventIds:evidenceEvents.map(event=>event.id),
         ...(canonicalDreSnapshot?{canonicalDre:canonicalDreSnapshot}:{}),
       },
       conference:{checks:conference.checks},
