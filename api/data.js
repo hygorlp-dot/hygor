@@ -2082,6 +2082,7 @@ export default async function handler(req, res) {
         });
       }
 
+      const fonteFinanceira=await exigirCustosArquivados(atual);
       const canonical=await loadCanonicalDre(db,COMPANY);
       if(canonical.issues.length){
         return res.status(409).json({
@@ -2090,7 +2091,7 @@ export default async function handler(req, res) {
         });
       }
       const [year,monthNumber]=period.competencia.split("-").map(Number);
-      const dreRow=buildRequestedDreProjectionRows(atual,[{
+      const dreRow=buildRequestedDreProjectionRows(fonteFinanceira,[{
         year,month:monthNumber-1,period:"mes",scope:"company_dre",
       }],canonical.events)[0];
       if(!dreRow?.payload){
@@ -2106,7 +2107,7 @@ export default async function handler(req, res) {
         payload:dreRow.payload,
       };
       const preview=previewMonthlyFinancialClosing({
-        data:atual,
+        data:fonteFinanceira,
         command,
         actor:usuario,
         supplementalEvents:canonical.events,
@@ -2204,10 +2205,17 @@ export default async function handler(req, res) {
                   withAttendanceSyncedAt(decoded?.attendance,decoded?.attendanceSyncedAt),
                 );
               }
-              const closingData={
+              const closingDataBase={
                 ...current,
                 attendance:mergeAttendanceObjects(...attendanceSources),
               };
+              const archived=await carregarCustosArquivadosNaTransacao(transaction,closingDataBase);
+              if(archived.missing.length)return {
+                kind:"error",status:409,code:"ARCHIVED_LABOR_SOURCE_MISSING",
+                error:"Existem quinzenas arquivadas sem o arquivo imutável correspondente. O fechamento foi bloqueado.",
+                missingArchivedPeriods:archived.missing,
+              };
+              const closingData=archived.data;
 
               const [titles,settlements,banks]=await Promise.all([
                 transaction`
@@ -2299,6 +2307,8 @@ export default async function handler(req, res) {
           if(outcome.kind==="error"){
             return res.status(outcome.status||409).json({
               error:outcome.error,
+              ...(outcome.code?{code:outcome.code}:{}),
+              ...(outcome.missingArchivedPeriods?.length?{missingArchivedPeriods:outcome.missingArchivedPeriods}:{}),
               ...(outcome.conference?{conference:outcome.conference}:{}),
               ...(outcome.canonicalIssues?{canonicalIssues:outcome.canonicalIssues}:{}),
             });
