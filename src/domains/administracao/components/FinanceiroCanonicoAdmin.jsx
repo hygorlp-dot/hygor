@@ -11,6 +11,7 @@ const CHECK_LABELS={
   procurement_dre_divergence:"Compras × DRE",
   legacy_links:"Vínculos legado → canônico",
   quality_cases:"Casos de qualidade financeira",
+  canonical_integrity:"Integridade estrutural do razão",
 };
 
 const card={background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:12};
@@ -62,6 +63,8 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
   const divergencias=(relatorio?.divergencias?.length||0)
     +(relatorio?.divergenciasDRE?.length||0)
     +(relatorio?.divergenciasComprasDRE?.length||0);
+  const totalChecks=checks.length;
+  const passedChecks=checks.filter(check=>check.ok).length;
 
   return <div style={{display:"flex",flexDirection:"column",gap:12}}>
     <div style={{
@@ -81,7 +84,7 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
         </div>
         <div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap"}}>
           <Badge color={relatorio?.engineEnforced?C.green:C.muted}>{relatorio?.engineEnforced?"ENFORCEMENT ATIVO":"ENFORCEMENT DESATIVADO"}</Badge>
-          <Badge color={ready?C.green:C.orange}>{ready?"8/8 GATES":`${Math.max(0,8-blockers.length)}/8 GATES`}</Badge>
+          <Badge color={ready?C.green:C.orange}>{totalChecks?`${passedChecks}/${totalChecks} GATES`:"GATE INDISPONÍVEL"}</Badge>
           <Btn size="sm" v="ghost" onClick={carregar}><Ic n="refresh"/> Atualizar</Btn>
         </div>
       </div>
@@ -96,6 +99,7 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
         ["Vínculos ausentes",counts.vinculosLegadoAusentes??0,(counts.vinculosLegadoAusentes??0)?C.red:C.green],
         ["Divergências",divergencias,divergencias?C.red:C.green],
         ["Casos qualidade abertos",counts.divergenciasAbertas??0,(counts.divergenciasAbertas??0)?C.red:C.green],
+        ["Erros estruturais",counts.errosIntegridadeCanonica??0,(counts.errosIntegridadeCanonica??0)?C.red:C.green],
       ].map(([label,value,color])=><div key={label} style={{...card,borderTop:`3px solid ${color}`}}>
         <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{label}</p>
         <p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:600,color,marginTop:4}}>{value}</p>
