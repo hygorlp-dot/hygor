@@ -159,6 +159,7 @@ import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId, resolveH
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
+import { isServerRejection, rejectedSections } from "./domains/sync/rejected-save";
 import { splitPayrollResponsibility } from "./domains/ponto/payroll-responsibility";
 import { allocateUnionDueByWork, calculatePayrollSettlement, calculateUnionDue, normalizeRoleKey, normalizeUnionDuesConfig, summarizeUnionDues, UNION_DUE_GROUP } from "./domains/ponto/union-dues";
 import {
@@ -17237,6 +17238,9 @@ export default function App() {
   // Momento da ultima sincronizacao bem-sucedida com o servidor.
   const [ultimaSync,  setUltimaSync]  = useState(null);
   const [estadoSalvar,setEstadoSalvar] = useState(SAVE_QUEUE_STATE.IDLE);
+  // Última gravação recusada pelo servidor (desfeita na tela): fica visível até
+  // o usuário dispensar, para ninguém achar que salvou o que não salvou.
+  const [edicaoRecusada,setEdicaoRecusada] = useState(null);
   // A lista de obras e o painel detalhado ocupam alturas diferentes. Sem este
   // reset o navegador preserva o scroll da lista e a obra pode abrir já no
   // meio do conteúdo. O layout effect executa antes da pintura, sem salto.
@@ -17351,7 +17355,24 @@ export default function App() {
       },
       onConflict:()=>showToast("Outra pessoa salvou ao mesmo tempo. Suas alterações aguardam resolução do conflito.","error"),
       onRetry:({result,delay})=>showToast(`${result?.reason||"Não foi possível conectar ao servidor."} Nova tentativa em ${Math.round(delay/1000)}s.`,"error"),
-      onFailed:({result,offline})=>showToast(offline?"Sem conexão. As alterações seguem guardadas e serão retomadas ao reconectar.":(result?.reason||"Alterações não sincronizadas. Confira a conexão e faça uma nova ação para tentar novamente."),"error"),
+      onFailed:({result,offline,pending})=>{
+        if(isServerRejection({result,offline})&&baseServidorRef.current){
+          // O servidor recusou (permissão/regra): desfaz a edição otimista,
+          // voltando ao último estado confirmado. Roda depois que a fila
+          // devolve {ok:false} a quem chamou update(), para não confirmar
+          // como salvo o que foi recusado.
+          const confirmado=baseServidorRef.current;
+          const secoes=rejectedSections(confirmado,pending);
+          setTimeout(()=>{
+            saveQueueRef.current?.discard();
+            ultimoDataRef.current=confirmado;dataAtualRef.current=confirmado;setData(confirmado);
+            setEdicaoRecusada({motivo:result?.reason||result?.error||"O servidor recusou a alteração.",secoes,em:new Date()});
+          },0);
+          showToast(`Alteração não salva e desfeita: ${result?.reason||"recusada pelo servidor"}`,"error");
+          return;
+        }
+        showToast(offline?"Sem conexão. As alterações seguem guardadas e serão retomadas ao reconectar.":(result?.reason||"Alterações não sincronizadas. Confira a conexão e faça uma nova ação para tentar novamente."),"error");
+      },
     });
   }
   // Zera a ref (não só destrói) para que uma remontagem real - ou a
@@ -18383,6 +18404,10 @@ export default function App() {
         </div>
 
         <main className="arcd-main" style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "24px 24px" : 14 }}>
+          {edicaoRecusada&&<div role="alert" data-testid="save-rejected" style={{display:"flex",gap:10,alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",marginBottom:12,padding:"10px 12px",border:`1px solid ${C.red}55`,background:`${C.red}0D`,borderRadius:C.rMd,color:C.text}}>
+            <span style={{fontSize:"var(--arcd-type-label)",lineHeight:1.5}}><b>Alteração não salva e desfeita</b> às {edicaoRecusada.em.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}: {edicaoRecusada.motivo}{edicaoRecusada.secoes.length?` (${edicaoRecusada.secoes.slice(0,4).join(", ")}${edicaoRecusada.secoes.length>4?"…":""})`:""}. A tela voltou ao último estado confirmado.</span>
+            <Btn v="ghost" size="sm" onClick={()=>setEdicaoRecusada(null)}>Entendi</Btn>
+          </div>}
           <WorkflowContext.Provider value={{navigate:navigateWorkflow,intent:workflowIntent,scopes:workflowScopes,rememberScope:rememberWorkflowScope}}>
 
           {tab === "home"   && (["engenheiro","engenheiro_auditor"].includes(currentUser?.role)
