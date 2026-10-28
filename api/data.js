@@ -1154,8 +1154,13 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
 // valor - é por ele que a tela detecta que outra pessoa salvou antes.
 // Uma linha separada que ainda não existe é criada aqui, com a core travada
 // e a partir do valor dela: nenhuma gravação concorrente se perde na troca.
-const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linha,mutate,cronometro})=>{
+const executarMutacaoMultiLinha=async({
+  actor,action,financial=false,domains,writeDomains=domains,linha,mutate,cronometro,
+})=>{
   const separados=[...new Set(domains)].filter(d=>d!==DOMAIN_ROW.CORE&&SPLIT_ROW_KEYS[d]);
+  const separadosGravaveis=new Set(
+    [...new Set(writeDomains||domains)].filter(d=>d!==DOMAIN_ROW.CORE&&SPLIT_ROW_KEYS[d]),
+  );
   const resultado=await comSql(connection=>connection.begin(async transaction=>{
       cronometro?.marcar("conexao");
       // A leitura sem lock do topo do handler (lerLinha) já decodificou estas
@@ -1193,7 +1198,14 @@ const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linh
       const fatias=Object.fromEntries(separados.map(dominio=>[
         dominio,travadas[dominio]?travadas[dominio].fatia:pickDomainFields(coreFresca,dominio),
       ]));
-      const versoes={...linha.rowVersions,...Object.fromEntries(separados.map(d=>[d,travadas[d]?.updated_at||"criando"]))};
+      // Domínio travado só para leitura não pode virar "criando": isso faria
+      // coreFieldsOnly remover sua cópia de fallback da core sem materializar
+      // a linha separada. "criando" fica restrito aos domínios realmente escritos.
+      const versoes={...linha.rowVersions,...Object.fromEntries(separados.map(d=>[
+        d,
+        travadas[d]?.updated_at
+          ||(separadosGravaveis.has(d)?"criando":linha.rowVersions?.[d]||null),
+      ]))};
       const rowPayloadsByDomain=Object.fromEntries(SPLITTABLE_DOMAINS.map(dominio=>[
         dominio,fatias[dominio]||pickDomainFields(linha.payload,dominio),
       ]));
@@ -1205,6 +1217,7 @@ const executarMutacaoMultiLinha=async({actor,action,financial=false,domains,linh
 
       // Linhas separadas: grava só a que mudou (ou cria a que faltava).
       for(const dominio of separados){
+        if(!separadosGravaveis.has(dominio))continue;
         const proximo=pickDomainFields(outcome.data,dominio);
         if(travadas[dominio]&&igual(proximo,fatias[dominio]))continue;
         await transaction`
@@ -2016,7 +2029,10 @@ export default async function handler(req, res) {
             actor:usuario,
             action:"financial_close_accounting_period",
             financial:true,
+            // O fechamento lê e trava todos os domínios que alimentam o DRE,
+            // mas grava somente a core, onde vive fechamentosFinanceiros.
             domains:[DOMAIN_ROW.CORE,...SPLITTABLE_DOMAINS],
+            writeDomains:[DOMAIN_ROW.CORE],
             linha,
             mutate:async({payload:current,updatedAt:lockedUpdatedAt,transaction})=>{
               const [titles,settlements,banks]=await Promise.all([
