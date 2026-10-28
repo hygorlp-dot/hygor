@@ -21,7 +21,7 @@ describe("patrimônio corporativo",()=>{
     }}),"2026-10-28T15:30:00.000Z");
     expect(result.ok).toBe(true);
     expect(result.data.companyAssets[0].photo).toMatchObject({
-      name:"martelete.jpg",path:"patrimonio/2026/11111111-1111-4111-8111-111111111111.jpg",mime:"image/jpeg",size:245000,
+      name:"martelete.jpg",path:"patrimonio/2026/11111111-1111-4111-8111-111111111111.jpg",mime:"image/jpeg",size:245000,url:"",
     });
     expect(result.data.companyAssets[0].operationalHistory[0].after.photo.path).toContain("patrimonio/2026/");
   });
