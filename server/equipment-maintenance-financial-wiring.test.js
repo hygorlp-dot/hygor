@@ -14,8 +14,6 @@ describe("FIN 9.6 — cancelamento de manutenção e DRE",()=>{
     expect(block).toContain("EQUIPMENT_MAINTENANCE_CANCELLED");
     expect(block).toContain("EQUIPMENT_RENTAL_COMMERCIAL_OVERRIDDEN");
     expect(block).toContain("EQUIPMENT_RENTAL_CANCELLED");
-    expect(block).toContain("EQUIPMENT_RENTAL_COMMERCIAL_OVERRIDDEN");
-    expect(block).toContain("EQUIPMENT_RENTAL_CANCELLED");
   });
 
   it("continua audit-only porque não cria título nem movimenta banco",()=>{
@@ -23,6 +21,8 @@ describe("FIN 9.6 — cancelamento de manutenção e DRE",()=>{
     const end=persistence.indexOf("]);",start);
     const block=persistence.slice(start,end);
     expect(block).toContain("EQUIPMENT_MAINTENANCE_CANCELLED");
+    expect(block).toContain("EQUIPMENT_RENTAL_COMMERCIAL_OVERRIDDEN");
+    expect(block).toContain("EQUIPMENT_RENTAL_CANCELLED");
   });
 
   it("o cálculo financeiro exclui registros cancelados",()=>{
