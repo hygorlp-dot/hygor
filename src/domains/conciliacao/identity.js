@@ -1,6 +1,6 @@
 // Registro de identidades usado pela conciliação. Ele não escolhe nem grava
 // nada: apenas torna explícitas as evidências e conflitos de contraparte.
-import { semAcento } from "./calculations.js";
+import { semAcento, extrairContraparteDescricaoPix } from "./calculations.js";
 
 const normalizarDocumento = value => String(value || "").replace(/\D/g, "");
 const normalizarPixIdentidade = value => String(value || "").trim().toLocaleLowerCase("pt-BR").replace(/\s+/g, "");
@@ -41,8 +41,10 @@ export const criarRegistroIdentidades = (data = {}) => {
   incluir("fornecedor",data.fornecedores);
   incluir("proprietario_equipamento",data.proprietariosEquip);
   incluir("cliente",data.clientes);
-  incluir("cliente",data.comercial?.leads);
-  incluir("contratante",data.comercial?.contratos,item=>({aliases:[item.contratante],contratos:[item.id],obras:[item.obraId]}));
+  incluir("cliente",data.comercial?.clientes);
+  const clientes = [...(data.clientes || []), ...(data.comercial?.clientes || [])];
+  incluir("cliente",(data.comercial?.leads || []).filter(lead => !clientes.some(client => client.leadId === lead.id)));
+  incluir("contratante",(data.comercial?.contratos || []).filter(contract => !clientes.some(client => client.id === contract.clienteId || (contract.leadId && client.leadId === contract.leadId)) && !(data.comercial?.leads || []).some(lead => lead.id === contract.leadId)));
 
   const porPix=new Map(), porDocumento=new Map(), porNome=new Map();
   registros.forEach(item=>{
@@ -57,7 +59,7 @@ const collect = (map, key) => key ? (map.get(key)||[]) : [];
 export const identificarContraparte = (transaction = {}, registry) => {
   const pix=normalizarPixIdentidade(transaction.chavePix||transaction.pixKey||transaction.chave);
   const documento=normalizarDocumento(transaction.contraparteDocumento||transaction.cpfCnpj);
-  const nome=normalizarNomeIdentidade(transaction.contraparteNome||transaction.nomeContraparte||"");
+  const nome=normalizarNomeIdentidade(transaction.contraparteNome||transaction.nomeContraparte||extrairContraparteDescricaoPix(transaction.descricao)||"");
   const hits=[...collect(registry?.porPix,pix),...collect(registry?.porDocumento,documento),...collect(registry?.porNome,nome)];
   const unique=[...new Map(hits.map(item=>[`${item.tipo}:${item.id}`,item])).values()];
   const evidencias=[];

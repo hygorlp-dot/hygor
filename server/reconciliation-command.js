@@ -1,3 +1,4 @@
+import { criarFilaAutomatica, comandoAutomaticoSeguro, REGRA_AUTOMATICA } from "../src/domains/conciliacao/automation.js";
 // Comandos de conciliação executados exclusivamente sobre a fotografia
 // autoritativa do servidor. O navegador informa a intenção e os IDs; ele não
 // envia nem recompõe o blob financeiro inteiro.
@@ -17,6 +18,7 @@ import { isCompetenceInClosedPeriod, isDateInClosedPeriod } from "../src/domains
 import { saldoTituloFolha } from "../src/domains/conciliacao/payroll.js";
 
 export const RECONCILIATION_COMMAND = Object.freeze({
+  AUTO_MATCH: "AUTO_MATCH",
   CONFIRM_RECEIPT: "CONFIRM_RECEIPT",
   CONFIRM_MANUAL_ENTRY: "CONFIRM_MANUAL_ENTRY",
   CONFIRM_PAYMENT: "CONFIRM_PAYMENT",
@@ -161,6 +163,17 @@ export const applyReconciliationCommand = (data, command = {}, actor = {}) => {
   if(command.type===RECONCILIATION_COMMAND.LINK_EXISTING_PAYMENT&&partialLinks.some(link=>[link.sourceId,link.sourceSubId].filter(Boolean).includes(String(payload.paymentId||payload.targetId))))return invalid(data,"O pagamento já possui vínculos parciais no DRE.");
   if(command.type===RECONCILIATION_COMMAND.CONFIRM_TRANSFER&&reconciliationHold(findTransaction(data,payload.counterpartyTransactionId)))return invalid(data,"A outra ponta está bloqueada para conferência da composição do aporte.");
   if(command.type===RECONCILIATION_COMMAND.CONFIRM_TRANSFER&&partialLinks.some(link=>link.transactionId===payload.counterpartyTransactionId))return invalid(data,"A outra ponta possui vínculos parciais no DRE.");
+
+  if(command.type===RECONCILIATION_COMMAND.AUTO_MATCH){
+    if(!["admin", "financeiro"].includes(actor.role))return invalid(data,"A automação exige perfil Financeiro ou Administrador.");
+    const row=criarFilaAutomatica(data).find(item=>String(item.tr.id)===transactionId);
+    const automatic=comandoAutomaticoSeguro(row);
+    if(!automatic)return invalid(data,row?.motivo||"Movimento indisponível para conciliação automática.");
+    const result=applyReconciliationCommand(data,automatic,actor);
+    if(!result.resumo.ok)return result;
+    const auditoria={regra:REGRA_AUTOMATICA,evidencias:row.analise.melhorCandidata.motivos,contraparte:row.analise.identidadeProvavel,executadaEm:new Date().toISOString()};
+    return {...result,data:{...result.data,transacoes:result.data.transacoes.map(tr=>String(tr.id)===transactionId?{...tr,automacaoConciliacao:auditoria}:tr)},resumo:{...result.resumo,automatica:true,regra:REGRA_AUTOMATICA}};
+  }
 
   if(command.type===RECONCILIATION_COMMAND.CONFIRM_RECEIPT){
     const checked=mustBePending(data,transactionId,1);
