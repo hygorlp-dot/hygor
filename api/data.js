@@ -49,7 +49,7 @@ import { executeReconciliationWithRetry } from "../server/reconciliation-executi
 import { projectReconciliationPatch } from "../server/reconciliation-response.js";
 import { cashAllocations } from "../src/domains/conciliacao/cash-allocations.js";
 import { buildIntegratedDreManagement, canonicalDreEvents, loadCanonicalDre, validateNativeDreCommand } from "../server/financial-dre-integration.js";
-import { prepareMonthlyFinancialClosing } from "../server/financial-closing.js";
+import { monthlyClosingPeriodFromCommand, prepareMonthlyFinancialClosing } from "../server/financial-closing.js";
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
@@ -1211,7 +1211,9 @@ const executarMutacaoMultiLinha=async({
       ]));
       const current=mergeDomainRows(coreFieldsOnly(coreFresca,linha.rowVersions),rowPayloadsByDomain);
       cronometro?.marcar("locks");
-      const outcome=await mutate({payload:current,updatedAt:coreTravada.updated_at,transaction});
+      const outcome=await mutate({
+        payload:current,updatedAt:coreTravada.updated_at,transaction,rowVersions:versoes,
+      });
       cronometro?.marcar("validacao");
       if(!outcome||outcome.kind!=="save")return outcome;
 
@@ -2034,7 +2036,39 @@ export default async function handler(req, res) {
             domains:[DOMAIN_ROW.CORE,...SPLITTABLE_DOMAINS],
             writeDomains:[DOMAIN_ROW.CORE],
             linha,
-            mutate:async({payload:current,updatedAt:lockedUpdatedAt,transaction})=>{
+            mutate:async({
+              payload:current,updatedAt:lockedUpdatedAt,transaction,rowVersions:lockedRowVersions,
+            })=>{
+              const period=monthlyClosingPeriodFromCommand(command);
+              if(!period.ok)return {kind:"error",status:400,error:period.error};
+
+              // Ponto por obra alimenta custo de mão de obra no DRE, mas vive
+              // fora do dicionário fixo de linhas. Trava e relê essas linhas
+              // aqui, depois da linha meta de Ponto, na mesma ordem usada pelo
+              // pipeline de marcação. Elas são somente leitura neste fechamento.
+              const lockedAttendanceRows=await transaction`
+                select key,value,updated_at
+                  from company_app_data
+                 where company_id=${COMPANY}
+                   and key like ${`${PONTO_OBRA_KEY_PREFIX}%`}
+                 order by key
+                 for update
+              `;
+              const attendanceSources=[current.attendance||{}];
+              const closingPontoVersions={};
+              for(const row of lockedAttendanceRows){
+                const decoded=decodeAppData(row.value);
+                const bucket=obraBucketFromKey(PONTO_KEY,row.key);
+                closingPontoVersions[bucket]=row.updated_at||null;
+                attendanceSources.push(
+                  withAttendanceSyncedAt(decoded?.attendance,decoded?.attendanceSyncedAt),
+                );
+              }
+              const closingData={
+                ...current,
+                attendance:mergeAttendanceObjects(...attendanceSources),
+              };
+
               const [titles,settlements,banks]=await Promise.all([
                 transaction`
                   select id,origin_type,obra_id,direction,competence,due_date,created_at,
@@ -2057,9 +2091,29 @@ export default async function handler(req, res) {
                 `,
               ]);
               const canonical=canonicalDreEvents({titles,settlements,banks});
+              const [year,monthNumber]=period.competencia.split("-").map(Number);
+              const dreRow=buildRequestedDreProjectionRows(closingData,[{
+                year,month:monthNumber-1,period:"mes",scope:"company_dre",
+              }],canonical.events)[0];
+              if(!dreRow?.payload)return {
+                kind:"error",status:409,error:"Não foi possível materializar o DRE canônico da competência.",
+              };
+              const canonicalDreSnapshot={
+                sourceId:dreRow.sourceId,
+                canonicalRevision:canonical.revision,
+                sourceRevision:dreSourceRevision({
+                  updatedAt:lockedUpdatedAt,
+                  rowVersions:lockedRowVersions,
+                  rowVersionsPontoObra:closingPontoVersions,
+                }),
+                projectionVersion:DRE_PROJECTION_VERSION,
+                payload:dreRow.payload,
+              };
               const prepared=prepareMonthlyFinancialClosing({
-                data:current,command,actor:usuario,
+                data:closingData,command,actor:usuario,
                 supplementalEvents:canonical.events,
+                canonicalDreSnapshot,
+                requireCanonicalDre:true,
                 now:new Date().toISOString(),
               });
               if(!prepared?.ok)return {
