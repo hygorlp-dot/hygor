@@ -2161,6 +2161,15 @@ export default async function handler(req, res) {
               const period=monthlyClosingPeriodFromCommand(command);
               if(!period.ok)return {kind:"error",status:400,error:period.error};
 
+              // Serializa o fechamento com toda carga/sincronização do razão.
+              // O save transacional financeiro usa a mesma chave depois de
+              // travar a core; a ordem permanece core -> advisory em ambos.
+              await transaction`
+                select pg_advisory_xact_lock(
+                  hashtextextended(${`${COMPANY}:financial-shadow-sync`},0)
+                )
+              `;
+
               // Ponto por obra alimenta custo de mão de obra no DRE, mas vive
               // fora do dicionário fixo de linhas. Trava e relê essas linhas
               // aqui, depois da linha meta de Ponto, na mesma ordem usada pelo
