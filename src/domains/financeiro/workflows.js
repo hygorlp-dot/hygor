@@ -138,9 +138,9 @@ export const isDateInClosedPeriod = (data = {}, date = "") =>
     period.status==="fechado" && date>=period.dataInicio && date<=period.dataFim);
 
 /**
- * Snapshot local auditável. O fechamento canônico é efetivado separadamente
- * pela RPC CLOSE_ACCOUNTING_PERIOD; este registro preserva a conferência que
- * foi apresentada ao administrador no instante do fechamento.
+ * Snapshot auditável da conferência mensal. No caminho autoritativo do
+ * servidor, esta fotografia e CLOSE_ACCOUNTING_PERIOD são confirmados na
+ * mesma transação PostgreSQL; chamadas puras continuam úteis para prévia/teste.
  */
 export const createMonthlyClosingSnapshot = (data = {}, {
   competencia, actor = {}, closedAt = "", supplementalEvents = [], canonicalDreSnapshot = null,
