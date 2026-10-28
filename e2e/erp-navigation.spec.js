@@ -218,3 +218,21 @@ test("fluxos internos e atalho do DRE preservam competência e pagamentos",async
   await expect(page.getByRole("region",{name:"Áreas da folha"}).locator("details")).not.toHaveAttribute("open");
   expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
 });
+
+test("links restauram tela após login, F5 e Voltar/Avançar",async({page})=>{
+  const app=await enter(page,"admin");
+  async function open(label){
+    await page.keyboard.press("Control+k");
+    const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
+    await search.fill(label);
+    await search.locator("xpath=../..").getByRole("button").filter({hasText:label}).first().click();
+  }
+  await open("Fornecedores");await expect(page).toHaveURL(/\/app\/fornecedores$/);
+  await open("Obras");await expect(page).toHaveURL(/\/app\/obras$/);
+  await page.goBack();await expect(page).toHaveURL(/\/app\/fornecedores$/);
+  await expect(page.locator(".app-breadcrumb")).toContainText("Fornecedores");
+  await page.goForward();await expect(page).toHaveURL(/\/app\/obras$/);
+  await page.reload();await expect(page.locator(".app-breadcrumb")).toContainText("Obras");
+  await expect(page).toHaveURL(/\/app\/obras$/);
+  expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
+});

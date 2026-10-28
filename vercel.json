@@ -14,6 +14,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/app/:route*", "destination": "/index.html" },
     { "source": "/api/client/:route*", "destination": "/api/client?route=:route*" },
     { "source": "/cliente/:route*", "destination": "/index.html" },
     { "source": "/aceite-pedido", "destination": "/index.html" }

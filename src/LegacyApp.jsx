@@ -1,3 +1,4 @@
+import { useScreenNavigation, screenHref, followScreenLink } from "./navigation/screen-navigation.js";
 import {AttendancePayMode} from "./domains/rh/components/AttendancePayMode.jsx";
 import { marcellReportHtml } from "./reports/marcell-report.js";
 import { createPortal } from "react-dom";
@@ -17200,11 +17201,12 @@ export default function App() {
     return {obraId:q.get("portal")||"",token:q.get("token")||""};
   },[]);
   const [data,        setData]        = useState(null);
-  const [tab,         setTab]         = useState("home");
+  const [currentUser, setCurrentUser] = useState(null);
+  const {tab,setTab,obraAberta,setObraAberta}=useScreenNavigation(currentUser);
   // Busca global (Ctrl/Cmd+K): índice de tudo que se pode encontrar por nome.
   const [buscaAberta, setBuscaAberta] = useState(false);
   // Obra aberta no painel detalhado. Vazio = lista/quadro normal.
-  const [obraAberta,  setObraAberta]  = useState("");
+
   const [workflowIntent,setWorkflowIntent]=useState(null);
   const [workflowScopes,setWorkflowScopes]=useState({});
   const rememberWorkflowScope=useCallback((screen,scope)=>{
@@ -17213,7 +17215,7 @@ export default function App() {
   const [loading,     setLoading]     = useState(true);
   const [erroInicial, setErroInicial] = useState("");
   const [firstSetup, setFirstSetup] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+
   const [conflito,    setConflito]    = useState(null);
   const [toast,       setToast]       = useState(null);
   // Momento da ultima sincronizacao bem-sucedida com o servidor.
@@ -17662,7 +17664,7 @@ export default function App() {
           const cadastro=normalizados.usuarios.find(u=>u.id===restaurada.usuario?.id);
           const usuarioCompleto={...restaurada.usuario,...cadastro,pin:undefined};
           setData(normalizados);setCurrentUser(usuarioCompleto);setUltimaSync(new Date());
-          setTab(allowedTabsForUser(usuarioCompleto)[0]||"home");
+
           return;
         }
         const r = await listarPerfis();
@@ -18027,8 +18029,7 @@ export default function App() {
       setData(normalizados);
       setUltimaSync(new Date());
       setCurrentUser(usuarioCompleto);
-      const allowed = allowedTabsForUser(usuarioCompleto);
-      setTab(allowed[0] || "home");
+
     };
 
     return (
@@ -18167,33 +18168,33 @@ export default function App() {
                           const ativo = tab === tabId;
                           const temPend = tabBadge?.[tabId];
                           return (
-                            <button
-                              key={tabId}
+                            <a
+                              key={tabId} href={screenHref(tabId)} style={{textDecoration:"none"}}
                               className="nav-item"
                               data-active={ativo}
-                              onClick={() => { setObraAberta(""); setTab(tabId); abrirGrupoDaAba(tabId); }}
+                              onClick={event => followScreenLink(event, () => { setObraAberta(""); setTab(tabId); abrirGrupoDaAba(tabId); })}
                               aria-current={ativo ? "page" : undefined}
                             >
                               <Ic n={meta.icon} s={13}/>
                               <span>{meta.label}</span>
                               {temPend && <span className="nav-dot"/>}
-                            </button>
+                            </a>
                           );
                         })}
                         {group.id==="eng_grp" && obrasMenuEngenharia.length>0 && (<>
                           <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.6,margin:"8px 10px 3px"}}>Obras ativas</p>
                           {obrasMenuEngenharia.map(obra => (
-                            <button
-                              key={obra.id}
+                            <a
+                              key={obra.id} href={screenHref("obras",obra.id)} style={{textDecoration:"none"}}
                               className="nav-item"
                               data-active={tab==="obras"&&obraAberta===obra.id}
-                              onClick={() => irPara("obras", obra.id)}
+                              onClick={event => followScreenLink(event, () => irPara("obras", obra.id))}
                               aria-current={(tab==="obras"&&obraAberta===obra.id) ? "page" : undefined}
                               title={obra.name}
                             >
                               <Ic n="building" s={13}/>
                               <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{obra.name}</span>
-                            </button>
+                            </a>
                           ))}
                         </>)}
                       </div>
