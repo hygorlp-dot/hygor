@@ -26,6 +26,8 @@ export const prepareMonthlyFinancialClosing=({
   command={},
   actor={},
   supplementalEvents=[],
+  canonicalDreSnapshot=null,
+  requireCanonicalDre=false,
   now=new Date().toISOString(),
 }={})=>{
   if(command?.type!=="CLOSE_ACCOUNTING_PERIOD")return null;
@@ -40,12 +42,16 @@ export const prepareMonthlyFinancialClosing=({
     }
     return{ok:false,error:"A competência já possui fechamento auditável registrado.",period};
   }
+  if(requireCanonicalDre&&!canonicalDreSnapshot){
+    return{ok:false,error:"A projeção canônica do DRE é obrigatória para o fechamento.",period};
+  }
 
   const prepared=createMonthlyClosingSnapshot(data,{
     competencia:period.competencia,
     actor,
     closedAt:now,
     supplementalEvents,
+    canonicalDreSnapshot,
   });
   if(!prepared.ok)return{...prepared,period};
 
