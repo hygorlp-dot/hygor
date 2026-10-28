@@ -44,7 +44,9 @@ describe("FIN 9.6 — fatos operacionais respeitam competência fechada",()=>{
   test("migration 022 mantém delimitadores PL/pgSQL completos",()=>{
     const sql=fs.readFileSync(path.resolve("migrations","022_closed_period_legacy_source_guard.up.sql"),"utf8");
     expect(sql).not.toMatch(/\n\$;\n/);
-    expect((sql.match(/as \$\$/g)||[]).length).toBe((sql.match(/\n\$\$;/g)||[]).length);
+    const openings=(sql.match(/as \$\$/g)||[]).length+(sql.match(/do \$\$/g)||[]).length;
+    const closings=(sql.match(/\n\$\$;/g)||[]).length;
+    expect(openings).toBe(closings);
   });
 
 
