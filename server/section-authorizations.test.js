@@ -22,6 +22,16 @@ describe("autorização de produção",()=>{
     expect(authorizeSectionChanges(engenheiro,{attendance:{e1:{"2026-07-27":{status:"P",obraId:"o1"}}}})).toMatch(/não pode ser alterada por esta rota/);
     expect(authorizeSectionChanges(engenheiro,{attendanceLocks:{"2026-07-27__o1":{id:"2026-07-27__o1",obraId:"o1",locked:true}}})).toMatch(/não pode ser alterada por esta rota/);
   });
+  it("pesquisa de preços (cotacoesMaterial) salva para quem tem a aba, mesmo vinculado a obra, e não para os demais",()=>{
+    const preco=[{id:"c1",codigo:"SINAPI-1",preco:12.5,data:"2026-10-27",fornecedorNome:"Depósito Central"}];
+    for(const role of ["compras","engenheiro","engenheiro_auditor"]){
+      expect(authorizeSectionChanges({role},{cotacoesMaterial:preco}),role).toBe("");
+      expect(authorizeSectionChanges({role,obraId:"o1"},{cotacoesMaterial:preco}),`${role} vinculado a obra`).toBe("");
+    }
+    for(const role of ["financeiro","rh","mestre","planejamento"]){
+      expect(authorizeSectionChanges({role},{cotacoesMaterial:preco}),role).toMatch(/permissão/);
+    }
+  });
   it("permite ao RH administrar contratos de terceiros sem liberar medições ou pagamentos",()=>{
     const contrato={id:"t1",obraId:"o1",name:"Prestador"};
     expect(authorizeSectionChanges({role:"rh"},{terceirizados:[contrato]})).toBe("");
