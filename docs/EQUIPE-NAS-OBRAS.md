@@ -40,4 +40,3 @@ Validação da publicação: 85 testes de domínio, navegação, acesso e integr
 ## Modo TV
 No Modo TV, a opção Equipe nas Obras alterna com o panorama executivo. Exibe nomes, fotos ou iniciais, situação e hora da última batida, em páginas por obra. A troca ocorre a cada 12 segundos, com pausa e navegação manual; a consulta continua a cada 20 segundos mesmo com a troca pausada. Em telas largas abaixo de 850px de altura, mostra três pessoas por página; nas demais, até seis. O botão de tela cheia permanece disponível.
 A opção usa a mesma permissão equipe_obras e o mesmo endpoint da aba operacional. Sem permissão, não aparece nem consulta dados. Obra do último registro não confirma presença: os registros sem tipo do APK atual permanecem como Conferir jornada, agrupados pela obra da última batida. Sem registro de obra e ausências ficam em grupo próprio. Não exige atualização de APK.
-
