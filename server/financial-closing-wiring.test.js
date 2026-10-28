@@ -12,6 +12,9 @@ describe("FIN 9.6 — wiring atômico do fechamento mensal",()=>{
     expect(block).toContain("executarMutacaoMultiLinha");
     expect(block).toContain("prepareMonthlyFinancialClosing");
     expect(block).toContain("canonicalDreEvents");
+    expect(block).toContain("buildRequestedDreProjectionRows");
+    expect(block).toContain("requireCanonicalDre:true");
+    expect(block).toContain("canonicalDreSnapshot");
     expect(block).toContain("select financial_execute_command(");
     expect(block).toContain("transaction.json(command)");
     expect(block).not.toContain('db.rpc("financial_execute_command"');
@@ -22,6 +25,10 @@ describe("FIN 9.6 — wiring atômico do fechamento mensal",()=>{
     const block=api.slice(start,start+9000);
     expect(block).toContain("domains:[DOMAIN_ROW.CORE,...SPLITTABLE_DOMAINS]");
     expect(block).toContain("writeDomains:[DOMAIN_ROW.CORE]");
+    expect(block).toContain("key like");
+    expect(block).toContain("PONTO_OBRA_KEY_PREFIX");
+    expect(block).toContain("for update");
+    expect(block).toContain("mergeAttendanceObjects");
   });
 
   it("o helper distingue domínio travado de domínio gravado sem mudar o default",()=>{
@@ -29,6 +36,14 @@ describe("FIN 9.6 — wiring atômico do fechamento mensal",()=>{
     expect(api).toContain("separadosGravaveis");
     expect(api).toContain("if(!separadosGravaveis.has(dominio))continue");
     expect(api).toContain("separadosGravaveis.has(d)?\"criando\":linha.rowVersions?.[d]||null");
+  });
+
+  it("bloqueia fechamento se um título canônico não tiver classificação de DRE",()=>{
+    const start=api.indexOf('if(command.type==="CLOSE_ACCOUNTING_PERIOD")');
+    const block=api.slice(start,start+12000);
+    expect(block).toContain("canonical.issues.length");
+    expect(block).toContain("títulos canônicos sem classificação suficiente");
+    expect(block).toContain("canonicalIssues");
   });
 
   it("falha fechado se não houver conexão transacional",()=>{
