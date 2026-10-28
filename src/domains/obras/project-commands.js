@@ -145,6 +145,9 @@ export const applyProjectCommand = (
   const project = {
     ...(current || {}),
     ...patch,
+    // Aditivos só mudam pelos comandos próprios (contract-amendments.js):
+    // um formulário de obra aberto com dados antigos não pode apagá-los.
+    aditivosContrato:Array.isArray(current?.aditivosContrato) ? current.aditivosContrato : [],
     id,
     name,
     contractValue:Number(raw.contractValue || 0),

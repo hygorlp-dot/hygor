@@ -127,7 +127,7 @@ export const createExecutiveSummaryEngine = ({
       dre,
       obrasAtivas:activeWorks.length,
       contratoTotalCarteira:worksData.reduce((total, work) =>
-        total + Number(work.contractValue || 0), 0),
+        total + valorContratoVigente(work), 0),
       obras:works,
       obrasAtencao:works.filter(work => work.exec.k === "atencao").length,
       obrasCriticas:works.filter(work => work.exec.k === "critica").length,
@@ -141,4 +141,5 @@ export const createExecutiveSummaryEngine = ({
   };
 
   return { statusObraExec, calcAlertas, calcResumoExecutivo };
-};
+};import { valorContratoVigente } from "../obras/contract-amendments.js";
+

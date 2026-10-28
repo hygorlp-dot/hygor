@@ -61,6 +61,10 @@ import {
   payrollClosingCommandObraId,
 } from "../src/domains/ponto/payroll-closing.js";
 import {
+  AMENDMENT_COMMAND_TYPES,
+  amendmentCommandObraId,
+} from "../src/domains/obras/contract-amendments.js";
+import {
   COMPANY_CONFIG_COMMAND_TYPES,
 } from "../src/domains/config/company-config-commands.js";
 import {
@@ -109,6 +113,7 @@ const operationalCommandObraId=(data={},command={})=>{
   if(EMPLOYEE_COMMAND_TYPES.has(command?.type))return employeeCommandObraId(data,command);
   if(ADVANCE_COMMAND_TYPES.has(command?.type))return advanceCommandObraId(data,command);
   if(PAYROLL_CLOSING_COMMAND_TYPES.has(command?.type))return payrollClosingCommandObraId(data,command);
+  if(AMENDMENT_COMMAND_TYPES.has(command?.type))return amendmentCommandObraId(data,command);
   if(PROJECT_COMMAND_TYPES.has(command?.type))return projectCommandObraId(data,command);
   if(CONFERENCE_COMMAND_TYPES.has(command?.type))return conferenceCommandObraId(data,command);
   if(LICENSING_COMMAND_TYPES.has(command?.type))return licensingCommandObraId(data,command);

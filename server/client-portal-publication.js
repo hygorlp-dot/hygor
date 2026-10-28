@@ -1,6 +1,7 @@
 import { cotacaoMultiItens, decisoesDaCotacao, mapaDaCotacao } from "../src/domains/compras/quote-map.js";
 import { statusPedido } from "../src/domains/compras/calculations.js";
 import { isApprovedTechnicalMeasurement } from "../src/domains/medicoes/constants.js";
+import { aditivosAprovados, valorAditivosAprovados, valorContratoVigente } from "../src/domains/obras/contract-amendments.js";
 
 const list = value => Array.isArray(value) ? value : [];
 const text = value => typeof value === "string" ? value.trim() : "";
@@ -161,19 +162,36 @@ export function buildClientPortalPublicationRows({ data = {}, projectId, publish
     rows.push(...photos);
   }
 
+  // Aditivos aprovados aparecem em "Alterações aprovadas" (Onda 4.2): só o
+  // que o cliente vê no contrato - sem justificativa interna nem autor.
+  if (portal.publicarFinanceiro) {
+    rows.push(...aditivosAprovados(obra).slice(0, 40).map(item => ({
+      domain: "change_order",
+      payload: {
+        id: `aditivo-${item.id}`,
+        title: `Aditivo ${item.numero || ""}`.trim(),
+        description: text(item.descricao),
+        status: "Aprovado",
+        financialImpact: number(item.valor),
+        scheduleImpactDays: Math.trunc(number(item.prazoDias)),
+        publishedAt,
+      },
+    })));
+  }
+
   if (portal.publicarFinanceiro) {
     rows.push({
       domain: "financial_summary",
       payload: {
         id: `resumo-${obraId}`,
         contractOriginal,
-        approvedChanges: 0,
-        contractCurrent: contractOriginal,
+        approvedChanges: valorAditivosAprovados(obra),
+        contractCurrent: valorContratoVigente(obra),
         measured,
         approved: measured,
         paid,
         openAmount: Math.max(0, measured - paid),
-        balanceToMeasure: Math.max(0, contractOriginal - measured),
+        balanceToMeasure: Math.max(0, valorContratoVigente(obra) - measured),
         asOf: publishedAt.slice(0, 10),
       },
     });

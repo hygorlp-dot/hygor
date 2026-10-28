@@ -258,4 +258,7 @@ quando a ponte 1.5 vira desnecessária e é removida.
 | 1.6b % portal | ✅ em produção | #165 |
 | Onda 2 Encargos | 🟨 em revisão | `feat/dre-encargos-clt` |
 | Gate do piloto | ⬜ | — |
-| Ondas 3–6 | ⬜ | — |
+| Onda 3 (3.1, 3.2, 3.5, base CLT) | ✅ na main | #176, #177, #191 |
+| Onda 3 (3.3 ponto, 3.4 terceiros) | ⬜ | — |
+| Onda 4.1–4.2 aditivos + portal | 🟨 em revisão | `feat/aditivos-contrato` |
+| Onda 4.3–4.5, Ondas 5–6 | ⬜ | — |
