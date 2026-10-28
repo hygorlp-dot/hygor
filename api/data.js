@@ -430,7 +430,8 @@ const listarTabelaFinanceira = async (table, columns) => {
 };
 
 const relatorioSombraFinanceira = async atual => {
-  const snapshot=buildLegacyFinancialFacts(atual);
+  const fonteFinanceira=await exigirCustosArquivados(atual);
+  const snapshot=buildLegacyFinancialFacts(fonteFinanceira);
   const legado=summarizeLegacyFinancialFacts(snapshot);
   const [titles,settlements,events,banks,reconciliationLinks,legacyLinks,accountingPeriods,qualityCases,runs]=await Promise.all([
     listarTabelaFinanceira("financial_titles","id,obra_id,direction,original_amount,status,metadata"),
@@ -446,7 +447,7 @@ const relatorioSombraFinanceira = async atual => {
   const canonico=summarizeCanonicalFinancialRows({titles,settlements,events});
   const divergencias=compareFinancialScopes(legado,canonico);
   const divergenciasDRE=compareDreProjectionRows(snapshot.dreSnapshots,events);
-  const divergenciasComprasDRE=compareProcurementDreRecognition(atual,events);
+  const divergenciasComprasDRE=compareProcurementDreRecognition(fonteFinanceira,events);
   const lastRun=[...runs].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)))[0]||null;
 
   const linkedLegacyKeys=new Set(legacyLinks.map(link=>`${String(link.legacy_type||"")}:${String(link.legacy_id||"")}`));
@@ -2718,7 +2719,8 @@ export default async function handler(req, res) {
 
     if(action==="financial-shadow-sync"){
       if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores executam a carga financeira em sombra."});
-      const snapshot=buildLegacyFinancialFacts(atual);
+      const fonteFinanceira=await exigirCustosArquivados(atual);
+      const snapshot=buildLegacyFinancialFacts(fonteFinanceira);
       if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({error:"A conexão direta do Supabase não está configurada."});
       const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
       let sync;
