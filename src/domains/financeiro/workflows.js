@@ -142,7 +142,9 @@ export const isDateInClosedPeriod = (data = {}, date = "") =>
  * pela RPC CLOSE_ACCOUNTING_PERIOD; este registro preserva a conferência que
  * foi apresentada ao administrador no instante do fechamento.
  */
-export const createMonthlyClosingSnapshot = (data = {}, { competencia, actor = {}, closedAt = "", supplementalEvents = [] } = {}) => {
+export const createMonthlyClosingSnapshot = (data = {}, {
+  competencia, actor = {}, closedAt = "", supplementalEvents = [], canonicalDreSnapshot = null,
+} = {}) => {
   if(!/^\d{4}-\d{2}$/.test(String(competencia||"")))return {ok:false,error:"Competência inválida."};
   if((data.fechamentosFinanceiros||[]).some(item=>item.competencia===competencia&&item.status==="fechado")){
     return {ok:false,error:"A competência já está fechada."};
@@ -171,6 +173,7 @@ export const createMonthlyClosingSnapshot = (data = {}, { competencia, actor = {
         receivableCents:receivable.balanceCents,payableCents:payable.balanceCents,
         commitmentCents:commitments.balanceCents,eventCount:ledger.events.length,
         eventIds:ledger.events.map(event=>event.id),
+        ...(canonicalDreSnapshot?{canonicalDre:canonicalDreSnapshot}:{}),
       },
       conference:{checks:conference.checks},
     },
