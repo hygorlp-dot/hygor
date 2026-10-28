@@ -57,6 +57,10 @@ import {
   advanceCommandObraId,
 } from "../src/domains/rh/advance-commands.js";
 import {
+  PAYROLL_CLOSING_COMMAND_TYPES,
+  payrollClosingCommandObraId,
+} from "../src/domains/ponto/payroll-closing.js";
+import {
   COMPANY_CONFIG_COMMAND_TYPES,
 } from "../src/domains/config/company-config-commands.js";
 import {
@@ -104,6 +108,7 @@ const operationalCommandObraId=(data={},command={})=>{
   if(RESCISSION_COMMAND_TYPES.has(command?.type))return rescissionCommandObraId(data,command);
   if(EMPLOYEE_COMMAND_TYPES.has(command?.type))return employeeCommandObraId(data,command);
   if(ADVANCE_COMMAND_TYPES.has(command?.type))return advanceCommandObraId(data,command);
+  if(PAYROLL_CLOSING_COMMAND_TYPES.has(command?.type))return payrollClosingCommandObraId(data,command);
   if(PROJECT_COMMAND_TYPES.has(command?.type))return projectCommandObraId(data,command);
   if(CONFERENCE_COMMAND_TYPES.has(command?.type))return conferenceCommandObraId(data,command);
   if(LICENSING_COMMAND_TYPES.has(command?.type))return licensingCommandObraId(data,command);
@@ -203,6 +208,13 @@ export const validateOperationalCommandScope=({user={},data={},command={}}={})=>
     return ["admin","rh"].includes(user?.role)
       ?{ok:true,obraId,scope:obraId?"work":"company"}
       :{ok:false,error:"Seu perfil não pode alterar adiantamentos de funcionários."};
+  }
+  // Fechar/reabrir a quinzena cria e cancela obrigações de toda a empresa
+  // (um título por funcionário, rateado entre obras): escopo corporativo.
+  if(PAYROLL_CLOSING_COMMAND_TYPES.has(command.type)){
+    return ["admin","rh"].includes(user?.role)
+      ?{ok:true,obraId:"",scope:"company"}
+      :{ok:false,error:"Somente administrador ou RH pode fechar ou reabrir a quinzena da folha."};
   }
   if(PATRIMONY_COMMAND_TYPES.has(command.type)){
     const roleAllowed=["admin","financeiro","compras"].includes(user?.role);
