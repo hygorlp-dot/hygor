@@ -42,6 +42,7 @@ import { authorizeSectionChanges, validateBankReconciliationPolicy, validateBudg
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
 import { auditCanonicalFinancialIntegrity } from "../server/financial-integrity.js";
 import { findStaleFinancialLegacyLinks } from "../server/financial-legacy-link-integrity.js";
+import { attachArchivedLaborCostsFromRows } from "../server/financial-source-snapshot.js";
 import { compareProcurementDreRecognition } from "../server/procurement-financial-facts.js";
 import { buildRequestedDreProjectionRows, dreSourceRevision } from "../server/dre-projection.js";
 import { readAnnualLayout, saveAnnualLayout } from "../src/domains/dre/annual-statement.js";
@@ -428,8 +429,11 @@ const listarTabelaFinanceira = async (table, columns) => {
   return rows;
 };
 
-const relatorioSombraFinanceira = async atual => {
-  const snapshot=buildLegacyFinancialFacts(atual);
+const relatorioSombraFinanceira = async (atual,{custosArquivadosAnexados=false}={}) => {
+  const fonte=custosArquivadosAnexados
+    ? atual
+    : await anexarCustosArquivados(atual,{strict:true});
+  const snapshot=buildLegacyFinancialFacts(fonte);
   const legado=summarizeLegacyFinancialFacts(snapshot);
   const [titles,settlements,events,banks,reconciliationLinks,legacyLinks,accountingPeriods,qualityCases,runs]=await Promise.all([
     listarTabelaFinanceira("financial_titles","id,obra_id,direction,original_amount,status,metadata"),
@@ -445,7 +449,7 @@ const relatorioSombraFinanceira = async atual => {
   const canonico=summarizeCanonicalFinancialRows({titles,settlements,events});
   const divergencias=compareFinancialScopes(legado,canonico);
   const divergenciasDRE=compareDreProjectionRows(snapshot.dreSnapshots,events);
-  const divergenciasComprasDRE=compareProcurementDreRecognition(atual,events);
+  const divergenciasComprasDRE=compareProcurementDreRecognition(fonte,events);
   const lastRun=[...runs].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)))[0]||null;
 
   const linkedLegacyKeys=new Set(legacyLinks.map(link=>`${String(link.legacy_type||"")}:${String(link.legacy_id||"")}`));
@@ -512,26 +516,29 @@ const relatorioSombraFinanceira = async atual => {
 // DRE. O resumo abaixo é compacto: conserva competência/obra/custo e, para
 // CLT mensal, apenas o ID interno necessário ao rateio histórico. CPF, PIX,
 // documentos e demais dados pessoais continuam somente no cadastro/arquivo.
-const anexarCustosArquivados = async payload => {
-  const marcadores = payload?.quinzenasArquivadas || {};
-  const ids = Object.keys(marcadores);
-  if (!ids.length) return { ...payload, archivedLaborCosts: {} };
-  // Nunca confia no cache que voltou do navegador: cada leitura recompõe os
-  // custos diretamente dos arquivos imutáveis mantidos no servidor.
-  const existentes = {};
-  const keys = ids.map(qid => `${KEY}__arq__${qid}`);
-  const { data: linhas, error } = await db.from("company_app_data")
-    .select("key,value").eq("company_id", COMPANY).in("key", keys);
-  if (error) throw error;
-  for (const linha of linhas || []) {
-    const qid = String(linha.key || "").slice(`${KEY}__arq__`.length);
-    // Recalcula sempre a partir da fonte arquivada. Um resumo persistido por
-    // versões antigas nunca é tratado como verdade financeira.
-    existentes[qid] = normalizeArchivedCosts(
-      summarizeArchivedCosts(linha.value,payload?.config,payload?.employees||[])
-    );
+const anexarCustosArquivados = async (payload,{strict=false}={}) => {
+  const ids=Object.keys(payload?.quinzenasArquivadas||{});
+  if(!ids.length)return {...payload,archivedLaborCosts:{}};
+  const keys=ids.map(qid=>`${KEY}__arq__${qid}`);
+  const {data:linhas,error}=await db.from("company_app_data")
+    .select("key,value").eq("company_id",COMPANY).in("key",keys);
+  if(error)throw error;
+  return attachArchivedLaborCostsFromRows(payload,linhas||[],KEY,{strict});
+};
+
+const anexarCustosArquivadosNaTransacao=async(payload,transaction)=>{
+  if(!Object.keys(payload?.quinzenasArquivadas||{}).length){
+    return {...payload,archivedLaborCosts:{}};
   }
-  return { ...payload, archivedLaborCosts: existentes };
+  const rows=await transaction`
+    select key,value
+      from company_app_data
+     where company_id=${COMPANY}
+       and key like ${`${KEY}__arq__%`}
+     order by key
+     for update
+  `;
+  return attachArchivedLaborCostsFromRows(payload,rows,KEY,{strict:true});
 };
 
 // Dois carimbos de tempo apontam para o mesmo instante?
@@ -2064,6 +2071,7 @@ export default async function handler(req, res) {
         });
       }
 
+      const fonteFinanceira=await anexarCustosArquivados(atual,{strict:true});
       const canonical=await loadCanonicalDre(db,COMPANY);
       if(canonical.issues.length){
         return res.status(409).json({
@@ -2072,7 +2080,7 @@ export default async function handler(req, res) {
         });
       }
       const [year,monthNumber]=period.competencia.split("-").map(Number);
-      const dreRow=buildRequestedDreProjectionRows(atual,[{
+      const dreRow=buildRequestedDreProjectionRows(fonteFinanceira,[{
         year,month:monthNumber-1,period:"mes",scope:"company_dre",
       }],canonical.events)[0];
       if(!dreRow?.payload){
@@ -2088,7 +2096,7 @@ export default async function handler(req, res) {
         payload:dreRow.payload,
       };
       const preview=previewMonthlyFinancialClosing({
-        data:atual,
+        data:fonteFinanceira,
         command,
         actor:usuario,
         supplementalEvents:canonical.events,
@@ -2186,10 +2194,10 @@ export default async function handler(req, res) {
                   withAttendanceSyncedAt(decoded?.attendance,decoded?.attendanceSyncedAt),
                 );
               }
-              const closingData={
+              const closingData=await anexarCustosArquivadosNaTransacao({
                 ...current,
                 attendance:mergeAttendanceObjects(...attendanceSources),
-              };
+              },transaction);
 
               const [titles,settlements,banks]=await Promise.all([
                 transaction`
@@ -2701,7 +2709,8 @@ export default async function handler(req, res) {
 
     if(action==="financial-shadow-sync"){
       if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores executam a carga financeira em sombra."});
-      const snapshot=buildLegacyFinancialFacts(atual);
+      const fonteFinanceira=await anexarCustosArquivados(atual,{strict:true});
+      const snapshot=buildLegacyFinancialFacts(fonteFinanceira);
       if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({error:"A conexão direta do Supabase não está configurada."});
       const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
       let sync;
@@ -2714,7 +2723,7 @@ export default async function handler(req, res) {
           ?"A migration FIN-002 ainda não foi aplicada. Prepare o banco antes da carga."
           :"A carga foi recusada pelo banco e nenhuma ativação foi realizada."});
       }finally{await sql.end({timeout:2});}
-      const report=await relatorioSombraFinanceira(atual);
+      const report=await relatorioSombraFinanceira(fonteFinanceira,{custosArquivadosAnexados:true});
       await db.from("data_quality_cases").update({status:"resolved",resolved_at:new Date().toISOString()})
         .eq("company_id",COMPANY).eq("category","financial_shadow_divergence").eq("status","open");
       if(report.divergencias.length){
@@ -2972,9 +2981,10 @@ export default async function handler(req, res) {
       const year=Number(req.body?.year);
       if(!Number.isInteger(year)||year<2000||year>2100)return res.status(400).json({error:"Ano inválido."});
       const canonical=await loadCanonicalDre(db,COMPANY);
+      const fonteFinanceira=await anexarCustosArquivados(atual,{strict:true});
       const requests=Array.from({length:12},(_,month)=>({year,month,period:"mes",scope:"company_dre"}));
-      const months=buildRequestedDreProjectionRows(atual,requests,canonical.events).map(row=>row.payload);
-      return res.status(200).json({ok:true,year,months,layout:readAnnualLayout(atual.config),
+      const months=buildRequestedDreProjectionRows(fonteFinanceira,requests,canonical.events).map(row=>row.payload);
+      return res.status(200).json({ok:true,year,months,layout:readAnnualLayout(fonteFinanceira.config),
         source:"canonical_ledger",sourceRevision:`${dreSourceRevision({updatedAt,rowVersions,rowVersionsPontoObra})}|canonical:${canonical.revision}`,
         issues:canonical.issues});
     }
@@ -2982,7 +2992,8 @@ export default async function handler(req, res) {
     if(action==="financial-management-report"){
       if(!["admin","financeiro"].includes(usuario.role)||usuario.obraId)return res.status(403).json({error:"A gestão de conciliação do DRE exige acesso financeiro sem restrição de obra."});
       const canonical=await loadCanonicalDre(db,COMPANY);
-      return res.status(200).json({ok:true,...buildIntegratedDreManagement(atual,canonical),updatedAt});
+      const fonteFinanceira=await anexarCustosArquivados(atual,{strict:true});
+      return res.status(200).json({ok:true,...buildIntegratedDreManagement(fonteFinanceira,canonical),updatedAt});
     }
 
     if(action==="financial-dre-report"||action==="financial-company-dre-report"){
@@ -3003,6 +3014,7 @@ export default async function handler(req, res) {
       if(!companyStatement&&usuario.obraId&&requestedWork!==String(usuario.obraId)){
         return res.status(403).json({error:"O DRE solicitado está fora do escopo da obra do usuário."});
       }
+      const fonteFinanceira=await anexarCustosArquivados(atual,{strict:true});
       const scope=companyStatement?"company_dre":(requestedWork||"empresa");
       const currentId=`${year}-${String(month+1).padStart(2,"0")}:${period}:${scope}`;
       const historyRequests=Array.from({length:6},(_,index)=>{
@@ -3029,7 +3041,7 @@ export default async function handler(req, res) {
           {year,month,period,scope},
           ...historyRequests,
         ];
-        const rows=buildRequestedDreProjectionRows(atual,projectionRequests,canonical.events).map(row=>({
+        const rows=buildRequestedDreProjectionRows(fonteFinanceira,projectionRequests,canonical.events).map(row=>({
           company_id:COMPANY,event_type:"dre_snapshot",source_type:"dre_projection",
           source_id:row.sourceId,effective_date:`${row.year}-${String(row.month+1).padStart(2,"0")}-01`,
           payload:{...row.payload,active:true,obraId:row.obraId,year:row.year,month:row.month,
@@ -3712,6 +3724,15 @@ export default async function handler(req, res) {
       return res.status(503).json({
         error:err.message,
         code:err.code,
+        correlationId,
+        retryable:false,
+      });
+    }
+    if(err?.code==="ARCHIVED_LABOR_SOURCE_MISSING"){
+      return res.status(409).json({
+        error:"Uma quinzena arquivada está sem o arquivo imutável correspondente. O cálculo financeiro foi bloqueado para evitar custo subestimado.",
+        code:err.code,
+        quinzenaId:err.quinzenaId||"",
         correlationId,
         retryable:false,
       });
