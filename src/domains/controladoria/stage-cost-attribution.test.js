@@ -44,6 +44,27 @@ const base=()=>({
     {id:"c4",obraId:"o1",materialId:"m1",tipo:"consumo",qtd:1,valorUnit:0,tarefaId:"t1"},
     {id:"c5",obraId:"o1",materialId:"m1",tipo:"consumo",qtd:99,valorUnit:99,tarefaId:"t1",status:"estornado"},
   ],
+  terceirizados:[
+    {id:"terc1",obraId:"o1",status:"ativo",etapas:[
+      {id:"ts1",nome:"Sapatas terceirizadas",valor:1000,tarefaId:"t1"},
+      {id:"ts2",nome:"Estrutura terceirizada",valor:2000,tarefaId:"t2"},
+    ]},
+  ],
+  medicoesTerc:[
+    {id:"mt1",obraId:"o1",tercId:"terc1",status:"aprovada",total:800,itens:[
+      {etapaId:"ts1",valor:300,pctAnterior:0,pctAcum:30},
+      {etapaId:"ts2",valor:500,pctAnterior:0,pctAcum:25},
+    ]},
+    {id:"mt2",obraId:"o1",tercId:"terc1",status:"rejeitada",total:999,itens:[
+      {etapaId:"ts1",valor:999,pctAnterior:30,pctAcum:99},
+    ]},
+  ],
+  pagsTerceiros:[
+    // Liquida a medição: é caixa, não um segundo custo.
+    {id:"pt1",obraId:"o1",tercId:"terc1",medicaoTercId:"mt1",status:"ativo",amount:800,reconhecerCusto:false},
+    // Compatibilidade histórica: custo reconhecido sem medição, sem etapa.
+    {id:"pt-legacy",obraId:"o1",tercId:"terc1",status:"ativo",amount:100,reconhecerCusto:true},
+  ],
 });
 
 describe("COST 9.6 — cobertura de apropriação por etapa",()=>{
@@ -59,12 +80,15 @@ describe("COST 9.6 — cobertura de apropriação por etapa",()=>{
       purchaseCommitted:5000,
       purchaseReceived:2000,
       materialApplied:250,
+      thirdPartyRecognized:300,
       purchaseBalance:5000,
     });
     // R$ 200 consumidos na tarefa t2 × 60% explicitamente ligados ao item i2.
     expect(estr).toMatchObject({
       budgeted:20000,
       materialApplied:120,
+      // R$ 500 da medição × 60% do vínculo da tarefa t2.
+      thirdPartyRecognized:300,
     });
   });
 
@@ -109,21 +133,39 @@ describe("COST 9.6 — cobertura de apropriação por etapa",()=>{
     expect(result.blockers).toContain("purchases_without_budget_link");
   });
 
-  it("não declara EAC por etapa enquanto mão de obra, terceiros e equipamentos só chegam à obra",()=>{
+  it("apropria terceiros por medição+tarefa, mas não inventa etapa para mão de obra/equipamentos",()=>{
     const result=buildStageCostAttributionReadiness(base(),"o1");
     expect(result.capabilities).toEqual({
       purchases:"stage",
       materialApplied:"stage_when_task_linked",
+      thirdParty:"stage_when_measurement_and_task_linked",
       labor:"work_only",
-      thirdParty:"work_only",
       equipment:"work_only",
     });
-    expect(result.readyForStageEac).toBe(false);
+    expect(result.thirdParty).toMatchObject({
+      knownValue:900,
+      allocatedValue:600,
+      unallocatedValue:300,
+      legacyPaymentBasedValue:100,
+      coveragePercent:66.67,
+    });
+    expect(result.unallocated).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        sourceId:"mt1",taskId:"t2",reason:"task_budget_link_partial",
+        value:200,missingPercentage:40,
+      }),
+      expect.objectContaining({
+        sourceId:"pt-legacy",
+        reason:"legacy_third_party_payment_without_measurement",
+        value:100,
+      }),
+    ]));
     expect(result.blockers).toEqual(expect.arrayContaining([
+      "third_party_not_fully_attributed",
       "labor_not_attributed_to_stage",
-      "thirdParty_not_attributed_to_stage",
       "equipment_not_attributed_to_stage",
     ]));
+    expect(result.readyForStageEac).toBe(false);
   });
 
   it("falha explicavelmente sem baseline de controle ativa",()=>{
