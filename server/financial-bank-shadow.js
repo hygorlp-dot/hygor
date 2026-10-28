@@ -30,7 +30,7 @@ export const compareLegacyBankTransactions=(legacyRows=[],canonicalRows=[])=>{
       direction:text(legacy?.direction),
       amountCents:cents(legacy?.amount),
       description:text(legacy?.description),
-      obraId:text(legacy?.obraId),
+      statementId:text(legacy?.metadata?.extratoId),
       statementId:text(legacy?.metadata?.extratoId),
     };
     const actual={
@@ -38,7 +38,7 @@ export const compareLegacyBankTransactions=(legacyRows=[],canonicalRows=[])=>{
       direction:text(canonical?.direction),
       amountCents:cents(canonical?.amount),
       description:text(canonical?.raw_description),
-      obraId:text(canonical?.metadata?.obraId),
+      statementId:text(canonical?.metadata?.extratoId),
       statementId:text(canonical?.metadata?.extratoId),
     };
     const fields=Object.keys(expected).filter(key=>expected[key]!==actual[key]);
@@ -63,7 +63,7 @@ export const compareLegacyBankTransactions=(legacyRows=[],canonicalRows=[])=>{
         direction:text(canonical?.direction),
         amountCents:cents(canonical?.amount),
         description:text(canonical?.raw_description),
-        obraId:text(canonical?.metadata?.obraId),
+        statementId:text(canonical?.metadata?.extratoId),
         statementId:text(canonical?.metadata?.extratoId),
       },
     });
