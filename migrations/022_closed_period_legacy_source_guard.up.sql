@@ -43,7 +43,6 @@ declare
   v_event public.financial_events%rowtype;
   v_settlement public.settlements%rowtype;
   v_bank public.bank_transactions%rowtype;
-  v_new_hash text;
   v_new_date date;
   v_new_due date;
   v_new_bank_date date;
@@ -71,7 +70,6 @@ begin
   for v_fact in
     select value from jsonb_array_elements(coalesce(p_snapshot->'facts','[]'::jsonb))
   loop
-    v_new_hash:=md5(v_fact::text);
     v_new_date:=nullif(v_fact->>'date','')::date;
     v_new_due:=nullif(v_fact->>'dueDate','')::date;
     v_recognized_amount:=coalesce(nullif(v_fact->>'recognizedAmount','')::numeric,0);
@@ -85,10 +83,6 @@ begin
      where link.company_id=p_company_id
        and link.legacy_type=v_fact->>'legacyType'
        and link.legacy_id=v_fact->>'legacyId';
-
-    if found and v_link.record_hash=v_new_hash then
-      continue;
-    end if;
 
     if v_link.id is not null and v_link.canonical_type='financial_title' then
       select title.* into v_title
@@ -108,6 +102,7 @@ begin
 
     v_title_changed :=
       v_title.id is null
+      or v_title.status in ('cancelled','reversed')
       or coalesce(v_title.origin_type,'') is distinct from coalesce(v_fact->>'legacyType','')
       or coalesce(v_title.origin_id,'') is distinct from coalesce(v_fact->>'legacyId','')
       or coalesce(v_title.party_id,'') is distinct from coalesce(v_fact->>'partyId','')
