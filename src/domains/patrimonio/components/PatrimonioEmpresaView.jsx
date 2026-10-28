@@ -12,14 +12,13 @@ const card={background:C.card,border:"1px solid "+C.border,borderRadius:8,paddin
 const money=v=>Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const digits=v=>String(v||"").replace(/\D/g,"");
 const key=prefix=>(prefix+"-"+(globalThis.crypto?.randomUUID?.()||Date.now()+"-"+Math.random().toString(36).slice(2))).replace(/[^a-zA-Z0-9_-]/g,"").slice(0,160);
-const tag=()=>("PAT-"+new Date().getFullYear()+"-"+(globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2)).replace(/-/g,"").slice(0,8).toUpperCase());
 const dataUrl=file=>new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||""));r.onerror=()=>reject(new Error("Não foi possível ler o arquivo."));r.readAsDataURL(file);});
 const durable=descricao=>{
   const t=String(descricao||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase();
   if(/CIMENTO|ARGAMASSA|AREIA|BRITA|TIJOLO|BLOCO|TUBO|CABO|FIO|TINTA|MASSA|PARAFUSO|PREGO|COMBUSTIVEL|DIESEL|GASOLINA/.test(t))return false;
   return /CELULAR|SMARTPHONE|NOTEBOOK|COMPUTADOR|MONITOR|TABLET|IMPRESSORA|ROTEADOR|CAMERA|FURADEIRA|PARAFUSADEIRA|MARTELETE|SERRA|LIXADEIRA|ESMERILHADEIRA|BETONEIRA|COMPRESSOR|GERADOR|BOMBA|MAQUINA|EQUIPAMENTO|FERRAMENTA|CADEIRA|MESA|ARMARIO|AR CONDICIONADO|GELADEIRA|MICROONDAS|VEICULO|CARRO|MOTO/.test(t);
 };
-const vazio=()=>({id:uid(),assetTag:tag(),name:"",category:"Outros",description:"",manufacturer:"",model:"",serialNumber:"",imei:"",plate:"",
+const vazio=()=>({id:uid(),assetTag:"",name:"",category:"Outros",description:"",manufacturer:"",model:"",serialNumber:"",imei:"",plate:"",
   acquisitionValue:0,acquisitionDate:new Date().toISOString().slice(0,10),status:"ativo",
   location:{type:"empresa",label:"Sede",referenceId:""},custodian:{type:"",id:"",name:""},
   invoice:{number:"",series:"",accessKey:"",issueDate:"",supplierName:"",supplierDocument:"",supplierId:"",totalValue:0,itemNumber:0,unitIndex:1,sourceQuantity:1,itemDescription:"",itemValue:0,source:"manual",confidence:0,document:{}},
@@ -28,7 +27,7 @@ const vazio=()=>({id:uid(),assetTag:tag(),name:"",category:"Outros",description:
 function AssetForm({asset,setAsset,onSave,onClose,busy}){
   const F=k=>v=>setAsset(s=>({...s,[k]:v}));
   return <Modal title={asset.version?"Editar patrimônio":"Novo patrimônio"} onClose={onClose}><div style={{display:"grid",gap:9}}>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:8}}><Inp label="Código patrimonial" value={asset.assetTag||""} onChange={F("assetTag")}/><Sel label="Categoria" value={asset.category||"Outros"} onChange={F("category")} options={CATEGORIAS.map(v=>({v,l:v}))}/></div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:8}}><Inp label="Código patrimonial" value={asset.assetTag||""} onChange={F("assetTag")} placeholder="Gerado ao salvar: PAT-000001"/><Sel label="Categoria" value={asset.category||"Outros"} onChange={F("category")} options={CATEGORIAS.map(v=>({v,l:v}))}/></div>
     <Inp label="Bem *" value={asset.name||""} onChange={F("name")} placeholder="Ex.: Notebook Dell Latitude"/>
     <Inp label="Descrição" value={asset.description||""} onChange={F("description")}/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:8}}><Inp label="Fabricante" value={asset.manufacturer||""} onChange={F("manufacturer")}/><Inp label="Modelo" value={asset.model||""} onChange={F("model")}/></div>
@@ -81,7 +80,7 @@ function ImportInvoice({data,dispatchCommand,showToast,onClose}){
           ?Number(item.valorUnitario)
           :(Number(item.valorTotal||0)>0?Number(item.valorTotal)/qty:0);
         for(let unit=1;unit<=qty;unit++){
-          const a=vazio();a.id=uid();a.assetTag=tag();a.name=item.descricao||"Bem patrimonial";a.category=item.categoria||"Outros";a.manufacturer=item.marca||"";a.model=item.modelo||"";
+          const a=vazio();a.id=uid();a.name=item.descricao||"Bem patrimonial";a.category=item.categoria||"Outros";a.manufacturer=item.marca||"";a.model=item.modelo||"";
           a.serialNumber=unit===1?(item.numeroSerie||""):"";a.imei=unit===1?(item.imei||""):"";a.acquisitionValue=valorUnitario;a.acquisitionDate=proposal.invoice?.emissao||a.acquisitionDate;
           a.invoice={number:proposal.invoice?.numero||"",series:proposal.invoice?.serie||"",accessKey:digits(proposal.invoice?.chave),issueDate:proposal.invoice?.emissao||"",supplierName:proposal.invoice?.fornecedorNome||"",supplierDocument:digits(proposal.invoice?.documentoFornecedor),supplierId:fornecedor?.id||"",totalValue:Number(proposal.invoice?.valorBruto||0),itemNumber:Number(item.nItem||0),unitIndex:unit,sourceQuantity:Number(item.quantidade||1),itemDescription:item.descricao||"",itemValue:valorUnitario,source:proposal.source,confidence:Number(item.confianca||0),document:doc};
           assets.push(a);
