@@ -1,5 +1,6 @@
 import {createClient} from "@supabase/supabase-js";
 import {decodeAppData} from "../server/data-codec.js";
+import {normalizeArchivedCosts,summarizeArchivedCosts} from "../server/archived-costs.js";
 import {mergeFinancialSourceRows} from "../server/financial-source-snapshot.js";
 import {
   buildLegacyFinancialFacts,
@@ -49,7 +50,21 @@ try{
     process.exit(2);
   }
   const splitRows=sourceRows.filter(row=>String(row.key||"").startsWith(`${KEY}__`));
-  const source=mergeFinancialSourceRows(decodeAppData(coreRow.value),splitRows,KEY);
+  let source=mergeFinancialSourceRows(decodeAppData(coreRow.value),splitRows,KEY);
+
+  // Mesma regra de anexarCustosArquivados() da API: o cache do blob não é
+  // confiável; cada quinzena fechada é recalculada a partir da linha de
+  // arquivo imutável antes da comparação financeira.
+  const archivedLaborCosts={};
+  for(const quinzenaId of Object.keys(source?.quinzenasArquivadas||{})){
+    const row=sourceRows.find(item=>item.key===`${KEY}__arq__${quinzenaId}`);
+    if(!row)continue;
+    archivedLaborCosts[quinzenaId]=normalizeArchivedCosts(
+      summarizeArchivedCosts(row.value,source?.config),
+    );
+  }
+  source={...source,archivedLaborCosts};
+
   const snapshot=buildLegacyFinancialFacts(source);
   const legacy=summarizeLegacyFinancialFacts(snapshot);
 
