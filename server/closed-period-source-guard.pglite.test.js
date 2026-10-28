@@ -174,6 +174,64 @@ describe("FIN 9.6 — fatos operacionais respeitam competência fechada",()=>{
       .rejects.toThrow(/Período contábil fechado/i);
   },30000);
 
+  test("obrigação de julho fechada pode ser liquidada em agosto aberto sem reabrir julho",async()=>{
+    const company="closed-title-open-settlement";
+    const july=snapshot({facts:[fact("d1","2026-07-10",100,[])]});
+    await sync(company,july);
+    await close(company);
+
+    const paidInAugust=snapshot({facts:[fact("d1","2026-07-10",100,[{
+      legacyType:"despesa_pagamento",legacyId:"pay-aug",amount:100,date:"2026-08-05",
+      bankTransactionLegacyId:"",
+    }])]});
+    await expect(sync(company,paidInAugust)).resolves.toBeTruthy();
+
+    const title=(await db.query(
+      "select original_amount,status from financial_titles where company_id=$1 and origin_id='d1'",
+      [company],
+    )).rows[0];
+    const settlement=(await db.query(
+      "select amount,settlement_date,status from settlements where company_id=$1 and metadata->>'legacyId'='pay-aug'",
+      [company],
+    )).rows[0];
+    expect(Number(title.original_amount)).toBe(100);
+    expect(title.status).toBe("settled");
+    expect(Number(settlement.amount)).toBe(100);
+    expect(String(settlement.settlement_date)).toContain("2026-08-05");
+    expect(settlement.status).toBe("active");
+
+    // O título reconhecido em julho continua imutável.
+    await expect(sync(company,snapshot({facts:[fact("d1","2026-07-10",110,[{
+      legacyType:"despesa_pagamento",legacyId:"pay-aug",amount:100,date:"2026-08-05",
+      bankTransactionLegacyId:"",
+    }])]}))).rejects.toThrow(/Período contábil fechado/i);
+  },30000);
+
+  test("liquidação posterior pode ser corrigida enquanto agosto estiver aberto e congela quando agosto fechar",async()=>{
+    const company="closed-title-settlement-lifecycle";
+    await sync(company,snapshot({facts:[fact("d1","2026-07-10",100,[])]}));
+    await close(company);
+
+    const augustPayment=amount=>snapshot({facts:[fact("d1","2026-07-10",100,[{
+      legacyType:"despesa_pagamento",legacyId:"pay-aug",amount,date:"2026-08-05",
+      bankTransactionLegacyId:"",
+    }])]});
+    await sync(company,augustPayment(60));
+    await expect(sync(company,augustPayment(70))).resolves.toBeTruthy();
+
+    // Remover/estornar a liquidação de agosto ainda é permitido antes do
+    // fechamento de agosto, mesmo com o título de julho já encerrado.
+    await expect(sync(company,snapshot({facts:[fact("d1","2026-07-10",100,[])]})))
+      .resolves.toBeTruthy();
+
+    await sync(company,augustPayment(70));
+    await close(company,"2026-08-01","2026-08-31");
+
+    await expect(sync(company,augustPayment(80))).rejects.toThrow(/Período contábil fechado/i);
+    await expect(sync(company,snapshot({facts:[fact("d1","2026-07-10",100,[])]})))
+      .rejects.toThrow(/Período contábil fechado/i);
+  },30000);
+
   test("alterações fora da competência fechada continuam permitidas",async()=>{
     const company="closed-open-period";
     await sync(company,snapshot({facts:[fact("d1","2026-08-03",100)]}));
