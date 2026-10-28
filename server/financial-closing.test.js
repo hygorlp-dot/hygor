@@ -43,9 +43,17 @@ describe("FIN 9.6 — fechamento mensal auditável",()=>{
       description:"Custo nativo",sourceType:"canonical_title",sourceId:"n1",
     }];
 
+    const canonicalDreSnapshot={
+      sourceId:"2026-07:mes:company_dre",
+      canonicalRevision:"rev-canonical",
+      sourceRevision:"rev-data",
+      projectionVersion:"v-test",
+      payload:{ym:"2026-07",laborTotal:300,custoLocacoes:50,lucroLiquido:450},
+    };
     const result=prepareMonthlyFinancialClosing({
       data,command:command(),actor:{id:"admin-1",nome:"Administrador"},
-      supplementalEvents,now:"2026-08-01T09:00:00.000Z",
+      supplementalEvents,canonicalDreSnapshot,requireCanonicalDre:true,
+      now:"2026-08-01T09:00:00.000Z",
     });
 
     expect(result.ok).toBe(true);
@@ -64,8 +72,21 @@ describe("FIN 9.6 — fechamento mensal auditável",()=>{
       },
     });
     expect(result.closing.snapshot.eventIds).toContain("canonical_title:n1:cost");
+    expect(result.closing.snapshot.canonicalDre).toMatchObject({
+      sourceId:"2026-07:mes:company_dre",
+      canonicalRevision:"rev-canonical",
+      payload:{laborTotal:300,custoLocacoes:50,lucroLiquido:450},
+    });
     expect(result.closing.conference.checks.every(check=>check.ok)).toBe(true);
     expect(result.data.fechamentosFinanceiros).toHaveLength(1);
+  });
+
+  it("caminho autoritativo recusa fechamento sem projeção DRE canônica",()=>{
+    const result=prepareMonthlyFinancialClosing({
+      data:{},command:command(),actor:{id:"admin"},requireCanonicalDre:true,
+    });
+    expect(result).toMatchObject({ok:false});
+    expect(result.error).toMatch(/projeção canônica do DRE é obrigatória/i);
   });
 
   it("mesma chave é idempotente e chave diferente não duplica a competência",()=>{
