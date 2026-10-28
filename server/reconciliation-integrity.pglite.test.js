@@ -59,6 +59,24 @@ describe("RPC financeira: direção bancária e fechamento",()=>{
     expect((await db.query("select version from bank_transactions where id=$1",[bankTransactionId])).rows[0].version).toBe(bankAfter.version);
   });
 
+  test("estorno parcial preserva título e banco como parciais quando resta baixa ativa",async()=>{
+    const {titleId}=await command("CREATE_FINANCIAL_TITLE","partial-reversal-title",{
+      originType:"local-test",originId:"partial-reversal",direction:"payable",amount:300,competence:"2026-09-20",
+    });
+    const bankTransactionId=(await db.query(
+      "insert into bank_transactions(company_id,booking_date,direction,amount) values('isolated-test','2026-09-20','out',300) returning id"
+    )).rows[0].id;
+    await command("REGISTER_SETTLEMENT","partial-pay-1",{titleId,bankTransactionId,amount:100,date:"2026-09-20"});
+    const second=await command("REGISTER_SETTLEMENT","partial-pay-2",{titleId,bankTransactionId,amount:200,date:"2026-09-20"});
+    expect((await db.query("select status from financial_titles where id=$1",[titleId])).rows[0].status).toBe("settled");
+    expect((await db.query("select status from bank_transactions where id=$1",[bankTransactionId])).rows[0].status).toBe("reconciled");
+
+    await command("REVERSE_SETTLEMENT","partial-reverse",{settlementId:second.settlementId});
+
+    expect((await db.query("select status from financial_titles where id=$1",[titleId])).rows[0].status).toBe("partial");
+    expect((await db.query("select status from bank_transactions where id=$1",[bankTransactionId])).rows[0].status).toBe("partial");
+  });
+
   test("mantém o bloqueio de período e os pagamentos já registrados",async()=>{
     await command("CLOSE_ACCOUNTING_PERIOD","close-october",{startsOn:"2026-10-01",endsOn:"2026-10-31"});
     await expect(command("CREATE_FINANCIAL_TITLE","closed-title",{direction:"payable",amount:1,competence:"2026-10-23"})).rejects.toThrow(/fechado/);
