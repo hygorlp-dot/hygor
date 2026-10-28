@@ -52,6 +52,7 @@ import { projectReconciliationPatch } from "../server/reconciliation-response.js
 import { cashAllocations } from "../src/domains/conciliacao/cash-allocations.js";
 import { buildIntegratedDreManagement, canonicalDreEvents, loadCanonicalDre, validateNativeDreCommand } from "../server/financial-dre-integration.js";
 import { monthlyClosingPeriodFromCommand, prepareMonthlyFinancialClosing, previewMonthlyFinancialClosing } from "../server/financial-closing.js";
+import { closedCompanyDreBySourceId, closedCompanyDreEntries, closedCompanyDreFor, overlayClosedCompanyDreYear } from "../server/financial-closing-read.js";
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
@@ -2970,9 +2971,13 @@ export default async function handler(req, res) {
       if(!Number.isInteger(year)||year<2000||year>2100)return res.status(400).json({error:"Ano inválido."});
       const canonical=await loadCanonicalDre(db,COMPANY);
       const requests=Array.from({length:12},(_,month)=>({year,month,period:"mes",scope:"company_dre"}));
-      const months=buildRequestedDreProjectionRows(atual,requests,canonical.events).map(row=>row.payload);
+      const liveMonths=buildRequestedDreProjectionRows(atual,requests,canonical.events).map(row=>row.payload);
+      const months=overlayClosedCompanyDreYear(atual,year,liveMonths);
+      const closedMonths=closedCompanyDreEntries(atual).filter(item=>item.competencia.startsWith(`${year}-`));
       return res.status(200).json({ok:true,year,months,layout:readAnnualLayout(atual.config),
-        source:"canonical_ledger",sourceRevision:`${dreSourceRevision({updatedAt,rowVersions,rowVersionsPontoObra})}|canonical:${canonical.revision}`,
+        source:closedMonths.length?"canonical_ledger_with_closed_snapshots":"canonical_ledger",
+        sourceRevision:`${dreSourceRevision({updatedAt,rowVersions,rowVersionsPontoObra})}|canonical:${canonical.revision}`,
+        closedCompetences:closedMonths.map(item=>item.competencia),
         issues:canonical.issues});
     }
 
@@ -3009,6 +3014,8 @@ export default async function handler(req, res) {
       const historyIds=historyRequests.map(item=>
         `${item.year}-${String(item.month+1).padStart(2,"0")}:mes:${scope}`);
       const ids=[...new Set([currentId,...historyIds])];
+      const frozenById=companyStatement?closedCompanyDreBySourceId(atual):new Map();
+      const frozenCurrent=companyStatement&&period==="mes"?closedCompanyDreFor(atual,year,month):null;
       const loadEvents=()=>db.from("financial_events")
         .select("source_id,payload,effective_date")
         .eq("company_id",COMPANY).eq("event_type","dre_snapshot")
@@ -3019,13 +3026,19 @@ export default async function handler(req, res) {
         event.source_id===currentId&&event.payload?.active!==false);
       const canonical=await loadCanonicalDre(db,COMPANY);
       const sourceRevision=`${dreSourceRevision({updatedAt,rowVersions,rowVersionsPontoObra})}|canonical:${canonical.revision}`;
-      if(!currentEvent
+      if(!frozenCurrent&&(
+        !currentEvent
         ||String(currentEvent.payload?.sourceRevision||"")!==sourceRevision
-        ||String(currentEvent.payload?.projectionVersion||"")!==DRE_PROJECTION_VERSION){
+        ||String(currentEvent.payload?.projectionVersion||"")!==DRE_PROJECTION_VERSION
+      )){
         const projectionRequests=[
           {year,month,period,scope},
           ...historyRequests,
-        ];
+        ].filter(request=>{
+          if(!companyStatement||request.period!=="mes")return true;
+          const sourceId=`${request.year}-${String(request.month+1).padStart(2,"0")}:mes:company_dre`;
+          return !frozenById.has(sourceId);
+        });
         const rows=buildRequestedDreProjectionRows(atual,projectionRequests,canonical.events).map(row=>({
           company_id:COMPANY,event_type:"dre_snapshot",source_type:"dre_projection",
           source_id:row.sourceId,effective_date:`${row.year}-${String(row.month+1).padStart(2,"0")}-01`,
@@ -3054,11 +3067,23 @@ export default async function handler(req, res) {
       }
       const activeEvents=(events||[]).filter(event=>event.payload?.active!==false);
       const byId=new Map(activeEvents.map(event=>[event.source_id,event.payload]));
+      const currentPayload=frozenCurrent?.payload||byId.get(currentId)||null;
+      const history=historyIds.map(sourceId=>frozenById.get(sourceId)?.payload||byId.get(sourceId)||null);
       return res.status(200).json({
-        ok:true,engineEnforced:FINANCIAL_ENGINE_ENFORCE,source:"canonical_ledger",
-        canonicalRevision:canonical.revision,issues:canonical.issues.filter(issue=>!usuario.obraId||issue.obraId===String(usuario.obraId)),
-        current:byId.get(currentId)||null,
-        history:historyIds.map(sourceId=>byId.get(sourceId)||null),
+        ok:true,engineEnforced:FINANCIAL_ENGINE_ENFORCE,
+        source:frozenCurrent?"closed_snapshot":"canonical_ledger",
+        canonicalRevision:frozenCurrent?.canonicalRevision||canonical.revision,
+        sourceRevision:frozenCurrent?.sourceRevision||sourceRevision,
+        projectionVersion:frozenCurrent?.projectionVersion||DRE_PROJECTION_VERSION,
+        closed:frozenCurrent?{
+          closingId:frozenCurrent.closingId,
+          competence:frozenCurrent.competencia,
+          closedAt:frozenCurrent.closedAt,
+          closedById:frozenCurrent.closedById,
+        }:null,
+        issues:frozenCurrent?[]:canonical.issues.filter(issue=>!usuario.obraId||issue.obraId===String(usuario.obraId)),
+        current:currentPayload,
+        history,
       });
     }
 
