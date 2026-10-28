@@ -6,6 +6,7 @@ import { FinancialOverviewMetrics } from "./features/financeiro/FinancialOvervie
 import { Children, lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import DreReconciliationManager from "./features/financeiro/DreReconciliationManager.jsx";
 import { activeErpModule, moduleForTab, visibleErpModules } from "./navigation/erp-navigation.js";
+import { rememberSection, restoreSection } from "./navigation/section-session.js";
 import { FlowTabs, WorkflowContext, useWorkflow } from "./features/workflow/WorkflowNavigation.jsx";
 import { normalizeWorkflowScope } from "./features/workflow/workflow-model.js";
 import AnnualDre from "./features/financeiro/AnnualDre.jsx";
@@ -17637,7 +17638,7 @@ export default function App() {
           const cadastro=normalizados.usuarios.find(u=>u.id===restaurada.usuario?.id);
           const usuarioCompleto={...restaurada.usuario,...cadastro,pin:undefined};
           setData(normalizados);setCurrentUser(usuarioCompleto);setUltimaSync(new Date());
-          setTab(allowedTabsForUser(usuarioCompleto)[0]||"home");
+          setTab(restoreSection(usuarioCompleto.id,allowedTabsForUser(usuarioCompleto)));
           return;
         }
         const r = await listarPerfis();
@@ -17699,6 +17700,7 @@ export default function App() {
   const allowedTabs  = allowedTabsForUser(currentUser);
   const allowedTabsKey=allowedTabs.join("|");
   useEffect(()=>{if(currentUser&&!allowedTabs.includes(tab))setTab(allowedTabs[0]||"home");},[currentUser?.id,allowedTabsKey,tab]);
+  useEffect(()=>{rememberSection(currentUser?.id,tab,allowedTabs);},[currentUser?.id,allowedTabsKey,tab]);
 
   // Filtra grupos para mostrar apenas os que o usuário pode acessar
   const visibleGroups = visibleErpModules(allowedTabs,C);
@@ -18003,7 +18005,7 @@ export default function App() {
       setUltimaSync(new Date());
       setCurrentUser(usuarioCompleto);
       const allowed = allowedTabsForUser(usuarioCompleto);
-      setTab(allowed[0] || "home");
+      setTab(restoreSection(usuarioCompleto.id,allowed));
     };
 
     return (

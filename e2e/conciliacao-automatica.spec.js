@@ -58,5 +58,8 @@ test("concilia casos únicos e mantém dúvidas visíveis, inclusive no mobile",
   await expect(page.getByText("Pix sem identificação", { exact: true })).toBeVisible();
   await page.screenshot({ path: "test-results/conciliacao-mobile.png", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByText("Pix sem identificação", { exact: true })).toBeVisible();
+  expect(commands).toHaveLength(3);
   expect(errors).toEqual([]);
 });
