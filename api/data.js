@@ -472,15 +472,21 @@ const relatorioSombraFinanceira = async atual => {
   const activationGate=financialActivationEvidenceGate({
     factsCount:snapshot.facts.length,
     shadowRun:lastRun,
+    ledgerComparisonVerified:true,
     divergences:divergencias,
+    dreComparisonVerified:true,
     dreDivergences:divergenciasDRE,
+    procurementDreComparisonVerified:true,
     procurementDreDivergences:divergenciasComprasDRE,
+    legacyLinksVerified:true,
     missingLegacyLinks,
     legacyHashesVerified,
     staleLegacyLinks,
     bankComparisonVerified:true,
     bankDivergences,
+    qualityCasesVerified:true,
     openQualityCases:openFinancialQualityCases,
+    canonicalIntegrityVerified:true,
     canonicalIntegrity,
   });
 
