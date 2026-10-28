@@ -124,6 +124,8 @@ export const financialActivationEvidenceGate=({
   dreDivergences=[],
   procurementDreDivergences=[],
   missingLegacyLinks=[],
+  legacyHashesVerified=false,
+  staleLegacyLinks=[],
   openQualityCases=[],
   canonicalIntegrity={ok:true,counts:{errors:0,warnings:0}},
 }={})=>{
@@ -177,6 +179,15 @@ export const financialActivationEvidenceGate=({
       detail:safeList(missingLegacyLinks).length===0
         ?"Todos os fatos legados possuem vínculo canônico."
         :`${safeList(missingLegacyLinks).length} fato(s) legado(s) sem legacy_record_link.`,
+    },
+    {
+      code:"legacy_hashes",
+      ok:legacyHashesVerified===true&&safeList(staleLegacyLinks).length===0,
+      detail:legacyHashesVerified!==true
+        ?"Os hashes dos vínculos legados ainda não foram verificados no PostgreSQL."
+        :safeList(staleLegacyLinks).length===0
+          ?"Hashes dos vínculos legados correspondem exatamente à fotografia atual."
+          :`${safeList(staleLegacyLinks).length} vínculo(s) legado(s) possuem hash desatualizado.`,
     },
     {
       code:"quality_cases",

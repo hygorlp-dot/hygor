@@ -41,6 +41,7 @@ import { mergeThreeWay } from "../server/three-way-merge.js";
 import { authorizeSectionChanges, validateBankReconciliationPolicy, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
 import { auditCanonicalFinancialIntegrity } from "../server/financial-integrity.js";
+import { findStaleFinancialLegacyLinks } from "../server/financial-legacy-link-integrity.js";
 import { compareProcurementDreRecognition } from "../server/procurement-financial-facts.js";
 import { buildRequestedDreProjectionRows, dreSourceRevision } from "../server/dre-projection.js";
 import { readAnnualLayout, saveAnnualLayout } from "../src/domains/dre/annual-statement.js";
@@ -447,6 +448,14 @@ const relatorioSombraFinanceira = async atual => {
     item.status==="open"
     && /^(financial_|reconciliation_)/.test(String(item.category||""))
   );
+  let staleLegacyLinks=[];
+  let legacyHashesVerified=false;
+  if(process.env.POSTGRES_URL_NON_POOLING){
+    staleLegacyLinks=await comSql(sql=>findStaleFinancialLegacyLinks({
+      sql,companyId:COMPANY,facts:snapshot.facts,
+    }));
+    legacyHashesVerified=true;
+  }
   const canonicalIntegrity=auditCanonicalFinancialIntegrity({
     titles,settlements,banks,reconciliationLinks,legacyLinks,accountingPeriods,
   });
@@ -457,6 +466,8 @@ const relatorioSombraFinanceira = async atual => {
     dreDivergences:divergenciasDRE,
     procurementDreDivergences:divergenciasComprasDRE,
     missingLegacyLinks,
+    legacyHashesVerified,
+    staleLegacyLinks,
     openQualityCases:openFinancialQualityCases,
     canonicalIntegrity,
   });
@@ -465,6 +476,8 @@ const relatorioSombraFinanceira = async atual => {
     ok:true,modo:"sombra",engineEnforced:FINANCIAL_ENGINE_ENFORCE,
     legado,canonico,divergencias,divergenciasDRE,divergenciasComprasDRE,
     missingLegacyLinks,
+    legacyHashesVerified,
+    staleLegacyLinks,
     canonicalIntegrity,
     activationGate,
     prontoParaAtivar:activationGate.ready,
@@ -476,6 +489,8 @@ const relatorioSombraFinanceira = async atual => {
       vinculosConciliacao:reconciliationLinks.filter(row=>row.status==="active").length,
       vinculosLegado:legacyLinks.length,
       vinculosLegadoAusentes:missingLegacyLinks.length,
+      vinculosLegadoDesatualizados:staleLegacyLinks.length,
+      hashesLegadoVerificados:legacyHashesVerified,
       projecoesDRE:snapshot.dreSnapshots.length,
       divergenciasDRE:divergenciasDRE.length,
       divergenciasAbertas:openFinancialQualityCases.length,
