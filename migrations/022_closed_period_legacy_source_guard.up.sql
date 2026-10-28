@@ -40,12 +40,20 @@ declare
   v_bank_json jsonb;
   v_link public.legacy_record_links%rowtype;
   v_title public.financial_titles%rowtype;
+  v_event public.financial_events%rowtype;
+  v_settlement public.settlements%rowtype;
   v_bank public.bank_transactions%rowtype;
   v_new_hash text;
   v_new_date date;
   v_new_due date;
   v_new_bank_date date;
+  v_payment_date date;
+  v_existing_bank_legacy_id text;
+  v_recognition_type text;
+  v_recognized_amount numeric;
   v_changed boolean;
+  v_title_changed boolean;
+  v_recognition_changed boolean;
 begin
   if not exists(
     select 1 from public.accounting_periods
@@ -55,14 +63,22 @@ begin
   end if;
 
   -- Inclusão ou alteração de um fato legado.
+  --
+  -- Fechar a competência congela o TÍTULO e o reconhecimento econômico
+  -- daquela competência, mas não impede uma obrigação de julho de ser
+  -- liquidada em agosto. Por isso a comparação é granular: título,
+  -- reconhecimento e cada liquidação são validados separadamente.
   for v_fact in
     select value from jsonb_array_elements(coalesce(p_snapshot->'facts','[]'::jsonb))
   loop
     v_new_hash:=md5(v_fact::text);
     v_new_date:=nullif(v_fact->>'date','')::date;
     v_new_due:=nullif(v_fact->>'dueDate','')::date;
+    v_recognized_amount:=coalesce(nullif(v_fact->>'recognizedAmount','')::numeric,0);
+    v_recognition_type:=coalesce(nullif(v_fact->>'recognitionType',''),'cost_recognized');
     v_link:=null;
     v_title:=null;
+    v_event:=null;
 
     select link.* into v_link
       from public.legacy_record_links link
@@ -80,39 +96,128 @@ begin
        where title.company_id=p_company_id
          and title.id=v_link.canonical_id;
 
-      if v_title.id is not null and (
-        public.financial_date_is_closed(p_company_id,v_title.competence)
-        or public.financial_date_is_closed(p_company_id,v_title.due_date)
-        or exists(
-          select 1
-            from public.settlements settlement
-           where settlement.company_id=p_company_id
-             and settlement.title_id=v_title.id
-             and settlement.status='active'
-             and public.financial_date_is_closed(p_company_id,settlement.settlement_date)
-        )
-      ) then
-        raise exception 'Período contábil fechado: o fato %/% já pertence a competência encerrada',
-          v_fact->>'legacyType',v_fact->>'legacyId';
-      end if;
+      select event.* into v_event
+        from public.financial_events event
+       where event.company_id=p_company_id
+         and event.source_type=v_fact->>'legacyType'
+         and event.source_id=v_fact->>'legacyId'
+         and coalesce(event.payload->>'active','true') <> 'false'
+       order by event.created_at desc
+       limit 1;
     end if;
 
-    if public.financial_date_is_closed(p_company_id,v_new_date)
-       or public.financial_date_is_closed(p_company_id,v_new_due) then
-      raise exception 'Período contábil fechado: não é permitido incluir ou alterar o fato %/%',
+    v_title_changed :=
+      v_title.id is null
+      or coalesce(v_title.origin_type,'') is distinct from coalesce(v_fact->>'legacyType','')
+      or coalesce(v_title.origin_id,'') is distinct from coalesce(v_fact->>'legacyId','')
+      or coalesce(v_title.party_id,'') is distinct from coalesce(v_fact->>'partyId','')
+      or coalesce(v_title.obra_id,'') is distinct from coalesce(v_fact->>'obraId','')
+      or coalesce(v_title.contract_id,'') is distinct from coalesce(v_fact->>'contractId','')
+      or coalesce(v_title.direction,'') is distinct from coalesce(v_fact->>'direction','')
+      or v_title.competence is distinct from v_new_date
+      or v_title.due_date is distinct from v_new_due
+      or coalesce(v_title.original_amount,0) is distinct from coalesce(nullif(v_fact->>'titleAmount','')::numeric,0)
+      or coalesce(v_title.metadata->>'category','') is distinct from coalesce(v_fact->>'category','')
+      or coalesce(v_title.metadata - 'legacyType' - 'legacyId' - 'category','{}'::jsonb)
+         is distinct from coalesce(v_fact->'metadata','{}'::jsonb);
+
+    if v_title_changed and (
+      public.financial_date_is_closed(p_company_id,v_title.competence)
+      or public.financial_date_is_closed(p_company_id,v_title.due_date)
+      or public.financial_date_is_closed(p_company_id,v_new_date)
+      or public.financial_date_is_closed(p_company_id,v_new_due)
+    ) then
+      raise exception 'Período contábil fechado: o título %/% não pode ser alterado',
         v_fact->>'legacyType',v_fact->>'legacyId';
     end if;
 
+    v_recognition_changed :=
+      (
+        v_recognized_amount > 0
+        and (
+          v_event.id is null
+          or v_event.event_type is distinct from v_recognition_type
+          or v_event.effective_date is distinct from v_new_date
+          or coalesce(nullif(v_event.payload->>'amount','')::numeric,0) is distinct from v_recognized_amount
+          or coalesce(v_event.payload->>'obraId','') is distinct from coalesce(v_fact->>'obraId','')
+          or coalesce(v_event.payload->>'category','') is distinct from coalesce(v_fact->>'category','')
+        )
+      )
+      or (
+        v_recognized_amount <= 0
+        and v_event.id is not null
+      );
+
+    if v_recognition_changed and (
+      public.financial_date_is_closed(p_company_id,v_event.effective_date)
+      or public.financial_date_is_closed(p_company_id,v_new_date)
+    ) then
+      raise exception 'Período contábil fechado: o reconhecimento %/% não pode ser alterado',
+        v_fact->>'legacyType',v_fact->>'legacyId';
+    end if;
+
+    -- Liquidações novas ou alteradas só são bloqueadas quando a PRÓPRIA
+    -- data da liquidação (antiga ou nova) pertence a período fechado.
     for v_payment in
       select value from jsonb_array_elements(coalesce(v_fact->'settlements','[]'::jsonb))
     loop
-      if public.financial_date_is_closed(
-        p_company_id,nullif(v_payment->>'date','')::date
+      v_payment_date:=nullif(v_payment->>'date','')::date;
+      v_settlement:=null;
+      v_existing_bank_legacy_id:='';
+
+      select settlement.* into v_settlement
+        from public.settlements settlement
+       where settlement.company_id=p_company_id
+         and settlement.metadata->>'legacyType'=v_payment->>'legacyType'
+         and settlement.metadata->>'legacyId'=v_payment->>'legacyId'
+       limit 1;
+
+      if v_settlement.id is not null and v_settlement.bank_transaction_id is not null then
+        select coalesce(bank.metadata->>'legacyId','') into v_existing_bank_legacy_id
+          from public.bank_transactions bank
+         where bank.company_id=p_company_id
+           and bank.id=v_settlement.bank_transaction_id;
+      end if;
+
+      v_changed :=
+        v_settlement.id is null
+        or v_settlement.status is distinct from 'active'
+        or coalesce(v_settlement.amount,0) is distinct from coalesce(nullif(v_payment->>'amount','')::numeric,0)
+        or v_settlement.settlement_date is distinct from v_payment_date
+        or coalesce(v_existing_bank_legacy_id,'') is distinct from coalesce(v_payment->>'bankTransactionLegacyId','');
+
+      if v_changed and (
+        public.financial_date_is_closed(p_company_id,v_settlement.settlement_date)
+        or public.financial_date_is_closed(p_company_id,v_payment_date)
       ) then
         raise exception 'Período contábil fechado: liquidação legada %/% não pode ser alterada',
-          v_fact->>'legacyType',v_fact->>'legacyId';
+          v_payment->>'legacyType',v_payment->>'legacyId';
       end if;
     end loop;
+
+    -- Liquidação que existia e sumiu do snapshot é um estorno/removal.
+    -- Só fica proibido depois que a própria data dela foi encerrada.
+    if v_title.id is not null then
+      for v_settlement in
+        select settlement.*
+          from public.settlements settlement
+         where settlement.company_id=p_company_id
+           and settlement.title_id=v_title.id
+           and settlement.status='active'
+           and coalesce(settlement.metadata->>'legacyId','') <> ''
+           and not exists(
+             select 1
+               from jsonb_array_elements(coalesce(v_fact->'settlements','[]'::jsonb)) incoming
+              where incoming->>'legacyType'=settlement.metadata->>'legacyType'
+                and incoming->>'legacyId'=settlement.metadata->>'legacyId'
+           )
+      loop
+        if public.financial_date_is_closed(p_company_id,v_settlement.settlement_date) then
+          raise exception 'Período contábil fechado: liquidação legada %/% não pode ser removida',
+            v_settlement.metadata->>'legacyType',v_settlement.metadata->>'legacyId';
+        end if;
+      end loop;
+    end if;
   end loop;
 
   -- Remoção/cancelamento de um fato que existia na última fotografia.
