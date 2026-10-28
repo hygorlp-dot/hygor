@@ -2,6 +2,7 @@ import { authenticateAppUser } from "../server/app-auth.js";
 import { createClient } from "@supabase/supabase-js";
 import { buildDailyBrief } from "../server/daily-brief.js";
 import { decryptAiSecret, encryptAiSecret } from "../server/ai-secret.js";
+import {base64DecodedSize,PATRIMONY_DOCUMENT_MAX_BYTES} from "../src/domains/patrimonio/document-policy.js";
 
 const URL = process.env.SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -326,7 +327,7 @@ export default async function handler(req,res){
     const raw=String(req.body?.dataUrl||"");
     const match=raw.match(/^data:(application\/pdf|image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
     if(!match)return res.status(400).json({error:"Envie PDF, JPG, PNG ou WEBP da nota fiscal."});
-    if(match[2].length>8_000_000)return res.status(413).json({error:"O documento é grande demais para análise por IA. Comprima o PDF ou a foto."});
+    if(base64DecodedSize(match[2])>PATRIMONY_DOCUMENT_MAX_BYTES)return res.status(413).json({error:"O documento é grande demais para análise por IA (máx. 3 MB). Comprima o PDF ou a foto."});
     const schema={type:"OBJECT",properties:{
       invoice:{type:"OBJECT",properties:{
         numero:{type:"STRING"},serie:{type:"STRING"},chave:{type:"STRING"},emissao:{type:"STRING"},
