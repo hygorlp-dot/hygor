@@ -502,3 +502,39 @@ test("fila agrupada por fornecedor cobra três entregas atrasadas numa só visã
   await expect(fila.getByLabel("Agrupar por")).toHaveValue("obra");
   expect(app.errors).toEqual([]);
 });
+
+test("painel separa Resumo de Análises, sem ação destrutiva, e cada exceção abre a lista filtrada",async({page})=>{
+  const app=await enter(page);
+  const tools=page.locator("details.purchase-tools");
+  const abrirPainel=async()=>{await tools.locator("summary").click();await tools.getByRole("button",{name:"Mapa gerencial",exact:true}).click();};
+  await abrirPainel();
+  const painel=page.locator(".compras-management-map");
+  await expect(painel.getByRole("tab",{name:"Resumo"})).toHaveAttribute("aria-selected","true");
+  await expect(painel.getByText("Exceções para decidir agora")).toBeVisible();
+  await expect(painel.getByText("Fluxo de compras e prazos")).toHaveCount(0);
+  await expect(painel.getByRole("button",{name:/Excluir/})).toHaveCount(0);
+
+  // Exceção de atraso: abre Pedidos com "só atrasadas" marcado.
+  await painel.getByRole("button",{name:/entrega\(s\) atrasada\(s\)/}).click();
+  await expect(page.locator(".purchase-order-filters__toggle input")).toBeChecked();
+  await expect(page.locator(".purchase-order-count")).toContainText("1 de 3 pedido(s)");
+
+  // Exceção de pedidos sem concorrência: abre a lista exata, com a origem visível.
+  await abrirPainel();
+  await painel.getByRole("button",{name:/sem concorrência registrada/}).click();
+  // Só pedido enviado conta (o rascunho PC-002 fica de fora).
+  await expect(page.getByRole("note")).toContainText("2 pedido(s) sem concorrência registrada");
+  await expect(page.locator(".purchase-order-count")).toContainText("2 de 3 pedido(s)");
+  await page.getByRole("note").getByRole("button",{name:"Ver todos os pedidos"}).click();
+  await expect(page.getByRole("note")).toHaveCount(0);
+
+  // Análises: Kanban e controle dos pedidos, só leitura.
+  await abrirPainel();
+  await painel.getByRole("tab",{name:"Análises"}).click();
+  await expect(painel.getByText("Fluxo de compras e prazos")).toBeVisible();
+  await expect(painel.getByText("Veredicto gerencial")).toBeVisible();
+  await expect(painel.getByRole("button",{name:/Excluir/})).toHaveCount(0);
+  await painel.getByRole("button",{name:"Abrir o pedido PC-001 na aba Pedidos"}).click();
+  await expect(page.locator(".purchase-order-count")).toContainText("1 de 1 pedido(s)");
+  expect(app.errors).toEqual([]);
+});

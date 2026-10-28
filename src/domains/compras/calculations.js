@@ -175,13 +175,21 @@ export const mapaGerencialCompras = (data, obraIds = [], hoje = "") => {
     pedidosValidos.some(p => (p.itens || []).some(i => (i.recebimentos || []).length)),
     (data.fornecedores || []).some(f => f.cnpj && (f.categorias || []).length),
   ].filter(Boolean).length / 6 * 100;
+  // R5: cada exceção diz como abrir a lista já filtrada (`filtro`); `destino`
+  // continua sendo a área, para quem só precisa do atalho.
   const alertas = [
-    atrasados.length && { nivel: "critico", titulo: `${atrasados.length} entrega(s) atrasada(s)`, detalhe: "Risco de parada e replanejamento da obra.", destino: "pedidos" },
-    recebidosSemQuitar.length && { nivel: "critico", titulo: `${recebidosSemQuitar.length} recebimento(s) sem quitação`, detalhe: "Regularize o vínculo financeiro e a conciliação.", destino: "financeiro" },
-    totalPendente > 0 && { nivel: "alto", titulo: `${totalPendente.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} a pagar`, detalhe: "Compromissos assumidos ainda sem cobertura completa.", destino: "financeiro" },
-    semCotacao.length && { nivel: "alto", titulo: `${semCotacao.length} pedido(s) sem concorrência registrada`, detalhe: "Preço, prazo e decisão ficam sem evidência comparável.", destino: "cotacoes" },
-    semPrevisao.length && { nivel: "medio", titulo: `${semPrevisao.length} pedido(s) sem previsão`, detalhe: "Sem data não há controle confiável de abastecimento.", destino: "pedidos" },
-    semConciliacao.length && { nivel: "medio", titulo: `${semConciliacao.length} pagamento(s) sem conciliação`, detalhe: "O caixa pode divergir do histórico de compras.", destino: "financeiro" },
+    atrasados.length && { nivel: "critico", titulo: `${atrasados.length} entrega(s) atrasada(s)`, detalhe: "Risco de parada e replanejamento da obra.", destino: "pedidos",
+      filtro: { area: "pedidos", pedidos: { atrasados: true } } },
+    recebidosSemQuitar.length && { nivel: "critico", titulo: `${recebidosSemQuitar.length} recebimento(s) sem quitação`, detalhe: "Regularize o vínculo financeiro e a conciliação.", destino: "financeiro",
+      filtro: { area: "pedidos", pedidos: { ids: recebidosSemQuitar.map(p => p.id) } } },
+    totalPendente > 0 && { nivel: "alto", titulo: `${totalPendente.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} a pagar`, detalhe: "Compromissos assumidos ainda sem cobertura completa.", destino: "financeiro",
+      filtro: { area: "financeiro", financeiro: "pendentes" } },
+    semCotacao.length && { nivel: "alto", titulo: `${semCotacao.length} pedido(s) sem concorrência registrada`, detalhe: "Preço, prazo e decisão ficam sem evidência comparável.", destino: "cotacoes",
+      filtro: { area: "pedidos", pedidos: { ids: semCotacao.map(p => p.id) } } },
+    semPrevisao.length && { nivel: "medio", titulo: `${semPrevisao.length} pedido(s) sem previsão`, detalhe: "Sem data não há controle confiável de abastecimento.", destino: "pedidos",
+      filtro: { area: "pedidos", pedidos: { ids: semPrevisao.map(p => p.id) } } },
+    semConciliacao.length && { nivel: "medio", titulo: `${semConciliacao.length} pagamento(s) sem conciliação`, detalhe: "O caixa pode divergir do histórico de compras.", destino: "financeiro",
+      filtro: { area: "financeiro", financeiro: "nao_conciliados" } },
     concentracaoTop3 > 75 && { nivel: "medio", titulo: `${concentracaoTop3.toFixed(0)}% concentrado nos 3 maiores fornecedores`, detalhe: "Avalie alternativas para itens críticos e risco de dependência.", destino: "forn" },
   ].filter(Boolean);
   return {

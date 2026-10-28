@@ -100,3 +100,12 @@
 .purchase-group-charge:hover{background:var(--arcd-color-danger-subtle)}
 .purchase-group-charge:focus-visible{outline:2px solid var(--purchase-accent);outline-offset:2px}
 @media(max-width:600px){.purchase-queue-table tbody.purchase-group{display:block}.purchase-queue-table tr.purchase-group-row{display:block;padding:0}.purchase-queue-table .purchase-group-row th{display:block;width:100%;box-sizing:border-box;padding:12px 14px}.purchase-group-charge{min-height:44px;width:100%;justify-content:center}}
+
+/* R5: painel com vistas Resumo e Análises */
+.purchase-panel-views{display:inline-flex;align-self:flex-start;gap:4px;padding:3px;background:var(--arcd-surface-muted);border:1px solid var(--purchase-line);border-radius:var(--arcd-radius-md)}
+.purchase-panel-views button{min-height:36px;padding:0 16px;border:0;border-radius:var(--arcd-radius-sm);background:transparent;color:var(--purchase-muted);font:inherit;font-size:var(--arcd-type-label);font-weight:600;cursor:pointer}
+.purchase-panel-views button[aria-selected=true]{background:var(--purchase-paper);color:var(--purchase-ink);box-shadow:var(--arcd-shadow-xs)}
+.purchase-panel-views button:focus-visible{outline:2px solid var(--purchase-accent);outline-offset:2px}
+.purchase-order-origin{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border:1px solid var(--purchase-line);border-radius:var(--arcd-radius-md);background:var(--arcd-surface-muted);color:var(--purchase-ink);font-size:var(--arcd-type-label)}
+@media(max-width:600px){.purchase-panel-views{align-self:stretch}.purchase-panel-views button{flex:1;min-height:44px}}
+
