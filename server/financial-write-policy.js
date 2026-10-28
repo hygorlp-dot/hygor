@@ -125,6 +125,7 @@ export const financialActivationEvidenceGate=({
   procurementDreDivergences=[],
   missingLegacyLinks=[],
   openQualityCases=[],
+  canonicalIntegrity={ok:true,counts:{errors:0,warnings:0}},
 }={})=>{
   const safeList=value=>Array.isArray(value)?value:[];
   const checks=[
@@ -183,6 +184,13 @@ export const financialActivationEvidenceGate=({
       detail:safeList(openQualityCases).length===0
         ?"Nenhum caso financeiro de qualidade permanece aberto."
         :`${safeList(openQualityCases).length} caso(s) financeiro(s) de qualidade permanecem abertos.`,
+    },
+    {
+      code:"canonical_integrity",
+      ok:canonicalIntegrity?.ok===true,
+      detail:canonicalIntegrity?.ok===true
+        ?`Integridade estrutural aprovada${Number(canonicalIntegrity?.counts?.warnings||0)?` com ${Number(canonicalIntegrity.counts.warnings)} aviso(s).`:"."}`
+        :`${Number(canonicalIntegrity?.counts?.errors||0)} erro(s) estrutural(is) no razão canônico.`,
     },
   ];
   const blockers=checks.filter(check=>!check.ok);

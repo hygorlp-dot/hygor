@@ -40,6 +40,7 @@ import { findSectionConflicts } from "../server/three-way-conflicts.js";
 import { mergeThreeWay } from "../server/three-way-merge.js";
 import { authorizeSectionChanges, validateBankReconciliationPolicy, validateBudgetBaselinePolicy, validateNoPhysicalDeletes, validatePlanningBaselinePolicy } from "../server/section-authorizations.js";
 import { buildLegacyFinancialFacts, compareDreProjectionRows, compareFinancialScopes, summarizeCanonicalFinancialRows, summarizeLegacyFinancialFacts } from "../server/financial-shadow.js";
+import { auditCanonicalFinancialIntegrity } from "../server/financial-integrity.js";
 import { compareProcurementDreRecognition } from "../server/procurement-financial-facts.js";
 import { buildRequestedDreProjectionRows, dreSourceRevision } from "../server/dre-projection.js";
 import { readAnnualLayout, saveAnnualLayout } from "../src/domains/dre/annual-statement.js";
@@ -420,12 +421,14 @@ const listarTabelaFinanceira = async (table, columns) => {
 const relatorioSombraFinanceira = async atual => {
   const snapshot=buildLegacyFinancialFacts(atual);
   const legado=summarizeLegacyFinancialFacts(snapshot);
-  const [titles,settlements,events,reconciliationLinks,legacyLinks,qualityCases,runs]=await Promise.all([
-    listarTabelaFinanceira("financial_titles","id,obra_id,direction,status,metadata"),
-    listarTabelaFinanceira("settlements","id,title_id,amount,status,metadata"),
+  const [titles,settlements,events,banks,reconciliationLinks,legacyLinks,accountingPeriods,qualityCases,runs]=await Promise.all([
+    listarTabelaFinanceira("financial_titles","id,obra_id,direction,original_amount,status,metadata"),
+    listarTabelaFinanceira("settlements","id,title_id,bank_transaction_id,amount,status,metadata"),
     listarTabelaFinanceira("financial_events","id,event_type,source_id,effective_date,payload"),
-    listarTabelaFinanceira("reconciliation_links","id,status"),
+    listarTabelaFinanceira("bank_transactions","id,direction,amount,status,metadata"),
+    listarTabelaFinanceira("reconciliation_links","id,bank_transaction_id,title_id,settlement_id,amount,status"),
     listarTabelaFinanceira("legacy_record_links","legacy_type,legacy_id,canonical_type,canonical_id"),
+    listarTabelaFinanceira("accounting_periods","id,starts_on,ends_on,status"),
     listarTabelaFinanceira("data_quality_cases","id,status,category,details"),
     listarTabelaFinanceira("financial_shadow_runs","id,created_at,result"),
   ]);
@@ -443,6 +446,9 @@ const relatorioSombraFinanceira = async atual => {
     item.status==="open"
     && /^(financial_|reconciliation_)/.test(String(item.category||""))
   );
+  const canonicalIntegrity=auditCanonicalFinancialIntegrity({
+    titles,settlements,banks,reconciliationLinks,legacyLinks,accountingPeriods,
+  });
   const activationGate=financialActivationEvidenceGate({
     factsCount:snapshot.facts.length,
     shadowRun:lastRun,
@@ -451,12 +457,14 @@ const relatorioSombraFinanceira = async atual => {
     procurementDreDivergences:divergenciasComprasDRE,
     missingLegacyLinks,
     openQualityCases:openFinancialQualityCases,
+    canonicalIntegrity,
   });
 
   return {
     ok:true,modo:"sombra",engineEnforced:FINANCIAL_ENGINE_ENFORCE,
     legado,canonico,divergencias,divergenciasDRE,divergenciasComprasDRE,
     missingLegacyLinks,
+    canonicalIntegrity,
     activationGate,
     prontoParaAtivar:activationGate.ready,
     contagens:{
@@ -470,6 +478,8 @@ const relatorioSombraFinanceira = async atual => {
       projecoesDRE:snapshot.dreSnapshots.length,
       divergenciasDRE:divergenciasDRE.length,
       divergenciasAbertas:openFinancialQualityCases.length,
+      errosIntegridadeCanonica:canonicalIntegrity.counts.errors,
+      avisosIntegridadeCanonica:canonicalIntegrity.counts.warnings,
     },
     ultimaCarga:lastRun,
   };
