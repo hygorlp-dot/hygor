@@ -1,4 +1,5 @@
 import { SINAL_MOV, baixarPorComposicao, calcSaldos, custoMedioPonderado, saldoDe } from "./calculations.js";
+import { resolverTarefaDoConsumo } from "./task-allocation.js";
 
 export const STOCK_COMMAND = Object.freeze({
   MATERIAL_MOVEMENT_RECORDED: "MOVIMENTO_ESTOQUE_REGISTRADO",
@@ -96,7 +97,10 @@ export const applyStockCommand = (data = {}, command = {}, now = new Date().toIS
       const disponivel = saldoDe(calcSaldos(movEstoque), obraId, materialId);
       if (qtd > disponivel + 0.0001) return fail(`Saldo insuficiente: há ${disponivel.toFixed(2)} disponível.`);
     }
+    const aplicacao = resolverTarefaDoConsumo(data, { obraId, tipo: raw.tipo, tarefaId: raw.tarefaId });
+    if (!aplicacao.ok) return fail(aplicacao.reason);
     const movement = {
+      ...aplicacao.campos,
       id, obraId, materialId, tipo: raw.tipo,
       qtd, valorUnit: Number(raw.valorUnit || 0),
       data: raw.data || now.slice(0, 10),
@@ -121,6 +125,8 @@ export const applyStockCommand = (data = {}, command = {}, now = new Date().toIS
       const item = esperado.find(x => x.materialId === entry.materialId);
       return !entry?.id || ids.has(entry.id) || !item || Math.abs(Number(entry.qtd || 0) - item.qtd) >= 1e-4;
     })) return fail("A composição foi alterada. Recarregue a tela e execute o serviço novamente.");
+    const aplicacao = resolverTarefaDoConsumo(data, { obraId, tipo: "consumo", tarefaId: command.payload?.tarefaId });
+    if (!aplicacao.ok) return fail(aplicacao.reason);
     const saldos = calcSaldos(movEstoque);
     const faltando = entries.filter(entry => Number(entry.qtd || 0) > saldoDe(saldos, obraId, entry.materialId) + 0.0001);
     if (faltando.length) return fail("Saldo insuficiente para baixar todos os insumos desta execução.");
@@ -129,6 +135,7 @@ export const applyStockCommand = (data = {}, command = {}, now = new Date().toIS
       qtd: Number(entry.qtd || 0), valorUnit: Number(entry.valorUnit || 0),
       data: entry.data || now.slice(0, 10), descricao: entry.descricao || "",
       transacaoId: "", servicoId: comp.id, etapa: entry.etapa || "",
+      ...aplicacao.campos,
     }));
     return { ok: true, entityId: comp.id, data: { ...data, movEstoque: [...movEstoque, ...novos] } };
   }

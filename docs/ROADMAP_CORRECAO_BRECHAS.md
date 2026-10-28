@@ -53,6 +53,15 @@ inventado é pior do que nenhum relatório.
 | D6 | Fallback do físico-financeiro: remover ou rotular "estimado" | 1.6a | Remover — mostrar "sem custo apropriado" |
 | L1 | Termo de consentimento da biometria + prazo de guarda das fotos (texto jurídico) | 1.4 | Prazo = guarda legal do ponto; descarte automático depois |
 
+**Decididas pelo dono em 28/10/2026:**
+- D1: regime da empresa = **Simples Nacional, Anexo IV** (encargos em produção, #174; RAT/FAP a confirmar na guia).
+- D4: padrão adotado (FE e AT = 1, FG = 0), editável.
+- D5: no portal o cliente **aprova decisões de acabamento e aditivos** e marca **ciente** nas medições.
+- D6: fallback removido (#165).
+- Estoque: a saída de material **exige a tarefa** onde foi usado (3.2).
+- Base do custo CLT no DRE: **salário mensal** rateado pelas obras conforme os dias apontados (em vez da diária).
+- Ordem: Onda 3 primeiro, depois 4 e 5.
+
 ---
 
 ## Onda 1 — Bloqueadores do piloto
