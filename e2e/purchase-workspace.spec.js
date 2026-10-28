@@ -468,3 +468,37 @@ for(const width of [390,768,1280,1440])test(`pedidos: cartões, menu ⋯ e filtr
   await page.keyboard.press("Escape");
   expect(app.errors).toEqual([]);
 });
+
+test("fila agrupada por fornecedor cobra três entregas atrasadas numa só visão e mostra valores em R$",async({page})=>{
+  const app=await enter(page,{prepare:state=>{
+    state.fornecedores[0].telefone="81999990000";
+    const atrasado=(id,numero,obraId,previsao)=>({id,numero,obraId,fornecedorId:"central",status:"enviado",data:"2026-10-10",previsao,
+      origemPagamento:"empresa",pagamentos:[],itens:[item(`${id}-i`,"cement",4,50)]});
+    state.pedidos.push(atrasado("late-1","PC-010","a","2026-10-19"),atrasado("late-2","PC-011","b","2026-10-20"));
+  }});
+  const fila=page.locator(".purchase-workspace");
+  await expect(fila.locator(".purchase-queue-metrics")).toContainText("R$");
+  await fila.getByLabel("Agrupar por").selectOption("fornecedor");
+  const grupos=fila.locator("tbody.purchase-group");
+  const central=grupos.first();
+  await expect(central).toHaveAttribute("data-group","Depósito Central");
+  await expect(central.locator(".purchase-group-row")).toContainText("3 atrasado(s)");
+  await expect(central.locator("tr:not(.purchase-group-row)")).toHaveCount(4);
+  const cobrar=central.getByRole("link",{name:"Cobrar as 3 entregas atrasadas"});
+  await expect(cobrar).toBeVisible();
+  const texto=decodeURIComponent((await cobrar.getAttribute("href")).split("text=")[1]);
+  expect(texto).toContain("3 pedidos atrasados");
+  for(const numero of ["PC-003","PC-010","PC-011"])expect(texto).toContain(`Pedido ${numero}`);
+  expect(texto).not.toContain("PC-001");
+  // Fornecedor sem telefone ou sem atraso não ganha botão de cobrança.
+  await expect(fila.locator('tbody[data-group="Materiais Norte"] .purchase-group-charge')).toHaveCount(0);
+
+  await fila.getByLabel("Agrupar por").selectOption("obra");
+  await expect(grupos).toHaveCount(2);
+  await expect(fila.locator(".purchase-group-charge")).toHaveCount(0);
+  // Limpar filtros mantém o agrupamento escolhido.
+  await fila.getByLabel("Prazo").selectOption("overdue");
+  await fila.getByRole("button",{name:"Limpar filtros"}).first().click();
+  await expect(fila.getByLabel("Agrupar por")).toHaveValue("obra");
+  expect(app.errors).toEqual([]);
+});
