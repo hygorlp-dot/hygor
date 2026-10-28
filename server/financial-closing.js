@@ -21,6 +21,51 @@ export const monthlyClosingPeriodFromCommand=command=>{
   return{ok:true,competencia,startsOn,endsOn};
 };
 
+export const previewMonthlyFinancialClosing=({
+  data={},
+  command={},
+  actor={},
+  supplementalEvents=[],
+  canonicalDreSnapshot=null,
+  requireCanonicalDre=false,
+  now=new Date().toISOString(),
+}={})=>{
+  if(command?.type!=="CLOSE_ACCOUNTING_PERIOD")return null;
+  const period=monthlyClosingPeriodFromCommand(command);
+  if(!period.ok)return period;
+
+  const existing=(data?.fechamentosFinanceiros||[])
+    .find(item=>String(item?.competencia||"")===period.competencia&&item?.status==="fechado");
+  if(existing){
+    return{
+      ok:true,alreadyClosed:true,period,closing:existing,
+      conference:existing.conference||{checks:[]},
+    };
+  }
+  if(requireCanonicalDre&&!canonicalDreSnapshot){
+    return{ok:false,error:"A projeção canônica do DRE é obrigatória para a prévia.",period};
+  }
+
+  const prepared=createMonthlyClosingSnapshot(data,{
+    competencia:period.competencia,
+    actor,
+    closedAt:now,
+    supplementalEvents,
+    canonicalDreSnapshot,
+  });
+  if(!prepared.ok)return{...prepared,period};
+
+  return{
+    ok:true,alreadyClosed:false,period,
+    closing:{
+      ...prepared.closing,
+      idempotencyKey:"",
+      canonicalCommand:"CLOSE_ACCOUNTING_PERIOD",
+    },
+    conference:prepared.closing.conference,
+  };
+};
+
 export const prepareMonthlyFinancialClosing=({
   data={},
   command={},
