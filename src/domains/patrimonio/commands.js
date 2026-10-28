@@ -44,7 +44,9 @@ const LOCATION_TYPES=new Set(Object.values(COMPANY_ASSET_LOCATION_TYPES));
 
 const normalizeDocument=doc=>({
   name:text(doc?.name||doc?.nome,180),
-  url:text(doc?.url,2000),
+  // Documento patrimonial é privado: persistimos somente o caminho interno.
+  // URL pública ou externa recebida no payload é deliberadamente descartada.
+  url:"",
   path:text(doc?.path,600),
   mime:text(doc?.mime||doc?.tipo,120),
   size:Math.max(0,number(doc?.size||doc?.tamanho)),
