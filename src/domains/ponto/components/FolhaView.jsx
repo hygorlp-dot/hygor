@@ -23,7 +23,11 @@ import {
 import { calculateAttendanceDayCost } from "../payroll";
 import { resolveHistoricalEmployeeObraId, resolveHolidayObraId } from "../permissions";
 import { allocateAdvancesByWork } from "../advance-allocation";
-import { splitPayrollResponsibility } from "../payroll-responsibility";
+import { payrollPayerForWork, splitPayrollResponsibility } from "../payroll-responsibility";
+import {
+  activePayrollTitlesForPeriod, buildPayrollTitles, payrollClosingBlockers,
+  payrollClosingDivergences, payrollPeriodKey, PAYROLL_CLOSING_COMMAND,
+} from "../payroll-closing";
 import {
   allocateUnionDueByWork, buildUnionDuePeriodKey, calculatePayrollSettlement, calculateUnionDue,
   normalizeRoleKey, normalizeUnionDuesConfig, summarizeUnionDues, toggleUnionDueExemption,
@@ -51,6 +55,9 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   useRememberWorkflowScope("folha",{obraId:filterObra==="all"?"":filterObra,year,month,period:"mes",cycle:q});
   const [expandedId, setExpandedId] = useState(entryScope?.employeeId||null);
   const [relatorioPendente, setRelatorioPendente] = useState("");
+  const [closingModal,setClosingModal]=useState("");
+  const [reopenReason,setReopenReason]=useState("");
+  const [savingClosing,setSavingClosing]=useState(false);
   const [payrollView,setPayrollView]=useState(entryScope?.mode==='clt'?'clt':'payroll');
   useEffect(()=>{if(entryScope?.mode==='daily')window.sessionStorage.removeItem(PAYROLL_HANDOFF_KEY);},[entryScope]);
   const [unionDraft,setUnionDraft]=useState(()=>normalizeUnionDuesConfig(data.config?.unionDues));
@@ -375,6 +382,54 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       showToast("Configuração sindical salva e aplicada à folha.");
     }catch(error){showToast(error?.message||"Não foi possível salvar a configuração sindical.","error");}
     finally{setSavingUnion(false);}
+  };
+
+  // Fechamento da quinzena: congela o líquido de cada funcionário em um título
+  // a pagar rateado por obra (ver payroll-closing.js). Só fecha pela visão
+  // consolidada, para que nenhum funcionário de outra obra fique de fora.
+  const canManageClosing=["admin","rh"].includes(currentUser?.role);
+  const closingPeriodKey=payrollPeriodKey(year,month,q);
+  const closedTitles=activePayrollTitlesForPeriod(data,closingPeriodKey);
+  const closingBlockers=filterObra==="all"?payrollClosingBlockers({pendencias:pendenciasRelatorio,rows}):["Selecione “Todas as obras” para fechar a quinzena da empresa inteira."];
+  const closingDivergences=filterObra==="all"&&closedTitles.length?payrollClosingDivergences(closedTitles,rows):[];
+  const closedTotal=closedTitles.reduce((sum,title)=>sum+Number(title.liquido||0),0);
+  const buildClosingTitles=closingId=>buildPayrollTitles({
+    rows,closingId,periodKey:closingPeriodKey,
+    periodoInicio:diasCiclo[0]||"",periodoFim:diasCiclo.at(-1)||"",vencimento:paymentInfo.paymentDate,
+    payerForWork:obraId=>payrollPayerForWork((data.obras||[]).find(o=>o.id===obraId)),
+  });
+  const closeFortnight=async()=>{
+    setSavingClosing(true);
+    try{
+      const closingId=`folha-${closingPeriodKey}-${uid()}`;
+      const result=await dispatchCommand(()=>({
+        type:PAYROLL_CLOSING_COMMAND.PAYROLL_FORTNIGHT_CLOSED,
+        idempotencyKey:`fechar-${closingId}`,
+        payload:{periodKey:closingPeriodKey,closingId,titles:buildClosingTitles(closingId)},
+      }));
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o fechamento.");
+      setClosingModal("");
+      showToast("Quinzena fechada. Os pagamentos já aparecem em contas a pagar.");
+    }catch(error){showToast(error?.message||"Não foi possível fechar a quinzena.","error");}
+    finally{setSavingClosing(false);}
+  };
+  const reopenFortnight=async()=>{
+    if(!reopenReason.trim()){showToast("Informe o motivo da reabertura.","error");return;}
+    setSavingClosing(true);
+    try{
+      const result=await dispatchCommand(atual=>({
+        type:PAYROLL_CLOSING_COMMAND.PAYROLL_FORTNIGHT_REOPENED,
+        idempotencyKey:`reabrir-${closingPeriodKey}-${uid()}`,
+        payload:{
+          periodKey:closingPeriodKey,reason:reopenReason.trim(),
+          expectedVersions:Object.fromEntries(activePayrollTitlesForPeriod(atual,closingPeriodKey).map(t=>[t.id,Number(t.version||0)])),
+        },
+      }));
+      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a reabertura.");
+      setClosingModal("");setReopenReason("");
+      showToast("Quinzena reaberta. Os títulos em aberto foram cancelados.");
+    }catch(error){showToast(error?.message||"Não foi possível reabrir a quinzena.","error");}
+    finally{setSavingClosing(false);}
   };
 
   // Linhas consolidadas: uma combinacao unica de funcionario + obra. Este e
@@ -855,6 +910,20 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         <p>Abra cada funcionário abaixo para conferir a composição. Gerar o relatório não registra um pagamento.</p>
         {pendenciasRelatorio.length>0&&<Btn v="ghost" onClick={()=>onTab?.("ponto_geral")}>Abrir gestão do ponto</Btn>}
       </section>
+      <section className="payroll-checklist payroll-closing" aria-label="Fechamento da quinzena">
+        {closedTitles.length?<>
+          <h3>Quinzena fechada</h3>
+          <p>{closedTitles.length} pagamento(s) · {fmt(closedTotal)} · vencimento {fmtDateFull(closedTitles[0].vencimento)} · fechada por {closedTitles[0].fechadoFolhaPor||"—"} em {fmtDate(String(closedTitles[0].fechadoFolhaEm||"").slice(0,10))}.</p>
+          <p>Os pagamentos estão em contas a pagar e são baixados pela conciliação do extrato.</p>
+          {closingDivergences.length>0&&<p role="alert" style={{color:C.red}}><Ic n="alert"/> O ponto mudou depois do fechamento para {closingDivergences.length} funcionário(s). Reabra a quinzena para refazer os pagamentos.</p>}
+          {canManageClosing&&<Btn v="ghost" onClick={()=>setClosingModal("reopen")}>Reabrir quinzena</Btn>}
+        </>:<>
+          <h3>Fechamento da quinzena</h3>
+          <p>Fechar transforma o líquido de cada funcionário em um pagamento a fazer, dividido por obra, com vencimento em {paymentDateLabel}.</p>
+          {closingBlockers.map(reason=><p key={reason} style={{color:C.red}}><Ic n="alert"/> {reason}</p>)}
+          {canManageClosing&&<Btn v="primary" disabled={closingBlockers.length>0||!rows.some(r=>r.net>0)} onClick={()=>setClosingModal("close")}><Ic n="check"/> Fechar quinzena</Btn>}
+        </>}
+      </section>
       <div className="payroll-list-heading">
         <div><h3>Funcionários da quinzena</h3><p>Abra uma linha para conferir composição, obras e espelho diário.</p></div>
         <span>{rows.length} registro(s)</span>
@@ -999,6 +1068,31 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
               <Btn v="primary" onClick={() => { setRelatorioPendente(""); onTab?.("ponto_geral"); }}>Corrigir ponto</Btn>
               <Btn v="ghost" onClick={() => { setRelatorioPendente(""); onTab?.("equipe"); }}>Preencher PIX / cadastro</Btn>
               <Btn v="warning" onClick={continuarComPendencias}>Gerar com pendências</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {closingModal==="close"&&(
+        <Modal title={`Fechar ${periodLabel}`} onClose={()=>setClosingModal("")}>
+          <div className="payroll-review">
+            <p>Serão criados <b>{rows.filter(r=>r.net>0).length} pagamento(s)</b>, total de <b>{fmt(T.net)}</b>, com vencimento em <b>{paymentDateLabel}</b>.</p>
+            <p>Construtora: {fmt(responsabilidadeFolha.totals.builder)} · Obras por administração: {fmt(responsabilidadeFolha.totals.administrationWorks)}.</p>
+            <p className="payroll-review__help">Depois de fechada, a quinzena só muda reabrindo, com motivo, e só enquanto nenhum pagamento tiver sido conciliado.</p>
+            <div className="payroll-review__actions">
+              <Btn v="primary" disabled={savingClosing} onClick={closeFortnight}><Ic n="check"/>{savingClosing?" Fechando…":" Confirmar fechamento"}</Btn>
+              <Btn v="ghost" onClick={()=>setClosingModal("")}>Cancelar</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {closingModal==="reopen"&&(
+        <Modal title={`Reabrir ${periodLabel}`} onClose={()=>setClosingModal("")}>
+          <div className="payroll-review">
+            <p>Os {closedTitles.length} pagamento(s) em aberto desta quinzena serão cancelados. Feche de novo depois de corrigir o ponto.</p>
+            <Inp label="Motivo da reabertura" value={reopenReason} onChange={setReopenReason}/>
+            <div className="payroll-review__actions">
+              <Btn v="warning" disabled={savingClosing||!reopenReason.trim()} onClick={reopenFortnight}>{savingClosing?"Reabrindo…":"Reabrir quinzena"}</Btn>
+              <Btn v="ghost" onClick={()=>setClosingModal("")}>Cancelar</Btn>
             </div>
           </div>
         </Modal>
