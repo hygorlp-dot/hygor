@@ -1,10 +1,12 @@
 import {useMemo,useState} from "react";
+import {marcellReportHtml} from "../../../reports/marcell-report.js";
 import {Badge,Btn,C,Ic,Inp,Modal,PageHero,Sel,uid} from "../../../LegacyApp";
 import {extrairNotaPatrimonioIA,obterDocumentoPatrimonio,subirDocumentoPatrimonio} from "../../../api";
 import {fornecedorPorDocumento,lerXmlNfe} from "../../compras/nfe-xml";
 import {OPERATIONAL_COMMAND} from "../../sync/operational-commands";
 import {useBreakpoint} from "../../../hooks/useBreakpoint";
 import {isPatrimonyAssetPhotoMime,PATRIMONY_DOCUMENT_MAX_BYTES,PATRIMONY_DOCUMENT_MAX_MB} from "../document-policy";
+import {buildPatrimonyReportHtml} from "../report.js";
 
 const CATEGORIAS=["Informática","Telefonia","Ferramentas","Máquinas","Móveis","Eletroeletrônicos","Veículos","Segurança","Outros"];
 const STATUS=[{v:"ativo",l:"Ativo"},{v:"em_uso",l:"Em uso"},{v:"manutencao",l:"Manutenção"},{v:"extraviado",l:"Extraviado"},{v:"baixado",l:"Baixado"}];
@@ -144,8 +146,23 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
   }catch(e){showToast(e.message,"error");}finally{setBusy(false);}};
   const saveMove=async()=>{setBusy(true);try{const r=await dispatchCommand({type:OPERATIONAL_COMMAND.ASSET_MOVED,idempotencyKey:key("asset-move"),expectedVersion:Number(move?.version||0),payload:{assetId:move.id,location:move.location,custodian:move.custodian,reason:move.reason||""}});if(!r.ok)throw new Error(r.reason||"Falha ao movimentar patrimônio.");showToast("Movimentação patrimonial registrada.");setMove(null);}catch(e){showToast(e.message||"Falha ao movimentar.","error");}finally{setBusy(false);}};
   const saveStatus=async()=>{setBusy(true);try{const r=await dispatchCommand({type:OPERATIONAL_COMMAND.ASSET_STATUS_CHANGED,idempotencyKey:key("asset-status"),expectedVersion:Number(statusEdit?.version||0),payload:{assetId:statusEdit.id,status:statusEdit.nextStatus,reason:statusEdit.reason||""}});if(!r.ok)throw new Error(r.reason||"Falha ao alterar situação.");showToast("Situação patrimonial atualizada.");setStatusEdit(null);}catch(e){showToast(e.message||"Falha ao alterar situação.","error");}finally{setBusy(false);}};
+  const gerarRelatorio=()=>{
+    if(!filtered.length){showToast("Nenhum patrimônio no recorte atual para gerar o relatório.","error");return;}
+    const statusLabel=status==="todos"?"Todos os bens":status==="ativos"?"Bens ativos":(STATUS.find(item=>item.v===status)?.l||status);
+    const filtro="Recorte: "+statusLabel+(search.trim()?' · Busca: "'+search.trim()+'"':"");
+    const html=buildPatrimonyReportHtml({
+      assets:filtered,
+      companyName:data?.config?.companyName||"MARCELL",
+      filterLabel:filtro,
+    });
+    const w=window.open("","_blank");
+    if(!w){showToast("Permita pop-ups para gerar o relatório de patrimônio.","error");return;}
+    w.opener=null;
+    w.document.write(marcellReportHtml(html));
+    w.document.close();
+  };
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-    <PageHero eyebrow="Administração" title="Patrimônio da empresa" description="Bens corporativos da empresa, com nota fiscal, identificação física, localização atual e histórico." stats={[{label:"Bens ativos",value:String(active.length),color:C.green},{label:"Valor de aquisição",value:money(total)},{label:"Com nota/documento",value:String(docs)+"/"+String(active.length),color:docs===active.length?C.green:C.orange}]} actions={<div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setImporting(true)}><Ic n="receipt"/> Importar NF</Btn><Btn onClick={()=>setEditor(vazio())}><Ic n="plus"/> Novo bem</Btn></div>}/>
+    <PageHero eyebrow="Administração" title="Patrimônio da empresa" description="Bens corporativos da empresa, com nota fiscal, identificação física, localização atual e histórico." stats={[{label:"Bens ativos",value:String(active.length),color:C.green},{label:"Valor de aquisição",value:money(total)},{label:"Com nota/documento",value:String(docs)+"/"+String(active.length),color:docs===active.length?C.green:C.orange}]} actions={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="ghost" onClick={gerarRelatorio}><Ic n="fileText"/> Relatório</Btn><Btn v="ghost" onClick={()=>setImporting(true)}><Ic n="receipt"/> Importar NF</Btn><Btn onClick={()=>setEditor(vazio())}><Ic n="plus"/> Novo bem</Btn></div>}/>
     <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}><div style={{flex:"1 1 280px"}}><Inp label="Buscar" value={search} onChange={setSearch} placeholder="Código, bem, série, IMEI, NF ou fornecedor"/></div><div style={{width:180}}><Sel label="Situação" value={status} onChange={setStatus} options={[{v:"ativos",l:"Ativos"},{v:"todos",l:"Todos"}].concat(STATUS)}/></div></div>
     <section style={card}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:8}}>O bem pertence à empresa. Uma obra pode aparecer apenas como localização temporária.</p>
       {!filtered.length?<p style={{padding:20,textAlign:"center",color:C.muted}}>Nenhum patrimônio encontrado.</p>:filtered.map(a=><div key={a.id} style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(220px,1.5fr) minmax(120px,.7fr) minmax(120px,.7fr) auto",gap:10,alignItems:"center",padding:"10px 0",borderTop:"1px solid "+C.line}}>
