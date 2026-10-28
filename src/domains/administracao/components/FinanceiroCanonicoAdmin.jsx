@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Badge, Btn, C, Ic } from "../../../LegacyApp";
 import { consultarSombraFinanceira } from "../../../api";
+import FechamentoFinanceiroAdmin from "./FechamentoFinanceiroAdmin";
 
 const CHECK_LABELS={
   snapshot_writers:"Escritores por snapshot",
@@ -90,6 +91,8 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
         </div>
       </div>
     </div>
+
+    <FechamentoFinanceiroAdmin/>
 
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:8}}>
       {[
