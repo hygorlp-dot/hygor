@@ -1,4 +1,5 @@
 import { createDreCalculations } from "../src/domains/dre/calculations.js";
+import { buildDreMemorial } from "./dre-memorial.js";
 import {
   COMPANY_EXPENSE_CATEGORIES,
   COMPANY_EXPENSE_GROUPS,
@@ -160,6 +161,8 @@ const companyDre = (data,year,month,engine=calculations) => {
       despesa:round(despesa),resultado:round(resultado),margemPct:receita?round(resultado/receita*100):null};
   }).filter(item=>item.receita||item.despesa).sort((a,b)=>b.resultado-a.resultado);
   return Object.fromEntries(Object.entries({
+    memorial:buildDreMemorial(data,base,ym),
+    memorialRates:{deducaoISS:Number(cfg.aliquotaISS||0),deducaoPIS:Number(cfg.aliquotaPIS||0),deducaoCOFINS:Number(cfg.aliquotaCOFINS||0),provisaoIR:Number(cfg.aliquotaIR||0),provisaoCSLL:Number(cfg.aliquotaCSLL||0)},
     ym,faturamentoObras,receitaLocacoes,receitaCorporativa,faturamentoTotal,recebidoObras,descontoLocacoes,deducoesTributarias,
     deducaoISS,deducaoPIS,deducaoCOFINS,totalDeducoes,receitaLiquida,
     laborTotal,benefTotal,tercTotal,rescTotal,outrasDiretas,repasseEquipamentosTerceiros,manutencaoLocacoes,custoLocacoes,totalCSP,lucroBruto,margemBruta,

@@ -2,3 +2,26 @@
 @media(max-width:700px){.annual-dre{--annual-label-width:170px;padding:14px}.annual-dre__summary{grid-template-columns:1fr}.annual-dre__summary>div{padding:10px 0}.annual-dre__summary strong{font-size:var(--arcd-type-section-title)}.annual-dre__tools{justify-content:start}.annual-dre__editor{grid-template-columns:1fr}.annual-dre__editor nav{max-height:180px;border-right:0;border-bottom:1px solid #d9dee2}.annual-dre__dialog{padding:16px}.annual-dre__scroll{max-height:65vh}}
 
 @media(max-width:360px){.annual-dre{--annual-label-width:120px}}
+
+.annual-dre__dialog{margin:auto;overflow:auto}
+.dre-memorial__source{margin-block:24px}
+.dre-memorial__source h4{display:flex;justify-content:space-between;gap:16px;font-size:var(--arcd-type-body);padding-bottom:12px;border-bottom:1px solid var(--arcd-border-default)}
+.dre-memorial__source h4 span,.dre-memorial__entry strong{font-variant-numeric:tabular-nums;white-space:nowrap}
+.dre-memorial__entry{border-bottom:1px solid var(--arcd-border-default)}
+.dre-memorial__entry summary{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 4px;cursor:pointer;font-size:var(--arcd-type-body)}
+.dre-memorial__entry summary::before{content:"+";flex-shrink:0}
+.dre-memorial__entry[open] summary::before{content:"−"}
+.dre-memorial__entry summary>span{flex:1;min-width:0;overflow-wrap:anywhere}
+.dre-memorial__entry summary:hover{background:var(--arcd-surface-muted)}
+.dre-memorial__entry summary:focus-visible,.dre-memorial a:focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:2px}
+.dre-memorial__entry small{display:block;margin-top:4px;font-size:var(--arcd-type-caption);color:var(--arcd-text-secondary)}
+.dre-memorial__body{padding:0 8px 20px;overflow-wrap:anywhere}
+.dre-memorial__fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-block:12px;font-size:var(--arcd-type-body)}
+.dre-memorial__fields dt{color:var(--arcd-text-secondary);font-size:var(--arcd-type-caption)}
+.dre-memorial__fields dd{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.dre-memorial__fields dd button{display:block;margin-top:8px}
+.dre-memorial__fields .dre-memorial__fields{grid-template-columns:1fr;border-inline-start:1px solid var(--arcd-border-default);padding-inline-start:12px}
+.dre-memorial h5{font-size:var(--arcd-type-body);margin:24px 0 12px}
+.dre-memorial a{color:var(--arcd-action-primary);text-decoration:underline;text-underline-offset:3px}
+.dre-memorial ol{padding-inline-start:20px}
+@media(max-width:700px){.dre-memorial__fields{grid-template-columns:1fr}.dre-memorial__entry summary{align-items:flex-start;flex-wrap:wrap;min-height:44px}.dre-memorial__body{padding-inline:0}}
