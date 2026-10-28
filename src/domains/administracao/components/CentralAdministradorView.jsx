@@ -20,6 +20,7 @@ import {
 import { chamarIA } from "../../../api";
 import BasesPrecoAdmin from "./BasesPrecoAdmin";
 import NucleoRelacionalAdmin from "./NucleoRelacionalAdmin";
+import FinanceiroCanonicoAdmin from "./FinanceiroCanonicoAdmin";
 
 export default function CentralAdministrador({data,update,showToast,currentUser}){
   const {cols}=useBreakpoint();
@@ -71,11 +72,12 @@ export default function CentralAdministrador({data,update,showToast,currentUser}
       {id:"usuarios",label:"Usuários e permissões",description:"Confira o perfil e o escopo do operador antes de conceder acesso."},
       {id:"aprovacoes",label:"Aprovações",description:"Acompanhe as decisões que aguardam autorização."},
       {id:"auditoria",label:"Auditoria e resumo por IA",description:"Consulte quem alterou cada registro e sua origem."},
-    ]} tools={[{id:"bases",label:"Bases de preço"},{id:"nucleo",label:"Núcleo relacional"}]} toolsLabel="Referências e ferramentas técnicas"/>
+    ]} tools={[{id:"bases",label:"Bases de preço"},{id:"nucleo",label:"Núcleo relacional"},{id:"financeiro",label:"Motor financeiro"}]} toolsLabel="Referências e ferramentas técnicas"/>
     {secao==="usuarios"?<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:14}}><div style={{background:`${C.yellow}0B`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"9px 11px",marginBottom:12,fontSize:"var(--arcd-type-label)",color:C.muted}}>Nesta tela o administrador pode criar operadores, editar perfil e e-mail, restringir por obra, escolher telas individualmente, definir limite comercial, ativar/inativar, trocar PIN, ativar login por e-mail e redefinir senha.</div><GestaoUsuarios data={data} update={update} showToast={showToast} currentUser={currentUser}/></div>
     :secao==="aprovacoes"?<GestaoAprovacoes data={data} update={update} showToast={showToast} currentUser={currentUser}/>
     :secao==="bases"?<BasesPrecoAdmin currentUser={currentUser} data={data} update={update}/>
     :secao==="nucleo"?<NucleoRelacionalAdmin currentUser={currentUser}/>
+    :secao==="financeiro"?<FinanceiroCanonicoAdmin currentUser={currentUser}/>
     :<>
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:12}}><div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:7}}><Sel label="Usuário" value={usuario} onChange={setUsuario} options={[{v:"todos",l:"Todos os usuários"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/><Sel label="Obra" value={obra} onChange={setObra} options={[{v:"todas",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Tipo de evento" value={tipo} onChange={setTipo} options={[{v:"todos",l:"Todos os tipos"},...tipos.map(t=>({v:t,l:t}))]}/><Inp label="Desde" type="date" value={inicio} onChange={setInicio}/><Inp label="Até" type="date" value={fim} onChange={setFim}/><Inp label="Pesquisar" value={busca} onChange={setBusca} placeholder="Ação, usuário ou obra"/></div><div style={{display:"flex",gap:7,marginTop:10,flexWrap:"wrap"}}><Btn onClick={gerarResumo} disabled={analisando}><Ic n="ia"/> {analisando?"Analisando...":"Gerar resumo por IA"}</Btn><Btn v="ghost" onClick={exportar}><Ic n="download"/> Exportar auditoria</Btn><span style={{fontSize:"var(--arcd-type-label)",color:C.muted,alignSelf:"center"}}>{filtrados.length} registro(s) encontrados</span></div></div>
       {resumoIA&&<div style={{background:`${C.purple}08`,border:`1px solid ${C.purple}44`,borderLeft:`1px solid ${C.purple}`,borderRadius:10,padding:14}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><b style={{fontSize:"var(--arcd-type-label)",color:C.purple}}>RESUMO EXECUTIVO POR IA</b><Btn size="sm" v="ghost" onClick={()=>navigator.clipboard.writeText(resumoIA)}>Copiar</Btn></div><div style={{whiteSpace:"pre-wrap",fontSize:"var(--arcd-type-label)",lineHeight:1.65,color:C.text,marginTop:8}}>{resumoIA}</div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:8}}>Resumo de apoio gerencial. Confirme decisões sensíveis nos registros detalhados abaixo.</p></div>}
