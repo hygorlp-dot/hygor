@@ -139,6 +139,16 @@ describe("FIN 9.6 — fatos operacionais respeitam competência fechada",()=>{
     }))).rejects.toThrow(/Período contábil fechado/i);
   },30000);
 
+  test("movimento bancário de julho também não pode ser removido do snapshot após fechamento",async()=>{
+    const company="closed-bank-remove";
+    const original=snapshot({bankTransactions:[bank("b1","2026-07-15",100)]});
+    await sync(company,original);
+    await close(company);
+
+    await expect(sync(company,snapshot({bankTransactions:[]})))
+      .rejects.toThrow(/Período contábil fechado/i);
+  },30000);
+
   test("alterações fora da competência fechada continuam permitidas",async()=>{
     const company="closed-open-period";
     await sync(company,snapshot({facts:[fact("d1","2026-08-03",100)]}));
