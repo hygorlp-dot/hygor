@@ -42,6 +42,8 @@ import { usePurchaseSave } from "../use-purchase-save";
 import { PurchaseNavigation, PurchaseWorkspace, PURCHASE_AREA_LABELS } from "./PurchaseWorkspace";
 import { PurchasesByWork, motivoSemControle } from "./PurchasesByWork";
 import { buildPurchasesByWork } from "../by-work";
+import { painelAdocaoCompras } from "../adoption";
+import { AdoptionPanel } from "./AdoptionPanel";
 import { Button } from "../../../design-system/primitives/Button";
 import { Select } from "../../../design-system/primitives/Select";
 import { conferenciaPagamentoPedido } from "../payment-conference";
@@ -882,6 +884,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const mapaCompras=useMemo(()=>mapaGerencialCompras(data,obraIdsMapa,today()),[
     data.pedidos,data.solicitacoesCompra,data.cotacoes,data.fornecedores,obraAtual,
     obraIdsMapa
+  ]);
+  // A0.1: só calcula quando a vista "Uso" está aberta.
+  const adocao=useMemo(()=>vistaPainel==="uso"?painelAdocaoCompras(data,obraIdsMapa,today()):null,[
+    vistaPainel,data.pedidos,data.solicitacoesCompra,data.cotacoes,data.notasFiscais,data.caixaObra,data.obras,obraIdsMapa
   ]);
   const pedidosMapa=useMemo(()=>(data.pedidos||[])
     .filter(p=>obraIdsMapa.includes(p.obraId)&&p.status!=="cancelado")
@@ -1986,11 +1992,12 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           <div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD,letterSpacing:.8,textTransform:"uppercase"}}>Comando de suprimentos</p><h3 style={{fontSize:"var(--arcd-type-section-title)",fontWeight:600,marginTop:3}}>Mapa gerencial de Compras</h3><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3,maxWidth:680,lineHeight:1.5}}>Visão do compromisso até a entrega: demanda, concorrência, fornecedor, pagamento, estoque e risco de abastecimento.</p></div>
           {!obraIdFixo&&<div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>{[["empresa","Empresa"],["obra","Obra selecionada"]].map(([v,l])=><button key={v} onClick={()=>setEscopoMapa(v)} style={{border:0,borderRadius:6,padding:"7px 10px",background:escopoMapa===v?C.card:"transparent",color:escopoMapa===v?C.text:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",boxShadow:escopoMapa===v?"0 1px 4px rgba(0,0,0,.08)":"none"}}>{l}</button>)}</div>}
         </section>
-        {/* R5: "Resumo" responde o que fazer agora; "Análises" guarda o retrato gerencial. Nenhuma ação destrutiva aqui. */}
+        {/* R5: "Resumo" responde o que fazer agora; "Análises" guarda o retrato gerencial; A0.1: "Uso da equipe" mede a adoção. Nenhuma ação destrutiva aqui. */}
         <div className="purchase-panel-views" role="tablist" aria-label="Vistas do painel de compras">
-          {[["resumo","Resumo"],["analises","Análises"]].map(([id,label])=><button key={id} type="button" role="tab" aria-selected={vistaPainel===id} onClick={()=>setVistaPainel(id)}>{label}</button>)}
+          {[["resumo","Resumo"],["analises","Análises"],["uso","Uso da equipe"]].map(([id,label])=><button key={id} type="button" role="tab" aria-selected={vistaPainel===id} onClick={()=>setVistaPainel(id)}>{label}</button>)}
         </div>
-        {vistaPainel==="resumo"?<>
+        {vistaPainel==="uso"&&adocao?<AdoptionPanel model={adocao} nomeObra={id=>(data.obras||[]).find(o=>o.id===id)?.name||"Obra"}/>
+        :vistaPainel==="resumo"?<>
         <section style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:7}}>
           {[
             ["Comprometido",fmt(mapaCompras.totalComprometido),`A faturar ${fmt(mapaCompras.totalAFaturar)}`,C.text],

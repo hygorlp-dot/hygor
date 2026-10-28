@@ -1,0 +1,33 @@
+/* A0.1 Painel de adoção de Compras. Só tokens do design system (DESIGN.md), sem cores literais. */
+.purchase-adoption{display:flex;flex-direction:column;gap:10px;min-width:0}
+.purchase-adoption__tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.purchase-adoption__tiles>div{display:flex;flex-direction:column;gap:3px;padding:14px 16px;border:1px solid var(--purchase-line);border-radius:var(--arcd-radius-lg);background:var(--purchase-paper);min-width:0}
+.purchase-adoption__tiles span{color:var(--purchase-muted);font-size:var(--arcd-type-caption);font-weight:600}
+.purchase-adoption__tiles b{font-size:var(--arcd-type-section-title);color:var(--purchase-ink);font-variant-numeric:tabular-nums}
+.purchase-adoption__tiles small{color:var(--purchase-muted);font-size:var(--arcd-type-caption);line-height:1.4}
+.purchase-adoption__tiles>div[data-tone=warning] b{color:var(--arcd-color-warning)}
+.purchase-adoption__tiles>div[data-tone=ok] b{color:var(--arcd-color-success)}
+
+.purchase-adoption__card{border:1px solid var(--purchase-line);border-radius:var(--arcd-radius-lg);background:var(--purchase-paper);min-width:0;overflow:hidden}
+.purchase-adoption__card>header{padding:14px 16px 10px}
+.purchase-adoption__card h4{margin:0;font-size:var(--arcd-type-card-title);color:var(--purchase-ink)}
+.purchase-adoption__card header p{margin:4px 0 0;color:var(--purchase-muted);font-size:var(--arcd-type-caption);line-height:1.5}
+.purchase-adoption__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+
+.purchase-adoption__table{width:100%;border-collapse:collapse;font-size:var(--arcd-type-caption);color:var(--purchase-ink)}
+.purchase-adoption__table thead th{height:auto;padding:8px 10px;background:var(--arcd-color-surface-muted);border-block:1px solid var(--purchase-line);color:var(--purchase-muted);font-weight:600;white-space:nowrap;text-align:left}
+.purchase-adoption__table th:first-child{position:sticky;left:0;z-index:1}
+.purchase-adoption__table tbody th{height:auto;padding:9px 10px;background:var(--purchase-paper);text-align:left;font-weight:600;white-space:nowrap;border-bottom:1px solid var(--arcd-border-subtle)}
+.purchase-adoption__table td{padding:9px 10px;border-bottom:1px solid var(--arcd-border-subtle)}
+.purchase-adoption__table .purchase-num{text-align:right;font-variant-numeric:tabular-nums}
+.purchase-adoption__table td[data-zero]{color:var(--purchase-muted)}
+
+.purchase-adoption__list{list-style:none;margin:0;padding:0}
+.purchase-adoption__list li{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 16px;border-top:1px solid var(--arcd-border-subtle);font-size:var(--arcd-type-label)}
+.purchase-adoption__list li>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.purchase-adoption__list small{color:var(--purchase-muted);font-size:var(--arcd-type-caption);line-height:1.4}
+.purchase-adoption__list li>span{flex:0 0 auto;color:var(--purchase-muted);font-size:var(--arcd-type-caption);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.purchase-adoption__list li[data-empty] b{color:var(--purchase-muted)}
+.purchase-adoption__empty{margin:0;padding:10px 16px 14px;color:var(--purchase-muted);font-size:var(--arcd-type-caption)}
+
+@media(max-width:900px){.purchase-adoption__tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.purchase-adoption__grid{grid-template-columns:minmax(0,1fr)}}

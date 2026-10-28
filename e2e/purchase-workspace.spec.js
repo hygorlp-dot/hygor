@@ -568,3 +568,29 @@ test("painel separa Resumo de Análises, sem ação destrutiva, e cada exceção
   await expect(page.locator(".purchase-order-count")).toContainText("1 de 1 pedido(s)");
   expect(app.errors).toEqual([]);
 });
+
+for(const width of [390,1280])test(`painel 'Uso da equipe' conta lançamentos, autores e compra fora do fluxo em ${width}px (A0.1)`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  const app=await enter(page,{prepare:state=>{
+    state.pedidos[0].criadoPor="Compradora QA";
+    state.pedidos[0].itens[0].recebimentos=[{id:"r1",data:"2026-10-22",qtd:4,responsavel:"Almoxarife QA",responsavelId:"alm",registradoEm:"2026-10-22T14:00:00Z"}];
+    state.notasFiscais=[{id:"nf-solta",obraId:"b",numero:"901",emissao:"2026-10-21",vencimento:"2026-11-21",valorBruto:640,status:"recebida",criadoPor:"Compradora QA"}];
+  }});
+  const tools=page.locator("details.purchase-tools");
+  await tools.locator("summary").click();await tools.getByRole("button",{name:"Mapa gerencial",exact:true}).click();
+  const painel=page.locator(".compras-management-map");
+  await painel.getByRole("tab",{name:"Uso da equipe"}).click();
+  const uso=painel.locator(".purchase-adoption");
+  // 1 solicitação datada, 1 cotação, 2 pedidos (o rascunho não conta), 1 recebimento; a nota sem pedido não é lançamento do fluxo.
+  await expect(uso.locator(".purchase-adoption__tiles > div").first().locator("b")).toHaveText("5");
+  await expect(uso.getByRole("row",{name:/^Pedidos/})).toContainText("2");
+  await expect(uso.getByRole("row",{name:/^Recebimentos/})).toContainText("1");
+  await expect(uso.getByText("Almoxarife QA")).toBeVisible();
+  await expect(uso.getByRole("region",{name:"Lançamentos por semana: tabela"})).toBeVisible();
+  const fora=uso.locator("section",{has:page.getByRole("heading",{name:"Compras fora do fluxo"})});
+  await expect(fora).toContainText("NF 901");
+  await expect(fora).toContainText("Residencial Horizonte");
+  await expect(fora).toContainText("R$ 640,00");
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  expect(app.errors).toEqual([]);
+});
