@@ -193,6 +193,8 @@ export const consultarCNPJReceita = cnpj => chamarRotaAutenticada("/api/cnpj", {
 export const employeeDocumentsRequest = payload => chamarRotaAutenticada('/api/upload',{...payload,folder:'rh'});
 export const buscarResumoDiario = () => chamarRotaAutenticada("/api/ai-agent", { action:"daily-brief" });
 export const executarComandoFinanceiro = command => chamar({ action:"financial-command", ...credenciais(), command });
+export const consultarPreviaFechamentoFinanceiro = ({startsOn,endsOn}) =>
+  chamar({ action:"financial-closing-preview", ...credenciais(), startsOn, endsOn });
 export const gerarLinkAceitePedido = orderId => chamar({ action:"pedido-aceite-link", ...credenciais(), orderId });
 export const executarComandoOperacional = command => chamar({ action:"operational-command", ...credenciais(), command });
 export const executarComandoConciliacao = command => chamar({ action:"reconciliation-command", ...credenciais(), command });

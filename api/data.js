@@ -51,7 +51,7 @@ import { executeReconciliationWithRetry } from "../server/reconciliation-executi
 import { projectReconciliationPatch } from "../server/reconciliation-response.js";
 import { cashAllocations } from "../src/domains/conciliacao/cash-allocations.js";
 import { buildIntegratedDreManagement, canonicalDreEvents, loadCanonicalDre, validateNativeDreCommand } from "../server/financial-dre-integration.js";
-import { monthlyClosingPeriodFromCommand, prepareMonthlyFinancialClosing } from "../server/financial-closing.js";
+import { monthlyClosingPeriodFromCommand, prepareMonthlyFinancialClosing, previewMonthlyFinancialClosing } from "../server/financial-closing.js";
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
@@ -2025,6 +2025,92 @@ export default async function handler(req, res) {
       await publishProject();
       await db.from("client_portal_audit_events").insert({company_id:COMPANY,portal_user_id:portalUser.id,project_id:obraId,event_type:"access_provisioned",metadata:{actorId:usuario.id,profile}});
       return res.status(200).json({ok:true,accesses:await listAccess(),portalUrl:`/cliente/obra/${encodeURIComponent(obraId)}`});
+    }
+
+    // Prévia do fechamento: mesma semântica do fechamento autoritativo,
+    // porém sem RPC e sem qualquer escrita. A confirmação sempre recalcula
+    // a fotografia dentro da transação; o navegador nunca fecha a partir
+    // dos números retornados por esta consulta.
+    if(action==="financial-closing-preview"){
+      if(usuario.role!=="admin"||usuario.obraId){
+        return res.status(403).json({error:"A prévia de fechamento exige administrador sem restrição de obra."});
+      }
+      const command={
+        type:"CLOSE_ACCOUNTING_PERIOD",
+        payload:{
+          startsOn:String(req.body?.startsOn||""),
+          endsOn:String(req.body?.endsOn||""),
+        },
+      };
+      const period=monthlyClosingPeriodFromCommand(command);
+      if(!period.ok)return res.status(400).json({error:period.error});
+
+      // Competência já encerrada deve ser consultável pela fotografia histórica
+      // mesmo que o razão vivo de meses posteriores tenha pendências novas.
+      const stored=previewMonthlyFinancialClosing({
+        data:atual,command,actor:usuario,requireCanonicalDre:true,
+      });
+      if(stored?.ok&&stored.alreadyClosed){
+        return res.status(200).json({
+          ok:true,source:"closed_snapshot",engineEnforced:FINANCIAL_ENGINE_ENFORCE,
+          period:stored.period,closing:stored.closing,conference:stored.conference,
+          alreadyClosed:true,
+          sourceRevision:stored.closing?.snapshot?.canonicalDre?.sourceRevision||"",
+          canonicalRevision:stored.closing?.snapshot?.canonicalDre?.canonicalRevision||"",
+          projectionVersion:stored.closing?.snapshot?.canonicalDre?.projectionVersion||"",
+        });
+      }
+
+      const canonical=await loadCanonicalDre(db,COMPANY);
+      if(canonical.issues.length){
+        return res.status(409).json({
+          error:"Existem títulos canônicos sem classificação suficiente para fechar o DRE.",
+          canonicalIssues:canonical.issues,
+        });
+      }
+      const [year,monthNumber]=period.competencia.split("-").map(Number);
+      const dreRow=buildRequestedDreProjectionRows(atual,[{
+        year,month:monthNumber-1,period:"mes",scope:"company_dre",
+      }],canonical.events)[0];
+      if(!dreRow?.payload){
+        return res.status(409).json({error:"Não foi possível materializar o DRE canônico da competência."});
+      }
+      const canonicalDreSnapshot={
+        sourceId:dreRow.sourceId,
+        canonicalRevision:canonical.revision,
+        sourceRevision:dreSourceRevision({
+          updatedAt,rowVersions,rowVersionsPontoObra,
+        }),
+        projectionVersion:DRE_PROJECTION_VERSION,
+        payload:dreRow.payload,
+      };
+      const preview=previewMonthlyFinancialClosing({
+        data:atual,
+        command,
+        actor:usuario,
+        supplementalEvents:canonical.events,
+        canonicalDreSnapshot,
+        requireCanonicalDre:true,
+        now:new Date().toISOString(),
+      });
+      if(!preview?.ok){
+        return res.status(409).json({
+          error:preview?.error||"A competência não pode ser fechada.",
+          ...(preview?.conference?{conference:preview.conference}:{}),
+        });
+      }
+      return res.status(200).json({
+        ok:true,
+        source:"canonical_ledger",
+        engineEnforced:FINANCIAL_ENGINE_ENFORCE,
+        period:preview.period,
+        closing:preview.closing,
+        conference:preview.conference,
+        alreadyClosed:!!preview.alreadyClosed,
+        sourceRevision:canonicalDreSnapshot.sourceRevision,
+        canonicalRevision:canonical.revision,
+        projectionVersion:DRE_PROJECTION_VERSION,
+      });
     }
 
     // Motor Financeiro Canônico: o navegador envia somente o comando. A RPC

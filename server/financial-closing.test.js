@@ -2,6 +2,7 @@ import {describe,expect,it} from "vitest";
 import {
   monthlyClosingPeriodFromCommand,
   prepareMonthlyFinancialClosing,
+  previewMonthlyFinancialClosing,
 } from "./financial-closing.js";
 
 const command=(key="close-2026-07-abcdef")=>({
@@ -87,6 +88,51 @@ describe("FIN 9.6 — fechamento mensal auditável",()=>{
     });
     expect(result).toMatchObject({ok:false});
     expect(result.error).toMatch(/projeção canônica do DRE é obrigatória/i);
+  });
+
+  it("prévia usa a mesma conferência sem mutar o dataset",()=>{
+    const data={
+      medicoes:[{
+        id:"m1",obraId:"o1",competencia:"2026-07",valorPrevisto:500,
+        dataEmissao:"2026-07-05",
+      }],
+      fechamentosFinanceiros:[],
+    };
+    const before=structuredClone(data);
+    const preview=previewMonthlyFinancialClosing({
+      data,command:command(),actor:{id:"admin"},
+      canonicalDreSnapshot:{
+        sourceId:"2026-07:mes:company_dre",
+        canonicalRevision:"rev-1",sourceRevision:"src-1",
+        projectionVersion:"v1",payload:{lucroLiquido:500},
+      },
+      requireCanonicalDre:true,
+      now:"2026-08-01T08:00:00.000Z",
+    });
+
+    expect(preview).toMatchObject({
+      ok:true,alreadyClosed:false,
+      period:{competencia:"2026-07"},
+      closing:{
+        status:"fechado",
+        snapshot:{revenueCents:50000,canonicalDre:{canonicalRevision:"rev-1"}},
+      },
+    });
+    expect(data).toEqual(before);
+    expect(data.fechamentosFinanceiros).toHaveLength(0);
+  });
+
+  it("prévia de competência já fechada devolve o registro existente sem recriar",()=>{
+    const existing={
+      id:"fechamento-2026-07",competencia:"2026-07",status:"fechado",
+      fechadoEm:"2026-08-01T07:00:00.000Z",snapshot:{resultCents:123},
+      conference:{checks:[{code:"ok",ok:true}]},
+    };
+    const preview=previewMonthlyFinancialClosing({
+      data:{fechamentosFinanceiros:[existing]},
+      command:command(),actor:{id:"admin"},requireCanonicalDre:true,
+    });
+    expect(preview).toMatchObject({ok:true,alreadyClosed:true,closing:existing});
   });
 
   it("mesma chave é idempotente e chave diferente não duplica a competência",()=>{
