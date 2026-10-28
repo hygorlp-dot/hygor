@@ -92,6 +92,8 @@ describe("gate FIN-003 de persistência",()=>{
       dreDivergences:[],
       procurementDreDivergences:[],
       missingLegacyLinks:[],
+      legacyHashesVerified:true,
+      staleLegacyLinks:[],
       openQualityCases:[],
     });
     expect(ready.ready).toBe(true);
@@ -107,6 +109,8 @@ describe("gate FIN-003 de persistência",()=>{
       dreDivergences:[{sourceId:"2026-10"}],
       procurementDreDivergences:[{orderId:"p-1"}],
       missingLegacyLinks:[{legacyType:"pedido",legacyId:"p-1"}],
+      legacyHashesVerified:true,
+      staleLegacyLinks:[],
       openQualityCases:[{id:"dq-1",category:"financial_shadow_divergence"}],
     });
     expect(blocked.ready).toBe(false);
@@ -118,6 +122,28 @@ describe("gate FIN-003 de persistência",()=>{
       "legacy_links",
       "quality_cases",
     ]);
+  });
+
+  it("bloqueia FIN-003 quando os hashes legados não foram verificados",()=>{
+    const blocked=financialActivationEvidenceGate({
+      factsCount:3,shadowRun:{id:"run-1"},
+      legacyHashesVerified:false,
+    });
+    expect(blocked.ready).toBe(false);
+    expect(blocked.blockers).toContain("legacy_hashes");
+    expect(blocked.checks.find(check=>check.code==="legacy_hashes")?.detail)
+      .toMatch(/ainda não foram verificados/i);
+  });
+
+  it("bloqueia FIN-003 quando um legacy_record_link possui hash antigo",()=>{
+    const blocked=financialActivationEvidenceGate({
+      factsCount:3,shadowRun:{id:"run-1"},
+      legacyHashesVerified:true,
+      staleLegacyLinks:[{legacyType:"pedido",legacyId:"p-1"}],
+    });
+    expect(blocked.ready).toBe(false);
+    expect(blocked.blockers).toContain("legacy_hashes");
+    expect(blocked.checks.find(check=>check.code==="legacy_hashes")).toMatchObject({ok:false});
   });
 
   it("bloqueia ativação sem fatos mesmo que as listas de divergência estejam vazias",()=>{
