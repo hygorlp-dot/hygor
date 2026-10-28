@@ -6,7 +6,7 @@
 // captura). A obra que recebe cada intervalo de trabalho é a APROPRIADA,
 // tratada fora da ARP, com auditoria - nunca alterando a marcação fiscal.
 // Aparelho, servidor e Postgres reais (PGlite, migrations 016 + 017 + 018).
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { enviarPendentes, sincronizarCadastro } from "./sincronizacao.js";
 import { identificar, vetorDoCadastro } from "./rosto.js";
 import { DADOS_BASE, JPEG, criarAparelho, criarServidor } from "./cenario.test-helper.js";
@@ -39,6 +39,7 @@ beforeEach(async () => {
   await s.admin("ponto-responsavel-pin", { userId: "u-enc", pin: "2468", obras: ["obra-b"] });
   await sincronizar(A); await sincronizar(B);
 });
+afterEach(async () => { await s?.pg.close(); s = null; A = null; B = null; });
 
 describe("funcionário é global da empresa", () => {
   it("todo aparelho recebe todos os ativos: lotado na A aparece no B, lotado na X aparece no A, desligado não aparece", async () => {
