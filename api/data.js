@@ -2369,6 +2369,7 @@ export default async function handler(req, res) {
         path.join(process.cwd(),"migrations","20261023144434_api_reconciliation_integrity.up.sql"),
         path.join(process.cwd(),"migrations","008_skip_dre_snapshot_sync_on_write.up.sql"),
         path.join(process.cwd(),"migrations","20261023154632_dre_cash_allocations.up.sql"),
+        path.join(process.cwd(),"migrations","022_closed_period_legacy_source_guard.up.sql"),
       ];
       if(migrationPaths.some(file=>!fs.existsSync(file)))return res.status(500).json({error:"As migrations financeiras versionadas não foram incluídas no deploy."});
       const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
