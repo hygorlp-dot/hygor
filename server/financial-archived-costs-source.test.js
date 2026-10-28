@@ -3,7 +3,7 @@ import {rebuildArchivedLaborCosts} from "./financial-archived-costs-source.js";
 
 describe("FIN 9.6 — custos arquivados vêm dos arquivos imutáveis",()=>{
   const data={
-    config:{laborCharges:{diaria:10}},
+    config:{laborCharges:{diaristaPercent:10}},
     quinzenasArquivadas:{
       "2026-07-Q1":{inicio:"2026-07-01",fim:"2026-07-15"},
     },
@@ -28,8 +28,21 @@ describe("FIN 9.6 — custos arquivados vêm dos arquivos imutáveis",()=>{
     expect(result.rebuilt).toBe(1);
     expect(result.data.archivedLaborCosts["2026-07-Q1"])
       .not.toEqual(data.archivedLaborCosts["2026-07-Q1"]);
-    expect(result.data.archivedLaborCosts["2026-07-Q1"]?.byDate?.["2026-07-10"]?.o1?.laborCost)
-      .toBeGreaterThan(0);
+    expect(result.data.archivedLaborCosts["2026-07-Q1"]?.byDate?.["2026-07-10"]?.o1)
+      .toMatchObject({laborCost:110,benefitCost:10});
+  });
+
+  it("recalcula o mesmo arquivo quando a configuração de encargos muda",()=>{
+    const semEncargo=rebuildArchivedLaborCosts({
+      data:{...data,config:{laborCharges:{diaristaPercent:0}}},
+      archiveRows:rows,
+    });
+    const comEncargo=rebuildArchivedLaborCosts({
+      data:{...data,config:{laborCharges:{diaristaPercent:20}}},
+      archiveRows:rows,
+    });
+    expect(semEncargo.data.archivedLaborCosts["2026-07-Q1"].byDate["2026-07-10"].o1.laborCost).toBe(100);
+    expect(comEncargo.data.archivedLaborCosts["2026-07-Q1"].byDate["2026-07-10"].o1.laborCost).toBe(120);
   });
 
   it("informa arquivo ausente em vez de confiar no cache",()=>{
