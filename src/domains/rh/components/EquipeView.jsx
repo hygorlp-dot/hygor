@@ -401,6 +401,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
           ["arquivado","Arquivados",lifecycleCounts.arquivado||0],
           ["todos","Todas as situações",(data.employees||[]).length],
         ].map(([value,label,count])=><button key={value} type="button" className={`team-summary__item${statusFilter===value?" is-active":""}`} onClick={()=>setStatusFilter(value)} aria-pressed={statusFilter===value}><span>{label}</span><strong>{count}</strong></button>)}
+        <button type="button" className={`team-summary__item${filterObra==="__administrativo__"?" is-active":""}`} onClick={()=>{setFilterObra("__administrativo__");setStatusFilter("ativo");}} aria-pressed={filterObra==="__administrativo__"}><span>Administrativo</span><strong>{administrativos}</strong></button>
         <button type="button" className={`team-summary__item${filterObra==="__sem_obra__"?" is-active":""}`} onClick={()=>{setFilterObra("__sem_obra__");setStatusFilter("ativo");}} aria-pressed={filterObra==="__sem_obra__"}><span>Sem lotação</span><strong>{semObra-administrativos}</strong></button>
       </div>
 
