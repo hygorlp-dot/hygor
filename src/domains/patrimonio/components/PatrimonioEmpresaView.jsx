@@ -4,6 +4,7 @@ import {extrairNotaPatrimonioIA,obterDocumentoPatrimonio,subirDocumentoPatrimoni
 import {fornecedorPorDocumento,lerXmlNfe} from "../../compras/nfe-xml";
 import {OPERATIONAL_COMMAND} from "../../sync/operational-commands";
 import {useBreakpoint} from "../../../hooks/useBreakpoint";
+import {PATRIMONY_DOCUMENT_MAX_BYTES,PATRIMONY_DOCUMENT_MAX_MB} from "../document-policy";
 
 const CATEGORIAS=["Informática","Telefonia","Ferramentas","Máquinas","Móveis","Eletroeletrônicos","Veículos","Segurança","Outros"];
 const STATUS=[{v:"ativo",l:"Ativo"},{v:"em_uso",l:"Em uso"},{v:"manutencao",l:"Manutenção"},{v:"extraviado",l:"Extraviado"},{v:"baixado",l:"Baixado"}];
@@ -52,7 +53,7 @@ function ImportInvoice({data,dispatchCommand,showToast,onClose}){
     setFile(f);setProposal(null);if(!f)return;setBusy(true);
     try{
       const ext=String(f.name||"").split(".").pop()?.toLowerCase();
-      if(Number(f.size||0)>4*1024*1024)throw new Error("Documento fiscal acima de 4 MB. Comprima o arquivo antes de importar.");
+      if(Number(f.size||0)>PATRIMONY_DOCUMENT_MAX_BYTES)throw new Error(`Documento fiscal acima de ${PATRIMONY_DOCUMENT_MAX_MB} MB. Comprima o arquivo antes de importar.`);
       let encoded=await dataUrl(f);
       if(ext==="xml")encoded=encoded.replace(/^data:[^;]*;base64,/,"data:application/xml;base64,");
       setRaw(encoded);
@@ -94,7 +95,7 @@ function ImportInvoice({data,dispatchCommand,showToast,onClose}){
     }catch(e){showToast(e.message||"Falha ao gravar patrimônio.","error");}finally{setBusy(false);}
   };
   return <Modal title="Importar NF para patrimônio" onClose={onClose}><div style={{display:"grid",gap:10}}>
-    <div style={{...card,borderStyle:"dashed"}}><b>XML, PDF ou foto da nota fiscal</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>XML é lido diretamente. PDF/foto usa IA e exige revisão antes de salvar.</p><input type="file" accept=".xml,application/xml,text/xml,application/pdf,image/jpeg,image/png,image/webp" onChange={e=>prepare(e.target.files?.[0]||null)} style={{marginTop:10}}/></div>
+    <div style={{...card,borderStyle:"dashed"}}><b>XML, PDF ou foto da nota fiscal</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>XML é lido diretamente. PDF/foto usa IA e exige revisão antes de salvar. Máx. {PATRIMONY_DOCUMENT_MAX_MB} MB por arquivo.</p><input type="file" accept=".xml,application/xml,text/xml,application/pdf,image/jpeg,image/png,image/webp" onChange={e=>prepare(e.target.files?.[0]||null)} style={{marginTop:10}}/></div>
     {busy&&!proposal&&<div style={card}>Lendo documento...</div>}
     {proposal&&<><div style={card}><b>{"NF "+(proposal.invoice?.numero||"—")}</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{(proposal.invoice?.fornecedorNome||"Fornecedor não identificado")+" · "+money(proposal.invoice?.valorBruto)}{fornecedor?" · fornecedor já cadastrado":""}</p>{proposal.source==="ai"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange}}>Leitura por IA: revise antes de gravar.</p>}</div>
     <div style={{display:"grid",gap:7,maxHeight:"44vh",overflowY:"auto"}}>{(proposal.items||[]).map((i,index)=><div key={index} style={{...card,borderColor:i.patrimonial?C.green:C.border}}>
