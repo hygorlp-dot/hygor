@@ -518,8 +518,9 @@ const relatorioSombraFinanceira = async atual => {
   };
 };
 // O ponto arquivado sai do dataset principal, mas seu custo não pode sair do
-// DRE. O resumo abaixo é pequeno, não contém dados pessoais e conserva a
-// competência e a obra de cada lançamento.
+// DRE. O resumo abaixo é compacto: conserva competência/obra/custo e, para
+// CLT mensal, apenas o ID interno necessário ao rateio histórico. CPF, PIX,
+// documentos e demais dados pessoais continuam somente no cadastro/arquivo.
 const anexarCustosArquivados = async payload => {
   const marcadores = payload?.quinzenasArquivadas || {};
   const ids = Object.keys(marcadores);
@@ -535,7 +536,9 @@ const anexarCustosArquivados = async payload => {
     const qid = String(linha.key || "").slice(`${KEY}__arq__`.length);
     // Recalcula sempre a partir da fonte arquivada. Um resumo persistido por
     // versões antigas nunca é tratado como verdade financeira.
-    existentes[qid] = normalizeArchivedCosts(summarizeArchivedCosts(linha.value, payload?.config));
+    existentes[qid] = normalizeArchivedCosts(
+      summarizeArchivedCosts(linha.value,payload?.config,payload?.employees||[])
+    );
   }
   return { ...payload, archivedLaborCosts: existentes };
 };
@@ -3537,12 +3540,24 @@ export default async function handler(req, res) {
 
       // Fotografia dos funcionarios envolvidos: diaria e beneficios DA EPOCA
       // ficam congelados no arquivo, mesmo que o cadastro mude depois.
-      const idsEnvolvidos = new Set(Object.keys(fatia));
+      const idsEnvolvidos = new Set(Object.keys(fatia).map(String));
       const employeesSnapshot = (atual?.employees || [])
-        .filter(e => idsEnvolvidos.has(e.id))
+        .filter(e => idsEnvolvidos.has(String(e.id)))
         .map(e => ({
           id: e.id, name: e.name, role: e.role || "", obra: e.obra || "",
           dailyRate: Number(e.dailyRate || 0),
+          monthlySalary: Number(e.monthlySalary || 0),
+          remunerationMode: e.remunerationMode === "clt" ? "clt" : "daily",
+          remunerationEffectiveFrom: String(e.remunerationEffectiveFrom || ""),
+          remunerationHistory:(e.remunerationHistory||[]).map(item=>({
+            date:String(item?.date||""),
+            mode:item?.mode==="clt"?"clt":"daily",
+          })),
+          obraHistory:(e.obraHistory||[]).map(item=>({
+            date:String(item?.date||""),
+            fromObraId:String(item?.fromObraId||item?.fromId||""),
+            toObraId:String(item?.toObraId||item?.toId||""),
+          })),
           vtDaily: Number(e.vtDaily || 0), vrDaily: Number(e.vrDaily || 0),
           workdayHours: Number(e.workdayHours || 8),
           workStart: String(e.workStart || "07:00"),
@@ -3565,7 +3580,11 @@ export default async function handler(req, res) {
       // Valores são calculados exclusivamente pelo servidor com a fotografia
       // de ponto, lotação, diária e benefícios que acabou de ler do banco.
       const resumoFinanceiro = normalizeArchivedCosts(
-        summarizeArchivedCosts({ attendance: fatia, employeesSnapshot }, atual?.config)
+        summarizeArchivedCosts(
+          { attendance: fatia, employeesSnapshot },
+          atual?.config,
+          atual?.employees||[],
+        )
       );
 
       const novoPrincipal = {
