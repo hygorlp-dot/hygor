@@ -483,7 +483,7 @@ export const fisicoFinanceiroMensal = (tarefas, cal, opts = {}) => {
 
   const linhas = linhasBase.map(t => {
     const custoTarefa = usarReal
-      ? (t.custoReal > 0 ? t.custoReal : (t.custo || 0) * (t.progresso || 0) / 100)
+      ? (t.custoReal > 0 ? t.custoReal : 0)
       : (t.custo || 0);
     // No modo realizado, se houver datas reais, distribui pelo período executado;
     // senão, cai no período planejado (melhor aproximação disponível).
@@ -579,21 +579,28 @@ export const curvaS = (tarefas, cal) => {
 // ==============================================================
 //  FISICO-FINANCEIRO
 //  Por tarefa: % fisico (progresso), custo previsto, custo realizado
-//  (lancado ou estimado por progresso) e o desvio.
+//  (so o lancado) e o desvio.
+//
+//  Ate 28/10/2026 o realizado ausente era estimado como previsto x
+//  progresso. Isso fazia EV = AC e CPI = 1 exatamente quando ninguem
+//  lancava custo: o painel dizia "no custo" sem nenhum dado. Agora tarefa
+//  sem custo lancado fica fora do CPI/previsao e e contada em
+//  semCustoLancado, para a tela dizer isso em vez de inventar.
 // ==============================================================
 export const fisicoFinanceiro = (tarefas) => {
   const linhas = (tarefas || [])
     .filter(t => !t.titulo)
     .map(t => {
       const previsto = t.custo || 0;
-      // Realizado: usa o lancado; se 0, estima pelo avanco fisico.
-      const realizado = t.custoReal > 0 ? t.custoReal : previsto * (t.progresso || 0) / 100;
+      const comCusto = t.custoReal > 0;
+      const realizado = comCusto ? t.custoReal : 0;
       const valorAgregado = previsto * (t.progresso || 0) / 100;  // EV
       return {
         id: t.id, nome: t.nome,
         pctFisico: t.progresso || 0,
-        previsto, realizado, valorAgregado,
-        desvio: valorAgregado - realizado,   // >0 = gastou menos que o avanco (bom)
+        previsto, realizado, valorAgregado, comCusto,
+        // >0 = gastou menos que o avanco (bom). Sem custo lancado: null.
+        desvio: comCusto ? valorAgregado - realizado : null,
       };
     });
   const tot = linhas.reduce((a, l) => ({
@@ -601,18 +608,23 @@ export const fisicoFinanceiro = (tarefas) => {
     realizado: a.realizado + l.realizado,
     valorAgregado: a.valorAgregado + l.valorAgregado,
   }), { previsto: 0, realizado: 0, valorAgregado: 0 });
+  // CPI e previsao usam so as tarefas com custo lancado (EV e AC do mesmo
+  // conjunto); sem nenhuma, ficam null em vez de 1 / "dentro do orcado".
+  const medidas = linhas.filter(l => l.comCusto);
+  const evMedido = medidas.reduce((a, l) => a + l.valorAgregado, 0);
+  const acMedido = medidas.reduce((a, l) => a + l.realizado, 0);
+  const cpi = acMedido && evMedido ? evMedido / acMedido : null;
   return {
     linhas,
     total: {
       ...tot,
-      desvio: tot.valorAgregado - tot.realizado,
+      desvio: medidas.length ? evMedido - acMedido : null,
       pctFisico: tot.previsto ? (tot.valorAgregado / tot.previsto) * 100 : 0,
+      semCustoLancado: linhas.filter(l => !l.comCusto && l.pctFisico > 0).length,
       // Indice de desempenho de custo (CPI): EV / custo real. >1 = eficiente.
-      cpi: tot.realizado ? tot.valorAgregado / tot.realizado : 0,
+      cpi,
       // Previsao de custo final (EAC) = orcado / CPI.
-      previsaoFinal: tot.realizado && tot.valorAgregado
-        ? tot.previsto / (tot.valorAgregado / tot.realizado)
-        : tot.previsto,
+      previsaoFinal: cpi ? tot.previsto / cpi : null,
     },
   };
 };
