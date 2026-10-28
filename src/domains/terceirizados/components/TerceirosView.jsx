@@ -15,7 +15,7 @@ import {
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {
   Badge, Btn, C, CampoCNPJ, Ic, Inp, Modal, PageHero, Sel, TabRow,
-  compLabel, comprimirImagem, fmt, fmtDateFull, fullMonth, today, uid,
+  compLabel, comprimirImagem, fmt, fmtDateFull, today, uid,
 } from "../../../LegacyApp";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { cancelRecord as cancelarRegistro } from "../../data/soft-delete";

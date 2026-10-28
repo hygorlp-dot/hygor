@@ -19,7 +19,7 @@ import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {
   ArcdChartTooltip, Badge, Btn, C, C_ARCD_SETOR, ChartPanel, FornecedorEditorPilot,
   Ic, Inp, LinksDocumentosAuditaveis, Modal, ModalCotacaoWhatsApp, ModalLegendaDocumento,
-  ModoIADocumento, Sel, TabRow, TYPO,
+  ModoIADocumento, Sel, TabRow,
   arquivoComoDataUrl, calcCompras, calcOrcadoComprado, compactNumber, fmt, fmtCompact,
   fmtDate, fornecedoresParaMateriais, guardaPreco, linkWhatsApp, maiusculoOrcamento,
   melhorPrecoHist, mensagemWhatsAppCobranca, mensagemWhatsAppCompra, niveisUmOrcamento,

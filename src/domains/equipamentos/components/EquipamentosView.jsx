@@ -14,7 +14,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {
   Badge, Btn, C, CampoCNPJ, escapeHtml, Ic, Inp, MiniKpi, Modal,
-  MONTHS, PageHero, Sel, TabRow, abrirRelatorioPadrao, diasCorridos, fmt,
+  MONTHS, PageHero, Sel, abrirRelatorioPadrao, diasCorridos, fmt,
   fmtDate, fmtDateFull, maiusculoOrcamento, montarRelatorioPadraoHtml,
   today, uid,
 } from "../../../LegacyApp";

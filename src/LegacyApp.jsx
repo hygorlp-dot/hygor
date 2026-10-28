@@ -3,7 +3,7 @@ import { marcellReportHtml } from "./reports/marcell-report.js";
 import { createPortal } from "react-dom";
 import { BRAND, MARCELL_LOGO } from "./brand/identity.js";
 import { FinancialOverviewMetrics } from "./features/financeiro/FinancialOverviewMetrics.jsx";
-import { Children, lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Children, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import DreReconciliationManager from "./features/financeiro/DreReconciliationManager.jsx";
 import { activeErpModule, moduleForTab, visibleErpModules } from "./navigation/erp-navigation.js";
 import { FlowTabs, WorkflowContext, useWorkflow } from "./features/workflow/WorkflowNavigation.jsx";
@@ -29,14 +29,9 @@ export const lerSinapiEmSegundoPlano = async (...args) => {
 import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaurarSessaoEmail, provisionarContaEmail, definirPinOperador,
          saveDataDetailed, logout as encerrarSessao,
          registrarPresenca, encerrarPresenca, listarPresencas,
-         loadDataWithMeta, adoptServerVersion, subirFoto,
+         loadDataWithMeta, adoptServerVersion,
          conectarOneDrive, statusOneDrive, criarEstruturaOneDrive,
          sincronizarEstruturasOneDrive, criarPastaOneDrive, listarPastaOneDrive, enviarArquivoOneDrive, obterLinkArquivoOneDrive,
-         listarBasesReferencia, iniciarBaseReferencia, enviarLoteReferencia,
-         enviarLoteInsumosReferencia, enviarLoteComponentesReferencia,
-         finalizarBaseReferencia, pesquisarBasesReferencia, pesquisarInsumosReferencia,
-         resolverCodigosReferencia, detalharComposicoesReferencia,
-         removerBaseReferencia,
          arquivarQuinzena, restaurarQuinzena,
          carregarQuinzenaArquivada, chamarIA, verificarStatusIA, configurarGemini,
          removerConfiguracaoIA, consultarCNPJReceita, buscarResumoDiario,
@@ -44,7 +39,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          listarAjustesRanking, adicionarAjusteRanking, removerAjusteRanking,
          consultarSombraFinanceira, prepararSombraFinanceira, sincronizarSombraFinanceira,
          consultarDreCanonico, consultarDreEmpresaCanonico, executarComandoFinanceiro,
-         executarComandoOperacional, executarComandoConciliacao, executarComandoPonto,
+         executarComandoOperacional, executarComandoPonto,
          gerenciarAcessoPortalCliente } from "./api";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
@@ -90,21 +85,14 @@ const LazyDreMargemChart = lazy(() => import("./components/charts/DreMargemChart
 export const LazyRealEstateCommercial = lazy(() => import("./domains/comercial/RealEstateCommercial")
   .then(module => ({ default:module.RealEstateCommercial })));
 import {
-  STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
+  statusPedido, totalPedido, recebidoPedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
-  pedidoLiberadoParaReceber, origemPagamentoLabel, situacaoCaixaObra,
-  historicoPreco, historicoPrecoTodos, analisePreco, mapaGerencialCompras,
+  origemPagamentoLabel, situacaoCaixaObra,
 } from "./domains/compras/calculations";
-import { canManagePurchases } from "./domains/compras/permissions";
 import { calcOrcadoComprado, niveisUmOrcamento } from "./domains/compras/budget-tracking";
 import { mapaDaCotacao } from "./domains/compras/quote-map";
 import { casarItensNota, divergenciasDoItem, fornecedorPorDocumento, lerXmlNfe, sugerirPedidosParaNota } from "./domains/compras/nfe-xml";
 import { entregasAvaliadas, pedidosComItensAtrasados } from "./domains/compras/delivery-schedule";
-import {
-  changePurchaseRequestProject,
-  purchaseRequestSummary,
-  validatePurchaseRequest,
-} from "./domains/compras/purchase-request-workflow";
 import { calculateContractProjection } from "./domains/dre/calculations";
 import {
   COMPANY_EXPENSE_CATEGORIES,
@@ -127,7 +115,7 @@ import {
 import { createFinancialCalculationEngine } from "./domains/financeiro/calculation-engine";
 import { calculateWorkCash as calcCaixaObra } from "./domains/financeiro/work-cash";
 import { pedidoVivo } from "./domains/compras/purchase-position";
-import { notaSemEfeito, saldoPagamentoNota, statusPagamentoNota, totalPagoNota } from "./domains/financeiro/payables";
+import { notaSemEfeito, saldoPagamentoNota, statusPagamentoNota } from "./domains/financeiro/payables";
 import { createExecutiveSummaryEngine } from "./domains/controladoria/executive-summary";
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
 import { criarPollingAdaptativo } from "./domains/sync/polling";
@@ -151,16 +139,13 @@ const OFFLINE_QUEUEABLE_COMMANDS={
   },
 };
 import { projectAlertAction, validateProjectForm } from "./domains/obras/project-validation";
-import { fieldReportCompletion, fieldReportIsReadOnly } from "./domains/obras/field-report-workflow";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
-import { TIPOS_MOV, SINAL_MOV, calcSaldos, saldoDe, baixarPorComposicao, materiaisAbaixoMinimo } from "./domains/estoque/calculations";
-import { STOCK_COMMAND } from "./domains/estoque/commands";
+import { calcSaldos, materiaisAbaixoMinimo } from "./domains/estoque/calculations";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "./domains/ponto/permissions";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
-import { splitPayrollResponsibility } from "./domains/ponto/payroll-responsibility";
-import { allocateUnionDueByWork, calculatePayrollSettlement, calculateUnionDue, normalizeRoleKey, normalizeUnionDuesConfig, summarizeUnionDues, UNION_DUE_GROUP } from "./domains/ponto/union-dues";
+import { normalizeUnionDuesConfig } from "./domains/ponto/union-dues";
 import {
   attStatus,
   buildPermissionEmail,
@@ -192,100 +177,47 @@ import { RESCISSION_TYPE_LABEL } from "./domains/rh/rescission-calculations";
 // RESCISSION_TYPE_LABEL (via TIPO_LABEL, ver abaixo) continua sendo usado
 // aqui, por RelatorioMensal.
 import {
-  conferenceCompletionCheck,
-  conferenceProgress,
-  conferenceQualityScore,
-  filterConferenceFindings,
-} from "./domains/qualidade/conference-workflow";
-import {
   createBillingFromTechnicalMeasurement,
   createMonthlyClosingSnapshot,
 } from "./domains/financeiro/workflows";
-import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, projectBudgetABC, projectBudgetExport, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
-import { auditBudgetDimensions as conferenciaDimensional } from "./domains/orcamentos/dimensional-audit";
-import { BDI_TCU, BDI_COMPONENTES_EDIF, calculateBdi as calcBDI, classifyBdi as situacaoBDI, formatBdiPercent as f2p } from "./domains/orcamentos/bdi";
-import { referenceBaseKey as chaveBaseReferencia, consolidateReferenceBases as consolidarBasesReferencia } from "./domains/orcamentos/reference-bases";
-import { BudgetTextCell as CelulaTexto } from "./domains/orcamentos/BudgetTextCell";
-import { auditBudgetTechnicalScope } from "./domains/orcamentos/technical-audit";
-import { buildBudgetTree as construirArvore, flattenBudgetTree as achatarArvore, budgetSubtreeIds as idsDaSubarvore, budgetStageLevel as nivelDaEtapa, calculateBudgetTree as calcOrcamento } from "./domains/orcamentos/tree";
 const Orcamento = lazy(() => import("./domains/orcamentos/components/OrcamentoView"));
-import { calculateCPM as calculateCanonicalCPM, calculateLineOfBalance, calculatePPC } from "./domains/planejamento";
 const Planejamento = lazy(() => import("./domains/planejamento/components/PlanejamentoView"));
-import { applyProgressToCommitment } from "./domains/producao";
 import { migrateSupplyData } from "./domains/suprimentos/migration";
 import {
   conversionFactorOf,
-  hasValidUnitConversion,
   purchaseUnitOf,
-  referencePricePerPurchaseUnit,
   referenceQuantityOf,
   referenceTotalOf,
   referenceUnitCostOf,
-  suggestedSteelConversion,
 } from "./domains/compras/unit-conversion";
 const Compras = lazy(() => import("./domains/compras/components/ComprasView"));
-import { migrateCommercial } from "./domains/comercial/migrations";
 import { normalizeRealEstateCommercial } from "./domains/comercial/real-estate";
-import { selectCommercialWorkspace } from "./domains/comercial/selectors";
-import { archiveLeadForDeletion, isVisibleLead } from "./domains/comercial/leads";
 import { APP_SCHEMA_VERSION, finalizeNormalizedData } from "./domains/data/record-schema";
-import { cancelRecord as cancelarRegistro } from "./domains/data/soft-delete";
 import {
   digitsOnly as soDigitos,
   formatBrazilianDocument as maskDoc,
-  formatCEP as maskCEP,
-  validateBrazilianDocument as validarDocumento,
 } from "./domains/data/brazilian-documents";
-import { calculateWithholdings as calcRetencoes } from "./domains/terceirizados/withholdings";
 import { linkStageToTask, thirdPartyMeasurementsForProject, thirdPartyProgressByTask } from "./domains/terceirizados/obra-measurements";
 import { resolveMentionsInText, splitMentionText } from "./domains/chat/mentions";
 import { playChatMentionSound, playChatMessageSound } from "./domains/chat/notification-sounds";
 import {
-  THIRD_PARTY_DOCUMENT_TYPES as DOCS_TERC,
-  THIRD_PARTY_SPECIALTIES as SPECIALTIES,
-  THIRD_PARTY_SUGGESTED_STAGES as ETAPAS_SUGERIDAS,
-  thirdPartyDocumentType as docTercInfo,
   thirdPartySpecialty as specInfo,
 } from "./domains/terceirizados/catalog";
-import {
-  daysUntil as diasAte,
-  THIRD_PARTY_KANBAN_COLUMNS as COLS_KANBAN,
-  thirdPartyKanbanColumn as colKanban,
-} from "./domains/terceirizados/workflow";
 import {
   paymentFriday as getFridayOfWeek,
   paymentWeekRange as getWeekRange,
 } from "./domains/terceirizados/payment-week";
-import {
-  isActiveThirdPartyContract,
-  isThirdPartyRecordActive as registroTerceiroAtivo,
-  isVisibleThirdPartyContract,
-} from "./domains/terceirizados/lifecycle";
 const Terceiros = lazy(() => import("./domains/terceirizados/components/TerceirosView"));
-import { uploadWithRetry } from "./domains/documentos/upload-retry";
 const LazyMarcosCurvaASuprimentos = lazy(() => import("./domains/suprimentos/components/MarcosCurvaASuprimentos"));
 import {
-  calcConciliacao,
-  aplicarRecebimentoMedicao, estornarRecebimentosMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
-  paraCentavos, deCentavos, igualCentavos,
-  criarIndicesFinanceiros, transacoesConsumidas,
-  gerarCandidatosConciliacao, faixaDoScore, FAIXA_CONFIANCA,
-  criarRegistroIdentidades, analisarMovimentoConciliacao, resumoQuinzenaConciliacao,
-  vincularPagamentoExistente, registrarPagamentoEConciliar, criarLancamentoPelaTransacao,
-  conciliarMuitosParaMuitos, desfazerConciliacao as desfazerConciliacaoDominio,
-  marcarTransferenciaInterna, marcarEstorno, gerarIdConc,
-  podeVerConciliacao, podeOperarConciliacao, podeOperarConciliacaoTrabalhista, podeDesfazerConciliacao,
-  podeReabrirFechamento, podeArquivarExtrato, podeFecharPeriodo, podeCriarRegra,
-  hashArquivo,
-  mascararDocumento, mascararChavePix,
-  parseOFX,
+  statusRecebimentoMedicao,
 } from "./domains/conciliacao/index.js";
-import { createExactPixLaborCandidate, findRegisteredEmployeePix, hasEmployeePixNameEvidence, isExactPixLaborMatch } from "./domains/conciliacao/pix-card";
+import { hasEmployeePixNameEvidence } from "./domains/conciliacao/pix-card";
 const Conciliacao = lazy(() => import("./features/conciliacao/ConciliacaoView"));
 const MedicoesView = lazy(() => import("./domains/medicoes/components/MedicoesView"));
 const Folha = lazy(() => import("./domains/ponto/components/FolhaView"));
 import {
-  validarPolitica, encontrarPoliticaAplicavel,
+  validarPolitica,
   normalizeApprovalInstances, podeAdministrarPoliticas, podeGerenciarDelegacoes, OPERADORES,
 } from "./domains/aprovacoes/index.js";
 import { arcdApprovalEngine as motorAprovacaoGenerico } from "./domains/aprovacoes/arcd-engine.js";
@@ -11082,11 +11014,8 @@ export const MAX_NIVEL = 5;   // 1.1.1.1.1 - além disso a indentação fica ile
 // Reexportado abaixo para que nada que já importava estes nomes daqui
 // (PlanejamentoView.jsx, testes de caracterização) precise mudar.
 import {
-  orcamentoDaObra, diasCorridos, somaDias, custoEtapa, ordemEtapasOrcamento,
-  montarTarefas, janelaPlano, resumoPlano, progressoPlano, ehDiaUtil, diasUteis,
-  somaDiasUteis, ajustarParaDiaUtil, proximoDiaUtil, sugerirDependenciasPlanejamento,
-  idsSucessoras, montarCronogramaIA, aplicarRollup, fisicoFinanceiroMensal,
-  distribuicaoMensal, curvaS, fisicoFinanceiro, caminhoCritico, compararBaseline,
+  orcamentoDaObra, diasCorridos, somaDias,
+  montarTarefas, janelaPlano, aplicarRollup,
   desvioAutomatico, desvioTarefaAuto, fundirEvolucao,
 } from "./domains/planejamento/legacy-engine.js";
 export * from "./domains/planejamento/legacy-engine.js";

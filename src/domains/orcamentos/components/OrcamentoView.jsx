@@ -33,8 +33,7 @@ import {
   Bar, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "../../../components/charts/LazyRecharts";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import { PageHeader, SummaryCard, ConfirmDialog } from "../../../design-system/patterns";
-import { Checkbox as DesignSystemCheckbox } from "../../../design-system/primitives/Checkbox.jsx";
+import { PageHeader, ConfirmDialog } from "../../../design-system/patterns";
 import {
   Badge, Btn, C, Ic, Inp, Modal, Sel,
   XLSX, carregarXLSX, jsonDaRespostaIA, obraContextoSalvo,

@@ -16,9 +16,9 @@ import {
 } from "../../../LegacyApp";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import {
-  getAtt, getDays, getHolidayPayRule, getPayrollHolidays,
+  getAtt, getHolidayPayRule, getPayrollHolidays,
   getPayrollPaymentCalendar, getQ, isEmployeeEmployedOnDate,
-  prIsWeekdayIso, prUniqueDates, toLocalISODate,
+  prIsWeekdayIso, prUniqueDates,
 } from "../attendance-engine";
 import { calculateAttendanceDayCost } from "../payroll";
 import { resolveHistoricalEmployeeObraId, resolveHolidayObraId } from "../permissions";

@@ -20,7 +20,7 @@ import {
   curvaS, custoEtapa, desvioAutomatico, diasCorridos, diasUteis,
   distribuicaoMensal, ehDiaUtil, fisicoFinanceiro, fisicoFinanceiroMensal,
   fmt, fmtCompact, fmtDate, fmtDateFull, fmtMesAno, fundirEvolucao,
-  idsSucessoras, janelaPlano, maiusculoOrcamento, montarCronogramaIA,
+  idsSucessoras, janelaPlano, montarCronogramaIA,
   montarTarefas, monthName, obraContextoSalvo, ordemEtapasOrcamento,
   progressoPlano, proximoDiaUtil, resumoPlano, somaDias, somaDiasUteis,
   sugerirDependenciasPlanejamento, today, uid,
