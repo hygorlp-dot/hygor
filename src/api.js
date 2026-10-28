@@ -11,6 +11,7 @@
 
 import { criarRegistroDeTempos, lerServerTiming } from "./domains/sync/call-timing.js";
 import { buildSectionDelta } from "./domains/sync/section-delta.js";
+import { ONEDRIVE_DIRECT_UPLOAD_MAX_BYTES, ONEDRIVE_UPLOAD_CHUNK_BYTES } from "./onedrive-upload-policy.js";
 
 const ROTA = "/api/data";
 
@@ -573,4 +574,50 @@ export const sincronizarEstruturasOneDrive = obras => chamarOneDrive("sync-works
 export const criarPastaOneDrive = payload => chamarOneDrive("create-folder", payload);
 export const listarPastaOneDrive = payload => chamarOneDrive("list-folder", payload);
 export const enviarArquivoOneDrive = payload => chamarOneDrive("upload", payload);
+
+const blobDataUrl=blob=>new Promise((resolve,reject)=>{
+  const reader=new FileReader();
+  reader.onload=()=>resolve(String(reader.result||""));
+  reader.onerror=()=>reject(new Error("Não foi possível ler o arquivo."));
+  reader.readAsDataURL(blob);
+});
+
+export const enviarArquivoOneDriveEmPartes=async({file,...payload})=>{
+  if(!file||typeof file.size!=="number")return{ok:false,error:"Arquivo inválido."};
+
+  // Arquivos pequenos continuam no caminho simples. Para os maiores, usamos
+  // sessão resumível e fragmentos que cabem no teto de payload da Vercel.
+  if(file.size<=ONEDRIVE_DIRECT_UPLOAD_MAX_BYTES){
+    const dataUrl=await blobDataUrl(file);
+    return chamarOneDrive("upload",{...payload,dataUrl,fileName:file.name});
+  }
+
+  const inicio=await chamarOneDrive("upload-start",{
+    ...payload,fileName:file.name,fileSize:file.size,mime:file.type||"application/octet-stream",
+  });
+  if(!inicio.ok)return inicio;
+
+  let uploadToken=inicio.uploadToken;
+  let offset=Number(inicio.nextStart||0);
+  while(offset<file.size){
+    const end=Math.min(offset+ONEDRIVE_UPLOAD_CHUNK_BYTES,file.size);
+    const dataUrl=await blobDataUrl(file.slice(offset,end));
+    const comma=dataUrl.indexOf(",");
+    const dataBase64=comma>=0?dataUrl.slice(comma+1):"";
+    if(!dataBase64)return{ok:false,error:"Não foi possível preparar um fragmento do arquivo."};
+
+    const parte=await chamarOneDrive("upload-chunk",{
+      obraName:payload.obraName,driveId:payload.driveId,
+      uploadToken,start:offset,total:file.size,dataBase64,
+    });
+    if(!parte.ok)return parte;
+    if(parte.complete)return{...parte,workspace:parte.workspace||inicio.workspace};
+
+    uploadToken=parte.uploadToken;
+    const proximo=Number(parte.nextStart);
+    offset=Number.isFinite(proximo)&&proximo>offset?proximo:end;
+  }
+  return{ok:false,error:"O OneDrive não confirmou a conclusão do upload."};
+};
+
 export const obterLinkArquivoOneDrive = payload => chamarOneDrive("file-link", payload);
