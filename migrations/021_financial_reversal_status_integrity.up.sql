@@ -100,7 +100,9 @@ begin
     p_company_id,p_actor_id,p_command
   );
 
-  if v_type = 'REVERSE_SETTLEMENT' and v_reversed_title_id is not null then
+  if v_type = 'REVERSE_SETTLEMENT'
+     and v_reversed_title_id is not null
+     and not coalesce((v_response->>'idempotent')::boolean,false) then
     update public.financial_titles title
        set status = case
          when title.status in ('cancelled','reversed') then title.status
