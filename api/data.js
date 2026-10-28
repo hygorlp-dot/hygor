@@ -610,6 +610,7 @@ const lerBasePonto = async () => {
 // gravada por "ponto-tempo-verificar" (rotina agendada ou admin).
 const tratarAcaoPonto = criarTratadorPonto({
   db, company: COMPANY, lerDados: lerBasePonto,
+  lerDadosPainel: async () => (await lerLinha()).payload || {},
   verificarHoraNtp: () => verificarHora({ enviarUdp: enviarUdpComDgram(dgram) }),
   autenticarUsuario: body => authenticateAppUser(
     { userId: body.userId, pin: body.pin, accessToken: body.accessToken }, { scope: "ponto-eletronico" }),

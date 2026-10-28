@@ -44,6 +44,8 @@ export default defineConfig({
       testMatch: /purchase-workspace\.spec\.js/,
       use: { browserName:"chromium", viewport:{width:1440,height:1000} },
     },
+    { name: "equipe-obras-desktop", testMatch: /equipe-obras\.spec\.js/, use: { browserName: "chromium", viewport: { width: 1440, height: 1000 } } },
+    { name: "equipe-obras-mobile", testMatch: /equipe-obras\.spec\.js/, use: { browserName: "chromium", viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
     mobileProject("mobile-320x568", 320, 568),
     mobileProject("mobile-360x800", 360, 800),
     mobileProject("mobile-390x844", 390, 844),

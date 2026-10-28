@@ -111,6 +111,7 @@ export function camadaSupabase(pg) {
       catch (error) { return { data: null, error }; }
     },
     storage: { from: () => ({
+      async createSignedUrls(caminhos) { return { data: caminhos.map(path => ({ path, signedUrl: arquivos.has(path) ? `https://assinado/${path}` : null, error: arquivos.has(path) ? null : "not found" })), error: null }; },
       async upload(caminho, buffer) { if (arquivos.has(caminho)) return { error: { message: "The resource already exists" } }; arquivos.set(caminho, buffer); return { error: null }; },
       async createSignedUrl(caminho) { return arquivos.has(caminho) ? { data: { signedUrl: `https://assinado/${caminho}` }, error: null } : { data: null, error: { message: "not found" } }; },
       async remove(caminhos) { caminhos.forEach(c => arquivos.delete(c)); return { error: null }; },

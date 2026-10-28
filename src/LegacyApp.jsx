@@ -77,6 +77,7 @@ const ImportarDoREP = lazy(() => import("./domains/ponto-eletronico/components/I
 const Estoque = lazy(() => import("./domains/estoque/components/EstoqueView.jsx"));
 const Licenciamento = lazy(() => import("./domains/licenciamento/components/LicenciamentoView.jsx"));
 const Conferencia = lazy(() => import("./domains/qualidade/components/ConferenciaView.jsx"));
+const EquipeObras = lazy(() => import("./domains/ponto-eletronico/components/EquipeObrasView.jsx"));
 const PontoEletronico = lazy(() => import("./domains/ponto-eletronico/components/PontoEletronicoView.jsx"));
 // Onda 4 do raio-X (item 12, 26/08/2026): cada tela de gráfico vira seu
 // próprio chunk lazy - Recharts+d3 só entram no bundle quando a tela
@@ -10196,7 +10197,7 @@ const ACCESS_SECTORS=[
     ["equip_fin","Locação de equipamentos"],["medicoes","Medições financeiras"],["caixa","Caixa da obra"],["relat","Relatórios"],
   ]},
   {id:"rh",label:"Recursos Humanos",color:"#0F766E",tabs:[
-    ["equipe","Equipes"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["ponto_app","Ponto eletrônico (app)"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["rh_indic","Indicadores"],["conc","Conciliação da folha"],
+    ["equipe","Equipes"],["equipe_obras","Equipe nas Obras"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["ponto_app","Ponto eletrônico (app)"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["rh_indic","Indicadores"],["conc","Conciliação da folha"],
   ]},
   {id:"comercial",label:"Comercial",color:"#2E7D32",tabs:[
     ["com_workspace","Comercial da empresa"],["com_real_estate","Venda de imóveis"],["com_pipeline","Pipeline"],["com_relationships","Relacionamentos"],["com_deals","Propostas e contratos"],["com_management","Gestão comercial"],
@@ -17005,6 +17006,7 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
 
 // Os módulos compartilham os mesmos destinos e permissões da aplicação.
 const TAB_META_BASE = {
+  equipe_obras: { label: "Equipe nas Obras", icon: "users" },
   admin_central:{ label:"Central do administrador", icon:"shield" },
   aprov_pend:{ label:"Minhas aprovações", icon:"check" },
   home:   { label: "Dashboard",  icon: "home"   },
@@ -18394,6 +18396,7 @@ export default function App() {
           {tab === "equipe" && <Suspense fallback={<div className="arcd-page-loading">Carregando equipe...</div>}><EquipeView data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={setTab} /></Suspense>}
           {tab === "terc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando terceiros...</div>}><Terceiros data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} onTab={setTab}/>}
+          {tab === "equipe_obras" && <EquipeObras key={currentUser?.id} onTab={setTab} allowedTabs={allowedTabs}/>}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser}/>}
           {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
