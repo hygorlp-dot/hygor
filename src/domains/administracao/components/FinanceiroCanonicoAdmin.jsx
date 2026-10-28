@@ -141,6 +141,15 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
       </div>
     </div>
 
+    {!!relatorio?.bankDivergences?.length&&<div style={{...card,borderColor:C.red+"44"}}>
+      <b style={{fontSize:"var(--arcd-type-label)",color:C.red}}>Divergências no extrato bancário legado</b>
+      <div style={{marginTop:7,display:"grid",gap:4}}>
+        {relatorio.bankDivergences.slice(0,20).map((item,index)=><p key={index} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>
+          {item.code||"divergência"} · <code>{item.legacyId||"sem id"}</code>{item.fields?.length?` · ${item.fields.join(", ")}`:""}
+        </p>)}
+        {relatorio.bankDivergences.length>20&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>+ {relatorio.bankDivergences.length-20} divergência(s) omitida(s) nesta visualização.</p>}
+      </div>
+    </div>}
     {!!relatorio?.staleLegacyLinks?.length&&<div style={{...card,borderColor:C.red+"44"}}>
       <b style={{fontSize:"var(--arcd-type-label)",color:C.red}}>Vínculos legados com fotografia desatualizada</b>
       <div style={{marginTop:7,display:"grid",gap:4}}>
