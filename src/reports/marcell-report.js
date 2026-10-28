@@ -2,6 +2,15 @@ import { MARCELL_LOGO } from "../brand/identity.js";
 import regularFont from "./assets/NimbusSans-Regular.woff2?inline";
 import boldFont from "./assets/NimbusSans-Bold.woff2?inline";
 
+// Atualiza apenas a assinatura visual dos documentos. Tabelas, scripts,
+// estilos, CNPJ e a configuração persistida continuam intactos.
+function atualizarAssinatura(html) {
+  return html.split(/(<(?:table|script|style)\b[^>]*>[\s\S]*?<\/(?:table|script|style)>)/gi).map((parte, i) => i % 2 ? parte : parte.replace(
+    /<(h[1-6]|p|b|strong|small|span|div|footer)\b([^>]*)>([^<>]*)<\/\1>/gi,
+    (tag, nome, atributos, texto) => `<${nome}${atributos}>${texto.replace(/^(\s*(?:Gerado por\s+|Empresa:\s*)?)ArcD\s+(?:Construtech|Construtora|Obras)(?=\s*(?:$|em\s+\d))/gi, "$1MARCELL")}</${nome}>`,
+  )).join("");
+}
+
 // Presentation only: the existing report remains responsible for its data,
 // totals, columns, paper size, signatures and legal company identification.
 export function marcellReportHtml(html) {
@@ -15,7 +24,7 @@ export function marcellReportHtml(html) {
   const logo = `<img class="mrc-report-logo" src="${MARCELL_LOGO}" alt="MARCELL - Engenharia e construção">`;
   const brand = `<div class="mrc-report-brand">${logo}</div>`;
   let branded = false;
-  let result = html.replace(/<div class="(?:logo|logo-box)">(?:MARCELL|ArcD)<\/div>/g, () => {
+  let result = atualizarAssinatura(html).replace(/<div class="(?:logo|logo-box)">(?:MARCELL|ArcD)<\/div>/g, () => {
     branded = true;
     return brand;
   }).replace(/<img\b[^>]*class="logo"[^>]*>/g, () => {
@@ -57,6 +66,8 @@ body[data-marcell-report] .kpi b{font-size:15px!important;font-weight:600}
 body[data-marcell-report] :is(.footer,.foot,footer){color:#536171!important;font-size:9px!important}
 body[data-marcell-report] .mrc-report-brand{display:flex;align-items:center;break-inside:avoid;margin:0 0 10px;padding:0;background:transparent}
 body[data-marcell-report] .mrc-report-logo{display:block!important;width:108px!important;height:auto!important;max-width:108px!important;max-height:none!important;object-fit:contain!important;padding:0!important;border:0!important}
+body[data-marcell-report] .mrc-report-watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:65%;max-width:420px;opacity:.045;pointer-events:none;z-index:0;line-height:0}
+body[data-marcell-report] .mrc-report-watermark img{display:block;width:100%;height:auto;object-fit:contain}
 body[data-marcell-report][data-marcell-format="dense"] :is(td,th){font-size:8px!important;padding:4px 3px;white-space:normal;overflow-wrap:normal}
 body[data-marcell-report][data-marcell-format="dense"] td.r{white-space:nowrap}
 body[data-marcell-report][data-marcell-format="a2"] :is(td,th){font-size:6.6pt!important;line-height:normal;white-space:nowrap}
@@ -67,10 +78,11 @@ body[data-marcell-report][data-marcell-format="wide"] :is(td.num,td.n){white-spa
 @media screen{body[data-marcell-report]{max-width:1400px;margin-inline:auto}body[data-marcell-report] button{font-size:12px!important;font-weight:400!important;background:#0d1b2e!important;color:white!important;border:1px solid #0d1b2e;padding:9px 14px;border-radius:4px}body[data-marcell-report] :is(td,th){overflow-wrap:break-word}}
 </style>`;
   result = result.replace(/<\/head>/i, `${css}</head>`);
-  result = result.replace(/<body\b([^>]*)>/i, `<body$1 data-marcell-report="true" data-marcell-format="${format}">${branded || a2 ? "" : brand}`);
+  const watermark = `<div class="mrc-report-watermark" aria-hidden="true"><img src="${MARCELL_LOGO}" alt=""></div>`;
+  result = result.replace(/<body\b([^>]*)>/i, `<body$1 data-marcell-report="true" data-marcell-format="${format}">${watermark}${branded || a2 ? "" : brand}`);
   if (a2) result = result.replace(/<section class="page">/g, `<section class="page">${brand}`);
   // Printing from any existing button/automatic path waits for the actual
   // fonts and embedded brand. No totals or report content are recomputed.
-  const readyScript = `<script>(()=>{const original=window.print.bind(window);const ready=Promise.resolve().then(async()=>{if(document.fonts){await Promise.all([document.fonts.load('400 11px "Nimbus Sans"'),document.fonts.load('600 11px "Nimbus Sans"')]);await document.fonts.ready;}await Promise.all([...document.querySelectorAll('.mrc-report-logo')].map(img=>img.decode?img.decode():Promise.resolve()));});ready.catch(()=>{});window.__marcellReportReady=ready;let printing=false;window.print=async()=>{if(printing)return;printing=true;try{await ready;original();}catch{window.alert('Não foi possível carregar a identidade do relatório. Verifique a conexão e reabra o documento antes de imprimir.');}finally{printing=false;}};})();</script>`;
+  const readyScript = `<script>(()=>{const original=window.print.bind(window);const ready=Promise.resolve().then(async()=>{if(document.fonts){await Promise.all([document.fonts.load('400 11px "Nimbus Sans"'),document.fonts.load('600 11px "Nimbus Sans"')]);await document.fonts.ready;}await Promise.all([...document.querySelectorAll('.mrc-report-logo, .mrc-report-watermark img')].map(img=>img.decode?img.decode():Promise.resolve()));});ready.catch(()=>{});window.__marcellReportReady=ready;let printing=false;window.print=async()=>{if(printing)return;printing=true;try{await ready;original();}catch{window.alert('Não foi possível carregar a identidade do relatório. Verifique a conexão e reabra o documento antes de imprimir.');}finally{printing=false;}};})();</script>`;
   return result.replace(/<\/body>/i, `${readyScript}</body>`);
 }

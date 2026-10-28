@@ -19,3 +19,6 @@ skills-lock.json
 .mcp.json
 .env*
 api/*.test.js
+
+# PDFs e imagens locais de conferência visual
+/output/pdf/

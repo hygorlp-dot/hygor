@@ -241,6 +241,8 @@ Formulários preservam os estados de erro, foco, desabilitado e somente leitura.
 
 ## Relatórios e PDFs
 
+Os PDFs usam o monograma MRC oficial como marca d’água fixa, centralizada, com opacidade de 4,5%, repetida em todas as páginas. As assinaturas visuais legadas “ArcD Construtech”, “ArcD Obras” e “ArcD Construtora” passam a MARCELL apenas na apresentação dos cabeçalhos e assinaturas; tabelas, observações livres, CNPJ e configurações persistidas permanecem intactos.
+
 As saídas de impressão usam `src/reports/marcell-report.js`: logo oficial e fontes Nimbus Sans incorporadas no HTML, sem conexão externa para carregar a identidade. Corpo compacto de 11 px, títulos de 18/13/11,5 px, dados de tabela de 10 px e cabeçalhos de 9 px; azul-marinho, linhas discretas e fundo azul suave no cabeçalho. Totais mantêm peso 600 e as cores funcionais dos dados permanecem intactas. A impressão aguarda o carregamento das fontes e da logo.
 
 Identificação legal cadastrada, conteúdos, valores, assinaturas e colunas não são recalculados pela camada visual. Cabeçalhos de tabelas repetem nas páginas; totais aparecem ao final. Os formatos A4 existentes são mantidos nas tabelas comuns. Anexos com mais de 12 colunas usam A3 paisagem para evitar cortes e redução excessiva; cronogramas A2 usam dimensões explícitas de 594 × 420 mm, pois o nome A2 não é reconhecido pelo Chromium. A marca se repete em cada folha do cronograma. A validação inclui PDF renderizado, fontes incorporadas, dimensões da página e comparação de células e valores.
