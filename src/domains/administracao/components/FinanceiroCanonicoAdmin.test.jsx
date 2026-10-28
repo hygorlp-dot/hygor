@@ -20,12 +20,16 @@ describe("Central do Administrador — gate FIN 9.6",()=>{
     expect(panel).not.toContain("update_project_env");
   });
 
-  it("mostra os oito critérios que precisam ficar verdes",()=>{
+  it("mostra os critérios do gate e suporta a integridade estrutural",()=>{
     const panel=readFileSync("src/domains/administracao/components/FinanceiroCanonicoAdmin.jsx","utf8");
     for(const code of [
       "snapshot_writers","shadow_has_facts","shadow_run","ledger_divergence",
       "dre_divergence","procurement_dre_divergence","legacy_links","quality_cases",
+      "canonical_integrity",
     ])expect(panel).toContain(code);
-    expect(panel).toContain("8/8 GATES");
+    expect(panel).toContain("passedChecks");
+    expect(panel).toContain("totalChecks");
+    expect(panel).toContain("Erros estruturais");
+    expect(panel).not.toContain("8/8 GATES");
   });
 });
