@@ -10,6 +10,7 @@ const CHECK_LABELS={
   dre_divergence:"DRE legado × canônico",
   procurement_dre_divergence:"Compras × DRE",
   legacy_links:"Vínculos legado → canônico",
+  legacy_hashes:"Hashes legado atualizados",
   quality_cases:"Casos de qualidade financeira",
   canonical_integrity:"Integridade estrutural do razão",
 };
@@ -97,6 +98,7 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
         ["Liquidações ativas",counts.liquidacoes??0,C.green],
         ["Vínculos legado",counts.vinculosLegado??0,C.blue],
         ["Vínculos ausentes",counts.vinculosLegadoAusentes??0,(counts.vinculosLegadoAusentes??0)?C.red:C.green],
+        ["Hashes desatualizados",counts.vinculosLegadoDesatualizados??0,(counts.vinculosLegadoDesatualizados??0)?C.red:C.green],
         ["Divergências",divergencias,divergencias?C.red:C.green],
         ["Casos qualidade abertos",counts.divergenciasAbertas??0,(counts.divergenciasAbertas??0)?C.red:C.green],
         ["Erros estruturais",counts.errosIntegridadeCanonica??0,(counts.errosIntegridadeCanonica??0)?C.red:C.green],
@@ -135,6 +137,16 @@ export default function FinanceiroCanonicoAdmin({currentUser}){
         </div>}
       </div>
     </div>
+
+    {!!relatorio?.staleLegacyLinks?.length&&<div style={{...card,borderColor:C.red+"44"}}>
+      <b style={{fontSize:"var(--arcd-type-label)",color:C.red}}>Vínculos legados com fotografia desatualizada</b>
+      <div style={{marginTop:7,display:"grid",gap:4}}>
+        {relatorio.staleLegacyLinks.slice(0,20).map((item,index)=><p key={index} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>
+          {item.legacyType||"fato"} · <code>{item.legacyId||"sem id"}</code>
+        </p>)}
+        {relatorio.staleLegacyLinks.length>20&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>+ {relatorio.staleLegacyLinks.length-20} vínculo(s) omitido(s) nesta visualização.</p>}
+      </div>
+    </div>}
 
     {!!relatorio?.missingLegacyLinks?.length&&<div style={{...card,borderColor:C.red+"44"}}>
       <b style={{fontSize:"var(--arcd-type-label)",color:C.red}}>Fatos legados sem vínculo canônico</b>
