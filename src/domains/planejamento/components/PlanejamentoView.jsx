@@ -1,3 +1,4 @@
+import { aplicarCustoApropriado, custoApropriadoPorTarefa, totalMaterialAplicado } from "../cost-allocation";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
 // PlanejamentoView — tela de Planejamento extraída de LegacyApp.jsx
@@ -87,9 +88,12 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
   // Motores novos (todos testados isoladamente).
   const distMensal = useMemo(() => distribuicaoMensal(tarefas, cal), [tarefas, cal]);
   const dadosS     = useMemo(() => curvaS(tarefas, cal), [tarefas, cal]);
-  const ff         = useMemo(() => fisicoFinanceiro(tarefas), [tarefas]);
-  const ffMensalPrev = useMemo(() => fisicoFinanceiroMensal(tarefas, cal, { realizado:false }), [tarefas, cal]);
-  const ffMensalReal = useMemo(() => fisicoFinanceiroMensal(tarefas, cal, { realizado:true }), [tarefas, cal]);
+  // Material consumido do estoque em cada tarefa (cost-allocation.js):
+  // informação ao lado do custo lançado, fora do CPI.
+  const tarefasComCusto = useMemo(() => aplicarCustoApropriado(tarefas, custoApropriadoPorTarefa(data.movEstoque, obraId)), [tarefas, data.movEstoque, obraId]);
+  const ff         = useMemo(() => fisicoFinanceiro(tarefasComCusto), [tarefasComCusto]);
+  const ffMensalPrev = useMemo(() => fisicoFinanceiroMensal(tarefasComCusto, cal, { realizado:false }), [tarefasComCusto, cal]);
+  const ffMensalReal = useMemo(() => fisicoFinanceiroMensal(tarefasComCusto, cal, { realizado:true }), [tarefasComCusto, cal]);
   const critico    = useMemo(() => caminhoCritico(tarefas, cal), [tarefas, cal]);
   // A tela histórica continua desenhando o Gantt, mas os indicadores abaixo
   // passam pelo motor puro: a mesma precedência que será usada pela API não
@@ -941,6 +945,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                    sub="valor agregado / previsto" />
           <MiniKpi label="Custo realizado" value={fmt(ff.total.realizado)} cor={C.purple}
                    sub={ff.total.semCustoLancado ? `${ff.total.semCustoLancado} tarefa(s) com avanço e sem custo lançado` : "lançado nas tarefas"} />
+          {totalMaterialAplicado(tarefasComCusto) > 0 && <MiniKpi label="Material aplicado" value={fmt(totalMaterialAplicado(tarefasComCusto))} cor={C.blue}
+                   sub="consumido do estoque nas tarefas" />}
           <MiniKpi label="Previsao de custo final"
                    value={ff.total.previsaoFinal == null ? "Sem custo lançado" : fmt(ff.total.previsaoFinal)}
                    cor={ff.total.previsaoFinal == null ? C.muted : ff.total.previsaoFinal > ff.total.previsto ? C.red : C.green}
@@ -1775,6 +1781,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       {(tarefaModal?.modo === "editar") && (
         <ModalTarefa
           tarefa={tarefaModal.tarefa}
+          materialAplicado={custoApropriadoPorTarefa(data.movEstoque, obraId).get(String(tarefaModal.tarefa?.id))?.material || 0}
           cal={cal}
           tarefas={tarefas}
           onSalvar={(t) => { salvarTarefaEVinculos(t); setTarefaModal(null); }}
@@ -2124,7 +2131,7 @@ function MiniFF({ label, v, c }) {
   );
 }
 // Editor de tarefa: datas, progresso, ou apagar.
-function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose }) {
+function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose, materialAplicado = 0 }) {
   const [ini, setIni] = useState(tarefa.inicio || "");
   const [fim, setFim] = useState(tarefa.fim || "");
   const [iniReal, setIniReal] = useState(tarefa.inicioReal || "");
@@ -2195,6 +2202,7 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose }) {
               <Inp label="Fim real" type="date" value={fimReal} onChange={setFimReal} />
             </div>
             <Inp label="Custo real lançado (R$)" type="number" value={custoReal} onChange={setCustoReal} placeholder={tarefa.custo>0?`previsto ${fmt(tarefa.custo)}`:"0"} />
+            {materialAplicado > 0 && <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, marginTop:4 }}>Material consumido do estoque nesta tarefa: {fmt(materialAplicado)}. O custo real lançado deve incluir também mão de obra e terceiros.</p>}
             {iniReal && fimReal && fim && fimReal>fim && (
               <p style={{ fontSize:"var(--arcd-type-label)", color:C.red }}>O fim real está após o planejado — esta tarefa atrasou.</p>
             )}

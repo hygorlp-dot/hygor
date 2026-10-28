@@ -63,8 +63,43 @@ export const createLaborCostEngine = ({
       item.laborCost += amount + charges;
       item.chargesCost += charges;
     };
+    // CLT com salário mensal no cadastro (decisão do dono, 28/10/2026): o
+    // custo é o salário, não a diária × presença. Cada dia útil do mês (com
+    // feriado) recebe salário ÷ dias úteis do mês e vai para a obra do dia
+    // (a do ponto, ou a lotação); assim o mês fecha no salário e o rateio
+    // entre obras segue os dias apontados. Falta não reduz: o desconto é
+    // tratado no holerite. Sem salário cadastrado, vale a diária como antes.
+    const diasUteisNoMes = new Map();
+    const diasUteisDoMes = date => {
+      const mes = date.slice(0, 7);
+      if (!diasUteisNoMes.has(mes)) {
+        const ultimo = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0)).getUTCDate();
+        let total = 0;
+        for (let dia = 1; dia <= ultimo; dia += 1) if (weekday(`${mes}-${String(dia).padStart(2, "0")}`)) total += 1;
+        diasUteisNoMes.set(mes, total || 1);
+      }
+      return diasUteisNoMes.get(mes);
+    };
+    const salarioMensal = (employee, date) =>
+      remunerationModeOnDate(employee, date) === "clt" ? Math.max(0, Number(employee?.monthlySalary || 0)) : 0;
+
     (data?.employees || []).forEach(employee => {
       days.forEach(date => {
+        const salario = salarioMensal(employee, date);
+        if (salario > 0) {
+          if (!weekday(date) || !employedOnDate(employee, date)) return;
+          const feriado = holidaySet.has(date);
+          const obraId = feriado
+            ? resolveHolidayObraId({ data, employee, holidayIso:date })
+            : resolveEmployeeAttendanceObraId({ data, employee, date });
+          const item = bucket(obraId);
+          addLabor(item, employee, date, salario / diasUteisDoMes(date));
+          if (!feriado) {
+            const record = attendanceForDate(data, employee.id, date);
+            item.benefitCost += calculateAttendanceDayCost({ employee, record, config:data?.config }).benefitCost;
+          }
+          return;
+        }
         if (holidaySet.has(date)) return;
         if (!employedOnDate(employee, date)) return;
         const record = attendanceForDate(data, employee.id, date);
@@ -82,6 +117,7 @@ export const createLaborCostEngine = ({
       // Feriado: paga a obra do último dia trabalhado antes dele.
       holidaysInPeriod.forEach(date => {
         if (!employedOnDate(employee, date)) return;
+        if (salarioMensal(employee, date) > 0) return; // já coberto pelo salário
         const amount = Number(holidayPayRule(data, employee, date, holidays).amount || 0);
         if (!amount) return;
         addLabor(bucket(resolveHolidayObraId({ data, employee, holidayIso:date })), employee, date, amount);

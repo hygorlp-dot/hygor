@@ -17,6 +17,9 @@ export const summarizeArchivedCosts = (archive, config = {}) => {
     const employee = snapshots.get(String(employeeId)) || {};
     for (const [date, raw] of Object.entries(attendance || {})) {
       if (!employedOn(employee, date)) continue;
+      // CLT com salário mensal é custeado pelo salário no motor vivo
+      // (labor-cost-engine), em todos os dias úteis - contar aqui duplicaria.
+      if (remunerationModeOnDate(employee, date) === "clt" && Number(employee.monthlySalary || 0) > 0) continue;
       const record = typeof raw === "string" ? {status: raw} : (raw || {});
       const cost = calculateAttendanceDayCost({employee,record});
       const factor = cost.factor;
