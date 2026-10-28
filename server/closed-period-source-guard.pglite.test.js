@@ -174,6 +174,22 @@ describe("FIN 9.6 — fatos operacionais respeitam competência fechada",()=>{
       .rejects.toThrow(/Período contábil fechado/i);
   },30000);
 
+  test("fato removido antes do fechamento não pode reaparecer depois com o mesmo hash",async()=>{
+    const company="closed-reappear";
+    const original=snapshot({facts:[fact("d1","2026-07-10",100)]});
+    await sync(company,original);
+
+    // Julho ainda está aberto: remover o fato é permitido e cancela a projeção.
+    await sync(company,snapshot({facts:[]}));
+    expect((await db.query(
+      "select status from financial_titles where company_id=$1 and origin_id='d1'",
+      [company],
+    )).rows[0].status).toBe("cancelled");
+
+    await close(company);
+    await expect(sync(company,original)).rejects.toThrow(/Período contábil fechado/i);
+  },30000);
+
   test("obrigação de julho fechada pode ser liquidada em agosto aberto sem reabrir julho",async()=>{
     const company="closed-title-open-settlement";
     const july=snapshot({facts:[fact("d1","2026-07-10",100,[])]});
