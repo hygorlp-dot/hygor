@@ -73,6 +73,7 @@ const LazyLoginBrandPanel = lazy(() => import("./components/login/LoginProjectPa
 const Equipamentos = lazy(() => import("./domains/equipamentos/components/EquipamentosView"));
 const PatrimonioEmpresa = lazy(() => import("./domains/patrimonio/components/PatrimonioEmpresaView"));
 const DiarioObra = lazy(() => import("./domains/obras/components/DiarioObraView.jsx"));
+const ImportarDoREP = lazy(() => import("./domains/ponto-eletronico/components/ImportarDoREP.jsx").then(module => ({ default: module.ImportarDoREP })));
 const Estoque = lazy(() => import("./domains/estoque/components/EstoqueView.jsx"));
 const Licenciamento = lazy(() => import("./domains/licenciamento/components/LicenciamentoView.jsx"));
 const Conferencia = lazy(() => import("./domains/qualidade/components/ConferenciaView.jsx"));
@@ -7488,6 +7489,9 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
         <Inp label="Buscar funcionário" value={busca} onChange={setBusca} placeholder="Nome, cargo ou obra..."/>
       </div>
       <p className="ponto-geral-count">{employees.length} funcionário(s) neste filtro · marcação dia a dia, clicando na célula</p>
+      {!arqMeta&&["admin","rh"].includes(currentUser?.role)&&<Suspense fallback={null}><ImportarDoREP data={data} employees={employees} days={days}
+        getRecord={attendanceFor} canEdit={(obraId,date)=>canEditAttendance(data,obraId,date,currentUser?.id)} obraName={obraName}
+        dispatchAttendanceCommand={dispatchAttendanceCommand} newOperationId={pointOperationId} showToast={showToast}/></Suspense>}
     </div>
 
     {arqMeta ? (
