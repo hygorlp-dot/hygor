@@ -8,6 +8,7 @@
 // desta tela, vieram junto.
 // ===================================================================
 
+import { exigeTarefaNoConsumo, tarefasParaConsumo } from "../task-allocation";
 import { useCallback, useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {
@@ -19,7 +20,16 @@ import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { TIPOS_MOV, SINAL_MOV, calcSaldos, saldoDe, baixarPorComposicao, calcCurvaABC, calcCurvaABCServicos, materiaisAbaixoMinimo } from "../calculations";
 import { STOCK_COMMAND } from "../commands";
 
-function ModalMovimento({ form, setForm, onSave, obras, materiais }) {
+// Tarefa do cronograma onde o material foi aplicado: primeiro as em
+// andamento na semana. Obrigatória quando a obra tem cronograma.
+function CampoTarefa({ data, obraId, dataRef, value, onChange }) {
+  if (!obraId || !exigeTarefaNoConsumo(data, obraId)) return null;
+  const tarefas = tarefasParaConsumo(data, obraId, dataRef);
+  return <Sel label="Tarefa onde foi usado *" value={value || ""} onChange={onChange}
+    options={[{ v:"", l:"Selecione a tarefa..." }, ...tarefas.map(t => ({ v:t.id, l:`${t.emAndamento ? "" : "(fora da semana) "}${t.nome}` }))]}/>;
+}
+
+function ModalMovimento({ form, setForm, onSave, obras, materiais, data }) {
   const { formGrid } = useBreakpoint();
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
   return (
@@ -35,6 +45,9 @@ function ModalMovimento({ form, setForm, onSave, obras, materiais }) {
         <Inp label="Valor unitário (R$)" type="number" value={form.valorUnit} onChange={F("valorUnit")}
              placeholder="0,00"/>
         <Inp label="Data" type="date" value={form.data} onChange={F("data")}/>
+        {form.tipo === "consumo" && <div style={{gridColumn:"1/-1"}}>
+          <CampoTarefa data={data} obraId={form.obraId} dataRef={form.data} value={form.tarefaId} onChange={F("tarefaId")}/>
+        </div>}
         <div style={{gridColumn:"1/-1"}}>
           <Inp label="Observação" value={form.descricao} onChange={F("descricao")}
                placeholder="NF 1234, fornecedor..."/>
@@ -51,13 +64,15 @@ function ModalMovimento({ form, setForm, onSave, obras, materiais }) {
 
 // Executar serviço: mostra EXATAMENTE o que vai sair, e se falta saldo,
 // antes de confirmar. Baixa automática sem prévia é como assinar em branco.
-function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiais, saldos, nomeObra }) {
+function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiais, saldos, nomeObra, data }) {
   const { formGrid } = useBreakpoint();
   const [compId, setCompId] = useState(composicoes[0]?.id || "");
   const [obraId, setObraId] = useState(obraAtual);
   const [qtd,    setQtd]    = useState("");
   const [quando, setQuando] = useState(new Date().toISOString().slice(0,10));
   const [etapa,  setEtapa]  = useState("");
+  const [tarefaId, setTarefaId] = useState("");
+  const faltaTarefa = exigeTarefaNoConsumo(data, obraId) && !tarefaId;
 
   const comp = composicoes.find(c => c.id === compId);
 
@@ -91,6 +106,7 @@ function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiai
                  value={qtd} onChange={setQtd} placeholder="0"/>
             <Inp label="Data" type="date" value={quando} onChange={setQuando}/>
           </div>
+          <CampoTarefa data={data} obraId={obraId} dataRef={quando} value={tarefaId} onChange={setTarefaId}/>
           <Inp label="Etapa / local (opcional)" value={etapa} onChange={setEtapa}
                placeholder="Pavimento térreo, fachada oeste..."/>
 
@@ -128,8 +144,8 @@ function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiai
 
           <div style={{display:"flex",gap:8}}>
             <Btn v="ghost" onClick={onClose} full>Cancelar</Btn>
-            <Btn onClick={()=>onRun(compId, obraId, qtd, quando, etapa)} full
-                 disabled={temFalta || !Number(qtd)}>
+            <Btn onClick={()=>onRun(compId, obraId, qtd, quando, etapa, tarefaId)} full
+                 disabled={temFalta || !Number(qtd) || faltaTarefa}>
               <Ic n="check"/> Baixar do estoque
             </Btn>
           </div>
@@ -310,6 +326,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
         qtd: Number(form.qtd), valorUnit: Number(form.valorUnit || 0),
         data: form.data || new Date().toISOString().slice(0,10),
         descricao: form.descricao || "", etapa: form.etapa || "",
+        tarefaId: form.tipo === "consumo" ? form.tarefaId || "" : "",
       } },
     });
     if (!result?.ok) { showToast(result?.reason || "Não foi possível registrar o movimento.", "error"); return; }
@@ -374,7 +391,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
   };
 
   //  Executar serviço → baixa automática
-  const executarServico = async (compId, obraId, qtdExec, dataExec, etapa) => {
+  const executarServico = async (compId, obraId, qtdExec, dataExec, etapa, tarefaId) => {
     const comp = (data.composicoes||[]).find(c => c.id === compId);
     if (!comp) { showToast("Composição não encontrada.", "error"); return; }
     if (Number(qtdExec) <= 0) { showToast("Informe a quantidade executada.", "error"); return; }
@@ -419,7 +436,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
       type: STOCK_COMMAND.SERVICE_EXECUTION_RECORDED,
       idempotencyKey: `execucao-${comp.id}-${uid()}`,
       actorId: currentUser?.id || "", actorName: currentUser?.nome || "",
-      payload: { compositionId: comp.id, obraId, qtdExecutada: Number(qtdExec), entries },
+      payload: { compositionId: comp.id, obraId, qtdExecutada: Number(qtdExec), entries, tarefaId: tarefaId || "" },
     });
     if (!result?.ok) { showToast(result?.reason || "Não foi possível executar o serviço.", "error"); return; }
     setSrvModal(false);
@@ -702,13 +719,13 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
       {matModal   && <ModalMaterial    form={matModal}  setForm={setMatModal}  onSave={salvarMaterial}
                                  unidades={data.unidades||[]}/>}
       {movModal   && <ModalMovimento   form={movModal}  setForm={setMovModal}  onSave={salvarMov}
-                                       obras={obras} materiais={materiais}/>}
+                                       obras={obras} materiais={materiais} data={data}/>}
       {compModal  && <ModalComposicao  form={compModal} setForm={setCompModal} onSave={salvarComposicao}
                                        materiais={materiais} unidades={data.unidades||[]}/>}
       {srvModal   && <ModalExecutar    onClose={()=>setSrvModal(false)} onRun={executarServico}
                                        composicoes={data.composicoes||[]} obras={obras}
                                        obraAtual={obraAtual} materiais={materiais} saldos={saldos}
-                                       nomeObra={nomeObra}/>}
+                                       nomeObra={nomeObra} data={data}/>}
     </div>
   );
 }
