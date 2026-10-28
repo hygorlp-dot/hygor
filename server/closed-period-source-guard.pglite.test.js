@@ -41,6 +41,17 @@ describe("FIN 9.6 — fatos operacionais respeitam competência fechada",()=>{
 
   afterAll(async()=>{await db?.close();});
 
+  test("wrapper serializa a validação antes de tocar a fotografia canônica",()=>{
+    const sql=fs.readFileSync(path.resolve("migrations","022_closed_period_legacy_source_guard.up.sql"),"utf8");
+    const wrapper=sql.slice(sql.lastIndexOf("create or replace function public.financial_sync_legacy_facts("));
+    const lock=wrapper.indexOf("pg_advisory_xact_lock");
+    const guard=wrapper.indexOf("financial_guard_closed_legacy_snapshot");
+    const delegated=wrapper.indexOf("financial_sync_legacy_facts_before_closed_period_guard");
+    expect(lock).toBeGreaterThan(-1);
+    expect(guard).toBeGreaterThan(lock);
+    expect(delegated).toBeGreaterThan(guard);
+  });
+
   test("migration 022 mantém delimitadores PL/pgSQL completos",()=>{
     const sql=fs.readFileSync(path.resolve("migrations","022_closed_period_legacy_source_guard.up.sql"),"utf8");
     expect(sql).not.toMatch(/\n\$;\n/);
