@@ -33,8 +33,7 @@ import {
   Bar, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "../../../components/charts/LazyRecharts";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import { PageHeader, SummaryCard, ConfirmDialog } from "../../../design-system/patterns";
-import { Checkbox as DesignSystemCheckbox } from "../../../design-system/primitives/Checkbox.jsx";
+import { PageHeader, ConfirmDialog } from "../../../design-system/patterns";
 import {
   Badge, Btn, C, Ic, Inp, Modal, Sel,
   XLSX, carregarXLSX, jsonDaRespostaIA, obraContextoSalvo,
@@ -347,9 +346,6 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const orcamentosParaCopia = todosOrcamentosGlobais || data.orcamentos || [];
   const planosParaCopia = todosPlanosGlobais || data.planos || [];
   const { cols, formGrid, isMobile } = useBreakpoint();
-  // DESIGN.md exige 44px como alvo mínimo de toque no mobile; no desktop (mouse)
-  // os mesmos botões ficam compactos como sempre foram.
-  const alvoToque = isMobile ? 44 : 24;
   const ehAdmin = currentUser?.role === "admin";
   const dataAtualRef = useRef(data);
   const [memorySave, setMemorySave] = useState(null);

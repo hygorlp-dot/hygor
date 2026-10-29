@@ -14,6 +14,7 @@
 import { HASH_INICIAL, METODOS_IDENTIFICACAO, TIPOS_REGISTRO } from "./marcacao.js";
 
 export const FORMATO_EVENTO = 2;
+export const TIPOS_EVENTO_JORNADA = Object.freeze({ entrada: "Entrada", intervalo: "Início de intervalo", retorno: "Retorno do intervalo", saida: "Saída final" });
 export { HASH_INICIAL };
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
@@ -26,7 +27,7 @@ const inteiroOuVazio = v => (numeroOuNulo(v) === null ? "" : String(Math.round(N
 // Campos materiais, em ordem fixa. Mudar a lista = novo formato.
 export function canonicalizarEvento(e) {
   const gps = e?.gps || null;
-  return [
+  const campos = [
     `evento-v${FORMATO_EVENTO}`,
     texto(e?.eventId).toLowerCase(),
     texto(e?.deviceId).toLowerCase(),
@@ -49,7 +50,11 @@ export function canonicalizarEvento(e) {
     gps ? [gps.lat, gps.lng, gps.precisao].map(v => (numeroOuNulo(v) === null ? "" : Number(v).toFixed(6))).join(",") : "",
     texto(e?.fotoSha256).toLowerCase(),
     texto(e?.localPreviousHash).toLowerCase(),
-  ].join("|");
+  ];
+  // Extensão canônica opt-in: eventos antigos continuam byte a byte iguais.
+  // O payload já é armazenado integralmente pela ARP e pelo SQLite.
+  if (e?.versaoJornada === 1) campos.push("jornada-v1", texto(e.tipoEvento));
+  return campos.join("|");
 }
 
 export async function calcularHashLocal(evento, hashFn) {
@@ -61,6 +66,9 @@ export const ehEventoV2 = e => Number(e?.formatVersion) === FORMATO_EVENTO;
 export function validarEvento(e) {
   const erros = [];
   if (!ehEventoV2(e)) erros.push(`formatVersion deve ser ${FORMATO_EVENTO}`);
+  if (e?.versaoJornada !== undefined && e.versaoJornada !== 1) erros.push("versaoJornada inválida");
+  if (e?.tipoEvento !== undefined && (e.versaoJornada !== 1 || !Object.hasOwn(TIPOS_EVENTO_JORNADA, e.tipoEvento))) erros.push("tipoEvento inválido ou sem versão de jornada");
+  if (e?.versaoJornada === 1 && !Object.hasOwn(TIPOS_EVENTO_JORNADA, e.tipoEvento)) erros.push("tipoEvento obrigatório na jornada v1");
   if (e && "nsr" in e) erros.push("evento local não tem NSR (o NSR fiscal é atribuído pela ARP)");
   if (!UUID.test(texto(e?.eventId))) erros.push("eventId deve ser um UUID gerado no aparelho");
   if (!UUID.test(texto(e?.deviceId))) erros.push("deviceId inválido");

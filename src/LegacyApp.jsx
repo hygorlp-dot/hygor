@@ -3,7 +3,7 @@ import { marcellReportHtml } from "./reports/marcell-report.js";
 import { createPortal } from "react-dom";
 import { BRAND, MARCELL_LOGO } from "./brand/identity.js";
 import { FinancialOverviewMetrics } from "./features/financeiro/FinancialOverviewMetrics.jsx";
-import { Children, lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Children, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import DreReconciliationManager from "./features/financeiro/DreReconciliationManager.jsx";
 import { activeErpModule, moduleForTab, visibleErpModules } from "./navigation/erp-navigation.js";
 import { rememberSection, restoreSection } from "./navigation/section-session.js";
@@ -30,14 +30,9 @@ export const lerSinapiEmSegundoPlano = async (...args) => {
 import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaurarSessaoEmail, provisionarContaEmail, definirPinOperador,
          saveDataDetailed, logout as encerrarSessao,
          registrarPresenca, encerrarPresenca, listarPresencas,
-         loadDataWithMeta, adoptServerVersion, subirFoto,
+         loadDataWithMeta, adoptServerVersion,
          conectarOneDrive, statusOneDrive, criarEstruturaOneDrive,
          sincronizarEstruturasOneDrive, criarPastaOneDrive, listarPastaOneDrive, enviarArquivoOneDrive, obterLinkArquivoOneDrive,
-         listarBasesReferencia, iniciarBaseReferencia, enviarLoteReferencia,
-         enviarLoteInsumosReferencia, enviarLoteComponentesReferencia,
-         finalizarBaseReferencia, pesquisarBasesReferencia, pesquisarInsumosReferencia,
-         resolverCodigosReferencia, detalharComposicoesReferencia,
-         removerBaseReferencia,
          arquivarQuinzena, restaurarQuinzena,
          carregarQuinzenaArquivada, chamarIA, verificarStatusIA, configurarGemini,
          removerConfiguracaoIA, consultarCNPJReceita, buscarResumoDiario,
@@ -45,7 +40,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          listarAjustesRanking, adicionarAjusteRanking, removerAjusteRanking,
          consultarSombraFinanceira, prepararSombraFinanceira, sincronizarSombraFinanceira,
          consultarDreCanonico, consultarDreEmpresaCanonico, executarComandoFinanceiro,
-         executarComandoOperacional, executarComandoConciliacao, executarComandoPonto,
+         executarComandoOperacional, executarComandoPonto,
          gerenciarAcessoPortalCliente } from "./api";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
@@ -78,6 +73,8 @@ const ImportarDoREP = lazy(() => import("./domains/ponto-eletronico/components/I
 const Estoque = lazy(() => import("./domains/estoque/components/EstoqueView.jsx"));
 const Licenciamento = lazy(() => import("./domains/licenciamento/components/LicenciamentoView.jsx"));
 const Conferencia = lazy(() => import("./domains/qualidade/components/ConferenciaView.jsx"));
+const EquipeObrasTV = lazy(() => import("./domains/ponto-eletronico/components/EquipeObrasTV.jsx"));
+const EquipeObras = lazy(() => import("./domains/ponto-eletronico/components/EquipeObrasView.jsx"));
 const PontoEletronico = lazy(() => import("./domains/ponto-eletronico/components/PontoEletronicoView.jsx"));
 // Onda 4 do raio-X (item 12, 26/08/2026): cada tela de gráfico vira seu
 // próprio chunk lazy - Recharts+d3 só entram no bundle quando a tela
@@ -92,21 +89,14 @@ const LazyDreMargemChart = lazy(() => import("./components/charts/DreMargemChart
 export const LazyRealEstateCommercial = lazy(() => import("./domains/comercial/RealEstateCommercial")
   .then(module => ({ default:module.RealEstateCommercial })));
 import {
-  STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
+  statusPedido, totalPedido, recebidoPedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
-  pedidoLiberadoParaReceber, origemPagamentoLabel, situacaoCaixaObra,
-  historicoPreco, historicoPrecoTodos, analisePreco, mapaGerencialCompras,
+  origemPagamentoLabel, situacaoCaixaObra,
 } from "./domains/compras/calculations";
-import { canManagePurchases } from "./domains/compras/permissions";
 import { calcOrcadoComprado, niveisUmOrcamento } from "./domains/compras/budget-tracking";
 import { mapaDaCotacao } from "./domains/compras/quote-map";
 import { casarItensNota, divergenciasDoItem, fornecedorPorDocumento, lerXmlNfe, sugerirPedidosParaNota } from "./domains/compras/nfe-xml";
 import { entregasAvaliadas, pedidosComItensAtrasados } from "./domains/compras/delivery-schedule";
-import {
-  changePurchaseRequestProject,
-  purchaseRequestSummary,
-  validatePurchaseRequest,
-} from "./domains/compras/purchase-request-workflow";
 import { calculateContractProjection } from "./domains/dre/calculations";
 import { DEFAULT_WORK_EXPENSE_CATEGORIES, workExpenseCategories } from "./domains/dre/work-expense-categories.js";
 import { suggestClassificationRule } from "./domains/conciliacao/classification-rules.js";
@@ -132,7 +122,7 @@ import {
 import { createFinancialCalculationEngine } from "./domains/financeiro/calculation-engine";
 import { calculateWorkCash as calcCaixaObra } from "./domains/financeiro/work-cash";
 import { pedidoVivo } from "./domains/compras/purchase-position";
-import { notaSemEfeito, saldoPagamentoNota, statusPagamentoNota, totalPagoNota } from "./domains/financeiro/payables";
+import { notaSemEfeito, saldoPagamentoNota, statusPagamentoNota } from "./domains/financeiro/payables";
 import { createExecutiveSummaryEngine } from "./domains/controladoria/executive-summary";
 import { createSaveQueue, SAVE_QUEUE_STATE } from "./domains/sync/save-queue";
 import { criarPollingAdaptativo } from "./domains/sync/polling";
@@ -156,18 +146,15 @@ const OFFLINE_QUEUEABLE_COMMANDS={
   },
 };
 import { projectAlertAction, validateProjectForm } from "./domains/obras/project-validation";
-import { fieldReportCompletion, fieldReportIsReadOnly } from "./domains/obras/field-report-workflow";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
-import { TIPOS_MOV, SINAL_MOV, calcSaldos, saldoDe, baixarPorComposicao, materiaisAbaixoMinimo } from "./domains/estoque/calculations";
-import { STOCK_COMMAND } from "./domains/estoque/commands";
+import { calcSaldos } from "./domains/estoque/calculations";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "./domains/ponto/permissions";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
 import { isServerRejection, rejectedSections } from "./domains/sync/rejected-save";
 import { ATTENDANCE_STATUS_LABEL, isLeaveStatus, isValidAttendanceStatus } from "./domains/ponto/attendance-status";
-import { splitPayrollResponsibility } from "./domains/ponto/payroll-responsibility";
-import { allocateUnionDueByWork, calculatePayrollSettlement, calculateUnionDue, normalizeRoleKey, normalizeUnionDuesConfig, summarizeUnionDues, UNION_DUE_GROUP } from "./domains/ponto/union-dues";
+import { normalizeUnionDuesConfig } from "./domains/ponto/union-dues";
 import {
   attStatus,
   buildPermissionEmail,
@@ -199,103 +186,46 @@ import { RESCISSION_TYPE_LABEL } from "./domains/rh/rescission-calculations";
 // RESCISSION_TYPE_LABEL (via TIPO_LABEL, ver abaixo) continua sendo usado
 // aqui, por RelatorioMensal.
 import {
-  conferenceCompletionCheck,
-  conferenceProgress,
-  conferenceQualityScore,
-  filterConferenceFindings,
-} from "./domains/qualidade/conference-workflow";
-import {
   createBillingFromTechnicalMeasurement,
   createMonthlyClosingSnapshot,
 } from "./domains/financeiro/workflows";
-import { calculateBudget as calcularOrcamentoCanonico, calculateABC as calcularABCCanonica, projectBudgetABC, projectBudgetExport, bdiEfetivo as bdiEfetivoCanonico, getActiveBudgetBaseline, getPlanningBudget, budgetIsImmutable, createBudgetRevision, adoptBudgetBaseline } from "./domains/orcamentos/calculations";
-import { auditBudgetDimensions as conferenciaDimensional } from "./domains/orcamentos/dimensional-audit";
-import { BDI_TCU, BDI_COMPONENTES_EDIF, calculateBdi as calcBDI, classifyBdi as situacaoBDI, formatBdiPercent as f2p } from "./domains/orcamentos/bdi";
-import { referenceBaseKey as chaveBaseReferencia, consolidateReferenceBases as consolidarBasesReferencia } from "./domains/orcamentos/reference-bases";
-import { BudgetTextCell as CelulaTexto } from "./domains/orcamentos/BudgetTextCell";
-import { auditBudgetTechnicalScope } from "./domains/orcamentos/technical-audit";
-import { buildBudgetTree as construirArvore, flattenBudgetTree as achatarArvore, budgetSubtreeIds as idsDaSubarvore, budgetStageLevel as nivelDaEtapa, calculateBudgetTree as calcOrcamento } from "./domains/orcamentos/tree";
 const Orcamento = lazy(() => import("./domains/orcamentos/components/OrcamentoView"));
-import { calculateCPM as calculateCanonicalCPM, calculateLineOfBalance, calculatePPC } from "./domains/planejamento";
 const Planejamento = lazy(() => import("./domains/planejamento/components/PlanejamentoView"));
-import { applyProgressToCommitment } from "./domains/producao";
 import { migrateSupplyData } from "./domains/suprimentos/migration";
 import {
-  conversionFactorOf,
-  hasValidUnitConversion,
-  purchaseUnitOf,
-  referencePricePerPurchaseUnit,
-  referenceQuantityOf,
   referenceTotalOf,
-  referenceUnitCostOf,
-  suggestedSteelConversion,
 } from "./domains/compras/unit-conversion";
 import { montarRecebimento } from "./domains/compras/receipt";
 const Compras = lazy(() => import("./domains/compras/components/ComprasView"));
 // R6: "Chegou" (tela da obra) usa o mesmo modal de recebimento de Compras.
 const ModalRecebimentoCompras = lazy(() => import("./domains/compras/components/ReceiptModal").then(m => ({ default: m.ModalRecebimento })));
-import { migrateCommercial } from "./domains/comercial/migrations";
 import { normalizeRealEstateCommercial } from "./domains/comercial/real-estate";
-import { selectCommercialWorkspace } from "./domains/comercial/selectors";
-import { archiveLeadForDeletion, isVisibleLead } from "./domains/comercial/leads";
 import { APP_SCHEMA_VERSION, finalizeNormalizedData } from "./domains/data/record-schema";
-import { cancelRecord as cancelarRegistro } from "./domains/data/soft-delete";
 import {
   digitsOnly as soDigitos,
   formatBrazilianDocument as maskDoc,
-  formatCEP as maskCEP,
-  validateBrazilianDocument as validarDocumento,
 } from "./domains/data/brazilian-documents";
-import { calculateWithholdings as calcRetencoes } from "./domains/terceirizados/withholdings";
 import { linkStageToTask, thirdPartyMeasurementsForProject, thirdPartyProgressByTask } from "./domains/terceirizados/obra-measurements";
 import { resolveMentionsInText, splitMentionText } from "./domains/chat/mentions";
 import { playChatMentionSound, playChatMessageSound } from "./domains/chat/notification-sounds";
 import {
-  THIRD_PARTY_DOCUMENT_TYPES as DOCS_TERC,
-  THIRD_PARTY_SPECIALTIES as SPECIALTIES,
-  THIRD_PARTY_SUGGESTED_STAGES as ETAPAS_SUGERIDAS,
-  thirdPartyDocumentType as docTercInfo,
   thirdPartySpecialty as specInfo,
 } from "./domains/terceirizados/catalog";
-import {
-  daysUntil as diasAte,
-  THIRD_PARTY_KANBAN_COLUMNS as COLS_KANBAN,
-  thirdPartyKanbanColumn as colKanban,
-} from "./domains/terceirizados/workflow";
 import {
   paymentFriday as getFridayOfWeek,
   paymentWeekRange as getWeekRange,
 } from "./domains/terceirizados/payment-week";
-import {
-  isActiveThirdPartyContract,
-  isThirdPartyRecordActive as registroTerceiroAtivo,
-  isVisibleThirdPartyContract,
-} from "./domains/terceirizados/lifecycle";
 const Terceiros = lazy(() => import("./domains/terceirizados/components/TerceirosView"));
-import { uploadWithRetry } from "./domains/documentos/upload-retry";
 const LazyMarcosCurvaASuprimentos = lazy(() => import("./domains/suprimentos/components/MarcosCurvaASuprimentos"));
 import {
-  calcConciliacao,
-  aplicarRecebimentoMedicao, estornarRecebimentosMedicao, removerRecebimentoMedicao, totalRecebidoMedicao, statusRecebimentoMedicao,
-  paraCentavos, deCentavos, igualCentavos,
-  criarIndicesFinanceiros, transacoesConsumidas,
-  gerarCandidatosConciliacao, faixaDoScore, FAIXA_CONFIANCA,
-  criarRegistroIdentidades, analisarMovimentoConciliacao, resumoQuinzenaConciliacao,
-  vincularPagamentoExistente, registrarPagamentoEConciliar, criarLancamentoPelaTransacao,
-  conciliarMuitosParaMuitos, desfazerConciliacao as desfazerConciliacaoDominio,
-  marcarTransferenciaInterna, marcarEstorno, gerarIdConc,
-  podeVerConciliacao, podeOperarConciliacao, podeOperarConciliacaoTrabalhista, podeDesfazerConciliacao,
-  podeReabrirFechamento, podeArquivarExtrato, podeFecharPeriodo, podeCriarRegra,
-  hashArquivo,
-  mascararDocumento, mascararChavePix,
-  parseOFX,
+  statusRecebimentoMedicao,
 } from "./domains/conciliacao/index.js";
-import { createExactPixLaborCandidate, findRegisteredEmployeePix, hasEmployeePixNameEvidence, isExactPixLaborMatch } from "./domains/conciliacao/pix-card";
+import { hasEmployeePixNameEvidence } from "./domains/conciliacao/pix-card";
 const Conciliacao = lazy(() => import("./features/conciliacao/ConciliacaoView"));
 const MedicoesView = lazy(() => import("./domains/medicoes/components/MedicoesView"));
 const Folha = lazy(() => import("./domains/ponto/components/FolhaView"));
 import {
-  validarPolitica, encontrarPoliticaAplicavel,
+  validarPolitica,
   normalizeApprovalInstances, podeAdministrarPoliticas, podeGerenciarDelegacoes, OPERADORES,
 } from "./domains/aprovacoes/index.js";
 import { arcdApprovalEngine as motorAprovacaoGenerico } from "./domains/aprovacoes/arcd-engine.js";
@@ -400,7 +330,6 @@ export const TYPO = {
   tab:       { fontFamily:"var(--arcd-font-sans)", fontSize:"var(--arcd-type-label)", fontWeight:600, letterSpacing:.08 },
   tabDetail: { fontSize:"var(--arcd-type-caption)", fontWeight:500 },
 };
-const CHART_COLORS = [C.yellow, C.green, C.blue, C.orange, C.purple, C.red, "#06b6d4", "#ec4899"];
 
 // KANBAN - tokens estilo Trello. Colunas estreitas e altas, fundo levemente
 // cinza, cards brancos compactos com sombra fininha. O objetivo é densidade: o
@@ -1165,52 +1094,6 @@ export const progressoChecklist = (check, docs) => {
     pct: aplicaveis.length ? (ok.length / aplicaveis.length) * 100 : 0,
     pronto: aplicaveis.length > 0 && ok.length === aplicaveis.length,
   };
-};
-
-// Documentos de licenciamento que ESTAO NA MAO DE ALGUEM e ainda nao sairam.
-// So o que tem responsavel vira notificacao: sem esse filtro, 12 obras x 17
-// documentos gerariam 200 avisos e ninguem olharia nenhum.
-const LIC_CONCLUIDO = ["entregue", "aprovado", "na"];
-const pendenciasLicenca = (data, userId) => {
-  const out = [];
-  (data?.licencas || []).forEach(ch => {
-    const obra = (data.obras || []).find(o => o.id === ch.obraId);
-    if (!obra || obra.status === "done") return;
-    const lic = licencaPorId(ch.tipo);
-    lic.docs.forEach(d => {
-      const est = ch.itens?.[d.id] || {};
-      if (!est.responsavelId) return;
-      if (LIC_CONCLUIDO.includes(est.status || "pendente")) return;
-      out.push({
-        obraId: ch.obraId, obraNome: obra.name,
-        docId: d.id, docNome: d.nome,
-        status: est.status || "pendente",
-        responsavelId: est.responsavelId,
-        meu: !!userId && est.responsavelId === userId,
-      });
-    });
-  });
-  return out;
-};
-
-// Uma linha por obra: quais ainda nao fecharam o licenciamento. Ignora obra
-// cujo checklist nem foi iniciado, para nao acusar o que ninguem comecou.
-const obrasLicencaIncompleta = (data) => {
-  const out = [];
-  (data?.licencas || []).forEach(ch => {
-    const obra = (data.obras || []).find(o => o.id === ch.obraId);
-    if (!obra || obra.status === "done") return;
-    if (!Object.keys(ch.itens || {}).length) return;
-    const lic = licencaPorId(ch.tipo);
-    const faltam = lic.docs.filter(d =>
-      !LIC_CONCLUIDO.includes(ch.itens?.[d.id]?.status || "pendente"));
-    if (faltam.length) out.push({
-      obraId: ch.obraId, obraNome: obra.name,
-      faltam: faltam.length, total: lic.docs.length,
-      protocolado: !!ch.dataProtocolo,
-    });
-  });
-  return out;
 };
 
 // Elegibilidade: a licenca simplificada so vale se TODOS os pre-requisitos
@@ -3552,7 +3435,12 @@ export function Modal({ title, children, onClose, wide = false, panelClass = "",
   useEffect(() => {
     previousFocusRef.current = document.activeElement;
     document.body.classList.add("no-scroll");
-    const focusTimer = window.setTimeout(() => panelRef.current?.focus(), 0);
+    const focusTimer = window.setTimeout(() => {
+      const panel = panelRef.current;
+      // A primeira interação pode acontecer antes deste timer. Preservar o
+      // foco do campo evita fechar buscas e apagar a digitação por blur.
+      if (panel && !panel.contains(document.activeElement)) panel.focus();
+    }, 0);
     const handleKeyDown = event => {
       const panels = [...document.querySelectorAll(".arcd-modal-panel")];
       if (panels.at(-1) !== panelRef.current) return;
@@ -3661,7 +3549,6 @@ function Toast({ toast }) {
 
 const {
   calcObraLaborCost,
-  diasPeriodoDRE,
   calcDREObra,
   calcDREConsolidado,
   calcDREHistorico,
@@ -3683,7 +3570,6 @@ const {
 export { calcProjecaoContratoObra };
 
 const {
-  statusObraExec,
   calcAlertas,
   calcResumoExecutivo,
 } = createExecutiveSummaryEngine({
@@ -3730,56 +3616,6 @@ function KpiCard({label,value,detail,icon,color=C.blue,onClick}){
   </Comp>;
 }
 
-// Cena de fundo do hero: única exceção ao sistema flat do DESIGN.md, porque
-// aqui a ilustração carrega informação (a condição do tempo), não é
-// decoração solta. Skyline + guindaste ficam sempre visíveis (silhueta de
-// obra, sem preenchimento — mesma linguagem "blueprint" dos ícones e do
-// mapa técnico do login); só a camada de clima muda com a condição real.
-function HeroWeatherScene({icone}){
-  if(!icone)return null;
-  return <div className="dashboard-hero-scene" aria-hidden="true" style={{position:"absolute",inset:0,overflow:"hidden",borderRadius:C.rLg}}>
-    <svg viewBox="0 0 600 200" preserveAspectRatio="xMidYMax slice" style={{position:"absolute",inset:0,width:"100%",height:"100%"}}>
-      <rect x="0" y="0" width="600" height="200" className={`hero-scene-sky hero-scene-sky-${icone}`}/>
-
-      {icone==="sun" && <g className="hero-scene-sun" style={{transformOrigin:"500px 55px"}}>
-        <circle cx="500" cy="55" r="16" fill={`${C.yellow}22`} stroke="none" className="hero-scene-sun-glow"/>
-        <circle cx="500" cy="55" r="24" fill="none" stroke={C.yellow} strokeWidth="2"/>
-        {Array.from({length:8}).map((_,i)=>{
-          const a=(i*45)*Math.PI/180, cx=500,cy=55;
-          const x1=cx+Math.cos(a)*32,y1=cy+Math.sin(a)*32,x2=cx+Math.cos(a)*42,y2=cy+Math.sin(a)*42;
-          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={C.yellow} strokeWidth="2" strokeLinecap="round"/>;
-        })}
-      </g>}
-
-      {(icone==="cloud"||icone==="cloudRain"||icone==="zap") && <>
-        <path className="hero-scene-cloud hero-scene-cloud-a" d="M420 58h-8a22 22 0 1 0 0 44h60a16 16 0 0 0 0-32h-4a20 20 0 0 0-48-12z" fill="none" stroke={C.border} strokeWidth="2"/>
-        <path className="hero-scene-cloud hero-scene-cloud-b" d="M495 36h-6a16 16 0 1 0 0 32h44a12 12 0 0 0 0-24h-3a15 15 0 0 0-35-8z" fill="none" stroke={C.border} strokeWidth="1.5" opacity=".7"/>
-      </>}
-
-      {(icone==="cloudRain"||icone==="zap") && <g className="hero-scene-rain">
-        {[428,448,468,488,508,528].map((x,i)=><line key={x} className="hero-scene-drop" style={{"--drop-i":i}} x1={x} y1="108" x2={x-8} y2="126" stroke={C.blue} strokeWidth="2" strokeLinecap="round"/>)}
-      </g>}
-
-      {icone==="zap" && <path className="hero-scene-bolt" d="M474 66l-15 26h11l-13 24 24-28h-11z" fill={C.yellow}/>}
-
-      <g className="hero-scene-skyline" stroke={C.line} strokeWidth="2" fill="none">
-        <rect x="330" y="90" width="46" height="110"/>
-        <rect x="384" y="60" width="56" height="140"/>
-        <line x1="384" y1="90" x2="440" y2="90"/><line x1="384" y1="120" x2="440" y2="120"/><line x1="384" y1="150" x2="440" y2="150"/>
-        <rect x="448" y="100" width="42" height="100"/>
-        <line x1="330" y1="120" x2="376" y2="120"/><line x1="330" y1="150" x2="376" y2="150"/>
-      </g>
-      <g className="hero-scene-crane" stroke={C.subtle} strokeWidth="2" fill="none" strokeLinecap="round">
-        <line x1="300" y1="200" x2="300" y2="40"/>
-        <line x1="270" y1="42" x2="360" y2="42"/>
-        <line x1="300" y1="55" x2="270" y2="42"/>
-        <line x1="300" y1="55" x2="345" y2="60"/>
-        <line x1="345" y1="42" x2="345" y2="60"/>
-      </g>
-    </svg>
-    <div className="dashboard-hero-scene-fade" style={{position:"absolute",inset:0}}/>
-  </div>;
-}
 
 function DashboardTechHero({data,currentUser,ultimaSync,fila,onBuscar,onAtualizar,onAbrir,periodo,onAnterior,onProximo,proximoDesabilitado,clima,saveState=SAVE_QUEUE_STATE.IDLE}){
   const {isDesktop}=useBreakpoint();
@@ -4099,7 +3935,6 @@ function Dashboard({ data, update, showToast, onTab, ultimaSync, currentUser, on
   const irMes=delta=>setPeriodo(p=>{const d=new Date(p.y,p.m+delta,1);if(d>new Date(agora.getFullYear(),agora.getMonth(),1))return p;return{y:d.getFullYear(),m:d.getMonth()};});
   const exec=useMemo(()=>calcResumoExecutivo(data,year,month),[data,year,month]);
   const alertasBase=useMemo(()=>calcAlertas(data,year,month),[data,year,month]);
-  const obrasAtivas=(data.obras||[]).filter(o=>o.status!=="done");
   const hoje=today();
   const fimMes=`${ym}-${String(new Date(year,month+1,0).getDate()).padStart(2,"0")}`;
   const abasPermitidas=allowedTabsForUser(currentUser);
@@ -4203,7 +4038,6 @@ const rotuloCategoria = (data, v) =>
   (categoriasDesp(data).find(c => c.v === v)?.l) || v;
 
 function FinanceiroObraPainel({data,showToast,currentUser=null,obraId,dispatchCommand=null}){
-  const {isDesktop}=useBreakpoint();
   const agora=new Date();
   const [aba,setAba]=useState("resumo");
   const [periodo,setPeriodo]=useState(`${agora.getFullYear()}-${String(agora.getMonth()+1).padStart(2,"0")}`);
@@ -4296,7 +4130,6 @@ function DRE({data,showToast,currentUser=null,obraIdFixo="",dispatchCommand=null
 
 function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchCommand=null }) {
   const {intent}=useWorkflow();
-  const { cols } = useBreakpoint();
   const now   = new Date();
   const [year,  setYear]   = useState(now.getFullYear());
   const [month, setMonth]  = useState(now.getMonth());
@@ -5243,7 +5076,7 @@ export function ModoIADocumento({modulo,data,update,showToast,currentUser,onClos
 const novaNotaFiscal=()=>({id:"",tipo:"nfe",numero:"",serie:"",chave:"",emissao:today(),vencimento:"",fornecedorId:"",fornecedorNome:"",documentoFornecedor:"",obraId:"",pedidoId:"",valorBruto:"",valorLiquido:"",retencoes:{iss:0,inss:0,irrf:0,pis:0,cofins:0,csll:0,outros:0},rateios:[],documentos:[],pagamentos:[],status:"recebida",divergencias:[],analiseIA:null});
 
 function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,onCadastroAberto,dispatchCommand=null}){
-  const {cols,formGrid}=useBreakpoint();const notas=data.notasFiscais||[];const [form,setForm]=useState(null);const [subindo,setSubindo]=useState(false);const [filtro,setFiltro]=useState("todas");const [anexoFiscal,setAnexoFiscal]=useState(null);const [invoiceCommandPending,setInvoiceCommandPending]=useState(false);const [sugestoesNota,setSugestoesNota]=useState([]);
+  const {formGrid}=useBreakpoint();const notas=data.notasFiscais||[];const [form,setForm]=useState(null);const [subindo,setSubindo]=useState(false);const [filtro,setFiltro]=useState("todas");const [anexoFiscal,setAnexoFiscal]=useState(null);const [invoiceCommandPending,setInvoiceCommandPending]=useState(false);const [sugestoesNota,setSugestoesNota]=useState([]);
   const contasPagarFiscal=useMemo(
     ()=>selectLedgerAccountsPayable(buildFinancialLedger(data),{asOfDate:today()}),
     [data],
@@ -5911,7 +5744,6 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
       <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Análise por obra - {fullMonth(month)} {year}</p>
       {obraRows.map(r => {
         const exp = expanded===r.id;
-        const marginColor = r.margin>=0 ? C.green : C.red;
         const commitColor = r.commitment!=null&&r.commitment>100 ? C.red : r.commitment!=null&&r.commitment>80 ? C.orange : C.green;
         return (
           <div key={r.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
@@ -8207,257 +8039,6 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
 
 
 //
-// ALERTAS WHATSAPP - gerador de mensagens
-//
-
-const buildAlertMessage = (data) => {
-  const todayIso = today();
-  const fri = getFridayOfWeek(0);
-  const { start: ws } = getWeekRange(fri);
-  const nowD = new Date();
-  const day  = nowD.getDate();
-  const lines = [
-    ` *${data.config.companyName || "ArcD Obras"} - Alertas*`,
-    ` ${fmtDateFull(todayIso)}`,
-    "",
-  ];
-
-  // Terceirizados pendentes esta sexta
-  const activeTerc = (data.terceirizados||[]).filter(t => t.active !== false);
-  const pendingTerc = activeTerc.filter(t =>
-    !(data.pagsTerceiros||[]).some(p => p.tercId===t.id && p.date>=ws && p.date<=fri)
-  );
-  if (pendingTerc.length > 0) {
-    const total = pendingTerc.reduce((s,t) => s+Number(t.weeklyRate||0), 0);
-    lines.push(` *PAGAMENTOS DESTA SEXTA (${fmtDateFull(fri)})*`);
-    pendingTerc.forEach(t => {
-      const on = data.obras.find(o=>o.id===t.obraId)?.name || "-";
-      lines.push(`- ${t.name} (${on}) - ${fmt(t.weeklyRate)}`);
-    });
-    lines.push(`*Total: ${fmt(total)}*`);
-    lines.push("");
-  }
-
-  // Ponto pendente hoje
-  const summary = getObraAttendanceSummary(data, todayIso);
-  const pendingPonto = summary.filter(o => o.hasTeam && !o.completed);
-  if (pendingPonto.length > 0) {
-    lines.push(` *PONTO PENDENTE HOJE*`);
-    pendingPonto.forEach(o => {
-      const names = o.missingEmployees.slice(0,3).map(e=>e.name).join(", ");
-      const extra = o.missingEmployees.length > 3 ? ` +${o.missingEmployees.length-3}` : "";
-      lines.push(`- ${o.obraName}: ${o.missingCount} sem registro (${names}${extra})`);
-    });
-    lines.push("");
-  }
-
-  // Alertas de contrato >80%
-  const now2 = new Date();
-  const mdays = getDays(now2.getFullYear(), now2.getMonth());
-  const contractAlerts = data.obras
-    .filter(o => o.status !== "done" && o.contractValue > 0)
-    .map(o => {
-      const { laborCost } = calcObraLaborCost(data, o.id, mdays);
-      const pct = (laborCost / o.contractValue) * 100;
-      return { name: o.name, pct, saldo: o.contractValue - laborCost };
-    })
-    .filter(o => o.pct > 80)
-    .sort((a,b) => b.pct - a.pct);
-  if (contractAlerts.length > 0) {
-    lines.push(`! *CONTRATOS COM ATENÇÃO*`);
-    contractAlerts.forEach(o =>
-      lines.push(`- ${o.name}: ${o.pct.toFixed(0)}% comprometido - saldo ${fmt(o.saldo)}`)
-    );
-    lines.push("");
-  }
-
-  // Folha em breve
-  if (day >= 14 && day <= 16) {
-    lines.push(` *FOLHA EM BREVE - 1ª quinzena*`);
-    lines.push(`- Pagamento previsto dia 20. Confirme todos os pontos.`);
-    lines.push("");
-  }
-  if (day >= 29 || day <= 3) {
-    lines.push(` *FOLHA EM BREVE - 2ª quinzena*`);
-    lines.push(`- Pagamento previsto dia 05. Confirme todos os pontos.`);
-    lines.push("");
-  }
-
-  if (lines.length <= 4) lines.push(" Nenhum alerta pendente no momento.");
-  lines.push(`_Enviado via ArcD Obras_`);
-  return lines.join("\n");
-};
-
-const buildQuickAlerts = (data, currentUser) => {
-  const todayIso = today();
-  const todayDate = new Date(todayIso+"T12:00:00");
-  const fri = getFridayOfWeek(0);
-  const { start: ws } = getWeekRange(fri);
-  const alerts = [];
-
-  //  Parcelas vencidas ou vencendo em até 3 dias
-  const alertaCobranca = (data.medicoes||[]).filter(m => {
-    if (m.recebido || !m.dataVencimento) return false;
-    const venc = new Date(m.dataVencimento+"T12:00:00");
-    const diffDias = Math.round((venc - todayDate)/(1000*60*60*24));
-    return diffDias <= 3; // vence nos próximos 3 dias ou já venceu
-  }).map(m => {
-    const obra = data.obras.find(o=>o.id===m.obraId);
-    const venc = new Date(m.dataVencimento+"T12:00:00");
-    const diffDias = Math.round((venc - todayDate)/(1000*60*60*24));
-    return { m, obraName: obra?.name||"-", diffDias };
-  });
-  const vencidas  = alertaCobranca.filter(x=>x.diffDias<0);
-  const vencendo  = alertaCobranca.filter(x=>x.diffDias>=0);
-
-  if (vencidas.length > 0) {
-    const total = vencidas.reduce((s,x)=>s+x.m.valorPrevisto,0);
-    alerts.push({
-      type:"vencido", color:"#B71C1C", icon:"",
-      title:`${vencidas.length} parcela(s) VENCIDA(S) - ${fmt(total)}`,
-      sub: vencidas.slice(0,3).map(x=>`${x.obraName}: ${fmt(x.m.valorPrevisto)} (${Math.abs(x.diffDias)}d atraso)`).join(" · "),
-      tab:"medicoes",
-    });
-  }
-  if (vencendo.length > 0) {
-    const total = vencendo.reduce((s,x)=>s+x.m.valorPrevisto,0);
-    alerts.push({
-      type:"vencendo", color:"#D84315", icon:"",
-      title:`${vencendo.length} parcela(s) vencem em até 3 dias - ${fmt(total)}`,
-      sub: vencendo.slice(0,3).map(x=>`${x.obraName}: ${fmt(x.m.valorPrevisto)} (${x.diffDias===0?"hoje":`em ${x.diffDias}d`})`).join(" · "),
-      tab:"medicoes",
-    });
-  }
-
-  // Terceirizados pendentes
-  const activeTerc = (data.terceirizados||[]).filter(t => t.active !== false);
-  const pendingTerc = activeTerc.filter(t =>
-    !(data.pagsTerceiros||[]).some(p => p.tercId===t.id && p.date>=ws && p.date<=fri)
-  );
-  if (pendingTerc.length > 0) {
-    alerts.push({
-      type: "payment", color: "#D84315", icon: "",
-      title: `${pendingTerc.length} terceirizado(s) a pagar esta sexta`,
-      sub: `${fmtDateFull(fri)} · Total ${fmt(pendingTerc.reduce((s,t)=>s+Number(t.weeklyRate||0),0))}`,
-    });
-  }
-
-  // Ponto pendente
-  const summary = getObraAttendanceSummary(data, todayIso);
-  const pendingPonto = summary.filter(o => o.hasTeam && !o.completed);
-  if (pendingPonto.length > 0) {
-    alerts.push({
-      type: "ponto", color: "#B71C1C", icon: "",
-      title: `Ponto pendente em ${pendingPonto.length} obra(s)`,
-      sub: pendingPonto.map(o=>`${o.obraName}: ${o.missingCount}`).join(" · "),
-    });
-  }
-
-  // Licenciamento: primeiro o que e do operador logado (acao direta dele),
-  // depois a visao geral por obra.
-  const licMinhas = pendenciasLicenca(data, currentUser?.id).filter(p=>p.meu);
-  if (licMinhas.length > 0) {
-    alerts.push({ type:"licenca", color:C.orange, icon:"!",
-      title:`Você tem ${licMinhas.length} documento(s) de licenciamento pendente(s)`,
-      sub:licMinhas.slice(0,3).map(p=>`${p.obraNome}: ${p.docNome}`).join("  ·  "),
-      tab:"licenca" });
-  }
-  const licObras = obrasLicencaIncompleta(data);
-  if (licObras.length > 0) {
-    const protocoladas = licObras.filter(o=>o.protocolado).length;
-    alerts.push({ type:"licenca_geral", color:C.blue, icon:"",
-      title:`${licObras.length} obra(s) com licenciamento em aberto`,
-      sub:licObras.slice(0,3).map(o=>`${o.obraNome}: faltam ${o.faltam}`).join("  ·  ")
-          + (protocoladas?`  ·  ${protocoladas} já protocolada(s)`:""),
-      tab:"licenca" });
-  }
-
-  const solicitacoesPendentes=(data.solicitacoesCompra||[]).filter(s=>s.status==="enviada");
-  if(solicitacoesPendentes.length>0){
-    alerts.push({type:"compras",color:C.orange,icon:"!",
-      title:`${solicitacoesPendentes.length} solicitação(ões) de material aguardando Compras`,
-      sub:solicitacoesPendentes.slice(0,3).map(s=>`${(data.obras||[]).find(o=>o.id===s.obraId)?.name||"Obra"}: ${s.itens.length} item(ns)${s.prioridade==="urgente"?" · URGENTE":""}`).join(" · "),
-      tab:"cmp"});
-  }
-
-  // Estoque abaixo do mínimo: vira reposição com um toque no Estoque.
-  const repor = materiaisAbaixoMinimo(data);
-  if (repor.length > 0) {
-    alerts.push({ type:"estoque_min", color:C.orange, icon:"!",
-      title:`${repor.length} material(is) abaixo do estoque mínimo`,
-      sub:repor.slice(0,3).map(l=>`${l.obraNome}: ${l.descricao} (repor ${l.deficit} ${l.unidade})`).join("  ·  "),
-      tab:"est"});
-  }
-
-  // Entregas atrasadas: pedido enviado, prazo vencido, material sem chegar.
-  const atrasadosDash = pedidosEmAtraso(data, today());
-  if (atrasadosDash.length > 0) {
-    alerts.push({ type:"entrega_atrasada", color:C.red, icon:"!",
-      title:`${atrasadosDash.length} pedido(s) com entrega atrasada`,
-      sub:atrasadosDash.slice(0,3).map(x=>{
-        const f=(data.fornecedores||[]).find(y=>y.id===x.pedido.fornecedorId);
-        return `${x.pedido.numero} · ${f?.nome||"fornecedor"} · ${x.diasAtraso} dia(s)`;
-      }).join("  ·  "),
-      tab:"cmp"});
-  }
-
-  // SLA de Compras: solicitacao parada alem da tolerancia (2d urgente, 5d normal).
-  const slaEstourado=(data.solicitacoesCompra||[])
-    .map(s=>({sol:s,sla:slaSolicitacao(s,today())}))
-    .filter(x=>x.sla&&x.sla.status==="estourado")
-    .sort((a,b)=>b.sla.dias-a.sla.dias);
-  if(slaEstourado.length>0){
-    alerts.push({type:"sla_compras",color:C.red,icon:"!",
-      title:`${slaEstourado.length} solicitação(ões) fora do prazo de resposta de Compras`,
-      sub:slaEstourado.slice(0,3).map(x=>`${x.sol.numero} · ${(data.obras||[]).find(o=>o.id===x.sol.obraId)?.name||"Obra"} · parada há ${x.sla.dias} dia(s)`).join("  ·  "),
-      tab:"cmp"});
-  }
-
-  // Consolidacao: mesmo material pedido por obras diferentes na mesma janela.
-  const consol=oportunidadesConsolidacao(data,today());
-  if(consol.length>0){
-    alerts.push({type:"consolidar",color:C.blue,icon:"",
-      title:`${consol.length} material(is) pedido(s) por mais de uma obra`,
-      sub:consol.slice(0,3).map(c=>`${c.descricao}: ${c.total.toLocaleString("pt-BR")} ${c.unidade} em ${c.obras.length} obras`).join("  ·  "),
-      tab:"cmp"});
-  }
-
-  // Comercial: concentra as pendencias que exigem acao imediata.
-  const comercial=data.comercial||{};
-  const leadsAtivos=(comercial.leads||[]).filter(l=>!["perdido","arquivado","transferido"].includes(l.etapa)&&l.status!=="arquivado");
-  const semAtendimento=leadsAtivos.filter(l=>!l.responsavelId||!l.proximaAtividadeEm).length;
-  const tarefasVencidas=(comercial.atividades||[]).filter(a=>a.status!=="concluida"&&a.dataHora&&new Date(a.dataHora).getTime()<Date.now()).length;
-  const reunioesAtrasadas=(comercial.reunioes||[]).filter(r=>r.status==="agendada"&&r.dataHora&&new Date(r.dataHora).getTime()<Date.now()).length;
-  const contratosPendentes=(comercial.contratos||[]).filter(k=>["enviado","aguardando_assinatura"].includes(k.status)||(k.assinadoEm&&!k.entradaPaga)).length;
-  const pendenciasComerciais=semAtendimento+tarefasVencidas+reunioesAtrasadas+contratosPendentes;
-  if(pendenciasComerciais>0){
-    alerts.push({type:"comercial",color:C.green,icon:"!",
-      title:`${pendenciasComerciais} pendencia(s) no Comercial`,
-      sub:[semAtendimento&&`${semAtendimento} lead(s) sem atendimento`,tarefasVencidas&&`${tarefasVencidas} tarefa(s) vencida(s)`,reunioesAtrasadas&&`${reunioesAtrasadas} reuniao(oes) atrasada(s)`,contratosPendentes&&`${contratosPendentes} contrato(s) pendente(s)`].filter(Boolean).join(" · "),
-      tab:"com_dash"});
-  }
-
-  // Contratos em alerta
-  const now2 = new Date();
-  const mdays = getDays(now2.getFullYear(), now2.getMonth());
-  const contractAlerts = data.obras
-    .filter(o => o.status !== "done" && o.contractValue > 0)
-    .map(o => {
-      const { laborCost } = calcObraLaborCost(data, o.id, mdays);
-      return { name: o.name, pct: (laborCost/o.contractValue)*100 };
-    })
-    .filter(o => o.pct > 80);
-  if (contractAlerts.length > 0) {
-    alerts.push({
-      type: "contract", color: "#D4AF37", icon: "!",
-      title: `${contractAlerts.length} contrato(s) acima de 80% comprometido`,
-      sub: contractAlerts.map(o=>`${o.name}: ${o.pct.toFixed(0)}%`).join(" · "),
-    });
-  }
-  return alerts;
-};
-
-//
 // FLUXO DE CAIXA
 //
 
@@ -10197,7 +9778,7 @@ const ACCESS_SECTORS=[
     ["equip_fin","Locação de equipamentos"],["medicoes","Medições financeiras"],["caixa","Caixa da obra"],["relat","Relatórios"],
   ]},
   {id:"rh",label:"Recursos Humanos",color:"#0F766E",tabs:[
-    ["equipe","Equipes"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["ponto_app","Ponto eletrônico (app)"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["rh_indic","Indicadores"],["conc","Conciliação da folha"],
+    ["equipe","Equipes"],["equipe_obras","Equipe nas Obras"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["ponto_app","Ponto eletrônico (app)"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["rh_indic","Indicadores"],["conc","Conciliação da folha"],
   ]},
   {id:"comercial",label:"Comercial",color:"#2E7D32",tabs:[
     ["com_workspace","Comercial da empresa"],["com_real_estate","Venda de imóveis"],["com_pipeline","Pipeline"],["com_relationships","Relacionamentos"],["com_deals","Propostas e contratos"],["com_management","Gestão comercial"],
@@ -10210,27 +9791,29 @@ const ACCESS_SECTORS=[
 
 //  Tela de Login
 
-function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
+function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
   const [metodo,setMetodo]=useState("email");
   const [email,setEmail]=useState("");
   const [senha,setSenha]=useState("");
   const [mostrarSenha,setMostrarSenha]=useState(false);
   const [step,setStep]=useState("select");
-  const [selUser,setSelUser]=useState(null);
+  const [identificador,setIdentificador]=useState("");
   const [pin,setPin]=useState("");
   const [erro,setErro]=useState("");
   const [loading,setLoading]=useState(false);
   const [setupForm,setSetupForm]=useState({nome:"",email:"",pin:"",confirmacao:""});
-  const usuarios=perfis||[];
-  const roleAtual=ROLES.find(r=>r.v===selUser?.role)||ROLES[0];
 
   const handleBackspace=()=>setPin(p=>p.slice(0,-1));
+  const iniciarPin=()=>{
+    if(!identificador.trim()){setErro("Informe seu e-mail ou nome completo.");return;}
+    setStep("pin");setPin("");setErro("");
+  };
   const tentarEntrar=async valor=>{
-    if(!selUser)return;
+    if(!identificador.trim())return;
     if(valor.length<4){setErro("O PIN tem no mínimo 4 dígitos.");return;}
     setLoading(true);setErro("");
-    const r=await entrarComPin(selUser.id,valor);
-    if(!r.ok){setErro(r.erro||"PIN incorreto.");setPin("");setLoading(false);return;}
+    const r=await entrarComPin(identificador.trim(),valor);
+    if(!r.ok){setErro(r.erro||"Identificação ou PIN incorretos.");setPin("");setLoading(false);return;}
     onLogin(r.usuario,r.data);setLoading(false);
   };
   const handleLogin=()=>tentarEntrar(pin);
@@ -10257,7 +9840,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
       const usuario={id:uid(),nome,role:"admin",email,pinPlain:pin,active:true,createdAt:new Date().toISOString()};
       const criado=await criarPrimeiroAdmin({usuarios:[usuario]});
       if(!criado.ok)throw new Error(criado.erro||"Não foi possível criar o administrador.");
-      const acesso=await entrarComPin(usuario.id,pin);
+      const acesso=await entrarComPin(email||nome,pin);
       if(!acesso.ok)throw new Error(acesso.erro||"Administrador criado, mas não foi possível iniciar a sessão.");
       onLogin(acesso.usuario,acesso.data);
     }catch(error){setErro(error.message||"Não foi possível concluir o primeiro acesso.");}
@@ -10339,41 +9922,32 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
 
               <TabsContent value="pin" className="mt-4">
                 {step === "select" ? (
-                  <div className="flex flex-col gap-2 max-h-[330px] overflow-auto pr-1">
-                    {!usuarios.length&&<p className="text-xs text-slate-500 text-center py-5">Nenhum operador com PIN disponível. Entre com seu e-mail corporativo.</p>}
-                    <div className="flex flex-col gap-2 login-user-list">
-                    {usuarios.map((u,idx) => {
-                      const role = ROLES.find(r=>r.v===u.role)||ROLES[0];
-                      const iniciais = String(u.nome||"AR").split(" ").slice(0,2).map(n=>n[0]).join("").toUpperCase();
-                      return (
-                        <button type="button" key={u.id} style={{"--row-i":idx}}
-                                onClick={()=>{setSelUser(u);setStep("pin");setPin("");setErro("");}}
-                                className="w-full flex items-center gap-3 p-2.5 rounded-md border border-white/10 bg-white/2.5 hover:border-[#d4af37]/60 hover:bg-white/6 text-left transition-colors active:scale-[0.98]">
-                          <span className="w-9 h-9 rounded-md flex items-center justify-center text-xs font-bold shrink-0"
-                                style={{background:`${role.color}1F`, color: role.color}}>{iniciais}</span>
-                          <span className="min-w-0">
-                            <b className="block text-sm truncate">{u.nome}</b>
-                            <small className="block text-xs text-slate-500 truncate">{role.l}</small>
-                          </span>
-                          <span className="ml-auto text-slate-600">›</span>
-                        </button>
-                      );
-                    })}
+                  <form className="flex flex-col gap-4" onSubmit={e=>{e.preventDefault();iniciarPin();}}>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="login-identificador" className="text-xs font-semibold text-slate-300">E-mail ou nome completo</Label>
+                      <Input id="login-identificador" autoComplete="username" autoCapitalize="none" spellCheck={false}
+                             value={identificador} onChange={e=>{setIdentificador(e.target.value);setErro("");}}
+                             placeholder="Digite seu e-mail ou nome completo"
+                             className="h-11 border-white/10 bg-white/4 text-white placeholder:text-slate-600 focus-visible:ring-[#d4af37]" />
                     </div>
-                  </div>
+                    {erro && (
+                      <Alert key={erro} variant="destructive" className="py-2.5 login-error-shake">
+                        <AlertDescription className="text-xs">{erro}</AlertDescription>
+                      </Alert>
+                    )}
+                    <Button type="submit" disabled={loading} className="h-11 w-full bg-[#d4af37] font-bold text-[#10151d] hover:bg-[#e1c159] active:scale-[0.98] transition-transform">
+                      Continuar com PIN
+                    </Button>
+                  </form>
                 ) : (
                   <div className="flex flex-col gap-4">
                     <button type="button" onClick={()=>{setStep("select");setPin("");setErro("");}}
                             className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-white uppercase tracking-wide">
-                      <ChevronLeft className="w-3.5 h-3.5"/> Trocar operador
+                      <ChevronLeft className="w-3.5 h-3.5"/> Alterar identificação
                     </button>
                     <div className="text-center flex flex-col items-center gap-1">
-                      <span className="w-11 h-11 rounded-md flex items-center justify-center text-sm font-bold"
-                            style={{background:`${roleAtual.color}1F`, color: roleAtual.color}}>
-                        {String(selUser?.nome||"AR").split(" ").slice(0,2).map(n=>n[0]).join("").toUpperCase()}
-                      </span>
-                      <b className="text-sm">{selUser?.nome}</b>
-                      <small className="text-xs text-slate-500">{roleAtual.l}</small>
+                      <b className="max-w-full break-words text-sm">{identificador.trim()}</b>
+                      <small className="text-xs text-slate-500">Informe seu PIN de acesso.</small>
                     </div>
                     <div className="flex justify-center gap-2.5" aria-label={`${pin.length} de 6 dígitos informados`}>
                       {Array.from({length:6},(_,i)=>(
@@ -10412,7 +9986,7 @@ function LoginScreen({ perfis, onLogin, erroInicial="", precisaSetup=false }) {
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-green-600" /> Conexão segura
           </span>
-          <span>{usuarios.length} operador{usuarios.length===1?"":"es"} habilitado{usuarios.length===1?"":"s"}</span>
+          <span>Acesso individual</span>
         </CardFooter>
       </Card>
       </main>
@@ -11091,11 +10665,8 @@ export const MAX_NIVEL = 5;   // 1.1.1.1.1 - além disso a indentação fica ile
 // Reexportado abaixo para que nada que já importava estes nomes daqui
 // (PlanejamentoView.jsx, testes de caracterização) precise mudar.
 import {
-  orcamentoDaObra, diasCorridos, somaDias, custoEtapa, ordemEtapasOrcamento,
-  montarTarefas, janelaPlano, resumoPlano, progressoPlano, ehDiaUtil, diasUteis,
-  somaDiasUteis, ajustarParaDiaUtil, proximoDiaUtil, sugerirDependenciasPlanejamento,
-  idsSucessoras, montarCronogramaIA, aplicarRollup, fisicoFinanceiroMensal,
-  distribuicaoMensal, curvaS, fisicoFinanceiro, caminhoCritico, compararBaseline,
+  orcamentoDaObra, diasCorridos, somaDias,
+  montarTarefas, janelaPlano, aplicarRollup,
   desvioAutomatico, desvioTarefaAuto, fundirEvolucao,
 } from "./domains/planejamento/legacy-engine.js";
 export * from "./domains/planejamento/legacy-engine.js";
@@ -11112,59 +10683,6 @@ const resumoMedicao = (tarefasFundidas) => {
     ? t.reduce((s, x) => s + (x.custo || 0) * (x.progresso || 0), 0) / custoTotal
     : 0;
   return { total: t.length, peloDiario, diasTotais, avancoFisico };
-};
-
-// Atualiza o progresso como dado central do sistema. O plano recebe o valor
-// aprovado e, quando existir, o ultimo RDO que registrou o servico tambem e
-// corrigido. RDOs anteriores permanecem intactos como memoria da evolucao.
-const aplicarAjustesProgresso = (data, obraId, ajustes, origem = "manual") => {
-  const atualizadoEm = new Date().toISOString();
-  const tarefasPlano = (data.planos || []).find(p => p.obraId === obraId)?.tarefas || [];
-  const etapaPorTarefa = new Map(tarefasPlano.map(t => [t.id, t.etapaId || ""]));
-  const mapa = new Map((ajustes || []).map(a => [a.tarefaId, {
-    progresso: Math.max(0, Math.min(100, Number(a.progresso) || 0)),
-    etapaId: a.etapaId || etapaPorTarefa.get(a.tarefaId) || "",
-  }]));
-  const tarefaPorEtapa = new Map();
-  mapa.forEach((a, tarefaId) => { if (a.etapaId) tarefaPorEtapa.set(a.etapaId, tarefaId); });
-  if (!mapa.size) return data;
-
-  const planos = (data.planos || []).map(p => {
-    if (p.obraId !== obraId) return p;
-    return { ...p, tarefas: (p.tarefas || []).map(t => {
-      const a = mapa.get(t.id);
-      return a ? { ...t, progresso: a.progresso, progressoAtualizadoEm: atualizadoEm,
-                   progressoOrigem: origem } : t;
-    }) };
-  });
-
-  // Localiza somente o registro mais recente de cada servico no Diario.
-  const alvos = new Map();
-  (data.rdos || []).forEach(r => {
-    if (r.obraId !== obraId) return;
-    (r.servicos || []).forEach(s => {
-      const chave = mapa.has(s.tarefaId) ? s.tarefaId : tarefaPorEtapa.get(s.etapaId);
-      if (!chave) return;
-      const momento = s.atualizadoEm || `${r.data || ""}T00:00:00.000Z`;
-      const atual = alvos.get(chave);
-      if (!atual || momento >= atual.momento) alvos.set(chave, { rdoId: r.id, momento });
-    });
-  });
-
-  const rdos = (data.rdos || []).map(r => {
-    let alterou = false;
-    const servicos = (r.servicos || []).map(s => {
-      const chave = mapa.has(s.tarefaId) ? s.tarefaId : tarefaPorEtapa.get(s.etapaId) || "";
-      const alvo = chave ? alvos.get(chave) : null;
-      if (!alvo || alvo.rdoId !== r.id) return s;
-      alterou = true;
-      return { ...s, progressoAte: mapa.get(chave).progresso, atualizadoEm,
-               ajusteOrigem: origem };
-    });
-    return alterou ? { ...r, servicos, atualizadoEm } : r;
-  });
-
-  return { ...data, planos, rdos };
 };
 
 //  CURVA ABC
@@ -11227,17 +10745,6 @@ export const chaveTransacao = (t) =>
 export const somaRateios = (rateios) =>
   (rateios||[]).reduce((s,r) => s + Number(r.valor||0), 0);
 
-// Sugere destino a partir das regras que o usuário foi criando
-const padraoAprendizadoConc = descricao => semAcentoConc(descricao).replace(/\d+/g," ").split(/\s+/).filter(p=>p.length>=3&&!['pix','ted','doc','pagamento','recebimento','transferencia'].includes(p)).slice(0,3).join(" ");
-const registrarAprendizadoConc = (historico, tr, rateio, operador) => {
-  const padrao=padraoAprendizadoConc(tr.descricao);
-  if (!padrao || !rateio) return historico||[];
-  const chave=`${padrao}|${rateio.destino}|${rateio.obraId||""}|${rateio.categoria||""}`;
-  const anterior=(historico||[]).find(item=>item.chave===chave);
-  const agora=new Date().toISOString();
-  if (anterior) return (historico||[]).map(item=>item.chave===chave?{...item,confirmacoes:Number(item.confirmacoes||0)+1,ultimaConfirmacaoEm:agora,ultimoOperador:operador?.id||""}:item);
-  return [...(historico||[]),{id:uid(),chave,padrao,destino:rateio.destino,obraId:rateio.obraId||"",categoria:rateio.categoria||"",confirmacoes:1,ultimaConfirmacaoEm:agora,ultimoOperador:operador?.id||""}];
-};
 
 export const sugerirRateio = suggestClassificationRule;
 
@@ -16338,7 +15845,6 @@ export const cicloMedioVenda = (com) => {
 // o marco visivel da obra e o pos-obra. Devolve as acoes pendentes.
 export const momentosIndicacao = (data) => {
   const com = data?.comercial || {};
-  const hoje = today();
   const acoes = [];
   (data?.obras || []).forEach(o => {
     const cliente = (com.clientes || []).find(c => c.obraId === o.id || c.nome === o.cliente);
@@ -16377,7 +15883,6 @@ export const COM_TEMPERATURA={frio:C.blue,morno:C.orange,quente:C.red};
 export const comEtapaLabel=id=>COM_ETAPAS.find(([v])=>v===id)?.[1]||id;
 export const comDias=iso=>iso?Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/86400000)):0;
 export const comDateTime=iso=>iso?new Date(iso).toLocaleString("pt-BR"):"-";
-const comAddMes=(iso,n)=>{const d=new Date(`${iso||today()}T12:00:00`);d.setMonth(d.getMonth()+n);return toLocalISODate(d);};
 export const COM_IMOBILIARIO_SECTIONS=[
   {id:"overview",label:"Visão geral",icon:"chart"},
   {id:"developments",label:"Empreendimentos",icon:"building"},
@@ -16402,7 +15907,9 @@ const Comercial = lazy(() => import("./domains/comercial/components/ComercialVie
 // Painel corporativo para monitor/TV. É deliberadamente somente leitura:
 // sintetiza progresso, qualidade, campo e suprimentos sem permitir que um
 // clique acidental em uma tela compartilhada altere a operação.
-function PainelTV({data,ultimaSync,onAtualizar}){
+function PainelTV({data,ultimaSync,onAtualizar,allowedTabs=[]}){
+  const [visao,setVisao]=useState("panorama");
+  const podeVerEquipe=allowedTabs.includes("equipe_obras");
   const raizRef=useRef(null);
   const {isDesktop}=useBreakpoint();
   const [pagina,setPagina]=useState(0);
@@ -16464,10 +15971,12 @@ function PainelTV({data,ultimaSync,onAtualizar}){
     <img src={imagem} alt="" aria-hidden="true" style={{position:"absolute",right:"3%",top:"5%",width:"min(30vw,420px)",height:"min(30vw,420px)",objectFit:"contain",opacity:.035,pointerEvents:"none"}}/>
     <div aria-hidden="true" className="arcd-tv-scan" style={{position:"absolute",left:0,right:0,height:1,background:`linear-gradient(90deg,transparent,${C.yellow}88,transparent)`,boxShadow:`0 0 18px ${C.yellow}`}}/>
     <header className="arcd-tv-header" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:18}}>
-      <div><div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:8,height:8,borderRadius:99,background:C.green,boxShadow:`0 0 18px ${C.green}`}}/><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:2,textTransform:"uppercase",color:C.yellow}}>MARCELL · Centro de operações</span></div><h1 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(24px,3vw,46px)",fontWeight:600,letterSpacing:-1.2,lineHeight:1,marginTop:9}}>Panorama executivo das obras</h1><p style={{fontSize:"var(--arcd-type-label)",color:"rgba(245,243,238,.5)",marginTop:7}}>Visão contínua de avanço, campo, qualidade, suprimentos e prazos</p></div>
+      <div><div style={{display:"flex",alignItems:"center",gap:9}}><span style={{width:8,height:8,borderRadius:99,background:C.green,boxShadow:`0 0 18px ${C.green}`}}/><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:2,textTransform:"uppercase",color:C.yellow}}>MARCELL · Centro de operações</span></div><h1 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(24px,3vw,46px)",fontWeight:600,letterSpacing:-1.2,lineHeight:1,marginTop:9}}>{visao==="equipe"&&podeVerEquipe?"Equipe nas Obras":"Panorama executivo das obras"}</h1><p style={{fontSize:"var(--arcd-type-label)",color:"rgba(245,243,238,.5)",marginTop:7}}>{visao==="equipe"&&podeVerEquipe?"Equipe por obra e registros recebidos do ponto":"Visão contínua de avanço, campo, qualidade, suprimentos e prazos"}</p></div>
       <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{textAlign:"right"}}><p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(20px,2.2vw,34px)",fontWeight:600,color:C.yellow,lineHeight:1}}>{agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"rgba(245,243,238,.45)",marginTop:5}}>{agora.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"short"})}</p></div><button onClick={alternarTelaCheia} title="Alternar tela cheia" style={{width:40,height:40,borderRadius:11,border:`1px solid ${C.yellow}44`,background:"rgba(212,175,55,.08)",color:C.yellow,cursor:"pointer"}}><Ic n={telaCheia?"x":"eye"} s={15}/></button></div>
     </header>
 
+    <Tabs value={podeVerEquipe?visao:"panorama"} onValueChange={setVisao} style={{display:"flex",flexDirection:"column",gap:16,flex:1,minHeight:0}}><TabsList className="arcd-tv-visoes" aria-label="Visão do Modo TV"><TabsTrigger value="panorama">Panorama executivo</TabsTrigger>{podeVerEquipe&&<TabsTrigger value="equipe">Equipe nas Obras</TabsTrigger>}</TabsList>
+    <TabsContent value="panorama" style={{display:visao==="panorama"||!podeVerEquipe?"flex":"none",flexDirection:"column",gap:16,flex:1,minHeight:0}}>
     <div className="arcd-tv-summary" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"repeat(4,minmax(0,1fr))":"repeat(2,minmax(0,1fr))",gap:"clamp(7px,1vw,11px)"}}>{[
       ["Obras em operação",linhas.length,"carteira ativa",C.yellow],
       ["Planejado × executado",linhasPlanejadas.length?`${planejadoGeral}% · ${progressoGeral}%`:"—",linhasPlanejadas.length?`${progressoGeral-planejadoGeral>=0?"+":""}${progressoGeral-planejadoGeral} p.p.`:"sem cronograma",linhasPlanejadas.length&&progressoGeral>=planejadoGeral?C.green:C.yellow],
@@ -16493,6 +16002,9 @@ function PainelTV({data,ultimaSync,onAtualizar}){
     </section>
 
     <footer className="arcd-tv-footer" style={{position:"relative",zIndex:1,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,color:"rgba(245,243,238,.46)",fontSize:"var(--arcd-type-caption)"}}><span>Sincronização automática · {ultimaSync?ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"agora"}</span><div style={{display:"flex",alignItems:"center",gap:6}}><button onClick={()=>setPagina(p=>(p-1+totalPaginas)%totalPaginas)} aria-label="Página anterior" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:C.surface,cursor:"pointer"}}>‹</button>{Array.from({length:totalPaginas},(_,i)=><button key={i} onClick={()=>setPagina(i)} aria-label={`Página ${i+1}`} style={{width:i===pagina?18:6,height:6,border:0,borderRadius:99,background:i===pagina?C.yellow:"rgba(245,243,238,.22)",cursor:"pointer",transition:"width .2s"}}/>)}<span style={{margin:"0 2px"}}>{pagina+1}/{totalPaginas}</span><button onClick={()=>setPagina(p=>(p+1)%totalPaginas)} aria-label="Próxima página" style={{width:28,height:24,border:`1px solid rgba(245,243,238,.15)`,borderRadius:5,background:"transparent",color:C.surface,cursor:"pointer"}}>›</button></div></footer>
+    </TabsContent>
+    {podeVerEquipe&&<TabsContent value="equipe" style={{flex:1}}><Suspense fallback={<p role="status">Carregando equipe…</p>}><EquipeObrasTV /></Suspense></TabsContent>}
+    </Tabs>
   </div>;
 }
 
@@ -17006,6 +16518,7 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
 
 // Os módulos compartilham os mesmos destinos e permissões da aplicação.
 const TAB_META_BASE = {
+  equipe_obras: { label: "Equipe nas Obras", icon: "users" },
   admin_central:{ label:"Central do administrador", icon:"shield" },
   aprov_pend:{ label:"Minhas aprovações", icon:"check" },
   home:   { label: "Dashboard",  icon: "home"   },
@@ -17249,10 +16762,6 @@ export default function App() {
     }
     appleIcon.href = BRAND.icon;
   }, [data?.config?.companyName, data?.config?.productName]);
-
-  // A lista de perfis vem SEM os dados. Os dados só chegam depois que o
-  // servidor confere o PIN - é o que impede alguém de abrir a URL e ler tudo.
-  const [perfis, setPerfis] = useState([]);
 
   const approvalHandledRef = useRef(false);
   // Última versão que veio do servidor - o ponto de partida das minhas edições.
@@ -17616,9 +17125,8 @@ export default function App() {
   // destruída (visível na montagem dupla do StrictMode em desenvolvimento).
   useEffect(()=>()=>{attendanceQueueRef.current?.destroy?.();attendanceQueueRef.current=null;},[]);
 
-  // No boot buscamos APENAS a lista de perfis (nome + papel). Nenhum dado
-  // financeiro, nenhum CPF, nenhum hash de PIN sai do servidor aqui.
-  // Os dados só chegam depois que o PIN é conferido - lá no servidor.
+  // Sem sessão restaurada, o boot consulta apenas o estado do primeiro acesso.
+  // A identificação do operador e os dados só chegam após a autenticação.
   useEffect(() => {
     if (portalRequest.obraId && portalRequest.token) { setLoading(false); return undefined; }
     let vivo = true;
@@ -17643,7 +17151,6 @@ export default function App() {
         }
         const r = await listarPerfis();
         if (!vivo) return;
-        setPerfis(r.usuarios || []);
         if (r.erro) setErroInicial(r.erro);
         if (r.precisaSetup) setFirstSetup(true);
       } catch (err) {
@@ -18010,7 +17517,6 @@ export default function App() {
 
     return (
       <LoginScreen
-        perfis={perfis}
         onLogin={handleLogin}
         erroInicial={erroInicial}
         precisaSetup={firstSetup}
@@ -18372,7 +17878,7 @@ export default function App() {
             ? <DashboardEngenheiro data={data} update={update} showToast={showToast} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser} saveState={estadoSalvar}/>
             : <Dashboard data={data} update={update} showToast={showToast} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}
                               onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} saveState={estadoSalvar} />)}
-          {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV}/>}
+          {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV} allowedTabs={allowedTabs}/>}
           {tab === "chat" && <Comunicacao data={data} currentUser={currentUser} showToast={showToast}/>}
           {tab === "admin_central" && <Suspense fallback={<div className="arcd-page-loading">Carregando central do administrador...</div>}><CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/></Suspense>}
           {tab === "aprov_pend" && <Suspense fallback={<div className="arcd-page-loading">Carregando aprovações...</div>}><AprovacoesPendentesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
@@ -18396,6 +17902,7 @@ export default function App() {
           {tab === "equipe" && <Suspense fallback={<div className="arcd-page-loading">Carregando equipe...</div>}><EquipeView data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={setTab} /></Suspense>}
           {tab === "terc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando terceiros...</div>}><Terceiros data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} onTab={setTab}/>}
+          {tab === "equipe_obras" && <EquipeObras key={currentUser?.id} onTab={setTab} allowedTabs={allowedTabs}/>}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser}/>}
           {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}

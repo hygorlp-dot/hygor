@@ -54,7 +54,6 @@ export default function MarcosCurvaASuprimentos({ data, update, showToast, curre
     if (!activeSnapshot) return showToast?.("Aprove uma Curva ABC antes de gerar planos de suprimento.", "warn");
     const profile = profiles.find(item => item.id === profileId) || profiles[0];
     if (!profile) return showToast?.("Cadastre um perfil de lead time antes de gerar os planos.", "error");
-    const byMaterial = new Map(activeSnapshot.itens.map(item => [item.materialId, item]));
     const existing = new Set((data.planosSuprimento || []).filter(item => item.obraId === obraId && item.snapshotId === activeSnapshot.id).map(item => item.materialId));
     const created = activeSnapshot.itens.filter(item => item.classeFinal === "A" && item.materialId && !existing.has(item.materialId)).map(item => createSupplyPlan({ id:id("sup"), obraId, snapshot:activeSnapshot, item, tasks, movements:data.movEstoque || [], reservations:data.reservasEstoque || [], orders:data.pedidos || [], profile, calendar:settings.calendario, actor:currentUser, now:now() }));
     if (!created.length) return showToast?.("Não há novos insumos A com vínculo material confirmado para planejar.", "warn");

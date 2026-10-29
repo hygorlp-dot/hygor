@@ -27,6 +27,7 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   projects: [
+    {name:"pdf-mrc",testMatch:/pdf-mrc\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
     {name:"clt-desktop",testMatch:/clt-payslips\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
     {name:"clt-mobile",testMatch:/clt-payslips\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"payroll-closing-desktop",testMatch:/payroll-closing\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
@@ -44,6 +45,8 @@ export default defineConfig({
       testMatch: /purchase-workspace\.spec\.js/,
       use: { browserName:"chromium", viewport:{width:1440,height:1000} },
     },
+    { name: "equipe-obras-desktop", testMatch: /equipe-obras(?:-tv)?\.spec\.js/, use: { browserName: "chromium", viewport: { width: 1440, height: 1000 } } },
+    { name: "equipe-obras-mobile", testMatch: /equipe-obras(?:-tv)?\.spec\.js/, use: { browserName: "chromium", viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
     mobileProject("mobile-320x568", 320, 568),
     mobileProject("mobile-360x800", 360, 800),
     mobileProject("mobile-390x844", 390, 844),

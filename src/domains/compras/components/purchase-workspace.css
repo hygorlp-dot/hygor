@@ -109,3 +109,9 @@
 .purchase-order-origin{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border:1px solid var(--purchase-line);border-radius:var(--arcd-radius-md);background:var(--arcd-surface-muted);color:var(--purchase-ink);font-size:var(--arcd-type-label)}
 @media(max-width:600px){.purchase-panel-views{align-self:stretch}.purchase-panel-views button{flex:1;min-height:44px}}
 
+/* A0.3: contagem da lista com o botão "Exportar para Excel" ao lado. */
+.purchase-order-count-row{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap}
+.purchase-queue-panel>.purchase-order-count-row{padding:0 18px 14px}
+.purchase-queue-panel>.purchase-order-count-row .purchase-result-count{padding:0}
+.purchase-export-row{display:flex;justify-content:flex-end}
+.purchase-export{white-space:nowrap}

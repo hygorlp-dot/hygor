@@ -222,12 +222,12 @@ export const salvarLayoutDreAnual = ({rows,expectedVersion}) =>
 export const gerenciarAcessoPortalCliente = payload =>
   chamar({ action:"client-portal-admin", ...credenciais(), ...payload });
 
-// ── Tela de login: quem existe? ────────────────────────────────────
-// Devolve só nome e papel. O hash do PIN nunca sai do servidor.
+// ── Tela de login: estado de primeiro acesso ──────────────────────
+// Nenhuma lista de operadores é necessária antes da autenticação.
 export const listarPerfis = async () => {
   const r = await chamar({ action: "profiles" });
-  if (r.status !== 200) return { usuarios: [], precisaSetup: false, erro: r.error || "Não foi possível carregar o acesso ao banco." };
-  return { usuarios: r.usuarios || [], precisaSetup: !!r.precisaSetup };
+  if (r.status !== 200) return { precisaSetup: false, erro: r.error || "Não foi possível carregar o acesso ao banco." };
+  return { precisaSetup: !!r.precisaSetup };
 };
 
 // ── Primeiro acesso ────────────────────────────────────────────────
@@ -239,17 +239,17 @@ export const criarPrimeiroAdmin = async (payload) => {
 };
 
 // ── Entrar (o PIN é conferido no servidor) ─────────────────────────
-export const entrarComPin = async (userId, pin) => {
-  const r = await chamar({ action: "load", userId, pin });
+export const entrarComPin = async (identificador, pin) => {
+  const r = await chamar({ action: "load", identificador, pin });
 
   if (r.status === 429) return { ok: false, erro: r.error || "Muitas tentativas." };
-  if (r.status === 401) return { ok: false, erro: "PIN incorreto." };
+  if (r.status === 401) return { ok: false, erro: "Identificação ou PIN incorretos." };
   if (r.status !== 200)  return { ok: false, erro: r.error || "Falha ao entrar." };
   if (!r.data || !r.usuario?.id) {
     return { ok:false, erro:"O servidor devolveu uma resposta de autenticação inválida. Tente novamente." };
   }
 
-  abrirSessao(userId, pin);
+  abrirSessao(r.usuario.id, pin);
   ultimoUpdatedAt = r.updatedAt || null;
   return { ok: true, data: r.data, usuario: r.usuario };
 };

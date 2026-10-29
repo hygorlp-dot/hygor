@@ -1,4 +1,4 @@
-import { COMMERCIAL_SCHEMA_VERSION, LEGACY_STAGE_MAP, LEAD_STATES, STAGE_PROBABILITY } from "./constants.js";
+import { COMMERCIAL_SCHEMA_VERSION, LEGACY_STAGE_MAP, STAGE_PROBABILITY } from "./constants.js";
 import { canonicalActivities, nextActivityFor } from "./activities.js";
 import { normalizeRealEstateCommercial } from "./real-estate.js";
 export const migrateCommercial=(commercial={})=>{

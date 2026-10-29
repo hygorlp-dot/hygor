@@ -88,15 +88,22 @@ describe("gate FIN-003 de persistência",()=>{
     const ready=financialActivationEvidenceGate({
       factsCount:12,
       shadowRun:{id:"run-1"},
+      ledgerComparisonVerified:true,
       divergences:[],
+      dreComparisonVerified:true,
       dreDivergences:[],
+      procurementDreComparisonVerified:true,
       procurementDreDivergences:[],
+      legacyLinksVerified:true,
       missingLegacyLinks:[],
       legacyHashesVerified:true,
       staleLegacyLinks:[],
       bankComparisonVerified:true,
       bankDivergences:[],
+      qualityCasesVerified:true,
       openQualityCases:[],
+      canonicalIntegrityVerified:true,
+      canonicalIntegrity:{ok:true,counts:{errors:0,warnings:0}},
     });
     expect(ready.ready).toBe(true);
     expect(ready.blockers).toEqual([]);
@@ -107,15 +114,22 @@ describe("gate FIN-003 de persistência",()=>{
     const blocked=financialActivationEvidenceGate({
       factsCount:4,
       shadowRun:null,
+      ledgerComparisonVerified:true,
       divergences:[{scope:"obra-1",metric:"expenses"}],
+      dreComparisonVerified:true,
       dreDivergences:[{sourceId:"2026-10"}],
+      procurementDreComparisonVerified:true,
       procurementDreDivergences:[{orderId:"p-1"}],
+      legacyLinksVerified:true,
       missingLegacyLinks:[{legacyType:"pedido",legacyId:"p-1"}],
       legacyHashesVerified:true,
       staleLegacyLinks:[],
       bankComparisonVerified:true,
       bankDivergences:[],
+      qualityCasesVerified:true,
       openQualityCases:[{id:"dq-1",category:"financial_shadow_divergence"}],
+      canonicalIntegrityVerified:true,
+      canonicalIntegrity:{ok:true,counts:{errors:0,warnings:0}},
     });
     expect(blocked.ready).toBe(false);
     expect(blocked.blockers).toEqual([
@@ -126,6 +140,24 @@ describe("gate FIN-003 de persistência",()=>{
       "legacy_links",
       "quality_cases",
     ]);
+  });
+
+  it("falha fechado quando comparações obrigatórias são omitidas",()=>{
+    const blocked=financialActivationEvidenceGate({
+      factsCount:3,
+      shadowRun:{id:"run-1"},
+      legacyHashesVerified:true,
+      bankComparisonVerified:true,
+    });
+    expect(blocked.ready).toBe(false);
+    expect(blocked.blockers).toEqual(expect.arrayContaining([
+      "ledger_divergence",
+      "dre_divergence",
+      "procurement_dre_divergence",
+      "legacy_links",
+      "quality_cases",
+      "canonical_integrity",
+    ]));
   });
 
   it("bloqueia FIN-003 quando a paridade bancária não foi verificada",()=>{
@@ -185,6 +217,7 @@ describe("gate FIN-003 de persistência",()=>{
     const blocked=financialActivationEvidenceGate({
       factsCount:3,
       shadowRun:{id:"run-1"},
+      canonicalIntegrityVerified:true,
       canonicalIntegrity:{ok:false,counts:{errors:2,warnings:0}},
     });
     expect(blocked.ready).toBe(false);

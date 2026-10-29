@@ -47,7 +47,7 @@ export function camadaSupabase(pg) {
   const arquivos = new Map();
   const consulta = tabela => {
     const filtros = [], params = [];
-    let modo = "select", colunas = "*", ordem = [], limite = null, deslocamento = 0, patch = null, novos = null, conflito = null, retornar = false;
+    let modo = "select", colunas = "*", ordem = [], limite = null, deslocamento = 0, patch = null, novos = null, conflito = null, retornar = false, contar = false;
     const p = valor => { params.push(ehJson(valor) ? JSON.stringify(valor) : valor); return `$${params.length}${ehJson(valor) ? "::jsonb" : ""}`; };
     const onde = () => (filtros.length ? ` where ${filtros.join(" and ")}` : "");
     const executar = async () => {
@@ -75,13 +75,16 @@ export function camadaSupabase(pg) {
       }
       try {
         const r = await pg.query(sql, params);
-        return { data: modo === "select" || retornar ? r.rows.map(comoPostgrest) : null, error: null };
+        const count = contar && modo === "select"
+          ? Number((await pg.query(`select count(*) as total from public.${ident(tabela)}${onde()}`, params)).rows[0].total)
+          : undefined;
+        return { data: modo === "select" || retornar ? r.rows.map(comoPostgrest) : null, error: null, ...(contar ? { count } : {}) };
       } catch (error) {
         return { data: null, error };
       }
     };
     const b = {
-      select(c = "*") { if (modo !== "select") retornar = true; else colunas = c; return b; },
+      select(c = "*", opcoes = {}) { if (modo !== "select") retornar = true; else colunas = c; contar = opcoes.count === "exact"; return b; },
       eq(k, v) { filtros.push(`${ident(k)} = ${p(v)}`); return b; },
       gte(k, v) { filtros.push(`${ident(k)} >= ${p(v)}`); return b; },
       lte(k, v) { filtros.push(`${ident(k)} <= ${p(v)}`); return b; },
@@ -111,6 +114,7 @@ export function camadaSupabase(pg) {
       catch (error) { return { data: null, error }; }
     },
     storage: { from: () => ({
+      async createSignedUrls(caminhos) { return { data: caminhos.map(path => ({ path, signedUrl: arquivos.has(path) ? `https://assinado/${path}` : null, error: arquivos.has(path) ? null : "not found" })), error: null }; },
       async upload(caminho, buffer) { if (arquivos.has(caminho)) return { error: { message: "The resource already exists" } }; arquivos.set(caminho, buffer); return { error: null }; },
       async createSignedUrl(caminho) { return arquivos.has(caminho) ? { data: { signedUrl: `https://assinado/${caminho}` }, error: null } : { data: null, error: { message: "not found" } }; },
       async remove(caminhos) { caminhos.forEach(c => arquivos.delete(c)); return { error: null }; },

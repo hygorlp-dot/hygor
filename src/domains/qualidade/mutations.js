@@ -1,2 +1,2 @@
-import { NONCONFORMITY_STATUS } from "./constants.js";import { nextNonconformityStatus } from "./calculations.js";
+import { nextNonconformityStatus } from "./calculations.js";
 export const transitionNonconformity=(record,next,{actor={},now="",reason=""}={})=>{if(!nextNonconformityStatus(record.status,next))return {ok:false,error:"Transição de não conformidade inválida."};if(["acao_corretiva","encerrada"].includes(next)&&!String(reason).trim())return {ok:false,error:"Ação e encerramento exigem justificativa."};return {ok:true,record:{...record,status:next,version:Number(record.version||0)+1,history:[...(record.history||[]),{status:next,at:now,byId:actor.id||"",reason:String(reason||"")}]}};};

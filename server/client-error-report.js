@@ -18,3 +18,17 @@ export const sanitizeClientError = body => ({
   componentStack: redact(body?.componentStack),
   recordedAt: new Date().toISOString(),
 });
+
+// Erros de banco podem carregar a linha inteira em `details`/`hint`. Registre
+// somente o diagnóstico técnico permitido, aplicando a mesma redação do cliente.
+export const sanitizeServerError = error => {
+  if (!error || typeof error !== "object") return { message: redact(error) };
+  const stack = String(error.stack || "").split("\n")
+    .map(redact).filter(Boolean).join("\n").slice(0, MAX_FIELD);
+  return {
+    name: redact(error.name).slice(0, 80) || undefined,
+    code: redact(error.code).slice(0, 80) || undefined,
+    message: redact(error.message),
+    stack: stack || undefined,
+  };
+};

@@ -70,6 +70,37 @@ const appendSheet = (book, sheet, requestedName) => {
   book.Sheets[name] = sheet;
 };
 
+const download = async (workbook, fileName) => {
+  const bytes = await workbook.xlsx.writeBuffer();
+  const url = URL.createObjectURL(new Blob([bytes], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+// Planilhas tipadas: cada aba é {nome, colunas:[{titulo, largura, formato}], linhas}.
+// Número fica número e data fica data; o formato (R$, %, dd/mm/aaaa) é só de exibição.
+export const workbookFromTables = tables => {
+  const workbook = new ExcelJS.Workbook();
+  for (const table of tables) {
+    const worksheet = workbook.addWorksheet(String(table.nome || "Planilha").slice(0, 31));
+    worksheet.columns = table.colunas.map(column => ({
+      header: column.titulo, width: column.largura || 14, style: column.formato ? {numFmt: column.formato} : {},
+    }));
+    table.linhas.forEach(row => worksheet.addRow(row.map(value => value ?? null)));
+    worksheet.getRow(1).font = {bold: true};
+    worksheet.views = [{state: "frozen", ySplit: 1}];
+    if (table.colunas.length) worksheet.autoFilter = {from: {row: 1, column: 1}, to: {row: 1, column: table.colunas.length}};
+  }
+  return workbook;
+};
+
+export const writeTables = (tables, fileName) => download(workbookFromTables(tables), fileName);
+
 const writeFile = async (book, fileName) => {
   const workbook = new ExcelJS.Workbook();
   for (const name of book.SheetNames) {
@@ -81,15 +112,7 @@ const writeFile = async (book, fileName) => {
     });
     if (source["!autofilter"]?.ref) worksheet.autoFilter = source["!autofilter"].ref;
   }
-  const bytes = await workbook.xlsx.writeBuffer();
-  const url = URL.createObjectURL(new Blob([bytes], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = fileName;
-  anchor.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  await download(workbook, fileName);
 };
 
 const jsonToSheet = records => {

@@ -102,6 +102,33 @@ describe("terceiro → medição → NF",()=>{
 });
 
 describe("fechamento mensal imutável",()=>{
+  test("eventIds respeitam a data de corte e não carregam fatos futuros",()=>{
+    const supplementalEvents=[
+      {
+        id:"canonical-july",effect:"cost",amountCents:1000,
+        date:"2026-07-31",competence:"2026-07",obraId:"o1",
+        category:"outros",description:"Custo de julho",
+        sourceType:"canonical_title",sourceId:"july",
+      },
+      {
+        id:"canonical-august",effect:"cost",amountCents:2000,
+        date:"2026-08-01",competence:"2026-08",obraId:"o1",
+        category:"outros",description:"Custo futuro",
+        sourceType:"canonical_title",sourceId:"august",
+      },
+    ];
+    const result=createMonthlyClosingSnapshot(
+      {obras:[{id:"o1"}]},
+      {competencia:"2026-07",supplementalEvents},
+    );
+    expect(result.ok).toBe(true);
+    expect(result.closing.snapshot.eventIds).toContain("canonical-july");
+    expect(result.closing.snapshot.eventIds).not.toContain("canonical-august");
+    expect(result.closing.snapshot.eventCount).toBe(
+      result.closing.snapshot.eventIds.length,
+    );
+  });
+
   test("congela IDs e saldos conferidos e impede segundo fechamento",()=>{
     const data={
       obras:[{id:"o1"}],

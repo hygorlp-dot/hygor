@@ -12,7 +12,7 @@ import { active } from "../financeiro/ledger.js";
 import { saldoPagamentoPedido } from "../compras/calculations.js";
 import { validatePurchasePayment } from "../financeiro/purchase-payment-validation.js";
 import { validateExistingPaymentLink, updatePaymentAssociation, stampChangedPurchaseParents } from "./existing-payment-link.js";
-import { saldoTituloFolha, situacaoTituloFolha, validarLiquidacaoFolha } from "./payroll.js";
+import { situacaoTituloFolha, validarLiquidacaoFolha } from "./payroll.js";
 import { isDateInClosedPeriod, isCompetenceInClosedPeriod } from "../financeiro/workflows.js";
 import { classifyReceiptForDre } from "../dre/receipt-classification.js";
 

@@ -11,6 +11,10 @@ describe("FIN 9.6 — wiring atômico do fechamento mensal",()=>{
     expect(start).toBeGreaterThan(-1);
     expect(block).toContain("executarMutacaoMultiLinha");
     expect(block).toContain("prepareMonthlyFinancialClosing");
+    expect(block).toContain("pg_advisory_xact_lock");
+    expect(block).toContain("financial-shadow-sync");
+    expect(block.indexOf("pg_advisory_xact_lock"))
+      .toBeLessThan(block.indexOf("select id,origin_type,obra_id"));
     expect(block).toContain("canonicalDreEvents");
     expect(block).toContain("buildRequestedDreProjectionRows");
     expect(block).toContain("requireCanonicalDre:true");

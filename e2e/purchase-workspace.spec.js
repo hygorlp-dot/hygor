@@ -21,6 +21,14 @@ const fixture=()=>({
 });
 
 async function openPurchases(page){
+  const shell=page.locator(".arcd-app-shell");
+  await expect(shell).toBeVisible();
+  // A recarga restaura Compras. Não procurar um item de navegação de uma
+  // seção já aberta (nem desfazer o contexto que o teste quer conferir).
+  if(await shell.getAttribute("data-tab")==="cmp"){
+    await expect(page.locator(".purchase-header")).toBeVisible();
+    return;
+  }
   if(page.viewportSize().width<1100){
     await page.getByRole("button",{name:"Abrir Compras e suprimentos",exact:true}).click();
   }else{
@@ -168,6 +176,10 @@ test("solicitação vira cotação e pedido com material, quantidade e apropria�
   await dialog.getByRole("combobox",{name:"Fornecedor 2",exact:true}).selectOption("norte");
   await dialog.getByLabel("Preço unit. (R$)",{exact:true}).nth(0).fill("20");
   await dialog.getByLabel("Preço unit. (R$)",{exact:true}).nth(1).fill("25");
+  for(const label of ["Frete (R$)","Desconto (R$)","Impostos adicionais (R$)","Outras despesas (R$)"]){
+    await dialog.getByLabel(label,{exact:true}).nth(0).fill("0");
+    await dialog.getByLabel(label,{exact:true}).nth(1).fill("0");
+  }
   await dialog.screenshot({path:test.info().outputPath("cotacao-comparacao.png")});
   await dialog.getByRole("button",{name:"Salvar cotação",exact:true}).click();
   await expect(dialog).not.toBeVisible();
@@ -179,6 +191,10 @@ test("solicitação vira cotação e pedido com material, quantidade e apropria�
   await quoteRow.locator('[role="button"]').first().click();
   await quoteRow.getByRole("button",{name:"Decidir e gerar pedidos"}).click();
   dialog=page.getByRole("dialog");
+  const chosenProposal=quote.propostas.find(proposal=>proposal.fornecedorId==="central");
+  expect(chosenProposal).toBeDefined();
+  await dialog.getByRole("combobox",{name:"Fornecedor",exact:true}).selectOption(chosenProposal.id);
+  await expect(dialog.getByRole("button",{name:"Aprovar e gerar pedido(s)"})).toBeEnabled();
   await dialog.getByRole("button",{name:"Aprovar e gerar pedido(s)"}).click();
   await expect(dialog).not.toBeVisible();
   const order=app.state().pedidos.find(order=>order.cotacaoId===quote.id);
@@ -374,13 +390,15 @@ test("pedidos: uma ação principal por cartão, destrutivas só no menu ⋯ e f
   const cartao=numero=>page.getByRole("article",{name:`Pedido ${numero}`});
   const nomesVisiveis=async()=>(await page.getByRole("article").evaluateAll(els=>els.map(el=>el.getAttribute("aria-label")))).sort();
 
-  // Enviado: só "Receber material" + o botão do menu. Nada destrutivo, nada de "Enviar" na linha.
+  // A barra de ações do pedido enviado mantém "Receber material" + menu; a ficha é uma consulta separada.
   const enviado=cartao("PC-001");
-  await expect(enviado.getByRole("button")).toHaveCount(2);
+  await expect(enviado.locator(".purchase-order-actions").getByRole("button")).toHaveCount(2);
+  await expect(enviado.getByRole("button",{name:"Ficha completa · notas e anexos",exact:true})).toBeVisible();
   await expect(enviado.getByRole("button",{name:"Receber material"})).toBeVisible();
   await expect(enviado.getByRole("button",{name:/Cancelar pedido|Excluir definitivamente|Enviar ao fornecedor|Reenviar/})).toHaveCount(0);
   // Rascunho: a ação principal é revisar.
-  await expect(cartao("PC-002").getByRole("button")).toHaveCount(2);
+  await expect(cartao("PC-002").locator(".purchase-order-actions").getByRole("button")).toHaveCount(2);
+  await expect(cartao("PC-002").getByRole("button",{name:"Ficha completa · notas e anexos",exact:true})).toBeVisible();
   await expect(cartao("PC-002").getByRole("button",{name:"Revisar pedido"})).toBeVisible();
   await expect(cartao("PC-002").getByRole("button",{name:"Receber material"})).toHaveCount(0);
 
@@ -611,5 +629,62 @@ test("condições comerciais persistem e o comparativo usa o custo final",async(
   expect(app.state().cotacoes[0].propostas[0].custoFinal.frete).toBe("100");
   expect(app.state().cotacoes[0].propostas[0].condicoesPagamento).toBe("30 dias");
   await expect(page.locator(".purchase-cost-comparison").getByText("Menor custo final",{exact:true})).toBeVisible();
+  expect(app.errors).toEqual([]);
+});
+
+for(const width of [390,1280])test(`painel 'Uso da equipe' conta lançamentos, autores e compra fora do fluxo em ${width}px (A0.1)`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  const app=await enter(page,{prepare:state=>{
+    state.pedidos[0].criadoPor="Compradora QA";
+    state.pedidos[0].itens[0].recebimentos=[{id:"r1",data:"2026-10-22",qtd:4,responsavel:"Almoxarife QA",responsavelId:"alm",registradoEm:"2026-10-22T14:00:00Z"}];
+    state.notasFiscais=[{id:"nf-solta",obraId:"b",numero:"901",emissao:"2026-10-21",vencimento:"2026-11-21",valorBruto:640,status:"recebida",criadoPor:"Compradora QA"}];
+  }});
+  const tools=page.locator("details.purchase-tools");
+  await tools.locator("summary").click();await tools.getByRole("button",{name:"Mapa gerencial",exact:true}).click();
+  const painel=page.locator(".compras-management-map");
+  await painel.getByRole("tab",{name:"Uso da equipe"}).click();
+  const uso=painel.locator(".purchase-adoption");
+  // 1 solicitação datada, 1 cotação, 2 pedidos (o rascunho não conta), 1 recebimento; a nota sem pedido não é lançamento do fluxo.
+  await expect(uso.locator(".purchase-adoption__tiles > div").first().locator("b")).toHaveText("5");
+  await expect(uso.getByRole("row",{name:/^Pedidos/})).toContainText("2");
+  await expect(uso.getByRole("row",{name:/^Recebimentos/})).toContainText("1");
+  await expect(uso.getByText("Almoxarife QA")).toBeVisible();
+  await expect(uso.getByRole("region",{name:"Lançamentos por semana: tabela"})).toBeVisible();
+  const fora=uso.locator("section",{has:page.getByRole("heading",{name:"Compras fora do fluxo"})});
+  await expect(fora).toContainText("NF 901");
+  await expect(fora).toContainText("Residencial Horizonte");
+  await expect(fora).toContainText("R$ 640,00");
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  expect(app.errors).toEqual([]);
+});
+
+test("exportar para Excel baixa só o que a tela mostra, com valores em número e datas como data (A0.3)",async({page})=>{
+  const ExcelJS=(await import("exceljs")).default;
+  const lerDownload=async acao=>{
+    const [download]=await Promise.all([page.waitForEvent("download"),acao()]);
+    const livro=new ExcelJS.Workbook();await livro.xlsx.readFile(await download.path());
+    return {nome:download.suggestedFilename(),livro};
+  };
+  const app=await enter(page,{prepare:state=>{state.pedidos[0].previsao="2026-10-20";}});await selectWork(page);
+
+  // Pedidos filtrados por "só atrasadas": a planilha traz só o PC-001, com itens e notas.
+  await navigate(page,"Pedidos");
+  await page.locator(".purchase-order-filters__toggle input").check();
+  await expect(page.locator(".purchase-order-count")).toContainText("1 de 2 pedido(s)");
+  const pedidos=await lerDownload(()=>page.getByRole("button",{name:/Exportar para Excel os 1 pedido/}).click());
+  expect(pedidos.nome).toMatch(/^compras-pedidos-\d{4}-\d{2}-\d{2}\.xlsx$/);
+  expect(pedidos.livro.worksheets.map(aba=>aba.name)).toEqual(["Pedidos","Itens dos pedidos","Notas fiscais"]);
+  const aba=pedidos.livro.getWorksheet("Pedidos");
+  expect(aba.rowCount).toBe(2);
+  expect(aba.getCell("A2").value).toBe("PC-001");
+  expect(aba.getCell("G2").value).toBe(250);
+  expect(aba.getCell("D2").value).toBeInstanceOf(Date);
+  expect(pedidos.livro.getWorksheet("Itens dos pedidos").getCell("E2").value).toBe(10);
+
+  // Fila: o botão exporta os registros listados.
+  await navigate(page,"Fila");
+  const fila=await lerDownload(()=>page.getByRole("button",{name:/Exportar para Excel os \d+ registro/}).click());
+  const linhasFila=fila.livro.getWorksheet("Fila de trabalho").rowCount-1;
+  await expect(page.locator(".purchase-result-count")).toContainText(`${linhasFila} registro(s)`);
   expect(app.errors).toEqual([]);
 });

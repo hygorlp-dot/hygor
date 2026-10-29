@@ -92,3 +92,25 @@ Dados fictícios; só o papel administrador foi observado (engenharia, compras e
 - **Sem mudança no servidor**: o comando, as permissões e o que é gravado são os mesmos; a trava de clique duplo da obra (C8) continua.
 - **Verificação**: `receipt.test.js` (5 casos, inclusive o comando real do servidor aceitando o recebimento montado sem pagamento), os testes de formato do `LegacyApp.purchase-workflow-fixes.test.js` atualizados para o novo lugar das mesmas garantias (conversão de unidade, unidade de compra no rótulo, trava de clique duplo) e o caso novo do `e2e/purchase-workspace.spec.js` (na obra, "Chegou" abre o modal preenchido com 10 UN e o saldo em aberto, recusa 11, registra 4), que falha no código anterior; conferido em 1280 e 390 px.
 
+
+## Roadmap de 7,6 para 9 (28/10/2026)
+
+O quadro com os 14 itens, as fases e as decisões D1–D5 fica no documento "Roadmap de Compras: de 7,6 para 9". Decisões de 28/10: D1 = tipo novo de devolução ao fornecedor; D2 = certificado A1 autorizado como segredo do servidor, cadastrado pelo responsável; D3 = IPI, ICMS-ST e frete no custo; D4 = fornecedor não homologado só gera aviso; D5 = estouro de orçamento só gera aviso (o G4.1 sai do roadmap).
+
+### A0.1 · Painel de uso da equipe (28/10/2026)
+
+- **Onde**: terceira vista do "Mapa gerencial", **Uso da equipe**, ao lado de Resumo e Análises. Segue o escopo do mapa (empresa ou obra selecionada).
+- **O que mede**: `painelAdocaoCompras` (`src/domains/compras/adoption.js`, função pura) conta, nas últimas 8 semanas (segunda a domingo, a última até hoje), as solicitações, cotações, pedidos, recebimentos e notas lançados, por semana, por obra e por pessoa. Usa o que os comandos já gravam: `criadoEm`/`criadoPor` (com `data`/`emissao` para registro antigo) e o `recebimentos[]` dos itens, contando uma chegada com vários itens como um recebimento. Rascunho não conta; registro sem autor aparece como "Sem autor registrado". Obra sem lançamento no período fica marcada.
+- **Tempo entre etapas**: média em dias da solicitação ao pedido (pedidos feitos a partir de solicitação) e do pedido à primeira entrega.
+- **Compra fora do fluxo**: nota de material sem pedido (nota de terceirizado, ligada a medição, não conta) e despesa de material no caixa da obra sem pedido nem nota, com valor, obra, data e quem lançou.
+- **Sem mudança de regra**: só leitura; nada é gravado e o servidor não muda.
+- **Conferência com o banco (leitura)**: nas tabelas espelho `core_purchase_orders` e `core_quotations`, o último pedido, a única cotação e o último recebimento são de 21/08/2026. Logo, nas 8 semanas até 28/10 o painel mostra 0 pedidos, 0 cotações e 0 recebimentos em produção. Solicitações e notas ficam na linha compactada (`arcd-gzip-base64-v1`) e não são inspecionáveis por SQL.
+- **Verificação**: `adoption.test.js` (7 casos: janela de semanas, contagem sem rascunho e fora da janela, por obra, autores, tempos, fora do fluxo, escopo de obras) e o caso novo do `e2e/purchase-workspace.spec.js` em 390 e 1280 px (totais, autor do recebimento, nota sem pedido com obra e valor, sem rolagem lateral da página).
+
+### A0.3 · Exportar para Excel (28/10/2026)
+
+- **Onde**: botão "Exportar para Excel" ao lado da contagem em **Pedidos**, na **fila de trabalho**/aprovações/recebimentos e no topo de **Orçado × comprado** (uma obra ou todas).
+- **O que vai no arquivo** (`src/domains/compras/export-sheets.js`, funções puras): exatamente a lista que a tela mostra, com os filtros aplicados. Pedidos saem com três abas: Pedidos (valor, recebido, pago, a pagar, situação, quem paga), Itens dos pedidos (quantidade, recebida, falta, preço) e Notas fiscais dos pedidos exportados (valores e divergências). Orçado × comprometido sai por etapa (uma obra) ou por obra (todas).
+- **Número é número**: valores em R$, quantidades e percentuais vão como número, com formato de exibição (`"R$" #,##0.00`, `0.0%`); datas vão como data (`dd/mm/aaaa`), sem fuso. Cabeçalho em negrito, congelado e com filtro.
+- **Perfil**: o arquivo é montado no navegador a partir do que a pessoa já vê na tela; nada novo sai do servidor. A biblioteca de planilha (`exceljs`, via `writeTables` em `src/lib/spreadsheet.js`) só é carregada no clique.
+- **Verificação**: `export-sheets.test.js` (6 casos; gera o `.xlsx` de verdade com ExcelJS, lê de volta e confere número, data e formato) e o caso novo do `e2e/purchase-workspace.spec.js` (Pedidos filtrados por "só atrasadas" baixam só o PC-001 nas três abas; a fila baixa a mesma quantidade de registros da tela); conferido em 390 e 1280 px.
