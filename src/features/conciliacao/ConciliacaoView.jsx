@@ -936,7 +936,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
       <TabRow tabs={modoConciliacaoRh
         ?[["pendentes",`PIX a confirmar · ${calc.pendentes}`],["quinzena","Quinzena"],["conciliadas",`Confirmados · ${calc.conciliadas}`],["historico","Histórico"]]
-        :[["identificados",`Identificados · ${identificados.length + automaticasConcluidas.length}`],["pendentes",`Não identificados / revisar · ${revisar.length + parciais.length}`],["quinzena","Quinzena"],["conciliadas",`Conciliadas · ${calc.conciliadas}`],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["regras",`Regras · ${(data.regrasConc||[]).length}`],["fechamentos",`Fechamentos · ${(data.fechamentosBancarios||[]).length}`],["historico","Histórico"]]} active={aba} onChange={setAba}/>
+        :[["pendentes",`Revisar · ${revisar.length + parciais.length}`],["identificados",`Identificados · ${identificados.length + automaticasConcluidas.length}`],["conciliadas",`Conciliados · ${calc.conciliadas}`]]} active={aba} onChange={setAba}/>
+      {!modoConciliacaoRh&&<details className="reconciliation-support"><summary>Mais opções · extratos, regras e histórico</summary><TabRow tabs={[["quinzena","Quinzena"],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["regras","Regras"],["fechamentos","Fechamentos"],["historico","Histórico"]]} active={aba} onChange={setAba}/></details>}
 
       {!modoConciliacaoRh && <Alert>
         <strong>{conciliando ? "Conferindo e conciliando movimento…" : automacaoAtiva ? "Identificação e conciliação automáticas ativas" : "Conciliação automática pausada"}</strong>

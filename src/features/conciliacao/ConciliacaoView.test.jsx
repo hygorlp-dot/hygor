@@ -147,7 +147,7 @@ it("filtra conciliadas pela categoria do vínculo confirmado e ignora novas cand
   mount({ ...base(), despesasEmpresa: [{ id: "software-expense", categoria: "software", descricao: "Licença de projeto", valor: 300, pago: true }],
     transacoes: [transaction({ status: "conciliado", vinculo: { tipo: "despesasEmpresa", id: "software-expense", pagamentoId: "software-expense" }, candidates: [candidate({ categoria: "energia" })] })],
   });
-  act(() => [...container.querySelectorAll("nav button")].find(item => item.textContent.startsWith("Conciliadas")).click());
+  act(() => [...container.querySelectorAll("nav button")].find(item => item.textContent.startsWith("Conciliados")).click());
   chooseCategory(field("Filtrar categoria"), "softwares", "Softwares e assinaturas");
   expect(container.querySelectorAll("tr.reconciliation-row")).toHaveLength(1);
   act(() => container.querySelector('button[aria-label="Limpar filtrar categoria"]').click());

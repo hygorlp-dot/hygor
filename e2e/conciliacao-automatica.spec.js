@@ -54,7 +54,7 @@ test("concilia casos únicos e mantém dúvidas visíveis, inclusive no mobile",
   await expect(page.getByText("Conciliação automática pausada", { exact: true })).toBeVisible();
   await page.screenshot({ path: "test-results/conciliacao-desktop.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: /Não identificados/ }).click();
+  await page.getByRole("button", { name: /^Revisar ·/ }).click();
   await expect(page.getByText("Pix sem identificação", { exact: true })).toBeVisible();
   await page.screenshot({ path: "test-results/conciliacao-mobile.png", fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
