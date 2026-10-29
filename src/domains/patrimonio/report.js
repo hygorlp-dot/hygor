@@ -48,6 +48,7 @@ export const buildPatrimonyReportHtml=({
   companyName="MARCELL",
   filterLabel="Todos os bens",
   generatedAt=new Date(),
+  photos={},
 }={})=>{
   const rows=[...(Array.isArray(assets)?assets:[])].filter(Boolean).sort(sortAsset);
   const summary=summarizePatrimonyReport(rows);
@@ -68,7 +69,14 @@ export const buildPatrimonyReportHtml=({
     const locationText=[location,custodian?"Resp.: "+custodian:""].filter(Boolean).join(" · ");
     const serial=item?.serialNumber?"<small>Série: "+escapeHtml(item.serialNumber)+"</small>":"";
     const imei=item?.imei?"<small>IMEI: "+escapeHtml(item.imei)+"</small>":"";
+    // A foto vem embutida (data URL) porque o arquivo original é privado e
+    // o link temporário expiraria antes de o PDF ser salvo.
+    const photo=String(photos?.[item?.id]||"");
+    const photoCell=/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(photo)
+      ?"<img class=\"photo\" src=\""+photo+"\" alt=\"Foto de "+escapeHtml(item?.name||"bem")+"\">"
+      :item?.photo?.path?"<small>Foto indisponível</small>":"<small>Sem foto</small>";
     return "<tr>"+
+      "<td class=\"photo-cell\">"+photoCell+"</td>"+
       "<td>"+escapeHtml(item?.assetTag||"—")+"</td>"+
       "<td><b>"+escapeHtml(item?.name||"—")+"</b>"+serial+imei+"</td>"+
       "<td>"+escapeHtml(item?.category||"Outros")+"</td>"+
@@ -87,7 +95,8 @@ export const buildPatrimonyReportHtml=({
     ".summary small{display:block;color:#536171;margin-bottom:4px}.summary b{font-size:16px}h2{margin:22px 0 8px}table{width:100%;border-collapse:collapse}"+
     "th,td{border:1px solid #d9dde2;padding:6px 7px;vertical-align:top;text-align:left}td small{display:block;color:#536171;margin-top:2px}.num{text-align:right;white-space:nowrap}"+
     ".category{max-width:620px}.notice{margin:16px 0 0;padding:9px 11px;border-left:3px solid #b9985b;background:#f8f6f1;color:#536171}.meta{font-size:10px;color:#536171;text-align:right}"+
-    "tfoot td{font-weight:600;background:#f3f0e9}@media print{.toolbar{display:none}}</style></head><body>"+
+    "tfoot td{font-weight:600;background:#f3f0e9}.photo-cell{width:84px;text-align:center}.photo{display:block;width:76px;height:57px;object-fit:cover;border:1px solid #d9dde2}"+
+    "tr{break-inside:avoid}@media print{.toolbar{display:none}}</style></head><body>"+
     "<button class=\"toolbar\" onclick=\"print()\">Imprimir / salvar PDF</button>"+
     "<header><div><h1>Relatório de Patrimônio da Empresa</h1><p>"+escapeHtml(companyName)+"</p><p>"+escapeHtml(filterLabel)+"</p></div><div class=\"meta\">Gerado em "+escapeHtml(generated)+"</div></header>"+
     "<main><section class=\"summary\">"+
@@ -98,9 +107,9 @@ export const buildPatrimonyReportHtml=({
     "<h2>Resumo por categoria</h2><table class=\"category\"><thead><tr><th>Categoria</th><th class=\"num\">Quantidade</th><th class=\"num\">Valor de aquisição</th></tr></thead>"+
     "<tbody>"+(categoryRows||"<tr><td colspan=\"3\">Nenhum patrimônio no recorte.</td></tr>")+"</tbody>"+
     "<tfoot><tr><td>Total</td><td class=\"num\">"+summary.count+"</td><td class=\"num\">"+escapeHtml(money(summary.total))+"</td></tr></tfoot></table>"+
-    "<h2>Relação de bens</h2><table><thead><tr><th>Patrimônio</th><th>Bem</th><th>Categoria</th><th>Data aquisição</th><th class=\"num\">Valor aquisição</th><th>Situação</th><th>Local / responsável</th><th>Nota fiscal / fornecedor</th></tr></thead>"+
-    "<tbody>"+(detailRows||"<tr><td colspan=\"8\">Nenhum patrimônio no recorte.</td></tr>")+"</tbody>"+
-    "<tfoot><tr><td colspan=\"4\">Valor total de aquisição</td><td class=\"num\">"+escapeHtml(money(summary.total))+"</td><td colspan=\"3\"></td></tr></tfoot></table>"+
+    "<h2>Relação de bens</h2><table><thead><tr><th>Foto</th><th>Patrimônio</th><th>Bem</th><th>Categoria</th><th>Data aquisição</th><th class=\"num\">Valor aquisição</th><th>Situação</th><th>Local / responsável</th><th>Nota fiscal / fornecedor</th></tr></thead>"+
+    "<tbody>"+(detailRows||"<tr><td colspan=\"9\">Nenhum patrimônio no recorte.</td></tr>")+"</tbody>"+
+    "<tfoot><tr><td colspan=\"5\">Valor total de aquisição</td><td class=\"num\">"+escapeHtml(money(summary.total))+"</td><td colspan=\"3\"></td></tr></tfoot></table>"+
     "<p class=\"notice\"><b>Critério:</b> os valores deste relatório correspondem aos valores de aquisição cadastrados para os bens. Não representam depreciação, valor contábil líquido, valor fiscal ou valor de mercado.</p>"+
     "</main></body></html>";
 };

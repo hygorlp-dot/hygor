@@ -26,3 +26,15 @@ export const base64DecodedSize=value=>{
   const padding=encoded.endsWith("==")?2:encoded.endsWith("=")?1:0;
   return Math.max(0,Math.floor(encoded.length*3/4)-padding);
 };
+
+// Celular, WhatsApp e e-mail costumam entregar PDF/foto sem tipo (ou como
+// application/octet-stream). A extensão decide o tipo real antes do envio.
+const MIME_BY_EXTENSION=Object.freeze({pdf:"application/pdf",jpg:"image/jpeg",jpeg:"image/jpeg",jfif:"image/jpeg",png:"image/png",webp:"image/webp",xml:"application/xml"});
+export const patrimonyDocumentMime=(fileName,declaredType="")=>{
+  const declared=String(declaredType||"").toLowerCase().replace("image/jpg","image/jpeg");
+  if(isPatrimonyDocumentMime(declared))return declared;
+  const ext=String(fileName||"").split(".").pop()?.toLowerCase()||"";
+  return MIME_BY_EXTENSION[ext]||"";
+};
+export const isAppleHeic=(fileName,declaredType="")=>/hei[cf]$/i.test(String(declaredType||""))||/\.hei[cf]$/i.test(String(fileName||""));
+export const withDataUrlMime=(dataUrl,mime)=>String(dataUrl||"").replace(/^data:[^;,]*(;base64)?,/,`data:${mime};base64,`);

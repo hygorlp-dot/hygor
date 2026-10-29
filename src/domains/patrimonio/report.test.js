@@ -54,3 +54,16 @@ describe("relatório patrimonial",()=>{
     expect(html).toContain("&lt;tag&gt;");
   });
 });
+
+import { buildPatrimonyReportHtml as buildWithPhotos } from "./report.js";
+it("embute a foto do bem e avisa quando ela não pôde ser carregada",()=>{
+  const html=buildWithPhotos({assets:[
+    {id:"a",name:"Notebook",photo:{path:"patrimonio/a.jpg"}},
+    {id:"b",name:"Furadeira",photo:{path:"patrimonio/b.jpg"}},
+    {id:"c",name:"Mesa"},
+  ],photos:{a:"data:image/jpeg;base64,QUJD",b:"javascript:alert(1)"}});
+  expect(html).toContain('src="data:image/jpeg;base64,QUJD"');
+  expect(html).toContain("Foto indisponível");
+  expect(html).toContain("Sem foto");
+  expect(html).not.toContain("javascript:");
+});
