@@ -1,3 +1,4 @@
+import { adjustableTablesScript } from "./adjustable-tables.js";
 import { MARCELL_LOGO } from "../brand/identity.js";
 import regularFont from "./assets/NimbusSans-Regular.woff2?inline";
 import boldFont from "./assets/NimbusSans-Bold.woff2?inline";
@@ -13,7 +14,7 @@ function atualizarAssinatura(html) {
 
 // Presentation only: the existing report remains responsible for its data,
 // totals, columns, paper size, signatures and legal company identification.
-export function marcellReportHtml(html) {
+export function marcellReportHtml(html, { adjustableTables = false } = {}) {
   if (/<body\b[^>]*\bdata-marcell-report=/i.test(html)) return html;
   const a2 = /@page\s*\{\s*size\s*:\s*A2\b/i.test(html);
   const dense = /<title>Memória de Cálculo/i.test(html);
@@ -74,15 +75,30 @@ body[data-marcell-report][data-marcell-format="a2"] :is(td,th){font-size:6.6pt!i
 body[data-marcell-report][data-marcell-format="a2"] .mrc-report-brand{margin:0 0 2mm}
 body[data-marcell-report][data-marcell-format="wide"] table{table-layout:fixed}
 body[data-marcell-report][data-marcell-format="wide"] :is(td.num,td.n){white-space:normal!important}
-@media print{body[data-marcell-report]{-webkit-print-color-adjust:exact;print-color-adjust:exact}body[data-marcell-report] :is(button,.acoes,.toolbar,.print-btn,.btn-print,.print){display:none!important}body[data-marcell-report] .mrc-report-brand{break-after:avoid}}
+body[data-adjustable-tables] table[data-mrc-adjustable]{table-layout:fixed}
+body[data-adjustable-tables] table[data-mrc-adjustable] td{font-size:var(--mrc-table-font,10px)!important;line-height:1.2!important;padding:var(--mrc-table-padding,2px) 4px!important;overflow-wrap:break-word}
+body[data-adjustable-tables] table[data-mrc-adjustable] th{font-size:calc(var(--mrc-table-font,10px) - 1px)!important;line-height:1.2!important;padding:4px!important}
+body[data-adjustable-tables] table[data-mrc-adjustable] td.num{white-space:normal!important;overflow-wrap:anywhere}
+body[data-adjustable-tables] .section{break-before:auto!important;page-break-before:auto!important}
+body[data-adjustable-tables][data-annex-new-page="true"] .section{break-before:page!important;page-break-before:always!important}
+body[data-adjustable-tables] .section :is(h3,p){break-after:avoid}
+.mrc-report-controls{background:#f3f0e9;border:1px solid #7a8591;padding:16px;margin-bottom:20px}
+.mrc-report-controls__fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin:12px 0}
+.mrc-report-controls label{display:flex;flex-direction:column;gap:6px;font-size:12px}
+.mrc-report-controls select{padding:8px;background:white;color:#0d1b2e;border:1px solid #7a8591;font:inherit;min-height:36px;max-width:100%}
+.mrc-report-controls input[type=range]{width:100%;accent-color:#0d1b2e}
+.mrc-report-controls .mrc-report-controls__check{flex-direction:row;align-items:center;margin:12px 0}
+.mrc-report-controls__actions{display:flex;gap:8px;flex-wrap:wrap}
+.mrc-report-controls :is(input,select,button):focus-visible{outline:2px solid #7b6030;outline-offset:2px}
+@media print{.mrc-report-controls{display:none!important}body[data-marcell-report]{-webkit-print-color-adjust:exact;print-color-adjust:exact}body[data-marcell-report] :is(button,.acoes,.toolbar,.print-btn,.btn-print,.print){display:none!important}body[data-marcell-report] .mrc-report-brand{break-after:avoid}}
 @media screen{body[data-marcell-report]{max-width:1400px;margin-inline:auto}body[data-marcell-report] button{font-size:12px!important;font-weight:400!important;background:#0d1b2e!important;color:white!important;border:1px solid #0d1b2e;padding:9px 14px;border-radius:4px}body[data-marcell-report] :is(td,th){overflow-wrap:break-word}}
 </style>`;
   result = result.replace(/<\/head>/i, `${css}</head>`);
   const watermark = `<div class="mrc-report-watermark" aria-hidden="true"><img src="${MARCELL_LOGO}" alt=""></div>`;
-  result = result.replace(/<body\b([^>]*)>/i, `<body$1 data-marcell-report="true" data-marcell-format="${format}">${watermark}${branded || a2 ? "" : brand}`);
+  result = result.replace(/<body\b([^>]*)>/i, `<body$1 data-marcell-report="true" data-marcell-format="${format}"${adjustableTables ? ' data-adjustable-tables="true"' : ""}>${watermark}${branded || a2 ? "" : brand}`);
   if (a2) result = result.replace(/<section class="page">/g, `<section class="page">${brand}`);
   // Printing from any existing button/automatic path waits for the actual
   // fonts and embedded brand. No totals or report content are recomputed.
-  const readyScript = `<script>(()=>{const original=window.print.bind(window);const ready=Promise.resolve().then(async()=>{if(document.fonts){await Promise.all([document.fonts.load('400 11px "Nimbus Sans"'),document.fonts.load('600 11px "Nimbus Sans"')]);await document.fonts.ready;}await Promise.all([...document.querySelectorAll('.mrc-report-logo, .mrc-report-watermark img')].map(img=>img.decode?img.decode():Promise.resolve()));});ready.catch(()=>{});window.__marcellReportReady=ready;let printing=false;window.print=async()=>{if(printing)return;printing=true;try{await ready;original();}catch{window.alert('Não foi possível carregar a identidade do relatório. Verifique a conexão e reabra o documento antes de imprimir.');}finally{printing=false;}};})();</script>`;
+  const readyScript = `<script>(()=>{const original=window.print.bind(window);const ready=Promise.resolve().then(async()=>{if(document.fonts){await Promise.all([document.fonts.load('400 11px "Nimbus Sans"'),document.fonts.load('600 11px "Nimbus Sans"')]);await document.fonts.ready;}await Promise.all([...document.querySelectorAll('.mrc-report-logo, .mrc-report-watermark img')].map(img=>img.decode?img.decode():Promise.resolve()));${adjustableTables ? adjustableTablesScript() : ""}});ready.catch(()=>{});window.__marcellReportReady=ready;let printing=false;window.print=async()=>{if(printing)return;printing=true;try{await ready;original();}catch{window.alert('Não foi possível carregar a identidade do relatório. Verifique a conexão e reabra o documento antes de imprimir.');}finally{printing=false;}};})();</script>`;
   return result.replace(/<\/body>/i, `${readyScript}</body>`);
 }

@@ -260,3 +260,7 @@ Identificação legal cadastrada, conteúdos, valores, assinaturas e colunas nã
 - **Don't** usar ouro ou ardósia claros como texto pequeno sobre fundo claro.
 - **Don't** substituir estados funcionais pela cor da marca.
 - **Don't** transformar identificadores internos `arcd` ou nomes legais cadastrados em rótulos de identidade novos por substituição indiscriminada.
+
+### Prévia ajustável da folha
+
+A folha usa larguras proporcionais ao conteúdo; funcionário, cargo e obra recebem o espaço remanescente, e contagens e valores recebem a largura necessária aos seus dados. Fonte padrão de 10 px, entrelinha 1,2 e espaçamento vertical de 2 px mantêm a densidade sem truncar valores. A prévia oferece controles por tabela e coluna, fonte, linhas e separação de anexos. O padrão pode ser salvo no navegador; controles são excluídos da impressão. A marca MRC permanece em todas as páginas.
