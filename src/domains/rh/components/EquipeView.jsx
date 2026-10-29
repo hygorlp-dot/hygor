@@ -148,7 +148,9 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     setEmployeeSaveError('');
     const errors={};
     if (!form.name.trim()) errors.name="Informe o nome completo.";
-    if (!(Number(form.dailyRate)>0)) errors.dailyRate="Informe uma diária positiva para o custeio do ponto.";
+    if (form.remunerationMode!=="mei"&&!(Number(form.dailyRate)>0)) errors.dailyRate="Informe uma diária positiva para o custeio do ponto.";
+    if (form.remunerationMode==="mei"&&!(Number(form.meiMonthlyValue)>0)) errors.meiMonthlyValue="Informe o valor mensal do contrato MEI.";
+    if (form.remunerationMode==="mei"&&form.meiCnpj&&String(form.meiCnpj).replace(/\D/g,"").length!==14) errors.meiCnpj="O CNPJ precisa ter 14 dígitos.";
     if (form.remunerationMode==="clt"&&!(Number(form.monthlySalary)>0)) errors.monthlySalary="Informe o salário contratual mensal.";
     if (!form.startDate) errors.startDate="Informe a admissão.";
     setFormErrors(errors);
@@ -163,7 +165,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       ...form,
       id: form.id || uid(),
       dailyRate: Number(form.dailyRate || 0),
-      remunerationMode: form.remunerationMode==="clt"?"clt":"daily",
+      remunerationMode: ["clt","mei"].includes(form.remunerationMode)?form.remunerationMode:"daily",
+      meiMonthlyValue: Number(form.meiMonthlyValue || 0),
       monthlySalary: Number(form.monthlySalary || 0),
       vtDaily: Number(form.vtDaily || 0),
       vrDaily: Number(form.vrDaily || 0),
@@ -514,8 +517,12 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <p style={TYPO.eyebrow}>Remuneração</p><p className="employee-edit-hint">Valores cadastrados são mantidos, inclusive zero. Dados salvos no perfil do holerite são reaproveitados. Salário mensal, matrícula e CBO sem registro ficam em branco; a diária não é convertida em salário mensal.</p>
               <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
-                <Sel label="Modalidade de remuneração" value={form.remunerationMode||"daily"} onChange={v=>setForm(f=>({...f,remunerationMode:v,remunerationEffectiveFrom:today()}))} options={[{v:"daily",l:"Diária"},{v:"clt",l:"CLT mensal"}]}/>
+                <Sel label="Modalidade de remuneração" value={form.remunerationMode||"daily"} onChange={v=>setForm(f=>({...f,remunerationMode:v,remunerationEffectiveFrom:today()}))} options={[{v:"daily",l:"Diária"},{v:"clt",l:"CLT mensal"},{v:"mei",l:"MEI · valor fixo mensal"}]}/>
                 {(!form.id||(form.remunerationMode||"daily")!==(data.employees.find(e=>e.id===form.id)?.remunerationMode||"daily"))?<Inp label="Modalidade válida a partir de" type="date" value={form.remunerationEffectiveFrom||""} onChange={F("remunerationEffectiveFrom")}/>:<p className="employee-edit-hint">Modalidade atual preservada. Para mudar, selecione outra modalidade e informe a vigência.</p>}
+                {form.remunerationMode==="mei"?<>
+                <Inp label="Valor mensal do contrato MEI *" type="number" min="0" value={String(form.meiMonthlyValue||"")} onChange={F("meiMonthlyValue")} error={formErrors.meiMonthlyValue}/>
+                <Inp label="CNPJ do MEI" value={form.meiCnpj||""} onChange={F("meiCnpj")} error={formErrors.meiCnpj}/>
+                </>:<>
                 <Inp label={form.remunerationMode==="clt"?"Salário contratual mensal *":"Salário mensal para opção CLT"} type="number" value={String(form.monthlySalary||"")} onChange={F("monthlySalary")} error={formErrors.monthlySalary}/>
                 <Inp label="Matrícula do funcionário" value={form.cltPayroll?.profile?.registration||""} onChange={v=>setForm(f=>({...f,cltPayroll:{...f.cltPayroll,profile:{...f.cltPayroll?.profile,registration:v}}}))}/>
                 <Inp label="CBO do funcionário" value={form.cltPayroll?.profile?.cbo||""} onChange={v=>setForm(f=>({...f,cltPayroll:{...f.cltPayroll,profile:{...f.cltPayroll?.profile,cbo:v}}}))}/>
@@ -526,7 +533,9 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 <Inp label="Jornada padrão (horas)" type="number" min="1" max="24" value={form.workdayHours} onChange={F("workdayHours")} />
                 <Inp label="Início previsto da jornada" type="time" value={form.workStart} onChange={F("workStart")} />
                 <Inp label="Adicional de hora extra (%)" type="number" min="0" value={form.overtimeAdditionalPercent} onChange={F("overtimeAdditionalPercent")} />
+                </>}
               </div>
+              {form.remunerationMode==="mei"&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-label)"}}>O MEI recebe metade do valor mensal em cada quinzena, junto com a folha, proporcional aos dias de contrato. Não bate ponto, não tem encargos, VT ou VR, e o custo vai para a obra de lotação.</p>}
               {form.remunerationMode==="clt"&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-label)"}}>O salário contratual alimenta o holerite mensal. A diária de referência mantém o custeio dos apontamentos no DRE; não define o salário CLT nem representa um novo pagamento. Alterar a modalidade não recalcula folhas anteriores.</p>}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

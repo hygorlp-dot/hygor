@@ -71,7 +71,7 @@ export const validateLaborProjectionFilters = (input = {}, access, data = {}) =>
     role: String(raw.role || ""), onlyIssues: raw.onlyIssues === true,
   };
   if (!["all", "works", "administrative", "unassigned"].includes(result.area)
-    || !["", "daily", "clt"].includes(result.mode) || result.role.length > 160) {
+    || !["", "daily", "clt", "mei"].includes(result.mode) || result.role.length > 160) {
     throw failure(400, "LABOR_PROJECTION_FILTER_INVALID", "Filtro de projeção inválido.");
   }
   if (access.allowedWorkIds !== null) {
@@ -134,7 +134,7 @@ const archiveMarkers = (data, baseKey) => {
 };
 const EMPLOYEE_FIELDS = [
   "id", "name", "role", "workArea", "obra", "obraId", "lastObra", "active", "startDate", "endDate",
-  "dailyRate", "monthlySalary", "vtDaily", "vrDaily", "workdayHours", "workStart", "overtimeAdditionalPercent",
+  "dailyRate", "monthlySalary", "meiMonthlyValue", "vtDaily", "vrDaily", "workdayHours", "workStart", "overtimeAdditionalPercent",
   "remunerationMode", "remunerationEffectiveFrom", "remunerationHistory", "obraHistory",
 ];
 const pick = (value, fields) => Object.fromEntries(fields.filter(key => own(value, key)).map(key => [key, value[key]]));
@@ -502,7 +502,7 @@ export const sanitizeLaborProjectionReport = (input, access) => {
     options: {
       works: (report.options?.works || []).map(work => pick(work, ["id", "name"])),
       roles: (report.options?.roles || []).filter(value => typeof value === "string"),
-      modes: (report.options?.modes || []).filter(value => ["daily", "clt"].includes(value)),
+      modes: (report.options?.modes || []).filter(value => ["daily", "clt", "mei"].includes(value)),
       employees: canViewPeople ? (report.options?.employees || []).map(employee => pick(employee, ["id", "name"])) : [],
     },
     ...(report.cash ? { cash: {

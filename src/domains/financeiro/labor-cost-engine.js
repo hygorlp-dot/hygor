@@ -99,7 +99,7 @@ export const createLaborCostEngine = ({
     // Encargos e provisões (labor-charges.js) entram no custo de mão de obra
     // da competência: CLT pelo fator de encargos, diarista pelo percentual
     // configurado (0 por padrão). VT/VR não são base de encargo.
-    const factorByMode = { clt:laborChargeFactor("clt", data?.config), daily:laborChargeFactor("daily", data?.config) };
+    const factorByMode = { clt:laborChargeFactor("clt", data?.config), daily:laborChargeFactor("daily", data?.config), mei:laborChargeFactor("mei", data?.config) };
     const addLabor = (item, employee, date, amount) => {
       const charges = amount * (factorByMode[remunerationModeOnDate(employee, date)] || 0);
       item.laborCost += amount + charges;
@@ -122,8 +122,14 @@ export const createLaborCostEngine = ({
       }
       return diasUteisNoMes.get(mes);
     };
-    const salarioMensal = (employee, date) =>
-      remunerationModeOnDate(employee, date) === "clt" ? Math.max(0, Number(employee?.monthlySalary || 0)) : 0;
+    // MEI (29/10/2026): valor fixo mensal do contrato, rateado da mesma forma
+    // pelos dias úteis e pela obra do dia (lotação, já que MEI não bate ponto).
+    const salarioMensal = (employee, date) => {
+      const mode = remunerationModeOnDate(employee, date);
+      if (mode === "clt") return Math.max(0, Number(employee?.monthlySalary || 0));
+      if (mode === "mei") return Math.max(0, Number(employee?.meiMonthlyValue || 0));
+      return 0;
+    };
 
     (data?.employees || []).forEach(employee => {
       days.forEach(date => {
@@ -137,7 +143,7 @@ export const createLaborCostEngine = ({
             : String(archived?.obraId||resolveEmployeeAttendanceObraId({ data, employee, date }));
           const item = bucket(obraId);
           addLabor(item, employee, date, salario / diasUteisDoMes(date));
-          if (!feriado&&!archived) {
+          if (!feriado&&!archived&&remunerationModeOnDate(employee, date) !== "mei") {
             const record = attendanceForDate(data, employee.id, date);
             item.benefitCost += calculateAttendanceDayCost({ employee, record, config:data?.config }).benefitCost;
           }

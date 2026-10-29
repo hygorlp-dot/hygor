@@ -1,8 +1,10 @@
+import {normalizeRemunerationMode} from './remuneration-mode.js';
 const text=value=>value==null?'':String(value);
 export function employeeEditDraft(employee={}){
   const profile=employee.cltPayroll?.profile||{};
   return {...employee,
-    remunerationMode:employee.remunerationMode==='clt'?'clt':'daily',
+    remunerationMode:normalizeRemunerationMode(employee.remunerationMode),
+    meiMonthlyValue:text(Number(employee.meiMonthlyValue)>0?employee.meiMonthlyValue:''),meiCnpj:employee.meiCnpj||'',
     monthlySalary:text(Number(employee.monthlySalary)>0?employee.monthlySalary:Number(profile.salary)>0?profile.salary:''),
     remunerationEffectiveFrom:employee.remunerationEffectiveFrom||'',
     dailyRate:text(employee.dailyRate),vtDaily:text(employee.vtDaily),vrDaily:text(employee.vrDaily),

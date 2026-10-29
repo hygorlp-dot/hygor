@@ -3830,11 +3830,12 @@ export default async function handler(req, res) {
           id: e.id, name: e.name, role: e.role || "", obra: e.obra || "",
           dailyRate: Number(e.dailyRate || 0),
           monthlySalary: Number(e.monthlySalary || 0),
-          remunerationMode: e.remunerationMode === "clt" ? "clt" : "daily",
+          remunerationMode: ["clt", "mei"].includes(e.remunerationMode) ? e.remunerationMode : "daily",
+          meiMonthlyValue: Number(e.meiMonthlyValue || 0),
           remunerationEffectiveFrom: String(e.remunerationEffectiveFrom || ""),
           remunerationHistory:(e.remunerationHistory||[]).map(item=>({
             date:String(item?.date||""),
-            mode:item?.mode==="clt"?"clt":"daily",
+            mode:["clt","mei"].includes(item?.mode)?item.mode:"daily",
           })),
           obraHistory:(e.obraHistory||[]).map(item=>({
             date:String(item?.date||""),

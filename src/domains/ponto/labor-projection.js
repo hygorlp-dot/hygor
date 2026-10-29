@@ -25,6 +25,7 @@ export const LABOR_PROJECTION_ASSUMPTIONS=Object.freeze({
   futureAttendance:"P ou M lançado em data futura não é presença já ocorrida; o dia ordinário permanece estimado.",
   futureAbsence:"Há F lançado em data futura. O cenário preserva o lançamento explícito, que deve ser conferido e não constitui desconto automático.",
   overtime:"Somente horas extras explicitamente registradas neste dia entram na simulação; extras de outros dias não são repetidas.",
+  mei:"MEI recebe valor fixo mensal (metade por quinzena), sem ponto, encargos ou benefícios; o valor é rateado pelos dias úteis do mês na obra de lotação.",
   trackingStart:"O sistema só tem ponto registrado a partir do primeiro lançamento da empresa; dias anteriores não contam como dado ausente na cobertura.",
   allocation:"Dia sem ponto (futuro ou pendente) é atribuído à obra do último dia trabalhado até o corte, como no feriado; a lotação do cadastro vale apenas sem trabalho nos 31 dias anteriores.",
   stale:"Diarista ativo sem nenhum ponto nos últimos 30 dias fica fora do subtotal e da reserva; confirme desligamento ou afastamento no cadastro.",
@@ -274,6 +275,7 @@ export function buildLaborProjection(data={},options={}) {
       const group=groupFor(data,employee,obraId);if(!allowedGroup(group,options.access))continue;
       if(relation.code)historyProblems.set(`${id}|${relation.code}`,{code:relation.code,employeeId:id});
       const mode=modeAt(employee,date),role=classified.record?.role||employee.role||"";
+      if(mode==="mei")continue;
       const cell={employeeId:id,date,groupId:group.id,...group,mode,role,...counts(),limitedClassification:false};
       if(!prIsWeekdayIso(date))cell.nonWorkingDays=1;
       else if(holiday)cell.holidayDays=1;
@@ -364,20 +366,22 @@ export function buildLaborProjection(data={},options={}) {
         if(status)addExcludedRecordIssue("OFF_SCHEDULE_ATTENDANCE");
         continue;
       }
-      const mode=modeAt(employee,date),monthly=mode==="clt"&&positive(employee.monthlySalary);
+      // Valor fixo mensal: salário CLT ou contrato MEI (sem ponto, sem benefício).
+      const mode=modeAt(employee,date),mei=mode==="mei",monthly=mode==="clt"&&positive(employee.monthlySalary)||mei&&positive(employee.meiMonthlyValue);
       const baseRecord=classified.record||{},scenarioRecord=code=>{
         const record={status:code,ot:Math.max(0,Number(baseRecord.ot)||0),obraId:projectedObraId(employee,date,classified.record)};
         for(const key of ["archivedDailyRate","archivedVtDaily","archivedVrDaily","archivedWorkdayHours","archivedOvertimeAdditionalPercent"])if(Object.hasOwn(baseRecord,key))record[key]=baseRecord[key];
         return record;
       };
-      let partition=future?(status==="F"||isLeaveStatus(status)?"confirmedFuture":"estimated"):(status?"actual":"pending");
+      let partition=mei?(future?"confirmedFuture":"actual"):future?(status==="F"||isLeaveStatus(status)?"confirmedFuture":"estimated"):(status?"actual":"pending");
       const codes=[],assumptions=[];
       if(relation.code)codes.push(relation.code);
-      if(!["daily","clt"].includes(mode))codes.push("UNSUPPORTED_REMUNERATION");
+      if(!["daily","clt","mei"].includes(mode))codes.push("UNSUPPORTED_REMUNERATION");
+      if(mei&&!monthly)codes.push("REMUNERATION_MISSING");
       if(mode==="clt"&&!monthly)codes.push("CLT_DAILY_FALLBACK");
       if(future&&["P","M"].includes(status)){codes.push("UNCONFIRMED_FUTURE_ATTENDANCE");assumptions.push(LABOR_PROJECTION_ASSUMPTIONS.futureAttendance);}
       if(future&&status==="F"){codes.push("FUTURE_ABSENCE_RECORDED");assumptions.push(LABOR_PROJECTION_ASSUMPTIONS.futureAbsence);}
-      if(!future&&!status&&!holiday){codes.push("PENDING_ATTENDANCE");assumptions.push(LABOR_PROJECTION_ASSUMPTIONS.pending);}
+      if(!mei&&!future&&!status&&!holiday){codes.push("PENDING_ATTENDANCE");assumptions.push(LABOR_PROJECTION_ASSUMPTIONS.pending);}
       if(partition!=="actual"&&Number(baseRecord.ot)>0){codes.push("PLANNED_OVERTIME");assumptions.push(LABOR_PROJECTION_ASSUMPTIONS.overtime);}
       let holidayConditional=false,allocationConditional=false;
       if(holiday){
@@ -409,7 +413,7 @@ export function buildLaborProjection(data={},options={}) {
       if(!remunerated)codes.push("REMUNERATION_MISSING");
       const invalidBenefits=[baseRecord.archivedVtDaily??employee.vtDaily,baseRecord.archivedVrDaily??employee.vrDaily].some(value=>value!=null&&value!==""&&(number(value)===null||Number(value)<0));
       if(invalidBenefits)codes.push("INVALID_BENEFITS");
-      const validPrice=relation.value===true&&["daily","clt"].includes(mode)&&remunerated&&!invalidBenefits;
+      const validPrice=relation.value===true&&["daily","clt","mei"].includes(mode)&&remunerated&&!invalidBenefits;
       const regularEstimate=partition==="estimated"&&!holiday;
       if(regularEstimate&&rate.source==="unavailable"){codes.push("HISTORY_INSUFFICIENT");assumptions.push(LABOR_PROJECTION_ASSUMPTIONS.unavailable);}
       if(regularEstimate&&rate.source==="group")codes.push("HISTORY_GROUP_FALLBACK");
@@ -437,10 +441,11 @@ export function buildLaborProjection(data={},options={}) {
           provisional:part==="pending"||holidayConditional||allocationConditional||(regularEstimate&&rate.limitedClassification),...extra});
       };
       if(monthly&&relation.value===true){
-        assumptions.push(LABOR_PROJECTION_ASSUMPTIONS.salary);allAssumptions.add(LABOR_PROJECTION_ASSUMPTIONS.salary);
+        const salaryNote=mei?LABOR_PROJECTION_ASSUMPTIONS.mei:LABOR_PROJECTION_ASSUMPTIONS.salary;
+        assumptions.push(salaryNote);allAssumptions.add(salaryNote);
         const salary={laborCost:full.cost.laborCost,chargesCost:full.cost.chargesCost,benefitCost:0};
         emit("salary",future?"confirmedFuture":"actual",salary,salary,{workedDaysWeight:0,reserveWorkedDaysWeight:0});
-        if(!holiday){
+        if(!holiday&&!mei){
           const attendance=validPrice?(expected?{laborCost:0,chargesCost:0,benefitCost:expected.benefitCost}:full.cost.benefitCost===0?{laborCost:0,chargesCost:0,benefitCost:0}:null):null;
           emit("attendance",partition,attendance,invalidBenefits?null:{laborCost:0,chargesCost:0,benefitCost:partition==="actual"||partition==="confirmedFuture"?known.cost.benefitCost:full.cost.benefitCost});
         }
