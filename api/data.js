@@ -31,6 +31,9 @@ import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData, profil
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
 import { archivedLaborKeys, rebuildArchivedLaborCosts } from "../server/financial-archived-costs-source.js";
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
+import { getLaborProjectionAccess, prepareLaborProjectionSource, sanitizeLaborProjectionReport, validateLaborProjectionFilters } from "../server/labor-projection.js";
+import { buildLaborProjection } from "../src/domains/ponto/labor-projection.js";
+import { buildLaborProjectionCash } from "../src/domains/ponto/labor-projection-cash.js";
 import { validatePurchaseChanges } from "../server/permission-policies.js";
 import { podeAcessarAba } from "../src/domains/administracao/abas-acesso.js";
 import { compactAuditSnapshots, expandSectionDelta } from "../src/domains/sync/section-delta.js";
@@ -3167,6 +3170,42 @@ export default async function handler(req, res) {
       });
       if(outcome.kind==="error")return res.status(outcome.status||400).json({error:outcome.error});
       return res.status(200).json({ ok:true, removed:id });
+    }
+
+    if(action==="labor-projection-report"){
+      try{
+        const access=getLaborProjectionAccess(usuario,atual);
+        // Permissões e escopo de obra são verificados antes de ler arquivos.
+        // A identidade histórica é validada depois da reconstrução, pois uma
+        // pessoa pode existir só na fotografia de uma quinzena arquivada.
+        validateLaborProjectionFilters({...req.body?.filters,
+          employeeId:access.canViewPeople?"":req.body?.filters?.employeeId},access,atual);
+        const source=await prepareLaborProjectionSource({
+          data:atual,baseKey:KEY,now:new Date(),
+          initialVersion:{updatedAt,rowVersions:{...rowVersions,[DOMAIN_ROW.CORE]:updatedAt},rowVersionsPontoObra},
+          readCurrentVersion:async()=>{
+            const current=await lerLinha();
+            return {updatedAt:current.updatedAt,rowVersions:current.rowVersions,rowVersionsPontoObra:current.rowVersionsPontoObra};
+          },
+          readArchive:async key=>{
+            const {data:archive,error}=await db.from("company_app_data").select("key,value,updated_at")
+              .eq("company_id",COMPANY).eq("key",key).maybeSingle();
+            if(error)throw error;
+            return archive;
+          },
+        });
+        const {data:projectionData,...sourceOptions}=source;
+        const filters=validateLaborProjectionFilters(req.body?.filters,access,projectionData);
+        const report=buildLaborProjection(projectionData,{...sourceOptions,access,filters,includeCashBasis:true});
+        report.sourceVersion=source.sourceVersion;
+        report.cash=buildLaborProjectionCash(projectionData,report,{access});
+        return res.status(200).json({ok:true,report:sanitizeLaborProjectionReport(report,access)});
+      }catch(error){
+        if(String(error?.code||"").startsWith("LABOR_")&&[400,403,409,503].includes(error.status)){
+          return res.status(error.status).json({error:error.message,code:error.code,retryable:error.status===409});
+        }
+        throw error;
+      }
     }
 
     if(action==="financial-annual-dre-report"||action==="financial-annual-dre-layout"){
