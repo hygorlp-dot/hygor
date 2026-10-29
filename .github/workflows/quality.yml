@@ -34,7 +34,9 @@ jobs:
       - name: Testes financeiros e de permissões com cobertura
         run: npm run test:coverage
       - name: Build de produção
-        run: npm run build
+        # Mede o mesmo artefato sem sourcemaps publicado em produção. O override
+        # do Vite preserva o prebuild sem ativar VERCEL_ENV e migrations reais.
+        run: npm run build -- --sourcemap false
       - name: Catálogo isolado do Design System
         run: npm run build-storybook
       - name: Métricas de bundle
