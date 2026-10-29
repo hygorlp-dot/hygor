@@ -1,0 +1,16 @@
+.purchase-dossier { display: grid; gap: 18px; min-width: 0; }
+.purchase-dossier section, .purchase-cost-comparison { min-width: 0; }
+.purchase-dossier h3, .purchase-cost-comparison h3 { font-weight: 650; margin-bottom: 8px; }
+.purchase-dossier p, .purchase-cost-comparison p, .purchase-commercial-terms p { font-size: var(--arcd-type-label); margin: 6px 0; }
+.purchase-dossier article { border: 1px solid var(--border, #ddd); border-radius: 8px; padding: 12px; margin: 8px 0; }
+.purchase-dossier h4 { font-weight: 600; }
+.purchase-dossier ul { padding-left: 18px; }
+.purchase-document-key { overflow-wrap: anywhere; }
+.purchase-document-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 0; }
+.purchase-document-row span { flex: 1 1 180px; overflow-wrap: anywhere; }
+.purchase-document-preview { width: 100%; height: 60vh; border: 1px solid var(--border, #ddd); }
+.purchase-cost-scroll { max-width: 100%; overflow-x: auto; }
+.purchase-cost-scroll table { border-collapse: collapse; min-width: 780px; width: 100%; font-size: var(--arcd-type-label); }
+.purchase-cost-scroll th, .purchase-cost-scroll td { text-align: left; padding: 9px; border-bottom: 1px solid var(--border, #ddd); vertical-align: top; }
+.purchase-cost-scroll small { display: block; margin-top: 4px; }
+.purchase-commercial-terms { display: grid; gap: 6px; margin-top: 8px; }

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import { casarItensNota, fornecedorPorDocumento, lerXmlNfe, sugerirPedidosParaNota, validarItensNota } from "./nfe-xml.js";
+import { divergenciasDoItem, casarItensNota, fornecedorPorDocumento, lerXmlNfe, sugerirPedidosParaNota, validarItensNota } from "./nfe-xml.js";
 import { applyInvoiceCommand, INVOICE_COMMAND } from "../financeiro/invoice-commands.js";
 
 const xml=readFileSync(`${process.cwd()}/src/domains/compras/__fixtures__/nfe-teste.xml`,"utf8");
@@ -65,4 +65,9 @@ describe("importação do XML da NF-e (C3.1)",()=>{
     expect(validarItensNota([{qtd:1,precoUnit:1,pedidoItemId:"y"}],data().pedidos[0])).toMatch(/outro pedido/);
     expect(validarItensNota([{qtd:1,precoUnit:1,pedidoItemId:"i-cim"},{qtd:1,precoUnit:1,pedidoItemId:"i-cim"}],data().pedidos[0])).toMatch(/mesmo item/);
   });
+});
+
+it("confere preço do XML contra preço cotado antes do rateio de frete e desconto",()=>{
+  expect(divergenciasDoItem({qtd:1,precoUnit:100},{qtd:1,precoUnit:90,precoUnitCotado:100})).toEqual([]);
+  expect(divergenciasDoItem({qtd:1,precoUnit:110},{qtd:1,precoUnit:130,precoUnitCotado:100})).toHaveLength(1);
 });

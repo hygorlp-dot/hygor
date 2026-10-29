@@ -6,6 +6,7 @@ import { FinancialOverviewMetrics } from "./features/financeiro/FinancialOvervie
 import { Children, lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import DreReconciliationManager from "./features/financeiro/DreReconciliationManager.jsx";
 import { activeErpModule, moduleForTab, visibleErpModules } from "./navigation/erp-navigation.js";
+import { rememberSection, restoreSection } from "./navigation/section-session.js";
 import { FlowTabs, WorkflowContext, useWorkflow } from "./features/workflow/WorkflowNavigation.jsx";
 import { normalizeWorkflowScope } from "./features/workflow/workflow-model.js";
 import AnnualDre from "./features/financeiro/AnnualDre.jsx";
@@ -15382,7 +15383,7 @@ const emptyCompanyExpenseForm = competencia => ({
 
 function DREEmpresa(props) {
   const [annual,setAnnual]=useState(false);
-  return <><div className="annual-dre__view-switch" aria-label="Visão do DRE"><button type="button" aria-pressed={!annual} onClick={()=>setAnnual(false)}>DRE mensal e lançamentos</button><button type="button" aria-pressed={annual} onClick={()=>setAnnual(true)}>DRE anual ajustável</button></div>{annual?<AnnualDre update={props.update}/>:<DREEmpresaMensal {...props}/>}</>;
+  return <><div className="annual-dre__view-switch" aria-label="Visão do DRE"><button type="button" aria-pressed={!annual} onClick={()=>setAnnual(false)}>DRE mensal e lançamentos</button><button type="button" aria-pressed={annual} onClick={()=>setAnnual(true)}>DRE anual ajustável</button></div>{annual?<AnnualDre update={props.update} onOpenWork={props.onOpenWork}/>:<DREEmpresaMensal {...props}/>}</>;
 }
 
 function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=null }) {
@@ -17647,7 +17648,7 @@ export default function App() {
           const cadastro=normalizados.usuarios.find(u=>u.id===restaurada.usuario?.id);
           const usuarioCompleto={...restaurada.usuario,...cadastro,pin:undefined};
           setData(normalizados);setCurrentUser(usuarioCompleto);setUltimaSync(new Date());
-          setTab(allowedTabsForUser(usuarioCompleto)[0]||"home");
+          setTab(restoreSection(usuarioCompleto.id,allowedTabsForUser(usuarioCompleto)));
           return;
         }
         const r = await listarPerfis();
@@ -17709,6 +17710,7 @@ export default function App() {
   const allowedTabs  = allowedTabsForUser(currentUser);
   const allowedTabsKey=allowedTabs.join("|");
   useEffect(()=>{if(currentUser&&!allowedTabs.includes(tab))setTab(allowedTabs[0]||"home");},[currentUser?.id,allowedTabsKey,tab]);
+  useEffect(()=>{rememberSection(currentUser?.id,tab,allowedTabs);},[currentUser?.id,allowedTabsKey,tab]);
 
   // Filtra grupos para mostrar apenas os que o usuário pode acessar
   const visibleGroups = visibleErpModules(allowedTabs,C);
@@ -18013,7 +18015,7 @@ export default function App() {
       setUltimaSync(new Date());
       setCurrentUser(usuarioCompleto);
       const allowed = allowedTabsForUser(usuarioCompleto);
-      setTab(allowed[0] || "home");
+      setTab(restoreSection(usuarioCompleto.id,allowed));
     };
 
     return (
@@ -18410,7 +18412,7 @@ export default function App() {
           {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "rh_indic" && <Suspense fallback={<div className="arcd-page-loading">Carregando indicadores...</div>}><IndicadoresView data={data} /></Suspense>}
-          {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
+          {tab === "dre_emp"  && <DREEmpresa onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "conc"     && <Suspense fallback={<div className="arcd-page-loading">Carregando conciliação...</div>}><Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}

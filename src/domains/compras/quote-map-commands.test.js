@@ -173,3 +173,33 @@ describe("mapa de cotação com vários itens (C1.3)",()=>{
     expect(result.data.pedidos.every(item=>item.cotacaoId==="")).toBe(true);
   });
 });
+
+
+describe("custo final e alçadas no servidor",()=>{
+  const commercialQuote=()=>{const q=rawQuote();q.propostas.forEach(p=>{p.custoFinal={frete:5000,desconto:0,impostos:0,despesas:0};p.condicoesPagamento="30 dias";});return q;};
+  const choices=()=>Object.fromEntries(rawQuote().itens.map(i=>[i.id,"pr-1"]));
+  const justifications=()=>Object.fromEntries(rawQuote().itens.map(i=>[i.id,"Fornecedor atende a cesta completa"]));
+  it("persiste condições e inclui adicionais na alçada conjunta",()=>{
+    const saved=saveQuote(base(),commercialQuote());
+    expect(saved.ok).toBe(true);
+    expect(saved.data.cotacoes[0].propostas[0].custoFinal.frete).toBe(5000);
+    const blocked=decide(saved.data,choices(),{justifications:justifications()});
+    expect(blocked.ok).toBe(false);expect(blocked.reason).toMatch(/Administrador/);
+    const approved=decide(saved.data,choices(),{justifications:justifications()},1,{actorRole:"admin"});
+    expect(approved.ok).toBe(true);
+    const order=approved.data.pedidos[0];
+    expect(order.condicoesPagamento).toBe("30 dias");
+    expect(Math.round(order.itens.reduce((sum,i)=>sum+i.precoUnit*i.qtd,0)*100)).toBe(544000);
+    expect(order.itens[0].precoUnitCotado).toBe(10);
+  });
+  it("recusa custos negativos na API e trava alteração comercial de itens decididos",()=>{
+    const q=commercialQuote();q.propostas[0].custoFinal.frete=-1;
+    expect(saveQuote(base(),q).ok).toBe(false);
+    const saved=saveQuote(base(),commercialQuote());
+    const approved=decide(saved.data,choices(),{justifications:justifications()},1,{actorRole:"admin"});
+    expect(approved.ok).toBe(true);
+    const changed={...approved.data.cotacoes[0],propostas:approved.data.cotacoes[0].propostas.map(p=>({...p,custoFinal:{...p.custoFinal,frete:0}}))};
+    const result=applyPurchaseOrderCommand(approved.data,command(PURCHASE_ORDER_COMMAND.QUOTATION_SAVED,{quote:changed},changed.version),now);
+    expect(result.ok).toBe(false);
+  });
+});

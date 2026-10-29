@@ -82,7 +82,7 @@ export const casarItensNota=(itensXml,pedido,materiais=[])=>{
       const descricao=porMaterial.get(String(item.materialId))?.descricao||item.descricaoRef||"";
       let pontos=semelhanca(xmlItem.descricao,descricao);
       if(Math.abs(Number(item.qtd||0)-xmlItem.qtd)<EPS)pontos+=0.2;
-      if(Math.abs(Number(item.precoUnit||0)-xmlItem.precoUnit)<EPS)pontos+=0.2;
+      if(Math.abs(Number(item.precoUnitCotado??item.precoUnit??0)-xmlItem.precoUnit)<EPS)pontos+=0.2;
       if(!melhor||pontos>melhor.pontos)melhor={item,pontos,descricao};
     }
     if(!melhor||melhor.pontos<0.5)return {xmlItem,pedidoItemId:"",descricaoPedido:"",divergencias:["Sem item correspondente no pedido: vincule manualmente."]};
@@ -94,7 +94,7 @@ export const casarItensNota=(itensXml,pedido,materiais=[])=>{
 
 export const divergenciasDoItem=(xmlItem,itemPedido)=>{
   const lista=[];
-  const qtdPedido=Number(itemPedido?.qtd||0),precoPedido=Number(itemPedido?.precoUnit||0);
+  const qtdPedido=Number(itemPedido?.qtd||0),precoPedido=Number(itemPedido?.precoUnitCotado??itemPedido?.precoUnit??0);
   if(xmlItem.qtd>qtdPedido+EPS)lista.push(`Quantidade da nota (${xmlItem.qtd.toLocaleString("pt-BR")}) acima do pedido (${qtdPedido.toLocaleString("pt-BR")}).`);
   if(xmlItem.precoUnit>precoPedido+EPS)lista.push(`Preço da nota (R$ ${xmlItem.precoUnit.toFixed(2)}) acima do pedido (R$ ${precoPedido.toFixed(2)}).`);
   return lista;

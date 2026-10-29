@@ -4,6 +4,7 @@
 // proposta) são lidas como um mapa de um item só, para a tela e o servidor
 // usarem a mesma regra nos dois formatos.
 
+import { custoFinalDaProposta } from "./final-cost.js";
 export const ITEM_COTACAO_LEGADO="__item";
 const EPS=0.000001;
 
@@ -42,11 +43,12 @@ export const decisoesDaCotacao=quote=>{
 // (empate pelo menor prazo) e a melhor destacada.
 export const mapaDaCotacao=quote=>{
   const propostas=quote?.propostas||[];
+  const custos=new Map(propostas.map(p=>[p.id,custoFinalDaProposta(quote,p)]));
   const decisoes=decisoesDaCotacao(quote);
   const linhas=itensDaCotacao(quote).map(item=>{
     const qtd=Number(item.qtd||0);
     const ofertas=propostas
-      .map(proposta=>({proposta,precoUnit:precoDaProposta(quote,proposta,item.id)}))
+      .map(proposta=>({proposta,precoUnit:custos.get(proposta.id).precosFinais[item.id]??precoDaProposta(quote,proposta,item.id)}))
       .filter(oferta=>oferta.precoUnit>0)
       .map(oferta=>({...oferta,total:oferta.precoUnit*qtd}))
       .sort((a,b)=>a.precoUnit-b.precoUnit
@@ -58,7 +60,7 @@ export const mapaDaCotacao=quote=>{
     };
   });
   const totaisPorProposta=Object.fromEntries(propostas.map(proposta=>[proposta.id,
-    linhas.reduce((sum,linha)=>sum+precoDaProposta(quote,proposta,linha.item.id)*linha.qtd,0)]));
+    custos.get(proposta.id).total??linhas.reduce((sum,linha)=>sum+precoDaProposta(quote,proposta,linha.item.id)*linha.qtd,0)]));
   return {linhas,totaisPorProposta};
 };
 
@@ -66,7 +68,8 @@ export const itensPendentesDaCotacao=quote=>mapaDaCotacao(quote).linhas.filter(l
 
 // Sugestão inicial da tela: a melhor oferta de cada item ainda pendente.
 export const sugestaoDeEscolhas=quote=>Object.fromEntries(itensPendentesDaCotacao(quote)
-  .filter(linha=>linha.melhorPropostaId).map(linha=>[linha.item.id,linha.melhorPropostaId]));
+  .filter(linha=>linha.melhorPropostaId&&linha.ofertas.every(({proposta})=>!proposta.custoFinal||custoFinalDaProposta(quote,proposta).complete))
+  .map(linha=>[linha.item.id,linha.melhorPropostaId]));
 
 // Exige justificativa quando a escolha não é a mais barata ou quando o item
 // tem menos de duas ofertas (sem concorrência).
@@ -91,6 +94,14 @@ export const avaliarEscolhasCotacao=(quote,escolhas={},justificativas={})=>{
     if(!linha)return {erro:"Um dos itens escolhidos não existe ou já virou pedido."};
     const oferta=linha.ofertas.find(item=>String(item.proposta.id)===String(propostaId));
     if(!oferta)return {erro:"A proposta escolhida não cotou este item."};
+    if(oferta.proposta.custoFinal){
+      const cost=custoFinalDaProposta(quote,oferta.proposta);
+      if(!cost.complete)return {erro:"Complete frete, desconto, impostos adicionais e despesas da proposta antes de gerar pedidos. Informe zero quando não houver cobrança."};
+      // Frete fixo não pode ser fracionado em vários pedidos sem nova oferta.
+      if(Object.values(oferta.proposta.custoFinal).some(value=>Number(value)>0)&&itensDaCotacao(quote).some(item=>precoDaProposta(quote,oferta.proposta,item.id)>0&&escolhas[item.id]!==propostaId)){
+        return {erro:"A proposta com custos adicionais deve ser comprada integralmente. Para dividir os itens, revise a cotação com os custos de cada fornecedor."};
+      }
+    }
     const justificativa=String(justificativas?.[itemId]||"").trim();
     if(escolhaPrecisaJustificativa(linha,propostaId)&&!justificativa){
       return {erro:linha.ofertas.length<2

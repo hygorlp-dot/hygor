@@ -1,3 +1,4 @@
+import { contraparteDoFato } from "./counterparty.js";
 // Motor de candidatos da conciliação. Sem React, DOM ou persistência.
 //
 // Dado um movimento bancário (transação) e os índices já montados
@@ -289,6 +290,10 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
       return;
     }
 
+    const party = contraparteDoFato(data, tipo, item);
+    documento = documento || party.documento;
+    contraparte = contraparte || party.nome;
+    pixKey = pixKey || party.pix;
     let score = 0;
     const motivos = [], alertas = [], bloqueios = [];
 
@@ -345,6 +350,17 @@ export const gerarCandidatosConciliacao = (transacao, data, indices, config = {}
       metadados,
     }));
     const last = candidatas[candidatas.length - 1];
+    last.evidenciaAutomatica = {
+      identidadeExata: (d.pts > 0 && [11,14].includes(soNumeros(documento).length)) || px.pts > 0,
+      referenciaExata: bankId.pts > 0,
+      valorExato: saldoCentavos > 0 && Math.abs(valorCentavos) === saldoCentavos,
+      dataProxima: Boolean(transacao.data && dataPrevista && diasEntre(transacao.data, dataPrevista) <= 2),
+    };
+    if ((transacao.chavePix || transacao.pixKey || transacao.chave) && pixKey && !px.pts) {
+      bloqueios.push("Chave PIX incompatível com o fato financeiro");
+      last.podeVincular = false;
+      last.podeRegistrarPagamento = false;
+    }
     last.score = score; last.confianca = confianca;
     last.motivos = motivos; last.alertas = alertas; last.bloqueios = bloqueios;
   });

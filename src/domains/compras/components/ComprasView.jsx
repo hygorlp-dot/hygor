@@ -1,3 +1,5 @@
+import { CommercialTerms, CostComparison } from "./PurchaseFinalCost";
+import { PurchaseDossier } from "./PurchaseDossier";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { DreIntegration, useRememberWorkflowScope, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
@@ -589,7 +591,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
 
 // Mapa de cotação (C1.3): itens nas linhas, fornecedores nas colunas. O
 // menor preço de cada linha fica destacado; cada fornecedor aparece uma vez.
-const propostaVaziaCotacao=()=>({id:uid(),fornecedorId:"",prazoDias:"",obs:"",documentos:[],precos:{}});
+const propostaVaziaCotacao=()=>({id:uid(),fornecedorId:"",prazoDias:"",obs:"",documentos:[],precos:{},custoFinal:{frete:"",desconto:"",impostos:"",despesas:""}});
 const itemVazioCotacao=()=>({id:uid(),materialId:"",qtd:"",unidadeRef:"UN",unidadeCompra:"UN",fatorConversao:1,precoRef:0,orcItemId:"",orcNivel1Id:""});
 // Converte a cotação (antiga ou de vários itens) no formulário do mapa.
 const formularioDaCotacao=cot=>{
@@ -637,6 +639,7 @@ function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOr
                 <Sel label={`Fornecedor ${i+1}`} value={p.fornecedorId} onChange={v=>setP(i,"fornecedorId",v)}
                   options={[{v:"",l:"Selecione..."},...fornecedores.filter(f=>f.id===p.fornecedorId||!usados.has(f.id)).map(f=>({v:f.id,l:f.nome}))]}/>
                 <Inp label="Prazo (dias)" type="number" value={p.prazoDias} onChange={v=>setP(i,"prazoDias",v)} placeholder="0"/>
+                <CommercialTerms proposal={p} disabled={Object.values(decisoesDaCotacao(form)).some(d=>d.propostaId===p.id)} onChange={(field,value)=>setP(i,field,value)}/>
                 {form.propostas.length>2&&!Object.values(decisoesDaCotacao(form)).some(d=>d.propostaId===p.id)&&<button type="button" onClick={()=>delP(i)} style={{background:"transparent",border:0,color:C.muted,fontSize:"var(--arcd-type-control)",cursor:"pointer",textDecoration:"underline"}}>remover fornecedor</button>}
               </th>)}
             </tr></thead>
@@ -663,6 +666,7 @@ function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOr
             </tr></tfoot>
           </table>
         </div>
+        <CostComparison quote={form} supplierName={id=>fornecedores.find(f=>f.id===id)?.nome||"Fornecedor"}/>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <Btn v="ghost" onClick={addItem}><Ic n="plus"/> Item</Btn>
           <Btn v="ghost" onClick={addP}><Ic n="plus"/> Fornecedor</Btn>
@@ -704,6 +708,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const [pedModal,  setPedModal]  = useState(null);
   const [recModal,  setRecModal]  = useState(null);   // recebimento
   const [cotModal,  setCotModal]  = useState(null);
+  const [fichaCompra,setFichaCompra]=useState(null);
   const [cotDecisao,setCotDecisao]=useState(null);
   const [envioPedido,setEnvioPedido]=useState(null);
   const [aceitePedido,setAceitePedido]=useState(null);
@@ -1657,6 +1662,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       .filter(p=>p.fornecedorId&&itens.some(i=>Number(p.precos?.[i.id])>0))
       .map(p=>({id:p.id||uid(),fornecedorId:p.fornecedorId,prazoDias:Number(p.prazoDias||0),obs:p.obs||"",
         documentos:Array.isArray(p.documentos)?p.documentos:[],
+        ...(p.custoFinal?{custoFinal:p.custoFinal}:{}),condicoesPagamento:p.condicoesPagamento||"",
         precos:Object.fromEntries(itens.filter(i=>Number(p.precos?.[i.id])>0).map(i=>[i.id,Number(p.precos[i.id])]))}));
     if (props.length < 2) { showToast("Uma cotação precisa de ao menos 2 propostas.", "error"); return; }
     if (!dispatchCommand) { showToast("Salvar a cotação exige conexão com o servidor.", "error"); return; }
@@ -2287,6 +2293,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap",marginTop:8}}>
                   <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{ultimoAjuste?`Último ajuste: ${ultimoAjuste.usuario||"Operador"} · ${new Date(ultimoAjuste.criadoEm).toLocaleString("pt-BR")} · ${ultimoAjuste.motivo}`:"Sem ajustes registrados"}</p>
                   <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                    <Button variant="secondary" onClick={()=>setFichaCompra({pedidoId:p.id})}>Ficha completa · notas e anexos</Button>
                     {st!=="cancelado"&&<Btn size="sm" v="ghost" onClick={()=>setPedModal({...p,motivoAjuste:"",itens:p.itens.map(i=>({...i,qtd:String(i.qtd),precoUnit:String(i.precoUnit)}))})}><Ic n="edit"/> Ajustar compra</Btn>}
                     {podeExcluirCompra&&<Btn size="sm" v="danger" onClick={()=>abrirExclusaoCompra(p)}><Ic n="trash"/> Excluir</Btn>}
                   </div>
@@ -2404,7 +2411,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                     );
                   })}
 	                </div>
-	                {p.analiseIA&&<div style={{marginTop:7,padding:"7px 9px",background:`${C.purple}08`,border:`1px solid ${C.purple}2F`,borderRadius:7,display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.purple,fontWeight:600}}><Ic n="brain" s={11}/> Sugestão da IA revisada por {p.analiseIA.revisadoPor||"operador"} · confiança {Number(p.analiseIA.confianca||0)}%</span><span>{(p.documentos||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginLeft:8}}>{a.nome} ↗</a>)}</span></div>}
+	                <Button variant="secondary" onClick={()=>setFichaCompra({pedidoId:p.id})}>Ficha completa · notas e anexos</Button>
+                {p.analiseIA&&<div style={{marginTop:7,padding:"7px 9px",background:`${C.purple}08`,border:`1px solid ${C.purple}2F`,borderRadius:7,display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.purple,fontWeight:600}}><Ic n="brain" s={11}/> Sugestão da IA revisada por {p.analiseIA.revisadoPor||"operador"} · confiança {Number(p.analiseIA.confianca||0)}%</span><span>{(p.documentos||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginLeft:8}}>{a.nome} ↗</a>)}</span></div>}
 
                 {(() => {
                   const forn = fornecedorPorId.get(p.fornecedorId);
@@ -2656,10 +2664,12 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                       </tr></thead>
                       <tbody>{mapa.linhas.map(l=><tr key={l.item.id} style={{borderTop:`1px solid ${C.line}`}}>
                         <td style={{padding:"7px 8px"}}><b className="brk" style={{display:"block",color:C.text}}>{nomeMat(l.item.materialId)}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l.qtd.toLocaleString("pt-BR")} {purchaseUnitOf(l.item)}{l.decisao?" · pedido gerado":""}</span></td>
-                        {ord.map(p=>{const v=precoDaProposta(c,p,l.item.id),eh=v>0&&p.id===l.melhorPropostaId,venceu=l.decisao?.propostaId===p.id;return <td key={p.id} style={{padding:"7px 8px",background:venceu?`${C.green}1A`:eh?`${C.green}0B`:"transparent"}}>{v>0?<><b style={{color:eh?C.green:C.text}}>{fmt(v)}</b>{venceu&&" ✓"}<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted}}>{fmt(v*l.qtd)}{eh?" · menor":""}</small></>:<span style={{color:C.muted}}>—</span>}</td>;})}
+                        {ord.map(p=>{const v=l.ofertas.find(o=>o.proposta.id===p.id)?.precoUnit||0,eh=v>0&&p.id===l.melhorPropostaId,venceu=l.decisao?.propostaId===p.id;return <td key={p.id} style={{padding:"7px 8px",background:venceu?`${C.green}1A`:eh?`${C.green}0B`:"transparent"}}>{v>0?<><b style={{color:eh?C.green:C.text}}>{fmt(v)}</b>{venceu&&" ✓"}<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted}}>{fmt(v*l.qtd)}{eh?" · menor":""}</small></>:<span style={{color:C.muted}}>—</span>}</td>;})}
                       </tr>)}</tbody>
                     </table>
                   </div>
+                  <CostComparison quote={c} supplierName={nomeForn}/>
+                  <Button variant="secondary" onClick={()=>setFichaCompra({cotacaoId:c.id})}>Ficha da compra conjunta · notas e anexos</Button>
                   {ord.map(p=><div key={p.id} style={{marginTop:6,padding:"6px 8px",background:C.card,border:`1px solid ${C.border}`,borderRadius:7}}><b style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>Documentos · {nomeForn(p.fornecedorId)}</b><LinksDocumentosAuditaveis documentos={p.documentos||[]} subindo={subindoAnexoCotacao&&anexoCotacao?.cotacao?.id===c.id&&anexoCotacao?.proposta?.id===p.id} onSelecionar={e=>selecionarDocumentoCotacao(c,p,e)} C={C}/></div>)}
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap",marginTop:8}}>
                     <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{c.economia>0?`Economia registrada: ${fmt(c.economia||0)}`:"Escolha a proposta de cada item considerando preço, prazo e documentação."}</span>
@@ -2764,6 +2774,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {pedModal  && <ModalPedido     form={pedModal}  setForm={setPedModal}  onSave={salvarPedido}
                                      fornecedores={fornecedores} materiais={materiais}
                                      linhasOrc={niveisUmOrcamento(getPlanningBudget(data,pedModal.obraId).budget)} data={data} basesReferencia={basesCompra} save={save}/>}
+      {fichaCompra&&<PurchaseDossier data={data} selection={fichaCompra} onClose={()=>setFichaCompra(null)}/>}
       {cotModal  && <ModalCotacao    form={cotModal}  setForm={setCotModal}  onSave={salvarCotacao}
                                      fornecedores={fornecedores} materiais={materiais} linhasOrc={niveisUmOrcamento(getPlanningBudget(data,cotModal.obraId).budget)} save={save} obraNome={obraPorId.get(cotModal.obraId)?.name}/>}
       <ModalLegendaDocumento anexo={anexoCotacao} setAnexo={setAnexoCotacao} onClose={()=>!subindoAnexoCotacao&&setAnexoCotacao(null)} onSalvar={salvarDocumentoCotacao} salvando={subindoAnexoCotacao} titulo="Anexar documento da cotação" C={C}/>
@@ -2794,7 +2805,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         const pendentesCot=itensPendentesDaCotacao(cot),escolhas=cotDecisao.escolhas||{},just=cotDecisao.justificativas||{};
         const avaliacao=avaliarEscolhasCotacao(cot,escolhas,just);
         return <Modal title="Decisão do mapa de cotação" onClose={()=>setCotDecisao(null)} wide><div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Escolha o fornecedor de cada item. Item sem escolha fica pendente na cotação. Fora do menor preço ou com uma só proposta, registre o motivo.</p>
+          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Escolha o fornecedor de cada item. Os valores incluem rateio dos custos comerciais informados. Propostas antigas sem esses dados exibem apenas o preço dos itens e precisam de conferência. Item sem escolha fica pendente. Fora do menor preço ou com uma só proposta, registre o motivo.</p>
           {pendentesCot.map(l=>{const sel=escolhas[l.item.id]||"",exige=sel&&escolhaPrecisaJustificativa(l,sel);return <div key={l.item.id} style={{background:C.surface,border:`1px solid ${exige&&!String(just[l.item.id]||"").trim()?C.orange:C.border}`,borderRadius:7,padding:"8px 10px"}}>
             <p className="brk" style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{nomeMat(l.item.materialId)} · {l.qtd.toLocaleString("pt-BR")} {purchaseUnitOf(l.item)}</p>
             <Sel label="Fornecedor" value={sel} onChange={v=>setCotDecisao(d=>({...d,escolhas:{...d.escolhas,[l.item.id]:v}}))}

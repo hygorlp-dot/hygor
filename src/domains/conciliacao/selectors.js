@@ -1,3 +1,4 @@
+import { contraparteDoFato } from "./counterparty.js";
 // Índices de busca do motor de conciliação. Sem React, DOM ou persistência.
 //
 // O objetivo é montar, UMA VEZ por render da fila (não por transação), mapas
@@ -74,6 +75,10 @@ export const criarIndicesFinanceiros = (data) => {
 
   const indexar = (item, { tipo, valor, documento = "", contraparte = "", pixKey = "", obraId, categoria = "" }) => {
     if (!item?.id) return;
+    const party = contraparteDoFato(data, tipo, item);
+    documento = documento || party.documento;
+    contraparte = contraparte || party.nome;
+    pixKey = pixKey || party.pix;
     const entrada = { tipo, item, obraId, documento, contraparte, pixKey, categoria, valorCentavos: paraCentavos(valor) };
     push(porValorCentavos, paraCentavos(valor), entrada);
     if (documento) push(porDocumento, soNumeros(documento), entrada);

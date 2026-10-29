@@ -1,3 +1,4 @@
+import { validarCustoFinal } from "./final-cost.js";
 import { herdarVinculoDaSolicitacao } from "./budget-link.js";
 import { active, toCents } from "../financeiro/ledger.js";
 import { isDateInClosedPeriod } from "../financeiro/workflows.js";
@@ -104,6 +105,7 @@ const normalizeItems=(data,rawItems,newMaterials,current)=>{
     if(quantity+1e-6<received)return {error:"A quantidade comprada não pode ficar abaixo do que já foi recebido."};
     items.push({
       ...raw,id,materialId,qtd:quantity,precoUnit:unitPrice,
+      ...(previous&&Number(previous.precoUnit)!==unitPrice?{precoUnitCotado:unitPrice}:{}),
       qtdRecebida:received,
       recebimentos:(previous?.recebimentos||[]).map(item=>({...item})),
     });
@@ -279,6 +281,8 @@ const normalizeQuote=(data,raw,current,now)=>{
       precoUnit:Number(item.precoUnit),prazoDias:Number(item.prazoDias||0),
       obs:String(item.obs||""),
       documentos:Array.isArray(item.documentos)?item.documentos.map(doc=>({...doc})):[],
+      ...(item.custoFinal?{custoFinal:{...item.custoFinal}}:{}),
+      condicoesPagamento:String(item.condicoesPagamento||""),
     }));
   if(proposals.length<2)return {error:"Uma cotação precisa de ao menos 2 propostas."};
   if(proposals.some(item=>!item.id||!supplierById(data,item.fornecedorId))){
@@ -307,6 +311,7 @@ const normalizeQuote=(data,raw,current,now)=>{
   if(request&&String(request.obraId)!==obraId){
     return {error:"Cotação e solicitação precisam pertencer à mesma obra."};
   }
+  for(const proposal of proposals){const error=validarCustoFinal(raw,proposal);if(error)return {error};}
   const quote={
     id,obraId,materialId,qtd:quantity,
     unidadeRef:conversion.unidadeRef,unidadeCompra:conversion.unidadeCompra,
@@ -372,6 +377,8 @@ const normalizeQuoteMap=(data,raw,current,now,{id,obraId})=>{
       id:String(item.id||""),fornecedorId:String(item.fornecedorId),precos,
       prazoDias:Number(item.prazoDias||0),obs:String(item.obs||""),
       documentos:Array.isArray(item.documentos)?item.documentos.map(doc=>({...doc})):[],
+      ...(item.custoFinal?{custoFinal:{...item.custoFinal}}:{}),
+      condicoesPagamento:String(item.condicoesPagamento||""),
     });
   }
   if(proposals.length<2)return {error:"Uma cotação precisa de ao menos 2 propostas."};
@@ -390,10 +397,13 @@ const normalizeQuoteMap=(data,raw,current,now,{id,obraId})=>{
       const oldProposal=(current.propostas||[]).find(item=>String(item.id)===String(decision.propostaId));
       return !proposal||!after||String(after.materialId)!==String(before?.materialId)
         ||Math.abs(after.qtd-Number(before?.qtd||0))>1e-9
-        ||Math.abs(Number(proposal.precos[itemId]||0)-Number(oldProposal?.precos?.[itemId]||0))>1e-9;
+        ||Math.abs(Number(proposal.precos[itemId]||0)-Number(oldProposal?.precos?.[itemId]||0))>1e-9
+        ||JSON.stringify(proposal.custoFinal)!==JSON.stringify(oldProposal?.custoFinal)
+        ||String(proposal.condicoesPagamento||"")!==String(oldProposal?.condicoesPagamento||"");
     });
     if(changed)return {error:"Um item que já virou pedido não pode ser alterado na cotação."};
   }
+  for(const proposal of proposals){const error=validarCustoFinal(raw,proposal);if(error)return {error};}
   const link=quoteRequestOf(data,raw,current,obraId);
   if(link.error)return link;
   const first=items[0];
@@ -453,6 +463,7 @@ const createFromQuote=(data,command,now)=>{
   }
   const proposal=(quote.propostas||[]).find(item=>String(item.id)===String(payload.proposalId));
   if(!proposal)return fail("A proposta escolhida não pertence à cotação.");
+  if(proposal.custoFinal)return fail("Use a decisão do mapa para incluir o custo final da proposta.");
   const prices=(quote.propostas||[]).map(item=>Number(item.precoUnit||0)).filter(value=>value>0);
   if(prices.length<2)return fail("A cotação precisa de ao menos duas propostas válidas.");
   const lowest=Math.min(...prices),selected=Number(proposal.precoUnit||0);
@@ -518,7 +529,10 @@ const decideQuoteMap=(data,command,now)=>{
   const created=[];
   for(const [index,group] of evaluation.grupos.entries()){
     const orderId=orderIds[index];
+    const proposal=(quote.propostas||[]).find(item=>item.id===group.propostaId);
     const raw={
+      custoFinal:proposal?.custoFinal?{...proposal.custoFinal}:null,
+      condicoesPagamento:proposal?.condicoesPagamento||"",
       id:orderId,numero:String(orders[group.fornecedorId]?.number||"").trim(),obraId:quote.obraId,
       fornecedorId:group.fornecedorId,data:date,previsao:String(payload.forecast||""),
       status:"enviado",origemPagamento:"empresa",
@@ -530,7 +544,7 @@ const decideQuoteMap=(data,command,now)=>{
         unidadeRef:linha.item.unidadeRef||"",
         unidadeCompra:linha.item.unidadeCompra||linha.item.unidadeRef||"",
         fatorConversao:Number(linha.item.fatorConversao||1),precoRef:Number(linha.item.precoRef||0),
-        cotacaoItemId:linha.item.id,
+        cotacaoItemId:linha.item.id,precoUnitCotado:Number(proposal?.precos?.[linha.item.id]??precoUnit),
       })),
       pagamentos:[],documentos:[],obs:"",
     };

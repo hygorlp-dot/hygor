@@ -574,7 +574,7 @@ export const desfazerConciliacao = (data, transacaoId, operador, motivo = "") =>
     if (outra) {
       next = {
         ...next,
-        transacoes: marcarTransacao(next.transacoes, outra.id, { status: "pendente", vinculo: null, gerados: [] }),
+        transacoes: marcarTransacao(next.transacoes, outra.id, { status: "pendente", vinculo: null, gerados: [], automacaoConciliacao: null }),
         historicoConc: registrarHistorico(next.historicoConc, {
           transacaoId: outra.id, extratoId: outra.extratoId, acao: "transferencia_desfeita",
           statusAnterior: "conciliado", statusNovo: "pendente", descricao: motivo || "Transferência interna desfeita",
@@ -589,7 +589,7 @@ export const desfazerConciliacao = (data, transacaoId, operador, motivo = "") =>
       : c) };
   }
 
-  const transacoes = marcarTransacao(next.transacoes, transacaoId, { status: "pendente", vinculo: null, gerados: [],valorVinculado:0,saldoNaoVinculado:Math.abs(Number(tr.valor)) });
+  const transacoes = marcarTransacao(next.transacoes, transacaoId, { status: "pendente", vinculo: null, gerados: [], automacaoConciliacao: null,valorVinculado:0,saldoNaoVinculado:Math.abs(Number(tr.valor)) });
   const historicoConc = registrarHistorico(next.historicoConc, {
     transacaoId, extratoId: tr.extratoId, acao: "desfeito",
     statusAnterior: "conciliado", statusNovo: "pendente",
