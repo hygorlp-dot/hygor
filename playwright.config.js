@@ -27,6 +27,8 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   projects: [
+    {name:"labor-projection-desktop",testMatch:/labor-projection\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
+    {name:"labor-projection-mobile",testMatch:/labor-projection\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"pdf-mrc",testMatch:/pdf-mrc\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
     {name:"clt-desktop",testMatch:/clt-payslips\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
     {name:"clt-mobile",testMatch:/clt-payslips\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},

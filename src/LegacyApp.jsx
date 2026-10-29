@@ -10,6 +10,7 @@ import { rememberSection, restoreSection } from "./navigation/section-session.js
 import { FlowTabs, WorkflowContext, useWorkflow } from "./features/workflow/WorkflowNavigation.jsx";
 import { normalizeWorkflowScope } from "./features/workflow/workflow-model.js";
 import AnnualDre from "./features/financeiro/AnnualDre.jsx";
+import LaborProjectionReport from "./domains/ponto/components/LaborProjectionReport.jsx";
 // Planilhas são um recurso pesado e opcional. O pacote só entra na memória
 // quando o usuário realmente importa ou exporta um arquivo.
 export let XLSX = null;
@@ -41,7 +42,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          consultarSombraFinanceira, prepararSombraFinanceira, sincronizarSombraFinanceira,
          consultarDreCanonico, consultarDreEmpresaCanonico, executarComandoFinanceiro,
          executarComandoOperacional, executarComandoPonto,
-         gerenciarAcessoPortalCliente } from "./api";
+         gerenciarAcessoPortalCliente, obterProjecaoMaoObra } from "./api";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
@@ -8494,7 +8495,19 @@ function RelatorioAdministracao({ data, year, month, showToast }) {
   );
 }
 
-function Relatorios({ data, showToast }) {
+function Relatorios({ data, showToast, currentUser }) {
+  const [section,setSection]=useState("monthly");
+  const canViewProjection=["admin","rh","financeiro"].includes(currentUser?.role);
+  return <div>
+    {canViewProjection&&<FlowTabs label="Relatórios de mão de obra" active={section} onChange={setSection}
+      steps={[{id:"monthly",label:"Relatórios mensais"},{id:"projection",label:"Projeção de mão de obra"}]}/>}
+    {section==="projection"&&canViewProjection
+      ?<LaborProjectionReport requestReport={obterProjecaoMaoObra}/>
+      :<RelatoriosMensais data={data} showToast={showToast}/>}
+  </div>;
+}
+
+function RelatoriosMensais({ data, showToast }) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth());
   const [filterObra, setFilterObra] = useState("all");
@@ -17923,7 +17936,7 @@ export default function App() {
           {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "medicoes" && <Suspense fallback={<div className="arcd-page-loading">Carregando medições...</div>}><MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "caixa"    && <CaixaObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "relat"    && <Relatorios   data={data} showToast={showToast} />}
+          {tab === "relat"    && <Relatorios   data={data} showToast={showToast} currentUser={currentUser} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
           {tab === "ia_config" && <ConfiguracaoIA showToast={showToast}/>}
           {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={sairDoSistema} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} />}
