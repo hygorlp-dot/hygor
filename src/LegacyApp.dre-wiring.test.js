@@ -87,7 +87,7 @@ describe("contrato de autoria do DRE", () => {
 
   it("consome a projeção canônica quando ela está disponível, mesmo antes do bloqueio FIN-003", () => {
     expect(source).toContain('relatorio?.source==="canonical_ledger"&&relatorio.current');
-    expect(source).toContain('razaoEmpresa?.source==="canonical_ledger"&&razaoEmpresa.current');
+    expect(source).toContain('["canonical_ledger","closed_snapshot"].includes(razaoEmpresa?.source)&&razaoEmpresa.current');
     expect(source).not.toContain("const calcDREEmpresa =");
   });
 
@@ -112,6 +112,6 @@ describe("contrato de autoria do DRE", () => {
     expect(api).toContain('String(currentEvent.payload?.sourceRevision||"")!==sourceRevision');
     expect(api).toContain("buildRequestedDreProjectionRows(fonteFinanceira,projectionRequests,canonical.events)");
     expect(api).toContain('code:"DRE_PROJECTION_SYNC_FAILED"');
-    expect(source).toContain('report?.status===200&&report?.source==="canonical_ledger"&&report.current');
+    expect(source).toContain('report?.status===200&&["canonical_ledger","closed_snapshot"].includes(report?.source)&&report.current');
   });
 });
