@@ -42,7 +42,7 @@ export const canonicalDreEvents = ({titles=[],settlements=[],banks=[]}={}) => {
     const base={sourceType:"canonical_title",sourceId:title.id,obraId:title.obra_id||"",date,
       competence:date.slice(0,7),category:!title.obra_id&&kind==="cost"?companyExpenseCategory(title.metadata?.dreCategory).id:(title.metadata?.dreCategory||"outros"),
       description:title.metadata?.description||title.metadata?.descricao||title.origin_type,
-      metadata:{native:true,financialKind:kind||"unclassified",dueDate:title.due_date||"",
+      metadata:{native:true,titleDetails:title,financialKind:kind||"unclassified",dueDate:title.due_date||"",
         paidAmountCents:paid.reduce((sum,item)=>sum+toCents(item.amount),0),
         lastSettlementDate:paid.map(item=>String(item.settlement_date).slice(0,10)).sort().at(-1)||""}};
     events.push({...base,id:`canonical_title:${title.id}:${position}`,effect:`${position}_increase`,amountCents:toCents(title.original_amount)});

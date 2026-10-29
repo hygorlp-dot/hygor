@@ -2079,7 +2079,7 @@ export default async function handler(req, res) {
       }
       const [year,monthNumber]=period.competencia.split("-").map(Number);
       const dreRow=buildRequestedDreProjectionRows(atual,[{
-        year,month:monthNumber-1,period:"mes",scope:"company_dre",
+        year,month:monthNumber-1,period:"mes",scope:"company_dre",includeMemorial:true,
       }],canonical.events)[0];
       if(!dreRow?.payload){
         return res.status(409).json({error:"Não foi possível materializar o DRE canônico da competência."});
@@ -2226,7 +2226,7 @@ export default async function handler(req, res) {
               };
               const [year,monthNumber]=period.competencia.split("-").map(Number);
               const dreRow=buildRequestedDreProjectionRows(closingData,[{
-                year,month:monthNumber-1,period:"mes",scope:"company_dre",
+                year,month:monthNumber-1,period:"mes",scope:"company_dre",includeMemorial:true,
               }],canonical.events)[0];
               if(!dreRow?.payload)return {
                 kind:"error",status:409,error:"Não foi possível materializar o DRE canônico da competência.",
@@ -2978,7 +2978,7 @@ export default async function handler(req, res) {
       const year=Number(req.body?.year);
       if(!Number.isInteger(year)||year<2000||year>2100)return res.status(400).json({error:"Ano inválido."});
       const canonical=await loadCanonicalDre(db,COMPANY);
-      const requests=Array.from({length:12},(_,month)=>({year,month,period:"mes",scope:"company_dre"}));
+      const requests=Array.from({length:12},(_,month)=>({year,month,period:"mes",scope:"company_dre",includeMemorial:true}));
       const liveMonths=buildRequestedDreProjectionRows(atual,requests,canonical.events).map(row=>row.payload);
       const months=overlayClosedCompanyDreYear(atual,year,liveMonths);
       const closedMonths=closedCompanyDreEntries(atual).filter(item=>item.competencia.startsWith(`${year}-`));

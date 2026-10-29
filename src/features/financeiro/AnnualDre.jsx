@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { consultarDreAnual, salvarLayoutDreAnual } from "../../api.js";
-import { ANNUAL_GROUPS, ANNUAL_SOURCES, annualSourceValues, buildAnnualStatement } from "../../domains/dre/annual-statement.js";
+import { ANNUAL_GROUPS, ANNUAL_SOURCES, buildAnnualStatement } from "../../domains/dre/annual-statement.js";
+import DreMemorial from "./DreMemorial.jsx";
 import "./annual-dre.css";
 
 const MONTHS=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const money=value=>(value/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 const percentage=value=>value==null?"—":`${value.toLocaleString("pt-BR",{maximumFractionDigits:1})}%`;
 
-export default function AnnualDre({update}){
+export default function AnnualDre({update,onOpenWork}){
   const [year,setYear]=useState(new Date().getFullYear());
   const [report,setReport]=useState(null),[loading,setLoading]=useState(false),[error,setError]=useState("");
   const [draft,setDraft]=useState(null),[selected,setSelected]=useState(""),[busy,setBusy]=useState(false),[status,setStatus]=useState("");
@@ -68,7 +69,7 @@ export default function AnnualDre({update}){
     {error&&!draft&&<p role="alert" className="annual-dre__error">{error}</p>}
     {report&&<>
       <div className="annual-dre__summary"><div>Receita líquida no ano<strong>R$ {money(revenue.total)}</strong></div><div>Lucro líquido no ano<strong data-negative={net.total<0}>R$ {money(net.total)}</strong></div><div>Margem líquida anual<strong>{percentage(margin.total)}</strong></div></div>
-      <div className="annual-dre__table-tools"><label><input type="checkbox" checked={hideZero} onChange={event=>setHideZero(event.target.checked)}/> Ocultar linhas sem movimento</label><span>Clique em um valor para consultar suas fontes.</span></div>
+      <div className="annual-dre__table-tools"><label><input type="checkbox" checked={hideZero} onChange={event=>setHideZero(event.target.checked)}/> Ocultar linhas sem movimento</label><span>Clique em um valor para consultar lançamentos, obras e documentos.</span></div>
       {report.issues?.length>0&&<p className="annual-dre__error" role="alert">Há {report.issues.length} registro(s) com classificação pendente no razão. Confira a gestão financeira antes de concluir a análise.</p>}
       <div className="annual-dre__scroll" role="region" aria-label="Tabela mensal do DRE; role horizontalmente para consultar os meses" tabIndex={0}>
         <table><caption>DRE {year} · regime de competência · R$</caption><thead><tr><th scope="col">Conta de resultado</th>{MONTHS.map(month=><th key={month} scope="col">{month}</th>)}<th scope="col">Total do ano</th></tr></thead><tbody>
@@ -90,7 +91,7 @@ export default function AnnualDre({update}){
             <button type="button" onClick={()=>{const row={id:`custom_${crypto.randomUUID()}`,label:"Nova linha",group:edited.group,sources:[]};setDraft(rows=>[...rows,row]);setSelected(row.id);}}>+ Adicionar linha neste grupo</button>
           </fieldset>}
         </div><footer><span role="status">{busy?"Salvando…":"A estrutura é compartilhada entre todos os anos."}</span><button type="button" disabled={busy} onClick={close}>Cancelar</button><button type="button" disabled={busy} className="annual-dre__primary" onClick={save}>Salvar estrutura</button></footer></>}
-      {detail&&<><header><h3 id="annual-dialog-title">{detail.row.label} · {MONTHS[detail.index]} / {year}</h3><button type="button" onClick={close} aria-label="Fechar fontes">×</button></header><p>Fontes do DRE da empresa por competência, sem duplicar registros.</p><ul>{detail.row.sources.map(id=><li key={id}>{ANNUAL_SOURCES.find(item=>item.id===id).label}: <strong>R$ {money(annualSourceValues(report.months[detail.index])[id])}</strong></li>)}</ul>{!detail.row.sources.length&&<p>Esta linha ainda não tem fonte vinculada. Use Ajustar linhas para transferir uma fonte existente.</p>}<p>Total: <strong>R$ {money(detail.row.values[detail.index])}</strong></p><footer><button type="button" onClick={close}>Fechar</button></footer></>}
+      {detail&&<><header><h3 id="annual-dialog-title">{detail.row.label} · {MONTHS[detail.index]} / {year}</h3><button type="button" onClick={close} aria-label="Fechar memorial">×</button></header><DreMemorial row={detail.row} month={report.months[detail.index]} onOpenWork={onOpenWork?obraId=>{close();onOpenWork(obraId);}:undefined}/><p>Total: <strong>R$ {money(detail.row.values[detail.index])}</strong></p><footer><button type="button" onClick={close}>Fechar</button></footer></>}
     </dialog>
   </section>;
 }

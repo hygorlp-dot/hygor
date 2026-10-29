@@ -15381,7 +15381,7 @@ const emptyCompanyExpenseForm = competencia => ({
 
 function DREEmpresa(props) {
   const [annual,setAnnual]=useState(false);
-  return <><div className="annual-dre__view-switch" aria-label="Visão do DRE"><button type="button" aria-pressed={!annual} onClick={()=>setAnnual(false)}>DRE mensal e lançamentos</button><button type="button" aria-pressed={annual} onClick={()=>setAnnual(true)}>DRE anual ajustável</button></div>{annual?<AnnualDre update={props.update}/>:<DREEmpresaMensal {...props}/>}</>;
+  return <><div className="annual-dre__view-switch" aria-label="Visão do DRE"><button type="button" aria-pressed={!annual} onClick={()=>setAnnual(false)}>DRE mensal e lançamentos</button><button type="button" aria-pressed={annual} onClick={()=>setAnnual(true)}>DRE anual ajustável</button></div>{annual?<AnnualDre update={props.update} onOpenWork={props.onOpenWork}/>:<DREEmpresaMensal {...props}/>}</>;
 }
 
 function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=null }) {
@@ -18401,7 +18401,7 @@ export default function App() {
           {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "rh_indic" && <Suspense fallback={<div className="arcd-page-loading">Carregando indicadores...</div>}><IndicadoresView data={data} /></Suspense>}
-          {tab === "dre_emp"  && <DREEmpresa  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
+          {tab === "dre_emp"  && <DREEmpresa onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "conc"     && <Suspense fallback={<div className="arcd-page-loading">Carregando conciliação...</div>}><Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
