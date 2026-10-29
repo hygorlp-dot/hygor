@@ -9,6 +9,7 @@ import { activeErpModule, moduleForTab, visibleErpModules } from "./navigation/e
 import { rememberSection, restoreSection } from "./navigation/section-session.js";
 import { FlowTabs, WorkflowContext, useWorkflow } from "./features/workflow/WorkflowNavigation.jsx";
 import { normalizeWorkflowScope } from "./features/workflow/workflow-model.js";
+import MonthlyDreMemorial from "./features/financeiro/MonthlyDreMemorial.jsx";
 import AnnualDre from "./features/financeiro/AnnualDre.jsx";
 import LaborProjectionReport from "./domains/ponto/components/LaborProjectionReport.jsx";
 // Planilhas são um recurso pesado e opcional. O pacote só entra na memória
@@ -14906,7 +14907,7 @@ function DREEmpresa(props) {
   return <><div className="annual-dre__view-switch" aria-label="Visão do DRE"><button type="button" aria-pressed={!annual} onClick={()=>setAnnual(false)}>DRE mensal e lançamentos</button><button type="button" aria-pressed={annual} onClick={()=>setAnnual(true)}>DRE anual ajustável</button></div>{annual?<AnnualDre update={props.update} onOpenWork={props.onOpenWork}/>:<DREEmpresaMensal {...props}/>}</>;
 }
 
-function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=null }) {
+function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=null, onOpenWork }) {
   const {intent}=useWorkflow();
   const { cols } = useBreakpoint();
   const now = new Date();
@@ -14918,6 +14919,8 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
     if(intent.scope.month!=null)setMonth(intent.scope.month);
   },[intent?.sequence]);
   const [abaDRE, setAbaDRE] = useState("inteligencia");
+  const [memorialDetail,setMemorialDetail]=useState(null);
+  useEffect(()=>setMemorialDetail(null),[year,month]);
   const [analiseIA, setAnaliseIA] = useState(null);
   const [analisandoIA, setAnalisandoIA] = useState(false);
   const [despModal, setDespModal] = useState(false);
@@ -14969,7 +14972,7 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
     setRazaoErro("");
     consultarDreEmpresaCanonico({year,month}).then(report=>{
       if(!ativo)return;
-      if(report?.status===200&&report?.source==="canonical_ledger"&&report.current){
+      if(report?.status===200&&["canonical_ledger","closed_snapshot"].includes(report?.source)&&report.current){
         setRazaoEmpresa(report);
       }else{
         setRazaoEmpresa(null);
@@ -14984,7 +14987,7 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
     });
     return()=>{ativo=false;};
   },[data,year,month]);
-  const dre = useMemo(()=>razaoEmpresa?.source==="canonical_ledger"&&razaoEmpresa.current
+  const dre = useMemo(()=>["canonical_ledger","closed_snapshot"].includes(razaoEmpresa?.source)&&razaoEmpresa.current
     ? {...dreVazio,...razaoEmpresa.current,fonteFinanceira:"razao_canonico"}
     : {...dreVazio,fonteFinanceira:"sincronizacao_pendente"},[dreVazio,razaoEmpresa]);
   const expenseGroupTotals=useMemo(()=>GRUPOS_DESP.reduce((totals,group)=>({
@@ -15298,13 +15301,13 @@ td.val{text-align:right;font-weight:700;min-width:110px}
   };
 
   //  Linha DRE reutilizável
-  const DRow = ({label,value,color,bold=false,indent=0,pct=null,noBorder=false})=>{
+  const DRow = ({label,value,color,bold=false,indent=0,pct=null,noBorder=false,sources})=>{
     const c = color||(value>=0?C.text:C.red);
     return (
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:`${bold?"8px":"5px"} 0 5px ${indent*14}px`,borderBottom:noBorder?"none":`1px solid ${C.line}22`,background:bold?`${c}05`:"transparent"}}>
         <p style={{fontSize:bold?"var(--arcd-type-body)":"var(--arcd-type-body)",color:bold?c:C.muted,fontWeight:bold?600:400}}>{label}</p>
         <div style={{textAlign:"right",flexShrink:0}}>
-          <p style={{fontSize:bold?"var(--arcd-type-card-title)":"var(--arcd-type-body)",color:c,fontWeight:bold?600:600}}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>
+          <p style={{fontSize:bold?"var(--arcd-type-card-title)":"var(--arcd-type-body)",color:c,fontWeight:600}}>{sources?<Button variant="ghost" className="dre-monthly-memorial-trigger" disabled={razaoCarregando||!razaoEmpresa?.current} aria-label={`Consultar memorial: ${label}`} onClick={()=>setMemorialDetail({row:{label,sources},month:dre,period,value})}>{value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</Button>:value<0?`(${fmt(Math.abs(value))})`:fmt(value)}</p>
           {pct!==null&&<p style={{fontSize:"var(--arcd-type-caption)",color:c+"99",marginTop:1}}>{pct.toFixed(1)}%</p>}
         </div>
       </div>
@@ -15328,6 +15331,7 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 
   return (
     <div className="anim dre-company" data-view={abaDRE} style={{display:"flex",flexDirection:"column",gap:12}}>
+      {memorialDetail&&<MonthlyDreMemorial detail={memorialDetail} onClose={()=>setMemorialDetail(null)} onOpenWork={onOpenWork}/>}
 
       <PageHero
         eyebrow="Controladoria · Resultado da empresa"
@@ -15461,36 +15465,37 @@ td.val{text-align:right;font-weight:700;min-width:110px}
           <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:C.text,textTransform:"uppercase",letterSpacing:.5}}>DRE - {period}</p>
         </div>
         <div style={{padding:"8px 14px"}}>
+          <p className="annual-dre__note">Clique nos valores dos lançamentos para consultar obras, datas e notas fiscais.</p>
 
           <DSec title="Receita Bruta da Empresa" color={C.green} value={dre.faturamentoTotal}/>
-          <DRow label="Faturamento de obras (medições emitidas)" value={dre.faturamentoObras} indent={1}/>
-          <DRow label="Locação de equipamentos da empresa" value={dre.receitaLocacoes} color={C.green} indent={1}/>
-          {dre.receitaCorporativa>0&&<DRow label="Outras receitas reconhecidas" value={dre.receitaCorporativa} color={C.green} indent={1}/>}
+          <DRow label="Faturamento de obras (medições emitidas)" sources={["faturamentoObras"]} value={dre.faturamentoObras} indent={1}/>
+          <DRow label="Locação de equipamentos da empresa" sources={["receitaLocacoes"]} value={dre.receitaLocacoes} color={C.green} indent={1}/>
+          {dre.receitaCorporativa>0&&<DRow label="Outras receitas reconhecidas" sources={["receitaCorporativa"]} value={dre.receitaCorporativa} color={C.green} indent={1}/>}
           <DRow label="Recebido em caixa (referência)" value={dre.recebidoObras} color={C.muted} indent={1}/>
 
           <DSec title="(-) Deduções da Receita" color={C.red} value={-dre.totalDeducoes}/>
-          {dre.descontoLocacoes>0&&<DRow label="(-) Descontos comerciais das locações" value={-dre.descontoLocacoes} indent={1}/>}
-          {dre.deducaoISS>0    && <DRow label={`(-) ISS ${data.config.aliquotaISS}%`}     value={-dre.deducaoISS}    indent={1}/>}
-          {dre.deducaoPIS>0    && <DRow label={`(-) PIS ${data.config.aliquotaPIS}%`}     value={-dre.deducaoPIS}    indent={1}/>}
-          {dre.deducaoCOFINS>0 && <DRow label={`(-) COFINS ${data.config.aliquotaCOFINS}%`} value={-dre.deducaoCOFINS} indent={1}/>}
+          {dre.descontoLocacoes>0&&<DRow label="(-) Descontos comerciais das locações" sources={["descontoLocacoes"]} value={-dre.descontoLocacoes} indent={1}/>}
+          {dre.deducaoISS>0    && <DRow label={`(-) ISS ${data.config.aliquotaISS}%`}     sources={["deducaoISS"]} value={-dre.deducaoISS}    indent={1}/>}
+          {dre.deducaoPIS>0    && <DRow label={`(-) PIS ${data.config.aliquotaPIS}%`}     sources={["deducaoPIS"]} value={-dre.deducaoPIS}    indent={1}/>}
+          {dre.deducaoCOFINS>0 && <DRow label={`(-) COFINS ${data.config.aliquotaCOFINS}%`} sources={["deducaoCOFINS"]} value={-dre.deducaoCOFINS} indent={1}/>}
           {dre.totalDeducoes===0&&<DRow label="Configure as alíquotas em Ajustes → DRE" value={0} color={C.muted} indent={1}/>}
           <DResult label="= Receita Líquida de Serviços" value={dre.receitaLiquida}/>
 
           <DSec title="(-) Custo dos Serviços Prestados (CSP)" color={C.red} value={-dre.totalCSP}/>
-          <DRow label="(-) Mão de obra direta (folha)" value={-dre.laborTotal} indent={1}/>
-          {dre.benefTotal>0     && <DRow label="(-) Encargos e benefícios (VT/VR)" value={-dre.benefTotal} indent={1}/>}
-          {dre.tercTotal>0      && <DRow label="(-) Terceirizados pagos" value={-dre.tercTotal} indent={1}/>}
-          {dre.rescTotal>0      && <DRow label="(-) Rescisões" value={-dre.rescTotal} indent={1}/>}
-          {dre.outrasDiretas>0  && <DRow label="(-) Outras despesas diretas de obra" value={-dre.outrasDiretas} indent={1}/>}
-          {dre.repasseEquipamentosTerceiros>0&&<DRow label="(-) Repasse dos equipamentos de terceiros" value={-dre.repasseEquipamentosTerceiros} indent={1}/>}
-          {dre.manutencaoLocacoes>0&&<DRow label="(-) Manutenção das locações paga pela empresa" value={-dre.manutencaoLocacoes} indent={1}/>}
+          <DRow label="(-) Mão de obra direta (folha)" sources={["laborTotal"]} value={-dre.laborTotal} indent={1}/>
+          {dre.benefTotal>0     && <DRow label="(-) Encargos e benefícios (VT/VR)" sources={["benefTotal"]} value={-dre.benefTotal} indent={1}/>}
+          {dre.tercTotal>0      && <DRow label="(-) Terceirizados pagos" sources={["tercTotal"]} value={-dre.tercTotal} indent={1}/>}
+          {dre.rescTotal>0      && <DRow label="(-) Rescisões" sources={["rescTotal"]} value={-dre.rescTotal} indent={1}/>}
+          {dre.outrasDiretas>0  && <DRow label="(-) Outras despesas diretas de obra" sources={["outrasDiretas"]} value={-dre.outrasDiretas} indent={1}/>}
+          {dre.repasseEquipamentosTerceiros>0&&<DRow label="(-) Repasse dos equipamentos de terceiros" sources={["repasseEquipamentosTerceiros"]} value={-dre.repasseEquipamentosTerceiros} indent={1}/>}
+          {dre.manutencaoLocacoes>0&&<DRow label="(-) Manutenção das locações paga pela empresa" sources={["manutencaoLocacoes"]} value={-dre.manutencaoLocacoes} indent={1}/>}
           <DResult label="= Lucro Bruto" value={dre.lucroBruto} pct={dre.margemBruta} size={1}/>
 
           <DSec title="(-) Despesas Operacionais" color={C.orange} value={-dre.totalDespOp}/>
           {GRUPOS_DESP.filter(group=>expenseGroupTotals[group.v]>0).map(group=><div key={group.v}>
-            <DRow label={`(-) ${group.l}`} value={-expenseGroupTotals[group.v]} color={C.text} indent={1}/>
+            <DRow sources={CATS_DESP.filter(category=>category.grupo===group.v).map(category=>`category:${category.v}`)} label={`(-) ${group.l}`} value={-expenseGroupTotals[group.v]} color={C.text} indent={1}/>
             {CATS_DESP.filter(category=>category.grupo===group.v&&Number(dre.despPorCat?.[category.v]||0)>0).map(category=>(
-              <DRow key={category.v} label={category.l} value={-dre.despPorCat[category.v]} color={C.muted} indent={2}/>
+              <DRow sources={[`category:${category.v}`]} key={category.v} label={category.l} value={-dre.despPorCat[category.v]} color={C.muted} indent={2}/>
             ))}
           </div>)}
           {dre.totalDespOp===0&&<DRow label="Nenhuma despesa lançada neste mês" value={0} color={C.muted} indent={1}/>}
@@ -15502,8 +15507,8 @@ td.val{text-align:right;font-weight:700;min-width:110px}
 
           {dre.totalImpostoLucro>0&&(<>
             <DSec title="(-) Provisão IR + CSLL" color={C.red} value={-dre.totalImpostoLucro}/>
-            {dre.provisaoIR>0   && <DRow label={`(-) IR ${data.config.aliquotaIR}%`}   value={-dre.provisaoIR}   indent={1}/>}
-            {dre.provisaoCSLL>0 && <DRow label={`(-) CSLL ${data.config.aliquotaCSLL}%`} value={-dre.provisaoCSLL} indent={1}/>}
+            {dre.provisaoIR>0   && <DRow label={`(-) IR ${data.config.aliquotaIR}%`}   sources={["provisaoIR"]} value={-dre.provisaoIR}   indent={1}/>}
+            {dre.provisaoCSLL>0 && <DRow label={`(-) CSLL ${data.config.aliquotaCSLL}%`} sources={["provisaoCSLL"]} value={-dre.provisaoCSLL} indent={1}/>}
           </>)}
 
           <DResult label="= LUCRO / PREJUÍZO LÍQUIDO" value={dre.lucroLiquido} pct={dre.margemLiquida} size={2}/>

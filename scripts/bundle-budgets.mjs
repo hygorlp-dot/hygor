@@ -58,6 +58,9 @@
 // e normalização de MIME da NF. CI mediu 1.781.936 bytes (1.740,17 KiB),
 // 176 bytes acima do total anterior. Acréscimo limitado a 1 KiB;
 // os limites individuais de chunks e de mídia permanecem iguais.
+// Ajuste em 29/10/2026: memorial mensal e suporte ao fechamento. Build sem
+// sourcemaps: 1.782.902 bytes gzip, 118 bytes acima do teto anterior.
+// Acréscimo limitado a 1 KiB; limites individuais permanecem iguais.
 // Ajuste em 29/10/2026 (PR #222): A4 horizontal, fotos inteiras e tipografia
 // patrimonial legível. CI: 1.783.624 bytes (1.741,82 KiB), +1.688 bytes
 // sobre #221. Total +1 KiB; limites por chunk e mídia preservados.
