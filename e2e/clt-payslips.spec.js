@@ -96,6 +96,40 @@ test("RH escolhe diária ou CLT no cadastro, com salário mensal e vigência",as
   expect(commands).toHaveLength(2);expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
 });
 
+test("RH cadastra MEI com valor fixo e a folha da quinzena paga metade, sem ponto",async({page})=>{
+  const errors=[];page.on("pageerror",e=>errors.push(e.message));
+  const {commands,getState}=await enter(page);
+  await page.keyboard.press("Control+k");
+  const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
+  await search.fill("Equipes");await search.locator("xpath=../..").getByRole("button").filter({hasText:"Equipes"}).click();
+  await page.getByRole("button",{name:"Editar",exact:true}).first().click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByRole("combobox",{name:"Modalidade de remuneração",exact:true}).selectOption("mei");
+  // MEI não usa diária, VT, VR nem os campos do holerite CLT.
+  await expect(dialog.getByLabel("Diária *",{exact:true})).toHaveCount(0);
+  await expect(dialog.getByLabel("VT diário",{exact:true})).toHaveCount(0);
+  await dialog.getByLabel("Modalidade válida a partir de",{exact:true}).fill("2026-09-21");
+  await dialog.getByRole("button",{name:"Salvar",exact:true}).click();
+  await expect(dialog.getByText("Informe o valor mensal do contrato MEI.").first()).toBeVisible();
+  await dialog.getByRole("spinbutton",{name:/^Valor mensal do contrato MEI \*/}).fill("3000");
+  await dialog.getByLabel("CNPJ do MEI",{exact:true}).fill("12.345.678/0001-95");
+  await dialog.getByRole("button",{name:"Salvar",exact:true}).click();await expect(dialog).toHaveCount(0);
+  expect(getState().employees[0]).toMatchObject({remunerationMode:"mei",meiMonthlyValue:3000,meiCnpj:"12345678000195"});
+  expect(getState().employees[0].remunerationHistory.at(-1)).toMatchObject({date:"2026-09-21",mode:"mei"});
+  await page.keyboard.press("Control+k");
+  await search.fill("Folha");await search.locator("xpath=../..").getByRole("button").filter({hasText:"Folha"}).click();
+  await page.getByRole("button",{name:"Folha da quinzena",exact:true}).click();
+  const person=page.locator(".payroll-person").filter({hasText:"Operário QA"});
+  await expect(person).toContainText("MEI · valor fixo");
+  // Quinzena 21/09–05/10 inteira em MEI: 3.000 ÷ 2 = 1.500, menos o adiantamento de 600.
+  await person.getByRole("button").first().click();
+  await expect(person).toContainText("1.500,00");
+  await expect(person).toContainText("900,00");
+  await expect(person).not.toContainText("sem registro");
+  expect(commands).toHaveLength(1);expect(errors).toEqual([]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
 test("provisões: total mensal, por funcionário, saldo informado e exportação sem lançamentos",async({page})=>{
   const {commands,getState}=await enter(page);
   await page.getByRole("button",{name:"Provisões trabalhistas",exact:true}).click();

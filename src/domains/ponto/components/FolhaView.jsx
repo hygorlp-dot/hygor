@@ -1,3 +1,5 @@
+import { LaborAreaTabs } from "../../rh/components/LaborAreaTabs.jsx";
+import { matchesLaborArea,laborAreaLabel } from "../../rh/labor-area.js";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { DreIntegration, FlowTabs, useRememberWorkflowScope, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
@@ -37,16 +39,15 @@ import {
 import { advanceDeductionForPeriod } from "../../rh/advance-commands";
 import { CltPayslips } from "./CltPayslips.jsx";
 import { remunerationModeOnDate } from "../../rh/remuneration-mode.js";
+import { meiFortnightAllocation } from "../mei-payroll.js";
 import { LaborProvisions } from "./LaborProvisions.jsx";
 import { LaborChargesSettings } from "./LaborChargesSettings.jsx";
 import { PayModeSimulation } from "./PayModeSimulation.jsx";
 import {EmployeeCosts} from '../../rh/components/EmployeeCosts.jsx';
 import {EmployeeDossier} from '../../rh/components/EmployeeDossier.jsx';
 import {readPayrollHandoff,PAYROLL_HANDOFF_KEY} from '../../rh/payroll-handoff.js';
-import { LaborAreaTabs } from '../../rh/components/LaborAreaTabs.jsx';
-import { matchesLaborArea, laborAreaLabel } from '../../rh/labor-area.js';
-import { LaborProjection } from './LaborProjection.jsx';
-import './labor-projection.css';
+import LaborProjectionReport from "./LaborProjectionReport.jsx";
+import { obterProjecaoMaoObra } from "../../../api.js";
 
 function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const {scopes}=useWorkflow();
@@ -65,9 +66,9 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const [reopenReason,setReopenReason]=useState("");
   const [savingClosing,setSavingClosing]=useState(false);
   const [payrollView,setPayrollView]=useState(entryScope?.mode==='clt'?'clt':'payroll');
-  const [laborScope,setLaborScope]=useState('all');
-  const scopedData=useMemo(()=>({...data,employees:data.employees.filter(employee=>matchesLaborArea(employee,laborScope))}),[data,laborScope]);
-  const changeLaborScope=value=>{setLaborScope(value);setFilterObra('all');};
+  const [laborScope,setLaborScope]=useState("all");
+  const scopedData=useMemo(()=>({...data,employees:data.employees.filter(e=>matchesLaborArea(e,laborScope))}),[data,laborScope]);
+  const changeLaborScope=value=>{setLaborScope(value);setFilterObra("all");};
   useEffect(()=>{if(entryScope?.mode==='daily')window.sessionStorage.removeItem(PAYROLL_HANDOFF_KEY);},[entryScope]);
   const [unionDraft,setUnionDraft]=useState(()=>normalizeUnionDuesConfig(data.config?.unionDues));
   const [savingUnion,setSavingUnion]=useState(false);
@@ -150,7 +151,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
     days.forEach(d => {
       if (!isEmployeeEmployedOnDate(employee, d)) return;
-      if (remunerationModeOnDate(employee,d)==="clt") return;
+      if (remunerationModeOnDate(employee,d)!=="daily") return;
       if (holidaysInPeriod.includes(d)) return;
 
       const a = getAtt(data, employee.id, d);
@@ -196,7 +197,12 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       }
     });
 
-    const employeeHolidays = holidaysInPeriod.filter(h => isEmployeeEmployedOnDate(employee, h)&&remunerationModeOnDate(employee,h)!=="clt");
+    // MEI: metade do valor mensal por quinzena, rateada pela lotação de cada dia.
+    const mei=meiFortnightAllocation({employee,cycleDays:diasCiclo,isEmployed:isEmployeeEmployedOnDate,obraOf:getEmpObraIdOnDate});
+    mei.byObra.forEach(item=>addToObra(item.obraId,"MEI",{valorDias:item.amount}));
+    gross += mei.total;
+
+    const employeeHolidays = holidaysInPeriod.filter(h => isEmployeeEmployedOnDate(employee, h)&&remunerationModeOnDate(employee,h)==="daily");
     const holidayRules = employeeHolidays.map(h => getHolidayPayRule(data, employee, h, paymentHolidays));
     const feriadosPagos = holidayRules.filter(h => !h.losesHoliday).length;
     const feriadosPerdidos = holidayRules.filter(h => h.losesHoliday).length;
@@ -216,7 +222,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     const advTotal = (data.advances||[])
       .filter(a => a.empId === employee.id)
       .reduce((sum,advance)=>sum+(dailyDates.length===diasCiclo.length?advanceDeductionForPeriod(advance,periIni,periFim):dailyDates.reduce((total,d)=>total+advanceDeductionForPeriod(advance,d,d),0)),0);
-    const unionResult=calculateUnionDue({employee,config:data.config?.unionDues,payrollCycle:q,periodEnd:periFim,periodKey:unionPeriodKey,hasPayrollMovement:gross>0||advTotal>0});
+    const unionResult=calculateUnionDue({employee,config:data.config?.unionDues,payrollCycle:q,periodEnd:periFim,periodKey:unionPeriodKey,hasPayrollMovement:(gross-mei.total>0||advTotal>0)&&diasCiclo.some(d=>remunerationModeOnDate(employee,d)==="daily")});
 
     // Converte mapa para array ordenado por dias trabalhados desc
     const obrasPorDiaArr = Object.values(obrasPorDia)
@@ -239,6 +245,8 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     return {
       ...employee,
       gross,
+      meiTotal:mei.total,
+      meiDays:mei.days,
       presentes,
       meiodia,
       faltas,
@@ -278,7 +286,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   // calculo mais caro da tela. Sem useMemo, refazia tudo a cada render (ex.:
   // digitar em qualquer campo de um modal aberto por cima da folha).
   const rows = useMemo(() => data.employees
-    .filter(e => matchesLaborArea(e,laborScope))
+    .filter(e=>matchesLaborArea(e,laborScope))
     .filter(e => e.active !== false || hasAttendanceInPeriod(e))
     .filter(e => diasCiclo.some(d=>remunerationModeOnDate(e,d)!=="clt"))
     .map(calcRow)
@@ -313,7 +321,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   // vinculados ao periodo/obra, inclusive quem ainda nao aparece na folha por
   // nao possuir nenhum apontamento.
   const funcionariosParaConferencia = useMemo(() => (data.employees || [])
-    .filter(e => days.some(d => isEmployeeEmployedOnDate(e, d)&&remunerationModeOnDate(e,d)!=="clt"))
+    .filter(e => days.some(d => isEmployeeEmployedOnDate(e, d)&&remunerationModeOnDate(e,d)==="daily"))
     .filter(e => e.active !== false || hasAttendanceInPeriod(e) || (e.endDate && e.endDate >= (days[0] || "")))
     .filter(e => filterObra === "all" || e.obra === filterObra || e.lastObra === filterObra || days.some(d => {
       if (!isEmployeeEmployedOnDate(e, d)) return false;
@@ -326,7 +334,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const hojeConferencia = today();
   const pendenciasRelatorio = useMemo(() => funcionariosParaConferencia.map(e => {
     const datasEsperadas = days.filter(d => {
-      if (d > hojeConferencia || !isEmployeeEmployedOnDate(e, d) || holidaysInPeriod.includes(d)||remunerationModeOnDate(e,d)==="clt") return false;
+      if (d > hojeConferencia || !isEmployeeEmployedOnDate(e, d) || holidaysInPeriod.includes(d)||remunerationModeOnDate(e,d)!=="daily") return false;
       if (filterObra === "all") return true;
       const a = getAtt(data, e.id, d);
       return (a?.obraId || getEmpObraIdOnDate(e, d)) === filterObra;
@@ -410,7 +418,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const canManageClosing=["admin","rh"].includes(currentUser?.role);
   const closingPeriodKey=payrollPeriodKey(year,month,q);
   const closedTitles=activePayrollTitlesForPeriod(data,closingPeriodKey);
-  const closingBlockers=filterObra==="all"&&laborScope==="all"?payrollClosingBlockers({pendencias:pendenciasRelatorio,rows}):["Selecione Consolidado e Todas as obras para fechar a quinzena da empresa inteira."];
+  const closingBlockers=filterObra==="all"&&laborScope==="all"?payrollClosingBlockers({pendencias:pendenciasRelatorio,rows}):["Selecione Consolidado e “Todas as obras” para fechar a quinzena da empresa inteira."];
   const closingDivergences=filterObra==="all"&&laborScope==="all"&&closedTitles.length?payrollClosingDivergences(closedTitles,rows):[];
   const closedTotal=closedTitles.reduce((sum,title)=>sum+Number(title.liquido||0),0);
   const buildClosingTitles=closingId=>buildPayrollTitles({
@@ -836,7 +844,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           <Sel label="Ano" value={String(year)} onChange={v => setYear(Number(v))} options={years} />
           <Sel label="Mês de referência" value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
           <Sel label="Ciclo da folha" value={q} onChange={setQ} options={[{ v: "1", l: "1ª quinzena · 06 a 20" }, { v: "2", l: "2ª quinzena · 21 a 05" }]} />
-          {laborScope!=="central"&&<Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />}
+          <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
         </div>
       </section>
       <PageHero
@@ -861,13 +869,13 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       </>}
 
       <FlowTabs label="Áreas da folha" active={payrollView} onChange={setPayrollView}
-        steps={[{id:"payroll",label:"Folha da quinzena",description:"Confira as pendências e a composição por funcionário antes de gerar os relatórios."},{id:"projection",label:"Projeção de mão de obra"},{id:"clt",label:"Holerites CLT"},{id:"provisions",label:"Provisões trabalhistas"},{id:"simulation",label:"Simulação CLT × diária"},{id:'costs',label:'Custos por funcionário'},...(['admin','rh'].includes(currentUser?.role)?[{id:'dossier',label:'Prontuário documental'}]:[])]}
+        steps={[{id:"payroll",label:"Folha da quinzena",description:"Confira as pendências e a composição por funcionário antes de gerar os relatórios."},...(["admin","rh","financeiro"].includes(currentUser?.role)?[{id:"projection",label:"Projeção da quinzena"}]:[]),{id:"clt",label:"Holerites CLT"},{id:"provisions",label:"Provisões trabalhistas"},{id:"simulation",label:"Simulação CLT × diária"},{id:'costs',label:'Custos por funcionário'},...(['admin','rh'].includes(currentUser?.role)?[{id:'dossier',label:'Prontuário documental'}]:[])]}
         tools={[{id:"union",label:"Sindicato"},{id:"charges",label:"Encargos"}]} toolsLabel="Regras e descontos"/>
       {payrollView==="payroll"&&<DreIntegration kind="payroll" currentUser={currentUser} obraId={filterObra==="all"?"":filterObra} year={year} month={month}>
         <p>Consulta do DRE mensal. A quinzena de 21 a 05 atravessa dois meses; o DRE mantém a competência de cada apontamento.</p>
       </DreIntegration>}
 
-      {payrollView==="projection"&&<LaborProjection data={data} currentUser={currentUser} area={laborScope} obraId={filterObra} onTab={onTab}/>}
+      {payrollView==="projection"&&<LaborProjectionReport key={laborScope} requestReport={obterProjecaoMaoObra} initialArea={({obras:"works",central:"administrative"})[laborScope]||"all"}/>}
       {payrollView==="clt"&&<CltPayslips key={laborScope} data={scopedData} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
       {payrollView==="provisions"&&<LaborProvisions key={laborScope} data={scopedData} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
       {payrollView==="simulation"&&<PayModeSimulation key={laborScope} data={scopedData} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
@@ -971,15 +979,16 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
               <span className="payroll-person__chevron" aria-hidden="true"><Ic n="chevron" s={13}/></span>
               <div>
                 <p className="payroll-person__name">{r.name}</p>
-                <p className="payroll-person__work">{filterObra === "all" ? obraName(r.obra) : obraName(filterObra)} · {workedDays} dia(s) equivalente(s)</p>
+                <p className="payroll-person__work">{filterObra === "all" ? obraName(r.obra) : obraName(filterObra)} · {r.meiTotal>0&&!v.presentes&&!v.meiodia?`MEI · ${r.meiDays} dia(s) de contrato`:`${workedDays} dia(s) equivalente(s)`}</p>
               </div>
             </div>
             <div className="payroll-person__signals" aria-label="Resumo do ponto">
-              <span data-tone="success">{v.presentes} presente(s)</span>
+              {r.meiTotal>0&&<span data-tone="neutral">MEI · valor fixo</span>}
+              {(v.presentes>0||!r.meiTotal)&&<span data-tone="success">{v.presentes} presente(s)</span>}
               {v.meiodia>0&&<span data-tone="warning">{v.meiodia} meio(s)</span>}
               {v.faltas>0&&<span data-tone="danger">{v.faltas} falta(s)</span>}
               {v.semRegistro>0&&<span data-tone="danger">{v.semRegistro} sem registro</span>}
-              {!hasIssue&&<span data-tone="neutral">Ponto conferido</span>}
+              {!hasIssue&&!r.meiTotal&&<span data-tone="neutral">Ponto conferido</span>}
             </div>
             <div className="payroll-person__amount">
               <small>Líquido a pagar</small>
@@ -998,7 +1007,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
               )}
               <div className="payroll-detail-metrics">
                 {[
-                  ["Diária", fmt(r.dailyRate)], ["Bruto", fmt(v.gross)], ["VT+VR", fmt(v.vt + v.vr)], ["Adiant.", fmt(v.advances), C.red], ["Antes do sindicato", fmt(v.netBeforeUnion)], ["Sindicato", `− ${fmt(v.unionDue)}`, C.red], ["Líquido a pagar", fmt(v.net), C.yellowD], ["HE", `${r.ot}h · ${fmt(v.overtimePay)}`, C.purple], ["Feriados pagos", v.feriadosPagos], ["Feriados perdidos", v.feriadosPerdidos, C.red], ["Valor feriado", fmt(v.holidayPay), C.green],
+                  r.meiTotal>0?["MEI na quinzena", fmt(r.meiTotal)]:["Diária", fmt(r.dailyRate)], ["Bruto", fmt(v.gross)], ["VT+VR", fmt(v.vt + v.vr)], ["Adiant.", fmt(v.advances), C.red], ["Antes do sindicato", fmt(v.netBeforeUnion)], ["Sindicato", `− ${fmt(v.unionDue)}`, C.red], ["Líquido a pagar", fmt(v.net), C.yellowD], ["HE", `${r.ot}h · ${fmt(v.overtimePay)}`, C.purple], ["Feriados pagos", v.feriadosPagos], ["Feriados perdidos", v.feriadosPerdidos, C.red], ["Valor feriado", fmt(v.holidayPay), C.green],
                 ].map(([label, value, color]) => (
                   <div key={label} className="payroll-detail-metric">
                     <p>{label}</p>

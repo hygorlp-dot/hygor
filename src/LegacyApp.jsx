@@ -1,4 +1,3 @@
-import { LaborProjection } from "./domains/ponto/components/LaborProjection.jsx";
 import { LaborAreaTabs } from "./domains/rh/components/LaborAreaTabs.jsx";
 import { matchesLaborArea } from "./domains/rh/labor-area.js";
 import {AttendancePayMode} from "./domains/rh/components/AttendancePayMode.jsx";
@@ -13,6 +12,7 @@ import { rememberSection, restoreSection } from "./navigation/section-session.js
 import { FlowTabs, WorkflowContext, useWorkflow } from "./features/workflow/WorkflowNavigation.jsx";
 import { normalizeWorkflowScope } from "./features/workflow/workflow-model.js";
 import AnnualDre from "./features/financeiro/AnnualDre.jsx";
+import LaborProjectionReport from "./domains/ponto/components/LaborProjectionReport.jsx";
 // Planilhas são um recurso pesado e opcional. O pacote só entra na memória
 // quando o usuário realmente importa ou exporta um arquivo.
 export let XLSX = null;
@@ -44,7 +44,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          consultarSombraFinanceira, prepararSombraFinanceira, sincronizarSombraFinanceira,
          consultarDreCanonico, consultarDreEmpresaCanonico, executarComandoFinanceiro,
          executarComandoOperacional, executarComandoPonto,
-         gerenciarAcessoPortalCliente } from "./api";
+         gerenciarAcessoPortalCliente, obterProjecaoMaoObra } from "./api";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
@@ -1451,7 +1451,9 @@ const normalizeData = incoming => {
       pixType: e.pixType || "",
       pixHolder: e.pixHolder || "",
       dailyRate: Number(e.dailyRate || 0),
-      remunerationMode:e.remunerationMode==="clt"?"clt":"daily",
+      remunerationMode:["clt","mei"].includes(e.remunerationMode)?e.remunerationMode:"daily",
+      meiMonthlyValue:Number(e.meiMonthlyValue||0),
+      meiCnpj:e.meiCnpj||"",
       monthlySalary:Number(e.monthlySalary||0),
       remunerationEffectiveFrom:e.remunerationEffectiveFrom||"",
       remunerationHistory:Array.isArray(e.remunerationHistory)?e.remunerationHistory:[],
@@ -7183,7 +7185,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
       "- O ponto sai do sistema principal e vira um arquivo próprio",
       "- A quinzena fica BLOQUEADA para edição (só o admin restaura)",
       "",
-      "Esta ação arquiva o Consolidado: Obras e Administração Central. Faça isso somente APÓS conferir e pagar a folha desta quinzena."
+      "Faça isso somente APÓS conferir e pagar a folha desta quinzena."
     ].join("\n");
     if(!window.confirm(aviso))return;
     const sincronizado=await update({__aguardarFila:true});
@@ -7351,7 +7353,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
             : "A quinzena ainda está em andamento. Finalize somente após o último dia do ciclo e o pagamento da folha."}
         </p>
         <Btn v="warning" size="sm" onClick={finalizarQuinzena} disabled={arqBusy||!quinzenaEncerrada||laborScope!=="all"}
-          title={laborScope!=="all"?"Use Consolidado para arquivar a quinzena inteira da empresa":quinzenaEncerrada?"":"Disponível após o fim da quinzena"}>
+          title={quinzenaEncerrada?"":"Disponível após o fim da quinzena"}>
           <Ic n="lock"/> {arqBusy?"Arquivando...":"Finalizar e arquivar quinzena"}
         </Btn>
       </div>
@@ -7521,7 +7523,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   const selectedObra = filterObra !== "all" ? data.obras.find(o => o.id === filterObra) : null;
   const selectedObraLocked = selectedObra ? isAttendanceLocked(data, selectedObra.id, selDate) : false;
   const selectedObraCanEdit = selectedObra ? canEditAttendance(data, selectedObra.id, selDate, currentUser?.id) : true;
-  const obraAttendanceSummary = getObraAttendanceSummary({...data,employees:data.employees.filter(e=>matchesLaborArea(e,laborScope))}, selDate);
+  const obraAttendanceSummary = getObraAttendanceSummary(data, selDate);
   const feriadoSelecionado = prIsWeekdayIso(selDate) && getPayrollHolidays(data, Number(String(selDate).slice(0,4))).includes(selDate);
   const attendanceCompletion = getAttendanceCompletionMessage(obraAttendanceSummary);
   const podeMovimentarEquipe=canManageAttendanceWorkforce(currentUser?.role);
@@ -7544,11 +7546,11 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   useEffect(() => {
     const notificationKey = `${selDate}__all_done`;
 
-    if (laborScope === "all" && attendanceCompletion.allDone && lastAllDoneNotification !== notificationKey) {
+    if (attendanceCompletion.allDone && lastAllDoneNotification !== notificationKey) {
       showToast("Todos os pontos de todas as obras foram cadastrados!", "success");
       setLastAllDoneNotification(notificationKey);
     }
-  }, [laborScope, selDate, attendanceCompletion.allDone, lastAllDoneNotification, showToast]);
+  }, [selDate, attendanceCompletion.allDone, lastAllDoneNotification, showToast]);
 
   const list = data.employees
     .filter(e=>matchesLaborArea(e,laborScope))
@@ -7596,7 +7598,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
     const obra = data.obras.find(o => o.id === filterObra);
     if (!obra) return;
 
-    const obraSummary = getObraAttendanceSummary({...data,employees:data.employees.filter(e=>matchesLaborArea(e,laborScope))}, selDate).find(o => o.obraId === filterObra);
+    const obraSummary = getObraAttendanceSummary(data, selDate).find(o => o.obraId === filterObra);
     const missingNames = obraSummary?.missingEmployees?.map(e => e.name).join(", ") || "";
     const msg = obraSummary && obraSummary.missingCount > 0
       ? `Existem ${obraSummary.missingCount} trabalhador(es) sem registro nesta obra:\n\n${missingNames}\n\nDeseja finalizar mesmo assim?`
@@ -8504,7 +8506,19 @@ function RelatorioAdministracao({ data, year, month, showToast }) {
   );
 }
 
-function Relatorios({ data, showToast, currentUser, onTab }) {
+function Relatorios({ data, showToast, currentUser }) {
+  const [section,setSection]=useState("monthly");
+  const canViewProjection=["admin","rh","financeiro"].includes(currentUser?.role);
+  return <div>
+    {canViewProjection&&<FlowTabs label="Relatórios de mão de obra" active={section} onChange={setSection}
+      steps={[{id:"monthly",label:"Relatórios mensais"},{id:"projection",label:"Projeção de mão de obra"}]}/>}
+    {section==="projection"&&canViewProjection
+      ?<LaborProjectionReport requestReport={obterProjecaoMaoObra}/>
+      :<RelatoriosMensais data={data} showToast={showToast}/>}
+  </div>;
+}
+
+function RelatoriosMensais({ data, showToast }) {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth());
   const [filterObra, setFilterObra] = useState("all");
@@ -8722,17 +8736,16 @@ function Relatorios({ data, showToast, currentUser, onTab }) {
         eyebrow="Inteligência gerencial"
         title="Relatórios e inteligência"
         description="Custos, produtividade e presença em uma leitura técnica unificada."
-        actions={view!=="projection"&&<span style={{display:"inline-flex",padding:"5px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.surface,color:C.yellowD,fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.3}}>{fullMonth(month)} · {year}</span>}
+        actions={<span style={{display:"inline-flex",padding:"5px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.surface,color:C.yellowD,fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.3}}>{fullMonth(month)} · {year}</span>}
       />
 
       <div className="no-print" style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}>
-        <TabRow tabs={[["custos","Painel analítico"],["projection","Projeção de mão de obra"],["relatorio","Relatório executivo"],["caixa","Caixa de obra"],["compras","Relatório de compras"],["administracao","Recebimento por administração"]]} active={view} onChange={setView}/>
-        {view!=="projection"&&<div style={{display:"flex",gap:8,marginLeft:"auto"}}>
+        <TabRow tabs={[["custos","Painel analítico"],["relatorio","Relatório executivo"],["caixa","Caixa de obra"],["compras","Relatório de compras"],["administracao","Recebimento por administração"]]} active={view} onChange={setView}/>
+        <div style={{display:"flex",gap:8,marginLeft:"auto"}}>
           <Sel value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
           <Sel value={String(year)} onChange={v => setYear(Number(v))} options={Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => ({ v: String(y), l: String(y) }))} />
-        </div>}
+        </div>
       </div>
-      {view==="projection"&&<LaborProjection data={data} currentUser={currentUser} onTab={onTab}/>}
 
       {/*  RELATÓRIO MENSAL COMPLETO  */}
       {view === "relatorio" && <RelatorioMensal data={data} year={year} month={month} showToast={showToast}/>}
@@ -17934,7 +17947,7 @@ export default function App() {
           {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "medicoes" && <Suspense fallback={<div className="arcd-page-loading">Carregando medições...</div>}><MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "caixa"    && <CaixaObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "relat"    && <Relatorios   data={data} showToast={showToast} currentUser={currentUser} onTab={setTab} />}
+          {tab === "relat"    && <Relatorios   data={data} showToast={showToast} currentUser={currentUser} />}
           {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
           {tab === "ia_config" && <ConfiguracaoIA showToast={showToast}/>}
           {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={sairDoSistema} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} />}

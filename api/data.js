@@ -31,11 +31,11 @@ import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData, profil
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
 import { archivedLaborKeys, rebuildArchivedLaborCosts } from "../server/financial-archived-costs-source.js";
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
+import { getLaborProjectionAccess, prepareLaborProjectionSource, sanitizeLaborProjectionReport, validateLaborProjectionFilters } from "../server/labor-projection.js";
+import { buildLaborProjection } from "../src/domains/ponto/labor-projection.js";
+import { buildLaborProjectionCash } from "../src/domains/ponto/labor-projection-cash.js";
 import { validatePurchaseChanges } from "../server/permission-policies.js";
 import { podeAcessarAba } from "../src/domains/administracao/abas-acesso.js";
-import { buildLaborProjection,laborProjectionAccess } from "../server/labor-projection.js";
-import { loadLaborProjectionArchives } from "../server/labor-projection-source.js";
-import { businessDate,projectionPeriod } from "../src/domains/ponto/labor-projection.js";
 import { compactAuditSnapshots, expandSectionDelta } from "../src/domains/sync/section-delta.js";
 import { validateProcurementChain } from "../server/procurement-chain-policy.js";
 import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
@@ -3172,15 +3172,40 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok:true, removed:id });
     }
 
-    if(action==="labor-fortnight-projection"){
-      const filters=Object.fromEntries(["area","obraId","mode","role","employeeId","pendingOnly"].map(field=>[field,String(req.body?.filters?.[field]||"").slice(0,120)]));
-      const access=laborProjectionAccess(usuario,filters);
-      if(access.error)return res.status(access.status).json({error:access.error});
-      const instant=new Date().toISOString(),period=projectionPeriod(businessDate(instant));
-      const archiveSource=await loadLaborProjectionArchives({db,company:COMPANY,key:KEY,data:atual,start:period.historyStart,end:period.end});
-      const report=buildLaborProjection({data:atual,user:usuario,filters,instant,archiveSource,sourceVersion:JSON.stringify({company:COMPANY,updatedAt,rowVersions,rowVersionsPontoObra})});
-      res.setHeader("Cache-Control","private, no-store");
-      return res.status(report.status||200).json(report);
+    if(action==="labor-projection-report"){
+      try{
+        const access=getLaborProjectionAccess(usuario,atual);
+        // Permissões e escopo de obra são verificados antes de ler arquivos.
+        // A identidade histórica é validada depois da reconstrução, pois uma
+        // pessoa pode existir só na fotografia de uma quinzena arquivada.
+        validateLaborProjectionFilters({...req.body?.filters,
+          employeeId:access.canViewPeople?"":req.body?.filters?.employeeId},access,atual);
+        const source=await prepareLaborProjectionSource({
+          data:atual,baseKey:KEY,now:new Date(),
+          initialVersion:{updatedAt,rowVersions:{...rowVersions,[DOMAIN_ROW.CORE]:updatedAt},rowVersionsPontoObra},
+          readCurrentVersion:async()=>{
+            const current=await lerLinha();
+            return {updatedAt:current.updatedAt,rowVersions:current.rowVersions,rowVersionsPontoObra:current.rowVersionsPontoObra};
+          },
+          readArchive:async key=>{
+            const {data:archive,error}=await db.from("company_app_data").select("key,value,updated_at")
+              .eq("company_id",COMPANY).eq("key",key).maybeSingle();
+            if(error)throw error;
+            return archive;
+          },
+        });
+        const {data:projectionData,...sourceOptions}=source;
+        const filters=validateLaborProjectionFilters(req.body?.filters,access,projectionData);
+        const report=buildLaborProjection(projectionData,{...sourceOptions,access,filters,includeCashBasis:true});
+        report.sourceVersion=source.sourceVersion;
+        report.cash=buildLaborProjectionCash(projectionData,report,{access});
+        return res.status(200).json({ok:true,report:sanitizeLaborProjectionReport(report,access)});
+      }catch(error){
+        if(String(error?.code||"").startsWith("LABOR_")&&[400,403,409,503].includes(error.status)){
+          return res.status(error.status).json({error:error.message,code:error.code,retryable:error.status===409});
+        }
+        throw error;
+      }
     }
 
     if(action==="financial-annual-dre-report"||action==="financial-annual-dre-layout"){
@@ -3805,11 +3830,12 @@ export default async function handler(req, res) {
           id: e.id, name: e.name, role: e.role || "", obra: e.obra || "",
           dailyRate: Number(e.dailyRate || 0),
           monthlySalary: Number(e.monthlySalary || 0),
-          remunerationMode: e.remunerationMode === "clt" ? "clt" : "daily",
+          remunerationMode: ["clt", "mei"].includes(e.remunerationMode) ? e.remunerationMode : "daily",
+          meiMonthlyValue: Number(e.meiMonthlyValue || 0),
           remunerationEffectiveFrom: String(e.remunerationEffectiveFrom || ""),
           remunerationHistory:(e.remunerationHistory||[]).map(item=>({
             date:String(item?.date||""),
-            mode:item?.mode==="clt"?"clt":"daily",
+            mode:["clt","mei"].includes(item?.mode)?item.mode:"daily",
           })),
           obraHistory:(e.obraHistory||[]).map(item=>({
             date:String(item?.date||""),

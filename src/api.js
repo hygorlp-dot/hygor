@@ -217,8 +217,8 @@ export const consultarDreEmpresaCanonico = ({year,month}) =>
   chamar({ action:"financial-company-dre-report", ...credenciais(), year, month, period:"mes" });
 export const consultarDreAnual = year =>
   chamar({ action:"financial-annual-dre-report", ...credenciais(), year });
-export const consultarProjecaoMaoObra = filters =>
-  chamar({ action:"labor-fortnight-projection", ...credenciais(), filters });
+export const obterProjecaoMaoObra = (filters = {}) =>
+  chamar({ action:"labor-projection-report", ...credenciais(), filters });
 export const salvarLayoutDreAnual = ({rows,expectedVersion}) =>
   chamar({ action:"financial-annual-dre-layout", ...credenciais(), rows, expectedVersion });
 export const gerenciarAcessoPortalCliente = payload =>

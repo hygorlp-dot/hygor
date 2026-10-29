@@ -1,46 +1,160 @@
-import { test,expect } from "@playwright/test";
-import { mkdirSync } from "node:fs";
-import { buildLaborProjection } from "../server/labor-projection.js";
-import { projectionPeriod,dateRange } from "../src/domains/ponto/labor-projection.js";
-import { getPayrollHolidays,prIsWeekdayIso } from "../src/domains/ponto/attendance-engine.js";
-const instant="2026-10-29T15:00:00Z";
-const user={id:"u",authUserId:"auth",nome:"RH de teste",email:"projecao@example.test",role:"rh",accessTabs:["folha","ponto_geral","relat"],active:true};
-const employees=[{id:"p",name:"Pessoa de Campo Sintética",role:"Pedreiro",dailyRate:150,obra:"o",startDate:"2025-01-01",active:true},{id:"m",name:"Mestre Sintético",role:"Mestre de obras",dailyRate:200,obra:"o",startDate:"2025-01-01",active:true},{id:"a",name:"Assistente Central Sintética",role:"Assistente",workArea:"administrativo",dailyRate:130,startDate:"2025-01-01",active:true}];
-const period=projectionPeriod("2026-10-29");
-const attendance=Object.fromEntries(employees.map(employee=>[employee.id,Object.fromEntries(dateRange(period.historyStart,"2026-10-29").filter(day=>prIsWeekdayIso(day)&&!getPayrollHolidays({},Number(day.slice(0,4))).includes(day)).map((day,index)=>[day,{status:index%10===0?"F":"P",obraId:employee.obra||""}]))]));
-const data={usuarios:[user],employees,obras:[{id:"o",name:"Obra Sintética",status:"active",contractType:"admin_only"}],attendance,config:{companyName:"MARCELL"},advances:[],changeLog:[]};
-async function navigate(page,label){await page.keyboard.press("Control+k");const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");await search.fill(label);await search.locator("xpath=../..").getByRole("button").filter({hasText:label}).first().click();}
+import { expect, test } from "@playwright/test";
+import ExcelJS from "exceljs";
+import { buildLaborProjection } from "../src/domains/ponto/labor-projection.js";
+import { buildLaborProjectionCash } from "../src/domains/ponto/labor-projection-cash.js";
+import { getLaborProjectionAccess, sanitizeLaborProjectionReport, validateLaborProjectionFilters } from "../server/labor-projection.js";
+import { projectDataForUser } from "../server/data-projection.js";
 
-test("projeção, grupos, exportações e ponto usam escopo consistente",async({page},testInfo)=>{
- mkdirSync("output/pdf",{recursive:true});
- let snapshot;
- await page.clock.setFixedTime(new Date(instant));
- await page.route("**/api/**",route=>route.fulfill({json:{ok:true,items:[],presencas:[]}}));
- await page.route("**/api/data",async route=>{
-  const body=route.request().postDataJSON()||{};
-  if(body.action==="profiles")return route.fulfill({json:{usuarios:[user],precisaSetup:false}});
-  if(body.action==="labor-fortnight-projection"){snapshot=buildLaborProjection({data,user,filters:body.filters,instant,sourceVersion:"e2e"});return route.fulfill({json:snapshot});}
-  return route.fulfill({json:{ok:true,usuario:user,accessToken:"synthetic",refreshToken:"synthetic",data,updatedAt:instant}});
- });
- await page.goto("/",{waitUntil:"domcontentloaded"});
- await page.locator("#login-email").fill(user.email);await page.locator("#login-senha").fill("teste");await page.getByRole("button",{name:"Acessar central MARCELL"}).click();await expect(page.locator("#login-email")).toHaveCount(0);
- await navigate(page,"Folha");
- const group=page.getByRole("region",{name:"Grupo da equipe"});
- await group.getByRole("button",{name:"Administração Central",exact:true}).click();
- await expect(page.locator(".payroll-workspace")).not.toContainText("Pessoa de Campo Sintética");
- await page.getByRole("button",{name:"Projeção de mão de obra",exact:true}).click();
- const report=page.getByRole("region",{name:"Projeção de mão de obra"});
- await expect(report).toContainText("2026-10-Q2");await expect(report).toContainText("21/07/2026 a 20/10/2026");
- await expect(report).toHaveAttribute("aria-busy","false");
- expect(snapshot.people.map(person=>person.id)).toEqual(["m","a"]);
- expect(await report.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
- await report.getByText("Memória de cálculo e qualidade do histórico",{exact:true}).click();
- await expect(report).toContainText("Mestre Sintético");await expect(report).not.toContainText("Pessoa de Campo Sintética");
- await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({fullPage:true,path:`output/pdf/projecao-${testInfo.project.name}.png`});
- const download=page.waitForEvent("download");await report.getByRole("button",{name:"Excel",exact:true}).click();expect((await download).suggestedFilename()).toContain(snapshot.version);
- const popupPromise=page.waitForEvent("popup");await report.getByRole("button",{name:"PDF",exact:true}).click();const popup=await popupPromise;await popup.evaluate(()=>window.__marcellReportReady);
- await expect(popup.locator("body")).toContainText(snapshot.version);await expect(popup.locator("body")).toContainText("Mestre Sintético");await expect(popup.locator("body")).not.toContainText("Pessoa de Campo Sintética");if(testInfo.project.name.endsWith("desktop"))await popup.pdf({path:"output/pdf/projecao-quinzena-sintetica.pdf",preferCSSPageSize:true,printBackground:true});await popup.close();
- await navigate(page,"Gestão do ponto");await page.getByRole("region",{name:"Grupo da equipe"}).getByRole("button",{name:"Administração Central",exact:true}).click();
- await expect(page.locator(".ponto-geral-table")).toContainText("Mestre Sintético");await expect(page.locator(".ponto-geral-table")).not.toContainText("Pessoa de Campo Sintética");
- await navigate(page,"Relatórios");await page.getByRole("button",{name:"Projeção de mão de obra",exact:true}).click();await expect(page.getByRole("region",{name:"Projeção de mão de obra"})).toContainText("2026-10-Q2");
+const money = value => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+const makeData = profile => {
+  const employees = [
+    { id: "daily", name: "Pessoa de campo QA", role: "Pedreiro", obra: "work", workArea: "campo", remunerationMode: "daily", dailyRate: 150, active: true, startDate: "2026-01-01" },
+    { id: "admin", name: "Pessoa administrativa QA", role: "Assistente", obra: "", workArea: "administrativo", remunerationMode: "clt", monthlySalary: 3000, vtDaily: 10, active: true, startDate: "2026-01-01" },
+    { id: "new", name: "Pessoa recém admitida QA", role: "Servente", obra: "work", workArea: "campo", remunerationMode: "daily", dailyRate: 100, active: true, startDate: "2026-10-27" },
+  ];
+  const attendance = { daily: {}, admin: {}, new: {} };
+  for (let date = new Date("2026-07-21T12:00:00Z"); date.toISOString().slice(0, 10) <= "2026-10-28"; date.setUTCDate(date.getUTCDate() + 1)) {
+    if ([0, 6].includes(date.getUTCDay())) continue;
+    const iso = date.toISOString().slice(0, 10);
+    attendance.daily[iso] = { status: iso < "2026-10-21" && date.getUTCDate() === 23 ? "F" : "P", obraId: "work", ot: 0 };
+    attendance.admin[iso] = { status: "P", ot: 0 };
+  }
+  attendance.new["2026-10-27"] = { status: "P", obraId: "work", ot: 0 };
+  return { usuarios: [profile], obras: [{ id: "work", name: "Obra Primavera QA", status: "active", contractType: "empreitada" }],
+    employees, attendance, config: { companyName: "Empresa de teste", paymentHolidays: [] },
+    advances: [], titulosFolha: [], pagamentosFolha: [], attendanceLocks: {}, unlockRequests: [], changeLog: [] };
+};
+
+async function enter(page, role) {
+  const profile = { id: `qa-${role}`, nome: "Gestor QA", email: `${role}@qa.test`, role, active: true };
+  const data = makeData(profile), original = JSON.stringify(data), requests = [], errors = [];
+  let snapshot, failNext = false;
+  page.on("pageerror", error => errors.push(error.message));
+  await page.clock.setFixedTime(new Date("2026-10-29T15:00:00Z"));
+  await page.context().addInitScript(() => { window.print = () => {}; });
+  await page.route("**/api/**", route => route.fulfill({ json: { ok: true, items: [], presencas: [] } }));
+  await page.route("**/api/data", route => {
+    const body = route.request().postDataJSON() || {};
+    if (body.action === "profiles") return route.fulfill({ json: { precisaSetup: false } });
+    if (body.action === "labor-projection-report") {
+      requests.push(body);
+      if (failNext) { failNext = false; return route.fulfill({ status: 409, json: { error: "Os dados mudaram durante a consulta. Atualize a projeção." } }); }
+      const access = getLaborProjectionAccess(profile, data);
+      const filters = validateLaborProjectionFilters(body.filters, access, data);
+      const report = buildLaborProjection(data, { asOf: "2026-10-29", generatedAt: "2026-10-29T15:00:00Z",
+        timeZone: "America/Bahia", access, filters, includeCashBasis: true });
+      report.sourceVersion = "fonte-sintetica-verificada";
+      report.cash = buildLaborProjectionCash(data, report, { access });
+      snapshot = sanitizeLaborProjectionReport(report, access);
+      return route.fulfill({ json: { ok: true, report: snapshot } });
+    }
+    return route.fulfill({ json: { ok: true, accessToken: "isolated-access", refreshToken: "isolated-refresh",
+      usuario: profile, data: projectDataForUser(data, profile), updatedAt: "2026-10-29T12:00:00Z" } });
+  });
+  await page.goto("/");
+  await page.locator("#login-email").fill(profile.email);
+  await page.locator("#login-senha").fill("isolated-password");
+  await page.getByRole("button", { name: "Acessar central MARCELL" }).click();
+  await expect(page.locator("#login-email")).toHaveCount(0);
+  return { requests, errors, snapshot: () => snapshot, unchanged: () => JSON.stringify(data) === original, fail: () => { failNext = true; } };
+}
+
+async function navigate(page, label) {
+  await page.keyboard.press("Control+k");
+  const search = page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
+  await search.fill(label);
+  await search.locator("xpath=../..").getByRole("button").filter({ hasText: label }).first().click();
+}
+
+test("RH consulta a quinzena, filtra e exporta a mesma fotografia em PDF e Excel", async ({ page, context }, testInfo) => {
+  const app = await enter(page, "rh");
+  await navigate(page, "Folha");
+  await page.getByRole("button", { name: "Projeção da quinzena", exact: true }).click();
+  const report = page.getByRole("region", { name: "Projeção de mão de obra", exact: true });
+  await expect(report.getByRole("heading", { name: "Projeção de mão de obra", exact: true })).toBeVisible();
+  await expect(report).toContainText("21/10/2026 a 05/11/2026");
+  await expect(report).toContainText("21/07/2026 a 20/10/2026");
+  await expect(report.locator('[data-metric="projectedCost"]')).toHaveText(money(app.snapshot().totals.projectedCost));
+  await expect(report).toContainText("Subtotal parcial");
+  await expect(page.getByRole("combobox", { name: "Ciclo da folha", exact: true })).toHaveCount(0);
+  await report.getByRole("button", { name: "Ver memória de Pessoa de campo QA", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Memória de Pessoa de campo QA" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("table").last()).toContainText("Encargos incluídos");
+  expect(await dialog.evaluate(element => {
+    const color = getComputedStyle(element).backgroundColor;
+    const box = element.getBoundingClientRect();
+    return color !== "transparent" && !/rgba\([^)]*,\s*0(?:\.\d+)?\)$/.test(color)
+      && box.left >= 0 && box.right <= innerWidth + 1;
+  })).toBe(true);
+  await dialog.screenshot({ path: testInfo.outputPath("memoria-da-projecao.png") });
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(report.getByRole("button", { name: "Ver memória de Pessoa de campo QA", exact: true })).toBeFocused();
+  await report.getByRole("combobox", { name: "Área", exact: true }).selectOption("administrative");
+  await expect(report).toContainText("Filtros em edição");
+  const callsBeforeExport = app.requests.length;
+  const popupEvent = context.waitForEvent("page");
+  await report.getByRole("button", { name: "PDF", exact: true }).click();
+  const popup = await popupEvent;
+  await expect(popup.locator("body")).toContainText("Pessoa de campo QA");
+  await expect(popup.locator("body")).toContainText(money(app.snapshot().totals.projectedCost));
+  await expect(popup.locator("body")).toContainText("fonte-sintetica-verificada");
+  await popup.evaluate(() => window.__marcellReportReady);
+  await popup.pdf({ path: testInfo.outputPath("projecao-quinzena.pdf"), preferCSSPageSize: true, printBackground: true });
+  await popup.close();
+  const downloadEvent = page.waitForEvent("download");
+  await report.getByRole("button", { name: "Excel", exact: true }).click();
+  const download = await downloadEvent;
+  expect(download.suggestedFilename()).toContain("2026-10-Q2");
+  const file = testInfo.outputPath("projecao-quinzena.xlsx");
+  await download.saveAs(file);
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(file);
+  expect(workbook.worksheets).toHaveLength(6);
+  const values = workbook.getWorksheet("Resumo").getSheetValues();
+  expect(values.some(row => row?.[1] === "Subtotal parcial de custo" && row[2] === app.snapshot().totals.projectedCost)).toBe(true);
+  expect(app.requests).toHaveLength(callsBeforeExport);
+  await report.getByRole("button", { name: "Aplicar filtros", exact: true }).click();
+  await expect(report.getByRole("button", { name: "Ver memória de Pessoa administrativa QA", exact: true })).toBeVisible();
+  await expect(report.getByRole("button", { name: "Ver memória de Pessoa de campo QA", exact: true })).toHaveCount(0);
+  expect(app.snapshot().filters.area).toBe("administrative");
+  await expect(report.locator('[data-metric="projectedCost"]')).toHaveText(money(app.snapshot().totals.projectedCost));
+  app.fail();
+  await report.getByRole("button", { name: "Atualizar", exact: true }).click();
+  await expect(report.getByRole("alert")).toContainText("Os dados mudaram durante a consulta");
+  await expect(report.locator('[data-metric="projectedCost"]')).toHaveText(money(app.snapshot().totals.projectedCost));
+  await report.getByRole("button", { name: "Tentar novamente", exact: true }).click();
+  await expect(report.getByRole("alert")).toHaveCount(0);
+  await report.getByRole("button", { name: "Limpar filtros", exact: true }).click();
+  await expect(report.getByRole("button", { name: "Ver memória de Pessoa de campo QA", exact: true })).toBeVisible();
+  expect(await report.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  await report.screenshot({ path: testInfo.outputPath("projecao-quinzena.png") });
+  await page.evaluate(() => { document.querySelector("main")?.scrollTo(0, 0); window.scrollTo(0, 0); });
+  await page.screenshot({ path: testInfo.outputPath("projecao-visao-inicial.png") });
+  expect(app.unchanged()).toBe(true);
+  expect(app.errors).toEqual([]);
+});
+
+test("Financeiro acessa Relatórios e exporta só agregados sem abrir a Folha", async ({ page, context }, testInfo) => {
+  const app = await enter(page, "financeiro");
+  await navigate(page, "Relatórios");
+  await page.getByRole("button", { name: "Projeção de mão de obra", exact: true }).click();
+  const report = page.getByRole("region", { name: "Projeção de mão de obra", exact: true });
+  await expect(report).toContainText("Este perfil consulta valores agregados");
+  await expect(report.getByRole("combobox", { name: "Pessoa", exact: true })).toHaveCount(0);
+  await expect(report).not.toContainText("Pessoa de campo QA");
+  await report.getByRole("button", { name: "Memória de cálculo", exact: true }).click();
+  await expect(page.getByRole("dialog")).not.toContainText("Pessoa de campo QA");
+  await page.keyboard.press("Escape");
+  const popupEvent = context.waitForEvent("page");
+  await report.getByRole("button", { name: "PDF", exact: true }).click();
+  const popup = await popupEvent;
+  await expect(popup.locator("body")).toContainText("detalhe individual e a memória diária são restritos");
+  await expect(popup.locator("body")).not.toContainText("Pessoa de campo QA");
+  await popup.close();
+  expect(await report.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  await report.screenshot({ path: testInfo.outputPath("projecao-financeiro.png") });
+  expect(app.unchanged()).toBe(true);
+  expect(app.errors).toEqual([]);
 });

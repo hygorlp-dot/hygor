@@ -146,4 +146,20 @@ describe("motor financeiro de mão de obra", () => {
     expect(engine.calculateCurrentCost(data,"o2",["2026-07-10"])).toMatchObject({laborCost:0});
     expect(engine.calculateCurrentCost(data,"o2",["2026-07-20"])).toMatchObject({laborCost:100});
   });
+
+  it("MEI: valor mensal pelos dias úteis, na obra da lotação, sem encargos nem benefícios",()=>{
+    const engine=createLaborCostEngine({getPayrollHolidays,getHolidayPayRule,getAttendance:getAtt,isEmployeeEmployedOnDate,isWeekdayIso:prIsWeekdayIso});
+    const data={obras:[{id:"o1"},{id:"o2"}],attendance:{},changeLog:[],
+      config:{laborCharges:{diaristaPercent:10,inssPatronalPercent:20,ratPercent:3,fap:1,terceirosPercent:5.8,fgtsPercent:8,multaFgtsPercent:40,provisionar13Ferias:true}},
+      employees:[{id:"m",name:"MEI",obra:"o2",startDate:"2026-01-01",active:true,remunerationMode:"mei",meiMonthlyValue:4400,dailyRate:0,vtDaily:10,vrDaily:20,
+        obraHistory:[{date:"2026-07-16",fromObraId:"o1",toObraId:"o2"}]}]};
+    const days=Array.from({length:31},(_,i)=>`2026-07-${String(i+1).padStart(2,"0")}`);
+    const uteis=days.filter(prIsWeekdayIso),antes=uteis.filter(date=>date<"2026-07-16").length;
+    const o1=engine.calculateWorkLaborCost(data,"o1",days),o2=engine.calculateWorkLaborCost(data,"o2",days);
+    expect(o1.laborCost+o2.laborCost).toBeCloseTo(4400,6);
+    expect(o1.laborCost).toBeCloseTo(4400/uteis.length*antes,6);
+    expect(o1.chargesCost+o2.chargesCost).toBe(0);
+    expect(o1.benefitCost+o2.benefitCost).toBe(0);
+  });
 });
+
