@@ -1,0 +1,20 @@
+.payroll-projection{display:flex;flex-direction:column;gap:16px;color:var(--arcd-text-primary)}
+.labor-projection-summary{display:flex;flex-wrap:wrap;gap:24px;padding-block:16px;border-block:1px solid var(--arcd-border-default)}
+.labor-projection-summary dt{font-size:var(--arcd-type-label)}
+.labor-projection-summary dd{margin:4px 0 0;font-weight:600;font-variant-numeric:tabular-nums}
+.labor-projection-table{overflow-x:auto;max-width:100%}
+.labor-projection-table table{width:100%;border-collapse:collapse;font-size:var(--arcd-type-label)}
+.labor-projection-table :is(th,td){padding:8px;text-align:left;border-bottom:1px solid var(--arcd-border-default)}
+.labor-projection-table td:nth-child(n+4){white-space:nowrap;font-variant-numeric:tabular-nums}
+.labor-projection-table caption{text-align:left;padding-block:8px;font-weight:600}
+.payroll-projection details p{margin-block:12px}
+.labor-projection-filters{display:flex;flex-wrap:wrap;gap:16px;align-items:end}
+.labor-projection-filters label{display:flex;flex-direction:column;gap:8px;max-width:100%;min-width:180px}
+.labor-projection-filters select{font:inherit;padding:8px;border:1px solid var(--arcd-border-default);background:var(--arcd-bg-card);color:var(--arcd-text-primary);max-width:100%}
+.labor-projection-actions{display:flex;flex-wrap:wrap;gap:12px}
+.labor-projection-chart{display:flex;flex-direction:column;gap:12px}
+.labor-projection-chart>div{display:grid;grid-template-columns:minmax(100px,1fr) minmax(80px,3fr) minmax(100px,1fr);align-items:center;gap:12px}
+.labor-projection-bar{display:flex;height:18px;background:var(--arcd-bg-card)}
+.labor-projection-bar i{background:var(--arcd-brand-primary,#0d1b2e)}
+.labor-projection-bar b{background:var(--arcd-brand-accent,#b9985b)}
+@media(max-width:600px){.labor-projection-chart>div{grid-template-columns:1fr}.labor-projection-filters label{width:100%}.labor-projection-summary{gap:16px}.payroll-projection{min-width:0}}

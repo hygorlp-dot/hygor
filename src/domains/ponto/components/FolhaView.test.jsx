@@ -8,6 +8,24 @@ import { rebuildArchivedLaborCosts } from '../../../../server/financial-archived
 let root, container;
 afterEach(() => { if(root) act(()=>root.unmount()); container?.remove(); vi.useRealTimers(); });
 
+it('separa Obras de Administração Central e impede fechamento parcial da empresa',()=>{
+  vi.useFakeTimers();vi.setSystemTime(new Date(2026,9,23,12));
+  const employees=[{id:'p',name:'Pedreiro de campo',role:'Pedreiro',dailyRate:100,obra:'o',active:true},{id:'m',name:'Mestre da equipe',role:'Mestre de obras',dailyRate:200,obra:'o',active:true},{id:'a',name:'Assistente central',workArea:'administrativo',dailyRate:150,active:true}];
+  const data={config:{},employees,obras:[{id:'o',name:'Obra'}],attendance:Object.fromEntries(employees.map(employee=>[employee.id,{'2026-10-21':{status:'P',obraId:employee.obra||''}}])),advances:[],changeLog:[]};
+  container=document.createElement('div');document.body.append(container);root=createRoot(container);
+  act(()=>root.render(<Folha data={data} currentUser={{id:'rh',role:'rh'}} showToast={()=>{}}/>));
+  const button=name=>[...container.querySelectorAll('button')].find(item=>item.textContent.trim()===name);
+  act(()=>button('Administração Central').click());
+  expect(container.textContent).toContain('Mestre da equipe');expect(container.textContent).toContain('Assistente central');
+  expect(container.textContent).not.toContain('Pedreiro de campo');expect(button('Fechar quinzena').disabled).toBe(true);
+  act(()=>button('Obras').click());expect(container.textContent).toContain('Pedreiro de campo');expect(container.textContent).not.toContain('Mestre da equipe');
+  data.titulosFolha=employees.map(employee=>({id:`t-${employee.id}`,employeeId:employee.id,periodKey:'2026-10-Q2',liquido:employee.dailyRate}));
+  act(()=>root.render(<Folha data={data} currentUser={{id:'rh',role:'rh'}} showToast={()=>{}}/>));
+  act(()=>button('Administração Central').click());
+  expect(container.textContent).not.toContain('O ponto mudou depois do fechamento');
+  expect(container.textContent).toContain('Fechamento da empresa (Consolidado)');
+});
+
 it('Folha mantém salário CLT de R$ 2.300 depois do arquivo sem voltar a pagar diária',()=>{
   vi.useFakeTimers();vi.setSystemTime(new Date(2026,6,18,12));
   const {data,archiveRows}=archivedCltScenario();

@@ -19,6 +19,7 @@ export const createLaborCostEngine = ({
   isEmployeeEmployedOnDate,
   getAttendance,
   getHolidayPayRule,
+  getEmployeeForDate = employee => employee,
 } = {}) => {
   const holidaysForYear = requiredFunction(getPayrollHolidays, "getPayrollHolidays");
   const weekday = requiredFunction(isWeekdayIso, "isWeekdayIso");
@@ -90,9 +91,11 @@ export const createLaborCostEngine = ({
       holidays.includes(date) && weekday(date));
     const holidaySet = new Set(holidaysInPeriod);
     const byWork = new Map();
-    const bucket = obraId => {
-      let item = byWork.get(obraId);
-      if (!item) { item = { laborCost:0, benefitCost:0, chargesCost:0 }; byWork.set(obraId, item); }
+    const daily = new Map();
+    const bucket = (obraId, employee, date) => {
+      const id = `${employee.id}|${date}|${obraId}`;
+      let item = daily.get(id);
+      if (!item) { item = { employeeId:String(employee.id), date, obraId:String(obraId || ""), laborCost:0, benefitCost:0, chargesCost:0 }; daily.set(id, item); }
       return item;
     };
 
@@ -125,8 +128,9 @@ export const createLaborCostEngine = ({
     const salarioMensal = (employee, date) =>
       remunerationModeOnDate(employee, date) === "clt" ? Math.max(0, Number(employee?.monthlySalary || 0)) : 0;
 
-    (data?.employees || []).forEach(employee => {
+    (data?.employees || []).forEach(employeeInput => {
       days.forEach(date => {
+        const employee = getEmployeeForDate(employeeInput,date,data);
         const salario = salarioMensal(employee, date);
         if (salario > 0) {
           if (!weekday(date) || !employedOnDate(employee, date)) return;
@@ -135,7 +139,7 @@ export const createLaborCostEngine = ({
           const obraId = feriado
             ? salaryHolidayObraId(data,employee,date)
             : String(archived?.obraId||resolveEmployeeAttendanceObraId({ data, employee, date }));
-          const item = bucket(obraId);
+          const item = bucket(obraId, employee, date);
           addLabor(item, employee, date, salario / diasUteisDoMes(date));
           if (!feriado&&!archived) {
             const record = attendanceForDate(data, employee.id, date);
@@ -152,21 +156,28 @@ export const createLaborCostEngine = ({
           config:data?.config,
         });
         if (!cost.laborCost && !cost.benefitCost) return;
-        const item = bucket(resolveEmployeeAttendanceObraId({ data, employee, date }));
+        const item = bucket(resolveEmployeeAttendanceObraId({ data, employee, date }), employee, date);
         addLabor(item, employee, date, cost.laborCost);
         item.benefitCost += cost.benefitCost;
       });
 
       // Feriado: paga a obra do último dia trabalhado antes dele.
       holidaysInPeriod.forEach(date => {
+        const employee = getEmployeeForDate(employeeInput,date,data);
         if (!employedOnDate(employee, date)) return;
         if (salarioMensal(employee, date) > 0) return; // já coberto pelo salário
         const amount = Number(holidayPayRule(data, employee, date, holidays).amount || 0);
         if (!amount) return;
-        addLabor(bucket(resolveHolidayObraId({ data, employee, holidayIso:date })), employee, date, amount);
+        addLabor(bucket(resolveHolidayObraId({ data, employee, holidayIso:date }), employee, date), employee, date, amount);
       });
     });
 
+    for (const item of daily.values()) {
+      const total = byWork.get(item.obraId) || { laborCost:0, benefitCost:0, chargesCost:0 };
+      for (const field of ["laborCost", "benefitCost", "chargesCost"]) total[field] += item[field];
+      byWork.set(item.obraId, total);
+    }
+    byWork.dailyDetails = [...daily.values()].map(item => ({ ...item, totalCost:item.laborCost + item.benefitCost }));
     byPeriod.set(key, byWork);
     return byWork;
   };
@@ -209,6 +220,7 @@ export const createLaborCostEngine = ({
   };
 
   return {
+    calculateDailyCosts: (data, days = []) => costsByWorkForPeriod(data, days).dailyDetails.map(item => ({...item})),
     calculateCurrentCost,
     calculateWorkLaborCost,
   };

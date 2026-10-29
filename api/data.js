@@ -33,6 +33,9 @@ import { archivedLaborKeys, rebuildArchivedLaborCosts } from "../server/financia
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
 import { validatePurchaseChanges } from "../server/permission-policies.js";
 import { podeAcessarAba } from "../src/domains/administracao/abas-acesso.js";
+import { buildLaborProjection,laborProjectionAccess } from "../server/labor-projection.js";
+import { loadLaborProjectionArchives } from "../server/labor-projection-source.js";
+import { businessDate,projectionPeriod } from "../src/domains/ponto/labor-projection.js";
 import { compactAuditSnapshots, expandSectionDelta } from "../src/domains/sync/section-delta.js";
 import { validateProcurementChain } from "../server/procurement-chain-policy.js";
 import { backupKeyFromEnv, createBackupBundle, verifyBackupBundle } from "../server/backup.js";
@@ -3167,6 +3170,17 @@ export default async function handler(req, res) {
       });
       if(outcome.kind==="error")return res.status(outcome.status||400).json({error:outcome.error});
       return res.status(200).json({ ok:true, removed:id });
+    }
+
+    if(action==="labor-fortnight-projection"){
+      const filters=Object.fromEntries(["area","obraId","mode","role","employeeId","pendingOnly"].map(field=>[field,String(req.body?.filters?.[field]||"").slice(0,120)]));
+      const access=laborProjectionAccess(usuario,filters);
+      if(access.error)return res.status(access.status).json({error:access.error});
+      const instant=new Date().toISOString(),period=projectionPeriod(businessDate(instant));
+      const archiveSource=await loadLaborProjectionArchives({db,company:COMPANY,key:KEY,data:atual,start:period.historyStart,end:period.end});
+      const report=buildLaborProjection({data:atual,user:usuario,filters,instant,archiveSource,sourceVersion:JSON.stringify({company:COMPANY,updatedAt,rowVersions,rowVersionsPontoObra})});
+      res.setHeader("Cache-Control","private, no-store");
+      return res.status(report.status||200).json(report);
     }
 
     if(action==="financial-annual-dre-report"||action==="financial-annual-dre-layout"){
