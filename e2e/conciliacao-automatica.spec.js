@@ -61,5 +61,11 @@ test("concilia casos únicos e mantém dúvidas visíveis, inclusive no mobile",
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByText("Pix sem identificação", { exact: true })).toBeVisible();
   expect(commands).toHaveLength(3);
+  await page.getByRole("button", {name:"Comparar e buscar",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"Movimento do banco",exact:true})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Identificação no app",exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Confirmar vínculos selecionados",exact:true})).toBeDisabled();
+  await page.screenshot({path:"test-results/conciliacao-review-mobile.png",fullPage:true});
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   expect(errors).toEqual([]);
 });
