@@ -2,6 +2,7 @@ import { normalizeRemunerationMode, REMUNERATION_MODES } from "./remuneration-mo
 import { validDate } from "./date-validation.js";
 import {attendanceImportIssues} from '../ponto/clt-attendance.js';
 import {attendancePayModeDecision} from './attendance-pay-mode.js';
+import { appendWorkSchedule } from "./work-schedule.js";
 
 export const EMPLOYEE_COMMAND = Object.freeze({
   EMPLOYEE_SAVED:"FUNCIONARIO_SALVO",
@@ -191,6 +192,9 @@ export const applyEmployeeCommand = (
   if(modeChanged&&(!validDate(modeDate)||modeDate<raw.startDate))return fail("Informe uma vigência da modalidade igual ou posterior à admissão.");
   const baseHistory=before?.remunerationHistory?.length?before.remunerationHistory:[{date:before?.remunerationEffectiveFrom||before?.startDate||raw.startDate,mode:previousMode}];
   const remunerationHistory=modeChanged?[...baseHistory,{date:modeDate,mode,changedAt:now,changedBy:actorId}]:before?.remunerationHistory||[];
+  const schedule = appendWorkSchedule(before, raw.workScheduleDraft, actorId, now);
+  if (!schedule.ok) return fail(schedule.reason);
+  if (raw.workScheduleDraft?.effectiveFrom < raw.startDate) return fail("A escala não pode começar antes da admissão.");
   const employee = {
     ...raw,
     id,
@@ -225,7 +229,9 @@ export const applyEmployeeCommand = (
     updatedAt:now,
     updatedById:actorId,
     updatedBy:actorName,
+    workSchedules:schedule.history,
   };
+  delete employee.workScheduleDraft;
   const employees = before
     ? (data.employees || []).map(item => String(item.id) === id ? employee : item)
     : [...(data.employees || []), employee];

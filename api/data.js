@@ -79,6 +79,7 @@ import {
   coreFieldsOnly, DOMAIN_ROW, domainForField, mergeDomainRows, pickDomainFields, rowForAttendanceCommand,
   rowForOperationalCommand, SPLITTABLE_DOMAINS,
 } from "../server/domain-row-routing.js";
+import { readFreshAttendance, readReviewEvents } from "../server/attendance-review-source.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
 import {
   applyEntriesToAttendance, attendanceObraKeyPrefix,
@@ -1429,7 +1430,7 @@ const executarComandoOperacionalBloqueado=async({
 };
 
 const datasAlteradasPeloComandoPonto=command=>{
-  if(command?.action===ATTENDANCE_COMMAND.UPSERT)return [String(command.date||"")].filter(Boolean);
+  if([ATTENDANCE_COMMAND.UPSERT,ATTENDANCE_COMMAND.REVIEW].includes(command?.action))return [String(command.date||"")].filter(Boolean);
   if(command?.action===ATTENDANCE_COMMAND.BATCH_UPSERT){
     return [...new Set((Array.isArray(command.patches)?command.patches:[])
       .map(patch=>String(patch?.date||"")).filter(Boolean))];
@@ -1512,12 +1513,14 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
       const current={
         ...linha.payload,
         ...coreFieldsOnly(decodeAppData(lockedCore.value),linha.rowVersions),
+        ...await readFreshAttendance(transaction,COMPANY,linha.payload),
         attendanceLocks:freshPontoSlice.attendanceLocks||{},
         unlockRequests:freshPontoSlice.unlockRequests||[],
         dailyCheckDate:freshPontoSlice.dailyCheckDate||"",
         attendanceOperationReceipts:freshPontoSlice.attendanceOperationReceipts||[],
       };
-      const applied=applyAttendanceCommand(current,usuario,command,operationNow);
+      const sourceEvents=command.action===ATTENDANCE_COMMAND.REVIEW?await readReviewEvents(transaction,COMPANY,command):[];
+      const applied=applyAttendanceCommand(current,usuario,command,operationNow,sourceEvents);
       if(!applied.ok)return {kind:"error",status:applied.status||400,error:applied.error};
       if(applied.idempotent)return {kind:"idempotent",result:applied.result,updatedAt:lockedPonto.updated_at};
       const closedPoint=validarPontoEmCompetenciaAberta(current,command);
@@ -2641,12 +2644,16 @@ export default async function handler(req, res) {
     if(ATTENDANCE_COMMANDS.has(action)){
       const command={...req.body,action};
       const operationNow=new Date().toISOString();
-      // upsert/batch-upsert são os únicos comandos que tocam `attendance`
+      // upsert/batch-upsert e conferência RH tocam `attendance`
       // (agora particionado por obra - ver executarComandoPontoBloqueado);
       // os outros 5 (lock/unlock/daily-check) só mexem nos campos "meta" que
       // continuam numa única linha compartilhada, então seguem no caminho
       // genérico de sempre.
-      const isAttendanceWrite=action===ATTENDANCE_COMMAND.UPSERT||action===ATTENDANCE_COMMAND.BATCH_UPSERT;
+      const isAttendanceWrite=[ATTENDANCE_COMMAND.UPSERT,ATTENDANCE_COMMAND.BATCH_UPSERT,ATTENDANCE_COMMAND.REVIEW].includes(action);
+      if(action===ATTENDANCE_COMMAND.REVIEW){
+        if(!["admin","rh"].includes(usuario.role))return res.status(403).json({ok:false,error:"Somente RH e administrador podem conferir batidas."});
+        if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({ok:false,error:"A integração de ponto requer conexão transacional. Contate o administrador."});
+      }
       if(process.env.POSTGRES_URL_NON_POOLING&&isAttendanceWrite){
         const outcome=await executarComandoPontoBloqueado({
           usuario,command,operationNow,linha:{payload:atual,rowVersions},

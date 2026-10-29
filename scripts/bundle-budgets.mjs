@@ -61,8 +61,11 @@
 // Ajuste em 29/10/2026: memorial mensal e suporte ao fechamento. Build sem
 // sourcemaps: 1.782.902 bytes gzip, 118 bytes acima do teto anterior.
 // Acréscimo limitado a 1 KiB; limites individuais permanecem iguais.
+// Conferência RH e escala de 44h (29/10/2026): build medido em 1.786.736
+// bytes gzip. Acréscimo de 3 KiB no total para o fluxo novo; limites dos
+// chunks individuais e da carga principal permanecem iguais.
 export const BUNDLE_BUDGETS = Object.freeze({
-  totalGzipBytes: 1_742 * 1024,
+  totalGzipBytes: 1_745 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,
