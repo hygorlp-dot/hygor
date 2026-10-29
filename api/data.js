@@ -3300,10 +3300,11 @@ export default async function handler(req, res) {
         !currentEvent
         ||String(currentEvent.payload?.sourceRevision||"")!==sourceRevision
         ||String(currentEvent.payload?.projectionVersion||"")!==DRE_PROJECTION_VERSION
+        ||(companyStatement&&!currentEvent.payload?.memorial)
       )){
         const fonteFinanceira=await exigirCustosArquivados(atual);
         const projectionRequests=[
-          {year,month,period,scope},
+          {year,month,period,scope,includeMemorial:companyStatement},
           ...historyRequests,
         ].filter(request=>{
           if(!companyStatement||request.period!=="mes")return true;

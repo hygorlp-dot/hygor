@@ -58,8 +58,11 @@
 // e normalização de MIME da NF. CI mediu 1.781.936 bytes (1.740,17 KiB),
 // 176 bytes acima do total anterior. Acréscimo limitado a 1 KiB;
 // os limites individuais de chunks e de mídia permanecem iguais.
+// Ajuste em 29/10/2026: memorial mensal e suporte ao fechamento. Build sem
+// sourcemaps: 1.782.902 bytes gzip, 118 bytes acima do teto anterior.
+// Acréscimo limitado a 1 KiB; limites individuais permanecem iguais.
 export const BUNDLE_BUDGETS = Object.freeze({
-  totalGzipBytes: 1_741 * 1024,
+  totalGzipBytes: 1_742 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,
