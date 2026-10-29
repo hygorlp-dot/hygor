@@ -152,13 +152,17 @@ const modeAt=(employee,date)=>{
   return remunerationModeOnDate(employee,date);
 };
 const groupFor=(data,employee,obraId)=>{
-  if(laborArea(employee)==="central")return {id:"administrative",kind:"administrative",obraId:"",name:"Administração Central"};
+  if(laborArea(employee)==="central"){
+    const workId=employee.workArea==="administrativo"?"":obraId;
+    const workName=(data.obras||[]).find(work=>String(work.id)===workId)?.name;
+    return {id:workId?`administrative:${workId}`:"administrative",kind:"administrative",obraId:workId||"",name:workId?`Administração Central · ${workName||workId}`:"Administração Central"};
+  }
   if(obraId)return {id:`work:${obraId}`,kind:"work",obraId,name:(data.obras||[]).find(work=>String(work.id)===obraId)?.name||"Obra sem cadastro disponível"};
   return {id:"unassigned",kind:"unassigned",obraId:"",name:"Sem lotação definida"};
 };
 const allowedGroup=(group,access)=>{
   if(!access)return true;
-  if(group.kind!=="work")return access.includeAdministrative!==false;
+  if(!group.obraId)return access.includeAdministrative!==false;
   return access.allowedWorkIds==null||access.allowedWorkIds.map(String).includes(group.obraId);
 };
 const matchesFilters=(row,filters,{employee=true,issues=true}={})=>{
