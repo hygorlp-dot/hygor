@@ -568,3 +568,48 @@ test("painel separa Resumo de Análises, sem ação destrutiva, e cada exceção
   await expect(page.locator(".purchase-order-count")).toContainText("1 de 1 pedido(s)");
   expect(app.errors).toEqual([]);
 });
+
+
+test("ficha conjunta mostra custo final, pedidos e notas com anexos no celular",async({page})=>{
+  const app=await enter(page,{prepare:state=>{
+    state.cotacoes[0].propostas.forEach((p,index)=>{p.custoFinal={frete:index?0:100,desconto:0,impostos:0,despesas:0};p.condicoesPagamento="30 dias";});
+    state.pedidos[0].cotacaoId="quote";state.pedidos[1].cotacaoId="quote";
+    state.notasFiscais=[{id:"nf-dossier",pedidoId:"delivery",obraId:"a",fornecedorId:"central",numero:"NF-TESTE-123",status:"aprovada",emissao:"2026-10-20",vencimento:"2026-11-20",valorBruto:250,valorLiquido:250,documentos:[{id:"doc",nome:"nota.pdf",legenda:"DANFE de teste",url:"https://example.test/nota.pdf"}]}];
+  }});
+  await page.route("https://example.test/**",route=>route.fulfill({contentType:"text/html",body:"<p>Documento de teste isolado</p>"}));
+  await selectWork(page);await navigate(page,"Pedidos");
+  await page.getByRole("button",{name:"Ficha completa · notas e anexos",exact:true}).first().click();
+  const dialog=page.getByRole("dialog");
+  await expect(dialog.getByRole("heading",{name:"Ficha completa da compra conjunta",exact:true})).toBeVisible();
+  await expect(dialog.getByText("NF NF-TESTE-123 · aprovada",{exact:true})).toBeVisible();
+  await expect(dialog.getByRole("heading",{name:/PC-002/})).toBeVisible();
+  await expect(dialog.getByText(/PC-003/)).toHaveCount(0);
+  await expect(dialog.getByText("Menor custo final",{exact:true})).toBeVisible();
+  await dialog.getByRole("button",{name:"Visualizar",exact:true}).click();
+  await expect(dialog.locator("iframe")).toHaveAttribute("src","https://example.test/nota.pdf");
+  await page.screenshot({path:"test-results/compras-ficha-desktop.png",fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  await expect(dialog).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  await page.screenshot({path:"test-results/compras-ficha-mobile.png",fullPage:true});
+  expect(app.commands).toEqual([]);expect(app.errors).toEqual([]);
+});
+
+
+test("condições comerciais persistem e o comparativo usa o custo final",async({page})=>{
+  const app=await enter(page);await selectWork(page);
+  await page.getByRole("button",{name:"Comparar propostas · COT-001",exact:true}).click();
+  await page.getByRole("button",{name:"Editar mapa",exact:true}).click();
+  const modal=page.getByRole("dialog");
+  for(const field of ["Frete (R$)","Desconto (R$)","Impostos adicionais (R$)","Outras despesas (R$)"]){
+    for(const input of await modal.getByLabel(field,{exact:true}).all())await input.fill("0");
+  }
+  await modal.getByLabel("Frete (R$)",{exact:true}).first().fill("100");
+  await modal.getByLabel("Condições de pagamento",{exact:true}).first().fill("30 dias");
+  await modal.getByRole("button",{name:"Salvar cotação",exact:true}).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(app.state().cotacoes[0].propostas[0].custoFinal.frete).toBe("100");
+  expect(app.state().cotacoes[0].propostas[0].condicoesPagamento).toBe("30 dias");
+  await expect(page.locator(".purchase-cost-comparison").getByText("Menor custo final",{exact:true})).toBeVisible();
+  expect(app.errors).toEqual([]);
+});
