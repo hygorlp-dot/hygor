@@ -105,7 +105,7 @@ test("receber parcialmente a prazo atualiza estoque e saldo sem registrar pagame
   expect(app.state().pedidos.find(order=>order.id==="delivery").itens[0].qtdRecebida).toBe(4);
   expect(app.state().pedidos.find(order=>order.id==="delivery").pagamentos).toEqual([]);
   expect(app.state().movEstoque.filter(movement=>movement.pedidoId==="delivery").reduce((sum,movement)=>sum+movement.qtd,0)).toBe(4);
-  await page.reload();await openPurchases(page);await selectWork(page);await navigate(page,"Receber");
+  await page.reload();await expect(page.locator(".purchase-header")).toBeVisible();await selectWork(page);await navigate(page,"Receber");
   await page.getByRole("button",{name:"Receber materiais · PC-001"}).click();
   await expect(page.getByRole("dialog").getByLabel("Chegou agora (UN)")).toHaveValue("6");
   expect(app.errors).toEqual([]);
