@@ -176,6 +176,10 @@ test("solicitação vira cotação e pedido com material, quantidade e apropria�
   await dialog.getByRole("combobox",{name:"Fornecedor 2",exact:true}).selectOption("norte");
   await dialog.getByLabel("Preço unit. (R$)",{exact:true}).nth(0).fill("20");
   await dialog.getByLabel("Preço unit. (R$)",{exact:true}).nth(1).fill("25");
+  for(const label of ["Frete (R$)","Desconto (R$)","Impostos adicionais (R$)","Outras despesas (R$)"]){
+    await dialog.getByLabel(label,{exact:true}).nth(0).fill("0");
+    await dialog.getByLabel(label,{exact:true}).nth(1).fill("0");
+  }
   await dialog.screenshot({path:test.info().outputPath("cotacao-comparacao.png")});
   await dialog.getByRole("button",{name:"Salvar cotação",exact:true}).click();
   await expect(dialog).not.toBeVisible();
@@ -187,6 +191,10 @@ test("solicitação vira cotação e pedido com material, quantidade e apropria�
   await quoteRow.locator('[role="button"]').first().click();
   await quoteRow.getByRole("button",{name:"Decidir e gerar pedidos"}).click();
   dialog=page.getByRole("dialog");
+  const chosenProposal=quote.propostas.find(proposal=>proposal.fornecedorId==="central");
+  expect(chosenProposal).toBeDefined();
+  await dialog.getByRole("combobox",{name:"Fornecedor",exact:true}).selectOption(chosenProposal.id);
+  await expect(dialog.getByRole("button",{name:"Aprovar e gerar pedido(s)"})).toBeEnabled();
   await dialog.getByRole("button",{name:"Aprovar e gerar pedido(s)"}).click();
   await expect(dialog).not.toBeVisible();
   const order=app.state().pedidos.find(order=>order.cotacaoId===quote.id);
@@ -382,13 +390,15 @@ test("pedidos: uma ação principal por cartão, destrutivas só no menu ⋯ e f
   const cartao=numero=>page.getByRole("article",{name:`Pedido ${numero}`});
   const nomesVisiveis=async()=>(await page.getByRole("article").evaluateAll(els=>els.map(el=>el.getAttribute("aria-label")))).sort();
 
-  // Enviado: só "Receber material" + o botão do menu. Nada destrutivo, nada de "Enviar" na linha.
+  // A barra de ações do pedido enviado mantém "Receber material" + menu; a ficha é uma consulta separada.
   const enviado=cartao("PC-001");
-  await expect(enviado.getByRole("button")).toHaveCount(2);
+  await expect(enviado.locator(".purchase-order-actions").getByRole("button")).toHaveCount(2);
+  await expect(enviado.getByRole("button",{name:"Ficha completa · notas e anexos",exact:true})).toBeVisible();
   await expect(enviado.getByRole("button",{name:"Receber material"})).toBeVisible();
   await expect(enviado.getByRole("button",{name:/Cancelar pedido|Excluir definitivamente|Enviar ao fornecedor|Reenviar/})).toHaveCount(0);
   // Rascunho: a ação principal é revisar.
-  await expect(cartao("PC-002").getByRole("button")).toHaveCount(2);
+  await expect(cartao("PC-002").locator(".purchase-order-actions").getByRole("button")).toHaveCount(2);
+  await expect(cartao("PC-002").getByRole("button",{name:"Ficha completa · notas e anexos",exact:true})).toBeVisible();
   await expect(cartao("PC-002").getByRole("button",{name:"Revisar pedido"})).toBeVisible();
   await expect(cartao("PC-002").getByRole("button",{name:"Receber material"})).toHaveCount(0);
 

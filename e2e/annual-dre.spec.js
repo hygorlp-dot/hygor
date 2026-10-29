@@ -8,7 +8,7 @@ test("DRE anual ajustável preserva fontes, salva estrutura, exporta e abre deta
   await page.route("**/api/**",route=>route.fulfill({json:{ok:true,items:[],bases:[]}}));
   await page.route("**/api/data",route=>{
     const body=route.request().postDataJSON()||{};
-    if(body.action==="profiles")return route.fulfill({json:{usuarios:[profile],precisaSetup:false}});
+    if(body.action==="profiles")return route.fulfill({json:{precisaSetup:false}});
     if(body.action==="financial-annual-dre-report")return route.fulfill({json:{ok:true,year:body.year,layout:data.config.dreAnnualLayout,months:Array.from({length:12},(_,i)=>({receitaLocacoes:i===0?1000:0,faturamentoTotal:i===0?1000:0,totalCSP:0,totalDespOp:0,lucroLiquido:i===0?1000:0})),issues:[]}});
     if(body.action==="financial-annual-dre-layout"){
       saves+=1;if(failFirst){failFirst=false;return route.fulfill({status:503,json:{error:"Falha temporária. Tente salvar novamente."}});}
@@ -30,7 +30,16 @@ test("DRE anual ajustável preserva fontes, salva estrutura, exporta e abre deta
   await expect(page.getByRole("heading",{name:"DRE mês a mês"})).toBeVisible();
   await expect(page.getByRole("columnheader",{name:"Dez",exact:true})).toHaveCount(1);
   await page.getByRole("button",{name:"Receitas das locações, Jan: R$ 1.000,00"}).click();
-  await expect(page.getByRole("dialog")).toContainText("Fontes do DRE da empresa");await page.getByRole("button",{name:"Fechar",exact:true}).click();
+  const memorial=page.getByRole("dialog");
+  await expect(memorial.getByRole("heading",{name:/^Receitas das locações · Jan/})).toBeVisible();
+  const rentalSource=memorial.getByRole("region",{name:"Receitas das locações",exact:true});
+  await expect(rentalSource.getByRole("heading")).toContainText("R$ 1.000,00");
+  // A fotografia agregada anterior ao memorial continua exibindo o valor
+  // histórico e informa a ausência dos documentos, sem inventar lançamentos.
+  await expect(memorial.getByRole("status").filter({hasText:"Este demonstrativo foi salvo sem o memorial"}))
+    .toContainText("O total histórico foi preservado");
+  await expect(rentalSource).toContainText("Não há lançamentos individualizados disponíveis para esta fonte.");
+  await page.getByRole("button",{name:"Fechar",exact:true}).click();
   await page.getByRole("button",{name:"Ajustar linhas",exact:true}).click();
   await page.getByRole("navigation",{name:"Linhas do DRE"}).getByRole("button",{name:"Receitas das locações",exact:true}).click();
   await page.getByLabel("Nome da linha").fill("Receitas de equipamentos");
@@ -44,5 +53,5 @@ test("DRE anual ajustável preserva fontes, salva estrutura, exporta e abre deta
   await page.getByRole("button",{name:"Atualizar",exact:true}).click();await expect(page.getByRole("rowheader",{name:"Locações profissionais",exact:true})).toBeVisible();
   const download=page.waitForEvent("download");await page.getByRole("button",{name:"Exportar CSV"}).click();expect((await download).suggestedFilename()).toMatch(/^DRE-\d{4}\.csv$/);
   expect(await page.locator(".annual-dre").evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
-  await page.locator(".annual-dre").screenshot({path:`C:/tmp/annual-${testInfo.project.name}.png`});expect(errors).toEqual([]);
+  await page.locator(".annual-dre").screenshot({path:testInfo.outputPath("dre-anual.png")});expect(errors).toEqual([]);
 });
