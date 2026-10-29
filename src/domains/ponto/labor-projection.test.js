@@ -468,13 +468,16 @@ describe("alocação, escopo e reconciliação",()=>{
     expect(JSON.stringify(data)).toBe(before);
   });
 
-  it("não inventa MEI, contrato fixo ou terceiros por fator mensal",()=>{
-    const data=fixture(baseEmployee({remunerationMode:"mei"}));
+  it("não inventa contrato fixo, MEI sem valor ou terceiros por fator mensal",()=>{
+    const data=fixture(baseEmployee({remunerationMode:"fixed"}));
     data.terceirizados=[{id:"contract",weeklyRate:1000,active:true}];
     const report=buildLaborProjection(data,{asOf:"2026-02-13"});
     expect(report.totals).toMatchObject({partial:true,projectedCost:0});
     expect(report.issues.map(issue=>issue.code)).toEqual(expect.arrayContaining(["UNSUPPORTED_REMUNERATION","THIRD_PARTY_NOT_INCLUDED"]));
     expect(report.people[0].days.every(day=>day.totalCost===null)).toBe(true);
+    const mei=buildLaborProjection(fixture(baseEmployee({remunerationMode:"mei",dailyRate:0})),{asOf:"2026-02-13"});
+    expect(mei.issues.map(issue=>issue.code)).toContain("REMUNERATION_MISSING");
+    expect(mei.people[0].days.every(day=>day.totalCost===null)).toBe(true);
   });
 });
 
@@ -609,6 +612,24 @@ describe("revisão 29/10: obra do dia sem ponto, início do histórico e diarist
     expect(report.totals.excludedStaleEmployees).toBe(1);
     // Filtro de outra obra não mostra a pendência do parado.
     expect(buildLaborProjection(data,{asOf:"2026-02-13",filters:{obraId:"o1"}}).issues.some(issue=>issue.code==="NO_RECENT_ATTENDANCE")).toBe(false);
+  });
+});
+
+describe("MEI na projeção",()=>{
+  it("valor fixo mensal entra como confirmado, sem ponto pendente, encargos ou benefícios",()=>{
+    const data=fixture(baseEmployee({id:"e1",remunerationMode:"mei",meiMonthlyValue:4400,dailyRate:0,vtDaily:10,vrDaily:20}));
+    data.config.laborCharges={diaristaPercent:10,inssPatronalPercent:20,ratPercent:3,fap:1,terceirosPercent:5.8,fgtsPercent:8,multaFgtsPercent:40,provisionar13Ferias:true};
+    const report=buildLaborProjection(data,{asOf:"2026-02-13"});
+    const person=report.people[0];
+    expect(person.mode).toBe("mei");
+    expect(person.days.every(day=>day.component==="salary"&&["actual","confirmedFuture"].includes(day.partition))).toBe(true);
+    expect(report.issues.map(issue=>issue.code)).not.toContain("PENDING_ATTENDANCE");
+    expect(report.issues.map(issue=>issue.code)).not.toContain("UNSUPPORTED_REMUNERATION");
+    expect(report.totals).toMatchObject({chargesCost:0,benefitCost:0,unpricedDays:0,pendingCost:0,estimatedCost:0});
+    // Fevereiro/2026: cada dia útil vale 4.400 ÷ dias úteis do mês.
+    const uteis=Array.from({length:28},(_,i)=>`2026-02-${String(i+1).padStart(2,"0")}`).filter(prIsWeekdayIso).length;
+    expect(person.days[0].laborCost).toBeCloseTo(Math.round(4400/uteis*100)/100,2);
+    expect(report.history.expectedDays).toBe(0);
   });
 });
 

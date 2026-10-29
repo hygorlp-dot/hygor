@@ -56,5 +56,7 @@ export const cltChargeFactor = (config = {}) => {
   return (1 + provisoes) * (patronal + fgts) + provisoes;
 };
 
+// MEI: valor do contrato sem encargo patronal (atividade fora do art. 18-B
+// da LC 123/2006, decisão do dono em 29/10/2026).
 export const laborChargeFactor = (mode, config = {}) =>
-  mode === "clt" ? cltChargeFactor(config) : laborChargesConfig(config).diaristaPercent / 100;
+  mode === "clt" ? cltChargeFactor(config) : mode === "mei" ? 0 : laborChargesConfig(config).diaristaPercent / 100;

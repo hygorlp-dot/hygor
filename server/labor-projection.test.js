@@ -266,7 +266,7 @@ describe("labor projection access and minimal report", () => {
       .toEqual({ area: "works", obraId: "o1", employeeId: "", mode: "", role: "", onlyIssues: false });
     expect(() => validateLaborProjectionFilters({ obraId: "o2" }, access, fixture())).toThrow(expect.objectContaining({ status: 403 }));
     expect(() => validateLaborProjectionFilters({ area: "administrative" }, access, fixture())).toThrow(expect.objectContaining({ status: 403 }));
-    expect(() => validateLaborProjectionFilters({ mode: "mei" }, access, fixture())).toThrow(expect.objectContaining({ status: 400 }));
+    expect(() => validateLaborProjectionFilters({ mode: "fixed" }, access, fixture())).toThrow(expect.objectContaining({ status: 400 }));
   });
 
   it("allows a transferred employee by actual historical work, not only current assignment", () => {
