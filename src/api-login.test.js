@@ -40,6 +40,39 @@ describe("contrato de resposta do login", () => {
     expect(temSessao()).toBe(true);
   });
 
+  it("não repassa a lista de operadores mesmo se um servidor antigo ainda a devolver", async () => {
+    vi.stubGlobal("fetch",vi.fn(() => response({
+      precisaSetup:false, usuarios:[{id:"u1",nome:"Nome privado",role:"admin"}],
+    })));
+    const {listarPerfis}=await import("./api.js");
+    await expect(listarPerfis()).resolves.toEqual({precisaSetup:false});
+  });
+
+  it("envia o identificador digitado e usa o ID autenticado nas chamadas seguintes", async () => {
+    const fetchMock=vi.fn(() => response({data:{obras:[]},usuario:{id:"u1",nome:"Maria Silva"}}));
+    vi.stubGlobal("fetch",fetchMock);
+    const {entrarComPin,registrarPresenca,temSessao}=await import("./api.js");
+    await expect(entrarComPin("Maria Silva","123456")).resolves.toMatchObject({ok:true,usuario:{id:"u1"}});
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({action:"load",identificador:"Maria Silva",pin:"123456"});
+    expect(temSessao()).toBe(true);
+    await registrarPresenca("ponto");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({action:"heartbeat",userId:"u1",pin:"123456"});
+    expect(sessionStorage.getItem("arcd_auth_session")).toBeNull();
+  });
+
+  it("não inicia uma sessão PIN a partir de uma resposta incompleta", async () => {
+    vi.stubGlobal("fetch",vi.fn(() => response({data:{obras:[]}})));
+    const {entrarComPin,temSessao}=await import("./api.js");
+    await expect(entrarComPin("Maria Silva","123456")).resolves.toMatchObject({ok:false});
+    expect(temSessao()).toBe(false);
+  });
+
+  it("não informa se o identificador existe quando o login é rejeitado", async () => {
+    vi.stubGlobal("fetch",vi.fn(async () => ({status:401,json:async () => ({error:"Operador não encontrado"})})));
+    const {entrarComPin}=await import("./api.js");
+    await expect(entrarComPin("desconhecido","0000")).resolves.toEqual({ok:false,erro:"Identificação ou PIN incorretos."});
+  });
+
   it("preserva Retry-After para a fila respeitar o limite do servidor",async()=>{
     vi.stubGlobal("fetch",vi.fn(()=>Promise.resolve({
       status:429,

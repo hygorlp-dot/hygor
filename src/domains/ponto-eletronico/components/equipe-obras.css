@@ -1,0 +1,39 @@
+.equipe-obras { display: grid; gap: 20px; color: var(--arcd-text-primary); font-size: var(--arcd-type-body); }
+.equipe-obras__conexao { display: flex; gap: 8px; align-items: center; font-size: var(--arcd-type-caption); }
+.equipe-obras__nota { color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); margin: 0; }
+.equipe-obras__filtros { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+.equipe-obras__indicadores { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.equipe-obras__grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 20px; align-items: start; }
+.equipe-obras__obra { padding: 20px; border-radius: 4px; }
+.equipe-obras__obra header { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--arcd-border-default); padding-bottom: 16px; }
+.equipe-obras__obra header svg { flex-shrink: 0; }
+.equipe-obras h2 { font-size: var(--arcd-type-section-title); font-weight: 600; margin: 0 0 8px; overflow-wrap: anywhere; }
+.equipe-obras__obra h2 { font-size: var(--arcd-type-card-title); }
+.equipe-obras__obra header p { font-size: var(--arcd-type-caption); color: var(--arcd-text-secondary); margin: 4px 0; }
+.equipe-obras__capa { width: 64px; height: 64px; object-fit: cover; border-radius: 4px; }
+.equipe-obras__pessoas { display: grid; grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); gap: 12px; margin-top: 16px; }
+.equipe-obras__pessoa { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; min-width: 0; min-height: 44px; padding: 12px 4px; border: 0; background: transparent; color: inherit; cursor: pointer; text-align: center; font: inherit; border-radius: 4px; }
+.equipe-obras__pessoa:hover { background: var(--arcd-surface-hover, #f4f4f4); }
+.equipe-obras__pessoa:focus-visible, .equipe-obras summary:focus-visible { outline: 2px solid var(--arcd-border-focus, #8a6e16); outline-offset: 3px; }
+.equipe-obras__pessoa strong { font-size: var(--arcd-type-body); overflow-wrap: anywhere; }
+.equipe-obras__pessoa > span:not(.equipe-obras__avatar), .equipe-obras__pessoa time { font-size: var(--arcd-type-caption); }
+.equipe-obras__pessoa time { font-variant-numeric: tabular-nums; }
+.equipe-obras__avatar { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; flex-shrink: 0; border-radius: 50%; object-fit: cover; background: var(--arcd-surface-subtle, #f4f4f4); color: var(--arcd-text-primary); font-size: var(--arcd-type-section-title); }
+.equipe-obras__status { padding: 3px 6px; background: #f4f4f4; color: #525252; border-radius: 4px; animation: equipe-status 400ms ease-out; }
+.equipe-obras__status[data-status=atividade] { background: #defbe6; color: #0e6027; }
+.equipe-obras__status[data-status=intervalo] { background: #fcf4d6; color: #684e00; }
+.equipe-obras__status[data-status=falta] { background: #fff1f1; color: #a2191f; }
+.equipe-obras__status[data-status=conferir], .equipe-obras__status[data-status=sem_obra] { background: #edf5ff; color: #0043ce; }
+.equipe-obras__vazio { padding: 28px 0; color: var(--arcd-text-secondary); }
+.equipe-obras__fora { margin-top: 12px; }
+.equipe-obras__fora details { padding: 16px 0; border-bottom: 1px solid var(--arcd-border-default); }
+.equipe-obras summary { cursor: pointer; min-height: 44px; padding: 12px 0; font-weight: 600; }
+.equipe-obras__limites { font-size: var(--arcd-type-caption); color: var(--arcd-text-secondary); }
+.equipe-obras__erro { background: #fff1f1; color: #a2191f; padding: 12px; }
+.equipe-obras__detalhe { display: grid; gap: 12px; }
+.equipe-obras__detalhe li { padding: 8px 0; }
+.equipe-obras__acoes { display: flex; flex-wrap: wrap; gap: 12px; }
+@keyframes equipe-status { from { opacity: .7; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .equipe-obras__status { animation: none; } }
+@media (max-width: 1000px) { .equipe-obras__indicadores { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .equipe-obras__filtros { grid-template-columns: 1fr; } .equipe-obras__indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); } .equipe-obras__obra { padding: 16px; } }

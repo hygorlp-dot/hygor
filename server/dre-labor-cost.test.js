@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { buildRequestedDreProjectionRows } from "./dre-projection.js";
+import { rebuildArchivedLaborCosts } from "./financial-archived-costs-source.js";
+import { archivedCltScenario } from "../src/fixtures/archived-clt.js";
+
+it("DRE preserva R$ 2.300 de salário CLT e R$ 25 de benefícios históricos por obra",()=>{
+  const {data,archiveRows,live}=archivedCltScenario();
+  const archived=rebuildArchivedLaborCosts({data,archiveRows}).data;
+  for(const source of [live,archived]){
+    const rows=buildRequestedDreProjectionRows(source,[
+      {year:2026,month:6,period:"mes",scope:"o1"},
+      {year:2026,month:6,period:"mes",scope:"o2"},
+    ]);
+    expect(rows[0].payload.moData).toMatchObject({laborCost:2200,benefitCost:0,totalCost:2200});
+    expect(rows[1].payload.moData).toMatchObject({laborCost:100,benefitCost:25,totalCost:125});
+    expect(rows.reduce((sum,row)=>sum+row.payload.moData.laborCost,0)).toBe(2300);
+  }
+});
 
 // Regressão: server/dre-projection.js reimplementava o cálculo de mão de obra
 // do zero (função `laborCost` local) e ignorava `employee.obraHistory` /

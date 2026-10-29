@@ -35,12 +35,13 @@ const initialState = () => ({
 const installIsolatedBackend = async (page, stateOverride = {}, options = {}) => {
   let state = { ...initialState(), ...stateOverride };
   const saves = [];
+  const loads = [];
 
   await page.route("**/api/data", async route => {
     const body = route.request().postDataJSON?.() || {};
 
     if (body.action === "profiles") {
-      return route.fulfill({ json: { usuarios: [PROFILE], precisaSetup: false } });
+      return route.fulfill({ json: { precisaSetup: false } });
     }
     if (body.action === "auth-login") {
       return route.fulfill({
@@ -59,6 +60,7 @@ const installIsolatedBackend = async (page, stateOverride = {}, options = {}) =>
       });
     }
     if (body.action === "load") {
+      loads.push(structuredClone(body));
       return route.fulfill({
         json: {
           usuario: PROFILE,
@@ -144,6 +146,7 @@ const installIsolatedBackend = async (page, stateOverride = {}, options = {}) =>
   return {
     getState: () => state,
     getSaves: () => saves,
+    getLoads: () => loads,
   };
 };
 
@@ -156,12 +159,14 @@ const login = async page => {
 };
 
 test("PIN incorreto informa o erro sem iniciar sessão", async ({ page }) => {
+  let tentativa;
   await page.route("**/api/data", async route => {
     const body = route.request().postDataJSON?.() || {};
     if (body.action === "profiles") {
-      return route.fulfill({ json: { usuarios: [PROFILE], precisaSetup: false } });
+      return route.fulfill({ json: { precisaSetup: false } });
     }
     if (body.action === "load") {
+      tentativa=body;
       return route.fulfill({ status: 401, json: { error: "PIN incorreto." } });
     }
     return route.fulfill({ json: {} });
@@ -169,14 +174,32 @@ test("PIN incorreto informa o erro sem iniciar sessão", async ({ page }) => {
 
   await page.goto("/");
   await page.getByRole("tab", { name: "PIN de acesso" }).click();
-  await page.getByRole("button", { name: /Engenheiro QA/ }).click();
+  await expect(page.getByText(PROFILE.nome,{exact:true})).toHaveCount(0);
+  await page.getByLabel("E-mail ou nome completo").fill(PROFILE.nome);
+  await page.getByRole("button", { name: "Continuar com PIN" }).click();
   for (const digit of ["1", "2", "3", "4"]) {
     await page.getByRole("button", { name: digit, exact: true }).click();
   }
   await page.getByRole("button", { name: "Confirmar acesso" }).click();
 
-  await expect(page.getByText("PIN incorreto.")).toBeVisible();
+  await expect(page.getByText("Identificação ou PIN incorretos.")).toBeVisible();
+  expect(tentativa).toEqual({action:"load",identificador:PROFILE.nome,pin:"1234"});
   await expect(page.getByText(/Bo[ma] (dia|tarde|noite), Engenheiro\./)).toHaveCount(0);
+});
+
+test("PIN aceita a identificação digitada sem publicar a lista de operadores", async ({ page }) => {
+  const backend=await installIsolatedBackend(page);
+  await page.goto("/");
+  await page.getByRole("tab", { name: "PIN de acesso" }).click();
+  await expect(page.getByText(PROFILE.nome,{exact:true})).toHaveCount(0);
+  await page.getByLabel("E-mail ou nome completo").fill(PROFILE.email);
+  await page.getByRole("button", { name: "Continuar com PIN" }).click();
+  for(const digit of ["1","2","3","4","5","6"]){
+    await page.getByRole("button", { name: digit, exact: true }).click();
+  }
+  await expect(page.getByText(/Bo[ma] (dia|tarde|noite), Engenheiro\./)).toBeVisible();
+  expect(backend.getLoads()[0]).toEqual({action:"load",identificador:PROFILE.email,pin:"123456"});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
 });
 
 test("dataset legado com aprovação nula não derruba o app após o login", async ({ page }) => {
@@ -214,12 +237,12 @@ test("não deixa atualizar a página enquanto o salvamento ainda está em trâns
 
   // Depois da confirmação da fila, atualizar não exibe bloqueio e o servidor
   // devolve exatamente o fato salvo.
-  await page.waitForTimeout(3100);
-  await expect(page.getByTestId("save-status")).toHaveAttribute("data-state","idle");
+  await expect(page.getByTestId("save-status")).toHaveAttribute("data-state","idle", { timeout: 10000 });
   await expect(page.getByTestId("save-status")).toHaveAttribute("title",/Salvo às \d{2}:\d{2}/);
   await page.reload();
-  await expect(page.getByText(/Bo[ma] (dia|tarde|noite), Engenheiro\./)).toBeVisible();
-  await page.getByRole("button", { name: "Abrir Ponto" }).click();
+  // A navegação restaura a última aba; a recarga deve ler o ponto salvo
+  // diretamente, sem depender de uma passagem pelo Dashboard.
+  await expect(page.locator(".arcd-app-shell")).toHaveAttribute("data-tab", "ponto");
   await expect(page.getByText("1/1 lançados")).toBeVisible();
 });
 
@@ -294,9 +317,12 @@ test("engenheiro salva, recarrega e finaliza o ponto da própria obra no mobile"
   await page.getByLabel("Saída", { exact:true }).fill("17:00");
   await page.getByRole("button", { name: "Salvar jornada" }).click();
 
+  await expect.poll(() =>
+    backend.getState().attendance["emp-qa"][new Date().toLocaleDateString("sv-SE")].workedMinutes
+  ).toBe(525);
+  await expect(page.getByTestId("save-status")).toHaveAttribute("data-state", "idle");
   await page.reload();
-  await expect(page.getByText(/Bo[ma] (dia|tarde|noite), Engenheiro\./)).toBeVisible();
-  await page.getByRole("button", { name: "Abrir Ponto" }).click();
+  await expect(page.locator(".arcd-app-shell")).toHaveAttribute("data-tab", "ponto");
   await expect(page.getByText("1/1 lançados")).toBeVisible();
   await expect(page.getByText("8h45")).toBeVisible();
   await expect(page.getByText("15 min atraso")).toBeVisible();

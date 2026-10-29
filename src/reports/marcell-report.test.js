@@ -7,6 +7,22 @@ const parse = html => new DOMParser().parseFromString(html, "text/html");
 const sample = `<!doctype html><html><head><title>Cobrança</title><style>@page{size:A4 landscape;margin:10mm}</style></head><body><h1>Empresa legal cadastrada</h1><p>CNPJ 12.345.678/0001-90 · Obra B2-04</p><table><thead><tr><th>Descrição</th><th>Total</th></tr></thead><tbody><tr><td>Locação com desconto</td><td>R$ 1.234,56</td></tr><tr><td>Saldo negativo</td><td>-R$ 17,90</td></tr><tr><td>Sem lançamento</td><td>R$ 0,00</td></tr></tbody><tfoot><tr><td>Total</td><td>R$ 1.216,66</td></tr></tfoot></table><footer>Assinatura do responsável</footer></body></html>`;
 
 describe("identidade dos relatórios MARCELL", () => {
+  it("remove a assinatura antiga do cabeçalho e rodapé sem substituir dados de tabelas ou CNPJ", () => {
+    const raw = sample.replace("Empresa legal cadastrada", "ArcD Construtech")
+      .replace("Assinatura do responsável", "Gerado por ARCD Obras")
+      .replace("Locação com desconto", "Documento de ArcD Construtech")
+      .replace("</body>", "<p>Observação: conferir o documento de ArcD Construtech.</p></body>");
+    const result = marcellReportHtml(raw), doc = parse(result);
+    expect(doc.querySelector("h1").textContent).toBe("MARCELL");
+    expect(doc.querySelector("footer").textContent).toBe("Gerado por MARCELL");
+    expect(doc.querySelector("p").textContent).toContain("12.345.678/0001-90");
+    expect(doc.body.textContent).toContain("Observação: conferir o documento de ArcD Construtech.");
+    expect([...doc.querySelectorAll("td")].map(e => e.textContent)).toEqual([...parse(raw).querySelectorAll("td")].map(e => e.textContent));
+    expect(doc.querySelectorAll(".mrc-report-watermark")).toHaveLength(1);
+    expect(doc.querySelector(".mrc-report-watermark").getAttribute("aria-hidden")).toBe("true");
+    expect(doc.querySelector(".mrc-report-watermark img").src).toBe(doc.querySelector(".mrc-report-logo").src);
+    expect(marcellReportHtml(result)).toBe(result);
+  });
   it("preserva todas as células, valores, identificação legal, assinatura e orientação", () => {
     const styled = marcellReportHtml(sample);
     const before = parse(sample), after = parse(styled);

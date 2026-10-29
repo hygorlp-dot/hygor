@@ -2,9 +2,27 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, expect, it, vi } from 'vitest';
 import Folha from './FolhaView';
+import { archivedCltScenario } from '../../../fixtures/archived-clt.js';
+import { rebuildArchivedLaborCosts } from '../../../../server/financial-archived-costs-source.js';
 
 let root, container;
 afterEach(() => { if(root) act(()=>root.unmount()); container?.remove(); vi.useRealTimers(); });
+
+it('Folha mantém salário CLT de R$ 2.300 depois do arquivo sem voltar a pagar diária',()=>{
+  vi.useFakeTimers();vi.setSystemTime(new Date(2026,6,18,12));
+  const {data,archiveRows}=archivedCltScenario();
+  const archived=rebuildArchivedLaborCosts({data,archiveRows}).data;
+  container=document.createElement('div');document.body.append(container);root=createRoot(container);
+  act(()=>root.render(<Folha data={archived} currentUser={{id:'rh',role:'rh'}} showToast={()=>{}}/>));
+  expect(container.querySelector('.payroll-summary-strip__net strong').textContent).toMatch(/R\$\s*0,00/);
+  const clt=[...container.querySelectorAll('button')].find(button=>button.textContent.trim()==='Holerites CLT');
+  act(()=>clt.click());
+  const select=[...container.querySelectorAll('select')].find(item=>[...item.options].some(option=>option.value==='clt-1'));
+  act(()=>{select.value='clt-1';select.dispatchEvent(new Event('change',{bubbles:true}));});
+  const salary=[...container.querySelectorAll('label')].find(label=>label.textContent==='Salário contratual mensal (R$)');
+  expect(salary.parentElement.querySelector('input').value).toBe('2300');
+  expect(container.querySelector('.clt-totals div:first-child strong').textContent).toMatch(/2\.300,00/);
+});
 
 // Feriado é pago pela obra do último dia trabalhado antes dele (decisão de
 // 20/10/2026), não pela lotação: trabalhou na obra de trabalho na sexta

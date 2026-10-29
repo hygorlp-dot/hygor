@@ -18,7 +18,7 @@ export const ERP_MODULES = [
     tabs:["equip_fin","equip"]},
   {id:"rh_grp",label:"Pessoas e terceiros",shortLabel:"Pessoas",icon:"users",colorKey:"green",
     description:"Equipes, ponto, folha, rescisões e contratos de terceirizados.",
-    tabs:["equipe","ponto","ponto_geral","ponto_app","folha","resc","terc","rh_indic"]},
+    tabs:["equipe","equipe_obras","ponto","ponto_geral","ponto_app","folha","resc","terc","rh_indic"]},
   {id:"com_grp",label:"Comercial",shortLabel:"Comercial",icon:"users",colorKey:"green",
     description:"Relacionamentos, oportunidades, propostas e contratos.",
     tabs:["com_workspace","com_real_estate","com_pipeline","com_relationships","com_deals","com_management"],

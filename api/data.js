@@ -29,6 +29,7 @@ import { anexarCronometro, criarCronometro } from "../server/server-timing.js";
 import { criarValidadorDeToken } from "../server/token-auth.js";
 import { compactProfiles, decodeAppData, encodeAppData, isEncodedAppData, profileIndexOutdated } from "../server/data-codec.js";
 import { normalizeArchivedCosts, summarizeArchivedCosts } from "../server/archived-costs.js";
+import { archivedLaborKeys, rebuildArchivedLaborCosts } from "../server/financial-archived-costs-source.js";
 import { restorationRecord, restoreArchivedAttendance } from "../server/archived-restoration.js";
 import { validatePurchaseChanges } from "../server/permission-policies.js";
 import { podeAcessarAba } from "../src/domains/administracao/abas-acesso.js";
@@ -54,6 +55,11 @@ import { cashAllocations } from "../src/domains/conciliacao/cash-allocations.js"
 import { buildIntegratedDreManagement, canonicalDreEvents, loadCanonicalDre, validateNativeDreCommand } from "../server/financial-dre-integration.js";
 import { monthlyClosingPeriodFromCommand, prepareMonthlyFinancialClosing, previewMonthlyFinancialClosing } from "../server/financial-closing.js";
 import { closedCompanyDreBySourceId, closedCompanyDreEntries, closedCompanyDreFor, overlayClosedCompanyDreYear } from "../server/financial-closing-read.js";
+import {
+  closedCompetenceForDate,
+  validateClosedCompanyDreMutation,
+  validateClosedRepresentationPreservation,
+} from "../server/closed-dre-mutation-guard.js";
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
@@ -71,7 +77,7 @@ import {
 } from "../server/domain-row-routing.js";
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
 import {
-  applyEntriesToAttendance, attendanceObraKey, attendanceObraKeyPrefix,
+  applyEntriesToAttendance, attendanceObraKeyPrefix,
   groupAttendanceEntriesByObra, groupObraDeparturesByBucket, mergeAttendanceObjects,
   obraBucketFromKey, tombstoneAttendanceEntries, withAttendanceSyncedAt,
 } from "../server/attendance-obra-routing.js";
@@ -94,7 +100,8 @@ import { getOrCreateFolder, graph, refresh, rootItem } from "../server/microsoft
 import { hashPortalPassword, normalizePortalEmail, validPortalPassword } from "../server/client-portal-auth.js";
 import { applyPersistentAuthRateLimit, hashAppPin, verifyAppPin } from "../server/app-auth-security.js";
 import { buildClientPortalPublicationRows } from "../server/client-portal-publication.js";
-import { sanitizeClientError } from "../server/client-error-report.js";
+import { sanitizeClientError, sanitizeServerError } from "../server/client-error-report.js";
+import { assuntoLimitePinUsuario, normalizarIdentificador, resolverUsuarioPorIdentificador, respostaPerfisPublica } from "../server/login-identity.js";
 import { authenticateAppUser } from "../server/app-auth.js";
 import { criarTratadorPonto, ehAcaoPonto } from "../server/ponto-eletronico/handler.js";
 import { enviarUdpComDgram, verificarHora } from "../server/ponto-eletronico/tempo/ntp.js";
@@ -137,7 +144,6 @@ const SPLIT_ROW_KEYS = Object.freeze({
 // escopo). `pontoObraKey(obraId)` gera a chave de uma obra;
 // PONTO_OBRA_KEY_PREFIX é o padrão usado no filtro LIKE de lerLinha().
 const PONTO_OBRA_KEY_PREFIX = attendanceObraKeyPrefix(PONTO_KEY);
-const pontoObraKey = obraId => attendanceObraKey(PONTO_KEY, obraId);
 const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // A linha separada de um domínio só existe depois que
 // scripts/seed-split-domain-rows.mjs roda contra a empresa. Enquanto isso
@@ -150,7 +156,7 @@ const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // migra sozinha para ela - sem exigir nenhuma ordem de deploy específica.
 const linhaEfetivaParaEscrita = (domain, rowVersions) =>
   (domain!==DOMAIN_ROW.CORE && rowVersions[domain]==null) ? DOMAIN_ROW.CORE : domain;
-const DRE_PROJECTION_VERSION = "2026-10-conciliacao-categorias-competencia-v8";
+const DRE_PROJECTION_VERSION = "2026-10-fila-integrada-custos-competencia-v9";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
   "changeLog",
@@ -366,8 +372,8 @@ const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
   OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_MIGRATED,
   OPERATIONAL_COMMAND.EQUIPMENT_REGISTRY_CLASSIFIED,
   OPERATIONAL_COMMAND.EQUIPMENT_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_DEACTIVATED,OPERATIONAL_COMMAND.EQUIPMENT_OWNER_SAVED,
-  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED,
-  OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,
+  OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_COMMERCIAL_OVERRIDDEN,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CLOSED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CANCELLED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_TRANSITIONED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHECKPOINT_RECORDED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_AMENDED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_UNIT_REPLACED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_ITEM_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_CHARGE_MEASURED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_ISSUED,OPERATIONAL_COMMAND.EQUIPMENT_RENTAL_INVOICE_RECEIPT_LINKED,
+  OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_SAVED,OPERATIONAL_COMMAND.EQUIPMENT_MAINTENANCE_CANCELLED,OPERATIONAL_COMMAND.EQUIPMENT_TRANSFERRED,
 ]);
 const BACKUP_FOLDER="00 - Backups ARCD";
 const cronAutorizado=req=>!!process.env.CRON_SECRET&&req.headers.authorization===`Bearer ${process.env.CRON_SECRET}`;
@@ -431,7 +437,8 @@ const listarTabelaFinanceira = async (table, columns) => {
 };
 
 const relatorioSombraFinanceira = async atual => {
-  const snapshot=buildLegacyFinancialFacts(atual);
+  const fonteFinanceira=await exigirCustosArquivados(atual);
+  const snapshot=buildLegacyFinancialFacts(fonteFinanceira);
   const legado=summarizeLegacyFinancialFacts(snapshot);
   const [titles,settlements,events,banks,reconciliationLinks,legacyLinks,accountingPeriods,qualityCases,runs]=await Promise.all([
     listarTabelaFinanceira("financial_titles","id,obra_id,direction,original_amount,status,metadata"),
@@ -447,7 +454,7 @@ const relatorioSombraFinanceira = async atual => {
   const canonico=summarizeCanonicalFinancialRows({titles,settlements,events});
   const divergencias=compareFinancialScopes(legado,canonico);
   const divergenciasDRE=compareDreProjectionRows(snapshot.dreSnapshots,events);
-  const divergenciasComprasDRE=compareProcurementDreRecognition(atual,events);
+  const divergenciasComprasDRE=compareProcurementDreRecognition(fonteFinanceira,events);
   const lastRun=[...runs].sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)))[0]||null;
 
   const linkedLegacyKeys=new Set(legacyLinks.map(link=>`${String(link.legacy_type||"")}:${String(link.legacy_id||"")}`));
@@ -473,15 +480,21 @@ const relatorioSombraFinanceira = async atual => {
   const activationGate=financialActivationEvidenceGate({
     factsCount:snapshot.facts.length,
     shadowRun:lastRun,
+    ledgerComparisonVerified:true,
     divergences:divergencias,
+    dreComparisonVerified:true,
     dreDivergences:divergenciasDRE,
+    procurementDreComparisonVerified:true,
     procurementDreDivergences:divergenciasComprasDRE,
+    legacyLinksVerified:true,
     missingLegacyLinks,
     legacyHashesVerified,
     staleLegacyLinks,
     bankComparisonVerified:true,
     bankDivergences,
+    qualityCasesVerified:true,
     openQualityCases:openFinancialQualityCases,
+    canonicalIntegrityVerified:true,
     canonicalIntegrity,
   });
 
@@ -518,26 +531,46 @@ const relatorioSombraFinanceira = async atual => {
   };
 };
 // O ponto arquivado sai do dataset principal, mas seu custo não pode sair do
-// DRE. O resumo abaixo é pequeno, não contém dados pessoais e conserva a
-// competência e a obra de cada lançamento.
-const anexarCustosArquivados = async payload => {
-  const marcadores = payload?.quinzenasArquivadas || {};
-  const ids = Object.keys(marcadores);
-  if (!ids.length) return { ...payload, archivedLaborCosts: {} };
-  // Nunca confia no cache que voltou do navegador: cada leitura recompõe os
-  // custos diretamente dos arquivos imutáveis mantidos no servidor.
-  const existentes = {};
-  const keys = ids.map(qid => `${KEY}__arq__${qid}`);
-  const { data: linhas, error } = await db.from("company_app_data")
-    .select("key,value").eq("company_id", COMPANY).in("key", keys);
-  if (error) throw error;
-  for (const linha of linhas || []) {
-    const qid = String(linha.key || "").slice(`${KEY}__arq__`.length);
-    // Recalcula sempre a partir da fonte arquivada. Um resumo persistido por
-    // versões antigas nunca é tratado como verdade financeira.
-    existentes[qid] = normalizeArchivedCosts(summarizeArchivedCosts(linha.value, payload?.config));
+// DRE. O resumo abaixo é compacto: conserva competência/obra/custo e, para
+// CLT mensal, apenas o ID interno necessário ao rateio histórico. CPF, PIX,
+// documentos e demais dados pessoais continuam somente no cadastro/arquivo.
+const carregarCustosArquivados = async payload => {
+  const expected=archivedLaborKeys(payload,KEY);
+  if(!expected.length)return {data:{...payload,archivedLaborCosts:{}},missing:[],rebuilt:0};
+  const {data:linhas,error}=await db.from("company_app_data")
+    .select("key,value").eq("company_id",COMPANY).in("key",expected.map(item=>item.key));
+  if(error)throw error;
+  return rebuildArchivedLaborCosts({data:payload,archiveRows:linhas||[],key:KEY});
+};
+
+const anexarCustosArquivados = async payload =>
+  (await carregarCustosArquivados(payload)).data;
+
+const exigirCustosArquivados = async payload => {
+  const rebuilt=await carregarCustosArquivados(payload);
+  if(rebuilt.missing.length){
+    const error=new Error("Existem quinzenas arquivadas sem o arquivo imutável correspondente.");
+    error.code="ARCHIVED_LABOR_SOURCE_MISSING";
+    error.missing=rebuilt.missing;
+    throw error;
   }
-  return { ...payload, archivedLaborCosts: existentes };
+  return rebuilt.data;
+};
+
+const carregarCustosArquivadosNaTransacao=async(transaction,payload)=>{
+  const expected=archivedLaborKeys(payload,KEY);
+  if(!expected.length)return {data:{...payload,archivedLaborCosts:{}},missing:[],rebuilt:0};
+  // O fechamento já trava a core antes daqui. Arquivar/restaurar quinzena
+  // também precisa da core, então os marcadores não podem mudar enquanto
+  // esta fotografia lê os arquivos imutáveis.
+  const linhas=await transaction`
+    select key,value
+      from company_app_data
+     where company_id=${COMPANY}
+       and key like ${`${KEY}__arq__%`}
+     order by key
+  `;
+  return rebuildArchivedLaborCosts({data:payload,archiveRows:linhas||[],key:KEY});
 };
 
 // Dois carimbos de tempo apontam para o mesmo instante?
@@ -610,6 +643,7 @@ const lerBasePonto = async () => {
 // gravada por "ponto-tempo-verificar" (rotina agendada ou admin).
 const tratarAcaoPonto = criarTratadorPonto({
   db, company: COMPANY, lerDados: lerBasePonto,
+  lerDadosPainel: async () => (await lerLinha()).payload || {},
   verificarHoraNtp: () => verificarHora({ enviarUdp: enviarUdpComDgram(dgram) }),
   autenticarUsuario: body => authenticateAppUser(
     { userId: body.userId, pin: body.pin, accessToken: body.accessToken }, { scope: "ponto-eletronico" }),
@@ -1111,20 +1145,20 @@ const gravarMutacaoNaTransacao=async({
   return {updatedAt:saved.updated_at};
 };
 
-// Todos os escritores do blob passam pelo mesmo bloqueio do PostgreSQL - mas,
-// diferente das tentativas otimistas (CAS) que já roteiam por domínio desde
-// 20/08/2026, este caminho travava e gravava sempre a linha core, ignorando
-// a separação de linhas inteiramente (achado de 21/08/2026 - Ponto,
-// Lookahead, Config, Equipamentos e RDO nunca chegavam à própria linha
-// aqui, reintroduzindo a MESMA contenção cruzada que a separação deveria
-// eliminar). Corrigido travando só a linha do domínio de fato escrito
-// (`domain`), enquanto o restante do dado (para leitura cross-domain em
-// `mutate()`, ex.: Produção lendo `employees`) vem de uma leitura sem lock
-// via `lerLinha()` - a mesma tradeoff que o caminho CAS já usa: a
-// consistência de quem É travado/escrito é garantida pelo lock real; a
-// consistência de quem só é lido continua garantida por `expectedVersion`
-// checado dentro de `mutate()`, não por um lock de leitura.
-const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain=DOMAIN_ROW.CORE,linha:linhaConhecida=null,mutate})=>{
+// Todos os escritores preservam o roteamento por domínio. Os que alteram
+// fatos financeiros precisam também serializar com o fechamento mensal:
+// core primeiro, depois domínio, a mesma ordem usada pelo fechamento.
+// RDO/Lookahead e demais operações sem efeito financeiro seguem independentes.
+const travarCoreEmpresa=async transaction=>{
+  const [lockedCore]=await transaction`
+    select value,updated_at from company_app_data
+     where company_id=${COMPANY} and key=${KEY}
+     for update
+  `;
+  return lockedCore;
+};
+
+export const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,protectClosedDre=false,domain=DOMAIN_ROW.CORE,linha:linhaConhecida=null,mutate})=>{
   // Achado de 21/08/2026: todo chamador já fez lerLinha() uma vez no topo
   // do handler, antes de qualquer branch. Reaproveitar essa leitura em vez
   // de repeti-la aqui evita um round-trip de rede inteiro - a mesma
@@ -1135,6 +1169,9 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
   const effectiveDomain=linhaEfetivaParaEscrita(domain,linha.rowVersions);
   const key=keyForDomain(effectiveDomain);
   return comSql(connection=>connection.begin(async transaction=>{
+      const needsCoreLock=(financial||protectClosedDre)&&key!==KEY;
+      const lockedCore=needsCoreLock?await travarCoreEmpresa(transaction):null;
+      if(needsCoreLock&&!lockedCore)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
       const [locked]=await transaction`
         select value,updated_at
           from company_app_data
@@ -1154,9 +1191,13 @@ const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,domain
           dominio===effectiveDomain?freshSlice:pickDomainFields(linha.payload,dominio),
         ]),
       );
-      const corePayload=effectiveDomain===DOMAIN_ROW.CORE?freshSlice:coreFieldsOnly(linha.payload,linha.rowVersions);
+      // Uma leitura anterior ao lock pode ter visto o mês aberto enquanto
+      // outra transação o fechava. A guarda sempre recebe os fechamentos da
+      // core recém-travada, inclusive nas escritas audit-only de equipamento.
+      const corePayload=effectiveDomain===DOMAIN_ROW.CORE?freshSlice
+        :coreFieldsOnly(lockedCore?decodeAppData(lockedCore.value):linha.payload,linha.rowVersions);
       const current=mergeDomainRows(corePayload,rowPayloadsByDomain);
-      const outcome=await mutate({payload:current,updatedAt:locked.updated_at});
+      const outcome=await mutate({payload:current,updatedAt:locked.updated_at,transaction});
       if(!outcome||outcome.kind!=="save")return outcome;
       const valueToWrite=effectiveDomain===DOMAIN_ROW.CORE?outcome.data:pickDomainFields(outcome.data,effectiveDomain);
       // Achado secundário de 02/09/2026, investigado a fundo (ver
@@ -1310,16 +1351,39 @@ const executarMutacaoMultiLinha=async({
   return resultado;
 };
 
+const mensagemGuardFechado=validation=>{
+  if(validation?.ok)return {ok:true};
+  const competences=[...new Set((validation?.changes||[])
+    .map(item=>item.competence).filter(Boolean))].sort();
+  return {
+    ok:false,
+    code:"CLOSED_DRE_IMMUTABLE",
+    error:competences.length
+      ?`A alteração modifica fatos financeiros de competência fechada (${competences.join(", ")}). O histórico encerrado é imutável.`
+      :"A alteração modifica fatos financeiros de competência fechada.",
+    changes:validation?.changes||[],
+  };
+};
+
+const validarImutabilidadeDreFechado=({before,after})=>
+  mensagemGuardFechado(validateClosedCompanyDreMutation({before,after}));
+
+const validarImutabilidadeDreFechadoLeitura=({before,after})=>
+  mensagemGuardFechado(validateClosedRepresentationPreservation({before,after}));
+
 // Uma alteração real na mesma entidade continua sendo recusada por
 // `expectedVersion`; concorrência em outro módulo apenas aguarda o bloqueio.
-const executarComandoOperacionalBloqueado=async({command,usuario,financial,linha})=>{
+const executarComandoOperacionalBloqueado=async({
+  command,usuario,financial,protectClosedDre=false,linha,
+})=>{
   return executarMutacaoEmpresaBloqueada({
     actor:usuario,
     action:`operational_${command.type.toLowerCase()}`,
     financial,
+    protectClosedDre,
     domain:rowForOperationalCommand(command.type),
     linha,
-    mutate:async({payload:current,updatedAt})=>{
+    mutate:async({payload:current,updatedAt,transaction})=>{
       const scope=validateOperationalCommandScope({user:usuario,data:current,command});
       if(!scope.ok)return {kind:"error",status:scope.error.includes("vinculado")?400:403,error:scope.error};
       const executed=applyOperationalCommand(current,{
@@ -1333,6 +1397,15 @@ const executarComandoOperacionalBloqueado=async({command,usuario,financial,linha
       if(executed.idempotent)return {
         kind:"idempotent",data:current,updatedAt,
       };
+      if(protectClosedDre){
+        const closedGuard=await validarImutabilidadeDreFechado({
+          before:current,after:executed.data,
+        });
+        if(!closedGuard.ok)return {
+          kind:"error",status:409,error:closedGuard.error,code:closedGuard.code,
+          closedDreChanges:closedGuard.changes||[],
+          };
+      }
       return {
         kind:"save",data:executed.data,
         basePayload:current,
@@ -1342,6 +1415,48 @@ const executarComandoOperacionalBloqueado=async({command,usuario,financial,linha
       };
     },
   });
+};
+
+const datasAlteradasPeloComandoPonto=command=>{
+  if(command?.action===ATTENDANCE_COMMAND.UPSERT)return [String(command.date||"")].filter(Boolean);
+  if(command?.action===ATTENDANCE_COMMAND.BATCH_UPSERT){
+    return [...new Set((Array.isArray(command.patches)?command.patches:[])
+      .map(patch=>String(patch?.date||"")).filter(Boolean))];
+  }
+  return [];
+};
+
+const validarPontoEmCompetenciaAberta=(data,command)=>{
+  const closed=datasAlteradasPeloComandoPonto(command)
+    .map(date=>({date,closing:closedCompetenceForDate(data,date)}))
+    .find(item=>item.closing);
+  if(!closed)return {ok:true};
+  return {
+    ok:false,
+    code:"CLOSED_DRE_IMMUTABLE",
+    competence:closed.closing.competencia,
+    error:`O ponto de ${closed.date} pertence à competência financeira fechada ${closed.closing.competencia}. O fechamento contábil não pode ser alterado por liberação de ponto.`,
+  };
+};
+
+const validarConciliacaoEmCompetenciaAberta=(data,command)=>{
+  const ids=[
+    String(command?.payload?.transactionId||""),
+    String(command?.payload?.counterpartyTransactionId||""),
+  ].filter(Boolean);
+  for(const id of [...new Set(ids)]){
+    const transaction=(data?.transacoes||[]).find(item=>String(item?.id)===id);
+    const closing=closedCompetenceForDate(data,transaction?.data);
+    if(!closing)continue;
+    return {
+      ok:false,
+      code:"CLOSED_DRE_IMMUTABLE",
+      competence:closing.competencia,
+      transactionId:id,
+      error:`A transação bancária de ${String(transaction?.data||"")} pertence à competência financeira fechada ${closing.competencia}. A conciliação histórica não pode ser alterada.`,
+    };
+  }
+  return {ok:true};
 };
 
 // Fase 1.5 reduzida (22/08/2026, ver server/attendance-obra-routing.js):
@@ -1362,12 +1477,17 @@ const executarComandoOperacionalBloqueado=async({command,usuario,financial,linha
 // recém-lido via applyEntriesToAttendance, nunca sobrescrita às cegas -
 // nenhuma escrita concorrente em OUTRO funcionário/data da mesma obra se
 // perde.
-const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:linhaConhecida=null})=>{
+export const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:linhaConhecida=null})=>{
   const linha=linhaConhecida||await lerLinha();
   const pontoEfetiva=linhaEfetivaParaEscrita(DOMAIN_ROW.PONTO,linha.rowVersions);
   const pontoKeyAlvo=keyForDomain(pontoEfetiva);
   return comSql(connection=>connection.begin(async transaction=>{
-      const [lockedPonto]=await transaction`
+      // Serializa com CLOSE_MONTHLY_FINANCIAL antes de adquirir PONTO.
+      // O fechamento mantém esta mesma ordem, evitando tanto a janela de
+      // escrita pós-fechamento quanto uma inversão de locks entre os dois.
+      const lockedCore=await travarCoreEmpresa(transaction);
+      if(!lockedCore)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
+      const [lockedPonto]=pontoKeyAlvo===KEY?[lockedCore]:await transaction`
         select value,updated_at from company_app_data
          where company_id=${COMPANY} and key=${pontoKeyAlvo}
          for update
@@ -1380,6 +1500,7 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
       // attendanceOperationReceipts) enxerguem o estado mais novo possível.
       const current={
         ...linha.payload,
+        ...coreFieldsOnly(decodeAppData(lockedCore.value),linha.rowVersions),
         attendanceLocks:freshPontoSlice.attendanceLocks||{},
         unlockRequests:freshPontoSlice.unlockRequests||[],
         dailyCheckDate:freshPontoSlice.dailyCheckDate||"",
@@ -1388,6 +1509,11 @@ const executarComandoPontoBloqueado=async({usuario,command,operationNow,linha:li
       const applied=applyAttendanceCommand(current,usuario,command,operationNow);
       if(!applied.ok)return {kind:"error",status:applied.status||400,error:applied.error};
       if(applied.idempotent)return {kind:"idempotent",result:applied.result,updatedAt:lockedPonto.updated_at};
+      const closedPoint=validarPontoEmCompetenciaAberta(current,command);
+      if(!closedPoint.ok)return {
+        kind:"error",status:409,error:closedPoint.error,code:closedPoint.code,
+        closedCompetence:closedPoint.competence,
+      };
 
       // Preserva (`...freshPontoSlice`) qualquer campo que já estivesse
       // gravado nesta linha antes desta escrita - inclusive um eventual
@@ -1613,7 +1739,7 @@ export default async function handler(req, res) {
   anexarCronometro(res,cronometro);
 
   const ip = req.headers["x-forwarded-for"]?.split(",")[0] || "desconhecido";
-  let { action=req.query?.action, userId, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
+  let { action=req.query?.action, userId, identificador, pin, accessToken, payload, expectedUpdatedAt, basePayload, sections, baseSections } = req.body || {};
   const getActions=new Set(["profiles","client-portal","pedido-aceite-ver","backup-create","backup-verify","ponto-tempo-verificar"]);
   if(req.method&&req.method!=="POST"&&!(req.method==="GET"&&getActions.has(action)))return res.status(405).json({error:"Método não permitido."});
 
@@ -1769,16 +1895,12 @@ export default async function handler(req, res) {
       return res.status(200).json({accessToken:auth.session.access_token,refreshToken:auth.session.refresh_token});
     }
 
-    // ── 1. Lista de perfis (tela de login) ─────────────────────────
-    // Não exige PIN — é o que a tela precisa ANTES de alguém digitar.
-    // Devolve só nome e papel. O hash do PIN nunca sai daqui.
+    // ── 1. Estado público do primeiro acesso ──────────────────────
+    // O login não publica nomes, IDs ou papéis antes da autenticação.
     if (action === "profiles") {
       let indice=await lerIndicePerfis();
       if(!indice){const {payload:p}=await lerLinha();indice=compactProfiles(p);await salvarIndicePerfis(p);}
-      const usuarios = (indice?.usuarios || [])
-        .filter(u => u.active !== false)
-        .map(u => ({ id: u.id, nome: u.nome, role: u.role }));
-      return res.status(200).json({ usuarios, precisaSetup: usuarios.length === 0 });
+      return res.status(200).json(respostaPerfisPublica(indice));
     }
 
     // ── 2. Primeiro acesso: cria o admin inicial ───────────────────
@@ -1849,14 +1971,28 @@ export default async function handler(req, res) {
       lerNucleo(),
       validarToken(accessToken),
     ]);
+    // Sessões PIN existentes continuam enviando userId. O primeiro login
+    // resolve o identificador apenas aqui, sem oferecer uma consulta pública.
+    const pinUserId=usaPin?(userId||resolverUsuarioPorIdentificador(nucleo.payload?.usuarios,identificador)?.id||""):"";
+    const limiteUsuario=usaPin
+      ? (pinUserId?assuntoLimitePinUsuario(pinUserId):`pin-identificador|${normalizarIdentificador(identificador)}`)
+      : "";
+    if(usaPin){
+      const limite=await rateLimitCentral(limiteUsuario,"status");
+      if(limite?.blocked||bloqueado(limiteUsuario))return res.status(429).json({error:"Muitas tentativas. Aguarde 5 minutos."});
+    }
     cronometro.marcar("auth");
-    const pinAuth=usaPin?conferirPin(nucleo.payload,userId,pin):{usuario:null,upgradeHash:""};
+    const pinAuth=usaPin?conferirPin(nucleo.payload,pinUserId,pin):{usuario:null,upgradeHash:""};
     const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(nucleo.payload,tokenAuth.data.user):null) || pinAuth.usuario;
 
     if (!usuario) {
       if(usaPin){
         registrarFalha(ip);
-        await rateLimitCentral(ip,"failure");
+        registrarFalha(limiteUsuario);
+        await Promise.all([
+          rateLimitCentral(ip,"failure"),
+          rateLimitCentral(limiteUsuario,"failure"),
+        ]);
       }
       return res.status(401).json({ error: "Sessão inválida ou PIN incorreto." });
     }
@@ -1865,11 +2001,13 @@ export default async function handler(req, res) {
     const [linha] = await Promise.all([
       completarLinha(nucleo),
       usaPin ? rateLimitCentral(ip,"success") : null,
+      usaPin ? rateLimitCentral(limiteUsuario,"success") : null,
     ]);
     cronometro.marcar("leitura");
     let { payload: atual, updatedAt, rowVersions, rowVersionsPontoObra } = linha;
     if(usaPin){
       limparFalhas(ip);
+      limparFalhas(limiteUsuario);
       if(pinAuth.upgradeHash){
         const atualizado={...atual,usuarios:(atual.usuarios||[]).map(item=>item.id===usuario.id?{...item,pin:pinAuth.upgradeHash}:item)};
         const migration=await salvarComAuditoria({
@@ -2070,6 +2208,7 @@ export default async function handler(req, res) {
         });
       }
 
+      const fonteFinanceira=await exigirCustosArquivados(atual);
       const canonical=await loadCanonicalDre(db,COMPANY);
       if(canonical.issues.length){
         return res.status(409).json({
@@ -2078,7 +2217,7 @@ export default async function handler(req, res) {
         });
       }
       const [year,monthNumber]=period.competencia.split("-").map(Number);
-      const dreRow=buildRequestedDreProjectionRows(atual,[{
+      const dreRow=buildRequestedDreProjectionRows(fonteFinanceira,[{
         year,month:monthNumber-1,period:"mes",scope:"company_dre",includeMemorial:true,
       }],canonical.events)[0];
       if(!dreRow?.payload){
@@ -2094,7 +2233,7 @@ export default async function handler(req, res) {
         payload:dreRow.payload,
       };
       const preview=previewMonthlyFinancialClosing({
-        data:atual,
+        data:fonteFinanceira,
         command,
         actor:usuario,
         supplementalEvents:canonical.events,
@@ -2169,6 +2308,26 @@ export default async function handler(req, res) {
             })=>{
               const period=monthlyClosingPeriodFromCommand(command);
               if(!period.ok)return {kind:"error",status:400,error:period.error};
+              const replayProbe=prepareMonthlyFinancialClosing({
+                data:current,command,actor:usuario,requireCanonicalDre:true,
+              });
+              if(replayProbe?.ok&&replayProbe.idempotent)return {
+                kind:"idempotent",data:current,updatedAt:lockedUpdatedAt,
+                closing:replayProbe.closing,
+                result:{ok:true,idempotent:true,periodClosed:true},
+              };
+              if(replayProbe?.ok===false&&/já possui fechamento auditável/i.test(String(replayProbe.error||""))){
+                return {kind:"error",status:409,error:replayProbe.error};
+              }
+
+              // Serializa o fechamento com toda carga/sincronização do razão.
+              // O save transacional financeiro usa a mesma chave depois de
+              // travar a core; a ordem permanece core -> advisory em ambos.
+              await transaction`
+                select pg_advisory_xact_lock(
+                  hashtextextended(${`${COMPANY}:financial-shadow-sync`},0)
+                )
+              `;
 
               // Ponto por obra alimenta custo de mão de obra no DRE, mas vive
               // fora do dicionário fixo de linhas. Trava e relê essas linhas
@@ -2192,10 +2351,17 @@ export default async function handler(req, res) {
                   withAttendanceSyncedAt(decoded?.attendance,decoded?.attendanceSyncedAt),
                 );
               }
-              const closingData={
+              const closingDataBase={
                 ...current,
                 attendance:mergeAttendanceObjects(...attendanceSources),
               };
+              const archived=await carregarCustosArquivadosNaTransacao(transaction,closingDataBase);
+              if(archived.missing.length)return {
+                kind:"error",status:409,code:"ARCHIVED_LABOR_SOURCE_MISSING",
+                error:"Existem quinzenas arquivadas sem o arquivo imutável correspondente. O fechamento foi bloqueado.",
+                missingArchivedPeriods:archived.missing,
+              };
+              const closingData=archived.data;
 
               const [titles,settlements,banks]=await Promise.all([
                 transaction`
@@ -2287,6 +2453,8 @@ export default async function handler(req, res) {
           if(outcome.kind==="error"){
             return res.status(outcome.status||409).json({
               error:outcome.error,
+              ...(outcome.code?{code:outcome.code}:{}),
+              ...(outcome.missingArchivedPeriods?.length?{missingArchivedPeriods:outcome.missingArchivedPeriods}:{}),
               ...(outcome.conference?{conference:outcome.conference}:{}),
               ...(outcome.canonicalIssues?{canonicalIssues:outcome.canonicalIssues}:{}),
             });
@@ -2333,6 +2501,12 @@ export default async function handler(req, res) {
         if(!authorization.ok)return {forbidden:true,error:authorization.error};
         const already=(base.reconciliationCommandLog||[]).find(item=>item.idempotencyKey===command.idempotencyKey);
         if(already)return {idempotent:true,data:base,resumo:already.resumo||{ok:true}};
+        const closedReconciliation=validarConciliacaoEmCompetenciaAberta(base,command);
+        if(!closedReconciliation.ok)return {
+          error:closedReconciliation.error,code:closedReconciliation.code,
+          closedCompetence:closedReconciliation.competence,
+          transactionId:closedReconciliation.transactionId,
+        };
         const result=applyReconciliationCommand(base,command,usuario);
         if(!result?.resumo?.ok)return {error:result?.resumo?.motivo||"Não foi possível conciliar a transação."};
         const purchaseOrderIds=(result.data.pedidos||[]).filter(order=>JSON.stringify(order)!==JSON.stringify((base.pedidos||[]).find(item=>item.id===order.id))).map(order=>order.id);
@@ -2345,13 +2519,24 @@ export default async function handler(req, res) {
           action:`reconciliation_${String(command.type).toLowerCase()}`,
           financial:true,
           linha:{payload:atual,rowVersions},
-          mutate:async({payload:current,updatedAt:lockedUpdatedAt})=>{
+          mutate:async({payload:current,updatedAt:lockedUpdatedAt,transaction})=>{
             const executed=execute(current);
             if(executed.forbidden)return {kind:"error",status:403,error:executed.error};
-            if(executed.error)return {kind:"error",status:409,error:executed.error,currentUpdatedAt:lockedUpdatedAt};
+            if(executed.error)return {
+              kind:"error",status:409,error:executed.error,
+              code:executed.code,closedCompetence:executed.closedCompetence,
+              currentUpdatedAt:lockedUpdatedAt,
+            };
             if(executed.idempotent)return {
               kind:"idempotent",data:current,updatedAt:lockedUpdatedAt,resumo:executed.resumo,
             };
+            const closedGuard=await validarImutabilidadeDreFechado({
+              before:current,after:executed.data,
+            });
+            if(!closedGuard.ok)return {
+              kind:"error",status:409,error:closedGuard.error,code:closedGuard.code,
+              closedDreChanges:closedGuard.changes||[],
+                  };
             const transactionId=String(command.payload?.transactionId||"");
             const beforeTransaction=(current.transacoes||[]).find(item=>String(item.id)===transactionId)||null;
             const afterTransaction=(executed.data?.transacoes||[]).find(item=>String(item.id)===transactionId)||null;
@@ -2364,6 +2549,9 @@ export default async function handler(req, res) {
         });
         if(outcome.kind==="error")return res.status(outcome.status||409).json({
           error:outcome.error,
+          ...(outcome.code?{code:outcome.code}:{}),
+          ...(outcome.closedCompetence?{closedCompetence:outcome.closedCompetence}:{}),
+          ...(outcome.closedDreChanges?.length?{closedDreChanges:outcome.closedDreChanges}:{}),
           ...(outcome.currentUpdatedAt?{currentUpdatedAt:outcome.currentUpdatedAt}:{}),
         });
         if(outcome.kind==="idempotent"){
@@ -2379,6 +2567,10 @@ export default async function handler(req, res) {
           sections:projectReconciliationPatch(outcome.basePayload,outcome.data,usuario),
         });
       }
+      if(closedCompanyDreEntries(atual).length)return res.status(503).json({
+        error:"Há competência financeira fechada. A conciliação exige a conexão transacional do servidor.",
+        code:"CLOSED_DRE_TRANSACTION_REQUIRED",
+      });
       const persist=async(base,executed)=>{
         const transactionId=String(command.payload?.transactionId||"");
         const beforeTransaction=(base.payload?.transacoes||[]).find(item=>String(item.id)===transactionId)||null;
@@ -2399,6 +2591,8 @@ export default async function handler(req, res) {
       if(outcome.kind==="error"){
         return res.status(outcome.forbidden?403:409).json({
           error:outcome.error,
+          ...(outcome.code?{code:outcome.code}:{}),
+          ...(outcome.closedCompetence?{closedCompetence:outcome.closedCompetence}:{}),
           ...(outcome.forbidden?{}:{conflict:outcome.attempts>1,currentUpdatedAt:outcome.base?.updatedAt}),
         });
       }
@@ -2448,6 +2642,8 @@ export default async function handler(req, res) {
         });
         if(outcome.kind==="error")return res.status(outcome.status||400).json({
           ok:false,error:outcome.error,
+          ...(outcome.code?{code:outcome.code}:{}),
+          ...(outcome.closedCompetence?{closedCompetence:outcome.closedCompetence}:{}),
         });
         return res.status(200).json({
           ok:true,idempotent:outcome.kind==="idempotent",
@@ -2499,6 +2695,11 @@ export default async function handler(req, res) {
             ok:true,idempotent:true,result:applied.result,updatedAt:base.updatedAt,
           });
         }
+        const closedPoint=validarPontoEmCompetenciaAberta(base.payload,command);
+        if(!closedPoint.ok)return res.status(409).json({
+          ok:false,error:closedPoint.error,code:closedPoint.code,
+          closedCompetence:closedPoint.competence,
+        });
         // `attendance` saiu de DOMAIN_FIELDS[PONTO] (Fase 1.5 - agora vive em
         // linhas por obra, ver executarComandoPontoBloqueado), então
         // pickDomainFields sozinho não bastaria mais aqui: este caminho
@@ -2553,10 +2754,15 @@ export default async function handler(req, res) {
       if(process.env.POSTGRES_URL_NON_POOLING){
         const outcome=await executarComandoOperacionalBloqueado({
           command,usuario,financial:persistenciaFinanceira,
+          // FINANCIAL_OPERATIONAL_COMMANDS inclui também equipamentos cujo
+          // sync é audit-only, mas que alteram a projeção gerencial do DRE.
+          protectClosedDre:FINANCIAL_OPERATIONAL_COMMANDS.has(command.type),
           linha:{payload:atual,rowVersions},
         });
         if(outcome.kind==="error")return res.status(outcome.status||409).json({
           error:outcome.error,reason:outcome.error,
+          ...(outcome.code?{code:outcome.code}:{}),
+          ...(outcome.closedDreChanges?.length?{closedDreChanges:outcome.closedDreChanges}:{}),
           ...(outcome.conflict?{conflict:true,currentUpdatedAt:outcome.currentUpdatedAt}:{}),
         });
         // Project every record changed by the committed command, including
@@ -2595,6 +2801,12 @@ export default async function handler(req, res) {
           updatedAt:outcome.updatedAt,
           ...(outcome.copied!=null?{copied:outcome.copied}:{}),
           ...(outcome.summary!=null?{summary:outcome.summary}:{}),
+        });
+      }
+      if(FINANCIAL_OPERATIONAL_COMMANDS.has(command.type)&&closedCompanyDreEntries(atual).length){
+        return res.status(503).json({
+          error:"Há competência financeira fechada. Este comando financeiro exige a conexão transacional do servidor.",
+          code:"CLOSED_DRE_TRANSACTION_REQUIRED",
         });
       }
 
@@ -2680,6 +2892,7 @@ export default async function handler(req, res) {
         path.join(process.cwd(),"migrations","021_financial_reversal_status_integrity.up.sql"),
         path.join(process.cwd(),"migrations","008_skip_dre_snapshot_sync_on_write.up.sql"),
         path.join(process.cwd(),"migrations","20261023154632_dre_cash_allocations.up.sql"),
+        path.join(process.cwd(),"migrations","022_closed_period_legacy_source_guard.up.sql"),
       ];
       if(migrationPaths.some(file=>!fs.existsSync(file)))return res.status(500).json({error:"As migrations financeiras versionadas não foram incluídas no deploy."});
       const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
@@ -2707,7 +2920,8 @@ export default async function handler(req, res) {
 
     if(action==="financial-shadow-sync"){
       if(usuario.role!=="admin")return res.status(403).json({error:"Apenas administradores executam a carga financeira em sombra."});
-      const snapshot=buildLegacyFinancialFacts(atual);
+      const fonteFinanceira=await exigirCustosArquivados(atual);
+      const snapshot=buildLegacyFinancialFacts(fonteFinanceira);
       if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({error:"A conexão direta do Supabase não está configurada."});
       const sql=postgres(process.env.POSTGRES_URL_NON_POOLING,{ssl:"require",max:1,connect_timeout:20,idle_timeout:5});
       let sync;
@@ -2977,12 +3191,20 @@ export default async function handler(req, res) {
       }
       const year=Number(req.body?.year);
       if(!Number.isInteger(year)||year<2000||year>2100)return res.status(400).json({error:"Ano inválido."});
-      const canonical=await loadCanonicalDre(db,COMPANY);
-      const requests=Array.from({length:12},(_,month)=>({year,month,period:"mes",scope:"company_dre",includeMemorial:true}));
-      const liveMonths=buildRequestedDreProjectionRows(atual,requests,canonical.events).map(row=>row.payload);
-      const months=overlayClosedCompanyDreYear(atual,year,liveMonths);
       const closedMonths=closedCompanyDreEntries(atual).filter(item=>item.competencia.startsWith(`${year}-`));
-      return res.status(200).json({ok:true,year,months,layout:readAnnualLayout(atual.config),
+      const closedMonthNumbers=new Set(closedMonths.map(item=>Number(item.competencia.slice(5,7))-1));
+      const requests=Array.from({length:12},(_,month)=>({year,month,period:"mes",scope:"company_dre",includeMemorial:true}))
+        .filter(request=>!closedMonthNumbers.has(request.month));
+      // Meses fechados são lidos da fotografia. Um ano inteiro fechado não
+      // depende de arquivos de ponto que só seriam usados para recalcular.
+      const fonteFinanceira=requests.length?await exigirCustosArquivados(atual):atual;
+      const canonical=await loadCanonicalDre(db,COMPANY);
+      const liveMonths=Array(12).fill(null);
+      for(const row of buildRequestedDreProjectionRows(fonteFinanceira,requests,canonical.events)){
+        liveMonths[row.month]=row.payload;
+      }
+      const months=overlayClosedCompanyDreYear(atual,year,liveMonths);
+      return res.status(200).json({ok:true,year,months,layout:readAnnualLayout(fonteFinanceira.config),
         source:closedMonths.length?"canonical_ledger_with_closed_snapshots":"canonical_ledger",
         sourceRevision:`${dreSourceRevision({updatedAt,rowVersions,rowVersionsPontoObra})}|canonical:${canonical.revision}`,
         closedCompetences:closedMonths.map(item=>item.competencia),
@@ -2991,8 +3213,9 @@ export default async function handler(req, res) {
 
     if(action==="financial-management-report"){
       if(!["admin","financeiro"].includes(usuario.role)||usuario.obraId)return res.status(403).json({error:"A gestão de conciliação do DRE exige acesso financeiro sem restrição de obra."});
+      const fonteFinanceira=await exigirCustosArquivados(atual);
       const canonical=await loadCanonicalDre(db,COMPANY);
-      return res.status(200).json({ok:true,...buildIntegratedDreManagement(atual,canonical),updatedAt});
+      return res.status(200).json({ok:true,...buildIntegratedDreManagement(fonteFinanceira,canonical),updatedAt});
     }
 
     if(action==="financial-dre-report"||action==="financial-company-dre-report"){
@@ -3039,6 +3262,7 @@ export default async function handler(req, res) {
         ||String(currentEvent.payload?.sourceRevision||"")!==sourceRevision
         ||String(currentEvent.payload?.projectionVersion||"")!==DRE_PROJECTION_VERSION
       )){
+        const fonteFinanceira=await exigirCustosArquivados(atual);
         const projectionRequests=[
           {year,month,period,scope},
           ...historyRequests,
@@ -3047,7 +3271,7 @@ export default async function handler(req, res) {
           const sourceId=`${request.year}-${String(request.month+1).padStart(2,"0")}:mes:company_dre`;
           return !frozenById.has(sourceId);
         });
-        const rows=buildRequestedDreProjectionRows(atual,projectionRequests,canonical.events).map(row=>({
+        const rows=buildRequestedDreProjectionRows(fonteFinanceira,projectionRequests,canonical.events).map(row=>({
           company_id:COMPANY,event_type:"dre_snapshot",source_type:"dre_projection",
           source_id:row.sourceId,effective_date:`${row.year}-${String(row.month+1).padStart(2,"0")}-01`,
           payload:{...row.payload,active:true,obraId:row.obraId,year:row.year,month:row.month,
@@ -3187,6 +3411,7 @@ export default async function handler(req, res) {
       // legadas, ainda desligado.
       const secoesFinanceiras=Object.fromEntries(chaves.map(key=>[key,sections[key]]));
       const sincronizaFinanceiro=hasLegacyFinancialWrite(secoesFinanceiras);
+      const protegeDreFechado=sincronizaFinanceiro;
       if (!chaves.length) return res.status(200).json({ ok:true, updatedAt, unchanged:true });
       if(process.env.POSTGRES_URL_NON_POOLING){
         const outcome=await executarMutacaoMultiLinha({
@@ -3196,7 +3421,7 @@ export default async function handler(req, res) {
           domains:chaves.map(domainForField),
           linha:{payload:atual,rowVersions,linhasBrutas:linha.linhasBrutas},
           cronometro,
-          mutate:async({payload:current,updatedAt:lockedUpdatedAt})=>{
+          mutate:async({payload:current,updatedAt:lockedUpdatedAt,transaction})=>{
             const houveConcorrencia=expectedUpdatedAt&&lockedUpdatedAt
               &&!mesmoInstante(expectedUpdatedAt,lockedUpdatedAt);
             if(houveConcorrencia&&!baseSections)return {
@@ -3263,6 +3488,15 @@ export default async function handler(req, res) {
               const erro=validarExclusaoObras(usuario,origin||[],sections.obras||[]);
               if(erro)return {kind:"error",status:403,error:erro};
             }
+            if(protegeDreFechado){
+              const closedGuard=await validarImutabilidadeDreFechado({
+                before:current,after:value,
+              });
+              if(!closedGuard.ok)return {
+                kind:"error",status:409,error:closedGuard.error,code:closedGuard.code,
+                closedDreChanges:closedGuard.changes||[],
+                      };
+            }
             return {
               kind:"save",data:value,merged:!!houveConcorrencia,
               ...compactAuditSnapshots(
@@ -3274,6 +3508,7 @@ export default async function handler(req, res) {
         });
         if(outcome.kind==="error")return res.status(outcome.status||409).json({
           error:outcome.error,code:outcome.code,
+          ...(outcome.closedDreChanges?.length?{closedDreChanges:outcome.closedDreChanges}:{}),
           ...(outcome.conflict?{
             conflict:true,reason:outcome.error,conflicts:outcome.conflicts,
             currentUpdatedAt:outcome.currentUpdatedAt,
@@ -3286,6 +3521,12 @@ export default async function handler(req, res) {
           updatedAt:outcome.updatedAt,savedSections:chaves,
         });
       }
+      // Com competência fechada não existe fallback otimista: sem a conexão
+      // transacional não conseguimos provar que a mutação preserva o DRE.
+      if(protegeDreFechado&&closedCompanyDreEntries(atual).length)return res.status(503).json({
+        error:"Há competência financeira fechada. Esta alteração exige a conexão transacional do servidor.",
+        code:"CLOSED_DRE_TRANSACTION_REQUIRED",
+      });
       // Caminho sem conexão transacional (só ambiente sem POSTGRES_URL): grava
       // apenas a core, então recusa seção que já mora em linha própria.
       const secaoEmOutraLinha=chaves.find(key=>
@@ -3375,6 +3616,13 @@ export default async function handler(req, res) {
     // ── 4b. Salvar blob completo (compatibilidade / primeiro acesso) ─
     if (action === "save") {
       if (!payload) return res.status(400).json({ error: "Nada para salvar." });
+      // Depois do primeiro fechamento mensal, o blob completo não é mais uma
+      // unidade de escrita segura: qualquer alteração deve passar por comando
+      // ou save-sections, onde o DRE fechado é revalidado antes do commit.
+      if(closedCompanyDreEntries(atual).length)return res.status(409).json({
+        error:"Há competência financeira fechada. Recarregue a página e salve pela operação granular do módulo.",
+        code:"CLOSED_DRE_GRANULAR_REQUIRED",
+      });
       const commandOnlySections=["attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
       const attemptedCommandOnly=commandOnlySections.find(key=>
         Object.prototype.hasOwnProperty.call(payload,key)&&!igual(payload?.[key],atual?.[key]));
@@ -3472,7 +3720,6 @@ export default async function handler(req, res) {
         const conflicts=findSectionConflicts(basePayload,incomingPayload,recente.payload,Object.keys(secoesAlteradas));
         if(conflicts.length)return res.status(409).json({conflict:true,reason:"Outro operador alterou o mesmo registro. Atualize os dados antes de tentar novamente.",conflicts,currentUpdatedAt:recente.updatedAt});
         valor=mergeThreeWay(basePayload,incomingPayload,recente.payload);
-        const novoAgora=new Date().toISOString();
         const retry=await salvarVersao({expectedUpdatedAt:recente.updatedAt,value:valor,rowVersions:recente.rowVersions,actor:usuario,action:sincronizaFinanceiro?"financial_shadow_save_blob":"save_blob",
           before:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,recente.payload?.[key]])),after:Object.fromEntries(Object.keys(secoesAlteradas).map(key=>[key,valor?.[key]]))});
         if(!retry.applied)return res.status(409).json({conflict:true,reason:"Muitas alterações simultâneas. Tente novamente."});
@@ -3537,12 +3784,24 @@ export default async function handler(req, res) {
 
       // Fotografia dos funcionarios envolvidos: diaria e beneficios DA EPOCA
       // ficam congelados no arquivo, mesmo que o cadastro mude depois.
-      const idsEnvolvidos = new Set(Object.keys(fatia));
+      const idsEnvolvidos = new Set(Object.keys(fatia).map(String));
       const employeesSnapshot = (atual?.employees || [])
-        .filter(e => idsEnvolvidos.has(e.id))
+        .filter(e => idsEnvolvidos.has(String(e.id)))
         .map(e => ({
           id: e.id, name: e.name, role: e.role || "", obra: e.obra || "",
           dailyRate: Number(e.dailyRate || 0),
+          monthlySalary: Number(e.monthlySalary || 0),
+          remunerationMode: e.remunerationMode === "clt" ? "clt" : "daily",
+          remunerationEffectiveFrom: String(e.remunerationEffectiveFrom || ""),
+          remunerationHistory:(e.remunerationHistory||[]).map(item=>({
+            date:String(item?.date||""),
+            mode:item?.mode==="clt"?"clt":"daily",
+          })),
+          obraHistory:(e.obraHistory||[]).map(item=>({
+            date:String(item?.date||""),
+            fromObraId:String(item?.fromObraId||item?.fromId||""),
+            toObraId:String(item?.toObraId||item?.toId||""),
+          })),
           vtDaily: Number(e.vtDaily || 0), vrDaily: Number(e.vrDaily || 0),
           workdayHours: Number(e.workdayHours || 8),
           workStart: String(e.workStart || "07:00"),
@@ -3565,7 +3824,11 @@ export default async function handler(req, res) {
       // Valores são calculados exclusivamente pelo servidor com a fotografia
       // de ponto, lotação, diária e benefícios que acabou de ler do banco.
       const resumoFinanceiro = normalizeArchivedCosts(
-        summarizeArchivedCosts({ attendance: fatia, employeesSnapshot }, atual?.config)
+        summarizeArchivedCosts(
+          { attendance: fatia, employeesSnapshot },
+          atual?.config,
+          atual?.employees||[],
+        )
       );
 
       const novoPrincipal = {
@@ -3578,6 +3841,13 @@ export default async function handler(req, res) {
         quinzenasArquivadas: { ...(atual?.quinzenasArquivadas || {}), [quinzenaId]: meta },
       };
       const archiveValue={meta,attendance:fatia,employeesSnapshot,financialSnapshot:resumoFinanceiro};
+      const closedArchive=await validarImutabilidadeDreFechadoLeitura({
+        before:atual,after:novoPrincipal,
+      });
+      if(!closedArchive.ok)return res.status(409).json({
+        error:closedArchive.error,code:closedArchive.code,
+        ...(closedArchive.changes?.length?{closedDreChanges:closedArchive.changes}:{}),
+      });
       // `attendance` está sendo gravado aqui de verdade (é o objetivo do
       // arquivamento) - por isso keepDomain=PONTO garante que ele nunca é
       // removido, mesmo que a linha própria de Ponto já exista. Mas o
@@ -3677,6 +3947,13 @@ export default async function handler(req, res) {
         quinzenasArquivadas: marcadores,
         quinzenasRestauradas: restauracoes,
       };
+      const closedRestore=await validarImutabilidadeDreFechadoLeitura({
+        before:atual,after:novoPrincipal,
+      });
+      if(!closedRestore.ok)return res.status(409).json({
+        error:closedRestore.error,code:closedRestore.code,
+        ...(closedRestore.changes?.length?{closedDreChanges:closedRestore.changes}:{}),
+      });
       // Mesma ressalva do arquivamento (ver comentário lá): grava sempre a
       // linha core; se a linha própria de Ponto já existir, o `attendance`
       // restaurado aqui fica sem efeito na próxima leitura.
@@ -3713,7 +3990,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Ação desconhecida." });
   } catch (err) {
     const correlationId=crypto.randomUUID();
-    console.error(`Falha em /api/data [${correlationId}]:`, err);
+    console.error(`Falha em /api/data [${correlationId}]:`, sanitizeServerError(err));
+    if(err?.code==="ARCHIVED_LABOR_SOURCE_MISSING"){
+      return res.status(409).json({
+        error:"Há quinzena arquivada sem a fonte imutável necessária para calcular o financeiro.",
+        code:err.code,
+        missingArchivedPeriods:Array.isArray(err.missing)?err.missing:[],
+        correlationId,
+        retryable:false,
+      });
+    }
     if(err?.code==="ATTENDANCE_ARCHIVE_MIGRATION_REQUIRED"){
       return res.status(503).json({
         error:"O arquivamento seguro ainda não está instalado no banco. Execute migrations/006_attendance_archive_transaction.up.sql.",

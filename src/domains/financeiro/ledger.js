@@ -86,9 +86,6 @@ export const recebimentosDaMedicao = measurement => {
   }];
 };
 
-const totalReceiptsCents = measurement =>
-  recebimentosDaMedicao(measurement).reduce((sum, receipt) => sum + positiveCents(receipt.valor, receipt.amount), 0);
-
 const measurementCompetence = measurement =>
   competenceOf(measurement?.competencia)
   || competenceOf(measurement?.dataEmissao)

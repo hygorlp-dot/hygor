@@ -3,6 +3,7 @@ import postgres from "postgres";
 import { createClient } from "@supabase/supabase-js";
 import { repairLockedReconciliation } from "../server/reconciliation-repair.js";
 import { mergeFinancialSourceRows } from "../server/financial-source-snapshot.js";
+import { rebuildArchivedLaborCosts } from "../server/financial-archived-costs-source.js";
 import { compareProcurementDreRecognition } from "../server/procurement-financial-facts.js";
 import {
   buildLegacyFinancialFacts, compareFinancialScopes,
@@ -32,6 +33,7 @@ for(const migration of [
   "../migrations/004_financial_events_projection_conflict.up.sql",
   "../migrations/008_skip_dre_snapshot_sync_on_write.up.sql",
   "../migrations/20261023154632_dre_cash_allocations.up.sql",
+  "../migrations/022_closed_period_legacy_source_guard.up.sql",
   "../migrations/20260726_auth_rate_limit.sql",
   "../migrations/20260727_auth_rate_limit_success.sql",
 ]){
@@ -42,7 +44,14 @@ const loaded=await sql.begin(async tx=>{
   if(!row?.value)return null;
   const repaired=await repairLockedReconciliation(tx,row,company);
   const sourceRows=await tx`select key,value,updated_at from company_app_data where company_id=${company} and key like ${`${key}__%`}`;
-  const sourceData=mergeFinancialSourceRows(repaired.data,sourceRows,key);
+  const mergedSource=mergeFinancialSourceRows(repaired.data,sourceRows,key);
+  const archived=rebuildArchivedLaborCosts({data:mergedSource,archiveRows:sourceRows,key});
+  if(archived.missing.length){
+    throw Object.assign(new Error(`FIN-002: arquivos imutáveis de ponto ausentes: ${archived.missing.join(", ")}.`),{
+      code:"ARCHIVED_LABOR_SOURCE_MISSING",
+    });
+  }
+  const sourceData=archived.data;
   const snapshot=buildLegacyFinancialFacts(sourceData);
   const [syncRow]=await tx`select financial_sync_legacy_facts(${company},${"system:production-deploy"},${tx.json(snapshot)}) as result`;
   return {sourceData,snapshot,sync:syncRow.result,repairs:repaired.changes.length};

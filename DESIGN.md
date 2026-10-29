@@ -241,6 +241,8 @@ Formulários preservam os estados de erro, foco, desabilitado e somente leitura.
 
 ## Relatórios e PDFs
 
+Os PDFs usam o monograma MRC oficial como marca d’água fixa, centralizada, com opacidade de 4,5%, repetida em todas as páginas. As assinaturas visuais legadas “ArcD Construtech”, “ArcD Obras” e “ArcD Construtora” passam a MARCELL apenas na apresentação dos cabeçalhos e assinaturas; tabelas, observações livres, CNPJ e configurações persistidas permanecem intactos.
+
 As saídas de impressão usam `src/reports/marcell-report.js`: logo oficial e fontes Nimbus Sans incorporadas no HTML, sem conexão externa para carregar a identidade. Corpo compacto de 11 px, títulos de 18/13/11,5 px, dados de tabela de 10 px e cabeçalhos de 9 px; azul-marinho, linhas discretas e fundo azul suave no cabeçalho. Totais mantêm peso 600 e as cores funcionais dos dados permanecem intactas. A impressão aguarda o carregamento das fontes e da logo.
 
 Identificação legal cadastrada, conteúdos, valores, assinaturas e colunas não são recalculados pela camada visual. Cabeçalhos de tabelas repetem nas páginas; totais aparecem ao final. Os formatos A4 existentes são mantidos nas tabelas comuns. Anexos com mais de 12 colunas usam A3 paisagem para evitar cortes e redução excessiva; cronogramas A2 usam dimensões explícitas de 594 × 420 mm, pois o nome A2 não é reconhecido pelo Chromium. A marca se repete em cada folha do cronograma. A validação inclui PDF renderizado, fontes incorporadas, dimensões da página e comparação de células e valores.
@@ -258,3 +260,7 @@ Identificação legal cadastrada, conteúdos, valores, assinaturas e colunas nã
 - **Don't** usar ouro ou ardósia claros como texto pequeno sobre fundo claro.
 - **Don't** substituir estados funcionais pela cor da marca.
 - **Don't** transformar identificadores internos `arcd` ou nomes legais cadastrados em rótulos de identidade novos por substituição indiscriminada.
+
+### Prévia ajustável da folha
+
+A folha usa larguras proporcionais ao conteúdo; funcionário, cargo e obra recebem o espaço remanescente, e contagens e valores recebem a largura necessária aos seus dados. Fonte padrão de 10 px, entrelinha 1,2 e espaçamento vertical de 2 px mantêm a densidade sem truncar valores. A prévia oferece controles por tabela e coluna, fonte, linhas e separação de anexos. O padrão pode ser salvo no navegador; controles são excluídos da impressão. A marca MRC permanece em todas as páginas.

@@ -21,8 +21,8 @@ import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {
   ArcdChartTooltip, Badge, Btn, C, C_ARCD_SETOR, ChartPanel, FornecedorEditorPilot,
   Ic, Inp, LinksDocumentosAuditaveis, Modal, ModalCotacaoWhatsApp, ModalLegendaDocumento,
-  ModoIADocumento, Sel, TabRow, TYPO,
-  arquivoComoDataUrl, calcCompras, calcOrcadoComprado, compactNumber, fmt, fmtCompact,
+  ModoIADocumento, Sel, TabRow,
+  arquivoComoDataUrl, calcOrcadoComprado, compactNumber, fmt, fmtCompact,
   fmtDate, fornecedoresParaMateriais, guardaPreco, linkWhatsApp, maiusculoOrcamento,
   melhorPrecoHist, mensagemWhatsAppCobranca, mensagemWhatsAppCompra, niveisUmOrcamento,
   oportunidadesConsolidacao, pedidosEmAtraso, proximoCodigoArcd, rotuloRamo, slaSolicitacao,
@@ -44,6 +44,11 @@ import { usePurchaseSave } from "../use-purchase-save";
 import { PurchaseNavigation, PurchaseWorkspace, PURCHASE_AREA_LABELS } from "./PurchaseWorkspace";
 import { PurchasesByWork, motivoSemControle } from "./PurchasesByWork";
 import { buildPurchasesByWork } from "../by-work";
+import { painelAdocaoCompras } from "../adoption";
+import { AdoptionPanel } from "./AdoptionPanel";
+import {
+  nomeArquivoCompras, planilhaFila, planilhaItensDosPedidos, planilhaNotas, planilhaOrcadoComprado, planilhaOrcadoPorObra, planilhaPedidos,
+} from "../export-sheets";
 import { Button } from "../../../design-system/primitives/Button";
 import { Select } from "../../../design-system/primitives/Select";
 import { conferenciaPagamentoPedido } from "../payment-conference";
@@ -74,9 +79,9 @@ import {
   validatePurchaseRequest,
 } from "../purchase-request-workflow";
 import {
-  conversionFactorOf, hasValidUnitConversion, purchaseUnitOf,
+  hasValidUnitConversion, purchaseUnitOf,
   referencePricePerPurchaseUnit, referenceQuantityOf, referenceTotalOf,
-  referenceUnitCostOf, suggestedSteelConversion,
+  suggestedSteelConversion,
 } from "../unit-conversion";
 import {
   enviarArquivoOneDrive, gerarLinkAceitePedido, listarBasesReferencia, pesquisarInsumosReferencia,
@@ -789,7 +794,6 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   // obras visíveis e podia anunciar "2 para analisar" sobre uma lista vazia.
   const solicitacoesPendentes=solicitacoes.filter(s=>s.status==="enviada").length;
 
-  const kpi = useMemo(() => calcCompras(data, obraIdsMapa), [data.pedidos, data.movEstoque, data.transacoes, obraIdsMapa]);
   const orcVs = useMemo(() => calcOrcadoComprado(data, obraAtual), [data.orcamentos, data.budgetBaselines, data.pedidos, data.materiais, obraAtual]);
   const pedidoPorIdOrc = useMemo(() => new Map((data.pedidos||[]).map(p=>[String(p.id),p])), [data.pedidos]);
   // Entregas atrasadas (todas as obras visiveis) e mapa por pedido.
@@ -857,13 +861,6 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     setAba(filtro?.area||alerta.destino);
   };
 
-  const resumoOperacional = useMemo(() => {
-    const todos=(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)&&p.status!=="cancelado");
-    const porStatus={rascunho:0,enviado:0,parcial:0,recebido:0};
-    todos.forEach(p=>{const s=statusPedido(p);porStatus[s]=(porStatus[s]||0)+1;});
-    const ultima=[...todos].sort((a,b)=>(b.data||"").localeCompare(a.data||""))[0];
-    return {total:todos.length,porStatus,ultima,fornecedores:new Set(todos.map(p=>p.fornecedorId).filter(Boolean)).size};
-  },[data.pedidos,obraIdsMapa]);
   const pedidosFinanceiros=useMemo(()=>{
     const lista=(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)&&!['cancelado','rascunho'].includes(p.status));
     return lista.filter(p=>filtroFinanceiro==="todos"||
@@ -887,6 +884,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const mapaCompras=useMemo(()=>mapaGerencialCompras(data,obraIdsMapa,today()),[
     data.pedidos,data.solicitacoesCompra,data.cotacoes,data.fornecedores,obraAtual,
     obraIdsMapa
+  ]);
+  // A0.1: só calcula quando a vista "Uso" está aberta.
+  const adocao=useMemo(()=>vistaPainel==="uso"?painelAdocaoCompras(data,obraIdsMapa,today()):null,[
+    vistaPainel,data.pedidos,data.solicitacoesCompra,data.cotacoes,data.notasFiscais,data.caixaObra,data.obras,obraIdsMapa
   ]);
   const pedidosMapa=useMemo(()=>(data.pedidos||[])
     .filter(p=>obraIdsMapa.includes(p.obraId)&&p.status!=="cancelado")
@@ -1871,6 +1872,21 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const fluxoCompras=useMemo(()=>buildPurchaseWorkspace(data,obraIdsMapa,hojeFluxo),[data,obraIdsMapa,hojeFluxo]);
   // Comparativo entre obras: só faz sentido (e só é calculado) no escopo "Todas as obras".
   const porObra=useMemo(()=>todasObras?buildPurchasesByWork(data,obras,hojeFluxo):null,[todasObras,data,obras,hojeFluxo]);
+  // A0.3: exporta exatamente o que a tela mostra (lista filtrada e escopo da obra).
+  // A biblioteca de planilha só é carregada no clique.
+  const [exportando,setExportando]=useState("");
+  const exportarExcel=async(assunto,planilhas)=>{
+    if(exportando)return;
+    setExportando(assunto);
+    try{
+      const {writeTables}=await import("../../../lib/spreadsheet");
+      await writeTables(planilhas,nomeArquivoCompras(assunto,today()));
+    }catch{showToast?.("Não foi possível gerar a planilha. Tente novamente.","error");}
+    finally{setExportando("");}
+  };
+  const botaoExportar=(assunto,planilhas,rotulo)=><Button variant="secondary" size="sm" className="purchase-export"
+    disabled={!!exportando||!planilhas.some(p=>p.linhas.length)} onClick={()=>exportarExcel(assunto,planilhas)}
+    aria-label={rotulo}>{exportando===assunto?"Gerando planilha…":"Exportar para Excel"}</Button>;
   const abrirRegistroFluxo=row=>{
     if(row.type==="order"){
       if(row.stage==="recebimentos"){setRecModal(row.record);return;}
@@ -1940,6 +1956,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {["fila","aprovacoes","recebimentos"].includes(aba)&&<PurchaseWorkspace model={fluxoCompras} area={aba} scope={escopoFluxo}
         filters={filtrosFluxo} onFiltersChange={setFiltrosFluxo} onOpen={abrirRegistroFluxo}
         supplierName={nomeForn} supplierChargeLink={linkCobrancaDoGrupo}
+        exportButton={linhas=>botaoExportar(aba,[planilhaFila(linhas)],`Exportar para Excel os ${linhas.length} registro(s) da lista`)}
         afterMetrics={porObra&&porObra.linhas.length>1?<PurchasesByWork model={porObra} onOpenWork={id=>abrirObra(id,"fila")}/>:null}/>}
 
       {aba==="kanban"&&<div className="purchase-kanban-view">
@@ -1992,11 +2009,12 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           <div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD,letterSpacing:.8,textTransform:"uppercase"}}>Comando de suprimentos</p><h3 style={{fontSize:"var(--arcd-type-section-title)",fontWeight:600,marginTop:3}}>Mapa gerencial de Compras</h3><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3,maxWidth:680,lineHeight:1.5}}>Visão do compromisso até a entrega: demanda, concorrência, fornecedor, pagamento, estoque e risco de abastecimento.</p></div>
           {!obraIdFixo&&<div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>{[["empresa","Empresa"],["obra","Obra selecionada"]].map(([v,l])=><button key={v} onClick={()=>setEscopoMapa(v)} style={{border:0,borderRadius:6,padding:"7px 10px",background:escopoMapa===v?C.card:"transparent",color:escopoMapa===v?C.text:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",boxShadow:escopoMapa===v?"0 1px 4px rgba(0,0,0,.08)":"none"}}>{l}</button>)}</div>}
         </section>
-        {/* R5: "Resumo" responde o que fazer agora; "Análises" guarda o retrato gerencial. Nenhuma ação destrutiva aqui. */}
+        {/* R5: "Resumo" responde o que fazer agora; "Análises" guarda o retrato gerencial; A0.1: "Uso da equipe" mede a adoção. Nenhuma ação destrutiva aqui. */}
         <div className="purchase-panel-views" role="tablist" aria-label="Vistas do painel de compras">
-          {[["resumo","Resumo"],["analises","Análises"]].map(([id,label])=><button key={id} type="button" role="tab" aria-selected={vistaPainel===id} onClick={()=>setVistaPainel(id)}>{label}</button>)}
+          {[["resumo","Resumo"],["analises","Análises"],["uso","Uso da equipe"]].map(([id,label])=><button key={id} type="button" role="tab" aria-selected={vistaPainel===id} onClick={()=>setVistaPainel(id)}>{label}</button>)}
         </div>
-        {vistaPainel==="resumo"?<>
+        {vistaPainel==="uso"&&adocao?<AdoptionPanel model={adocao} nomeObra={id=>(data.obras||[]).find(o=>o.id===id)?.name||"Obra"}/>
+        :vistaPainel==="resumo"?<>
         <section style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:7}}>
           {[
             ["Comprometido",fmt(mapaCompras.totalComprometido),`A faturar ${fmt(mapaCompras.totalAFaturar)}`,C.text],
@@ -2336,7 +2354,11 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             {filtrosPedidosAtivos(filtroPedidos)&&<Button variant="ghost" onClick={()=>setFiltroPedidos(FILTROS_PEDIDOS_VAZIOS)}>Limpar filtros</Button>}
           </div>
         )}
-        {pedidos.length>0&&<p className="purchase-order-count" role="status">{pedidosVisiveis.length} de {pedidos.length} pedido(s)</p>}
+        {pedidos.length>0&&<div className="purchase-order-count-row">
+          <p className="purchase-order-count" role="status">{pedidosVisiveis.length} de {pedidos.length} pedido(s)</p>
+          {botaoExportar("pedidos",[planilhaPedidos(data,pedidosVisiveis),planilhaItensDosPedidos(data,pedidosVisiveis),planilhaNotas(data,pedidosVisiveis)],
+            `Exportar para Excel os ${pedidosVisiveis.length} pedido(s) da lista, com itens e notas`)}
+        </div>}
         {Array.isArray(filtroPedidos.ids)&&<p className="purchase-order-origin" role="note">
           Mostrando os pedidos da exceção do painel <strong>{filtroPedidos.origem||"selecionada"}</strong>.
           <Button variant="ghost" size="sm" onClick={()=>patchFiltroPedidos({ids:null,origem:""})}>Ver todos os pedidos</Button></p>}
@@ -2453,6 +2475,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       </>)}
 
       {/*  ORÇADO x COMPRADO  */}
+      {aba === "orcado" && todasObras && porObra?.linhas.length>0 && <div className="purchase-export-row">
+        {botaoExportar("orcado",[planilhaOrcadoPorObra(porObra)],"Exportar para Excel o orçado × comprometido das obras")}</div>}
+      {aba === "orcado" && !todasObras && orcVs.orc && <div className="purchase-export-row">
+        {botaoExportar("orcado",[planilhaOrcadoComprado(orcVs,(obras||[]).find(o=>o.id===obraAtual)?.name||"")],"Exportar para Excel o orçado × comprometido da obra")}</div>}
       {aba === "orcado" && (
         todasObras ? (
           porObra&&porObra.linhas.length

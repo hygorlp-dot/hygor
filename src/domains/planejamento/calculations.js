@@ -24,7 +24,7 @@ const forwardStart=(link,from,current)=>{
   return from.earlyStart+lag-duration; // SF
 };
 const latestBound=(link,successor,current)=>{
-  const lag=Number(link.lagDays||0),duration=n(current.durationDays);
+  const lag=Number(link.lagDays||0);
   if(link.type==="FS")return {latestFinish:successor.latestStart-lag};
   if(link.type==="SS")return {latestStart:successor.latestStart-lag};
   if(link.type==="FF")return {latestFinish:successor.latestFinish-lag};

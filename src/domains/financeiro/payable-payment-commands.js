@@ -1,11 +1,10 @@
 import {
   saldoPagamentoPedido,
   totalPedido,
-  totalPagoPedido,
 } from "../compras/calculations.js";
 import { vincularPagamentoExistente } from "../conciliacao/mutations.js";
 import { active } from "./ledger.js";
-import { saldoPagamentoNota, totalPagoNota } from "./payables.js";
+import { saldoPagamentoNota } from "./payables.js";
 import {
   applyWorkCashCommand,
   cancelWorkCashMovementFromPayment,
@@ -32,7 +31,6 @@ const replace=(items,id,value)=>(items||[]).map(item=>String(item.id)===String(i
 const activePayments=target=>(target?.pagamentos||[]).filter(active);
 const totalOf=(type,target)=>type==="nota"
   ?Number(target?.valorLiquido||target?.valorBruto||0):totalPedido(target);
-const paidOf=(type,target)=>type==="nota"?totalPagoNota(target):totalPagoPedido(target);
 const balanceOf=(type,target)=>type==="nota"?saldoPagamentoNota(target):saldoPagamentoPedido(target);
 const actorOf=command=>({id:String(command.actorId||""),nome:String(command.actorName||"")});
 const actorName=actor=>actor.nome||"Usuário autenticado";

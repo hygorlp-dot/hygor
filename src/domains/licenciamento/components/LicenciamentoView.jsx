@@ -26,7 +26,7 @@ import { LICENSING_UPLOAD_MAX_BYTES, LICENSING_UPLOAD_MAX_MB } from "../../../on
 //  Frota própria + de terceiros, locação por obra com desconto ao cliente,
 //  manutenção, transferência entre obras e relatório mensal de lucro.
 // ============================================================================
-export default function Licenciamento({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null }) {
+export default function Licenciamento({ data, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null }) {
   const { formGrid } = useBreakpoint();
   const [obraSel,setObraSel]=useState(obraIdFixo);
   const [itemModal,setItemModal]=useState(null);
@@ -48,7 +48,9 @@ export default function Licenciamento({ data, update, showToast, obraIdFixo="", 
   const verificacoes=check.tipo==="terras_alpha_caruaru"?LIC_TERRAS_ALPHA_VERIFICACAO:[];
   const verificadas=verificacoes.filter(v=>check.verificacao?.[v.id]?.ok).length;
 
-  const salvar=async(mudanca,extras={})=>{
+  // `obra` leva campos da obra que o servidor aplica junto com o checklist
+  // (workspace do OneDrive, obraCondominioId) - a tela não regrava `obras`.
+  const salvar=async(mudanca,obra={})=>{
     if(!dispatchCommand){showToast?.("O checklist de licenciamento exige conexão com o servidor.","error");return;}
     const result=await dispatchCommand(atual=>{
       const vigente=(atual.licencas||[]).find(l=>l.obraId===obraId);
@@ -57,20 +59,19 @@ export default function Licenciamento({ data, update, showToast, obraIdFixo="", 
         idempotencyKey:`licenca-${obraId}-${uid()}`,
         expectedVersion:Number(vigente?.version||0),
         actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{license:{...vigente,...check,...mudanca,id:vigente?.id||check.id||uid(),obraId}},
+        payload:{license:{...vigente,...check,...mudanca,id:vigente?.id||check.id||uid(),obraId},...obra},
       };
     });
-    if(!result?.ok){showToast?.(result?.reason||"Não foi possível salvar o checklist de licenciamento.","error");return;}
-    if(Object.keys(extras).length)update({...data,...extras});
+    if(!result?.ok){showToast?.(result?.reason||"Não foi possível salvar o checklist de licenciamento.","error");return false;}
+    return true;
   };
-  const setItem=(docId,campos,extras={})=>salvar({itens:{...check.itens,[docId]:{...(check.itens?.[docId]||{}),...campos}}},extras);
+  const setItem=(docId,campos,obra={})=>salvar({itens:{...check.itens,[docId]:{...(check.itens?.[docId]||{}),...campos}}},obra);
   const ciclarStatus=docId=>{const ordem=["pendente","em_andamento","entregue","aprovado"];const atual=check.itens?.[docId]?.status||"pendente";const prox=atual==="na"?"pendente":ordem[(ordem.indexOf(atual)+1)%ordem.length];setItem(docId,{status:prox,data:["entregue","aprovado"].includes(prox)?today():""});};
 
-  const vincularCondominio=id=>{
+  const vincularCondominio=async id=>{
     const condo=condominios.find(x=>x.id===id);
     const tipo=condo?.checklistTipo==="terras_alpha_caruaru"?"terras_alpha_caruaru":"simplificada";
-    const obras=(data.obras||[]).map(o=>o.id===obraId?{...o,condominioId:id,condominioNome:condo?.nome||""}:o);
-    salvar({tipo},{obras});
+    if(!await salvar({tipo},{obraCondominioId:id||""}))return;
     showToast?.(condo?`${condo.nome} vinculado à obra.`:"Obra marcada como fora de condomínio.");
   };
 
@@ -101,9 +102,8 @@ export default function Licenciamento({ data, update, showToast, obraIdFixo="", 
       if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha no envio ao OneDrive.");
       const anexo={id:resp.item?.id||uid(),nome:resp.item?.name||file.name,url:resp.url||resp.item?.webUrl||"",path:resp.path||"",tipo:file.type,tamanho:file.size,enviadoEm:new Date().toISOString()};
       const documentos=[...(check.itens?.[doc.id]?.documentos||[]),anexo];
-      const obras=(data.obras||[]).map(o=>o.id===obraId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);
-      setItem(doc.id,{documentos,status:check.itens?.[doc.id]?.status==="pendente"?"em_andamento":(check.itens?.[doc.id]?.status||"em_andamento")},{obras});
-      showToast?.("Documento anexado à etapa e salvo no OneDrive.");
+      const salvo=await setItem(doc.id,{documentos,status:check.itens?.[doc.id]?.status==="pendente"?"em_andamento":(check.itens?.[doc.id]?.status||"em_andamento")},resp.workspace?{workspace:resp.workspace}:{});
+      if(salvo)showToast?.("Documento anexado à etapa e salvo no OneDrive.");
     }catch(e){showToast?.(e.message||"Não foi possível anexar o documento.","error");}finally{setAnexandoId("");}
   };
 

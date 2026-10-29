@@ -16,9 +16,9 @@ import {
 } from "../../../LegacyApp";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import {
-  getAtt, getDays, getHolidayPayRule, getPayrollHolidays,
+  getAtt, getHolidayPayRule, getPayrollHolidays,
   getPayrollPaymentCalendar, getQ, isEmployeeEmployedOnDate,
-  prIsWeekdayIso, prUniqueDates, toLocalISODate,
+  prIsWeekdayIso, prUniqueDates,
 } from "../attendance-engine";
 import { calculateAttendanceDayCost } from "../payroll";
 import { ATTENDANCE_STATUS_LABEL, isLeaveStatus, isValidAttendanceStatus } from "../attendance-status";
@@ -593,7 +593,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           <p class="legenda">P = presença integral · M = meio período · F = falta · S/R = sem registro · FP = feriado pago · FD = feriado perdido</p>
 
           <!-- Tabela principal -->
-          <table>
+          <table data-report-table-name="Folha principal">
             <thead>
               <tr>
                 <th>Funcionário</th><th>Cargo</th><th>Obra Atual</th><th>P</th><th>M</th><th>Dias Trab.</th><th>F</th><th>S/R</th><th>FP</th><th>FD</th><th>Valor Feriado</th><th>HE</th><th>Diária</th><th>Bruto</th><th>VT</th><th>VR</th><th>Adiant.</th><th>Sindicato</th><th>Líquido</th>
@@ -610,7 +610,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           <div class="section">
             <h3>Valores a pagar pelas obras de administração</h3>
             <p style="font-size:11px;color:#555">Somente parcelas alocadas por ponto em obras do tipo “Somente Administração”.</p>
-            <table><thead><tr><th>Obra</th><th>Funcionário</th><th>Cargo</th><th>Dias</th><th>Bruto</th><th>VT + VR</th><th>Adiant.</th><th>Sindicato</th><th>Líquido a pagar</th></tr></thead>
+            <table data-report-table-name="Obras de administração"><thead><tr><th>Obra</th><th>Funcionário</th><th>Cargo</th><th>Dias</th><th>Bruto</th><th>VT + VR</th><th>Adiant.</th><th>Sindicato</th><th>Líquido a pagar</th></tr></thead>
               <tbody>${linhasResponsabilidade(responsabilidadeFolha.administrationWorks)||`<tr><td colspan="9" class="vazio">Nenhum valor de folha atribuído a obras de administração.</td></tr>`}</tbody>
               <tfoot><tr class="total"><td colspan="8">TOTAL DAS OBRAS DE ADMINISTRAÇÃO</td><td class="num">${escapeHtml(fmt(responsabilidadeFolha.totals.administrationWorks))}</td></tr></tfoot>
             </table>
@@ -619,7 +619,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           <div class="section">
             <h3>Valores a pagar pela construtora</h3>
             <p style="font-size:11px;color:#555">Contratos fixos ou mistos, equipe administrativa e apontamentos sem obra identificada.</p>
-            <table><thead><tr><th>Obra / centro</th><th>Funcionário</th><th>Cargo</th><th>Dias</th><th>Bruto</th><th>VT + VR</th><th>Adiant.</th><th>Sindicato</th><th>Líquido a pagar</th></tr></thead>
+            <table data-report-table-name="Construtora"><thead><tr><th>Obra / centro</th><th>Funcionário</th><th>Cargo</th><th>Dias</th><th>Bruto</th><th>VT + VR</th><th>Adiant.</th><th>Sindicato</th><th>Líquido a pagar</th></tr></thead>
               <tbody>${linhasResponsabilidade(responsabilidadeFolha.builder)||`<tr><td colspan="9" class="vazio">Nenhum valor atribuído diretamente à construtora.</td></tr>`}</tbody>
               <tfoot><tr class="total"><td colspan="8">TOTAL DA CONSTRUTORA</td><td class="num">${escapeHtml(fmt(responsabilidadeFolha.totals.builder))}</td></tr></tfoot>
             </table>
@@ -629,7 +629,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           <div class="section">
             <h3>Detalhe de Dias Trabalhados por Obra</h3>
             <p style="font-size:11px;color:#555">Período: ${escapeHtml(fmtDateFull(days[0]))} a ${escapeHtml(fmtDateFull(days[days.length - 1]))}</p>
-            <table>
+            <table data-report-table-name="Detalhe por obra">
               <thead>
                 <tr>
                   <th>Obra</th><th>Funcionário</th><th>Cargo</th><th>Presentes</th><th>Meio Dia</th><th>Dias Trabalhados</th><th>Faltas</th><th>Sem Registro</th><th>Feriados Pagos</th><th>Bruto Alocado</th>
@@ -652,10 +652,10 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       return;
     }
     w.document.open();
-    w.document.write(marcellReportHtml(html));
+    w.document.write(marcellReportHtml(html, { adjustableTables: true }));
     w.document.close();
     w.focus();
-    window.setTimeout(() => w.print(), 300);
+    // A prévia permite ajustar colunas e linhas antes de imprimir.
   };
 
   // Exportacao tecnica: folha financeira + consolidacao por obra +

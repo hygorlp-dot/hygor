@@ -21,7 +21,7 @@ import {
   curvaS, custoEtapa, desvioAutomatico, diasCorridos, diasUteis,
   distribuicaoMensal, ehDiaUtil, fisicoFinanceiro, fisicoFinanceiroMensal,
   fmt, fmtCompact, fmtDate, fmtDateFull, fmtMesAno, fundirEvolucao,
-  idsSucessoras, janelaPlano, maiusculoOrcamento, montarCronogramaIA,
+  idsSucessoras, janelaPlano, montarCronogramaIA,
   montarTarefas, monthName, obraContextoSalvo, ordemEtapasOrcamento,
   progressoPlano, proximoDiaUtil, resumoPlano, somaDias, somaDiasUteis,
   sugerirDependenciasPlanejamento, today, uid,
@@ -174,7 +174,6 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
   const [aba,  setAba]  = useState("gantt");              // gantt | mensal | curvaS | ff
   const [ffModo, setFfModo] = useState("previsto");       // previsto | realizado (tabela FF mensal)
   const [ffMesesOcultos, setFfMesesOcultos] = useState([]); // meses escondidos na tabela FF
-  const [planColsOcultas, setPlanColsOcultas] = useState([]); // colunas ocultas no Gantt/tabela de tarefas
   const [planMostrarReal, setPlanMostrarReal] = useState(true); // mostrar linha "realizado" sob cada tarefa
   // Colunas visiveis da tabela de tarefas do Gantt. "atividade" e fixa. As
   // demais o usuario liga/desliga - util no celular, onde a largura e curta.

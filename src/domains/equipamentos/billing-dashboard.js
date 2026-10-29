@@ -341,7 +341,7 @@ export const buildWorkMemory = (model, workId) => {
 // apenas compara os valores que já vieram de calcEquipamentosPorObra.
 const rentalMarginDiagnosis = row => {
   const diagnostics = [];
-  const gross = n(row.bruto), net = n(row.receita), cost = n(row.custoDono), discount = n(row.descontos);
+  const net = n(row.receita), cost = n(row.custoDono);
   if (row.semTarifa) diagnostics.push("Locação sem tarifa");
   if (row.terceiro && Math.abs(cost - net) > 0.005) diagnostics.push("Repasse divergente da locação");
   if (net - cost < -0.005 && !diagnostics.some(item => /margem|repasse/i.test(item))) diagnostics.push("Margem negativa");

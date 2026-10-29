@@ -35,3 +35,8 @@ ruvector.db
 bundle-metrics.json
 skills-lock.json
 PRODUCT.md
+
+# Capturas e vídeos locais de verificação
+test-results-*/
+# PDFs e imagens locais de conferência visual
+/output/pdf/

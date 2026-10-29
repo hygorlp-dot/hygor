@@ -18,6 +18,9 @@
 //   (migration 016) - continua aceito para não perder batida, sem NSR fiscal.
 // A hora vem da fonte de hora oficial (./tempo/), não de new Date() solto.
 import crypto from "node:crypto";
+import { consultarEquipeObras } from "./equipe-obras.js";
+import { projectDataForUser } from "../data-projection.js";
+import { podeAcessarAba } from "../../src/domains/administracao/abas-acesso.js";
 import { calcularHashMarcacao, validarMarcacao, verificarCadeia, HASH_INICIAL, sequenciaLegadaDoAparelho } from "../../src/domains/ponto-eletronico/marcacao.js";
 import { funcionariosAtivos, terceirizadosDaObra } from "../../src/domains/ponto-eletronico/funcionarios.js";
 import { LIMITE_FOTO_BYTES } from "../../src/domains/ponto-eletronico/foto.js";
@@ -25,6 +28,7 @@ import { validarEstabelecimento, pendenciasFiscais } from "../../src/domains/pon
 import { situacaoRepP } from "../../src/domains/ponto-eletronico/rep-p.js";
 import { proporApropriacoes, validarApropriacao } from "../../src/domains/ponto-eletronico/apropriacao.js";
 import { intervaloDoDia } from "../../src/domains/ponto-eletronico/painel.js";
+import { consultarBancoHoras } from "./consulta-banco-horas.js";
 import { criarArp } from "./arp/arp.js";
 import { POLITICA_PADRAO, criarFonteHora } from "./tempo/fonte-hora.js";
 
@@ -96,6 +100,7 @@ const linhaEvento = ({ evento: e, fiscal: f }) => ({
   fiscalHash: f?.fiscal_hash || null, gravadoEm: f?.gravado_em || null,
   situacaoFiscal: f ? "registrado" : e.tipo_registro === "acesso_terceiro" ? "acesso_sem_nsr" : "sem_nsr",
   tipoRegistro: e.tipo_registro, employeeId: e.employee_id, terceiroId: e.terceiro_id, marcadoEm: e.marcado_em,
+  tipoEvento: e.payload?.versaoJornada === 1 ? e.payload.tipoEvento : null,
   horaConfiavel: e.hora_confiavel, relogioAlterado: e.relogio_alterado, fonteHora: e.fonte_hora,
   idadeReferenciaMs: e.idade_referencia_ms === null ? null : Number(e.idade_referencia_ms),
   metodo: e.metodo, confianca: e.confianca === null ? null : Number(e.confianca),
@@ -114,7 +119,7 @@ const caminhoFotoMarcacao = (obraId, marcadoEm, id) => `marcacoes/${obraId}/${St
 // existe para os testes fixarem o relógio do host.
 // verificarHoraNtp: async () => medição (tempo/ntp.js verificarHora), usada
 // pela ação ponto-tempo-verificar.
-export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO }) {
+export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, lerDadosPainel = lerDados, agora: agoraDoHost, fonteHora, verificarHoraNtp, politicaHora = POLITICA_PADRAO }) {
   const fonte = fonteHora || criarFonteHora({
     relogioHost: agoraDoHost ? () => agoraDoHost().getTime() : () => Date.now(),
     politica: politicaHora,
@@ -233,6 +238,35 @@ export function criarTratadorPonto({ db, company, autenticarUsuario, lerDados, a
       const marcacoes = [...atuais.map(linhaEvento), ...(data || []).map(linhaMarcacao)]
         .sort((a, b) => String(b.marcadoEm).localeCompare(String(a.marcadoEm)));
       return ok({ marcacoes, servidorMs: agora().getTime() });
+    },
+
+    async "ponto-banco-horas"({ body }) {
+      const { usuario, falha } = await doUsuario(body, PAPEIS_CONSULTA);
+      if (falha) return falha;
+      if (!podeAcessarAba(usuario, "ponto_app")) return erro(403, "Sem acesso à aba Ponto eletrônico.");
+      let allowedEmployeeIds = null;
+      if (usuario.role !== "admin" && texto(usuario.obraId)) {
+        const dados = await lerDadosPainel();
+        // A mesma população autorizada na leitura do cadastro: lotação ou
+        // ponto histórico na obra. Depois de escolher os funcionários, não
+        // cortar suas batidas por obra — a jornada pode atravessar obras.
+        const projetados = projectDataForUser({
+          employees: dados?.employees, attendance: dados?.attendance,
+          changeLog: dados?.changeLog, obras: dados?.obras,
+        }, usuario);
+        allowedEmployeeIds = (projetados.employees || []).map(employee => texto(employee.id)).filter(Boolean);
+      }
+      return consultarBancoHoras({
+        db, company, de: texto(body.de), ate: texto(body.ate),
+        employeeId: texto(body.employeeId), allowedEmployeeIds, consultadoEm: agora().toISOString(),
+      });
+    },
+
+    async "ponto-equipe-obras"({ body }) {
+      const { usuario, falha } = await doUsuario(body, new Set(["admin", "rh", "engenheiro", "engenheiro_auditor"]));
+      if (falha) return falha;
+      if (usuario.role !== "admin" && Array.isArray(usuario.accessTabs) && !usuario.accessTabs.includes("equipe_obras")) return erro(403, "Sem acesso à aba Equipe nas Obras.");
+      return ok(await consultarEquipeObras({ db, company, usuario, dados: await lerDadosPainel(), agora: agora().getTime() }));
     },
 
     async "ponto-foto-url"({ body }) {

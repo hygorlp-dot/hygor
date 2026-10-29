@@ -13,6 +13,23 @@ export const licensingCommandObraId = (data = {}, command = {}) =>
 const fail = reason => ({ ok: false, reason });
 const versionOf = item => Number(item?.version || 0);
 
+// A seção `obras` é exclusiva do administrador em save-sections, mas anexar um
+// documento ou vincular o condomínio no checklist precisa refletir dois campos
+// na obra. Eles viajam no próprio comando e são aplicados aqui, campo a campo,
+// em vez de o cliente regravar a lista inteira de obras (mesmo padrão de
+// updateWorkspace em financeiro/payable-payment-commands.js).
+const applyWorkspace = (obra, workspace) => {
+  if (!workspace || typeof workspace !== "object") return obra;
+  return {
+    ...obra,
+    oneDriveDriveId: String(workspace.driveId || obra.oneDriveDriveId || ""),
+    oneDriveFolderId: String(workspace.folderId || obra.oneDriveFolderId || ""),
+    oneDriveFolders: workspace.folders && typeof workspace.folders === "object"
+      ? workspace.folders : obra.oneDriveFolders,
+    oneDriveUrl: String(workspace.webUrl || obra.oneDriveUrl || ""),
+  };
+};
+
 export const applyLicensingCommand = (data = {}, command = {}, now = new Date().toISOString()) => {
   if (!LICENSING_COMMAND_TYPES.has(command.type)) return null;
 
@@ -37,7 +54,18 @@ export const applyLicensingCommand = (data = {}, command = {}, now = new Date().
     const next = current
       ? licenses.map(item => String(item.obraId) === obraId ? record : item)
       : [...licenses, record];
-    return { ok: true, entityId: id, data: { ...data, licencas: next } };
+    const payload = command.payload || {};
+    const linkCondo = Object.prototype.hasOwnProperty.call(payload, "obraCondominioId");
+    const condoId = String(payload.obraCondominioId || "").trim();
+    // O nome vem do cadastro do servidor, nunca do cliente; "" = fora de condomínio.
+    const condo = condoId ? (data.condominios || []).find(item => String(item.id) === condoId) : null;
+    if (linkCondo && condoId && !condo) return fail("O condomínio selecionado não existe.");
+    const obras = (data.obras || []).map(obra => {
+      if (String(obra.id) !== obraId) return obra;
+      const linked = linkCondo ? { ...obra, condominioId: condoId, condominioNome: condo?.nome || "" } : obra;
+      return applyWorkspace(linked, payload.workspace);
+    });
+    return { ok: true, entityId: id, data: { ...data, licencas: next, obras } };
   }
 
   const raw = command.payload?.condominium || {};

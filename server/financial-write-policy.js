@@ -120,16 +120,22 @@ export const financialActivationEvidenceGate=({
   writerReadiness=financialEnforcementReadiness(),
   factsCount=0,
   shadowRun=null,
+  ledgerComparisonVerified=false,
   divergences=[],
+  dreComparisonVerified=false,
   dreDivergences=[],
+  procurementDreComparisonVerified=false,
   procurementDreDivergences=[],
+  legacyLinksVerified=false,
   missingLegacyLinks=[],
   legacyHashesVerified=false,
   staleLegacyLinks=[],
   bankComparisonVerified=false,
   bankDivergences=[],
+  qualityCasesVerified=false,
   openQualityCases=[],
-  canonicalIntegrity={ok:true,counts:{errors:0,warnings:0}},
+  canonicalIntegrityVerified=false,
+  canonicalIntegrity={ok:false,counts:{errors:0,warnings:0}},
 }={})=>{
   const safeList=value=>Array.isArray(value)?value:[];
   const checks=[
@@ -156,31 +162,39 @@ export const financialActivationEvidenceGate=({
     },
     {
       code:"ledger_divergence",
-      ok:safeList(divergences).length===0,
-      detail:safeList(divergences).length===0
-        ?"Razão legado e canônico sem divergências."
-        :`${safeList(divergences).length} divergência(s) entre legado e razão canônico.`,
+      ok:ledgerComparisonVerified===true&&safeList(divergences).length===0,
+      detail:ledgerComparisonVerified!==true
+        ?"A comparação legado × razão canônico ainda não foi executada."
+        :safeList(divergences).length===0
+          ?"Razão legado e canônico sem divergências."
+          :`${safeList(divergences).length} divergência(s) entre legado e razão canônico.`,
     },
     {
       code:"dre_divergence",
-      ok:safeList(dreDivergences).length===0,
-      detail:safeList(dreDivergences).length===0
-        ?"DRE legado e projeção canônica sem divergências."
-        :`${safeList(dreDivergences).length} divergência(s) de DRE.`,
+      ok:dreComparisonVerified===true&&safeList(dreDivergences).length===0,
+      detail:dreComparisonVerified!==true
+        ?"A comparação da DRE ainda não foi executada."
+        :safeList(dreDivergences).length===0
+          ?"DRE legado e projeção canônica sem divergências."
+          :`${safeList(dreDivergences).length} divergência(s) de DRE.`,
     },
     {
       code:"procurement_dre_divergence",
-      ok:safeList(procurementDreDivergences).length===0,
-      detail:safeList(procurementDreDivergences).length===0
-        ?"Compras e reconhecimento no DRE sem divergências."
-        :`${safeList(procurementDreDivergences).length} divergência(s) Compras × DRE.`,
+      ok:procurementDreComparisonVerified===true&&safeList(procurementDreDivergences).length===0,
+      detail:procurementDreComparisonVerified!==true
+        ?"A comparação Compras × DRE ainda não foi executada."
+        :safeList(procurementDreDivergences).length===0
+          ?"Compras e reconhecimento no DRE sem divergências."
+          :`${safeList(procurementDreDivergences).length} divergência(s) Compras × DRE.`,
     },
     {
       code:"legacy_links",
-      ok:safeList(missingLegacyLinks).length===0,
-      detail:safeList(missingLegacyLinks).length===0
-        ?"Todos os fatos legados possuem vínculo canônico."
-        :`${safeList(missingLegacyLinks).length} fato(s) legado(s) sem legacy_record_link.`,
+      ok:legacyLinksVerified===true&&safeList(missingLegacyLinks).length===0,
+      detail:legacyLinksVerified!==true
+        ?"A cobertura dos vínculos legado → canônico ainda não foi verificada."
+        :safeList(missingLegacyLinks).length===0
+          ?"Todos os fatos legados possuem vínculo canônico."
+          :`${safeList(missingLegacyLinks).length} fato(s) legado(s) sem legacy_record_link.`,
     },
     {
       code:"legacy_hashes",
@@ -202,15 +216,19 @@ export const financialActivationEvidenceGate=({
     },
     {
       code:"quality_cases",
-      ok:safeList(openQualityCases).length===0,
-      detail:safeList(openQualityCases).length===0
-        ?"Nenhum caso financeiro de qualidade permanece aberto."
-        :`${safeList(openQualityCases).length} caso(s) financeiro(s) de qualidade permanecem abertos.`,
+      ok:qualityCasesVerified===true&&safeList(openQualityCases).length===0,
+      detail:qualityCasesVerified!==true
+        ?"Os casos financeiros de qualidade ainda não foram consultados."
+        :safeList(openQualityCases).length===0
+          ?"Nenhum caso financeiro de qualidade permanece aberto."
+          :`${safeList(openQualityCases).length} caso(s) financeiro(s) de qualidade permanecem abertos.`,
     },
     {
       code:"canonical_integrity",
-      ok:canonicalIntegrity?.ok===true,
-      detail:canonicalIntegrity?.ok===true
+      ok:canonicalIntegrityVerified===true&&canonicalIntegrity?.ok===true,
+      detail:canonicalIntegrityVerified!==true
+        ?"A auditoria estrutural do razão canônico ainda não foi executada."
+        :canonicalIntegrity?.ok===true
         ?`Integridade estrutural aprovada${Number(canonicalIntegrity?.counts?.warnings||0)?` com ${Number(canonicalIntegrity.counts.warnings)} aviso(s).`:"."}`
         :`${Number(canonicalIntegrity?.counts?.errors||0)} erro(s) estrutural(is) no razão canônico.`,
     },

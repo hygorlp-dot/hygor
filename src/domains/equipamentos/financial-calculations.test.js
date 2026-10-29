@@ -45,6 +45,27 @@ describe("motor financeiro de equipamentos", () => {
     });
   });
 
+  it("exclui manutenção cancelada do custo e do lucro do DRE",()=>{
+    const report=calcEquipamentosMes({
+      equipamentos:[{id:"e1",nome:"Betoneira",tarifas:{dia:0}}],
+      locacoesEquip:[],
+      manutencoesEquip:[
+        {id:"m1",equipamentoId:"e1",data:"2026-07-10",custo:120,pagoPor:"empresa",status:"concluida"},
+        {id:"m2",equipamentoId:"e1",data:"2026-07-11",custo:80,pagoPor:"empresa",status:"cancelada"},
+      ],
+    },"2026-07");
+    expect(report.total).toMatchObject({
+      receita:0,custoDono:0,manut:120,custo:120,lucro:-120,
+    });
+    expect(calcEquipFaturamentoEmpresa({
+      equipamentos:[{id:"e1",nome:"Betoneira",tarifas:{dia:0}}],
+      manutencoesEquip:[
+        {id:"m1",equipamentoId:"e1",data:"2026-07-10",custo:120,pagoPor:"empresa",status:"concluida"},
+        {id:"m2",equipamentoId:"e1",data:"2026-07-11",custo:80,pagoPor:"empresa",status:"cancelada"},
+      ],
+    },"2026-07")).toMatchObject({manut:120,lucro:-120});
+  });
+
   it("não perde locações de equipamento inativado ou com cadastro ausente",()=>{
     const report=calcEquipamentosMes({
       equipamentos:[{id:"inativo",ativo:false,tarifas:{dia:100}}],

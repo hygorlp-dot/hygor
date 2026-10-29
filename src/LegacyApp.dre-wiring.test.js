@@ -110,7 +110,7 @@ describe("contrato de autoria do DRE", () => {
 
   it("reconstrói no servidor uma projeção ausente ou desatualizada", () => {
     expect(api).toContain('String(currentEvent.payload?.sourceRevision||"")!==sourceRevision');
-    expect(api).toContain("buildRequestedDreProjectionRows(atual,projectionRequests,canonical.events)");
+    expect(api).toContain("buildRequestedDreProjectionRows(fonteFinanceira,projectionRequests,canonical.events)");
     expect(api).toContain('code:"DRE_PROJECTION_SYNC_FAILED"');
     expect(source).toContain('report?.status===200&&report?.source==="canonical_ledger"&&report.current');
   });

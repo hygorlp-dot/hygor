@@ -133,6 +133,10 @@ jobs:
         run: npx vitest run server/ponto-eletronico/arp/arp-concorrencia.pg.test.js
       - name: Gravação de jsonb pelo driver postgres (objeto, não texto)
         run: npx vitest run server/jsonb-gravacao.test.js server/orcamentos-linha-propria.pg.test.js
+      - name: Fechamento contra ponto e equipamentos (locks reais)
+        run: |
+          npx vitest run server/closed-dre-locking.pg.test.js --maxWorkers=2 --reporter=json --outputFile=closed-dre-locking.json
+          node -e "const r=require('./closed-dre-locking.json'); if (r.numPassedTests !== 2) { console.error('os dois testes de fechamento concorrente precisam rodar'); process.exit(1); }"
       - name: Confere que o teste rodou (não foi pulado)
         run: npx vitest run server/ponto-eletronico/arp/arp-concorrencia.pg.test.js --reporter=json --outputFile=concorrencia.json && node -e "const r=require('./concorrencia.json'); if (r.numPassedTests < 5) { console.error('teste de concorrência não rodou'); process.exit(1); }"
 
