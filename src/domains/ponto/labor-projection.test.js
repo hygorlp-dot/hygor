@@ -140,6 +140,8 @@ describe("calendário empresarial e histórico",()=>{
     historyFor(data,"2026-02-13",2,10,"e1");
     historyFor(data,"2026-02-13",1,20,"e2");
     historyFor(data,"2026-02-13",3,30,"e3");
+    // Ponto até o corte: sem ele, diaristas parados há 30 dias saem da projeção.
+    for(const id of ["e1","e2","e3"])markThroughCutoff(data,"2026-02-13","P",id);
     const report=buildLaborProjection(data,{asOf:"2026-02-13"});
     expect(report.history).toMatchObject({absenceDays:6,observedDays:60});
     expect(report.groups[0].rate).toMatchObject({source:"aggregate",numerator:6,denominator:60,value:.1});
@@ -203,6 +205,7 @@ describe("origem da taxa e vínculo por data",()=>{
   it("exige simultaneamente vinte observações e cobertura de oitenta por cento",()=>{
     const data=fixture();
     historyFor(data,"2026-02-13",0,20);
+    markThroughCutoff(data,"2026-02-13");
     const person=buildLaborProjection(data,{asOf:"2026-02-13"}).people[0];
     expect(person.history.observedDays).toBe(20);
     expect(person.history.coverage).toBeLessThan(.8);
@@ -553,3 +556,59 @@ describe("feriados e qualidade visível",()=>{
     expect(report.totals).toMatchObject({partial:false,provisional:true,unpricedDays:0});
   });
 });
+
+describe("revisão 29/10: obra do dia sem ponto, início do histórico e diaristas parados",()=>{
+  it("dia sem ponto vai para a obra do último dia trabalhado, não para a lotação desatualizada",()=>{
+    const data=fixture(baseEmployee({obra:"o1"}));
+    fillHistory(data,"2026-02-13","e1",()=>({status:"P",obraId:"o2"}));
+    for(const date of ["2026-02-06","2026-02-09","2026-02-10","2026-02-11","2026-02-12"])data.attendance.e1[date]={status:"P",obraId:"o2"};
+    const report=buildLaborProjection(data,{asOf:"2026-02-13"});
+    // 13/02 está pendente e os dias seguintes são futuros: todos na o2.
+    expect(report.groups.map(group=>group.obraId)).toEqual(["o2"]);
+    expect(report.people[0].days.filter(day=>day.date>="2026-02-13").every(day=>day.obraId==="o2")).toBe(true);
+  });
+
+  it("transferência registrada depois do último dia trabalhado prevalece",()=>{
+    const data=fixture(baseEmployee({obra:"o2",obraHistory:[{date:"2026-02-16",fromObraId:"o1",toObraId:"o2"}]}));
+    fillHistory(data,"2026-02-13","e1",()=>({status:"P",obraId:"o1"}));
+    markThroughCutoff(data,"2026-02-13");
+    const days=buildLaborProjection(data,{asOf:"2026-02-13"}).people[0].days;
+    expect(days.filter(day=>day.date>="2026-02-16").every(day=>day.obraId==="o2")).toBe(true);
+    expect(days.filter(day=>day.date<"2026-02-16").every(day=>day.obraId==="o1")).toBe(true);
+  });
+
+  it("dias anteriores ao primeiro ponto da empresa não derrubam a cobertura",()=>{
+    const data=fixture();
+    const window=resolveLaborHistoryWindow(resolveActiveLaborPeriod("2026-02-13",data));
+    // Sistema começou um mês depois da abertura da janela histórica.
+    const start=datesBetween(window.startDate,window.endDate)[31];
+    fillHistory(data,"2026-02-13","e1",date=>date>=start?(Number(date.slice(8))%10===0?"F":"P"):null);
+    markThroughCutoff(data,"2026-02-13");
+    const report=buildLaborProjection(data,{asOf:"2026-02-13"});
+    expect(report.history.trackingStart).toBe(Object.keys(data.attendance.e1).sort()[0]);
+    expect(report.people[0].history.coverage).toBe(1);
+    expect(report.people[0].rate.source).toBe("individual");
+    expect(report.totals.unpricedDays).toBe(0);
+    expect(report.assumptions.some(text=>text.includes("primeiro lançamento"))).toBe(true);
+  });
+
+  it("diarista ativo sem ponto há 30 dias sai do subtotal com pendência; CLT e admissão recente ficam",()=>{
+    const data=fixture();
+    data.employees.push(
+      baseEmployee({id:"parado",obra:"o2"}),
+      baseEmployee({id:"clt",obra:"o2",remunerationMode:"clt",monthlySalary:3000}),
+      baseEmployee({id:"novo",obra:"o2",startDate:"2026-02-02"}),
+    );
+    data.config.laborCharges={diaristaPercent:0,inssPatronalPercent:0,ratPercent:0,fap:1,terceirosPercent:0,fgtsPercent:0,multaFgtsPercent:0,provisionar13Ferias:false};
+    fillHistory(data,"2026-02-13","e1");markThroughCutoff(data,"2026-02-13");
+    data.attendance.parado={"2026-01-05":{status:"P",obraId:"o2"}};
+    data.attendance.clt={"2026-01-05":{status:"P",obraId:"o2"}};
+    const report=buildLaborProjection(data,{asOf:"2026-02-13"});
+    expect(report.people.map(person=>person.id).sort()).toEqual(["clt","e1","novo"]);
+    expect(report.issues.filter(issue=>issue.code==="NO_RECENT_ATTENDANCE")).toEqual([expect.objectContaining({employeeId:"parado",obraId:"o2"})]);
+    expect(report.totals.excludedStaleEmployees).toBe(1);
+    // Filtro de outra obra não mostra a pendência do parado.
+    expect(buildLaborProjection(data,{asOf:"2026-02-13",filters:{obraId:"o1"}}).issues.some(issue=>issue.code==="NO_RECENT_ATTENDANCE")).toBe(false);
+  });
+});
+

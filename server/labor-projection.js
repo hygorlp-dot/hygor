@@ -376,9 +376,9 @@ export const prepareLaborProjectionSource = async ({
   };
 };
 
-const TOTAL_FIELDS = ["employeeCount", "actualCost", "confirmedFutureCost", "estimatedCost", "pendingCost", "projectedCost", "fullAttendanceReserve", "futureDays", "pendingDays", "unpricedDays", "partial", "provisional"];
+const TOTAL_FIELDS = ["employeeCount", "actualCost", "confirmedFutureCost", "estimatedCost", "pendingCost", "projectedCost", "fullAttendanceReserve", "futureDays", "pendingDays", "unpricedDays", "excludedStaleEmployees", "partial", "provisional"];
 const MONEY_FIELDS = ["actualCost", "confirmedFutureCost", "estimatedCost", "pendingCost", "projectedCost", "fullAttendanceReserve"];
-const HISTORY_FIELDS = ["startDate", "endDate", "expectedDays", "eligibleDays", "observedDays", "missingDays", "excludedDays", "holidayDays", "nonWorkingDays", "absenceDays", "halfDays", "presentDays", "coverage", "representedIntervals", "limitedClassification"];
+const HISTORY_FIELDS = ["startDate", "endDate", "expectedDays", "eligibleDays", "observedDays", "missingDays", "excludedDays", "holidayDays", "nonWorkingDays", "absenceDays", "halfDays", "presentDays", "coverage", "representedIntervals", "limitedClassification", "trackingStart"];
 const isAllowedPart = (part, access) => {
   if (["administrative", "unassigned"].includes(part.kind)) return access.includeAdministrative;
   const workId = String(part.obraId || "");
