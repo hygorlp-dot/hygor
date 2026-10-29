@@ -94,7 +94,7 @@ const calculations=makeCalculations();
 const expenseCategories=COMPANY_EXPENSE_CATEGORIES.map(category=>[
   category.id,category.group,
 ]);
-const companyDre = (data,year,month,engine=calculations) => {
+const companyDre = (data,year,month,engine=calculations,includeMemorial=false) => {
   const ym=`${year}-${String(month+1).padStart(2,"0")}`,cfg=data?.config||{};
   // A DRE da empresa não pode reconstruir valores a partir das coleções
   // operacionais. A fonte é a mesma projeção de razão usada no DRE por obra.
@@ -161,8 +161,8 @@ const companyDre = (data,year,month,engine=calculations) => {
       despesa:round(despesa),resultado:round(resultado),margemPct:receita?round(resultado/receita*100):null};
   }).filter(item=>item.receita||item.despesa).sort((a,b)=>b.resultado-a.resultado);
   return Object.fromEntries(Object.entries({
-    memorial:buildDreMemorial(data,base,ym),
-    memorialRates:{deducaoISS:Number(cfg.aliquotaISS||0),deducaoPIS:Number(cfg.aliquotaPIS||0),deducaoCOFINS:Number(cfg.aliquotaCOFINS||0),provisaoIR:Number(cfg.aliquotaIR||0),provisaoCSLL:Number(cfg.aliquotaCSLL||0)},
+    ...(includeMemorial?{memorial:buildDreMemorial(data,base,ym)}:{}),
+    ...(includeMemorial?{memorialRates:{deducaoISS:Number(cfg.aliquotaISS||0),deducaoPIS:Number(cfg.aliquotaPIS||0),deducaoCOFINS:Number(cfg.aliquotaCOFINS||0),provisaoIR:Number(cfg.aliquotaIR||0),provisaoCSLL:Number(cfg.aliquotaCSLL||0)}}:{}),
     ym,faturamentoObras,receitaLocacoes,receitaCorporativa,faturamentoTotal,recebidoObras,descontoLocacoes,deducoesTributarias,
     deducaoISS,deducaoPIS,deducaoCOFINS,totalDeducoes,receitaLiquida,
     laborTotal,benefTotal,tercTotal,rescTotal,outrasDiretas,repasseEquipamentosTerceiros,manutencaoLocacoes,custoLocacoes,totalCSP,lucroBruto,margemBruta,
@@ -203,11 +203,11 @@ const yearsInData = data => {
   return Array.from({length:max-min+1},(_,index)=>min+index);
 };
 
-const buildProjectionRow = (data,{year,month,period="mes",scope="empresa"},engine=calculations) => {
+const buildProjectionRow = (data,{year,month,period="mes",scope="empresa",includeMemorial=false},engine=calculations) => {
   const sourceId=`${year}-${String(month+1).padStart(2,"0")}:${period}:${scope}`;
   if(scope==="company_dre"){
     if(period!=="mes")throw new Error("O DRE empresarial aceita apenas a competência mensal.");
-    return {sourceId,obraId:"",year,month,period,payload:companyDre(data,year,month,engine)};
+    return {sourceId,obraId:"",year,month,period,payload:companyDre(data,year,month,engine,includeMemorial)};
   }
   if(scope==="empresa"){
     const result=engine.calcDREConsolidado(data,year,month,period);
@@ -229,7 +229,7 @@ export const buildRequestedDreProjectionRows = (data,requests=[],canonicalEvents
     const scope=String(request?.scope||"empresa");
     if(!Number.isInteger(year)||!Number.isInteger(month)||month<0||month>11||!scope)continue;
     const key=`${year}-${month}:${period}:${scope}`;
-    if(!unique.has(key))unique.set(key,{year,month,period,scope});
+    if(!unique.has(key))unique.set(key,{year,month,period,scope,includeMemorial:request.includeMemorial===true});
   }
   const engine=canonicalEvents.length?makeCalculations(canonicalEvents):calculations;
   return [...unique.values()].map(request=>buildProjectionRow(data,request,engine));

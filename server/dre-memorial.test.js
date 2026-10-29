@@ -3,7 +3,7 @@ import {buildRequestedDreProjectionRows} from "./dre-projection.js";
 import {annualSourceValues} from "../src/domains/dre/annual-statement.js";
 import {canonicalDreEvents} from "./financial-dre-integration.js";
 
-const project=(data,events=[])=>buildRequestedDreProjectionRows(data,[{year:2026,month:6,scope:"company_dre"}],events)[0].payload;
+const project=(data,events=[])=>buildRequestedDreProjectionRows(data,[{year:2026,month:6,scope:"company_dre",includeMemorial:true}],events)[0].payload;
 describe("memorial do DRE",()=>{
   it("rastreia medição, nota, anexos e estorno sem contar pagamentos novamente",()=>{
     const doc={url:"https://example.com/nota.pdf",nome:"NF 20"};

@@ -6,7 +6,7 @@ test("abre o memorial, documento e obra pelo valor do DRE",async({page},testInfo
   const user={id:"qa",nome:"Financeiro QA",email:"memorial@arcd.test",role:"admin",active:true};
   const data={usuarios:[user],config:{paymentHolidays:[]},obras:[{id:"o1",name:"Obra Memorial QA",status:"active"}],employees:[],attendance:{},
     medicoes:[{id:"m1",obraId:"o1",competencia:"2026-01",dataEmissao:"2026-01-12",valorPrevisto:142130,descricao:"Medição de janeiro",documentos:[{nome:"Nota fiscal 123",url:"https://example.com/nota-123.pdf"}],observacao:"Referência isolada para teste"}]};
-  const months=buildRequestedDreProjectionRows(data,Array.from({length:12},(_,month)=>({year:2026,month,scope:"company_dre"}))).map(row=>row.payload);
+  const months=buildRequestedDreProjectionRows(data,Array.from({length:12},(_,month)=>({year:2026,month,scope:"company_dre",includeMemorial:true}))).map(row=>row.payload);
   await page.route("**/api/**",route=>route.fulfill({json:{ok:true,items:[],bases:[]}}));
   await page.route("**/api/data",route=>{
     const body=route.request().postDataJSON()||{};
