@@ -2,7 +2,8 @@ import {test,expect} from "@playwright/test";
 import {buildRequestedDreProjectionRows} from "../server/dre-projection.js";
 import {defaultAnnualLayout} from "../src/domains/dre/annual-statement.js";
 
-test("abre o memorial, documento e obra pelo valor do DRE",async({page},testInfo)=>{
+for(const view of ["anual","mensal","mensal fechado"])test(`abre o memorial, documento e obra pelo valor do DRE ${view}`,async({page},testInfo)=>{
+  await page.clock.setFixedTime(new Date("2026-01-20T12:00:00Z"));
   const user={id:"qa",nome:"Financeiro QA",email:"memorial@arcd.test",role:"admin",active:true};
   const data={usuarios:[user],config:{paymentHolidays:[]},obras:[{id:"o1",name:"Obra Memorial QA",status:"active"}],employees:[],attendance:{},
     medicoes:[{id:"m1",obraId:"o1",competencia:"2026-01",dataEmissao:"2026-01-12",valorPrevisto:142130,descricao:"Medição de janeiro",documentos:[{nome:"Nota fiscal 123",url:"https://example.com/nota-123.pdf"}],observacao:"Referência isolada para teste"}]};
@@ -12,7 +13,7 @@ test("abre o memorial, documento e obra pelo valor do DRE",async({page},testInfo
     const body=route.request().postDataJSON()||{};
     if(body.action==="profiles")return route.fulfill({json:{usuarios:[user],precisaSetup:false}});
     if(body.action==="financial-annual-dre-report")return route.fulfill({json:{ok:true,year:2026,months,layout:defaultAnnualLayout(),issues:[]}});
-    if(["financial-dre-report","financial-company-dre-report"].includes(body.action))return route.fulfill({json:{ok:true,current:null,history:[]}});
+    if(["financial-dre-report","financial-company-dre-report"].includes(body.action))return route.fulfill({json:{ok:true,source:view==="mensal fechado"?"closed_snapshot":"canonical_ledger",current:months[Number(body.month)||0],history:[]}});
     return route.fulfill({json:{ok:true,accessToken:"isolated-access",refreshToken:"isolated-refresh",usuario:user,data,updatedAt:"2026-10-28T12:00:00Z"}});
   });
   await page.goto("/");
@@ -28,8 +29,10 @@ test("abre o memorial, documento e obra pelo valor do DRE",async({page},testInfo
     if(await group.getAttribute("data-open")!=="true")await group.click();
     await body.locator(".nav-item").filter({hasText:/^DRE empresa$/}).click();
   }
-  await page.getByRole("button",{name:"DRE anual ajustável",exact:true}).click();
-  await page.getByRole("button",{name:/Receitas de obras, Jan:/}).click();
+  if(view==="anual")await page.getByRole("button",{name:"DRE anual ajustável",exact:true}).click();
+  else await page.getByRole("button",{name:"Demonstrativo",exact:true}).click();
+  const entry=page.getByRole("button",{name:view==="anual"?/Receitas de obras, Jan:/:"Consultar memorial: Faturamento de obras (medições emitidas)"});
+  await entry.click();
   const dialog=page.getByRole("dialog");await expect(dialog).toBeVisible();
   await dialog.locator("summary").filter({hasText:"Medição de janeiro"}).click();
   await expect(dialog.getByText("12/01/2026",{exact:true}).first()).toBeVisible();
@@ -38,7 +41,7 @@ test("abre o memorial, documento e obra pelo valor do DRE",async({page},testInfo
   const bounds=await dialog.boundingBox();expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.x+bounds.width).toBeLessThanOrEqual(page.viewportSize().width);
   await page.screenshot({path:testInfo.outputPath("memorial.png"),fullPage:true});
   await page.keyboard.press("Escape");await expect(dialog).not.toBeVisible();
-  await page.getByRole("button",{name:/Receitas de obras, Jan:/}).click();
+  await entry.click();
   await dialog.locator("summary").filter({hasText:"Medição de janeiro"}).click();
   await dialog.getByRole("button",{name:"Abrir obra"}).click();
   await expect(dialog).not.toBeVisible();
