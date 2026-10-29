@@ -3,9 +3,10 @@ import {marcellReportHtml} from "../../../reports/marcell-report.js";
 import {Badge,Btn,C,Ic,Inp,Modal,PageHero,Sel,uid} from "../../../LegacyApp";
 import {extrairNotaPatrimonioIA,obterDocumentoPatrimonio,subirDocumentoPatrimonio} from "../../../api";
 import {fornecedorPorDocumento,lerXmlNfe} from "../../compras/nfe-xml";
+import {loadPatrimonyPhotos} from "../report-photos.js";
 import {OPERATIONAL_COMMAND} from "../../sync/operational-commands";
 import {useBreakpoint} from "../../../hooks/useBreakpoint";
-import {isPatrimonyAssetPhotoMime,PATRIMONY_DOCUMENT_MAX_BYTES,PATRIMONY_DOCUMENT_MAX_MB} from "../document-policy";
+import {isAppleHeic,isPatrimonyAssetPhotoMime,patrimonyDocumentMime,PATRIMONY_DOCUMENT_MAX_BYTES,PATRIMONY_DOCUMENT_MAX_MB,withDataUrlMime} from "../document-policy";
 import {buildPatrimonyReportHtml} from "../report.js";
 
 const CATEGORIAS=["Informática","Telefonia","Ferramentas","Máquinas","Móveis","Eletroeletrônicos","Veículos","Segurança","Outros"];
@@ -74,10 +75,13 @@ function ImportInvoice({data,dispatchCommand,showToast,onClose}){
     try{
       const ext=String(f.name||"").split(".").pop()?.toLowerCase();
       if(Number(f.size||0)>PATRIMONY_DOCUMENT_MAX_BYTES)throw new Error(`Documento fiscal acima de ${PATRIMONY_DOCUMENT_MAX_MB} MB. Comprima o arquivo antes de importar.`);
-      let encoded=await dataUrl(f);
-      if(ext==="xml")encoded=encoded.replace(/^data:[^;]*;base64,/,"data:application/xml;base64,");
+      if(isAppleHeic(f.name,f.type))throw new Error("Foto HEIC do iPhone não é aceita. Envie o PDF da nota ou tire a foto em JPG (Ajustes > Câmera > Formatos > Mais compatível).");
+      // PDF vindo do WhatsApp/e-mail costuma chegar sem tipo: a extensão decide.
+      const mime=patrimonyDocumentMime(f.name,f.type);
+      if(!mime)throw new Error("Formato não reconhecido. Envie XML, PDF, JPG, PNG ou WEBP da nota fiscal.");
+      const encoded=withDataUrlMime(await dataUrl(f),mime==="text/xml"?"application/xml":mime);
       setRaw(encoded);
-      if(ext==="xml"||["application/xml","text/xml"].includes(f.type)){
+      if(ext==="xml"||["application/xml","text/xml"].includes(mime)){
         const n=lerXmlNfe(await f.text());if(n.erro)throw new Error(n.erro);
         setProposal({source:"xml",invoice:n,items:(n.itens||[]).map(i=>({...i,quantidade:Number(i.qtd||1),valorUnitario:Number(i.precoUnit||0),categoria:"Outros",marca:"",modelo:"",numeroSerie:"",imei:"",patrimonial:durable(i.descricao),confianca:1,justificativa:"Extraído diretamente do XML."}))});
       }else{
@@ -92,7 +96,7 @@ function ImportInvoice({data,dispatchCommand,showToast,onClose}){
     try{
       const ext=String(file.name||"").split(".").pop()?.toLowerCase()||"pdf";
       const up=await subirDocumentoPatrimonio({dataUrl:raw,ext});if(!up.ok)throw new Error(up.error||"Não foi possível arquivar a nota.");
-      const doc={name:file.name,url:"",path:up.path||"",mime:file.type||"",size:file.size||0};
+      const doc={name:file.name,url:"",path:up.path||"",mime:patrimonyDocumentMime(file.name,file.type)||file.type||"",size:file.size||0};
       const assets=[];
       for(const item of selected){
         const qty=Math.max(1,Math.trunc(Number(item.quantidade)||1));
@@ -146,18 +150,23 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
   }catch(e){showToast(e.message,"error");}finally{setBusy(false);}};
   const saveMove=async()=>{setBusy(true);try{const r=await dispatchCommand({type:OPERATIONAL_COMMAND.ASSET_MOVED,idempotencyKey:key("asset-move"),expectedVersion:Number(move?.version||0),payload:{assetId:move.id,location:move.location,custodian:move.custodian,reason:move.reason||""}});if(!r.ok)throw new Error(r.reason||"Falha ao movimentar patrimônio.");showToast("Movimentação patrimonial registrada.");setMove(null);}catch(e){showToast(e.message||"Falha ao movimentar.","error");}finally{setBusy(false);}};
   const saveStatus=async()=>{setBusy(true);try{const r=await dispatchCommand({type:OPERATIONAL_COMMAND.ASSET_STATUS_CHANGED,idempotencyKey:key("asset-status"),expectedVersion:Number(statusEdit?.version||0),payload:{assetId:statusEdit.id,status:statusEdit.nextStatus,reason:statusEdit.reason||""}});if(!r.ok)throw new Error(r.reason||"Falha ao alterar situação.");showToast("Situação patrimonial atualizada.");setStatusEdit(null);}catch(e){showToast(e.message||"Falha ao alterar situação.","error");}finally{setBusy(false);}};
-  const gerarRelatorio=()=>{
+  const gerarRelatorio=async()=>{
     if(!filtered.length){showToast("Nenhum patrimônio no recorte atual para gerar o relatório.","error");return;}
     const statusLabel=status==="todos"?"Todos os bens":status==="ativos"?"Bens ativos":(STATUS.find(item=>item.v===status)?.l||status);
     const filtro="Recorte: "+statusLabel+(search.trim()?' · Busca: "'+search.trim()+'"':"");
+    // A janela abre antes das buscas para não ser barrada como pop-up.
+    const w=window.open("","_blank");
+    if(!w){showToast("Permita pop-ups para gerar o relatório de patrimônio.","error");return;}
+    w.opener=null;
+    w.document.write("<p style=\"font-family:sans-serif;padding:24px\">Preparando relatório e fotos…</p>");
+    const photos=await loadPatrimonyPhotos(filtered,obterDocumentoPatrimonio);
     const html=buildPatrimonyReportHtml({
       assets:filtered,
       companyName:data?.config?.companyName||"MARCELL",
       filterLabel:filtro,
+      photos,
     });
-    const w=window.open("","_blank");
-    if(!w){showToast("Permita pop-ups para gerar o relatório de patrimônio.","error");return;}
-    w.opener=null;
+    w.document.open();
     w.document.write(marcellReportHtml(html));
     w.document.close();
   };

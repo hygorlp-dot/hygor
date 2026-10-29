@@ -324,9 +324,14 @@ export default async function handler(req,res){
       return res.status(403).json({error:"A leitura patrimonial da nota exige acesso corporativo de Administração, Financeiro ou Compras."});
     }
     const nome=String(req.body?.fileName||"nota").slice(0,180);
-    const raw=String(req.body?.dataUrl||"");
+    // PDF/foto sem tipo (WhatsApp, e-mail, celular): a extensão do nome decide.
+    const raw=String(req.body?.dataUrl||"").replace(/^data:(?:application\/octet-stream|binary\/octet-stream)?(;base64,)/,(all,tail)=>{
+      const ext=nome.split(".").pop().toLowerCase();
+      const mime={pdf:"application/pdf",jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",webp:"image/webp"}[ext];
+      return mime?`data:${mime}${tail}`:all;
+    });
     const match=raw.match(/^data:(application\/pdf|image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
-    if(!match)return res.status(400).json({error:"Envie PDF, JPG, PNG ou WEBP da nota fiscal."});
+    if(!match)return res.status(400).json({error:"Envie PDF, JPG, PNG ou WEBP da nota fiscal. Foto HEIC do iPhone precisa ser convertida para JPG."});
     if(base64DecodedSize(match[2])>PATRIMONY_DOCUMENT_MAX_BYTES)return res.status(413).json({error:"O documento é grande demais para análise por IA (máx. 3 MB). Comprima o PDF ou a foto."});
     const schema={type:"OBJECT",properties:{
       invoice:{type:"OBJECT",properties:{
@@ -349,28 +354,45 @@ export default async function handler(req,res){
       "A confiança varia de 0 a 1 e deve cair quando a leitura estiver ambígua. A justificativa deve ser curta e objetiva.",
       "Não determine depreciação, vida útil contábil ou classificação fiscal.",
     ].join(" ");
-    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),50000);
+    // O raciocínio do Gemini 2.5 conta no limite de saída: sem teto, notas com
+    // muitos itens saíam cortadas e viravam "JSON inválido". Sobrecarga
+    // momentânea (500/503/504) ganha uma nova tentativa.
+    const requestBody={
+      systemInstruction:{parts:[{text:system}]},
+      contents:[{role:"user",parts:[
+        {text:`Documento: ${nome}. Extraia a nota e proponha os itens que podem entrar no patrimônio da empresa.`},
+        {inlineData:{mimeType:match[1],data:match[2]}},
+      ]}],
+      generationConfig:{maxOutputTokens:24000,temperature:0.03,responseMimeType:"application/json",responseSchema:schema,thinkingConfig:{thinkingBudget:1024}},
+    };
+    const startedAt=Date.now();
     let response;
-    try{
-      response=await geminiRequest(apiKey,aiConfig.model,{
-        systemInstruction:{parts:[{text:system}]},
-        contents:[{role:"user",parts:[
-          {text:`Documento: ${nome}. Extraia a nota e proponha os itens que podem entrar no patrimônio da empresa.`},
-          {inlineData:{mimeType:match[1],data:match[2]}},
-        ]}],
-        generationConfig:{maxOutputTokens:8000,temperature:0.03,responseMimeType:"application/json",responseSchema:schema},
-      },controller.signal);
-    }finally{clearTimeout(timeout);}
+    for(let attempt=1;attempt<=2;attempt+=1){
+      const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),attempt===1?45000:Math.max(5000,55000-(Date.now()-startedAt)));
+      try{response=await geminiRequest(apiKey,aiConfig.model,requestBody,controller.signal);}
+      catch(error){
+        if(error?.name!=="AbortError"||attempt===2)return res.status(504).json({error:"A leitura da nota demorou demais. Tente de novo ou envie um PDF menor (só as páginas da nota).",code:"AI_TIMEOUT"});
+        continue;
+      }finally{clearTimeout(timeout);}
+      if(!TRANSIENT_PROVIDER_STATUS.has(response.status)||attempt===2||Date.now()-startedAt>30000)break;
+      await new Promise(resolve=>setTimeout(resolve,1500));
+    }
     if(!response.ok){
       const bodyErr=await response.json().catch(()=>({})),providerMessage=providerMessageFrom(bodyErr);
       if(isInvalidKey(response.status,providerMessage))return res.status(502).json({error:"A autenticação do Gemini precisa ser atualizada pelo administrador.",code:"AI_AUTH_INVALID"});
       if(response.status===429)return res.status(429).json({error:"O limite do Gemini foi atingido. Tente novamente mais tarde.",code:"AI_RATE_LIMIT"});
-      return res.status(502).json({error:"A IA não conseguiu ler a nota fiscal.",code:"AI_PROVIDER_ERROR"});
+      if(TRANSIENT_PROVIDER_STATUS.has(response.status))return res.status(503).json({error:"O Gemini está sobrecarregado agora. Tente de novo em alguns minutos.",code:"AI_PROVIDER_BUSY"});
+      if(response.status===400)return res.status(422).json({error:"O Gemini não conseguiu abrir este arquivo. Se o PDF tiver senha ou estiver corrompido, gere o PDF de novo ou envie uma foto nítida da nota.",code:"AI_DOCUMENT_REJECTED",detail:providerMessage.slice(0,200)});
+      return res.status(502).json({error:"A IA não conseguiu ler a nota fiscal.",code:"AI_PROVIDER_ERROR",detail:providerMessage.slice(0,200)});
     }
     const body=await response.json();
-    const rawJson=(body.candidates?.[0]?.content?.parts||[]).map(part=>part.text||"").join("").trim();
+    const candidate=body.candidates?.[0];
+    const rawJson=(candidate?.content?.parts||[]).filter(part=>!part.thought).map(part=>part.text||"").join("").trim()
+      .replace(/^```(?:json)?\s*/i,"").replace(/\s*```$/,"");
+    if(candidate?.finishReason==="MAX_TOKENS")return res.status(422).json({error:"A nota tem itens demais para ler de uma vez. Envie só as páginas com os itens patrimoniais ou divida o PDF.",code:"AI_OUTPUT_TRUNCATED"});
+    if(!rawJson)return res.status(422).json({error:`A IA não retornou dados da nota (${body.promptFeedback?.blockReason||candidate?.finishReason||"sem conteúdo"}). Envie um PDF ou uma foto mais nítida.`,code:"AI_EMPTY"});
     let parsed;
-    try{parsed=JSON.parse(rawJson);}catch{return res.status(422).json({error:"A IA não devolveu dados estruturados válidos.",code:"AI_INVALID_JSON"});}
+    try{parsed=JSON.parse(rawJson);}catch{return res.status(422).json({error:"A IA não devolveu dados estruturados válidos. Tente de novo; se repetir, envie uma foto nítida da nota.",code:"AI_INVALID_JSON"});}
     const digits=value=>String(value||"").replace(/\D/g,"");
     const money=value=>Number.isFinite(Number(value))?Math.max(0,Number(value)):0;
     const invoice={

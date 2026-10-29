@@ -105,7 +105,7 @@ test("receber parcialmente a prazo atualiza estoque e saldo sem registrar pagame
   expect(app.state().pedidos.find(order=>order.id==="delivery").itens[0].qtdRecebida).toBe(4);
   expect(app.state().pedidos.find(order=>order.id==="delivery").pagamentos).toEqual([]);
   expect(app.state().movEstoque.filter(movement=>movement.pedidoId==="delivery").reduce((sum,movement)=>sum+movement.qtd,0)).toBe(4);
-  await page.reload();await openPurchases(page);await selectWork(page);await navigate(page,"Receber");
+  await page.reload();await expect(page.locator(".purchase-header")).toBeVisible();await selectWork(page);await navigate(page,"Receber");
   await page.getByRole("button",{name:"Receber materiais · PC-001"}).click();
   await expect(page.getByRole("dialog").getByLabel("Chegou agora (UN)")).toHaveValue("6");
   expect(app.errors).toEqual([]);
@@ -609,7 +609,15 @@ test("ficha conjunta mostra custo final, pedidos e notas com anexos no celular",
   await page.setViewportSize({width:390,height:844});
   await expect(dialog).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
-  await page.screenshot({path:"test-results/compras-ficha-mobile.png",fullPage:true});
+  await dialog.getByRole("button",{name:"Custos",exact:true}).click();
+  await expect(dialog.locator('[data-section="cost"]')).toBeFocused();
+  const comparison=dialog.getByRole("region",{name:"Valores das propostas"});
+  expect(await comparison.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+  await page.screenshot({path:"test-results/compras-ficha-mobile.png"});
+  await dialog.getByRole("button",{name:"Anexos (1)",exact:true}).click();
+  await expect(dialog.locator('[data-section="documents"]')).toBeFocused();
+  await expect(dialog.getByRole("button",{name:"Visualizar",exact:true})).toBeInViewport();
+  await page.screenshot({path:"test-results/compras-anexos-mobile.png"});
   expect(app.commands).toEqual([]);expect(app.errors).toEqual([]);
 });
 

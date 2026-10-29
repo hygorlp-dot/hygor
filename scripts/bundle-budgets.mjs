@@ -54,8 +54,12 @@
 // roda fora da thread principal). Carga inicial praticamente estável:
 // LegacyApp +4,6 kB (530 → 535 kB, dentro dos 570 kB). Folga modesta de
 // sempre. Se precisar recuperar margem: tirar o JSZip de dentro do worker.
+// Ajuste em 29/10/2026 (PR #221): fotos embutidas no relatório patrimonial
+// e normalização de MIME da NF. CI mediu 1.781.936 bytes (1.740,17 KiB),
+// 176 bytes acima do total anterior. Acréscimo limitado a 1 KiB;
+// os limites individuais de chunks e de mídia permanecem iguais.
 export const BUNDLE_BUDGETS = Object.freeze({
-  totalGzipBytes: 1_740 * 1024,
+  totalGzipBytes: 1_741 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,
