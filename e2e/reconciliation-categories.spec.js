@@ -117,7 +117,7 @@ test("categoria de entrada preserva competência distinta e classificação apó
   expect(app.state().payments).toEqual(expect.arrayContaining([expect.objectContaining({categoria:"receita_servicos",competencia:"2026-09",date:"2026-10-20",amount:1230})]));
   expect(buildFinancialLedger(app.state()).events).toEqual(expect.arrayContaining([expect.objectContaining({effect:"revenue",category:"receita_servicos",competence:"2026-09",amountCents:123000})]));
   await page.reload(); await openReconciliation(page);
-  await page.getByRole("button",{name:/^Conciliadas/}).click();
+  await page.getByRole("button",{name:/^Conciliados/}).click();
   const filter=page.getByRole("combobox",{name:"Filtrar categoria",exact:true});
   await filter.fill("servicos"); await page.getByRole("option",{name:/Receita de serviços/}).click();
   await expect(page.locator(".reconciliation-row")).toHaveCount(1);
