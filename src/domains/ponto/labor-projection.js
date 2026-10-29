@@ -6,10 +6,10 @@ import {
 } from "./attendance-engine.js";
 import { isLeaveStatus, isValidAttendanceStatus, workedFactor } from "./attendance-status.js";
 import { normalizeAttendanceRecord } from "./records.js";
-import { resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "./permissions.js";
+import { resolveEmployeeAttendanceObraId, resolveHistoricalEmployeeObraId, resolveHolidayObraId } from "./permissions.js";
 
-export const LABOR_PROJECTION_POLICY=Object.freeze({minimumObservedDays:20,minimumCoverage:0.8});
-export const LABOR_PROJECTION_METHODOLOGY_VERSION="2026-10-29.1";
+export const LABOR_PROJECTION_POLICY=Object.freeze({minimumObservedDays:20,minimumCoverage:0.8,staleWorkDays:30});
+export const LABOR_PROJECTION_METHODOLOGY_VERSION="2026-10-29.2";
 export const LABOR_PROJECTION_ASSUMPTIONS=Object.freeze({
   calendar:"O calendário é o da Folha: segunda a sexta, com feriados tratados separadamente; jornada em horas não cria uma escala semanal.",
   history:"A janela contém os três meses de calendário anteriores à abertura da quinzena e não muda na virada do mês.",
@@ -25,6 +25,9 @@ export const LABOR_PROJECTION_ASSUMPTIONS=Object.freeze({
   futureAttendance:"P ou M lançado em data futura não é presença já ocorrida; o dia ordinário permanece estimado.",
   futureAbsence:"Há F lançado em data futura. O cenário preserva o lançamento explícito, que deve ser conferido e não constitui desconto automático.",
   overtime:"Somente horas extras explicitamente registradas neste dia entram na simulação; extras de outros dias não são repetidas.",
+  trackingStart:"O sistema só tem ponto registrado a partir do primeiro lançamento da empresa; dias anteriores não contam como dado ausente na cobertura.",
+  allocation:"Dia sem ponto (futuro ou pendente) é atribuído à obra do último dia trabalhado até o corte, como no feriado; a lotação do cadastro vale apenas sem trabalho nos 31 dias anteriores.",
+  stale:"Diarista ativo sem nenhum ponto nos últimos 30 dias fica fora do subtotal e da reserva; confirme desligamento ou afastamento no cadastro.",
   rounding:"Cada parcela diária de mão de obra e benefícios é arredondada em centavos; totais somam esses centavos. Encargos já integram mão de obra.",
 });
 export const LABOR_PROJECTION_ISSUE_MESSAGES=Object.freeze({
@@ -48,6 +51,7 @@ export const LABOR_PROJECTION_ISSUE_MESSAGES=Object.freeze({
   HOLIDAY_ALLOCATION_CONDITIONAL:"A obra responsável pelo feriado depende de trabalho ainda futuro ou pendente.",
   PLANNED_OVERTIME:"A simulação contém horas extras explicitamente previstas para este dia.",
   OFF_SCHEDULE_ATTENDANCE:"Registro fora dos dias úteis do calendário da Folha; não entrou na exposição ordinária.",
+  NO_RECENT_ATTENDANCE:"Diarista ativo sem ponto nos últimos 30 dias: ficou fora da projeção. Confirme desligamento, afastamento ou lotação.",
   THIRD_PARTY_NOT_INCLUDED:"Contratos de terceiros não foram projetados por fator semanal: faltam motor e calendário do ciclo nesta fonte de mão de obra.",
 });
 
@@ -244,10 +248,26 @@ export function buildLaborProjection(data={},options={}) {
     recordsByEmployee.set(id,records);
   }
   const cleanData={...data,archivedLaborCosts:{},attendance:Object.fromEntries(recordsByEmployee)};
+  // Antes do primeiro ponto lançado na empresa não existe fonte: esses dias não
+  // são "dado ausente" e não podem derrubar a cobertura de todos.
+  const trackingStart=Object.values(data.attendance||{}).flatMap(records=>Object.keys(records||{})).filter(isoDate).sort()[0]||null;
+  // Obra de um dia sem ponto: a do último P/M até o corte (regra do feriado),
+  // salvo transferência registrada no cadastro depois desse dia.
+  const lotationAt=(employee,date)=>resolveHistoricalEmployeeObraId({employee,date,transferEvents:data.changeLog||[],obras:data.obras||[]});
+  const projectedObraId=(employee,date,record)=>{
+    if(record?.obraId||date<=asOf&&record?.status)return resolveEmployeeAttendanceObraId({data:cleanData,employee,date,record});
+    const records=cleanData.attendance?.[String(employee.id)]||{};
+    for(let cursor=addDays(date>asOf?addDays(asOf,1):date,-1),index=0;index<31;cursor=addDays(cursor,-1),index++){
+      if(!["P","M"].includes(rawStatus(records[cursor])))continue;
+      if(lotationAt(employee,cursor)!==lotationAt(employee,date))break;
+      return resolveEmployeeAttendanceObraId({data:cleanData,employee,date:cursor,record:records[cursor]});
+    }
+    return resolveEmployeeAttendanceObraId({data:cleanData,employee,date,record:null});
+  };
   const historyCells=[],byEmployee=new Map(),pools=new Map(),historyProblems=new Map();
   for(const current of employees){
     const id=String(current.id),cells=[];
-    for(const date of datesBetween(window.startDate,window.endDate)){
+    for(const date of datesBetween(trackingStart&&trackingStart>window.startDate?trackingStart:window.startDate,window.endDate)){
       const employee=employeeAt(current,date),source=sourceAt(id,date),classified=classification(data.attendance?.[id]?.[date],source);
       const relation=employed(current,employee,date,classified.status);if(relation.value===false)continue;
       const holiday=isHoliday(date),obraId=holiday?resolveHolidayObraId({data:cleanData,employee,holidayIso:date}):resolveEmployeeAttendanceObraId({data:cleanData,employee,date,record:classified.record});
@@ -296,14 +316,28 @@ export function buildLaborProjection(data={},options={}) {
   for(const issue of sourceIssues)addIssue(String(issue.code||"HISTORY_SOURCE_INCOMPLETE"),{...(issue.employeeId?{employeeId:String(issue.employeeId)}:{}),...(isoDate(issue.date)?{date:issue.date}:{})},issue.severity||"warning");
   const thirdParties=data.terceirizados||data.terceiros||[];
   if(Array.isArray(thirdParties)&&thirdParties.some(item=>item&&item.active!==false))addIssue("THIRD_PARTY_NOT_INCLUDED");
+  const staleSince=addDays(asOf,-LABOR_PROJECTION_POLICY.staleWorkDays+1);
+  const staleEmployee=current=>{
+    const id=String(current.id),employee=employeeAt(current,asOf);
+    if(!trackingStart||trackingStart>staleSince||modeAt(employee,asOf)!=="daily")return false;
+    if(employed(current,employee,asOf,null).value!==true||(isoDate(employee.startDate)&&employee.startDate>staleSince))return false;
+    return !Object.keys(data.attendance?.[id]||{}).some(date=>date>=staleSince&&date<=asOf&&rawStatus(data.attendance[id][date]));
+  };
   for(const current of employees){
     const id=String(current.id),actualRecords=recordsByEmployee.get(id)||{},reserveRecords={...actualRecords};
+    if(staleEmployee(current)){
+      const employee=employeeAt(current,asOf),group=groupFor(data,employee,projectedObraId(employee,addDays(asOf,1),null));
+      if(allowedGroup(group,options.access)&&matchesFilters({...group,employeeId:id,role:employee.role||"",mode:"daily",partition:"pending",issueCodes:["NO_RECENT_ATTENDANCE"]},filters)){
+        addIssue("NO_RECENT_ATTENDANCE",{employeeId:id,obraId:group.obraId,groupId:group.id,stale:true});allAssumptions.add(LABOR_PROJECTION_ASSUMPTIONS.stale);
+      }
+      continue;
+    }
     for(const date of datesBetween(period.startDate,addDays(period.endDate,7))){
       if(!prIsWeekdayIso(date)||isHoliday(date))continue;
       const employee=employeeAt(current,date),classified=classification(data.attendance?.[id]?.[date],sourceAt(id,date));
       if(employed(current,employee,date,classified.status).value!==true)continue;
       if((date>asOf&&!isLeaveStatus(classified.status)&&classified.status!=="F")||!classified.status){
-        reserveRecords[date]={status:"P",ot:0,obraId:resolveEmployeeAttendanceObraId({data:cleanData,employee,date,record:classified.record})};
+        reserveRecords[date]={status:"P",ot:0,obraId:projectedObraId(employee,date,classified.record)};
       }
     }
     const makeData=(employee,records)=>({...data,employees:[employee],attendance:{[id]:records},archivedLaborCosts:{}});
@@ -317,7 +351,7 @@ export function buildLaborProjection(data={},options={}) {
       const employee=employeeAt(current,date),source=sourceAt(id,date),classified=classification(data.attendance?.[id]?.[date],source);
       const status=classified.status,relation=employed(current,employee,date,status),future=date>asOf,holiday=isHoliday(date);
       const addExcludedRecordIssue=code=>{
-        const obraId=holiday?resolveHolidayObraId({data:cleanData,employee,holidayIso:date}):resolveEmployeeAttendanceObraId({data:cleanData,employee,date,record:classified.record});
+        const obraId=holiday?resolveHolidayObraId({data:cleanData,employee,holidayIso:date}):projectedObraId(employee,date,classified.record);
         const group=groupFor(data,employee,obraId);
         const context={...group,employeeId:id,role:classified.record?.role||employee.role||"",mode:modeAt(employee,date),partition:"pending",issueCodes:[code]};
         if(allowedGroup(group,options.access)&&matchesFilters(context,filters))addIssue(code,{employeeId:id,date,obraId:group.obraId,groupId:group.id});
@@ -332,7 +366,7 @@ export function buildLaborProjection(data={},options={}) {
       }
       const mode=modeAt(employee,date),monthly=mode==="clt"&&positive(employee.monthlySalary);
       const baseRecord=classified.record||{},scenarioRecord=code=>{
-        const record={status:code,ot:Math.max(0,Number(baseRecord.ot)||0),obraId:resolveEmployeeAttendanceObraId({data:cleanData,employee,date,record:baseRecord})};
+        const record={status:code,ot:Math.max(0,Number(baseRecord.ot)||0),obraId:projectedObraId(employee,date,classified.record)};
         for(const key of ["archivedDailyRate","archivedVtDaily","archivedVrDaily","archivedWorkdayHours","archivedOvertimeAdditionalPercent"])if(Object.hasOwn(baseRecord,key))record[key]=baseRecord[key];
         return record;
       };
@@ -440,16 +474,19 @@ export function buildLaborProjection(data={},options={}) {
   }).sort((a,b)=>a.name.localeCompare(b.name));
   const issueKeys=new Set();
   const issues=allIssues.filter(issue=>{
-    if(issue.employeeId&&!visibleIds.has(issue.employeeId))return false;
-    const excludedRecord=["OFF_SCHEDULE_ATTENDANCE","OUTSIDE_EMPLOYMENT_RECORD"].includes(issue.code);
+    if(issue.employeeId&&!visibleIds.has(issue.employeeId)&&!issue.stale)return false;
+    const excludedRecord=["OFF_SCHEDULE_ATTENDANCE","OUTSIDE_EMPLOYMENT_RECORD","NO_RECENT_ATTENDANCE"].includes(issue.code);
     if(issue.groupId&&!excludedRecord&&!visibleRows.some(row=>row.groupId===issue.groupId&&(!issue.employeeId||row.employeeId===issue.employeeId)&&(!issue.date||row.date===issue.date)))return false;
     const key=[issue.code,issue.employeeId,issue.date,issue.groupId].join("|");if(issueKeys.has(key))return false;issueKeys.add(key);return true;
   });
   const totals=totalsFor(visibleRows,asOf);
+  totals.excludedStaleEmployees=issues.filter(issue=>issue.code==="NO_RECENT_ATTENDANCE").length;
+  if(trackingStart&&trackingStart>window.startDate)allAssumptions.add(LABOR_PROJECTION_ASSUMPTIONS.trackingStart);
+  allAssumptions.add(LABOR_PROJECTION_ASSUMPTIONS.allocation);
   totals.partial||=sourceIssues.some(issue=>issue.affectsHistory!==false)||issues.some(issue=>issue.code==="THIRD_PARTY_NOT_INCLUDED");
   totals.provisional||=sourceIssues.some(issue=>issue.affectsHistory===false);
   const result={methodologyVersion:LABOR_PROJECTION_METHODOLOGY_VERSION,policy:{...LABOR_PROJECTION_POLICY},generatedAt:options.generatedAt||null,asOf,timeZone,period,
-    history:historySummary(selectedHistory,window),totals,groups,people,issues,assumptions:[...allAssumptions],filters,options:filterOptions};
+    history:{...historySummary(selectedHistory,window),trackingStart},totals,groups,people,issues,assumptions:[...allAssumptions],filters,options:filterOptions};
   // Evidência interna para a fronteira de autorização manter o seletor estável
   // após um filtro de tela. A whitelist nunca devolve esta estrutura ao cliente.
   result._authorizedPeople=[...authorizedIds].map(id=>({id,groups:[...new Map(authorizedRows

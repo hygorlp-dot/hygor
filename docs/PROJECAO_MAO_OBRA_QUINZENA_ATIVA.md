@@ -39,6 +39,14 @@ F histórico anterior à classificação separada de afastamentos é identificad
 
 O exemplo de aceitação é testado: R$ 900 apurados + quatro dias futuros de R$ 150 com taxa de 10% = **R$ 1.440**. A reserva de presença integral é **R$ 1.500**.
 
+## Revisão de 29/10/2026 (metodologia 2026-10-29.2)
+
+Achados conferidos com contagens agregadas da base de produção, sem dados pessoais:
+
+- **Obras sem ninguém trabalhando recebiam custo.** Dia sem ponto (futuro ou pendente) usava a lotação do cadastro. Como as equipes rodam entre obras, a lotação ficava desatualizada: ALPHAVILLE, K1-02, PRÉDIO e BASE DE DADOS (concluída) não tiveram ponto na quinzena 2026-10-Q2 e apareciam com custo. Agora o dia sem ponto vai para a obra do último P/M até o corte, a mesma regra do feriado. Uma transferência registrada no cadastro depois desse dia prevalece. Sem trabalho nos 31 dias anteriores, vale a lotação.
+- **Cobertura derrubada por período sem sistema.** Os registros começam em 21/08/2026, e a janela 21/07–20/10 contava o primeiro mês como dado ausente. A cobertura média caía para cerca de 65% e 34 de 38 pessoas ficavam sem taxa; daí os "dias sem valor calculável". Dias anteriores ao primeiro ponto da empresa (`history.trackingStart`) não entram como esperados. De 21/08 em diante a cobertura média é de 96%.
+- **Diarista ativo parado.** Diarista ativo, admitido há mais de 30 dias e sem nenhum ponto nos últimos 30 dias sai do subtotal e da reserva, com a pendência `NO_RECENT_ATTENDANCE` (conte em `totals.excludedStaleEmployees`). CLT mensal não é excluído, porque o salário de competência continua devido.
+
 ## Integridade dos custos e do caixa
 
 O módulo usa `createLaborCostEngine`, com uma pessoa/data/cenário por chamada. O custo de mão de obra já incorpora encargos; o total acrescenta benefícios uma única vez. A simulação limpa resumos arquivados agregados para não duplicar a fotografia bruta reconstruída.
