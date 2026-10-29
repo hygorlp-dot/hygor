@@ -1,3 +1,4 @@
+import { reconcileImportedStatement } from "../server/reconciliation-after-import.js";
 // ═══════════════════════════════════════════════════════════════════
 // /api/data — a única porta de entrada para o banco
 //
@@ -138,6 +139,12 @@ const SPLIT_ROW_KEYS = Object.freeze({
   [DOMAIN_ROW.RDO]: RDO_KEY,
   [DOMAIN_ROW.ORCAMENTOS]: ORCAMENTOS_KEY,
 });
+const validarImportacaoAutomatica=async(before,after,command)=>{
+  const competence=validarConciliacaoEmCompetenciaAberta(before,command);
+  if(!competence.ok)return competence;
+  return validarImutabilidadeDreFechado({before,after});
+};
+
 // Fase 1.5 reduzida (22/08/2026): `data.attendance` sai da linha "meta" de
 // Ponto (PONTO_KEY, que continua só com locks/unlockRequests/
 // dailyCheckDate/receipts) e passa a viver numa linha própria POR OBRA -
@@ -1389,7 +1396,7 @@ const executarComandoOperacionalBloqueado=async({
     mutate:async({payload:current,updatedAt,transaction})=>{
       const scope=validateOperationalCommandScope({user:usuario,data:current,command});
       if(!scope.ok)return {kind:"error",status:scope.error.includes("vinculado")?400:403,error:scope.error};
-      const executed=applyOperationalCommand(current,{
+      let executed=applyOperationalCommand(current,{
         ...command,actorId:usuario.id,actorRole:usuario.role||"",
         actorName:usuario.nome||usuario.email||"Usuário autenticado",
       });
@@ -1400,6 +1407,7 @@ const executarComandoOperacionalBloqueado=async({
       if(executed.idempotent)return {
         kind:"idempotent",data:current,updatedAt,
       };
+      executed=await reconcileImportedStatement(executed,command,usuario,validarImportacaoAutomatica);
       if(protectClosedDre){
         const closedGuard=await validarImutabilidadeDreFechado({
           before:current,after:executed.data,
@@ -2844,11 +2852,12 @@ export default async function handler(req, res) {
       const dominioInicial=linhaEfetivaParaEscrita(domainAlvo,rowVersions);
       let base={payload:atual,domain:dominioInicial,rowVersions,updatedAt:dominioInicial===DOMAIN_ROW.CORE?updatedAt:rowVersions[domainAlvo]};
       for(let attempt=0;attempt<6;attempt+=1){
-        const result=applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorRole:usuario.role||"",actorName:usuario.nome||usuario.email||"Usuário autenticado"});
+        const result=await reconcileImportedStatement(applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorRole:usuario.role||"",actorName:usuario.nome||usuario.email||"Usuário autenticado"}),command,usuario,validarImportacaoAutomatica);
         if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:base.updatedAt});
         if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(base.payload,usuario),updatedAt:base.updatedAt});
         const gravacao=await persistir(base,result.data);
         if(gravacao.applied){
+          if(command.type===OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED)await sincronizarComprasAlteradas(base.payload,result.data,usuario);
           if(indicePerfisMudou(base.payload,result.data))await atualizarIndicePerfisSeguro(result.data);
           return res.status(200).json({
             ok:true,
