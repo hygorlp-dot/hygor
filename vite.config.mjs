@@ -5,7 +5,12 @@ import {fileURLToPath, URL} from "node:url";
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {"@": fileURLToPath(new URL("./src", import.meta.url))},
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // O alvo moderno do Vite já suporta Promise, Symbol e Object.assign.
+      // A distribuição bare mantém o ExcelJS sem duplicar seus polyfills ES5.
+      "exceljs": "exceljs/dist/exceljs.bare.min.js",
+    },
   },
   // O formato padrão de worker do Vite é "iife" - incompatível com
   // `new Worker(url, {type:"module"})`, que sinapi-parser.worker.js e
