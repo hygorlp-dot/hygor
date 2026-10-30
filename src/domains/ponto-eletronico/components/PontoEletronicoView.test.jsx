@@ -91,7 +91,7 @@ describe("consulta de batidas", () => {
     renderizar();
     expect(container.textContent).toContain("Carregando as batidas deste dia");
     expect(container.querySelector(".pe-day-totals")).toBeNull();
-    expect(container.querySelector(".pe-table")).toBeNull();
+    expect(container.querySelector(".punch-conference__table table")).toBeNull();
     expect(container.textContent).not.toContain("Nenhum funcionário ativo lotado");
     const refresh = vi.fn();
     snapshot = dadosDoHook({ marcacoes: recurso(null, { success: false, lastUpdated: null, error: "Servidor indisponível.", refresh }) });
@@ -107,32 +107,30 @@ describe("consulta de batidas", () => {
     renderizar();
     expect(container.textContent).toContain("Não foi possível atualizar as batidas deste dia");
     expect(container.textContent).toContain("Exibindo a consulta de 28/10");
-    expect(container.querySelector(".pe-table").textContent).toContain("Ana da Silva");
+    expect(container.querySelector(".punch-conference__table table").textContent).toContain("Ana da Silva");
     expect(container.querySelector(".pe-day-totals").textContent).toContain("Batidas recebidas: 3");
   });
 
   it("filtra por pessoa e situação sem alterar as batidas; expõe nomes e legenda úteis", async () => {
     renderizar();
     expect(container.querySelector("h1").textContent).toBe("Ponto eletrônico");
-    expect(container.querySelector(".pe-table caption").textContent).toContain("Obra Norte");
-    expect(container.querySelectorAll('.pe-table th[scope="col"]')).toHaveLength(3);
-    expect(container.querySelectorAll('.pe-table th[scope="row"]')).toHaveLength(3);
-    expect(container.textContent).toContain("Jornadas em aberto no dia: 1");
-    expect(container.textContent).not.toContain("Em jornada agora");
+    expect(container.querySelector(".punch-conference__table table caption").textContent).toContain("Obra Norte");
+    expect(container.querySelectorAll('.punch-conference__table table th[scope="col"]')).toHaveLength(3);
+    expect(container.querySelectorAll('.punch-conference__table table th[scope="row"]')).toHaveLength(3);
+    expect(container.textContent).not.toContain("Jornada fechada");
     expect(botao("Ver batida de Ana da Silva às 07:00 em " + controle("Dia").value.split("-").reverse().join("/"))).toBeTruthy();
-    await clicar(botao("A conferir: 1 funcionário"));
-    expect(container.querySelector(".pe-table").textContent).toContain("Bruno Almeida");
-    expect(container.querySelector(".pe-table").textContent).not.toContain("Ana da Silva");
-    expect(container.querySelector("#pe-legenda-alerta")).toBeTruthy();
-    await clicar(botao("Sem batida recebida: 1 funcionário"));
-    expect(container.querySelector(".pe-table").textContent).toContain("Caio Santos");
-    expect(container.querySelector("#pe-legenda-alerta")).toBeNull();
-    await clicar(botao("Limpar filtros"));
+    preencher(controle("Situação da conferência"), "conferir");
+    expect(container.querySelector(".punch-conference__table table").textContent).toContain("Bruno Almeida");
+    expect(container.querySelector(".punch-conference__table table").textContent).toContain("Ana da Silva");
+    expect(container.querySelector(".punch-conference__table table").textContent).not.toContain("Caio Santos");
+    preencher(controle("Situação da conferência"), "sem_batida");
+    expect(container.querySelector(".punch-conference__table table").textContent).toContain("Caio Santos");
+    preencher(controle("Situação da conferência"), "");
     preencher(controle("Buscar funcionário"), "ANA");
-    expect(container.querySelectorAll(".pe-table tbody tr")).toHaveLength(1);
-    expect(container.querySelector(".pe-table").textContent).toContain("Ana da Silva");
+    expect(container.querySelectorAll(".punch-conference__table table tbody tr")).toHaveLength(1);
+    expect(container.querySelector(".punch-conference__table table").textContent).toContain("Ana da Silva");
     preencher(controle("Buscar funcionário"), "nome inexistente");
-    expect(container.textContent).toContain("Nenhum funcionário neste filtro.");
+    expect(container.textContent).toContain("Nenhum funcionário encontrado para os filtros selecionados.");
     expect(chamarPontoEletronico).not.toHaveBeenCalled();
   });
 
@@ -156,7 +154,7 @@ describe("consulta de batidas", () => {
     const segunda = diferida();
     vi.mocked(chamarPontoEletronico).mockImplementation((_acao, payload) => payload.marcacaoId === "m-ana" ? primeira.promise : segunda.promise);
     renderizar();
-    const horarios = [...container.querySelectorAll(".pe-punch")];
+    const horarios = [...container.querySelectorAll(".punch-conference__events button")];
     await clicar(horarios.find(el => el.getAttribute("aria-label").includes("Ana da Silva")));
     await clicar(horarios.find(el => el.getAttribute("aria-label").includes("Bruno Almeida") && el.textContent.includes("07:10")));
     await act(async () => { primeira.resolve({ ok: true, url: "https://example.test/foto-ana.jpg" }); });
@@ -172,7 +170,7 @@ describe("consulta de batidas", () => {
     const segunda = diferida();
     vi.mocked(chamarPontoEletronico).mockReturnValueOnce(primeira.promise).mockReturnValueOnce(segunda.promise);
     renderizar();
-    const batida = [...container.querySelectorAll(".pe-punch")].find(el => el.getAttribute("aria-label").includes("Ana da Silva"));
+    const batida = [...container.querySelectorAll(".punch-conference__events button")].find(el => el.getAttribute("aria-label").includes("Ana da Silva"));
     await clicar(batida);
     await clicar(botao("Fechar"));
     await clicar(batida);
@@ -282,7 +280,7 @@ describe("configurações com confirmação explícita", () => {
     expect(botao("Parear aparelho")).toBeUndefined();
     expect(botao("Definir PIN de um responsável")).toBeUndefined();
     expect(botao("Excluir biometria de Ana da Silva")).toBeUndefined();
-    expect(container.querySelector(".pe-table").textContent).toContain("Ana da Silva");
+    expect(container.querySelector(".punch-conference__table table").textContent).toContain("Ana da Silva");
   });
 
   it("informa expiração do pareamento e permite gerar outro código", async () => {

@@ -151,7 +151,7 @@ const diaValido = dia => {
  * globais dependem apenas do usuário/perfil. Dados históricos são atualizados
  * manualmente; o dia atual e os aparelhos têm polling após cada conclusão.
  */
-export function usePontoEletronico({ obraId, dia, podeGerir = false, scopeKey = "" }) {
+export function usePontoEletronico({ obraId, dia, podeGerir = false, todasObras = false, scopeKey = "" }) {
   const enabled = !!obraId;
   const periodo = diaValido(dia) ? intervaloDoDia(dia) : null;
   const dispositivos = usePontoRecurso({
@@ -159,7 +159,7 @@ export function usePontoEletronico({ obraId, dia, podeGerir = false, scopeKey = 
     scopeKey, enabled, pollIntervalMs: INTERVALO_ATUALIZACAO_PONTO_MS,
   });
   const marcacoes = usePontoRecurso({
-    action: "ponto-marcacoes", payload: { obraId, ...periodo }, select: selecionarMarcacoes,
+    action: "ponto-marcacoes", payload: { ...(!todasObras ? { obraId } : {}), ...periodo }, select: selecionarMarcacoes,
     scopeKey, enabled: enabled && !!periodo,
     pollIntervalMs: dia === dataLocal(new Date().toISOString()) ? INTERVALO_ATUALIZACAO_PONTO_MS : 0,
   });

@@ -26,7 +26,8 @@ export const restoreArchivedAttendance = ({attendance = {}, archiveAttendance = 
         mantidos += 1;
         continue;
       }
-      target[date] = {...record,...(rates.get(String(employeeId))||{})};
+      target[date] = {...record,...(rates.get(String(employeeId))||{}),
+        ...(record?.pontoReview ? {archivedWorkdayHours:record.archivedWorkdayHours,archivedWorkStart:record.archivedWorkStart} : {})};
       devolvidos += 1;
     }
     restored[employeeId] = target;
