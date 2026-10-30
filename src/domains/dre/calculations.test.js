@@ -267,3 +267,46 @@ describe("pagamento direto do cliente no DRE da obra (D-C)", () => {
     expect(cliente.totalCustos).toBe(empresa.totalCustos);
   });
 });
+
+describe("custo acumulado da obra (gestão à vista)", () => {
+  const diasDoMes = (y, m) => { const mm = String(m + 1).padStart(2, "0"); return [`${y}-${mm}-06`, `${y}-${mm}-20`]; };
+  const motor = createDreCalculations({
+    getDays: diasDoMes,
+    getQ: (y, m) => ({ q1: diasDoMes(y, m), q2: diasDoMes(y, m) }),
+    monthName: () => "Mês",
+    calcObraLaborCost: () => ({ laborCost: 600, benefitCost: 100 }),
+    calcEquipCustoObra: () => 100,
+    calcEquipFaturamentoEmpresa: () => ({ receita: 0, lucro: 0 }),
+  });
+  const dados = {
+    ...data,
+    obras: [{ id: "obra-1", name: "Obra 1", contractValue: 10000, startDate: "2026-06-15" }],
+    outrasDesp: [
+      { obraId: "obra-1", competencia: "2026-06", valor: 250 },
+      { obraId: "obra-1", competencia: "2026-07", valor: 100 },
+    ],
+  };
+
+  test("segue a competência do DRE mensal mesmo com NF emitida em outro mês", () => {
+    const comNotas = { ...dados, notasFiscais: [
+      { id: "nf-1", obraId: "obra-1", numero: "1", valorBruto: 900, competencia: "2026-06", emissao: "2026-07-03" },
+      { id: "nf-2", obraId: "obra-1", numero: "2", valorBruto: 400, emissao: "2026-05-20" },
+    ] };
+    const soma = [5, 6].reduce((total, mes) => total + motor.calcDREObra(comNotas, "obra-1", 2026, mes).totalCustos, 0);
+    expect(motor.calcCustoAcumuladoObra(comNotas, "obra-1", 2026, 6).custo).toBeCloseTo(soma, 2);
+  });
+
+  test("é igual à soma dos DREs mensais desde o início da obra", () => {
+    const junho = motor.calcDREObra(dados, "obra-1", 2026, 5).totalCustos;
+    const julho = motor.calcDREObra(dados, "obra-1", 2026, 6).totalCustos;
+    const acumulado = motor.calcCustoAcumuladoObra(dados, "obra-1", 2026, 6);
+    expect(acumulado).toMatchObject({ inicio: "2026-06", fim: "2026-07", meses: 2 });
+    expect(acumulado.custo).toBeCloseTo(junho + julho, 2);
+    expect(acumulado.custo).toBe(2 * (600 + 100 + 100) + 250 + 100);
+  });
+
+  test("sem data de início não presume período; antes do início é zero", () => {
+    expect(motor.calcCustoAcumuladoObra({ ...dados, obras: [{ id: "obra-1" }] }, "obra-1", 2026, 6)).toBeNull();
+    expect(motor.calcCustoAcumuladoObra(dados, "obra-1", 2026, 4)).toMatchObject({ custo: 0, meses: 0 });
+  });
+});

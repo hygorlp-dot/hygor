@@ -151,6 +151,8 @@ import { projectAlertAction, validateProjectForm } from "./domains/obras/project
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
 import { calcSaldos } from "./domains/estoque/calculations";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "./domains/ponto/permissions";
+import { resumoGestaoAVista } from "./domains/dashboard/gestao-a-vista.js";
+import GestaoAVistaObras from "./domains/dashboard/components/GestaoAVistaObras.jsx";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
@@ -3561,6 +3563,7 @@ const {
   calcDREHistorico,
   calcVisaoFinanceira,
   calcProjecaoContratoObra,
+  calcCustoAcumuladoObra,
   calculateFinancialRanking:calcularRankingFinanceiro,
   calculateMonthlyFinancialReport:calcRelatorioMensal,
 } = createFinancialCalculationEngine({
@@ -3932,7 +3935,7 @@ function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync
 
 // Dashboard executivo premium. A tela trabalha por exceção: primeiro mostra
 // saúde da empresa, depois o que exige decisão e só então os resumos de apoio.
-function Dashboard({ data, update, showToast, onTab, ultimaSync, currentUser, onBuscar, onAtualizar, saveState }) {
+function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, currentUser, onBuscar, onAtualizar, saveState }) {
   const { cols, isDesktop } = useBreakpoint();
   const agora=new Date();
   const [periodo,setPeriodo]=useState({y:agora.getFullYear(),m:agora.getMonth()});
@@ -3946,6 +3949,9 @@ function Dashboard({ data, update, showToast, onTab, ultimaSync, currentUser, on
   const fimMes=`${ym}-${String(new Date(year,month+1,0).getDate()).padStart(2,"0")}`;
   const abasPermitidas=allowedTabsForUser(currentUser);
   const filaOperador=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
+  // Gestão à vista: sempre o dia de hoje, independente do mês escolhido no topo.
+  const gestaoAVista=useMemo(()=>resumoGestaoAVista(data,{hoje,custoAcumulado:calcCustoAcumuladoObra,
+    obraDoDia:(employee,date,record)=>resolveEmployeeAttendanceObraId({data,employee,date,record})}),[data,hoje]);
 
   // Resumo diário (clima + notícias do setor): carrega uma vez por sessão de
   // dashboard, cacheado 15min no servidor — não precisa refazer a cada render.
@@ -3988,6 +3994,7 @@ function Dashboard({ data, update, showToast, onTab, ultimaSync, currentUser, on
     {/* Marca d'água institucional: grande, porém abaixo de todo o conteúdo. */}
 
     <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={filaOperador} onBuscar={onBuscar} onAtualizar={onAtualizar} onAbrir={onTab} periodo={`${fullMonth(month)} ${year}`} onAnterior={()=>irMes(-1)} onProximo={()=>irMes(1)} proximoDesabilitado={ehAtual} clima={resumoDiario.clima} saveState={saveState}/>
+    {abasPermitidas.includes("obras")&&<GestaoAVistaObras resumo={gestaoAVista} hoje={hoje} onAbrirObra={onAbrirObra}/>}
     <FilaOperador fila={filaOperador} onTab={onTab}/>
     <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticias}/>
@@ -17899,7 +17906,7 @@ export default function App() {
 
           {tab === "home"   && (["engenheiro","engenheiro_auditor"].includes(currentUser?.role)
             ? <DashboardEngenheiro data={data} update={update} showToast={showToast} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser} saveState={estadoSalvar}/>
-            : <Dashboard data={data} update={update} showToast={showToast} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}
+            : <Dashboard data={data} update={update} showToast={showToast} onTab={setTab} onAbrirObra={obraId=>irPara("obras",obraId)} ultimaSync={ultimaSync} currentUser={currentUser}
                               onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} saveState={estadoSalvar} />)}
           {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV} allowedTabs={allowedTabs}/>}
           {tab === "chat" && <Comunicacao data={data} currentUser={currentUser} showToast={showToast}/>}

@@ -71,8 +71,10 @@
 // (cabeçalho, abas, botões, selos) e menu de ações do Patrimônio. CI mediu
 // 1.785.295 bytes, 463 acima do teto. Acréscimo limitado a 1 KiB; limites por
 // chunk e de mídia permanecem iguais.
+// 30/10/2026: painel "Suas obras hoje" (gestão à vista) no Painel inicial,
+// +3,6 KB gzip medidos (2,5 KB JS + 0,8 KB CSS). Teto +4 KiB.
 export const BUNDLE_BUDGETS = Object.freeze({
-  totalGzipBytes: 1_744 * 1024,
+  totalGzipBytes: 1_748 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,

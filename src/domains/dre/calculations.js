@@ -55,6 +55,13 @@ export const calculateContractProjection = (work, laborCost, extraCosts = {}) =>
 // Adaptadores públicos do DRE. A fórmula financeira vive exclusivamente no
 // ledger; as dependências injetadas apenas traduzem ponto e equipamentos,
 // cujos motores operacionais continuam em seus módulos próprios.
+// Avanço físico oficial da obra: o maior percentual acumulado entre as medições
+// percentuais. Sem medição percentual, null (o DRE mostra 0; o painel, "sem medição").
+export const avancoFisicoMedido = (data, obraId) => {
+  const meds = (data.medicoes || []).filter(measurement => measurement.obraId === obraId && measurement.tipo === "percentual");
+  return meds.length ? Math.max(...meds.map(measurement => Number(measurement.percentualAcumulado || 0))) : null;
+};
+
 export const createDreCalculations = ({
   getDays,
   getQ,
@@ -181,8 +188,7 @@ export const createDreCalculations = ({
     const tercEmpresaObra = fromCents(ledger.events
       .filter(event => event.effect === "cash_out" && event.category === "terceirizado" && event.obraId === obraId && event.date >= ctx.per0 && event.date <= ctx.perF && event.metadata?.pagador === "empresa")
       .reduce((sum,event)=>sum+event.amountCents,0));
-    const meds = (data.medicoes || []).filter(measurement => measurement.obraId === obraId && measurement.tipo === "percentual");
-    const pctAvanco = meds.length ? Math.max(...meds.map(measurement => Number(measurement.percentualAcumulado || 0))) : 0;
+    const pctAvanco = avancoFisicoMedido(data, obraId) ?? 0;
     return {
       obra, ym:ctx.ym, periodo, days:ctx.days, per0:ctx.per0, perF:ctx.perF,
       faturamento, recebido, aReceber, medDoMes,
@@ -313,6 +319,25 @@ export const createDreCalculations = ({
     };
   };
 
+  // Custo acumulado da obra, do mês de início até o mês informado (painel de
+  // gestão à vista): é por definição a soma dos totalCustos do calcDREObra
+  // mensal, para o painel nunca divergir do DRE da obra (competência, data de
+  // emissão e eventos sem data seguem a regra mensal). Sem data de início,
+  // devolve null: o painel mostra o dado como ausente em vez de presumir um período.
+  const calcCustoAcumuladoObra = (data, obraId, year, month) => {
+    const obra = (data.obras || []).find(item => item.id === obraId);
+    const inicio = String(obra?.startDate || obra?.contractStart || "").slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(inicio)) return null;
+    const fim = `${year}-${String(month + 1).padStart(2, "0")}`;
+    let y = Number(inicio.slice(0, 4)), m = Number(inicio.slice(5, 7)) - 1, meses = 0, custo = 0;
+    while (`${y}-${String(m + 1).padStart(2, "0")}` <= fim) {
+      custo += Number(calcDREObra(data, obraId, y, m).totalCustos || 0);
+      meses += 1;
+      if (m === 11) { y += 1; m = 0; } else m += 1;
+    }
+    return { custo, inicio, fim, meses };
+  };
+
   const calcVisaoFinanceira = (data, year, month, obraId = "all") => {
     const selectedWorks = (data.obras || []).filter(work => obraId === "all" || work.id === obraId);
     const rows = selectedWorks.map(work => {
@@ -423,6 +448,6 @@ export const createDreCalculations = ({
 
   return {
     diasPeriodoDRE, calcDREObra, calcDREConsolidado, calcDREHistorico,
-    calcVisaoFinanceira, calcProjecaoContratoObra,
+    calcVisaoFinanceira, calcProjecaoContratoObra, calcCustoAcumuladoObra,
   };
 };
