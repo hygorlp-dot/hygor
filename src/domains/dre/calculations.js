@@ -327,36 +327,48 @@ export const createDreCalculations = ({
     };
   };
 
-  // Custo acumulado por obra, do mês de início até o mês informado (painel de
-  // gestão à vista). É por definição a soma dos totalCustos do calcDREObra
-  // mensal (mesmo filtro: competência do mês, data no mês e situação na data),
-  // para o painel nunca divergir do DRE da obra. O razão é montado uma vez com
-  // os eventos de todos os meses e obras e só o filtro é aplicado mês a mês.
-  // Sem data de início a obra fica null: o painel mostra o dado como ausente.
-  const mesesDaObra = (obra, fim) => {
-    const inicio = String(obra?.startDate || obra?.contractStart || "").slice(0, 7);
-    if (!/^\d{4}-\d{2}$/.test(inicio)) return null;
+  // Custo acumulado por obra até o mês informado (painel de gestão à vista).
+  // É por definição a soma dos totalCustos do calcDREObra mensal (mesmo filtro:
+  // competência do mês, data no mês e situação na data), para o painel nunca
+  // divergir do DRE da obra. O razão é montado uma vez com os eventos de todos
+  // os meses e obras e só o filtro é aplicado mês a mês. Começa no mês de início
+  // da obra ou antes, se já houver custo com competência anterior (compra
+  // antecipada). Sem data de início a obra fica null: o painel mostra "sem custo".
+  const proximoMes = ym => {
+    const y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+    return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+  };
+  const mesesEntre = (de, ate) => {
     const meses = [];
-    let y = Number(inicio.slice(0, 4)), m = Number(inicio.slice(5, 7)) - 1;
-    while (`${y}-${String(m + 1).padStart(2, "0")}` <= fim) {
-      meses.push(context(y, m, "mes"));
-      if (m === 11) { y += 1; m = 0; } else m += 1;
-    }
-    return { inicio, meses };
+    for (let ym = de; ym <= ate; ym = proximoMes(ym)) meses.push(context(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1, "mes"));
+    return meses;
   };
   const calcCustoAcumuladoObras = (data, obraIds, year, month) => {
     const fim = `${year}-${String(month + 1).padStart(2, "0")}`;
-    const periodos = new Map(obraIds.map(obraId =>
-      [obraId, mesesDaObra((data.obras || []).find(item => item.id === obraId), fim)]));
-    const supplemental = [...periodos].flatMap(([obraId, periodo]) =>
-      (periodo?.meses || []).flatMap(ctx => supplementalForWork(data, obraId, ctx).events));
-    const ledger = buildFinancialLedger(data, { supplementalEvents: [...supplemental, ...canonicalEvents] });
-    return Object.fromEntries([...periodos].map(([obraId, periodo]) => [obraId, periodo && {
-      inicio: periodo.inicio, fim, meses: periodo.meses.length,
-      custo: periodo.meses.reduce((total, ctx) => total + selectDRE(ledger, {
-        obraId, startDate:ctx.per0, endDate:ctx.perF, asOfDate:ctx.perF, competence:ctx.ym,
-      }).costs, 0),
-    }]));
+    const inicios = new Map(obraIds.map(obraId => {
+      const obra = (data.obras || []).find(item => item.id === obraId);
+      const inicio = String(obra?.startDate || obra?.contractStart || "").slice(0, 7);
+      return [obraId, /^\d{4}-\d{2}$/.test(inicio) ? inicio : null];
+    }));
+    const montar = primeiros => buildFinancialLedger(data, { supplementalEvents: [
+      ...[...primeiros].flatMap(([obraId, de]) => de ? mesesEntre(de, fim).flatMap(ctx => supplementalForWork(data, obraId, ctx).events) : []),
+      ...canonicalEvents,
+    ] });
+    // 1ª montagem a partir do início; se houver custo com competência anterior,
+    // remonta incluindo ponto e equipamento desses meses, como o DRE mensal faz.
+    let ledger = montar(inicios);
+    const primeiros = new Map([...inicios].map(([obraId, inicio]) => [obraId, inicio && ledger.events.reduce((menor, event) =>
+      event.obraId === obraId && event.effect === "cost" && /^\d{4}-\d{2}$/.test(event.competence || "")
+        && event.competence < menor ? event.competence : menor, inicio)]));
+    if ([...primeiros].some(([obraId, de]) => de !== inicios.get(obraId))) ledger = montar(primeiros);
+    return Object.fromEntries([...primeiros].map(([obraId, de]) => {
+      if (!de) return [obraId, null];
+      const meses = mesesEntre(de, fim);
+      return [obraId, { inicio: de, fim, meses: meses.length,
+        custo: meses.reduce((total, ctx) => total + selectDRE(ledger, {
+          obraId, startDate:ctx.per0, endDate:ctx.perF, asOfDate:ctx.perF, competence:ctx.ym,
+        }).costs, 0) }];
+    }));
   };
   const calcCustoAcumuladoObra = (data, obraId, year, month) =>
     calcCustoAcumuladoObras(data, [obraId], year, month)[obraId];

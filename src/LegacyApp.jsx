@@ -3949,20 +3949,30 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
   const abasPermitidas=allowedTabsForUser(currentUser);
   const filaOperador=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
   // Gestão à vista: sempre o dia de hoje, independente do mês escolhido no topo.
-  // O custo vem do servidor (mesmo motor e títulos nativos do DRE por obra) e é
-  // pedido de novo a cada sincronização; sem acesso à DRE, a coluna fica restrita.
+  // O custo vem do servidor (mesmo motor e títulos nativos do DRE por obra).
+  // Vai só até o mês fechado, então basta renová-lo a cada 5 minutos de
+  // sincronização: recalcular a cada salvamento pesaria no servidor à toa.
+  // Sem acesso à DRE, a coluna fica restrita.
   const veObras=abasPermitidas.includes("obras");
   const veCusto=abasPermitidas.includes("dre")||abasPermitidas.includes("dre_emp");
   const [custosObras,setCustosObras]=useState({status:"carregando",obras:{},custoAte:""});
+  const custoBuscadoEm=useRef({chave:"",em:0});
   useEffect(()=>{
     if(!veObras)return;
     if(!veCusto){setCustosObras({status:"sem-acesso",obras:{},custoAte:""});return;}
-    let ativo=true;
     const {ano,mes}=ultimoMesFechado(hoje);
+    const chave=`${ano}-${mes}`,agoraMs=Date.now();
+    if(custoBuscadoEm.current.chave===chave&&agoraMs-custoBuscadoEm.current.em<5*60*1000)return;
+    custoBuscadoEm.current={chave,em:agoraMs};
+    let ativo=true,concluida=false;
     consultarCustoAcumuladoObras({year:ano,month:mes}).then(r=>{
-      if(ativo)setCustosObras(r?.ok?{status:"ok",obras:r.obras||{},custoAte:r.custoAte||""}:{status:"erro",obras:{},custoAte:""});
+      concluida=true;
+      if(!ativo)return;
+      if(!r?.ok)custoBuscadoEm.current={chave:"",em:0};
+      setCustosObras(r?.ok?{status:"ok",obras:r.obras||{},custoAte:r.custoAte||""}:{status:"erro",obras:{},custoAte:""});
     });
-    return ()=>{ativo=false};
+    // Resposta descartada no meio do caminho não pode travar a próxima busca.
+    return ()=>{ativo=false;if(!concluida)custoBuscadoEm.current={chave:"",em:0};};
   },[veObras,veCusto,hoje,ultimaSync]);
   const gestaoAVista=useMemo(()=>resumoGestaoAVista(data,{hoje,custoAcumulado:(_,obraId)=>custosObras.obras[obraId]??null,
     obraDoDia:(employee,date,record)=>resolveEmployeeAttendanceObraId({data,employee,date,record})}),[data,hoje,custosObras]);

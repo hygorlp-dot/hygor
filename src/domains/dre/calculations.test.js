@@ -292,8 +292,12 @@ describe("custo acumulado da obra (gestão à vista)", () => {
       { id: "nf-1", obraId: "obra-1", numero: "1", valorBruto: 900, competencia: "2026-06", emissao: "2026-07-03" },
       { id: "nf-2", obraId: "obra-1", numero: "2", valorBruto: 400, emissao: "2026-05-20" },
     ] };
-    const soma = [5, 6].reduce((total, mes) => total + motor.calcDREObra(comNotas, "obra-1", 2026, mes).totalCustos, 0);
-    expect(motor.calcCustoAcumuladoObra(comNotas, "obra-1", 2026, 6).custo).toBeCloseTo(soma, 2);
+    // nf-2 é compra antecipada (maio, antes do início em junho): também entra.
+    const soma = [4, 5, 6].reduce((total, mes) => total + motor.calcDREObra(comNotas, "obra-1", 2026, mes).totalCustos, 0);
+    const acumulado = motor.calcCustoAcumuladoObra(comNotas, "obra-1", 2026, 6);
+    expect(acumulado).toMatchObject({ inicio: "2026-05", meses: 3 });
+    expect(acumulado.custo).toBeCloseTo(soma, 2);
+    expect(motor.calcDREObra(comNotas, "obra-1", 2026, 4).totalCustos).toBe(400 + 600 + 100 + 100);
   });
 
   test("é igual à soma dos DREs mensais desde o início da obra", () => {

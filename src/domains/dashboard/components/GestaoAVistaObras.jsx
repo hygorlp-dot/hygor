@@ -25,6 +25,9 @@ const SEM_CUSTO={carregando:"Calculando o custo…","sem-acesso":"Custo visível
 function CustoAvanco({linha,custoStatus}){
   if(custoStatus!=="ok")return <span className="gav-vazio">{SEM_CUSTO[custoStatus]||SEM_CUSTO.erro}</span>;
   if(linha.orcado===null)return <span className="gav-vazio">Sem orçamento aprovado</span>;
+  if(!linha.orcado)return <span className="gav-vazio">Orçamento aprovado sem valor</span>;
+  // Custo null nunca é "gasto 0%": o servidor não calcula obra sem data de início.
+  if(linha.custo===null||linha.gastoPct===null)return <span className="gav-vazio">Custo não calculado (obra sem data de início)</span>;
   if(linha.avanco===null)return <span className="gav-vazio">Gasto {pct(linha.gastoPct)} · sem medição</span>;
   const aFrente=linha.desvio!==null&&linha.desvio>=R.atencaoDesvio;
   return <div className="gav-custo">

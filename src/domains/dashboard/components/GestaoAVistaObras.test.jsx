@@ -60,3 +60,11 @@ it("sem acesso à DRE não desenha barra de custo e avisa que a situação ignor
   expect(container.querySelector(".gav__sub").textContent).not.toContain("custo até");
   expect(container.querySelector(".gav__legenda").textContent).toContain("Sem o custo, a situação considera só prazo e ponto.");
 });
+
+it("obra sem custo calculado nunca aparece como gasto 0%", async () => {
+  const semCusto = { ...resumo, linhas: [linha({ custo: null, gastoPct: null, desvio: null, situacao: "ok" })] };
+  await act(async () => root.render(<GestaoAVistaObras resumo={semCusto} hoje="2026-10-30" />));
+  expect(container.querySelector(".gav-custo__barra")).toBeNull();
+  expect(container.textContent).not.toContain("0%");
+  expect(container.textContent).toContain("Custo não calculado (obra sem data de início)");
+});
