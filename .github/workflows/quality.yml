@@ -155,6 +155,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Login e Ponto em navegador real
         run: npm run test:e2e
+      - name: Conferência do RH em desktop e celular
+        run: npx playwright test --config playwright.ponto-review.config.js
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

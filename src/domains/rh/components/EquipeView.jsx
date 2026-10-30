@@ -1,4 +1,6 @@
 import { laborArea } from "../labor-area.js";
+import WorkScheduleFields from "./WorkScheduleFields.jsx";
+import "../../ponto-eletronico/components/conferencia-batidas.css";
 // ===================================================================
 // EquipeView — tela "Equipes" (cadastro/gestão de funcionários),
 // extraída de src/LegacyApp.jsx em 2026-08-20, mesma técnica já usada
@@ -530,8 +532,9 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 <Inp label={form.remunerationMode==="clt"?"Diária de referência para custeio do ponto *":"Diária *"} type="number" value={form.dailyRate} onChange={F("dailyRate")} error={formErrors.dailyRate}/>
                 <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} />
                 <Inp label="VR diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} />
-                <Inp label="Jornada padrão (horas)" type="number" min="1" max="24" value={form.workdayHours} onChange={F("workdayHours")} />
-                <Inp label="Início previsto da jornada" type="time" value={form.workStart} onChange={F("workStart")} />
+                <WorkScheduleFields employee={form} onChange={F("workScheduleDraft")} />
+                <Inp label="Jornada de referência sem escala (horas)" type="number" min="1" max="24" value={form.workdayHours} onChange={F("workdayHours")} />
+                <Inp label="Início de referência sem escala" type="time" value={form.workStart} onChange={F("workStart")} />
                 <Inp label="Adicional de hora extra (%)" type="number" min="0" value={form.overtimeAdditionalPercent} onChange={F("overtimeAdditionalPercent")} />
                 </>}
               </div>
