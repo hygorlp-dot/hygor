@@ -2,7 +2,7 @@
 // (data URL) para o PDF. Falha de uma foto não impede o relatório.
 const thumbnail=async blob=>{
   const bitmap=await createImageBitmap(blob);
-  const scale=Math.min(1,320/Math.max(bitmap.width,bitmap.height));
+  const scale=Math.min(1,640/Math.max(bitmap.width,bitmap.height));
   const canvas=document.createElement("canvas");
   canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
   canvas.getContext("2d").drawImage(bitmap,0,0,canvas.width,canvas.height);

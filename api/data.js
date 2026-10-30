@@ -167,7 +167,7 @@ const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // migra sozinha para ela - sem exigir nenhuma ordem de deploy específica.
 const linhaEfetivaParaEscrita = (domain, rowVersions) =>
   (domain!==DOMAIN_ROW.CORE && rowVersions[domain]==null) ? DOMAIN_ROW.CORE : domain;
-const DRE_PROJECTION_VERSION = "2026-10-fila-integrada-custos-competencia-v9";
+const DRE_PROJECTION_VERSION = "2026-10-competencia-nf-atrasada-v11";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
   "changeLog",
