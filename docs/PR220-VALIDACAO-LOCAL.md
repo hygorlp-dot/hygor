@@ -7,10 +7,20 @@ publicação conjunta. A #229 já havia sido integrada e publicada pelo chat
 responsável na main `2ba5daa67b0150da63890afcd741ecbdd282f567`. Essa versão foi
 preservada na branch da #220, incorporando a resolução de imports já testada na
 branch de compatibilidade. Comparada ao commit de compatibilidade `230a68d`, a
-consolidação altera somente este registro documental; o código executável é o
-mesmo que passou nas validações combinadas. A entrega usa um envio da branch
+integração das duas PRs altera somente este registro documental; seu código
+executável é o mesmo que passou nas validações combinadas. A entrega usa um envio da branch
 da PR #220 seguido do fluxo normal de checks e merge, sem republicar a #229
 isoladamente ou gerar APK.
+
+O usuário também autorizou no chat de provisões incluir a correção legada no
+mesmo envio. O patch SHA-256
+`d7143f83fb2c8d4161121638e79f92d0eb0e1a8514cc3dc88477fc96fa83decc`
+foi conferido, aplicado sem conflito e passou novamente em 37 testes focais de
+provisões, holerite, cadastro e simulação. Altera somente `labor-provisions.js`
+e seu teste: o rascunho usa salário contratual válido, senão salário válido do
+perfil CLT, senão base vazia. Não usa diária como salário, não altera fórmulas,
+competências salvas ou pagamentos. A suíte completa é repetida pelo pre-push
+antes do envio consolidado, além dos checks remotos obrigatórios.
 
 ## Registro da etapa local anterior
 
@@ -92,6 +102,5 @@ Logs estão em `.local-validation/`, ignorados pelo Git, com resultados separado
 por branch. A integração com a #229 é uma fotografia dos commits acima; novas
 alterações dela ou da main precisam de nova conferência antes de publicar.
 
-Não incorporar a correção de provisões legadas de outro chat por este registro:
-ela permanece em `C:/Users/hygor/rh-integracao-local`, fora do escopo da #220.
-A publicação foi autorizada posteriormente, conforme registro no início deste documento.
+A correção de provisões legadas foi incluída somente após a autorização e a
+verificação de compatibilidade registradas no início deste documento.
