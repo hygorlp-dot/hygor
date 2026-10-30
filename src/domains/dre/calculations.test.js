@@ -197,6 +197,48 @@ describe("domínio do DRE", () => {
   });
 });
 
+// Regime de competência: o documento entra no mês da competência mesmo quando é
+// emitido depois do fim desse mês. Antes, o corte por data (asOfDate) tirava a
+// nota do mês da competência e a competência a tirava do mês da emissão, e ela
+// não aparecia em DRE nenhuma.
+describe("documento emitido depois do mês da competência", () => {
+  const atrasados = {
+    ...data,
+    notasFiscais: [{ id: "nf-atrasada", obraId: "obra-1", numero: "77", valorBruto: 500, competencia: "2026-07", emissao: "2026-08-03" }],
+    medicoes: [...data.medicoes, { id: "med-atrasada", obraId: "obra-1", competencia: "2026-07", valorPrevisto: 2000, dataEmissao: "2026-08-02" }],
+  };
+
+  test("entra na DRE do mês da competência", () => {
+    const julho = regras.calcDREObra(atrasados, "obra-1", 2026, 6);
+    expect(julho.totalCustos).toBe(900 + 500);
+    expect(julho.faturamento).toBe(5000 + 2000);
+  });
+
+  test("não entra na DRE do mês da emissão nem é contado duas vezes", () => {
+    const julho = regras.calcDREObra(atrasados, "obra-1", 2026, 6);
+    const agosto = regras.calcDREObra(atrasados, "obra-1", 2026, 7);
+    const semAtraso = regras.calcDREObra(data, "obra-1", 2026, 7);
+    expect(agosto.totalCustos).toBe(semAtraso.totalCustos);
+    expect(agosto.faturamento).toBe(semAtraso.faturamento);
+    expect(julho.dreEvents.filter(event => event.sourceId === "nf-atrasada")).toHaveLength(1);
+  });
+
+  test("detalhamento de outras despesas e faturado acumulado batem com o total do mês", () => {
+    const comDespesa = { ...atrasados, outrasDesp: [...data.outrasDesp, { id: "od-atrasada", obraId: "obra-1", competencia: "2026-07", data: "2026-08-05", valor: 300 }] };
+    const julho = regras.calcDREObra(comDespesa, "obra-1", 2026, 6);
+    const agosto = regras.calcDREObra(comDespesa, "obra-1", 2026, 7);
+    expect(julho.outrasDesp.map(item => item.valor)).toEqual([100, 300]);
+    expect(agosto.outrasDesp).toEqual([]);
+    expect(julho.faturadoAcum).toBe(julho.faturamento);
+    expect(julho.conference.ok).toBe(true);
+  });
+
+  test("o consolidado da empresa também recebe o documento atrasado", () => {
+    expect(regras.calcDREConsolidado(atrasados, 2026, 6).totalCustos)
+      .toBe(regras.calcDREConsolidado(data, 2026, 6).totalCustos + 500);
+  });
+});
+
 describe("calcProjecaoContratoObra — base de administração de materiais", () => {
   const obra = { id: "obra-1", name: "Obra 1", contractType: "admin_only", adminPercentage: 10 };
   const base = { obras: [obra], medicoes: [], payments: [], rescisoes: [] };
