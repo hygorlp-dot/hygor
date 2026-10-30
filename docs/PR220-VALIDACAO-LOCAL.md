@@ -1,5 +1,19 @@
 # PR #220 — recuperação e validação local
 
+## Consolidação autorizada para publicação
+
+Após a validação abaixo, o usuário autorizou em 30/10/2026 a consolidação e
+publicação conjunta. A #229 já havia sido integrada e publicada pelo chat
+responsável na main `2ba5daa67b0150da63890afcd741ecbdd282f567`. Essa versão foi
+preservada na branch da #220, incorporando a resolução de imports já testada na
+branch de compatibilidade. Comparada ao commit de compatibilidade `230a68d`, a
+consolidação altera somente este registro documental; o código executável é o
+mesmo que passou nas validações combinadas. A entrega usa um envio da branch
+da PR #220 seguido do fluxo normal de checks e merge, sem republicar a #229
+isoladamente ou gerar APK.
+
+## Registro da etapa local anterior
+
 Verificação realizada em 30/10/2026. Sem push, alteração da PR remota, preview,
 merge remoto ou deploy. O APK e os dados de produção não foram alterados.
 
@@ -46,7 +60,7 @@ clone `C:/Users/hygor/ponto-rh-publicacao` foi editado por esta entrega.
 
 A combinação existe somente na branch local `codex/pr220-pr229-compat`, commit
 `230a68d672ed7e1878f288e47162d74744f2a8b4`, usando a #229 em `4247f3d`.
-A branch da entrega não incorpora a #229 ainda aberta.
+Na etapa local anterior, a branch da entrega não incorporava a #229 ainda aberta.
 
 O único conflito foi no início de `src/domains/rh/components/EquipeView.jsx`.
 Na consolidação futura, preservar os três imports:
@@ -80,4 +94,4 @@ alterações dela ou da main precisam de nova conferência antes de publicar.
 
 Não incorporar a correção de provisões legadas de outro chat por este registro:
 ela permanece em `C:/Users/hygor/rh-integracao-local`, fora do escopo da #220.
-Publicação futura exige nova autorização do usuário e envio consolidado.
+A publicação foi autorizada posteriormente, conforme registro no início deste documento.
