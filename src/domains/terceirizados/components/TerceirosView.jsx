@@ -48,6 +48,7 @@ import {
   isVisibleThirdPartyContract,
 } from "../lifecycle";
 import { enviarArquivoOneDrive } from "../../../api";
+import { ProgressPercentageField } from "../../medicoes/components/ProgressPercentageField.jsx";
 
 export default function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null, contratoInicial=null }) {
   const { formGrid } = useBreakpoint();
@@ -556,6 +557,9 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
   // Avanco fisico ponderado pelo valor de cada etapa - nao pela contagem.
   const pctFisico    = somaEtapas > 0
     ? etapasTerc.reduce((s, e) => s + Number(e.valor || 0) * (acumuladoPorEtapa[e.id] || 0) / 100, 0) / somaEtapas * 100
+    : 0;
+  const pctFisicoProposto = somaEtapas > 0
+    ? etapasTerc.reduce((sum, etapa) => sum + Number(etapa.valor || 0) * pct(medForm.pcts?.[etapa.id] ?? acumuladoPorEtapa[etapa.id]), 0) / somaEtapas
     : 0;
 
   const salvarEtapasNoServidor = async (etapas, mensagem) => {
@@ -2001,39 +2005,40 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
       {/* Modal: registrar pagamento */}
       {medModal && tercAtual && (
         <Modal title={medEditId?`Corrigir medição - ${tercAtual.name}`:`Medição ${medicoesTercAtual.length + 1} - ${tercAtual.name}`}
-          onClose={()=>{setMedModal(false);setMedEditId("");}} wide>
+          onClose={()=>{setMedModal(false);setMedEditId("");}} wide panelClass="measurement-entry-modal"
+          footer={<div className="measurement-entry-actions">
+            <Btn v="ghost" full onClick={()=>{setMedModal(false);setMedEditId("");}}>Cancelar</Btn>
+            <Btn full onClick={salvarMedicao} disabled={subindoFotosMed||thirdPartyCommandPending}><Ic n="check"/> {thirdPartyCommandPending?"Confirmando...":medEditId?"Corrigir e reenviar":"Confirmar e enviar para aprovação"}</Btn>
+          </div>}>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
             <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, lineHeight:1.55 }}>
               Informe o percentual <b>acumulado</b> de cada etapa - o total executado até hoje, não o avanço da semana.
               O app calcula a diferença para a medição anterior e valoriza só o que avançou.
             </p>
             <Inp label="Data da medição" type="date" value={medForm.data} onChange={v=>setMedForm(f=>({...f,data:v}))}/>
+            {somaEtapas > 0 && <p aria-label="Evolução percentual do contrato">
+              Evolução acumulada do contrato: <strong>{pctFisico.toFixed(1)}% → {pctFisicoProposto.toFixed(1)}%</strong>
+            </p>}
 
             <div style={{ border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden" }}>
-              {etapasTerc.map((e, i) => {
+              {etapasTerc.map(e => {
                 const anterior = Number(acumuladoPorEtapa[e.id] || 0);
                 const atual    = pct(medForm.pcts?.[e.id] ?? anterior);
                 const delta    = atual - anterior;
                 const valor    = Number(e.valor || 0) * delta / 100;
                 return (
-                  <div key={e.id} style={{ padding:"9px 11px", borderTop:i?`1px solid ${C.line}`:0,
-                                           display:"grid", gridTemplateColumns:"minmax(0,1fr) 84px 96px", gap:8, alignItems:"center" }}>
-                    <div style={{ minWidth:0 }}>
-                      <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.text }}>{e.nome}</p>
+                  <div key={e.id} className="measurement-entry-row">
+                    <ProgressPercentageField label={`Percentual de ${e.nome}`} value={medForm.pcts?.[e.id] ?? String(anterior)} previous={anterior}
+                      disabled={thirdPartyCommandPending}
+                      onChange={value=>setMedForm(f=>({...f,pcts:{...f.pcts,[e.id]:value}}))} />
+                    <div className="measurement-entry-summary">
                       <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginTop:2 }}>
-                        {fmt(e.valor)} · anterior {anterior.toFixed(1)}%
+                        Etapa: {fmt(e.valor)}
                       </p>
-                    </div>
-                    <input type="number" step="any" inputMode="decimal" min={0} max={100}
-                      value={medForm.pcts?.[e.id] ?? ""}
-                      onChange={ev=>setMedForm(f=>({...f, pcts:{...f.pcts, [e.id]:ev.target.value}}))}
-                      style={{ width:"100%", boxSizing:"border-box", background:C.bg,
-                               border:`1.5px solid ${delta<0?C.red:delta>0?C.green:C.line}`,
-                               color:C.text, padding:"7px 8px", borderRadius:7, fontSize:"var(--arcd-type-control)", textAlign:"right",
-                               outline:"none", fontFamily:"var(--arcd-font-sans)" }}/>
-                    <div style={{ textAlign:"right" }}>
-                      <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:delta<0?C.red:delta>0?C.green:C.muted }}>{fmt(valor)}</p>
-                      <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>{delta>0?"+":""}{delta.toFixed(1)} p.p.</p>
+                      <div style={{ textAlign:"right" }}>
+                        <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:delta<0?C.red:delta>0?C.green:C.muted }}>{fmt(valor)}</p>
+                        <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>{delta>0?"+":""}{delta.toFixed(1)} p.p.</p>
+                      </div>
                     </div>
                   </div>
                 );
@@ -2071,10 +2076,6 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               <p style={{fontSize:"var(--arcd-type-label)",color:C.green,fontWeight:600,lineHeight:1.45}}>Ao confirmar, a medição é enviada para aprovação do financeiro. Só depois de aprovada ela é reconhecida como despesa de terceirizado no DRE; o pagamento continua sendo apenas a baixa financeira dessa obrigação.</p>
             </div>
 
-            <div style={{ display:"flex", gap:8 }}>
-              <Btn v="ghost" full onClick={()=>{setMedModal(false);setMedEditId("");}}>Cancelar</Btn>
-              <Btn full onClick={salvarMedicao} disabled={subindoFotosMed||thirdPartyCommandPending}><Ic n="check"/> {thirdPartyCommandPending?"Confirmando...":medEditId?"Corrigir e reenviar":"Confirmar e enviar para aprovação"}</Btn>
-            </div>
           </div>
         </Modal>
       )}

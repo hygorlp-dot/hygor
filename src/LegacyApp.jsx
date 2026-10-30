@@ -151,6 +151,7 @@ const OFFLINE_QUEUEABLE_COMMANDS={
 };
 import { projectAlertAction, validateProjectForm } from "./domains/obras/project-validation";
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
+import { ProgressPercentageField } from "./domains/medicoes/components/ProgressPercentageField.jsx";
 import { calcSaldos } from "./domains/estoque/calculations";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "./domains/ponto/permissions";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
@@ -13037,6 +13038,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {abaConteudo==="seguranca"&&<SegurancaObra data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/>}
         {abaConteudo==="conferencia"&&<Suspense fallback={<div className="arcd-page-loading">Carregando conferência...</div>}><Conferencia data={dadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="med"&&<MedicaoEvolucao data={dadosObra} update={atualizarDadosObra} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser} dispatchCommand={dispatchCommand}
+          onAbrirPlanejamento={()=>abrirModuloDaObra("plan")}
           onAbrirTerceiro={(contratoId,novaMedicao)=>{setTerceiroAlvo({contratoId,novaMedicao,nonce:Date.now()});setGrupoMenuObra("rh");abrirModuloDaObra("terc");}}/>}
         {abaConteudo==="cmp"&&<Suspense fallback={<div className="arcd-page-loading">Carregando compras...</div>}><Compras data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId} dispatchCommand={dispatchCommand}/></Suspense>}
         {abaConteudo==="est"&&<Suspense fallback={<div className="arcd-page-loading">Carregando estoque...</div>}><Estoque data={dadosObra} update={atualizarDadosObra} showToast={showToast} currentUser={currentUser} obraIdFixo={obraId}/></Suspense>}
@@ -13277,6 +13279,7 @@ export function Bloco({ id, titulo, acao, children }) {
 // contrato a um serviço do planejamento; o vínculo vira proposta de avanço no
 // boletim técnico (o avanço oficial continua sendo só o boletim aprovado).
 export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatchCommand, showToast, onAbrirTerceiro }) {
+  const { isMobile } = useBreakpoint();
   const contratos = useMemo(() => thirdPartyMeasurementsForProject(data, obraId), [data.terceirizados, data.medicoesTerc, obraId]);
   const [salvando, setSalvando] = useState("");
   const podeVincular = ["admin","engenheiro","engenheiro_auditor"].includes(currentUser?.role) && !!dispatchCommand;
@@ -13356,7 +13359,7 @@ export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatc
                   const orfa = e.tarefaId && !vinculada;
                   return (
                     <div key={e.id} style={{ padding: "8px 10px", borderTop: i ? `1px solid ${C.line}` : 0,
-                         display: "grid", gridTemplateColumns: "minmax(0,1.3fr) minmax(170px,1fr) 70px", gap: 10, alignItems: "center" }}>
+                         display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) 70px" : "minmax(0,1.3fr) minmax(170px,1fr) 70px", gap: 10, alignItems: "center" }}>
                       <div style={{ minWidth: 0 }}>
                         <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.text }}>{e.nome} <span style={{ fontWeight: 400, color: C.muted }}>· {fmt(e.valor)}</span></p>
                         <div style={{ marginTop: 5, height: 5, background: C.line, borderRadius: 99, overflow: "hidden", position: "relative" }}>
@@ -13368,13 +13371,13 @@ export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatc
                         <select aria-label={`Serviço do planejamento para a etapa ${e.nome}`} value={orfa ? "" : e.tarefaId}
                           disabled={!podeVincular || salvando === `${c.id}:${e.id}`}
                           onChange={ev => vincular(c.id, e.id, ev.target.value)}
-                          style={{ width: "100%", minWidth: 0, fontSize:"var(--arcd-type-control)", padding: "6px 7px", borderRadius: 6,
+                          style={{ gridColumn: isMobile ? "1 / -1" : undefined, gridRow: isMobile ? 2 : undefined, width: "100%", minWidth: 0, fontSize:"var(--arcd-type-control)", padding: "6px 7px", borderRadius: 6,
                                    border: `1px solid ${orfa ? C.red : C.border}`, background: C.bg, color: C.text }}>
                           <option value="">{orfa ? "Serviço removido — vincular de novo" : "Sem vínculo com o planejamento"}</option>
                           {tarefas.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
                         </select>
-                      ) : <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Sem serviços no planejamento</span>}
-                      <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, textAlign: "right", color: e.pctAprovado >= 100 ? C.green : C.text }}>
+                      ) : <span style={{ gridColumn: isMobile ? "1 / -1" : undefined, gridRow: isMobile ? 2 : undefined, fontSize:"var(--arcd-type-label)", color: C.muted }}>Sem serviços no planejamento</span>}
+                      <span style={{ gridColumn: isMobile ? 2 : undefined, gridRow: isMobile ? 1 : undefined, fontSize: "var(--arcd-type-body)", fontWeight:600, textAlign: "right", color: e.pctAprovado >= 100 ? C.green : C.text }}>
                         {e.pctAprovado.toFixed(0)}%
                         {e.pctEnviado > e.pctAprovado && <span style={{ display: "block", fontSize:"var(--arcd-type-caption)", fontWeight: 600, color: C.orange }}>{e.pctEnviado.toFixed(0)}% enviado</span>}
                       </span>
@@ -13406,7 +13409,7 @@ export function TerceirosNaMedicao({ data, obraId, tarefas, currentUser, dispatc
 //  Mostra o avanco de cada tarefa: o que veio do diario (RDO) e o
 //  que e manual. Permite ajustar o progresso manualmente aqui.
 // ==============================================================
-function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null, onAbrirTerceiro=null }) {
+export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null, onAbrirTerceiro=null, onAbrirPlanejamento=null }) {
   const { cols } = useBreakpoint();
   const obras = (data.obras || []).filter(o => o.status !== "done");
   const [obraId, setObraId] = useState(()=>obraIdFixo||(obras.some(o=>o.id===obraContextoSalvo())?obraContextoSalvo():(obras[0]?.id||"")));
@@ -13438,6 +13441,20 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
   const [fatModal,setFatModal]=useState(null);
   const [fatForm,setFatForm]=useState({competencia:today().slice(0,7),dataVencimento:""});
   const [billingPending,setBillingPending]=useState(false);
+  const [escolherTerceiro, setEscolherTerceiro] = useState(false);
+  const [terceiroLocal, setTerceiroLocal] = useState(null);
+  const contratosMedicao = thirdPartyMeasurementsForProject(data, obraId);
+  const abrirTerceiro = (contratoId, novaMedicao) => {
+    setEscolherTerceiro(false);
+    if (onAbrirTerceiro) onAbrirTerceiro(contratoId, novaMedicao);
+    else setTerceiroLocal({contratoId, novaMedicao});
+  };
+  const iniciarMedicaoTerceiro = () => {
+    if (contratosMedicao.length === 1) {
+      const contrato = contratosMedicao[0];
+      abrirTerceiro(contrato.id, contrato.etapas.length > 0);
+    } else setEscolherTerceiro(true);
+  };
 
   // Medições de obra já confirmadas desta obra, em ordem.
   const medicoesObra = useMemo(() =>
@@ -13449,7 +13466,7 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
   // confirma ou corrige. É a "confirmação com o diário" pedida: o número do
   // diário entra como proposta, e a divergência aceita fica registrada.
   const abrirConfirmacao = () => {
-    if (!tarefas.length) { showToast?.("Sem serviços para medir.", "error"); return; }
+    if (!tarefas.length) { iniciarMedicaoTerceiro(); return; }
     setConfPct(Object.fromEntries(tarefas.map(t => [t.id, String(propostaBoletim(t))])));
     setConfResp(""); setConfObs(""); setConfData(today());
     setConfModal(true);
@@ -13564,6 +13581,14 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
     showToast?.("O avanço oficial só pode ser alterado em um novo boletim de medição aprovado.", "warn");
   };
 
+  if (terceiroLocal) return <div className="measurement-surface">
+    <Btn v="ghost" onClick={()=>setTerceiroLocal(null)}>Voltar à medição da obra</Btn>
+    <Suspense fallback={<p>Carregando medição do terceirizado...</p>}>
+      <Terceiros data={data} update={update} showToast={showToast} obraIdFixo={obraId} currentUser={currentUser}
+        dispatchCommand={dispatchCommand} contratoInicial={terceiroLocal} />
+    </Suspense>
+  </div>;
+
   if (!obras.length) {
     return <div style={{ padding: 24, textAlign: "center" }}>
       <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>Cadastre uma obra para medir a evolucao.</p>
@@ -13571,7 +13596,7 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
   }
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="anim measurement-surface" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {obraIdFixo
         ? <Inp label="Obra" value={(data.obras||[]).find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
         : <Sel label="Obra" value={obraId} onChange={setObraId}
@@ -13586,6 +13611,21 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
         <MiniKpi label="Dias trabalhados" value={`${resumo.diasTotais}`} cor={C.yellow}
                  sub="somados nos RDOs" />
       </div>
+
+      {!tarefas.length && (
+        <Alert role="status" aria-label="Como iniciar a medição">
+          <AlertDescription>
+            <div className="flex flex-col gap-3">
+              <p><strong>Medição disponível sem Planejamento.</strong> Use “Confirmar medição” para medir as etapas do contrato de um terceirizado.</p>
+              <p>Para acompanhar também o avanço físico oficial da obra, cadastre os serviços no Planejamento e vincule as etapas dos contratos.</p>
+              <div className="flex flex-wrap gap-2">
+                {onAbrirPlanejamento && <Btn size="sm" onClick={()=>onAbrirPlanejamento(obraId)}>Abrir Planejamento</Btn>}
+                <Btn size="sm" v="ghost" onClick={iniciarMedicaoTerceiro}>Medir terceirizados</Btn>
+              </div>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Tabela de evolucao */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
@@ -13655,8 +13695,10 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
         fonte do avanço oficial e alimenta a curva S e o físico-financeiro; correções geram um novo boletim auditável.
       </p>
 
-      {obraId && <TerceirosNaMedicao data={data} obraId={obraId} tarefas={tarefas} currentUser={currentUser}
-        dispatchCommand={dispatchCommand} showToast={showToast} onAbrirTerceiro={onAbrirTerceiro} />}
+      {obraId && <section aria-label="Medição dos terceirizados">
+        <TerceirosNaMedicao data={data} obraId={obraId} tarefas={tarefas} currentUser={currentUser}
+          dispatchCommand={dispatchCommand} showToast={showToast} onAbrirTerceiro={abrirTerceiro} />
+      </section>}
 
       {/* Boletim de medição: confirma o avanço contra o diário */}
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
@@ -13670,9 +13712,12 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
               Confirma o avanço físico contra o diário e o congela como medição oficial
             </p>
           </div>
-          <Btn size="sm" onClick={abrirConfirmacao} disabled={!tarefas.length}>
-            <Ic n="check" /> Confirmar medição
-          </Btn>
+          <div className="flex flex-wrap gap-2">
+            {onAbrirPlanejamento && <Btn size="sm" v="ghost" onClick={()=>onAbrirPlanejamento(obraId)}>Abrir Planejamento</Btn>}
+            <Btn size="sm" onClick={abrirConfirmacao}>
+              <Ic n="check" /> Confirmar medição
+            </Btn>
+          </div>
         </div>
         {medicoesObra.length === 0 ? (
           <p style={{ padding: 18, fontSize:"var(--arcd-type-label)", color: C.muted, textAlign: "center" }}>
@@ -13713,9 +13758,24 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
         )}
       </div>
 
+      {escolherTerceiro && <Modal title="Medir terceirizado" panelClass="measurement-entry-modal" onClose={()=>setEscolherTerceiro(false)}>
+        <div className="measurement-contract-choices">
+          <p>Escolha o contrato para registrar o percentual executado de cada etapa.</p>
+          {contratosMedicao.map(contrato=><Btn key={contrato.id} v="ghost" full onClick={()=>abrirTerceiro(contrato.id, contrato.etapas.length > 0)}>
+            <span>{contrato.nome}<small style={{display:"block"}}>{contrato.etapas.length ? `${contrato.avancoAprovado.toFixed(1)}% aprovado · ${contrato.etapas.length} etapas` : "Cadastrar etapas antes de medir"}</small></span>
+            <Ic n="chevR" />
+          </Btn>)}
+          {!contratosMedicao.length && <p>Nenhum contrato de terceirizado por medição nesta obra. Cadastre o contrato e suas etapas em RH → Terceiros.</p>}
+        </div>
+      </Modal>}
+
       {/* Modal: confirmar medição contra o diário */}
       {confModal && (
-        <Modal title={`Confirmar medição ${medicoesObra.length + 1}`} onClose={() => setConfModal(false)} wide>
+        <Modal title={`Confirmar medição ${medicoesObra.length + 1}`} panelClass="measurement-entry-modal" onClose={() => setConfModal(false)} wide
+          footer={<div className="measurement-entry-actions">
+            <Btn v="ghost" full onClick={() => setConfModal(false)}>Cancelar</Btn>
+            <Btn full onClick={salvarConfirmacao}><Ic n="check" /> Confirmar e congelar</Btn>
+          </div>}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, lineHeight: 1.55 }}>
               Cada serviço abre com a proposta: o avanço aprovado do terceirizado vinculado, quando
@@ -13725,13 +13785,12 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
             </p>
             <Inp label="Data efetiva da medição" type="date" value={confData} onChange={setConfData}/>
             <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-              {tarefas.map((t, i) => {
+              {tarefas.map(t => {
                 const conf = Number(confPct[t.id]) || 0;
                 const terc = avancoTerceiros.get(t.id);
                 const div = Math.round((conf - propostaBoletim(t)) * 100) / 100;
                 return (
-                  <div key={t.id} style={{ padding: "9px 11px", borderTop: i ? `1px solid ${C.line}` : 0,
-                       display: "grid", gridTemplateColumns: "minmax(0,1fr) 66px 78px", gap: 8, alignItems: "center" }}>
+                  <div key={t.id} className="measurement-entry-row">
                     <div style={{ minWidth: 0 }}>
                       <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.nome}</p>
                       <p style={{ fontSize:"var(--arcd-type-caption)", color: t.origemProgresso === "diario" ? C.green : C.muted }}>
@@ -13739,11 +13798,8 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
                         {terc && <span style={{ color: C.purple, fontWeight:600 }}> · terceirizado aprovado: {terc.pct}%</span>}
                       </p>
                     </div>
-                    <input type="number" min="0" max="100" value={confPct[t.id] ?? ""}
-                      onChange={e => setConfPct(p => ({ ...p, [t.id]: e.target.value }))}
-                      style={{ width: "100%", boxSizing: "border-box", background: C.bg,
-                               border: `1.5px solid ${div !== 0 ? C.orange : C.line}`, color: C.text,
-                               padding: "6px 7px", borderRadius: 7, fontSize: "var(--arcd-type-control)", textAlign: "right", outline: "none" }} />
+                    <ProgressPercentageField label={`Percentual de ${t.nome}`} value={confPct[t.id] ?? ""} previous={propostaBoletim(t)}
+                      onChange={value=>setConfPct(p=>({...p,[t.id]:value}))} />
                     <span style={{ fontSize:"var(--arcd-type-label)", textAlign: "right", fontWeight:600,
                                    color: div > 0 ? C.blue : div < 0 ? C.red : C.muted }}>
                       {div === 0 ? "confere" : `${div > 0 ? "+" : ""}${div}%`}
@@ -13756,10 +13812,6 @@ function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", currentUser=n
                  placeholder="Engenheiro / fiscal" />
             <Inp label="Observação" value={confObs} onChange={setConfObs} multiline
                  placeholder="Ex.: alvenaria do 2º pavimento medida a 60%, pendente verga" />
-            <div style={{ display: "flex", gap: 8 }}>
-              <Btn v="ghost" full onClick={() => setConfModal(false)}>Cancelar</Btn>
-              <Btn full onClick={salvarConfirmacao}><Ic n="check" /> Confirmar e congelar</Btn>
-            </div>
           </div>
         </Modal>
       )}
@@ -17932,7 +17984,7 @@ export default function App() {
           {tab === "plan_suprimentos" && <Suspense fallback={<div className="arcd-page-loading">Carregando suprimentos...</div>}><LazyMarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
           {tab === "rdo"    && <Suspense fallback={<div className="arcd-page-loading">Carregando diário de obra...</div>}><DiarioObra data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "conferencia" && <Suspense fallback={<div className="arcd-page-loading">Carregando conferência...</div>}><Conferencia data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
+          {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onAbrirPlanejamento={()=>setTab("plan")}/>}
           {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "equipe" && <Suspense fallback={<div className="arcd-page-loading">Carregando equipe...</div>}><EquipeView data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={setTab} /></Suspense>}
           {tab === "terc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando terceiros...</div>}><Terceiros data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
