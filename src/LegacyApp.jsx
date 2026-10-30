@@ -1,3 +1,5 @@
+import { LaborAreaTabs } from "./domains/rh/components/LaborAreaTabs.jsx";
+import { matchesLaborArea } from "./domains/rh/labor-area.js";
 import {AttendancePayMode} from "./domains/rh/components/AttendancePayMode.jsx";
 import { marcellReportHtml } from "./reports/marcell-report.js";
 import { createPortal } from "react-dom";
@@ -7141,6 +7143,8 @@ function UnlockRequestModal({ data, dispatchAttendanceCommand, showToast, obraId
 //
 
 function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAttendanceCommand, dispatchCommand }) {
+  const [laborScope,setLaborScope]=useState("all");
+  const changeLaborScope=value=>{setLaborScope(value);setFilterObra("all");};
   const agora = new Date();
   const refInicial = agora.getDate() <= 5 ? new Date(agora.getFullYear(), agora.getMonth()-1, 1) : agora;
   const [year,setYear]=useState(refInicial.getFullYear());
@@ -7228,7 +7232,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const obraDoRegistro=(employee,date,record,selectedObraId="")=>resolveEmployeeAttendanceObraId({
     data,employee,date,record,selectedObraId,
   });
-  const employees=(data.employees||[]).filter(e=>employeeRelevantInPeriod(data,e,diasCiclo))
+  const employees=(data.employees||[]).filter(e=>matchesLaborArea(e,laborScope)).filter(e=>employeeRelevantInPeriod(data,e,diasCiclo))
     .filter(e=>filterObra==="all"||e.obra===filterObra||e.lastObra===filterObra||days.some(d=>obraDoRegistro(e,d,getAtt(data,e.id,d))===filterObra))
     .filter(e=>[e.name,e.role,obraName(e.obra)].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.name.localeCompare(b.name));
@@ -7312,7 +7316,8 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
   const rotuloCurto=st=>st==="M"?"½":isValidAttendanceStatus(st)?st:"·";
   return <div className="anim ponto-geral" style={{display:"flex",flexDirection:"column",gap:12}}>
-    <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
+    <LaborAreaTabs value={laborScope} onChange={changeLaborScope}/>
+    <AttendancePayMode data={{...data,employees:data.employees.filter(e=>matchesLaborArea(e,laborScope))}} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
     <PageHero
       eyebrow="Gestão do ponto"
       title="Ponto da quinzena"
@@ -7353,7 +7358,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
             ? "Após conferir e pagar a folha, finalize a quinzena: o ponto vira um arquivo próprio, a edição é bloqueada e o sistema fica mais leve."
             : "A quinzena ainda está em andamento. Finalize somente após o último dia do ciclo e o pagamento da folha."}
         </p>
-        <Btn v="warning" size="sm" onClick={finalizarQuinzena} disabled={arqBusy||!quinzenaEncerrada}
+        <Btn v="warning" size="sm" onClick={finalizarQuinzena} disabled={arqBusy||!quinzenaEncerrada||laborScope!=="all"}
           title={quinzenaEncerrada?"":"Disponível após o fim da quinzena"}>
           <Ic n="lock"/> {arqBusy?"Arquivando...":"Finalizar e arquivar quinzena"}
         </Btn>
@@ -7445,7 +7450,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     {arqView&&(()=>{
       // Resumo do arquivo: conta P/M/F por funcionario e valora com a diaria
       // CONGELADA no snapshot (a da epoca do pagamento, nao a atual).
-      const linhas=(arqView.employeesSnapshot||[]).map(e=>{
+      const linhas=(arqView.employeesSnapshot||[]).filter(e=>matchesLaborArea(e,laborScope)).map(e=>{
         const mapa=arqView.attendance?.[e.id]||{};
         let p=0,m=0,f=0,he=0,custo=0;
         Object.values(mapa).forEach(r=>{
@@ -7496,6 +7501,8 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
 }
 
 function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchAttendanceCommand, dispatchCommand, onTab }) {
+  const [laborScope,setLaborScope]=useState("all");
+  const changeLaborScope=value=>{setLaborScope(value);setFilterObra("all");};
   const obraInicial=obraIdFixo||currentUser?.obraId||
     (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:"all");
   const [selDate, setSelDate] = useState(today());
@@ -7553,6 +7560,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   }, [selDate, attendanceCompletion.allDone, lastAllDoneNotification, showToast]);
 
   const list = data.employees
+    .filter(e=>matchesLaborArea(e,laborScope))
     .filter(e => employeeRelevantOnDate(data, e, selDate))
     .filter(e => {
       if (filterObra === "all") return true;
@@ -7790,7 +7798,8 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
 
   return (
     <div className="anim obra-attendance">
-      <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
+      {!obraIdFixo&&<LaborAreaTabs value={laborScope} onChange={changeLaborScope}/>}
+    <AttendancePayMode data={{...data,employees:data.employees.filter(e=>matchesLaborArea(e,laborScope))}} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
       <PageHero
         eyebrow="Registro de ponto"
         title={selectedObra?.name || "Todas as obras"}

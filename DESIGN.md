@@ -264,3 +264,11 @@ Identificação legal cadastrada, conteúdos, valores, assinaturas e colunas nã
 ### Prévia ajustável da folha
 
 A folha usa larguras proporcionais ao conteúdo; funcionário, cargo e obra recebem o espaço remanescente, e contagens e valores recebem a largura necessária aos seus dados. Fonte padrão de 10 px, entrelinha 1,2 e espaçamento vertical de 2 px mantêm a densidade sem truncar valores. A prévia oferece controles por tabela e coluna, fonte, linhas e separação de anexos. O padrão pode ser salvo no navegador; controles são excluídos da impressão. A marca MRC permanece em todas as páginas.
+
+### Grupos e projeção da equipe
+
+Folha e Ponto compartilham as navegações Consolidado, Obras e Administração Central. A central inclui provisoriamente engenheiros e mestres, com explicação junto à navegação e sem alteração automática da lotação.
+
+A projeção usa o modo Operate, os controles existentes e uma tabela acessível acompanhando as barras de apurado e estimativas. Custo, líquido aos funcionários e saldo são leituras distintas. A reserva integral é cenário, sem tratamento visual de economia. Dados desconhecidos aparecem como Indisponível, com subtotal parcial e memória; nunca como zero confirmado. A navegação de competência histórica não controla a quinzena ativa do relatório. No celular, controles empilham e tabelas têm rolagem própria, preservando valores completos. Exportações conservam filtros, corte e referência da consulta autorizada.
+
+No PDF, o rodapé da folha participa do cálculo de largura, usando sua fonte em negrito. Totais monetários recebem largura mínima e permanecem em uma linha, inclusive ao reutilizar ajustes salvos.

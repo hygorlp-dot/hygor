@@ -9,6 +9,19 @@ export function setupAdjustableTables() {
     const headers = [...(table.tHead?.rows[0]?.cells || [])];
     if (headers.length < 2 || table.tHead.rows.length !== 1 || headers.some(h => h.colSpan !== 1)) return [];
     const cells = [...table.tBodies].flatMap(body => [...body.rows]).filter(row => row.cells.length === headers.length);
+    const footerCells = headers.map(() => []);
+    for (const row of table.tFoot?.rows || []) {
+      let column = 0;
+      for (const cell of row.cells) {
+        if (cell.colSpan === 1 && footerCells[column]) footerCells[column].push(cell);
+        column += cell.colSpan;
+      }
+    }
+    const footerWidth = cells => Math.max(0, ...cells.map(cell => {
+      context.save(); context.font = getComputedStyle(cell).font;
+      const width = context.measureText(cell.textContent.trim()).width + 16;
+      context.restore(); return width;
+    }));
     const kind = headers.map(h => {
       const name = normalize(h.textContent);
       if (/funcionario|nome/.test(name)) return "name";
@@ -20,7 +33,7 @@ export function setupAdjustableTables() {
     const measure = text => context.measureText(text.trim()).width;
     const widths = headers.map((header, i) => {
       const content = cells.map(row => row.cells[i].textContent.trim());
-      const measured = Math.max(0, ...content.map(measure)) + 12;
+      const measured = Math.max(Math.max(0, ...content.map(measure)) + 12, footerWidth(footerCells[i]));
       if (kind[i] === "name") return Math.max(190, Math.min(320, measured));
       if (kind[i] === "role") return Math.max(100, Math.min(170, measured));
       if (kind[i] === "work") return Math.max(90, Math.min(160, measured));
@@ -39,7 +52,7 @@ export function setupAdjustableTables() {
     table.querySelectorAll("colgroup").forEach(g => g.remove());
     table.prepend(group);
     table.dataset.mrcAdjustable = "true";
-    return [{ table, group, headers, automatic, widths: [...automatic], key: headers.map(h => h.textContent.trim()).join("|"), label: table.dataset.reportTableName || `Tabela ${index + 1}` }];
+    return [{ table, group, headers, footerCells, footerWidth, intrinsicWidth:sum, automatic, widths: [...automatic], key: headers.map(h => h.textContent.trim()).join("|"), label: table.dataset.reportTableName || `Tabela ${index + 1}` }];
   });
   if (!tables.length) return;
   const panel = document.createElement("aside");
@@ -57,13 +70,23 @@ export function setupAdjustableTables() {
   root.prepend(panel);
   const control = id => panel.querySelector(`#mrc-${id}`);
   const selected = () => tables[Number(control("table").value) || 0];
-  const apply = table => [...table.group.children].forEach((col, i) => { col.style.width = `${table.widths[i]}%`; });
+  const apply = table => {
+    const available = Math.max(table.intrinsicWidth, table.table.getBoundingClientRect().width);
+    const minimum = table.footerCells.map(cells => table.footerWidth(cells) / available * 100);
+    const floor = minimum.reduce((sum,width) => sum + width, 0);
+    const surplus = table.widths.map((width,i) => Math.max(0,width - minimum[i]));
+    const sum = surplus.reduce((sum,width) => sum + width, 0);
+    if (floor < 100 && sum > 0) table.widths = minimum.map((width,i) => width + surplus[i] * (100 - floor) / sum);
+    [...table.group.children].forEach((col, i) => { col.style.width = `${table.widths[i].toFixed(6)}%`; });
+  };
   const spacing = () => {
     root.style.setProperty("--mrc-table-font", `${control("font").value}px`);
     root.style.setProperty("--mrc-table-padding", `${control("padding").value}px`);
     root.dataset.annexNewPage = String(control("annex").checked);
     control("font-value").textContent = control("font").value;
     control("padding-value").textContent = control("padding").value;
+    tables.forEach(apply);
+    if(control("column").options.length)showWidth();
   };
   const showWidth = () => {
     const value = selected().widths[Number(control("column").value) || 0];

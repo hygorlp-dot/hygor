@@ -113,13 +113,13 @@ describe("API autenticada da projeção da quinzena ativa", () => {
     state.profile.obraId = "w1";
     const scoped = await call();
     expect(scoped.status).toBe(200);
-    expect(scoped.json.report.filters).toMatchObject({ area: "works", obraId: "w1" });
+    expect(scoped.json.report.filters).toMatchObject({ area: "all", obraId: "w1" });
     expect(scoped.json.report.groups.every(group => group.obraId === "w1")).toBe(true);
     expect(scoped.json.report.people.flatMap(person => person.days).every(day => day.obraId === "w1")).toBe(true);
     expect(scoped.json.report.totals.projectedCost).toBeLessThan(all.json.report.totals.projectedCost);
     expect(JSON.stringify(scoped.json)).not.toContain("Obra B");
     expect((await call({ filters: { obraId: "w2" } })).status).toBe(403);
-    expect((await call({ filters: { area: "administrative" } })).status).toBe(403);
+    const central=await call({ filters: { area: "administrative" } });expect(central.status).toBe(200);expect(central.json.report.groups.every(group=>group.obraId==="w1")).toBe(true);
   });
 
   it("mantém subtotal conhecido quando outra pessoa da mesma obra tem pagamento sem data", async () => {
