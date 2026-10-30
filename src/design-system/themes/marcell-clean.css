@@ -186,9 +186,9 @@
     padding: 4px 0 8px;
     overflow: visible;
   }
+  /* Tamanho e peso vêm da escala tipográfica (--arcd-type-page-title), que
+     também acompanha a ampliação de texto; só o espaçamento é ajustado aqui. */
   [data-theme="marcell"] .arcd-main .page-hero__title {
-    font-size: 1.75rem !important;
-    font-weight: 400 !important;
     letter-spacing: -0.02em !important;
   }
   [data-theme="marcell"] .arcd-main .page-hero__description {
