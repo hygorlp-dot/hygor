@@ -161,3 +161,188 @@
     }
   }
 }
+
+/* ===================================================================
+   Padrão visual MARCELL — direção "Obra no centro" (29/10/2026).
+   Uma regra para cada peça compartilhada, carregada depois do legado:
+   cabeçalho de página, indicadores, abas, botões, selos e caixa alta.
+   Só estilo: nenhuma regra muda conteúdo, ordem ou comportamento.
+   =================================================================== */
+@media screen {
+  [data-theme="marcell"] body { font-synthesis-weight: none; }
+
+  /* Rótulos em CAIXA ALTA escritos direto no componente (294 ocorrências)
+     viram texto normal; a hierarquia vem do tamanho e da cor. */
+  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog, .arcd-drawer) [style*="text-transform: uppercase"] {
+    text-transform: none !important;
+    letter-spacing: normal !important;
+  }
+
+  /* Cabeçalho de página: sem moldura, título grande e leve, ações à direita. */
+  [data-theme="marcell"] .arcd-main .page-hero {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 4px 0 8px;
+    overflow: visible;
+  }
+  [data-theme="marcell"] .arcd-main .page-hero__title {
+    font-size: 1.75rem !important;
+    font-weight: 400 !important;
+    letter-spacing: -0.02em !important;
+  }
+  [data-theme="marcell"] .arcd-main .page-hero__description {
+    font-size: .9375rem;
+    max-width: 640px;
+    margin-top: 6px;
+  }
+  [data-theme="marcell"] .arcd-main .page-hero__stats {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+  }
+  [data-theme="marcell"] .arcd-main .page-hero__stat {
+    border: 0;
+    border-radius: 12px;
+    background: #fff;
+    padding: 16px 18px;
+  }
+  [data-theme="marcell"] .arcd-main .page-hero__stat-label { font-size: .8125rem; font-weight: 400; }
+  [data-theme="marcell"] .arcd-main .page-hero__stat-value {
+    margin-top: 6px;
+    font-size: 1.625rem;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Abas internas: sublinhado sob a aba ativa, sem caixa, sem negrito. */
+  [data-theme="marcell"] .arcd-main .tab-row {
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid var(--arcd-border-default);
+    border-radius: 0;
+    background: transparent;
+  }
+  [data-theme="marcell"] .arcd-main .tab-row .tab-row__tab {
+    min-height: 44px;
+    padding: 0 14px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: var(--arcd-text-secondary) !important;
+    font-weight: 400 !important;
+    box-shadow: none;
+  }
+  [data-theme="marcell"] .arcd-main .tab-row .tab-row__tab:hover { color: var(--arcd-text-primary) !important; }
+  [data-theme="marcell"] .arcd-main .tab-row .tab-row__tab[data-active="true"] {
+    color: var(--mrc-navy) !important;
+    box-shadow: inset 0 -2px 0 var(--mrc-navy) !important;
+  }
+  [data-theme="marcell"] .arcd-main .tab-row .tab-row__count {
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: #e8e5df;
+    color: #3b4656;
+    font-weight: 400;
+  }
+
+  /* Botões: três aparências apenas. */
+  [data-theme="marcell"] .arcd-btn {
+    min-height: 40px;
+    border-radius: 8px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+  }
+  [data-theme="marcell"] .arcd-btn[data-size="sm"] { min-height: 32px; }
+
+  /* Painéis com moldura cinza viram superfícies brancas sobre a areia. */
+  [data-theme="marcell"] .arcd-main :is(.arcd-chart-panel, .arcd-summary-card) {
+    border-color: transparent !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
+  }
+
+  /* Tabelas: cabeçalho discreto, linhas com ar, números alinhados. */
+  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) th {
+    background: transparent !important;
+    color: var(--arcd-text-secondary);
+    font-weight: 400 !important;
+  }
+  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) :is(td, th) {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) tfoot { font-weight: 700; }
+}
+
+/* Patrimônio da empresa: tabela alinhada com uma ação direta e menu. */
+.patrimonio-lista { background: #fff; border-radius: 12px; padding: 8px 20px 4px; }
+.patrimonio-lista__nota { margin: 8px 0 4px; font-size: .8125rem; color: var(--arcd-text-secondary); }
+.patrimonio-lista__vazio { padding: 24px; text-align: center; color: var(--arcd-text-secondary); }
+.patrimonio-lista__cabecalho,
+.patrimonio-lista__linha {
+  display: grid;
+  grid-template-columns: minmax(240px, 2.2fr) minmax(110px, .7fr) minmax(150px, 1fr) minmax(130px, .8fr) 132px;
+  gap: 16px;
+  align-items: center;
+}
+.patrimonio-lista__cabecalho { padding: 12px 0 8px; font-size: .8125rem; color: var(--arcd-text-secondary); border-bottom: 1px solid var(--arcd-border-default); }
+.patrimonio-lista__linha { padding: 14px 0; border-bottom: 1px solid #ece9e3; }
+.patrimonio-lista__linha:last-child { border-bottom: 0; }
+.patrimonio-lista__linha[data-mobile] { grid-template-columns: 1fr auto; row-gap: 8px; }
+.patrimonio-lista__linha[data-mobile] > .patrimonio-lista__bem { grid-column: 1 / -1; }
+.patrimonio-lista__bem,
+.patrimonio-lista__local { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.patrimonio-lista__nome { font-size: .9375rem; color: var(--arcd-text-primary); overflow-wrap: anywhere; }
+.patrimonio-lista__meta { font-size: .8125rem; color: var(--arcd-text-secondary); }
+.patrimonio-lista__local > span:first-child { font-size: .875rem; }
+.patrimonio-lista__num { text-align: right; font-variant-numeric: tabular-nums; font-size: .875rem; }
+.patrimonio-lista__acoes { display: flex; justify-content: flex-end; gap: 6px; }
+.patrimonio-lista__menu { position: relative; }
+.patrimonio-lista__popover {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 168px;
+  display: flex; flex-direction: column; padding: 6px;
+  background: #fff; border: 1px solid var(--arcd-border-default); border-radius: 10px;
+  box-shadow: 0 8px 24px rgb(13 27 46 / 12%);
+}
+.patrimonio-lista__popover > button {
+  min-height: 40px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent;
+  color: var(--arcd-text-primary); font: inherit; font-size: .875rem; text-align: left; cursor: pointer;
+}
+.patrimonio-lista__popover > button:hover,
+.patrimonio-lista__popover > button:focus-visible { background: #f3f0e9; }
+
+/* Abas de fluxo (FlowTabs: Folha, Compras e outros) no mesmo padrão sublinhado. */
+@media screen {
+  [data-theme="marcell"] .arcd-main .workflow-tabs > nav {
+    gap: 4px;
+    padding: 0;
+    border-bottom: 1px solid var(--arcd-border-default);
+  }
+  [data-theme="marcell"] .arcd-main .workflow-tabs > nav > button {
+    min-height: 44px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--arcd-text-secondary);
+    font-weight: 400 !important;
+  }
+  [data-theme="marcell"] .arcd-main .workflow-tabs > nav > button:hover { color: var(--arcd-text-primary); }
+  [data-theme="marcell"] .arcd-main .workflow-tabs > nav > button[aria-current="page"] {
+    background: transparent;
+    color: var(--mrc-navy);
+    box-shadow: inset 0 -2px 0 var(--mrc-navy);
+  }
+  [data-theme="marcell"] .arcd-main .workflow-tabs > nav > button small {
+    padding: 1px 7px; border-radius: 10px; background: #e8e5df; color: #3b4656;
+  }
+}
+
+/* Diretrizes de interface (Vercel): sem zoom por toque duplo nos controles. */
+@media screen {
+  [data-theme="marcell"] :is(button, a, select, summary, [role="menuitem"]) { touch-action: manipulation; }
+}
