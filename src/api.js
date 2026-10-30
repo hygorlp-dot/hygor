@@ -213,6 +213,8 @@ export const prepararSombraFinanceira = () => chamar({ action:"financial-shadow-
 export const sincronizarSombraFinanceira = () => chamar({ action:"financial-shadow-sync", ...credenciais() });
 export const consultarDreCanonico = ({year,month,period="mes",obraId=""}) =>
   chamar({ action:"financial-dre-report", ...credenciais(), year, month, period, obraId });
+export const consultarCustoAcumuladoObras = ({year,month}) =>
+  chamar({ action:"obras-custo-acumulado", ...credenciais(), year, month });
 export const consultarDreEmpresaCanonico = ({year,month}) =>
   chamar({ action:"financial-company-dre-report", ...credenciais(), year, month, period:"mes" });
 export const consultarDreAnual = year =>

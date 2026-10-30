@@ -1,4 +1,4 @@
-import { createDreCalculations } from "./calculations";
+import { avancoFisicoOficial, createDreCalculations } from "./calculations";
 
 const dias = ["2026-07-06", "2026-07-20"];
 const regras = createDreCalculations({
@@ -308,5 +308,28 @@ describe("custo acumulado da obra (gestão à vista)", () => {
   test("sem data de início não presume período; antes do início é zero", () => {
     expect(motor.calcCustoAcumuladoObra({ ...dados, obras: [{ id: "obra-1" }] }, "obra-1", 2026, 6)).toBeNull();
     expect(motor.calcCustoAcumuladoObra(dados, "obra-1", 2026, 4)).toMatchObject({ custo: 0, meses: 0 });
+  });
+});
+
+describe("avanço físico oficial (regra de 30/10/2026)", () => {
+  const obra = extra => ({ medicoesObra: [], medicoes: [], ...extra });
+  test("medição técnica aprovada manda sobre a medição de cobrança", () => {
+    expect(avancoFisicoOficial(obra({
+      medicoesObra: [{ obraId: "o1", status: "aprovada", avancoFisico: 60 }, { obraId: "o1", status: "em_revisao", avancoFisico: 90 }],
+      medicoes: [{ obraId: "o1", tipo: "percentual", percentualAcumulado: 40 }],
+    }), "o1")).toBe(60);
+  });
+  test("medição cancelada ou em rascunho não conta", () => {
+    expect(avancoFisicoOficial(obra({ medicoes: [
+      { obraId: "o1", tipo: "percentual", percentualAcumulado: 80, status: "cancelada" },
+      { obraId: "o1", tipo: "percentual", percentualAcumulado: 70, status: "rascunho" },
+      { obraId: "o1", tipo: "percentual", percentualAcumulado: 40 },
+    ] }), "o1")).toBe(40);
+    expect(avancoFisicoOficial(obra({ medicoesObra: [{ obraId: "o1", status: "cancelada", avancoFisico: 90 }],
+      medicoes: [{ obraId: "o1", tipo: "percentual", percentualAcumulado: 40 }] }), "o1")).toBe(40);
+  });
+  test("técnica antiga sem status vale como confirmada; sem medição, null", () => {
+    expect(avancoFisicoOficial(obra({ medicoesObra: [{ obraId: "o1", avancoFisico: 55 }] }), "o1")).toBe(55);
+    expect(avancoFisicoOficial(obra(), "o1")).toBeNull();
   });
 });

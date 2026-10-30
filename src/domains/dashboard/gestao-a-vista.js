@@ -2,12 +2,12 @@
 // obra ativa, dados que já existem nas fontes oficiais e classifica a situação.
 // Fontes: orçado = orçamento APROVADO (rascunho nunca entra no custo × orçado);
 // custo = soma dos DREs mensais desde o início até o último mês fechado (o mês
-// corrente ainda rateia salário de dias que não chegaram); avanço = medições percentuais
+// corrente ainda rateia salário de dias que não chegaram); avanço = avancoFisicoOficial
 // (mesma regra do DRE), com o cronograma só como alternativa identificada;
 // etapas = cronograma do Planejamento; entrega = fim do contrato.
 import { calculateBudget, getActiveBudgetBaseline, getPlanningBudget } from "../orcamentos/calculations.js";
 import { montarTarefas, progressoPlano } from "../planejamento/legacy-engine.js";
-import { avancoFisicoMedido } from "../dre/calculations.js";
+import { avancoFisicoOficial } from "../dre/calculations.js";
 import { remunerationModeOnDate } from "../rh/remuneration-mode.js";
 
 // Regra aprovada pelo dono em 30/10/2026. Pontos percentuais e dias corridos.
@@ -35,9 +35,15 @@ export function situacaoDaObra({ desvio, diasEntrega, pendenciasPonto }, regra =
 }
 const fmtPontos = valor => `${Math.round(valor).toLocaleString("pt-BR")} ponto${Math.round(valor) === 1 ? "" : "s"}`;
 
-export function resumoGestaoAVista(data, { hoje, custoAcumulado, obraDoDia }) {
+// O custo vai até o último mês fechado: no mês corrente o motor ainda rateia
+// salário de dias que não chegaram (achado da revisão do DRE, 30/10/2026).
+export const ultimoMesFechado = hoje => {
   const mesAtual = Number(hoje.slice(5, 7)) - 1;
-  const ano = Number(hoje.slice(0, 4)) - (mesAtual === 0 ? 1 : 0), mes = mesAtual === 0 ? 11 : mesAtual - 1;
+  return { ano: Number(hoje.slice(0, 4)) - (mesAtual === 0 ? 1 : 0), mes: mesAtual === 0 ? 11 : mesAtual - 1 };
+};
+
+export function resumoGestaoAVista(data, { hoje, custoAcumulado, obraDoDia }) {
+  const { ano, mes } = ultimoMesFechado(hoje);
   const ontemUtil = ultimoDiaUtil(hoje);
   const obras = (data.obras || []).filter(obra => obra?.id && !ENCERRADAS.has(String(obra.status || "").toLowerCase()));
   const linhas = obras.map(obra => {
@@ -47,7 +53,7 @@ export function resumoGestaoAVista(data, { hoje, custoAcumulado, obraDoDia }) {
     const custo = acumulado ? acumulado.custo : null;
     const plano = (data.planos || []).find(item => item.obraId === obra.id) || null;
     const tarefas = plano ? montarTarefas(plano, getPlanningBudget(data, obra.id, plano).budget) : [];
-    const medido = avancoFisicoMedido(data, obra.id);
+    const medido = avancoFisicoOficial(data, obra.id);
     const cronograma = tarefas.length ? progressoPlano(tarefas) : null;
     const avanco = umaCasa(medido ?? cronograma);
     const gastoPct = umaCasa(orcado && custo !== null ? custo / orcado * 100 : null);

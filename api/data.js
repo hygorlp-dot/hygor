@@ -49,7 +49,7 @@ import { auditCanonicalFinancialIntegrity } from "../server/financial-integrity.
 import { compareLegacyBankTransactions } from "../server/financial-bank-shadow.js";
 import { findStaleFinancialLegacyLinks } from "../server/financial-legacy-link-integrity.js";
 import { compareProcurementDreRecognition } from "../server/procurement-financial-facts.js";
-import { buildRequestedDreProjectionRows, dreSourceRevision } from "../server/dre-projection.js";
+import { buildAccumulatedWorkCosts, buildRequestedDreProjectionRows, dreSourceRevision } from "../server/dre-projection.js";
 import { readAnnualLayout, saveAnnualLayout } from "../src/domains/dre/annual-statement.js";
 import { applyReconciliationCommand, RECONCILIATION_COMMAND } from "../server/reconciliation-command.js";
 import { authorizeReconciliationCommand } from "../server/reconciliation-policy.js";
@@ -166,7 +166,7 @@ const keyForDomain = domain => SPLIT_ROW_KEYS[domain] || KEY;
 // migra sozinha para ela - sem exigir nenhuma ordem de deploy específica.
 const linhaEfetivaParaEscrita = (domain, rowVersions) =>
   (domain!==DOMAIN_ROW.CORE && rowVersions[domain]==null) ? DOMAIN_ROW.CORE : domain;
-const DRE_PROJECTION_VERSION = "2026-10-fila-integrada-custos-competencia-v9";
+const DRE_PROJECTION_VERSION = "2026-10-avanco-fisico-oficial-v10";
 const OPERATIONAL_RESPONSE_EXCLUDED_SECTIONS = [
   "operationalCommandReceipts",
   "changeLog",
@@ -3257,6 +3257,26 @@ export default async function handler(req, res) {
         sourceRevision:`${dreSourceRevision({updatedAt,rowVersions,rowVersionsPontoObra})}|canonical:${canonical.revision}`,
         closedCompetences:closedMonths.map(item=>item.competencia),
         issues:canonical.issues});
+    }
+
+    // Painel "Suas obras hoje": custo acumulado das obras ativas até o último
+    // mês fechado, no mesmo motor do DRE por obra (com títulos nativos e custos
+    // arquivados). Exige a aba Obras e acesso à DRE; perfil de uma obra só vê a sua.
+    if(action==="obras-custo-acumulado"){
+      const year=Number(req.body?.year),month=Number(req.body?.month);
+      if(!Number.isInteger(year)||year<2000||year>2100||!Number.isInteger(month)||month<0||month>11){
+        return res.status(400).json({error:"Período do custo acumulado inválido."});
+      }
+      if(!podeAcessarAba(usuario,"obras")||!(podeAcessarAba(usuario,"dre")||podeAcessarAba(usuario,"dre_emp"))){
+        return res.status(403).json({error:"Este perfil não tem acesso ao custo das obras."});
+      }
+      const encerradas=new Set(["done","concluida","concluido","cancelada","cancelado","arquivada","arquivado"]);
+      const obraIds=(atual.obras||[]).filter(obra=>obra?.id&&!encerradas.has(String(obra.status||"").toLowerCase())
+        &&(!usuario.obraId||String(obra.id)===String(usuario.obraId))).map(obra=>obra.id);
+      const fonteFinanceira=await exigirCustosArquivados(atual);
+      const canonical=await loadCanonicalDre(db,COMPANY);
+      return res.status(200).json({ok:true,custoAte:`${year}-${String(month+1).padStart(2,"0")}`,
+        obras:buildAccumulatedWorkCosts(fonteFinanceira,{year,month,obraIds},canonical.events)});
     }
 
     if(action==="financial-management-report"){

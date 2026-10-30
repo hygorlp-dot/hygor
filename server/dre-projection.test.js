@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {buildDreProjectionRows} from "./dre-projection.js";
+import {buildDreProjectionRows,buildRequestedDreProjectionRows} from "./dre-projection.js";
 
 // Regressão: `yearsInData` usava uma regex com barra invertida duplicada
 // (`/^(20\\d{2})-\\d{2}/`), que nunca casa com uma data real. Isso fazia a
@@ -33,5 +33,18 @@ describe("buildDreProjectionRows — pagamento direto do cliente (D-C)", () => {
     const saidas = rows => rows.filter(row => row.year === year).reduce((soma, row) => soma + JSON.stringify(row).split('"saidasCaixa":').slice(1).reduce((s, trecho) => s + Number(trecho.match(/^-?[\d.]+/)?.[0] || 0), 0), 0);
     expect(saidas(build("cliente_direto"))).toBe(0);
     expect(saidas(build("empresa"))).toBeGreaterThan(0);
+  });
+});
+
+// Mesmo cenário de src/domains/dre/calculations.test.js (avanço físico oficial):
+// a DRE gravada pelo servidor usa a medição técnica aprovada e ignora canceladas.
+describe("buildRequestedDreProjectionRows — avanço físico oficial", () => {
+  it("medição técnica aprovada manda e a medição cancelada não conta", () => {
+    const [row] = buildRequestedDreProjectionRows({
+      obras: [{id: "o1", name: "Obra 1"}],
+      medicoesObra: [{id: "t1", obraId: "o1", status: "aprovada", avancoFisico: 60}, {id: "t2", obraId: "o1", status: "cancelada", avancoFisico: 95}],
+      medicoes: [{id: "m1", obraId: "o1", tipo: "percentual", percentualAcumulado: 80, status: "cancelada"}],
+    }, [{year: 2026, month: 8, period: "mes", scope: "o1"}]);
+    expect(row.payload.pctAvanco).toBe(60);
   });
 });

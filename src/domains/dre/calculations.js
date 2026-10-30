@@ -1,4 +1,5 @@
 import { valorContratoVigente } from "../obras/contract-amendments.js";
+import { isApprovedTechnicalMeasurement } from "../medicoes/constants.js";
 import {
   buildFinancialLedger,
   selectDRE,
@@ -55,11 +56,18 @@ export const calculateContractProjection = (work, laborCost, extraCosts = {}) =>
 // Adaptadores públicos do DRE. A fórmula financeira vive exclusivamente no
 // ledger; as dependências injetadas apenas traduzem ponto e equipamentos,
 // cujos motores operacionais continuam em seus módulos próprios.
-// Avanço físico oficial da obra: o maior percentual acumulado entre as medições
-// percentuais. Sem medição percentual, null (o DRE mostra 0; o painel, "sem medição").
-export const avancoFisicoMedido = (data, obraId) => {
-  const meds = (data.medicoes || []).filter(measurement => measurement.obraId === obraId && measurement.tipo === "percentual");
-  return meds.length ? Math.max(...meds.map(measurement => Number(measurement.percentualAcumulado || 0))) : null;
+// Avanço físico oficial da obra (decisão do dono em 30/10/2026): a medição
+// técnica aprovada manda; sem ela, a medição percentual de cobrança. Medições
+// canceladas, em rascunho ou excluídas nunca contam (técnica sem status é a
+// confirmada antiga, como no faturamento). Sem nenhuma, null: o DRE mostra 0 e
+// o painel recorre ao cronograma, identificado como tal.
+const maiorPercentual = (lista, campo) => lista.length ? Math.max(...lista.map(item => Number(item[campo] || 0))) : null;
+export const avancoFisicoOficial = (data, obraId) => {
+  const tecnicas = (data.medicoesObra || []).filter(measurement => measurement?.obraId === obraId && active(measurement)
+    && (!measurement.status || isApprovedTechnicalMeasurement(measurement)));
+  if (tecnicas.length) return maiorPercentual(tecnicas, "avancoFisico");
+  return maiorPercentual((data.medicoes || []).filter(measurement => measurement?.obraId === obraId
+    && measurement.tipo === "percentual" && active(measurement)), "percentualAcumulado");
 };
 
 export const createDreCalculations = ({
@@ -188,7 +196,7 @@ export const createDreCalculations = ({
     const tercEmpresaObra = fromCents(ledger.events
       .filter(event => event.effect === "cash_out" && event.category === "terceirizado" && event.obraId === obraId && event.date >= ctx.per0 && event.date <= ctx.perF && event.metadata?.pagador === "empresa")
       .reduce((sum,event)=>sum+event.amountCents,0));
-    const pctAvanco = avancoFisicoMedido(data, obraId) ?? 0;
+    const pctAvanco = avancoFisicoOficial(data, obraId) ?? 0;
     return {
       obra, ym:ctx.ym, periodo, days:ctx.days, per0:ctx.per0, perF:ctx.perF,
       faturamento, recebido, aReceber, medDoMes,
@@ -319,24 +327,39 @@ export const createDreCalculations = ({
     };
   };
 
-  // Custo acumulado da obra, do mês de início até o mês informado (painel de
-  // gestão à vista): é por definição a soma dos totalCustos do calcDREObra
-  // mensal, para o painel nunca divergir do DRE da obra (competência, data de
-  // emissão e eventos sem data seguem a regra mensal). Sem data de início,
-  // devolve null: o painel mostra o dado como ausente em vez de presumir um período.
-  const calcCustoAcumuladoObra = (data, obraId, year, month) => {
-    const obra = (data.obras || []).find(item => item.id === obraId);
+  // Custo acumulado por obra, do mês de início até o mês informado (painel de
+  // gestão à vista). É por definição a soma dos totalCustos do calcDREObra
+  // mensal (mesmo filtro: competência do mês, data no mês e situação na data),
+  // para o painel nunca divergir do DRE da obra. O razão é montado uma vez com
+  // os eventos de todos os meses e obras e só o filtro é aplicado mês a mês.
+  // Sem data de início a obra fica null: o painel mostra o dado como ausente.
+  const mesesDaObra = (obra, fim) => {
     const inicio = String(obra?.startDate || obra?.contractStart || "").slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(inicio)) return null;
-    const fim = `${year}-${String(month + 1).padStart(2, "0")}`;
-    let y = Number(inicio.slice(0, 4)), m = Number(inicio.slice(5, 7)) - 1, meses = 0, custo = 0;
+    const meses = [];
+    let y = Number(inicio.slice(0, 4)), m = Number(inicio.slice(5, 7)) - 1;
     while (`${y}-${String(m + 1).padStart(2, "0")}` <= fim) {
-      custo += Number(calcDREObra(data, obraId, y, m).totalCustos || 0);
-      meses += 1;
+      meses.push(context(y, m, "mes"));
       if (m === 11) { y += 1; m = 0; } else m += 1;
     }
-    return { custo, inicio, fim, meses };
+    return { inicio, meses };
   };
+  const calcCustoAcumuladoObras = (data, obraIds, year, month) => {
+    const fim = `${year}-${String(month + 1).padStart(2, "0")}`;
+    const periodos = new Map(obraIds.map(obraId =>
+      [obraId, mesesDaObra((data.obras || []).find(item => item.id === obraId), fim)]));
+    const supplemental = [...periodos].flatMap(([obraId, periodo]) =>
+      (periodo?.meses || []).flatMap(ctx => supplementalForWork(data, obraId, ctx).events));
+    const ledger = buildFinancialLedger(data, { supplementalEvents: [...supplemental, ...canonicalEvents] });
+    return Object.fromEntries([...periodos].map(([obraId, periodo]) => [obraId, periodo && {
+      inicio: periodo.inicio, fim, meses: periodo.meses.length,
+      custo: periodo.meses.reduce((total, ctx) => total + selectDRE(ledger, {
+        obraId, startDate:ctx.per0, endDate:ctx.perF, asOfDate:ctx.perF, competence:ctx.ym,
+      }).costs, 0),
+    }]));
+  };
+  const calcCustoAcumuladoObra = (data, obraId, year, month) =>
+    calcCustoAcumuladoObras(data, [obraId], year, month)[obraId];
 
   const calcVisaoFinanceira = (data, year, month, obraId = "all") => {
     const selectedWorks = (data.obras || []).filter(work => obraId === "all" || work.id === obraId);
@@ -448,6 +471,6 @@ export const createDreCalculations = ({
 
   return {
     diasPeriodoDRE, calcDREObra, calcDREConsolidado, calcDREHistorico,
-    calcVisaoFinanceira, calcProjecaoContratoObra, calcCustoAcumuladoObra,
+    calcVisaoFinanceira, calcProjecaoContratoObra, calcCustoAcumuladoObra, calcCustoAcumuladoObras,
   };
 };

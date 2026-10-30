@@ -18,7 +18,12 @@ function Etapas({linha}){
   </div>;
 }
 
-function CustoAvanco({linha}){
+// Enquanto o custo oficial (servidor) não chega, ou se o perfil não pode vê-lo,
+// a coluna diz isso em vez de mostrar uma barra sem custo.
+const SEM_CUSTO={carregando:"Calculando o custo…","sem-acesso":"Custo visível só para quem acessa a DRE",erro:"Custo indisponível agora"};
+
+function CustoAvanco({linha,custoStatus}){
+  if(custoStatus!=="ok")return <span className="gav-vazio">{SEM_CUSTO[custoStatus]||SEM_CUSTO.erro}</span>;
   if(linha.orcado===null)return <span className="gav-vazio">Sem orçamento aprovado</span>;
   if(linha.avanco===null)return <span className="gav-vazio">Gasto {pct(linha.gastoPct)} · sem medição</span>;
   const aFrente=linha.desvio!==null&&linha.desvio>=R.atencaoDesvio;
@@ -40,14 +45,14 @@ function Entrega({linha}){
   </div>;
 }
 
-export default function GestaoAVistaObras({resumo,hoje,onAbrirObra}){
+export default function GestaoAVistaObras({resumo,hoje,onAbrirObra,custoStatus="ok"}){
   const [filtro,setFiltro]=useState(null);
   const linhas=filtro?resumo.linhas.filter(l=>l.situacao===filtro):resumo.linhas;
   return <section className="gav" aria-labelledby="gav-titulo">
     <header className="gav__topo">
       <div>
         <h3 id="gav-titulo" className="gav__titulo">Suas obras hoje</h3>
-        <p className="gav__sub">{dataBr(hoje)} · {resumo.equipeHoje} pessoa(s) em campo{resumo.custoAte?` · custo até ${resumo.custoAte.split("-").reverse().join("/")}`:""}</p>
+        <p className="gav__sub">{dataBr(hoje)} · {resumo.equipeHoje} pessoa(s) em campo{custoStatus==="ok"&&resumo.custoAte?` · custo até ${resumo.custoAte.split("-").reverse().join("/")}`:""}</p>
       </div>
       <div className="gav-placar" role="group" aria-label="Filtrar obras por situação">
         {ORDEM.map(s=><button key={s} type="button" className={`gav-placar__item is-${s}`} aria-pressed={filtro===s} onClick={()=>setFiltro(f=>f===s?null:s)}>
@@ -67,11 +72,11 @@ export default function GestaoAVistaObras({resumo,hoje,onAbrirObra}){
         <span role="cell"><span className={`gav-chip is-${l.situacao}`}><Ic n={ICONE[l.situacao]} s={12}/>{SITUACOES[l.situacao]}</span></span>
         <span role="cell"><Etapas linha={l}/></span>
         <span role="cell" className="gav-equipe">{l.equipeHoje}</span>
-        <span role="cell"><CustoAvanco linha={l}/></span>
+        <span role="cell"><CustoAvanco linha={l} custoStatus={custoStatus}/></span>
         <span role="cell"><Entrega linha={l}/></span>
       </div>)}
     </div>}
     {filtro&&resumo.linhas.length>0&&!linhas.length&&<p className="gav-vazio gav__nada">Nenhuma obra em “{SITUACOES[filtro]}”.</p>}
-    <p className="gav__legenda">Crítico: custo mais de {R.criticoDesvio} pontos à frente do avanço ou prazo vencido. Atenção: {R.atencaoDesvio} a {R.criticoDesvio} pontos, entrega em menos de {R.atencaoDiasEntrega} dias ou ponto pendente.</p>
+    <p className="gav__legenda">Crítico: custo mais de {R.criticoDesvio} pontos à frente do avanço ou prazo vencido. Atenção: {R.atencaoDesvio} a {R.criticoDesvio} pontos, entrega em menos de {R.atencaoDiasEntrega} dias ou ponto pendente.{custoStatus!=="ok"?" Sem o custo, a situação considera só prazo e ponto.":""}</p>
   </section>;
 }

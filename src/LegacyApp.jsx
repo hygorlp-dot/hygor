@@ -41,7 +41,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          enviarMensagemChat, listarMensagensChat, apagarMensagemChat, silenciarUsuarioChat, dessilenciarUsuarioChat, subirAnexoChat,
          listarAjustesRanking, adicionarAjusteRanking, removerAjusteRanking,
          consultarSombraFinanceira, prepararSombraFinanceira, sincronizarSombraFinanceira,
-         consultarDreCanonico, consultarDreEmpresaCanonico, executarComandoFinanceiro,
+         consultarDreCanonico, consultarDreEmpresaCanonico, consultarCustoAcumuladoObras, executarComandoFinanceiro,
          executarComandoOperacional, executarComandoPonto,
          gerenciarAcessoPortalCliente, obterProjecaoMaoObra } from "./api";
 import { Button } from "./components/ui/button";
@@ -151,7 +151,7 @@ import { projectAlertAction, validateProjectForm } from "./domains/obras/project
 import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
 import { calcSaldos } from "./domains/estoque/calculations";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "./domains/ponto/permissions";
-import { resumoGestaoAVista } from "./domains/dashboard/gestao-a-vista.js";
+import { resumoGestaoAVista, ultimoMesFechado } from "./domains/dashboard/gestao-a-vista.js";
 import GestaoAVistaObras from "./domains/dashboard/components/GestaoAVistaObras.jsx";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
@@ -3563,7 +3563,6 @@ const {
   calcDREHistorico,
   calcVisaoFinanceira,
   calcProjecaoContratoObra,
-  calcCustoAcumuladoObra,
   calculateFinancialRanking:calcularRankingFinanceiro,
   calculateMonthlyFinancialReport:calcRelatorioMensal,
 } = createFinancialCalculationEngine({
@@ -3950,8 +3949,23 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
   const abasPermitidas=allowedTabsForUser(currentUser);
   const filaOperador=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
   // Gestão à vista: sempre o dia de hoje, independente do mês escolhido no topo.
-  const gestaoAVista=useMemo(()=>resumoGestaoAVista(data,{hoje,custoAcumulado:calcCustoAcumuladoObra,
-    obraDoDia:(employee,date,record)=>resolveEmployeeAttendanceObraId({data,employee,date,record})}),[data,hoje]);
+  // O custo vem do servidor (mesmo motor e títulos nativos do DRE por obra) e é
+  // pedido de novo a cada sincronização; sem acesso à DRE, a coluna fica restrita.
+  const veObras=abasPermitidas.includes("obras");
+  const veCusto=abasPermitidas.includes("dre")||abasPermitidas.includes("dre_emp");
+  const [custosObras,setCustosObras]=useState({status:"carregando",obras:{},custoAte:""});
+  useEffect(()=>{
+    if(!veObras)return;
+    if(!veCusto){setCustosObras({status:"sem-acesso",obras:{},custoAte:""});return;}
+    let ativo=true;
+    const {ano,mes}=ultimoMesFechado(hoje);
+    consultarCustoAcumuladoObras({year:ano,month:mes}).then(r=>{
+      if(ativo)setCustosObras(r?.ok?{status:"ok",obras:r.obras||{},custoAte:r.custoAte||""}:{status:"erro",obras:{},custoAte:""});
+    });
+    return ()=>{ativo=false};
+  },[veObras,veCusto,hoje,ultimaSync]);
+  const gestaoAVista=useMemo(()=>resumoGestaoAVista(data,{hoje,custoAcumulado:(_,obraId)=>custosObras.obras[obraId]??null,
+    obraDoDia:(employee,date,record)=>resolveEmployeeAttendanceObraId({data,employee,date,record})}),[data,hoje,custosObras]);
 
   // Resumo diário (clima + notícias do setor): carrega uma vez por sessão de
   // dashboard, cacheado 15min no servidor — não precisa refazer a cada render.
@@ -3994,7 +4008,7 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
     {/* Marca d'água institucional: grande, porém abaixo de todo o conteúdo. */}
 
     <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={filaOperador} onBuscar={onBuscar} onAtualizar={onAtualizar} onAbrir={onTab} periodo={`${fullMonth(month)} ${year}`} onAnterior={()=>irMes(-1)} onProximo={()=>irMes(1)} proximoDesabilitado={ehAtual} clima={resumoDiario.clima} saveState={saveState}/>
-    {abasPermitidas.includes("obras")&&<GestaoAVistaObras resumo={gestaoAVista} hoje={hoje} onAbrirObra={onAbrirObra}/>}
+    {veObras&&<GestaoAVistaObras resumo={gestaoAVista} hoje={hoje} onAbrirObra={onAbrirObra} custoStatus={custosObras.status}/>}
     <FilaOperador fila={filaOperador} onTab={onTab}/>
     <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticias}/>
@@ -4022,7 +4036,6 @@ function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, cu
       {!prioridades.length?<div style={{padding:"18px 4px",display:"flex",alignItems:"center",gap:10,color:C.green}}><span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:`${C.green}10`}}><Ic n="check"/></span><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"#2D3135"}}>Nenhuma pendência prioritária</p><p style={{fontSize:"var(--arcd-type-label)",color:"#8A8F94",marginTop:2}}>A operação está sob controle.</p></div></div>:<div style={{display:"grid",gridTemplateColumns:isDesktop&&prioridades.length>3?"1fr 1fr":"1fr",columnGap:20}}>{prioridades.slice(0,8).map((a,i)=>{const cor=a.sev===3?C.red:a.sev===2?C.orange:C.blue;return <button key={`${a.texto}-${i}`} onClick={()=>onTab(a.tab)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",textAlign:"left",border:0,borderTop:i>=(isDesktop&&prioridades.length>3?2:1)?"1px solid rgba(27,31,36,.06)":"none",background:"transparent",padding:"11px 3px",cursor:"pointer"}}><span style={{width:8,height:8,borderRadius:99,background:cor,boxShadow:`0 0 0 5px ${cor}0D`,flexShrink:0}}/><span style={{fontSize:"var(--arcd-type-label)",color:"#303438",lineHeight:1.35,flex:1}}>{a.texto}</span><span style={{fontSize:"var(--arcd-type-card-title)",color:"#B1B5B9"}}>›</span></button>;})}</div>}
     </section>
 
-    <section style={{position:"relative",zIndex:1,...superficie,padding:isDesktop?18:14}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("obras")}>Ver portfólio →</DesignSystemButton>}>Resumo executivo das obras</Titulo>{!exec.obras.length?<p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma obra cadastrada.</p>:<div style={{display:"flex",flexDirection:"column"}}>{[...exec.obras].sort((a,b)=>({critica:0,atencao:1,saudavel:2}[a.exec.k]-{critica:0,atencao:1,saudavel:2}[b.exec.k])).slice(0,5).map((o,i)=><button key={o.id} onClick={()=>onTab("obras")} style={{border:0,borderTop:i?"1px solid rgba(27,31,36,.06)":"none",background:"transparent",padding:"12px 0",display:"grid",gridTemplateColumns:isDesktop?"minmax(180px,1.4fr) minmax(180px,1fr) 110px 110px":"1fr auto",gap:14,alignItems:"center",textAlign:"left",cursor:"pointer"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"#25282C",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.nome}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cidade||o.cliente||"Obra em acompanhamento"}</p></div><div style={{display:isDesktop?"block":"none"}}><div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-caption)",color:C.muted,marginBottom:5}}><span>Avanço físico</span><b style={{color:C.blue}}>{o.pctFisico}%</b></div><div style={{height:5,borderRadius:99,background:"#ECEEEF",overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(100,o.pctFisico)}%`,background:C.blue,borderRadius:99}}/></div></div><div style={{display:isDesktop?"block":"none"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Previsto x realizado</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"#454A4F",marginTop:3}}>{o.pctFinanceiro}% financeiro</p></div><span style={{justifySelf:"end",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:o.exec.cor,background:`${o.exec.cor}0E`,padding:"5px 9px",borderRadius:99,textTransform:"uppercase"}}>{o.exec.l}</span></button>)}</div>}</section>
 
     <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
       <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("dre_emp")}>Detalhes →</DesignSystemButton>}>Resumo financeiro</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["A receber",exec.dre.aReceber,C.orange],["Fluxo do período",exec.dre.saldoCaixa,exec.dre.saldoCaixa>=0?C.green:C.red],["Principais saídas",exec.dre.totalCustos,C.red],["Resultado do mês",exec.dre.lucroBruto,exec.dre.lucroBruto>=0?C.green:C.red]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{fmtCompact(v)}</p></div>)}</div></div>

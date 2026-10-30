@@ -52,3 +52,11 @@ it("abre a obra pelo nome", async () => {
   await act(async () => container.querySelector(".gav-obra__nome").click());
   expect(onAbrirObra).toHaveBeenCalledWith("o1");
 });
+
+it("sem acesso à DRE não desenha barra de custo e avisa que a situação ignora o custo", async () => {
+  await act(async () => root.render(<GestaoAVistaObras resumo={resumo} hoje="2026-10-30" custoStatus="sem-acesso" />));
+  expect(container.querySelector(".gav-custo__barra")).toBeNull();
+  expect(container.textContent).toContain("Custo visível só para quem acessa a DRE");
+  expect(container.querySelector(".gav__sub").textContent).not.toContain("custo até");
+  expect(container.querySelector(".gav__legenda").textContent).toContain("Sem o custo, a situação considera só prazo e ponto.");
+});
