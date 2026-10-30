@@ -13,7 +13,7 @@ describe("FIN 9.6 — arquivos de ponto são fonte financeira autoritativa",()=>
   };
 
   it("bump da projeção invalida snapshots antigos gerados com cache arquivado",()=>{
-    expect(api).toContain('DRE_PROJECTION_VERSION = "2026-10-fila-integrada-custos-competencia-v9"');
+    expect(api).toContain('DRE_PROJECTION_VERSION = "2026-10-competencia-nf-atrasada-v11"');
   });
 
   it("relatório e carga de sombra recompõem arquivos antes do snapshot",()=>{
