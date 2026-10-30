@@ -7263,6 +7263,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const salvarCelula=async(emp,date,patch)=>{
     if(bloqueadoPorArquivo())return;
     const anterior=attendanceFor(emp.id,date)||{status:null,ot:0,note:"",obraId:""};
+    if(anterior.pontoReview){showToast("Este dia foi conferido pelo RH. Revise-o no Ponto eletrônico.","error");return;}
     const novo={...anterior,...patch};
     const obraId=obraDoRegistro(emp,date,novo,patch.obraId);
     if(obraId&&!canEditAttendance(data,obraId,date,currentUser?.id)){
@@ -7290,6 +7291,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
       const ant=getAtt(data,emp.id,date);
       if(!ant)return [];
       const obraId=obraDoRegistro(emp,date,ant);
+      if(ant.pontoReview){bloqueados++;return [];}
       if(obraId&&!canEditAttendance(data,obraId,date,currentUser?.id)){bloqueados++;return [];}
       return [{employeeId:emp.id,date,selectedObraId:obraId,record:{...ant,status:null,obraId}}];
     });
@@ -7406,7 +7408,8 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
               {fora?<div style={{textAlign:"center",color:C.muted,fontSize:"var(--arcd-type-label)"}}>—</div>:<>
                 <button onClick={()=>salvarCelula(emp,date,{status:proxStatus(st)})}
                   aria-busy={pending}
-                  title={pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
+                  disabled={!!att?.pontoReview}
+                  title={att?.pontoReview?"Conferido pelo RH; revise no Ponto eletrônico.":pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
                   style={{width:"100%",height:30,border:`1.5px solid ${st?corStatus(st):C.border}`,borderRadius:5,
                           background:st?corStatus(st):C.bg,color:st?"#fff":C.muted,
                           fontWeight:600,cursor:"pointer",fontSize:"var(--arcd-type-control)",fontFamily:"var(--arcd-font-sans)",
@@ -7415,7 +7418,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
                 </button>
                 {/* Obra: escondida por padrão. Mostra um chip discreto só quando a
                     obra do dia difere da lotação; toque abre a troca. */}
-                {aberto ? (
+                {att?.pontoReview ? <span title="Conferido e integrado pelo RH">RH</span> : aberto ? (
                   <select autoFocus value={obraId} onChange={e=>{salvarCelula(emp,date,{obraId:e.target.value});setObraCell(null);}} onBlur={()=>setObraCell(null)}
                     style={{width:"100%",marginTop:2,border:`1px solid ${C.blue}`,borderRadius:4,background:C.bg,color:C.text,fontSize:"var(--arcd-type-control)",padding:"2px 1px"}}>
                     <option value="">Sem obra</option>
@@ -7923,7 +7926,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
 
             {note && <p className="obra-attendance-card__note">“{note}”</p>}
 
-            {cardLocked ? (
+            {att?.pontoReview ? <p>Conferido pelo RH e integrado das batidas do aplicativo. Para alterar este dia, faça uma nova conferência no Ponto eletrônico.</p> : cardLocked ? (
               <Btn v="warning" size="sm" full onClick={() => setUnlockModal({ obraId: obraIdPonto, date: selDate, employee: e })}><Ic n="mail" /> Solicitar permissão</Btn>
             ) : (
               <>
@@ -17927,7 +17930,7 @@ export default function App() {
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} onTab={setTab}/>}
           {tab === "equipe_obras" && <EquipeObras key={currentUser?.id} onTab={setTab} allowedTabs={allowedTabs}/>}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser}/>}
+          {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} onTab={setTab}/>}
           {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "rh_indic" && <Suspense fallback={<div className="arcd-page-loading">Carregando indicadores...</div>}><IndicadoresView data={data} /></Suspense>}

@@ -1,24 +1,16 @@
-// Registros do app Ponto de Obra. A leitura desta tela não altera a ARP,
-// a Gestão do ponto nem a folha. Configurações continuam nas ações existentes.
+// A consulta preserva as batidas originais; a integração exige conferência explícita do RH.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { chamarPontoEletronico } from "../../../api";
 import { Badge, Btn, C, Ic, Inp, Modal, Sel } from "../../../LegacyApp";
-import { funcionariosAtivos, funcionariosDaObra } from "../funcionarios.js";
-import { FUSO_OBRA, dataLocal, horaLocal, resumoDoDia, situacaoAparelho } from "../painel.js";
+import { funcionariosDaObra } from "../funcionarios.js";
+import { FUSO_OBRA, dataLocal, horaLocal, situacaoAparelho } from "../painel.js";
 import { usePontoEletronico } from "../usePontoEletronico.js";
+import ConferenciaBatidas from "./ConferenciaBatidas.jsx";
 import BancoHorasView from "./BancoHorasView.jsx";
 import "./ponto-eletronico.css";
 
 const VAZIO = Object.freeze([]);
 const corDoTom = { ok: C.green, atencao: C.orange, critico: C.red, neutro: C.muted };
-const corSituacao = { em_jornada: C.blue, fechada: C.green, sem_batida: C.muted };
-const rotuloSituacao = { em_jornada: "Jornada em aberto", fechada: "Jornada fechada", sem_batida: "Sem batida recebida" };
-const FILTROS = [
-  { id: "todos", nome: "Todos" },
-  { id: "sem_batida", nome: "Sem batida recebida" },
-  { id: "conferir", nome: "A conferir" },
-  { id: "em_jornada", nome: "Em aberto" },
-];
 const FUSOS = {
   "America/Recife": "Recife (UTC−3)",
   "America/Sao_Paulo": "Brasília / São Paulo (UTC−3)",
@@ -26,12 +18,10 @@ const FUSOS = {
   "America/Rio_Branco": "Rio Branco (UTC−5)",
   "America/Noronha": "Fernando de Noronha (UTC−2)",
 };
-const normalizarBusca = valor => String(valor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
 const diaLegivel = dia => String(dia || "").split("-").reverse().join("/");
 const instanteLegivel = iso => iso && Number.isFinite(Date.parse(iso))
   ? new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO_OBRA, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(iso))
   : "não informado";
-const pedeConferencia = batida => !batida.horaConfiavel || batida.relogioAlterado || batida.metodo === "encarregado";
 const quantidade = (valor, singular, plural) => `${valor} ${valor === 1 ? singular : plural}`;
 const rotuloRecurso = (recurso, resumo) => !recurso.success
   ? (recurso.error ? "Não disponível" : "Carregando…")
@@ -57,15 +47,13 @@ function abrirSecao(ref) {
   elemento.querySelector("summary")?.focus();
 }
 
-export default function PontoEletronicoView({ data, showToast, currentUser }) {
+export default function PontoEletronicoView({ data, showToast, currentUser, dispatchAttendanceCommand, onTab }) {
   const obras = useMemo(() => (data?.obras || []).filter(o => o?.id && o?.name), [data?.obras]);
   const [obraId, setObraId] = useState(() => [...obras]
     .map(o => ({ id: String(o.id), n: funcionariosDaObra(data?.employees, o.id).length }))
     .sort((a, b) => b.n - a.n)[0]?.id || "");
   const [dia, setDia] = useState(() => dataLocal(new Date().toISOString()));
   const [aba, setAba] = useState("batidas");
-  const [busca, setBusca] = useState("");
-  const [filtro, setFiltro] = useState("todos");
   const [somenteBioPendente, setSomenteBioPendente] = useState(true);
   const [pareamento, setPareamento] = useState(null);
   const [pinModal, setPinModal] = useState(null);
@@ -85,7 +73,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
   const podeFiscal = ["admin", "rh"].includes(currentUser?.role);
   const ocupado = Boolean(acaoEmCurso);
   const { recursos, refresh, refreshGlobais, refreshRecurso, carregando } = usePontoEletronico({
-    obraId, dia, podeGerir, scopeKey: `${currentUser?.id || ""}:${currentUser?.role || ""}`,
+    obraId, dia, podeGerir, todasObras:podeFiscal, scopeKey: `${currentUser?.id || ""}:${currentUser?.role || ""}`,
   });
   const dispositivos = recursos.dispositivos.data || VAZIO;
   const marcacoes = recursos.marcacoes.data || VAZIO;
@@ -100,7 +88,6 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
   const nomeUsuario = useMemo(() => new Map((data?.usuarios || []).map(u => [String(u.id), u.nome || u.email])), [data?.usuarios]);
   const nomeObra = useMemo(() => new Map(obras.map(o => [String(o.id), o.name])), [obras]);
   const nomeEstab = useMemo(() => new Map(estabelecimentos.map(e => [String(e.id), e.nome])), [estabelecimentos]);
-  const resumo = useMemo(() => resumoDoDia(marcacoes, funcionarios, funcionariosAtivos(data?.employees)), [marcacoes, funcionarios, data?.employees]);
   const acessosTerceiros = useMemo(() => marcacoes.filter(m => m.tipoRegistro === "acesso_terceiro"), [marcacoes]);
   const bioPorFuncionario = useMemo(() => new Map(biometrias.map(b => [String(b.employeeId), b])), [biometrias]);
   const semBiometria = funcionarios.filter(f => !bioPorFuncionario.has(String(f.id))).length;
@@ -109,18 +96,6 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
   const online = ativos.filter(d => situacaoAparelho(d).tom === "ok").length;
   const ultimoContato = ativos.map(d => d.ultimoContatoEm).filter(v => Number.isFinite(Date.parse(v))).sort((a, b) => Date.parse(b) - Date.parse(a))[0];
   const estabDaObra = estabelecimentos.find(e => (e.obras || []).some(id => String(id) === String(obraId))) || null;
-  const contagens = {
-    todos: resumo.length,
-    sem_batida: resumo.filter(l => l.situacao === "sem_batida").length,
-    conferir: resumo.filter(l => l.alertas > 0).length,
-    em_jornada: resumo.filter(l => l.situacao === "em_jornada").length,
-  };
-  const resumoFiltrado = useMemo(() => {
-    const termo = normalizarBusca(busca.trim());
-    return resumo.filter(l => (!termo || normalizarBusca(`${l.nome} ${l.funcao}`).includes(termo))
-      && (filtro === "todos" || (filtro === "conferir" ? l.alertas > 0 : l.situacao === filtro)));
-  }, [resumo, busca, filtro]);
-  const temAlertasVisiveis = resumoFiltrado.some(l => l.alertas > 0);
   const codigoExpirado = Boolean(pareamento?.codigo && Date.parse(pareamento.expiraEm) <= agoraMs);
   const nomeDaMarcacao = m => m.tipoRegistro === "acesso_terceiro"
     ? nomeTerceiro.get(String(m.terceiroId)) || "terceirizado"
@@ -329,59 +304,16 @@ export default function PontoEletronicoView({ data, showToast, currentUser }) {
         <div className="pe-actions"><Btn v="ghost" onClick={() => abrirSecao(aparelhosRef)}>Ver aparelhos</Btn>{recursos.estabelecimentos.success && !estabDaObra && <Btn v="ghost" onClick={() => abrirSecao(fiscalRef)}>Ver vínculo fiscal</Btn>}</div>
       </section>
 
-      <section className="pe-batidas" aria-labelledby="pe-batidas-heading" aria-busy={recursos.marcacoes.loading}>
-        <div className="pe-section-heading">
-          <h2 id="pe-batidas-heading">Batidas de {diaLegivel(dia)}</h2>
-          {recursos.marcacoes.success && <div className="pe-day-totals">
-            <span>Batidas recebidas: <strong>{marcacoes.filter(m => m.tipoRegistro === "ponto").length}</strong></span>
-            <span>Jornadas em aberto no dia: <strong>{contagens.em_jornada}</strong></span>
-          </div>}
-        </div>
-        <EstadoRecurso recurso={recursos.marcacoes} nome="as batidas deste dia" />
-        {recursos.marcacoes.success && <>
-          <div className="pe-filters">
-            <div className="pe-search"><Inp label="Buscar funcionário" type="search" value={busca} onChange={setBusca} placeholder="Nome ou função" /></div>
-            <div className="pe-filter-options" role="group" aria-label="Filtrar funcionários por situação">
-              {FILTROS.map(item => <button type="button" key={item.id} aria-pressed={filtro === item.id} onClick={() => setFiltro(item.id)} aria-label={`${item.nome}: ${quantidade(contagens[item.id], "funcionário", "funcionários")}`}>
-                {item.nome}<span className="pe-filter-count">{contagens[item.id]}</span>
-              </button>)}
-            </div>
-          </div>
-          <div className="pe-results-heading">
-            <p role="status">{resumoFiltrado.length} de {resumo.length} funcionários{busca.trim() ? ` · busca por “${busca.trim()}”` : ""}</p>
-            {(busca || filtro !== "todos") && <Btn v="ghost" onClick={() => { setBusca(""); setFiltro("todos"); }}>Limpar filtros</Btn>}
-          </div>
-          {!resumo.length ? <div className="pe-empty">Nenhum funcionário ativo lotado nesta obra e nenhuma batida de funcionário recebida neste dia.</div>
-            : !resumoFiltrado.length ? <div className="pe-empty"><strong>Nenhum funcionário neste filtro.</strong><p>Altere a busca ou limpe os filtros para ver a equipe.</p></div>
-              : <div className="pe-table-scroll"><table className="pe-table">
-                <caption className="pe-sr-only">Batidas recebidas na obra {nomeObra.get(String(obraId))} em {diaLegivel(dia)}. Horários de {FUSOS[FUSO_OBRA] || FUSO_OBRA}.</caption>
-                <thead><tr><th scope="col">Funcionário</th><th scope="col">Situação no dia</th><th scope="col">Batidas recebidas</th></tr></thead>
-                <tbody>{resumoFiltrado.map(l => <tr key={l.employeeId}>
-                  <th scope="row"><span className="pe-person-name">{l.nome}</span>{l.funcao && <span className="pe-person-meta">{l.funcao}</span>}{l.foraDaObra && <span className="pe-person-meta">Lotado em outra obra</span>}</th>
-                  <td data-label="Situação no dia"><Badge color={corSituacao[l.situacao]}>{rotuloSituacao[l.situacao]}</Badge></td>
-                  <td data-label="Batidas recebidas"><div className="pe-punches">
-                    {l.batidas.length ? l.batidas.map(b => {
-                      const atencao = pedeConferencia(b);
-                      const horario = horaLocal(b.marcadoEm).slice(0, 5);
-                      return <button key={b.id} type="button" className={`pe-punch${atencao ? " pe-punch--attention" : ""}`} onClick={() => abrirDetalhe(b)}
-                        aria-label={`Ver batida de ${l.nome} às ${horario} em ${diaLegivel(dia)}${atencao ? ", a conferir" : ""}`} aria-describedby={atencao ? "pe-legenda-alerta" : undefined}>
-                        {horario}{atencao && <span aria-hidden="true">!</span>}
-                      </button>;
-                    }) : <span className="pe-muted">Nenhuma recebida</span>}
-                  </div></td>
-                </tr>)}</tbody>
-              </table></div>}
-          {temAlertasVisiveis && <p id="pe-legenda-alerta" className="pe-legend"><strong>! A conferir:</strong> identificação pelo encarregado, hora não confirmada pelo servidor ou relógio do celular alterado. O sinal não invalida a batida.</p>}
-          <details className="pe-reading-help"><summary>Como ler as situações do dia</summary><div className="pe-help-copy">
-            <p>A tela organiza as batidas recebidas em pares: uma quantidade ímpar indica jornada em aberto no dia; uma quantidade par indica jornada fechada. Essa leitura não confirma se o funcionário está trabalhando agora.</p>
-            <p>“Sem batida recebida” significa que ainda não chegou uma marcação desse funcionário para esta obra e este dia. Confira a conexão do aparelho antes de concluir que faltou uma batida.</p>
-          </div></details>
+      <EstadoRecurso recurso={recursos.marcacoes} nome="as batidas deste dia" />
+      {recursos.marcacoes.success && <>
+        <ConferenciaBatidas key={`${obraId}-${dia}`} data={data} events={marcacoes} date={dia} obraId={obraId}
+          currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} onTab={onTab}
+          abrirDetalhe={abrirDetalhe} showToast={showToast} disabled={recursos.marcacoes.loading || !!recursos.marcacoes.error}/>
           {!!acessosTerceiros.length && <details className="pe-thirdparty">
             <summary>Acessos de terceirizados ({acessosTerceiros.length})</summary>
             <ul className="pe-simple-list">{acessosTerceiros.map(a => <li key={a.id}><span>{nomeDaMarcacao(a)}</span><button type="button" className="pe-punch" onClick={() => abrirDetalhe(a)} aria-label={`Ver acesso de ${nomeDaMarcacao(a)} às ${horaLocal(a.marcadoEm).slice(0, 5)}`}>{horaLocal(a.marcadoEm).slice(0, 5)}</button></li>)}</ul>
           </details>}
-        </>}
-      </section>
+      </>}
 
       <section className="pe-settings" aria-labelledby="pe-settings-heading">
         <h2 id="pe-settings-heading">Configurações e cadastros</h2>

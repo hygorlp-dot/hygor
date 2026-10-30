@@ -105,6 +105,10 @@ const comJson=tx=>Object.assign(tx,{json:value=>({[PG_JSON]:value})});
 const makeTransaction=()=>comJson(async(strings,...values)=>{
   const sql=strings.join("?");
   testState.transactionCalls.push(sql.replace(/\s+/g," ").trim().slice(0,60));
+  if(sql.includes("select key,value,updated_at")){
+    const [company,core,meta,prefix]=values;
+    return Object.values(testState.rows).filter(row=>row.company_id===company&&(row.key===core||row.key===meta||row.key.startsWith(prefix)));
+  }
   if(sql.includes("for update")){
     const [,key]=values;
     const row=testState.rows[key];
