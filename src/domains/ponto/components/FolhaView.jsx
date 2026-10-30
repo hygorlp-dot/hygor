@@ -46,6 +46,9 @@ import { PayModeSimulation } from "./PayModeSimulation.jsx";
 import {EmployeeCosts} from '../../rh/components/EmployeeCosts.jsx';
 import {EmployeeDossier} from '../../rh/components/EmployeeDossier.jsx';
 import {readPayrollHandoff,PAYROLL_HANDOFF_KEY} from '../../rh/payroll-handoff.js';
+import {PayrollReadiness} from '../../rh/components/PayrollReadiness.jsx';
+import {writeRhStepTarget} from '../../rh/rh-step-target.js';
+import {Alert,AlertDescription} from '../../../components/ui/alert';
 import LaborProjectionReport from "./LaborProjectionReport.jsx";
 import { obterProjecaoMaoObra } from "../../../api.js";
 
@@ -66,6 +69,23 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const [reopenReason,setReopenReason]=useState("");
   const [savingClosing,setSavingClosing]=useState(false);
   const [payrollView,setPayrollView]=useState(entryScope?.mode==='clt'?'clt':'payroll');
+  const [rhSelection,setRhSelection]=useState(null);
+  const openRhStep=({step,employee,competence,report})=>{
+    if(!['admin','rh'].includes(currentUser?.role))return;
+    if(step==='registration'){
+      try{window.sessionStorage.setItem('arcd_editar_funcionario',String(employee.id));onTab?.('equipe');}catch{showToast('Não foi possível abrir o cadastro. Acesse Equipes.','error');}
+      return;
+    }
+    if(step==='point'||step==='point-close'){
+      const target=step==='point'?'point':'point-close';
+      if(!writeRhStepTarget({target,employeeId:String(employee.id),competence,date:report.pointDate,obraId:report.pointObraId})){showToast('Não foi possível manter o recorte. Abra a Gestão do ponto.','error');return;}
+      onTab?.(step==='point'?'ponto_geral':'ponto');return;
+    }
+    setRhSelection({employeeId:String(employee.id),competence});
+    setYear(Number(competence.slice(0,4)));setMonth(Number(competence.slice(5,7))-1);
+    if(step==='provisions')setPayrollView('provisions');
+    else {setExpandedId(String(employee.id));setPayrollView(report.mode==='clt'?'clt':'payroll');}
+  };
   const [laborScope,setLaborScope]=useState("all");
   const scopedData=useMemo(()=>({...data,employees:data.employees.filter(e=>matchesLaborArea(e,laborScope))}),[data,laborScope]);
   const changeLaborScope=value=>{setLaborScope(value);setFilterObra("all");};
@@ -868,16 +888,18 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       />
       </>}
 
-      <FlowTabs label="Áreas da folha" active={payrollView} onChange={setPayrollView}
-        steps={[{id:"payroll",label:"Folha da quinzena",description:"Confira as pendências e a composição por funcionário antes de gerar os relatórios."},...(["admin","rh","financeiro"].includes(currentUser?.role)?[{id:"projection",label:"Projeção da quinzena"}]:[]),{id:"clt",label:"Holerites CLT"},{id:"provisions",label:"Provisões trabalhistas"},{id:"simulation",label:"Simulação CLT × diária"},{id:'costs',label:'Custos por funcionário'},...(['admin','rh'].includes(currentUser?.role)?[{id:'dossier',label:'Prontuário documental'}]:[])]}
+      {payrollView==='payroll'&&['admin','rh'].includes(currentUser?.role)&&<Alert><AlertDescription>Confira cadastro, ponto, folha e provisões por funcionário. <Btn v="ghost" onClick={()=>setPayrollView('readiness')}>Organizar pendências do RH</Btn></AlertDescription></Alert>}
+      <FlowTabs label="Áreas da folha" active={payrollView} onChange={value=>{setRhSelection(null);setPayrollView(value);}}
+        steps={[...(['admin','rh'].includes(currentUser?.role)?[{id:'readiness',label:'Pendências do RH'}]:[]),{id:"payroll",label:"Folha da quinzena",description:"Confira as pendências e a composição por funcionário antes de gerar os relatórios."},...(["admin","rh","financeiro"].includes(currentUser?.role)?[{id:"projection",label:"Projeção da quinzena"}]:[]),{id:"clt",label:"Holerites CLT"},{id:"provisions",label:"Provisões trabalhistas"},{id:"simulation",label:"Simulação CLT × diária"},{id:'costs',label:'Custos por funcionário'},...(['admin','rh'].includes(currentUser?.role)?[{id:'dossier',label:'Prontuário documental'}]:[])]}
         tools={[{id:"union",label:"Sindicato"},{id:"charges",label:"Encargos"}]} toolsLabel="Regras e descontos"/>
       {payrollView==="payroll"&&<DreIntegration kind="payroll" currentUser={currentUser} obraId={filterObra==="all"?"":filterObra} year={year} month={month}>
         <p>Consulta do DRE mensal. A quinzena de 21 a 05 atravessa dois meses; o DRE mantém a competência de cada apontamento.</p>
       </DreIntegration>}
 
       {payrollView==="projection"&&<LaborProjectionReport key={laborScope} requestReport={obterProjecaoMaoObra} initialArea={({obras:"works",central:"administrative"})[laborScope]||"all"}/>}
-      {payrollView==="clt"&&<CltPayslips key={laborScope} data={scopedData} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
-      {payrollView==="provisions"&&<LaborProvisions key={laborScope} data={scopedData} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
+      {payrollView==='readiness'&&['admin','rh'].includes(currentUser?.role)&&<PayrollReadiness key={laborScope} data={scopedData} year={year} month={month} onOpen={openRhStep}/>}
+      {payrollView==="clt"&&<CltPayslips key={laborScope} data={scopedData} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month} initialSelection={rhSelection}/>}
+      {payrollView==="provisions"&&<LaborProvisions key={laborScope} data={scopedData} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month} initialSelection={rhSelection}/>}
       {payrollView==="simulation"&&<PayModeSimulation key={laborScope} data={scopedData} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
       {payrollView==='costs'&&<EmployeeCosts key={laborScope} data={scopedData} year={year} month={month} showToast={showToast}/>}
       {payrollView==='dossier'&&<EmployeeDossier key={laborScope} data={scopedData} currentUser={currentUser} showToast={showToast}/>}

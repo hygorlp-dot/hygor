@@ -6,9 +6,11 @@ import {marcellReportHtml} from "../../../reports/marcell-report.js";
 import {resolveHistoricalEmployeeObraId} from "../permissions.js";
 import "./clt-payslips.css";
 const escape=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-export function LaborProvisions({data,currentUser,dispatchCommand,showToast,year,month}) {
-  const [competence,setCompetence]=useState(`${year}-${String(month+1).padStart(2,"0")}`);
-  const [obra,setObra]=useState("all"),[selected,setSelected]=useState(""),[draft,setDraft]=useState(null),[revision,setRevision]=useState(0),[dirty,setDirty]=useState(false),[saving,setSaving]=useState(false),[status,setStatus]=useState("");
+export function LaborProvisions({data,currentUser,dispatchCommand,showToast,year,month,initialSelection}) {
+  const [competence,setCompetence]=useState(initialSelection?.competence||`${year}-${String(month+1).padStart(2,"0")}`);
+  const initialEmployee=(data.employees||[]).find(e=>String(e.id)===initialSelection?.employeeId);
+  const initialValues=initialEmployee?.laborProvisions?.[competence];
+  const [obra,setObra]=useState("all"),[selected,setSelected]=useState(initialEmployee?.id||""),[draft,setDraft]=useState(()=>initialEmployee?structuredClone(initialValues||newProvisionDraft(initialEmployee,competence)):null),[revision,setRevision]=useState(Number(initialEmployee?.version||0)),[dirty,setDirty]=useState(false),[saving,setSaving]=useState(false),[status,setStatus]=useState(initialEmployee?(initialValues?"Salvo":"Estimativa — ainda não salva"):"");
   const canEdit=["admin","rh"].includes(currentUser?.role);
   const referenceDate=new Date(Date.UTC(Number(competence.slice(0,4)),Number(competence.slice(5,7)),0)).toISOString().slice(0,10);
   const employees=(data.employees||[]).filter(e=>e.active!==false||e.endDate>=`${competence}-01`).filter(e=>e.startDate<=referenceDate).filter(e=>obra==="all"||resolveHistoricalEmployeeObraId({employee:e,date:referenceDate,transferEvents:data.changeLog,obras:data.obras})===obra);
@@ -18,6 +20,7 @@ export function LaborProvisions({data,currentUser,dispatchCommand,showToast,year
   const update=(key,value)=>{setDraft(d=>({...d,[key]:value}));setDirty(true);setStatus("Alterações não salvas");};
   const changePeriod=value=>{if(!/^\d{4}-\d{2}$/.test(value))return;if(dirty&&!window.confirm("Descartar alterações não salvas?"))return;setCompetence(value);setSelected("");setDraft(null);setDirty(false);};
   const result=draft?calculateLaborProvision(draft):null;
+  const hasSavedProvision=!!employees.find(e=>e.id===selected)?.laborProvisions?.[competence];
   const save=async()=>{setSaving(true);setStatus("Salvando…");try{
     const response=await dispatchCommand(current=>{const employee=current.employees.find(e=>e.id===selected);return {type:OPERATIONAL_COMMAND.EMPLOYEE_SAVED,idempotencyKey:`provisao-${uid()}`,expectedVersion:revision,actorId:currentUser?.id,actorName:currentUser?.nome,payload:{employee:{...employee,laborProvisions:{...employee.laborProvisions,[competence]:{...draft,updatedAt:new Date().toISOString(),updatedBy:currentUser?.id}}}}};});
     if(!response?.ok)throw new Error(response?.reason||"O servidor não confirmou o salvamento.");setRevision(v=>v+1);setDirty(false);setStatus("Salvo");showToast("Provisões salvas. Nenhum pagamento ou lançamento no DRE foi criado.");
@@ -41,7 +44,7 @@ export function LaborProvisions({data,currentUser,dispatchCommand,showToast,year
     </fieldset><fieldset disabled={!canEdit||saving}><legend>Saldo acumulado projetado — opcional</legend><p>Informe saldo de abertura e utilização conhecidos, mesmo quando forem zero. Sem esses dados o saldo fica “Não apurado”. Projeção = abertura + reserva mensal atual × meses do período − utilização.</p><div className="clt-grid"><Inp label="Primeiro mês da projeção" type="month" value={draft.openingMonth} onChange={v=>update("openingMonth",v)}/>{number("openingBalance","Reserva existente antes desse mês (R$)")}{number("usedReserve","Reserva já utilizada no período (R$)")}{number("fgtsSeveranceBase","Base FGTS para fins rescisórios — extrato (R$)")}</div><p>Multa sobre a base rescisória informada: {result.contingentFine===null?"Não apurada":fmt(result.contingentFine)}. Essa exposição é separada da reserva projetada; não somamos as duas automaticamente. Use a base para fins rescisórios, sem substituir pelo saldo disponível após saques.</p><Inp label="Origem dos saldos e observações da reserva" value={draft.notes} onChange={v=>update("notes",v)}/></fieldset>
       {result.errors.length>0&&<div className="clt-issues" role="status">{result.errors.map(error=><p key={error}>{error}</p>)}</div>}
       {result.accumulated<0&&<p role="status">Déficit de reserva projetado: {fmt(-result.accumulated)}. A utilização supera a abertura e as reservas do período; esse valor indica necessidade de recomposição, sem criar pagamento.</p>}
-      <div className="clt-actions"><span role="status">{status}</span><Btn v="secondary" disabled={!canEdit||saving||!dirty||result.errors.length>0} onClick={save}>{saving?"Salvando…":"Salvar provisões"}</Btn></div></>}
+      <div className="clt-actions"><span role="status">{status}</span><Btn v="secondary" disabled={!canEdit||saving||!dirty&&hasSavedProvision||result.errors.length>0} onClick={save}>{saving?"Salvando…":"Salvar provisões"}</Btn></div></>}
     <p>Planejamento de mês integral, com remuneração constante. Avos e direitos efetivos dependem de admissão, afastamentos e pagamentos. 13º: base ÷ 12. Férias: base ÷ 12 + 1/3. Reservas para férias substituem o salário durante o gozo; não some novamente ao custo de salários. INSS patronal, RAT, terceiros e aviso-prévio dependem do regime e não estão calculados automaticamente.</p>
     <div className="clt-actions"><Btn disabled={dirty||summary.missing>0||summary.employees===0} onClick={exportPdf}>Exportar provisões PDF</Btn></div>
   </section>;

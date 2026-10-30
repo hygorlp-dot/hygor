@@ -1,6 +1,7 @@
 import { LaborAreaTabs } from "./domains/rh/components/LaborAreaTabs.jsx";
 import { matchesLaborArea } from "./domains/rh/labor-area.js";
 import {AttendancePayMode} from "./domains/rh/components/AttendancePayMode.jsx";
+import {readRhStepTarget,clearRhStepTarget,pointCycleForDate} from "./domains/rh/rh-step-target.js";
 import { marcellReportHtml } from "./reports/marcell-report.js";
 import { createPortal } from "react-dom";
 import { BRAND, MARCELL_LOGO } from "./brand/identity.js";
@@ -7144,15 +7145,19 @@ function UnlockRequestModal({ data, dispatchAttendanceCommand, showToast, obraId
 //
 
 function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAttendanceCommand, dispatchCommand }) {
+  const [rhEntry]=useState(()=>readRhStepTarget('point'));
+  const rhEmployee=(data.employees||[]).find(e=>String(e.id)===rhEntry?.employeeId);
+  const rhCycle=rhEmployee?pointCycleForDate(rhEntry.date):null;
+  useEffect(()=>{if(rhEntry)clearRhStepTarget('point');},[rhEntry]);
   const [laborScope,setLaborScope]=useState("all");
   const changeLaborScope=value=>{setLaborScope(value);setFilterObra("all");};
   const agora = new Date();
   const refInicial = agora.getDate() <= 5 ? new Date(agora.getFullYear(), agora.getMonth()-1, 1) : agora;
-  const [year,setYear]=useState(refInicial.getFullYear());
-  const [month,setMonth]=useState(refInicial.getMonth());
-  const [q,setQ]=useState(agora.getDate()>=6&&agora.getDate()<=20?"1":"2");
+  const [year,setYear]=useState(rhCycle?.year??refInicial.getFullYear());
+  const [month,setMonth]=useState(rhCycle?.month??refInicial.getMonth());
+  const [q,setQ]=useState(rhCycle?.q||(agora.getDate()>=6&&agora.getDate()<=20?"1":"2"));
   const [filterObra,setFilterObra]=useState("all");
-  const [busca,setBusca]=useState("");
+  const [busca,setBusca]=useState(rhEmployee?.name||"");
   const [obraCell,setObraCell]=useState(null);   // "empId::date" da célula com troca de obra aberta
   const pendingCellsRef=useRef(new Map());
   const [,setPendingCellsRevision]=useState(0);
@@ -7502,11 +7507,14 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
 }
 
 function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchAttendanceCommand, dispatchCommand, onTab }) {
+  const [rhEntry]=useState(()=>readRhStepTarget('point-close'));
+  const rhEmployee=(data.employees||[]).find(e=>String(e.id)===rhEntry?.employeeId);
+  useEffect(()=>{if(rhEntry)clearRhStepTarget('point-close');},[rhEntry]);
   const [laborScope,setLaborScope]=useState("all");
   const changeLaborScope=value=>{setLaborScope(value);setFilterObra("all");};
   const obraInicial=obraIdFixo||currentUser?.obraId||
-    (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:"all");
-  const [selDate, setSelDate] = useState(today());
+    (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:rhEmployee&&data.obras.some(o=>String(o.id)===rhEntry.obraId)?rhEntry.obraId:"all");
+  const [selDate, setSelDate] = useState(rhEmployee?rhEntry.date:today());
   const [filterObra, setFilterObra] = useState(obraInicial);
   const [noteModal, setNoteModal] = useState(null);
   const [noteText, setNoteText] = useState("");
