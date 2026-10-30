@@ -25,3 +25,5 @@
 .dre-memorial a{color:var(--arcd-action-primary);text-decoration:underline;text-underline-offset:3px}
 .dre-memorial ol{padding-inline-start:20px}
 @media(max-width:700px){.dre-memorial__fields{grid-template-columns:1fr}.dre-memorial__entry summary{align-items:flex-start;flex-wrap:wrap;min-height:44px}.dre-memorial__body{padding-inline:0}}
+
+.dre-monthly-memorial-trigger { color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 3px; min-height: 36px; }

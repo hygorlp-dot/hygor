@@ -1,4 +1,4 @@
-import {useMemo,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
 import {marcellReportHtml} from "../../../reports/marcell-report.js";
 import {Badge,Btn,C,Ic,Inp,Modal,PageHero,Sel,uid} from "../../../LegacyApp";
 import {extrairNotaPatrimonioIA,obterDocumentoPatrimonio,subirDocumentoPatrimonio} from "../../../api";
@@ -133,6 +133,9 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
   const {isMobile}=useBreakpoint();
   const [search,setSearch]=useState(""),[status,setStatus]=useState("ativos"),[editor,setEditor]=useState(null),[importing,setImporting]=useState(false),[busy,setBusy]=useState(false);
   const [move,setMove]=useState(null),[statusEdit,setStatusEdit]=useState(null),[history,setHistory]=useState(null);
+  const [menuAberto,setMenuAberto]=useState("");
+  // Ao abrir o menu "Mais ações", o foco vai para o primeiro item (só na abertura).
+  useEffect(()=>{if(!menuAberto)return;const menu=[...document.querySelectorAll("[data-menu-de]")].find(el=>el.dataset.menuDe===String(menuAberto));menu?.querySelector("[role=menuitem]")?.focus();},[menuAberto]);
   const assets=Array.isArray(data?.companyAssets)?data.companyAssets:[];
   const filtered=useMemo(()=>assets.filter(a=>(status==="todos"||status==="ativos"&&a.active!==false||a.status===status)&&(!search.trim()||[a.assetTag,a.name,a.category,a.serialNumber,a.imei,a.invoice?.number,a.invoice?.supplierName].some(v=>String(v||"").toLowerCase().includes(search.toLowerCase())))),[assets,search,status]);
   const active=assets.filter(a=>a.active!==false),total=active.reduce((s,a)=>s+Number(a.acquisitionValue||0),0),docs=active.filter(a=>a.invoice?.document?.path||a.invoice?.number).length;
@@ -172,20 +175,31 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
   };
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
     <PageHero eyebrow="Administração" title="Patrimônio da empresa" description="Bens corporativos da empresa, com nota fiscal, identificação física, localização atual e histórico." stats={[{label:"Bens ativos",value:String(active.length),color:C.green},{label:"Valor de aquisição",value:money(total)},{label:"Com nota/documento",value:String(docs)+"/"+String(active.length),color:docs===active.length?C.green:C.orange}]} actions={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="ghost" onClick={gerarRelatorio}><Ic n="fileText"/> Relatório</Btn><Btn v="ghost" onClick={()=>setImporting(true)}><Ic n="receipt"/> Importar NF</Btn><Btn onClick={()=>setEditor(vazio())}><Ic n="plus"/> Novo bem</Btn></div>}/>
-    <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}><div style={{flex:"1 1 280px"}}><Inp label="Buscar" value={search} onChange={setSearch} placeholder="Código, bem, série, IMEI, NF ou fornecedor"/></div><div style={{width:180}}><Sel label="Situação" value={status} onChange={setStatus} options={[{v:"ativos",l:"Ativos"},{v:"todos",l:"Todos"}].concat(STATUS)}/></div></div>
-    <section style={card}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:8}}>O bem pertence à empresa. Uma obra pode aparecer apenas como localização temporária.</p>
-      {!filtered.length?<p style={{padding:20,textAlign:"center",color:C.muted}}>Nenhum patrimônio encontrado.</p>:filtered.map(a=><div key={a.id} style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"minmax(220px,1.5fr) minmax(120px,.7fr) minmax(120px,.7fr) auto",gap:10,alignItems:"center",padding:"10px 0",borderTop:"1px solid "+C.line}}>
-        <div><b>{a.name}</b><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{a.assetTag||"Sem código"}{a.serialNumber?" · Série "+a.serialNumber:""}{a.imei?" · IMEI "+a.imei:""}</p></div>
-        <div><Badge color={a.status==="baixado"?C.muted:a.status==="extraviado"?C.red:a.status==="manutencao"?C.orange:C.green}>{STATUS.find(s=>s.v===a.status)?.l||a.status}</Badge></div>
-        <div><p style={{fontSize:"var(--arcd-type-label)"}}>{a.location?.label||"Sede"}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{a.invoice?.number?"NF "+a.invoice.number:"Sem NF"}</p></div>
-        <div style={{display:"flex",gap:5,flexWrap:"wrap",justifyContent:"flex-end"}}>
-          {a.photo?.path&&<Btn size="sm" v="ghost" onClick={async()=>{const tab=window.open("about:blank","_blank");const r=await obterDocumentoPatrimonio(a.photo.path);if(r.ok&&r.url&&tab){tab.location.href=r.url;}else{tab?.close();showToast(r.error||"Não foi possível abrir a foto.","error");}}}>Foto</Btn>}
-          <Btn size="sm" v="ghost" onClick={()=>setHistory(a)}>Histórico</Btn>
-          <Btn size="sm" v="ghost" onClick={()=>setEditor(JSON.parse(JSON.stringify(a)))}>Editar</Btn>
-          {a.active!==false&&<Btn size="sm" v="ghost" onClick={()=>setMove({...JSON.parse(JSON.stringify(a)),reason:""})}>Mover</Btn>}
-          {a.active!==false&&<Btn size="sm" v="ghost" onClick={()=>setStatusEdit({...a,nextStatus:a.status,reason:""})}>Status</Btn>}
-        </div>
-      </div>)}
+    <div style={{display:"flex",gap:12,alignItems:"flex-end",flexWrap:"wrap"}}><div style={{flex:"1 1 280px"}}><Inp label="Buscar" value={search} onChange={setSearch} placeholder="Código, bem, série, IMEI, NF ou fornecedor"/></div><div style={{width:200}}><Sel label="Situação" value={status} onChange={setStatus} options={[{v:"ativos",l:"Ativos"},{v:"todos",l:"Todos"}].concat(STATUS)}/></div></div>
+    {/* Padrão MARCELL: tabela alinhada; uma ação direta (Editar) e as demais no menu "Mais ações". */}
+    <section className="patrimonio-lista" aria-label="Bens patrimoniais">
+      <p className="patrimonio-lista__nota">O bem pertence à empresa. Uma obra pode aparecer apenas como localização temporária.</p>
+      {!filtered.length?<p className="patrimonio-lista__vazio">Nenhum patrimônio encontrado.</p>:<>
+        {!isMobile&&<div className="patrimonio-lista__cabecalho" aria-hidden="true"><span>Bem</span><span>Situação</span><span>Local e nota fiscal</span><span className="patrimonio-lista__num">Valor de aquisição</span><span/></div>}
+        {filtered.map(a=>{const aberto=menuAberto===a.id;const fechar=()=>setMenuAberto("");return <div key={a.id} className="patrimonio-lista__linha" data-mobile={isMobile||undefined}>
+          <div className="patrimonio-lista__bem"><span className="patrimonio-lista__nome">{a.name}</span><span className="patrimonio-lista__meta">{a.assetTag||"Sem código"}{a.serialNumber?", série "+a.serialNumber:""}{a.imei?", IMEI "+a.imei:""}</span></div>
+          <div><Badge color={a.status==="baixado"?C.muted:a.status==="extraviado"?C.red:a.status==="manutencao"?C.orange:C.green}>{STATUS.find(s=>s.v===a.status)?.l||a.status}</Badge></div>
+          <div className="patrimonio-lista__local"><span>{a.location?.label||"Sede"}</span><span className="patrimonio-lista__meta">{a.invoice?.number?"NF "+a.invoice.number:"Sem NF"}</span></div>
+          <div className="patrimonio-lista__num">{money(a.acquisitionValue)}</div>
+          <div className="patrimonio-lista__acoes" onKeyDown={e=>{if(e.key==="Escape"&&aberto){fechar();e.currentTarget.querySelector("[aria-haspopup]")?.focus();}}} onBlur={e=>{if(aberto&&!e.currentTarget.contains(e.relatedTarget))fechar();}}>
+            <Btn size="sm" v="ghost" onClick={()=>setEditor(JSON.parse(JSON.stringify(a)))}>Editar</Btn>
+            <div className="patrimonio-lista__menu">
+              <Btn size="sm" v="ghost" ariaLabel={"Mais ações de "+a.name} aria-expanded={aberto} aria-haspopup="menu" onClick={()=>setMenuAberto(aberto?"":a.id)}><Ic n="more"/></Btn>
+              {aberto&&<div role="menu" className="patrimonio-lista__popover" data-menu-de={a.id}>
+                {a.photo?.path&&<button type="button" role="menuitem" onClick={async()=>{fechar();const tab=window.open("about:blank","_blank");const r=await obterDocumentoPatrimonio(a.photo.path);if(r.ok&&r.url&&tab){tab.location.href=r.url;}else{tab?.close();showToast(r.error||"Não foi possível abrir a foto.","error");}}}>Foto</button>}
+                <button type="button" role="menuitem" onClick={()=>{fechar();setHistory(a);}}>Histórico</button>
+                {a.active!==false&&<button type="button" role="menuitem" onClick={()=>{fechar();setMove({...JSON.parse(JSON.stringify(a)),reason:""});}}>Mover…</button>}
+                {a.active!==false&&<button type="button" role="menuitem" onClick={()=>{fechar();setStatusEdit({...a,nextStatus:a.status,reason:""});}}>Alterar status…</button>}
+              </div>}
+            </div>
+          </div>
+        </div>;})}
+      </>}
     </section>
     {editor&&<AssetForm asset={editor} setAsset={setEditor} onSave={save} onClose={()=>setEditor(null)} busy={busy} showToast={showToast}/>}
     {importing&&<ImportInvoice data={data} dispatchCommand={dispatchCommand} showToast={showToast} onClose={()=>setImporting(false)}/>}

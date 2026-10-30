@@ -168,9 +168,9 @@ export const createMonthlyClosingSnapshot = (data = {}, {
   const commitments=selectCommitments(ledger,{asOfDate:endDate});
   const conference=validateFinancialReconciliation(ledger,filters);
   if(!conference.ok)return {ok:false,error:"Existem pendências financeiras que impedem o fechamento.",conference};
-  // A evidência do fechamento precisa representar a fotografia existente até
-  // o último dia da competência. Eventos futuros não participam de DRE, caixa
-  // ou saldos "as of" do mês encerrado e não devem contaminar eventIds.
+  // A evidência do fechamento lista os eventos datados até o último dia da
+  // competência (caixa e saldos "as of"). A DRE do mês é por competência e pode
+  // incluir documento emitido depois desse dia, que fica fora desta lista.
   const evidenceEvents=ledger.events.filter(event=>{
     const date=String(event?.date||"").slice(0,10);
     return /^\d{4}-\d{2}-\d{2}$/.test(date)&&date<=endDate;

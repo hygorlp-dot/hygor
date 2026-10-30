@@ -1,5 +1,8 @@
-@font-face {font-family:"Nimbus Sans";font-style:normal;font-weight:400 500;font-display:swap;src:url("/fonts/marcell/NimbusSans-Regular.woff2") format("woff2");}
-@font-face {font-family:"Nimbus Sans";font-style:normal;font-weight:600 700;font-display:swap;src:url("/fonts/marcell/NimbusSans-Bold.woff2") format("woff2");}
+/* Padrão MARCELL (29/10/2026): só existem dois cortes. O regular cobre até 600
+   para que os 1.300+ "fontWeight:600" herdados não virem negrito cheio; o negrito
+   fica reservado a ênfase explícita (700). Hierarquia vem de tamanho, não de peso. */
+@font-face {font-family:"Nimbus Sans";font-style:normal;font-weight:400 600;font-display:swap;src:url("/fonts/marcell/NimbusSans-Regular.woff2") format("woff2");}
+@font-face {font-family:"Nimbus Sans";font-style:normal;font-weight:700 900;font-display:swap;src:url("/fonts/marcell/NimbusSans-Bold.woff2") format("woff2");}
 @font-face {font-family:"P052";font-style:normal;font-weight:400;font-display:swap;src:url("/fonts/marcell/P052-Roman.woff2") format("woff2");}
 
 :root {

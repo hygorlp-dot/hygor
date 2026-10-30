@@ -1,0 +1,8 @@
+.reconciliation-support { margin-block: 12px; }
+.reconciliation-support summary { cursor: pointer; padding: 12px 0; color: var(--arcd-text-secondary); }
+.reconciliation-review__reason { margin-top: 12px; color: var(--arcd-warning-text); }
+.reconciliation-review__comparison { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-block: 12px; font-variant-numeric: tabular-nums; }
+.reconciliation-review__comparison dt { color: var(--arcd-text-secondary); font-size: var(--arcd-type-label); }
+.reconciliation-review__comparison dd { margin: 4px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.reconciliation-review__totals { position: sticky; bottom: 0; background: var(--arcd-surface-card); border-top: 1px solid var(--arcd-border-default); padding: 12px 0; display: grid; gap: 12px; }
+@media(max-width:600px) { .reconciliation-review__comparison { grid-template-columns: 1fr; gap: 8px; } .reconciliation-review__comparison > div { display: flex; justify-content: space-between; gap: 12px; } }

@@ -1,3 +1,4 @@
+import "./reconciliation-review.css";
 import { useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -37,7 +38,7 @@ export default function ReconciliationReview({ data, transaction, analysis, reas
       setMessage(difference === 0 ? "Movimento totalmente vinculado." : "Vínculos salvos. O saldo restante continua para revisão.");
     } finally { lock.current = false; setSaving(false); onSaving(false); }
   };
-  return <div className="flex min-w-0 flex-col gap-4">
+  return <div className="reconciliation-review flex min-w-0 flex-col gap-4">
     <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
       <section className="min-w-0 rounded-md border p-4" aria-label="Movimento do banco">
         <h3 className="font-semibold">Movimento do banco</h3>
@@ -50,14 +51,14 @@ export default function ReconciliationReview({ data, transaction, analysis, reas
         <h3 className="font-semibold">Identificação no app</h3>
         <p>{analysis?.identidadeProvavel?.nome || "Contraparte não identificada"}</p>
         <p>{analysis?.identidadeProvavel?.evidencias?.join(" · ")}</p>
-        <p>{bank?.hold || reason || "Confira os lançamentos antes de vincular."}</p>
+        <p className="reconciliation-review__reason"><strong>Motivo da revisão: </strong>{bank?.hold || reason || "Confira os lançamentos antes de vincular."}</p>
       </section>
     </div>
     {candidates.length>0&&<section aria-label="Correspondências sugeridas" className="flex flex-col gap-2">
       <h3 className="font-semibold">Correspondências sugeridas</h3>
       {candidates.map((candidate,index)=><div key={`${candidate.tipo}:${candidate.entidadeId}:${index}`} className="rounded-md border p-3">
         <strong>{candidate.titulo}</strong><p>{candidate.contraparte}</p>
-        <p>Saldo do lançamento: {fmt(Number(candidate.saldoCentavos || 0)/100)}</p>
+        <dl className="reconciliation-review__comparison"><div><dt>Valor do banco</dt><dd>{fmt(Math.abs(Number(transaction.valor)))}</dd></div><div><dt>Saldo do lançamento</dt><dd>{fmt(Number(candidate.saldoCentavos || 0)/100)}</dd></div><div><dt>Diferença de valores</dt><dd>{fmt(Math.abs(Number(transaction.valor))-Number(candidate.saldoCentavos || 0)/100)}</dd></div></dl>
         <ul>{(candidate.motivos || []).map((text,i)=><li key={i}>{text}</li>)}</ul>
         {[...(candidate.alertas || []),...(candidate.bloqueios || [])].map((text,i)=><p key={i}>{text}</p>)}
         <Button variant="outline" size="sm" disabled={disabled} onClick={()=>onCandidate(candidate)}>Revisar esta sugestão</Button>
@@ -74,8 +75,8 @@ export default function ReconciliationReview({ data, transaction, analysis, reas
         </div>)}
         {!entries.length&&<p>Nenhum registro de caixa disponível para esta busca.</p>}
       </div>
-      <Alert><AlertDescription><p>Saldo do banco: {fmt((bank?.remainingCents || 0)/100)} · Selecionado: {fmt(total/100)} · Diferença: {fmt(difference/100)}</p><p>{difference<0?"A seleção supera o saldo bancário.":difference>0?"O restante ficará pendente para revisão.":"Os valores fecham."}</p>{message&&<p role="status">{message}</p>}</AlertDescription></Alert>
-      <Button disabled={disabled || !valid} onClick={save}>{saving?"Vinculando…":"Confirmar vínculos selecionados"}</Button>
+      <div className="reconciliation-review__totals" aria-label="Resumo dos vínculos"><Alert><AlertDescription><p>Saldo do banco: {fmt((bank?.remainingCents || 0)/100)} · Selecionado: {fmt(total/100)} · Diferença: {fmt(difference/100)}</p><p>{difference<0?"A seleção supera o saldo bancário.":difference>0?"O restante ficará pendente para revisão.":"Os valores fecham."}</p>{message&&<p role="status">{message}</p>}</AlertDescription></Alert>
+      <Button disabled={disabled || !valid} onClick={save}>{saving?"Vinculando…":"Confirmar vínculos selecionados"}</Button></div>
     </section>
     <div className="flex flex-wrap gap-2">
       <Button variant="outline" disabled={disabled || transaction.status!=="pendente"} onClick={onCreate}>{Number(transaction.valor)>0?"Classificar nova entrada":"Classificar nova saída"}</Button>

@@ -39,7 +39,7 @@ describe("API de DRE fechado com arquivo histórico ausente",()=>{
     pg=new PGlite();
     await pg.exec(`
       create table company_app_data(company_id text,key text,value jsonb,updated_at timestamptz,primary key(company_id,key));
-      create table financial_events(company_id text,event_type text,source_type text,source_id text,payload jsonb,effective_date date);
+      create table financial_events(company_id text,event_type text,source_type text,source_id text,payload jsonb,effective_date date,created_by text,unique(company_id,event_type,source_type,source_id));
       create table financial_titles(company_id text,id text,origin_type text,obra_id text,direction text,competence date,due_date date,created_at timestamptz,original_amount numeric,status text,metadata jsonb);
       create table settlements(company_id text,id text,title_id text,bank_transaction_id text,amount numeric,settlement_date date,status text);
       create table bank_transactions(company_id text,id text,amount numeric,status text,metadata jsonb);
@@ -50,6 +50,22 @@ describe("API de DRE fechado com arquivo histórico ausente",()=>{
   },60000);
   beforeEach(async()=>{await pg.exec("delete from company_app_data; delete from financial_events;");});
   afterAll(async()=>{await pg?.close();vi.unstubAllEnvs();});
+
+  it("reconstrói o cache mensal sem memorial e entrega os documentos de origem",async()=>{
+    await seed([],{quinzenasArquivadas:{},obras:[{id:"o1",name:"Obra mensal"}],
+      medicoes:[{id:"m1",obraId:"o1",competencia:"2026-01",dataEmissao:"2026-01-12",valorPrevisto:100,
+        documentos:[{nome:"NF mensal",url:"https://example.com/nf.pdf"}]}]});
+    const request={action:"financial-company-dre-report",year:2026,month:0,period:"mes"};
+    const initial=await call(request);
+    expect(initial.status).toBe(200);
+    expect(initial.body.current.memorial.faturamentoObras).toHaveLength(1);
+    await pg.query("update financial_events set payload=payload-'memorial' where source_id=$1",["2026-01:mes:company_dre"]);
+    const refreshed=await call(request);
+    expect(refreshed.status).toBe(200);
+    expect(refreshed.body.current.faturamentoObras).toBe(100);
+    expect(refreshed.body.current.memorial.faturamentoObras[0]).toMatchObject({obraId:"o1",date:"2026-01-12",
+      record:{documentos:[{url:"https://example.com/nf.pdf"}]}});
+  });
 
   it("entrega o snapshot fechado e o histórico sem recalcular nem exigir arquivo",async()=>{
     await seed([closing(6)]);

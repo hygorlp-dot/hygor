@@ -936,12 +936,14 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
       <TabRow tabs={modoConciliacaoRh
         ?[["pendentes",`PIX a confirmar · ${calc.pendentes}`],["quinzena","Quinzena"],["conciliadas",`Confirmados · ${calc.conciliadas}`],["historico","Histórico"]]
-        :[["identificados",`Identificados · ${identificados.length + automaticasConcluidas.length}`],["pendentes",`Não identificados / revisar · ${revisar.length + parciais.length}`],["quinzena","Quinzena"],["conciliadas",`Conciliadas · ${calc.conciliadas}`],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["regras",`Regras · ${(data.regrasConc||[]).length}`],["fechamentos",`Fechamentos · ${(data.fechamentosBancarios||[]).length}`],["historico","Histórico"]]} active={aba} onChange={setAba}/>
+        :[["pendentes",`Revisar · ${revisar.length + parciais.length}`],["identificados",`Identificados · ${identificados.length + automaticasConcluidas.length}`],["conciliadas",`Conciliados · ${calc.conciliadas}`]]} active={aba} onChange={setAba}/>
+      {!modoConciliacaoRh&&<details className="reconciliation-support"><summary>Mais opções · extratos, regras e histórico</summary><TabRow tabs={[["quinzena","Quinzena"],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["regras","Regras"],["fechamentos","Fechamentos"],["historico","Histórico"]]} active={aba} onChange={setAba}/></details>}
 
       {!modoConciliacaoRh && <Alert>
         <strong>{conciliando ? "Conferindo e conciliando movimento…" : automacaoAtiva ? "Identificação e conciliação automáticas ativas" : "Conciliação automática pausada"}</strong>
         <AlertDescription>
-          <p>O app cruza Pix, CPF/CNPJ, cadastros, valores e datas. Correspondências únicas são conciliadas enquanto esta tela está aberta; dúvidas ficam para revisão.</p>
+          <p>O app cruza Pix, CPF/CNPJ, cadastros, valores e datas. Na importação, o servidor concilia correspondências seguras mesmo com a tela fechada; dúvidas ficam para revisão. Esta tela também confere movimentos pendentes.</p>
+          <p>Pausar afeta somente a conferência desta tela; novas importações continuam sendo processadas no servidor.</p>
           <div className="flex flex-wrap items-center gap-2">
             <Btn size="sm" v="ghost" disabled={conciliando} onClick={() => setAutomacaoAtiva(value => !value)}>{automacaoAtiva ? "Pausar automação" : "Retomar automação"}</Btn>
             {Object.keys(falhasAutomaticas).length > 0 && <Btn size="sm" v="ghost" disabled={conciliando} onClick={() => {Object.keys(falhasAutomaticas).forEach(id => tentativasAutomaticas.current.delete(id));setFalhasAutomaticas({});}}>Tentar novamente as falhas</Btn>}
