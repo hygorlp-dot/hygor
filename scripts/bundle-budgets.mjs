@@ -67,8 +67,12 @@
 // Junção do #222 com a main (memorial mensal + PDF horizontal), 29/10/2026:
 // CI mediu 1.784.153 bytes, 345 acima do teto. Acréscimo limitado a 1 KiB;
 // limites por chunk e de mídia permanecem iguais.
+// Base visual padrão MARCELL (PR #226, 30/10/2026): camada de estilo única
+// (cabeçalho, abas, botões, selos) e menu de ações do Patrimônio. CI mediu
+// 1.785.295 bytes, 463 acima do teto. Acréscimo limitado a 1 KiB; limites por
+// chunk e de mídia permanecem iguais.
 export const BUNDLE_BUDGETS = Object.freeze({
-  totalGzipBytes: 1_743 * 1024,
+  totalGzipBytes: 1_744 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,

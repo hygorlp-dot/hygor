@@ -321,7 +321,7 @@ export const TYPO = {
   h2:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-section-title)", letterSpacing:"var(--arcd-letter-spacing-tight)", lineHeight:1.18, color:C.text },
   h3:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-card-title)", letterSpacing:-.1, lineHeight:1.25, color:C.text },
   h4:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-body)", letterSpacing:0, lineHeight:1.3, color:C.text },
-  eyebrow: { fontSize:"var(--arcd-type-caption)", fontWeight:600, letterSpacing:"var(--arcd-letter-spacing-label)", textTransform:"uppercase", color:C.yellowD },
+  eyebrow: { fontSize:"var(--arcd-type-label)", fontWeight:400, letterSpacing:0, color:C.muted },
   body:    { fontSize:"var(--arcd-type-body)", fontWeight:400, lineHeight:1.5, color:C.text },
   bodyMuted:{ fontSize:"var(--arcd-type-body)", fontWeight:400, lineHeight:1.5, color:C.muted },
   small:   { fontSize:"var(--arcd-type-caption)", fontWeight:500, color:C.muted },
@@ -2850,6 +2850,7 @@ export function Ic({ n, s = 16, color }) {
     user:     "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", // uma pessoa (cliente/lead)
     handshake:"M11 17l2 2a1 1 0 0 0 3-3 M14 14l2.5 2.5a1 1 0 0 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 0 1-1.41 0l-2.12-2.12a1 1 0 0 0-1.41 0L3 12 M18 3l3 3-3 3 M3 21l3-3", // parceria (parceiros)
     clock:    "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2",
+    more:     "M3.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0 M10.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0 M17.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0", // três pontos (menu "Mais ações")
     smartphone:"M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z M12 18h.01", // celular (app de ponto da obra)
     refresh:  "M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0 1 14.85-3.36L23 10 M1 14l4.64 4.36A9 9 0 0 0 20.49 15",
     // --- Gráficos e dados ---
@@ -3003,18 +3004,20 @@ function conteudoUi(children) {
 }
 
 export function Btn({ children, onClick, v = "primary", size = "md", full = false, disabled = false, loading = false, iconOnly = false, type = "button", style = {}, className = "", title, ariaLabel, ...props }) {
+  // Padrão MARCELL (29/10/2026): três aparências. As variantes antigas
+  // (success, info, dark, warning, secondary) seguem aceitas e mapeadas para
+  // estas, para que nenhuma tela invente cor de botão.
+  const principal = { bg:C.text, color:C.card, border:C.text, hover:"#1E3552", hoverBorder:"#1E3552" };
+  const secundario = { bg:C.card, color:C.text, border:"#C9CED6", hover:"#F3F0E9", hoverBorder:"#7A8591" };
+  const perigo = { bg:C.card, color:C.red, border:"#E0B1B1", hover:"#FBEAEA", hoverBorder:C.red };
   const variants = {
-    primary: { bg: C.text, color:C.card, border:C.text, hover:C.subtle, hoverBorder:C.subtle },
-    warning: { bg:"#F3E7BA", color:"#6D5600", border:"#D8BD55", hover:"#ECDD9F", hoverBorder:"#B8930F" },
-    danger:  { bg:"#FFF7F7", color:C.red, border:"#E0B1B1", hover:"#FBEAEA", hoverBorder:C.red },
-    success: { bg:C.green, color:"#FFFFFF", border:C.green, hover:"#185A29", hoverBorder:"#154F24" },
-    info:    { bg:C.blue, color:"#FFFFFF", border:C.blue, hover:"#0B3D88", hoverBorder:"#093572" },
-    ghost:   { bg:C.card, color:C.text, border:C.border, hover:C.surface, hoverBorder:"#AEB3B7" },
-    dark:    { bg:"#2D3236", color:"#FFFFFF", border:"#2D3236", hover:"#202427", hoverBorder:"#202427" },
+    primary:principal, success:principal, info:principal, dark:principal,
+    ghost:secundario, secondary:secundario, warning:secundario,
+    danger:perigo,
   };
-  const vv = variants[v] || variants.primary;
-  const py = size === "sm" ? 4 : size === "lg" ? 9 : 7;
-  const px = size === "sm" ? 8 : size === "lg" ? 14 : 11;
+  const vv = variants[v] || principal;
+  const py = size === "sm" ? 5 : size === "lg" ? 10 : 8;
+  const px = size === "sm" ? 10 : size === "lg" ? 18 : 14;
 
   return (
     <button
@@ -3037,14 +3040,14 @@ export function Btn({ children, onClick, v = "primary", size = "md", full = fals
         padding: `${py}px ${px}px`,
         cursor: disabled ? "not-allowed" : "pointer",
         fontFamily: FONT_DISPLAY,
-        fontWeight:600,
-        letterSpacing: 0.05,
+        fontWeight:400,
+        letterSpacing: 0,
         display: "inline-flex",
         gap: 6,
         alignItems: "center",
         justifyContent: "center",
         fontSize: "var(--arcd-type-control)",
-        borderRadius: 7,
+        borderRadius: 8,
         boxShadow: "none",
         transition: "background .12s ease, border-color .12s ease",
         "--btn-hover": vv.hover,
@@ -3298,13 +3301,13 @@ export function Badge({ children, color = C.yellow }) {
       display: "inline-flex",
       alignItems: "center",
       gap: 4,
-      padding: "3px 6px",
-      border: `1px solid ${color}66`,
-      background: `${color}18`,
+      padding: "3px 10px",
+      border: 0,
+      background: `${color}1F`,
       color,
       fontSize:"var(--arcd-type-caption)",
-      fontWeight:600,
-      letterSpacing: 0.35,
+      fontWeight:400,
+      letterSpacing: 0,
       marginTop: 2,
       marginRight: 3,
       borderRadius: 999,
