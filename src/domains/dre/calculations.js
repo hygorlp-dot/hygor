@@ -133,12 +133,17 @@ export const createDreCalculations = ({
       obraId, startDate:ctx.per0, endDate:ctx.perF, asOfDate:ctx.perF,
       ...(periodo === "mes" ? { competence:ctx.ym } : {}),
     };
-    const dre = selectDRE(ledger, filters);
+    // DRE mensal é regime de competência: o documento entra no mês da sua
+    // competência mesmo emitido depois do fim do mês. O corte por data
+    // (asOfDate) vale para caixa e posições, não para a DRE: com ele, a nota de
+    // competência julho emitida em agosto não aparecia em mês nenhum.
+    const dreFilters = periodo === "mes" ? { ...filters, asOfDate:"" } : filters;
+    const dre = selectDRE(ledger, dreFilters);
     const cash = selectCashFlow(ledger, filters);
     const receivable = selectAccountsReceivable(ledger, { obraId, asOfDate:ctx.perF });
     const payable = selectAccountsPayable(ledger, { obraId, asOfDate:ctx.perF });
     const commitments = selectCommitments(ledger, { obraId, asOfDate:ctx.perF });
-    const conference = validateFinancialReconciliation(ledger, filters);
+    const conference = validateFinancialReconciliation(ledger, dreFilters);
     const events = dre.events;
     const sumCategory = (...categories) => fromCents(events
       .filter(event => event.effect === "cost" && categories.includes(event.category))
@@ -152,12 +157,15 @@ export const createDreCalculations = ({
         ? String(measurement.competencia || measurement.dataEmissao || measurement.dataVencimento || "").startsWith(ctx.ym)
         : String(measurement.dataEmissao || measurement.dataVencimento || `${measurement.competencia}-01`) >= ctx.per0
           && String(measurement.dataEmissao || measurement.dataVencimento || `${measurement.competencia}-01`) <= ctx.perF));
+    // No mês, detalhamento e acumulado seguem a mesma competência do total da DRE.
     const outrasDesp = (data.outrasDesp || []).filter(expense =>
       expense.obraId === obraId
-      && String(expense.data || `${expense.competencia || ""}-01`) >= ctx.per0
-      && String(expense.data || `${expense.competencia || ""}-01`) <= ctx.perF
+      && (periodo === "mes"
+        ? String(expense.competencia || expense.data || "").startsWith(ctx.ym)
+        : String(expense.data || `${expense.competencia || ""}-01`) >= ctx.per0
+          && String(expense.data || `${expense.competencia || ""}-01`) <= ctx.perF)
       && active(expense));
-    const faturadoAcum = fromCents(selectDRE(ledger, { obraId, endDate:ctx.perF }).revenueCents);
+    const faturadoAcum = fromCents(selectDRE(ledger, { obraId, endDate:periodo === "mes" ? ctx.ym : ctx.perF }).revenueCents);
     const recebidoAcum = fromCents(selectCashFlow(ledger, { obraId, endDate:ctx.perF }).cashInCents);
     const contratoTotal = valorContratoVigente(obra);
     const faturamento = dre.revenue;
@@ -329,7 +337,7 @@ export const createDreCalculations = ({
 
   // Custo acumulado por obra até o mês informado (painel de gestão à vista).
   // É por definição a soma dos totalCustos do calcDREObra mensal (mesmo filtro:
-  // competência do mês, data no mês e situação na data), para o painel nunca
+  // só a competência do mês, sem corte por data de emissão), para o painel nunca
   // divergir do DRE da obra. O razão é montado uma vez com os eventos de todos
   // os meses e obras e só o filtro é aplicado mês a mês. Começa no mês de início
   // da obra ou antes, se já houver custo com competência anterior (compra
@@ -366,7 +374,7 @@ export const createDreCalculations = ({
       const meses = mesesEntre(de, fim);
       return [obraId, { inicio: de, fim, meses: meses.length,
         custo: meses.reduce((total, ctx) => total + selectDRE(ledger, {
-          obraId, startDate:ctx.per0, endDate:ctx.perF, asOfDate:ctx.perF, competence:ctx.ym,
+          obraId, startDate:ctx.per0, endDate:ctx.perF, competence:ctx.ym,
         }).costs, 0) }];
     }));
   };

@@ -48,3 +48,22 @@ describe("buildRequestedDreProjectionRows — avanço físico oficial", () => {
     expect(row.payload.pctAvanco).toBe(60);
   });
 });
+
+// Mesmo cenário de src/domains/dre/calculations.test.js ("documento emitido
+// depois do mês da competência"): a DRE gravada pelo servidor também põe a NF e
+// a medição no mês da competência, e não no mês da emissão.
+describe("buildRequestedDreProjectionRows — documento emitido depois da competência", () => {
+  it("NF e medição de competência julho emitidas em agosto entram em julho", () => {
+    const dados = {
+      obras: [{id: "obra-1", name: "Obra 1"}],
+      notasFiscais: [{id: "nf-atrasada", obraId: "obra-1", numero: "77", valorBruto: 500, competencia: "2026-07", emissao: "2026-08-03"}],
+      medicoes: [{id: "med-atrasada", obraId: "obra-1", competencia: "2026-07", valorPrevisto: 2000, dataEmissao: "2026-08-02"}],
+    };
+    const [julho, agosto] = buildRequestedDreProjectionRows(dados, [
+      {year: 2026, month: 6, period: "mes", scope: "obra-1"},
+      {year: 2026, month: 7, period: "mes", scope: "obra-1"},
+    ]);
+    expect(julho.payload).toMatchObject({totalCustos: 500, faturamento: 2000});
+    expect(agosto.payload).toMatchObject({totalCustos: 0, faturamento: 0});
+  });
+});
