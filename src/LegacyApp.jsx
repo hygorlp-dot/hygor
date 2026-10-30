@@ -2287,6 +2287,7 @@ const normalizeData = incoming => {
       referenciaId:x.referenciaId || "",
       solicitacaoId:x.solicitacaoId || "",
       itens: Array.isArray(x.itens) ? x.itens.map(i => ({
+        ...i,
         id:          i.id         || uid(),
         materialId:  i.materialId || "",
         qtd:         Number(i.qtd || 0),

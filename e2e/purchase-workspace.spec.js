@@ -62,7 +62,7 @@ async function enter(page,{role="admin",failFirstRequest=false,prepare=null}={})
     return route.fulfill({json:{ok:true,accessToken:"qa-access",refreshToken:"qa-refresh",usuario:state.usuarios[0],data:state,updatedAt:"2026-10-23T12:00:00Z"}});
   });
   const errors=[];page.on("pageerror",error=>errors.push(error.message));
-  await page.goto("/");await page.locator("#login-email").fill(PROFILE.email);await page.locator("#login-senha").fill("senha-isolada");
+  await page.goto("/",{waitUntil:"domcontentloaded"});await page.locator("#login-email").fill(PROFILE.email);await page.locator("#login-senha").fill("senha-isolada");
   await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
   await openPurchases(page);
   return {state:()=>state,commands,errors};
@@ -71,7 +71,7 @@ const navigate=(page,name)=>page.getByRole("navigation",{name:"Fluxo de compras"
 const selectWork=page=>page.locator(".purchase-context-bar").getByLabel("Obra",{exact:true}).selectOption("a");
 
 for(const width of [390,1440])test(`condições do pedido preservam o legado e as revisões em ${width}px`,async({page})=>{
- await page.setViewportSize({width,height:1000});const app=await enter(page);await selectWork(page);await navigate(page,"Pedidos");
+ await page.setViewportSize({width,height:1000});const app=await enter(page,{prepare:state=>{state.pedidos[1].itens[0].previsao="2026-10-27";state.pedidos[1].itens[0].remessas=[{id:"scheduled-delivery",data:"2026-10-25",qtd:2}];}});await selectWork(page);await navigate(page,"Pedidos");
  const card=()=>page.getByRole("article",{name:"Pedido PC-002",exact:true});
  await card().getByRole("button",{name:"Ficha completa · notas e anexos",exact:true}).click();
  let modal=page.getByRole("dialog"),conditions=modal.getByRole("region",{name:"Condições preservadas de PC-002",exact:true});
@@ -93,7 +93,16 @@ for(const width of [390,1440])test(`condições do pedido preservam o legado e a
  await modal.getByRole("button",{name:"Salvar rascunho",exact:true}).click();await expect(modal).not.toBeVisible();
  const p=app.state().pedidos.find(p=>p.id==="draft");expect(p.historicoCondicoesPedido).toHaveLength(3);expect(p.historicoCondicoesPedido.slice(0,2)).toEqual(previous);
  app.state().fornecedores[1].nome="Nome atual diferente";app.state().obras[0].address="Endereço cadastral atual diferente";
- await page.reload();await openPurchases(page);await navigate(page,"Pedidos");await card().getByRole("button",{name:"Ficha completa · notas e anexos",exact:true}).click();
+ await page.reload({waitUntil:"domcontentloaded"});await openPurchases(page);await navigate(page,"Pedidos");await card().getByRole("button",{name:"Ficha completa · notas e anexos",exact:true}).click();
+ await page.getByRole("dialog").getByRole("button",{name:"Fechar",exact:true}).click();
+ await card().getByRole("button",{name:"Revisar pedido",exact:true}).click();modal=page.getByRole("dialog");
+ await expect(modal.getByLabel("Data 1",{exact:true})).toHaveValue("2026-10-25");
+ await modal.getByLabel("Motivo do ajuste *").fill("Conferência após recarga, mantendo o plano de entregas");
+ await modal.getByRole("button",{name:"Salvar rascunho",exact:true}).click();await expect(modal).not.toBeVisible();
+ expect(app.state().pedidos.find(p=>p.id==="draft").itens[0].remessas).toEqual([{id:"scheduled-delivery",data:"2026-10-25",qtd:2}]);
+ expect(app.state().pedidos.find(p=>p.id==="draft").itens[0].previsao).toBe("2026-10-27");
+ expect(app.state().pedidos.find(p=>p.id==="draft").historicoCondicoesPedido).toHaveLength(3);
+ await card().getByRole("button",{name:"Ficha completa · notas e anexos",exact:true}).click();
  modal=page.getByRole("dialog");conditions=modal.getByRole("region",{name:"Condições preservadas de PC-002",exact:true});
  await expect(conditions).toContainText("Rua renegociada, 30");await expect(conditions).not.toContainText("Endereço cadastral atual diferente");
  await conditions.locator("summary").click();await expect(conditions).toContainText("Rua da entrega original, 20");await expect(conditions).toContainText("Novo destino acordado");
@@ -202,7 +211,7 @@ test("receber parcialmente a prazo atualiza estoque e saldo sem registrar pagame
   expect(app.state().pedidos.find(order=>order.id==="delivery").itens[0].qtdRecebida).toBe(4);
   expect(app.state().pedidos.find(order=>order.id==="delivery").pagamentos).toEqual([]);
   expect(app.state().movEstoque.filter(movement=>movement.pedidoId==="delivery").reduce((sum,movement)=>sum+movement.qtd,0)).toBe(4);
-  await page.reload();await expect(page.locator(".purchase-header")).toBeVisible();await selectWork(page);await navigate(page,"Receber");
+  await page.reload({waitUntil:"domcontentloaded"});await expect(page.locator(".purchase-header")).toBeVisible();await selectWork(page);await navigate(page,"Receber");
   await page.getByRole("button",{name:"Receber materiais · PC-001"}).click();
   await expect(page.getByRole("dialog").getByLabel("Chegou agora (UN)")).toHaveValue("6");
   expect(app.errors).toEqual([]);
@@ -739,7 +748,7 @@ test("condições comerciais persistem e o comparativo usa o custo final",async(
   expect(app.state().cotacoes[0].propostas[0].condicoesFaturamento).toBe("Emitir nota para destinatário acordado");
   expect(app.state().cotacoes[0].propostas[0].enderecoEntrega).toBe("Endereço acordado na proposta");
   await expect(page.locator(".purchase-cost-comparison").getByText("Menor custo final",{exact:true})).toBeVisible();
-  await page.reload();await openPurchases(page);await selectWork(page);await navigate(page,"Fila");
+  await page.reload({waitUntil:"domcontentloaded"});await openPurchases(page);await selectWork(page);await navigate(page,"Fila");
   await page.getByRole("button",{name:"Comparar propostas · COT-001",exact:true}).click();
   await page.getByRole("button",{name:"Editar mapa",exact:true}).click();
   const reopened=page.getByRole("dialog");await reopened.locator(".order-conditions-fields summary").first().click();
