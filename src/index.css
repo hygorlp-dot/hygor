@@ -5,7 +5,11 @@
    todo o CSS próprio abaixo passaria a vencer as classes utilitárias. */
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/preflight.css';
-@import 'tailwindcss/utilities.css';
+/* Detectar classes apenas na aplicação: artefatos de testes e builds locais
+   não devem disparar regenerações do CSS nem ampliar a folha de utilitários. */
+@import 'tailwindcss/utilities.css' source(none);
+@source './';
+@source '../index.html';
 
 @custom-variant dark (&:is(.dark *));
 

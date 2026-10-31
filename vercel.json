@@ -1,24 +1,48 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "node scripts/check-financial-enforcement-readiness.mjs && npx vite build",
   "outputDirectory": "dist",
   "framework": "vite",
   "ignoreCommand": "node scripts/vercel-ignore-build.mjs",
-  "regions": ["pdx1"],
+  "regions": [
+    "pdx1"
+  ],
   "headers": [
     {
       "source": "/",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
     },
     {
       "source": "/index.html",
-      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
     }
   ],
   "rewrites": [
-    { "source": "/api/client/:route*", "destination": "/api/client?route=:route*" },
-    { "source": "/cliente/:route*", "destination": "/index.html" },
-    { "source": "/aceite-pedido", "destination": "/index.html" },
-    { "source": "/responder-cotacao", "destination": "/index.html" }
+    {
+      "source": "/api/client/:route*",
+      "destination": "/api/client?route=:route*"
+    },
+    {
+      "source": "/cliente/:route*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/aceite-pedido",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/responder-cotacao",
+      "destination": "/index.html"
+    }
   ],
   "functions": {
     "api/data.js": {
@@ -26,7 +50,13 @@
     }
   },
   "crons": [
-    { "path": "/api/data?action=backup-create", "schedule": "0 3 * * *" },
-    { "path": "/api/data?action=ponto-tempo-verificar", "schedule": "0 9 * * *" }
+    {
+      "path": "/api/data?action=backup-create",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/data?action=ponto-tempo-verificar",
+      "schedule": "0 9 * * *"
+    }
   ]
 }

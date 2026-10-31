@@ -9,7 +9,9 @@ async function openReconciliation(page) {
   if (await page.locator(".reconciliation-workspace").isVisible()) return;
   if (page.viewportSize().width < 1100) {
     await page.getByRole("button", { name:"Abrir Financeiro", exact:true }).click();
-    await page.locator(".mobile-subnav").getByRole("button", { name:"Conciliação", exact:true }).click();
+    const selector=page.getByRole('combobox',{name:'Telas de Financeiro',exact:true});
+    if(await selector.isVisible())await selector.selectOption({label:'Conciliação'});
+    else await page.locator(".mobile-subnav").getByRole("button", { name:"Conciliação", exact:true }).click();
   } else {
     const group=page.locator(".arcd-sidebar .nav-grp-hd").filter({hasText:/^Financeiro/});
     const body=group.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
@@ -117,7 +119,9 @@ test("categoria de entrada preserva competência distinta e classificação apó
   expect(app.state().payments).toEqual(expect.arrayContaining([expect.objectContaining({categoria:"receita_servicos",competencia:"2026-09",date:"2026-10-20",amount:1230})]));
   expect(buildFinancialLedger(app.state()).events).toEqual(expect.arrayContaining([expect.objectContaining({effect:"revenue",category:"receita_servicos",competence:"2026-09",amountCents:123000})]));
   await page.reload(); await openReconciliation(page);
-  await page.getByRole("button",{name:/^Conciliados/}).click();
+  const viewSelector=page.getByRole('combobox',{name:'Selecionar visão',exact:true});
+  if(await viewSelector.isVisible()){const option=viewSelector.getByRole('option').filter({hasText:/^Conciliados/});await viewSelector.selectOption(await option.getAttribute('value'));}
+  else await page.getByRole("button",{name:/^Conciliados/}).click();
   const filter=page.getByRole("combobox",{name:"Filtrar categoria",exact:true});
   await filter.fill("servicos"); await page.getByRole("option",{name:/Receita de serviços/}).click();
   await expect(page.locator(".reconciliation-row")).toHaveCount(1);

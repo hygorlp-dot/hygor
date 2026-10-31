@@ -346,3 +346,64 @@
 @media screen {
   [data-theme="marcell"] :is(button, a, select, summary, [role="menuitem"]) { touch-action: manipulation; }
 }
+
+/* Painel "Suas obras hoje" (gestão à vista). Cores de situação fixas:
+   verde = em dia, âmbar = atenção, vermelho = crítico; sempre com texto/ícone. */
+.gav { position: relative; z-index: 1; background: #fff; border: 1px solid var(--arcd-border, #E6E3DC); border-radius: 12px; padding: 18px 20px 14px; }
+.gav__topo { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
+.gav__titulo { color: #0D1B2E; } /* tamanho e peso seguem a escala de títulos do tema */
+.gav__sub { margin-top: 3px; font-size: .8125rem; color: var(--arcd-text-secondary); font-variant-numeric: tabular-nums; }
+.gav-placar { display: grid; grid-template-columns: repeat(3, minmax(92px, 1fr)); gap: 8px; }
+.gav-placar__item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 58px; padding: 8px 12px; border: 1px solid transparent; border-radius: 10px; cursor: pointer; text-align: left; }
+.gav-placar__item b { font-size: 1.375rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.gav-placar__item span { font-size: .8125rem; font-weight: 600; }
+.gav-placar__item.is-ok { background: #E3EFE9; color: #2E6652; }
+.gav-placar__item.is-atencao { background: #F8EBD6; color: #855A24; }
+.gav-placar__item.is-critico { background: #F6E3E3; color: #A63B3B; }
+.gav-placar__item[aria-pressed="true"] { border-color: currentColor; }
+.gav-placar__item:focus-visible, .gav-obra__nome:focus-visible { outline: 2px solid #0D1B2E; outline-offset: 2px; }
+.gav-linha { display: grid; grid-template-columns: minmax(170px, 1.5fr) 104px minmax(150px, 1.2fr) 70px minmax(170px, 1.3fr) 118px; gap: 16px; align-items: center; padding: 12px 0; border-top: 1px solid #EFEDE8; font-size: var(--arcd-type-table); }
+.gav-linha--cabecalho { padding: 0 0 8px; border-top: 0; font-size: .75rem; font-weight: 600; color: var(--arcd-text-secondary); }
+.gav-obra { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.gav-obra__nome { all: unset; cursor: pointer; font-weight: 600; color: #0D1B2E; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gav-obra__nome:hover { text-decoration: underline; }
+.gav-obra__motivo { font-size: .75rem; color: var(--arcd-text-secondary); }
+.gav-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+.gav-chip.is-ok { background: #E3EFE9; color: #2E6652; }
+.gav-chip.is-atencao { background: #F8EBD6; color: #855A24; }
+.gav-chip.is-critico { background: #F6E3E3; color: #A63B3B; }
+.gav-etapas { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.gav-etapas__trilho { display: flex; gap: 2px; height: 6px; }
+.gav-etapas__passo { flex-basis: 0; min-width: 4px; border-radius: 2px; background: #E8E5DF; }
+.gav-etapas__passo.is-feita { background: #0D1B2E; }
+.gav-etapas__passo.is-atual { background: #B9985B; }
+.gav-etapas__nome { font-size: .75rem; color: #3D4651; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gav-equipe { font-weight: 600; font-variant-numeric: tabular-nums; }
+.gav-custo { display: flex; flex-direction: column; gap: 5px; }
+.gav-custo__barra { position: relative; height: 8px; border-radius: 99px; background: #EFEDE8; }
+.gav-custo__gasto { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: #0D1B2E; }
+.gav-custo__gasto.is-alerta { background: #A63B3B; }
+.gav-custo__marca { position: absolute; top: -3px; width: 2px; height: 14px; margin-left: -1px; border-radius: 1px; background: #B9985B; }
+.gav-custo__legenda { font-size: .75rem; color: var(--arcd-text-secondary); font-variant-numeric: tabular-nums; }
+.gav-custo__legenda b { color: #0D1B2E; font-weight: 600; }
+.gav-entrega { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
+.gav-entrega span + span { font-size: .75rem; color: var(--arcd-text-secondary); }
+.gav-entrega .is-atencao { color: #855A24; font-weight: 600; }
+.gav-entrega .is-critico { color: #A63B3B; font-weight: 600; }
+.gav-vazio { font-size: .75rem; color: var(--arcd-text-secondary); }
+.gav__nada { padding: 16px 0; }
+.gav__legenda { margin-top: 10px; padding-top: 10px; border-top: 1px solid #EFEDE8; font-size: .75rem; color: var(--arcd-text-secondary); }
+@media (max-width: 1023px) {
+  .gav { padding: 14px; }
+  .gav-placar { width: 100%; }
+  .gav-linha--cabecalho { display: none; }
+  .gav-linha { grid-template-columns: 1fr auto; grid-template-areas: "obra situacao" "etapa etapa" "custo custo" "equipe entrega"; gap: 8px 12px; }
+  .gav-linha > :nth-child(1) { grid-area: obra; }
+  .gav-linha > :nth-child(2) { grid-area: situacao; justify-self: end; }
+  .gav-linha > :nth-child(3) { grid-area: etapa; }
+  .gav-linha > :nth-child(4) { grid-area: equipe; font-size: .75rem; }
+  .gav-linha > :nth-child(5) { grid-area: custo; }
+  .gav-linha > :nth-child(6) { grid-area: entrega; justify-self: end; }
+  .gav-entrega { flex-direction: row; gap: 6px; font-size: .75rem; }
+  .gav-equipe::before { content: "Equipe hoje: "; font-weight: 400; color: var(--arcd-text-secondary); }
+}

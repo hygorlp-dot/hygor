@@ -6,6 +6,8 @@ import { ThemeProvider } from "./design-system/theme/ThemeProvider.jsx";
 import { instalarCapturaGlobal } from "./observability/global-error-capture.js";
 import "./index.css";
 import "./design-system/themes/marcell-clean.css";
+import "./design-system/themes/marcell-pilot.css";
+import "./design-system/themes/marcell-workspaces.css";
 
 // Erros fora da renderização (clique, exportação, promessa sem catch) - o
 // ErrorBoundary não os vê. Vão para o mesmo relatório ARCD-XXXX.

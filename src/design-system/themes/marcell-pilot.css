@@ -1,0 +1,241 @@
+/* Approved MARCELL pilot: operational density in Dashboard, Compras and Financeiro.
+   Keep these recipes scoped while the remaining modules are migrated. */
+@media screen {
+  [data-theme="marcell"] .arcd-app-shell:is([data-tab="home"], [data-tab="cmp"], [data-tab="fin"]) {
+    background: #f5f6f8 !important;
+  }
+
+  [data-theme="marcell"] .arcd-main[data-workspace] {
+    --arcd-surface-page: #f5f6f8;
+    --arcd-surface-muted: #edf0f4;
+    --arcd-surface-subtle: #f5f6f8;
+    --arcd-border-default: #d9dde2;
+    --arcd-border-strong: #8a96a5;
+    --arcd-action-primary: #0d1b2e;
+    --arcd-action-primary-hover: #18304c;
+    --arcd-action-primary-subtle: #eee5d5;
+    --arcd-control-height: 2.5rem;
+    --arcd-radius-control: .375rem;
+    --arcd-type-page-title: 1.5rem;
+    --arcd-type-section-title: 1.125rem;
+    --arcd-type-table: .875rem;
+    --arcd-type-control: .875rem;
+    background: var(--arcd-surface-page);
+    min-width: 0;
+    width: 100%;
+  }
+
+  [data-density="compact"] .arcd-main[data-workspace] { --arcd-control-height: 2.25rem; }
+  [data-density="spacious"] .arcd-main[data-workspace] { --arcd-control-height: 3rem; }
+
+  /* Bridge the three incumbent button APIs without changing their commands. */
+  .arcd-main[data-workspace] :is(.arcd-btn, .arcd-button, [data-slot="button"]):not(.financial-metric__value) {
+    min-height: var(--arcd-control-height);
+    border-radius: var(--arcd-radius-control);
+    font-size: var(--arcd-type-control);
+    line-height: 1.35;
+  }
+  .arcd-main[data-workspace] [data-slot="button"] > svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+  .arcd-main[data-workspace] .anim { animation: none; }
+  .workspace-export-mobile { display: none; }
+  .arcd-main[data-workspace] :is(button, summary, a):focus-visible {
+    outline: 2px solid var(--arcd-focus-ring);
+    outline-offset: 3px;
+  }
+
+  .arcd-main[data-workspace] .workspace-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 0 0 1rem;
+    min-width: 0;
+    border: 0;
+    border-bottom: 1px solid var(--arcd-border-default);
+    border-radius: 0;
+    background: transparent;
+  }
+  .workspace-header > div:first-child { min-width: 0; flex: 1 1 13rem; }
+  .arcd-main[data-workspace] .workspace-header .arcd-page-header__title {
+    margin: 0;
+    font-size: var(--arcd-type-page-title);
+    line-height: 1.35;
+  }
+  .workspace-header .arcd-page-header__description {
+    margin: .25rem 0 0;
+    font-size: var(--arcd-type-body);
+    line-height: 1.5;
+    color: var(--arcd-text-secondary);
+  }
+  .workspace-header .arcd-page-header__actions { align-items: flex-end; gap: .5rem; }
+  .workspace-header__scope { width: 15rem; max-width: 100%; }
+  .workspace-header__scope > * { margin: 0; }
+  .workspace-period { display: flex; align-items: center; border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-radius-control); background: var(--arcd-surface-card); }
+  .workspace-period > span { min-width: 7rem; text-align: center; font-size: var(--arcd-type-label); text-transform: capitalize; }
+  .workspace-period [data-slot="button"] { border: 0; background: transparent; }
+
+  .workspace-navigation { min-width: 0; }
+  .workspace-navigation__mobile { display: none; }
+  .workspace-navigation__desktop { display: flex; align-items: flex-start; gap: .5rem; border-bottom: 1px solid var(--arcd-border-default); }
+  .workspace-navigation__desktop > nav { display: flex; flex: 1; gap: .25rem; min-width: 0; overflow-x: auto; padding: .125rem .125rem .5rem; }
+  .workspace-navigation__desktop > nav > button { flex: 0 0 auto; gap: .5rem; padding: .5rem .75rem; border: 1px solid transparent; font-size: var(--arcd-type-label); color: var(--arcd-text-secondary); }
+  .workspace-navigation__desktop > nav > button:hover { background: var(--arcd-surface-muted); color: var(--arcd-text-primary); }
+  .workspace-navigation__desktop > nav > button[aria-current="page"] { background: var(--arcd-surface-card); border-color: var(--arcd-border-default); color: var(--arcd-text-primary); }
+  .workspace-navigation__desktop small { color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); font-variant-numeric: tabular-nums; }
+  .workspace-navigation__tools { position: relative; flex: 0 0 auto; max-width: 12rem; }
+  .workspace-navigation__tools > summary { padding: .625rem .5rem; min-height: var(--arcd-control-height); cursor: pointer; color: var(--arcd-text-secondary); font-size: var(--arcd-type-label); }
+  .workspace-navigation__tools > nav { position: absolute; inset: 100% 0 auto auto; z-index: 20; display: grid; width: max-content; max-width: min(22rem, calc(100vw - 2rem)); padding: .5rem; background: var(--arcd-surface-card); border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-radius-lg); box-shadow: var(--arcd-shadow-md); }
+  .workspace-navigation__tools nav button { justify-content: flex-start; white-space: normal; text-align: left; }
+  .workspace-filters { display: contents; }
+  .workspace-filters__toggle { display: none; }
+  .workspace-filters__fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: .75rem; align-items: end; }
+
+  .arcd-main[data-workspace] .purchase-header { align-items: center; }
+  .purchase-header .purchase-context-bar { flex: 0 1 15rem; }
+  .purchase-header .arcd-page-header__actions { flex-wrap: nowrap; flex: 0 1 auto; }
+  .purchase-header .purchase-header-actions { flex-wrap: nowrap; }
+  .purchase-header .purchase-header-actions > button { flex: none; white-space: nowrap; }
+  .purchase-header .compras-project-picker { width: 15rem; max-width: 100%; }
+  .purchase-header .purchase-save-state { margin-top: .25rem; }
+  .arcd-main[data-workspace] .purchase-navigation { background: transparent; border: 0; border-radius: 0; }
+  .arcd-main[data-workspace] .purchase-workspace { display: flex; flex-direction: column; gap: .75rem; }
+  .arcd-main[data-workspace] .purchase-queue-intro { margin: 0; padding: 0; }
+  .arcd-main[data-workspace] .purchase-queue-intro h3 { font-size: var(--arcd-type-section-title); margin: 0; }
+  .purchase-queue-intro .purchase-scope { display: none; }
+  .arcd-main[data-workspace] .purchase-queue-intro p { margin: .25rem 0 0; font-size: var(--arcd-type-label); line-height: 1.5; }
+  .purchase-queue-intro > svg { display: none; }
+  .arcd-main[data-workspace] .purchase-queue-metrics { margin: 0; }
+  .arcd-main[data-workspace] .purchase-queue-metrics button { min-height: 4.75rem; padding: .75rem 1rem; gap: .25rem; }
+  .arcd-main[data-workspace] .purchase-queue-metrics button[aria-pressed="true"] { background: var(--arcd-action-primary-subtle); box-shadow: none; }
+  .arcd-main[data-workspace] .purchase-queue-metrics strong { font-size: 1.25rem; }
+  .arcd-main[data-workspace] .purchase-queue-metrics small { font-size: .75rem; }
+  .arcd-main[data-workspace] .purchase-queue-filters { grid-template-columns: minmax(12rem, 1.2fr) minmax(0, 2fr); padding: .875rem 1rem; gap: .75rem; }
+  .arcd-main[data-workspace] .purchase-queue-panel > .purchase-order-count-row { padding: 0 1rem .75rem; }
+  .arcd-main[data-workspace] .purchase-queue-table :is(td, th) { padding: .75rem 1rem; }
+  .arcd-main[data-workspace] .purchase-queue-table td { font-size: var(--arcd-type-table); }
+  .arcd-main[data-workspace] .purchase-queue-table th { text-transform: none; letter-spacing: normal; }
+  .arcd-main[data-workspace] .purchase-empty { padding: 2rem 1rem; gap: .5rem; }
+
+  .arcd-main[data-workspace] .finance-today { padding: .25rem 0 0; gap: .875rem; }
+  .finance-today__heading { display: flex; align-items: baseline; gap: .5rem 1rem; flex-wrap: wrap; }
+  .finance-today__heading p { margin: 0; }
+  .finance-today__mobile, .finance-today__total { display: none; }
+  .arcd-main[data-workspace] .finance-today[aria-labelledby="finance-today-title"] .finance-today__filters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .5rem; }
+  .arcd-main[data-workspace] .finance-today[aria-labelledby="finance-today-title"] .finance-today__filters button { display: flex; flex-direction: column; align-items: flex-start; gap: .25rem; padding: .75rem 1rem; min-height: 4.5rem; }
+  .finance-today[aria-labelledby="finance-today-title"] .finance-today__filters button > span { font-size: var(--arcd-type-label); }
+  .finance-today[aria-labelledby="finance-today-title"] .finance-today__filters button > strong { font-size: 1.125rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .finance-today__results { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem 1rem; flex-wrap: wrap; }
+  .finance-today__results h3 { font-size: var(--arcd-type-card-title); margin: 0; }
+  .finance-today__results p { margin: 0; }
+  .arcd-main[data-workspace] .finance-today__list { list-style: none; padding: 0; margin: 0; border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-radius-lg); background: var(--arcd-surface-card); overflow: hidden; }
+  .finance-today__list:empty { display: none; }
+  .arcd-main[data-workspace] .finance-today__row { display: grid; grid-template-columns: minmax(0, 1fr) 7rem auto auto; gap: 1rem; padding: .875rem 1rem; margin: 0; }
+  .finance-today__row:last-child { border-bottom: 0; }
+  .finance-today__row > time { font-size: var(--arcd-type-label); color: var(--arcd-text-secondary); }
+  .finance-today__empty { padding: 1.5rem; border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-radius-lg); background: var(--arcd-surface-card); }
+  .finance-today__empty p { margin: .25rem 0 0; }
+  .arcd-main[data-workspace] .financial-summary { gap: .75rem; }
+  .arcd-main[data-workspace] .financial-summary > section { padding: 1rem; }
+  .arcd-main[data-workspace] .financial-summary__description { margin: .375rem 0 .875rem; }
+  .arcd-main[data-workspace] .financial-summary dl { gap: .625rem; }
+  .arcd-main[data-workspace] .financial-secondary-metrics > div { padding: .75rem 1rem; }
+
+  .dashboard-context { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin-top: .375rem; color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); }
+  .dashboard-indicators-toggle { display: none; }
+  .dashboard-tech-hero time { margin-left: .5rem; }
+  .arcd-main[data-workspace] .dashboard-executive-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 0 !important; border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-radius-lg); background: var(--arcd-surface-card); overflow: hidden; }
+  .dashboard-executive-grid > span { min-width: 0; border-bottom: 1px solid var(--arcd-border-default); }
+  .dashboard-executive-grid > span:nth-last-child(-n+4) { border-bottom: 0; }
+  .arcd-main[data-workspace] .dashboard-kpi { min-height: 5.5rem; height: 100%; padding: .75rem 1rem; border: 0; border-radius: 0; box-shadow: none; animation: none; background: transparent; }
+  .arcd-main[data-workspace] .dashboard-kpi::after { display: none; }
+  .arcd-main[data-workspace] .dashboard-kpi__icon { width: 1rem; height: 1rem; background: transparent; }
+  .arcd-main[data-workspace] .dashboard-kpi__value { margin-top: .375rem; font-size: 1.375rem; }
+  .arcd-main[data-workspace] .dashboard-kpi__detail { white-space: normal; line-height: 1.4; }
+  .dashboard-work-grid { display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(17rem, 1fr); gap: .875rem; align-items: start; }
+  .dashboard-work-grid > *, .dashboard-work-grid__aside { min-width: 0; }
+  .dashboard-work-grid__aside { display: flex; flex-direction: column; gap: .875rem; }
+  .arcd-main[data-workspace] .dashboard-mission-rows { grid-template-columns: 1fr !important; }
+  .arcd-main[data-workspace] .dashboard-mission-rows > button { border-right: 0; }
+  .arcd-main[data-workspace] .dashboard-actions-header { background: var(--arcd-surface-card); padding: .75rem 1rem !important; }
+  .arcd-main[data-workspace] .dashboard-work-grid .gav { padding: 1rem; }
+  .dashboard-work-grid .gav__topo { align-items: flex-start; gap: .75rem; }
+  .dashboard-work-grid .gav-placar__item { min-width: 4.25rem; padding: .5rem; }
+  .dashboard-work-grid .gav-lista { overflow-x: auto; }
+  .dashboard-work-grid .gav-linha { grid-template-columns: minmax(9rem, 1.3fr) 5rem minmax(6rem, 1fr) 3rem minmax(7rem, 1fr) 5rem; gap: .75rem; min-width: 43rem; }
+  .arcd-main[data-workspace] .dashboard-quick-action { min-height: var(--arcd-control-height) !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: .5rem; padding: .625rem .75rem !important; }
+  .arcd-main[data-workspace] .dashboard-quick-action > span { width: 1.25rem !important; height: 1.25rem !important; background: transparent !important; }
+  .workspace-disclosure { min-width: 0; border: 1px solid var(--arcd-border-default); background: var(--arcd-surface-card); border-radius: var(--arcd-radius-lg); padding: .25rem 1rem; }
+  .workspace-disclosure > summary { min-height: var(--arcd-control-height); align-content: center; cursor: pointer; font-size: var(--arcd-type-body); color: var(--arcd-text-primary); }
+  .workspace-disclosure[open] > summary { margin-bottom: .75rem; }
+  .arcd-main[data-workspace] .dashboard-tech-motion > section { animation: none; }
+
+  @media (max-width: 1199px) {
+    .dashboard-work-grid { grid-template-columns: minmax(0, 1fr); }
+    .dashboard-work-grid__aside { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+    .arcd-main[data-workspace] .purchase-queue-filters { grid-template-columns: minmax(0, 1fr); }
+    .workspace-header .arcd-page-header__actions { flex: 1 1 25rem; justify-content: flex-end; }
+  }
+
+  @media (max-width: 767px) {
+    [data-theme="marcell"] .arcd-main[data-workspace] { --arcd-control-height: 2.75rem; }
+    .arcd-main[data-workspace] .workspace-header { gap: .75rem; padding-bottom: .75rem; }
+    .workspace-header > div:first-child { flex-basis: 100%; }
+    .workspace-header > div:first-child { width: 100%; }
+    .workspace-header .arcd-page-header__description { display: none; }
+    .dashboard-tech-hero .arcd-page-header__description { display: block; }
+    .workspace-header .arcd-page-header__actions { width: 100%; flex-basis: 100%; justify-content: flex-start; }
+    .workspace-header .arcd-page-header__actions > * { flex: none; }
+    .workspace-header.purchase-header .arcd-page-header__actions { flex-wrap: wrap; flex: 1 1 100%; }
+    .workspace-header__scope { width: 100%; }
+    .workspace-header .purchase-context-bar { flex: 1 1 100%; width: 100%; }
+    .workspace-header .compras-project-picker { width: 100%; }
+    .workspace-header .purchase-header-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+    .workspace-header .purchase-header-actions, .workspace-header .purchase-header-actions > * { width: 100%; }
+    .workspace-navigation__desktop { display: none; }
+    .workspace-navigation__mobile { display: block; }
+    .workspace-filters__toggle { display: inline-flex; align-self: end; }
+    .workspace-filters__fields { display: none; grid-column: 1/-1; grid-template-columns: minmax(0, 1fr); }
+    .workspace-filters[data-expanded="true"] .workspace-filters__fields { display: grid; }
+    .arcd-main[data-workspace] .purchase-queue-filters { grid-template-columns: minmax(0, 1fr) auto; padding: .75rem; }
+    .arcd-main[data-workspace] .purchase-queue-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .arcd-main[data-workspace] .purchase-queue-metrics button:nth-child(4) { display: none; }
+    .arcd-main[data-workspace] .purchase-queue-metrics button { border-bottom: 0; border-right: 1px solid var(--arcd-border-default); }
+    .arcd-main[data-workspace] .purchase-queue-metrics button:nth-child(3) { border-right: 0; }
+    .arcd-main[data-workspace] .purchase-queue-metrics button { min-height: 4rem; padding: .625rem .75rem; gap: .25rem; }
+    .purchase-queue-metrics small { display: none; }
+    .workspace-export-desktop { display: none; }
+    .workspace-export-mobile { display: block; }
+    .arcd-main[data-workspace] .purchase-queue-table td { padding: .25rem 0; }
+    .arcd-main[data-workspace] .purchase-queue-table td::before { text-transform: none; letter-spacing: normal; }
+    .arcd-main[data-workspace] .finance-today[aria-labelledby="finance-today-title"] .finance-today__filters { display: none; }
+    .finance-today__mobile { display: block; }
+    .finance-today__total { display: block; font-size: 1.125rem; font-variant-numeric: tabular-nums; }
+    .finance-today__results p { flex-basis: 100%; }
+    .arcd-main[data-workspace] .finance-today[aria-labelledby="finance-today-title"] .finance-today__filters button { min-height: 4rem; padding: .625rem .75rem; }
+    .arcd-main[data-workspace] .finance-today__row { grid-template-columns: minmax(0, 1fr) auto; gap: .5rem .75rem; padding: .875rem; }
+    .finance-today__row > div { grid-column: 1/-1; }
+    .finance-today__row > strong { text-align: right; }
+    .arcd-main[data-workspace] .finance-today__row button { grid-column: 1/-1; width: 100%; }
+    .arcd-main[data-workspace] .dashboard-executive-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .dashboard-executive-grid[data-expanded="false"] > span:nth-child(n+5) { display: none; }
+    .dashboard-indicators-toggle { display: inline-flex; align-self: flex-start; margin-top: -.5rem; }
+    .dashboard-executive-grid > span:nth-last-child(-n+4) { border-bottom: 1px solid var(--arcd-border-default); }
+    .dashboard-executive-grid > span:nth-last-child(-n+2) { border-bottom: 0; }
+    .arcd-main[data-workspace] .dashboard-kpi { min-height: 5rem; padding: .625rem .75rem; }
+    .dashboard-work-grid__aside { display: flex; }
+    .dashboard-work-grid__aside { order: -1; }
+    .dashboard-work-grid .gav-linha { min-width: 0; grid-template-columns: 1fr auto; gap: .5rem .75rem; }
+    .dashboard-work-grid .gav-linha--cabecalho { display: none; }
+    .dashboard-tech-hero .arcd-page-header__description time { display: block; margin: 0; }
+    .dashboard-tech-hero .arcd-page-header__actions > [data-slot="button"]:last-child { flex: 1; }
+    .dashboard-context > span:last-child { line-height: 1.5; }
+    .workspace-module-select { max-width: 9.5rem; min-height: 2.75rem; border: 0; padding: 0 .25rem; background: transparent; color: var(--arcd-text-primary); font: inherit; font-size: 1rem; }
+    .workspace-module-select:focus-visible { outline: 2px solid var(--arcd-focus-ring); outline-offset: 2px; }
+  }
+}

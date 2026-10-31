@@ -22,8 +22,9 @@ createRoot(document.getElementById('root')).render(React.createElement(MedicaoEv
 await writeFile(fixturePath,fixture);
 await mkdir(output,{recursive:true});
 const html='<!doctype html><html lang="pt-BR" data-theme="marcell"><head><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head><body><main id="root" class="arcd-main" style="max-width:1100px;margin:auto;padding:12px"></main><script type="module" src="/.measurement-mobile-fixture.jsx"></script></body></html>';
+let uploadedPhotos=0;
 const server=await createServer({cacheDir:'node_modules/.vite-measurement-qa',server:{host:'127.0.0.1',port:4194,strictPort:true,watch:null,hmr:false},plugins:[{name:'measurement-mobile-qa',configureServer(s){
- s.middlewares.use('/api',async(req,res)=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify({ok:true,item:{id:'local-photo'},url:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jHSkAAAAASUVORK5CYII='}));});
+ s.middlewares.use('/api',async(req,res)=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify({ok:true,item:{id:`local-photo-${++uploadedPhotos}`},url:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jHSkAAAAASUVORK5CYII='}));});
  s.middlewares.use('/measurement-mobile-qa',async(req,res)=>{res.setHeader('Content-Type','text/html');res.end(await s.transformIndexHtml('/measurement-mobile-qa',html));});
 }}]});
 let browser;
@@ -73,14 +74,62 @@ try{
   await page.screenshot({path:resolve(output,`third-party-${width}.png`),animations:'disabled'});
   await expect(dialog.getByRole('button',{name:'Confirmar e enviar para aprovação',exact:true})).toBeVisible();
   // An isolated upload exercises the real photo handler without a remote service.
-  await dialog.locator('input[type="file"]').setInputFiles({name:'evidencia.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jHSkAAAAASUVORK5CYII=','base64')});
-  await expect(dialog.getByAltText('Evidência 1')).toBeVisible();
+  const photo=name=>({name,mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jHSkAAAAASUVORK5CYII=','base64')});
+  const [galleryChooser]=await Promise.all([page.waitForEvent('filechooser'),dialog.getByRole('button',{name:'Escolher da galeria',exact:true}).click()]);
+  expect(galleryChooser.isMultiple()).toBe(true);
+  expect(await galleryChooser.element().getAttribute('capture')).toBeNull();
+  await galleryChooser.setFiles([photo('galeria-1.png'),photo('galeria-2.png')]);
+  await expect(dialog.getByAltText('Evidência 2')).toBeVisible();
+  const [cameraChooser]=await Promise.all([page.waitForEvent('filechooser'),dialog.getByRole('button',{name:'Tirar foto',exact:true}).click()]);
+  expect(cameraChooser.isMultiple()).toBe(false);
+  expect(await cameraChooser.element().getAttribute('capture')).toBe('environment');
+  await cameraChooser.setFiles(photo('camera.png'));
+  await expect(dialog.getByAltText('Evidência 3')).toBeVisible();
+  await expect(dialog.getByLabel('Fotos da galeria para a medição')).toHaveValue('');
+  await expect(dialog.getByLabel('Foto da câmera para a medição')).toHaveValue('');
+  await dialog.getByRole('button',{name:'Escolher da galeria',exact:true}).scrollIntoViewIfNeeded();
+  await page.screenshot({path:resolve(output,`photo-sources-${width}.png`),animations:'disabled'});
+  expect(await dialog.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
   await dialog.getByRole('button',{name:'Confirmar e enviar para aprovação',exact:true}).click();
   await expect(dialog).toHaveCount(0);
   const commands=await page.evaluate(()=>window.qa.commands);
   expect(commands).toHaveLength(1);
   expect(commands[0].payload.measurement.itens[0]).toMatchObject({etapaId:'infra',pctAnterior:20,pctAcum:62.25,valor:2535});
-  expect(commands[0].payload.measurement.fotos).toHaveLength(1);
+  expect(commands[0].payload.measurement.fotos).toHaveLength(3);
+  if(width===390){
+   // A failed second upload must not discard the already uploaded first photo.
+   await page.goto(url);
+   await page.getByRole('button',{name:'Confirmar medição',exact:true}).click();
+   const partialDialog=page.getByRole('dialog',{name:/Medição.*Instalações elétricas/});
+   let attempts=0;
+   const partialUpload=route=>++attempts===2
+    ?route.fulfill({status:503,json:{ok:false,error:'Falha simulada na segunda foto'}})
+    :route.continue();
+   await page.route('**/api/microsoft/onedrive',partialUpload);
+   await partialDialog.getByLabel('Fotos da galeria para a medição').setInputFiles([photo('primeira.png'),photo('segunda.png')]);
+   await expect.poll(()=>page.evaluate(()=>window.qa.toasts.some(args=>String(args[0]).includes('Falha simulada')))).toBe(true);
+   await expect(partialDialog.getByAltText('Evidência 1')).toBeVisible();
+   await expect(partialDialog.getByAltText('Evidência 2')).toHaveCount(0);
+   await page.unroute('**/api/microsoft/onedrive',partialUpload);
+   await partialDialog.getByLabel('Fotos da galeria para a medição').setInputFiles(photo('segunda.png'));
+   await expect(partialDialog.getByAltText('Evidência 2')).toBeVisible();
+   console.log('PASS partial upload: first photo preserved after second photo fails; retry succeeds.');
+   // Closing while an upload is in flight used to detach evidence from its form.
+   let releaseUpload;
+   const uploadGate=new Promise(resolve=>{releaseUpload=resolve;});
+   const delayedUpload=async route=>{await uploadGate;await route.continue();};
+   await page.route('**/api/microsoft/onedrive',delayedUpload);
+   try{
+    await partialDialog.getByLabel('Fotos da galeria para a medição').setInputFiles(photo('em-andamento.png'));
+    await expect(partialDialog.getByRole('button',{name:'Enviando...',exact:true})).toBeVisible();
+    await partialDialog.getByRole('button',{name:'Fechar',exact:true}).click();
+    await expect(partialDialog).toBeVisible();
+    await expect(partialDialog.getByRole('button',{name:'Cancelar',exact:true})).toBeDisabled();
+   }finally{releaseUpload();}
+   await expect(partialDialog.getByAltText('Evidência 3')).toBeVisible();
+   await page.unroute('**/api/microsoft/onedrive',delayedUpload);
+   console.log('PASS upload in progress: close preserves the form until evidence finishes uploading.');
+  }
   await page.goto(url+'?multiple');
   await page.getByRole('button',{name:'Confirmar medição',exact:true}).click();
   await page.screenshot({path:resolve(output,`contract-picker-${width}.png`),animations:'disabled'});
@@ -91,7 +140,7 @@ try{
   await expect(page.getByRole('slider',{name:'Ajustar Percentual de Instalações elétricas',exact:true})).toBeVisible();
   await page.screenshot({path:resolve(output,`technical-${width}.png`),animations:'disabled'});
   expect(errors).toEqual([]);
-  console.log(`PASS ${width}px: no-plan measurement, contract picker, percentage slider, exact decimals, reversal warning, photo and command, technical measurement; ${width<768?'synthesized touch drag and vertical scroll':'keyboard adjustment'}.`);
+  console.log(`PASS ${width}px: no-plan measurement, contract picker, percentage slider, exact decimals, reversal warning, multi-photo gallery picker, separate camera, upload and command, technical measurement; ${width<768?'synthesized touch drag and vertical scroll':'keyboard adjustment'}.`);
   await context.close();
  }
 }finally{await browser?.close();await server.close();await unlink(fixturePath);}

@@ -1,0 +1,10 @@
+.cash-forecast__controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;margin-block:12px}
+.cash-forecast__controls label{display:flex;flex-direction:column;gap:6px;min-width:0}
+.cash-forecast__controls select{width:100%;min-height:44px;padding:8px;border:1px solid var(--arcd-border-strong);border-radius:var(--arcd-radius-control);background:var(--arcd-surface-card);color:var(--arcd-text-primary)}
+.cash-forecast__controls select:focus-visible,.cash-forecast__options summary:focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:2px}
+.cash-forecast__opening{padding-block:12px;border-block:1px solid var(--arcd-border-default)}
+.cash-forecast__opening p{margin-block:6px;color:var(--arcd-text-secondary);max-width:75ch}
+.cash-forecast__actions{display:flex;flex-wrap:wrap;gap:8px;margin-block:10px}
+.cash-forecast__options summary{min-height:44px;align-content:center;cursor:pointer}
+.cash-forecast__controls .cash-forecast__checkbox{flex-direction:row;align-items:center;gap:8px}
+.cash-forecast__checkbox input{width:22px;height:22px;flex-shrink:0}

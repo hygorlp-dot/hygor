@@ -30,7 +30,7 @@ export const validatePurchaseRequest=form=>{
 };
 
 export const changePurchaseRequestProject=(form,obraId)=>({
-  ...form,obraId,
+  ...form,obraId,planningOrigin:null,
   itens:(form?.itens||[]).map(item=>({...item,orcItemId:"",orcNivel1Id:""})),
 });
 

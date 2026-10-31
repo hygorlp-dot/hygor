@@ -1,0 +1,24 @@
+import {useEffect,useMemo,useRef,useState} from 'react';
+import {Button} from '../../components/ui/button.jsx';
+import {documentRegister,documentIssueLabels} from '../../domains/financeiro/document-register.js';
+import {safeDocumentUrl} from './DreMemorial.jsx';
+import {financialSearchText} from '../../domains/financeiro/search.js';
+import FinancialDocumentLink from './FinancialDocumentLink.jsx';
+import './document-center.css';
+export default function DocumentCenter({data,obraId,competence,onCompetence,onOpen,onReview,onReceive,view,onViewChange}){
+ const [localView,setLocalView]=useState({query:'',filter:'all',selected:null});
+ const {query,filter,selected}=view??localView;
+ const change=(key,value)=>(onViewChange??setLocalView)(previous=>({...previous,[key]:value}));
+ const setQuery=value=>change('query',value),setFilter=value=>change('filter',value),setSelected=value=>change('selected',value);
+ const selectionRef=useRef(null);
+ const register=useMemo(()=>documentRegister(data,{obraId,competence}),[data,obraId,competence]);
+ const rows=register.filter(r=>(filter==='all'||r.issues.includes(filter))&&financialSearchText([r.label,r.entry.description,r.entry.obra,r.entry.documentNumber,r.entry.counterparty].join(' ')).includes(financialSearchText(query)));
+ const current=rows.find(r=>r.id===selected);
+ const availableDocuments=current?.docs.filter(doc=>safeDocumentUrl(doc.url||doc.webUrl))||[];
+ useEffect(()=>{if(current)selectionRef.current?.scrollIntoView?.({block:'nearest'});},[selected,Boolean(current)]);
+ return <section className="document-center"><header><h2>Central de documentos e conferência</h2><Button onClick={onReceive}>Receber documento fiscal</Button></header>
+ <p>Originais, comprovantes e lançamentos no mesmo recorte. Busque por documento, parcela, cliente ou fornecedor.</p>
+ <div className="document-center__filters"><label>Competência ou mês de emissão<input type="month" value={competence} onChange={e=>onCompetence(e.target.value)}/></label><label>Pesquisar documento ou fornecedor<input type="search" value={query} onChange={e=>setQuery(e.target.value)}/></label><label>Conferência<select aria-label="Conferência" value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">Todos · {register.length}</option>{Object.entries(documentIssueLabels).map(([id,label])=><option key={id} value={id}>{label} · {register.filter(r=>r.issues.includes(id)).length}</option>)}</select></label></div>
+ <div className="document-center__workspace" data-selected={Boolean(current)}><div><div className="document-center__scope"><p role="status">{rows.length} registro(s) · {competence||"Todos os meses"} · {documentIssueLabels[filter]||"Todas as situações"}</p>{(query||filter!=="all")&&<Button variant="outline" size="sm" onClick={()=>{setQuery('');setFilter('all');}}>Limpar busca e situação</Button>}</div>{rows.map(row=><article key={row.id} data-selected={current?.id===row.id}><h3>{row.label} · {row.entry.description}</h3><p>{row.entry.obra} · {row.entry.date||'Sem data'} · {row.entry.counterparty||'Contraparte não informada'}</p><p>{row.issues.map(id=>documentIssueLabels[id]).join(' · ')||'Sem alertas nesta checagem'}</p>{row.duplicates?.length>0&&<p>Conferir com: {row.duplicates.join(', ')}</p>}<Button variant="outline" aria-pressed={current?.id===row.id} onClick={()=>setSelected(row.id)}>Conferir documentos</Button> <Button variant="link" onClick={()=>onOpen({title:row.entry.description,items:[row.entry],context:'Conferência documental'})}>Ver memorial</Button>{row.type==='nota_fiscal'&&<Button variant="outline" onClick={()=>onReview(row.record.id)}>Abrir ficha fiscal</Button>}</article>)}{!rows.length&&<p role="status">Nenhum registro neste filtro. Limpe o mês para incluir registros sem data.</p>}</div>
+ {current&&<aside ref={selectionRef} aria-label="Documento e dados para conferência"><header><h3>{current.entry.description}</h3><Button variant="outline" size="sm" onClick={()=>setSelected(null)}>Fechar conferência</Button></header><p>Emissão: {current.entry.date||'Não informada'} · Competência: {current.period||'Não informada'}</p><p>Cliente / fornecedor: {current.entry.counterparty||'Não informado'} · Situação: {current.record.status||'Não informada'}</p>{current.docs.map((doc,i)=>{const url=safeDocumentUrl(doc.url||doc.webUrl);return url?<p key={i}><FinancialDocumentLink href={url}>{doc.legenda||doc.nome||doc.name||'Documento original'} · Abrir em nova aba</FinancialDocumentLink></p>:null;})}{!availableDocuments.length&&<p>Nenhum documento com link disponível.{current.type==='nota_fiscal'?' Abra a ficha fiscal para anexar e conferir.':' Consulte o registro de origem para anexar.'}</p>}<p>O provedor pode exigir autenticação. Alertas não substituem conferência fiscal.</p>{current.type==='nota_fiscal'&&<Button onClick={()=>onReview(current.record.id)}>Conferir e editar ficha fiscal</Button>}</aside>}</div></section>;
+}

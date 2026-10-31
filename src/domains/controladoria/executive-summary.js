@@ -83,12 +83,8 @@ export const createExecutiveSummaryEngine = ({
       work?.status !== "done" && work?.status !== "paused");
     const works = worksData.map(work => {
       const workDre = calcDREObra(data, work.id, year, month);
-      const measurements = safeArray(data?.medicoesObra)
-        .filter(measurement => measurement?.obraId === work.id);
-      const physicalProgress = measurements.length
-        ? measurements.reduce((maximum, measurement) =>
-          Math.max(maximum, measurement.avancoFisico || 0), 0)
-        : workDre.pctAvanco || 0;
+      // Mesma regra do DRE e do painel de gestão à vista (avancoFisicoOficial).
+      const physicalProgress = workDre.pctAvanco || 0;
       const line = {
         id:work.id,
         nome:work.name,

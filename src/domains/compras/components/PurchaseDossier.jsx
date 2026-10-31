@@ -1,14 +1,25 @@
 import { useMemo, useRef, useState } from "react";
-import { Modal, fmt, fmtDate } from "../../../LegacyApp";
+import { Modal, fmt, fmtDate, today } from "../../../LegacyApp";
 import { Button } from "../../../design-system/primitives/Button";
 import { totalPedido } from "../calculations";
 import { fichaDaCompra, urlDocumentoCompra } from "../purchase-dossier";
 import { CostComparison } from "./PurchaseFinalCost";
 import {purchaseDossierPending} from "../purchase-dossier-status";
 import OrderConditions from "./OrderConditions";
+import PurchaseConference from "./PurchaseConference.jsx";
+import {podeAcessarAba} from '../../administracao/abas-acesso.js';
+import {useWorkflow} from '../../../features/workflow/WorkflowNavigation.jsx';
+import "./purchase-dossier.css";
 
-export function PurchaseDossier({data,selection,onClose}){
+function DossierFrame({inline,onClose,children}){
+  return inline ? <section aria-label="Ficha completa da compra conjunta"><header><h3>Ficha completa da compra conjunta</h3><Button variant="ghost" onClick={onClose}>Fechar ficha da compra</Button></header>{children}</section>
+    : <Modal title="Ficha completa da compra conjunta" wide onClose={onClose}>{children}</Modal>;
+}
+
+export function PurchaseDossier({data,selection,onClose,inline=false,currentUser,onReviewInvoice}){
+  const {navigate}=useWorkflow();
   const f=useMemo(()=>fichaDaCompra(data,selection),[data,selection]),[selected,setSelected]=useState(null);
+  const canReadTitles=['admin','financeiro'].includes(currentUser?.role)&&podeAcessarAba(currentUser,'fin')&&(!currentUser.obraId||f.orders.every(order=>String(order.obraId)===String(currentUser.obraId)));
   const dossierRef=useRef(null);
   const status=purchaseDossierPending(f);
   const goTo=key=>{const section=dossierRef.current?.querySelector(`[data-section="${key}"]`);section?.scrollIntoView({block:"start"});section?.focus({preventScroll:true});};
@@ -17,11 +28,13 @@ export function PurchaseDossier({data,selection,onClose}){
   const url=selected?urlDocumentoCompra(selected):"";
   const drive=url.match(/^https:\/\/drive\.google\.com\/file\/d\/([\w-]+)\//);
   const preview=drive?`https://drive.google.com/file/d/${drive[1]}/preview`:/\.pdf(?:[?#]|$)/i.test(url)||/\.pdf$/i.test(selected?.nome||"")?url:"";
-  return <Modal title="Ficha completa da compra conjunta" wide onClose={onClose}>
+  return <DossierFrame inline={inline} onClose={onClose}>
     <div className="purchase-dossier" ref={dossierRef}>
-      <nav className="purchase-dossier-nav" aria-label="Seções da compra">{[["origin","Origem"],["cost","Custos"],["orders",`Pedidos (${f.orders.length})`],["invoices",`Notas fiscais (${f.invoices.length})`],["payments","Pagamentos"],["documents",`Anexos (${f.documents.length})`]].filter(([key])=>key!=="cost"||f.quote).map(([key,label])=><Button key={key} variant="ghost" onClick={()=>goTo(key)}>{label}</Button>)}</nav>
+      <nav className="purchase-dossier-nav" aria-label="Seções da compra">{[["conference","Conferência"],["origin","Origem"],["cost","Custos"],["orders",`Pedidos (${f.orders.length})`],["invoices",`Notas fiscais (${f.invoices.length})`],["payments","Pagamentos"],["documents",`Anexos (${f.documents.length})`]].filter(([key])=>key!=="cost"||f.quote).map(([key,label])=><Button key={key} variant="ghost" onClick={()=>goTo(key)}>{label}</Button>)}</nav>
       <p>Pedidos agrupados pela cotação de origem. Aprovações seguem as alçadas da empresa.</p>
       <section aria-label="Pendências da compra"><h3>Pendências para conferência</h3><p>{status.orders} pedido(s) ativo(s) · {status.deliveries} com entrega pendente · {status.missingInvoices} sem nota vinculada · {f.documents.length} anexo(s)</p>{status.pending.length?<ul>{status.pending.map(p=><li key={p.label}><Button variant="ghost" onClick={()=>goTo(p.key)}>{p.label}</Button></li>)}</ul>:<p>Nenhuma pendência detectada nos recebimentos, notas e endereços de anexos desta ficha.</p>}<p>As indicações orientam a conferência; não substituem a aprovação nem autorizam pagamentos.</p></section>
+      <div data-section="conference" tabIndex={-1}><PurchaseConference data={data} dossier={f} asOf={today()} canReadTitles={canReadTitles}
+        onOpenInvoice={canReadTitles?(onReviewInvoice||(navigate?invoice=>navigate('fin',{obraId:invoice.obraId},{action:'review-purchase-invoice',record:{invoiceId:invoice.id,obraId:invoice.obraId}}):undefined)):undefined}/></div>
       <section data-section="origin" tabIndex={-1}><h3>Origem e aprovação</h3>
         <p>Solicitação: {f.request?.numero||f.request?.id||"Sem solicitação vinculada"} · Cotação: {f.quote?.numero||f.quote?.id||"Sem cotação vinculada"}</p>
         <p>Aprovação: {f.approval?.status||"Sem instância vinculada"} · Solicitante: {f.request?.solicitanteNome||f.request?.solicitadoPor||f.request?.criadoPor||"Não informado"}</p>
@@ -64,5 +77,5 @@ export function PurchaseDossier({data,selection,onClose}){
       </section>
       {selected&&<section aria-label="Visualização do anexo"><h3>{selected.legenda||selected.nome||"Documento"}</h3>{preview?<iframe title="Visualização do documento da compra" src={preview} className="purchase-document-preview"/>:<p>Use “Abrir arquivo” para visualizar este formato no serviço de origem.</p>}<a href={url} target="_blank" rel="noreferrer">Abrir arquivo em outra aba ↗</a><Button variant="ghost" onClick={()=>setSelected(null)}>Fechar visualização</Button></section>}
     </div>
-  </Modal>;
+  </DossierFrame>;
 }

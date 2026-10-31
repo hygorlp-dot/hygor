@@ -1,3 +1,4 @@
+import { PageHeader } from "../../../design-system/patterns/PageHeader";
 import { laborArea } from "../labor-area.js";
 import WorkScheduleFields from "./WorkScheduleFields.jsx";
 import "../../ponto-eletronico/components/conferencia-batidas.css";
@@ -11,7 +12,7 @@ import "../../ponto-eletronico/components/conferencia-batidas.css";
 import { useEffect, useRef, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {
-  Badge, Btn, C, Divider, Ic, Inp, Modal, PageHero, Sel, TYPO,
+  Badge, Btn, C, Divider, Ic, Inp, Modal, Sel, TYPO,
   fmt, fmtDate, fmtDateFull, gerarFichaFuncionarioPDF, today, uid,
 } from "../../../LegacyApp";
 import { overdue } from "../../seguranca/calculations";
@@ -73,6 +74,7 @@ const RESCISSION_TYPE_TO_DISMISSAL = {
 
 function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, currentUser=null, onTab=null }) {
   const { formGrid } = useBreakpoint();
+  const podeGerenciarEquipe=["admin","rh"].includes(currentUser?.role);
   const emptyEmp = {
     id: "",
     name: "",
@@ -390,14 +392,14 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
   const lifecycleColor={ativo:C.green,desligamento_agendado:C.orange,desligado:C.muted,arquivado:C.red};
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth:1280, margin:"0 auto" }}>
-      <PageHero
-        eyebrow="Recursos Humanos"
+    <div className="anim people-workspace" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header"
         title="Equipes"
         description="Pessoas, lotação e dados trabalhistas em uma visão única."
-        actions={<Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setFormErrors({}); setModal(true); }}><Ic n="plus" /> Cadastrar funcionário</Btn>}
+        primaryAction={podeGerenciarEquipe?<Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setFormErrors({}); setModal(true); }}><Ic n="plus" /> Cadastrar funcionário</Btn>:null}
       />
 
+      <label className="team-status-select">Situação da equipe<select value={statusFilter} onChange={event=>setStatusFilter(event.target.value)}>{[["ativo","Ativos"],["desligamento_agendado","Agendados"],["desligado","Desligados"],["arquivado","Arquivados"],["todos","Todas as situações"]].map(([v,l])=><option key={v} value={v}>{l} · {v==="todos"?(data.employees||[]).length:lifecycleCounts[v]||0}</option>)}</select></label>
       <div className="team-summary" aria-label="Resumo e filtros por situação">
         {[
           ["ativo","Ativos",lifecycleCounts.ativo||0],
@@ -415,7 +417,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       </div>
 
       <div className="team-list-head" aria-hidden="true"><span>Funcionário</span><span>Função</span><span>Lotação</span><span>Pendências</span><span>Situação</span><span>Ações</span></div>
-      {list.length === 0 && <div className="team-empty"><strong>{(data.employees||[]).length?"Nenhum resultado com estes filtros.":"Nenhum funcionário cadastrado."}</strong><p>{(data.employees||[]).length?"Limpe os filtros ou selecione outra situação.":"Cadastre o primeiro funcionário para iniciar a gestão da equipe."}</p>{(data.employees||[]).length?<Btn v="ghost" onClick={clearFilters}>Limpar filtros</Btn>:<Btn onClick={()=>{setForm({...emptyEmp,obra:obraIdFixo||data.obras[0]?.id||""});setModal(true);}}>Cadastrar funcionário</Btn>}</div>}
+      {list.length === 0 && <div className="team-empty"><strong>{(data.employees||[]).length?"Nenhum resultado com estes filtros.":"Nenhum funcionário cadastrado."}</strong><p>{(data.employees||[]).length?"Limpe os filtros ou selecione outra situação.":podeGerenciarEquipe?"Cadastre o primeiro funcionário para iniciar a gestão da equipe.":"O RH pode cadastrar a equipe desta obra."}</p>{(data.employees||[]).length?<Btn v="ghost" onClick={clearFilters}>Limpar filtros</Btn>:podeGerenciarEquipe&&<Btn onClick={()=>{setForm({...emptyEmp,obra:obraIdFixo||data.obras[0]?.id||""});setModal(true);}}>Cadastrar funcionário</Btn>}</div>}
 
       {list.map(e => {
         const advs = empAdvances(e.id);
@@ -428,7 +430,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
           <article key={e.id} className={`team-row team-row--${lifecycle}`}>
             <div className="team-row__main">
               <button type="button" className="team-row__employee" onClick={() => setExpandedId(exp ? null : e.id)} aria-expanded={exp} aria-controls={detailId}>
-                <span className="team-row__initials">{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><span><strong>{e.name}</strong><small>{fmt(e.dailyRate)}/dia</small></span><Ic n={exp?"chevronUp":"chevronDown"} s={13}/>
+                <span className="team-row__initials">{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><span><strong>{e.name}</strong><small>{podeGerenciarEquipe?`${fmt(e.dailyRate)}/dia`:"Dados trabalhistas restritos"}</small></span><Ic n={exp?"chevronUp":"chevronDown"} s={13}/>
               </button>
               <span className="team-row__cell" data-label="Função">{e.role||"Não informada"}</span>
               <span className="team-row__cell" data-label="Lotação">{laborArea(e)==="central"?"Administração Central":(e.obra?obraName(e.obra):"Sem lotação")}</span>
@@ -440,7 +442,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 </div>
               </span>
               <span className="team-row__cell" data-label="Situação"><Badge color={lifecycleColor[lifecycle]}>{lifecycleLabel[lifecycle]}</Badge></span>
-              <div className="team-row__actions"><Btn v="ghost" size="sm" onClick={() => gerarFichaFuncionarioPDF(data, e, showToast)}><Ic n="file"/> Ficha</Btn><Btn v="ghost" size="sm" onClick={() => { setForm({...employeeEditDraft(e),trainings:{...EMPTY_TRAININGS,...(e.trainings||{})}}); setFormErrors({}); setEmployeeSaveError(''); setModal(true); }}><Ic n="edit"/> Editar</Btn></div>
+              <div className="team-row__actions"><Btn v="ghost" size="sm" onClick={() => gerarFichaFuncionarioPDF(data, e, showToast)}><Ic n="file"/> Ficha</Btn>{podeGerenciarEquipe&&<Btn v="ghost" size="sm" onClick={() => { setForm({...employeeEditDraft(e),trainings:{...EMPTY_TRAININGS,...(e.trainings||{})}}); setFormErrors({}); setEmployeeSaveError(''); setModal(true); }}><Ic n="edit"/> Editar</Btn>}</div>
             </div>
 
             {exp && (
@@ -460,18 +462,18 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                   ))}
                 </div>
 
-                <div className="team-detail-actions">
+                {podeGerenciarEquipe&&<div className="team-detail-actions">
                   {e.obra && lifecycle==="ativo" && <Btn v="ghost" size="sm" onClick={() => setUnlinkModal(e)}><Ic n="x" /> Desvincular da obra</Btn>}
                   {lifecycle==="ativo" && <Btn v="danger" size="sm" onClick={() => archiveEmp(e.id)}><Ic n="x" /> Registrar desligamento</Btn>}
                   {lifecycle==="desligamento_agendado"&&<Btn v="warning" size="sm" onClick={()=>{setDismissalModal(e);setDismissalForm({endDate:e.endDate,reason:RESCISSION_TYPE_TO_DISMISSAL[e.terminationType]||"outro",notes:e.terminationNotes||""});}}><Ic n="edit"/> Corrigir agendamento</Btn>}
                   {["desligado","desligamento_agendado"].includes(lifecycle)&&<Btn v="success" size="sm" loading={pendingAction===`reactivate-${e.id}`} onClick={()=>reactivateEmp(e)}><Ic n="refresh"/> Reativar</Btn>}
                   {lifecycle!=="arquivado"&&<Btn v="danger" size="sm" onClick={() => {setArchiveModal(e);setArchiveReason("");}}><Ic n="trash" /> Arquivar cadastro</Btn>}
-                </div>
+                </div>}
 
                 <Divider />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <p style={{ color: C.yellow, fontFamily:"var(--arcd-font-sans)", fontWeight:600, textTransform: "uppercase" }}>Adiantamentos</p>
-                  <Btn v="warning" size="sm" onClick={() => setAdvModal(e.id)}><Ic n="plus" /> Novo</Btn>
+                  {podeGerenciarEquipe&&<Btn v="warning" size="sm" onClick={() => setAdvModal(e.id)}><Ic n="plus" /> Novo</Btn>}
                 </div>
                 {advs.length === 0 && <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Nenhum adiantamento.</p>}
                 {advs.map(a => (
@@ -483,7 +485,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <span style={{ color: C.red, fontWeight:600 }}>{fmt(a.amount)}</span>
-                      {advanceActive(a)&&<Btn v="danger" size="sm" ariaLabel={`Cancelar adiantamento ${a.description}`} title={`Cancelar adiantamento ${a.description}`} onClick={() => removeAdv(a)}><Ic n="trash" /></Btn>}
+                      {podeGerenciarEquipe&&advanceActive(a)&&<Btn v="danger" size="sm" ariaLabel={`Cancelar adiantamento ${a.description}`} title={`Cancelar adiantamento ${a.description}`} onClick={() => removeAdv(a)}><Ic n="trash" /></Btn>}
                     </div>
                   </div>
                 ))}

@@ -75,6 +75,42 @@ beforeEach(() => {
 });
 afterEach(() => { if (root) act(() => root.unmount()); container?.remove(); root = null; });
 
+it("mantém a fila ao trocar a comparação, limpa a seleção anterior e fecha ao filtrar o movimento",()=>{
+  mount({...base(),transacoes:[transaction({id:"first",descricao:"Primeiro PIX"}),transaction({id:"second",descricao:"Segundo PIX"})]});
+  const queue=container.querySelector(".reconciliation-queue");
+  const rows=[...queue.querySelectorAll("tbody tr")];
+  act(()=>button("Comparar e buscar",rows[0]).click());
+  let panel=container.querySelector('[aria-label="Comparar e resolver movimento"]');
+  expect(panel).toBeTruthy();expect(panel.getAttribute("role")).not.toBe("dialog");
+  expect(panel.textContent).toContain("Primeiro PIX");
+  change(panel.querySelector('input[aria-label="Buscar lançamentos existentes"]'),"busca anterior");
+  queue.scrollTop=35;
+  act(()=>button("Comparar e buscar",rows[1]).click());
+  panel=container.querySelector('[aria-label="Comparar e resolver movimento"]');
+  expect(panel.textContent).toContain("Segundo PIX");
+  expect(panel.textContent).not.toContain("Primeiro PIX");
+  expect(panel.querySelector('input[aria-label="Buscar lançamentos existentes"]').value).toBe("");
+  expect(container.querySelector(".reconciliation-queue")).toBe(queue);expect(queue.scrollTop).toBe(35);
+  change(container.querySelector('.reconciliation-search input'),"Primeiro PIX");
+  expect(container.querySelector('[aria-label="Comparar e resolver movimento"]')).toBeNull();
+  expect(mocks.command).not.toHaveBeenCalled();
+});
+
+it.each(["conciliado","parcial","falha"])("só avança para a próxima revisão após confirmação integral: %s",async status=>{
+  const original={...base(),transacoes:[transaction({id:"first",descricao:"Primeiro para conferir",valor:100}),transaction({id:"second",descricao:"Segundo para conferir",valor:100})],caixaObra:[{id:"cash",tipo:"aporte",valor:100,data:"2026-10-15"}]};
+  mocks.command.mockResolvedValue(status==="falha"?{ok:false,error:"Não confirmado"}:{ok:true,sections:{transacoes:original.transacoes.map(t=>t.id==="first"?{...t,status,saldoNaoVinculado:status==="parcial"?40:0}:t)}});
+  update.mockImplementation(async patch=>{if(patch.__adotarServidorPatch)mount({...original,...patch.sections});return {ok:true};});
+  mount(original);
+  const first=[...container.querySelectorAll("tbody tr")].find(row=>row.textContent.includes("Primeiro para conferir"));
+  act(()=>button("Comparar e buscar",first).click());
+  const panel=container.querySelector('[aria-label="Comparar e resolver movimento"]');
+  act(()=>panel.querySelector('input[type="checkbox"]').click());
+  await act(async()=>button("Confirmar vínculos selecionados",panel).click());
+  const current=container.querySelector('[aria-label="Comparar e resolver movimento"]');
+  expect(current.textContent).toContain(status==="conciliado"?"Segundo para conferir":"Primeiro para conferir");
+  expect(mocks.command).toHaveBeenCalledTimes(1);
+});
+
 it("classifica receita com busca de entrada e envia competência independente da data do extrato", async () => {
   mount({ ...base(), transacoes: [transaction({ valor: 300 })] });
   act(() => button("Validar entrada").click());

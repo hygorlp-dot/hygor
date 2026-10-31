@@ -71,9 +71,17 @@
 // (cabeçalho, abas, botões, selos) e menu de ações do Patrimônio. CI mediu
 // 1.785.295 bytes, 463 acima do teto. Acréscimo limitado a 1 KiB; limites por
 // chunk e de mídia permanecem iguais.
+// 30/10/2026: painel "Suas obras hoje" (gestão à vista) no Painel inicial,
+// +3,6 KB gzip medidos (2,5 KB JS + 0,8 KB CSS). Teto +4 KiB.
 // Conferência RH e escala de 44h: margem adicional de 4 KiB para o novo fluxo.
 // Limites individuais preservados; validar o total após juntar a main.
 export const BUNDLE_BUDGETS = Object.freeze({
+  // 31/10/2026: versão consolidada com leitor PDF carregado sob demanda,
+  // financeiro operacional e projetos de engenharia. Medição de produção:
+  // 1.806,50 KiB gzip no conjunto de chunks. Acréscimo limitado a 64 KiB;
+  // limites individuais e de mídia permanecem preservados.
+  // 31/10/2026: ExcelJS modular e dependências compartilhadas permitem
+  // restabelecer o teto anterior à consolidação (build: 1.767.928 bytes).
   totalGzipBytes: 1_748 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,

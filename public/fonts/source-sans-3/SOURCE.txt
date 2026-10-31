@@ -1,0 +1,5 @@
+Source Sans 3, Adobe Fonts
+https://github.com/adobe-fonts/source-sans/tree/release
+Source: WOFF2/VF/SourceSans3VF-Upright.ttf.woff2
+License: SIL Open Font License 1.1; see LICENSE.md
+Downloaded 2026-10-30 for the MARCELL operational UI.

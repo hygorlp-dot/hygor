@@ -256,3 +256,11 @@ export const dreSourceRevision = ({ updatedAt = null, rowVersions = {}, rowVersi
     .map(chave => `${chave}=${objeto[chave] || ""}`).join(",");
   return `core=${updatedAt || ""}|linhas:${ordenado(rowVersions)}|ponto:${ordenado(rowVersionsPontoObra)}`;
 };
+
+// Painel "Suas obras hoje": custo acumulado por obra (soma dos DREs mensais da
+// obra até o mês informado), no mesmo motor e com os mesmos títulos nativos do
+// Financeiro que o DRE por obra do servidor usa.
+export const buildAccumulatedWorkCosts = (data,{year,month,obraIds=[]},canonicalEvents=[]) => {
+  const engine=canonicalEvents.length?makeCalculations(canonicalEvents):calculations;
+  return engine.calcCustoAcumuladoObras(data,obraIds,year,month);
+};

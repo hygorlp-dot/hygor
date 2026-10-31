@@ -2,7 +2,7 @@ import { Component } from "react";
 import { buildLocalErrorDiagnostic } from "./observability/local-error-diagnostic";
 import { enviarRelatorioErro } from "./observability/global-error-capture.js";
 
-const DYNAMIC_IMPORT_FAILURE = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|ChunkLoadError/i;
+const DYNAMIC_IMPORT_FAILURE = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|ChunkLoadError|Unable to preload CSS for/i;
 
 export const isDynamicImportFailure = error => DYNAMIC_IMPORT_FAILURE.test(String(error?.message || error || ""));
 
@@ -10,6 +10,22 @@ export const dynamicImportRecoveryKey = error => {
   const message=String(error?.message || error || "");
   const asset=message.match(/https?:\/\/[^\s]+/i)?.[0] || message;
   return `arcd:chunk-recovery:${asset.slice(0,500)}`;
+};
+
+export const recoverDynamicImport = (error, win = window) => {
+  if (!isDynamicImportFailure(error)) return false;
+  try {
+    const recoveryKey = dynamicImportRecoveryKey(error);
+    if (win.sessionStorage.getItem(recoveryKey)) return false;
+    // Sem armazenamento confiável, a saída manual evita um ciclo de recargas.
+    win.sessionStorage.setItem(recoveryKey, "1");
+    const freshUrl = new URL(win.location.href);
+    freshUrl.searchParams.set("_arcd_refresh", Date.now().toString());
+    win.location.replace(freshUrl.toString());
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 // Sem isto, um único erro de render em qualquer componente derruba a árvore
@@ -44,15 +60,7 @@ export default class ErrorBoundary extends Component {
     // Depois de um deploy, uma aba antiga pode pedir um chunk cujo hash já
     // saiu do alias de produção. Reabre uma única vez com URL nova para obter
     // o index e o manifesto atuais, sem criar um ciclo infinito de recarga.
-    if (isDynamicImportFailure(erro)) {
-      const recoveryKey=dynamicImportRecoveryKey(erro);
-      if (!window.sessionStorage.getItem(recoveryKey)) {
-        window.sessionStorage.setItem(recoveryKey, "1");
-        const freshUrl=new URL(window.location.href);
-        freshUrl.searchParams.set("_arcd_refresh", Date.now().toString());
-        window.location.replace(freshUrl.toString());
-      }
-    }
+    recoverDynamicImport(erro);
   }
 
   copiarDiagnostico = diagnostic => {

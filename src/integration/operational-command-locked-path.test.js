@@ -180,6 +180,39 @@ describe("/api/data · caminho travado (executarMutacaoEmpresaBloqueada) roteia 
   });
   afterAll(()=>vi.useRealTimers());
 
+  it("persiste projeto e cronômetro com identidade e horário do servidor, deduplicando reenvio",async()=>{
+    const form={name:"Projeto de arquitetura",obraId:"",responsibleId:"admin-a",discipline:"Arquitetura",stage:"Executivo",status:"ativo",plannedHours:20,deadline:"2026-11-30"};
+    const created=await callApi(opCommand("PROJETO_ENGENHARIA_SALVO",{projectId:"eng-api",project:form}));
+    expect(created.status).toBe(200);
+    expect(created.body.sections.engineeringProjects[0]).toMatchObject({id:"eng-api",version:1});
+    const startRequest=opCommand("PROJETO_CRONOMETRO_INICIADO",{projectId:"eng-api"},{actorId:"forged-user",actorRole:"admin",now:"1990-01-01T00:00:00Z"});
+    const started=await callApi(startRequest);
+    expect(started.status).toBe(200);
+    const session=started.body.sections.engineeringProjects[0].sessions[0];
+    expect(session).toMatchObject({userId:"admin-a",startedAt:"2026-08-21T12:00:00.000Z"});
+    const retry=await callApi(startRequest);
+    expect(retry.body.idempotent).toBe(true);
+    expect(retry.body.data.engineeringProjects[0].sessions).toHaveLength(1);
+    const duplicate=await callApi(opCommand("PROJETO_CRONOMETRO_INICIADO",{projectId:"eng-api"},{idempotencyKey:"second-start-other-tab-123"}));
+    expect(duplicate.status).toBe(409);
+    vi.setSystemTime(new Date("2026-08-21T13:30:00.000Z"));
+    const stopped=await callApi(opCommand("PROJETO_CRONOMETRO_PAUSADO",{projectId:"eng-api",sessionId:session.id},{now:"2050-01-01T00:00:00Z"}));
+    expect(stopped.status).toBe(200);
+    expect(stopped.body.sections.engineeringProjects[0].sessions[0].endedAt).toBe("2026-08-21T13:30:00.000Z");
+    const loaded=await callApi({action:"load",accessToken:"valid-token"});
+    expect(loaded.status).toBe(200);
+    expect(loaded.body.data.engineeringProjects[0].sessions).toEqual(stopped.body.sections.engineeringProjects[0].sessions);
+  });
+
+  it("não permite falsificar horas ou revisões por snapshot ou delta",async()=>{
+    const result=await callApi({action:"save-sections",accessToken:"valid-token",sections:{engineeringProjects:[{id:"forged",sessions:[{adjustedSeconds:999999}]}]}});
+    expect(result.status).toBe(409);
+    expect(result.body.code).toBe("ATTENDANCE_GRANULAR_REQUIRED");
+    const delta=await callApi({action:"save-sections",accessToken:"valid-token",sectionDeltas:{engineeringProjects:{changed:[{id:"forged"}],original:[],removed:[]}}});
+    expect(delta.status).toBe(409);
+    expect(testState.rows[CORE_KEY].value.engineeringProjects).toBeUndefined();
+  });
+
   it("reaproveita a lerLinha() já feita no topo do handler - não relê pelo Supabase dentro de executarMutacaoEmpresaBloqueada",async()=>{
     await callApi(opCommand("EQUIPAMENTO_SALVO",{equipment:{id:"eq-reuse",nome:"Compactador"}}));
     // lerLinha() faz 3 chamadas (linha core + linhas separadas via .in() +

@@ -27,3 +27,15 @@ playwright-report/
 vercel.release-equipe.json
 # PDFs e imagens locais de conferência visual
 /output/pdf/
+
+# Somente código publicável: excluir revisões locais, capturas e testes.
+artifacts/
+analises/
+.impeccable/
+e2e/
+scripts/finance-*.mjs
+scripts/local-*.mjs
+scripts/onedrive-*.mjs
+**/*.test.js
+**/*.test.jsx
+**/*.test.mjs

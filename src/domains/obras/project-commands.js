@@ -46,7 +46,7 @@ const projectHasDependencies = (data, projectId) => {
     "medicoesTerc", "pagamentosFolha", "titulosFolha", "rescisoes",
     "equipamentos", "locacoesEquip", "manutencoesEquip", "rdos",
     "medicoesObra", "progressRecords", "weeklyCommitments",
-    "qualidadeRegistros", "solicitacoesCompra", "cotacoes",
+    "qualidadeRegistros", "solicitacoesCompra", "cotacoes", "engineeringProjects",
   ];
   return collections.some(key => (data?.[key] || []).some(item =>
     String(item?.obraId || item?.obra || item?.lastObra || "") === id

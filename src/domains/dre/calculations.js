@@ -1,4 +1,5 @@
 import { valorContratoVigente } from "../obras/contract-amendments.js";
+import { isApprovedTechnicalMeasurement } from "../medicoes/constants.js";
 import {
   buildFinancialLedger,
   selectDRE,
@@ -55,6 +56,20 @@ export const calculateContractProjection = (work, laborCost, extraCosts = {}) =>
 // Adaptadores públicos do DRE. A fórmula financeira vive exclusivamente no
 // ledger; as dependências injetadas apenas traduzem ponto e equipamentos,
 // cujos motores operacionais continuam em seus módulos próprios.
+// Avanço físico oficial da obra (decisão do dono em 30/10/2026): a medição
+// técnica aprovada manda; sem ela, a medição percentual de cobrança. Medições
+// canceladas, em rascunho ou excluídas nunca contam (técnica sem status é a
+// confirmada antiga, como no faturamento). Sem nenhuma, null: o DRE mostra 0 e
+// o painel recorre ao cronograma, identificado como tal.
+const maiorPercentual = (lista, campo) => lista.length ? Math.max(...lista.map(item => Number(item[campo] || 0))) : null;
+export const avancoFisicoOficial = (data, obraId) => {
+  const tecnicas = (data.medicoesObra || []).filter(measurement => measurement?.obraId === obraId && active(measurement)
+    && (!measurement.status || isApprovedTechnicalMeasurement(measurement)));
+  if (tecnicas.length) return maiorPercentual(tecnicas, "avancoFisico");
+  return maiorPercentual((data.medicoes || []).filter(measurement => measurement?.obraId === obraId
+    && measurement.tipo === "percentual" && active(measurement)), "percentualAcumulado");
+};
+
 export const createDreCalculations = ({
   getDays,
   getQ,
@@ -189,8 +204,7 @@ export const createDreCalculations = ({
     const tercEmpresaObra = fromCents(ledger.events
       .filter(event => event.effect === "cash_out" && event.category === "terceirizado" && event.obraId === obraId && event.date >= ctx.per0 && event.date <= ctx.perF && event.metadata?.pagador === "empresa")
       .reduce((sum,event)=>sum+event.amountCents,0));
-    const meds = (data.medicoes || []).filter(measurement => measurement.obraId === obraId && measurement.tipo === "percentual");
-    const pctAvanco = meds.length ? Math.max(...meds.map(measurement => Number(measurement.percentualAcumulado || 0))) : 0;
+    const pctAvanco = avancoFisicoOficial(data, obraId) ?? 0;
     return {
       obra, ym:ctx.ym, periodo, days:ctx.days, per0:ctx.per0, perF:ctx.perF,
       faturamento, recebido, aReceber, medDoMes,
@@ -321,6 +335,53 @@ export const createDreCalculations = ({
     };
   };
 
+  // Custo acumulado por obra até o mês informado (painel de gestão à vista).
+  // É por definição a soma dos totalCustos do calcDREObra mensal (mesmo filtro:
+  // só a competência do mês, sem corte por data de emissão), para o painel nunca
+  // divergir do DRE da obra. O razão é montado uma vez com os eventos de todos
+  // os meses e obras e só o filtro é aplicado mês a mês. Começa no mês de início
+  // da obra ou antes, se já houver custo com competência anterior (compra
+  // antecipada). Sem data de início a obra fica null: o painel mostra "sem custo".
+  const proximoMes = ym => {
+    const y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+    return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+  };
+  const mesesEntre = (de, ate) => {
+    const meses = [];
+    for (let ym = de; ym <= ate; ym = proximoMes(ym)) meses.push(context(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1, "mes"));
+    return meses;
+  };
+  const calcCustoAcumuladoObras = (data, obraIds, year, month, includeLedger = false) => {
+    const fim = `${year}-${String(month + 1).padStart(2, "0")}`;
+    const inicios = new Map(obraIds.map(obraId => {
+      const obra = (data.obras || []).find(item => item.id === obraId);
+      const inicio = String(obra?.startDate || obra?.contractStart || "").slice(0, 7);
+      return [obraId, /^\d{4}-\d{2}$/.test(inicio) ? inicio : null];
+    }));
+    const montar = primeiros => buildFinancialLedger(data, { supplementalEvents: [
+      ...[...primeiros].flatMap(([obraId, de]) => de ? mesesEntre(de, fim).flatMap(ctx => supplementalForWork(data, obraId, ctx).events) : []),
+      ...canonicalEvents,
+    ] });
+    // 1ª montagem a partir do início; se houver custo com competência anterior,
+    // remonta incluindo ponto e equipamento desses meses, como o DRE mensal faz.
+    let ledger = montar(inicios);
+    const primeiros = new Map([...inicios].map(([obraId, inicio]) => [obraId, inicio && ledger.events.reduce((menor, event) =>
+      event.obraId === obraId && event.effect === "cost" && /^\d{4}-\d{2}$/.test(event.competence || "")
+        && event.competence < menor ? event.competence : menor, inicio)]));
+    if ([...primeiros].some(([obraId, de]) => de !== inicios.get(obraId))) ledger = montar(primeiros);
+    if(includeLedger)return {ledger,missingStart: [...primeiros].filter(([,de])=>!de).map(([id])=>id)};
+    return Object.fromEntries([...primeiros].map(([obraId, de]) => {
+      if (!de) return [obraId, null];
+      const meses = mesesEntre(de, fim);
+      return [obraId, { inicio: de, fim, meses: meses.length,
+        custo: meses.reduce((total, ctx) => total + selectDRE(ledger, {
+          obraId, startDate:ctx.per0, endDate:ctx.perF, competence:ctx.ym,
+        }).costs, 0) }];
+    }));
+  };
+  const calcCustoAcumuladoObra = (data, obraId, year, month) =>
+    calcCustoAcumuladoObras(data, [obraId], year, month)[obraId];
+
   const calcVisaoFinanceira = (data, year, month, obraId = "all") => {
     const selectedWorks = (data.obras || []).filter(work => obraId === "all" || work.id === obraId);
     const rows = selectedWorks.map(work => {
@@ -398,7 +459,7 @@ export const createDreCalculations = ({
       thirdParty:rows.reduce((total, row) => total + row.tercCost, 0),
       purchases:rows.reduce((total, row) => total + row.comprasCost, 0),
     };
-    const receipts = selectFinancialMovements(ledger, obraId === "all" ? {} : { obraId })
+    const receipts = selectFinancialMovements(ledger, { ...(obraId === "all" ? {} : { obraId }), startDate:selected.per0, endDate:selected.perF })
       .filter(movement => movement.natureza === "cash_in")
       .sort((left, right) => String(right.data || "").localeCompare(String(left.data || "")))
       .map(movement => ({
@@ -431,6 +492,7 @@ export const createDreCalculations = ({
 
   return {
     diasPeriodoDRE, calcDREObra, calcDREConsolidado, calcDREHistorico,
-    calcVisaoFinanceira, calcProjecaoContratoObra,
+    calcVisaoFinanceira, calcProjecaoContratoObra, calcCustoAcumuladoObra, calcCustoAcumuladoObras,
+    calcLedgerAcumulado:(data,ids,year,month)=>calcCustoAcumuladoObras(data,ids,year,month,true),
   };
 };

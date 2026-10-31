@@ -36,6 +36,19 @@ describe("buildDreProjectionRows — pagamento direto do cliente (D-C)", () => {
   });
 });
 
+// Mesmo cenário de src/domains/dre/calculations.test.js (avanço físico oficial):
+// a DRE gravada pelo servidor usa a medição técnica aprovada e ignora canceladas.
+describe("buildRequestedDreProjectionRows — avanço físico oficial", () => {
+  it("medição técnica aprovada manda e a medição cancelada não conta", () => {
+    const [row] = buildRequestedDreProjectionRows({
+      obras: [{id: "o1", name: "Obra 1"}],
+      medicoesObra: [{id: "t1", obraId: "o1", status: "aprovada", avancoFisico: 60}, {id: "t2", obraId: "o1", status: "cancelada", avancoFisico: 95}],
+      medicoes: [{id: "m1", obraId: "o1", tipo: "percentual", percentualAcumulado: 80, status: "cancelada"}],
+    }, [{year: 2026, month: 8, period: "mes", scope: "o1"}]);
+    expect(row.payload.pctAvanco).toBe(60);
+  });
+});
+
 // Mesmo cenário de src/domains/dre/calculations.test.js ("documento emitido
 // depois do mês da competência"): a DRE gravada pelo servidor também põe a NF e
 // a medição no mês da competência, e não no mês da emissão.

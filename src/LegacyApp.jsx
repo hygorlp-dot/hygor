@@ -1,3 +1,18 @@
+import WorkStageCosts from "./features/financeiro/WorkStageCosts.jsx";
+import DocumentCenter from "./features/financeiro/DocumentCenter.jsx";
+import ClosingPending from "./features/financeiro/ClosingPending.jsx";
+import CashForecast from "./features/financeiro/CashForecast.jsx";
+import FinanceToday from "./features/financeiro/FinanceToday.jsx";
+import FinancialMemorial from "./features/financeiro/FinancialMemorial.jsx";
+import {financeNextAction} from './domains/financeiro/next-action.js';
+import FinancialReportCenter from "./features/financeiro/FinancialReportCenter.jsx";
+import InvoiceConference from "./features/financeiro/InvoiceConference.jsx";
+import FinancialPreview from "./features/financeiro/FinancialPreview.jsx";
+import {previewCompanyRecurrences} from "./domains/financeiro/recurrence-preview.js";
+import {invoiceImportConflicts} from "./domains/financeiro/invoice-import-preview.js";
+import {documentRegister} from "./domains/financeiro/document-register.js";
+import {captureFinancePosition,restoreFinancePosition} from "./features/financeiro/navigation-context.js";
+import {todayQueues,overviewEntries,financialEntry,positionEntries} from "./domains/financeiro/workspace.js";
 import { LaborAreaTabs } from "./domains/rh/components/LaborAreaTabs.jsx";
 import { matchesLaborArea } from "./domains/rh/labor-area.js";
 import {AttendancePayMode} from "./domains/rh/components/AttendancePayMode.jsx";
@@ -6,11 +21,14 @@ import { marcellReportHtml } from "./reports/marcell-report.js";
 import { createPortal } from "react-dom";
 import { BRAND, MARCELL_LOGO } from "./brand/identity.js";
 import { FinancialOverviewMetrics } from "./features/financeiro/FinancialOverviewMetrics.jsx";
+import { PageHeader } from "./design-system/patterns/PageHeader.jsx";
+import { WorkspaceNavigation } from "./design-system/patterns/WorkspaceNavigation.jsx";
 import { Children, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import DreReconciliationManager from "./features/financeiro/DreReconciliationManager.jsx";
 import { activeErpModule, moduleForTab, visibleErpModules } from "./navigation/erp-navigation.js";
 import { rememberSection, restoreSection } from "./navigation/section-session.js";
-import { FlowTabs, WorkflowContext, useWorkflow } from "./features/workflow/WorkflowNavigation.jsx";
+import { FlowTabs, WorkflowContext, useWorkflow, useRememberWorkflowScope } from "./features/workflow/WorkflowNavigation.jsx";
+import {useWorkspaceState,useWorkspaceScroll,WorkflowReturn} from "./features/workflow/workspace-session.jsx";
 import { normalizeWorkflowScope } from "./features/workflow/workflow-model.js";
 import MonthlyDreMemorial from "./features/financeiro/MonthlyDreMemorial.jsx";
 import AnnualDre from "./features/financeiro/AnnualDre.jsx";
@@ -44,7 +62,7 @@ import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaur
          enviarMensagemChat, listarMensagensChat, apagarMensagemChat, silenciarUsuarioChat, dessilenciarUsuarioChat, subirAnexoChat,
          listarAjustesRanking, adicionarAjusteRanking, removerAjusteRanking,
          consultarSombraFinanceira, prepararSombraFinanceira, sincronizarSombraFinanceira,
-         consultarDreCanonico, consultarDreEmpresaCanonico, executarComandoFinanceiro,
+         consultarDreCanonico, consultarDreEmpresaCanonico, consultarCustoAcumuladoObras, executarComandoFinanceiro,
          executarComandoOperacional, executarComandoPonto,
          gerenciarAcessoPortalCliente, obterProjecaoMaoObra } from "./api";
 import { Button } from "./components/ui/button";
@@ -58,7 +76,7 @@ import { Button as DesignSystemButton } from "./design-system/primitives/Button.
 import { Dialog as DesignSystemDialog } from "./design-system/primitives/Dialog.jsx";
 import { Input as DesignSystemInput } from "./design-system/primitives/Input.jsx";
 import { Select as DesignSystemSelect } from "./design-system/primitives/Select.jsx";
-import { Eye, EyeOff, ChevronLeft, Delete } from "lucide-react";
+import { Eye, EyeOff, ChevronLeft, ChevronRight, Search, RefreshCw, Delete } from "lucide-react";
 import { cn } from "./lib/utils";
 import { features } from "./config/features";
 import { SUPPLIER_CATEGORIES as RAMOS_FORNECIMENTO } from "./domains/suppliers/categories";
@@ -76,6 +94,8 @@ const PatrimonioEmpresa = lazy(() => import("./domains/patrimonio/components/Pat
 const DiarioObra = lazy(() => import("./domains/obras/components/DiarioObraView.jsx"));
 const ImportarDoREP = lazy(() => import("./domains/ponto-eletronico/components/ImportarDoREP.jsx").then(module => ({ default: module.ImportarDoREP })));
 const Estoque = lazy(() => import("./domains/estoque/components/EstoqueView.jsx"));
+const ProjectTimerStatus = lazy(() => import("./domains/projetos/ProjectTimerStatus.jsx"));
+const ProjetosEngenharia = lazy(() => import("./domains/projetos/ProjetosView.jsx"));
 const Licenciamento = lazy(() => import("./domains/licenciamento/components/LicenciamentoView.jsx"));
 const Conferencia = lazy(() => import("./domains/qualidade/components/ConferenciaView.jsx"));
 const EquipeObrasTV = lazy(() => import("./domains/ponto-eletronico/components/EquipeObrasTV.jsx"));
@@ -155,6 +175,8 @@ import { rebuildTechnicalMeasurementProjection } from "./domains/medicoes";
 import { ProgressPercentageField } from "./domains/medicoes/components/ProgressPercentageField.jsx";
 import { calcSaldos } from "./domains/estoque/calculations";
 import { canManageAttendanceWorkforce, resolveEmployeeAttendanceObraId, resolveHolidayObraId } from "./domains/ponto/permissions";
+import { resumoGestaoAVista, ultimoMesFechado } from "./domains/dashboard/gestao-a-vista.js";
+import GestaoAVistaObras from "./domains/dashboard/components/GestaoAVistaObras.jsx";
 import { applyAttendanceServerResult, applyAttendanceStatus, applyAttendanceStatusBatch } from "./domains/ponto/attendance-mutations";
 import { createAttendanceCommandQueue } from "./domains/ponto/attendance-command-queue";
 import { calculateAttendanceDayCost } from "./domains/ponto/payroll";
@@ -235,7 +257,7 @@ import {
   normalizeApprovalInstances, podeAdministrarPoliticas, podeGerenciarDelegacoes, OPERADORES,
 } from "./domains/aprovacoes/index.js";
 import { arcdApprovalEngine as motorAprovacaoGenerico } from "./domains/aprovacoes/arcd-engine.js";
-import { ROLE_TABS, allowedTabsForUser } from "./domains/administracao/abas-acesso.js";
+import { ROLE_TABS, allowedTabsForUser, podeAcessarAba } from "./domains/administracao/abas-acesso.js";
 
 // Resolvedores concretos do motor de aprovação para o app ARCD: como este
 // app ainda não tem cargo/hierarquia/departamento/centro de custo cadastrados,
@@ -319,7 +341,7 @@ const semanticToneFromLegacyColor = color => {
 // Escala tipografica unica do app. Toda tela nova (ou revisada) deve montar
 // seus titulos/textos a partir daqui em vez de inventar fontSize/fontWeight
 // soltos - e o que unifica visualmente heroes, cards e paineis diferentes.
-const FONT_DISPLAY = "'Nimbus Sans','Helvetica Neue',Arial,sans-serif";
+const FONT_DISPLAY = "var(--arcd-font-sans)";
 export const TYPO = {
   h1:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-page-title)", letterSpacing:"var(--arcd-letter-spacing-tight)", lineHeight:1.15, color:C.text },
   h2:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-section-title)", letterSpacing:"var(--arcd-letter-spacing-tight)", lineHeight:1.18, color:C.text },
@@ -1170,6 +1192,7 @@ const DEFAULT = () => ({
     { id: uid(), name: "Obra 2", address: "", condominioId:"", condominioNome:"", quadra:"", lote:"", engineer: "", engineerId: "", startDate: "", status: "active", areaM2: 0, oneDriveUrl: "", contractType: "fixed_labor", contractValue: 0, adminPercentage: 0, billingType: "mensal_fixo", parcelaMensal: 0, contractStart: "", contractEnd: "", totalParcelas: 0, billingFrequency: "mensal", diaVenc1: DIA_VENC_1_PADRAO, diaVenc2: DIA_VENC_2_PADRAO, entrada: 0, entradaDate: "", hasCaixa: false },
   ],
   condominios: CONDOMINIOS_PADRAO.map(x=>({...x})),
+  engineeringProjects: [],
   licencas: [],
   employees: [],
   titulosFolha: [],
@@ -3224,6 +3247,7 @@ export function Sel({ label, value, onChange, options = [], disabled = false, er
       }}>{textoUi(label)}</span>}
       <select
         className="arcd-field-control"
+        aria-label={label ? textoUi(label) : undefined}
         value={value ?? ""}
         onChange={e => onChange(e.target.value)}
         disabled={disabled}
@@ -3376,7 +3400,7 @@ export function PageHero({title,description,alert,stats,actions}){
     <div className="page-hero__main">
       <div className="page-hero__copy">
 
-        <h2 className="page-hero__title">{title}</h2>
+        <h1 className="page-hero__title">{title}</h1>
         {description&&<p className="page-hero__description">{description}</p>}
         {alert&&<div className="page-hero__alert" data-tone={alert.tone||"danger"}><Ic n={alert.tone==="success"?"check":"alert"} s={13}/>{alert.text}</div>}
       </div>
@@ -3402,12 +3426,13 @@ export function PageHero({title,description,alert,stats,actions}){
 // equal=true usa colunas de largura igual (poucas abas, rótulos parecidos);
 // o padrão (false) é uma fileira que rola na horizontal sem quebrar linha -
 // evita o efeito "serrilhado" de abas com rótulos de tamanhos muito diferentes.
-export function TabRow({ tabs, active, onChange, equal = false }) {
+export function TabRow({ tabs, active, onChange, equal = false, label = "Selecionar visão" }) {
   const itens = tabs.map(t => Array.isArray(t)
     ? { v:t[0], l:t[1], detail: typeof t[2]==="string" ? t[2] : null, count: typeof t[2]==="number" ? t[2] : null }
     : t);
   return (
     <div className="tab-row" data-equal={equal} style={equal ? { "--arcd-tab-count": itens.length } : undefined}>
+      <label className="tab-row__mobile"><span>{label}</span><select aria-label={label} value={itens.some(item=>item.v===active)?active:""} onChange={event=>onChange(event.target.value)}>{!itens.some(item=>item.v===active)&&<option value="" disabled>Selecione uma tela</option>}{itens.map(({v,l,count})=><option key={v} value={v}>{l}{count>0?` · ${count}`:""}</option>)}</select></label>
       {itens.map(({v,l,icon,detail,count}) => {
         const isActive = active === v;
         return (
@@ -3566,6 +3591,7 @@ const {
   calcDREConsolidado,
   calcDREHistorico,
   calcVisaoFinanceira,
+  calcLedgerAcumulado,
   calcProjecaoContratoObra,
   calculateFinancialRanking:calcularRankingFinanceiro,
   calculateMonthlyFinancialReport:calcRelatorioMensal,
@@ -3616,62 +3642,44 @@ const calcObraRevenue = calculateContractProjection;
 // DASHBOARD - redesenhado
 //
 
-function KpiCard({label,value,detail,icon,color=C.blue,onClick}){
-  const displayValue=useCountUp(value);
+function KpiCard({label,value,detail,icon,color=C.blue,onClick,animate=true}){
+  const displayValue=useCountUp(animate?value:null);
   const Comp=onClick?"button":"div";
   return <Comp type={onClick?"button":undefined} onClick={onClick} className="dashboard-kpi" data-tone={semanticToneFromLegacyColor(color)} data-interactive={Boolean(onClick)}>
     <div className="dashboard-kpi__head">
       <span className="dashboard-kpi__label">{label}</span>
       <span className="dashboard-kpi__icon"><Ic n={icon} s={13}/></span>
     </div>
-    <p className="dashboard-kpi__value">{displayValue}</p>
+    <p className="dashboard-kpi__value">{animate?displayValue:value}</p>
     {detail&&<p className="dashboard-kpi__detail">{detail}</p>}
   </Comp>;
 }
 
 
-function DashboardTechHero({data,currentUser,ultimaSync,fila,onBuscar,onAtualizar,onAbrir,periodo,onAnterior,onProximo,proximoDesabilitado,clima,saveState=SAVE_QUEUE_STATE.IDLE}){
-  const {isDesktop}=useBreakpoint();
+function DashboardTechHero({currentUser,ultimaSync,fila,onBuscar,onAtualizar,onAbrir,periodo,onAnterior,onProximo,proximoDesabilitado,clima,saveState=SAVE_QUEUE_STATE.IDLE}){
   const agora=new Date(),nome=(currentUser?.nome||"operador").trim().split(/\s+/)[0];
   const saudacao=agora.getHours()<12?"Bom dia":agora.getHours()<18?"Boa tarde":"Boa noite";
-  const papel=ROLES.find(r=>r.v===currentUser?.role)?.l||"Operador";
-  const criticas=fila.filter(x=>x.severidade===3).length;
-  const mensagem=criticas
-    ? `Vamos priorizar ${criticas} ${criticas===1?"ponto crítico":"pontos críticos"} agora.`
-    : fila.length
-      ? `${fila.length} ${fila.length===1?"ação para acompanhar hoje":"ações para acompanhar hoje"}.`
-      : "A operação está em ordem. Bom trabalho hoje.";
-  // Leitura do clima para decisão de campo: condição, vento e UV viram uma
-  // frase objetiva sobre atividade externa/concretagem, com uma piada leve
-  // no fim — não só o número.
-  const climaObra=clima&&{
-    sun:      {condicao:"ensolarado",piada:"Sol favorece o cronograma — só não esqueça o protetor solar do time.",cor:C.yellowD},
-    cloud:    {condicao:"nublado",piada:"Tempo ameno, sem desculpa de calor pra atrasar nada hoje.",cor:C.subtle},
-    cloudRain:{condicao:"chuvoso",piada:"Bom dia pra revisar planilha, ruim pra concretar.",cor:C.orange},
-    zap:      {condicao:"com trovoada",piada:"Hoje o café do escritório rende mais que o canteiro.",cor:C.red},
-  }[clima.icone];
-  const climaTxt=climaObra&&`Hoje o clima em Caruaru está ${climaObra.condicao}, ${clima.temperatura}°, ventos a ${clima.vento} km/h${clima.uv!=null?`, índice UV ${clima.uv}${clima.uvLabel?` (${clima.uvLabel})`:""}`:""}. ${climaObra.piada}`;
-  const syncInfo={
-    [SAVE_QUEUE_STATE.IDLE]:{label:"sincronizado",color:C.green},
-    [SAVE_QUEUE_STATE.SAVING]:{label:"salvando alterações",color:C.yellowD},
-    [SAVE_QUEUE_STATE.RETRY_SCHEDULED]:{label:"nova tentativa agendada",color:C.orange},
-    [SAVE_QUEUE_STATE.OFFLINE]:{label:"alterações aguardando conexão",color:C.orange},
-    [SAVE_QUEUE_STATE.CONFLICT]:{label:"conflito aguardando resolução",color:C.red},
-    [SAVE_QUEUE_STATE.FAILED]:{label:"alterações não sincronizadas",color:C.red},
-  }[saveState]||{label:"sincronizado",color:C.green};
-  return <section className="dashboard-tech-hero" style={{position:"relative",overflow:"hidden",minHeight:isDesktop?178:232,borderRadius:C.rLg,padding:isDesktop?"20px 22px":"18px",color:C.text,background:C.card,border:`1px solid ${C.border}`,boxShadow:"none"}}>
-
-    <div style={{position:"relative",zIndex:1,display:"flex",flexDirection:"column",minHeight:isDesktop?136:196,justifyContent:"space-between",gap:14}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}><div><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:7}}>{papel} · {syncInfo.label}{saveState===SAVE_QUEUE_STATE.IDLE?(ultimaSync?` às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:" agora"):""}</p></div><div style={{display:"flex",alignItems:"center",gap:6}}>{onBuscar&&<Btn v="ghost" iconOnly onClick={onBuscar} title="Buscar" ariaLabel="Buscar"><Ic n="funnel" s={13}/></Btn>}{onAtualizar&&<Btn v="ghost" iconOnly onClick={onAtualizar} title="Atualizar" ariaLabel="Atualizar"><Ic n="refresh" s={13}/></Btn>}</div></div>
-      <div className="dashboard-greeting" style={{maxWidth:640}}>
-
-        <h1 style={{...TYPO.h1,fontSize:"clamp(24px,3vw,32px)",marginTop:5}}>{saudacao}, {nome}.</h1><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:8}}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</p>
-        {climaObra&&<p style={{fontSize:"var(--arcd-type-body)",lineHeight:1.5,marginTop:9,color:C.subtle}}><span aria-hidden="true" className={`dashboard-weather-motif dashboard-weather-motif-${clima.icone}`} style={{display:"inline-flex",verticalAlign:"-5px",marginRight:3}}><Ic n={clima.icone} s={18} color={climaObra.cor}/></span>{climaTxt}</p>}
-        <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,marginTop:7,color:C.yellowD}}>{mensagem}</p>
-      </div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:9,flexWrap:"wrap"}}><div className="dashboard-priority-actions" style={{display:"flex",alignItems:"center",gap:9,flexWrap:"wrap"}}><Btn v="primary" onClick={()=>fila[0]&&onAbrir(fila[0].tab)} disabled={!fila.length}>{fila.length?`Abrir prioridade principal →`:"Nenhuma ação urgente"}</Btn><span style={{fontSize:"var(--arcd-type-label)",color:C.muted}}><b style={{color:criticas?C.red:C.green}}>{criticas}</b> crítica(s) · <b style={{color:C.yellowD}}>{fila.length}</b> ação(ões) em andamento</span></div>{periodo&&<div style={{display:"flex",alignItems:"center",border:`1px solid ${C.border}`,background:C.card2,borderRadius:9,padding:2}}><button onClick={onAnterior} style={{border:0,background:"transparent",color:C.subtle,padding:"5px 8px",cursor:"pointer"}}>←</button><span style={{minWidth:100,textAlign:"center",fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"capitalize",color:C.muted}}>{periodo}</span><button onClick={onProximo} disabled={proximoDesabilitado} style={{border:0,background:"transparent",color:proximoDesabilitado?C.cinza:C.subtle,padding:"5px 8px",cursor:proximoDesabilitado?"default":"pointer"}}>→</button></div>}</div>
+  const criticas=fila.filter(item=>item.severidade===3).length;
+  const syncLabel={
+    [SAVE_QUEUE_STATE.IDLE]:ultimaSync?`Atualizado às ${ultimaSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Atualizado agora",
+    [SAVE_QUEUE_STATE.SAVING]:"Salvando alterações",
+    [SAVE_QUEUE_STATE.RETRY_SCHEDULED]:"Nova tentativa agendada",
+    [SAVE_QUEUE_STATE.OFFLINE]:"Alterações aguardando conexão",
+    [SAVE_QUEUE_STATE.CONFLICT]:"Conflito aguardando resolução",
+    [SAVE_QUEUE_STATE.FAILED]:"Alterações não sincronizadas",
+  }[saveState];
+  return <PageHeader className="workspace-header dashboard-tech-hero" title="Visão gerencial"
+    description={<>{saudacao}, {nome}. <time dateTime={today()}>{agora.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}</time></>}
+    secondaryActions={<>{periodo&&<div className="workspace-period" role="group" aria-label="Competência dos indicadores">
+      <Button variant="ghost" size="icon" aria-label="Mês anterior" onClick={onAnterior}><ChevronLeft/></Button>
+      <span>{periodo}</span><Button variant="ghost" size="icon" aria-label="Próximo mês" onClick={onProximo} disabled={proximoDesabilitado}><ChevronRight/></Button>
+    </div>}{onBuscar&&<Button variant="outline" size="icon" aria-label="Buscar" onClick={onBuscar}><Search/></Button>}
+    {onAtualizar&&<Button variant="outline" size="icon" aria-label="Atualizar" onClick={onAtualizar}><RefreshCw/></Button>}</>}
+    primaryAction={<Button disabled={!fila.length} onClick={()=>fila[0]&&onAbrir(fila[0].tab)}>{fila.length?"Abrir prioridade":"Nenhuma ação urgente"}</Button>}>
+    <div className="dashboard-context"><span role="status">{syncLabel}</span><span>{criticas} crítica(s) · {fila.length} ação(ões) em andamento</span>
+      {clima&&<span>Caruaru: {clima.temperatura} °C · vento {clima.vento} km/h</span>}
     </div>
-  </section>;
+  </PageHeader>;
 }
 
 function FilaOperador({fila,onTab}){
@@ -3938,8 +3946,9 @@ function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync
 
 // Dashboard executivo premium. A tela trabalha por exceção: primeiro mostra
 // saúde da empresa, depois o que exige decisão e só então os resumos de apoio.
-function Dashboard({ data, update, showToast, onTab, ultimaSync, currentUser, onBuscar, onAtualizar, saveState }) {
+function Dashboard({ data, update, showToast, onTab, onAbrirObra, ultimaSync, currentUser, onBuscar, onAtualizar, saveState }) {
   const { cols, isDesktop } = useBreakpoint();
+  const [todosIndicadores,setTodosIndicadores]=useState(false);
   const agora=new Date();
   const [periodo,setPeriodo]=useState({y:agora.getFullYear(),m:agora.getMonth()});
   const year=periodo.y, month=periodo.m;
@@ -3952,6 +3961,34 @@ function Dashboard({ data, update, showToast, onTab, ultimaSync, currentUser, on
   const fimMes=`${ym}-${String(new Date(year,month+1,0).getDate()).padStart(2,"0")}`;
   const abasPermitidas=allowedTabsForUser(currentUser);
   const filaOperador=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
+  // Gestão à vista: sempre o dia de hoje, independente do mês escolhido no topo.
+  // O custo vem do servidor (mesmo motor e títulos nativos do DRE por obra).
+  // Vai só até o mês fechado, então basta renová-lo a cada 5 minutos de
+  // sincronização: recalcular a cada salvamento pesaria no servidor à toa.
+  // Sem acesso à DRE, a coluna fica restrita.
+  const veObras=abasPermitidas.includes("obras");
+  const veCusto=abasPermitidas.includes("dre")||abasPermitidas.includes("dre_emp");
+  const [custosObras,setCustosObras]=useState({status:"carregando",obras:{},custoAte:""});
+  const custoBuscadoEm=useRef({chave:"",em:0});
+  useEffect(()=>{
+    if(!veObras)return;
+    if(!veCusto){setCustosObras({status:"sem-acesso",obras:{},custoAte:""});return;}
+    const {ano,mes}=ultimoMesFechado(hoje);
+    const chave=`${ano}-${mes}`,agoraMs=Date.now();
+    if(custoBuscadoEm.current.chave===chave&&agoraMs-custoBuscadoEm.current.em<5*60*1000)return;
+    custoBuscadoEm.current={chave,em:agoraMs};
+    let ativo=true,concluida=false;
+    consultarCustoAcumuladoObras({year:ano,month:mes}).then(r=>{
+      concluida=true;
+      if(!ativo)return;
+      if(!r?.ok)custoBuscadoEm.current={chave:"",em:0};
+      setCustosObras(r?.ok?{status:"ok",obras:r.obras||{},custoAte:r.custoAte||""}:{status:"erro",obras:{},custoAte:""});
+    });
+    // Resposta descartada no meio do caminho não pode travar a próxima busca.
+    return ()=>{ativo=false;if(!concluida)custoBuscadoEm.current={chave:"",em:0};};
+  },[veObras,veCusto,hoje,ultimaSync]);
+  const gestaoAVista=useMemo(()=>resumoGestaoAVista(data,{hoje,custoAcumulado:(_,obraId)=>custosObras.obras[obraId]??null,
+    obraDoDia:(employee,date,record)=>resolveEmployeeAttendanceObraId({data,employee,date,record})}),[data,hoje,custosObras]);
 
   // Resumo diário (clima + notícias do setor): carrega uma vez por sessão de
   // dashboard, cacheado 15min no servidor — não precisa refazer a cada render.
@@ -3984,17 +4021,45 @@ function Dashboard({ data, update, showToast, onTab, ultimaSync, currentUser, on
     ...alertasBase,
   ].filter(a=>abasPermitidas.includes(a.tab)).filter((a,i,arr)=>arr.findIndex(x=>x.texto===a.texto)===i).sort((a,b)=>b.sev-a.sev);
 
-  // Card local só decide se o KPI é clicável (acesso por aba); a aparência
-  // vem do KpiCard compartilhado com o dashboard do engenheiro.
-  const Card=({label,value,detail,icon,color=C.blue,tab})=>{const acessivel=tab&&abasPermitidas.includes(tab);if(tab&&!acessivel)return null;return <KpiCard label={label} value={value} detail={detail} icon={icon} color={color} onClick={acessivel?()=>onTab(tab):undefined}/>;};
   const Titulo=({children,acao})=><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:12}}><div><h3 style={TYPO.h3}>{children}</h3></div>{acao}</div>;
   const superficie={background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,boxShadow:"none"};
 
   return <div className="anim dashboard-tech-motion dashboard-command-center" style={{position:"relative",display:"flex",flexDirection:"column",gap:14,paddingBottom:16}}>
-    {/* Marca d'água institucional: grande, porém abaixo de todo o conteúdo. */}
-
     <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={filaOperador} onBuscar={onBuscar} onAtualizar={onAtualizar} onAbrir={onTab} periodo={`${fullMonth(month)} ${year}`} onAnterior={()=>irMes(-1)} onProximo={()=>irMes(1)} proximoDesabilitado={ehAtual} clima={resumoDiario.clima} saveState={saveState}/>
-    <FilaOperador fila={filaOperador} onTab={onTab}/>
+    <section id="dashboard-indicators" className="dashboard-executive-grid" data-expanded={todosIndicadores} style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:10}}>
+      {[
+        {label:"Obras ativas",value:exec.obrasAtivas,detail:exec.obrasCriticas?`${exec.obrasCriticas} em situação crítica`:"Operação acompanhada",icon:"building",color:exec.obrasCriticas?C.red:C.blue,tab:"obras"},
+        {label:"Receitas do período",value:fmt(exec.dre.recebido),detail:`Faturado ${fmt(exec.dre.faturamento)}`,icon:"trending",color:C.green,tab:"dre"},
+        {label:"Despesas do período",value:fmt(exec.dre.totalCustos),detail:`${exec.dre.faturamento?((exec.dre.totalCustos/exec.dre.faturamento)*100).toFixed(0):0}% da receita`,icon:"receipt",color:C.red,tab:"dre_emp"},
+        {label:"Saldo atual",value:fmt(exec.dre.saldoCaixa),detail:"Recebimentos menos custos",icon:"wallet",color:exec.dre.saldoCaixa>=0?C.green:C.red,tab:"dre"},
+        {label:"Pendências críticas",value:prioridades.filter(a=>a.sev===3).length,detail:`${prioridades.length} alertas ativos`,icon:"alert",color:prioridades.some(a=>a.sev===3)?C.red:C.orange},
+        {label:"Compras pendentes",value:exec.comprasPendentes+exec.solicitacoesAbertas,detail:`${exec.solicitacoesAbertas} aguardando análise`,icon:"cart",color:C.orange,tab:"cmp"},
+        {label:"Leads em andamento",value:exec.leadsAtivos,detail:`${novosLeads} novo(s) no mês`,icon:"funnel",color:C.blue,tab:"com_funil"},
+        {label:"Resultado operacional",value:fmt(exec.dre.lucroBruto),detail:`Margem ${exec.dre.margemBruta.toFixed(1)}%`,icon:"chart",color:exec.dre.lucroBruto>=0?C.green:C.red,tab:"dre_emp"},
+      ].map(k=>{const acessivel=k.tab&&abasPermitidas.includes(k.tab);return k.tab&&!acessivel?null:<span key={k.label}><KpiCard {...k} animate={false} onClick={acessivel?()=>onTab(k.tab):undefined}/></span>;})}
+    </section>
+    <Button variant="ghost" className="dashboard-indicators-toggle" aria-expanded={todosIndicadores} aria-controls="dashboard-indicators" onClick={()=>setTodosIndicadores(value=>!value)}>{todosIndicadores?"Menos indicadores":"Mais indicadores"}</Button>
+    <div className="dashboard-work-grid">
+    {veObras&&<GestaoAVistaObras resumo={gestaoAVista} hoje={hoje} onAbrirObra={onAbrirObra} custoStatus={custosObras.status}/>}
+
+      <div className="dashboard-work-grid__aside"><FilaOperador fila={filaOperador} onTab={onTab}/><details className="workspace-disclosure"><summary>Outras pendências ({prioridades.length})</summary><section id="dashboard-prioridades" style={{position:"relative",zIndex:1,padding:isDesktop?8:4}}>
+      <Titulo acao={<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prioridades.length?C.red:C.green,background:`${prioridades.length?C.red:C.green}0D`,padding:"5px 9px",borderRadius:99}}>{prioridades.length?`${prioridades.length} para revisar`:"Tudo em ordem"}</span>}>Pendências que exigem atenção</Titulo>
+      {!prioridades.length?<div style={{padding:"18px 4px",display:"flex",alignItems:"center",gap:10,color:C.green}}><span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:`${C.green}10`}}><Ic n="check"/></span><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"#2D3135"}}>Nenhuma pendência prioritária</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>A operação está sob controle.</p></div></div>:<div style={{display:"grid",gridTemplateColumns:isDesktop&&prioridades.length>3?"1fr 1fr":"1fr",columnGap:20}}>{prioridades.slice(0,8).map((a,i)=>{const cor=a.sev===3?C.red:a.sev===2?C.orange:C.blue;return <button key={`${a.texto}-${i}`} onClick={()=>onTab(a.tab)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",textAlign:"left",border:0,borderTop:i>=(isDesktop&&prioridades.length>3?2:1)?"1px solid rgba(27,31,36,.06)":"none",background:"transparent",padding:"11px 3px",cursor:"pointer"}}><span style={{width:8,height:8,borderRadius:99,background:cor,boxShadow:`0 0 0 5px ${cor}0D`,flexShrink:0}}/><span style={{fontSize:"var(--arcd-type-label)",color:"#303438",lineHeight:1.35,flex:1}}>{a.texto}</span><span style={{fontSize:"var(--arcd-type-card-title)",color:"#B1B5B9"}}>›</span></button>;})}</div>}
+    </section></details>
+      </div>
+    </div>
+
+
+    <details className="workspace-disclosure"><summary>Resumo financeiro e comercial</summary>    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
+      <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("dre_emp")}>Detalhes →</DesignSystemButton>}>Resumo financeiro</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["A receber",exec.dre.aReceber,C.orange],["Fluxo do período",exec.dre.saldoCaixa,exec.dre.saldoCaixa>=0?C.green:C.red],["Principais saídas",exec.dre.totalCustos,C.red],["Resultado do mês",exec.dre.lucroBruto,exec.dre.lucroBruto>=0?C.green:C.red]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{fmt(v)}</p></div>)}</div></div>
+      <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("com_dash")}>Abrir comercial →</DesignSystemButton>}>Resumo comercial</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["Novos leads",novosLeads,C.blue],["Propostas abertas",propostasAbertas,C.orange],["Aguardando assinatura",contratosPendentes,C.red],["Vendas no mês",fmt(vendasMes),C.green]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{v}</p></div>)}</div><div style={{height:5,display:"flex",overflow:"hidden",borderRadius:99,marginTop:17,background:"#ECEEEF"}}>{[["novo",C.blue],["qualificado",C.orange],["proposta",C.purple],["negociacao",C.yellowD]].map(([etapa,cor])=>{const qtd=leadsAtivos.filter(l=>l.etapa===etapa).length;return qtd?<span key={etapa} title={`${etapa}: ${qtd}`} style={{width:`${qtd/Math.max(1,leadsAtivos.length)*100}%`,background:cor}}/>:null;})}</div></div>
+    </section></details>
+
+    <section style={{position:"relative",zIndex:1}}><Titulo>Ações rápidas</Titulo><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:8}}>{[
+      ["Nova compra","cart","cmp"],["Novo lead","user","com_leads"],["Lançar despesa","dollar","dre_emp"],["Abrir ponto","clock","ponto"],["Revisar medições","ruler","medicoes"],["Conferências","check","conferencia"],
+    ].filter(([, ,tab])=>abasPermitidas.includes(tab)).map(([label,icon,tab])=><button key={label} onClick={()=>onTab(tab)} className="dashboard-quick-action" style={{minHeight:70,border:`1px solid ${C.border}`,background:C.card,borderRadius:C.rLg,padding:11,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",justifyContent:"space-between",textAlign:"left",...TYPO.label}}><span style={{width:28,height:28,borderRadius:9,background:C.card2,display:"grid",placeItems:"center",color:C.blue}}><Ic n={icon} s={13}/></span>{label}</button>)}</div></section>
+    <CalendarioEmpresa data={data} update={update} showToast={showToast} currentUser={currentUser}/>
+    <details className="workspace-disclosure"><summary>Mercado e índices da construção</summary>
     <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticias}/>
       <NoticiasSetor carregando={resumoDiario.carregando} noticias={resumoDiario.noticiasCbicPe} titulo="CBIC Pernambuco" subtitulo="Sinduscon-PE e câmara regional"/>
@@ -4003,35 +4068,7 @@ function Dashboard({ data, update, showToast, onTab, ultimaSync, currentUser, on
       <LazyCubChart cub={resumoDiario.cub} carregando={resumoDiario.carregando}/>
     </Suspense>
 
-    <section className="dashboard-executive-grid" style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:cols(2,3,4),gap:10}}>
-      {[
-        {label:"Obras ativas",value:exec.obrasAtivas,detail:exec.obrasCriticas?`${exec.obrasCriticas} em situação crítica`:"Operação acompanhada",icon:"building",color:exec.obrasCriticas?C.red:C.blue,tab:"obras"},
-        {label:"Receitas do período",value:fmtCompact(exec.dre.recebido),detail:`Faturado ${fmtCompact(exec.dre.faturamento)}`,icon:"trending",color:C.green,tab:"dre"},
-        {label:"Despesas do período",value:fmtCompact(exec.dre.totalCustos),detail:`${exec.dre.faturamento?((exec.dre.totalCustos/exec.dre.faturamento)*100).toFixed(0):0}% da receita`,icon:"receipt",color:C.red,tab:"dre_emp"},
-        {label:"Saldo atual",value:fmtCompact(exec.dre.saldoCaixa),detail:"Recebimentos menos custos",icon:"wallet",color:exec.dre.saldoCaixa>=0?C.green:C.red,tab:"dre"},
-        {label:"Pendências críticas",value:prioridades.filter(a=>a.sev===3).length,detail:`${prioridades.length} alertas ativos`,icon:"alert",color:prioridades.some(a=>a.sev===3)?C.red:C.orange},
-        {label:"Compras pendentes",value:exec.comprasPendentes+exec.solicitacoesAbertas,detail:`${exec.solicitacoesAbertas} aguardando análise`,icon:"cart",color:C.orange,tab:"cmp"},
-        {label:"Leads em andamento",value:exec.leadsAtivos,detail:`${novosLeads} novo(s) no mês`,icon:"funnel",color:C.blue,tab:"com_funil"},
-        {label:"Resultado operacional",value:fmtCompact(exec.dre.lucroBruto),detail:`Margem ${exec.dre.margemBruta.toFixed(1)}%`,icon:"chart",color:exec.dre.lucroBruto>=0?C.green:C.red,tab:"dre_emp"},
-      ].map((k,idx)=><span key={k.label} style={{"--row-i":idx}}><Card {...k}/></span>)}
-    </section>
-
-    <section id="dashboard-prioridades" style={{position:"relative",zIndex:1,...superficie,padding:isDesktop?18:14}}>
-      <Titulo acao={<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prioridades.length?C.red:C.green,background:`${prioridades.length?C.red:C.green}0D`,padding:"5px 9px",borderRadius:99}}>{prioridades.length?`${prioridades.length} para revisar`:"Tudo em ordem"}</span>}>Pendências que exigem atenção</Titulo>
-      {!prioridades.length?<div style={{padding:"18px 4px",display:"flex",alignItems:"center",gap:10,color:C.green}}><span style={{width:30,height:30,borderRadius:10,display:"grid",placeItems:"center",background:`${C.green}10`}}><Ic n="check"/></span><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"#2D3135"}}>Nenhuma pendência prioritária</p><p style={{fontSize:"var(--arcd-type-label)",color:"#8A8F94",marginTop:2}}>A operação está sob controle.</p></div></div>:<div style={{display:"grid",gridTemplateColumns:isDesktop&&prioridades.length>3?"1fr 1fr":"1fr",columnGap:20}}>{prioridades.slice(0,8).map((a,i)=>{const cor=a.sev===3?C.red:a.sev===2?C.orange:C.blue;return <button key={`${a.texto}-${i}`} onClick={()=>onTab(a.tab)} style={{display:"flex",alignItems:"center",gap:11,width:"100%",textAlign:"left",border:0,borderTop:i>=(isDesktop&&prioridades.length>3?2:1)?"1px solid rgba(27,31,36,.06)":"none",background:"transparent",padding:"11px 3px",cursor:"pointer"}}><span style={{width:8,height:8,borderRadius:99,background:cor,boxShadow:`0 0 0 5px ${cor}0D`,flexShrink:0}}/><span style={{fontSize:"var(--arcd-type-label)",color:"#303438",lineHeight:1.35,flex:1}}>{a.texto}</span><span style={{fontSize:"var(--arcd-type-card-title)",color:"#B1B5B9"}}>›</span></button>;})}</div>}
-    </section>
-
-    <section style={{position:"relative",zIndex:1,...superficie,padding:isDesktop?18:14}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("obras")}>Ver portfólio →</DesignSystemButton>}>Resumo executivo das obras</Titulo>{!exec.obras.length?<p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma obra cadastrada.</p>:<div style={{display:"flex",flexDirection:"column"}}>{[...exec.obras].sort((a,b)=>({critica:0,atencao:1,saudavel:2}[a.exec.k]-{critica:0,atencao:1,saudavel:2}[b.exec.k])).slice(0,5).map((o,i)=><button key={o.id} onClick={()=>onTab("obras")} style={{border:0,borderTop:i?"1px solid rgba(27,31,36,.06)":"none",background:"transparent",padding:"12px 0",display:"grid",gridTemplateColumns:isDesktop?"minmax(180px,1.4fr) minmax(180px,1fr) 110px 110px":"1fr auto",gap:14,alignItems:"center",textAlign:"left",cursor:"pointer"}}><div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:"#25282C",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.nome}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cidade||o.cliente||"Obra em acompanhamento"}</p></div><div style={{display:isDesktop?"block":"none"}}><div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-caption)",color:C.muted,marginBottom:5}}><span>Avanço físico</span><b style={{color:C.blue}}>{o.pctFisico}%</b></div><div style={{height:5,borderRadius:99,background:"#ECEEEF",overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(100,o.pctFisico)}%`,background:C.blue,borderRadius:99}}/></div></div><div style={{display:isDesktop?"block":"none"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Previsto x realizado</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:"#454A4F",marginTop:3}}>{o.pctFinanceiro}% financeiro</p></div><span style={{justifySelf:"end",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:o.exec.cor,background:`${o.exec.cor}0E`,padding:"5px 9px",borderRadius:99,textTransform:"uppercase"}}>{o.exec.l}</span></button>)}</div>}</section>
-
-    <section style={{position:"relative",zIndex:1,display:"grid",gridTemplateColumns:isDesktop?"1fr 1fr":"1fr",gap:12}}>
-      <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("dre_emp")}>Detalhes →</DesignSystemButton>}>Resumo financeiro</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["A receber",exec.dre.aReceber,C.orange],["Fluxo do período",exec.dre.saldoCaixa,exec.dre.saldoCaixa>=0?C.green:C.red],["Principais saídas",exec.dre.totalCustos,C.red],["Resultado do mês",exec.dre.lucroBruto,exec.dre.lucroBruto>=0?C.green:C.red]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{fmtCompact(v)}</p></div>)}</div></div>
-      <div style={{...superficie,padding:18}}><Titulo acao={<DesignSystemButton variant="link" size="sm" className="dashboard-link-btn" onClick={()=>onTab("com_dash")}>Abrir comercial →</DesignSystemButton>}>Resumo comercial</Titulo><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"14px 22px"}}>{[["Novos leads",novosLeads,C.blue],["Propostas abertas",propostasAbertas,C.orange],["Aguardando assinatura",contratosPendentes,C.red],["Vendas no mês",fmtCompact(vendasMes),C.green]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:c,marginTop:5,letterSpacing:-.3}}>{v}</p></div>)}</div><div style={{height:5,display:"flex",overflow:"hidden",borderRadius:99,marginTop:17,background:"#ECEEEF"}}>{[["novo",C.blue],["qualificado",C.orange],["proposta",C.purple],["negociacao",C.yellowD]].map(([etapa,cor])=>{const qtd=leadsAtivos.filter(l=>l.etapa===etapa).length;return qtd?<span key={etapa} title={`${etapa}: ${qtd}`} style={{width:`${qtd/Math.max(1,leadsAtivos.length)*100}%`,background:cor}}/>:null;})}</div></div>
-    </section>
-
-    <section style={{position:"relative",zIndex:1}}><Titulo>Ações rápidas</Titulo><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:8}}>{[
-      ["Nova compra","cart","cmp"],["Novo lead","user","com_leads"],["Lançar despesa","dollar","dre_emp"],["Abrir ponto","clock","ponto"],["Revisar medições","ruler","medicoes"],["Conferências","check","conferencia"],
-    ].filter(([, ,tab])=>abasPermitidas.includes(tab)).map(([label,icon,tab])=><button key={label} onClick={()=>onTab(tab)} className="dashboard-quick-action" style={{minHeight:70,border:`1px solid ${C.border}`,background:C.card,borderRadius:C.rLg,padding:11,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",justifyContent:"space-between",textAlign:"left",...TYPO.label}}><span style={{width:28,height:28,borderRadius:9,background:C.card2,display:"grid",placeItems:"center",color:C.blue}}><Ic n={icon} s={13}/></span>{label}</button>)}</div></section>
-    <CalendarioEmpresa data={data} update={update} showToast={showToast} currentUser={currentUser}/>
+    </details>
   </div>;
 }
 
@@ -4143,26 +4180,29 @@ function DRE({data,showToast,currentUser=null,obraIdFixo="",dispatchCommand=null
 
 function DRELegado({ data, showToast, currentUser=null, obraIdFixo="", dispatchCommand=null }) {
   const {intent}=useWorkflow();
+  const useSessionState=(key,initial)=>useWorkspaceState("dre",key,initial,obraIdFixo);
+  useWorkspaceScroll("dre",obraIdFixo);
   const now   = new Date();
-  const [year,  setYear]   = useState(now.getFullYear());
-  const [month, setMonth]  = useState(now.getMonth());
-  const [periodoDRE,setPeriodoDRE] = useState("mes");
-  const [view,  setView]   = useState(obraIdFixo?"obra":"consolidado"); // "consolidado" | "obra" | "historico"
-  const [selObra, setSelObra] = useState(obraIdFixo||data.obras[0]?.id||"");
+  const [year,  setYear]   = useSessionState("year",now.getFullYear());
+  const [month, setMonth]  = useSessionState("month",now.getMonth());
+  const [periodoDRE,setPeriodoDRE] = useSessionState("periodoDRE","mes");
+  const [view,  setView]   = useSessionState("view",obraIdFixo?"obra":"consolidado"); // "consolidado" | "obra" | "historico"
+  const [selObra, setSelObra] = useSessionState("selObra",obraIdFixo||data.obras[0]?.id||"");
   useEffect(()=>{
-    if(intent?.tabId!=="dre")return;
+    if(intent?.tabId!=="dre"||intent.action==="resume")return;
     const scope=normalizeWorkflowScope(intent.scope,currentUser);
     if(scope.year!=null)setYear(scope.year);
     if(scope.month!=null)setMonth(scope.month);
-    setPeriodoDRE(scope.period);
-    if(scope.obraId){setSelObra(scope.obraId);setView("obra");}
-    else if(!obraIdFixo)setView("consolidado");
+    if(intent.linked!==false)setPeriodoDRE(scope.period);
+    if(scope.obraId){if(scope.obraId!==selObra||intent.linked!==false)setView("obra");setSelObra(scope.obraId);}
+    else if(!obraIdFixo&&intent.linked!==false)setView("consolidado");
   },[intent?.sequence]);
+  useRememberWorkflowScope("dre",{obraId:obraIdFixo||(view==="obra"?selObra:""),year,month,period:periodoDRE});
   const [despModal, setDespModal] = useState(false);
   const [expenseCommandPending,setExpenseCommandPending]=useState(false);
   const [despForm,  setDespForm]  = useState({ obraId:"", competencia:"", categoria:"material", descricao:"", valor:"" });
   const [detalheKpi, setDetalheKpi] = useState("");
-  const [filtroDetalhe, setFiltroDetalhe] = useState({ busca:"", categoria:"todos", obra:"todas", ordem:"data_desc" });
+  const [filtroDetalhe, setFiltroDetalhe] = useSessionState("filtroDetalhe",{ busca:"", categoria:"todos", obra:"todas", ordem:"data_desc" });
   const [avaliacaoCFOObra,setAvaliacaoCFOObra]=useState(null);
   const [avaliandoCFOObra,setAvaliandoCFOObra]=useState(false);
   const [razaoDRE,setRazaoDRE]=useState({consolidado:null,obra:null});
@@ -5088,18 +5128,20 @@ export function ModoIADocumento({modulo,data,update,showToast,currentUser,onClos
 
 const novaNotaFiscal=()=>({id:"",tipo:"nfe",numero:"",serie:"",chave:"",emissao:today(),vencimento:"",fornecedorId:"",fornecedorNome:"",documentoFornecedor:"",obraId:"",pedidoId:"",valorBruto:"",valorLiquido:"",retencoes:{iss:0,inss:0,irrf:0,pis:0,cofins:0,csll:0,outros:0},rateios:[],documentos:[],pagamentos:[],status:"recebida",divergencias:[],analiseIA:null});
 
-function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,onCadastroAberto,dispatchCommand=null}){
+function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onObraChange,onMemorial,abrirNotaId="",onNotaAberta,abrirCadastro=false,onCadastroAberto,dispatchCommand=null}){
+  const [xmlPreview,setXmlPreview]=useState(null);
   const {formGrid}=useBreakpoint();const notas=data.notasFiscais||[];const [form,setForm]=useState(null);const [subindo,setSubindo]=useState(false);const [filtro,setFiltro]=useState("todas");const [anexoFiscal,setAnexoFiscal]=useState(null);const [invoiceCommandPending,setInvoiceCommandPending]=useState(false);const [sugestoesNota,setSugestoesNota]=useState([]);
+  useEffect(()=>{if(!abrirNotaId)return;const nota=notas.find(n=>n.id===abrirNotaId);if(nota)setForm({...nota,valorBruto:String(nota.valorBruto),valorLiquido:String(nota.valorLiquido)});onNotaAberta?.();},[abrirNotaId,notas,onNotaAberta]);
   const contasPagarFiscal=useMemo(
-    ()=>selectLedgerAccountsPayable(buildFinancialLedger(data),{asOfDate:today()}),
-    [data],
+    ()=>selectLedgerAccountsPayable(buildFinancialLedger(data),{asOfDate:today(),...(obraIdFiltro==="all"?{}:{obraId:obraIdFiltro})}),
+    [data,obraIdFiltro],
   );
   const vazia=novaNotaFiscal;
   useEffect(()=>{if(!abrirCadastro)return;setForm(novaNotaFiscal());onCadastroAberto?.();},[abrirCadastro,onCadastroAberto]);
   const F=k=>v=>setForm(f=>({...f,[k]:v}));const totalRet=f=>Object.values(f.retencoes||{}).reduce((s,v)=>s+Number(v||0),0);const pedido=form?(data.pedidos||[]).find(p=>p.id===form.pedidoId):null;
   const setRetencao=(campo,valor)=>setForm(f=>{const retencoes={...f.retencoes,[campo]:valor};return{...f,retencoes,valorLiquido:String(Math.max(0,Number(f.valorBruto||0)-Object.values(retencoes).reduce((s,x)=>s+Number(x||0),0)))}});
   const importar=e=>{const file=e.target.files?.[0];e.target.value="";if(!file||!form)return;if(file.size>5.5*1024*1024){showToast("O documento deve ter no máximo 5,5 MB.","error");return;}setAnexoFiscal({file,legenda:String(file.name||"").replace(/\.[^.]+$/,"")||"Documento fiscal"});};
-  const salvarAnexoFiscal=async()=>{if(!anexoFiscal?.file||!form||!String(anexoFiscal.legenda||"").trim())return;const file=anexoFiscal.file;setSubindo(true);try{const dataUrl=await arquivoComoDataUrl(file);let extra={};if(file.name.toLowerCase().endsWith(".xml")){const texto=await file.text();extra=lerXmlFiscal(texto)||{};}const obra=(data.obras||[]).find(o=>o.id===form.obraId);const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Administrativo",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"financeiro",subfolder:`Notas fiscais/${String(form.emissao||today()).slice(0,7)}`,date:form.emissao||today(),fileName:file.name});if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha no envio.");const agora=new Date().toISOString();const doc={id:resp.item?.id||uid(),nome:resp.item?.name||file.name,legenda:String(anexoFiscal.legenda).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type,tamanho:file.size||0,enviadoEm:agora,enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""};setForm(f=>({...f,...extra,retencoes:{...f.retencoes,...(extra.retencoes||{})},valorLiquido:extra.valorBruto?Math.max(0,extra.valorBruto-Object.values(extra.retencoes||{}).reduce((s,v)=>s+Number(v||0),0)):f.valorLiquido,documentos:[...(f.documentos||[]),doc]}));const obras=(data.obras||[]).map(o=>o.id===form.obraId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);if(form.obraId)update({...data,obras});setAnexoFiscal(null);showToast("Documento fiscal salvo no OneDrive, com legenda e pronto para conferência.");}catch(err){showToast(err.message||"Falha ao importar documento.","error");}finally{setSubindo(false);}};
+  const salvarAnexoFiscal=async()=>{if(!anexoFiscal?.file||!form||!String(anexoFiscal.legenda||"").trim())return;const file=anexoFiscal.file;setSubindo(true);try{const dataUrl=await arquivoComoDataUrl(file);const obra=(data.obras||[]).find(o=>o.id===form.obraId);const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Administrativo",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:"financeiro",subfolder:`Notas fiscais/${String(form.emissao||today()).slice(0,7)}`,date:form.emissao||today(),fileName:file.name});if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha no envio.");const agora=new Date().toISOString();const doc={id:resp.item?.id||uid(),driveId:resp.item?.parentReference?.driveId||resp.workspace?.driveId||obra?.oneDriveDriveId||"",nome:resp.item?.name||file.name,legenda:String(anexoFiscal.legenda).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:file.type,tamanho:file.size||0,enviadoEm:agora,enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""};setForm(f=>({...f,documentos:[...(f.documentos||[]),doc]}));const obras=(data.obras||[]).map(o=>o.id===form.obraId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);if(form.obraId)update({...data,obras});setAnexoFiscal(null);showToast("Documento fiscal salvo no OneDrive, com legenda e pronto para conferência.");}catch(err){showToast(err.message||"Falha ao importar documento.","error");}finally{setSubindo(false);}};
   // C3.1: o XML da NF-e preenche a nota, acha o fornecedor pelo CNPJ, sugere o
   // pedido e liga os itens. A chave vai só para o campo da nota.
   const ligarItensAoPedido=(itensXml,pedidoId)=>{const ped=(data.pedidos||[]).find(p=>p.id===pedidoId);return casarItensNota(itensXml,ped,data.materiais).map(c=>({...c.xmlItem,pedidoItemId:c.pedidoItemId}));};
@@ -5109,13 +5151,26 @@ function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,on
     const forn=fornecedorPorDocumento(data.fornecedores,nota.documentoFornecedor);
     const sugestoes=forn?sugerirPedidosParaNota(data,{fornecedorId:forn.id,obraId:form.obraId,valorBruto:nota.valorBruto,itens:nota.itens}):[];
     const pedidoSugerido=sugestoes[0]?.pedido||null;
-    setSugestoesNota(sugestoes.slice(0,5));
-    setForm(f=>({...f,tipo:"nfe",numero:nota.numero,serie:nota.serie,chave:nota.chave,emissao:nota.emissao||f.emissao,vencimento:nota.vencimento||f.vencimento,
+    const proposed={...form,tipo:"nfe",numero:nota.numero,serie:nota.serie,chave:nota.chave,emissao:nota.emissao||form.emissao,vencimento:nota.vencimento||form.vencimento,
       fornecedorId:forn?.id||"",fornecedorNome:forn?.nome||nota.fornecedorNome,documentoFornecedor:nota.documentoFornecedor,
-      valorBruto:String(nota.valorBruto),valorLiquido:String(Math.max(0,nota.valorBruto-totalRet(f))),
-      obraId:f.obraId||pedidoSugerido?.obraId||"",pedidoId:pedidoSugerido?.id||f.pedidoId||"",
-      itensNota:ligarItensAoPedido(nota.itens,pedidoSugerido?.id||f.pedidoId)}));
-    showToast(!forn?"XML lido. Fornecedor não encontrado pelo CNPJ: cadastre-o ou ligue o pedido manualmente.":pedidoSugerido?`XML lido. Pedido ${pedidoSugerido.numero} sugerido; confira os itens.`:"XML lido. Nenhum pedido aberto deste fornecedor.",forn?"success":"warn");
+      valorBruto:String(nota.valorBruto),valorLiquido:String(Math.max(0,nota.valorBruto-totalRet(form))),
+      obraId:form.obraId||pedidoSugerido?.obraId||"",pedidoId:pedidoSugerido?.id||form.pedidoId||"",
+      itensNota:ligarItensAoPedido(nota.itens,pedidoSugerido?.id||form.pedidoId)};
+    setXmlPreview({filename:file.name,imported:nota,proposed,before:{...form},base:JSON.stringify(form),suggestions:sugestoes.slice(0,5),acknowledged:false});
+  };
+  const xmlConflicts=xmlPreview?invoiceImportConflicts(data,xmlPreview.imported,form?.id):null;
+  const xmlPreviewValue=(key,value)=>{
+    if(value==null||value==="")return "Não informado";
+    if(["valorBruto","valorLiquido"].includes(key))return fmt(Number(value));
+    if(["emissao","vencimento"].includes(key)&&/^\d{4}-\d{2}-\d{2}$/.test(String(value)))return String(value).split("-").reverse().join("/");
+    if(key==="pedidoId")return (data.pedidos||[]).find(item=>item.id===value)?.numero||String(value);
+    return String(value);
+  };
+  const aplicarPreviaXml=()=>{
+    if(!xmlPreview||xmlConflicts?.duplicate)return;
+    if(JSON.stringify(form)!==xmlPreview.base){setXmlPreview(current=>({...current,error:"A ficha mudou desde a leitura. Cancele e leia o XML novamente."}));return;}
+    setSugestoesNota(xmlPreview.suggestions);setForm(xmlPreview.proposed);setXmlPreview(null);
+    showToast("XML aplicado à ficha. Revise os dados e salve para confirmar o lançamento.");
   };
   const salvar=async()=>{
     if(!form.obraId||!form.numero||Number(form.valorBruto)<=0){showToast("Informe obra, número e valor da nota.","error");return;}
@@ -5202,21 +5257,32 @@ function CentralFiscal({data,update,showToast,currentUser,abrirCadastro=false,on
       setInvoiceCommandPending(false);
     }
   };
-  const lista=notas.filter(n=>filtro==="todas"||n.status===filtro);const valorPendente=contasPagarFiscal.balanceCents/100;
+  const notasEscopo=notas.filter(n=>obraIdFiltro==="all"||n.obraId===obraIdFiltro||n.rateios?.some(r=>r.obraId===obraIdFiltro));
+  const lista=notasEscopo.filter(n=>filtro==="todas"||n.status===filtro);const valorPendente=contasPagarFiscal.balanceCents/100;
   return <div style={{display:"flex",flexDirection:"column",gap:10}}>
     <PageHero
       eyebrow="Recepção e auditoria fiscal"
       title="Central de notas fiscais"
       description="Documento → pedido/recebimento → rateio/retenções → aprovação → conciliação → contador"
       stats={[
-        {label:"Recebidas",value:notas.length,color:C.blue},
-        {label:"Com divergência",value:notas.filter(n=>n.divergencias?.length).length,color:C.red},
-        {label:"Aprovadas",value:notas.filter(n=>n.status==="aprovada").length,color:C.green},
+        {label:"Recebidas",value:notasEscopo.length,color:C.blue},
+        {label:"Com divergência",value:notasEscopo.filter(n=>n.divergencias?.length).length,color:C.red},
+        {label:"Aprovadas",value:notasEscopo.filter(n=>n.status==="aprovada").length,color:C.green},
         {label:"A pagar",value:fmt(valorPendente),color:C.orange},
       ]}
       actions={<Btn onClick={()=>{setSugestoesNota([]);setForm(vazia());}}><Ic n="plus"/> Receber nota</Btn>}
     />
-    <div style={{display:"flex",gap:4,overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"],["rejeitada","Rejeitadas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"6px 9px",border:`1px solid ${filtro===v?C.purple:C.border}`,borderRadius:7,background:filtro===v?`${C.purple}12`:C.card,color:filtro===v?C.purple:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"10px 11px",border:`1px solid ${C.border}`,borderLeft:`1px solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:9,background:C.card}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><b style={{fontSize:"var(--arcd-type-body)"}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {n.documentos.length} arquivo(s) no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>⚠ {d}</p>)}{n.status==="rejeitada"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>Rejeitada por {n.rejeitadoPor||"-"}: {n.motivoRejeicao||"sem motivo registrado"}</p>}<div style={{display:"flex",gap:5,marginTop:7,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn>{n.status==="recebida"&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Aprovar pagamento</Btn>}{["recebida","aprovada"].includes(n.status)&&<Btn size="sm" v="danger" onClick={()=>rejeitar(n)}>Rejeitar</Btn>}{n.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,padding:"6px"}}>{a.legenda||a.nome} ↗</a>)}</div></div>)}{!lista.length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={()=>setForm(null)} wide><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={v=>setForm(f=>({...f,pedidoId:v,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,v)}:{})}))} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:6}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"12px",border:`2px solid ${C.green}66`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.green,fontSize:"var(--arcd-type-label)",fontWeight:600,background:`${C.green}08`}}>Importar XML da NF-e (preenche a nota e confere com o pedido)<input type="file" accept=".xml,text/xml,application/xml" onChange={importarXmlNfe} style={{display:"none"}}/></label>{sugestoesNota.length>1&&<div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Outros pedidos do fornecedor:</span>{sugestoesNota.map(s=><Btn key={s.pedido.id} size="sm" v={form.pedidoId===s.pedido.id?"success":"ghost"} onClick={()=>setForm(f=>({...f,obraId:s.pedido.obraId,pedidoId:s.pedido.id,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,s.pedido.id)}:{})}))}>{s.pedido.numero} · {fmt(s.total)} · {s.casados} item(ns)</Btn>)}</div>}{form.itensNota?.length>0&&(()=>{const ped=(data.pedidos||[]).find(p=>p.id===form.pedidoId);const nomeItem=i=>(data.materiais||[]).find(m=>m.id===i.materialId)?.descricao||i.descricaoRef||"Item";const usados=new Set(form.itensNota.map(i=>i.pedidoItemId).filter(Boolean));return <div style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px",background:C.surface}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Itens da nota × pedido {ped?.numero||""}</p>{form.itensNota.map((it,ix)=>{const itemPed=ped?.itens?.find(x=>x.id===it.pedidoItemId);const divs=it.pedidoItemId?divergenciasDoItem(it,itemPed):[ped?"Sem item correspondente: vincule manualmente.":"Escolha o pedido para conferir."];return <div key={ix} style={{marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:6,alignItems:"center"}}><span className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.text}}><b>{it.descricao}</b><small style={{display:"block",color:C.muted}}>{Number(it.qtd).toLocaleString("pt-BR")} {it.unidade} × {fmt(it.precoUnit)} = {fmt(it.valorTotal)}</small></span><Sel label="Item do pedido" value={it.pedidoItemId||""} onChange={v=>setForm(f=>({...f,itensNota:f.itensNota.map((x,k)=>k===ix?{...x,pedidoItemId:v}:x)}))} options={[{v:"",l:"Sem vínculo"},...(ped?.itens||[]).filter(x=>x.id===it.pedidoItemId||!usados.has(x.id)).map(x=>({v:x.id,l:`${nomeItem(x)} · ${Number(x.qtd).toLocaleString("pt-BR")} × ${fmt(x.precoUnit)}`}))]}/>{divs.map((d,k)=><p key={k} style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600}}>⚠ {d}</p>)}</div>;})}{ped&&<p style={{fontSize:"var(--arcd-type-caption)",color:Math.abs(Number(form.valorBruto||0)-totalPedido(ped))>0.01?C.orange:C.green,fontWeight:600,marginTop:6}}>Nota {fmt(Number(form.valorBruto||0))} · pedido {fmt(totalPedido(ped))} · recebido {fmt(recebidoPedido(ped))}. A conferência completa roda ao salvar.</p>}</div>;})()}<label style={{padding:"12px",border:`2px dashed ${C.blue}55`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600}}>{subindo?"Enviando e lendo documento...":form.documentos?.length?"+ Anexar outro XML, PDF ou imagem":"Anexar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:C.blue,textDecoration:"underline"}}>{a.legenda||a.nome} · visualizar no OneDrive ↗</a>)}{pedido&&<div style={{padding:"9px 10px",background:C.surface,borderRadius:8,fontSize:"var(--arcd-type-label)"}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn><Btn onClick={salvar} full>Salvar e conferir</Btn></div></div></Modal>}<ModalLegendaDocumento anexo={anexoFiscal} setAnexo={setAnexoFiscal} onClose={()=>!subindo&&setAnexoFiscal(null)} onSalvar={salvarAnexoFiscal} salvando={subindo} titulo="Legenda do documento fiscal" C={C}/></div>;
+    <Sel label="Obra" value={obraIdFiltro} onChange={onObraChange} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><div style={{display:"flex",gap:4,overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"],["rejeitada","Rejeitadas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"6px 9px",border:`1px solid ${filtro===v?C.purple:C.border}`,borderRadius:7,background:filtro===v?`${C.purple}12`:C.card,color:filtro===v?C.purple:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"10px 11px",border:`1px solid ${C.border}`,borderLeft:`1px solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:9,background:C.card}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><b style={{fontSize:"var(--arcd-type-body)"}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {n.documentos.length} arquivo(s) no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>⚠ {d}</p>)}{n.status==="rejeitada"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>Rejeitada por {n.rejeitadoPor||"-"}: {n.motivoRejeicao||"sem motivo registrado"}</p>}<div style={{display:"flex",gap:5,marginTop:7,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:`Nota ${n.numero}`,items:[financialEntry(data,{sourceType:"nota_fiscal",sourceId:n.id,obraId:n.obraId,amountCents:Math.round(Number(n.valorLiquido||n.valorBruto||0)*100)})],context:"Documento fiscal e dados vinculados"})}>Ver memorial</Btn>{n.status==="recebida"&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Aprovar pagamento</Btn>}{["recebida","aprovada"].includes(n.status)&&<Btn size="sm" v="danger" onClick={()=>rejeitar(n)}>Rejeitar</Btn>}{n.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,padding:"6px"}}>{a.legenda||a.nome} ↗</a>)}</div></div>)}{!lista.length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={()=>setForm(null)} wide panelClass="invoice-conference-modal"><InvoiceConference documents={form.documentos||[]} driveId={(data.obras||[]).find(obra=>obra.id===(notas.find(nota=>nota.id===form.id)?.obraId||form.obraId))?.oneDriveDriveId} resolveFile={obterLinkArquivoOneDrive}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={v=>setForm(f=>({...f,pedidoId:v,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,v)}:{})}))} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:6}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"12px",border:`2px solid ${C.green}66`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.green,fontSize:"var(--arcd-type-label)",fontWeight:600,background:`${C.green}08`}}>Importar XML da NF-e (preenche a nota e confere com o pedido)<input type="file" accept=".xml,text/xml,application/xml" onChange={importarXmlNfe} style={{display:"none"}}/></label>{sugestoesNota.length>1&&<div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Outros pedidos do fornecedor:</span>{sugestoesNota.map(s=><Btn key={s.pedido.id} size="sm" v={form.pedidoId===s.pedido.id?"success":"ghost"} onClick={()=>setForm(f=>({...f,obraId:s.pedido.obraId,pedidoId:s.pedido.id,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,s.pedido.id)}:{})}))}>{s.pedido.numero} · {fmt(s.total)} · {s.casados} item(ns)</Btn>)}</div>}{form.itensNota?.length>0&&(()=>{const ped=(data.pedidos||[]).find(p=>p.id===form.pedidoId);const nomeItem=i=>(data.materiais||[]).find(m=>m.id===i.materialId)?.descricao||i.descricaoRef||"Item";const usados=new Set(form.itensNota.map(i=>i.pedidoItemId).filter(Boolean));return <div style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px",background:C.surface}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Itens da nota × pedido {ped?.numero||""}</p>{form.itensNota.map((it,ix)=>{const itemPed=ped?.itens?.find(x=>x.id===it.pedidoItemId);const divs=it.pedidoItemId?divergenciasDoItem(it,itemPed):[ped?"Sem item correspondente: vincule manualmente.":"Escolha o pedido para conferir."];return <div key={ix} style={{marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:6,alignItems:"center"}}><span className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.text}}><b>{it.descricao}</b><small style={{display:"block",color:C.muted}}>{Number(it.qtd).toLocaleString("pt-BR")} {it.unidade} × {fmt(it.precoUnit)} = {fmt(it.valorTotal)}</small></span><Sel label="Item do pedido" value={it.pedidoItemId||""} onChange={v=>setForm(f=>({...f,itensNota:f.itensNota.map((x,k)=>k===ix?{...x,pedidoItemId:v}:x)}))} options={[{v:"",l:"Sem vínculo"},...(ped?.itens||[]).filter(x=>x.id===it.pedidoItemId||!usados.has(x.id)).map(x=>({v:x.id,l:`${nomeItem(x)} · ${Number(x.qtd).toLocaleString("pt-BR")} × ${fmt(x.precoUnit)}`}))]}/>{divs.map((d,k)=><p key={k} style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600}}>⚠ {d}</p>)}</div>;})}{ped&&<p style={{fontSize:"var(--arcd-type-caption)",color:Math.abs(Number(form.valorBruto||0)-totalPedido(ped))>0.01?C.orange:C.green,fontWeight:600,marginTop:6}}>Nota {fmt(Number(form.valorBruto||0))} · pedido {fmt(totalPedido(ped))} · recebido {fmt(recebidoPedido(ped))}. A conferência completa roda ao salvar.</p>}</div>;})()}<label style={{padding:"12px",border:`2px dashed ${C.blue}55`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600}}>{subindo?"Enviando e lendo documento...":form.documentos?.length?"+ Anexar outro XML, PDF ou imagem":"Anexar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:C.blue,textDecoration:"underline"}}>{a.legenda||a.nome} · visualizar no OneDrive ↗</a>)}{pedido&&<div style={{padding:"9px 10px",background:C.surface,borderRadius:8,fontSize:"var(--arcd-type-label)"}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn><Btn onClick={salvar} full>Salvar e conferir</Btn></div></div></InvoiceConference></Modal>}{xmlPreview&&<Modal title="Prévia da importação XML" wide onClose={()=>setXmlPreview(null)}><FinancialPreview
+      description={`${xmlPreview.filename}. Aplicar preenche a ficha aberta; não salva nem cria uma nota fiscal.`}
+      columns={["Campo","Na ficha","Do XML / proposta"]}
+      rows={[["Número","numero"],["Série","serie"],["Chave","chave"],["Fornecedor","fornecedorNome"],["CNPJ / CPF","documentoFornecedor"],["Emissão","emissao"],["Vencimento","vencimento"],["Valor bruto","valorBruto"],["Valor líquido após retenções","valorLiquido"],["Pedido","pedidoId"]].map(([label,key])=>({id:key,cells:[label,xmlPreviewValue(key,xmlPreview.before[key]),xmlPreviewValue(key,xmlPreview.proposed[key])]}))}
+      error={xmlPreview.error||(xmlConflicts.duplicate?`Já existe uma nota ativa com esta chave: ${xmlConflicts.duplicate.numero}. Use o cadastro existente.`:"")}
+      disabled={Boolean(xmlConflicts.duplicate)||(xmlConflicts.similar.length>0&&!xmlPreview.acknowledged)}
+      onCancel={()=>setXmlPreview(null)} onConfirm={aplicarPreviaXml} confirmLabel="Aplicar XML à ficha">
+      <p>{xmlPreview.proposed.itensNota?.length||0} item(ns) · {xmlPreview.proposed.fornecedorId?"Fornecedor localizado no cadastro":"Fornecedor não localizado; confira o cadastro"}. Nenhum fornecedor será criado automaticamente.</p>
+      {xmlConflicts.duplicate&&<Btn onClick={()=>{const existing=xmlConflicts.duplicate;setForm({...existing,valorBruto:String(existing.valorBruto),valorLiquido:String(existing.valorLiquido)});setSugestoesNota([]);setXmlPreview(null);}}>Abrir nota já cadastrada</Btn>}
+      {xmlConflicts.similar.length>0&&<label><input type="checkbox" checked={xmlPreview.acknowledged} onChange={event=>setXmlPreview(current=>({...current,acknowledged:event.target.checked}))}/> Revisei {xmlConflicts.similar.length} possível(is) duplicidade(s) por fornecedor, série e número: {xmlConflicts.similar.map(invoice=>invoice.numero).join(", ")}</label>}
+    </FinancialPreview></Modal>}<ModalLegendaDocumento anexo={anexoFiscal} setAnexo={setAnexoFiscal} onClose={()=>!subindo&&setAnexoFiscal(null)} onSalvar={salvarAnexoFiscal} salvando={subindo} titulo="Legenda do documento fiscal" C={C}/></div>;
 }
 
 export function LinksDocumentosAuditaveis({documentos=[],onSelecionar,subindo=false,C=C_ARCD_SETOR}){
@@ -5239,9 +5305,9 @@ export function ModalLegendaDocumento({anexo,setAnexo,onClose,onSalvar,salvando=
   </div></Modal>;
 }
 
-function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAbrirFiscal,dispatchCommand,C=C_ARCD_SETOR}){
+function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAbrirFiscal,dispatchCommand,obraId="all",onObraChange,onMemorial,C=C_ARCD_SETOR}){
   const {cols,formGrid}=useBreakpoint();
-  const [obraId,setObraId]=useState("all");
+  const setObraId=onObraChange;
   const [filtro,setFiltro]=useState("fila");
   const [busca,setBusca]=useState("");
   const [pagamento,setPagamento]=useState(null);
@@ -5299,6 +5365,16 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
     {label:"Vencido",valor:totalVencido,cor:C.red,apoio:`${contasPagar.items.filter(item=>item.status==="vencido").length} vencida(s)`},
     {label:"A conciliar",valor:semConciliar,cor:C.orange,apoio:`${totalAConciliar} pagamento(s)`},
   ];
+  const openPaymentMetric=label=>{
+    let items;
+    if(label==="A conciliar")items=saidasPendentesConciliacao.map(e=>financialEntry(data,e));
+    else {let positions=contasPagar.items;
+      if(label==="Autorizado a pagar")positions=positions.filter(p=>p.sourceType==="nota_fiscal"&&notasAutorizadas.has(String(p.sourceId)));
+      if(label==="Vencido")positions=positions.filter(p=>p.status==="vencido");
+      items=positionEntries(data,{items:positions});
+    }
+    onMemorial?.({title:label,items,context:`Posição em ${today()} · ${obraId==="all"?"Todas as obras":obraNome(obraId)}`});
+  };
   const etapasFluxo=[
     {numero:1,label:"Pedidos",valor:totalPedidosEscopo,cor:C.text,filtro:"todas"},
     {numero:2,label:"Sem NF",valor:semNota,cor:C.purple,filtro:"sem_nota"},
@@ -5361,13 +5437,13 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
       </>}
     />
 
-    <section aria-label="Resumo financeiro" style={{display:"grid",gridTemplateColumns:cols(2,2,4),gap:7}}>{resumoFinanceiro.map(kpi=><div key={kpi.label} style={{position:"relative",overflow:"hidden",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"10px 11px",boxShadow:C.shHair}}><i style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:kpi.cor}}/><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.45}}>{kpi.label}</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:kpi.cor,marginTop:3,lineHeight:1}}>{fmt(kpi.valor)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>{kpi.apoio}</p></div>)}</section>
+    <section aria-label="Resumo financeiro" style={{display:"grid",gridTemplateColumns:cols(2,2,4),gap:7}}>{resumoFinanceiro.map(kpi=><div key={kpi.label} style={{position:"relative",overflow:"hidden",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"10px 11px",boxShadow:C.shHair}}><i style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:kpi.cor}}/><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.45}}><button type="button" className="financial-kpi-link" onClick={()=>openPaymentMetric(kpi.label)}>{kpi.label}</button></p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:kpi.cor,marginTop:3,lineHeight:1}}>{fmt(kpi.valor)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>{kpi.apoio}</p></div>)}</section>
 
     <section aria-label="Etapas do fluxo de pagamento" style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"9px 10px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:7}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text,textTransform:"uppercase",letterSpacing:.45}}>Fluxo de pagamento</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Selecione uma etapa para filtrar a fila.</p></div><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{obraId==="all"?"Todas as obras":obraNome(obraId)}</span></div><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:5}}>{etapasFluxo.map(etapa=>{const ativo=filtro===etapa.filtro||(etapa.numero===1&&filtro==="fila");return <button key={etapa.numero} type="button" onClick={()=>setFiltro(etapa.numero===1?"fila":etapa.filtro)} aria-pressed={ativo} style={{position:"relative",border:`1px solid ${ativo?etapa.cor:C.line}`,borderRadius:7,background:ativo?`${etapa.cor}0D`:C.card,padding:"7px 8px",textAlign:"left",cursor:"pointer",minWidth:0}}><span style={{display:"block",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:ativo?etapa.cor:C.muted}}>ETAPA {etapa.numero}</span><span style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:5,marginTop:2}}><b style={{fontSize:"var(--arcd-type-caption)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{etapa.label}</b><strong style={{fontSize:"var(--arcd-type-body)",color:etapa.cor}}>{etapa.valor}</strong></span></button>;})}</div></section>
 
     <section aria-label="Fila de pagamentos" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px",boxShadow:C.shHair}}><div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",marginBottom:8}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Fila de obrigações</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Prioridade por vencimento, aprovação e conciliação.</p></div><span style={{padding:"3px 7px",borderRadius:99,background:C.surface,border:`1px solid ${C.border}`,fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text,whiteSpace:"nowrap"}}>{visiveis.length} resultado(s)</span></div><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:7}}><Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...obras.map(o=>({v:o.id,l:o.name}))]}/><Sel label="Situação" value={filtro} onChange={setFiltro} options={[{v:"fila",l:"Fila operacional"},{v:"vencidas",l:"Vencidas"},{v:"autorizadas",l:"Autorizadas a pagar"},{v:"conferencia",l:"Em conferência"},{v:"sem_nota",l:"Pedidos sem NF"},{v:"conciliar",l:"Pagos a conciliar"},{v:"pagas",l:"Pagas"},{v:"todas",l:"Todas"}]}/><Inp label="Pesquisar" value={busca} onChange={setBusca} placeholder="NF, pedido, fornecedor ou obra"/></div></section>
 
-    <div style={{display:"flex",flexDirection:"column",gap:7}}>{visiveis.map(item=>{const ev=estadoVisual[item.estado]||estadoVisual.conferencia,semConc=item.pagamentos.some(pg=>!pg.conciliado),vencida=item.estado==="vencida";return <article key={item.id} style={{background:C.card,border:`1px solid ${vencida?`${C.red}77`:C.border}`,borderLeft:`1px solid ${ev.c}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"start",padding:"10px 11px"}}><div style={{minWidth:0}}><div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}><Badge color={ev.c}>{ev.l}</Badge><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.tipo==="nota"?C.blue:C.purple}}>{item.tipo==="nota"?"DOCUMENTO FISCAL":"PEDIDO SEM NF"}</span>{semConc&&<Badge color={C.orange}>A CONCILIAR</Badge>}</div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:5,overflowWrap:"anywhere"}}>{item.numero} · {item.fornecedor}</p><div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",marginTop:4,fontSize:"var(--arcd-type-caption)",color:C.muted}}><span><b style={{color:C.text}}>Obra:</b> {obraNome(item.obraId)}</span><span><b style={{color:C.text}}>Emissão:</b> {item.emissao?fmtDate(item.emissao):"-"}</span><span style={{color:vencida?C.red:C.muted}}><b style={{color:vencida?C.red:C.text}}>Vencimento:</b> {item.vencimento?fmtDate(item.vencimento):"não informado"}</span></div></div><div style={{minWidth:105,textAlign:"right",background:C.surface,border:`1px solid ${C.line}`,borderRadius:7,padding:"7px 8px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{item.saldo>.01?"Saldo a pagar":"Total pago"}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:item.saldo>.01?C.red:C.green,marginTop:2}}>{fmt(item.saldo>.01?item.saldo:item.total)}</p>{item.saldo>.01&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>de {fmt(item.total)}</p>}</div></div>{item.estado==="sem_nota"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.purple}0B`,color:C.purple,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Documento fiscal ainda não vinculado. Pagamentos antecipados permanecem sinalizados para auditoria.</div>}{item.estado==="conferencia"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.blue}0B`,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Aguardando conferência do pedido, recebimento, valores, retenções e rateio.</div>}{item.pagamentos.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",padding:"0 11px 8px"}}>{item.pagamentos.map(pg=><span key={pg.id} style={{fontSize:"var(--arcd-type-caption)",color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0B`:`${C.orange}0B`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 7px"}}>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"pendente"}{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,marginLeft:5,fontWeight:600}}>comprovante ↗</a>)}</span>)}</div>}<footer style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",padding:"7px 11px",borderTop:`1px solid ${C.line}`,background:C.surface}}><div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",minWidth:0}}>{item.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:600,textDecoration:"none"}}><Ic n="file" s={11}/>{a.legenda||a.nome} ↗</a>)}{!item.documentos.length&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600}}>SEM DOCUMENTO ANEXO</span>}</div><span style={{flex:1}}/>{item.estado==="sem_nota"&&<Btn size="sm" v="ghost" onClick={onNovaNota}>Cadastrar NF</Btn>}{item.estado==="conferencia"&&<Btn size="sm" v="ghost" onClick={onAbrirFiscal}>Conferir NF</Btn>}{item.saldo>.01&&item.estado!=="conferencia"&&<Btn size="sm" onClick={()=>abrirPagamento(item)}><Ic n="receipt"/> Realizar pagamento</Btn>}</footer></article>;})}{!visiveis.length&&<div style={{padding:"28px 16px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:6}}>Nenhuma obrigação neste filtro</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A fila está atualizada com os pedidos e documentos fiscais cadastrados.</p></div>}</div>
+    <div style={{display:"flex",flexDirection:"column",gap:7}}>{visiveis.map(item=>{const ev=estadoVisual[item.estado]||estadoVisual.conferencia,semConc=item.pagamentos.some(pg=>!pg.conciliado),vencida=item.estado==="vencida";return <article key={item.id} style={{background:C.card,border:`1px solid ${vencida?`${C.red}77`:C.border}`,borderLeft:`1px solid ${ev.c}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"start",padding:"10px 11px"}}><div style={{minWidth:0}}><div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}><Badge color={ev.c}>{ev.l}</Badge><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.tipo==="nota"?C.blue:C.purple}}>{item.tipo==="nota"?"DOCUMENTO FISCAL":"PEDIDO SEM NF"}</span>{semConc&&<Badge color={C.orange}>A CONCILIAR</Badge>}</div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:5,overflowWrap:"anywhere"}}>{item.numero} · {item.fornecedor}</p><div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",marginTop:4,fontSize:"var(--arcd-type-caption)",color:C.muted}}><span><b style={{color:C.text}}>Obra:</b> {obraNome(item.obraId)}</span><span><b style={{color:C.text}}>Emissão:</b> {item.emissao?fmtDate(item.emissao):"-"}</span><span style={{color:vencida?C.red:C.muted}}><b style={{color:vencida?C.red:C.text}}>Vencimento:</b> {item.vencimento?fmtDate(item.vencimento):"não informado"}</span></div></div><div style={{minWidth:105,textAlign:"right",background:C.surface,border:`1px solid ${C.line}`,borderRadius:7,padding:"7px 8px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{item.saldo>.01?"Saldo a pagar":"Total pago"}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:item.saldo>.01?C.red:C.green,marginTop:2}}>{fmt(item.saldo>.01?item.saldo:item.total)}</p>{item.saldo>.01&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>de {fmt(item.total)}</p>}</div></div>{item.estado==="sem_nota"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.purple}0B`,color:C.purple,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Documento fiscal ainda não vinculado. Pagamentos antecipados permanecem sinalizados para auditoria.</div>}{item.estado==="conferencia"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.blue}0B`,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Aguardando conferência do pedido, recebimento, valores, retenções e rateio.</div>}{item.pagamentos.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",padding:"0 11px 8px"}}>{item.pagamentos.map(pg=><span key={pg.id} style={{fontSize:"var(--arcd-type-caption)",color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0B`:`${C.orange}0B`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 7px"}}>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"pendente"}{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,marginLeft:5,fontWeight:600}}>comprovante ↗</a>)}</span>)}</div>}<footer style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",padding:"7px 11px",borderTop:`1px solid ${C.line}`,background:C.surface}}><div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",minWidth:0}}>{item.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:600,textDecoration:"none"}}><Ic n="file" s={11}/>{a.legenda||a.nome} ↗</a>)}{!item.documentos.length&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600}}>SEM DOCUMENTO ANEXO</span>}</div><span style={{flex:1}}/><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:item.numero,items:[{...financialEntry(data,{sourceType:item.tipo==="nota"?"nota_fiscal":"pedido",sourceId:item.registro.id,obraId:item.obraId,amountCents:Math.round(item.total*100)}),metadata:{saldo:item.saldo,vencimento:item.vencimento}}],context:"Documento e histórico de pagamentos"})}>Ver memorial</Btn>{item.estado==="sem_nota"&&<Btn size="sm" v="ghost" onClick={onNovaNota}>Cadastrar NF</Btn>}{item.estado==="conferencia"&&<Btn size="sm" v="ghost" onClick={onAbrirFiscal}>Conferir NF</Btn>}{item.saldo>.01&&item.estado!=="conferencia"&&<Btn size="sm" onClick={()=>abrirPagamento(item)}><Ic n="receipt"/> Realizar pagamento</Btn>}</footer></article>;})}{!visiveis.length&&<div style={{padding:"28px 16px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:6}}>Nenhuma obrigação neste filtro</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A fila está atualizada com os pedidos e documentos fiscais cadastrados.</p></div>}</div>
     {pagamento&&<Modal title={`Realizar pagamento · ${pagamento.item.numero}`} onClose={()=>!salvando&&setPagamento(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,padding:"9px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>Total</p><b style={{fontSize:"var(--arcd-type-body)"}}>{fmt(pagamento.item.total)}</b></div><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>Saldo</p><b style={{fontSize:"var(--arcd-type-body)",color:C.red}}>{fmt(pagamento.item.saldo)}</b></div></div><Sel label="Origem real do pagamento *" value={pagamento.origem} onChange={v=>setPagamento(f=>({...f,origem:v,transacaoId:v==="empresa"?f.transacaoId:"",conciliado:v==="empresa"?f.conciliado:false}))} options={[{v:"empresa",l:"Conta bancária da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente pagou diretamente"}]}/>{pagamento.origem==="caixa_obra"&&(()=>{const cx=situacaoCaixaObra(data,pagamento.item.obraId),valor=Number(String(pagamento.valor||"").replace(",","."))||0,projetado=cx.saldo-valor,negativo=projetado<-.001,baixo=!negativo&&projetado<=cx.limiteBaixo,ativa=!!obras.find(o=>o.id===pagamento.item.obraId)?.hasCaixa;return <div style={{padding:"9px 10px",border:`1px solid ${!ativa||negativo?C.red:baixo?C.orange:C.green}`,borderRadius:8,background:!ativa||negativo?`${C.red}0B`:baixo?`${C.orange}0B`:`${C.green}0B`}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>{[["Disponível",cx.saldo],["Após pagar",projetado],["Reserva",cx.limiteBaixo]].map(([l,v])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><b style={{fontSize:"var(--arcd-type-label)",color:v<0?C.red:C.text}}>{fmt(v)}</b></div>)}</div>{!ativa&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:6}}>Caixa não ativado para esta obra.</p>}{negativo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:6}}>Bloqueado: o caixa ficaria negativo.</p>}{baixo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600,marginTop:6}}>Alerta: o saldo ficará abaixo da reserva recomendada.</p>}</div>;})()}<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}><Inp label="Valor pago *" type="number" value={pagamento.valor} onChange={v=>setPagamento(f=>({...f,valor:v}))}/><Inp label="Data *" type="date" value={pagamento.data} onChange={v=>setPagamento(f=>({...f,data:v}))}/></div>{pagamento.origem==="empresa"&&<Sel label="Transação bancária para conciliar" value={pagamento.transacaoId} onChange={v=>setPagamento(f=>({...f,transacaoId:v,conciliado:!!v}))} options={[{v:"",l:"Vincular depois na conciliação"},...transacoesDisponiveis.map(t=>({v:t.id,l:`${fmtDate(t.data)} · ${fmt(Math.abs(Number(t.valor||0)))} · ${t.descricao||"Saída bancária"}`}))]}/>}<Inp label="Referência do pagamento" value={pagamento.referencia} onChange={v=>setPagamento(f=>({...f,referencia:v}))} placeholder="PIX, boleto, TED ou identificação"/><label style={{padding:"11px",border:`1.5px dashed ${pagamento.comprovanteFile?C.green:C.blue}66`,borderRadius:8,textAlign:"center",cursor:"pointer",background:pagamento.comprovanteFile?`${C.green}08`:C.surface}}><b style={{fontSize:"var(--arcd-type-label)",color:pagamento.comprovanteFile?C.green:C.blue}}>{pagamento.comprovanteFile?pagamento.comprovanteFile.name:"Anexar comprovante"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>PDF ou imagem · salvo no diretório financeiro da obra</p><input type="file" accept=".pdf,image/jpeg,image/png,image/webp" style={{display:"none"}} onChange={e=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(file.size>5.5*1024*1024){showToast("O comprovante deve ter no máximo 5,5 MB.","error");return;}setPagamento(f=>({...f,comprovanteFile:file,comprovanteLegenda:String(file.name||"").replace(/\.[^.]+$/,"" )}));}}/></label>{pagamento.comprovanteFile&&<Inp label="Legenda do comprovante" value={pagamento.comprovanteLegenda} onChange={v=>setPagamento(f=>({...f,comprovanteLegenda:v}))}/>}<label style={{display:"flex",gap:7,alignItems:"center",fontSize:"var(--arcd-type-label)",color:C.text}}><input type="checkbox" checked={!!pagamento.conciliado} onChange={e=>setPagamento(f=>({...f,conciliado:e.target.checked}))}/><span>Pagamento já conferido e conciliado</span></label><Inp label="Observação" value={pagamento.observacao} onChange={v=>setPagamento(f=>({...f,observacao:v}))} multiline/><div style={{display:"flex",gap:7}}><Btn v="ghost" full onClick={()=>setPagamento(null)} disabled={salvando}>Cancelar</Btn><Btn full onClick={registrarPagamento} disabled={salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Confirmar pagamento"}</Btn></div></div></Modal>}
   </div>;
 }
@@ -5537,7 +5613,7 @@ function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
   </div>;
 }
 
-function FechamentoFinanceiroMensal({data,update,showToast,currentUser,C=C_ARCD_SETOR}){
+function FechamentoFinanceiroMensal({data,update,showToast,currentUser,onMemorial,onDocuments,C=C_ARCD_SETOR}){
   const agora=new Date();
   const [competencia,setCompetencia]=useState(`${agora.getFullYear()}-${String(agora.getMonth()+1).padStart(2,"0")}`);
   const [processando,setProcessando]=useState(false);
@@ -5561,18 +5637,20 @@ function FechamentoFinanceiroMensal({data,update,showToast,currentUser,C=C_ARCD_
   const fechamentos=(data.fechamentosFinanceiros||[]).slice().sort((a,b)=>String(b.competencia).localeCompare(String(a.competencia)));
   const snap=previa.ok?previa.closing.snapshot:null;
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:10}}>
-    <PageHero eyebrow="Fechamento contábil" title="Fechamento mensal imutável" description="Confere DRE, caixa, posições e IDs do razão antes de bloquear novas liquidações no período." actions={<Btn v="success" onClick={fechar} disabled={processando||!previa.ok}>{processando?"Fechando...":"Fechar competência"}</Btn>}/>
-    <div style={{display:"grid",gridTemplateColumns:"minmax(180px,240px) 1fr",gap:8,alignItems:"end"}}>
+    <PageHero eyebrow="Fechamento contábil" title="Fechamento mensal imutável" description="Selecione a competência e confira os valores e as pendências antes de fechar o período."/>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,240px),1fr))",gap:8,alignItems:"end"}}>
       <Inp label="Competência" type="month" value={competencia} onChange={setCompetencia}/>
       <div style={{padding:"9px 11px",border:`1px solid ${previa.ok?C.green:C.red}`,borderRadius:8,background:previa.ok?`${C.green}08`:`${C.red}08`}}>
-        <b style={{fontSize:"var(--arcd-type-label)",color:previa.ok?C.green:C.red}}>{previa.ok?"Conferência pronta para fechamento":previa.error}</b>
+        <b style={{fontSize:"var(--arcd-type-label)",color:previa.ok?C.green:C.red}}>{previa.ok?"Motor financeiro sem divergências. Confira separadamente a documentação abaixo.":previa.error}</b>
       </div>
     </div>
+    <ClosingPending data={data} competence={competencia} conference={previa.conference} onOpen={onMemorial} onDocuments={()=>onDocuments(competencia)}/>
     {snap&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(145px,1fr))",gap:6}}>{[
       ["Receita",snap.revenueCents],["Custos",snap.costCents],["Resultado",snap.resultCents],
       ["Entradas",snap.cashInCents],["Saídas",snap.cashOutCents],["A receber",snap.receivableCents],
       ["A pagar",snap.payableCents],["Comprometido",snap.commitmentCents],
     ].map(([label,cents])=><div key={label} style={{padding:"9px 10px",background:C.card,border:`1px solid ${C.border}`,borderRadius:8}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>{label}</p><b style={{fontSize:"var(--arcd-type-card-title)",color:C.text}}>{fmt(Number(cents||0)/100)}</b></div>)}</div>}
+    <div className="financial-closing__action"><p>Competência a fechar: <strong>{competencia}</strong>. Confira o memorial e as pendências antes de confirmar.</p><Btn v="success" onClick={fechar} disabled={processando||!previa.ok}>{processando?"Fechando...":"Fechar competência"}</Btn></div>
     <div style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
       <div style={{padding:"8px 11px",background:C.surface}}><b style={{fontSize:"var(--arcd-type-label)"}}>Competências fechadas</b></div>
       {!fechamentos.length?<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum fechamento mensal registrado.</p>:fechamentos.map(item=><div key={item.id} style={{display:"grid",gridTemplateColumns:"120px minmax(0,1fr) auto",gap:8,padding:"9px 11px",borderTop:`1px solid ${C.line}`,alignItems:"center"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{item.competencia}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Fechado por {item.fechadoPor||"Administrador"} · {item.snapshot?.eventCount||0} evento(s) congelados</span><Badge color={C.green}>FECHADO</Badge></div>)}
@@ -5580,17 +5658,49 @@ function FechamentoFinanceiroMensal({data,update,showToast,currentUser,C=C_ARCD_
   </div>;
 }
 
-function Financeiro({ data, update, showToast, currentUser, dispatchCommand=async()=>({ok:false,reason:"Comandos financeiros indisponíveis."}), C=C_ARCD_SETOR }) {
-  const [areaFinanceira,setAreaFinanceira]=useState(()=>currentUser?.role==="financeiro"?"pagamentos":"visao");
+function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatchCommand=async()=>({ok:false,reason:"Comandos financeiros indisponíveis."}), C=C_ARCD_SETOR }) {
+  const {intent,rememberScope}=useWorkflow();
+  const useSessionState=(key,initial)=>useWorkspaceState("fin",key,initial);
+  useWorkspaceScroll("fin");
+  const [areaFinanceira,setAreaFinanceira]=useSessionState("areaFinanceira","hoje");
+  const [todayQueue,setTodayQueue]=useSessionState("todayQueue","payToday");
+  const [documentView,setDocumentView]=useSessionState("documentView",{query:"",filter:"all",selected:null});
+  const [costReviewView,setCostReviewView]=useSessionState("costReviewView",{});
+  const [cashScenario,setCashScenario]=useSessionState("cashScenario",{days:30,opening:"",delay:0,overdue:false});
+  const [reportView,setReportView]=useSessionState("reportView",()=>{const date=today(),month=date.slice(0,7);return {kind:"result",group:"work",start:month+"-01",end:new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).toISOString().slice(0,10),asOf:date,direction:"all",category:"all",account:"all",status:"all",query:"",includeUndated:false};});
+  const [documentReturn,setDocumentReturn]=useState(null);
+  const [fiscalReturn,setFiscalReturn]=useState(false);
+  const positionToRestore=useRef(null);
+  useEffect(()=>{
+    if(!positionToRestore.current)return;
+    const positions=positionToRestore.current;positionToRestore.current=null;
+    restoreFinancePosition(positions);
+  });
   const [abrirCadastroFiscal,setAbrirCadastroFiscal]=useState(false);
+  const [notaParaConferir,setNotaParaConferir]=useState("");
+  const [documentMonth,setDocumentMonth]=useSessionState("documentMonth",()=>today().slice(0,7));
+  const confirmarNotaAberta=useCallback(()=>setNotaParaConferir(""),[]);
+  const conferirNota=id=>{setFiscalReturn(areaFinanceira==="documentos"?{obraId:filterObra,positions:captureFinancePosition(document.querySelector('.document-center'))}:null);setNotaParaConferir(id);setAbrirCadastroFiscal(false);setAreaFinanceira("fiscal");};
   const abrirNovaNota=useCallback(()=>{setAbrirCadastroFiscal(true);setAreaFinanceira("fiscal");},[]);
   const abrirFiscal=useCallback(()=>{setAbrirCadastroFiscal(false);setAreaFinanceira("fiscal");},[]);
   const confirmarAberturaFiscal=useCallback(()=>setAbrirCadastroFiscal(false),[]);
+  useEffect(()=>{
+    if(intent?.tabId!=="fin"||intent.action!=="review-purchase-invoice"||!['admin','financeiro'].includes(currentUser?.role)||!podeAcessarAba(currentUser,'fin'))return;
+    const invoice=(data.notasFiscais||[]).find(n=>String(n.id)===String(intent.record?.invoiceId)&&String(n.obraId)===String(intent.scope?.obraId)&&(!currentUser.obraId||String(n.obraId)===String(currentUser.obraId))&&!n.deletedAt&&n.ativo!==false&&!['cancelada','cancelado','estornada','estornado'].includes(n.status));
+    if(invoice&&financeNextAction(data,{sourceType:'nota_fiscal',sourceId:invoice.id,obraId:invoice.obraId},currentUser)){setNotaParaConferir(invoice.id);setAbrirCadastroFiscal(false);setAreaFinanceira('fiscal');}
+  },[intent?.sequence]);
   const now = new Date();
-  const [year,  setYear]  = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth());
-  const [filterObra, setFilterObra] = useState("all");
-  const [expanded, setExpanded] = useState(null);
+  const [year,  setYear]  = useSessionState("year",now.getFullYear());
+  const [month, setMonth] = useSessionState("month",now.getMonth());
+  const [filterObra, setFilterObra] = useSessionState("filterObra","all");
+  useEffect(()=>{rememberScope?.("fin",{obraId:filterObra==="all"?"":filterObra,year,month,period:"mes"});},[filterObra,year,month,rememberScope]);
+  useEffect(()=>{
+    if(intent?.tabId!=="fin"||intent.action==="resume")return;
+    setFilterObra(currentUser?.obraId||intent.scope?.obraId||"all");
+    if(intent.scope?.year!=null)setYear(intent.scope.year);
+    if(intent.scope?.month!=null)setMonth(intent.scope.month);
+  },[intent?.sequence]);
+  const [expanded, setExpanded] = useSessionState("expanded",null);
   const [payModal, setPayModal] = useState(false);
   const [paymentCommandPending,setPaymentCommandPending]=useState(false);
   const [payForm, setPayForm] = useState({ obraId:"", date:today(), amount:"", description:"" });
@@ -5607,6 +5717,34 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
   const T = financialView.summary;
   const totalMarginPct = T.marginPct;
   const allPayments = financialView.receipts;
+  const [memorial,setMemorial]=useState(null);
+  const currentDate=today();
+  const queues=useMemo(()=>todayQueues(data,financialView.selected.ledger,filterObra,currentDate),[data,financialView,filterObra,currentDate]);
+  const openMetric=key=>setMemorial({title:({result:"Resultado",revenue:"Receita reconhecida",costs:"Custos incorridos",cashIn:"Entradas de caixa",cashOut:"Saídas de caixa",receivable:"Contas a receber",payable:"Contas a pagar"})[key],items:overviewEntries(data,financialView.selected,filterObra,key),totalCents:Math.round(T[key]*100),context:`${fullMonth(month)} ${year} · ${filterObra==="all"?"Todas as obras":data.obras.find(o=>o.id===filterObra)?.name} · ${["receivable","payable"].includes(key)?"Posição acumulada até o fim do mês":["cashIn","cashOut"].includes(key)?"Data do movimento":"Competência"}`});
+  const openSecondaryMetric=index=>{
+    const titles=["Custos comprometidos","Recebimentos não alocados","Pagamentos não alocados","Estornos e cancelamentos"];
+    const keys=["committed","unallocatedReceipts","unallocatedPayments","reversals"];
+    const movements=selectFinancialMovements(financialView.selected.ledger,{...(filterObra==="all"?{}:{obraId:filterObra}),startDate:financialView.selected.per0,endDate:financialView.selected.perF});
+    const items=index===0?overviewEntries(data,financialView.selected,filterObra,"committed"):movements.filter(e=>index===3?["revenue_reversal","cost_reversal"].includes(e.natureza):e.unallocated&&e.natureza===(index===1?"cash_in":"cash_out")).map(e=>financialEntry(data,e));
+    setMemorial({title:titles[index],items,totalCents:Math.round(T[keys[index]]*100),context:`${fullMonth(month)} ${year} · ${index===0?"Compromissos acumulados até o fim do mês":index===3?"Estornos financeiros no período; cancelamentos sem efeito não compõem o valor":"Data do movimento"}`});
+  };
+  const stageLedger=useMemo(()=>areaFinanceira==="etapas"?calcLedgerAcumulado(data,(data.obras||[]).filter(w=>filterObra==="all"||w.id===filterObra).map(w=>w.id),Number(currentDate.slice(0,4)),Number(currentDate.slice(5,7))-1):null,[data,filterObra,currentDate,areaFinanceira]);
+  const memorialDocuments=useMemo(()=>memorial?documentRegister(data):[],[data,memorial]);
+  const findMemorialDocument=item=>memorialDocuments.find(row=>row.record.id===item.sourceId&&row.type===({pagamento_nota:"nota_fiscal"}[item.sourceType]||item.sourceType))||memorialDocuments.find(row=>row.type==="nota_fiscal"&&item.invoices?.some(invoice=>invoice.id===row.record.id));
+  const openMemorialDocuments=(item,detail,positions)=>{
+    const row=findMemorialDocument(item);if(!row)return;
+    setDocumentReturn({area:areaFinanceira,detail,month:documentMonth,view:documentView,obraId:filterObra,positions,previous:documentReturn});
+    setDocumentMonth(row.period||"");setDocumentView({query:"",filter:"all",selected:row.id});
+    setMemorial(null);setAreaFinanceira("documentos");
+  };
+  const backToMemorial=()=>{
+    positionToRestore.current=documentReturn.positions;
+    setDocumentMonth(documentReturn.month);setDocumentView(documentReturn.view);setFilterObra(documentReturn.obraId);
+    setAreaFinanceira(documentReturn.area);setMemorial(documentReturn.detail);setDocumentReturn(documentReturn.previous||null);
+  };
+  const memorialPanel=memorial?<FinancialMemorial detail={memorial} onClose={()=>setMemorial(null)} onOpenWork={onOpenWork} canOpenDocuments={findMemorialDocument} onDocuments={["admin","financeiro"].includes(currentUser?.role)?openMemorialDocuments:undefined}/>:null;
+  const workFilter=<Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>;
+
 
   // Gráfico: receita vs custo MO por obra
   const chartData = obraRows.map(r=>({
@@ -5703,25 +5841,27 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
   );
 
   const podeAcessarAdministrativoFinanceiro=["admin","financeiro"].includes(currentUser?.role);
-  const abasFinanceiras=[["visao","Visão financeira"],...(podeAcessarAdministrativoFinanceiro?[["pagamentos","Pagamentos"],["administrativo","Administrativo"],["fiscal","Notas fiscais"]]:[]),...(currentUser?.role==="admin"?[["fechamento","Fechamento"],["homologacao","Homologação"]]:[]),["ia","Modo IA"]];
-  const NavegacaoFinanceira=()=> <FlowTabs label="Áreas do financeiro" active={areaFinanceira} onChange={setAreaFinanceira}
-    steps={abasFinanceiras.filter(([id])=>["visao","pagamentos","fiscal","fechamento"].includes(id)).map(([id,label])=>({id,label}))}
-    tools={abasFinanceiras.filter(([id])=>!["visao","pagamentos","fiscal","fechamento"].includes(id)).map(([id,label])=>({id,label}))}/>;
-  if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralPagamentosFinanceiro data={data} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} dispatchCommand={dispatchCommand} C={C}/></div>;
-  if(areaFinanceira==="administrativo"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><FinanceiroAdministrativo data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
-  if(areaFinanceira==="fiscal"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><CentralFiscal data={data} update={update} showToast={showToast} currentUser={currentUser} abrirCadastro={abrirCadastroFiscal} onCadastroAberto={confirmarAberturaFiscal} dispatchCommand={dispatchCommand}/></div>;
-  if(areaFinanceira==="fechamento"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><FechamentoFinanceiroMensal data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
-  if(areaFinanceira==="homologacao"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><HomologacaoFinanceira data={data} showToast={showToast} C={C}/></div>;
-  if(areaFinanceira==="ia")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}><NavegacaoFinanceira/><ModoIADocumento modulo="financeiro" data={data} update={update} showToast={showToast} currentUser={currentUser} onClose={()=>setAreaFinanceira("fiscal")} dispatchCommand={dispatchCommand}/></div>;
+  const abasFinanceiras=[["hoje","Hoje"],["visao","Visão financeira"],...(podeAcessarAdministrativoFinanceiro?[["etapas","Custos por etapa"],["documentos","Documentos"],["relatorios","Relatórios financeiros"],["pagamentos","Pagamentos"],["administrativo","Administrativo"],["fiscal","Notas fiscais"]]:[]),...(currentUser?.role==="admin"?[["fechamento","Fechamento"],["homologacao","Homologação"]]:[]),["ia","Modo IA"]];
+  const navegacaoFinanceira=<><PageHeader className="workspace-header" title="Financeiro" description="Contas, documentos e fluxo financeiro."
+    secondaryActions={["hoje","etapas","documentos"].includes(areaFinanceira)?<div className="workspace-header__scope">{workFilter}</div>:null}/>
+    <WorkspaceNavigation className="financial-navigation" label="Áreas do financeiro" active={areaFinanceira} onChange={setAreaFinanceira}
+    items={abasFinanceiras.filter(([id])=>["hoje","visao","etapas","documentos","relatorios","pagamentos","fiscal","fechamento"].includes(id)).map(([id,label])=>({id,label}))}
+    tools={abasFinanceiras.filter(([id])=>!["hoje","visao","etapas","documentos","relatorios","pagamentos","fiscal","fechamento"].includes(id)).map(([id,label])=>({id,label}))}/></>;
+  if(areaFinanceira==="hoje")return <div className="financial-overview">{navegacaoFinanceira}<FinanceToday active={todayQueue} onActiveChange={setTodayQueue} queues={queues} today={currentDate} work={filterObra==="all"?"Todas as obras":obraName(filterObra)} onOpen={setMemorial}/><details className="financial-analysis"><summary>Planejar caixa por vencimentos</summary><CashForecast scenario={cashScenario} onScenarioChange={setCashScenario} data={data} ledger={financialView.selected.ledger} today={currentDate} obraId={filterObra} onOpen={setMemorial}/></details>{memorialPanel}</div>;
+  if(areaFinanceira==="etapas"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}<WorkStageCosts data={data} ledger={stageLedger.ledger} missingStart={stageLedger.missingStart} obraId={filterObra} asOf={currentDate} onOpen={setMemorial} view={costReviewView} onViewChange={setCostReviewView} dispatchCommand={dispatchCommand} currentUser={currentUser}/>{memorialPanel}</div>;
+  if(areaFinanceira==="relatorios"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}<FinancialReportCenter data={data} calcPeriod={calcVisaoFinanceira} view={reportView} onViewChange={setReportView} obraId={filterObra} onObraChange={setFilterObra} onOpen={setMemorial} loadSpreadsheet={async()=>{await carregarXLSX();return XLSX;}}/>{memorialPanel}</div>;
+  if(areaFinanceira==="documentos"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}{documentReturn&&<Btn v="ghost" onClick={backToMemorial}>Voltar ao memorial de origem</Btn>}<DocumentCenter view={documentView} onViewChange={setDocumentView} data={data} obraId={filterObra} competence={documentMonth} onCompetence={setDocumentMonth} onOpen={setMemorial} onReview={conferirNota} onReceive={abrirNovaNota}/>{memorialPanel}</div>;
+  if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}{memorialPanel}<CentralPagamentosFinanceiro obraId={filterObra} onObraChange={setFilterObra} onMemorial={setMemorial} data={data} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} dispatchCommand={dispatchCommand} C={C}/></div>;
+  if(areaFinanceira==="administrativo"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}<FinanceiroAdministrativo data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
+  if(areaFinanceira==="fiscal"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}{fiscalReturn&&<Btn v="ghost" onClick={()=>{positionToRestore.current=fiscalReturn.positions;setFilterObra(fiscalReturn.obraId);setFiscalReturn(null);setAreaFinanceira("documentos");}}>Voltar à conferência de documentos</Btn>}{memorialPanel}<CentralFiscal abrirNotaId={notaParaConferir} onNotaAberta={confirmarNotaAberta} obraIdFiltro={filterObra} onObraChange={setFilterObra} onMemorial={setMemorial} data={data} update={update} showToast={showToast} currentUser={currentUser} abrirCadastro={abrirCadastroFiscal} onCadastroAberto={confirmarAberturaFiscal} dispatchCommand={dispatchCommand}/></div>;
+  if(areaFinanceira==="fechamento"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}{memorialPanel}<FechamentoFinanceiroMensal onMemorial={setMemorial} onDocuments={competence=>{setDocumentMonth(competence);setFilterObra("all");setAreaFinanceira("documentos");}} data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
+  if(areaFinanceira==="homologacao"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}<HomologacaoFinanceira data={data} showToast={showToast} C={C}/></div>;
+  if(areaFinanceira==="ia")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}<ModoIADocumento modulo="financeiro" data={data} update={update} showToast={showToast} currentUser={currentUser} onClose={()=>setAreaFinanceira("fiscal")} dispatchCommand={dispatchCommand}/></div>;
 
   return (
     <div className="anim financial-overview" style={{display:"flex",flexDirection:"column",gap:10}}>
-      <NavegacaoFinanceira/>
-      <PageHero
-        eyebrow="Gestão financeira"
-        title="Financeiro por obra"
-        description="Margem, contrato, mão de obra e recebimentos no mesmo recorte."
-      />
+      {navegacaoFinanceira}
+      <header className="financial-heading"><h2>Financeiro por obra</h2><p>Resultado por competência; entradas e saídas pela data do movimento.</p></header>
 
       {/* Filtros */}
       <div className="financial-overview-filters" style={{display:"grid",gridTemplateColumns:"120px 160px minmax(220px,1fr)",gap:6}}>
@@ -5730,7 +5870,7 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
         <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
       </div>
 
-      <FinancialOverviewMetrics totals={T} margin={totalMarginPct}/>
+      <FinancialOverviewMetrics totals={T} margin={totalMarginPct} onSelect={openMetric}/>{memorialPanel}
       <div className="financial-secondary-metrics">
         {[
           ["Custos comprometidos",fmt(T.committed),C.text],
@@ -5738,20 +5878,23 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
           ["Pagamentos não alocados",fmt(T.unallocatedPayments),T.unallocatedPayments?C.orange:C.text],
           ["Estornos e cancelamentos",fmt(T.reversals),C.text],
         ].map(([label,value,color],index)=><div key={label}>
-          <p>{label}</p><b style={{color}}>{value}</b>
+          <p><button type="button" className="financial-kpi-link" onClick={()=>openSecondaryMetric(index)}>{label}</button></p><b style={{color}}>{value}</b>
           {index===3&&<small>{T.reversalCount} estorno(s) · {T.cancelledCount} cancelamento(s)</small>}
         </div>)}
       </div>
 
+      <CashForecast scenario={cashScenario} onScenarioChange={setCashScenario} data={data} ledger={financialView.selected.ledger} today={currentDate} obraId={filterObra} onOpen={setMemorial}/>
+      <details className="financial-analysis"><summary>Análises e gráficos por obra</summary>
       <RankingFinanceiro data={data} year={year} month={month} obraId={filterObra==="all"?"":filterObra} onSelecionarObra={setFilterObra} C={C}/>
 
       {/* Gráficos: receita vs custo e cadência quinzenal */}
       <Suspense fallback={<div className="arcd-page-loading">Carregando gráficos...</div>}>
         <LazyFinanceiroCharts chartData={chartData} quinzenalChart={quinzenalChart} C={C}/>
       </Suspense>
+      </details>
 
       {/* Fluxo de caixa */}
-      <FluxoCaixa data={data}/>
+      <details className="financial-analysis"><summary>Histórico mensal e estimativas gerais</summary><FluxoCaixa data={data} year={year} month={month} obraId={filterObra}/></details>
 
       {/* Cards por obra */}
       <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>Análise por obra - {fullMonth(month)} {year}</p>
@@ -5892,7 +6035,7 @@ function Financeiro({ data, update, showToast, currentUser, dispatchCommand=asyn
           </div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-section-title)",color:C.green,letterSpacing:.5}}>{fmt(p.amount)}</p>
-            {p.removable
+            <Btn v="ghost" size="sm" onClick={()=>setMemorial({title:p.description,items:[financialEntry(data,p)],context:"Recebimento · data do movimento"})}>Ver memorial</Btn>{p.removable
               ? <Btn v="danger" size="sm" disabled={paymentCommandPending} onClick={()=>removePayment(p.sourceId)}><Ic n="trash"/></Btn>
               : <Badge color={C.muted}>Vinculado</Badge>}
           </div>
@@ -6320,18 +6463,21 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
           {label:"Obras ativas",value:obrasComando.filter(o=>o.status==="active").length,detail:"Em operação",color:C.green},
           {label:"Requer atenção",value:contagensObras.atencao,detail:"Dados e prazos",color:contagensObras.atencao?C.red:C.green},
           {label:"Prazo ≤ 30 dias",value:contagensObras.prazo,detail:"Janela crítica",color:contagensObras.prazo?C.orange:C.text},
-          {label:"Carteira ativa",value:fmtCompact(totalCarteira),detail:"Valor contratado",color:C.yellowD},
+          {label:"Carteira ativa",value:fmt(totalCarteira),detail:"Valor contratado",color:C.yellowD},
         ]}
         actions={<>
+          {ehAdmin&&<details className="works-files"><summary>Arquivos e pastas</summary><div>
           {ehAdmin&&<Btn v="ghost" onClick={()=>abrirOneDrive(data.config?.oneDriveRootUrl)}><Ic n="folder" s={14}/> Arquivos gerais</Btn>}
           {ehAdmin&&oneDriveStatus==="connected"&&<Btn v="ghost" disabled={sincronizandoPastas} onClick={()=>sincronizarPastas(true)}><Ic n="folder" s={14}/> {sincronizandoPastas?"Preparando pastas...":"Preparar pastas"}</Btn>}
           {ehAdmin&&oneDriveStatus!=="connected"&&<Btn v="ghost" onClick={conectarOneDrive}>Conectar OneDrive</Btn>}
+          </div></details>}
           {ehAdmin&&<Btn onClick={()=>abrirEditorObra()}><Ic n="plus" s={14}/> Nova obra</Btn>}
         </>}
       />
 
       <section className="works-filter-bar" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:C.rLg,padding:10,boxShadow:"none"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:9,flexWrap:"wrap"}}>
+          <label className="works-category-select">Situação das obras<select value={categoria} onChange={event=>setCategoria(event.target.value)}>{categoriasObras.map(([v,l])=><option key={v} value={v}>{l} · {contagensObras[v]}</option>)}</select></label>
           <div className="works-category-tabs" style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:1,maxWidth:"100%"}}>
             {categoriasObras.map(([v,l])=><button type="button" aria-pressed={categoria===v} data-active={categoria===v} key={v} onClick={()=>setCategoria(v)}>{l} <span>{contagensObras[v]}</span></button>)}
           </div>
@@ -6576,32 +6722,32 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
               </div>
             </button>
             <div className="works-card-body" style={{padding:13,display:"flex",flexDirection:"column",gap:11,flex:1}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+              <div className="works-card-identity" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
                 <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.6,color:C.muted}}>Cliente</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:o.cliente?C.text:C.muted,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{o.cliente||"Não vinculado"}</p></div>
                 <div title={o.engineer||"Sem responsável"} style={{width:34,height:34,flexShrink:0,borderRadius:99,display:"grid",placeItems:"center",background:o.engineer?C.text:C.surface,border:`1px solid ${o.engineer?C.text:C.border}`,color:o.engineer?C.yellow:C.muted,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>{(o.engineer||"?").split(" ").slice(0,2).map(n=>n[0]).join("")}</div>
               </div>
 
               <div className="works-card-metrics" style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:6}}>
-                {[["Contrato",Number(o.contractValue)>0?fmtCompact(o.contractValue):"—"],["Área",Number(o.areaM2)>0?`${Number(o.areaM2).toLocaleString("pt-BR")} m²`:"—"],["Equipe",`${o._equipe.length}`]].map(([l,v])=><div key={l} style={{background:C.surface,border:`1px solid ${C.ivory}`,borderRadius:8,padding:"7px 7px 6px",minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.45,color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}
+                {[["Contrato",Number(o.contractValue)>0?fmt(o.contractValue):"—"],["Área",Number(o.areaM2)>0?`${Number(o.areaM2).toLocaleString("pt-BR")} m²`:"—"],["Equipe",`${o._equipe.length}`]].map(([l,v])=><div key={l} style={{background:C.surface,border:`1px solid ${C.ivory}`,borderRadius:8,padding:"7px 7px 6px",minWidth:0}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.45,color:C.muted}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v}</p></div>)}
               </div>
 
-              <div>
+              <div className="works-card-health">
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,marginBottom:5}}><span>Dados essenciais preenchidos</span><span>{o._completude}%</span></div>
                 <div style={{height:4,borderRadius:99,background:C.ivory,overflow:"hidden"}}><i style={{display:"block",height:"100%",width:`${o._completude}%`,borderRadius:99,background:o._completude>=80?C.green:o._completude>=55?C.yellow:C.red}}/></div>
               </div>
 
               {risco?<div className="works-alerts"><button type="button" aria-expanded={expandedAlerts.has(o.id)} onClick={()=>setExpandedAlerts(current=>{const next=new Set(current);next.has(o.id)?next.delete(o.id):next.add(o.id);return next;})}><Ic n="alert" s={14}/><span><strong>{o._alertas.length} pendência(s)</strong><small>{expandedAlerts.has(o.id)?"Ocultar ações":"Ver como corrigir"}</small></span><Ic n="chevron" s={12}/></button>{expandedAlerts.has(o.id)&&<div className="works-alerts__list">{o._alertas.map(alert=>{const action=projectAlertAction(alert);return <div key={alert}><span>{alert}</span><button type="button" onClick={()=>ehAdmin?abrirEditorObra(o):onAbrirObra?.(o.id)}>{ehAdmin?action.label:"Abrir obra"}</button></div>;})}</div>}</div>:<div className="works-regular"><Ic n="check" s={14}/><span>Cadastro operacional regular</span></div>}
 
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,minHeight:18}}>
+              <div className="works-card-deadline" style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,minHeight:18}}>
                 <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prazo?.cor||C.muted}}>{prazo?.rotulo||"Prazo não definido"}</span>
                 <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap"}}>Eng. {o.engineer?.split(" ")[0]||"não definido"}</span>
               </div>
 
-              <div style={{display:"grid",gridTemplateColumns:ehAdmin&&o.oneDriveUrl?"1fr auto":"1fr",gap:6,marginTop:"auto"}}>
+              <div className="works-card-open" style={{display:"grid",gridTemplateColumns:ehAdmin&&o.oneDriveUrl?"1fr auto":"1fr",gap:6,marginTop:"auto"}}>
                 <Btn v="dark" full onClick={()=>onAbrirObra?.(o.id)}>Abrir obra <span>→</span></Btn>
                 {ehAdmin&&o.oneDriveUrl&&<Btn v="ghost" iconOnly onClick={()=>abrirOneDrive(o.oneDriveUrl)} title="Abrir arquivos" ariaLabel="Abrir arquivos"><Ic n="folder" s={14}/></Btn>}
               </div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,borderTop:`1px solid ${C.line}`}}>
+              <div className="works-card-footer" style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,borderTop:`1px solid ${C.line}`}}>
                 <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{CONTRACT_LABELS[o.contractType]||"Contrato"}</span>
                 {ehAdmin&&<div style={{display:"flex",gap:3}}><Btn v="ghost" size="sm" iconOnly onClick={()=>abrirEditorObra(o)} title="Editar obra" ariaLabel="Editar obra"><Ic n="edit" s={12}/></Btn><Btn v="danger" size="sm" iconOnly onClick={()=>remove(o.id)} title="Excluir obra" ariaLabel="Excluir obra"><Ic n="trash" s={12}/></Btn></div>}
               </div>
@@ -8072,12 +8218,13 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
 // FLUXO DE CAIXA
 //
 
-function FluxoCaixa({ data }) {
+function FluxoCaixa({ data, year, month, obraId="all" }) {
   // Extrai primitivos: `new Date()` gera um objeto novo a cada render, então
   // usá-lo direto na lista de dependências faria o memo recalcular sempre.
   const _hoje = new Date();
-  const nowY = _hoje.getFullYear();
-  const nowM = _hoje.getMonth();
+  const nowY = year ?? _hoje.getFullYear();
+  const nowM = month ?? _hoje.getMonth();
+  const actualYear=_hoje.getFullYear(),actualMonth=_hoje.getMonth();
   const [months, setMonths] = useState(6);
 
   // Calcula histórico real + projeção futura
@@ -8090,12 +8237,12 @@ function FluxoCaixa({ data }) {
       const m = d.getMonth();
       const ym = `${y}-${String(m+1).padStart(2,"0")}`;
       const mdays = getDays(y, m);
-      const isFuture = d > new Date(nowY, nowM, 1);
+      const isFuture = d > new Date(actualYear, actualMonth, 1);
 
       if (!isFuture) {
         const inicio = mdays[0] || `${ym}-01`;
         const fim = mdays[mdays.length-1] || `${ym}-31`;
-        const caixa = selectLedgerCashFlow(ledger, { startDate:inicio, endDate:fim, includeCorporate:true });
+        const caixa = selectLedgerCashFlow(ledger, { startDate:inicio, endDate:fim, ...(obraId==="all"?{}:{obraId}), includeCorporate:obraId==="all" });
         result.push({
           mes:monthName(m)+"/"+String(y).slice(2),
           received:caixa.cashIn, totalOut:caixa.cashOut, balance:caixa.balance,
@@ -8104,21 +8251,21 @@ function FluxoCaixa({ data }) {
       } else {
         // Projeção
         const workDays = mdays.filter(d=>{const wd=new Date(d+"T12:00:00").getDay();return wd>=1&&wd<=6;}).length;
-        const activeEmps = data.employees.filter(e=>e.active!==false);
+        const activeEmps = data.employees.filter(e=>e.active!==false&&(obraId==="all"||e.obra===obraId));
         const laborEst = activeEmps.reduce((s,e)=>s+Number(e.dailyRate||0)*workDays*0.82,0);
-        const tercEst = (data.terceirizados||[]).filter(t=>t.active!==false).reduce((s,t)=>s+Number(t.weeklyRate||0)*4.3,0);
+        const tercEst = (data.terceirizados||[]).filter(t=>t.active!==false&&(obraId==="all"||t.obraId===obraId)).reduce((s,t)=>s+Number(t.weeklyRate||0)*4.3,0);
         // Projeção de meses futuros: só estima com base na MO (sem materiais e
         // terceirizados futuros, que não têm como ser projetados aqui). Para
         // obras admin_only/fixed_labor_admin isso subestima a receita prevista
         // - é uma aproximação grosseira só para o gráfico de fluxo de caixa;
         // o valor real e auditável fica no fechamento por competência em
         // Medições (MedicoesView).
-        const revenueEst = data.obras.filter(o=>o.status!=="done").reduce((s,o)=>{const{laborCost}=calcObraLaborCost(data,o.id,mdays);return s+calcObraRevenue(o,laborCost).revenue;},0);
+        const revenueEst = data.obras.filter(o=>o.status!=="done"&&(obraId==="all"||o.id===obraId)).reduce((s,o)=>{const{laborCost}=calcObraLaborCost(data,o.id,mdays);return s+calcObraRevenue(o,laborCost).revenue;},0);
         result.push({ mes: monthName(m)+"/"+String(y).slice(2), received: revenueEst, laborCost: laborEst, tercCost: tercEst, totalOut: laborEst+tercEst, balance: revenueEst-(laborEst+tercEst), isProjection: true, isCurrent: false });
       }
     }
     return result;
-  }, [data, months, nowY, nowM]);
+  }, [data, months, nowY, nowM, obraId,actualYear,actualMonth]);
 
   const maxVal = Math.max(...cashflow.map(c=>Math.max(c.received,c.totalOut,1)));
   const totalReceived = cashflow.filter(c=>!c.isProjection).reduce((s,c)=>s+c.received,0);
@@ -8131,7 +8278,7 @@ function FluxoCaixa({ data }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
           <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue,textTransform:"uppercase",letterSpacing:1}}>Histórico + Projeção</p>
-          <h3 style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-page-title)",letterSpacing:1.5,color:C.text}}>Fluxo de Caixa</h3>
+          <h3 style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-page-title)",letterSpacing:1.5,color:C.text}}>Fluxo de Caixa</h3><p>Referência: {fullMonth(nowM)} {nowY} · {obraId==="all"?"Todas as obras":data.obras.find(o=>o.id===obraId)?.name}. Janela de {months} meses até a referência e 3 meses seguintes. Valores posteriores ao mês atual são estimativas.</p>
         </div>
         <Sel value={String(months)} onChange={v=>setMonths(Number(v))} options={[{v:"3",l:"3 meses"},{v:"6",l:"6 meses"},{v:"12",l:"12 meses"}]}/>
       </div>
@@ -11864,9 +12011,9 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
       actions={<Btn onClick={()=>setFornModal(novoFornecedor())}><Ic n="plus"/> Novo fornecedor</Btn>}
     />
     <section className="supplier-toolbar" aria-label="Filtros do ranking">
-      <div className="supplier-search"><Ic n="search"/><input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar nome, CNPJ ou ramo..." aria-label="Buscar fornecedor"/></div>
-      <select value={obraId} onChange={e=>setObraId(e.target.value)} aria-label="Filtrar por obra"><option value="">Todas as obras</option>{(data.obras||[]).map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select>
-      <select value={periodo} onChange={e=>setPeriodo(e.target.value)} aria-label="Filtrar por período"><option value="6">Últimos 6 meses</option><option value="12">Últimos 12 meses</option><option value="24">Últimos 24 meses</option><option value="todos">Todo o histórico</option></select>
+      <Inp label="Buscar fornecedor" value={busca} onChange={setBusca} placeholder="Nome, CNPJ ou ramo..."/>
+      <Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
+      <Sel label="Período" value={periodo} onChange={setPeriodo} options={[{v:"6",l:"Últimos 6 meses"},{v:"12",l:"Últimos 12 meses"},{v:"24",l:"Últimos 24 meses"},{v:"todos",l:"Todo o histórico"}]}/>
     </section>
     <section className="supplier-kpis">
       <div><span>Fornecedores avaliados</span><strong>{avaliados.length}<small> de {fornecedores.filter(f=>f.ativo!==false).length}</small></strong></div>
@@ -11875,7 +12022,7 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
       <div><span>Entregas no prazo</span><strong>{entregasTotal?`${Math.round(noPrazoTotal/entregasTotal*100)}%`:"—"}<small>{entregasTotal?` ${noPrazoTotal}/${entregasTotal}`:" sem histórico"}</small></strong></div>
     </section>
     <section className="supplier-ranking-card">
-      <div className="supplier-card-title"><div><p>DESEMPENHO CONSOLIDADO</p><h2>Ranking geral</h2></div><span>Preço 35% · Frete 15% · Prazo 25% · Qualidade 25%</span></div>
+      <div className="supplier-card-title"><div><h2>Ranking geral</h2></div><span>Preço 35% · Frete 15% · Prazo 25% · Qualidade 25%</span></div>
       <div className="supplier-table-wrap"><table className="supplier-table">
         <thead><tr><th>#</th><th>Fornecedor</th><th>Nota geral</th><th>Preço</th><th>Frete</th><th>Prazo</th><th>Qualidade</th><th>Base</th><th></th></tr></thead>
         <tbody>{lista.map((r,i)=><tr key={r.fornecedor.id} onClick={()=>setSelecionadoId(r.fornecedor.id)} className={selecionadoId===r.fornecedor.id?"is-selected":""}>
@@ -11892,7 +12039,7 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
     </section>
     <section className="supplier-method"><Ic n="ia"/><div><b>Como a nota é calculada</b><p>Preço compara cada proposta com a menor cotação; prazo combina promessa e entrega real; qualidade considera atendimento da quantidade e divergências; frete usa valor estruturado, condição CIF/FOB e CT-e. Critérios sem evidência não reduzem a nota — apenas a confiança.</p></div></section>
     {selecionado&&<div className="supplier-detail-backdrop" onClick={()=>setSelecionadoId("")}><aside className="supplier-detail" onClick={e=>e.stopPropagation()}>
-      <div className="supplier-detail-head"><div><p>ANÁLISE DO FORNECEDOR</p><h2>{selecionado.fornecedor.nome}</h2><span>{selecionado.fornecedor.cnpj||"CNPJ não informado"}</span></div><button onClick={()=>setSelecionadoId("")} aria-label="Fechar"><Ic n="x"/></button></div>
+      <div className="supplier-detail-head"><div><h2>{selecionado.fornecedor.nome}</h2><span>{selecionado.fornecedor.cnpj||"CNPJ não informado"}</span></div><button onClick={()=>setSelecionadoId("")} aria-label="Fechar"><Ic n="x"/></button></div>
       <div className="supplier-detail-score"><div>{nota(selecionado.geral,corNota(selecionado.geral))}<span>nota geral</span></div><p><b>{selecionado.confianca}% de confiança</b><br/>{selecionado.evidencias} evidência(s) no período</p></div>
       <div className="supplier-detail-grid">{[["Preço",selecionado.preco],["Frete",selecionado.frete],["Prazo",selecionado.prazo],["Qualidade",selecionado.qualidade]].map(([l,v])=><div key={l}><span>{l}</span><b style={{color:corNota(v)}}>{v===null?"Sem dados":v}</b></div>)}</div>
       <div className="supplier-facts"><div><span>Volume comprado</span><b>{fmt(selecionado.valorComprado)}</b></div><div><span>Propostas / vitórias</span><b>{selecionado.propostas.length} / {selecionado.vitorias}</b></div><div><span>Pedidos</span><b>{selecionado.pedidos.length}</b></div><div><span>Entregas no prazo</span><b>{selecionado.entregas?`${selecionado.noPrazo}/${selecionado.entregas}`:"Sem dados"}</b></div></div>
@@ -12150,9 +12297,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     if(!proximos||typeof proximos!=="object")return undefined;
     return update(recomporDadosDaObra(data,proximos,obraId));
   },[data,obraId,update]);
-  const [abaConteudo,setAbaConteudo]=useState("geral");
+  const [abaConteudo,setAbaConteudo]=useWorkspaceState("obras","area","geral",obraId);
   const [terceiroAlvo,setTerceiroAlvo]=useState(null); // contrato a abrir em Terceiros (vindo da aba Medição)
-  const [grupoMenuObra,setGrupoMenuObra]=useState("geral");
+  const [grupoMenuObra,setGrupoMenuObra]=useWorkspaceState("obras","group","geral",obraId);
 
   const hoje = today();
 
@@ -12628,73 +12775,21 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
   );
 
   return (
-    <div className="anim" style={{display:"flex",flexDirection:"column",gap:0}}>
-      {/* Capa + abas ficam fixas no topo, exceto no Orçamento: ali o banner e as
-          duas linhas de abas somavam ~340px e cobriam a planilha, que já traz o
-          próprio cabeçalho fixo de colunas (.budget-cols). */}
-      <div style={abaConteudo==="orc"?{background:C.bg,paddingTop:2}:{position:"sticky",top:0,zIndex:30,background:C.bg,paddingTop:2,boxShadow:"0 10px 24px rgba(20,24,28,.04)"}}>
-      <button onClick={onVoltar} style={{background:"transparent",border:0,color:C.muted,
-        cursor:"pointer",fontSize:"var(--arcd-type-control)",padding:0,textAlign:"left",marginBottom:11,
-        fontFamily:"var(--arcd-font-sans)",fontWeight:600}}>← Todas as obras</button>
-
-      {/* CAPA DA OBRA: imagem, identidade e os numeros que importam.
-          Sem foto, cai num gradiente da marca com a inicial da obra. */}
-      <div style={{position:"relative",borderRadius:12,overflow:"hidden",marginBottom:11,
-                   minHeight:150,
-                   background: obra.capaUrl
-                     ? `linear-gradient(180deg, rgba(0,0,0,.15) 0%, rgba(0,0,0,.72) 100%), url("${obra.capaUrl}") center/cover`
-                     : `linear-gradient(135deg,${C.ink} 0%,${C.subtle} 55%,${C.yellowD} 100%)`}}>
-
-        {/* Ações principais da obra ficam sempre visíveis. */}
-        <div style={{position:"absolute",top:10,right:10,zIndex:2,display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}><button onClick={onEditarObra} style={{background:"rgba(255,255,255,.94)",color:C.blue,border:0,borderRadius:8,padding:"7px 11px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",fontFamily:"var(--arcd-font-sans)"}}><Ic n="edit" s={12}/> Editar obra</button><button onClick={()=>inputCapaRef.current?.click()} disabled={enviandoCapa}
-          style={{background: enviandoCapa ? C.muted : C.blue, color:"#fff",border:0,borderRadius:8,
-            padding:"7px 11px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:enviandoCapa?"default":"pointer",
-            fontFamily:"var(--arcd-font-sans)"}}>
-          {enviandoCapa ? "Enviando..." : obra.capaUrl ? "Alterar imagem" : "Adicionar imagem"}
-        </button></div>
+    <div className="anim work-detail-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div className="work-detail-context">
+        <Btn v="ghost" onClick={onVoltar}>Todas as obras</Btn>
+        <PageHeader className="workspace-header" title={obra.name}
+          description={[obra.cliente,obra.engineer&&`Eng. ${obra.engineer}`].filter(Boolean).join(" · ")}
+          primaryAction={abaConteudo==="geral"&&<Btn onClick={onEditarObra}><Ic n="edit" s={14}/> Editar obra</Btn>}
+          secondaryActions={abaConteudo==="geral"&&<Btn v="ghost" onClick={()=>inputCapaRef.current?.click()} disabled={enviandoCapa}>{enviandoCapa?"Enviando...":obra.capaUrl?"Alterar imagem":"Adicionar imagem"}</Btn>}>
+          <div className="work-detail-status"><Badge color={st.c}>{st.l}</Badge>{resumo.fase&&<span>{resumo.fase.nome}</span>}</div>
+        </PageHeader>
         <input ref={inputCapaRef} type="file" accept="image/*" style={{display:"none"}}
-               onChange={e=>{ const f=e.target.files?.[0]; if(f) enviarCapa(f); e.target.value=""; }}/>
-
-        <div style={{position:"relative",zIndex:1,padding:"clamp(14px,4vw,18px)",
-                     display:"flex",flexDirection:"column",justifyContent:"flex-end",minHeight:150}}>
-          {/* Selo da empresa, como no cabecalho de projeto */}
-          <div style={{display:"inline-flex",alignSelf:"flex-start",alignItems:"center",gap:7,
-                       background:"rgba(255,255,255,.92)",borderRadius:8,padding:"5px 9px",marginBottom:9}}>
-            <span style={{width:16,height:16,borderRadius:4,background:C.yellowD,display:"inline-block"}}/>
-            <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.ink}}>MARCELL</span>
-          </div>
-
-          <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-end"}}>
-            <div style={{minWidth:0}}>
-              {resumo.fase && (
-                <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.8,
-                           color:"rgba(255,255,255,.8)"}}>{resumo.fase.nome}</p>
-              )}
-              <h3 className="brk" style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,
-                         fontSize:"clamp(18px,5.2vw,25px)",marginTop:2,lineHeight:1.15,color:"#fff"}}>{obra.name}</h3>
-              {(obra.cliente || obra.engineer) && (
-                <p style={{fontSize:"var(--arcd-type-label)",color:"rgba(255,255,255,.85)",marginTop:3}}>
-                  {[obra.cliente, obra.engineer && `Eng. ${obra.engineer}`].filter(Boolean).join("  ·  ")}
-                </p>
-              )}
-            </div>
-            <Badge color={st.c}>{st.l}</Badge>
-          </div>
-
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:13}}>
-            {[["Contrato", fmt(obra.contractValue)],
-              ["Recebido", fmt(resumo.recebido)],
-              ["Resultado", fmt(margem)]].map(([l,v])=>(
-              <div key={l}>
-                <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.5,
-                           color:"rgba(255,255,255,.7)"}}>{l}</p>
-                <p style={{fontSize:"clamp(12px,3.4vw,15px)",fontWeight:600,whiteSpace:"nowrap",color:"#fff",
-                           fontFamily:"var(--arcd-font-sans)"}}>{v}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+          onChange={event=>{const file=event.target.files?.[0];if(file)enviarCapa(file);event.target.value="";}}/>
+        <details className="work-detail-summary" data-overview={abaConteudo==="geral"} open={abaConteudo==="geral"}><summary>Resumo e ações da obra</summary>
+        {abaConteudo!=="geral"&&<div className="work-detail-summary__actions"><Btn v="ghost" onClick={()=>inputCapaRef.current?.click()} disabled={enviandoCapa}>{enviandoCapa?"Enviando...":obra.capaUrl?"Alterar imagem":"Adicionar imagem"}</Btn><Btn onClick={onEditarObra}><Ic n="edit" s={14}/> Editar obra</Btn></div>}
+        {obra.capaUrl&&<img className="work-detail-image" src={obra.capaUrl} alt={`Imagem de ${obra.name}`}/>}
+        <dl className="work-detail-metrics">{[["Contrato",fmt(obra.contractValue)],["Recebido",fmt(resumo.recebido)],["Resultado",fmt(margem)]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></details>
 
       {/* Navegação compacta em dois níveis. O primeiro nível acompanha a
           largura da tela; o segundo mostra apenas os módulos do grupo ativo. */}
@@ -12707,8 +12802,10 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         {id:"rh",label:"RH",itens:[["ponto","Ponto","ponto"],["equipe","Equipe","equipe"],["terc","Terceiros","terc"]]},
         {id:"recursos",label:"Recursos",itens:[["equip","Equipamentos","equip"],["licenca","Licenciamento","licenca"],["arquivos","Arquivos",null],...(ehAdmin?[["portal","Portal do cliente",null]]:[])]},
       ];const grupo=grupos.find(g=>g.id===grupoMenuObra)||grupos[0];return <div style={{marginBottom:12,display:"flex",flexDirection:"column",gap:6}}>
-        <TabRow equal tabs={grupos.map(g=>[g.id,g.label])} active={grupoMenuObra} onChange={id=>{setGrupoMenuObra(id);if(id==="geral")setAbaConteudo("geral");}}/>
-        {grupo.id!=="geral"&&<TabRow equal tabs={grupo.itens.map(([id,label])=>[id,label])} active={abaConteudo} onChange={id=>{const item=grupo.itens.find(([iid])=>iid===id);if(["arquivos","portal","qualidade","seguranca"].includes(id))setAbaConteudo(id);else if(item?.[2])abrirModuloDaObra(item[2]);}}/>}
+        <label className="work-detail-navigation__mobile"><span>Telas da obra</span><select aria-label="Telas da obra" value={abaConteudo} onChange={event=>{const id=event.target.value;const owner=grupos.find(group=>group.itens.some(item=>item[0]===id));if(!owner)return;setGrupoMenuObra(owner.id);const item=owner.itens.find(entry=>entry[0]===id);if(["geral","arquivos","portal","qualidade","seguranca"].includes(id))setAbaConteudo(id);else if(item?.[2])abrirModuloDaObra(item[2]);}}>{grupos.map(group=><optgroup key={group.id} label={group.label}>{group.itens.map(([id,label])=><option key={id} value={id}>{label}</option>)}</optgroup>)}</select></label>
+        <div className="work-detail-navigation__desktop"><TabRow label="Áreas da obra" equal tabs={grupos.map(g=>[g.id,g.label])} active={grupoMenuObra} onChange={id=>{setGrupoMenuObra(id);if(id==="geral")setAbaConteudo("geral");}}/>
+        {grupo.id!=="geral"&&<TabRow label="Telas da obra" equal tabs={grupo.itens.map(([id,label])=>[id,label])} active={abaConteudo} onChange={id=>{const item=grupo.itens.find(([iid])=>iid===id);if(["arquivos","portal","qualidade","seguranca"].includes(id))setAbaConteudo(id);else if(item?.[2])abrirModuloDaObra(item[2]);}}/>}
+        </div>
       </div>;})()}
       </div>
 
@@ -13607,6 +13704,7 @@ export function MedicaoEvolucao({ data, update, showToast, obraIdFixo="", curren
 
   return (
     <div className="anim measurement-surface" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {!obraIdFixo&&<PageHeader className="workspace-header" title="Medição da obra" description="Avanço físico e evolução dos serviços executados."/>}
       {obraIdFixo
         ? <Inp label="Obra" value={(data.obras||[]).find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
         : <Sel label="Obra" value={obraId} onChange={setObraId}
@@ -13881,6 +13979,7 @@ function Obsoletos({ data, update, showToast, onTab, dispatchCommand }) {
 
   return (
     <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <PageHeader className="workspace-header" title="Telas antigas" description="Obras inativas e funcionários desligados para consulta e reativação."/>
       <div style={{ display: "flex", gap: 6 }}>
         {[["obras", `Obras (${obrasInativas.length})`], ["equipe", `Equipe (${equipeInativa.length})`]].map(([id, lbl]) => (
           <button key={id} onClick={() => setVisao(id)} style={{
@@ -14227,10 +14326,7 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
 
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div>
-        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue,textTransform:"uppercase",letterSpacing:1}}>Sistema</p>
-        <h3 className="arcd-heading-page">Cadastros</h3>
-      </div>
+      <PageHeader className="workspace-header" title="Cadastros" description="Referências utilizadas no orçamento, estoque, compras e folha."/>
 
       {/*  MENU  */}
       {sec === "menu" && (<>
@@ -14822,10 +14918,7 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
   if (obrasComCaixa.length === 0) {
     return (
       <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
-        <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`1px solid ${C.green}`,padding:"16px 18px",borderRadius:8}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green,textTransform:"uppercase",letterSpacing:1.2,marginBottom:3}}>Aportes e materiais</p>
-          <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-section-title)",fontWeight:600,color:C.text,lineHeight:1}}>Caixa de Obra</p>
-        </div>
+        <PageHeader className="workspace-header" title="Caixa da obra" description="Aportes do cliente e controle de gastos por obra."/>
         <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,padding:30,textAlign:"center",boxShadow:`0 1px 4px ${C.shadow}`}}>
           <p style={{fontSize:"clamp(22px,10vw,40px)",marginBottom:8}}></p>
           <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginBottom:6}}>Nenhuma obra com caixa ativado</p>
@@ -14839,11 +14932,7 @@ function CaixaObra({ data, showToast, currentUser=null, dispatchCommand=null }) 
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
 
       {/* Header */}
-      <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`1px solid ${C.green}`,padding:"14px 18px",borderRadius:8}}>
-        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green,textTransform:"uppercase",letterSpacing:1.2,marginBottom:3}}>Aportes e materiais</p>
-        <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-section-title)",fontWeight:600,color:C.text,lineHeight:1}}>Caixa de Obra</p>
-        <p style={{color:C.muted,fontSize:"var(--arcd-type-body)",marginTop:4}}>{obrasComCaixa.length} obra(s) com caixa · aportes do cliente e controle de gastos</p>
-      </div>
+      <PageHeader className="workspace-header" title="Caixa da obra" description="Aportes do cliente e controle de gastos por obra."/>
 
       {/* Consolidado */}
       <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
@@ -14980,22 +15069,25 @@ const emptyCompanyExpenseForm = competencia => ({
 });
 
 function DREEmpresa(props) {
-  const [annual,setAnnual]=useState(false);
+  const [annual,setAnnual]=useWorkspaceState("dre_emp","annual",false);
   return <><div className="annual-dre__view-switch" aria-label="Visão do DRE"><button type="button" aria-pressed={!annual} onClick={()=>setAnnual(false)}>DRE mensal e lançamentos</button><button type="button" aria-pressed={annual} onClick={()=>setAnnual(true)}>DRE anual ajustável</button></div>{annual?<AnnualDre update={props.update} onOpenWork={props.onOpenWork}/>:<DREEmpresaMensal {...props}/>}</>;
 }
 
 function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=null, onOpenWork }) {
   const {intent}=useWorkflow();
+  const useSessionState=(key,initial)=>useWorkspaceState("dre_emp",key,initial);
+  useWorkspaceScroll("dre_emp");
   const { cols } = useBreakpoint();
   const now = new Date();
-  const [year,  setYear]   = useState(now.getFullYear());
-  const [month, setMonth]  = useState(now.getMonth());
+  const [year,  setYear]   = useSessionState("year",now.getFullYear());
+  const [month, setMonth]  = useSessionState("month",now.getMonth());
   useEffect(()=>{
-    if(intent?.tabId!=="dre_emp")return;
+    if(intent?.tabId!=="dre_emp"||intent.action==="resume")return;
     if(intent.scope.year!=null)setYear(intent.scope.year);
     if(intent.scope.month!=null)setMonth(intent.scope.month);
   },[intent?.sequence]);
-  const [abaDRE, setAbaDRE] = useState("inteligencia");
+  useRememberWorkflowScope("dre_emp",{obraId:"",year,month,period:"mes"});
+  const [abaDRE, setAbaDRE] = useSessionState("abaDRE","inteligencia");
   const [memorialDetail,setMemorialDetail]=useState(null);
   useEffect(()=>setMemorialDetail(null),[year,month]);
   const [analiseIA, setAnaliseIA] = useState(null);
@@ -15004,6 +15096,7 @@ function DREEmpresaMensal({ data, showToast, currentUser=null, dispatchCommand=n
   const [expenseCommandPending,setExpenseCommandPending]=useState(false);
   const [editDesp,  setEditDesp]  = useState(null);
   const [despForm,  setDespForm]  = useState(emptyCompanyExpenseForm(""));
+  const [recurrencePreview,setRecurrencePreview]=useState(null);
   const [expenseGroupFilter,setExpenseGroupFilter]=useState("all");
   const [expenseSearch,setExpenseSearch]=useState("");
   const [razaoEmpresa,setRazaoEmpresa]=useState(null);
@@ -15210,29 +15303,29 @@ Regras: não inclua faturamento, folha, compras ou custos de execução das obra
     const w=window.open("","_blank");w.document.write(marcellReportHtml(html));w.document.close();
   };
 
-  // Despesas recorrentes - auto-copiar para o mês atual
-  const replicarRecorrentes = async() => {
-    if(!dispatchCommand||expenseCommandPending)return;
-    const prevYM = month===0?`${year-1}-12`:`${year}-${String(month).padStart(2,"0")}`;
+  // A cópia só é enviada depois da revisão das obrigações selecionadas.
+  const replicarRecorrentes = () => {
+    const fromCompetence=month===0?`${year-1}-12`:`${year}-${String(month).padStart(2,"0")}`;
+    const plan=previewCompanyRecurrences(data,{fromCompetence,toCompetence:ym});
+    setRecurrencePreview({...plan,fromCompetence,toCompetence:ym,selected:plan.rows.filter(row=>row.eligible).map(row=>row.source.id)});
+  };
+  const confirmarRecorrentes = async() => {
+    if(!dispatchCommand||expenseCommandPending||!recurrencePreview?.selected.length)return;
     setExpenseCommandPending(true);
     try{
       const result=await dispatchCommand(()=>({
         type:OPERATIONAL_COMMAND.COMPANY_RECURRING_EXPENSES_REPLICATED,
-        idempotencyKey:`company-expenses-replicate-${ym}-${uid()}`,
+        idempotencyKey:`company-expenses-replicate-${recurrencePreview.toCompetence}-${uid()}`,
         actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-        payload:{
-          fromCompetence:prevYM,toCompetence:ym,
-          ids:Array.from({length:(data.despesasEmpresa||[]).length},()=>uid()),
-        },
+        payload:{fromCompetence:recurrencePreview.fromCompetence,toCompetence:recurrencePreview.toCompetence,
+          sourceIds:recurrencePreview.selected,previewFingerprint:recurrencePreview.fingerprint,
+          ids:recurrencePreview.selected.map(()=>uid())},
       }));
       if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a cópia.");
-      if(!result.copied){showToast("Nenhuma despesa recorrente ativa do mês anterior a copiar.","warn");return;}
-      showToast(`${result.copied} despesa(s) recorrente(s) copiada(s) para ${period}.`);
-    }catch(error){
-      showToast(error.message||"Não foi possível copiar as despesas recorrentes.","error");
-    }finally{
-      setExpenseCommandPending(false);
-    }
+      setRecurrencePreview(null);
+      showToast(`${result.copied||0} despesa(s) recorrente(s) copiada(s).`);
+    }catch(error){setRecurrencePreview(current=>({...current,error:error.message}));}
+    finally{setExpenseCommandPending(false);}
   };
 
   const saveDesp = async() => {
@@ -15741,6 +15834,16 @@ td.val{text-align:right;font-weight:700;min-width:110px}
       <div className="dre-company-panel dre-company-pdf"><Btn onClick={gerarPDF} v="danger" full><Ic n="file"/> Gerar DRE PDF - {period}</Btn></div>
 
       {/* Modal despesa */}
+      {recurrencePreview&&<Modal title="Prévia de despesas recorrentes" wide onClose={()=>!expenseCommandPending&&setRecurrencePreview(null)}>
+        <FinancialPreview description={`Origem: ${recurrencePreview.fromCompetence} · Destino: ${recurrencePreview.toCompetence}. Novas obrigações em aberto, sem copiar pagamentos ou documentos do mês anterior.`}
+          columns={["Copiar","Despesa / fornecedor","Vencimento previsto","Valor","Conferência"]}
+          rows={recurrencePreview.rows.map(row=>({id:row.source.id,cells:[<input type="checkbox" aria-label={`Copiar ${row.source.descricao}`} disabled={!row.eligible||expenseCommandPending} checked={recurrencePreview.selected.includes(row.source.id)} onChange={event=>setRecurrencePreview(current=>({...current,selected:event.target.checked?[...current.selected,row.source.id]:current.selected.filter(id=>id!==row.source.id)}))}/>,`${row.source.descricao} · ${row.source.fornecedor||"Sem fornecedor"}`,row.dueDate?row.dueDate.split("-").reverse().join("/"):"Sem vencimento",fmt(row.source.valor),row.issue||(row.duplicate?(row.existingId?"Já existe no destino — ignorada":"Repetida nesta prévia — ignorada"):"Nova obrigação")] }))}
+          error={recurrencePreview.error} pending={expenseCommandPending} disabled={!recurrencePreview.selected.length}
+          onCancel={()=>setRecurrencePreview(null)} onConfirm={confirmarRecorrentes} confirmLabel={`Confirmar ${recurrencePreview.selected.length} recorrência(s)`}>
+          <p>{recurrencePreview.selected.length} selecionada(s) · Total: {fmt(recurrencePreview.rows.filter(row=>recurrencePreview.selected.includes(row.source.id)).reduce((total,row)=>total+Number(row.source.valor),0))}</p>
+          <Btn v="ghost" disabled={expenseCommandPending} onClick={replicarRecorrentes}>Atualizar prévia</Btn>
+        </FinancialPreview>
+      </Modal>}
       {despModal&&(
         <Modal title={editDesp?"Editar despesa":"Nova despesa operacional"} onClose={()=>{setDespModal(false);setEditDesp(null);}} wide>
           <div style={{display:"grid",gridTemplateColumns:cols(2),gap:12}}>
@@ -16646,6 +16749,7 @@ const TAB_META_BASE = {
   com_perdas:{label:"Perdas",icon:"alert"},
   com_relatorios:{label:"Relatórios",icon:"trending"},
   plan:   { label: "Planejamento", icon: "calendar"},
+  projetos: { label:"Projetos", icon:"building" },
   plan_suprimentos: { label:"Marcos e Curva A", icon:"trending" },
   rdo:    { label: "Diario de obra", icon: "clipboard"},
   conferencia: { label: "Conferência", icon: "check"},
@@ -16793,13 +16897,19 @@ export default function App() {
   const [obraAberta,  setObraAberta]  = useState("");
   const [workflowIntent,setWorkflowIntent]=useState(null);
   const [workflowScopes,setWorkflowScopes]=useState({});
+  const workflowViews=useRef(new Map());
+  const workflowLastScope=useRef({});
+  const workflowLastTabs=useRef(new Map());
+  const [workflowTrail,setWorkflowTrail]=useState([]);
   const rememberWorkflowScope=useCallback((screen,scope)=>{
+    workflowLastScope.current=scope;
     setWorkflowScopes(previous=>JSON.stringify(previous[screen])===JSON.stringify(scope)?previous:{...previous,[screen]:scope});
   },[]);
   const [loading,     setLoading]     = useState(true);
   const [erroInicial, setErroInicial] = useState("");
   const [firstSetup, setFirstSetup] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  useEffect(()=>{workflowViews.current.clear();workflowLastTabs.current.clear();workflowLastScope.current={};setWorkflowScopes({});setWorkflowTrail([]);setWorkflowIntent(null);},[currentUser?.id]);
   const [conflito,    setConflito]    = useState(null);
   const [toast,       setToast]       = useState(null);
   // Momento da ultima sincronizacao bem-sucedida com o servidor.
@@ -17335,19 +17445,28 @@ export default function App() {
 
   // Navegação unificada: leva a uma aba (e opcionalmente abre uma obra),
   // fechando a busca. Usado pela busca global e por qualquer atalho.
-  const irPara = useCallback((tabId, obraId="") => {
+  const irPara = useCallback((tabId, obraId="", options={}) => {
+    if(!options.preserveHistory)setWorkflowTrail(previous=>previous.length?[]:previous);
+    const scope=normalizeWorkflowScope(options.scope||{...workflowLastScope.current,...(obraId?{obraId}:{})},currentUser);
+    setWorkflowIntent(previous=>({tabId,scope,action:options.action||"navigate",linked:Boolean(options.linked),record:options.record||null,sequence:(previous?.sequence||0)+1}));
     setObraAberta(obraId || "");
     setTab(tabId);
     const g = moduleForTab(tabId);
+    if(g)workflowLastTabs.current.set(g.id,{tabId,obraId});
     if (g) setGruposAbertos(prev => ({ ...prev, [g.id]: true }));
     setBuscaAberta(false);
-  }, []);
-  const navigateWorkflow=useCallback((tabId,scope)=>{
+  }, [currentUser?.id,currentUser?.obraId]);
+  const navigateWorkflow=useCallback((tabId,scope,options={})=>{
     if(!allowedTabs.includes(tabId))return;
     const normalized=normalizeWorkflowScope(scope||workflowScopes[tabId]||{},currentUser);
-    setWorkflowIntent(previous=>({tabId,scope:normalized,sequence:(previous?.sequence||0)+1}));
-    irPara(tabId);
-  },[allowedTabsKey,currentUser?.obraId,workflowScopes,irPara]);
+    if(tabId!==tab)setWorkflowTrail(previous=>[...previous.slice(-7),{tabId:tab,obraId:obraAberta,scope:normalizeWorkflowScope(workflowScopes[tab]||workflowLastScope.current,currentUser)}]);
+    irPara(tabId,"",{...options,linked:true,scope:normalized,preserveHistory:true});
+  },[allowedTabsKey,currentUser?.obraId,workflowScopes,irPara,tab,obraAberta]);
+  const returnWorkflow=()=>{
+    const previous=workflowTrail.at(-1);if(!previous||!allowedTabs.includes(previous.tabId))return;
+    setWorkflowTrail(history=>history.slice(0,-1));
+    irPara(previous.tabId,previous.obraId,{scope:previous.scope,action:"resume",preserveHistory:true});
+  };
 
   // Índice de busca global: tudo que a pessoa pode querer achar por nome ou
   // número, com a aba de destino. Só monta quando há dados e usuário logado.
@@ -17398,18 +17517,20 @@ export default function App() {
 
   // Layout responsivo
   const { isDesktop, pick } = useBreakpoint();
+  const operationalWorkspace=tab!=="tv";
   const SIDEBAR_W = sidebarCompacta ? 68 : 224;
   // No desktop a navegação vira sidebar → não há barra inferior ocupando espaço
-  const navHeight  = isDesktop ? 0 : (hasSubTabs ? 132 : 80);
+  const navHeight  = isDesktop ? 0 : (hasSubTabs&&!operationalWorkspace ? 132 : 80);
   // Em monitor ultrawide (21:9, 34"), esticar o conteúdo até a borda deixa a
   // linha de texto longa demais e os cards deformados. O teto de 1440px mantém
   // a leitura confortável e centraliza o conteúdo, sem deixar a tela "vazia":
   // as grades já usam 4 colunas nesse tamanho.
-  const maxConteudo = pick("100%", "100%", "min(1440px, 100%)");
+  const maxConteudo = "100%";
 
   const goGroup = (group) => {
     if (group.tabs.includes(tab)) return;
-    setTab(group.tabs[0]);
+    const previous=workflowLastTabs.current.get(group.id);
+    irPara(group.tabs.includes(previous?.tabId)?previous.tabId:group.tabs[0],group.tabs.includes(previous?.tabId)?previous.obraId:"");
   };
 
   // Alerta rápido: ponto pendente hoje?
@@ -17751,7 +17872,7 @@ export default function App() {
                               key={tabId}
                               className="nav-item"
                               data-active={ativo}
-                              onClick={() => { setObraAberta(""); setTab(tabId); abrirGrupoDaAba(tabId); }}
+                              onClick={() => irPara(tabId)}
                               aria-current={ativo ? "page" : undefined}
                             >
                               <Ic n={meta.icon} s={13}/>
@@ -17853,7 +17974,10 @@ export default function App() {
               {!isDesktop && <BrandMark compact/>}
               {/* Breadcrumb */}
               <div className="app-breadcrumb" style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <span style={{ fontSize:"var(--arcd-type-label)", color:activeGroup?.color, fontWeight:600, textTransform:"uppercase", letterSpacing:.8 }}>
+                {!isDesktop&&operationalWorkspace?<select className="workspace-module-select" aria-label={`Telas de ${activeGroup?.label}`} value={tab==="obras"&&obrasMenuEngenharia.some(obra=>obra.id===obraAberta)?`obra:${obraAberta}`:tab} onChange={event=>event.target.value.startsWith("obra:")?irPara("obras",event.target.value.slice(5)):irPara(event.target.value)}>
+                  {activeGroup?.tabs.map(id=><option key={id} value={id}>{TAB_META[id]?.label||id}</option>)}
+                  {activeGroup?.id==="eng_grp"&&obrasMenuEngenharia.length>0&&<optgroup label="Obras ativas">{obrasMenuEngenharia.map(obra=><option key={obra.id} value={`obra:${obra.id}`}>{obra.name}</option>)}</optgroup>}
+                </select>:<><span style={{ fontSize:"var(--arcd-type-label)", color:activeGroup?.color, fontWeight:600, textTransform:"uppercase", letterSpacing:.8 }}>
                   {activeGroup?.label}
                 </span>
                 {hasSubTabs && (
@@ -17863,7 +17987,7 @@ export default function App() {
                       {TAB_META[tab]?.label}
                     </span>
                   </>
-                )}
+                )}</>}
               </div>
             </div>
 
@@ -17964,50 +18088,53 @@ export default function App() {
         )}
         </div>
 
-        <main className="arcd-main" style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "24px 24px" : 14 }}>
+        <main className="arcd-main" data-workspace={operationalWorkspace?tab:undefined} style={{ maxWidth:maxConteudo, margin:"0 auto", padding: isDesktop ? "24px 24px" : 14 }}>
           {edicaoRecusada&&<div role="alert" data-testid="save-rejected" style={{display:"flex",gap:10,alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",marginBottom:12,padding:"10px 12px",border:`1px solid ${C.red}55`,background:`${C.red}0D`,borderRadius:C.rMd,color:C.text}}>
             <span style={{fontSize:"var(--arcd-type-label)",lineHeight:1.5}}><b>Alteração não salva e desfeita</b> às {edicaoRecusada.em.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}: {edicaoRecusada.motivo}{edicaoRecusada.secoes.length?` (${edicaoRecusada.secoes.slice(0,4).join(", ")}${edicaoRecusada.secoes.length>4?"…":""})`:""}. A tela voltou ao último estado confirmado.</span>
             <Btn v="ghost" size="sm" onClick={()=>setEdicaoRecusada(null)}>Entendi</Btn>
           </div>}
-          <WorkflowContext.Provider value={{navigate:navigateWorkflow,intent:workflowIntent,scopes:workflowScopes,rememberScope:rememberWorkflowScope}}>
+          {tab!=="projetos"&&allowedTabs.includes("projetos")&&(data.engineeringProjects||[]).some(project=>(project.sessions||[]).some(session=>session.userId===currentUser.id&&!session.endedAt))&&<Suspense fallback={null}><ProjectTimerStatus projects={data.engineeringProjects} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onOpen={()=>setTab("projetos")} /></Suspense>}
+          <WorkflowContext.Provider value={{navigate:navigateWorkflow,intent:workflowIntent,scopes:workflowScopes,rememberScope:rememberWorkflowScope,views:workflowViews.current,goBack:returnWorkflow,returnTo:workflowTrail.length?{label:`Voltar a ${workflowTrail.at(-1).obraId?(data.obras||[]).find(o=>o.id===workflowTrail.at(-1).obraId)?.name||"Obra":TAB_META[workflowTrail.at(-1).tabId]?.label||"tela anterior"}`}:null}}>
+          <WorkflowReturn/>
 
           {tab === "home"   && (["engenheiro","engenheiro_auditor"].includes(currentUser?.role)
-            ? <DashboardEngenheiro data={data} update={update} showToast={showToast} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser} saveState={estadoSalvar}/>
-            : <Dashboard data={data} update={update} showToast={showToast} onTab={setTab} ultimaSync={ultimaSync} currentUser={currentUser}
+            ? <DashboardEngenheiro data={data} update={update} showToast={showToast} onTab={irPara} ultimaSync={ultimaSync} currentUser={currentUser} saveState={estadoSalvar}/>
+            : <Dashboard data={data} update={update} showToast={showToast} onTab={irPara} onAbrirObra={obraId=>irPara("obras",obraId)} ultimaSync={ultimaSync} currentUser={currentUser}
                               onBuscar={()=>setBuscaAberta(true)} onAtualizar={descartarMinhaVersao} saveState={estadoSalvar} />)}
           {tab === "tv" && <PainelTV data={data} ultimaSync={ultimaSync} onAtualizar={atualizarPainelTV} allowedTabs={allowedTabs}/>}
           {tab === "chat" && <Comunicacao data={data} currentUser={currentUser} showToast={showToast}/>}
           {tab === "admin_central" && <Suspense fallback={<div className="arcd-page-loading">Carregando central do administrador...</div>}><CentralAdministrador data={data} update={update} showToast={showToast} currentUser={currentUser}/></Suspense>}
           {tab === "aprov_pend" && <Suspense fallback={<div className="arcd-page-loading">Carregando aprovações...</div>}><AprovacoesPendentesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
-          {tab.startsWith("com_") && <Suspense fallback={<div className="arcd-page-loading">Carregando comercial...</div>}><Comercial data={data} update={update} dispatchCommand={dispatchOperationalCommand} showToast={showToast} currentUser={currentUser} view={tab} onTab={setTab} /></Suspense>}
+          {tab.startsWith("com_") && <Suspense fallback={<div className="arcd-page-loading">Carregando comercial...</div>}><Comercial data={data} update={update} dispatchCommand={dispatchOperationalCommand} showToast={showToast} currentUser={currentUser} view={tab} onTab={irPara} /></Suspense>}
           {tab === "obras"  && (obraAberta
             ? <ObraDetalhe data={data} obraId={obraAberta} update={update} showToast={showToast}
                            currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}
                            dispatchAttendanceCommand={dispatchAttendanceCommand}
                            onVoltar={() => setObraAberta("")}
                            onEditarObra={()=>{sessionStorage.setItem("arcd_editar_obra",obraAberta);setObraAberta("");}}
-                           onTab={(t) => { setObraAberta(""); setTab(t); }} />
+                           onTab={irPara} />
             : <Obras       data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand}
                            currentUser={currentUser} onAbrirObra={setObraAberta} />)}
           {tab === "orc"    && <Suspense fallback={<div className="arcd-page-loading">Carregando orçamento...</div>}><Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
+          {tab === "projetos" && <Suspense fallback={<div className="arcd-page-loading">Carregando projetos...</div>}><ProjetosEngenharia data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} showToast={showToast} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar projetos.");await update({__adotarServidorPatch:true,sections:{engineeringProjects:fresh.data.engineeringProjects||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
           {tab === "plan"   && <Suspense fallback={<div className="arcd-page-loading">Carregando planejamento...</div>}><Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "plan_suprimentos" && <Suspense fallback={<div className="arcd-page-loading">Carregando suprimentos...</div>}><LazyMarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
           {tab === "rdo"    && <Suspense fallback={<div className="arcd-page-loading">Carregando diário de obra...</div>}><DiarioObra data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "conferencia" && <Suspense fallback={<div className="arcd-page-loading">Carregando conferência...</div>}><Conferencia data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onAbrirPlanejamento={()=>setTab("plan")}/>}
-          {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={setTab} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "equipe" && <Suspense fallback={<div className="arcd-page-loading">Carregando equipe...</div>}><EquipeView data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={setTab} /></Suspense>}
+          {tab === "med"    && <MedicaoEvolucao data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onAbrirPlanejamento={()=>irPara("plan")}/>}
+          {tab === "obsoletos" && <Obsoletos    data={data} update={update} showToast={showToast} onTab={irPara} dispatchCommand={dispatchOperationalCommand} />}
+          {tab === "equipe" && <Suspense fallback={<div className="arcd-page-loading">Carregando equipe...</div>}><EquipeView data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand} currentUser={currentUser} onTab={irPara} /></Suspense>}
           {tab === "terc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando terceiros...</div>}><Terceiros data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
-          {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} onTab={setTab}/>}
-          {tab === "equipe_obras" && <EquipeObras key={currentUser?.id} onTab={setTab} allowedTabs={allowedTabs}/>}
-          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={setTab} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} onTab={setTab}/>}
-          {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
+          {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} onTab={irPara}/>}
+          {tab === "equipe_obras" && <EquipeObras key={currentUser?.id} onTab={irPara} allowedTabs={allowedTabs}/>}
+          {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={irPara} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
+          {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} onTab={irPara}/>}
+          {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "rh_indic" && <Suspense fallback={<div className="arcd-page-loading">Carregando indicadores...</div>}><IndicadoresView data={data} /></Suspense>}
           {tab === "dre_emp"  && <DREEmpresa onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "dre"      && <DRE          data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
-          {tab === "fin"      && <Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
+          {tab === "fin"      && <Financeiro onOpenWork={allowedTabs.includes("obras")?obraId=>irPara("obras",obraId):undefined} data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "conc"     && <Suspense fallback={<div className="arcd-page-loading">Carregando conciliação...</div>}><Conciliacao  data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "est"      && <Suspense fallback={<div className="arcd-page-loading">Carregando estoque...</div>}><Estoque data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "equip"    && <Suspense fallback={<div className="arcd-page-loading">Carregando equipamentos...</div>}><Equipamentos data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
@@ -18016,12 +18143,12 @@ export default function App() {
           {tab === "licenca"  && <Suspense fallback={<div className="arcd-page-loading">Carregando licenciamento...</div>}><Licenciamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "cmp"      && <Suspense fallback={<div className="arcd-page-loading">Carregando compras...</div>}><Compras      data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/></Suspense>}
           {tab === "fornecedores" && <RankingFornecedores data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "suprimentos" && <CotacoesMaterial data={data} update={update} showToast={showToast} onTab={(t)=>{setObraAberta("");setTab(t);}}/>}
-          {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={setTab} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
+          {tab === "suprimentos" && <CotacoesMaterial data={data} update={update} showToast={showToast} onTab={irPara}/>}
+          {tab === "cad"      && <Cadastros    data={data} update={update} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}/>}
           {tab === "medicoes" && <Suspense fallback={<div className="arcd-page-loading">Carregando medições...</div>}><MedicoesView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "caixa"    && <CaixaObra    data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />}
           {tab === "relat"    && <Relatorios   data={data} showToast={showToast} currentUser={currentUser} />}
-          {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={setTab} />}
+          {tab === "ia"     && <AgenteIA    data={data} showToast={showToast} onTab={irPara} />}
           {tab === "ia_config" && <ConfiguracaoIA showToast={showToast}/>}
           {tab === "config" && <Config      data={data} update={update} showToast={showToast} currentUser={currentUser} onLogout={sairDoSistema} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} />}
           {["dre","dre_emp","conc"].includes(tab)&&<DreReconciliationManager data={data} update={update} currentUser={currentUser}/>}
@@ -18039,7 +18166,7 @@ export default function App() {
           <div style={{ maxWidth:maxConteudo, margin:"0 auto" }}>
 
             {/* Sub-tabs (só aparece quando grupo tem >1 aba) */}
-            {hasSubTabs && (
+            {hasSubTabs&&!operationalWorkspace && (
               <div className="mobile-subnav" style={{
                 display:"flex", gap:5, overflowX:"auto", padding:"8px 12px 6px",
                 borderBottom:`1px solid ${C.line}55`,
@@ -18049,7 +18176,7 @@ export default function App() {
                   const meta = TAB_META[tabId];
                   const isActive = tab === tabId;
                   return (
-                    <button key={tabId} data-active={isActive} onClick={() => setTab(tabId)} style={{
+                    <button key={tabId} data-active={isActive} onClick={() => irPara(tabId)} style={{
                       flexShrink:0,
                       background: isActive ? `${activeGroup.color}22` : "transparent",
                       color: isActive ? activeGroup.color : C.muted,

@@ -1,9 +1,15 @@
-import {defineConfig} from "vite";
+import {defineConfig, mergeConfig} from "vite";
 import react from "@vitejs/plugin-react";
 import {fileURLToPath, URL} from "node:url";
+import {spreadsheetBrowserConfig} from "./scripts/spreadsheet-browser-config.mjs";
 
-export default defineConfig({
+export default defineConfig(({mode})=>mergeConfig({
   plugins: [react()],
+  // Evidências e builds locais não são fontes da aplicação. Observá-los
+  // dispara recargas contínuas enquanto outras verificações estão rodando.
+  server: {
+    watch: {ignored: ["**/artifacts/**", "**/analises/**", "**/.impeccable/**", "**/test-results*/**", "**/playwright-report/**", "**/output/**"]},
+  },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
@@ -36,6 +42,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Os gráficos compartilham Lodash com a leitura CSV do ExcelJS.
+          // Um chunk comum evita vários blocos pequenos comprimidos à parte.
+          if(id.includes("/node_modules/recharts/")||id.includes("/node_modules/lodash/"))return "charts";
           if (id.includes("exceljs")) return "spreadsheet-tools";
           // Mantém o Recharts em um único arquivo compartilhado entre os painéis,
           // reduzindo a repetição de imports e a fragmentação da compressão.
@@ -70,4 +79,4 @@ export default defineConfig({
       },
     },
   },
-});
+},mode==="test"?{}:spreadsheetBrowserConfig()));

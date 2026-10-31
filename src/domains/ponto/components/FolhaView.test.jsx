@@ -56,7 +56,7 @@ it('feriados vão para a obra onde o funcionário trabalhou, não para a lotaç�
   container=document.createElement('div');document.body.append(container);root=createRoot(container);
   act(()=>root.render(<Folha data={data} showToast={()=>{}}/>));
   const total=()=>container.querySelector('.payroll-summary-strip__net strong').textContent;
-  const select=[...container.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value==='all'));
+  const select=[...container.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value===data.obras[0].id));
   const filter=value=>act(()=>{select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));});
   expect(total()).toMatch(/1\.000,00/);
   filter('lotacao'); expect(total()).toMatch(/R\$\s*0,00/);
@@ -78,7 +78,7 @@ it('feriado sem ponto vai para a obra do último dia trabalhado (12/10 na obra p
   container=document.createElement('div');document.body.append(container);root=createRoot(container);
   act(()=>root.render(<Folha data={data} showToast={()=>{}}/>));
   const total=()=>container.querySelector('.payroll-summary-strip__net strong').textContent;
-  const select=[...container.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value==='all'));
+  const select=[...container.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value===data.obras[0].id));
   const filter=value=>act(()=>{select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));});
   expect(total()).toMatch(/1\.100,00/);
   filter('adm'); expect(total()).toMatch(/1\.100,00/);
@@ -96,7 +96,7 @@ it('dia sem obra no ponto segue o histórico do cadastro (obraHistory), como a D
   container=document.createElement('div');document.body.append(container);root=createRoot(container);
   act(()=>root.render(<Folha data={data} showToast={()=>{}}/>));
   const total=()=>container.querySelector('.payroll-summary-strip__net strong').textContent;
-  const select=[...container.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value==='all'));
+  const select=[...container.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value===data.obras[0].id));
   const filter=value=>act(()=>{select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));});
   // Antiga: 08-11/09 (antes da transferência de 14/09) + feriado de 07/09
   // (sem dia trabalhado antes: lotação histórica). Nova: 14, 16, 17, 18/09 +

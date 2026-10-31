@@ -173,9 +173,9 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
     w.document.write(marcellReportHtml(html));
     w.document.close();
   };
-  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+  return <div className="anim patrimony-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
     <PageHero eyebrow="Administração" title="Patrimônio da empresa" description="Bens corporativos da empresa, com nota fiscal, identificação física, localização atual e histórico." stats={[{label:"Bens ativos",value:String(active.length),color:C.green},{label:"Valor de aquisição",value:money(total)},{label:"Com nota/documento",value:String(docs)+"/"+String(active.length),color:docs===active.length?C.green:C.orange}]} actions={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><Btn v="ghost" onClick={gerarRelatorio}><Ic n="fileText"/> Relatório</Btn><Btn v="ghost" onClick={()=>setImporting(true)}><Ic n="receipt"/> Importar NF</Btn><Btn onClick={()=>setEditor(vazio())}><Ic n="plus"/> Novo bem</Btn></div>}/>
-    <div style={{display:"flex",gap:12,alignItems:"flex-end",flexWrap:"wrap"}}><div style={{flex:"1 1 280px"}}><Inp label="Buscar" value={search} onChange={setSearch} placeholder="Código, bem, série, IMEI, NF ou fornecedor"/></div><div style={{width:200}}><Sel label="Situação" value={status} onChange={setStatus} options={[{v:"ativos",l:"Ativos"},{v:"todos",l:"Todos"}].concat(STATUS)}/></div></div>
+    <div className="patrimony-filters"><div><Inp label="Buscar" value={search} onChange={setSearch} placeholder="Código, bem, série, IMEI, NF ou fornecedor"/></div><div><Sel label="Situação" value={status} onChange={setStatus} options={[{v:"ativos",l:"Ativos"},{v:"todos",l:"Todos"}].concat(STATUS)}/></div></div>
     {/* Padrão MARCELL: tabela alinhada; uma ação direta (Editar) e as demais no menu "Mais ações". */}
     <section className="patrimonio-lista" aria-label="Bens patrimoniais">
       <p className="patrimonio-lista__nota">O bem pertence à empresa. Uma obra pode aparecer apenas como localização temporária.</p>
@@ -185,7 +185,7 @@ export default function PatrimonioEmpresaView({data,showToast,dispatchCommand}){
           <div className="patrimonio-lista__bem"><span className="patrimonio-lista__nome">{a.name}</span><span className="patrimonio-lista__meta">{a.assetTag||"Sem código"}{a.serialNumber?", série "+a.serialNumber:""}{a.imei?", IMEI "+a.imei:""}</span></div>
           <div><Badge color={a.status==="baixado"?C.muted:a.status==="extraviado"?C.red:a.status==="manutencao"?C.orange:C.green}>{STATUS.find(s=>s.v===a.status)?.l||a.status}</Badge></div>
           <div className="patrimonio-lista__local"><span>{a.location?.label||"Sede"}</span><span className="patrimonio-lista__meta">{a.invoice?.number?"NF "+a.invoice.number:"Sem NF"}</span></div>
-          <div className="patrimonio-lista__num">{money(a.acquisitionValue)}</div>
+          <div className="patrimonio-lista__num"><span className="patrimony-value-label">Valor de aquisição</span>{money(a.acquisitionValue)}</div>
           <div className="patrimonio-lista__acoes" onKeyDown={e=>{if(e.key==="Escape"&&aberto){fechar();e.currentTarget.querySelector("[aria-haspopup]")?.focus();}}} onBlur={e=>{if(aberto&&!e.currentTarget.contains(e.relatedTarget))fechar();}}>
             <Btn size="sm" v="ghost" onClick={()=>setEditor(JSON.parse(JSON.stringify(a)))}>Editar</Btn>
             <div className="patrimonio-lista__menu">

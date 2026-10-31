@@ -2,6 +2,7 @@
 // persistência por agregado. Eles são puros para poderem ser exercitados sem
 // navegador e, principalmente, não fazem "last write wins" para a mesma
 // entidade. A migração do endpoint para comandos usa este mesmo contrato.
+import {applyCostControlCommand,COST_CONTROL_COMMAND} from '../financeiro/cost-control.js';
 import {
   normalizeTechnicalMeasurement,
   rebuildTechnicalMeasurementProjection,
@@ -108,7 +109,10 @@ import {
   applySupplyContractCommand,
   SUPPLY_CONTRACT_COMMAND,
 } from "../compras/supply-contracts.js";
+import { applyEngineeringCommand, ENGINEERING_COMMAND } from "../projetos/commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
+  ...ENGINEERING_COMMAND,
+  ...COST_CONTROL_COMMAND,
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
   FIELD_REPORT_CHANGED:"RDO_CAMPO_ALTERADO",
@@ -233,6 +237,16 @@ export const applyOperationalCommand=(data,command)=>{
   if(!commandIsValid(command))return fail("Comando operacional sem chave idempotente válida.");
   if(duplicate(data,command.idempotencyKey))return {ok:true,idempotent:true,data};
   const now=command.now||new Date().toISOString();
+  const engineeringResult=applyEngineeringCommand(data,command,now);
+  if(engineeringResult){
+    if(!engineeringResult.ok)return engineeringResult;
+    return {...engineeringResult,data:appendReceipt(engineeringResult.data,command,engineeringResult.entityId,now)};
+  }
+  const costControlResult=applyCostControlCommand(data,command,now);
+  if(costControlResult){
+    if(!costControlResult.ok)return costControlResult;
+    return {...costControlResult,data:appendReceipt(costControlResult.data,command,costControlResult.entityId,now)};
+  }
   const equipmentResult=applyEquipmentCommand(data,command,now);
   if(equipmentResult){
     if(!equipmentResult.ok)return equipmentResult;

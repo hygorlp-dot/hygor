@@ -1,4 +1,5 @@
 import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
+import {COST_CONTROL_COMMAND_TYPES,costControlWorkId} from '../src/domains/financeiro/cost-control.js';
 import { canOperateTechnicalMeasurement } from "../src/domains/medicoes/permissions.js";
 import { EQUIPMENT_COMMAND_TYPES, equipmentCommandObraId } from "../src/domains/equipamentos/commands.js";
 import { PATRIMONY_COMMAND_TYPES } from "../src/domains/patrimonio/commands.js";
@@ -94,7 +95,11 @@ import {
   stockCommandObraId,
 } from "../src/domains/estoque/commands.js";
 
+import { ENGINEERING_COMMAND_TYPES } from "../src/domains/projetos/commands.js";
+import { validateEngineeringScope } from "./engineering-project-policy.js";
+
 const operationalCommandObraId=(data={},command={})=>{
+  if(COST_CONTROL_COMMAND_TYPES.has(command.type))return costControlWorkId(data,command);
   const payload=command?.payload||{};
   if(PATRIMONY_COMMAND_TYPES.has(command?.type))return "";
   if(EQUIPMENT_COMMAND_TYPES.has(command?.type))return equipmentCommandObraId(data,command);
@@ -143,7 +148,12 @@ const operationalCommandObraId=(data={},command={})=>{
 };
 
 export const validateOperationalCommandScope=({user={},data={},command={}}={})=>{
+  if(ENGINEERING_COMMAND_TYPES.has(command.type))return validateEngineeringScope({user,data,command});
   const obraId=operationalCommandObraId(data,command);
+  if(COST_CONTROL_COMMAND_TYPES.has(command.type)){
+    const allowed=['admin','financeiro'].includes(user.role)&&(user.role==='admin'||!user.obraId||String(user.obraId)===obraId);
+    return allowed&&Boolean(obraId)&&Boolean((data.obras||[]).find(w=>w.id===obraId))?{ok:true,obraId,scope:'work'}:{ok:false,error:'Seu perfil não pode revisar custos desta obra.'};
+  }
   if(command.type===OPERATIONAL_COMMAND.FIELD_REPORT_REOPENED){
     return user?.role==="admin"
       ?{ok:true,obraId,scope:"work"}

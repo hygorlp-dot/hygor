@@ -97,6 +97,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
   const [riscoSemFotoAceito,setRiscoSemFotoAceito]=useState(false);
   const [thirdPartyCommandPending,setThirdPartyCommandPending]=useState(false);
   const inputFotosMedRef=useRef(null);
+  const inputCameraMedRef=useRef(null);
   const podeRegistrarEvidencia=podeGerenciarMedicoes&&currentUser?.active!==false;
 
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
@@ -667,6 +668,14 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     abrirMedicao();
   },[medicaoPedida,tercAtual?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const fecharMedicao=()=>{
+    if(subindoFotosMed||thirdPartyCommandPending){
+      showToast("Aguarde a conclusão do envio antes de fechar a medição.","info");
+      return;
+    }
+    setMedModal(false);setMedEditId("");
+  };
+
   const anexarFotosMedicao=async arquivos=>{
     const files=[...(arquivos||[])].filter(f=>String(f.type||"").startsWith("image/"));
     if(!files.length)return;
@@ -684,9 +693,12 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
         if(!r.ok)throw new Error(r.error||`Falha ao enviar ${file.name}.`);
         driveId=r.workspace?.driveId||driveId;folderId=r.workspace?.folderId||folderId;folders=r.workspace?.folders||folders;
         novas.push({id:r.item?.id||uid(),url:r.url,path:r.path||r.item?.id||"",nome:file.name||`Foto ${indice+1}`,legenda:"",enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"Engenheiro",enviadoPorRole:currentUser?.role||"",enviadoEm:new Date().toISOString()});
+        // Uma falha posterior no lote não pode apagar as evidências que já
+        // chegaram ao OneDrive. Vincula cada foto assim que o envio termina.
+        const foto=novas[novas.length-1];
+        setMedForm(f=>({...f,fotos:[...(f.fotos||[]),foto]}));
+        if(indice===0&&driveId&&folderId&&(!obraMed.oneDriveDriveId||!obraMed.oneDriveFolderId))update({...data,obras:(data.obras||[]).map(o=>o.id===obraMed.id?{...o,oneDriveDriveId:driveId,oneDriveFolderId:folderId,oneDriveFolders:folders||o.oneDriveFolders}:o)});
       }
-      if(driveId&&folderId&&(!obraMed.oneDriveDriveId||!obraMed.oneDriveFolderId))update({...data,obras:(data.obras||[]).map(o=>o.id===obraMed.id?{...o,oneDriveDriveId:driveId,oneDriveFolderId:folderId,oneDriveFolders:folders||o.oneDriveFolders}:o)});
-      setMedForm(f=>({...f,fotos:[...(f.fotos||[]),...novas]}));
       showToast(`${novas.length} fotografia(s) anexada(s) à medição.`);
     }catch(error){showToast(error.message||"Não foi possível salvar as fotografias.","error");}
     finally{setSubindoFotosMed(false);}
@@ -2005,9 +2017,9 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
       {/* Modal: registrar pagamento */}
       {medModal && tercAtual && (
         <Modal title={medEditId?`Corrigir medição - ${tercAtual.name}`:`Medição ${medicoesTercAtual.length + 1} - ${tercAtual.name}`}
-          onClose={()=>{setMedModal(false);setMedEditId("");}} wide panelClass="measurement-entry-modal"
+          onClose={fecharMedicao} wide panelClass="measurement-entry-modal"
           footer={<div className="measurement-entry-actions">
-            <Btn v="ghost" full onClick={()=>{setMedModal(false);setMedEditId("");}}>Cancelar</Btn>
+            <Btn v="ghost" full onClick={fecharMedicao} disabled={subindoFotosMed||thirdPartyCommandPending}>Cancelar</Btn>
             <Btn full onClick={salvarMedicao} disabled={subindoFotosMed||thirdPartyCommandPending}><Ic n="check"/> {thirdPartyCommandPending?"Confirmando...":medEditId?"Corrigir e reenviar":"Confirmar e enviar para aprovação"}</Btn>
           </div>}>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
@@ -2068,8 +2080,16 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               placeholder="Ex.: pendente o quadro do 2º pavimento"/>
 
             <div style={{background:C.surface,border:`1px solid ${(medForm.fotos||[]).length?C.green:C.orange}66`,borderRadius:9,padding:"11px 12px"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:9,flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,textTransform:"uppercase"}}>Evidência fotográfica obrigatória</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>As imagens ficam na pasta de fotos da obra e identificam o engenheiro responsável.</p></div><Btn size="sm" v={(medForm.fotos||[]).length?"ghost":"warning"} onClick={()=>inputFotosMedRef.current?.click()} disabled={subindoFotosMed}><Ic n="camera"/> {subindoFotosMed?"Enviando...":"Adicionar fotos"}</Btn><input ref={inputFotosMedRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/></div>
-              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:7,marginTop:9}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:`1px solid ${C.border}`}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600,marginTop:8}}>Nenhuma fotografia anexada. Clique em “Confirmar e enviar para aprovação” para selecionar a evidência.</p>}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:9,flexWrap:"wrap"}}>
+                <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,textTransform:"uppercase"}}>Evidência fotográfica obrigatória</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>As imagens ficam na pasta de fotos da obra e identificam o engenheiro responsável.</p></div>
+                <div className="flex flex-wrap gap-2">
+                  <Btn size="sm" v="ghost" onClick={()=>inputFotosMedRef.current?.click()} disabled={subindoFotosMed||thirdPartyCommandPending}>{subindoFotosMed?"Enviando...":"Escolher da galeria"}</Btn>
+                  <Btn size="sm" v="ghost" onClick={()=>inputCameraMedRef.current?.click()} disabled={subindoFotosMed||thirdPartyCommandPending}>Tirar foto</Btn>
+                </div>
+                <input ref={inputFotosMedRef} aria-label="Fotos da galeria para a medição" type="file" accept="image/*" multiple disabled={subindoFotosMed||thirdPartyCommandPending} style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/>
+                <input ref={inputCameraMedRef} aria-label="Foto da câmera para a medição" type="file" accept="image/*" capture="environment" disabled={subindoFotosMed||thirdPartyCommandPending} style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/>
+              </div>
+              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:7,marginTop:9}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:`1px solid ${C.border}`}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600,marginTop:8}}>Nenhuma fotografia anexada. Escolha fotos da galeria ou tire uma foto da execução.</p>}
             </div>
 
             <div style={{background:`${C.green}0B`,border:`1px solid ${C.green}44`,borderRadius:8,padding:"8px 11px"}}>
