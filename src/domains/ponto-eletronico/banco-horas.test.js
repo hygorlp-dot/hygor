@@ -25,12 +25,12 @@ describe("projeção do banco de horas do período", () => {
     ] });
     expect(r.ok).toBe(true);
     expect(r.linhas[0]).toMatchObject({
-      jornadaMinutos: 480, fonteJornada: "funcionario", saldoMinutos: 60, creditosMinutos: 90, debitosMinutos: 30,
-      trabalhadosMinutos: 1020, previstosMinutos: 960, diasConsiderados: 2, diasPendentes: 0, diasSemRegistro: 1,
+      jornadaMinutos: 480, fonteJornada: "funcionario", saldoMinutos: 0, creditosMinutos: 90, debitosMinutos: 90,
+      trabalhadosMinutos: 960, previstosMinutos: 960, diasConsiderados: 2, diasPendentes: 0, diasSemRegistro: 1,
     });
     expect(r.linhas[0].dias[0]).toMatchObject({ trabalhadosMinutos: 570, intervaloMinutos: 60, saldoMinutos: 90, confianca: "estimado" });
-    expect(r.linhas[0].evolucao.map(d => [d.saldoMinutos, d.acumuladoMinutos])).toEqual([[90, 90], [-30, 60], [null, 60]]);
-    expect(r.resumo).toMatchObject({ funcionariosComSaldo: 1, diasComRegistro: 2, saldoMinutos: 60, previstosMinutos: 960 });
+    expect(r.linhas[0].evolucao.map(d => [d.saldoMinutos, d.acumuladoMinutos])).toEqual([[90, 90], [-90, 0], [null, 0]]);
+    expect(r.resumo).toMatchObject({ funcionariosComSaldo: 1, diasComRegistro: 2, saldoMinutos: 0, previstosMinutos: 960 });
   });
 
   it("não inventa débito, calendário ou saldo inicial para dias sem registro", () => {
@@ -54,7 +54,7 @@ describe("projeção do banco de horas do período", () => {
 
   it("reutiliza a transferência entre obras, que pode encerrar jornada com três batidas", () => {
     const r = linha({ marcacoes: [batida("1", "07:00"), batida("3", "17:00", { obraId: "o2" }), batida("2", "11:00", { obraId: "o2" })] });
-    expect(r.dias[0]).toMatchObject({ situacao: "considerado", trabalhadosMinutos: 600, saldoMinutos: 120, confianca: "conferir" });
+    expect(r.dias[0]).toMatchObject({ situacao: "considerado", trabalhadosMinutos: 540, saldoMinutos: 60, confianca: "conferir",intervaloPadraoMinutos:60 });
     expect(r.dias[0].obras).toEqual([{ obraId: "o2", minutos: 360 }, { obraId: "o1", minutos: 240 }]);
     expect(r.obrasIds.sort()).toEqual(["o1", "o2"]);
     expect(r.dias[0].alertas.map(a => a.codigo)).toContain("mudanca_obra");
@@ -80,7 +80,7 @@ describe("projeção do banco de horas do período", () => {
 
   it("mantém os sinais de hora e identificação como alertas, sem nova invalidação da batida", () => {
     const r = linha({ marcacoes: [batida("1", "07:00", { horaConfiavel: false }), batida("2", "15:00", { relogioAlterado: true, metodo: "encarregado" })] });
-    expect(r.dias[0]).toMatchObject({ situacao: "considerado", saldoMinutos: 0, confianca: "conferir", pendencias: [] });
+    expect(r.dias[0]).toMatchObject({ situacao: "considerado", saldoMinutos: -60, confianca: "conferir", pendencias: [] });
     expect(r.dias[0].alertas.map(a => a.codigo)).toEqual(["hora_nao_confirmada", "relogio_alterado", "identificacao_encarregado"]);
   });
 
@@ -143,7 +143,7 @@ describe("projeção do banco de horas do período", () => {
 
   it("usa o contexto anterior para não interpretar saída noturna como entrada no início do período", () => {
     const marcacoes = [batida("saida_noturna", "06:00"), batida("nova_entrada", "14:00")];
-    expect(linha({ marcacoes }).saldoMinutos).toBe(0); // Sem contexto, os dois instantes aparentam 8 h completas.
+    expect(linha({ marcacoes }).saldoMinutos).toBe(-60); // Sem contexto: 8h corridas menos 1h de almoço padrão.
     const r = linha({ marcacoes, apropriacoes: [apropriacao("noturna", "22:00", "23:00", {
       data: "2026-10-04", inicio: "2026-10-04T22:00:00-03:00", fim: `${DIA}T06:00:00-03:00`,
     })] });
@@ -245,8 +245,8 @@ describe("projeção do banco de horas do período", () => {
     const r = modelo({ employees: [employee, { ...employee, id: "e2", name: "Bruno" }], marcacoes: [
       batida("1", "07:00"), batida("2", "16:00"), batida("3", "07:00", { employeeId: "e2" }), batida("4", "14:00", { employeeId: "e2" }),
     ] });
-    expect(r.resumo.saldoMinutos).toBe(0);
-    expect(resumirLinhasBancoHoras(r.linhas.filter(l => l.employeeId === "e1"))).toMatchObject({ funcionarios: 1, saldoMinutos: 60, creditosMinutos: 60, debitosMinutos: 0 });
+    expect(r.resumo.saldoMinutos).toBe(-120);
+    expect(resumirLinhasBancoHoras(r.linhas.filter(l => l.employeeId === "e1"))).toMatchObject({ funcionarios: 1, saldoMinutos: 0, creditosMinutos: 0, debitosMinutos: 0 });
     expect(resumirLinhasBancoHoras([])).toMatchObject({ funcionarios: 0, saldoMinutos: null, diasConsiderados: 0 });
   });
 
@@ -254,7 +254,7 @@ describe("projeção do banco de horas do período", () => {
     const marcacoes = Object.freeze([Object.freeze(batida("1", "07:00")), Object.freeze(batida("2", "15:07"))]);
     const employees = Object.freeze([Object.freeze({ ...employee })]);
     const r = modelo({ employees, marcacoes, config: { payrollOvertimeAdditionalPercent: 100 } });
-    expect(r.linhas[0]).toMatchObject({ saldoMinutos: 7, creditosMinutos: 7 });
+    expect(r.linhas[0]).toMatchObject({ saldoMinutos: -53, creditosMinutos: 0,debitosMinutos:53 });
     expect(marcacoes[0].marcadoEm).toBe(`${DIA}T07:00:00-03:00`);
   });
 });

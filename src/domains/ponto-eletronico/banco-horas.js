@@ -1,12 +1,14 @@
 // Projeção de horas do período, somente leitura. Não é um banco homologado:
-// não existe aqui saldo anterior, calendário de trabalho, compensação ou
-// lançamento na grade/folha. A jornada é a cadastrada AGORA. Dias sem
+// não existe aqui saldo anterior, compensação ou lançamento na grade/folha.
+// A escala vigente no dia prevalece sobre a jornada fixa do cadastro. Dias sem
 // registros nunca criam débito; dias incompletos não entram nos totais.
 import { formatMinutes } from "../ponto/timekeeping.js";
 import { proporApropriacoes, validarApropriacao } from "./apropriacao.js";
 import { dataLocal, FUSO_OBRA } from "./painel.js";
+import {scheduleOnDate} from '../rh/work-schedule.js';
 
 export const MAX_DIAS_BANCO_HORAS = 62;
+export const ALMOCO_PADRAO_MINUTOS = 60;
 const DIA_MS = 86_400_000;
 const texto = valor => String(valor ?? "").trim();
 const lista = valor => Array.isArray(valor) ? valor : [];
@@ -212,9 +214,11 @@ export function construirBancoHoras({ employees = [], config = {}, marcacoes = [
 
   const linhas = [...ids].map(employeeId => {
     const employee = cadastros.get(employeeId);
-    const jornada = resolverJornada(employee, config);
+    const jornadaCadastro = resolverJornada(employee, config);
     const problemas = problemasFuncionario.get(employeeId) || [];
     const dias = periodo.dias.map(data => {
+      const escala=scheduleOnDate(employee,data);
+      const jornada=escala?{minutos:escala.minutes,fonte:'escala'}:jornadaCadastro;
       const g = grupos.get(`${employeeId}__${data}`);
       const batidas = [...(g?.batidas || [])].sort((a, b) => Date.parse(a.marcadoEm) - Date.parse(b.marcadoEm));
       const temRegistro = !!g && (batidas.length > 0 || g.temApropriacao);
@@ -245,10 +249,13 @@ export function construirBancoHoras({ employees = [], config = {}, marcacoes = [
         incluirAviso(pendencias, aviso("jornada_maior_24h", "Os intervalos atribuídos ao dia ultrapassam 24 horas."));
       }
       const minutos = intervalos.reduce((soma, i) => soma + Math.max(0, i.minutos), 0);
-      const intervaloMinutos = intervalos.length ? Math.max(0, Math.round((Date.parse(intervalos.at(-1).fim) - Date.parse(intervalos[0].inicio)) / 60_000 - minutos)) : 0;
+      const pausaMs=intervalos.length?Math.max(0,Date.parse(intervalos.at(-1).fim)-Date.parse(intervalos[0].inicio)
+        -intervalos.reduce((total,i)=>total+Date.parse(i.fim)-Date.parse(i.inicio),0)):0;
+      const intervaloMinutos=Math.round(pausaMs/60000);
       return {
         data, origem, temRegistro, situacao: temRegistro ? "pendente" : "sem_registro", confianca: "insuficiente",
-        jornadaMinutos: jornada.minutos, previstosMinutos: temRegistro ? jornada.minutos : null,
+        jornadaMinutos: jornada.minutos, fonteJornada:jornada.fonte, previstosMinutos: temRegistro ? jornada.minutos : null,
+        trabalhadosBrutosMinutos:temRegistro?Math.round(minutos):null,intervaloPadraoMinutos:0,temIntervaloRegistrado:pausaMs>0,
         trabalhadosMinutos: temRegistro ? Math.round(minutos) : null, intervaloMinutos,
         saldoMinutos: null, acumuladoMinutos: null, intervalos, batidas, obras: obrasDosIntervalos(intervalos), pendencias, alertas,
       };
@@ -293,6 +300,14 @@ export function construirBancoHoras({ employees = [], config = {}, marcacoes = [
     let trabalhadosMinutos = 0, previstosMinutos = 0, creditosMinutos = 0, debitosMinutos = 0;
     for (const dia of dias) {
       if (dia.temRegistro && !dia.pendencias.length) {
+        // Regra de estimativa pedida pelo RH: uma hora de almoço nos dias
+        // com mais de 6h corridas sem intervalo. Nunca fabrica batidas nem
+        // desconta novamente uma pausa registrada ou intervalos já tratados.
+        if(dia.origem==='batidas'&&!dia.temIntervaloRegistrado&&dia.trabalhadosMinutos>360){
+          dia.intervaloPadraoMinutos=ALMOCO_PADRAO_MINUTOS;
+          dia.intervaloMinutos+=ALMOCO_PADRAO_MINUTOS;
+          dia.trabalhadosMinutos-=ALMOCO_PADRAO_MINUTOS;
+        }
         dia.situacao = "considerado";
         dia.confianca = dia.alertas.length ? "conferir" : dia.origem === "apropriacao" ? "tratado" : "estimado";
         dia.saldoMinutos = dia.trabalhadosMinutos - dia.previstosMinutos;
@@ -305,10 +320,13 @@ export function construirBancoHoras({ employees = [], config = {}, marcacoes = [
       dia.acumuladoMinutos = acumulado;
     }
     const diasConsiderados = dias.filter(d => d.situacao === "considerado").length;
+    const temEscala=dias.some(d=>d.fonteJornada==='escala');
+    const jornadasMinutos=[...new Set(dias.map(d=>d.jornadaMinutos).filter(m=>m!=null&&m>0))].sort((a,b)=>b-a);
     return {
       employeeId, nome: texto(employee?.name || employee?.nome) || "Funcionário fora do cadastro", funcao: texto(employee?.role || employee?.funcao),
       lotacaoObraId: texto(employee?.obra || employee?.lotacaoObraId), foraDoCadastro: !employee,
-      jornadaMinutos: jornada.minutos, fonteJornada: jornada.fonte,
+      jornadaMinutos:jornadasMinutos.length===1?jornadasMinutos[0]:jornadasMinutos.length?null:temEscala?0:jornadaCadastro.minutos,
+      jornadasMinutos,fonteJornada:temEscala?'escala':jornadaCadastro.fonte,
       saldoMinutos: acumulado, trabalhadosMinutos, previstosMinutos, creditosMinutos, debitosMinutos,
       diasComRegistro: dias.filter(d => d.temRegistro).length, diasConsiderados,
       diasPendentes: dias.filter(d => d.situacao === "pendente").length, diasSemRegistro: dias.filter(d => d.situacao === "sem_registro").length,
