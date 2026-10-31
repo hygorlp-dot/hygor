@@ -1,0 +1,1854 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MARCELL Integration API",
+    "version": "3.0.0",
+    "description": "Implementação local, não ativada. Todas as operações exigem grant explícito, obra e perfil vigente. manage permite registros consequenciais no aplicativo, nunca pagamento bancário. Schemas sintáticos não substituem validação de domínio."
+  },
+  "servers": [
+    {
+      "url": "https://YOUR_AUTHORIZED_HOST"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "integrationBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Opaque random machine token, server stores SHA-256; not a Supabase JWT."
+      }
+    }
+  },
+  "security": [
+    {
+      "integrationBearer": []
+    }
+  ],
+  "paths": {
+    "/api/data": {
+      "post": {
+        "operationId": "marcellIntegration",
+        "summary": "Read, report, preview or execute a strictly scoped integration operation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-incident"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "eventId": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{16,128}$"
+                      },
+                      "code": {
+                        "enum": [
+                          "DATA_SAVE_FAILED",
+                          "AUTH_SERVICE_UNAVAILABLE",
+                          "INTEGRATION_DEPENDENCY_FAILED",
+                          "CLIENT_RUNTIME_ERROR",
+                          "REPORT_GENERATION_FAILED"
+                        ]
+                      },
+                      "module": {
+                        "enum": [
+                          "sistema",
+                          "orcamento",
+                          "planejamento",
+                          "financeiro",
+                          "compras",
+                          "contratos",
+                          "rdo",
+                          "qualidade",
+                          "seguranca",
+                          "producao",
+                          "integracao"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "obraId",
+                      "eventId",
+                      "code",
+                      "module"
+                    ],
+                    "additionalProperties": false,
+                    "x-required-scopes": [
+                      "monitoramento:write"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-monitoring"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "severity": {
+                        "enum": [
+                          "critical",
+                          "warning"
+                        ]
+                      },
+                      "offset": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "obraId"
+                    ],
+                    "additionalProperties": false,
+                    "x-required-scopes": [
+                      "monitoramento:read"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-signature-prepare"
+                      },
+                      "packetId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "sourceType": {
+                        "enum": [
+                          "supply-contract",
+                          "contract-amendment"
+                        ]
+                      },
+                      "sourceId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "expectedSourceHash": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "packetId",
+                      "obraId",
+                      "sourceType",
+                      "sourceId",
+                      "expectedVersion",
+                      "idempotencyKey"
+                    ],
+                    "additionalProperties": false,
+                    "x-required-scopes": [
+                      "contratos:prepare"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-signature-track"
+                      },
+                      "packetId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "documentHash": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "reportedStatus": {
+                        "enum": [
+                          "awaiting-signature",
+                          "reported-signed",
+                          "reported-declined"
+                        ]
+                      },
+                      "evidence": {
+                        "type": "object",
+                        "properties": {
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          "fileName": {
+                            "type": "string"
+                          },
+                          "mimeType": {
+                            "enum": [
+                              "application/pdf",
+                              "application/pkcs7-signature",
+                              "application/pkcs7-mime"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "sha256",
+                          "fileName",
+                          "mimeType"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "packetId",
+                      "obraId",
+                      "expectedVersion",
+                      "documentHash",
+                      "reportedStatus",
+                      "idempotencyKey"
+                    ],
+                    "additionalProperties": false,
+                    "x-required-scopes": [
+                      "contratos:signatures:write"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-signatures"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "packetId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "offset": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "obraId"
+                    ],
+                    "additionalProperties": false,
+                    "x-required-scopes": [
+                      "contratos:signatures:read"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-capabilities"
+                      }
+                    },
+                    "required": [
+                      "action"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-read"
+                      },
+                      "module": {
+                        "enum": [
+                          "orcamento",
+                          "planejamento",
+                          "financeiro",
+                          "compras",
+                          "contratos",
+                          "obras",
+                          "rdo",
+                          "qualidade",
+                          "medicoes",
+                          "estoque",
+                          "suprimentos",
+                          "equipamentos",
+                          "licenciamento",
+                          "equipe",
+                          "terceiros",
+                          "projetos",
+                          "producao",
+                          "seguranca"
+                        ]
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "offset": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "default": 0
+                      },
+                      "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100,
+                        "default": 50
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "module",
+                      "obraId"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-report"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "date": {
+                        "type": "string",
+                        "format": "date"
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "obraId",
+                      "date"
+                    ],
+                    "additionalProperties": false,
+                    "x-required-scopes": [
+                      "relatorios:read"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-budget-preview"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "budgetId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "changes": {
+                        "type": "array",
+                        "maxItems": 100,
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            "quantidade": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "precoUnit": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "bdi": {
+                              "type": "number",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "obraId",
+                      "budgetId",
+                      "changes"
+                    ],
+                    "additionalProperties": false,
+                    "x-required-scopes": [
+                      "orcamento:read",
+                      "orcamento:preview"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-budget-revision"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "budgetId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "newId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "newVersionId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "sourceHash": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "changes": {
+                        "type": "array",
+                        "maxItems": 100,
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            "quantidade": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "precoUnit": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "bdi": {
+                              "type": "number",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "obraId",
+                      "budgetId",
+                      "newId",
+                      "newVersionId",
+                      "sourceHash",
+                      "idempotencyKey",
+                      "changes"
+                    ],
+                    "additionalProperties": false,
+                    "x-required-scopes": [
+                      "orcamento:write"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "add-planning-constraint"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "lookaheadId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "constraint": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "pacoteId": {
+                            "type": "string"
+                          },
+                          "categoria": {
+                            "type": "string"
+                          },
+                          "descricao": {
+                            "type": "string"
+                          },
+                          "dataIdentificacao": {
+                            "type": "string"
+                          },
+                          "dataNecessidade": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "pacoteId",
+                          "categoria",
+                          "descricao",
+                          "dataIdentificacao",
+                          "dataNecessidade"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "lookaheadId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "constraint"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "record-payable-settlement"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "targetType": {
+                            "type": "string"
+                          },
+                          "targetId": {
+                            "type": "string"
+                          },
+                          "data": {
+                            "type": "string"
+                          },
+                          "referencia": {
+                            "type": "string"
+                          },
+                          "observacao": {
+                            "type": "string"
+                          },
+                          "valor": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "record"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Registra baixa contábil de pagamento já realizado; não inicia PIX, transferência ou pagamento bancário. Origem fixada em empresa, sem transação bancária/caixa/conciliação; exige referência do pagamento já efetuado.",
+                    "x-required-scopes": [
+                      "financeiro:write",
+                      "financeiro:settle"
+                    ],
+                    "x-risk": "financial-posting"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "save-purchase-request"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "numero": {
+                            "type": "string"
+                          },
+                          "necessidade": {
+                            "type": "string"
+                          },
+                          "prioridade": {
+                            "type": "string"
+                          },
+                          "observacao": {
+                            "type": "string"
+                          },
+                          "itens": {
+                            "type": "array",
+                            "maxItems": 200,
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "materialId": {
+                                  "type": "string"
+                                },
+                                "descricaoRef": {
+                                  "type": "string"
+                                },
+                                "unidadeRef": {
+                                  "type": "string"
+                                },
+                                "unidadeCompra": {
+                                  "type": "string"
+                                },
+                                "orcItemId": {
+                                  "type": "string"
+                                },
+                                "orcNivel1Id": {
+                                  "type": "string"
+                                },
+                                "quantidade": {
+                                  "type": "number"
+                                },
+                                "precoRef": {
+                                  "type": "number"
+                                },
+                                "fatorConversao": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "id"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "record"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Solicitação enviada; aprovação criada/reiniciada pelo domínio; sem envio externo.",
+                    "x-required-scopes": [
+                      "compras:write"
+                    ],
+                    "x-risk": "workflow"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "save-purchase-order-draft"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "numero": {
+                            "type": "string"
+                          },
+                          "fornecedorId": {
+                            "type": "string"
+                          },
+                          "data": {
+                            "type": "string"
+                          },
+                          "previsao": {
+                            "type": "string"
+                          },
+                          "solicitacaoId": {
+                            "type": "string"
+                          },
+                          "cotacaoId": {
+                            "type": "string"
+                          },
+                          "origemPagamento": {
+                            "type": "string"
+                          },
+                          "condicoesFaturamento": {
+                            "type": "string"
+                          },
+                          "enderecoEntrega": {
+                            "type": "string"
+                          },
+                          "contatoEntrega": {
+                            "type": "string"
+                          },
+                          "condicoesEntrega": {
+                            "type": "string"
+                          },
+                          "condicoesPagamento": {
+                            "type": "string"
+                          },
+                          "itens": {
+                            "type": "array",
+                            "maxItems": 200,
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "materialId": {
+                                  "type": "string"
+                                },
+                                "descricaoRef": {
+                                  "type": "string"
+                                },
+                                "unidadeRef": {
+                                  "type": "string"
+                                },
+                                "unidadeCompra": {
+                                  "type": "string"
+                                },
+                                "previsao": {
+                                  "type": "string"
+                                },
+                                "orcItemId": {
+                                  "type": "string"
+                                },
+                                "orcNivel1Id": {
+                                  "type": "string"
+                                },
+                                "qtd": {
+                                  "type": "number"
+                                },
+                                "precoUnit": {
+                                  "type": "number"
+                                },
+                                "fatorConversao": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "id"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "adjustmentReason": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "record"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Rascunho; pode vincular solicitação a pedido; não envia ao fornecedor.",
+                    "x-required-scopes": [
+                      "compras:write"
+                    ],
+                    "x-risk": "draft"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "create-project-expense"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "descricao": {
+                            "type": "string"
+                          },
+                          "competencia": {
+                            "type": "string"
+                          },
+                          "categoria": {
+                            "type": "string"
+                          },
+                          "valor": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "record"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Registra despesa ativa no financeiro; não executa pagamento ou transferência bancária.",
+                    "x-required-scopes": [
+                      "financeiro:write",
+                      "financeiro:manage"
+                    ],
+                    "x-risk": "financial-posting"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "save-invoice"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "numero": {
+                            "type": "string"
+                          },
+                          "tipo": {
+                            "type": "string"
+                          },
+                          "chave": {
+                            "type": "string"
+                          },
+                          "emissao": {
+                            "type": "string"
+                          },
+                          "vencimento": {
+                            "type": "string"
+                          },
+                          "pedidoId": {
+                            "type": "string"
+                          },
+                          "fornecedorId": {
+                            "type": "string"
+                          },
+                          "valorBruto": {
+                            "type": "number"
+                          },
+                          "retencoes": {
+                            "type": "object",
+                            "properties": {
+                              "iss": {
+                                "type": "number"
+                              },
+                              "inss": {
+                                "type": "number"
+                              },
+                              "irrf": {
+                                "type": "number"
+                              },
+                              "pis": {
+                                "type": "number"
+                              },
+                              "cofins": {
+                                "type": "number"
+                              },
+                              "csll": {
+                                "type": "number"
+                              },
+                              "outros": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [],
+                            "additionalProperties": false
+                          },
+                          "itensNota": {
+                            "type": "array",
+                            "maxItems": 200,
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "codigo": {
+                                  "type": "string"
+                                },
+                                "descricao": {
+                                  "type": "string"
+                                },
+                                "ncm": {
+                                  "type": "string"
+                                },
+                                "unidade": {
+                                  "type": "string"
+                                },
+                                "pedidoItemId": {
+                                  "type": "string"
+                                },
+                                "nItem": {
+                                  "type": "number"
+                                },
+                                "qtd": {
+                                  "type": "number"
+                                },
+                                "precoUnit": {
+                                  "type": "number"
+                                },
+                                "valorTotal": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "record"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Nota recebida, sem aprovação/pagamento; validação de três vias e período fechado pelo domínio.",
+                    "x-required-scopes": [
+                      "financeiro:write",
+                      "financeiro:manage"
+                    ],
+                    "x-risk": "financial-record"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "save-contract-amendment"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "descricao": {
+                            "type": "string"
+                          },
+                          "justificativa": {
+                            "type": "string"
+                          },
+                          "orcamentoRevisaoId": {
+                            "type": "string"
+                          },
+                          "valor": {
+                            "type": "number"
+                          },
+                          "prazoDias": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "record"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Aditivo proposto, não aprovado; não muda contrato vigente.",
+                    "x-required-scopes": [
+                      "contratos:write"
+                    ],
+                    "x-risk": "proposal"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "save-supply-contract"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "numero": {
+                            "type": "string"
+                          },
+                          "fornecedorId": {
+                            "type": "string"
+                          },
+                          "vigenciaInicio": {
+                            "type": "string"
+                          },
+                          "vigenciaFim": {
+                            "type": "string"
+                          },
+                          "observacao": {
+                            "type": "string"
+                          },
+                          "itens": {
+                            "type": "array",
+                            "maxItems": 200,
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "materialId": {
+                                  "type": "string"
+                                },
+                                "unidadeRef": {
+                                  "type": "string"
+                                },
+                                "unidadeCompra": {
+                                  "type": "string"
+                                },
+                                "qtdContratada": {
+                                  "type": "number"
+                                },
+                                "precoUnit": {
+                                  "type": "number"
+                                },
+                                "fatorConversao": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "id"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "record"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Contrato de fornecimento fica ativo no aplicativo; exige concessão manage explícita. Não assina/envia documento externo.",
+                    "x-required-scopes": [
+                      "contratos:write",
+                      "contratos:manage"
+                    ],
+                    "x-risk": "contract-activation"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "create-lookahead"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "semanaInicio": {
+                            "type": "string"
+                          },
+                          "semanaFim": {
+                            "type": "string"
+                          },
+                          "horizonteSemanas": {
+                            "type": "number"
+                          },
+                          "pacotes": {
+                            "type": "array",
+                            "maxItems": 200,
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "codigo": {
+                                  "type": "string"
+                                },
+                                "descricao": {
+                                  "type": "string"
+                                },
+                                "nome": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "record"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Janela rascunho com pacotes não analisados, sem compromissos/liberações.",
+                    "x-required-scopes": [
+                      "planejamento:write"
+                    ],
+                    "x-risk": "draft"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "save-field-report-draft"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "data": {
+                            "type": "string"
+                          },
+                          "descricao": {
+                            "type": "string"
+                          },
+                          "clima": {
+                            "type": "object",
+                            "properties": {
+                              "manha": {
+                                "type": "string"
+                              },
+                              "tarde": {
+                                "type": "string"
+                              },
+                              "noite": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "data",
+                          "descricao"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "record"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Operação rdo; validação de domínio obrigatória.",
+                    "x-required-scopes": [
+                      "rdo:write"
+                    ],
+                    "x-risk": "draft"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "update-quality-details"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "normaProjeto": {
+                            "type": "string"
+                          },
+                          "responsavelId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "record"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Operação qualidade; validação de domínio obrigatória.",
+                    "x-required-scopes": [
+                      "qualidade:write"
+                    ],
+                    "x-risk": "operational"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "save-risk-analysis-draft"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "activityId": {
+                            "type": "string"
+                          },
+                          "risks": {
+                            "type": "array",
+                            "maxItems": 50,
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "controls": {
+                            "type": "array",
+                            "maxItems": 50,
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "activityId",
+                          "risks",
+                          "controls"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "record"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Operação seguranca; validação de domínio obrigatória.",
+                    "x-required-scopes": [
+                      "seguranca:write"
+                    ],
+                    "x-risk": "draft"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "save-work-permit-draft"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "activityId": {
+                            "type": "string"
+                          },
+                          "validFrom": {
+                            "type": "string"
+                          },
+                          "validUntil": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "activityId",
+                          "validFrom",
+                          "validUntil"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "record"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Operação seguranca; validação de domínio obrigatória.",
+                    "x-required-scopes": [
+                      "seguranca:write"
+                    ],
+                    "x-risk": "draft"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "create-weekly-commitment"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "activityId": {
+                            "type": "string"
+                          },
+                          "descricao": {
+                            "type": "string"
+                          },
+                          "blockingReason": {
+                            "type": "string"
+                          },
+                          "quantidadePrometida": {
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "activityId",
+                          "descricao",
+                          "quantidadePrometida"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "record"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Operação producao; validação de domínio obrigatória.",
+                    "x-required-scopes": [
+                      "producao:write"
+                    ],
+                    "x-risk": "operational"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "action": {
+                        "const": "integration-command"
+                      },
+                      "operation": {
+                        "const": "record-physical-progress"
+                      },
+                      "obraId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "expectedVersion": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z0-9_-]{16,160}$"
+                      },
+                      "record": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "activityId": {
+                            "type": "string"
+                          },
+                          "data": {
+                            "type": "string"
+                          },
+                          "commitmentId": {
+                            "type": "string"
+                          },
+                          "quantity": {
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                          },
+                          "workerIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "activityId",
+                          "data",
+                          "quantity"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "action",
+                      "operation",
+                      "obraId",
+                      "expectedVersion",
+                      "idempotencyKey",
+                      "record"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Operação producao; validação de domínio obrigatória.",
+                    "x-required-scopes": [
+                      "producao:write"
+                    ],
+                    "x-risk": "operational"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scoped result; never raw company data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Denied, invalid, conflict or unavailable; do not assume a write committed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Denied, invalid, conflict or unavailable; do not assume a write committed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Denied, invalid, conflict or unavailable; do not assume a write committed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Denied, invalid, conflict or unavailable; do not assume a write committed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Denied, invalid, conflict or unavailable; do not assume a write committed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Denied, invalid, conflict or unavailable; do not assume a write committed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Denied, invalid, conflict or unavailable; do not assume a write committed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Denied, invalid, conflict or unavailable; do not assume a write committed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

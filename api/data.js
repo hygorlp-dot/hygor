@@ -1,3 +1,7 @@
+import { prepareSignatureMutation, readSignaturePackets } from '../server/marcell-signatures.js';
+import { prepareIncidentMutation, readMonitoring } from '../server/marcell-monitoring.js';
+import { reviseIntegrationBudget } from '../server/marcell-budget-revision.js';
+import { INTEGRATION_ACTIONS, authenticateIntegration, integrationActor, integrationCapabilities, readIntegration, integrationReport, previewBudget, prepareIntegrationCommand, annotateIntegrationResult, sanitizeIntegrationWriteResponse } from '../server/marcell-integration.js';
 import {quoteLinkKey,issueQuoteLink,verifyQuoteLink,quoteLinkAccess,publicQuoteView} from "../server/supplier-quote-link.js";
 import {storeSupplierResponse} from "../src/domains/compras/supplier-quote-response.js";
 import { reconcileImportedStatement } from "../server/reconciliation-after-import.js";
@@ -697,12 +701,12 @@ const consultarLinhasAuxiliares = () => Promise.all([
     .order("updated_at", { ascending: true }),
 ]);
 
-const decodificarNucleo = async data => {
+const decodificarNucleo = async (data, {readOnly=false}={}) => {
   const payload = decodeAppData(data.value);
   // Migração transparente: preserva o mesmo updated_at para não criar um
   // falso conflito nos navegadores que já estavam editando. Se outra gravação
   // vencer durante a migração, a condição impede qualquer sobrescrita.
-  if(!isEncodedAppData(data.value)){
+  if(!readOnly&&!isEncodedAppData(data.value)){
     const encoded=encodeAppData(payload);
     if(isEncodedAppData(encoded)){
       const migrated=await db.from("company_app_data").update({value:encoded})
@@ -763,11 +767,11 @@ const lerLinha = async () => {
 // traz só a linha core (suficiente para conferir PIN ou vincular o token a um
 // usuário) e completarLinha() devolve o MESMO resultado de lerLinha(), reaproveitando
 // a core já decodificada. Só quem foi autenticado paga a segunda etapa.
-const lerNucleo = async () => {
+const lerNucleo = async (options={}) => {
   const { data, error } = await consultarNucleo();
   if (error) throw error;
   if (!data) return { data: null, payload: null, updatedAt: null };
-  return { data, payload: await decodificarNucleo(data), updatedAt: data.updated_at || null };
+  return { data, payload: await decodificarNucleo(data,options), updatedAt: data.updated_at || null };
 };
 const completarLinha = async nucleo => {
   if (!nucleo.data) return { payload: null, updatedAt: null, rowVersions: {}, rowVersionsPontoObra: {} };
@@ -828,6 +832,21 @@ const salvarComAuditoria = async ({ key=KEY, expectedUpdatedAt, value, rowVersio
   }
   const result=Array.isArray(data)?data[0]:data;
   return { applied:!!result?.applied, updatedAt:result?.updated_at||null, correlationId };
+};
+
+// New integration-only core state shares the existing atomic audit/CAS machinery.
+const executarEstadoIntegracao=async({usuario,integration,linha,action,mutate})=>{
+  const apply=({payload:current})=>mutate({data:current,user:usuario,...integration});
+  if(process.env.POSTGRES_URL_NON_POOLING)return executarMutacaoEmpresaBloqueada({actor:usuario,action,domain:DOMAIN_ROW.CORE,linha,mutate:apply});
+  let base=linha;
+  for(let attempt=0;attempt<6;attempt+=1){
+    const outcome=apply({payload:base.payload});
+    if(outcome.kind!=="save")return outcome;
+    const saved=await salvarComAuditoria({expectedUpdatedAt:base.updatedAt,value:outcome.data,rowVersions:base.rowVersions,actor:usuario,action,before:outcome.before,after:outcome.after});
+    if(saved.applied)return {...outcome,updatedAt:saved.updatedAt};
+    base=await lerLinha();
+  }
+  return {kind:"error",status:503,error:"INTEGRATION_CONCURRENCY_BUSY"};
 };
 
 const executarArquivoPontoTransacional=async({
@@ -1182,7 +1201,7 @@ const travarCoreEmpresa=async transaction=>{
   return lockedCore;
 };
 
-export const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,protectClosedDre=false,domain=DOMAIN_ROW.CORE,linha:linhaConhecida=null,mutate})=>{
+export const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false,protectClosedDre=false,lockCore=false,domain=DOMAIN_ROW.CORE,linha:linhaConhecida=null,mutate})=>{
   // Achado de 21/08/2026: todo chamador já fez lerLinha() uma vez no topo
   // do handler, antes de qualquer branch. Reaproveitar essa leitura em vez
   // de repeti-la aqui evita um round-trip de rede inteiro - a mesma
@@ -1193,7 +1212,7 @@ export const executarMutacaoEmpresaBloqueada=async({actor,action,financial=false
   const effectiveDomain=linhaEfetivaParaEscrita(domain,linha.rowVersions);
   const key=keyForDomain(effectiveDomain);
   return comSql(connection=>connection.begin(async transaction=>{
-      const needsCoreLock=(financial||protectClosedDre)&&key!==KEY;
+      const needsCoreLock=(financial||protectClosedDre||lockCore)&&key!==KEY;
       const lockedCore=needsCoreLock?await travarCoreEmpresa(transaction):null;
       if(needsCoreLock&&!lockedCore)return {kind:"error",status:404,error:"Base de dados da empresa não encontrada."};
       const [locked]=await transaction`
@@ -1398,22 +1417,28 @@ const validarImutabilidadeDreFechadoLeitura=({before,after})=>
 // Uma alteração real na mesma entidade continua sendo recusada por
 // `expectedVersion`; concorrência em outro módulo apenas aguarda o bloqueio.
 const executarComandoOperacionalBloqueado=async({
-  command,usuario,financial,protectClosedDre=false,linha,
+  command,usuario,financial,protectClosedDre=false,linha,integration,
 })=>{
   return executarMutacaoEmpresaBloqueada({
     actor:usuario,
     action:`operational_${command.type.toLowerCase()}`,
     financial,
     protectClosedDre,
+    lockCore:Boolean(integration),
     domain:rowForOperationalCommand(command.type),
     linha,
     mutate:async({payload:current,updatedAt,transaction})=>{
+      if(integration){
+        const check=prepareIntegrationCommand({data:current,user:usuario,...integration});
+        if(!check.ok)return {kind:"error",status:check.status,error:check.code};
+      }
       const scope=validateOperationalCommandScope({user:usuario,data:current,command});
       if(!scope.ok)return {kind:"error",status:scope.error.includes("vinculado")?400:403,error:scope.error};
       let executed=applyOperationalCommand(current,{
         ...command,actorId:usuario.id,actorRole:usuario.role||"",
         actorName:usuario.nome||usuario.email||"Usuário autenticado",
       });
+      executed=annotateIntegrationResult(executed,integration,command);
       if(!executed.ok)return {
         kind:"error",status:409,error:executed.reason,
         conflict:true,currentUpdatedAt:updatedAt,
@@ -1436,7 +1461,7 @@ const executarComandoOperacionalBloqueado=async({
         basePayload:current,
         copied:executed.copied,summary:executed.summary,
         before:{command:command.type,entityId:operationalCommandEntityId(command)},
-        after:{command:command.type,idempotencyKey:command.idempotencyKey},
+        after:{command:command.type,idempotencyKey:command.idempotencyKey,...(integration?{integrationGrantId:integration.grant.id}:{})},
       };
     },
   });
@@ -1770,6 +1795,16 @@ export default async function handler(req, res) {
   const getActions=new Set(["profiles","client-portal","pedido-aceite-ver","backup-create","backup-verify","ponto-tempo-verificar"]);
   if(req.method&&req.method!=="POST"&&!(req.method==="GET"&&getActions.has(action)))return res.status(405).json({error:"Método não permitido."});
 
+  const isIntegration=INTEGRATION_ACTIONS.has(action);
+  let integration=null;
+  if(isIntegration){
+    res.setHeader("Cache-Control","no-store");
+    const auth=authenticateIntegration(req.headers,process.env.MARCELL_INTEGRATION_GRANTS,COMPANY);
+    if(!auth.ok)return res.status(auth.status).json({ok:false,code:auth.code});
+    integration={grant:auth.grant,body:req.body||{}};
+    // Never fall back to client-supplied JWT/PIN or actor identity.
+    accessToken=null; pin=null; userId=null;
+  }
   try {
     if(action==="client-error"){
       if(!aceitarErroCliente(ip))return res.status(429).json({error:"Limite de diagnósticos atingido."});
@@ -2007,7 +2042,7 @@ export default async function handler(req, res) {
     // ── Daqui pra baixo, sessão individual ou PIN de transição ─────
     // Token JWT válido não participa do contador de tentativas de PIN. Isso
     // impede que falhas de outra pessoa no mesmo NAT bloqueiem sessões ativas.
-    const usaPin=!accessToken;
+    const usaPin=!isIntegration&&!accessToken;
     if(usaPin){
       const limiteCentral=await rateLimitCentral(ip,"status");
       if (limiteCentral?.blocked||bloqueado(ip)) {
@@ -2020,8 +2055,8 @@ export default async function handler(req, res) {
     // linhas do dataset só são baixadas depois que a sessão é aceita: uma
     // chamada sem sessão válida nunca paga a leitura completa.
     const [nucleo,tokenAuth] = await Promise.all([
-      lerNucleo(),
-      validarToken(accessToken),
+      lerNucleo({readOnly:isIntegration}),
+      isIntegration ? Promise.resolve({data:{user:null}}) : validarToken(accessToken),
     ]);
     // Sessões PIN existentes continuam enviando userId. O primeiro login
     // resolve o identificador apenas aqui, sem oferecer uma consulta pública.
@@ -2035,7 +2070,7 @@ export default async function handler(req, res) {
     }
     cronometro.marcar("auth");
     const pinAuth=usaPin?conferirPin(nucleo.payload,pinUserId,pin):{usuario:null,upgradeHash:""};
-    const usuario = (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(nucleo.payload,tokenAuth.data.user):null) || pinAuth.usuario;
+    const usuario = isIntegration ? integrationActor(nucleo.payload,integration.grant) : (!tokenAuth.error&&tokenAuth.data?.user?encontrarUsuarioAuth(nucleo.payload,tokenAuth.data.user):null) || pinAuth.usuario;
 
     if (!usuario) {
       if(usaPin){
@@ -2072,6 +2107,65 @@ export default async function handler(req, res) {
           await salvarIndicePerfis(atualizado);
         }
       }
+    }
+
+    if(isIntegration){
+      if(action==="integration-capabilities")return res.status(200).json(integrationCapabilities(integration.grant,usuario,authorizeOperationalCommand(OPERATIONAL_COMMAND.LOOKAHEAD_CONSTRAINT_ADDED,usuario.role).ok));
+      if(action==="integration-signatures"){
+        const result=readSignaturePackets({data:atual,user:usuario,...integration});
+        return res.status(result.status||200).json(result);
+      }
+      if(action==="integration-signature-prepare"||action==="integration-signature-track"){
+        const signatureIntegration={...integration,body:{...integration.body,operation:action==="integration-signature-prepare"?"prepare":"record-manual-status"}};
+        const outcome=await executarEstadoIntegracao({usuario,integration:signatureIntegration,linha,action:action==="integration-signature-prepare"?"integration_signature_prepared":"integration_signature_manually_reported",mutate:prepareSignatureMutation});
+        if(outcome.kind==="error")return res.status(outcome.status||409).json({ok:false,code:outcome.error});
+        return res.status(200).json({ok:true,idempotent:outcome.kind==="idempotent",packetId:outcome.packetId,signatureVerified:false,updatedAt:outcome.updatedAt||null});
+      }
+      if(action==="integration-monitoring"){
+        const result=readMonitoring({data:atual,user:usuario,...integration});
+        return res.status(result.status||200).json(result);
+      }
+      if(action==="integration-incident"){
+        const outcome=await executarEstadoIntegracao({usuario,integration,linha,action:"integration_incident_recorded",mutate:prepareIncidentMutation});
+        if(outcome.kind==="error")return res.status(outcome.status||409).json({ok:false,code:outcome.error});
+        return res.status(200).json({ok:true,idempotent:outcome.kind==="idempotent",incidentId:outcome.incidentId,updatedAt:outcome.updatedAt||null});
+      }
+      if(action==="integration-report"){
+        const result=integrationReport({data:atual,user:usuario,...integration});
+        return res.status(result.status||200).json(result);
+      }
+      if(action==="integration-read"||action==="integration-budget-preview"){
+        const result=(action==="integration-read"?readIntegration:previewBudget)({data:atual,user:usuario,...integration});
+        return res.status(result.status||200).json(result);
+      }
+      if(action==="integration-budget-revision"){
+        const mutate=({payload:current})=>reviseIntegrationBudget({data:current,user:usuario,...integration});
+        let outcome;
+        if(process.env.POSTGRES_URL_NON_POOLING){
+          outcome=await executarMutacaoMultiLinha({actor:usuario,action:"integration_budget_revision",domains:[DOMAIN_ROW.ORCAMENTOS],linha,mutate});
+        }else{
+          let base=linha;
+          for(let attempt=0;attempt<6;attempt+=1){
+            outcome=mutate({payload:base.payload});
+            if(outcome.kind!=="save")break;
+            const domain=linhaEfetivaParaEscrita(DOMAIN_ROW.ORCAMENTOS,base.rowVersions);
+            const saved=await salvarComAuditoria({key:keyForDomain(domain),expectedUpdatedAt:domain===DOMAIN_ROW.CORE?base.updatedAt:base.rowVersions[domain],value:domain===DOMAIN_ROW.CORE?outcome.data:pickDomainFields(outcome.data,domain),rowVersions:base.rowVersions,keepDomain:domain,actor:usuario,action:"integration_budget_revision",before:outcome.before,after:outcome.after});
+            if(saved.applied){outcome={...outcome,updatedAt:saved.updatedAt};break;}
+            outcome={kind:"error",status:503,error:"CONCURRENCY_BUSY"};
+            base=await lerLinha();
+          }
+        }
+        if(outcome.kind==="error")return res.status(outcome.status||409).json({ok:false,code:outcome.error});
+        return res.status(200).json({ok:true,idempotent:outcome.kind==="idempotent",budgetId:outcome.budgetId,versionId:outcome.versionId,updatedAt:outcome.updatedAt||null});
+      }
+      const check=prepareIntegrationCommand({data:atual,user:usuario,...integration});
+      if(!check.ok)return res.status(check.status).json({ok:false,code:check.code});
+      if(check.replay)return res.status(200).json({ok:true,idempotent:true,updatedAt:null});
+      if(["financial-posting","financial-record","contract-activation"].includes(check.spec?.risk)&&!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({ok:false,code:"INTEGRATION_TRANSACTION_REQUIRED"});
+      req.body={command:check.command};
+      action="operational-command";
+      const sendJson=res.json.bind(res);
+      res.json=value=>sendJson(sanitizeIntegrationWriteResponse(value,res.statusCode));
     }
 
     if(action==="auth-pin-set"){
@@ -2811,7 +2905,7 @@ export default async function handler(req, res) {
       // entre si pela linha global da empresa.
       if(process.env.POSTGRES_URL_NON_POOLING){
         const outcome=await executarComandoOperacionalBloqueado({
-          command,usuario,financial:persistenciaFinanceira,
+          command,usuario,financial:persistenciaFinanceira,integration,
           // FINANCIAL_OPERATIONAL_COMMANDS inclui também equipamentos cujo
           // sync é audit-only, mas que alteram a projeção gerencial do DRE.
           protectClosedDre:FINANCIAL_OPERATIONAL_COMMANDS.has(command.type),
@@ -2889,7 +2983,7 @@ export default async function handler(req, res) {
         financialSnapshotData:resultData,rowVersions:base.rowVersions,keepDomain:domainAlvo,actor:usuario,
         action:`operational_${command.type.toLowerCase()}`,
         before:{command:command.type,entityId:operationalCommandEntityId(command)},
-        after:{command:command.type,idempotencyKey:command.idempotencyKey}});
+        after:{command:command.type,idempotencyKey:command.idempotencyKey,...(integration?{integrationGrantId:integration.grant.id}:{})}});
       };
 
       // Um único reenvio não bastava sob concorrência real: qualquer gravação
@@ -2899,9 +2993,14 @@ export default async function handler(req, res) {
       const dominioInicial=linhaEfetivaParaEscrita(domainAlvo,rowVersions);
       let base={payload:atual,domain:dominioInicial,rowVersions,updatedAt:dominioInicial===DOMAIN_ROW.CORE?updatedAt:rowVersions[domainAlvo]};
       for(let attempt=0;attempt<6;attempt+=1){
+        if(integration){
+          const check=prepareIntegrationCommand({data:base.payload,user:usuario,...integration});
+          if(!check.ok)return res.status(check.status).json({error:check.code});
+        }
         const retryScope=validateOperationalCommandScope({user:usuario,data:base.payload,command});
         if(!retryScope.ok)return res.status(403).json({error:retryScope.error});
-        const result=await reconcileImportedStatement(applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorRole:usuario.role||"",actorName:usuario.nome||usuario.email||"Usuário autenticado"}),command,usuario,validarImportacaoAutomatica);
+        const applied=annotateIntegrationResult(applyOperationalCommand(base.payload,{...command,actorId:usuario.id,actorRole:usuario.role||"",actorName:usuario.nome||usuario.email||"Usuário autenticado"}),integration,command);
+        const result=await reconcileImportedStatement(applied,command,usuario,validarImportacaoAutomatica);
         if(!result.ok)return res.status(409).json({conflict:true,reason:result.reason,currentUpdatedAt:base.updatedAt});
         if(result.idempotent)return res.status(200).json({ok:true,idempotent:true,data:projectDataForUser(base.payload,usuario),updatedAt:base.updatedAt});
         const gravacao=await persistir(base,result.data);
@@ -3526,7 +3625,7 @@ export default async function handler(req, res) {
       }
       if (!objeto(sections)) return res.status(400).json({ error: "Nenhuma seção para salvar." });
       const chaves = Object.keys(sections).filter(k => k && !k.startsWith("__")).slice(0, 120);
-      const commandOnlySections=["engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
+      const commandOnlySections=["integrationIncidents","integrationMonitoringCounters","integrationSignaturePackets","engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
       const legacyPointWrite=chaves.find(key=>commandOnlySections.includes(key));
       if(legacyPointWrite)return res.status(409).json({
         error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
@@ -3750,7 +3849,7 @@ export default async function handler(req, res) {
         error:"Há competência financeira fechada. Recarregue a página e salve pela operação granular do módulo.",
         code:"CLOSED_DRE_GRANULAR_REQUIRED",
       });
-      const commandOnlySections=["engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
+      const commandOnlySections=["integrationIncidents","integrationMonitoringCounters","integrationSignaturePackets","engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
       const attemptedCommandOnly=commandOnlySections.find(key=>
         Object.prototype.hasOwnProperty.call(payload,key)&&!igual(payload?.[key],atual?.[key]));
       if(attemptedCommandOnly)return res.status(409).json({

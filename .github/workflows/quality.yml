@@ -31,6 +31,8 @@ jobs:
         run: npm run architecture:check
       - name: Typecheck progressivo
         run: npm run typecheck
+      - name: Contratos da integração MARCELL (sem serviços externos)
+        run: npm run test:integration
       - name: Testes financeiros e de permissões com cobertura
         run: npm run test:coverage
       - name: Build de produção
