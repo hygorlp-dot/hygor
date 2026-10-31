@@ -37,6 +37,9 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes("exceljs")) return "spreadsheet-tools";
+          // Mantém o Recharts em um único arquivo compartilhado entre os painéis,
+          // reduzindo a repetição de imports e a fragmentação da compressão.
+          if (id.includes("/node_modules/recharts/")) return "charts";
           if (
             id.includes("/src/domains/financeiro/")
             || id.includes("/src/domains/dre/")
