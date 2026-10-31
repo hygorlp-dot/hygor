@@ -68,6 +68,7 @@ import {
 } from "../server/closed-dre-mutation-guard.js";
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
 import { ENGINEERING_COMMAND_TYPES, ENGINEERING_ROLES } from "../src/domains/projetos/commands.js";
+import { FILE_COMMAND_TYPES, FILE_ROLES } from "../src/domains/arquivos/commands.js";
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
 import {
@@ -195,6 +196,7 @@ const RECONCILIATION_COMMANDS=new Set(Object.values(RECONCILIATION_COMMAND));
 const ATTENDANCE_COMMANDS=new Set(Object.values(ATTENDANCE_COMMAND));
 export const OPERATIONAL_COMMAND_ROLES = {
   ...Object.fromEntries([...ENGINEERING_COMMAND_TYPES].map(type=>[type,ENGINEERING_ROLES])),
+  ...Object.fromEntries([...FILE_COMMAND_TYPES].map(type=>[type,FILE_ROLES])),
   [OPERATIONAL_COMMAND.COST_ALLOCATION_SAVED]:['admin','financeiro'],
   [OPERATIONAL_COMMAND.COST_FORECAST_SAVED]:['admin','financeiro'],
   [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED]:["admin","engenheiro","engenheiro_auditor"],
@@ -2806,7 +2808,7 @@ export default async function handler(req, res) {
     if(action==="operational-command"){
       const rawCommand=req.body?.command||{};
       // Engineering durations always use server time, never a supplied browser clock.
-      const command=ENGINEERING_COMMAND_TYPES.has(rawCommand.type)?{...rawCommand,now:new Date().toISOString()}:rawCommand;
+      const command=(ENGINEERING_COMMAND_TYPES.has(rawCommand.type)||FILE_COMMAND_TYPES.has(rawCommand.type))?{...rawCommand,now:new Date().toISOString()}:rawCommand;
       const authz=authorizeOperationalCommand(command.type,usuario.role);
       if(!authz.ok)return res.status(authz.status).json({error:authz.error});
       if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente operacional inválida."});
@@ -3536,7 +3538,7 @@ export default async function handler(req, res) {
       }
       if (!objeto(sections)) return res.status(400).json({ error: "Nenhuma seção para salvar." });
       const chaves = Object.keys(sections).filter(k => k && !k.startsWith("__")).slice(0, 120);
-      const commandOnlySections=["engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
+      const commandOnlySections=["workFileCabinets","engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
       const legacyPointWrite=chaves.find(key=>commandOnlySections.includes(key));
       if(legacyPointWrite)return res.status(409).json({
         error:`A seção ${legacyPointWrite} exige o comando granular do servidor.`,
@@ -3760,7 +3762,7 @@ export default async function handler(req, res) {
         error:"Há competência financeira fechada. Recarregue a página e salve pela operação granular do módulo.",
         code:"CLOSED_DRE_GRANULAR_REQUIRED",
       });
-      const commandOnlySections=["engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
+      const commandOnlySections=["workFileCabinets","engineeringProjects","attendance","attendanceLocks","unlockRequests","dailyCheckDate","attendanceOperationReceipts","changeLog"];
       const attemptedCommandOnly=commandOnlySections.find(key=>
         Object.prototype.hasOwnProperty.call(payload,key)&&!igual(payload?.[key],atual?.[key]));
       if(attemptedCommandOnly)return res.status(409).json({

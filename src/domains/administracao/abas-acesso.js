@@ -13,6 +13,9 @@ export const ROLE_TABS = {
   visualizador:["home","tv"],
 };
 
+// A central reúne somente os documentos que a projeção de cada perfil entrega.
+for (const role of Object.keys(ROLE_TABS).filter(role=>role!=="visualizador")) ROLE_TABS[role].push("arquivos");
+
 export const allowedTabsForUser=user=>{
   if(!user||user.role==="admin")return ROLE_TABS.admin;
   const custom=Array.isArray(user.accessTabs)?user.accessTabs:null;

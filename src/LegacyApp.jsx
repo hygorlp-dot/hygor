@@ -96,6 +96,7 @@ const ImportarDoREP = lazy(() => import("./domains/ponto-eletronico/components/I
 const Estoque = lazy(() => import("./domains/estoque/components/EstoqueView.jsx"));
 const ProjectTimerStatus = lazy(() => import("./domains/projetos/ProjectTimerStatus.jsx"));
 const ProjetosEngenharia = lazy(() => import("./domains/projetos/ProjetosView.jsx"));
+const ArquivosObra = lazy(() => import("./domains/arquivos/ArquivosView.jsx"));
 const Licenciamento = lazy(() => import("./domains/licenciamento/components/LicenciamentoView.jsx"));
 const Conferencia = lazy(() => import("./domains/qualidade/components/ConferenciaView.jsx"));
 const EquipeObrasTV = lazy(() => import("./domains/ponto-eletronico/components/EquipeObrasTV.jsx"));
@@ -1193,6 +1194,7 @@ const DEFAULT = () => ({
   ],
   condominios: CONDOMINIOS_PADRAO.map(x=>({...x})),
   engineeringProjects: [],
+  workFileCabinets: [],
   licencas: [],
   employees: [],
   titulosFolha: [],
@@ -16750,6 +16752,7 @@ const TAB_META_BASE = {
   com_relatorios:{label:"Relatórios",icon:"trending"},
   plan:   { label: "Planejamento", icon: "calendar"},
   projetos: { label:"Projetos", icon:"building" },
+  arquivos: { label:"Arquivos", icon:"folder" },
   plan_suprimentos: { label:"Marcos e Curva A", icon:"trending" },
   rdo:    { label: "Diario de obra", icon: "clipboard"},
   conferencia: { label: "Conferência", icon: "check"},
@@ -18117,6 +18120,7 @@ export default function App() {
                            currentUser={currentUser} onAbrirObra={setObraAberta} />)}
           {tab === "orc"    && <Suspense fallback={<div className="arcd-page-loading">Carregando orçamento...</div>}><Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
           {tab === "projetos" && <Suspense fallback={<div className="arcd-page-loading">Carregando projetos...</div>}><ProjetosEngenharia data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} showToast={showToast} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar projetos.");await update({__adotarServidorPatch:true,sections:{engineeringProjects:fresh.data.engineeringProjects||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
+          {tab === "arquivos" && <Suspense fallback={<div className="arcd-page-loading">Carregando arquivos...</div>}><ArquivosObra data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar arquivos.");await update({__adotarServidorPatch:true,sections:{workFileCabinets:fresh.data.workFileCabinets||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
           {tab === "plan"   && <Suspense fallback={<div className="arcd-page-loading">Carregando planejamento...</div>}><Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "plan_suprimentos" && <Suspense fallback={<div className="arcd-page-loading">Carregando suprimentos...</div>}><LazyMarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
           {tab === "rdo"    && <Suspense fallback={<div className="arcd-page-loading">Carregando diário de obra...</div>}><DiarioObra data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}

@@ -39,3 +39,8 @@ scripts/onedrive-*.mjs
 **/*.test.js
 **/*.test.jsx
 **/*.test.mjs
+
+# Servidores de demonstração exclusivos da validação local.
+scripts/work-files-preview.mjs
+scripts/work-files-e2e-preview.mjs
+scripts/project-kanban-preview.mjs

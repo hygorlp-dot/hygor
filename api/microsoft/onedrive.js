@@ -2,6 +2,7 @@ import { fileSignature, getOrCreateFolder, graph, refresh, rootItem, safeName, s
 import { findScopedWork, knownWorkspace, scopedWorks } from "../../server/onedrive-scope.js";
 import { canWriteWorkFiles, WORK_FILE_WRITE_ACTIONS } from '../../server/work-file-permissions.js';
 import { LICENSING_UPLOAD_MAX_BYTES, ONEDRIVE_UPLOAD_CHUNK_BYTES, ONEDRIVE_UPLOAD_GRANULARITY_BYTES } from "../../src/onedrive-upload-policy.js";
+import { fileMime, fileValidation } from "../../src/domains/arquivos/model.js";
 
 export const config={api:{bodyParser:{sizeLimit:"8mb"}}};
 const categoryNames={capa:"06 - Capa da Obra",diario:"04 - Diário de Obras",fotos:"05 - Fotos",conferencia:"07 - Conferências Técnicas",financeiro:"08 - Financeiro e Fiscal",compras:"09 - Compras e Suprimentos",licenciamento:"03 - Documentos",contratos:"01 - Contratos",projetos:"02 - Projetos",documentos:"03 - Documentos",outros:"11 - Outros"};
@@ -195,7 +196,11 @@ export default async function handler(req,res){
       if(!match) return res.status(400).json({error:"Arquivo inválido."});
       const buffer=Buffer.from(match[2],"base64"); if(buffer.length>6*1024*1024)return res.status(413).json({error:"Arquivo maior que 6 MB."});
       const fileName=safeName(body.fileName||`arquivo-${Date.now()}`);
-      const item=await (await graph(accessToken,`/drives/${ws.driveId}/items/${parentId}:/${encodeURIComponent(fileName)}:/content`,{method:"PUT",headers:{"content-type":match[1]},body:buffer})).json();
+      if(body.category==="arquivos"){
+        const validation=fileValidation({name:fileName,size:buffer.length});
+        if(validation)return res.status(400).json({error:validation});
+      }
+      const item=await (await graph(accessToken,`/drives/${ws.driveId}/items/${parentId}:/${encodeURIComponent(fileName)}:/content`,{method:"PUT",headers:{"content-type":body.category==="arquivos"?fileMime(fileName):match[1]},body:buffer})).json();
       const sig=fileSignature(ws.driveId,item.id);
       const url=`/api/microsoft/onedrive?action=file&driveId=${encodeURIComponent(ws.driveId)}&itemId=${encodeURIComponent(item.id)}&sig=${encodeURIComponent(sig)}`;
       return res.json({ok:true,url,path:item.id,item:itemPublico(item,appUser),workspace:workspacePublico(ws,appUser)});

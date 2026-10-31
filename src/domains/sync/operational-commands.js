@@ -110,7 +110,9 @@ import {
   SUPPLY_CONTRACT_COMMAND,
 } from "../compras/supply-contracts.js";
 import { applyEngineeringCommand, ENGINEERING_COMMAND } from "../projetos/commands.js";
+import { applyFileCommand, FILE_COMMAND } from "../arquivos/commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
+  ...FILE_COMMAND,
   ...ENGINEERING_COMMAND,
   ...COST_CONTROL_COMMAND,
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
@@ -237,6 +239,11 @@ export const applyOperationalCommand=(data,command)=>{
   if(!commandIsValid(command))return fail("Comando operacional sem chave idempotente válida.");
   if(duplicate(data,command.idempotencyKey))return {ok:true,idempotent:true,data};
   const now=command.now||new Date().toISOString();
+  const fileResult=applyFileCommand(data,command,now);
+  if(fileResult){
+    if(!fileResult.ok)return fileResult;
+    return {...fileResult,data:appendReceipt(fileResult.data,command,fileResult.entityId,now)};
+  }
   const engineeringResult=applyEngineeringCommand(data,command,now);
   if(engineeringResult){
     if(!engineeringResult.ok)return engineeringResult;

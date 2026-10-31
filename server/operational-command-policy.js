@@ -96,6 +96,8 @@ import {
 } from "../src/domains/estoque/commands.js";
 
 import { ENGINEERING_COMMAND_TYPES } from "../src/domains/projetos/commands.js";
+import { FILE_COMMAND_TYPES } from "../src/domains/arquivos/commands.js";
+import { validateFileCabinetScope } from "./work-file-cabinet-policy.js";
 import { validateEngineeringScope } from "./engineering-project-policy.js";
 
 const operationalCommandObraId=(data={},command={})=>{
@@ -149,6 +151,7 @@ const operationalCommandObraId=(data={},command={})=>{
 
 export const validateOperationalCommandScope=({user={},data={},command={}}={})=>{
   if(ENGINEERING_COMMAND_TYPES.has(command.type))return validateEngineeringScope({user,data,command});
+  if(FILE_COMMAND_TYPES.has(command.type))return validateFileCabinetScope({user,data,command});
   const obraId=operationalCommandObraId(data,command);
   if(COST_CONTROL_COMMAND_TYPES.has(command.type)){
     const allowed=['admin','financeiro'].includes(user.role)&&(user.role==='admin'||!user.obraId||String(user.obraId)===obraId);

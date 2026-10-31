@@ -213,6 +213,23 @@ describe("/api/data · caminho travado (executarMutacaoEmpresaBloqueada) roteia 
     expect(testState.rows[CORE_KEY].value.engineeringProjects).toBeUndefined();
   });
 
+  it("persiste pastas e revisões pela API com horário do servidor, idempotência e proteção de snapshot",async()=>{
+    testState.rows[CORE_KEY].value.obras=[{id:'files-work',name:'Obra de teste'}];
+    const folder=await callApi(opCommand('ARQUIVOS_PASTA_SALVA',{obraId:'files-work',id:'folder',name:'Projetos'},{expectedVersion:0,now:'1900-01-01T00:00:00Z'}));
+    expect(folder.status).toBe(200);
+    expect(folder.body.sections.workFileCabinets[0].history[0].at).not.toContain('1900');
+    const payload={obraId:'files-work',id:'doc',folderId:'folder',name:'Planta',revisionId:'r1',label:'R01',kind:'link',url:'https://example.org/planta.pdf'};
+    const op=opCommand('ARQUIVOS_DOCUMENTO_ADICIONADO',payload,{expectedVersion:1,idempotencyKey:'files-api-idempotent-document-123'});
+    expect((await callApi(op)).status).toBe(200);expect((await callApi(op)).status).toBe(200);
+    const revision=await callApi(opCommand('ARQUIVOS_REVISAO_ADICIONADA',{...payload,revisionId:'r2',label:'R02'},{expectedVersion:2}));
+    expect(revision.status).toBe(200);
+    const loaded=await callApi({action:'load',accessToken:'valid-token'});
+    expect(loaded.body.data.workFileCabinets[0].documents[0].revisions).toHaveLength(2);
+    const forged=await callApi({action:'save-sections',accessToken:'valid-token',sections:{workFileCabinets:[]}});
+    expect(forged.status).toBe(409);
+    expect(testState.rows[CORE_KEY].value.workFileCabinets[0].documents).toHaveLength(1);
+  });
+
   it("reaproveita a lerLinha() já feita no topo do handler - não relê pelo Supabase dentro de executarMutacaoEmpresaBloqueada",async()=>{
     await callApi(opCommand("EQUIPAMENTO_SALVO",{equipment:{id:"eq-reuse",nome:"Compactador"}}));
     // lerLinha() faz 3 chamadas (linha core + linhas separadas via .in() +

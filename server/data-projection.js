@@ -92,6 +92,9 @@ export const projectDataForUser = (payload = {}, user = {}) => {
   const allowedSections = new Set(ROLE_SECTIONS[user.role] || []);
   const allowedObras = new Set(user.obraId ? [String(user.obraId)] : []);
   const out = {};
+  if(podeAcessarAba(user,"arquivos")){
+    out.workFileCabinets=(payload.workFileCabinets||[]).filter(item=>!allowedObras.size||allowedObras.has(String(item.obraId)));
+  }
   if(podeAcessarAba(user,"projetos")){
     out.engineeringProjects=(payload.engineeringProjects||[]).filter(project=>!allowedObras.size||allowedObras.has(String(project.obraId)));
   }
