@@ -66,22 +66,33 @@ async function entrar(page) {
   await page.locator("#login-email").fill(PROFILE.email);
   await page.locator("#login-senha").fill("senha-isolada");
   await page.getByRole("button", { name:"Acessar central MARCELL" }).click();
-  await expect(page.getByText("Administrador QA").first()).toBeVisible();
+  await expect(page.locator('#login-email')).toHaveCount(0);
+  await expect(page.locator('main.arcd-main')).toBeVisible();
 }
 
 async function abrirObra(page) {
+  if(page.viewportSize().width<1100){
+    await page.keyboard.press('Control+k');
+    const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');
+    await search.fill('Obras');
+    await search.locator('xpath=../..').getByRole('button',{name:'Tela Obras abrir tela',exact:true}).click();
+    await page.getByRole('heading',{name:OBRA.name,exact:true}).click();return;
+  }
   const sidebar = page.locator(".arcd-sidebar");
   const grupo = sidebar.locator(".nav-grp-hd").filter({ hasText:/^Obras e projetos/ });
   const corpo = grupo.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
   if (!await corpo.isVisible()) await grupo.click();
   await corpo.locator(".nav-item").filter({ hasText:/^Obras$/ }).click();
-  await page.getByText(OBRA.name).first().click();
+  await page.getByRole('heading',{name:OBRA.name,exact:true}).click();
 }
 
 async function abrirOrcamento(page) {
   await abrirObra(page);
-  await page.getByRole("button", { name:"Obra", exact:true }).click();
-  await page.locator(".tab-row__tab").filter({ hasText:/^Orçamento$/ }).click();
+  if(page.viewportSize().width<1100)await page.getByRole('combobox',{name:'Telas da obra',exact:true}).selectOption('orc');
+  else{
+    await page.getByRole("button", { name:"Obra", exact:true }).click();
+    await page.locator(".tab-row__tab").filter({ hasText:/^Orçamento$/ }).click();
+  }
   await page.getByRole("button", { name:"Abrir", exact:true }).first().click();
   await expect(page.getByText("ORÇAMENTO V1").first()).toBeVisible();
 }
@@ -108,6 +119,7 @@ test.describe("ações críticas", () => {
 
   test("PDF do orçamento sai completo: m², resumo por etapa, paginação e assinaturas", async ({ page }) => {
     await abrirOrcamento(page);
+    await page.locator('.budget-analysis > summary').click();
     await page.getByRole("button", { name:/Ferramentas do orçamento/ }).click();
     const janela = await conteudoDaJanela(page, () => page.getByRole("button", { name:"PDF", exact:true }).click());
     const html = await janela.content();
@@ -122,6 +134,7 @@ test.describe("ações críticas", () => {
 
   test("aprovar e adotar baseline aprova o orçamento aberto", async ({ page }) => {
     await abrirOrcamento(page);
+    await page.locator('.budget-management > summary').click();
     await page.getByRole("button", { name:"Aprovar e adotar baseline" }).click();
     await expect(page.getByText(/Versão aprovada e adotada como baseline/)).toBeVisible();
     await expect(page.getByText("Orçamento não encontrado")).toHaveCount(0);
@@ -129,8 +142,10 @@ test.describe("ações críticas", () => {
 
   test("cronograma A2 abre com régua mensal, datas com ano e etapas numeradas", async ({ page }) => {
     await abrirObra(page);
+    if(page.viewportSize().width<1100)await page.getByRole('combobox',{name:'Telas da obra',exact:true}).selectOption('plan');
     const abrirPlanejamento = page.getByRole("button", { name:"Abrir planejamento" });
     if (await abrirPlanejamento.isVisible().catch(() => false)) await abrirPlanejamento.click();
+    await page.locator('.planning-tools > summary').click();
     await page.getByRole("button", { name:"Exportar A2" }).click();
     const janela = await conteudoDaJanela(page, () => page.getByRole("button", { name:"Gerar A2" }).click());
     // Setembro tem só 2 dias na janela: estreito demais para rótulo.
@@ -144,7 +159,8 @@ test.describe("ações críticas", () => {
 
   test("Curva ABC abre sem base analítica e consolida pelo orçamento", async ({ page }) => {
     await abrirOrcamento(page);
-    await page.getByRole("button", { name:"INSUMOS E COMPOSIÇÕES / CURVA ABC" }).click();
+    if(page.viewportSize().width<1100)await page.getByRole('combobox',{name:'Áreas do orçamento',exact:true}).selectOption({label:'Insumos e Curva ABC'});
+    else await page.getByRole("button", { name:"Insumos e Curva ABC",exact:true }).click();
     await expect(page.getByText(/Curva calculada pelos itens do orçamento/)).toBeVisible();
   });
 });

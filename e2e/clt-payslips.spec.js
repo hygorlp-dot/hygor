@@ -1,4 +1,5 @@
 import {expect,test} from "@playwright/test";
+import {selectWorkspaceArea} from './helpers/workspace-navigation.js';
 import {applyOperationalCommand} from "../src/domains/sync/operational-commands.js";
 const profile={id:"qa-rh",nome:"RH QA",email:"rh@qa.test",role:"rh",active:true};
 async function enter(page,{point=false,complete=false,legacy=false,profileOnly=false}={}){
@@ -34,7 +35,7 @@ async function enter(page,{point=false,complete=false,legacy=false,profileOnly=f
   const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
   await search.fill("Folha");
   await search.locator("xpath=../..").getByRole("button").filter({hasText:"Folha"}).click();
-  await page.getByRole("button",{name:"Holerites CLT",exact:true}).click();
+  await selectWorkspaceArea(page,'Áreas da folha','Holerites CLT');
   await page.getByRole("combobox",{name:"Funcionário do holerite",exact:true}).selectOption("emp");
   return {commands,getState:()=>state};
 }
@@ -112,13 +113,15 @@ test("RH cadastra MEI com valor fixo e a folha da quinzena paga metade, sem pont
   await dialog.getByRole("button",{name:"Salvar",exact:true}).click();
   await expect(dialog.getByText("Informe o valor mensal do contrato MEI.").first()).toBeVisible();
   await dialog.getByRole("spinbutton",{name:/^Valor mensal do contrato MEI \*/}).fill("3000");
+  await expect(dialog.getByRole("spinbutton",{name:/^Valor mensal do contrato MEI \*/})).toHaveValue("3000");
   await dialog.getByLabel("CNPJ do MEI",{exact:true}).fill("12.345.678/0001-95");
+  await expect(dialog.getByRole("spinbutton",{name:/^Valor mensal do contrato MEI \*/})).toHaveValue("3000");
   await dialog.getByRole("button",{name:"Salvar",exact:true}).click();await expect(dialog).toHaveCount(0);
   expect(getState().employees[0]).toMatchObject({remunerationMode:"mei",meiMonthlyValue:3000,meiCnpj:"12345678000195"});
   expect(getState().employees[0].remunerationHistory.at(-1)).toMatchObject({date:"2026-09-21",mode:"mei"});
   await page.keyboard.press("Control+k");
   await search.fill("Folha");await search.locator("xpath=../..").getByRole("button").filter({hasText:"Folha"}).click();
-  await page.getByRole("button",{name:"Folha da quinzena",exact:true}).click();
+  await selectWorkspaceArea(page,'Áreas da folha','Folha da quinzena');
   const person=page.locator(".payroll-person").filter({hasText:"Operário QA"});
   await expect(person).toContainText("MEI · valor fixo");
   // Quinzena 21/09–05/10 inteira em MEI: 3.000 ÷ 2 = 1.500, menos o adiantamento de 600.
@@ -132,7 +135,7 @@ test("RH cadastra MEI com valor fixo e a folha da quinzena paga metade, sem pont
 
 test("provisões: total mensal, por funcionário, saldo informado e exportação sem lançamentos",async({page})=>{
   const {commands,getState}=await enter(page);
-  await page.getByRole("button",{name:"Provisões trabalhistas",exact:true}).click();
+  await selectWorkspaceArea(page,'Áreas da folha','Provisões trabalhistas');
   const region=page.getByRole("region",{name:"Provisões trabalhistas",exact:true});
   await expect(region).toContainText("Não apurado");
   await region.getByRole("button",{name:"Ajustar Operário QA",exact:true}).click();
@@ -159,7 +162,7 @@ test("provisões: total mensal, por funcionário, saldo informado e exportação
 test("simulação: RH escolhe CLT ou diária no mês sem alterar cadastro, folha ou DRE",async({page})=>{
   const errors=[];page.on("pageerror",e=>errors.push(e.message));
   const {commands,getState}=await enter(page);
-  await page.getByRole("button",{name:"Simulação CLT × diária",exact:true}).click();
+  await selectWorkspaceArea(page,'Áreas da folha','Simulação CLT × diária');
   const region=page.getByRole("region",{name:"Simulação CLT ou diária",exact:true});
   await expect(region.getByRole("radio",{name:"CLT"})).toBeChecked();
   await region.getByRole("button",{name:"Ajustar Operário QA",exact:true}).click();
@@ -224,7 +227,7 @@ test("ponto fechado: classificação, importação rastreável e campos protegid
 
 test("custos consolidados: fontes separadas e PDF sem inventar dados ausentes",async({page})=>{
   const {commands,getState}=await enter(page);
-  await page.getByRole("button",{name:"Custos por funcionário",exact:true}).click();
+  await selectWorkspaceArea(page,'Áreas da folha','Custos por funcionário');
   await expect(page.getByRole("region",{name:"Custos por funcionário",exact:true})).toContainText("Não apurado");
   const opened=page.waitForEvent("popup");await page.getByRole("button",{name:"Exportar custos PDF"}).click();const report=await opened;await report.evaluate(()=>window.__marcellReportReady);await expect(report.locator("body")).toContainText("Não apurado");await report.pdf({path:test.info().outputPath("custos-funcionario.pdf"),preferCSSPageSize:true});await report.close();
   expect(commands).toHaveLength(0);expect(getState().financialSettlements).toEqual([{id:"preservar",amount:600}]);
@@ -252,7 +255,7 @@ test("prontuário privado: envia, lista e arquiva preservando o histórico",asyn
     if(body.documentAction==="archive"){documents[0]={...documents[0],archivedAt:"2026-09-25T15:00:00Z",archiveReason:body.reason};return route.fulfill({json:{ok:true,document:documents[0]}});}
     return route.fulfill({status:400,json:{ok:false}});
   });
-  await page.getByRole("button",{name:"Prontuário documental",exact:true}).click();
+  await selectWorkspaceArea(page,'Áreas da folha','Prontuário documental');
   await page.getByRole("combobox",{name:"Funcionário do prontuário",exact:true}).selectOption("emp");
   await expect(page.getByRole("button",{name:"Salvar documento",exact:true})).toBeDisabled();
   await page.getByLabel("Arquivo do prontuário",{exact:true}).setInputFiles({name:"contrato-qa.pdf",mimeType:"application/pdf",buffer:Buffer.from("%PDF-1.4\nQA")});

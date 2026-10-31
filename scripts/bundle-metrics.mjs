@@ -3,7 +3,7 @@ import {gzipSync} from "node:zlib";
 import path from "node:path";
 import { evaluateBundleBudgets } from "./bundle-budgets.mjs";
 
-const root = path.resolve("dist");
+const root = path.resolve(process.env.BUNDLE_DIST_DIR || "dist");
 const assets = path.join(root, "assets");
 const files = await readdir(assets);
 const mediaDirectory = path.join(root, "media");
@@ -33,7 +33,7 @@ const totals = rows.reduce((sum, item) => ({
 const mediaTotals = mediaRows.reduce((sum, item) => ({bytes: sum.bytes + item.bytes}), {bytes: 0});
 const budget = evaluateBundleBudgets({ totals, assets: rows, media: mediaRows });
 const report = {generatedAt: new Date().toISOString(), totals, assets: rows, media: {totals: mediaTotals, assets: mediaRows}, budget};
-await writeFile("bundle-metrics.json", `${JSON.stringify(report, null, 2)}\n`);
+await writeFile(process.env.BUNDLE_REPORT_PATH || "bundle-metrics.json", `${JSON.stringify(report, null, 2)}\n`);
 console.table(rows.map(item => ({
   arquivo: item.name,
   "kB gzip": (item.gzipBytes / 1024).toFixed(2),

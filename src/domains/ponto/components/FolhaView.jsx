@@ -1,3 +1,4 @@
+import { sessionContext } from "../../../lib/session-context.js";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { DreIntegration, FlowTabs, useRememberWorkflowScope, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
@@ -10,10 +11,10 @@ import { DreIntegration, FlowTabs, useRememberWorkflowScope, useWorkflow } from 
 // ===================================================================
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  Btn, C, Ic, Inp, Modal, PageHero, Sel, XLSX,
-  carregarXLSX, escapeHtml, fmt, fmtDate, fmtDateFull, fullMonth, today, uid,
-} from "../../../LegacyApp";
+import { Btn, Ic, Inp, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { XLSX, carregarXLSX } from "../../../legacy/files.js";
+import { escapeHtml, fmt, fmtDate, fmtDateFull, fullMonth, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import {
   getAtt, getHolidayPayRule, getPayrollHolidays,
@@ -64,7 +65,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const [reopenReason,setReopenReason]=useState("");
   const [savingClosing,setSavingClosing]=useState(false);
   const [payrollView,setPayrollView]=useState(entryScope?.mode==='clt'?'clt':'payroll');
-  useEffect(()=>{if(entryScope?.mode==='daily')window.sessionStorage.removeItem(PAYROLL_HANDOFF_KEY);},[entryScope]);
+  useEffect(()=>{if(entryScope?.mode==='daily')sessionContext.removeItem(PAYROLL_HANDOFF_KEY);},[entryScope]);
   const [unionDraft,setUnionDraft]=useState(()=>normalizeUnionDuesConfig(data.config?.unionDues));
   const [savingUnion,setSavingUnion]=useState(false);
   useEffect(()=>setUnionDraft(normalizeUnionDuesConfig(data.config?.unionDues)),[data.config?.unionDues]);
@@ -825,22 +826,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
   return (
     <div className="anim payroll-workspace">
-      {(payrollView==="payroll"||payrollView==="union")&&<><section className="payroll-controls" aria-label="Competência e escopo da folha">
-        <div className="payroll-section-heading">
-          <div>
-            <h3>Competência e escopo</h3>
-            <p>{fmtDateFull(days[0])} a {fmtDateFull(days[days.length-1])}</p>
-          </div>
-          <span className="payroll-scope-chip">{filterObra==="all"?"Consolidado da empresa":obraName(filterObra)}</span>
-        </div>
-        <div className="payroll-filter-grid">
-          <Sel label="Ano" value={String(year)} onChange={v => setYear(Number(v))} options={years} />
-          <Sel label="Mês de referência" value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
-          <Sel label="Ciclo da folha" value={q} onChange={setQ} options={[{ v: "1", l: "1ª quinzena · 06 a 20" }, { v: "2", l: "2ª quinzena · 21 a 05" }]} />
-          <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
-        </div>
-      </section>
-      <PageHero
+      {(payrollView==="payroll"||payrollView==="union")&&<>      <PageHero
         eyebrow="Recursos humanos"
         title="Folha de Pagamento"
         description="Conferência quinzenal da equipe, dos apontamentos e do valor líquido por obra."
@@ -859,6 +845,22 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         ]}
         actions={pendenciasRelatorio.length?<Btn v="warning" onClick={()=>onTab?.("ponto_geral")}><Ic n="alert"/> Revisar ponto</Btn>:null}
       />
+      <section className="payroll-controls" aria-label="Competência e escopo da folha">
+        <div className="payroll-section-heading">
+          <div>
+            <h3>Competência e escopo</h3>
+            <p>{fmtDateFull(days[0])} a {fmtDateFull(days[days.length-1])}</p>
+          </div>
+          <span className="payroll-scope-chip">{filterObra==="all"?"Consolidado da empresa":obraName(filterObra)}</span>
+        </div>
+        <div className="payroll-filter-grid">
+          <Sel label="Ano" value={String(year)} onChange={v => setYear(Number(v))} options={years} />
+          <Sel label="Mês de referência" value={String(month)} onChange={v => setMonth(Number(v))} options={Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: fullMonth(i) }))} />
+          <Sel label="Ciclo da folha" value={q} onChange={setQ} options={[{ v: "1", l: "1ª quinzena · 06 a 20" }, { v: "2", l: "2ª quinzena · 21 a 05" }]} />
+          <Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{ v: "all", l: "Todas as obras" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
+        </div>
+      </section>
+
       </>}
 
       <FlowTabs label="Áreas da folha" active={payrollView} onChange={setPayrollView}

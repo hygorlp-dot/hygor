@@ -1,5 +1,6 @@
 import {useMemo,useState} from 'react';
-import {Btn,fmt,uid} from '../../../LegacyApp';
+import { Btn } from "../../../legacy/ui.jsx";
+import { fmt, uid } from "../../../legacy/format.js";
 import {reviewMonthlyPayslip,cltBatchReport} from '../clt-closing.js';
 import {remunerationModeOnDate} from '../../rh/remuneration-mode.js';
 import {prepareMonthlyPayslip} from '../clt-preparation.js';

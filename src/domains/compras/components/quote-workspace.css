@@ -1,0 +1,22 @@
+.supplier-response-queue,.quote-workspace { display:grid; gap:16px; min-width:0; padding-block:16px; }
+.supplier-response-queue { border-block:1px solid var(--arcd-border-default); margin-block:16px; }
+.supplier-response-queue h3,.quote-workspace h3 { font-size:var(--arcd-type-section-title); font-weight:600; }
+.supplier-response-queue p,.quote-workspace p { font-size:var(--arcd-type-body); line-height:1.5; color:var(--arcd-text-secondary); }
+.supplier-response-queue ul { list-style:none; padding:0; margin:0; }
+.supplier-response-queue li { display:flex; gap:16px; align-items:center; justify-content:space-between; border-top:1px solid var(--arcd-border-default); padding-block:12px; }
+.supplier-response-queue small,.quote-workspace small { display:block; font-size:var(--arcd-type-caption); color:var(--arcd-text-secondary); margin-top:4px; }
+.quote-workspace-tabs { display:flex; flex-wrap:wrap; justify-content:flex-start; gap:4px; }
+.quote-workspace-tabs button { min-height:44px; }
+.quote-comparison-scroll { overflow:auto; max-height:60vh; max-width:100%; font-variant-numeric:tabular-nums; isolation:isolate; }
+.quote-comparison-scroll table { border-collapse:separate; border-spacing:0; width:100%; }
+.quote-comparison-scroll :is(th,td) { min-width:170px; padding:12px; text-align:left; vertical-align:top; background:var(--arcd-surface-card); border-bottom:1px solid var(--arcd-border-default); font-size:var(--arcd-type-body); }
+.quote-comparison-scroll thead th { position:sticky; top:0; z-index:2; background:var(--arcd-surface-muted); }
+.quote-comparison-scroll tr > :first-child { position:sticky; left:0; z-index:1; width:220px; min-width:180px; }
+.quote-comparison-scroll thead tr > :first-child { z-index:3; }
+.compras-view [id^="purchase-record-"] { scroll-margin-top:80px; }
+.quote-comparison-scroll:focus-visible { outline:2px solid var(--arcd-focus-ring); outline-offset:2px; }
+.quote-price-reference article { padding-block:16px; border-bottom:1px solid var(--arcd-border-default); }
+.quote-price-reference h4 { font-weight:600; }
+.quote-price-reference ul { padding-left:20px; }
+.purchase-quote-documents { padding-block:16px; border-bottom:1px solid var(--arcd-border-default); }
+@media(max-width:600px) { .supplier-response-queue li { align-items:stretch; flex-direction:column; } .supplier-response-queue button { min-height:44px; } .quote-comparison-scroll tr > :first-child { min-width:140px; max-width:160px; } }

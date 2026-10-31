@@ -8,10 +8,9 @@ import { marcellReportHtml } from "../../../reports/marcell-report.js";
 
 import { useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import {
-  Btn, C, Ic, Inp, Modal, PageHero, Sel,
-  escapeHtml, fmt, fmtDateFull, today, uid,
-} from "../../../LegacyApp";
+import { Btn, Ic, Inp, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { escapeHtml, fmt, fmtDateFull, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { isAdvanceActive } from "../advance-commands";
 import {

@@ -1,5 +1,7 @@
+import { sessionContext } from "../../../lib/session-context.js";
 import { useEffect,useState } from "react";
-import { Btn, Inp, Sel, fmt, uid } from "../../../LegacyApp";
+import { Btn, Inp, Sel } from "../../../legacy/ui.jsx";
+import { fmt, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { advanceDeductionForPeriod, isAdvanceActive } from "../../rh/advance-commands.js";
 import { calculateCltPayslip, CLT_SOURCES } from "../clt-payslip.js";
@@ -21,7 +23,7 @@ export function CltPayslips({data,currentUser,dispatchCommand,showToast,year,mon
   const [draft,setDraft]=useState(()=>initialEmployee?prepareMonthlyPayslip(data,initialEmployee,initialCompetence,{advances:false}).draft:null);
   const [revision,setRevision]=useState(Number(initialEmployee?.version||0));
   const [status,setStatus]=useState(initialEmployee?.cltPayroll?.drafts?.[initialCompetence]?'Salvo':'Novo demonstrativo');
-  useEffect(()=>{if(entry)window.sessionStorage.removeItem(PAYROLL_HANDOFF_KEY);},[entry]);
+  useEffect(()=>{if(entry)sessionContext.removeItem(PAYROLL_HANDOFF_KEY);},[entry]);
   const [saving,setSaving]=useState(false);
   const [dirty,setDirty]=useState(false);
   const [prepareTransport,setPrepareTransport]=useState(false);

@@ -1,0 +1,23 @@
+.financial-record-flow,.financial-origin-return{display:grid;gap:8px;padding-block:12px;border-block:1px solid var(--arcd-border-default);margin-block:12px;min-width:0}
+.financial-record-flow p,.financial-origin-return p{font-size:var(--arcd-type-label);line-height:1.5;color:var(--arcd-text-secondary);overflow-wrap:anywhere}
+.financial-record-flow__actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.financial-origin-return>button{justify-self:start}
+.closing-pending__actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-block:8px}
+.financial-bank-origin{border-block:1px solid var(--arcd-border-default);padding-block:8px;min-width:0}
+.financial-bank-origin summary{cursor:pointer;min-height:44px;align-content:center;font-size:var(--arcd-type-label);font-weight:500;overflow-wrap:anywhere}
+.financial-bank-origin p{font-size:var(--arcd-type-label);line-height:1.5;color:var(--arcd-text-secondary);margin-block:8px}
+.financial-bank-origin button{margin-top:8px}
+.record-recovery,.closing-origin-editor,.closing-origin-editor__fields{display:grid;gap:12px;min-width:0}
+.record-recovery fieldset,.closing-origin-editor fieldset{min-width:0;border:0;padding:0;margin:0;display:grid;gap:12px}
+.record-recovery legend,.closing-origin-editor legend{font-weight:600;font-size:var(--arcd-type-label);padding-block:8px}
+.record-recovery p,.closing-origin-editor p{font-size:var(--arcd-type-label);line-height:1.5;overflow-wrap:anywhere}
+.record-recovery__comparison{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.record-recovery pre{font-family:inherit;font-size:var(--arcd-type-label);white-space:pre-wrap;overflow-wrap:anywhere;max-height:200px;overflow:auto;padding:12px;background:var(--arcd-surface-muted)}
+.record-recovery__auth{display:grid;gap:12px}
+.record-recovery>button{justify-self:start;max-width:100%}
+.closing-origin-editor fieldset>button{justify-self:start;max-width:100%}
+.closing-origin-editor__ref-fields{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr);gap:12px;align-items:start}
+.closing-origin-editor__document{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--arcd-border-default);padding-block:8px}
+.closing-origin-editor__document span{min-width:0;overflow-wrap:anywhere}
+@media(max-width:767px){.record-recovery__comparison,.closing-origin-editor__ref-fields{grid-template-columns:minmax(0,1fr)}.closing-origin-editor fieldset>button{justify-self:stretch}.closing-origin-editor button,.record-recovery button{min-height:44px}}
+@media(max-width:767px){.financial-record-flow__actions{align-items:stretch;flex-direction:column}.financial-record-flow__actions button{justify-content:flex-start;text-align:left;min-height:44px}.closing-pending__actions button{min-height:44px}}

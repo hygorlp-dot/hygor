@@ -76,14 +76,14 @@ describe("comandos de notas fiscais",()=>{
     )).reason).toMatch(/soma dos rateios/i);
   });
 
-  it("exige aceite explícito para aprovar divergência",()=>{
+  it("registra a decisão e as divergências sem exigir confirmação adicional",()=>{
     const data={...base(),notasFiscais:[{
       ...invoice(),status:"recebida",version:1,
       divergencias:["Nota acima do recebido."],
     }]};
     expect(applyInvoiceCommand(data,command(
       INVOICE_COMMAND.INVOICE_APPROVED,{invoiceId:"nf-1"},1,
-    )).reason).toMatch(/explicitamente/i);
+    )).ok).toBe(true);
     const approved=applyInvoiceCommand(data,command(
       INVOICE_COMMAND.INVOICE_APPROVED,{invoiceId:"nf-1",riskAccepted:true},1,
     ));

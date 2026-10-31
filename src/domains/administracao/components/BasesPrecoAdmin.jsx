@@ -16,9 +16,10 @@
 // ===================================================================
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  Badge, Btn, C, Ic, Inp, Sel, SINAPI_UFS, lerSinapiEmSegundoPlano,
-} from "../../../LegacyApp";
+import { Badge, Btn, Ic, Inp, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { SINAPI_UFS } from "../../orcamentos/legacy-reference.js";
+import { lerSinapiEmSegundoPlano } from "../../../legacy/files.js";
 import {
   enviarLoteComponentesReferencia, enviarLoteInsumosReferencia, enviarLoteReferencia,
   finalizarBaseReferencia, iniciarBaseReferencia, listarBasesReferencia, removerBaseReferencia,

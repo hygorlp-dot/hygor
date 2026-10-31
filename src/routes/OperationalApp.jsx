@@ -1,4 +1,6 @@
-import { lazy, Suspense, useEffect } from "react";
+import { Suspense, useEffect } from "react";
+import {HelpProvider} from '../features/help/HelpContext.jsx';
+import { lazyWithCssRetry as lazy } from "../lib/lazy-with-css-retry.js";
 
 // O sistema operacional continua em chunk próprio para exibir um estado de
 // carregamento imediato enquanto o aplicativo principal é baixado.
@@ -27,7 +29,7 @@ export default function OperationalApp() {
 
   return (
     <Suspense fallback={<RouteLoading/>}>
-      <LegacyApp/>
+      <HelpProvider><LegacyApp/></HelpProvider>
     </Suspense>
   );
 }

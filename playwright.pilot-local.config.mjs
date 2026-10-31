@@ -1,0 +1,2 @@
+import {defineConfig} from '@playwright/test';
+export default defineConfig({testDir:'./e2e',testMatch:/(operational-pilot|conciliacao-automatica|pilot-simulation|assisted-review)\.spec\.js/,timeout:60000,workers:1,outputDir:'artifacts/pilot-simulation/browser-results',reporter:'list',use:{baseURL:'http://127.0.0.1:4192',viewport:{width:1440,height:1000},serviceWorkers:'block',screenshot:'only-on-failure',trace:'retain-on-failure'}});

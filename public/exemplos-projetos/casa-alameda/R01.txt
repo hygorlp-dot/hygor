@@ -1,0 +1,18 @@
+﻿CASA ALAMEDA — EXEMPLO FICTÍCIO PARA TESTES LOCAIS
+Documento: Memorial de arquitetura
+Revisão: R01 — Emissão inicial
+
+Programa demonstrativo: sala de estar, cozinha integrada, dois dormitórios,
+banheiro social e varanda. Área de referência: 120 m² (valor fictício).
+
+Escopo desta revisão:
+- Organização inicial dos ambientes.
+- Abertura da cozinha com largura de referência de 1,20 m.
+- Reserva de espaço para instalações hidráulicas.
+
+Pendências para a próxima revisão:
+- Compatibilizar a passagem hidráulica junto à cozinha.
+- Rever a abertura da cozinha e registrar a alteração no memorial.
+
+Este arquivo é uma demonstração de histórico. Não é projeto executivo,
+desenho técnico aprovado ou documento de uma obra real.

@@ -1,3 +1,4 @@
+import ts from "typescript";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -15,7 +16,8 @@ describe("primeiro acesso", () => {
   });
 
   it("mantém o formulário MRC e solicita uma identificação sem listar operadores", () => {
-    const login=source.slice(source.indexOf("function LoginScreen("),source.indexOf("export function GestaoUsuarios("));
+    const tree=ts.createSourceFile("LegacyApp.jsx",source,ts.ScriptTarget.Latest,true,ts.ScriptKind.JSX);
+    const login=tree.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==="LoginScreen")?.getText(tree)||"";
     expect(login).toContain("<LazyLoginBrandPanel/>");
     expect(login).toContain('src={BRAND.monogram} alt="MARCELL"');
     expect(login).toContain('htmlFor="login-identificador"');

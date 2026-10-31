@@ -17,7 +17,8 @@
   "rewrites": [
     { "source": "/api/client/:route*", "destination": "/api/client?route=:route*" },
     { "source": "/cliente/:route*", "destination": "/index.html" },
-    { "source": "/aceite-pedido", "destination": "/index.html" }
+    { "source": "/aceite-pedido", "destination": "/index.html" },
+    { "source": "/responder-cotacao", "destination": "/index.html" }
   ],
   "functions": {
     "api/data.js": {

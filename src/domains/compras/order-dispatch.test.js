@@ -11,6 +11,11 @@ const command=(type,payload,expectedVersion=3)=>({type,payload,expectedVersion,a
 const itens=[{descricao:"Cimento <CP II>",qtd:10,unidade:"SC",precoUnit:35}];
 
 describe("envio do pedido ao fornecedor (C2.5)",()=>{
+  it("inclui condições documentadas no texto e no PDF, escapando conteúdo informado",()=>{
+    const context={numero:"PC-001",itens,condicoes:["Faturar para <Cliente>","Entrega: Rua A & B"]};
+    expect(mensagemPedidoFornecedor(context)).toContain("Faturar para <Cliente>");
+    const html=documentoPedidoHtml(context);expect(html).toContain("Faturar para &lt;Cliente&gt;");expect(html).toContain("Rua A &amp; B");expect(html).not.toContain("<Cliente>");
+  });
   it("monta mensagem, e-mail e documento imprimível com o total",()=>{
     const texto=mensagemPedidoFornecedor({empresa:"ARCD",numero:"PC-0007",fornecedorNome:"Casa dos Materiais",obraNome:"Alameda",itens,previsao:"2026-08-05"});
     expect(texto).toContain("pedido de compra PC-0007");

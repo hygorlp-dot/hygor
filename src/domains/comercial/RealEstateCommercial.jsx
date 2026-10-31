@@ -118,7 +118,7 @@ export function RealEstateCommercial({section,commercial,appData,currentUser,onS
   const propertyRows=clean.imoveisAvulsos.filter(item=>[item.codigo,item.titulo,item.endereco].join(" ").toLowerCase().includes(query.toLowerCase()));
   const groupedUnits=clean.empreendimentos.map(development=>({development,units:unitRows.filter(unit=>unit.empreendimentoId===development.id)})).filter(group=>group.units.length);
 
-  const Header=({eyebrow,title,description,action})=><header className="re-page-header"><div><span>{eyebrow}</span><h2>{title}</h2><p>{description}</p></div>{action}</header>;
+  const Header=({title,description,action})=><header className="re-page-header"><div><h2>{title}</h2><p>{description}</p></div>{action}</header>;
   const SearchBar=()=> <div className="re-search"><Search size={15}/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Buscar por código, nome, unidade ou endereço"/></div>;
   let content=null;
 

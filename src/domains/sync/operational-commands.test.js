@@ -235,14 +235,14 @@ describe("comandos operacionais versionados",()=>{
     expect(first.data.movEstoque).toHaveLength(1);expect(first.data.pedidos[0].version).toBe(4);expect(repeated.data.movEstoque).toHaveLength(1);
   });
 
-  it("calcula o recebimento no servidor e rejeita quantidade acima do pedido",()=>{
+  it("calcula o recebimento no servidor e avisa quantidade acima do pedido",()=>{
     const initial={pedidos:[{id:"p-1",obraId:"o-1",version:1,itens:[{id:"i-1",materialId:"mat-1",qtd:3,qtdRecebida:1,precoUnit:12}]}],movEstoque:[],materiais:[{id:"mat-1",precoMedio:10}]};
     const payload={pedidoId:"p-1",receivedQuantities:{"i-1":2},stockEntries:[{id:"stock-1",receiptId:"receipt-1",pedidoItemId:"i-1",pedidoId:"p-1",obraId:"o-1",materialId:"mat-1",qtd:2,data:"2026-07-25"}]};
     const first=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,"purchase-receipt-0002",payload,1));
     expect(first.data.pedidos[0].itens[0].qtdRecebida).toBe(3);
     expect(first.data.materiais[0].precoMedio).toBe(12);
     const excess=applyOperationalCommand(initial,command(OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,"purchase-receipt-0003",{...payload,receivedQuantities:{"i-1":3},stockEntries:[{...payload.stockEntries[0],id:"stock-2",qtd:3}]},1));
-    expect(excess).toMatchObject({ok:false});
+    expect(excess.ok).toBe(true);expect(excess.summary.workflowWarnings.some(w=>w.code==='RECEIPT_EXCEEDS_ORDER')).toBe(true);
   });
 
   it("recebimento atualiza o custo médio ponderado e guarda o último preço (C1.5)",()=>{
@@ -256,13 +256,13 @@ describe("comandos operacionais versionados",()=>{
     expect(result.data.movEstoque.find(item=>item.id==="stock-1").tipo).toBe("entrada");
   });
 
-  it("recusa recebimento de pedido cancelado ou em rascunho",()=>{
+  it("recusa pedido cancelado e permite recebimento do rascunho com aviso",()=>{
     const order=status=>({pedidos:[{id:"p-1",obraId:"o-1",status,version:1,itens:[{id:"i-1",materialId:"mat-1",qtd:2,qtdRecebida:0,precoUnit:10}]}],movEstoque:[],materiais:[]});
     const payload={pedidoId:"p-1",receivedQuantities:{"i-1":2},stockEntries:[{id:"stock-1",pedidoItemId:"i-1",pedidoId:"p-1",obraId:"o-1",materialId:"mat-1",qtd:2}]};
     const cancelled=applyOperationalCommand(order("cancelado"),command(OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,"purchase-receipt-cancelled-0001",payload,1));
     expect(cancelled.ok).toBe(false);expect(cancelled.reason).toMatch(/cancelado/);
     const draft=applyOperationalCommand(order("rascunho"),command(OPERATIONAL_COMMAND.PURCHASE_RECEIPT_RECORDED,"purchase-receipt-draft-0001",payload,1));
-    expect(draft.ok).toBe(false);expect(draft.reason).toMatch(/Envie o pedido/);
+    expect(draft.ok).toBe(true);expect(draft.summary.workflowWarnings.some(w=>w.code==='ORDER_NOT_SENT')).toBe(true);
   });
 
   it("recusa entrada de estoque fora da unidade canônica ou com custo diferente do pedido",()=>{

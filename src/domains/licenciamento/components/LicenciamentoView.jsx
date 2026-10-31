@@ -13,11 +13,10 @@ import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import { enviarArquivoOneDriveEmPartes } from "../../../api";
-import {
-  Badge, Btn, C, Ic, Inp, LICENCAS, LIC_STATUS, LIC_TERRAS_ALPHA_VERIFICACAO,
-  Modal, PageHero, Sel, escapeHtml, fmtDate, licStatusInfo, licencaPorId,
-  preRequisitosOk, progressoChecklist, today, uid,
-} from "../../../LegacyApp";
+import { Badge, Btn, Ic, Inp, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { LICENCAS, LIC_STATUS, LIC_TERRAS_ALPHA_VERIFICACAO, licStatusInfo, licencaPorId, preRequisitosOk, progressoChecklist } from "../legacy-checklists.js";
+import { escapeHtml, fmtDate, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { LICENSING_UPLOAD_MAX_BYTES, LICENSING_UPLOAD_MAX_MB } from "../../../onedrive-upload-policy.js";
 

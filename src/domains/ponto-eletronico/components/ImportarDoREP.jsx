@@ -2,7 +2,9 @@
 // período. Só propõe: o RH marca o que aceita e só então grava, pelo mesmo
 // comando em lote da grade (attendance-batch-upsert). Ver ponte-grade.js.
 import { useMemo, useState } from "react";
-import { Btn, C, Modal, fmtDateFull } from "../../../LegacyApp";
+import { Btn, Modal } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { fmtDateFull } from "../../../legacy/format.js";
 import { chamarPontoEletronico } from "../../../api";
 import { divergenciaComGrade, proporGradeDoREP } from "../ponte-grade";
 

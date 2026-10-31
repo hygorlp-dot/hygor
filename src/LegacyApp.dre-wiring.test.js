@@ -71,7 +71,10 @@ describe("contrato de autoria do DRE", () => {
     expect(source).not.toContain("update(cancelCompanyExpense(");
     expect(source).toContain("type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED");
     expect(source).toContain("type:OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED");
-    expect(source).toContain("<Financeiro   data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} />");
+    const financialMount=source.match(/<Financeiro\b[\s\S]*?\/>/)?.[0];
+    expect(financialMount).toBeDefined();
+    expect(financialMount).toContain("currentUser={currentUser}");
+    expect(financialMount).toContain("dispatchCommand={dispatchOperationalCommand}");
     expect(medicoesSource).toContain("type:OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_RECEIPTS_CHANGED");
     expect(comercialSource).toContain("type:OPERATIONAL_COMMAND.COMMERCIAL_CONTRACT_ACTIVATED");
     expect(source).not.toContain("medicoes:[...(data.medicoes||[]),...contas]");

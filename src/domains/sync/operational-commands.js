@@ -2,6 +2,9 @@
 // persistência por agregado. Eles são puros para poderem ser exercitados sem
 // navegador e, principalmente, não fazem "last write wins" para a mesma
 // entidade. A migração do endpoint para comandos usa este mesmo contrato.
+import {applyCostControlCommand,COST_CONTROL_COMMAND} from '../financeiro/cost-control.js';
+import {purchaseWorkflow} from '../compras/workflow-advisories.js';
+import {applyClosingCorrection,CLOSING_CORRECTION_COMMAND} from '../financeiro/closing-correction.js';
 import {
   normalizeTechnicalMeasurement,
   rebuildTechnicalMeasurementProjection,
@@ -108,7 +111,13 @@ import {
   applySupplyContractCommand,
   SUPPLY_CONTRACT_COMMAND,
 } from "../compras/supply-contracts.js";
+import { applyEngineeringCommand, ENGINEERING_COMMAND } from "../projetos/commands.js";
+import { applyFileCommand, FILE_COMMAND } from "../arquivos/commands.js";
 export const OPERATIONAL_COMMAND = Object.freeze({
+  ...CLOSING_CORRECTION_COMMAND,
+  ...FILE_COMMAND,
+  ...ENGINEERING_COMMAND,
+  ...COST_CONTROL_COMMAND,
   TECHNICAL_MEASUREMENT_CREATED:"MEDICAO_TECNICA_CRIADA",
   TECHNICAL_MEASUREMENT_CANCELLED:"MEDICAO_TECNICA_CANCELADA",
   FIELD_REPORT_CHANGED:"RDO_CAMPO_ALTERADO",
@@ -165,11 +174,12 @@ export const OPERATIONAL_COMMAND = Object.freeze({
 const receipts=data=>Array.isArray(data?.operationalCommandReceipts)?data.operationalCommandReceipts:[];
 const versionOf=entity=>Number(entity?.version||0);
 const fail=reason=>({ok:false,reason});
-const appendReceipt=(data,command,entityId,now)=>({
+const appendReceipt=(data,command,entityId,now,summary)=>({
   ...data,
   operationalCommandReceipts:[...receipts(data),{
     idempotencyKey:command.idempotencyKey,type:command.type,entityId,
     appliedAt:now,actorId:command.actorId||"",
+    ...(summary?{summary}:{}),
   }].slice(-2000),
 });
 const commandIsValid=command=>command&&typeof command.type==="string"&&String(command.idempotencyKey||"").length>=8;
@@ -231,8 +241,31 @@ const replaceLookahead=(data,id,record)=>({...data,lookaheadWindows:lookaheads(d
 
 export const applyOperationalCommand=(data,command)=>{
   if(!commandIsValid(command))return fail("Comando operacional sem chave idempotente válida.");
-  if(duplicate(data,command.idempotencyKey))return {ok:true,idempotent:true,data};
+  if(duplicate(data,command.idempotencyKey)){
+    const receipt=receipts(data).find(item=>item.idempotencyKey===command.idempotencyKey);
+    return {ok:true,idempotent:true,data,...(receipt?.summary?{summary:receipt.summary}:{})};
+  }
   const now=command.now||new Date().toISOString();
+  const closingCorrection=applyClosingCorrection(data,command,now);
+  if(closingCorrection){
+    if(!closingCorrection.ok)return closingCorrection;
+    return {ok:true,data:appendReceipt(closingCorrection.data,command,closingCorrection.entityId,now)};
+  }
+  const fileResult=applyFileCommand(data,command,now);
+  if(fileResult){
+    if(!fileResult.ok)return fileResult;
+    return {...fileResult,data:appendReceipt(fileResult.data,command,fileResult.entityId,now)};
+  }
+  const engineeringResult=applyEngineeringCommand(data,command,now);
+  if(engineeringResult){
+    if(!engineeringResult.ok)return engineeringResult;
+    return {...engineeringResult,data:appendReceipt(engineeringResult.data,command,engineeringResult.entityId,now)};
+  }
+  const costControlResult=applyCostControlCommand(data,command,now);
+  if(costControlResult){
+    if(!costControlResult.ok)return costControlResult;
+    return {...costControlResult,data:appendReceipt(costControlResult.data,command,costControlResult.entityId,now,costControlResult.summary)};
+  }
   const equipmentResult=applyEquipmentCommand(data,command,now);
   if(equipmentResult){
     if(!equipmentResult.ok)return equipmentResult;
@@ -275,8 +308,9 @@ export const applyOperationalCommand=(data,command)=>{
     if(!payablePaymentResult.ok)return payablePaymentResult;
     return {
       ok:true,
+      summary:payablePaymentResult.summary,
       data:appendReceipt(
-        payablePaymentResult.data,command,payablePaymentResult.entityId,now,
+        payablePaymentResult.data,command,payablePaymentResult.entityId,now,payablePaymentResult.summary,
       ),
     };
   }
@@ -323,8 +357,9 @@ export const applyOperationalCommand=(data,command)=>{
     if(!purchaseOrderResult.ok)return purchaseOrderResult;
     return {
       ok:true,
+      summary:purchaseOrderResult.summary,
       data:appendReceipt(
-        purchaseOrderResult.data,command,purchaseOrderResult.entityId,now,
+        purchaseOrderResult.data,command,purchaseOrderResult.entityId,now,purchaseOrderResult.summary,
       ),
     };
   }
@@ -393,7 +428,7 @@ export const applyOperationalCommand=(data,command)=>{
   const amendmentResult=applyAmendmentCommand(data,command,now);
   if(amendmentResult){
     if(!amendmentResult.ok)return amendmentResult;
-    return {ok:true,data:appendReceipt(amendmentResult.data,command,amendmentResult.entityId,now)};
+    return {...amendmentResult,data:appendReceipt(amendmentResult.data,command,amendmentResult.entityId,now,amendmentResult.summary)};
   }
   const companyConfigResult=applyCompanyConfigCommand(data,command,now);
   if(companyConfigResult){
@@ -814,8 +849,8 @@ export const applyOperationalCommand=(data,command)=>{
     const pedidoId=String(command.payload?.pedidoId||"");
     const current=(data?.pedidos||[]).find(item=>item.id===pedidoId);
     if(!current)return fail("Pedido não encontrado.");
-    if(["cancelado","rascunho"].includes(current.status)||inactive(current)){
-      return fail(current.status==="rascunho"?"Envie o pedido ao fornecedor antes de registrar o recebimento.":"Este pedido foi cancelado e não recebe mais material.");
+    if(current.status==='cancelado'||inactive(current)&&!(current.status==='rascunho'&&current.ativo!==false&&!current.deletedAt)){
+      return fail("Este pedido foi cancelado e não recebe mais material.");
     }
     const versionError=requiresVersion(current,command.expectedVersion,"O pedido");
     if(versionError)return fail(versionError);
@@ -832,7 +867,6 @@ export const applyOperationalCommand=(data,command)=>{
     for(const [itemId,value] of requested){
       const item=byItem.get(itemId),quantity=Number(value);
       if(!item||!Number.isFinite(quantity)||quantity<=0)return fail("Item de recebimento inválido.");
-      if(quantity>Number(item.qtd||0)-Number(item.qtdRecebida||0)+1e-6)return fail("Recebimento excede o saldo do pedido.");
     }
     if(entries.length!==requested.length||entries.some(entry=>{
       const item=byItem.get(entry?.pedidoItemId||"");
@@ -844,7 +878,7 @@ export const applyOperationalCommand=(data,command)=>{
       if(entry.qtd!=null&&Math.abs(Number(entry.qtd)-quantity*(factor||1))>=1e-6)return true;
       return entry.valorUnit!=null&&Math.abs(Number(entry.valorUnit)-referenceUnitCostOf(item))>=1e-6;
     }))return fail("Entradas de estoque não correspondem ao recebimento informado.");
-    const updated={...current,itens:(current.itens||[]).map(item=>{
+    const updated={...current,...(current.status==='rascunho'?{status:'parcial',pedidoNaoEnviadoNoRecebimento:true}:{}),itens:(current.itens||[]).map(item=>{
       const quantity=Number(quantities[item.id]||0);
       return quantity>0?{...item,qtdRecebida:Number(item.qtdRecebida||0)+quantity,recebimentos:[...(item.recebimentos||[]),{id:entries.find(entry=>entry.pedidoItemId===item.id)?.receiptId||`${command.idempotencyKey}:${item.id}`,data:entries.find(entry=>entry.pedidoItemId===item.id)?.data||now.slice(0,10),qtd:quantity,precoUnit:Number(item.precoUnit||0),responsavelId:command.actorId||"",responsavel:command.actorName||"",registradoEm:now}]}:item;
     }),id:current.id,version:versionOf(current)+1,updatedAt:now};
@@ -862,7 +896,10 @@ export const applyOperationalCommand=(data,command)=>{
         ultimaReferenciaCompra:referencePricePerPurchaseUnit(item)};
     });
     const next={...data,pedidos:(data.pedidos||[]).map(item=>item.id===pedidoId?updated:item),movEstoque:[...(data?.movEstoque||[]),...entries],materiais:materials};
-    return {ok:true,data:appendReceipt(next,command,pedidoId,now)};
+    const warnings=purchaseWorkflow(next,updated).warnings;
+    const audited={...next,pedidos:next.pedidos.map(item=>item.id===pedidoId?{...item,workflowWarnings:warnings}:item)};
+    const summary={workflowWarnings:warnings};
+    return {ok:true,summary,data:appendReceipt(audited,command,pedidoId,now,summary)};
   }
 
   return fail("Tipo de comando operacional não suportado.");

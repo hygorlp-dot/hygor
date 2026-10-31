@@ -2,6 +2,7 @@
 // sem uma identidade de usuário: além de quebrar no navegador, isso criaria um
 // evento financeiro sem autoria.
 import { active } from "../financeiro/ledger.js";
+import { previewCompanyRecurrences } from "../financeiro/recurrence-preview.js";
 
 export const cancelDreExpense = ({ data, expenseId, reason, actor, now = new Date().toISOString() }) => {
   if (!actor?.id) throw new Error("Sessão do usuário indisponível para cancelar a despesa.");
@@ -125,22 +126,20 @@ export const saveCompanyExpense = ({ data, expense, actor, id, now = new Date().
   return {...data,despesasEmpresa:anterior?despesas.map(item=>item.id===id?registro:item):[...despesas,registro]};
 };
 
-export const replicateCompanyRecurringExpenses = ({ data, fromCompetence, toCompetence, actor, ids = [], now = new Date().toISOString() }) => {
+export const replicateCompanyRecurringExpenses = ({ data, fromCompetence, toCompetence, actor, ids = [], sourceIds, previewFingerprint, now = new Date().toISOString() }) => {
   if (!actor?.id) throw new Error("Sessão do usuário indisponível para copiar despesas recorrentes.");
   if (!/^\d{4}-\d{2}$/.test(String(fromCompetence || "")) || !/^\d{4}-\d{2}$/.test(String(toCompetence || ""))) throw new Error("Informe competências válidas para copiar despesas recorrentes.");
   const despesas=Array.isArray(data?.despesasEmpresa) ? data.despesasEmpresa : [];
-  const existentes=new Set(despesas
-    .filter(item=>item.competencia===toCompetence&&active(item))
-    .map(item=>`${item.categoria}|${item.descricao}`));
-  const fontes=despesas.filter(item=>
-    item.competencia===fromCompetence
-    &&item.recorrente
-    &&active(item)
-    &&!existentes.has(`${item.categoria}|${item.descricao}`));
+  const preview=previewCompanyRecurrences(data,{fromCompetence,toCompetence});
+  if(preview.error)throw new Error(preview.error);
+  if(previewFingerprint!=null&&previewFingerprint!==preview.fingerprint)throw new Error('A prévia mudou. Revise as recorrências novamente antes de confirmar.');
+  if(sourceIds&&(!Array.isArray(sourceIds)||new Set(sourceIds).size!==sourceIds.length||sourceIds.some(id=>!preview.rows.some(row=>row.source.id===id&&row.eligible))))throw new Error('A seleção contém recorrência indisponível ou duplicada. Atualize a prévia.');
+  const fontes=preview.rows.filter(row=>row.eligible&&(!sourceIds||sourceIds.includes(row.source.id)));
   if (ids.length<fontes.length) throw new Error("Identificadores insuficientes para copiar despesas recorrentes.");
-  const novos=fontes.map((item,index)=>({
+  const novos=fontes.map(({source:item,dueDate,series},index)=>({
     ...item,id:ids[index],competencia:toCompetence,status:"ativo",
     origem:"recorrencia_dre_empresa",
+    recurrenceSeriesId:series,vencimento:dueDate,documento:'',documentos:[],comprovantes:[],
     // A recorrência cria uma nova obrigação, nunca reaproveita a baixa ou o
     // vínculo bancário do mês anterior.
     pago:false,dataPagamento:"",pagamentoId:"",transacaoId:"",conciliado:false,

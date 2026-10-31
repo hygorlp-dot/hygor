@@ -8,7 +8,7 @@ import PontoEletronicoView from "./PontoEletronicoView.jsx";
 vi.mock("../../../api", () => ({ chamarPontoEletronico: vi.fn() }));
 vi.mock("../usePontoEletronico.js", () => ({ usePontoEletronico: vi.fn() }));
 vi.mock("./BancoHorasView.jsx", () => ({ default: ({ obraId }) => <p>Consulta do banco de horas: {obraId}</p> }));
-vi.mock("../../../LegacyApp", () => ({
+vi.mock("../../../legacy/ui.jsx", () => ({
   C: { green: "#2e6652", orange: "#855a24", red: "#a63b3b", muted: "#536171", blue: "#355874" },
   Ic: () => <svg aria-hidden="true" />,
   Badge: ({ children }) => <span>{children}</span>,

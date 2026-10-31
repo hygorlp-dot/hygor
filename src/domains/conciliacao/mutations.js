@@ -163,7 +163,7 @@ export const registrarPagamentoEConciliar = (data, params) => {
         }] };
       });
     }
-    next = { ...next, notasFiscais, pedidos };
+    next = { ...next, notasFiscais:notasFiscais.map(item=>item.id===entidadeId?{...item,conferenciaFiscalPendente:Boolean(item.conferenciaFiscalPendente||conference.conferenciaFiscalPendente)}:item), pedidos };
     criados.push({ tipo: "pagamentoNota", id: pagamento.id, entidadeId });
   } else if (tipo === "pedido") {
     const pagamento = basePagamento();

@@ -1,3 +1,16 @@
+import {useUnsavedChanges} from "../../../features/workflow/useUnsavedChanges.js";
+import {WorkflowWarnings} from './ProcurementProcessStatus.jsx';
+import {planningPurchaseNeeds,planningRequestDraft} from "../../planejamento/purchase-needs.js";
+import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
+import {PURCHASE_HELP} from '../../../features/help/help-content.js';
+import {useWorkspaceState,useWorkspaceScroll} from "../../../features/workflow/workspace-session.jsx";
+import SupplierResponseQueue from "./SupplierResponseQueue";
+import {OrderTermsFields} from "./OrderConditions";
+import {ORDER_TERM_FIELDS} from "../order-terms";
+import QuoteComparisonWorkspace from "./QuoteComparisonWorkspace";
+import PurchaseRecordFlow from "./PurchaseRecordFlow";
+import {quantityLabel} from '../record-flow';
+import MaterialPriceHistory from "./MaterialPriceHistory";
 import { CommercialTerms, CostComparison } from "./PurchaseFinalCost";
 import { PurchaseDossier } from "./PurchaseDossier";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
@@ -13,21 +26,20 @@ import { DreIntegration, useRememberWorkflowScope, useWorkflow } from "../../../
 // migration/RLS. Ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #4.
 // ===================================================================
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazyWithCssRetry as lazy } from "../../../lib/lazy-with-css-retry.js";
+import { ArrowLeft } from "lucide-react";
 import {
-  Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "../../../components/charts/LazyRecharts";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import {
-  ArcdChartTooltip, Badge, Btn, C, C_ARCD_SETOR, ChartPanel, FornecedorEditorPilot,
-  Ic, Inp, LinksDocumentosAuditaveis, Modal, ModalCotacaoWhatsApp, ModalLegendaDocumento,
-  ModoIADocumento, Sel, TabRow,
-  arquivoComoDataUrl, calcOrcadoComprado, compactNumber, fmt, fmtCompact,
-  fmtDate, fornecedoresParaMateriais, guardaPreco, linkWhatsApp, maiusculoOrcamento,
-  melhorPrecoHist, mensagemWhatsAppCobranca, mensagemWhatsAppCompra, niveisUmOrcamento,
-  oportunidadesConsolidacao, pedidosEmAtraso, proximoCodigoArcd, rotuloRamo, slaSolicitacao,
-  today, uid, UNIDADES_PADRAO, CATS_MATERIAL,
-} from "../../../LegacyApp";
+import { ArcdChartTooltip, Badge, Btn, ChartPanel, Ic, Inp, Modal, Sel, TabRow } from "../../../legacy/ui.jsx";
+import { C, C_ARCD_SETOR } from "../../../legacy/palette.js";
+import { FornecedorEditorPilot, ModalCotacaoWhatsApp, fornecedoresParaMateriais, guardaPreco, linkWhatsApp, melhorPrecoHist, mensagemWhatsAppCobranca, mensagemWhatsAppCompra, oportunidadesConsolidacao, pedidosEmAtraso, slaSolicitacao, UNIDADES_PADRAO, CATS_MATERIAL } from "../LegacySupport.jsx";
+import { LinksDocumentosAuditaveis, ModalLegendaDocumento, ModoIADocumento } from "../../../features/financeiro/LegacyDocumentTools.jsx";
+import { arquivoComoDataUrl } from "../../../legacy/files.js";
+import { calcOrcadoComprado, niveisUmOrcamento } from "../budget-tracking";
+import { compactNumber, fmt, fmtCompact, fmtDate, maiusculoOrcamento, proximoCodigoArcd, rotuloRamo, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { SAVE_QUEUE_STATE } from "../../sync/save-queue";
 import { getPlanningBudget } from "../../orcamentos/calculations";
@@ -35,8 +47,8 @@ import { consolidateReferenceBases as consolidarBasesReferencia } from "../../or
 import {
   STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
-  pedidoLiberadoParaReceber, origemPagamentoLabel, situacaoCaixaObra,
-  historicoPrecoTodos, analisePreco, mapaGerencialCompras,
+  origemPagamentoLabel, situacaoCaixaObra,
+  historicoPrecoTodos, mapaGerencialCompras,
 } from "../calculations";
 import { canManagePurchases } from "../permissions";
 import { buildPurchaseWorkspace, matchesPurchaseSearch } from "../workspace";
@@ -51,11 +63,13 @@ import {
 } from "../export-sheets";
 import { Button } from "../../../design-system/primitives/Button";
 import { Select } from "../../../design-system/primitives/Select";
+import { PageHeader } from "../../../design-system/patterns/PageHeader.jsx";
+import { WorkspaceFilters } from "../../../design-system/patterns/WorkspaceNavigation.jsx";
 import { conferenciaPagamentoPedido } from "../payment-conference";
 import { movementOfOrder } from "../purchase-cancellation-command";
 import { alertasOrcamentoDoPedido, segmentosBarraOrcamento } from "../budget-tracking";
 import { contratosDisponiveis, saldoItemContrato } from "../supply-contracts";
-import ContratosFornecimentoView from "./ContratosFornecimentoView";
+import PurchaseContractsWorkspace from "./PurchaseContractsWorkspace";
 import { atrasoDoItem } from "../delivery-schedule";
 import { linhaAtrasada, mensagemCobrancaFornecedor } from "../queue-groups";
 import {
@@ -64,7 +78,7 @@ import {
 import { OrderActionMenu } from "./OrderActionMenu";
 import { ModalRecebimento } from "./ReceiptModal";
 import { montarRecebimento } from "../receipt";
-import { avaliacoesFornecedores, explicacaoNotaFornecedor, textoNotaFornecedor } from "../supplier-rating";
+import { avaliacoesFornecedores, textoNotaFornecedor } from "../supplier-rating";
 import {
   avaliarEscolhasCotacao, cotacaoMultiItens, decisoesDaCotacao, escolhaPrecisaJustificativa,
   itensDaCotacao, itensPendentesDaCotacao, mapaDaCotacao, precoDaProposta, sugestaoDeEscolhas,
@@ -86,6 +100,8 @@ import {
 import {
   enviarArquivoOneDrive, gerarLinkAceitePedido, listarBasesReferencia, pesquisarInsumosReferencia,
 } from "../../../api";
+
+const OperationalPilot = lazy(()=>import("../../../features/pilot/OperationalPilot.jsx"));
 
 function PurchaseSaveNotice({save}){
   const [started,setStarted]=useState(save?.state==="saving");
@@ -119,6 +135,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
   const orcObra=contextoOrcamento.budget;
   const linhasOrc=niveisUmOrcamento(orcObra).map(n=>({v:n.id,l:`${n.descricao} · ${fmt(n.orcado)}`}));
   const F=k=>v=>{setErros(e=>({...e,fieldErrors:{...(e.fieldErrors||{}),[k]:""}}));setForm(f=>({...f,[k]:v}));};
+  useUnsavedChanges(form,()=>setForm(null),{busy:salvando});
   const fechar=()=>{
     if(salvando)return;
     if(JSON.stringify(form)!==inicialRef.current){setConfirmarSaida(true);return;}
@@ -206,6 +223,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
 
   const resumo=purchaseRequestSummary(form);
   return <Modal title={form.id?`Editar solicitação ${form.numero||""}`:"Solicitar materiais para Compras"} onClose={fechar} wide panelClass="purchase-request-modal"><div className="purchase-request-flow"><fieldset className="purchase-request-fields" disabled={salvando}>
+    {form.planningOrigin&&<section className="purchase-request-origin" aria-label="Origem no planejamento"><strong>Planejamento · {form.planningOrigin.taskName}</strong><p>Obra e data vieram do cronograma. Confirme as quantidades abaixo após conferir o estoque e os pedidos existentes; a referência corresponde à etapa inteira.</p>{form.planningOrigin.excludedCount>0&&<p>{form.planningOrigin.excludedCount} linha(s) sem vínculo ou unidade confirmados não foram incluídas. Revise no orçamento.</p>}</section>}
     <section className="purchase-request-section"><header><span>1</span><div><h3>Contexto da solicitação</h3><p>Defina onde e quando os materiais precisam chegar.</p></div></header>
     <div className="purchase-request-context" style={{gridTemplateColumns:formGrid(3)}}>
       <div><Sel label="Obra *" value={form.obraId} onChange={trocarObra} options={obras.map(o=>({v:o.id,l:o.name}))}/>{erros.fieldErrors?.obraId&&<small className="purchase-request-error" role="alert">{erros.fieldErrors.obraId}</small>}</div>
@@ -249,6 +267,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
     </div>}
     {removido&&<div className="purchase-request-undo" role="status"><span>Material removido da solicitação.</span><button type="button" onClick={desfazerRemocao}>Desfazer</button></div>}
     <div className="purchase-request-items">{form.itens.map((item,itemIndex)=>{const itemErrors=erros.items?.find(e=>e.id===item.id)?.errors||{};return <article key={item.id} data-request-item={item.id} className="purchase-request-item">
+      {item.planningQuantity!=null&&<p className="purchase-request-planning-quantity">Referência da etapa: {Number(item.planningQuantity).toLocaleString("pt-BR")} {item.unidadeRef}. Confirme a quantidade a comprar.</p>}
       <div className="purchase-request-item-main">
         <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,marginBottom:3}}>FONTE</p><b style={{fontSize:"var(--arcd-type-label)",color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef}</b></div>
         <Inp label="Código" value={item.codigoRef} onChange={v=>setItem(item.id,"codigoRef",v)} placeholder="Opcional"/>
@@ -308,6 +327,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
   const [salvando,setSalvando]=useState(false);
   const [confirmarSaida,setConfirmarSaida]=useState(false);
   const inicial=useRef(JSON.stringify(form));
+  useUnsavedChanges(form,()=>setForm(null),{busy:salvando});
   const fechar=()=>{if(salvando)return;if(inicial.current!==JSON.stringify(form)){setConfirmarSaida(true);return;}setForm(null);};
   const enviar=async()=>{if(salvando)return;setSalvando(true);try{await onSave(form);}finally{setSalvando(false);}};
   const [buscaRef,setBuscaRef]=useState("");
@@ -397,6 +417,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
                options={[{v:"empresa",l:"Conta da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente paga diretamente"}]}/>
         </div>
 
+        <OrderTermsFields value={form} onChange={(key,value)=>F(key)(value)}/>
         <div style={{background:form.origemPagamento==="cliente_direto"?`${C.blue}0C`:`${C.green}0C`,border:`1px solid ${form.origemPagamento==="cliente_direto"?C.blue:C.green}55`,borderRadius:7,padding:"8px 10px"}}>
           <p style={{fontSize:"var(--arcd-type-label)",color:form.origemPagamento==="cliente_direto"?C.blue:C.green,fontWeight:600}}>
             {form.origemPagamento==="cliente_direto"
@@ -692,11 +713,20 @@ function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOr
 
 export default function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD_SETOR, dispatchCommand:rawDispatchCommand=null }) {
   const { cols, pick, isDesktop } = useBreakpoint();
-  const {scopes}=useWorkflow();
+  const [pilotOpen,setPilotOpen]=useState(false);
+  const [pilotNotes,setPilotNotes]=useState({});
+  const {scopes,intent,navigate}=useWorkflow();
+  const useSessionState=(key,initial)=>useWorkspaceState("cmp",key,initial,obraIdFixo);
+  const avisarPendencias=result=>{
+    const warnings=result?.summary?.workflowWarnings||[];
+    if(warnings.length)showToast(`Operação registrada com avisos: ${[...new Set(warnings.map(item=>item.message))].slice(0,2).join(" ")} Consulte a ficha completa da compra para acompanhar.`,"warn");
+  };
+  useWorkspaceScroll("cmp",obraIdFixo);
   const savedScope=scopes.cmp;
   const {save, dispatch:dispatchCommand} = usePurchaseSave(rawDispatchCommand);
-  const [filtrosFluxo,setFiltrosFluxo] = useState({query:"",stage:"",risk:""});
+  const [filtrosFluxo,setFiltrosFluxo] = useSessionState("filtrosFluxo",{query:"",stage:"",risk:""});
   const [registroFoco,setRegistroFoco] = useState("");
+  const [retornosCompra,setRetornosCompra]=useSessionState("retornosCompra",[]);
   useEffect(()=>{
     if(!registroFoco)return;
     const frame=window.requestAnimationFrame(()=>{
@@ -704,16 +734,17 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       target?.scrollIntoView({block:"center",behavior:"auto"});target?.focus({preventScroll:true});
     });
     return()=>window.cancelAnimationFrame(frame);
-  },[registroFoco]);
-  const [aba,     setAba]     = useState(["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":currentUser?.role==="financeiro"?"financeiro":"fila");
-  const [obraSel, setObraSel] = useState(obraIdFixo||currentUser?.obraId||savedScope?.obraId||"");
-  const [busca,   setBusca]   = useState("");
-  const [filtroPedidos,setFiltroPedidos]=useState(FILTROS_PEDIDOS_VAZIOS);
+  },[registroFoco,retornosCompra]);
+  const [aba,     setAba]     = useSessionState("aba",["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":currentUser?.role==="financeiro"?"financeiro":"fila");
+  useHelpTopic('cmp',PURCHASE_HELP[aba]||'cmp');
+  const [obraSel, setObraSel] = useSessionState("obraSel",obraIdFixo||currentUser?.obraId||savedScope?.obraId||"");
+  const [busca,   setBusca]   = useSessionState("busca","");
+  const [filtroPedidos,setFiltroPedidos]=useSessionState("filtroPedidos",FILTROS_PEDIDOS_VAZIOS);
 
   const [pedModal,  setPedModal]  = useState(null);
   const [recModal,  setRecModal]  = useState(null);   // recebimento
   const [cotModal,  setCotModal]  = useState(null);
-  const [fichaCompra,setFichaCompra]=useState(null);
+  const [fichaCompra,setFichaCompra]=useSessionState("fichaCompra",null);
   const [cotDecisao,setCotDecisao]=useState(null);
   const [envioPedido,setEnvioPedido]=useState(null);
   const [aceitePedido,setAceitePedido]=useState(null);
@@ -723,29 +754,27 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const [solModal,setSolModal]=useState(null);
   const [modoIA,setModoIA]=useState(false);
   const [basesReferenciaCompra,setBasesReferenciaCompra]=useState([]);
-  const [escopoHistorico,setEscopoHistorico]=useState("obra");
-  const [periodoHistorico,setPeriodoHistorico]=useState("12");
-  const [buscaFornecedorHistorico,setBuscaFornecedorHistorico]=useState("");
-  const [fornecedorHistoricoId,setFornecedorHistoricoId]=useState("");
-  const [materialHistoricoId,setMaterialHistoricoId]=useState("");
-  const [fornecedorPrecoId,setFornecedorPrecoId]=useState("");
-  const [buscaHistoricoCompra,setBuscaHistoricoCompra]=useState("");
-  const [statusHistoricoCompra,setStatusHistoricoCompra]=useState("todos");
-  const [fornecedorHistoricoCompra,setFornecedorHistoricoCompra]=useState("");
+  const [escopoHistorico,setEscopoHistorico]=useSessionState("escopoHistorico","obra");
+  const [periodoHistorico,setPeriodoHistorico]=useSessionState("periodoHistorico","12");
+  const [buscaFornecedorHistorico,setBuscaFornecedorHistorico]=useSessionState("buscaFornecedorHistorico","");
+  const [fornecedorHistoricoId,setFornecedorHistoricoId]=useSessionState("fornecedorHistoricoId","");
+  const [buscaHistoricoCompra,setBuscaHistoricoCompra]=useSessionState("buscaHistoricoCompra","");
+  const [statusHistoricoCompra,setStatusHistoricoCompra]=useSessionState("statusHistoricoCompra","todos");
+  const [fornecedorHistoricoCompra,setFornecedorHistoricoCompra]=useSessionState("fornecedorHistoricoCompra","");
   const [anexoCotacao,setAnexoCotacao]=useState(null);
   const [subindoAnexoCotacao,setSubindoAnexoCotacao]=useState(false);
   const [pagModal,setPagModal]=useState(null);
   const [excluirCompraModal,setExcluirCompraModal]=useState(null);
   const [subindoComprovantePagamento,setSubindoComprovantePagamento]=useState(false);
   const [cancelandoCompra,setCancelandoCompra]=useState(false);
-  const [filtroFinanceiro,setFiltroFinanceiro]=useState("pendentes");
-  const [buscaCotacao,setBuscaCotacao]=useState("");
-  const [statusCotacao,setStatusCotacao]=useState("todas");
-  const [inicioCotacao,setInicioCotacao]=useState("");
-  const [fimCotacao,setFimCotacao]=useState("");
-  const [cotacaoExpandida,setCotacaoExpandida]=useState("");
-  const [escopoMapa,setEscopoMapa]=useState(obraIdFixo||currentUser?.obraId||savedScope?.obraId?"obra":"empresa");
-  const [filtroKanban,setFiltroKanban]=useState("ativos");
+  const [filtroFinanceiro,setFiltroFinanceiro]=useSessionState("filtroFinanceiro","pendentes");
+  const [buscaCotacao,setBuscaCotacao]=useSessionState("buscaCotacao","");
+  const [statusCotacao,setStatusCotacao]=useSessionState("statusCotacao","todas");
+  const [inicioCotacao,setInicioCotacao]=useSessionState("inicioCotacao","");
+  const [fimCotacao,setFimCotacao]=useSessionState("fimCotacao","");
+  const [cotacaoExpandida,setCotacaoExpandida]=useSessionState("cotacaoExpandida","");
+  const [escopoMapa,setEscopoMapa]=useSessionState("escopoMapa",obraIdFixo||currentUser?.obraId||savedScope?.obraId?"obra":"empresa");
+  const [filtroKanban,setFiltroKanban]=useSessionState("filtroKanban","ativos");
 
   const obras = useMemo(()=>(data.obras || []).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId),[data.obras,currentUser?.obraId]);
   const obraAtual   = obraIdFixo || obraSel || obras[0]?.id || "";
@@ -755,6 +784,12 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const obraIdsMapa=useMemo(()=>
     escopoMapa==="empresa"&&!obraIdFixo?obras.map(o=>o.id):[obraAtual],
     [escopoMapa,obraIdFixo,obras,obraAtual]);
+  useEffect(()=>{
+    if(obraIdFixo||intent?.tabId!=="cmp"||intent.action==="resume")return;
+    const next=intent.scope?.obraId||currentUser?.obraId||"";
+    if(next&&!obras.some(work=>work.id===next))return;
+    setObraSel(next);setEscopoMapa(next?"obra":"empresa");
+  },[intent?.sequence,obraIdFixo]);
   const todasObras = escopoMapa==="empresa"&&!obraIdFixo;
   const materiais   = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
   const fornecedores= useMemo(() => (data.fornecedores||[]).filter(f => f.ativo !== false), [data.fornecedores]);
@@ -1047,26 +1082,6 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     });
     return [...mapa.values()].sort((a,b)=>a.mes.localeCompare(b.mes)).slice(-18).map(x=>({...x,rotulo:x.mes==="Sem data"?x.mes:new Date(`${x.mes}-02T12:00:00`).toLocaleDateString("pt-BR",{month:"short",year:"2-digit"})}));
   },[pedidosFornecedorAtual]);
-  const materiaisHistorico=useMemo(()=>materiais.map(m=>{
-    const entradas=(historicoPorMaterial.get(m.id)||[]).filter(x=>obraVisivelHistorico(x.obraId)&&(!inicioPeriodoHistorico||String(x.data||"")>=inicioPeriodoHistorico));
-    return {material:m,entradas};
-  }).filter(x=>x.entradas.length).sort((a,b)=>String(a.material.descricao||"").localeCompare(String(b.material.descricao||""))),
-  [materiais,historicoPorMaterial,obraVisivelHistorico,inicioPeriodoHistorico]);
-  const materialHistoricoAtualId=materialHistoricoId&&materiaisHistorico.some(x=>x.material.id===materialHistoricoId)
-    ?materialHistoricoId:(materiaisHistorico[0]?.material.id||"");
-  const materialHistoricoAtual=materiaisHistorico.find(x=>x.material.id===materialHistoricoAtualId);
-  const fornecedoresDoMaterial=useMemo(()=>[...new Set((materialHistoricoAtual?.entradas||[]).map(x=>x.fornecedorId).filter(Boolean))]
-    .map(id=>fornecedorPorId.get(id)).filter(Boolean).sort((a,b)=>String(a.nome||"").localeCompare(String(b.nome||""))),[materialHistoricoAtual,fornecedorPorId]);
-  const fornecedorPrecoAtualId=fornecedorPrecoId&&fornecedoresDoMaterial.some(f=>f.id===fornecedorPrecoId)?fornecedorPrecoId:"";
-  const evolucaoMaterial=useMemo(()=>[...(materialHistoricoAtual?.entradas||[])]
-    .filter(x=>!fornecedorPrecoAtualId||x.fornecedorId===fornecedorPrecoAtualId)
-    .sort((a,b)=>String(a.data||"").localeCompare(String(b.data||""))),[materialHistoricoAtual,fornecedorPrecoAtualId]);
-  const analiseMaterialAtual=useMemo(()=>analisePreco(evolucaoMaterial),[evolucaoMaterial]);
-  const dadosGraficoPreco=useMemo(()=>evolucaoMaterial.map((x,idx)=>({
-    id:`${x.pedidoId}-${idx}`,data:x.data,rotulo:x.data?new Date(`${x.data}T12:00:00`).toLocaleDateString("pt-BR",{day:"2-digit",month:"short"}):"-",
-    preco:x.preco,media:analiseMaterialAtual?.medio||0,fornecedor:fornecedorPorId.get(x.fornecedorId)?.nome||"-",obra:obraPorId.get(x.obraId)?.name||"-",qtd:x.qtd,pedido:x.pedidoNumero||"-",
-  })),[evolucaoMaterial,analiseMaterialAtual,fornecedorPorId,obraPorId]);
-
   //  Fornecedor
   const salvarForn = async (f) => {
     if (!f.nome.trim()) { showToast("Informe o nome do fornecedor.", "error"); return; }
@@ -1149,7 +1164,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       formalizadoPorId:anterior?.formalizadoPorId||currentUser?.id||"",
       formalizadoPor:anterior?.formalizadoPor||currentUser?.nome||"Engenharia",
       necessidade:f.necessidade||"",prioridade:f.prioridade||"normal",status:anterior?.status||"enviada",
-      observacao:f.observacao||"",analisadoEm:anterior?.analisadoEm||"",
+      planningOrigin:f.planningOrigin||null,observacao:f.observacao||"",analisadoEm:anterior?.analisadoEm||"",
       analisadoPor:anterior?.analisadoPor||"",pedidoId:anterior?.pedidoId||"",
       cotacaoIds:anterior?.cotacaoIds||[],aprovacaoInstanciaId:anterior?.aprovacaoInstanciaId||"",itens};
     const solicitacoesCompraBase=f.id
@@ -1283,12 +1298,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const gerarPedidoSolicitacao=(sol)=>{
     if(!podeProcessar){showToast("Somente o setor de Compras pode transformar a solicitação em pedido.","error");return;}
     const instanciaApr=instanciaAprovacaoDe(sol);
-    // Sem atalho: a solicitação só vira pedido depois de aprovada. O servidor
-    // recusa do mesmo jeito (purchase-order-commands.js).
     if(instanciaApr&&instanciaApr.status!=="aprovada"){
-      showToast(["reprovada","cancelada"].includes(instanciaApr.status)
-        ?"Esta solicitação foi reprovada na aprovação e não pode virar pedido."
-        :"Esta solicitação ainda aguarda aprovação. O pedido fica liberado assim que ela for aprovada.","error");return;
+      showToast("A aprovação está pendente ou recusada. O pedido pode seguir; consulte Aprovações para regularizar a decisão.","warn");
     }
     const itens=sol.itens.map(item=>{
       const existente=materiais.find(m=>(item.codigoRef&&maiusculoOrcamento(m.codigo)===maiusculoOrcamento(item.codigoRef)&&maiusculoOrcamento(m.fonteRef||item.fonteRef)===maiusculoOrcamento(item.fonteRef))||
@@ -1368,6 +1379,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     if(estouros.length&&!window.confirm(`Este pedido estoura o orçamento de ${estouros.map(a=>a.descricao).join(", ")}. Salvar mesmo assim?`))return;
 
     const p = {
+      ...Object.fromEntries(Object.keys(ORDER_TERM_FIELDS).map(key=>[key,f[key]||""])),
       id: f.id || uid(),
       numero: f.numero?.trim() || "",
       obraId: f.obraId || obraAtual,
@@ -1397,7 +1409,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       return {
         type:OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED,
         idempotencyKey:`purchase-order-save-${p.id}-${uid()}`,
-        expectedVersion:vigente?Number(vigente.version||0):0,
+        expectedVersion:vigente?Number(f.version||0):0,
         actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
         payload:{order:p,newMaterials:novosMateriais,adjustmentReason:String(f.motivoAjuste||"").trim()},
       };
@@ -1406,6 +1418,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     setPedModal(null);
     const numeroPedido=(result.data?.pedidos||[]).find(item=>item.id===p.id)?.numero||p.numero;
     showToast(f.id ? "Pedido atualizado." : `Pedido ${numeroPedido} criado.`);
+    avisarPendencias(result);
   };
 
   const abrirPagamento=p=>setPagModal({pedido:p,valor:String(saldoPagamentoPedido(p).toFixed(2)),data:today(),origem:p.origemPagamento||"empresa",transacaoId:"",referencia:"",observacao:"",conciliado:false,comprovanteFile:null,comprovanteLegenda:""});
@@ -1417,11 +1430,11 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     if(!canManagePurchases(currentUser?.role)){showToast("Seu perfil não possui permissão para registrar pagamentos de compras.","error");return;}
     const obra=(data.obras||[]).find(o=>o.id===pedido.obraId);
     const caixa=situacaoCaixaObra(data,pedido.obraId);
-    if(f.origem==="caixa_obra"&&!obra?.hasCaixa){showToast("O caixa desta obra não está ativado. Ative-o no cadastro da obra ou selecione outra origem.","error");return;}
-    if(f.origem==="caixa_obra"&&valor>caixa.saldo+.001){showToast(`Pagamento bloqueado: o caixa possui ${fmt(caixa.saldo)} e ficaria negativo em ${fmt(valor-caixa.saldo)}. Registre um aporte antes de pagar.`,"error");return;}
+    if(f.origem==="caixa_obra"&&!obra?.hasCaixa)showToast("Caixa ainda não ativado. Confira a configuração e os movimentos registrados.","warn");
+    if(f.origem==="caixa_obra"&&valor>caixa.saldo+.001)showToast("O registro deixará o caixa negativo. Confira aportes e a origem real do pagamento.","warn");
     const conferencia=conferenciaPagamentoPedido(data,pedido.id);
     if(conferencia&&valor>conferencia.liberadoCents/100+.005&&(!f.adiantamento||!String(f.motivoAdiantamento||"").trim())){
-      showToast(`Só ${fmt(conferencia.liberadoCents/100)} está conferido (recebido e com nota). Para pagar antes, marque como adiantamento e informe o motivo.`,"error");return;
+      showToast("Pagamento anterior à conferência completa. Será registrado como adiantamento; complete a entrega, a nota e a observação depois.","warn");
     }
     setSubindoComprovantePagamento(true);
     try{
@@ -1564,6 +1577,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         ? `Pedido ${pedido.numero} recebido por completo. Estoque atualizado.`
         : `Recebimento parcial registrado. ${entradas.length} item(ns) no estoque.`
     );
+    avisarPendencias(result);
   };
 
   const cancelarPedido = async(p) => {
@@ -1661,7 +1675,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     if(itens.some(i=>!(i.qtd>0))){showToast("Informe a quantidade de cada item.","error");return;}
     const props=(f.propostas||[])
       .filter(p=>p.fornecedorId&&itens.some(i=>Number(p.precos?.[i.id])>0))
-      .map(p=>({id:p.id||uid(),fornecedorId:p.fornecedorId,prazoDias:Number(p.prazoDias||0),obs:p.obs||"",
+      .map(p=>({id:p.id||uid(),fornecedorId:p.fornecedorId,prazoDias:p.prazoDias==null||p.prazoDias===""?null:Number(p.prazoDias),obs:p.obs||"",
+        ...Object.fromEntries(Object.keys(ORDER_TERM_FIELDS).map(key=>[key,p[key]||""])),
         documentos:Array.isArray(p.documentos)?p.documentos:[],
         ...(p.custoFinal?{custoFinal:p.custoFinal}:{}),condicoesPagamento:p.condicoesPagamento||"",
         precos:Object.fromEntries(itens.filter(i=>Number(p.precos?.[i.id])>0).map(i=>[i.id,Number(p.precos[i.id])]))}));
@@ -1767,7 +1782,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     const numeros=(result.data?.pedidos||[]).filter(p=>ids.has(p.id)).map(p=>p.numero).join(", ");
     setCotDecisao(null);
     showToast(`${ids.size>1?`Pedidos ${numeros} gerados`:`Pedido ${numeros} gerado`} a partir da cotação.`);
-    setFiltroPedidos(FILTROS_PEDIDOS_VAZIOS);setAba("pedidos");
+    avisarPendencias(result);
+    guardarOrigemCompra({type:'quote',id:cot.id,obraId:cot.obraId,label:cot.numero||cot.id});
+    setBusca('');setFiltroPedidos({...FILTROS_PEDIDOS_VAZIOS,ids:[...ids],origem:`Cotação ${cot.numero||cot.id}`});setAba("pedidos");
+    setRegistroFoco([...ids][0]||'');
   };
 
   // Envio do pedido ao fornecedor (C2.5): monta o conteúdo, abre o canal e
@@ -1778,6 +1796,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       qtd:i.qtd,unidade:purchaseUnitOf(i),precoUnit:i.precoUnit}));
     const base={empresa:"MARCELL",numero:p.numero,data:p.data,fornecedorNome:forn?.nome||"",
       fornecedorCnpj:forn?.cnpj||"",obraNome:obra?.name||"",itens,previsao:p.previsao,observacao:p.obs||"",linkAceite:link};
+    const snapshot=p.historicoCondicoesPedido?.at(-1);
+    if(snapshot){base.fornecedorNome=snapshot.fornecedor?.nome||"Não registrado";base.fornecedorCnpj=snapshot.fornecedor?.documento||"";base.obraNome=snapshot.obra?.nome||"Não registrado";}
+    const terms=snapshot?.condicoes||p;
+    base.condicoes=[...(!snapshot||snapshot.origem==="legado"?["Acordo original sem registro histórico."]:[]),...Object.entries(ORDER_TERM_FIELDS).map(([key,label])=>`${label}: ${terms[key]||"Não registrado"}`)];
     return {forn,texto:mensagemPedidoFornecedor(base),assunto:assuntoEmailPedido(base),html:documentoPedidoHtml(base)};
   };
   const registrarEnvioPedido=async(p,canal,destino="")=>{
@@ -1846,7 +1868,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     }
     if(card.tipo==="cotacao"&&destino==="pedido"){
       const mapa=mapaDaCotacao(card.registro);
-      if((card.registro.propostas||[]).length<2||mapa.linhas.every(l=>!l.ofertas.length)){
+      if(mapa.linhas.every(l=>!l.ofertas.length)){
         setCotModal(formularioDaCotacao(card.registro));
         showToast("Complete ao menos duas propostas antes de gerar o pedido.","warn");return;
       }
@@ -1906,52 +1928,111 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     ["financeiro",`Pagamentos${resumoFinanceiro.pendentes?` · ${resumoFinanceiro.pendentes}`:""}`],
     ["solicitacoes",`Solicitações${solicitacoesPendentes?` · ${solicitacoesPendentes}`:""}`],
     ["cotacoes","Cotações"],["pedidos","Pedidos"],["historico_compras","Histórico de compras"],["orcado","Orçado x comprado"],
-    ["forn","Cadastro de fornecedores"],["contratos","Contratos de fornecimento"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]
+    ["forn","Cadastro de fornecedores"],["contratos","Contratos e medições"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]
   ];
   const irParaArea=id=>{
-    setAba(id);setRegistroFoco("");
+    setAba(id);setRegistroFoco("");setRetornosCompra([]);
     window.requestAnimationFrame(()=>document.getElementById("compras-area-atual")?.focus({preventScroll:true}));
+  };
+  const guardarOrigemCompra=source=>setRetornosCompra(previous=>[...previous.slice(-7),{
+    area:aba,recordId:source.id,workId:source.obraId,label:`${{request:'solicitação',quote:'cotação',order:'pedido'}[source.type]} ${source.label}`,
+    scope:obraIdsMapa.join('|'),busca,filtroPedidos,buscaCotacao,statusCotacao,inicioCotacao,fimCotacao,cotacaoExpandida,
+  }]);
+  const abrirVinculoCompra=(target,source)=>{
+    const collection={request:data.solicitacoesCompra,quote:data.cotacoes,order:data.pedidos}[target.type]||[];
+    const record=collection.find(item=>item.id===target.id&&item.obraId===target.obraId&&obraIdsMapa.includes(item.obraId));
+    if(!record){showToast('O registro não está disponível neste recorte. Confira a obra e os vínculos.','warn');return;}
+    guardarOrigemCompra(source);
+    if(target.type==='quote'){
+      setBuscaCotacao('');setStatusCotacao('todas');setInicioCotacao('');setFimCotacao('');setCotacaoExpandida(target.id);setAba('cotacoes');
+    }else if(target.type==='order'){
+      setBusca('');setFiltroPedidos({...FILTROS_PEDIDOS_VAZIOS,ids:[target.id],origem:target.label});setAba('pedidos');
+    }else setAba('solicitacoes');
+    setRegistroFoco(target.id);
+  };
+  const retornoCompra=retornosCompra.at(-1);
+  const voltarOrigemCompra=()=>{
+    if(!retornoCompra||retornoCompra.scope!==obraIdsMapa.join('|')){setRetornosCompra([]);return;}
+    setBusca(retornoCompra.busca);setFiltroPedidos(retornoCompra.filtroPedidos);
+    setBuscaCotacao(retornoCompra.buscaCotacao);setStatusCotacao(retornoCompra.statusCotacao);setInicioCotacao(retornoCompra.inicioCotacao);setFimCotacao(retornoCompra.fimCotacao);setCotacaoExpandida(retornoCompra.cotacaoExpandida);
+    setAba(retornoCompra.area);setRegistroFoco(retornoCompra.recordId);setRetornosCompra(previous=>previous.slice(0,-1));
   };
   // Abre a obra escolhida no comparativo: troca o escopo, zera os filtros da fila e vai para a área pedida.
   const abrirObra=(obraId,area="fila")=>{setEscopoMapa("obra");setObraSel(obraId);setFiltrosFluxo({query:"",stage:"",risk:""});irParaArea(area);};
   const abrirModoAnalise=()=>setModoIA(true);
+  const planningIntentHandled=useRef(null);
+  useEffect(()=>{
+    if(intent?.tabId!=="cmp"||!["planning-request","open-request","open-order"].includes(intent.action)||planningIntentHandled.current===intent.sequence)return;
+    planningIntentHandled.current=intent.sequence;
+    const scopedWork=obraIdFixo||currentUser?.obraId||intent.scope?.obraId;
+    if(!scopedWork||!obras.some(work=>work.id===scopedWork))return;
+    if(intent.action==="open-order"){
+      const order=(data.pedidos||[]).find(record=>record.id===intent.record?.pedidoId&&record.obraId===scopedWork&&!record.deletedAt);
+      if(!order){showToast("O pedido não está disponível nesta obra. Confira o vínculo na origem.","warn");return;}
+      setBusca("");setFiltroPedidos({...FILTROS_PEDIDOS_VAZIOS,ids:[order.id],origem:"Planejamento e compras"});setAba("pedidos");setRegistroFoco(order.id);setFichaCompra({pedidoId:order.id});return;
+    }
+    setAba("solicitacoes");
+    if(intent.action==="open-request"){
+      setBusca("");
+      const request=(data.solicitacoesCompra||[]).find(r=>r.id===intent.record?.requestId&&r.obraId===scopedWork);
+      if(request)setRegistroFoco(request.id);
+      return;
+    }
+    if(intent.record?.obraId!==scopedWork)return;
+    const needs=planningPurchaseNeeds(data,{...intent.record,obraId:scopedWork});
+    if(needs.error){showToast(needs.error,"error");return;}
+    if(needs.requests.length){setRegistroFoco(needs.requests[0].id);return;}
+    const draft=planningRequestDraft(needs,uid);
+    if(draft)setSolModal(draft);
+    else showToast("Vincule os insumos desta etapa no orçamento antes de solicitar.","error");
+  },[intent?.sequence]);
   const abrirNovaSolicitacao=()=>setSolModal({obraId:currentUser?.obraId||obraAtual,necessidade:"",prioridade:"normal",referenciaId:basesCompra[0]?.id||"",observacao:"",itens:[]});
-  const abasSecundarias=comprasAbas.filter(([id])=>!["solicitacoes","cotacoes","pedidos","financeiro","historico_compras"].includes(id));
-  const [competenciaDre,setCompetenciaDre]=useState(()=>savedScope?.year!=null&&savedScope?.month!=null?`${savedScope.year}-${String(savedScope.month+1).padStart(2,"0")}`:new Date().toISOString().slice(0,7));
+  const abasSecundarias=comprasAbas.filter(([id])=>!["solicitacoes","cotacoes","pedidos","financeiro","historico_compras","precos"].includes(id));
+  const [competenciaDre,setCompetenciaDre]=useSessionState("competenciaDre",()=>savedScope?.year!=null&&savedScope?.month!=null?`${savedScope.year}-${String(savedScope.month+1).padStart(2,"0")}`:new Date().toISOString().slice(0,7));
   const escopoDre={obraId:todasObras?"":obraAtual,year:Number(competenciaDre.slice(0,4)),month:Number(competenciaDre.slice(5,7))-1,period:"mes"};
   useRememberWorkflowScope("cmp",escopoDre);
   const escopoFluxo=todasObras?"Todas as obras":obraPorId.get(obraAtual)?.name||"Selecione uma obra";
+  const abrirNovoPedido=()=>setPedModal({id:"",numero:"",obraId:obraAtual,fornecedorId:"",
+          data:new Date().toISOString().slice(0,10),previsao:"",status:"enviado",
+          origemPagamento:"empresa",pagamentos:[],referenciaId:basesCompra[0]?.id||"",itens:[{id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",orcNivel1Id:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",unidadeCompra:"",fatorConversao:1,precoRef:0,dataBaseRef:"",ufRef:""}],obs:""});
+  const abrirNovaCotacao=()=>setCotModal({id:"",obraId:obraAtual,orcNivel1Id:"",data:today(),
+    itens:[itemVazioCotacao()],propostas:[propostaVaziaCotacao(),propostaVaziaCotacao()]});
+
+  if(pilotOpen)return <Suspense fallback={<p role="status">Carregando piloto…</p>}><OperationalPilot data={data} mode="compras" scope={{workId:obraIdFixo||(!todasObras?obraAtual:"")}} notes={pilotNotes} onNotes={setPilotNotes} onClose={()=>setPilotOpen(false)}/></Suspense>;
 
   return (
     <div className="anim compras-view" style={{display:"flex",flexDirection:"column",gap:isDesktop?12:10}}>
-      <header className="purchase-header">
-        <div className="purchase-header-title"><h2 className="page-hero__title">Compras</h2>
-          <p>Materiais na obra, no prazo.</p></div>
-        <div className="purchase-context-bar">
+      <PageHeader className="workspace-header purchase-header" title="Compras" description="Solicitações, pedidos e entregas."
+        secondaryActions={<div className="purchase-context-bar">
           <div className="compras-project-picker">{obraIdFixo
             ? <Inp label="Obra" value={obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
             : <Select label="Obra" value={todasObras?"all":obraAtual} onChange={event=>{const v=event.target.value;
-                setRegistroFoco("");
+                setRegistroFoco("");setRetornosCompra([]);
                 if(v==="all"){setEscopoMapa("empresa");return;}
                 setEscopoMapa("obra");setObraSel(v);
               }} options={[{value:"all",label:"Todas as obras"},...obras.map(o=>({value:o.id,label:o.name}))]}/>}</div>
-          <p role="status" aria-live="polite" className="purchase-save-state" data-state={save.state}>{save.message}</p>
-        </div>
-        <div className="purchase-header-actions"><Button variant="secondary" onClick={abrirModoAnalise}>Analisar documento</Button>
-          <Button onClick={abrirNovaSolicitacao}>Nova solicitação</Button></div>
-      </header>
-      <DreIntegration kind="purchases" currentUser={currentUser} {...escopoDre}>
-        <label>Competência do DRE<input type="month" value={competenciaDre} onChange={event=>{if(event.target.value)setCompetenciaDre(event.target.value);}}/></label>
-        <p>Este mês é usado na consulta ao DRE. Os registros de compras mantêm os próprios filtros de prazo e histórico.</p>
-      </DreIntegration>
+        </div>}
+        primaryAction={<div className="purchase-header-actions">
+          {aba==="cotacoes"&&<Button variant="secondary" size="icon" aria-label="Voltar à fila" title="Voltar à fila" onClick={()=>irParaArea("fila")}><ArrowLeft aria-hidden="true" size={18}/></Button>}
+          <Button onClick={aba==="cotacoes"?abrirNovaCotacao:aba==="pedidos"?abrirNovoPedido:abrirNovaSolicitacao}>{aba==="cotacoes"?"Adicionar cotação":aba==="pedidos"?"Novo pedido":"Nova solicitação"}</Button>
+          <OrderActionMenu label="Mais ações de Compras" comuns={[
+            {id:"analisar",label:"Analisar documento"},
+            {id:"piloto",label:"Piloto de conferência"},
+            ...(["cotacoes","pedidos"].includes(aba)?[{id:"solicitar",label:"Nova solicitação"}]:[]),
+            ...(aba!=="fila"&&aba!=="cotacoes"?[{id:"fila",label:"Voltar à fila"}]:[]),
+          ]} onSelect={id=>{if(id==="piloto")setPilotOpen(true);else if(id==="analisar")abrirModoAnalise();else if(id==="solicitar")abrirNovaSolicitacao();else irParaArea("fila");}}/>
+        </div>}>
+        {save.state!=="idle"&&<p role="status" aria-live="polite" className="purchase-save-state" data-state={save.state}>{save.message}</p>}
+      </PageHeader>
       <PurchaseNavigation area={aba} onNavigate={irParaArea} counts={fluxoCompras.counts}
-        financeCount={resumoFinanceiro.pendentes} otherAreas={abasSecundarias}/>
+        orderCount={(data.pedidos||[]).filter(p=>obraIdsMapa.includes(p.obraId)).length} financeCount={resumoFinanceiro.pendentes} otherAreas={abasSecundarias}/>
+      {retornoCompra&&retornoCompra.scope===obraIdsMapa.join('|')&&<nav className="purchase-flow-return" aria-label="Retorno à origem da compra"><p>Origem: {retornoCompra.label}. O recorte anterior será restaurado ao voltar.</p><Button variant="secondary" onClick={voltarOrigemCompra}>Voltar para {retornoCompra.label}</Button></nav>}
       {/* Na fila, aprovações e recebimentos o painel abaixo já tem título próprio:
           o nome da área fica só para leitor de tela e como destino do foco. */}
       <div id="compras-area-atual" className="purchase-area-heading" tabIndex={-1}
-        data-compact={["fila","aprovacoes","recebimentos"].includes(aba)||undefined}>
+        data-compact={["fila","aprovacoes","recebimentos","cotacoes"].includes(aba)||undefined}>
         <h3>{PURCHASE_AREA_LABELS[aba]||comprasAbas.find(([id])=>id===aba)?.[1]}</h3>
-        {aba!=="fila"&&<Button variant="ghost" size="sm" onClick={()=>irParaArea("fila")}>Voltar à fila</Button>}
+        {aba!=="fila"&&aba!=="cotacoes"&&<Button variant="ghost" size="sm" onClick={()=>irParaArea("fila")}>Voltar à fila</Button>}
       </div>
       {["fila","aprovacoes","recebimentos"].includes(aba)&&<PurchaseWorkspace model={fluxoCompras} area={aba} scope={escopoFluxo}
         filters={filtrosFluxo} onFiltersChange={setFiltrosFluxo} onOpen={abrirRegistroFluxo}
@@ -2211,7 +2292,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           const aprCor={aprovada:C.green,reprovada:C.red,bloqueada:C.orange,em_andamento:C.blue}[instanciaApr?.status];
           const aprRotulo={aprovada:"APROVADA",reprovada:"REPROVADA",bloqueada:"AGUARDANDO CONFIGURAÇÃO",em_andamento:"AGUARDANDO APROVAÇÃO"}[instanciaApr?.status];
           return <div id={`purchase-record-${sol.id}`} tabIndex={-1} data-purchase-highlight={registroFoco===sol.id} key={sol.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${corBorda}`,borderRadius:6,padding:"10px 12px"}}>
-            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{sol.numero}{sol.prioridade==="urgente"&&<span style={{color:C.red}}> · URGENTE</span>}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Solicitado por {sol.solicitanteNome||"Engenharia"} · {sol.criadoEm?new Date(sol.criadoEm).toLocaleString("pt-BR"):""}{sol.necessidade?` · necessário em ${fmtDate(sol.necessidade)}`:""}</p></div><div style={{textAlign:"right",flexShrink:0}}><Badge color={status.c}>{status.l}</Badge>
+            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}><div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{sol.numero}{sol.prioridade==="urgente"&&<span style={{color:C.red}}> · URGENTE</span>}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Solicitado por {sol.solicitanteNome||"Solicitante não informado"} · {sol.criadoEm?new Date(sol.criadoEm).toLocaleString("pt-BR"):""}{sol.necessidade?` · necessário em ${fmtDate(sol.necessidade)}`:""}</p></div><div style={{textAlign:"right",flexShrink:0}}><Badge color={status.c}>{status.l}</Badge>
               {instanciaApr&&instanciaApr.status!=="aprovada"&&<div style={{marginTop:3}}><Badge color={aprCor}>{aprRotulo}</Badge></div>}
               {sla&&<div style={{marginTop:3}}><Badge color={sla.status==="estourado"?C.red:sla.status==="no_limite"?C.orange:C.muted}>
                 {sla.status==="estourado"?`SLA ESTOURADO · ${sla.dias}d (limite ${sla.limite}d)`:sla.status==="no_limite"?`ÚLTIMO DIA DO SLA`:`${sla.dias}d de ${sla.limite}d`}
@@ -2230,6 +2311,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
               Enviado para {sol.contatos.length} fornecedor(es): {sol.contatos.map(c=>c.fornecedorNome).filter(Boolean).join(", ")}
             </p>}
             {pedido&&<p style={{fontSize:"var(--arcd-type-label)",color:C.green,fontWeight:600,marginTop:7}}>Vinculada ao pedido {pedido.numero}</p>}
+            <PurchaseRecordFlow data={data} type="request" record={sol} onOpen={abrirVinculoCompra}/>
             <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
               {["enviada","em_analise"].includes(sol.status)&&(podeProcessar||sol.solicitanteId===currentUser?.id)&&<Btn size="sm" v="ghost" onClick={()=>setSolModal({...sol,itens:(sol.itens||[]).map(i=>({...i,quantidade:String(i.quantidade||"")}))})}>EDITAR SOLICITAÇÃO</Btn>}
               {podeProcessar&&sol.status==="enviada"&&<Btn size="sm" v="ghost" onClick={()=>atualizarStatusSolicitacao(sol,"em_analise")}>MARCAR EM ANÁLISE</Btn>}
@@ -2324,27 +2406,14 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {/*  PEDIDOS  */}
       {aba === "pedidos" && (<>
         {atrasados.length>0&&(
-          <div style={{background:`${C.red}0C`,border:`1.5px solid ${C.red}`,borderRadius:6,padding:"9px 11px"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red}}>{atrasados.length} PEDIDO(S) COM ENTREGA ATRASADA</p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
-              {atrasados.slice(0,3).map(x=>`${x.pedido.numero} · ${nomeForn(x.pedido.fornecedorId)} · +${x.diasAtraso}d`).join(" | ")}
-              {"  ·  Cobre pelo menu ⋯ do pedido."}
-            </p>
-            <Button variant="ghost" size="sm" aria-pressed={filtroPedidos.atrasados} onClick={()=>patchFiltroPedidos({atrasados:!filtroPedidos.atrasados})} style={{marginTop:6}}>
-              {filtroPedidos.atrasados?"Mostrar todos os pedidos":"Ver só os atrasados"}
-            </Button>
-          </div>
+          <div className="purchase-delivery-attention" role="status"><div><strong>{quantityLabel(atrasados.length,'pedido')} com entrega atrasada</strong><p>{atrasados.slice(0,3).map(x=>[x.pedido.numero,nomeForn(x.pedido.fornecedorId),quantityLabel(x.diasAtraso,'dia')].join(" · ")).join(" · ")}</p></div><Button variant="outline" size="sm" aria-pressed={filtroPedidos.atrasados} onClick={()=>patchFiltroPedidos({atrasados:!filtroPedidos.atrasados})}>{filtroPedidos.atrasados?"Mostrar todos os pedidos":"Ver só os atrasados"}</Button></div>
         )}
-        <Inp label="Buscar pedidos" value={busca} onChange={setBusca} placeholder="Pedido, material, fornecedor ou obra…"/>
-        <Btn onClick={()=>setPedModal({id:"",numero:"",obraId:obraAtual,fornecedorId:"",
-          data:new Date().toISOString().slice(0,10),previsao:"",status:"enviado",
-          origemPagamento:"empresa",pagamentos:[],referenciaId:basesCompra[0]?.id||"",itens:[{id:uid(),materialId:"",qtd:"",precoUnit:"",qtdRecebida:0,orcItemId:"",orcNivel1Id:"",referenciaId:"",fonteRef:"",codigoRef:"",descricaoRef:"",unidadeRef:"",unidadeCompra:"",fatorConversao:1,precoRef:0,dataBaseRef:"",ufRef:""}],obs:""})} full>
-          <Ic n="plus"/> Novo pedido
-        </Btn>
+        <div className="purchase-order-toolbar"><Inp label="Buscar pedidos" value={busca} onChange={setBusca} placeholder="Pedido, material, fornecedor ou obra…"/>
+
 
         {pedidos.length>0&&(
-          <div className="purchase-order-filters" role="group" aria-label="Filtros de pedidos">
-            <Select label="Status" value={filtroPedidos.status} onChange={e=>patchFiltroPedidos({status:e.target.value})}
+          <div className="purchase-order-filters" role="group" aria-label="Filtros de pedidos"><WorkspaceFilters activeCount={[filtroPedidos.status!=="todos",Boolean(filtroPedidos.fornecedorId),Boolean(filtroPedidos.obraId),filtroPedidos.atrasados,Array.isArray(filtroPedidos.ids)].filter(Boolean).length}>
+            <Select label="Situação" value={filtroPedidos.status} onChange={e=>patchFiltroPedidos({status:e.target.value})}
               options={OPCOES_STATUS_PEDIDO.map(o=>({value:o.value,label:o.value==="todos"?`${o.label} (${contagemPedidos.todos})`:`${o.label} (${contagemPedidos[o.value]||0})`}))}/>
             <Select label="Fornecedor" value={filtroPedidos.fornecedorId} onChange={e=>patchFiltroPedidos({fornecedorId:e.target.value})}
               options={[{value:"",label:"Todos os fornecedores"},...fornecedoresDosPedidos]}/>
@@ -2352,15 +2421,16 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
               options={[{value:"",label:"Todas as obras"},...obrasDosPedidos]}/>}
             <label className="purchase-order-filters__toggle"><input type="checkbox" checked={filtroPedidos.atrasados} onChange={e=>patchFiltroPedidos({atrasados:e.target.checked})}/> Só entregas atrasadas ({qtdAtrasadosNaLista})</label>
             {filtrosPedidosAtivos(filtroPedidos)&&<Button variant="ghost" onClick={()=>setFiltroPedidos(FILTROS_PEDIDOS_VAZIOS)}>Limpar filtros</Button>}
-          </div>
+          </WorkspaceFilters></div>
         )}
+        </div>
         {pedidos.length>0&&<div className="purchase-order-count-row">
-          <p className="purchase-order-count" role="status">{pedidosVisiveis.length} de {pedidos.length} pedido(s)</p>
+          <p className="purchase-order-count" role="status">{pedidosVisiveis.length} de {quantityLabel(pedidos.length,'pedido')}</p>
           {botaoExportar("pedidos",[planilhaPedidos(data,pedidosVisiveis),planilhaItensDosPedidos(data,pedidosVisiveis),planilhaNotas(data,pedidosVisiveis)],
             `Exportar para Excel os ${pedidosVisiveis.length} pedido(s) da lista, com itens e notas`)}
         </div>}
         {Array.isArray(filtroPedidos.ids)&&<p className="purchase-order-origin" role="note">
-          Mostrando os pedidos da exceção do painel <strong>{filtroPedidos.origem||"selecionada"}</strong>.
+          Mostrando os pedidos de <strong>{filtroPedidos.origem||"um recorte selecionado"}</strong>.
           <Button variant="ghost" size="sm" onClick={()=>patchFiltroPedidos({ids:null,origem:""})}>Ver todos os pedidos</Button></p>}
 
         {pedidos.length === 0
@@ -2372,7 +2442,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             const meta = STATUS_PEDIDO[st];
             const pend = pendentePedido(p);
             return (
-              <article key={p.id} aria-label={`Pedido ${p.numero}`} style={{
+              <article id={`purchase-record-${p.id}`} tabIndex={-1} data-purchase-highlight={registroFoco===p.id} key={p.id} aria-label={`Pedido ${p.numero}`} style={{
                 background:C.card, border:`1px solid ${C.border}`,
                 borderLeft:`1px solid ${meta.c}`, borderRadius:6, padding:"10px 12px",
               }}>
@@ -2384,7 +2454,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                       {nomeForn(p.fornecedorId)}
                     </p>
                     <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>
-                      {fmtDate(p.data)}  {p.itens.length} item(ns)
+                      {fmtDate(p.data)} · {quantityLabel(p.itens.length,'item','itens')}
                       {p.previsao && `  entrega ${fmtDate(p.previsao)}`}
                     </p>
                   </div>
@@ -2400,7 +2470,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                     </p>
                     {pend > 0.01 && st !== "rascunho" && st !== "cancelado" && (
                       <p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,marginTop:1}}>
-                        falta {fmt(pend)}
+                        A receber em materiais: {fmt(pend)}
                       </p>
                     )}
                   </div>
@@ -2433,7 +2503,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                     );
                   })}
 	                </div>
-	                <Button variant="secondary" onClick={()=>setFichaCompra({pedidoId:p.id})}>Ficha completa · notas e anexos</Button>
+                <PurchaseRecordFlow data={data} type="order" record={p} onOpen={abrirVinculoCompra}/>
                 {p.analiseIA&&<div style={{marginTop:7,padding:"7px 9px",background:`${C.purple}08`,border:`1px solid ${C.purple}2F`,borderRadius:7,display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.purple,fontWeight:600}}><Ic n="brain" s={11}/> Sugestão da IA revisada por {p.analiseIA.revisadoPor||"operador"} · confiança {Number(p.analiseIA.confianca||0)}%</span><span>{(p.documentos||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginLeft:8}}>{a.nome} ↗</a>)}</span></div>}
 
                 {(() => {
@@ -2441,7 +2511,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                   const telefone = forn?.telefone;
                   const acoes = acoesDoPedido({
                     pedido:p, podeEnviar:podeEnviarPedido, podeExcluir:podeExcluirCompra,
-                    atrasado:!!atrasoDe[p.id], temTelefone:!!telefone, liberadoParaReceber:pedidoLiberadoParaReceber(p),
+                    atrasado:!!atrasoDe[p.id], temTelefone:!!telefone, temSaldoEmAberto:saldoPagamentoPedido(p)>.01,
                   });
                   const obra = obraPorId.get(p.obraId);
                   const hrefs = !telefone ? {} : {
@@ -2458,12 +2528,12 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                     ...a, href:hrefs[a.id]||undefined,
                     label:a.id==="saldo" ? `${a.label} · ${fmt(saldoPagamentoPedido(p))}` : a.label,
                   }));
-                  if (!acoes.principal && !comuns.length && !acoes.destrutivas.length) return null;
                   return (
                     <div className="purchase-order-actions">
-                      {acoes.principal && <Btn size="sm" onClick={()=>executarAcaoPedido(p, acoes.principal.id)} full>
+                      {acoes.principal && <Btn className="purchase-order-primary" onClick={()=>executarAcaoPedido(p, acoes.principal.id)}>
                         <Ic n={acoes.principal.id==="receber"?"check":"edit"}/> {acoes.principal.label}
                       </Btn>}
+                      <Button className="purchase-order-reference" variant="secondary" onClick={()=>setFichaCompra({pedidoId:p.id})}>Ficha completa · notas e anexos</Button>
                       <OrderActionMenu label={`Mais ações do pedido ${p.numero}`} comuns={comuns} destrutivas={acoes.destrutivas}
                         busy={cancelandoCompra} onSelect={id=>executarAcaoPedido(p, id)}/>
                     </div>
@@ -2638,65 +2708,56 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
       {/*  COTAÇÕES  */}
       {aba === "cotacoes" && (<>
-        <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-          <div><h3 style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text}}>Mapa de cotações</h3><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Compare propostas, prazo e economia antes de gerar a ordem de compra.</p></div>
-          <Btn onClick={()=>setCotModal({id:"",obraId:obraAtual,orcNivel1Id:"",data:today(),
-            itens:[itemVazioCotacao()],propostas:[propostaVaziaCotacao(),propostaVaziaCotacao()]})}>
-            <Ic n="plus"/> Adicionar cotação
-          </Btn>
-        </div>
-
-        <div style={{display:"grid",gridTemplateColumns:pick("1fr","minmax(230px,1fr) 150px 150px","minmax(280px,1fr) 160px 160px auto"),gap:7,alignItems:"end"}}>
+        <div className="purchase-quote-filters">
           <Inp label="Buscar" value={buscaCotacao} onChange={setBuscaCotacao} placeholder="Código, insumo, solicitação ou fornecedor..."/>
-          <Inp label="Data inicial" type="date" value={inicioCotacao} onChange={setInicioCotacao}/>
-          <Inp label="Data final" type="date" value={fimCotacao} onChange={setFimCotacao}/>
-          {isDesktop&&<Btn size="sm" v="ghost" onClick={()=>{setBuscaCotacao("");setInicioCotacao("");setFimCotacao("");setStatusCotacao("todas");}}>Limpar filtros</Btn>}
+          <WorkspaceFilters activeCount={[inicioCotacao,fimCotacao].filter(Boolean).length}>
+            <Inp label="Data inicial" type="date" value={inicioCotacao} onChange={setInicioCotacao}/>
+            <Inp label="Data final" type="date" value={fimCotacao} onChange={setFimCotacao}/>
+            <Btn size="sm" v="ghost" onClick={()=>{setBuscaCotacao("");setInicioCotacao("");setFimCotacao("");setStatusCotacao("todas");}}>Limpar filtros</Btn>
+          </WorkspaceFilters>
         </div>
 
-        <div style={{display:"grid",gridTemplateColumns:`repeat(3,minmax(0,1fr))`,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-          {[["aberta","Abertas",cotacoes.filter(c=>c.status==="aberta").length,C.orange],["decidida","Compra gerada",cotacoes.filter(c=>c.status==="decidida").length,C.green],["todas","Todas",cotacoes.length,C.blue]].map(([v,l,n,c],i)=>{
-            const ativo=statusCotacao===v;return <button key={v} type="button" onClick={()=>setStatusCotacao(v)} style={{position:"relative",border:0,borderLeft:i?`1px solid ${C.line}`:"none",background:ativo?`${c}0B`:"transparent",padding:"10px 12px",textAlign:"left",cursor:"pointer"}}>
-              <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:ativo?c:C.muted}}>{l}</span><b style={{float:"right",fontSize:"var(--arcd-type-label)",color:ativo?c:C.muted}}>{n}</b>{ativo&&<i style={{position:"absolute",left:0,right:0,bottom:0,height:2,background:c}}/>}
-            </button>;
-          })}
-        </div>
+        <div className="purchase-quote-status"><Select label="Situação da cotação" value={statusCotacao} onChange={event=>setStatusCotacao(event.target.value)} options={[
+          {value:'todas',label:`Todas (${cotacoes.length})`},
+          {value:'aberta',label:`Em decisão (${cotacoes.filter(c=>c.status==='aberta').length})`},
+          {value:'decidida',label:`Decisão concluída (${cotacoes.filter(c=>c.status==='decidida').length})`},
+        ]}/><p role="status">{quantityLabel(cotacoesFiltradas.length,'cotação','cotações')} neste recorte. Itens sem decisão continuam na cotação.</p></div>
+        {registroFoco===cotacaoExpandida&&cotacoes.some(c=>c.id===registroFoco)&&!cotacoesFiltradas.some(c=>c.id===registroFoco)&&<div className="purchase-flow-return" role="status"><p>A cotação de origem está fora dos filtros atuais. O recorte foi preservado.</p><Button variant="secondary" onClick={()=>{const id=registroFoco;setBuscaCotacao('');setStatusCotacao('todas');setInicioCotacao('');setFimCotacao('');setRegistroFoco('');requestAnimationFrame(()=>setRegistroFoco(id));}}>Mostrar cotação de origem</Button></div>}
 
+        <SupplierResponseQueue quotes={cotacoesFiltradas} data={data} onOpen={id=>{setCotacaoExpandida(id);requestAnimationFrame(()=>{const row=document.getElementById(`purchase-record-${id}`);row?.scrollIntoView({block:"start"});row?.focus({preventScroll:true});});}}/>
         {!cotacoesFiltradas.length
           ? <div style={{padding:30,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:9,background:C.card}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>Nenhuma cotação encontrada</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Ajuste os filtros ou adicione uma nova cotação.</p></div>
-          : <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
-            {isDesktop&&<div style={{display:"grid",gridTemplateColumns:"90px minmax(220px,1.5fr) 100px 115px 105px 100px 92px",gap:10,padding:"8px 11px",background:C.surface,borderBottom:`1px solid ${C.border}`,fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}><span>Código</span><span>Insumo</span><span>Fornecedores</span><span>Necessidade</span><span>Status</span><span>Prioridade</span><span>Ações</span></div>}
+          : <div className="purchase-quotes-list" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"auto"}}>
+            {isDesktop&&<div className="purchase-quotes-list__header" style={{display:"grid",gridTemplateColumns:"90px minmax(220px,1.5fr) 100px 115px 105px 100px 132px",gap:10,padding:"8px 11px",background:C.surface,borderBottom:`1px solid ${C.border}`,fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}><span>Código</span><span>Insumo</span><span>Fornecedores</span><span>Necessidade</span><span>Status</span><span>Prioridade</span><span>Ações</span></div>}
             {cotacoesFiltradas.map((c,index)=>{
               const ord=c.propostas||[],mapa=mapaDaCotacao(c),multi=cotacaoMultiItens(c),pendentes=mapa.linhas.filter(l=>!l.decisao).length;
               const sol=solicitacaoPorId.get(c.solicitacaoId),expandida=cotacaoExpandida===c.id;
               const codigo=c.numero||`CT-${String(cotacoes.indexOf(c)+1).padStart(4,"0")}`;
               const prioridade=sol?.prioridade||"normal";
+              const rotuloCotacao=c.status==="cancelada"?"Cancelada":c.status==="decidida"?"Decisão concluída":(c.respostasFornecedor||[]).some(r=>r.status==="pendente")?"Revisar resposta":Object.keys(decisoesDaCotacao(c)).length&&pendentes?"Decisão parcial":ord.length?"Em decisão":"Sem propostas";
               return <div id={`purchase-record-${c.id}`} tabIndex={-1} data-purchase-highlight={registroFoco===c.id} key={c.id} style={{borderTop:index?`1px solid ${C.line}`:"none"}}>
-                <div role="button" tabIndex={0} onClick={()=>setCotacaoExpandida(expandida?"":c.id)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setCotacaoExpandida(expandida?"":c.id);}}} style={{display:"grid",gridTemplateColumns:isDesktop?"90px minmax(220px,1.5fr) 100px 115px 105px 100px 92px":"1fr auto",gap:10,width:"100%",alignItems:"center",padding:isDesktop?"11px":"12px",border:0,background:expandida?`${C.blue}05`:"transparent",textAlign:"left",cursor:"pointer"}}>
+                <div className="purchase-quote-row" style={{display:"grid",gridTemplateColumns:isDesktop?"90px minmax(220px,1.5fr) 100px 115px 105px 100px 132px":"1fr auto",gap:10,width:"100%",alignItems:"center",padding:isDesktop?"11px":"12px",border:0,background:expandida?`${C.blue}05`:"transparent",textAlign:"left"}}>
                   {isDesktop&&<b style={{fontSize:"var(--arcd-type-caption)",color:C.blue}}>{codigo}</b>}
-                  <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text}}>{multi?`${mapa.linhas.length} ${mapa.linhas.length===1?"item":"itens"} · ${nomeMat(c.materialId)}${mapa.linhas.length>1?" e outros":""}`:nomeMat(c.materialId)}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{multi?`${mapa.linhas.length-pendentes} de ${mapa.linhas.length} decidido(s)`:`${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`}{sol?.numero?` · ${sol.numero}`:""}{!isDesktop?` · ${codigo}`:""}</span></div>
+                  <Button variant="ghost" className="purchase-quote-open" aria-label={`${expandida?"Recolher análise":"Comparar propostas"} · ${codigo}`} aria-expanded={expandida} aria-controls={expandida?`quote-comparison-${c.id}`:undefined} onClick={()=>setCotacaoExpandida(expandida?"":c.id)}>
+                    <b className="brk">{multi?`${mapa.linhas.length} ${mapa.linhas.length===1?"item":"itens"} · ${nomeMat(c.materialId)}${mapa.linhas.length>1?" e outros":""}`:nomeMat(c.materialId)}</b>
+                    <span>{multi?`${mapa.linhas.length-pendentes} de ${mapa.linhas.length} decidido(s)`:`${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`}{sol?.numero?` · ${sol.numero}`:""}{!isDesktop?` · ${codigo}`:""}</span>
+                    <span>{expandida?"Recolher análise":"Comparar propostas"}</span>
+                  </Button>
                   {isDesktop&&<span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{ord.length}</span>}
                   {isDesktop&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{fmtDate(sol?.necessidade||c.data)}</span>}
-                  {isDesktop&&<Badge color={c.status==="decidida"?C.green:C.blue}>{c.status==="decidida"?"Compra gerada":"Cotada"}</Badge>}
+                  {isDesktop&&<Badge color={c.status==="decidida"?C.green:C.blue}>{rotuloCotacao}</Badge>}
                   {isDesktop&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prioridade==="urgente"?C.red:C.orange}}>{prioridade==="urgente"?"Alta":"Média"}</span>}
-                  <div style={{display:"flex",gap:4,justifyContent:"flex-end",alignItems:"center"}}>{podeProcessar&&<Btn size="sm" v="danger" title="Excluir cotação" onClick={e=>{e.stopPropagation();excluirCotacao(c);}}><Ic n="trash" s={11}/>{isDesktop&&" Excluir"}</Btn>}<span aria-label={expandida?"Recolher":"Comparar propostas"} style={{display:"inline-block",color:C.muted,transform:expandida?"rotate(180deg)":"none",transition:"transform .15s"}}>⌄</span></div>
+                  <div className="purchase-quote-actions">{podeProcessar&&<OrderActionMenu label={`Mais ações da cotação ${codigo}`} destrutivas={[{id:"excluir",label:"Excluir cotação"}]} onSelect={()=>excluirCotacao(c)}/>}</div>
                 </div>
-                {!isDesktop&&<div style={{display:"flex",gap:5,padding:"0 12px 10px",flexWrap:"wrap"}}><Badge color={c.status==="decidida"?C.green:C.blue}>{c.status==="decidida"?"Compra gerada":"Cotada"}</Badge><Badge color={prioridade==="urgente"?C.red:C.orange}>{prioridade==="urgente"?"Alta":"Média"}</Badge><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,alignSelf:"center"}}>{ord.length} fornecedor(es) · {fmtDate(sol?.necessidade||c.data)}</span></div>}
-                {expandida&&<div style={{padding:"0 11px 12px",background:C.surface,borderTop:`1px solid ${C.line}`}}>
-                  <div style={{overflowX:"auto",marginTop:8,border:`1px solid ${C.border}`,borderRadius:7,background:C.card}}>
-                    <table style={{borderCollapse:"collapse",width:"100%",minWidth:240+150*ord.length,fontSize:"var(--arcd-type-label)"}}>
-                      <thead><tr style={{background:C.surface}}>
-                        <th style={{textAlign:"left",padding:"7px 8px",fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase"}}>Item</th>
-                        {ord.map(p=>{const av=avaliacaoForn.get(String(p.fornecedorId)),cor=av?.nota==null?C.muted:av.nota>=8?C.green:av.nota>=6?C.orange:C.red;return <th key={p.id} style={{textAlign:"left",padding:"7px 8px",verticalAlign:"top"}}><b className="brk" style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text}}>{nomeForn(p.fornecedorId)}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>{p.prazoDias||0} dia(s) · {fmt(mapa.totaisPorProposta[p.id]||0)}</span><span title={explicacaoNotaFornecedor(av)} style={{display:"block",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:cor,marginTop:2}}>Nota {textoNotaFornecedor(av)}</span></th>;})}
-                      </tr></thead>
-                      <tbody>{mapa.linhas.map(l=><tr key={l.item.id} style={{borderTop:`1px solid ${C.line}`}}>
-                        <td style={{padding:"7px 8px"}}><b className="brk" style={{display:"block",color:C.text}}>{nomeMat(l.item.materialId)}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l.qtd.toLocaleString("pt-BR")} {purchaseUnitOf(l.item)}{l.decisao?" · pedido gerado":""}</span></td>
-                        {ord.map(p=>{const v=l.ofertas.find(o=>o.proposta.id===p.id)?.precoUnit||0,eh=v>0&&p.id===l.melhorPropostaId,venceu=l.decisao?.propostaId===p.id;return <td key={p.id} style={{padding:"7px 8px",background:venceu?`${C.green}1A`:eh?`${C.green}0B`:"transparent"}}>{v>0?<><b style={{color:eh?C.green:C.text}}>{fmt(v)}</b>{venceu&&" ✓"}<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted}}>{fmt(v*l.qtd)}{eh?" · menor":""}</small></>:<span style={{color:C.muted}}>—</span>}</td>;})}
-                      </tr>)}</tbody>
-                    </table>
-                  </div>
-                  <CostComparison quote={c} supplierName={nomeForn}/>
+                {!isDesktop&&<div style={{display:"flex",gap:5,padding:"0 12px 10px",flexWrap:"wrap"}}><Badge color={c.status==="decidida"?C.green:C.blue}>{rotuloCotacao}</Badge><Badge color={prioridade==="urgente"?C.red:C.orange}>{prioridade==="urgente"?"Alta":"Média"}</Badge><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,alignSelf:"center"}}>{ord.length} fornecedor(es) · {fmtDate(sol?.necessidade||c.data)}</span></div>}
+                <PurchaseRecordFlow data={data} type="quote" record={c} onOpen={abrirVinculoCompra}/>
+                {expandida&&<div id={`quote-comparison-${c.id}`} style={{padding:"0 11px 12px",background:C.surface,borderTop:`1px solid ${C.line}`}}>
+                  <QuoteComparisonWorkspace quote={c} data={data} canManage={podeProcessar}
+                    actions={podeProcessar&&c.status==="aberta"&&pendentes>0?<Btn v="success" onClick={()=>setCotDecisao({cotacaoId:c.id,escolhas:sugestaoDeEscolhas(c),justificativas:{}})}>Decidir e gerar pedidos</Btn>:null} dispatchCommand={dispatchCommand} currentUser={currentUser}
+                    supplierRating={id=>textoNotaFornecedor(avaliacaoForn.get(String(id)))}
+                    onOpenOrder={pedidoId=>setFichaCompra({pedidoId})}
+                    documents={ord.map(p=><div key={p.id} className="purchase-quote-documents"><b>Documentos · {nomeForn(p.fornecedorId)}</b><LinksDocumentosAuditaveis documentos={p.documentos||[]} subindo={subindoAnexoCotacao&&anexoCotacao?.cotacao?.id===c.id&&anexoCotacao?.proposta?.id===p.id} onSelecionar={e=>selecionarDocumentoCotacao(c,p,e)} C={C}/></div>)}/>
                   <Button variant="secondary" onClick={()=>setFichaCompra({cotacaoId:c.id})}>Ficha da compra conjunta · notas e anexos</Button>
-                  {ord.map(p=><div key={p.id} style={{marginTop:6,padding:"6px 8px",background:C.card,border:`1px solid ${C.border}`,borderRadius:7}}><b style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>Documentos · {nomeForn(p.fornecedorId)}</b><LinksDocumentosAuditaveis documentos={p.documentos||[]} subindo={subindoAnexoCotacao&&anexoCotacao?.cotacao?.id===c.id&&anexoCotacao?.proposta?.id===p.id} onSelecionar={e=>selecionarDocumentoCotacao(c,p,e)} C={C}/></div>)}
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap",marginTop:8}}>
                     <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{c.economia>0?`Economia registrada: ${fmt(c.economia||0)}`:"Escolha a proposta de cada item considerando preço, prazo e documentação."}</span>
                     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -2712,7 +2773,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       </>)}
 
       {/*  FORNECEDORES  */}
-      {aba === "contratos" && <ContratosFornecimentoView data={data} dispatchCommand={dispatchCommand} currentUser={currentUser} showToast={showToast} C={C} podeEditar={["admin","compras"].includes(currentUser?.role)}/>}
+      {aba === "contratos" && <PurchaseContractsWorkspace key={obraIdsMapa.join("|")} data={data} update={update} dispatchCommand={dispatchCommand} currentUser={currentUser} showToast={showToast} C={C} workIds={obraIdsMapa} onOpenOrder={pedidoId=>setFichaCompra({pedidoId})}/>}
 
       {aba === "forn" && (<>
         <Btn onClick={()=>setFornModal({id:"",nome:"",nomeFantasia:"",razaoSocial:"",cnpj:"",contato:"",telefone:"",email:"",categorias:[],atividadeCnae:"",situacaoCadastral:"",dataAbertura:"",cep:"",endereco:"",numero:"",complemento:"",bairro:"",cidade:"",uf:"",obs:""})} full>
@@ -2774,21 +2835,12 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         </div>}
       </>)}
 
-      {/*  EVOLUÇÃO DOS PREÇOS DOS INSUMOS  */}
-      {aba === "precos" && (<>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>A curva considera somente material <strong style={{color:C.text}}>efetivamente recebido</strong>. Assim, uma cotação ou pedido ainda não entregue não distorce o preço histórico. A média é ponderada pela quantidade comprada.</p></div>
-        <div style={{display:"grid",gridTemplateColumns:pick("1fr","1fr 1fr","minmax(280px,1.4fr) minmax(190px,.9fr) 180px 210px"),gap:8,alignItems:"end"}}>
-          <Sel label="Insumo" value={materialHistoricoAtualId} onChange={v=>{setMaterialHistoricoId(v);setFornecedorPrecoId("");}} options={materiaisHistorico.map(x=>({v:x.material.id,l:`${x.material.codigo?`${x.material.codigo} · `:""}${x.material.descricao}`}))}/>
-          <Sel label="Fornecedor" value={fornecedorPrecoAtualId} onChange={setFornecedorPrecoId} options={[{v:"",l:"Todos os fornecedores"},...fornecedoresDoMaterial.map(f=>({v:f.id,l:f.nome}))]}/>
-          <Sel label="Período" value={periodoHistorico} onChange={setPeriodoHistorico} options={[["6","Últimos 6 meses"],["12","Últimos 12 meses"],["24","Últimos 24 meses"],["todos","Todo o histórico"]].map(([v,l])=>({v,l}))}/>
-          {!obraIdFixo&&<div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",marginBottom:5}}>Abrangência</p><div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>{[["obra","Obra atual"],["todas","Todas visíveis"]].map(([v,l])=><button key={v} onClick={()=>setEscopoHistorico(v)} style={{flex:1,border:0,borderRadius:6,padding:"7px 8px",background:escopoHistorico===v?C.text:"transparent",color:escopoHistorico===v?"#fff":C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div></div>}
-        </div>
-        {!materialHistoricoAtual||!analiseMaterialAtual?<div style={{padding:28,textAlign:"center",background:C.card,border:`1px dashed ${C.border}`,borderRadius:12}}><Ic n="chart" s={22} color={C.muted}/><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:8}}>Ainda não há preços recebidos neste recorte</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>Registre o recebimento de um pedido ou amplie o período analisado.</p></div>:<>
-          {(()=>{const primeiro=evolucaoMaterial[0];const ultimo=evolucaoMaterial[evolucaoMaterial.length-1];const variacao=primeiro?.preco?((Number(ultimo?.preco||0)-Number(primeiro.preco))/Number(primeiro.preco))*100:0;const corVar=variacao>0?C.red:variacao<0?C.green:C.muted;return <div style={{display:"grid",gridTemplateColumns:cols(2,3,5),gap:8}}>{[["Preço atual",fmt(ultimo?.preco||0),corVar],["Menor preço",fmt(analiseMaterialAtual.menor),C.green],["Média ponderada",fmt(analiseMaterialAtual.medio),C.blue],["Variação no período",`${variacao>0?"+":""}${variacao.toFixed(1)}%`,corVar],["Compras recebidas",analiseMaterialAtual.compras,C.text]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:10,padding:"10px 11px"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:c,marginTop:4}}>{v}</p></div>)}</div>})()}
-          <ChartPanel eyebrow="Inteligência de suprimentos" title={materialHistoricoAtual.material.descricao} subtitle={`Preço por ${materialHistoricoAtual.material.unidade||"UN"} · ${evolucaoMaterial.length} recebimento(s) no período`} height={275} legend={[{label:"Preço recebido",color:C.yellow},{label:"Média ponderada",color:C.blue}]}><ResponsiveContainer width="100%" height="100%"><LineChart data={dadosGraficoPreco} margin={{left:4,right:14,top:8,bottom:2}}><CartesianGrid stroke={C.line} vertical={false}/><XAxis dataKey="rotulo" tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} axisLine={false} tickLine={false}/><YAxis tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} axisLine={false} tickLine={false} tickFormatter={compactNumber}/><Tooltip content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/><Line type="monotone" dataKey="media" name="Média ponderada" stroke={C.blue} strokeDasharray="5 5" strokeWidth={1.5} dot={false}/><Line type="monotone" dataKey="preco" name="Preço recebido" stroke={C.yellow} strokeWidth={2.5} activeDot={{r:5,fill:C.text,stroke:C.yellow,strokeWidth:2}} dot={{r:3,fill:C.yellow,stroke:C.card,strokeWidth:1.5}}/></LineChart></ResponsiveContainer></ChartPanel>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Memória dos recebimentos</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Rastreabilidade até o pedido, fornecedor e obra.</p></div><Badge color={C.yellowD}>{materialHistoricoAtual.material.unidade||"UN"}</Badge></div><div style={{maxHeight:330,overflowY:"auto"}}>{[...dadosGraficoPreco].reverse().map(x=><div key={x.id} style={{display:"grid",gridTemplateColumns:pick("1fr auto","90px 1fr auto","90px minmax(150px,1.2fr) minmax(120px,1fr) 90px 105px"),gap:8,alignItems:"center",padding:"9px 12px",borderTop:`1px solid ${C.line}`}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{fmtDate(x.data)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginTop:2}}>{x.pedido}</p></div>{pick(null,<div><p className="brk" style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{x.fornecedor}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{x.obra}</p></div>,<><div><p className="brk" style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{x.fornecedor}</p></div><div><p className="brk" style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{x.obra}</p></div><div style={{textAlign:"right"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase"}}>Quantidade</p><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{x.qtd}</p></div></>)}<div style={{textAlign:"right"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase"}}>Unitário</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD}}>{fmt(x.preco)}</p></div></div>)}</div></div>
-        </>}
-      </>)}
+      {aba === "precos" && <MaterialPriceHistory data={data} works={obras} currentWorkId={obraAtual} onOpen={pedidoId=>setFichaCompra({pedidoId})}/>}
+
+      <DreIntegration kind="purchases" currentUser={currentUser} {...escopoDre}>
+        <label>Competência do DRE<input type="month" value={competenciaDre} onChange={event=>{if(event.target.value)setCompetenciaDre(event.target.value);}}/></label>
+        <p>Este mês é usado na consulta ao DRE. Os registros de compras mantêm os próprios filtros de prazo e histórico.</p>
+      </DreIntegration>
 
       {/*  MODAIS  */}
       {modoIA&&<ModoIADocumento modulo="compras" data={data} update={update} showToast={showToast} currentUser={currentUser} obraIdInicial={obraAtual} onClose={()=>setModoIA(false)}/>}
@@ -2800,7 +2852,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {pedModal  && <ModalPedido     form={pedModal}  setForm={setPedModal}  onSave={salvarPedido}
                                      fornecedores={fornecedores} materiais={materiais}
                                      linhasOrc={niveisUmOrcamento(getPlanningBudget(data,pedModal.obraId).budget)} data={data} basesReferencia={basesCompra} save={save}/>}
-      {fichaCompra&&<PurchaseDossier data={data} selection={fichaCompra} onClose={()=>setFichaCompra(null)}/>}
+      {fichaCompra&&<PurchaseDossier data={data} selection={fichaCompra} currentUser={currentUser} onClose={()=>setFichaCompra(null)}/>}
       {cotModal  && <ModalCotacao    form={cotModal}  setForm={setCotModal}  onSave={salvarCotacao}
                                      fornecedores={fornecedores} materiais={materiais} linhasOrc={niveisUmOrcamento(getPlanningBudget(data,cotModal.obraId).budget)} save={save} obraNome={obraPorId.get(cotModal.obraId)?.name}/>}
       <ModalLegendaDocumento anexo={anexoCotacao} setAnexo={setAnexoCotacao} onClose={()=>!subindoAnexoCotacao&&setAnexoCotacao(null)} onSalvar={salvarDocumentoCotacao} salvando={subindoAnexoCotacao} titulo="Anexar documento da cotação" C={C}/>
@@ -2836,12 +2888,13 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
             <p className="brk" style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{nomeMat(l.item.materialId)} · {l.qtd.toLocaleString("pt-BR")} {purchaseUnitOf(l.item)}</p>
             <Sel label="Fornecedor" value={sel} onChange={v=>setCotDecisao(d=>({...d,escolhas:{...d.escolhas,[l.item.id]:v}}))}
               options={[{v:"",l:"Deixar pendente"},...l.ofertas.map(o=>({v:o.proposta.id,l:`${nomeForn(o.proposta.fornecedorId)} · ${fmt(o.precoUnit)} · ${fmt(o.total)}${o.proposta.id===l.melhorPropostaId?" · menor":""} · nota ${textoNotaFornecedor(avaliacaoForn.get(String(o.proposta.fornecedorId)))}`}))]}/>
-            {exige&&<Inp label="Justificativa obrigatória *" value={just[l.item.id]||""} onChange={v=>setCotDecisao(d=>({...d,justificativas:{...d.justificativas,[l.item.id]:v}}))} placeholder={l.ofertas.length<2?"Item com uma única proposta: por que comprar assim?":"Prazo, qualidade, disponibilidade, condição de pagamento..."}/>}
+            {exige&&<Inp label="Justificativa da decisão (recomendada)" value={just[l.item.id]||""} onChange={v=>setCotDecisao(d=>({...d,justificativas:{...d.justificativas,[l.item.id]:v}}))} placeholder={l.ofertas.length<2?"Item com uma única proposta: por que comprar assim?":"Prazo, qualidade, disponibilidade, condição de pagamento..."}/>}
           </div>;})}
           {!avaliacao.erro&&<div style={{background:`${C.green}0A`,border:`1px solid ${C.green}`,borderRadius:7,padding:"8px 10px"}}>
             <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green}}>{avaliacao.grupos.length} pedido(s) · {fmt(avaliacao.total)}{avaliacao.restantes?` · ${avaliacao.restantes} item(ns) pendente(s)`:""}</p>
             {avaliacao.grupos.map(g=><p key={g.fornecedorId} style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{nomeForn(g.fornecedorId)}: {g.itens.length} item(ns) · {fmt(g.total)}</p>)}
           </div>}
+          <WorkflowWarnings warnings={avaliacao.warnings||[]}/>
           {avaliacao.erro&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600}}>{avaliacao.erro}</p>}
           <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setCotDecisao(null)}>Cancelar</Btn><Btn full onClick={()=>decidirCotacao(cot,escolhas,just)} disabled={!!avaliacao.erro}>Aprovar e gerar pedido(s)</Btn></div>
         </div></Modal>;})()}
@@ -2851,7 +2904,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {pagModal&&<Modal title={`Pagamento · ${pagModal.pedido.numero}`} onClose={()=>setPagModal(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"9px 10px"}}><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Total do pedido</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{fmt(totalPedido(pagModal.pedido))}</p></div><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>Saldo antes deste pagamento</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.red}}>{fmt(saldoPagamentoPedido(pagModal.pedido))}</p></div></div>
         <Sel label="Origem real do pagamento *" value={pagModal.origem} onChange={v=>setPagModal(f=>({...f,origem:v,transacaoId:v==="empresa"?f.transacaoId:""}))} options={[{v:"empresa",l:"Conta bancária da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente pagou diretamente"}]}/>
-        {pagModal.origem==="caixa_obra"&&(()=>{const cx=situacaoCaixaObra(data,pagModal.pedido.obraId),valor=Number(String(pagModal.valor||"").replace(",","."))||0,projetado=cx.saldo-valor,negativo=projetado<-.001,baixo=!negativo&&projetado<=cx.limiteBaixo;return <div style={{background:negativo?`${C.red}0C`:baixo?`${C.orange}0C`:`${C.green}0C`,border:`1px solid ${negativo?C.red:baixo?C.orange:C.green}`,borderRadius:9,padding:"9px 10px"}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7}}>{[["Saldo disponível",cx.saldo,cx.saldo>0?C.green:C.red],["Após pagamento",projetado,negativo?C.red:baixo?C.orange:C.green],["Reserva mínima",cx.limiteBaixo,C.muted]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>{!((data.obras||[]).find(o=>o.id===pagModal.pedido.obraId)?.hasCaixa)&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:7}}>Caixa não ativado no cadastro desta obra.</p>}{negativo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:7}}>Pagamento bloqueado: registre um aporte antes de continuar.</p>}{baixo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600,marginTop:7}}>Alerta de caixa baixo: o pagamento é possível, mas deixará a reserva abaixo do nível recomendado.</p>}</div>;})()}
+        {pagModal.origem==="caixa_obra"&&(()=>{const cx=situacaoCaixaObra(data,pagModal.pedido.obraId),valor=Number(String(pagModal.valor||"").replace(",","."))||0,projetado=cx.saldo-valor,negativo=projetado<-.001,baixo=!negativo&&projetado<=cx.limiteBaixo;return <div style={{background:negativo?`${C.red}0C`:baixo?`${C.orange}0C`:`${C.green}0C`,border:`1px solid ${negativo?C.red:baixo?C.orange:C.green}`,borderRadius:9,padding:"9px 10px"}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7}}>{[["Saldo disponível",cx.saldo,cx.saldo>0?C.green:C.red],["Após pagamento",projetado,negativo?C.red:baixo?C.orange:C.green],["Reserva mínima",cx.limiteBaixo,C.muted]].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>{!((data.obras||[]).find(o=>o.id===pagModal.pedido.obraId)?.hasCaixa)&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:7}}>Caixa não ativado no cadastro desta obra.</p>}{negativo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:7}}>Aviso: o saldo ficará negativo. Confira aportes e a origem real do pagamento.</p>}{baixo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600,marginTop:7}}>Alerta de caixa baixo: o pagamento é possível, mas deixará a reserva abaixo do nível recomendado.</p>}</div>;})()}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label="Valor pago *" type="number" value={pagModal.valor} onChange={v=>setPagModal(f=>({...f,valor:v}))}/><Inp label="Data *" type="date" value={pagModal.data} onChange={v=>setPagModal(f=>({...f,data:v}))}/></div>
         {pagModal.origem==="empresa"&&<Sel label="Vincular à transação bancária (opcional)" value={pagModal.transacaoId} onChange={v=>setPagModal(f=>({...f,transacaoId:v,conciliado:!!v}))} options={[{v:"",l:"Sem transação vinculada"},...(data.transacoes||[]).filter(t=>Number(t.valor)<0).slice().sort((a,b)=>(b.data||"").localeCompare(a.data||"")).slice(0,80).map(t=>({v:t.id,l:`${fmtDate(t.data)} · ${fmt(Math.abs(Number(t.valor||0)))} · ${t.descricao||"Saída bancária"}`}))]}/>}
         <Inp label="Comprovante / referência" value={pagModal.referencia} onChange={v=>setPagModal(f=>({...f,referencia:v}))} placeholder="PIX, boleto, recibo ou identificação do cliente"/>
@@ -2864,9 +2917,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           const conf=conferenciaPagamentoPedido(data,pagModal.pedido.id);if(!conf)return null;
           const valor=Number(String(pagModal.valor||"").replace(",","."))||0,liberado=conf.liberadoCents/100,acima=valor>liberado+0.005;
           return <div style={{background:acima?`${C.orange}0D`:C.surface,border:`1px solid ${acima?C.orange:C.border}`,borderRadius:8,padding:"9px 10px",display:"flex",flexDirection:"column",gap:7}}>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>Conferido: recebido {fmt(conf.receivedCents/100)} · notas {fmt(conf.invoicedCents/100)} · liberado para pagar <b>{fmt(liberado)}</b></p>
-            {acima&&<label style={{display:"flex",gap:8,alignItems:"center",fontSize:"var(--arcd-type-label)",color:C.text,cursor:"pointer"}}><input type="checkbox" checked={!!pagModal.adiantamento} onChange={e=>setPagModal(f=>({...f,adiantamento:e.target.checked}))}/><span>É adiantamento ao fornecedor (só Financeiro ou Administrador)</span></label>}
-            {acima&&pagModal.adiantamento&&<Inp label="Motivo do adiantamento *" value={pagModal.motivoAdiantamento||""} onChange={v=>setPagModal(f=>({...f,motivoAdiantamento:v}))} placeholder="Ex.: sinal de 30% exigido pelo fornecedor"/>}
+            <p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>Conferido: recebido {fmt(conf.receivedCents/100)} · notas {fmt(conf.invoicedCents/100)} · referência de conferência <b>{fmt(liberado)}</b></p>
+            {acima&&<label style={{display:"flex",gap:8,alignItems:"center",fontSize:"var(--arcd-type-label)",color:C.text,cursor:"pointer"}}><input type="checkbox" checked={!!pagModal.adiantamento} onChange={e=>setPagModal(f=>({...f,adiantamento:e.target.checked}))}/><span>Identificar como adiantamento ao fornecedor</span></label>}
+            {acima&&pagModal.adiantamento&&<Inp label="Motivo do adiantamento (recomendado)" value={pagModal.motivoAdiantamento||""} onChange={v=>setPagModal(f=>({...f,motivoAdiantamento:v}))} placeholder="Ex.: sinal de 30% exigido pelo fornecedor"/>}
           </div>;
         })()}
         <Inp label="Observação" value={pagModal.observacao} onChange={v=>setPagModal(f=>({...f,observacao:v}))} multiline/>

@@ -2,7 +2,8 @@
 // a Gestão do ponto nem a folha. Configurações continuam nas ações existentes.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { chamarPontoEletronico } from "../../../api";
-import { Badge, Btn, C, Ic, Inp, Modal, Sel } from "../../../LegacyApp";
+import { Badge, Btn, Ic, Inp, Modal, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
 import { funcionariosAtivos, funcionariosDaObra } from "../funcionarios.js";
 import { FUSO_OBRA, dataLocal, horaLocal, resumoDoDia, situacaoAparelho } from "../painel.js";
 import { usePontoEletronico } from "../usePontoEletronico.js";

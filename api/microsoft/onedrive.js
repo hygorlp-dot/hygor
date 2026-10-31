@@ -1,6 +1,8 @@
 import { fileSignature, getOrCreateFolder, graph, refresh, rootItem, safeName, seal, setCookie, unseal, verifyAppUser, workspace } from "../../server/microsoft/graph.js";
 import { findScopedWork, knownWorkspace, scopedWorks } from "../../server/onedrive-scope.js";
+import { canWriteWorkFiles, WORK_FILE_WRITE_ACTIONS } from '../../server/work-file-permissions.js';
 import { LICENSING_UPLOAD_MAX_BYTES, ONEDRIVE_UPLOAD_CHUNK_BYTES, ONEDRIVE_UPLOAD_GRANULARITY_BYTES } from "../../src/onedrive-upload-policy.js";
+import { fileMime, fileValidation } from "../../src/domains/arquivos/model.js";
 
 export const config={api:{bodyParser:{sizeLimit:"8mb"}}};
 const categoryNames={capa:"06 - Capa da Obra",diario:"04 - Diário de Obras",fotos:"05 - Fotos",conferencia:"07 - Conferências Técnicas",financeiro:"08 - Financeiro e Fiscal",compras:"09 - Compras e Suprimentos",licenciamento:"03 - Documentos",contratos:"01 - Contratos",projetos:"02 - Projetos",documentos:"03 - Documentos",outros:"11 - Outros"};
@@ -70,6 +72,7 @@ export default async function handler(req,res){
     const appContext=action==="file"?null:await verifyAppUser(req.body?.userId,req.body?.pin,req.body?.accessToken);
     const appUser=appContext?.user;
     if(action!=="file"&&!appContext)return res.status(401).json({error:"Sessão do aplicativo inválida."});
+    if(WORK_FILE_WRITE_ACTIONS.has(action)&&!canWriteWorkFiles(appUser))return res.status(403).json({error:"Seu perfil não possui permissão para alterar arquivos da obra."});
     if(action==="file"&&req.query.sig!==fileSignature(req.query.driveId,req.query.itemId))return res.status(403).end();
     const {accessToken,session}=await refresh(req); setCookie(res,"arcd_ms",seal(session));
     if(action==="status")return res.json({ok:true,connected:true});
@@ -193,7 +196,11 @@ export default async function handler(req,res){
       if(!match) return res.status(400).json({error:"Arquivo inválido."});
       const buffer=Buffer.from(match[2],"base64"); if(buffer.length>6*1024*1024)return res.status(413).json({error:"Arquivo maior que 6 MB."});
       const fileName=safeName(body.fileName||`arquivo-${Date.now()}`);
-      const item=await (await graph(accessToken,`/drives/${ws.driveId}/items/${parentId}:/${encodeURIComponent(fileName)}:/content`,{method:"PUT",headers:{"content-type":match[1]},body:buffer})).json();
+      if(body.category==="arquivos"){
+        const validation=fileValidation({name:fileName,size:buffer.length});
+        if(validation)return res.status(400).json({error:validation});
+      }
+      const item=await (await graph(accessToken,`/drives/${ws.driveId}/items/${parentId}:/${encodeURIComponent(fileName)}:/content`,{method:"PUT",headers:{"content-type":body.category==="arquivos"?fileMime(fileName):match[1]},body:buffer})).json();
       const sig=fileSignature(ws.driveId,item.id);
       const url=`/api/microsoft/onedrive?action=file&driveId=${encodeURIComponent(ws.driveId)}&itemId=${encodeURIComponent(item.id)}&sig=${encodeURIComponent(sig)}`;
       return res.json({ok:true,url,path:item.id,item:itemPublico(item,appUser),workspace:workspacePublico(ws,appUser)});

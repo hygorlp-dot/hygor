@@ -1,0 +1,26 @@
+.material-price-history { display:grid; gap:16px; min-width:0; }
+.material-price-history h2 { font-size:var(--arcd-type-section-title); font-weight:600; }
+.material-price-history p { color:var(--arcd-text-secondary); font-size:var(--arcd-type-body); line-height:1.5; }
+.material-price-history__filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; }
+.material-price-history__summary { display:flex; flex-wrap:wrap; gap:20px; padding-block:16px; border-block:1px solid var(--arcd-border-default); font-variant-numeric:tabular-nums; }
+.material-price-history__summary dt { color:var(--arcd-text-secondary); font-size:var(--arcd-type-label); }
+.material-price-history__summary dd { margin:4px 0 0; font-weight:600; }
+.material-price-history__scroll { overflow:auto; max-width:100%; }
+.material-price-history table { width:100%; border-collapse:collapse; font-size:var(--arcd-type-body); font-variant-numeric:tabular-nums; }
+.material-price-history :is(th,td) { text-align:left; padding:12px; border-bottom:1px solid var(--arcd-border-default); vertical-align:top; }
+.material-price-history td:nth-child(4),.material-price-history td:nth-child(5) { white-space:nowrap; }
+.material-price-history small { display:block; margin-top:4px; color:var(--arcd-text-secondary); }
+.material-price-history__scroll:focus-visible { outline:2px solid var(--arcd-focus-ring); outline-offset:2px; }
+@media(max-width:600px) { .material-price-history__filters { grid-template-columns:1fr; } .material-price-history input,.material-price-history select { font-size:var(--arcd-type-control-touch); } .material-price-history table { min-width:0; }
+ .material-price-history thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+ .material-price-history :is(tbody,tr) { display:block; }
+ .material-price-history tr { margin-bottom:20px; border-bottom:1px solid var(--arcd-border-default); }
+ .material-price-history tbody th { display:block; }
+ .material-price-history td { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr); gap:4px 12px; overflow-wrap:anywhere; white-space:normal !important; }
+ .material-price-history td::before { content:attr(data-label); color:var(--arcd-text-secondary); }
+ .material-price-history td small { grid-column:2; }
+ .material-price-history td button { min-height:44px; }
+ }
+
+.material-price-history__chart { margin:0; min-width:0; }
+.material-price-history__chart figcaption { margin-bottom:8px; font-weight:600; }

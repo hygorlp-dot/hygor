@@ -148,6 +148,7 @@ const saveInvoice=(data,command,now)=>{
   const candidate={
     ...normalized.invoice,
     status:current?.status||"recebida",
+    conferenciaFiscalPendente:Boolean(current?.conferenciaFiscalPendente),
     version:current?versionOf(current)+1:1,
     criadoEm:current?.criadoEm||now,criadoPorId:current?.criadoPorId||actor.id,
     criadoPor:current?.criadoPor||actor.nome,
@@ -200,14 +201,11 @@ const approveInvoice=(data,command,now)=>{
   if(!sameVersion(invoice,command.expectedVersion)){
     return fail("A nota fiscal foi alterada por outra pessoa. Atualize a tela.");
   }
-  if(invoice.status==="aprovada"||invoice.status==="paga")return fail("A nota fiscal já foi aprovada.");
+  if(invoice.status==="aprovada"||invoice.status==="paga"&&!invoice.conferenciaFiscalPendente)return fail("A nota fiscal já foi aprovada.");
   if(isDateInClosedPeriod(data,invoice.emissao))return fail("O período financeiro desta nota está fechado.");
-  if((invoice.divergencias||[]).length&&payload.riskAccepted!==true){
-    return fail("Confirme explicitamente a aprovação da nota com divergências.");
-  }
   const actor=actorOf(command);
   const approved={
-    ...invoice,status:"aprovada",aprovadoPorId:actor.id,aprovadoPor:actor.nome,
+    ...invoice,status:invoice.status==='paga'?'paga':'aprovada',conferenciaFiscalPendente:false,aprovadoPorId:actor.id,aprovadoPor:actor.nome,
     aprovadoEm:now,atualizadoEm:now,updatedAt:now,
     // Quem aprovou aceitando divergências fica registrado, com quais eram.
     ...((invoice.divergencias||[]).length?{

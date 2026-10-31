@@ -79,7 +79,10 @@ const download = async (workbook, fileName) => {
   anchor.href = url;
   anchor.download = fileName;
   anchor.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // O clique apenas inicia o download. O navegador pode consumir o Blob
+  // depois, sobretudo sob carga; revogar em 1 s cancela esse download.
+  // A liberação continua limitada, sem prender os bytes até fechar a página.
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 };
 
 // Planilhas tipadas: cada aba é {nome, colunas:[{titulo, largura, formato}], linhas}.

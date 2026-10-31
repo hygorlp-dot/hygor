@@ -6,6 +6,8 @@ import { ThemeProvider } from "./design-system/theme/ThemeProvider.jsx";
 import { instalarCapturaGlobal } from "./observability/global-error-capture.js";
 import "./index.css";
 import "./design-system/themes/marcell-clean.css";
+import "./design-system/themes/marcell-pilot.css";
+import "./design-system/themes/marcell-workspaces.css";
 
 // Erros fora da renderização (clique, exportação, promessa sem catch) - o
 // ErrorBoundary não os vê. Vão para o mesmo relatório ARCD-XXXX.
@@ -37,3 +39,8 @@ root.render(
     )
   )
 );
+
+// Link de revisão exclusivo do servidor local; não integra o build publicado.
+if(import.meta.env.DEV&&location.origin==='http://127.0.0.1:4192'&&new URLSearchParams(location.search).get('local-review')==='account-cash'){
+  import(/* @vite-ignore */ '/scripts/finance-account-cash-open.mjs').catch(()=>{});
+}

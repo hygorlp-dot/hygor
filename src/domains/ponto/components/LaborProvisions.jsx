@@ -1,5 +1,6 @@
 import {useState} from "react";
-import {Btn,Inp,Sel,fmt,uid} from "../../../LegacyApp";
+import { Btn, Inp, Sel } from "../../../legacy/ui.jsx";
+import { fmt, uid } from "../../../legacy/format.js";
 import {OPERATIONAL_COMMAND} from "../../sync/operational-commands.js";
 import {calculateLaborProvision,newProvisionDraft,summarizeLaborProvisions} from "../labor-provisions.js";
 import {marcellReportHtml} from "../../../reports/marcell-report.js";

@@ -2,6 +2,7 @@ import {describe,expect,it} from "vitest";
 import {readFileSync} from "node:fs";
 
 const compras=readFileSync(`${process.cwd()}/src/domains/compras/components/ComprasView.jsx`,"utf8");
+const comparison=readFileSync(`${process.cwd()}/src/domains/compras/components/QuoteComparisonWorkspace.jsx`,"utf8");
 const legacy=readFileSync(`${process.cwd()}/src/LegacyApp.jsx`,"utf8");
 const trecho=(source,inicio,fim)=>source.slice(source.indexOf(inicio),source.indexOf(fim,source.indexOf(inicio)));
 
@@ -37,7 +38,8 @@ describe("tela do mapa de cotação (C1.3)",()=>{
 describe("nota do fornecedor no mapa de cotação (C2.3)",()=>{
   it("o cabeçalho de cada fornecedor e a decisão por item mostram a nota",()=>{
     expect(compras).toMatch(/avaliacoesFornecedores\(data, today\(\)\)/);
-    expect(compras).toMatch(/Nota \{textoNotaFornecedor\(av\)\}/);
+    expect(compras).toMatch(/supplierRating=\{id=>textoNotaFornecedor\(avaliacaoForn\.get\(String\(id\)\)\)\}/);
+    expect(comparison).toMatch(/Nota \{supplierRating\?\.\(p\.fornecedorId\)/);
     expect(compras).toMatch(/nota \$\{textoNotaFornecedor\(avaliacaoForn\.get/);
   });
 });

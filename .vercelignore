@@ -27,3 +27,8 @@ playwright-report/
 vercel.release-equipe.json
 # PDFs e imagens locais de conferência visual
 /output/pdf/
+
+# Dados, capturas e relatórios exclusivamente locais.
+/artifacts/
+/analises/
+/.impeccable/

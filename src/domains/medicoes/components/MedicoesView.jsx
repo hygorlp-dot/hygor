@@ -1,3 +1,4 @@
+import { PageHeader } from "../../../design-system/patterns/PageHeader";
 // ===================================================================
 // MedicoesView — tela de Medições extraída de LegacyApp.jsx
 //
@@ -11,12 +12,11 @@ import { valorContratoVigente } from "../../obras/contract-amendments";
 import { AditivosContrato } from "../../obras/components/AditivosContrato";
 import { useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import {
-  Btn, C, CONTRACT_LABELS, DIA_VENC_1_PADRAO, DIA_VENC_2_PADRAO,
-  Ic, Inp, Modal, Sel,
-  calcProjecaoContratoObra, clampDiaNoMes, compLabel,
-  fmt, fmtDate, fmtDateFull, today, uid,
-} from "../../../LegacyApp";
+import { Btn, Ic, Inp, Modal, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { CONTRACT_LABELS, DIA_VENC_1_PADRAO, DIA_VENC_2_PADRAO, clampDiaNoMes } from "../../licenciamento/legacy-checklists.js";
+import { calcProjecaoContratoObra } from "../../financeiro/legacy-calculations.js";
+import { compLabel, fmt, fmtDate, fmtDateFull, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { totalRecebidoMedicao, statusRecebimentoMedicao } from "../../conciliacao/index.js";
 import { toLocalISODate } from "../../ponto/attendance-engine";
@@ -493,12 +493,7 @@ function MedicoesView({ data, showToast, currentUser=null, dispatchCommand=null 
   return (
     <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
 
-      {/* Header */}
-      <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderLeft:`1px solid ${C.blue}`,padding:"16px 18px",borderRadius:8}}>
-        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Faturamento estruturado</p>
-        <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-section-title)",fontWeight:600,color:C.text,lineHeight:1}}>Medições por Obra</p>
-        <p style={{color:C.muted,fontSize:"var(--arcd-type-body)",marginTop:4}}>Parcela fixa automática · Avanço % · Lançamento livre</p>
-      </div>
+      <PageHeader className="workspace-header" title="Medições por obra" description="Parcela fixa, avanço físico e lançamentos de faturamento."/>
 
       {/* Painel de vencimentos - todas as obras */}
       {(() => {

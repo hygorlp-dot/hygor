@@ -1,0 +1,16 @@
+.operational-pilot { display: flex; flex-direction: column; gap: 16px; color: var(--arcd-text-primary); }
+.operational-pilot > header,.operational-pilot__actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.operational-pilot h1 { font-size: var(--arcd-type-headline); font-weight: 600; }
+.operational-pilot h2 { font-size: var(--arcd-type-title); font-weight: 600; }
+.operational-pilot p { margin-block: 6px; }
+.operational-pilot__metrics { display: flex; flex-wrap: wrap; gap: 12px 24px; padding-block: 12px; border-block: 1px solid var(--arcd-border-default); }
+.operational-pilot dt { color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); }
+.operational-pilot dd { font-weight: 600; font-variant-numeric: tabular-nums; margin: 4px 0; }
+.operational-pilot__actions input { flex: 1 1 240px; }
+.operational-pilot__workspace { display: grid; grid-template-columns: minmax(240px,1fr) minmax(0,2fr); gap: 16px; align-items: start; }
+.operational-pilot__cases { max-height: 65dvh; overflow-y: auto; }
+.operational-pilot__cases article { padding: 12px; border-bottom: 1px solid var(--arcd-border-default); }
+.operational-pilot__review { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px; border: 1px solid var(--arcd-border-default); border-radius: var(--arcd-radius-md); background: var(--arcd-surface-card); }
+.operational-pilot fieldset { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--arcd-border-default); }
+.operational-pilot fieldset label { display: flex; gap: 8px; align-items: center; min-height: 36px; }
+@media(max-width:900px){.operational-pilot__workspace{grid-template-columns:minmax(0,1fr)}.operational-pilot__cases{max-height:280px}.operational-pilot fieldset label{min-height:44px}}

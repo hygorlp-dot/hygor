@@ -10,14 +10,14 @@ import { FlowTabs, useWorkflow } from "../../../features/workflow/WorkflowNaviga
 // docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md.
 // ===================================================================
 
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { lazyWithCssRetry as lazy } from "../../../lib/lazy-with-css-retry.js";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import {
-  Badge, Btn, C, CampoCNPJ, escapeHtml, Ic, Inp, MiniKpi, Modal,
-  MONTHS, PageHero, Sel, abrirRelatorioPadrao, diasCorridos, fmt,
-  fmtDate, fmtDateFull, maiusculoOrcamento, montarRelatorioPadraoHtml,
-  today, uid,
-} from "../../../LegacyApp";
+import { Badge, Btn, CampoCNPJ, Ic, Inp, MiniKpi, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { escapeHtml, MONTHS, fmt, fmtDate, fmtDateFull, maiusculoOrcamento, today, uid } from "../../../legacy/format.js";
+import { abrirRelatorioPadrao, montarRelatorioPadraoHtml } from "../../../reports/legacy-standard.js";
+import { diasCorridos } from "../../planejamento/legacy-engine.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { listarBasesReferencia, pesquisarInsumosReferencia } from "../../../api";
 import { consolidateReferenceBases as consolidarBasesReferencia } from "../../orcamentos/reference-bases";
@@ -888,7 +888,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
 
   return (
     <div className={`anim equipment-center ${contexto==="financeiro"?"is-financial":""}`} style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div className="equipment-workflow-context"><div><Sel label="Período de referência" value={ym} onChange={setYm} options={mesesOpts}/></div><p>Consulte disponibilidade, acompanhe as locações e prepare a cobrança. Cadastros e manutenção ficam nas áreas de apoio.</p></div>
+
       <PageHero
         eyebrow={contexto==="financeiro"?"Financeiro · ativos e locações":"Engenharia"}
         title={contexto==="financeiro"?"Central de locação de equipamentos":"Equipamentos"}
@@ -913,6 +913,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       />
 
       {/* Abas internas */}
+      <div className="equipment-workflow-context"><Sel label="Período de referência" value={ym} onChange={setYm} options={mesesOpts}/></div>
       <FlowTabs label="Fluxo de equipamentos e locações" active={aba} onChange={setAba} steps={[
         {id:"gestao",label:"Mapa de ocupação",count:locacoesAtivas.length,description:"Confira a disponibilidade antes de reservar ou contratar."},
         {id:"locacoes",label:"Locações",count:(data.locacoesEquip||[]).length,description:"Acompanhe contratos, equipamentos em obra e devoluções."},
@@ -927,7 +928,6 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
       {aba==="frota" && <>
         <div className="equipment-toolbar">
           <Inp label="Pesquisar na frota" value={busca} onChange={setBusca} placeholder="Nome, categoria, patrimônio ou proprietário..."/>
-          <Sel label="Competência dos resultados" value={ym} onChange={setYm} options={mesesOpts}/>
         </div>
         {equipamentos.length===0
           ? <div className="equipment-empty-state">
@@ -946,7 +946,7 @@ export default function Equipamentos({ data, update, showToast, currentUser, dis
                   <div className="equipment-fleet-card__body">
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:6}}>
                     <div style={{minWidth:0}}>
-                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.nome}</p>
+                      <p className="equipment-fleet-card__name" style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{e.nome}</p>
                       <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{e.categoria||"Sem categoria"}{e.patrimonio?` · ${e.patrimonio}`:""}</p>
                     </div>
                     <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:st.c,background:`${st.c}14`,padding:"2px 7px",borderRadius:99,flexShrink:0,textTransform:"uppercase",height:"fit-content"}}>{st.l}</span>

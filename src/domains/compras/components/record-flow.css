@@ -1,0 +1,12 @@
+.purchase-record-flow{display:grid;gap:8px;padding-block:12px;border-block:1px solid var(--arcd-border-default);margin-block:12px;min-width:0}
+.purchase-record-flow p{font-size:var(--arcd-type-label);line-height:1.5;color:var(--arcd-text-secondary);overflow-wrap:anywhere}
+.purchase-record-flow .purchase-record-flow__next{color:var(--arcd-text-primary);font-weight:500}
+.purchase-record-flow nav,.purchase-flow-return{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px}
+.purchase-flow-return{justify-content:space-between;padding-block:12px;border-bottom:1px solid var(--arcd-border-default);font-size:var(--arcd-type-label)}
+.purchase-flow-return p{color:var(--arcd-text-secondary);overflow-wrap:anywhere}
+.purchase-quote-status{display:flex;align-items:end;flex-wrap:wrap;gap:12px 24px}
+.purchase-quote-status>.arcd-field{flex:0 1 280px;min-width:0}
+.purchase-quote-status p{flex:1 1 240px;font-size:var(--arcd-type-label);color:var(--arcd-text-secondary);padding-bottom:8px}
+.purchase-quotes-list .purchase-record-flow{margin-inline:12px}
+@media(max-width:767px){.purchase-quote-status{align-items:stretch;flex-direction:column;gap:8px}.purchase-quote-status>.arcd-field,.purchase-quote-status p{flex:auto}.purchase-quote-status p{padding-bottom:0}}
+@media(max-width:767px){.purchase-flow-return{align-items:stretch;flex-direction:column}.purchase-flow-return button{align-self:start}.purchase-record-flow nav{align-items:stretch;flex-direction:column}.purchase-record-flow nav button{justify-content:flex-start;text-align:left}}

@@ -1,10 +1,11 @@
+import { Select } from "../../design-system/primitives/Select.jsx";
 import { createContext, useContext, useEffect, useId, useRef, useState } from "react";
 import { consultarDreCanonico, consultarDreEmpresaCanonico } from "../../api.js";
 import { podeAcessarAba } from "../../domains/administracao/abas-acesso.js";
 import { dreImpactMetrics, normalizeWorkflowScope, visibleModuleFlow } from "./workflow-model.js";
 import "./workflow.css";
 
-export const WorkflowContext=createContext({navigate:null,intent:null,scopes:{},rememberScope:null});
+export const WorkflowContext=createContext({navigate:null,intent:null,scopes:{},rememberScope:null,views:null,returnTo:null,goBack:null});
 export const useWorkflow=()=>useContext(WorkflowContext);
 export function useRememberWorkflowScope(screen,scope){
   const {rememberScope}=useWorkflow();
@@ -15,6 +16,7 @@ export function useRememberWorkflowScope(screen,scope){
 export function FlowTabs({label,steps,tools=[],active,onChange,toolsLabel="Consultas e configurações"}){
   const selected=[...steps,...tools].find(item=>item.id===active);
   return <section className="workflow-tabs" aria-label={label}>
+    <div className="workflow-tabs__mobile"><Select label={label} value={active} onChange={event=>onChange(event.target.value)}><optgroup label="Áreas de trabalho">{steps.map(item=><option key={item.id} value={item.id}>{item.label}{item.count!=null?` · ${item.count}`:""}</option>)}</optgroup>{tools.length>0&&<optgroup label={toolsLabel}>{tools.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</optgroup>}</Select></div>
     <nav aria-label={label}>{steps.map(item=><button key={item.id} type="button" aria-current={active===item.id?"page":undefined} onClick={()=>onChange(item.id)} aria-label={item.label}>
       <span>{item.label}</span>{item.count!=null&&<small aria-hidden="true">{item.count}</small>}
     </button>)}</nav>

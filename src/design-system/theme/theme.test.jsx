@@ -73,8 +73,9 @@ describe("ARCD Theme Engine", () => {
 
   it("mantém TabRow e PageHero legados conectados a classes semânticas", () => {
     const source = readFileSync(resolve(process.cwd(), "src/LegacyApp.jsx"), "utf8");
-    const pageHero = source.slice(source.indexOf("function PageHero"), source.indexOf("function TabRow"));
-    const tabRow = source.slice(source.indexOf("function TabRow"), source.indexOf("function ReportMetric"));
+    const shared = readFileSync(resolve(process.cwd(), "src/legacy/ui.jsx"), "utf8");
+    const pageHero = shared.slice(shared.indexOf("function PageHero"), shared.indexOf("function TabRow"));
+    const tabRow = shared.slice(shared.indexOf("function TabRow"), shared.indexOf("function Divider"));
     const kpiCard = source.slice(source.indexOf("function KpiCard"), source.indexOf("function DashboardTechHero"));
     expect(pageHero).toContain('className="page-hero"');
     expect(pageHero).not.toContain("style={{");

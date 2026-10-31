@@ -1,0 +1,16 @@
+﻿CASA ALAMEDA — EXEMPLO FICTÍCIO PARA TESTES LOCAIS
+Documento: Memorial de arquitetura
+Revisão: R02 — Compatibilização demonstrativa
+
+Alterações em relação à R01:
+- Abertura da cozinha ajustada de 1,20 m para 1,50 m (valores fictícios).
+- Passagem hidráulica reposicionada na faixa técnica da cozinha.
+- Memorial atualizado para registrar as duas alterações.
+
+Itens para conferir no teste de revisão:
+- Verificar se a R01 permanece acessível no histórico.
+- Confirmar que a R02 nasce aguardando parecer.
+- Experimentar aprovar a R02 ou solicitar novos ajustes.
+
+Este arquivo é uma demonstração de histórico. Não é projeto executivo,
+desenho técnico aprovado ou documento de uma obra real.

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import {selectWorkspaceArea} from './helpers/workspace-navigation.js';
 import ExcelJS from "exceljs";
 import { buildLaborProjection } from "../src/domains/ponto/labor-projection.js";
 import { buildLaborProjectionCash } from "../src/domains/ponto/labor-projection-cash.js";
@@ -69,7 +70,7 @@ async function navigate(page, label) {
 test("RH consulta a quinzena, filtra e exporta a mesma fotografia em PDF e Excel", async ({ page, context }, testInfo) => {
   const app = await enter(page, "rh");
   await navigate(page, "Folha");
-  await page.getByRole("button", { name: "Projeção da quinzena", exact: true }).click();
+  await selectWorkspaceArea(page,'Áreas da folha','Projeção da quinzena');
   const report = page.getByRole("region", { name: "Projeção de mão de obra", exact: true });
   await expect(report.getByRole("heading", { name: "Projeção de mão de obra", exact: true })).toBeVisible();
   await expect(report).toContainText("21/10/2026 a 05/11/2026");
@@ -139,7 +140,7 @@ test("RH consulta a quinzena, filtra e exporta a mesma fotografia em PDF e Excel
 test("Financeiro acessa Relatórios e exporta só agregados sem abrir a Folha", async ({ page, context }, testInfo) => {
   const app = await enter(page, "financeiro");
   await navigate(page, "Relatórios");
-  await page.getByRole("button", { name: "Projeção de mão de obra", exact: true }).click();
+  await selectWorkspaceArea(page,'Relatórios de mão de obra','Projeção de mão de obra');
   const report = page.getByRole("region", { name: "Projeção de mão de obra", exact: true });
   await expect(report).toContainText("Este perfil consulta valores agregados");
   await expect(report.getByRole("combobox", { name: "Pessoa", exact: true })).toHaveCount(0);

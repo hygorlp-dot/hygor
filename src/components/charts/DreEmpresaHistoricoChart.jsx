@@ -2,7 +2,9 @@
 // para virar seu próprio chunk lazy - ver LazyDreEmpresaHistoricoChart no
 // ponto de uso em LegacyApp.jsx.
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ArcdChartTooltip, C, ChartPanel, compactNumber, fmt } from "../../LegacyApp.jsx";
+import { ArcdChartTooltip, ChartPanel } from "../../legacy/ui.jsx";
+import { C } from "../../legacy/palette.js";
+import { compactNumber, fmt } from "../../legacy/format.js";
 
 export default function DreEmpresaHistoricoChart({ historico }) {
   return (

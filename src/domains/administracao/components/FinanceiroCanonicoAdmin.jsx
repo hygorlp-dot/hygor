@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Badge, Btn, C, Ic } from "../../../LegacyApp";
+import { Badge, Btn, Ic } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
 import { consultarSombraFinanceira } from "../../../api";
 import FechamentoFinanceiroAdmin from "./FechamentoFinanceiroAdmin";
 

@@ -6,6 +6,8 @@ import {
   hasEmployeePixNameEvidence,
 } from "../src/domains/conciliacao/pix-card.js";
 
+import { podeAcessarAba } from "../src/domains/administracao/abas-acesso.js";
+
 // Projeção de leitura do blob legado. Enquanto os domínios ainda compartilham
 // um único documento, a fronteira de segurança precisa existir no servidor:
 // esconder menus no React não impede que o navegador leia o JSON inteiro.
@@ -42,7 +44,8 @@ const sanitizeEmployee = (employee, role = "") => {
     pix,pixKey,pixChave,chavePix,pixTipo,pixType,
     salario,salarioBase,valorHora,valorDia,valorDiaria,remuneracao,
     custoHora,custoDia,custoMensal,valorFolha,
-    dailyRate,vtDaily,vrDaily,overtimeAdditionalPercent,...safe
+    dailyRate,vtDaily,vrDaily,overtimeAdditionalPercent,
+    monthlySalary,meiMonthlyValue,meiCnpj,cltPayroll,remunerationHistory,payModeDecisions,paymentInstructions,...safe
   }=employee||{};
   return safe;
 };
@@ -89,6 +92,12 @@ export const projectDataForUser = (payload = {}, user = {}) => {
   const allowedSections = new Set(ROLE_SECTIONS[user.role] || []);
   const allowedObras = new Set(user.obraId ? [String(user.obraId)] : []);
   const out = {};
+  if(podeAcessarAba(user,"arquivos")){
+    out.workFileCabinets=(payload.workFileCabinets||[]).filter(item=>!allowedObras.size||allowedObras.has(String(item.obraId)));
+  }
+  if(podeAcessarAba(user,"projetos")){
+    out.engineeringProjects=(payload.engineeringProjects||[]).filter(project=>!allowedObras.size||allowedObras.has(String(project.obraId)));
+  }
   const scopedEmployees=(payload.employees||[])
     .filter(item=>employeeHasScopedAttendance(payload,item,allowedObras));
   const rhTransactionIds=user.role==="rh"
@@ -163,6 +172,15 @@ export const projectDataForUser = (payload = {}, user = {}) => {
       continue;
     }
     out[key] = filterByObra(value, allowedObras);
+  }
+  // Recovery needs proof of this user's own confirmed edit after a lost response.
+  // Return only opaque receipt fields for a record still visible in the current scope.
+  if(user.role==='financeiro'&&podeAcessarAba(user,'fin')){
+    const invoiceIds=new Set((out.notasFiscais||[]).map(row=>String(row.id)));
+    const originIds=new Set([['pedidos','cmp'],['medicoes','medicoes'],['outrasDesp','dre'],['despesasEmpresa','dre_emp']].flatMap(([key,tab])=>podeAcessarAba(user,tab)?(out[key]||[]).map(row=>String(row.id)):[]));
+    out.operationalCommandReceipts=(payload.operationalCommandReceipts||[]).filter(receipt=>receipt.actorId===user.id&&(
+      receipt.type==='NOTA_FISCAL_SALVA'&&invoiceIds.has(String(receipt.entityId))||receipt.type==='ORIGEM_FECHAMENTO_CORRIGIDA'&&originIds.has(String(receipt.entityId))
+    )).map(({idempotencyKey,type,entityId,appliedAt,actorId})=>({idempotencyKey,type,entityId,appliedAt,actorId}));
   }
   return out;
 };

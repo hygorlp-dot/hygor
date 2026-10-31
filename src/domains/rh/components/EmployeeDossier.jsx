@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {Btn,Inp,Sel} from '../../../LegacyApp';
+import { Btn, Inp, Sel } from "../../../legacy/ui.jsx";
 import {employeeDocumentsRequest} from '../../../api.js';
 import {EMPLOYEE_DOCUMENT_CATEGORIES} from '../document-categories.js';
 import '../../ponto/components/clt-payslips.css';

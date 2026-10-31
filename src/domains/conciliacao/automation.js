@@ -27,6 +27,7 @@ export const classificarAutomacao = (tr, analysis, data) => {
     const target = ((c.tipo === "nota" ? data.notasFiscais : data.pedidos) || []).find(item => String(item.id) === String(c.entidadeId));
     const validation = validatePurchasePayment(data, {type:c.tipo,target,value:Math.abs(Number(tr.valor)),actorRole:"financeiro"});
     if (validation.error) return result(validation.error);
+    if(validation.warnings?.length)return result(validation.warnings.map(item=>item.message).join(' '));
   }
   const e = c.evidenciaAutomatica || {};
   if (!e.valorExato) return result("O valor difere do saldo do lançamento; revise pagamentos parciais ou taxas.");

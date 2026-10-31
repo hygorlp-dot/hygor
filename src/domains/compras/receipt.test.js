@@ -36,8 +36,11 @@ describe("recebimento único (R6)", () => {
     expect(r.stockEntries).toHaveLength(1);
   });
 
-  it("recusa excesso, quantidade inválida e recebimento vazio", () => {
-    expect(montarRecebimento(pedido(), { cim: 7 }, opcoes)).toEqual({ ok: false, erro: "Só faltam 6.", itemId: "cim" });
+  it("avisa excesso, mas mantém a validação de quantidade inválida e recebimento vazio", () => {
+    const excess=montarRecebimento(pedido(), { cim: 7 }, opcoes);
+    expect(excess.ok).toBe(true);
+    expect(excess.warnings[0]).toMatchObject({code:'RECEIPT_EXCEEDS_ORDER',blocking:false});
+    expect(excess.stockEntries[0].qtd).toBe(350);
     expect(montarRecebimento(pedido(), { are: -1 }, opcoes)).toMatchObject({ ok: false, itemId: "are" });
     expect(montarRecebimento(pedido(), { are: "abc" }, opcoes)).toMatchObject({ ok: false, itemId: "are" });
     expect(montarRecebimento(pedido(), { cim: 0, are: 0 }, opcoes)).toEqual({ ok: false, erro: "Informe ao menos uma quantidade recebida." });

@@ -25,18 +25,18 @@ describe("aditivos do contrato do cliente", () => {
 
   it("valida descrição, mudança real, evidência da decisão e supressão", () => {
     expect(propor(base(), { descricao:"" }).reason).toMatch(/Descreva/);
-    expect(propor(base(), { valor:0, prazoDias:0 }).reason).toMatch(/valor, o prazo/);
+    expect(propor(base(), { valor:0, prazoDias:0 }).ok).toBe(true);
     expect(propor(base(), { valor:-200000 }).reason).toMatch(/negativo/);
-    expect(decidir(propor(base()).data, "aprovado", "").reason).toMatch(/como o cliente/);
+    expect(decidir(propor(base()).data, "aprovado", "")).toMatchObject({ok:true,summary:{workflowWarnings:expect.arrayContaining([expect.objectContaining({blocking:false,message:expect.stringContaining("evidência")})])}});
     const aprovado = decidir(propor(base()).data).data;
     expect(decidir(aprovado).reason).toMatch(/já foi decidido/);
-    expect(propor(aprovado, { valor:1 }).reason).toMatch(/ainda proposto/);
+    expect(propor(aprovado, { valor:1 }).reason).toMatch(/termos decididos/);
   });
 
-  it("cancelar exige motivo e tira o aditivo do contrato vigente", () => {
+  it("cancelar avisa falta de motivo e tira o aditivo do contrato vigente", () => {
     const aprovado = decidir(propor(base()).data).data;
     const cancelar = reason => run(aprovado, AMENDMENT_COMMAND.CONTRACT_AMENDMENT_CANCELLED, { obraId:"o1", amendmentId:"a1", reason });
-    expect(cancelar("").ok).toBe(false);
+    expect(cancelar("").ok).toBe(true);
     const cancelado = cancelar("Cliente desistiu").data.obras[0];
     expect(cancelado.aditivosContrato[0]).toMatchObject({ status:"cancelado", statusAnterior:"aprovado" });
     expect(valorContratoVigente(cancelado)).toBe(100000);

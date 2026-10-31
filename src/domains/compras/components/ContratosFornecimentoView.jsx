@@ -2,7 +2,8 @@
 // vigência, com saldo de quantidade. Tudo é gravado por comando do servidor;
 // o saldo vem de resumoContrato (contratado menos o pedido pelos pedidos vivos).
 import { useMemo, useState } from "react";
-import { Badge, Btn, Ic, Inp, Modal, Sel, fmt, fmtDate, today, uid } from "../../../LegacyApp";
+import { Badge, Btn, Ic, Inp, Modal, Sel } from "../../../legacy/ui.jsx";
+import { fmt, fmtDate, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { resumoContrato } from "../supply-contracts";
 import { purchaseUnitOf } from "../unit-conversion";

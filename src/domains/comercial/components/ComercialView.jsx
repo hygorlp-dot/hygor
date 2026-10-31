@@ -1,3 +1,5 @@
+import { PageHeader } from "../../../design-system/patterns/PageHeader";
+import { WorkspaceNavigation } from "../../../design-system/patterns/WorkspaceNavigation";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
 // ComercialView — tela Comercial extraída de LegacyApp.jsx
@@ -10,15 +12,12 @@ import { marcellReportHtml } from "../../../reports/marcell-report.js";
 
 import { Suspense, useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import {
-  Btn, C, COM_ETAPAS, COM_IMOBILIARIO_SECTIONS, COM_JORNADA, COM_PERDAS,
-  COM_ROUTE_SECTION, COM_TEMPERATURA, Ic, Inp, KB, LazyRealEstateCommercial,
-  Modal, Sel, SelBtn, XLSX,
-  arquivoComoDataUrl, carregarXLSX, cicloMedioVenda, comDateTime, comDias,
-  comEtapaLabel, comFaseDaEtapa, conversaoPorFase, escapeHtml, fmt,
-  fmtCompact, fmtDate, momentosIndicacao, npsResumo, rankingIndicadores,
-  taxaIndicacao, today, uid, PageHero,
-} from "../../../LegacyApp";
+import { Btn, Ic, Inp, Modal, Sel, SelBtn, PageHero } from "../../../legacy/ui.jsx";
+import { C, KB } from "../../../legacy/palette.js";
+import { COM_ETAPAS, COM_IMOBILIARIO_SECTIONS, COM_JORNADA, COM_PERDAS, COM_ROUTE_SECTION, COM_TEMPERATURA, cicloMedioVenda, comDateTime, comDias, comEtapaLabel, comFaseDaEtapa, conversaoPorFase, momentosIndicacao, npsResumo, rankingIndicadores, taxaIndicacao } from "../legacy-model.js";
+import { LazyRealEstateCommercial } from "../LegacyRealEstate.jsx";
+import { XLSX, arquivoComoDataUrl, carregarXLSX } from "../../../legacy/files.js";
+import { escapeHtml, fmt, fmtCompact, fmtDate, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { buildFinancialLedger, selectCashFlow as selectLedgerCashFlow } from "../../financeiro/ledger";
 import { archiveLeadForDeletion, isVisibleLead } from "../leads";
@@ -1469,12 +1468,8 @@ const [docForm,setDocForm]=useState({nome:"",url:""});
     : view==="com_management"||managementSections.some(s=>s.id===commercialView) ? managementSections
     : null;
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-    {showRealEstateHub&&<div style={{display:"flex",gap:5,overflowX:"auto",padding:"6px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,position:"sticky",top:58,zIndex:18}}>
-      {COM_IMOBILIARIO_SECTIONS.map(section=><button key={section.id} type="button" onClick={()=>openCommercialSection(section)} style={{display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap",minHeight:34,padding:"7px 10px",borderRadius:7,border:`1px solid ${activeCommercialSection===section.id?C.yellowD:C.line}`,background:activeCommercialSection===section.id?`${C.yellow}18`:C.bg,color:C.text,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}><Ic n={section.icon} s={12}/>{section.label}</button>)}
-    </div>}
-    {activeSubNav&&<div style={{display:"flex",gap:5,overflowX:"auto",padding:"6px",background:C.card,border:`1px solid ${C.border}`,borderRadius:9}}>
-      {activeSubNav.map(section=><button key={section.id} type="button" onClick={()=>onTab(section.id)} style={{display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap",minHeight:34,padding:"7px 10px",borderRadius:7,border:`1px solid ${commercialView===section.id?C.yellowD:C.line}`,background:commercialView===section.id?`${C.yellow}18`:C.bg,color:C.text,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{section.l}</button>)}
-    </div>}
+    {showRealEstateHub&&<><PageHeader className="workspace-header" title="Venda de imóveis" description="Disponibilidade, reservas e vendas do portfólio."/><WorkspaceNavigation label="Áreas dos imóveis" active={activeCommercialSection} onChange={id=>openCommercialSection(COM_IMOBILIARIO_SECTIONS.find(section=>section.id===id))} items={COM_IMOBILIARIO_SECTIONS}/></>}
+    {activeSubNav&&<WorkspaceNavigation label="Áreas do comercial" active={commercialView} onChange={onTab} items={activeSubNav.map(section=>({id:section.id,label:section.l}))}/>}
     {showRealEstateHub?<Suspense fallback={<div style={{padding:30,textAlign:"center",color:C.muted}}>Carregando gestão imobiliária...</div>}><LazyRealEstateCommercial section={activeCommercialSection} commercial={com} appData={data} currentUser={currentUser} showToast={showToast} onSave={(next,message)=>persistirComercial(next,{mensagem:message})} onUploadFile={anexarArquivoImobiliario} onLegacyNavigate={onTab}/></Suspense>:conteudo}
     {npsForm&&<Modal title="Pesquisa de satisfação na entrega" onClose={()=>setNpsForm(null)}>
       <div style={{display:"flex",flexDirection:"column",gap:12}}>

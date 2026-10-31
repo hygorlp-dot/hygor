@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Btn, C, fmt, Ic, Inp, Modal } from "../../../LegacyApp";
+import { Btn, Ic, Inp, Modal } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { fmt } from "../../../legacy/format.js";
 import { saldoPagamentoPedido, statusPagamentoPedido } from "../calculations";
 import { quantidadesQueFaltam } from "../receipt";
 import { purchaseUnitOf, referenceQuantityOf } from "../unit-conversion";
@@ -21,7 +23,7 @@ export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn
     return { ...i, falta, chegou, excede: chegou > falta + 1e-6 };
   });
 
-  const temExcesso = linhas.some(l => l.excede || !Number.isFinite(l.chegou) || l.chegou < 0);
+  const quantidadeInvalida = linhas.some(l => !Number.isFinite(l.chegou) || l.chegou < 0);
   const valorTotal = linhas.reduce((s,l) => s + l.chegou * Number(l.precoUnit||0), 0);
 
   return (
@@ -53,12 +55,12 @@ export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn
               {l.falta > 0 && `  falta: ${l.falta}`}
               {` · saldo após esta entrada: ${Math.max(0,l.falta-l.chegou)} ${purchaseUnitOf(l)}`}
             </p>
-            <Inp label={`Chegou agora (${purchaseUnitOf(l)})`} type="number" min="0" max={l.falta} disabled={salvando}
+            <Inp label={`Chegou agora (${purchaseUnitOf(l)})`} type="number" min="0" disabled={salvando}
                  value={qtds[l.id]} onChange={v=>set(l.id, v)}/>
             {purchaseUnitOf(l)!==String(l.unidadeRef||"").toUpperCase()&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>{l.chegou.toLocaleString("pt-BR")} {purchaseUnitOf(l)} equivalem a {referenceQuantityOf(l,l.chegou).toLocaleString("pt-BR",{maximumFractionDigits:4})} {l.unidadeRef} no estoque.</p>}
             {l.excede && (
               <p style={{fontSize:"var(--arcd-type-label)",color:C.red,marginTop:5,fontWeight:600}}>
-                ! Só faltam {l.falta}. Receber a mais esconde erro de nota fiscal.
+                Quantidade acima do saldo. Confira a diferença com o fornecedor; o registro pode continuar com o que realmente chegou.
               </p>
             )}
           </div>
@@ -79,7 +81,7 @@ export function ModalRecebimento({ pedido, onClose, onReceber, nomeMat, nomeForn
 
         <div style={{display:"flex",gap:8}}>
           <Btn v="ghost" onClick={onClose} disabled={salvando} full>Cancelar</Btn>
-          <Btn onClick={confirmar} full loading={salvando&&"Confirmando…"} disabled={salvando || temExcesso || valorTotal <= 0}>
+          <Btn onClick={confirmar} full loading={salvando&&"Confirmando…"} disabled={salvando || quantidadeInvalida || !linhas.some(l=>l.chegou>0)}>
             <Ic n="check"/> Dar entrada no estoque
           </Btn>
         </div>

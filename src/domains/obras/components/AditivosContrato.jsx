@@ -1,18 +1,32 @@
+import ForecastReviewHistory from '../../../features/financeiro/ForecastReviewHistory.jsx';
+import ForecastDuplicationWarnings from '../../../features/financeiro/ForecastDuplicationWarnings.jsx';
+import {forecastDuplicationWarnings} from '../../financeiro/forecast-duplication.js';
 // Aditivos do contrato do cliente (Onda 4.1). Registrar e cancelar: quem
 // cuida do contrato (admin, engenharia, financeiro); registrar a decisão do
 // cliente, enquanto o portal não aprova sozinho (4.3): administrador.
+import "./amendments.css";
+import {HelpButton} from "../../../features/help/HelpButton.jsx";
+import {costControlStages} from "../../financeiro/cost-control.js";
+import {amendmentWarnings} from "../contract-amendments.js";
 import { useState } from "react";
-import { Btn, C, Inp, Modal, fmt, fmtDate, uid } from "../../../LegacyApp";
+import { Btn, Inp, Modal } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { fmt, fmtDate, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { AMENDMENT_STATUS, fimContratoVigente, valorContratoVigente } from "../contract-amendments";
 
 const ROTULO = { proposto:"Aguardando cliente", aprovado:"Aprovado", recusado:"Recusado", cancelado:"Cancelado" };
-const COR = { proposto:C.orange, aprovado:C.green, recusado:C.red, cancelado:C.muted };
 
-export function AditivosContrato({ obra, currentUser, dispatchCommand, showToast }) {
+export function AditivosContrato({ obra, data={}, currentUser, dispatchCommand, showToast }) {
+
+  const [notice,setNotice]=useState("");
+  const toast=(message,type)=>{setNotice(message);showToast?.(message,type);};
+  const {stages,budget}=costControlStages(data,obra.id);
+  const duplicationWarnings=forecastDuplicationWarnings(obra,budget);
   const [form, setForm] = useState(null);
   const [decisao, setDecisao] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const COR = { proposto:C.orange, aprovado:C.green, recusado:C.red, cancelado:C.muted };
   const papel = currentUser?.role;
   const podeRegistrar = ["admin", "engenheiro", "financeiro"].includes(papel);
   const podeDecidir = papel === "admin";
@@ -20,19 +34,22 @@ export function AditivosContrato({ obra, currentUser, dispatchCommand, showToast
   const aditivos = Array.isArray(obra?.aditivosContrato) ? obra.aditivosContrato : [];
 
   const enviar = async (command, ok) => {
-    if (!dispatchCommand) { showToast("Registrar aditivo exige conexão com o servidor.", "error"); return false; }
+    if(salvando)return false;
+    if (!dispatchCommand) { toast("Registro indisponível nesta sessão.", "error"); return false; }
     setSalvando(true);
-    const result = await dispatchCommand({ ...command, idempotencyKey:`aditivo-${uid()}` });
-    setSalvando(false);
-    if (!result?.ok) { showToast(result?.reason || "O servidor não confirmou o aditivo.", "error"); return false; }
-    showToast(ok); return true;
+    try {
+      const result = await dispatchCommand({ ...command, actorId:currentUser?.id,actorName:currentUser?.nome,idempotencyKey:`aditivo-${uid()}` });
+      if (!result?.ok) { toast(result?.reason || "O servidor não confirmou o aditivo.", "error"); return false; }
+      toast([ok,...(result.summary?.workflowWarnings||[]).map(w=>w.message)].join(' '));return true;
+    }catch(error){toast(error.message||'Não foi possível registrar. Tente novamente.','error');return false;}
+    finally{setSalvando(false);}
   };
 
   const salvar = async () => {
     const feito = await enviar({
       type:OPERATIONAL_COMMAND.CONTRACT_AMENDMENT_SAVED, expectedVersion:form.version || 0,
-      payload:{ obraId:obra.id, amendment:{ id:form.id, descricao:form.descricao, justificativa:form.justificativa, valor:Number(form.valor || 0), prazoDias:Number(form.prazoDias || 0) } },
-    }, "Aditivo registrado. Ele só entra no contrato depois de aprovado pelo cliente.");
+      payload:{ obraId:obra.id, operationalOnly:form.operationalOnly===true, amendment:{ id:form.id, descricao:form.descricao, justificativa:form.justificativa, valor:Number(form.valor || 0), prazoDias:Number(form.prazoDias || 0),evidenciaDecisao:form.evidenciaDecisao,responsavel:form.responsavel||"",etapaId:form.etapaId||"",execucaoStatus:form.execucaoStatus||"planejada",impactoCustoRestante:form.impactoCustoRestante,impactoNaPrevisao:form.impactoNaPrevisao||"nao_incluir" } },
+    }, "Mudança registrada. Somente a aprovação atualiza o contrato; o impacto de custo segue a opção de previsão escolhida.");
     if (feito) setForm(null);
   };
 
@@ -46,48 +63,63 @@ export function AditivosContrato({ obra, currentUser, dispatchCommand, showToast
 
   const cancelar = async item => {
     const motivo = window.prompt("Motivo do cancelamento do aditivo:");
-    if (!String(motivo || "").trim()) return;
+    if (motivo === null) return;
     await enviar({ type:OPERATIONAL_COMMAND.CONTRACT_AMENDMENT_CANCELLED, payload:{ obraId:obra.id, amendmentId:item.id, expectedVersion:item.version, reason:motivo } }, "Aditivo cancelado.");
   };
 
-  return <section style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"12px 14px", display:"flex", flexDirection:"column", gap:8 }} aria-label="Aditivos do contrato">
+  return <section className="amendment-workspace" style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"12px 14px", display:"flex", flexDirection:"column", gap:8 }} aria-label="Mudanças e aditivos">
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap" }}>
       <div>
-        <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.text }}>Aditivos do contrato</p>
+        <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.text }}>Mudanças e aditivos</p>
         <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted }}>Contrato vigente {fmt(valorContratoVigente(obra))} (original {fmt(obra?.contractValue || 0)}){fimContratoVigente(obra) ? ` · término ${fmtDate(fimContratoVigente(obra))}` : ""}</p>
       </div>
-      {podeRegistrar && <Btn v="ghost" size="sm" onClick={() => setForm({ id:uid(), descricao:"", justificativa:"", valor:"", prazoDias:"" })}>Novo aditivo</Btn>}
+      <HelpButton pageId="obra_aditivos" allowedTabs={["obras","fin"]} label="Ajuda de mudanças"/>
+      {podeRegistrar && <Btn v="ghost" size="sm" onClick={() => setForm({ id:uid(), descricao:"", justificativa:"", valor:"", prazoDias:"" })}>Nova mudança ou aditivo</Btn>}
     </div>
+    {notice&&<p role="status">{notice}</p>}
+    <p style={{color:C.muted,fontSize:"var(--arcd-type-label)"}}>Contrato e custo são valores diferentes. Informe apenas o custo que ainda falta incorrer. Se já estiver na previsão da etapa, escolha Já incluído. Pendências geram avisos e permitem continuar.</p>
+    <ForecastDuplicationWarnings warnings={duplicationWarnings}/>
     {aditivos.length === 0 && <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted }}>Nenhum aditivo registrado. Mudança de escopo, valor ou prazo pedida pelo cliente entra aqui.</p>}
     {aditivos.map(item => <div key={item.id} style={{ display:"flex", justifyContent:"space-between", gap:10, flexWrap:"wrap", borderTop:`1px solid ${C.line}`, paddingTop:8 }}>
       <div style={{ minWidth:0 }}>
         <p style={{ fontSize:"var(--arcd-type-label)", color:C.text }}><b>Aditivo {item.numero}</b> · {item.descricao}</p>
         <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>{fmt(item.valor)}{item.prazoDias ? ` · ${item.prazoDias > 0 ? "+" : ""}${item.prazoDias} dia(s)` : ""} · <span style={{ color:COR[item.status] }}>{ROTULO[item.status] || item.status}</span>{item.evidenciaDecisao ? ` · ${item.evidenciaDecisao}` : ""}</p>
+        <p style={{color:C.muted,fontSize:"var(--arcd-type-caption)"}}>Execução: {({planejada:"Planejada",em_andamento:"Em andamento",concluida:"Concluída"})[item.execucaoStatus]||"Planejada"} · {item.responsavel||"Sem responsável"} · Custo restante: {item.impactoCustoRestante==null?"A estimar":fmt(item.impactoCustoRestante)} · {({adicional:"Adicional na previsão",ja_incluido:"Já incluído na previsão",nao_incluir:"Fora da previsão"})[item.impactoNaPrevisao]||"Fora da previsão"}</p>
+        {amendmentWarnings(item).map((w,i)=><p role="status" key={i} style={{color:C.orange,fontSize:"var(--arcd-type-caption)"}}>{w.message}</p>)}
       </div>
-      <div style={{ display:"flex", gap:6 }}>
+      <div style={{ display:"flex", gap:6,flexWrap:"wrap" }}>
+        {podeRegistrar && item.status!==AMENDMENT_STATUS.PROPOSED&&<Btn v="ghost" size="sm" onClick={()=>setForm({...item,operationalOnly:true})}>Atualizar acompanhamento</Btn>}
         {item.status === AMENDMENT_STATUS.PROPOSED && podeRegistrar && <Btn v="ghost" size="sm" onClick={() => setForm({ ...item, valor:String(item.valor), prazoDias:String(item.prazoDias || "") })}>Editar</Btn>}
         {item.status === AMENDMENT_STATUS.PROPOSED && podeDecidir && <Btn size="sm" onClick={() => setDecisao({ item, decision:AMENDMENT_STATUS.APPROVED, evidencia:"" })}>Registrar decisão</Btn>}
         {item.status !== AMENDMENT_STATUS.CANCELLED && podeCancelar && <Btn v="ghost" size="sm" onClick={() => cancelar(item)}>Cancelar</Btn>}
       </div>
     </div>)}
 
-    {form && <Modal title={form.version ? `Editar aditivo ${form.numero}` : "Novo aditivo"} onClose={() => setForm(null)}>
+    <ForecastReviewHistory work={obra}/>
+
+    {form && <Modal title={form.operationalOnly?"Atualizar acompanhamento":form.version ? `Editar aditivo ${form.numero}` : "Nova mudança ou aditivo"} onClose={() => setForm(null)}>
       <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-        <Inp label="O que muda *" value={form.descricao} onChange={v => setForm(f => ({ ...f, descricao:v }))} placeholder="Troca do piso da sala por porcelanato 90×90"/>
-        <Inp label="Valor (R$) * — negativo para supressão" type="number" value={form.valor} onChange={v => setForm(f => ({ ...f, valor:v }))}/>
-        <Inp label="Prazo (dias) — + acréscimo, − redução" type="number" value={form.prazoDias} onChange={v => setForm(f => ({ ...f, prazoDias:v }))}/>
-        <Inp label="Justificativa" value={form.justificativa} onChange={v => setForm(f => ({ ...f, justificativa:v }))}/>
-        <div style={{ display:"flex", gap:8 }}><Btn v="ghost" full onClick={() => setForm(null)}>Cancelar</Btn><Btn full disabled={salvando} onClick={salvar}>{salvando ? "Salvando…" : "Registrar aditivo"}</Btn></div>
+        <Inp disabled={form.operationalOnly} label="O que muda *" value={form.descricao} onChange={v => setForm(f => ({ ...f, descricao:v }))} placeholder="Troca do piso da sala por porcelanato 90×90"/>
+        <Inp disabled={form.operationalOnly} label="Impacto no contrato (R$) — negativo para supressão" type="number" value={form.valor} onChange={v => setForm(f => ({ ...f, valor:v }))}/>
+        <Inp disabled={form.operationalOnly} label="Prazo (dias) — + acréscimo, − redução" type="number" value={form.prazoDias} onChange={v => setForm(f => ({ ...f, prazoDias:v }))}/>
+        <Inp disabled={form.operationalOnly} label="Justificativa" value={form.justificativa} onChange={v => setForm(f => ({ ...f, justificativa:v }))}/>
+        {form.operationalOnly&&<Inp label="Evidência da decisão do cliente" value={form.evidenciaDecisao||""} onChange={v=>setForm(f=>({...f,evidenciaDecisao:v}))}/>}
+        <Inp label="Responsável pelo acompanhamento" value={form.responsavel||""} onChange={v=>setForm(f=>({...f,responsavel:v}))}/>
+        <label>Etapa de custo<select value={form.etapaId||""} onChange={e=>setForm(f=>({...f,etapaId:e.target.value}))}><option value="">Sem apropriação</option>{form.etapaId&&!stages.some(s=>s.id===form.etapaId)&&<option value={form.etapaId}>Etapa anterior — reconferir</option>}{stages.map(s=><option key={s.id} value={s.id}>{s.nome||s.id}</option>)}</select></label>
+        <label>Situação da execução<select value={form.execucaoStatus||"planejada"} onChange={e=>setForm(f=>({...f,execucaoStatus:e.target.value}))}><option value="planejada">Planejada</option><option value="em_andamento">Em andamento</option><option value="concluida">Concluída</option></select></label>
+        <Inp label="Impacto no custo restante (R$) — negativo para economia" type="number" value={form.impactoCustoRestante??""} onChange={v=>setForm(f=>({...f,impactoCustoRestante:v}))}/>
+        <label>Como considerar na previsão<select value={form.impactoNaPrevisao||"nao_incluir"} onChange={e=>setForm(f=>({...f,impactoNaPrevisao:e.target.value}))}><option value="nao_incluir">Não incluir — apenas acompanhar</option><option value="adicional">Somar como custo restante adicional</option><option value="ja_incluido">Já incluído no restante da etapa</option></select></label>
+        <p role="status">A falta de responsável, etapa ou evidência gera aviso. Uma mudança pode ser acompanhada sem alterar o valor ou prazo contratual.</p>
+        <div style={{ display:"flex", gap:8 }}><Btn v="ghost" full onClick={() => setForm(null)}>Cancelar</Btn><Btn full disabled={salvando} onClick={salvar}>{salvando ? "Salvando…" : "Salvar mudança"}</Btn></div>
       </div>
     </Modal>}
 
     {decisao && <Modal title={`Decisão do cliente · aditivo ${decisao.item.numero}`} onClose={() => setDecisao(null)}>
       <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-        <div style={{ display:"flex", gap:8 }}>
-          {[AMENDMENT_STATUS.APPROVED, AMENDMENT_STATUS.REJECTED].map(opcao => <Btn key={opcao} v={decisao.decision === opcao ? "primary" : "ghost"} full onClick={() => setDecisao(d => ({ ...d, decision:opcao }))}>{opcao === AMENDMENT_STATUS.APPROVED ? "Cliente aprovou" : "Cliente recusou"}</Btn>)}
-        </div>
-        <Inp label="Como o cliente decidiu *" value={decisao.evidencia} onChange={v => setDecisao(d => ({ ...d, evidencia:v }))} placeholder="E-mail de 28/10, documento assinado, reunião…"/>
-        <Btn full disabled={salvando || !decisao.evidencia.trim()} onClick={decidir}>{salvando ? "Registrando…" : "Registrar decisão"}</Btn>
+        <label>Decisão do cliente<select value={decisao.decision} onChange={e=>setDecisao(d=>({...d,decision:e.target.value}))}><option value="aprovado">Cliente aprovou</option><option value="recusado">Cliente recusou</option></select></label>
+        <Inp label="Como o cliente decidiu" value={decisao.evidencia} onChange={v => setDecisao(d => ({ ...d, evidencia:v }))} placeholder="E-mail de 28/10, documento assinado, reunião…"/>
+        {!decisao.evidencia.trim()&&<p role="status">Sem evidência: a decisão pode ser registrada; complemente o acompanhamento depois.</p>}
+        <Btn full disabled={salvando} onClick={decidir}>{salvando ? "Registrando…" : "Registrar decisão"}</Btn>
       </div>
     </Modal>}
   </section>;

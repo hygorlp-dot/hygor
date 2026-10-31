@@ -351,7 +351,7 @@ export const createDreCalculations = ({
     for (let ym = de; ym <= ate; ym = proximoMes(ym)) meses.push(context(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 1, "mes"));
     return meses;
   };
-  const calcCustoAcumuladoObras = (data, obraIds, year, month) => {
+  const calcCustoAcumuladoObras = (data, obraIds, year, month, includeLedger = false) => {
     const fim = `${year}-${String(month + 1).padStart(2, "0")}`;
     const inicios = new Map(obraIds.map(obraId => {
       const obra = (data.obras || []).find(item => item.id === obraId);
@@ -369,6 +369,7 @@ export const createDreCalculations = ({
       event.obraId === obraId && event.effect === "cost" && /^\d{4}-\d{2}$/.test(event.competence || "")
         && event.competence < menor ? event.competence : menor, inicio)]));
     if ([...primeiros].some(([obraId, de]) => de !== inicios.get(obraId))) ledger = montar(primeiros);
+    if(includeLedger)return {ledger,missingStart: [...primeiros].filter(([,de])=>!de).map(([id])=>id)};
     return Object.fromEntries([...primeiros].map(([obraId, de]) => {
       if (!de) return [obraId, null];
       const meses = mesesEntre(de, fim);
@@ -458,7 +459,7 @@ export const createDreCalculations = ({
       thirdParty:rows.reduce((total, row) => total + row.tercCost, 0),
       purchases:rows.reduce((total, row) => total + row.comprasCost, 0),
     };
-    const receipts = selectFinancialMovements(ledger, obraId === "all" ? {} : { obraId })
+    const receipts = selectFinancialMovements(ledger, { ...(obraId === "all" ? {} : { obraId }), startDate:selected.per0, endDate:selected.perF })
       .filter(movement => movement.natureza === "cash_in")
       .sort((left, right) => String(right.data || "").localeCompare(String(left.data || "")))
       .map(movement => ({
@@ -492,5 +493,6 @@ export const createDreCalculations = ({
   return {
     diasPeriodoDRE, calcDREObra, calcDREConsolidado, calcDREHistorico,
     calcVisaoFinanceira, calcProjecaoContratoObra, calcCustoAcumuladoObra, calcCustoAcumuladoObras,
+    calcLedgerAcumulado:(data,ids,year,month)=>calcCustoAcumuladoObras(data,ids,year,month,true),
   };
 };
