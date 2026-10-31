@@ -12,13 +12,15 @@ import { exigeTarefaNoConsumo, tarefasParaConsumo } from "../task-allocation";
 import { useCallback, useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {
-  Btn, C, Ic, Inp, Modal, ModalComposicao, ModalMaterial, PageHero, Sel, TabRow,
+  Btn, C, Ic, Inp, Modal, ModalComposicao, ModalMaterial, Sel,
   fmt, fmtDate, maiusculoOrcamento, proximoCodigoArcd, today, uid,
 } from "../../../LegacyApp";
 import { historicoPreco } from "../../compras/calculations";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { TIPOS_MOV, SINAL_MOV, calcSaldos, saldoDe, baixarPorComposicao, calcCurvaABC, calcCurvaABCServicos, materiaisAbaixoMinimo } from "../calculations";
 import { STOCK_COMMAND } from "../commands";
+import { PageHeader } from "../../../design-system/patterns/PageHeader.jsx";
+import { WorkspaceNavigation } from "../../../design-system/patterns/WorkspaceNavigation.jsx";
 
 // Tarefa do cronograma onde o material foi aplicado: primeiro as em
 // andamento na semana. Obrigatória quando a obra tem cronograma.
@@ -156,7 +158,7 @@ function ModalExecutar({ onClose, onRun, composicoes, obras, obraAtual, materiai
 }
 
 export default function Estoque({ data, update, showToast, currentUser, obraIdFixo="", dispatchCommand=null }) {
-  const { cols, formGrid } = useBreakpoint();
+
   const [aba,      setAba]      = useState("saldo");   // saldo|movs|materiais|comp|abc
   const [obraSel,  setObraSel]  = useState(obraIdFixo);
   const [busca,    setBusca]    = useState("");
@@ -446,22 +448,20 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
   const nomeObra = (id) => obras.find(o => o.id === id)?.name || "-";
 
   return (
-    <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-      <PageHero eyebrow="Materiais e insumos" title="Estoque" description="Controle físico dos materiais por obra, com alerta de reposição abaixo do mínimo."/>
+    <div className="anim stock-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
+      <PageHeader className="workspace-header" headingLevel={obraIdFixo?2:1} title="Estoque" description="Controle físico dos materiais por obra, com alerta de reposição abaixo do mínimo."
+        primaryAction={<Btn onClick={()=>setSrvModal(true)}><Ic n="check"/> Executei um serviço</Btn>}
+        secondaryActions={<Btn v="ghost" onClick={()=>setMovModal({tipo:"entrada",obraId:obraAtual,materialId:"",qtd:"",valorUnit:"",data:new Date().toISOString().slice(0,10),descricao:"",etapa:""})}><Ic n="plus"/> Movimento avulso</Btn>}/>
 
-      {/* Aviso de regime - o motivo de o estoque não mexer no DRE */}
-      <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}44`,borderRadius:6,padding:"9px 11px"}}>
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.55}}>
-          <strong style={{color:C.blue}}>Controle físico.</strong> O custo do material já entra no DRE
-          pela Conciliação, no momento da compra. O estoque não lança nada de novo - se lançasse,
-          o mesmo material contaria duas vezes.
-        </p>
+
+      <div className="stock-overview">
+        {!obraIdFixo && <Sel label="Obra" value={obraAtual} onChange={setObraSel} options={obras.map(o=>({v:o.id,l:o.name}))}/>}
+        <dl className="stock-summary">
+          <div><dt>Itens em estoque</dt><dd>{linhasSaldo.filter(l=>l.saldo>0).length}</dd></div>
+          <div><dt>Abaixo do mínimo</dt><dd style={{color:criticos?C.red:C.green}}>{criticos}</dd></div>
+          <div><dt>Valor na obra</dt><dd>{fmt(valorEmObra)}</dd></div>
+        </dl>
       </div>
-
-      {obraIdFixo
-        ? <Inp label="Obra" value={obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
-        : <Sel label="Obra" value={obraAtual} onChange={setObraSel}
-            options={obras.map(o => ({ v:o.id, l:o.name }))}/>}
 
       {/* Reposicao automatica: o minimo deixou de ser cosmetico */}
       {abaixoMin.length>0&&(
@@ -489,32 +489,10 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
         </div>
       )}
 
-      {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:cols(2,3,3),gap:8}}>
-        {[
-          ["Itens em estoque", String(linhasSaldo.filter(l=>l.saldo>0).length), C.text],
-          ["Abaixo do mínimo", String(criticos), criticos ? C.red : C.green],
-          ["Valor na obra",    fmt(valorEmObra), C.yellow],
-        ].map(([l,v,c])=>(
-          <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
-            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600,letterSpacing:.5}}>{l}</p>
-            <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"clamp(14px,4vw,17px)",
-                       fontWeight:600,color:c,marginTop:2}}>{v}</p>
-          </div>
-        ))}
-      </div>
-
-      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
-        <Btn onClick={()=>setSrvModal(true)} full><Ic n="check"/> Executei um serviço</Btn>
-        <Btn v="ghost" onClick={()=>setMovModal({tipo:"entrada",obraId:obraAtual,materialId:"",qtd:"",valorUnit:"",data:new Date().toISOString().slice(0,10),descricao:"",etapa:""})} full>
-          <Ic n="plus"/> Movimento avulso
-        </Btn>
-      </div>
-
-      {/* Abas */}
-      <TabRow equal tabs={[["saldo","Saldo"],["movs","Movimentos"],["materiais","Insumos"],["comp","Composições"],["abc","Curva ABC"]]} active={aba} onChange={setAba}/>
-
-      <Inp value={busca} onChange={setBusca} placeholder="Buscar insumo..."/>
+      <WorkspaceNavigation label="Áreas do estoque" active={aba} onChange={setAba}
+        items={[{id:"saldo",label:"Saldo"},{id:"movs",label:"Movimentos"}]}
+        tools={[{id:"materiais",label:"Insumos"},{id:"comp",label:"Composições"},{id:"abc",label:"Curva ABC"}]} toolsLabel="Cadastros e análises"/>
+      <Inp label="Buscar insumo" value={busca} onChange={setBusca} placeholder="Nome ou código do insumo..."/>
 
       {/*  SALDO  */}
       {aba === "saldo" && (
@@ -523,7 +501,7 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
               Nenhum material com saldo nesta obra. Registre uma entrada.
             </p>
           : linhasSaldo.map(({m, saldo, critico}) => (
-            <div key={m.id} style={{
+            <div key={m.id} className="stock-balance-row" style={{
               background:C.card, border:`1px solid ${critico ? C.red : C.border}`,
               borderLeft:`1px solid ${critico ? C.red : C.green}`,
               borderRadius:6, padding:"10px 12px",
@@ -714,6 +692,17 @@ export default function Estoque({ data, update, showToast, currentUser, obraIdFi
             })}
         </>);
       })()}
+
+      <details className="workspace-disclosure stock-accounting-note">
+        <summary>Como o estoque se relaciona com o DRE</summary>
+      <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}44`,borderRadius:6,padding:"9px 11px"}}>
+        <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.55}}>
+          <strong style={{color:C.blue}}>Controle físico.</strong> O custo do material já entra no DRE
+          pela Conciliação, no momento da compra. O estoque não lança nada de novo - se lançasse,
+          o mesmo material contaria duas vezes.
+        </p>
+      </div>
+      </details>
 
       {/*  MODAIS  */}
       {matModal   && <ModalMaterial    form={matModal}  setForm={setMatModal}  onSave={salvarMaterial}

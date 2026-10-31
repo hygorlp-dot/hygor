@@ -1,3 +1,6 @@
+import BankImportPreview from "../financeiro/BankImportPreview.jsx";
+import {validBankDate} from "../../domains/conciliacao/import-preview.js";
+import {reconciliationDivergences,divergenceLabels} from "../../domains/conciliacao/divergence-queues.js";
 // ===================================================================
 // ConciliacaoView — tela de Conciliação extraída de LegacyApp.jsx
 //
@@ -55,6 +58,7 @@ import { executarComandoConciliacao } from "../../api";
 import { activeCashAllocations, reconciliationHold } from "../../domains/conciliacao/cash-allocations.js";
 import { reconciliationCategories, findReconciliationCategory, normalizeCategorySearch } from "../../domains/conciliacao/categories.js";
 import ReconciliationReview from "./ReconciliationReview.jsx";
+import { Button } from "../../components/ui/button";
 import { accountReviewSummary } from "./review-context.js";
 import CategoryCombobox from "./CategoryCombobox.jsx";
 import { confirmedClassificationContext } from "./classification-context.js";
@@ -80,6 +84,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const [reviewId,setReviewId]=useState("");
   const [reviewSaving,setReviewSaving]=useState(false);
   const [accountFilter,setAccountFilter]=useState("");
+  const [divergence,setDivergence]=useState("all");
   const accountsReview=useMemo(()=>accountReviewSummary(data),[data]);
   const [aba,        setAba]        = useState("pendentes");  // pendentes|conciliadas|ignoradas|extratos|historico
   const filaPendente = ["pendentes", "identificados"].includes(aba);
@@ -88,6 +93,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const tentativasAutomaticas = useRef(new Set());
   const execucaoConcRef = useRef(false);
   const [importando, setImportando] = useState(false);
+  const [importPreview,setImportPreview]=useState(null);
+  const [confirmingImport,setConfirmingImport]=useState(false);
   const [apropModal, setApropModal] = useState(null);   // transação em apropriação
   const [rateios,    setRateios]    = useState([]);
   const [criarRegra, setCriarRegra] = useState(false);
@@ -229,8 +236,16 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       return termos.every(term=>haystack.includes(term));
     });
   }, [data, accountFilter, aba, buscaConc, tipoMovimento, filtroCategoria, categoriasFila, analisesPorTransacao, automacaoPorTransacao, falhasAutomaticas, filaPendente, modoConciliacaoRh]);
-  const transacoesVisiveis=transacoes.slice(0,limiteVisivel);
-  const selecionaveis=transacoes.filter(t=>t.status!=="parcial"&&!reconciliationHold(t));
+  const divergenceCounts=Object.fromEntries(Object.keys(divergenceLabels).map(key=>[key,transacoes.filter(t=>key==="all"||reconciliationDivergences(t,analisesPorTransacao.get(t.id)).includes(key)).length]));
+  const filteredTransactions=filaPendente&&divergence!=="all"?transacoes.filter(t=>reconciliationDivergences(t,analisesPorTransacao.get(t.id)).includes(divergence)):transacoes;
+  const transacoesVisiveis=filteredTransactions.slice(0,limiteVisivel);
+  const reviewTransaction = filaPendente && !modoConciliacaoRh ? filteredTransactions.find(tr=>tr.id===reviewId) : null;
+  const reviewLocked = conciliando || reviewSaving || transacaoCommandPending;
+  const openReview = id => { if (!reviewLocked) setReviewId(id); };
+  useEffect(()=>{
+    if (reviewId && !reviewTransaction && !reviewLocked) setReviewId("");
+  },[reviewId,reviewTransaction,reviewLocked]);
+  const selecionaveis=filteredTransactions.filter(t=>t.status!=="parcial"&&!reconciliationHold(t));
   const todosSelecionados=selecionaveis.length>0&&selecionaveis.every(t=>selecionadas.includes(t.id));
 
   // Candidatas pré-computadas só para a fatia visível da fila pendente -
@@ -238,7 +253,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const candidatosPorTransacao = useMemo(() => {
     const mapa = new Map();
     if (!filaPendente) return mapa;
-    transacoes.slice(0, limiteVisivel).forEach(tr => {
+    filteredTransactions.slice(0, limiteVisivel).forEach(tr => {
       if(tr.status!=="pendente"||reconciliationHold(tr))return;
       const periodo=periodoPontoDaTransacao(tr.data);
       const candidataMaoObra=sugerirPagamentoMaoObra(tr,data,periodo.days)
@@ -255,7 +270,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       mapa.set(tr.id, brutas.filter(c => !rejeitadasSet.has(`${tr.id}:${c.tipo}:${c.entidadeId}`)));
     });
     return mapa;
-  }, [filaPendente, transacoes, limiteVisivel, data, indicesFinanceiros, rejeitadasSet]);
+  }, [filaPendente, filteredTransactions, limiteVisivel, data, indicesFinanceiros, rejeitadasSet]);
   const historicoConc=useMemo(()=>{
     const registrados=[...(data.historicoConc||[])];
     const comRegistro=new Set(registrados.map(item=>item.transacaoId).filter(Boolean));
@@ -263,7 +278,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     const termo=semAcentoConc(buscaConc.trim());
     return [...registrados,...legados].filter(item=>!termo||semAcentoConc(`${item.descricao} ${item.acao} ${item.operador} ${item.detalhes}`).includes(termo)).sort((a,b)=>String(b.criadoEm||"").localeCompare(String(a.criadoEm||"")));
   },[data.historicoConc,data.transacoes,buscaConc]);
-  useEffect(()=>{setSelecionadas([]);setLimiteVisivel(30);},[aba,buscaConc,tipoMovimento,filtroCategoria]);
+  useEffect(()=>{setSelecionadas([]);setLimiteVisivel(30);},[aba,buscaConc,tipoMovimento,filtroCategoria,accountFilter,divergence]);
   const eventoHistorico=(acao,tr,statusAnterior,statusNovo,detalhes="",extra={})=>({id:uid(),transacaoId:tr?.id||"",extratoId:tr?.extratoId||extra.extratoId||"",acao,statusAnterior,statusNovo,descricao:tr?.descricao||extra.descricao||"",valor:Number(tr?.valor||extra.valor||0),detalhes,operadorId:currentUser?.id||"",operador:currentUser?.nome||currentUser?.email||"Operador",criadoEm:new Date().toISOString(),loteId:extra.loteId||""});
   const executarComandoBancario=async commandOrFactory=>{
     if(!dispatchCommand||transacaoCommandPendingRef.current||transacaoCommandPending)return {ok:false};
@@ -601,7 +616,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
           return "";
         };
 
-        brutas = rows.slice(hIdx+1).map(r => {
+        brutas = rows.slice(hIdx+1).map((r,index) => {
           const dt = pData(r[cData]);
           const ds = String(r[cDesc] ?? "").trim();
           let v = 0;
@@ -611,8 +626,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
             const db = cDeb  >= 0 ? parseBRConc(r[cDeb])  : 0;
             v = cr - Math.abs(db);
           }
-          return { data: dt, descricao: ds, valor: v, fitid: "" };
-        }).filter(t => t.data && t.descricao && t.valor !== 0 && !isNaN(t.valor));
+          return { data: dt, descricao: ds, valor: v, fitid: "", linha:hIdx+index+2, blank:r.every(cell=>!String(cell??"").trim()) };
+        }).filter(t => !t.blank);
         banco = file.name;
         hash = hashArquivo(`${file.name}|${file.size}|${file.lastModified}`);
       }
@@ -623,14 +638,15 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       // O navegador apenas interpreta o arquivo. A deduplicação definitiva
       // acontece no servidor contra a versão autoritativa e também dentro do
       // próprio lote, evitando decisões baseadas em uma tela desatualizada.
-      const movimentos = brutas.map(t => {
+      const invalid=brutas.filter(t=>!validBankDate(t.data)||!String(t.descricao||"").trim()||!Number.isFinite(Number(t.valor))||Number(t.valor)===0);
+      const movimentos = brutas.filter(t=>!invalid.includes(t)).map(t => {
         const chave = chaveTransacao(t);
         return {
           id: uid(), extratoId: "", contaBancariaId: contaBancariaImport, data: t.data, descricao: t.descricao,
           descricaoOriginal:t.descricaoOriginal||t.descricao, valor: t.valor, chave, fitid:t.fitid||"",
           endToEndId:t.endToEndId||"", txid:t.txid||"", tipoOperacao:t.tipoOperacao||"",
           direcao:t.valor>0?"entrada":"saida", contraparteNome:t.contraparteNome||"", contraparteDocumento:t.contraparteDocumento||"",
-          chavePix:t.chavePix||"", metadadosImportacao:t.metadadosImportacao||{arquivo:file.name},
+          chavePix:t.chavePix||"", metadadosImportacao:{...(t.metadadosImportacao||{}),arquivo:file.name,linha:t.linha},
           status: "pendente", rateios: [], gerados: [], obs: "",
         };
       });
@@ -643,26 +659,25 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       };
       movimentos.forEach(t => { t.extratoId = extrato.id; });
 
-      const result=await executarComandoBancario(()=>({
-        type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED,
-        idempotencyKey:`bank-import-${extrato.id}-${uid()}`,
-        payload:{
-          statement:extrato,transactions:movimentos,
-        },
-      }));
-      if(!result?.ok)return;
-      const imported=Number(result.summary?.imported??movimentos.length);
-      const duplicates=Number(result.summary?.duplicates??0);
-      showToast(
-        duplicates
-          ? `${imported} novas importadas · ${duplicates} já existiam (ignoradas).`
-          : `${imported} transações importadas.`
-      );
+      setImportPreview({statement:extrato,transactions:movimentos,invalid});
     } catch (e) {
       showToast("Erro ao ler o extrato. Confirme o formato (.ofx, .csv ou .xlsx).", "error");
     } finally {
       setImportando(false);
     }
+  };
+
+  const confirmarImportacao = async() => {
+    if(!importPreview||confirmingImport)return;
+    setConfirmingImport(true);
+    try{
+      const result=await executarComandoBancario(()=>({type:OPERATIONAL_COMMAND.BANK_TRANSACTIONS_IMPORTED,
+        idempotencyKey:`bank-import-${importPreview.statement.id}`,
+        payload:{statement:importPreview.statement,transactions:importPreview.transactions}}));
+      if(!result?.ok){setImportPreview(current=>({...current,error:result?.reason||"O servidor não confirmou a importação. Reabra a prévia."}));return;}
+      showToast(`${Number(result.summary?.imported||0)} novas importadas · ${Number(result.summary?.duplicates||0)} duplicadas ignoradas.`);
+      setImportPreview(null);
+    }finally{setConfirmingImport(false);}
   };
 
   //  Apropriar
@@ -904,18 +919,16 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
   return (
     <div className="anim reconciliation-workspace">
+      {importPreview&&<Modal title="Prévia da importação do extrato" wide onClose={()=>!confirmingImport&&setImportPreview(null)}><BankImportPreview data={data} prepared={importPreview} pending={confirmingImport} onCancel={()=>setImportPreview(null)} onConfirm={confirmarImportacao}/></Modal>}
       <PageHero
-        eyebrow={modoConciliacaoRh?"RH · pagamentos da equipe":"Financeiro · controle bancário"}
         title={modoConciliacaoRh?"Conciliação da folha":"Conciliação Bancária"}
-        description={modoConciliacaoRh?"Confirme os PIX dos funcionários usando cadastro, ponto, obra e valor como evidências.":"Classifique, audite e reverta movimentos sem perder o histórico."}
+        description={modoConciliacaoRh?"Confira os PIX com cadastro, ponto e obra.":"Correspondências seguras são automáticas. Revise as divergências."}
         actions={modoConciliacaoRh?null:(importando?<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD}}>Lendo extrato...</span>:<label className="arcd-btn" data-variant="primary" data-size="sm" style={{border:`1px solid ${C.yellowD}`,background:C.yellow,color:C.ink,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontWeight:600}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><Ic n="download" s={12}/> Importar extrato</label>)}
       />
 
       <section className="reconciliation-summary" aria-label="Resumo da conciliação">
         {[
           ["Pendentes",calc.pendentes,"warning"],
-          ["Conciliadas",calc.conciliadas,"success"],
-          ["Ignoradas",calc.ignoradas,"neutral"],
           ["A classificar",fmt(calc.valorPendente),"primary"],
           ["Progresso",`${calc.pct.toFixed(0)}%`,"success"],
         ].map(([label,value,tone])=><div key={label} className="reconciliation-summary__item" data-tone={tone}>
@@ -925,31 +938,28 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         </div>)}
       </section>
 
-      {!modoConciliacaoRh&&accountsReview.length>0&&<section aria-label="Pendências por conta" className="flex flex-col gap-2">
-        <Sel label="Conta da fila" value={accountFilter} onChange={setAccountFilter} options={[{v:"",l:"Todas as contas"},...accountsReview.map(account=>({v:account.id,l:`${account.nome} · ${account.pending} pendente(s)`}))]}/>
-        <div className="flex flex-wrap gap-2">{accountsReview.filter(account=>!accountFilter||account.id===accountFilter).map(account=><div key={account.id} className="rounded-md border p-3 text-sm">
-          <strong>{account.nome}</strong><p>{account.pending} pendente(s) · {fmt(account.pendingValue)} a conciliar</p>
-          <p>Última importação: {account.lastImport?new Date(account.lastImport).toLocaleString("pt-BR"):"Sem importação registrada"}</p>
-          <Btn size="sm" v="ghost" onClick={()=>{setAccountFilter(account.id);setAba("pendentes");}}>Revisar esta conta</Btn>
-        </div>)}</div>
-      </section>}
+      <div className="reconciliation-context">
+        {!modoConciliacaoRh&&accountsReview.length>0&&<section aria-label="Pendências por conta">
+          <Sel label="Conta da fila" value={accountFilter} onChange={setAccountFilter} options={[{v:"",l:"Todas as contas"},...accountsReview.map(account=>({v:account.id,l:`${account.nome} · ${account.pending} pendente(s)`}))]}/>
+          <p>Última importação: {(()=>{const dates=accountsReview.filter(account=>!accountFilter||account.id===accountFilter).map(account=>account.lastImport).filter(Boolean).sort();return dates.length?new Date(dates.at(-1)).toLocaleString("pt-BR"):"Sem importação registrada";})()}</p>
+        </section>}
+        {filaPendente&&<section aria-label="Filas por divergência"><Sel label="Motivo da revisão" value={divergence} onChange={v=>{setDivergence(v);setLimiteVisivel(30);setSelecionadas([]);}} options={Object.entries(divergenceLabels).map(([v,l])=>({v,l:`${l} · ${divergenceCounts[v]}`}))}/></section>}
+      </div>
 
       <TabRow tabs={modoConciliacaoRh
         ?[["pendentes",`PIX a confirmar · ${calc.pendentes}`],["quinzena","Quinzena"],["conciliadas",`Confirmados · ${calc.conciliadas}`],["historico","Histórico"]]
         :[["pendentes",`Revisar · ${revisar.length + parciais.length}`],["identificados",`Identificados · ${identificados.length + automaticasConcluidas.length}`],["conciliadas",`Conciliados · ${calc.conciliadas}`]]} active={aba} onChange={setAba}/>
       {!modoConciliacaoRh&&<details className="reconciliation-support"><summary>Mais opções · extratos, regras e histórico</summary><TabRow tabs={[["quinzena","Quinzena"],["ignoradas",`Ignoradas · ${calc.ignoradas}`],["extratos",`Extratos · ${(data.extratos||[]).length}`],["regras","Regras"],["fechamentos","Fechamentos"],["historico","Histórico"]]} active={aba} onChange={setAba}/></details>}
 
-      {!modoConciliacaoRh && <Alert>
-        <strong>{conciliando ? "Conferindo e conciliando movimento…" : automacaoAtiva ? "Identificação e conciliação automáticas ativas" : "Conciliação automática pausada"}</strong>
-        <AlertDescription>
-          <p>O app cruza Pix, CPF/CNPJ, cadastros, valores e datas. Na importação, o servidor concilia correspondências seguras mesmo com a tela fechada; dúvidas ficam para revisão. Esta tela também confere movimentos pendentes.</p>
-          <p>Pausar afeta somente a conferência desta tela; novas importações continuam sendo processadas no servidor.</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <Btn size="sm" v="ghost" disabled={conciliando} onClick={() => setAutomacaoAtiva(value => !value)}>{automacaoAtiva ? "Pausar automação" : "Retomar automação"}</Btn>
-            {Object.keys(falhasAutomaticas).length > 0 && <Btn size="sm" v="ghost" disabled={conciliando} onClick={() => {Object.keys(falhasAutomaticas).forEach(id => tentativasAutomaticas.current.delete(id));setFalhasAutomaticas({});}}>Tentar novamente as falhas</Btn>}
-          </div>
-        </AlertDescription>
-      </Alert>}
+      {!modoConciliacaoRh && <section className="reconciliation-automation" aria-label="Estado da automação">
+        <div><strong>{conciliando ? "Conferindo e conciliando movimento…" : automacaoAtiva ? "Identificação e conciliação automáticas ativas" : "Conciliação automática pausada"}</strong>
+          <details><summary>Como funciona a automação</summary><p>O servidor cruza Pix, CPF/CNPJ, cadastros, valores e datas após importar o extrato, mesmo com a tela fechada. Casos duvidosos ficam para revisão.</p><p>Pausar afeta somente a conferência desta tela; novas importações continuam no servidor.</p></details>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Btn size="sm" v="ghost" disabled={conciliando} onClick={() => setAutomacaoAtiva(value => !value)}>{automacaoAtiva ? "Pausar automação" : "Retomar automação"}</Btn>
+          {Object.keys(falhasAutomaticas).length > 0 && <Btn size="sm" v="ghost" disabled={conciliando} onClick={() => {Object.keys(falhasAutomaticas).forEach(id => tentativasAutomaticas.current.delete(id));setFalhasAutomaticas({});}}>Tentar novamente as falhas</Btn>}
+        </div>
+      </section>}
 
       {!["extratos","regras","fechamentos"].includes(aba)&&<div className="reconciliation-toolbar">
         <label className="reconciliation-search">
@@ -1115,7 +1125,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         </div>
       )}
 
-      {["pendentes","identificados","conciliadas","ignoradas"].includes(aba)&&(transacoes.length===0
+      <div className="reconciliation-desk" data-review-open={Boolean(reviewTransaction)}>
+      {["pendentes","identificados","conciliadas","ignoradas"].includes(aba)&&(filteredTransactions.length===0
         ? <div className="reconciliation-empty"><Ic n={aba==="pendentes"?"check":"receipt"} s={20} color={aba==="pendentes"?C.green:C.muted}/><p>{aba==="pendentes"&&!buscaConc&&!filtroCategoria&&tipoMovimento==="todos"?"Nenhum movimento precisa de revisão":"Nenhuma transação neste filtro"}</p><span>{aba==="pendentes"&&!buscaConc&&!filtroCategoria&&tipoMovimento==="todos"?"As correspondências seguras estão na aba Identificados.":"Ajuste a busca, a categoria ou o tipo de movimento."}</span></div>
         : <div className="scroll-x reconciliation-queue">
             <table className="reconciliation-table">
@@ -1146,7 +1157,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                   entrada?abrirValidarEntrada(tr):abrirApropriacao(tr);
                 };
                 const rotuloPrincipal=principal?.podeVincular?"Vincular existente":tituloFolhaIndex>=0?"Revisar folha":modoConciliacaoRh?"Confirmar funcionário":pixFuncionario&&!entrada?"Confirmar PIX":melhorEhPixMaoDeObra?"Confirmar PIX":melhor?"Revisar sugestão":entrada?"Validar entrada":"Classificar saída";
-                return <tr key={tr.id} className="reconciliation-row" data-selected={selecionadas.includes(tr.id)} data-pix={Boolean(pixFuncionario)} data-direction={entrada?"in":"out"}>
+                return <tr key={tr.id} className="reconciliation-row" data-selected={selecionadas.includes(tr.id)} data-reviewing={reviewId===tr.id} data-pix={Boolean(pixFuncionario)} data-direction={entrada?"in":"out"}>
                   <td className="reconciliation-cell reconciliation-cell--select">{!modoConciliacaoRh&&["pendentes","ignoradas"].includes(aba)&&<input aria-label={`Selecionar ${tr.descricao}`} type="checkbox" disabled={Boolean(hold)||tr.status==="parcial"} checked={selecionadas.includes(tr.id)} onChange={()=>alternarSelecao(tr.id)}/>}</td>
                   <td className="reconciliation-cell reconciliation-cell--date">{fmtDate(tr.data)}</td>
                   <td className="reconciliation-cell reconciliation-cell--movement" title={tr.descricao}>
@@ -1186,11 +1197,11 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                       </td>}
                   <td className="reconciliation-cell reconciliation-cell--value">{entrada?"+ ":""}{fmt(Math.abs(tr.valor))}</td>
                   <td className="reconciliation-cell reconciliation-cell--actions">
-                    {tr.status==="parcial"&&<><span>Parcial · saldo {fmt(tr.saldoNaoVinculado||0)}</span><Btn size="sm" v="ghost" onClick={()=>setReviewId(tr.id)}>Completar vínculos</Btn></>}
+                    {tr.status==="parcial"&&<><span>Parcial · saldo {fmt(tr.saldoNaoVinculado||0)}</span><Btn size="sm" v="ghost" disabled={reviewLocked} onClick={()=>openReview(tr.id)}>Completar vínculos</Btn></>}
                     {hold&&<span>Pendente de composição do aporte</span>}
                     {tr.status==="pendente"&&!hold&&<>
                       <div className="reconciliation-actions__primary">
-                        {!modoConciliacaoRh&&<Btn size="sm" v="ghost" disabled={conciliando} onClick={()=>setReviewId(tr.id)}>Comparar e buscar</Btn>}
+                        {!modoConciliacaoRh&&<button type="button" className="reconciliation-review-trigger" aria-pressed={reviewId===tr.id} disabled={reviewLocked} onClick={()=>openReview(tr.id)}>Comparar e buscar</button>}
                         <Btn size="sm" v={entrada&&!melhor?"success":"primary"} disabled={conciliando} onClick={abrirAcaoPrincipal}><Ic n="check"/> {rotuloPrincipal}</Btn>
                         {!modoConciliacaoRh&&<button type="button" className="reconciliation-actions__toggle" aria-expanded={acoesAbertas} aria-label={`${acoesAbertas?"Ocultar":"Mostrar"} outras ações de ${tr.descricao}`} onClick={()=>setAcoesTransacaoAberta(atual=>atual===tr.id?"":tr.id)}>•••</button>}
                       </div>
@@ -1209,20 +1220,22 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                 </tr>;
               })}</tbody>
             </table>
-            {transacoes.length>limiteVisivel&&<button className="reconciliation-load-more" onClick={()=>setLimiteVisivel(v=>v+50)}>Mostrar mais · {transacoes.length-limiteVisivel} restante(s)</button>}
+            {filteredTransactions.length>limiteVisivel&&<button className="reconciliation-load-more" onClick={()=>setLimiteVisivel(v=>v+50)}>Mostrar mais · {filteredTransactions.length-limiteVisivel} restante(s)</button>}
           </div>)}
 
-      {reviewId&&(()=>{
-        const tr=(data.transacoes||[]).find(item=>item.id===reviewId);
-        return tr?<Modal title="Comparar e resolver movimento" wide onClose={()=>!conciliando&&!reviewSaving&&setReviewId("")}>
-          <ReconciliationReview data={data} transaction={tr} analysis={analisesPorTransacao.get(tr.id)} reason={falhasAutomaticas[tr.id]||automacaoPorTransacao.get(tr.id)?.motivo} fmt={fmt} busy={conciliando} canOperate={podeOperarConc}
+      {reviewTransaction&&(()=>{
+        const tr=reviewTransaction;
+        return <section className="reconciliation-inspector" aria-label="Comparar e resolver movimento">
+          <header><h2>Comparar e resolver movimento</h2><Button variant="ghost" size="sm" disabled={reviewLocked} onClick={()=>setReviewId("")}>Fechar comparação</Button></header>
+          <ReconciliationReview key={tr.id} data={data} transaction={tr} analysis={analisesPorTransacao.get(tr.id)} reason={falhasAutomaticas[tr.id]||automacaoPorTransacao.get(tr.id)?.motivo} fmt={fmt} busy={conciliando} canOperate={podeOperarConc}
             onLink={async(eventId,amount)=>executarConciliacaoNoServidor({type:"LINK_PARTIAL_CASH",payload:{transactionId:tr.id,eventId,amount}},"Não foi possível vincular o lançamento.")}
             onSaving={setReviewSaving}
-            onCandidate={candidate=>{const index=(candidatosPorTransacao.get(tr.id)||[]).findIndex(item=>item.tipo===candidate.tipo&&item.entidadeId===candidate.entidadeId&&item.pagamentoId===candidate.pagamentoId);if(index>=0){setReviewId("");abrirCandidato(tr,index);}else showToast("A sugestão mudou. Feche e abra a revisão novamente.","warn");}}
-            onCreate={()=>{setReviewId("");Number(tr.valor)>0?abrirValidarEntrada(tr):abrirApropriacao(tr);}}
-            onTransfer={()=>{setReviewId("");setTransferModal({trId:tr.id});}}/>
-        </Modal>:null;
+            onCandidate={candidate=>{const index=(candidatosPorTransacao.get(tr.id)||[]).findIndex(item=>item.tipo===candidate.tipo&&item.entidadeId===candidate.entidadeId&&item.pagamentoId===candidate.pagamentoId);if(index>=0){abrirCandidato(tr,index);}else showToast("A sugestão mudou. Feche e abra a revisão novamente.","warn");}}
+            onCreate={()=>{Number(tr.valor)>0?abrirValidarEntrada(tr):abrirApropriacao(tr);}}
+            onTransfer={()=>{setTransferModal({trId:tr.id});}}/>
+        </section>;
       })()}
+      </div>
       {ignorarModal&&<Modal title={ignorarModal.titulo} onClose={()=>setIgnorarModal(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{padding:"9px 10px",border:`1px solid ${C.orange}55`,background:`${C.orange}0B`,borderRadius:8}}><b style={{fontSize:"var(--arcd-type-label)",color:C.orange}}>{ignorarModal.ids.length} transação(ões) · {fmt(ignorarModal.valor)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Elas sairão da fila pendente, permanecerão auditáveis e poderão ser reabertas.</p></div><Inp label="Motivo obrigatório *" value={ignorarModal.motivo} onChange={v=>setIgnorarModal(f=>({...f,motivo:v}))} multiline placeholder="Ex.: transferência entre contas, estorno, movimento sem efeito no DRE..."/><div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setIgnorarModal(null)} full>Cancelar</Btn><Btn v="danger" onClick={confirmarIgnorar} full>Confirmar e ignorar</Btn></div></div></Modal>}
 
       {loteProntoModal&&(()=>{

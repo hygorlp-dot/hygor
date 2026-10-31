@@ -1,0 +1,32 @@
+.financial-reports{display:flex;flex-direction:column;gap:18px;min-width:0;color:var(--arcd-text-primary)}
+.financial-reports h2{font-size:var(--arcd-type-section-title);font-weight:600}.financial-reports h3{font-size:var(--arcd-type-card-title);font-weight:600}
+.financial-reports p,.financial-reports label,.financial-reports summary{font-size:var(--arcd-type-label);line-height:1.5;overflow-wrap:anywhere}
+.financial-reports header{display:grid;gap:6px}
+.financial-reports__filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:12px;border:0;padding:0;min-width:0}
+.financial-reports__filters legend{font-size:var(--arcd-type-body);font-weight:600;margin-bottom:12px}
+.financial-reports__filters label{display:flex;flex-direction:column;gap:6px;min-width:0}
+.financial-reports select{min-height:44px;padding:8px;border:1px solid var(--arcd-border-strong);border-radius:var(--arcd-radius-control);background:var(--arcd-surface-card);color:var(--arcd-text-primary);max-width:100%;width:100%}
+.financial-reports select:focus-visible,.financial-reports summary:focus-visible,.financial-reports .scroll-x:focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:2px}
+.financial-reports__filters .financial-reports__checkbox{flex-direction:row;align-items:center;min-height:44px}.financial-reports__checkbox input{width:24px;height:24px;flex-shrink:0}
+.financial-reports__basis{display:grid;gap:8px;padding-block:16px;border-block:1px solid var(--arcd-border-default)}
+.financial-reports__basis summary{cursor:pointer;min-height:32px;align-content:center}.financial-reports__basis details p{color:var(--arcd-text-secondary);max-width:75ch}
+.financial-reports__totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0}.financial-reports__totals dt{font-size:var(--arcd-type-label);color:var(--arcd-text-secondary)}.financial-reports__totals dd{margin:6px 0 0;font-size:1.25rem;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.financial-reports__exports{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.financial-reports__exports p{flex:1 1 320px;color:var(--arcd-text-secondary)}
+.financial-reports table{border-collapse:collapse;width:100%;font-size:var(--arcd-type-label);font-variant-numeric:tabular-nums}.financial-reports th,.financial-reports td{padding:12px;border-bottom:1px solid var(--arcd-border-default);text-align:right;white-space:nowrap}.financial-reports th:first-child{text-align:left;white-space:normal;min-width:140px;max-width:320px;overflow-wrap:anywhere}.financial-reports thead th{background:var(--arcd-surface-muted)}.financial-reports caption{text-align:left;padding-bottom:10px;color:var(--arcd-text-secondary)}.financial-reports tfoot{font-weight:600}
+.financial-reports__note{color:var(--arcd-text-secondary)}
+.financial-reports__options summary{cursor:pointer;min-height:44px;align-content:center;font-weight:600}
+.financial-reports__options summary:focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:2px}
+.financial-reports__options[open]{padding-bottom:12px;border-bottom:1px solid var(--arcd-border-default)}
+.financial-reports__active{display:flex;flex-wrap:wrap;gap:8px}
+.financial-reports__active button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:600px){
+ .financial-reports__totals{grid-template-columns:1fr;gap:12px}.financial-reports__exports button{flex:1 1 145px}
+ .financial-reports table,.financial-reports tbody,.financial-reports tfoot,.financial-reports tr{display:block}
+ .financial-reports thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ .financial-reports caption{display:block}
+ .financial-reports tr{border-bottom:1px solid var(--arcd-border-default);padding:12px 0}
+ .financial-reports th:first-child{display:block;min-width:0;max-width:none;padding:8px 0;border:0;font-weight:600}
+ .financial-reports td{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1fr);gap:12px;align-items:center;white-space:normal;padding:6px 0;border:0;overflow-wrap:anywhere}
+ .financial-reports td::before{content:attr(data-label);text-align:left;color:var(--arcd-text-secondary);font-weight:400}
+ .financial-reports td button{justify-self:end;white-space:normal}
+}

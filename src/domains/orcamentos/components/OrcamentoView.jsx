@@ -1,3 +1,6 @@
+import {useWorkspaceState,useWorkspaceScroll} from "../../../features/workflow/workspace-session.jsx";
+import {useRememberWorkflowScope,useWorkflow} from "../../../features/workflow/WorkflowNavigation.jsx";
+import { WorkspaceNavigation } from "../../../design-system/patterns/WorkspaceNavigation";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { copiedFloorRecoveries, recoverCopiedFloor } from '../copied-floor-recovery';
 import ItemMemoryPanel from './ItemMemoryPanel';
@@ -347,6 +350,9 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const planosParaCopia = todosPlanosGlobais || data.planos || [];
   const { cols, formGrid, isMobile } = useBreakpoint();
   const ehAdmin = currentUser?.role === "admin";
+  const {intent}=useWorkflow();
+  const useSessionState=(key,initial)=>useWorkspaceState("orc",key,initial,obraIdFixo);
+  useWorkspaceScroll("orc",obraIdFixo);
   const dataAtualRef = useRef(data);
   const [memorySave, setMemorySave] = useState(null);
   const [memoryReceipt, setMemoryReceipt] = useState(null);
@@ -365,15 +371,15 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   // Abrir somente a baseline aprovada. Uma revisão em rascunho nunca deve
   // parecer o orçamento vigente apenas por ser a última criada.
   const orcamentoFixoInicial=obraIdFixo?getActiveBudgetBaseline(data,obraIdFixo,"controle").budget:null;
-  const [view,      setView]      = useState(orcamentoFixoInicial?"editor":"lista");   // "lista" | "editor"
-  const [orcAba,    setOrcAba]    = useState("orcamento"); // orçamento | insumos | próprias | memoria
-  const [disciplinaMemoria,setDisciplinaMemoria]=useState("estrutural"); // estrutural (única disciplina por enquanto)
+  const [view,      setView]      = useSessionState("view",orcamentoFixoInicial?"editor":"lista");   // "lista" | "editor"
+  const [orcAba,    setOrcAba]    = useSessionState("orcAba","orcamento"); // orçamento | insumos | próprias | memoria
+  const [disciplinaMemoria,setDisciplinaMemoria]=useSessionState("disciplinaMemoria","estrutural"); // estrutural (única disciplina por enquanto)
   // Memória de Cálculo Navegável (28/08/2026, pedido detalhado do usuário):
   // índice lateral com destaque de leitura atual (scroll-spy) + accordion
   // por elemento estrutural, pra responder "em que pavimento/elemento eu
   // estou" sem depender só de rolar a página inteira.
-  const [secaoAtivaMemoria,setSecaoAtivaMemoria]=useState("");
-  const [elementoAbertoMemoria,setElementoAbertoMemoria]=useState({}); // "<pav>-<elemento>": bool
+  const [secaoAtivaMemoria,setSecaoAtivaMemoria]=useSessionState("secaoAtivaMemoria","");
+  const [elementoAbertoMemoria,setElementoAbertoMemoria]=useSessionState("elementoAbertoMemoria",{}); // "<pav>-<elemento>": bool
   const secoesMemoriaRef=useRef({}); // id -> nó DOM, populado durante o render
   const registrarSecaoMemoria = id => no => { if(no)secoesMemoriaRef.current[id]=no; else delete secoesMemoriaRef.current[id]; };
   const elementoEstaAberto = (chave, padraoAberto) => elementoAbertoMemoria[chave] ?? padraoAberto;
@@ -400,7 +406,14 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     nos.forEach(([,no])=>observador.observe(no));
     return () => observador.disconnect();
   }, [orcAba, disciplinaMemoria]);
-  const [selOrc,    setSelOrc]    = useState(()=>orcamentoFixoInicial?.id||getActiveBudgetBaseline(data,obraContextoSalvo(),"controle").budget?.id||null);      // id do orçamento aberto
+  const [selOrc,    setSelOrc]    = useSessionState("selOrc",()=>orcamentoFixoInicial?.id||getActiveBudgetBaseline(data,obraContextoSalvo(),"controle").budget?.id||null);      // id do orçamento aberto
+  useRememberWorkflowScope(obraIdFixo?"obras":"orc",{obraId:obraIdFixo||(data.orcamentos||[]).find(b=>b.id===selOrc)?.obraId||""});
+  useEffect(()=>{
+    if(obraIdFixo||intent?.tabId!=="orc"||intent.action==="resume"||!intent.scope?.obraId)return;
+    if((data.orcamentos||[]).find(b=>b.id===selOrc)?.obraId===intent.scope.obraId)return;
+    const budget=getActiveBudgetBaseline(data,intent.scope.obraId,"controle").budget||(data.orcamentos||[]).find(b=>b.obraId===intent.scope.obraId);
+    if(budget){setSelOrc(budget.id);setView("editor");}
+  },[intent?.sequence,obraIdFixo]);
   const [basesRemotas, setBasesRemotas] = useState([]);
   const [basesCarregando, setBasesCarregando] = useState(false);
   const [baseParaVincular, setBaseParaVincular] = useState("");
@@ -432,14 +445,14 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
   const [analiseReferenciaLoading,setAnaliseReferenciaLoading]=useState(false);
   const [analiseReferenciaAviso,setAnaliseReferenciaAviso]=useState("");
   const [buscaModal,setBuscaModal]= useState(false);
-  const [busca,     setBusca]     = useState("");
+  const [busca,     setBusca]     = useSessionState("busca","");
   const [selecaoLinhaVersao,setSelecaoLinhaVersao]=useState({});
   const [buscaLinha, setBuscaLinha] = useState({itemId:"", termo:""});
   // Colunas visiveis da planilha do orcamento. O usuario liga/desliga cada uma.
   // Fonte, descricao e quantidade sao fixas (sempre visiveis). As demais podem
   // ser ocultadas para deixar a grade mais limpa no celular.
   const COLS_ORC_DEF = { codigo:true, unidade:true, custoUnit:true, bdi:false, total:true };
-  const [colsOrc, setColsOrc] = useState(COLS_ORC_DEF);
+  const [colsOrc, setColsOrc] = useSessionState("colsOrc",COLS_ORC_DEF);
   const [colsOrcAberto, setColsOrcAberto] = useState(false);
   // Id do menu "⋯" aberto (linha, etapa ou orçamento); só um por vez.
   const [menuAberto, setMenuAberto] = useState("");
@@ -3392,9 +3405,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
   //  VIEW: LISTA
   if (view === "lista") {
     return (
-      <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
-        <PageHeader
-          breadcrumb={["SINAPI", "ORSE"]}
+      <div className="anim budget-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
+        <PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header"
           title="Orçamentos"
           description="Planilha orçamentária com BDI e exportação"
           primaryAction={<Btn onClick={()=>{setForm({...emptyOrc,obraId:obraIdFixo});setNovoModal(true);}}><Ic n="plus"/> Novo</Btn>}
@@ -3632,7 +3644,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
   };
 
   return (
-    <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div className="anim budget-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
 
 
       {floorEditorOpen && <Modal title="Pavimentos do orçamento" onClose={()=>setFloorEditorOpen(false)}>
@@ -3659,18 +3671,20 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       <div style={{display:"flex",flexDirection:"column"}}>
         <div className="budget-bar">
           <button type="button" className="budget-tool" onClick={()=>{setView("lista");setSelOrc(null);}}>← Orçamentos</button>
-          <span className="budget-bar__name" title={orc.nome}>{orc.nome}</span>
+          {obraIdFixo?<h2 className="budget-bar__name" title={orc.nome}>{orc.nome}</h2>:<h1 className="budget-bar__name" title={orc.nome}>{orc.nome}</h1>}
           <span className="budget-bar__meta">{orc.fonte} {orc.uf} · {orc.dataBase||"sem data-base"} · {orc.desonerado?"Desonerado":"Não desonerado"} · BDI {orc.bdi}%</span>
           {baselineAtiva.budget?.id===orc.id&&<span className="budget-badge" style={{background:`${C.green}1F`,color:C.green}}>BASELINE ATIVA</span>}
           <span className="budget-badge" title={budgetIsImmutable(orc)?"Versão aprovada e bloqueada para edição":"Rascunho editável"} style={{background:`${budgetIsImmutable(orc)?C.blue:C.orange}1F`,color:budgetIsImmutable(orc)?C.blue:C.orange}}>V{orc.versionNumber||1} · {budgetIsImmutable(orc)?"APROVADA":"RASCUNHO"}</span>
           <span className="budget-bar__spacer"/>
           {memorySave?.id===selOrc && <span className="budget-bar__status" role="status">{memorySave.state==='saving'?'Salvando…':memorySave.state==='saved'?'Salvo':'Falha ao salvar'}</span>}
           {memorySave?.id===selOrc && memorySave.message && <span className="budget-bar__status">{memorySave.message}</span>}
+          <details className="budget-management"><summary>Dados e versões</summary><div className="budget-management__actions">
           <button type="button" className="budget-tool" disabled={!budgetReceipt || budgetReceipt.budgetId!==selOrc || memorySave?.state!=='saved' || budgetIsImmutable(orc)} onClick={desfazerAlteracaoOrcamento}>Desfazer última alteração</button>
           <button type="button" className="budget-tool" disabled={budgetIsImmutable(orc)} onClick={()=>setFloorEditorOpen(true)}>Gerenciar pavimentos</button>
           {!budgetIsImmutable(orc)&&<button type="button" className="budget-tool" onClick={abrirEdicaoOrc}>Dados</button>}
           {budgetIsImmutable(orc)&&<button type="button" className="budget-tool" onClick={criarRevisaoOrc}>Criar revisão</button>}
           {ehAdmin&&orc.obraId&&baselineAtiva.budget?.id!==orc.id&&<button type="button" className="budget-tool budget-tool--primary" onClick={()=>aprovarEAdotarBaseline(orc.id)}>{budgetIsImmutable(orc)?"Adotar como baseline":"Aprovar e adotar baseline"}</button>}
+          </div></details>
           {orc.descricao && <span className="budget-bar__meta" title={orc.descricao} style={{flexBasis:"100%",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{orc.descricao}</span>}
         </div>
 
@@ -3683,7 +3697,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             <div className="budget-kpis">
               <div className="budget-kpi"><span>Custo direto</span><strong>{fmt(calc.custoDireto)}</strong></div>
               <button type="button" className="budget-kpi" onClick={abrirBDI} title={foraDaFaixa?`${detalheBDI}. ${sit.msg}`:`${detalheBDI}. Abrir cálculo do BDI`}>
-                <span>BDI {orc.bdi}%{foraDaFaixa&&<b className="budget-kpi__alert"> · fora da faixa TCU para {sit.faixa.l.toLowerCase()}</b>}</span>
+                <span>BDI {orc.bdi}%{foraDaFaixa&&<b className="budget-kpi__alert"> · fora da faixa TCU</b>}</span>
                 <strong>{fmt(calc.valorBDI)}</strong>
               </button>
               <div className="budget-kpi budget-kpi--total"><span>Total</span><strong>{fmt(calc.total)}</strong></div>
@@ -3692,23 +3706,24 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           );
         })()}
 
+        <WorkspaceNavigation label="Áreas do orçamento" active={orcAba} onChange={setOrcAba} items={[
+          {id:"orcamento",label:"Orçamento"},
+          {id:"insumos",label:"Insumos e Curva ABC"},
+          {id:"proprias",label:"Composições próprias"},
+          {id:"memoria",label:"Memória de cálculo"},
+        ]}/>
         <div className="budget-tabs">
-          {[
-            ["orcamento","Orçamento"],
-            ["insumos","Insumos e composições / Curva ABC"],
-            ["proprias","Composições próprias"],
-            ["memoria","Memória de cálculo"],
-          ].map(([valor,label])=><button key={valor} type="button" className="budget-tab" aria-pressed={orcAba===valor} aria-selected={orcAba===valor} onClick={()=>setOrcAba(valor)}>{label}</button>)}
-          {orcAba==="orcamento"&&<div className="budget-tabs__chips">
+          {orcAba==="orcamento"&&<details className="budget-analysis"><summary>Análises e ferramentas{budgetIssues.length>0?` · ${budgetIssues.length} ocorrência(s)`:""}</summary><div className="budget-tabs__chips">
             <button type="button" className="budget-tool" aria-expanded={ferramentasOrcAberto} onClick={()=>setFerramentasOrcAberto(v=>!v)} title="Importar, analisar e exportar">Ferramentas do orçamento</button>
             <button type="button" className="budget-tool" aria-expanded={controleCustosAberto} onClick={()=>setControleCustosAberto(v=>!v)} title="Orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível">Controle de custos</button>
             <button type="button" className="budget-tool" aria-expanded={confAberta} onClick={()=>setConfAberta(v=>!v)} title="Escopo, preços, cotações, itens esquecidos, interfaces e quantitativos">Auditoria técnica{checklistAuditoria.filter(item=>item.status==="pendente").length>0?` · ${checklistAuditoria.filter(item=>item.status==="pendente").length} pendente(s)`:""}</button>
             <button type="button" className="budget-tool" aria-expanded={basesPainelAberto} onClick={()=>setBasesPainelAberto(v=>!v)} title="Bases de referência SINAPI e ORSE vinculadas">Bases e preços · {basesVinculadas.length}{totalBasesDuplicadas>0?` · ${totalBasesDuplicadas} repetida(s)`:""}</button>
-          </div>}
+      <BudgetAuditPanel issues={budgetIssues} onNavigate={abrirOcorrenciaOrcamento} readOnly={budgetIsImmutable(orc)} onRemoveLink={source=>salvarOrc({memoriaCalculo:{...orc.memoriaCalculo,vinculosEstruturais:{...orc.memoriaCalculo?.vinculosEstruturais,[source]:''}}})}/>
+          </div></details>}
         </div>
       </div>
 
-      <BudgetAuditPanel issues={budgetIssues} onNavigate={abrirOcorrenciaOrcamento} readOnly={budgetIsImmutable(orc)} onRemoveLink={source=>salvarOrc({memoriaCalculo:{...orc.memoriaCalculo,vinculosEstruturais:{...orc.memoriaCalculo?.vinculosEstruturais,[source]:''}}})}/>
+
 
       {orcAba==="orcamento"&&ferramentasOrcAberto&&<div className="budget-panel"><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:6}}><label style={{display:"flex"}}><input type="file" accept=".xlsx,.xls" disabled={basePorCodigo.size===0||impLoad} onChange={e=>{importarOrcamentoXLSX(e.target.files?.[0]);e.target.value="";}} style={{display:"none"}}/><span style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:5,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 8px",fontSize:9.5,fontWeight:800,color:basePorCodigo.size?C.blue:C.muted,cursor:basePorCodigo.size?"pointer":"not-allowed"}}><Ic n="download" s={12}/> Importar planilha</span></label><Btn size="sm" v="ghost" onClick={()=>setOrcAba("insumos")}><Ic n="chart"/> Curva ABC</Btn><Btn size="sm" v="danger" onClick={exportPDF}><Ic n="file"/> PDF</Btn><Btn size="sm" v="success" onClick={exportXLSX}><Ic n="download"/> Excel completo</Btn><Btn size="sm" v="success" onClick={exportXLSXExportado}><Ic n="download"/> Excel padrão</Btn><Btn size="sm" v="ghost" onClick={exportXLSXCurvaABC}><Ic n="download"/> Excel ABC</Btn></div></div>}
 
@@ -4104,7 +4119,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
         return (
           <>
-            <div style={{display:"flex",justifyContent:"flex-end",flexWrap:"wrap",gap:4,position:"relative"}}>
+            <details className="budget-sheet-tools"><summary>Organizar planilha</summary><div style={{display:"flex",justifyContent:"flex-end",flexWrap:"wrap",gap:4,position:"relative"}}>
               {!budgetIsImmutable(orc) && <button type="button" className="budget-tool" onClick={()=>setAddFloorOpen(true)}>+ Adicionar pavimento</button>}
               <button type="button" className="budget-tool" aria-expanded={colsOrcAberto} onClick={()=>setColsOrcAberto(a=>!a)}>Colunas</button>
               <button type="button" className="budget-tool" onClick={()=>setEtapasFechadas({})}>Expandir todos</button>
@@ -4127,7 +4142,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   </p>
                 </div>
               )}
-            </div>
+            </div></details>
             <div className="budget-sheet">
               <div className="budget-sheet__inner">
                 {/* Cabeçalho fixo de colunas: a mesma grade (gc) das linhas */}

@@ -1,0 +1,57 @@
+.engineering-workspace { color:var(--arcd-text-primary); display:grid; gap:20px; min-width:0; }
+.engineering-workspace h2 { font-size:20px; font-weight:500; margin:0; }
+.engineering-workspace h3 { font-size:16px; font-weight:500; margin:0; }
+.engineering-workspace h4 { font-size:14px; font-weight:500; margin:0; }
+.engineering-workspace p { margin:4px 0 0; overflow-wrap:anywhere; }
+.engineering-workspace a { display:inline-flex; align-items:center; gap:6px; color:var(--arcd-info-text); text-decoration:underline; text-underline-offset:3px; overflow-wrap:anywhere; }
+.engineering-workspace button { white-space:normal; }
+.engineering-help,.engineering-label,.engineering-detail-heading p,.engineering-record p,.engineering-project-row p,.engineering-audit p { color:var(--arcd-text-secondary); font-size:13px; }
+.engineering-label { display:block; margin-bottom:6px; }
+.engineering-filters { display:grid; grid-template-columns:1.5fr repeat(3,1fr); gap:12px; }
+.engineering-portfolio { border-top:1px solid var(--arcd-border-default); }
+.engineering-project-row { display:grid; grid-template-columns:1.6fr 1fr 1.2fr 1fr; gap:20px; padding:20px 0; align-items:start; border-bottom:1px solid var(--arcd-border-default); }
+.engineering-project-row>div { min-width:0; }
+.engineering-project-row strong { display:block; font-weight:500; font-size:14px; overflow-wrap:anywhere; }
+.engineering-project-row .arcd-badge { margin-top:8px; }
+.engineering-project-name button { padding:0; text-align:left; justify-content:flex-start; font-size:16px; min-height:32px; max-width:100%; }
+.engineering-project-name p { margin-top:8px; }
+.engineering-detail { display:grid; gap:24px; min-width:0; }
+.engineering-detail-heading,.engineering-section-heading,.engineering-record,.engineering-actions,.engineering-active { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.engineering-detail-heading { align-items:start; }
+.engineering-summary { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; border-block:1px solid var(--arcd-border-default); margin:0; padding:16px 0; }
+.engineering-summary dt { font-size:13px; color:var(--arcd-text-secondary); }
+.engineering-summary dd { margin:6px 0 0; font-size:15px; }
+.engineering-duration { font-variant-numeric:tabular-nums; white-space:nowrap; }
+.engineering-timer,.engineering-active { padding:16px; background:var(--arcd-surface-muted); border-radius:8px; }
+.engineering-timer { display:flex; align-items:end; gap:12px; flex-wrap:wrap; }
+.engineering-timer>div:first-child { flex:1 1 260px; }
+.engineering-timer .arcd-field { flex:1 1 170px; }
+.engineering-timer p,.engineering-active p { max-width:65ch; font-size:13px; color:var(--arcd-text-secondary); }
+.engineering-timer output { font-size:24px; align-self:center; }
+.engineering-tabs { display:flex; width:fit-content; max-width:100%; overflow-x:auto; justify-content:start; }
+.engineering-tabs button { flex-shrink:0; white-space:nowrap; }
+.engineering-mobile-areas { display:none; }
+.engineering-section-heading { margin:20px 0 12px; }
+.engineering-record { border-bottom:1px solid var(--arcd-border-default); padding:16px 0; font-size:14px; }
+.engineering-record>div:first-child { flex:1 1 230px; min-width:0; }
+.engineering-record strong { font-weight:500; overflow-wrap:anywhere; }
+.engineering-actions { justify-content:flex-start; }
+.engineering-description { max-width:75ch; white-space:pre-wrap; }
+.engineering-empty { padding:24px 0; color:var(--arcd-text-secondary); font-size:14px; }
+.engineering-form { padding:24px; background:var(--arcd-surface-card); border:1px solid var(--arcd-border-default); border-radius:8px; display:grid; gap:20px; scroll-margin-top:24px; }
+.engineering-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; padding:0; margin:0; border:0; min-width:0; }
+.engineering-wide { grid-column:1/-1; }
+.engineering-revision { padding:16px 0; border-bottom:1px solid var(--arcd-border-default); }
+.engineering-revision .engineering-section-heading { margin:0 0 12px; }
+.engineering-revision>p { white-space:pre-wrap; max-width:75ch; font-size:14px; }
+.engineering-revision .engineering-actions { margin-top:12px; }
+.engineering-review { padding:12px; background:var(--arcd-surface-muted); margin-top:16px !important; }
+.engineering-people { display:grid; gap:8px; margin:16px 0 28px; }
+.engineering-people>div { display:flex; gap:20px; justify-content:space-between; padding-bottom:8px; border-bottom:1px solid var(--arcd-border-default); }
+.engineering-people dd { margin:0; }
+.engineering-audit { margin-top:28px; font-size:14px; }
+.engineering-audit summary { cursor:pointer; padding:12px 0; }
+.engineering-audit ol { padding-left:20px; }
+.engineering-audit li { margin-bottom:16px; overflow-wrap:anywhere; }
+@media(max-width:900px) { .engineering-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } .engineering-project-row { grid-template-columns:1fr 1fr; } }
+@media(max-width:600px) { .engineering-workspace { gap:16px; } .engineering-fields,.engineering-filters { grid-template-columns:1fr; } .engineering-summary { grid-template-columns:1fr 1fr; } .engineering-form { padding:16px; } .engineering-project-row { gap:16px 12px; } .engineering-project-name { grid-column:1/-1; } .engineering-project-row>div:last-child { grid-column:1/-1; } .engineering-workspace button,.engineering-workspace a,.engineering-audit summary { min-height:44px; } .engineering-record>a { align-items:center; } .engineering-timer>button { width:100%; } .engineering-tabs { display:none; } .engineering-mobile-areas { display:block; } }

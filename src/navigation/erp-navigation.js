@@ -9,7 +9,7 @@ export const ERP_MODULES = [
     tabs:["fin","medicoes","caixa","conc"]},
   {id:"eng_grp",label:"Obras e projetos",shortLabel:"Obras",icon:"building",colorKey:"blue",
     description:"Orçamento, execução, planejamento, medições técnicas e qualidade.",
-    tabs:["obras","orc","plan","plan_suprimentos","rdo","med","conferencia","licenca"]},
+    tabs:["obras","projetos","orc","plan","plan_suprimentos","rdo","med","conferencia","licenca"]},
   {id:"compras_grp",label:"Compras e suprimentos",shortLabel:"Compras",icon:"cart",colorKey:"orange",
     description:"Solicitações, cotações, pedidos, recebimentos, estoque e fornecedores.",
     tabs:["cmp","suprimentos","est","fornecedores"]},

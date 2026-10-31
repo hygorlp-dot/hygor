@@ -42,7 +42,7 @@ export const decisoesDaCotacao=quote=>{
 // Linhas do mapa: uma por item, com as ofertas ordenadas pelo menor preço
 // (empate pelo menor prazo) e a melhor destacada.
 export const mapaDaCotacao=quote=>{
-  const propostas=quote?.propostas||[];
+  const propostas=(quote?.propostas||[]).filter(p=>!(quote.respostasFornecedor||[]).some(r=>r.proposalId===p.id&&r.status==="pendente"));
   const custos=new Map(propostas.map(p=>[p.id,custoFinalDaProposta(quote,p)]));
   const decisoes=decisoesDaCotacao(quote);
   const linhas=itensDaCotacao(quote).map(item=>{

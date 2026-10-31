@@ -4,6 +4,8 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { buildDreCashManagement } from "../../domains/conciliacao/cash-allocations.js";
+import { criarRegistroIdentidades } from "../../domains/conciliacao/identity.js";
+import ReconciliationEvidence from "./ReconciliationEvidence.jsx";
 
 export default function ReconciliationReview({ data, transaction, analysis, reason, fmt, busy, canOperate, onLink, onSaving, onCandidate, onCreate, onTransfer }) {
   const [search, setSearch] = useState("");
@@ -12,6 +14,7 @@ export default function ReconciliationReview({ data, transaction, analysis, reas
   const [message, setMessage] = useState("");
   const lock = useRef(false);
   const report = useMemo(() => buildDreCashManagement(data), [data]);
+  const identities = useMemo(() => criarRegistroIdentidades(data).registros, [data]);
   const bank = report.banks.find(item => item.id === String(transaction.id));
   const candidates = [analysis?.melhorCandidata, ...(analysis?.alternativas || [])].filter(Boolean);
   const available = report.entries.filter(item => item.remainingCents > 0 && !item.transactionId && item.effect === (Number(transaction.valor) > 0 ? "cash_in" : "cash_out"));
@@ -39,18 +42,19 @@ export default function ReconciliationReview({ data, transaction, analysis, reas
     } finally { lock.current = false; setSaving(false); onSaving(false); }
   };
   return <div className="reconciliation-review flex min-w-0 flex-col gap-4">
-    <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
-      <section className="min-w-0 rounded-md border p-4" aria-label="Movimento do banco">
+    <div className="reconciliation-review__identity">
+      <section aria-label="Movimento do banco">
         <h3 className="font-semibold">Movimento do banco</h3>
         <p className="break-words">{transaction.descricao}</p><p>{transaction.data}</p>
         <strong>{fmt(Number(transaction.valor))}</strong>
         <p>{Number(transaction.valor)>0?"Entrada":"Saída"} · {(data.contasBancarias || []).find(a=>String(a.id)===String(transaction.contaBancariaId))?.nome || "Sem conta definida"}</p>
         <p>Saldo a vincular: {fmt((bank?.remainingCents || 0) / 100)}</p>
       </section>
-      <section className="min-w-0 rounded-md border p-4" aria-label="Identificação no app">
+      <section aria-label="Identificação no app">
         <h3 className="font-semibold">Identificação no app</h3>
         <p>{analysis?.identidadeProvavel?.nome || "Contraparte não identificada"}</p>
         <p>{analysis?.identidadeProvavel?.evidencias?.join(" · ")}</p>
+        <p>Identificar a pessoa não confirma o lançamento financeiro.</p>
         <p className="reconciliation-review__reason"><strong>Motivo da revisão: </strong>{bank?.hold || reason || "Confira os lançamentos antes de vincular."}</p>
       </section>
     </div>
@@ -58,6 +62,7 @@ export default function ReconciliationReview({ data, transaction, analysis, reas
       <h3 className="font-semibold">Correspondências sugeridas</h3>
       {candidates.map((candidate,index)=><div key={`${candidate.tipo}:${candidate.entidadeId}:${index}`} className="rounded-md border p-3">
         <strong>{candidate.titulo}</strong><p>{candidate.contraparte}</p>
+        <ReconciliationEvidence transaction={transaction} candidate={candidate} identities={identities} data={data} fmt={fmt}/>
         <dl className="reconciliation-review__comparison"><div><dt>Valor do banco</dt><dd>{fmt(Math.abs(Number(transaction.valor)))}</dd></div><div><dt>Saldo do lançamento</dt><dd>{fmt(Number(candidate.saldoCentavos || 0)/100)}</dd></div><div><dt>Diferença de valores</dt><dd>{fmt(Math.abs(Number(transaction.valor))-Number(candidate.saldoCentavos || 0)/100)}</dd></div></dl>
         <ul>{(candidate.motivos || []).map((text,i)=><li key={i}>{text}</li>)}</ul>
         {[...(candidate.alertas || []),...(candidate.bloqueios || [])].map((text,i)=><p key={i}>{text}</p>)}

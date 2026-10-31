@@ -6,7 +6,7 @@ for(const view of ["anual","mensal","mensal fechado"])test(`abre o memorial, doc
   await page.clock.setFixedTime(new Date("2026-01-20T12:00:00Z"));
   const user={id:"qa",nome:"Financeiro QA",email:"memorial@arcd.test",role:"admin",active:true};
   const data={usuarios:[user],config:{paymentHolidays:[]},obras:[{id:"o1",name:"Obra Memorial QA",status:"active"}],employees:[],attendance:{},
-    medicoes:[{id:"m1",obraId:"o1",competencia:"2026-01",dataEmissao:"2026-01-12",valorPrevisto:142130,descricao:"Medição de janeiro",documentos:[{nome:"Nota fiscal 123",url:"https://example.com/nota-123.pdf"}],observacao:"Referência isolada para teste"}]};
+    medicoes:[{id:"m1",obraId:"o1",competencia:"2026-01",dataEmissao:"2026-01-12",valorPrevisto:142130,descricao:"Medição de janeiro",documentos:[{nome:"Nota fiscal 123",url:"https://example.com/nota-123.pdf"},{nome:'Arquivo protegido QA',url:'/api/microsoft/onedrive?action=file&driveId=a&itemId=b&sig=c'}],observacao:"Referência isolada para teste"}]};
   const months=buildRequestedDreProjectionRows(data,Array.from({length:12},(_,month)=>({year:2026,month,scope:"company_dre",includeMemorial:true}))).map(row=>row.payload);
   await page.route("**/api/**",route=>route.fulfill({json:{ok:true,items:[],bases:[]}}));
   await page.route("**/api/data",route=>{
@@ -37,6 +37,8 @@ for(const view of ["anual","mensal","mensal fechado"])test(`abre o memorial, doc
   await dialog.locator("summary").filter({hasText:"Medição de janeiro"}).click();
   await expect(dialog.getByText("12/01/2026",{exact:true}).first()).toBeVisible();
   await expect(dialog.locator('a[href="https://example.com/nota-123.pdf"]').first()).toBeVisible();
+  await expect(dialog.locator('a[href="/api/microsoft/onedrive?action=file&driveId=a&itemId=b&sig=c"]').first()).toBeVisible();
+  await dialog.getByText('Dados completos do lançamento',{exact:true}).click();
   await expect(dialog.getByText("Referência isolada para teste")).toBeVisible();
   const bounds=await dialog.boundingBox();expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.x+bounds.width).toBeLessThanOrEqual(page.viewportSize().width);
   await page.screenshot({path:testInfo.outputPath("memorial.png"),fullPage:true});

@@ -12,7 +12,11 @@ export const BANK_TRANSACTION_COMMAND_TYPES=new Set(
 
 const fail=reason=>({ok:false,reason});
 const versionOf=item=>Number(item?.version||0);
-const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(String(value||""));
+const validDate=value=>{
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(value||"")))return false;
+  const date=new Date(`${value}T12:00:00Z`);
+  return Number.isFinite(date.getTime())&&date.toISOString().slice(0,10)===value;
+};
 const transactions=data=>Array.isArray(data?.transacoes)?data.transacoes:[];
 const statements=data=>Array.isArray(data?.extratos)?data.extratos:[];
 const history=data=>Array.isArray(data?.historicoConc)?data.historicoConc:[];

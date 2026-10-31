@@ -1,0 +1,26 @@
+.arcd-modal-panel.invoice-conference-modal{max-width:1380px!important}
+.invoice-conference{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:24px;color:var(--arcd-text-primary)}
+.invoice-conference__tabs{display:none}
+.invoice-conference__original,.invoice-conference__fields{margin:0;min-width:0}
+.invoice-conference__original{position:sticky;top:12px;align-self:start;display:flex;flex-direction:column;gap:12px}
+.invoice-conference h3{font-size:var(--arcd-type-card-title);font-weight:600;line-height:1.5}
+.invoice-conference__fields>h3{margin-bottom:16px}
+.invoice-conference p,.invoice-conference a,.invoice-conference label{font-size:var(--arcd-type-label);line-height:1.5}
+.invoice-conference a{color:var(--arcd-info-text);text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.invoice-original__heading,.invoice-original__toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.invoice-original__name,.invoice-original__hint{color:var(--arcd-text-secondary);overflow-wrap:anywhere}
+.invoice-original__select,.invoice-original__toolbar label{display:flex;flex-direction:column;gap:6px;min-width:0}
+.invoice-original__select select,.invoice-original__toolbar select{padding:8px;border:1px solid var(--arcd-border-strong);border-radius:var(--arcd-radius-md);background:var(--arcd-surface-card);color:var(--arcd-text-primary);max-width:100%}
+.invoice-original__surface{overflow:auto;max-height:60dvh;background:var(--arcd-surface-muted);border:1px solid var(--arcd-border-default);min-height:120px}
+.invoice-original__surface canvas{display:block;max-width:100%;height:auto;margin:auto}
+.invoice-original__surface img{display:block;max-width:100%;height:auto;margin:auto}
+.invoice-original__xml{max-height:60dvh;overflow:auto;padding:12px;background:var(--arcd-surface-card);font-size:var(--arcd-type-caption);border:1px solid var(--arcd-border-default);white-space:pre-wrap;overflow-wrap:anywhere}
+.invoice-original__surface:focus-visible,.invoice-original__xml:focus-visible,.invoice-conference select:focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:2px}
+@media(max-width:900px){
+ .invoice-conference{grid-template-columns:minmax(0,1fr);gap:16px}
+ .invoice-conference__tabs{display:flex;justify-self:stretch;position:sticky;top:0}
+ .invoice-conference__tabs>button{flex:1;min-height:44px}
+ .invoice-conference__original{position:static}
+ .invoice-conference__original[data-state=inactive],.invoice-conference__fields[data-state=inactive]{display:none}
+ .invoice-original__surface,.invoice-original__xml{max-height:55dvh}
+}

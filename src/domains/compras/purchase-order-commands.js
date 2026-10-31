@@ -1,3 +1,6 @@
+import {reviewSupplierResponse} from "./supplier-quote-response.js";
+import {mutateQuoteDispatch} from "./quote-dispatch.js";
+import {ORDER_TERM_FIELDS,normalizeOrderTerms,preserveOrderTerms} from "./order-terms.js";
 import { validarCustoFinal } from "./final-cost.js";
 import { herdarVinculoDaSolicitacao } from "./budget-link.js";
 import { active, toCents } from "../financeiro/ledger.js";
@@ -17,6 +20,9 @@ export const PURCHASE_ORDER_COMMAND=Object.freeze({
   PURCHASE_QUOTE_CANCELLED:"COTACAO_COMPRA_CANCELADA",
   QUOTATION_SAVED:"COTACAO_COMPRA_SALVA",
   PURCHASE_QUOTE_DOCUMENT_ATTACHED:"DOCUMENTO_COTACAO_COMPRA_ANEXADO",
+  QUOTE_SUPPLIER_RESPONSE_REVIEWED:"RESPOSTA_FORNECEDOR_COTACAO_REVISADA",
+  QUOTE_SUPPLIER_DISPATCH_RECORDED:"ENVIO_COTACAO_FORNECEDOR_REGISTRADO",
+  QUOTE_SUPPLIER_DISPATCH_UPDATED:"ENVIO_COTACAO_FORNECEDOR_RETIFICADO",
   QUOTE_MAP_DECIDED:"MAPA_COTACAO_DECIDIDO",
   PURCHASE_ORDER_SENT_TO_SUPPLIER:"PEDIDO_COMPRA_ENVIADO_FORNECEDOR",
   PURCHASE_ORDER_SUPPLIER_ACCEPTED:"PEDIDO_COMPRA_ACEITO_FORNECEDOR",
@@ -185,7 +191,7 @@ const normalizeOrder=(data,raw,current,{newMaterials=[],siblingQuoteId=""}={})=>
   return {order:candidate,request};
 };
 
-const saveOrder=(data,command,now,{siblingQuoteId=""}={})=>{
+const saveOrder=(data,command,now,{siblingQuoteId="",proposal=null}={})=>{
   const payload=command.payload||{},sent=payload.order||{};
   const current=orderById(data,sent.id);
   // Pedido novo sem número digitado: o servidor numera sob a trava da linha.
@@ -213,6 +219,8 @@ const saveOrder=(data,command,now,{siblingQuoteId=""}={})=>{
   const normalized=normalizeOrder(withCatalog,raw,current,{newMaterials:materialResult.materials,siblingQuoteId});
   if(normalized.error)return fail(normalized.error);
   const actor=actorOf(command);
+  const terms=preserveOrderTerms(withCatalog,current,normalized.order,command,now,{proposal});
+  if(terms.error)return fail(terms.error);
   const totalNew=orderTotalCents(normalized.order)/100;
   const raisesTotal=!current||totalNew>orderTotalCents(current)/100+0.005;
   if(raisesTotal&&!pedidoDentroDaAlcada(withCatalog,{total:totalNew,request:normalized.request,actorRole:command.actorRole})){
@@ -220,7 +228,7 @@ const saveOrder=(data,command,now,{siblingQuoteId=""}={})=>{
     return fail(`Pedido acima de ${limite} precisa de aprovação do Administrador: lance pela solicitação aprovada por ele ou peça ao Administrador para lançar.`);
   }
   const saved={
-    ...normalized.order,
+    ...terms.order,
     version:current?versionOf(current)+1:1,
     criadoEm:current?.criadoEm||now,criadoPorId:current?.criadoPorId||actor.id,
     criadoPor:current?.criadoPor||actor.nome,
@@ -263,6 +271,7 @@ const saveOrder=(data,command,now,{siblingQuoteId=""}={})=>{
 // já aplica aos itens do pedido (createFromQuote copia esses mesmos campos
 // da cotação para o item do pedido - validar aqui só antecipa o erro).
 const normalizeQuote=(data,raw,current,now)=>{
+  for(const p of raw.propostas||[]){const terms=normalizeOrderTerms(p);if(terms.error)return terms;}
   const id=String(raw.id||"");
   if(!id)return {error:"Cotação sem identificação única."};
   const obraId=String(raw.obraId||current?.obraId||"");
@@ -278,11 +287,11 @@ const normalizeQuote=(data,raw,current,now)=>{
     .filter(item=>item?.fornecedorId&&Number(item.precoUnit)>0)
     .map(item=>({
       id:String(item.id||""),fornecedorId:String(item.fornecedorId),
-      precoUnit:Number(item.precoUnit),prazoDias:Number(item.prazoDias||0),
+      precoUnit:Number(item.precoUnit),prazoDias:item.prazoDias==null||item.prazoDias===""?null:Number(item.prazoDias),
       obs:String(item.obs||""),
       documentos:Array.isArray(item.documentos)?item.documentos.map(doc=>({...doc})):[],
       ...(item.custoFinal?{custoFinal:{...item.custoFinal}}:{}),
-      condicoesPagamento:String(item.condicoesPagamento||""),
+      ...normalizeOrderTerms(item).fields,
     }));
   if(proposals.length<2)return {error:"Uma cotação precisa de ao menos 2 propostas."};
   if(proposals.some(item=>!item.id||!supplierById(data,item.fornecedorId))){
@@ -369,16 +378,17 @@ const normalizeQuoteMap=(data,raw,current,now,{id,obraId})=>{
   const proposals=[];
   for(const item of raw.propostas||[]){
     if(!item?.fornecedorId)continue;
+    const terms=normalizeOrderTerms(item);if(terms.error)return terms;
     const precos=Object.fromEntries(Object.entries(item.precos||{})
       .filter(([itemId,value])=>ids.has(itemId)&&Number.isFinite(Number(value))&&Number(value)>0)
       .map(([itemId,value])=>[itemId,Number(value)]));
     if(!Object.keys(precos).length)continue;
     proposals.push({
       id:String(item.id||""),fornecedorId:String(item.fornecedorId),precos,
-      prazoDias:Number(item.prazoDias||0),obs:String(item.obs||""),
+      prazoDias:item.prazoDias==null||item.prazoDias===""?null:Number(item.prazoDias),obs:String(item.obs||""),
       documentos:Array.isArray(item.documentos)?item.documentos.map(doc=>({...doc})):[],
       ...(item.custoFinal?{custoFinal:{...item.custoFinal}}:{}),
-      condicoesPagamento:String(item.condicoesPagamento||""),
+      ...terms.fields,
     });
   }
   if(proposals.length<2)return {error:"Uma cotação precisa de ao menos 2 propostas."};
@@ -399,7 +409,8 @@ const normalizeQuoteMap=(data,raw,current,now,{id,obraId})=>{
         ||Math.abs(after.qtd-Number(before?.qtd||0))>1e-9
         ||Math.abs(Number(proposal.precos[itemId]||0)-Number(oldProposal?.precos?.[itemId]||0))>1e-9
         ||JSON.stringify(proposal.custoFinal)!==JSON.stringify(oldProposal?.custoFinal)
-        ||String(proposal.condicoesPagamento||"")!==String(oldProposal?.condicoesPagamento||"");
+        ||Object.keys(ORDER_TERM_FIELDS).some(key=>String(proposal[key]||"")!==String(oldProposal?.[key]||""))
+        ||Number(proposal.prazoDias)!==Number(oldProposal?.prazoDias||0);
     });
     if(changed)return {error:"Um item que já virou pedido não pode ser alterado na cotação."};
   }
@@ -435,6 +446,9 @@ const saveQuote=(data,command,now)=>{
   const actor=actorOf(command);
   const saved={
     ...normalized.quote,
+    ...(current?.numero?{numero:current.numero}:{}),
+    respostasFornecedor:current?.respostasFornecedor||[],
+    enviosFornecedor:current?.enviosFornecedor||[],
     status:"aberta",escolhida:current?.escolhida||"",pedidoId:current?.pedidoId||"",
     version:current?versionOf(current)+1:1,
     criadoEm:current?.criadoEm||now,criadoPorId:current?.criadoPorId||actor.id,
@@ -463,6 +477,7 @@ const createFromQuote=(data,command,now)=>{
   }
   const proposal=(quote.propostas||[]).find(item=>String(item.id)===String(payload.proposalId));
   if(!proposal)return fail("A proposta escolhida não pertence à cotação.");
+  if((quote.respostasFornecedor||[]).some(r=>r.proposalId===proposal.id&&r.status==="pendente"))return fail("Revise a resposta do fornecedor antes de decidir.");
   if(proposal.custoFinal)return fail("Use a decisão do mapa para incluir o custo final da proposta.");
   const prices=(quote.propostas||[]).map(item=>Number(item.precoUnit||0)).filter(value=>value>0);
   if(prices.length<2)return fail("A cotação precisa de ao menos duas propostas válidas.");
@@ -485,9 +500,10 @@ const createFromQuote=(data,command,now)=>{
       unidadeRef:quote.unidadeRef||"",unidadeCompra:quote.unidadeCompra||quote.unidadeRef||"",
       fatorConversao:Number(quote.fatorConversao||1),precoRef:Number(quote.precoRef||0),
     }],
+    ...normalizeOrderTerms(proposal).fields,
     pagamentos:[],documentos:[],obs:"",
   };
-  const saved=saveOrder(data,{...command,expectedVersion:0,payload:{order:raw}},now);
+  const saved=saveOrder(data,{...command,expectedVersion:0,payload:{order:raw}},now,{proposal});
   if(!saved.ok)return saved;
   const actor=actorOf(command);
   const highest=Math.max(...prices);
@@ -532,7 +548,7 @@ const decideQuoteMap=(data,command,now)=>{
     const proposal=(quote.propostas||[]).find(item=>item.id===group.propostaId);
     const raw={
       custoFinal:proposal?.custoFinal?{...proposal.custoFinal}:null,
-      condicoesPagamento:proposal?.condicoesPagamento||"",
+      ...normalizeOrderTerms(proposal||{}).fields,
       id:orderId,numero:String(orders[group.fornecedorId]?.number||"").trim(),obraId:quote.obraId,
       fornecedorId:group.fornecedorId,data:date,previsao:String(payload.forecast||""),
       status:"enviado",origemPagamento:"empresa",
@@ -548,7 +564,7 @@ const decideQuoteMap=(data,command,now)=>{
       })),
       pagamentos:[],documentos:[],obs:"",
     };
-    const saved=saveOrder(next,{...command,expectedVersion:0,payload:{order:raw}},now,{siblingQuoteId:quote.id});
+    const saved=saveOrder(next,{...command,expectedVersion:0,payload:{order:raw}},now,{siblingQuoteId:quote.id,proposal});
     if(!saved.ok)return saved;
     next=saved.data;
     created.push({orderId,group});
@@ -654,7 +670,9 @@ const acceptOrderBySupplier=(data,command,now)=>{
   // ela que dispara o alerta de atraso); a anterior fica registrada.
   const previsao=forecast&&forecast!==found.order.previsao
     ?{previsao:forecast,previsaoAnterior:found.order.previsao||""}:{};
-  return replaceOrder(data,found.order,now,actor,{...previsao,aceiteFornecedor:{
+  const terms=preserveOrderTerms(data,found.order,{...found.order,...previsao},command,now,{reason:"Previsão confirmada no aceite do fornecedor."});
+  if(terms.error)return fail(terms.error);
+  return replaceOrder(data,found.order,now,actor,{...previsao,...(terms.order.historicoCondicoesPedido?{historicoCondicoesPedido:terms.order.historicoCondicoesPedido}:{}),aceiteFornecedor:{
     nome,data:date,canal:channel,previsaoConfirmada:forecast,
     observacao:String(payload.note||"").trim().slice(0,500),
     registradoEm:now,registradoPorId:actor.id,registradoPor:actor.nome,
@@ -761,7 +779,7 @@ export const purchaseOrderCommandObraId=(data={},command={})=>{
   if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_QUOTE_DOCUMENT_ATTACHED){
     return String(quoteById(data,payload.quoteId)?.obraId||"");
   }
-  if(command.type===PURCHASE_ORDER_COMMAND.QUOTE_MAP_DECIDED){
+  if([PURCHASE_ORDER_COMMAND.QUOTE_MAP_DECIDED,PURCHASE_ORDER_COMMAND.QUOTE_SUPPLIER_RESPONSE_REVIEWED,PURCHASE_ORDER_COMMAND.QUOTE_SUPPLIER_DISPATCH_RECORDED,PURCHASE_ORDER_COMMAND.QUOTE_SUPPLIER_DISPATCH_UPDATED].includes(command.type)){
     return String(quoteById(data,payload.quoteId)?.obraId||"");
   }
   return "";
@@ -769,6 +787,9 @@ export const purchaseOrderCommandObraId=(data={},command={})=>{
 
 export const applyPurchaseOrderCommand=(data={},command={},now=new Date().toISOString())=>{
   if(!PURCHASE_ORDER_COMMAND_TYPES.has(command.type))return null;
+  if(command.type===PURCHASE_ORDER_COMMAND.QUOTE_SUPPLIER_RESPONSE_REVIEWED)return reviewSupplierResponse(data,command,now);
+  if(command.type===PURCHASE_ORDER_COMMAND.QUOTE_SUPPLIER_DISPATCH_RECORDED)return mutateQuoteDispatch(data,command,now);
+  if(command.type===PURCHASE_ORDER_COMMAND.QUOTE_SUPPLIER_DISPATCH_UPDATED)return mutateQuoteDispatch(data,command,now,true);
   if(!command.actorId)return fail("Sessão do usuário indisponível para alterar pedidos.");
   if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_SAVED)return saveOrder(data,command,now);
   if(command.type===PURCHASE_ORDER_COMMAND.PURCHASE_ORDER_CREATED_FROM_QUOTE){

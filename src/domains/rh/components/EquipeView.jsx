@@ -1,3 +1,4 @@
+import { PageHeader } from "../../../design-system/patterns/PageHeader";
 // ===================================================================
 // EquipeView — tela "Equipes" (cadastro/gestão de funcionários),
 // extraída de src/LegacyApp.jsx em 2026-08-20, mesma técnica já usada
@@ -8,7 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {
-  Badge, Btn, C, Divider, Ic, Inp, Modal, PageHero, Sel, TYPO,
+  Badge, Btn, C, Divider, Ic, Inp, Modal, Sel, TYPO,
   fmt, fmtDate, fmtDateFull, gerarFichaFuncionarioPDF, today, uid,
 } from "../../../LegacyApp";
 import { overdue } from "../../seguranca/calculations";
@@ -388,14 +389,14 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
   const lifecycleColor={ativo:C.green,desligamento_agendado:C.orange,desligado:C.muted,arquivado:C.red};
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth:1280, margin:"0 auto" }}>
-      <PageHero
-        eyebrow="Recursos Humanos"
+    <div className="anim people-workspace" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header"
         title="Equipes"
         description="Pessoas, lotação e dados trabalhistas em uma visão única."
-        actions={<Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setFormErrors({}); setModal(true); }}><Ic n="plus" /> Cadastrar funcionário</Btn>}
+        primaryAction={<Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setFormErrors({}); setModal(true); }}><Ic n="plus" /> Cadastrar funcionário</Btn>}
       />
 
+      <label className="team-status-select">Situação da equipe<select value={statusFilter} onChange={event=>setStatusFilter(event.target.value)}>{[["ativo","Ativos"],["desligamento_agendado","Agendados"],["desligado","Desligados"],["arquivado","Arquivados"],["todos","Todas as situações"]].map(([v,l])=><option key={v} value={v}>{l} · {v==="todos"?(data.employees||[]).length:lifecycleCounts[v]||0}</option>)}</select></label>
       <div className="team-summary" aria-label="Resumo e filtros por situação">
         {[
           ["ativo","Ativos",lifecycleCounts.ativo||0],

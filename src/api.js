@@ -627,3 +627,5 @@ export const enviarArquivoOneDriveEmPartes=async({file,...payload})=>{
 };
 
 export const obterLinkArquivoOneDrive = payload => chamarOneDrive("file-link", payload);
+
+export const gerarLinkRespostaCotacao = (quoteId,proposalId) => chamar({action:"cotacao-fornecedor-link",...credenciais(),quoteId,proposalId});

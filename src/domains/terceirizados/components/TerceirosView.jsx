@@ -48,6 +48,7 @@ import {
   isVisibleThirdPartyContract,
 } from "../lifecycle";
 import { enviarArquivoOneDrive } from "../../../api";
+import { ProgressPercentageField } from "../../medicoes/components/ProgressPercentageField.jsx";
 
 export default function Terceiros({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchCommand=null, contratoInicial=null }) {
   const { formGrid } = useBreakpoint();
@@ -96,6 +97,7 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
   const [riscoSemFotoAceito,setRiscoSemFotoAceito]=useState(false);
   const [thirdPartyCommandPending,setThirdPartyCommandPending]=useState(false);
   const inputFotosMedRef=useRef(null);
+  const inputCameraMedRef=useRef(null);
   const podeRegistrarEvidencia=podeGerenciarMedicoes&&currentUser?.active!==false;
 
   const F = k => v => setForm(f => ({ ...f, [k]: v }));
@@ -556,6 +558,9 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
   // Avanco fisico ponderado pelo valor de cada etapa - nao pela contagem.
   const pctFisico    = somaEtapas > 0
     ? etapasTerc.reduce((s, e) => s + Number(e.valor || 0) * (acumuladoPorEtapa[e.id] || 0) / 100, 0) / somaEtapas * 100
+    : 0;
+  const pctFisicoProposto = somaEtapas > 0
+    ? etapasTerc.reduce((sum, etapa) => sum + Number(etapa.valor || 0) * pct(medForm.pcts?.[etapa.id] ?? acumuladoPorEtapa[etapa.id]), 0) / somaEtapas
     : 0;
 
   const salvarEtapasNoServidor = async (etapas, mensagem) => {
@@ -2001,39 +2006,40 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
       {/* Modal: registrar pagamento */}
       {medModal && tercAtual && (
         <Modal title={medEditId?`Corrigir medição - ${tercAtual.name}`:`Medição ${medicoesTercAtual.length + 1} - ${tercAtual.name}`}
-          onClose={()=>{setMedModal(false);setMedEditId("");}} wide>
+          onClose={()=>{setMedModal(false);setMedEditId("");}} wide panelClass="measurement-entry-modal"
+          footer={<div className="measurement-entry-actions">
+            <Btn v="ghost" full onClick={()=>{setMedModal(false);setMedEditId("");}}>Cancelar</Btn>
+            <Btn full onClick={salvarMedicao} disabled={subindoFotosMed||thirdPartyCommandPending}><Ic n="check"/> {thirdPartyCommandPending?"Confirmando...":medEditId?"Corrigir e reenviar":"Confirmar e enviar para aprovação"}</Btn>
+          </div>}>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
             <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, lineHeight:1.55 }}>
               Informe o percentual <b>acumulado</b> de cada etapa - o total executado até hoje, não o avanço da semana.
               O app calcula a diferença para a medição anterior e valoriza só o que avançou.
             </p>
             <Inp label="Data da medição" type="date" value={medForm.data} onChange={v=>setMedForm(f=>({...f,data:v}))}/>
+            {somaEtapas > 0 && <p aria-label="Evolução percentual do contrato">
+              Evolução acumulada do contrato: <strong>{pctFisico.toFixed(1)}% → {pctFisicoProposto.toFixed(1)}%</strong>
+            </p>}
 
             <div style={{ border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden" }}>
-              {etapasTerc.map((e, i) => {
+              {etapasTerc.map(e => {
                 const anterior = Number(acumuladoPorEtapa[e.id] || 0);
                 const atual    = pct(medForm.pcts?.[e.id] ?? anterior);
                 const delta    = atual - anterior;
                 const valor    = Number(e.valor || 0) * delta / 100;
                 return (
-                  <div key={e.id} style={{ padding:"9px 11px", borderTop:i?`1px solid ${C.line}`:0,
-                                           display:"grid", gridTemplateColumns:"minmax(0,1fr) 84px 96px", gap:8, alignItems:"center" }}>
-                    <div style={{ minWidth:0 }}>
-                      <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.text }}>{e.nome}</p>
+                  <div key={e.id} className="measurement-entry-row">
+                    <ProgressPercentageField label={`Percentual de ${e.nome}`} value={medForm.pcts?.[e.id] ?? String(anterior)} previous={anterior}
+                      disabled={thirdPartyCommandPending}
+                      onChange={value=>setMedForm(f=>({...f,pcts:{...f.pcts,[e.id]:value}}))} />
+                    <div className="measurement-entry-summary">
                       <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginTop:2 }}>
-                        {fmt(e.valor)} · anterior {anterior.toFixed(1)}%
+                        Etapa: {fmt(e.valor)}
                       </p>
-                    </div>
-                    <input type="number" step="any" inputMode="decimal" min={0} max={100}
-                      value={medForm.pcts?.[e.id] ?? ""}
-                      onChange={ev=>setMedForm(f=>({...f, pcts:{...f.pcts, [e.id]:ev.target.value}}))}
-                      style={{ width:"100%", boxSizing:"border-box", background:C.bg,
-                               border:`1.5px solid ${delta<0?C.red:delta>0?C.green:C.line}`,
-                               color:C.text, padding:"7px 8px", borderRadius:7, fontSize:"var(--arcd-type-control)", textAlign:"right",
-                               outline:"none", fontFamily:"var(--arcd-font-sans)" }}/>
-                    <div style={{ textAlign:"right" }}>
-                      <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:delta<0?C.red:delta>0?C.green:C.muted }}>{fmt(valor)}</p>
-                      <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>{delta>0?"+":""}{delta.toFixed(1)} p.p.</p>
+                      <div style={{ textAlign:"right" }}>
+                        <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:delta<0?C.red:delta>0?C.green:C.muted }}>{fmt(valor)}</p>
+                        <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>{delta>0?"+":""}{delta.toFixed(1)} p.p.</p>
+                      </div>
                     </div>
                   </div>
                 );
@@ -2063,18 +2069,22 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
               placeholder="Ex.: pendente o quadro do 2º pavimento"/>
 
             <div style={{background:C.surface,border:`1px solid ${(medForm.fotos||[]).length?C.green:C.orange}66`,borderRadius:9,padding:"11px 12px"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:9,flexWrap:"wrap"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,textTransform:"uppercase"}}>Evidência fotográfica obrigatória</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>As imagens ficam na pasta de fotos da obra e identificam o engenheiro responsável.</p></div><Btn size="sm" v={(medForm.fotos||[]).length?"ghost":"warning"} onClick={()=>inputFotosMedRef.current?.click()} disabled={subindoFotosMed}><Ic n="camera"/> {subindoFotosMed?"Enviando...":"Adicionar fotos"}</Btn><input ref={inputFotosMedRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/></div>
-              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:7,marginTop:9}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:`1px solid ${C.border}`}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600,marginTop:8}}>Nenhuma fotografia anexada. Clique em “Confirmar e enviar para aprovação” para selecionar a evidência.</p>}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:9,flexWrap:"wrap"}}>
+                <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,textTransform:"uppercase"}}>Evidência fotográfica obrigatória</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>As imagens ficam na pasta de fotos da obra e identificam o engenheiro responsável.</p></div>
+                <div className="flex flex-wrap gap-2">
+                  <Btn size="sm" v="ghost" onClick={()=>inputFotosMedRef.current?.click()} disabled={subindoFotosMed||thirdPartyCommandPending}>{subindoFotosMed?"Enviando...":"Escolher da galeria"}</Btn>
+                  <Btn size="sm" v="ghost" onClick={()=>inputCameraMedRef.current?.click()} disabled={subindoFotosMed||thirdPartyCommandPending}>Tirar foto</Btn>
+                </div>
+                <input ref={inputFotosMedRef} aria-label="Fotos da galeria para a medição" type="file" accept="image/*" multiple disabled={subindoFotosMed||thirdPartyCommandPending} style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/>
+                <input ref={inputCameraMedRef} aria-label="Foto da câmera para a medição" type="file" accept="image/*" capture="environment" disabled={subindoFotosMed||thirdPartyCommandPending} style={{display:"none"}} onChange={e=>{void anexarFotosMedicao(e.target.files);e.target.value="";}}/>
+              </div>
+              {(medForm.fotos||[]).length?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(86px,1fr))",gap:7,marginTop:9}}>{(medForm.fotos||[]).map((f,i)=><div key={f.id||i} style={{minWidth:0}}><a href={f.url} target="_blank" rel="noopener noreferrer" style={{display:"block",aspectRatio:"1/1",borderRadius:7,overflow:"hidden",border:`1px solid ${C.border}`}}><img src={f.url} alt={`Evidência ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/></a><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>Foto {i+1} · {currentUser?.nome}</p></div>)}</div>:<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600,marginTop:8}}>Nenhuma fotografia anexada. Escolha fotos da galeria ou tire uma foto da execução.</p>}
             </div>
 
             <div style={{background:`${C.green}0B`,border:`1px solid ${C.green}44`,borderRadius:8,padding:"8px 11px"}}>
               <p style={{fontSize:"var(--arcd-type-label)",color:C.green,fontWeight:600,lineHeight:1.45}}>Ao confirmar, a medição é enviada para aprovação do financeiro. Só depois de aprovada ela é reconhecida como despesa de terceirizado no DRE; o pagamento continua sendo apenas a baixa financeira dessa obrigação.</p>
             </div>
 
-            <div style={{ display:"flex", gap:8 }}>
-              <Btn v="ghost" full onClick={()=>{setMedModal(false);setMedEditId("");}}>Cancelar</Btn>
-              <Btn full onClick={salvarMedicao} disabled={subindoFotosMed||thirdPartyCommandPending}><Ic n="check"/> {thirdPartyCommandPending?"Confirmando...":medEditId?"Corrigir e reenviar":"Confirmar e enviar para aprovação"}</Btn>
-            </div>
           </div>
         </Modal>
       )}

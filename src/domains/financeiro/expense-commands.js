@@ -122,6 +122,7 @@ export const applyExpenseCommand=(data={},command={},now=new Date().toISOString(
   try{
     const result=replicateCompanyRecurringExpenses({
       data,fromCompetence:payload.fromCompetence,toCompetence:payload.toCompetence,
+      sourceIds:payload.sourceIds,previewFingerprint:payload.previewFingerprint,
       actor,ids,now,
     });
     const {copied,...next}=result;

@@ -3,6 +3,7 @@ import { ArrowRight, CheckCircle2, ClipboardList, Search } from "lucide-react";
 import { Button } from "../../../design-system/primitives/Button";
 import { Input } from "../../../design-system/primitives/Input";
 import { Select } from "../../../design-system/primitives/Select";
+import { WorkspaceNavigation, WorkspaceFilters } from "../../../design-system/patterns/WorkspaceNavigation.jsx";
 import { matchesPurchaseSearch } from "../workspace";
 import { AGRUPAMENTOS_FILA, agruparFilaCompras, linhaAtrasada, resumoDaFila } from "../queue-groups";
 import "./purchase-workspace.css";
@@ -14,19 +15,9 @@ export const PURCHASE_AREAS = [
 export const PURCHASE_AREA_LABELS = { fila:"Fila de trabalho", aprovacoes:"Aprovações", recebimentos:"Recebimentos" };
 
 export function PurchaseNavigation({ area, onNavigate, counts, financeCount, otherAreas }) {
-  return <div className="purchase-navigation">
-    <nav className="purchase-primary-nav" aria-label="Fluxo de compras">
-      {[...PURCHASE_AREAS,["financeiro","Pagamentos"]].map(([id, label]) => <button key={id} type="button" aria-current={area === id ? "page" : undefined}
-        onClick={() => onNavigate(id)}><span>{label}</span><b>{id === "financeiro" ? financeCount : id === "fila" ? Object.values(counts).reduce((a, b) => a + b, 0) : counts[id] || 0}</b></button>)}
-    </nav>
-    <nav className="purchase-secondary-nav" aria-label="Financeiro e consultas de compras">
-      <span>Acompanhamento</span>
-      <button type="button" aria-current={area === "historico_compras" ? "page" : undefined} onClick={() => onNavigate("historico_compras")}>Histórico de compras</button>
-      <details className="purchase-tools" key={area}><summary>{otherAreas.find(([id]) => id === area)?.[1] ? `Consultas e cadastros · ${otherAreas.find(([id]) => id === area)[1]}` : "Consultas e cadastros"}</summary><div>
-        {otherAreas.map(([id, label]) => <button key={id} type="button" onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); onNavigate(id); }} aria-current={area === id ? "page" : undefined}>{label}</button>)}
-      </div></details>
-    </nav>
-  </div>;
+  return <WorkspaceNavigation className="purchase-navigation" label="Fluxo de compras" active={area} onChange={onNavigate}
+    items={[...PURCHASE_AREAS,["financeiro","Pagamentos"]].map(([id,label]) => ({id,label,count:id === "financeiro" ? financeCount : id === "fila" ? Object.values(counts).reduce((a,b) => a+b,0) : counts[id] || 0}))}
+    toolsLabel="Consultas e cadastros" toolsClassName="purchase-tools" tools={[["historico_compras","Histórico de compras"],["precos","Preços por material"],...otherAreas].map(([id,label]) => ({id,label}))}/>;
 }
 
 const stageLabels = {solicitacoes:"Solicitação", cotacoes:"Cotação", aprovacoes:"Aprovação", pedidos:"Pedido", recebimentos:"Recebimento"};
@@ -64,17 +55,17 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
       <h3>{area === "aprovacoes" ? "Decisões antes da compra" : area === "recebimentos" ? "O que precisa chegar à obra" : "O que precisa da sua atenção"}</h3>
       <p className="purchase-scope">{scope}</p><p>{area === "aprovacoes" ? "Consulte o bloqueio e os aprovadores. Somente pessoas elegíveis podem registrar uma decisão."
         : area === "recebimentos" ? "Confira a chegada real dos materiais. Recebimento e pagamento são acompanhados separadamente."
-          : "Priorize por prazo e abra a próxima ação. Os filtros permanecem ao voltar dos detalhes."}</p></div><ClipboardList size={26} aria-hidden="true"/></div>
+          : "Solicitações, cotações e entregas por prazo."}</p></div><ClipboardList size={26} aria-hidden="true"/></div>
     {area === "fila" && <div className="purchase-queue-metrics" aria-label="Prioridades da fila">
       <button type="button" aria-pressed={!filters.risk && !filters.stage} onClick={() => patch({risk:"",stage:""})}><span>Em andamento</span><strong>{source.length}</strong><small>Solicitações, cotações e entregas{moneyHint(totals.valor)}</small></button>
       <button type="button" data-tone={model.overdue>0?"danger":undefined} aria-pressed={filters.risk === "overdue"} onClick={() => patch({risk:"overdue",stage:""})}><span>Prazo vencido</span><strong>{model.overdue}</strong><small>Tratar o atraso com a obra{moneyHint(totals.valorAtrasado)}</small></button>
       <button type="button" data-tone={model.attention>0?"warning":undefined} aria-pressed={filters.risk === "soon"} onClick={() => patch({risk:"soon",stage:""})}><span>Atenção ao prazo</span><strong>{model.attention}</strong><small>Vence hoje ou nos próximos 3 dias{moneyHint(source.filter(row => row.deadline.tone === "warning").reduce((sum, row) => sum + Number(row.total || 0), 0))}</small></button>
       <button type="button" aria-pressed={filters.stage === "aprovacoes"} onClick={() => patch({stage:"aprovacoes",risk:""})}><span>Em aprovação</span><strong>{model.counts.aprovacoes}</strong><small>Decisão ou configuração pendente</small></button>
     </div>}
-    {area === "fila" && afterMetrics}
     <div className="purchase-queue-panel">
       <div className="purchase-queue-filters">
         <Input label="Buscar na fila" name="purchase-search" autoComplete="off" value={filters.query} onChange={event => patch({query:event.target.value})} placeholder="Ex.: cimento Alameda…"/>
+        <WorkspaceFilters activeCount={[filters.stage,filters.risk,filters.group].filter(Boolean).length}>
         {area === "fila" && <Select label="Etapa do fluxo" value={filters.stage} onChange={event => patch({stage:event.target.value})}
           options={[{value:"",label:"Todas as etapas"},...Object.entries(stageLabels).map(([value,label]) => ({value,label}))]}/>}
         <Select label="Prazo" value={filters.risk} onChange={event => patch({risk:event.target.value})}
@@ -82,10 +73,12 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
         <Select label="Agrupar por" value={filters.group || ""} onChange={event => patch({group:event.target.value})}
           options={[{value:"",label:"Sem agrupamento"},...Object.entries(AGRUPAMENTOS_FILA).map(([value,label]) => ({value,label}))]}/>
         {filtered && <Button variant="ghost" onClick={clear}>Limpar filtros</Button>}
+        {exportButton && <div className="workspace-export-mobile">{exportButton(rows)}</div>}
+        </WorkspaceFilters>
       </div>
       <div className="purchase-order-count-row">
         <p className="purchase-result-count" role="status">{rows.length} registro(s){filtered ? ` de ${source.length}` : ""}{moneyHint(resumoDaFila(rows).valor)} · {groups.length ? `${groups.length} grupo(s), mais atrasados primeiro` : "prioridades por prazo"}</p>
-        {exportButton?.(rows)}
+        {exportButton && <div className="workspace-export-desktop">{exportButton(rows)}</div>}
       </div>
       {rows.length ? <div className="purchase-table-scroll" tabIndex={0} role="region" aria-label="Registros da fila de compras"><table className="purchase-queue-table">
         <caption className="purchase-sr-only">Compras em andamento com obra, prazo e próxima ação</caption>
@@ -108,5 +101,6 @@ export function PurchaseWorkspace({ model, area, filters, onFiltersChange, onOpe
         {filtered && <Button variant="secondary" onClick={clear}>Mostrar todos os registros</Button>}</div>}
       {!groups.length && rows.length > 20 && <div className="purchase-pagination"><Button variant="secondary" size="sm" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}>Anterior</Button><span>Página {currentPage + 1} de {Math.ceil(rows.length / 20)}</span><Button variant="secondary" size="sm" disabled={(currentPage + 1) * 20 >= rows.length} onClick={() => setPage(currentPage + 1)}>Próxima</Button></div>}
     </div>
+    {area === "fila" && afterMetrics && <details className="workspace-disclosure"><summary>Comparar compras por obra</summary>{afterMetrics}</details>}
   </section>;
 }

@@ -1,3 +1,10 @@
+import {planningPurchaseNeeds,planningRequestDraft} from "../../planejamento/purchase-needs.js";
+import {useWorkspaceState,useWorkspaceScroll} from "../../../features/workflow/workspace-session.jsx";
+import SupplierResponseQueue from "./SupplierResponseQueue";
+import {OrderTermsFields} from "./OrderConditions";
+import {ORDER_TERM_FIELDS} from "../order-terms";
+import QuoteComparisonWorkspace from "./QuoteComparisonWorkspace";
+import MaterialPriceHistory from "./MaterialPriceHistory";
 import { CommercialTerms, CostComparison } from "./PurchaseFinalCost";
 import { PurchaseDossier } from "./PurchaseDossier";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
@@ -15,7 +22,7 @@ import { DreIntegration, useRememberWorkflowScope, useWorkflow } from "../../../
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "../../../components/charts/LazyRecharts";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import {
@@ -36,7 +43,7 @@ import {
   STATUS_PEDIDO, statusPedido, totalPedido, recebidoPedido, pendentePedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
   pedidoLiberadoParaReceber, origemPagamentoLabel, situacaoCaixaObra,
-  historicoPrecoTodos, analisePreco, mapaGerencialCompras,
+  historicoPrecoTodos, mapaGerencialCompras,
 } from "../calculations";
 import { canManagePurchases } from "../permissions";
 import { buildPurchaseWorkspace, matchesPurchaseSearch } from "../workspace";
@@ -51,11 +58,13 @@ import {
 } from "../export-sheets";
 import { Button } from "../../../design-system/primitives/Button";
 import { Select } from "../../../design-system/primitives/Select";
+import { PageHeader } from "../../../design-system/patterns/PageHeader.jsx";
+import { WorkspaceFilters } from "../../../design-system/patterns/WorkspaceNavigation.jsx";
 import { conferenciaPagamentoPedido } from "../payment-conference";
 import { movementOfOrder } from "../purchase-cancellation-command";
 import { alertasOrcamentoDoPedido, segmentosBarraOrcamento } from "../budget-tracking";
 import { contratosDisponiveis, saldoItemContrato } from "../supply-contracts";
-import ContratosFornecimentoView from "./ContratosFornecimentoView";
+import PurchaseContractsWorkspace from "./PurchaseContractsWorkspace";
 import { atrasoDoItem } from "../delivery-schedule";
 import { linhaAtrasada, mensagemCobrancaFornecedor } from "../queue-groups";
 import {
@@ -64,7 +73,7 @@ import {
 import { OrderActionMenu } from "./OrderActionMenu";
 import { ModalRecebimento } from "./ReceiptModal";
 import { montarRecebimento } from "../receipt";
-import { avaliacoesFornecedores, explicacaoNotaFornecedor, textoNotaFornecedor } from "../supplier-rating";
+import { avaliacoesFornecedores, textoNotaFornecedor } from "../supplier-rating";
 import {
   avaliarEscolhasCotacao, cotacaoMultiItens, decisoesDaCotacao, escolhaPrecisaJustificativa,
   itensDaCotacao, itensPendentesDaCotacao, mapaDaCotacao, precoDaProposta, sugestaoDeEscolhas,
@@ -206,6 +215,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
 
   const resumo=purchaseRequestSummary(form);
   return <Modal title={form.id?`Editar solicitação ${form.numero||""}`:"Solicitar materiais para Compras"} onClose={fechar} wide panelClass="purchase-request-modal"><div className="purchase-request-flow"><fieldset className="purchase-request-fields" disabled={salvando}>
+    {form.planningOrigin&&<section className="purchase-request-origin" aria-label="Origem no planejamento"><strong>Planejamento · {form.planningOrigin.taskName}</strong><p>Obra e data vieram do cronograma. Confirme as quantidades abaixo após conferir o estoque e os pedidos existentes; a referência corresponde à etapa inteira.</p>{form.planningOrigin.excludedCount>0&&<p>{form.planningOrigin.excludedCount} linha(s) sem vínculo ou unidade confirmados não foram incluídas. Revise no orçamento.</p>}</section>}
     <section className="purchase-request-section"><header><span>1</span><div><h3>Contexto da solicitação</h3><p>Defina onde e quando os materiais precisam chegar.</p></div></header>
     <div className="purchase-request-context" style={{gridTemplateColumns:formGrid(3)}}>
       <div><Sel label="Obra *" value={form.obraId} onChange={trocarObra} options={obras.map(o=>({v:o.id,l:o.name}))}/>{erros.fieldErrors?.obraId&&<small className="purchase-request-error" role="alert">{erros.fieldErrors.obraId}</small>}</div>
@@ -249,6 +259,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
     </div>}
     {removido&&<div className="purchase-request-undo" role="status"><span>Material removido da solicitação.</span><button type="button" onClick={desfazerRemocao}>Desfazer</button></div>}
     <div className="purchase-request-items">{form.itens.map((item,itemIndex)=>{const itemErrors=erros.items?.find(e=>e.id===item.id)?.errors||{};return <article key={item.id} data-request-item={item.id} className="purchase-request-item">
+      {item.planningQuantity!=null&&<p className="purchase-request-planning-quantity">Referência da etapa: {Number(item.planningQuantity).toLocaleString("pt-BR")} {item.unidadeRef}. Confirme a quantidade a comprar.</p>}
       <div className="purchase-request-item-main">
         <div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,marginBottom:3}}>FONTE</p><b style={{fontSize:"var(--arcd-type-label)",color:item.fonteRef==="ORSE"?C.purple:item.fonteRef==="PRÓPRIO"?C.orange:C.blue}}>{item.fonteRef}</b></div>
         <Inp label="Código" value={item.codigoRef} onChange={v=>setItem(item.id,"codigoRef",v)} placeholder="Opcional"/>
@@ -397,6 +408,7 @@ function ModalPedido({ form, setForm, onSave, fornecedores, materiais, linhasOrc
                options={[{v:"empresa",l:"Conta da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente paga diretamente"}]}/>
         </div>
 
+        <OrderTermsFields value={form} onChange={(key,value)=>F(key)(value)}/>
         <div style={{background:form.origemPagamento==="cliente_direto"?`${C.blue}0C`:`${C.green}0C`,border:`1px solid ${form.origemPagamento==="cliente_direto"?C.blue:C.green}55`,borderRadius:7,padding:"8px 10px"}}>
           <p style={{fontSize:"var(--arcd-type-label)",color:form.origemPagamento==="cliente_direto"?C.blue:C.green,fontWeight:600}}>
             {form.origemPagamento==="cliente_direto"
@@ -692,10 +704,12 @@ function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOr
 
 export default function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD_SETOR, dispatchCommand:rawDispatchCommand=null }) {
   const { cols, pick, isDesktop } = useBreakpoint();
-  const {scopes}=useWorkflow();
+  const {scopes,intent,navigate}=useWorkflow();
+  const useSessionState=(key,initial)=>useWorkspaceState("cmp",key,initial,obraIdFixo);
+  useWorkspaceScroll("cmp",obraIdFixo);
   const savedScope=scopes.cmp;
   const {save, dispatch:dispatchCommand} = usePurchaseSave(rawDispatchCommand);
-  const [filtrosFluxo,setFiltrosFluxo] = useState({query:"",stage:"",risk:""});
+  const [filtrosFluxo,setFiltrosFluxo] = useSessionState("filtrosFluxo",{query:"",stage:"",risk:""});
   const [registroFoco,setRegistroFoco] = useState("");
   useEffect(()=>{
     if(!registroFoco)return;
@@ -705,10 +719,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     });
     return()=>window.cancelAnimationFrame(frame);
   },[registroFoco]);
-  const [aba,     setAba]     = useState(["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":currentUser?.role==="financeiro"?"financeiro":"fila");
-  const [obraSel, setObraSel] = useState(obraIdFixo||currentUser?.obraId||savedScope?.obraId||"");
-  const [busca,   setBusca]   = useState("");
-  const [filtroPedidos,setFiltroPedidos]=useState(FILTROS_PEDIDOS_VAZIOS);
+  const [aba,     setAba]     = useSessionState("aba",["engenheiro","engenheiro_auditor"].includes(currentUser?.role)?"solicitacoes":currentUser?.role==="financeiro"?"financeiro":"fila");
+  const [obraSel, setObraSel] = useSessionState("obraSel",obraIdFixo||currentUser?.obraId||savedScope?.obraId||"");
+  const [busca,   setBusca]   = useSessionState("busca","");
+  const [filtroPedidos,setFiltroPedidos]=useSessionState("filtroPedidos",FILTROS_PEDIDOS_VAZIOS);
 
   const [pedModal,  setPedModal]  = useState(null);
   const [recModal,  setRecModal]  = useState(null);   // recebimento
@@ -723,29 +737,27 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const [solModal,setSolModal]=useState(null);
   const [modoIA,setModoIA]=useState(false);
   const [basesReferenciaCompra,setBasesReferenciaCompra]=useState([]);
-  const [escopoHistorico,setEscopoHistorico]=useState("obra");
-  const [periodoHistorico,setPeriodoHistorico]=useState("12");
-  const [buscaFornecedorHistorico,setBuscaFornecedorHistorico]=useState("");
-  const [fornecedorHistoricoId,setFornecedorHistoricoId]=useState("");
-  const [materialHistoricoId,setMaterialHistoricoId]=useState("");
-  const [fornecedorPrecoId,setFornecedorPrecoId]=useState("");
-  const [buscaHistoricoCompra,setBuscaHistoricoCompra]=useState("");
-  const [statusHistoricoCompra,setStatusHistoricoCompra]=useState("todos");
-  const [fornecedorHistoricoCompra,setFornecedorHistoricoCompra]=useState("");
+  const [escopoHistorico,setEscopoHistorico]=useSessionState("escopoHistorico","obra");
+  const [periodoHistorico,setPeriodoHistorico]=useSessionState("periodoHistorico","12");
+  const [buscaFornecedorHistorico,setBuscaFornecedorHistorico]=useSessionState("buscaFornecedorHistorico","");
+  const [fornecedorHistoricoId,setFornecedorHistoricoId]=useSessionState("fornecedorHistoricoId","");
+  const [buscaHistoricoCompra,setBuscaHistoricoCompra]=useSessionState("buscaHistoricoCompra","");
+  const [statusHistoricoCompra,setStatusHistoricoCompra]=useSessionState("statusHistoricoCompra","todos");
+  const [fornecedorHistoricoCompra,setFornecedorHistoricoCompra]=useSessionState("fornecedorHistoricoCompra","");
   const [anexoCotacao,setAnexoCotacao]=useState(null);
   const [subindoAnexoCotacao,setSubindoAnexoCotacao]=useState(false);
   const [pagModal,setPagModal]=useState(null);
   const [excluirCompraModal,setExcluirCompraModal]=useState(null);
   const [subindoComprovantePagamento,setSubindoComprovantePagamento]=useState(false);
   const [cancelandoCompra,setCancelandoCompra]=useState(false);
-  const [filtroFinanceiro,setFiltroFinanceiro]=useState("pendentes");
-  const [buscaCotacao,setBuscaCotacao]=useState("");
-  const [statusCotacao,setStatusCotacao]=useState("todas");
-  const [inicioCotacao,setInicioCotacao]=useState("");
-  const [fimCotacao,setFimCotacao]=useState("");
-  const [cotacaoExpandida,setCotacaoExpandida]=useState("");
-  const [escopoMapa,setEscopoMapa]=useState(obraIdFixo||currentUser?.obraId||savedScope?.obraId?"obra":"empresa");
-  const [filtroKanban,setFiltroKanban]=useState("ativos");
+  const [filtroFinanceiro,setFiltroFinanceiro]=useSessionState("filtroFinanceiro","pendentes");
+  const [buscaCotacao,setBuscaCotacao]=useSessionState("buscaCotacao","");
+  const [statusCotacao,setStatusCotacao]=useSessionState("statusCotacao","todas");
+  const [inicioCotacao,setInicioCotacao]=useSessionState("inicioCotacao","");
+  const [fimCotacao,setFimCotacao]=useSessionState("fimCotacao","");
+  const [cotacaoExpandida,setCotacaoExpandida]=useSessionState("cotacaoExpandida","");
+  const [escopoMapa,setEscopoMapa]=useSessionState("escopoMapa",obraIdFixo||currentUser?.obraId||savedScope?.obraId?"obra":"empresa");
+  const [filtroKanban,setFiltroKanban]=useSessionState("filtroKanban","ativos");
 
   const obras = useMemo(()=>(data.obras || []).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId),[data.obras,currentUser?.obraId]);
   const obraAtual   = obraIdFixo || obraSel || obras[0]?.id || "";
@@ -755,6 +767,12 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const obraIdsMapa=useMemo(()=>
     escopoMapa==="empresa"&&!obraIdFixo?obras.map(o=>o.id):[obraAtual],
     [escopoMapa,obraIdFixo,obras,obraAtual]);
+  useEffect(()=>{
+    if(obraIdFixo||intent?.tabId!=="cmp"||intent.action==="resume")return;
+    const next=intent.scope?.obraId||currentUser?.obraId||"";
+    if(next&&!obras.some(work=>work.id===next))return;
+    setObraSel(next);setEscopoMapa(next?"obra":"empresa");
+  },[intent?.sequence,obraIdFixo]);
   const todasObras = escopoMapa==="empresa"&&!obraIdFixo;
   const materiais   = useMemo(() => (data.materiais||[]).filter(m => m.ativo !== false), [data.materiais]);
   const fornecedores= useMemo(() => (data.fornecedores||[]).filter(f => f.ativo !== false), [data.fornecedores]);
@@ -1047,26 +1065,6 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     });
     return [...mapa.values()].sort((a,b)=>a.mes.localeCompare(b.mes)).slice(-18).map(x=>({...x,rotulo:x.mes==="Sem data"?x.mes:new Date(`${x.mes}-02T12:00:00`).toLocaleDateString("pt-BR",{month:"short",year:"2-digit"})}));
   },[pedidosFornecedorAtual]);
-  const materiaisHistorico=useMemo(()=>materiais.map(m=>{
-    const entradas=(historicoPorMaterial.get(m.id)||[]).filter(x=>obraVisivelHistorico(x.obraId)&&(!inicioPeriodoHistorico||String(x.data||"")>=inicioPeriodoHistorico));
-    return {material:m,entradas};
-  }).filter(x=>x.entradas.length).sort((a,b)=>String(a.material.descricao||"").localeCompare(String(b.material.descricao||""))),
-  [materiais,historicoPorMaterial,obraVisivelHistorico,inicioPeriodoHistorico]);
-  const materialHistoricoAtualId=materialHistoricoId&&materiaisHistorico.some(x=>x.material.id===materialHistoricoId)
-    ?materialHistoricoId:(materiaisHistorico[0]?.material.id||"");
-  const materialHistoricoAtual=materiaisHistorico.find(x=>x.material.id===materialHistoricoAtualId);
-  const fornecedoresDoMaterial=useMemo(()=>[...new Set((materialHistoricoAtual?.entradas||[]).map(x=>x.fornecedorId).filter(Boolean))]
-    .map(id=>fornecedorPorId.get(id)).filter(Boolean).sort((a,b)=>String(a.nome||"").localeCompare(String(b.nome||""))),[materialHistoricoAtual,fornecedorPorId]);
-  const fornecedorPrecoAtualId=fornecedorPrecoId&&fornecedoresDoMaterial.some(f=>f.id===fornecedorPrecoId)?fornecedorPrecoId:"";
-  const evolucaoMaterial=useMemo(()=>[...(materialHistoricoAtual?.entradas||[])]
-    .filter(x=>!fornecedorPrecoAtualId||x.fornecedorId===fornecedorPrecoAtualId)
-    .sort((a,b)=>String(a.data||"").localeCompare(String(b.data||""))),[materialHistoricoAtual,fornecedorPrecoAtualId]);
-  const analiseMaterialAtual=useMemo(()=>analisePreco(evolucaoMaterial),[evolucaoMaterial]);
-  const dadosGraficoPreco=useMemo(()=>evolucaoMaterial.map((x,idx)=>({
-    id:`${x.pedidoId}-${idx}`,data:x.data,rotulo:x.data?new Date(`${x.data}T12:00:00`).toLocaleDateString("pt-BR",{day:"2-digit",month:"short"}):"-",
-    preco:x.preco,media:analiseMaterialAtual?.medio||0,fornecedor:fornecedorPorId.get(x.fornecedorId)?.nome||"-",obra:obraPorId.get(x.obraId)?.name||"-",qtd:x.qtd,pedido:x.pedidoNumero||"-",
-  })),[evolucaoMaterial,analiseMaterialAtual,fornecedorPorId,obraPorId]);
-
   //  Fornecedor
   const salvarForn = async (f) => {
     if (!f.nome.trim()) { showToast("Informe o nome do fornecedor.", "error"); return; }
@@ -1149,7 +1147,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       formalizadoPorId:anterior?.formalizadoPorId||currentUser?.id||"",
       formalizadoPor:anterior?.formalizadoPor||currentUser?.nome||"Engenharia",
       necessidade:f.necessidade||"",prioridade:f.prioridade||"normal",status:anterior?.status||"enviada",
-      observacao:f.observacao||"",analisadoEm:anterior?.analisadoEm||"",
+      planningOrigin:f.planningOrigin||null,observacao:f.observacao||"",analisadoEm:anterior?.analisadoEm||"",
       analisadoPor:anterior?.analisadoPor||"",pedidoId:anterior?.pedidoId||"",
       cotacaoIds:anterior?.cotacaoIds||[],aprovacaoInstanciaId:anterior?.aprovacaoInstanciaId||"",itens};
     const solicitacoesCompraBase=f.id
@@ -1368,6 +1366,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     if(estouros.length&&!window.confirm(`Este pedido estoura o orçamento de ${estouros.map(a=>a.descricao).join(", ")}. Salvar mesmo assim?`))return;
 
     const p = {
+      ...Object.fromEntries(Object.keys(ORDER_TERM_FIELDS).map(key=>[key,f[key]||""])),
       id: f.id || uid(),
       numero: f.numero?.trim() || "",
       obraId: f.obraId || obraAtual,
@@ -1397,7 +1396,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       return {
         type:OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED,
         idempotencyKey:`purchase-order-save-${p.id}-${uid()}`,
-        expectedVersion:vigente?Number(vigente.version||0):0,
+        expectedVersion:vigente?Number(f.version||0):0,
         actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
         payload:{order:p,newMaterials:novosMateriais,adjustmentReason:String(f.motivoAjuste||"").trim()},
       };
@@ -1661,7 +1660,8 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     if(itens.some(i=>!(i.qtd>0))){showToast("Informe a quantidade de cada item.","error");return;}
     const props=(f.propostas||[])
       .filter(p=>p.fornecedorId&&itens.some(i=>Number(p.precos?.[i.id])>0))
-      .map(p=>({id:p.id||uid(),fornecedorId:p.fornecedorId,prazoDias:Number(p.prazoDias||0),obs:p.obs||"",
+      .map(p=>({id:p.id||uid(),fornecedorId:p.fornecedorId,prazoDias:p.prazoDias==null||p.prazoDias===""?null:Number(p.prazoDias),obs:p.obs||"",
+        ...Object.fromEntries(Object.keys(ORDER_TERM_FIELDS).map(key=>[key,p[key]||""])),
         documentos:Array.isArray(p.documentos)?p.documentos:[],
         ...(p.custoFinal?{custoFinal:p.custoFinal}:{}),condicoesPagamento:p.condicoesPagamento||"",
         precos:Object.fromEntries(itens.filter(i=>Number(p.precos?.[i.id])>0).map(i=>[i.id,Number(p.precos[i.id])]))}));
@@ -1778,6 +1778,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       qtd:i.qtd,unidade:purchaseUnitOf(i),precoUnit:i.precoUnit}));
     const base={empresa:"MARCELL",numero:p.numero,data:p.data,fornecedorNome:forn?.nome||"",
       fornecedorCnpj:forn?.cnpj||"",obraNome:obra?.name||"",itens,previsao:p.previsao,observacao:p.obs||"",linkAceite:link};
+    const snapshot=p.historicoCondicoesPedido?.at(-1);
+    if(snapshot){base.fornecedorNome=snapshot.fornecedor?.nome||"Não registrado";base.fornecedorCnpj=snapshot.fornecedor?.documento||"";base.obraNome=snapshot.obra?.nome||"Não registrado";}
+    const terms=snapshot?.condicoes||p;
+    base.condicoes=[...(!snapshot||snapshot.origem==="legado"?["Acordo original sem registro histórico."]:[]),...Object.entries(ORDER_TERM_FIELDS).map(([key,label])=>`${label}: ${terms[key]||"Não registrado"}`)];
     return {forn,texto:mensagemPedidoFornecedor(base),assunto:assuntoEmailPedido(base),html:documentoPedidoHtml(base)};
   };
   const registrarEnvioPedido=async(p,canal,destino="")=>{
@@ -1906,7 +1910,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     ["financeiro",`Pagamentos${resumoFinanceiro.pendentes?` · ${resumoFinanceiro.pendentes}`:""}`],
     ["solicitacoes",`Solicitações${solicitacoesPendentes?` · ${solicitacoesPendentes}`:""}`],
     ["cotacoes","Cotações"],["pedidos","Pedidos"],["historico_compras","Histórico de compras"],["orcado","Orçado x comprado"],
-    ["forn","Cadastro de fornecedores"],["contratos","Contratos de fornecimento"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]
+    ["forn","Cadastro de fornecedores"],["contratos","Contratos e medições"],["hist_fornecedor","Histórico por fornecedor"],["precos","Evolução de insumos"]
   ];
   const irParaArea=id=>{
     setAba(id);setRegistroFoco("");
@@ -1915,19 +1919,38 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   // Abre a obra escolhida no comparativo: troca o escopo, zera os filtros da fila e vai para a área pedida.
   const abrirObra=(obraId,area="fila")=>{setEscopoMapa("obra");setObraSel(obraId);setFiltrosFluxo({query:"",stage:"",risk:""});irParaArea(area);};
   const abrirModoAnalise=()=>setModoIA(true);
+  const planningIntentHandled=useRef(null);
+  useEffect(()=>{
+    if(intent?.tabId!=="cmp"||!["planning-request","open-request"].includes(intent.action)||planningIntentHandled.current===intent.sequence)return;
+    planningIntentHandled.current=intent.sequence;
+    const scopedWork=obraIdFixo||currentUser?.obraId||intent.scope?.obraId;
+    if(!scopedWork||!obras.some(work=>work.id===scopedWork))return;
+    setAba("solicitacoes");
+    if(intent.action==="open-request"){
+      setBusca("");
+      const request=(data.solicitacoesCompra||[]).find(r=>r.id===intent.record?.requestId&&r.obraId===scopedWork);
+      if(request)setRegistroFoco(request.id);
+      return;
+    }
+    if(intent.record?.obraId!==scopedWork)return;
+    const needs=planningPurchaseNeeds(data,{...intent.record,obraId:scopedWork});
+    if(needs.error){showToast(needs.error,"error");return;}
+    if(needs.requests.length){setRegistroFoco(needs.requests[0].id);return;}
+    const draft=planningRequestDraft(needs,uid);
+    if(draft)setSolModal(draft);
+    else showToast("Vincule os insumos desta etapa no orçamento antes de solicitar.","error");
+  },[intent?.sequence]);
   const abrirNovaSolicitacao=()=>setSolModal({obraId:currentUser?.obraId||obraAtual,necessidade:"",prioridade:"normal",referenciaId:basesCompra[0]?.id||"",observacao:"",itens:[]});
-  const abasSecundarias=comprasAbas.filter(([id])=>!["solicitacoes","cotacoes","pedidos","financeiro","historico_compras"].includes(id));
-  const [competenciaDre,setCompetenciaDre]=useState(()=>savedScope?.year!=null&&savedScope?.month!=null?`${savedScope.year}-${String(savedScope.month+1).padStart(2,"0")}`:new Date().toISOString().slice(0,7));
+  const abasSecundarias=comprasAbas.filter(([id])=>!["solicitacoes","cotacoes","pedidos","financeiro","historico_compras","precos"].includes(id));
+  const [competenciaDre,setCompetenciaDre]=useSessionState("competenciaDre",()=>savedScope?.year!=null&&savedScope?.month!=null?`${savedScope.year}-${String(savedScope.month+1).padStart(2,"0")}`:new Date().toISOString().slice(0,7));
   const escopoDre={obraId:todasObras?"":obraAtual,year:Number(competenciaDre.slice(0,4)),month:Number(competenciaDre.slice(5,7))-1,period:"mes"};
   useRememberWorkflowScope("cmp",escopoDre);
   const escopoFluxo=todasObras?"Todas as obras":obraPorId.get(obraAtual)?.name||"Selecione uma obra";
 
   return (
     <div className="anim compras-view" style={{display:"flex",flexDirection:"column",gap:isDesktop?12:10}}>
-      <header className="purchase-header">
-        <div className="purchase-header-title"><h2 className="page-hero__title">Compras</h2>
-          <p>Materiais na obra, no prazo.</p></div>
-        <div className="purchase-context-bar">
+      <PageHeader className="workspace-header purchase-header" title="Compras" description="Solicitações, pedidos e entregas."
+        secondaryActions={<div className="purchase-context-bar">
           <div className="compras-project-picker">{obraIdFixo
             ? <Inp label="Obra" value={obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
             : <Select label="Obra" value={todasObras?"all":obraAtual} onChange={event=>{const v=event.target.value;
@@ -1935,15 +1958,11 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                 if(v==="all"){setEscopoMapa("empresa");return;}
                 setEscopoMapa("obra");setObraSel(v);
               }} options={[{value:"all",label:"Todas as obras"},...obras.map(o=>({value:o.id,label:o.name}))]}/>}</div>
-          <p role="status" aria-live="polite" className="purchase-save-state" data-state={save.state}>{save.message}</p>
-        </div>
-        <div className="purchase-header-actions"><Button variant="secondary" onClick={abrirModoAnalise}>Analisar documento</Button>
-          <Button onClick={abrirNovaSolicitacao}>Nova solicitação</Button></div>
-      </header>
-      <DreIntegration kind="purchases" currentUser={currentUser} {...escopoDre}>
-        <label>Competência do DRE<input type="month" value={competenciaDre} onChange={event=>{if(event.target.value)setCompetenciaDre(event.target.value);}}/></label>
-        <p>Este mês é usado na consulta ao DRE. Os registros de compras mantêm os próprios filtros de prazo e histórico.</p>
-      </DreIntegration>
+        </div>}
+        primaryAction={<div className="purchase-header-actions"><Button variant="secondary" onClick={abrirModoAnalise}>Analisar documento</Button>
+          <Button onClick={abrirNovaSolicitacao}>Nova solicitação</Button></div>}>
+        {save.state!=="idle"&&<p role="status" aria-live="polite" className="purchase-save-state" data-state={save.state}>{save.message}</p>}
+      </PageHeader>
       <PurchaseNavigation area={aba} onNavigate={irParaArea} counts={fluxoCompras.counts}
         financeCount={resumoFinanceiro.pendentes} otherAreas={abasSecundarias}/>
       {/* Na fila, aprovações e recebimentos o painel abaixo já tem título próprio:
@@ -1959,6 +1978,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         exportButton={linhas=>botaoExportar(aba,[planilhaFila(linhas)],`Exportar para Excel os ${linhas.length} registro(s) da lista`)}
         afterMetrics={porObra&&porObra.linhas.length>1?<PurchasesByWork model={porObra} onOpenWork={id=>abrirObra(id,"fila")}/>:null}/>}
 
+      <DreIntegration kind="purchases" currentUser={currentUser} {...escopoDre}>
+        <label>Competência do DRE<input type="month" value={competenciaDre} onChange={event=>{if(event.target.value)setCompetenciaDre(event.target.value);}}/></label>
+        <p>Este mês é usado na consulta ao DRE. Os registros de compras mantêm os próprios filtros de prazo e histórico.</p>
+      </DreIntegration>
       {aba==="kanban"&&<div className="purchase-kanban-view">
         <section className="purchase-kanban-head">
           <div><p>Controle visual de abastecimento</p><h3>Kanban de compras</h3><span>Os cartões avançam conforme solicitação, cotação, pagamento e recebimento são registrados.</span></div>
@@ -2646,11 +2669,13 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           </Btn>
         </div>
 
-        <div style={{display:"grid",gridTemplateColumns:pick("1fr","minmax(230px,1fr) 150px 150px","minmax(280px,1fr) 160px 160px auto"),gap:7,alignItems:"end"}}>
+        <div className="purchase-quote-filters">
           <Inp label="Buscar" value={buscaCotacao} onChange={setBuscaCotacao} placeholder="Código, insumo, solicitação ou fornecedor..."/>
-          <Inp label="Data inicial" type="date" value={inicioCotacao} onChange={setInicioCotacao}/>
-          <Inp label="Data final" type="date" value={fimCotacao} onChange={setFimCotacao}/>
-          {isDesktop&&<Btn size="sm" v="ghost" onClick={()=>{setBuscaCotacao("");setInicioCotacao("");setFimCotacao("");setStatusCotacao("todas");}}>Limpar filtros</Btn>}
+          <WorkspaceFilters activeCount={[inicioCotacao,fimCotacao].filter(Boolean).length}>
+            <Inp label="Data inicial" type="date" value={inicioCotacao} onChange={setInicioCotacao}/>
+            <Inp label="Data final" type="date" value={fimCotacao} onChange={setFimCotacao}/>
+            <Btn size="sm" v="ghost" onClick={()=>{setBuscaCotacao("");setInicioCotacao("");setFimCotacao("");setStatusCotacao("todas");}}>Limpar filtros</Btn>
+          </WorkspaceFilters>
         </div>
 
         <div style={{display:"grid",gridTemplateColumns:`repeat(3,minmax(0,1fr))`,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
@@ -2661,42 +2686,35 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
           })}
         </div>
 
+        <SupplierResponseQueue quotes={cotacoesFiltradas} data={data} onOpen={id=>{setCotacaoExpandida(id);requestAnimationFrame(()=>{const row=document.getElementById(`purchase-record-${id}`);row?.scrollIntoView({block:"start"});row?.focus({preventScroll:true});});}}/>
         {!cotacoesFiltradas.length
           ? <div style={{padding:30,textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:9,background:C.card}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>Nenhuma cotação encontrada</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Ajuste os filtros ou adicione uma nova cotação.</p></div>
-          : <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
-            {isDesktop&&<div style={{display:"grid",gridTemplateColumns:"90px minmax(220px,1.5fr) 100px 115px 105px 100px 92px",gap:10,padding:"8px 11px",background:C.surface,borderBottom:`1px solid ${C.border}`,fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}><span>Código</span><span>Insumo</span><span>Fornecedores</span><span>Necessidade</span><span>Status</span><span>Prioridade</span><span>Ações</span></div>}
+          : <div className="purchase-quotes-list" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,overflow:"auto"}}>
+            {isDesktop&&<div className="purchase-quotes-list__header" style={{display:"grid",gridTemplateColumns:"90px minmax(220px,1.5fr) 100px 115px 105px 100px 132px",gap:10,padding:"8px 11px",background:C.surface,borderBottom:`1px solid ${C.border}`,fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}><span>Código</span><span>Insumo</span><span>Fornecedores</span><span>Necessidade</span><span>Status</span><span>Prioridade</span><span>Ações</span></div>}
             {cotacoesFiltradas.map((c,index)=>{
               const ord=c.propostas||[],mapa=mapaDaCotacao(c),multi=cotacaoMultiItens(c),pendentes=mapa.linhas.filter(l=>!l.decisao).length;
               const sol=solicitacaoPorId.get(c.solicitacaoId),expandida=cotacaoExpandida===c.id;
               const codigo=c.numero||`CT-${String(cotacoes.indexOf(c)+1).padStart(4,"0")}`;
               const prioridade=sol?.prioridade||"normal";
+              const rotuloCotacao=c.status==="decidida"?"Compra gerada":(c.respostasFornecedor||[]).some(r=>r.status==="pendente")?"Revisar resposta":"Cotada";
               return <div id={`purchase-record-${c.id}`} tabIndex={-1} data-purchase-highlight={registroFoco===c.id} key={c.id} style={{borderTop:index?`1px solid ${C.line}`:"none"}}>
-                <div role="button" tabIndex={0} onClick={()=>setCotacaoExpandida(expandida?"":c.id)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setCotacaoExpandida(expandida?"":c.id);}}} style={{display:"grid",gridTemplateColumns:isDesktop?"90px minmax(220px,1.5fr) 100px 115px 105px 100px 92px":"1fr auto",gap:10,width:"100%",alignItems:"center",padding:isDesktop?"11px":"12px",border:0,background:expandida?`${C.blue}05`:"transparent",textAlign:"left",cursor:"pointer"}}>
+                <div className="purchase-quote-row" role="button" tabIndex={0} onClick={()=>setCotacaoExpandida(expandida?"":c.id)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setCotacaoExpandida(expandida?"":c.id);}}} style={{display:"grid",gridTemplateColumns:isDesktop?"90px minmax(220px,1.5fr) 100px 115px 105px 100px 132px":"1fr auto",gap:10,width:"100%",alignItems:"center",padding:isDesktop?"11px":"12px",border:0,background:expandida?`${C.blue}05`:"transparent",textAlign:"left",cursor:"pointer"}}>
                   {isDesktop&&<b style={{fontSize:"var(--arcd-type-caption)",color:C.blue}}>{codigo}</b>}
                   <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text}}>{multi?`${mapa.linhas.length} ${mapa.linhas.length===1?"item":"itens"} · ${nomeMat(c.materialId)}${mapa.linhas.length>1?" e outros":""}`:nomeMat(c.materialId)}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{multi?`${mapa.linhas.length-pendentes} de ${mapa.linhas.length} decidido(s)`:`${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`}{sol?.numero?` · ${sol.numero}`:""}{!isDesktop?` · ${codigo}`:""}</span></div>
                   {isDesktop&&<span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{ord.length}</span>}
                   {isDesktop&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{fmtDate(sol?.necessidade||c.data)}</span>}
-                  {isDesktop&&<Badge color={c.status==="decidida"?C.green:C.blue}>{c.status==="decidida"?"Compra gerada":"Cotada"}</Badge>}
+                  {isDesktop&&<Badge color={c.status==="decidida"?C.green:C.blue}>{rotuloCotacao}</Badge>}
                   {isDesktop&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prioridade==="urgente"?C.red:C.orange}}>{prioridade==="urgente"?"Alta":"Média"}</span>}
                   <div style={{display:"flex",gap:4,justifyContent:"flex-end",alignItems:"center"}}>{podeProcessar&&<Btn size="sm" v="danger" title="Excluir cotação" onClick={e=>{e.stopPropagation();excluirCotacao(c);}}><Ic n="trash" s={11}/>{isDesktop&&" Excluir"}</Btn>}<span aria-label={expandida?"Recolher":"Comparar propostas"} style={{display:"inline-block",color:C.muted,transform:expandida?"rotate(180deg)":"none",transition:"transform .15s"}}>⌄</span></div>
                 </div>
-                {!isDesktop&&<div style={{display:"flex",gap:5,padding:"0 12px 10px",flexWrap:"wrap"}}><Badge color={c.status==="decidida"?C.green:C.blue}>{c.status==="decidida"?"Compra gerada":"Cotada"}</Badge><Badge color={prioridade==="urgente"?C.red:C.orange}>{prioridade==="urgente"?"Alta":"Média"}</Badge><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,alignSelf:"center"}}>{ord.length} fornecedor(es) · {fmtDate(sol?.necessidade||c.data)}</span></div>}
+                {!isDesktop&&<div style={{display:"flex",gap:5,padding:"0 12px 10px",flexWrap:"wrap"}}><Badge color={c.status==="decidida"?C.green:C.blue}>{rotuloCotacao}</Badge><Badge color={prioridade==="urgente"?C.red:C.orange}>{prioridade==="urgente"?"Alta":"Média"}</Badge><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,alignSelf:"center"}}>{ord.length} fornecedor(es) · {fmtDate(sol?.necessidade||c.data)}</span></div>}
                 {expandida&&<div style={{padding:"0 11px 12px",background:C.surface,borderTop:`1px solid ${C.line}`}}>
-                  <div style={{overflowX:"auto",marginTop:8,border:`1px solid ${C.border}`,borderRadius:7,background:C.card}}>
-                    <table style={{borderCollapse:"collapse",width:"100%",minWidth:240+150*ord.length,fontSize:"var(--arcd-type-label)"}}>
-                      <thead><tr style={{background:C.surface}}>
-                        <th style={{textAlign:"left",padding:"7px 8px",fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase"}}>Item</th>
-                        {ord.map(p=>{const av=avaliacaoForn.get(String(p.fornecedorId)),cor=av?.nota==null?C.muted:av.nota>=8?C.green:av.nota>=6?C.orange:C.red;return <th key={p.id} style={{textAlign:"left",padding:"7px 8px",verticalAlign:"top"}}><b className="brk" style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text}}>{nomeForn(p.fornecedorId)}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>{p.prazoDias||0} dia(s) · {fmt(mapa.totaisPorProposta[p.id]||0)}</span><span title={explicacaoNotaFornecedor(av)} style={{display:"block",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:cor,marginTop:2}}>Nota {textoNotaFornecedor(av)}</span></th>;})}
-                      </tr></thead>
-                      <tbody>{mapa.linhas.map(l=><tr key={l.item.id} style={{borderTop:`1px solid ${C.line}`}}>
-                        <td style={{padding:"7px 8px"}}><b className="brk" style={{display:"block",color:C.text}}>{nomeMat(l.item.materialId)}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l.qtd.toLocaleString("pt-BR")} {purchaseUnitOf(l.item)}{l.decisao?" · pedido gerado":""}</span></td>
-                        {ord.map(p=>{const v=l.ofertas.find(o=>o.proposta.id===p.id)?.precoUnit||0,eh=v>0&&p.id===l.melhorPropostaId,venceu=l.decisao?.propostaId===p.id;return <td key={p.id} style={{padding:"7px 8px",background:venceu?`${C.green}1A`:eh?`${C.green}0B`:"transparent"}}>{v>0?<><b style={{color:eh?C.green:C.text}}>{fmt(v)}</b>{venceu&&" ✓"}<small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted}}>{fmt(v*l.qtd)}{eh?" · menor":""}</small></>:<span style={{color:C.muted}}>—</span>}</td>;})}
-                      </tr>)}</tbody>
-                    </table>
-                  </div>
-                  <CostComparison quote={c} supplierName={nomeForn}/>
+                  <QuoteComparisonWorkspace quote={c} data={data} canManage={podeProcessar}
+                    actions={podeProcessar&&c.status==="aberta"&&pendentes>0?<Btn v="success" onClick={()=>setCotDecisao({cotacaoId:c.id,escolhas:sugestaoDeEscolhas(c),justificativas:{}})}>Decidir e gerar pedidos</Btn>:null} dispatchCommand={dispatchCommand} currentUser={currentUser}
+                    supplierRating={id=>textoNotaFornecedor(avaliacaoForn.get(String(id)))}
+                    onOpenOrder={pedidoId=>setFichaCompra({pedidoId})}
+                    documents={ord.map(p=><div key={p.id} className="purchase-quote-documents"><b>Documentos · {nomeForn(p.fornecedorId)}</b><LinksDocumentosAuditaveis documentos={p.documentos||[]} subindo={subindoAnexoCotacao&&anexoCotacao?.cotacao?.id===c.id&&anexoCotacao?.proposta?.id===p.id} onSelecionar={e=>selecionarDocumentoCotacao(c,p,e)} C={C}/></div>)}/>
                   <Button variant="secondary" onClick={()=>setFichaCompra({cotacaoId:c.id})}>Ficha da compra conjunta · notas e anexos</Button>
-                  {ord.map(p=><div key={p.id} style={{marginTop:6,padding:"6px 8px",background:C.card,border:`1px solid ${C.border}`,borderRadius:7}}><b style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>Documentos · {nomeForn(p.fornecedorId)}</b><LinksDocumentosAuditaveis documentos={p.documentos||[]} subindo={subindoAnexoCotacao&&anexoCotacao?.cotacao?.id===c.id&&anexoCotacao?.proposta?.id===p.id} onSelecionar={e=>selecionarDocumentoCotacao(c,p,e)} C={C}/></div>)}
                   <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",flexWrap:"wrap",marginTop:8}}>
                     <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{c.economia>0?`Economia registrada: ${fmt(c.economia||0)}`:"Escolha a proposta de cada item considerando preço, prazo e documentação."}</span>
                     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -2712,7 +2730,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       </>)}
 
       {/*  FORNECEDORES  */}
-      {aba === "contratos" && <ContratosFornecimentoView data={data} dispatchCommand={dispatchCommand} currentUser={currentUser} showToast={showToast} C={C} podeEditar={["admin","compras"].includes(currentUser?.role)}/>}
+      {aba === "contratos" && <PurchaseContractsWorkspace key={obraIdsMapa.join("|")} data={data} update={update} dispatchCommand={dispatchCommand} currentUser={currentUser} showToast={showToast} C={C} workIds={obraIdsMapa} onOpenOrder={pedidoId=>setFichaCompra({pedidoId})}/>}
 
       {aba === "forn" && (<>
         <Btn onClick={()=>setFornModal({id:"",nome:"",nomeFantasia:"",razaoSocial:"",cnpj:"",contato:"",telefone:"",email:"",categorias:[],atividadeCnae:"",situacaoCadastral:"",dataAbertura:"",cep:"",endereco:"",numero:"",complemento:"",bairro:"",cidade:"",uf:"",obs:""})} full>
@@ -2774,21 +2792,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         </div>}
       </>)}
 
-      {/*  EVOLUÇÃO DOS PREÇOS DOS INSUMOS  */}
-      {aba === "precos" && (<>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"11px 13px"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>A curva considera somente material <strong style={{color:C.text}}>efetivamente recebido</strong>. Assim, uma cotação ou pedido ainda não entregue não distorce o preço histórico. A média é ponderada pela quantidade comprada.</p></div>
-        <div style={{display:"grid",gridTemplateColumns:pick("1fr","1fr 1fr","minmax(280px,1.4fr) minmax(190px,.9fr) 180px 210px"),gap:8,alignItems:"end"}}>
-          <Sel label="Insumo" value={materialHistoricoAtualId} onChange={v=>{setMaterialHistoricoId(v);setFornecedorPrecoId("");}} options={materiaisHistorico.map(x=>({v:x.material.id,l:`${x.material.codigo?`${x.material.codigo} · `:""}${x.material.descricao}`}))}/>
-          <Sel label="Fornecedor" value={fornecedorPrecoAtualId} onChange={setFornecedorPrecoId} options={[{v:"",l:"Todos os fornecedores"},...fornecedoresDoMaterial.map(f=>({v:f.id,l:f.nome}))]}/>
-          <Sel label="Período" value={periodoHistorico} onChange={setPeriodoHistorico} options={[["6","Últimos 6 meses"],["12","Últimos 12 meses"],["24","Últimos 24 meses"],["todos","Todo o histórico"]].map(([v,l])=>({v,l}))}/>
-          {!obraIdFixo&&<div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",marginBottom:5}}>Abrangência</p><div style={{display:"flex",padding:3,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}>{[["obra","Obra atual"],["todas","Todas visíveis"]].map(([v,l])=><button key={v} onClick={()=>setEscopoHistorico(v)} style={{flex:1,border:0,borderRadius:6,padding:"7px 8px",background:escopoHistorico===v?C.text:"transparent",color:escopoHistorico===v?"#fff":C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div></div>}
-        </div>
-        {!materialHistoricoAtual||!analiseMaterialAtual?<div style={{padding:28,textAlign:"center",background:C.card,border:`1px dashed ${C.border}`,borderRadius:12}}><Ic n="chart" s={22} color={C.muted}/><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:8}}>Ainda não há preços recebidos neste recorte</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>Registre o recebimento de um pedido ou amplie o período analisado.</p></div>:<>
-          {(()=>{const primeiro=evolucaoMaterial[0];const ultimo=evolucaoMaterial[evolucaoMaterial.length-1];const variacao=primeiro?.preco?((Number(ultimo?.preco||0)-Number(primeiro.preco))/Number(primeiro.preco))*100:0;const corVar=variacao>0?C.red:variacao<0?C.green:C.muted;return <div style={{display:"grid",gridTemplateColumns:cols(2,3,5),gap:8}}>{[["Preço atual",fmt(ultimo?.preco||0),corVar],["Menor preço",fmt(analiseMaterialAtual.menor),C.green],["Média ponderada",fmt(analiseMaterialAtual.medio),C.blue],["Variação no período",`${variacao>0?"+":""}${variacao.toFixed(1)}%`,corVar],["Compras recebidas",analiseMaterialAtual.compras,C.text]].map(([l,v,c])=><div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:10,padding:"10px 11px"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase",fontWeight:600}}>{l}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:c,marginTop:4}}>{v}</p></div>)}</div>})()}
-          <ChartPanel eyebrow="Inteligência de suprimentos" title={materialHistoricoAtual.material.descricao} subtitle={`Preço por ${materialHistoricoAtual.material.unidade||"UN"} · ${evolucaoMaterial.length} recebimento(s) no período`} height={275} legend={[{label:"Preço recebido",color:C.yellow},{label:"Média ponderada",color:C.blue}]}><ResponsiveContainer width="100%" height="100%"><LineChart data={dadosGraficoPreco} margin={{left:4,right:14,top:8,bottom:2}}><CartesianGrid stroke={C.line} vertical={false}/><XAxis dataKey="rotulo" tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} axisLine={false} tickLine={false}/><YAxis tick={{fill:C.muted,fontSize:"var(--arcd-type-caption)"}} axisLine={false} tickLine={false} tickFormatter={compactNumber}/><Tooltip content={<ArcdChartTooltip formatter={v=>fmt(v)}/>}/><Line type="monotone" dataKey="media" name="Média ponderada" stroke={C.blue} strokeDasharray="5 5" strokeWidth={1.5} dot={false}/><Line type="monotone" dataKey="preco" name="Preço recebido" stroke={C.yellow} strokeWidth={2.5} activeDot={{r:5,fill:C.text,stroke:C.yellow,strokeWidth:2}} dot={{r:3,fill:C.yellow,stroke:C.card,strokeWidth:1.5}}/></LineChart></ResponsiveContainer></ChartPanel>
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}><div style={{padding:"11px 13px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:8}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Memória dos recebimentos</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Rastreabilidade até o pedido, fornecedor e obra.</p></div><Badge color={C.yellowD}>{materialHistoricoAtual.material.unidade||"UN"}</Badge></div><div style={{maxHeight:330,overflowY:"auto"}}>{[...dadosGraficoPreco].reverse().map(x=><div key={x.id} style={{display:"grid",gridTemplateColumns:pick("1fr auto","90px 1fr auto","90px minmax(150px,1.2fr) minmax(120px,1fr) 90px 105px"),gap:8,alignItems:"center",padding:"9px 12px",borderTop:`1px solid ${C.line}`}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{fmtDate(x.data)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.blue,marginTop:2}}>{x.pedido}</p></div>{pick(null,<div><p className="brk" style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{x.fornecedor}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{x.obra}</p></div>,<><div><p className="brk" style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{x.fornecedor}</p></div><div><p className="brk" style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{x.obra}</p></div><div style={{textAlign:"right"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase"}}>Quantidade</p><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>{x.qtd}</p></div></>)}<div style={{textAlign:"right"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textTransform:"uppercase"}}>Unitário</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD}}>{fmt(x.preco)}</p></div></div>)}</div></div>
-        </>}
-      </>)}
+      {aba === "precos" && <MaterialPriceHistory data={data} works={obras} currentWorkId={obraAtual} onOpen={pedidoId=>setFichaCompra({pedidoId})}/>}
 
       {/*  MODAIS  */}
       {modoIA&&<ModoIADocumento modulo="compras" data={data} update={update} showToast={showToast} currentUser={currentUser} obraIdInicial={obraAtual} onClose={()=>setModoIA(false)}/>}

@@ -1,0 +1,20 @@
+.cost-control{margin:20px 0;min-width:0;color:var(--arcd-text-primary)}
+.cost-control summary{padding:14px 0;cursor:pointer;font-weight:600;line-height:1.5}
+.cost-control fieldset{min-width:0;border:0;border-top:1px solid var(--arcd-border-default);padding:20px 0;margin:12px 0}
+.cost-control legend{font-weight:600;padding-right:12px}
+.cost-control label{display:grid;gap:6px;font-size:var(--arcd-type-label);min-width:0}
+.cost-control select{width:100%;min-height:40px;background:var(--arcd-surface-card);color:var(--arcd-text-primary);border:1px solid var(--arcd-border-strong);border-radius:var(--arcd-radius-md);padding:8px}
+.cost-control :focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:2px}
+.cost-control form{display:grid;gap:12px;min-width:0}
+.cost-control__pending{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,1fr);gap:24px;padding:20px 0;border-bottom:1px solid var(--arcd-border-default)}
+.cost-control p{max-width:85ch;overflow-wrap:anywhere}
+.cost-control__basis{display:flex;flex-wrap:wrap;gap:24px;margin:16px 0;font-variant-numeric:tabular-nums}
+.cost-control__basis dt{font-size:var(--arcd-type-label);color:var(--arcd-text-secondary)}
+.cost-control__basis dd{margin:6px 0;font-weight:600}
+.cost-control__actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.cost-control__actions button,.cost-control__pending button{white-space:normal;height:auto;min-height:40px}
+.cost-control [role=alert]{color:var(--arcd-danger-text)}
+.cost-control__result{font-variant-numeric:tabular-nums}
+.work-stage-costs table{font-variant-numeric:tabular-nums}
+.work-stage-costs td small{display:block;white-space:normal;font-size:var(--arcd-type-caption)}
+@media(max-width:700px){.cost-control__pending{grid-template-columns:1fr;gap:16px}.cost-control__actions{align-items:stretch;flex-direction:column}.work-stage-costs table,.work-stage-costs tbody,.work-stage-costs tfoot{display:block;width:100%}.work-stage-costs thead{display:none}.work-stage-costs tr{display:block;padding:12px 0;border-top:1px solid var(--arcd-border-default)}.work-stage-costs th{display:block;text-align:left}.work-stage-costs td{display:flex;justify-content:space-between;align-items:center;gap:12px;white-space:normal}.work-stage-costs td:before{content:attr(data-label);font-size:var(--arcd-type-label);text-align:left}.work-stage-costs td button{white-space:normal;height:auto;min-height:40px;text-align:right}.work-stage-costs caption{display:block;text-align:left}}
