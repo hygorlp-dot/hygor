@@ -15,6 +15,18 @@ import { ONEDRIVE_DIRECT_UPLOAD_MAX_BYTES, ONEDRIVE_UPLOAD_CHUNK_BYTES } from ".
 
 const ROTA = "/api/data";
 
+const lerObjetoJson = async response => {
+  try {
+    const json=await response.json();
+    if(json&&typeof json==="object"&&!Array.isArray(json))return json;
+  }catch{ /* Uma resposta ilegível nunca confirma uma operação. */ }
+  return null;
+};
+const respostaInvalida = response => ({
+  ok:false,status:response.status>=400?response.status:502,
+  error:"O servidor devolveu uma resposta inválida. Confirme o resultado antes de tentar novamente.",
+});
+
 // Quanto cada chamada ao servidor leva e em que fase (Server-Timing). Para o
 // administrador investigar lentidão: no console do navegador, arcdTemposResumo().
 const tempos = criarRegistroDeTempos();
@@ -132,8 +144,9 @@ const chamar = async (body) => {
       catch(error) { return {status:0,error:error?.name==="AbortError"?"O servidor demorou mais de 45 segundos para responder. Tente novamente.":"Não foi possível conectar ao servidor."}; }
     }
   }
-  const json = await r.json().catch(() => ({}));
+  const json = await lerObjetoJson(r);
   registrarTempo(body.action, r, inicioDaChamada);
+  if(!json)return respostaInvalida(r);
   const retryAfterHeader=Number(r.headers?.get?.("retry-after")||0);
   return {
     status:r.status,...json,
@@ -175,7 +188,8 @@ const chamarRotaAutenticada = async (rota, payload = {}) => {
       response=tentativa.response;
     }
   }
-  const json=await response.json().catch(()=>({}));
+  const json=await lerObjetoJson(response);
+  if(!json)return respostaInvalida(response);
   return { ok:response.ok, status:response.status, ...json };
 };
 
@@ -343,13 +357,13 @@ export const saveDataDetailed = async (payload,basePayload=null) => {
     return detalhe;
   }
 
-  if (r.status !== 200) return {
+  if (r.status !== 200 || r.ok !== true) return {
     ok:false,
     conflict:false,
     status:r.status,
     code:r.code || "",
     retryAfter:Number(r.retryAfter||0),
-    reason:r.error || "Falha ao salvar.",
+    reason:r.error || "O servidor não confirmou o salvamento. Confirme o resultado antes de tentar novamente.",
   };
 
   ultimoUpdatedAt = r.updatedAt || null;
@@ -571,7 +585,8 @@ const chamarOneDrive = async (action, payload = {}) => {
     method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ action, ...credenciais(), ...payload }),
   });
-  const json = await r.json().catch(() => ({}));
+  const json = await lerObjetoJson(r);
+  if(!json)return respostaInvalida(r);
   return { ok:r.ok, status:r.status, ...json };
 };
 export const statusOneDrive = () => chamarOneDrive("status");
@@ -579,7 +594,14 @@ export const criarEstruturaOneDrive = obraName => chamarOneDrive("create-workspa
 export const sincronizarEstruturasOneDrive = obras => chamarOneDrive("sync-workspaces", { obras });
 export const criarPastaOneDrive = payload => chamarOneDrive("create-folder", payload);
 export const listarPastaOneDrive = payload => chamarOneDrive("list-folder", payload);
-export const enviarArquivoOneDrive = payload => chamarOneDrive("upload", payload);
+const confirmarArquivoEnviado = result => {
+  if(!result.ok)return result;
+  if(typeof result.url!=="string"||!result.url.trim()||!(result.item?.id||result.path))return {
+    ok:false,status:502,error:"O OneDrive não confirmou o arquivo enviado. Verifique a pasta antes de tentar novamente.",
+  };
+  return result;
+};
+export const enviarArquivoOneDrive = async payload => confirmarArquivoEnviado(await chamarOneDrive("upload", payload));
 
 const blobDataUrl=blob=>new Promise((resolve,reject)=>{
   const reader=new FileReader();
@@ -595,7 +617,7 @@ export const enviarArquivoOneDriveEmPartes=async({file,...payload})=>{
   // sessão resumível e fragmentos que cabem no teto de payload da Vercel.
   if(file.size<=ONEDRIVE_DIRECT_UPLOAD_MAX_BYTES){
     const dataUrl=await blobDataUrl(file);
-    return chamarOneDrive("upload",{...payload,dataUrl,fileName:file.name});
+    return enviarArquivoOneDrive({...payload,dataUrl,fileName:file.name});
   }
 
   const inicio=await chamarOneDrive("upload-start",{
@@ -617,7 +639,7 @@ export const enviarArquivoOneDriveEmPartes=async({file,...payload})=>{
       uploadToken,start:offset,total:file.size,dataBase64,
     });
     if(!parte.ok)return parte;
-    if(parte.complete)return{...parte,workspace:parte.workspace||inicio.workspace};
+    if(parte.complete)return confirmarArquivoEnviado({...parte,workspace:parte.workspace||inicio.workspace});
 
     uploadToken=parte.uploadToken;
     const proximo=Number(parte.nextStart);

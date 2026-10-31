@@ -1,5 +1,6 @@
 import { fileSignature, getOrCreateFolder, graph, refresh, rootItem, safeName, seal, setCookie, unseal, verifyAppUser, workspace } from "../../server/microsoft/graph.js";
 import { findScopedWork, knownWorkspace, scopedWorks } from "../../server/onedrive-scope.js";
+import { canWriteWorkFiles, WORK_FILE_WRITE_ACTIONS } from '../../server/work-file-permissions.js';
 import { LICENSING_UPLOAD_MAX_BYTES, ONEDRIVE_UPLOAD_CHUNK_BYTES, ONEDRIVE_UPLOAD_GRANULARITY_BYTES } from "../../src/onedrive-upload-policy.js";
 
 export const config={api:{bodyParser:{sizeLimit:"8mb"}}};
@@ -70,6 +71,7 @@ export default async function handler(req,res){
     const appContext=action==="file"?null:await verifyAppUser(req.body?.userId,req.body?.pin,req.body?.accessToken);
     const appUser=appContext?.user;
     if(action!=="file"&&!appContext)return res.status(401).json({error:"Sessão do aplicativo inválida."});
+    if(WORK_FILE_WRITE_ACTIONS.has(action)&&!canWriteWorkFiles(appUser))return res.status(403).json({error:"Seu perfil não possui permissão para alterar arquivos da obra."});
     if(action==="file"&&req.query.sig!==fileSignature(req.query.driveId,req.query.itemId))return res.status(403).end();
     const {accessToken,session}=await refresh(req); setCookie(res,"arcd_ms",seal(session));
     if(action==="status")return res.json({ok:true,connected:true});

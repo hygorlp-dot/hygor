@@ -44,7 +44,8 @@ const sanitizeEmployee = (employee, role = "") => {
     pix,pixKey,pixChave,chavePix,pixTipo,pixType,
     salario,salarioBase,valorHora,valorDia,valorDiaria,remuneracao,
     custoHora,custoDia,custoMensal,valorFolha,
-    dailyRate,vtDaily,vrDaily,overtimeAdditionalPercent,...safe
+    dailyRate,vtDaily,vrDaily,overtimeAdditionalPercent,
+    monthlySalary,meiMonthlyValue,meiCnpj,cltPayroll,remunerationHistory,payModeDecisions,paymentInstructions,...safe
   }=employee||{};
   return safe;
 };

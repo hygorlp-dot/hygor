@@ -17,6 +17,11 @@ export function useEquipeObras() {
         if (ativo.current && [401, 403].includes(r.status)) setSnapshot(null);
         throw new Error(r.error || "Não foi possível atualizar a equipe.");
       }
+      // HTTP 200 não garante um snapshot utilizável. Publicar um corpo
+      // incompleto aqui faz a view falhar em .find/.length/.map e derruba o app.
+      if (!Array.isArray(r.pessoas) || !Array.isArray(r.obras) || !Array.isArray(r.limitacoes)) {
+        throw new Error("A consulta da equipe retornou uma resposta inválida. Tente atualizar novamente.");
+      }
       if (ativo.current) { setSnapshot(r); setErro(""); }
     } catch (e) { if (ativo.current) setErro(e.message || "Falha de conexão."); }
     finally { ocupado.current = false; if (ativo.current) setCarregando(false); }

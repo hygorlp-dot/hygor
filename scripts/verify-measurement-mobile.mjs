@@ -96,6 +96,40 @@ try{
   expect(commands).toHaveLength(1);
   expect(commands[0].payload.measurement.itens[0]).toMatchObject({etapaId:'infra',pctAnterior:20,pctAcum:62.25,valor:2535});
   expect(commands[0].payload.measurement.fotos).toHaveLength(3);
+  if(width===390){
+   // A failed second upload must not discard the already uploaded first photo.
+   await page.goto(url);
+   await page.getByRole('button',{name:'Confirmar medição',exact:true}).click();
+   const partialDialog=page.getByRole('dialog',{name:/Medição.*Instalações elétricas/});
+   let attempts=0;
+   const partialUpload=route=>++attempts===2
+    ?route.fulfill({status:503,json:{ok:false,error:'Falha simulada na segunda foto'}})
+    :route.continue();
+   await page.route('**/api/microsoft/onedrive',partialUpload);
+   await partialDialog.getByLabel('Fotos da galeria para a medição').setInputFiles([photo('primeira.png'),photo('segunda.png')]);
+   await expect.poll(()=>page.evaluate(()=>window.qa.toasts.some(args=>String(args[0]).includes('Falha simulada')))).toBe(true);
+   await expect(partialDialog.getByAltText('Evidência 1')).toBeVisible();
+   await expect(partialDialog.getByAltText('Evidência 2')).toHaveCount(0);
+   await page.unroute('**/api/microsoft/onedrive',partialUpload);
+   await partialDialog.getByLabel('Fotos da galeria para a medição').setInputFiles(photo('segunda.png'));
+   await expect(partialDialog.getByAltText('Evidência 2')).toBeVisible();
+   console.log('PASS partial upload: first photo preserved after second photo fails; retry succeeds.');
+   // Closing while an upload is in flight used to detach evidence from its form.
+   let releaseUpload;
+   const uploadGate=new Promise(resolve=>{releaseUpload=resolve;});
+   const delayedUpload=async route=>{await uploadGate;await route.continue();};
+   await page.route('**/api/microsoft/onedrive',delayedUpload);
+   try{
+    await partialDialog.getByLabel('Fotos da galeria para a medição').setInputFiles(photo('em-andamento.png'));
+    await expect(partialDialog.getByRole('button',{name:'Enviando...',exact:true})).toBeVisible();
+    await partialDialog.getByRole('button',{name:'Fechar',exact:true}).click();
+    await expect(partialDialog).toBeVisible();
+    await expect(partialDialog.getByRole('button',{name:'Cancelar',exact:true})).toBeDisabled();
+   }finally{releaseUpload();}
+   await expect(partialDialog.getByAltText('Evidência 3')).toBeVisible();
+   await page.unroute('**/api/microsoft/onedrive',delayedUpload);
+   console.log('PASS upload in progress: close preserves the form until evidence finishes uploading.');
+  }
   await page.goto(url+'?multiple');
   await page.getByRole('button',{name:'Confirmar medição',exact:true}).click();
   await page.screenshot({path:resolve(output,`contract-picker-${width}.png`),animations:'disabled'});

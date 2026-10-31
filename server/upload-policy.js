@@ -1,4 +1,5 @@
 import {isPatrimonyDocumentMime} from "../src/domains/patrimonio/document-policy.js";
+import {canWriteWorkFiles} from './work-file-permissions.js';
 
 export const UPLOAD_DESTINATION = Object.freeze({
   WORK: "work",
@@ -29,6 +30,7 @@ export function canUploadToDestination(user, { obraId, folder } = {}) {
   if (destination === UPLOAD_DESTINATION.PATRIMONIO) {
     return ["admin","financeiro","compras"].includes(user.role) && (user.role==="admin" || !user.obraId);
   }
+  if (!canWriteWorkFiles(user)) return false;
   if (!user.obraId) return true;
   return String(obraId || "") === String(user.obraId);
 }

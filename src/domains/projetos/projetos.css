@@ -55,3 +55,5 @@
 .engineering-audit li { margin-bottom:16px; overflow-wrap:anywhere; }
 @media(max-width:900px) { .engineering-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } .engineering-project-row { grid-template-columns:1fr 1fr; } }
 @media(max-width:600px) { .engineering-workspace { gap:16px; } .engineering-fields,.engineering-filters { grid-template-columns:1fr; } .engineering-summary { grid-template-columns:1fr 1fr; } .engineering-form { padding:16px; } .engineering-project-row { gap:16px 12px; } .engineering-project-name { grid-column:1/-1; } .engineering-project-row>div:last-child { grid-column:1/-1; } .engineering-workspace button,.engineering-workspace a,.engineering-audit summary { min-height:44px; } .engineering-record>a { align-items:center; } .engineering-timer>button { width:100%; } .engineering-tabs { display:none; } .engineering-mobile-areas { display:block; } }
+
+[data-theme="marcell"] .engineering-workspace .engineering-drag-handle { touch-action:none; }

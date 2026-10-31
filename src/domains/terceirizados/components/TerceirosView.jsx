@@ -668,6 +668,14 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
     abrirMedicao();
   },[medicaoPedida,tercAtual?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const fecharMedicao=()=>{
+    if(subindoFotosMed||thirdPartyCommandPending){
+      showToast("Aguarde a conclusão do envio antes de fechar a medição.","info");
+      return;
+    }
+    setMedModal(false);setMedEditId("");
+  };
+
   const anexarFotosMedicao=async arquivos=>{
     const files=[...(arquivos||[])].filter(f=>String(f.type||"").startsWith("image/"));
     if(!files.length)return;
@@ -685,9 +693,12 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
         if(!r.ok)throw new Error(r.error||`Falha ao enviar ${file.name}.`);
         driveId=r.workspace?.driveId||driveId;folderId=r.workspace?.folderId||folderId;folders=r.workspace?.folders||folders;
         novas.push({id:r.item?.id||uid(),url:r.url,path:r.path||r.item?.id||"",nome:file.name||`Foto ${indice+1}`,legenda:"",enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||"Engenheiro",enviadoPorRole:currentUser?.role||"",enviadoEm:new Date().toISOString()});
+        // Uma falha posterior no lote não pode apagar as evidências que já
+        // chegaram ao OneDrive. Vincula cada foto assim que o envio termina.
+        const foto=novas[novas.length-1];
+        setMedForm(f=>({...f,fotos:[...(f.fotos||[]),foto]}));
+        if(indice===0&&driveId&&folderId&&(!obraMed.oneDriveDriveId||!obraMed.oneDriveFolderId))update({...data,obras:(data.obras||[]).map(o=>o.id===obraMed.id?{...o,oneDriveDriveId:driveId,oneDriveFolderId:folderId,oneDriveFolders:folders||o.oneDriveFolders}:o)});
       }
-      if(driveId&&folderId&&(!obraMed.oneDriveDriveId||!obraMed.oneDriveFolderId))update({...data,obras:(data.obras||[]).map(o=>o.id===obraMed.id?{...o,oneDriveDriveId:driveId,oneDriveFolderId:folderId,oneDriveFolders:folders||o.oneDriveFolders}:o)});
-      setMedForm(f=>({...f,fotos:[...(f.fotos||[]),...novas]}));
       showToast(`${novas.length} fotografia(s) anexada(s) à medição.`);
     }catch(error){showToast(error.message||"Não foi possível salvar as fotografias.","error");}
     finally{setSubindoFotosMed(false);}
@@ -2006,9 +2017,9 @@ export default function Terceiros({ data, update, showToast, obraIdFixo="", curr
       {/* Modal: registrar pagamento */}
       {medModal && tercAtual && (
         <Modal title={medEditId?`Corrigir medição - ${tercAtual.name}`:`Medição ${medicoesTercAtual.length + 1} - ${tercAtual.name}`}
-          onClose={()=>{setMedModal(false);setMedEditId("");}} wide panelClass="measurement-entry-modal"
+          onClose={fecharMedicao} wide panelClass="measurement-entry-modal"
           footer={<div className="measurement-entry-actions">
-            <Btn v="ghost" full onClick={()=>{setMedModal(false);setMedEditId("");}}>Cancelar</Btn>
+            <Btn v="ghost" full onClick={fecharMedicao} disabled={subindoFotosMed||thirdPartyCommandPending}>Cancelar</Btn>
             <Btn full onClick={salvarMedicao} disabled={subindoFotosMed||thirdPartyCommandPending}><Ic n="check"/> {thirdPartyCommandPending?"Confirmando...":medEditId?"Corrigir e reenviar":"Confirmar e enviar para aprovação"}</Btn>
           </div>}>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
