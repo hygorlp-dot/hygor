@@ -12,7 +12,10 @@ import {invoiceImportConflicts} from "./domains/financeiro/invoice-import-previe
 import {documentRegister} from "./domains/financeiro/document-register.js";
 import {captureFinancePosition,restoreFinancePosition} from "./features/financeiro/navigation-context.js";
 import {todayQueues,overviewEntries,financialEntry,positionEntries} from "./domains/financeiro/workspace.js";
+import { LaborAreaTabs } from "./domains/rh/components/LaborAreaTabs.jsx";
+import { matchesLaborArea } from "./domains/rh/labor-area.js";
 import {AttendancePayMode} from "./domains/rh/components/AttendancePayMode.jsx";
+import {readRhStepTarget,clearRhStepTarget,pointCycleForDate} from "./domains/rh/rh-step-target.js";
 import { marcellReportHtml } from "./reports/marcell-report.js";
 import { createPortal } from "react-dom";
 import { BRAND, MARCELL_LOGO } from "./brand/identity.js";
@@ -7284,13 +7287,19 @@ function UnlockRequestModal({ data, dispatchAttendanceCommand, showToast, obraId
 //
 
 function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAttendanceCommand, dispatchCommand }) {
+  const [rhEntry]=useState(()=>readRhStepTarget('point'));
+  const rhEmployee=(data.employees||[]).find(e=>String(e.id)===rhEntry?.employeeId);
+  const rhCycle=rhEmployee?pointCycleForDate(rhEntry.date):null;
+  useEffect(()=>{if(rhEntry)clearRhStepTarget('point');},[rhEntry]);
+  const [laborScope,setLaborScope]=useState("all");
+  const changeLaborScope=value=>{setLaborScope(value);setFilterObra("all");};
   const agora = new Date();
   const refInicial = agora.getDate() <= 5 ? new Date(agora.getFullYear(), agora.getMonth()-1, 1) : agora;
-  const [year,setYear]=useState(refInicial.getFullYear());
-  const [month,setMonth]=useState(refInicial.getMonth());
-  const [q,setQ]=useState(agora.getDate()>=6&&agora.getDate()<=20?"1":"2");
+  const [year,setYear]=useState(rhCycle?.year??refInicial.getFullYear());
+  const [month,setMonth]=useState(rhCycle?.month??refInicial.getMonth());
+  const [q,setQ]=useState(rhCycle?.q||(agora.getDate()>=6&&agora.getDate()<=20?"1":"2"));
   const [filterObra,setFilterObra]=useState("all");
-  const [busca,setBusca]=useState("");
+  const [busca,setBusca]=useState(rhEmployee?.name||"");
   const [obraCell,setObraCell]=useState(null);   // "empId::date" da célula com troca de obra aberta
   const pendingCellsRef=useRef(new Map());
   const [,setPendingCellsRevision]=useState(0);
@@ -7371,7 +7380,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const obraDoRegistro=(employee,date,record,selectedObraId="")=>resolveEmployeeAttendanceObraId({
     data,employee,date,record,selectedObraId,
   });
-  const employees=(data.employees||[]).filter(e=>employeeRelevantInPeriod(data,e,diasCiclo))
+  const employees=(data.employees||[]).filter(e=>matchesLaborArea(e,laborScope)).filter(e=>employeeRelevantInPeriod(data,e,diasCiclo))
     .filter(e=>filterObra==="all"||e.obra===filterObra||e.lastObra===filterObra||days.some(d=>obraDoRegistro(e,d,getAtt(data,e.id,d))===filterObra))
     .filter(e=>[e.name,e.role,obraName(e.obra)].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.name.localeCompare(b.name));
@@ -7406,6 +7415,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const salvarCelula=async(emp,date,patch)=>{
     if(bloqueadoPorArquivo())return;
     const anterior=attendanceFor(emp.id,date)||{status:null,ot:0,note:"",obraId:""};
+    if(anterior.pontoReview){showToast("Este dia foi conferido pelo RH. Revise-o no Ponto eletrônico.","error");return;}
     const novo={...anterior,...patch};
     const obraId=obraDoRegistro(emp,date,novo,patch.obraId);
     if(obraId&&!canEditAttendance(data,obraId,date,currentUser?.id)){
@@ -7433,6 +7443,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
       const ant=getAtt(data,emp.id,date);
       if(!ant)return [];
       const obraId=obraDoRegistro(emp,date,ant);
+      if(ant.pontoReview){bloqueados++;return [];}
       if(obraId&&!canEditAttendance(data,obraId,date,currentUser?.id)){bloqueados++;return [];}
       return [{employeeId:emp.id,date,selectedObraId:obraId,record:{...ant,status:null,obraId}}];
     });
@@ -7453,7 +7464,8 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
   const rotuloCurto=st=>st==="M"?"½":isValidAttendanceStatus(st)?st:"·";
   return <div className="anim ponto-geral" style={{display:"flex",flexDirection:"column",gap:12}}>
-    <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
+    <LaborAreaTabs value={laborScope} onChange={changeLaborScope}/>
+    <AttendancePayMode data={{...data,employees:data.employees.filter(e=>matchesLaborArea(e,laborScope))}} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
     <PageHero
       eyebrow="Gestão do ponto"
       title="Ponto da quinzena"
@@ -7494,7 +7506,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
             ? "Após conferir e pagar a folha, finalize a quinzena: o ponto vira um arquivo próprio, a edição é bloqueada e o sistema fica mais leve."
             : "A quinzena ainda está em andamento. Finalize somente após o último dia do ciclo e o pagamento da folha."}
         </p>
-        <Btn v="warning" size="sm" onClick={finalizarQuinzena} disabled={arqBusy||!quinzenaEncerrada}
+        <Btn v="warning" size="sm" onClick={finalizarQuinzena} disabled={arqBusy||!quinzenaEncerrada||laborScope!=="all"}
           title={quinzenaEncerrada?"":"Disponível após o fim da quinzena"}>
           <Ic n="lock"/> {arqBusy?"Arquivando...":"Finalizar e arquivar quinzena"}
         </Btn>
@@ -7549,7 +7561,8 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
               {fora?<div style={{textAlign:"center",color:C.muted,fontSize:"var(--arcd-type-label)"}}>—</div>:<>
                 <button onClick={()=>salvarCelula(emp,date,{status:proxStatus(st)})}
                   aria-busy={pending}
-                  title={pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
+                  disabled={!!att?.pontoReview}
+                  title={att?.pontoReview?"Conferido pelo RH; revise no Ponto eletrônico.":pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
                   style={{width:"100%",height:30,border:`1.5px solid ${st?corStatus(st):C.border}`,borderRadius:5,
                           background:st?corStatus(st):C.bg,color:st?"#fff":C.muted,
                           fontWeight:600,cursor:"pointer",fontSize:"var(--arcd-type-control)",fontFamily:"var(--arcd-font-sans)",
@@ -7558,7 +7571,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
                 </button>
                 {/* Obra: escondida por padrão. Mostra um chip discreto só quando a
                     obra do dia difere da lotação; toque abre a troca. */}
-                {aberto ? (
+                {att?.pontoReview ? <span title="Conferido e integrado pelo RH">RH</span> : aberto ? (
                   <select autoFocus value={obraId} onChange={e=>{salvarCelula(emp,date,{obraId:e.target.value});setObraCell(null);}} onBlur={()=>setObraCell(null)}
                     style={{width:"100%",marginTop:2,border:`1px solid ${C.blue}`,borderRadius:4,background:C.bg,color:C.text,fontSize:"var(--arcd-type-control)",padding:"2px 1px"}}>
                     <option value="">Sem obra</option>
@@ -7585,7 +7598,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     {arqView&&(()=>{
       // Resumo do arquivo: conta P/M/F por funcionario e valora com a diaria
       // CONGELADA no snapshot (a da epoca do pagamento, nao a atual).
-      const linhas=(arqView.employeesSnapshot||[]).map(e=>{
+      const linhas=(arqView.employeesSnapshot||[]).filter(e=>matchesLaborArea(e,laborScope)).map(e=>{
         const mapa=arqView.attendance?.[e.id]||{};
         let p=0,m=0,f=0,he=0,custo=0;
         Object.values(mapa).forEach(r=>{
@@ -7636,9 +7649,14 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
 }
 
 function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchAttendanceCommand, dispatchCommand, onTab }) {
+  const [rhEntry]=useState(()=>readRhStepTarget('point-close'));
+  const rhEmployee=(data.employees||[]).find(e=>String(e.id)===rhEntry?.employeeId);
+  useEffect(()=>{if(rhEntry)clearRhStepTarget('point-close');},[rhEntry]);
+  const [laborScope,setLaborScope]=useState("all");
+  const changeLaborScope=value=>{setLaborScope(value);setFilterObra("all");};
   const obraInicial=obraIdFixo||currentUser?.obraId||
-    (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:"all");
-  const [selDate, setSelDate] = useState(today());
+    (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:rhEmployee&&data.obras.some(o=>String(o.id)===rhEntry.obraId)?rhEntry.obraId:"all");
+  const [selDate, setSelDate] = useState(rhEmployee?rhEntry.date:today());
   const [filterObra, setFilterObra] = useState(obraInicial);
   const [noteModal, setNoteModal] = useState(null);
   const [noteText, setNoteText] = useState("");
@@ -7693,6 +7711,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   }, [selDate, attendanceCompletion.allDone, lastAllDoneNotification, showToast]);
 
   const list = data.employees
+    .filter(e=>matchesLaborArea(e,laborScope))
     .filter(e => employeeRelevantOnDate(data, e, selDate))
     .filter(e => {
       if (filterObra === "all") return true;
@@ -7930,7 +7949,8 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
 
   return (
     <div className="anim obra-attendance">
-      <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
+      {!obraIdFixo&&<LaborAreaTabs value={laborScope} onChange={changeLaborScope}/>}
+    <AttendancePayMode data={{...data,employees:data.employees.filter(e=>matchesLaborArea(e,laborScope))}} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
       <PageHero
         eyebrow="Registro de ponto"
         title={selectedObra?.name || "Todas as obras"}
@@ -8066,7 +8086,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
 
             {note && <p className="obra-attendance-card__note">“{note}”</p>}
 
-            {cardLocked ? (
+            {att?.pontoReview ? <p>Conferido pelo RH e integrado das batidas do aplicativo. Para alterar este dia, faça uma nova conferência no Ponto eletrônico.</p> : cardLocked ? (
               <Btn v="warning" size="sm" full onClick={() => setUnlockModal({ obraId: obraIdPonto, date: selDate, employee: e })}><Ic n="mail" /> Solicitar permissão</Btn>
             ) : (
               <>
@@ -18102,7 +18122,7 @@ export default function App() {
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} onTab={irPara}/>}
           {tab === "equipe_obras" && <EquipeObras key={currentUser?.id} onTab={irPara} allowedTabs={allowedTabs}/>}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={irPara} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser}/>}
+          {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} onTab={irPara}/>}
           {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "rh_indic" && <Suspense fallback={<div className="arcd-page-loading">Carregando indicadores...</div>}><IndicadoresView data={data} /></Suspense>}

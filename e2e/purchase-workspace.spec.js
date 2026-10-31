@@ -74,6 +74,7 @@ const navigate=async(page,name)=>{
     await selector.selectOption(await option.getAttribute("value"));
   }else await page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button",{name:new RegExp(`^${name}`)}).click();
 };
+const navigateTool=async(page,label)=>{const selector=page.getByRole('combobox',{name:'Fluxo de compras',exact:true});if(await selector.isVisible())await selector.selectOption({label});else{const tools=page.locator('details.purchase-tools');await tools.locator('summary').click();await tools.getByRole('button',{name:label,exact:true}).click();}};
 const selectWork=page=>page.locator(".purchase-context-bar").getByLabel("Obra",{exact:true}).selectOption("a");
 
 for(const width of [390,1440])test(`condições do pedido preservam o legado e as revisões em ${width}px`,async({page})=>{
@@ -138,7 +139,7 @@ const contractsFixture=state=>{
  state.contratosFornecimento=[{id:"supply",numero:"CF-QA",fornecedorId:"central",obraId:"a",status:"ativo",vigenciaInicio:"2026-01-01",vigenciaFim:"2026-12-31",itens:[{id:"supply-item",materialId:"cement",qtdContratada:100,precoUnit:25,unidadeRef:"UN",unidadeCompra:"UN"}]}];
  state.pedidos[0].itens[0].contratoId="supply";state.pedidos[0].itens[0].contratoItemId="supply-item";
 };
-async function openContracts(page){await page.locator(".purchase-tools summary").click();await page.getByRole("button",{name:"Contratos e medições",exact:true}).click();}
+async function openContracts(page){const selector=page.getByRole('combobox',{name:'Fluxo de compras',exact:true});if(await selector.isVisible())await selector.selectOption({label:'Contratos e medições'});else{await page.locator(".purchase-tools summary").click();await page.getByRole("button",{name:"Contratos e medições",exact:true}).click();}}
 for(const width of [390,1440])test(`contratos e medições: origem única e operação existente em ${width}px`,async({page})=>{
  await page.setViewportSize({width,height:1000});const app=await enter(page,{prepare:contractsFixture});await selectWork(page);await openContracts(page);
  const hub=page.getByRole("region",{name:"Contratos e medições",exact:true});await expect(hub).toContainText("CF-QA");await hub.getByRole("button",{name:"Ficha da compra PC-001",exact:true}).click();await expect(page.getByRole("dialog")).toBeVisible();await page.keyboard.press("Escape");
@@ -176,7 +177,7 @@ for(const width of [390,1440])test(`retornos, comparação e referência histór
  await expect(dossier).toHaveCount(0);expect(app.commands).toEqual([]);expect(app.errors).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  await page.screenshot({path:`artifacts/compras/roadmap-cotacao-${width}.png`,fullPage:true});
- await page.getByRole("button",{name:"Preços por material",exact:true}).click();await page.getByLabel("Material do histórico",{exact:true}).selectOption("cement");
+ await navigateTool(page,"Preços por material");await page.getByLabel("Material do histórico",{exact:true}).selectOption("cement");
  const download=page.waitForEvent("download");await page.getByRole("button",{name:"Exportar histórico filtrado para Excel",exact:true}).click();expect((await download).suggestedFilename()).toBe("historico-precos-material.xlsx");
  expect(app.commands).toEqual([]);expect(app.errors).toEqual([]);
 });
@@ -839,7 +840,7 @@ test("histórico por material normaliza unidades, distingue custo final e abre a
   const p=state.pedidos[0];p.custoFinal={frete:20,desconto:0,impostos:0,despesas:0};
   p.itens[0]={...p.itens[0],qtd:2,qtdRecebida:2,unidadeCompra:"CX",unidadeRef:"UN",fatorConversao:10,precoUnitCotado:100,precoUnit:110,recebimentos:[{data:"2026-10-20",qtd:1},{data:"2026-10-22",qtd:1}]};
  }});
- await selectWork(page);await page.getByRole("button",{name:"Preços por material",exact:true}).click();
+ await selectWork(page);await navigateTool(page,"Preços por material");
  await page.getByLabel("Material do histórico",{exact:true}).selectOption("cement");
  await expect(page.getByRole("heading",{name:"Histórico de preços por material"})).toBeVisible();
  const history=page.getByRole("region",{name:"Histórico de preços por material"});

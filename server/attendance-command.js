@@ -1,11 +1,13 @@
 import { ATTENDANCE_STATUSES } from "../src/domains/ponto/attendance-status.js";
 import { normalizeAttendanceRecord } from "../src/domains/ponto/records.js";
+import { prepareAttendanceReview } from "./attendance-review.js";
 import {
   resolveEmployeeAttendanceObraId,
 } from "../src/domains/ponto/permissions.js";
 
 export const ATTENDANCE_COMMAND = Object.freeze({
   UPSERT:"attendance-upsert",
+  REVIEW:"attendance-review-punches",
   BATCH_UPSERT:"attendance-batch-upsert",
   DAILY_CHECK:"attendance-daily-check",
   LOCK:"attendance-lock",
@@ -129,6 +131,7 @@ const validatePatch=({data,user,patch,now})=>{
   if(!validDate(date))return fail("Data do ponto inválida.");
   if(!employeeActiveOnDate(employee,date))return fail("O funcionário não possui vínculo ativo nesta data.",409);
   const currentRecord=data?.attendance?.[employeeId]?.[date]||null;
+  if(currentRecord?.pontoReview && !patch.reviewedByServer)return fail("Este lançamento foi conferido pelo RH. Faça uma nova conferência no Ponto eletrônico para alterá-lo.",409);
   const obraId=resolvedObraId({data,employee,date,currentRecord,patch});
   if(!obraId&&user.role==="engenheiro")return fail("Selecione uma obra para registrar o ponto.",409);
   if(obraId&&!findObra(data,obraId))return fail("Obra do lançamento não encontrada.",404);
@@ -297,9 +300,26 @@ const applyUnlockDecision=({data,user,command,now,approved})=>{
   }};
 };
 
-export const applyAttendanceCommand=(data={},user={},command={},now=new Date().toISOString())=>{
+export const applyAttendanceCommand=(data={},user={},command={},now=new Date().toISOString(),sourceEvents)=>{
+  // A autorização precede inclusive o retorno idempotente.
+  if(command.action===ATTENDANCE_COMMAND.REVIEW && !["admin","rh"].includes(user.role))return fail("Somente RH e administrador podem conferir batidas.",403);
   const base=ensureCommandBase({data,user,command});
   if(!base.ok||base.idempotent)return base;
+  if(command.action===ATTENDANCE_COMMAND.REVIEW){
+    const prepared=prepareAttendanceReview(data,user,command,now,sourceEvents);
+    if(!prepared.ok)return prepared;
+    const validated=validatePatch({data,user,now,patch:{...command,record:prepared.record,reviewedByServer:true}});
+    if(!validated.ok)return validated;
+    // A conferência atribui a obra explicitamente, sem herdar a lotação atual.
+    if(validated.obraId!==prepared.record.obraId)return fail("O lançamento existente pertence a outra obra. Resolva a lotação do ponto antes de integrar.",409);
+    validated.record={...validated.record,...prepared.record};
+    const next=applyValidatedPatch(data,validated);
+    const result={attendance:[attendanceResult(validated)]};
+    return {ok:true,data:appendReceipt(next,{operationId:command.operationId,action:command.action,result,user,now}),result,
+      audit:{action:"attendance_review_punches",before:{attendance:validated.currentRecord},after:{attendance:attendanceResult(validated),operationId:command.operationId}}};
+  }
+  // Flags internas nunca podem ser enviadas pelo cliente nos comandos comuns.
+  command={...command,reviewedByServer:false,patches:Array.isArray(command.patches)?command.patches.map(p=>({...p,reviewedByServer:false})):command.patches};
   if(command.action===ATTENDANCE_COMMAND.UPSERT)return applyUpsert({data,user,command,now});
   if(command.action===ATTENDANCE_COMMAND.BATCH_UPSERT)return applyBatch({data,user,command,now});
   if(command.action===ATTENDANCE_COMMAND.DAILY_CHECK)return applyDailyCheck({data,user,command,now});

@@ -1,4 +1,7 @@
 import { PageHeader } from "../../../design-system/patterns/PageHeader";
+import { laborArea } from "../labor-area.js";
+import WorkScheduleFields from "./WorkScheduleFields.jsx";
+import "../../ponto-eletronico/components/conferencia-batidas.css";
 // ===================================================================
 // EquipeView — tela "Equipes" (cadastro/gestão de funcionários),
 // extraída de src/LegacyApp.jsx em 2026-08-20, mesma técnica já usada
@@ -375,14 +378,13 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
   const list = data.employees
     .filter(e => statusFilter === "todos" || lifecycleOf(e) === statusFilter)
     .filter(e => filterObra === "all"
-      || (filterObra==="__administrativo__"&&e.workArea==="administrativo")
-      || (filterObra==="__sem_obra__"&&!e.obra&&e.workArea!=="administrativo")
+      || (filterObra==="__administrativo__"&&laborArea(e)==="central")
+      || (filterObra==="__sem_obra__"&&!e.obra&&laborArea(e)!=="central")
       || e.obra === filterObra || e.lastObra === filterObra)
     .filter(e => [e.name, e.role, e.cpf, e.phone].join(" ").toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name));
   const ativos = data.employees.filter(e=>lifecycleOf(e)==="ativo");
-  const semObra = ativos.filter(e=>!e.obra).length;
-  const administrativos = ativos.filter(e=>e.workArea==="administrativo").length;
+  const semObra = ativos.filter(e=>!e.obra&&laborArea(e)!=="central").length;
   const lifecycleCounts=(data.employees||[]).reduce((acc,e)=>({...acc,[lifecycleOf(e)]:(acc[lifecycleOf(e)]||0)+1}),{});
   const clearFilters=()=>{setSearch("");setFilterObra(obraIdFixo||"all");setStatusFilter("ativo");};
   const lifecycleLabel={ativo:"Ativo",desligamento_agendado:"Desligamento agendado",desligado:"Desligado",arquivado:"Arquivado"};
@@ -405,12 +407,12 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
           ["arquivado","Arquivados",lifecycleCounts.arquivado||0],
           ["todos","Todas as situações",(data.employees||[]).length],
         ].map(([value,label,count])=><button key={value} type="button" className={`team-summary__item${statusFilter===value?" is-active":""}`} onClick={()=>setStatusFilter(value)} aria-pressed={statusFilter===value}><span>{label}</span><strong>{count}</strong></button>)}
-        <button type="button" className={`team-summary__item${filterObra==="__sem_obra__"?" is-active":""}`} onClick={()=>{setFilterObra("__sem_obra__");setStatusFilter("ativo");}} aria-pressed={filterObra==="__sem_obra__"}><span>Sem lotação</span><strong>{semObra-administrativos}</strong></button>
+        <button type="button" className={`team-summary__item${filterObra==="__sem_obra__"?" is-active":""}`} onClick={()=>{setFilterObra("__sem_obra__");setStatusFilter("ativo");}} aria-pressed={filterObra==="__sem_obra__"}><span>Sem lotação</span><strong>{semObra}</strong></button>
       </div>
 
       <div className="team-toolbar">
         <Inp label="Pesquisar na equipe" value={search} onChange={setSearch} placeholder="Nome, função, CPF ou telefone" />
-        {obraIdFixo?<Inp label="Lotação" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>:<Sel label="Filtrar por lotação" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as lotações"},{v:"__administrativo__",l:"Administrativo"},{v:"__sem_obra__",l:"Sem lotação"},...data.obras.map(o=>({v:o.id,l:o.name}))]} />}
+        {obraIdFixo?<Inp label="Lotação" value={data.obras.find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>:<Sel label="Filtrar por lotação" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as lotações"},{v:"__administrativo__",l:"Administração Central"},{v:"__sem_obra__",l:"Sem lotação"},...data.obras.map(o=>({v:o.id,l:o.name}))]} />}
       </div>
 
       <div className="team-list-head" aria-hidden="true"><span>Funcionário</span><span>Função</span><span>Lotação</span><span>Pendências</span><span>Situação</span><span>Ações</span></div>
@@ -430,7 +432,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 <span className="team-row__initials">{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><span><strong>{e.name}</strong><small>{fmt(e.dailyRate)}/dia</small></span><Ic n={exp?"chevronUp":"chevronDown"} s={13}/>
               </button>
               <span className="team-row__cell" data-label="Função">{e.role||"Não informada"}</span>
-              <span className="team-row__cell" data-label="Lotação">{e.workArea==="administrativo"?"Administrativo":(e.obra?obraName(e.obra):"Sem lotação")}</span>
+              <span className="team-row__cell" data-label="Lotação">{laborArea(e)==="central"?"Administração Central":(e.obra?obraName(e.obra):"Sem lotação")}</span>
               <span className="team-row__cell" data-label="Pendências">
                 <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-start"}}>
                   {totalAdv>0&&<Badge color={C.red}>Adiant. {fmt(totalAdv)}</Badge>}
@@ -508,11 +510,11 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <p style={TYPO.eyebrow}>Lotação</p>
               <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
-                <Sel label="Área de atuação" value={form.workArea||"campo"} onChange={value=>setForm(current=>({...current,workArea:value,...(value==="administrativo"?{obra:""}:{})}))} options={[{v:"campo",l:"Campo / obra"},{v:"administrativo",l:"Administrativo"}]}/>
+                <Sel label="Área de atuação" value={form.workArea||"campo"} onChange={value=>setForm(current=>({...current,workArea:value,...(value==="administrativo"?{obra:""}:{})}))} options={[{v:"campo",l:"Campo / obra"},{v:"administrativo",l:"Administração Central"}]}/>
                 <Inp label="Admissão *" type="date" value={form.startDate} onChange={F("startDate")} error={formErrors.startDate}/>
                 {form.workArea!=="administrativo"
                   ?<Sel label="Obra" value={form.obra} onChange={F("obra")} options={[{ v: "", l: "Sem obra (desvinculado)" }, ...data.obras.map(o => ({ v: o.id, l: o.name }))]} />
-                  :<Inp label="Lotação" value="Administrativo da empresa" onChange={()=>{}} disabled/>}
+                  :<Inp label="Lotação" value="Administração Central" onChange={()=>{}} disabled/>}
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -531,8 +533,9 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 <Inp label={form.remunerationMode==="clt"?"Diária de referência para custeio do ponto *":"Diária *"} type="number" value={form.dailyRate} onChange={F("dailyRate")} error={formErrors.dailyRate}/>
                 <Inp label="VT diário" type="number" value={form.vtDaily} onChange={F("vtDaily")} />
                 <Inp label="VR diário" type="number" value={form.vrDaily} onChange={F("vrDaily")} />
-                <Inp label="Jornada padrão (horas)" type="number" min="1" max="24" value={form.workdayHours} onChange={F("workdayHours")} />
-                <Inp label="Início previsto da jornada" type="time" value={form.workStart} onChange={F("workStart")} />
+                <WorkScheduleFields employee={form} onChange={F("workScheduleDraft")} />
+                <Inp label="Jornada de referência sem escala (horas)" type="number" min="1" max="24" value={form.workdayHours} onChange={F("workdayHours")} />
+                <Inp label="Início de referência sem escala" type="time" value={form.workStart} onChange={F("workStart")} />
                 <Inp label="Adicional de hora extra (%)" type="number" min="0" value={form.overtimeAdditionalPercent} onChange={F("overtimeAdditionalPercent")} />
                 </>}
               </div>
@@ -569,7 +572,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             <div style={{border:`1px solid ${C.red}55`,background:`${C.red}0A`,padding:"11px 12px",borderRadius:8}}>
               <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{dismissalModal.name}</p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>{dismissalModal.role||"Função não informada"} · {dismissalModal.workArea==="administrativo"?"Administrativo":obraName(dismissalModal.obra)}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>{dismissalModal.role||"Função não informada"} · {dismissalModal.workArea==="administrativo"?"Administração Central":obraName(dismissalModal.obra)}</p>
             </div>
             <Inp label="Último dia trabalhado *" type="date" min={dismissalModal.startDate} value={dismissalForm.endDate} onChange={value=>setDismissalForm(form=>({...form,endDate:value}))}/>
             <Sel label="Tipo de desligamento *" value={dismissalForm.reason} onChange={value=>setDismissalForm(form=>({...form,reason:value}))} options={[

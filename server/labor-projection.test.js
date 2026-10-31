@@ -1,3 +1,5 @@
+import {buildLaborProjection} from "../src/domains/ponto/labor-projection.js";
+import {buildLaborProjectionCash} from "../src/domains/ponto/labor-projection-cash.js";
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 import { gzipSync } from "node:zlib";
@@ -263,9 +265,9 @@ describe("labor projection access and minimal report", () => {
   it("enforces work filters and never accepts browser salaries, dates or rates", () => {
     const access = getLaborProjectionAccess({ role: "rh", obraId: "o1" }, fixture());
     expect(validateLaborProjectionFilters({ salary: 1, asOf: "2030-01-01", rate: 0 }, access, fixture()))
-      .toEqual({ area: "works", obraId: "o1", employeeId: "", mode: "", role: "", onlyIssues: false });
+      .toEqual({ area: "all", obraId: "o1", employeeId: "", mode: "", role: "", onlyIssues: false });
     expect(() => validateLaborProjectionFilters({ obraId: "o2" }, access, fixture())).toThrow(expect.objectContaining({ status: 403 }));
-    expect(() => validateLaborProjectionFilters({ area: "administrative" }, access, fixture())).toThrow(expect.objectContaining({ status: 403 }));
+    expect(validateLaborProjectionFilters({ area: "administrative" }, access, fixture())).toMatchObject({area:"administrative",obraId:"o1"});
     expect(() => validateLaborProjectionFilters({ mode: "fixed" }, access, fixture())).toThrow(expect.objectContaining({ status: 400 }));
   });
 
@@ -332,4 +334,11 @@ describe("labor projection access and minimal report", () => {
     report.cash.projectedNet = 200;
     expect(() => applyLaborProjectionAccess(report, access)).toThrow(expect.objectContaining({ status: 409 }));
   });
+});
+
+it("administração local preserva obra autorizada da validação ao caixa e resposta",()=>{
+ const data=fixture();data.employees[0]={...employee(),role:"Mestre de obras",dailyRate:100,vtDaily:0,vrDaily:0};data.obras[0].contractType="admin_only";data.attendance={e1:{"2026-10-21":{status:"P",obraId:"o1"}}};
+ const access=getLaborProjectionAccess({role:"rh",obraId:"o1"},data),filters=validateLaborProjectionFilters({area:"administrative"},access,data);
+ const report=buildLaborProjection(data,{asOf:"2026-10-29",access,filters});report.cash=buildLaborProjectionCash(data,report,{access});
+ const safe=applyLaborProjectionAccess(report,access);expect(safe.people).toHaveLength(1);expect(safe.groups.every(group=>group.obraId==="o1")).toBe(true);expect(safe.people[0].days.every(day=>day.obraId==="o1")).toBe(true);
 });

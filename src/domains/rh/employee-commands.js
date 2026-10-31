@@ -2,6 +2,7 @@ import { normalizeRemunerationMode, REMUNERATION_MODES } from "./remuneration-mo
 import { validDate } from "./date-validation.js";
 import {attendanceImportIssues} from '../ponto/clt-attendance.js';
 import {attendancePayModeDecision} from './attendance-pay-mode.js';
+import { appendWorkSchedule } from "./work-schedule.js";
 
 export const EMPLOYEE_COMMAND = Object.freeze({
   EMPLOYEE_SAVED:"FUNCIONARIO_SALVO",
@@ -144,7 +145,17 @@ export const applyEmployeeCommand = (
     if(draft.attendanceSource?.manualReason&&String(draft.attendanceSource.manualReason).trim().length<10)return fail('Justifique o ajuste manual dos eventos importados.');
   }
   if (!name) return fail("Informe o nome do funcionário.");
-  if (!validDate(raw.startDate)) return fail("Informe uma data de admissão válida.");
+  // Permite encerrar um vínculo legado sem inventar sua admissão. A exceção
+  // aceita somente campos do desligamento; correções e reativações continuam
+  // exigindo uma admissão válida.
+  const terminationFields = new Set(["active", "status", "endDate", "terminationReason", "lastObra", "terminationRegisteredBy", "terminationRegisteredAt"]);
+  const legacyTermination = before && before.active !== false && !before.endDate
+    && !validDate(before.startDate) && raw.startDate === before.startDate
+    && raw.active === false && raw.status === "desligado"
+    && validDate(raw.endDate) && raw.endDate <= String(now).slice(0, 10)
+    && [...new Set([...Object.keys(before), ...Object.keys(raw)])].every(field =>
+      terminationFields.has(field) || JSON.stringify(raw[field]) === JSON.stringify(before[field]));
+  if (!validDate(raw.startDate) && !legacyTermination) return fail("Informe uma data de admissão válida.");
   const dailyRate = Number(raw.dailyRate || 0);
   if(raw.remunerationMode&&!REMUNERATION_MODES.includes(raw.remunerationMode))return fail("Modalidade de remuneração inválida.");
   if(raw.remunerationMode==="mei"&&!(Number.isFinite(Number(raw.meiMonthlyValue))&&Number(raw.meiMonthlyValue)>0))return fail("Informe o valor mensal do contrato MEI.");
@@ -160,7 +171,7 @@ export const applyEmployeeCommand = (
   if ((!active || scheduled) && !validDate(endDate)) {
     return fail("Informe uma data de término válida para inativar o funcionário.");
   }
-  if (endDate && String(endDate) < String(raw.startDate)) {
+  if (endDate && validDate(raw.startDate) && String(endDate) < String(raw.startDate)) {
     return fail("A data de término não pode anteceder a admissão.");
   }
   const obraId = String(raw.obra || "");
@@ -191,6 +202,9 @@ export const applyEmployeeCommand = (
   if(modeChanged&&(!validDate(modeDate)||modeDate<raw.startDate))return fail("Informe uma vigência da modalidade igual ou posterior à admissão.");
   const baseHistory=before?.remunerationHistory?.length?before.remunerationHistory:[{date:before?.remunerationEffectiveFrom||before?.startDate||raw.startDate,mode:previousMode}];
   const remunerationHistory=modeChanged?[...baseHistory,{date:modeDate,mode,changedAt:now,changedBy:actorId}]:before?.remunerationHistory||[];
+  const schedule = appendWorkSchedule(before, raw.workScheduleDraft, actorId, now);
+  if (!schedule.ok) return fail(schedule.reason);
+  if (raw.workScheduleDraft?.effectiveFrom < raw.startDate) return fail("A escala não pode começar antes da admissão.");
   const employee = {
     ...raw,
     id,
@@ -225,7 +239,9 @@ export const applyEmployeeCommand = (
     updatedAt:now,
     updatedById:actorId,
     updatedBy:actorName,
+    workSchedules:schedule.history,
   };
+  delete employee.workScheduleDraft;
   const employees = before
     ? (data.employees || []).map(item => String(item.id) === id ? employee : item)
     : [...(data.employees || []), employee];

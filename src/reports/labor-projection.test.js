@@ -41,7 +41,7 @@ describe("exportações da projeção de mão de obra", () => {
     const bytes = await workbook.xlsx.writeBuffer();
     const loaded = new ExcelJS.Workbook();
     await loaded.xlsx.load(bytes);
-    expect(loaded.worksheets.map(sheet => sheet.name)).toEqual(["Resumo", "Obras e Administrativo", "Pessoas autorizadas", "Histórico", "Memória de cálculo", "Pendências"]);
+    expect(loaded.worksheets.map(sheet => sheet.name)).toEqual(["Resumo", "Obras e Administração Central", "Pessoas autorizadas", "Histórico", "Memória de cálculo", "Pendências"]);
     const summary = loaded.getWorksheet("Resumo");
     const total = rowByLabel(summary, "Custo esperado").getCell(2);
     expect(total.value).toBe(1440);
@@ -132,8 +132,8 @@ describe("exportações da projeção de mão de obra", () => {
     expect(doc.querySelector("img[onerror]")).toBeNull();
     expect(doc.body.textContent).toContain('<img src=x onerror="alert(1)">');
     const workbook = await buildLaborProjectionWorkbook(report);
-    expect(workbook.getWorksheet("Obras e Administrativo").getCell("A2").value).toBe(report.groups[0].name);
-    expect(workbook.getWorksheet("Obras e Administrativo").getCell("A2").formula).toBeUndefined();
+    expect(workbook.getWorksheet("Obras e Administração Central").getCell("A2").value).toBe(report.groups[0].name);
+    expect(workbook.getWorksheet("Obras e Administração Central").getCell("A2").formula).toBeUndefined();
   });
 
   it("informa bloqueio de janela na exportação PDF", () => {

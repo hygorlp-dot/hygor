@@ -12,8 +12,8 @@ import {prepareMonthlyPayslip} from '../clt-preparation.js';
 import {CltClosingSummary} from './CltClosingSummary.jsx';
 import {readPayrollHandoff,PAYROLL_HANDOFF_KEY} from '../../rh/payroll-handoff.js';
 
-export function CltPayslips({data,currentUser,dispatchCommand,showToast,year,month}) {
-  const [entry]=useState(()=>{const handoff=readPayrollHandoff();return handoff?.mode==='clt'&&(data.employees||[]).some(e=>String(e.id)===handoff.employeeId)?handoff:null;});
+export function CltPayslips({data,currentUser,dispatchCommand,showToast,year,month,initialSelection}) {
+  const [entry]=useState(()=>{const handoff=initialSelection?{...initialSelection,mode:'clt'}:readPayrollHandoff();return handoff?.mode==='clt'&&(data.employees||[]).some(e=>String(e.id)===handoff.employeeId)?handoff:null;});
   const initialEmployee=(data.employees||[]).find(e=>String(e.id)===entry?.employeeId);
   const initialCompetence=entry?.competence||`${year}-${String(month+1).padStart(2,"0")}`;
   const [employeeId,setEmployeeId]=useState(entry?.employeeId||'');

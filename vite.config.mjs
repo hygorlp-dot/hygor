@@ -5,7 +5,12 @@ import {fileURLToPath, URL} from "node:url";
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {"@": fileURLToPath(new URL("./src", import.meta.url))},
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // O alvo moderno do Vite já suporta Promise, Symbol e Object.assign.
+      // A distribuição bare mantém o ExcelJS sem duplicar seus polyfills ES5.
+      "exceljs": "exceljs/dist/exceljs.bare.min.js",
+    },
   },
   // O formato padrão de worker do Vite é "iife" - incompatível com
   // `new Worker(url, {type:"module"})`, que sinapi-parser.worker.js e
@@ -32,6 +37,9 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes("exceljs")) return "spreadsheet-tools";
+          // Mantém o Recharts em um único arquivo compartilhado entre os painéis,
+          // reduzindo a repetição de imports e a fragmentação da compressão.
+          if (id.includes("/node_modules/recharts/")) return "charts";
           if (
             id.includes("/src/domains/financeiro/")
             || id.includes("/src/domains/dre/")

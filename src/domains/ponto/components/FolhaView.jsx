@@ -1,3 +1,5 @@
+import { LaborAreaTabs } from "../../rh/components/LaborAreaTabs.jsx";
+import { matchesLaborArea,laborAreaLabel } from "../../rh/labor-area.js";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { DreIntegration, FlowTabs, useRememberWorkflowScope, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
 // ===================================================================
@@ -44,6 +46,9 @@ import { PayModeSimulation } from "./PayModeSimulation.jsx";
 import {EmployeeCosts} from '../../rh/components/EmployeeCosts.jsx';
 import {EmployeeDossier} from '../../rh/components/EmployeeDossier.jsx';
 import {readPayrollHandoff,PAYROLL_HANDOFF_KEY} from '../../rh/payroll-handoff.js';
+import {PayrollReadiness} from '../../rh/components/PayrollReadiness.jsx';
+import {writeRhStepTarget} from '../../rh/rh-step-target.js';
+import {Alert,AlertDescription} from '../../../components/ui/alert';
 import LaborProjectionReport from "./LaborProjectionReport.jsx";
 import { obterProjecaoMaoObra } from "../../../api.js";
 
@@ -64,6 +69,26 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const [reopenReason,setReopenReason]=useState("");
   const [savingClosing,setSavingClosing]=useState(false);
   const [payrollView,setPayrollView]=useState(entryScope?.mode==='clt'?'clt':'payroll');
+  const [rhSelection,setRhSelection]=useState(null);
+  const openRhStep=({step,employee,competence,report})=>{
+    if(!['admin','rh'].includes(currentUser?.role))return;
+    if(step==='registration'){
+      try{window.sessionStorage.setItem('arcd_editar_funcionario',String(employee.id));onTab?.('equipe');}catch{showToast('Não foi possível abrir o cadastro. Acesse Equipes.','error');}
+      return;
+    }
+    if(step==='point'||step==='point-close'){
+      const target=step==='point'?'point':'point-close';
+      if(!writeRhStepTarget({target,employeeId:String(employee.id),competence,date:report.pointDate,obraId:report.pointObraId})){showToast('Não foi possível manter o recorte. Abra a Gestão do ponto.','error');return;}
+      onTab?.(step==='point'?'ponto_geral':'ponto');return;
+    }
+    setRhSelection({employeeId:String(employee.id),competence});
+    setYear(Number(competence.slice(0,4)));setMonth(Number(competence.slice(5,7))-1);
+    if(step==='provisions')setPayrollView('provisions');
+    else {setExpandedId(String(employee.id));setPayrollView(report.mode==='clt'?'clt':'payroll');}
+  };
+  const [laborScope,setLaborScope]=useState("all");
+  const scopedData=useMemo(()=>({...data,employees:data.employees.filter(e=>matchesLaborArea(e,laborScope))}),[data,laborScope]);
+  const changeLaborScope=value=>{setLaborScope(value);setFilterObra("all");};
   useEffect(()=>{if(entryScope?.mode==='daily')window.sessionStorage.removeItem(PAYROLL_HANDOFF_KEY);},[entryScope]);
   const [unionDraft,setUnionDraft]=useState(()=>normalizeUnionDuesConfig(data.config?.unionDues));
   const [savingUnion,setSavingUnion]=useState(false);
@@ -281,13 +306,14 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   // calculo mais caro da tela. Sem useMemo, refazia tudo a cada render (ex.:
   // digitar em qualquer campo de um modal aberto por cima da folha).
   const rows = useMemo(() => data.employees
+    .filter(e=>matchesLaborArea(e,laborScope))
     .filter(e => e.active !== false || hasAttendanceInPeriod(e))
     .filter(e => diasCiclo.some(d=>remunerationModeOnDate(e,d)!=="clt"))
     .map(calcRow)
     .filter(belongsToSelectedObra)
     .filter(r => r.presentes > 0 || r.meiodia > 0 || r.faltas > 0 || r.feriadosPagos > 0 || r.feriadosPerdidos > 0 || r.advances > 0 || r.gross > 0)
     .sort((a, b) => a.name.localeCompare(b.name)),
-    [data.employees, data.attendance, data.changeLog, data.obras, data.advances, data.config?.unionDues, days, holidaysInPeriod, filterObra, q]);
+    [data.employees, data.attendance, data.changeLog, data.obras, data.advances, data.config?.unionDues, days, holidaysInPeriod, filterObra, q,laborScope]);
 
   // Valores EFETIVOS de uma linha conforme o filtro de obra. Com "all", usa os
   // totais do funcionario. Com uma obra selecionada, usa apenas a parcela
@@ -412,8 +438,8 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const canManageClosing=["admin","rh"].includes(currentUser?.role);
   const closingPeriodKey=payrollPeriodKey(year,month,q);
   const closedTitles=activePayrollTitlesForPeriod(data,closingPeriodKey);
-  const closingBlockers=filterObra==="all"?payrollClosingBlockers({pendencias:pendenciasRelatorio,rows}):["Selecione “Todas as obras” para fechar a quinzena da empresa inteira."];
-  const closingDivergences=filterObra==="all"&&closedTitles.length?payrollClosingDivergences(closedTitles,rows):[];
+  const closingBlockers=filterObra==="all"&&laborScope==="all"?payrollClosingBlockers({pendencias:pendenciasRelatorio,rows}):["Selecione Consolidado e “Todas as obras” para fechar a quinzena da empresa inteira."];
+  const closingDivergences=filterObra==="all"&&laborScope==="all"&&closedTitles.length?payrollClosingDivergences(closedTitles,rows):[];
   const closedTotal=closedTitles.reduce((sum,title)=>sum+Number(title.liquido||0),0);
   const buildClosingTitles=closingId=>buildPayrollTitles({
     rows,closingId,periodKey:closingPeriodKey,
@@ -584,7 +610,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           <div class="cabecalho">
             <h1>${escapeHtml(data.config.companyName || "ArcD Obras")}</h1>
             ${data.config.cnpj ? `<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>` : ""}
-            <h2>Folha de Pagamento - ${escapeHtml(periodLabel)}</h2>
+            <h2>Folha de Pagamento · ${laborAreaLabel(laborScope)} - ${escapeHtml(periodLabel)}</h2>
             <div class="meta">
               <p><strong>Período:</strong> ${escapeHtml(fmtDateFull(days[0]))} a ${escapeHtml(fmtDateFull(days[days.length-1]))}</p>
               <p><strong>Pagamento:</strong> ${escapeHtml(paymentDateLabel)}</p>
@@ -825,9 +851,10 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
   return (
     <div className="anim payroll-workspace">
+      <LaborAreaTabs value={laborScope} onChange={changeLaborScope}/>
       {(payrollView==="payroll"||payrollView==="union")&&<>      <PageHero
         eyebrow="Recursos humanos"
-        title="Folha de Pagamento"
+        title={`Folha de Pagamento · ${laborAreaLabel(laborScope)}`}
         description="Conferência quinzenal da equipe, dos apontamentos e do valor líquido por obra."
         alert={pendenciasRelatorio.length?{
           tone:"danger",
@@ -862,19 +889,21 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
       </>}
 
-      <FlowTabs label="Áreas da folha" active={payrollView} onChange={setPayrollView}
-        steps={[{id:"payroll",label:"Folha da quinzena",description:"Confira as pendências e a composição por funcionário antes de gerar os relatórios."},...(["admin","rh","financeiro"].includes(currentUser?.role)?[{id:"projection",label:"Projeção da quinzena"}]:[]),{id:"clt",label:"Holerites CLT"},{id:"provisions",label:"Provisões trabalhistas"},{id:"simulation",label:"Simulação CLT × diária"},{id:'costs',label:'Custos por funcionário'},...(['admin','rh'].includes(currentUser?.role)?[{id:'dossier',label:'Prontuário documental'}]:[])]}
+      {payrollView==='payroll'&&['admin','rh'].includes(currentUser?.role)&&<Alert><AlertDescription>Confira cadastro, ponto, folha e provisões por funcionário. <Btn v="ghost" onClick={()=>setPayrollView('readiness')}>Organizar pendências do RH</Btn></AlertDescription></Alert>}
+      <FlowTabs label="Áreas da folha" active={payrollView} onChange={value=>{setRhSelection(null);setPayrollView(value);}}
+        steps={[...(['admin','rh'].includes(currentUser?.role)?[{id:'readiness',label:'Pendências do RH'}]:[]),{id:"payroll",label:"Folha da quinzena",description:"Confira as pendências e a composição por funcionário antes de gerar os relatórios."},...(["admin","rh","financeiro"].includes(currentUser?.role)?[{id:"projection",label:"Projeção da quinzena"}]:[]),{id:"clt",label:"Holerites CLT"},{id:"provisions",label:"Provisões trabalhistas"},{id:"simulation",label:"Simulação CLT × diária"},{id:'costs',label:'Custos por funcionário'},...(['admin','rh'].includes(currentUser?.role)?[{id:'dossier',label:'Prontuário documental'}]:[])]}
         tools={[{id:"union",label:"Sindicato"},{id:"charges",label:"Encargos"}]} toolsLabel="Regras e descontos"/>
       {payrollView==="payroll"&&<DreIntegration kind="payroll" currentUser={currentUser} obraId={filterObra==="all"?"":filterObra} year={year} month={month}>
         <p>Consulta do DRE mensal. A quinzena de 21 a 05 atravessa dois meses; o DRE mantém a competência de cada apontamento.</p>
       </DreIntegration>}
 
-      {payrollView==="projection"&&<LaborProjectionReport requestReport={obterProjecaoMaoObra}/>}
-      {payrollView==="clt"&&<CltPayslips data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
-      {payrollView==="provisions"&&<LaborProvisions data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
-      {payrollView==="simulation"&&<PayModeSimulation data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
-      {payrollView==='costs'&&<EmployeeCosts data={data} year={year} month={month} showToast={showToast}/>}
-      {payrollView==='dossier'&&<EmployeeDossier data={data} currentUser={currentUser} showToast={showToast}/>}
+      {payrollView==="projection"&&<LaborProjectionReport key={laborScope} requestReport={obterProjecaoMaoObra} initialArea={({obras:"works",central:"administrative"})[laborScope]||"all"}/>}
+      {payrollView==='readiness'&&['admin','rh'].includes(currentUser?.role)&&<PayrollReadiness key={laborScope} data={scopedData} year={year} month={month} onOpen={openRhStep}/>}
+      {payrollView==="clt"&&<CltPayslips key={laborScope} data={scopedData} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month} initialSelection={rhSelection}/>}
+      {payrollView==="provisions"&&<LaborProvisions key={laborScope} data={scopedData} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month} initialSelection={rhSelection}/>}
+      {payrollView==="simulation"&&<PayModeSimulation key={laborScope} data={scopedData} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
+      {payrollView==='costs'&&<EmployeeCosts key={laborScope} data={scopedData} year={year} month={month} showToast={showToast}/>}
+      {payrollView==='dossier'&&<EmployeeDossier key={laborScope} data={scopedData} currentUser={currentUser} showToast={showToast}/>}
       {payrollView==="charges"&&<LaborChargesSettings data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast}/>}
       {payrollView==="union"&&<section className="payroll-union" aria-labelledby="union-title">
         <header className="payroll-union__header">
@@ -937,11 +966,11 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       </section>
       <section className="payroll-checklist payroll-closing" aria-label="Fechamento da quinzena">
         {closedTitles.length?<>
-          <h3>Quinzena fechada</h3>
+          <h3>{laborScope==="all"?"Quinzena fechada":"Fechamento da empresa (Consolidado)"}</h3>
           <p>{closedTitles.length} pagamento(s) · {fmt(closedTotal)} · vencimento {fmtDateFull(closedTitles[0].vencimento)} · fechada por {closedTitles[0].fechadoFolhaPor||"—"} em {fmtDate(String(closedTitles[0].fechadoFolhaEm||"").slice(0,10))}.</p>
           <p>Os pagamentos estão em contas a pagar e são baixados pela conciliação do extrato.</p>
           {closingDivergences.length>0&&<p role="alert" style={{color:C.red}}><Ic n="alert"/> O ponto mudou depois do fechamento para {closingDivergences.length} funcionário(s). Reabra a quinzena para refazer os pagamentos.</p>}
-          {canManageClosing&&<Btn v="ghost" onClick={()=>setClosingModal("reopen")}>Reabrir quinzena</Btn>}
+          {canManageClosing&&<Btn v="ghost" disabled={laborScope!=="all"} onClick={()=>setClosingModal("reopen")}>Reabrir quinzena</Btn>}
         </>:<>
           <h3>Fechamento da quinzena</h3>
           <p>Fechar transforma o líquido de cada funcionário em um pagamento a fazer, dividido por obra, com vencimento em {paymentDateLabel}.</p>

@@ -1,7 +1,9 @@
 import { money } from "./clt-payslip.js";
 import { remunerationModeOnDate } from "../rh/remuneration-mode.js";
 export function newProvisionDraft(employee,competence) {
-  return {competence,included:remunerationModeOnDate(employee,`${competence}-31`)==="clt",base:employee.monthlySalary||"",average:0,
+  const validSalary=value=>Number.isFinite(Number(value))&&Number(value)>0;
+  const base=validSalary(employee.monthlySalary)?employee.monthlySalary:validSalary(employee.cltPayroll?.profile?.salary)?employee.cltPayroll.profile.salary:"";
+  return {competence,included:remunerationModeOnDate(employee,`${competence}-31`)==="clt",base,average:0,
     fgtsPercent:employee.cltPayroll?.profile?.rules?.fgtsPercent??8,finePercent:40,extraReserve:0,fgtsOnVacation:true,
     openingMonth:competence,openingBalance:"",usedReserve:"",fgtsSeveranceBase:"",notes:""};
 }

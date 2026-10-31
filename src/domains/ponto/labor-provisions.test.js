@@ -1,6 +1,25 @@
 import {expect,it} from "vitest";
 import {calculateLaborProvision,newProvisionDraft,summarizeLaborProvisions} from "./labor-provisions.js";
 const draft=overrides=>({...newProvisionDraft({remunerationMode:"clt",startDate:"2026-01-01",monthlySalary:3000},"2026-09"),...overrides});
+it.each([undefined,null,"",0])("reutiliza salário do perfil CLT quando o campo contratual está ausente (%s)",monthlySalary=>{
+  const employee={remunerationMode:"clt",startDate:"2026-01-01",monthlySalary,cltPayroll:{profile:{salary:3000}},laborProvisions:{"2026-08":{base:2800}}};
+  const before=structuredClone(employee),values=newProvisionDraft(employee,"2026-09");
+  expect(values.base).toBe(3000);
+  expect(calculateLaborProvision(values)).toMatchObject({errors:[],monthly:744.67,accumulated:null});
+  expect(employee).toEqual(before);
+});
+it("prioriza salário contratual válido sobre o perfil CLT antigo",()=>{
+  expect(newProvisionDraft({monthlySalary:"3400",cltPayroll:{profile:{salary:3000}}},"2026-09").base).toBe("3400");
+});
+it.each([undefined,0,-5,NaN,Infinity,"inválido"])("não usa salário inválido do perfil como base (%s)",salary=>{
+  const values=newProvisionDraft({remunerationMode:"clt",startDate:"2026-01-01",cltPayroll:{profile:{salary}}},"2026-09");
+  expect(values.base).toBe("");
+  expect(calculateLaborProvision(values).errors.length).toBeGreaterThan(0);
+});
+it("não transforma diária em salário nem inclui diarista por ter perfil CLT antigo",()=>{
+  expect(newProvisionDraft({dailyRate:150,startDate:"2026-01-01"},"2026-09")).toMatchObject({included:false,base:""});
+  expect(newProvisionDraft({dailyRate:150,startDate:"2026-01-01",cltPayroll:{profile:{salary:3000}}},"2026-09")).toMatchObject({included:false,base:3000});
+});
 it("separa 13º, férias, terço, FGTS e multa contingente sem desconto do salário",()=>{
   const r=calculateLaborProvision(draft());
   expect(r).toMatchObject({thirteenth:250,vacation:250,vacationThird:83.33,fgtsOnThirteenth:20,fgtsOnVacation:26.67,normalFgts:240,fine:114.67,monthly:744.67,accumulated:null,contingentFine:null});

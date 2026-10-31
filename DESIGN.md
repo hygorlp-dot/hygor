@@ -335,3 +335,10 @@ Estoque usa ações no cabeçalho, indicadores em faixa e explicação do DRE so
 ### Continuidade entre módulos — 31/10/2026
 
 Preservar filtros, áreas internas e rolagem durante a sessão. Atalhos levam a obra e a competência de origem; “Voltar a…” retorna ao contexto anterior. A decisão da cotação fica junto de sua identificação e abre a revisão existente. No Planejamento, materiais da etapa levam a uma solicitação revisável: quantidades de referência não equivalem automaticamente a quantidades de compra. Estoque e pedidos compartilhados exigem conferência. Implementação e evidências em [Contexto, planejamento e compras](docs/CONTEXTO-PLANEJAMENTO-COMPRAS.md).
+### Grupos e projeção da equipe
+
+Folha e Ponto compartilham as navegações Consolidado, Obras e Administração Central. A central inclui provisoriamente engenheiros e mestres, com explicação junto à navegação e sem alteração automática da lotação.
+
+A projeção usa o modo Operate, os controles existentes e uma tabela acessível acompanhando as barras de apurado e estimativas. Custo, líquido aos funcionários e saldo são leituras distintas. A reserva integral é cenário, sem tratamento visual de economia. Dados desconhecidos aparecem como Indisponível, com subtotal parcial e memória; nunca como zero confirmado. A navegação de competência histórica não controla a quinzena ativa do relatório. No celular, controles empilham e tabelas têm rolagem própria, preservando valores completos. Exportações conservam filtros, corte e referência da consulta autorizada.
+
+No PDF, o rodapé da folha participa do cálculo de largura, usando sua fonte em negrito. Totais monetários recebem largura mínima e permanecem em uma linha, inclusive ao reutilizar ajustes salvos.

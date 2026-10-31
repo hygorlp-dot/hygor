@@ -154,3 +154,29 @@ describe("comando transacional de funcionários", () => {
     expect(result.data.changeLog.at(-1).type).toBe("dismissal_scheduled");
   });
 });
+
+
+describe("desligamento de cadastro legado sem admissão conhecida", () => {
+  const now = "2026-10-30T20:00:00.000Z";
+  const legacy = employee({startDate:"0001-01-01",version:3});
+  const state = () => ({...base(),employees:[legacy],payments:[{id:"real",amount:100}],attendance:{"emp-1":{"2026-09-15":{status:"P"}}}});
+  const terminated = extra => ({...legacy,active:false,status:"desligado",endDate:"2026-09-30",terminationReason:"Desligamento informado pelo administrador",...extra});
+  it("encerra o vínculo, preservando admissão desconhecida, ponto e pagamentos", () => {
+    const data=state(),r=applyEmployeeCommand(data,command(terminated(),3),now);
+    expect(r.ok).toBe(true);
+    expect(r.data.employees[0]).toMatchObject({startDate:"0001-01-01",endDate:"2026-09-30",active:false,status:"desligado",workSchedules:[]});
+    expect(r.data.attendance).toEqual(data.attendance);expect(r.data.payments).toEqual(data.payments);
+    expect(r.data.changeLog.some(e=>e.type==="dismissal")).toBe(true);
+  });
+  it.each([{dailyRate:999},{role:"Outra"},{startDate:""},{workScheduleDraft:{code:"44h-seg-sex",effectiveFrom:"2026-10-29"}},{active:true},{endDate:"2026-11-01"},{endDate:"2026-02-31"}])("não permite alteração paralela ou data inválida/futura: %j",extra=>{
+    expect(applyEmployeeCommand(state(),command(terminated(extra),3),now).ok).toBe(false);
+  });
+  it("não permite criar cadastro inválido nem reativar vínculo legado",()=>{
+    expect(applyEmployeeCommand(base(),command(terminated()),now).ok).toBe(false);
+    const inactive={...legacy,active:false,status:"desligado",endDate:"2026-09-30"};
+    expect(applyEmployeeCommand({...state(),employees:[inactive]},command({...inactive,active:true,endDate:""},3),now).ok).toBe(false);
+  });
+  it("mantém a proteção de edição concorrente",()=>{
+    expect(applyEmployeeCommand(state(),command(terminated(),2),now).reason).toMatch(/alterado por outra pessoa/);
+  });
+});

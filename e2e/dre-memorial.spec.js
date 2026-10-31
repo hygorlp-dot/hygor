@@ -21,7 +21,9 @@ for(const view of ["anual","mensal","mensal fechado"])test(`abre o memorial, doc
   await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
   if(page.viewportSize().width<1100){
     await page.getByRole("button",{name:"Abrir Visão gerencial",exact:true}).click();
-    await page.locator(".mobile-subnav").getByRole("button",{name:"DRE empresa",exact:true}).click();
+    const selector=page.getByRole('combobox',{name:'Telas de Visão gerencial',exact:true});
+    if(await selector.isVisible())await selector.selectOption({label:'DRE empresa'});
+    else await page.locator(".mobile-subnav").getByRole("button",{name:"DRE empresa",exact:true}).click();
   }else{
     const group=page.locator(".arcd-sidebar .nav-grp-hd").filter({hasText:/^Visão gerencial/});
     const body=group.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
@@ -30,7 +32,7 @@ for(const view of ["anual","mensal","mensal fechado"])test(`abre o memorial, doc
     await body.locator(".nav-item").filter({hasText:/^DRE empresa$/}).click();
   }
   if(view==="anual")await page.getByRole("button",{name:"DRE anual ajustável",exact:true}).click();
-  else await page.getByRole("button",{name:"Demonstrativo",exact:true}).click();
+  else{const viewSelector=page.getByRole('combobox',{name:'Selecionar visão',exact:true});if(await viewSelector.isVisible())await viewSelector.selectOption({label:'Demonstrativo'});else await page.getByRole("button",{name:"Demonstrativo",exact:true}).click();}
   const entry=page.getByRole("button",{name:view==="anual"?/Receitas de obras, Jan:/:"Consultar memorial: Faturamento de obras (medições emitidas)"});
   await entry.click();
   const dialog=page.getByRole("dialog");await expect(dialog).toBeVisible();
@@ -47,5 +49,5 @@ for(const view of ["anual","mensal","mensal fechado"])test(`abre o memorial, doc
   await dialog.locator("summary").filter({hasText:"Medição de janeiro"}).click();
   await dialog.getByRole("button",{name:"Abrir obra"}).click();
   await expect(dialog).not.toBeVisible();
-  await expect(page.getByText("Obra Memorial QA",{exact:true}).first()).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Obra Memorial QA',exact:true})).toBeVisible();
 });
