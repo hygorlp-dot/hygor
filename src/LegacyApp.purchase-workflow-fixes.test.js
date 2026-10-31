@@ -3,6 +3,7 @@ import {readFileSync} from "node:fs";
 
 const legacy=readFileSync(`${process.cwd()}/src/LegacyApp.jsx`,"utf8");
 const compras=readFileSync(`${process.cwd()}/src/domains/compras/components/ComprasView.jsx`,"utf8");
+const contratosWorkspace=readFileSync(`${process.cwd()}/src/domains/compras/components/PurchaseContractsWorkspace.jsx`,"utf8");
 const recebimento=readFileSync(`${process.cwd()}/src/domains/compras/receipt.js`,"utf8");
 const modalRecebimento=readFileSync(`${process.cwd()}/src/domains/compras/components/ReceiptModal.jsx`,"utf8");
 const trecho=(source,inicio,fim)=>source.slice(source.indexOf(inicio),source.indexOf(fim,source.indexOf(inicio)));
@@ -92,7 +93,9 @@ describe("contratos de fornecimento (C2.4)",()=>{
   it("a aba grava pelo servidor e o pedido leva o vínculo do contrato",()=>{
     expect(contratos).toMatch(/type:OPERATIONAL_COMMAND\.SUPPLY_CONTRACT_SAVED/);
     expect(contratos).toMatch(/type:OPERATIONAL_COMMAND\.SUPPLY_CONTRACT_CLOSED/);
-    expect(compras).toMatch(/\["contratos","Contratos de fornecimento"\]/);
+    expect(compras).toMatch(/\["contratos","Contratos e medições"\]/);
+    expect(compras).toMatch(/<PurchaseContractsWorkspace/);
+    expect(contratosWorkspace).toMatch(/<ContratosFornecimentoView/);
     expect(compras).toMatch(/contratosDisponiveis\(data,\{fornecedorId:form\.fornecedorId,obraId:form\.obraId,dataPedido:form\.data\}\)/);
     const salvar=trecho(compras,"const salvarPedido = async","const abrirPagamento=");
     expect(salvar).toMatch(/contratoId:i\.contratoId\|\|"",contratoItemId:i\.contratoItemId\|\|""/);

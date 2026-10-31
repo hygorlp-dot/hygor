@@ -2252,12 +2252,13 @@ const normalizeData = incoming => {
       solicitacaoId: x.solicitacaoId || "",
       status:     x.status     || "aberta",   // aberta | decidida | cancelada
       propostas: Array.isArray(x.propostas) ? x.propostas.map(p => ({
+        ...p,
         id:           p.id           || uid(),
         fornecedorId: p.fornecedorId || "",
         precoUnit:    Number(p.precoUnit || 0),
         // Mapa de cotação (C1.3): preço por item da cotação.
         ...(p.precos&&typeof p.precos==="object"?{precos:{...p.precos}}:{}),
-        prazoDias:    Number(p.prazoDias || 0),
+        prazoDias:    p.prazoDias==null||p.prazoDias===""?null:Number(p.prazoDias),
         obs:          p.obs || "",
         documentos: Array.isArray(p.documentos) ? p.documentos.map(a=>({
           id:a.id||uid(),nome:a.nome||"",legenda:a.legenda||a.nome||"Documento da cotação",
@@ -2287,6 +2288,7 @@ const normalizeData = incoming => {
       referenciaId:x.referenciaId || "",
       solicitacaoId:x.solicitacaoId || "",
       itens: Array.isArray(x.itens) ? x.itens.map(i => ({
+        ...i,
         id:          i.id         || uid(),
         materialId:  i.materialId || "",
         qtd:         Number(i.qtd || 0),

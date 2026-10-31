@@ -16,9 +16,9 @@
 .purchase-commercial-terms { display: grid; gap: 6px; margin-top: 8px; }
 
 .purchase-dossier { gap: 24px; color: var(--arcd-text-primary); }
-.purchase-dossier-nav { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--arcd-border-default); padding-bottom: 12px; }
+.purchase-dossier-nav { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--arcd-border-default); padding-block: 12px; position:sticky; top:0; background:var(--arcd-surface-card); z-index:1; }
 .purchase-dossier-nav button { min-height: 44px; }
-.purchase-dossier [data-section] { scroll-margin-top: 16px; }
+.purchase-dossier [data-section] { scroll-margin-top: 200px; }
 .purchase-dossier [data-section]:focus-visible, .purchase-cost-scroll:focus-visible { outline: 2px solid var(--arcd-focus-ring); outline-offset: 4px; }
 .purchase-dossier h3, .purchase-cost-comparison h3 { font-size: var(--arcd-type-body, 14px); }
 .purchase-dossier article { border: 0; border-top: 1px solid var(--arcd-border-default); border-radius: 0; padding: 16px 0; margin: 0; }
@@ -41,3 +41,8 @@
   .purchase-cost-scroll td small { grid-column: 2; white-space: normal; }
   .purchase-cost-scroll td:last-child { overflow-wrap: anywhere; }
 }
+.order-conditions-fields,.order-conditions{margin-block:var(--arcd-space-4,16px);min-width:0;overflow-wrap:anywhere}
+.order-conditions-fields summary,.order-conditions summary{cursor:pointer;padding-block:var(--arcd-space-3,12px);min-height:44px}
+.order-conditions-values{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:var(--arcd-space-3,12px);margin-block:var(--arcd-space-3,12px)}
+.order-conditions-values dt{font-weight:600;color:var(--arcd-text-primary)}
+.order-conditions-values dd{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}

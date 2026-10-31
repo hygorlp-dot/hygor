@@ -22,6 +22,7 @@ export function PurchaseNavigation({ area, onNavigate, counts, financeCount, oth
     <nav className="purchase-secondary-nav" aria-label="Financeiro e consultas de compras">
       <span>Acompanhamento</span>
       <button type="button" aria-current={area === "historico_compras" ? "page" : undefined} onClick={() => onNavigate("historico_compras")}>Histórico de compras</button>
+      <button type="button" aria-current={area === "precos" ? "page" : undefined} onClick={() => onNavigate("precos")}>Preços por material</button>
       <details className="purchase-tools" key={area}><summary>{otherAreas.find(([id]) => id === area)?.[1] ? `Consultas e cadastros · ${otherAreas.find(([id]) => id === area)[1]}` : "Consultas e cadastros"}</summary><div>
         {otherAreas.map(([id, label]) => <button key={id} type="button" onClick={event => { event.currentTarget.closest("details")?.removeAttribute("open"); onNavigate(id); }} aria-current={area === id ? "page" : undefined}>{label}</button>)}
       </div></details>

@@ -32,6 +32,12 @@ const nomeDe = lista => {
   return id => mapa.get(String(id || "")) || "";
 };
 
+export function planilhaHistoricoMaterial(data,rows,{basis="received",price="final"}={}){
+ const obra=nomeDe(data.obras),fornecedor=nomeDe(data.fornecedores);
+ return {nome:"Histórico de preços",colunas:[col("Material","texto",36),col("Obra","texto",26),col("Fornecedor","texto",28),col("Compra","texto",14),col("Data","data",12),col("Base","texto",22),col("Preço comparado","texto",24),col("Unidade referência","texto",14),col("Quantidade referência","numero",18),col("Preço dos itens","numero",18),col("Custo final","numero",18),col("Conferência","texto",40)],
+ linhas:rows.map(r=>[r.description,obra(r.workId),fornecedor(r.supplierId),r.orderNumber,dataExcel(r.date),basis==="received"?"Recebimentos efetivos":"Pedidos emitidos",price==="final"?"Custo final com adicionais":"Preço dos itens",r.referenceUnit,r.referenceQuantity,r.rawPrice,r.finalPrice,r.issue||"Comparável"])};
+}
+
 export function planilhaPedidos(data, pedidos) {
   const obra = nomeDe(data?.obras), fornecedor = nomeDe(data?.fornecedores);
   return {

@@ -1,0 +1,26 @@
+import {Button} from "../../../design-system/primitives/Button";
+import {Tabs,TabsContent,TabsList,TabsTrigger} from "../../../components/ui/tabs";
+import {urlDocumentoCompra} from "../purchase-dossier";
+const money=c=>(Number(c||0)/100).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+const date=v=>v?String(v).slice(0,10).split("-").reverse().join("/"):"Não informada";
+const status=m=>({rascunho:"Aguardando aprovação",aprovada:"Aprovada",rejeitada:"Rejeitada",arquivada:"Arquivada"}[m.status]||m.status||"Legado — conferir" );
+const effects={cost:"Custo reconhecido",payable_increase:"Obrigação reconhecida",payable_decrease:"Baixa da obrigação",cash_out:"Saída de caixa",third_party_payment:"Pagamento direto por terceiro"};
+const sources={medicao_terceiro:"Medição",pagamento_terceiro:"Pagamento da medição",pagamento_nota:"Pagamento da nota",nota_fiscal:"Nota fiscal"};
+
+export default function ServiceContractDetail({row,onClose,onOperate,canOperate,canMeasure}){
+ const documents=[...(row.contract.documentos||[]).map(d=>({...d,origin:"Contrato"})),...row.measurements.flatMap(m=>[...(m.documentos||[]),...(m.fotos||[])].map(d=>({...d,origin:`Medição ${m.numero||m.id}`}))),...row.invoices.flatMap(n=>(n.documentos||[]).map(d=>({...d,origin:`NF ${n.numero||n.id}`})))];
+ return <section className="service-contract-detail" aria-label={`Ficha do contrato ${row.contract.name}`}>
+ <header><div><h3>{row.contract.name}</h3><p>Contrato de serviço · {row.contract.situacao||row.contract.status||"Em andamento"}</p></div><Button variant="secondary" onClick={onClose}>Voltar aos contratos</Button></header>
+ <dl className="contracts-summary">{[["Contratado",row.contractCents],["Medido aprovado",row.approvedCents],["Em revisão",row.pendingCents],["Baixado",row.paidCents],["A pagar",row.balanceCents],["Contratado a aprovar",row.remainingCents]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{money(value)}</dd></div>)}</dl>
+ <p>Baixado é o valor que liquidou a obrigação, incluindo pagamentos vinculados por nota fiscal. As retenções e o valor líquido são conferidos na operação de Terceiros.</p>
+ {row.overpaidCents>0&&<p role="alert">Baixas acima do aprovado: {money(row.overpaidCents)}. Confira os registros de origem.</p>}
+ {!!row.issues.length&&<section aria-label="Conferência dos vínculos"><h4>Vínculos para conferir</h4><ul>{row.issues.map((i,index)=><li key={`${i.code}-${index}`}>{i.description}</li>)}</ul></section>}
+ {!!row.unallocated.length&&<section aria-label="Pagamentos sem medição"><h4>Pagamentos sem medição</h4><p>Estes pagamentos continuam separados do saldo das medições até a vinculação na origem.</p>{row.unallocated.map(e=><p key={e.id}>{date(e.date)} · {money(e.amountCents)} · {e.description}</p>)}</section>}
+ <Tabs defaultValue="measurements"><TabsList aria-label="Detalhes do contrato de serviço" className="contracts-tabs"><TabsTrigger value="measurements">Medições ({row.measurements.length})</TabsTrigger><TabsTrigger value="events">Movimentos financeiros</TabsTrigger><TabsTrigger value="documents">Documentos ({documents.length})</TabsTrigger></TabsList>
+ <TabsContent value="measurements">{!row.measurements.length?<p>Este contrato ainda não tem medições registradas.</p>:row.measurementsDetail.map(({measurement:m,position})=><article key={m.id}><h4>Medição {m.numero||m.id} · {status(m)}</h4><p>{date(m.data||m.dataMedicao)} · Medido {money(Number(m.total||0)*100)} · Baixado {money(position?.decreaseCents)} · A pagar {money(position?.balanceCents)}</p><p>{m.observacao||m.descricao||"Sem observações"}</p>{(m.itens||[]).map((item,index)=><p key={item.etapaId||index}>{(row.contract.etapas||[]).find(e=>e.id===item.etapaId)?.nome||"Etapa"} · acumulado {Number(item.pctAcum||0).toLocaleString("pt-BR")}%</p>)}{row.invoices.filter(n=>String(n.medicaoTercId)===String(m.id)||String(n.id)===String(m.notaFiscalId)).map(n=><p key={n.id}>NF {n.numero||n.id} · {n.status||"Sem situação"}</p>)}</article>)}</TabsContent>
+ <TabsContent value="events"><p>Reconhecimento de custo e baixa são efeitos diferentes do mesmo fluxo; não são somados como novas despesas.</p>{!row.events.length?<p>Nenhum efeito financeiro reconhecido para estas medições.</p>:<ul>{row.events.map(e=><li key={e.id}>{date(e.date)} · {effects[e.effect]||e.effect} · {money(e.amountCents)}<small>Origem: {sources[e.sourceType]||"Registro vinculado"} · {e.documentNumber||e.sourceSubId||e.sourceId}</small></li>)}</ul>}</TabsContent>
+ <TabsContent value="documents">{!documents.length?<p>Nenhum anexo no contrato, medições ou notas vinculadas.</p>:documents.map((d,index)=><p key={`${d.origin}-${d.id||index}`}>{d.origin} · {urlDocumentoCompra(d)?<a href={urlDocumentoCompra(d)} target="_blank" rel="noopener noreferrer">{d.nome||d.legenda||d.tipo||"Abrir anexo"}</a>:<span>{d.nome||d.tipo||"Documento"} · endereço não disponível</span>}</p>)}</TabsContent>
+ </Tabs>
+ {canOperate&&<div className="contracts-actions"><Button variant="secondary" onClick={()=>onOperate(row.contract,false)}>Abrir contrato em Terceiros</Button>{canMeasure&&<Button disabled={!row.canMeasure||!(row.contract.etapas||[]).length} onClick={()=>onOperate(row.contract,true)}>Registrar medição neste contrato</Button>}</div>}
+ </section>;
+}

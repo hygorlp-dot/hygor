@@ -4,10 +4,13 @@ import { Button } from "../../../design-system/primitives/Button";
 import { totalPedido } from "../calculations";
 import { fichaDaCompra, urlDocumentoCompra } from "../purchase-dossier";
 import { CostComparison } from "./PurchaseFinalCost";
+import {purchaseDossierPending} from "../purchase-dossier-status";
+import OrderConditions from "./OrderConditions";
 
 export function PurchaseDossier({data,selection,onClose}){
   const f=useMemo(()=>fichaDaCompra(data,selection),[data,selection]),[selected,setSelected]=useState(null);
   const dossierRef=useRef(null);
+  const status=purchaseDossierPending(f);
   const goTo=key=>{const section=dossierRef.current?.querySelector(`[data-section="${key}"]`);section?.scrollIntoView({block:"start"});section?.focus({preventScroll:true});};
   const name=id=>(data.fornecedores||[]).find(p=>String(p.id)===String(id))?.nome||"Fornecedor não informado";
   const material=id=>(data.materiais||[]).find(p=>String(p.id)===String(id))?.descricao||"Material";
@@ -18,6 +21,7 @@ export function PurchaseDossier({data,selection,onClose}){
     <div className="purchase-dossier" ref={dossierRef}>
       <nav className="purchase-dossier-nav" aria-label="Seções da compra">{[["origin","Origem"],["cost","Custos"],["orders",`Pedidos (${f.orders.length})`],["invoices",`Notas fiscais (${f.invoices.length})`],["payments","Pagamentos"],["documents",`Anexos (${f.documents.length})`]].filter(([key])=>key!=="cost"||f.quote).map(([key,label])=><Button key={key} variant="ghost" onClick={()=>goTo(key)}>{label}</Button>)}</nav>
       <p>Pedidos agrupados pela cotação de origem. Aprovações seguem as alçadas da empresa.</p>
+      <section aria-label="Pendências da compra"><h3>Pendências para conferência</h3><p>{status.orders} pedido(s) ativo(s) · {status.deliveries} com entrega pendente · {status.missingInvoices} sem nota vinculada · {f.documents.length} anexo(s)</p>{status.pending.length?<ul>{status.pending.map(p=><li key={p.label}><Button variant="ghost" onClick={()=>goTo(p.key)}>{p.label}</Button></li>)}</ul>:<p>Nenhuma pendência detectada nos recebimentos, notas e endereços de anexos desta ficha.</p>}<p>As indicações orientam a conferência; não substituem a aprovação nem autorizam pagamentos.</p></section>
       <section data-section="origin" tabIndex={-1}><h3>Origem e aprovação</h3>
         <p>Solicitação: {f.request?.numero||f.request?.id||"Sem solicitação vinculada"} · Cotação: {f.quote?.numero||f.quote?.id||"Sem cotação vinculada"}</p>
         <p>Aprovação: {f.approval?.status||"Sem instância vinculada"} · Solicitante: {f.request?.solicitanteNome||f.request?.solicitadoPor||f.request?.criadoPor||"Não informado"}</p>
@@ -29,11 +33,12 @@ export function PurchaseDossier({data,selection,onClose}){
       {f.quote&&<div data-section="cost" tabIndex={-1}><CostComparison quote={f.quote} supplierName={name}/></div>}
       <section data-section="orders" tabIndex={-1}><h3>Pedidos e recebimentos · {f.orders.length}</h3>
         {!f.orders.length&&<p>A cotação ainda não gerou pedidos.</p>}
-        {f.orders.map(p=><article key={p.id}><h4>{p.numero} · {name(p.fornecedorId)} · {p.status}</h4>
+        {f.orders.map(p=><article key={p.id}><h4>{p.numero} · {p.historicoCondicoesPedido?.at(-1)?.fornecedor?.nome||name(p.fornecedorId)} · {p.status}</h4>
           <p>{fmt(totalPedido(p))} · Emissão {fmtDate(p.data)} · Entrega {p.previsao?fmtDate(p.previsao):"não informada"}</p>
           <p>Pagamento: {p.condicoesPagamento||"Condições não informadas"}</p>
+          <OrderConditions order={p}/>
           {p.custoFinal&&<p>O valor dos itens já inclui o rateio de frete, desconto e despesas da proposta.</p>}
-          <ul>{(p.itens||[]).map(i=><li key={i.id}>{material(i.materialId)} · comprado {i.qtd} · recebido {i.qtdRecebida||0} · unitário {fmt(i.precoUnit)}
+          <ul>{(p.itens||[]).map(i=><li key={i.id}>{material(i.materialId)} · comprado {i.qtd} · recebido {i.qtdRecebida||0} · a receber {Math.max(0,Number(i.qtd||0)-Number(i.qtdRecebida||0))} {i.unidadeCompra||i.unidadeRef||""} · unitário {fmt(i.precoUnit)}
             {(i.recebimentos||[]).map((r,index)=><span key={r.id||index}> · {fmtDate(r.data)}: {r.qtd??r.quantidade??"recebimento registrado"}{r.responsavel?` · ${r.responsavel}`:""}</span>)}</li>)}</ul>
           {p.aceiteFornecedor&&<p>Aceite: {p.aceiteFornecedor.nome} · {fmtDate(p.aceiteFornecedor.data)} · {p.aceiteFornecedor.canal}</p>}
           {(p.ajustes||[]).map((a,index)=><p key={a.id||index}>Ajuste: {a.usuario||"Operador"} · {a.motivo} · {fmtDate(a.criadoEm?.slice(0,10))}</p>)}
