@@ -20,7 +20,8 @@ test("DRE anual ajustável preserva fontes, salva estrutura, exporta e abre deta
   });
   await page.goto("/");await page.locator("#login-email").fill(profile.email);await page.locator("#login-senha").fill("isolated-password");await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
   if(page.viewportSize().width<1100){
-    await page.getByRole("button",{name:"Abrir Visão gerencial",exact:true}).click();await page.locator(".mobile-subnav").getByRole("button",{name:"DRE empresa",exact:true}).click();
+    await page.getByRole("button",{name:"Abrir Visão gerencial",exact:true}).click();
+    await page.getByRole('combobox',{name:'Telas de Visão gerencial',exact:true}).selectOption({label:'DRE empresa'});
   }else{
     const group=page.locator(".arcd-sidebar .nav-grp-hd").filter({hasText:/^Visão gerencial/}),body=group.locator("xpath=following-sibling::*[contains(@class,'nav-body')][1]");
     await expect(group).toBeVisible();
