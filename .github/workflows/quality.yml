@@ -154,7 +154,7 @@ jobs:
       - name: Instalar Chromium homologado
         run: npx playwright install --with-deps chromium
       - name: Login e Ponto em navegador real
-        run: npm run test:e2e
+        run: npm run test:e2e -- --workers=2
       - name: Conferência do RH em desktop e celular
         run: npx playwright test --config playwright.ponto-review.config.js
       - uses: actions/upload-artifact@v4

@@ -399,7 +399,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
           await page.getByRole("button",{name:"Fechar"}).click();
           await page.setViewportSize({width:1440,height:900});
           await page.locator(".terceiros-tabs").getByRole("button",{name:/^Medições/}).click();
-          await page.locator(".terceiros-workspace select").first().selectOption("third-party-2");
+          await page.getByRole('combobox',{name:'Contrato',exact:true}).selectOption("third-party-2");
           await page.screenshot({path:"/tmp/arcd-terceirizados-medicoes-desktop.png",fullPage:true});
           await page.setViewportSize({width:390,height:844});
           await page.screenshot({path:"/tmp/arcd-terceirizados-medicoes-mobile.png",fullPage:true});
@@ -429,7 +429,7 @@ test("todos os módulos autorizados abrem sem erro de runtime", async ({ page })
         await expect(page.getByRole("button",{name:"Próxima semana"})).toBeVisible();
         await expect(page.getByText("Filtrar por obra")).toBeVisible();
         await tabsTerceiros.getByRole("button",{name:/^Medições/}).click();
-        await page.locator(".terceiros-workspace select").first().selectOption("third-party-2");
+        await page.getByRole('combobox',{name:'Contrato',exact:true}).selectOption("third-party-2");
         await expect(page.getByText("Medição 1 · 20/07/2026")).toBeVisible();
         await tabsTerceiros.getByRole("button",{name:/^Cadastro/}).click();
         await excluirContrato.click();

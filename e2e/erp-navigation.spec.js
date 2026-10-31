@@ -1,4 +1,10 @@
 import {expect,test} from "@playwright/test";
+import {selectWorkspaceArea} from './helpers/workspace-navigation.js';
+
+async function expectModule(page,label){
+  if(page.viewportSize().width<1100)await expect(page.getByRole('combobox',{name:`Telas de ${label}`,exact:true})).toBeVisible();
+  else await expect(page.locator('.app-breadcrumb')).toContainText(label);
+}
 
 test("identidade MARCELL carrega as fontes locais e a marca oficial no acesso",async({page})=>{
   await page.route("**/api/**",route=>route.fulfill({json:{ok:true,usuarios:[],precisaSetup:false}}));
@@ -9,8 +15,8 @@ test("identidade MARCELL carrega as fontes locais e a marca oficial no acesso",a
   await expect(signature).toHaveAttribute("src","/brand/marcell/full-ouro.svg");
   await expect(page.getByRole("button",{name:"Acessar central MARCELL"})).toBeVisible();
   await page.evaluate(()=>document.fonts.ready);
-  expect(await page.evaluate(()=>[...document.fonts].filter(font=>font.family.includes("Nimbus Sans")&&font.status==="loaded").length)).toBeGreaterThan(0);
-  await expect(page.locator("#login-email")).toHaveCSS("font-family",/Nimbus Sans/);
+  expect(await page.evaluate(()=>[...document.fonts].filter(font=>font.family.includes("Source Sans 3")&&font.status==="loaded").length)).toBeGreaterThan(0);
+  await expect(page.locator("#login-email")).toHaveCSS("font-family",/Source Sans 3/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
 });
 
@@ -22,8 +28,9 @@ test("tema MARCELL migra a aparência e mantém leitura com ampliação",async({
   const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela...");
   await search.fill("Gestão financeira");
   await search.locator("xpath=../..").getByRole("button").filter({hasText:"Gestão financeira"}).click();
+  await selectWorkspaceArea(page,'Áreas do financeiro','Visão financeira');
   await expect(page.locator(".financial-summary")).toBeVisible();
-  await expect(page.locator(".page-hero__title")).toHaveCSS("font-size","24px");
+  await expect(page.getByRole('heading',{name:'Financeiro',exact:true})).toHaveCSS("font-size","24px");
   await expect(page.locator(".arcd-main")).toHaveCSS("background-image","none");
   expect(await page.locator(".module-workflow").count()).toBe(0);
   await expect(page.getByRole("combobox",{name:"Ano",exact:true})).toBeVisible();
@@ -52,24 +59,25 @@ test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=
     await expect(page.locator(".arcd-page-loading:visible")).toHaveCount(0);
   }
   await open("Compras");
-  await expect(page.locator(".purchase-header h2")).toHaveCSS("font-size","24px");
-  await expect(page.locator(".purchase-header h2")).toHaveCSS("font-weight","500");
+  await expect(page.getByRole('heading',{name:'Compras',exact:true})).toHaveCSS("font-size","24px");
+  await expect(page.getByRole('heading',{name:'Compras',exact:true})).toHaveCSS("font-weight","600");
   await open("Fornecedores");
   const supplierFields=page.locator("main input:visible");
   expect(await supplierFields.count()).toBeGreaterThan(0);
   for(const field of await supplierFields.all()){
-    await expect(field).toHaveCSS("font-family",/Nimbus Sans/);
-    await expect(field).toHaveCSS("font-size",touch?"16px":"14px");
+    await expect(field).toHaveCSS("font-family",/Source Sans 3/);
+    await expect(field).toHaveCSS("font-size",touch?"16px":"15px");
   }
   await open("Obras");
   // Empty portfolio: this existing action emits a notice without saving a record.
+  await page.locator('.works-files > summary').click();
   await page.getByRole("button",{name:"Preparar pastas",exact:true}).click();
   await expect(page.locator(".arcd-toast")).toContainText("Todas as obras já estão com a estrutura documental preparada.");
   await page.getByRole("button",{name:/Nova obra/}).first().click();
   const dialog=page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.locator("h3")).toHaveCSS("font-size","18px");
-  await expect(dialog.locator("h3")).toHaveCSS("font-weight","500");
+  await expect(dialog.locator("h3")).toHaveCSS("font-weight","600");
   const notice=dialog.locator(".arcd-modal-notice .arcd-toast");
   await expect(notice).toBeVisible();
   await expect(notice).toHaveCSS("position","static");
@@ -77,13 +85,13 @@ test("tipografia mantém hierarquia em páginas, campos e modais",async({page})=
   expect(noticeBounds.y+noticeBounds.height).toBeLessThanOrEqual(firstFieldBounds.y);
 
   for(const field of await dialog.locator('input:not([type="checkbox"]):not([type="radio"]):visible,select:visible,textarea:visible').all()){
-    await expect(field).toHaveCSS("font-family",/Nimbus Sans/);
-    await expect(field).toHaveCSS("font-size",touch?"16px":"14px");
+    await expect(field).toHaveCSS("font-family",/Source Sans 3/);
+    await expect(field).toHaveCSS("font-size",touch?"16px":"15px");
   }
   await page.keyboard.press("Escape");
   await open("Folha");
-  await expect(page.locator(".payroll-summary-strip__net small")).toHaveCSS("font-size","12px");
-  await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("font-family",/Nimbus Sans/);
+  await expect(page.locator(".payroll-summary-strip__net small")).toHaveCSS("font-size","13px");
+  await expect(page.locator(".payroll-summary-strip__net strong")).toHaveCSS("font-family",/Source Sans 3/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
   await open("Ajustes");
   await page.evaluate(()=>document.documentElement.style.fontSize="200%");
@@ -100,7 +108,7 @@ async function enter(page,role,accessTabs){
   let data={usuarios:[profile],obras:[],employees:[],attendance:{},config:{companyName:"ARCD",paymentHolidays:[]},payments:[],notasFiscais:[],pagamentosFolha:[],caixaObra:[],transacoes:[]};
   const original=JSON.stringify([data.payments,data.notasFiscais,data.pagamentosFolha,data.caixaObra,data.transacoes]);
   const errors=[];page.on("pageerror",error=>errors.push(error.message));
-  await page.route("**/api/**",route=>route.fulfill({json:{ok:true,items:[],bases:[]}}));
+  await page.route("**/api/**",route=>route.fulfill({json:{ok:true,connected:true,items:[],bases:[]}}));
   await page.route("**/api/data",route=>{
     const body=route.request().postDataJSON()||{};
     if(body.action==="profiles")return route.fulfill({json:{usuarios:[profile],precisaSetup:false}});
@@ -111,7 +119,7 @@ async function enter(page,role,accessTabs){
   });
   await page.goto("/");await page.locator("#login-email").fill(profile.email);await page.locator("#login-senha").fill("isolated-password");
   await page.getByRole("button",{name:"Acessar central MARCELL"}).click();
-  await expect(page.locator(".app-breadcrumb")).toContainText("Visão gerencial");
+  await expectModule(page,"Visão gerencial");
   return {errors,financialUnchanged:()=>JSON.stringify([data.payments,data.notasFiscais,data.pagamentosFolha,data.caixaObra,data.transacoes])===original};
 }
 
@@ -124,14 +132,14 @@ for(const role of ["financeiro","engenheiro","rh"]){
     const dre=palette.getByRole("button").filter({hasText:"DRE empresa"});
     await expect(dre).toHaveCount(role==="financeiro"?1:0);
     if(role==="financeiro"){
-      await dre.click();await expect(page.locator(".app-breadcrumb")).toContainText("Visão gerencial");
+      await dre.click();await expectModule(page,"Visão gerencial");
       await page.keyboard.press("Control+k");
     }
     await search.fill("Locação de equipamentos");
     const rentals=palette.getByRole("button").filter({hasText:"Locação de equipamentos"});
     await expect(rentals).toHaveCount(role==="financeiro"?1:0);
     if(role==="financeiro"){
-      await rentals.click();await expect(page.locator(".app-breadcrumb")).toContainText("Equipamentos e locações");
+      await rentals.click();await expectModule(page,"Equipamentos e locações");
     }else await page.keyboard.press("Escape");
     expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
     if(page.viewportSize().width<1100)expect(await page.locator(".mobile-primary-nav").evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
@@ -143,7 +151,7 @@ test("permissão comercial personalizada mantém o destino antigo e o módulo co
   await page.keyboard.press("Control+k");
   const search=page.getByPlaceholder("Buscar obra, lead, pedido, funcionário, tela..."),palette=search.locator("xpath=../..");
   await search.fill("Clientes");await palette.getByRole("button").filter({hasText:"Clientes"}).click();
-  await expect(page.locator(".app-breadcrumb")).toContainText("Comercial");
+  await expectModule(page,"Comercial");
   await page.keyboard.press("Control+k");await search.fill("DRE");
   await expect(palette.getByRole("button")).toHaveCount(0);await page.keyboard.press("Escape");
   expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
@@ -161,7 +169,7 @@ test("todos os módulos ficam acessíveis e locações sai do Financeiro",async(
         await page.getByRole("button",{name:"Abrir mais módulos",exact:true}).click();
         await page.getByRole("dialog").getByRole("button",{name:label,exact:true}).click();
       }
-      await expect(page.locator(".app-breadcrumb")).toContainText(label);
+      await expectModule(page,label);
       await expect(page.getByRole("button",{name:`Abrir ${label}`,exact:true})).toHaveAttribute("aria-current","page");
     }
     expect(await page.locator(".mobile-primary-nav > button").count()).toBeLessThanOrEqual(5);
@@ -187,6 +195,7 @@ test("chat fica acima da navegação e cabe na tela em modo paisagem",async({pag
   const bounds=await panel.boundingBox(),navigation=await page.locator(".arcd-mobile-nav").boundingBox();
   expect(bounds.y).toBeGreaterThanOrEqual(0);expect(bounds.y+bounds.height).toBeLessThanOrEqual(navigation.y);
   await page.getByRole("button",{name:"Abrir chat da equipe",exact:true}).click();
+  await expect(panel).toHaveCount(0);
   expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
 });
 
@@ -198,8 +207,10 @@ test("fluxos internos e atalho do DRE preservam competência e pagamentos",async
     await search.locator("xpath=../..").getByRole("button").filter({hasText:label}).first().click();
   }
   await open("Compras");
-  await expect(page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button",{name:/^Pagamentos/})).toBeVisible();
-  await page.getByRole("region",{name:"Integração com o DRE"}).locator("summary").click();
+  if(page.viewportSize().width<1100)await expect(page.getByRole('combobox',{name:'Fluxo de compras',exact:true}).getByRole('option',{name:/^Pagamentos/})).toHaveCount(1);
+  else await expect(page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button",{name:/^Pagamentos/})).toBeVisible();
+  await expect(page.getByRole('region',{name:'Integração com o DRE',exact:true})).toHaveCount(1);
+  await page.getByRole("region",{name:"Integração com o DRE"}).locator('.dre-integration__disclosure > summary').click();
   await page.getByLabel("Competência do DRE").fill("2026-09");
   const requests=[];page.on("request",request=>{if(request.url().endsWith("/api/data")){const body=request.postDataJSON();if(body.action==="financial-dre-report")requests.push(body);}});
   const integration=page.getByRole("region",{name:"Integração com o DRE"});
@@ -207,7 +218,8 @@ test("fluxos internos e atalho do DRE preservam competência e pagamentos",async
   await expect(integration).toContainText("Não foi possível consultar o DRE");
   expect(requests.at(-1)).toMatchObject({year:2026,month:8,period:"mes",obraId:""});
   await integration.getByRole("button",{name:"Abrir DRE neste recorte",exact:true}).click();
-  await expect(page.locator(".app-breadcrumb")).toContainText("DRE obras");
+  if(page.viewportSize().width<1100)await expect(page.getByRole('combobox',{name:'Telas de Visão gerencial',exact:true})).toHaveValue('dre');
+  else await expect(page.locator(".app-breadcrumb")).toContainText("DRE obras");
   await expect.poll(()=>requests.filter(body=>body.year===2026&&body.month===8).length).toBeGreaterThan(1);
   await open("Folha");
   const controls=page.getByRole("region",{name:"Competência e escopo da folha"});await expect(controls).toBeVisible();

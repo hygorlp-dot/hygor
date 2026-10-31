@@ -1995,10 +1995,6 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
         exportButton={linhas=>botaoExportar(aba,[planilhaFila(linhas)],`Exportar para Excel os ${linhas.length} registro(s) da lista`)}
         afterMetrics={porObra&&porObra.linhas.length>1?<PurchasesByWork model={porObra} onOpenWork={id=>abrirObra(id,"fila")}/>:null}/>}
 
-      <DreIntegration kind="purchases" currentUser={currentUser} {...escopoDre}>
-        <label>Competência do DRE<input type="month" value={competenciaDre} onChange={event=>{if(event.target.value)setCompetenciaDre(event.target.value);}}/></label>
-        <p>Este mês é usado na consulta ao DRE. Os registros de compras mantêm os próprios filtros de prazo e histórico.</p>
-      </DreIntegration>
       {aba==="kanban"&&<div className="purchase-kanban-view">
         <section className="purchase-kanban-head">
           <div><p>Controle visual de abastecimento</p><h3>Kanban de compras</h3><span>Os cartões avançam conforme solicitação, cotação, pagamento e recebimento são registrados.</span></div>
