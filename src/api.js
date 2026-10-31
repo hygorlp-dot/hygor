@@ -649,5 +649,6 @@ export const enviarArquivoOneDriveEmPartes=async({file,...payload})=>{
 };
 
 export const obterLinkArquivoOneDrive = payload => chamarOneDrive("file-link", payload);
+export const lerArquivoOneDrive = (reference,{signal}={}) => fetch('/api/microsoft/onedrive',{method:'POST',signal,headers:{'content-type':'application/json'},body:JSON.stringify({...credenciais(),...reference,action:'read-file'})});
 
 export const gerarLinkRespostaCotacao = (quoteId,proposalId) => chamar({action:"cotacao-fornecedor-link",...credenciais(),quoteId,proposalId});

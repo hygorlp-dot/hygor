@@ -1,6 +1,7 @@
 import { documentRegister } from '../financeiro/document-register.js';
 import { protectedDocumentReference } from '../financeiro/document-links.js';
 import { fileUrl } from './model.js';
+import { attachmentRevisions } from '../licenciamento/dossier.js';
 import { licensingDocumentContext } from './licensing-documents.js';
 
 // Read the already-authorized projection. Originals remain owned by their module.
@@ -22,7 +23,7 @@ export function sourceDocuments(data, obraId) {
   for(const license of (data.licencas||[]).filter(item=>item.obraId===obraId)){
     for(const [key,item] of Object.entries(license.itens||{}))for(const [index,raw] of (item?.documentos||[]).entries()){
       const doc=typeof raw==='string'?{url:raw}:raw;if(!doc)continue;
-      add(`license:${license.id}:${key}:${doc.id||index}`,doc.nome||doc.name||doc.fileName||'Anexo do licenciamento','Licenciamento',{driveId:license.workspace?.driveId,...doc},doc.enviadoEm||license.updatedAt,[],licensingDocumentContext(license,key,item,doc));
+      add(`license:${license.id}:${key}:${doc.id||index}`,doc.nome||doc.name||doc.fileName||'Anexo do licenciamento','Licenciamento',{driveId:license.workspace?.driveId,...doc},doc.enviadoEm||license.updatedAt,doc.revisions?.length?attachmentRevisions(doc):[],licensingDocumentContext(license,key,item,doc));
     }
     for(const [index,doc] of (license.documentos||[]).entries())if(doc)add(`license:${license.id}:general:${doc.id||index}`,doc.nome||doc.name||'Documento do licenciamento','Licenciamento',{driveId:license.workspace?.driveId,...doc},license.updatedAt,[],licensingDocumentContext(license,'documentos',{},doc));
   }

@@ -1,4 +1,6 @@
+import {DOSSIER_COMMAND,DOSSIER_COMMAND_TYPES,applyDossierCommand} from './dossier.js';
 export const LICENSING_COMMAND = Object.freeze({
+  ...DOSSIER_COMMAND,
   LICENSE_CHECKLIST_SAVED: "LICENCA_CHECKLIST_SALVA",
   CONDOMINIUM_SAVED: "CONDOMINIO_SALVO",
 });
@@ -8,7 +10,7 @@ export const LICENSING_COMMAND_TYPES = new Set(Object.values(LICENSING_COMMAND))
 export const LICENSING_COMPANY_COMMAND_TYPES = new Set([LICENSING_COMMAND.CONDOMINIUM_SAVED]);
 
 export const licensingCommandObraId = (data = {}, command = {}) =>
-  command?.type === LICENSING_COMMAND.LICENSE_CHECKLIST_SAVED ? String(command.payload?.license?.obraId || "") : "";
+  DOSSIER_COMMAND_TYPES.has(command?.type)?String(command.payload?.obraId||''):command?.type === LICENSING_COMMAND.LICENSE_CHECKLIST_SAVED ? String(command.payload?.license?.obraId || "") : "";
 
 const fail = reason => ({ ok: false, reason });
 const versionOf = item => Number(item?.version || 0);
@@ -32,6 +34,7 @@ const applyWorkspace = (obra, workspace) => {
 
 export const applyLicensingCommand = (data = {}, command = {}, now = new Date().toISOString()) => {
   if (!LICENSING_COMMAND_TYPES.has(command.type)) return null;
+  if(DOSSIER_COMMAND_TYPES.has(command.type))return applyDossierCommand(data,command,now);
 
   if (command.type === LICENSING_COMMAND.LICENSE_CHECKLIST_SAVED) {
     const raw = command.payload?.license || {};

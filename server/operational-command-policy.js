@@ -97,6 +97,7 @@ import {
 
 import { ENGINEERING_COMMAND_TYPES } from "../src/domains/projetos/commands.js";
 import { FILE_COMMAND_TYPES } from "../src/domains/arquivos/commands.js";
+import { podeAcessarAba } from '../src/domains/administracao/abas-acesso.js';
 import { validateFileCabinetScope } from "./work-file-cabinet-policy.js";
 import { validateEngineeringScope } from "./engineering-project-policy.js";
 
@@ -150,6 +151,10 @@ const operationalCommandObraId=(data={},command={})=>{
 };
 
 export const validateOperationalCommandScope=({user={},data={},command={}}={})=>{
+  if(command.type?.startsWith('DOSSIE_')){
+    const obraId=String(command.payload?.obraId||'');
+    return user.active!==false&&['admin','engenheiro'].includes(user.role)&&podeAcessarAba(user,'licenca')&&(!user.obraId||user.obraId===obraId)&&(data.obras||[]).some(item=>item.id===obraId)?{ok:true,obraId,scope:'work'}:{ok:false,error:'Seu perfil não pode alterar o licenciamento desta obra.'};
+  }
   if(ENGINEERING_COMMAND_TYPES.has(command.type))return validateEngineeringScope({user,data,command});
   if(FILE_COMMAND_TYPES.has(command.type))return validateFileCabinetScope({user,data,command});
   const obraId=operationalCommandObraId(data,command);

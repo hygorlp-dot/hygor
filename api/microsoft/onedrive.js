@@ -3,6 +3,9 @@ import { findScopedWork, knownWorkspace, scopedWorks } from "../../server/onedri
 import { canWriteWorkFiles, WORK_FILE_WRITE_ACTIONS } from '../../server/work-file-permissions.js';
 import { LICENSING_UPLOAD_MAX_BYTES, ONEDRIVE_UPLOAD_CHUNK_BYTES, ONEDRIVE_UPLOAD_GRANULARITY_BYTES } from "../../src/onedrive-upload-policy.js";
 import { fileMime, fileValidation } from "../../src/domains/arquivos/model.js";
+import { loadFileAccessData } from '../../server/microsoft/graph.js';
+import { cabinetFileAccess } from '../../src/domains/arquivos/access.js';
+import { podeAcessarAba } from '../../src/domains/administracao/abas-acesso.js';
 
 export const config={api:{bodyParser:{sizeLimit:"8mb"}}};
 const categoryNames={capa:"06 - Capa da Obra",diario:"04 - Diário de Obras",fotos:"05 - Fotos",conferencia:"07 - Conferências Técnicas",financeiro:"08 - Financeiro e Fiscal",compras:"09 - Compras e Suprimentos",licenciamento:"03 - Documentos",contratos:"01 - Contratos",projetos:"02 - Projetos",documentos:"03 - Documentos",outros:"11 - Outros"};
@@ -74,6 +77,13 @@ export default async function handler(req,res){
     if(action!=="file"&&!appContext)return res.status(401).json({error:"Sessão do aplicativo inválida."});
     if(WORK_FILE_WRITE_ACTIONS.has(action)&&!canWriteWorkFiles(appUser))return res.status(403).json({error:"Seu perfil não possui permissão para alterar arquivos da obra."});
     if(action==="file"&&req.query.sig!==fileSignature(req.query.driveId,req.query.itemId))return res.status(403).end();
+    if(['file','file-link','read-file'].includes(action)){
+      const accessData=await loadFileAccessData();
+      const ref=action==='file'?req.query:req.body;
+      const access=cabinetFileAccess(accessData,appUser,ref);
+      if(access.registered&&(action==='file'||!podeAcessarAba(appUser,'arquivos')||!access.allowed))return res.status(403).json({error:'Abra este documento pelo visualizador autenticado do MARCELL.'});
+      if(appContext)appContext.payload=accessData;
+    }
     const {accessToken,session}=await refresh(req); setCookie(res,"arcd_ms",seal(session));
     if(action==="status")return res.json({ok:true,connected:true});
     if(action==="file"){
@@ -83,6 +93,14 @@ export default async function handler(req,res){
     }
     const body=req.body||{};
     const obraEscopo=findScopedWork(appContext,body);
+    if(action==='read-file'){
+      if(!body.driveId||!body.itemId)return res.status(400).json({error:'Arquivo sem identificação.'});
+      await assertInsideWorkspace(accessToken,appContext,body.driveId,body.itemId);
+      const r=await graph(accessToken,`/drives/${encodeURIComponent(body.driveId)}/items/${encodeURIComponent(body.itemId)}/content`,{redirect:'follow'});
+      res.setHeader('content-type',r.headers.get('content-type')||'application/octet-stream');
+      res.setHeader('cache-control','private, no-store');res.setHeader('X-Content-Type-Options','nosniff');
+      return res.send(Buffer.from(await r.arrayBuffer()));
+    }
     if(action==="file-link"){
       if(!body.driveId||!body.itemId)return res.status(400).json({error:"Arquivo sem identificação no OneDrive."});
       await assertInsideWorkspace(accessToken,appContext,body.driveId,body.itemId);

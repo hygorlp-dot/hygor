@@ -8,16 +8,19 @@ export function binaryPreviewKind(bytes,mime='') {
   if(/^text\/(plain|csv)|^(application|text)\/xml/.test(mime))return 'text';
   return 'unsupported';
 }
-export async function loadPreviewResource(revision,{resolveFile,signal,fetchFile=fetch}={}) {
+export async function loadPreviewResource(revision,{resolveFile,fetchProtected,signal,fetchFile=fetch}={}) {
   let url=fileUrl(revision.url);
   const reference=revision.driveId&&revision.itemId?{driveId:revision.driveId,itemId:revision.itemId}:protectedDocumentReference(url);
-  if(reference){
+  const localId=url?.match(/^\/api\/local-files\/([a-f0-9-]{36})$/)?.[1];
+  let response;
+  if(fetchProtected&&(reference||localId))response=await fetchProtected(reference||{localId},{signal});
+  else if(reference){
     const result=await resolveFile(reference);
     if(!result?.ok)throw Object.assign(new Error(result?.error||'Não foi possível preparar o documento. Confira sua sessão e tente novamente.'),{status:result?.status});
     url=fileUrl(result.url);
   }
   if(!url)throw new Error('Este documento não possui um arquivo disponível para consulta.');
-  const response=await fetchFile(url,{signal});
+  response||=await fetchFile(url,{signal});
   if(!response.ok)throw new Error(response.status===401||response.status===403?'Sua sessão não permite ler este documento. Renove o acesso e tente novamente.':'O documento não está disponível. Tente novamente ou confira o anexo na etapa de origem.');
   if(Number(response.headers.get('content-length'))>PREVIEW_MAX_BYTES)throw new Error('Este arquivo excede o limite de 25 MB do visualizador.');
   const blob=await response.blob();

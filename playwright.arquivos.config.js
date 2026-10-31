@@ -1,2 +1,2 @@
 import { defineConfig } from '@playwright/test';
-export default defineConfig({testDir:'./e2e',testMatch:/work-files\.spec\.js/,outputDir:'artifacts/arquivos/e2e',workers:1,timeout:60000,use:{baseURL:'http://127.0.0.1:4204',screenshot:'only-on-failure',actionTimeout:10000},webServer:{command:'node scripts/work-files-e2e-preview.mjs',url:'http://127.0.0.1:4204',reuseExistingServer:false,timeout:120000}});
+export default defineConfig({testDir:'./e2e',testMatch:/work-files\.spec\.js/,outputDir:'artifacts/arquivos/e2e',workers:1,timeout:60000,use:{baseURL:'http://127.0.0.1:4206',screenshot:'only-on-failure',actionTimeout:10000},webServer:{command:'node scripts/work-files-e2e-preview.mjs',url:'http://127.0.0.1:4206',reuseExistingServer:false,timeout:120000}});

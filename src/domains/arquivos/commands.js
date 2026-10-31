@@ -1,5 +1,6 @@
 import { DEFAULT_FOLDERS, fileUrl, FILE_MAX_BYTES, FILE_EXTENSIONS, folderPath } from './model.js';
-export const FILE_COMMAND = Object.freeze({ FOLDER_SAVED:'ARQUIVOS_PASTA_SALVA', TEMPLATE_APPLIED:'ARQUIVOS_MODELO_APLICADO', DOCUMENT_ADDED:'ARQUIVOS_DOCUMENTO_ADICIONADO', REVISION_ADDED:'ARQUIVOS_REVISAO_ADICIONADA', DOCUMENT_MOVED:'ARQUIVOS_DOCUMENTO_MOVIDO' });
+import { folderAccess } from './access.js';
+export const FILE_COMMAND = Object.freeze({ FOLDER_SAVED:'ARQUIVOS_PASTA_SALVA', FOLDER_ACCESS_CHANGED:'ARQUIVOS_PERMISSAO_ALTERADA', TEMPLATE_APPLIED:'ARQUIVOS_MODELO_APLICADO', DOCUMENT_ADDED:'ARQUIVOS_DOCUMENTO_ADICIONADO', REVISION_ADDED:'ARQUIVOS_REVISAO_ADICIONADA', DOCUMENT_MOVED:'ARQUIVOS_DOCUMENTO_MOVIDO' });
 export const FILE_COMMAND_TYPES = new Set(Object.values(FILE_COMMAND));
 export const FILE_ROLES = ['admin','engenheiro','engenheiro_auditor','compras','financeiro','rh','comercial'];
 const text = (value, max=200) => String(value || '').trim().slice(0,max);
@@ -13,10 +14,21 @@ export function applyFileCommand(data, command, now) {
   if (!(data.obras||[]).some(item=>item.id===p.obraId)) return fail('Obra não encontrada.');
   if (Number(command.expectedVersion)!==Number(current?.version||0)) return fail('Os arquivos desta obra foram alterados. Atualize os dados e tente novamente.');
   let cabinet=current?{...current}:{obraId:p.obraId,folders:[],documents:[],history:[],version:0};
+  const actor={id:command.actorId,role:command.actorRole};
+  const existingDocument=cabinet.documents.find(item=>item.id===p.id);
+  const existingFolder=cabinet.folders.find(item=>item.id===p.id);
+  const protectedFolders=[existingDocument?.folderId,existingFolder?.id,p.folderId,p.parentId].filter(id=>id!=null);
+  if(!protectedFolders.every(id=>folderAccess(cabinet,id,actor,'write')))return fail('Você não tem permissão para alterar esta pasta ou seus documentos.');
   const parentId=text(p.parentId), folderId=text(p.folderId);
   const folderExists=id=>!id||cabinet.folders.some(item=>item.id===id);
   let detail='';
-  if (command.type===FILE_COMMAND.TEMPLATE_APPLIED) {
+  if (command.type===FILE_COMMAND.FOLDER_ACCESS_CHANGED) {
+    if(command.actorRole!=='admin'||!existingFolder)return fail('Somente o administrador pode alterar permissões de uma pasta existente.');
+    const access=p.access||{},readers=access.readers,editors=access.editors;
+    if(typeof access.restricted!=='boolean'||!Array.isArray(readers)||!Array.isArray(editors)||new Set(readers).size!==readers.length||new Set(editors).size!==editors.length||editors.some(id=>!readers.includes(id)))return fail('Defina leitores e editores válidos; todo editor deve poder ler.');
+    if([...readers,...editors].some(id=>!(data.usuarios||[]).some(user=>user.id===id&&user.active!==false&&(!user.obraId||String(user.obraId)===String(p.obraId)))))return fail('Usuário não disponível para esta obra.');
+    cabinet.folders=cabinet.folders.map(item=>item.id===p.id?{...item,access:{restricted:access.restricted,readers:[...readers],editors:[...editors]},updatedAt:now}:item);detail=`Permissões atualizadas: ${existingFolder.name}`;
+  } else if (command.type===FILE_COMMAND.TEMPLATE_APPLIED) {
     const additions=DEFAULT_FOLDERS.filter(name=>!cabinet.folders.some(item=>!item.parentId&&item.name===name)).map((name,index)=>({id:`${command.idempotencyKey}:${index}`,name,parentId:'',createdAt:now}));
     cabinet.folders=[...cabinet.folders,...additions]; detail='Estrutura padrão de pastas aplicada';
   } else if (command.type===FILE_COMMAND.FOLDER_SAVED) {
@@ -26,7 +38,8 @@ export function applyFileCommand(data, command, now) {
     if (folderPath(cabinet.folders,parentId).length>=8) return fail('Use no máximo oito níveis de pastas.');
     if (cabinet.folders.some(item=>item.id!==id&&item.parentId===parentId&&item.name.toLocaleLowerCase('pt-BR')===name.toLocaleLowerCase('pt-BR'))) return fail('Já existe uma pasta com esse nome neste local.');
     const existing=cabinet.folders.find(item=>item.id===id);
-    const folder={id,name,parentId,createdAt:existing?.createdAt||now,updatedAt:now};
+    if(existing&&existing.parentId!==parentId&&command.actorRole!=='admin')return fail('Somente o administrador pode mover pastas; as permissões são herdadas da pasta superior.');
+    const folder={id,name,parentId,...(existing?.access?{access:existing.access}:{}),createdAt:existing?.createdAt||now,updatedAt:now};
     cabinet.folders=existing?cabinet.folders.map(item=>item.id===id?folder:item):[...cabinet.folders,folder]; detail=`Pasta: ${name}`;
   } else {
     const existing=cabinet.documents.find(item=>item.id===p.id);
@@ -47,6 +60,6 @@ export function applyFileCommand(data, command, now) {
       cabinet.documents=existing?cabinet.documents.map(item=>item.id===p.id?document:item):[...cabinet.documents,document]; detail=`${existing?'Nova revisão':'Documento criado'}: ${document.name} · ${label}`;
     }
   }
-  cabinet={...cabinet,version:cabinet.version+1,updatedAt:now,history:[...cabinet.history,{id:command.idempotencyKey,type:command.type,detail,at:now,actorId:command.actorId,actorName:text(command.actorName)}]};
+  cabinet={...cabinet,version:cabinet.version+1,updatedAt:now,history:[...cabinet.history,{id:command.idempotencyKey,type:command.type,detail,folderIds:[...new Set([...protectedFolders,...(command.type===FILE_COMMAND.FOLDER_SAVED?[p.id]:[])])],at:now,actorId:command.actorId,actorName:text(command.actorName)}]};
   return {ok:true,entityId:p.obraId,data:{...data,workFileCabinets:current?cabinets.map(item=>item.obraId===p.obraId?cabinet:item):[...cabinets,cabinet]}};
 }

@@ -69,6 +69,7 @@ import {
 import { projectChangedSectionsPatch } from "../server/section-patch.js";
 import { ENGINEERING_COMMAND_TYPES, ENGINEERING_ROLES } from "../src/domains/projetos/commands.js";
 import { FILE_COMMAND_TYPES, FILE_ROLES } from "../src/domains/arquivos/commands.js";
+import { DOSSIER_COMMAND_TYPES } from '../src/domains/licenciamento/dossier.js';
 import { applyOperationalCommand, OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import { validateOperationalCommandScope } from "../server/operational-command-policy.js";
 import {
@@ -197,6 +198,7 @@ const ATTENDANCE_COMMANDS=new Set(Object.values(ATTENDANCE_COMMAND));
 export const OPERATIONAL_COMMAND_ROLES = {
   ...Object.fromEntries([...ENGINEERING_COMMAND_TYPES].map(type=>[type,ENGINEERING_ROLES])),
   ...Object.fromEntries([...FILE_COMMAND_TYPES].map(type=>[type,FILE_ROLES])),
+  ...Object.fromEntries([...DOSSIER_COMMAND_TYPES].map(type=>[type,['admin','engenheiro']])),
   [OPERATIONAL_COMMAND.COST_ALLOCATION_SAVED]:['admin','financeiro'],
   [OPERATIONAL_COMMAND.COST_FORECAST_SAVED]:['admin','financeiro'],
   [OPERATIONAL_COMMAND.TECHNICAL_MEASUREMENT_CREATED]:["admin","engenheiro","engenheiro_auditor"],
@@ -2808,7 +2810,7 @@ export default async function handler(req, res) {
     if(action==="operational-command"){
       const rawCommand=req.body?.command||{};
       // Engineering durations always use server time, never a supplied browser clock.
-      const command=(ENGINEERING_COMMAND_TYPES.has(rawCommand.type)||FILE_COMMAND_TYPES.has(rawCommand.type))?{...rawCommand,now:new Date().toISOString()}:rawCommand;
+      const command=(ENGINEERING_COMMAND_TYPES.has(rawCommand.type)||FILE_COMMAND_TYPES.has(rawCommand.type)||DOSSIER_COMMAND_TYPES.has(rawCommand.type))?{...rawCommand,now:new Date().toISOString()}:rawCommand;
       const authz=authorizeOperationalCommand(command.type,usuario.role);
       if(!authz.ok)return res.status(authz.status).json({error:authz.error});
       if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente operacional inválida."});

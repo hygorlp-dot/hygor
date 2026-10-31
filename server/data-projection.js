@@ -7,6 +7,7 @@ import {
 } from "../src/domains/conciliacao/pix-card.js";
 
 import { podeAcessarAba } from "../src/domains/administracao/abas-acesso.js";
+import { projectFileCabinet } from '../src/domains/arquivos/access.js';
 
 // Projeção de leitura do blob legado. Enquanto os domínios ainda compartilham
 // um único documento, a fronteira de segurança precisa existir no servidor:
@@ -93,7 +94,7 @@ export const projectDataForUser = (payload = {}, user = {}) => {
   const allowedObras = new Set(user.obraId ? [String(user.obraId)] : []);
   const out = {};
   if(podeAcessarAba(user,"arquivos")){
-    out.workFileCabinets=(payload.workFileCabinets||[]).filter(item=>!allowedObras.size||allowedObras.has(String(item.obraId)));
+    out.workFileCabinets=(payload.workFileCabinets||[]).filter(item=>!allowedObras.size||allowedObras.has(String(item.obraId))).map(item=>projectFileCabinet(item,user));
   }
   if(podeAcessarAba(user,"projetos")){
     out.engineeringProjects=(payload.engineeringProjects||[]).filter(project=>!allowedObras.size||allowedObras.has(String(project.obraId)));

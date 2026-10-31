@@ -1,4 +1,16 @@
 .work-files { display:grid; gap:var(--arcd-space-4,1rem); min-width:0; color:var(--arcd-text-primary); }
+.work-files-compare { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.5rem; }
+.work-files-compare>section,.work-pdf-reader,.work-dossier { display:grid; gap:1rem; min-width:0; }
+.work-pdf-matches { max-height:12rem; overflow:auto; }
+.work-dossier-layout { display:grid; grid-template-columns:minmax(240px,1fr) minmax(0,2fr); gap:1.5rem; align-items:start; }
+.work-dossier-items { display:grid; gap:.5rem; }
+.work-dossier-items article { padding:.5rem 0; border-bottom:1px solid var(--arcd-border-default); }
+.work-dossier-items button { white-space:normal; height:auto; min-height:44px; text-align:left; justify-content:flex-start; }
+.work-dossier-items p { margin:.25rem .75rem; font-size:.875rem; }
+.work-dossier-detail,.work-dossier-attachment { min-width:0; overflow-wrap:anywhere; }
+.work-dossier fieldset { display:grid; gap:1rem; min-width:0; }
+.work-dossier-attachment { padding:1rem 0; border-top:1px solid var(--arcd-border-default); }
+@media(max-width:760px){.work-files-compare,.work-dossier-layout { grid-template-columns:minmax(0,1fr); }}
 .work-files-explorer { display:grid; gap:1rem; min-width:0; }
 .work-files [hidden] { display:none !important; }
 .work-file-viewer { display:grid; gap:1rem; min-width:0; padding:1rem; background:var(--arcd-surface-card); border:1px solid var(--arcd-border-default); border-radius:var(--arcd-radius-md,8px); }
@@ -51,3 +63,6 @@
 .work-files-audit summary { cursor:pointer; min-height:44px; }
 @media (max-width:1200px) { .work-files-layout { flex-wrap:wrap; } .work-files-detail { flex:1 1 100%; } }
 @media (max-width:767px) { .work-files-layout { display:grid; grid-template-columns:minmax(0,1fr); } .work-files-sidebar { display:none; } .work-files-mobile-folder { display:grid; gap:.75rem; } .work-files-filters,.work-files-form-grid { grid-template-columns:minmax(0,1fr); } .work-files-row { align-items:flex-start; } .work-files-row-meta { max-width:90px; } .work-files-form { padding:1rem; } .work-files-toolbar .work-files-actions { width:100%; } .work-files button,.work-files select,.work-files input { min-height:44px; } }
+
+.work-dossier-mobile { display:none; }
+@media(max-width:760px){.work-dossier-items { display:none; }.work-dossier-mobile { display:block; }}

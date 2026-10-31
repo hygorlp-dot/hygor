@@ -1,5 +1,6 @@
-export function samplePdf(){
- const stream='BT /F1 18 Tf 30 440 Td (DOCUMENTO QA - DADOS FICTICIOS) Tj ET';
+export function samplePdf(label="DOCUMENTO QA - DADOS FICTICIOS"){
+ const safe=label.replace(/[()\\]/g,'').replace(/[^\x20-\x7E]/g,'');
+ const stream=`BT /F1 18 Tf 30 440 Td (${safe}) Tj ET`;
  const objects=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids [4 0 R] /Count 1 >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>','<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 500] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>',`<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`];
  let body='%PDF-1.4\n';const offsets=[];
  objects.forEach((object,index)=>{offsets.push(Buffer.byteLength(body));body+=`${index+1} 0 obj\n${object}\nendobj\n`;});
