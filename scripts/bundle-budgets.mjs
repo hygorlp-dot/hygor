@@ -80,7 +80,9 @@ export const BUNDLE_BUDGETS = Object.freeze({
   // financeiro operacional e projetos de engenharia. Medição de produção:
   // 1.806,50 KiB gzip no conjunto de chunks. Acréscimo limitado a 64 KiB;
   // limites individuais e de mídia permanecem preservados.
-  totalGzipBytes: 1_812 * 1024,
+  // 31/10/2026: ExcelJS modular e dependências compartilhadas permitem
+  // restabelecer o teto anterior à consolidação (build: 1.767.928 bytes).
+  totalGzipBytes: 1_748 * 1024,
   genericJavaScriptGzipBytes: 200 * 1024,
   staticMediaTotalBytes: 4 * 1024 * 1024,
   genericStaticMediaBytes: 1 * 1024 * 1024,

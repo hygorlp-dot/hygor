@@ -20,7 +20,8 @@ import { DreIntegration, useRememberWorkflowScope, useWorkflow } from "../../../
 // migration/RLS. Ver docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md, item #4.
 // ===================================================================
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "../../../components/charts/LazyRecharts";
@@ -95,6 +96,8 @@ import {
 import {
   enviarArquivoOneDrive, gerarLinkAceitePedido, listarBasesReferencia, pesquisarInsumosReferencia,
 } from "../../../api";
+
+const OperationalPilot = lazy(()=>import("../../../features/pilot/OperationalPilot.jsx"));
 
 function PurchaseSaveNotice({save}){
   const [started,setStarted]=useState(save?.state==="saving");
@@ -704,6 +707,8 @@ function ModalCotacao({ form, setForm, onSave, fornecedores, materiais, linhasOr
 
 export default function Compras({ data, update, showToast, currentUser, obraIdFixo="", C=C_ARCD_SETOR, dispatchCommand:rawDispatchCommand=null }) {
   const { cols, pick, isDesktop } = useBreakpoint();
+  const [pilotOpen,setPilotOpen]=useState(false);
+  const [pilotNotes,setPilotNotes]=useState({});
   const {scopes,intent,navigate}=useWorkflow();
   const useSessionState=(key,initial)=>useWorkspaceState("cmp",key,initial,obraIdFixo);
   useWorkspaceScroll("cmp",obraIdFixo);
@@ -727,7 +732,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const [pedModal,  setPedModal]  = useState(null);
   const [recModal,  setRecModal]  = useState(null);   // recebimento
   const [cotModal,  setCotModal]  = useState(null);
-  const [fichaCompra,setFichaCompra]=useState(null);
+  const [fichaCompra,setFichaCompra]=useSessionState("fichaCompra",null);
   const [cotDecisao,setCotDecisao]=useState(null);
   const [envioPedido,setEnvioPedido]=useState(null);
   const [aceitePedido,setAceitePedido]=useState(null);
@@ -1946,6 +1951,10 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
   const escopoDre={obraId:todasObras?"":obraAtual,year:Number(competenciaDre.slice(0,4)),month:Number(competenciaDre.slice(5,7))-1,period:"mes"};
   useRememberWorkflowScope("cmp",escopoDre);
   const escopoFluxo=todasObras?"Todas as obras":obraPorId.get(obraAtual)?.name||"Selecione uma obra";
+  const abrirNovaCotacao=()=>setCotModal({id:"",obraId:obraAtual,orcNivel1Id:"",data:today(),
+    itens:[itemVazioCotacao()],propostas:[propostaVaziaCotacao(),propostaVaziaCotacao()]});
+
+  if(pilotOpen)return <Suspense fallback={<p role="status">Carregando piloto…</p>}><OperationalPilot data={data} mode="compras" scope={{workId:obraIdFixo||(!todasObras?obraAtual:"")}} notes={pilotNotes} onNotes={setPilotNotes} onClose={()=>setPilotOpen(false)}/></Suspense>;
 
   return (
     <div className="anim compras-view" style={{display:"flex",flexDirection:"column",gap:isDesktop?12:10}}>
@@ -1959,8 +1968,16 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
                 setEscopoMapa("obra");setObraSel(v);
               }} options={[{value:"all",label:"Todas as obras"},...obras.map(o=>({value:o.id,label:o.name}))]}/>}</div>
         </div>}
-        primaryAction={<div className="purchase-header-actions"><Button variant="secondary" onClick={abrirModoAnalise}>Analisar documento</Button>
-          <Button onClick={abrirNovaSolicitacao}>Nova solicitação</Button></div>}>
+        primaryAction={<div className="purchase-header-actions">
+          {aba==="cotacoes"&&<Button variant="secondary" size="icon" aria-label="Voltar à fila" title="Voltar à fila" onClick={()=>irParaArea("fila")}><ArrowLeft aria-hidden="true" size={18}/></Button>}
+          <Button onClick={aba==="cotacoes"?abrirNovaCotacao:abrirNovaSolicitacao}>{aba==="cotacoes"?"Adicionar cotação":"Nova solicitação"}</Button>
+          <OrderActionMenu label="Mais ações de Compras" comuns={[
+            {id:"analisar",label:"Analisar documento"},
+            {id:"piloto",label:"Piloto de conferência"},
+            ...(aba==="cotacoes"?[{id:"solicitar",label:"Nova solicitação"}]:[]),
+            ...(aba!=="fila"&&aba!=="cotacoes"?[{id:"fila",label:"Voltar à fila"}]:[]),
+          ]} onSelect={id=>{if(id==="piloto")setPilotOpen(true);else if(id==="analisar")abrirModoAnalise();else if(id==="solicitar")abrirNovaSolicitacao();else irParaArea("fila");}}/>
+        </div>}>
         {save.state!=="idle"&&<p role="status" aria-live="polite" className="purchase-save-state" data-state={save.state}>{save.message}</p>}
       </PageHeader>
       <PurchaseNavigation area={aba} onNavigate={irParaArea} counts={fluxoCompras.counts}
@@ -1968,9 +1985,9 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {/* Na fila, aprovações e recebimentos o painel abaixo já tem título próprio:
           o nome da área fica só para leitor de tela e como destino do foco. */}
       <div id="compras-area-atual" className="purchase-area-heading" tabIndex={-1}
-        data-compact={["fila","aprovacoes","recebimentos"].includes(aba)||undefined}>
+        data-compact={["fila","aprovacoes","recebimentos","cotacoes"].includes(aba)||undefined}>
         <h3>{PURCHASE_AREA_LABELS[aba]||comprasAbas.find(([id])=>id===aba)?.[1]}</h3>
-        {aba!=="fila"&&<Button variant="ghost" size="sm" onClick={()=>irParaArea("fila")}>Voltar à fila</Button>}
+        {aba!=="fila"&&aba!=="cotacoes"&&<Button variant="ghost" size="sm" onClick={()=>irParaArea("fila")}>Voltar à fila</Button>}
       </div>
       {["fila","aprovacoes","recebimentos"].includes(aba)&&<PurchaseWorkspace model={fluxoCompras} area={aba} scope={escopoFluxo}
         filters={filtrosFluxo} onFiltersChange={setFiltrosFluxo} onOpen={abrirRegistroFluxo}
@@ -2661,14 +2678,6 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
       {/*  COTAÇÕES  */}
       {aba === "cotacoes" && (<>
-        <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-          <div><h3 style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text}}>Mapa de cotações</h3><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Compare propostas, prazo e economia antes de gerar a ordem de compra.</p></div>
-          <Btn onClick={()=>setCotModal({id:"",obraId:obraAtual,orcNivel1Id:"",data:today(),
-            itens:[itemVazioCotacao()],propostas:[propostaVaziaCotacao(),propostaVaziaCotacao()]})}>
-            <Ic n="plus"/> Adicionar cotação
-          </Btn>
-        </div>
-
         <div className="purchase-quote-filters">
           <Inp label="Buscar" value={buscaCotacao} onChange={setBuscaCotacao} placeholder="Código, insumo, solicitação ou fornecedor..."/>
           <WorkspaceFilters activeCount={[inicioCotacao,fimCotacao].filter(Boolean).length}>
@@ -2698,17 +2707,21 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
               const prioridade=sol?.prioridade||"normal";
               const rotuloCotacao=c.status==="decidida"?"Compra gerada":(c.respostasFornecedor||[]).some(r=>r.status==="pendente")?"Revisar resposta":"Cotada";
               return <div id={`purchase-record-${c.id}`} tabIndex={-1} data-purchase-highlight={registroFoco===c.id} key={c.id} style={{borderTop:index?`1px solid ${C.line}`:"none"}}>
-                <div className="purchase-quote-row" role="button" tabIndex={0} onClick={()=>setCotacaoExpandida(expandida?"":c.id)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setCotacaoExpandida(expandida?"":c.id);}}} style={{display:"grid",gridTemplateColumns:isDesktop?"90px minmax(220px,1.5fr) 100px 115px 105px 100px 132px":"1fr auto",gap:10,width:"100%",alignItems:"center",padding:isDesktop?"11px":"12px",border:0,background:expandida?`${C.blue}05`:"transparent",textAlign:"left",cursor:"pointer"}}>
+                <div className="purchase-quote-row" style={{display:"grid",gridTemplateColumns:isDesktop?"90px minmax(220px,1.5fr) 100px 115px 105px 100px 132px":"1fr auto",gap:10,width:"100%",alignItems:"center",padding:isDesktop?"11px":"12px",border:0,background:expandida?`${C.blue}05`:"transparent",textAlign:"left"}}>
                   {isDesktop&&<b style={{fontSize:"var(--arcd-type-caption)",color:C.blue}}>{codigo}</b>}
-                  <div style={{minWidth:0}}><b className="brk" style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text}}>{multi?`${mapa.linhas.length} ${mapa.linhas.length===1?"item":"itens"} · ${nomeMat(c.materialId)}${mapa.linhas.length>1?" e outros":""}`:nomeMat(c.materialId)}</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{multi?`${mapa.linhas.length-pendentes} de ${mapa.linhas.length} decidido(s)`:`${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`}{sol?.numero?` · ${sol.numero}`:""}{!isDesktop?` · ${codigo}`:""}</span></div>
+                  <Button variant="ghost" className="purchase-quote-open" aria-label={`${expandida?"Recolher análise":"Comparar propostas"} · ${codigo}`} aria-expanded={expandida} aria-controls={expandida?`quote-comparison-${c.id}`:undefined} onClick={()=>setCotacaoExpandida(expandida?"":c.id)}>
+                    <b className="brk">{multi?`${mapa.linhas.length} ${mapa.linhas.length===1?"item":"itens"} · ${nomeMat(c.materialId)}${mapa.linhas.length>1?" e outros":""}`:nomeMat(c.materialId)}</b>
+                    <span>{multi?`${mapa.linhas.length-pendentes} de ${mapa.linhas.length} decidido(s)`:`${Number(c.qtd||0).toLocaleString("pt-BR")} ${unidMat(c.materialId)}`}{sol?.numero?` · ${sol.numero}`:""}{!isDesktop?` · ${codigo}`:""}</span>
+                    <span>{expandida?"Recolher análise":"Comparar propostas"}</span>
+                  </Button>
                   {isDesktop&&<span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{ord.length}</span>}
                   {isDesktop&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{fmtDate(sol?.necessidade||c.data)}</span>}
                   {isDesktop&&<Badge color={c.status==="decidida"?C.green:C.blue}>{rotuloCotacao}</Badge>}
                   {isDesktop&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:prioridade==="urgente"?C.red:C.orange}}>{prioridade==="urgente"?"Alta":"Média"}</span>}
-                  <div style={{display:"flex",gap:4,justifyContent:"flex-end",alignItems:"center"}}>{podeProcessar&&<Btn size="sm" v="danger" title="Excluir cotação" onClick={e=>{e.stopPropagation();excluirCotacao(c);}}><Ic n="trash" s={11}/>{isDesktop&&" Excluir"}</Btn>}<span aria-label={expandida?"Recolher":"Comparar propostas"} style={{display:"inline-block",color:C.muted,transform:expandida?"rotate(180deg)":"none",transition:"transform .15s"}}>⌄</span></div>
+                  <div className="purchase-quote-actions">{podeProcessar&&<OrderActionMenu label={`Mais ações da cotação ${codigo}`} destrutivas={[{id:"excluir",label:"Excluir cotação"}]} onSelect={()=>excluirCotacao(c)}/>}</div>
                 </div>
                 {!isDesktop&&<div style={{display:"flex",gap:5,padding:"0 12px 10px",flexWrap:"wrap"}}><Badge color={c.status==="decidida"?C.green:C.blue}>{rotuloCotacao}</Badge><Badge color={prioridade==="urgente"?C.red:C.orange}>{prioridade==="urgente"?"Alta":"Média"}</Badge><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,alignSelf:"center"}}>{ord.length} fornecedor(es) · {fmtDate(sol?.necessidade||c.data)}</span></div>}
-                {expandida&&<div style={{padding:"0 11px 12px",background:C.surface,borderTop:`1px solid ${C.line}`}}>
+                {expandida&&<div id={`quote-comparison-${c.id}`} style={{padding:"0 11px 12px",background:C.surface,borderTop:`1px solid ${C.line}`}}>
                   <QuoteComparisonWorkspace quote={c} data={data} canManage={podeProcessar}
                     actions={podeProcessar&&c.status==="aberta"&&pendentes>0?<Btn v="success" onClick={()=>setCotDecisao({cotacaoId:c.id,escolhas:sugestaoDeEscolhas(c),justificativas:{}})}>Decidir e gerar pedidos</Btn>:null} dispatchCommand={dispatchCommand} currentUser={currentUser}
                     supplierRating={id=>textoNotaFornecedor(avaliacaoForn.get(String(id)))}
@@ -2794,6 +2807,11 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
 
       {aba === "precos" && <MaterialPriceHistory data={data} works={obras} currentWorkId={obraAtual} onOpen={pedidoId=>setFichaCompra({pedidoId})}/>}
 
+      <DreIntegration kind="purchases" currentUser={currentUser} {...escopoDre}>
+        <label>Competência do DRE<input type="month" value={competenciaDre} onChange={event=>{if(event.target.value)setCompetenciaDre(event.target.value);}}/></label>
+        <p>Este mês é usado na consulta ao DRE. Os registros de compras mantêm os próprios filtros de prazo e histórico.</p>
+      </DreIntegration>
+
       {/*  MODAIS  */}
       {modoIA&&<ModoIADocumento modulo="compras" data={data} update={update} showToast={showToast} currentUser={currentUser} obraIdInicial={obraAtual} onClose={()=>setModoIA(false)}/>}
       {cotWpp&&<ModalCotacaoWhatsApp titulo={cotWpp.titulo} itens={cotWpp.itens} obraNome={cotWpp.obraNome} prazo={cotWpp.prazo}
@@ -2804,7 +2822,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       {pedModal  && <ModalPedido     form={pedModal}  setForm={setPedModal}  onSave={salvarPedido}
                                      fornecedores={fornecedores} materiais={materiais}
                                      linhasOrc={niveisUmOrcamento(getPlanningBudget(data,pedModal.obraId).budget)} data={data} basesReferencia={basesCompra} save={save}/>}
-      {fichaCompra&&<PurchaseDossier data={data} selection={fichaCompra} onClose={()=>setFichaCompra(null)}/>}
+      {fichaCompra&&<PurchaseDossier data={data} selection={fichaCompra} currentUser={currentUser} onClose={()=>setFichaCompra(null)}/>}
       {cotModal  && <ModalCotacao    form={cotModal}  setForm={setCotModal}  onSave={salvarCotacao}
                                      fornecedores={fornecedores} materiais={materiais} linhasOrc={niveisUmOrcamento(getPlanningBudget(data,cotModal.obraId).budget)} save={save} obraNome={obraPorId.get(cotModal.obraId)?.name}/>}
       <ModalLegendaDocumento anexo={anexoCotacao} setAnexo={setAnexoCotacao} onClose={()=>!subindoAnexoCotacao&&setAnexoCotacao(null)} onSalvar={salvarDocumentoCotacao} salvando={subindoAnexoCotacao} titulo="Anexar documento da cotação" C={C}/>

@@ -27,7 +27,7 @@ import {reconciliationDivergences,divergenceLabels} from "../../domains/concilia
 // nessa lista.
 // ===================================================================
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useBreakpoint } from "../../hooks/useBreakpoint";
 import {
   Badge, Btn, C, Ic, Inp, Modal, PageHero, Sel, TabRow,
@@ -63,6 +63,8 @@ import { accountReviewSummary } from "./review-context.js";
 import CategoryCombobox from "./CategoryCombobox.jsx";
 import { confirmedClassificationContext } from "./classification-context.js";
 
+const OperationalPilot = lazy(()=>import("../pilot/OperationalPilot.jsx"));
+
 const movementDirection = transaction => Number(transaction?.valor) > 0 ? "entrada" : "saida";
 const allocationCategory = item => item.category || item.categoria || "";
 const allocationDestination = item => item.destination || item.destino || "empresa";
@@ -82,7 +84,13 @@ const effectLabels = {
 export default function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=null }) {
   const { formGrid } = useBreakpoint();
   const [reviewId,setReviewId]=useState("");
+  const [pilotOpen,setPilotOpen]=useState(false);
+  const [pilotNotes,setPilotNotes]=useState({});
   const [reviewSaving,setReviewSaving]=useState(false);
+  const [reviewNotice,setReviewNotice]=useState("");
+  const reviewAdvance=useRef(null);
+  const reviewPanelRef=useRef(null);
+  useEffect(()=>{const panel=reviewPanelRef.current;if(panel){panel.scrollTop=0;panel.querySelector("h2")?.focus({preventScroll:true});}},[reviewId]);
   const [accountFilter,setAccountFilter]=useState("");
   const [divergence,setDivergence]=useState("all");
   const accountsReview=useMemo(()=>accountReviewSummary(data),[data]);
@@ -241,10 +249,22 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const transacoesVisiveis=filteredTransactions.slice(0,limiteVisivel);
   const reviewTransaction = filaPendente && !modoConciliacaoRh ? filteredTransactions.find(tr=>tr.id===reviewId) : null;
   const reviewLocked = conciliando || reviewSaving || transacaoCommandPending;
-  const openReview = id => { if (!reviewLocked) setReviewId(id); };
+  const openReview = id => { if (!reviewLocked) {reviewAdvance.current=null;setReviewNotice("");setReviewId(id);} };
   useEffect(()=>{
+    const advance=reviewAdvance.current;
+    if(!reviewLocked&&advance?.confirmed){
+      const current=(data.transacoes||[]).find(tr=>tr.id===advance.id);
+      if(current?.status==="conciliado"){
+        reviewAdvance.current=null;
+        const next=advance.nextIds.find(id=>filteredTransactions.some(tr=>tr.id===id&&["pendente","parcial"].includes(tr.status))&&(!automacaoPorTransacao.get(id)?.automatica||falhasAutomaticas[id]));
+        setReviewId(next||"");
+        setReviewNotice(next?"Movimento confirmado. Próximo caso para revisão aberto.":"Movimento confirmado. Nenhum outro caso neste filtro precisa de revisão.");
+        return;
+      }
+      if(current?.status==="parcial")reviewAdvance.current=null;
+    }
     if (reviewId && !reviewTransaction && !reviewLocked) setReviewId("");
-  },[reviewId,reviewTransaction,reviewLocked]);
+  },[reviewId,reviewTransaction,reviewLocked,data.transacoes,filteredTransactions,automacaoPorTransacao,falhasAutomaticas]);
   const selecionaveis=filteredTransactions.filter(t=>t.status!=="parcial"&&!reconciliationHold(t));
   const todosSelecionados=selecionaveis.length>0&&selecionaveis.every(t=>selecionadas.includes(t.id));
 
@@ -326,6 +346,11 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
   const executarConciliacaoNoServidor = async (command, erroPadrao) => {
     if(execucaoConcRef.current)return false;
+    const advancesReview=reviewId===command.payload?.transactionId&&["LINK_PARTIAL_CASH","LINK_EXISTING_PAYMENT","CONFIRM_PAYMENT","CONFIRM_RECEIPT","CONFIRM_ALLOCATION","CONFIRM_TRANSFER","CONFIRM_REVERSAL"].includes(command.type);
+    if(advancesReview){
+      const ids=filteredTransactions.map(tr=>tr.id),index=ids.indexOf(reviewId);
+      reviewAdvance.current={id:reviewId,nextIds:[...ids.slice(index+1),...ids.slice(0,index)],confirmed:false};
+    }
     execucaoConcRef.current=true;
     setConciliando(true);
     try {
@@ -347,16 +372,17 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       }else{
         await update({__adotarServidor:true,data:resposta.data,updatedAt:resposta.updatedAt});
       }
+      if(advancesReview&&reviewAdvance.current)reviewAdvance.current.confirmed=true;
       return true;
     } catch(error) {
       console.error("Falha ao confirmar conciliação:",error);
       showToast(error?.message||erroPadrao||"Não foi possível confirmar a conciliação.","error");
       return false;
-    } finally { execucaoConcRef.current=false; setConciliando(false); }
+    } finally { if(advancesReview&&!reviewAdvance.current?.confirmed)reviewAdvance.current=null;execucaoConcRef.current=false; setConciliando(false); }
   };
 
   useEffect(() => {
-    if (reviewId || !automacaoAtiva || !podeOperarConc || modoConciliacaoRh || conciliando || confirmandoLote || transacaoCommandPending || importando || candidatoModal || apropModal || entradaModal || loteProntoModal || transferModal || estornoModal || ignorarModal || fecharModal) return;
+    if (pilotOpen || reviewId || !automacaoAtiva || !podeOperarConc || modoConciliacaoRh || conciliando || confirmandoLote || transacaoCommandPending || importando || candidatoModal || apropModal || entradaModal || loteProntoModal || transferModal || estornoModal || ignorarModal || fecharModal) return;
     const next = filaAutomatica.find(row => row.automatica && !tentativasAutomaticas.current.has(String(row.tr.id)));
     if (!next) return;
     const timer = window.setTimeout(async () => {
@@ -366,7 +392,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       if (!ok) setFalhasAutomaticas(current => ({...current, [next.tr.id]:"O servidor não confirmou a baixa automática. Revise a sugestão ou tente novamente."}));
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [reviewId, automacaoAtiva, podeOperarConc, modoConciliacaoRh, conciliando, confirmandoLote, transacaoCommandPending, importando, candidatoModal, apropModal, entradaModal, loteProntoModal, transferModal, estornoModal, ignorarModal, fecharModal, filaAutomatica, falhasAutomaticas]);
+  }, [pilotOpen, reviewId, automacaoAtiva, podeOperarConc, modoConciliacaoRh, conciliando, confirmandoLote, transacaoCommandPending, importando, candidatoModal, apropModal, entradaModal, loteProntoModal, transferModal, estornoModal, ignorarModal, fecharModal, filaAutomatica, falhasAutomaticas]);
 
   // Confirma sequencialmente cada transação selecionada no lote - uma por
   // vez, aguardando o servidor confirmar cada uma antes da próxima. O
@@ -917,6 +943,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const rotuloAcao={extrato_importado:"Extrato importado",extrato_arquivado:"Extrato arquivado",conciliada:"Conciliação confirmada",conciliacao_desfeita:"Conciliação desfeita",ignorada:"Transação ignorada",ignorada_em_lote:"Ignorada em lote",reaberta:"Transação reaberta",reaberta_em_lote:"Reaberta em lote",conciliacao_legada:"Conciliação anterior",ignorado_legado:"Ignorada anteriormente"};
   const corAcao=acao=>acao==="conciliada"||acao==="extrato_importado"?C.green:acao.includes("desfeita")||acao.includes("reaberta")?C.blue:acao.includes("ignorada")?C.orange:acao.includes("excluido")?C.red:C.muted;
 
+  if(pilotOpen)return <Suspense fallback={<p role="status">Carregando piloto…</p>}><OperationalPilot data={data} mode="conciliacao" scope={{accountId:accountFilter}} automationRows={filaAutomatica} notes={pilotNotes} onNotes={setPilotNotes} onClose={()=>setPilotOpen(false)}/></Suspense>;
+
   return (
     <div className="anim reconciliation-workspace">
       {importPreview&&<Modal title="Prévia da importação do extrato" wide onClose={()=>!confirmingImport&&setImportPreview(null)}><BankImportPreview data={data} prepared={importPreview} pending={confirmingImport} onCancel={()=>setImportPreview(null)} onConfirm={confirmarImportacao}/></Modal>}
@@ -926,6 +954,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         actions={modoConciliacaoRh?null:(importando?<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD}}>Lendo extrato...</span>:<label className="arcd-btn" data-variant="primary" data-size="sm" style={{border:`1px solid ${C.yellowD}`,background:C.yellow,color:C.ink,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontWeight:600}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><Ic n="download" s={12}/> Importar extrato</label>)}
       />
 
+      {!modoConciliacaoRh&&<div><Button variant="outline" disabled={conciliando||reviewSaving||transacaoCommandPending||importando} onClick={()=>setPilotOpen(true)}>Abrir piloto de conferência</Button></div>}
       <section className="reconciliation-summary" aria-label="Resumo da conciliação">
         {[
           ["Pendentes",calc.pendentes,"warning"],
@@ -956,8 +985,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
           <details><summary>Como funciona a automação</summary><p>O servidor cruza Pix, CPF/CNPJ, cadastros, valores e datas após importar o extrato, mesmo com a tela fechada. Casos duvidosos ficam para revisão.</p><p>Pausar afeta somente a conferência desta tela; novas importações continuam no servidor.</p></details>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Btn size="sm" v="ghost" disabled={conciliando} onClick={() => setAutomacaoAtiva(value => !value)}>{automacaoAtiva ? "Pausar automação" : "Retomar automação"}</Btn>
-          {Object.keys(falhasAutomaticas).length > 0 && <Btn size="sm" v="ghost" disabled={conciliando} onClick={() => {Object.keys(falhasAutomaticas).forEach(id => tentativasAutomaticas.current.delete(id));setFalhasAutomaticas({});}}>Tentar novamente as falhas</Btn>}
+          <Btn size="sm" v="ghost" disabled={conciliando||reviewSaving} onClick={() => setAutomacaoAtiva(value => !value)}>{automacaoAtiva ? "Pausar automação" : "Retomar automação"}</Btn>
+          {Object.keys(falhasAutomaticas).length > 0 && <Btn size="sm" v="ghost" disabled={conciliando||reviewSaving} onClick={() => {Object.keys(falhasAutomaticas).forEach(id => tentativasAutomaticas.current.delete(id));setFalhasAutomaticas({});}}>Tentar novamente as falhas</Btn>}
         </div>
       </section>}
 
@@ -1125,6 +1154,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         </div>
       )}
 
+      {reviewNotice&&<p role="status">{reviewNotice}</p>}
       <div className="reconciliation-desk" data-review-open={Boolean(reviewTransaction)}>
       {["pendentes","identificados","conciliadas","ignoradas"].includes(aba)&&(filteredTransactions.length===0
         ? <div className="reconciliation-empty"><Ic n={aba==="pendentes"?"check":"receipt"} s={20} color={aba==="pendentes"?C.green:C.muted}/><p>{aba==="pendentes"&&!buscaConc&&!filtroCategoria&&tipoMovimento==="todos"?"Nenhum movimento precisa de revisão":"Nenhuma transação neste filtro"}</p><span>{aba==="pendentes"&&!buscaConc&&!filtroCategoria&&tipoMovimento==="todos"?"As correspondências seguras estão na aba Identificados.":"Ajuste a busca, a categoria ou o tipo de movimento."}</span></div>
@@ -1201,8 +1231,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
                     {hold&&<span>Pendente de composição do aporte</span>}
                     {tr.status==="pendente"&&!hold&&<>
                       <div className="reconciliation-actions__primary">
-                        {!modoConciliacaoRh&&<button type="button" className="reconciliation-review-trigger" aria-pressed={reviewId===tr.id} disabled={reviewLocked} onClick={()=>openReview(tr.id)}>Comparar e buscar</button>}
-                        <Btn size="sm" v={entrada&&!melhor?"success":"primary"} disabled={conciliando} onClick={abrirAcaoPrincipal}><Ic n="check"/> {rotuloPrincipal}</Btn>
+                        {!modoConciliacaoRh&&<button type="button" className="reconciliation-review-trigger" aria-controls="reconciliation-inspector" aria-pressed={reviewId===tr.id} disabled={reviewLocked} onClick={()=>openReview(tr.id)}>Comparar e buscar</button>}
+                        <Btn size="sm" v={entrada&&!melhor?"success":"primary"} disabled={conciliando||reviewSaving} onClick={abrirAcaoPrincipal}><Ic n="check"/> {rotuloPrincipal}</Btn>
                         {!modoConciliacaoRh&&<button type="button" className="reconciliation-actions__toggle" aria-expanded={acoesAbertas} aria-label={`${acoesAbertas?"Ocultar":"Mostrar"} outras ações de ${tr.descricao}`} onClick={()=>setAcoesTransacaoAberta(atual=>atual===tr.id?"":tr.id)}>•••</button>}
                       </div>
                       {acoesAbertas&&!modoConciliacaoRh&&<div className="reconciliation-actions__secondary">
@@ -1225,8 +1255,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
       {reviewTransaction&&(()=>{
         const tr=reviewTransaction;
-        return <section className="reconciliation-inspector" aria-label="Comparar e resolver movimento">
-          <header><h2>Comparar e resolver movimento</h2><Button variant="ghost" size="sm" disabled={reviewLocked} onClick={()=>setReviewId("")}>Fechar comparação</Button></header>
+        return <section ref={reviewPanelRef} id="reconciliation-inspector" className="reconciliation-inspector" aria-label="Comparar e resolver movimento">
+          <header><h2 tabIndex={-1}>Comparar e resolver movimento</h2><Button variant="ghost" size="sm" disabled={reviewLocked} onClick={()=>setReviewId("")}>Fechar comparação</Button></header>
           <ReconciliationReview key={tr.id} data={data} transaction={tr} analysis={analisesPorTransacao.get(tr.id)} reason={falhasAutomaticas[tr.id]||automacaoPorTransacao.get(tr.id)?.motivo} fmt={fmt} busy={conciliando} canOperate={podeOperarConc}
             onLink={async(eventId,amount)=>executarConciliacaoNoServidor({type:"LINK_PARTIAL_CASH",payload:{transactionId:tr.id,eventId,amount}},"Não foi possível vincular o lançamento.")}
             onSaving={setReviewSaving}
@@ -1309,7 +1339,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
           {tipoSemDre&&<CategoryCombobox label="Classificação da entrada" value={entradaForm.categoria} onChange={v=>setEntradaForm(f=>({...f,categoria:v,tipo:({aporte_cliente:"entrada_caixa_obra",capital_socio:"aporte_socio",credito:"emprestimo",outros_recursos:"outra_entrada"})[v]||f.tipo}))} options={reconciliationCategories(data,{direction:"entrada",destination:entradaForm.obraId?"obra":"empresa"}).filter(category=>["funding","loan"].includes(category.effect))}/>}
           <Inp label="Observação" value={entradaForm.descricao} onChange={v=>setEntradaForm(f=>({...f,descricao:v}))} placeholder="Identificação no extrato, contrato ou comprovante"/>
           <div className="reconciliation-existing-first"><strong>Categoria de entrada e competência</strong><p>Para classificar uma receita nova ou dividir o recebimento entre destinos, use as categorias integradas ao DRE.</p><Btn size="sm" v="ghost" onClick={()=>{setEntradaModal(null);abrirApropriacao(tr);}}>Classificar por categoria / ratear entrada</Btn></div>
-          <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setEntradaModal(null)} full disabled={conciliando}>Cancelar</Btn><Btn onClick={confirmarEntrada} full disabled={conciliando}>{conciliando?"Confirmando no servidor…":<><Ic n="check"/> Confirmar entrada</>}</Btn></div>
+          <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setEntradaModal(null)} full disabled={conciliando||reviewSaving}>Cancelar</Btn><Btn onClick={confirmarEntrada} full disabled={conciliando||reviewSaving}>{conciliando?"Confirmando no servidor…":<><Ic n="check"/> Confirmar entrada</>}</Btn></div>
         </div></Modal>;
       })()}
 
@@ -1627,8 +1657,8 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {c?.tipo==="maoObraPonto" && <Btn onClick={()=>{fecharCandidato();abrirApropriacao(tr);}}><Ic n="check"/> Abrir cartão PIX</Btn>}
-                {c && c.podeVincular && c.bloqueios.length===0 && <Btn disabled={conciliando} onClick={()=>executarVincular(tr,c)}><Ic n="check"/> Confirmar vínculo</Btn>}
-                {c && !c.podeVincular && c.podeRegistrarPagamento && c.bloqueios.length===0 && <Btn disabled={conciliando} onClick={()=>executarRegistrarPagamento(tr,c)}><Ic n="check"/> {Number(tr.valor)>0?"Registrar recebimento e conciliar":"Registrar pagamento e conciliar"}</Btn>}
+                {c && c.podeVincular && c.bloqueios.length===0 && <Btn disabled={conciliando||reviewSaving} onClick={()=>executarVincular(tr,c)}><Ic n="check"/> Confirmar vínculo</Btn>}
+                {c && !c.podeVincular && c.podeRegistrarPagamento && c.bloqueios.length===0 && <Btn disabled={conciliando||reviewSaving} onClick={()=>executarRegistrarPagamento(tr,c)}><Ic n="check"/> {Number(tr.valor)>0?"Registrar recebimento e conciliar":"Registrar pagamento e conciliar"}</Btn>}
                 {cs.length>1 && <Btn v="ghost" onClick={()=>trocarCandidato(1)}>Outro candidato</Btn>}
                 {c && !modoConciliacaoRh&&<Btn v="ghost" onClick={()=>rejeitarCandidato(tr,c)}>Não corresponde</Btn>}
               </div>

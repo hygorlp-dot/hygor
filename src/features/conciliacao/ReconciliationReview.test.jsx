@@ -28,3 +28,27 @@ it("interrompe lote na falha e informa que confirmações anteriores foram prese
   expect(link).toHaveBeenCalledTimes(2);
   expect(container.textContent).toContain("A operação parou");
 });
+
+it("expõe titular divergente mesmo com valor e data coincidentes, sem executar baixa",()=>{
+  const link=vi.fn();mount(link);
+  const transaction={id:"bank",valor:-100,data:"2026-10-20",status:"pendente",descricao:"PIX enviado",contraparteNome:"Pessoa do extrato",contraparteDocumento:"123",chavePix:"pix-do-banco"};
+  const data={transacoes:[transaction],fornecedores:[{id:"supplier",nome:"Fornecedor do ERP",cpf:"456",chavePix:"pix-do-erp"}]};
+  const candidate={tipo:"notaFiscal",entidadeId:"nf",titulo:"NF 10",contraparte:"Fornecedor do ERP",saldoCentavos:10000,dataPrevista:"2026-10-20",motivos:[],alertas:["Confira o titular"],bloqueios:[]};
+  act(()=>root.render(<ReconciliationReview data={data} transaction={transaction} analysis={{melhorCandidata:candidate}} fmt={String} canOperate onLink={link} onSaving={()=>{}}/>));
+  const rows=[...container.querySelectorAll('.reconciliation-evidence [role="row"]')];
+  expect(rows.find(row=>row.textContent.startsWith("Valor")).dataset.evidence).toBe("match");
+  for(const label of ["Favorecido / pagador","CPF/CNPJ","Chave PIX"]){
+    expect(rows.find(row=>row.textContent.startsWith(label)).dataset.evidence).toBe("different");
+  }
+  expect(container.textContent).toContain("Identificar a pessoa não confirma o lançamento financeiro");
+  expect(link).not.toHaveBeenCalled();
+});
+
+it("não apresenta evidência ausente como coincidência",()=>{
+  mount(vi.fn());
+  const transaction={id:"bank",valor:-100,status:"pendente",descricao:"Sem identificação"};
+  act(()=>root.render(<ReconciliationReview data={{transacoes:[transaction]}} transaction={transaction} analysis={{melhorCandidata:{titulo:"Título",saldoCentavos:10000}}} fmt={String} canOperate onSaving={()=>{}}/>));
+  const rows=[...container.querySelectorAll('.reconciliation-evidence [role="row"]')];
+  expect(rows.find(row=>row.textContent.startsWith("CPF/CNPJ")).dataset.evidence).toBe("missing");
+  expect(rows.find(row=>row.textContent.startsWith("Favorecido / pagador")).dataset.evidence).toBe("missing");
+});

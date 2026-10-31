@@ -4,6 +4,7 @@ import ClosingPending from "./features/financeiro/ClosingPending.jsx";
 import CashForecast from "./features/financeiro/CashForecast.jsx";
 import FinanceToday from "./features/financeiro/FinanceToday.jsx";
 import FinancialMemorial from "./features/financeiro/FinancialMemorial.jsx";
+import {financeNextAction} from './domains/financeiro/next-action.js';
 import FinancialReportCenter from "./features/financeiro/FinancialReportCenter.jsx";
 import InvoiceConference from "./features/financeiro/InvoiceConference.jsx";
 import FinancialPreview from "./features/financeiro/FinancialPreview.jsx";
@@ -256,7 +257,7 @@ import {
   normalizeApprovalInstances, podeAdministrarPoliticas, podeGerenciarDelegacoes, OPERADORES,
 } from "./domains/aprovacoes/index.js";
 import { arcdApprovalEngine as motorAprovacaoGenerico } from "./domains/aprovacoes/arcd-engine.js";
-import { ROLE_TABS, allowedTabsForUser } from "./domains/administracao/abas-acesso.js";
+import { ROLE_TABS, allowedTabsForUser, podeAcessarAba } from "./domains/administracao/abas-acesso.js";
 
 // Resolvedores concretos do motor de aprovação para o app ARCD: como este
 // app ainda não tem cargo/hierarquia/departamento/centro de custo cadastrados,
@@ -5683,6 +5684,11 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   const abrirNovaNota=useCallback(()=>{setAbrirCadastroFiscal(true);setAreaFinanceira("fiscal");},[]);
   const abrirFiscal=useCallback(()=>{setAbrirCadastroFiscal(false);setAreaFinanceira("fiscal");},[]);
   const confirmarAberturaFiscal=useCallback(()=>setAbrirCadastroFiscal(false),[]);
+  useEffect(()=>{
+    if(intent?.tabId!=="fin"||intent.action!=="review-purchase-invoice"||!['admin','financeiro'].includes(currentUser?.role)||!podeAcessarAba(currentUser,'fin'))return;
+    const invoice=(data.notasFiscais||[]).find(n=>String(n.id)===String(intent.record?.invoiceId)&&String(n.obraId)===String(intent.scope?.obraId)&&(!currentUser.obraId||String(n.obraId)===String(currentUser.obraId))&&!n.deletedAt&&n.ativo!==false&&!['cancelada','cancelado','estornada','estornado'].includes(n.status));
+    if(invoice&&financeNextAction(data,{sourceType:'nota_fiscal',sourceId:invoice.id,obraId:invoice.obraId},currentUser)){setNotaParaConferir(invoice.id);setAbrirCadastroFiscal(false);setAreaFinanceira('fiscal');}
+  },[intent?.sequence]);
   const now = new Date();
   const [year,  setYear]  = useSessionState("year",now.getFullYear());
   const [month, setMonth] = useSessionState("month",now.getMonth());

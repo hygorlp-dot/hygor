@@ -25,7 +25,7 @@ function XmlOriginal({url, onError}) {
   return text === null ? <p role="status">Carregando XML original…</p> : <pre className="invoice-original__xml" tabIndex={0} aria-label="XML original">{text}</pre>;
 }
 
-function OriginalDocument({document, driveId, resolveFile}) {
+export function OriginalDocument({document, driveId, resolveFile}) {
   const [resource, setResource] = useState(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
