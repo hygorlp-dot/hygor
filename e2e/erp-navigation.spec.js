@@ -17,7 +17,11 @@ test("identidade MARCELL carrega as fontes locais e a marca oficial no acesso",a
   await page.evaluate(()=>document.fonts.ready);
   expect(await page.evaluate(()=>[...document.fonts].filter(font=>font.family.includes("Source Sans 3")&&font.status==="loaded").length)).toBeGreaterThan(0);
   await expect(page.locator("#login-email")).toHaveCSS("font-family",/Source Sans 3/);
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
+  for(const name of ['PIN de acesso','E-mail e senha']){
+    await page.getByRole('tab',{name,exact:true}).click();
+    await expect(page.getByRole('tab',{name,exact:true})).toHaveAttribute('aria-selected','true');
+    await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
+  }
 });
 
 test("tema MARCELL migra a aparência e mantém leitura com ampliação",async({page})=>{
