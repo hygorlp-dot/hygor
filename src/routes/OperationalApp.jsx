@@ -1,3 +1,4 @@
+import {HelpProvider} from '../features/help/HelpContext.jsx';
 import { lazy, Suspense, useEffect } from "react";
 
 // O sistema operacional continua em chunk próprio para exibir um estado de
@@ -27,7 +28,7 @@ export default function OperationalApp() {
 
   return (
     <Suspense fallback={<RouteLoading/>}>
-      <LegacyApp/>
+      <HelpProvider><LegacyApp/></HelpProvider>
     </Suspense>
   );
 }

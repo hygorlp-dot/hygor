@@ -2,6 +2,11 @@ import { test,expect } from '@playwright/test';
 import { profile } from '../scripts/fixtures/workflow-priorities-data.mjs';
 import {samplePdf} from './helpers/sample-pdf.js';
 import JSZip from 'jszip';
+for(const width of [1440,390])test(`ajuda contextual e manual acompanham Arquivos e dossiê em ${width}px`,async({page})=>{
+  await page.setViewportSize({width,height:1000});await enter(page);const help=page.getByRole('button',{name:'Ajuda',exact:true});await help.click();const panel=page.locator('.app-help-panel');await expect(panel.locator('article')).toContainText('Arquivos e permissões');await expect(panel.locator('article')).toContainText('Permissões desta pasta');await panel.getByRole('button',{name:'Fechar ajuda',exact:true}).click();await expect(help).toBeFocused();
+  await page.getByLabel('Área da documentação',{exact:true}).selectOption('dossier');await help.click();await expect(panel.locator('article')).toContainText('Dossiê de licenciamento');await expect(panel.locator('article')).toContainText('INCOMPLETO');await panel.getByRole('button',{name:'Manual completo',exact:true}).click();await panel.getByLabel('O que você precisa fazer?',{exact:true}).fill('dossie');await panel.getByRole('navigation',{name:'Guias do manual',exact:true}).getByRole('button',{name:'Arquivos · Dossiê de licenciamento',exact:true}).click();await expect(panel.locator('article')).toContainText('PENDENCIAS.txt');await page.screenshot({path:`artifacts/arquivos/help-dossier-${width}.png`,fullPage:false});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await panel.getByRole('button',{name:'Fechar ajuda',exact:true}).click();await page.getByRole('button',{name:'Taxa administrativa',exact:true}).click().catch(async()=>{await page.getByLabel('Exigência do dossiê',{exact:true}).selectOption('taxa');});
+});
 async function enter(page){
   await page.addInitScript(id=>sessionStorage.setItem(`arcd-section:${id}`,'arquivos'),profile.id);
   await page.goto('/');await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('piloto-local');await page.getByRole('button',{name:'Acessar central MARCELL'}).click();await expect(page.locator('.work-files')).toBeVisible();

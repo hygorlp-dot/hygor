@@ -66,7 +66,9 @@
     "ponto-eletronico:migrate": "node scripts/apply-ponto-eletronico.mjs",
     "manutencao-banco:migrate": "node scripts/apply-manutencao-banco.mjs",
     "acesso-publico:migrate": "node scripts/apply-acesso-publico.mjs",
-    "financial:activation-check": "node scripts/check-financial-activation-evidence.mjs"
+    "financial:activation-check": "node scripts/check-financial-activation-evidence.mjs",
+    "manual:generate": "node scripts/generate-app-manual.mjs",
+    "manual:check": "node scripts/generate-app-manual.mjs --check"
   },
   "browserslist": {
     "production": [

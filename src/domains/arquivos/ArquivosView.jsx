@@ -1,3 +1,4 @@
+import {useHelpTopic} from '../../features/help/HelpContext.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Folder, FolderPlus, FileText, Link as LinkIcon, Upload, RefreshCw, ArrowLeft, Eye, History } from 'lucide-react';
 import { Button } from '../../components/ui/button.jsx';
@@ -38,6 +39,7 @@ function FileExplorer({data,currentUser,dispatchCommand,onRefresh,work,onBusyCha
   const cabinet=(data.workFileCabinets||[]).find(item=>item.obraId===work.id)||{version:0,folders:[],documents:[],history:[]};
   const [folderId,setFolderId]=useState('*'),[selectedId,setSelectedId]=useState(''),[form,setForm]=useState(null),[search,setSearch]=useState(''),[source,setSource]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
   const [preview,setPreview]=useState(null);
+  useHelpTopic('arquivos',preview?'arquivos_revisoes':'arquivos');
   const pending=useRef(false),uploadCache=useRef(new Map()),retry=useRef(null),detailHeading=useRef(null),documentTrigger=useRef(null),searchInput=useRef(null),previewTrigger=useRef(null);
   const writable=FILE_ROLES.includes(currentUser.role)&&folderAccess(cabinet,folderId==='*'||folderId==='sources'||folderId.startsWith('source:')?'':folderId,currentUser,'write');
   const inherited=useMemo(()=>sourceDocuments(data,work.id),[data,work.id]);

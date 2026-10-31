@@ -1,3 +1,4 @@
+import {useHelpTopic} from '../../features/help/HelpContext.jsx';
 import {useRef,useState} from 'react';
 import {Button} from '../../components/ui/button.jsx';
 import {Alert,AlertDescription} from '../../components/ui/alert.jsx';
@@ -15,6 +16,7 @@ export default function DossierView({data,work,currentUser,dispatchCommand,onBus
   const license=data.licencas?.find(item=>item.obraId===work.id)||{id:`dossier-${work.id}`,obraId:work.id,tipo:'simplificada',version:0,itens:{}};
   const {items,missing,complete}=dossierCheck(license),canEdit=['admin','engenheiro'].includes(currentUser.role)&&podeAcessarAba(currentUser,'licenca');
   const [selected,setSelected]=useState(items[0]?.id||''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[preview,setPreview]=useState(null);const pending=useRef(false),uploads=useRef(new Map());
+  useHelpTopic('arquivos',preview?'arquivos_revisoes':'arquivos_dossie');
   const active=items.find(item=>item.id===selected)||items[0];
   async function run(action){if(pending.current)return;pending.current=true;setBusy(true);onBusyChange(true);setError('');setNotice('');try{await action();}catch(cause){setError(cause.message||'Não foi possível concluir. Tente novamente.');}finally{pending.current=false;setBusy(false);onBusyChange(false);}}
   async function save(type,payload){const result=await dispatchCommand({type,payload:{obraId:work.id,licenseId:license.id,...payload},expectedVersion:license.version||0,idempotencyKey:crypto.randomUUID(),actorId:currentUser.id,actorRole:currentUser.role,actorName:currentUser.nome});if(!result?.ok)throw new Error(result?.reason||result?.error||'A gravação não foi confirmada. Atualize e tente novamente.');return result;}

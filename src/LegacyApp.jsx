@@ -1,3 +1,4 @@
+import {HelpButton} from './features/help/HelpButton.jsx';
 import WorkStageCosts from "./features/financeiro/WorkStageCosts.jsx";
 import DocumentCenter from "./features/financeiro/DocumentCenter.jsx";
 import ClosingPending from "./features/financeiro/ClosingPending.jsx";
@@ -17936,6 +17937,7 @@ export default function App() {
               </div>
 
               {/* Ponto rápido */}
+              <HelpButton pageId={tab} allowedTabs={allowedTabs}/>
               {allowedTabs.includes("ponto") && (
                 <button
                   className="app-quick-point"
