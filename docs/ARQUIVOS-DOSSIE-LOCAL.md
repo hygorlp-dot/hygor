@@ -1,5 +1,7 @@
 # Arquivos e dossiê — roteiro de revisão local
 
+As melhorias foram posteriormente publicadas por autorização do usuário. Veja [o registro da publicação](DEPLOY-ARQUIVOS-DOSSIE-20261031.md). Este roteiro continua descrevendo a demonstração fictícia local.
+
 Revisado em 31/10/2026. Cenário fictício para conferir o fluxo de documentação da obra, sem acesso a arquivos, sessões Microsoft ou dados de produção.
 
 ## Abrir a demonstração
