@@ -6,6 +6,7 @@ import { formatMinutes } from "../ponto/timekeeping.js";
 import { proporApropriacoes, validarApropriacao } from "./apropriacao.js";
 import { dataLocal, FUSO_OBRA } from "./painel.js";
 import {scheduleOnDate} from '../rh/work-schedule.js';
+import {avaliarToleranciaBancoHoras} from './tolerancia-banco-horas.js';
 
 export const MAX_DIAS_BANCO_HORAS = 62;
 export const ALMOCO_PADRAO_MINUTOS = 60;
@@ -257,7 +258,8 @@ export function construirBancoHoras({ employees = [], config = {}, marcacoes = [
         jornadaMinutos: jornada.minutos, fonteJornada:jornada.fonte, previstosMinutos: temRegistro ? jornada.minutos : null,
         trabalhadosBrutosMinutos:temRegistro?Math.round(minutos):null,intervaloPadraoMinutos:0,temIntervaloRegistrado:pausaMs>0,
         trabalhadosMinutos: temRegistro ? Math.round(minutos) : null, intervaloMinutos,
-        saldoMinutos: null, acumuladoMinutos: null, intervalos, batidas, obras: obrasDosIntervalos(intervalos), pendencias, alertas,
+        saldoMinutos: null, saldoSemToleranciaMinutos:null,ajusteToleranciaMinutos:0,tolerancia:{status:'nao_apurada'},
+        acumuladoMinutos: null, intervalos, batidas, obras: obrasDosIntervalos(intervalos), pendencias, alertas,
       };
     });
 
@@ -310,7 +312,10 @@ export function construirBancoHoras({ employees = [], config = {}, marcacoes = [
         }
         dia.situacao = "considerado";
         dia.confianca = dia.alertas.length ? "conferir" : dia.origem === "apropriacao" ? "tratado" : "estimado";
-        dia.saldoMinutos = dia.trabalhadosMinutos - dia.previstosMinutos;
+        dia.saldoSemToleranciaMinutos = dia.trabalhadosMinutos - dia.previstosMinutos;
+        dia.tolerancia=avaliarToleranciaBancoHoras(dia,scheduleOnDate(employee,dia.data));
+        dia.saldoMinutos=dia.tolerancia.status==='aplicada'?0:dia.saldoSemToleranciaMinutos;
+        dia.ajusteToleranciaMinutos=dia.saldoMinutos-dia.saldoSemToleranciaMinutos;
         acumulado = (acumulado ?? 0) + dia.saldoMinutos;
         trabalhadosMinutos += dia.trabalhadosMinutos;
         previstosMinutos += dia.previstosMinutos;
