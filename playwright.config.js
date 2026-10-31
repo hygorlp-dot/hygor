@@ -27,6 +27,8 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   projects: [
+    {name:'biometric-sync-desktop',testMatch:/biometric-sync\.spec\.js/,use:{browserName:'chromium',viewport:{width:1440,height:1000}}},
+    {name:'biometric-sync-mobile',testMatch:/biometric-sync\.spec\.js/,use:{browserName:'chromium',viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"labor-projection-desktop",testMatch:/labor-projection\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
     {name:"labor-projection-mobile",testMatch:/labor-projection\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"pdf-mrc",testMatch:/pdf-mrc\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},

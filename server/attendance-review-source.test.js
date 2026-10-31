@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { it, expect } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
-import { readReviewEvents, readFreshAttendance } from "./attendance-review-source.js";
+import { readReviewEvents, readFreshAttendance, readSyncEvents } from "./attendance-review-source.js";
 const KEY="arced_ponto_v1",PONTO_KEY=`${KEY}__ponto`,PONTO_OBRA_KEY_PREFIX=`${PONTO_KEY}__obra__`;
 import { encodeAppData } from "./data-codec.js";
 
@@ -23,6 +23,14 @@ it("consulta real inclui legados e eventos de todas as obras, isolando empresa e
     const events=await readReviewEvents(sql,"c",{date:"2026-10-29",employeeId:"e"});
     expect(events.map(e=>e.id)).toEqual(["one","four"]);
     expect(events[0]).toMatchObject({tipoEvento:"entrada",marcadoEm:"2026-10-29T10:00:00.000Z"});
+    const batch=await readSyncEvents(sql,'c',{startsOn:'2026-10-29',endsOn:'2026-10-30'});
+    expect(batch.map(e=>e.id).sort()).toEqual(['four','one','three']);
+    expect(batch.find(e=>e.id==='one')).toMatchObject({employeeId:'e',metodo:'facial',tipoEvento:'entrada'});
+    expect((await readSyncEvents(sql,'other',{startsOn:'2026-10-29',endsOn:'2026-10-29'})).map(e=>e.id)).toEqual(['two']);
+    await db.exec(`insert into ponto_marcacoes values ('c','one','e','o1','2026-10-29T10:00:00Z','ponto',true,false,'facial');`);
+    const deduplicated=await readSyncEvents(sql,'c',{startsOn:'2026-10-29',endsOn:'2026-10-30'});
+    expect(deduplicated.map(e=>e.id).sort()).toEqual(['four','one','three']);
+    expect(deduplicated.find(e=>e.id==='one').tipoEvento).toBe('entrada');
     const fresh=await readFreshAttendance(sql,"c",{employees:[{id:"e",name:"Antigo"}]});
     expect(fresh.employees[0].name).toBe("Atual");
     expect(fresh.attendance.e["2026-10-29"].status).toBe("P");

@@ -81,7 +81,8 @@ import {
   coreFieldsOnly, DOMAIN_ROW, domainForField, mergeDomainRows, pickDomainFields, rowForAttendanceCommand,
   rowForOperationalCommand, SPLITTABLE_DOMAINS,
 } from "../server/domain-row-routing.js";
-import { readFreshAttendance, readReviewEvents } from "../server/attendance-review-source.js";
+import { readFreshAttendance, readReviewEvents, readSyncEvents } from "../server/attendance-review-source.js";
+import { planBiometricSync, validSyncRange, biometricSyncPreview } from '../server/attendance-biometric-sync.js';
 import { applyAttendanceCommand, ATTENDANCE_COMMAND } from "../server/attendance-command.js";
 import {
   applyEntriesToAttendance, attendanceObraKeyPrefix,
@@ -1438,6 +1439,7 @@ const executarComandoOperacionalBloqueado=async({
 };
 
 const datasAlteradasPeloComandoPonto=command=>{
+  if(command?.action===ATTENDANCE_COMMAND.SYNC)return (command.items||[]).map(item=>String(item.date||''));
   if([ATTENDANCE_COMMAND.UPSERT,ATTENDANCE_COMMAND.REVIEW].includes(command?.action))return [String(command.date||"")].filter(Boolean);
   if(command?.action===ATTENDANCE_COMMAND.BATCH_UPSERT){
     return [...new Set((Array.isArray(command.patches)?command.patches:[])
@@ -1527,7 +1529,8 @@ export const executarComandoPontoBloqueado=async({usuario,command,operationNow,l
         dailyCheckDate:freshPontoSlice.dailyCheckDate||"",
         attendanceOperationReceipts:freshPontoSlice.attendanceOperationReceipts||[],
       };
-      const sourceEvents=command.action===ATTENDANCE_COMMAND.REVIEW?await readReviewEvents(transaction,COMPANY,command):[];
+      const sourceEvents=command.action===ATTENDANCE_COMMAND.REVIEW?await readReviewEvents(transaction,COMPANY,command):
+        command.action===ATTENDANCE_COMMAND.SYNC&&validSyncRange(command)?await readSyncEvents(transaction,COMPANY,command):[];
       const applied=applyAttendanceCommand(current,usuario,command,operationNow,sourceEvents);
       if(!applied.ok)return {kind:"error",status:applied.status||400,error:applied.error};
       if(applied.idempotent)return {kind:"idempotent",result:applied.result,updatedAt:lockedPonto.updated_at};
@@ -2674,6 +2677,13 @@ export default async function handler(req, res) {
     // Ponto é persistido por fato, nunca pela substituição da seção projetada.
     // O payload permanece constante (um registro ou lote curto), a validação
     // usa o dataset autoritativo e a mesma RPC grava mutação + auditoria.
+    if(action==='attendance-preview-punches'){
+      if(!['admin','rh'].includes(usuario.role))return res.status(403).json({ok:false,error:'Somente RH e administrador podem sincronizar batidas.'});
+      if(!validSyncRange(req.body))return res.status(400).json({ok:false,error:'Escolha um período válido de até 32 dias.'});
+      if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({ok:false,error:'A consulta de batidas requer conexão transacional.'});
+      const items=await comSql(async transaction=>planBiometricSync(atual,req.body,await readSyncEvents(transaction,COMPANY,req.body),new Date().toISOString()));
+      return res.status(200).json({ok:true,items:biometricSyncPreview(items)});
+    }
     if(ATTENDANCE_COMMANDS.has(action)){
       const command={...req.body,action};
       const operationNow=new Date().toISOString();
@@ -2682,8 +2692,8 @@ export default async function handler(req, res) {
       // os outros 5 (lock/unlock/daily-check) só mexem nos campos "meta" que
       // continuam numa única linha compartilhada, então seguem no caminho
       // genérico de sempre.
-      const isAttendanceWrite=[ATTENDANCE_COMMAND.UPSERT,ATTENDANCE_COMMAND.BATCH_UPSERT,ATTENDANCE_COMMAND.REVIEW].includes(action);
-      if(action===ATTENDANCE_COMMAND.REVIEW){
+      const isAttendanceWrite=[ATTENDANCE_COMMAND.UPSERT,ATTENDANCE_COMMAND.BATCH_UPSERT,ATTENDANCE_COMMAND.REVIEW,ATTENDANCE_COMMAND.SYNC].includes(action);
+      if([ATTENDANCE_COMMAND.REVIEW,ATTENDANCE_COMMAND.SYNC].includes(action)){
         if(!["admin","rh"].includes(usuario.role))return res.status(403).json({ok:false,error:"Somente RH e administrador podem conferir batidas."});
         if(!process.env.POSTGRES_URL_NON_POOLING)return res.status(503).json({ok:false,error:"A integração de ponto requer conexão transacional. Contate o administrador."});
       }

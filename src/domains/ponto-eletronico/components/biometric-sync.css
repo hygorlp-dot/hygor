@@ -1,0 +1,11 @@
+.biometric-sync{display:grid;gap:var(--arcd-space-4,1rem);min-width:0}
+.biometric-sync p{margin:0;overflow-wrap:anywhere}
+.biometric-sync__list{max-height:45vh;overflow:auto}
+.biometric-sync__list section+section{border-top:1px solid var(--arcd-border-default);padding-top:1rem}
+.biometric-sync__list h3{font-size:var(--arcd-type-body);font-weight:500}
+.biometric-sync__list ul{padding-left:1.25rem}
+.biometric-sync__list li{margin-bottom:.75rem;overflow-wrap:anywhere}
+.biometric-sync__actions{display:flex;flex-wrap:wrap;gap:.5rem}
+.biometric-sync-modal .arcd-modal-footer{position:sticky;bottom:0;background:var(--arcd-surface-card);border-top:1px solid var(--arcd-border-default);padding:1rem;z-index:1}
+.biometric-sync [role=alert]{color:var(--arcd-danger-text)}
+@media(max-width:600px){.biometric-sync__actions{display:grid}.biometric-sync__actions button{height:auto;min-height:2.75rem;white-space:normal}}

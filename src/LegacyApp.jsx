@@ -7341,7 +7341,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
         <Inp label="Buscar funcionário" value={busca} onChange={setBusca} placeholder="Nome, cargo ou obra..."/>
       </div>
       <p className="ponto-geral-count">{employees.length} funcionário(s) neste filtro · marcação dia a dia, clicando na célula</p>
-      {!arqMeta&&["admin","rh"].includes(currentUser?.role)&&<Suspense fallback={null}><ImportarDoREP data={data} employees={employees} days={days}
+      {!arqMeta&&["admin","rh"].includes(currentUser?.role)&&<Suspense fallback={null}><ImportarDoREP data={data} employees={employees} days={diasCiclo} selectedObraId={filterObra} laborArea={laborScope}
         getRecord={attendanceFor} canEdit={(obraId,date)=>canEditAttendance(data,obraId,date,currentUser?.id)} obraName={obraName}
         dispatchAttendanceCommand={dispatchAttendanceCommand} newOperationId={pointOperationId} showToast={showToast}/></Suspense>}
     </div>
@@ -7422,7 +7422,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
                 <button onClick={()=>salvarCelula(emp,date,{status:proxStatus(st)})}
                   aria-busy={pending}
                   disabled={!!att?.pontoReview}
-                  title={att?.pontoReview?"Conferido pelo RH; revise no Ponto eletrônico.":pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
+                  title={att?.pontoReview?.method==='biometric-sync'?"Ponto biométrico: protegido contra alteração pela engenharia. Revisão somente pelo RH.":att?.pontoReview?"Conferido pelo RH; revise no Ponto eletrônico.":pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
                   style={{width:"100%",height:30,border:`1.5px solid ${st?corStatus(st):C.border}`,borderRadius:5,
                           background:st?corStatus(st):C.bg,color:st?"#fff":C.muted,
                           fontWeight:600,cursor:"pointer",fontSize:"var(--arcd-type-control)",fontFamily:"var(--arcd-font-sans)",
@@ -7431,7 +7431,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
                 </button>
                 {/* Obra: escondida por padrão. Mostra um chip discreto só quando a
                     obra do dia difere da lotação; toque abre a troca. */}
-                {att?.pontoReview ? <span title="Conferido e integrado pelo RH">RH</span> : aberto ? (
+                {att?.pontoReview ? <span title={att.pontoReview.method==='biometric-sync'?"Batidas biométricas sincronizadas pelo RH; engenharia não pode alterar.":"Conferido e integrado pelo RH"}>{att.pontoReview.method==='biometric-sync'?'Biometria':'RH'}</span> : aberto ? (
                   <select autoFocus value={obraId} onChange={e=>{salvarCelula(emp,date,{obraId:e.target.value});setObraCell(null);}} onBlur={()=>setObraCell(null)}
                     style={{width:"100%",marginTop:2,border:`1px solid ${C.blue}`,borderRadius:4,background:C.bg,color:C.text,fontSize:"var(--arcd-type-control)",padding:"2px 1px"}}>
                     <option value="">Sem obra</option>

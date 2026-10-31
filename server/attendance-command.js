@@ -1,6 +1,7 @@
 import { ATTENDANCE_STATUSES } from "../src/domains/ponto/attendance-status.js";
 import { normalizeAttendanceRecord } from "../src/domains/ponto/records.js";
 import { prepareAttendanceReview } from "./attendance-review.js";
+import { planBiometricSync, validSyncRange } from './attendance-biometric-sync.js';
 import {
   resolveEmployeeAttendanceObraId,
 } from "../src/domains/ponto/permissions.js";
@@ -8,6 +9,7 @@ import {
 export const ATTENDANCE_COMMAND = Object.freeze({
   UPSERT:"attendance-upsert",
   REVIEW:"attendance-review-punches",
+  SYNC:"attendance-sync-punches",
   BATCH_UPSERT:"attendance-batch-upsert",
   DAILY_CHECK:"attendance-daily-check",
   LOCK:"attendance-lock",
@@ -302,9 +304,30 @@ const applyUnlockDecision=({data,user,command,now,approved})=>{
 
 export const applyAttendanceCommand=(data={},user={},command={},now=new Date().toISOString(),sourceEvents)=>{
   // A autorização precede inclusive o retorno idempotente.
-  if(command.action===ATTENDANCE_COMMAND.REVIEW && !["admin","rh"].includes(user.role))return fail("Somente RH e administrador podem conferir batidas.",403);
+  if([ATTENDANCE_COMMAND.REVIEW,ATTENDANCE_COMMAND.SYNC].includes(command.action) && !["admin","rh"].includes(user.role))return fail("Somente RH e administrador podem conferir batidas.",403);
   const base=ensureCommandBase({data,user,command});
   if(!base.ok||base.idempotent)return base;
+  if(command.action===ATTENDANCE_COMMAND.SYNC){
+    if(!validSyncRange(command)||!Array.isArray(sourceEvents))return fail('Período inválido ou batidas não consultadas pelo servidor.');
+    if(!Array.isArray(command.items)||!command.items.length||command.items.length>500)return fail('Selecione entre 1 e 500 dias por sincronização.');
+    const plan=planBiometricSync(data,command,sourceEvents,now);
+    let next=data;const changed=[],seen=new Set();
+    for(const selected of command.items){
+      const key=`${selected.employeeId}__${selected.date}`;
+      if(seen.has(key))return fail('Há dias repetidos no lote.');seen.add(key);
+      const item=plan.find(p=>p.employeeId===String(selected.employeeId)&&p.date===selected.date);
+      if(!item||item.state!=='ready')return fail(item?.reasons[0]||'Batidas já sincronizadas ou indisponíveis. Atualize a consulta.',409);
+      if(item.sourceSignature!==selected.sourceSignature||item.expectedRecord!==selected.expectedRecord||item.scheduleSignature!==selected.scheduleSignature)return fail('O ponto, as batidas ou a escala mudaram. Atualize antes de sincronizar.',409);
+      const record={...item.record,pontoReview:{...item.record.pontoReview,reviewedBy:String(user.id),reviewedByName:user.nome||user.email||'RH',
+        reviewedAt:now,reason:'Prioridade biométrica confirmada pelo RH',adjusted:false,revision:Number(item.previous?.pontoReview?.revision||0)+1}};
+      const validated=validatePatch({data:next,user,now,patch:{employeeId:item.employeeId,date:item.date,selectedObraId:item.obraId,record,reviewedByServer:true}});
+      if(!validated.ok)return validated;
+      validated.record={...validated.record,...record};next=applyValidatedPatch(next,validated);changed.push(validated);
+    }
+    const result={attendance:changed.map(attendanceResult)};
+    return {ok:true,data:appendReceipt(next,{operationId:command.operationId,action:command.action,result,user,now}),result,
+      audit:{action:'attendance_sync_biometrics',before:{attendance:changed.map(i=>attendanceResult({...i,record:i.currentRecord}))},after:{attendance:result.attendance,operationId:command.operationId}}};
+  }
   if(command.action===ATTENDANCE_COMMAND.REVIEW){
     const prepared=prepareAttendanceReview(data,user,command,now,sourceEvents);
     if(!prepared.ok)return prepared;
