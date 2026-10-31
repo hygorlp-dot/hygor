@@ -12,6 +12,7 @@ const diaLegivel = dia => String(dia).split("-").reverse().join("/");
 const dataCurta = dia => diaLegivel(dia).slice(0, 5);
 const textoBusca = valor => String(valor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
 const minutosLegiveis = valor => valor == null ? "—" : formatMinutes(valor);
+const jornadaLegivel=linha=>linha.jornadasMinutos?.length>1?linha.jornadasMinutos.map(minutosLegiveis).join(' / '):minutosLegiveis(linha.jornadaMinutos);
 const tomSaldo = valor => valor > 0 ? "credito" : valor < 0 ? "debito" : "neutro";
 const selecionarResposta = r => {
   if (!Array.isArray(r?.marcacoes) || !Array.isArray(r?.apropriacoes) || typeof r?.cobertura?.completa !== "boolean") {
@@ -33,9 +34,9 @@ function AjudaCalculo() {
   return <details className="bh-calculo">
     <summary>Como este saldo é calculado</summary>
     <div>
-      <p>Horas apuradas menos a jornada diária cadastrada, somadas apenas nos dias que podem ser considerados. A jornada do funcionário prevalece sobre o padrão da empresa.</p>
-      <p>Intervalos já tratados prevalecem sobre a leitura das batidas. Sem tratamento, os horários são interpretados pelas capturas, incluindo mudanças de obra. A jornada é descontada uma vez por funcionário e dia.</p>
-      <p>Dias sem registro ou com horários incompletos não geram débito automático. A consulta usa a jornada cadastrada atualmente; não inclui saldo anterior, compensações, calendário contratual ou lançamentos na folha.</p>
+      <p>Horas líquidas apuradas menos a jornada prevista para cada dia. A escala vigente na data prevalece; sem escala, vale a jornada do funcionário ou o padrão da empresa. A jornada é descontada uma vez por funcionário e dia.</p>
+      <p>Nos dias com mais de 6h corridas e sem intervalo informado, esta estimativa desconta 1h de almoço padrão. Se já houver pausa registrada ou intervalos tratados pelo RH, não há novo desconto. Esse padrão não cria nem modifica batidas.</p>
+      <p>Dias sem registro ou com horários incompletos não geram débito automático. Esta consulta não inclui saldo anterior, compensações e não altera a grade, a folha ou pagamentos.</p>
     </div>
   </details>;
 }
@@ -96,6 +97,7 @@ function DetalheDia({ dia, nomeObra, tituloRef }) {
       <span>{nomeObra.get(String(i.obraId)) || "Obra não identificada"}</span><strong>{minutosLegiveis(Math.round(i.minutos))}</strong>
     </li>)}</ul>}
     {dia.batidas.length > 0 && <p>Batidas recebidas: {dia.batidas.map(b => horaLocal(b.marcadoEm).slice(0, 5)).join(" · ")}.</p>}
+    {dia.intervaloPadraoMinutos>0&&<p>Tempo entre registros: <strong>{minutosLegiveis(dia.trabalhadosBrutosMinutos)}</strong> · Almoço padrão descontado: <strong>{minutosLegiveis(dia.intervaloPadraoMinutos)}</strong>. Sem batidas de intervalo; desconto estimado somente no total do dia, sem rateio por obra.</p>}
     {dia.situacao === "considerado" && <p>Apurado: <strong>{minutosLegiveis(dia.trabalhadosMinutos)}</strong> · Jornada considerada: <strong>{minutosLegiveis(dia.previstosMinutos)}</strong> · Variação: <strong>{formatarSaldoMinutos(dia.saldoMinutos)}</strong>.</p>}
     {dia.situacao === "pendente" && <p>Este dia está fora do saldo até a conferência dos horários.</p>}
   </div>;
@@ -119,7 +121,7 @@ function ExtratoFuncionario({ linha, nomeObra, voltar }) {
   }, [diaSelecionado]);
   return <section className="bh-extrato" aria-labelledby="bh-extrato-titulo">
     <div className="bh-section-heading"><div><h3 id="bh-extrato-titulo" ref={tituloRef} tabIndex={-1}>Extrato de {linha.nome}</h3>
-      <p>Jornada diária: {minutosLegiveis(linha.jornadaMinutos)}{linha.fonteJornada === "empresa" ? " · padrão da empresa" : linha.fonteJornada ? " · cadastro do funcionário" : " · precisa ser cadastrada"}.</p></div>
+      <p>Jornada diária: {jornadaLegivel(linha)}{linha.fonteJornada==='escala'?' · escala vigente por dia':linha.fonteJornada === "empresa" ? " · padrão da empresa" : linha.fonteJornada ? " · cadastro do funcionário" : " · precisa ser cadastrada"}.</p></div>
       <Btn v="ghost" onClick={voltar}>Voltar para a equipe</Btn>
     </div>
     {linha.pendencias?.length > 0 && <ul className="bh-pendencias">{linha.pendencias.map(p => <li key={p.codigo}>{p.mensagem}</li>)}</ul>}
@@ -136,7 +138,7 @@ function ExtratoFuncionario({ linha, nomeObra, voltar }) {
           onClick={() => setDiaSelecionado(atual => atual === d.data ? "" : d.data)}>{diaLegivel(d.data)}</button></th>
         <td>{minutosLegiveis(d.trabalhadosMinutos)}</td><td>{minutosLegiveis(d.previstosMinutos)}</td>
         <td data-tone={tomSaldo(d.saldoMinutos)}>{formatarSaldoMinutos(d.saldoMinutos)}</td><td>{formatarSaldoMinutos(d.acumuladoMinutos)}</td>
-        <td>{d.situacao === "pendente" ? "A conferir · fora do saldo" : d.situacao === "sem_registro" ? "Sem registro · sem débito" : d.origem === "apropriacao" ? "Intervalos tratados" : "Pelas batidas"}{d.situacao === "considerado" && d.alertas.length > 0 ? " · com aviso" : ""}</td>
+        <td>{d.situacao === "pendente" ? "A conferir · fora do saldo" : d.situacao === "sem_registro" ? "Sem registro · sem débito" : d.origem === "apropriacao" ? "Intervalos tratados" : "Pelas batidas"}{d.intervaloPadraoMinutos>0?' · almoço padrão 1h':''}{d.situacao === "considerado" && d.alertas.length > 0 ? " · com aviso" : ""}</td>
       </tr>)}</tbody></table>
     </div>
     {!diasVisiveis.length && <p className="bh-vazio">{filtroDia === "pendentes" ? "Nenhum dia pendente neste período." : "Nenhum dia com registros neste período. Selecione “Todos os dias” para conferir as datas."}</p>}
@@ -237,9 +239,9 @@ export default function BancoHorasView({ data, obraId, currentUser, dia }) {
               <th scope="col">Funcionário</th><th scope="col">Jornada diária</th><th scope="col">Horas apuradas</th><th scope="col">Saldo estimado</th><th scope="col">Cobertura</th>
             </tr></thead><tbody>{linhasVisiveis.map(l => <tr key={l.employeeId}>
               <th scope="row"><button className="bh-text-button" type="button" onClick={() => selecionarFuncionario(l.employeeId)} aria-label={`Ver extrato de ${l.nome}`}>{l.nome}</button><span className="bh-funcao">{l.funcao}</span></th>
-              <td data-label="Jornada diária">{minutosLegiveis(l.jornadaMinutos)}</td><td data-label="Horas apuradas">{l.diasConsiderados ? minutosLegiveis(l.trabalhadosMinutos) : "—"}</td>
+              <td data-label="Jornada diária">{jornadaLegivel(l)}{l.fonteJornada==='escala'&&<span className="bh-funcao">Escala vigente por dia</span>}</td><td data-label="Horas apuradas">{l.diasConsiderados ? minutosLegiveis(l.trabalhadosMinutos) : "—"}</td>
               <td data-label="Saldo estimado" data-tone={tomSaldo(l.saldoMinutos)}>{formatarSaldoMinutos(l.saldoMinutos)}</td>
-              <td data-label="Cobertura">{l.diasConsiderados} dia(s){l.diasPendentes > 0 ? ` · ${l.diasPendentes} a conferir` : ""}{!l.diasComRegistro ? " · sem registros" : ""}{!l.jornadaMinutos ? " · jornada não cadastrada" : ""}</td>
+              <td data-label="Cobertura">{l.diasConsiderados} dia(s){l.diasPendentes > 0 ? ` · ${l.diasPendentes} a conferir` : ""}{!l.diasComRegistro ? " · sem registros" : ""}{l.jornadaMinutos==null&&!l.jornadasMinutos?.length ? " · jornada não cadastrada" : ""}{l.dias.some(d=>d.intervaloPadraoMinutos>0)?' · almoço padrão aplicado':''}</td>
             </tr>)}</tbody></table>
           </div>
           {!linhasVisiveis.length && <p className="bh-vazio">{equipe.length ? "Nenhum funcionário corresponde aos filtros. Ajuste a busca ou a situação do saldo." : "Nenhum funcionário ou registro encontrado para esta obra no período. Confira a obra ou consulte todas as obras."}</p>}

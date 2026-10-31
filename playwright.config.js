@@ -27,6 +27,8 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   projects: [
+    {name:'banco-horas-desktop',testMatch:/banco-horas-almoco\.spec\.js/,use:{browserName:'chromium',viewport:{width:1440,height:1000}}},
+    {name:'banco-horas-mobile',testMatch:/banco-horas-almoco\.spec\.js/,use:{browserName:'chromium',viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:'biometric-sync-desktop',testMatch:/biometric-sync\.spec\.js/,use:{browserName:'chromium',viewport:{width:1440,height:1000}}},
     {name:'biometric-sync-mobile',testMatch:/biometric-sync\.spec\.js/,use:{browserName:'chromium',viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"labor-projection-desktop",testMatch:/labor-projection\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},

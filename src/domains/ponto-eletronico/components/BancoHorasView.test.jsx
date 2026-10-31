@@ -109,6 +109,19 @@ afterEach(() => {
 });
 
 describe("BancoHorasView: consulta e cobertura", () => {
+  it('mostra a escala por dia e o desconto estimado de almoço sem inventar batidas',async()=>{
+    const data={...DATA,employees:DATA.employees.map(e=>e.id==='alfa'?{...e,workSchedules:[{code:'44h-seg-sex',effectiveFrom:'2026-10-01'}]}:e)};
+    vi.mocked(chamarPontoEletronico).mockResolvedValueOnce(resposta({marcacoes:[batida('alfa','07:00'),batida('alfa','17:00')]}));
+    await renderizar({data});
+    const cells=celulas(linhaEquipe('Pessoa Alfa'));
+    expect(cells[0]).toContain('9h00 / 8h00');expect(cells[0]).toContain('Escala vigente por dia');
+    expect(cells[1]).toBe('9h00');expect(cells[2]).toBe('0h00');expect(cells[3]).toContain('almoço padrão aplicado');
+    await clicar(botao('Ver extrato de Pessoa Alfa'));await clicar(botao('Conferir dia 05/10/2026 de Pessoa Alfa'));
+    expect(detalhe().textContent).toContain('Almoço padrão descontado: 1h00');
+    expect(detalhe().textContent).toContain('Batidas recebidas: 07:00 · 17:00');
+    expect(detalhe().textContent).toContain('Apurado: 9h00 · Jornada considerada: 9h00');
+    expect(chamarPontoEletronico).toHaveBeenCalledOnce();
+  });
   it("distingue carga e erro de ausência de dados, e só mostra os resultados após sucesso", async () => {
     const primeira = diferida();
     vi.mocked(chamarPontoEletronico).mockReturnValueOnce(primeira.promise);
@@ -148,11 +161,11 @@ describe("BancoHorasView: consulta e cobertura", () => {
     expect(chamarPontoEletronico).toHaveBeenCalledExactlyOnceWith("ponto-banco-horas", { de: "2026-10-01", ate: HOJE });
     expect(nomesEquipe()).toEqual(["Pessoa Alfa", "Pessoa Débito", "Pessoa Pendente", "Pessoa Sem Registro", "Pessoa Transferida"]);
     expect(celulas(linhaEquipe("Pessoa Transferida"))).toEqual(["8h00", "9h00", "+1h00", "1 dia(s)"]);
-    expect(celulas(linhaEquipe("Pessoa Alfa"))).toEqual(["8h00", "17h00", "+1h00", "2 dia(s)"]);
-    expect(totais()).toEqual(["+1h00", "2h30", "1h30", "1"]);
+    expect(celulas(linhaEquipe("Pessoa Alfa"))).toEqual(["8h00", "16h00", "0h00", "2 dia(s) · almoço padrão aplicado"]);
+    expect(totais()).toEqual(["−1h00", "2h30", "3h30", "1"]);
     await preencher(controle("Equipe"), "todos");
     expect(nomesEquipe()).toContain("Pessoa Externa");
-    expect(totais()[0]).toBe("+2h00");
+    expect(totais()[0]).toBe("−1h00");
     expect(chamarPontoEletronico).toHaveBeenCalledOnce();
     await preencher(controle("Equipe"), "obra");
     await renderizar({ obraId: "obra-b" });
@@ -168,15 +181,15 @@ describe("BancoHorasView: consulta e cobertura", () => {
     expect(chamarPontoEletronico).toHaveBeenCalledOnce();
     expect(container.querySelector(".bh-periodo-atual").textContent).toBe("01/10/2026 a 28/10/2026");
     expect(container.textContent).toContain("Período em edição. Os resultados abaixo continuam de 01/10/2026 a 28/10/2026 até consultar.");
-    expect(totais()[0]).toBe("+1h00");
+    expect(totais()[0]).toBe("−1h00");
     await consultar();
     expect(chamarPontoEletronico).toHaveBeenLastCalledWith("ponto-banco-horas", { de: "2026-10-05", ate: "2026-10-07" });
     expect(container.querySelector(".bh-periodo-atual").textContent).toBe("05/10/2026 a 07/10/2026");
     expect(tabelaEquipe()).toBeNull();
     expect(totais()).toEqual([]);
     await concluir(segunda, resposta({ marcacoes: [batida("alfa", "07:00"), batida("alfa", "15:00")] }));
-    expect(totais()[0]).toBe("0h00");
-    expect(celulas(linhaEquipe("Pessoa Alfa"))).toEqual(["8h00", "8h00", "0h00", "1 dia(s)"]);
+    expect(totais()[0]).toBe("−1h00");
+    expect(celulas(linhaEquipe("Pessoa Alfa"))).toEqual(["8h00", "7h00", "−1h00", "1 dia(s) · almoço padrão aplicado"]);
     expect(container.textContent).not.toContain("Período em edição");
   });
 
@@ -191,7 +204,7 @@ describe("BancoHorasView: consulta e cobertura", () => {
     expect(container.querySelector("#bh-erro-periodo").textContent).toContain("até 62 dias");
     expect(chamarPontoEletronico).toHaveBeenCalledOnce();
     expect(container.querySelector(".bh-periodo-atual").textContent).toBe("01/10/2026 a 28/10/2026");
-    expect(totais()[0]).toBe("+1h00");
+    expect(totais()[0]).toBe("−1h00");
   });
 
   it("não reapresenta resposta de outro período que termina depois da consulta mais recente", async () => {
@@ -204,11 +217,11 @@ describe("BancoHorasView: consulta e cobertura", () => {
     await consultar();
     expect(tabelaEquipe()).toBeNull();
     await concluir(agosto, resposta({ marcacoes: [batida("alfa", "07:00", { data: "2026-08-05" }), batida("alfa", "18:00", { data: "2026-08-05" })] }));
-    expect(totais()[0]).toBe("+3h00");
+    expect(totais()[0]).toBe("+2h00");
     await concluir(setembro, resposta({ marcacoes: [batida("alfa", "07:00", { data: "2026-09-05" }), batida("alfa", "08:00", { data: "2026-09-05" })] }));
     expect(container.querySelector(".bh-periodo-atual").textContent).toBe("01/08/2026 a 31/08/2026");
-    expect(totais()[0]).toBe("+3h00");
-    expect(celulas(linhaEquipe("Pessoa Alfa"))[1]).toBe("11h00");
+    expect(totais()[0]).toBe("+2h00");
+    expect(celulas(linhaEquipe("Pessoa Alfa"))[1]).toBe("10h00");
     expect(container.textContent).not.toContain("−7h00");
   });
 
@@ -217,12 +230,12 @@ describe("BancoHorasView: consulta e cobertura", () => {
     const atualizacao = diferida();
     vi.mocked(chamarPontoEletronico).mockReturnValueOnce(atualizacao.promise);
     await consultar();
-    expect(totais()[0]).toBe("+1h00");
+    expect(totais()[0]).toBe("−1h00");
     expect(container.querySelector('.bh-resultados[aria-busy="true"]')).toBeTruthy();
     await concluir(atualizacao, { ok: false, error: "Falha sintética na atualização." });
     expect(container.querySelector('[role="alert"]').textContent).toContain("A atualização não foi concluída.");
     expect(container.textContent).toContain("Exibindo a última consulta concluída deste mesmo período.");
-    expect(totais()[0]).toBe("+1h00");
+    expect(totais()[0]).toBe("−1h00");
     vi.mocked(chamarPontoEletronico).mockResolvedValueOnce(resposta({ marcacoes: [] }));
     await clicar(botao("Tentar novamente"));
     expect(container.querySelector('[role="alert"]')).toBeNull();
@@ -234,11 +247,11 @@ describe("BancoHorasView: exploração do saldo", () => {
   it("filtra busca e situação sem refazer consultas, incluindo pendências sem saldo", async () => {
     await renderizar();
     await preencher(controle("Situação do saldo"), "credito");
-    expect(nomesEquipe()).toEqual(["Pessoa Alfa", "Pessoa Transferida"]);
-    expect(totais()[0]).toBe("+2h00");
+    expect(nomesEquipe()).toEqual(["Pessoa Transferida"]);
+    expect(totais()[0]).toBe("+1h00");
     await preencher(controle("Situação do saldo"), "debito");
     expect(nomesEquipe()).toEqual(["Pessoa Débito"]);
-    expect(totais()[0]).toBe("−1h00");
+    expect(totais()[0]).toBe("−2h00");
     await preencher(controle("Situação do saldo"), "pendentes");
     expect(nomesEquipe()).toEqual(["Pessoa Pendente"]);
     expect(totais()).toEqual(["—", "—", "—", "1"]);
@@ -258,12 +271,12 @@ describe("BancoHorasView: exploração do saldo", () => {
     expect(document.activeElement).toBe(container.querySelector("#bh-extrato-titulo"));
     expect(container.textContent).toContain("Jornada diária: 8h00 · cadastro do funcionário.");
     expect(container.querySelector('[aria-label="Resumo do funcionário no período"]')).toBeTruthy();
-    expect(totais()).toEqual(["+1h00", "1h30", "0h30", "0"]);
+    expect(totais()).toEqual(["0h00", "1h30", "1h30", "0"]);
     expect(tabelaDias().querySelectorAll("tbody tr")).toHaveLength(2);
     expect(celulas(tabelaDias().querySelector("tbody tr"))).toEqual(["9h30", "8h00", "+1h30", "+1h30", "Pelas batidas"]);
     const serie = JSON.parse(container.querySelector('[data-testid="grafico-saldo"]').dataset.series);
     expect(serie.find(p => p.data === "2026-10-05")).toEqual({ data: "2026-10-05", saldo: 90, variacao: 90 });
-    expect(serie.find(p => p.data === "2026-10-06")).toEqual({ data: "2026-10-06", saldo: 60, variacao: -30 });
+    expect(serie.find(p => p.data === "2026-10-06")).toEqual({ data: "2026-10-06", saldo: 0, variacao: -90 });
     expect(serie.find(p => p.data === "2026-10-07")).toEqual({ data: "2026-10-07", saldo: null, variacao: null });
     expect(container.querySelector('[data-testid="linha-saldo"]').dataset.connectNulls).toBe("false");
     await clicar(botao("Conferir dia 05/10/2026 de Pessoa Alfa"));
@@ -276,7 +289,8 @@ describe("BancoHorasView: exploração do saldo", () => {
     await clicar(botao("Selecionar ponto 2026-10-06"));
     expect(detalhe().textContent).toContain("Conferência de 06/10/2026");
     expect(document.activeElement).toBe(detalhe().querySelector("h4"));
-    expect(detalhe().textContent).toContain("Variação: −0h30");
+    expect(detalhe().textContent).toContain("Variação: −1h30");
+    expect(detalhe().textContent).toContain("Almoço padrão descontado: 1h00");
     expect(botao("Conferir dia 06/10/2026 de Pessoa Alfa").getAttribute("aria-pressed")).toBe("true");
     expect(botao("Conferir dia 05/10/2026 de Pessoa Alfa").getAttribute("aria-pressed")).toBe("false");
     await clicar(botao("Conferir dia 06/10/2026 de Pessoa Alfa"));
