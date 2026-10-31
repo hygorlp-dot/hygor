@@ -12,6 +12,7 @@ const diaLegivel = dia => String(dia).split("-").reverse().join("/");
 const dataCurta = dia => diaLegivel(dia).slice(0, 5);
 const textoBusca = valor => String(valor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
 const minutosLegiveis = valor => valor == null ? "—" : formatMinutes(valor);
+const horarioBatidaLegivel=iso=>{const hora=horaLocal(iso);return hora.endsWith(':00')?hora.slice(0,5):hora;};
 const jornadaLegivel=linha=>linha.jornadasMinutos?.length>1?linha.jornadasMinutos.map(minutosLegiveis).join(' / '):minutosLegiveis(linha.jornadaMinutos);
 const tomSaldo = valor => valor > 0 ? "credito" : valor < 0 ? "debito" : "neutro";
 const selecionarResposta = r => {
@@ -36,6 +37,8 @@ function AjudaCalculo() {
     <div>
       <p>Horas líquidas apuradas menos a jornada prevista para cada dia. A escala vigente na data prevalece; sem escala, vale a jornada do funcionário ou o padrão da empresa. A jornada é descontada uma vez por funcionário e dia.</p>
       <p>Nos dias com mais de 6h corridas e sem intervalo informado, esta estimativa desconta 1h de almoço padrão. Se já houver pausa registrada ou intervalos tratados pelo RH, não há novo desconto. Esse padrão não cria nem modifica batidas.</p>
+      <p>Tolerância da CLT, art. 58, §1º: até 5 minutos por marcação e até 10 minutos de variações somadas no dia. Com escala e horários previstos, diferenças dentro dos dois limites não geram crédito nem débito. Ultrapassado qualquer limite, permanece a diferença integral. As horas apuradas e as batidas originais são preservadas; o ajuste aparece separado no detalhe.</p>
+      <p>Somente a carga diária em horas não permite comparar cada marcação: sem horários previstos, a tolerância não é aplicada automaticamente. Dias com avisos, sequências especiais e intervalos tratados pelo RH mantêm a apuração para conferência. A CCT Caruaru PE000665/2026, cláusula 43, não fixa tolerância numérica diferente da CLT.</p>
       <p>Dias sem registro ou com horários incompletos não geram débito automático. Esta consulta não inclui saldo anterior, compensações e não altera a grade, a folha ou pagamentos.</p>
     </div>
   </details>;
@@ -96,9 +99,14 @@ function DetalheDia({ dia, nomeObra, tituloRef }) {
       <span>{horaLocal(i.inicio).slice(0, 5)} → {horaLocal(i.fim).slice(0, 5)}{dataLocal(i.inicio) !== dataLocal(i.fim) ? ` (${diaLegivel(dataLocal(i.fim))})` : ""}</span>
       <span>{nomeObra.get(String(i.obraId)) || "Obra não identificada"}</span><strong>{minutosLegiveis(Math.round(i.minutos))}</strong>
     </li>)}</ul>}
-    {dia.batidas.length > 0 && <p>Batidas recebidas: {dia.batidas.map(b => horaLocal(b.marcadoEm).slice(0, 5)).join(" · ")}.</p>}
+    {dia.batidas.length > 0 && <p>Batidas recebidas: {dia.batidas.map(b => horarioBatidaLegivel(b.marcadoEm)).join(" · ")}.</p>}
     {dia.intervaloPadraoMinutos>0&&<p>Tempo entre registros: <strong>{minutosLegiveis(dia.trabalhadosBrutosMinutos)}</strong> · Almoço padrão descontado: <strong>{minutosLegiveis(dia.intervaloPadraoMinutos)}</strong>. Sem batidas de intervalo; desconto estimado somente no total do dia, sem rateio por obra.</p>}
     {dia.situacao === "considerado" && <p>Apurado: <strong>{minutosLegiveis(dia.trabalhadosMinutos)}</strong> · Jornada considerada: <strong>{minutosLegiveis(dia.previstosMinutos)}</strong> · Variação: <strong>{formatarSaldoMinutos(dia.saldoMinutos)}</strong>.</p>}
+    {dia.tolerancia?.status==='aplicada'&&<p>Tolerância aplicada · CLT art. 58, §1º. Variação antes da tolerância: <strong>{formatarSaldoMinutos(dia.saldoSemToleranciaMinutos)}</strong> · Ajuste de tolerância: <strong>{formatarSaldoMinutos(dia.ajusteToleranciaMinutos)}</strong>. Sem alteração das horas apuradas ou das batidas.</p>}
+    {dia.tolerancia?.variacoes&&<p>Horários previstos na escala: {dia.tolerancia.variacoes.map(v=>v.previsto).join(' · ')}.</p>}
+    {dia.tolerancia?.status==='excedida'&&<p>Tolerância excedida: uma marcação ultrapassou 5 minutos ou a soma diária ultrapassou 10 minutos. Diferença integral mantida, sem franquia de minutos.</p>}
+    {dia.tolerancia?.status==='sem_escala'&&<p>Tolerância não aplicada: não há horários previstos de entrada e saída para este dia. Apenas a carga diária não permite conferir cada marcação.</p>}
+    {['sequencia_especial','conferir_fonte'].includes(dia.tolerancia?.status)&&<p>Tolerância não aplicada: confira a sequência ou os avisos das batidas antes de tratar este dia.</p>}
     {dia.situacao === "pendente" && <p>Este dia está fora do saldo até a conferência dos horários.</p>}
   </div>;
 }
@@ -138,7 +146,7 @@ function ExtratoFuncionario({ linha, nomeObra, voltar }) {
           onClick={() => setDiaSelecionado(atual => atual === d.data ? "" : d.data)}>{diaLegivel(d.data)}</button></th>
         <td>{minutosLegiveis(d.trabalhadosMinutos)}</td><td>{minutosLegiveis(d.previstosMinutos)}</td>
         <td data-tone={tomSaldo(d.saldoMinutos)}>{formatarSaldoMinutos(d.saldoMinutos)}</td><td>{formatarSaldoMinutos(d.acumuladoMinutos)}</td>
-        <td>{d.situacao === "pendente" ? "A conferir · fora do saldo" : d.situacao === "sem_registro" ? "Sem registro · sem débito" : d.origem === "apropriacao" ? "Intervalos tratados" : "Pelas batidas"}{d.intervaloPadraoMinutos>0?' · almoço padrão 1h':''}{d.situacao === "considerado" && d.alertas.length > 0 ? " · com aviso" : ""}</td>
+        <td>{d.situacao === "pendente" ? "A conferir · fora do saldo" : d.situacao === "sem_registro" ? "Sem registro · sem débito" : d.origem === "apropriacao" ? "Intervalos tratados" : "Pelas batidas"}{d.intervaloPadraoMinutos>0?' · almoço padrão 1h':''}{d.tolerancia?.status==='aplicada'?' · tolerância aplicada':''}{d.situacao === "considerado" && d.alertas.length > 0 ? " · com aviso" : ""}</td>
       </tr>)}</tbody></table>
     </div>
     {!diasVisiveis.length && <p className="bh-vazio">{filtroDia === "pendentes" ? "Nenhum dia pendente neste período." : "Nenhum dia com registros neste período. Selecione “Todos os dias” para conferir as datas."}</p>}
@@ -241,7 +249,7 @@ export default function BancoHorasView({ data, obraId, currentUser, dia }) {
               <th scope="row"><button className="bh-text-button" type="button" onClick={() => selecionarFuncionario(l.employeeId)} aria-label={`Ver extrato de ${l.nome}`}>{l.nome}</button><span className="bh-funcao">{l.funcao}</span></th>
               <td data-label="Jornada diária">{jornadaLegivel(l)}{l.fonteJornada==='escala'&&<span className="bh-funcao">Escala vigente por dia</span>}</td><td data-label="Horas apuradas">{l.diasConsiderados ? minutosLegiveis(l.trabalhadosMinutos) : "—"}</td>
               <td data-label="Saldo estimado" data-tone={tomSaldo(l.saldoMinutos)}>{formatarSaldoMinutos(l.saldoMinutos)}</td>
-              <td data-label="Cobertura">{l.diasConsiderados} dia(s){l.diasPendentes > 0 ? ` · ${l.diasPendentes} a conferir` : ""}{!l.diasComRegistro ? " · sem registros" : ""}{l.jornadaMinutos==null&&!l.jornadasMinutos?.length ? " · jornada não cadastrada" : ""}{l.dias.some(d=>d.intervaloPadraoMinutos>0)?' · almoço padrão aplicado':''}</td>
+              <td data-label="Cobertura">{l.diasConsiderados} dia(s){l.diasPendentes > 0 ? ` · ${l.diasPendentes} a conferir` : ""}{!l.diasComRegistro ? " · sem registros" : ""}{l.jornadaMinutos==null&&!l.jornadasMinutos?.length ? " · jornada não cadastrada" : ""}{l.dias.some(d=>d.intervaloPadraoMinutos>0)?' · almoço padrão aplicado':''}{l.dias.some(d=>d.tolerancia?.status==='aplicada')?' · tolerância aplicada':''}</td>
             </tr>)}</tbody></table>
           </div>
           {!linhasVisiveis.length && <p className="bh-vazio">{equipe.length ? "Nenhum funcionário corresponde aos filtros. Ajuste a busca ou a situação do saldo." : "Nenhum funcionário ou registro encontrado para esta obra no período. Confira a obra ou consulte todas as obras."}</p>}

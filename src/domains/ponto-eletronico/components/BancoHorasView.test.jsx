@@ -109,6 +109,28 @@ afterEach(() => {
 });
 
 describe("BancoHorasView: consulta e cobertura", () => {
+  it('mostra os segundos que explicam a ultrapassagem da tolerância',async()=>{
+    const data={...DATA,employees:DATA.employees.map(e=>e.id==='alfa'?{...e,workSchedules:[{code:'44h-seg-sex',effectiveFrom:'2026-10-01'}]}:e)};
+    vi.mocked(chamarPontoEletronico).mockResolvedValueOnce(resposta({marcacoes:[{...batida('alfa','07:05'),marcadoEm:`${DIA}T07:05:01-03:00`},batida('alfa','17:00')]}));
+    await renderizar({data});await clicar(botao('Ver extrato de Pessoa Alfa'));await clicar(botao('Conferir dia 05/10/2026 de Pessoa Alfa'));
+    expect(detalhe().textContent).toContain('Batidas recebidas: 07:05:01 · 17:00');
+    expect(detalhe().textContent).toContain('Tolerância excedida');
+    expect(detalhe().textContent).not.toContain('Tolerância aplicada');
+  });
+  it('distingue horas observadas, saldo tolerado e ausência de horários previstos sem gravar a fonte',async()=>{
+    const data={...DATA,employees:DATA.employees.map(e=>e.id==='alfa'?{...e,workSchedules:[{code:'44h-seg-sex',effectiveFrom:'2026-10-01'}]}:e)};
+    vi.mocked(chamarPontoEletronico).mockResolvedValueOnce(resposta({marcacoes:[batida('alfa','07:05'),batida('alfa','16:55'),batida('debito','07:05'),batida('debito','15:55')]}));
+    await renderizar({data});
+    expect(celulas(linhaEquipe('Pessoa Alfa')).slice(1,3)).toEqual(['8h50','0h00']);
+    await clicar(botao('Ver extrato de Pessoa Alfa'));await clicar(botao('Conferir dia 05/10/2026 de Pessoa Alfa'));
+    expect(detalhe().textContent).toContain('Tolerância aplicada · CLT art. 58, §1º');
+    expect(detalhe().textContent).toContain('Variação antes da tolerância: −0h10 · Ajuste de tolerância: +0h10');
+    expect(detalhe().textContent).toContain('Batidas recebidas: 07:05 · 16:55');
+    await clicar(botao('Voltar para a equipe'));await clicar(botao('Ver extrato de Pessoa Débito'));await clicar(botao('Conferir dia 05/10/2026 de Pessoa Débito'));
+    expect(detalhe().textContent).toContain('Tolerância não aplicada: não há horários previstos');
+    expect(detalhe().textContent).toContain('Variação: −0h10');
+    expect(chamarPontoEletronico).toHaveBeenCalledOnce();
+  });
   it('mostra a escala por dia e o desconto estimado de almoço sem inventar batidas',async()=>{
     const data={...DATA,employees:DATA.employees.map(e=>e.id==='alfa'?{...e,workSchedules:[{code:'44h-seg-sex',effectiveFrom:'2026-10-01'}]}:e)};
     vi.mocked(chamarPontoEletronico).mockResolvedValueOnce(resposta({marcacoes:[batida('alfa','07:00'),batida('alfa','17:00')]}));
