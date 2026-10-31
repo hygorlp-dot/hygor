@@ -11,10 +11,10 @@
 import { exigeTarefaNoConsumo, tarefasParaConsumo } from "../task-allocation";
 import { useCallback, useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import {
-  Btn, C, Ic, Inp, Modal, ModalComposicao, ModalMaterial, Sel,
-  fmt, fmtDate, maiusculoOrcamento, proximoCodigoArcd, today, uid,
-} from "../../../LegacyApp";
+import { Btn, Ic, Inp, Modal, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { ModalComposicao, ModalMaterial } from "../LegacyEditors.jsx";
+import { fmt, fmtDate, maiusculoOrcamento, proximoCodigoArcd, today, uid } from "../../../legacy/format.js";
 import { historicoPreco } from "../../compras/calculations";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { TIPOS_MOV, SINAL_MOV, calcSaldos, saldoDe, baixarPorComposicao, calcCurvaABC, calcCurvaABCServicos, materiaisAbaixoMinimo } from "../calculations";

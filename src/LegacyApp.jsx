@@ -1,11 +1,62 @@
+import { C, C_ARCD_SETOR, FONT_DISPLAY, TYPO, KB, semanticToneFromLegacyColor } from "./legacy/palette.js";
+export { C, C_ARCD_SETOR, TYPO, KB } from "./legacy/palette.js";
+import { uid, today, fmt, fmtCompact, fmtDate, fmtDateFull, monthName, MONTHS, fullMonth, fmtMesAno, escapeHtml, compactNumber, maiusculoOrcamento, proximoCodigoArcd, obraContextoSalvo, compLabel, rotuloRamo, numeroCodigoArcd, formatarCodigoArcd } from "./legacy/format.js";
+export { uid, today, fmt, fmtCompact, fmtDate, fmtDateFull, monthName, MONTHS, fullMonth, fmtMesAno, escapeHtml, compactNumber, maiusculoOrcamento, proximoCodigoArcd, obraContextoSalvo, compLabel, rotuloRamo } from "./legacy/format.js";
+import { prazoObra } from "./domains/obras/legacy-deadline.js";
+import { Ic, Btn, Inp, Sel, SelBtn, Badge, ArcdChartTooltip, ChartPanel, PageHero, TabRow, Divider, Modal, MiniKpi, Bloco, CampoCNPJ, textoUi, conteudoUi, ChartLegend, buscarCNPJ, SIGLAS_UI } from "./legacy/ui.jsx";
+export { Ic, Btn, Inp, Sel, SelBtn, Badge, ArcdChartTooltip, ChartPanel, PageHero, TabRow, Divider, Modal, MiniKpi, Bloco, CampoCNPJ } from "./legacy/ui.jsx";
+import { XLSX, carregarXLSX, lerSinapiEmSegundoPlano, arquivoComoDataUrl, comprimirImagem } from "./legacy/files.js";
+export { XLSX, carregarXLSX, lerSinapiEmSegundoPlano, arquivoComoDataUrl, comprimirImagem } from "./legacy/files.js";
+import { COM_ETAPAS, COM_IMOBILIARIO_SECTIONS, COM_JORNADA, COM_PERDAS, COM_ROUTE_SECTION, COM_TEMPERATURA, cicloMedioVenda, comDateTime, comDias, comEtapaLabel, comFaseDaEtapa, conversaoPorFase, momentosIndicacao, npsResumo, rankingIndicadores, taxaIndicacao } from "./domains/comercial/legacy-model.js";
+export { COM_ETAPAS, COM_IMOBILIARIO_SECTIONS, COM_JORNADA, COM_PERDAS, COM_ROUTE_SECTION, COM_TEMPERATURA, cicloMedioVenda, comDateTime, comDias, comEtapaLabel, comFaseDaEtapa, conversaoPorFase, momentosIndicacao, npsResumo, rankingIndicadores, taxaIndicacao } from "./domains/comercial/legacy-model.js";
+import { LazyRealEstateCommercial } from "./domains/comercial/LegacyRealEstate.jsx";
+export { LazyRealEstateCommercial } from "./domains/comercial/LegacyRealEstate.jsx";
+import { GestaoAprovacoes, GestaoUsuarios, ROLES, SETORES_APROVACAO, novaPoliticaAprovacao, MOTORES_APROVACAO_POR_ENTIDADE, MODELOS_PORTE_APROVACAO, novaCondicaoAprovacao, EditorCondicaoAprovacao, novaEtapaAprovacao, EditorEtapaAprovacao, ROTULOS_AUTOAPROVACAO, ACCESS_SECTORS, TAB_META, etapaModelo, CAMPOS_CONTEXTO_APROVACAO, ROTULOS_OPERADOR_APROVACAO, TIPOS_APROVADOR_APROVACAO, ROTULOS_MODO_QUORUM, ROTULOS_SEM_APROVADOR, ROTULOS_ACAO_VENCIMENTO, TAB_META_BASE } from "./domains/administracao/LegacySettings.jsx";
+export { GestaoAprovacoes, GestaoUsuarios, ROLES, SETORES_APROVACAO, MOTORES_APROVACAO_POR_ENTIDADE } from "./domains/administracao/LegacySettings.jsx";
+import { FornecedorEditorPilot, ModalCotacaoWhatsApp, fornecedoresParaMateriais, guardaPreco, linkWhatsApp, melhorPrecoHist, mensagemWhatsAppCobranca, mensagemWhatsAppCompra, oportunidadesConsolidacao, pedidosEmAtraso, slaSolicitacao, UNIDADES_PADRAO, CATS_MATERIAL, ModalFornecedor, LazySupplierEditor, normDesc, SLA_DIAS, ramosDosCnaes, CampoCEP, CNAE_RAMOS, PALAVRAS_RAMO } from "./domains/compras/LegacySupport.jsx";
+export { FornecedorEditorPilot, ModalCotacaoWhatsApp, fornecedoresParaMateriais, guardaPreco, linkWhatsApp, melhorPrecoHist, mensagemWhatsAppCobranca, mensagemWhatsAppCompra, oportunidadesConsolidacao, pedidosEmAtraso, slaSolicitacao, UNIDADES_PADRAO, CATS_MATERIAL } from "./domains/compras/LegacySupport.jsx";
+import { LinksDocumentosAuditaveis, ModalLegendaDocumento, ModoIADocumento, jsonDaRespostaIA, C_MODO_IA, destinosDocumentoIA, identificarObraPeloNomeArquivo, sugerirDestinoDocumento, normalizarIdentificacaoObra } from "./features/financeiro/LegacyDocumentTools.jsx";
+export { LinksDocumentosAuditaveis, ModalLegendaDocumento, ModoIADocumento, jsonDaRespostaIA } from "./features/financeiro/LegacyDocumentTools.jsx";
+import { LICENCAS, LIC_STATUS, LIC_TERRAS_ALPHA_VERIFICACAO, licStatusInfo, licencaPorId, preRequisitosOk, progressoChecklist, CONTRACT_LABELS, DIA_VENC_1_PADRAO, DIA_VENC_2_PADRAO, clampDiaNoMes, LIC_SIMPLIFICADA_PRE, LIC_SIMPLIFICADA_DOCS, LIC_TERRAS_ALPHA_PRE, LIC_TERRAS_ALPHA_DOCS } from "./domains/licenciamento/legacy-checklists.js";
+export { LICENCAS, LIC_STATUS, LIC_TERRAS_ALPHA_VERIFICACAO, licStatusInfo, licencaPorId, preRequisitosOk, progressoChecklist, CONTRACT_LABELS, DIA_VENC_1_PADRAO, DIA_VENC_2_PADRAO, clampDiaNoMes } from "./domains/licenciamento/legacy-checklists.js";
+import { ETAPAS_PADRAO, MAX_NIVEL, CLASSE_ABC, SINAPI_UFS, calcControleCustosOrcamento } from "./domains/orcamentos/legacy-reference.js";
+export { ETAPAS_PADRAO, MAX_NIVEL, CLASSE_ABC, SINAPI_UFS, calcControleCustosOrcamento } from "./domains/orcamentos/legacy-reference.js";
+import { ModalComposicao, ModalMaterial } from "./domains/estoque/LegacyEditors.jsx";
+export { ModalComposicao, ModalMaterial } from "./domains/estoque/LegacyEditors.jsx";
+import { semAcentoConc, parseBRConc, chaveTransacao, somaRateios, sugerirRateio, diasEntre, sugerirMedicoes, sugerirPagamentoMaoObra, periodoPontoDaTransacao, valorEsperadoPonto } from "./domains/conciliacao/legacy-suggestions.js";
+export { semAcentoConc, parseBRConc, chaveTransacao, somaRateios, sugerirRateio, diasEntre, sugerirMedicoes, sugerirPagamentoMaoObra, periodoPontoDaTransacao } from "./domains/conciliacao/legacy-suggestions.js";
+import { montarRelatorioPadraoHtml, abrirRelatorioPadrao, gerarFichaFuncionarioPDF, ARCD_LOGO, calcFrequenciaMensalFuncionario, calcRankingFrequencia, FICHA_TIPO_LABEL } from "./reports/legacy-standard.js";
+export { montarRelatorioPadraoHtml, abrirRelatorioPadrao, gerarFichaFuncionarioPDF, ARCD_LOGO } from "./reports/legacy-standard.js";
+import { calcObraLaborCost, calcDREObra, calcDREConsolidado, calcDREHistorico, calcVisaoFinanceira, calcLedgerAcumulado, calcProjecaoContratoObra, calcularRankingFinanceiro, calcRelatorioMensal } from "./domains/financeiro/legacy-calculations.js";
+import {useVisualViewportBounds} from "./lib/useVisualViewportBounds.js";
+import {useUnsavedChanges} from "./features/workflow/useUnsavedChanges.js";
+import UnsavedChangesPrompt from "./features/workflow/UnsavedChangesPrompt.jsx";
+import {workStageCosts} from "./domains/financeiro/work-stage-costs.js";
+import {AditivosContrato} from "./domains/obras/components/AditivosContrato.jsx";
+import {WorkflowWarnings} from './domains/compras/components/ProcurementProcessStatus.jsx';
+import {validatePurchasePayment} from './domains/financeiro/purchase-payment-validation.js';
+import { sessionContext } from "./lib/session-context.js";
 import {HelpButton} from './features/help/HelpButton.jsx';
+import {useHelpTopic} from './features/help/HelpContext.jsx';
+import {FINANCE_HELP, WORK_HELP} from './features/help/help-content.js';
+import {Textarea as SharedTextarea} from "./design-system/primitives/Textarea.jsx";
+import {Button as SharedUiButton} from "./components/ui/button.jsx";
+import {legacyButtonRole} from "./design-system/primitives/button-contract.js";
+import PaymentOverview from "./features/financeiro/PaymentOverview.jsx";
 import WorkStageCosts from "./features/financeiro/WorkStageCosts.jsx";
 import DocumentCenter from "./features/financeiro/DocumentCenter.jsx";
 import ClosingPending from "./features/financeiro/ClosingPending.jsx";
-import CashForecast from "./features/financeiro/CashForecast.jsx";
+import ClosingOriginEditor from './features/financeiro/ClosingOriginEditor.jsx';
+import {closingCorrectionScope} from './domains/financeiro/closing-correction.js';
+import RecordRecoveryPanel,{SessionRenewalFields} from './features/financeiro/RecordRecoveryPanel.jsx';
+import {useRecordRecovery} from './features/financeiro/useRecordRecovery.js';
+import {invoiceRecoveryFields,formatInvoiceEditor} from './features/financeiro/record-recovery.js';
+import {invoiceBankContext,hasInvoiceBankPayment} from './domains/financeiro/record-continuity.js';
+import CashWorkspace from "./features/financeiro/CashWorkspace.jsx";
 import FinanceToday from "./features/financeiro/FinanceToday.jsx";
 import FinancialMemorial from "./features/financeiro/FinancialMemorial.jsx";
 import {financeNextAction} from './domains/financeiro/next-action.js';
+import {PurchaseDossier} from './domains/compras/components/PurchaseDossier.jsx';
 import FinancialReportCenter from "./features/financeiro/FinancialReportCenter.jsx";
 import InvoiceConference from "./features/financeiro/InvoiceConference.jsx";
 import FinancialPreview from "./features/financeiro/FinancialPreview.jsx";
@@ -14,17 +65,15 @@ import {invoiceImportConflicts} from "./domains/financeiro/invoice-import-previe
 import {documentRegister} from "./domains/financeiro/document-register.js";
 import {captureFinancePosition,restoreFinancePosition} from "./features/financeiro/navigation-context.js";
 import {todayQueues,overviewEntries,financialEntry,positionEntries} from "./domains/financeiro/workspace.js";
-import { LaborAreaTabs } from "./domains/rh/components/LaborAreaTabs.jsx";
-import { matchesLaborArea } from "./domains/rh/labor-area.js";
 import {AttendancePayMode} from "./domains/rh/components/AttendancePayMode.jsx";
-import {readRhStepTarget,clearRhStepTarget,pointCycleForDate} from "./domains/rh/rh-step-target.js";
 import { marcellReportHtml } from "./reports/marcell-report.js";
 import { createPortal } from "react-dom";
 import { BRAND, MARCELL_LOGO } from "./brand/identity.js";
 import { FinancialOverviewMetrics } from "./features/financeiro/FinancialOverviewMetrics.jsx";
 import { PageHeader } from "./design-system/patterns/PageHeader.jsx";
 import { WorkspaceNavigation } from "./design-system/patterns/WorkspaceNavigation.jsx";
-import { Children, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Children, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazyWithCssRetry as lazy } from "./lib/lazy-with-css-retry.js";
 import DreReconciliationManager from "./features/financeiro/DreReconciliationManager.jsx";
 import { activeErpModule, moduleForTab, visibleErpModules } from "./navigation/erp-navigation.js";
 import { rememberSection, restoreSection } from "./navigation/section-session.js";
@@ -34,27 +83,13 @@ import { normalizeWorkflowScope } from "./features/workflow/workflow-model.js";
 import MonthlyDreMemorial from "./features/financeiro/MonthlyDreMemorial.jsx";
 import AnnualDre from "./features/financeiro/AnnualDre.jsx";
 import LaborProjectionReport from "./domains/ponto/components/LaborProjectionReport.jsx";
-// Planilhas são um recurso pesado e opcional. O pacote só entra na memória
-// quando o usuário realmente importa ou exporta um arquivo.
-export let XLSX = null;
-export const carregarXLSX = async () => {
-  if (!XLSX) XLSX = await import("./lib/spreadsheet");
-  return XLSX;
-};
-
-// O importador oficial é grande e só entra no bundle quando o operador escolhe
-// um XLSX. O worker continua emitindo progresso e protegendo a tela de travas.
-export const lerSinapiEmSegundoPlano = async (...args) => {
-  const { readSinapiInWorker } = await import("./domains/orcamentos/sinapi-import");
-  return readSinapiInWorker(...args);
-};
 
 // O navegador não conversa mais com o banco. Fala com /api/data, que roda no
 // servidor e é quem guarda a chave. Sem chave de banco neste bundle.
 import { listarPerfis, criarPrimeiroAdmin, entrarComPin, entrarComEmail, restaurarSessaoEmail, provisionarContaEmail, definirPinOperador,
          saveDataDetailed, logout as encerrarSessao,
          registrarPresenca, encerrarPresenca, listarPresencas,
-         loadDataWithMeta, adoptServerVersion,
+         loadDataWithMeta, adoptServerVersion,renewEditingSession,
          conectarOneDrive, statusOneDrive, criarEstruturaOneDrive,
          sincronizarEstruturasOneDrive, criarPastaOneDrive, listarPastaOneDrive, enviarArquivoOneDrive, obterLinkArquivoOneDrive,
          arquivarQuinzena, restaurarQuinzena,
@@ -83,10 +118,6 @@ import { features } from "./config/features";
 import { SUPPLIER_CATEGORIES as RAMOS_FORNECIMENTO } from "./domains/suppliers/categories";
 import { useCountUp } from "./lib/useCountUp";
 import { useBreakpoint } from "./hooks/useBreakpoint";
-
-// O editor novo só é baixado se a flag local do piloto for habilitada. Com a
-// flag desligada, o modal histórico continua sendo a única implementação.
-const LazySupplierEditor = lazy(() => import("./domains/suppliers/SupplierEditor").then(module => ({ default: module.SupplierEditor })));
 const LazyLegacyMobileNavigation = lazy(() => import("./mobile/LegacyMobileNavigation.jsx")
   .then(module => ({ default:module.LegacyMobileNavigation })));
 const LazyLoginBrandPanel = lazy(() => import("./components/login/LoginProjectParallax"));
@@ -113,8 +144,6 @@ const LazyDreEmpresaHistoricoChart = lazy(() => import("./components/charts/DreE
 const LazyDreFaturamentoResultadoChart = lazy(() => import("./components/charts/DreFaturamentoResultadoChart.jsx"));
 const LazyDreDistribuicaoCustosChart = lazy(() => import("./components/charts/DreDistribuicaoCustosChart.jsx"));
 const LazyDreMargemChart = lazy(() => import("./components/charts/DreMargemChart.jsx"));
-export const LazyRealEstateCommercial = lazy(() => import("./domains/comercial/RealEstateCommercial")
-  .then(module => ({ default:module.RealEstateCommercial })));
 import {
   statusPedido, totalPedido, recebidoPedido,
   totalPagoPedido, saldoPagamentoPedido, statusPagamentoPedido,
@@ -260,155 +289,6 @@ import {
 } from "./domains/aprovacoes/index.js";
 import { arcdApprovalEngine as motorAprovacaoGenerico } from "./domains/aprovacoes/arcd-engine.js";
 import { ROLE_TABS, allowedTabsForUser, podeAcessarAba } from "./domains/administracao/abas-acesso.js";
-
-// Resolvedores concretos do motor de aprovação para o app ARCD: como este
-// app ainda não tem cargo/hierarquia/departamento/centro de custo cadastrados,
-// cada resolvedor devolve [] quando o conceito não existe de verdade na base -
-// isso é o comportamento CORRETO (aciona a contingência configurada na etapa,
-// nunca inventa um aprovador). Não presume nenhum cargo fixo além do que já
-// existe em `usuarios[].role` (admin/financeiro/compras/engenheiro/rh/...).
-// Genéricos por natureza (não dependem de nada específico de Compras) -
-// reutilizados por qualquer entidadeTipo, ver MOTORES_APROVACAO_POR_ENTIDADE.
-//
-// ARCD OBRAS - aplicação legada em migração incremental por domínio
-// - Base compartilhada Supabase via supabase.js
-// - Cadastro de obras, equipe, ponto, folha, relatórios e configurações
-// - Transferência/demissão individual no ponto
-// - Bloqueio do ponto por obra/data após finalização
-// - Solicitação de permissão por e-mail para hygorlp@gmail.com
-// - Link de aprovação temporária por 30 minutos
-// - Pagamento dia 20 para 1ª quinzena e dia 05 do mês seguinte para 2ª quinzena
-// - Ajuste de pagamento por sábado/domingo/feriados
-// - Feriados nacionais + Pernambuco + Caruaru
-// - Regra: falta em dia útil imediatamente anterior/posterior perde feriado
-// - Relatórios com gasto por obra, metragem quadrada e custo de mão de obra por m
-// - Interface reforçada para o Registro de Ponto, com ícones e navegação em destaque
-// - Agente de IA para apoiar ponto, folha, obras, custos e alertas
-// - Rebranding visual ARCD OBRA: linguagem gráfica geométrica, foco no ponto e navegação mais intuitiva
-//
-
-export const ARCD_LOGO = MARCELL_LOGO;
-
-export const C = {
-  // MARCELL: areia, azul-marinho e ouro. Valores literais de compatibilidade para gráficos.
-  bg:       "#F3F0E9",
-  surface:  "#FFFFFF",
-  card:     "#FFFFFF",
-  card2:    "#E8E5DF",
-  border:   "#D9DDE2",
-  // Ouro acessível - seleção e identidade
-  yellow:   "#7B6030",     // Ouro acessível
-  yellowD:  "#7B6030",     // Ouro escuro
-  yellowDim:"#EEE5D5",     // Ouro claro
-  // Azul-marinho MARCELL
-  text:     "#0D1B2E",     // Grafite - texto principal
-  muted:    "#536171",
-  subtle:   "#34445A",
-  ink:      "#0D1B2E",     // Texto sobre fundo ouro
-  // Cinza Técnico
-  cinza:    "#78818B",
-  sand:     "#F3F0E9",
-  ivory:    "#E8E5DF",
-  // Sistema
-  green:    "#2E6652",     // Verde técnico
-  red:      "#A63B3B",     // Vermelho técnico
-  blue:     "#355874",     // Azul técnico
-  orange:   "#855A24",     // Laranja técnico
-  purple:   "#536171",     // Roxo técnico
-  line:     "#D9DDE2",
-  shadow:   "rgba(22,22,22,.045)",
-  // Tokens de forma - controlam a "temperatura" visual do app inteiro. Valores
-  // baixos = aspecto técnico/instrumento; altos = aspecto consumidor. Toda a
-  // interface lê daqui, então ajustar aqui muda tudo de forma coerente.
-  rSm:      6,             // raio pequeno (chips, inputs internos)
-  rMd:      8,
-  rLg:      8,
-  shHair:   "none",
-  shCard:   "none",
-};
-
-// Ponte curta durante a migração: pontos que ainda recebem a paleta legada
-// publicam somente uma intenção visual para as classes semânticas. Nenhum
-// componente novo deve receber hexadecimais ou escolher cores livremente.
-const semanticToneFromLegacyColor = color => {
-  if (color === C.green) return "success";
-  if (color === C.red) return "danger";
-  if (color === C.orange) return "warning";
-  if (color === C.blue) return "info";
-  if (color === C.purple) return "auxiliary";
-  if (color === C.yellow || color === C.yellowD) return "primary";
-  return "neutral";
-};
-
-// Escala tipografica unica do app. Toda tela nova (ou revisada) deve montar
-// seus titulos/textos a partir daqui em vez de inventar fontSize/fontWeight
-// soltos - e o que unifica visualmente heroes, cards e paineis diferentes.
-const FONT_DISPLAY = "var(--arcd-font-sans)";
-export const TYPO = {
-  h1:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-page-title)", letterSpacing:"var(--arcd-letter-spacing-tight)", lineHeight:1.15, color:C.text },
-  h2:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-section-title)", letterSpacing:"var(--arcd-letter-spacing-tight)", lineHeight:1.18, color:C.text },
-  h3:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-card-title)", letterSpacing:-.1, lineHeight:1.25, color:C.text },
-  h4:      { fontFamily:FONT_DISPLAY, fontWeight:600, fontSize:"var(--arcd-type-body)", letterSpacing:0, lineHeight:1.3, color:C.text },
-  eyebrow: { fontSize:"var(--arcd-type-label)", fontWeight:400, letterSpacing:0, color:C.muted },
-  body:    { fontSize:"var(--arcd-type-body)", fontWeight:400, lineHeight:1.5, color:C.text },
-  bodyMuted:{ fontSize:"var(--arcd-type-body)", fontWeight:400, lineHeight:1.5, color:C.muted },
-  small:   { fontSize:"var(--arcd-type-caption)", fontWeight:500, color:C.muted },
-  label:   { fontFamily:FONT_DISPLAY, fontSize:"var(--arcd-type-label)", fontWeight:600, letterSpacing:"var(--arcd-letter-spacing-body)", color:C.text },
-  // Tamanho/peso reais vêm do override global (.tab-row button) em index.css,
-  // que também cobre sidebar, nav mobile e os demais menus de abas do app -
-  // isto aqui é só o fallback caso a classe não esteja disponível.
-  tab:       { fontFamily:"var(--arcd-font-sans)", fontSize:"var(--arcd-type-label)", fontWeight:600, letterSpacing:.08 },
-  tabDetail: { fontSize:"var(--arcd-type-caption)", fontWeight:500 },
-};
-
-// KANBAN - tokens estilo Trello. Colunas estreitas e altas, fundo levemente
-// cinza, cards brancos compactos com sombra fininha. O objetivo é densidade: o
-// quadro rola horizontal e cabe muita coisa na tela sem parecer "gordo".
-// Reutilizados por todos os Kanbans (Terceiros, Obras, Funil, Jornada) para
-// que fiquem visualmente idênticos.
-export const KB = {
-  larguraCol: 272,          // largura da coluna (Trello usa ~272px)
-  gapCols:    8,            // espaço entre colunas
-  gapCards:   6,            // espaço entre cards
-  raioCol:    8,
-  raioCard:   6,
-  padCol:     "6px 6px 8px",
-  padCard:    "7px 9px",
-  scroll: {                 // container do quadro
-    display:"flex", gap:8, overflowX:"auto", overflowY:"hidden",
-    paddingBottom:10, alignItems:"flex-start",
-    WebkitOverflowScrolling:"touch", scrollSnapType:"x proximity",
-  },
-  coluna: (cor, ativa) => ({
-    width:272, minWidth:272, maxWidth:272, scrollSnapAlign:"start",
-    background: ativa ? `${cor}0e` : "#F0EDE7",
-    border:`1px solid ${ativa ? cor : "#E2DCD2"}`,
-    borderRadius:8, display:"flex", flexDirection:"column",
-    maxHeight:"calc(100vh - 220px)",
-    transition:"background .15s, border-color .15s",
-  }),
-  colHead: (cor) => ({
-    display:"flex", justifyContent:"space-between", alignItems:"center", gap:6,
-    padding:"8px 10px", borderTop:`3px solid ${cor}`,
-    borderTopLeftRadius:8, borderTopRightRadius:8,
-    position:"sticky", top:0, zIndex:1, background:"inherit",
-  }),
-  colBody: {
-    padding:"0 6px 6px", display:"flex", flexDirection:"column", gap:6,
-    overflowY:"auto", flex:1,
-  },
-  card: (destaque) => ({
-    background:"#fff",
-    border:`1px solid ${destaque || "#E2DCD2"}`,
-    borderRadius:6, padding:"7px 9px", cursor:"pointer",
-    boxShadow:"0 1px 2px rgba(18,18,18,.08)",
-    display:"flex", flexDirection:"column", gap:4,
-  }),
-  contador: {
-    fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.muted,
-    background:"#fff", borderRadius:99, padding:"1px 8px", minWidth:22, textAlign:"center",
-  },
-};
 
 const G = `
 @keyframes chatMentionPulse{0%,100%{box-shadow:0 6px 18px rgba(0,0,0,.28)}50%{box-shadow:0 0 0 8px rgba(212,175,55,.28),0 6px 18px rgba(0,0,0,.28)}}
@@ -755,202 +635,7 @@ div::-webkit-scrollbar{height:0;width:0}
   .ponto-legend-help{margin-left:0;width:100%}
 }
 `;
-
-
-//
-// Helpers gerais
-//
-
-export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 const pointOperationId=()=>crypto.randomUUID();
-
-export const today = () => toLocalISODate(new Date());
-
-export const fmt = n => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-// Consulta pública de CNPJ (BrasilAPI - gratuita, sem chave). Devolve os campos
-// já normalizados para o app, ou lança erro com mensagem amigável. Não guarda
-// nada; é só leitura da base pública da Receita.
-const buscarCNPJ = async (cnpjBruto) => {
-  const cnpj = soDigitos(cnpjBruto);
-  if (cnpj.length !== 14) throw new Error("CNPJ deve ter 14 dígitos.");
-  const resp = await consultarCNPJReceita(cnpj);
-  if (!resp.ok) throw new Error(resp.error || "Não consegui consultar o CNPJ agora. Tente novamente.");
-  const d = resp.data || {};
-  const cidade = d.municipio || "";
-  const uf = d.uf || "";
-  const enderecoPartes = [d.descricao_tipo_de_logradouro, d.logradouro, d.numero].filter(Boolean).join(" ");
-  const bairro = d.bairro ? `, ${d.bairro}` : "";
-  const cidadeUf = [cidade, uf].filter(Boolean).join(" - ");
-  // CNAEs: o principal e os secundarios. E daqui que da pra deduzir o ramo
-  // de fornecimento sem o usuario marcar na mao.
-  const cnaes = [
-    { codigo: String(d.cnae_fiscal || ""), descricao: d.cnae_fiscal_descricao || "" },
-    ...(Array.isArray(d.cnaes_secundarios) ? d.cnaes_secundarios.map(c => ({
-      codigo: String(c.codigo || ""), descricao: c.descricao || "",
-    })) : []),
-  ].filter(c => c.codigo || c.descricao);
-
-  return {
-    razaoSocial: d.razao_social || "",
-    nomeFantasia: d.nome_fantasia || "",
-    // Nome de exibição: fantasia se houver, senão razão social.
-    nome: d.nome_fantasia || d.razao_social || "",
-    telefone: d.ddd_telefone_1 || "",
-    email: d.email || "",
-    cidade, uf, cidadeUf,
-    endereco: [enderecoPartes + bairro, cidadeUf, d.cep ? `CEP ${d.cep}` : ""].filter(Boolean).join(", "),
-    // Partes separadas do endereco, para preencher campo a campo.
-    logradouro: [d.descricao_tipo_de_logradouro, d.logradouro].filter(Boolean).join(" ").trim(),
-    numero: d.numero || "",
-    complemento: d.complemento || "",
-    bairro: d.bairro || "",
-    cep: d.cep || "",
-    situacao: d.descricao_situacao_cadastral || "",
-    atividade: d.cnae_fiscal_descricao || "",
-    cnaes,
-    abertura: d.data_inicio_atividade || "",
-  };
-};
-// Formato compacto para KPIs executivos: R$ 2,4 mi / R$ 850 mil. Mantém a leitura
-// rápida sem encher o card de dígitos. Para valores pequenos, cai no fmt normal.
-export const fmtCompact = n => {
-  const v = Number(n || 0);
-  const abs = Math.abs(v);
-  const sinal = v < 0 ? "-" : "";
-  if (abs >= 1e6) return `${sinal}R$ ${(abs/1e6).toFixed(abs>=1e7?0:1).replace(".",",")} mi`;
-  if (abs >= 1e3) return `${sinal}R$ ${(abs/1e3).toFixed(0)} mil`;
-  return fmt(v);
-};
-
-export const fmtDate = iso => {
-  if (!iso || typeof iso !== "string" || !iso.includes("-")) return "-";
-  const [, m, d] = iso.split("-");
-  return `${d}/${m}`;
-};
-
-export const fmtDateFull = iso => {
-  if (!iso || typeof iso !== "string" || !iso.includes("-")) return "-";
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-};
-
-export const monthName = m => ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][m] || "";
-export const MONTHS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-export const fullMonth = m => ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"][m] || "";
-// Mes/ano curto a partir de uma data ISO: "ago/26". Usado na regua do Gantt.
-export const fmtMesAno = iso => {
-  if (!iso) return "";
-  const meses = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
-  const d = new Date(iso + "T00:00:00");
-  return `${meses[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
-};
-
-// Prazo da obra: dado contractStart/contractEnd, devolve % de tempo decorrido,
-// dias restantes e um rotulo/cor. null se nao ha datas de contrato.
-const prazoObra = (obra) => {
-  const ini = obra?.contractStart, fim = obra?.contractEnd;
-  if (!ini || !fim) return null;
-  const hoje = today();
-  const totalDias = diasCorridos(ini, fim);
-  if (totalDias <= 0) return null;
-  const decorridos = Math.max(0, Math.min(totalDias, diasCorridos(ini, hoje)));
-  const pct = (decorridos / totalDias) * 100;
-  // Diferenca ASSINADA em dias (negativa se o prazo ja passou). diasCorridos
-  // trava em zero, entao calculamos direto aqui.
-  const restam = Math.round((new Date(fim + "T00:00:00") - new Date(hoje + "T00:00:00")) / 86400000);
-  let rotulo, cor;
-  if (restam < 0)      { rotulo = `atrasada ${Math.abs(restam)}d`; cor = C.red; }
-  else if (restam === 0) { rotulo = "vence hoje"; cor = C.orange; }
-  else if (restam <= 15) { rotulo = `faltam ${restam}d`; cor = C.orange; }
-  else                 { rotulo = `faltam ${restam}d`; cor = C.blue; }
-  return { pct: Math.min(pct, 100), restam, totalDias, decorridos, rotulo, cor };
-};
-
-// fmtCPF/fmtPhone moveram para EquipeView.jsx/RescisaoView.jsx em
-// 2026-08-20 (únicos consumidores).
-
-export const escapeHtml = value => String(value || "")
-  .replace(/&/g, "&amp;")
-  .replace(/</g, "&lt;")
-  .replace(/>/g, "&gt;")
-  .replace(/\"/g, "&quot;")
-  .replace(/'/g, "&#039;");
-
-//
-// Dados padrão e normalização
-//
-
-//  Especialidades de terceirizados
-// Ramos de fornecimento. Um fornecedor pode atender varios (uma casa de
-// construcao vende de tudo; uma serralheria so metais). Serve para filtrar a
-// busca e para o sistema sugerir de quem comprar cada material.
-export const rotuloRamo = v => RAMOS_FORNECIMENTO.find(r => r.v === v)?.l || v;
-
-// ==============================================================
-//  CNAE -> RAMO DE FORNECIMENTO
-//  A Receita diz o que a empresa faz (CNAE principal + secundarios).
-//  Isso e suficiente para deduzir o que ela fornece, poupando o
-//  usuario de marcar na mao. Duas vias: o CODIGO (confiavel) e as
-//  PALAVRAS da descricao (pega o que o codigo nao cobre). O que for
-//  deduzido entra como sugestao - da para desmarcar.
-// ==============================================================
-const CNAE_RAMOS = [
-  { pre:["4744001","4672900"], ramos:["ferragens","ferramentas"] },
-  { pre:["4744002","1610203","1610205"], ramos:["madeira"] },
-  { pre:["4744003","2222600"], ramos:["hidraulico"] },
-  { pre:["4744004"], ramos:["areia_brita","cobertura"] },
-  { pre:["4744005","4744099","4679699","4679604"], ramos:["casa_construcao"] },
-  { pre:["4744006","4679602","2391503"], ramos:["pedras"] },
-  { pre:["4741500","4679601"], ramos:["tintas"] },
-  { pre:["4742300","4673700"], ramos:["eletrico"] },
-  { pre:["4743100","4679603","2512800","2511000"], ramos:["esquadrias"] },
-  { pre:["4674500","2320600","2330305"], ramos:["cimento"] },
-  { pre:["2330301","2330302","2330303","2330399"], ramos:["concreto"] },
-  { pre:["2342701","2342702"], ramos:["porcelanato"] },
-  { pre:["2441501","2451200","4685100","2599301"], ramos:["aco","metais"] },
-  { pre:["7732201","7732202"], ramos:["locacao"] },
-  { pre:["4649408","3292202"], ramos:["epi"] },
-];
-const PALAVRAS_RAMO = [
-  { termos:["ferragem","ferramenta","parafuso","fixacao"], ramos:["ferragens","ferramentas"] },
-  { termos:["madeira","serraria","compensado","carpintaria"], ramos:["madeira"] },
-  { termos:["hidraulic","tubo","conexao","pvc","saneamento"], ramos:["hidraulico"] },
-  { termos:["areia","brita","pedra britada","tijolo","aterro"], ramos:["areia_brita"] },
-  { termos:["telha","cobertura","calha"], ramos:["cobertura"] },
-  { termos:["material de construcao","materiais de construcao","construcao em geral"], ramos:["casa_construcao"] },
-  { termos:["marmore","granito","revestimento de pedra","rocha ornamental"], ramos:["pedras"] },
-  { termos:["tinta","verniz","pintura","solvente"], ramos:["tintas"] },
-  { termos:["eletric","fio e cabo","condutor","iluminacao","luminaria"], ramos:["eletrico"] },
-  { termos:["vidro","espelho","esquadria","janela","porta de aluminio","serralheria"], ramos:["esquadrias"] },
-  { termos:["cimento","argamassa","cal hidratada"], ramos:["cimento"] },
-  { termos:["concreto","pre-moldado","premoldado","usinado"], ramos:["concreto"] },
-  { termos:["ceramic","azulejo","porcelanato","piso e revestimento"], ramos:["porcelanato"] },
-  { termos:["aco","siderurgic","metalurgic","vergalhao","ferro"], ramos:["aco"] },
-  { termos:["metal sanitario","louca sanitaria","louca","metais sanitarios"], ramos:["louca_metal"] },
-  { termos:["gesso","drywall","forro"], ramos:["gesso"] },
-  { termos:["impermeabiliz","manta asfaltica"], ramos:["impermeabilizante"] },
-  { termos:["aluguel de maquinas","locacao de maquinas","aluguel de andaimes","locacao de equipamentos"], ramos:["locacao"] },
-  { termos:["equipamento de protecao","seguranca do trabalho"], ramos:["epi"] },
-];
-
-// Deduz os ramos a partir da lista de CNAEs devolvida pela Receita.
-const ramosDosCnaes = (cnaes) => {
-  const semAcento = s => String(s || "").toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const achados = new Set();
-  (cnaes || []).forEach(c => {
-    const cod = String(c.codigo || "").replace(/\D/g, "");
-    CNAE_RAMOS.forEach(m => {
-      if (m.pre.some(p => cod.startsWith(p))) m.ramos.forEach(r => achados.add(r));
-    });
-    const desc = semAcento(c.descricao);
-    PALAVRAS_RAMO.forEach(m => {
-      if (m.termos.some(t => desc.includes(t))) m.ramos.forEach(r => achados.add(r));
-    });
-  });
-  return [...achados];
-};
 
 // Ponto de partida para subdividir um contrato. E sugestao: a tela deixa
 // renomear, reordenar, apagar e acrescentar. A ordem e a de execucao.
@@ -993,56 +678,13 @@ const CONTRACT_TYPES = [
   { v: "fixed_labor_admin", l: "Misto - MO fixo + % sobre materiais e terceirizados"  },
 ];
 
-// ==============================================================
-//  LICENCIAMENTO NA PREFEITURA
-//  Lista oficial da URB Caruaru para Licenca de Construcao
-//  Simplificada. A estrutura aceita outros tipos de licenca -
-//  basta acrescentar em LICENCAS.
-// ==============================================================
-export { LICENCAS, licencaPorId, LIC_TERRAS_ALPHA_VERIFICACAO } from './domains/licenciamento/catalog.js';
-import { LICENCAS, licencaPorId, LIC_TERRAS_ALPHA_VERIFICACAO, CONDOMINIOS_PADRAO, LIC_SIMPLIFICADA_DOCS, LIC_SIMPLIFICADA_PRE } from './domains/licenciamento/catalog.js';
-
-// Situacoes de cada documento. "na" = nao se aplica a esta obra (some da conta).
-export const LIC_STATUS = [
-  { v:"pendente",     l:"Pendente",     cor:C.muted  },
-  { v:"em_andamento", l:"Em andamento", cor:C.orange },
-  { v:"entregue",     l:"Entregue",     cor:C.blue   },
-  { v:"aprovado",     l:"Aprovado",     cor:C.green  },
-  { v:"na",           l:"Não necessário",cor:C.border },
-];
-export const licStatusInfo = v => LIC_STATUS.find(s => s.v === v) || LIC_STATUS[0];
-
-// Andamento do checklist: so conta o que se aplica a esta obra.
-export const progressoChecklist = (check, docs) => {
-  const defs = docs || LIC_SIMPLIFICADA_DOCS;
-  const st = id => check?.itens?.[id]?.status || "pendente";
-  const aplicaveis = defs.filter(d => st(d.id) !== "na");
-  const ok = aplicaveis.filter(d => ["entregue","aprovado"].includes(st(d.id)));
-  return {
-    total: defs.length, aplicaveis: aplicaveis.length,
-    concluidos: ok.length,
-    aprovados: aplicaveis.filter(d => st(d.id) === "aprovado").length,
-    pendentes: aplicaveis.filter(d => st(d.id) === "pendente").length,
-    naoAplica: defs.length - aplicaveis.length,
-    pct: aplicaveis.length ? (ok.length / aplicaveis.length) * 100 : 0,
-    pronto: aplicaveis.length > 0 && ok.length === aplicaveis.length,
-  };
-};
-
-// Elegibilidade: a licenca simplificada so vale se TODOS os pre-requisitos
-// forem atendidos. Se faltar um, o caminho e outro tipo de licenca.
-export const preRequisitosOk = (check, pre) => {
-  const lista = pre || LIC_SIMPLIFICADA_PRE;
-  const faltando = lista.filter(p => !check?.pre?.[p.id]);
-  return { marcados: lista.length - faltando.length, total: lista.length,
-           ok: faltando.length === 0, faltando };
-};
-
-export const CONTRACT_LABELS = {
-  fixed_labor:       "Somente MO",
-  admin_only:        "Só Administração",
-  fixed_labor_admin: "MO + Admin %",
-};
+const CONDOMINIOS_PADRAO = [{
+  id:"cond-terras-alpha-caruaru", nome:"Terras Alpha Caruaru", cidade:"Caruaru", uf:"PE",
+  cep:"55038-215", endereco:"Rua Quitéria Luiza da Silva Nova, 35 - Universitário, Empresarial Ethos, sala 810",
+  contato:"Departamento Técnico", telefone:"", email:"", checklistTipo:"terras_alpha_caruaru", ativo:true,
+  atendimento:"Segunda a sexta, das 08:00 às 12:00. Análises iniciadas na segunda e na quarta-feira após a entrega.",
+  observacoes:"A entrega do projeto é presencial. A aprovação do condomínio antecede o protocolo na Prefeitura.",
+}];
 
 // Frequência de cobrança
 // Os dias de vencimento NAO sao mais fixos no codigo: cada obra guarda
@@ -1052,20 +694,9 @@ const FREQ_OPTS = [
   { v:"quinzenal", l:"Quinzenal - 2 parcelas por mês"   },
 ];
 
-// Dias de vencimento padrao do contrato ARCD: 15 e 30.
-export const DIA_VENC_1_PADRAO = 15;
-export const DIA_VENC_2_PADRAO = 30;
-
 // Opcoes de dia para os selects (1..31). "30" em fevereiro vira 28/29 -
 // ver clampDiaNoMes abaixo.
 const DIA_OPTS = Array.from({length:31}, (_,i) => ({ v:String(i+1), l:`Dia ${i+1}` }));
-
-// Prende o dia ao ultimo dia real do mes: pedir dia 30 em fevereiro devolve
-// 28 (ou 29 em ano bissexto), em vez de escorregar para 1/3 ou 2/3.
-export const clampDiaNoMes = (ano, mesIdx, dia) => {
-  const ultimo = new Date(ano, mesIdx + 1, 0).getDate();
-  return Math.min(Math.max(Number(dia) || 1, 1), ultimo);
-};
 
 const DEFAULT = () => ({
   schemaVersion: APP_SCHEMA_VERSION,
@@ -1143,16 +774,6 @@ const DEFAULT = () => ({
   alertasSuprimento: [],
   reservasEstoque: [],
 });
-
-export const maiusculoOrcamento = valor => String(valor ?? "").toLocaleUpperCase("pt-BR");
-const formatarCodigoArcd = numero => `MARCELL${String(numero).padStart(3,"0")}`;
-const numeroCodigoArcd = codigo => Number(/^ARCD(\d+)$/i.exec(String(codigo||"").trim())?.[1] || 0);
-export const proximoCodigoArcd = data => {
-  const codigos=[...(data?.materiais||[]),...(data?.composicoes||[]),...(data?.composicoesEmpresa||[])];
-  const maior=codigos.reduce((max,item)=>Math.max(max,numeroCodigoArcd(item.codigo)),0);
-  return formatarCodigoArcd(maior+1);
-};
-export const obraContextoSalvo = () => typeof window!=="undefined" ? (window.sessionStorage.getItem("arcd_obra_contexto")||"") : "";
 
 // ---------------------------------------------------------------------------
 //  MERGE DE DADOS (resolução de conflito entre dois editores)
@@ -2503,7 +2124,6 @@ const normalizeData = incoming => {
     // Checklist de licenciamento na prefeitura, um por obra. itens guarda o
     // estado de cada documento; pre guarda os pre-requisitos marcados.
     licencas: Array.isArray(d.licencas) ? d.licencas.map(x => ({
-      version:Number(x.version||0), history:Array.isArray(x.history)?x.history:[], exports:Array.isArray(x.exports)?x.exports:[], workspace:x.workspace||undefined,
       id:        x.id        || uid(),
       obraId:    x.obraId    || "",
       tipo:      x.tipo      || "simplificada",
@@ -2769,109 +2389,6 @@ const normalizeData = incoming => {
   };
   return finalizeNormalizedData(d, normalized);
 };
-
-//
-// UI base
-//
-
-export function Ic({ n, s = 16, color }) {
-  // Icones em SVG (feather-style). Antes eram emojis, que o build do Vercel
-  // apaga - por isso sumiam na tela. SVG e ASCII puro: aparece sempre, tem
-  // contraste, herda a cor via --ic-color ou a prop color.
-  const P = {
-    // --- Navegação e objetos principais ---
-    home:     "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10",  // casa (dashboard/painel)
-    building: "M3 21h18 M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16 M9 7h1 M9 11h1 M9 15h1 M14 7h1 M14 11h1 M14 15h1", // prédio (obras)
-    users:    "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75", // várias pessoas (equipe)
-    user:     "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", // uma pessoa (cliente/lead)
-    handshake:"M11 17l2 2a1 1 0 0 0 3-3 M14 14l2.5 2.5a1 1 0 0 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 0 1-1.41 0l-2.12-2.12a1 1 0 0 0-1.41 0L3 12 M18 3l3 3-3 3 M3 21l3-3", // parceria (parceiros)
-    clock:    "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2",
-    more:     "M3.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0 M10.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0 M17.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0", // três pontos (menu "Mais ações")
-    smartphone:"M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z M12 18h.01", // celular (app de ponto da obra)
-    refresh:  "M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0 1 14.85-3.36L23 10 M1 14l4.64 4.36A9 9 0 0 0 20.49 15",
-    // --- Gráficos e dados ---
-    chart:    "M18 20V10 M12 20V4 M6 20v-6",           // barras (dashboard)
-    funnel:   "M3 4h18l-7 8v7l-4 2v-9z",               // funil (funil de vendas)
-    trending: "M23 6l-9.5 9.5-5-5L1 18 M17 6h6v6",     // linha subindo (metas/KPIs/relatórios)
-    target:   "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z", // alvo (medição/metas)
-    ruler:    "M3 15l6-6 M6 12l2 2 M9 9l2 2 M16 3l5 5L8 21l-5-5z", // régua/trena (medição de obra)
-    // --- Dinheiro ---
-    dollar:   "M12 1v22 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6", // cifrão (financeiro)
-    wallet:   "M20 12V8H6a2 2 0 0 1 0-4h12v4 M4 6v12a2 2 0 0 0 2 2h14v-4 M18 12a2 2 0 0 0 0 4h4v-4z", // carteira (folha/caixa)
-    receipt:  "M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1z M8 7h8 M8 11h8 M8 15h5", // recibo (pagamento/conciliação)
-    // --- Documentos ---
-    file:     "M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z M13 2v7h7",       // arquivo (documento genérico)
-    folder:   "M3 5h6l2 2h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z",
-    fileText: "M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z M13 2v7h7 M8 13h8 M8 17h8 M8 9h2", // documento com texto (orçamento/proposta/contrato)
-    clipboard:"M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2 M9 13l2 2 4-4", // prancheta com check (diário de obra/tarefas)
-    box:      "M21 8l-9-5-9 5 9 5 9-5z M3 8v8l9 5 9-5V8 M12 13v8", // caixa (estoque)
-    cart:     "M9 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2z M20 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2z M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6", // carrinho (compras)
-    // --- Ações ---
-    plus:     "M12 5v14 M5 12h14",
-    edit:     "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z",
-    trash:    "M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6",
-    x:        "M18 6L6 18 M6 6l12 12",
-    check:    "M20 6L9 17l-5-5",
-    mail:     "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M22 6l-10 7L2 6",
-    lock:     "M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z M7 11V7a5 5 0 0 1 10 0v4",
-    unlock:   "M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z M7 11V7a5 5 0 0 1 9.9-1",
-    download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3",
-    copy:     "M9 9h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2z M5 15H4a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1",
-    search:   "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35",
-    calendar: "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M16 2v4 M8 2v4 M3 10h18",
-    alert:    "M12 2 1 21h22L12 2z M12 9v4 M12 17h.01",
-    info:     "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 10v7 M12 7h.01",
-    settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
-    phone:    "M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z",
-    ia:       "M12 2a3 3 0 0 0-3 3 3 3 0 0 0-3 3v1a3 3 0 0 0 0 6v1a3 3 0 0 0 3 3 3 3 0 0 0 6 0 3 3 0 0 0 3-3v-1a3 3 0 0 0 0-6V8a3 3 0 0 0-3-3 3 3 0 0 0-3-3z M12 2v20", // cérebro (IA)
-    briefcase:"M4 7h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M2 13h20", // maleta (rescisão/comercial)
-    wrench:   "M14.7 6.3a4 4 0 0 1-5.4 5.4l-6 6a2 2 0 1 0 3 3l6-6a4 4 0 0 1 5.4-5.4l-2.7 2.7 1.4 1.4 2.7-2.7", // chave (equipamentos)
-    chevL:    "M15 18l-6-6 6-6",
-    chevR:    "M9 18l6-6-6-6",
-    chevron:  "M6 9l6 6 6-6",
-    chevUp:   "M18 15l-6-6-6 6",
-    cornerDownRight: "M15 10l5 5-5 5 M4 4v7a4 4 0 0 0 4 4h12", // seta que desce e vira à direita (criar subnível)
-    star:     "M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01z", // favorito
-    // --- Clima (resumo diário) ---
-    sun:      "M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z M12 1L12 3 M12 21L12 23 M4.22 4.22L5.64 5.64 M18.36 18.36L19.78 19.78 M1 12L3 12 M21 12L23 12 M4.22 19.78L5.64 18.36 M18.36 5.64L19.78 4.22",
-    cloud:    "M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z",
-    cloudRain:"M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25 M16 13L16 21 M8 13L8 21 M12 15L12 23",
-    zap:      "M13 2L3 14L12 14L11 22L21 10L12 10L13 2Z",
-    attach:   "M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48", // clipe de papel (anexar arquivo no chat)
-  };
-  // Aliases: nomes antigos que apontam para glifos do catálogo, para não quebrar
-  // usos espalhados. money/pay = cifrão; brain = ia; terc = users; week = agenda;
-  // medicoes = régua (medição de obra).
-  P.money = P.dollar; P.pay = P.dollar; P.brain = P.ia; P.robot = P.ia;
-  P.terc = P.users; P.week = P.calendar; P.medicoes = P.ruler;
-  const d = P[n];
-  if (!d) {
-    // fallback discreto: um ponto, nao um traco solto
-    return (
-      <span aria-hidden="true" style={{
-        width:s+4, height:s+4, display:"inline-flex", alignItems:"center",
-        justifyContent:"center", color: color || `var(--ic-color, ${C.yellow})`,
-      }}>
-        <svg width={s*0.4} height={s*0.4} viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="currentColor"/></svg>
-      </span>
-    );
-  }
-  return (
-    <span aria-hidden="true" className="arcd-icon" data-icon-size={s<=13?"sm":s>=20?"lg":"md"} style={{
-      width:s+4, height:s+4, display:"inline-flex", alignItems:"center",
-      justifyContent:"center", color: color || `var(--ic-color, ${C.yellow})`,
-      flexShrink:0,
-    }}>
-      <svg width={s} height={s} viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" strokeWidth="2"
-           strokeLinecap="round" strokeLinejoin="round">
-        {d.split(" M").map((seg, i) => (
-          <path key={i} d={i === 0 ? seg : "M" + seg}/>
-        ))}
-      </svg>
-    </span>
-  );
-}
 function IcoObra({ n, s = 17 }) {
   const P = {
     financeiro: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
@@ -2912,451 +2429,6 @@ function BrandMark({ compact = false, dark = false, signature = true }) {
   </div>;
 }
 
-const SIGLAS_UI = new Set([
-  "MARCELL", "BDI", "CBO", "CLT", "CEP", "CFO", "CNPJ", "CPF", "CUB", "DRE", "EBITDA", "FGTS", "IRRF",
-  "FVM", "FVS", "IA", "INSS", "ISS", "MO", "NFS-E", "ORSE", "PDF",
-  "PIN", "RDO", "RG", "SINAPI", "SLA", "UF", "URL", "VR", "VT",
-]);
-
-function textoUi(valor) {
-  if (typeof valor !== "string") return valor;
-  const letras = valor.match(/[A-Za-zÀ-ÖØ-öø-ÿ]/g);
-  if (!letras?.length || !letras.every(letra => letra === letra.toUpperCase())) return valor;
-
-  let primeiraPalavra = true;
-  return valor.toLowerCase().replace(/[A-Za-zÀ-ÖØ-öø-ÿ]+(?:-[A-Za-zÀ-ÖØ-öø-ÿ]+)*/g, palavra => {
-    const sigla = palavra.toUpperCase();
-    if (SIGLAS_UI.has(sigla)) return sigla;
-    if (primeiraPalavra) {
-      primeiraPalavra = false;
-      return palavra.charAt(0).toUpperCase() + palavra.slice(1);
-    }
-    return palavra;
-  });
-}
-
-function conteudoUi(children) {
-  return Children.map(children, child => typeof child === "string" ? textoUi(child) : child);
-}
-
-export function Btn({ children, onClick, v = "primary", size = "md", full = false, disabled = false, loading = false, iconOnly = false, type = "button", style = {}, className = "", title, ariaLabel, ...props }) {
-  // Padrão MARCELL (29/10/2026): três aparências. As variantes antigas
-  // (success, info, dark, warning, secondary) seguem aceitas e mapeadas para
-  // estas, para que nenhuma tela invente cor de botão.
-  const principal = { bg:C.text, color:C.card, border:C.text, hover:"#1E3552", hoverBorder:"#1E3552" };
-  const secundario = { bg:C.card, color:C.text, border:"#C9CED6", hover:"#F3F0E9", hoverBorder:"#7A8591" };
-  const perigo = { bg:C.card, color:C.red, border:"#E0B1B1", hover:"#FBEAEA", hoverBorder:C.red };
-  const variants = {
-    primary:principal, success:principal, info:principal, dark:principal,
-    ghost:secundario, secondary:secundario, warning:secundario,
-    danger:perigo,
-  };
-  const vv = variants[v] || principal;
-  const py = size === "sm" ? 5 : size === "lg" ? 10 : 8;
-  const px = size === "sm" ? 10 : size === "lg" ? 18 : 14;
-
-  return (
-    <button
-      className={`arcd-btn ${className}`.trim()}
-      data-variant={v}
-      data-size={size}
-      data-icon-only={iconOnly}
-      {...props}
-      type={type}
-      title={title}
-      aria-label={ariaLabel||title}
-      aria-busy={loading||undefined}
-      onClick={onClick}
-      disabled={disabled||loading}
-      style={{
-        width: full ? "100%" : "auto",
-        border: `1px solid ${vv.border}`,
-        background: vv.bg,
-        color: vv.color,
-        padding: `${py}px ${px}px`,
-        cursor: disabled ? "not-allowed" : "pointer",
-        fontFamily: FONT_DISPLAY,
-        fontWeight:400,
-        letterSpacing: 0,
-        display: "inline-flex",
-        gap: 6,
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: "var(--arcd-type-control)",
-        borderRadius: 8,
-        boxShadow: "none",
-        transition: "background .12s ease, border-color .12s ease",
-        "--btn-hover": vv.hover,
-        "--btn-hover-border": vv.hoverBorder,
-        // O icone herda a cor do texto do botao (nao branco fixo): assim no
-        // botao escuro ou fantasma ele acompanha e nunca some no fundo.
-        "--ic-color": (style && style.color) || vv.color,
-        ...style,
-      }}
-    >
-      {loading?<><Ic n="refresh"/><span>{typeof loading==="string"?textoUi(loading):"Processando..."}</span></>:conteudoUi(children)}
-    </button>
-  );
-}
-
-export function Inp({ label, value, onChange, type = "text", placeholder = "", max, min, disabled = false, multiline = false, inputRef = null, error = "" }) {
-  const Comp = multiline ? "textarea" : "input";
-
-  return (
-    <label className="arcd-field arcd-legacy-field" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {label && <span className="arcd-field__label" style={{
-        color: C.text, fontSize:"var(--arcd-type-label)", fontWeight:600,
-        letterSpacing: 0.1,
-        fontFamily:"var(--arcd-font-sans)",
-      }}>{textoUi(label)}</span>}
-      <Comp
-        className="arcd-field-control"
-        ref={inputRef}
-        type={multiline ? undefined : type}
-        value={value ?? ""}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        max={max}
-        min={min}
-        disabled={disabled}
-        rows={multiline ? 3 : undefined}
-        aria-invalid={error?"true":undefined}
-        style={{
-          width: "100%",
-          background: disabled ? C.surface : C.bg,
-          border: `1.5px solid ${C.line}`,
-          color: C.text,
-          padding: "8px 10px",
-          outline: "none",
-          fontSize: "var(--arcd-type-body)",
-          borderRadius: 7,
-          resize: "vertical",
-          fontFamily:"var(--arcd-font-sans)",
-        }}
-      />
-      {error&&<small role="alert" style={{color:C.red,fontSize:"var(--arcd-type-label)"}}>{error}</small>}
-    </label>
-  );
-}
-
-
-// Campo de CNPJ com busca automatica na Receita (BrasilAPI). Ao clicar em
-// "Buscar" (ou sair do campo com 14 digitos), consulta e entrega os dados ao
-// pai via onEncontrado. Mostra estado de carregando/erro sem travar o resto.
-// Campo de CEP que preenche o endereco sozinho (ViaCEP). Mesmo padrao do
-// CampoCNPJ: consulta ao sair do campo, avisa em vez de travar se falhar.
-function CampoCEP({ label = "CEP", value, onChange, onEncontrado }) {
-  const [carregando, setCarregando] = useState(false);
-  const [erro, setErro] = useState("");
-
-  const consultar = async () => {
-    setErro("");
-    const cep = soDigitos(value);
-    if (cep.length !== 8) { if (cep.length) setErro("O CEP tem 8 dígitos."); return; }
-    setCarregando(true);
-    try {
-      const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-      const j = await r.json();
-      if (j.erro) { setErro("CEP não encontrado."); return; }
-      onEncontrado && onEncontrado({
-        endereco: j.logradouro || "", bairro: j.bairro || "",
-        cidade: j.localidade || "", uf: j.uf || "",
-      });
-    } catch (e) {
-      setErro("Não foi possível consultar o CEP agora.");
-    } finally {
-      setCarregando(false);
-    }
-  };
-
-  return (
-    <label style={{ display:"flex", flexDirection:"column", gap:4 }}>
-      {label && <span style={{ color:C.text, fontSize:"var(--arcd-type-caption)", fontWeight:600,
-        letterSpacing:.1, fontFamily:"var(--arcd-font-sans)" }}>{textoUi(label)}</span>}
-      <input value={value == null ? "" : value}
-        onChange={e => { onChange(e.target.value); setErro(""); }}
-        onBlur={consultar}
-        onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
-        placeholder="00000-000"
-        style={{ width:"100%", boxSizing:"border-box", background:C.bg, border:`1.5px solid ${C.border}`,
-          color:C.text, padding:"8px 10px", borderRadius:7, fontSize:"var(--arcd-type-control)", outline:"none",
-          fontFamily:"var(--arcd-font-sans)" }}/>
-      {carregando && <span style={{ fontSize:"var(--arcd-type-label)", color:C.muted }}>Buscando endereço...</span>}
-      {erro && <span style={{ fontSize:"var(--arcd-type-label)", color:C.orange }}>{erro}</span>}
-    </label>
-  );
-}
-
-export function CampoCNPJ({ label = "CNPJ", value, onChange, onEncontrado, disabled = false }) {
-  const [carregando, setCarregando] = useState(false);
-  const [erro, setErro] = useState("");
-  const [ok, setOk] = useState(false);
-
-  const consultar = async () => {
-    setErro(""); setOk(false);
-    if (soDigitos(value).length !== 14) { setErro("Digite os 14 digitos do CNPJ."); return; }
-    setCarregando(true);
-    try {
-      const dados = await buscarCNPJ(value);
-      onEncontrado && onEncontrado(dados);
-      setOk(true);
-      if (dados.situacao && dados.situacao.toUpperCase() !== "ATIVA")
-        setErro(`Atencao: situacao cadastral "${dados.situacao}".`);
-    } catch (e) {
-      setErro(e.message || "Nao foi possivel consultar.");
-    } finally {
-      setCarregando(false);
-    }
-  };
-
-  return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {label && <span style={{
-        color: C.text, fontSize:"var(--arcd-type-caption)", fontWeight:600,
-        letterSpacing: 0.1, fontFamily: "var(--arcd-font-sans)",
-      }}>{textoUi(label)}</span>}
-      <div style={{ display: "flex", gap: 6 }}>
-        <input
-          value={value == null ? "" : value}
-          onChange={e => { onChange(e.target.value); setOk(false); setErro(""); }}
-          onBlur={() => { if (soDigitos(value).length === 14) consultar(); }}
-          placeholder="00.000.000/0001-00"
-          disabled={disabled || carregando}
-          style={{
-            flex: 1, background: disabled ? C.surface : C.bg,
-            border: `1.5px solid ${ok ? C.green : erro ? C.orange : C.line}`,
-            color: C.text, padding: "8px 10px", outline: "none", fontSize: "var(--arcd-type-control)",
-            borderRadius: 7, fontFamily: "var(--arcd-font-sans)",
-          }}
-        />
-        <button type="button" onMouseDown={e=>e.preventDefault()} onClick={consultar} disabled={carregando || disabled}
-          style={{
-            flexShrink: 0, border: `1.5px solid ${C.blue}`, background: `${C.blue}10`,
-            color: C.blue, borderRadius: 7, padding: "0 10px", cursor: carregando ? "default" : "pointer",
-            fontSize:"var(--arcd-type-control)", fontWeight:600, whiteSpace: "nowrap",
-          }}>
-          {carregando ? "Buscando..." : "Buscar"}
-        </button>
-      </div>
-      {erro && <span style={{ fontSize:"var(--arcd-type-label)", color: erro.startsWith("Atencao") ? C.orange : C.red }}>{erro}</span>}
-      {ok && !erro && <span style={{ fontSize:"var(--arcd-type-label)", color: C.green }}>Dados preenchidos pela Receita.</span>}
-    </label>
-  );
-}
-
-export function Sel({ label, value, onChange, options = [], disabled = false, error = "" }) {
-  return (
-    <label className="arcd-field arcd-legacy-field" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {label && <span className="arcd-field__label" style={{
-        color: C.text, fontSize:"var(--arcd-type-label)", fontWeight:600,
-        letterSpacing: 0.1,
-        fontFamily:"var(--arcd-font-sans)",
-      }}>{textoUi(label)}</span>}
-      <select
-        className="arcd-field-control"
-        aria-label={label ? textoUi(label) : undefined}
-        value={value ?? ""}
-        onChange={e => onChange(e.target.value)}
-        disabled={disabled}
-        aria-invalid={error?"true":undefined}
-        style={{
-          width: "100%",
-          background: disabled ? C.surface : C.bg,
-          border: `1.5px solid ${C.line}`,
-          color: C.text,
-          padding: "8px 10px",
-          outline: "none",
-          fontSize: "var(--arcd-type-control)",
-          borderRadius: 7,
-          fontFamily:"var(--arcd-font-sans)",
-        }}
-      >
-        {options.map(o => <option key={String(o.v)} value={o.v} disabled={o.disabled}>{o.l}</option>)}
-      </select>
-      {error&&<small role="alert" style={{color:C.red,fontSize:"var(--arcd-type-label)"}}>{error}</small>}
-    </label>
-  );
-}
-
-// Botão que abre um menu de opções, para listas longas onde o <select> nativo
-// fica pouco legível (ex.: etapas do funil comercial).
-export function SelBtn({ label, value, onChange, options = [], disabled = false }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!open) return undefined;
-    const aoClicarFora = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", aoClicarFora);
-    return () => document.removeEventListener("mousedown", aoClicarFora);
-  }, [open]);
-  const atual = options.find(o => String(o.v) === String(value ?? ""));
-  return (
-    <div ref={ref} style={{ position: "relative", display: "flex", flexDirection: "column", gap: 4 }}>
-      {label && <span className="arcd-field__label" style={{
-        color: C.text, fontSize:"var(--arcd-type-label)", fontWeight:600, letterSpacing: 0.1,
-        fontFamily: "var(--arcd-font-sans)",
-      }}>{textoUi(label)}</span>}
-      <button type="button" disabled={disabled} onClick={() => setOpen(v => !v)}
-        style={{
-          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
-          background: disabled ? C.surface : C.bg, border: `1.5px solid ${C.line}`, color: C.text,
-          padding: "8px 10px", borderRadius: 7, fontSize: "var(--arcd-type-control)", cursor: disabled ? "default" : "pointer",
-          fontFamily: "var(--arcd-font-sans)", textAlign: "left",
-        }}>
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{atual?.l || "Selecione"}</span>
-        <Ic n="chevron" s={12} color={C.muted}/>
-      </button>
-      {open && (
-        <div style={{
-          position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4, zIndex: 20,
-          background: C.card, border: `1px solid ${C.border}`, borderRadius: 8,
-          boxShadow: "0 6px 18px rgba(18,18,18,.14)", maxHeight: 260, overflowY: "auto", padding: 4,
-        }}>
-          {options.map(o => {
-            const selecionada = String(o.v) === String(value ?? "");
-            return (
-              <button key={String(o.v)} type="button" onClick={() => { onChange(o.v); setOpen(false); }}
-                style={{
-                  width: "100%", textAlign: "left", padding: "7px 9px", borderRadius: 6, border: 0,
-                  background: selecionada ? `${C.blue}14` : "transparent",
-                  color: selecionada ? C.blue : C.text, fontWeight: selecionada ? 600 : 500,
-                  fontSize: "var(--arcd-type-control)", cursor: "pointer", fontFamily: "var(--arcd-font-sans)",
-                }}>
-                {o.l}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function Badge({ children, color = C.yellow }) {
-  return (
-    <span style={{
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 4,
-      padding: "3px 10px",
-      border: 0,
-      background: `${color}1F`,
-      color,
-      fontSize:"var(--arcd-type-caption)",
-      fontWeight:400,
-      letterSpacing: 0,
-      marginTop: 2,
-      marginRight: 3,
-      borderRadius: 999,
-    }}>
-      {conteudoUi(children)}
-    </span>
-  );
-}
-
-export const compactNumber = value => {
-  const n = Number(value || 0);
-  return new Intl.NumberFormat("pt-BR", {
-    notation: Math.abs(n) >= 1000 ? "compact" : "standard",
-    maximumFractionDigits: 1,
-  }).format(n);
-};
-
-export function ArcdChartTooltip({ active, payload, label, formatter }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{
-      minWidth:160, padding:"10px 12px", background:"rgba(18,18,18,.94)",
-      color:"#fff", border:`1px solid ${C.yellow}66`, borderRadius:10,
-      boxShadow:"0 14px 38px rgba(18,18,18,.2)", backdropFilter:"blur(12px)",
-    }}>
-      <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.9,textTransform:"uppercase",color:C.cinza,marginBottom:7}}>{label}</p>
-      {payload.filter(p=>p.value!==undefined).map((p,i)=><div key={`${p.dataKey}-${i}`} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:18,marginTop:i?5:0}}>
-        <span style={{display:"flex",alignItems:"center",gap:6,fontSize:"var(--arcd-type-label)",color:"#E9E7E1"}}><i style={{width:7,height:7,borderRadius:2,background:p.color||p.fill,display:"block"}}/>{p.name}</span>
-        <b style={{fontSize:"var(--arcd-type-label)",color:"#fff"}}>{formatter?formatter(p.value,p.name):compactNumber(p.value)}</b>
-      </div>)}
-    </div>
-  );
-}
-
-function ChartLegend({ items=[] }) {
-  return <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>{items.map(i=><span key={i.label} style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}><i style={{width:14,height:3,borderRadius:99,background:i.color,display:"block"}}/>{i.label}</span>)}</div>;
-}
-
-export function ChartPanel({ eyebrow="Análise visual", title, subtitle, legend=[], action, children, height=240 }) {
-  return <section className="arcd-chart-panel" style={{
-    position:"relative",overflow:"hidden",background:C.card,border:`1px solid ${C.line}`,
-    borderRadius:14,boxShadow:"0 10px 30px rgba(18,18,18,.045)",
-  }}>
-
-    <header style={{position:"relative",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,padding:"14px 16px 11px",borderBottom:`1px solid ${C.line}`,background:"rgba(255,255,255,.86)",backdropFilter:"blur(8px)"}}>
-      <div style={{minWidth:0}}><h3 style={{fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,letterSpacing:-.2,marginTop:2}}>{title}</h3>{subtitle&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{subtitle}</p>}</div>
-      {action&&<div className="no-print" style={{flexShrink:0}}>{action}</div>}
-    </header>
-    {!!legend.length&&<div style={{position:"relative",padding:"9px 16px 0"}}><ChartLegend items={legend}/></div>}
-    <div style={{position:"relative",height,padding:"8px 8px 10px 2px"}}>{children}</div>
-  </section>;
-}
-
-// Cabeçalho padrão de tela: substitui os heroes "artesanais" de cada módulo
-// (gradiente escuro, cor e padding diferentes por tela) por um único
-// componente flat, no mesmo sistema Carbon do dashboard. Sem alterar o
-// conteúdo de cada tela — só o invólucro visual.
-export function PageHero({title,description,alert,stats,actions}){
-  return <section className="page-hero">
-    <div className="page-hero__main">
-      <div className="page-hero__copy">
-
-        <h1 className="page-hero__title">{title}</h1>
-        {description&&<p className="page-hero__description">{description}</p>}
-        {alert&&<div className="page-hero__alert" data-tone={alert.tone||"danger"}><Ic n={alert.tone==="success"?"check":"alert"} s={13}/>{alert.text}</div>}
-      </div>
-      {actions&&<div className="page-hero-actions">{actions}</div>}
-    </div>
-    {!!stats?.length&&<div className="page-hero__stats">
-      {stats.map(s=><div key={s.label} className="page-hero__stat">
-        <p className="page-hero__stat-label">{s.label}</p>
-        <p className="page-hero__stat-value" data-tone={semanticToneFromLegacyColor(s.color)}>{s.value}</p>
-        {s.detail&&<p className="page-hero__stat-detail">{s.detail}</p>}
-      </div>)}
-    </div>}
-  </section>;
-}
-
-// Barra de abas internas (troca de visão dentro de uma mesma tela) - um único
-// padrão de tipografia/tamanho/espaçamento para os ~16 lugares do app que
-// antes reinventavam essa mesma peça com fontSize/fontWeight próprios.
-// tabs aceita duas formas por item:
-//   - array [value, label] ou [value, label, extra], onde extra é uma string
-//     (subtítulo, ex.: DRE) ou um número (badge de contagem, ex.: Compras);
-//   - objeto {v, l, icon, detail, count} quando também precisa de ícone.
-// equal=true usa colunas de largura igual (poucas abas, rótulos parecidos);
-// o padrão (false) é uma fileira que rola na horizontal sem quebrar linha -
-// evita o efeito "serrilhado" de abas com rótulos de tamanhos muito diferentes.
-export function TabRow({ tabs, active, onChange, equal = false, label = "Selecionar visão" }) {
-  const itens = tabs.map(t => Array.isArray(t)
-    ? { v:t[0], l:t[1], detail: typeof t[2]==="string" ? t[2] : null, count: typeof t[2]==="number" ? t[2] : null }
-    : t);
-  return (
-    <div className="tab-row" data-equal={equal} style={equal ? { "--arcd-tab-count": itens.length } : undefined}>
-      <label className="tab-row__mobile"><span>{label}</span><select aria-label={label} value={itens.some(item=>item.v===active)?active:""} onChange={event=>onChange(event.target.value)}>{!itens.some(item=>item.v===active)&&<option value="" disabled>Selecione uma tela</option>}{itens.map(({v,l,count})=><option key={v} value={v}>{l}{count>0?` · ${count}`:""}</option>)}</select></label>
-      {itens.map(({v,l,icon,detail,count}) => {
-        const isActive = active === v;
-        return (
-          <button key={v} type="button" className="tab-row__tab" data-active={isActive} data-detail={Boolean(detail)} aria-pressed={isActive} onClick={() => onChange(v)}>
-            <span className="tab-row__label">
-              {icon && <Ic n={icon} s={13}/>}
-              {l}
-              {count>0 && <b className="tab-row__count">{count}</b>}
-            </span>
-            {detail && <small className="tab-row__detail">{detail}</small>}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function ReportMetric({ label, value, detail, color=C.yellow, icon="chart", active=false, onClick }) {
   const Comp=onClick?"button":"div";
   return <Comp type={onClick?"button":undefined} onClick={onClick} className={onClick?"lift-card":""} style={{
@@ -3364,94 +2436,6 @@ function ReportMetric({ label, value, detail, color=C.yellow, icon="chart", acti
     border:`1px solid ${active?color:C.line}`,borderRadius:9,padding:"10px 11px",cursor:onClick?"pointer":"default",
     boxShadow:active?`0 0 0 2px ${color}12`:C.shHair,position:"relative",overflow:"hidden",
   }}><span style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:color}}/><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:.8,textTransform:"uppercase",color:C.muted}}>{label}</p><span style={{width:24,height:24,borderRadius:7,display:"grid",placeItems:"center",background:`${color}10`,color}}><Ic n={icon} s={12} color={color}/></span></div><p style={{fontFamily:FONT_DISPLAY,fontSize:"clamp(17px,2vw,21px)",fontWeight:600,letterSpacing:-.55,color:C.text,lineHeight:1,marginTop:7}}>{value}</p>{detail&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>{detail}</p>}</Comp>;
-}
-
-export function Divider() {
-  return <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${C.line}, transparent)`, margin: "12px 0" }} />;
-}
-
-export function Modal({ title, children, onClose, wide = false, panelClass = "", footer = null }) {
-  const { isDesktop } = useBreakpoint();
-  const panelRef = useRef(null);
-  const previousFocusRef = useRef(null);
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-
-  useEffect(() => {
-    previousFocusRef.current = document.activeElement;
-    document.body.classList.add("no-scroll");
-    const focusTimer = window.setTimeout(() => {
-      const panel = panelRef.current;
-      // A primeira interação pode acontecer antes deste timer. Preservar o
-      // foco do campo evita fechar buscas e apagar a digitação por blur.
-      if (panel && !panel.contains(document.activeElement)) panel.focus();
-    }, 0);
-    const handleKeyDown = event => {
-      const panels = [...document.querySelectorAll(".arcd-modal-panel")];
-      if (panels.at(-1) !== panelRef.current) return;
-      if (event.key === "Escape") closeRef.current?.();
-      if (event.key !== "Tab" || !panelRef.current) return;
-      const focusable = [...panelRef.current.querySelectorAll(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
-      )].filter(element => element.offsetParent !== null);
-      if (!focusable.length) { event.preventDefault(); panelRef.current.focus(); return; }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.clearTimeout(focusTimer);
-      window.removeEventListener("keydown", handleKeyDown);
-      document.body.classList.remove("no-scroll");
-      previousFocusRef.current?.focus?.();
-    };
-  }, []);
-
-  return (
-    <div
-      className="no-print arcd-modal-overlay"
-      style={{
-        position:"fixed", inset:0, zIndex:999,
-        background:"rgba(18,18,18,.45)",
-        backdropFilter:"blur(8px)",
-        display:"flex", alignItems:"center", justifyContent:"center", padding:14,
-      }}
-      onMouseDown={e => { if(e.target===e.currentTarget) onClose?.(); }}
-    >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={textoUi(title)}
-        tabIndex={-1}
-        className={`animUp arcd-modal-panel ${panelClass}`.trim()}
-        style={{
-        width:"100%", maxWidth: wide ? (isDesktop?860:720) : (isDesktop?520:460),
-        maxHeight:"min(92dvh, 900px)", overflowY:"auto",
-        background:C.bg,
-        border:`1px solid ${C.border}`,
-        borderRadius:10,
-      }}>
-        <div className="arcd-modal-header" style={{
-          display:"flex", justifyContent:"space-between", alignItems:"center",
-          padding:"11px 14px",
-          borderBottom:`1px solid ${C.yellow}`,
-          background:C.surface,
-          borderRadius:"10px 10px 0 0",
-        }}>
-          <h3 className="arcd-dialog__title">{textoUi(title)}</h3>
-          <Btn v="ghost" size="sm" iconOnly onClick={onClose} title="Fechar" ariaLabel="Fechar">
-            <Ic n="x" s={13}/>
-          </Btn>
-        </div>
-        <div className="arcd-modal-notice" />
-        <div className="arcd-modal-body" style={{padding:14}}>{children}</div>
-        {footer&&<div className="arcd-modal-footer">{footer}</div>}
-      </div>
-    </div>
-  );
 }
 
 function Toast({ toast }) {
@@ -3483,36 +2467,6 @@ function Toast({ toast }) {
   );
   return noticeTarget ? createPortal(notice, noticeTarget) : notice;
 }
-
-//
-// Dashboard
-//
-
-//
-// HELPERS FINANCEIROS
-//
-
-const {
-  calcObraLaborCost,
-  calcDREObra,
-  calcDREConsolidado,
-  calcDREHistorico,
-  calcVisaoFinanceira,
-  calcLedgerAcumulado,
-  calcProjecaoContratoObra,
-  calculateFinancialRanking:calcularRankingFinanceiro,
-  calculateMonthlyFinancialReport:calcRelatorioMensal,
-} = createFinancialCalculationEngine({
-  getDays,
-  getQ,
-  monthName,
-  getPayrollHolidays,
-  isWeekdayIso:prIsWeekdayIso,
-  isEmployeeEmployedOnDate,
-  getAttendance:getAtt,
-  getAttendanceStatus:attStatus,
-  getHolidayPayRule,
-});
 export { calcProjecaoContratoObra };
 
 const {
@@ -3838,7 +2792,7 @@ function DashboardEngenheiro({data,update,showToast,onTab,currentUser,ultimaSync
   const aguardandoValidacao=ehAuditor?abertas.filter(x=>x.p.status==="aguardando_validacao").length:0;
   const aguardandoCorrecao=!ehAuditor?abertas.filter(x=>["aberta","em_ajuste"].includes(x.p.status)).length:0;
   const fila=useMemo(()=>construirFilaOperador(data,currentUser),[data,currentUser]);
-  const abrir=c=>{sessionStorage.setItem("arcd_obra_contexto",c.obraId);sessionStorage.setItem("arcd_conferencia_obra",c.obraId);onTab("conferencia");};
+  const abrir=c=>{sessionContext.setItem("arcd_obra_contexto",c.obraId);sessionContext.setItem("arcd_conferencia_obra",c.obraId);onTab("conferencia");};
   const impacto={baixo:C.green,medio:C.orange,alto:"#E26A2C",critico:C.red};
   return <div className="anim dashboard-tech-motion" style={{display:"flex",flexDirection:"column",gap:16}}>
     <DashboardTechHero data={data} currentUser={currentUser} ultimaSync={ultimaSync} fila={fila} onAbrir={onTab} saveState={saveState}/>
@@ -4838,206 +3792,14 @@ ${isConsolidado&&dre.obras.length>1?`<h2>Detalhamento por Obra</h2>${obrasSect}`
 
 const lerXmlFiscal=texto=>{try{const doc=new DOMParser().parseFromString(texto,"application/xml");const val=(...tags)=>{for(const tag of tags){const el=doc.getElementsByTagName(tag)[0]||doc.getElementsByTagNameNS("*",tag)[0];if(el?.textContent)return el.textContent.trim();}return"";};return{numero:val("nNF","numero"),serie:val("serie"),chave:val("chNFe","chave"),emissao:String(val("dhEmi","dEmi","dataEmissao")).slice(0,10),fornecedorNome:val("xNome","razaoSocial"),documentoFornecedor:val("CNPJ","CPF"),valorBruto:Number(String(val("vNF","valorNota","valorServicos")||0).replace(",",".")),retencoes:{iss:Number(String(val("vISSQN","valorISS")||0).replace(",",".")),inss:Number(String(val("vRetPrev","valorINSS")||0).replace(",",".")),irrf:Number(String(val("vIRRF","valorIR")||0).replace(",",".")),pis:Number(String(val("vPIS","valorPIS")||0).replace(",",".")),cofins:Number(String(val("vCOFINS","valorCOFINS")||0).replace(",",".")),csll:Number(String(val("valorCSLL")||0).replace(",",".")),outros:0}};}catch{return null;}};
 
-export const jsonDaRespostaIA=texto=>{const bruto=String(texto||"").trim();const cercado=bruto.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]||bruto;const inicio=cercado.indexOf("{");const fim=cercado.lastIndexOf("}");if(inicio<0||fim<=inicio)throw new Error("A IA não devolveu uma sugestão estruturada.");return JSON.parse(cercado.slice(inicio,fim+1));};
-export const arquivoComoDataUrl=file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error("Não foi possível ler o arquivo."));reader.readAsDataURL(file);});
-const C_MODO_IA={...C,purple:C.yellowD,blue:C.yellowD};
-export const C_ARCD_SETOR={...C,purple:C.yellowD};
-const normalizarIdentificacaoObra=valor=>String(valor||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
-const identificarObraPeloNomeArquivo=(nomeArquivo,obras=[])=>{
-  const arquivo=normalizarIdentificacaoObra(String(nomeArquivo||"").replace(/\.[^.]+$/, ""));
-  const compacto=arquivo.replace(/\s/g,"");
-  if(!arquivo)return null;
-  const avaliadas=obras.map(obra=>{
-    const nome=normalizarIdentificacaoObra(obra.name),nomeCompacto=nome.replace(/\s/g,"");
-    const tokens=nome.split(" ").filter(t=>t.length>=2);
-    const cliente=normalizarIdentificacaoObra(obra.cliente||obra.client),clienteCompacto=cliente.replace(/\s/g,"");
-    let confianca=0,evidencia="";
-    if(nomeCompacto.length>=3&&compacto.includes(nomeCompacto)){confianca=100;evidencia=`O título contém “${obra.name}”.`;}
-    else if(tokens.length&&tokens.every(t=>arquivo.includes(t))){confianca=90;evidencia=`Os identificadores de “${obra.name}” aparecem no título.`;}
-    else if(tokens.length>=2){const proporcao=tokens.filter(t=>arquivo.includes(t)).length/tokens.length;if(proporcao>=.66){confianca=76;evidencia=`A maior parte do nome “${obra.name}” aparece no título.`;}}
-    if(confianca<70&&clienteCompacto.length>=5&&compacto.includes(clienteCompacto)){confianca=68;evidencia=`O título contém o cliente “${obra.cliente||obra.client}”, mas a obra precisa ser confirmada.`;}
-    return{obraId:obra.id,obraNome:obra.name,confianca,evidencia,fonte:"nome do arquivo"};
-  }).sort((a,b)=>b.confianca-a.confianca);
-  const melhor=avaliadas[0],segunda=avaliadas[1];
-  return melhor?.confianca>=75&&(!segunda||melhor.confianca-segunda.confianca>=12)?melhor:null;
-};
-
-const destinosDocumentoIA=(data,modulo)=>{
-  if(modulo==="compras"){
-    const fornecedores=new Map((data.fornecedores||[]).map(f=>[f.id,f.nome]));
-    const materiais=new Map((data.materiais||[]).map(m=>[m.id,m.descricao]));
-    const pedidos=(data.pedidos||[]).filter(p=>p.status!=="cancelado").map(p=>({id:`pedido-${p.id}`,entidade:"pedido",entidadeId:p.id,obraId:p.obraId||"",data:p.data||"",valor:totalPedido(p),pasta:`Pedidos/${p.numero||p.data||"Sem número"}`,label:`Pedido ${p.numero||"sem número"} · ${fornecedores.get(p.fornecedorId)||"Fornecedor"} · ${fmt(totalPedido(p))}`}));
-    const cotacoes=(data.cotacoes||[]).flatMap(c=>{const totais=mapaDaCotacao(c).totaisPorProposta;return (c.propostas||[]).map(p=>({id:`cotacao-${c.id}-${p.id}`,entidade:"cotacao",entidadeId:c.id,propostaId:p.id,obraId:c.obraId||"",data:c.data||"",valor:Number(totais[p.id]||0),pasta:`Cotações/${c.data||today()}/${fornecedores.get(p.fornecedorId)||"Fornecedor"}`,label:`Cotação · ${materiais.get(c.materialId)||"Material"} · ${fornecedores.get(p.fornecedorId)||"Fornecedor"} · ${fmt(Number(totais[p.id]||0))}`}));});
-    return[...cotacoes,...pedidos].sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
-  }
-  const medicoes=(data.medicoes||[]).map(m=>({id:`med-${m.id}`,entidade:"movimento",obraId:m.obraId||"",data:m.dataPagamento||m.dataVencimento||m.competencia||"",valor:Number(m.valorPrevisto||0),pasta:`Medições/${String(m.competencia||m.dataVencimento||today()).slice(0,7)}`,label:`Medição · ${m.descricao||m.numeroParcela||"obra"} · ${fmt(Number(m.valorPrevisto||0))}`}));
-  const recebimentos=(data.payments||[]).map(p=>({id:`pay-${p.id}`,entidade:"movimento",obraId:p.obraId||"",data:p.date||"",valor:Number(p.amount||0),pasta:`Comprovantes/${String(p.date||today()).slice(0,7)}`,label:`Recebimento · ${p.description||"entrada"} · ${fmt(Number(p.amount||0))}`}));
-  const notas=(data.notasFiscais||[]).map(n=>({id:`nf-${n.id}`,entidade:"nota",entidadeId:n.id,obraId:n.obraId||"",data:n.emissao||n.criadoEm||"",valor:Number(n.valorLiquido||n.valorBruto||0),pasta:`Notas fiscais/${String(n.emissao||today()).slice(0,7)}`,label:`${String(n.tipo||"NF").toUpperCase()} ${n.numero||"sem número"} · ${n.fornecedorNome||"Fornecedor"} · ${fmt(Number(n.valorLiquido||n.valorBruto||0))}`}));
-  const despesas=(data.outrasDesp||[]).map(d=>({id:`desp-${d.id}`,entidade:"movimento",obraId:d.obraId||"",data:d.competencia||"",valor:Number(d.valor||0),pasta:`Despesas/${String(d.competencia||today()).slice(0,7)}`,label:`Despesa da obra · ${d.descricao||d.categoria||"lançamento"} · ${fmt(Number(d.valor||0))}`}));
-  const administrativas=(data.despesasEmpresa||[]).map(d=>({id:`adm-${d.id}`,entidade:"movimento",obraId:"",data:d.competencia||"",valor:Number(d.valor||0),pasta:`Administrativo/${String(d.competencia||today()).slice(0,7)}`,label:`Administrativo · ${d.descricao||d.categoria||"lançamento"} · ${fmt(Number(d.valor||0))}`}));
-  const banco=(data.transacoes||[]).map(t=>({id:`bank-${Number(t.valor)>=0?"in":"out"}-${t.id}`,entidade:"movimento",obraId:(t.rateios||[]).find(r=>r.obraId)?.obraId||"",data:t.data||"",valor:Math.abs(Number(t.valor||0)),pasta:`Conciliação bancária/${String(t.data||today()).slice(0,7)}`,label:`Banco · ${t.descricao||"movimentação"} · ${fmt(Math.abs(Number(t.valor||0)))}`}));
-  return[...notas,...medicoes,...recebimentos,...despesas,...administrativas,...banco].sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
-};
-
-const sugerirDestinoDocumento=(destinos,sugestao,obraId)=>{
-  const valor=Number(sugestao?.valorLiquido||sugestao?.valorBruto||0);const texto=normalizarIdentificacaoObra([sugestao?.numero,sugestao?.fornecedorNome,sugestao?.descricao].join(" "));
-  const avaliados=destinos.filter(d=>!obraId||!d.obraId||d.obraId===obraId).map(d=>{let pontos=0;if(obraId&&d.obraId===obraId)pontos+=2;if(valor&&Math.abs(Number(d.valor||0)-valor)<=Math.max(.02,valor*.005))pontos+=4;const alvo=normalizarIdentificacaoObra(d.label);const tokens=texto.split(" ").filter(t=>t.length>=3);if(tokens.some(t=>alvo.includes(t)))pontos+=2;return{d,pontos};}).sort((a,b)=>b.pontos-a.pontos);
-  const melhor=avaliados[0],segundo=avaliados[1];return melhor?.pontos>=5&&(!segundo||melhor.pontos-segundo.pontos>=2)?melhor.d:null;
-};
-
-export function ModoIADocumento({modulo,data,update,showToast,currentUser,onClose,obraIdInicial="",C=C_MODO_IA,dispatchCommand=null}){
-  const {formGrid}=useBreakpoint();
-  const obras=(data.obras||[]).filter(o=>!currentUser?.obraId||o.id===currentUser.obraId);
-  const destinos=useMemo(()=>destinosDocumentoIA(data,modulo).filter(d=>!currentUser?.obraId||!d.obraId||d.obraId===currentUser.obraId),[data,modulo,currentUser?.obraId]);
-  const formInicial=()=>({obraId:obraIdInicial||currentUser?.obraId||"",tipoDocumento:"outro",numero:"",emissao:today(),vencimento:"",fornecedorNome:"",documentoFornecedor:"",descricao:"",categoria:"",valorBruto:"",valorLiquido:"",subfolder:`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}`,origemPagamento:"empresa",legendaDocumento:"",destinoId:""});
-  const [arquivo,setArquivo]=useState(null);const [dataUrl,setDataUrl]=useState("");const [analisando,setAnalisando]=useState(false);const [salvando,setSalvando]=useState(false);const [sugestao,setSugestao]=useState(null);const [obraMatch,setObraMatch]=useState(null);
-  const [lote,setLote]=useState([]);const [ativoId,setAtivoId]=useState("");
-  const [statusIA,setStatusIA]=useState("verificando");
-  const [form,setForm]=useState(formInicial);
-  const F=k=>v=>setForm(f=>({...f,[k]:v}));
-  useEffect(()=>{let ativo=true;verificarStatusIA().then(r=>{if(ativo)setStatusIA(r.ok&&r.configured?"disponivel":"indisponivel");}).catch(()=>{if(ativo)setStatusIA("indisponivel");});return()=>{ativo=false;};},[]);
-  const carregarItem=item=>{if(!item)return;setAtivoId(item.id);setArquivo(item.arquivo);setDataUrl(item.dataUrl);setSugestao(item.sugestao||null);setObraMatch(item.obraMatch||null);setForm(item.form||formInicial());};
-  const selecionarArquivo=async e=>{const files=Array.from(e.target.files||[]).slice(0,10);e.target.value="";if(!files.length)return;const validos=files.filter(file=>/^(application\/pdf|image\/(jpeg|png|webp))$/i.test(file.type)&&file.size<=5.5*1024*1024);if(validos.length!==files.length)showToast(`${files.length-validos.length} arquivo(s) ignorado(s). Use PDF, JPG, PNG ou WEBP com até 5,5 MB.`,"error");if(!validos.length)return;const itens=await Promise.all(validos.map(async file=>{const match=identificarObraPeloNomeArquivo(file.name,obras);return{id:uid(),arquivo:file,dataUrl:await arquivoComoDataUrl(file),form:{...formInicial(),legendaDocumento:String(file.name||"").replace(/\.[^.]+$/,"")||"Documento analisado por IA",...(match&&!obraIdInicial&&!currentUser?.obraId?{obraId:match.obraId}:{})},sugestao:null,obraMatch:match,status:"pendente",erro:""};}));setLote(itens);carregarItem(itens[0]);showToast(`${itens.length} documento(s) adicionado(s). Cada arquivo terá uma análise independente.`);void executarLote(itens);};
-  const analisar=async()=>{if(!arquivo||!dataUrl){showToast("Selecione um documento para analisar.","error");return;}setAnalisando(true);try{
-    const contexto={modulo,arquivoNome:arquivo.name,obraSugeridaPeloTitulo:obraMatch,obras:obras.map(o=>({id:o.id,nome:o.name,cliente:o.cliente||o.client||"",endereco:o.address||""})),fornecedores:(data.fornecedores||[]).map(f=>({nome:f.nome,cnpj:f.cnpj})).slice(0,200),destinosExistentes:destinos.slice(0,250).map(d=>({id:d.id,obraId:d.obraId,data:d.data,valor:d.valor,descricao:d.label}))};
-    const prompt=`Leia integralmente este documento financeiro/comercial. Pode ser NF-e, NFS-e, cotação de fornecedor, boleto, recibo, comprovante, conta de energia, água, internet ou outro documento. Identifique a obra comparando PRIMEIRO o nome original do arquivo (${arquivo.name}) e depois o texto do documento com a lista de obras do contexto. Compare número, fornecedor, obra, data, descrição e valor com destinosExistentes. Só preencha destinoId quando houver correspondência forte; ele deve ser exatamente um ID da lista. Se não houver, deixe vazio para o operador criar um lançamento. Retorne SOMENTE JSON válido, sem markdown, neste formato: {"obraId":"","obraNome":"","obraConfianca":0,"obraEvidencia":"trecho do nome do arquivo ou documento que justificou a associação","destinoId":"","tipoDocumento":"nfe|nfse|cotacao|boleto|recibo|energia|agua|internet|frete|outro","numero":"","emissao":"YYYY-MM-DD ou vazio","vencimento":"YYYY-MM-DD ou vazio","fornecedorNome":"","documentoFornecedor":"CNPJ/CPF ou vazio","descricao":"descrição objetiva do lançamento","categoria":"categoria contábil/compra sugerida","valorBruto":0,"valorLiquido":0,"confianca":0,"resumo":"","alertas":[""],"itens":[{"descricao":"","quantidade":1,"unidade":"UN","valorUnitario":0}]}. Não invente valores ilegíveis; use vazio ou zero e gere alerta. As confianças vão de 0 a 100.`;
-    const body={modulo,prompt,contexto};if(arquivo.type==="application/pdf")body.documentos=[{dataUrl,nome:arquivo.name}];else body.imagens=[{dataUrl,legenda:arquivo.name}];
-    const json=await chamarIA(body);if(!json.ok)throw new Error(json.error||"A IA não conseguiu analisar o documento.");const s=jsonDaRespostaIA(json.reply||json.answer);
-    const obraIA=obras.find(o=>o.id===s.obraId);const confiancaObraIA=Math.max(0,Math.min(100,Number(s.obraConfianca||0)));const fixa=obraIdInicial||currentUser?.obraId;const matchFinal=fixa?{obraId:fixa,obraNome:obras.find(o=>o.id===fixa)?.name||"",confianca:100,evidencia:"Obra definida pelo contexto de acesso.",fonte:"contexto"}:obraMatch||(obraIA&&confiancaObraIA>=60?{obraId:obraIA.id,obraNome:obraIA.name,confianca:confiancaObraIA,evidencia:s.obraEvidencia||"Associação sugerida pela leitura do documento.",fonte:"IA"}:null);
-    const destinoSugerido=(Number(s.confianca||0)>=75?destinos.find(d=>d.id===s.destinoId):null)||sugerirDestinoDocumento(destinos,s,matchFinal?.obraId||form.obraId);
-    const novoForm={...form,obraId:matchFinal?.obraId||destinoSugerido?.obraId||form.obraId,tipoDocumento:["nfe","nfse","boleto","recibo","energia","agua","internet","frete","outro"].includes(s.tipoDocumento)?s.tipoDocumento:"outro",numero:s.numero||form.numero,emissao:s.emissao||form.emissao,vencimento:s.vencimento||"",fornecedorNome:s.fornecedorNome||"",documentoFornecedor:s.documentoFornecedor||"",descricao:s.descricao||s.itens?.[0]?.descricao||"",categoria:s.categoria||"",valorBruto:String(Number(s.valorBruto||0)||""),valorLiquido:String(Number(s.valorLiquido||s.valorBruto||0)||""),destinoId:destinoSugerido?.id||"",legendaDocumento:form.legendaDocumento||s.descricao||s.tipoDocumento||"Documento analisado por IA"};setObraMatch(matchFinal);setSugestao(s);setForm(novoForm);setLote(lista=>lista.map(item=>item.id===ativoId?{...item,sugestao:s,obraMatch:matchFinal,form:novoForm,status:"revisar",erro:""}:item));
-    showToast(matchFinal?`Leitura concluída. Obra sugerida por ${matchFinal.fonte}; revise antes de aceitar.`:"Leitura concluída. Confirme manualmente a obra antes de aceitar.",matchFinal?undefined:"warn");
-  }catch(err){setLote(lista=>lista.map(item=>item.id===ativoId?{...item,status:"erro",erro:err.message||"Falha na leitura"}:item));showToast(err.message||"Falha na leitura por IA.","error");}finally{setAnalisando(false);}};
-  const analisarDocumentoDoLote=async(item,indice,total)=>{
-    const a=item.arquivo,u=item.dataUrl,matchTitulo=item.obraMatch,formItem=item.form||formInicial();
-    const contexto={modulo,arquivoNome:a.name,documentoNoLote:indice,totalNoLote:total,regraDoLote:"Analise exclusivamente este arquivo e não reutilize dados de outros documentos.",obraSugeridaPeloTitulo:matchTitulo,obras:obras.map(o=>({id:o.id,nome:o.name,cliente:o.cliente||o.client||"",endereco:o.address||""})),fornecedores:(data.fornecedores||[]).map(f=>({nome:f.nome,cnpj:f.cnpj})).slice(0,200),destinosExistentes:destinos.slice(0,250).map(d=>({id:d.id,obraId:d.obraId,data:d.data,valor:d.valor,descricao:d.label}))};
-    const prompt=`Analise SOMENTE o arquivo “${a.name}”. Esta é a análise ${indice} de ${total}, mas ela deve ser totalmente independente: não combine fornecedor, CNPJ/CPF, número, valores, datas, itens ou obra com qualquer outro arquivo do lote. Leia integralmente o documento. Ele pode ser NF-e, NFS-e, cotação, boleto, recibo, comprovante ou conta de consumo. Identifique a obra comparando primeiro o nome original do arquivo e depois o conteúdo com a lista de obras. Só preencha destinoId se houver correspondência forte e ele existir no contexto. Retorne SOMENTE JSON válido, sem markdown: {"obraId":"","obraNome":"","obraConfianca":0,"obraEvidencia":"","destinoId":"","tipoDocumento":"nfe|nfse|cotacao|boleto|recibo|energia|agua|internet|frete|outro","numero":"","emissao":"YYYY-MM-DD ou vazio","vencimento":"YYYY-MM-DD ou vazio","fornecedorNome":"","documentoFornecedor":"","descricao":"","categoria":"","valorBruto":0,"valorLiquido":0,"confianca":0,"resumo":"","alertas":[""],"itens":[{"descricao":"","quantidade":1,"unidade":"UN","valorUnitario":0}]}. Não invente conteúdo ilegível; use vazio ou zero e gere alerta.`;
-    const body={modulo,prompt,contexto};if(a.type==="application/pdf")body.documentos=[{dataUrl:u,nome:a.name}];else body.imagens=[{dataUrl:u,legenda:a.name}];
-    const json=await chamarIA(body);if(!json.ok)throw new Error(json.error||"A IA não conseguiu analisar o documento.");const leitura=jsonDaRespostaIA(json.reply||json.answer);const s={...leitura,resumo:total>1?`Documento ${indice} de ${total} · ${leitura.resumo||"Análise individual concluída."}`:leitura.resumo};
-    const obraIA=obras.find(o=>o.id===s.obraId);const confiancaObraIA=Math.max(0,Math.min(100,Number(s.obraConfianca||0)));const fixa=obraIdInicial||currentUser?.obraId;const matchFinal=fixa?{obraId:fixa,obraNome:obras.find(o=>o.id===fixa)?.name||"",confianca:100,evidencia:"Obra definida pelo contexto de acesso.",fonte:"contexto"}:matchTitulo||(obraIA&&confiancaObraIA>=60?{obraId:obraIA.id,obraNome:obraIA.name,confianca:confiancaObraIA,evidencia:s.obraEvidencia||"Associação sugerida pela leitura do documento.",fonte:"IA"}:null);
-    const destinoSugerido=(Number(s.confianca||0)>=75?destinos.find(d=>d.id===s.destinoId):null)||sugerirDestinoDocumento(destinos,s,matchFinal?.obraId||formItem.obraId);
-    const novoForm={...formItem,obraId:matchFinal?.obraId||destinoSugerido?.obraId||formItem.obraId,tipoDocumento:["nfe","nfse","boleto","recibo","energia","agua","internet","frete","outro"].includes(s.tipoDocumento)?s.tipoDocumento:"outro",numero:s.numero||formItem.numero,emissao:s.emissao||formItem.emissao,vencimento:s.vencimento||"",fornecedorNome:s.fornecedorNome||"",documentoFornecedor:s.documentoFornecedor||"",descricao:s.descricao||s.itens?.[0]?.descricao||"",categoria:s.categoria||"",valorBruto:String(Number(s.valorBruto||0)||""),valorLiquido:String(Number(s.valorLiquido||s.valorBruto||0)||""),destinoId:destinoSugerido?.id||"",legendaDocumento:formItem.legendaDocumento||s.descricao||s.tipoDocumento||"Documento analisado por IA"};
-    return{...item,sugestao:s,obraMatch:matchFinal,form:novoForm,status:"revisar",erro:""};
-  };
-  const executarLote=async itens=>{const origem=(itens||lote).map(item=>item.id===ativoId?{...item,form,sugestao,obraMatch}:item);if(!origem.length||statusIA!=="disponivel"){showToast("Confirme a conexão da IA antes de enviar o lote.","error");return;}setAnalisando(true);setLote(origem);const resultados=[];let concluidos=0,falhas=0;for(let i=0;i<origem.length;i++){const atual={...origem[i],status:"analisando",erro:""};setLote(lista=>lista.map(item=>item.id===atual.id?atual:item));try{const pronto=await analisarDocumentoDoLote(atual,i+1,origem.length);resultados.push(pronto);concluidos++;setLote(lista=>lista.map(item=>item.id===pronto.id?pronto:item));}catch(err){const falho={...atual,status:"erro",erro:err.message||"Falha na análise"};resultados.push(falho);falhas++;setLote(lista=>lista.map(item=>item.id===falho.id?falho:item));}}const primeiro=resultados.find(item=>item.status==="revisar")||resultados[0];if(primeiro)carregarItem(primeiro);setAnalisando(false);showToast(`${concluidos} documento(s) analisado(s) separadamente${falhas?` · ${falhas} com falha`:""}.`,falhas?"warn":undefined);};
-  const concluirDocumentoAtivo=()=>{const restantes=lote.filter(item=>item.id!==ativoId);setLote(restantes);if(restantes.length)carregarItem(restantes[0]);else onClose?.();};
-  const aceitar=async()=>{
-    const destino=destinos.find(d=>d.id===form.destinoId);
-    if(!arquivo||!dataUrl||!String(form.legendaDocumento||"").trim()||(!destino&&(!form.obraId||Number(form.valorBruto)<=0))){showToast("Confirme destino, obra, legenda e valor antes de aceitar.","error");return;}
-    if(!window.confirm(destino?`Vincular o documento a “${destino.label}”?`:`Criar o lançamento sugerido de ${fmt(Number(form.valorBruto))}?`))return;
-    setSalvando(true);
-    try{
-      const obraUploadId=destino?.obraId||form.obraId;const obra=obras.find(o=>o.id===obraUploadId)||(data.obras||[]).find(o=>o.id===obraUploadId);
-      const competencia=String(form.emissao||today()).slice(0,7);const pastaNova=modulo==="compras"?`Pedidos IA/${competencia}`:["nfe","nfse","frete"].includes(form.tipoDocumento)?`Notas fiscais/${competencia}`:["recibo","boleto"].includes(form.tipoDocumento)?`Comprovantes/${competencia}`:["energia","agua","internet"].includes(form.tipoDocumento)?`Contas de consumo/${competencia}`:`Documentos analisados/${competencia}`;
-      const resp=await enviarArquivoOneDrive({dataUrl,obraName:obra?.name||"Administrativo",driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,category:modulo==="compras"?"compras":"financeiro",subfolder:destino?.pasta||pastaNova,date:form.emissao||today(),fileName:arquivo.name});
-      if(!resp.ok&&!resp.url)throw new Error(resp.error||"Falha ao salvar no OneDrive.");
-      const agora=new Date().toISOString();const doc={id:resp.item?.id||uid(),nome:resp.item?.name||arquivo.name,legenda:String(form.legendaDocumento).trim(),url:resp.item?.webUrl||resp.url,path:resp.path||"",tipo:arquivo.type,tamanho:arquivo.size||0,enviadoEm:agora,enviadoPorId:currentUser?.id||"",enviadoPor:currentUser?.nome||""};
-      const obrasAtualizadas=(data.obras||[]).map(o=>o.id===obraUploadId?{...o,oneDriveDriveId:resp.workspace?.driveId||o.oneDriveDriveId,oneDriveFolderId:resp.workspace?.folderId||o.oneDriveFolderId,oneDriveFolders:resp.workspace?.folders||o.oneDriveFolders,oneDriveUrl:resp.workspace?.webUrl||o.oneDriveUrl}:o);
-      const analiseIA={...sugestao,confianca:Number(sugestao?.confianca||0),revisadoPorId:currentUser?.id||"",revisadoPor:currentUser?.nome||"",revisadoEm:agora};
-      if(destino){
-        if(modulo==="financeiro"){
-          let commandData=data;
-          if(destino.entidade==="nota"){
-            if(!dispatchCommand)throw new Error("Comando fiscal indisponível.");
-            const result=await dispatchCommand(atual=>{
-              const nota=(atual.notasFiscais||[]).find(n=>n.id===destino.entidadeId);
-              return {
-                type:OPERATIONAL_COMMAND.INVOICE_SAVED,
-                idempotencyKey:`invoice-document-${destino.entidadeId}-${doc.id}-${uid()}`,
-                expectedVersion:Number(nota?.version||0),
-                actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-                payload:{invoice:{
-                  ...nota,documentos:[...(nota?.documentos||[]),doc],
-                }},
-              };
-            });
-            if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o vínculo à nota.");
-            commandData=result.data;
-          }
-          const registros=commandData.documentosMovimentacoes||[];
-          const registro=registros.find(r=>r.movimentoId===destino.id);
-          const documentosMovimentacoes=registro
-            ?registros.map(r=>r.movimentoId===destino.id
-              ?{...r,documentos:[...(r.documentos||[]),doc]}:r)
-            :[...registros,{id:uid(),movimentoId:destino.id,
-              obraId:destino.obraId||"",tipo:destino.label.split(" · ")[0],
-              documentos:[doc]}];
-          update({...commandData,obras:(commandData.obras||[]).map(o=>
-            o.id===obraUploadId?obrasAtualizadas.find(item=>item.id===o.id)||o:o),
-            documentosMovimentacoes});
-        }else if(destino.entidade==="cotacao"){
-          update({...data,obras:obrasAtualizadas,cotacoes:(data.cotacoes||[]).map(c=>c.id===destino.entidadeId?{...c,propostas:(c.propostas||[]).map(p=>p.id===destino.propostaId?{...p,documentos:[...(p.documentos||[]),doc]}:p)}:c)});
-        }else{
-          if(!dispatchCommand)throw new Error("Comando de compras indisponível.");
-          const result=await dispatchCommand(atual=>{
-            const pedido=(atual.pedidos||[]).find(item=>item.id===destino.entidadeId);
-            return {
-              type:OPERATIONAL_COMMAND.PURCHASE_ORDER_DOCUMENT_ATTACHED,
-              idempotencyKey:`purchase-order-document-${destino.entidadeId}-${doc.id}-${uid()}`,
-              expectedVersion:Number(pedido?.version||0),
-              actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-              payload:{orderId:destino.entidadeId,document:doc},
-            };
-          });
-          if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o vínculo ao pedido.");
-          update({...result.data,obras:(result.data.obras||[]).map(o=>
-            o.id===obraUploadId?obrasAtualizadas.find(item=>item.id===o.id)||o:o)});
-        }
-        showToast("Documento analisado, salvo no diretório correto e vinculado ao item selecionado.");concluirDocumentoAtivo();return;
-      }
-      if(modulo==="financeiro"){
-        const notaId=uid();const numero=String(form.numero||`DOC-${Date.now()}`).trim();const nota={id:notaId,tipo:["nfe","nfse","frete"].includes(form.tipoDocumento)?form.tipoDocumento:"outro",numero,serie:"",chave:"",emissao:form.emissao||today(),vencimento:form.vencimento||"",fornecedorId:"",fornecedorNome:form.fornecedorNome||"Não identificado",documentoFornecedor:form.documentoFornecedor||"",obraId:form.obraId,pedidoId:"",valorBruto:Number(form.valorBruto),valorLiquido:Number(form.valorLiquido||form.valorBruto),retencoes:{iss:0,inss:0,irrf:0,pis:0,cofins:0,csll:0,outros:0},rateios:[{id:uid(),obraId:form.obraId,etapaId:"",percentual:100,valor:Number(form.valorBruto)}],documentos:[doc],status:"recebida",divergencias:sugestao?.alertas||[],analiseIA,descricao:form.descricao,categoria:form.categoria,pastaDrive:pastaNova,criadoPorId:currentUser?.id||"",criadoPor:currentUser?.nome||"",criadoEm:agora,atualizadoEm:agora};
-        if(!dispatchCommand)throw new Error("Comando fiscal indisponível.");
-        const result=await dispatchCommand(()=>({
-          type:OPERATIONAL_COMMAND.INVOICE_SAVED,
-          idempotencyKey:`invoice-ai-create-${notaId}-${uid()}`,
-          expectedVersion:0,
-          actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-          payload:{invoice:nota},
-        }));
-        if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a nota.");
-        const documentosMovimentacoes=[...(result.data.documentosMovimentacoes||[]),{
-          id:uid(),movimentoId:`nf-${notaId}`,obraId:form.obraId,
-          tipo:"Nota fiscal",documentos:[doc]}];
-        update({...result.data,obras:(result.data.obras||[]).map(o=>
-          o.id===obraUploadId?obrasAtualizadas.find(item=>item.id===o.id)||o:o),
-          documentosMovimentacoes});
-      }else{
-        if(!dispatchCommand)throw new Error("Comando de compras indisponível.");
-        const norm=v=>String(v||"").replace(/\D/g,"");
-        let fornecedor=(data.fornecedores||[]).find(f=>
-          (norm(form.documentoFornecedor)&&norm(f.cnpj)===norm(form.documentoFornecedor))
-          ||String(f.nome||"").toLowerCase()===String(form.fornecedorNome||"").toLowerCase());
-        const novoFornecedor=!fornecedor?{
-          id:uid(),nome:form.fornecedorNome||"Fornecedor a confirmar",
-          cnpj:form.documentoFornecedor||"",categorias:[],ativo:true,
-        }:null;
-        fornecedor=fornecedor||novoFornecedor;
-        const material={id:uid(),codigo:`IA-${String((data.materiais||[]).length+1).padStart(4,"0")}`,descricao:maiusculoOrcamento(form.descricao||form.categoria||"ITEM LIDO POR IA"),unidade:"UN",categoria:"outros",estoqueMin:0,precoMedio:Number(form.valorBruto),fonteRef:"IA",ativo:true};
-        const pedido={id:uid(),numero:`PC-IA-${String((data.pedidos||[]).length+1).padStart(4,"0")}`,obraId:form.obraId,fornecedorId:fornecedor.id,data:form.emissao||today(),previsao:form.vencimento||"",status:"rascunho",referenciaId:"",solicitacaoId:"",itens:[{id:uid(),materialId:material.id,qtd:1,precoUnit:Number(form.valorBruto),qtdRecebida:0,orcItemId:"",orcNivel1Id:"",referenciaId:"",fonteRef:"IA",codigoRef:material.codigo,descricaoRef:material.descricao,unidadeRef:"UN",precoRef:Number(form.valorBruto),dataBaseRef:"",ufRef:""}],cotacaoId:"",transacaoId:"",origemPagamento:form.origemPagamento,pagamentos:[],documentos:[doc],analiseIA,criadoPorId:currentUser?.id||"",criadoPor:currentUser?.nome||"",criadoEm:agora,obs:`Documento ${form.numero||arquivo.name} · ${form.categoria||"classificação a revisar"}`};
-        const result=await dispatchCommand(()=>({
-          type:OPERATIONAL_COMMAND.PURCHASE_ORDER_SAVED,
-          idempotencyKey:`purchase-order-ai-${pedido.id}-${uid()}`,
-          expectedVersion:0,actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
-          payload:{order:pedido,newSupplier:novoFornecedor,newMaterials:[material]},
-        }));
-        if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou o novo pedido.");
-        update({...result.data,obras:(result.data.obras||[]).map(o=>
-          o.id===obraUploadId?obrasAtualizadas.find(item=>item.id===o.id)||o:o)});
-      }
-      showToast(modulo==="financeiro"?"Documento salvo, vinculado à nova nota e enviado para conferência fiscal.":"Documento salvo e vinculado ao novo pedido em rascunho.");concluirDocumentoAtivo();
-    }catch(err){showToast(err.message||"Não foi possível concluir o lançamento.","error");}finally{setSalvando(false);}
-  };
-  if(!arquivo)return <Modal title={`Modo IA · ${modulo==="compras"?"Compras":"Financeiro"}`} onClose={onClose} wide><div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{padding:14,border:`1px solid ${C.yellow}55`,borderRadius:12,background:`linear-gradient(135deg,${C.yellow}12,${C.surface})`}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,letterSpacing:1.1,textTransform:"uppercase",color:C.yellowD}}>Verificação documental em lote</p><h3 style={{fontSize:"var(--arcd-type-card-title)",color:C.text,marginTop:4}}>Uma análise independente para cada arquivo</h3><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55,marginTop:5}}>Selecione até 10 imagens ou PDFs. O Gemini processará um documento por chamada para não misturar obra, fornecedor, datas, itens ou valores. Depois, cada sugestão deverá ser revisada e aceita separadamente.</p></div><label style={{minHeight:150,padding:22,border:`2px dashed ${statusIA==="disponivel"?C.yellow:C.border}`,borderRadius:12,textAlign:"center",cursor:statusIA==="disponivel"?"pointer":"wait",background:C.card,display:"grid",placeItems:"center"}}><div><span style={{width:44,height:44,borderRadius:12,display:"grid",placeItems:"center",margin:"0 auto 9px",background:C.text,color:C.yellow}}><Ic n="fileText" s={21}/></span><b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{statusIA==="disponivel"?"Selecionar imagens e documentos":"Verificando conexão com a IA..."}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>PDF, JPG, PNG ou WEBP · até 10 arquivos · 5,5 MB por arquivo</p></div><input type="file" multiple accept=".pdf,image/jpeg,image/png,image/webp" disabled={statusIA!=="disponivel"} onChange={selecionarArquivo} style={{display:"none"}}/></label>{statusIA==="indisponivel"&&<div style={{padding:"9px 11px",border:`1px solid ${C.red}55`,borderRadius:8,background:`${C.red}09`,fontSize:"var(--arcd-type-label)",color:C.red}}>A IA não está disponível. Solicite ao administrador que valide a integração Gemini.</div>}<Btn v="ghost" onClick={onClose} full>Cancelar</Btn></div></Modal>;
-  const confianca=Math.max(0,Math.min(100,Number(sugestao?.confianca||0)));
-  return <Modal title={`Modo IA · ${modulo==="compras"?"Compras":"Financeiro"}`} onClose={onClose} wide><div style={{display:"flex",flexDirection:"column",gap:11}}><div style={{background:`linear-gradient(135deg,${C.purple}12,${C.blue}09)`,border:`1px solid ${C.purple}44`,borderRadius:10,padding:12,display:"flex",gap:10,alignItems:"center"}}><span style={{width:38,height:38,borderRadius:10,display:"grid",placeItems:"center",background:C.purple,color:"#fff"}}><Ic n="brain" s={19}/></span><div style={{flex:1}}><b style={{fontSize:"var(--arcd-type-body)",color:C.purple}}>Leitura assistida e auditável</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A IA sugere o lançamento e procura o item correspondente. Você confirma o vínculo e o diretório antes de salvar.</p></div><Badge color={statusIA==="disponivel"?C.green:statusIA==="verificando"?C.orange:C.red}>{statusIA==="disponivel"?"IA CONECTADA":statusIA==="verificando"?"VERIFICANDO":"IA INDISPONÍVEL"}</Badge></div>{statusIA==="indisponivel"&&<div style={{padding:"9px 11px",border:`1px solid ${C.red}55`,borderRadius:8,background:`${C.red}09`,fontSize:"var(--arcd-type-label)",color:C.red}}>O serviço de IA não está configurado na produção. Solicite ao administrador a ativação da integração.</div>}<label style={{padding:15,border:`2px dashed ${arquivo?C.green:C.blue}66`,borderRadius:10,textAlign:"center",cursor:"pointer",background:arquivo?`${C.green}08`:C.card}}><b style={{fontSize:"var(--arcd-type-label)",color:arquivo?C.green:C.blue}}>{arquivo?arquivo.name:"Selecionar PDF ou imagem"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>PDF, JPG, PNG ou WEBP · máximo 5,5 MB</p><input type="file" accept=".pdf,image/jpeg,image/png,image/webp" onChange={selecionarArquivo} style={{display:"none"}}/></label>{obraMatch&&<div style={{padding:"9px 11px",border:`1px solid ${C.green}55`,borderRadius:8,background:`${C.green}08`,fontSize:"var(--arcd-type-caption)",color:C.subtle}}><b style={{color:C.green}}>Obra reconhecida: {obraMatch.obraNome}</b> · {obraMatch.fonte} ({Math.round(obraMatch.confianca)}%)<p style={{marginTop:2,color:C.muted}}>{obraMatch.evidencia}</p></div>}<Btn onClick={analisar} disabled={!arquivo||analisando||statusIA!=="disponivel"} full><Ic n="ia"/> {analisando?"Lendo documento...":statusIA==="verificando"?"Verificando serviço...":"Analisar e sugerir lançamento"}</Btn>{sugestao&&<><div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:10,alignItems:"center",padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:8}}><div><b style={{fontSize:"var(--arcd-type-label)"}}>Confiança da leitura</b><div style={{height:5,background:C.surface,borderRadius:99,marginTop:5,overflow:"hidden"}}><div style={{height:"100%",width:`${confianca}%`,background:confianca>=80?C.green:confianca>=55?C.yellow:C.red}}/></div></div><b style={{fontSize:"var(--arcd-type-card-title)",color:confianca>=80?C.green:confianca>=55?C.yellowD:C.red}}>{confianca}%</b></div>{sugestao.resumo&&<p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.5,padding:"8px 10px",background:C.surface,borderRadius:7}}>{sugestao.resumo}</p>}{sugestao.alertas?.map((a,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.red}}>⚠ {a}</p>)}<div style={{padding:"10px 11px",border:`1px solid ${form.destinoId?C.green:C.border}`,background:form.destinoId?`${C.green}08`:C.surface,borderRadius:9}}><Sel label={modulo==="compras"?"Vincular a pedido ou cotação":"Vincular à movimentação financeira"} value={form.destinoId} onChange={v=>{const destino=destinos.find(d=>d.id===v);setForm(f=>({...f,destinoId:v,obraId:destino?.obraId||f.obraId,subfolder:destino?.pasta||f.subfolder}));}} options={[{v:"",l:modulo==="compras"?"Criar novo pedido em rascunho":"Criar nova nota/lançamento"},...destinos.filter(d=>!form.obraId||!d.obraId||d.obraId===form.obraId).slice(0,250).map(d=>({v:d.id,l:d.label}))]}/><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:5}}>{form.destinoId?"O arquivo será acrescentado ao item selecionado sem criar um lançamento duplicado.":"Nenhum item compatível selecionado: será criado um novo registro após sua confirmação."}</p></div><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Obra *" value={form.obraId} onChange={v=>{setForm(f=>({...f,obraId:v,destinoId:""}));const o=obras.find(x=>x.id===v);setObraMatch(o?{obraId:o.id,obraNome:o.name,confianca:100,evidencia:"Obra confirmada pelo operador.",fonte:"seleção manual"}:null);}} options={[{v:"",l:"Confirme a obra"},...obras.map(o=>({v:o.id,l:o.name}))]}/><Sel label="Tipo de documento" value={form.tipoDocumento} onChange={F("tipoDocumento")} options={[{v:"nfe",l:"NF-e"},{v:"nfse",l:"NFS-e"},{v:"boleto",l:"Boleto"},{v:"recibo",l:"Recibo / comprovante"},{v:"energia",l:"Conta de energia"},{v:"agua",l:"Conta de água"},{v:"internet",l:"Internet/telefone"},{v:"frete",l:"Frete/CT-e"},{v:"outro",l:"Outro"}]}/><Inp label="Número / referência" value={form.numero} onChange={F("numero")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="CNPJ / CPF" value={form.documentoFornecedor} onChange={F("documentoFornecedor")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Inp label="Categoria sugerida" value={form.categoria} onChange={F("categoria")}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={F("valorBruto")}/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/>{modulo==="compras"&&<Sel label="Origem do pagamento" value={form.origemPagamento} onChange={F("origemPagamento")} options={[{v:"caixa",l:"Caixa da empresa/obra"},{v:"cliente_direto",l:"Cliente paga direto"}]}/>}<Inp label="Legenda do documento *" value={form.legendaDocumento} onChange={F("legendaDocumento")} placeholder="Ex.: NF 123, cotação revisada, comprovante PIX"/></div><Inp label="Descrição do lançamento" value={form.descricao} onChange={F("descricao")}/><div style={{padding:"8px 10px",border:`1px solid ${C.border}`,borderRadius:8,background:C.surface,fontSize:"var(--arcd-type-caption)",color:C.muted}}>Diretório sugerido: <b style={{color:C.text}}>{modulo==="compras"?"09 - Compras e Suprimentos":"08 - Financeiro e Fiscal"} / {destinos.find(d=>d.id===form.destinoId)?.pasta||form.subfolder}</b></div><div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={onClose} full>Cancelar</Btn><Btn v="success" onClick={aceitar} disabled={salvando||!String(form.legendaDocumento||"").trim()} full><Ic n="check"/> {salvando?"Salvando no Drive...":form.destinoId?"Vincular documento":"Aceitar e criar lançamento"}</Btn></div></>}</div></Modal>;
-}
-
 const novaNotaFiscal=()=>({id:"",tipo:"nfe",numero:"",serie:"",chave:"",emissao:today(),vencimento:"",fornecedorId:"",fornecedorNome:"",documentoFornecedor:"",obraId:"",pedidoId:"",valorBruto:"",valorLiquido:"",retencoes:{iss:0,inss:0,irrf:0,pis:0,cofins:0,csll:0,outros:0},rateios:[],documentos:[],pagamentos:[],status:"recebida",divergencias:[],analiseIA:null});
 
 function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onObraChange,onMemorial,abrirNotaId="",onNotaAberta,abrirCadastro=false,onCadastroAberto,dispatchCommand=null}){
   const [xmlPreview,setXmlPreview]=useState(null);
   const {formGrid}=useBreakpoint();const notas=data.notasFiscais||[];const [form,setForm]=useState(null);const [subindo,setSubindo]=useState(false);const [filtro,setFiltro]=useState("todas");const [anexoFiscal,setAnexoFiscal]=useState(null);const [invoiceCommandPending,setInvoiceCommandPending]=useState(false);const [sugestoesNota,setSugestoesNota]=useState([]);
+  const invoiceRecovery=useRecordRecovery({collection:'notasFiscais',fields:invoiceRecoveryFields,format:formatInvoiceEditor});
+  const invoiceExit=useUnsavedChanges(form,()=>setForm(null),{busy:invoiceCommandPending||subindo});
+  useEffect(()=>{invoiceRecovery.reset(form);},[Boolean(form),form?.id,invoiceRecovery.reset]);
   useEffect(()=>{if(!abrirNotaId)return;const nota=notas.find(n=>n.id===abrirNotaId);if(nota)setForm({...nota,valorBruto:String(nota.valorBruto),valorLiquido:String(nota.valorLiquido)});onNotaAberta?.();},[abrirNotaId,notas,onNotaAberta]);
   const contasPagarFiscal=useMemo(
     ()=>selectLedgerAccountsPayable(buildFinancialLedger(data),{asOfDate:today(),...(obraIdFiltro==="all"?{}:{obraId:obraIdFiltro})}),
@@ -5083,34 +3845,34 @@ function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onO
     if(!form.obraId||!form.numero||Number(form.valorBruto)<=0){showToast("Informe obra, número e valor da nota.","error");return;}
     if(!dispatchCommand||invoiceCommandPending)return;
     const ret=totalRet(form);
-    const invoiceId=form.id||uid();
+    const invoiceId=invoiceRecovery.entityId(form.id||uid());
     const invoice={
       ...form,id:invoiceId,valorBruto:Number(form.valorBruto),
       valorLiquido:Number(form.valorLiquido||Number(form.valorBruto)-ret),
       rateios:form.rateios?.length?form.rateios:[{
-        id:uid(),obraId:form.obraId,etapaId:"",percentual:100,
+        id:`rateio-${invoiceId}`,obraId:form.obraId,etapaId:"",percentual:100,
         valor:Number(form.valorBruto),
       }],
     };
     setInvoiceCommandPending(true);
     try{
-      const result=await dispatchCommand(atual=>{
-        const vigente=(atual.notasFiscais||[]).find(item=>item.id===invoiceId);
-        return {
+      const command=invoiceRecovery.prepare({
           type:OPERATIONAL_COMMAND.INVOICE_SAVED,
           idempotencyKey:`invoice-save-${invoiceId}-${uid()}`,
-          expectedVersion:vigente?Number(vigente.version||0):0,
+          expectedVersion:Number(invoiceRecovery.base.current?.version||0),
           actorId:currentUser?.id||"",actorName:currentUser?.nome||"",
           payload:{invoice},
-        };
       });
-      if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a nota.");
+      if(!command)return;
+      const result=await dispatchCommand(command);
+      if(!result?.ok){invoiceRecovery.fail(result);showToast(result?.reason||'O servidor não confirmou a nota.','error');return;}
       setForm(null);
       const divergencias=Number(result.summary?.divergenceCount||0);
       showToast(divergencias
         ?"Nota salva com divergências na conferência de três vias."
         :"Pedido, recebimento físico e nota conferidos.");
     }catch(error){
+      invoiceRecovery.fail(error);
       showToast(error.message||"Não foi possível salvar a nota fiscal.","error");
     }finally{
       setInvoiceCommandPending(false);
@@ -5118,7 +3880,7 @@ function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onO
   };
   const aprovar=async n=>{
     const riskAccepted=!!n.divergencias?.length;
-    if(riskAccepted&&!window.confirm("A nota possui divergências. Aprovar mesmo assim?"))return;
+    if(riskAccepted)showToast("A nota tem divergências. A decisão será registrada com os avisos para conferência.","warn");
     if(!dispatchCommand||invoiceCommandPending)return;
     setInvoiceCommandPending(true);
     try{
@@ -5133,7 +3895,7 @@ function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onO
         };
       });
       if(!result?.ok)throw new Error(result?.reason||"O servidor não confirmou a aprovação.");
-      showToast("Nota aprovada para pagamento.");
+      showToast("Conferência fiscal registrada. Os pagamentos existentes foram preservados.");
     }catch(error){
       showToast(error.message||"Não foi possível aprovar a nota fiscal.","error");
     }finally{
@@ -5165,9 +3927,9 @@ function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onO
     }
   };
   const notasEscopo=notas.filter(n=>obraIdFiltro==="all"||n.obraId===obraIdFiltro||n.rateios?.some(r=>r.obraId===obraIdFiltro));
-  const lista=notasEscopo.filter(n=>filtro==="todas"||n.status===filtro);const valorPendente=contasPagarFiscal.balanceCents/100;
+  const lista=notasEscopo.filter(n=>filtro==="todas"||n.status===filtro||filtro==='recebida'&&n.conferenciaFiscalPendente);const valorPendente=contasPagarFiscal.balanceCents/100;
   return <div style={{display:"flex",flexDirection:"column",gap:10}}>
-    <PageHero
+    <PageHero headingLevel={2}
       eyebrow="Recepção e auditoria fiscal"
       title="Central de notas fiscais"
       description="Documento → pedido/recebimento → rateio/retenções → aprovação → conciliação → contador"
@@ -5179,7 +3941,7 @@ function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onO
       ]}
       actions={<Btn onClick={()=>{setSugestoesNota([]);setForm(vazia());}}><Ic n="plus"/> Receber nota</Btn>}
     />
-    <Sel label="Obra" value={obraIdFiltro} onChange={onObraChange} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><div style={{display:"flex",gap:4,overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"],["rejeitada","Rejeitadas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"6px 9px",border:`1px solid ${filtro===v?C.purple:C.border}`,borderRadius:7,background:filtro===v?`${C.purple}12`:C.card,color:filtro===v?C.purple:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"10px 11px",border:`1px solid ${C.border}`,borderLeft:`1px solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:9,background:C.card}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><b style={{fontSize:"var(--arcd-type-body)"}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {n.documentos.length} arquivo(s) no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>⚠ {d}</p>)}{n.status==="rejeitada"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>Rejeitada por {n.rejeitadoPor||"-"}: {n.motivoRejeicao||"sem motivo registrado"}</p>}<div style={{display:"flex",gap:5,marginTop:7,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:`Nota ${n.numero}`,items:[financialEntry(data,{sourceType:"nota_fiscal",sourceId:n.id,obraId:n.obraId,amountCents:Math.round(Number(n.valorLiquido||n.valorBruto||0)*100)})],context:"Documento fiscal e dados vinculados"})}>Ver memorial</Btn>{n.status==="recebida"&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Aprovar pagamento</Btn>}{["recebida","aprovada"].includes(n.status)&&<Btn size="sm" v="danger" onClick={()=>rejeitar(n)}>Rejeitar</Btn>}{n.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,padding:"6px"}}>{a.legenda||a.nome} ↗</a>)}</div></div>)}{!lista.length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={()=>setForm(null)} wide panelClass="invoice-conference-modal"><InvoiceConference documents={form.documentos||[]} driveId={(data.obras||[]).find(obra=>obra.id===(notas.find(nota=>nota.id===form.id)?.obraId||form.obraId))?.oneDriveDriveId} resolveFile={obterLinkArquivoOneDrive}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={v=>setForm(f=>({...f,pedidoId:v,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,v)}:{})}))} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:6}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"12px",border:`2px solid ${C.green}66`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.green,fontSize:"var(--arcd-type-label)",fontWeight:600,background:`${C.green}08`}}>Importar XML da NF-e (preenche a nota e confere com o pedido)<input type="file" accept=".xml,text/xml,application/xml" onChange={importarXmlNfe} style={{display:"none"}}/></label>{sugestoesNota.length>1&&<div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Outros pedidos do fornecedor:</span>{sugestoesNota.map(s=><Btn key={s.pedido.id} size="sm" v={form.pedidoId===s.pedido.id?"success":"ghost"} onClick={()=>setForm(f=>({...f,obraId:s.pedido.obraId,pedidoId:s.pedido.id,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,s.pedido.id)}:{})}))}>{s.pedido.numero} · {fmt(s.total)} · {s.casados} item(ns)</Btn>)}</div>}{form.itensNota?.length>0&&(()=>{const ped=(data.pedidos||[]).find(p=>p.id===form.pedidoId);const nomeItem=i=>(data.materiais||[]).find(m=>m.id===i.materialId)?.descricao||i.descricaoRef||"Item";const usados=new Set(form.itensNota.map(i=>i.pedidoItemId).filter(Boolean));return <div style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px",background:C.surface}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Itens da nota × pedido {ped?.numero||""}</p>{form.itensNota.map((it,ix)=>{const itemPed=ped?.itens?.find(x=>x.id===it.pedidoItemId);const divs=it.pedidoItemId?divergenciasDoItem(it,itemPed):[ped?"Sem item correspondente: vincule manualmente.":"Escolha o pedido para conferir."];return <div key={ix} style={{marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:6,alignItems:"center"}}><span className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.text}}><b>{it.descricao}</b><small style={{display:"block",color:C.muted}}>{Number(it.qtd).toLocaleString("pt-BR")} {it.unidade} × {fmt(it.precoUnit)} = {fmt(it.valorTotal)}</small></span><Sel label="Item do pedido" value={it.pedidoItemId||""} onChange={v=>setForm(f=>({...f,itensNota:f.itensNota.map((x,k)=>k===ix?{...x,pedidoItemId:v}:x)}))} options={[{v:"",l:"Sem vínculo"},...(ped?.itens||[]).filter(x=>x.id===it.pedidoItemId||!usados.has(x.id)).map(x=>({v:x.id,l:`${nomeItem(x)} · ${Number(x.qtd).toLocaleString("pt-BR")} × ${fmt(x.precoUnit)}`}))]}/>{divs.map((d,k)=><p key={k} style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600}}>⚠ {d}</p>)}</div>;})}{ped&&<p style={{fontSize:"var(--arcd-type-caption)",color:Math.abs(Number(form.valorBruto||0)-totalPedido(ped))>0.01?C.orange:C.green,fontWeight:600,marginTop:6}}>Nota {fmt(Number(form.valorBruto||0))} · pedido {fmt(totalPedido(ped))} · recebido {fmt(recebidoPedido(ped))}. A conferência completa roda ao salvar.</p>}</div>;})()}<label style={{padding:"12px",border:`2px dashed ${C.blue}55`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600}}>{subindo?"Enviando e lendo documento...":form.documentos?.length?"+ Anexar outro XML, PDF ou imagem":"Anexar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:C.blue,textDecoration:"underline"}}>{a.legenda||a.nome} · visualizar no OneDrive ↗</a>)}{pedido&&<div style={{padding:"9px 10px",background:C.surface,borderRadius:8,fontSize:"var(--arcd-type-label)"}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn><Btn onClick={salvar} full>Salvar e conferir</Btn></div></div></InvoiceConference></Modal>}{xmlPreview&&<Modal title="Prévia da importação XML" wide onClose={()=>setXmlPreview(null)}><FinancialPreview
+    <Sel label="Obra" value={obraIdFiltro} onChange={onObraChange} options={[{v:"all",l:"Todas as obras"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><div style={{display:"flex",gap:4,overflowX:"auto"}}>{[["todas","Todas"],["recebida","Em conferência"],["aprovada","Aprovadas"],["paga","Pagas"],["rejeitada","Rejeitadas"]].map(([v,l])=><button key={v} onClick={()=>setFiltro(v)} style={{padding:"6px 9px",border:`1px solid ${filtro===v?C.purple:C.border}`,borderRadius:7,background:filtro===v?`${C.purple}12`:C.card,color:filtro===v?C.purple:C.muted,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{l}</button>)}</div>{lista.map(n=><div key={n.id} style={{padding:"10px 11px",border:`1px solid ${C.border}`,borderLeft:`1px solid ${n.divergencias?.length?C.red:n.status==="aprovada"?C.green:C.blue}`,borderRadius:9,background:C.card}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><div><b style={{fontSize:"var(--arcd-type-body)"}}>{n.tipo.toUpperCase()} {n.numero} · {n.fornecedorNome||"Fornecedor"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{(data.obras||[]).find(o=>o.id===n.obraId)?.name} · emissão {fmtDate(n.emissao)} · {n.documentos.length} arquivo(s) no Drive</p></div><b style={{color:C.yellowD}}>{fmt(n.valorLiquido)}</b></div>{n.conferenciaFiscalPendente&&<p role="status">Conferência fiscal pendente. O pagamento registrado não substitui a revisão do documento.</p>}{n.divergencias?.map((d,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>⚠ {d}</p>)}{n.status==="rejeitada"&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,marginTop:4}}>Rejeitada por {n.rejeitadoPor||"-"}: {n.motivoRejeicao||"sem motivo registrado"}</p>}<div style={{display:"flex",gap:5,marginTop:7,flexWrap:"wrap"}}><Btn size="sm" v="ghost" onClick={()=>setForm({...n,valorBruto:String(n.valorBruto),valorLiquido:String(n.valorLiquido)})}>Verificar</Btn><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:`Nota ${n.numero}`,items:[financialEntry(data,{sourceType:"nota_fiscal",sourceId:n.id,obraId:n.obraId,amountCents:Math.round(Number(n.valorLiquido||n.valorBruto||0)*100)})],context:"Documento fiscal e dados vinculados"})}>Ver memorial</Btn>{(n.status==="recebida"||n.conferenciaFiscalPendente)&&<Btn size="sm" v="success" onClick={()=>aprovar(n)}>Concluir conferência fiscal</Btn>}{["recebida","aprovada"].includes(n.status)&&<Btn size="sm" v="danger" onClick={()=>rejeitar(n)}>Rejeitar</Btn>}{n.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-caption)",color:C.blue,padding:"6px"}}>{a.legenda||a.nome} ↗</a>)}</div></div>)}{!lista.length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma nota neste estágio.</p>}{form&&<Modal title={form.id?`Conferir nota ${form.numero}`:"Receber documento fiscal"} onClose={invoiceExit.requestClose} wide panelClass="invoice-conference-modal"><InvoiceConference documents={form.documentos||[]} driveId={(data.obras||[]).find(obra=>obra.id===(notas.find(nota=>nota.id===form.id)?.obraId||form.obraId))?.oneDriveDriveId} resolveFile={obterLinkArquivoOneDrive}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}><Sel label="Tipo" value={form.tipo} onChange={F("tipo")} options={[{v:"nfe",l:"NF-e de produto"},{v:"nfse",l:"NFS-e de serviço"},{v:"cte",l:"CT-e / frete"},{v:"outro",l:"Outro documento"}]}/><Sel label="Obra *" value={form.obraId} onChange={v=>setForm(f=>({...f,obraId:v,pedidoId:""}))} options={[{v:"",l:"Selecione"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/><Sel label="Pedido relacionado" value={form.pedidoId} onChange={v=>setForm(f=>({...f,pedidoId:v,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,v)}:{})}))} options={[{v:"",l:"Sem pedido"},...(data.pedidos||[]).filter(p=>p.obraId===form.obraId).map(p=>({v:p.id,l:`${p.numero} · ${fmt(totalPedido(p))}`}))]}/><Inp label="Número *" value={form.numero} onChange={F("numero")}/><Inp label="Série" value={form.serie} onChange={F("serie")}/><Inp label="Chave de acesso" value={form.chave} onChange={F("chave")}/><Inp label="Emissão" type="date" value={form.emissao} onChange={F("emissao")}/><Inp label="Vencimento" type="date" value={form.vencimento} onChange={F("vencimento")}/><Inp label="Fornecedor" value={form.fornecedorNome} onChange={F("fornecedorNome")}/><Sel label="Categoria" value={form.categoria||""} onChange={F("categoria")} options={[{v:"",l:"Não informada"},...categoriasDesp(data),...(form.categoria&&!categoriasDesp(data).some(c=>c.v===form.categoria)?[{v:form.categoria,l:form.categoria}]:[])]}/><Inp label="Valor bruto *" type="number" value={form.valorBruto} onChange={v=>setForm(f=>({...f,valorBruto:v,valorLiquido:String(Math.max(0,Number(v||0)-totalRet(f)))}))}/><Inp label="Retenções" value={fmt(totalRet(form))} onChange={()=>{}} disabled/><Inp label="Valor líquido" type="number" value={form.valorLiquido} onChange={F("valorLiquido")}/></div><div style={{display:"grid",gridTemplateColumns:formGrid(4),gap:6}}>{Object.keys(form.retencoes).map(k=><Inp key={k} label={k.toUpperCase()} type="number" value={form.retencoes[k]} onChange={v=>setRetencao(k,v)}/>)}</div><label style={{padding:"12px",border:`2px solid ${C.green}66`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.green,fontSize:"var(--arcd-type-label)",fontWeight:600,background:`${C.green}08`}}>Importar XML da NF-e (preenche a nota e confere com o pedido)<input type="file" accept=".xml,text/xml,application/xml" onChange={importarXmlNfe} style={{display:"none"}}/></label>{sugestoesNota.length>1&&<div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Outros pedidos do fornecedor:</span>{sugestoesNota.map(s=><Btn key={s.pedido.id} size="sm" v={form.pedidoId===s.pedido.id?"success":"ghost"} onClick={()=>setForm(f=>({...f,obraId:s.pedido.obraId,pedidoId:s.pedido.id,...(f.itensNota?.length?{itensNota:ligarItensAoPedido(f.itensNota,s.pedido.id)}:{})}))}>{s.pedido.numero} · {fmt(s.total)} · {s.casados} item(ns)</Btn>)}</div>}{form.itensNota?.length>0&&(()=>{const ped=(data.pedidos||[]).find(p=>p.id===form.pedidoId);const nomeItem=i=>(data.materiais||[]).find(m=>m.id===i.materialId)?.descricao||i.descricaoRef||"Item";const usados=new Set(form.itensNota.map(i=>i.pedidoItemId).filter(Boolean));return <div style={{border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 10px",background:C.surface}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Itens da nota × pedido {ped?.numero||""}</p>{form.itensNota.map((it,ix)=>{const itemPed=ped?.itens?.find(x=>x.id===it.pedidoItemId);const divs=it.pedidoItemId?divergenciasDoItem(it,itemPed):[ped?"Sem item correspondente: vincule manualmente.":"Escolha o pedido para conferir."];return <div key={ix} style={{marginTop:6,paddingTop:6,borderTop:`1px solid ${C.line}`,display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:6,alignItems:"center"}}><span className="brk" style={{fontSize:"var(--arcd-type-label)",color:C.text}}><b>{it.descricao}</b><small style={{display:"block",color:C.muted}}>{Number(it.qtd).toLocaleString("pt-BR")} {it.unidade} × {fmt(it.precoUnit)} = {fmt(it.valorTotal)}</small></span><Sel label="Item do pedido" value={it.pedidoItemId||""} onChange={v=>setForm(f=>({...f,itensNota:f.itensNota.map((x,k)=>k===ix?{...x,pedidoItemId:v}:x)}))} options={[{v:"",l:"Sem vínculo"},...(ped?.itens||[]).filter(x=>x.id===it.pedidoItemId||!usados.has(x.id)).map(x=>({v:x.id,l:`${nomeItem(x)} · ${Number(x.qtd).toLocaleString("pt-BR")} × ${fmt(x.precoUnit)}`}))]}/>{divs.map((d,k)=><p key={k} style={{gridColumn:"1/-1",fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600}}>⚠ {d}</p>)}</div>;})}{ped&&<p style={{fontSize:"var(--arcd-type-caption)",color:Math.abs(Number(form.valorBruto||0)-totalPedido(ped))>0.01?C.orange:C.green,fontWeight:600,marginTop:6}}>Nota {fmt(Number(form.valorBruto||0))} · pedido {fmt(totalPedido(ped))} · recebido {fmt(recebidoPedido(ped))}. A conferência completa roda ao salvar.</p>}</div>;})()}<label style={{padding:"12px",border:`2px dashed ${C.blue}55`,borderRadius:9,textAlign:"center",cursor:"pointer",color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600}}>{subindo?"Enviando e lendo documento...":form.documentos?.length?"+ Anexar outro XML, PDF ou imagem":"Anexar XML, PDF ou imagem da nota"}<input type="file" accept=".xml,.pdf,image/*" onChange={importar} disabled={subindo} style={{display:"none"}}/></label>{form.documentos?.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:C.blue,textDecoration:"underline"}}>{a.legenda||a.nome} · visualizar no OneDrive ↗</a>)}{pedido&&<div style={{padding:"9px 10px",background:C.surface,borderRadius:8,fontSize:"var(--arcd-type-label)"}}>Pedido {pedido.numero}: <b>{fmt(totalPedido(pedido))}</b> · recebido: <b>{fmt(recebidoPedido(pedido))}</b></div>}<RecordRecoveryPanel data={data} recovery={invoiceRecovery} draft={form} fields={invoiceRecoveryFields} user={currentUser} onRebase={setForm} onConfirmed={async result=>{await update({__adotarServidorPatch:true,updatedAt:result.updatedAt,sections:{notasFiscais:result.data.notasFiscais,operationalCommandReceipts:result.data.operationalCommandReceipts}});setForm(null);}}/><div style={{display:"flex",gap:8}}><Btn v="ghost" disabled={invoiceCommandPending} onClick={invoiceExit.requestClose} full>Cancelar</Btn><Btn onClick={salvar} disabled={invoiceCommandPending} loading={invoiceCommandPending&&"Salvando…"} full>Salvar e conferir</Btn></div></div></InvoiceConference></Modal>}{form&&<UnsavedChangesPrompt guard={invoiceExit}/>}{xmlPreview&&<Modal title="Prévia da importação XML" wide onClose={()=>setXmlPreview(null)}><FinancialPreview
       description={`${xmlPreview.filename}. Aplicar preenche a ficha aberta; não salva nem cria uma nota fiscal.`}
       columns={["Campo","Na ficha","Do XML / proposta"]}
       rows={[["Número","numero"],["Série","serie"],["Chave","chave"],["Fornecedor","fornecedorNome"],["CNPJ / CPF","documentoFornecedor"],["Emissão","emissao"],["Vencimento","vencimento"],["Valor bruto","valorBruto"],["Valor líquido após retenções","valorLiquido"],["Pedido","pedidoId"]].map(([label,key])=>({id:key,cells:[label,xmlPreviewValue(key,xmlPreview.before[key]),xmlPreviewValue(key,xmlPreview.proposed[key])]}))}
@@ -5192,33 +3954,15 @@ function CentralFiscal({data,update,showToast,currentUser,obraIdFiltro="all",onO
     </FinancialPreview></Modal>}<ModalLegendaDocumento anexo={anexoFiscal} setAnexo={setAnexoFiscal} onClose={()=>!subindo&&setAnexoFiscal(null)} onSalvar={salvarAnexoFiscal} salvando={subindo} titulo="Legenda do documento fiscal" C={C}/></div>;
 }
 
-export function LinksDocumentosAuditaveis({documentos=[],onSelecionar,subindo=false,C=C_ARCD_SETOR}){
-  return <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4,minWidth:118}}>
-    {documentos.map(doc=><a key={doc.id||doc.url} href={doc.url} target="_blank" rel="noreferrer" title={doc.nome||doc.legenda} style={{maxWidth:180,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600,textDecoration:"underline",textUnderlineOffset:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{doc.legenda||doc.nome||"Visualizar documento"} ↗</a>)}
-    <label style={{color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600,textDecoration:"underline",textUnderlineOffset:2,cursor:subindo?"wait":"pointer",whiteSpace:"nowrap"}}>
-      {subindo?"Enviando...":documentos.length?"+ Anexar outro":"+ Anexar documento"}
-      <input type="file" accept=".pdf,.xml,.doc,.docx,.xls,.xlsx,.csv,.txt,image/*" disabled={subindo} onChange={onSelecionar} style={{display:"none"}}/>
-    </label>
-  </div>;
-}
-
-export function ModalLegendaDocumento({anexo,setAnexo,onClose,onSalvar,salvando=false,titulo="Anexar documento",C=C_ARCD_SETOR}){
-  if(!anexo)return null;
-  return <Modal title={titulo} onClose={onClose}><div style={{display:"flex",flexDirection:"column",gap:11}}>
-    <div style={{padding:"9px 11px",border:`1px solid ${C.border}`,borderRadius:8,background:C.surface}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Arquivo selecionado</p><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:3,overflowWrap:"anywhere"}}>{anexo.file?.name}</p></div>
-    <Inp label="Legenda do documento *" value={anexo.legenda||""} onChange={v=>setAnexo(a=>({...a,legenda:v}))} placeholder="Ex.: Cotação atualizada, comprovante de pagamento..."/>
-    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.45}}>A legenda será exibida como link. Você poderá anexar outros documentos ao mesmo registro.</p>
-    <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={onClose} disabled={salvando} full>Cancelar</Btn><Btn onClick={onSalvar} disabled={salvando||!String(anexo.legenda||"").trim()} full><Ic n="upload"/> {salvando?"Salvando no Drive...":"Anexar documento"}</Btn></div>
-  </div></Modal>;
-}
-
-function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAbrirFiscal,dispatchCommand,obraId="all",onObraChange,onMemorial,C=C_ARCD_SETOR}){
-  const {cols,formGrid}=useBreakpoint();
+function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAbrirFiscal,onReviewInvoice,dispatchCommand,obraId="all",onObraChange,onMemorial,view,onViewChange,onBank,C=C_ARCD_SETOR}){
+  const {formGrid}=useBreakpoint();
   const setObraId=onObraChange;
-  const [filtro,setFiltro]=useState("fila");
-  const [busca,setBusca]=useState("");
+  const filtro=view.filter,busca=view.query;
+  const setFiltro=filter=>onViewChange(previous=>({...previous,filter}));
+  const setBusca=query=>onViewChange(previous=>({...previous,query}));
   const [pagamento,setPagamento]=useState(null);
   const [salvando,setSalvando]=useState(false);
+  const paymentExit=useUnsavedChanges(pagamento,()=>setPagamento(null),{identity:pagamento?.item?.id||"payment",busy:salvando});
   const podeOperar=["admin","financeiro"].includes(currentUser?.role);
   const obras=data.obras||[],pedidos=data.pedidos||[],notas=data.notasFiscais||[];
   const ledgerPagamentos=useMemo(()=>buildFinancialLedger(data),[data]);
@@ -5243,6 +3987,7 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
   const termo=normalizarIdentificacaoObra(busca);
   const obrigacoesEscopo=obraId==="all"?obrigacoes:obrigacoes.filter(item=>item.obraId===obraId);
   const visiveis=obrigacoesEscopo.filter(item=>{
+    if(view.invoiceId&&(item.tipo!=='nota'||String(item.registro.id)!==String(view.invoiceId)))return false;
     const semConciliacao=item.pagamentos.some(pg=>!pg.conciliado);
     if(filtro==="fila"&&item.estado==="paga"&&!semConciliacao)return false;
     if(filtro==="vencidas"&&item.estado!=="vencida")return false;
@@ -5284,8 +4029,8 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
   };
   const etapasFluxo=[
     {numero:1,label:"Pedidos",valor:totalPedidosEscopo,cor:C.text,filtro:"todas"},
-    {numero:2,label:"Sem NF",valor:semNota,cor:C.purple,filtro:"sem_nota"},
-    {numero:3,label:"Conferência",valor:emConferencia,cor:C.blue,filtro:"conferencia"},
+    {numero:2,label:"Sem documento",valor:semNota,cor:C.purple,filtro:"sem_nota"},
+    {numero:3,label:"Em conferência",valor:emConferencia,cor:C.blue,filtro:"conferencia"},
     {numero:4,label:"Autorizadas",valor:autorizadas.length,cor:C.green,filtro:"autorizadas"},
     {numero:5,label:"Pagas",valor:totalPagas,cor:C.green,filtro:"pagas"},
     {numero:6,label:"A conciliar",valor:totalAConciliar,cor:C.orange,filtro:"conciliar"},
@@ -5299,11 +4044,11 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
     if(!podeOperar){showToast("Somente o Financeiro ou a Administração pode realizar pagamentos.","error");return;}
     if(!item||!(valor>0)){showToast("Informe o valor pago.","error");return;}
     if(valor>item.saldo+.01){showToast(`O pagamento supera o saldo de ${fmt(item.saldo)}.`,"error");return;}
-    if(item.estado==="conferencia"){showToast("A nota precisa ser aprovada antes do pagamento.","error");return;}
-    if(item.tipo==="pedido"&&!window.confirm("Este pedido ainda não possui nota fiscal vinculada. Confirma o pagamento antecipado?"))return;
+    if(item.estado==="conferencia")showToast("Pagamento com conferência fiscal pendente. Revise a ficha fiscal para regularizar.","warn");
+    if(item.tipo==="pedido")showToast("Pedido sem nota vinculada. O adiantamento ficará sinalizado até a conferência.","warn");
     const obra=obras.find(o=>o.id===item.obraId),caixa=situacaoCaixaObra(data,item.obraId);
-    if(f.origem==="caixa_obra"&&!obra?.hasCaixa){showToast("O caixa desta obra não está ativado. Selecione outra origem ou ative o caixa.","error");return;}
-    if(f.origem==="caixa_obra"&&valor>caixa.saldo+.001){showToast(`Pagamento bloqueado: o caixa possui ${fmt(caixa.saldo)} e ficaria negativo. Registre um aporte antes de pagar.`,"error");return;}
+    if(f.origem==="caixa_obra"&&!obra?.hasCaixa)showToast("Caixa ainda não ativado. Confira a configuração e os movimentos registrados.","warn");
+    if(f.origem==="caixa_obra"&&valor>caixa.saldo+.001)showToast("O registro deixará o caixa negativo. Confira aportes e a origem real do pagamento.","warn");
     const transacaoSelecionada=(data.transacoes||[]).find(t=>t.id===f.transacaoId);
     if(transacaoSelecionada&&Math.abs(Math.abs(Number(transacaoSelecionada.valor||0))-valor)>.02){showToast(`A transação selecionada é de ${fmt(Math.abs(Number(transacaoSelecionada.valor||0)))} e não confere com o pagamento de ${fmt(valor)}. Faça a conciliação por rateio no módulo Conciliação.`,"error");return;}
     setSalvando(true);
@@ -5333,25 +4078,16 @@ function CentralPagamentosFinanceiro({data,showToast,currentUser,onNovaNota,onAb
     }catch(err){showToast(err.message||"Não foi possível registrar o pagamento.","error");}finally{setSalvando(false);}
   };
   if(!podeOperar)return <div style={{padding:30,textAlign:"center",border:`1px solid ${C.border}`,borderRadius:12,color:C.red}}>Central operacional exclusiva do Financeiro e da Administração.</div>;
-  return <div className="anim" style={{display:"flex",flexDirection:"column",gap:9}}>
-    <PageHero
-      eyebrow="Tesouraria · contas a pagar"
-      title="Central de pagamentos"
-      description="Do pedido à conciliação, com documento e aprovação rastreáveis."
-      actions={<>
-        <Btn size="sm" v="ghost" onClick={onAbrirFiscal}><Ic n="file"/> Notas fiscais</Btn>
-        <Btn size="sm" onClick={onNovaNota}><Ic n="plus"/> Receber NF</Btn>
-      </>}
-    />
+  return <div className="anim payment-workspace">
+    {view.invoiceId&&<div className="financial-origin-return" role="status"><p>Mostrando somente a obrigação do documento selecionado. Os valores do resumo continuam no escopo da obra.</p><Button variant="outline" onClick={()=>onViewChange(previous=>({...previous,invoiceId:''}))}>Mostrar todos os documentos</Button></div>}
+    <PageHeader headingLevel={2} className="payment-heading" title="Pagamentos" description="Títulos, liberações e conciliação."
+      secondaryActions={<Btn size="sm" v="ghost" onClick={onAbrirFiscal}><Ic n="file"/> Ver notas fiscais</Btn>}
+      primaryAction={<Btn size="sm" onClick={onNovaNota}><Ic n="plus"/> Receber documento fiscal</Btn>}/>
+    <PaymentOverview metrics={resumoFinanceiro} stages={etapasFluxo} filter={filtro} onStage={setFiltro} onMetric={openPaymentMetric} formatMoney={fmt}/>
+    <section className="payment-queue-controls" aria-label="Fila de pagamentos"><header><div><h3>Fila de obrigações</h3><p>Prioridade por vencimento, aprovação e conciliação.</p></div><p role="status">{visiveis.length} resultado(s)</p></header><div className="payment-queue-controls__fields"><Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...obras.map(o=>({v:o.id,l:o.name}))]}/><Sel label="Situação" value={filtro} onChange={setFiltro} options={[{v:"fila",l:"Fila operacional"},{v:"vencidas",l:"Vencidas"},{v:"autorizadas",l:"Autorizadas a pagar"},{v:"conferencia",l:"Em conferência"},{v:"sem_nota",l:"Pedidos sem documento fiscal"},{v:"conciliar",l:"Pagos a conciliar"},{v:"pagas",l:"Pagas"},{v:"todas",l:"Todas"}]}/><Inp label="Pesquisar pagamentos" value={busca} onChange={setBusca} placeholder="Documento, pedido, fornecedor ou obra"/></div></section>
 
-    <section aria-label="Resumo financeiro" style={{display:"grid",gridTemplateColumns:cols(2,2,4),gap:7}}>{resumoFinanceiro.map(kpi=><div key={kpi.label} style={{position:"relative",overflow:"hidden",background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:"10px 11px",boxShadow:C.shHair}}><i style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:kpi.cor}}/><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.45}}><button type="button" className="financial-kpi-link" onClick={()=>openPaymentMetric(kpi.label)}>{kpi.label}</button></p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:kpi.cor,marginTop:3,lineHeight:1}}>{fmt(kpi.valor)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>{kpi.apoio}</p></div>)}</section>
-
-    <section aria-label="Etapas do fluxo de pagamento" style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"9px 10px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center",marginBottom:7}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text,textTransform:"uppercase",letterSpacing:.45}}>Fluxo de pagamento</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Selecione uma etapa para filtrar a fila.</p></div><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{obraId==="all"?"Todas as obras":obraNome(obraId)}</span></div><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:5}}>{etapasFluxo.map(etapa=>{const ativo=filtro===etapa.filtro||(etapa.numero===1&&filtro==="fila");return <button key={etapa.numero} type="button" onClick={()=>setFiltro(etapa.numero===1?"fila":etapa.filtro)} aria-pressed={ativo} style={{position:"relative",border:`1px solid ${ativo?etapa.cor:C.line}`,borderRadius:7,background:ativo?`${etapa.cor}0D`:C.card,padding:"7px 8px",textAlign:"left",cursor:"pointer",minWidth:0}}><span style={{display:"block",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:ativo?etapa.cor:C.muted}}>ETAPA {etapa.numero}</span><span style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:5,marginTop:2}}><b style={{fontSize:"var(--arcd-type-caption)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{etapa.label}</b><strong style={{fontSize:"var(--arcd-type-body)",color:etapa.cor}}>{etapa.valor}</strong></span></button>;})}</div></section>
-
-    <section aria-label="Fila de pagamentos" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px",boxShadow:C.shHair}}><div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center",marginBottom:8}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Fila de obrigações</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Prioridade por vencimento, aprovação e conciliação.</p></div><span style={{padding:"3px 7px",borderRadius:99,background:C.surface,border:`1px solid ${C.border}`,fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text,whiteSpace:"nowrap"}}>{visiveis.length} resultado(s)</span></div><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:7}}><Sel label="Obra" value={obraId} onChange={setObraId} options={[{v:"all",l:"Todas as obras"},...obras.map(o=>({v:o.id,l:o.name}))]}/><Sel label="Situação" value={filtro} onChange={setFiltro} options={[{v:"fila",l:"Fila operacional"},{v:"vencidas",l:"Vencidas"},{v:"autorizadas",l:"Autorizadas a pagar"},{v:"conferencia",l:"Em conferência"},{v:"sem_nota",l:"Pedidos sem NF"},{v:"conciliar",l:"Pagos a conciliar"},{v:"pagas",l:"Pagas"},{v:"todas",l:"Todas"}]}/><Inp label="Pesquisar" value={busca} onChange={setBusca} placeholder="NF, pedido, fornecedor ou obra"/></div></section>
-
-    <div style={{display:"flex",flexDirection:"column",gap:7}}>{visiveis.map(item=>{const ev=estadoVisual[item.estado]||estadoVisual.conferencia,semConc=item.pagamentos.some(pg=>!pg.conciliado),vencida=item.estado==="vencida";return <article key={item.id} style={{background:C.card,border:`1px solid ${vencida?`${C.red}77`:C.border}`,borderLeft:`1px solid ${ev.c}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"start",padding:"10px 11px"}}><div style={{minWidth:0}}><div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}><Badge color={ev.c}>{ev.l}</Badge><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.tipo==="nota"?C.blue:C.purple}}>{item.tipo==="nota"?"DOCUMENTO FISCAL":"PEDIDO SEM NF"}</span>{semConc&&<Badge color={C.orange}>A CONCILIAR</Badge>}</div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:5,overflowWrap:"anywhere"}}>{item.numero} · {item.fornecedor}</p><div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",marginTop:4,fontSize:"var(--arcd-type-caption)",color:C.muted}}><span><b style={{color:C.text}}>Obra:</b> {obraNome(item.obraId)}</span><span><b style={{color:C.text}}>Emissão:</b> {item.emissao?fmtDate(item.emissao):"-"}</span><span style={{color:vencida?C.red:C.muted}}><b style={{color:vencida?C.red:C.text}}>Vencimento:</b> {item.vencimento?fmtDate(item.vencimento):"não informado"}</span></div></div><div style={{minWidth:105,textAlign:"right",background:C.surface,border:`1px solid ${C.line}`,borderRadius:7,padding:"7px 8px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{item.saldo>.01?"Saldo a pagar":"Total pago"}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:item.saldo>.01?C.red:C.green,marginTop:2}}>{fmt(item.saldo>.01?item.saldo:item.total)}</p>{item.saldo>.01&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>de {fmt(item.total)}</p>}</div></div>{item.estado==="sem_nota"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.purple}0B`,color:C.purple,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Documento fiscal ainda não vinculado. Pagamentos antecipados permanecem sinalizados para auditoria.</div>}{item.estado==="conferencia"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.blue}0B`,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Aguardando conferência do pedido, recebimento, valores, retenções e rateio.</div>}{item.pagamentos.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",padding:"0 11px 8px"}}>{item.pagamentos.map(pg=><span key={pg.id} style={{fontSize:"var(--arcd-type-caption)",color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0B`:`${C.orange}0B`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 7px"}}>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"pendente"}{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,marginLeft:5,fontWeight:600}}>comprovante ↗</a>)}</span>)}</div>}<footer style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",padding:"7px 11px",borderTop:`1px solid ${C.line}`,background:C.surface}}><div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",minWidth:0}}>{item.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:600,textDecoration:"none"}}><Ic n="file" s={11}/>{a.legenda||a.nome} ↗</a>)}{!item.documentos.length&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600}}>SEM DOCUMENTO ANEXO</span>}</div><span style={{flex:1}}/><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:item.numero,items:[{...financialEntry(data,{sourceType:item.tipo==="nota"?"nota_fiscal":"pedido",sourceId:item.registro.id,obraId:item.obraId,amountCents:Math.round(item.total*100)}),metadata:{saldo:item.saldo,vencimento:item.vencimento}}],context:"Documento e histórico de pagamentos"})}>Ver memorial</Btn>{item.estado==="sem_nota"&&<Btn size="sm" v="ghost" onClick={onNovaNota}>Cadastrar NF</Btn>}{item.estado==="conferencia"&&<Btn size="sm" v="ghost" onClick={onAbrirFiscal}>Conferir NF</Btn>}{item.saldo>.01&&item.estado!=="conferencia"&&<Btn size="sm" onClick={()=>abrirPagamento(item)}><Ic n="receipt"/> Realizar pagamento</Btn>}</footer></article>;})}{!visiveis.length&&<div style={{padding:"28px 16px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:6}}>Nenhuma obrigação neste filtro</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A fila está atualizada com os pedidos e documentos fiscais cadastrados.</p></div>}</div>
-    {pagamento&&<Modal title={`Realizar pagamento · ${pagamento.item.numero}`} onClose={()=>!salvando&&setPagamento(null)}><div style={{display:"flex",flexDirection:"column",gap:10}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,padding:"9px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>Total</p><b style={{fontSize:"var(--arcd-type-body)"}}>{fmt(pagamento.item.total)}</b></div><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>Saldo</p><b style={{fontSize:"var(--arcd-type-body)",color:C.red}}>{fmt(pagamento.item.saldo)}</b></div></div><Sel label="Origem real do pagamento *" value={pagamento.origem} onChange={v=>setPagamento(f=>({...f,origem:v,transacaoId:v==="empresa"?f.transacaoId:"",conciliado:v==="empresa"?f.conciliado:false}))} options={[{v:"empresa",l:"Conta bancária da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente pagou diretamente"}]}/>{pagamento.origem==="caixa_obra"&&(()=>{const cx=situacaoCaixaObra(data,pagamento.item.obraId),valor=Number(String(pagamento.valor||"").replace(",","."))||0,projetado=cx.saldo-valor,negativo=projetado<-.001,baixo=!negativo&&projetado<=cx.limiteBaixo,ativa=!!obras.find(o=>o.id===pagamento.item.obraId)?.hasCaixa;return <div style={{padding:"9px 10px",border:`1px solid ${!ativa||negativo?C.red:baixo?C.orange:C.green}`,borderRadius:8,background:!ativa||negativo?`${C.red}0B`:baixo?`${C.orange}0B`:`${C.green}0B`}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>{[["Disponível",cx.saldo],["Após pagar",projetado],["Reserva",cx.limiteBaixo]].map(([l,v])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><b style={{fontSize:"var(--arcd-type-label)",color:v<0?C.red:C.text}}>{fmt(v)}</b></div>)}</div>{!ativa&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:6}}>Caixa não ativado para esta obra.</p>}{negativo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:6}}>Bloqueado: o caixa ficaria negativo.</p>}{baixo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600,marginTop:6}}>Alerta: o saldo ficará abaixo da reserva recomendada.</p>}</div>;})()}<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}><Inp label="Valor pago *" type="number" value={pagamento.valor} onChange={v=>setPagamento(f=>({...f,valor:v}))}/><Inp label="Data *" type="date" value={pagamento.data} onChange={v=>setPagamento(f=>({...f,data:v}))}/></div>{pagamento.origem==="empresa"&&<Sel label="Transação bancária para conciliar" value={pagamento.transacaoId} onChange={v=>setPagamento(f=>({...f,transacaoId:v,conciliado:!!v}))} options={[{v:"",l:"Vincular depois na conciliação"},...transacoesDisponiveis.map(t=>({v:t.id,l:`${fmtDate(t.data)} · ${fmt(Math.abs(Number(t.valor||0)))} · ${t.descricao||"Saída bancária"}`}))]}/>}<Inp label="Referência do pagamento" value={pagamento.referencia} onChange={v=>setPagamento(f=>({...f,referencia:v}))} placeholder="PIX, boleto, TED ou identificação"/><label style={{padding:"11px",border:`1.5px dashed ${pagamento.comprovanteFile?C.green:C.blue}66`,borderRadius:8,textAlign:"center",cursor:"pointer",background:pagamento.comprovanteFile?`${C.green}08`:C.surface}}><b style={{fontSize:"var(--arcd-type-label)",color:pagamento.comprovanteFile?C.green:C.blue}}>{pagamento.comprovanteFile?pagamento.comprovanteFile.name:"Anexar comprovante"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>PDF ou imagem · salvo no diretório financeiro da obra</p><input type="file" accept=".pdf,image/jpeg,image/png,image/webp" style={{display:"none"}} onChange={e=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(file.size>5.5*1024*1024){showToast("O comprovante deve ter no máximo 5,5 MB.","error");return;}setPagamento(f=>({...f,comprovanteFile:file,comprovanteLegenda:String(file.name||"").replace(/\.[^.]+$/,"" )}));}}/></label>{pagamento.comprovanteFile&&<Inp label="Legenda do comprovante" value={pagamento.comprovanteLegenda} onChange={v=>setPagamento(f=>({...f,comprovanteLegenda:v}))}/>}<label style={{display:"flex",gap:7,alignItems:"center",fontSize:"var(--arcd-type-label)",color:C.text}}><input type="checkbox" checked={!!pagamento.conciliado} onChange={e=>setPagamento(f=>({...f,conciliado:e.target.checked}))}/><span>Pagamento já conferido e conciliado</span></label><Inp label="Observação" value={pagamento.observacao} onChange={v=>setPagamento(f=>({...f,observacao:v}))} multiline/><div style={{display:"flex",gap:7}}><Btn v="ghost" full onClick={()=>setPagamento(null)} disabled={salvando}>Cancelar</Btn><Btn full onClick={registrarPagamento} disabled={salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Confirmar pagamento"}</Btn></div></div></Modal>}
+    <div style={{display:"flex",flexDirection:"column",gap:7}}>{visiveis.map(item=>{const ev=estadoVisual[item.estado]||estadoVisual.conferencia,semConc=item.pagamentos.some(pg=>!pg.conciliado),vencida=item.estado==="vencida";return <article key={item.id} style={{background:C.card,border:`1px solid ${vencida?`${C.red}77`:C.border}`,borderLeft:`1px solid ${ev.c}`,borderRadius:9,overflow:"hidden",boxShadow:C.shHair}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:10,alignItems:"start",padding:"10px 11px"}}><div style={{minWidth:0}}><div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}><Badge color={ev.c}>{ev.l}</Badge><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:item.tipo==="nota"?C.blue:C.purple}}>{item.tipo==="nota"?"DOCUMENTO FISCAL":"PEDIDO SEM NF"}</span>{semConc&&<Badge color={C.orange}>A CONCILIAR</Badge>}</div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:5,overflowWrap:"anywhere"}}>{item.numero} · {item.fornecedor}</p><div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap",marginTop:4,fontSize:"var(--arcd-type-caption)",color:C.muted}}><span><b style={{color:C.text}}>Obra:</b> {obraNome(item.obraId)}</span><span><b style={{color:C.text}}>Emissão:</b> {item.emissao?fmtDate(item.emissao):"-"}</span><span style={{color:vencida?C.red:C.muted}}><b style={{color:vencida?C.red:C.text}}>Vencimento:</b> {item.vencimento?fmtDate(item.vencimento):"não informado"}</span></div></div><div style={{minWidth:105,textAlign:"right",background:C.surface,border:`1px solid ${C.line}`,borderRadius:7,padding:"7px 8px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{item.saldo>.01?"Saldo a pagar":"Total pago"}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:item.saldo>.01?C.red:C.green,marginTop:2}}>{fmt(item.saldo>.01?item.saldo:item.total)}</p>{item.saldo>.01&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>de {fmt(item.total)}</p>}</div></div>{item.estado==="sem_nota"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.purple}0B`,color:C.purple,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Documento fiscal ainda não vinculado. Pagamentos antecipados permanecem sinalizados para auditoria.</div>}{item.estado==="conferencia"&&<div style={{margin:"0 11px 8px",padding:"6px 8px",borderRadius:6,background:`${C.blue}0B`,color:C.blue,fontSize:"var(--arcd-type-caption)",fontWeight:600}}>Aguardando conferência do pedido, recebimento, valores, retenções e rateio.</div>}{item.pagamentos.length>0&&<div style={{display:"flex",gap:5,flexWrap:"wrap",padding:"0 11px 8px"}}>{item.pagamentos.map(pg=><span key={pg.id} style={{fontSize:"var(--arcd-type-caption)",color:pg.conciliado?C.green:C.orange,background:pg.conciliado?`${C.green}0B`:`${C.orange}0B`,border:`1px solid ${pg.conciliado?C.green:C.orange}44`,borderRadius:99,padding:"3px 7px"}}>{fmt(pg.valor)} · {origemPagamentoLabel(pg.origem)} · {pg.conciliado?"conciliado":"pendente"}{(pg.comprovantes||[]).map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{color:C.blue,marginLeft:5,fontWeight:600}}>comprovante ↗</a>)}</span>)}</div>}<footer style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",padding:"7px 11px",borderTop:`1px solid ${C.line}`,background:C.surface}}><div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",minWidth:0}}>{item.documentos.map(a=><a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:600,textDecoration:"none"}}><Ic n="file" s={11}/>{a.legenda||a.nome} ↗</a>)}{!item.documentos.length&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600}}>Sem anexo cadastrado</span>}</div><span style={{flex:1}}/><Btn size="sm" v="ghost" onClick={()=>onMemorial?.({title:item.numero,items:[{...financialEntry(data,{sourceType:item.tipo==="nota"?"nota_fiscal":"pedido",sourceId:item.registro.id,obraId:item.obraId,amountCents:Math.round(item.total*100)}),metadata:{saldo:item.saldo,vencimento:item.vencimento}}],context:"Documento e histórico de pagamentos"})}>Ver memorial</Btn>{item.estado==="sem_nota"&&<Btn size="sm" v="ghost" onClick={onNovaNota}>Receber documento fiscal</Btn>}{item.estado==="conferencia"&&<Btn size="sm" v="ghost" onClick={()=>onReviewInvoice?onReviewInvoice(item.registro):onAbrirFiscal()}>Conferir documento</Btn>}{item.tipo==="nota"&&hasInvoiceBankPayment(item.registro)&&onBank&&<Btn size="sm" v="ghost" onClick={()=>onBank(item.registro.id)}>Revisar conciliação</Btn>}{item.saldo>.01&&<Btn size="sm" onClick={()=>abrirPagamento(item)}><Ic n="receipt"/> Realizar pagamento</Btn>}</footer></article>;})}{!visiveis.length&&<div style={{padding:"28px 16px",textAlign:"center",border:`1px dashed ${C.border}`,borderRadius:10,background:C.surface}}><Ic n="check" s={22} color={C.green}/><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:6}}>Nenhuma obrigação neste filtro</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>A fila está atualizada com os pedidos e documentos fiscais cadastrados.</p></div>}</div>
+    {pagamento&&<Modal title={`Realizar pagamento · ${pagamento.item.numero}`} onClose={paymentExit.requestClose}><div style={{display:"flex",flexDirection:"column",gap:10}}><WorkflowWarnings warnings={validatePurchasePayment(data,{type:pagamento.item.tipo,target:pagamento.item.registro,value:Number(pagamento.valor),actorRole:currentUser?.role}).warnings||[]}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,padding:"9px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:8}}><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>Total</p><b style={{fontSize:"var(--arcd-type-body)"}}>{fmt(pagamento.item.total)}</b></div><div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,textTransform:"uppercase"}}>Saldo</p><b style={{fontSize:"var(--arcd-type-body)",color:C.red}}>{fmt(pagamento.item.saldo)}</b></div></div><Sel label="Origem real do pagamento *" value={pagamento.origem} onChange={v=>setPagamento(f=>({...f,origem:v,transacaoId:v==="empresa"?f.transacaoId:"",conciliado:v==="empresa"?f.conciliado:false}))} options={[{v:"empresa",l:"Conta bancária da empresa"},{v:"caixa_obra",l:"Caixa da obra"},{v:"cliente_direto",l:"Cliente pagou diretamente"}]}/>{pagamento.origem==="caixa_obra"&&(()=>{const cx=situacaoCaixaObra(data,pagamento.item.obraId),valor=Number(String(pagamento.valor||"").replace(",","."))||0,projetado=cx.saldo-valor,negativo=projetado<-.001,baixo=!negativo&&projetado<=cx.limiteBaixo,ativa=!!obras.find(o=>o.id===pagamento.item.obraId)?.hasCaixa;return <div style={{padding:"9px 10px",border:`1px solid ${!ativa||negativo?C.red:baixo?C.orange:C.green}`,borderRadius:8,background:!ativa||negativo?`${C.red}0B`:baixo?`${C.orange}0B`:`${C.green}0B`}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>{[["Disponível",cx.saldo],["Após pagar",projetado],["Reserva",cx.limiteBaixo]].map(([l,v])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l}</p><b style={{fontSize:"var(--arcd-type-label)",color:v<0?C.red:C.text}}>{fmt(v)}</b></div>)}</div>{!ativa&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:6}}>Caixa não ativado para esta obra.</p>}{negativo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.red,fontWeight:600,marginTop:6}}>Aviso: o caixa ficará negativo. Confira os aportes e a origem do pagamento.</p>}{baixo&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,fontWeight:600,marginTop:6}}>Alerta: o saldo ficará abaixo da reserva recomendada.</p>}</div>;})()}<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}><Inp label="Valor pago *" type="number" value={pagamento.valor} onChange={v=>setPagamento(f=>({...f,valor:v}))}/><Inp label="Data *" type="date" value={pagamento.data} onChange={v=>setPagamento(f=>({...f,data:v}))}/></div>{pagamento.origem==="empresa"&&<Sel label="Transação bancária para conciliar" value={pagamento.transacaoId} onChange={v=>setPagamento(f=>({...f,transacaoId:v,conciliado:!!v}))} options={[{v:"",l:"Vincular depois na conciliação"},...transacoesDisponiveis.map(t=>({v:t.id,l:`${fmtDate(t.data)} · ${fmt(Math.abs(Number(t.valor||0)))} · ${t.descricao||"Saída bancária"}`}))]}/>}<Inp label="Referência do pagamento" value={pagamento.referencia} onChange={v=>setPagamento(f=>({...f,referencia:v}))} placeholder="PIX, boleto, TED ou identificação"/><label style={{padding:"11px",border:`1.5px dashed ${pagamento.comprovanteFile?C.green:C.blue}66`,borderRadius:8,textAlign:"center",cursor:"pointer",background:pagamento.comprovanteFile?`${C.green}08`:C.surface}}><b style={{fontSize:"var(--arcd-type-label)",color:pagamento.comprovanteFile?C.green:C.blue}}>{pagamento.comprovanteFile?pagamento.comprovanteFile.name:"Anexar comprovante"}</b><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>PDF ou imagem · salvo no diretório financeiro da obra</p><input type="file" accept=".pdf,image/jpeg,image/png,image/webp" style={{display:"none"}} onChange={e=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(file.size>5.5*1024*1024){showToast("O comprovante deve ter no máximo 5,5 MB.","error");return;}setPagamento(f=>({...f,comprovanteFile:file,comprovanteLegenda:String(file.name||"").replace(/\.[^.]+$/,"" )}));}}/></label>{pagamento.comprovanteFile&&<Inp label="Legenda do comprovante" value={pagamento.comprovanteLegenda} onChange={v=>setPagamento(f=>({...f,comprovanteLegenda:v}))}/>}<label style={{display:"flex",gap:7,alignItems:"center",fontSize:"var(--arcd-type-label)",color:C.text}}><input type="checkbox" checked={!!pagamento.conciliado} onChange={e=>setPagamento(f=>({...f,conciliado:e.target.checked}))}/><span>Pagamento já conferido e conciliado</span></label><Inp label="Observação" value={pagamento.observacao} onChange={v=>setPagamento(f=>({...f,observacao:v}))} multiline/><div style={{display:"flex",gap:7}}><Btn v="ghost" full onClick={paymentExit.requestClose} disabled={salvando}>Cancelar</Btn><Btn full onClick={registrarPagamento} disabled={salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Confirmar pagamento"}</Btn></div></div></Modal>}{pagamento&&<UnsavedChangesPrompt guard={paymentExit}/>}
   </div>;
 }
 
@@ -5413,7 +4149,7 @@ function FinanceiroAdministrativo({data,update,showToast,currentUser,C=C_ARCD_SE
   const statusCor=status=>["paga","aprovada","recebido","recebida","conciliada"].includes(status)?C.green:["cancelada","ignorada"].includes(status)?C.muted:status==="vencida"?C.red:status==="a conciliar"?C.purple:C.orange;
   const maiorGrafico=Math.max(faturamento,custos,recebido,Math.abs(resultado),1);
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:11}}>
-    <PageHero
+    <PageHero headingLevel={2}
       eyebrow="Controle corporativo"
       title="Administrativo financeiro"
       description="Visão consolidada ou por obra, com movimentações, resultado e documentos auditáveis."
@@ -5497,7 +4233,7 @@ function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
   };
   const contagens=relatorio?.contagens||{};
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:10}}>
-    <PageHero eyebrow="FIN-002 · controle de migração" title="Homologação em sombra" description="Compara cada fato financeiro do legado com o razão canônico antes de bloquear as escritas antigas." actions={<div style={{display:"flex",gap:6}}><Btn v="ghost" onClick={carregar} disabled={carregando}>Atualizar relatório</Btn><Btn v="success" onClick={sincronizar} disabled={sincronizando||carregando}>{sincronizando?"Carregando fatos...":"Executar carga idempotente"}</Btn></div>}/>
+    <PageHero headingLevel={2} eyebrow="FIN-002 · controle de migração" title="Homologação em sombra" description="Compara cada fato financeiro do legado com o razão canônico antes de bloquear as escritas antigas." actions={<div style={{display:"flex",gap:6}}><Btn v="ghost" onClick={carregar} disabled={carregando}>Atualizar relatório</Btn><Btn v="success" onClick={sincronizar} disabled={sincronizando||carregando}>{sincronizando?"Carregando fatos...":"Executar carga idempotente"}</Btn></div>}/>
     {carregando&&<div style={{padding:24,textAlign:"center",border:`1px solid ${C.border}`,borderRadius:8,color:C.muted}}>Consultando o razão canônico...</div>}
     {!carregando&&!relatorio&&<div style={{padding:18,border:`1px solid ${C.red}`,borderRadius:8,color:C.red}}><b>Banco ainda não preparado</b><p style={{fontSize:"var(--arcd-type-label)",margin:"5px 0 10px"}}>{erro||"Relatório indisponível."}</p><Btn onClick={preparar} disabled={migrando}>{migrando?"Aplicando migration...":"Preparar banco com segurança"}</Btn></div>}
     {relatorio&&<><div style={{padding:"11px 13px",border:`1px solid ${relatorio.prontoParaAtivar?C.green:C.orange}`,borderLeft:`1px solid ${relatorio.prontoParaAtivar?C.green:C.orange}`,borderRadius:8,background:relatorio.prontoParaAtivar?`${C.green}08`:`${C.orange}08`}}>
@@ -5520,38 +4256,53 @@ function HomologacaoFinanceira({data,showToast,C=C_ARCD_SETOR}){
   </div>;
 }
 
-function FechamentoFinanceiroMensal({data,update,showToast,currentUser,onMemorial,onDocuments,C=C_ARCD_SETOR}){
+function FechamentoFinanceiroMensal({data,update,showToast,currentUser,onMemorial,onDocuments,onCorrect,onBank,C=C_ARCD_SETOR}){
   const agora=new Date();
-  const [competencia,setCompetencia]=useState(`${agora.getFullYear()}-${String(agora.getMonth()+1).padStart(2,"0")}`);
+  const [competencia,setCompetencia]=useWorkspaceState('fin','closingCompetence',`${agora.getFullYear()}-${String(agora.getMonth()+1).padStart(2,"0")}`);
   const [processando,setProcessando]=useState(false);
+  const [closingError,setClosingError]=useState('');
+  const [closingStatus,setClosingStatus]=useState(0),[closingNotice,setClosingNotice]=useState('');
+  const closingLock=useRef(false);
+  const [closingKeys,setClosingKeys]=useWorkspaceState('fin','closingAttemptKeys',{});
   const previa=useMemo(()=>createMonthlyClosingSnapshot(data,{competencia,actor:currentUser,closedAt:"preview"}),[data,competencia,currentUser]);
   const fechar=async()=>{
+    if(closingLock.current)return;
     if(currentUser?.role!=="admin"){showToast("Somente administrador pode fechar uma competência.","error");return;}
     const snapshot=createMonthlyClosingSnapshot(data,{competencia,actor:currentUser});
     if(!snapshot.ok){showToast(snapshot.error||"A competência não pode ser fechada.","error");return;}
     if(!window.confirm(`Fechar ${competencia}? Novas liquidações neste período serão bloqueadas no servidor.`))return;
-    setProcessando(true);
+    closingLock.current=true;setProcessando(true);setClosingError('');setClosingStatus(0);setClosingNotice('');
+    const closingKey=closingKeys[competencia]||`close-${competencia}-${uid()}`;
+    setClosingKeys(previous=>({...previous,[competencia]:closingKey}));
+    try{
     const resposta=await executarComandoFinanceiro({
       type:"CLOSE_ACCOUNTING_PERIOD",
-      idempotencyKey:`close-${competencia}-${Date.now()}`,
+      idempotencyKey:closingKey,
       payload:{startsOn:snapshot.closing.dataInicio,endsOn:snapshot.closing.dataFim,competencia},
     });
-    setProcessando(false);
-    if(!resposta.ok){showToast(resposta.error||"O servidor não confirmou o fechamento.","error");return;}
-    update({...data,fechamentosFinanceiros:[...(data.fechamentosFinanceiros||[]),snapshot.closing]});
+    if(!resposta.ok){setClosingStatus(Number(resposta.status||0));throw new Error(resposta.error||"O servidor não confirmou o fechamento.");}
+    if(resposta.closing?.competencia!==competencia||resposta.closing?.status!=='fechado')throw new Error('O servidor não retornou o fechamento auditável. Confira a situação antes de tentar novamente.');
+    await update(atual=>({__adotarServidorPatch:true,updatedAt:resposta.updatedAt,sections:{...resposta.sections,
+      fechamentosFinanceiros:resposta.sections?.fechamentosFinanceiros||[...(atual.fechamentosFinanceiros||[]).filter(item=>item.competencia!==competencia),resposta.closing],
+    }}));
     showToast(`Competência ${competencia} fechada e congelada.`);
+    }catch(error){setClosingError(error.message||'Não foi possível confirmar o fechamento. Confira a situação antes de tentar novamente.');}
+    finally{closingLock.current=false;setProcessando(false);}
   };
   const fechamentos=(data.fechamentosFinanceiros||[]).slice().sort((a,b)=>String(b.competencia).localeCompare(String(a.competencia)));
   const snap=previa.ok?previa.closing.snapshot:null;
   return <div className="anim" style={{display:"flex",flexDirection:"column",gap:10}}>
-    <PageHero eyebrow="Fechamento contábil" title="Fechamento mensal imutável" description="Selecione a competência e confira os valores e as pendências antes de fechar o período."/>
+    <PageHero headingLevel={2} eyebrow="Fechamento contábil" title="Fechamento mensal imutável" description="Selecione a competência e confira os valores e as pendências antes de fechar o período."/>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,240px),1fr))",gap:8,alignItems:"end"}}>
-      <Inp label="Competência" type="month" value={competencia} onChange={setCompetencia}/>
+      <Inp label="Competência" type="month" disabled={processando} value={competencia} onChange={value=>{setCompetencia(value);setClosingError('');}}/>
       <div style={{padding:"9px 11px",border:`1px solid ${previa.ok?C.green:C.red}`,borderRadius:8,background:previa.ok?`${C.green}08`:`${C.red}08`}}>
         <b style={{fontSize:"var(--arcd-type-label)",color:previa.ok?C.green:C.red}}>{previa.ok?"Motor financeiro sem divergências. Confira separadamente a documentação abaixo.":previa.error}</b>
       </div>
     </div>
-    <ClosingPending data={data} competence={competencia} conference={previa.conference} onOpen={onMemorial} onDocuments={()=>onDocuments(competencia)}/>
+    <ClosingPending data={data} competence={competencia} conference={previa.conference} onOpen={onMemorial} onCorrect={onCorrect} onBank={onBank} onDocuments={()=>onDocuments(competencia)}/>
+    {closingError&&<Alert variant="destructive" role="alert"><AlertDescription>{closingError} A competência selecionada foi mantida. Confira o estado do período antes de repetir a confirmação.</AlertDescription></Alert>}
+    {closingStatus===401&&<SessionRenewalFields user={currentUser} onRenew={async password=>{try{const result=await renewEditingSession({email:currentUser.email,password,userId:currentUser.id});if(!result.ok){setClosingError(result.error);return;}setClosingStatus(0);setClosingError('');setClosingNotice('Acesso renovado. Confira a competência e confirme novamente quando estiver pronto.');}catch(error){setClosingError(error.message||'Não foi possível renovar o acesso.');}}}/>}
+    {closingNotice&&<p role="status">{closingNotice}</p>}
     {snap&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(145px,1fr))",gap:6}}>{[
       ["Receita",snap.revenueCents],["Custos",snap.costCents],["Resultado",snap.resultCents],
       ["Entradas",snap.cashInCents],["Saídas",snap.cashOutCents],["A receber",snap.receivableCents],
@@ -5570,10 +4321,17 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   const useSessionState=(key,initial)=>useWorkspaceState("fin",key,initial);
   useWorkspaceScroll("fin");
   const [areaFinanceira,setAreaFinanceira]=useSessionState("areaFinanceira","hoje");
+  useHelpTopic('fin',FINANCE_HELP[areaFinanceira]||'fin');
   const [todayQueue,setTodayQueue]=useSessionState("todayQueue","payToday");
+  const [taskReturn,setTaskReturn]=useState(null);
+  const [todayPurchase,setTodayPurchase]=useState(null);
   const [documentView,setDocumentView]=useSessionState("documentView",{query:"",filter:"all",selected:null});
+  const [paymentView,setPaymentView]=useSessionState('paymentView',{filter:'fila',query:'',invoiceId:''});
+  const [financialReturn,setFinancialReturn]=useSessionState('financialReturn',null);
+  const [closingOrigin,setClosingOrigin]=useState(null);
   const [costReviewView,setCostReviewView]=useSessionState("costReviewView",{});
   const [cashScenario,setCashScenario]=useSessionState("cashScenario",{days:30,opening:"",delay:0,overdue:false});
+  const [cashView,setCashView]=useSessionState("cashView",{account:"",accountPositions:{}});
   const [reportView,setReportView]=useSessionState("reportView",()=>{const date=today(),month=date.slice(0,7);return {kind:"result",group:"work",start:month+"-01",end:new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5,7)),0)).toISOString().slice(0,10),asOf:date,direction:"all",category:"all",account:"all",status:"all",query:"",includeUndated:false};});
   const [documentReturn,setDocumentReturn]=useState(null);
   const [fiscalReturn,setFiscalReturn]=useState(false);
@@ -5588,6 +4346,30 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   const [documentMonth,setDocumentMonth]=useSessionState("documentMonth",()=>today().slice(0,7));
   const confirmarNotaAberta=useCallback(()=>setNotaParaConferir(""),[]);
   const conferirNota=id=>{setFiscalReturn(areaFinanceira==="documentos"?{obraId:filterObra,positions:captureFinancePosition(document.querySelector('.document-center'))}:null);setNotaParaConferir(id);setAbrirCadastroFiscal(false);setAreaFinanceira("fiscal");};
+  const rememberFinancialOrigin=()=>setFinancialReturn({area:areaFinanceira,obraId:filterObra,month:documentMonth,view:documentView,payments:paymentView,previous:financialReturn});
+  const openInvoicePayments=id=>{
+    if(!financeNextAction(data,{sourceType:'nota_fiscal',sourceId:id,obraId:(data.notasFiscais||[]).find(n=>n.id===id)?.obraId},currentUser))return;
+    rememberFinancialOrigin();setPaymentView({filter:'todas',query:'',invoiceId:id});setAreaFinanceira('pagamentos');
+  };
+  const {navigate:navigateFinancial}=useWorkflow();
+  const openInvoiceBank=id=>{
+    const context=invoiceBankContext(data,id,currentUser);
+    if(context)navigateFinancial?.('conc',{obraId:context.obraId},{action:'review-financial-origin',record:context});
+  };
+  const backFinancialOrigin=()=>{
+    if(!financialReturn)return;
+    setFilterObra(financialReturn.obraId);setDocumentMonth(financialReturn.month);setDocumentView(financialReturn.view);setPaymentView(financialReturn.payments);setAreaFinanceira(financialReturn.area);setFiscalReturn(false);setFinancialReturn(financialReturn.previous||null);
+  };
+  const openClosingOrigin=row=>{
+    if(row.type!=='nota_fiscal'){
+      const scope=closingCorrectionScope({user:currentUser,data,command:{payload:{sourceType:row.type,sourceId:row.record.id}}});
+      if(!scope.ok){showToast(scope.error,'error');return;}
+      setClosingOrigin(row);return;
+    }
+    rememberFinancialOrigin();setFilterObra('all');
+    if(row.type==='nota_fiscal'){conferirNota(row.record.id);return;}
+    setDocumentMonth(row.period||'');setDocumentView({query:'',filter:'all',selected:row.id});setAreaFinanceira('documentos');
+  };
   const abrirNovaNota=useCallback(()=>{setAbrirCadastroFiscal(true);setAreaFinanceira("fiscal");},[]);
   const abrirFiscal=useCallback(()=>{setAbrirCadastroFiscal(false);setAreaFinanceira("fiscal");},[]);
   const confirmarAberturaFiscal=useCallback(()=>setAbrirCadastroFiscal(false),[]);
@@ -5650,6 +4432,15 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
     setAreaFinanceira(documentReturn.area);setMemorial(documentReturn.detail);setDocumentReturn(documentReturn.previous||null);
   };
   const memorialPanel=memorial?<FinancialMemorial detail={memorial} onClose={()=>setMemorial(null)} onOpenWork={onOpenWork} canOpenDocuments={findMemorialDocument} onDocuments={["admin","financeiro"].includes(currentUser?.role)?openMemorialDocuments:undefined}/>:null;
+  const openTodayAction=item=>{
+    const action=financeNextAction(data,item,currentUser);if(!action)return;
+    if(action.kind==='purchase'){setTodayPurchase({pedidoId:action.id});return;}
+    const row=action.kind==='document'?documentRegister(data).find(r=>r.type===action.type&&String(r.record.id)===String(action.id)):null;
+    if(action.kind==='document'&&!row)return;
+    setTaskReturn({area:areaFinanceira,obraId:filterObra,positions:captureFinancePosition(document.querySelector('main')),month:documentMonth,view:documentView,label:todayPurchase?'Voltar à conferência da compra':areaFinanceira==='pagamentos'?'Voltar à fila de pagamentos':'Voltar à fila financeira'});
+    if(action.kind==='invoice'){conferirNota(action.id);return;}
+    setDocumentMonth(row.period||'');setDocumentView({query:'',filter:'all',selected:row.id});setAreaFinanceira('documentos');
+  };
   const workFilter=<Sel label="Obra" value={filterObra} onChange={setFilterObra} options={[{v:"all",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>;
 
 
@@ -5748,20 +4539,26 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   );
 
   const podeAcessarAdministrativoFinanceiro=["admin","financeiro"].includes(currentUser?.role);
-  const abasFinanceiras=[["hoje","Hoje"],["visao","Visão financeira"],...(podeAcessarAdministrativoFinanceiro?[["etapas","Custos por etapa"],["documentos","Documentos"],["relatorios","Relatórios financeiros"],["pagamentos","Pagamentos"],["administrativo","Administrativo"],["fiscal","Notas fiscais"]]:[]),...(currentUser?.role==="admin"?[["fechamento","Fechamento"],["homologacao","Homologação"]]:[]),["ia","Modo IA"]];
+  const abasFinanceiras=[["hoje","Hoje"],["caixa","Caixa por conta"],["visao","Visão financeira"],...(podeAcessarAdministrativoFinanceiro?[["etapas","Custos por etapa"],["documentos","Documentos"],["relatorios","Relatórios financeiros"],["pagamentos","Pagamentos"],["administrativo","Administrativo"],["fiscal","Notas fiscais"]]:[]),...(currentUser?.role==="admin"?[["fechamento","Fechamento"],["homologacao","Homologação"]]:[]),["ia","Modo IA"]];
   const navegacaoFinanceira=<><PageHeader className="workspace-header" title="Financeiro" description="Contas, documentos e fluxo financeiro."
-    secondaryActions={["hoje","etapas","documentos"].includes(areaFinanceira)?<div className="workspace-header__scope">{workFilter}</div>:null}/>
+    secondaryActions={["hoje","caixa","etapas","documentos"].includes(areaFinanceira)?<div className="workspace-header__scope">{workFilter}</div>:null}/>
     <WorkspaceNavigation className="financial-navigation" label="Áreas do financeiro" active={areaFinanceira} onChange={setAreaFinanceira}
-    items={abasFinanceiras.filter(([id])=>["hoje","visao","etapas","documentos","relatorios","pagamentos","fiscal","fechamento"].includes(id)).map(([id,label])=>({id,label}))}
-    tools={abasFinanceiras.filter(([id])=>!["hoje","visao","etapas","documentos","relatorios","pagamentos","fiscal","fechamento"].includes(id)).map(([id,label])=>({id,label}))}/></>;
-  if(areaFinanceira==="hoje")return <div className="financial-overview">{navegacaoFinanceira}<FinanceToday active={todayQueue} onActiveChange={setTodayQueue} queues={queues} today={currentDate} work={filterObra==="all"?"Todas as obras":obraName(filterObra)} onOpen={setMemorial}/><details className="financial-analysis"><summary>Planejar caixa por vencimentos</summary><CashForecast scenario={cashScenario} onScenarioChange={setCashScenario} data={data} ledger={financialView.selected.ledger} today={currentDate} obraId={filterObra} onOpen={setMemorial}/></details>{memorialPanel}</div>;
+    groups={[
+      {label:"Rotina",items:abasFinanceiras.filter(([id])=>["hoje","caixa","documentos","pagamentos","fiscal","fechamento"].includes(id)).map(([id,label])=>({id,label}))},
+      {label:"Análises",items:abasFinanceiras.filter(([id])=>["visao","etapas","relatorios"].includes(id)).map(([id,label])=>({id,label}))},
+    ]}
+    toolsLabel="Ferramentas"
+    tools={abasFinanceiras.filter(([id])=>!["hoje","caixa","visao","etapas","documentos","relatorios","pagamentos","fiscal","fechamento"].includes(id)).map(([id,label])=>({id,label}))}/>
+    {financialReturn&&!taskReturn&&!fiscalReturn&&!documentReturn&&<nav className="financial-origin-return" aria-label="Retorno à conferência financeira"><p>Retome a origem com o recorte anterior.</p><Button variant="outline" onClick={backFinancialOrigin}>{financialReturn.area==="fechamento"?"Voltar à conferência do fechamento":financialReturn.area==="documentos"?"Voltar à central de documentos":"Voltar à rotina financeira de origem"}</Button></nav>}{taskReturn&&<Btn v="ghost" onClick={()=>{positionToRestore.current=taskReturn.positions;setFilterObra(taskReturn.obraId);setDocumentMonth(taskReturn.month);setDocumentView(taskReturn.view);setAreaFinanceira(taskReturn.area);setTaskReturn(null);}}>{taskReturn.label}</Btn>}</>;
+  if(areaFinanceira==="caixa")return <div className="financial-overview">{navegacaoFinanceira}<CashWorkspace currentUser={currentUser} data={data} ledger={financialView.selected.ledger} today={currentDate} obraId={filterObra} onOpen={setMemorial} view={cashView} onViewChange={setCashView} scenario={cashScenario} onScenarioChange={setCashScenario}/>{memorialPanel}</div>;
+  if(areaFinanceira==="hoje")return <div className="financial-overview">{navegacaoFinanceira}<FinanceToday active={todayQueue} onActiveChange={setTodayQueue} queues={queues} today={currentDate} work={filterObra==="all"?"Todas as obras":obraName(filterObra)} onOpen={setMemorial} resolveAction={item=>financeNextAction(data,item,currentUser)} onAction={openTodayAction}/><Btn v="ghost" onClick={()=>setAreaFinanceira("caixa")}>Abrir caixa por conta e previsão</Btn>{memorialPanel}{todayPurchase&&<PurchaseDossier data={data} selection={todayPurchase} currentUser={currentUser} onReviewInvoice={invoice=>openTodayAction({sourceType:'nota_fiscal',sourceId:invoice.id,obraId:invoice.obraId})} onClose={()=>setTodayPurchase(null)}/>}</div>;
   if(areaFinanceira==="etapas"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}<WorkStageCosts data={data} ledger={stageLedger.ledger} missingStart={stageLedger.missingStart} obraId={filterObra} asOf={currentDate} onOpen={setMemorial} view={costReviewView} onViewChange={setCostReviewView} dispatchCommand={dispatchCommand} currentUser={currentUser}/>{memorialPanel}</div>;
   if(areaFinanceira==="relatorios"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}<FinancialReportCenter data={data} calcPeriod={calcVisaoFinanceira} view={reportView} onViewChange={setReportView} obraId={filterObra} onObraChange={setFilterObra} onOpen={setMemorial} loadSpreadsheet={async()=>{await carregarXLSX();return XLSX;}}/>{memorialPanel}</div>;
-  if(areaFinanceira==="documentos"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}{documentReturn&&<Btn v="ghost" onClick={backToMemorial}>Voltar ao memorial de origem</Btn>}<DocumentCenter view={documentView} onViewChange={setDocumentView} data={data} obraId={filterObra} competence={documentMonth} onCompetence={setDocumentMonth} onOpen={setMemorial} onReview={conferirNota} onReceive={abrirNovaNota}/>{memorialPanel}</div>;
-  if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}{memorialPanel}<CentralPagamentosFinanceiro obraId={filterObra} onObraChange={setFilterObra} onMemorial={setMemorial} data={data} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} dispatchCommand={dispatchCommand} C={C}/></div>;
+  if(areaFinanceira==="documentos"&&podeAcessarAdministrativoFinanceiro)return <div className="financial-overview">{navegacaoFinanceira}{documentReturn&&<Btn v="ghost" onClick={backToMemorial}>Voltar ao memorial de origem</Btn>}<DocumentCenter onPayments={openInvoicePayments} onBank={podeAcessarAba(currentUser,"conc")?openInvoiceBank:undefined} currentUser={currentUser} onObra={setFilterObra} view={documentView} onViewChange={setDocumentView} data={data} obraId={filterObra} competence={documentMonth} onCompetence={setDocumentMonth} onOpen={setMemorial} onReview={conferirNota} onReceive={abrirNovaNota}/>{memorialPanel}</div>;
+  if(areaFinanceira==="pagamentos"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}{memorialPanel}<CentralPagamentosFinanceiro view={paymentView} onViewChange={setPaymentView} onBank={podeAcessarAba(currentUser,"conc")?openInvoiceBank:undefined} obraId={filterObra} onObraChange={setFilterObra} onMemorial={setMemorial} data={data} showToast={showToast} currentUser={currentUser} onNovaNota={abrirNovaNota} onAbrirFiscal={abrirFiscal} onReviewInvoice={invoice=>openTodayAction({sourceType:"nota_fiscal",sourceId:invoice.id,obraId:invoice.obraId})} dispatchCommand={dispatchCommand} C={C}/></div>;
   if(areaFinanceira==="administrativo"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}<FinanceiroAdministrativo data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
-  if(areaFinanceira==="fiscal"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}{fiscalReturn&&<Btn v="ghost" onClick={()=>{positionToRestore.current=fiscalReturn.positions;setFilterObra(fiscalReturn.obraId);setFiscalReturn(null);setAreaFinanceira("documentos");}}>Voltar à conferência de documentos</Btn>}{memorialPanel}<CentralFiscal abrirNotaId={notaParaConferir} onNotaAberta={confirmarNotaAberta} obraIdFiltro={filterObra} onObraChange={setFilterObra} onMemorial={setMemorial} data={data} update={update} showToast={showToast} currentUser={currentUser} abrirCadastro={abrirCadastroFiscal} onCadastroAberto={confirmarAberturaFiscal} dispatchCommand={dispatchCommand}/></div>;
-  if(areaFinanceira==="fechamento"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}{memorialPanel}<FechamentoFinanceiroMensal onMemorial={setMemorial} onDocuments={competence=>{setDocumentMonth(competence);setFilterObra("all");setAreaFinanceira("documentos");}} data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
+  if(areaFinanceira==="fiscal"&&podeAcessarAdministrativoFinanceiro)return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}{fiscalReturn&&<Btn v="ghost" onClick={()=>{positionToRestore.current=fiscalReturn.positions;setFilterObra(fiscalReturn.obraId);setFiscalReturn(null);setAreaFinanceira("documentos");}}>Voltar à central de documentos</Btn>}{memorialPanel}<CentralFiscal abrirNotaId={notaParaConferir} onNotaAberta={confirmarNotaAberta} obraIdFiltro={filterObra} onObraChange={setFilterObra} onMemorial={setMemorial} data={data} update={update} showToast={showToast} currentUser={currentUser} abrirCadastro={abrirCadastroFiscal} onCadastroAberto={confirmarAberturaFiscal} dispatchCommand={dispatchCommand}/></div>;
+  if(areaFinanceira==="fechamento"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}{memorialPanel}{closingOrigin&&<ClosingOriginEditor key={`${closingOrigin.type}:${closingOrigin.record.id}`} row={closingOrigin} data={data} user={currentUser} dispatch={dispatchCommand} onAdopt={update} onClose={()=>setClosingOrigin(null)}/>}<FechamentoFinanceiroMensal onCorrect={openClosingOrigin} onBank={podeAcessarAba(currentUser,"conc")?transaction=>navigateFinancial?.("conc",{},{action:"review-financial-origin",record:{transactionIds:[transaction.id],accountId:transaction.contaBancariaId||"",label:"Pendência do fechamento"}}):undefined} onMemorial={setMemorial} onDocuments={competence=>{rememberFinancialOrigin();setDocumentMonth(competence);setFilterObra("all");setAreaFinanceira("documentos");}} data={data} update={update} showToast={showToast} currentUser={currentUser} C={C}/></div>;
   if(areaFinanceira==="homologacao"&&currentUser?.role==="admin")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}<HomologacaoFinanceira data={data} showToast={showToast} C={C}/></div>;
   if(areaFinanceira==="ia")return <div className="anim" style={{display:"flex",flexDirection:"column",gap:12}}>{navegacaoFinanceira}<ModoIADocumento modulo="financeiro" data={data} update={update} showToast={showToast} currentUser={currentUser} onClose={()=>setAreaFinanceira("fiscal")} dispatchCommand={dispatchCommand}/></div>;
 
@@ -5790,7 +4587,7 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
         </div>)}
       </div>
 
-      <CashForecast scenario={cashScenario} onScenarioChange={setCashScenario} data={data} ledger={financialView.selected.ledger} today={currentDate} obraId={filterObra} onOpen={setMemorial}/>
+      <Btn v="ghost" onClick={()=>setAreaFinanceira("caixa")}>Abrir caixa por conta e previsão</Btn>
       <details className="financial-analysis"><summary>Análises e gráficos por obra</summary>
       <RankingFinanceiro data={data} year={year} month={month} obraId={filterObra==="all"?"":filterObra} onSelecionarObra={setFilterObra} C={C}/>
 
@@ -6006,8 +4803,8 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
   const clientes=data.comercial?.clientes||[];
   const condominios=(data.condominios||[]).filter(x=>x.ativo!==false);
   useEffect(()=>{
-    const id=sessionStorage.getItem("arcd_editar_obra");if(!id)return;
-    sessionStorage.removeItem("arcd_editar_obra");const obra=(data.obras||[]).find(o=>o.id===id);if(!obra)return;
+    const id=sessionContext.getItem("arcd_editar_obra");if(!id)return;
+    sessionContext.removeItem("arcd_editar_obra");const obra=(data.obras||[]).find(o=>o.id===id);if(!obra)return;
     setForm({...obra,areaM2:String(obra.areaM2||""),diaVenc1:String(obra.diaVenc1||DIA_VENC_1_PADRAO),diaVenc2:String(obra.diaVenc2||DIA_VENC_2_PADRAO)});setModal(true);
   },[data.obras]);
   const salvarClienteDaObra=async()=>{
@@ -6872,152 +5669,6 @@ function Obras({ data, update, showToast, onAbrirObra, currentUser, dispatchComm
   );
 }
 
-// A tela Equipe foi extraída para
-// src/domains/rh/components/EquipeView.jsx em 2026-08-20.
-
-//
-// FICHA DO FUNCIONÁRIO - resumo de frequência, ranking e histórico
-// (gerarFichaFuncionarioPDF é usada pela EquipeView extraída acima e por
-// outro consumidor mais abaixo neste arquivo - fica exportada aqui)
-//
-
-// Frequência mês a mês (últimos N meses em que o funcionário esteve
-// vinculado), reaproveitando a mesma leitura dia a dia da Folha
-// (getAtt/isEmployeeEmployedOnDate), mas agregando por competência em vez de
-// calcular valores de pagamento.
-function calcFrequenciaMensalFuncionario(data, employee, meses = 12) {
-  const hoje = new Date();
-  const resultado = [];
-  for (let i = meses - 1; i >= 0; i--) {
-    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-    const year = d.getFullYear(), month = d.getMonth();
-    const dias = getDays(year, month).filter(prIsWeekdayIso);
-    let presentes = 0, meiodia = 0, faltas = 0, semRegistro = 0, diasNoVinculo = 0;
-    dias.forEach(dia => {
-      if (!isEmployeeEmployedOnDate(employee, dia)) return;
-      diasNoVinculo++;
-      const st = attStatus(data, employee.id, dia);
-      if (st === "P") presentes++;
-      else if (st === "M") meiodia++;
-      else if (st === "F") faltas++;
-      else if (isLeaveStatus(st)) return;
-      else semRegistro++;
-    });
-    if (diasNoVinculo === 0) continue;
-    resultado.push({
-      label: `${monthName(month)}/${String(year).slice(2)}`,
-      presentes, meiodia, faltas, semRegistro, diasNoVinculo,
-      pctPresenca: ((presentes + meiodia * 0.5) / diasNoVinculo) * 100,
-    });
-  }
-  return resultado;
-}
-
-// Ranking de frequência entre todos os funcionários com vínculo na janela
-// analisada (mesma leitura, mas comparando todo mundo para posicionar o
-// funcionário da ficha).
-function calcRankingFrequencia(data, meses = 3) {
-  const hoje = new Date();
-  const janela = [];
-  for (let i = meses - 1; i >= 0; i--) {
-    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-    janela.push(...getDays(d.getFullYear(), d.getMonth()).filter(prIsWeekdayIso));
-  }
-  return (data.employees || []).map(emp => {
-    let presentes = 0, meiodia = 0, faltas = 0, diasNoVinculo = 0;
-    janela.forEach(dia => {
-      if (!isEmployeeEmployedOnDate(emp, dia)) return;
-      diasNoVinculo++;
-      const st = attStatus(data, emp.id, dia);
-      if (st === "P") presentes++;
-      else if (st === "M") meiodia++;
-      else if (st === "F") faltas++;
-    });
-    return { emp, presentes, meiodia, faltas, diasNoVinculo, pct: diasNoVinculo ? ((presentes + meiodia * 0.5) / diasNoVinculo) * 100 : null };
-  })
-    .filter(l => l.diasNoVinculo > 0)
-    .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1))
-    .map((l, i) => ({ ...l, posicao: i + 1 }));
-}
-
-const FICHA_TIPO_LABEL = {
-  created: "Cadastro", transfer: "Transferência de obra", dismissal: "Desligamento",
-  promotion: "Mudança de função", salary_change: "Alteração de diária",
-  employee_archived: "Cadastro arquivado", reactivation: "Reativação",
-  editou: "Edição de cadastro",
-};
-
-export function gerarFichaFuncionarioPDF(data, employee, showToast) {
-  const frequencia = calcFrequenciaMensalFuncionario(data, employee, 12);
-  const ranking = calcRankingFrequencia(data, 3);
-  const posicaoRanking = ranking.find(l => l.emp.id === employee.id);
-  const historico = (data.changeLog || [])
-    .filter(e => e.empId === employee.id)
-    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
-
-  const totalPresencas = frequencia.reduce((s, f) => s + f.presentes + f.meiodia * 0.5, 0);
-  const totalDias = frequencia.reduce((s, f) => s + f.diasNoVinculo, 0);
-  const totalFaltas = frequencia.reduce((s, f) => s + f.faltas, 0);
-  const pctGeral = totalDias ? (totalPresencas / totalDias) * 100 : 0;
-
-  const tempoCasa = (() => {
-    if (!employee.startDate) return "-";
-    const ini = new Date(employee.startDate + "T12:00:00");
-    const fim = employee.endDate ? new Date(employee.endDate + "T12:00:00") : new Date();
-    const meses = Math.max(0, Math.round((fim - ini) / (1000 * 60 * 60 * 24 * 30.44)));
-    const anos = Math.floor(meses / 12), restM = meses % 12;
-    return anos > 0 ? `${anos} ano(s) e ${restM} mês(es)` : `${restM} mês(es)`;
-  })();
-
-  const obraAtual = (data.obras || []).find(o => o.id === employee.obra)?.name || "-";
-
-  const html = montarRelatorioPadraoHtml({
-    data,
-    titulo: "Ficha do funcionário",
-    subtitulo: employee.name,
-    paisagem: false,
-    meta: [
-      { label: "Função", value: employee.role || "-" },
-      { label: "CPF", value: employee.cpf || "-" },
-      { label: "Obra atual", value: employee.active === false ? "Desligado" : obraAtual },
-      { label: "Admissão", value: employee.startDate ? fmtDateFull(employee.startDate) : "-" },
-      ...(employee.active === false ? [
-        { label: "Desligamento", value: employee.endDate ? fmtDateFull(employee.endDate) : "-" },
-        { label: "Motivo", value: employee.terminationReason || "-" },
-      ] : []),
-      { label: "Tempo de casa", value: tempoCasa },
-    ],
-    kpis: [
-      { label: "Presença (12 meses)", value: `${pctGeral.toFixed(1)}%` },
-      { label: "Faltas (12 meses)", value: String(totalFaltas) },
-      { label: "Ranking de frequência", value: posicaoRanking ? `${posicaoRanking.posicao}º de ${ranking.length}` : "Sem dados" },
-      { label: "Diária atual", value: fmt(Number(employee.dailyRate || 0)) },
-    ],
-    tabelas: [
-      {
-        titulo: "Frequência mensal (últimos 12 meses)",
-        headers: ["Mês", { label: "Presenças", num: true }, { label: "Meios período", num: true }, { label: "Faltas", num: true }, { label: "Sem registro", num: true }, { label: "% presença", num: true }],
-        rows: frequencia.map(f => [
-          escapeHtml(f.label), escapeHtml(String(f.presentes)), escapeHtml(String(f.meiodia)),
-          escapeHtml(String(f.faltas)), escapeHtml(String(f.semRegistro)), escapeHtml(`${f.pctPresenca.toFixed(1)}%`),
-        ]),
-        vazio: "Sem lançamentos de ponto no período.",
-      },
-      {
-        titulo: "Histórico de alterações",
-        headers: ["Data", "Tipo", "Descrição", "Operador"],
-        rows: historico.map(h => [
-          escapeHtml(fmtDateFull(h.date)), escapeHtml(FICHA_TIPO_LABEL[h.type] || h.type),
-          escapeHtml(h.message || "-"), escapeHtml(h.operador || "Sistema"),
-        ]),
-        vazio: "Nenhuma alteração registrada para este funcionário.",
-      },
-    ],
-    legenda: "Ranking de frequência compara a % de presença (presença + meio período × 0,5, sobre dias úteis de vínculo) dos últimos 3 meses entre todos os funcionários com registro no período. Mudanças de função e diária só aparecem no histórico a partir de quando passaram a ser registradas pelo sistema.",
-  });
-  abrirRelatorioPadrao(html, showToast);
-}
-
 //
 // Modal de movimentação individual
 //
@@ -7200,19 +5851,13 @@ function UnlockRequestModal({ data, dispatchAttendanceCommand, showToast, obraId
 //
 
 function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAttendanceCommand, dispatchCommand }) {
-  const [rhEntry]=useState(()=>readRhStepTarget('point'));
-  const rhEmployee=(data.employees||[]).find(e=>String(e.id)===rhEntry?.employeeId);
-  const rhCycle=rhEmployee?pointCycleForDate(rhEntry.date):null;
-  useEffect(()=>{if(rhEntry)clearRhStepTarget('point');},[rhEntry]);
-  const [laborScope,setLaborScope]=useState("all");
-  const changeLaborScope=value=>{setLaborScope(value);setFilterObra("all");};
   const agora = new Date();
   const refInicial = agora.getDate() <= 5 ? new Date(agora.getFullYear(), agora.getMonth()-1, 1) : agora;
-  const [year,setYear]=useState(rhCycle?.year??refInicial.getFullYear());
-  const [month,setMonth]=useState(rhCycle?.month??refInicial.getMonth());
-  const [q,setQ]=useState(rhCycle?.q||(agora.getDate()>=6&&agora.getDate()<=20?"1":"2"));
+  const [year,setYear]=useState(refInicial.getFullYear());
+  const [month,setMonth]=useState(refInicial.getMonth());
+  const [q,setQ]=useState(agora.getDate()>=6&&agora.getDate()<=20?"1":"2");
   const [filterObra,setFilterObra]=useState("all");
-  const [busca,setBusca]=useState(rhEmployee?.name||"");
+  const [busca,setBusca]=useState("");
   const [obraCell,setObraCell]=useState(null);   // "empId::date" da célula com troca de obra aberta
   const pendingCellsRef=useRef(new Map());
   const [,setPendingCellsRevision]=useState(0);
@@ -7293,7 +5938,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const obraDoRegistro=(employee,date,record,selectedObraId="")=>resolveEmployeeAttendanceObraId({
     data,employee,date,record,selectedObraId,
   });
-  const employees=(data.employees||[]).filter(e=>matchesLaborArea(e,laborScope)).filter(e=>employeeRelevantInPeriod(data,e,diasCiclo))
+  const employees=(data.employees||[]).filter(e=>employeeRelevantInPeriod(data,e,diasCiclo))
     .filter(e=>filterObra==="all"||e.obra===filterObra||e.lastObra===filterObra||days.some(d=>obraDoRegistro(e,d,getAtt(data,e.id,d))===filterObra))
     .filter(e=>[e.name,e.role,obraName(e.obra)].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.name.localeCompare(b.name));
@@ -7328,7 +5973,6 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const salvarCelula=async(emp,date,patch)=>{
     if(bloqueadoPorArquivo())return;
     const anterior=attendanceFor(emp.id,date)||{status:null,ot:0,note:"",obraId:""};
-    if(anterior.pontoReview){showToast("Este dia foi conferido pelo RH. Revise-o no Ponto eletrônico.","error");return;}
     const novo={...anterior,...patch};
     const obraId=obraDoRegistro(emp,date,novo,patch.obraId);
     if(obraId&&!canEditAttendance(data,obraId,date,currentUser?.id)){
@@ -7356,7 +6000,6 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
       const ant=getAtt(data,emp.id,date);
       if(!ant)return [];
       const obraId=obraDoRegistro(emp,date,ant);
-      if(ant.pontoReview){bloqueados++;return [];}
       if(obraId&&!canEditAttendance(data,obraId,date,currentUser?.id)){bloqueados++;return [];}
       return [{employeeId:emp.id,date,selectedObraId:obraId,record:{...ant,status:null,obraId}}];
     });
@@ -7377,8 +6020,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
   const rotuloCurto=st=>st==="M"?"½":isValidAttendanceStatus(st)?st:"·";
   return <div className="anim ponto-geral" style={{display:"flex",flexDirection:"column",gap:12}}>
-    <LaborAreaTabs value={laborScope} onChange={changeLaborScope}/>
-    <AttendancePayMode data={{...data,employees:data.employees.filter(e=>matchesLaborArea(e,laborScope))}} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
+    <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
     <PageHero
       eyebrow="Gestão do ponto"
       title="Ponto da quinzena"
@@ -7394,7 +6036,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
         <Inp label="Buscar funcionário" value={busca} onChange={setBusca} placeholder="Nome, cargo ou obra..."/>
       </div>
       <p className="ponto-geral-count">{employees.length} funcionário(s) neste filtro · marcação dia a dia, clicando na célula</p>
-      {!arqMeta&&["admin","rh"].includes(currentUser?.role)&&<Suspense fallback={null}><ImportarDoREP data={data} employees={employees} days={diasCiclo} selectedObraId={filterObra} laborArea={laborScope}
+      {!arqMeta&&["admin","rh"].includes(currentUser?.role)&&<Suspense fallback={null}><ImportarDoREP data={data} employees={employees} days={days}
         getRecord={attendanceFor} canEdit={(obraId,date)=>canEditAttendance(data,obraId,date,currentUser?.id)} obraName={obraName}
         dispatchAttendanceCommand={dispatchAttendanceCommand} newOperationId={pointOperationId} showToast={showToast}/></Suspense>}
     </div>
@@ -7419,7 +6061,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
             ? "Após conferir e pagar a folha, finalize a quinzena: o ponto vira um arquivo próprio, a edição é bloqueada e o sistema fica mais leve."
             : "A quinzena ainda está em andamento. Finalize somente após o último dia do ciclo e o pagamento da folha."}
         </p>
-        <Btn v="warning" size="sm" onClick={finalizarQuinzena} disabled={arqBusy||!quinzenaEncerrada||laborScope!=="all"}
+        <Btn v="warning" size="sm" onClick={finalizarQuinzena} disabled={arqBusy||!quinzenaEncerrada}
           title={quinzenaEncerrada?"":"Disponível após o fim da quinzena"}>
           <Ic n="lock"/> {arqBusy?"Arquivando...":"Finalizar e arquivar quinzena"}
         </Btn>
@@ -7443,7 +6085,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
 
     <div className="ponto-geral-table-wrap" style={{overflow:"auto",border:`1px solid ${C.border}`,borderRadius:8,background:C.card,maxHeight:"70vh"}}>
       <table className="ponto-geral-table" style={{borderCollapse:"separate",borderSpacing:0,minWidth:Math.max(900,354+days.length*64),width:"100%",fontSize:"var(--arcd-type-label)"}}>
-        <thead style={{position:"sticky",top:0,zIndex:5}}><tr>
+        <thead><tr>
           <th className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:7,minWidth:290,background:C.surface,color:C.text,padding:"8px 12px",textAlign:"left",fontSize:"var(--arcd-type-label)",fontWeight:600,letterSpacing:.4,borderBottom:`1px solid ${C.border}`}}>FUNCIONÁRIO E AÇÕES</th>
           <th className="ponto-col-total" style={{minWidth:64,background:C.surface,color:C.text,padding:8,fontSize:"var(--arcd-type-label)",fontWeight:600,borderBottom:`1px solid ${C.border}`}}>DIAS</th>
           {days.map(date=>{const feriado=feriados.includes(date);return <th className={`ponto-col-dia${feriado?" ponto-feriado":""}`} key={date} title={feriado?(nomesFeriados.get(date)||"Feriado"):""} style={{minWidth:64,background:feriado?`${C.red}14`:C.surface,color:feriado?C.red:C.text,padding:"6px 4px",borderLeft:`1px solid ${C.line}`,borderBottom:`1px solid ${C.border}`}}><div style={{fontSize:"var(--arcd-type-label)",fontWeight:600}}>{diaLabel(date)}</div><div style={{fontSize:"var(--arcd-type-caption)",fontWeight:feriado?600:600,opacity:feriado?1:.6}}>{semana(date)}</div>{feriado&&<span className="ponto-feriado-label">Feriado</span>}</th>;})}
@@ -7453,7 +6095,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
             <div className="ponto-employee-cell" style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
               <div style={{minWidth:0}}>
                 <div style={{display:"flex",alignItems:"center",gap:5,minWidth:0}}>
-                  <button type="button" onClick={()=>{window.sessionStorage.setItem("arcd_editar_funcionario",emp.id);onTab?.("equipe");}} title="Editar cadastro do funcionário" style={{fontSize:"var(--arcd-type-control)",fontWeight:600,color:C.text,display:"block",whiteSpace:"normal",overflowWrap:"anywhere",cursor:"pointer",border:0,background:"transparent",padding:0,textAlign:"left",textDecoration:"underline",textDecorationColor:"transparent",textUnderlineOffset:2}} onMouseEnter={e=>e.currentTarget.style.textDecorationColor=C.blue} onMouseLeave={e=>e.currentTarget.style.textDecorationColor="transparent"}>{emp.name}</button>
+                  <button type="button" onClick={()=>{sessionContext.setItem("arcd_editar_funcionario",emp.id);onTab?.("equipe");}} title="Editar cadastro do funcionário" style={{fontSize:"var(--arcd-type-control)",fontWeight:600,color:C.text,display:"block",whiteSpace:"normal",overflowWrap:"anywhere",cursor:"pointer",border:0,background:"transparent",padding:0,textAlign:"left",textDecoration:"underline",textDecorationColor:"transparent",textUnderlineOffset:2}} onMouseEnter={e=>e.currentTarget.style.textDecorationColor=C.blue} onMouseLeave={e=>e.currentTarget.style.textDecorationColor="transparent"}>{emp.name}</button>
                   {emp.active===false&&<Badge color={C.muted}>Demitido</Badge>}
                 </div>
                 <div style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.role||"Funcionário"} · {obraName(emp.obra)}</div>
@@ -7474,8 +6116,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
               {fora?<div style={{textAlign:"center",color:C.muted,fontSize:"var(--arcd-type-label)"}}>—</div>:<>
                 <button onClick={()=>salvarCelula(emp,date,{status:proxStatus(st)})}
                   aria-busy={pending}
-                  disabled={!!att?.pontoReview}
-                  title={att?.pontoReview?.method==='biometric-sync'?"Ponto biométrico: protegido contra alteração pela engenharia. Revisão somente pelo RH.":att?.pontoReview?"Conferido pelo RH; revise no Ponto eletrônico.":pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
+                  title={pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
                   style={{width:"100%",height:30,border:`1.5px solid ${st?corStatus(st):C.border}`,borderRadius:5,
                           background:st?corStatus(st):C.bg,color:st?"#fff":C.muted,
                           fontWeight:600,cursor:"pointer",fontSize:"var(--arcd-type-control)",fontFamily:"var(--arcd-font-sans)",
@@ -7484,7 +6125,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
                 </button>
                 {/* Obra: escondida por padrão. Mostra um chip discreto só quando a
                     obra do dia difere da lotação; toque abre a troca. */}
-                {att?.pontoReview ? <span title={att.pontoReview.method==='biometric-sync'?"Batidas biométricas sincronizadas pelo RH; engenharia não pode alterar.":"Conferido e integrado pelo RH"}>{att.pontoReview.method==='biometric-sync'?'Biometria':'RH'}</span> : aberto ? (
+                {aberto ? (
                   <select autoFocus value={obraId} onChange={e=>{salvarCelula(emp,date,{obraId:e.target.value});setObraCell(null);}} onBlur={()=>setObraCell(null)}
                     style={{width:"100%",marginTop:2,border:`1px solid ${C.blue}`,borderRadius:4,background:C.bg,color:C.text,fontSize:"var(--arcd-type-control)",padding:"2px 1px"}}>
                     <option value="">Sem obra</option>
@@ -7511,7 +6152,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     {arqView&&(()=>{
       // Resumo do arquivo: conta P/M/F por funcionario e valora com a diaria
       // CONGELADA no snapshot (a da epoca do pagamento, nao a atual).
-      const linhas=(arqView.employeesSnapshot||[]).filter(e=>matchesLaborArea(e,laborScope)).map(e=>{
+      const linhas=(arqView.employeesSnapshot||[]).map(e=>{
         const mapa=arqView.attendance?.[e.id]||{};
         let p=0,m=0,f=0,he=0,custo=0;
         Object.values(mapa).forEach(r=>{
@@ -7562,14 +6203,9 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
 }
 
 function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchAttendanceCommand, dispatchCommand, onTab }) {
-  const [rhEntry]=useState(()=>readRhStepTarget('point-close'));
-  const rhEmployee=(data.employees||[]).find(e=>String(e.id)===rhEntry?.employeeId);
-  useEffect(()=>{if(rhEntry)clearRhStepTarget('point-close');},[rhEntry]);
-  const [laborScope,setLaborScope]=useState("all");
-  const changeLaborScope=value=>{setLaborScope(value);setFilterObra("all");};
   const obraInicial=obraIdFixo||currentUser?.obraId||
-    (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:rhEmployee&&data.obras.some(o=>String(o.id)===rhEntry.obraId)?rhEntry.obraId:"all");
-  const [selDate, setSelDate] = useState(rhEmployee?rhEntry.date:today());
+    (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:"all");
+  const [selDate, setSelDate] = useState(today());
   const [filterObra, setFilterObra] = useState(obraInicial);
   const [noteModal, setNoteModal] = useState(null);
   const [noteText, setNoteText] = useState("");
@@ -7624,7 +6260,6 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   }, [selDate, attendanceCompletion.allDone, lastAllDoneNotification, showToast]);
 
   const list = data.employees
-    .filter(e=>matchesLaborArea(e,laborScope))
     .filter(e => employeeRelevantOnDate(data, e, selDate))
     .filter(e => {
       if (filterObra === "all") return true;
@@ -7862,8 +6497,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
 
   return (
     <div className="anim obra-attendance">
-      {!obraIdFixo&&<LaborAreaTabs value={laborScope} onChange={changeLaborScope}/>}
-    <AttendancePayMode data={{...data,employees:data.employees.filter(e=>matchesLaborArea(e,laborScope))}} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
+      <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
       <PageHero
         eyebrow="Registro de ponto"
         title={selectedObra?.name || "Todas as obras"}
@@ -7999,7 +6633,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
 
             {note && <p className="obra-attendance-card__note">“{note}”</p>}
 
-            {att?.pontoReview ? <p>Conferido pelo RH e integrado das batidas do aplicativo. Para alterar este dia, faça uma nova conferência no Ponto eletrônico.</p> : cardLocked ? (
+            {cardLocked ? (
               <Btn v="warning" size="sm" full onClick={() => setUnlockModal({ obraId: obraIdPonto, date: selDate, employee: e })}><Ic n="mail" /> Solicitar permissão</Btn>
             ) : (
               <>
@@ -8262,16 +6896,6 @@ function FluxoCaixa({ data, year, month, obraId="all" }) {
     </div>
   );
 }
-
-// A tela de Terceiros (cadastro e pagamentos semanais) foi extraída para
-// src/domains/terceirizados/components/TerceirosView.jsx em 2026-08-15 -
-// importada como `Terceiros` abaixo, mesmo nome de sempre.
-
-export const compLabel = ym => {
-  if (!ym) return "-";
-  const [y, m] = ym.split("-");
-  return `${fullMonth(Number(m)-1)} ${y}`;
-};
 
 //
 // Relatórios
@@ -9845,45 +8469,6 @@ function Config({ data, update, showToast, currentUser, onLogout, dispatchAttend
   );
 }
 
-//
-// SISTEMA DE LOGIN E PERMISSÕES
-//
-
-export const ROLES = [
-  { v:"admin",      l:"Administrador",     desc:"Acesso total ao sistema",             color:"#D4AF37" },
-  { v:"engenheiro", l:"Engenheiro de Campo",desc:"Obras, Ponto, Equipe, Terceiros",    color:"#1565C0" },
-  { v:"engenheiro_auditor", l:"Engenheiro Auditor",desc:"Auditoria técnica, vistorias e conferências", color:"#0F766E" },
-  { v:"compras",    l:"Setor de Compras",   desc:"Solicitações, pedidos, fornecedores e estoque", color:"#D97706" },
-  { v:"rh",         l:"RH / Gestão",       desc:"Equipe, Terceirizados, Folha e Rescisão", color:"#2E7D32" },
-  { v:"financeiro", l:"Financeiro",         desc:"Pagamentos, notas, conciliação, DRE e auditoria", color:"#6A1B9A" },
-  { v:"comercial",  l:"Comercial",          desc:"Orçamentos e atividades comerciais", color:"#2E7D32" },
-  { v:"visualizador",l:"Visualizador",      desc:"Somente Dashboard (somente leitura)", color:"#6B6459" },
-];
-
-
-const ACCESS_SECTORS=[
-  {id:"engenharia",label:"Engenharia",color:"#1565C0",tabs:[
-    ["obras","Obras"],["orc","Orçamento"],["plan","Planejamento"],["plan_suprimentos","Marcos e Curva A"],["rdo","Diário de obra"],["conferencia","Conferência"],["med","Medição técnica"],
-    ["equip","Equipamentos"],["licenca","Licenciamento"],["obsoletos","Obsoletos"],
-  ]},
-  {id:"compras",label:"Compras",color:"#D97706",tabs:[
-    ["cmp","Compras e solicitações"],["fornecedores","Fornecedores e ranking"],["est","Estoque"],
-  ]},
-  {id:"financeiro",label:"Financeiro",color:"#6A1B9A",tabs:[
-    ["dre_emp","DRE Empresa"],["dre","DRE Obras"],["fin","Gestão financeira"],["conc","Conciliação"],
-    ["equip_fin","Locação de equipamentos"],["medicoes","Medições financeiras"],["caixa","Caixa da obra"],["relat","Relatórios"],
-  ]},
-  {id:"rh",label:"Recursos Humanos",color:"#0F766E",tabs:[
-    ["equipe","Equipes"],["equipe_obras","Equipe nas Obras"],["ponto","Ponto por obra"],["ponto_geral","Gestão geral do ponto"],["ponto_app","Ponto eletrônico (app)"],["terc","Terceirizados"],["folha","Folha de pagamento"],["resc","Rescisões"],["rh_indic","Indicadores"],["conc","Conciliação da folha"],
-  ]},
-  {id:"comercial",label:"Comercial",color:"#2E7D32",tabs:[
-    ["com_workspace","Comercial da empresa"],["com_real_estate","Venda de imóveis"],["com_pipeline","Pipeline"],["com_relationships","Relacionamentos"],["com_deals","Propostas e contratos"],["com_management","Gestão comercial"],
-  ]},
-  {id:"geral",label:"Recursos gerais",color:"#6B6459",tabs:[
-    ["patrimonio","Patrimônio da empresa"],["ia","Inteligência artificial"],["cad","Cadastros gerais"],
-  ]},
-];
-
 
 //  Tela de Login
 
@@ -10090,571 +8675,6 @@ function LoginScreen({ onLogin, erroInicial="", precisaSetup=false }) {
   );
 }
 
-//  Gestão de Usuários (dentro de Config)
-
-export function GestaoUsuarios({ data, update, showToast, currentUser }) {
-  const emptyU = { id:"", nome:"", role:"engenheiro", email:"", obraId:"", maxDesconto:10, active:true, accessTabs:[...ROLE_TABS.engenheiro] };
-  const [modal,   setModal]   = useState(false);
-  const [pinModal,setPinModal] = useState(null); // userId
-  const [form,    setForm]    = useState(emptyU);
-  const [newPin,  setNewPin]  = useState("");
-  const [newPin2, setNewPin2] = useState("");
-  const [contaModal,setContaModal]=useState(null);
-  const [senhaTemp,setSenhaTemp]=useState("");
-  const [senhaTemp2,setSenhaTemp2]=useState("");
-  const [ativandoConta,setAtivandoConta]=useState(false);
-  const [presencas,setPresencas] = useState([]);
-  const [presencaBusy,setPresencaBusy] = useState(false);
-  const [presencaErro,setPresencaErro] = useState("");
-  const F = k => v => setForm(f=>({...f,[k]:v}));
-  const mudarPerfil=role=>setForm(f=>({...f,role,accessTabs:[...(ROLE_TABS[role]||["home"])]}));
-  const toggleTela=tab=>setForm(f=>{const atual=new Set(f.accessTabs||[]);atual.has(tab)?atual.delete(tab):atual.add(tab);return{...f,accessTabs:[...atual]};});
-  const toggleSetor=setor=>setForm(f=>{const atual=new Set(f.accessTabs||[]);const ids=setor.tabs.map(([id])=>id);const todos=ids.every(id=>atual.has(id));ids.forEach(id=>todos?atual.delete(id):atual.add(id));return{...f,accessTabs:[...atual]};});
-
-  const saveUser = async () => {
-    if (!form.nome.trim()) { showToast("Nome obrigatório.","error"); return; }
-    if(form.id===currentUser?.id&&form.role!=="admin"){showToast("O administrador logado não pode retirar o próprio acesso administrativo.","error");return;}
-    const accessTabs=form.role==="admin"?[...ROLE_TABS.admin]:[...new Set(["home",...(form.accessTabs||[])])].filter(tab=>ROLE_TABS.admin.includes(tab)&&tab!=="config");
-    const payload = { ...form,accessTabs,maxDesconto:Math.max(0,Math.min(100,Number(form.maxDesconto||0))), id: form.id||uid(), createdAt: form.createdAt||new Date().toISOString() };
-    // PIN só é definido via modal separado
-    if (!form.id) payload.pin = ""; // novo usuário sem PIN → admin define depois
-    const usuarios = form.id
-      ? (data.usuarios||[]).map(u=>u.id===form.id?payload:u)
-      : [...(data.usuarios||[]), payload];
-    const obras=(data.obras||[]).map(o=>o.engineerId===payload.id?{...o,engineer:payload.role==="engenheiro"&&payload.active!==false?payload.nome:"",engineerId:payload.role==="engenheiro"&&payload.active!==false?payload.id:""}:o);
-    update({...data, usuarios, obras});
-    setModal(false);
-    showToast(form.id?"Usuário atualizado.":"Usuário cadastrado. Defina o PIN agora.");
-    if (!form.id) setPinModal(payload.id);
-  };
-
-  const savePin = async (userId) => {
-    if (newPin.length < 4) { showToast("PIN mínimo 4 dígitos.","error"); return; }
-    if (newPin !== newPin2) { showToast("PINs não coincidem.","error"); return; }
-    const sincronizado=await update({__aguardarFila:true});
-    if(!sincronizado?.ok){showToast("Conclua o salvamento pendente antes de definir o PIN.","error");return;}
-    const resultado=await definirPinOperador(userId,newPin);
-    if(!resultado.ok){showToast(resultado.erro||"Não foi possível definir o PIN.","error");return;}
-    update({__adotarServidor:true,data:resultado.data,updatedAt:resultado.updatedAt});
-    setPinModal(null); setNewPin(""); setNewPin2("");
-    showToast("PIN definido com sucesso.");
-  };
-
-  const ativarContaEmail=async()=>{
-    if(senhaTemp.length<8){showToast("A senha temporária deve ter ao menos 8 caracteres.","error");return;}
-    if(senhaTemp!==senhaTemp2){showToast("As senhas não coincidem.","error");return;}
-    const sincronizado=await update({__aguardarFila:true});
-    if(!sincronizado?.ok){showToast("Conclua o salvamento pendente antes de ativar a conta.","error");return;}
-    setAtivandoConta(true);
-    const r=await provisionarContaEmail(contaModal,senhaTemp);
-    setAtivandoConta(false);
-    if(!r.ok){showToast(r.erro||"Não foi possível ativar a conta.","error");return;}
-    update({__adotarServidor:true,data:r.data,updatedAt:r.updatedAt});
-    setContaModal(null);setSenhaTemp("");setSenhaTemp2("");showToast("Conta de e-mail ativada. Entregue a senha temporária ao operador.");
-  };
-
-  const toggleActive = (id) => {
-    const usuarios = (data.usuarios||[]).map(u=>u.id===id?{...u,active:!u.active}:u);
-    update({...data,usuarios});
-    showToast("Status atualizado.");
-  };
-
-  const carregarPresencas = useCallback(async () => {
-    if (currentUser?.role !== "admin") return;
-    setPresencaBusy(true);
-    const r = await listarPresencas();
-    if (r.ok) { setPresencas(r.presencas); setPresencaErro(""); }
-    else setPresencaErro(r.erro || "Não foi possível consultar quem está on-line.");
-    setPresencaBusy(false);
-  }, [currentUser?.role]);
-
-  useEffect(() => {
-    if (currentUser?.role !== "admin") return undefined;
-    const polling = criarPollingAdaptativo({ tarefa: carregarPresencas, visivelMs: 30000, ocultoMs: 120000 });
-    polling.iniciar();
-    return polling.parar;
-  }, [currentUser?.role, carregarPresencas]);
-
-  const presencasPorUsuario = useMemo(() => {
-    const mapa = new Map();
-    presencas.forEach(p => {
-      if (!mapa.has(p.userId)) mapa.set(p.userId, []);
-      mapa.get(p.userId).push(p);
-    });
-    mapa.forEach(lista => lista.sort((a,b)=>new Date(b.lastSeen)-new Date(a.lastSeen)));
-    return mapa;
-  }, [presencas]);
-
-  const fmtUltimaAtividade = iso => {
-    if (!iso) return "Nunca registrado";
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return "Horário indisponível";
-    const segundos = Math.max(0, Math.round((Date.now()-d.getTime())/1000));
-    if (segundos < 60) return "Agora";
-    if (segundos < 3600) return `Há ${Math.floor(segundos/60)} min`;
-    return d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
-  };
-
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div>
-          <p style={{fontFamily:"var(--arcd-font-sans)",fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text,textTransform:"uppercase",letterSpacing:.5}}>Usuários do Sistema</p>
-          <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,marginTop:2}}>{(data.usuarios||[]).length} cadastrados</p>
-        </div>
-        {currentUser?.role==="admin"&&<div style={{display:"flex",gap:6}}><Btn size="sm" v="ghost" onClick={carregarPresencas} disabled={presencaBusy}><Ic n="clock"/> {presencaBusy?"Atualizando...":"Atualizar on-line"}</Btn><Btn size="sm" onClick={()=>{setForm(emptyU);setModal(true);}}><Ic n="plus"/> Novo</Btn></div>}
-      </div>
-
-      {currentUser?.role==="admin"&&presencaErro&&<p style={{fontSize:"var(--arcd-type-label)",color:C.red,background:`${C.red}0B`,border:`1px solid ${C.red}33`,borderRadius:6,padding:"7px 9px"}}>{presencaErro}</p>}
-
-      {(data.usuarios||[]).length===0&&(
-        <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:20,textAlign:"center",color:C.muted}}>
-          Nenhum usuário cadastrado. Crie o admin primeiro.
-        </div>
-      )}
-
-      {(data.usuarios||[]).map(u=>{
-        const role=ROLES.find(r=>r.v===u.role)||ROLES[0];
-        const hasPIN=!!u.pin;
-        const acessos=allowedTabsForUser(u);
-        const setores=u.role==="admin"?["TODOS OS SETORES"]:ACCESS_SECTORS.filter(s=>s.tabs.some(([id])=>acessos.includes(id))).map(s=>s.label.toUpperCase());
-        const sessoes=presencasPorUsuario.get(u.id)||[];
-        const sessoesOnline=sessoes.filter(p=>p.online);
-        const ultima=sessoesOnline[0]||sessoes[0];
-        return(
-          <div key={u.id} style={{
-            background:C.bg,border:`1.5px solid ${C.border}`,borderLeft:`1px solid ${role.color}`,
-            borderRadius:6,padding:"12px 14px",
-            boxShadow:`0 1px 4px ${C.shadow}`,
-            opacity:u.active===false?0.55:1,
-          }}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-              <div className="settings-user-details">
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <p style={{fontWeight:600,fontSize:"var(--arcd-type-body)",color:C.text}}>{u.nome}</p>
-                  {u.id===currentUser?.id&&<span style={{fontSize:"var(--arcd-type-label)",background:C.yellow,color:"#fff",padding:"2px 6px",borderRadius:4,fontWeight:600}}>VOCÊ</span>}
-                  {currentUser?.role==="admin"&&<span style={{fontSize:"var(--arcd-type-caption)",background:sessoesOnline.length?`${C.green}18`:C.surface,color:sessoesOnline.length?C.green:C.muted,border:`1px solid ${sessoesOnline.length?C.green:C.border}`,padding:"2px 6px",borderRadius:99,fontWeight:600,display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:sessoesOnline.length?C.green:C.muted}}/>{sessoesOnline.length?`ONLINE${sessoesOnline.length>1?` · ${sessoesOnline.length} SESSÕES`:""}`:"OFFLINE"}</span>}
-                  {!hasPIN&&<span style={{fontSize:"var(--arcd-type-label)",background:C.orange,color:"#fff",padding:"2px 6px",borderRadius:4,fontWeight:600}}>SEM PIN</span>}
-                </div>
-                <p style={{fontSize:"var(--arcd-type-label)",color:role.color,fontWeight:600,marginTop:2}}>{role.l}</p>
-                {u.email&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>{u.email}</p>}
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{role.desc}</p>
-                <p style={{fontSize:"var(--arcd-type-caption)",color:u.obraId?C.orange:C.green,marginTop:3,fontWeight:600}}>Obras: {u.obraId?((data.obras||[]).find(o=>o.id===u.obraId)?.name||"restrição inválida — obra removida"):"todas as obras"}</p>
-                {currentUser?.role==="admin"&&<p style={{fontSize:"var(--arcd-type-caption)",color:sessoesOnline.length?C.green:C.muted,marginTop:4}}>{sessoesOnline.length?`${TAB_META[ultima?.tab]?.label||ultima?.tab||"No aplicativo"} · ${ultima?.device||"Dispositivo"}`:`Última atividade: ${fmtUltimaAtividade(ultima?.lastSeen)}`}</p>}
-                <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>{setores.map(nome=><span key={nome} style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.blue,background:`${C.blue}0C`,border:`1px solid ${C.blue}35`,padding:"2px 5px",borderRadius:4}}>{nome}</span>)}</div>
-              </div>
-              {currentUser?.role==="admin"&&(
-                <div className="settings-user-actions" style={{display:"flex",gap:4,flexShrink:0}}>
-                  <Btn size="sm" v={u.authUserId?"success":"ghost"} onClick={()=>{if(!u.email){showToast("Cadastre o e-mail do operador antes de ativar a conta.","error");return;}setContaModal(u.id);setSenhaTemp("");setSenhaTemp2("");}}>{u.authUserId?"Senha":"Ativar login"}</Btn>
-                  <Btn size="sm" v="ghost" onClick={()=>setPinModal(u.id)}>PIN</Btn>
-                  <Btn size="sm" v="ghost" onClick={()=>{setForm({...u,accessTabs:[...allowedTabsForUser(u)]});setModal(true);}}><Ic n="edit"/></Btn>
-                  {u.obraId&&<Btn size="sm" v="success" onClick={()=>{update({...data,usuarios:(data.usuarios||[]).map(x=>x.id===u.id?{...x,obraId:""}:x)});showToast(`${u.nome} agora pode acessar todas as obras.`);}}>Todas obras</Btn>}
-                  <Btn size="sm" v={u.active===false?"success":"dark"} onClick={()=>toggleActive(u.id)}>
-                    {u.active===false?"Ativar":"Inativar"}
-                  </Btn>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Modal: cadastro de usuário */}
-      {modal&&(
-        <Modal title={form.id?"Editar usuário":"Novo usuário"} onClose={()=>setModal(false)} wide>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <Inp label="Nome completo *" value={form.nome} onChange={F("nome")} placeholder="Nome do usuário"/>
-            <Sel label="Perfil-base *" value={form.role} onChange={mudarPerfil} options={ROLES.map(r=>({v:r.v,l:r.l}))}/>
-            <Inp label="E-mail" value={form.email} onChange={F("email")} placeholder="email@empresa.com"/>
-            <Inp label="Limite de desconto comercial (%)" type="number" value={form.maxDesconto??10} onChange={F("maxDesconto")} placeholder="10"/>
-            <Sel label="Restringir a obra (opcional)" value={form.obraId} onChange={F("obraId")}
-              options={[{v:"",l:"Todas as obras"},...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
-            <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"10px 12px"}}>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>
-                O perfil-base preenche uma sugestão. O acesso efetivo é definido pelas telas marcadas abaixo.
-              </p>
-            </div>
-            {form.role==="admin"?<div style={{background:`${C.yellow}10`,border:`1px solid ${C.yellow}`,borderRadius:6,padding:"10px 12px"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.yellowD,fontWeight:600}}>ADMINISTRADOR · ACESSO TOTAL</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>O administrador sempre acessa todos os setores, usuários e configurações.</p></div>:<div style={{display:"flex",flexDirection:"column",gap:8}}>
-              <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>ACESSOS DESTE USUÁRIO</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Marque o setor inteiro ou escolha telas individualmente. Dashboard é liberado automaticamente.</p></div>
-              {ACCESS_SECTORS.map(setor=>{const selecionadas=setor.tabs.filter(([id])=>(form.accessTabs||[]).includes(id)).length;const todas=selecionadas===setor.tabs.length;return <div key={setor.id} style={{border:`1px solid ${todas?setor.color:C.border}`,borderLeft:`1px solid ${setor.color}`,borderRadius:6,padding:"9px 10px",background:todas?`${setor.color}08`:C.surface}}>
-                <button onClick={()=>toggleSetor(setor)} style={{display:"flex",width:"100%",justifyContent:"space-between",alignItems:"center",gap:8,border:0,background:"transparent",cursor:"pointer",padding:0,textAlign:"left"}}><span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:setor.color}}>{setor.label.toUpperCase()}</span><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{selecionadas}/{setor.tabs.length} · {todas?"DESMARCAR SETOR":"MARCAR SETOR"}</span></button>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:5,marginTop:7}}>{setor.tabs.map(([id,label])=>{const marcado=(form.accessTabs||[]).includes(id);return <label key={id} style={{display:"flex",alignItems:"center",gap:7,border:`1px solid ${marcado?setor.color:C.border}`,background:marcado?`${setor.color}0B`:C.bg,borderRadius:6,padding:"6px 8px",cursor:"pointer"}}><input type="checkbox" checked={marcado} onChange={()=>toggleTela(id)}/><span style={{fontSize:"var(--arcd-type-label)",color:marcado?C.text:C.muted,fontWeight:marcado?600:500}}>{label}</span></label>;})}</div>
-              </div>;})}
-            </div>}
-            <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>setModal(false)} full>Cancelar</Btn>
-              <Btn onClick={saveUser} full><Ic n="check"/> Salvar</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Modal: definir PIN */}
-      {pinModal&&(
-        <Modal title="Definir PIN de acesso" onClose={()=>{setPinModal(null);setNewPin("");setNewPin2("");}}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"10px 14px"}}>
-              <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>Usuário: <strong style={{color:C.text}}>{(data.usuarios||[]).find(u=>u.id===pinModal)?.nome||"-"}</strong></p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>O PIN é pessoal e deve ter entre 4 e 6 dígitos numéricos.</p>
-            </div>
-            <Inp label="Novo PIN *" type="password" value={newPin} onChange={setNewPin} placeholder="4 a 6 dígitos"/>
-            <Inp label="Confirmar PIN *" type="password" value={newPin2} onChange={setNewPin2} placeholder="Repita o PIN"/>
-            <div style={{display:"flex",gap:8}}>
-              <Btn v="ghost" onClick={()=>{setPinModal(null);setNewPin("");setNewPin2("");}} full>Cancelar</Btn>
-              <Btn v="primary" onClick={()=>savePin(pinModal)} full><Ic n="check"/> Definir PIN</Btn>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {contaModal&&<Modal title={(data.usuarios||[]).find(u=>u.id===contaModal)?.authUserId?"Redefinir senha do operador":"Ativar acesso por e-mail"} onClose={()=>setContaModal(null)}><div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 12px"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{(data.usuarios||[]).find(u=>u.id===contaModal)?.nome}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>{(data.usuarios||[]).find(u=>u.id===contaModal)?.email}</p></div><Inp label="Senha temporária *" type="password" value={senhaTemp} onChange={setSenhaTemp} placeholder="Mínimo 8 caracteres"/><Inp label="Confirmar senha *" type="password" value={senhaTemp2} onChange={setSenhaTemp2} placeholder="Repita a senha"/><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.45}}>O operador usará seu e-mail e esta senha na nova tela de login. O PIN continuará disponível somente durante a transição.</p><div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setContaModal(null)}>Cancelar</Btn><Btn full onClick={ativarContaEmail} disabled={ativandoConta}>{ativandoConta?"Ativando...":"Ativar conta"}</Btn></div></div></Modal>}
-    </div>
-  );
-}
-
-//
-// GESTÃO DE APROVAÇÕES - tela administrativa sobre o motor genérico de
-// domains/aprovacoes/ (engine.js + policies.js). O motor já suporta qualquer
-// setor; hoje só existem resolvedores de aprovador genéricos
-// (resolvedoresAprovacaoGenericos, acima) - por isso a lista de tipos de
-// processo e de aprovador abaixo fica restrita ao que realmente resolve
-// alguém. Adicionar um novo setor é trabalho de desenvolvimento (escrever o
-// resolvedor), não de configuração - por design, o motor nunca inventa um
-// aprovador para um cargo/departamento que a base não tem.
-export const SETORES_APROVACAO = [
-  { v: "solicitacaoCompra", l: "Compras · Solicitação de compra" },
-  { v: "pagamentoTerceiro", l: "Terceiros · Pagamento" },
-];
-export const MOTORES_APROVACAO_POR_ENTIDADE = { solicitacaoCompra: () => motorAprovacaoGenerico, pagamentoTerceiro: () => motorAprovacaoGenerico };
-const TIPOS_APROVADOR_APROVACAO = [
-  { v: "usuario", l: "Usuário específico", refs: "usuario" },
-  { v: "cargo", l: "Perfil de acesso (cargo)", refs: "role" },
-  { v: "responsavelObra", l: "Engenheiro responsável pela obra", refs: null },
-  { v: "compradorResponsavel", l: "Setor de Compras", refs: null },
-  { v: "financeiro", l: "Setor Financeiro", refs: null },
-  { v: "administrador", l: "Administrador", refs: null },
-  { v: "campoSolicitacao", l: "Aprovador indicado na solicitação", refs: null },
-];
-const CAMPOS_CONTEXTO_APROVACAO = [
-  { v: "valorTotal", l: "Valor total (R$)" },
-  { v: "obraId", l: "Obra" },
-  { v: "categoria", l: "Categoria do item" },
-  { v: "urgencia", l: "Prioridade da solicitação" },
-  { v: "solicitanteId", l: "Solicitante" },
-  { v: "possuiMedicao", l: "Pagamento vinculado a uma medição do terceiro?" },
-];
-const ROTULOS_OPERADOR_APROVACAO = {
-  igual:"é igual a", diferente:"é diferente de", maior:"maior que", maior_igual:"maior ou igual a",
-  menor:"menor que", menor_igual:"menor ou igual a", entre:"entre (mín, máx)",
-  contem:"contém o texto", pertence_lista:"está na lista", nao_pertence_lista:"não está na lista",
-};
-const ROTULOS_MODO_QUORUM = { qualquer:"Qualquer um decide", todos:"Todos precisam aprovar", minimo:"Quantidade mínima" };
-const ROTULOS_SEM_APROVADOR = { enviar_administrador:"Enviar para o administrador", pular_etapa:"Pular etapa (segue sem aprovação)", auto_aprovar_etapa:"Aprovar automaticamente", bloquear:"Bloquear até intervenção manual" };
-const ROTULOS_ACAO_VENCIMENTO = { escalonar:"Escalonar para substituto/administrador", aprovar_automatico:"Aprovar automaticamente", bloquear:"Bloquear até intervenção manual", retornar_solicitante:"Devolver ao solicitante" };
-const ROTULOS_AUTOAPROVACAO = { proibida:"Nunca permitir", sempre:"Sempre permitir", abaixo_valor:"Permitir abaixo de um valor", perfis_especificos:"Permitir para perfis específicos", sem_outro_elegivel:"Permitir só quando não houver outro aprovador" };
-
-const novaCondicaoAprovacao = () => ({ id: uid(), campo: "valorTotal", operador: "maior", valor: "" });
-const novaEtapaAprovacao = ordem => ({
-  id: uid(), ordem, nome: "", tipoAprovador: "administrador", referenciasAprovadores: [],
-  modoQuorum: "qualquer", quantidadeMinima: 1, prazoValor: 0, prazoUnidade: "dias_uteis",
-  acaoNoVencimento: "escalonar", substitutos: [], grupoSubstituto: "",
-  semAprovadorAcao: "enviar_administrador", consolidarAprovadorRepetido: "manter", condicoes: [],
-});
-const novaPoliticaAprovacao = () => ({
-  id: "", nome: "", descricao: "", ativa: true, prioridade: 10, entidadeTipo: "solicitacaoCompra",
-  vigenciaInicio: "", vigenciaFim: "", condicoes: [], etapas: [novaEtapaAprovacao(0)],
-  autoaprovacao: { modo: "proibida", valorLimite: 0, perfis: [] },
-});
-
-// Modelos iniciais por porte de empresa (§ "Assistente de configuração por
-// porte" do pedido original). Só preenchem o formulário - nada é salvo até o
-// admin revisar e confirmar, e tudo continua editável depois.
-const etapaModelo = (ordem, nome, tipoAprovador) => ({ ...novaEtapaAprovacao(ordem), nome, tipoAprovador });
-const MODELOS_PORTE_APROVACAO = {
-  enxuto: () => ({
-    ...novaPoliticaAprovacao(), nome: "Alçada do administrador acima de R$ 5.000",
-    descricao: "Times pequenos: abaixo do limite, segue direto (comportamento padrão da tela de Aprovações). Acima, só o administrador decide.",
-    condicoes: [{ ...novaCondicaoAprovacao(), campo: "valorTotal", operador: "maior", valor: "5000" }],
-    etapas: [etapaModelo(0, "Aprovação do administrador", "administrador")],
-    autoaprovacao: { modo: "sem_outro_elegivel", valorLimite: 0, perfis: [] },
-  }),
-  intermediario: () => ({
-    ...novaPoliticaAprovacao(), nome: "Responsável da obra + financeiro",
-    descricao: "Passa primeiro pelo responsável da obra e depois pelo financeiro, em sequência.",
-    etapas: [etapaModelo(0, "Responsável da obra", "responsavelObra"), etapaModelo(1, "Financeiro", "financeiro")],
-  }),
-  segregado: () => ({
-    ...novaPoliticaAprovacao(), nome: "Responsável da obra → financeiro → administrador",
-    descricao: "Segregação de funções completa: três etapas em sequência, sem acúmulo implícito.",
-    etapas: [etapaModelo(0, "Responsável da obra", "responsavelObra"), etapaModelo(1, "Financeiro", "financeiro"), etapaModelo(2, "Administrador", "administrador")],
-  }),
-};
-
-// Condição de contexto (valor livre, exceto quando o campo tem opções
-// conhecidas na base - aí usa Sel para não deixar o admin digitar um id que
-// não existe).
-function EditorCondicaoAprovacao({ condicao, data, onChange, onRemove }) {
-  const valorInput = condicao.campo === "obraId"
-    ? <Sel label="Valor" value={condicao.valor||""} onChange={v=>onChange({...condicao,valor:v})} options={[{v:"",l:"Selecione a obra"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
-    : condicao.campo === "urgencia"
-    ? <Sel label="Valor" value={condicao.valor||""} onChange={v=>onChange({...condicao,valor:v})} options={[{v:"normal",l:"Normal"},{v:"urgente",l:"Urgente"}]}/>
-    : condicao.campo === "solicitanteId"
-    ? <Sel label="Valor" value={condicao.valor||""} onChange={v=>onChange({...condicao,valor:v})} options={[{v:"",l:"Selecione o usuário"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
-    : condicao.campo === "possuiMedicao"
-    ? <Sel label="Valor" value={condicao.valor||""} onChange={v=>onChange({...condicao,valor:v})} options={[{v:"sim",l:"Sim, há medição"},{v:"nao",l:"Não, pagamento manual/sem medição"}]}/>
-    : <Inp label="Valor" value={condicao.valor??""} onChange={v=>onChange({...condicao,valor:v})} placeholder={["entre","pertence_lista","nao_pertence_lista"].includes(condicao.operador)?"Separe por vírgula":""}/>;
-  return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:6,alignItems:"end",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:8}}>
-    <Sel label="Campo" value={condicao.campo} onChange={v=>onChange({...condicao,campo:v,valor:""})} options={CAMPOS_CONTEXTO_APROVACAO}/>
-    <Sel label="Condição" value={condicao.operador} onChange={v=>onChange({...condicao,operador:v})} options={OPERADORES.map(op=>({v:op,l:ROTULOS_OPERADOR_APROVACAO[op]||op}))}/>
-    {valorInput}
-    <Btn size="sm" v="ghost" onClick={onRemove}><Ic n="trash"/></Btn>
-  </div>;
-}
-
-function EditorEtapaAprovacao({ etapa, data, onChange, onRemove }) {
-  const { cols } = useBreakpoint();
-  const tipoDef = TIPOS_APROVADOR_APROVACAO.find(t => t.v === etapa.tipoAprovador);
-  const refOptions = tipoDef?.refs === "usuario"
-    ? (data.usuarios||[]).filter(u=>u.active!==false).map(u=>({id:u.id,l:u.nome}))
-    : tipoDef?.refs === "role" ? ROLES.map(r=>({id:r.v,l:r.l})) : [];
-  const toggleRef = id => onChange({...etapa, referenciasAprovadores: etapa.referenciasAprovadores.includes(id)
-    ? etapa.referenciasAprovadores.filter(x=>x!==id) : [...etapa.referenciasAprovadores, id]});
-  return <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:9,padding:11,display:"flex",flexDirection:"column",gap:8}}>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 90px auto",gap:6,alignItems:"end"}}>
-      <Inp label="Nome da etapa" value={etapa.nome} onChange={v=>onChange({...etapa,nome:v})} placeholder="Ex.: Aprovação do engenheiro"/>
-      <Inp label="Ordem" type="number" value={etapa.ordem} onChange={v=>onChange({...etapa,ordem:Number(v||0)})}/>
-      <Btn size="sm" v="ghost" onClick={onRemove}><Ic n="trash"/> Remover etapa</Btn>
-    </div>
-    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Etapas com a mesma ordem rodam em paralelo; ordens diferentes rodam em sequência.</p>
-    <Sel label="Quem aprova" value={etapa.tipoAprovador} onChange={v=>onChange({...etapa,tipoAprovador:v,referenciasAprovadores:[]})} options={TIPOS_APROVADOR_APROVACAO}/>
-    {tipoDef?.refs && <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:5}}>
-      {refOptions.map(o=><label key={o.id} style={{display:"flex",alignItems:"center",gap:6,border:`1px solid ${etapa.referenciasAprovadores.includes(o.id)?C.blue:C.border}`,background:etapa.referenciasAprovadores.includes(o.id)?`${C.blue}0B`:C.bg,borderRadius:6,padding:"5px 7px",cursor:"pointer"}}>
-        <input type="checkbox" checked={etapa.referenciasAprovadores.includes(o.id)} onChange={()=>toggleRef(o.id)}/>
-        <span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{o.l}</span>
-      </label>)}
-      {!refOptions.length && <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Nenhuma opção cadastrada.</p>}
-    </div>}
-    <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6}}>
-      <Sel label="Quórum" value={etapa.modoQuorum} onChange={v=>onChange({...etapa,modoQuorum:v})} options={Object.entries(ROTULOS_MODO_QUORUM).map(([v,l])=>({v,l}))}/>
-      {etapa.modoQuorum==="minimo" && <Inp label="Quantidade mínima" type="number" value={etapa.quantidadeMinima} onChange={v=>onChange({...etapa,quantidadeMinima:Math.max(1,Number(v||1))})}/>}
-      <Inp label="Prazo" type="number" value={etapa.prazoValor} onChange={v=>onChange({...etapa,prazoValor:Math.max(0,Number(v||0))})}/>
-      <Sel label="Unidade do prazo" value={etapa.prazoUnidade} onChange={v=>onChange({...etapa,prazoUnidade:v})} options={[{v:"dias_uteis",l:"Dias úteis"},{v:"horas",l:"Horas"}]}/>
-      <Sel label="Sem aprovador elegível" value={etapa.semAprovadorAcao} onChange={v=>onChange({...etapa,semAprovadorAcao:v})} options={Object.entries(ROTULOS_SEM_APROVADOR).map(([v,l])=>({v,l}))}/>
-      <Sel label="Ao vencer o prazo" value={etapa.acaoNoVencimento} onChange={v=>onChange({...etapa,acaoNoVencimento:v})} options={Object.entries(ROTULOS_ACAO_VENCIMENTO).map(([v,l])=>({v,l}))}/>
-      <Sel label="Aprovador repetido na próxima etapa" value={etapa.consolidarAprovadorRepetido} onChange={v=>onChange({...etapa,consolidarAprovadorRepetido:v})} options={[{v:"manter",l:"Manter separado"},{v:"consolidar",l:"Uma decisão conclui as duas"},{v:"ignorar",l:"Pular a próxima automaticamente"}]}/>
-    </div>
-    <div style={{display:"flex",flexDirection:"column",gap:5}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>CONDIÇÕES DA ETAPA (opcional - sem condição, a etapa sempre roda)</span><Btn size="sm" v="ghost" onClick={()=>onChange({...etapa,condicoes:[...etapa.condicoes,novaCondicaoAprovacao()]})}><Ic n="plus"/> Condição</Btn></div>
-      {etapa.condicoes.map(c=><EditorCondicaoAprovacao key={c.id} condicao={c} data={data} onChange={nc=>onChange({...etapa,condicoes:etapa.condicoes.map(x=>x.id===nc.id?nc:x)})} onRemove={()=>onChange({...etapa,condicoes:etapa.condicoes.filter(x=>x.id!==c.id)})}/>)}
-    </div>
-  </div>;
-}
-
-export function GestaoAprovacoes({ data, update, showToast, currentUser }) {
-  const { cols } = useBreakpoint();
-  const [modal, setModal] = useState(null);
-  const [simulando, setSimulando] = useState(null);
-  const [contextoSim, setContextoSim] = useState({ valorTotal:"", obraId:"", categoria:"", urgencia:"normal", solicitanteId:"" });
-  const [resultadoSim, setResultadoSim] = useState(null);
-  const politicas = data.politicasAprovacao || [];
-
-  const podeAdministrar = podeAdministrarPoliticas(currentUser?.role);
-
-  const abrirNova = () => setModal(novaPoliticaAprovacao());
-  const abrirEditar = p => setModal(JSON.parse(JSON.stringify(p)));
-
-  const validacaoAtual = modal ? validarPolitica(modal, { politicasExistentes: politicas }) : null;
-
-  const salvar = () => {
-    if (!validacaoAtual.valida) { showToast(validacaoAtual.erros[0], "error"); return; }
-    const agora = new Date().toISOString();
-    const existente = modal.id && politicas.some(p => p.id === modal.id);
-    const payload = {
-      ...modal, id: modal.id || uid(),
-      versao: existente ? Number(modal.versao||1) + 1 : 1,
-      criadoPorId: modal.criadoPorId || currentUser?.id || "", criadoPor: modal.criadoPor || currentUser?.nome || "",
-      criadoEm: modal.criadoEm || agora, atualizadoPor: currentUser?.nome || "", atualizadoEm: agora,
-    };
-    const politicasAprovacao = existente ? politicas.map(p => p.id === payload.id ? payload : p) : [...politicas, payload];
-    update({ ...data, politicasAprovacao });
-    setModal(null);
-    showToast(existente ? `Política atualizada para a versão ${payload.versao}. Processos já em andamento continuam na versão anterior.` : "Política criada.");
-    if (validacaoAtual.alertas.length) showToast(validacaoAtual.alertas[0], "warn");
-  };
-
-  const alternarAtiva = p => {
-    update({ ...data, politicasAprovacao: politicas.map(x => x.id === p.id ? { ...x, ativa: !x.ativa, atualizadoPor: currentUser?.nome || "", atualizadoEm: new Date().toISOString() } : x) });
-    showToast(p.ativa ? "Política desativada." : "Política ativada.");
-  };
-
-  const abrirSimulador = p => { setSimulando(p); setResultadoSim(null); };
-  const executarSimulacao = () => {
-    const motor = MOTORES_APROVACAO_POR_ENTIDADE[simulando.entidadeTipo]?.();
-    if (!motor) { showToast("Nenhum motor de execução cadastrado para este tipo de processo.", "error"); return; }
-    const contexto = { valorTotal:Number(contextoSim.valorTotal||0), obraId:contextoSim.obraId, categoria:contextoSim.categoria, urgencia:contextoSim.urgencia, solicitanteId:contextoSim.solicitanteId||currentUser?.id||"" };
-    setResultadoSim(motor.simularPolitica(simulando, contexto, data));
-  };
-
-  const eventosAuditoria = useMemo(() => [...(data.auditoriaAprovacao||[])].sort((a,b)=>String(b.data||"").localeCompare(String(a.data||""))).slice(0,200), [data.auditoriaAprovacao]);
-
-  const delegacoes = data.delegacoesAprovacao || [];
-  const [delegForm, setDelegForm] = useState({ usuarioOrigemId:"", usuarioDestinoId:"", inicio:today(), fim:"", escopo:"" });
-  const podeDelegar = podeGerenciarDelegacoes(currentUser?.role);
-
-  if (!podeAdministrar) return <div style={{padding:24,textAlign:"center",color:C.red}}>Acesso exclusivo da administração.</div>;
-
-  const mudarComportamentoSemPolitica = v => {
-    update({ ...data, configAprovacao: { ...data.configAprovacao, comportamentoSemPolitica: v } });
-    showToast("Comportamento padrão atualizado.");
-  };
-
-  const criarDelegacao = () => {
-    if (!delegForm.usuarioOrigemId || !delegForm.usuarioDestinoId) { showToast("Selecione quem está ausente e quem vai substituir.", "error"); return; }
-    if (delegForm.usuarioOrigemId === delegForm.usuarioDestinoId) { showToast("O substituto não pode ser o mesmo usuário ausente.", "error"); return; }
-    if (!delegForm.inicio) { showToast("Informe a data de início da delegação.", "error"); return; }
-    if (delegForm.fim && delegForm.fim < delegForm.inicio) { showToast("A data final não pode ser anterior ao início.", "error"); return; }
-    const destino = (data.usuarios||[]).find(u => u.id === delegForm.usuarioDestinoId);
-    const registro = { id: uid(), usuarioOrigemId: delegForm.usuarioOrigemId, usuarioDestinoId: delegForm.usuarioDestinoId, usuarioDestinoNome: destino?.nome||"", inicio: delegForm.inicio, fim: delegForm.fim||"", escopo: delegForm.escopo||"", ativo: true, criadoEm: new Date().toISOString() };
-    update({ ...data, delegacoesAprovacao: [...delegacoes, registro] });
-    setDelegForm({ usuarioOrigemId:"", usuarioDestinoId:"", inicio:today(), fim:"", escopo:"" });
-    showToast("Delegação criada.");
-  };
-  const revogarDelegacao = id => {
-    update({ ...data, delegacoesAprovacao: delegacoes.map(d => d.id===id ? { ...d, ativo:false } : d) });
-    showToast("Delegação revogada.");
-  };
-
-  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{background:`${C.yellow}0B`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:8}}>
-      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Quando nenhuma política ativa se aplicar a um processo, o app nunca trava sozinho - ele segue o comportamento padrão abaixo. Hoje só o setor de Compras tem aprovadores conectados ao motor; outros setores exigem trabalho de desenvolvimento antes de aparecerem aqui.</p>
-      <div style={{maxWidth:340}}><Sel label="Comportamento sem política aplicável" value={data.configAprovacao?.comportamentoSemPolitica||"auto_aprovar"} onChange={mudarComportamentoSemPolitica} options={[{v:"auto_aprovar",l:"Aprovar automaticamente"},{v:"fila_administrativa",l:"Enviar à fila do administrador"},{v:"bloquear",l:"Bloquear até intervenção manual"}]}/></div>
-    </div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-      <b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>{politicas.length} política(s) de aprovação cadastrada(s)</b>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-        <Btn v="ghost" onClick={()=>setModal(MODELOS_PORTE_APROVACAO.enxuto())}>Modelo enxuto</Btn>
-        <Btn v="ghost" onClick={()=>setModal(MODELOS_PORTE_APROVACAO.intermediario())}>Modelo intermediário</Btn>
-        <Btn v="ghost" onClick={()=>setModal(MODELOS_PORTE_APROVACAO.segregado())}>Modelo segregado</Btn>
-        <Btn onClick={abrirNova}><Ic n="plus"/> Do zero</Btn>
-      </div>
-    </div>
-    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:-6}}>Os modelos só preenchem o formulário como ponto de partida - nada é salvo até você revisar e confirmar, e tudo continua editável depois.</p>
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-      {politicas.map((p,i)=><div key={p.id} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:9,padding:"11px 12px",borderTop:i?`1px solid ${C.line}`:"none",alignItems:"center"}}>
-        <div style={{minWidth:0}}>
-          <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{p.nome||"Sem nome"}</p>
-            <Badge color={p.ativa?C.green:C.muted}>{p.ativa?"ATIVA":"INATIVA"}</Badge>
-            <Badge color={C.blue}>v{p.versao}</Badge>
-          </div>
-          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{SETORES_APROVACAO.find(s=>s.v===p.entidadeTipo)?.l||p.entidadeTipo} · prioridade {p.prioridade} · {p.etapas.length} etapa(s){p.condicoes.length?` · ${p.condicoes.length} condição(ões)`:" · sem condição (aplica sempre que ativa)"}</p>
-        </div>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
-          <Btn size="sm" v="ghost" onClick={()=>abrirSimulador(p)}><Ic n="eye"/> Simular</Btn>
-          <Btn size="sm" v="ghost" onClick={()=>abrirEditar(p)}>Editar</Btn>
-          <Btn size="sm" v={p.ativa?"ghost":"success"} onClick={()=>alternarAtiva(p)}>{p.ativa?"Desativar":"Ativar"}</Btn>
-        </div>
-      </div>)}
-      {!politicas.length && <p style={{padding:30,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma política cadastrada ainda. Enquanto isso, tudo segue o comportamento padrão acima.</p>}
-    </div>
-
-    {podeDelegar && <>
-      <b style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:4}}>Delegações (férias, afastamento, substituição)</b>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:12,display:"flex",flexDirection:"column",gap:8}}>
-        <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:6}}>
-          <Sel label="Usuário ausente" value={delegForm.usuarioOrigemId} onChange={v=>setDelegForm({...delegForm,usuarioOrigemId:v})} options={[{v:"",l:"Selecione"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
-          <Sel label="Substituto" value={delegForm.usuarioDestinoId} onChange={v=>setDelegForm({...delegForm,usuarioDestinoId:v})} options={[{v:"",l:"Selecione"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
-          <Inp label="Início" type="date" value={delegForm.inicio} onChange={v=>setDelegForm({...delegForm,inicio:v})}/>
-          <Inp label="Fim (opcional)" type="date" value={delegForm.fim} onChange={v=>setDelegForm({...delegForm,fim:v})}/>
-        </div>
-        <Inp label="Escopo/motivo (anotação - ainda não filtra por setor)" value={delegForm.escopo} onChange={v=>setDelegForm({...delegForm,escopo:v})} placeholder="Ex.: férias, cobre só Compras"/>
-        <Btn onClick={criarDelegacao}><Ic n="plus"/> Criar delegação</Btn>
-        <div style={{display:"flex",flexDirection:"column",gap:5,marginTop:4}}>
-          {delegacoes.map(d=><div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 9px"}}>
-            <div style={{minWidth:0}}>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{(data.usuarios||[]).find(u=>u.id===d.usuarioOrigemId)?.nome||"Usuário removido"} → {d.usuarioDestinoNome||"?"} <Badge color={d.ativo?C.green:C.muted}>{d.ativo?"ATIVA":"REVOGADA"}</Badge></p>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{fmtDateFull(d.inicio)}{d.fim?` até ${fmtDateFull(d.fim)}`:" · sem data de fim"}{d.escopo?` · ${d.escopo}`:""}</p>
-            </div>
-            {d.ativo && <Btn size="sm" v="ghost" onClick={()=>revogarDelegacao(d.id)}>Revogar</Btn>}
-          </div>)}
-          {!delegacoes.length && <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma delegação cadastrada.</p>}
-        </div>
-      </div>
-    </>}
-
-    <b style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:4}}>Auditoria de aprovações</b>
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
-      {eventosAuditoria.map((e,i)=><div key={e.id||i} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:9,padding:"9px 12px",borderTop:i?`1px solid ${C.line}`:"none"}}>
-        <div style={{minWidth:0}}><p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{e.motivo||e.evento}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{e.evento}{e.usuario?` · ${e.usuario}`:""}{e.instanciaId?` · ${e.instanciaId}`:""}</p></div>
-        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap"}}>{e.data?new Date(e.data).toLocaleString("pt-BR"):""}</p>
-      </div>)}
-      {!eventosAuditoria.length && <p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum evento de aprovação registrado ainda.</p>}
-    </div>
-
-    {modal && <Modal wide title={modal.id?`Editar política · v${modal.versao||1}`:"Nova política de aprovação"} onClose={()=>setModal(null)}>
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:8}}>
-          <Inp label="Nome da política *" value={modal.nome} onChange={v=>setModal({...modal,nome:v})} placeholder="Ex.: Alçada de pedidos até R$ 5.000"/>
-          <Sel label="Tipo de processo" value={modal.entidadeTipo} onChange={v=>setModal({...modal,entidadeTipo:v})} options={SETORES_APROVACAO}/>
-          <Inp label="Prioridade (maior vence em caso de empate)" type="number" value={modal.prioridade} onChange={v=>setModal({...modal,prioridade:Number(v||0)})}/>
-          <label style={{display:"flex",alignItems:"center",gap:7,marginTop:18}}><input type="checkbox" checked={modal.ativa} onChange={()=>setModal({...modal,ativa:!modal.ativa})}/><span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>Política ativa</span></label>
-          <Inp label="Vigência início (opcional)" type="date" value={modal.vigenciaInicio} onChange={v=>setModal({...modal,vigenciaInicio:v})}/>
-          <Inp label="Vigência fim (opcional)" type="date" value={modal.vigenciaFim} onChange={v=>setModal({...modal,vigenciaFim:v})}/>
-        </div>
-        <Inp label="Descrição (opcional)" value={modal.descricao} onChange={v=>setModal({...modal,descricao:v})} multiline/>
-
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>Condições para esta política se aplicar</b><Btn size="sm" v="ghost" onClick={()=>setModal({...modal,condicoes:[...modal.condicoes,novaCondicaoAprovacao()]})}><Ic n="plus"/> Condição</Btn></div>
-        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:-6}}>Sem nenhuma condição, a política se aplica sempre que estiver ativa e dentro da vigência.</p>
-        {modal.condicoes.map(c=><EditorCondicaoAprovacao key={c.id} condicao={c} data={data} onChange={nc=>setModal({...modal,condicoes:modal.condicoes.map(x=>x.id===nc.id?nc:x)})} onRemove={()=>setModal({...modal,condicoes:modal.condicoes.filter(x=>x.id!==c.id)})}/>)}
-
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>Etapas de aprovação</b><Btn size="sm" v="ghost" onClick={()=>setModal({...modal,etapas:[...modal.etapas,novaEtapaAprovacao(modal.etapas.length)]})}><Ic n="plus"/> Etapa</Btn></div>
-        {!modal.etapas.length && <div style={{background:`${C.blue}0B`,border:`1px solid ${C.blue}44`,borderRadius:7,padding:"8px 10px",fontSize:"var(--arcd-type-label)",color:C.muted}}>Sem nenhuma etapa, esta política aprova automaticamente - use isso para dispensar aprovação explicitamente (fica registrado como decisão da política, não como aprovação humana).</div>}
-        {modal.etapas.map(e=><EditorEtapaAprovacao key={e.id} etapa={e} data={data} onChange={ne=>setModal({...modal,etapas:modal.etapas.map(x=>x.id===ne.id?ne:x)})} onRemove={()=>setModal({...modal,etapas:modal.etapas.filter(x=>x.id!==e.id)})}/>)}
-
-        <b style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:4}}>Autoaprovação (o próprio solicitante aprova)</b>
-        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:8}}>
-          <Sel label="Quando permitir" value={modal.autoaprovacao.modo} onChange={v=>setModal({...modal,autoaprovacao:{...modal.autoaprovacao,modo:v}})} options={Object.entries(ROTULOS_AUTOAPROVACAO).map(([v,l])=>({v,l}))}/>
-          {modal.autoaprovacao.modo==="abaixo_valor" && <Inp label="Valor limite (R$)" type="number" value={modal.autoaprovacao.valorLimite} onChange={v=>setModal({...modal,autoaprovacao:{...modal.autoaprovacao,valorLimite:Number(v||0)}})}/>}
-        </div>
-        {modal.autoaprovacao.modo==="perfis_especificos" && <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:5}}>
-          {ROLES.map(r=><label key={r.v} style={{display:"flex",alignItems:"center",gap:6,border:`1px solid ${modal.autoaprovacao.perfis.includes(r.v)?C.blue:C.border}`,background:modal.autoaprovacao.perfis.includes(r.v)?`${C.blue}0B`:C.bg,borderRadius:6,padding:"5px 7px",cursor:"pointer"}}>
-            <input type="checkbox" checked={modal.autoaprovacao.perfis.includes(r.v)} onChange={()=>setModal({...modal,autoaprovacao:{...modal.autoaprovacao,perfis:modal.autoaprovacao.perfis.includes(r.v)?modal.autoaprovacao.perfis.filter(x=>x!==r.v):[...modal.autoaprovacao.perfis,r.v]}})}/>
-            <span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{r.l}</span>
-          </label>)}
-        </div>}
-
-        {validacaoAtual.erros.length>0 && <div style={{background:`${C.red}0C`,border:`1px solid ${C.red}55`,borderRadius:7,padding:"9px 11px"}}>{validacaoAtual.erros.map((m,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.red}}>· {m}</p>)}</div>}
-        {validacaoAtual.alertas.length>0 && <div style={{background:`${C.yellow}0C`,border:`1px solid ${C.yellow}55`,borderRadius:7,padding:"9px 11px"}}>{validacaoAtual.alertas.map((m,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.yellowD}}>· {m}</p>)}</div>}
-
-        <div style={{display:"flex",gap:8}}>
-          <Btn v="ghost" full onClick={()=>setModal(null)}>Cancelar</Btn>
-          <Btn full onClick={salvar} disabled={!validacaoAtual.valida}><Ic n="check"/> {modal.id?"Salvar nova versão":"Criar política"}</Btn>
-        </div>
-      </div>
-    </Modal>}
-
-    {simulando && <Modal title={`Simular · ${simulando.nome}`} onClose={()=>setSimulando(null)}>
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:8}}>
-          <Inp label="Valor total (R$)" type="number" value={contextoSim.valorTotal} onChange={v=>setContextoSim({...contextoSim,valorTotal:v})}/>
-          <Sel label="Obra" value={contextoSim.obraId} onChange={v=>setContextoSim({...contextoSim,obraId:v})} options={[{v:"",l:"Nenhuma"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
-          <Sel label="Prioridade" value={contextoSim.urgencia} onChange={v=>setContextoSim({...contextoSim,urgencia:v})} options={[{v:"normal",l:"Normal"},{v:"urgente",l:"Urgente"}]}/>
-          <Sel label="Solicitante" value={contextoSim.solicitanteId} onChange={v=>setContextoSim({...contextoSim,solicitanteId:v})} options={[{v:"",l:"Eu mesmo"},...(data.usuarios||[]).map(u=>({v:u.id,l:u.nome}))]}/>
-        </div>
-        <Btn onClick={executarSimulacao}><Ic n="check"/> Simular</Btn>
-        {resultadoSim && <div style={{display:"flex",flexDirection:"column",gap:7}}>
-          <Badge color={resultadoSim.status==="aprovada"?C.green:resultadoSim.status==="em_andamento"?C.blue:C.orange}>{resultadoSim.status.toUpperCase()}</Badge>
-          {resultadoSim.etapas.map((e,i)=><div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"8px 10px"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{e.nome||`Etapa ${i+1}`} · {e.status}</p>
-            <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{(e.aprovadoresElegiveis||[]).map(a=>a.nome).join(", ")||e.motivoConclusao||"Sem aprovador elegível"}</p>
-          </div>)}
-          {!resultadoSim.etapas.length && <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{resultadoSim.motivo}</p>}
-        </div>}
-      </div>
-    </Modal>}
-  </div>;
-}
-
 
 const CentralAdministrador = lazy(() => import("./domains/administracao/components/CentralAdministradorView"));
 const AprovacoesPendentesView = lazy(() => import("./domains/aprovacoes/components/AprovacoesPendentesView"));
@@ -10662,91 +8682,7 @@ const EquipeView = lazy(() => import("./domains/rh/components/EquipeView"));
 const RescisaoView = lazy(() => import("./domains/rh/components/RescisaoView"));
 // EquipeView/RescisaoView extraídas de LegacyApp.jsx em 2026-08-20, mesma
 // técnica de extração das telas anteriores.
-const IndicadoresView = lazy(() => import("./domains/rh/components/IndicadoresView"));
-// IndicadoresView nasceu fora de LegacyApp.jsx (não é extração, é tela
-// nova) - achado "RH analytics" de docs/AUDITORIA_RH.md.
-// A tela "Minhas aprovações pendentes" foi extraída para
-// src/domains/aprovacoes/components/AprovacoesPendentesView.jsx em
-// 2026-08-18, mesma técnica de extração das telas anteriores.
-// A Central do Administrador (orquestrador de auditoria/usuários/aprovações)
-// foi extraída para
-// src/domains/administracao/components/CentralAdministradorView.jsx em
-// 2026-08-16 - importada como `CentralAdministrador` acima, mesmo nome de
-// sempre. GestaoUsuarios/GestaoAprovacoes continuam aqui (exportados),
-// GestaoUsuarios também é usado pela tela Config.
-
-//
-// ORÇAMENTO - planilha orçamentária com base SINAPI / ORSE
-//
-//
-// ARQUITETURA (importante):
-// A base SINAPI oficial é persistida de forma normalizada no Supabase: preços
-// de composições, insumos e relações analíticas. O orçamento recebe apenas um
-// snapshot dos itens usados; assim, uma reimportação corrige o detalhamento
-// sem reprecificar nem alterar o orçamento já aprovado.
-//
-
-export const ETAPAS_PADRAO = [
-  "SERVIÇOS PRELIMINARES",
-  "MOVIMENTO DE TERRA",
-  "INFRAESTRUTURA / FUNDAÇÕES",
-  "SUPRAESTRUTURA",
-  "PAREDES E PAINÉIS",
-  "COBERTURA",
-  "IMPERMEABILIZAÇÃO",
-  "INSTALAÇÕES HIDROSSANITÁRIAS",
-  "INSTALAÇÕES ELÉTRICAS",
-  "ESQUADRIAS",
-  "REVESTIMENTOS DE PAREDE E TETO",
-  "PISOS E PAVIMENTAÇÕES",
-  "PINTURA",
-  "LOUÇAS E METAIS",
-  "SERVIÇOS COMPLEMENTARES",
-  "LIMPEZA FINAL",
-];
-
-//
-// BDI - Acórdão 2622/2013-TCU-Plenário
-//
-//
-// Faixas referenciais de BDI por tipo de obra. O TCU não fixa um valor:
-// fixa um INTERVALO (1º quartil  3º quartil). Adotar valor fora dele não
-// é proibido, mas exige justificativa técnica no processo - é exatamente
-// isso que a auditoria cobra.
-
-// Faixas dos componentes para CONSTRUÇÃO DE EDIFÍCIOS (Acórdão 2622/2013).
-// Servem de baliza no modo detalhado; os demais tipos de obra têm tabelas
-// próprias - por isso o alerta de faixa usa sempre o BDI total, que é o que
-// o TCU efetivamente audita.
-
-// Fórmula do TCU:
-//   BDI = [ (1+AC+S+R+G) x (1+DF) x (1+L) / (1  I) ]  1
-// I = tributos incidentes sobre o faturamento (PIS + COFINS + ISS + CPRB)
-// ==============================================================
-//  CONFERENCIA DIMENSIONAL DO ORCAMENTO
-//  Compara as quantidades de servicos por AREA com a area construida
-//  da obra. Ex.: forro costuma ser ~area construida; se o orcamento
-//  tem 300 m de forro numa obra de 200 m, ha 100 m de divergencia.
-//  Roda LOCALMENTE (sem IA) - a IA so enriquece quando disponivel.
-// ==============================================================
-
-// Familias de servico por AREA e a relacao esperada com a area construida.
-// fator: quanto o servico costuma medir em relacao a area construida.
-//   1.0  = ~igual (forro, piso, contrapiso, laje, impermeab. de laje)
-//   ~2.5 = paredes tem 2 faces e pe-direito (reboco, chapisco, pintura parede)
-// tol: tolerancia (fracao) antes de virar alerta.
-// RESPONSIVIDADE
-//
-//
-// O app é estilizado inline, então media query pura não alcança os
-// componentes. Este hook expõe o breakpoint ao React, permitindo trocar
-// não só medidas, mas o próprio LAYOUT (barra inferior  sidebar).
-//
-// Usa matchMedia em vez de listener de resize: dispara só quando cruza o
-// limite, e não a cada pixel arrastado.
-// narrow = celulares pequenos (iPhone SE, Android de entrada). Abaixo de 420px
-// não adianta encolher fonte: certos pares lado a lado precisam EMPILHAR.
-export const MAX_NIVEL = 5;   // 1.1.1.1.1 - além disso a indentação fica ilegível no celular
+const IndicadoresView = lazy(() => import("./domains/rh/components/IndicadoresView"));   // 1.1.1.1.1 - além disso a indentação fica ilegível no celular
 
 //  Árvore de etapas
 // A numeração (1, 1.1, 1.1.2) NÃO é armazenada: é derivada da posição na
@@ -10780,18 +8716,6 @@ const resumoMedicao = (tarefasFundidas) => {
     : 0;
   return { total: t.length, peloDiario, diasTotais, avancoFisico };
 };
-
-//  CURVA ABC
-//  Principio de Pareto aplicado a orcamento: poucos itens respondem pela maior
-//  parte do custo. Ordena os itens por custo decrescente, acumula o percentual
-//  e corta em faixas:
-//    A - ate 80% do valor acumulado  (poucos itens, quase todo o dinheiro)
-//    B - de 80% a 95%
-//    C - o restante (muitos itens, pouco valor)
-//  Itens repetidos (mesmo codigo em etapas diferentes) sao agrupados, senao a
-//  curva mente: o mesmo servico apareceria varias vezes com valor fatiado.
-export const CLASSE_ABC = { A:{ cor:"#C62828", limite:80 }, B:{ cor:"#EF6C00", limite:95 }, C:{ cor:"#2E7D32", limite:100 } };
-export const SINAPI_UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
 // A tela de Orçamento foi extraída para
 // src/domains/orcamentos/components/OrcamentoView.jsx em 2026-08-16 -
 // importada como `Orcamento` abaixo, mesmo nome de sempre. O comentário
@@ -10809,202 +8733,6 @@ export const SINAPI_UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG
 // Categorias de custo direto de obra (usadas no rateio p/ obra)
 export const CATS_OBRA_CONC = reconciliationCategories({}, {direction:"saida",destination:"obra"})
   .map(category => ({v:category.id,l:category.label}));
-
-export const semAcentoConc = (s) =>
-  String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-
-// "1.234,56" → 1234.56
-export const parseBRConc = (v) => {
-  if (typeof v === "number") return v;
-  const s = String(v ?? "").trim();
-  if (!s) return 0;
-  const neg = /^\(.*\)$/.test(s) || s.startsWith("-");
-  const n = Number(s.replace(/[()]/g,"").replace(/\./g,"").replace(",",".").replace(/[^\d.-]/g,""));
-  if (isNaN(n)) return 0;
-  return neg && n > 0 ? -n : n;
-};
-
-// parseOFX foi consolidado em src/domains/conciliacao/calculations.js em
-// 25/08/2026 (ver docs/BLUEPRINT_CONCORRENCIA_TRAVA.md) - existiam duas
-// implementações divergentes (esta e uma cópia simplificada, nunca usada,
-// dentro do próprio calculations.js), e a divergência escondia que a
-// extração de contraparte por PIX nunca rodava de fato. Importado do
-// domínio agora, no topo deste arquivo.
-
-// Chave de deduplicação: FITID quando existe; senão, impressão digital da linha.
-export const chaveTransacao = (t) =>
-  t.fitid ? `fit:${t.fitid}`
-          : `h:${t.data}|${Number(t.valor).toFixed(2)}|${String(t.descricao).slice(0,40).toLowerCase()}`;
-
-// Soma dos rateios. O fechamento (soma == valor da transação, 1 centavo) é
-// verificado no componente, que precisa exibir a diferença ao vivo.
-export const somaRateios = (rateios) =>
-  (rateios||[]).reduce((s,r) => s + Number(r.valor||0), 0);
-
-
-export const sugerirRateio = suggestClassificationRule;
-
-// Distância em dias entre duas datas ISO
-export const diasEntre = (a, b) => {
-  if (!a || !b) return 999;
-  return Math.abs(Math.round(
-    (new Date(a + "T12:00:00") - new Date(b + "T12:00:00")) / 86400000
-  ));
-};
-
-//  Casamento entrada bancária  medição em aberto
-//
-// Devolve CANDIDATAS pontuadas, nunca uma decisão. Duas medições de mesmo
-// valor e mesmo vencimento empatam - é aí que o palpite automático erraria
-// metade das vezes, e por isso quem escolhe é o usuário.
-export const sugerirMedicoes = (tr, data) => {
-  const v = Number(tr.valor || 0);
-  if (v <= 0) return [];                       // só entrada quita medição
-  const desc = semAcentoConc(tr.descricao);
-  const cands = [];
-
-  (data.medicoes || []).filter(m => statusRecebimentoMedicao(m)!=="recebida").forEach(m => {
-    const obra = (data.obras || []).find(o => o.id === m.obraId);
-    const prev = Number(m.valorPrevisto || 0);
-    if (prev <= 0) return;
-
-    let score = 0;
-    const motivos = [];
-
-    // Valor
-    const dif = Math.abs(prev - v);
-    if (dif < 0.01)               { score += 100; motivos.push("valor exato"); }
-    else if (dif / prev <= 0.01)  { score += 60;  motivos.push("valor ~1%"); }
-    else if (dif / prev <= 0.05)  { score += 30;  motivos.push("valor ~5%"); }
-    else if (v < prev)            { score += 10;  motivos.push("pagamento parcial"); }
-    else return;                                 // recebeu MAIS que o previsto → não é esta
-
-    // Proximidade do vencimento
-    const d = diasEntre(tr.data, m.dataVencimento);
-    if (d <= 3)       { score += 40; motivos.push(`${d}d do vencimento`); }
-    else if (d <= 10) { score += 25; motivos.push(`${d}d do vencimento`); }
-    else if (d <= 30) { score += 8; }
-    else              { score -= 15; }
-
-    // Nome do cliente ou da obra citado no extrato
-    const prim = (s) => semAcentoConc(s).split(" ")[0];
-    if (obra?.engineer && prim(obra.engineer) && desc.includes(prim(obra.engineer))) {
-      score += 30; motivos.push("cliente na descrição");
-    }
-    if (obra?.name && prim(obra.name) && desc.includes(prim(obra.name))) {
-      score += 25; motivos.push("obra na descrição");
-    }
-
-    if (score >= 40) {
-      cands.push({ m, obra, score, motivos, parcial: v < prev - 0.01, prev });
-    }
-  });
-
-  return cands.sort((a, b) => b.score - a.score).slice(0, 3);
-};
-
-// ==============================================================
-//  CONCILIACAO DE MAO DE OBRA
-//  Dado um DEBITO no extrato (pagamento a operario), sugere de qual
-//  funcionario e - casando por VALOR ESPERADO (dias trabalhados no
-//  ponto x diaria) e por NOME. O nome pode ser o do proprio operario
-//  OU o do titular do PIX (pixHolder): e comum o pagamento cair na
-//  conta da esposa ou de um terceiro, e isso precisa ser conciliavel.
-// ==============================================================
-
-// Quanto um funcionario deveria receber num periodo, pelo PONTO.
-// Soma diarias (P=1, M=0.5) + beneficios, exatamente como o DRE conta.
-const valorEsperadoPonto = (data, emp, days) => {
-  let bruto = 0, beneficios = 0, diasP = 0, diasM = 0;
-  const year = days[0] ? Number(days[0].slice(0, 4)) : new Date().getFullYear();
-  const holidays = getPayrollHolidays(data, year);
-  days.forEach(d => {
-    if (!isEmployeeEmployedOnDate(emp, d)) return;
-    if (holidays.includes(d) && prIsWeekdayIso(d)) {
-      bruto += Number(getHolidayPayRule(data, emp, d, holidays).amount || 0);
-      return;
-    }
-    const st = attStatus(data, emp.id, d);
-    if (st === "P") { bruto += Number(emp.dailyRate || 0); beneficios += Number(emp.vtDaily || 0) + Number(emp.vrDaily || 0); diasP++; }
-    else if (st === "M") { bruto += Number(emp.dailyRate || 0) * .5; beneficios += (Number(emp.vtDaily || 0) + Number(emp.vrDaily || 0)) * .5; diasM++; }
-  });
-  return { bruto, beneficios, total: bruto + beneficios, diasP, diasM };
-};
-
-// Sugere de qual funcionario e um debito do extrato.
-// tr: transacao (valor negativo = saida). days: periodo de referencia (a
-// quinzena/mes do pagamento). Devolve candidatos com score e o alerta de
-// divergencia de valor (recebeu diferente do que o ponto diz).
-export const sugerirPagamentoMaoObra = (tr, data, days) => {
-  const saida = Math.abs(Number(tr.valor || 0));
-  if (Number(tr.valor || 0) >= 0 || saida <= 0) return [];   // so debito
-  const desc = semAcentoConc(tr.descricao);
-  const prim = (s) => semAcentoConc(s || "").split(" ")[0];
-  const cands = [];
-
-  // Nao filtrar pelo status atual: o valor esperado elimina automaticamente
-  // quem nao trabalhou no periodo historico consultado.
-  (data.employees || []).forEach(emp => {
-    const esp = valorEsperadoPonto(data, emp, days);
-    const nomeOuTitularNoPix=hasEmployeePixNameEvidence(tr,emp);
-    // Sem nome/titular, um valor igual ou um número na descrição não basta
-    // para sugerir que um PIX foi pagamento de mão de obra.
-    if(!nomeOuTitularNoPix)return;
-
-    let score = 0;
-    const motivos = [];
-
-    // Valor: compara com o total esperado (e tambem so o bruto, caso paguem
-    // beneficios a parte).
-    const difTotal = Math.abs(esp.total - saida);
-    const difBruto = Math.abs(esp.bruto - saida);
-    const dif = Math.min(difTotal, difBruto);
-    const base = difTotal <= difBruto ? esp.total : esp.bruto;
-    if (dif < 0.01)              { score += 100; motivos.push("valor exato do ponto"); }
-    else if (base && dif/base <= 0.02) { score += 60; motivos.push("valor ~2% do ponto"); }
-    else if (base && dif/base <= 0.08) { score += 25; motivos.push("valor proximo do ponto"); }
-
-    score += 45;
-    motivos.push("nome ou titular PIX confirmado na descrição");
-    // Chave PIX citada.
-    if (emp.pixKey && desc.includes(semAcentoConc(emp.pixKey).slice(0, 8))) {
-      score += 20; motivos.push("chave PIX na descricao");
-    }
-
-    if (score >= 40) {
-      // Divergencia: pagou diferente do que o ponto diz que deveria.
-      const divergencia = dif >= 0.01 ? saida - esp.total : 0;
-      if(esp.total<=0)motivos.push("sem valor registrado no ponto para a quinzena");
-      cands.push({
-        emp, score, motivos,
-        esperado: esp.total, esperadoBruto: esp.bruto, pago: saida,
-        diasTrabalhados: esp.diasP + esp.diasM * 0.5,
-        divergencia,
-        pagoATerceiro: !!(emp.pixHolder && prim(emp.pixHolder) &&
-                          desc.includes(prim(emp.pixHolder)) &&
-                          !desc.includes(prim(emp.name || ""))),
-      });
-    }
-  });
-
-  return cands.sort((a, b) => b.score - a.score).slice(0, 3);
-};
-
-export const periodoPontoDaTransacao = (iso) => {
-  const referencia=iso || today();
-  const y = Number(referencia.slice(0, 4)), m = Number(referencia.slice(5, 7)) - 1;
-  const dia = Number(referencia.slice(8, 10));
-  const { q1, q2 } = getQ(y, m);
-  // Pagamentos no início do mês normalmente referem-se à segunda quinzena
-  // anterior; nos demais casos, à quinzena corrente.
-  const days=dia <= 7
-    ? getQ(m === 0 ? y - 1 : y, m === 0 ? 11 : m - 1).q2
-    : dia <= 20 ? q1 : q2;
-  return {
-    days,
-    periodoPonto:days.length ? `${fmtDate(days[0])} a ${fmtDate(days[days.length-1])}` : "",
-  };
-};
 
 // A tela de Conciliação foi extraída para
 // src/domains/conciliacao/components/ConciliacaoView.jsx em 2026-08-16 -
@@ -11034,210 +8762,6 @@ export const periodoPontoDaTransacao = (iso) => {
 // porque telas antigas importam daqui.
 export { niveisUmOrcamento };
 
-// ==============================================================
-//  COMPRAS AUTOMATIZADAS
-//  Dado um conjunto de materiais, sugere fornecedores que os servem
-//  (por categoria cadastrada + historico de compra) e gera a mensagem
-//  de WhatsApp pronta - texto humano pedindo materiais, desconto e
-//  forma de pagamento.
-// ==============================================================
-
-// Fornecedores que servem os materiais de um pedido, com score.
-// Casa por: (a) categoria do material x categorias do fornecedor,
-// (b) historico - ja comprei este material dele antes (mais forte).
-export const fornecedoresParaMateriais = (data, materialIds) => {
-  const mats = (data.materiais || []).filter(m => materialIds.includes(m.id));
-  const catsNecessarias = [...new Set(mats.map(m => m.categoria).filter(Boolean))];
-  const pedidos = data.pedidos || [];
-
-  const scores = {};
-  (data.fornecedores || []).filter(f => f.ativo !== false).forEach(forn => {
-    let score = 0;
-    const motivos = [];
-    const catsAtende = (forn.categorias || []).filter(c => catsNecessarias.includes(c));
-    if (catsAtende.length) {
-      score += catsAtende.length * 20;
-      motivos.push(`fornece ${catsAtende.length} categoria(s)`);
-    }
-    // Historico: ja recebi estes materiais deste fornecedor?
-    let jaComprou = 0;
-    materialIds.forEach(mid => {
-      const comprou = pedidos.some(p => p.fornecedorId === forn.id && p.status !== "cancelado" &&
-        (p.itens || []).some(i => i.materialId === mid && Number(i.qtdRecebida) > 0));
-      if (comprou) jaComprou++;
-    });
-    if (jaComprou) {
-      score += jaComprou * 35;
-      motivos.push(`ja forneceu ${jaComprou} destes itens`);
-    }
-    if (score > 0) scores[forn.id] = { forn, score, motivos, jaComprou };
-  });
-
-  return Object.values(scores).sort((a, b) => b.score - a.score);
-};
-
-// Melhor preco historico de um material (menor preco ja pago e de quem).
-// Recebe o historico JA calculado (ver historicoPreco/historicoPrecoTodos) -
-// quem chama e responsavel por nao rescanear pedidos a cada render.
-export const melhorPrecoHist = (h, fornecedores) => {
-  if (!h || !h.length) return null;
-  const menor = h.reduce((m, x) => !m || x.preco < m.preco ? x : m, null);
-  const forn = (fornecedores || []).find(f => f.id === menor.fornecedorId);
-  return { preco: menor.preco, fornecedor: forn?.nome || "", data: menor.data };
-};
-
-// Gera a mensagem de WhatsApp - texto humano, natural, de quem trabalha com
-// obra. Pede os materiais, desconto e condicoes de pagamento. Recebe os itens
-// ja resolvidos {descricao, qtd, unidade}.
-export const mensagemWhatsAppCompra = ({ empresa, fornecedorNome, obraNome, itens, prazo, whatsappRetorno }) => {
-  const saudacao = fornecedorNome ? `Ola, ${fornecedorNome.split(" ")[0]}! Tudo bem?` : "Ola! Tudo bem?";
-  const linhas = itens.map(i => {
-    const un = i.unidade ? ` ${i.unidade}` : "";
-    return `- ${i.descricao}: ${i.qtd}${un}`;
-  }).join("\n");
-  const ass = empresa ? `\n\nObrigado!\n${empresa}` : "\n\nObrigado!";
-  const retorno = whatsappRetorno ? `\n\nPode responder por aqui mesmo ou no nosso WhatsApp de Compras: ${whatsappRetorno}` : "";
-  const obra = obraNome ? ` para a obra ${obraNome}` : "";
-  const prazoTxt = prazo ? `\n\nPrecisamos${obra} com entrega ate ${prazo}. Da pra atender?`
-                         : `\n\nMe informa por favor o prazo de entrega${obra}.`;
-  return `${saudacao}\n\nGostaria de um orcamento dos seguintes materiais:\n\n${linhas}`
-       + prazoTxt
-       + `\n\nVoces conseguem algum desconto para pagamento a vista? E quais as formas de pagamento e prazos que trabalham?`
-       + `\n\nFico no aguardo do melhor preco.${retorno}${ass}`;
-};
-
-// Monta o link wa.me a partir de um telefone brasileiro e do texto.
-export const linkWhatsApp = (telefone, texto) => {
-  const num = String(telefone || "").replace(/\D/g, "");
-  // Assume Brasil: se nao tem 55 na frente e tem 10-11 digitos, adiciona.
-  const full = num.length >= 12 ? num : (num.length >= 10 ? "55" + num : num);
-  return `https://wa.me/${full}?text=${encodeURIComponent(texto)}`;
-};
-
-// ── Entregas atrasadas ─────────────────────────────────────────────
-// Pedido enviado/parcial com previsao vencida e material ainda pendente.
-// Devolve o que falta chegar de cada um, pronto para a cobranca.
-// C2.2: o atraso olha cada item e cada remessa programada, não o pedido.
-export const pedidosEmAtraso = (data, hoje) => pedidosComItensAtrasados(data, hoje);
-
-// Mensagem de cobranca de entrega - firme e educada, citando o combinado.
-export const mensagemWhatsAppCobranca = ({ empresa, fornecedorNome, obraNome, numero, previsao, diasAtraso, itens }) => {
-  const saudacao = fornecedorNome ? `Ola, ${fornecedorNome.split(" ")[0]}! Tudo bem?` : "Ola! Tudo bem?";
-  const linhas = (itens || []).map(i => {
-    const un = i.unidade ? ` ${i.unidade}` : "";
-    return `- ${i.descricao}: falta ${i.falta}${un}`;
-  }).join("\n");
-  const obra = obraNome ? ` da obra ${obraNome}` : "";
-  const ass = empresa ? `\n\nObrigado!\n${empresa}` : "\n\nObrigado!";
-  return `${saudacao}\n\nEstou acompanhando o pedido ${numero}${obra}, que tinha entrega combinada para ${previsao} - ja se passaram ${diasAtraso} dia(s).`
-       + `\n\nAinda falta chegar:\n\n${linhas}`
-       + `\n\nPreciso desses materiais para nao parar a frente de servico. Consegue me confirmar hoje a nova data de entrega?${ass}`;
-};
-
-// ── Guarda de preco ────────────────────────────────────────────────
-// Chamada enquanto o comprador digita o preco unitario. Compara com o melhor
-// preco ja pago e com a referencia SINAPI/ORSE do item, e devolve um veredito.
-// O objetivo e pegar o vazamento NA HORA - a analise de Orcado x Comprado so
-// denuncia depois que o dinheiro ja saiu.
-// Recebe o historico JA calculado (ver historicoPreco/historicoPrecoTodos) -
-// quem chama e responsavel por nao rescanear pedidos a cada render.
-export const guardaPreco = (h, precoDigitado, fornecedores, precoRef) => {
-  const preco = Number(precoDigitado || 0);
-  if (!(preco > 0)) return null;
-
-  const melhor = h && h.length ? h.reduce((m, x) => !m || x.preco < m.preco ? x : m, null) : null;
-  const ref = Number(precoRef || 0);
-
-  const avisos = [];
-  if (melhor && melhor.preco > 0) {
-    const dif = preco - melhor.preco;
-    const pct = (dif / melhor.preco) * 100;
-    const forn = (fornecedores || []).find(f => f.id === melhor.fornecedorId);
-    if (pct > 5) {
-      avisos.push({
-        nivel: pct > 20 ? "alto" : "medio",
-        texto: `${pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% acima do melhor que você já pagou (${fmt(melhor.preco)}${forn ? ` · ${forn.nome}` : ""}${melhor.data ? ` · ${fmtDate(melhor.data)}` : ""})`,
-      });
-    } else if (pct < -5) {
-      avisos.push({ nivel: "bom", texto: `melhor preço já pago para este material (antes: ${fmt(melhor.preco)})` });
-    }
-  }
-  if (ref > 0) {
-    const pctRef = ((preco - ref) / ref) * 100;
-    if (pctRef > 10) avisos.push({ nivel: pctRef > 30 ? "alto" : "medio", texto: `${pctRef.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% acima da referência (${fmt(ref)})` });
-  }
-
-  const nivel = avisos.some(a => a.nivel === "alto") ? "alto"
-    : avisos.some(a => a.nivel === "medio") ? "medio"
-    : avisos.some(a => a.nivel === "bom") ? "bom" : null;
-
-  return { nivel, avisos, melhor, compras: h ? h.length : 0 };
-};
-
-// ── SLA das solicitacoes ───────────────────────────────────────────
-// Solicitacao parada e obra parada. Urgente tem 2 dias uteis de tolerancia;
-// normal, 5. O relogio conta desde o envio ate a analise (nao ate o pedido):
-// o que se mede aqui e o tempo de RESPOSTA do setor de Compras.
-const SLA_DIAS = { urgente: 2, normal: 5 };
-
-export const slaSolicitacao = (sol, hoje) => {
-  if (!["enviada", "em_analise"].includes(sol.status)) return null;
-  const criada = String(sol.criadoEm || "").slice(0, 10);
-  if (!criada) return null;
-  const dias = Math.max(0, Math.round((new Date(hoje + "T00:00:00") - new Date(criada + "T00:00:00")) / 86400000));
-  const limite = SLA_DIAS[sol.prioridade === "urgente" ? "urgente" : "normal"];
-  const restante = limite - dias;
-  return {
-    dias, limite, restante,
-    status: restante < 0 ? "estourado" : restante === 0 ? "no_limite" : "ok",
-  };
-};
-
-// ── Consolidacao multi-obra ────────────────────────────────────────
-// Com uma dezena de obras, o mesmo cimento e pedido por tres delas em semanas
-// proximas e comprado tres vezes, sem volume. Aqui procuramos o mesmo material
-// (pela descricao normalizada) em solicitacoes ABERTAS de obras DIFERENTES
-// dentro de uma janela de dias, e sugerimos a compra unica.
-const normDesc = (s) => String(s || "").toUpperCase().replace(/\s+/g, " ").trim();
-
-export const oportunidadesConsolidacao = (data, hoje, janelaDias = 10) => {
-  const abertas = (data.solicitacoesCompra || [])
-    .filter(s => ["enviada", "em_analise"].includes(s.status) && s.criadoEm);
-  if (abertas.length < 2) return [];
-
-  const limite = new Date(hoje + "T00:00:00").getTime() - janelaDias * 86400000;
-  const porMaterial = new Map();
-
-  abertas.forEach(sol => {
-    const quando = new Date(String(sol.criadoEm).slice(0, 10) + "T00:00:00").getTime();
-    if (quando < limite) return;   // fora da janela: consolidar nao faz sentido
-    (sol.itens || []).forEach(item => {
-      const chave = `${normDesc(item.descricaoRef)}|${normDesc(item.unidadeRef)}`;
-      if (!chave.replace("|", "").trim()) return;
-      const reg = porMaterial.get(chave) || {
-        descricao: normDesc(item.descricaoRef), unidade: normDesc(item.unidadeRef),
-        total: 0, obras: new Map(),
-      };
-      reg.total += Number(item.quantidade || 0);
-      const obraNome = (data.obras || []).find(o => o.id === sol.obraId)?.name || "Obra";
-      const jaObra = reg.obras.get(sol.obraId) || { obraId: sol.obraId, obraNome, qtd: 0, solicitacoes: new Set() };
-      jaObra.qtd += Number(item.quantidade || 0);
-      jaObra.solicitacoes.add(sol.numero);
-      reg.obras.set(sol.obraId, jaObra);
-      porMaterial.set(chave, reg);
-    });
-  });
-
-  return [...porMaterial.values()]
-    .filter(r => r.obras.size >= 2)   // so vale consolidar entre obras distintas
-    .map(r => ({
-      descricao: r.descricao, unidade: r.unidade, total: r.total,
-      obras: [...r.obras.values()].map(o => ({ ...o, solicitacoes: [...o.solicitacoes] }))
-        .sort((a, b) => b.qtd - a.qtd),
-    }))
-    .sort((a, b) => b.obras.length - a.obras.length || b.total - a.total);
-};
-
 // Orçado x Comprado, por linha do orçamento.
 //
 // O "orçado" é o CUSTO da linha (quantidade x preço unitário SINAPI), sem BDI -
@@ -11245,39 +8769,6 @@ export const oportunidadesConsolidacao = (data, hoje, janelaDias = 10) => {
 // compra contra o preço COM BDI faria todo item parecer barato.
 // Orçado × comprometido × recebido por etapa: src/domains/compras/budget-tracking.js (C3.2).
 export { calcOrcadoComprado };
-
-// Visão executiva do orçamento por etapa de primeiro nível. Cada valor só é
-// apropriado quando a origem aponta para uma linha real do orçamento; valores
-// sem vínculo ficam separados para não produzirmos uma precisão fictícia.
-// Usada tanto por OrcamentoView.jsx (extraído) quanto por ObraDetalhe, aqui
-// mesmo - por isso não pode ficar só dentro de um dos dois.
-export const calcControleCustosOrcamento = (data, orc) => {
-  if(!orc)return{etapas:[],total:{},semApropriacao:{solicitado:0,comprometido:0,recebido:0,aplicado:0}};
-  const etapas=orc.etapas||[];const etapaPorId=new Map(etapas.map(e=>[e.id,e]));
-  const itemPorId=new Map((orc.itens||[]).filter(i=>i.tipo!=="titulo").map(i=>[i.id,i]));
-  const raizDaEtapa=id=>{let e=etapaPorId.get(id),n=0;while(e?.parentId&&n++<30)e=etapaPorId.get(e.parentId)||e;return e;};
-  const raizDoItem=id=>{const item=itemPorId.get(id);return item?raizDaEtapa(item.etapaId):null;};
-  const raizVinculo=i=>etapaPorId.get(i?.orcNivel1Id)?raizDaEtapa(i.orcNivel1Id):raizDoItem(i?.orcItemId);
-  const mapa=new Map();
-  const linha=e=>{const id=e?.id||"sem_etapa";if(!mapa.has(id))mapa.set(id,{id,nome:e?.nome||"Sem etapa",ordem:Number(e?.ordem||0),orcado:0,solicitado:0,comprometido:0,recebido:0,aplicado:0,pago:0});return mapa.get(id);};
-  itemPorId.forEach(item=>{linha(raizDaEtapa(item.etapaId)).orcado+=Number(item.quantidade||0)*Number(item.precoUnit||0);});
-  const sem={solicitado:0,comprometido:0,recebido:0,aplicado:0};
-  (data.solicitacoesCompra||[]).filter(s=>s.obraId===orc.obraId&&!['cancelada','rejeitada'].includes(s.status)).forEach(s=>(s.itens||[]).forEach(i=>{
-    const valor=referenceTotalOf(i),raiz=raizVinculo(i);
-    if(raiz)linha(raiz).solicitado+=valor;else sem.solicitado+=valor;
-  }));
-  const transacaoPorId=new Map((data.transacoes||[]).map(t=>[t.id,t]));
-  (data.pedidos||[]).filter(p=>p.obraId===orc.obraId&&pedidoVivo(p)).forEach(p=>{
-    const pago=statusPagamentoPedido(p)==="pago"||(!!p.transacaoId&&transacaoPorId.get(p.transacaoId)?.status==="conciliado");
-    (p.itens||[]).forEach(i=>{const raiz=raizVinculo(i),total=Number(i.qtd||0)*Number(i.precoUnit||0),recebido=Number(i.qtdRecebida||0)*Number(i.precoUnit||0);
-      if(raiz){const l=linha(raiz);l.comprometido+=total;l.recebido+=recebido;if(pago)l.pago+=total;}else{sem.comprometido+=total;sem.recebido+=recebido;}
-    });
-  });
-  (data.movEstoque||[]).filter(m=>m.obraId===orc.obraId&&m.tipo==="consumo").forEach(m=>{const valor=Number(m.qtd||0)*Number(m.valorUnit||0),raiz=raizVinculo(m);if(raiz)linha(raiz).aplicado+=valor;else sem.aplicado+=valor;});
-  const lista=[...mapa.values()].map(l=>({...l,saldo:l.orcado-l.comprometido,projecao:Math.max(l.orcado,l.comprometido),percentual:l.orcado?l.comprometido/l.orcado*100:0})).sort((a,b)=>a.ordem-b.ordem||a.nome.localeCompare(b.nome));
-  const total=lista.reduce((a,l)=>{Object.keys(a).forEach(k=>a[k]+=Number(l[k]||0));return a;},{orcado:0,solicitado:0,comprometido:0,recebido:0,aplicado:0,pago:0,saldo:0,projecao:0});
-  return{etapas:lista,total,semApropriacao:sem};
-};
 
 // Painel da obra: comprado → recebido → aplicado → pago.
 // "Previsto" (do orçamento) fica de fora de propósito: o orçamento é feito de
@@ -11446,100 +8937,6 @@ export const calcCompras = (data, obraIds) => {
     emEstoque: recebido - aplicado,
   };
 };
-
-//
-// ESTOQUE - controle FÍSICO
-//
-// Não gera lançamento financeiro. O custo do material já entrou no DRE pela
-// Conciliação, no momento da compra (regime de caixa). Lançar de novo na
-// baixa contaria o mesmo saco de cimento duas vezes.
-//
-
-//
-// UNIDADES DE MEDIDA
-//
-// Antes era texto livre. Alguém digitava "sc", outro "SC", outro "saco" -
-// e o sistema tratava como três coisas diferentes. Soma errada, curva ABC
-// errada, composição que não baixa. Erro silencioso, o pior tipo.
-//
-// Agora é uma lista. Estas são as unidades SINAPI mais usadas; você
-// acrescenta as suas.
-export const UNIDADES_PADRAO = [
-  { sigla:"un",   nome:"Unidade" },
-  { sigla:"m",    nome:"Metro linear" },
-  { sigla:"m2",   nome:"Metro quadrado" },
-  { sigla:"m3",   nome:"Metro cúbico" },
-  { sigla:"kg",   nome:"Quilograma" },
-  { sigla:"t",    nome:"Tonelada" },
-  { sigla:"sc",   nome:"Saco" },
-  { sigla:"l",    nome:"Litro" },
-  { sigla:"gl",   nome:"Galão" },
-  { sigla:"pc",   nome:"Peça" },
-  { sigla:"cj",   nome:"Conjunto" },
-  { sigla:"br",   nome:"Barra" },
-  { sigla:"rl",   nome:"Rolo" },
-  { sigla:"cx",   nome:"Caixa" },
-  { sigla:"mlh",  nome:"Milheiro" },
-  { sigla:"h",    nome:"Hora" },
-  { sigla:"dia",  nome:"Diária" },
-  { sigla:"vb",   nome:"Verba" },
-];
-
-export const CATS_MATERIAL = [
-  { v:"estrutural",  l:"Estrutural (cimento, aço, brita)" },
-  { v:"alvenaria",   l:"Alvenaria e argamassa" },
-  { v:"eletrico",    l:"Elétrico" },
-  { v:"hidraulico",  l:"Hidráulico" },
-  { v:"acabamento",  l:"Acabamento (revestimento, tinta)" },
-  { v:"cobertura",   l:"Cobertura e impermeabilização" },
-  { v:"esquadria",   l:"Esquadrias" },
-  { v:"ferramenta",  l:"Ferramentas e EPI" },
-  { v:"outros",      l:"Outros" },
-];
-
-
-// ============================================================================
-//  SUPRIMENTOS - Curva de necessidade de materiais + comparação de preços +
-//  alertas de pesquisa por curva ABC + sugestão de fornecedor.
-// ============================================================================
-// Modal compartilhado: dispara pedido de orcamento por WhatsApp, um link por
-// fornecedor, com a lista completa de itens. Fornecedores que ja venderam
-// algum item da lista aparecem primeiro.
-export function ModalCotacaoWhatsApp({ titulo, itens, obraNome, prazo, fornecedores, pedidos, materiais, data, onClose, onContato }) {
-  const jaVendeu = new Set();
-  (pedidos || []).filter(p => p.status !== "cancelado").forEach(p => (p.itens || []).forEach(i => {
-    const mat = (materiais || []).find(m => m.id === i.materialId);
-    if (mat && itens.some(it => String(it.descricao || "").toUpperCase() === String(mat.descricao || "").toUpperCase())) jaVendeu.add(p.fornecedorId);
-  }));
-  const lista = [...(fornecedores || [])].filter(f => f.ativo !== false && f.telefone)
-    .sort((a, b) => Number(jaVendeu.has(b.id)) - Number(jaVendeu.has(a.id)) || a.nome.localeCompare(b.nome));
-  return <Modal title={titulo || "Cotação por WhatsApp"} onClose={onClose}>
-    <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginBottom: 8, lineHeight: 1.5 }}>
-      {itens.length} item(ns) na lista. Toque em cada fornecedor para abrir o WhatsApp com o pedido de orçamento completo. Quando as respostas chegarem, registre os preços em Cotações ou Suprimentos.
-    </p>
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: "8px 10px", marginBottom: 10, maxHeight: 120, overflow: "auto" }}>
-      {itens.map((i, ix) => <p key={ix} style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>• {i.descricao} — <b style={{ color: C.text }}>{i.qtd} {i.unidade}</b></p>)}
-    </div>
-    {!lista.length && <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted, textAlign: "center", padding: 12 }}>Nenhum fornecedor com telefone cadastrado.</p>}
-    {lista.map(f => {
-      const texto = mensagemWhatsAppCompra({
-        empresa: data?.config?.companyName || "MARCELL Obras",
-        whatsappRetorno: data?.config?.whatsappCompras || "",
-        fornecedorNome: f.nome, obraNome: obraNome || "", prazo: prazo || "", itens,
-      });
-      return <div key={f.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.line}`, padding: "8px 0" }}>
-        <div style={{ minWidth: 0 }}>
-          <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.nome}</p>
-          {jaVendeu.has(f.id) && <p style={{ fontSize:"var(--arcd-type-caption)", color: C.green, fontWeight:600 }}>já forneceu itens desta lista</p>}
-        </div>
-        <a href={linkWhatsApp(f.telefone, texto)} target="_blank" rel="noreferrer" style={{ textDecoration: "none", flexShrink: 0 }}
-           onClick={() => onContato?.(f.id, f.nome)}>
-          <Btn size="sm" v="success">WhatsApp</Btn>
-        </a>
-      </div>;
-    })}
-  </Modal>;
-}
 
 // Nomeado CotacoesMaterial (não mais "Suprimentos") para não colidir com o
 // grupo de menu "Suprimentos" (que já agrupa Compras+Estoque) nem com o
@@ -11956,146 +9353,6 @@ function RankingFornecedores({data,showToast,currentUser,dispatchCommand}){
   </div>;
 }
 
-export function FornecedorEditorPilot({ form, setForm, onSave }) {
-  if (!features.newSupplierEditor) return <ModalFornecedor form={form} setForm={setForm} onSave={onSave} />;
-  return <Suspense fallback={<Modal title="Carregando fornecedor" onClose={()=>setForm(null)}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Preparando editor…</p></Modal>}>
-    <LazySupplierEditor open supplier={form} onOpenChange={open=>!open&&setForm(null)} onSave={onSave}/>
-  </Suspense>;
-}
-
-function ModalFornecedor({ form, setForm, onSave }) {
-
-  const { formGrid } = useBreakpoint();
-  const F = k => v => setForm(f => ({ ...f, [k]: v }));
-  return (
-    <Modal title={form.id ? "Editar fornecedor" : "Novo fornecedor"} onClose={()=>setForm(null)} wide>
-      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
-        <Inp label="Nome *" value={form.nome} onChange={F("nome")} placeholder="Depósito Caruaru"/>
-        <CampoCNPJ value={form.cnpj} onChange={F("cnpj")} onEncontrado={d=>setForm(f=>{
-          // O CNPJ preenche o que estiver vazio: nome, contato, endereco. E,
-          // pelo CNAE, ja sugere os ramos que a empresa fornece - o usuario
-          // confere e ajusta. Nada que ele digitou e sobrescrito.
-          const sugeridos = ramosDosCnaes(d.cnaes);
-          const jaTinha = f.categorias || [];
-          return {
-            ...f,
-            nome:       f.nome       || d.nome,
-            razaoSocial:f.razaoSocial|| d.razaoSocial,
-            nomeFantasia:f.nomeFantasia||d.nomeFantasia,
-            telefone:   f.telefone   || d.telefone,
-            email:      f.email      || d.email,
-            cep:        f.cep        || d.cep,
-            endereco:   f.endereco   || d.logradouro,
-            numero:     f.numero     || d.numero,
-            complemento:f.complemento|| d.complemento,
-            bairro:     f.bairro     || d.bairro,
-            cidade:     f.cidade     || d.cidade,
-            uf:         f.uf         || d.uf,
-            // Une o que ja estava marcado com o que veio do CNAE (sem duplicar).
-            categorias: [...new Set([...jaTinha, ...sugeridos])],
-            // Guarda a atividade para o usuario conferir de onde veio a sugestao.
-            atividadeCnae: d.atividade || f.atividadeCnae || "",
-            situacaoCadastral: d.situacao || f.situacaoCadastral || "",
-            dataAbertura: d.abertura || f.dataAbertura || "",
-            ramosSugeridos: sugeridos,
-          };
-        })}/>
-        <Inp label="Razão social" value={form.razaoSocial} onChange={F("razaoSocial")} placeholder="Preenchida pelo CNPJ"/>
-        <Inp label="Nome fantasia" value={form.nomeFantasia} onChange={F("nomeFantasia")} placeholder="Preenchido pelo CNPJ"/>
-        <Inp label="Contato" value={form.contato} onChange={F("contato")} placeholder="Nome do vendedor"/>
-        <Inp label="Telefone" value={form.telefone} onChange={F("telefone")} placeholder="(81) 9...."/>
-        <div style={{gridColumn:"1/-1"}}>
-          <Inp label="E-mail" value={form.email} onChange={F("email")} placeholder="vendas@..."/>
-        </div>
-
-        {/* O QUE ELE FORNECE - alimenta a sugestao de fornecedor nos pedidos */}
-        <div style={{gridColumn:"1/-1",background:C.surface,border:`1px solid ${C.border}`,
-                     borderRadius:9,padding:"11px 13px"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginBottom:3}}>O que fornece</p>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:9,lineHeight:1.45}}>
-            Marque todos os ramos. Uma casa de construção atende vários; uma serralheria, só metais.
-            O sistema usa isso para sugerir de quem comprar cada material.
-          </p>
-          {(form.ramosSugeridos||[]).length > 0 && (
-            <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}44`,borderRadius:8,
-                         padding:"8px 10px",marginBottom:9}}>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600,lineHeight:1.45}}>
-                Marcado automaticamente pelo CNPJ: {(form.ramosSugeridos||[]).map(rotuloRamo).join(", ")}.
-              </p>
-              {form.atividadeCnae && (
-                <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>
-                  Atividade na Receita: {form.atividadeCnae}
-                </p>
-              )}
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Confira e ajuste se precisar.</p>
-            </div>
-          )}
-          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-            {RAMOS_FORNECIMENTO.map(r=>{
-              const marcado = (form.categorias||[]).includes(r.v);
-              return (
-                <button key={r.v} type="button"
-                  onClick={()=>setForm(f=>({...f, categorias: marcado
-                    ? (f.categorias||[]).filter(x=>x!==r.v)
-                    : [...(f.categorias||[]), r.v]}))}
-                  style={{padding:"6px 11px",borderRadius:99,cursor:"pointer",
-                    border:`1.5px solid ${marcado?C.yellowD:C.border}`,
-                    background:marcado?`${C.yellow}1E`:C.bg,
-                    color:marcado?C.yellowD:C.muted,
-                    fontSize:"var(--arcd-type-control)",fontWeight:marcado?600:500,
-                    fontFamily:"var(--arcd-font-sans)"}}>
-                  {r.l}
-                </button>
-              );
-            })}
-          </div>
-          {(form.categorias||[]).length===0 && (
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.orange,marginTop:8}}>
-              Sem ramo marcado, ele não aparece nas sugestões de compra.
-            </p>
-          )}
-        </div>
-
-        {/* ENDERECO - frete, retirada e proximidade da obra */}
-        <div style={{gridColumn:"1/-1",background:C.surface,border:`1px solid ${C.border}`,
-                     borderRadius:9,padding:"11px 13px"}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginBottom:9}}>Endereço</p>
-          <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
-            <CampoCEP value={form.cep} onChange={F("cep")}
-              onEncontrado={d=>setForm(f=>({...f,
-                endereco: d.endereco || f.endereco,
-                bairro:   d.bairro   || f.bairro,
-                cidade:   d.cidade   || f.cidade,
-                uf:       d.uf       || f.uf,
-              }))}/>
-            <Inp label="Número" value={form.numero} onChange={F("numero")} placeholder="123"/>
-            <div style={{gridColumn:"1/-1"}}>
-              <Inp label="Logradouro" value={form.endereco} onChange={F("endereco")} placeholder="Rua, avenida..."/>
-            </div>
-            <Inp label="Complemento" value={form.complemento} onChange={F("complemento")} placeholder="Sala, loja, galpão..."/>
-            <Inp label="Bairro" value={form.bairro} onChange={F("bairro")}/>
-            <Inp label="Cidade" value={form.cidade} onChange={F("cidade")}/>
-            <Inp label="UF" value={form.uf} onChange={F("uf")} placeholder="PE"/>
-          </div>
-          {(form.situacaoCadastral||form.dataAbertura)&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:8}}>
-            Receita Federal: {form.situacaoCadastral||"situação não informada"}{form.dataAbertura?` · aberta em ${fmtDate(form.dataAbertura)}`:""}
-          </p>}
-        </div>
-
-        <div style={{gridColumn:"1/-1"}}>
-          <Inp label="Observações" value={form.obs} onChange={F("obs")}
-               placeholder="Prazo de entrega, condições de pagamento, histórico..." multiline/>
-        </div>
-
-        <div style={{gridColumn:"1/-1",display:"flex",gap:8}}>
-          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
-          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
 // A tela de Compras (com seus 4 modais - solicitação, pedido, cotação,
 // recebimento) foi extraída para
 // src/domains/compras/components/ComprasView.jsx em 2026-08-16 -
@@ -12205,6 +9462,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     return update(recomporDadosDaObra(data,proximos,obraId));
   },[data,obraId,update]);
   const [abaConteudo,setAbaConteudo]=useWorkspaceState("obras","area","geral",obraId);
+  useHelpTopic('obras',WORK_HELP[abaConteudo]||abaConteudo);
   const [terceiroAlvo,setTerceiroAlvo]=useState(null); // contrato a abrir em Terceiros (vindo da aba Medição)
   const [grupoMenuObra,setGrupoMenuObra]=useWorkspaceState("obras","group","geral",obraId);
 
@@ -12561,15 +9819,17 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     const comprometido=Number(custos.total.comprometido||0)+Number(custos.semApropriacao.comprometido||0);
     const recebido=Number(custos.total.recebido||0)+Number(custos.semApropriacao.recebido||0);
     const aplicado=Number(custos.total.aplicado||0)+Number(custos.semApropriacao.aplicado||0);
-    const orcado=Number(custos.total.orcado||resumo?.orcTotal||0);
-    const projecao=Math.max(orcado,comprometido);
+    const acumulado=calcLedgerAcumulado(data,[obraId],Number(hoje.slice(0,4)),Number(hoje.slice(5,7))-1);
+    const previsaoCustos=workStageCosts(data,acumulado.ledger,obraId,hoje);
+    const orcado=previsaoCustos.budget?previsaoCustos.totals.budget/100:0;
+    const projecao=previsaoCustos.totals.forecast/100;
     const fimProjetado=janela.fim&&prazo.resumo.desvioObra>0?somaDias(janela.fim,prazo.resumo.desvioObra):janela.fim;
     const tarefasCriticas=prazo.linhas.filter(l=>!l.titulo&&l.situacao==="atrasada").sort((a,b)=>Number(b.desvio||0)-Number(a.desvio||0)).slice(0,5);
     const medidoFinanceiro=(resumo?.medicoes||[]).reduce((s,m)=>s+Number(m.valorPrevisto||0),0);
     const percentualMedido=Number(obra?.contractValue||0)>0?medidoFinanceiro/Number(obra.contractValue)*100:0;
     return{temPlano:!!plano&&executivas.length>0,tarefas:executivas,progresso:Math.round(medicao.avancoFisico||0),prazo:prazo.resumo,
-      inicio:janela.ini,fimPlanejado:janela.fim,fimProjetado,tarefasCriticas,custos:{orcado,comprometido,recebido,aplicado,projecao,saldo:orcado-comprometido},percentualMedido};
-  },[data.planos,data.rdos,data.solicitacoesCompra,data.pedidos,data.movEstoque,data.transacoes,resumo?.orc,resumo?.orcTotal,resumo?.medicoes,obraId,obra?.contractValue,hoje]);
+      inicio:janela.ini,fimPlanejado:janela.fim,fimProjetado,tarefasCriticas,custos:{orcado,comprometido,recebido,aplicado,projecao,saldo:orcado-projecao,temOrcamento:!!previsaoCustos.budget,reconferir:previsaoCustos.rows.some(r=>r.revision&&!r.reviewValid),semInicio:acumulado.missingStart?.includes(obraId),restante:previsaoCustos.totals.remaining/100,reserva:previsaoCustos.totals.contingency/100,mudancas:previsaoCustos.totals.changeImpact/100},percentualMedido};
+  },[data,resumo?.orc,resumo?.orcTotal,resumo?.medicoes,obraId,obra?.contractValue,hoje]);
 
   const indicadoresGerais=useMemo(()=>{
     const pendencias=(data.conferencias||[]).filter(c=>c.obraId===obraId).flatMap(c=>c.pendencias||[]).filter(p=>p.status!=="resolvida");
@@ -12641,9 +9901,9 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
 
   const abrirModuloDaObra = destino => {
     if(!destino)return;
-    sessionStorage.setItem("arcd_obra_contexto",obraId);
+    sessionContext.setItem("arcd_obra_contexto",obraId);
     const chaves={rdo:"arcd_rdo_obra",conferencia:"arcd_conferencia_obra",plan:"arcd_plan_obra",orc:"arcd_orc_obra",med:"arcd_med_obra",cmp:"arcd_compras_obra",est:"arcd_estoque_obra",dre:"arcd_dre_obra",ponto:"arcd_ponto_obra",equipe:"arcd_equipe_obra",terc:"arcd_terceiros_obra",equip:"arcd_equipamentos_obra",licenca:"arcd_licenca_obra"};
-    if(chaves[destino])sessionStorage.setItem(chaves[destino],obraId);
+    if(chaves[destino])sessionContext.setItem(chaves[destino],obraId);
     setAbaConteudo(destino);
   };
 
@@ -12717,6 +9977,7 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
       </div>
 
       {abaConteudo==="geral"?<>
+      <AditivosContrato obra={obra} data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast}/>
       <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:8,marginBottom:12}}>{[
         ["Avanço físico",`${indicadoresGerais.progresso}%`,C.blue,"trending"],
         ["Pendências abertas",indicadoresGerais.pendencias,indicadoresGerais.criticas?C.red:C.orange,"alert"],
@@ -12737,9 +9998,11 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
         </>}
         <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7,marginTop:10,borderTop:`1px solid ${C.line}`,paddingTop:9}}>{[
           ["Orçado",previsaoObra.custos.orcado,C.blue],["Comprometido",previsaoObra.custos.comprometido,C.orange],
-          ["Recebido na obra",previsaoObra.custos.recebido,C.purple],["Projeção de custo",previsaoObra.custos.projecao,previsaoObra.custos.projecao>previsaoObra.custos.orcado?C.red:C.green],
+          ["Recebido na obra",previsaoObra.custos.recebido,C.purple],["Custo final estimado",previsaoObra.custos.projecao,previsaoObra.custos.temOrcamento&&previsaoObra.custos.projecao>previsaoObra.custos.orcado?C.red:C.green],
         ].map(([l,v,c])=><div key={l}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>
-        {previsaoObra.custos.saldo<0&&<p style={{fontSize:"var(--arcd-type-label)",color:C.red,fontWeight:600,marginTop:8}}>Risco de estouro: compromissos superam o orçamento em {fmt(Math.abs(previsaoObra.custos.saldo))}.</p>}
+        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:8}}>Custo final = incorrido + restante ({fmt(previsaoObra.custos.restante)}) + reserva ({fmt(previsaoObra.custos.reserva)}) + mudanças adicionais ({fmt(previsaoObra.custos.mudancas)}). Confira a memória em Financeiro → Custos por etapa.</p>
+        {(!previsaoObra.custos.temOrcamento||previsaoObra.custos.reconferir||previsaoObra.custos.semInicio)&&<p role="status" style={{color:C.orange,fontSize:"var(--arcd-type-label)"}}>{!previsaoObra.custos.temOrcamento?"Sem orçamento de controle aprovado; comparação indisponível. ":""}{previsaoObra.custos.reconferir?"Revisões preservadas; reconferir a base atual. ":""}{previsaoObra.custos.semInicio?"Sem início válido; custos de ponto e equipamentos incompletos.":""}</p>}
+        {previsaoObra.custos.temOrcamento&&previsaoObra.custos.saldo<0&&<p style={{fontSize:"var(--arcd-type-label)",color:C.red,fontWeight:600,marginTop:8}}>Risco de estouro: previsão supera o orçamento em {fmt(Math.abs(previsaoObra.custos.saldo))}.</p>}
       </div>
 
       {/* Alertas ficam FORA do acordeao: precisam ser vistos sem abrir nada */}
@@ -13105,72 +10368,6 @@ function ObraDetalhe({ data, obraId, onVoltar, onTab, onEditarObra, update, show
     </div>
   );
 }
-// A tela de Planejamento (Gantt editável, com QuestionarioPlanejamento,
-// CurvaSGrafico, MiniFF, ModalTarefa, ModalCalendario, ModalMarco) foi
-// extraída para src/domains/planejamento/components/PlanejamentoView.jsx
-// em 2026-08-16 - importada como `Planejamento` abaixo, mesmo nome de
-// sempre. MiniKpi continua aqui porque é usado por vários outros módulos.
-
-export function MiniKpi({ label, value, cor, sub }) {
-  return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`,
-                  borderTop: `3px solid ${cor}`, borderRadius: 8, padding: "10px 12px" }}>
-      <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: C.muted, textTransform: "uppercase", letterSpacing: .6 }}>{label}</p>
-      <p style={{ fontSize: "var(--arcd-type-section-title)", fontWeight:600, color: cor, marginTop: 3,
-                  fontFamily: "var(--arcd-font-sans)" }}>{value}</p>
-      {sub && <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 2 }}>{sub}</p>}
-    </div>
-  );
-}
-
-
-
-// ==============================================================
-//  DIARIO DE OBRA (RDO) - conforme boa pratica
-//  - Clima manha/tarde/noite
-//  - Efetivo (mao de obra) + presencas do ponto sem trocar de aba
-//  - Servicos executados: cada um atualiza o progresso da tarefa
-//    do planejamento (alimenta a medicao de evolucao)
-//  - Ocorrencias e fotos (Storage - guarda so a URL)
-// ==============================================================
-
-// Normaliza fotos de câmera antes do envio. Mantém o enquadramento completo
-// (importante para a evidência), respeita a orientação EXIF quando o navegador
-// oferece createImageBitmap e limita o payload para funcionar em redes móveis.
-export const comprimirImagem = async file => {
-  if(!file)throw new Error("Nenhuma foto foi selecionada.");
-  if(file.size>24*1024*1024)throw new Error("A foto é maior que 24 MB. Reduza a resolução e tente novamente.");
-  const tipo=String(file.type||"").toLowerCase();
-  if(tipo&&!tipo.startsWith("image/"))throw new Error("Selecione um arquivo de imagem.");
-  let imagem=null,objectUrl="";
-  try{
-    if(typeof createImageBitmap==="function"){
-      try{imagem=await createImageBitmap(file,{imageOrientation:"from-image"});}catch{/* fallback para Image */}
-    }
-    if(!imagem){
-      objectUrl=URL.createObjectURL(file);
-      imagem=await new Promise((resolve,reject)=>{
-        const img=new Image();
-        img.onload=()=>resolve(img);
-        img.onerror=()=>reject(new Error("Formato de foto não suportado. Use a câmera ou selecione JPG/PNG."));
-        img.src=objectUrl;
-      });
-    }
-    const largura=Number(imagem.width||imagem.naturalWidth||0),altura=Number(imagem.height||imagem.naturalHeight||0);
-    if(!largura||!altura)throw new Error("Não foi possível ler as dimensões da foto.");
-    const MAX=1600,escala=Math.min(1,MAX/Math.max(largura,altura));
-    const canvas=document.createElement("canvas");
-    canvas.width=Math.max(1,Math.round(largura*escala));
-    canvas.height=Math.max(1,Math.round(altura*escala));
-    const ctx=canvas.getContext("2d");
-    if(!ctx)throw new Error("O navegador não conseguiu preparar a foto.");
-    ctx.drawImage(imagem,0,0,canvas.width,canvas.height);
-    return canvas.toDataURL("image/jpeg",0.78);
-  }finally{
-    if(objectUrl)URL.revokeObjectURL(objectUrl);
-    if(imagem&&typeof imagem.close==="function")imagem.close();
-  }
-};
 
 
 
@@ -13271,20 +10468,6 @@ function Qualidade({data,showToast,currentUser,obraIdFixo="",dispatchCommand=nul
     if(result?.ok)showToast("Ficha liberada para medição.");
   };
   return <div style={{display:"flex",flexDirection:"column",gap:10}}><PageHero eyebrow="Engenharia de campo" title="Qualidade · FVS e FVM" description="Inspeções, não conformidades e liberações confirmadas pelo servidor." actions={<Btn onClick={gerarPlano} disabled={gerando}><Ic n="plus"/> {gerando?"Gerando...":"Gerar/atualizar plano"}</Btn>}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7}}>{[["FVS",regs.filter(item=>item.tipo==="fvs").length,C.blue],["FVM",regs.filter(item=>item.tipo==="fvm").length,C.purple],["Liberadas",regs.filter(item=>item.status==="aprovada").length,C.green],["Não conformes",regs.filter(item=>item.status==="reprovada").length,C.red]].map(([label,value,color])=><div key={label} style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${color}`,borderRadius:7,padding:8}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>{label}</p><b style={{fontSize:"var(--arcd-type-card-title)",color}}>{value}</b></div>)}</div>{regs.map(ficha=>{const open=aberto===ficha.id;const feitos=(ficha.itens||[]).filter(item=>item.status!=="pendente").length;const draft=rascunho(ficha.id);return <div key={ficha.id} style={{background:C.card,border:`1px solid ${ficha.status==="reprovada"?C.red:C.border}`,borderRadius:8,overflow:"hidden"}}><button onClick={()=>setAberto(open?"":ficha.id)} style={{width:"100%",border:0,background:"transparent",padding:"10px 12px",display:"flex",justifyContent:"space-between",gap:8,textAlign:"left",cursor:"pointer"}}><div><b style={{fontSize:"var(--arcd-type-label)",color:ficha.tipo==="fvs"?C.blue:C.purple}}>{ficha.codigo} · {ficha.tipo.toUpperCase()}</b><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:2}}>{ficha.titulo}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Responsável: {ficha.responsavel||"Não definido"} · {feitos}/{(ficha.itens||[]).length} critérios</p></div><Badge color={ficha.status==="aprovada"?C.green:ficha.status==="reprovada"?C.red:C.orange}>{ficha.status}</Badge></button>{open&&<div style={{borderTop:`1px solid ${C.line}`,padding:10}}><Sel label="Responsável pela execução/correção" value={draft.responsavelId??ficha.responsavelId} onChange={value=>editarRascunho(ficha.id,{responsavelId:value})} options={[{v:"",l:"Selecione"},...usuarios.map(user=>({v:user.id,l:user.nome}))]}/><Inp label="Referência técnica (projeto, memorial, procedimento, norma)" value={draft.normaProjeto??ficha.normaProjeto} onChange={value=>editarRascunho(ficha.id,{normaProjeto:value})}/><Btn size="sm" v="ghost" style={{marginTop:7}} onClick={()=>salvarDetalhes(ficha)}>Salvar referência</Btn><div style={{marginTop:8}}>{(ficha.itens||[]).map(item=><div key={item.id} style={{padding:"8px 0",borderTop:`1px solid ${C.line}`}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{item.criterio}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>{item.metodo} · {item.tolerancia}</p><div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>{[["conforme","Conforme",C.green],["nao_conforme","Não conforme",C.red],["nao_aplicavel","N/A",C.muted]].map(([status,label,color])=><button key={status} onClick={()=>inspecionar(ficha,item,status)} disabled={ficha.status==="aprovada"} style={{border:`1px solid ${item.status===status?color:C.border}`,background:item.status===status?`${color}12`:C.bg,color,borderRadius:5,padding:"4px 7px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{label}</button>)}</div>{item.verificadoEm&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{item.responsavel} · {new Date(item.verificadoEm).toLocaleString("pt-BR")}</p>}</div>)}</div>{ficha.naoConformidade&&ficha.naoConformidade.status!=="encerrada"&&<div style={{background:`${C.red}08`,border:`1px solid ${C.red}55`,borderRadius:7,padding:9,marginTop:8}}><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red}}>NÃO CONFORMIDADE</p><Inp label="Ação corretiva" value={draft.acao??""} onChange={value=>editarRascunho(ficha.id,{acao:value})} multiline/><Inp label="Verificação de eficácia" value={draft.eficacia??""} onChange={value=>editarRascunho(ficha.id,{eficacia:value})} multiline/><Btn size="sm" v="success" onClick={()=>resolverNC(ficha)}>Encerrar NC após reinspeção</Btn></div>}<Btn full style={{marginTop:9}} onClick={()=>liberar(ficha)} disabled={ficha.status==="aprovada"}>Liberar ficha</Btn></div>}</div>;})}{!regs.length&&<p style={{textAlign:"center",padding:20,color:C.muted,fontSize:"var(--arcd-type-label)"}}>Gere o plano para criar uma FVS para cada etapa de 1º nível e FVM para os materiais comprados.</p>}</div>;
-}
-
-
-// Bloco visual reutilizado no diario.
-export function Bloco({ id, titulo, acao, children }) {
-  return (
-    <section id={id} className="rdo-block">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <h2>{titulo}</h2>
-        {acao}
-      </div>
-      {children}
-    </section>
-  );
 }
 
 
@@ -13958,7 +11141,7 @@ function Obsoletos({ data, update, showToast, onTab, dispatchCommand }) {
                   </div>
                   <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
                     <Btn v="ghost" size="sm" onClick={()=>{
-                      window.sessionStorage.setItem("arcd_editar_funcionario",e.id);
+                      sessionContext.setItem("arcd_editar_funcionario",e.id);
                       onTab?.("equipe");
                     }}><Ic n="edit"/> Editar</Btn>
                     <Btn v="ghost" size="sm" onClick={() => reativarEmp(e.id)}>Readmitir</Btn>
@@ -14535,83 +11718,6 @@ function Cadastros({ data, update, showToast, onTab, currentUser, dispatchComman
   );
 }
 
-export function ModalMaterial({ form, setForm, onSave, unidades = [] }) {
-  const { formGrid } = useBreakpoint();
-  const F = k => v => setForm(f => ({ ...f, [k]: v }));
-  return (
-    <Modal title={form.id ? "Editar insumo" : "Novo insumo"} onClose={()=>setForm(null)} wide>
-      <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
-        <Inp label="Código automático" value={form.codigo} onChange={()=>{}} disabled/>
-        <Inp label="Descrição *" value={form.descricao} onChange={F("descricao")}
-             placeholder="Cimento CP-II 50kg"/>
-        <Sel label="Unidade *" value={form.unidade} onChange={F("unidade")}
-             options={unidades.map(u => ({ v:u.sigla, l:`${u.sigla} - ${u.nome}` }))}/>
-        <Sel label="Categoria" value={form.categoria} onChange={F("categoria")}
-             options={CATS_MATERIAL.map(c=>({v:c.v,l:c.l}))}/>
-        <Inp label="Estoque mínimo" type="number" value={form.estoqueMin} onChange={F("estoqueMin")}
-             placeholder="0"/>
-        <Inp label="Preço médio (R$)" type="number" value={form.precoMedio} onChange={F("precoMedio")}
-             placeholder="0,00"/>
-        <div style={{gridColumn:"1/-1",display:"flex",gap:8}}>
-          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
-          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-export function ModalComposicao({ form, setForm, onSave, materiais, unidades = [] }) {
-  const { formGrid } = useBreakpoint();
-  const F = k => v => setForm(f => ({ ...f, [k]: v }));
-  const setItem = (i, campo, v) =>
-    setForm(f => ({ ...f, itens: f.itens.map((x,k) => k===i ? {...x,[campo]:v} : x) }));
-  const addItem = () => setForm(f => ({ ...f, itens:[...f.itens, {materialId:"",coef:""}] }));
-  const delItem = (i) => setForm(f => ({ ...f, itens: f.itens.filter((_,k)=>k!==i) }));
-
-  return (
-    <Modal title={form.id ? "Editar composição" : "Nova composição"} onClose={()=>setForm(null)} wide>
-      <div style={{display:"flex",flexDirection:"column",gap:12}}>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:11}}>
-          <Inp label="Código automático" value={form.codigo||""} onChange={()=>{}} disabled/>
-          <Inp label="Serviço *" value={form.nome} onChange={F("nome")}
-               placeholder="Alvenaria de vedação"/>
-          <Sel label="Unidade *" value={form.unidade} onChange={F("unidade")}
-               options={unidades.map(u => ({ v:u.sigla, l:`${u.sigla} - ${u.nome}` }))}/>
-        </div>
-
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
-          Quanto cada insumo é consumido para executar <strong style={{color:C.text}}>
-          1 {form.unidade || "unidade"}</strong> deste serviço.
-        </p>
-
-        {form.itens.map((it, i) => (
-          <div key={i} style={{background:C.surface,border:`1px solid ${C.border}`,
-                               borderRadius:6,padding:"9px 11px"}}>
-            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:9}}>
-              <Sel label="Insumo" value={it.materialId} onChange={v=>setItem(i,"materialId",v)}
-                   options={[{v:"",l:"Selecione..."}, ...materiais.map(m=>({v:m.id,l:`${m.descricao} (${m.unidade})`}))]}/>
-              <Inp label={`Consumo por 1 ${form.unidade||"un"}`} type="number" value={it.coef}
-                   onChange={v=>setItem(i,"coef",v)} placeholder="0,00"/>
-            </div>
-            {form.itens.length > 1 && (
-              <button onClick={()=>delItem(i)} style={{background:"transparent",border:0,color:C.muted,
-                fontSize:"var(--arcd-type-control)",cursor:"pointer",marginTop:6,textDecoration:"underline"}}>remover insumo</button>
-            )}
-          </div>
-        ))}
-
-        <Btn v="ghost" onClick={addItem} full><Ic n="plus"/> Adicionar insumo</Btn>
-
-        <div style={{display:"flex",gap:8}}>
-          <Btn v="ghost" onClick={()=>setForm(null)} full>Cancelar</Btn>
-          <Btn onClick={()=>onSave(form)} full><Ic n="check"/> Salvar</Btn>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
 
 
 const CAIXA_CATS = [
@@ -14622,90 +11728,6 @@ const CAIXA_CATS = [
   { v:"taxa",         l:"Taxa / Documentação",    icon:"" },
   { v:"outros",       l:"Outros",                 icon:"" },
 ];
-
-// Layout único de relatório em PDF/impressão para o app inteiro - mesmo
-// cabeçalho, grade de KPIs, tabelas e assinaturas do relatório de Folha de
-// Pagamento (a referência de layout limpo). Todo relatório novo deve montar
-// seu HTML a partir daqui em vez de inventar CSS próprio; os textos das
-// células já devem chegar formatados/escapados pelo chamador (mesma
-// convenção usada nos templates existentes).
-export function montarRelatorioPadraoHtml({
-  data, titulo, subtitulo = "", meta = [], kpis = [], tabelas = [], legenda = "",
-  assinaturas = [], paisagem = true,
-}) {
-  const metaHtml = meta.filter(Boolean).map(m => `<p><strong>${escapeHtml(m.label)}:</strong> ${escapeHtml(m.value)}</p>`).join("");
-  const kpisHtml = kpis.length ? `<div class="kpis">${kpis.map(k => `<div class="kpi"><span>${escapeHtml(k.label)}</span><b>${escapeHtml(k.value)}</b></div>`).join("")}</div>` : "";
-  const linhaCelulas = (headers, row) => row.map((cell, ci) => `<td${headers[ci]?.num ? ' class="num"' : ""}>${cell}</td>`).join("");
-  const tabelasHtml = tabelas.map((t, i) => `
-    <div class="${i === 0 ? "" : "section"}">
-      ${t.titulo ? `<h3>${escapeHtml(t.titulo)}</h3>` : ""}
-      ${t.descricao ? `<p style="font-size:11px;color:#555">${escapeHtml(t.descricao)}</p>` : ""}
-      <table>
-        <thead><tr>${t.headers.map(h => `<th${h.num ? ' class="num"' : ""}>${escapeHtml(typeof h === "string" ? h : h.label)}</th>`).join("")}</tr></thead>
-        <tbody>
-          ${t.rows.length ? t.rows.map(row => `<tr>${linhaCelulas(t.headers, row)}</tr>`).join("") : `<tr><td colspan="${t.headers.length}" class="vazio">${escapeHtml(t.vazio || "Nenhum registro encontrado.")}</td></tr>`}
-        </tbody>
-        ${t.totalRow ? `<tfoot><tr class="total">${linhaCelulas(t.headers, t.totalRow)}</tr></tfoot>` : ""}
-      </table>
-    </div>
-  `).join("");
-  const assinaturasHtml = assinaturas.length ? `<div class="signatures">${assinaturas.map(a => `<div class="signature">${escapeHtml(a)}</div>`).join("")}</div>` : "";
-
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(titulo)}</title>
-<style>
-@page{size:A4 ${paisagem ? "landscape" : "portrait"};margin:10mm}
-*{box-sizing:border-box}
-body{font-family:Arial,sans-serif;margin:0;color:#111;font-size:10px}
-h1,h2,h3{margin:0 0 8px 0}
-p{margin:4px 0}
-.cabecalho{border-bottom:3px solid #d4af37;padding-bottom:10px;margin-bottom:10px;display:flex;align-items:center;gap:14px}
-.cabecalho img.logo{height:46px;max-width:140px;object-fit:contain;flex-shrink:0}
-.cabecalho .titulos{flex:1;min-width:0}
-.meta{display:flex;gap:18px;flex-wrap:wrap;color:#333}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:7px;margin:10px 0}
-.kpi{border:1px solid #bbb;border-top:3px solid #d4af37;padding:7px;background:#fafafa}
-.kpi span{display:block;font-size:8px;text-transform:uppercase;color:#666;font-weight:bold}
-.kpi b{display:block;font-size:14px;margin-top:2px}
-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:8px;table-layout:auto}
-thead{display:table-header-group}
-tfoot{display:table-footer-group}
-tr{break-inside:avoid;page-break-inside:avoid}
-th,td{border:1px solid #aaa;padding:4px;text-align:left;vertical-align:middle}
-th{background:#e8e8e8;font-size:7.5px;text-transform:uppercase;white-space:nowrap}
-td.num,th.num{text-align:right;white-space:nowrap}
-.total{font-weight:bold;background:#fff8d6}
-.vazio{text-align:center;padding:16px;color:#666;font-style:italic}
-.section{margin-top:18px;padding-top:10px;border-top:3px solid #d4af37;break-before:page;page-break-before:always}
-.legenda{font-size:8px;color:#555;margin-top:5px}
-.signatures{margin-top:32px;display:flex;justify-content:space-between;gap:40px;break-inside:avoid}
-.signature{flex:1;border-top:1px solid #111;padding-top:8px;text-align:center}
-@media screen{body{padding:24px;max-width:1400px;margin:auto}}
-</style></head><body>
-<div class="cabecalho">
-  <img class="logo" src="${data.config?.companyImageUrl || data.config?.logoUrl || ARCD_LOGO}" alt="Logo"/>
-  <div class="titulos">
-    <h1>${escapeHtml(data.config?.companyName || "ArcD Obras")}</h1>
-    ${data.config?.cnpj ? `<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>` : ""}
-    <h2>${escapeHtml(titulo)}${subtitulo ? ` - ${escapeHtml(subtitulo)}` : ""}</h2>
-    <div class="meta">${metaHtml}</div>
-  </div>
-</div>
-${kpisHtml}
-${legenda ? `<p class="legenda">${escapeHtml(legenda)}</p>` : ""}
-${tabelasHtml}
-${assinaturasHtml}
-<p style="margin-top:${assinaturas.length ? 30 : 16}px;color:#999;font-size:9px">Gerado por ${escapeHtml(data.config?.companyName || "MARCELL")} em ${new Date().toLocaleString("pt-BR")}</p>
-</body></html>`;
-}
-
-// Abre o HTML do relatório numa aba nova e já dispara a impressão - mesmo
-// comportamento (e mesmo aviso de pop-up bloqueado) usado pela Folha.
-export function abrirRelatorioPadrao(html, showToast) {
-  const w = window.open("", "_blank");
-  if (!w) { showToast?.("Não foi possível abrir a impressão. Permita pop-ups para este aplicativo e tente novamente.", "error"); return; }
-  w.document.open(); w.document.write(marcellReportHtml(html)); w.document.close(); w.focus();
-  window.setTimeout(() => w.print(), 300);
-}
 
 // Extrato/relatório financeiro do caixa de uma obra, em PDF. Compartilhado
 // entre a tela de Caixa de Obra e o hub de Relatórios, para não duplicar o
@@ -15803,206 +12825,6 @@ td.val{text-align:right;font-weight:700;min-width:110px}
     </div>
   );
 }
-
-//
-export const COM_ETAPAS=[
-  ["novo","Novo lead"],["primeiro_contato","Primeiro contato"],["qualificacao","Em qualificação"],["reuniao_agendada","Reunião agendada"],
-  ["reuniao_realizada","Reunião realizada"],["aguardando_info","Aguardando informações"],["escopo","Escopo em elaboração"],
-  ["proposta_elaboracao","Proposta em elaboração"],["proposta_enviada","Proposta enviada"],["negociacao","Em negociação"],
-  ["aguardando_decisao","Aguardando decisão"],["contrato_elaboracao","Contrato em elaboração"],["contrato_enviado","Contrato enviado"],
-  ["aguardando_assinatura","Aguardando assinatura"],["contrato_assinado","Contrato assinado"],["aguardando_entrada","Aguardando pagamento da entrada"],
-  ["contratado","Contratado"],["transferido","Transferido para engenharia"],["perdido","Perdido"],["arquivado","Arquivado"],
-];
-export const COM_PERDAS=["Preço","Prazo","Falta de orçamento","Desistência","Contratação de concorrente","Falta de retorno","Serviço fora do escopo","Condições de pagamento","Outro"];
-// JORNADA DO CLIENTE - Kanban de fases maiores. As 20 etapas granulares do
-// funil mapeiam para 6 fases que contam a história do cliente: da chegada ao
-// fechamento. Cada etapa pertence a uma fase; assim o lead anda pelo Kanban
-// SOZINHO conforme o sistema muda sua etapa (proposta enviada, contrato
-// assinado, etc.), sem ninguém arrastar. A ordem aqui é a ordem da jornada.
-export const COM_JORNADA=[
-  { id:"captura",    label:"Captura",       desc:"Lead chegou, primeiro contato", cor:C.blue,
-    etapas:["novo","primeiro_contato"] },
-  { id:"qualifica",  label:"Qualificação",  desc:"Entender necessidade e fit",    cor:C.purple,
-    etapas:["qualificacao","aguardando_info"] },
-  { id:"reuniao",    label:"Reunião",       desc:"Encontro e levantamento",       cor:C.orange,
-    etapas:["reuniao_agendada","reuniao_realizada","escopo"] },
-  { id:"proposta",   label:"Proposta",      desc:"Orçamento na mão do cliente",   cor:C.yellowD,
-    etapas:["proposta_elaboracao","proposta_enviada","negociacao","aguardando_decisao"] },
-  { id:"contrato",   label:"Contrato",      desc:"Fechamento e assinatura",       cor:C.green,
-    etapas:["contrato_elaboracao","contrato_enviado","aguardando_assinatura","contrato_assinado","aguardando_entrada"] },
-  { id:"ganho",      label:"Cliente",       desc:"Contratado e transferido",      cor:C.text,
-    etapas:["contratado","transferido"] },
-];
-export const comFaseDaEtapa=etapa=>COM_JORNADA.find(f=>f.etapas.includes(etapa))?.id||null;
-
-// ==============================================================
-//  MOTOR DE INDICACAO
-//  A ARCD vive de indicacao de cliente. Entao o que importa nao e
-//  quantos leads entraram, e sim QUEM os trouxe e se o motor esta
-//  girando. Estas funcoes respondem: quem indica, quanto isso rende,
-//  se a carteira esta produzindo e onde o funil vaza.
-// ==============================================================
-
-// Quem indicou, quantos trouxe, quantos viraram contrato e quanto renderam.
-// Aceita indicador cadastrado (clienteId) ou anotado a mao (nome livre).
-export const rankingIndicadores = (com) => {
-  const leads = com?.leads || [], vendas = com?.vendas || [], clientes = com?.clientes || [];
-  const mapa = {};
-  const chave = l => l.indicadoPorClienteId || (l.indicadoPorNome ? `nome:${l.indicadoPorNome}` : "");
-  leads.forEach(l => {
-    const k = chave(l);
-    if (!k) return;
-    if (!mapa[k]) mapa[k] = {
-      chave: k, clienteId: l.indicadoPorClienteId || "",
-      nome: l.indicadoPorClienteId
-        ? (clientes.find(c => c.id === l.indicadoPorClienteId)?.nome || "Cliente")
-        : l.indicadoPorNome,
-      indicados: [], ganhos: 0, perdidos: 0, emAberto: 0, valorGerado: 0,
-    };
-    const r = mapa[k];
-    r.indicados.push(l.id);
-    const venda = vendas.find(v => v.leadId === l.id);
-    if (venda) { r.ganhos++; r.valorGerado += Number(venda.valor || 0); }
-    else if (l.status === "perdido" || l.etapa === "perdido") r.perdidos++;
-    else r.emAberto++;
-  });
-  return Object.values(mapa).map(r => ({
-    ...r, total: r.indicados.length,
-    conversao: r.indicados.length ? (r.ganhos / r.indicados.length) * 100 : 0,
-  })).sort((a, b) => b.valorGerado - a.valorGerado || b.total - a.total);
-};
-
-// O termometro do motor: quantas indicacoes cada obra entregue gerou e
-// que fatia da carteira ja indicou alguem. Se cai, o lead cai daqui a meses.
-export const taxaIndicacao = (com, obras) => {
-  const entregues = (obras || []).filter(o => o.status === "done").length;
-  const leads = com?.leads || [];
-  const indicacoes = leads.filter(l => l.indicadoPorClienteId || l.indicadoPorNome).length;
-  const clientesQueIndicaram = new Set(leads.map(l => l.indicadoPorClienteId).filter(Boolean)).size;
-  const totalClientes = (com?.clientes || []).length;
-  return {
-    obrasEntregues: entregues, indicacoes,
-    porObraEntregue: entregues ? indicacoes / entregues : 0,
-    clientesQueIndicaram, totalClientes,
-    pctClientesAtivos: totalClientes ? (clientesQueIndicaram / totalClientes) * 100 : 0,
-  };
-};
-
-// NPS da entrega: 9-10 promotor, 7-8 neutro, 0-6 detrator.
-// Promotor e candidato a indicar; detrator precisa de acao antes de falar mal.
-export const npsResumo = (pesquisas) => {
-  const ps = (pesquisas || []).filter(p => Number(p.nota) >= 0 && p.data);
-  if (!ps.length) return { total: 0, promotores: 0, neutros: 0, detratores: 0, nps: null, media: 0 };
-  const prom = ps.filter(p => p.nota >= 9).length;
-  const neut = ps.filter(p => p.nota >= 7 && p.nota <= 8).length;
-  const detr = ps.filter(p => p.nota <= 6).length;
-  return {
-    total: ps.length, promotores: prom, neutros: neut, detratores: detr,
-    nps: ((prom - detr) / ps.length) * 100,
-    // Number() é obrigatório aqui: o filtro acima só garante Number(p.nota)>=0,
-    // p.nota em si pode chegar como string (formulário/planilha) - sem isto a
-    // soma vira concatenação (achado de 25/08/2026, ver BLUEPRINT).
-    media: ps.reduce((s, p) => s + Number(p.nota), 0) / ps.length,
-  };
-};
-
-// Conversao agrupada por FASE da jornada (6 fases em vez de 20 etapas).
-// Com o volume de leads de uma construtora de alto padrao, 20 barras nao
-// dizem nada; 6 fases mostram na hora onde o negocio morre.
-export const conversaoPorFase = (leads) => {
-  const fases = COM_JORNADA;
-  const ordemEtapa = {};
-  fases.forEach((f, i) => f.etapas.forEach(e => { ordemEtapa[e] = i; }));
-  const linhas = fases.map((f, i) => ({
-    id: f.id, label: f.label, cor: f.cor,
-    alcancaram: (leads || []).filter(l => {
-      const base = (l.etapa === "perdido" || l.etapa === "arquivado")
-        ? (l.etapaMaxima || l.etapa) : l.etapa;
-      const oi = ordemEtapa[base];
-      return oi != null && oi >= i;
-    }).length,
-  }));
-  return linhas.map((l, i) => {
-    const ant = i > 0 ? linhas[i-1].alcancaram : linhas[0].alcancaram;
-    return { ...l,
-      taxaDaAnterior: ant ? (l.alcancaram / ant) * 100 : 0,
-      perdaNaFase: i > 0 ? ant - l.alcancaram : 0 };
-  });
-};
-
-// Ciclo de venda: do primeiro contato ao contrato. Sem isso nao da para
-// prever caixa nem saber se um lead de 90 dias ainda esta vivo.
-export const cicloMedioVenda = (com) => {
-  const leads = com?.leads || [], vendas = com?.vendas || [];
-  const dias = [];
-  vendas.forEach(v => {
-    const l = leads.find(x => x.id === v.leadId);
-    if (!l || !l.createdAt || !v.fechadaEm) return;
-    const d = Math.floor((new Date(v.fechadaEm) - new Date(l.createdAt)) / 86400000);
-    if (d >= 0) dias.push(d);
-  });
-  if (!dias.length) return { n: 0, medio: 0, minimo: 0, maximo: 0, mediana: 0 };
-  const ord = [...dias].sort((a, b) => a - b);
-  return { n: dias.length,
-    medio: dias.reduce((s, d) => s + d, 0) / dias.length,
-    minimo: ord[0], maximo: ord[ord.length-1], mediana: ord[Math.floor(ord.length/2)] };
-};
-
-// Momentos de pedir indicacao. Sao os tres picos de propensao: a entrega,
-// o marco visivel da obra e o pos-obra. Devolve as acoes pendentes.
-export const momentosIndicacao = (data) => {
-  const com = data?.comercial || {};
-  const acoes = [];
-  (data?.obras || []).forEach(o => {
-    const cliente = (com.clientes || []).find(c => c.obraId === o.id || c.nome === o.cliente);
-    const pesquisa = (com.pesquisas || []).find(p => p.obraId === o.id);
-    // 1) Obra entregue sem pesquisa de satisfacao
-    if (o.status === "done" && !pesquisa) {
-      acoes.push({ tipo:"nps", obraId:o.id, obraNome:o.name, clienteId:cliente?.id||"",
-        clienteNome:cliente?.nome||o.cliente||"", titulo:"Pesquisa de satisfação na entrega",
-        motivo:"Obra entregue e ainda sem nota do cliente." });
-    }
-    // 2) Promotor que ainda nao foi convidado a indicar
-    if (pesquisa && pesquisa.nota >= 9 && !pesquisa.pediuIndicacao) {
-      acoes.push({ tipo:"pedir", obraId:o.id, obraNome:o.name, clienteId:cliente?.id||"",
-        clienteNome:cliente?.nome||o.cliente||"", titulo:"Pedir indicação ao cliente",
-        motivo:`Deu nota ${pesquisa.nota} - é promotor e ainda não foi convidado a indicar.` });
-    }
-    // 3) Detrator: agir antes que ele fale mal
-    if (pesquisa && pesquisa.nota <= 6) {
-      acoes.push({ tipo:"recuperar", obraId:o.id, obraNome:o.name, clienteId:cliente?.id||"",
-        clienteNome:cliente?.nome||o.cliente||"", titulo:"Recuperar cliente insatisfeito",
-        motivo:`Deu nota ${pesquisa.nota}. Trate antes que vire indicação negativa.` });
-    }
-    // 4) Obra em andamento com progresso alto = marco visivel
-    if (o.status === "active" && o.contractEnd && o.contractStart) {
-      const prz = prazoObra(o);
-      if (prz && prz.pct >= 60 && prz.pct < 100) {
-        acoes.push({ tipo:"marco", obraId:o.id, obraNome:o.name, clienteId:cliente?.id||"",
-          clienteNome:cliente?.nome||o.cliente||"", titulo:"Convidar para visita / pedir indicação",
-          motivo:`Obra em ${prz.pct.toFixed(0)}% - fase de marco visível, bom momento para mostrar.` });
-      }
-    }
-  });
-  return acoes;
-};
-export const COM_TEMPERATURA={frio:C.blue,morno:C.orange,quente:C.red};
-export const comEtapaLabel=id=>COM_ETAPAS.find(([v])=>v===id)?.[1]||id;
-export const comDias=iso=>iso?Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/86400000)):0;
-export const comDateTime=iso=>iso?new Date(iso).toLocaleString("pt-BR"):"-";
-export const COM_IMOBILIARIO_SECTIONS=[
-  {id:"overview",label:"Visão geral",icon:"chart"},
-  {id:"developments",label:"Empreendimentos",icon:"building"},
-  {id:"properties",label:"Imóveis avulsos",icon:"home"},
-  {id:"units",label:"Unidades",icon:"grid"},
-  {id:"reservations",label:"Reservas",icon:"clock"},
-  {id:"sales",label:"Vendas",icon:"dollar"},
-  {id:"visits",label:"Agenda e visitas",icon:"calendar"},
-  {id:"brokers",label:"Corretores e parceiros",icon:"users"},
-  {id:"documents",label:"Arquivos dos imóveis",icon:"file"},
-  {id:"reports",label:"Relatórios",icon:"trending"},
-];
-export const COM_ROUTE_SECTION={com_funil:"crm",com_leads:"crm",com_propostas:"proposals",com_negociacoes:"proposals",com_metas:"commissions"};
 const Comercial = lazy(() => import("./domains/comercial/components/ComercialView"));
 // A tela Comercial foi extraída para
 // src/domains/comercial/components/ComercialView.jsx em 2026-08-16 -
@@ -16292,6 +13114,9 @@ function IconeChat({ size = 26 }) {
 // Destaca "@Nome" dentro do texto da mensagem para quem já foi resolvido como
 // menção real (não qualquer "@" digitado à toa).
 function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
+  const {isMobile}=useBreakpoint();
+  const [launcherTarget,setLauncherTarget]=useState(null);
+  useLayoutEffect(()=>setLauncherTarget(isMobile?document.querySelector('[data-chat-launcher-slot]'):null),[isMobile]);
   const [aberto, setAberto] = useState(false);
   const [gestaoAberta, setGestaoAberta] = useState(false);
   const [mensagens, setMensagens] = useState([]);
@@ -16437,6 +13262,23 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
   };
 
   if (!currentUser) return null;
+  const launcher=(
+      <button onClick={() => (aberto ? setAberto(false) : abrirPainel())} title="Comunicação da equipe" aria-label={aberto?"Fechar chat da equipe":"Abrir chat da equipe"} aria-expanded={aberto}
+        className={temMencaoNaoLida ? "arcd-chat-launcher chat-mention-pulse" : "arcd-chat-launcher"}
+        style={{
+          width: launcherTarget?44:56, height: launcherTarget?44:56, borderRadius: launcherTarget?"var(--arcd-radius-control)":"50%", border: launcherTarget?"1px solid var(--arcd-border-strong)":0, background: launcherTarget?"var(--arcd-action-primary)":WA.green, cursor: "pointer",
+          display: "grid", placeItems: "center", boxShadow: launcherTarget?"none":"0 6px 18px rgba(0,0,0,.28)", position: "relative",
+        }}>
+        <IconeChat size={launcherTarget?20:26} />
+        {naoLidas > 0 && (
+          <span style={{
+            position: "absolute", top: -3, right: -3, minWidth: 20, height: 20, borderRadius: 99,
+            background: WA.red, color: "#fff", fontSize:"var(--arcd-type-label)", fontWeight:600, display: "grid", placeItems: "center",
+            padding: "0 4px", border: "2px solid #fff",
+          }}>{naoLidas > 99 ? "99+" : naoLidas}</span>
+        )}
+      </button>
+  );
 
   return (
     <div className="no-print arcd-team-chat" style={{ "--chat-bottom":typeof bottomOffset==="number"?`${bottomOffset}px`:bottomOffset,position: "fixed", right: 20, bottom: bottomOffset, zIndex: 1300, display: "flex", flexDirection: "column", alignItems: "flex-end", fontFamily: "var(--arcd-font-sans)" }}>
@@ -16600,100 +13442,10 @@ function ChatFlutuante({ currentUser, usuarios, showToast, bottomOffset=20 }) {
         </div>
       )}
 
-      {/* Bolha flutuante */}
-      <button onClick={() => (aberto ? setAberto(false) : abrirPainel())} title="Comunicação da equipe" aria-label="Abrir chat da equipe"
-        className={temMencaoNaoLida ? "chat-mention-pulse" : ""}
-        style={{
-          width: 56, height: 56, borderRadius: "50%", border: 0, background: WA.green, cursor: "pointer",
-          display: "grid", placeItems: "center", boxShadow: "0 6px 18px rgba(0,0,0,.28)", position: "relative",
-        }}>
-        <IconeChat size={26} />
-        {naoLidas > 0 && (
-          <span style={{
-            position: "absolute", top: -3, right: -3, minWidth: 20, height: 20, borderRadius: 99,
-            background: WA.red, color: "#fff", fontSize:"var(--arcd-type-label)", fontWeight:600, display: "grid", placeItems: "center",
-            padding: "0 4px", border: "2px solid #fff",
-          }}>{naoLidas > 99 ? "99+" : naoLidas}</span>
-        )}
-      </button>
+      {launcherTarget?createPortal(launcher,launcherTarget):launcher}
     </div>
   );
 }
-
-// NAVEGAÇÃO - grupos e sub-tabs
-//
-
-// Os módulos compartilham os mesmos destinos e permissões da aplicação.
-const TAB_META_BASE = {
-  equipe_obras: { label: "Equipe nas Obras", icon: "users" },
-  admin_central:{ label:"Central do administrador", icon:"shield" },
-  aprov_pend:{ label:"Minhas aprovações", icon:"check" },
-  home:   { label: "Dashboard",  icon: "home"   },
-  tv:     { label: "Modo TV",    icon: "eye"   },
-  chat:   { label: "Comunicação",icon: "mail"   },
-  obras:  { label: "Obras",      icon: "building"},
-  orc:    { label: "Orçamento",  icon: "fileText"},
-  com_dash:{label:"Dashboard",icon:"chart"},
-  com_workspace:{label:"Comercial da empresa",icon:"clipboard"},
-  com_real_estate:{label:"Venda de imóveis",icon:"building"},
-  com_pipeline:{label:"Pipeline",icon:"funnel"},
-  com_relationships:{label:"Relacionamentos",icon:"users"},
-  com_deals:{label:"Propostas e contratos",icon:"fileText"},
-  com_management:{label:"Gestão comercial",icon:"chart"},
-  com_indicacoes:{label:"Indicações",icon:"users"},
-  com_leads:{label:"Leads",icon:"user"},
-  com_funil:{label:"Funil",icon:"funnel"},
-  com_jornada:{label:"Jornada",icon:"trending"},
-  com_agenda:{label:"Agenda",icon:"calendar"},
-  com_reunioes:{label:"Reuniões",icon:"users"},
-  com_tarefas:{label:"Tarefas",icon:"clipboard"},
-  com_propostas:{label:"Propostas",icon:"fileText"},
-  com_negociacoes:{label:"Negociações",icon:"handshake"},
-  com_contratos:{label:"Contratos",icon:"file"},
-  com_clientes:{label:"Clientes",icon:"users"},
-  com_parceiros:{label:"Parceiros",icon:"handshake"},
-  com_metas:{label:"Metas e comissões",icon:"target"},
-  com_perdas:{label:"Perdas",icon:"alert"},
-  com_relatorios:{label:"Relatórios",icon:"trending"},
-  plan:   { label: "Planejamento", icon: "calendar"},
-  projetos: { label:"Projetos", icon:"building" },
-  arquivos: { label:"Arquivos", icon:"folder" },
-  plan_suprimentos: { label:"Marcos e Curva A", icon:"trending" },
-  rdo:    { label: "Diario de obra", icon: "clipboard"},
-  conferencia: { label: "Conferência", icon: "check"},
-  med:    { label: "Medicao",        icon: "ruler"},
-  ponto:  { label: "Ponto por obra", icon: "clock"},
-  ponto_geral: { label: "Gestão do ponto", icon: "calendar"},
-  ponto_app: { label: "Ponto eletrônico (app)", icon: "smartphone"},
-  equipe: { label: "Equipes", icon: "users"},
-  terc:   { label: "Terceirizados", icon: "handshake" },
-  folha:  { label: "Folha",      icon: "wallet"  },
-  resc:   { label: "Rescisão",   icon: "briefcase"  },
-  rh_indic: { label: "Indicadores", icon: "trending" },
-  dre_emp:  { label: "DRE empresa", icon: "chart" },
-  dre:      { label: "DRE obras",   icon: "building" },
-  fin:      { label: "Gestão financeira", icon: "trending" },
-  conc:     { label: "Conciliação", icon: "receipt" },
-  est:      { label: "Estoque",     icon: "box" },
-  equip:    { label: "Equipamentos", icon: "wrench" },
-  equip_fin:{ label: "Locação de equipamentos", icon: "wrench" },
-  patrimonio:{ label: "Patrimônio da empresa", icon: "box" },
-  licenca:  { label: "Licenciamento", icon: "file" },
-  cmp:      { label: "Compras",     icon: "cart" },
-  fornecedores: { label: "Fornecedores", icon: "handshake" },
-  suprimentos: { label: "Curva e preços", icon: "trending" },
-  cad:      { label: "Cadastros",   icon: "settings" },
-  medicoes: { label: "Medições",   icon: "ruler" },
-  caixa:    { label: "Caixa da obra", icon: "wallet" },
-  relat:    { label: "Relatórios", icon: "trending" },
-  ia:     { label: "IA",         icon: "ia"  },
-  ia_config: { label: "Configurar Gemini", icon: "settings" },
-  config: { label: "Ajustes",    icon: "settings" },
-  obsoletos: { label: "Telas antigas", icon: "trash" },
-};
-
-//
-const TAB_META = Object.fromEntries(Object.entries(TAB_META_BASE).map(([id,meta])=>[id,{...meta,group:moduleForTab(id)?.id}]));
 
 // App principal
 //
@@ -17091,7 +13843,7 @@ export default function App() {
             return {ok:true,offlineQueued:true,data:atual};
           }
         }
-        return {ok:false,reason:resposta?.reason||resposta?.error||"O servidor não confirmou o comando operacional."};
+        return {ok:false,status:resposta?.status,code:resposta?.code,reason:resposta?.reason||resposta?.error||"O servidor não confirmou o comando operacional."};
       }
       const recebeuPatch=resposta.sections&&typeof resposta.sections==="object";
       if(recebeuPatch){
@@ -17402,7 +14154,7 @@ export default function App() {
   // Atalho de teclado: Ctrl/Cmd+K abre a busca; Esc fecha.
   useEffect(() => {
     const onKey = (e) => {
-      if ((e.ctrlKey||e.metaKey) && (e.key==="k"||e.key==="K")) { e.preventDefault(); setBuscaAberta(v=>!v); }
+      if ((e.ctrlKey||e.metaKey) && (e.key==="k"||e.key==="K")) { e.preventDefault(); if(document.querySelector('[role="dialog"]'))return; setBuscaAberta(v=>!v); }
       if (e.key==="Escape") setBuscaAberta(false);
     };
     window.addEventListener("keydown", onKey);
@@ -17860,19 +14612,11 @@ export default function App() {
         )}
 
         {/*  HEADER  */}
-        {/* Cabeçalho e banner de conflito compartilham UM único wrapper sticky
-            (em vez de cada um ter seu próprio position:sticky;top:0) - assim
-            o banner nunca "some" ao rolar a tela para baixo. Achado ao
-            investigar "orçamento não salva com mais de uma pessoa": o banner
-            de conflito É mostrado (nada silencioso), mas antes rolava para
-            fora da tela junto com o resto do conteúdo em telas longas (ex.:
-            Memória de Cálculo do Orçamento) - o usuário seguia editando sem
-            notar que a fila de salvamento estava travada aguardando a
-            resolução do conflito, e via a mudança local sem perceber que
-            nada estava chegando ao servidor. */}
-        <div style={{ position:"sticky", top:0, zIndex:50 }}>
+        {/* A navegação acompanha a página; somente um conflito de salvamento
+            mantém o aviso visível até a resolução. */}
+        <div className="app-header-region" style={{ position:conflito?"sticky":"relative", top:conflito?0:undefined, zIndex:50 }}>
         <header className="no-print arcd-topbar" style={{
-          background:"rgba(255,255,255,.97)", backdropFilter:"blur(18px)",
+          background:"var(--arcd-surface-card)",
           borderBottom:`1px solid ${C.border}`,
           boxShadow:"none",
         }}>
@@ -17900,7 +14644,9 @@ export default function App() {
             </div>
 
             {/* Usuário logado + ponto rápido */}
-            <div className="app-header-actions" style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div className="app-header-actions" style={{ display:"flex", alignItems:"center", gap:"var(--arcd-header-actions-gap,8px)" }}>
+              <HelpButton pageId={tab} allowedTabs={allowedTabs}/>
+              <div className="app-header-chat-slot" data-chat-launcher-slot/>
               <div
                 className="app-save-status"
                 data-testid="save-status"
@@ -17937,7 +14683,6 @@ export default function App() {
               </div>
 
               {/* Ponto rápido */}
-              <HelpButton pageId={tab} allowedTabs={allowedTabs}/>
               {allowedTabs.includes("ponto") && (
                 <button
                   className="app-quick-point"
@@ -18020,13 +14765,13 @@ export default function App() {
                            currentUser={currentUser} dispatchCommand={dispatchOperationalCommand}
                            dispatchAttendanceCommand={dispatchAttendanceCommand}
                            onVoltar={() => setObraAberta("")}
-                           onEditarObra={()=>{sessionStorage.setItem("arcd_editar_obra",obraAberta);setObraAberta("");}}
+                           onEditarObra={()=>{sessionContext.setItem("arcd_editar_obra",obraAberta);setObraAberta("");}}
                            onTab={irPara} />
             : <Obras       data={data} update={update} showToast={showToast} dispatchCommand={dispatchOperationalCommand}
                            currentUser={currentUser} onAbrirObra={setObraAberta} />)}
           {tab === "orc"    && <Suspense fallback={<div className="arcd-page-loading">Carregando orçamento...</div>}><Orcamento   data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
           {tab === "projetos" && <Suspense fallback={<div className="arcd-page-loading">Carregando projetos...</div>}><ProjetosEngenharia data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} showToast={showToast} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar projetos.");await update({__adotarServidorPatch:true,sections:{engineeringProjects:fresh.data.engineeringProjects||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
-          {tab === "arquivos" && <Suspense fallback={<div className="arcd-page-loading">Carregando arquivos...</div>}><ArquivosObra data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar arquivos.");await update({__adotarServidorPatch:true,sections:{workFileCabinets:fresh.data.workFileCabinets||[],licencas:fresh.data.licencas||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
+          {tab === "arquivos" && <Suspense fallback={<div className="arcd-page-loading">Carregando arquivos...</div>}><ArquivosObra data={data} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} onRefresh={async()=>{const fresh=await loadDataWithMeta();if(!fresh?.data)throw new Error("Falha ao atualizar arquivos.");await update({__adotarServidorPatch:true,sections:{workFileCabinets:fresh.data.workFileCabinets||[]},updatedAt:fresh.updatedAt});}} /></Suspense>}
           {tab === "plan"   && <Suspense fallback={<div className="arcd-page-loading">Carregando planejamento...</div>}><Planejamento data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "plan_suprimentos" && <Suspense fallback={<div className="arcd-page-loading">Carregando suprimentos...</div>}><LazyMarcosCurvaASuprimentos data={data} update={update} showToast={showToast} currentUser={currentUser} /></Suspense>}
           {tab === "rdo"    && <Suspense fallback={<div className="arcd-page-loading">Carregando diário de obra...</div>}><DiarioObra data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
@@ -18038,7 +14783,7 @@ export default function App() {
           {tab === "ponto"  && <Ponto       data={data} update={update} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand} onTab={irPara}/>}
           {tab === "equipe_obras" && <EquipeObras key={currentUser?.id} onTab={irPara} allowedTabs={allowedTabs}/>}
           {tab === "ponto_geral" && <PontoGeral data={data} update={update} showToast={showToast} currentUser={currentUser} onTab={irPara} dispatchAttendanceCommand={dispatchAttendanceCommand} dispatchCommand={dispatchOperationalCommand}/>}
-          {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser} dispatchAttendanceCommand={dispatchAttendanceCommand} onTab={irPara}/>}
+          {tab === "ponto_app" && <PontoEletronico data={data} showToast={showToast} currentUser={currentUser}/>}
           {tab === "folha"  && <Suspense fallback={<div className="arcd-page-loading">Carregando folha...</div>}><Folha       data={data} showToast={showToast} onTab={irPara} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "resc"   && <Suspense fallback={<div className="arcd-page-loading">Carregando rescisão...</div>}><RescisaoView data={data} showToast={showToast} currentUser={currentUser} dispatchCommand={dispatchOperationalCommand} /></Suspense>}
           {tab === "rh_indic" && <Suspense fallback={<div className="arcd-page-loading">Carregando indicadores...</div>}><IndicadoresView data={data} /></Suspense>}

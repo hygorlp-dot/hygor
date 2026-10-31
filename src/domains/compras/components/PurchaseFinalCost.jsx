@@ -1,4 +1,5 @@
-import { Inp, fmt } from "../../../LegacyApp";
+import { Inp } from "../../../legacy/ui.jsx";
+import { fmt } from "../../../legacy/format.js";
 import { CAMPOS_CUSTO_FINAL, custoFinalDaProposta } from "../final-cost";
 import "./purchase-dossier.css";
 import {OrderTermsFields} from "./OrderConditions";

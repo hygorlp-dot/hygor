@@ -1,3 +1,4 @@
+import {instrumentWorkflowPage} from "./lib/workflow-evidence.mjs";
 import {chromium,expect} from '@playwright/test';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {openFinanceModule,selectFinanceArea} from './finance-browser-navigation.mjs';
@@ -9,7 +10,7 @@ const data={usuarios:[user],config:{paymentHolidays:[]},obras:[{id:'a',name:'Obr
 const browser=await chromium.launch({headless:true}),passed=[],errors=[];
 const output='artifacts/financeiro/layout-operacional';await mkdir(output,{recursive:true});
 try{for(const width of [1440,390]){
- const page=await browser.newPage({viewport:{width,height:1000}});let writes=0;
+ const page=await browser.newPage({viewport:{width,height:1000}});await instrumentWorkflowPage(page);let writes=0;
  page.on('pageerror',error=>errors.push(error.message));
  await page.clock.setFixedTime(new Date('2026-10-31T12:00:00-03:00'));
  await page.route('https://**/*',route=>route.abort());
@@ -21,7 +22,7 @@ try{for(const width of [1440,390]){
  await expect(page.getByText('Nenhum título em pagar hoje para esta obra.')).toBeVisible();
  await page.getByRole('button',{name:'Conferir vencidos',exact:true}).click();await expect(page.getByRole('heading',{name:'Vencidos',exact:true})).toBeVisible();
  passed.push(`${width}: Hoje vazio oferece vencidos sem mudar a fila automaticamente`);
- await selectFinanceArea(page,'Visão financeira');const forecast=page.locator('.cash-forecast');
+ await selectFinanceArea(page,'Caixa por conta');await page.getByText('Previsão por vencimentos',{exact:true}).click();const forecast=page.locator('.cash-forecast');
  await expect(forecast.getByText('Saldo inicial não confirmado para este recorte',{exact:true})).toBeVisible();
  await expect(forecast.getByText(/Menor saldo previsto:/)).toHaveCount(0);
  await forecast.screenshot({path:`${output}/saldo-nao-informado-${width}.png`,animations:'disabled'});

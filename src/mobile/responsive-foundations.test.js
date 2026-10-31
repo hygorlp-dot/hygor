@@ -8,6 +8,7 @@ const css = read("src/index.css");
 const primitives = read("src/design-system/primitives/styles.css");
 const typography = read("src/design-system/tokens/typography.css");
 const app = read("src/LegacyApp.jsx");
+const shared = read("src/legacy/ui.jsx");
 
 describe("fundações responsivas", () => {
   it("configura viewport com safe area e não mascara estouro global", () => {
@@ -26,8 +27,8 @@ describe("fundações responsivas", () => {
 
   it("usa navegação compacta e diálogo acessível no app operacional", () => {
     expect(app).toContain("<LazyLegacyMobileNavigation");
-    expect(app).toContain('role="dialog"');
-    expect(app).toContain('aria-modal="true"');
-    expect(app).toContain('event.key === "Escape"');
+    expect(shared).toContain('role="dialog"');
+    expect(shared).toContain('aria-modal="true"');
+    expect(shared).toContain('event.key === "Escape"');
   });
 });

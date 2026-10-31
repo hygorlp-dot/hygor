@@ -8,5 +8,9 @@ export function validateEngineeringScope({ user = {}, data = {}, command = {} })
   const obraId = String(current?.obraId ?? command.payload?.project?.obraId ?? "");
   if (user.role !== "admin" && user.obraId && String(user.obraId) !== obraId) return { ok: false, error: "Este projeto está fora da obra autorizada para seu perfil." };
   if (obraId && !(data.obras || []).some(obra => obra.id === obraId)) return { ok: false, error: "Obra do projeto não encontrada." };
+  if (command.type === ENGINEERING_COMMAND.ENG_PROJECT_MOVED && command.payload?.beforeId && user.role !== "admin" && user.obraId) {
+    const target = (data.engineeringProjects || []).find(project => project.id === command.payload.beforeId);
+    if (!target || String(target.obraId) !== String(user.obraId)) return { ok: false, error: "A posição de destino está fora da obra autorizada." };
+  }
   return { ok: true, obraId, scope: obraId ? "work" : "company" };
 }

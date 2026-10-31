@@ -1,5 +1,6 @@
+import { Suspense, useEffect } from "react";
 import {HelpProvider} from '../features/help/HelpContext.jsx';
-import { lazy, Suspense, useEffect } from "react";
+import { lazyWithCssRetry as lazy } from "../lib/lazy-with-css-retry.js";
 
 // O sistema operacional continua em chunk próprio para exibir um estado de
 // carregamento imediato enquanto o aplicativo principal é baixado.

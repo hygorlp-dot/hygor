@@ -10,11 +10,14 @@ import { EmptyState } from "../../design-system/patterns/FeedbackState.jsx";
 import ProjectDetail, { displayDate } from "./ProjectDetail.jsx";
 import { ProjectForm } from "./ProjectForms.jsx";
 import { ENGINEERING_COMMAND as CMD } from "./commands.js";
-import { PROJECT_STATUSES, activeProjectSession, formatDuration, projectSeconds } from "./model.js";
+import KanbanBoard from "./KanbanBoard.jsx";
+import { orderedProjects, projectColumn } from "./kanban-model.js";
+import { PROJECT_STAGES, PROJECT_STATUSES, activeProjectSession, formatDuration, projectSeconds } from "./model.js";
 import "./projetos.css";
 
 export default function ProjetosView({ data, currentUser, dispatchCommand, showToast, onRefresh }) {
   const [selectedId, setSelectedId] = useState("");
+  const [portfolioView, setPortfolioView] = useState("board");
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -77,8 +80,16 @@ export default function ProjetosView({ data, currentUser, dispatchCommand, showT
       <ProjectDetail key={selected.id} project={selected} data={data} currentUser={currentUser} now={now} active={active} busy={busy} send={send} onEdit={() => setEditing({ id: selected.id, project: selected })} />
     </> : <>
       <div className="engineering-filters"><Input label="Buscar projetos" placeholder="Nome, cliente ou disciplina" value={search} onChange={event => setSearch(event.target.value)} /><Select label="Situação dos projetos" value={status} onChange={event => setStatus(event.target.value)}><option value="">Todas as situações</option>{Object.entries(PROJECT_STATUSES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select><Select label="Obra dos projetos" value={obraId} onChange={event => setObraId(event.target.value)}><option value="">Todas as obras e escritório</option>{(data.obras || []).map(obra => <option key={obra.id} value={obra.id}>{obra.name}</option>)}</Select><Select label="Responsável dos projetos" value={responsibleId} onChange={event => setResponsibleId(event.target.value)}><option value="">Todos os responsáveis</option>{(data.usuarios || []).map(user => <option key={user.id} value={user.id}>{user.nome}</option>)}</Select></div>
+      <Select label="Visualização da carteira" value={portfolioView} onChange={event=>setPortfolioView(event.target.value)} options={[{value:"board",label:"Quadro Kanban"},{value:"list",label:"Lista"}]} />
       <p className="engineering-help">{visible.length} projeto(s) · {formatDuration(visible.reduce((total, project) => total + projectSeconds(project, now), 0))} de trabalho registrado</p>
-      {!visible.length ? <EmptyState title={projects.length ? "Nenhum projeto com estes filtros" : "Seu primeiro projeto começa aqui"} description={projects.length ? "Ajuste a busca ou os filtros para encontrar o projeto." : "Cadastre o projeto, organize os links e inicie o cronômetro quando começar a trabalhar."} /> : <div className="engineering-portfolio">{visible.map(project => <article key={project.id} className="engineering-project-row">
+      {!visible.length ? <EmptyState title={projects.length ? "Nenhum projeto com estes filtros" : "Seu primeiro projeto começa aqui"} description={projects.length ? "Ajuste a busca ou os filtros para encontrar o projeto." : "Cadastre o projeto, organize os links e inicie o cronômetro quando começar a trabalhar."} /> : portfolioView === "board" ? <KanbanBoard label="Kanban dos projetos" columns={PROJECT_STAGES.map(stage=>({id:stage,label:stage}))} items={orderedProjects(projects).filter(project=>visible.includes(project))} columnOf={projectColumn} titleOf={project=>project.name} busy={busy} canMove={project=>project.status!=="arquivado"} onMove={(project,stage,beforeId)=>send(CMD.ENG_PROJECT_MOVED,project.id,{stage,beforeId},project.version)} renderCard={project=><>
+        <Button variant="link" className="engineering-card-title" onClick={()=>setSelectedId(project.id)}>{project.name}</Button>
+        <p>{project.client||"Cliente não informado"} · {project.discipline}</p>
+        <p>{userNames.get(project.responsibleId)||"Responsável indisponível"} · {displayDate(project.deadline)}</p>
+        <p className="engineering-duration">{formatDuration(projectSeconds(project,now))} / {project.plannedHours} h</p>
+        <div className="engineering-card-badges"><Badge>{PROJECT_STATUSES[project.status]}</Badge><Badge>{(project.tasks||[]).filter(task=>task.status==="concluida").length}/{project.tasks?.length||0} atividades</Badge></div>
+        <p>{project.links?.length||0} link(s) · {project.revisions?.length||0} revisão(ões)</p>
+      </>} /> : <div className="engineering-portfolio">{visible.map(project => <article key={project.id} className="engineering-project-row">
         <div className="engineering-project-name"><Button variant="link" onClick={() => setSelectedId(project.id)}>{project.name}</Button><p>{project.client || "Cliente não informado"} · {(data.obras || []).find(obra => obra.id === project.obraId)?.name || "Escritório"}</p></div>
         <div><span className="engineering-label">Disciplina / etapa</span><strong>{project.discipline}</strong><p>{project.stage}</p></div><div><span className="engineering-label">Responsável / prazo</span><strong>{userNames.get(project.responsibleId) || "Indisponível"}</strong><p>{displayDate(project.deadline)}</p></div><div><span className="engineering-label">Horas / situação</span><strong className="engineering-duration">{formatDuration(projectSeconds(project, now))} / {project.plannedHours} h</strong><Badge>{PROJECT_STATUSES[project.status]}</Badge></div>
       </article>)}</div>}

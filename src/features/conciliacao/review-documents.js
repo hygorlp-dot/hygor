@@ -9,17 +9,18 @@ export function reviewDocumentContext(data, transaction, selection) {
   const record = entry.record;
   const payment = event?.sourceSubId ? [...(record?.pagamentos || []), ...(record?.recebimentos || [])].find(item => String(item.id) === String(event.sourceSubId)) : null;
   const documents = [];
+  const unavailableDocuments=[];
   const seen = new Set();
   const add = items => (items || []).forEach(item => {
     if (!item || typeof item !== "object") return;
     const url = financialDocumentUrl(item.url || item.webUrl);
     const drive = item.driveId || item.parentReference?.driveId;
-    if (!url && !(drive && item.id)) return;
+    if (!url && !(drive && item.id)) {unavailableDocuments.push({nome:item.legenda||item.nome||item.name||'Anexo cadastrado'});return;}
     const key = drive && item.id ? `${drive}:${item.id}` : url;
     if (seen.has(key)) return;
     seen.add(key); documents.push({ ...item, ...(url ? { url } : {}) });
   });
   add(record?.documentos); add(record?.comprovantes); add(payment?.documentos); add(payment?.comprovantes); add(entry.documents);
   (entry.invoices || []).forEach(invoice => add(invoice.documentos));
-  return { entry, documents, pedidoId: event?.sourceType === "pedido" ? record?.id : record?.pedidoId };
+  return { entry, documents, unavailableDocuments, pedidoId: event?.sourceType === "pedido" ? record?.id : record?.pedidoId };
 }

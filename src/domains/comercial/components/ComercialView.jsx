@@ -12,15 +12,12 @@ import { marcellReportHtml } from "../../../reports/marcell-report.js";
 
 import { Suspense, useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import {
-  Btn, C, COM_ETAPAS, COM_IMOBILIARIO_SECTIONS, COM_JORNADA, COM_PERDAS,
-  COM_ROUTE_SECTION, COM_TEMPERATURA, Ic, Inp, KB, LazyRealEstateCommercial,
-  Modal, Sel, SelBtn, XLSX,
-  arquivoComoDataUrl, carregarXLSX, cicloMedioVenda, comDateTime, comDias,
-  comEtapaLabel, comFaseDaEtapa, conversaoPorFase, escapeHtml, fmt,
-  fmtCompact, fmtDate, momentosIndicacao, npsResumo, rankingIndicadores,
-  taxaIndicacao, today, uid, PageHero,
-} from "../../../LegacyApp";
+import { Btn, Ic, Inp, Modal, Sel, SelBtn, PageHero } from "../../../legacy/ui.jsx";
+import { C, KB } from "../../../legacy/palette.js";
+import { COM_ETAPAS, COM_IMOBILIARIO_SECTIONS, COM_JORNADA, COM_PERDAS, COM_ROUTE_SECTION, COM_TEMPERATURA, cicloMedioVenda, comDateTime, comDias, comEtapaLabel, comFaseDaEtapa, conversaoPorFase, momentosIndicacao, npsResumo, rankingIndicadores, taxaIndicacao } from "../legacy-model.js";
+import { LazyRealEstateCommercial } from "../LegacyRealEstate.jsx";
+import { XLSX, arquivoComoDataUrl, carregarXLSX } from "../../../legacy/files.js";
+import { escapeHtml, fmt, fmtCompact, fmtDate, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { buildFinancialLedger, selectCashFlow as selectLedgerCashFlow } from "../../financeiro/ledger";
 import { archiveLeadForDeletion, isVisibleLead } from "../leads";

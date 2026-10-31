@@ -17,8 +17,8 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 ## Fluxos que atravessam várias telas
 
 - Obra: cadastro → orçamento → planejamento → acompanhamento da execução e documentos.
-- Compra: solicitação → cotação → aprovação → pedido → recebimento físico. Documento fiscal, pagamento e conciliação têm conferências próprias.
-- Financeiro: conferir documento e obrigação → obter autorizações → registrar quitação → conciliar o movimento bancário, quando aplicável.
+- Compra: necessidade → solicitação/cotação → pedido → recebimento físico e entrada no estoque. Aprovação, documento fiscal e pagamento têm situações próprias e podem ocorrer em outra ordem; pendências geram avisos, sem impedir o avanço manual.
+- Financeiro: conferir documento, obrigação e pagamentos anteriores → registrar a quitação real → acompanhar pendências e conciliar o movimento bancário, quando aplicável. Pagar não aprova a conferência fiscal.
 - Comercial: contato → oportunidade → proposta → negociação → contrato. Confira os requisitos antes de abrir a execução.
 - Equipe: cadastro e lotação → captura ou registro autorizado do ponto → conferência do período → revisão da folha.
 
@@ -36,8 +36,6 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Marcos e Curva A](#guia-plan_suprimentos)
 - [Projetos](#guia-projetos)
 - [Arquivos e permissões](#guia-arquivos)
-- [Arquivos · Revisões, busca e comparação](#guia-arquivos_revisoes)
-- [Arquivos · Dossiê de licenciamento](#guia-arquivos_dossie)
 - [Diário de obra](#guia-rdo)
 - [Conferência](#guia-conferencia)
 - [Medição da evolução](#guia-med)
@@ -112,6 +110,10 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Metas e comissões](#guia-com_metas)
 - [Perdas](#guia-com_perdas)
 - [Relatórios comerciais](#guia-com_relatorios)
+- [Financeiro · Previsão de custo final](#guia-fin_previsao)
+- [Obra · Mudanças e aditivos](#guia-obra_aditivos)
+- [Arquivos · Revisões, busca e comparação](#guia-arquivos_revisoes)
+- [Arquivos · Dossiê de licenciamento](#guia-arquivos_dossie)
 
 <a id="guia-home"></a>
 
@@ -329,6 +331,11 @@ O cronograma mostra as atividades nas datas esperadas.
 
 Linha de base é a referência aprovada para comparação; confira antes de substituí-la.
 
+### Quando o fluxo acontece de outro jeito
+
+- **Necessidade e compra parcial:** Na consulta temporal do Financeiro, confira a necessidade revisada e a quantidade comprovada por item. A diferença exige decisão em Compras. Conversão sem fator ou vínculo sem identidade ficam para conferência.
+- **Entrega posterior à etapa simulada:** Abra o pedido para revisar o prazo com Compras. A simulação não reagenda nem muda o vencimento financeiro.
+
 <a id="guia-plan_suprimentos"></a>
 
 ## Marcos e Curva A
@@ -405,58 +412,6 @@ Subpastas acumulam restrições das pastas superiores; administradores mantêm a
 ### Exemplo ilustrativo
 
 Para atualizar uma planta, confira a pasta da obra e a revisão existente. Consulte o histórico para distinguir a planta atual da anterior.
-
-<a id="guia-arquivos_revisoes"></a>
-
-## Arquivos · Revisões, busca e comparação
-
-Consultar a revisão correta, pesquisar o texto do PDF e comparar duas emissões.
-
-### Antes de começar
-
-Abra um documento e confira a identificação da revisão atual.
-
-### Como fazer
-
-1. Em Revisão do documento, selecione a emissão desejada. O aviso de revisão antiga identifica a atual; use Abrir revisão atual para voltar a ela.
-2. Para um PDF com texto, digite uma palavra ou expressão em Buscar no texto do PDF. A busca percorre todas as páginas; use Ir para página no resultado.
-3. Use Comparar revisões e escolha outra emissão em Comparar com a revisão. Cada painel permite consultar, buscar, navegar e baixar seu próprio arquivo.
-4. Use Encerrar comparação para manter a consulta individual ou Fechar visualização para voltar ao cadastro; consulte Histórico de revisões para ver os registros anteriores.
-
-### Como conferir se deu certo
-
-As duas emissões estão identificadas e o conteúdo corresponde à revisão selecionada.
-
-### O que merece atenção
-
-A comparação é visual, lado a lado no computador e empilhada no celular; não marca diferenças automaticamente. A busca não faz OCR: PDFs apenas digitalizados podem não ter texto pesquisável. Se o acesso for negado, confira sua sessão e a permissão antes de tentar novamente.
-
-<a id="guia-arquivos_dossie"></a>
-
-## Arquivos · Dossiê de licenciamento
-
-Organizar as exigências da Prefeitura, do cartório e do condomínio e preparar um pacote documental conferível.
-
-### Antes de começar
-
-Confirme a obra e escolha Dossiê de licenciamento em Área da documentação. O dossiê usa o mesmo cadastro do módulo Licenciamento.
-
-### Como fazer
-
-1. Selecione a exigência na lista ou no seletor do celular. Confira a situação e preencha responsável, validade e observações; salve a exigência.
-2. Para exigências condicionais, defina se o item se aplica. Se marcar Não ou Não se aplica, informe uma justificativa. Confira o aviso de documentação faltante.
-3. Use Anexar documento à exigência para um arquivo novo de até 20 MB. Use Enviar nova revisão de… para atualizar o mesmo anexo. O nome padronizado identifica obra, área, item e revisão; o nome original permanece no histórico.
-4. Abra Visualizar anexo e revisões para conferir o conteúdo. O ZIP inclui a revisão atual de cada anexo, incluindo itens adicionais e documentos gerais cadastrados.
-5. Use Baixar dossiê final somente quando não houver pendências. Se estiver incompleto, use Baixar ZIP parcial · INCOMPLETO: confira os arquivos, INDICE.csv, MANIFESTO.json e PENDENCIAS.txt antes de compartilhar.
-6. Consulte Histórico de exportações para conferir quando o pacote foi preparado e as pendências registradas.
-
-### Como conferir se deu certo
-
-O ZIP contém os arquivos nativos com nomes padronizados e índice. O pacote parcial leva INCOMPLETO no nome; o final é bloqueado quando há pendências ou falha ao ler um arquivo.
-
-### O que merece atenção
-
-Anexo ausente, vencimento, situação pendente ou aplicabilidade indefinida impedem o final. O pacote é montado no navegador com limite de 100 MB; arquivos não lidos no parcial constam nas pendências. A exportação baixa o ZIP e não o envia automaticamente à Prefeitura ou ao cartório. A conferência interna não equivale à aprovação do órgão. Edição e exportação exigem administrador ou engenheiro autorizado.
 
 <a id="guia-rdo"></a>
 
@@ -554,6 +509,26 @@ O histórico explica a mudança do saldo do material.
 
 Compra e pagamento não comprovam entrada física. Evite duplicar uma entrada já feita pelo recebimento do pedido.
 
+### Quem cuida de cada parte
+
+- **Compras:** Confere necessidade, orçamento, fornecedores, condições, pedido e envio.
+- **Responsável pelo recebimento na obra:** Confere o que realmente chegou, registra quantidades e acompanha diferenças.
+- **Financeiro / conferência fiscal:** Confere nota, vínculos, pagamentos anteriores, adiantamentos e conciliação.
+- **Responsável pelo estoque:** Confere a entrada vinculada e o histórico antes de registrar outra movimentação.
+- **Responsável pela aprovação:** Analisa a decisão pendente; o avanço operacional não significa aprovação automática.
+
+### Quando o fluxo acontece de outro jeito
+
+- **Entrega parcial:** Registre somente o recebido e acompanhe o restante com o fornecedor. A nota e o pagamento podem ser registrados em outro momento.
+- **Entrega acima do pedido:** Registre a quantidade real e leia o aviso. Confira a diferença com o fornecedor e regularize a documentação da compra.
+- **Aprovação pendente ou recusada:** O pedido pode seguir com aviso. Consulte Aprovações e encaminhe a regularização ao responsável; a decisão anterior permanece no histórico.
+- **Documento fiscal ainda não recebido:** Recebimento e pagamento podem seguir. O Financeiro deve receber e vincular o documento depois.
+- **Pagamento antes da conferência:** O pagamento do pedido fica identificado como adiantamento quando excede a referência conferida. Informe o motivo, se possível; a falta dele gera aviso.
+- **Nota ainda em conferência:** O Financeiro pode registrar o pagamento. A conferência fiscal continua pendente e deve ser decidida na ficha fiscal.
+- **Caixa sem saldo registrado:** A saída real pode ser registrada com aviso. Confira a origem e os aportes efetivamente realizados; não crie aporte fictício para ajustar o saldo.
+- **Adiantamento já registrado no pedido:** Confira o histórico antes de pagar pela nota. Não repita o pagamento nem associe registros apenas pela coincidência de valor.
+- **Aviso após salvar:** Abra Ficha completa · notas e anexos e consulte Andamento da compra. Confira a pendência, o responsável e a orientação.
+
 <a id="guia-cmp"></a>
 
 ## Compras
@@ -566,9 +541,9 @@ Confirme a obra e o material necessário.
 
 ### Como fazer
 
-1. Em Solicitar, descreva os itens, quantidades e prazo.
-2. Em Cotar, compare fornecedores, condições e custo final; encaminhe a decisão necessária.
-3. Acompanhe Pedidos e Receber; confira a entrega física e os pagamentos nas áreas próprias.
+1. Confira a necessidade da obra, o estoque e os pedidos em aberto. Registre ou localize a solicitação.
+2. Compare as propostas e condições, registre a decisão e acompanhe o pedido. Aprovações pendentes ficam sinalizadas, sem impedir o andamento.
+3. Registre a entrega física para dar entrada no estoque. Vincule a nota e registre os pagamentos reais quando ocorrerem; essas etapas podem acontecer em outra ordem.
 
 ### Como conferir se deu certo
 
@@ -576,11 +551,31 @@ Você sabe em que etapa a compra está e qual é a próxima ação.
 
 ### O que merece atenção
 
-Solicitar → cotar → aprovar → pedir → receber. Pagar e receber material são eventos diferentes.
+Os avisos orientam sem travar etapas. Cada registro conserva sua situação: receber não paga, pagar não aprova a conferência fiscal e consultar a ficha não altera dados.
 
 ### Exemplo ilustrativo
 
 A obra precisa de 10 sacos de cimento. Registre a necessidade em Solicitar, compare as propostas em Cotar e acompanhe o pedido até a entrega em Receber.
+
+### Quem cuida de cada parte
+
+- **Compras:** Confere necessidade, orçamento, fornecedores, condições, pedido e envio.
+- **Responsável pelo recebimento na obra:** Confere o que realmente chegou, registra quantidades e acompanha diferenças.
+- **Financeiro / conferência fiscal:** Confere nota, vínculos, pagamentos anteriores, adiantamentos e conciliação.
+- **Responsável pelo estoque:** Confere a entrada vinculada e o histórico antes de registrar outra movimentação.
+- **Responsável pela aprovação:** Analisa a decisão pendente; o avanço operacional não significa aprovação automática.
+
+### Quando o fluxo acontece de outro jeito
+
+- **Entrega parcial:** Registre somente o recebido e acompanhe o restante com o fornecedor. A nota e o pagamento podem ser registrados em outro momento.
+- **Entrega acima do pedido:** Registre a quantidade real e leia o aviso. Confira a diferença com o fornecedor e regularize a documentação da compra.
+- **Aprovação pendente ou recusada:** O pedido pode seguir com aviso. Consulte Aprovações e encaminhe a regularização ao responsável; a decisão anterior permanece no histórico.
+- **Documento fiscal ainda não recebido:** Recebimento e pagamento podem seguir. O Financeiro deve receber e vincular o documento depois.
+- **Pagamento antes da conferência:** O pagamento do pedido fica identificado como adiantamento quando excede a referência conferida. Informe o motivo, se possível; a falta dele gera aviso.
+- **Nota ainda em conferência:** O Financeiro pode registrar o pagamento. A conferência fiscal continua pendente e deve ser decidida na ficha fiscal.
+- **Caixa sem saldo registrado:** A saída real pode ser registrada com aviso. Confira a origem e os aportes efetivamente realizados; não crie aporte fictício para ajustar o saldo.
+- **Adiantamento já registrado no pedido:** Confira o histórico antes de pagar pela nota. Não repita o pagamento nem associe registros apenas pela coincidência de valor.
+- **Aviso após salvar:** Abra Ficha completa · notas e anexos e consulte Andamento da compra. Confira a pendência, o responsável e a orientação.
 
 <a id="guia-cmp_solicitacoes"></a>
 
@@ -606,6 +601,26 @@ A necessidade aparece para acompanhamento da compra.
 
 Uma solicitação ainda não é um pedido ao fornecedor.
 
+### Quem cuida de cada parte
+
+- **Compras:** Confere necessidade, orçamento, fornecedores, condições, pedido e envio.
+- **Responsável pelo recebimento na obra:** Confere o que realmente chegou, registra quantidades e acompanha diferenças.
+- **Financeiro / conferência fiscal:** Confere nota, vínculos, pagamentos anteriores, adiantamentos e conciliação.
+- **Responsável pelo estoque:** Confere a entrada vinculada e o histórico antes de registrar outra movimentação.
+- **Responsável pela aprovação:** Analisa a decisão pendente; o avanço operacional não significa aprovação automática.
+
+### Quando o fluxo acontece de outro jeito
+
+- **Entrega parcial:** Registre somente o recebido e acompanhe o restante com o fornecedor. A nota e o pagamento podem ser registrados em outro momento.
+- **Entrega acima do pedido:** Registre a quantidade real e leia o aviso. Confira a diferença com o fornecedor e regularize a documentação da compra.
+- **Aprovação pendente ou recusada:** O pedido pode seguir com aviso. Consulte Aprovações e encaminhe a regularização ao responsável; a decisão anterior permanece no histórico.
+- **Documento fiscal ainda não recebido:** Recebimento e pagamento podem seguir. O Financeiro deve receber e vincular o documento depois.
+- **Pagamento antes da conferência:** O pagamento do pedido fica identificado como adiantamento quando excede a referência conferida. Informe o motivo, se possível; a falta dele gera aviso.
+- **Nota ainda em conferência:** O Financeiro pode registrar o pagamento. A conferência fiscal continua pendente e deve ser decidida na ficha fiscal.
+- **Caixa sem saldo registrado:** A saída real pode ser registrada com aviso. Confira a origem e os aportes efetivamente realizados; não crie aporte fictício para ajustar o saldo.
+- **Adiantamento já registrado no pedido:** Confira o histórico antes de pagar pela nota. Não repita o pagamento nem associe registros apenas pela coincidência de valor.
+- **Aviso após salvar:** Abra Ficha completa · notas e anexos e consulte Andamento da compra. Confira a pendência, o responsável e a orientação.
+
 <a id="guia-cmp_cotacoes"></a>
 
 ## Compras · Cotar
@@ -629,6 +644,26 @@ A decisão identifica os fornecedores e os itens atendidos.
 ### O que merece atenção
 
 Uma decisão parcial não resolve os itens restantes. Confira o custo final e as condições.
+
+### Quem cuida de cada parte
+
+- **Compras:** Confere necessidade, orçamento, fornecedores, condições, pedido e envio.
+- **Responsável pelo recebimento na obra:** Confere o que realmente chegou, registra quantidades e acompanha diferenças.
+- **Financeiro / conferência fiscal:** Confere nota, vínculos, pagamentos anteriores, adiantamentos e conciliação.
+- **Responsável pelo estoque:** Confere a entrada vinculada e o histórico antes de registrar outra movimentação.
+- **Responsável pela aprovação:** Analisa a decisão pendente; o avanço operacional não significa aprovação automática.
+
+### Quando o fluxo acontece de outro jeito
+
+- **Entrega parcial:** Registre somente o recebido e acompanhe o restante com o fornecedor. A nota e o pagamento podem ser registrados em outro momento.
+- **Entrega acima do pedido:** Registre a quantidade real e leia o aviso. Confira a diferença com o fornecedor e regularize a documentação da compra.
+- **Aprovação pendente ou recusada:** O pedido pode seguir com aviso. Consulte Aprovações e encaminhe a regularização ao responsável; a decisão anterior permanece no histórico.
+- **Documento fiscal ainda não recebido:** Recebimento e pagamento podem seguir. O Financeiro deve receber e vincular o documento depois.
+- **Pagamento antes da conferência:** O pagamento do pedido fica identificado como adiantamento quando excede a referência conferida. Informe o motivo, se possível; a falta dele gera aviso.
+- **Nota ainda em conferência:** O Financeiro pode registrar o pagamento. A conferência fiscal continua pendente e deve ser decidida na ficha fiscal.
+- **Caixa sem saldo registrado:** A saída real pode ser registrada com aviso. Confira a origem e os aportes efetivamente realizados; não crie aporte fictício para ajustar o saldo.
+- **Adiantamento já registrado no pedido:** Confira o histórico antes de pagar pela nota. Não repita o pagamento nem associe registros apenas pela coincidência de valor.
+- **Aviso após salvar:** Abra Ficha completa · notas e anexos e consulte Andamento da compra. Confira a pendência, o responsável e a orientação.
 
 <a id="guia-cmp_aprovacoes"></a>
 
@@ -654,6 +689,26 @@ A decisão fica registrada e a compra pode seguir a etapa autorizada.
 
 Aprovação comercial não é confirmação de recebimento físico.
 
+### Quem cuida de cada parte
+
+- **Compras:** Confere necessidade, orçamento, fornecedores, condições, pedido e envio.
+- **Responsável pelo recebimento na obra:** Confere o que realmente chegou, registra quantidades e acompanha diferenças.
+- **Financeiro / conferência fiscal:** Confere nota, vínculos, pagamentos anteriores, adiantamentos e conciliação.
+- **Responsável pelo estoque:** Confere a entrada vinculada e o histórico antes de registrar outra movimentação.
+- **Responsável pela aprovação:** Analisa a decisão pendente; o avanço operacional não significa aprovação automática.
+
+### Quando o fluxo acontece de outro jeito
+
+- **Entrega parcial:** Registre somente o recebido e acompanhe o restante com o fornecedor. A nota e o pagamento podem ser registrados em outro momento.
+- **Entrega acima do pedido:** Registre a quantidade real e leia o aviso. Confira a diferença com o fornecedor e regularize a documentação da compra.
+- **Aprovação pendente ou recusada:** O pedido pode seguir com aviso. Consulte Aprovações e encaminhe a regularização ao responsável; a decisão anterior permanece no histórico.
+- **Documento fiscal ainda não recebido:** Recebimento e pagamento podem seguir. O Financeiro deve receber e vincular o documento depois.
+- **Pagamento antes da conferência:** O pagamento do pedido fica identificado como adiantamento quando excede a referência conferida. Informe o motivo, se possível; a falta dele gera aviso.
+- **Nota ainda em conferência:** O Financeiro pode registrar o pagamento. A conferência fiscal continua pendente e deve ser decidida na ficha fiscal.
+- **Caixa sem saldo registrado:** A saída real pode ser registrada com aviso. Confira a origem e os aportes efetivamente realizados; não crie aporte fictício para ajustar o saldo.
+- **Adiantamento já registrado no pedido:** Confira o histórico antes de pagar pela nota. Não repita o pagamento nem associe registros apenas pela coincidência de valor.
+- **Aviso após salvar:** Abra Ficha completa · notas e anexos e consulte Andamento da compra. Confira a pendência, o responsável e a orientação.
+
 <a id="guia-cmp_pedidos"></a>
 
 ## Compras · Pedidos
@@ -678,6 +733,26 @@ A ficha do pedido e sua situação correspondem ao combinado.
 
 Pedido cancelado mantém histórico. Não recrie o pedido antes de conferir o que já foi confirmado.
 
+### Quem cuida de cada parte
+
+- **Compras:** Confere necessidade, orçamento, fornecedores, condições, pedido e envio.
+- **Responsável pelo recebimento na obra:** Confere o que realmente chegou, registra quantidades e acompanha diferenças.
+- **Financeiro / conferência fiscal:** Confere nota, vínculos, pagamentos anteriores, adiantamentos e conciliação.
+- **Responsável pelo estoque:** Confere a entrada vinculada e o histórico antes de registrar outra movimentação.
+- **Responsável pela aprovação:** Analisa a decisão pendente; o avanço operacional não significa aprovação automática.
+
+### Quando o fluxo acontece de outro jeito
+
+- **Entrega parcial:** Registre somente o recebido e acompanhe o restante com o fornecedor. A nota e o pagamento podem ser registrados em outro momento.
+- **Entrega acima do pedido:** Registre a quantidade real e leia o aviso. Confira a diferença com o fornecedor e regularize a documentação da compra.
+- **Aprovação pendente ou recusada:** O pedido pode seguir com aviso. Consulte Aprovações e encaminhe a regularização ao responsável; a decisão anterior permanece no histórico.
+- **Documento fiscal ainda não recebido:** Recebimento e pagamento podem seguir. O Financeiro deve receber e vincular o documento depois.
+- **Pagamento antes da conferência:** O pagamento do pedido fica identificado como adiantamento quando excede a referência conferida. Informe o motivo, se possível; a falta dele gera aviso.
+- **Nota ainda em conferência:** O Financeiro pode registrar o pagamento. A conferência fiscal continua pendente e deve ser decidida na ficha fiscal.
+- **Caixa sem saldo registrado:** A saída real pode ser registrada com aviso. Confira a origem e os aportes efetivamente realizados; não crie aporte fictício para ajustar o saldo.
+- **Adiantamento já registrado no pedido:** Confira o histórico antes de pagar pela nota. Não repita o pagamento nem associe registros apenas pela coincidência de valor.
+- **Aviso após salvar:** Abra Ficha completa · notas e anexos e consulte Andamento da compra. Confira a pendência, o responsável e a orientação.
+
 <a id="guia-cmp_recebimentos"></a>
 
 ## Compras · Receber
@@ -700,11 +775,31 @@ O pedido mostra a entrega total ou parcial correta.
 
 ### O que merece atenção
 
-Entrega parcial deve manter o restante pendente; não marque como recebido o que ainda não chegou.
+Registre o que realmente chegou, mesmo com nota ou pagamento pendentes. Quantidade acima do pedido gera aviso e deve ser conferida com o fornecedor. A entrada de estoque é criada junto com o recebimento; não a repita manualmente.
 
 ### Exemplo ilustrativo
 
-Um pedido tem 10 unidades, mas chegaram apenas 6. Registre as 6 recebidas e confira se as outras 4 continuam pendentes.
+Foram pedidos 10 sacos e chegaram 6: registre 6 e acompanhe os outros 4. Se chegaram 12 de fato, registre 12 e confira o aviso da diferença; não reduza a quantidade apenas para fazê-la coincidir com o pedido.
+
+### Quem cuida de cada parte
+
+- **Compras:** Confere necessidade, orçamento, fornecedores, condições, pedido e envio.
+- **Responsável pelo recebimento na obra:** Confere o que realmente chegou, registra quantidades e acompanha diferenças.
+- **Financeiro / conferência fiscal:** Confere nota, vínculos, pagamentos anteriores, adiantamentos e conciliação.
+- **Responsável pelo estoque:** Confere a entrada vinculada e o histórico antes de registrar outra movimentação.
+- **Responsável pela aprovação:** Analisa a decisão pendente; o avanço operacional não significa aprovação automática.
+
+### Quando o fluxo acontece de outro jeito
+
+- **Entrega parcial:** Registre somente o recebido e acompanhe o restante com o fornecedor. A nota e o pagamento podem ser registrados em outro momento.
+- **Entrega acima do pedido:** Registre a quantidade real e leia o aviso. Confira a diferença com o fornecedor e regularize a documentação da compra.
+- **Aprovação pendente ou recusada:** O pedido pode seguir com aviso. Consulte Aprovações e encaminhe a regularização ao responsável; a decisão anterior permanece no histórico.
+- **Documento fiscal ainda não recebido:** Recebimento e pagamento podem seguir. O Financeiro deve receber e vincular o documento depois.
+- **Pagamento antes da conferência:** O pagamento do pedido fica identificado como adiantamento quando excede a referência conferida. Informe o motivo, se possível; a falta dele gera aviso.
+- **Nota ainda em conferência:** O Financeiro pode registrar o pagamento. A conferência fiscal continua pendente e deve ser decidida na ficha fiscal.
+- **Caixa sem saldo registrado:** A saída real pode ser registrada com aviso. Confira a origem e os aportes efetivamente realizados; não crie aporte fictício para ajustar o saldo.
+- **Adiantamento já registrado no pedido:** Confira o histórico antes de pagar pela nota. Não repita o pagamento nem associe registros apenas pela coincidência de valor.
+- **Aviso após salvar:** Abra Ficha completa · notas e anexos e consulte Andamento da compra. Confira a pendência, o responsável e a orientação.
 
 <a id="guia-fornecedores"></a>
 
@@ -1086,9 +1181,10 @@ Tenha nome, fornecedor, número ou obra do documento.
 
 ### Como fazer
 
-1. Pesquise e ajuste o filtro de documentos.
-2. Abra o documento e consulte a prévia ou a evidência disponível.
-3. Acesse a ficha fiscal ou obrigação relacionada para tratar a pendência.
+1. Confira obra e mês; pesquise por documento ou fornecedor e escolha a situação. A busca considera todo o conjunto, mesmo quando a lista tem várias páginas.
+2. Em Consultas salvas neste navegador, salve ou aplique o recorte. As consultas pertencem ao usuário e à empresa; uma referência indisponível mostra o ajuste necessário.
+3. Em Conferir documentos em sequência, selecione as notas disponíveis e revise a prévia. Abra cada ficha, confirme individualmente e retorne à fila. Use Reabrir ficha fiscal ou Deixar para depois quando precisar continuar nos demais registros.
+4. Confira a situação de cada item após atualizar a base. Registro atualizado desde a abertura pede conferir o resultado; ficha aberta não significa salva. Itens bloqueados ou indisponíveis conservam a explicação e não são executáveis.
 
 ### Como conferir se deu certo
 
@@ -1096,7 +1192,7 @@ Você encontrou a evidência e o registro relacionado.
 
 ### O que merece atenção
 
-Consultar um arquivo não altera a situação fiscal ou financeira do registro.
+Selecionar notas disponíveis abrange todas as páginas do filtro atual. Mudar o recorte inicia outra seleção; reordenar ou atualizar a base mantém a sequência. Não há aprovação em massa. São salvos apenas filtros; documentos, senhas e rascunhos não são preferências.
 
 <a id="guia-fin_fiscal"></a>
 
@@ -1122,6 +1218,26 @@ A ficha fiscal apresenta os dados conferidos e seus vínculos.
 
 Uma nota importada ainda precisa de revisão. Confira se já existe antes de cadastrar outra.
 
+### Quem cuida de cada parte
+
+- **Compras:** Confere necessidade, orçamento, fornecedores, condições, pedido e envio.
+- **Responsável pelo recebimento na obra:** Confere o que realmente chegou, registra quantidades e acompanha diferenças.
+- **Financeiro / conferência fiscal:** Confere nota, vínculos, pagamentos anteriores, adiantamentos e conciliação.
+- **Responsável pelo estoque:** Confere a entrada vinculada e o histórico antes de registrar outra movimentação.
+- **Responsável pela aprovação:** Analisa a decisão pendente; o avanço operacional não significa aprovação automática.
+
+### Quando o fluxo acontece de outro jeito
+
+- **Entrega parcial:** Registre somente o recebido e acompanhe o restante com o fornecedor. A nota e o pagamento podem ser registrados em outro momento.
+- **Entrega acima do pedido:** Registre a quantidade real e leia o aviso. Confira a diferença com o fornecedor e regularize a documentação da compra.
+- **Aprovação pendente ou recusada:** O pedido pode seguir com aviso. Consulte Aprovações e encaminhe a regularização ao responsável; a decisão anterior permanece no histórico.
+- **Documento fiscal ainda não recebido:** Recebimento e pagamento podem seguir. O Financeiro deve receber e vincular o documento depois.
+- **Pagamento antes da conferência:** O pagamento do pedido fica identificado como adiantamento quando excede a referência conferida. Informe o motivo, se possível; a falta dele gera aviso.
+- **Nota ainda em conferência:** O Financeiro pode registrar o pagamento. A conferência fiscal continua pendente e deve ser decidida na ficha fiscal.
+- **Caixa sem saldo registrado:** A saída real pode ser registrada com aviso. Confira a origem e os aportes efetivamente realizados; não crie aporte fictício para ajustar o saldo.
+- **Adiantamento já registrado no pedido:** Confira o histórico antes de pagar pela nota. Não repita o pagamento nem associe registros apenas pela coincidência de valor.
+- **Aviso após salvar:** Abra Ficha completa · notas e anexos e consulte Andamento da compra. Confira a pendência, o responsável e a orientação.
+
 <a id="guia-fin_pagamentos"></a>
 
 ## Financeiro · Pagamentos
@@ -1134,9 +1250,9 @@ Confira fornecedor, documento, vencimento e obra.
 
 ### Como fazer
 
-1. Filtre a fila e abra a obrigação.
-2. Confira as aprovações, o saldo e os documentos necessários.
-3. Use a ação de pagamento permitida, confira conta, data e valor e aguarde a confirmação.
+1. Localize a obrigação e confira documento, obra, saldo e pagamentos já registrados no pedido e na nota.
+2. Leia os avisos, selecione a origem real do pagamento e informe data, valor e comprovante disponível. A conferência pendente não impede o registro.
+3. Confirme uma única vez e confira o histórico. Encaminhe as pendências documentais ao responsável e faça a conciliação quando houver movimento bancário.
 
 ### Como conferir se deu certo
 
@@ -1144,11 +1260,31 @@ O registro mostra o pagamento confirmado ou a pendência que ainda existe.
 
 ### O que merece atenção
 
-Pagamento direto pelo cliente e caixa físico não devem ser tratados como saída de uma conta bancária da empresa.
+O pagamento pode seguir com avisos. Adiantamento não deve ser repetido na nota, e pagar não aprova a conferência fiscal. A automação mantém casos pendentes para revisão; a decisão manual continua disponível ao perfil autorizado.
 
 ### Exemplo ilustrativo
 
 Uma nota de R$ 1.000,00 já tem pagamento confirmado de R$ 400,00. Confira o saldo e os vínculos antes de registrar outra quitação.
+
+### Quem cuida de cada parte
+
+- **Compras:** Confere necessidade, orçamento, fornecedores, condições, pedido e envio.
+- **Responsável pelo recebimento na obra:** Confere o que realmente chegou, registra quantidades e acompanha diferenças.
+- **Financeiro / conferência fiscal:** Confere nota, vínculos, pagamentos anteriores, adiantamentos e conciliação.
+- **Responsável pelo estoque:** Confere a entrada vinculada e o histórico antes de registrar outra movimentação.
+- **Responsável pela aprovação:** Analisa a decisão pendente; o avanço operacional não significa aprovação automática.
+
+### Quando o fluxo acontece de outro jeito
+
+- **Entrega parcial:** Registre somente o recebido e acompanhe o restante com o fornecedor. A nota e o pagamento podem ser registrados em outro momento.
+- **Entrega acima do pedido:** Registre a quantidade real e leia o aviso. Confira a diferença com o fornecedor e regularize a documentação da compra.
+- **Aprovação pendente ou recusada:** O pedido pode seguir com aviso. Consulte Aprovações e encaminhe a regularização ao responsável; a decisão anterior permanece no histórico.
+- **Documento fiscal ainda não recebido:** Recebimento e pagamento podem seguir. O Financeiro deve receber e vincular o documento depois.
+- **Pagamento antes da conferência:** O pagamento do pedido fica identificado como adiantamento quando excede a referência conferida. Informe o motivo, se possível; a falta dele gera aviso.
+- **Nota ainda em conferência:** O Financeiro pode registrar o pagamento. A conferência fiscal continua pendente e deve ser decidida na ficha fiscal.
+- **Caixa sem saldo registrado:** A saída real pode ser registrada com aviso. Confira a origem e os aportes efetivamente realizados; não crie aporte fictício para ajustar o saldo.
+- **Adiantamento já registrado no pedido:** Confira o histórico antes de pagar pela nota. Não repita o pagamento nem associe registros apenas pela coincidência de valor.
+- **Aviso após salvar:** Abra Ficha completa · notas e anexos e consulte Andamento da compra. Confira a pendência, o responsável e a orientação.
 
 <a id="guia-fin_caixa"></a>
 
@@ -1162,9 +1298,9 @@ Confirme conta, obra e intervalo de datas.
 
 ### Como fazer
 
-1. Selecione a visão e os filtros necessários.
-2. Abra uma entrada ou saída para conferir sua origem.
-3. Compare o saldo e as movimentações; consulte a conciliação quando necessário.
+1. Confira conta, obra e intervalo. Abra Previsão por vencimentos e, depois, Planejamento, compras e vencimentos.
+2. Escolha a obra e compare a referência da etapa, a necessidade revisada e a compra comprovada por item. Confira unidades, quantidades e vínculos pendentes antes de solicitar outra compra.
+3. Simule o deslocamento das etapas para identificar entregas a revisar. Use Conferir solicitação ou Conferir pedido para tratar a origem e retorne ao recorte; consulte os títulos vinculados separadamente.
 
 ### Como conferir se deu certo
 
@@ -1172,7 +1308,7 @@ Você sabe quais movimentos explicam a posição consultada.
 
 ### O que merece atenção
 
-Saldo de caixa, previsão e resultado por competência medem coisas diferentes.
+A simulação conserva as datas cadastradas. Estoque compartilhado não é reservado nem descontado automaticamente. Pedido, orçamento e título não são somados como novas saídas de caixa; a compra comprovada não comprova recebimento ou pagamento.
 
 <a id="guia-fin_fechamento"></a>
 
@@ -1234,9 +1370,10 @@ Confira a obra e a data de referência.
 
 ### Como fazer
 
-1. Consulte a lista de etapas e os valores associados.
-2. Abra o detalhamento da etapa para conferir a origem dos custos.
-3. Revise os vínculos permitidos e confira como o custo está classificado.
+1. Confira obra, data de corte, orçamento e custos por etapa; abra os valores para consultar a origem.
+2. Compare o incorrido com as compras ainda não faturadas. Abra Conferir apropriação e previsão para revisar o restante e a reserva de risco.
+3. Registre e acompanhe Mudanças e aditivos; escolha explicitamente como cada impacto entra na previsão.
+4. Leia os avisos e consulte Ajuda da previsão para o passo a passo completo.
 
 ### Como conferir se deu certo
 
@@ -1244,7 +1381,7 @@ Você identificou os registros que explicam o custo de cada etapa.
 
 ### O que merece atenção
 
-Custo sem vínculo ou sem referência deve ser conferido; não distribua valores por suposição.
+A previsão revisada permanece com aviso quando a base muda. Custo final = incorrido + restante + reserva + mudanças adicionais; pagar não gera outro custo. Pendências de processo permitem continuar.
 
 <a id="guia-fin_relatorios"></a>
 
@@ -2263,6 +2400,178 @@ O relatório apresenta o recorte comercial desejado.
 
 Proposta, contrato, assinatura e recebimento são etapas diferentes. Confira a situação antes de avançar.
 
+<a id="guia-fin_previsao"></a>
+
+## Financeiro · Previsão de custo final
+
+Estimar quanto a obra custará ao terminar e explicar cada revisão.
+
+### Antes de começar
+
+Abra Financeiro → Custos por etapa e confira obra e data de corte. Incorrido é o custo já reconhecido; não é o total pago.
+
+### Como fazer
+
+1. Confira o orçamento, o incorrido e Compras ainda não faturadas. Abra um valor para consultar sua memória. O faturamento parcial de pedidos com várias etapas é distribuído proporcionalmente ao valor dos itens.
+2. Abra Conferir apropriação e previsão e escolha a etapa, inclusive Sem apropriação quando faltar orçamento ou vínculo.
+3. Informe todo o custo restante para concluir, incluindo as compras ainda não faturadas. Acrescente uma reserva de risco separada e descreva as premissas.
+4. Confira as mudanças adicionais. Se o custo de uma mudança já estiver no restante, marque Já incluído no acompanhamento dela.
+5. Em Conferência dos aditivos no custo restante, escolha para cada aditivo: Ainda não conferido, Já está no restante informado ou Fora do restante — considerar separadamente. A escolha registra sua análise, sem mudar os valores.
+6. Confirme a previsão e confira o total e o histórico. Quando a base mudar, o valor revisado permanece com aviso: use Atualizar base mantendo valores, confira e salve outra revisão.
+7. Para cada aditivo conferido, preencha Justificativa da conferência do aditivo e confirme a previsão. É opcional: sem justificativa, o app salva com aviso. Para manter a pendência, escolha Ainda não conferido.
+8. Consulte Histórico de conferência das duplicidades junto de Mudanças e aditivos. Confira responsável, data da conferência, decisão, justificativa, impacto e restante registrados. Use Aditivo do histórico para filtrar e as páginas para consultar registros anteriores.
+
+### Como conferir se deu certo
+
+Custo final = incorrido + restante para concluir + reserva de risco + mudanças explicitamente adicionais. O desvio compara esse total com o orçamento.
+
+### O que merece atenção
+
+Sem orçamento, premissas ou base atualizada, é possível continuar com avisos. Valores inválidos, acesso sem permissão e conflito de edição exigem correção. A estimativa não cria custo, pagamento ou receita. O aviso de possível duplicidade informa um indício, não uma confirmação. O app cruza a declaração de inclusão, as premissas e a variação entre revisões. O preço comercial do aditivo e a reserva de risco não são usados como prova de sobreposição. O histórico mostra somente conferências salvas. Alterações de nome ou etapa preservam a identificação gravada nas novas conferências. A data é a da gravação, exibida no fuso do dispositivo; não é a data de corte da previsão.
+
+### Exemplo ilustrativo
+
+A etapa tem R$ 80 mil incorridos, R$ 50 mil em compras ainda não faturadas e R$ 70 mil estimados para concluir. Informe R$ 70 mil, pois já incluem as compras. Com reserva de R$ 5 mil e mudança adicional de R$ 8 mil, o custo final será R$ 163 mil. Se você elevar o restante de R$ 70 mil para R$ 78 mil e mantiver o piso de R$ 8 mil como adicional, a previsão chegará a R$ 171 mil. O app avisa sobre a coincidência. Após conferir e marcar o piso como Já incluído, o custo final volta a R$ 163 mil. Se o aumento tiver outra causa, registre Fora do restante e mantenha o total justificado.
+
+### Quem cuida de cada parte
+
+- **Engenharia / responsável pelo orçamento:** Estimar serviços restantes, riscos e impactos das mudanças; entregar as premissas ao financeiro.
+- **Financeiro ou administrador:** Conferir a origem dos valores, registrar a revisão e acompanhar desvios.
+
+### Quando o fluxo acontece de outro jeito
+
+- **Valor abaixo das compras pendentes:** Confira cancelamentos e economias. O aviso permite salvar; explique a diferença nas premissas.
+- **Orçamento ou data mudou:** A revisão permanece em uso com aviso. Confira a nova base e atualize mantendo seus valores. Revisões de etapas removidas permanecem no histórico, fora do total atual, até transferência explícita.
+- **Não há orçamento aprovado:** Registre a estimativa em Sem apropriação. A comparação orçamentária fica indisponível; aprove um orçamento e confira os vínculos depois.
+- **Mudança já contemplada no restante:** Escolha Já incluído no restante da etapa para evitar somar o mesmo custo duas vezes.
+- **Possível duplicidade de custo:** Leia o aditivo, a etapa e o motivo do aviso. Confira o restante. Se o impacto já estiver nele, abra Editar ou Atualizar acompanhamento do aditivo e escolha Já incluído no restante da etapa. Se for custo separado, registre Fora do restante — considerar separadamente na conferência da previsão e salve. É possível continuar mesmo sem resolver o aviso.
+- **O aviso reapareceu depois de uma alteração:** A conferência vale para o valor do impacto, o restante e o orçamento conferidos. Se algum deles mudar, revise a análise. Aumentos iguais podem ter causas distintas; explique nas premissas e registre a opção correta.
+- **Economia possivelmente abatida duas vezes:** Uma redução no restante pode coincidir com uma mudança de custo negativo ainda adicional. Confira se a economia já foi incorporada antes de manter ambos os abatimentos.
+- **Conferência sem justificativa:** Confirme com aviso e complemente quando possível. A nova confirmação cria outra revisão; a decisão anterior permanece no histórico.
+- **Registro antigo incompleto:** O histórico mostra apenas os dados disponíveis, marcando o registro como antigo. Se a justificativa individual não foi registrada, as premissas originais aparecem separadamente; responsável ou data ausentes não são inventados.
+- **Decisão de uma base anterior:** Confira o aviso de base anterior no registro. Os valores do impacto e do restante da época ajudam a entender a decisão; uma referência antiga não significa que a base atual foi conferida.
+
+<a id="guia-obra_aditivos"></a>
+
+## Obra · Mudanças e aditivos
+
+Acompanhar mudanças de escopo, execução, custo e decisão do cliente, sem interromper o trabalho por pendências.
+
+### Antes de começar
+
+Abra a visão geral da obra ou Financeiro → Custos por etapa. Confira o contrato vigente e a obra.
+
+### Como fazer
+
+1. Use Nova mudança ou aditivo e descreva o que muda. Informe impacto no contrato e prazo, inclusive zero para uma mudança apenas operacional.
+2. Defina o responsável, a etapa e a execução: Planejada, Em andamento ou Concluída. A execução pode ser acompanhada enquanto a decisão está pendente.
+3. Estime apenas o impacto no custo que ainda falta incorrer. Use valor negativo para economia. Escolha Não incluir, Somar como adicional ou Já incluído no restante da etapa.
+4. Salve e leia os avisos. O administrador registra a decisão real do cliente em Registrar decisão, com a evidência disponível. Aprovação atualiza contrato e prazo; proposta não é receita aprovada.
+5. Use Atualizar acompanhamento para rever execução, custo, responsável e evidência de uma mudança decidida. Os termos decididos ficam preservados. Para novos termos comerciais, registre outra mudança.
+6. Confira o efeito na previsão e no contrato vigente. Ao cancelar, registre o motivo disponível e revise se ainda haverá custos remanescentes.
+7. Quando aparecer Confira possíveis duplicidades de custo, leia o motivo e confira a previsão da etapa no Financeiro. Se o custo já estiver no restante, escolha Já incluído no acompanhamento; se for separado, registre essa análise na conferência da previsão. Salvar, decidir e acompanhar continuam disponíveis.
+8. Acompanhe Histórico de conferência das duplicidades abaixo dos aditivos. O histórico está disponível na visão geral da obra e em Custos por etapa. A decisão e a justificativa da conferência são registradas ao confirmar a previsão no Financeiro.
+
+### Como conferir se deu certo
+
+Cada mudança tem acompanhamento e impacto explícitos, separados da aprovação comercial.
+
+### O que merece atenção
+
+Falta de responsável, etapa, estimativa ou evidência gera aviso e permite continuar. Cancelar ou recusar não apaga custo já incorrido nem retira automaticamente um impacto ainda marcado como adicional. Consultar ou filtrar o histórico não altera contrato, custos ou decisões. Novas conferências permanecem registradas mesmo depois de ultrapassar as 100 revisões resumidas da previsão; registros antigos dependem do histórico ainda disponível na base.
+
+### Exemplo ilustrativo
+
+O cliente pede outro piso: proposta de R$ 12 mil e cinco dias. A execução começa enquanto a decisão está pendente. Restam R$ 8 mil de custo: marque Adicional se esse valor ainda não estiver na previsão da etapa. Depois de incorporá-lo à estimativa da etapa, mude para Já incluído.
+
+### Quem cuida de cada parte
+
+- **Engenharia, financeiro ou administrador:** Registrar a mudança e manter o acompanhamento.
+- **Administrador:** Registrar a aprovação ou recusa real do cliente.
+- **Administrador ou financeiro:** Cancelar e conferir os efeitos contratuais e custos remanescentes.
+
+### Quando o fluxo acontece de outro jeito
+
+- **Decisão sem evidência:** Registre com aviso e complemente a evidência em Atualizar acompanhamento.
+- **Execução iniciada sem aprovação:** Mantenha Em andamento e trate a pendência com o responsável; execução não significa aprovação.
+- **Mudança sem impacto financeiro ou prazo:** Registre com zero para acompanhar apenas escopo ou execução.
+- **Mudança recusada ou cancelada com custo restante:** Confira o custo ainda necessário e escolha explicitamente se ele continua adicional, já está incluído ou fica fora da previsão.
+- **Aditivo e previsão parecem repetir o custo:** O aviso pode vir de inclusão declarada, premissas ou variação do restante igual ao impacto de um ou vários aditivos da mesma etapa. O app não altera os valores automaticamente. Confira os registros e ajuste a opção de impacto ou registre que o custo permanece separado.
+
+<a id="guia-arquivos_revisoes"></a>
+
+## Arquivos · Revisões, busca e comparação
+
+Consultar a revisão correta, pesquisar o texto do PDF e comparar duas emissões.
+
+### Antes de começar
+
+Abra um documento e confira a identificação da revisão atual.
+
+### Como fazer
+
+1. Em Revisão do documento, selecione a emissão desejada. O aviso de revisão antiga identifica a atual; use Abrir revisão atual para voltar a ela.
+2. Para um PDF com texto, digite uma palavra ou expressão em Buscar no texto do PDF. A busca percorre todas as páginas; use Ir para página no resultado.
+3. Use Comparar revisões e escolha outra emissão em Comparar com a revisão. Cada painel permite consultar, buscar, navegar e baixar seu próprio arquivo.
+4. Use Encerrar comparação para manter a consulta individual ou Fechar visualização para voltar ao cadastro; consulte Histórico de revisões para ver os registros anteriores.
+
+### Como conferir se deu certo
+
+As duas emissões estão identificadas e o conteúdo corresponde à revisão selecionada.
+
+### O que merece atenção
+
+A comparação é visual, lado a lado no computador e empilhada no celular; não marca diferenças automaticamente. A busca não faz OCR: PDFs apenas digitalizados podem não ter texto pesquisável. Se o acesso for negado, confira sua sessão e a permissão antes de tentar novamente.
+
+<a id="guia-arquivos_dossie"></a>
+
+## Arquivos · Dossiê de licenciamento
+
+Organizar as exigências da Prefeitura, do cartório e do condomínio e preparar um pacote documental conferível.
+
+### Antes de começar
+
+Confirme a obra e escolha Dossiê de licenciamento em Área da documentação. O dossiê usa o mesmo cadastro do módulo Licenciamento.
+
+### Como fazer
+
+1. Selecione a exigência na lista ou no seletor do celular. Confira a situação e preencha responsável, validade e observações; salve a exigência.
+2. Para exigências condicionais, defina se o item se aplica. Se marcar Não ou Não se aplica, informe uma justificativa. Confira o aviso de documentação faltante.
+3. Use Anexar documento à exigência para um arquivo novo de até 20 MB. Use Enviar nova revisão de… para atualizar o mesmo anexo. O nome padronizado identifica obra, área, item e revisão; o nome original permanece no histórico.
+4. Abra Visualizar anexo e revisões para conferir o conteúdo. O ZIP inclui a revisão atual de cada anexo, incluindo itens adicionais e documentos gerais cadastrados.
+5. Use Baixar dossiê final somente quando não houver pendências. Se estiver incompleto, use Baixar ZIP parcial · INCOMPLETO: confira os arquivos, INDICE.csv, MANIFESTO.json e PENDENCIAS.txt antes de compartilhar.
+6. Consulte Histórico de exportações para conferir quando o pacote foi preparado e as pendências registradas.
+
+### Como conferir se deu certo
+
+O ZIP contém os arquivos nativos com nomes padronizados e índice. O pacote parcial leva INCOMPLETO no nome; o final é bloqueado quando há pendências ou falha ao ler um arquivo.
+
+### O que merece atenção
+
+Anexo ausente, vencimento, situação pendente ou aplicabilidade indefinida impedem o final. O pacote é montado no navegador com limite de 100 MB; arquivos não lidos no parcial constam nas pendências. A exportação baixa o ZIP e não o envia automaticamente à Prefeitura ou ao cartório. A conferência interna não equivale à aprovação do órgão. Edição e exportação exigem administrador ou engenheiro autorizado.
+
+## Celular, interrupções e recuperação
+
+### Área reduzida no celular
+
+Role dentro do formulário para alcançar os próximos campos e a confirmação. O diálogo acompanha a área visível quando o teclado reduz a tela. Fechar a ajuda ou uma confirmação não deve encerrar a edição principal.
+
+### Sair com alterações pendentes
+
+Na ficha fiscal, no pagamento, na correção do fechamento e nos formulários protegidos de Compras, escolha Continuar editando para manter o preenchimento. Descartar alterações encerra a edição. Recarregar ou fechar a aba pode pedir confirmação do navegador; o rascunho não é salvo como preferência.
+
+### Conexão perdida ou consulta indisponível
+
+Conserve a tela aberta. Leia a mensagem e use Consultar versão atual quando disponível. Se a consulta também falhar, tente novamente após recuperar a conexão. O retorno da internet não confirma uma operação financeira por conta própria.
+
+### Sessão expirada
+
+Use a renovação da mesma conta dentro da edição quando oferecida. Depois, consulte a versão atual e revise os dados antes da confirmação. A senha é transitória e não fica salva no rascunho.
+
+### Não sei se o servidor confirmou
+
+Consulte a versão atual antes de repetir. Se houver confirmação recebida pelo recibo, aplique-a; não crie outro registro. Documento ausente exige conferir a origem e o acesso, sem inventar uma evidência.
+
 ## Dúvidas comuns
 
 ### Não encontrei um botão ou registro
@@ -2284,7 +2593,4 @@ Confira o indicador de salvamento e a mensagem da ação. Leia erros ou conflito
 - **FVS / FVM:** Fichas de Verificação de Serviço e de Material, usadas na conferência de qualidade.
 - **Linha de base:** Versão de referência do planejamento para comparar o previsto com o realizado.
 - **Curva A:** Grupo de itens de maior peso financeiro, que merece atenção prioritária.
-- **Dossiê:** Conjunto de documentos de uma obra, acompanhado de índice, revisões e conferência de pendências.
-- **Revisão:** Emissão de um documento, como R01 ou R02; a revisão atual é a última registrada.
-- **OCR:** Reconhecimento de texto em documentos digitalizados. A busca atual de PDFs usa o texto extraível e não executa OCR.
 - **Lotação:** Obra à qual o funcionário está vinculado administrativamente; pode ser diferente da obra de captura do ponto.

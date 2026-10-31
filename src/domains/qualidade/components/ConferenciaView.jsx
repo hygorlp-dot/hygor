@@ -15,10 +15,10 @@ import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import { enviarArquivoOneDrive } from "../../../api";
-import {
-  Badge, Bloco, Btn, C, Ic, Inp, Modal, PageHero, Sel,
-  comprimirImagem, escapeHtml, fmtDate, obraContextoSalvo, today, uid,
-} from "../../../LegacyApp";
+import { Badge, Bloco, Btn, Ic, Inp, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { comprimirImagem } from "../../../legacy/files.js";
+import { escapeHtml, fmtDate, obraContextoSalvo, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { conferenceCompletionCheck, conferenceProgress, conferenceQualityScore, filterConferenceFindings } from "../conference-workflow";
 import { orcamentoDaObra } from "../../planejamento/legacy-engine";

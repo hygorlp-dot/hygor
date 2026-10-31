@@ -4,9 +4,9 @@ import {financialDocumentUrl,protectedDocumentReference} from '../../domains/fin
 
 // Stored signed URLs can belong to another session or already be expired.
 // Authorize a fresh link at click time using the existing ERP credentials.
-export default function FinancialDocumentLink({href,children,resolveFile=obterLinkArquivoOneDrive}){
+export default function FinancialDocumentLink({href,children,resolveFile=obterLinkArquivoOneDrive,reference:sourceReference}){
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
- const url=financialDocumentUrl(href),reference=protectedDocumentReference(href);
+ const url=financialDocumentUrl(href),reference=sourceReference||protectedDocumentReference(href);
  if(!url)return null;
  const open=async event=>{
   if(!reference)return;

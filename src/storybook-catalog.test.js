@@ -18,6 +18,7 @@ describe("catálogo Storybook do Design System", () => {
       "PageHeader.stories.jsx",
       "Select.stories.jsx",
       "TabRow.stories.jsx",
+      "WorkflowPatterns.stories.jsx",
     ]);
 
     const preview = readFileSync(resolve(process.cwd(), ".storybook/preview.jsx"), "utf8");

@@ -1,3 +1,4 @@
+import {instrumentWorkflowPage} from "./lib/workflow-evidence.mjs";
 import {chromium, expect} from '@playwright/test';
 import {openFinanceModule,selectFinanceArea} from './finance-browser-navigation.mjs';
 import {mkdir, writeFile} from 'node:fs/promises';
@@ -34,7 +35,7 @@ const passed = [], errors = [];
 await mkdir('artifacts/financeiro', {recursive:true});
 try {
   for (const width of [1440,390]) {
-    const page = await browser.newPage({viewport:{width,height:1000}});
+    const page = await browser.newPage({viewport:{width,height:1000}});await instrumentWorkflowPage(page);
     let protectedReads = 0, writes = 0, sessionData = structuredClone(data), savedCommand;
     page.on('pageerror', error => errors.push(error.message));
     await page.clock.setFixedTime(new Date('2026-10-30T15:00:00Z'));
@@ -105,13 +106,13 @@ try {
     await dialog.getByLabel('Arquivo para conferência',{exact:true}).selectOption('3');
     await expect(dialog.getByText(/Este formato não tem visualização interna/)).toBeVisible();
     await dialog.getByLabel('Arquivo para conferência',{exact:true}).selectOption('4');
-    await expect(dialog.getByText(/Não foi possível visualizar este arquivo aqui/)).toBeVisible();
+    await expect(dialog.getByText(/Falha na prévia/)).toBeVisible();
     await dialog.getByRole('button',{name:'Tentar novamente',exact:true}).click();
-    await expect(dialog.getByText(/Não foi possível visualizar este arquivo aqui/)).toBeVisible();
+    await expect(dialog.getByText(/Falha na prévia/)).toBeVisible();
     await dialog.getByLabel('Arquivo para conferência',{exact:true}).selectOption('5');
-    await expect(dialog.getByText(/Não foi possível visualizar este arquivo aqui/)).toBeVisible();
+    await expect(dialog.getByText(/Falha na prévia/)).toBeVisible();
     await dialog.getByLabel('Arquivo para conferência',{exact:true}).selectOption('6');
-    await expect(dialog.getByText(/Não foi possível visualizar este arquivo aqui/)).toBeVisible();
+    await expect(dialog.getByText(/Seu acesso não permite abrir este documento|Não foi possível obter acesso ao original/)).toBeVisible();
     await expect(dialog.getByRole('link',{name:'Abrir original em nova aba',exact:true})).toHaveAttribute('href','https://tenant.sharepoint.com/protegido.pdf');
     passed.push(`${width}: imagem, XML, formato externo, erro de imagem e PDF inválido`);
     if (width < 901) await dialog.getByRole('tab',{name:'Dados da nota',exact:true}).click();
@@ -120,7 +121,7 @@ try {
     expect(await dialog.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
     await page.keyboard.press('Escape');
-    await page.getByRole('button',{name:'Voltar à conferência de documentos',exact:true}).click();
+    await page.getByRole('button',{name:'Voltar à central de documentos',exact:true}).click();
     await expect(page.getByLabel('Pesquisar documento ou fornecedor',{exact:true})).toHaveValue('123');
     passed.push(`${width}: campos mantidos ao trocar original/aba e retorno ao filtro`);
     await page.getByLabel('Pesquisar documento ou fornecedor',{exact:true}).fill('SEM-ANEXO');

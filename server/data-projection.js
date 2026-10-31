@@ -174,6 +174,15 @@ export const projectDataForUser = (payload = {}, user = {}) => {
     }
     out[key] = filterByObra(value, allowedObras);
   }
+  // Recovery needs proof of this user's own confirmed edit after a lost response.
+  // Return only opaque receipt fields for a record still visible in the current scope.
+  if(user.role==='financeiro'&&podeAcessarAba(user,'fin')){
+    const invoiceIds=new Set((out.notasFiscais||[]).map(row=>String(row.id)));
+    const originIds=new Set([['pedidos','cmp'],['medicoes','medicoes'],['outrasDesp','dre'],['despesasEmpresa','dre_emp']].flatMap(([key,tab])=>podeAcessarAba(user,tab)?(out[key]||[]).map(row=>String(row.id)):[]));
+    out.operationalCommandReceipts=(payload.operationalCommandReceipts||[]).filter(receipt=>receipt.actorId===user.id&&(
+      receipt.type==='NOTA_FISCAL_SALVA'&&invoiceIds.has(String(receipt.entityId))||receipt.type==='ORIGEM_FECHAMENTO_CORRIGIDA'&&originIds.has(String(receipt.entityId))
+    )).map(({idempotencyKey,type,entityId,appliedAt,actorId})=>({idempotencyKey,type,entityId,appliedAt,actorId}));
+  }
   return out;
 };
 

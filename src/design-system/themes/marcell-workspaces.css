@@ -297,7 +297,7 @@
   .purchase-quote-filters .workspace-filters__fields > .arcd-field { flex: 1 1 150px; }
 }
 @media screen and (max-width: 767px) {
-  .purchase-quote-filters { grid-template-columns: minmax(0, 1fr); }
+  .purchase-quote-filters { grid-template-columns: minmax(0, 1fr) auto; }
   .purchase-quote-filters .workspace-filters__fields { display: none; }
   .purchase-quote-filters .workspace-filters[data-expanded="true"] .workspace-filters__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .purchase-quote-filters .workspace-filters__fields > button { grid-column: 1 / -1; }
@@ -343,4 +343,67 @@
   .quote-workspace { grid-template-columns: minmax(0, 1fr); }
   .quote-workspace > *, .quote-workspace [role="tabpanel"] { min-width: 0; max-width: 100%; }
   .quote-workspace-heading > div:first-child { min-width: 0; flex: 1 1 240px; }
+}
+
+/* Shared disclosures retain a full touch target on operational mobile screens. */
+@media screen{
+ [data-theme="marcell"] .arcd-main[data-workspace] :is(.page-hero__title,.arcd-page-header__title)[data-heading-level="2"]{font-size:1.125rem!important}
+ [data-theme="marcell"] .arcd-main[data-workspace] :is(.page-hero__title,.arcd-page-header__title)[data-heading-level="3"]{font-size:1rem!important}
+ [data-theme="marcell"] .arcd-main[data-workspace]{--arcd-type-card-title:1rem}
+}
+.app-header-chat-slot{display:none}
+.arcd-chat-launcher:focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:3px}
+body.no-scroll .app-header-chat-slot{display:none}
+@media screen and (max-width:767px){
+ .app-header-chat-slot{display:flex;align-items:center}
+ .arcd-topbar{--arcd-header-actions-gap:6px}
+ .arcd-topbar .app-header-context{min-width:0;flex:1}
+ .arcd-topbar .workspace-module-select{min-width:0;flex:1;max-width:100%}
+ .arcd-main[data-workspace="fin"] details>summary,
+ .arcd-main[data-workspace="cmp"] details>summary{min-height:44px;align-content:center}
+}
+
+/* Roadmap wave 1: context, action, navigation, then the working list. */
+@media screen {
+  .arcd-main[data-workspace] .workspace-header.purchase-header {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) minmax(180px, 300px) auto;
+    gap: 8px 16px;
+    align-items: center;
+    padding-bottom: 12px;
+  }
+  .workspace-header.purchase-header .arcd-page-header__actions { display: contents; }
+  .workspace-header.purchase-header .purchase-context-bar { grid-column: 2; grid-row: 1; width: auto; }
+  .workspace-header.purchase-header .compras-project-picker { width: 100%; min-width: 0; }
+  .workspace-header.purchase-header .purchase-header-actions { display: flex; align-items: center; gap: 8px; width: auto; }
+  .purchase-header-actions .purchase-order-menu { flex: none; }
+  .purchase-header-actions .purchase-order-menu__trigger { width: 44px; min-height: 44px; }
+  .purchase-header-actions .purchase-order-menu__item { min-height: 44px; }
+  .purchase-quote-row .purchase-quote-open { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; min-width: 0; padding: 4px 0; text-align: left; white-space: normal; }
+  .purchase-quote-open b { font-size: var(--arcd-type-label); font-weight: 600; }
+  .purchase-quote-open > span { font-size: var(--arcd-type-caption); color: var(--arcd-text-secondary); }
+  .purchase-quote-open > span:last-child { text-decoration: underline; text-underline-offset: 3px; }
+  .purchase-quote-actions { display: flex; align-items: center; justify-content: flex-end; }
+  .purchase-quote-actions .purchase-order-menu__trigger { width: 44px; min-height: 44px; }
+  .workspace-navigation__desktop > nav[data-grouped] { flex-wrap: wrap; gap: 8px 16px; overflow: visible; }
+  .workspace-navigation__group { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .workspace-navigation__group-label { font-size: var(--arcd-type-caption); color: var(--arcd-text-secondary); }
+  .workspace-navigation__group > div { display: flex; flex-wrap: wrap; gap: 4px; }
+  .workspace-navigation__group button { padding: 8px 12px; font-size: var(--arcd-type-label); color: var(--arcd-text-secondary); }
+  .workspace-navigation__group button[aria-current="page"] { border-color: var(--arcd-border-default); background: var(--arcd-surface-card); color: var(--arcd-text-primary); }
+  .workspace-navigation__group button:hover { background: var(--arcd-surface-muted); color: var(--arcd-text-primary); }
+  .financial-navigation .workspace-navigation__desktop { align-items: flex-end; }
+}
+@media screen and (max-width: 1099px) {
+  .arcd-main[data-workspace] .workspace-header.purchase-header { grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr); }
+  .workspace-header.purchase-header .purchase-header-actions { grid-column: 1 / -1; justify-content: flex-end; }
+  .workspace-header.purchase-header .arcd-page-header__description { display: none; }
+}
+@media screen and (max-width: 767px) {
+  .workspace-header.purchase-header > div:first-child { width: auto; }
+  .workspace-header.purchase-header .purchase-header-actions > button { flex: 1; width: auto; }
+  .workspace-header.purchase-header .purchase-header-actions > .arcd-button--icon { flex: none; width: 44px; min-height: 44px; }
+  .workspace-header.purchase-header .purchase-header-actions > .purchase-order-menu { width: auto; }
+  .purchase-quote-filters .workspace-filters__fields { grid-column: 1 / -1; }
+  .purchase-quote-filters .workspace-filters__toggle { width: auto; }
 }

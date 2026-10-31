@@ -82,6 +82,7 @@ export const escolhaPrecisaJustificativa=(linha,propostaId)=>{
 // Valida as escolhas de itens pendentes e agrupa por fornecedor. Itens sem
 // escolha ficam pendentes para uma decisão posterior.
 export const avaliarEscolhasCotacao=(quote,escolhas={},justificativas={})=>{
+  const warnings=[];
   const pendentes=itensPendentesDaCotacao(quote);
   const pendentesPorId=new Map(pendentes.map(linha=>[String(linha.item.id),linha]));
   const escolhidos=Object.entries(escolhas||{}).filter(([,propostaId])=>propostaId);
@@ -104,9 +105,7 @@ export const avaliarEscolhasCotacao=(quote,escolhas={},justificativas={})=>{
     }
     const justificativa=String(justificativas?.[itemId]||"").trim();
     if(escolhaPrecisaJustificativa(linha,propostaId)&&!justificativa){
-      return {erro:linha.ofertas.length<2
-        ?"Justifique a compra de item com uma única proposta."
-        :"Justifique a escolha de uma proposta que não é a mais barata."};
+      warnings.push({code:'QUOTE_JUSTIFICATION_MISSING',stage:'compra',owner:'Compras',blocking:false,message:linha.ofertas.length<2?'Compra com uma única proposta e sem justificativa.':'Proposta mais cara escolhida sem justificativa.',resolution:'Registre a justificativa da decisão para manter a rastreabilidade da negociação.'});
     }
     const fornecedorId=String(oferta.proposta.fornecedorId);
     if(!grupos.has(fornecedorId)){
@@ -122,7 +121,7 @@ export const avaliarEscolhasCotacao=(quote,escolhas={},justificativas={})=>{
   const lista=[...grupos.values()].map(grupo=>({
     ...grupo,total:grupo.itens.reduce((sum,item)=>sum+item.precoUnit*item.linha.qtd,0),
   }));
-  return {grupos:lista,economia,decisoes,
+  return {grupos:lista,economia,decisoes,warnings,
     total:lista.reduce((sum,grupo)=>sum+grupo.total,0),
     restantes:pendentes.length-escolhidos.length};
 };

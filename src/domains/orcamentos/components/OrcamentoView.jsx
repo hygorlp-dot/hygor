@@ -37,14 +37,12 @@ import {
 } from "../../../components/charts/LazyRecharts";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import { PageHeader, ConfirmDialog } from "../../../design-system/patterns";
-import {
-  Badge, Btn, C, Ic, Inp, Modal, Sel,
-  XLSX, carregarXLSX, jsonDaRespostaIA, obraContextoSalvo,
-  maiusculoOrcamento, proximoCodigoArcd,
-  ETAPAS_PADRAO, MAX_NIVEL, CLASSE_ABC,
-  escapeHtml, fmt, today, uid,
-  calcControleCustosOrcamento,
-} from "../../../LegacyApp";
+import { Badge, Btn, Ic, Inp, Modal, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { XLSX, carregarXLSX } from "../../../legacy/files.js";
+import { jsonDaRespostaIA } from "../../../features/financeiro/LegacyDocumentTools.jsx";
+import { obraContextoSalvo, maiusculoOrcamento, proximoCodigoArcd, escapeHtml, fmt, today, uid } from "../../../legacy/format.js";
+import { ETAPAS_PADRAO, MAX_NIVEL, CLASSE_ABC, calcControleCustosOrcamento } from "../legacy-reference.js";
 import {
   calculateBudget as calcularOrcamentoCanonico,
   projectBudgetABC,

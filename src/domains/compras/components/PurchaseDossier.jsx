@@ -1,12 +1,16 @@
 import { useMemo, useRef, useState } from "react";
-import { Modal, fmt, fmtDate, today } from "../../../LegacyApp";
+import { Modal } from "../../../legacy/ui.jsx";
+import { fmt, fmtDate, today } from "../../../legacy/format.js";
 import { Button } from "../../../design-system/primitives/Button";
 import { totalPedido } from "../calculations";
-import { fichaDaCompra, urlDocumentoCompra } from "../purchase-dossier";
+import { fichaDaCompra } from "../purchase-dossier";
 import { CostComparison } from "./PurchaseFinalCost";
 import {purchaseDossierPending} from "../purchase-dossier-status";
 import OrderConditions from "./OrderConditions";
 import PurchaseConference from "./PurchaseConference.jsx";
+import DocumentEvidence from '../../../features/financeiro/DocumentEvidence.jsx';
+import FinancialDocumentLink from '../../../features/financeiro/FinancialDocumentLink.jsx';
+import {documentEvidenceInfo} from '../../financeiro/document-evidence.js';
 import {podeAcessarAba} from '../../administracao/abas-acesso.js';
 import {useWorkflow} from '../../../features/workflow/WorkflowNavigation.jsx';
 import "./purchase-dossier.css";
@@ -25,13 +29,10 @@ export function PurchaseDossier({data,selection,onClose,inline=false,currentUser
   const goTo=key=>{const section=dossierRef.current?.querySelector(`[data-section="${key}"]`);section?.scrollIntoView({block:"start"});section?.focus({preventScroll:true});};
   const name=id=>(data.fornecedores||[]).find(p=>String(p.id)===String(id))?.nome||"Fornecedor não informado";
   const material=id=>(data.materiais||[]).find(p=>String(p.id)===String(id))?.descricao||"Material";
-  const url=selected?urlDocumentoCompra(selected):"";
-  const drive=url.match(/^https:\/\/drive\.google\.com\/file\/d\/([\w-]+)\//);
-  const preview=drive?`https://drive.google.com/file/d/${drive[1]}/preview`:/\.pdf(?:[?#]|$)/i.test(url)||/\.pdf$/i.test(selected?.nome||"")?url:"";
   return <DossierFrame inline={inline} onClose={onClose}>
     <div className="purchase-dossier" ref={dossierRef}>
       <nav className="purchase-dossier-nav" aria-label="Seções da compra">{[["conference","Conferência"],["origin","Origem"],["cost","Custos"],["orders",`Pedidos (${f.orders.length})`],["invoices",`Notas fiscais (${f.invoices.length})`],["payments","Pagamentos"],["documents",`Anexos (${f.documents.length})`]].filter(([key])=>key!=="cost"||f.quote).map(([key,label])=><Button key={key} variant="ghost" onClick={()=>goTo(key)}>{label}</Button>)}</nav>
-      <p>Pedidos agrupados pela cotação de origem. Aprovações seguem as alçadas da empresa.</p>
+      <p>Pedidos agrupados pela cotação de origem. Pendências de aprovação ficam sinalizadas sem impedir o andamento.</p>
       <section aria-label="Pendências da compra"><h3>Pendências para conferência</h3><p>{status.orders} pedido(s) ativo(s) · {status.deliveries} com entrega pendente · {status.missingInvoices} sem nota vinculada · {f.documents.length} anexo(s)</p>{status.pending.length?<ul>{status.pending.map(p=><li key={p.label}><Button variant="ghost" onClick={()=>goTo(p.key)}>{p.label}</Button></li>)}</ul>:<p>Nenhuma pendência detectada nos recebimentos, notas e endereços de anexos desta ficha.</p>}<p>As indicações orientam a conferência; não substituem a aprovação nem autorizam pagamentos.</p></section>
       <div data-section="conference" tabIndex={-1}><PurchaseConference data={data} dossier={f} asOf={today()} canReadTitles={canReadTitles}
         onOpenInvoice={canReadTitles?(onReviewInvoice||(navigate?invoice=>navigate('fin',{obraId:invoice.obraId},{action:'review-purchase-invoice',record:{invoiceId:invoice.id,obraId:invoice.obraId}}):undefined)):undefined}/></div>
@@ -73,9 +74,9 @@ export function PurchaseDossier({data,selection,onClose,inline=false,currentUser
       </section>
       <section data-section="documents" tabIndex={-1}><h3>Notas e demais anexos · {f.documents.length}</h3>
         {!f.documents.length&&<p>Nenhum arquivo anexado aos registros desta compra.</p>}
-        {f.documents.map((d,index)=><div className="purchase-document-row" key={`${d.origem}-${d.id||index}`}><span>{d.origem} · {d.legenda||d.nome||"Documento"}</span>{urlDocumentoCompra(d)?<><Button variant="secondary" onClick={()=>setSelected(d)}>Visualizar</Button><a href={urlDocumentoCompra(d)} target="_blank" rel="noreferrer">Abrir arquivo ↗</a></>:<span>Arquivo sem endereço válido</span>}</div>)}
+        {f.documents.map((d,index)=><div className="purchase-document-row" key={`${d.origem}-${d.id||index}`}><span>{d.origem} · {d.legenda||d.nome||"Documento"}</span>{documentEvidenceInfo(d).resolvable?<><Button variant="secondary" onClick={()=>setSelected(d)}>Visualizar</Button>{documentEvidenceInfo(d).url&&<FinancialDocumentLink href={documentEvidenceInfo(d).url}>Abrir arquivo ↗</FinancialDocumentLink>}</>:<span>Arquivo sem endereço válido</span>}</div>)}
       </section>
-      {selected&&<section aria-label="Visualização do anexo"><h3>{selected.legenda||selected.nome||"Documento"}</h3>{preview?<iframe title="Visualização do documento da compra" src={preview} className="purchase-document-preview"/>:<p>Use “Abrir arquivo” para visualizar este formato no serviço de origem.</p>}<a href={url} target="_blank" rel="noreferrer">Abrir arquivo em outra aba ↗</a><Button variant="ghost" onClick={()=>setSelected(null)}>Fechar visualização</Button></section>}
+      {selected&&<section aria-label="Visualização do anexo"><DocumentEvidence documents={[selected]} origin={selected.origem}/><Button variant="ghost" onClick={()=>setSelected(null)}>Fechar visualização</Button></section>}
     </div>
   </DossierFrame>;
 }

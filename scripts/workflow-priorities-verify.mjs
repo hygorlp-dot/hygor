@@ -1,14 +1,17 @@
+import {instrumentWorkflowPage} from "./lib/workflow-evidence.mjs";
 import {chromium} from '@playwright/test';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {data as initial,profile} from './fixtures/workflow-priorities-data.mjs';
 import {applyOperationalCommand} from '../src/domains/sync/operational-commands.js';
 const dir='artifacts/workflow-priorities';await mkdir(dir,{recursive:true});
+const base=process.env.WORKFLOW_BASE_URL||'http://127.0.0.1:4198';
+assert.ok(['127.0.0.1','localhost'].includes(new URL(base).hostname));
 const browser=await chromium.launch({headless:true});
 const results=[];
 try{for(const width of (process.env.WORKFLOW_WIDTH?[Number(process.env.WORKFLOW_WIDTH)]:[1440,390,320])){
  let data=structuredClone(initial);const commands=[],errors=[],metrics=[];
- const page=await browser.newPage({viewport:{width,height:width>767?1000:844}});page.setDefaultTimeout(20000);
+ const page=await browser.newPage({viewport:{width,height:width>767?1000:844}});await instrumentWorkflowPage(page);page.setDefaultTimeout(20000);
  page.on('pageerror',e=>errors.push(e.message));await page.clock.setFixedTime(new Date('2026-10-30T15:00:00Z'));
  await page.route('https://**/*',r=>r.abort());
  await page.route('**/api/**',r=>r.fulfill({json:{ok:true,items:[],bases:[]}}));
@@ -17,7 +20,7 @@ try{for(const width of (process.env.WORKFLOW_WIDTH?[Number(process.env.WORKFLOW_
  async function open(label){await page.keyboard.press('Control+k');const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');await search.fill(label);await search.locator('xpath=../..').getByRole('button').filter({hasText:label}).first().click();await page.waitForFunction(()=>{const main=document.querySelector('main');return main&&main.textContent.trim()&&!/^Carregando/.test(main.textContent.trim())});}
  async function capture(name){await page.evaluate(()=>document.fonts.ready);await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));await page.screenshot({path:`${dir}/${name}-${width}.png`});metrics.push(await page.evaluate(name=>({name,width:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth+1}),name));}
  async function area(label,value,text){if(width<768)await page.getByRole('combobox',{name:label,exact:true}).selectOption(value);else await page.getByRole('navigation',{name:label,exact:true}).getByRole('button',{name:text,exact:true}).click();}
- await page.goto('http://127.0.0.1:4198');await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('isolated-review');await page.getByRole('button',{name:'Acessar central MARCELL'}).click();await page.getByRole('heading',{name:'Visão gerencial',exact:true}).waitFor();
+ await page.goto(base);await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('isolated-review');await page.getByRole('button',{name:'Acessar central MARCELL'}).click();await page.getByRole('heading',{name:'Visão gerencial',exact:true}).waitFor();
  await open('Planejamento');await page.getByRole('button',{name:'mes',exact:true}).click();
  await page.getByRole('button',{name:'Materiais e compras',exact:true}).click();
  const panel=page.getByRole('region',{name:'Materiais e compras da etapa'});

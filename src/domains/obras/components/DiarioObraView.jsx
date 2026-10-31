@@ -1,3 +1,4 @@
+import { sessionContext } from "../../../lib/session-context.js";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
 // DiarioObraView — tela do Diário de Obra (RDO), extraída de
@@ -12,10 +13,10 @@ import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
 import { chamarIA, enviarArquivoOneDrive } from "../../../api";
-import {
-  Badge, Bloco, Btn, C, Ic, Inp, Modal, PageHero, Sel,
-  comprimirImagem, escapeHtml, fmt, fmtDate, obraContextoSalvo, today, uid,
-} from "../../../LegacyApp";
+import { Badge, Bloco, Btn, Ic, Inp, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { comprimirImagem } from "../../../legacy/files.js";
+import { escapeHtml, fmt, fmtDate, obraContextoSalvo, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { fieldReportCompletion, fieldReportIsReadOnly } from "../field-report-workflow";
 import { aplicarRollup, montarTarefas, orcamentoDaObra } from "../../planejamento/legacy-engine";
@@ -92,7 +93,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
   const audioChunksRdoRef=useRef([]);
   const [servicoModal, setServicoModal] = useState(null);
   const filaSalvamentoRdoRef=useRef(Promise.resolve({ok:true}));
-  useEffect(()=>{const id=sessionStorage.getItem("arcd_rdo_obra");if(id&&(data.obras||[]).some(o=>o.id===id)){setObraId(id);setFiltroObraRdo(id);}sessionStorage.removeItem("arcd_rdo_obra");},[data.obras]);
+  useEffect(()=>{const id=sessionContext.getItem("arcd_rdo_obra");if(id&&(data.obras||[]).some(o=>o.id===id)){setObraId(id);setFiltroObraRdo(id);}sessionContext.removeItem("arcd_rdo_obra");},[data.obras]);
 
   // ---- Persistencia do RDO ----
   const executarSalvarRDO = async (mut) => {

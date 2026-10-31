@@ -196,6 +196,7 @@ export const authorizeFinancialCommand = (commandType, role) => {
 const RECONCILIATION_COMMANDS=new Set(Object.values(RECONCILIATION_COMMAND));
 const ATTENDANCE_COMMANDS=new Set(Object.values(ATTENDANCE_COMMAND));
 export const OPERATIONAL_COMMAND_ROLES = {
+  [OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED]:['admin','financeiro'],
   ...Object.fromEntries([...ENGINEERING_COMMAND_TYPES].map(type=>[type,ENGINEERING_ROLES])),
   ...Object.fromEntries([...FILE_COMMAND_TYPES].map(type=>[type,FILE_ROLES])),
   ...Object.fromEntries([...DOSSIER_COMMAND_TYPES].map(type=>[type,['admin','engenheiro']])),
@@ -344,6 +345,7 @@ export const authorizeOperationalCommand = (commandType, role) => {
   return { ok:true };
 };
 const FINANCIAL_OPERATIONAL_COMMANDS=new Set([
+  OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED,
   OPERATIONAL_COMMAND.COST_ALLOCATION_SAVED,
   OPERATIONAL_COMMAND.MANUAL_RECEIPT_CREATED,OPERATIONAL_COMMAND.MANUAL_RECEIPT_REVERSED,
   OPERATIONAL_COMMAND.CLIENT_MEASUREMENT_SAVED,OPERATIONAL_COMMAND.CLIENT_MEASUREMENTS_GENERATED,
@@ -2810,7 +2812,8 @@ export default async function handler(req, res) {
     if(action==="operational-command"){
       const rawCommand=req.body?.command||{};
       // Engineering durations always use server time, never a supplied browser clock.
-      const command=(ENGINEERING_COMMAND_TYPES.has(rawCommand.type)||FILE_COMMAND_TYPES.has(rawCommand.type)||DOSSIER_COMMAND_TYPES.has(rawCommand.type))?{...rawCommand,now:new Date().toISOString()}:rawCommand;
+      const command=(ENGINEERING_COMMAND_TYPES.has(rawCommand.type)||FILE_COMMAND_TYPES.has(rawCommand.type)||DOSSIER_COMMAND_TYPES.has(rawCommand.type)||rawCommand.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED)?{...rawCommand,now:new Date().toISOString()}:rawCommand;
+      if(command.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED){command.actorId=usuario.id;command.actorName=usuario.nome;}
       const authz=authorizeOperationalCommand(command.type,usuario.role);
       if(!authz.ok)return res.status(authz.status).json({error:authz.error});
       if(!/^[a-zA-Z0-9_-]{16,200}$/.test(String(command.idempotencyKey||"")))return res.status(400).json({error:"Chave idempotente operacional inválida."});

@@ -1,3 +1,5 @@
+import {forecastDuplicationWarnings,forecastStageRoot} from './forecast-duplication.js';
+import {snapshotAmendmentReviews,forecastReviewHistory} from './forecast-review-history.js';
 import {getActiveBudgetBaseline} from '../orcamentos/calculations.js';
 import {active,buildFinancialLedger,invoiceAmount} from './ledger.js';
 import {calcOrcadoComprado} from '../compras/budget-tracking.js';
@@ -23,7 +25,7 @@ export function costPlanningFingerprint(data,obraId){
  const links=Object.entries(sources).flatMap(([type,key])=>(data[key]||[]).filter(r=>r.obraId===obraId||r.rateios?.some(a=>a.obraId===obraId)).map(r=>[type,String(r.id),Number(r.version||0),r.etapaId||'',r.orcNivel1Id||'',(r.rateios||[]).filter(a=>a.obraId===obraId).map(a=>[a.id||'',a.etapaId||''])]));
  const basis={budgetId:tracking.orc?.id||'',stages:(tracking.orc?.etapas||[]).map(s=>[s.id,s.parentId||'']),rows:tracking.linhas.map(r=>[r.it.id,Math.round(r.orcado*100),Math.round(r.comprometido*100),Math.round(r.recebido*100)]),unassigned:Math.round((tracking.semApropriacao||0)*100),unassignedReceived:Math.round((tracking.semApropriacaoRecebida||0)*100)};
  const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
- const json=JSON.stringify(stable({startDate:work?.startDate||'',contractStart:work?.contractStart||'',events,links,basis}));
+ const json=JSON.stringify(stable({startDate:work?.startDate||'',contractStart:work?.contractStart||'',events,links,basis,changes:work?.aditivosContrato||[]}));
  let a=2166136261,b=5381;for(let i=0;i<json.length;i++){a=Math.imul(a^json.charCodeAt(i),16777619);b=Math.imul(b,33)^json.charCodeAt(i);}
  return `${json.length}-${a>>>0}-${b>>>0}`;
 }
@@ -48,22 +50,46 @@ export function applyCostControlCommand(data,command,now=new Date().toISOString(
  if(!work)return fail('Obra não encontrada.');
  if(!command.actorId)return fail('Sessão indisponível para revisar custos.');
  const {budget,stages}=costControlStages(data,obraId);
- if(!budget||budget.id!==p.budgetId)return fail('O orçamento de controle mudou. Atualize a conferência.');
- if(!stages.some(s=>s.id===p.stageId))return fail('Escolha uma etapa de primeiro nível do orçamento de controle.');
  const note=String(p.note||'').trim();
- if(note.length<5||note.length>2000)return fail('Informe uma justificativa entre 5 e 2.000 caracteres.');
+ if(note.length>2000)return fail('Use até 2.000 caracteres nas premissas.');
  const audit={at:now,byId:String(command.actorId),by:String(command.actorName||'Usuário autenticado'),note};
  if(command.type===COST_CONTROL_COMMAND.COST_FORECAST_SAVED){
    const version=Number(work.costPlanning?.version||0);
    if(command.expectedVersion==null||Number(command.expectedVersion)!==version)return fail('A previsão foi revisada por outra pessoa. Atualize a tela.');
-   if(p.fingerprint!==costPlanningFingerprint(data,obraId))return fail('Os custos ou o orçamento mudaram. Atualize a previsão.');
-   if(!/^\d{4}-\d{2}-\d{2}$/.test(p.asOf||'')||!Number.isFinite(Date.parse(p.asOf))||new Date(`${p.asOf}T12:00:00Z`).toISOString().slice(0,10)!==p.asOf||p.asOf>now.slice(0,10))return fail('Informe uma data de revisão válida até hoje.');
+   if(p.stageId!=='unassigned'&&!stages.some(s=>s.id===p.stageId))return fail('Escolha uma etapa atual ou Sem apropriação.');
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(p.asOf||'')||!Number.isFinite(Date.parse(p.asOf))||new Date(`${p.asOf}T12:00:00Z`).toISOString().slice(0,10)!==p.asOf)return fail('Informe uma data de revisão válida.');
    if(typeof p.remainingCents!=='number'||!Number.isSafeInteger(p.remainingCents)||p.remainingCents<0)return fail('O custo restante precisa ser um valor válido, maior ou igual a zero.');
+   const contingencyCents=p.contingencyCents??0;
+   if(!Number.isSafeInteger(contingencyCents)||contingencyCents<0)return fail('Informe uma reserva de risco válida, maior ou igual a zero.');
    if(!p.basis||['incurred','committed','budget'].some(k=>!Number.isSafeInteger(p.basis[k])))return fail('A memória de cálculo está incompleta. Atualize a previsão.');
-   const revision={...audit,budgetId:budget.id,stageId:p.stageId,asOf:p.asOf,remainingCents:p.remainingCents,basis:{incurred:p.basis.incurred,committed:p.basis.committed,budget:p.basis.budget},fingerprint:p.fingerprint,version:version+1};
-   const planning={...work.costPlanning,version:version+1,stages:{...work.costPlanning?.stages,[p.stageId]:revision},history:[...(work.costPlanning?.history||[]),revision].slice(-100)};
-   return {ok:true,entityId:work.id,data:{...data,obras:data.obras.map(w=>w.id===work.id?{...w,costPlanning:planning}:w)}};
+   const previousStage=work.costPlanning?.stages?.[p.stageId];
+   const amendmentCoverage=p.amendmentCoverage??(previousStage?.budgetId===(p.budgetId||'')?previousStage?.amendmentCoverage:{} )??{};
+   if(!amendmentCoverage||Array.isArray(amendmentCoverage)||typeof amendmentCoverage!=='object')return fail('Conferência dos aditivos inválida.');
+   if(p.amendmentCoverage!=null)for(const [id,coverage] of Object.entries(amendmentCoverage)){
+     const item=(work.aditivosContrato||[]).find(a=>a.id===id);
+     if(!item||forecastStageRoot(budget,item.etapaId)!==p.stageId)return fail('O aditivo da conferência não pertence à obra e etapa selecionadas.');
+     if(!coverage||!['included','separate','unreviewed'].includes(coverage.mode)||!Number.isSafeInteger(coverage.amountCents)||!Number.isSafeInteger(coverage.remainingCents))return fail('Conferência dos aditivos inválida.');
+     if(coverage.justification!=null&&(typeof coverage.justification!=='string'||coverage.justification.length>2000))return fail('A justificativa da conferência deve ser um texto de até 2.000 caracteres.');
+   }
+   const notices=[];
+   if(!budget)notices.push('Previsão sem orçamento de controle aprovado; comparação orçamentária indisponível.');
+   if(budget&&budget.id!==p.budgetId)notices.push('O orçamento de controle mudou; reconfira a previsão.');
+   if(p.fingerprint!==costPlanningFingerprint(data,obraId))notices.push('A base do rascunho mudou. O valor foi preservado; reconfira a previsão.');
+   if(p.asOf>now.slice(0,10))notices.push('Data de corte futura: confira se todos os custos previstos foram considerados.');
+   if(note.length<5)notices.push('Premissas incompletas; registre como estimou o custo restante.');
+   const workflowWarnings=notices.map(message=>({code:'FORECAST_REVIEW',blocking:false,stage:'Previsão de custo',owner:'Responsável pelo orçamento',message,resolution:'Confira a base, complemente as premissas e salve uma nova revisão.'}));
+   const revision={...audit,budgetId:p.budgetId||'',stageId:p.stageId,asOf:p.asOf,remainingCents:p.remainingCents,contingencyCents,amendmentCoverage,basis:{incurred:p.basis.incurred,committed:p.basis.committed,budget:p.basis.budget},fingerprint:p.fingerprint,version:version+1,workflowWarnings};
+   revision.amendmentReviewDetails=snapshotAmendmentReviews(work,budget,revision);
+   for(const review of revision.amendmentReviewDetails)if(!review.justification.trim())workflowWarnings.push({code:'FORECAST_REVIEW_JUSTIFICATION_MISSING',blocking:false,stage:'Conferência de duplicidades',owner:'Responsável pela conferência',message:`Conferência do aditivo ${review.amendmentNumber||review.amendmentId} salva sem justificativa individual.`,resolution:'Você pode continuar. Complemente a justificativa e confirme uma nova revisão quando possível.'});
+   const reviewHistory=[...forecastReviewHistory(work),...revision.amendmentReviewDetails.map(r=>({...r,version:revision.version,at:audit.at,by:audit.by,byId:audit.byId,premises:note,legacy:false}))];
+   const planning={...work.costPlanning,version:version+1,stages:{...work.costPlanning?.stages,[p.stageId]:revision},history:[...(work.costPlanning?.history||[]),revision].slice(-100),amendmentReviewHistory:reviewHistory};
+   const nextWork={...work,costPlanning:planning};
+   workflowWarnings.push(...forecastDuplicationWarnings(nextWork,budget));
+   return {ok:true,entityId:work.id,summary:{workflowWarnings},data:{...data,obras:data.obras.map(w=>w.id===work.id?nextWork:w)}};
  }
+ if(!budget||budget.id!==p.budgetId)return fail('O orçamento de controle mudou. Atualize a conferência.');
+ if(!stages.some(s=>s.id===p.stageId))return fail('Escolha uma etapa de primeiro nível do orçamento de controle.');
+ if(note.length<5)return fail('Informe uma justificativa entre 5 e 2.000 caracteres.');
  const key=sources[p.sourceType],record=(data[key]||[]).find(r=>String(r.id)===String(p.sourceId));
  if(!key||!record||!active(record))return fail('Origem não encontrada ou inativa. Confira o lançamento original.');
  if(command.expectedVersion==null||Number(record.version||0)!==Number(command.expectedVersion))return fail('O lançamento foi alterado por outra pessoa. Atualize a conferência.');

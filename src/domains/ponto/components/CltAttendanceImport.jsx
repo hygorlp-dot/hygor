@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {Btn,Inp,Sel} from '../../../LegacyApp';
+import { Btn, Inp, Sel } from "../../../legacy/ui.jsx";
 import {buildAttendanceImport} from '../clt-attendance.js';
 
 export function CltAttendanceImport({data,employee,draft,onImport,onManual,disabled}){

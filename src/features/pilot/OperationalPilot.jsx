@@ -1,4 +1,5 @@
-import { lazy, Suspense, useMemo, useRef, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
+import { lazyWithCssRetry as lazy } from "../../lib/lazy-with-css-retry.js";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { buildPilotCases, pilotMetrics, pilotReview } from "./pilot-model.js";

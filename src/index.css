@@ -649,9 +649,9 @@ canvas {
 .arcd-topbar {
   min-height: 48px;
   border-bottom: 1px solid #d6d6d6 !important;
-  background: var(--arcd-surface-card) !important;
+  background: var(--arcd-surface-card, #fff) !important;
   box-shadow: none !important;
-  backdrop-filter: blur(12px) !important;
+  backdrop-filter: none !important;
 }
 
 .arcd-topbar .app-breadcrumb > span:first-child {
@@ -2334,6 +2334,7 @@ canvas {
 }
 
 .ponto-geral-table-wrap {
+  isolation: isolate;
   border-radius: 4px !important;
   box-shadow: inset 0 1px 0 #fff;
   scrollbar-color: #9ca1a5 #eceeef;
@@ -2344,8 +2345,35 @@ canvas {
 }
 
 .ponto-geral-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--arcd-surface-muted, #F3F0E9) !important;
   height: 48px;
   vertical-align: middle;
+}
+
+.ponto-geral-table thead th.ponto-col-funcionario {
+  z-index: 4 !important;
+}
+
+.ponto-geral-table tbody td.ponto-col-funcionario {
+  z-index: 1 !important;
+  background: var(--arcd-surface-card, #fff) !important;
+}
+
+/* O tema limpa fundos de tabelas comuns; células fixas precisam ocultar
+   as linhas que passam por baixo durante a rolagem. */
+[data-theme="marcell"] .arcd-main .ponto-geral-table thead th {
+  background: var(--arcd-surface-muted, #F3F0E9) !important;
+}
+
+[data-theme="marcell"] .arcd-main .ponto-geral-table thead th.ponto-feriado {
+  background: var(--arcd-warning-surface, #fff3d6) !important;
+}
+
+[data-theme="marcell"] .arcd-main .ponto-geral-table tbody td.ponto-col-funcionario {
+  background: var(--arcd-surface-card, #fff) !important;
 }
 
 .ponto-geral-table tbody tr {
@@ -7187,6 +7215,19 @@ canvas {
 
 body.no-scroll .arcd-team-chat {
   display: none !important;
+}
+
+body.no-scroll .arcd-mobile-nav { visibility:hidden; pointer-events:none; }
+.arcd-modal-overlay { top:var(--mrc-viewport-offset-top,0px)!important; bottom:auto!important; height:var(--mrc-viewport-height,100dvh); }
+.arcd-modal-overlay .arcd-modal-panel { max-height:min(900px,calc(100% - 28px))!important; }
+.unsaved-changes-prompt p { line-height:1.6; }
+.unsaved-changes-prompt__actions { display:flex;flex-wrap:wrap;gap:8px;margin-top:16px; }
+[data-theme="marcell"] .arcd-mobile-nav .mobile-primary-nav > button { font-family:var(--arcd-font-sans)!important; }
+.mobile-primary-nav__label { display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal; }
+@media(max-width:640px){
+ .arcd-modal-overlay .arcd-modal-panel {height:100%;max-height:100%!important;}
+ .arcd-modal-overlay .arcd-modal-header button {min-width:44px!important;min-height:44px!important;}
+ .unsaved-changes-prompt__actions button {flex:1 1 150px;min-height:44px;}
 }
 
 @media (max-width: 700px) {

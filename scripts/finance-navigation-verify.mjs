@@ -35,6 +35,7 @@ try {
     await selectFinanceQueue(page,'receiveToday','Receber hoje');
     await area('Visão financeira');
     await expect(page.getByText('Análises e gráficos por obra',{exact:true}).locator('..')).not.toHaveAttribute('open');
+    await area('Caixa por conta');
     await revealFinanceControl(page.getByLabel('Horizonte',{exact:true}));
     await page.getByLabel('Horizonte',{exact:true}).selectOption('7');
     await page.getByLabel('Saldo inicial da simulação (R$)',{exact:true}).fill('1500');
@@ -47,7 +48,7 @@ try {
     await page.getByRole('button',{name:'Abrir ficha fiscal',exact:true}).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.keyboard.press('Escape');
-    await page.getByRole('button',{name:'Voltar à conferência de documentos',exact:true}).click();
+    await page.getByRole('button',{name:'Voltar à central de documentos',exact:true}).click();
     await expect(page.getByLabel('Pesquisar documento ou fornecedor',{exact:true})).toHaveValue('Loja');
     await expect(page.getByLabel('Conferência',{exact:true})).toHaveValue('category');
     await expect(page.getByLabel('Competência ou mês de emissão',{exact:true})).toHaveValue('');
@@ -86,7 +87,7 @@ try {
     await page.getByRole('button',{name:'Limpar busca e situação',exact:true}).click();
     await expect(page.getByRole('article')).toHaveCount(1);
     passed.push(`${width}: filtros não deixam conferência de item fora do recorte`);
-    await area('Visão financeira');
+    await area('Caixa por conta');
     await expect(page.getByLabel('Horizonte',{exact:true})).toHaveValue('7');
     await expect(page.getByLabel('Saldo inicial da simulação (R$)',{exact:true})).toHaveValue('1500');
     passed.push(`${width}: cenário preservado entre áreas; gráficos recolhidos`);

@@ -13,10 +13,10 @@ import {
   CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "../../../components/charts/LazyRecharts";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import {
-  Badge, Btn, C, CampoCNPJ, Ic, Inp, Modal, PageHero, Sel, TabRow,
-  compLabel, comprimirImagem, fmt, fmtDateFull, today, uid,
-} from "../../../LegacyApp";
+import { Badge, Btn, CampoCNPJ, Ic, Inp, Modal, PageHero, Sel, TabRow } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { compLabel, fmt, fmtDateFull, today, uid } from "../../../legacy/format.js";
+import { comprimirImagem } from "../../../legacy/files.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { cancelRecord as cancelarRegistro } from "../../data/soft-delete";
 import {

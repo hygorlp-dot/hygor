@@ -1,4 +1,5 @@
 import {useMemo,useState} from 'react';
+import ProcurementProcessStatus from './ProcurementProcessStatus.jsx';
 import {Button} from '../../../components/ui/button.jsx';
 import {Select} from '../../../design-system/primitives/Select.jsx';
 import InvoiceConference from '../../../features/financeiro/InvoiceConference.jsx';
@@ -27,6 +28,7 @@ export default function PurchaseConference({data,dossier,asOf,canReadTitles,onOp
     <Select label="Pedido para conferência" value={String(current.order.id)} onChange={e=>{setOrderId(e.target.value);setInvoiceId('');}} options={model.orders.map(({order})=>({value:order.id,label:`${order.numero||order.id} · ${order.status||'Situação não informada'}`}))}/>
     {invoices.length>0&&<Select label="Nota fiscal para conferência" value={String(invoice.id)} onChange={e=>setInvoiceId(e.target.value)} options={invoices.map(n=>({value:n.id,label:`NF ${n.numero||n.id} · ${n.status||'Situação não informada'}`}))}/>}
    </div>
+   <ProcurementProcessStatus data={data} order={current.order}/>
    <dl className="purchase-conference__amounts">
     <div><dt>Pedido</dt><dd>{money(current.amountsKnown?current.match.orderedCents:undefined)}</dd></div>
     <div><dt>Recebido registrado · valor do pedido</dt><dd>{money(current.amountsKnown?current.match.receivedCents:undefined)}</dd></div>

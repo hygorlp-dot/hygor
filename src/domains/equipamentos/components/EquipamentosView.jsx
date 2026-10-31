@@ -10,14 +10,14 @@ import { FlowTabs, useWorkflow } from "../../../features/workflow/WorkflowNaviga
 // docs/PLANO_REDUCAO_LEGACYAPP_SUPABASE.md.
 // ===================================================================
 
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { lazyWithCssRetry as lazy } from "../../../lib/lazy-with-css-retry.js";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import {
-  Badge, Btn, C, CampoCNPJ, escapeHtml, Ic, Inp, MiniKpi, Modal,
-  MONTHS, PageHero, Sel, abrirRelatorioPadrao, diasCorridos, fmt,
-  fmtDate, fmtDateFull, maiusculoOrcamento, montarRelatorioPadraoHtml,
-  today, uid,
-} from "../../../LegacyApp";
+import { Badge, Btn, CampoCNPJ, Ic, Inp, MiniKpi, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { escapeHtml, MONTHS, fmt, fmtDate, fmtDateFull, maiusculoOrcamento, today, uid } from "../../../legacy/format.js";
+import { abrirRelatorioPadrao, montarRelatorioPadraoHtml } from "../../../reports/legacy-standard.js";
+import { diasCorridos } from "../../planejamento/legacy-engine.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { listarBasesReferencia, pesquisarInsumosReferencia } from "../../../api";
 import { consolidateReferenceBases as consolidarBasesReferencia } from "../../orcamentos/reference-bases";

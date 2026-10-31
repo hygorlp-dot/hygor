@@ -1,3 +1,4 @@
+@import './control-contract.css';
 .arcd-control { color: var(--arcd-text-primary); font-family: var(--arcd-font-sans); }
 .arcd-field { display: grid; gap: var(--arcd-space-2); }
 .arcd-field__label { color: var(--arcd-text-primary); font-size: var(--arcd-type-label); font-weight: var(--arcd-font-weight-medium); }

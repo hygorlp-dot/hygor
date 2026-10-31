@@ -15,6 +15,6 @@ it("renova a autorização do anexo protegido antes de mostrar o comprovante",as
 });
 it("mantém recuperação por tentativa e não exibe original protegido quando o acesso é recusado",async()=>{
   await render(vi.fn().mockResolvedValue({ok:false,status:403}));
-  expect(container.querySelector("img")).toBeNull();expect(container.textContent).toContain("Não foi possível visualizar este arquivo aqui");
+  expect(container.querySelector("img")).toBeNull();expect(container.textContent).toContain("Seu acesso não permite abrir este documento");
   expect(container.textContent).toContain("Tentar novamente");
 });

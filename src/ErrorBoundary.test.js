@@ -49,4 +49,25 @@ describe("recuperação após troca de versão", () => {
     expect(recoverDynamicImport(new Error("Falha ao gravar a medição"), win)).toBe(false);
     expect(win.location.replace).not.toHaveBeenCalled();
   });
+
+  it('não abandona o app carregado com uma recarga automática enquanto offline',()=>{
+    const win=recoveryWindow();win.navigator={onLine:false};
+    expect(recoverDynamicImport(cssError(),win)).toBe(false);
+    expect(win.location.replace).not.toHaveBeenCalled();
+  });
+
+  it("impede ciclos entre arquivos diferentes do mesmo build", () => {
+    const win=recoveryWindow();
+    expect(recoverDynamicImport(cssError(),win)).toBe(true);
+    expect(recoverDynamicImport(new Error('Failed to fetch dynamically imported module: /assets/another.js'),win)).toBe(false);
+    expect(win.location.replace).toHaveBeenCalledTimes(1);
+  });
+
+  it("permite recuperação de uma nova versão sem herdar o bloqueio anterior", () => {
+    const win=recoveryWindow();let entry='https://pontosarcd.vercel.app/assets/index-old.js';
+    win.document={querySelector:()=>({src:entry})};
+    expect(recoverDynamicImport(cssError(),win)).toBe(true);
+    entry='https://pontosarcd.vercel.app/assets/index-new.js';
+    expect(recoverDynamicImport(cssError(),win)).toBe(true);
+  });
 });

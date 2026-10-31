@@ -8,3 +8,37 @@
 .cash-forecast__options summary{min-height:44px;align-content:center;cursor:pointer}
 .cash-forecast__controls .cash-forecast__checkbox{flex-direction:row;align-items:center;gap:8px}
 .cash-forecast__checkbox input{width:22px;height:22px;flex-shrink:0}
+.account-cash{margin-block:20px;padding-block:16px;border-block:1px solid var(--arcd-border-default)}
+.account-cash p{max-width:75ch;color:var(--arcd-text-secondary)}
+.account-cash__totals{display:flex;flex-wrap:wrap;gap:16px 32px;margin-block:16px;font-variant-numeric:tabular-nums}
+.account-cash__totals dt{color:var(--arcd-text-secondary)}
+.account-cash__totals dd{margin:4px 0 0;font-weight:600}
+.local-account-preview{margin-block:20px;padding-block:16px;border-block:1px solid var(--arcd-border-default)}
+.local-account-preview p{max-width:75ch;color:var(--arcd-text-secondary)}
+.local-account-preview ul{padding-inline-start:20px;overflow-wrap:anywhere}
+.local-account-preview .account-cash{scroll-margin-block-start:80px}
+.planning-cash-timeline{padding-block:12px;border-block:1px solid var(--arcd-border-default);margin-block:16px}
+.planning-cash-timeline summary{min-height:44px;align-content:center;cursor:pointer;font-weight:600}
+.planning-cash-timeline h3{font-size:var(--arcd-type-section-title);margin-block:12px}
+.planning-cash-timeline label{display:flex;flex-direction:column;gap:6px;max-width:32rem}
+.planning-cash-timeline select{min-height:44px;max-width:100%;padding:8px;background:var(--arcd-surface-card);color:var(--arcd-text-primary);border:1px solid var(--arcd-border-strong);border-radius:var(--arcd-radius-control)}
+.planning-cash-timeline select:focus-visible,.planning-cash-timeline summary:focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:2px}
+.planning-cash-timeline__stages{list-style:none;padding:0;margin:16px 0}
+.planning-cash-timeline__stages>li{padding-block:16px;border-block-end:1px solid var(--arcd-border-default)}
+.planning-cash-timeline__stages header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.planning-cash-timeline__stages h4{font-size:var(--arcd-type-card-title)}
+.planning-cash-timeline__stages dl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-block:12px}
+.planning-cash-timeline__stages dt{color:var(--arcd-text-secondary)}
+.planning-cash-timeline__stages dd{margin:4px 0 0;font-variant-numeric:tabular-nums}
+.planning-cash-timeline p,.planning-cash-timeline h4{overflow-wrap:anywhere}
+@media(max-width:700px){.planning-cash-timeline__stages dl{grid-template-columns:repeat(2,minmax(0,1fr))}.planning-cash-timeline button{min-height:44px;white-space:normal}.planning-cash-timeline__stages>li{padding-block:12px}}
+.planning-coverage{margin-block:16px}
+.planning-coverage h5{font-size:var(--arcd-type-card-title);font-weight:600;margin-block:12px}
+.planning-coverage ul{padding:0;list-style:none}
+.planning-coverage li{padding-block:12px;border-block-end:1px solid var(--arcd-border-default)}
+.planning-coverage__request{margin-block:16px;min-width:0}
+.planning-coverage__request>header{align-items:center}
+.planning-coverage li dl{grid-template-columns:repeat(3,minmax(0,1fr))}
+.planning-coverage__order{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.planning-coverage__order span{overflow-wrap:anywhere;min-width:0}
+@media(max-width:700px){.planning-coverage li dl{grid-template-columns:1fr}.planning-coverage__request>header{align-items:start;flex-direction:column}.planning-coverage__order{align-items:start;flex-direction:column}}

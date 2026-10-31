@@ -14,9 +14,9 @@ export const PURCHASE_AREAS = [
 ];
 export const PURCHASE_AREA_LABELS = { fila:"Fila de trabalho", aprovacoes:"Aprovações", recebimentos:"Recebimentos" };
 
-export function PurchaseNavigation({ area, onNavigate, counts, financeCount, otherAreas }) {
+export function PurchaseNavigation({ area, onNavigate, counts, financeCount, orderCount, otherAreas }) {
   return <WorkspaceNavigation className="purchase-navigation" label="Fluxo de compras" active={area} onChange={onNavigate}
-    items={[...PURCHASE_AREAS,["financeiro","Pagamentos"]].map(([id,label]) => ({id,label,count:id === "financeiro" ? financeCount : id === "fila" ? Object.values(counts).reduce((a,b) => a+b,0) : counts[id] || 0}))}
+    items={[...PURCHASE_AREAS,["financeiro","Pagamentos"]].map(([id,label]) => ({id,label,count:id === "financeiro" ? financeCount : id === "pedidos" ? orderCount : id === "fila" ? Object.values(counts).reduce((a,b) => a+b,0) : counts[id] || 0}))}
     toolsLabel="Consultas e cadastros" toolsClassName="purchase-tools" tools={[["historico_compras","Histórico de compras"],["precos","Preços por material"],...otherAreas].map(([id,label]) => ({id,label}))}/>;
 }
 

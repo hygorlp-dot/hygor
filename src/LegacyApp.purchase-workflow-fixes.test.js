@@ -1,6 +1,7 @@
 import {describe,expect,it} from "vitest";
 import {readFileSync} from "node:fs";
 
+const suporteCompras=readFileSync(`${process.cwd()}/src/domains/compras/LegacySupport.jsx`,"utf8");
 const legacy=readFileSync(`${process.cwd()}/src/LegacyApp.jsx`,"utf8");
 const compras=readFileSync(`${process.cwd()}/src/domains/compras/components/ComprasView.jsx`,"utf8");
 const contratosWorkspace=readFileSync(`${process.cwd()}/src/domains/compras/components/PurchaseContractsWorkspace.jsx`,"utf8");
@@ -35,11 +36,13 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
     expect(mover).not.toMatch(/abrirPagamento\(card\.registro\)/);
   });
 
-  it("solicitação reprovada não vira pedido",()=>{
+  it("solicitação com decisão pendente ou recusada avisa e permite gerar pedido",()=>{
     const gerar=trecho(compras,"const gerarPedidoSolicitacao=","const abrirCotacaoDaSolicitacao=");
-    // Desde a C1.1, qualquer status diferente de "aprovada" bloqueia.
+    // Pendência processual avisa; os comandos do domínio validam a integridade.
     expect(gerar).toMatch(/instanciaApr&&instanciaApr\.status!=="aprovada"/);
-    expect(gerar).toMatch(/foi reprovada na aprovação/);
+    const aviso=trecho(gerar,"if(instanciaApr","const itens");
+    expect(aviso).toMatch(/O pedido pode seguir/);
+    expect(aviso).not.toMatch(/return/);
   });
 
   it("confirmação de chegada converte para a unidade do estoque",()=>{
@@ -75,7 +78,7 @@ describe("correções do fluxo de compras (auditoria de 22/10/2026)",()=>{
     const pagar=trecho(compras,"const registrarPagamento=async","const reclassificarOrigemPagamento=");
     expect(pagar).toMatch(/conferenciaPagamentoPedido\(data,pedido\.id\)/);
     expect(pagar).toMatch(/adiantamento:!!f\.adiantamento,motivoAdiantamento:/);
-    expect(compras).toMatch(/Motivo do adiantamento \*/);
+    expect(compras).toMatch(/Motivo do adiantamento \(recomendado\)/);
   });
 
   it("C1.2: o kanban separa pedidos pela entrega, não pelo pagamento",()=>{
@@ -109,7 +112,7 @@ describe("entrega programada por item (C2.2)",()=>{
     expect(salvar).toMatch(/remessas:\(i\.remessas\|\|\[\]\)/);
     expect(compras).toMatch(/Programar remessas/);
     expect(compras).toMatch(/atrasoDoItem\(i,p,today\(\)\)/);
-    expect(legacy).toMatch(/export const pedidosEmAtraso = \(data, hoje\) => pedidosComItensAtrasados\(data, hoje\);/);
+    expect(suporteCompras).toMatch(/export const pedidosEmAtraso = \(data, hoje\) => pedidosComItensAtrasados\(data, hoje\);/);
   });
 });
 

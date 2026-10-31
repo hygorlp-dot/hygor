@@ -213,6 +213,22 @@ describe("/api/data · caminho travado (executarMutacaoEmpresaBloqueada) roteia 
     expect(testState.rows[CORE_KEY].value.engineeringProjects).toBeUndefined();
   });
 
+  it("movimenta atividades Kanban pela API travada e rejeita a versão anterior",async()=>{
+    const form={name:"Projeto Kanban API",obraId:"",responsibleId:"admin-a",discipline:"Arquitetura",stage:"Executivo",status:"ativo",plannedHours:20};
+    await callApi(opCommand("PROJETO_ENGENHARIA_SALVO",{projectId:"eng-api",project:form}));
+    const saved=await callApi(opCommand("PROJETO_ATIVIDADE_SALVA",{projectId:"eng-api",task:{title:"Conferir planta",responsibleId:"admin-a",status:"pendente"}},{expectedVersion:1}));
+    expect(saved.status).toBe(200);
+    const taskId=saved.body.sections.engineeringProjects[0].tasks[0].id;
+    const moved=await callApi(opCommand("PROJETO_ATIVIDADE_MOVIDA",{projectId:"eng-api",taskId,status:"em_revisao"},{expectedVersion:2}));
+    expect(moved.status).toBe(200);
+    expect(moved.body.sections.engineeringProjects[0].tasks[0].status).toBe("em_revisao");
+    const stale=await callApi(opCommand("PROJETO_ATIVIDADE_MOVIDA",{projectId:"eng-api",taskId,status:"concluida"},{expectedVersion:2,idempotencyKey:"stale-kanban-move-api-123"}));
+    expect(stale.status).toBe(409);
+    const loaded=await callApi({action:"load",accessToken:"valid-token"});
+    expect(loaded.body.data.engineeringProjects[0].tasks[0].status).toBe("em_revisao");
+    expect(loaded.body.data.engineeringProjects[0].history.at(-1).type).toBe("PROJETO_ATIVIDADE_MOVIDA");
+  });
+
   it("persiste pastas e revisões pela API com horário do servidor, idempotência e proteção de snapshot",async()=>{
     testState.rows[CORE_KEY].value.obras=[{id:'files-work',name:'Obra de teste'}];
     const folder=await callApi(opCommand('ARQUIVOS_PASTA_SALVA',{obraId:'files-work',id:'folder',name:'Projetos'},{expectedVersion:0,now:'1900-01-01T00:00:00Z'}));

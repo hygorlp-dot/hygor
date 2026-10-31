@@ -1,0 +1,3 @@
+.forecast-duplication{min-width:0;overflow-wrap:anywhere;margin-block:12px}
+.forecast-duplication ul{display:grid;gap:12px;margin-top:12px;padding-left:20px;list-style:disc}
+.forecast-duplication li p{margin-top:6px}

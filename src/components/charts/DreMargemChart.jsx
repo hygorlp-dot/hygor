@@ -2,7 +2,8 @@
 // para virar seu próprio chunk lazy - ver LazyDreMargemChart no ponto de
 // uso em LegacyApp.jsx.
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ArcdChartTooltip, C, ChartPanel } from "../../LegacyApp.jsx";
+import { ArcdChartTooltip, ChartPanel } from "../../legacy/ui.jsx";
+import { C } from "../../legacy/palette.js";
 
 export default function DreMargemChart({ hist }) {
   return (

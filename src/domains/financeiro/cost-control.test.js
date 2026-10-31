@@ -69,13 +69,13 @@ describe('apropriação assistida e previsão',()=>{
  it('mudança nas fontes ou na data invalida revisão sem apagar o histórico',()=>{
   const d=fixture(),r=apply(d,command(d,C.COST_FORECAST_SAVED));
   r.data.outrasDesp.push({id:'new',obraId:'a',valor:20,data:'2026-10-30'});
-  expect(report(r.data).rows.find(x=>x.id==='s')).toMatchObject({reviewValid:false,remaining:100000});
+  expect(report(r.data).rows.find(x=>x.id==='s')).toMatchObject({reviewValid:false,remaining:30000});
   expect(r.data.obras[0].costPlanning.history).toHaveLength(1);
   const unchanged=apply(d,command(d,C.COST_FORECAST_SAVED)).data;
   expect(workStageCosts(unchanged,buildFinancialLedger(unchanged),'a','2026-10-31').rows.find(x=>x.id==='s').reviewValid).toBe(false);
  });
- it('não aceita salvar base obsoleta, valores inválidos ou data impossível/futura',()=>{
-  const d=fixture();for(const p of [{fingerprint:'old'},{remainingCents:-1},{remainingCents:NaN},{remainingCents:1.5},{asOf:'2026-02-30'},{asOf:'2026-10-31'},{note:'x'}])expect(apply(d,command(d,C.COST_FORECAST_SAVED,p)).ok).toBe(false);
+ it('não aceita valores inválidos, data impossível ou conflito de edição',()=>{
+  const d=fixture();for(const p of [{remainingCents:-1},{remainingCents:NaN},{remainingCents:1.5},{asOf:'2026-02-30'},{contingencyCents:-1}])expect(apply(d,command(d,C.COST_FORECAST_SAVED,p)).ok).toBe(false);
   const r=apply(d,command(d,C.COST_FORECAST_SAVED));expect(apply(r.data,command(r.data,C.COST_FORECAST_SAVED))).toMatchObject({ok:false,reason:expect.stringContaining('outra pessoa')});
  });
  it('escopo servidor exige papel e obra compatíveis nos dois comandos',()=>{
@@ -95,7 +95,7 @@ describe('apropriação assistida e previsão',()=>{
   const d=fixture(),r=apply(d,command(d,C.COST_FORECAST_SAVED));
   const ledger=buildFinancialLedger(r.data,{supplementalEvents:[{id:'supplement',effect:'cost',obraId:'a',date:'2026-10-30',competence:'2026-10',amountCents:1000,sourceType:'outra_despesa',sourceId:'d',metadata:{etapaId:'s'}}]});
   const row=workStageCosts(r.data,ledger,'a','2026-10-30').rows.find(x=>x.id==='s');
-  expect(row.reviewValid).toBe(false);expect(row.remaining).toBe(99000);
+  expect(row.reviewValid).toBe(false);expect(row.remaining).toBe(30000);
  });
  it('notas legadas preservam reconhecimento ao materializar o rateio principal',()=>{
   const d=fixture();delete d.notasFiscais[0].valorBruto;d.notasFiscais[0].valorTotal=400;

@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/ta
 import { Badge } from "../../design-system/primitives/Badge.jsx";
 import { Input } from "../../design-system/primitives/Input.jsx";
 import { Select } from "../../design-system/primitives/Select.jsx";
+import TasksView from "./TasksView.jsx";
 import { RecordForm } from "./ProjectForms.jsx";
 import { ENGINEERING_COMMAND as CMD } from "./commands.js";
 import { formatDuration, projectSeconds, sessionSeconds, safeProjectUrl, REVISION_STATUSES, PROJECT_STATUSES } from "./model.js";
@@ -27,7 +28,7 @@ export default function ProjectDetail({ project, data, currentUser, now, active,
   async function saveRecord(form) {
     const type = { link: CMD.ENG_LINK_ADDED, revision: CMD.ENG_REVISION_ADDED, review: CMD.ENG_REVISION_REVIEWED, task: CMD.ENG_TASK_SAVED, adjust: CMD.ENG_TIME_ADJUSTED }[editor.kind];
     let payload = form;
-    if (editor.kind === "task") payload = { task: form };
+    if (editor.kind === "task") payload = { task: { ...form, checklist: (form.checklist || []).filter(item=>item.text.trim()) } };
     if (editor.kind === "review") payload = { ...form, revisionId: editor.record.id };
     if (editor.kind === "adjust") payload = { sessionId: editor.record.id, seconds: Number(form.minutes) * 60, reason: form.reason };
     const result = await send(type, project.id, payload, editor.version);
@@ -54,8 +55,7 @@ export default function ProjectDetail({ project, data, currentUser, now, active,
       <TabsContent value="overview">
         {project.description && <p className="engineering-description">{project.description}</p>}
         <div className="engineering-section-heading"><h3>Atividades</h3><Button variant="outline" disabled={busy || !editable} onClick={() => open("task")}><Plus size={16} data-icon="inline-start" />Nova atividade</Button></div>
-        {!(project.tasks || []).length && <p className="engineering-empty">Organize as entregas em atividades com responsável e prazo.</p>}
-        {(project.tasks || []).map(task => <div className="engineering-record" key={task.id}><div><strong>{task.title}</strong><p>{users.get(task.responsibleId) || "Responsável indisponível"} · {displayDate(task.deadline)} · {{ pendente: "Pendente", em_andamento: "Em andamento", concluida: "Concluída" }[task.status]}</p></div><Button variant="ghost" disabled={busy || !editable} onClick={() => open("task", task)} aria-label={`Editar atividade ${task.title}`}>Editar</Button></div>)}
+        <TasksView project={project} data={data} currentUser={currentUser} now={now} active={active} busy={busy} send={send} onEdit={task => open("task", task)} />
         <details className="engineering-audit"><summary>Histórico de alterações ({(project.history || []).length})</summary><ol>{[...(project.history || [])].reverse().map(event => <li key={event.id}><strong>{event.detail}</strong><p>{event.by || "Usuário"} · {displayTimestamp(event.at)}</p></li>)}</ol></details>
       </TabsContent>
       <TabsContent value="links">

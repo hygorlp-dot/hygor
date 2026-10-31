@@ -1,3 +1,4 @@
+import {closingCorrectionScope} from "../src/domains/financeiro/closing-correction.js";
 import { OPERATIONAL_COMMAND } from "../src/domains/sync/operational-commands.js";
 import {COST_CONTROL_COMMAND_TYPES,costControlWorkId} from '../src/domains/financeiro/cost-control.js';
 import { canOperateTechnicalMeasurement } from "../src/domains/medicoes/permissions.js";
@@ -151,6 +152,7 @@ const operationalCommandObraId=(data={},command={})=>{
 };
 
 export const validateOperationalCommandScope=({user={},data={},command={}}={})=>{
+  if(command.type===OPERATIONAL_COMMAND.CLOSING_SOURCE_CORRECTED)return closingCorrectionScope({user,data,command});
   if(command.type?.startsWith('DOSSIE_')){
     const obraId=String(command.payload?.obraId||'');
     return user.active!==false&&['admin','engenheiro'].includes(user.role)&&podeAcessarAba(user,'licenca')&&(!user.obraId||user.obraId===obraId)&&(data.obras||[]).some(item=>item.id===obraId)?{ok:true,obraId,scope:'work'}:{ok:false,error:'Seu perfil não pode alterar o licenciamento desta obra.'};

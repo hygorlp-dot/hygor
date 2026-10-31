@@ -3,3 +3,7 @@ export function isFinancialDate(value){
  const date=new Date(`${value}T12:00:00Z`);
  return Number.isFinite(date.getTime())&&date.toISOString().slice(0,10)===value;
 }
+
+export function financialDateLabel(value,empty='Não informada'){
+ return isFinancialDate(value)?value.split('-').reverse().join('/'):value?`Conferir data: ${value}`:empty;
+}

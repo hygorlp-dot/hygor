@@ -1,4 +1,5 @@
-import {lazy,Suspense,useMemo,useState} from "react";
+import { Suspense, useMemo, useState } from "react";
+import { lazyWithCssRetry as lazy } from "../../../lib/lazy-with-css-retry.js";
 import {Tabs,TabsContent,TabsList,TabsTrigger} from "../../../components/ui/tabs";
 import {Button} from "../../../design-system/primitives/Button";
 import {Input} from "../../../design-system/primitives/Input";

@@ -53,7 +53,54 @@
 .engineering-audit summary { cursor:pointer; padding:12px 0; }
 .engineering-audit ol { padding-left:20px; }
 .engineering-audit li { margin-bottom:16px; overflow-wrap:anywhere; }
+.engineering-tasks-view { display:grid; gap:12px; min-width:0; }
+.engineering-detail>div { min-width:0; }
+.engineering-kanban { display:flex; align-items:flex-start; gap:12px; width:100%; max-width:100%; min-width:0; overflow-x:auto; overscroll-behavior-x:contain; padding:4px 2px 16px; scroll-padding:12px; scrollbar-color:var(--arcd-border-strong) var(--arcd-surface-muted); }
+.engineering-lane { flex:0 0 272px; min-width:0; min-height:180px; padding:12px; background:var(--arcd-surface-muted); border:1px solid var(--arcd-border-default); border-radius:8px; }
+.engineering-lane[data-over="true"] { outline:2px solid var(--arcd-focus-ring); outline-offset:-2px; }
+.engineering-lane-heading { display:flex; align-items:start; justify-content:space-between; gap:8px; margin:0 0 16px; }
+.engineering-lane-heading h4 { font-size:14px; line-height:1.4; }
+.engineering-lane-heading span { color:var(--arcd-text-secondary); font-size:12px; white-space:nowrap; }
+.engineering-drop-empty { color:var(--arcd-text-secondary); font-size:13px; padding:24px 0; }
+.engineering-kanban-card { background:var(--arcd-surface-card); border:1px solid var(--arcd-border-default); border-radius:6px; padding:12px; margin-bottom:12px; min-width:0; overflow-wrap:anywhere; }
+.engineering-kanban-card:last-child { margin-bottom:0; }
+.engineering-kanban-card[data-dragging="true"] { opacity:.55; }
+.engineering-kanban-card[data-before="true"] { outline:2px dashed var(--arcd-focus-ring); outline-offset:2px; }
+.engineering-drag-handle { display:flex; align-items:center; gap:4px; min-height:32px; width:100%; padding:0; margin-bottom:8px; color:var(--arcd-text-secondary); background:transparent; border:0; cursor:grab; touch-action:none; font:inherit; font-size:12px; text-align:left; }
+.engineering-drag-handle:active { cursor:grabbing; }
+/* O tema atribui manipulation aos botões; o puxador precisa conservar o
+   gesto para que o navegador não cancele o arraste ao iniciar uma rolagem. */
+[data-theme="marcell"] .engineering-workspace .engineering-drag-handle { touch-action:none; }
+.engineering-drag-handle:disabled { cursor:default; opacity:.5; }
+.engineering-drag-handle:focus-visible,.engineering-kanban:focus-visible { outline:2px solid var(--arcd-focus-ring); outline-offset:2px; }
+.engineering-card-title { text-align:left; justify-content:start; width:100%; padding:0; font-size:15px; min-height:32px; overflow-wrap:anywhere; }
+.engineering-card-move { display:grid; gap:8px; border-top:1px solid var(--arcd-border-default); margin-top:16px; padding-top:12px; }
+.engineering-card-move>.engineering-actions { justify-content:flex-end; }
+.engineering-card-badges { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
+.engineering-kanban-card>p,.engineering-task-content>p { font-size:13px; line-height:1.5; color:var(--arcd-text-secondary); }
+.engineering-task-content { display:grid; gap:10px; width:100%; min-width:0; }
+.engineering-task-content h5 { font-size:15px; font-weight:500; line-height:1.45; margin:0; }
+.engineering-task-content .engineering-card-badges { margin:0; }
+.engineering-task-content .engineering-duration { white-space:normal; }
+.engineering-checklist,.engineering-predecessors { margin:0; padding:8px 0; border:0; display:grid; gap:8px; min-width:0; }
+.engineering-checklist legend,.engineering-predecessors legend { font-size:13px; font-weight:500; padding:0 0 6px; }
+.engineering-checklist label,.engineering-predecessors label,.engineering-checkbox { display:flex; align-items:flex-start; gap:8px; font-size:13px; line-height:1.5; }
+.engineering-checklist input,.engineering-predecessors input,.engineering-checkbox input { flex-shrink:0; margin-top:3px; accent-color:var(--arcd-action-primary); width:16px; height:16px; }
+.engineering-blocked,.engineering-capacity { color:var(--arcd-warning-text) !important; font-size:13px; }
+.engineering-capacity { margin:0 0 12px !important; }
+.engineering-task-comments { font-size:13px; }
+.engineering-task-comments summary { cursor:pointer; padding:8px 0; }
+.engineering-task-comments>div { margin:8px 0; border-bottom:1px solid var(--arcd-border-default); padding-bottom:8px; }
+.engineering-task-comments time { display:block; color:var(--arcd-text-secondary); margin:4px 0; }
+.engineering-task-comments form { display:grid; gap:8px; }
+.engineering-task-delivery { display:grid; gap:6px; font-size:13px; }
+.engineering-task-list .engineering-record { display:block; }
+.engineering-task-list .engineering-task-content { margin-top:12px; max-width:75ch; }
+.engineering-drag-preview { position:fixed; pointer-events:none; z-index:1000; max-width:250px; background:var(--arcd-surface-elevated); color:var(--arcd-text-primary); border:1px solid var(--arcd-border-strong); padding:8px 12px; border-radius:6px; font-size:13px; overflow-wrap:anywhere; }
+.engineering-sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+@media(max-width:600px) {
+  .engineering-task-comments summary { min-height:44px; padding-block:12px; }
+  .engineering-checklist label,.engineering-predecessors label,.engineering-checkbox { min-height:44px; align-items:center; }
+}
 @media(max-width:900px) { .engineering-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } .engineering-project-row { grid-template-columns:1fr 1fr; } }
 @media(max-width:600px) { .engineering-workspace { gap:16px; } .engineering-fields,.engineering-filters { grid-template-columns:1fr; } .engineering-summary { grid-template-columns:1fr 1fr; } .engineering-form { padding:16px; } .engineering-project-row { gap:16px 12px; } .engineering-project-name { grid-column:1/-1; } .engineering-project-row>div:last-child { grid-column:1/-1; } .engineering-workspace button,.engineering-workspace a,.engineering-audit summary { min-height:44px; } .engineering-record>a { align-items:center; } .engineering-timer>button { width:100%; } .engineering-tabs { display:none; } .engineering-mobile-areas { display:block; } }
-
-[data-theme="marcell"] .engineering-workspace .engineering-drag-handle { touch-action:none; }

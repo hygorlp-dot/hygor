@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/workflow-test.js";
 import { applyReconciliationCommand } from "../server/reconciliation-command.js";
 
 test("concilia casos únicos e mantém dúvidas visíveis, inclusive no mobile", async ({ page }) => {
@@ -106,7 +106,6 @@ test("comparação persistente mantém dúvidas e exibe divergências sem confir
   await expect(panel).toContainText("Identificar a pessoa não confirma o lançamento financeiro");
   await panel.getByRole("button",{name:"Documentos e ficha de Nota Fiscal NF-REVIEW",exact:true}).click();
   const documents=panel.getByRole("region",{name:"Documentos da revisão",exact:true});
-  await documents.getByRole("button",{name:"Nota da revisão.png",exact:true}).click();
   await expect(documents.getByRole("img",{name:"Nota da revisão.png",exact:true})).toBeVisible();
   await documents.getByRole("button",{name:"Ver ficha da compra nesta revisão",exact:true}).click();
   await expect(documents.getByRole("region",{name:"Ficha completa da compra conjunta",exact:true})).toContainText("PC-REVIEW");
@@ -126,7 +125,6 @@ test("comparação persistente mantém dúvidas e exibe divergências sem confir
   await expect(panel).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   await panel.getByRole("button",{name:"Documentos e ficha de Nota Fiscal NF-REVIEW",exact:true}).click();
-  await documents.getByRole("button",{name:"Nota da revisão.png",exact:true}).click();
   await expect(documents.getByRole("img",{name:"Nota da revisão.png",exact:true})).toBeVisible();
   await documents.evaluate(element=>element.scrollIntoView({block:"start"}));
   await page.screenshot({path:"test-results/conciliacao-documentos-mobile.png"});

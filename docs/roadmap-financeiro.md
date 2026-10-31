@@ -209,6 +209,16 @@ Resultado final: **659 testes em 59 arquivos**, **62 verificações de jornada**
 
 Mantidas todas as alterações existentes. Nenhuma publicação, push, PR, build remoto ou alteração em banco de produção.
 
+## Caixa por conta — 31/10/2026
+
+Implementados saldo de abertura e datas por conta no cenário local da sessão,
+posição derivada dos movimentos importados e filas de pendências/parciais e
+ignorados com memorial. A posição da conta explicita seu escopo sobre a empresa
+inteira e permanece independente da hipótese de vencimentos por obra.
+Comparação documental com a Vobi, critérios de cálculo, limitações e validação
+em [CAIXA-POR-CONTA-2026-10-31.md](./CAIXA-POR-CONTA-2026-10-31.md).
+Nenhum cadastro ou movimento foi alterado; nenhuma publicação realizada.
+
 ## Revisão com a base real — 30/10/2026
 
 Corrigida a identificação de cliente, fornecedor, parcela e documento na central e nos memoriais, aproveitando vínculos existentes sem alterar lançamentos. Central, memorial e relatórios agora compartilham a busca sem acentos e com espaços normalizados. Categorias do razão têm nomes legíveis também nas exportações. A regra do layout móvel da fila Hoje foi delimitada à própria fila: os filtros da previsão de caixa permanecem acessíveis no celular.

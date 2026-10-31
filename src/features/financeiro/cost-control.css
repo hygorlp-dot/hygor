@@ -18,3 +18,5 @@
 .work-stage-costs table{font-variant-numeric:tabular-nums}
 .work-stage-costs td small{display:block;white-space:normal;font-size:var(--arcd-type-caption)}
 @media(max-width:700px){.cost-control__pending{grid-template-columns:1fr;gap:16px}.cost-control__actions{align-items:stretch;flex-direction:column}.work-stage-costs table,.work-stage-costs tbody,.work-stage-costs tfoot{display:block;width:100%}.work-stage-costs thead{display:none}.work-stage-costs tr{display:block;padding:12px 0;border-top:1px solid var(--arcd-border-default)}.work-stage-costs th{display:block;text-align:left}.work-stage-costs td{display:flex;justify-content:space-between;align-items:center;gap:12px;white-space:normal}.work-stage-costs td:before{content:attr(data-label);font-size:var(--arcd-type-label);text-align:left}.work-stage-costs td button{white-space:normal;height:auto;min-height:40px;text-align:right}.work-stage-costs caption{display:block;text-align:left}}
+
+.cost-control__coverage{display:grid;gap:10px;padding-block:12px}

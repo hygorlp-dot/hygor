@@ -20,17 +20,10 @@ import { marcellReportHtml } from "../../../reports/marcell-report.js";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import {
-  Badge, Btn, C, Divider, Ic, Inp, MiniKpi, Modal, Sel, TabRow,
-  ajustarParaDiaUtil, aplicarRollup, caminhoCritico, compararBaseline,
-  curvaS, custoEtapa, desvioAutomatico, diasCorridos, diasUteis,
-  distribuicaoMensal, ehDiaUtil, fisicoFinanceiro, fisicoFinanceiroMensal,
-  fmt, fmtCompact, fmtDate, fmtDateFull, fmtMesAno, fundirEvolucao,
-  idsSucessoras, janelaPlano, montarCronogramaIA,
-  montarTarefas, monthName, obraContextoSalvo, ordemEtapasOrcamento,
-  progressoPlano, proximoDiaUtil, resumoPlano, somaDias, somaDiasUteis,
-  sugerirDependenciasPlanejamento, today, uid,
-} from "../../../LegacyApp";
+import { Badge, Btn, Divider, Ic, Inp, MiniKpi, Modal, Sel, TabRow } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { ajustarParaDiaUtil, aplicarRollup, caminhoCritico, compararBaseline, curvaS, custoEtapa, desvioAutomatico, diasCorridos, diasUteis, distribuicaoMensal, ehDiaUtil, fisicoFinanceiro, fisicoFinanceiroMensal, fundirEvolucao, idsSucessoras, janelaPlano, montarCronogramaIA, montarTarefas, ordemEtapasOrcamento, progressoPlano, proximoDiaUtil, resumoPlano, somaDias, somaDiasUteis, sugerirDependenciasPlanejamento } from "../legacy-engine.js";
+import { fmt, fmtCompact, fmtDate, fmtDateFull, fmtMesAno, monthName, obraContextoSalvo, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { WORKER_TRAINING_TYPES } from "../../seguranca/constants";
 import { getPlanningHolidays } from "../../ponto/attendance-engine";

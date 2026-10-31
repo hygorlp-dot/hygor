@@ -1,6 +1,6 @@
 # Piloto acompanhado de Compras e Conciliação
 
-O piloto não confirma transações, aplica ajustes ou envia mensagens. A publicação do aplicativo não executa as avaliações do piloto nem aplica correções financeiras.
+Implementação local. Não confirma transações, aplica ajustes, envia mensagens ou publica a aplicação.
 
 ## Como conferir
 
@@ -26,4 +26,4 @@ O piloto não confirma transações, aplica ajustes ou envia mensagens. A public
 
 Relatório: `artifacts/procurement-validation/report.json`; logs por etapa no mesmo diretório. Uma etapa reprovada mantém o comando com saída de erro, mas as próximas verificações são executadas para completar o diagnóstico. `-- --only=build,bundle,browser` roda uma verificação parcial explicitamente marcada como parcial no relatório.
 
-O orçamento de bundle não é alterado por esta implementação. O empacotamento modular do ExcelJS compartilha streams e utilitários e preserva XLSX, CSV e proteção SHA-512. A validação inclui comparação do hash com o crypto do Node e uma entrada isolada no navegador; essa entrada não integra o build publicado. Consulte o tamanho e o resultado dos limites em `artifacts/procurement-validation/bundle.json`. Os testes com dados simulados não significam que o piloto com dados reais já foi executado ou que exista uma acurácia real medida.
+O orçamento existente não foi aumentado. A medição inicial do código local já excedia o teto em 94.705 bytes gzip; com o piloto, a primeira medição resultou em 1.892.104 bytes frente ao limite de 1.789.952. A liberação depende de reduzir esse excesso e repetir a validação. Esse diagnóstico não significa que o piloto com dados reais já foi executado ou que exista uma acurácia real medida.

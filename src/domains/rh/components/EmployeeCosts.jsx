@@ -1,5 +1,6 @@
 import {useMemo,useState} from 'react';
-import {Btn,Inp,Sel,fmt} from '../../../LegacyApp';
+import { Btn, Inp, Sel } from "../../../legacy/ui.jsx";
+import { fmt } from "../../../legacy/format.js";
 import {employeeCostReport} from '../employee-costs.js';
 import {marcellReportHtml} from '../../../reports/marcell-report.js';
 import '../../ponto/components/clt-payslips.css';

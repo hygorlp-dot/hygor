@@ -283,6 +283,18 @@ export const entrarComEmail = async (email,password) => {
   return{ok:true,data:r.data,usuario:r.usuario};
 };
 
+// Reauthenticate the same operator without unmounting an in-progress editor.
+export const renewEditingSession=async({email,password,userId})=>{
+ const r=await chamar({action:'auth-login',email,password});
+ if(r.status!==200||!r.accessToken||!r.data||String(r.usuario?.id)!==String(userId))return {ok:false,error:r.error||'Renove o acesso com a mesma conta que iniciou a edição.'};
+ abrirSessaoEmail(r.usuario.id,r.accessToken,r.refreshToken);
+ return {ok:true};
+};
+export const readRecoveryData=async()=>{
+ const r=await chamar({action:'load',...credenciais()});
+ return r.status===200&&r.data?{ok:true,data:r.data,updatedAt:r.updatedAt}:{ok:false,status:r.status,error:r.error||'Não foi possível consultar a versão atual.'};
+};
+
 export const restaurarSessaoEmail=async()=>{
   if(!sessao.accessToken)return{ok:false};
   if(tokenExpiraEmBreve(sessao.accessToken)&&!await renovarSessaoEmail())return{ok:false};
@@ -649,6 +661,8 @@ export const enviarArquivoOneDriveEmPartes=async({file,...payload})=>{
 };
 
 export const obterLinkArquivoOneDrive = payload => chamarOneDrive("file-link", payload);
-export const lerArquivoOneDrive = (reference,{signal}={}) => fetch('/api/microsoft/onedrive',{method:'POST',signal,headers:{'content-type':'application/json'},body:JSON.stringify({...credenciais(),...reference,action:'read-file'})});
 
 export const gerarLinkRespostaCotacao = (quoteId,proposalId) => chamar({action:"cotacao-fornecedor-link",...credenciais(),quoteId,proposalId});
+
+// Leitura autenticada já publicada para PDFs e dossiês de Arquivos.
+export const lerArquivoOneDrive = (reference,{signal}={}) => fetch('/api/microsoft/onedrive',{method:'POST',signal,headers:{'content-type':'application/json'},body:JSON.stringify({...credenciais(),...reference,action:'read-file'})});

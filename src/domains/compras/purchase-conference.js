@@ -12,7 +12,7 @@ export const purchaseMatchLabels={
 
 /** Explicit purchase links only. Fiscal and purchase units are never inferred. */
 export function purchaseConference(data,dossier,{asOf,includeTitles=false}={}){
- const orders=dossier.orders.filter(active);
+ const orders=dossier.orders.filter(item=>active(item)||item.status==='rascunho'&&item.ativo!==false&&!item.deletedAt);
  const invoices=dossier.invoices.filter(invoice=>active(invoice)&&orders.some(order=>same(invoice.pedidoId,order.id)&&same(invoice.obraId,order.obraId)));
  const matches=orders.map(order=>({order,
   amountsKnown:(order.itens||[]).length>0&&(order.itens||[]).every(item=>numberKnown(item.qtd)&&numberKnown(item.precoUnit)&&numberKnown(item.qtdRecebida??0))&&invoices.filter(n=>same(n.pedidoId,order.id)).every(n=>numberKnown(n.valorBruto??n.valorLiquido??n.valor)),

@@ -98,7 +98,8 @@ const updatePaidTarget=(type,target,payment,actor,now)=>{
     :payments.filter(active).reduce((sum,item)=>sum+Number(item.valor||0),0);
   const settled=paid>=totalOf(type,target)-0.01;
   if(type==="nota")return {
-    ...target,pagamentos:payments,status:settled?"paga":"aprovada",
+    ...target,pagamentos:payments,status:settled?"paga":target.status,
+    conferenciaFiscalPendente:Boolean(target.conferenciaFiscalPendente||payment.conferenciaFiscalPendente),
     transacaoId:payment.transacaoId||target.transacaoId||"",
     atualizadoEm:now,version:versionOf(target)+1,
     updatedAt:now,updatedById:actor.id,updatedBy:actorName(actor),
@@ -115,7 +116,7 @@ const validateBase=({data,command,target,type,actor})=>{
   if(!actor.id)return "Sessão do usuário indisponível para registrar o pagamento.";
   if(!collections[type])return "Tipo de obrigação inválido.";
   if(!target)return "A obrigação financeira não foi encontrada.";
-  if(!active(target))return "A obrigação está cancelada ou inativa.";
+  if(!active(target)&&!(type==='pedido'&&target.status==='rascunho'&&target.ativo!==false&&!target.deletedAt))return "A obrigação está cancelada ou inativa.";
   if(command.expectedVersion!=null&&versionOf(target)!==Number(command.expectedVersion)){
     return "A obrigação foi alterada por outra pessoa. Atualize a tela antes de tentar novamente.";
   }
@@ -153,7 +154,6 @@ const recordPayment=(data,command,now)=>{
   }
 
   const obra=(data.obras||[]).find(item=>String(item.id)===String(target.obraId));
-  if(raw.origem==="caixa_obra"&&!obra?.hasCaixa)return fail("O caixa desta obra não está ativado.");
   if(raw.origem==="caixa_obra"&&!String(payload.workCashMovementId||"")){
     return fail("O pagamento pelo caixa precisa identificar seu movimento.");
   }
@@ -164,7 +164,8 @@ const recordPayment=(data,command,now)=>{
   const payment={...buildPayment(raw,actor,now),tipo:"",motivoAdiantamento:"",...conference};
   let next=updateWorkspace(data,target.obraId,payload.workspace);
   const current=targetBy(next,type,target.id);
-  next=updateTarget(next,type,target.id,updatePaidTarget(type,current,payment,actor,now));
+  if(type==='pedido'&&current.status==='rascunho')next=updateTarget(next,type,target.id,{...current,status:'enviado',pedidoNaoEnviadoNoPagamento:true});
+  next=updateTarget(next,type,target.id,updatePaidTarget(type,targetBy(next,type,target.id),payment,actor,now));
 
   if(type==="nota"&&target.pedidoId){
     const order=targetBy(next,"pedido",target.pedidoId);
@@ -197,6 +198,7 @@ const recordPayment=(data,command,now)=>{
       }},
     },now);
     if(!cashResult?.ok)return cashResult||fail("Não foi possível registrar a saída no caixa da obra.");
+    payment.workflowWarnings=[...(payment.workflowWarnings||[]),...(cashResult.warnings||[])];
     next=cashResult.data;
   }
 
@@ -214,7 +216,7 @@ const recordPayment=(data,command,now)=>{
     next=linked.data;
   }
 
-  return {ok:true,data:next,entityId:payment.id};
+  return {ok:true,data:next,entityId:payment.id,summary:{workflowWarnings:payment.workflowWarnings||[]}};
 };
 
 const reclassifyPayment=(data,command,now)=>{
@@ -326,7 +328,7 @@ const reversePayment=(data,command,now)=>{
     ...current,pagamentos:projectedPayments,version:versionOf(current)+1,
     updatedAt:now,updatedById:actor.id,updatedBy:actorName(actor),
   };
-  if(type==="nota")changed={...changed,status:settled?"paga":"aprovada",atualizadoEm:now};
+  if(type==="nota")changed={...changed,status:settled?"paga":target.conferenciaFiscalPendente?'recebida':'aprovada',atualizadoEm:now};
   else changed={
     ...changed,
     liberadoEntregaEm:settled?(current.liberadoEntregaEm||now):"",

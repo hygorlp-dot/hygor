@@ -50,7 +50,8 @@ describe("SEC-002 — limite de tentativas compartilhado", () => {
   });
 
   it("migra PIN legado e cria novos PINs somente no servidor",()=>{
-    const legacy=fs.readFileSync(path.join(process.cwd(),"src","LegacyApp.jsx"),"utf8");
+    const legacy=fs.readFileSync(path.join(process.cwd(),"src","LegacyApp.jsx"),"utf8")
+      +fs.readFileSync(path.join(process.cwd(),"src","domains","administracao","LegacySettings.jsx"),"utf8");
     expect(security).toContain("APP_PIN_PREFIX=\"scrypt-v1\"");
     expect(auxiliaryAuth).toContain('p_action:"auth_pin_upgraded"');
     expect(api).toContain('action==="auth-pin-set"');

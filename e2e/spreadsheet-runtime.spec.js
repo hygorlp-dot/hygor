@@ -6,7 +6,7 @@ import {fileURLToPath} from "node:url";
 // Compila uma entrada isolada com a configuração real de produção. A fixture
 // fica somente no diretório de validação e nunca entra no build do aplicativo.
 test.beforeAll(async()=>{
-  await build({base:"/runtime-check/",build:{sourcemap:false,outDir:"build/operational-pilot-check/runtime-check",rollupOptions:{input:fileURLToPath(new URL("./fixtures/spreadsheet-runtime.html",import.meta.url))}}});
+  await build({base:"/runtime-check/",build:{sourcemap:false,outDir:`${process.env.SPREADSHEET_RUNTIME_BUILD_ROOT||'build/operational-pilot-check'}/runtime-check`,rollupOptions:{input:fileURLToPath(new URL("./fixtures/spreadsheet-runtime.html",import.meta.url))}}});
 });
 test("ExcelJS modular preserva XLSX, CSV e proteção no navegador",async({page})=>{
   const errors=[];page.on("pageerror",error=>errors.push(error.message));

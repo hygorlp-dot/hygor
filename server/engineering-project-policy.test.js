@@ -30,4 +30,9 @@ describe("autorização de projetos", () => {
     expect(projectDataForUser(data, { role: "financeiro" }).engineeringProjects).toBeUndefined();
     expect(projectDataForUser(data, { role: "financeiro", accessTabs: ["projetos"], obraId: "b" }).engineeringProjects.map(project => project.id)).toEqual(["pb"]);
   });
+  it("não usa cartão de outra obra como posição de destino de um movimento", () => {
+    const move = { type: CMD.ENG_PROJECT_MOVED, payload: { projectId: "pa", stage: "Executivo", beforeId: "pb" } };
+    expect(validateEngineeringScope({ user, data, command: move }).ok).toBe(false);
+    expect(validateEngineeringScope({ user: { ...user, obraId: "" }, data, command: move }).ok).toBe(true);
+  });
 });

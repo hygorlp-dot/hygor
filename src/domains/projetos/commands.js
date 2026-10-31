@@ -1,4 +1,5 @@
 import { PROJECT_STAGES, PROJECT_DISCIPLINES, PROJECT_STATUSES, safeProjectUrl, activeProjectSession, sessionSeconds } from "./model.js";
+import { TASK_STATUSES, TASK_PRIORITIES, cyclicDependencies, taskTransitionError, taskDependencyError, projectCompletionError, reorderTask, projectOrderForMove } from "./kanban-model.js";
 
 export const ENGINEERING_COMMAND = Object.freeze({
   ENG_PROJECT_SAVED: "PROJETO_ENGENHARIA_SALVO",
@@ -9,6 +10,10 @@ export const ENGINEERING_COMMAND = Object.freeze({
   ENG_TIMER_STOPPED: "PROJETO_CRONOMETRO_PAUSADO",
   ENG_TIME_ADJUSTED: "PROJETO_HORAS_AJUSTADAS",
   ENG_TASK_SAVED: "PROJETO_ATIVIDADE_SALVA",
+  ENG_PROJECT_MOVED: "PROJETO_CARTAO_MOVIDO",
+  ENG_TASK_MOVED: "PROJETO_ATIVIDADE_MOVIDA",
+  ENG_CHECKLIST_TOGGLED: "PROJETO_CHECKLIST_ALTERADO",
+  ENG_TASK_COMMENT_ADDED: "PROJETO_COMENTARIO_ADICIONADO",
 });
 export const ENGINEERING_COMMAND_TYPES = new Set(Object.values(ENGINEERING_COMMAND));
 export const ENGINEERING_ROLES = ["admin", "engenheiro", "engenheiro_auditor", "compras", "financeiro", "rh", "comercial", "visualizador"];
@@ -50,9 +55,23 @@ export function applyEngineeringCommand(data, command, now) {
     if (!validUser(data, form.responsibleId)) return fail("Selecione um responsável ativo.");
     if (!validDate(form.deadline || "")) return fail("Informe um prazo válido.");
     if (!Number.isFinite(hours) || hours < 0 || hours > 1000000) return fail("As horas previstas devem estar entre zero e um milhão.");
+    const limits = form.kanbanLimits ?? project.kanbanLimits ?? {};
+    if (["em_andamento", "em_revisao"].some(status => !Number.isInteger(Number(limits[status] || 0)) || Number(limits[status] || 0) < 0 || Number(limits[status] || 0) > 1000)) return fail("Os limites das colunas devem ser inteiros entre zero e mil.");
+    const candidate = { ...project, requireApprovedDeliveries: form.requireApprovedDeliveries == null ? Boolean(project.requireApprovedDeliveries) : form.requireApprovedDeliveries === true };
+    if (form.status === "concluido") { const error = projectCompletionError(candidate); if (error) return fail(error); }
     if (form.status !== "ativo" && (project.sessions || []).some(session => !session.endedAt)) return fail("Pause todos os cronômetros antes de encerrar ou arquivar o projeto.");
-    project = { ...project, name, obraId, client: text(form.client), responsibleId: form.responsibleId, discipline: form.discipline, stage: form.stage, status: form.status, deadline: form.deadline || "", plannedHours: hours, description: text(form.description, 4000) };
+    project = { ...candidate, name, obraId, client: text(form.client), responsibleId: form.responsibleId, discipline: form.discipline, stage: form.status === "concluido" ? "Concluído" : form.stage === "Concluído" ? "Executivo" : form.stage, status: form.status, deadline: form.deadline || "", plannedHours: hours, description: text(form.description, 4000), kanbanLimits: { em_andamento: Number(limits.em_andamento || 0), em_revisao: Number(limits.em_revisao || 0) } };
     detail = current ? "Cadastro atualizado" : "Projeto criado";
+  } else if (command.type === ENGINEERING_COMMAND.ENG_PROJECT_MOVED) {
+    if (project.status === "arquivado") return fail("Reabra o projeto arquivado no cadastro antes de movê-lo.");
+    if (!PROJECT_STAGES.includes(payload.stage)) return fail("Etapa de destino inválida.");
+    if (payload.stage === "Concluído") { const error = projectCompletionError(project); if (error) return fail(error); }
+    const rank = projectOrderForMove(projects, project.id, payload.stage, payload.beforeId);
+    if (rank == null || payload.beforeId === project.id) return fail("Posição de destino inválida. Atualize o quadro.");
+    detail = `Cartão movido: ${project.stage} → ${payload.stage}`;
+    project.stage = payload.stage;
+    project.status = payload.stage === "Concluído" ? "concluido" : "ativo";
+    project.boardOrder = rank;
   } else if (command.type === ENGINEERING_COMMAND.ENG_TIMER_STOPPED) {
     const session = (project.sessions || []).find(item => item.id === payload.sessionId);
     if (!session || session.userId !== command.actorId) return fail("Você só pode pausar seu próprio cronômetro.");
@@ -65,6 +84,12 @@ export function applyEngineeringCommand(data, command, now) {
     if (command.type === ENGINEERING_COMMAND.ENG_TIMER_STARTED) {
       if (activeProjectSession(projects, command.actorId)) return fail("Você já possui um cronômetro ativo. Pause-o antes de iniciar outro.");
       if (payload.taskId && !(project.tasks || []).some(task => task.id === payload.taskId)) return fail("Atividade não encontrada.");
+      if (payload.taskId) {
+        const task = project.tasks.find(item => item.id === payload.taskId);
+        if (task.status === "concluida" || task.blockedReason) return fail("Reabra ou desbloqueie a atividade antes de iniciar o cronômetro.");
+        const dependencyError = taskDependencyError(project, task);
+        if (dependencyError) return fail(dependencyError);
+      }
       project.sessions = [...(project.sessions || []), { id: command.idempotencyKey, userId: command.actorId, userName: text(command.actorName), startedAt: now, endedAt: "", taskId: payload.taskId || "", note: text(payload.note, 1000) }];
       detail = "Cronômetro iniciado";
     } else if (command.type === ENGINEERING_COMMAND.ENG_LINK_ADDED) {
@@ -93,11 +118,47 @@ export function applyEngineeringCommand(data, command, now) {
       if (!Number.isSafeInteger(seconds) || seconds < 0 || seconds > 31536000 || !text(payload.reason, 1000)) return fail("Informe uma duração válida e justifique o ajuste.");
       project.sessions = project.sessions.map(item => item.id === session.id ? { ...item, adjustedSeconds: seconds } : item);
       detail = `Sessão ${session.id}: ${sessionSeconds(session)}s → ${seconds}s. Motivo: ${text(payload.reason, 1000)}`;
+    } else if (command.type === ENGINEERING_COMMAND.ENG_TASK_MOVED) {
+      const task = (project.tasks || []).find(item => item.id === payload.taskId);
+      if (!task || !Object.hasOwn(TASK_STATUSES, payload.status)) return fail("Atividade ou coluna de destino inválida.");
+      const error = taskTransitionError(project, task, payload.status);
+      if (error) return fail(error);
+      const tasks = reorderTask(project.tasks, task.id, payload.status, payload.beforeId);
+      if (!tasks || payload.beforeId === task.id) return fail("Posição de destino inválida. Atualize o quadro.");
+      project.tasks = tasks.map(item => item.id === task.id ? { ...item, updatedAt: now, updatedById: command.actorId } : item);
+      detail = `Atividade ${task.title}: ${TASK_STATUSES[task.status]} → ${TASK_STATUSES[payload.status]}`;
+    } else if (command.type === ENGINEERING_COMMAND.ENG_CHECKLIST_TOGGLED) {
+      const task = (project.tasks || []).find(item => item.id === payload.taskId);
+      if (!task || task.status === "concluida" || !(task.checklist || []).some(item => item.id === payload.itemId) || typeof payload.done !== "boolean") return fail("Reabra a atividade ou selecione um item válido do checklist.");
+      project.tasks = project.tasks.map(item => item.id === task.id ? { ...item, checklist: item.checklist.map(entry => entry.id === payload.itemId ? { ...entry, done: payload.done } : entry), updatedAt: now, updatedById: command.actorId } : item);
+      detail = `Checklist de ${task.title}: ${payload.done ? "item concluído" : "item reaberto"}`;
+    } else if (command.type === ENGINEERING_COMMAND.ENG_TASK_COMMENT_ADDED) {
+      const task = (project.tasks || []).find(item => item.id === payload.taskId);
+      if (!task || !text(payload.comment, 4000)) return fail("Informe um comentário para uma atividade existente.");
+      const comment = { id: command.idempotencyKey, text: text(payload.comment, 4000), at: now, byId: command.actorId, by: text(command.actorName) };
+      project.tasks = project.tasks.map(item => item.id === task.id ? { ...item, comments: [...(item.comments || []), comment], updatedAt: now, updatedById: command.actorId } : item);
+      detail = `Comentário em ${task.title}: ${comment.text}`;
     } else if (command.type === ENGINEERING_COMMAND.ENG_TASK_SAVED) {
       const task = payload.task || {};
-      if (!text(task.title) || !validUser(data, task.responsibleId) || !validDate(task.deadline || "") || !["pendente", "em_andamento", "concluida"].includes(task.status)) return fail("Informe título, responsável, prazo e situação válidos para a atividade.");
+      if (!text(task.title) || !validUser(data, task.responsibleId) || !validDate(task.deadline || "") || !Object.hasOwn(TASK_STATUSES, task.status)) return fail("Informe título, responsável, prazo e situação válidos para a atividade.");
       if (task.id && !(project.tasks || []).some(item => item.id === task.id)) return fail("Atividade não encontrada.");
-      const next = { id: task.id || command.idempotencyKey, title: text(task.title), responsibleId: task.responsibleId, deadline: task.deadline || "", status: task.status, updatedAt: now, updatedById: command.actorId };
+      const previous = project.tasks?.find(item => item.id === task.id);
+      const checklist = task.checklist ?? previous?.checklist ?? [];
+      const dependencies = task.dependencies ?? previous?.dependencies ?? [];
+      const priority = task.priority || previous?.priority || "normal";
+      const plannedHours = Number(task.plannedHours ?? previous?.plannedHours ?? 0);
+      if (!Object.hasOwn(TASK_PRIORITIES, priority) || !Number.isFinite(plannedHours) || plannedHours < 0 || plannedHours > 1000000) return fail("Prioridade ou estimativa de horas inválida.");
+      if (!Array.isArray(checklist) || checklist.length > 50 || checklist.some(item => !item || !text(item.id) || !text(item.text, 500) || typeof item.done !== "boolean") || new Set(checklist.map(item => item.id)).size !== checklist.length) return fail("O checklist deve conter até 50 itens identificados e sem duplicatas.");
+      const id = task.id || command.idempotencyKey;
+      if (!Array.isArray(dependencies) || new Set(dependencies).size !== dependencies.length || dependencies.some(dependency => dependency === id || !(project.tasks || []).some(item => item.id === dependency))) return fail("Selecione predecessoras válidas deste projeto, sem autorreferência.");
+      const linkId = task.linkId ?? previous?.linkId ?? "";
+      const requireReview = task.requireReview == null ? Boolean(previous?.requireReview) : task.requireReview === true;
+      if ((linkId && !(project.links || []).some(link => link.id === linkId)) || (requireReview && !linkId)) return fail("Vincule uma entrega válida para exigir aprovação da atividade.");
+      const next = { ...(previous || {}), id, title: text(task.title), description: text(task.description ?? previous?.description, 4000), responsibleId: task.responsibleId, deadline: task.deadline || "", status: task.status, priority, plannedHours, checklist: checklist.map(item => ({ id: text(item.id), text: text(item.text, 500), done: item.done })), dependencies, blockedReason: text(task.blockedReason ?? previous?.blockedReason, 1000), linkId, requireReview, comments: previous?.comments || [], updatedAt: now, updatedById: command.actorId };
+      const tasks = task.id ? project.tasks.map(item => item.id === task.id ? next : item) : [...(project.tasks || []), next];
+      if (cyclicDependencies(tasks)) return fail("As dependências formam um ciclo. Remova uma das relações.");
+      const error = taskTransitionError({ ...project, tasks }, next, next.status, previous?.status || "");
+      if (error) return fail(error);
       project.tasks = task.id ? project.tasks.map(item => item.id === task.id ? next : item) : [...(project.tasks || []), next];
       detail = `Atividade: ${next.title} · ${next.status}`;
     }

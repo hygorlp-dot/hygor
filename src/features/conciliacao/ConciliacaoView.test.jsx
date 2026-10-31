@@ -17,7 +17,7 @@ vi.mock("../../domains/conciliacao/index.js", async importOriginal => {
     }),
   };
 });
-vi.mock("../../LegacyApp", async () => {
+vi.mock("../../legacy/ui.jsx", async () => {
   const React = await import("react");
   const calculations = await import("../../domains/conciliacao/calculations.js");
   return {
@@ -36,6 +36,10 @@ vi.mock("../../LegacyApp", async () => {
     sugerirPagamentoMaoObra: mocks.point, periodoPontoDaTransacao: () => ({ days: ["2026-10-15"], periodoPonto: "2026-10-1" }),
   };
 });
+
+vi.mock('../../domains/conciliacao/legacy-suggestions.js',async importOriginal=>({
+  ...await importOriginal(),sugerirPagamentoMaoObra:mocks.point,
+}));
 
 import Conciliacao from "./ConciliacaoView.jsx";
 

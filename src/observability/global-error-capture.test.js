@@ -18,14 +18,21 @@ describe("instalarCapturaGlobal", () => {
     expect(enviar.mock.calls[1][0]).toMatchObject({ message: "Falha ao gravar a medição", componentStack: "origem: promessa sem catch" });
   });
 
-  it("ignora ruído do navegador e falha de chunk (já tratada pelo ErrorBoundary)", () => {
+  it("ignora ruído do navegador", () => {
     const win = janelaFalsa(), enviar = vi.fn();
     instalarCapturaGlobal(win, { enviar });
     win.dispatchEvent(erroDeJanela(new Error("ResizeObserver loop completed with undelivered notifications.")));
     win.dispatchEvent(Object.assign(new Event("error"), { message: "Script error." }));
     win.dispatchEvent(promessaRejeitada(Object.assign(new Error("The user aborted a request."), { name: "AbortError" })));
-    win.dispatchEvent(promessaRejeitada(new Error("Failed to fetch dynamically imported module: /assets/x.js")));
     expect(enviar).not.toHaveBeenCalled();
+  });
+
+  it('reporta falhas de import em ações assíncronas fora do ErrorBoundary',()=>{
+    const win=janelaFalsa(),enviar=vi.fn();
+    vi.spyOn(console,'error').mockImplementation(()=>{});
+    instalarCapturaGlobal(win,{enviar});
+    win.dispatchEvent(promessaRejeitada(new Error('Failed to fetch dynamically imported module: /assets/export.js')));
+    expect(enviar).toHaveBeenCalledTimes(1);
   });
 
   it("não inunda o servidor: repetido conta uma vez e há teto por página", () => {

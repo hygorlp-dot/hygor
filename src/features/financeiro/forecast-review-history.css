@@ -1,0 +1,13 @@
+.forecast-review-history{min-width:0;margin-block:20px;overflow-wrap:anywhere;color:var(--arcd-text-primary)}
+.forecast-review-history h4{font-size:var(--arcd-type-body);font-weight:600}
+.forecast-review-history p{margin-block:8px;max-width:85ch}
+.forecast-review-history label{display:grid;gap:6px;margin-block:16px;max-width:360px}
+.forecast-review-history select{width:100%;min-height:44px;padding:8px;background:var(--arcd-surface-card);color:var(--arcd-text-primary);border:1px solid var(--arcd-border-strong);border-radius:var(--arcd-radius-md)}
+.forecast-review-history ol{list-style:none;margin:0;padding:0}
+.forecast-review-history li{border-top:1px solid var(--arcd-border-default);padding-block:16px}
+.forecast-review-history dl{display:flex;flex-wrap:wrap;gap:12px 24px;margin-block:12px;font-variant-numeric:tabular-nums}
+.forecast-review-history dt{font-size:var(--arcd-type-label);color:var(--arcd-text-secondary)}
+.forecast-review-history dd{margin:4px 0 0}
+.forecast-review-history nav{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.forecast-review-history :focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:2px}
+@media(max-width:767px){.forecast-review-history dl{display:grid;grid-template-columns:minmax(0,1fr)}.forecast-review-history nav button{white-space:normal;height:auto;min-height:44px}}

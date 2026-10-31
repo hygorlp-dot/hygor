@@ -48,7 +48,7 @@ describe("comandos transacionais de pagamentos de obrigações",()=>{
     ))).toBe("o-1");
   });
 
-  it("debita o caixa sem permitir saldo negativo",()=>{
+  it("registra a saída real com aviso de caixa negativo",()=>{
     const withCash={...base(),caixaObra:[
       {id:"a-1",obraId:"o-1",tipo:"aporte",valor:50,data:"2026-07-20",status:"ativo"},
     ]};
@@ -56,8 +56,8 @@ describe("comandos transacionais de pagamentos de obrigações",()=>{
       PAYABLE_PAYMENT_COMMAND.PAYABLE_PAYMENT_RECORDED,
       {targetType:"pedido",targetId:"p-1",payment:payment({origem:"caixa_obra"}),workCashMovementId:"cx-1"},
     ),now);
-    expect(blocked).toMatchObject({ok:false});
-    expect(blocked.reason).toMatch(/saldo suficiente/);
+    expect(blocked.ok).toBe(true);
+    expect(blocked.summary.workflowWarnings).toEqual(expect.arrayContaining([expect.objectContaining({code:'WORK_CASH_NEGATIVE',blocking:false})]));
     const enough={...withCash,caixaObra:[
       {id:"a-1",obraId:"o-1",tipo:"aporte",valor:100,data:"2026-07-20",status:"ativo"},
     ]};
@@ -173,11 +173,11 @@ describe("comandos transacionais de pagamentos de obrigações",()=>{
       {targetType:"pedido",targetId:"p-1",payment:payment({valor}),...extra},
     ),actorRole:role},now);
 
-    it("sem recebimento e sem nota, só a tolerância (maior entre 2% e R$ 50) passa",()=>{
+    it("sem recebimento e sem nota, o valor acima da tolerância segue como adiantamento",()=>{
       expect(pay(pending(),50).ok).toBe(true);
       const blocked=pay(pending(),60);
-      expect(blocked.ok).toBe(false);
-      expect(blocked.reason).toMatch(/acima do conferido/);
+      expect(blocked.ok).toBe(true);
+      expect(blocked.data.pedidos[0].pagamentos[0].workflowWarnings[0].code).toBe('PAYMENT_AHEAD_OF_CONFERENCE');
     });
 
     it("libera até o menor entre recebido e nota, mais a tolerância",()=>{
@@ -185,13 +185,14 @@ describe("comandos transacionais de pagamentos de obrigações",()=>{
       data.notasFiscais=[{id:"nf-1",pedidoId:"p-1",obraId:"o-1",valorBruto:400,status:"aprovada"}];
       // conferido = min(recebido 600, nota 400) = 400; tolerância R$ 50.
       expect(pay(data,450).ok).toBe(true);
-      expect(pay(data,460).ok).toBe(false);
+      expect(pay(data,460).data.pedidos[0].pagamentos[0].tipo).toBe('adiantamento');
     });
 
-    it("adiantamento exige motivo e perfil Financeiro/Administrador; fica marcado",()=>{
-      expect(pay(pending(),300,{adiantamento:true}).reason).toMatch(/motivo/);
-      expect(pay(pending(),300,{adiantamento:true,motivoAdiantamento:"Sinal de 30%"}).reason)
-        .toMatch(/Financeiro ou pelo Administrador/);
+    it("adiantamento fica marcado e motivo ausente gera aviso, sem nova trava processual",()=>{
+      const missing=pay(pending(),300,{adiantamento:true});
+      expect(missing.ok).toBe(true);
+      expect(missing.summary.workflowWarnings).toEqual(expect.arrayContaining([expect.objectContaining({code:'ADVANCE_REASON_MISSING'})]));
+      expect(pay(pending(),300,{adiantamento:true,motivoAdiantamento:"Sinal de 30%"}).ok).toBe(true);
       const ok=pay(pending(),300,{adiantamento:true,motivoAdiantamento:"Sinal de 30%"},"financeiro");
       expect(ok.ok).toBe(true);
       expect(ok.data.pedidos[0].pagamentos[0]).toMatchObject({tipo:"adiantamento",motivoAdiantamento:"Sinal de 30%"});

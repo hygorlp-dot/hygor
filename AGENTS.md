@@ -17,3 +17,12 @@ Além de `impeccable` e `shadcn`, consulte e aplique as skills abaixo quando for
 Combine as orientações relevantes com `impeccable` e `shadcn`, preservando a arquitetura e o sistema de design existentes. A consulta a essas skills não implica migrar a interface para Material 3, Expo ou outra biblioteca sem que isso faça parte do escopo solicitado.
 
 Esta regra se aplica a todo o projeto, inclusive aos subdiretórios.
+
+## Ajuda contextual e manual obrigatório
+
+- Toda alteração no app deve incluir revisão da ajuda e do manual. Quando mudar um fluxo, botão, filtro, regra, permissão ou resultado apresentado ao usuário, atualize a orientação correspondente na mesma alteração.
+- A fonte única é `src/features/help/help-content.js`. Escreva em português simples para quem nunca usou um ERP: finalidade, o que preparar, passos em ordem, resultado esperado e cuidados. Use os nomes reais dos controles; explique siglas e não prometa funções que a tela não oferece.
+- Toda aba deve ter um guia específico e manter o botão Ajuda no cabeçalho compartilhado. Novas áreas internas com fluxo próprio precisam selecionar sua ajuda contextual com `useHelpTopic` e ter seu guia incluído no manual.
+- Após revisar o conteúdo, atualize a data de revisão e execute `npm run manual:generate`. Inclua `docs/MANUAL_DO_APP.md` na alteração. `npm run manual:check`, também incluído no lint, verifica cobertura de abas e sincronização do arquivo com a ajuda.
+- O verificador não substitui revisão humana do conteúdo: registre na validação quando uma mudança técnica não exigir alteração de instruções ao usuário.
+- Preserve o contexto, os filtros e os dados ao abrir a ajuda; navegar no manual não deve gravar registros nem abrir telas operacionais automaticamente. O índice do app deve respeitar as áreas de acesso do usuário.

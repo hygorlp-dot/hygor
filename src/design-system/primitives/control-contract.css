@@ -1,0 +1,10 @@
+[data-mrc-field]{gap:8px}
+[data-theme] [data-mrc-field]>label.arcd-field__label{font-size:14px!important;font-weight:500!important;line-height:1.5}
+input[data-mrc-control],select[data-mrc-control],textarea[data-mrc-control]{width:100%;min-width:0;min-height:var(--arcd-control-height,40px);border:1px solid var(--arcd-border-strong);border-radius:var(--arcd-radius-control,6px);background:var(--arcd-surface-card);color:var(--arcd-text-primary);padding:8px 12px;font-family:var(--arcd-font-sans);font-size:15px;line-height:1.5;box-shadow:none}
+textarea[data-mrc-control]{min-height:96px;resize:vertical}
+[data-mrc-control]:focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:2px}
+[data-mrc-control][aria-invalid=true]{border-color:var(--arcd-danger-text);background:var(--arcd-danger-surface)}
+[data-mrc-control]:disabled{background:var(--arcd-surface-muted);color:var(--arcd-text-muted);cursor:not-allowed}
+[data-mrc-control][readonly]{background:var(--arcd-surface-page)}
+[data-theme] :is(input,select,textarea)[data-mrc-control]{font-size:15px!important}
+@media(max-width:767px){[data-theme] :is(input,select)[data-mrc-control]{min-height:44px}[data-theme] :is(input,select,textarea)[data-mrc-control]{font-size:16px!important}}

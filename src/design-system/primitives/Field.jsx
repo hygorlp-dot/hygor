@@ -14,8 +14,8 @@ export function useFieldIds({ id, description, error }) {
   };
 }
 
-export function Field({ label, required, description, error, htmlFor, children, descriptionId, errorId }) {
-  return <div className="arcd-field">
+export function Field({ label, required, description, error, htmlFor, children, descriptionId, errorId, className='' }) {
+  return <div className={`arcd-field ${className}`.trim()} data-mrc-field>
     {label && <label className="arcd-field__label" htmlFor={htmlFor}>{label}{required ? " *" : null}</label>}
     {children}
     {description && <div id={descriptionId} className="arcd-field__description">{description}</div>}

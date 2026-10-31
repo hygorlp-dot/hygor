@@ -1,7 +1,9 @@
+import {forecastDuplicationWarnings} from './forecast-duplication.js';
 import {calcOrcadoComprado} from '../compras/budget-tracking.js';
 import {selectDRE,selectCashFlow,toCents} from './ledger.js';
 import {financialEntry} from './workspace.js';
 import {costPlanningFingerprint} from './cost-control.js';
+import {openPurchaseCommitments,remainingChangeImpacts} from './cost-forecast.js';
 
 export function workStageCosts(data,ledger,obraId,asOf){
  const tracking=calcOrcadoComprado(data,obraId),budget=tracking.orc;
@@ -38,13 +40,23 @@ export function workStageCosts(data,ledger,obraId,asOf){
  cash.thirdPartyEvents.forEach(e=>allocate(e,'clientPaid'));
  const fingerprint=costPlanningFingerprint(data,obraId);
  const planning=(data.obras||[]).find(w=>w.id===obraId)?.costPlanning;
+ const openCommitments=openPurchaseCommitments(data,obraId,budget,root);
+ const changes=remainingChangeImpacts((data.obras||[]).find(w=>w.id===obraId),root);
+ // Preserve revisões cujo orçamento/etapa tenha sido substituído, sem
+ // apropriar automaticamente o valor a outra etapa.
+ const orphanRevisions=Object.entries(planning?.stages||{}).filter(([id])=>!rows.some(r=>r.id===id));
  for(const row of rows){
-   row.automaticRemaining=Math.max(0,row.budget-row.incurred,row.committed-row.incurred);
+   row.openCommitted=openCommitments.get(row.id)||0;
+   row.automaticRemaining=Math.max(0,row.budget-row.incurred,row.openCommitted);
    row.revision=planning?.stages?.[row.id]||null;
-   row.reviewValid=Boolean(row.revision&&row.revision.budgetId===budget?.id&&row.revision.fingerprint===fingerprint&&row.revision.asOf===asOf&&['incurred','committed','budget'].every(k=>row.revision.basis?.[k]===row[k]));
-   row.remaining=row.reviewValid?row.revision.remainingCents:row.automaticRemaining;
-   row.forecast=row.incurred+row.remaining;
+   row.reviewValid=Boolean(row.revision&&row.revision.budgetId===(budget?.id||'')&&row.revision.fingerprint===fingerprint&&row.revision.asOf===asOf&&['incurred','committed','budget'].every(k=>row.revision.basis?.[k]===row[k]));
+   row.remaining=row.revision?row.revision.remainingCents:row.automaticRemaining;
+   row.contingency=row.revision?.contingencyCents||0;
+   row.changeImpacts=changes.included.filter(c=>c.stageId===row.id);
+   row.changeImpact=row.changeImpacts.reduce((s,c)=>s+c.amountCents,0);
+   row.baseForecast=row.incurred+row.remaining+row.contingency;
+   row.forecast=row.baseForecast+row.changeImpact;
    row.deviation=row.forecast-row.budget;
  }
- return {budget,reason:tracking.motivo,fingerprint,planningVersion:Number(planning?.version||0),rows,totals:Object.fromEntries(['budget','committed','received','incurred','paid','clientPaid','remaining','forecast','deviation'].map(k=>[k,rows.reduce((s,r)=>s+r[k],0)]))};
+ return {duplicationWarnings:forecastDuplicationWarnings((data.obras||[]).find(w=>w.id===obraId),budget),budget,reason:tracking.motivo,fingerprint,changes,orphanRevisions,planningVersion:Number(planning?.version||0),rows,totals:Object.fromEntries(['budget','committed','openCommitted','received','incurred','paid','clientPaid','remaining','contingency','changeImpact','baseForecast','forecast','deviation'].map(k=>[k,rows.reduce((s,r)=>s+r[k],0)]))};
 }

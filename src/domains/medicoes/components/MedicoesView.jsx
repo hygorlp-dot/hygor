@@ -12,12 +12,11 @@ import { valorContratoVigente } from "../../obras/contract-amendments";
 import { AditivosContrato } from "../../obras/components/AditivosContrato";
 import { useMemo, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import {
-  Btn, C, CONTRACT_LABELS, DIA_VENC_1_PADRAO, DIA_VENC_2_PADRAO,
-  Ic, Inp, Modal, Sel,
-  calcProjecaoContratoObra, clampDiaNoMes, compLabel,
-  fmt, fmtDate, fmtDateFull, today, uid,
-} from "../../../LegacyApp";
+import { Btn, Ic, Inp, Modal, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { CONTRACT_LABELS, DIA_VENC_1_PADRAO, DIA_VENC_2_PADRAO, clampDiaNoMes } from "../../licenciamento/legacy-checklists.js";
+import { calcProjecaoContratoObra } from "../../financeiro/legacy-calculations.js";
+import { compLabel, fmt, fmtDate, fmtDateFull, today, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 import { totalRecebidoMedicao, statusRecebimentoMedicao } from "../../conciliacao/index.js";
 import { toLocalISODate } from "../../ponto/attendance-engine";

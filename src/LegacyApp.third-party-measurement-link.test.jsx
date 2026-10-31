@@ -4,8 +4,8 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-// Mesmos mocks de LegacyApp.test.jsx: os componentes shadcn não importam aqui.
-vi.mock("./components/ui/button", () => ({ Button: () => null }));
+// O botão real participa do contrato de interação da medição. Substituí-lo
+// por null escondia todos os controles após a adoção do botão compartilhado.
 vi.mock("./components/ui/input", () => ({ Input: () => null }));
 vi.mock("./components/ui/label", () => ({ Label: () => null }));
 vi.mock("./components/ui/card", () => ({

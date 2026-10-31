@@ -24,7 +24,7 @@ try{for(const width of [1440,390]){
  await expect(report.locator('.financial-reports__totals')).toContainText('R$ 200,00');
  await expect(report.locator('.financial-reports__totals')).toContainText('R$ 120,00');
  await report.getByRole('button',{name:'Ver 3 lançamento(s)',exact:true}).click();
- await expect(page.getByRole('dialog').getByText(/lançamento\(s\) · Total:/)).toContainText('R$ 80,00');
+ await expect(page.getByRole('dialog').getByText(/lançamento\(s\) no conjunto · Total do conjunto:/)).toContainText('R$ 80,00');
  await expect(page.getByRole('dialog').getByText(/Parcela sem detalhamento/)).toHaveCount(0);
  await page.keyboard.press('Escape');
  await report.locator('.financial-reports__options').evaluate(element=>{element.open=true;});

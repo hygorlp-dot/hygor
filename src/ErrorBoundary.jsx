@@ -14,8 +14,13 @@ export const dynamicImportRecoveryKey = error => {
 
 export const recoverDynamicImport = (error, win = window) => {
   if (!isDynamicImportFailure(error)) return false;
+  if (win.navigator?.onLine === false) return false;
   try {
-    const recoveryKey = dynamicImportRecoveryKey(error);
+    // O bloqueio pertence ao build carregado, não ao arquivo nem à sessão
+    // inteira: duas falhas do mesmo build não criam recargas em sequência,
+    // e uma versão nova não herda o bloqueio da anterior.
+    const entry = win.document?.querySelector('script[type="module"][src]')?.src || 'unknown-entry';
+    const recoveryKey = `arcd:chunk-recovery-build:${entry}`;
     if (win.sessionStorage.getItem(recoveryKey)) return false;
     // Sem armazenamento confiável, a saída manual evita um ciclo de recargas.
     win.sessionStorage.setItem(recoveryKey, "1");

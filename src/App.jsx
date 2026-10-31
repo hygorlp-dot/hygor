@@ -1,4 +1,5 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
+import { lazyWithCssRetry as lazy } from "./lib/lazy-with-css-retry.js";
 import OperationalApp from "./routes/OperationalApp";
 
 const SupplierQuotePage = lazy(() => import("./supplier-quote/SupplierQuotePage.jsx"));

@@ -7,10 +7,10 @@
 
 import { useMemo, useState } from "react";
 import { referenceTotalOf } from "../../compras/unit-conversion";
-import {
-  Btn, C, Ic, Inp, PageHero,
-  SETORES_APROVACAO, fmt, uid,
-} from "../../../LegacyApp";
+import { Btn, Ic, Inp, PageHero } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { SETORES_APROVACAO } from "../../administracao/LegacySettings.jsx";
+import { fmt, uid } from "../../../legacy/format.js";
 import { OPERATIONAL_COMMAND } from "../../sync/operational-commands";
 
 // Rótulo legível da entidade por trás de uma instância de aprovação - hoje

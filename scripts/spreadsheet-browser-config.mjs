@@ -10,7 +10,6 @@ const lodashMethods={escaperegexp:"escapeRegExp",isboolean:"isBoolean",isequal:"
 const encryptorPlugin=()=>({
   name:"spreadsheet-browser-encryptor",
   resolveId(source,importer){
-    if(source==="jszip")return require.resolve("jszip/lib/index.js");
     // Worksheet usa somente SHA-512. Não enviar os outros algoritmos,
     // cifras e protocolos de crypto-browserify para proteger uma planilha.
     if(source==="../utils/encryptor"&&importer?.replaceAll("\\","/").endsWith("/exceljs/lib/doc/worksheet.js")){
@@ -26,11 +25,12 @@ export const spreadsheetBrowserConfig=()=>({
   // Um único construtor Buffer também no otimizador de desenvolvimento:
   // misturar os shims CJS/ESM quebra o instanceof usado pelo ExcelJS.
   build:{rollupOptions:{transform:{inject:bufferInject}}},
-  optimizeDeps:{include:["exceljs"],rolldownOptions:{plugins:[encryptorPlugin()],transform:{inject:bufferInject}}},
+  optimizeDeps:{include:["exceljs","jszip"],rolldownOptions:{plugins:[encryptorPlugin()],transform:{inject:bufferInject}}},
   resolve:{
     dedupe:["readable-stream","string_decoder","safe-buffer","buffer"],
     alias:[
       {find:"exceljs",replacement:require.resolve("exceljs/lib/exceljs.bare.js")},
+      {find:"jszip",replacement:require.resolve("jszip/lib/index.js")},
       ...Object.entries(lodashMethods).map(([name,method])=>({find:`lodash.${name}`,replacement:require.resolve(`lodash/${method}.js`)})),
     ],
   },

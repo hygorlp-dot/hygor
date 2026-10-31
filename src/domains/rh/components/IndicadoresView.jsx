@@ -8,7 +8,9 @@
 // ===================================================================
 
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import { Badge, C, MiniKpi, PageHero, TYPO, fmt, fmtDateFull, today } from "../../../LegacyApp";
+import { Badge, MiniKpi, PageHero } from "../../../legacy/ui.jsx";
+import { C, TYPO } from "../../../legacy/palette.js";
+import { fmt, fmtDateFull, today } from "../../../legacy/format.js";
 import {
   rhComplianceSummary,
   rhHeadcountSummary,

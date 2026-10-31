@@ -1,6 +1,8 @@
 import {useEffect,useMemo,useState} from "react";
 import {marcellReportHtml} from "../../../reports/marcell-report.js";
-import {Badge,Btn,C,Ic,Inp,Modal,PageHero,Sel,uid} from "../../../LegacyApp";
+import { Badge, Btn, Ic, Inp, Modal, PageHero, Sel } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
+import { uid } from "../../../legacy/format.js";
 import {extrairNotaPatrimonioIA,obterDocumentoPatrimonio,subirDocumentoPatrimonio} from "../../../api";
 import {fornecedorPorDocumento,lerXmlNfe} from "../../compras/nfe-xml";
 import {loadPatrimonyPhotos} from "../report-photos.js";

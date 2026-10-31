@@ -1,6 +1,59 @@
 import {expect,test} from "@playwright/test";
 import {selectWorkspaceArea} from './helpers/workspace-navigation.js';
 
+test('Ajuda contextual acompanha a tela e oferece manual pesquisável sem alterar registros',async({page})=>{
+ const app=await enter(page,'admin');
+ const help=page.getByRole('button',{name:'Ajuda',exact:true});
+ await expect(help).toBeVisible();
+ if(page.viewportSize().width<768){
+  for(const width of [320,390]){
+   await page.setViewportSize({width,height:844});
+   await expect(help).toBeVisible();
+   expect(await page.locator('.arcd-topbar').evaluate(el=>el.scrollWidth>el.clientWidth+1)).toBe(false);
+  }
+ }
+ await help.click();
+ const panel=page.getByRole('complementary',{name:'Central de ajuda'});
+ await expect(panel).toBeVisible();
+ await expect(panel.getByRole('heading',{name:'Dashboard',exact:true})).toBeVisible();
+ await panel.getByRole('button',{name:'Manual completo',exact:true}).click();
+ const search=panel.getByLabel('O que você precisa fazer?');
+ await search.fill('conciliacao');
+ await panel.getByRole('navigation',{name:'Guias do manual'}).getByRole('button',{name:'Conciliação',exact:true}).click();
+ await expect(panel.locator('article')).toContainText('Relacionar movimentos do extrato');
+ await search.fill('termo-impossivel');
+ await expect(panel).toContainText('Nenhum guia encontrado');
+ await panel.getByRole('button',{name:'Limpar busca'}).click();
+ await panel.getByRole('button',{name:'Esta página',exact:true}).click();
+ await expect(panel.locator('article')).toContainText('Dashboard');
+ expect(await panel.evaluate(el=>el.scrollWidth>el.clientWidth+1)).toBe(false);
+ await page.screenshot({path:`artifacts/ajuda/ajuda-${page.viewportSize().width}.png`});
+ await panel.getByRole('button',{name:'Fechar ajuda'}).click();
+ await expect(help).toBeFocused();
+ await page.keyboard.press('Control+k');
+ const globalSearch=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');
+ await globalSearch.fill('Compras');
+ await globalSearch.locator('xpath=../..').getByRole('button').filter({hasText:'Compras'}).first().click();
+ await selectWorkspaceArea(page,'Fluxo de compras','Receber');
+ await help.click();
+ await expect(panel.getByRole('heading',{name:'Compras · Receber',exact:true})).toBeVisible();
+ await panel.getByRole('heading',{name:'Ajuda e manual'}).focus();
+ await page.keyboard.press('Escape');
+ await expect(panel).toHaveCount(0);
+ await expect(help).toBeFocused();
+ expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
+});
+
+test('Ajuda mostra somente guias das áreas disponíveis ao perfil',async({page})=>{
+ await enter(page,'rh');
+ await page.getByRole('button',{name:'Ajuda',exact:true}).click();
+ const panel=page.getByRole('complementary',{name:'Central de ajuda'});
+ await panel.getByRole('button',{name:'Manual completo',exact:true}).click();
+ const index=panel.getByRole('navigation',{name:'Guias do manual'});
+ await expect(index.getByRole('button',{name:'Ponto por obra',exact:true})).toBeVisible();
+ await expect(index.getByRole('button',{name:'DRE empresa',exact:true})).toHaveCount(0);
+});
+
 async function expectModule(page,label){
   if(page.viewportSize().width<1100)await expect(page.getByRole('combobox',{name:`Telas de ${label}`,exact:true})).toBeVisible();
   else await expect(page.locator('.app-breadcrumb')).toContainText(label);
@@ -17,11 +70,7 @@ test("identidade MARCELL carrega as fontes locais e a marca oficial no acesso",a
   await page.evaluate(()=>document.fonts.ready);
   expect(await page.evaluate(()=>[...document.fonts].filter(font=>font.family.includes("Source Sans 3")&&font.status==="loaded").length)).toBeGreaterThan(0);
   await expect(page.locator("#login-email")).toHaveCSS("font-family",/Source Sans 3/);
-  for(const name of ['PIN de acesso','E-mail e senha']){
-    await page.getByRole('tab',{name,exact:true}).click();
-    await expect(page.getByRole('tab',{name,exact:true})).toHaveAttribute('aria-selected','true');
-    await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
-  }
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
 });
 
 test("tema MARCELL migra a aparência e mantém leitura com ampliação",async({page})=>{
@@ -198,8 +247,7 @@ test("chat fica acima da navegação e cabe na tela em modo paisagem",async({pag
   await expect(panel).toBeVisible();
   const bounds=await panel.boundingBox(),navigation=await page.locator(".arcd-mobile-nav").boundingBox();
   expect(bounds.y).toBeGreaterThanOrEqual(0);expect(bounds.y+bounds.height).toBeLessThanOrEqual(navigation.y);
-  await page.getByRole("button",{name:"Abrir chat da equipe",exact:true}).click();
-  await expect(panel).toHaveCount(0);
+  await page.getByRole("button",{name:"Fechar chat da equipe",exact:true}).click();
   expect(app.errors).toEqual([]);expect(app.financialUnchanged()).toBe(true);
 });
 
@@ -213,8 +261,7 @@ test("fluxos internos e atalho do DRE preservam competência e pagamentos",async
   await open("Compras");
   if(page.viewportSize().width<1100)await expect(page.getByRole('combobox',{name:'Fluxo de compras',exact:true}).getByRole('option',{name:/^Pagamentos/})).toHaveCount(1);
   else await expect(page.getByRole("navigation",{name:"Fluxo de compras"}).getByRole("button",{name:/^Pagamentos/})).toBeVisible();
-  await expect(page.getByRole('region',{name:'Integração com o DRE',exact:true})).toHaveCount(1);
-  await page.getByRole("region",{name:"Integração com o DRE"}).locator('.dre-integration__disclosure > summary').click();
+  await page.getByRole("region",{name:"Integração com o DRE"}).locator("summary").click();
   await page.getByLabel("Competência do DRE").fill("2026-09");
   const requests=[];page.on("request",request=>{if(request.url().endsWith("/api/data")){const body=request.postDataJSON();if(body.action==="financial-dre-report")requests.push(body);}});
   const integration=page.getByRole("region",{name:"Integração com o DRE"});

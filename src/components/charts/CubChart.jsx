@@ -10,7 +10,8 @@ import {
   CartesianGrid, LabelList, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { useBreakpoint } from "../../hooks/useBreakpoint";
-import { ArcdChartTooltip, C, ChartPanel } from "../../LegacyApp.jsx";
+import { ArcdChartTooltip, ChartPanel } from "../../legacy/ui.jsx";
+import { C } from "../../legacy/palette.js";
 
 const CUB_PADRAO_COR={baixo:C.cinza,normal:C.blue,alto:C.yellow,especial:C.yellow};
 const CUB_PADRAO_LABEL={baixo:"Padrão baixo",normal:"Padrão normal",alto:"Padrão alto",especial:"Especial"};

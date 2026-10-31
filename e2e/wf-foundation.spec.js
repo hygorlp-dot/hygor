@@ -1,0 +1,13 @@
+import {test,expect} from './helpers/workflow-test.js';
+import {data as initial,profile} from '../scripts/fixtures/workflow-priorities-data.mjs';
+import {applyOperationalCommand} from '../src/domains/sync/operational-commands.js';
+test('WF J05 pagamento parcial confirma uma vez e mantém saldo residual',async({page})=>{
+ let data=structuredClone(initial);data.condominios=[];const commands=[],errors=[];
+ await page.clock.setFixedTime(new Date('2026-10-31T15:00:00Z'));page.on('pageerror',e=>errors.push(e.message));
+ await page.route('https://**/*',r=>r.abort());await page.route('**/api/**',r=>r.fulfill({json:{ok:true,items:[],bases:[],presencas:[]}}));
+ await page.route('**/api/data',r=>{const b=r.request().postDataJSON()||{};if(b.action==='profiles')return r.fulfill({json:{usuarios:[profile],precisaSetup:false}});if(b.action==='operational-command'){commands.push(b.command);const result=applyOperationalCommand(data,b.command,'2026-10-31T15:00:00Z');if(result.ok)data=result.data;return r.fulfill({json:{...result,updatedAt:'2026-10-31T15:00:01Z'}});}return r.fulfill({json:{ok:true,usuario:profile,accessToken:'isolated-qa',refreshToken:'isolated-qa',data,updatedAt:'2026-10-31T15:00:00Z'}});});
+ await page.goto('/');await page.locator('#login-email').fill(profile.email);await page.locator('#login-senha').fill('isolated');await page.getByRole('button',{name:'Acessar central MARCELL',exact:true}).click();await page.getByRole('heading',{name:'Visão gerencial',exact:true}).waitFor();
+ await page.keyboard.press('Control+k');const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');await search.fill('Gestão financeira');await search.locator('xpath=../..').getByRole('button').filter({hasText:'Gestão financeira'}).first().click();
+ if(page.viewportSize().width<768)await page.getByRole('combobox',{name:'Áreas do financeiro',exact:true}).selectOption('pagamentos');else await page.getByRole('navigation',{name:'Áreas do financeiro'}).getByRole('button',{name:'Pagamentos',exact:true}).click();
+ await page.getByLabel('Pesquisar pagamentos',{exact:true}).fill('123');const row=page.locator('.payment-workspace article').filter({hasText:'123'});await row.getByRole('button',{name:'Realizar pagamento',exact:true}).click();const dialog=page.getByRole('dialog');await dialog.getByLabel('Valor pago *',{exact:true}).fill('100');await dialog.getByRole('button',{name:'Confirmar pagamento',exact:true}).click();await expect(dialog).toHaveCount(0);await expect(row).toContainText('650,00');expect(commands).toHaveLength(1);expect(data.notasFiscais[0].pagamentos).toHaveLength(2);expect(errors).toEqual([]);
+});

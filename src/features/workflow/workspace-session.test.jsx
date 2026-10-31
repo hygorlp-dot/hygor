@@ -11,3 +11,11 @@ function fill(value){act(()=>{const input=container.querySelector("input");Objec
 it("restaura o filtro após desmontar e remontar o módulo",()=>{const views=new Map();render(views,"a");fill("cimento");render(views,"a",false);render(views,"a");expect(container.querySelector("input").value).toBe("cimento");});
 it("isola telas internas de obras diferentes mesmo sem remontar o componente",()=>{const views=new Map();render(views,"a");fill("cimento");render(views,"b");expect(container.querySelector("input").value).toBe("");fill("aço");render(views,"a");expect(container.querySelector("input").value).toBe("cimento");});
 it("uma nova sessão não herda filtros da sessão anterior",()=>{render(new Map(),"a");fill("cimento");act(()=>root.unmount());root=null;container.remove();container=null;render(new Map(),"a");expect(container.querySelector("input").value).toBe("");});
+it("preserva a última escolha quando a navegação desmonta a tela no mesmo lote de eventos",()=>{
+ const views=new Map();let change;
+ function Pending(){const [value,setValue]=useWorkspaceState("screen","filter",0,"a");change=setValue;return <span>{value}</span>;}
+ container=document.createElement("div");document.body.append(container);root=createRoot(container);
+ act(()=>root.render(<WorkflowContext.Provider value={{views}}><Pending/></WorkflowContext.Provider>));
+ act(()=>{change(value=>value+1);change(value=>value+1);root.render(<WorkflowContext.Provider value={{views}}/>);});
+ expect(views.get(JSON.stringify(["screen","a","filter"]))).toBe(2);
+});

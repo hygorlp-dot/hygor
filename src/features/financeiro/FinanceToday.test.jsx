@@ -27,3 +27,11 @@ it('oferece vencidos sem trocar silenciosamente uma fila vazia',()=>{
  act(()=>[...container.querySelectorAll('button')].find(b=>b.textContent==='Conferir vencidos').click());
  expect(container.textContent).toContain('NF vencida');expect(container.textContent).not.toContain('Nenhum título em pagar hoje');
 });
+it('abre a revisão contextual sem substituir a consulta do memorial',()=>{
+ const item={id:'n',description:'NF parcial',obra:'Obra A',amountCents:7000},onAction=vi.fn(),onOpen=vi.fn();
+ render(<FinanceToday today="2026-10-31" work="Obra A" queues={[{id:'payToday',label:'Pagar hoje',items:[item],amountCents:7000}]} onOpen={onOpen} onAction={onAction} resolveAction={()=>({label:'Conferir documento',reason:'Confira a origem antes de prosseguir.'})}/>);
+ act(()=>[...container.querySelectorAll('button')].find(b=>b.textContent==='Conferir documento').click());
+ expect(onAction).toHaveBeenCalledWith(item);expect(onOpen).not.toHaveBeenCalled();
+ act(()=>[...container.querySelectorAll('button')].find(b=>b.textContent==='Ver memorial').click());
+ expect(onOpen.mock.calls[0][0].items).toEqual([item]);
+});

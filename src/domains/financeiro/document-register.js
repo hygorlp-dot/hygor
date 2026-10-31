@@ -1,6 +1,6 @@
 import {active,toCents} from './ledger.js';
 import {financialEntry} from './workspace.js';
-import {financialDocumentUrl as validLink} from './document-links.js';
+import {entryEvidenceDocuments,documentEvidenceInfo} from './document-evidence.js';
 const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
 export const documentIssueLabels={review:'Aguardando conferência',missing:'Sem documento',work:'Sem obra',category:'Sem categoria',duplicate:'Possível duplicidade',mismatch:'Divergência informada'};
 export function documentRegister(data,{competence='',obraId='all'}={}){
@@ -9,10 +9,10 @@ export function documentRegister(data,{competence='',obraId='all'}={}){
   const date=record.emissao||record.dataEmissao||record.data||record.date||'',period=record.competencia||date.slice(0,7);
   const amount=record.valorBruto??record.valorPrevisto??record.valor??record.amount??record.valorTotal??0;
   const entry=financialEntry(data,{id:`${type}:${record.id}`,sourceType:type,sourceId:record.id,obraId:record.obraId,date,competence:period,amountCents:toCents(amount)});
-  const docs=[...(record.documentos||[]),...(entry.documents||[]),...(record.pagamentos||[]).filter(active).flatMap(p=>p.comprovantes||[]),...(record.recebimentos||[]).filter(active).flatMap(r=>r.comprovantes||[])];
+  const docs=entryEvidenceDocuments(entry);
   const issues=[];
   if(type==='nota_fiscal'&&['recebida','conferencia',''].includes(record.status||''))issues.push('review');
-  if(!docs.some(d=>validLink(d.url||d.webUrl||'')))issues.push('missing');
+  if(!docs.some(d=>documentEvidenceInfo(d).resolvable))issues.push('missing');
   if(type!=='despesa_empresa'&&!record.obraId&&!record.rateios?.some(r=>r.obraId))issues.push('work');
   if(['nota_fiscal','despesa_empresa','outra_despesa'].includes(type)&&!record.categoria)issues.push('category');
   if(record.divergencias?.length)issues.push('mismatch');

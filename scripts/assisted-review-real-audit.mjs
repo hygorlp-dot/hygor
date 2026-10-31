@@ -1,0 +1,14 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {readRealFinanceData} from './finance-real-data-source.mjs';
+import {buildAssistedQueue,assistedDocuments} from '../src/features/pilot/assisted-review.js';
+const originalFetch=globalThis.fetch;let reads=0;
+globalThis.fetch=(input,options={})=>{const method=String(options.method||input?.method||'GET').toUpperCase();if(!['GET','HEAD'].includes(method))throw new Error('Somente leitura permitida.');reads++;return originalFetch(input,options);};
+const {data,updatedAt}=await readRealFinanceData();
+const hash=()=>createHash('sha256').update(JSON.stringify(data)).digest('hex');const before=hash();
+const rows=buildAssistedQueue(data);if(before!==hash())throw new Error('Os dados foram alterados durante a análise.');
+const previous=JSON.parse(await readFile('C:/dev/marcell-local-review/piloto-real/classificacao.json','utf8'));
+if(previous.safeguards.sourceFingerprint===before&&rows.length!==previous.classification.withCandidateInReview)throw new Error('O recorte não corresponde à simulação anterior.');
+const cases=rows.map(row=>{const documents=assistedDocuments(data,row);return {id:row.tr.id,reason:row.motivo,targetType:row.analise.melhorCandidata.tipo,matches:row.matches.map(p=>({type:p.tipo,id:p.id,documentMatch:p.documentMatch,nameMatch:p.nameMatch,documentConflict:p.documentConflict})),documents:{bank:documents.bank.length,target:documents.target.length}};});
+const summary={at:new Date().toISOString(),updatedAt,cases:rows.length,readRequests:reads,financialWrites:0,oneDriveRequests:0,dataUnchanged:before===hash(),sameSourceAsSimulation:previous.safeguards.sourceFingerprint===before,withIdentityMatches:cases.filter(c=>c.matches.length).length,ambiguousIdentity:cases.filter(c=>c.matches.length>1).length,withExactDocument:cases.filter(c=>c.matches.some(p=>p.documentMatch)).length,withNameMatch:cases.filter(c=>c.matches.some(p=>p.nameMatch)).length,withDocuments:cases.filter(c=>c.documents.bank+c.documents.target>0).length};
+await writeFile('C:/dev/marcell-local-review/piloto-real/fila-assistida.json',JSON.stringify({summary,cases},null,2));console.log(JSON.stringify(summary,null,2));

@@ -1,4 +1,5 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { lazyWithCssRetry as lazy } from "../lib/lazy-with-css-retry.js";
 import "./styles.css";
 
 const DEFAULT_PRIORITY = ["painel", "eng_grp", "compras_grp", "fin_grp"];

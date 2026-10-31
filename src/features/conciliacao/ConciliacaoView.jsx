@@ -1,4 +1,7 @@
 import BankImportPreview from "../financeiro/BankImportPreview.jsx";
+import "../financeiro/record-continuity.css";
+import {useWorkflow} from '../workflow/WorkflowNavigation.jsx';
+import {useWorkspaceState,useWorkspaceScroll} from '../workflow/workspace-session.jsx';
 import {validBankDate} from "../../domains/conciliacao/import-preview.js";
 import {reconciliationDivergences,divergenceLabels} from "../../domains/conciliacao/divergence-queues.js";
 // ===================================================================
@@ -27,15 +30,14 @@ import {reconciliationDivergences,divergenceLabels} from "../../domains/concilia
 // nessa lista.
 // ===================================================================
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazyWithCssRetry as lazy } from "../../lib/lazy-with-css-retry.js";
 import { useBreakpoint } from "../../hooks/useBreakpoint";
-import {
-  Badge, Btn, C, Ic, Inp, Modal, PageHero, Sel, TabRow,
-  XLSX, carregarXLSX, fmt, fmtDate, today, uid,
-  semAcentoConc, parseBRConc, chaveTransacao, somaRateios,
-  sugerirRateio, diasEntre, sugerirMedicoes, sugerirPagamentoMaoObra,
-  periodoPontoDaTransacao,
-} from "../../LegacyApp";
+import { Badge, Btn, Ic, Inp, Modal, PageHero, Sel, TabRow } from "../../legacy/ui.jsx";
+import { C } from "../../legacy/palette.js";
+import { XLSX, carregarXLSX } from "../../legacy/files.js";
+import { fmt, fmtDate, today, uid } from "../../legacy/format.js";
+import { semAcentoConc, parseBRConc, chaveTransacao, somaRateios, sugerirRateio, diasEntre, sugerirMedicoes, sugerirPagamentoMaoObra, periodoPontoDaTransacao } from "../../domains/conciliacao/legacy-suggestions.js";
 import { OPERATIONAL_COMMAND } from "../../domains/sync/operational-commands";
 import {
   calcConciliacao,
@@ -83,6 +85,10 @@ const effectLabels = {
 
 export default function Conciliacao({ data, update, showToast, currentUser, dispatchCommand=null }) {
   const { formGrid } = useBreakpoint();
+  const {intent}=useWorkflow();
+  const useView=(key,initial)=>useWorkspaceState('conc',key,initial);
+  useWorkspaceScroll('conc');
+  const [bankOrigin,setBankOrigin]=useView('bankOrigin',null);
   const [reviewId,setReviewId]=useState("");
   const [pilotOpen,setPilotOpen]=useState(false);
   const [pilotNotes,setPilotNotes]=useState({});
@@ -91,12 +97,12 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const reviewAdvance=useRef(null);
   const reviewPanelRef=useRef(null);
   useEffect(()=>{const panel=reviewPanelRef.current;if(panel){panel.scrollTop=0;panel.querySelector("h2")?.focus({preventScroll:true});}},[reviewId]);
-  const [accountFilter,setAccountFilter]=useState("");
-  const [divergence,setDivergence]=useState("all");
+  const [accountFilter,setAccountFilter]=useView('accountFilter',"");
+  const [divergence,setDivergence]=useView('divergence',"all");
   const accountsReview=useMemo(()=>accountReviewSummary(data),[data]);
-  const [aba,        setAba]        = useState("pendentes");  // pendentes|conciliadas|ignoradas|extratos|historico
+  const [aba,        setAba]        = useView('aba',"pendentes");  // pendentes|conciliadas|ignoradas|extratos|historico
   const filaPendente = ["pendentes", "identificados"].includes(aba);
-  const [automacaoAtiva, setAutomacaoAtiva] = useState(true);
+  const [automacaoAtiva, setAutomacaoAtiva] = useState(()=>!bankOrigin&&intent?.action!=='review-financial-origin');
   const [falhasAutomaticas, setFalhasAutomaticas] = useState({});
   const tentativasAutomaticas = useRef(new Set());
   const execucaoConcRef = useRef(false);
@@ -108,9 +114,20 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
   const [criarRegra, setCriarRegra] = useState(false);
   const [padraoRegra,setPadraoRegra]= useState("");
   const [medAlvo,    setMedAlvo]    = useState(null);   // medição que a entrada vai quitar
-  const [buscaConc,setBuscaConc]=useState("");
-  const [tipoMovimento,setTipoMovimento]=useState("todos");
-  const [filtroCategoria,setFiltroCategoria]=useState("");
+  const [buscaConc,setBuscaConc]=useView('query',"");
+  const [tipoMovimento,setTipoMovimento]=useView('direction',"todos");
+  const [filtroCategoria,setFiltroCategoria]=useView('category',"");
+  const financialIntentHandled=useRef(null);
+  useEffect(()=>{
+    if(intent?.tabId!=='conc'||intent.action!=='review-financial-origin'||financialIntentHandled.current===intent.sequence||!['admin','financeiro'].includes(currentUser?.role))return;
+    financialIntentHandled.current=intent.sequence;
+    const origin=intent.record||{},ids=(origin.transactionIds||[]).map(String);
+    const transactions=(data.transacoes||[]).filter(t=>ids.includes(String(t.id))&&!t.deletedAt&&t.ativo!==false);
+    setAutomacaoAtiva(false);setBankOrigin({...origin,transactionIds:ids,unavailable:ids.length-transactions.length});
+    setAccountFilter(String(origin.accountId||''));setBuscaConc('');setTipoMovimento('todos');setFiltroCategoria('');setDivergence('all');
+    setAba(transactions.length&&transactions.every(t=>t.status==='conciliado')?'conciliadas':transactions.length&&transactions.every(t=>t.status==='ignorado')?'ignoradas':'pendentes');
+    setReviewId(transactions.find(t=>['pendente','parcial'].includes(t.status))?.id||'');
+  },[intent?.sequence]);
   const [competenciaApropriacao,setCompetenciaApropriacao]=useState("");
   const [selecionadas,setSelecionadas]=useState([]);
   const [limiteVisivel,setLimiteVisivel]=useState(30);
@@ -226,6 +243,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
     const porStatus=aba === "identificados"?t.filter(x=>(x.status==="pendente"&&automacaoPorTransacao.get(x.id)?.automatica&&!falhasAutomaticas[x.id])||(x.status==="conciliado"&&x.automacaoConciliacao)):aba === "pendentes"?t.filter(x=>x.status==="parcial"||(x.status==="pendente"&&(modoConciliacaoRh||!automacaoPorTransacao.get(x.id)?.automatica||falhasAutomaticas[x.id]))):aba === "conciliadas"?t.filter(x=>x.status==="conciliado"):aba === "ignoradas"?t.filter(x=>x.status==="ignorado"):t;
     const termos=normalizeCategorySearch(buscaConc).split(/\s+/).filter(Boolean);
     return porStatus.filter(x=>{
+      if(bankOrigin?.transactionIds?.length&&!bankOrigin.transactionIds.includes(String(x.id)))return false;
       if(accountFilter && String(x.contaBancariaId||"unassigned")!==accountFilter)return false;
       if(tipoMovimento!=="todos"&&(tipoMovimento==="entradas"?Number(x.valor)<=0:Number(x.valor)>=0))return false;
       const analysis=analisesPorTransacao.get(x.id);
@@ -243,7 +261,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
       const haystack=normalizeCategorySearch(`${x.descricao} ${x.data} ${x.ignoradoMotivo||""} ${analysis?.identidadeProvavel?.nome||""} ${works} ${categoryText} ${confirmed.text} ${candidates.map(item=>`${item.titulo} ${item.contraparte||""}`).join(" ")}`);
       return termos.every(term=>haystack.includes(term));
     });
-  }, [data, accountFilter, aba, buscaConc, tipoMovimento, filtroCategoria, categoriasFila, analisesPorTransacao, automacaoPorTransacao, falhasAutomaticas, filaPendente, modoConciliacaoRh]);
+  }, [data, bankOrigin, accountFilter, aba, buscaConc, tipoMovimento, filtroCategoria, categoriasFila, analisesPorTransacao, automacaoPorTransacao, falhasAutomaticas, filaPendente, modoConciliacaoRh]);
   const divergenceCounts=Object.fromEntries(Object.keys(divergenceLabels).map(key=>[key,transacoes.filter(t=>key==="all"||reconciliationDivergences(t,analisesPorTransacao.get(t.id)).includes(key)).length]));
   const filteredTransactions=filaPendente&&divergence!=="all"?transacoes.filter(t=>reconciliationDivergences(t,analisesPorTransacao.get(t.id)).includes(divergence)):transacoes;
   const transacoesVisiveis=filteredTransactions.slice(0,limiteVisivel);
@@ -947,6 +965,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
 
   return (
     <div className="anim reconciliation-workspace">
+
       {importPreview&&<Modal title="Prévia da importação do extrato" wide onClose={()=>!confirmingImport&&setImportPreview(null)}><BankImportPreview data={data} prepared={importPreview} pending={confirmingImport} onCancel={()=>setImportPreview(null)} onConfirm={confirmarImportacao}/></Modal>}
       <PageHero
         title={modoConciliacaoRh?"Conciliação da folha":"Conciliação Bancária"}
@@ -954,6 +973,7 @@ export default function Conciliacao({ data, update, showToast, currentUser, disp
         actions={modoConciliacaoRh?null:(importando?<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.yellowD}}>Lendo extrato...</span>:<label className="arcd-btn" data-variant="primary" data-size="sm" style={{border:`1px solid ${C.yellowD}`,background:C.yellow,color:C.ink,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6,fontWeight:600}}><input type="file" accept=".ofx,.qfx,.csv,.xlsx,.xls" onChange={e=>{const file=e.target.files?.[0];e.target.value="";importar(file);}} style={{display:"none"}}/><Ic n="download" s={12}/> Importar extrato</label>)}
       />
 
+      {bankOrigin&&<section className="financial-bank-origin" aria-label="Origem da revisão bancária"><details><summary>Origem: {bankOrigin.label||"Registro financeiro"} · {automacaoAtiva?"Automação ativa":"Automação pausada"}</summary><p>{bankOrigin.unavailable?"Há referência bancária indisponível neste recorte. Confira o vínculo na origem antes de prosseguir.":bankOrigin.transactionIds?.length?"Movimentos vinculados por identidade. A situação selecionada continua sendo respeitada.":"Sem movimento bancário vinculado. Localize o extrato e compare com o pagamento já registrado antes de confirmar qualquer vínculo."}</p><p>A abertura desta consulta pausa a automação; nenhuma conciliação é confirmada pelo atalho.</p><Button variant="outline" onClick={()=>setBankOrigin(null)}>Mostrar outros movimentos</Button></details></section>}
       {!modoConciliacaoRh&&<div><Button variant="outline" disabled={conciliando||reviewSaving||transacaoCommandPending||importando} onClick={()=>setPilotOpen(true)}>Abrir piloto de conferência</Button></div>}
       <section className="reconciliation-summary" aria-label="Resumo da conciliação">
         {[

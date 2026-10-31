@@ -1,5 +1,6 @@
 import {useState} from "react";
-import {Btn,Inp,Sel,fmt,uid} from "../../../LegacyApp";
+import { Btn, Inp, Sel } from "../../../legacy/ui.jsx";
+import { fmt, uid } from "../../../legacy/format.js";
 import {OPERATIONAL_COMMAND} from "../../sync/operational-commands.js";
 import {getAtt} from "../attendance-engine.js";
 import {ADMISSION_COST_FIELDS,attendanceDaysInMonth,EMPLOYER_REGIMES,employerChargesRate,monthEnd,newPayModeSimulation,simulatePayMode,summarizePayModeSimulation} from "../pay-mode-simulation.js";

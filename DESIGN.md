@@ -335,10 +335,96 @@ Estoque usa ações no cabeçalho, indicadores em faixa e explicação do DRE so
 ### Continuidade entre módulos — 31/10/2026
 
 Preservar filtros, áreas internas e rolagem durante a sessão. Atalhos levam a obra e a competência de origem; “Voltar a…” retorna ao contexto anterior. A decisão da cotação fica junto de sua identificação e abre a revisão existente. No Planejamento, materiais da etapa levam a uma solicitação revisável: quantidades de referência não equivalem automaticamente a quantidades de compra. Estoque e pedidos compartilhados exigem conferência. Implementação e evidências em [Contexto, planejamento e compras](docs/CONTEXTO-PLANEJAMENTO-COMPRAS.md).
-### Grupos e projeção da equipe
 
-Folha e Ponto compartilham as navegações Consolidado, Obras e Administração Central. A central inclui provisoriamente engenheiros e mestres, com explicação junto à navegação e sem alteração automática da lotação.
+### Rotina, contexto e ações — primeira onda do roadmap
 
-A projeção usa o modo Operate, os controles existentes e uma tabela acessível acompanhando as barras de apurado e estimativas. Custo, líquido aos funcionários e saldo são leituras distintas. A reserva integral é cenário, sem tratamento visual de economia. Dados desconhecidos aparecem como Indisponível, com subtotal parcial e memória; nunca como zero confirmado. A navegação de competência histórica não controla a quinzena ativa do relatório. No celular, controles empilham e tabelas têm rolagem própria, preservando valores completos. Exportações conservam filtros, corte e referência da consulta autorizada.
+- Cabeçalhos operacionais agrupam identidade, obra e ação da área. Em Cotações, “Adicionar cotação” é a ação principal; retorno à fila e outras ações permanecem no mesmo cabeçalho. No celular, obra e título compartilham a primeira linha quando couberem, com ações abaixo.
+- Rótulos usam a linguagem do trabalho, em caixa de frase: “Comparar propostas”, “Analisar documento”, “Nova solicitação”. Evitar títulos consecutivos para a mesma área.
+- Cada cotação possui um botão nativo para abrir/recolher sua análise. Ações destrutivas ficam no menu do registro, usando o mesmo componente dos pedidos. Não aninhar botões dentro de outro elemento com papel de botão.
+- DRE é uma consulta complementar após o conteúdo de Compras; continua com competência explícita e sem restringir silenciosamente os filtros operacionais.
+- Navegação financeira agrupa Rotina, Análises e Ferramentas. Desktop e celular usam os mesmos destinos autorizados; o seletor móvel informa o grupo ativo. Não criar navegações diferentes com listas de permissões independentes.
+- Reutilizar os componentes existentes, seus estados e tokens. Espaçamentos desta composição seguem intervalos de 4/8/12/16 px; alvos das ações de cabeçalho e menus têm 44 px no celular.
 
-No PDF, o rodapé da folha participa do cálculo de largura, usando sua fonte em negrito. Totais monetários recebem largura mínima e permanecem em uma linha, inclusive ao reutilizar ajustes salvos.
+### Conferência conectada e ação financeira — onda 2
+
+- Identificar pedido, obra e documento antes de comparar. Quantidade física, valor recebido de referência, faturamento, pagamento e conciliação mantêm seus significados próprios.
+- Comparar o original e os dados lado a lado em desktop; em telas menores, alternar Documento/Dados da nota sem descartar a escolha do pedido e da nota. Dados ausentes e unidades sem equivalência ficam explícitos.
+- A próxima ação da fila financeira vem de uma origem existente e autorizada. Usar “Conferir documento”, “Conferir compra” e “Conferir cobrança” conforme o destino; manter “Ver memorial” como consulta.
+- Preservar retorno, fila e obra ao abrir uma revisão. Datas usam `dd/mm/aaaa`; valores usam moeda local e algarismos tabulares. Consultar não executa aprovação, pagamento ou conciliação.
+
+### Revisão bancária e evidências — onda 3
+
+- Na revisão bancária, mostrar saldo a vincular, valor selecionado e restante após seleção juntos. O valor original do banco mantém seu próprio rótulo; comparações usam o saldo restante. Informação ausente não equivale a zero.
+- Confirmação acompanha o resumo da seleção no fluxo da página, sem rodapé sobreposto ou rolagem concorrente no painel de revisão. No celular, valores permanecem inteiros e os resumos se reorganizam verticalmente.
+- Trocar a conta encerra a revisão anterior. Abrir e fechar evidências preserva a seleção; período fechado apresenta a restrição existente junto da ação.
+- Documentos, memorial, compras e conciliação reutilizam o leitor do original. Informar origem, formato e vínculo; referência cadastrada não certifica acesso nem conferência do conteúdo.
+- Distinguir ausência de anexo, endereço indisponível, sessão necessária, acesso negado, arquivo não encontrado, endereço expirado e falha de prévia. Oferecer nova tentativa e abertura do original quando houver referência válida.
+- Resolver evidências pela identidade do registro e da obra. Anexos de outro pagamento ou outra obra não entram por semelhança de descrição ou valor. Consultar evidências não grava operações.
+
+### Consultas e comparação temporal — onda 4
+
+- Consultas nomeadas guardam somente busca, situação, obra e mês no navegador, com identidade de usuário e empresa. Nunca persistir anexos, links assinados, seleção operacional ou rascunhos como preferência. Aplicação da consulta é explícita; referência de obra indisponível conserva o recorte atual e explica a correção.
+- Consultas salvas e conferência em sequência ficam recolhidas junto dos filtros. Em desktop, os controles de nome e aplicação compartilham a linha; no celular se reorganizam, preservando rótulos, foco e alvos de 44 px.
+- Seleção documental precede uma prévia. Mostrar elegibilidade e motivo de bloqueio por registro, revalidar antes de abrir e manter a sequência ao retornar. Ficha aberta não equivale a salva ou conferida. A confirmação permanece na ficha fiscal existente.
+- Na consulta temporal, separar referência da etapa, necessidade registrada, compromisso de compra e obrigação financeira. Usar identidade explícita de obra, plano, etapa, solicitação e pedido; títulos usam os valores do motor canônico.
+- Pedido vinculado não reaparece como necessidade adicional; sua cobertura de quantidades ainda exige conferência. Não alocar estoque compartilhado nem somar orçamento, pedidos e títulos. Datas inválidas e vínculos ausentes são pendências visíveis.
+- Deslocar datas em simulação altera apenas a comparação de referências. Preservar datas cadastradas de entregas, solicitações e títulos. Saldo desconhecido continua desconhecido; não atribuir saldo da empresa à obra.
+
+### Revisão geral após o roadmap — 31/10/2026
+
+- Pagamentos usa cabeçalho de seção, resumo compacto e filtros junto da fila. No celular, a seleção de situação substitui os atalhos de etapas; valores e acesso aos memoriais permanecem disponíveis. Evitar indicadores com faixas laterais decorativas ou estado de alerta em valores zerados.
+- A ação de conferência de um pagamento abre seu documento fiscal específico. O retorno identifica a fila de pagamentos e preserva obra, situação, busca e posição de consulta na sessão.
+- Em Pedidos, a ação principal do cabeçalho é “Novo pedido”, reutilizando o formulário existente. “Nova solicitação” continua no menu. Busca permanece visível; filtros complementares usam o mesmo padrão expansível de Cotações no celular, com contagem e valores preservados ao recolher.
+- Avisos de entrega usam caixa de frase e ação próxima. Em desktop, busca e filtros compartilham a linha; em celular, ações de um registro não competem com anexos pelo espaço horizontal.
+- Controles expansíveis de Financeiro e Compras têm pelo menos 44 px no celular. A comunicação da equipe fica no cabeçalho móvel, com nome acessível e estado de expansão; não sobrepor seu atalho às ações dos registros. O painel e a indicação de não lidas permanecem disponíveis.
+
+### Contrato compartilhado — WF02
+
+- As APIs UI, design system e `Btn` legado delegam ao mesmo renderizador de botão e aos papéis principal, secundário, discreto e destrutivo. Preservar o mapeamento legado de `ghost` para secundário. Não criar nova receita visual em cada adaptador.
+- Entrada, seleção e área de texto nativas usam `data-mrc-control`, rótulo associado e contrato comum de foco, erro e edição móvel. Estilos explícitos antigos e controles específicos ainda exigem migração por superfície.
+- Um H1 por tela; cabeçalhos de área recebem `headingLevel={2}`. Diálogos contêm o foco e retornam ao acionador. Ação carregando bloqueia reenvio e comunica sua situação.
+- Referência executável: Storybook → Fluxo/Padrões compartilhados. Regras e limites em `docs/PADROES-OPERACIONAIS-MARCELL.md`.
+
+### Continuidade de Compras — WF03/WF04
+
+- Relações de solicitação, cotação e pedido dependem de identidade e obra. Mostrar a providência e os destinos vinculados no registro; não inferir cobertura integral das quantidades pelo vínculo.
+- Ao abrir um vínculo, guardar o recorte da origem na sessão. Voltar restaura busca, situação, datas e comparação aberta. Se o estado atualizado sair do filtro, explicar e oferecer a visualização explícita da origem.
+- Após decidir uma cotação, mostrar apenas os pedidos confirmados por aquela decisão, com retorno ao comparativo. Decisão parcial permanece explícita e separada do recebimento físico e do pagamento.
+- Pedidos conta o total no escopo da obra; etapas de ação contam pendências. Filtros desktop ficam em linha; no celular, os complementares se expandem pelo acionador. A situação de Cotações usa seleção nativa legível.
+- No pedido, ação principal e ficha documental compartilham a linha desktop. No celular, consulta fica abaixo e o alvo principal continua com pelo menos 44 px. Cancelados conservam acesso à ficha e explicação do estado.
+
+### Continuidade financeira — WF05/WF06
+
+- Conferência documental abre a obrigação por identificador da nota. O resumo conserva o escopo da obra; a lista explica o recorte por documento e oferece removê-lo explicitamente. Retorno restaura mês, obra, busca e seleção da origem.
+- Revisão bancária segue fatos de caixa e associações ativas, nunca similaridade de descrição ou valor. Conta desconhecida continua desconhecida; pagamento direto do cliente ou caixa físico não vira saída bancária por um atalho.
+- Entrada bancária por origem financeira pausa a automação. Exibir origem e estado da automação em resumo expansível abaixo do título; a retomada permanece explícita.
+- Fechamento guarda a competência durante a conferência da origem. Alertas documentais continuam separados dos bloqueios retornados pelo motor. Categoria fiscal usa o catálogo existente e conserva valores legados.
+- Rejeição não fecha o formulário. Falha no fechamento libera os controles e conserva a chave de tentativa na sessão; sucesso adota o registro auditável retornado pelo servidor, sem gravar uma cópia local como outro cadastro.
+
+### Aceite de recuperação — conclusão da WF06
+
+- Pedido, medição e despesas oferecem correção documental restrita no contexto do fechamento. Categoria usa o catálogo correspondente à origem; valores, identidade, pagamentos e recebimentos não entram nesse comando. Exigir motivo, versão, autorização e trilha de antes/depois.
+- Edição fiscal usa a versão aberta, sem elevar silenciosamente a versão do comando ao receber atualizações em segundo plano. Comparar base, edição e registro atual; preservar campos alterados por outra pessoa e pedir escolha quando houver conflito no mesmo campo.
+- Falha, versão consultada e confirmação já recebida têm estados visuais distintos. Comparação de campos usa duas colunas no desktop e uma no celular, com nomes de campos legíveis e ações no padrão compartilhado.
+- Renovação de sessão acontece dentro do fluxo e só aceita a mesma identidade. Limpar a senha do controle ao iniciar a requisição; não persistir formulário ou senha como preferência.
+- Resposta perdida exige conferir o recibo antes de adotar a confirmação. Repetição explícita de conteúdo igual conserva a chave; novo documento conserva a identidade reservada. Nenhuma dessas telas cria uma fila financeira offline automática.
+
+### Necessidades e revisão em volume — WF07/WF08
+
+- Cobertura física exige solicitação, item, material e obra identificados, quantidades positivas e unidades verificáveis. Conversão sem evidência fica para conferência; estoque compartilhado não é abatido automaticamente. Orçamento, pedido e título permanecem fatos distintos.
+- Mostrar necessidade revisada, compra comprovada e diferença antes da análise complementar. No celular, empilhar esses valores. Simulações conservam as datas cadastradas e levam à origem para tratar prazos e lacunas.
+- Reordenar ou atualizar a base não apaga uma sequência. Revalidar por identidade antes de abrir; indicar item indisponível, fora do filtro ou bloqueado individualmente. Abrir não significa salvar; versão atualizada exige conferir o resultado.
+- Consultas persistem somente filtros por usuário/empresa. Paginação limita a montagem, preservando busca e seleção de todo o filtro. Oferecer continuação no fim das listas e retorno ao início da nova página, com foco no intervalo.
+- Padronizar o retorno fiscal como “Voltar à central de documentos”. Ajuda contextual e manual são gerados da mesma fonte e acompanham o comportamento implementado.
+
+### Rolagem e camadas do ponto
+
+- Cabeçalho geral acompanha a página, sem desfoque; somente o conflito de salvamento exige destaque persistente.
+- Na tabela de ponto, fixar os títulos por célula dentro do contêiner de rolagem. A coluna de identificação e os títulos têm fundos opacos; a limpeza visual das tabelas comuns não pode tornar essas células transparentes.
+
+### Interrupção e área visível — WF09
+
+- Ficha fiscal, pagamento e correção de fechamento preservam alterações até salvar ou descartar explicitamente. Escape/fechar/cancelar usam a mesma decisão. Comandos em andamento protegem também a recarga, sem persistir rascunhos como preferências.
+- Diálogos acompanham o visualViewport. Fechar um diálogo filho mantém a rolagem bloqueada e o foco no formulário principal; acionador desmontado devolve o foco a um título da área. Atalho global de busca não troca o módulo durante um diálogo.
+- Navegação inferior e chat não competem com a edição. Controles móveis usam alvo de pelo menos 44 px e rótulos sem quebras arbitrárias de palavras.
+- Ajuda e manual compartilham a orientação de celular/interrupções. Emulação de reflow e área de teclado não substitui observação em aparelho real; não classificar execução automatizada como piloto com operadores.

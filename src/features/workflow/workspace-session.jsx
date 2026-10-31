@@ -11,8 +11,16 @@ export function useWorkspaceState(screen,key,initial,instance=""){
  const [entry,setEntry]=useState(()=>({address,value:initialValue()}));
  const value=entry.address===address?entry.value:initialValue();
  if(entry.address!==address)setEntry({address,value});
- const setValue=useCallback(next=>setEntry(previous=>({address,value:typeof next==="function"?next(previous.value):next})),[address]);
- useEffect(()=>{views?.set(address,value);},[views,address,value]);
+ const setValue=useCallback(next=>{
+  if(!views){setEntry(previous=>({address,value:typeof next==="function"?next(previous.address===address?previous.value:initialValue()):next}));return;}
+  // Record the user's choice before navigation can unmount this screen.
+  // Functional updates also read the last choice from the same session key.
+  const previous=views.has(address)?views.get(address):initialValue();
+  const resolved=typeof next==="function"?next(previous):next;
+  views.set(address,resolved);
+  setEntry({address,value:resolved});
+ },[views,address]);
+ useEffect(()=>{if(views&&!views.has(address))views.set(address,value);},[views,address,value]);
  return [value,setValue];
 }
 

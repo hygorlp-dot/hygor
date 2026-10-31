@@ -1,4 +1,5 @@
-import { Badge, C } from "../../../LegacyApp";
+import { Badge } from "../../../legacy/ui.jsx";
+import { C } from "../../../legacy/palette.js";
 import FinancialDocumentLink from "../../../features/financeiro/FinancialDocumentLink.jsx";
 import { financialDocumentUrl } from "../../financeiro/document-links.js";
 import { Alert, AlertDescription } from "../../../components/ui/alert.jsx";

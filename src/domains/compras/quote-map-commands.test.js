@@ -62,10 +62,10 @@ describe("mapa de cotação com vários itens (C1.3)",()=>{
     expect(result.data.solicitacoesCompra[0]).toMatchObject({status:"pedido_gerado",pedidoId:"p-1",pedidoIds:["p-1","p-2"]});
   });
 
-  it("exige justificativa por item fora do menor preço e para item com uma só proposta",()=>{
+  it("avisa justificativa ausente por item sem bloquear a decisão",()=>{
     const saved=saveQuote();
     const choices={...sugestaoDeEscolhas(saved.data.cotacoes[0]),"ci-0":"pr-3"};
-    expect(decide(saved.data,choices).reason).toMatch(/não é a mais barata/);
+    expect(decide(saved.data,choices).summary.workflowWarnings.some(w=>w.code==='QUOTE_JUSTIFICATION_MISSING')).toBe(true);
     const ok=decide(saved.data,choices,{justifications:{"ci-0":"Prazo de 1 dia"}});
     expect(ok.ok).toBe(true);
     expect(ok.data.pedidos.find(item=>item.fornecedorId==="f-3").itens).toHaveLength(1);
@@ -74,7 +74,7 @@ describe("mapa de cotação com vários itens (C1.3)",()=>{
     const single=rawQuote();
     single.propostas=single.propostas.map(p=>p.id==="pr-1"?p:{...p,precos:Object.fromEntries(Object.entries(p.precos).filter(([k])=>k!=="ci-0"))});
     const savedSingle=saveQuote(base(),single);
-    expect(decide(savedSingle.data,{"ci-0":"pr-1"}).reason).toMatch(/única proposta/);
+    expect(decide(savedSingle.data,{'ci-0':'pr-1'}).summary.workflowWarnings.some(w=>w.code==='QUOTE_JUSTIFICATION_MISSING')).toBe(true);
   });
 
   it("decide por partes: itens sem escolha ficam pendentes e não se decide o mesmo item duas vezes",()=>{
@@ -96,8 +96,8 @@ describe("mapa de cotação com vários itens (C1.3)",()=>{
     const saved=saveQuote(base(),quote);
     // 20 itens x 300 x R$10 = R$ 60.000 divididos entre 2 fornecedores.
     const blocked=decide(saved.data,sugestaoDeEscolhas(saved.data.cotacoes[0]));
-    expect(blocked.ok).toBe(false);
-    expect(blocked.reason).toMatch(/Administrador/);
+    expect(blocked.ok).toBe(true);
+    expect(blocked.summary.workflowWarnings.some(w=>w.code==='QUOTE_APPROVAL_LIMIT_EXCEEDED')).toBe(true);
     const one=decide(saved.data,{"ci-0":"pr-1"});
     expect(one.ok).toBe(true);
     const admin=decide(saved.data,sugestaoDeEscolhas(saved.data.cotacoes[0]),{},1,{actorRole:"admin"});
@@ -184,7 +184,7 @@ describe("custo final e alçadas no servidor",()=>{
     expect(saved.ok).toBe(true);
     expect(saved.data.cotacoes[0].propostas[0].custoFinal.frete).toBe(5000);
     const blocked=decide(saved.data,choices(),{justifications:justifications()});
-    expect(blocked.ok).toBe(false);expect(blocked.reason).toMatch(/Administrador/);
+    expect(blocked.ok).toBe(true);expect(blocked.summary.workflowWarnings.some(w=>w.code==='QUOTE_APPROVAL_LIMIT_EXCEEDED')).toBe(true);
     const approved=decide(saved.data,choices(),{justifications:justifications()},1,{actorRole:"admin"});
     expect(approved.ok).toBe(true);
     const order=approved.data.pedidos[0];

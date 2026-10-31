@@ -57,3 +57,8 @@
 }
 .finance-today__attention{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding-block:12px;border-block:1px solid var(--arcd-border-default)}
 .financial-closing__action{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding-block:16px;border-block:1px solid var(--arcd-border-default)}
+.finance-today__actions { display:flex;flex-wrap:wrap;align-items:center;gap:8px;grid-column:1/-1; }
+.financial-memorial__pagination{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-block:12px;font-variant-numeric:tabular-nums}
+.finance-today__actions p { flex-basis:100%;margin:0;color:var(--arcd-text-secondary);font-size:var(--arcd-type-label); }
+@media(min-width:1100px){.finance-today__row{grid-template-columns:minmax(0,1fr) auto auto minmax(220px,320px);}.finance-today__actions{grid-column:auto;}}
+@media(max-width:767px){.finance-today__actions{width:100%;}.finance-today__actions button{width:auto!important;flex:1;min-height:44px;}.finance-today__actions p{overflow-wrap:anywhere;}}

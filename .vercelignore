@@ -28,19 +28,22 @@ vercel.release-equipe.json
 # PDFs e imagens locais de conferência visual
 /output/pdf/
 
-# Somente código publicável: excluir revisões locais, capturas e testes.
+# Dados, capturas e relatórios exclusivamente locais.
+/artifacts/
+/analises/
+/.impeccable/
+
+# Revisões e ambientes sintéticos ficam somente no computador.
 artifacts/
 analises/
 .impeccable/
 e2e/
-scripts/finance-*.mjs
-scripts/local-*.mjs
-scripts/onedrive-*.mjs
 **/*.test.js
 **/*.test.jsx
 **/*.test.mjs
-
-# Servidores de demonstração exclusivos da validação local.
-scripts/work-files-preview.mjs
-scripts/work-files-e2e-preview.mjs
-scripts/project-kanban-preview.mjs
+scripts/fixtures/
+scripts/*preview*.mjs
+scripts/operator-pilot*.mjs
+scripts/lib/operator-pilot.mjs
+public/exemplos-projetos/
+release-preservation.json

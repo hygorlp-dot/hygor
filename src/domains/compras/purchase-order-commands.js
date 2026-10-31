@@ -1,4 +1,5 @@
 import {reviewSupplierResponse} from "./supplier-quote-response.js";
+import {operationalWarning} from './workflow-advisories.js';
 import {mutateQuoteDispatch} from "./quote-dispatch.js";
 import {ORDER_TERM_FIELDS,normalizeOrderTerms,preserveOrderTerms} from "./order-terms.js";
 import { validarCustoFinal } from "./final-cost.js";
@@ -139,14 +140,9 @@ const normalizeOrder=(data,raw,current,{newMaterials=[],siblingQuoteId=""}={})=>
   if(requestId&&!request)return {error:"A solicitação relacionada ao pedido não existe."};
   if(request&&String(request.obraId)!==obraId)return {error:"Pedido e solicitação precisam pertencer à mesma obra."};
   if(request&&request.status==="cancelada")return {error:"A solicitação relacionada foi cancelada e não pode gerar pedido."};
-  // Solicitação só vira pedido depois de aprovada. As antigas, criadas antes
-  // de a aprovação existir, não têm instância e seguem como antes.
+  // A aprovação continua pendente; ela orienta sem impedir o pedido.
   const approval=instanciaDaSolicitacao(data,request);
-  if(!current&&approval&&approval.status!=="aprovada"){
-    return {error:["reprovada","cancelada"].includes(approval.status)
-      ?"A solicitação foi reprovada na aprovação e não pode gerar pedido."
-      :"A solicitação ainda aguarda aprovação e não pode gerar pedido."};
-  }
+  const warnings=approval&&approval.status!=='aprovada'?[operationalWarning('APPROVAL_PENDING','compra','Responsável pela aprovação','Pedido registrado com aprovação pendente ou recusada.','Consulte Aprovações e regularize a decisão sem interromper o andamento da compra.')]:[];
   const requestOrder=request?.pedidoId&&String(request.pedidoId)!==id?orderById(data,request.pedidoId):null;
   // Pedidos do mesmo mapa de cotação dividem a solicitação (um por fornecedor).
   const sibling=siblingQuoteId&&String(requestOrder?.cotacaoId||"")===String(siblingQuoteId);
@@ -188,7 +184,7 @@ const normalizeOrder=(data,raw,current,{newMaterials=[],siblingQuoteId=""}={})=>
   if(orderTotalCents(candidate)<paidCents)return {
     error:"O total do pedido não pode ficar abaixo dos pagamentos ativos.",
   };
-  return {order:candidate,request};
+  return {order:candidate,request,warnings};
 };
 
 const saveOrder=(data,command,now,{siblingQuoteId="",proposal=null}={})=>{
@@ -225,10 +221,11 @@ const saveOrder=(data,command,now,{siblingQuoteId="",proposal=null}={})=>{
   const raisesTotal=!current||totalNew>orderTotalCents(current)/100+0.005;
   if(raisesTotal&&!pedidoDentroDaAlcada(withCatalog,{total:totalNew,request:normalized.request,actorRole:command.actorRole})){
     const limite=limiteAprovacaoEngenheiro(withCatalog).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-    return fail(`Pedido acima de ${limite} precisa de aprovação do Administrador: lance pela solicitação aprovada por ele ou peça ao Administrador para lançar.`);
+    normalized.warnings.push(operationalWarning('APPROVAL_LIMIT_EXCEEDED','compra','Administrador',`Pedido acima da alçada de ${limite}, sem aprovação correspondente.`, 'Solicite a revisão do Administrador. O valor e a pendência permanecem registrados.'));
   }
   const saved={
     ...terms.order,
+    workflowWarnings:normalized.warnings,
     version:current?versionOf(current)+1:1,
     criadoEm:current?.criadoEm||now,criadoPorId:current?.criadoPorId||actor.id,
     criadoPor:current?.criadoPor||actor.nome,
@@ -248,7 +245,7 @@ const saveOrder=(data,command,now,{siblingQuoteId="",proposal=null}={})=>{
       analisadoEm:item.analisadoEm||now,analisadoPor:item.analisadoPor||actor.nome,
     }:item):(withCatalog.solicitacoesCompra||[]);
   return {
-    ok:true,entityId:saved.id,
+    ok:true,entityId:saved.id,summary:{workflowWarnings:normalized.warnings},
     data:{
       ...withCatalog,solicitacoesCompra:requests,
       pedidos:current
@@ -480,12 +477,10 @@ const createFromQuote=(data,command,now)=>{
   if((quote.respostasFornecedor||[]).some(r=>r.proposalId===proposal.id&&r.status==="pendente"))return fail("Revise a resposta do fornecedor antes de decidir.");
   if(proposal.custoFinal)return fail("Use a decisão do mapa para incluir o custo final da proposta.");
   const prices=(quote.propostas||[]).map(item=>Number(item.precoUnit||0)).filter(value=>value>0);
-  if(prices.length<2)return fail("A cotação precisa de ao menos duas propostas válidas.");
+  if(!prices.length)return fail("Selecione uma proposta com preço válido.");
   const lowest=Math.min(...prices),selected=Number(proposal.precoUnit||0);
   const justification=String(payload.justification||"").trim();
-  if(selected>lowest+0.000001&&!justification){
-    return fail("Justifique a escolha de uma proposta que não é a mais barata.");
-  }
+  const quoteWarnings=(prices.length<2||selected>lowest+0.000001)&&!justification?[operationalWarning('QUOTE_JUSTIFICATION_MISSING','compra','Compras','A decisão tem uma única proposta ou preço maior sem justificativa.','Registre a justificativa da negociação; a decisão e o pedido podem continuar.')]:[];
   const orderId=String(payload.orderId||"");
   if(!orderId||orderById(data,orderId))return fail("O novo pedido possui identificação inválida ou repetida.");
   const raw={
@@ -514,7 +509,8 @@ const createFromQuote=(data,command,now)=>{
     economia:Math.max(0,(highest-selected)*Number(quote.qtd||0)),
     version:versionOf(item)+1,updatedAt:now,
   }:item);
-  return {ok:true,entityId:orderId,data:{...saved.data,cotacoes:quotes}};
+  const warnings=[...(saved.summary?.workflowWarnings||[]),...quoteWarnings];
+  return {ok:true,entityId:orderId,summary:{workflowWarnings:warnings},data:{...saved.data,cotacoes:quotes,pedidos:saved.data.pedidos.map(item=>item.id===orderId?{...item,workflowWarnings:warnings}:item)}};
 };
 
 // Decisão do mapa de cotação (C1.3): escolhe a proposta de cada item
@@ -536,10 +532,7 @@ const decideQuoteMap=(data,command,now)=>{
     return fail("Os novos pedidos possuem identificação inválida ou repetida.");
   }
   const request=quote.solicitacaoId?requestById(data,quote.solicitacaoId):null;
-  if(!pedidoDentroDaAlcada(data,{total:evaluation.total,request,actorRole:command.actorRole})){
-    const limite=limiteAprovacaoEngenheiro(data).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-    return fail(`Compra acima de ${limite} precisa de aprovação do Administrador: lance pela solicitação aprovada por ele ou peça ao Administrador para decidir.`);
-  }
+  const aboveLimit=!pedidoDentroDaAlcada(data,{total:evaluation.total,request,actorRole:command.actorRole});
   const date=String(payload.date||now.slice(0,10));
   let next=data;
   const created=[];
@@ -566,7 +559,8 @@ const decideQuoteMap=(data,command,now)=>{
     };
     const saved=saveOrder(next,{...command,expectedVersion:0,payload:{order:raw}},now,{siblingQuoteId:quote.id,proposal});
     if(!saved.ok)return saved;
-    next=saved.data;
+    next={...saved.data,pedidos:saved.data.pedidos.map(item=>item.id===orderId?{...item,workflowWarnings:[...(item.workflowWarnings||[]),...(evaluation.warnings||[])]}:item)};
+    if(aboveLimit)next={...next,pedidos:next.pedidos.map(item=>item.id===orderId?{...item,workflowWarnings:[...(item.workflowWarnings||[]),operationalWarning('QUOTE_APPROVAL_LIMIT_EXCEEDED','compra','Administrador','O total da decisão da cotação ultrapassa a alçada sem aprovação correspondente.','Confira a decisão pelo valor total, incluindo todos os fornecedores, e regularize a aprovação.')]}:item)};
     created.push({orderId,group});
   }
   const actor=actorOf(command);
@@ -595,7 +589,7 @@ const decideQuoteMap=(data,command,now)=>{
     version:versionOf(item)+1,updatedAt:now,
   });
   return {
-    ok:true,entityId:first.orderId,orderIds:created.map(entry=>entry.orderId),
+    ok:true,entityId:first.orderId,orderIds:created.map(entry=>entry.orderId),summary:{workflowWarnings:next.pedidos.filter(item=>orderIds.includes(item.id)).flatMap(item=>item.workflowWarnings||[])},
     data:{...next,cotacoes:quotes},
   };
 };
