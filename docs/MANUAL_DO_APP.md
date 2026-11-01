@@ -1133,7 +1133,7 @@ Confira a obra e o período antes de trabalhar.
 
 ### Como fazer
 
-1. Escolha a área do financeiro no cabeçalho.
+1. Use Hoje, Caixa por conta, Documentos ou Pagamentos para a rotina. No computador, abra Mais áreas para análises, notas fiscais e fechamento; no celular, escolha pelo seletor Áreas do financeiro.
 2. Abra uma pendência e confira o documento ou lançamento de origem.
 3. Realize a ação autorizada e confira a confirmação e a situação atual.
 

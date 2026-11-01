@@ -16,10 +16,11 @@
 .mrc-button[data-mrc-size=lg]{min-height:48px;padding:10px 20px}
 .mrc-button[data-mrc-size=icon]{min-width:var(--arcd-control-height,40px);width:var(--arcd-control-height,40px);padding-inline:0;flex-shrink:0}
 .mrc-button :is(svg,.mrc-button__spinner){flex-shrink:0}
+.mrc-button>svg[data-icon]{width:var(--arcd-icon-size-md);height:var(--arcd-icon-size-md)}
 .mrc-button__spinner{width:1em;height:1em;border:2px solid currentColor;border-inline-end-color:transparent;border-radius:50%;animation:mrc-button-spin 900ms linear infinite}
 @keyframes mrc-button-spin{to{transform:rotate(360deg)}}
 /* Bounded bridge over older theme typography; colours and states stay in this file. */
-[data-theme] .mrc-button[data-mrc-role][data-mrc-size]{min-height:var(--arcd-control-height,40px);border-radius:var(--arcd-radius-control,6px)!important;font-size:14px!important;font-weight:500!important;line-height:1.35!important;letter-spacing:normal!important}
+[data-theme] .mrc-button[data-mrc-role][data-mrc-size]{min-height:var(--arcd-control-height,40px);border-radius:var(--arcd-radius-control,6px)!important;font-size:var(--arcd-type-control)!important;font-weight:500!important;line-height:1.35!important;letter-spacing:normal!important}
 [data-theme] .mrc-button[data-mrc-role][data-mrc-size=sm]{min-height:36px}
 [data-theme] .mrc-button[data-mrc-role][data-mrc-size=lg]{min-height:48px}
 @media(max-width:767px){.mrc-button[data-mrc-role]{min-height:44px!important}.mrc-button[data-mrc-size=icon]{min-width:44px;width:44px}}

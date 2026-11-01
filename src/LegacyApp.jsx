@@ -107,6 +107,8 @@ import { Label } from "./components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { Alert, AlertDescription } from "./components/ui/alert";
+import { ThemeMenu } from "./design-system/theme/ThemeMenu.jsx";
+import { useTheme } from "./design-system/theme/ThemeProvider.jsx";
 import { ThemeSettings } from "./design-system/theme/ThemeSettings";
 import { Button as DesignSystemButton } from "./design-system/primitives/Button.jsx";
 import { Dialog as DesignSystemDialog } from "./design-system/primitives/Dialog.jsx";
@@ -2423,6 +2425,8 @@ function ChevronBaixo({ s = 14 }) {
 }
 
 function BrandMark({ compact = false, dark = false, signature = true }) {
+  const {theme} = useTheme();
+  dark = dark && theme === "marcell";
   return <div className="arcd-brand-mark" style={{display:"flex",alignItems:"center",gap:12,minWidth:0}}>
     <img src={dark?BRAND.monogramOnDark:BRAND.monogram} alt="MRC" width={compact?34:46} style={{height:"auto",flexShrink:0}}/>
     {!compact&&<div className="arcd-brand-word"><p style={{fontFamily:"var(--arcd-font-sans)",color:dark?"#FFFFFF":C.text,fontSize:"var(--arcd-type-card-title)",fontWeight:600,letterSpacing:".13em",lineHeight:1.2}}>MARCELL</p>{signature&&<p style={{fontSize:"var(--arcd-type-caption)",color:dark?"#C1CBD7":C.muted,lineHeight:1.5}}>Engenharia e construção</p>}</div>}
@@ -4543,12 +4547,9 @@ function Financeiro({ data, update, showToast, currentUser, onOpenWork, dispatch
   const navegacaoFinanceira=<><PageHeader className="workspace-header" title="Financeiro" description="Contas, documentos e fluxo financeiro."
     secondaryActions={["hoje","caixa","etapas","documentos"].includes(areaFinanceira)?<div className="workspace-header__scope">{workFilter}</div>:null}/>
     <WorkspaceNavigation className="financial-navigation" label="Áreas do financeiro" active={areaFinanceira} onChange={setAreaFinanceira}
-    groups={[
-      {label:"Rotina",items:abasFinanceiras.filter(([id])=>["hoje","caixa","documentos","pagamentos","fiscal","fechamento"].includes(id)).map(([id,label])=>({id,label}))},
-      {label:"Análises",items:abasFinanceiras.filter(([id])=>["visao","etapas","relatorios"].includes(id)).map(([id,label])=>({id,label}))},
-    ]}
-    toolsLabel="Ferramentas"
-    tools={abasFinanceiras.filter(([id])=>!["hoje","caixa","visao","etapas","documentos","relatorios","pagamentos","fiscal","fechamento"].includes(id)).map(([id,label])=>({id,label}))}/>
+    items={abasFinanceiras.filter(([id])=>["hoje","pagamentos","caixa","documentos"].includes(id)).map(([id,label])=>({id,label}))}
+    toolsLabel="Mais áreas"
+    tools={abasFinanceiras.filter(([id])=>!["hoje","pagamentos","caixa","documentos"].includes(id)).map(([id,label])=>({id,label}))}/>
     {financialReturn&&!taskReturn&&!fiscalReturn&&!documentReturn&&<nav className="financial-origin-return" aria-label="Retorno à conferência financeira"><p>Retome a origem com o recorte anterior.</p><Button variant="outline" onClick={backFinancialOrigin}>{financialReturn.area==="fechamento"?"Voltar à conferência do fechamento":financialReturn.area==="documentos"?"Voltar à central de documentos":"Voltar à rotina financeira de origem"}</Button></nav>}{taskReturn&&<Btn v="ghost" onClick={()=>{positionToRestore.current=taskReturn.positions;setFilterObra(taskReturn.obraId);setDocumentMonth(taskReturn.month);setDocumentView(taskReturn.view);setAreaFinanceira(taskReturn.area);setTaskReturn(null);}}>{taskReturn.label}</Btn>}</>;
   if(areaFinanceira==="caixa")return <div className="financial-overview">{navegacaoFinanceira}<CashWorkspace currentUser={currentUser} data={data} ledger={financialView.selected.ledger} today={currentDate} obraId={filterObra} onOpen={setMemorial} view={cashView} onViewChange={setCashView} scenario={cashScenario} onScenarioChange={setCashScenario}/>{memorialPanel}</div>;
   if(areaFinanceira==="hoje")return <div className="financial-overview">{navegacaoFinanceira}<FinanceToday active={todayQueue} onActiveChange={setTodayQueue} queues={queues} today={currentDate} work={filterObra==="all"?"Todas as obras":obraName(filterObra)} onOpen={setMemorial} resolveAction={item=>financeNextAction(data,item,currentUser)} onAction={openTodayAction}/><Btn v="ghost" onClick={()=>setAreaFinanceira("caixa")}>Abrir caixa por conta e previsão</Btn>{memorialPanel}{todayPurchase&&<PurchaseDossier data={data} selection={todayPurchase} currentUser={currentUser} onReviewInvoice={invoice=>openTodayAction({sourceType:'nota_fiscal',sourceId:invoice.id,obraId:invoice.obraId})} onClose={()=>setTodayPurchase(null)}/>}</div>;
@@ -14645,6 +14646,7 @@ export default function App() {
 
             {/* Usuário logado + ponto rápido */}
             <div className="app-header-actions" style={{ display:"flex", alignItems:"center", gap:"var(--arcd-header-actions-gap,8px)" }}>
+              <ThemeMenu />
               <HelpButton pageId={tab} allowedTabs={allowedTabs}/>
               <div className="app-header-chat-slot" data-chat-launcher-slot/>
               <div

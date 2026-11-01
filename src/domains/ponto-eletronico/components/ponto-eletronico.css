@@ -101,7 +101,7 @@
 .pe-table thead th { background: var(--arcd-surface-muted); color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); font-weight: 500; }
 .pe-table tbody th { width: 34%; font-size: inherit; font-weight: 500; }
 /* O tema trata todo th como cabeçalho de coluna; aqui há cabeçalhos de linha. */
-[data-theme="marcell"] .arcd-main .pe-table tbody th { background: transparent !important; font-size: var(--arcd-type-table) !important; }
+[data-theme] .arcd-main .pe-table tbody th { background: transparent !important; font-size: var(--arcd-type-table) !important; }
 .pe-table tbody td:nth-child(2) { width: 23%; }
 .pe-table tbody tr:last-child :is(th, td) { border-bottom: 0; }
 .pe-table tbody tr:hover { background: var(--arcd-surface-subtle); }
@@ -230,7 +230,7 @@
   .pe-table tbody tr { display: grid; gap: var(--arcd-space-3); padding-block: var(--arcd-space-4); border-top: 1px solid var(--arcd-border-default); }
   .pe-table tbody :is(th, td) { display: block; width: 100%; padding: 0; border: 0; font-size: var(--arcd-type-body); }
   .pe-table tbody td:nth-child(2) { width: 100%; }
-  [data-theme="marcell"] .arcd-main .pe-table tbody th { font-size: var(--arcd-type-body) !important; }
+  [data-theme] .arcd-main .pe-table tbody th { font-size: var(--arcd-type-body) !important; }
   .pe-table td::before { content: attr(data-label); display: block; margin-bottom: var(--arcd-space-1); color: var(--arcd-text-secondary); font-size: var(--arcd-type-caption); }
   .pe-page :is(input:not([type="checkbox"]):not([type="radio"]), select), .pe-modal :is(input:not([type="checkbox"]):not([type="radio"]), select) { font-size: 1rem; }
   .pe-punch { font-size: .875rem; }

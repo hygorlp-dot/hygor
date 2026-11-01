@@ -1,32 +1,18 @@
 /* Approved MARCELL pilot: operational density in Dashboard, Compras and Financeiro.
    Keep these recipes scoped while the remaining modules are migrated. */
 @media screen {
-  [data-theme="marcell"] .arcd-app-shell:is([data-tab="home"], [data-tab="cmp"], [data-tab="fin"]) {
-    background: #f5f6f8 !important;
+  [data-theme] .arcd-app-shell:is([data-tab="home"], [data-tab="cmp"], [data-tab="fin"]) {
+    background: var(--arcd-surface-page) !important;
   }
 
-  [data-theme="marcell"] .arcd-main[data-workspace] {
-    --arcd-surface-page: #f5f6f8;
-    --arcd-surface-muted: #edf0f4;
-    --arcd-surface-subtle: #f5f6f8;
-    --arcd-border-default: #d9dde2;
-    --arcd-border-strong: #8a96a5;
-    --arcd-action-primary: #0d1b2e;
-    --arcd-action-primary-hover: #18304c;
-    --arcd-action-primary-subtle: #eee5d5;
-    --arcd-control-height: 2.5rem;
-    --arcd-radius-control: .375rem;
-    --arcd-type-page-title: 1.5rem;
-    --arcd-type-section-title: 1.125rem;
-    --arcd-type-table: .875rem;
-    --arcd-type-control: .875rem;
+  [data-theme] .arcd-main[data-workspace] {
     background: var(--arcd-surface-page);
     min-width: 0;
     width: 100%;
   }
 
-  [data-density="compact"] .arcd-main[data-workspace] { --arcd-control-height: 2.25rem; }
-  [data-density="spacious"] .arcd-main[data-workspace] { --arcd-control-height: 3rem; }
+
+
 
   /* Bridge the three incumbent button APIs without changing their commands. */
   .arcd-main[data-workspace] :is(.arcd-btn, .arcd-button, [data-slot="button"]):not(.financial-metric__value) {
@@ -183,7 +169,7 @@
   }
 
   @media (max-width: 767px) {
-    [data-theme="marcell"] .arcd-main[data-workspace] { --arcd-control-height: 2.75rem; }
+    [data-theme] .arcd-main[data-workspace] { --arcd-control-height: 2.75rem; }
     .arcd-main[data-workspace] .workspace-header { gap: .75rem; padding-bottom: .75rem; }
     .workspace-header > div:first-child { flex-basis: 100%; }
     .workspace-header > div:first-child { width: 100%; }

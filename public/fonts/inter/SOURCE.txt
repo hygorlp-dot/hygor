@@ -1,0 +1,5 @@
+Inter Variable 4.1, official rsms/inter release.
+https://github.com/rsms/inter/tree/v4.1
+Font: https://raw.githubusercontent.com/rsms/inter/v4.1/docs/font-files/InterVariable.woff2
+License: SIL Open Font License 1.1, included as LICENSE.txt.
+Served locally. No external font request is made by the application.

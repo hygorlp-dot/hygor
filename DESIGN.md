@@ -27,6 +27,10 @@ colors:
   operational-muted: "#EDF0F4"
   operational-control-border: "#8A96A5"
 typography:
+  saas-body:
+    fontFamily: 'Inter, Helvetica Neue, Arial, sans-serif'
+    fontSize: '0.875rem'
+    lineHeight: 1.5
   print-document:
     fontFamily: 'Nimbus Sans, Helvetica Neue, Arial, sans-serif'
     fontSize: '11px'
@@ -148,6 +152,12 @@ components:
 ---
 
 # Design System: MARCELL
+
+## Direção vigente — temas SaaS, 31/10/2026
+
+O usuário rejeitou a direção visual anterior e pediu simplicidade de fluxo e temas consistentes. O contrato atual está em `src/design-system/themes/themeRegistry.js`: MARCELL Claro (padrão sem preferência salva, Inter, navegação branca, ações azuis) e MARCELL Institucional (Source Sans 3, navegação marinho, seleção ouro). Uma preferência existente é respeitada. Valores de cor e tipografia do contrato prevalecem sobre as receitas históricas documentadas abaixo.
+
+As receitas compartilhadas usam tokens semânticos, com ponte comum para shadcn, controles legados e primitivos. Densidade é independente do tema; o toque preserva 44 px. Não fixar cores de tema em páginas. No Financeiro, quatro entradas de rotina antecedem Mais áreas; em Compras, busca visível, filtros adicionais sob demanda e registros móveis compactos. Marca, documentos impressos e modo TV preservam seus requisitos. Pesquisa, limites e critérios: `docs/DESIGN-SAAS-TEMAS-20261031.md`.
 
 ## Piloto operacional aprovado — 30/10/2026
 

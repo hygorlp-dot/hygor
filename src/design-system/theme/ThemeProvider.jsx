@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { DEFAULT_THEME } from "../themes/themeRegistry.js";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { DEFAULT_THEME, themeRegistry } from "../themes/themeRegistry.js";
 import { readThemePreference, THEME_STORAGE_KEYS, writeThemePreference } from "./themeStorage.js";
 import { DEFAULT_DENSITY, normalizeDensity, normalizeTheme } from "./themeValidation.js";
 
@@ -11,9 +11,12 @@ export function ThemeProvider({ children }) {
   const setTheme = value => setThemeState(normalizeTheme(value));
   const setDensity = value => setDensityState(normalizeDensity(value));
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.dataset.theme = theme;
+    const tokens = themeRegistry[theme].tokens;
+    for (const [token,value] of Object.entries(tokens)) document.documentElement.style.setProperty(token,value);
     writeThemePreference(THEME_STORAGE_KEYS.theme, theme);
+    return () => { for (const token of Object.keys(tokens)) document.documentElement.style.removeProperty(token); };
   }, [theme]);
   useEffect(() => {
     document.documentElement.dataset.density = density;

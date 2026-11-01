@@ -10,29 +10,26 @@
   :root {
     --arcd-font-sans: 'Source Sans 3', 'Helvetica Neue', Arial, sans-serif;
   }
-  [data-theme="marcell"] .arcd-app-shell:not([data-tab="tv"]) {
-    background: #f5f6f8 !important;
+  [data-theme] .arcd-app-shell:not([data-tab="tv"]) {
+    background: var(--arcd-surface-page) !important;
     font-family: var(--arcd-font-sans) !important;
   }
-  [data-theme="marcell"] .arcd-main[data-workspace] {
-    --arcd-type-body: .9375rem;
-    --arcd-type-label: .875rem;
-    --arcd-type-caption: .8125rem;
-    padding: 20px 24px !important;
+  [data-theme] .arcd-main[data-workspace] {
+    padding: 1.25rem var(--arcd-page-padding) !important;
   }
-  [data-theme="marcell"] .arcd-main[data-workspace] :is(h1,h2,h3,h4,button,input,select,textarea,summary),
-  [data-theme="marcell"] .arcd-app-shell:not([data-tab="tv"]) :is(.app-sidebar,.app-header, .app-header-inner) {
+  [data-theme] .arcd-main[data-workspace] :is(h1,h2,h3,h4,button,input,select,textarea,summary),
+  [data-theme] .arcd-app-shell:not([data-tab="tv"]) :is(.app-sidebar,.app-header, .app-header-inner) {
     font-family: var(--arcd-font-sans) !important;
   }
-  [data-theme="marcell"] .arcd-main[data-workspace] :is(h1,.page-hero__title) {
+  [data-theme] .arcd-main[data-workspace] :is(h1,.page-hero__title) {
     font-size: var(--arcd-type-page-title) !important;
     font-weight: 600 !important;
     line-height: 1.2 !important;
     letter-spacing: -.02em !important;
     overflow-wrap: anywhere;
   }
-  [data-theme="marcell"] .arcd-main[data-workspace] :is(h2,h3) { font-weight: 600 !important; }
-  [data-theme="marcell"] .arcd-main[data-workspace] :is(button,summary) { font-weight: 500; }
+  [data-theme] .arcd-main[data-workspace] :is(h2,h3) { font-weight: 600 !important; }
+  [data-theme] .arcd-main[data-workspace] :is(button,summary) { font-weight: 500; }
   .arcd-main[data-workspace] { font-variant-numeric: tabular-nums; caret-color: var(--arcd-action-primary); }
   .arcd-main[data-workspace] ::selection { background: var(--arcd-action-primary-subtle); color: var(--arcd-text-primary); }
   .arcd-main[data-workspace] :is(input,select,textarea) { accent-color: var(--arcd-action-primary); }
@@ -89,8 +86,8 @@
   .arcd-main[data-workspace] .works-grid { grid-template-columns: repeat(3,minmax(0,1fr)) !important; }
 }
 @media screen and (max-width:767px) {
-  [data-theme="marcell"] .arcd-main[data-workspace] { padding: 14px !important; }
-  [data-theme="marcell"] .arcd-main[data-workspace] :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea) { font-size: 1rem !important; }
+  [data-theme] .arcd-main[data-workspace] { padding: var(--arcd-page-padding-mobile) !important; }
+  [data-theme] .arcd-main[data-workspace] :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea) { font-size: 1rem !important; }
   .arcd-main[data-workspace] .page-hero__main { flex-direction: column; align-items: stretch; }
   .arcd-main[data-workspace] .page-hero-actions { justify-content: flex-start; flex-wrap: wrap; }
   .arcd-main[data-workspace] .page-hero__stats { grid-template-columns: repeat(2,minmax(0,1fr)) !important; gap: 8px 0 !important; }
@@ -122,11 +119,11 @@
   .budget-kpi { min-width: 0 !important; }
 }
 @media screen {
-  [data-theme="marcell"] .arcd-app-shell:not([data-tab="tv"]) {
+  [data-theme] .arcd-app-shell:not([data-tab="tv"]) {
     --arcd-font-numeric: var(--arcd-font-sans);
   }
-  [data-theme="marcell"] .arcd-app-shell:not([data-tab="tv"]) :is(button,input,select,textarea) { font-family: var(--arcd-font-sans) !important; }
-  [data-theme="marcell"] .arcd-main[data-workspace] :is(button,summary) { font-weight: 500 !important; }
+  [data-theme] .arcd-app-shell:not([data-tab="tv"]) :is(button,input,select,textarea) { font-family: var(--arcd-font-sans) !important; }
+  [data-theme] .arcd-main[data-workspace] :is(button,summary) { font-weight: 500 !important; }
   .arcd-main[data-workspace] .page-hero__stats { margin-top: 8px !important; }
   .works-files > summary { cursor: pointer; min-height: var(--arcd-control-height); padding: 8px 12px; border: 1px solid var(--arcd-border-default); border-radius: 6px; background: white; }
   .works-files > div { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 8px; }
@@ -172,8 +169,8 @@
 
 @media screen {
   .arcd-app-shell[data-tab="tv"] { --arcd-font-sans: "Nimbus Sans", "Helvetica Neue", Arial, sans-serif; }
-  [data-theme="marcell"] :is(.arcd-modal-panel,.arcd-dialog,.arcd-drawer),
-  [data-theme="marcell"] :is(.arcd-modal-panel,.arcd-dialog,.arcd-drawer) :is(h1,h2,h3,h4,button,input,select,textarea) {
+  [data-theme] :is(.arcd-modal-panel,.arcd-dialog,.arcd-drawer),
+  [data-theme] :is(.arcd-modal-panel,.arcd-dialog,.arcd-drawer) :is(h1,h2,h3,h4,button,input,select,textarea) {
     font-family: var(--arcd-font-sans) !important;
   }
 }
@@ -201,7 +198,7 @@
   .work-detail-summary > summary { cursor: pointer; min-height: var(--arcd-control-height); padding: 8px 0; color: var(--arcd-text-secondary); font-size: var(--arcd-type-control); }
   .work-detail-summary[data-overview="true"] > summary { display: none; }
   .work-detail-summary__actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 8px; }
-  [data-theme="marcell"] .work-detail-workspace h2.arcd-page-header__title { font-size: var(--arcd-type-section-title) !important; }
+  [data-theme] .work-detail-workspace h2.arcd-page-header__title { font-size: var(--arcd-type-section-title) !important; }
 }
 @media screen {
   .work-detail-navigation__mobile { display: none; }
@@ -347,9 +344,9 @@
 
 /* Shared disclosures retain a full touch target on operational mobile screens. */
 @media screen{
- [data-theme="marcell"] .arcd-main[data-workspace] :is(.page-hero__title,.arcd-page-header__title)[data-heading-level="2"]{font-size:1.125rem!important}
- [data-theme="marcell"] .arcd-main[data-workspace] :is(.page-hero__title,.arcd-page-header__title)[data-heading-level="3"]{font-size:1rem!important}
- [data-theme="marcell"] .arcd-main[data-workspace]{--arcd-type-card-title:1rem}
+ [data-theme] .arcd-main[data-workspace] :is(.page-hero__title,.arcd-page-header__title)[data-heading-level="2"]{font-size:1.125rem!important}
+ [data-theme] .arcd-main[data-workspace] :is(.page-hero__title,.arcd-page-header__title)[data-heading-level="3"]{font-size:1rem!important}
+ [data-theme] .arcd-main[data-workspace]{--arcd-type-card-title:1rem}
 }
 .app-header-chat-slot{display:none}
 .arcd-chat-launcher:focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:3px}

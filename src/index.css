@@ -25,32 +25,32 @@
 }
 
 @theme {
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
+  --color-border: var(--arcd-border-default);
+  --color-input: var(--arcd-border-strong);
+  --color-ring: var(--arcd-focus-ring);
+  --color-background: var(--arcd-surface-page);
+  --color-foreground: var(--arcd-text-primary);
 
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary: var(--arcd-action-primary);
+  --color-primary-foreground: var(--arcd-action-primary-text);
 
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-secondary: var(--arcd-surface-muted);
+  --color-secondary-foreground: var(--arcd-text-primary);
 
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-destructive: var(--arcd-danger-text);
+  --color-destructive-foreground: var(--arcd-text-inverse);
 
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-muted: var(--arcd-surface-muted);
+  --color-muted-foreground: var(--arcd-text-secondary);
 
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-accent: var(--arcd-action-primary-subtle);
+  --color-accent-foreground: var(--arcd-text-primary);
 
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-popover: var(--arcd-surface-elevated);
+  --color-popover-foreground: var(--arcd-text-primary);
 
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
+  --color-card: var(--arcd-surface-card);
+  --color-card-foreground: var(--arcd-text-primary);
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
@@ -2364,15 +2364,15 @@ canvas {
 
 /* O tema limpa fundos de tabelas comuns; células fixas precisam ocultar
    as linhas que passam por baixo durante a rolagem. */
-[data-theme="marcell"] .arcd-main .ponto-geral-table thead th {
+[data-theme] .arcd-main .ponto-geral-table thead th {
   background: var(--arcd-surface-muted, #F3F0E9) !important;
 }
 
-[data-theme="marcell"] .arcd-main .ponto-geral-table thead th.ponto-feriado {
+[data-theme] .arcd-main .ponto-geral-table thead th.ponto-feriado {
   background: var(--arcd-warning-surface, #fff3d6) !important;
 }
 
-[data-theme="marcell"] .arcd-main .ponto-geral-table tbody td.ponto-col-funcionario {
+[data-theme] .arcd-main .ponto-geral-table tbody td.ponto-col-funcionario {
   background: var(--arcd-surface-card, #fff) !important;
 }
 
@@ -5347,22 +5347,22 @@ canvas {
 /* Navegação mobile é uma régua operacional, não um arco-íris por módulo.
    O ouro localiza a área ativa; cores semânticas ficam reservadas a alertas. */
 .arcd-mobile-nav .mobile-primary-nav > button[data-active="true"] {
-  --ic-color: #0D1B2E !important;
-  background: #F3F0E9 !important;
-  color: #0D1B2E !important;
-  border-top-color: #7B6030 !important;
+  --ic-color: var(--arcd-action-primary) !important;
+  background: var(--arcd-action-primary-subtle) !important;
+  color: var(--arcd-action-primary) !important;
+  border-top-color: var(--arcd-action-primary) !important;
 }
 
 .arcd-mobile-nav .mobile-subnav > button[data-active="true"] {
-  --ic-color: #0D1B2E !important;
+  --ic-color: var(--arcd-action-primary) !important;
   background: transparent !important;
-  color: #0D1B2E !important;
-  border-bottom-color: #7B6030 !important;
+  color: var(--arcd-action-primary) !important;
+  border-bottom-color: var(--arcd-action-primary) !important;
 }
 
 .arcd-mobile-nav .mobile-primary-nav > button:focus-visible,
 .arcd-mobile-nav .mobile-subnav > button:focus-visible {
-  outline: 2px solid #7B6030 !important;
+  outline: 2px solid var(--arcd-focus-ring) !important;
   outline-offset: -2px;
 }
 
@@ -7222,7 +7222,7 @@ body.no-scroll .arcd-mobile-nav { visibility:hidden; pointer-events:none; }
 .arcd-modal-overlay .arcd-modal-panel { max-height:min(900px,calc(100% - 28px))!important; }
 .unsaved-changes-prompt p { line-height:1.6; }
 .unsaved-changes-prompt__actions { display:flex;flex-wrap:wrap;gap:8px;margin-top:16px; }
-[data-theme="marcell"] .arcd-mobile-nav .mobile-primary-nav > button { font-family:var(--arcd-font-sans)!important; }
+[data-theme] .arcd-mobile-nav .mobile-primary-nav > button { font-family:var(--arcd-font-sans)!important; }
 .mobile-primary-nav__label { display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal; }
 @media(max-width:640px){
  .arcd-modal-overlay .arcd-modal-panel {height:100%;max-height:100%!important;}

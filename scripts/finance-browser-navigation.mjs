@@ -13,7 +13,14 @@ export async function openFinanceModule(page,label='Gestão financeira'){
 export async function selectFinanceArea(page,label){
  const select=page.getByRole('combobox',{name:'Áreas do financeiro',exact:true});
  if(await select.isVisible())await select.selectOption({label});
- else await page.getByRole('navigation',{name:'Áreas do financeiro'}).getByRole('button',{name:label,exact:true}).click();
+ else {
+  const primary=page.getByRole('navigation',{name:'Áreas do financeiro'}).getByRole('button',{name:label,exact:true});
+  if(await primary.count()) await primary.click();
+  else {
+   await page.locator('.financial-navigation .workspace-navigation__tools > summary').click();
+   await page.getByRole('navigation',{name:'Mais áreas',exact:true}).getByRole('button',{name:label,exact:true}).click();
+  }
+ }
 }
 export async function selectFinanceQueue(page,id,label){
  const select=page.getByRole('combobox',{name:'Fila de vencimentos',exact:true});

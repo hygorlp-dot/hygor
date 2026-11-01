@@ -48,7 +48,7 @@
 .bh-table thead th { background: var(--arcd-surface-muted); color: var(--arcd-text-secondary); font-size: .75rem; font-weight: 500; }
 .bh-table tbody th { min-width: 11rem; font-weight: 500; }
 /* O tema legado trata todo th como cabeçalho de coluna. Aqui são ações de linha. */
-[data-theme="marcell"] .arcd-main .bh-table tbody th { font-size: var(--arcd-type-table) !important; background: transparent !important; }
+[data-theme] .arcd-main .bh-table tbody th { font-size: var(--arcd-type-table) !important; background: transparent !important; }
 .bh-table tbody td { white-space: nowrap; }
 .bh-table tbody tr[data-selected="true"] { background: var(--arcd-action-primary-subtle); }
 .bh-table tbody tr:hover { background: var(--arcd-surface-muted); }

@@ -2,140 +2,132 @@
    Scope excludes the distance-reading TV and printed documents. Semantic
    colours, totals, disabled/error states and focus rings keep their meaning. */
 @media screen {
-  [data-theme="marcell"] :is(.arcd-main:not(:has(.arcd-tv)), .arcd-modal-panel, .arcd-dialog, .arcd-drawer) {
-    --arcd-type-page-title: 1.5rem;
-    --arcd-type-section-title: 1.125rem;
-    --arcd-type-card-title: .875rem;
-    --arcd-type-control: .8125rem;
-    --arcd-type-table: .8125rem;
-    --arcd-type-dialog-title: 1.125rem;
-  }
 
-  [data-theme="marcell"] .arcd-main:not(:has(.arcd-tv)) :is(h1, h2, h3),
-  [data-theme="marcell"] :is(.arcd-dialog, .arcd-modal-panel, .arcd-drawer) :is(h1, h2, h3) {
+  [data-theme] .arcd-main:not(:has(.arcd-tv)) :is(h1, h2, h3),
+  [data-theme] :is(.arcd-dialog, .arcd-modal-panel, .arcd-drawer) :is(h1, h2, h3) {
     font-weight: 500 !important;
     line-height: 1.35 !important;
     letter-spacing: -.015em !important;
     overflow-wrap: anywhere;
   }
 
-  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog, .arcd-drawer) :is(button, label, .arcd-field__label, .arcd-label) {
+  [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog, .arcd-drawer) :is(button, label, .arcd-field__label, .arcd-label) {
     font-weight: 400 !important;
     letter-spacing: normal;
   }
 
-  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog, .arcd-drawer) button:is([aria-selected="true"], [data-state="active"], [data-active="true"], [aria-pressed="true"]),
-  [data-theme="marcell"] :is(.arcd-btn[data-variant="danger"], .arcd-button--destructive) {
+  [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog, .arcd-drawer) button:is([aria-selected="true"], [data-state="active"], [data-active="true"], [aria-pressed="true"]),
+  [data-theme] :is(.arcd-btn[data-variant="danger"], .arcd-button--destructive) {
     font-weight: 500 !important;
   }
 
-  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog, .arcd-drawer) :is(input, select, textarea) {
+  [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog, .arcd-drawer) :is(input, select, textarea) {
     font-weight: 400 !important;
     line-height: 1.45;
   }
 
-  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) th {
+  [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) th {
     font-size: var(--arcd-type-caption) !important;
     font-weight: 500 !important;
     text-transform: none !important;
     letter-spacing: normal !important;
     border-bottom-color: var(--arcd-border-default) !important;
-    background: #f5f7f9 !important;
+    background: var(--arcd-surface-subtle) !important;
     line-height: 1.45;
   }
 
-  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) :is(table, input[type="number"]) {
+  [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) :is(table, input[type="number"]) {
     font-variant-numeric: tabular-nums;
   }
 
-  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) td {
+  [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) td {
     font-size: var(--arcd-type-table);
     line-height: 1.5;
   }
 
-  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) tbody :is(b, strong) {
+  [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) tbody :is(b, strong) {
     font-weight: 500;
   }
 
-  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) tfoot {
+  [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) tfoot {
     font-weight: 600;
   }
 
-  [data-theme="marcell"] :is(.arcd-modal-header, .arcd-dialog__header) {
-    background: #edf3f7 !important;
+  [data-theme] :is(.arcd-modal-header, .arcd-dialog__header) {
+    background: var(--arcd-surface-muted) !important;
     border-bottom-color: var(--arcd-border-default) !important;
     gap: 1rem;
   }
 
-  [data-theme="marcell"] :is(.arcd-modal-header, .arcd-dialog__header) .arcd-dialog__title {
+  [data-theme] :is(.arcd-modal-header, .arcd-dialog__header) .arcd-dialog__title {
     font-size: var(--arcd-type-dialog-title) !important;
     min-width: 0;
   }
 
-  [data-theme="marcell"] :is(.arcd-modal-header, .arcd-dialog__header) button {
+  [data-theme] :is(.arcd-modal-header, .arcd-dialog__header) button {
     flex-shrink: 0;
   }
 
-  [data-theme="marcell"] :is(.arcd-page-header__title, .arcd-form-section__title, .arcd-summary-card__label, .arcd-record-card__label, .arcd-mobile-record-card__fields dt, .team-list-head, .team-summary__item span) {
+  [data-theme] :is(.arcd-page-header__title, .arcd-form-section__title, .arcd-summary-card__label, .arcd-record-card__label, .arcd-mobile-record-card__fields dt, .team-list-head, .team-summary__item span) {
     font-weight: 500;
     text-transform: none;
     letter-spacing: normal;
   }
 
-  [data-theme="marcell"] .arcd-summary-card__icon {
+  [data-theme] .arcd-summary-card__icon {
     background: transparent;
     border: 0;
   }
 
-  [data-theme="marcell"] :is(.arcd-btn, .arcd-button) {
+  [data-theme] :is(.arcd-btn, .arcd-button) {
     max-width: 100%;
     white-space: normal;
     overflow-wrap: anywhere;
   }
 
   /* Keep wide data grids inside their own scroller at enlarged text sizes. */
-  [data-theme="marcell"] .arcd-main :is(div, section):has(> table) {
+  [data-theme] .arcd-main :is(div, section):has(> table) {
     min-width: 0;
     max-width: 100%;
     overflow-x: auto;
   }
 
-  [data-theme="marcell"] .arcd-sidebar .nav-body p {
-    color: #c4cfda !important;
+  [data-theme] .arcd-sidebar .nav-body p {
+    color: var(--arcd-nav-text) !important;
   }
 
-  [data-theme="marcell"] .settings-user-actions {
+  [data-theme] .settings-user-actions {
     flex-wrap: wrap;
     flex-shrink: 1 !important;
     max-width: 100%;
     justify-content: flex-end;
   }
 
-  [data-theme="marcell"] .settings-user-details {
+  [data-theme] .settings-user-details {
     min-width: 0;
     max-width: 100%;
     overflow-wrap: anywhere;
   }
 
-  [data-theme="marcell"] .settings-user-details > div {
+  [data-theme] .settings-user-details > div {
     flex-wrap: wrap;
   }
 
-  [data-theme="marcell"] div:has(> .settings-user-actions) {
+  [data-theme] div:has(> .settings-user-actions) {
     flex-wrap: wrap;
     min-width: 0;
   }
 
   @media (max-width: 1099px) {
-    [data-theme="marcell"] .arcd-main {
+    [data-theme] .arcd-main {
       padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)) !important;
     }
 
-    [data-theme="marcell"] .arcd-app-shell .app-header-inner {
+    [data-theme] .arcd-app-shell .app-header-inner {
       flex-wrap: wrap;
     }
 
-    [data-theme="marcell"] .arcd-app-shell .app-header-actions {
+    [data-theme] .arcd-app-shell .app-header-actions {
       min-width: 0;
       max-width: 100%;
       flex-shrink: 1;
@@ -145,17 +137,13 @@
   }
 
   @media (max-width: 767px) {
-    [data-theme="marcell"] .arcd-main .dashboard-tech-motion {
+    [data-theme] .arcd-main .dashboard-tech-motion {
       padding-inline: 0;
     }
 
-    [data-theme="marcell"] :is(.arcd-main:not(:has(.arcd-tv)), .arcd-modal-panel, .arcd-dialog, .arcd-drawer) {
-      --arcd-type-control: .875rem;
-      --arcd-type-table: .875rem;
-    }
 
     /* 16px prevents automatic field zoom; dense metadata stays at 12px. */
-    [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]), select, textarea) {
+    [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]), select, textarea) {
       font-size: var(--arcd-type-control-touch) !important;
       min-height: 44px;
     }
@@ -169,17 +157,17 @@
    Só estilo: nenhuma regra muda conteúdo, ordem ou comportamento.
    =================================================================== */
 @media screen {
-  [data-theme="marcell"] body { font-synthesis-weight: none; }
+  [data-theme] body { font-synthesis-weight: none; }
 
   /* Rótulos em CAIXA ALTA escritos direto no componente (294 ocorrências)
      viram texto normal; a hierarquia vem do tamanho e da cor. */
-  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog, .arcd-drawer) [style*="text-transform: uppercase"] {
+  [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog, .arcd-drawer) [style*="text-transform: uppercase"] {
     text-transform: none !important;
     letter-spacing: normal !important;
   }
 
   /* Cabeçalho de página: sem moldura, título grande e leve, ações à direita. */
-  [data-theme="marcell"] .arcd-main .page-hero {
+  [data-theme] .arcd-main .page-hero {
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -188,27 +176,27 @@
   }
   /* Tamanho e peso vêm da escala tipográfica (--arcd-type-page-title), que
      também acompanha a ampliação de texto; só o espaçamento é ajustado aqui. */
-  [data-theme="marcell"] .arcd-main .page-hero__title {
+  [data-theme] .arcd-main .page-hero__title {
     letter-spacing: -0.02em !important;
   }
-  [data-theme="marcell"] .arcd-main .page-hero__description {
+  [data-theme] .arcd-main .page-hero__description {
     font-size: .9375rem;
     max-width: 640px;
     margin-top: 6px;
   }
-  [data-theme="marcell"] .arcd-main .page-hero__stats {
+  [data-theme] .arcd-main .page-hero__stats {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 12px;
     margin-top: 20px;
   }
-  [data-theme="marcell"] .arcd-main .page-hero__stat {
+  [data-theme] .arcd-main .page-hero__stat {
     border: 0;
     border-radius: 12px;
-    background: #fff;
+    background: var(--arcd-surface-card);
     padding: 16px 18px;
   }
-  [data-theme="marcell"] .arcd-main .page-hero__stat-label { font-size: .8125rem; font-weight: 400; }
-  [data-theme="marcell"] .arcd-main .page-hero__stat-value {
+  [data-theme] .arcd-main .page-hero__stat-label { font-size: .8125rem; font-weight: 400; }
+  [data-theme] .arcd-main .page-hero__stat-value {
     margin-top: 6px;
     font-size: 1.625rem;
     font-weight: 400;
@@ -217,7 +205,7 @@
   }
 
   /* Abas internas: sublinhado sob a aba ativa, sem caixa, sem negrito. */
-  [data-theme="marcell"] .arcd-main .tab-row {
+  [data-theme] .arcd-main .tab-row {
     gap: 4px;
     padding: 0;
     border: 0;
@@ -225,7 +213,7 @@
     border-radius: 0;
     background: transparent;
   }
-  [data-theme="marcell"] .arcd-main .tab-row .tab-row__tab {
+  [data-theme] .arcd-main .tab-row .tab-row__tab {
     min-height: 44px;
     padding: 0 14px !important;
     border: 0 !important;
@@ -235,51 +223,51 @@
     font-weight: 400 !important;
     box-shadow: none;
   }
-  [data-theme="marcell"] .arcd-main .tab-row .tab-row__tab:hover { color: var(--arcd-text-primary) !important; }
-  [data-theme="marcell"] .arcd-main .tab-row .tab-row__tab[data-active="true"] {
-    color: var(--mrc-navy) !important;
-    box-shadow: inset 0 -2px 0 var(--mrc-navy) !important;
+  [data-theme] .arcd-main .tab-row .tab-row__tab:hover { color: var(--arcd-text-primary) !important; }
+  [data-theme] .arcd-main .tab-row .tab-row__tab[data-active="true"] {
+    color: var(--arcd-action-primary) !important;
+    box-shadow: inset 0 -2px 0 var(--arcd-action-primary) !important;
   }
-  [data-theme="marcell"] .arcd-main .tab-row .tab-row__count {
+  [data-theme] .arcd-main .tab-row .tab-row__count {
     margin-left: 6px;
     padding: 1px 7px;
     border-radius: 10px;
-    background: #e8e5df;
-    color: #3b4656;
+    background: var(--arcd-surface-muted);
+    color: var(--arcd-text-secondary);
     font-weight: 400;
   }
 
   /* Botões: três aparências apenas. */
-  [data-theme="marcell"] .arcd-btn {
+  [data-theme] .arcd-btn {
     min-height: 40px;
     border-radius: 8px !important;
     font-weight: 400 !important;
     letter-spacing: 0 !important;
   }
-  [data-theme="marcell"] .arcd-btn[data-size="sm"] { min-height: 32px; }
+  [data-theme] .arcd-btn[data-size="sm"] { min-height: 32px; }
 
   /* Painéis com moldura cinza viram superfícies brancas sobre a areia. */
-  [data-theme="marcell"] .arcd-main :is(.arcd-chart-panel, .arcd-summary-card) {
+  [data-theme] .arcd-main :is(.arcd-chart-panel, .arcd-summary-card) {
     border-color: transparent !important;
     border-radius: 12px !important;
     box-shadow: none !important;
   }
 
   /* Tabelas: cabeçalho discreto, linhas com ar, números alinhados. */
-  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) th {
+  [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) th {
     background: transparent !important;
     color: var(--arcd-text-secondary);
     font-weight: 400 !important;
   }
-  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) :is(td, th) {
+  [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) :is(td, th) {
     padding-top: 12px;
     padding-bottom: 12px;
   }
-  [data-theme="marcell"] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) tfoot { font-weight: 700; }
+  [data-theme] :is(.arcd-main, .arcd-modal-panel, .arcd-dialog) tfoot { font-weight: 700; }
 }
 
 /* Patrimônio da empresa: tabela alinhada com uma ação direta e menu. */
-.patrimonio-lista { background: #fff; border-radius: 12px; padding: 8px 20px 4px; }
+.patrimonio-lista { background: var(--arcd-surface-card); border-radius: 12px; padding: 8px 20px 4px; }
 .patrimonio-lista__nota { margin: 8px 0 4px; font-size: .8125rem; color: var(--arcd-text-secondary); }
 .patrimonio-lista__vazio { padding: 24px; text-align: center; color: var(--arcd-text-secondary); }
 .patrimonio-lista__cabecalho,
@@ -290,7 +278,7 @@
   align-items: center;
 }
 .patrimonio-lista__cabecalho { padding: 12px 0 8px; font-size: .8125rem; color: var(--arcd-text-secondary); border-bottom: 1px solid var(--arcd-border-default); }
-.patrimonio-lista__linha { padding: 14px 0; border-bottom: 1px solid #ece9e3; }
+.patrimonio-lista__linha { padding: 14px 0; border-bottom: 1px solid var(--arcd-border-subtle); }
 .patrimonio-lista__linha:last-child { border-bottom: 0; }
 .patrimonio-lista__linha[data-mobile] { grid-template-columns: 1fr auto; row-gap: 8px; }
 .patrimonio-lista__linha[data-mobile] > .patrimonio-lista__bem { grid-column: 1 / -1; }
@@ -305,7 +293,7 @@
 .patrimonio-lista__popover {
   position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 168px;
   display: flex; flex-direction: column; padding: 6px;
-  background: #fff; border: 1px solid var(--arcd-border-default); border-radius: 10px;
+  background: var(--arcd-surface-card); border: 1px solid var(--arcd-border-default); border-radius: 10px;
   box-shadow: 0 8px 24px rgb(13 27 46 / 12%);
 }
 .patrimonio-lista__popover > button {
@@ -313,16 +301,16 @@
   color: var(--arcd-text-primary); font: inherit; font-size: .875rem; text-align: left; cursor: pointer;
 }
 .patrimonio-lista__popover > button:hover,
-.patrimonio-lista__popover > button:focus-visible { background: #f3f0e9; }
+.patrimonio-lista__popover > button:focus-visible { background: var(--arcd-surface-page); }
 
 /* Abas de fluxo (FlowTabs: Folha, Compras e outros) no mesmo padrão sublinhado. */
 @media screen {
-  [data-theme="marcell"] .arcd-main .workflow-tabs > nav {
+  [data-theme] .arcd-main .workflow-tabs > nav {
     gap: 4px;
     padding: 0;
     border-bottom: 1px solid var(--arcd-border-default);
   }
-  [data-theme="marcell"] .arcd-main .workflow-tabs > nav > button {
+  [data-theme] .arcd-main .workflow-tabs > nav > button {
     min-height: 44px;
     padding: 0 14px;
     border: 0;
@@ -331,68 +319,68 @@
     color: var(--arcd-text-secondary);
     font-weight: 400 !important;
   }
-  [data-theme="marcell"] .arcd-main .workflow-tabs > nav > button:hover { color: var(--arcd-text-primary); }
-  [data-theme="marcell"] .arcd-main .workflow-tabs > nav > button[aria-current="page"] {
+  [data-theme] .arcd-main .workflow-tabs > nav > button:hover { color: var(--arcd-text-primary); }
+  [data-theme] .arcd-main .workflow-tabs > nav > button[aria-current="page"] {
     background: transparent;
-    color: var(--mrc-navy);
-    box-shadow: inset 0 -2px 0 var(--mrc-navy);
+    color: var(--arcd-action-primary);
+    box-shadow: inset 0 -2px 0 var(--arcd-action-primary);
   }
-  [data-theme="marcell"] .arcd-main .workflow-tabs > nav > button small {
-    padding: 1px 7px; border-radius: 10px; background: #e8e5df; color: #3b4656;
+  [data-theme] .arcd-main .workflow-tabs > nav > button small {
+    padding: 1px 7px; border-radius: 10px; background: var(--arcd-surface-muted); color: var(--arcd-text-secondary);
   }
 }
 
 /* Diretrizes de interface (Vercel): sem zoom por toque duplo nos controles. */
 @media screen {
-  [data-theme="marcell"] :is(button, a, select, summary, [role="menuitem"]) { touch-action: manipulation; }
+  [data-theme] :is(button, a, select, summary, [role="menuitem"]) { touch-action: manipulation; }
 }
 
 /* Painel "Suas obras hoje" (gestão à vista). Cores de situação fixas:
    verde = em dia, âmbar = atenção, vermelho = crítico; sempre com texto/ícone. */
-.gav { position: relative; z-index: 1; background: #fff; border: 1px solid var(--arcd-border, #E6E3DC); border-radius: 12px; padding: 18px 20px 14px; }
+.gav { position: relative; z-index: 1; background: var(--arcd-surface-card); border: 1px solid var(--arcd-border, #E6E3DC); border-radius: 12px; padding: 18px 20px 14px; }
 .gav__topo { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
-.gav__titulo { color: #0D1B2E; } /* tamanho e peso seguem a escala de títulos do tema */
+.gav__titulo { color: var(--arcd-text-primary); } /* tamanho e peso seguem a escala de títulos do tema */
 .gav__sub { margin-top: 3px; font-size: .8125rem; color: var(--arcd-text-secondary); font-variant-numeric: tabular-nums; }
 .gav-placar { display: grid; grid-template-columns: repeat(3, minmax(92px, 1fr)); gap: 8px; }
 .gav-placar__item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 58px; padding: 8px 12px; border: 1px solid transparent; border-radius: 10px; cursor: pointer; text-align: left; }
 .gav-placar__item b { font-size: 1.375rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .gav-placar__item span { font-size: .8125rem; font-weight: 600; }
-.gav-placar__item.is-ok { background: #E3EFE9; color: #2E6652; }
-.gav-placar__item.is-atencao { background: #F8EBD6; color: #855A24; }
-.gav-placar__item.is-critico { background: #F6E3E3; color: #A63B3B; }
+.gav-placar__item.is-ok { background: var(--arcd-success-surface); color: var(--arcd-success-text); }
+.gav-placar__item.is-atencao { background: var(--arcd-warning-surface); color: var(--arcd-warning-text); }
+.gav-placar__item.is-critico { background: var(--arcd-danger-surface); color: var(--arcd-danger-text); }
 .gav-placar__item[aria-pressed="true"] { border-color: currentColor; }
-.gav-placar__item:focus-visible, .gav-obra__nome:focus-visible { outline: 2px solid #0D1B2E; outline-offset: 2px; }
-.gav-linha { display: grid; grid-template-columns: minmax(170px, 1.5fr) 104px minmax(150px, 1.2fr) 70px minmax(170px, 1.3fr) 118px; gap: 16px; align-items: center; padding: 12px 0; border-top: 1px solid #EFEDE8; font-size: var(--arcd-type-table); }
+.gav-placar__item:focus-visible, .gav-obra__nome:focus-visible { outline: 2px solid var(--arcd-text-primary); outline-offset: 2px; }
+.gav-linha { display: grid; grid-template-columns: minmax(170px, 1.5fr) 104px minmax(150px, 1.2fr) 70px minmax(170px, 1.3fr) 118px; gap: 16px; align-items: center; padding: 12px 0; border-top: 1px solid var(--arcd-border-subtle); font-size: var(--arcd-type-table); }
 .gav-linha--cabecalho { padding: 0 0 8px; border-top: 0; font-size: .75rem; font-weight: 600; color: var(--arcd-text-secondary); }
 .gav-obra { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.gav-obra__nome { all: unset; cursor: pointer; font-weight: 600; color: #0D1B2E; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gav-obra__nome { all: unset; cursor: pointer; font-weight: 600; color: var(--arcd-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gav-obra__nome:hover { text-decoration: underline; }
 .gav-obra__motivo { font-size: .75rem; color: var(--arcd-text-secondary); }
 .gav-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px; font-size: .75rem; font-weight: 600; white-space: nowrap; }
-.gav-chip.is-ok { background: #E3EFE9; color: #2E6652; }
-.gav-chip.is-atencao { background: #F8EBD6; color: #855A24; }
-.gav-chip.is-critico { background: #F6E3E3; color: #A63B3B; }
+.gav-chip.is-ok { background: var(--arcd-success-surface); color: var(--arcd-success-text); }
+.gav-chip.is-atencao { background: var(--arcd-warning-surface); color: var(--arcd-warning-text); }
+.gav-chip.is-critico { background: var(--arcd-danger-surface); color: var(--arcd-danger-text); }
 .gav-etapas { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .gav-etapas__trilho { display: flex; gap: 2px; height: 6px; }
-.gav-etapas__passo { flex-basis: 0; min-width: 4px; border-radius: 2px; background: #E8E5DF; }
-.gav-etapas__passo.is-feita { background: #0D1B2E; }
-.gav-etapas__passo.is-atual { background: #B9985B; }
-.gav-etapas__nome { font-size: .75rem; color: #3D4651; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gav-etapas__passo { flex-basis: 0; min-width: 4px; border-radius: 2px; background: var(--arcd-surface-muted); }
+.gav-etapas__passo.is-feita { background: var(--arcd-text-primary); }
+.gav-etapas__passo.is-atual { background: var(--arcd-action-primary); }
+.gav-etapas__nome { font-size: .75rem; color: var(--arcd-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gav-equipe { font-weight: 600; font-variant-numeric: tabular-nums; }
 .gav-custo { display: flex; flex-direction: column; gap: 5px; }
-.gav-custo__barra { position: relative; height: 8px; border-radius: 99px; background: #EFEDE8; }
-.gav-custo__gasto { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: #0D1B2E; }
-.gav-custo__gasto.is-alerta { background: #A63B3B; }
-.gav-custo__marca { position: absolute; top: -3px; width: 2px; height: 14px; margin-left: -1px; border-radius: 1px; background: #B9985B; }
+.gav-custo__barra { position: relative; height: 8px; border-radius: 99px; background: var(--arcd-border-subtle); }
+.gav-custo__gasto { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: var(--arcd-text-primary); }
+.gav-custo__gasto.is-alerta { background: var(--arcd-danger-text); }
+.gav-custo__marca { position: absolute; top: -3px; width: 2px; height: 14px; margin-left: -1px; border-radius: 1px; background: var(--arcd-action-primary); }
 .gav-custo__legenda { font-size: .75rem; color: var(--arcd-text-secondary); font-variant-numeric: tabular-nums; }
-.gav-custo__legenda b { color: #0D1B2E; font-weight: 600; }
+.gav-custo__legenda b { color: var(--arcd-text-primary); font-weight: 600; }
 .gav-entrega { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
 .gav-entrega span + span { font-size: .75rem; color: var(--arcd-text-secondary); }
-.gav-entrega .is-atencao { color: #855A24; font-weight: 600; }
-.gav-entrega .is-critico { color: #A63B3B; font-weight: 600; }
+.gav-entrega .is-atencao { color: var(--arcd-warning-text); font-weight: 600; }
+.gav-entrega .is-critico { color: var(--arcd-danger-text); font-weight: 600; }
 .gav-vazio { font-size: .75rem; color: var(--arcd-text-secondary); }
 .gav__nada { padding: 16px 0; }
-.gav__legenda { margin-top: 10px; padding-top: 10px; border-top: 1px solid #EFEDE8; font-size: .75rem; color: var(--arcd-text-secondary); }
+.gav__legenda { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--arcd-border-subtle); font-size: .75rem; color: var(--arcd-text-secondary); }
 @media (max-width: 1023px) {
   .gav { padding: 14px; }
   .gav-placar { width: 100%; }

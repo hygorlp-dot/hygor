@@ -94,7 +94,7 @@ for(const width of [390,1440])test(`WF03/WF04 vínculos, recorte e recebimento p
  else await expect(page.getByRole('navigation',{name:'Fluxo de compras',exact:true}).getByRole('button',{name:'Pedidos',exact:true}).locator('small')).toHaveText('2');
  await page.getByLabel('Buscar',{exact:true}).fill('SC-001');
  await page.getByLabel('Situação da cotação',{exact:true}).selectOption('aberta');
- if(width<768)await page.getByRole('button',{name:/^Filtros/}).click();
+ if(!await page.getByLabel('Data inicial',{exact:true}).isVisible())await page.getByRole('button',{name:/^Filtros/}).click();
  await page.getByLabel('Data inicial',{exact:true}).fill('2026-10-19');await page.getByLabel('Data final',{exact:true}).fill('2026-10-21');
  const quote=page.locator('#purchase-record-quote');
  await expect(quote.getByRole('region',{name:'Andamento de COT-001'})).toContainText('1 de 2 itens decididos');
@@ -111,7 +111,7 @@ for(const width of [390,1440])test(`WF03/WF04 vínculos, recorte e recebimento p
  await page.screenshot({path:test.info().outputPath(`wf04-pedido-${width}.png`)});
  await page.getByRole('button',{name:'Voltar para cotação COT-001',exact:true}).click();
  await expect(page.getByLabel('Buscar',{exact:true})).toHaveValue('SC-001');await expect(page.getByLabel('Situação da cotação',{exact:true})).toHaveValue('aberta');
- if(width<768)await page.getByRole('button',{name:/^Filtros/}).click();
+ if(!await page.getByLabel('Data inicial',{exact:true}).isVisible())await page.getByRole('button',{name:/^Filtros/}).click();
  await expect(page.getByLabel('Data inicial',{exact:true})).toHaveValue('2026-10-19');await expect(page.getByLabel('Data final',{exact:true})).toHaveValue('2026-10-21');
  await expect(quote.getByRole('region',{name:'Análise da cotação COT-001'})).toBeVisible();
  await quote.getByRole('button',{name:'Abrir solicitação SC-001',exact:true}).click();
@@ -260,7 +260,13 @@ test("fila por obra, múltiplas palavras, aprovação e retorno preservam o cont
   await expect(page.locator('.purchase-context-bar').getByLabel('Obra',{exact:true})).toHaveValue('a');
   await expect(page.getByLabel("Buscar na fila")).toHaveValue("central cimento");
   await page.getByRole("button",{name:"Limpar filtros",exact:true}).click();
-  await page.getByRole("button",{name:/Em aprovação/}).click();
+  const approvalMetric=page.getByRole("button",{name:/Em aprovação/});
+  if(await approvalMetric.isVisible())await approvalMetric.click();
+  else {
+    const queue=page.locator('.purchase-queue-filters');
+    await queue.getByRole('button',{name:/^Filtros/}).click();
+    await queue.getByLabel('Etapa do fluxo').selectOption('aprovacoes');
+  }
   await expect(page.locator('.purchase-context-bar').getByLabel('Obra',{exact:true})).toHaveValue('a');
   await expect(page.locator(".purchase-queue-table tbody tr")).toHaveCount(1);
   await navigate(page,"Receber");
@@ -279,7 +285,8 @@ test("receber parcialmente a prazo atualiza estoque e saldo sem registrar pagame
   const dialog=page.getByRole("dialog");
   await expect(dialog).not.toContainText("Pagamento já verificado");
   await dialog.getByLabel("Chegou agora (UN)").fill("11");
-  await expect(dialog.getByRole("button",{name:"Dar entrada no estoque"})).toBeDisabled();
+  await expect(dialog).toContainText("Quantidade acima do saldo. Confira a diferença com o fornecedor");
+  await expect(dialog.getByRole("button",{name:"Dar entrada no estoque"})).toBeEnabled();
   await dialog.getByLabel("Chegou agora (UN)").fill("4");
   await expect(dialog).toContainText("saldo após esta entrada: 6 UN");
   await dialog.screenshot({path:test.info().outputPath("recebimento-parcial.png")});
@@ -632,6 +639,7 @@ test("pedidos: uma ação principal por cartão, destrutivas só no menu ⋯ e f
   // Filtros: status, fornecedor, atraso e obra se combinam, com contagem e "Limpar filtros".
   const filtros=page.getByRole("group",{name:"Filtros de pedidos"});
   await expect(page.getByText("3 de 3 pedidos")).toBeVisible();
+  if(!await filtros.getByLabel("Situação",{exact:true}).isVisible())await filtros.getByRole('button',{name:/^Filtros/}).click();
   await filtros.getByLabel("Situação",{exact:true}).selectOption("rascunho");
   expect(await nomesVisiveis()).toEqual(["Pedido PC-002"]);
   await filtros.getByLabel("Situação",{exact:true}).selectOption("a_receber");
@@ -696,6 +704,7 @@ test("fila agrupada por fornecedor cobra três entregas atrasadas numa só visã
   }});
   const fila=page.locator(".purchase-workspace");
   await expect(fila.locator(".purchase-queue-metrics")).toContainText("R$");
+  if(!await fila.getByLabel("Agrupar por").isVisible())await fila.getByRole('button',{name:/^Filtros/}).click();
   await fila.getByLabel("Agrupar por").selectOption("fornecedor");
   const grupos=fila.locator("tbody.purchase-group");
   const central=grupos.first();
@@ -737,9 +746,10 @@ test("'Chegou' na tela da obra abre o mesmo recebimento de Compras, preenchido e
   // Mesmo modal do "Receber": já vem com tudo o que falta, na unidade de compra.
   await expect(dialog.getByLabel("Chegou agora (UN)")).toHaveValue("10");
   await expect(dialog.locator(".purchase-receipt-payment")).toContainText("R$ 250,00 em aberto. O recebimento não depende dele.");
-  // A mesma regra: acima do que falta não confirma; parcial confirma.
+  // A versão publicada permite registrar a chegada real acima do saldo, com aviso.
   await dialog.getByLabel("Chegou agora (UN)").fill("11");
-  await expect(dialog.getByRole("button",{name:/Dar entrada no estoque/})).toBeDisabled();
+  await expect(dialog).toContainText("Quantidade acima do saldo. Confira a diferença com o fornecedor");
+  await expect(dialog.getByRole("button",{name:/Dar entrada no estoque/})).toBeEnabled();
   await dialog.getByLabel("Chegou agora (UN)").fill("4");
   await dialog.getByRole("button",{name:/Dar entrada no estoque/}).click();
   await expect(dialog).toHaveCount(0);
@@ -903,6 +913,8 @@ for(const atrasoDownload of [0,1500])test(`exportar para Excel baixa só o que a
 
   // Pedidos filtrados por "só atrasadas": a planilha traz só o PC-001, com itens e notas.
   await navigate(page,"Pedidos");
+  const orderFilters=page.getByRole('group',{name:'Filtros de pedidos'});
+  if(!await page.locator(".purchase-order-filters__toggle input").isVisible())await orderFilters.getByRole('button',{name:/^Filtros/}).click();
   await page.locator(".purchase-order-filters__toggle input").check();
   await expect(page.locator(".purchase-order-count")).toContainText("1 de 2 pedidos");
   const pedidos=await lerDownload(()=>page.getByRole("button",{name:/Exportar para Excel os 1 pedido/}).click());

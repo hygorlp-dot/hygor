@@ -8,6 +8,7 @@ import "./index.css";
 import "./design-system/themes/marcell-clean.css";
 import "./design-system/themes/marcell-pilot.css";
 import "./design-system/themes/marcell-workspaces.css";
+import "./design-system/themes/operating-contract.css";
 
 // Erros fora da renderização (clique, exportação, promessa sem catch) - o
 // ErrorBoundary não os vê. Vão para o mesmo relatório ARCD-XXXX.

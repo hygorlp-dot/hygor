@@ -1,0 +1,63 @@
+/* Shared ERP recipes. Theme values live only in themeRegistry.js.
+   Brand artwork, reports and chart series retain their own identities. */
+@font-face { font-family:Inter;src:url('/fonts/inter/InterVariable.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap; }
+@media screen {
+  [data-theme] body { background:var(--arcd-surface-page);color:var(--arcd-text-primary); }
+  [data-theme] :is(.arcd-app-shell,.arcd-main) { background:var(--arcd-surface-page) !important;color:var(--arcd-text-primary); }
+  [data-theme] .arcd-app-shell:not([data-tab="tv"]) { font-family:var(--arcd-font-sans); }
+  [data-theme] .arcd-main[data-workspace] { --arcd-control-height:inherit; }
+  [data-theme] :is(.arcd-main,.arcd-dialog,.arcd-modal-panel,.arcd-drawer) {
+    font-size:var(--arcd-type-body);line-height:1.5;
+  }
+  [data-theme] :is(.arcd-main,.arcd-dialog,.arcd-modal-panel) th { background:var(--arcd-surface-subtle) !important; }
+  [data-theme] .arcd-main :is(td,th) { padding-block:calc(var(--arcd-panel-padding) * .65); }
+  [data-theme] :is(.arcd-modal-header,.arcd-dialog__header) { background:var(--arcd-surface-card) !important; }
+  [data-theme] .arcd-sidebar .nav-body p { color:var(--arcd-nav-text) !important; }
+  [data-theme] .arcd-mobile-nav { backdrop-filter:none !important; }
+  [data-theme] .mobile-primary-nav button[data-active="true"] { color:var(--arcd-action-primary);background:var(--arcd-action-primary-subtle);border-top-color:var(--arcd-action-primary);--ic-color:var(--arcd-action-primary) !important; }
+  [data-theme] .arcd-main :is(.tab-row__tab[data-active="true"],.workflow-tabs>nav>button[aria-current="page"]) {
+    color:var(--arcd-action-primary) !important;box-shadow:inset 0 -2px var(--arcd-action-primary) !important;
+  }
+  [data-theme] .workspace-navigation__desktop > nav > button[aria-current="page"] {
+    background:transparent;border-color:transparent;color:var(--arcd-action-primary);box-shadow:inset 0 -2px var(--arcd-action-primary);
+  }
+  [data-theme] .arcd-main :is(.purchase-queue-metrics,.finance-today__filters) button[aria-pressed="true"] {
+    background:var(--arcd-action-primary-subtle);color:var(--arcd-action-primary);border-color:var(--arcd-border-default);
+  }
+  [data-theme] .arcd-main .purchase-queue-metrics button { min-height:4rem;padding:.625rem 1rem;gap:.125rem; }
+  [data-theme] .arcd-main .purchase-queue-metrics strong { font-size:var(--arcd-type-section-title); }
+  [data-theme] .arcd-main .purchase-queue-table :is(td,th) { padding-block:calc(var(--arcd-panel-padding) * .75); }
+  [data-theme] .arcd-main .purchase-queue-table .purchase-row-title { font-size:var(--arcd-type-body); }
+  [data-theme] .workspace-filters { display:contents; }
+  [data-theme] .workspace-filters > .workspace-filters__toggle.mrc-button { display:inline-flex; }
+  [data-theme] .workspace-filters .workspace-filters__fields { display:none;grid-column:1 / -1; }
+  [data-theme] .workspace-filters[data-expanded="true"] .workspace-filters__fields { display:grid; }
+  [data-theme] .purchase-queue-filters { grid-template-columns:minmax(12rem,1fr) auto !important; }
+  [data-theme] .theme-menu { width:min(24rem,calc(100vw - 1.5rem));max-height:calc(100dvh - 2rem);overflow:auto; }
+  [data-theme] .theme-menu .arcd-form-section { padding:0;border:0;background:transparent; }
+  .theme-settings-description { margin-top:.75rem;color:var(--arcd-text-secondary);font-size:var(--arcd-type-caption); }
+  [data-theme] ::selection { background:var(--arcd-action-primary-subtle);color:var(--arcd-text-primary); }
+  [data-theme] :is(input,textarea) { caret-color:var(--arcd-action-primary); }
+  [data-theme] :is(.arcd-main,.arcd-dialog,.arcd-modal-panel,.arcd-drawer) a { text-underline-offset:.2em; }
+  @media(max-width:767px) {
+    [data-theme] .app-help-button { width:2.75rem;padding-inline:0;flex-shrink:0; }
+    .app-help-button__label { display:none; }
+    [data-theme] .app-header-context { min-width:0;flex:1; }
+    [data-theme] .app-breadcrumb { min-width:0; }
+    [data-theme] .app-header-chat-slot { display:none; }
+    [data-theme] .arcd-main[data-workspace] { --arcd-control-height:2.75rem; }
+    [data-theme] .arcd-main .purchase-queue-table :is(td,th) { padding-block:.625rem; }
+    [data-theme] .workspace-filters[data-expanded="true"] .workspace-filters__fields { grid-template-columns:1fr; }
+    [data-theme] .purchase-queue-filters { grid-template-columns:minmax(0,1fr) auto !important; }
+  }
+  @media(max-width:600px) {
+    [data-theme] .arcd-main .purchase-queue-table tbody tr:not(.purchase-group-row) { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.625rem 1rem;padding:1rem; }
+    [data-theme] .arcd-main .purchase-queue-table tbody td { padding:0;min-width:0; }
+    [data-theme] .arcd-main .purchase-queue-table tbody td::before { display:none; }
+    [data-theme] .arcd-main .purchase-queue-table td:nth-child(1) { grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:.25rem .75rem;align-items:baseline; }
+    [data-theme] .arcd-main .purchase-queue-table td:nth-child(1)>:is(span,small) { margin:0; }
+    [data-theme] .arcd-main .purchase-queue-table td:nth-child(2) { grid-column:1 / -1; }
+    [data-theme] .arcd-main .purchase-queue-table td:nth-child(4) { text-align:right;align-self:center; }
+    [data-theme] .arcd-main .purchase-queue-table td:nth-child(5) { grid-column:1 / -1; }
+  }
+}

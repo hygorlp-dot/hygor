@@ -11,8 +11,8 @@ export function HelpButton({pageId,allowedTabs,label="Ajuda"}){
  const panelId=useId();
  const topicId=useCurrentHelpTopic(pageId);
  return <>
-  <Button ref={trigger} variant="outline" className="app-help-button" aria-expanded={open} aria-controls={open?panelId:undefined} onClick={()=>setOpen(value=>!value)}>
-   <CircleHelp data-icon="inline-start" aria-hidden="true"/>{label}
+  <Button ref={trigger} variant="outline" className="app-help-button" aria-label={label} aria-expanded={open} aria-controls={open?panelId:undefined} onClick={()=>setOpen(value=>!value)}>
+   <CircleHelp data-icon="inline-start" aria-hidden="true"/><span className="app-help-button__label">{label}</span>
   </Button>
   {open&&<Suspense fallback={<span role="status">Abrindo ajuda…</span>}><HelpPanel key={topicId} id={panelId} topicId={topicId} pageId={pageId} allowedTabs={allowedTabs} onClose={()=>{setOpen(false);trigger.current?.focus();}}/></Suspense>}
  </>;

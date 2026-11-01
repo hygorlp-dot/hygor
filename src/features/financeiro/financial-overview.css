@@ -51,9 +51,9 @@
 @media(max-width:600px){.finance-today{padding:12px 0;gap:12px}.finance-today__filters{gap:6px}.finance-today__filters button{flex:1 1 145px;min-height:44px}.finance-today__filters label{min-width:0;flex:1 1 145px}.finance-today__filters input,.finance-today__filters select{max-width:100%}}
 @media(max-width:700px){
   .financial-navigation .workflow-tabs>nav,
-  [data-theme="marcell"] .arcd-main .financial-navigation .workflow-tabs>nav{flex-wrap:wrap;overflow:visible;gap:4px}
+  [data-theme] .arcd-main .financial-navigation .workflow-tabs>nav{flex-wrap:wrap;overflow:visible;gap:4px}
   .financial-navigation .workflow-tabs>nav>button,
-  [data-theme="marcell"] .arcd-main .financial-navigation .workflow-tabs>nav>button{flex:1 1 100px;min-width:0;justify-content:center;white-space:normal;padding:6px;min-height:44px}
+  [data-theme] .arcd-main .financial-navigation .workflow-tabs>nav>button{flex:1 1 100px;min-width:0;justify-content:center;white-space:normal;padding:6px;min-height:44px}
 }
 .finance-today__attention{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding-block:12px;border-block:1px solid var(--arcd-border-default)}
 .financial-closing__action{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;padding-block:16px;border-block:1px solid var(--arcd-border-default)}

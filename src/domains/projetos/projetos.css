@@ -70,7 +70,7 @@
 .engineering-drag-handle:active { cursor:grabbing; }
 /* O tema atribui manipulation aos botões; o puxador precisa conservar o
    gesto para que o navegador não cancele o arraste ao iniciar uma rolagem. */
-[data-theme="marcell"] .engineering-workspace .engineering-drag-handle { touch-action:none; }
+[data-theme] .engineering-workspace .engineering-drag-handle { touch-action:none; }
 .engineering-drag-handle:disabled { cursor:default; opacity:.5; }
 .engineering-drag-handle:focus-visible,.engineering-kanban:focus-visible { outline:2px solid var(--arcd-focus-ring); outline-offset:2px; }
 .engineering-card-title { text-align:left; justify-content:start; width:100%; padding:0; font-size:15px; min-height:32px; overflow-wrap:anywhere; }
