@@ -477,3 +477,7 @@ FilePicker aceita `inputProps` para recursos nativos como `capture`, rótulo ace
 ### Revisão dos atalhos do RH — 01/11/2026
 
 O painel de pendências da Folha consome os controles e a tipografia da base, sem nova família visual. As abas FlowTabs passam a quebrar em linhas no desktop em toda a ERP, preservando o seletor no celular. Alterações futuras de linguagem visual pertencem aos tokens/componentes compartilhados e devem alcançar o sistema inteiro. Validação e limites em `docs/ATALHOS-RH-20261101.md`.
+
+### Entrada e cadastro no ponto — 01/11/2026
+
+Nome de registro usa RecordAction; comandos não devem ser repetidos quando o nome já oferece a mesma navegação. No ponto, a coluna compacta leva ao cadastro e o vínculo/desligamento fica antes dos campos de edição. A espera inicial usa marca, Spinner e tokens comuns. Ver `docs/PONTO-CADASTRO-DESLIGAMENTO-20261101.md` para escopo e validações.

@@ -71,3 +71,9 @@ Pendências do RH retoma o painel existente e usa os mesmos Button, Badge, campo
 Toda alteração de linguagem visual deve valer para toda a ERP pela base comum. Tipografia, cores, espaçamentos e dimensões vêm dos tokens; estados e apresentação vêm dos controles. Composições e textos de uma tarefa podem pertencer ao domínio, sem redefinir o padrão visual. A regra também está em AGENTS.md.
 
 Detalhes funcionais e evidências em `docs/ATALHOS-RH-20261101.md`.
+
+## Cadastro pelo ponto e entrada — 01/11/2026
+
+Na Gestão do ponto, o nome usa RecordAction como acesso ao cadastro, sem a moldura de um comando. A linha não repete Ficha ou Limpar; correções continuam nas células do dia. O cabeçalho do cadastro apresenta vínculo, último dia e motivo antes dos demais campos. Os comandos e indicadores continuam usando a base compartilhada.
+
+A espera inicial usa a marca existente e o Spinner comum, com tokens do tema. Só aparece após 200 ms; não representa uma falha de login nem dispensa o download do aplicativo em uma conexão lenta. Detalhes e evidências em `docs/PONTO-CADASTRO-DESLIGAMENTO-20261101.md`.

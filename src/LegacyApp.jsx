@@ -5849,15 +5849,15 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   useHelpTopic('ponto_geral',laborGroup==='all'?'ponto_geral':`ponto_geral_${laborGroup}`);
   const agora = new Date();
   const refInicial = agora.getDate() <= 5 ? new Date(agora.getFullYear(), agora.getMonth()-1, 1) : agora;
-  const [year,setYear]=useState(refInicial.getFullYear());
-  const [month,setMonth]=useState(refInicial.getMonth());
-  const [q,setQ]=useState(agora.getDate()>=6&&agora.getDate()<=20?"1":"2");
-  const [filterObra,setFilterObra]=useState("all");
-  const [busca,setBusca]=useState("");
+  const [year,setYear]=useWorkspaceState('ponto_geral','year',refInicial.getFullYear());
+  const [month,setMonth]=useWorkspaceState('ponto_geral','month',refInicial.getMonth());
+  const [q,setQ]=useWorkspaceState('ponto_geral','q',agora.getDate()>=6&&agora.getDate()<=20?"1":"2");
+  const [filterObra,setFilterObra]=useWorkspaceState('ponto_geral','filterObra',"all");
+  const [busca,setBusca]=useWorkspaceState('ponto_geral','busca',"");
   const [obraCell,setObraCell]=useState(null);   // "empId::date" da célula com troca de obra aberta
   const pendingCellsRef=useRef(new Map());
   const [,setPendingCellsRevision]=useState(0);
-  const {intent:rhIntent}=useWorkflow();
+  const {intent:rhIntent,navigate:navigateEmployee}=useWorkflow();
   useEffect(()=>{
     if(rhIntent?.tabId!=='ponto_geral'||rhIntent.action!=='rh-readiness')return;
     const employee=data.employees.find(e=>String(e.id)===rhIntent.record?.employeeId);if(!employee)return;
@@ -5997,31 +5997,6 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
 
   // Sem preenchimento automático de presença: cada dia é marcado manualmente,
   // clicando na própria célula - evita presença lançada sem verificação real.
-  const limparLinha=async emp=>{
-    if(bloqueadoPorArquivo())return;
-    if(!window.confirm(`Limpar os lançamentos visíveis de ${emp.name}?`))return;
-    let bloqueados=0;
-    const patches=days.flatMap(date=>{
-      const ant=getAtt(data,emp.id,date);
-      if(!ant)return [];
-      const obraId=obraDoRegistro(emp,date,ant);
-      if(obraId&&!canEditAttendance(data,obraId,date,currentUser?.id)){bloqueados++;return [];}
-      return [{employeeId:emp.id,date,selectedObraId:obraId,record:{...ant,status:null,obraId}}];
-    });
-    if(!patches.length){
-      showToast(bloqueados?"Os lançamentos visíveis estão bloqueados.":"Não há lançamentos para limpar.",bloqueados?"error":"success");
-      return;
-    }
-    const operationId=pointOperationId();
-    markPending(operationId,patches);
-    const result=await dispatchAttendanceCommand({
-      action:"attendance-batch-upsert",operationId,patches,
-    });
-    clearPending(operationId,patches);
-    if(!result?.ok){showToast(result?.reason||"Os lançamentos não foram removidos.","error");return;}
-    showToast(bloqueados?`${bloqueados} dia(s) bloqueado(s) foram preservados; os demais foram removidos.`:"Lançamentos do período removidos.");
-  };
-
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
   const rotuloCurto=st=>st==="M"?"½":isValidAttendanceStatus(st)?st:"·";
   return <div className="anim ponto-geral" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
@@ -6091,27 +6066,16 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     </div>
 
     <div className="ponto-geral-table-wrap" style={{overflow:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:8,background:"var(--arcd-surface-card)",maxHeight:"70vh"}}>
-      <table className="ponto-geral-table" style={{borderCollapse:"separate",borderSpacing:0,minWidth:Math.max(900,354+days.length*64),width:"100%",fontSize:"var(--arcd-type-label)"}}>
+      <table className="ponto-geral-table" style={{borderCollapse:"separate",borderSpacing:0,minWidth:Math.max(900,284+days.length*64),width:"100%",fontSize:"var(--arcd-type-label)"}}>
         <thead><tr>
-          <th className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:7,minWidth:290,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"left",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",borderBottom:"1px solid var(--arcd-border-default)"}}>FUNCIONÁRIO E AÇÕES</th>
+          <th className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:7,minWidth:220,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",textAlign:"left",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",borderBottom:"1px solid var(--arcd-border-default)"}}>Funcionário</th>
           <th className="ponto-col-total" style={{minWidth:64,background:"var(--arcd-surface-muted)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",borderBottom:"1px solid var(--arcd-border-default)"}}>DIAS</th>
           {days.map(date=>{const feriado=feriados.includes(date);return <th className={`ponto-col-dia${feriado?" ponto-feriado":""}`} key={date} title={feriado?(nomesFeriados.get(date)||"Feriado"):""} style={{minWidth:64,background:feriado?"color-mix(in srgb, var(--arcd-danger-text) 8%, transparent)":"var(--arcd-surface-muted)",color:feriado?"var(--arcd-danger-text)":"var(--arcd-text-primary)",padding:"var(--arcd-space-1)",borderLeft:"1px solid var(--arcd-border-default)",borderBottom:"1px solid var(--arcd-border-default)"}}><div style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{diaLabel(date)}</div><div style={{fontSize:"var(--arcd-type-caption)",fontWeight:feriado?600:600,opacity:feriado?1:.6}}>{semana(date)}</div>{feriado&&<span className="ponto-feriado-label">Feriado</span>}</th>;})}
         </tr></thead>
         <tbody>{employees.map(emp=>{const equivalentes=days.reduce((s,d)=>{const st=attendanceFor(emp.id,d)?.status;return s+(st==="P"?1:st==="M"?.5:0);},0);return <tr key={emp.id} style={{borderTop:"1px solid var(--arcd-border-default)"}}>
           <td className="ponto-col-funcionario" style={{position:"sticky",left:0,zIndex:2,background:"var(--arcd-surface-card)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"1px solid var(--arcd-border-default)",minWidth:290}}>
-            <div className="ponto-employee-cell" style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
-              <div style={{minWidth:0}}>
-                <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",minWidth:0}}>
-                  <StandardButton variant="secondary" type="button" onClick={()=>{sessionContext.setItem("arcd_editar_funcionario",emp.id);onTab?.("equipe");}} title="Editar cadastro do funcionário" style={{display:"block",whiteSpace:"normal",overflowWrap:"anywhere",textAlign:"left",textDecorationColor:"transparent",textUnderlineOffset:2}} onMouseEnter={e=>e.currentTarget.style.textDecorationColor=C.blue} onMouseLeave={e=>e.currentTarget.style.textDecorationColor="transparent"}>{emp.name}</StandardButton>
-                  {emp.active===false&&<Badge color={C.muted}>Demitido</Badge>}
-                </div>
-                <div style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{emp.role||"Funcionário"} · {obraName(emp.obra)}</div>
-              </div>
-              <div className="ponto-row-actions" style={{display:"flex",gap:"var(--arcd-space-1)",flexShrink:0}}>
-                <Btn v="ghost" size="sm" title="Ver ficha do funcionário" onClick={()=>gerarFichaFuncionarioPDF(data,emp,showToast)}><Ic n="file" s={11}/> Ficha</Btn>
-                <Btn v="ghost" size="sm" title="Limpar todos os lançamentos desta linha" onClick={()=>limparLinha(emp)}><Ic n="x" s={11}/> Limpar</Btn>
-              </div>
-            </div>
+            <RecordAction className="ponto-employee-name" type="button" onClick={()=>{if(!['admin','rh'].includes(currentUser?.role)){gerarFichaFuncionarioPDF(data,emp,showToast);return;}sessionContext.setItem("arcd_editar_funcionario",emp.id);if(navigateEmployee)navigateEmployee('equipe',{year,month,obraId:filterObra==='all'?'':filterObra});else onTab?.("equipe");}} title="Abrir ficha do funcionário">{emp.name}</RecordAction>
+            <div className="ponto-employee-role">{emp.active===false&&'Desligado · '}{emp.role||'Funcionário'} · {obraName(emp.obra)}</div>
           </td>
           <td className="ponto-col-total" style={{textAlign:"center",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-table)",color:"var(--arcd-action-primary)",borderTop:"1px solid var(--arcd-border-default)",fontFamily:"var(--arcd-font-sans)"}}>{equivalentes.toFixed(1).replace(".0","")}</td>
           {days.map(date=>{
@@ -6124,7 +6088,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
                 <RecordAction onClick={()=>salvarCelula(emp,date,{status:proxStatus(st)})}
                   aria-busy={pending}
                   title={pending?"Salvando...":ATTENDANCE_STATUS_LABEL[st]||"Sem registro"}
-                  style={{width:"100%",height:30,border:`1.5px solid ${st?corStatus(st):"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-radius-control)",
+                  style={{width:"100%",height:30,textAlign:"center",border:`1.5px solid ${st?corStatus(st):"var(--arcd-border-default)"}`,borderRadius:"var(--arcd-radius-control)",
                           background:st?corStatus(st):"var(--arcd-surface-page)",color:st?"var(--arcd-text-inverse)":"var(--arcd-text-secondary)",
                           fontWeight:"var(--arcd-font-weight-semibold)",cursor:"pointer",fontSize:"var(--arcd-type-control)",fontFamily:"var(--arcd-font-sans)",
                           boxShadow:pending?"0 0 0 2px color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)":"none",opacity:pending ? .82 : 1}}>

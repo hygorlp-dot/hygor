@@ -1,3 +1,4 @@
+import {Badge as StatusBadge} from '../../../design-system/primitives/Badge.jsx';
 import {sessionContext} from '../../../lib/session-context.js';
 import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
@@ -145,6 +146,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     setEmployeeSaveError('');
   }, [data.employees]);
 
+  const savedEmployee=data.employees.find(e=>e.id===form.id);
+  const savedLifecycle=savedEmployee?employeeLifecycleStatus(savedEmployee,today()):'ativo';
   const F = key => value => setForm(f => ({ ...f, [key]: value }));
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
   const advanceActive = advance => !["cancelado","cancelada","estornado","estornada"]
@@ -260,6 +263,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     setPendingAction("");
     if(!result?.ok){showToast(result?.reason||"O desligamento não foi confirmado pelo servidor.","error");return;}
     setDismissalModal(null);
+    setModal(false);
     setExpandedId(null);
     setStatusFilter(scheduled?"desligamento_agendado":"desligado");
     showToast(scheduled?`Desligamento de ${emp.name} agendado. Último dia: ${fmtDateFull(dismissalForm.endDate)}.`:`${emp.name} desligado. Último dia trabalhado: ${fmtDateFull(dismissalForm.endDate)}.`);
@@ -501,6 +505,12 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
 
       {modal && (
         <Modal title={form.id ? "Editar funcionário" : "Novo funcionário"} onClose={() => {if(!savingEmployee)setModal(false);}} wide panelClass="employee-edit-modal" footer={<><p className="employee-edit-feedback" role={employeeSaveError?'alert':'status'}>{employeeSaveError||(savingEmployee?'Salvando funcionário…':'')}</p><div className="employee-edit-actions"><Btn v="ghost" disabled={savingEmployee} onClick={()=>setModal(false)}>Cancelar</Btn><Btn disabled={savingEmployee} onClick={saveEmp}><Ic n="check"/> {savingEmployee?'Salvando…':'Salvar'}</Btn></div></>}>
+          {savedEmployee&&<section className="employee-employment" aria-label="Vínculo e desligamento">
+            <header><h3>Vínculo e desligamento</h3><StatusBadge tone={savedLifecycle==='ativo'?'success':savedLifecycle==='desligamento_agendado'?'warning':'neutral'}>{lifecycleLabel[savedLifecycle]}</StatusBadge></header>
+            <dl><div><dt>Último dia trabalhado</dt><dd>{savedEmployee.endDate?fmtDateFull(savedEmployee.endDate):'Sem desligamento registrado'}</dd></div><div><dt>Motivo do desligamento</dt><dd>{savedEmployee.terminationReason||'Não informado'}</dd></div></dl>
+            {savedEmployee.terminationNotes&&<p>{savedEmployee.terminationNotes}</p>}
+            <div className="employee-employment__actions">{podeGerenciarEquipe&&savedLifecycle==='ativo'&&<Btn v="danger" disabled={savingEmployee} onClick={()=>archiveEmp(savedEmployee.id)}>Registrar desligamento</Btn>}<Btn v="secondary" disabled={savingEmployee} onClick={()=>gerarFichaFuncionarioPDF(data,savedEmployee,showToast)}>Ficha em PDF</Btn></div>
+          </section>}
           <fieldset disabled={savingEmployee} style={{border:0,padding:0,margin:0,minWidth:0}} aria-label="Dados do funcionário">
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-4)" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
@@ -579,6 +589,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
               <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{dismissalModal.name}</p>
               <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{dismissalModal.role||"Função não informada"} · {dismissalModal.workArea==="administrativo"?"Administração Central":obraName(dismissalModal.obra)}</p>
             </div>
+            {modal&&<p>O desligamento usa os dados salvos. Outras alterações deste cadastro não serão salvas ao confirmar.</p>}
             <Inp label="Último dia trabalhado *" type="date" min={dismissalModal.startDate} value={dismissalForm.endDate} onChange={value=>setDismissalForm(form=>({...form,endDate:value}))}/>
             <Sel label="Tipo de desligamento *" value={dismissalForm.reason} onChange={value=>setDismissalForm(form=>({...form,reason:value}))} options={[
               {v:"demissao_sem_justa_causa",l:"Demissão sem justa causa"},

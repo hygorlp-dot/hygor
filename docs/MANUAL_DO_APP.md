@@ -1090,9 +1090,10 @@ Pesquise pelo nome ou documento antes de criar um cadastro.
 
 ### Como fazer
 
-1. Localize o funcionário ou inicie um novo cadastro autorizado.
-2. Confira identificação, função, vínculo e lotação solicitados.
-3. Salve e abra novamente o cadastro para conferir os dados.
+1. Localize o funcionário e use Editar, ou clique no nome na Gestão do ponto.
+2. No início do cadastro, confira Vínculo e desligamento: situação, último dia trabalhado e motivo. Ficha em PDF abre o documento.
+3. Para informar a saída, use Registrar desligamento, preencha o último dia trabalhado e o tipo e confirme. Cancelar preserva o cadastro; alterações comuns ainda não salvas não entram no desligamento.
+4. Salve outras alterações pelo cadastro.
 
 ### Como conferir se deu certo
 
@@ -2759,6 +2760,14 @@ O contrato e seu histórico ficam identificados no recorte escolhido.
 Alterar o formulário não salva automaticamente. O acesso aos serviços e às medições depende do perfil; contrato de fornecimento não confirma entrega nem pagamento.
 
 ## Aparência, botões e navegação
+
+### Entrada no sistema
+
+Em entradas rápidas, o aviso pode não aparecer. Marca e indicador ficam visíveis enquanto o sistema é baixado; isso não confirma erro de acesso.
+
+### Cadastro pelo ponto
+
+Na Gestão do ponto, o nome abre o cadastro para RH e administradores; outros perfis abrem o PDF. Confira Vínculo e desligamento no início do cadastro. Corrija o ponto pela célula do dia, sem limpar a linha inteira.
 
 ### Arquivos de obra e orçamento
 
