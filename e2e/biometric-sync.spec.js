@@ -8,7 +8,7 @@ async function enter(page,{fail=false,role='rh'}={}){
  let data={usuarios:[user],config:{paymentHolidays:[]},obras:[{id:'o',name:'Obra A',status:'active'},{id:'b',name:'Obra B',status:'active'}],
   employees:['e','f'].map(id=>({id,name:`Funcionário ${id}`,obra:'o',dailyRate:100,startDate:'2020-01-01',active:true,workSchedules:[{code:'44h-seg-sex',effectiveFrom:'2026-10-01'}]})),
   attendance:{e:{[date]:{status:'F',obraId:'o'}}},payments:[{id:'real',amount:7160}],titulosFolha:[]};
- const originalPayments=JSON.stringify(data.payments),commands=[];
+ const originalPayments=JSON.stringify(data.payments),commands=[],denied=[];
  const events=['e','f'].flatMap(employeeId=>['10:00','15:00','16:00','20:00'].map((clock,i)=>({employeeId,eventId:`${employeeId}-${i}`,obraId:employeeId==='e'?'o':'b',tipoRegistro:'ponto',marcadoEm:`${date}T${clock}:00Z`,metodo:'facial',horaConfiavel:true,tipoEvento:['entrada','intervalo','retorno','saida'][i]})));
  events.push({...events[0],eventId:'partial',marcadoEm:'2026-10-30T10:00:00Z'});
  await page.route('**/api/**',r=>r.fulfill({json:{ok:true,items:[],presencas:[]}}));
@@ -21,6 +21,11 @@ async function enter(page,{fail=false,role='rh'}={}){
    const result=applyAttendanceCommand(data,user,body,now,events);if(result.ok)data=result.data;
    return route.fulfill({status:result.ok?200:409,json:{...result,updatedAt:now}});
   }
+  if(body.action==='attendance-upsert'){
+   const result=applyAttendanceCommand(data,user,body,now,events);
+   if(result.ok)throw new Error('A grade não pode sobrescrever ponto biométrico conferido.');
+   denied.push(result.error);return route.fulfill({status:result.status||409,json:{ok:false,error:result.error}});
+  }
   if(/command|save|attendance-/.test(body.action||''))throw new Error(`Gravação inesperada: ${body.action}`);
   return route.fulfill({json:{ok:true,accessToken:'qa',refreshToken:'qa',usuario:user,data,updatedAt:now}});
  });
@@ -28,7 +33,7 @@ async function enter(page,{fail=false,role='rh'}={}){
  await page.getByRole('button',{name:'Acessar central MARCELL'}).click();await expect(page.locator('#login-email')).toHaveCount(0);
  await page.keyboard.press('Control+k');const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');await search.fill('Gestão do ponto');
  await search.locator('xpath=../..').getByRole('button').filter({hasText:'Gestão do ponto'}).click();
- return {commands,getData:()=>data,checkPayments:()=>expect(JSON.stringify(data.payments)).toBe(originalPayments)};
+ return {commands,denied,getData:()=>data,checkPayments:()=>expect(JSON.stringify(data.payments)).toBe(originalPayments)};
 }
 test('RH sincroniza todas as obras do período, prioriza biometria e protege a grade',async({page},info)=>{
  const fixture=await enter(page);await page.getByRole('button',{name:'Sincronizar batidas do app',exact:true}).click();
@@ -40,7 +45,15 @@ test('RH sincroniza todas as obras do período, prioriza biometria e protege a g
  await expect(modal.getByRole('status').filter({hasText:'2 dia(s) gravado(s)'})).toBeVisible();await expect(modal).toContainText('2 já sincronizado(s)');
  expect(fixture.commands).toHaveLength(1);expect(fixture.commands[0].items).toHaveLength(2);
  expect(fixture.getData().attendance.e[date].status).toBe('P');expect(fixture.getData().attendance.f[date].obraId).toBe('b');fixture.checkPayments();
- await modal.locator('.biometric-sync__actions').getByRole('button',{name:'Fechar',exact:true}).click();await expect(page.getByTitle('Ponto biométrico: protegido contra alteração pela engenharia. Revisão somente pelo RH.').first()).toBeDisabled();
+ await modal.locator('.biometric-sync__actions').getByRole('button',{name:'Fechar',exact:true}).click();
+ // A grade atual não usa o título legado. Verifica a proteção pelo comando
+ // real: tentativa de edição é recusada e o ponto conferido continua intacto.
+ const before=JSON.stringify(fixture.getData().attendance);
+ const row=page.getByRole('row').filter({has:page.getByRole('button',{name:'Funcionário e',exact:true})});
+ const cell=row.getByRole('button',{name:'P',exact:true}).first();
+ await cell.focus();await cell.press('Enter');
+ await expect.poll(()=>fixture.denied.length).toBe(1);expect(fixture.denied[0]).toContain('conferido pelo RH');
+ expect(JSON.stringify(fixture.getData().attendance)).toBe(before);fixture.checkPayments();
 });
 test('falha mantém lançamentos anteriores e impede repetir lote desatualizado',async({page})=>{
  const fixture=await enter(page,{fail:true});await page.getByRole('button',{name:'Sincronizar batidas do app',exact:true}).click();

@@ -88,7 +88,7 @@ export const applyAttendanceServerResult = (data, result = {}) => {
       if(!allocation||Number(employee.version||0)>=allocation.version)return employee;
       return {...employee,obra:allocation.obraId,version:allocation.version,updatedAt:allocation.updatedAt,
         ...(allocation.updatedBy?{updatedBy:allocation.updatedBy,updatedById:allocation.updatedById}:{}),
-        obraHistory:[...(employee.obraHistory||[]).filter(h=>h.id!==allocation.historyEntry.id),allocation.historyEntry]};
+        obraHistory:[...(employee.obraHistory||[]),allocation.historyEntry]};
     })};
   }
   if(Array.isArray(result.attendance)){
