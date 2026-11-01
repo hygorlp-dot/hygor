@@ -77,3 +77,7 @@ Detalhes funcionais e evidências em `docs/ATALHOS-RH-20261101.md`.
 Na Gestão do ponto, o nome usa RecordAction como acesso ao cadastro, sem a moldura de um comando. A linha não repete Ficha ou Limpar; correções continuam nas células do dia. O cabeçalho do cadastro apresenta vínculo, último dia e motivo antes dos demais campos. Os comandos e indicadores continuam usando a base compartilhada.
 
 A espera inicial usa a marca existente e o Spinner comum, com tokens do tema. Só aparece após 200 ms; não representa uma falha de login nem dispensa o download do aplicativo em uma conexão lenta. Detalhes e evidências em `docs/PONTO-CADASTRO-DESLIGAMENTO-20261101.md`.
+
+## Ações de registro sem esconder o próximo passo
+
+A ação frequente de um registro deve estar junto dele. Em Equipes, Desligar abre uma confirmação existente; não executa uma saída por um clique isolado. Nome abre a ficha, Detalhes tem acionador próprio e ações de consulta não devem receber rótulos que aparentem outra operação. Reutilizar RecordAction, controles e tokens da base, sem variantes de aparência por módulo. Entrega e verificações em `docs/DESLIGAMENTO-DIRETO-20261101.md`.

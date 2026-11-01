@@ -6178,9 +6178,9 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   useHelpTopic('ponto',laborGroup==='all'?'ponto':`ponto_${laborGroup}`);
   const obraInicial=obraIdFixo||currentUser?.obraId||
     (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:"all");
-  const [selDate, setSelDate] = useState(today());
-  const [filterObra, setFilterObra] = useState(obraInicial);
-  const {intent:rhIntent}=useWorkflow();
+  const [selDate, setSelDate] = useWorkspaceState('ponto','date',today(),obraIdFixo);
+  const [filterObra, setFilterObra] = useWorkspaceState('ponto','work',obraInicial,obraIdFixo);
+  const {intent:rhIntent,navigate:navigateEmployee}=useWorkflow();
   useEffect(()=>{
     if(rhIntent?.tabId!=='ponto'||rhIntent.action!=='rh-readiness')return;
     const employee=data.employees.find(e=>String(e.id)===rhIntent.record?.employeeId);if(!employee)return;
@@ -6603,7 +6603,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
           <article key={e.id} className="obra-attendance-card" data-status={status||"empty"} data-locked={cardLocked}>
             <header className="obra-attendance-card__header">
               <div className="obra-attendance-card__identity">
-                <p className="obra-attendance-card__name" title={e.name}>{e.name}</p>
+                <RecordAction className="obra-attendance-card__name" title="Abrir ficha do funcionário" onClick={()=>{if(!['admin','rh'].includes(currentUser?.role)){gerarFichaFuncionarioPDF(data,e,showToast);return;}sessionContext.setItem('arcd_editar_funcionario',e.id);if(navigateEmployee)navigateEmployee('equipe',{obraId:filterObra==='all'?'':filterObra});else onTab?.('equipe');}}>{e.name}</RecordAction>
                 <p className="obra-attendance-card__meta">{obraName(e.obra)}{(roleDoDia || e.role) ? ` · ${roleDoDia || e.role}` : ""}{roleDoDia && roleDoDia !== e.role ? " (hoje)" : ""}</p>
               </div>
               <div className="obra-attendance-card__badges">

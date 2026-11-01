@@ -116,3 +116,7 @@ Não foi reproduzido bloqueio P0 nas entradas e percursos examinados. Os control
 5. `$impeccable polish`: R08 e verificação final dos estados, temas, teclado e celular.
 
 Os itens podem ser tratados em conjunto ou em outra ordem. Repetir `$impeccable audit` após as correções, incluindo os percursos afetados. Qualquer implementação deverá atualizar ajuda/manual e as receitas compartilhadas, mantendo as preferências do projeto.
+
+## Atualização — acesso direto em Pessoas
+
+R05 foi tratado na entrega `docs/DESLIGAMENTO-DIRETO-20261101.md`: o nome abre a ficha e Desligar fica na lista, sem expandir detalhes. R06 recebeu o acesso à ficha pelo nome no Ponto por obra; a reorganização dos demais controles do cartão continua pendente. Os outros achados não foram marcados como corrigidos.

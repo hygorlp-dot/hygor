@@ -1082,26 +1082,26 @@ No aparelho, o fluxo é entrada, intervalo, retorno e saída. Falta de sincroniz
 
 ## Equipes
 
-Consultar e manter o cadastro dos funcionários.
+Gerir vínculos e desligamentos.
 
 ### Antes de começar
 
-Pesquise pelo nome ou documento antes de criar um cadastro.
+Localize a pessoa. Acesso de RH ou administrador.
 
 ### Como fazer
 
-1. Localize o funcionário e use Editar, ou clique no nome na Gestão do ponto.
-2. No início do cadastro, confira Vínculo e desligamento: situação, último dia trabalhado e motivo. Ficha em PDF abre o documento.
-3. Para informar a saída, use Registrar desligamento, preencha o último dia trabalhado e o tipo e confirme. Cancelar preserva o cadastro; alterações comuns ainda não salvas não entram no desligamento.
-4. Salve outras alterações pelo cadastro.
+1. Use Desligar na linha do funcionário, sem abrir Detalhes.
+2. Informe Último dia trabalhado e Tipo de desligamento. Use Confirmar desligamento; Cancelar não grava.
+3. Rever saída altera agendamentos; Ver saída consulta uma saída registrada.
+4. O nome abre a ficha. Confira Vínculo e desligamento no início. Ficha em PDF abre o documento; salve outras edições pelo cadastro.
 
 ### Como conferir se deu certo
 
-O funcionário consta com os dados e a situação corretos.
+O cadastro mostra a saída confirmada.
 
 ### O que merece atenção
 
-Lotação é o vínculo administrativo; ela não comprova onde o funcionário bateu o ponto.
+O último dia é inclusivo. Ponto e pagamentos são preservados; outras edições não são salvas.
 
 <a id="guia-equipe_obras"></a>
 
@@ -2767,7 +2767,7 @@ Em entradas rápidas, o aviso pode não aparecer. Marca e indicador ficam visív
 
 ### Cadastro pelo ponto
 
-Na Gestão do ponto, o nome abre o cadastro para RH e administradores; outros perfis abrem o PDF. Confira Vínculo e desligamento no início do cadastro. Corrija o ponto pela célula do dia, sem limpar a linha inteira.
+Em Equipes, Ponto por obra e Gestão do ponto, o nome abre o cadastro para RH e administradores; outros perfis abrem o PDF. Confira Vínculo e desligamento no início do cadastro. Corrija o ponto pela célula do dia, sem limpar a linha inteira.
 
 ### Arquivos de obra e orçamento
 

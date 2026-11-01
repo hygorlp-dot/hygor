@@ -134,6 +134,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     frequency:"quinzenal",firstDueDate:today(),
   });
 
+  const openEmployee=employee=>{setForm({...employeeEditDraft(employee),trainings:{...EMPTY_TRAININGS,...(employee.trainings||{})}});setFormErrors({});setEmployeeSaveError('');setModal(true);};
   useEffect(() => {
     const empId = sessionContext.getItem("arcd_editar_funcionario");
     if (!empId) return;
@@ -141,9 +142,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     sessionContext.removeItem("arcd_editar_funcionario");
     if (!employee) return;
     setStatusFilter(employeeLifecycleStatus(employee, today()));
-    setForm({...employeeEditDraft(employee),trainings:{...EMPTY_TRAININGS,...(employee.trainings||{})}});
-    setModal(true);
-    setEmployeeSaveError('');
+    openEmployee(employee);
   }, [data.employees]);
 
   const savedEmployee=data.employees.find(e=>e.id===form.id);
@@ -222,7 +221,7 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
     const emp = data.employees.find(e => e.id === id);
     if (!emp) return;
     setDismissalModal(emp);
-    setDismissalForm({endDate:today(),reason:"demissao_sem_justa_causa",notes:""});
+    setDismissalForm(emp.endDate?{endDate:emp.endDate,reason:RESCISSION_TYPE_TO_DISMISSAL[emp.terminationType]||"outro",notes:emp.terminationNotes||""}:{endDate:today(),reason:"demissao_sem_justa_causa",notes:""});
   };
 
   const confirmDismissal = async () => {
@@ -437,8 +436,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
         return (
           <article key={e.id} className={`team-row team-row--${lifecycle}`}>
             <div className="team-row__main">
-              <RecordAction type="button" className="team-row__employee" onClick={() => setExpandedId(exp ? null : e.id)} aria-expanded={exp} aria-controls={detailId}>
-                <span className="team-row__initials">{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><span><strong>{e.name}</strong><small>{podeGerenciarEquipe?`${fmt(e.dailyRate)}/dia`:"Dados trabalhistas restritos"}</small></span><Ic n={exp?"chevronUp":"chevronDown"} s={13}/>
+              <RecordAction type="button" className="team-row__employee" onClick={()=>podeGerenciarEquipe?openEmployee(e):gerarFichaFuncionarioPDF(data,e,showToast)} aria-label={`Abrir ficha de ${e.name}`}>
+                <span className="team-row__initials">{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><span><strong>{e.name}</strong><small>{podeGerenciarEquipe?`${fmt(e.dailyRate)}/dia`:"Dados trabalhistas restritos"}</small></span>
               </RecordAction>
               <span className="team-row__cell" data-label="Função">{e.role||"Não informada"}</span>
               <span className="team-row__cell" data-label="Lotação">{laborArea(e)==="central"?"Administração Central":(e.obra?obraName(e.obra):"Sem lotação")}</span>
@@ -450,7 +449,12 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 </div>
               </span>
               <span className="team-row__cell" data-label="Situação"><Badge color={lifecycleColor[lifecycle]}>{lifecycleLabel[lifecycle]}</Badge></span>
-              <div className="team-row__actions"><Btn v="ghost" size="sm" onClick={() => gerarFichaFuncionarioPDF(data, e, showToast)}><Ic n="file"/> Ficha</Btn>{podeGerenciarEquipe&&<Btn v="ghost" size="sm" onClick={() => { setForm({...employeeEditDraft(e),trainings:{...EMPTY_TRAININGS,...(e.trainings||{})}}); setFormErrors({}); setEmployeeSaveError(''); setModal(true); }}><Ic n="edit"/> Editar</Btn>}</div>
+              <div className="team-row__actions">
+                {podeGerenciarEquipe&&lifecycle==='ativo'&&<Btn v="danger" size="sm" disabled={!!pendingAction} onClick={()=>archiveEmp(e.id)}>Desligar</Btn>}
+                {podeGerenciarEquipe&&lifecycle==='desligamento_agendado'&&<Btn v="warning" size="sm" disabled={!!pendingAction} onClick={()=>archiveEmp(e.id)}>Rever saída</Btn>}
+                {podeGerenciarEquipe&&lifecycle==='desligado'&&<Btn v="secondary" size="sm" onClick={()=>openEmployee(e)}>Ver saída</Btn>}
+                <Btn v="ghost" size="sm" onClick={()=>setExpandedId(exp?null:e.id)} aria-expanded={exp} aria-controls={detailId}>Detalhes <Ic n={exp?'chevUp':'chevron'} s={13}/></Btn>
+              </div>
             </div>
 
             {exp && (
@@ -472,8 +476,6 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
 
                 {podeGerenciarEquipe&&<div className="team-detail-actions">
                   {e.obra && lifecycle==="ativo" && <Btn v="ghost" size="sm" onClick={() => setUnlinkModal(e)}><Ic n="x" /> Desvincular da obra</Btn>}
-                  {lifecycle==="ativo" && <Btn v="danger" size="sm" onClick={() => archiveEmp(e.id)}><Ic n="x" /> Registrar desligamento</Btn>}
-                  {lifecycle==="desligamento_agendado"&&<Btn v="warning" size="sm" onClick={()=>{setDismissalModal(e);setDismissalForm({endDate:e.endDate,reason:RESCISSION_TYPE_TO_DISMISSAL[e.terminationType]||"outro",notes:e.terminationNotes||""});}}><Ic n="edit"/> Corrigir agendamento</Btn>}
                   {["desligado","desligamento_agendado"].includes(lifecycle)&&<Btn v="success" size="sm" loading={pendingAction===`reactivate-${e.id}`} onClick={()=>reactivateEmp(e)}><Ic n="refresh"/> Reativar</Btn>}
                   {lifecycle!=="arquivado"&&<Btn v="danger" size="sm" onClick={() => {setArchiveModal(e);setArchiveReason("");}}><Ic n="trash" /> Arquivar cadastro</Btn>}
                 </div>}
