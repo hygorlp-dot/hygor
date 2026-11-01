@@ -24,6 +24,12 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 
 ## Índice das telas
 
+- [Ponto diário · Pessoal de obra](#guia-ponto_obras)
+- [Ponto diário · Administrativo](#guia-ponto_central)
+- [Gestão do ponto · Pessoal de obra](#guia-ponto_geral_obras)
+- [Gestão do ponto · Administrativo](#guia-ponto_geral_central)
+- [Folha · Pessoal de obra](#guia-folha_obras)
+- [Folha · Administrativo](#guia-folha_central)
 - [Dashboard](#guia-home)
 - [Modo TV](#guia-tv)
 - [Comunicação](#guia-chat)
@@ -114,6 +120,152 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Obra · Mudanças e aditivos](#guia-obra_aditivos)
 - [Arquivos · Revisões, busca e comparação](#guia-arquivos_revisoes)
 - [Arquivos · Dossiê de licenciamento](#guia-arquivos_dossie)
+
+<a id="guia-ponto_obras"></a>
+
+## Ponto diário · Pessoal de obra
+
+Conferir separadamente os registros de Pessoal de obra.
+
+### Antes de começar
+
+Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiros e mestres, mesmo quando estão lotados em obra.
+
+### Como fazer
+
+1. Escolha Pessoal de obra ou Administrativo no início da tela.
+2. Confira o período e a obra; trocar de grupo preserva esses filtros.
+3. Revise os registros das pessoas do grupo. Use Todos para conferir a empresa completa.
+
+### Como conferir se deu certo
+
+A lista e os totais mostram o grupo selecionado.
+
+### O que merece atenção
+
+O grupo é um filtro de consulta; não transfere pessoas nem altera o histórico. Finalizar ponto exige Todos; arquivar a quinzena exige também Todas as obras.
+
+<a id="guia-ponto_central"></a>
+
+## Ponto diário · Administrativo
+
+Conferir separadamente os registros de Administrativo.
+
+### Antes de começar
+
+Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiros e mestres, mesmo quando estão lotados em obra.
+
+### Como fazer
+
+1. Escolha Pessoal de obra ou Administrativo no início da tela.
+2. Confira o período e a obra; trocar de grupo preserva esses filtros.
+3. Revise os registros das pessoas do grupo. Use Todos para conferir a empresa completa.
+
+### Como conferir se deu certo
+
+A lista e os totais mostram o grupo selecionado.
+
+### O que merece atenção
+
+O grupo é um filtro de consulta; não transfere pessoas nem altera o histórico. Finalizar ponto exige Todos; arquivar a quinzena exige também Todas as obras.
+
+<a id="guia-ponto_geral_obras"></a>
+
+## Gestão do ponto · Pessoal de obra
+
+Conferir separadamente os registros de Pessoal de obra.
+
+### Antes de começar
+
+Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiros e mestres, mesmo quando estão lotados em obra.
+
+### Como fazer
+
+1. Escolha Pessoal de obra ou Administrativo no início da tela.
+2. Confira o período e a obra; trocar de grupo preserva esses filtros.
+3. Revise os registros das pessoas do grupo. Use Todos para conferir a empresa completa.
+
+### Como conferir se deu certo
+
+A lista e os totais mostram o grupo selecionado.
+
+### O que merece atenção
+
+O grupo é um filtro de consulta; não transfere pessoas nem altera o histórico. Finalizar ponto exige Todos; arquivar a quinzena exige também Todas as obras.
+
+<a id="guia-ponto_geral_central"></a>
+
+## Gestão do ponto · Administrativo
+
+Conferir separadamente os registros de Administrativo.
+
+### Antes de começar
+
+Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiros e mestres, mesmo quando estão lotados em obra.
+
+### Como fazer
+
+1. Escolha Pessoal de obra ou Administrativo no início da tela.
+2. Confira o período e a obra; trocar de grupo preserva esses filtros.
+3. Revise os registros das pessoas do grupo. Use Todos para conferir a empresa completa.
+
+### Como conferir se deu certo
+
+A lista e os totais mostram o grupo selecionado.
+
+### O que merece atenção
+
+O grupo é um filtro de consulta; não transfere pessoas nem altera o histórico. Finalizar ponto exige Todos; arquivar a quinzena exige também Todas as obras.
+
+<a id="guia-folha_obras"></a>
+
+## Folha · Pessoal de obra
+
+Conferir separadamente os registros de Pessoal de obra.
+
+### Antes de começar
+
+Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiros e mestres, mesmo quando estão lotados em obra.
+
+### Como fazer
+
+1. Escolha Pessoal de obra ou Administrativo no início da tela.
+2. Confira a competência, o ciclo e a obra. Na Folha da quinzena, totais, pendências e relatórios respeitam o grupo.
+3. Em Holerites CLT, escolha uma pessoa do grupo. Confirme o descarte se houver edição não salva antes de trocar de grupo.
+4. Para fechar ou reabrir a quinzena da empresa inteira, escolha Todos e Todas as obras e revise as pendências.
+
+### Como conferir se deu certo
+
+A lista e os totais mostram o grupo selecionado.
+
+### O que merece atenção
+
+O fechamento inclui os dois grupos. As áreas gerais, como encargos e projeção, mantêm seu escopo próprio; nelas o seletor de grupo não aparece. O grupo não muda a lotação nem o cálculo individual.
+
+<a id="guia-folha_central"></a>
+
+## Folha · Administrativo
+
+Conferir separadamente os registros de Administrativo.
+
+### Antes de começar
+
+Escolha o grupo, a competência e a obra. A aba Administrativo inclui engenheiros e mestres, mesmo quando estão lotados em obra.
+
+### Como fazer
+
+1. Escolha Pessoal de obra ou Administrativo no início da tela.
+2. Confira a competência, o ciclo e a obra. Na Folha da quinzena, totais, pendências e relatórios respeitam o grupo.
+3. Em Holerites CLT, escolha uma pessoa do grupo. Confirme o descarte se houver edição não salva antes de trocar de grupo.
+4. Para fechar ou reabrir a quinzena da empresa inteira, escolha Todos e Todas as obras e revise as pendências.
+
+### Como conferir se deu certo
+
+A lista e os totais mostram o grupo selecionado.
+
+### O que merece atenção
+
+O fechamento inclui os dois grupos. As áreas gerais, como encargos e projeção, mantêm seu escopo próprio; nelas o seletor de grupo não aparece. O grupo não muda a lotação nem o cálculo individual.
 
 <a id="guia-home"></a>
 
@@ -857,7 +1009,7 @@ Conferir a presença e os registros da equipe em uma obra.
 
 ### Antes de começar
 
-Escolha a obra e o período; confirme o funcionário.
+Escolha Pessoal de obra, Administrativo ou Todos; depois confira a obra e o período.
 
 ### Como fazer
 
@@ -881,7 +1033,7 @@ Conferir o ponto da equipe no período.
 
 ### Antes de começar
 
-Selecione o período e os filtros de funcionários e obras.
+Escolha Pessoal de obra, Administrativo ou Todos; depois selecione o período e os filtros de funcionários e obras.
 
 ### Como fazer
 
@@ -1005,7 +1157,7 @@ Conferir o cálculo e os documentos da folha de pagamento.
 
 ### Antes de começar
 
-Selecione a competência, isto é, o mês de referência, e a equipe.
+Escolha Pessoal de obra, Administrativo ou Todos e selecione a competência, isto é, o mês de referência.
 
 ### Como fazer
 

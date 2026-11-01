@@ -14,8 +14,8 @@ import {prepareMonthlyPayslip} from '../clt-preparation.js';
 import {CltClosingSummary} from './CltClosingSummary.jsx';
 import {readPayrollHandoff,PAYROLL_HANDOFF_KEY} from '../../rh/payroll-handoff.js';
 
-export function CltPayslips({data,currentUser,dispatchCommand,showToast,year,month,initialSelection}) {
-  const [entry]=useState(()=>{const handoff=initialSelection?{...initialSelection,mode:'clt'}:readPayrollHandoff();return handoff?.mode==='clt'&&(data.employees||[]).some(e=>String(e.id)===handoff.employeeId)?handoff:null;});
+export function CltPayslips({data,employees=data.employees||[],onDirtyChange,currentUser,dispatchCommand,showToast,year,month,initialSelection}) {
+  const [entry]=useState(()=>{const handoff=initialSelection?{...initialSelection,mode:'clt'}:readPayrollHandoff();return handoff?.mode==='clt'&&employees.some(e=>String(e.id)===handoff.employeeId)?handoff:null;});
   const initialEmployee=(data.employees||[]).find(e=>String(e.id)===entry?.employeeId);
   const initialCompetence=entry?.competence||`${year}-${String(month+1).padStart(2,"0")}`;
   const [employeeId,setEmployeeId]=useState(entry?.employeeId||'');
@@ -26,6 +26,7 @@ export function CltPayslips({data,currentUser,dispatchCommand,showToast,year,mon
   useEffect(()=>{if(entry)sessionContext.removeItem(PAYROLL_HANDOFF_KEY);},[entry]);
   const [saving,setSaving]=useState(false);
   const [dirty,setDirty]=useState(false);
+  useEffect(()=>{onDirtyChange?.(dirty);},[dirty,onDirtyChange]);
   const [prepareTransport,setPrepareTransport]=useState(false);
   const [prepareAdvances,setPrepareAdvances]=useState(true);
   const employee=(data.employees||[]).find(e=>String(e.id)===employeeId);
@@ -69,7 +70,7 @@ export function CltPayslips({data,currentUser,dispatchCommand,showToast,year,mon
   const toggle=(key,label)=><label className="clt-check"><input type="checkbox" checked={!!draft[key]} onChange={e=>update(key,e.target.checked)}/>{label}</label>;
   return <section className="clt-payslips" aria-label="Holerites CLT">
     <header><h3>Holerite mensal e adiantamentos</h3><p>Selecione o funcionário e preencha os eventos do mês. Os valores ficam separados da folha por diária e dos pagamentos.</p>{employee&&<p>Modalidade no cadastro: {employee.remunerationMode==="clt"?"CLT mensal":"Diária"}. A alteração é feita pelo RH em Pessoas e terceiros → Equipe.</p>}</header>
-    <div className="clt-grid"><Sel label="Funcionário do holerite" disabled={saving} value={employeeId} onChange={v=>load(v,competence)} options={[{v:"",l:"Selecione um funcionário"},...(data.employees||[]).map(e=>({v:String(e.id),l:`${e.name} · ${e.role||"Sem função"}`}))]}/><Inp label="Competência mensal" type="month" disabled={saving} value={competence} onChange={v=>{if(/^\d{4}-\d{2}$/.test(v))load(employeeId,v);}}/></div>
+    <div className="clt-grid"><Sel label="Funcionário do holerite" disabled={saving} value={employeeId} onChange={v=>load(v,competence)} options={[{v:"",l:"Selecione um funcionário"},...employees.map(e=>({v:String(e.id),l:`${e.name} · ${e.role||"Sem função"}`}))]}/><Inp label="Competência mensal" type="month" disabled={saving} value={competence} onChange={v=>{if(/^\d{4}-\d{2}$/.test(v))load(employeeId,v);}}/></div>
     {!canEdit&&<p role="status">Consulta e exportação. Somente RH e administradores podem alterar ou salvar demonstrativos.</p>}
     <CltClosingSummary data={data} competence={competence} onSelect={load} showToast={showToast} dirty={dirty} currentUser={currentUser} dispatchCommand={dispatchCommand} onBusy={setSaving}/>
     {draft&&<>

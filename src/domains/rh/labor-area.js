@@ -1,7 +1,7 @@
 export const LABOR_AREAS = [
-  { id: "all", label: "Consolidado" },
-  { id: "obras", label: "Obras" },
-  { id: "central", label: "Administração Central", description:"Inclui provisoriamente a administração local: engenheiros e mestres. A lotação de cada pessoa permanece preservada." },
+  { id: "obras", label: "Pessoal de obra" },
+  { id: "central", label: "Administrativo", description:"Inclui a equipe administrativa, engenheiros e mestres. A lotação e o histórico de cada pessoa permanecem preservados." },
+  { id: "all", label: "Todos" },
 ];
 
 // Administração local usa provisoriamente o mesmo grupo da central.

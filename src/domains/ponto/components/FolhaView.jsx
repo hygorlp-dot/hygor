@@ -47,11 +47,22 @@ import {EmployeeDossier} from '../../rh/components/EmployeeDossier.jsx';
 import {readPayrollHandoff,PAYROLL_HANDOFF_KEY} from '../../rh/payroll-handoff.js';
 import LaborProjectionReport from "./LaborProjectionReport.jsx";
 import { obterProjecaoMaoObra } from "../../../api.js";
+import {LaborAreaTabs} from '../../rh/components/LaborAreaTabs.jsx';
+import {laborArea,laborAreaLabel,matchesLaborArea} from '../../rh/labor-area.js';
+import {useWorkspaceState} from '../../../features/workflow/workspace-session.jsx';
+import {useHelpTopic} from '../../../features/help/HelpContext.jsx';
 
 function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const {scopes}=useWorkflow();
   const savedScope=scopes.folha;
   const [entryScope]=useState(()=>readPayrollHandoff());
+  const [laborGroup,setLaborGroup]=useWorkspaceState('folha','laborGroup',()=>entryScope?.employeeId?laborArea(data.employees.find(e=>e.id===entryScope.employeeId)||{}):'all');
+  const [cltDirty,setCltDirty]=useState(false);
+  const changeLaborGroup=value=>{
+    if(cltDirty&&!window.confirm('Há alterações não salvas no holerite. Deseja descartá-las para trocar o grupo?'))return;
+    setCltDirty(false);setExpandedId(null);setLaborGroup(value);
+  };
+  useHelpTopic('folha',laborGroup==='all'?'folha':`folha_${laborGroup}`);
   const now = new Date();
   const refInicial = now.getDate() <= 5 ? new Date(now.getFullYear(), now.getMonth()-1, 1) : now;
   const [year, setYear] = useState(entryScope?Number(entryScope.competence.slice(0,4)):savedScope?.year??refInicial.getFullYear());
@@ -97,6 +108,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const paymentBaseLabel = fmtDateFull(paymentInfo.baseDate);
   const paymentObs = paymentInfo.adjusted ? `Ajustado de ${paymentBaseLabel} para ${paymentDateLabel}` : "Data normal de pagamento";
   const obraName = id => data.obras.find(o => o.id === id)?.name || "-";
+  const reportScope = `${laborAreaLabel(laborGroup)} · ${filterObra==="all"?"Todas as obras":obraName(filterObra)}`;
   const periodLabel = `${q === "1" ? "1ª" : "2ª"} Quinzena de ${fullMonth(month)} ${year}`;
 
   // Obra do operário numa data (sem obra carimbada no ponto): o MESMO
@@ -282,13 +294,14 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   // calculo mais caro da tela. Sem useMemo, refazia tudo a cada render (ex.:
   // digitar em qualquer campo de um modal aberto por cima da folha).
   const rows = useMemo(() => data.employees
+    .filter(e=>matchesLaborArea(e,laborGroup))
     .filter(e => e.active !== false || hasAttendanceInPeriod(e))
     .filter(e => diasCiclo.some(d=>remunerationModeOnDate(e,d)!=="clt"))
     .map(calcRow)
     .filter(belongsToSelectedObra)
     .filter(r => r.presentes > 0 || r.meiodia > 0 || r.faltas > 0 || r.feriadosPagos > 0 || r.feriadosPerdidos > 0 || r.advances > 0 || r.gross > 0)
     .sort((a, b) => a.name.localeCompare(b.name)),
-    [data.employees, data.attendance, data.changeLog, data.obras, data.advances, data.config?.unionDues, days, holidaysInPeriod, filterObra, q]);
+    [data.employees, data.attendance, data.changeLog, data.obras, data.advances, data.config?.unionDues, days, holidaysInPeriod, filterObra, q,laborGroup]);
 
   // Valores EFETIVOS de uma linha conforme o filtro de obra. Com "all", usa os
   // totais do funcionario. Com uma obra selecionada, usa apenas a parcela
@@ -316,6 +329,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   // vinculados ao periodo/obra, inclusive quem ainda nao aparece na folha por
   // nao possuir nenhum apontamento.
   const funcionariosParaConferencia = useMemo(() => (data.employees || [])
+    .filter(e=>matchesLaborArea(e,laborGroup))
     .filter(e => days.some(d => isEmployeeEmployedOnDate(e, d)&&remunerationModeOnDate(e,d)==="daily"))
     .filter(e => e.active !== false || hasAttendanceInPeriod(e) || (e.endDate && e.endDate >= (days[0] || "")))
     .filter(e => filterObra === "all" || e.obra === filterObra || e.lastObra === filterObra || days.some(d => {
@@ -324,7 +338,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       return (a?.obraId || getEmpObraIdOnDate(e, d)) === filterObra;
     }))
     .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
-    [data.employees, data.attendance, data.changeLog, data.obras, days, filterObra]);
+    [data.employees, data.attendance, data.changeLog, data.obras, days, filterObra,laborGroup]);
 
   const hojeConferencia = today();
   const pendenciasRelatorio = useMemo(() => funcionariosParaConferencia.map(e => {
@@ -413,8 +427,9 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
   const canManageClosing=["admin","rh"].includes(currentUser?.role);
   const closingPeriodKey=payrollPeriodKey(year,month,q);
   const closedTitles=activePayrollTitlesForPeriod(data,closingPeriodKey);
-  const closingBlockers=filterObra==="all"?payrollClosingBlockers({pendencias:pendenciasRelatorio,rows}):["Selecione “Todas as obras” para fechar a quinzena da empresa inteira."];
-  const closingDivergences=filterObra==="all"&&closedTitles.length?payrollClosingDivergences(closedTitles,rows):[];
+  const isCompanyScope=laborGroup==='all'&&filterObra==='all';
+  const closingBlockers=isCompanyScope?payrollClosingBlockers({pendencias:pendenciasRelatorio,rows}):["Selecione Todos e Todas as obras para fechar a quinzena da empresa inteira."];
+  const closingDivergences=isCompanyScope&&closedTitles.length?payrollClosingDivergences(closedTitles,rows):[];
   const closedTotal=closedTitles.reduce((sum,title)=>sum+Number(title.liquido||0),0);
   const buildClosingTitles=closingId=>buildPayrollTitles({
     rows,closingId,periodKey:closingPeriodKey,
@@ -422,6 +437,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     payerForWork:obraId=>payrollPayerForWork((data.obras||[]).find(o=>o.id===obraId)),
   });
   const closeFortnight=async()=>{
+    if(!isCompanyScope){showToast('Selecione Todos e Todas as obras para fechar a quinzena da empresa inteira.','error');return;}
     setSavingClosing(true);
     try{
       const closingId=`folha-${closingPeriodKey}-${uid()}`;
@@ -437,6 +453,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     finally{setSavingClosing(false);}
   };
   const reopenFortnight=async()=>{
+    if(!isCompanyScope){showToast('Selecione Todos e Todas as obras para reabrir a quinzena da empresa.','error');return;}
     if(!reopenReason.trim()){showToast("Informe o motivo da reabertura.","error");return;}
     setSavingClosing(true);
     try{
@@ -586,7 +603,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
             <h1>${escapeHtml(data.config.companyName || "ArcD Obras")}</h1>
             ${data.config.cnpj ? `<p>CNPJ: ${escapeHtml(data.config.cnpj)}</p>` : ""}
             <h2>Folha de Pagamento - ${escapeHtml(periodLabel)}</h2>
-            <div class="meta">
+            <div class="meta"><p><strong>Grupo e obra:</strong> ${escapeHtml(reportScope)}</p>
               <p><strong>Período:</strong> ${escapeHtml(fmtDateFull(days[0]))} a ${escapeHtml(fmtDateFull(days[days.length-1]))}</p>
               <p><strong>Pagamento:</strong> ${escapeHtml(paymentDateLabel)}</p>
               <p><strong>Regra:</strong> ${escapeHtml(paymentObs)}</p>
@@ -690,7 +707,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       T.feriadosPagos, T.feriadosPerdidos, T.holidayPay, rows.reduce((s,r)=>s+Number(r.ot||0),0),
       "", T.gross, T.vt, T.vr, T.advances, T.unionDue, T.net];
     const ws1 = XLSX.utils.aoa_to_sheet([
-      ["Folha de Pagamento", periodLabel], ["Data de pagamento", paymentDateLabel],
+      ["Folha de Pagamento", periodLabel], ["Grupo e obra",reportScope], ["Data de pagamento", paymentDateLabel],
       ["Regra aplicada", paymentObs], ["Critério de dias", "Presença = 1 dia; meio período = 0,5; falta e feriado = 0 dia trabalhado."],
       [], header1, ...body1, total1,
     ]);
@@ -805,6 +822,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
     "FOLHA DE PAGAMENTO - MARCELL OBRAS",
     data.config.companyName || "",
     periodLabel,
+    reportScope,
     `Pagamento: ${paymentDateLabel}`,
     paymentObs,
     "",
@@ -826,6 +844,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
 
   return (
     <div className="anim payroll-workspace">
+      {['payroll','union','clt'].includes(payrollView)&&<LaborAreaTabs value={laborGroup} onChange={changeLaborGroup}/>}
       {(payrollView==="payroll"||payrollView==="union")&&<>      <PageHero
         eyebrow="Recursos humanos"
         title="Folha de Pagamento"
@@ -851,7 +870,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
             <h3>Competência e escopo</h3>
             <p>{fmtDateFull(days[0])} a {fmtDateFull(days[days.length-1])}</p>
           </div>
-          <span className="payroll-scope-chip">{filterObra==="all"?"Consolidado da empresa":obraName(filterObra)}</span>
+          <span className="payroll-scope-chip">{reportScope}</span>
         </div>
         <div className="payroll-filter-grid">
           <Sel label="Ano" value={String(year)} onChange={v => setYear(Number(v))} options={years} />
@@ -871,7 +890,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       </DreIntegration>}
 
       {payrollView==="projection"&&<LaborProjectionReport requestReport={obterProjecaoMaoObra}/>}
-      {payrollView==="clt"&&<CltPayslips data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
+      {payrollView==="clt"&&<CltPayslips key={laborGroup} data={data} employees={data.employees.filter(e=>matchesLaborArea(e,laborGroup))} onDirtyChange={setCltDirty} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
       {payrollView==="provisions"&&<LaborProvisions data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
       {payrollView==="simulation"&&<PayModeSimulation data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} year={year} month={month}/>}
       {payrollView==='costs'&&<EmployeeCosts data={data} year={year} month={month} showToast={showToast}/>}
@@ -936,13 +955,14 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         <p>Abra cada funcionário abaixo para conferir a composição. Gerar o relatório não registra um pagamento.</p>
         {pendenciasRelatorio.length>0&&<Btn v="ghost" onClick={()=>onTab?.("ponto_geral")}>Abrir gestão do ponto</Btn>}
       </section>
-      <section className="payroll-checklist payroll-closing" aria-label="Fechamento da quinzena">
+        <section className="payroll-checklist payroll-closing" aria-label="Fechamento da quinzena">
+          <p>Fechamento da empresa (Todos). Inclui os dois grupos; exige Todos e Todas as obras.</p>
         {closedTitles.length?<>
           <h3>Quinzena fechada</h3>
           <p>{closedTitles.length} pagamento(s) · {fmt(closedTotal)} · vencimento {fmtDateFull(closedTitles[0].vencimento)} · fechada por {closedTitles[0].fechadoFolhaPor||"—"} em {fmtDate(String(closedTitles[0].fechadoFolhaEm||"").slice(0,10))}.</p>
           <p>Os pagamentos estão em contas a pagar e são baixados pela conciliação do extrato.</p>
           {closingDivergences.length>0&&<p role="alert" style={{color:C.red}}><Ic n="alert"/> O ponto mudou depois do fechamento para {closingDivergences.length} funcionário(s). Reabra a quinzena para refazer os pagamentos.</p>}
-          {canManageClosing&&<Btn v="ghost" onClick={()=>setClosingModal("reopen")}>Reabrir quinzena</Btn>}
+          {canManageClosing&&<Btn v="ghost" disabled={!isCompanyScope} onClick={()=>setClosingModal("reopen")}>Reabrir quinzena</Btn>}
         </>:<>
           <h3>Fechamento da quinzena</h3>
           <p>Fechar transforma o líquido de cada funcionário em um pagamento a fazer, dividido por obra, com vencimento em {paymentDateLabel}.</p>
@@ -1127,7 +1147,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       <section className="payroll-actionbar" aria-label="Ações da folha">
         <div>
           <h3>Relatórios e compartilhamento</h3>
-          <p>Os arquivos respeitam a competência e a obra selecionadas acima.</p>
+          <p>Os arquivos respeitam o grupo, a competência e a obra selecionados acima.</p>
         </div>
         <div className="payroll-actions">
           <Btn v="primary" onClick={() => solicitarRelatorio("excel")}><Ic n="download" /> Exportar Excel</Btn>

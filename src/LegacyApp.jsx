@@ -79,6 +79,8 @@ import { activeErpModule, moduleForTab, visibleErpModules } from "./navigation/e
 import { rememberSection, restoreSection } from "./navigation/section-session.js";
 import { FlowTabs, WorkflowContext, useWorkflow, useRememberWorkflowScope } from "./features/workflow/WorkflowNavigation.jsx";
 import {useWorkspaceState,useWorkspaceScroll,WorkflowReturn} from "./features/workflow/workspace-session.jsx";
+import {LaborAreaTabs} from './domains/rh/components/LaborAreaTabs.jsx';
+import {matchesLaborArea} from './domains/rh/labor-area.js';
 import { normalizeWorkflowScope } from "./features/workflow/workflow-model.js";
 import MonthlyDreMemorial from "./features/financeiro/MonthlyDreMemorial.jsx";
 import AnnualDre from "./features/financeiro/AnnualDre.jsx";
@@ -5852,6 +5854,8 @@ function UnlockRequestModal({ data, dispatchAttendanceCommand, showToast, obraId
 //
 
 function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAttendanceCommand, dispatchCommand }) {
+  const [laborGroup,setLaborGroup]=useWorkspaceState('ponto_geral','laborGroup','all');
+  useHelpTopic('ponto_geral',laborGroup==='all'?'ponto_geral':`ponto_geral_${laborGroup}`);
   const agora = new Date();
   const refInicial = agora.getDate() <= 5 ? new Date(agora.getFullYear(), agora.getMonth()-1, 1) : agora;
   const [year,setYear]=useState(refInicial.getFullYear());
@@ -5884,6 +5888,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   };
 
   const finalizarQuinzena=async()=>{
+    if(laborGroup!=='all'||filterObra!=='all'){showToast('Selecione Todos e Todas as obras para arquivar a quinzena da empresa.','error');return;}
     let total=0;const empsEnvolvidos=new Set();
     Object.entries(data.attendance||{}).forEach(([empId,mapa])=>{
       diasCiclo.forEach(d=>{if(mapa?.[d]){total++;empsEnvolvidos.add(empId);}});
@@ -5940,6 +5945,7 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
     data,employee,date,record,selectedObraId,
   });
   const employees=(data.employees||[]).filter(e=>employeeRelevantInPeriod(data,e,diasCiclo))
+    .filter(e=>matchesLaborArea(e,laborGroup))
     .filter(e=>filterObra==="all"||e.obra===filterObra||e.lastObra===filterObra||days.some(d=>obraDoRegistro(e,d,getAtt(data,e.id,d))===filterObra))
     .filter(e=>[e.name,e.role,obraName(e.obra)].join(" ").toLowerCase().includes(busca.toLowerCase()))
     .sort((a,b)=>a.name.localeCompare(b.name));
@@ -6021,6 +6027,8 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
   const periodo=`${fmtDateFull(diasCiclo[0])} a ${fmtDateFull(diasCiclo[diasCiclo.length-1])}`;
   const rotuloCurto=st=>st==="M"?"½":isValidAttendanceStatus(st)?st:"·";
   return <div className="anim ponto-geral" style={{display:"flex",flexDirection:"column",gap:12}}>
+    <LaborAreaTabs value={laborGroup} onChange={setLaborGroup}/>
+    {laborGroup!=="all"&&<p style={{color:C.muted}}>Para arquivar a quinzena da empresa, selecione Todos e Todas as obras.</p>}
     <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
     <PageHero
       eyebrow="Gestão do ponto"
@@ -6062,8 +6070,8 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
             ? "Após conferir e pagar a folha, finalize a quinzena: o ponto vira um arquivo próprio, a edição é bloqueada e o sistema fica mais leve."
             : "A quinzena ainda está em andamento. Finalize somente após o último dia do ciclo e o pagamento da folha."}
         </p>
-        <Btn v="warning" size="sm" onClick={finalizarQuinzena} disabled={arqBusy||!quinzenaEncerrada}
-          title={quinzenaEncerrada?"":"Disponível após o fim da quinzena"}>
+        <Btn v="warning" size="sm" onClick={finalizarQuinzena} aria-label="Finalizar e arquivar quinzena" disabled={arqBusy||!quinzenaEncerrada||laborGroup!=='all'||filterObra!=='all'}
+          title={laborGroup!=='all'||filterObra!=='all'?'Selecione Todos e Todas as obras':quinzenaEncerrada?"":"Disponível após o fim da quinzena"}>
           <Ic n="lock"/> {arqBusy?"Arquivando...":"Finalizar e arquivar quinzena"}
         </Btn>
       </div>
@@ -6204,6 +6212,8 @@ function PontoGeral({ data, update, showToast, currentUser, onTab, dispatchAtten
 }
 
 function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispatchAttendanceCommand, dispatchCommand, onTab }) {
+  const [laborGroup,setLaborGroup]=useWorkspaceState('ponto','laborGroup','all',obraIdFixo);
+  useHelpTopic('ponto',laborGroup==='all'?'ponto':`ponto_${laborGroup}`);
   const obraInicial=obraIdFixo||currentUser?.obraId||
     (currentUser?.role==="engenheiro"&&data.obras.length===1?data.obras[0].id:"all");
   const [selDate, setSelDate] = useState(today());
@@ -6261,6 +6271,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   }, [selDate, attendanceCompletion.allDone, lastAllDoneNotification, showToast]);
 
   const list = data.employees
+    .filter(e=>matchesLaborArea(e,laborGroup))
     .filter(e => employeeRelevantOnDate(data, e, selDate))
     .filter(e => {
       if (filterObra === "all") return true;
@@ -6297,6 +6308,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
   };
 
   const finalizeObraAttendance = async () => {
+    if(laborGroup!=='all'){showToast('Selecione Todos para finalizar o ponto completo desta obra.','error');return;}
     if (filterObra === "all") {
       showToast("Selecione uma obra específica para finalizar o ponto.", "error");
       return;
@@ -6498,6 +6510,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
 
   return (
     <div className="anim obra-attendance">
+      <LaborAreaTabs value={laborGroup} onChange={setLaborGroup}/>
       <AttendancePayMode data={data} currentUser={currentUser} dispatchCommand={dispatchCommand} showToast={showToast} onTab={onTab}/>
       <PageHero
         eyebrow="Registro de ponto"
@@ -6572,7 +6585,7 @@ function Ponto({ data, update, showToast, obraIdFixo="", currentUser=null, dispa
           {selectedObraLocked ? (
             <Btn v="warning" size="sm" onClick={() => setUnlockModal({ obraId: selectedObra.id, date: selDate, employee: null })}><Ic n="mail" /> Solicitar permissão</Btn>
           ) : (
-            <Btn size="sm" onClick={finalizeObraAttendance}><Ic n="lock" /> Finalizar ponto</Btn>
+            <Btn size="sm" onClick={finalizeObraAttendance} disabled={laborGroup!=='all'}><Ic n="lock" /> Finalizar ponto</Btn>
           )}
         </div>
       )}
