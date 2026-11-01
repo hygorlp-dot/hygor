@@ -11,6 +11,10 @@ export async function selectWorkspaceArea(page, navigation, label) {
     await selector.selectOption(await option.getAttribute('value'));
     return;
   }
-  await expect(button).toBeVisible();
-  await button.click();
+  await expect(page.getByRole('navigation',{name:navigation,exact:true})).toBeVisible();
+  if(await button.count()) { await expect(button).toBeVisible();await button.click(); }
+  else {
+    const tools=page.locator('.workspace-navigation').filter({has:page.getByRole('navigation',{name:navigation,exact:true})}).locator('.workspace-navigation__tools');
+    await tools.locator('summary').click();await tools.getByRole('button',{name:label,exact:true}).click();
+  }
 }

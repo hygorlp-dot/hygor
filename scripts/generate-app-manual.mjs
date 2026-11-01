@@ -1,6 +1,6 @@
 import {readFile, writeFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
-import {HELP_GUIDES, HELP_GLOSSARY, HELP_INTERRUPTION_GUIDE, HELP_REVIEWED_AT} from '../src/features/help/help-content.js';
+import {HELP_GUIDES, HELP_GLOSSARY, HELP_INTERRUPTION_GUIDE, HELP_INTERFACE_GUIDE, HELP_REVIEWED_AT} from '../src/features/help/help-content.js';
 import {ROLE_TABS} from '../src/domains/administracao/abas-acesso.js';
 
 export function renderAppManual(){
@@ -18,6 +18,8 @@ export function renderAppManual(){
   if(item.responsibilities)lines.push('### Quem cuida de cada parte','',...item.responsibilities.map(([owner,task])=>`- **${owner}:** ${task}`),'');
   if(item.exceptions)lines.push('### Quando o fluxo acontece de outro jeito','',...item.exceptions.map(([situation,action])=>`- **${situation}:** ${action}`),'');
  }
+ lines.push('## Aparência, botões e navegação','');
+ for(const [situation,action] of HELP_INTERFACE_GUIDE)lines.push(`### ${situation}`,'',action,'');
  lines.push('## Celular, interrupções e recuperação','');
  for(const [situation,action] of HELP_INTERRUPTION_GUIDE)lines.push(`### ${situation}`,'',action,'');
  lines.push('## Dúvidas comuns','','### Não encontrei um botão ou registro','','As ações dependem do seu perfil e da situação do registro. Confira a obra, o período, a busca e os filtros. Se necessário, peça ao administrador para conferir seu acesso.','','### Não sei se foi salvo','','Confira o indicador de salvamento e a mensagem da ação. Leia erros ou conflitos antes de repetir. Abra o registro novamente para conferir o resultado e evitar duplicidade.','','## Glossário','');

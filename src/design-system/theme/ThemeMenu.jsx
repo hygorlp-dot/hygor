@@ -5,7 +5,7 @@ import { ThemeSettings } from "./ThemeSettings.jsx";
 
 export function ThemeMenu() {
   return <Popover>
-    <PopoverTrigger asChild><Button variant="ghost" size="icon" aria-label="Alterar aparência" title="Alterar aparência"><Palette data-icon="inline-start" aria-hidden="true" /></Button></PopoverTrigger>
+    <PopoverTrigger asChild><Button variant="secondary" size="icon" aria-label="Alterar aparência" title="Alterar aparência"><Palette data-icon="inline-start" aria-hidden="true" /></Button></PopoverTrigger>
     <PopoverContent align="end" className="theme-menu"><ThemeSettings /></PopoverContent>
   </Popover>;
 }

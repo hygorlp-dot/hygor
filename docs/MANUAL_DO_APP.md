@@ -1,6 +1,6 @@
 # Manual de uso do app MARCELL
 
-Revisão do conteúdo: 31/10/2026.
+Revisão do conteúdo: 01/11/2026.
 
 Este guia explica o uso das telas em linguagem simples. No aplicativo, clique em **Ajuda**, no cabeçalho, para ler o fluxo da página aberta. Em **Manual completo**, pesquise uma tarefa ou tela. As áreas exibidas no aplicativo respeitam seu perfil de acesso.
 
@@ -2549,6 +2549,32 @@ O ZIP contém os arquivos nativos com nomes padronizados e índice. O pacote par
 ### O que merece atenção
 
 Anexo ausente, vencimento, situação pendente ou aplicabilidade indefinida impedem o final. O pacote é montado no navegador com limite de 100 MB; arquivos não lidos no parcial constam nas pendências. A exportação baixa o ZIP e não o envia automaticamente à Prefeitura ou ao cartório. A conferência interna não equivale à aprovação do órgão. Edição e exportação exigem administrador ou engenheiro autorizado.
+
+## Aparência, botões e navegação
+
+### Escolher a aparência
+
+Use o botão Alterar aparência, identificado pelo ícone de paleta no cabeçalho, para escolher MARCELL Claro ou MARCELL Institucional e ajustar a densidade. A preferência fica neste navegador.
+
+### Identificar a área selecionada
+
+A área atual recebe destaque visual. Na navegação de Compras e Financeiro, o botão selecionado tem fundo e borda destacados. Clique em outra área para abri-la. Você também pode usar Tab para chegar ao botão e Enter para acioná-lo. O contorno de foco indica qual controle receberá a ação do teclado.
+
+### Encontrar consultas e opções adicionais
+
+No computador, Consultas e cadastros em Compras e Mais áreas no Financeiro abrem opções complementares. Clique novamente ou use Escape para recolher o menu. No celular, use o seletor de áreas do módulo.
+
+### Acessar outros módulos no celular
+
+Use Mais, na barra inferior, para abrir Mais módulos. Escolha o módulo desejado. Fechar menu ou Escape retorna à tela atual sem trocar a área de trabalho.
+
+### Usar os filtros
+
+Mantenha a obra e o período corretos. O botão Filtros abre as opções adicionais, preservando os valores ao recolher. Limpar filtros remove o recorte informado na lista.
+
+### Conferir o salvamento
+
+O indicador no cabeçalho informa a situação do salvamento; ele não é um botão. Alterações ainda não salvas exige aguardar e conferir a confirmação. Em caso de erro ou conflito, siga a orientação apresentada antes de repetir a operação.
 
 ## Celular, interrupções e recuperação
 

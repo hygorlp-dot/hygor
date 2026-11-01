@@ -3,6 +3,7 @@ import {podeAcessarAba} from "../../administracao/abas-acesso.js";
 import {useRememberWorkflowScope,useWorkflow} from "../../../features/workflow/WorkflowNavigation.jsx";
 import {useWorkspaceState,useWorkspaceScroll} from "../../../features/workflow/workspace-session.jsx";
 import { PageHeader } from "../../../design-system/patterns/PageHeader";
+import { Button } from "../../../design-system/primitives/Button.jsx";
 import { aplicarCustoApropriado, custoApropriadoPorTarefa, totalMaterialAplicado } from "../cost-allocation";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
@@ -853,27 +854,13 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         {!obraIdFixo&&<div style={{ flex: 1, minWidth: 180 }}>
           <Sel label="Obra" value={obraId} onChange={setObraId} options={obrasComOrc.map(obra=>({v:obra.id,l:obra.name}))}/>
         </div>}
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <div role="group" aria-label="Escala e opções do cronograma" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap:"wrap" }}>
           {["dia", "semana", "mes"].map(z => (
-            <button key={z} type="button" aria-pressed={zoom===z} onClick={() => setZoom(z)} style={{
-              padding: "8px 12px", borderRadius: 6, cursor: "pointer",
-              border: `1.5px solid ${zoom === z ? C.yellow : C.border}`,
-              background: zoom === z ? `${C.yellow}18` : "transparent",
-              color: zoom === z ? C.yellowD : C.muted,
-              fontSize: "var(--arcd-type-control)", fontWeight:600, textTransform: "capitalize",
-            }}>{z}</button>
+            <Button key={z} variant="secondary" aria-pressed={zoom===z} onClick={() => setZoom(z)}>{{dia:"Dia",semana:"Semana",mes:"Mês"}[z]}</Button>
           ))}
-          <button onClick={() => setCalModal(true)} title="Calendario de trabalho" style={{
-            padding: "8px 10px", borderRadius: 6, cursor: "pointer",
-            border: `1.5px solid ${C.border}`, background: "transparent", color: C.muted,
-            display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--arcd-type-control)", fontWeight:600,
-          }}><Ic n="calendar" s={14}/> Dias</button>
+          <Button variant="secondary" onClick={() => setCalModal(true)} title="Calendário de trabalho"><Ic n="calendar" s={14}/> Dias</Button>
           <div style={{ position:"relative" }}>
-            <button onClick={() => setColsCronoAberto(a=>!a)} title="Colunas da tabela" style={{
-              padding: "8px 10px", borderRadius: 6, cursor: "pointer",
-              border: `1.5px solid ${C.border}`, background: "transparent", color: C.muted,
-              display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--arcd-type-control)", fontWeight:600,
-            }}>Colunas</button>
+            <Button variant="secondary" onClick={() => setColsCronoAberto(a=>!a)} title="Colunas da tabela" aria-expanded={colsCronoAberto}>Colunas</Button>
             {colsCronoAberto && (
               <div style={{position:"absolute",top:"100%",right:0,marginTop:4,zIndex:30,
                            background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:6,

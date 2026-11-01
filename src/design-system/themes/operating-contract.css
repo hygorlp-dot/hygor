@@ -39,7 +39,40 @@
   [data-theme] ::selection { background:var(--arcd-action-primary-subtle);color:var(--arcd-text-primary); }
   [data-theme] :is(input,textarea) { caret-color:var(--arcd-action-primary); }
   [data-theme] :is(.arcd-main,.arcd-dialog,.arcd-modal-panel,.arcd-drawer) a { text-underline-offset:.2em; }
+  /* A label is part of a field; actions align with the control below it. */
+  [data-theme] .arcd-main .workspace-header.purchase-header { align-items:end; }
+  [data-theme] .workspace-header .arcd-page-header__actions { align-items:flex-end; }
+  [data-theme] .workspace-header .arcd-field { margin:0; }
+  [data-theme] .workspace-header .purchase-header-actions { align-self:end;align-items:flex-end; }
+  [data-theme] .app-header-actions { align-items:center; }
+  [data-theme] .app-header-actions :is(.mrc-button,.app-save-status) { min-height:var(--arcd-control-height);border-radius:var(--arcd-radius-control); }
+  [data-theme] .app-save-status { box-sizing:border-box;min-height:var(--arcd-control-height) !important; }
+  [data-theme] .app-quick-point { position:relative; }
+  [data-theme] .workspace-navigation__desktop { align-items:flex-end;gap:.75rem;padding-block:.25rem .75rem; }
+  [data-theme] .workspace-navigation__desktop>nav { gap:.375rem;padding:0;flex-wrap:wrap;overflow:visible; }
+  [data-theme] .arcd-main .workspace-navigation .workspace-navigation__tab {
+    min-height:var(--arcd-control-height);padding:.5rem .875rem;border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-control);background:var(--arcd-surface-card);color:var(--arcd-text-secondary);box-shadow:none;cursor:pointer;
+  }
+  [data-theme] .arcd-main .workspace-navigation .workspace-navigation__tab:hover {
+    background:var(--arcd-surface-muted);border-color:var(--arcd-border-strong);color:var(--arcd-text-primary);
+  }
+  [data-theme] .arcd-main .workspace-navigation .workspace-navigation__tab[aria-current="page"] {
+    background:var(--arcd-action-primary-subtle);border-color:var(--arcd-action-primary);color:var(--arcd-action-primary);box-shadow:inset 0 -2px var(--arcd-action-primary);
+  }
+  [data-theme] .workspace-navigation__count { display:inline-flex;align-items:center;justify-content:center;min-width:1.375rem;min-height:1.375rem;padding:0 .375rem;border-radius:var(--arcd-radius-pill,9999px);background:var(--arcd-surface-muted);color:var(--arcd-text-secondary);font-size:var(--arcd-type-caption);font-variant-numeric:tabular-nums; }
+  [data-theme] .workspace-navigation__tools { max-width:18rem; }
+  [data-theme] .arcd-main .workspace-navigation__tools>summary { display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-height:var(--arcd-control-height);padding:.5rem .75rem;border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-control);background:var(--arcd-surface-card);color:var(--arcd-text-primary);list-style:none; }
+  [data-theme] .workspace-navigation__tools>summary::-webkit-details-marker { display:none; }
+  [data-theme] .workspace-navigation__tools>summary>svg { width:1rem;height:1rem;flex-shrink:0; }
+  [data-theme] .workspace-navigation__tools[open]>summary { background:var(--arcd-action-primary-subtle);border-color:var(--arcd-action-primary); }
+  [data-theme] .workspace-navigation__tools[open]>summary>svg { transform:rotate(180deg); }
+  [data-theme] .workspace-navigation__tools>summary:hover { background:var(--arcd-surface-muted);border-color:var(--arcd-border-strong); }
+  [data-theme] .arcd-choice-button { min-height:var(--arcd-control-height);background:var(--arcd-surface-card) !important;color:var(--arcd-text-secondary) !important; }
+  [data-theme] .arcd-choice-button:hover { background:var(--arcd-surface-muted) !important; }
+  [data-theme] .arcd-choice-button[aria-pressed="true"] { background:var(--arcd-action-primary-subtle) !important;color:var(--arcd-action-primary) !important;box-shadow:inset 0 -2px var(--arcd-action-primary); }
   @media(max-width:767px) {
+    [data-theme] .app-header-actions .app-save-status { min-height:2.75rem !important; }
+    [data-theme] .arcd-choice-button { min-height:2.75rem; }
     [data-theme] .app-help-button { width:2.75rem;padding-inline:0;flex-shrink:0; }
     .app-help-button__label { display:none; }
     [data-theme] .app-header-context { min-width:0;flex:1; }

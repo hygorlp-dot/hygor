@@ -2,7 +2,7 @@ import {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {BookOpen, X} from 'lucide-react';
 import {Button} from '../../design-system/primitives/Button.jsx';
 import {Input} from '../../design-system/primitives/Input.jsx';
-import {HELP_BY_ID, HELP_GUIDES, HELP_GLOSSARY, HELP_INTERRUPTION_GUIDE, HELP_REVIEWED_AT, searchHelp} from './help-content.js';
+import {HELP_BY_ID, HELP_GUIDES, HELP_GLOSSARY, HELP_INTERRUPTION_GUIDE, HELP_INTERFACE_GUIDE, HELP_REVIEWED_AT, searchHelp} from './help-content.js';
 
 function topicOwner(id){if(id.startsWith('arquivos_'))return 'arquivos';return id.startsWith('obra_')?'obras':id.startsWith('cmp_')?'cmp':id.startsWith('fin_')?'fin':id;}
 
@@ -49,7 +49,7 @@ export default function HelpPanel({id,topicId,pageId,allowedTabs=[],onClose}){
    <details className="app-help-details"><summary>Não encontrei um botão ou meu registro</summary><p>Algumas ações dependem do seu perfil e da situação do registro. Confira a obra, o período, a busca e os filtros. Se a função continuar indisponível, peça ao administrador para conferir seu acesso.</p></details>
    <details className="app-help-details"><summary>Não sei se minha alteração foi salva</summary><p>Confira o indicador de salvamento no cabeçalho e a mensagem da ação. Se houver erro ou conflito, leia a orientação antes de repetir. Abra o registro novamente para conferir o resultado e evitar duplicidade.</p></details>
    <details className="app-help-details"><summary>Celular, interrupções e recuperação</summary><dl>{HELP_INTERRUPTION_GUIDE.map(([situation,action])=><div key={situation}><dt>{situation}</dt><dd>{action}</dd></div>)}</dl></details>
-   <details className="app-help-details"><summary>Aparência e navegação</summary><p>Use o ícone de paleta no cabeçalho para escolher MARCELL Claro ou MARCELL Institucional e ajustar a densidade. A preferência fica neste navegador. No computador, Mais áreas reúne as consultas complementares do Financeiro; no celular, use o seletor Áreas do financeiro. O botão Filtros mostra as opções adicionais sem apagar os valores ao recolher.</p></details>
+   <details className="app-help-details"><summary>Aparência e navegação</summary><dl>{HELP_INTERFACE_GUIDE.map(([situation,action])=><div key={situation}><dt>{situation}</dt><dd>{action}</dd></div>)}</dl></details>
    <details className="app-help-details"><summary>Entenda os termos do sistema</summary><dl>{HELP_GLOSSARY.map(([term,meaning])=><div key={term}><dt>{term}</dt><dd>{meaning}</dd></div>)}</dl></details>
    <p className="app-help-revision">Revisão do conteúdo: {HELP_REVIEWED_AT}. Os botões disponíveis respeitam seu perfil e a situação do registro.</p>
   </div>

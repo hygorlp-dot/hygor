@@ -155,6 +155,8 @@ components:
 
 ## Direção vigente — temas SaaS, 31/10/2026
 
+Revisão de consistência de 01/11/2026: áreas de trabalho usam botões delimitados, contagem separada e seleção com fundo/borda, além de hover e foco. Ações e campos de cabeçalho se alinham pela base dos controles; o status de salvamento é informativo e acompanha a altura das ações. Mais módulos no celular usa o Dialog compartilhado, fora da navegação inferior, com bloqueio de fundo e foco por teclado. Evidências e limites estão em `docs/REVISAO-GERAL-ERP-20261101.md`.
+
 O usuário rejeitou a direção visual anterior e pediu simplicidade de fluxo e temas consistentes. O contrato atual está em `src/design-system/themes/themeRegistry.js`: MARCELL Claro (padrão sem preferência salva, Inter, navegação branca, ações azuis) e MARCELL Institucional (Source Sans 3, navegação marinho, seleção ouro). Uma preferência existente é respeitada. Valores de cor e tipografia do contrato prevalecem sobre as receitas históricas documentadas abaixo.
 
 As receitas compartilhadas usam tokens semânticos, com ponte comum para shadcn, controles legados e primitivos. Densidade é independente do tema; o toque preserva 44 px. Não fixar cores de tema em páginas. No Financeiro, quatro entradas de rotina antecedem Mais áreas; em Compras, busca visível, filtros adicionais sob demanda e registros móveis compactos. Marca, documentos impressos e modo TV preservam seus requisitos. Pesquisa, limites e critérios: `docs/DESIGN-SAAS-TEMAS-20261031.md`.

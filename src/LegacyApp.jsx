@@ -14686,27 +14686,17 @@ export default function App() {
 
               {/* Ponto rápido */}
               {allowedTabs.includes("ponto") && (
-                <button
+                <Button variant="secondary"
                   className="app-quick-point"
                   aria-label="Abrir Ponto"
+                  aria-current={tab==="ponto"?"page":undefined}
                   onClick={() => setTab("ponto")}
-                  style={{
-                    background: tab==="ponto" ? C.yellow : C.surface,
-                    color: tab==="ponto" ? C.text : C.text,
-                    border:`1px solid ${tab==="ponto"?C.yellow:C.border}`,
-                    borderRadius:C.rMd, padding:"7px 12px",
-                    display:"inline-flex", alignItems:"center", gap:5,
-                    cursor:"pointer", fontFamily:"var(--arcd-font-sans)",
-                    fontWeight:600, textTransform:"uppercase", letterSpacing:.6, fontSize:"var(--arcd-type-control)",
-                    position:"relative",
-                    "--ic-color": C.text,
-                  }}
                 >
                   <Ic n="clock" s={13}/> <span className="app-quick-label">Ponto</span>
                   {pontoPending && tab!=="ponto" && (
                     <span style={{ position:"absolute", top:-4, right:-4, width:9, height:9, background:C.red, borderRadius:"50%", border:`2px solid ${C.bg}` }}/>
                   )}
-                </button>
+                </Button>
               )}
             </div>
           </div>
