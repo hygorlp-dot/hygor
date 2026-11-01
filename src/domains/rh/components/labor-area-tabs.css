@@ -1,5 +1,5 @@
 .labor-area-tabs { min-width:0; }
 .labor-area-tabs .workflow-tabs .workflow-tabs__mobile { display:none !important; }
 .labor-area-tabs .workflow-tabs>nav { display:flex !important;flex-wrap:wrap;gap:4px; }
-.labor-area-tabs .workflow-tabs>nav>button { flex:1 1 auto;min-height:44px;justify-content:center;padding:8px 12px; }
+.labor-area-tabs .workflow-tabs>nav>button { flex:var(--arcd-group-tab-flex,1 1 auto);min-height:44px;justify-content:center;padding:8px 12px; }
 .labor-area-tabs .workflow-description { margin-top:8px; }

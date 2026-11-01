@@ -1,0 +1,5 @@
+SAP Theming Base Content — 72 Regular e Bold, sem modificação.
+Origem: https://github.com/SAP/theming-base-content/tree/b8dc6f16557e5b4b3dc4d07e763c8b46178ab9fe/content/Base/baseLib/baseTheme/fonts
+Licença: Apache-2.0; cópia em LICENSE.txt.
+Referência visual: https://github.com/voltagent/awesome-design-md/blob/fcc70284932276d085f01ef9f83edde90b1258cb/design-md/sap/DESIGN.md
+Consulta: 01/11/2026.

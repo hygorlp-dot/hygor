@@ -1,7 +1,11 @@
 ---
 name: MARCELL
-description: Gestão de obras com identidade institucional e leitura operacional clara.
+description: Gestão de obras com temas consistentes e leitura operacional clara; direção SAP disponível em MARCELL Operacional.
+operational-reference: SAP
 colors:
+  operational-primary: "#0057D2"
+  operational-canvas: "#F5F6F7"
+  operational-ink: "#223548"
   navy: "#0D1B2E"
   gold: "#B9985B"
   sand: "#F3F0E9"
@@ -152,6 +156,10 @@ components:
 ---
 
 # Design System: MARCELL
+
+## Direção SAP — MARCELL Operacional, 01/11/2026
+
+O usuário escolheu a referência SAP do awesome-design-md. A opção MARCELL Operacional usa fonte 72 local, azul funcional, faixas claras de cabeçalho e navegação e hierarquia de tabelas e ações. Os papéis de cores e geometria ficam no registro de temas, compartilhados por todos os componentes. Referências, licenças, adaptações para ERP e revisão visual: `docs/DESIGN-SAP-MARCELL-20261101.md`. Os temas Claro e Institucional permanecem disponíveis, assim como as preferências já salvas. Esta etapa é local, sem novo deploy.
 
 ## Direção vigente — temas SaaS, 31/10/2026
 

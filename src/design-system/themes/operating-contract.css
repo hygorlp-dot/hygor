@@ -1,6 +1,8 @@
 /* Shared ERP recipes. Theme values live only in themeRegistry.js.
    Brand artwork, reports and chart series retain their own identities. */
 @font-face { font-family:Inter;src:url('/fonts/inter/InterVariable.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap; }
+@font-face { font-family:'72';src:url('/fonts/sap-72/72-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap; }
+@font-face { font-family:'72';src:url('/fonts/sap-72/72-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap; }
 @media screen {
   [data-theme] body { background:var(--arcd-surface-page);color:var(--arcd-text-primary); }
   [data-theme] :is(.arcd-app-shell,.arcd-main) { background:var(--arcd-surface-page) !important;color:var(--arcd-text-primary); }
@@ -51,15 +53,15 @@
   [data-theme] .workspace-navigation__desktop { align-items:flex-end;gap:.75rem;padding-block:.25rem .75rem; }
   [data-theme] .workspace-navigation__desktop>nav { gap:.375rem;padding:0;flex-wrap:wrap;overflow:visible; }
   [data-theme] .arcd-main .workspace-navigation .workspace-navigation__tab {
-    min-height:var(--arcd-control-height);padding:.5rem .875rem;border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-control);background:var(--arcd-surface-card);color:var(--arcd-text-secondary);box-shadow:none;cursor:pointer;
+    min-height:var(--arcd-control-height);padding:.5rem .875rem;border:1px solid var(--arcd-workspace-tab-border);border-radius:var(--arcd-radius-control);background:var(--arcd-workspace-tab-surface);color:var(--arcd-text-secondary);box-shadow:none;cursor:pointer;
   }
   [data-theme] .arcd-main .workspace-navigation .workspace-navigation__tab:hover {
     background:var(--arcd-surface-muted);border-color:var(--arcd-border-strong);color:var(--arcd-text-primary);
   }
   [data-theme] .arcd-main .workspace-navigation .workspace-navigation__tab[aria-current="page"] {
-    background:var(--arcd-action-primary-subtle);border-color:var(--arcd-action-primary);color:var(--arcd-action-primary);box-shadow:inset 0 -2px var(--arcd-action-primary);
+    background:var(--arcd-workspace-tab-active-surface);border-color:var(--arcd-workspace-tab-active-border);color:var(--arcd-action-primary);box-shadow:inset 0 -2px var(--arcd-action-primary) !important;
   }
-  [data-theme] .workspace-navigation__count { display:inline-flex;align-items:center;justify-content:center;min-width:1.375rem;min-height:1.375rem;padding:0 .375rem;border-radius:var(--arcd-radius-pill,9999px);background:var(--arcd-surface-muted);color:var(--arcd-text-secondary);font-size:var(--arcd-type-caption);font-variant-numeric:tabular-nums; }
+  [data-theme] .workspace-navigation__count { display:inline-flex;align-items:center;justify-content:center;min-width:1.375rem;min-height:1.375rem;padding:0 .375rem;border-radius:var(--arcd-workspace-count-radius);background:var(--arcd-surface-muted);color:var(--arcd-text-secondary);font-size:var(--arcd-type-caption);font-variant-numeric:tabular-nums; }
   [data-theme] .workspace-navigation__tools { max-width:18rem; }
   [data-theme] .arcd-main .workspace-navigation__tools>summary { display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-height:var(--arcd-control-height);padding:.5rem .75rem;border:1px solid var(--arcd-border-default);border-radius:var(--arcd-radius-control);background:var(--arcd-surface-card);color:var(--arcd-text-primary);list-style:none; }
   [data-theme] .workspace-navigation__tools>summary::-webkit-details-marker { display:none; }
@@ -70,6 +72,21 @@
   [data-theme] .arcd-choice-button { min-height:var(--arcd-control-height);background:var(--arcd-surface-card) !important;color:var(--arcd-text-secondary) !important; }
   [data-theme] .arcd-choice-button:hover { background:var(--arcd-surface-muted) !important; }
   [data-theme] .arcd-choice-button[aria-pressed="true"] { background:var(--arcd-action-primary-subtle) !important;color:var(--arcd-action-primary) !important;box-shadow:inset 0 -2px var(--arcd-action-primary); }
+  /* The same recipes consume either the incumbent themes or the operational
+     theme's flat header / navigation bands. No per-page palette is introduced. */
+  [data-theme] .arcd-topbar { background:var(--arcd-shell-toolbar-surface) !important; }
+  [data-theme] .arcd-main :is(h1,h2,h3),
+  [data-theme] :is(.arcd-dialog,.arcd-modal-panel,.arcd-drawer) :is(h1,h2,h3) { font-weight:var(--arcd-heading-weight) !important; }
+  [data-theme] .arcd-main .workspace-header { background:var(--arcd-workspace-header-surface) !important; }
+  [data-theme] .arcd-main[data-workspace] .workspace-header { padding:var(--arcd-workspace-header-padding) !important; }
+  [data-theme] .arcd-main .workspace-navigation { background:var(--arcd-workspace-nav-surface) !important; }
+  [data-theme] .arcd-main .workspace-navigation__desktop { padding:var(--arcd-workspace-nav-padding); }
+  [data-theme] .arcd-main th { font-weight:var(--arcd-table-header-weight) !important; }
+  [data-theme] .mrc-button[data-mrc-role=secondary] { color:var(--arcd-secondary-button-text);border-color:var(--arcd-secondary-button-border); }
+  [data-theme] .arcd-main :is(td,th,.payroll-summary-strip strong,.purchase-money) { font-variant-numeric:tabular-nums; }
+  [data-theme] .workspace-navigation__tab[aria-current=page] .workspace-navigation__count { color:var(--arcd-action-primary); }
+  [data-theme] .arcd-main .purchase-queue-table tbody tr:nth-child(even):not(.purchase-group-row)>td { background:var(--arcd-table-stripe-surface) !important; }
+  [data-theme] .arcd-main .purchase-queue-table tbody tr:not(.purchase-group-row):hover>td { background:var(--arcd-surface-muted) !important; }
   @media(max-width:767px) {
     [data-theme] .app-header-actions .app-save-status { min-height:2.75rem !important; }
     [data-theme] .arcd-choice-button { min-height:2.75rem; }
@@ -84,6 +101,8 @@
     [data-theme] .purchase-queue-filters { grid-template-columns:minmax(0,1fr) auto !important; }
   }
   @media(max-width:600px) {
+    [data-theme] .arcd-main[data-workspace] .purchase-queue-metrics { grid-template-columns:var(--arcd-purchase-mobile-metrics-columns); }
+    [data-theme] .arcd-main[data-workspace] .purchase-queue-metrics button:nth-child(4) { display:var(--arcd-purchase-fourth-metric-display); }
     [data-theme] .arcd-main .purchase-queue-table tbody tr:not(.purchase-group-row) { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.625rem 1rem;padding:1rem; }
     [data-theme] .arcd-main .purchase-queue-table tbody td { padding:0;min-width:0; }
     [data-theme] .arcd-main .purchase-queue-table tbody td::before { display:none; }

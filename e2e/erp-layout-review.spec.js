@@ -10,7 +10,7 @@ const tabs=[...source.matchAll(/\b(\w+)\s*:\s*\{\s*label:\s*"([^"]+)"/g)].map(([
 async function enter(page,id){
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.clock.setFixedTime(new Date('2026-11-01T12:00:00-03:00'));
-  await page.addInitScript(({id,user})=>{sessionStorage.setItem(`arcd-section:${user}`,id);localStorage.setItem('arcd-theme','saas');},{id,user:profile.id});
+  await page.addInitScript(({id,user,theme})=>{sessionStorage.setItem(`arcd-section:${user}`,id);localStorage.setItem('arcd-theme',theme);},{id,user:profile.id,theme:process.env.MARCELL_TEST_THEME||'saas'});
   await page.route('https://**/*',r=>r.abort());
   await page.route('**/api/**',r=>r.fulfill({json:{ok:true,items:[],bases:[],presencas:[],connected:false,reply:''}}));
   await page.route('**/api/data',r=>r.fulfill({json:{ok:true,usuarios:[profile],precisaSetup:false,usuario:profile,data,current:null,history:[],accessToken:'layout-local-only',refreshToken:'layout-local-only',updatedAt:'2026-11-01T15:00:00Z'}}));
@@ -47,7 +47,9 @@ test('Compras: alinhamento, seleção, foco, menus e ação principal',async({pa
     const current=nav.getByRole('button',{name:'Fila de trabalho',exact:true});
     await expect(current).toHaveAttribute('aria-current','page');
     const other=nav.getByRole('button',{name:'Pedidos',exact:true});
-    expect(await current.evaluate(el=>getComputedStyle(el).backgroundColor)).not.toBe(await other.evaluate(el=>getComputedStyle(el).backgroundColor));
+    const currentStyle=await current.evaluate(el=>({background:getComputedStyle(el).backgroundColor,indicator:getComputedStyle(el).boxShadow}));
+    const otherBackground=await other.evaluate(el=>getComputedStyle(el).backgroundColor);
+    expect(currentStyle.background!==otherBackground||currentStyle.indicator!=='none').toBe(true);
     await expect(other).toHaveCSS('cursor','pointer');
     const beforeHover=await other.evaluate(el=>getComputedStyle(el).backgroundColor);await other.hover();await expect.poll(()=>other.evaluate(el=>getComputedStyle(el).backgroundColor)).not.toBe(beforeHover);
     await page.keyboard.press('Tab');await other.focus();await expect(other).toBeFocused();await expect(other).toHaveCSS('outline-style','solid');await other.press('Enter');await expect(other).toHaveAttribute('aria-current','page');
