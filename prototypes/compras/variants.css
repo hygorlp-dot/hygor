@@ -1,0 +1,125 @@
+/* Isolated design study: loaded into the existing ERP only by the study iframe. */
+html[data-design-study] {
+  --arcd-surface-page:#f7f8fa !important;
+  --arcd-surface-card:#fff !important;
+  --arcd-surface-subtle:#f8f9fb !important;
+  --arcd-surface-muted:#eef0f4 !important;
+  --arcd-text-primary:#252831 !important;
+  --arcd-text-secondary:#535b68 !important;
+  --arcd-text-muted:#606978 !important;
+  --arcd-border-default:#e0e3e9 !important;
+  --arcd-border-subtle:#eceef2 !important;
+  --arcd-border-strong:#929baa !important;
+  --arcd-action-primary:#505db1 !important;
+  --arcd-action-primary-hover:#404b95 !important;
+  --arcd-action-primary-active:#333d7e !important;
+  --arcd-action-primary-subtle:#eeeefa !important;
+  --arcd-focus-ring:#505db1 !important;
+  --arcd-nav-surface:#f0f1f5 !important;
+  --arcd-nav-text:#555d6a !important;
+  --arcd-nav-active-text:#343d7d !important;
+  --arcd-nav-active-surface:#e3e5f3 !important;
+  --arcd-nav-hover-surface:#e8eaf0 !important;
+  --arcd-nav-hover-text:#252831 !important;
+  --arcd-nav-brand-text:#252831 !important;
+  --arcd-nav-border:#dfe2e9 !important;
+  --arcd-font-sans:Inter,'Helvetica Neue',Arial,sans-serif !important;
+  --arcd-radius-control:.375rem !important;
+}
+html[data-design-study] .compras-view .purchase-header { padding-top:0 !important; }
+html[data-design-study] .compras-view .purchase-header h2 { font-weight:650;letter-spacing:-.025em; }
+html[data-design-study] .compras-view .purchase-queue-table tbody tr:not(.purchase-group-row) { background:var(--arcd-surface-card) !important; }
+html[data-design-study] .compras-view .purchase-queue-table tbody tr:hover { background:var(--arcd-surface-subtle) !important; }
+html[data-design-study] .compras-view .purchase-queue-table b { font-variant-numeric:tabular-nums; }
+html[data-design-study] .compras-view .purchase-queue-table td { vertical-align:middle; }
+html[data-design-study] .compras-view .purchase-row-title { font-weight:600; }
+html[data-design-study] .purchase-queue-metrics { box-shadow:none; }
+html[data-design-study] .purchase-queue-metrics button { box-shadow:none !important; }
+html[data-design-study] .arcd-main .purchase-navigation .workspace-navigation__tab { background:transparent !important;border-color:transparent !important;box-shadow:none !important; }
+html[data-design-study] .arcd-main .purchase-navigation .workspace-navigation__tab:hover { background:var(--arcd-surface-muted) !important; }
+html[data-design-study] .arcd-main .purchase-navigation .workspace-navigation__tab[aria-current=page] { background:var(--arcd-action-primary-subtle) !important;border-color:transparent !important; }
+html[data-design-study] .purchase-navigation .workspace-navigation__count { background:var(--arcd-surface-muted); }
+
+/* Precisão: a quiet, continuous work surface with thin separators. */
+html[data-design-study=precision] .purchase-queue-panel { border-radius:6px; }
+html[data-design-study=precision] .purchase-queue-metrics { border:0;border-radius:0;background:transparent;gap:16px; }
+html[data-design-study=precision] .purchase-queue-metrics button { padding:8px 12px !important;min-height:80px !important;border:0;border-radius:6px; }
+html[data-design-study=precision] .purchase-queue-metrics strong { font-size:22px !important; }
+html[data-design-study=precision] .purchase-queue-table :is(td,th) { padding-block:13px !important; }
+html[data-design-study=precision] .purchase-queue-table td:nth-child(5) .mrc-button { border-color:transparent;background:var(--arcd-action-primary-subtle);color:var(--arcd-action-primary); }
+
+/* Obra: structural contrast plus a separate desktop priority column. */
+html[data-design-study=construction] {
+  --arcd-font-sans:'Source Sans 3','Helvetica Neue',Arial,sans-serif !important;
+  --arcd-surface-page:#f4f3ef !important;
+  --arcd-surface-subtle:#f5f5f1 !important;
+  --arcd-surface-muted:#eaece7 !important;
+  --arcd-text-primary:#253331 !important;
+  --arcd-text-secondary:#52625d !important;
+  --arcd-text-muted:#596a65 !important;
+  --arcd-border-default:#d9dfd9 !important;
+  --arcd-border-strong:#7a8d85 !important;
+  --arcd-action-primary:#216354 !important;
+  --arcd-action-primary-hover:#194d42 !important;
+  --arcd-action-primary-active:#133c33 !important;
+  --arcd-action-primary-subtle:#e5efe9 !important;
+  --arcd-focus-ring:#216354 !important;
+  --arcd-nav-surface:#252e2c !important;
+  --arcd-nav-text:#c1ceca !important;
+  --arcd-nav-active-text:#fff !important;
+  --arcd-nav-active-surface:#3b4e47 !important;
+  --arcd-nav-hover-surface:#34413d !important;
+  --arcd-nav-hover-text:#fff !important;
+  --arcd-nav-brand-text:#fff !important;
+  --arcd-nav-border:#44534d !important;
+}
+html[data-design-study=construction] .purchase-header h2 { font-size:28px; }
+html[data-design-study=construction] .arcd-sidebar .arcd-brand-mark img { filter:brightness(0) invert(1); }
+html[data-design-study=construction] .purchase-queue-panel { border-radius:8px; }
+html[data-design-study=construction] .purchase-navigation { padding-bottom:12px !important; }
+html[data-design-study=construction] .purchase-queue-table td:nth-child(5) .mrc-button { color:var(--arcd-action-primary);border-color:var(--arcd-border-default); }
+
+/* Foco: records read as generous horizontal work items instead of a dense grid. */
+html[data-design-study=focus] {
+  --arcd-surface-page:#fff !important;
+  --arcd-surface-subtle:#f7f7f5 !important;
+  --arcd-surface-muted:#efefec !important;
+  --arcd-text-primary:#292c2b !important;
+  --arcd-text-secondary:#5b605e !important;
+  --arcd-text-muted:#626864 !important;
+  --arcd-action-primary:#343e37 !important;
+  --arcd-action-primary-hover:#222b25 !important;
+  --arcd-action-primary-active:#18201a !important;
+  --arcd-action-primary-subtle:#edf0e9 !important;
+  --arcd-focus-ring:#566b3f !important;
+  --arcd-nav-surface:#f7f7f4 !important;
+  --arcd-nav-active-surface:#e8ecdf !important;
+  --arcd-nav-active-text:#344629 !important;
+}
+html[data-design-study=focus] .purchase-header h2 { font-size:30px; }
+html[data-design-study=focus] .purchase-queue-metrics { border:0;border-radius:0;border-bottom:1px solid var(--arcd-border-default); }
+html[data-design-study=focus] .purchase-queue-metrics button { display:grid;grid-template-columns:1fr auto;padding:12px !important;min-height:72px !important;align-items:center;border:0; }
+html[data-design-study=focus] .purchase-queue-metrics small { grid-column:1 / -1; }
+html[data-design-study=focus] .purchase-queue-panel { border:0;border-radius:0; }
+html[data-design-study=focus] .purchase-queue-filters { padding-inline:0; }
+html[data-design-study=focus] .purchase-order-count-row { padding-inline:0; }
+html[data-design-study=focus] .purchase-queue-table :is(td,th) { padding-block:24px !important; }
+html[data-design-study=focus] .purchase-queue-table .purchase-row-title { font-size:15px !important; }
+html[data-design-study=focus] .purchase-queue-table td:nth-child(5) .mrc-button { background:var(--arcd-action-primary);color:var(--arcd-action-primary-text);border-color:transparent; }
+
+@media(min-width:1200px) {
+  html[data-design-study=construction] .purchase-workspace:has(.purchase-queue-metrics) { display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:20px;align-items:start; }
+  html[data-design-study=construction] .purchase-queue-metrics { grid-column:2;grid-row:1 / 3;display:flex;flex-direction:column;border:0;background:transparent;gap:8px; }
+  html[data-design-study=construction] .purchase-queue-metrics button { border:1px solid var(--arcd-border-default);border-radius:8px;background:var(--arcd-surface-card);padding:16px !important;min-height:100px !important; }
+  html[data-design-study=construction] .purchase-queue-metrics strong { font-size:24px !important; }
+  html[data-design-study=construction] .purchase-workspace:has(.purchase-queue-metrics) .purchase-queue-panel { grid-column:1;grid-row:1 / 3; }
+}
+@media(max-width:767px) {
+  html[data-design-study] .arcd-main .purchase-queue-metrics { display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:6px;overflow:visible; }
+  html[data-design-study] .arcd-main[data-workspace] .purchase-queue-metrics button { display:flex !important;min-height:72px !important;border:0; }
+  html[data-design-study] .purchase-header h2 { font-size:24px; }
+  html[data-design-study] .purchase-queue-metrics button { min-height:90px !important;padding:10px !important; }
+  html[data-design-study=focus] .purchase-queue-metrics button { display:flex; }
+  html[data-design-study=focus] .purchase-queue-table :is(td,th) { padding-block:0 !important; }
+  html[data-design-study=focus] .purchase-queue-table tbody tr { padding-block:24px !important; }
+}

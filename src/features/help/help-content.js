@@ -1,6 +1,7 @@
 // Fonte única da ajuda no app e do manual gerado. Revise junto com cada fluxo.
 export const HELP_REVIEWED_AT = '01/11/2026';
 export const HELP_INTERFACE_GUIDE = [
+ ['Comparar propostas na prévia local','Na página separada Estudo de Compras, use Precisão, Obra ou Foco para comparar a organização visual. Como comparar explica as diferenças. A troca preserva os filtros e a tela aberta; não escolhe um tema definitivo. Os dados da prévia são fictícios. Os atalhos 1, 2 e 3 funcionam quando o foco está fora do ERP. O botão Ajuda continua disponível dentro da tela.'],
  ['Escolher a aparência','Use o botão Alterar aparência, identificado pelo ícone de paleta no cabeçalho, para escolher MARCELL Claro ou MARCELL Institucional e ajustar a densidade. A preferência fica neste navegador.'],
  ['Identificar a área selecionada','A área atual recebe destaque visual. Na navegação de Compras e Financeiro, o botão selecionado tem fundo e borda destacados. Clique em outra área para abri-la. Você também pode usar Tab para chegar ao botão e Enter para acioná-lo. O contorno de foco indica qual controle receberá a ação do teclado.'],
  ['Encontrar consultas e opções adicionais','No computador, Consultas e cadastros em Compras e Mais áreas no Financeiro abrem opções complementares. Clique novamente ou use Escape para recolher o menu. No celular, use o seletor de áreas do módulo.'],

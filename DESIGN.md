@@ -440,3 +440,7 @@ Preservar filtros, áreas internas e rolagem durante a sessão. Atalhos levam a 
 - Diálogos acompanham o visualViewport. Fechar um diálogo filho mantém a rolagem bloqueada e o foco no formulário principal; acionador desmontado devolve o foco a um título da área. Atalho global de busca não troca o módulo durante um diálogo.
 - Navegação inferior e chat não competem com a edição. Controles móveis usam alvo de pelo menos 44 px e rótulos sem quebras arbitrárias de palavras.
 - Ajuda e manual compartilham a orientação de celular/interrupções. Emulação de reflow e área de teclado não substitui observação em aparelho real; não classificar execução automatizada como piloto com operadores.
+
+## Processo de evolução visual — 01/11/2026
+
+Toda evolução de interface deve registrar hipótese, consultar as skills e componentes aplicáveis, implementar localmente, criticar a composição e o fluxo nas telas renderizadas, verificar desktop e celular, corrigir os achados e registrar evidências e limites. A escolha visual pertence ao usuário. O estudo comparativo de Compras permanece separado do tema vigente; ver docs/ESTUDO-VISUAL-COMPRAS-20261101.md.

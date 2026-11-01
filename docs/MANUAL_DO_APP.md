@@ -2552,6 +2552,10 @@ Anexo ausente, vencimento, situação pendente ou aplicabilidade indefinida impe
 
 ## Aparência, botões e navegação
 
+### Comparar propostas na prévia local
+
+Na página separada Estudo de Compras, use Precisão, Obra ou Foco para comparar a organização visual. Como comparar explica as diferenças. A troca preserva os filtros e a tela aberta; não escolhe um tema definitivo. Os dados da prévia são fictícios. Os atalhos 1, 2 e 3 funcionam quando o foco está fora do ERP. O botão Ajuda continua disponível dentro da tela.
+
 ### Escolher a aparência
 
 Use o botão Alterar aparência, identificado pelo ícone de paleta no cabeçalho, para escolher MARCELL Claro ou MARCELL Institucional e ajustar a densidade. A preferência fica neste navegador.
