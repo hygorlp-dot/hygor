@@ -50,6 +50,9 @@ export default defineConfig(({mode})=>mergeConfig({
           // Keeping them together avoids repeated import paths and independent
           // compression overhead across small chunks, without changing UI code.
           if(id.includes('/src/design-system/')||id.includes('/src/components/ui/'))return 'interface';
+          // Os adaptadores legados já usam os mesmos controles. Mantê-los
+          // junto da base compartilha a compressão, sem antecipar as telas.
+          if(id.includes('/src/legacy/')||id.includes('/src/hooks/')||id.includes('/src/features/workflow/'))return 'interface';
           // O mesmo repertório de ícones atende todos os módulos. Compartilhar
           // a compressão evita o custo repetido dos pequenos chunks por ícone.
           if(id.includes('/node_modules/lucide-react/'))return 'interface';
@@ -62,6 +65,7 @@ export default defineConfig(({mode})=>mergeConfig({
             id.includes("/src/domains/financeiro/")
             || id.includes("/src/domains/dre/")
             || id.includes("/src/domains/conciliacao/")
+            || (id.includes('/src/domains/compras/')&&!id.includes('/components/')&&!id.endsWith('/LegacySupport.jsx')&&!id.endsWith('/export-sheets.js'))
           ) return "financial-domain";
           // As demais dependências compartilhadas ficam a cargo do
           // particionamento automático do Rolldown.

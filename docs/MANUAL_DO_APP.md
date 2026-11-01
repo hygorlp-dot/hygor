@@ -48,6 +48,7 @@ Conteúdo gerado de `src/features/help/help-content.js`, a mesma fonte da ajuda 
 - [Estoque](#guia-est)
 - [Compras](#guia-cmp)
 - [Compras · Solicitar](#guia-cmp_solicitacoes)
+- [Compras · Pedido por texto ou print](#guia-cmp_mensagem)
 - [Compras · Cotar](#guia-cmp_cotacoes)
 - [Compras · Aprovações](#guia-cmp_aprovacoes)
 - [Compras · Pedidos](#guia-cmp_pedidos)
@@ -746,17 +747,18 @@ Tenha obra, descrição, unidade, quantidade e data necessária.
 
 ### Como fazer
 
-1. Abra Solicitar e inicie a solicitação.
-2. Preencha os itens e a justificativa; confira o vínculo com o orçamento quando aplicável.
-3. Salve e acompanhe a solicitação na fila.
+1. Abra Solicitar e use Nova solicitação.
+2. Para aproveitar uma conversa, use Colar pedido do WhatsApp, cole o texto ou print e clique em Analisar pedido. Confira a leitura e use Usar itens no rascunho.
+3. Revise obra, data necessária, materiais, quantidades, unidades e etapa do orçamento; preencha os dados ausentes.
+4. Use Formalizar e enviar para Compras e aguarde a confirmação do servidor. Consulte Pedido original da conversa na solicitação.
 
 ### Como conferir se deu certo
 
-A necessidade aparece para acompanhamento da compra.
+A necessidade aparece na fila com o original da conversa, quando informado.
 
 ### O que merece atenção
 
-Uma solicitação ainda não é um pedido ao fornecedor.
+A análise não aprova nem compra materiais. O print exige Drive conectado; se o envio falhar, o formulário permanece aberto. Uma solicitação ainda não é um pedido ao fornecedor.
 
 ### Quem cuida de cada parte
 
@@ -777,6 +779,32 @@ Uma solicitação ainda não é um pedido ao fornecedor.
 - **Caixa sem saldo registrado:** A saída real pode ser registrada com aviso. Confira a origem e os aportes efetivamente realizados; não crie aporte fictício para ajustar o saldo.
 - **Adiantamento já registrado no pedido:** Confira o histórico antes de pagar pela nota. Não repita o pagamento nem associe registros apenas pela coincidência de valor.
 - **Aviso após salvar:** Abra Ficha completa · notas e anexos e consulte Andamento da compra. Confira a pendência, o responsável e a orientação.
+
+<a id="guia-cmp_mensagem"></a>
+
+## Compras · Pedido por texto ou print
+
+Preparar uma solicitação a partir de uma conversa copiada.
+
+### Antes de começar
+
+Copie somente o trecho necessário do pedido. A inteligência artificial (IA) deve estar configurada; para guardar o print, conecte o Drive da obra.
+
+### Como fazer
+
+1. Em Nova solicitação, abra Colar pedido do WhatsApp.
+2. Cole o texto em Texto do pedido ou print colado. Para imagem, cole com Ctrl+V no campo ou use Selecionar print. Aceita PNG, JPG ou WEBP de até 2 MB e texto de até 6.000 caracteres.
+3. Clique em Analisar pedido. Leia os materiais, quantidades, unidades e avisos. Se a análise falhar, tente novamente ou preencha manualmente.
+4. Use Usar itens no rascunho. Os materiais são acrescentados; obra e data já preenchidas são preservadas. O original fica protegido contra substituição; ajuste os materiais no formulário. Para outra conversa, inicie outra solicitação. Corrija campos ausentes e confira o orçamento.
+5. Use Formalizar e enviar para Compras. O print é enviado ao Drive antes de salvar. Se houver falha, os dados permanecem no formulário; tente novamente. O original fica disponível em Pedido original da conversa.
+
+### Como conferir se deu certo
+
+Você preparou uma solicitação com rastreabilidade do pedido original e confirmação pelo fluxo existente.
+
+### O que merece atenção
+
+Leitura de imagem pode errar. Não aceite quantidades, embalagens ou unidades sem conferir. As mensagens são enviadas à IA configurada do ERP; recorte informações pessoais desnecessárias. Não há envio automático de mensagens, aprovação, pedido ao fornecedor ou pagamento.
 
 <a id="guia-cmp_cotacoes"></a>
 

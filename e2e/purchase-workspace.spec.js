@@ -967,3 +967,60 @@ test("histórico por material normaliza unidades, distingue custo final e abre a
  await expect(page.getByRole("heading",{name:"Ficha completa da compra conjunta"})).toBeVisible();
  expect(app.commands).toEqual([]);expect(app.errors).toEqual([]);
 });
+
+for(const width of [390,1440])test(`pedido colado: texto, print, revisão e recuperação sem anexos duplicados em ${width}px`,async({page})=>{
+ await page.setViewportSize({width,height:1000});
+ const app=await enter(page,{failFirstRequest:true});await selectWork(page);
+ let uploads=0;const analyses=[];
+ await page.route('**/api/ai-agent',route=>{analyses.push(route.request().postDataJSON());return route.fulfill({json:{reply:JSON.stringify({obraId:'b',necessidade:'2026-10-30',itens:[{descricao:'CIMENTO CP II',quantidade:7,unidade:'UN'}],observacao:'Entregar no almoxarifado',alertas:[]})}});});
+ await page.route('**/api/microsoft/onedrive',route=>{uploads++;return route.fulfill({status:uploads===1?503:200,json:uploads===1?{error:'Drive indisponível'}:{url:'https://example.test/print.png',item:{id:'qa-print'},path:'Compras/print.png'}});});
+ await page.getByRole('button',{name:'Nova solicitação',exact:true}).click();const dialog=page.getByRole('dialog');
+ await dialog.getByLabel('Data necessária na obra *').fill('2026-10-29');
+ await dialog.getByRole('button',{name:'Colar pedido do WhatsApp',exact:true}).click();
+ const text=dialog.getByLabel('Texto do pedido ou print colado');
+ await text.fill('Bom dia, preciso de 7 UN de CIMENTO CP II. Entregar no almoxarifado.');
+ await text.evaluate(element=>{
+  const bytes=Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jY3sAAAAASUVORK5CYII='),c=>c.charCodeAt(0));
+  const clipboard=new DataTransfer();clipboard.items.add(new File([bytes],'print-conversa.png',{type:'image/png'}));
+  element.dispatchEvent(new ClipboardEvent('paste',{clipboardData:clipboard,bubbles:true,cancelable:true}));
+ });
+ await expect(dialog.getByRole('img',{name:'Print original do pedido'})).toBeVisible();
+ await dialog.getByRole('button',{name:'Analisar pedido',exact:true}).click();
+ const review=dialog.getByRole('region',{name:'Conferir leitura do pedido',exact:true});await expect(review).toContainText('CIMENTO CP II');
+ expect(app.commands).toHaveLength(0);expect(uploads).toBe(0);expect(analyses[0].imagens[0].dataUrl).toMatch(/^data:image\/png/);
+ await dialog.screenshot({path:test.info().outputPath(`pedido-colado-revisao-${width}.png`)});
+ await dialog.getByRole('button',{name:'Usar itens no rascunho',exact:true}).click();
+ await expect(dialog.getByLabel('Data necessária na obra *')).toHaveValue('2026-10-29');
+ await expect(dialog.getByRole('combobox',{name:'Obra *',exact:true})).toHaveValue('a');
+ await expect(dialog.getByLabel('Quantidade de compra *')).toHaveValue('7');
+ await expect(dialog.getByRole('button',{name:'Colar pedido do WhatsApp',exact:true})).toHaveCount(0);
+ await dialog.getByText('Pedido original da conversa',{exact:true}).click();
+ await expect(dialog).toContainText('Bom dia, preciso de 7 UN de CIMENTO CP II. Entregar no almoxarifado.');
+ await expect(dialog.getByLabel('Texto do pedido ou print colado')).toHaveCount(0);
+ await dialog.screenshot({path:test.info().outputPath(`pedido-colado-original-${width}.png`)});
+ const submit=dialog.getByRole('button',{name:'Formalizar e enviar para Compras'});
+ await submit.click();await expect(page.getByText(/Drive indisponível/).first()).toBeVisible();expect(app.commands).toHaveLength(0);
+ await submit.click();await expect(dialog.locator('.purchase-save-state')).toContainText('Falha');
+ await submit.click();await expect(dialog).not.toBeVisible();expect(uploads).toBe(2);
+ const saved=app.state().solicitacoesCompra.find(s=>s.origemMensagem?.texto?.startsWith('Bom dia'));
+ expect(saved).toMatchObject({obraId:'a',necessidade:'2026-10-29',status:'enviada',origemMensagem:{imagem:{url:'https://example.test/print.png'}}});
+ expect(saved.itens[0]).toMatchObject({materialId:'cement',quantidade:7});expect(saved.origemMensagem.imagem.dataUrl).toBeUndefined();
+ expect(app.state().materiais).toHaveLength(2);expect(app.state().pedidos).toHaveLength(3);
+ await page.reload();await openPurchases(page);await navigate(page,'Solicitar');await expect(page.getByText('Pedido original da conversa').first()).toBeVisible();
+ expect(app.errors).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+});
+
+test('pedido colado: falha de IA mantém texto e dados ausentes impedem formalização',async({page})=>{
+ const app=await enter(page);await selectWork(page);let attempts=0;
+ await page.route('**/api/ai-agent',route=>{attempts++;return route.fulfill({status:attempts===1?503:200,json:attempts===1?{error:'IA temporariamente indisponível'}:{reply:JSON.stringify({itens:[{descricao:'AREIA',quantidade:null,unidade:''}],alertas:['Conferir quantidade e unidade']})}});});
+ await page.getByRole('button',{name:'Nova solicitação',exact:true}).click();const dialog=page.getByRole('dialog');
+ await dialog.getByLabel('Data necessária na obra *').fill('2026-10-29');
+ await dialog.getByRole('button',{name:'Colar pedido do WhatsApp',exact:true}).click();
+ const text=dialog.getByLabel('Texto do pedido ou print colado');await text.fill('Preciso de areia');
+ const analyze=dialog.getByRole('button',{name:'Analisar pedido',exact:true});await analyze.click();
+ await expect(dialog.getByRole('alert')).toContainText('IA temporariamente indisponível');await expect(text).toHaveValue('Preciso de areia');
+ await analyze.click();await expect(dialog).toContainText('Quantidade a conferir');await expect(dialog).toContainText('Unidade a conferir');
+ await dialog.getByRole('button',{name:'Usar itens no rascunho',exact:true}).click();
+ await dialog.getByRole('button',{name:'Formalizar e enviar para Compras'}).click();
+ await expect(dialog.getByLabel('Quantidade de compra *')).toHaveAttribute('aria-invalid','true');expect(app.commands).toHaveLength(0);
+});

@@ -1,4 +1,5 @@
 import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
+import MessageRequestImport,{MessageRequestSource} from './MessageRequestImport.jsx';
 import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
@@ -229,6 +230,7 @@ function ModalSolicitacaoCompra({form,setForm,onSave,basesReferencia=[],obras=[]
   const resumo=purchaseRequestSummary(form);
   return <Modal title={form.id?`Editar solicitação ${form.numero||""}`:"Solicitar materiais para Compras"} onClose={fechar} wide panelClass="purchase-request-modal"><div className="purchase-request-flow"><fieldset className="purchase-request-fields" disabled={salvando}>
     {form.planningOrigin&&<section className="purchase-request-origin" aria-label="Origem no planejamento"><strong>Planejamento · {form.planningOrigin.taskName}</strong><p>Obra e data vieram do cronograma. Confirme as quantidades abaixo após conferir o estoque e os pedidos existentes; a referência corresponde à etapa inteira.</p>{form.planningOrigin.excludedCount>0&&<p>{form.planningOrigin.excludedCount} linha(s) sem vínculo ou unidade confirmados não foram incluídas. Revise no orçamento.</p>}</section>}
+    <MessageRequestImport form={form} setForm={setForm} obras={obras} materiais={data?.materiais||[]} disabled={salvando}/>
     <section className="purchase-request-section"><header><span>1</span><div><h3>Contexto da solicitação</h3><p>Defina onde e quando os materiais precisam chegar.</p></div></header>
     <div className="purchase-request-context" style={{gridTemplateColumns:formGrid(3)}}>
       <div><Sel label="Obra *" value={form.obraId} onChange={trocarObra} options={obras.map(o=>({v:o.id,l:o.name}))}/>{erros.fieldErrors?.obraId&&<small className="purchase-request-error" role="alert">{erros.fieldErrors.obraId}</small>}</div>
@@ -1125,6 +1127,26 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
     }
 
     const solicitacaoId=f.id||uid();
+    let origemMensagem=f.origemMensagem||null;
+    if(origemMensagem?.imagem?.dataUrl){
+      const imagem=origemMensagem.imagem;
+      if(!imagem.url||imagem.obraId!==f.obraId){
+        const obra=obras.find(o=>o.id===f.obraId);
+        try{
+          const uploaded=await enviarArquivoOneDrive({dataUrl:imagem.dataUrl,obraId:f.obraId,obraName:obra?.name||'Obra',
+            driveId:obra?.oneDriveDriveId,folderId:obra?.oneDriveFolderId,folders:obra?.oneDriveFolders,
+            category:'compras',subfolder:'Solicitações/Conversas',date:today(),fileName:`${imagem.uploadKey||solicitacaoId}-${imagem.nome}`});
+          if(!uploaded.ok)throw new Error(uploaded.error||'O Drive não confirmou o envio do print.');
+          const confirmada={...imagem,url:uploaded.url,itemId:uploaded.item?.id||'',driveId:uploaded.driveId||'',path:uploaded.path||'',obraId:f.obraId};
+          origemMensagem={...origemMensagem,imagem:confirmada};
+          const uploadedSource=origemMensagem;
+          setSolModal(current=>current?{...current,origemMensagem:uploadedSource}:current);
+        }catch(error){showToast(`${error.message} A solicitação permanece aberta. Tente novamente; o original ainda não foi salvo.`,'error');return false;}
+      }
+      const {dataUrl:localImage,...storedImage}=origemMensagem.imagem;
+      void localImage;
+      origemMensagem={...origemMensagem,imagem:storedImage};
+    }
     const materiaisAtualizados=[...(data.materiais||[])];
     const itens=itensInformados.map(item=>{
       let material=localizarMaterialSolicitado(item,materiaisAtualizados);
@@ -1163,7 +1185,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
       formalizadoPorId:anterior?.formalizadoPorId||currentUser?.id||"",
       formalizadoPor:anterior?.formalizadoPor||currentUser?.nome||"Engenharia",
       necessidade:f.necessidade||"",prioridade:f.prioridade||"normal",status:anterior?.status||"enviada",
-      planningOrigin:f.planningOrigin||null,observacao:f.observacao||"",analisadoEm:anterior?.analisadoEm||"",
+      planningOrigin:f.planningOrigin||null,origemMensagem,observacao:f.observacao||"",analisadoEm:anterior?.analisadoEm||"",
       analisadoPor:anterior?.analisadoPor||"",pedidoId:anterior?.pedidoId||"",
       cotacaoIds:anterior?.cotacaoIds||[],aprovacaoInstanciaId:anterior?.aprovacaoInstanciaId||"",itens};
     const solicitacoesCompraBase=f.id
@@ -2310,6 +2332,7 @@ export default function Compras({ data, update, showToast, currentUser, obraIdFi
               Enviado para {sol.contatos.length} fornecedor(es): {sol.contatos.map(c=>c.fornecedorNome).filter(Boolean).join(", ")}
             </p>}
             {pedido&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-success-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Vinculada ao pedido {pedido.numero}</p>}
+            <MessageRequestSource source={sol.origemMensagem}/>
             <PurchaseRecordFlow data={data} type="request" record={sol} onOpen={abrirVinculoCompra}/>
             <div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)",flexWrap:"wrap"}}>
               {["enviada","em_analise"].includes(sol.status)&&(podeProcessar||sol.solicitanteId===currentUser?.id)&&<Btn size="sm" v="ghost" onClick={()=>setSolModal({...sol,itens:(sol.itens||[]).map(i=>({...i,quantidade:String(i.quantidade||"")}))})}>EDITAR SOLICITAÇÃO</Btn>}
