@@ -465,3 +465,11 @@ Primeira migração: Financeiro e Compras reutilizam controles, tipografia e esp
 - Indicadores, blocos de formulário, gráficos e estados vazios usam a mesma hierarquia de superfícies, bordas e tipografia. Estados semânticos continuam distinguindo atraso, erro, aviso e conclusão.
 - Modo TV preserva a escala para leitura à distância. Documentos impressos também conservam suas receitas próprias. Essas exceções não justificam divergências nas telas operacionais.
 - Detalhes da aplicação e evidências: docs/PADRAO-MODULOS-ERP-20261101.md.
+
+## Obras, Orçamento, Planejamento e Pessoas — 01/11/2026
+
+A segunda migração está documentada em `docs/MIGRACAO-OBRAS-PESSOAS-20261101.md`. Aplica os controles e papéis semânticos existentes às telas operacionais e seus apoios de arquivos, projetos, conferência e licenciamento. A baseline diminuiu em 2.797 ocorrências diretas; isto não certifica todo o CSS nem elimina o legado dos demais módulos.
+
+Células de planilha usam os controles compartilhados sem um novo campo com rótulo ao redor. Altura, entrelinha, padding e tamanho de texto da grade vêm de `--arcd-sheet-*` em `foundations.js`. A descrição continua crescendo com o conteúdo. Comandos mantêm os alvos comuns; no celular, grades largas rolam dentro do próprio painel. Estados do ponto usam RecordAction e cores semânticas da situação, sem perder o significado de Presente, Meio dia ou Falta.
+
+FilePicker aceita `inputProps` para recursos nativos como `capture`, rótulo acessível e reinicialização. Não substituir por outro seletor de arquivos próprio do módulo. A busca de Obras usa uma única borda no Input e acompanha a rolagem da página, sem uma camada fixa sobre o conteúdo. Impressão e modo TV mantêm receitas específicas.

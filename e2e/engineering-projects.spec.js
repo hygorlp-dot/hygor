@@ -78,6 +78,7 @@ for (const width of [1440, 390]) test(`projeto, cronômetro, links e revisões e
   await page.getByRole("button", { name: "Nova atividade", exact: true }).click();
   await page.getByLabel(/Título/).fill("Detalhamento das esquadrias");
   await page.getByRole("button", { name: "Salvar registro", exact: true }).click();
+  await page.getByLabel("Visualização das atividades", {exact:true}).selectOption("list");
   await expect(page.locator(".engineering-record").getByText("Detalhamento das esquadrias", { exact: true })).toBeVisible();
   await page.getByLabel("Atividade do cronômetro", { exact: true }).selectOption({ label: "Detalhamento das esquadrias" });
   await page.getByLabel("Nota da sessão", { exact: true }).fill("Executivo de arquitetura");
@@ -122,6 +123,7 @@ for (const width of [1440, 390]) test(`projeto, cronômetro, links e revisões e
     await page.screenshot({ path: `artifacts/projetos/revisoes-${width}-viewport.png` });
   }
   await page.getByRole("button", { name: "Todos os projetos", exact: true }).click();
+  await page.getByLabel("Visualização da carteira", {exact:true}).selectOption("list");
   await expect(page.locator(".engineering-project-row")).toContainText("01:20:00");
   await page.getByLabel("Buscar projetos", { exact: true }).fill("inexistente");
   await expect(page.getByText("Nenhum projeto com estes filtros")).toBeVisible();
@@ -170,7 +172,9 @@ test("mantém indicador e permite pausar ao navegar para outro módulo", async (
   await createProject(page);
   await page.getByRole("button", { name: "Iniciar cronômetro", exact: true }).click();
   await expect(page.getByRole("button", { name: "Pausar cronômetro", exact: true })).toBeVisible();
-  await page.locator(".arcd-sidebar").getByRole("button", { name: "Dashboard", exact: true }).click();
+  await page.keyboard.press('Control+k');
+  const search=page.getByPlaceholder('Buscar obra, lead, pedido, funcionário, tela...');
+  await search.fill('Dashboard');await search.locator('xpath=../..').getByRole('button',{name:'Tela Dashboard abrir tela',exact:true}).first().click();
   const banner = page.getByRole("complementary", { name: "Cronômetro ativo", exact: true });
   await expect(banner).toContainText("Casa Portugal");
   await page.clock.setFixedTime(new Date("2026-10-31T12:15:00.000Z"));
@@ -186,6 +190,7 @@ test("carteira de engenharia mostra somente a obra autorizada", async ({ page })
     const project = { responsibleId: PROFILE.id, plannedHours: 0, stage: "Executivo", discipline: "Arquitetura", status: "ativo", sessions: [], links: [], revisions: [] };
     state.engineeringProjects = [{ ...project, id: "pa", name: "Projeto autorizado", obraId: "a" }, { ...project, id: "pb", name: "Projeto confidencial", obraId: "b" }, { ...project, id: "office", name: "Projeto de escritório", obraId: "" }];
   } });
+  await page.getByLabel("Visualização da carteira", {exact:true}).selectOption("list");
   await expect(page.locator(".engineering-project-row")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Projeto autorizado", exact: true })).toBeVisible();
   await expect(page.getByText("Projeto confidencial", { exact: true })).toHaveCount(0);

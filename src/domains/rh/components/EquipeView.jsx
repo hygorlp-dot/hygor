@@ -1,3 +1,6 @@
+import {SelectControl} from '../../../design-system/primitives/Select.jsx';
+import {Button as StandardButton} from '../../../components/ui/button.jsx';
+import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import { PageHeader } from "../../../design-system/patterns/PageHeader";
 import { laborArea } from "../labor-area.js";
 import WorkScheduleFields from "./WorkScheduleFields.jsx";
@@ -392,14 +395,14 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
   const lifecycleColor={ativo:C.green,desligamento_agendado:C.orange,desligado:C.muted,arquivado:C.red};
 
   return (
-    <div className="anim people-workspace" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="anim people-workspace" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
       <PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header"
         title="Equipes"
         description="Pessoas, lotação e dados trabalhistas em uma visão única."
         primaryAction={podeGerenciarEquipe?<Btn onClick={() => { setForm({ ...emptyEmp, obra: obraIdFixo||data.obras[0]?.id || "" }); setFormErrors({}); setModal(true); }}><Ic n="plus" /> Cadastrar funcionário</Btn>:null}
       />
 
-      <label className="team-status-select">Situação da equipe<select value={statusFilter} onChange={event=>setStatusFilter(event.target.value)}>{[["ativo","Ativos"],["desligamento_agendado","Agendados"],["desligado","Desligados"],["arquivado","Arquivados"],["todos","Todas as situações"]].map(([v,l])=><option key={v} value={v}>{l} · {v==="todos"?(data.employees||[]).length:lifecycleCounts[v]||0}</option>)}</select></label>
+      <label className="team-status-select">Situação da equipe<SelectControl value={statusFilter} onChange={event=>setStatusFilter(event.target.value)}>{[["ativo","Ativos"],["desligamento_agendado","Agendados"],["desligado","Desligados"],["arquivado","Arquivados"],["todos","Todas as situações"]].map(([v,l])=><option key={v} value={v}>{l} · {v==="todos"?(data.employees||[]).length:lifecycleCounts[v]||0}</option>)}</SelectControl></label>
       <div className="team-summary" aria-label="Resumo e filtros por situação">
         {[
           ["ativo","Ativos",lifecycleCounts.ativo||0],
@@ -407,8 +410,8 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
           ["desligado","Desligados",lifecycleCounts.desligado||0],
           ["arquivado","Arquivados",lifecycleCounts.arquivado||0],
           ["todos","Todas as situações",(data.employees||[]).length],
-        ].map(([value,label,count])=><button key={value} type="button" className={`team-summary__item${statusFilter===value?" is-active":""}`} onClick={()=>setStatusFilter(value)} aria-pressed={statusFilter===value}><span>{label}</span><strong>{count}</strong></button>)}
-        <button type="button" className={`team-summary__item${filterObra==="__sem_obra__"?" is-active":""}`} onClick={()=>{setFilterObra("__sem_obra__");setStatusFilter("ativo");}} aria-pressed={filterObra==="__sem_obra__"}><span>Sem lotação</span><strong>{semObra}</strong></button>
+        ].map(([value,label,count])=><StandardButton variant="secondary" key={value} type="button" className={`team-summary__item${statusFilter===value?" is-active":""}`} onClick={()=>setStatusFilter(value)} aria-pressed={statusFilter===value}><span>{label}</span><strong>{count}</strong></StandardButton>)}
+        <StandardButton variant="secondary" type="button" className={`team-summary__item${filterObra==="__sem_obra__"?" is-active":""}`} onClick={()=>{setFilterObra("__sem_obra__");setStatusFilter("ativo");}} aria-pressed={filterObra==="__sem_obra__"}><span>Sem lotação</span><strong>{semObra}</strong></StandardButton>
       </div>
 
       <div className="team-toolbar">
@@ -429,13 +432,13 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
         return (
           <article key={e.id} className={`team-row team-row--${lifecycle}`}>
             <div className="team-row__main">
-              <button type="button" className="team-row__employee" onClick={() => setExpandedId(exp ? null : e.id)} aria-expanded={exp} aria-controls={detailId}>
+              <RecordAction type="button" className="team-row__employee" onClick={() => setExpandedId(exp ? null : e.id)} aria-expanded={exp} aria-controls={detailId}>
                 <span className="team-row__initials">{e.name.split(/\s+/).slice(0,2).map(n=>n[0]).join("").toUpperCase()}</span><span><strong>{e.name}</strong><small>{podeGerenciarEquipe?`${fmt(e.dailyRate)}/dia`:"Dados trabalhistas restritos"}</small></span><Ic n={exp?"chevronUp":"chevronDown"} s={13}/>
-              </button>
+              </RecordAction>
               <span className="team-row__cell" data-label="Função">{e.role||"Não informada"}</span>
               <span className="team-row__cell" data-label="Lotação">{laborArea(e)==="central"?"Administração Central":(e.obra?obraName(e.obra):"Sem lotação")}</span>
               <span className="team-row__cell" data-label="Pendências">
-                <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-start"}}>
+                <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)",alignItems:"flex-start"}}>
                   {totalAdv>0&&<Badge color={C.red}>Adiant. {fmt(totalAdv)}</Badge>}
                   {compliance.expired.length>0&&<Badge color={C.orange}>{compliance.expired.length===1?"1 doc. vencido":`${compliance.expired.length} docs. vencidos`}</Badge>}
                   {totalAdv<=0&&compliance.expired.length===0&&<span className="team-row__none">Nenhuma</span>}
@@ -448,17 +451,17 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
             {exp && (
               <div id={detailId} className="team-row__detail">
                 <div className="team-detail-grid">
-                  <p style={{ color: C.subtle, fontSize: "var(--arcd-type-body)" }}>CPF: {e.cpf || "-"}</p>
-                  <p style={{ color: C.subtle, fontSize: "var(--arcd-type-body)" }}>Telefone: {e.phone || "-"}</p>
-                  <p style={{ color: C.subtle, fontSize: "var(--arcd-type-body)" }}>PIX: {e.pixKey || "-"}</p>
-                  <p style={{ color: C.subtle, fontSize: "var(--arcd-type-body)" }}>Admissão: {fmtDateFull(e.startDate)}</p>
-                  {e.endDate && <p style={{ color: lifecycle==="desligamento_agendado"?C.orange:C.red, fontSize: "var(--arcd-type-body)" }}>Último dia trabalhado: {fmtDateFull(e.endDate)}</p>}
-                  {e.terminationReason&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-body)"}}>Tipo: {e.terminationReason}</p>}
-                  {e.terminationNotes&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-body)"}}>Observações: {e.terminationNotes}</p>}
-                  {e.terminationRegisteredBy&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-body)"}}>Registrado por: {e.terminationRegisteredBy}</p>}
-                  {e.examExpiresAt&&<p style={{color:overdue(e.examExpiresAt,today())?C.red:C.subtle,fontSize:"var(--arcd-type-body)"}}>ASO (exame ocupacional): {fmtDateFull(e.examExpiresAt)}{overdue(e.examExpiresAt,today())?" · vencido":""}</p>}
+                  <p style={{ color: "var(--arcd-text-muted)", fontSize: "var(--arcd-type-body)" }}>CPF: {e.cpf || "-"}</p>
+                  <p style={{ color: "var(--arcd-text-muted)", fontSize: "var(--arcd-type-body)" }}>Telefone: {e.phone || "-"}</p>
+                  <p style={{ color: "var(--arcd-text-muted)", fontSize: "var(--arcd-type-body)" }}>PIX: {e.pixKey || "-"}</p>
+                  <p style={{ color: "var(--arcd-text-muted)", fontSize: "var(--arcd-type-body)" }}>Admissão: {fmtDateFull(e.startDate)}</p>
+                  {e.endDate && <p style={{ color: lifecycle==="desligamento_agendado"?"var(--arcd-warning-text)":"var(--arcd-danger-text)", fontSize: "var(--arcd-type-body)" }}>Último dia trabalhado: {fmtDateFull(e.endDate)}</p>}
+                  {e.terminationReason&&<p style={{color:"var(--arcd-text-muted)",fontSize:"var(--arcd-type-body)"}}>Tipo: {e.terminationReason}</p>}
+                  {e.terminationNotes&&<p style={{color:"var(--arcd-text-muted)",fontSize:"var(--arcd-type-body)"}}>Observações: {e.terminationNotes}</p>}
+                  {e.terminationRegisteredBy&&<p style={{color:"var(--arcd-text-muted)",fontSize:"var(--arcd-type-body)"}}>Registrado por: {e.terminationRegisteredBy}</p>}
+                  {e.examExpiresAt&&<p style={{color:overdue(e.examExpiresAt,today())?"var(--arcd-danger-text)":"var(--arcd-text-muted)",fontSize:"var(--arcd-type-body)"}}>ASO (exame ocupacional): {fmtDateFull(e.examExpiresAt)}{overdue(e.examExpiresAt,today())?" · vencido":""}</p>}
                   {WORKER_TRAINING_TYPES.filter(t=>e.trainings?.[t.key]?.expiresAt).map(t=>(
-                    <p key={t.key} style={{color:overdue(e.trainings[t.key].expiresAt,today())?C.red:C.subtle,fontSize:"var(--arcd-type-body)"}}>{t.label}: {fmtDateFull(e.trainings[t.key].expiresAt)}{overdue(e.trainings[t.key].expiresAt,today())?" · vencido":""}</p>
+                    <p key={t.key} style={{color:overdue(e.trainings[t.key].expiresAt,today())?"var(--arcd-danger-text)":"var(--arcd-text-muted)",fontSize:"var(--arcd-type-body)"}}>{t.label}: {fmtDateFull(e.trainings[t.key].expiresAt)}{overdue(e.trainings[t.key].expiresAt,today())?" · vencido":""}</p>
                   ))}
                 </div>
 
@@ -471,20 +474,20 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 </div>}
 
                 <Divider />
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <p style={{ color: C.yellow, fontFamily:"var(--arcd-font-sans)", fontWeight:600, textTransform: "uppercase" }}>Adiantamentos</p>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--arcd-space-2)" }}>
+                  <p style={{ color: "var(--arcd-action-primary)", fontFamily:"var(--arcd-font-sans)", fontWeight:"var(--arcd-font-weight-semibold)", textTransform: "uppercase" }}>Adiantamentos</p>
                   {podeGerenciarEquipe&&<Btn v="warning" size="sm" onClick={() => setAdvModal(e.id)}><Ic n="plus" /> Novo</Btn>}
                 </div>
-                {advs.length === 0 && <p style={{ color: C.muted, fontSize: "var(--arcd-type-body)" }}>Nenhum adiantamento.</p>}
+                {advs.length === 0 && <p style={{ color: "var(--arcd-text-secondary)", fontSize: "var(--arcd-type-body)" }}>Nenhum adiantamento.</p>}
                 {advs.map(a => (
-                  <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.border}`, padding: "7px 0",opacity:advanceActive(a)?1:.55 }}>
+                  <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--arcd-border-default)", padding: "var(--arcd-space-2) var(--arcd-space-0)",opacity:advanceActive(a)?1:.55 }}>
                     <div>
-                      <p style={{ fontWeight:600, fontSize: "var(--arcd-type-body)" }}>{a.description}</p>
-                      <p style={{ color: C.muted, fontSize:"var(--arcd-type-label)" }}>{fmtDateFull(a.date)} · {a.installmentCount||1}x {a.frequency==="mensal"?"mensal":"quinzenal"}{!advanceActive(a)?" · cancelado":""}</p>
-                      {advanceActive(a)&&(a.installments||[]).length>0&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-label)",marginTop:2}}>{a.installments.map(item=>`${item.number}ª ${fmt(item.amount)} em ${fmtDate(item.dueDate)}`).join(" · ")}</p>}
+                      <p style={{ fontWeight:"var(--arcd-font-weight-semibold)", fontSize: "var(--arcd-type-body)" }}>{a.description}</p>
+                      <p style={{ color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>{fmtDateFull(a.date)} · {a.installmentCount||1}x {a.frequency==="mensal"?"mensal":"quinzenal"}{!advanceActive(a)?" · cancelado":""}</p>
+                      {advanceActive(a)&&(a.installments||[]).length>0&&<p style={{color:"var(--arcd-text-muted)",fontSize:"var(--arcd-type-label)",marginTop:"var(--arcd-space-half)"}}>{a.installments.map(item=>`${item.number}ª ${fmt(item.amount)} em ${fmtDate(item.dueDate)}`).join(" · ")}</p>}
                     </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <span style={{ color: C.red, fontWeight:600 }}>{fmt(a.amount)}</span>
+                    <div style={{ display: "flex", gap: "var(--arcd-space-2)", alignItems: "center" }}>
+                      <span style={{ color: "var(--arcd-danger-text)", fontWeight:"var(--arcd-font-weight-semibold)" }}>{fmt(a.amount)}</span>
                       {podeGerenciarEquipe&&advanceActive(a)&&<Btn v="danger" size="sm" ariaLabel={`Cancelar adiantamento ${a.description}`} title={`Cancelar adiantamento ${a.description}`} onClick={() => removeAdv(a)}><Ic n="trash" /></Btn>}
                     </div>
                   </div>
@@ -498,19 +501,19 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
       {modal && (
         <Modal title={form.id ? "Editar funcionário" : "Novo funcionário"} onClose={() => {if(!savingEmployee)setModal(false);}} wide panelClass="employee-edit-modal" footer={<><p className="employee-edit-feedback" role={employeeSaveError?'alert':'status'}>{employeeSaveError||(savingEmployee?'Salvando funcionário…':'')}</p><div className="employee-edit-actions"><Btn v="ghost" disabled={savingEmployee} onClick={()=>setModal(false)}>Cancelar</Btn><Btn disabled={savingEmployee} onClick={saveEmp}><Ic n="check"/> {savingEmployee?'Salvando…':'Salvar'}</Btn></div></>}>
           <fieldset disabled={savingEmployee} style={{border:0,padding:0,margin:0,minWidth:0}} aria-label="Dados do funcionário">
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-4)" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
               <p style={TYPO.eyebrow}>Identificação</p>
-              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: "var(--arcd-space-3)" }}>
                 <div style={{ gridColumn: "1/-1" }}><Inp label="Nome completo *" value={form.name} onChange={F("name")} inputRef={nameInputRef} error={formErrors.name}/></div>
                 <Inp label="Função" value={form.role} onChange={F("role")} />
                 <Inp label="CPF" value={form.cpf} onChange={v => F("cpf")(fmtCPF(v))} />
                 <Inp label="Telefone" value={form.phone} onChange={v => F("phone")(fmtPhone(v))} />
               </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
               <p style={TYPO.eyebrow}>Lotação</p>
-              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: "var(--arcd-space-3)" }}>
                 <Sel label="Área de atuação" value={form.workArea||"campo"} onChange={value=>setForm(current=>({...current,workArea:value,...(value==="administrativo"?{obra:""}:{})}))} options={[{v:"campo",l:"Campo / obra"},{v:"administrativo",l:"Administração Central"}]}/>
                 <Inp label="Admissão *" type="date" value={form.startDate} onChange={F("startDate")} error={formErrors.startDate}/>
                 {form.workArea!=="administrativo"
@@ -518,9 +521,9 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                   :<Inp label="Lotação" value="Administração Central" onChange={()=>{}} disabled/>}
               </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
               <p style={TYPO.eyebrow}>Remuneração</p><p className="employee-edit-hint">Valores cadastrados são mantidos, inclusive zero. Dados salvos no perfil do holerite são reaproveitados. Salário mensal, matrícula e CBO sem registro ficam em branco; a diária não é convertida em salário mensal.</p>
-              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: "var(--arcd-space-3)" }}>
                 <Sel label="Modalidade de remuneração" value={form.remunerationMode||"daily"} onChange={v=>setForm(f=>({...f,remunerationMode:v,remunerationEffectiveFrom:today()}))} options={[{v:"daily",l:"Diária"},{v:"clt",l:"CLT mensal"},{v:"mei",l:"MEI · valor fixo mensal"}]}/>
                 {(!form.id||(form.remunerationMode||"daily")!==(data.employees.find(e=>e.id===form.id)?.remunerationMode||"daily"))?<Inp label="Modalidade válida a partir de" type="date" value={form.remunerationEffectiveFrom||""} onChange={F("remunerationEffectiveFrom")}/>:<p className="employee-edit-hint">Modalidade atual preservada. Para mudar, selecione outra modalidade e informe a vigência.</p>}
                 {form.remunerationMode==="mei"?<>
@@ -540,21 +543,21 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
                 <Inp label="Adicional de hora extra (%)" type="number" min="0" value={form.overtimeAdditionalPercent} onChange={F("overtimeAdditionalPercent")} />
                 </>}
               </div>
-              {form.remunerationMode==="mei"&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-label)"}}>O MEI recebe metade do valor mensal em cada quinzena, junto com a folha, proporcional aos dias de contrato. Não bate ponto, não tem encargos, VT ou VR, e o custo vai para a obra de lotação.</p>}
-              {form.remunerationMode==="clt"&&<p style={{color:C.subtle,fontSize:"var(--arcd-type-label)"}}>O salário contratual alimenta o holerite mensal. A diária de referência mantém o custeio dos apontamentos no DRE; não define o salário CLT nem representa um novo pagamento. Alterar a modalidade não recalcula folhas anteriores.</p>}
+              {form.remunerationMode==="mei"&&<p style={{color:"var(--arcd-text-muted)",fontSize:"var(--arcd-type-label)"}}>O MEI recebe metade do valor mensal em cada quinzena, junto com a folha, proporcional aos dias de contrato. Não bate ponto, não tem encargos, VT ou VR, e o custo vai para a obra de lotação.</p>}
+              {form.remunerationMode==="clt"&&<p style={{color:"var(--arcd-text-muted)",fontSize:"var(--arcd-type-label)"}}>O salário contratual alimenta o holerite mensal. A diária de referência mantém o custeio dos apontamentos no DRE; não define o salário CLT nem representa um novo pagamento. Alterar a modalidade não recalcula folhas anteriores.</p>}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
               <p style={TYPO.eyebrow}>PIX</p>
-              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: "var(--arcd-space-3)" }}>
                 <Inp label="Instruções de pagamento (se não usar PIX)" value={form.paymentInstructions||""} onChange={F("paymentInstructions")}/>
                 <Inp label="Tipo PIX" value={form.pixType} onChange={F("pixType")} />
                 <Inp label="Titular PIX" value={form.pixHolder} onChange={F("pixHolder")} />
                 <div style={{ gridColumn: "1/-1" }}><Inp label="Chave PIX" value={form.pixKey} onChange={F("pixKey")} /></div>
               </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
               <p style={TYPO.eyebrow}>Documentos e certificações</p>
-              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns:formGrid(2), gap: "var(--arcd-space-3)" }}>
                 <Inp label="Validade do ASO (exame ocupacional)" type="date" value={form.examExpiresAt} onChange={F("examExpiresAt")} />
                 {WORKER_TRAINING_TYPES.map(t => (
                   <Inp key={t.key} label={`Validade ${t.label}`} type="date" value={form.trainings?.[t.key]?.expiresAt || ""} onChange={setTraining(t.key)} />
@@ -570,10 +573,10 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
         const openAdvances=empAdvances(dismissalModal.id).filter(advanceActive);
         const openAdvanceTotal=openAdvances.reduce((sum,item)=>sum+Number(item.amount||0),0);
         return <Modal title={dismissalModal.status==="desligamento_agendado"?"Corrigir desligamento":"Registrar desligamento"} onClose={()=>setDismissalModal(null)}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{border:`1px solid ${C.red}55`,background:`${C.red}0A`,padding:"11px 12px",borderRadius:8}}>
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{dismissalModal.name}</p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>{dismissalModal.role||"Função não informada"} · {dismissalModal.workArea==="administrativo"?"Administração Central":obraName(dismissalModal.obra)}</p>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+            <div style={{border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)",padding:"var(--arcd-space-3)",borderRadius:8}}>
+              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{dismissalModal.name}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{dismissalModal.role||"Função não informada"} · {dismissalModal.workArea==="administrativo"?"Administração Central":obraName(dismissalModal.obra)}</p>
             </div>
             <Inp label="Último dia trabalhado *" type="date" min={dismissalModal.startDate} value={dismissalForm.endDate} onChange={value=>setDismissalForm(form=>({...form,endDate:value}))}/>
             <Sel label="Tipo de desligamento *" value={dismissalForm.reason} onChange={value=>setDismissalForm(form=>({...form,reason:value}))} options={[
@@ -584,12 +587,12 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
               {v:"outro",l:"Outro motivo"},
             ]}/>
             <Inp label={dismissalForm.reason==="outro"?"Observações *":"Observações"} value={dismissalForm.notes} onChange={value=>setDismissalForm(form=>({...form,notes:value}))} multiline placeholder="Aviso-prévio, documentos pendentes ou referência interna"/>
-            {openAdvanceTotal>0&&<div style={{border:`1px solid ${C.orange}66`,background:`${C.orange}0A`,padding:"9px 10px",borderRadius:7}}>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>Atenção: existem {openAdvances.length} adiantamento(s), totalizando {fmt(openAdvanceTotal)}.</p>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Os lançamentos serão preservados para conferência no acerto da rescisão.</p>{onTab&&<Btn v="ghost" size="sm" onClick={()=>{setDismissalModal(null);onTab("resc");}}>Ir para Rescisões</Btn>}
+            {openAdvanceTotal>0&&<div style={{border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)",background:"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)",padding:"var(--arcd-space-2)",borderRadius:7}}>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>Atenção: existem {openAdvances.length} adiantamento(s), totalizando {fmt(openAdvanceTotal)}.</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Os lançamentos serão preservados para conferência no acerto da rescisão.</p>{onTab&&<Btn v="ghost" size="sm" onClick={()=>{setDismissalModal(null);onTab("resc");}}>Ir para Rescisões</Btn>}
             </div>}
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>A data informada é inclusiva. O funcionário permanece na folha e no ponto até o último dia trabalhado e sai a partir do dia seguinte. Datas futuras ficam agendadas. Todo o histórico é preservado.</p>
-            <div style={{display:"flex",gap:8}}><Btn v="ghost" full onClick={()=>setDismissalModal(null)}>Cancelar</Btn><Btn v="danger" full loading={pendingAction==="dismissal"} onClick={confirmDismissal}><Ic n="check"/> Confirmar desligamento</Btn></div>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>A data informada é inclusiva. O funcionário permanece na folha e no ponto até o último dia trabalhado e sai a partir do dia seguinte. Datas futuras ficam agendadas. Todo o histórico é preservado.</p>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" full onClick={()=>setDismissalModal(null)}>Cancelar</Btn><Btn v="danger" full loading={pendingAction==="dismissal"} onClick={confirmDismissal}><Ic n="check"/> Confirmar desligamento</Btn></div>
           </div>
         </Modal>;
       })()}
@@ -602,23 +605,23 @@ function Equipe({ data, update, showToast, obraIdFixo="", dispatchCommand, curre
 
       {advModal && (
         <Modal title="Solicitar ou registrar adiantamento" onClose={() => setAdvModal(null)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
             <Inp label="Valor *" type="number" value={advForm.amount} onChange={v => setAdvForm(f => ({ ...f, amount: v }))} />
             <Inp label="Descrição" value={advForm.description} onChange={v => setAdvForm(f => ({ ...f, description: v }))} />
             <Inp label="Data da solicitação/liberação" type="date" value={advForm.date} onChange={v => setAdvForm(f => ({ ...f, date: v }))} />
-            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:8}}>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
               <Inp label="Quantidade de parcelas" type="number" min="1" max="24" value={advForm.installmentCount} onChange={v=>setAdvForm(f=>({...f,installmentCount:v}))}/>
               <Sel label="Frequência do desconto" value={advForm.frequency} onChange={v=>setAdvForm(f=>({...f,frequency:v}))} options={[{v:"quinzenal",l:"A cada quinzena"},{v:"mensal",l:"Uma vez por mês"}]}/>
               <Inp label="Primeiro desconto na folha" type="date" value={advForm.firstDueDate} onChange={v=>setAdvForm(f=>({...f,firstDueDate:v}))}/>
             </div>
-            {Number(advForm.amount)>0&&Number(advForm.installmentCount)>0&&<div style={{padding:"9px 10px",background:C.surface,border:`1px solid ${C.border}`,borderRadius:6}}>
-              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Programação dos descontos</p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.text,marginTop:4,lineHeight:1.55}}>{buildAdvanceInstallments({
+            {Number(advForm.amount)>0&&Number(advForm.installmentCount)>0&&<div style={{padding:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6}}>
+              <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Programação dos descontos</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-1)",lineHeight:"var(--arcd-line-height-normal)"}}>{buildAdvanceInstallments({
                 advanceId:"previa",amount:Number(advForm.amount),installmentCount:Number(advForm.installmentCount),
                 firstDueDate:advForm.firstDueDate,frequency:advForm.frequency,
               }).map(item=>`${item.number}ª ${fmt(item.amount)} · ${fmtDate(item.dueDate)}`).join("  |  ")||"Informe uma data válida."}</p>
             </div>}
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: "var(--arcd-space-2)" }}>
               <Btn v="ghost" onClick={() => setAdvModal(null)} full>Cancelar</Btn>
               <Btn v="warning" onClick={saveAdv} full><Ic n="check" /> Confirmar parcelamento</Btn>
             </div>

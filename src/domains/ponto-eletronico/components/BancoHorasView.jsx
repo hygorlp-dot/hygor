@@ -1,3 +1,6 @@
+import {SelectControl} from '../../../design-system/primitives/Select.jsx';
+import {Button as StandardButton} from '../../../components/ui/button.jsx';
+import {Input as StandardInput} from '../../../components/ui/input.jsx';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {Btn, Ic} from "../../../legacy/ui.jsx";
@@ -136,15 +139,15 @@ function ExtratoFuncionario({ linha, nomeObra, voltar }) {
     {linha.pendencias?.length > 0 && <ul className="bh-pendencias">{linha.pendencias.map(p => <li key={p.codigo}>{p.mensagem}</li>)}</ul>}
     <EvolucaoSaldo linha={linha} selecionarDia={setDiaSelecionado} />
     {detalhe && <DetalheDia dia={detalhe} nomeObra={nomeObra} tituloRef={detalheRef} />}
-    <div className="bh-dias-heading"><h3>Dias do período</h3><label className="bh-campo"><span>Exibir dias</span><select value={filtroDia} onChange={e => setFiltroDia(e.target.value)}>
+    <div className="bh-dias-heading"><h3>Dias do período</h3><label className="bh-campo"><span>Exibir dias</span><SelectControl value={filtroDia} onChange={e => setFiltroDia(e.target.value)}>
       <option value="registros">Com registros</option><option value="pendentes">A conferir</option><option value="todos">Todos os dias</option>
-    </select></label></div>
+    </SelectControl></label></div>
     <div className="bh-table-scroll" tabIndex={0} role="region" aria-label="Tabela de dias do banco de horas">
       <table className="bh-table"><caption>Extrato diário de {linha.nome}. Horários de Recife.</caption><thead><tr>
         <th scope="col">Dia</th><th scope="col">Horas apuradas</th><th scope="col">Jornada</th><th scope="col">Variação</th><th scope="col">Acumulado</th><th scope="col">Situação</th>
       </tr></thead><tbody>{diasVisiveis.map(d => <tr key={d.data} data-selected={d.data === diaSelecionado ? "true" : undefined}>
-        <th scope="row"><button className="bh-text-button" type="button" aria-label={`Conferir dia ${diaLegivel(d.data)} de ${linha.nome}`} aria-pressed={d.data === diaSelecionado}
-          onClick={() => setDiaSelecionado(atual => atual === d.data ? "" : d.data)}>{diaLegivel(d.data)}</button></th>
+        <th scope="row"><StandardButton variant="secondary" className="bh-text-button" type="button" aria-label={`Conferir dia ${diaLegivel(d.data)} de ${linha.nome}`} aria-pressed={d.data === diaSelecionado}
+          onClick={() => setDiaSelecionado(atual => atual === d.data ? "" : d.data)}>{diaLegivel(d.data)}</StandardButton></th>
         <td>{minutosLegiveis(d.trabalhadosMinutos)}</td><td>{minutosLegiveis(d.previstosMinutos)}</td>
         <td data-tone={tomSaldo(d.saldoMinutos)}>{formatarSaldoMinutos(d.saldoMinutos)}</td><td>{formatarSaldoMinutos(d.acumuladoMinutos)}</td>
         <td>{d.situacao === "pendente" ? "A conferir · fora do saldo" : d.situacao === "sem_registro" ? "Sem registro · sem débito" : d.origem === "apropriacao" ? "Intervalos tratados" : "Pelas batidas"}{d.intervaloPadraoMinutos>0?' · almoço padrão 1h':''}{d.tolerancia?.status==='aplicada'?' · tolerância aplicada':''}{d.situacao === "considerado" && d.alertas.length > 0 ? " · com aviso" : ""}</td>
@@ -206,9 +209,9 @@ export default function BancoHorasView({ data, obraId, currentUser, dia }) {
       <span className="bh-periodo-atual">{diaLegivel(periodo.de)} a {diaLegivel(periodo.ate)}</span>
     </div>
     <form className="bh-periodo" onSubmit={consultar}>
-      <label className="bh-campo"><span>Início do período</span><input type="date" value={rascunho.de} onChange={e => setRascunho(p => ({ ...p, de: e.target.value }))} required aria-invalid={Boolean(erroPeriodo)} aria-describedby={erroPeriodo ? "bh-erro-periodo" : undefined} /></label>
-      <label className="bh-campo"><span>Fim do período</span><input type="date" value={rascunho.ate} onChange={e => setRascunho(p => ({ ...p, ate: e.target.value }))} required aria-invalid={Boolean(erroPeriodo)} aria-describedby={erroPeriodo ? "bh-erro-periodo" : undefined} /></label>
-      <button className="bh-primary" type="submit" disabled={emConsulta && !mudouRascunho}>{emConsulta && !mudouRascunho ? "Consultando…" : "Consultar período"}</button>
+      <label className="bh-campo"><span>Início do período</span><StandardInput type="date" value={rascunho.de} onChange={e => setRascunho(p => ({ ...p, de: e.target.value }))} required aria-invalid={Boolean(erroPeriodo)} aria-describedby={erroPeriodo ? "bh-erro-periodo" : undefined} /></label>
+      <label className="bh-campo"><span>Fim do período</span><StandardInput type="date" value={rascunho.ate} onChange={e => setRascunho(p => ({ ...p, ate: e.target.value }))} required aria-invalid={Boolean(erroPeriodo)} aria-describedby={erroPeriodo ? "bh-erro-periodo" : undefined} /></label>
+      <StandardButton variant="primary" className="bh-primary" type="submit" disabled={emConsulta && !mudouRascunho}>{emConsulta && !mudouRascunho ? "Consultando…" : "Consultar período"}</StandardButton>
       <div className="bh-atalhos" aria-label="Navegação entre meses">
         <Btn v="ghost" onClick={() => trocarPeriodo(periodoDoMes(periodo.de, -1))}><Ic n="chevL" /> Mês anterior</Btn>
         <Btn v="ghost" onClick={() => trocarPeriodo(periodoDoMes(dataLocal(new Date().toISOString())))}>Mês atual</Btn>
@@ -226,15 +229,15 @@ export default function BancoHorasView({ data, obraId, currentUser, dia }) {
         {!modelo.cobertura.completa && <p className="bh-error" role="alert">A cobertura da consulta está incompleta. O saldo ficará indisponível até receber todos os registros.</p>}
         {modelo.avisos.length > 0 && <ul className="bh-avisos">{modelo.avisos.map(a => <li key={a.codigo}>{a.mensagem}</li>)}</ul>}
         <div className="bh-filtros">
-          <label className="bh-campo"><span>Equipe</span><select value={abrangencia} onChange={e => setAbrangencia(e.target.value)}>
+          <label className="bh-campo"><span>Equipe</span><SelectControl value={abrangencia} onChange={e => setAbrangencia(e.target.value)}>
             <option value="obra">Da obra {nomeObra.get(String(obraId)) || "selecionada"}</option><option value="todos">Todas as obras</option>
-          </select></label>
-          <label className="bh-campo bh-funcionario"><span>Funcionário</span><select value={selecionado ? funcionarioId : ""} onChange={e => selecionarFuncionario(e.target.value)}>
+          </SelectControl></label>
+          <label className="bh-campo bh-funcionario"><span>Funcionário</span><SelectControl value={selecionado ? funcionarioId : ""} onChange={e => selecionarFuncionario(e.target.value)}>
             <option value="">Todos da equipe ({equipe.length})</option>{equipe.map(l => <option key={l.employeeId} value={l.employeeId}>{l.nome}</option>)}
-          </select></label>
-          {!selecionado && <label className="bh-campo"><span>Situação do saldo</span><select value={situacao} onChange={e => setSituacao(e.target.value)}>
+          </SelectControl></label>
+          {!selecionado && <label className="bh-campo"><span>Situação do saldo</span><SelectControl value={situacao} onChange={e => setSituacao(e.target.value)}>
             <option value="todos">Todas</option><option value="credito">Saldo positivo</option><option value="debito">Saldo negativo</option><option value="pendentes">Com pendências</option>
-          </select></label>}
+          </SelectControl></label>}
         </div>
         <p className="bh-nota">{abrangencia === "obra" ? "Equipe atual e funcionários com registros nesta obra no período. " : "Funcionários de todas as obras. "}O saldo de cada pessoa inclui seus registros nas demais obras.</p>
         <TotaisBanco resumo={resumo} individual={Boolean(selecionado)} />
@@ -242,12 +245,12 @@ export default function BancoHorasView({ data, obraId, currentUser, dia }) {
           {recurso.lastUpdated && <span> Consulta concluída em {new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO_OBRA, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(recurso.lastUpdated))}.</span>}
         </p>
         {selecionado ? <ExtratoFuncionario key={`${selecionado.employeeId}:${periodo.de}:${periodo.ate}`} linha={selecionado} nomeObra={nomeObra} voltar={() => selecionarFuncionario("")} /> : <section className="bh-equipe" aria-labelledby="bh-equipe-titulo">
-          <div className="bh-section-heading"><h3 id="bh-equipe-titulo">Saldo por funcionário</h3><label className="bh-campo bh-busca"><span>Buscar funcionário</span><input type="search" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Nome ou função" /></label></div>
+          <div className="bh-section-heading"><h3 id="bh-equipe-titulo">Saldo por funcionário</h3><label className="bh-campo bh-busca"><span>Buscar funcionário</span><StandardInput type="search" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Nome ou função" /></label></div>
           <div className="bh-table-scroll" tabIndex={0} role="region" aria-label="Tabela de saldo por funcionário">
             <table className="bh-table bh-table-equipe"><caption>Saldo estimado por funcionário de {diaLegivel(periodo.de)} a {diaLegivel(periodo.ate)}.</caption><thead><tr>
               <th scope="col">Funcionário</th><th scope="col">Jornada diária</th><th scope="col">Horas apuradas</th><th scope="col">Saldo estimado</th><th scope="col">Cobertura</th>
             </tr></thead><tbody>{linhasVisiveis.map(l => <tr key={l.employeeId}>
-              <th scope="row"><button className="bh-text-button" type="button" onClick={() => selecionarFuncionario(l.employeeId)} aria-label={`Ver extrato de ${l.nome}`}>{l.nome}</button><span className="bh-funcao">{l.funcao}</span></th>
+              <th scope="row"><StandardButton variant="secondary" className="bh-text-button" type="button" onClick={() => selecionarFuncionario(l.employeeId)} aria-label={`Ver extrato de ${l.nome}`}>{l.nome}</StandardButton><span className="bh-funcao">{l.funcao}</span></th>
               <td data-label="Jornada diária">{jornadaLegivel(l)}{l.fonteJornada==='escala'&&<span className="bh-funcao">Escala vigente por dia</span>}</td><td data-label="Horas apuradas">{l.diasConsiderados ? minutosLegiveis(l.trabalhadosMinutos) : "—"}</td>
               <td data-label="Saldo estimado" data-tone={tomSaldo(l.saldoMinutos)}>{formatarSaldoMinutos(l.saldoMinutos)}</td>
               <td data-label="Cobertura">{l.diasConsiderados} dia(s){l.diasPendentes > 0 ? ` · ${l.diasPendentes} a conferir` : ""}{!l.diasComRegistro ? " · sem registros" : ""}{l.jornadaMinutos==null&&!l.jornadasMinutos?.length ? " · jornada não cadastrada" : ""}{l.dias.some(d=>d.intervaloPadraoMinutos>0)?' · almoço padrão aplicado':''}{l.dias.some(d=>d.tolerancia?.status==='aplicada')?' · tolerância aplicada':''}</td>

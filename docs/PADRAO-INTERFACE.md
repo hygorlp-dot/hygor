@@ -52,3 +52,14 @@ Financeiro e Compras adotam os controles e tokens comuns; detalhes em `docs/MIGR
 Consolidação técnica com valores visuais e rótulos preservados. Fonte da ajuda e manual revisados; não há novos passos ou controles para o operador, por isso não foi necessário reescrever instruções. Manual regenerado para conferir sincronização. Tudo local, sem deploy. A capacidade de ajustar os tokens foi exercitada no navegador em Compras, no desktop e celular, sem editar o módulo.
 
 Validação local: 136 cenários da varredura do ERP, 14 cenários específicos e 8 cenários de temas aprovados. 59 testes de componentes, ajuda e verificador aprovados; os 5 testes do verificador foram repetidos após ampliar a leitura para JS/TS. Uma prova com arquivo JSX novo contendo botão próprio e tamanho fixo foi rejeitada pelo comando real; o arquivo temporário foi removido e a checagem voltou a passar. Lint, TypeScript, manual sincronizado e build aprovados; JS/CSS 1.742,57 KiB gzip, abaixo do teto de 1.748 KiB. A captura de Conciliação no desktop ficou idêntica, pixel a pixel, à captura anterior com os mesmos dados.
+
+## Segunda migração do legado
+
+Obras, Orçamento, Planejamento e Pessoas, incluindo seus apoios operacionais, seguem as mesmas receitas da primeira migração. Ver `docs/MIGRACAO-OBRAS-PESSOAS-20261101.md` para escopo, verificações e limites.
+
+- Planilhas: `--arcd-sheet-row-height`, `--arcd-sheet-line-height`, `--arcd-sheet-cell-padding` e `--arcd-sheet-type-body` ficam em `foundations.js`. Usar Input/TextareaControl na célula existente; conservar edição, autoexpansão e navegação. A densidade da célula não deve diminuir o alvo dos comandos no celular.
+- Ponto: situações e troca da obra do dia usam RecordAction. Cores representam a situação; não aplicar a aparência genérica de Salvar a essas células.
+- Arquivos: FilePicker conserva o evento original. Propriedades do input nativo, como `capture`, `aria-label`, `key` e `onClick` de reinicialização, passam por `inputProps`. Escolher um arquivo não equivale a salvar o formulário.
+- Busca composta: manter uma única superfície de campo e foco visível. Não empilhar uma moldura de controle ao redor de outro Input nem fixar filtros sobre as linhas da operação.
+
+Ajuda revisada para importação de planilha/PDF, anexos do diário, câmera/galeria, prontuário e edição do orçamento. Manual gerado da mesma fonte; mudanças estritamente visuais de espaçamento, foco e ícones não alteram os passos operacionais.

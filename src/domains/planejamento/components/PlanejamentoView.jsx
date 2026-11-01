@@ -1,3 +1,7 @@
+import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
+import {Input as StandardInput} from '../../../components/ui/input.jsx';
+import {Button as StandardButton} from '../../../components/ui/button.jsx';
+import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import PlanningPurchaseNeeds from "./PlanningPurchaseNeeds.jsx";
 import {podeAcessarAba} from "../../administracao/abas-acesso.js";
 import {useRememberWorkflowScope,useWorkflow} from "../../../features/workflow/WorkflowNavigation.jsx";
@@ -836,8 +840,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
   if (!obrasComOrc.length) {
     return (
       <div className="planning-workspace"><PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header" title="Planejamento" description="Cronograma e acompanhamento da execução por obra."/>
-        <p style={{ paddingTop:24, fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>Nenhuma obra com orçamento ou planejamento ainda</p>
-        <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
+        <p style={{ paddingTop:"var(--arcd-space-6)", fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>Nenhuma obra com orçamento ou planejamento ainda</p>
+        <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-1)", lineHeight: "var(--arcd-line-height-normal)" }}>
           O planejamento nasce do orçamento: cada etapa, mesmo em rascunho,
           pode virar uma tarefa no cronograma.
         </p>
@@ -846,15 +850,15 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
   }
 
   return (
-    <div className="anim planning-workspace" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="anim planning-workspace" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
       <PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header" title="Planejamento" description="Cronograma e acompanhamento da execução por obra." secondaryActions={<Btn v="ghost" onClick={()=>{setSupplyTaskId(current=>current||tarefas.find(t=>!t.titulo&&t.etapaId)?.id||"sem-etapa");requestAnimationFrame(()=>{const panel=document.querySelector(".planning-purchase-needs");panel?.scrollIntoView({block:"start"});panel?.focus({preventScroll:true});});}}>Materiais e compras</Btn>}/>
 
       {/* Cabecalho: seletor de obra + progresso geral */}
-      <div className="planning-toolbar" style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
+      <div className="planning-toolbar" style={{ display: "flex", flexWrap: "wrap", gap: "var(--arcd-space-2)", alignItems: "flex-end" }}>
         {!obraIdFixo&&<div style={{ flex: 1, minWidth: 180 }}>
           <Sel label="Obra" value={obraId} onChange={setObraId} options={obrasComOrc.map(obra=>({v:obra.id,l:obra.name}))}/>
         </div>}
-        <div role="group" aria-label="Escala e opções do cronograma" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap:"wrap" }}>
+        <div role="group" aria-label="Escala e opções do cronograma" style={{ display: "flex", gap: "var(--arcd-space-1)", alignItems: "center", flexWrap:"wrap" }}>
           {["dia", "semana", "mes"].map(z => (
             <Button key={z} variant="secondary" aria-pressed={zoom===z} onClick={() => setZoom(z)}>{{dia:"Dia",semana:"Semana",mes:"Mês"}[z]}</Button>
           ))}
@@ -862,25 +866,25 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
           <div style={{ position:"relative" }}>
             <Button variant="secondary" onClick={() => setColsCronoAberto(a=>!a)} title="Colunas da tabela" aria-expanded={colsCronoAberto}>Colunas</Button>
             {colsCronoAberto && (
-              <div style={{position:"absolute",top:"100%",right:0,marginTop:4,zIndex:30,
-                           background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:6,
-                           boxShadow:`0 8px 24px ${C.shadow}`,padding:"10px 12px",minWidth:180}}>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>Colunas do cronograma</p>
+              <div style={{position:"absolute",top:"100%",right:0,marginTop:"var(--arcd-space-1)",zIndex:30,
+                           background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderRadius:6,
+                           boxShadow:`0 8px 24px ${C.shadow}`,padding:"var(--arcd-space-2) var(--arcd-space-3)",minWidth:180}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Colunas do cronograma</p>
                 {[["inicio","Data inicio"],["fim","Data fim"],["dias","Dias trabalhados"],["custo","Custo"],["progresso","Progresso"],["antecessora","Antecessora"],["sucessora","Sucessora"]].map(([k,l])=>(
-                  <label key={k} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:C.text}}>
-                    <input type="checkbox" checked={!!colsCrono[k]}
+                  <label key={k} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>
+                    <ChoiceControl type="checkbox" checked={!!colsCrono[k]}
                       onChange={()=>setColsCrono(c=>({...c,[k]:!c[k]}))}
-                      style={{width:15,height:15,accentColor:C.yellowD,cursor:"pointer"}}/>
+                      style={{width:15,height:15,accentColor:"var(--arcd-action-primary)",cursor:"pointer"}}/>
                     {l}
                   </label>
                 ))}
-                <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:7,lineHeight:1.45,borderTop:`1px solid ${C.line}`,paddingTop:7}}>
+                <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)",borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}>
                   A coluna Atividade fica sempre visivel.
                 </p>
-                <label style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0 0",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:C.text,borderTop:`1px solid ${C.line}`,marginTop:7}}>
-                  <input type="checkbox" checked={planMostrarReal}
+                <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0) var(--arcd-space-0)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",borderTop:"1px solid var(--arcd-border-default)",marginTop:"var(--arcd-space-2)"}}>
+                  <ChoiceControl type="checkbox" checked={planMostrarReal}
                     onChange={()=>setPlanMostrarReal(v=>!v)}
-                    style={{width:15,height:15,accentColor:C.blue,cursor:"pointer"}}/>
+                    style={{width:15,height:15,accentColor:"var(--arcd-action-primary)",cursor:"pointer"}}/>
                   Mostrar linha "Realizado"
                 </label>
               </div>
@@ -889,15 +893,15 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         </div>
       </div>
       {orc&&planejamentoOrcamento.source!=="baseline"&&<div style={{
-        padding:"9px 11px",borderRadius:8,border:`1px solid ${C.orange}55`,
-        background:`${C.orange}0D`,color:C.text,fontSize:"var(--arcd-type-label)",lineHeight:1.5,
+        padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:8,border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",
+        background:"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-label)",lineHeight:"var(--arcd-line-height-normal)",
       }}>
-        <b style={{color:C.orange}}>Planejamento sobre orçamento em rascunho.</b>{" "}
+        <b style={{color:"var(--arcd-warning-text)"}}>Planejamento sobre orçamento em rascunho.</b>{" "}
         Etapas, custos e datas são preliminares. A aprovação financeira continua exigindo uma baseline explícita.
       </div>}
 
       {/* Resumo financeiro: o elo com o orcamento */}
-      <div className="planning-summary" style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: 8 }}>
+      <div className="planning-summary" style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: "var(--arcd-space-2)" }}>
         <MiniKpi label="Progresso" value={`${progresso.toFixed(0)}%`} cor={C.blue} />
         <MiniKpi label="Planejado" value={fmt(resumo.planejado)} cor={C.yellow} />
         <MiniKpi label="Executado" value={fmt(resumo.executado)} cor={C.green} />
@@ -912,13 +916,13 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         onPrepare={needs=>navigate?.("cmp",{obraId},{action:"planning-request",record:{obraId,taskId:needs.taskId,budgetId:needs.budgetId}})}
         onRequest={request=>navigate?.("cmp",{obraId},{action:"open-request",record:{requestId:request.id}})}/>}
 
-      <div className="planning-gantt" style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+      <div className="planning-gantt" style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
         <div className="planning-gantt-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-                      padding: "11px 14px", borderBottom: `1px solid ${C.line}` }}>
-          <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, textTransform: "uppercase", letterSpacing: .5 }}>
+                      padding: "var(--arcd-space-3)", borderBottom: "1px solid var(--arcd-border-default)" }}>
+          <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>
             Cronograma
           </p>
-          <details className="planning-tools"><summary>Ferramentas do cronograma</summary><div className="planning-tools__actions" style={{ display: "flex", gap: 6, flexWrap:"wrap", justifyContent:"flex-end" }}>
+          <details className="planning-tools"><summary>Ferramentas do cronograma</summary><div className="planning-tools__actions" style={{ display: "flex", gap: "var(--arcd-space-1)", flexWrap:"wrap", justifyContent:"flex-end" }}>
             <Btn v="ghost" size="sm" onClick={() => { setQuestIA(null); setQuestModal(true); }}>
               <Ic n="brain" s={13}/> Planejar IA
             </Btn>
@@ -945,25 +949,25 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
           </div></details>
         </div>
 
-        <details className="planning-legend"><summary>Legenda e orientações</summary><div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",padding:"6px 14px",
-                     borderBottom:`1px solid ${C.line}`,background:C.surface}}>
-          <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Legenda tecnica</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:C.text}}><i style={{display:"inline-block",width:9,height:9,background:`${C.red}22`,border:`1px solid ${C.red}55`,marginRight:4}}/>Nao trabalhado</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:C.text}}><i style={{display:"inline-block",width:9,height:9,background:`${C.blue}18`,border:`1px solid ${C.blue}55`,marginRight:4}}/>Fim de semana trabalhado</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:C.text}}><i style={{display:"inline-block",width:9,height:9,background:`${C.orange}45`,border:`1px solid ${C.orange}`,marginRight:4}}/>Feriado</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:C.text}}><i style={{display:"inline-block",height:10,borderLeft:`1px solid ${C.red}`,marginRight:5}}/>Hoje</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:C.text}}><i style={{display:"inline-block",width:9,height:9,background:`${C.orange}25`,border:`1px solid ${C.orange}`,marginRight:4}}/>Conflito de vinculo</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:C.text}}><i style={{display:"inline-block",width:12,height:8,background:C.red,marginRight:4,verticalAlign:"middle"}}/>Caminho crítico (folga zero)</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>Arraste a barra para mover · alças nas bordas ajustam início e fim</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}} title="Total de dias de atraso que o projeto tolera fora do caminho crítico">Fim: dia útil {critico.fimProjeto ?? "-"}</span>
-          <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginLeft:"auto"}}>{(cal.diasSemana||[]).length} dias/semana - {(cal.feriados||[]).length} feriado(s) no calendario</span>
+        <details className="planning-legend"><summary>Legenda e orientações</summary><div style={{display:"flex",gap:"var(--arcd-space-3)",alignItems:"center",flexWrap:"wrap",padding:"var(--arcd-space-1) var(--arcd-space-3)",
+                     borderBottom:"1px solid var(--arcd-border-default)",background:"var(--arcd-surface-muted)"}}>
+          <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Legenda tecnica</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-danger-text) 13%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",marginRight:"var(--arcd-space-1)"}}/>Nao trabalhado</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-action-primary) 9%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",marginRight:"var(--arcd-space-1)"}}/>Fim de semana trabalhado</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",border:"1px solid var(--arcd-warning-text)",marginRight:"var(--arcd-space-1)"}}/>Feriado</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",height:10,borderLeft:"1px solid var(--arcd-danger-text)",marginRight:"var(--arcd-space-1)"}}/>Hoje</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:9,height:9,background:"color-mix(in srgb, var(--arcd-warning-text) 15%, transparent)",border:"1px solid var(--arcd-warning-text)",marginRight:"var(--arcd-space-1)"}}/>Conflito de vinculo</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><i style={{display:"inline-block",width:12,height:8,background:"var(--arcd-danger-text)",marginRight:"var(--arcd-space-1)",verticalAlign:"middle"}}/>Caminho crítico (folga zero)</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Arraste a barra para mover · alças nas bordas ajustam início e fim</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}} title="Total de dias de atraso que o projeto tolera fora do caminho crítico">Fim: dia útil {critico.fimProjeto ?? "-"}</span>
+          <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginLeft:"auto"}}>{(cal.diasSemana||[]).length} dias/semana - {(cal.feriados||[]).length} feriado(s) no calendario</span>
         </div>
 
         </details>
 
         {tarefas.length === 0 ? (
-          <div style={{ padding: 24, textAlign: "center" }}>
-            <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted, lineHeight: 1.5 }}>
+          <div style={{ padding: "var(--arcd-space-6)", textAlign: "center" }}>
+            <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", lineHeight: "var(--arcd-line-height-normal)" }}>
               Nenhuma tarefa ainda. Toque em <b>+ Etapa</b> para trazer as etapas
               do orcamento para o cronograma.
             </p>
@@ -973,9 +977,9 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
             {/* Barra horizontal superior: fica sempre acessivel mesmo em cronogramas longos.
                 Sincronizada com a rolagem principal. */}
             <div ref={ganttTopScrollRef} onScroll={()=>sincronizarRolagemGantt("topo")}
-                 style={{overflowX:"auto",overflowY:"hidden",height:20,borderBottom:`1px solid ${C.line}`,
-                         scrollbarGutter:"stable",background:`linear-gradient(180deg, ${C.surface}, ${C.card})`,
-                         boxShadow:`inset 0 -1px 0 ${C.line}88`}}>
+                 style={{overflowX:"auto",overflowY:"hidden",height:20,borderBottom:"1px solid var(--arcd-border-default)",
+                         scrollbarGutter:"stable",background:"linear-gradient(180deg, var(--arcd-surface-muted), var(--arcd-surface-card))",
+                         boxShadow:"inset 0 -1px 0 color-mix(in srgb, var(--arcd-border-default) 53%, transparent)"}}>
               <div style={{width:LARGURA_TOTAL_GANTT,height:1}} />
             </div>
             <div ref={ganttScrollRef} onScroll={()=>sincronizarRolagemGantt("corpo")}
@@ -984,16 +988,16 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                           scrollbarGutter:"stable both-edges", overscrollBehavior:"contain" }}>
 
             {/* Colunas tecnicas fixas: edicao direta sem abrir popup */}
-            <div style={{ flexShrink: 0, borderRight: `1px solid ${C.line}`,
-                          position: isDesktop ? "sticky" : "relative", left: 0, background: C.card, zIndex: 5,
+            <div style={{ flexShrink: 0, borderRight: "1px solid var(--arcd-border-default)",
+                          position: isDesktop ? "sticky" : "relative", left: 0, background: "var(--arcd-surface-card)", zIndex: 5,
                           width:LARGURA_TAREFAS }}>
-              <div style={{ height: ALTURA_REGUA, borderBottom: `1px solid ${C.line}`,
+              <div style={{ height: ALTURA_REGUA, borderBottom: "1px solid var(--arcd-border-default)",
                             display:"grid", gridTemplateColumns:COLUNAS_TAREFA, alignItems:"center" }}>
                 {colunasVisiveis.map((col,i)=>(
                   <span key={col.id}
                     className={`planning-gantt-header-cell${col.id==="inicio"||col.id==="fim"?" planning-gantt-header-cell--date":""}`}
-                    style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",
-                    padding:"0 7px",borderLeft:i?`1px solid ${C.line}`:"none",height:"100%",
+                    style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",
+                    padding:"var(--arcd-space-0) var(--arcd-space-2)",borderLeft:i?"1px solid var(--arcd-border-default)":"none",height:"100%",
                     display:"flex",alignItems:"center"}}>{col.label}</span>
                 ))}
               </div>
@@ -1012,13 +1016,13 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   atividade: (
                     <div key="atividade" onClick={() => setTarefaModal({ modo:"editar", tarefa:t })}
                          title={`Antecessora(s): ${ant.join(", ")||"nenhuma"}\nSucessora(s): ${suc.join(", ")||"nenhuma"}`}
-                         style={{padding:"0 7px",display:"flex",flexDirection:"column",justifyContent:"center",cursor:"pointer",minWidth:0}}>
-                      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:t.orfa?C.red:conflitoVinculo?C.orange:C.text,overflow:"hidden",
+                         style={{padding:"var(--arcd-space-0) var(--arcd-space-2)",display:"flex",flexDirection:"column",justifyContent:"center",cursor:"pointer",minWidth:0}}>
+                      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:t.orfa?"var(--arcd-danger-text)":conflitoVinculo?"var(--arcd-warning-text)":"var(--arcd-text-primary)",overflow:"hidden",
                                  textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.nome}</p>
-                      <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                         {planMostrarReal && (t.inicioReal || t.fimReal || t.custoReal>0) ? (
                           <>
-                            <span style={{color:C.blue,fontWeight:600}}>Real: </span>
+                            <span style={{color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Real: </span>
                             {t.inicioReal||t.fimReal ? `${t.inicioReal?fmtDate(t.inicioReal):"?"}→${t.fimReal?fmtDate(t.fimReal):"?"}` : "sem datas"}
                             {t.custoReal>0 ? ` · ${fmt(t.custoReal)}` : ""}
                             {t.fim && t.fimReal && t.fimReal>t.fim ? " · atrasou" : ""}
@@ -1031,21 +1035,21 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   ),
                   inicio: (
                     <div key="inicio" className="planning-gantt-date-cell planning-gantt-date-cell--start">
-                      <input className="planning-inline-date" aria-label={`Início planejado de ${t.nome||"atividade"}`} key={`${t.id}-ini-${t.inicio}`} type="date" value={t.inicio||""} disabled={t.titulo}
+                      <StandardInput className="planning-inline-date" aria-label={`Início planejado de ${t.nome||"atividade"}`} key={`${t.id}-ini-${t.inicio}`} type="date" value={t.inicio||""} disabled={t.titulo}
                         onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
                         onChange={e=>e.target.value&&e.target.value!==t.inicio&&atualizarTarefaNaLinha(t,"inicio",e.target.value)} style={estiloInput}/>
                     </div>
                   ),
                   fim: (
                     <div key="fim" className="planning-gantt-date-cell planning-gantt-date-cell--end">
-                      <input className="planning-inline-date" aria-label={`Fim planejado de ${t.nome||"atividade"}`} key={`${t.id}-fim-${t.fim}`} type="date" value={t.fim||""} disabled={t.titulo}
+                      <StandardInput className="planning-inline-date" aria-label={`Fim planejado de ${t.nome||"atividade"}`} key={`${t.id}-fim-${t.fim}`} type="date" value={t.fim||""} disabled={t.titulo}
                         onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
                         onChange={e=>e.target.value&&e.target.value!==t.fim&&atualizarTarefaNaLinha(t,"fim",e.target.value)} style={estiloInput}/>
                     </div>
                   ),
                   dias: (
                     <div key="dias" style={{display:"flex",alignItems:"center"}}>
-                      <input key={`${t.id}-dias-${t.inicio}-${t.fim}`} type="number" min="1"
+                      <StandardInput key={`${t.id}-dias-${t.inicio}-${t.fim}`} type="number" min="1"
                         defaultValue={Math.max(1,diasUteis(t.inicio,t.fim,cal))} disabled={t.titulo}
                         onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}}
                         onBlur={e=>Number(e.target.value)!==diasUteis(t.inicio,t.fim,cal)&&atualizarTarefaNaLinha(t,"dias",e.target.value)}
@@ -1054,29 +1058,29 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   ),
                   custo: (
                     <div key="custo" onClick={() => setTarefaModal({modo:"editar",tarefa:t})}
-                         style={{padding:"0 6px",display:"flex",alignItems:"center",justifyContent:"flex-end",cursor:"pointer",minWidth:0}}>
-                      <span style={{fontSize:"var(--arcd-type-caption)",color:t.custo>0?C.text:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                         style={{padding:"var(--arcd-space-0) var(--arcd-space-1)",display:"flex",alignItems:"center",justifyContent:"flex-end",cursor:"pointer",minWidth:0}}>
+                      <span style={{fontSize:"var(--arcd-type-caption)",color:t.custo>0?"var(--arcd-text-primary)":"var(--arcd-text-secondary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
                         {t.custo>0?fmt(t.custo):"-"}
                       </span>
                     </div>
                   ),
                   progresso: (
-                    <div key="progresso" title="Confirmado no boletim de medição" style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"0 6px"}}>
-                      <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:t.progressoOrigem==="medicao_tecnica_aprovada"?C.green:C.text}}>{Number(t.progresso||0).toFixed(0)}%</span>
+                    <div key="progresso" title="Confirmado no boletim de medição" style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"var(--arcd-space-0) var(--arcd-space-1)"}}>
+                      <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:t.progressoOrigem==="medicao_tecnica_aprovada"?"var(--arcd-success-text)":"var(--arcd-text-primary)"}}>{Number(t.progresso||0).toFixed(0)}%</span>
                     </div>
                   ),
                   antecessora: (
                     <div key="antecessora" onClick={() => setTarefaModal({modo:"editar",tarefa:t})} title={ant.join("\n")||"Sem antecessora"}
-                         style={{padding:"0 6px",display:"flex",alignItems:"center",cursor:"pointer",minWidth:0}}>
-                      <span style={{fontSize:"var(--arcd-type-caption)",color:ant.length?C.blue:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                         style={{padding:"var(--arcd-space-0) var(--arcd-space-1)",display:"flex",alignItems:"center",cursor:"pointer",minWidth:0}}>
+                      <span style={{fontSize:"var(--arcd-type-caption)",color:ant.length?"var(--arcd-action-primary)":"var(--arcd-text-secondary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                         {ant.join(", ")||"-"}
                       </span>
                     </div>
                   ),
                   sucessora: (
                     <div key="sucessora" onClick={() => setTarefaModal({modo:"editar",tarefa:t})} title={suc.join("\n")||"Sem sucessora"}
-                         style={{padding:"0 6px",display:"flex",alignItems:"center",cursor:"pointer",minWidth:0}}>
-                      <span style={{fontSize:"var(--arcd-type-caption)",color:suc.length?C.green:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                         style={{padding:"var(--arcd-space-0) var(--arcd-space-1)",display:"flex",alignItems:"center",cursor:"pointer",minWidth:0}}>
+                      <span style={{fontSize:"var(--arcd-type-caption)",color:suc.length?"var(--arcd-success-text)":"var(--arcd-text-secondary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                         {suc.join(", ")||"-"}
                       </span>
                     </div>
@@ -1084,7 +1088,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                 };
                 return (
                   <div key={t.id} style={{height:ALTURA_LINHA,display:"grid",gridTemplateColumns:COLUNAS_TAREFA,
-                                          borderBottom:`1px solid ${C.line}`,background:conflitoVinculo?`${C.orange}0B`:"transparent"}}>
+                                          borderBottom:"1px solid var(--arcd-border-default)",background:conflitoVinculo?"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)":"transparent"}}>
                     {colunasVisiveis.map((col,i)=>(
                       <div key={col.id}
                         className={`planning-gantt-grid-cell${col.id==="inicio"||col.id==="fim"?" planning-gantt-grid-cell--date":""}`}
@@ -1104,12 +1108,12 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                           height:ALTURA_REGUA+tarefas.length*ALTURA_LINHA,
                           flexShrink:0, overflow: "hidden", isolation: "isolate" }}>
               {/* Regua tecnica: mes, numero do dia, dia da semana e excecoes */}
-              <div style={{ height: ALTURA_REGUA, position: "relative", borderBottom: `1px solid ${C.line}` }}>
+              <div style={{ height: ALTURA_REGUA, position: "relative", borderBottom: "1px solid var(--arcd-border-default)" }}>
                 {reguaMeses.map((m, i) => (
                   <div key={i} style={{ position: "absolute", left: m.x, top: 0, height: "100%",
-                                        borderLeft: `1px solid ${C.line}`, paddingLeft: 4,
-                                        display: "flex", alignItems: "flex-start", paddingTop:2 }}>
-                    <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: C.muted, whiteSpace: "nowrap" }}>{m.label}</span>
+                                        borderLeft: "1px solid var(--arcd-border-default)", paddingLeft: "var(--arcd-space-1)",
+                                        display: "flex", alignItems: "flex-start", paddingTop:"var(--arcd-space-half)" }}>
+                    <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-secondary)", whiteSpace: "nowrap" }}>{m.label}</span>
                   </div>
                 ))}
                 {diasGrade.map(d => {
@@ -1119,16 +1123,16 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   return <div key={d.data}
                     title={`${fmtDateFull(d.data)}${d.feriado ? ` - ${d.feriado.nome}` : d.naoTrabalhado ? " - nao trabalhado" : " - dia de trabalho"}`}
                     style={{position:"absolute",left:d.x,top:18,width:pxPorDia,height:ALTURA_REGUA-18,
-                      background:bg,borderRight:`1px solid ${C.line}`,overflow:"hidden",textAlign:"center"}}>
-                    {mostrar && <><span style={{display:"block",fontSize:zoom==="dia"?"var(--arcd-type-caption)":"var(--arcd-type-caption)",fontWeight:600,
-                      color:d.feriado?C.orange:d.naoTrabalhado?C.red:C.text,lineHeight:1.2}}>{d.data.slice(8,10)}</span>
-                    {zoom === "dia" && <span style={{display:"block",fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{nomes[d.dow]}</span>}</>}
+                      background:bg,borderRight:"1px solid var(--arcd-border-default)",overflow:"hidden",textAlign:"center"}}>
+                    {mostrar && <><span style={{display:"block",fontSize:zoom==="dia"?"var(--arcd-type-caption)":"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",
+                      color:d.feriado?"var(--arcd-warning-text)":d.naoTrabalhado?"var(--arcd-danger-text)":"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{d.data.slice(8,10)}</span>
+                    {zoom === "dia" && <span style={{display:"block",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>{nomes[d.dow]}</span>}</>}
                   </div>;
                 })}
                 {/* Linha do hoje */}
                 {today() >= GANTT_INI && today() <= somaDias(GANTT_INI,totalDias-1) &&
                   <div style={{ position: "absolute", left: xDeData(today()), top: 0, height: "100%",
-                                borderLeft: `1px solid ${C.red}`, opacity: .6 }} />}
+                                borderLeft: "1px solid var(--arcd-danger-text)", opacity: .6 }} />}
               </div>
 
               {/* Fins de semana e feriados continuam visiveis em todas as linhas */}
@@ -1136,12 +1140,12 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                            height:tarefas.length*ALTURA_LINHA,pointerEvents:"none",zIndex:0}}>
                 {diasGrade.map(d => <div key={d.data} style={{
                   position:"absolute",left:d.x,top:0,width:pxPorDia,height:"100%",
-                  background:d.feriado?`${C.orange}20`:d.naoTrabalhado?`${C.red}0B`:d.fimSemana?`${C.blue}09`:"transparent",
-                  borderRight:`1px solid ${C.line}88`
+                  background:d.feriado?"color-mix(in srgb, var(--arcd-warning-text) 13%, transparent)":d.naoTrabalhado?"color-mix(in srgb, var(--arcd-danger-text) 4%, transparent)":d.fimSemana?"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)":"transparent",
+                  borderRight:"1px solid color-mix(in srgb, var(--arcd-border-default) 53%, transparent)"
                 }}/>) }
                 {today() >= GANTT_INI && today() <= somaDias(GANTT_INI,totalDias-1) &&
                   <div style={{position:"absolute",left:xDeData(today()),top:0,height:"100%",
-                               borderLeft:`1px solid ${C.red}`,opacity:.55,zIndex:1}}/>}
+                               borderLeft:"1px solid var(--arcd-danger-text)",opacity:.55,zIndex:1}}/>}
               </div>
 
               {/* Linhas de fundo + barras */}
@@ -1160,8 +1164,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                 const larguraAlca = Math.max(6, Math.min(isMobile ? 18 : 12, Math.floor(w / 2) - 1));
                 return (
                   <div key={t.id} style={{ height: ALTURA_LINHA, position: "relative",
-                                           borderBottom: `1px solid ${C.line}`,
-                                           background: idx % 2 ? `${C.surface}55` : "transparent" }}>
+                                           borderBottom: "1px solid var(--arcd-border-default)",
+                                           background: idx % 2 ? "color-mix(in srgb, var(--arcd-surface-muted) 33%, transparent)" : "transparent" }}>
                     {/* Barra */}
                     <div
                       onMouseDown={(e) => t.titulo ? null : iniciarDrag(e, t, "mover")}
@@ -1171,7 +1175,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                         position: "absolute", left: x,
                         top: t.titulo ? 14 : 7,
                         width: w, height: t.titulo ? ALTURA_LINHA - 28 : ALTURA_LINHA - 14,
-                        background: t.titulo ? C.subtle : (critico.criticas.includes(t.id) && !t.titulo ? C.red : corTarefa(t)),
+                        background: t.titulo ? "var(--arcd-text-muted)" : (critico.criticas.includes(t.id) && !t.titulo ? "var(--arcd-danger-text)" : corTarefa(t)),
                         borderRadius: t.titulo ? 3 : 6,
                         cursor: t.titulo ? "default" : "grab",
                         // Caminho crítico: barra vermelha (a cor de progresso é
@@ -1186,9 +1190,9 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                       }}>
                       {/* Preenchimento do progresso */}
                       <div style={{ position: "absolute", left: 0, top: 0, bottom: 0,
-                                    width: `${t.progresso}%`, background: "rgba(255,255,255,.28)" }} />
-                      <span style={{ position: "relative", fontSize:"var(--arcd-type-caption)", fontWeight:600,
-                                     color: "#fff", padding: "0 7px", whiteSpace: "nowrap",
+                                    width: `${t.progresso}%`, background: "color-mix(in srgb, var(--arcd-text-inverse) 28%, transparent)" }} />
+                      <span style={{ position: "relative", fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)",
+                                     color: "var(--arcd-text-inverse)", padding: "var(--arcd-space-0) var(--arcd-space-2)", whiteSpace: "nowrap",
                                      overflow: "hidden", textOverflow: "ellipsis" }}>
                         {t.titulo ? t.nome : (t.progresso > 0 ? `${t.progresso}%` : "")}
                       </span>
@@ -1200,8 +1204,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                            title="Arraste para ajustar o início"
                            style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: larguraAlca,
                                     display: "flex", alignItems: "center", justifyContent: "center",
-                                    background: "rgba(0,0,0,.14)", cursor: "ew-resize", touchAction: "none", zIndex: 2 }}>
-                        <span style={{ width: 2, height: "40%", borderRadius: 2, background: "rgba(255,255,255,.85)" }}/>
+                                    background: "color-mix(in srgb, var(--arcd-text-primary) 14%, transparent)", cursor: "ew-resize", touchAction: "none", zIndex: 2 }}>
+                        <span style={{ width: 2, height: "40%", borderRadius: 2, background: "color-mix(in srgb, var(--arcd-text-inverse) 85%, transparent)" }}/>
                       </div>}
                       {/* Alça de redimensionar - fim */}
                       {!t.titulo && <div onMouseDown={(e) => iniciarDrag(e, t, "fim")}
@@ -1209,8 +1213,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                            title="Arraste para ajustar o fim"
                            style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: larguraAlca,
                                     display: "flex", alignItems: "center", justifyContent: "center",
-                                    background: "rgba(0,0,0,.14)", cursor: "ew-resize", touchAction: "none", zIndex: 2 }}>
-                        <span style={{ width: 2, height: "40%", borderRadius: 2, background: "rgba(255,255,255,.85)" }}/>
+                                    background: "color-mix(in srgb, var(--arcd-text-primary) 14%, transparent)", cursor: "ew-resize", touchAction: "none", zIndex: 2 }}>
+                        <span style={{ width: 2, height: "40%", borderRadius: 2, background: "color-mix(in srgb, var(--arcd-text-inverse) 85%, transparent)" }}/>
                       </div>}
                     </div>
                     {/* Barra fina do REALIZADO (datas reais), sob a planejada.
@@ -1222,7 +1226,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                       return (
                         <div title={`Realizado: ${fmtDate(t.inicioReal)} → ${fmtDate(t.fimReal)}${atrasou?" (após o previsto)":""}`}
                              style={{ position:"absolute", left:xr, width:wr, bottom:3, height:5,
-                                      background: atrasou ? C.red : C.blue, borderRadius:99, zIndex:2 }} />
+                                      background: atrasou ? "var(--arcd-danger-text)" : "var(--arcd-action-primary)", borderRadius:99, zIndex:2 }} />
                       );
                     })()}
                   </div>
@@ -1316,7 +1320,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                                 top: ALTURA_REGUA, height: tarefas.length * ALTURA_LINHA,
                                 cursor: "pointer", zIndex: 1 }}>
                     <div style={{ width: 14, height: 14, background: tp.c, transform: "rotate(45deg)",
-                                  marginTop: 2, border: "2px solid #fff",
+                                  marginTop: "var(--arcd-space-half)", border: "2px solid var(--arcd-surface-card)",
                                   boxShadow: `0 1px 4px ${tp.c}88`,
                                   opacity: m.feito ? .5 : 1 }} />
                     <div style={{ position: "absolute", top: 0, bottom: 0, left: 6,
@@ -1331,34 +1335,34 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       </div>
 
       <details className="workspace-disclosure planning-followup"><summary>Compromissos, restrições e desempenho</summary><div className="planning-followup__content">
-      <div style={{display:"grid",gridTemplateColumns:cols(2,2,2),gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:cols(2,2,2),gap:"var(--arcd-space-2)"}}>
         <MiniKpi label="Caminho crítico" value={cpmCanonico.criticalPath.length?`${cpmCanonico.criticalPath.length} atividade(s)`:"—"} cor={cpmCanonico.criticalPath.length?C.orange:C.muted} sub={cpmCanonico.projectDuration?`${cpmCanonico.projectDuration} dia(s) de duração lógica`:"Sem atividades encadeadas"}/>
         <MiniKpi label="PPC semanal" value={ppcSemanal.total?`${Math.round(ppcSemanal.ppc*100)}%`:"—"} cor={ppcSemanal.total&&ppcSemanal.ppc<.8?C.orange:C.green} sub={ppcSemanal.total?`${ppcSemanal.completed} de ${ppcSemanal.total} compromissos concluídos${ppcSemanal.blocked?` · ${ppcSemanal.blocked} bloqueado(s)`:""}`:"Sem compromisso registrado"}/>
       </div>
 
-      {(compromissosDaObra.length>0||podeConcluirCompromisso)&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
-        <div style={{padding:"10px 12px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:10,alignItems:"center"}}>
-          <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,letterSpacing:.7,color:C.muted,textTransform:"uppercase"}}>Plano de curto prazo</p><b style={{display:"block",fontSize:"var(--arcd-type-body)",color:C.text,marginTop:2}}>Compromissos da obra</b></div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{ppcSemanal.completed} concluído(s) de {ppcSemanal.total}{ppcSemanal.blocked?` · ${ppcSemanal.blocked} bloqueado(s)`:""}</span>{podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={abrirNovoCompromisso}>Adicionar</Btn>}</div>
+      {(compromissosDaObra.length>0||podeConcluirCompromisso)&&<div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:8,overflow:"hidden"}}>
+        <div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center"}}>
+          <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Plano de curto prazo</p><b style={{display:"block",fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>Compromissos da obra</b></div>
+          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{ppcSemanal.completed} concluído(s) de {ppcSemanal.total}{ppcSemanal.blocked?` · ${ppcSemanal.blocked} bloqueado(s)`:""}</span>{podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={abrirNovoCompromisso}>Adicionar</Btn>}</div>
         </div>
-        {novoCompromisso&&<div style={{padding:"10px 12px",background:C.surface,borderBottom:`1px solid ${C.line}`}}><div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:8}}><Sel label="Atividade" value={novoCompromisso.activityId} onChange={v=>setNovoCompromisso(form=>({...form,activityId:v}))} options={tarefas.filter(item=>!item.titulo).map(item=>({v:item.id,l:item.nome||"Atividade"}))}/><Inp label="Compromisso" value={novoCompromisso.descricao} onChange={v=>setNovoCompromisso(form=>({...form,descricao:v}))} placeholder="Ex.: Assentar alvenaria do pavimento"/><Inp label="Meta" type="number" value={novoCompromisso.quantidadePrometida} onChange={v=>setNovoCompromisso(form=>({...form,quantidadePrometida:v}))}/><Inp label="Data" type="date" value={novoCompromisso.data} onChange={v=>setNovoCompromisso(form=>({...form,data:v}))}/></div><div style={{marginTop:8}}><Inp label="Restrição de início (opcional)" value={novoCompromisso.blockingReason||""} onChange={v=>setNovoCompromisso(form=>({...form,blockingReason:v}))} placeholder="Ex.: aguardando entrega de material — cria como bloqueado"/></div><label style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:9,fontSize:"var(--arcd-type-label)",color:C.text,cursor:"pointer"}}><input type="checkbox" checked={Boolean(novoCompromisso.criticalActivity)} onChange={event=>setNovoCompromisso(form=>({...form,criticalActivity:event.target.checked}))} style={{accentColor:C.orange}}/>Atividade crítica <span style={{color:C.muted}}>· exige APR, permissão e equipe no avanço</span></label>{novoCompromisso.criticalActivity&&<div style={{marginTop:8}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>Treinamentos (NR) exigidos da equipe <span style={{fontWeight:500,color:C.muted}}>· bloqueia o avanço se algum trabalhador estiver com o treinamento vencido</span></p><div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>{WORKER_TRAINING_TYPES.map(item=>{const checked=(novoCompromisso.requiredTrainings||[]).includes(item.key);return <label key={item.key} style={{display:"inline-flex",gap:6,alignItems:"center",padding:"6px 8px",border:`1px solid ${checked?C.orange:C.border}`,borderRadius:6,background:checked?`${C.orange}08`:C.card,cursor:"pointer",fontSize:"var(--arcd-type-label)",color:C.text}}><input type="checkbox" checked={checked} onChange={()=>alternarTreinamentoExigido(item.key)} style={{accentColor:C.orange}}/>{item.label}</label>;})}</div></div>}<div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:9}}><Btn size="sm" v="ghost" onClick={()=>setNovoCompromisso(null)}>Cancelar</Btn><Btn size="sm" onClick={criarCompromissoSemanal}>Criar compromisso</Btn></div></div>}
-        {novoAvanco&&<div style={{padding:"10px 12px",background:C.surface,borderBottom:`1px solid ${C.line}`}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline",marginBottom:8}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",letterSpacing:.6,color:C.blue}}>Registro de produção</p><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{novoAvanco.descricao}</b></div><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>O avanço entra na evidência do compromisso.</span></div><div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:8}}><Inp label="Quantidade executada" type="number" value={novoAvanco.quantity} onChange={v=>setNovoAvanco(form=>({...form,quantity:v}))}/><Inp label="Data" type="date" value={novoAvanco.data} onChange={v=>setNovoAvanco(form=>({...form,data:v}))}/></div><div style={{marginTop:9}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.text}}>Equipe vinculada <span style={{fontWeight:500,color:C.muted}}>· obrigatória em atividade crítica</span></p><div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>{trabalhadoresDaObra.map(worker=>{const checked=(novoAvanco.workerIds||[]).includes(worker.id);return <label key={worker.id} style={{display:"inline-flex",gap:6,alignItems:"center",padding:"6px 8px",border:`1px solid ${checked?C.blue:C.border}`,borderRadius:6,background:checked?`${C.blue}08`:C.card,cursor:"pointer",fontSize:"var(--arcd-type-label)",color:C.text}}><input type="checkbox" checked={checked} onChange={()=>alternarTrabalhadorAvanco(worker.id)} style={{accentColor:C.blue}}/>{worker.name||worker.nome||"Colaborador"}</label>;})}{!trabalhadoresDaObra.length&&<span style={{fontSize:"var(--arcd-type-label)",color:C.orange}}>Nenhum colaborador ativo disponível para vincular.</span>}</div></div>{(novoAvanco.requiredTrainings||[]).length>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,marginTop:8}}>Exige treinamento em dia: {novoAvanco.requiredTrainings.map(key=>WORKER_TRAINING_TYPES.find(item=>item.key===key)?.label||key).join(" · ")}</p>}<div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:9}}><Btn size="sm" v="ghost" onClick={()=>setNovoAvanco(null)}>Cancelar</Btn><Btn size="sm" onClick={registrarAvanco}>Registrar avanço</Btn></div></div>}
+        {novoCompromisso&&<div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-muted)",borderBottom:"1px solid var(--arcd-border-default)"}}><div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)"}}><Sel label="Atividade" value={novoCompromisso.activityId} onChange={v=>setNovoCompromisso(form=>({...form,activityId:v}))} options={tarefas.filter(item=>!item.titulo).map(item=>({v:item.id,l:item.nome||"Atividade"}))}/><Inp label="Compromisso" value={novoCompromisso.descricao} onChange={v=>setNovoCompromisso(form=>({...form,descricao:v}))} placeholder="Ex.: Assentar alvenaria do pavimento"/><Inp label="Meta" type="number" value={novoCompromisso.quantidadePrometida} onChange={v=>setNovoCompromisso(form=>({...form,quantidadePrometida:v}))}/><Inp label="Data" type="date" value={novoCompromisso.data} onChange={v=>setNovoCompromisso(form=>({...form,data:v}))}/></div><div style={{marginTop:"var(--arcd-space-2)"}}><Inp label="Restrição de início (opcional)" value={novoCompromisso.blockingReason||""} onChange={v=>setNovoCompromisso(form=>({...form,blockingReason:v}))} placeholder="Ex.: aguardando entrega de material — cria como bloqueado"/></div><label style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",cursor:"pointer"}}><ChoiceControl type="checkbox" checked={Boolean(novoCompromisso.criticalActivity)} onChange={event=>setNovoCompromisso(form=>({...form,criticalActivity:event.target.checked}))} style={{accentColor:"var(--arcd-warning-text)"}}/>Atividade crítica <span style={{color:"var(--arcd-text-secondary)"}}>· exige APR, permissão e equipe no avanço</span></label>{novoCompromisso.criticalActivity&&<div style={{marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Treinamentos (NR) exigidos da equipe <span style={{fontWeight:"var(--arcd-font-weight-medium)",color:"var(--arcd-text-secondary)"}}>· bloqueia o avanço se algum trabalhador estiver com o treinamento vencido</span></p><div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}>{WORKER_TRAINING_TYPES.map(item=>{const checked=(novoCompromisso.requiredTrainings||[]).includes(item.key);return <label key={item.key} style={{display:"inline-flex",gap:"var(--arcd-space-1)",alignItems:"center",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`1px solid ${checked?"var(--arcd-warning-text)":"var(--arcd-border-default)"}`,borderRadius:6,background:checked?"color-mix(in srgb, var(--arcd-warning-text) 3%, transparent)":"var(--arcd-surface-card)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={checked} onChange={()=>alternarTreinamentoExigido(item.key)} style={{accentColor:"var(--arcd-warning-text)"}}/>{item.label}</label>;})}</div></div>}<div style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>setNovoCompromisso(null)}>Cancelar</Btn><Btn size="sm" onClick={criarCompromissoSemanal}>Criar compromisso</Btn></div></div>}
+        {novoAvanco&&<div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-muted)",borderBottom:"1px solid var(--arcd-border-default)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"baseline",marginBottom:"var(--arcd-space-2)"}}><div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-action-primary)"}}>Registro de produção</p><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{novoAvanco.descricao}</b></div><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>O avanço entra na evidência do compromisso.</span></div><div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:"var(--arcd-space-2)"}}><Inp label="Quantidade executada" type="number" value={novoAvanco.quantity} onChange={v=>setNovoAvanco(form=>({...form,quantity:v}))}/><Inp label="Data" type="date" value={novoAvanco.data} onChange={v=>setNovoAvanco(form=>({...form,data:v}))}/></div><div style={{marginTop:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Equipe vinculada <span style={{fontWeight:"var(--arcd-font-weight-medium)",color:"var(--arcd-text-secondary)"}}>· obrigatória em atividade crítica</span></p><div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}>{trabalhadoresDaObra.map(worker=>{const checked=(novoAvanco.workerIds||[]).includes(worker.id);return <label key={worker.id} style={{display:"inline-flex",gap:"var(--arcd-space-1)",alignItems:"center",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:`1px solid ${checked?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,borderRadius:6,background:checked?"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)":"var(--arcd-surface-card)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}><ChoiceControl type="checkbox" checked={checked} onChange={()=>alternarTrabalhadorAvanco(worker.id)} style={{accentColor:"var(--arcd-action-primary)"}}/>{worker.name||worker.nome||"Colaborador"}</label>;})}{!trabalhadoresDaObra.length&&<span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}>Nenhum colaborador ativo disponível para vincular.</span>}</div></div>{(novoAvanco.requiredTrainings||[]).length>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-2)"}}>Exige treinamento em dia: {novoAvanco.requiredTrainings.map(key=>WORKER_TRAINING_TYPES.find(item=>item.key===key)?.label||key).join(" · ")}</p>}<div style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>setNovoAvanco(null)}>Cancelar</Btn><Btn size="sm" onClick={registrarAvanco}>Registrar avanço</Btn></div></div>}
         <div>{compromissosDaObra.slice(0,8).map(compromisso=>{
           const concluido=compromisso.status==="concluido",naoConcluido=compromisso.status==="nao_concluido",bloqueado=compromisso.status==="bloqueado",cor=concluido?C.green:(naoConcluido||bloqueado)?C.orange:C.blue;
           const meta=Math.max(0,Number(compromisso.quantidadePrometida||0)),feito=Math.max(0,Number(compromisso.quantidadeRealizada||0)),pct=meta?Math.min(100,feito/meta*100):0;
           const avancos=(avancosPorCompromisso.get(String(compromisso.id))||[]).slice().sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
-          return <div key={compromisso.id} style={{padding:"10px 12px",borderTop:`1px solid ${C.line}`}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:12,alignItems:"center"}}>
-            <div style={{minWidth:0}}><div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{compromisso.descricao||"Compromisso sem descrição"}</b><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:cor,textTransform:"uppercase",whiteSpace:"nowrap"}}>{concluido?"concluído":naoConcluido?"não concluído":bloqueado?"bloqueado":"em aberto"}</span></div><p style={{fontSize:"var(--arcd-type-caption)",color:bloqueado?C.orange:C.muted,marginTop:3}}>{bloqueado?`Restrição: ${compromisso.blockingReason||"não informada"}`:`${feito} entregue de ${meta||"—"} prometido${compromisso.motivoNaoCumprimento?` · ${compromisso.motivoNaoCumprimento}`:""}`}</p><div style={{height:3,background:C.surface,borderRadius:99,overflow:"hidden",marginTop:6}}><i style={{display:"block",height:"100%",width:`${pct}%`,background:cor}}/></div></div>
-            {!concluido&&!naoConcluido&&podeConcluirCompromisso&&<div style={{display:"flex",gap:6,alignItems:"center"}}>{bloqueado?<Btn size="sm" v="ghost" onClick={()=>liberarCompromissoSemanal(compromisso)}>Liberar</Btn>:<><Btn size="sm" v="ghost" onClick={()=>abrirNovoAvanco(compromisso)}>Registrar avanço</Btn><Btn size="sm" v="ghost" onClick={()=>concluirCompromissoSemanal(compromisso)}>Concluir</Btn></>}</div>}
-          </div>{avancos.length>0&&<details style={{marginTop:7}}><summary style={{cursor:"pointer",fontSize:"var(--arcd-type-caption)",color:C.muted}}>Evidências de produção · {avancos.length}</summary><div style={{marginTop:6,display:"flex",flexDirection:"column",gap:4}}>{avancos.map(avanco=>{const cancelado=avanco.status==="cancelado";return <div key={avanco.id} style={{display:"grid",gridTemplateColumns:"1fr auto",alignItems:"center",gap:8,padding:"6px 8px",border:`1px solid ${C.line}`,borderRadius:6,background:cancelado?C.surface:C.card}}><span style={{fontSize:"var(--arcd-type-caption)",color:cancelado?C.muted:C.text}}>{fmtDate(avanco.data)} · <b>{Number(avanco.quantity||0)}</b>{cancelado?` · estornado: ${avanco.motivoCancelamento||"sem motivo"}`:""}</span>{!cancelado&&podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={()=>estornarAvanco(avanco)}>Estornar</Btn>}</div>;})}</div></details>}</div>;
-        })}{!compromissosDaObra.length&&!novoCompromisso&&<p style={{padding:"13px 12px",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum compromisso ativo. Adicione o que será entregue nesta semana para acompanhar o PPC.</p>}</div>
+          return <div key={compromisso.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"1px solid var(--arcd-border-default)"}}><div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-3)",alignItems:"center"}}>
+            <div style={{minWidth:0}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"baseline"}}><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{compromisso.descricao||"Compromisso sem descrição"}</b><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,textTransform:"uppercase",whiteSpace:"nowrap"}}>{concluido?"concluído":naoConcluido?"não concluído":bloqueado?"bloqueado":"em aberto"}</span></div><p style={{fontSize:"var(--arcd-type-caption)",color:bloqueado?"var(--arcd-warning-text)":"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{bloqueado?`Restrição: ${compromisso.blockingReason||"não informada"}`:`${feito} entregue de ${meta||"—"} prometido${compromisso.motivoNaoCumprimento?` · ${compromisso.motivoNaoCumprimento}`:""}`}</p><div style={{height:3,background:"var(--arcd-surface-muted)",borderRadius:99,overflow:"hidden",marginTop:"var(--arcd-space-1)"}}><i style={{display:"block",height:"100%",width:`${pct}%`,background:cor}}/></div></div>
+            {!concluido&&!naoConcluido&&podeConcluirCompromisso&&<div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"center"}}>{bloqueado?<Btn size="sm" v="ghost" onClick={()=>liberarCompromissoSemanal(compromisso)}>Liberar</Btn>:<><Btn size="sm" v="ghost" onClick={()=>abrirNovoAvanco(compromisso)}>Registrar avanço</Btn><Btn size="sm" v="ghost" onClick={()=>concluirCompromissoSemanal(compromisso)}>Concluir</Btn></>}</div>}
+          </div>{avancos.length>0&&<details style={{marginTop:"var(--arcd-space-2)"}}><summary style={{cursor:"pointer",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>Evidências de produção · {avancos.length}</summary><div style={{marginTop:"var(--arcd-space-1)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{avancos.map(avanco=>{const cancelado=avanco.status==="cancelado";return <div key={avanco.id} style={{display:"grid",gridTemplateColumns:"1fr auto",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6,background:cancelado?"var(--arcd-surface-muted)":"var(--arcd-surface-card)"}}><span style={{fontSize:"var(--arcd-type-caption)",color:cancelado?"var(--arcd-text-secondary)":"var(--arcd-text-primary)"}}>{fmtDate(avanco.data)} · <b>{Number(avanco.quantity||0)}</b>{cancelado?` · estornado: ${avanco.motivoCancelamento||"sem motivo"}`:""}</span>{!cancelado&&podeConcluirCompromisso&&<Btn size="sm" v="ghost" onClick={()=>estornarAvanco(avanco)}>Estornar</Btn>}</div>;})}</div></details>}</div>;
+        })}{!compromissosDaObra.length&&!novoCompromisso&&<p style={{padding:"var(--arcd-space-3)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum compromisso ativo. Adicione o que será entregue nesta semana para acompanhar o PPC.</p>}</div>
       </div>}
 
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}><div style={{padding:"10px 12px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,letterSpacing:.7,color:C.muted,textTransform:"uppercase"}}>Lookahead</p><b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>Restrições antes da execução</b></div><Btn size="sm" v="ghost" onClick={criarLookahead} disabled={!!lookaheadsDaObra.length}>Criar 4 semanas</Btn></div>{lookaheadsDaObra.map(lookahead=><div key={lookahead.id} style={{padding:"10px 12px",borderTop:`1px solid ${C.line}`}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><p style={{fontSize:"var(--arcd-type-label)",color:C.text,fontWeight:600}}>Janela de {lookahead.horizonteSemanas} semanas · {lookahead.pacotes?.length||0} pacotes</p><Btn size="sm" v="ghost" onClick={()=>setNovaRestricao({lookaheadId:lookahead.id,pacoteId:lookahead.pacotes?.[0]?.id||"",categoria:"outro",descricao:"",dataNecessidade:today()})}>Adicionar restrição</Btn></div>{novaRestricao?.lookaheadId===lookahead.id&&<div style={{marginTop:8,display:"grid",gridTemplateColumns:cols(1,2,4),gap:7}}><Sel label="Pacote" value={novaRestricao.pacoteId} onChange={value=>setNovaRestricao(form=>({...form,pacoteId:value}))} options={(lookahead.pacotes||[]).map(item=>({v:item.id,l:item.descricao||item.id}))}/><Sel label="Categoria" value={novaRestricao.categoria} onChange={value=>setNovaRestricao(form=>({...form,categoria:value}))} options={["material","mao_de_obra","equipamento","seguranca","qualidade","projeto","outro"].map(value=>({v:value,l:value.replaceAll("_"," ")}))}/><Inp label="Necessária em" type="date" value={novaRestricao.dataNecessidade} onChange={value=>setNovaRestricao(form=>({...form,dataNecessidade:value}))}/><Inp label="Restrição" value={novaRestricao.descricao} onChange={value=>setNovaRestricao(form=>({...form,descricao:value}))}/><div style={{display:"flex",gap:6,alignItems:"end"}}><Btn size="sm" v="ghost" onClick={()=>setNovaRestricao(null)}>Cancelar</Btn><Btn size="sm" onClick={adicionarRestricao}>Registrar</Btn></div></div>}<div style={{marginTop:8}}>{(lookahead.restricoes||[]).map(restricao=>{const liberada=restricao.status==="liberada";return <div key={restricao.id} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"7px 0",borderTop:`1px solid ${C.line}`}}><span style={{fontSize:"var(--arcd-type-label)",color:liberada?C.muted:C.text}}>{restricao.descricao} · {restricao.categoria}</span>{liberada?<Badge color={C.green}>LIBERADA</Badge>:<Btn size="sm" v="ghost" onClick={()=>liberarRestricao(lookahead,restricao)}>Liberar</Btn>}</div>;})}{!(lookahead.restricoes||[]).length&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma restrição registrada.</p>}</div></div>)}{!lookaheadsDaObra.length&&<p style={{padding:"13px 12px",fontSize:"var(--arcd-type-label)",color:C.muted}}>Crie uma janela de 4 semanas para antecipar material, projetos, equipe, segurança e demais bloqueios.</p>}</div>
+      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderRadius:8,overflow:"hidden"}}><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderBottom:"1px solid var(--arcd-border-default)",display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center"}}><div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Lookahead</p><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>Restrições antes da execução</b></div><Btn size="sm" v="ghost" onClick={criarLookahead} disabled={!!lookaheadsDaObra.length}>Criar 4 semanas</Btn></div>{lookaheadsDaObra.map(lookahead=><div key={lookahead.id} style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",borderTop:"1px solid var(--arcd-border-default)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Janela de {lookahead.horizonteSemanas} semanas · {lookahead.pacotes?.length||0} pacotes</p><Btn size="sm" v="ghost" onClick={()=>setNovaRestricao({lookaheadId:lookahead.id,pacoteId:lookahead.pacotes?.[0]?.id||"",categoria:"outro",descricao:"",dataNecessidade:today()})}>Adicionar restrição</Btn></div>{novaRestricao?.lookaheadId===lookahead.id&&<div style={{marginTop:"var(--arcd-space-2)",display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)"}}><Sel label="Pacote" value={novaRestricao.pacoteId} onChange={value=>setNovaRestricao(form=>({...form,pacoteId:value}))} options={(lookahead.pacotes||[]).map(item=>({v:item.id,l:item.descricao||item.id}))}/><Sel label="Categoria" value={novaRestricao.categoria} onChange={value=>setNovaRestricao(form=>({...form,categoria:value}))} options={["material","mao_de_obra","equipamento","seguranca","qualidade","projeto","outro"].map(value=>({v:value,l:value.replaceAll("_"," ")}))}/><Inp label="Necessária em" type="date" value={novaRestricao.dataNecessidade} onChange={value=>setNovaRestricao(form=>({...form,dataNecessidade:value}))}/><Inp label="Restrição" value={novaRestricao.descricao} onChange={value=>setNovaRestricao(form=>({...form,descricao:value}))}/><div style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"end"}}><Btn size="sm" v="ghost" onClick={()=>setNovaRestricao(null)}>Cancelar</Btn><Btn size="sm" onClick={adicionarRestricao}>Registrar</Btn></div></div>}<div style={{marginTop:"var(--arcd-space-2)"}}>{(lookahead.restricoes||[]).map(restricao=>{const liberada=restricao.status==="liberada";return <div key={restricao.id} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderTop:"1px solid var(--arcd-border-default)"}}><span style={{fontSize:"var(--arcd-type-label)",color:liberada?"var(--arcd-text-secondary)":"var(--arcd-text-primary)"}}>{restricao.descricao} · {restricao.categoria}</span>{liberada?<Badge color={C.green}>LIBERADA</Badge>:<Btn size="sm" v="ghost" onClick={()=>liberarRestricao(lookahead,restricao)}>Liberar</Btn>}</div>;})}{!(lookahead.restricoes||[]).length&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma restrição registrada.</p>}</div></div>)}{!lookaheadsDaObra.length&&<p style={{padding:"var(--arcd-space-3)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Crie uma janela de 4 semanas para antecipar material, projetos, equipe, segurança e demais bloqueios.</p>}</div>
 
       {/* Fisico-financeiro em destaque: previsao de custo final e eficiencia */}
       {ff.linhas.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: cols(2, 4, 4), gap: "var(--arcd-space-2)" }}>
           <MiniKpi label="Avanco fisico" value={`${ff.total.pctFisico.toFixed(0)}%`} cor={C.blue}
                    sub="valor agregado / previsto" />
           <MiniKpi label="Custo realizado" value={fmt(ff.total.realizado)} cor={C.purple}
@@ -1380,35 +1384,35 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
 
       {/* ==== FERRAMENTAS AUXILIARES ==== */}
       {tarefas.filter(t=>!t.titulo).length > 0 && (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, overflow: "hidden" }}>
           {/* Abas */}
-          <div style={{ padding: "8px 8px 0" }}>
+          <div style={{ padding: "var(--arcd-space-2) var(--arcd-space-2) var(--arcd-space-0)" }}>
             <TabRow tabs={[["mensal","Financeiro mensal"],["curvaS","Curva S"],["ff","Fisico-financeiro"],["lob","Linha de balanço"],["base","Planejado × Realizado"]]} active={aba} onChange={setAba}/>
           </div>
 
-          <div style={{ padding: "14px" }}>
+          <div style={{ padding: "var(--arcd-space-3)" }}>
             {/* --- FINANCEIRO MENSAL --- */}
             {aba === "mensal" && (
               distMensal.length === 0
-                ? <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>Defina datas nas tarefas para ver o financeiro por mes.</p>
+                ? <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Defina datas nas tarefas para ver o financeiro por mes.</p>
                 : (
                   <div>
-                    <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+                    <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginBottom: "var(--arcd-space-3)", lineHeight: "var(--arcd-line-height-normal)" }}>
                       Custo planejado distribuido pelos dias uteis de cada tarefa. Barra cheia = maior mes.
                     </p>
                     {(() => {
                       const maxMes = Math.max(...distMensal.map(d => d.valor));
                       return distMensal.map(d => (
-                        <div key={d.mes} style={{ marginBottom: 11 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                            <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>{fmtMesAno(d.mes + "-01")}</span>
-                            <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.yellowD }}>{fmt(d.valor)}</span>
+                        <div key={d.mes} style={{ marginBottom: "var(--arcd-space-3)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "var(--arcd-space-1)" }}>
+                            <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{fmtMesAno(d.mes + "-01")}</span>
+                            <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}>{fmt(d.valor)}</span>
                           </div>
-                          <div style={{ height: 8, background: C.line, borderRadius: 99, overflow: "hidden" }}>
+                          <div style={{ height: 8, background: "var(--arcd-border-default)", borderRadius: 99, overflow: "hidden" }}>
                             <div style={{ height: "100%", width: `${(d.valor / maxMes) * 100}%`,
-                                          background: C.yellow, borderRadius: 99 }} />
+                                          background: "var(--arcd-action-primary)", borderRadius: 99 }} />
                           </div>
-                          <p style={{ fontSize:"var(--arcd-type-caption)", color: C.muted, marginTop: 2 }}>acumulado {fmt(d.acumulado)}</p>
+                          <p style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-half)" }}>acumulado {fmt(d.acumulado)}</p>
                         </div>
                       ));
                     })()}
@@ -1419,14 +1423,14 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
             {/* --- CURVA S --- */}
             {aba === "curvaS" && (
               dadosS.length === 0
-                ? <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>Sem dados para a curva S ainda.</p>
+                ? <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Sem dados para a curva S ainda.</p>
                 : (
                   <div>
-                    <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+                    <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginBottom: "var(--arcd-space-3)", lineHeight: "var(--arcd-line-height-normal)" }}>
                       Avanco fisico acumulado esperado ao longo do tempo (% do custo total).
                     </p>
                     <CurvaSGrafico dados={dadosS} real={ffMensalReal} />
-                    <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted, marginTop:10, lineHeight:1.5 }}>
+                    <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-2)", lineHeight:"var(--arcd-line-height-normal)" }}>
                       A linha amarela é o avanço financeiro <b>planejado</b> acumulado; a azul, o <b>realizado</b> (só o custo lançado nas tarefas). Quando a azul fica abaixo da amarela, a obra está mais lenta que o previsto. As barras claras mostram o peso de cada mês.
                     </p>
                   </div>
@@ -1435,8 +1439,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
 
             {aba === "lob" && (
               linhaBalanco.lines.length===0
-                ? <div style={{padding:"8px 0"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>Ainda não há frentes repetitivas configuradas.</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:5,lineHeight:1.5}}>Abra uma tarefa, informe o mesmo grupo repetitivo e a frente ou pavimento. A Linha de Balanço mostrará a cadência e avisará se a sequência for invertida.</p></div>
-                : <div><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:12,lineHeight:1.5}}>Cada faixa representa a passagem de uma equipe pelas frentes. A cadência compara a distância entre inícios; âmbar só indica sequência invertida ou irregular.</p><div style={{display:"flex",flexDirection:"column",gap:10}}>{linhaBalanco.lines.map(line=>{const warning=line.reversed.length>0||!line.stable;const color=warning?C.orange:C.blue;return <div key={line.group} style={{border:`1px solid ${C.border}`,borderLeft:`1px solid ${color}`,borderRadius:7,padding:"10px 11px",background:C.card}}><div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"baseline",flexWrap:"wrap"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{line.group}</b><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:warning?C.orange:C.muted}}>{line.cadenceDays==null?"cadência indisponível":`${line.cadenceDays.toFixed(1).replace(".",",")} dia(s) por frente`}</span></div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(105px,1fr))",gap:6,marginTop:8}}>{line.entries.map(entry=><div key={entry.activityId} style={{padding:"7px 8px",border:`1px solid ${C.line}`,borderRadius:6,background:C.surface}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Frente {entry.front}</p><b style={{display:"block",fontSize:"var(--arcd-type-label)",color:C.text,marginTop:2}}>{fmtDate(entry.start)} → {fmtDate(entry.finish)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:entry.progress>=100?C.green:C.muted,marginTop:3}}>{Number(entry.progress||0).toFixed(0)}% físico</p></div>)}</div>{warning&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,marginTop:8}}>{line.reversed.length?"Sequência invertida entre frentes: revise as datas antes de mobilizar a equipe.":"Cadência irregular entre frentes: confira a continuidade da equipe."}</p>}</div>;})}</div></div>
+                ? <div style={{padding:"var(--arcd-space-2) var(--arcd-space-0)"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Ainda não há frentes repetitivas configuradas.</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",lineHeight:"var(--arcd-line-height-normal)"}}>Abra uma tarefa, informe o mesmo grupo repetitivo e a frente ou pavimento. A Linha de Balanço mostrará a cadência e avisará se a sequência for invertida.</p></div>
+                : <div><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-3)",lineHeight:"var(--arcd-line-height-normal)"}}>Cada faixa representa a passagem de uma equipe pelas frentes. A cadência compara a distância entre inícios; âmbar só indica sequência invertida ou irregular.</p><div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>{linhaBalanco.lines.map(line=>{const warning=line.reversed.length>0||!line.stable;const color=warning?C.orange:C.blue;return <div key={line.group} style={{border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${color}`,borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-card)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"baseline",flexWrap:"wrap"}}><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{line.group}</b><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:warning?"var(--arcd-warning-text)":"var(--arcd-text-secondary)"}}>{line.cadenceDays==null?"cadência indisponível":`${line.cadenceDays.toFixed(1).replace(".",",")} dia(s) por frente`}</span></div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(105px,1fr))",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>{line.entries.map(entry=><div key={entry.activityId} style={{padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6,background:"var(--arcd-surface-muted)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Frente {entry.front}</p><b style={{display:"block",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{fmtDate(entry.start)} → {fmtDate(entry.finish)}</b><p style={{fontSize:"var(--arcd-type-caption)",color:entry.progress>=100?"var(--arcd-success-text)":"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{Number(entry.progress||0).toFixed(0)}% físico</p></div>)}</div>{warning&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-2)"}}>{line.reversed.length?"Sequência invertida entre frentes: revise as datas antes de mobilizar a equipe.":"Cadência irregular entre frentes: confira a continuidade da equipe."}</p>}</div>;})}</div></div>
             )}
 
             {/* --- FISICO-FINANCEIRO --- */}
@@ -1447,30 +1451,27 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
               return (
                 <div>
                   {/* Cabecalho: modo previsto/realizado + seletor de colunas */}
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, flexWrap:"wrap", marginBottom:12 }}>
-                    <div style={{ display:"flex", gap:4, background:C.surface, borderRadius:8, padding:3 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:"var(--arcd-space-2)", flexWrap:"wrap", marginBottom:"var(--arcd-space-3)" }}>
+                    <div style={{ display:"flex", gap:"var(--arcd-space-1)", background:"var(--arcd-surface-muted)", borderRadius:8, padding:"var(--arcd-space-half)" }}>
                       {[["previsto","Previsto"],["realizado","Realizado"]].map(([v,l]) => (
-                        <button key={v} onClick={()=>setFfModo(v)} style={{
-                          border:0, borderRadius:6, padding:"6px 14px", cursor:"pointer", fontSize:"var(--arcd-type-control)", fontWeight:600,
-                          background: ffModo===v ? C.card : "transparent", color: ffModo===v ? C.text : C.muted,
-                          boxShadow: ffModo===v ? `0 1px 3px ${C.shadow}` : "none" }}>{l}</button>
+                        <StandardButton variant="secondary" key={v} onClick={()=>setFfModo(v)}>{l}</StandardButton>
                       ))}
                     </div>
                     {ffM.meses.length > 0 && (
                       <details style={{ position:"relative" }}>
-                        <summary style={{ listStyle:"none", cursor:"pointer", fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.blue,
-                          border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 11px", userSelect:"none" }}>
+                        <summary style={{ listStyle:"none", cursor:"pointer", fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-action-primary)",
+                          border:"1px solid var(--arcd-border-default)", borderRadius:6, padding:"var(--arcd-space-1) var(--arcd-space-3)", userSelect:"none" }}>
                           Colunas ({mesesVisiveis.length}/{ffM.meses.length})
                         </summary>
-                        <div style={{ position:"absolute", right:0, top:"110%", zIndex:20, background:C.card,
-                          border:`1px solid ${C.border}`, borderRadius:8, boxShadow:`0 8px 24px ${C.shadow}`,
-                          padding:8, minWidth:170, maxHeight:260, overflowY:"auto" }}>
+                        <div style={{ position:"absolute", right:0, top:"110%", zIndex:20, background:"var(--arcd-surface-card)",
+                          border:"1px solid var(--arcd-border-default)", borderRadius:8, boxShadow:`0 8px 24px ${C.shadow}`,
+                          padding:"var(--arcd-space-2)", minWidth:170, maxHeight:260, overflowY:"auto" }}>
                           {ffM.meses.map(m => {
                             const oculta = ffMesesOcultos.includes(m);
                             return (
-                              <label key={m} style={{ display:"flex", alignItems:"center", gap:7, padding:"5px 6px",
-                                cursor:"pointer", fontSize:"var(--arcd-type-label)", color:C.text }}>
-                                <input type="checkbox" checked={!oculta}
+                              <label key={m} style={{ display:"flex", alignItems:"center", gap:"var(--arcd-space-2)", padding:"var(--arcd-space-1)",
+                                cursor:"pointer", fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-primary)" }}>
+                                <ChoiceControl type="checkbox" checked={!oculta}
                                   onChange={()=>setFfMesesOcultos(prev => oculta ? prev.filter(x=>x!==m) : [...prev, m])} />
                                 {fmtMesCol(m)}
                               </label>
@@ -1481,45 +1482,45 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                     )}
                   </div>
 
-                  <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginBottom: 10, lineHeight: 1.5 }}>
+                  <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginBottom: "var(--arcd-space-2)", lineHeight: "var(--arcd-line-height-normal)" }}>
                     {ffModo === "previsto"
                       ? "Custo previsto de cada etapa distribuido pelos meses (rateio por dias uteis do planejamento). Cada celula: valor e % da etapa naquele mes."
                       : "Custo realizado por etapa (lancado; so o lancado; etapa sem custo lancado fica zerada), distribuido pelos meses."}
                   </p>
 
                   {ffM.linhas.length === 0 ? (
-                    <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>Defina datas e custos nas tarefas para ver o fisico-financeiro mensal.</p>
+                    <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Defina datas e custos nas tarefas para ver o fisico-financeiro mensal.</p>
                   ) : (
-                    <div style={{ overflowX: "auto", border:`1px solid ${C.border}`, borderRadius:8 }}>
+                    <div style={{ overflowX: "auto", border:"1px solid var(--arcd-border-default)", borderRadius:8 }}>
                       <table style={{ borderCollapse: "collapse", fontSize:"var(--arcd-type-label)", minWidth: 520, width:"100%" }}>
                         <thead>
-                          <tr style={{ background:C.surface }}>
-                            <th style={{ textAlign:"left", padding:"8px 10px", position:"sticky", left:0, background:C.surface, zIndex:2, minWidth:170, color:C.muted, fontSize:"var(--arcd-type-label)", fontWeight:600, textTransform:"uppercase", borderBottom:`1px solid ${C.border}` }}>Item</th>
-                            <th style={{ textAlign:"right", padding:"8px 10px", color:C.muted, fontSize:"var(--arcd-type-label)", fontWeight:600, textTransform:"uppercase", borderBottom:`1px solid ${C.border}`, borderLeft:`1px solid ${C.line}`, minWidth:90 }}>Total</th>
+                          <tr style={{ background:"var(--arcd-surface-muted)" }}>
+                            <th style={{ textAlign:"left", padding:"var(--arcd-space-2)", position:"sticky", left:0, background:"var(--arcd-surface-muted)", zIndex:2, minWidth:170, color:"var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", textTransform:"uppercase", borderBottom:"1px solid var(--arcd-border-default)" }}>Item</th>
+                            <th style={{ textAlign:"right", padding:"var(--arcd-space-2)", color:"var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", textTransform:"uppercase", borderBottom:"1px solid var(--arcd-border-default)", borderLeft:"1px solid var(--arcd-border-default)", minWidth:90 }}>Total</th>
                             {mesesVisiveis.map(m => (
-                              <th key={m} style={{ textAlign:"right", padding:"8px 10px", color:C.muted, fontSize:"var(--arcd-type-label)", fontWeight:600, textTransform:"uppercase", borderBottom:`1px solid ${C.border}`, borderLeft:`1px solid ${C.line}`, minWidth:92, whiteSpace:"nowrap" }}>{fmtMesCol(m)}</th>
+                              <th key={m} style={{ textAlign:"right", padding:"var(--arcd-space-2)", color:"var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", textTransform:"uppercase", borderBottom:"1px solid var(--arcd-border-default)", borderLeft:"1px solid var(--arcd-border-default)", minWidth:92, whiteSpace:"nowrap" }}>{fmtMesCol(m)}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {ffM.linhas.map((l, i) => (
-                            <tr key={l.id} style={{ borderBottom:`1px solid ${C.line}`, background: i%2 ? "transparent" : `${C.surface}55` }}>
-                              <td className="brk" style={{ padding:"7px 10px", position:"sticky", left:0, zIndex:1, background: i%2 ? C.card : C.surface, fontWeight:600, color:C.text, minWidth:170 }}>{l.nome}</td>
-                              <td style={{ padding:"7px 10px", textAlign:"right", borderLeft:`1px solid ${C.line}` }}>
-                                <div style={{ fontWeight:600, color:C.text }}>{fmtCompact(l.total)}</div>
-                                <div style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>100%</div>
+                            <tr key={l.id} style={{ borderBottom:"1px solid var(--arcd-border-default)", background: i%2 ? "transparent" : "color-mix(in srgb, var(--arcd-surface-muted) 33%, transparent)" }}>
+                              <td className="brk" style={{ padding:"var(--arcd-space-2)", position:"sticky", left:0, zIndex:1, background: i%2 ? "var(--arcd-surface-card)" : "var(--arcd-surface-muted)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)", minWidth:170 }}>{l.nome}</td>
+                              <td style={{ padding:"var(--arcd-space-2)", textAlign:"right", borderLeft:"1px solid var(--arcd-border-default)" }}>
+                                <div style={{ fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>{fmtCompact(l.total)}</div>
+                                <div style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>100%</div>
                               </td>
                               {mesesVisiveis.map(m => {
                                 const v = l.porMes[m] || 0;
                                 const pct = l.total ? (v/l.total*100) : 0;
                                 return (
-                                  <td key={m} style={{ padding:"7px 10px", textAlign:"right", borderLeft:`1px solid ${C.line}` }}>
+                                  <td key={m} style={{ padding:"var(--arcd-space-2)", textAlign:"right", borderLeft:"1px solid var(--arcd-border-default)" }}>
                                     {v > 0 ? (
                                       <>
-                                        <div style={{ fontWeight:600, color:C.text }}>{fmtCompact(v)}</div>
-                                        <div style={{ fontSize:"var(--arcd-type-caption)", color: pct>=50?C.yellowD:C.muted }}>{pct.toFixed(1).replace(".",",")}%</div>
+                                        <div style={{ fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>{fmtCompact(v)}</div>
+                                        <div style={{ fontSize:"var(--arcd-type-caption)", color: pct>=50?"var(--arcd-action-primary)":"var(--arcd-text-secondary)" }}>{pct.toFixed(1).replace(".",",")}%</div>
                                       </>
-                                    ) : <span style={{ color:C.line }}>—</span>}
+                                    ) : <span style={{ color:"var(--arcd-border-default)" }}>—</span>}
                                   </td>
                                 );
                               })}
@@ -1527,19 +1528,19 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                           ))}
                         </tbody>
                         <tfoot>
-                          <tr style={{ background:C.surface, borderTop:`2px solid ${C.border}` }}>
-                            <td style={{ padding:"9px 10px", position:"sticky", left:0, background:C.surface, zIndex:1, fontWeight:600, color:C.text }}>Total do periodo</td>
-                            <td style={{ padding:"9px 10px", textAlign:"right", borderLeft:`1px solid ${C.line}` }}>
-                              <div style={{ fontWeight:600, color:C.blue }}>{fmtCompact(ffM.totalGeral)}</div>
-                              <div style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>100%</div>
+                          <tr style={{ background:"var(--arcd-surface-muted)", borderTop:"2px solid var(--arcd-border-default)" }}>
+                            <td style={{ padding:"var(--arcd-space-2)", position:"sticky", left:0, background:"var(--arcd-surface-muted)", zIndex:1, fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>Total do periodo</td>
+                            <td style={{ padding:"var(--arcd-space-2)", textAlign:"right", borderLeft:"1px solid var(--arcd-border-default)" }}>
+                              <div style={{ fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-action-primary)" }}>{fmtCompact(ffM.totalGeral)}</div>
+                              <div style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>100%</div>
                             </td>
                             {mesesVisiveis.map(m => {
                               const v = ffM.totalPorMes[m] || 0;
                               const pct = ffM.totalGeral ? (v/ffM.totalGeral*100) : 0;
                               return (
-                                <td key={m} style={{ padding:"9px 10px", textAlign:"right", borderLeft:`1px solid ${C.line}` }}>
-                                  <div style={{ fontWeight:600, color:C.blue }}>{fmtCompact(v)}</div>
-                                  <div style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>{pct.toFixed(2).replace(".",",")}%</div>
+                                <td key={m} style={{ padding:"var(--arcd-space-2)", textAlign:"right", borderLeft:"1px solid var(--arcd-border-default)" }}>
+                                  <div style={{ fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-action-primary)" }}>{fmtCompact(v)}</div>
+                                  <div style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>{pct.toFixed(2).replace(".",",")}%</div>
                                 </td>
                               );
                             })}
@@ -1550,7 +1551,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   )}
 
                   {/* Resumo de indicadores de desempenho (mantido do FF anterior) */}
-                  <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-3)", flexWrap: "wrap" }}>
                     <MiniFF label="Previsto total" v={fmt(ff.total.previsto)} c={C.text} />
                     <MiniFF label="Valor agregado" v={fmt(ff.total.valorAgregado)} c={C.blue} />
                     <MiniFF label="Realizado" v={fmt(ff.total.realizado)} c={C.purple} />
@@ -1567,16 +1568,16 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                 {/* ── AUTOMÁTICO: medição x reta do cronograma ─────────────
                     Não depende de digitar datas reais nem de linha de base:
                     o desvio nasce do progresso medido (medição/diário). */}
-                <div style={{ marginBottom: 18 }}>
-                  <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, textTransform: "uppercase", letterSpacing: .5, marginBottom: 4 }}>
+                <div style={{ marginBottom: "var(--arcd-space-4)" }}>
+                  <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)", marginBottom: "var(--arcd-space-1)" }}>
                     Desvio automático · medição x cronograma
                   </p>
-                  <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginBottom: 10, lineHeight: 1.5 }}>
+                  <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginBottom: "var(--arcd-space-2)", lineHeight: "var(--arcd-line-height-normal)" }}>
                     Para cada etapa, o sistema calcula em que dia o cronograma previa chegar ao avanço que a medição registrou.
-                    A distância desse dia até hoje é o desvio: <b style={{ color: C.red }}>+</b> dias atrasada, <b style={{ color: C.blue }}>−</b> dias adiantada.
+                    A distância desse dia até hoje é o desvio: <b style={{ color: "var(--arcd-danger-text)" }}>+</b> dias atrasada, <b style={{ color: "var(--arcd-action-primary)" }}>−</b> dias adiantada.
                   </p>
 
-                  <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginBottom: "var(--arcd-space-3)", flexWrap: "wrap" }}>
                     <MiniFF label="Desvio da obra" v={`${autoCmp.resumo.desvioObra > 0 ? "+" : ""}${autoCmp.resumo.desvioObra}d`}
                             c={autoCmp.resumo.desvioObra > 0 ? C.red : autoCmp.resumo.desvioObra < 0 ? C.blue : C.green} />
                     <MiniFF label="Atrasadas" v={String(autoCmp.resumo.atrasadas)} c={autoCmp.resumo.atrasadas ? C.red : C.muted} />
@@ -1590,11 +1591,11 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   <div style={{ overflowX: "auto" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize:"var(--arcd-type-label)" }}>
                       <thead>
-                        <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                          <th style={{ textAlign: "left", padding: "6px 8px", color: C.muted, fontSize:"var(--arcd-type-label)" }}>Etapa / tarefa</th>
-                          <th style={{ textAlign: "center", padding: "6px 8px", color: C.muted, fontSize:"var(--arcd-type-label)" }}>Período planejado</th>
-                          <th style={{ textAlign: "center", padding: "6px 8px", color: C.muted, fontSize:"var(--arcd-type-label)" }}>Medido x previsto hoje</th>
-                          <th style={{ textAlign: "right", padding: "6px 8px", color: C.muted, fontSize:"var(--arcd-type-label)" }}>Desvio</th>
+                        <tr style={{ borderBottom: "1px solid var(--arcd-border-default)" }}>
+                          <th style={{ textAlign: "left", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Etapa / tarefa</th>
+                          <th style={{ textAlign: "center", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Período planejado</th>
+                          <th style={{ textAlign: "center", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Medido x previsto hoje</th>
+                          <th style={{ textAlign: "right", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Desvio</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1609,44 +1610,44 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                             : l.desvio < 0 ? `${l.desvio}d`
                             : "no prazo";
                           return (
-                            <tr key={l.id} style={{ borderBottom: `1px solid ${C.line}`, background: l.titulo ? C.surface : "transparent" }}>
-                              <td className="brk" style={{ padding: "7px 8px", color: C.text, maxWidth: 160, fontWeight: l.titulo ? 600 : 500 }}>
+                            <tr key={l.id} style={{ borderBottom: "1px solid var(--arcd-border-default)", background: l.titulo ? "var(--arcd-surface-muted)" : "transparent" }}>
+                              <td className="brk" style={{ padding: "var(--arcd-space-2)", color: "var(--arcd-text-primary)", maxWidth: 160, fontWeight: l.titulo ? 600 : 500 }}>
                                 {l.nome}
-                                {l.concluida && <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: C.green, marginLeft: 5 }}>100%</span>}
-                                {critico.criticas.includes(l.id) && <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: C.red, marginLeft: 5 }}>CRÍTICA</span>}
+                                {l.concluida && <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-success-text)", marginLeft: "var(--arcd-space-1)" }}>100%</span>}
+                                {critico.criticas.includes(l.id) && <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-danger-text)", marginLeft: "var(--arcd-space-1)" }}>CRÍTICA</span>}
                               </td>
-                              <td style={{ padding: "7px 8px", textAlign: "center", color: C.muted, fontSize:"var(--arcd-type-table)" }}>
+                              <td style={{ padding: "var(--arcd-space-2)", textAlign: "center", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-table)" }}>
                                 {l.inicio ? `${fmtDate(l.inicio)} → ${fmtDate(l.fim)}` : "—"}
                               </td>
-                              <td style={{ padding: "7px 8px", textAlign: "center", fontSize:"var(--arcd-type-table)" }}>
-                                {l.pctPrevisto == null ? <span style={{ color: C.muted }}>—</span> : (
+                              <td style={{ padding: "var(--arcd-space-2)", textAlign: "center", fontSize:"var(--arcd-type-table)" }}>
+                                {l.pctPrevisto == null ? <span style={{ color: "var(--arcd-text-secondary)" }}>—</span> : (
                                   <>
-                                    <b style={{ color: l.pctMedido + 0.5 < l.pctPrevisto ? C.red : C.text }}>{Math.round(l.pctMedido)}%</b>
-                                    <span style={{ color: C.muted }}> de {Math.round(l.pctPrevisto)}%</span>
-                                    {l.origemProgresso === "diario" && <small style={{ display: "block", fontSize:"var(--arcd-type-caption)", color: C.muted }}>medição de {fmtDate(l.ultimaMedicao)}</small>}
+                                    <b style={{ color: l.pctMedido + 0.5 < l.pctPrevisto ? "var(--arcd-danger-text)" : "var(--arcd-text-primary)" }}>{Math.round(l.pctMedido)}%</b>
+                                    <span style={{ color: "var(--arcd-text-secondary)" }}> de {Math.round(l.pctPrevisto)}%</span>
+                                    {l.origemProgresso === "diario" && <small style={{ display: "block", fontSize:"var(--arcd-type-caption)", color: "var(--arcd-text-secondary)" }}>medição de {fmtDate(l.ultimaMedicao)}</small>}
                                   </>
                                 )}
                               </td>
-                              <td style={{ padding: "7px 8px", textAlign: "right", fontWeight:600, color: corDesv }}>{rotulo}</td>
+                              <td style={{ padding: "var(--arcd-space-2)", textAlign: "right", fontWeight:"var(--arcd-font-weight-semibold)", color: corDesv }}>{rotulo}</td>
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
                   </div>
-                  <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 8, lineHeight: 1.4 }}>
+                  <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-2)", lineHeight: "var(--arcd-line-height-normal)" }}>
                     Desvios em dias corridos. O desvio da obra é a média ponderada pelo custo de cada etapa — uma etapa cara atrasada pesa mais que várias baratas adiantadas.
                     Etapa sem medição depois do início conta cada dia como atraso.
                   </p>
                 </div>
 
                 <Divider />
-                <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, textTransform: "uppercase", letterSpacing: .5, margin: "12px 0 8px" }}>
+                <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)", margin: "var(--arcd-space-3) var(--arcd-space-0) var(--arcd-space-2)" }}>
                   Contra a linha de base (replanejamento)
                 </p>
                 {!compBase.temBaseline ? (
-                  <div style={{ textAlign: "center", padding: "18px 12px" }}>
-                    <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted, lineHeight: 1.6, marginBottom: 12 }}>
+                  <div style={{ textAlign: "center", padding: "var(--arcd-space-4) var(--arcd-space-3)" }}>
+                    <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", lineHeight: "var(--arcd-line-height-normal)", marginBottom: "var(--arcd-space-3)" }}>
                       Ainda não há linha de base. A linha de base congela o cronograma
                       aprovado; depois, conforme as datas e custos mudam, você vê o
                       desvio contra o plano original — atrasos, adiantamentos e estouro
@@ -1656,17 +1657,17 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                   </div>
                 ) : (
                   <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                      <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)", flexWrap: "wrap", marginBottom: "var(--arcd-space-3)" }}>
+                      <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>
                         Linha de base de <b>{fmtDate(plano.baselineData)}</b> · {compBase.linhas.length} tarefa(s)
                       </p>
-                      <div style={{ display: "flex", gap: 6 }}>
+                      <div style={{ display: "flex", gap: "var(--arcd-space-1)" }}>
                         <Btn size="sm" v="ghost" onClick={salvarBaseline}>Refazer</Btn>
                         <Btn size="sm" v="ghost" onClick={limparBaseline}>Remover</Btn>
                       </div>
                     </div>
 
-                    <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginBottom: "var(--arcd-space-3)", flexWrap: "wrap" }}>
                       <MiniFF label="No prazo" v={String(compBase.resumo.noPrazo)} c={C.green} />
                       <MiniFF label="Atrasadas" v={String(compBase.resumo.atrasadas)} c={compBase.resumo.atrasadas ? C.red : C.muted} />
                       <MiniFF label="Adiantadas" v={String(compBase.resumo.adiantadas)} c={C.blue} />
@@ -1680,12 +1681,12 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                     <div style={{ overflowX: "auto" }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize:"var(--arcd-type-label)" }}>
                         <thead>
-                          <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                            <th style={{ textAlign: "left", padding: "6px 8px", color: C.muted, fontSize:"var(--arcd-type-label)" }}>Tarefa</th>
-                            <th style={{ textAlign: "center", padding: "6px 8px", color: C.muted, fontSize:"var(--arcd-type-label)" }}>Início base → realizado/atual</th>
-                            <th style={{ textAlign: "center", padding: "6px 8px", color: C.muted, fontSize:"var(--arcd-type-label)" }}>Fim base → realizado/atual</th>
-                            <th style={{ textAlign: "right", padding: "6px 8px", color: C.muted, fontSize:"var(--arcd-type-label)" }}>Desvio</th>
-                            <th style={{ textAlign: "right", padding: "6px 8px", color: C.muted, fontSize:"var(--arcd-type-label)" }}>Custo</th>
+                          <tr style={{ borderBottom: "1px solid var(--arcd-border-default)" }}>
+                            <th style={{ textAlign: "left", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Tarefa</th>
+                            <th style={{ textAlign: "center", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Início base → realizado/atual</th>
+                            <th style={{ textAlign: "center", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Fim base → realizado/atual</th>
+                            <th style={{ textAlign: "right", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Desvio</th>
+                            <th style={{ textAlign: "right", padding: "var(--arcd-space-1) var(--arcd-space-2)", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-label)" }}>Custo</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1694,26 +1695,26 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                               : l.situacao === "adiantada" ? C.blue
                               : l.situacao === "sem-realizado" ? C.muted : C.green;
                             return (
-                              <tr key={l.id} style={{ borderBottom: `1px solid ${C.line}` }}>
-                                <td className="brk" style={{ padding: "7px 8px", color: C.text, maxWidth: 150 }}>
+                              <tr key={l.id} style={{ borderBottom: "1px solid var(--arcd-border-default)" }}>
+                                <td className="brk" style={{ padding: "var(--arcd-space-2)", color: "var(--arcd-text-primary)", maxWidth: 150 }}>
                                   {l.nome}
-                                  {critico.criticas.includes(l.id) && <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: C.red, marginLeft: 5 }}>CRÍTICA</span>}
+                                  {critico.criticas.includes(l.id) && <span style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-danger-text)", marginLeft: "var(--arcd-space-1)" }}>CRÍTICA</span>}
                                 </td>
-                                <td style={{ padding: "7px 8px", textAlign: "center", color: C.muted, fontSize:"var(--arcd-type-table)" }}>
+                                <td style={{ padding: "var(--arcd-space-2)", textAlign: "center", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-table)" }}>
                                   {fmtDate(l.baseIni)} → {l.comparadoIni ? fmtDate(l.comparadoIni) : "—"}
-                                  {l.fonteIni && <small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l.fonteIni}</small>}
+                                  {l.fonteIni && <small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{l.fonteIni}</small>}
                                 </td>
-                                <td style={{ padding: "7px 8px", textAlign: "center", color: C.muted, fontSize:"var(--arcd-type-table)" }}>
+                                <td style={{ padding: "var(--arcd-space-2)", textAlign: "center", color: "var(--arcd-text-secondary)", fontSize:"var(--arcd-type-table)" }}>
                                   {fmtDate(l.baseFim)} → {l.comparadoFim ? fmtDate(l.comparadoFim) : "—"}
-                                  {l.fonteFim && <small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:C.muted}}>{l.fonteFim}</small>}
+                                  {l.fonteFim && <small style={{display:"block",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{l.fonteFim}</small>}
                                 </td>
-                                <td style={{ padding: "7px 8px", textAlign: "right", fontWeight:600, color: corDesv }}>
+                                <td style={{ padding: "var(--arcd-space-2)", textAlign: "right", fontWeight:"var(--arcd-font-weight-semibold)", color: corDesv }}>
                                   {l.situacao === "sem-realizado" ? "sem realizado"
                                     : l.desvFim > 0 ? `+${l.desvFim}d`
                                     : l.desvFim < 0 ? `${l.desvFim}d` : "no prazo"}
                                 </td>
-                                <td style={{ padding: "7px 8px", textAlign: "right", fontWeight:600,
-                                             color: l.desvCusto > 0 ? C.red : l.desvCusto < 0 ? C.green : C.muted }}>
+                                <td style={{ padding: "var(--arcd-space-2)", textAlign: "right", fontWeight:"var(--arcd-font-weight-semibold)",
+                                             color: l.desvCusto > 0 ? "var(--arcd-danger-text)" : l.desvCusto < 0 ? "var(--arcd-success-text)" : "var(--arcd-text-secondary)" }}>
                                   {l.desvCusto === 0 ? "—" : `${l.desvCusto > 0 ? "+" : ""}${fmt(l.desvCusto)}`}
                                 </td>
                               </tr>
@@ -1722,9 +1723,9 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                         </tbody>
                       </table>
                     </div>
-                    <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 8, lineHeight: 1.4 }}>
+                    <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-2)", lineHeight: "var(--arcd-line-height-normal)" }}>
                       Datas reais prevalecem. Na ausência delas, a comparação usa a programação atual como previsão.
-                      O término define o desvio; quando o término não mudou, compara-se o início. <b style={{ color: C.red }}>+</b> atrasou, <b style={{ color: C.blue }}>−</b> adiantou.
+                      O término define o desvio; quando o término não mudou, compara-se o início. <b style={{ color: "var(--arcd-danger-text)" }}>+</b> atrasou, <b style={{ color: "var(--arcd-action-primary)" }}>−</b> adiantou.
                       O custo compara o custo real lançado (ou o previsto, se não houver real) com o custo da linha de base.
                     </p>
                   </div>
@@ -1735,22 +1736,22 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
         </div>
       )}
       {(plano.marcos || []).length > 0 && (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
-          <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text, textTransform: "uppercase",
-                      letterSpacing: .5, marginBottom: 9 }}>Marcos da obra</p>
+        <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, padding: "var(--arcd-space-3)" }}>
+          <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase",
+                      letterSpacing: "var(--arcd-letter-spacing-body)", marginBottom: "var(--arcd-space-2)" }}>Marcos da obra</p>
           {[...(plano.marcos || [])].sort((a, b) => (a.data || "").localeCompare(b.data || "")).map(m => {
             const tp = TIPO_MARCO[m.tipo] || TIPO_MARCO.geral;
             return (
               <div key={m.id} onClick={() => setMarcoModal({ modo: "editar", marco: m })}
-                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0",
-                            borderTop: `1px solid ${C.line}`, cursor: "pointer" }}>
+                   style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", padding: "var(--arcd-space-2) var(--arcd-space-0)",
+                            borderTop: "1px solid var(--arcd-border-default)", cursor: "pointer" }}>
                 <div style={{ width: 11, height: 11, background: tp.c, transform: "rotate(45deg)",
                               flexShrink: 0, opacity: m.feito ? .4 : 1 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:600,
-                             color: m.feito ? C.muted : C.text,
+                  <p className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)",
+                             color: m.feito ? "var(--arcd-text-secondary)" : "var(--arcd-text-primary)",
                              textDecoration: m.feito ? "line-through" : "none" }}>{m.nome}</p>
-                  <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>{tp.l} - {fmtDate(m.data)}</p>
+                  <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>{tp.l} - {fmtDate(m.data)}</p>
                 </div>
                 {m.feito && <Badge color={C.green}>Feito</Badge>}
               </div>
@@ -1762,20 +1763,20 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       {/* ==== MODAIS ==== */}
       {tarefaModal?.modo === "addEtapa" && (
         <Modal title="Adicionar etapa ao cronograma" onClose={() => setTarefaModal(null)}>
-          <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", marginBottom: "var(--arcd-space-3)", lineHeight: "var(--arcd-line-height-normal)" }}>
             Estas etapas do orcamento ainda nao estao no cronograma. Ao adicionar,
             a tarefa ja vem com o custo da etapa.
           </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)" }}>
             {etapasLivres.map(e => (
-              <button key={e.id} onClick={() => { adicionarEtapa(e.id); setTarefaModal(null); }}
+              <RecordAction key={e.id} onClick={() => { adicionarEtapa(e.id); setTarefaModal(null); }}
                       className="lift-card" style={{
                         display: "flex", justifyContent: "space-between", alignItems: "center",
-                        padding: "11px 12px", border: `1px solid ${C.border}`, borderRadius: 6,
-                        background: C.surface, cursor: "pointer", textAlign: "left" }}>
-                <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>{e.nome}</span>
-                <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.yellowD }}>{fmt(custoEtapa(orc, e.id))}</span>
-              </button>
+                        padding: "var(--arcd-space-3)", border: "1px solid var(--arcd-border-default)", borderRadius: 6,
+                        background: "var(--arcd-surface-muted)", cursor: "pointer", textAlign: "left" }}>
+                <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{e.nome}</span>
+                <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}>{fmt(custoEtapa(orc, e.id))}</span>
+              </RecordAction>
             ))}
           </div>
         </Modal>
@@ -1805,30 +1806,30 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
 
       {exportA2Modal && (
         <Modal title="Exportar cronograma em A2" onClose={()=>setExportA2Modal(false)} wide>
-          <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,lineHeight:1.55,marginBottom:12}}>
+          <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginBottom:"var(--arcd-space-3)"}}>
             Escolha quais colunas devem aparecer. A exportacao abre a impressao do navegador em <b>A2 paisagem</b>, ajustada para uma ou duas folhas. Selecione “Salvar como PDF” no destino da impressora.
           </p>
-          <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:12}}>
-            <div style={{border:`1px solid ${C.border}`,borderRadius:7,padding:11}}>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Colunas da exportacao</p>
-              {COLS_CRONO_DEF.map(c=><label key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",fontSize:"var(--arcd-type-label)",color:C.text,cursor:c.fixa?"default":"pointer"}}>
-                <input type="checkbox" checked={c.fixa?true:!!exportA2Cols[c.id]} disabled={c.fixa}
+          <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:"var(--arcd-space-3)"}}>
+            <div style={{border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-3)"}}>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Colunas da exportacao</p>
+              {COLS_CRONO_DEF.map(c=><label key={c.id} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",cursor:c.fixa?"default":"pointer"}}>
+                <ChoiceControl type="checkbox" checked={c.fixa?true:!!exportA2Cols[c.id]} disabled={c.fixa}
                   onChange={()=>!c.fixa&&setExportA2Cols(v=>({...v,[c.id]:!v[c.id]}))}
-                  style={{width:15,height:15,accentColor:C.yellowD}}/>{c.label}{c.fixa&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>(obrigatoria)</span>}
+                  style={{width:15,height:15,accentColor:"var(--arcd-action-primary)"}}/>{c.label}{c.fixa&&<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>(obrigatoria)</span>}
               </label>)}
             </div>
-            <div style={{border:`1px solid ${C.border}`,borderRadius:7,padding:11}}>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Quantidade de folhas</p>
-              {[1,2].map(n=><label key={n} style={{display:"flex",gap:9,alignItems:"flex-start",padding:"7px 0",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:C.text}}>
-                <input type="radio" name="folhasA2" checked={exportA2Folhas===n} onChange={()=>setExportA2Folhas(n)} style={{marginTop:2,accentColor:C.yellowD}}/>
-                <span><b>{n} folha{n>1?"s":""} A2 em paisagem</b><small style={{display:"block",color:C.muted,marginTop:2,lineHeight:1.4}}>{n===1?"Todo o periodo comprimido em uma folha.":"O periodo e dividido ao meio, com melhor legibilidade."}</small></span>
+            <div style={{border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-3)"}}>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Quantidade de folhas</p>
+              {[1,2].map(n=><label key={n} style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"flex-start",padding:"var(--arcd-space-2) var(--arcd-space-0)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>
+                <ChoiceControl type="radio" name="folhasA2" checked={exportA2Folhas===n} onChange={()=>setExportA2Folhas(n)} style={{marginTop:"var(--arcd-space-half)",accentColor:"var(--arcd-action-primary)"}}/>
+                <span><b>{n} folha{n>1?"s":""} A2 em paisagem</b><small style={{display:"block",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>{n===1?"Todo o periodo comprimido em uma folha.":"O periodo e dividido ao meio, com melhor legibilidade."}</small></span>
               </label>)}
-              <div style={{marginTop:12,padding:9,background:C.surface,borderRadius:6,fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.45}}>
-                Periodo: <b style={{color:C.text}}>{fmtDate(GANTT_INI)} a {fmtDate(somaDias(GANTT_INI,totalDias-1))}</b><br/>Atividades: <b style={{color:C.text}}>{tarefas.length}</b>
+              <div style={{marginTop:"var(--arcd-space-3)",padding:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",borderRadius:6,fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
+                Periodo: <b style={{color:"var(--arcd-text-primary)"}}>{fmtDate(GANTT_INI)} a {fmtDate(somaDias(GANTT_INI,totalDias-1))}</b><br/>Atividades: <b style={{color:"var(--arcd-text-primary)"}}>{tarefas.length}</b>
               </div>
             </div>
           </div>
-          <div style={{display:"flex",justifyContent:"flex-end",gap:7,marginTop:14}}>
+          <div style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)"}}>
             <Btn v="ghost" onClick={()=>setExportA2Modal(false)}>Cancelar</Btn>
             <Btn onClick={exportarCronogramaA2}><Ic n="download"/> Gerar A2</Btn>
           </div>
@@ -1845,26 +1846,26 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
 
       {vincPreview && (
         <Modal title="Vinculos propostos pela IA" onClose={()=>setVincPreview(null)} wide>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5,marginBottom:10}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginBottom:"var(--arcd-space-2)"}}>
             A ordem do orcamento nao sera alterada. A sucessora e calculada a partir das antecessoras para manter um unico vinculo consistente.
           </p>
-          <div style={{border:`1px solid ${C.border}`,borderRadius:6,overflow:"hidden",maxHeight:420,overflowY:"auto"}}>
-            {vincPreview.linhas.map((l,i)=><div key={l.id} style={{padding:"8px 10px",borderBottom:i<vincPreview.linhas.length-1?`1px solid ${C.line}`:"none"}}>
-              <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>{i+1}. {l.nome}</p>
-                <span style={{fontSize:"var(--arcd-type-caption)",color:l.alterada?C.orange:C.muted,whiteSpace:"nowrap"}}>
+          <div style={{border:"1px solid var(--arcd-border-default)",borderRadius:6,overflow:"hidden",maxHeight:420,overflowY:"auto"}}>
+            {vincPreview.linhas.map((l,i)=><div key={l.id} style={{padding:"var(--arcd-space-2)",borderBottom:i<vincPreview.linhas.length-1?"1px solid var(--arcd-border-default)":"none"}}>
+              <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)"}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{i+1}. {l.nome}</p>
+                <span style={{fontSize:"var(--arcd-type-caption)",color:l.alterada?"var(--arcd-warning-text)":"var(--arcd-text-secondary)",whiteSpace:"nowrap"}}>
                   {fmtDate(l.inicio)} - {fmtDate(l.fim)}{l.alterada?" · data ajustada":""}
                 </span>
               </div>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
-                Antecessora(s): <b style={{color:C.blue}}>{l.antecessoras.join(", ")||"nenhuma"}</b>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
+                Antecessora(s): <b style={{color:"var(--arcd-action-primary)"}}>{l.antecessoras.join(", ")||"nenhuma"}</b>
               </p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>
-                Sucessora(s): <b style={{color:C.green}}>{l.sucessoras.join(", ")||"nenhuma"}</b>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
+                Sucessora(s): <b style={{color:"var(--arcd-success-text)"}}>{l.sucessoras.join(", ")||"nenhuma"}</b>
               </p>
             </div>)}
           </div>
-          <div style={{display:"flex",gap:8,marginTop:12}}>
+          <div style={{display:"flex",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)"}}>
             <Btn v="ghost" onClick={()=>setVincPreview(null)} full>Cancelar</Btn>
             <Btn onClick={aplicarVinculosIA} full><Ic n="check"/> Aplicar vinculos</Btn>
           </div>
@@ -1873,7 +1874,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
 
       {iaModal && (
         <Modal title="Orientacao tecnica (IA)" onClose={() => setIaModal(null)} wide>
-          <div style={{ whiteSpace: "pre-wrap", fontSize: "var(--arcd-type-body)", lineHeight: 1.6, color: C.text }}>
+          <div style={{ whiteSpace: "pre-wrap", fontSize: "var(--arcd-type-body)", lineHeight: "var(--arcd-line-height-normal)", color: "var(--arcd-text-primary)" }}>
             {iaModal.texto}
           </div>
         </Modal>
@@ -1892,8 +1893,8 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
       {/* PREVIA do cronograma proposto: operador aprova ou descarta */}
       {questPreview && (
         <Modal title="Cronograma proposto pela IA" onClose={() => setQuestPreview(null)} wide>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "grid", gridTemplateColumns: cols(2,3,3), gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: cols(2,3,3), gap: "var(--arcd-space-2)" }}>
               <MiniKpi label="Inicio" value={fmtDate(questPreview.resumo.inicio)} cor={C.blue} />
               <MiniKpi label="Fim previsto" value={fmtDate(questPreview.resumo.fim)} cor={C.yellow} />
               <MiniKpi label="Duracao"
@@ -1901,7 +1902,7 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
                        cor={questPreview.resumo.dentroDoPrazo ? C.green : C.red}
                        sub={questPreview.resumo.dentroDoPrazo ? "dentro do prazo" : "acima do prazo desejado"} />
             </div>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
               Prazo limite: <b>{fmtDate(questPreview.resumo.fimAlvo)}</b> - calendario: {questPreview.diasSemana.length} dia(s)/semana,
               {questPreview.calendario?.pularFeriados
                 ? ` com ${questPreview.resumo.feriadosConsiderados} feriado(s) dentro do prazo`
@@ -1909,26 +1910,26 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
             </p>
 
             {questPreview.avisos.length > 0 && (
-              <div style={{ background: `${C.orange}0E`, border: `1px solid ${C.orange}55`,
-                            borderRadius: 6, padding: "10px 12px" }}>
-                <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.orange, marginBottom: 5 }}>
+              <div style={{ background: "color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",
+                            borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
+                <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-warning-text)", marginBottom: "var(--arcd-space-1)" }}>
                   Observacoes de boa pratica
                 </p>
                 {questPreview.avisos.map((a, i) => (
-                  <p key={i} style={{ fontSize:"var(--arcd-type-label)", color: C.subtle, lineHeight: 1.5, marginBottom: 3 }}>- {a}</p>
+                  <p key={i} style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-muted)", lineHeight: "var(--arcd-line-height-normal)", marginBottom: "var(--arcd-space-half)" }}>- {a}</p>
                 ))}
               </div>
             )}
 
             {/* Lista das tarefas propostas, na ordem imutavel do orcamento */}
-            <div style={{ border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden" }}>
+            <div style={{ border: "1px solid var(--arcd-border-default)", borderRadius: 6, overflow: "hidden" }}>
               {questPreview.tarefas.map((t, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 8,
-                     padding: "8px 11px", borderBottom: i < questPreview.tarefas.length-1 ? `1px solid ${C.line}` : "none" }}>
-                  <span style={{ fontSize:"var(--arcd-type-label)", color: C.text, minWidth: 0 }}>
-                    <b style={{ color: C.muted }}>{i+1}.</b> {t.nome}
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "var(--arcd-space-2)",
+                     padding: "var(--arcd-space-2) var(--arcd-space-3)", borderBottom: i < questPreview.tarefas.length-1 ? "1px solid var(--arcd-border-default)" : "none" }}>
+                  <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-primary)", minWidth: 0 }}>
+                    <b style={{ color: "var(--arcd-text-secondary)" }}>{i+1}.</b> {t.nome}
                   </span>
-                  <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted, whiteSpace: "nowrap", flexShrink: 0 }}>
+                  <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", whiteSpace: "nowrap", flexShrink: 0 }}>
                     {fmtDate(t.inicio)} - {fmtDate(t.fim)}
                   </span>
                 </div>
@@ -1936,18 +1937,18 @@ export default function Planejamento({ data, update, showToast, obraIdFixo="", c
             </div>
 
             {questIA && (
-              <div style={{ background: `${C.blue}08`, border: `1px solid ${C.blue}44`, borderRadius: 6, padding: "10px 12px" }}>
-                <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.blue, marginBottom: 5 }}>Parecer da IA</p>
-                <div style={{ whiteSpace: "pre-wrap", fontSize:"var(--arcd-type-label)", lineHeight: 1.55, color: C.text }}>{questIA}</div>
+              <div style={{ background: "color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)", borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
+                <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)", marginBottom: "var(--arcd-space-1)" }}>Parecer da IA</p>
+                <div style={{ whiteSpace: "pre-wrap", fontSize:"var(--arcd-type-label)", lineHeight: "var(--arcd-line-height-normal)", color: "var(--arcd-text-primary)" }}>{questIA}</div>
               </div>
             )}
 
-            <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, lineHeight: 1.5 }}>
+            <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", lineHeight: "var(--arcd-line-height-normal)" }}>
               A ordem e os dados permanecem iguais aos do orcamento. Ao aplicar, entram no Gantt as datas,
               duracoes e dependencias tecnicas; tudo continua ajustavel pelo operador.
             </p>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "var(--arcd-space-2)", flexWrap: "wrap" }}>
               <Btn v="ghost" onClick={() => setQuestPreview(null)}>Descartar</Btn>
               {!questIA && <Btn v="ghost" onClick={comentarCronogramaIA}><Ic n="brain" s={13}/> Pedir parecer</Btn>}
               <Btn onClick={aplicarCronogramaProposto} style={{ marginLeft: "auto" }}>
@@ -1977,22 +1978,22 @@ function QuestionarioPlanejamento({ orc, plano, onGerar, onClose }) {
 
   return (
     <Modal title="Planejar obra com IA" onClose={onClose}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
-        <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, lineHeight: 1.55 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
+        <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", lineHeight: "var(--arcd-line-height-normal)" }}>
           Responda algumas perguntas. O planejamento preserva exatamente a ordem do orcamento
           e distribui apenas datas e duracoes conforme o calendario de trabalho, as boas praticas
           e o prazo limite informado.
         </p>
 
         {nEtapas === 0 ? (
-          <div style={{ background: `${C.orange}0E`, border: `1px solid ${C.orange}55`, borderRadius: 6, padding: "11px 13px" }}>
-            <p style={{ fontSize: "var(--arcd-type-body)", color: C.orange, fontWeight:600, lineHeight: 1.5 }}>
+          <div style={{ background: "color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)", borderRadius: 6, padding: "var(--arcd-space-3)" }}>
+            <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-warning-text)", fontWeight:"var(--arcd-font-weight-semibold)", lineHeight: "var(--arcd-line-height-normal)" }}>
               Esta obra ainda nao tem etapas no orcamento. Crie o orcamento com etapas antes de planejar.
             </p>
           </div>
         ) : (
           <>
-            <p style={{ fontSize:"var(--arcd-type-label)", color: C.subtle }}>
+            <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-muted)" }}>
               {nEtapas} etapa(s) do orcamento serao organizadas no cronograma.
             </p>
 
@@ -2018,7 +2019,7 @@ function QuestionarioPlanejamento({ orc, plano, onGerar, onClose }) {
             <Sel label="Sobrepor servicos compativeis para ganhar tempo?" value={resp.paralelo} onChange={set("paralelo")}
                  options={[{ v:"sim", l:"Sim, quando fizer sentido" }, { v:"nao", l:"Nao, um de cada vez" }]} />
 
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: "var(--arcd-space-2)" }}>
               <Btn v="ghost" onClick={onClose} full>Cancelar</Btn>
               <Btn onClick={() => onGerar(resp)} disabled={!podeGerar} full>
                 <Ic n="brain" s={13}/> Gerar cronograma
@@ -2066,14 +2067,14 @@ function CurvaSGrafico({ dados, real }) {
   return (
     <div style={{ overflowX:"auto", position:"relative" }}>
       {/* legenda */}
-      <div style={{ display:"flex", gap:16, marginBottom:8, fontSize:"var(--arcd-type-label)", flexWrap:"wrap" }}>
-        <span style={{ display:"flex", alignItems:"center", gap:5, color:C.muted }}>
-          <span style={{ width:14, height:3, background:C.yellow, borderRadius:2 }}/>Planejado
+      <div style={{ display:"flex", gap:"var(--arcd-space-4)", marginBottom:"var(--arcd-space-2)", fontSize:"var(--arcd-type-label)", flexWrap:"wrap" }}>
+        <span style={{ display:"flex", alignItems:"center", gap:"var(--arcd-space-1)", color:"var(--arcd-text-secondary)" }}>
+          <span style={{ width:14, height:3, background:"var(--arcd-action-primary)", borderRadius:2 }}/>Planejado
         </span>
-        {temReal && <span style={{ display:"flex", alignItems:"center", gap:5, color:C.muted }}>
-          <span style={{ width:14, height:3, background:C.blue, borderRadius:2 }}/>Realizado
+        {temReal && <span style={{ display:"flex", alignItems:"center", gap:"var(--arcd-space-1)", color:"var(--arcd-text-secondary)" }}>
+          <span style={{ width:14, height:3, background:"var(--arcd-action-primary)", borderRadius:2 }}/>Realizado
         </span>}
-        <span style={{color:C.muted}}>Pontos semanais · valores por dia útil</span>
+        <span style={{color:"var(--arcd-text-secondary)"}}>Pontos semanais · valores por dia útil</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", minWidth:420, height:"auto" }}
            onMouseLeave={()=>setHover(null)}>
@@ -2113,12 +2114,12 @@ function CurvaSGrafico({ dados, real }) {
       </svg>
       {/* tooltip */}
       {hover!==null && (
-        <div style={{ marginTop:8, padding:"8px 12px", background:C.surface, borderRadius:8,
-                      border:`1px solid ${C.border}`, fontSize:"var(--arcd-type-label)", display:"flex", gap:16, flexWrap:"wrap" }}>
-          <b style={{ color:C.text }}>{dados[hover].periodo==="semana"?`Semana de ${fmtDate(dados[hover].mes)}`:fmtMesAno(dados[hover].mes+"-01")}</b>
-          <span style={{ color:C.muted }}>Planejado acum.: <b style={{ color:C.yellowD }}>{dados[hover].pctAcum.toFixed(1)}%</b></span>
-          {temReal && <span style={{ color:C.muted }}>Realizado acum.: <b style={{ color:C.blue }}>{serieReal[hover].toFixed(1)}%</b></span>}
-          <span style={{ color:C.muted }}>No período: <b style={{ color:C.text }}>{fmt(dados[hover].valor)}</b></span>
+        <div style={{ marginTop:"var(--arcd-space-2)", padding:"var(--arcd-space-2) var(--arcd-space-3)", background:"var(--arcd-surface-muted)", borderRadius:8,
+                      border:"1px solid var(--arcd-border-default)", fontSize:"var(--arcd-type-label)", display:"flex", gap:"var(--arcd-space-4)", flexWrap:"wrap" }}>
+          <b style={{ color:"var(--arcd-text-primary)" }}>{dados[hover].periodo==="semana"?`Semana de ${fmtDate(dados[hover].mes)}`:fmtMesAno(dados[hover].mes+"-01")}</b>
+          <span style={{ color:"var(--arcd-text-secondary)" }}>Planejado acum.: <b style={{ color:"var(--arcd-action-primary)" }}>{dados[hover].pctAcum.toFixed(1)}%</b></span>
+          {temReal && <span style={{ color:"var(--arcd-text-secondary)" }}>Realizado acum.: <b style={{ color:"var(--arcd-action-primary)" }}>{serieReal[hover].toFixed(1)}%</b></span>}
+          <span style={{ color:"var(--arcd-text-secondary)" }}>No período: <b style={{ color:"var(--arcd-text-primary)" }}>{fmt(dados[hover].valor)}</b></span>
         </div>
       )}
     </div>
@@ -2128,9 +2129,9 @@ function CurvaSGrafico({ dados, real }) {
 // Mini-cartao para os totais do fisico-financeiro.
 function MiniFF({ label, v, c }) {
   return (
-    <div style={{ flex: 1, minWidth: 100, background: C.surface, borderRadius: 6, padding: "8px 10px" }}>
-      <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: C.muted, textTransform: "uppercase", letterSpacing: .5 }}>{label}</p>
-      <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: c, marginTop: 2 }}>{v}</p>
+    <div style={{ flex: 1, minWidth: 100, background: "var(--arcd-surface-muted)", borderRadius: 6, padding: "var(--arcd-space-2)" }}>
+      <p style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-secondary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)" }}>{label}</p>
+      <p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: c, marginTop: "var(--arcd-space-half)" }}>{v}</p>
     </div>
   );
 }
@@ -2169,18 +2170,18 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose, onMat
   return (
     <Modal title={tarefa.nome} onClose={onClose}>
       {onMaterials&&<Btn v="ghost" onClick={onMaterials}>Materiais e compras desta etapa</Btn>}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
         {tarefa.custo > 0 && (
-          <div style={{ background: `${C.yellow}12`, border: `1px solid ${C.yellow}44`,
-                        borderRadius: 6, padding: "9px 11px" }}>
-            <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Custo da etapa (do orcamento)</p>
-            <p style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:600, color: C.yellowD }}>{fmt(tarefa.custo)}</p>
+          <div style={{ background: "color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",
+                        borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
+            <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Custo da etapa (do orcamento)</p>
+            <p style={{ fontSize: "var(--arcd-type-card-title)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}>{fmt(tarefa.custo)}</p>
           </div>
         )}
         {tarefa.orfa && (
-          <div style={{ background: `${C.red}0E`, border: `1px solid ${C.red}55`,
-                        borderRadius: 6, padding: "9px 11px" }}>
-            <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.red }}>
+          <div style={{ background: "color-mix(in srgb, var(--arcd-danger-text) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-danger-text) 33%, transparent)",
+                        borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
+            <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-danger-text)" }}>
               A etapa do orcamento ligada a esta tarefa foi removida. Reassocie ou apague a tarefa.
             </p>
           </div>
@@ -2188,55 +2189,55 @@ function ModalTarefa({ tarefa, cal, tarefas, onSalvar, onRemover, onClose, onMat
         <Inp label="Inicio" type="date" value={ini} onChange={setIni} />
         <Inp label="Fim" type="date" value={fim} onChange={setFim} />
         {ini && fim && fim < ini && (
-          <p style={{ fontSize:"var(--arcd-type-label)", color: C.red }}>O fim nao pode ser anterior ao inicio.</p>
+          <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-danger-text)" }}>O fim nao pode ser anterior ao inicio.</p>
         )}
         {((ini && !ehDiaUtil(ini,cal)) || (fim && !ehDiaUtil(fim,cal))) && (
-          <p style={{ fontSize:"var(--arcd-type-label)", color: C.orange }}>Ao salvar, as datas serao ajustadas para os dias trabalhados mais proximos.</p>
+          <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-warning-text)" }}>Ao salvar, as datas serao ajustadas para os dias trabalhados mais proximos.</p>
         )}
-        <div style={{background:`${C.blue}0A`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 11px"}}>
-          <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.45}}>Avanço físico confirmado</p>
-          <b style={{display:"block",fontSize:"var(--arcd-type-card-title)",color:C.text,marginTop:2}}>{Number(tarefa.progresso||0).toFixed(0)}%</b>
-          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>Altere pelo boletim de medição para manter a trilha auditável.</p>
+        <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+          <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Avanço físico confirmado</p>
+          <b style={{display:"block",fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{Number(tarefa.progresso||0).toFixed(0)}%</b>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Altere pelo boletim de medição para manter a trilha auditável.</p>
         </div>
-        {!tarefa.titulo&&<div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 11px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.45,marginBottom:7}}>Linha de balanço</p><div style={{display:"grid",gridTemplateColumns:"1fr 110px",gap:8}}><Inp label="Grupo repetitivo" value={linhaBalancoGrupo} onChange={setLinhaBalancoGrupo} placeholder="Ex.: Alvenaria"/><Inp label="Frente / pavimento" type="number" value={linhaBalancoFrente} onChange={setLinhaBalancoFrente} placeholder="Ex.: 3"/></div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:5}}>Preencha em tarefas repetidas para acompanhar a cadência entre frentes.</p></div>}
+        {!tarefa.titulo&&<div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Linha de balanço</p><div style={{display:"grid",gridTemplateColumns:"1fr 110px",gap:"var(--arcd-space-2)"}}><Inp label="Grupo repetitivo" value={linhaBalancoGrupo} onChange={setLinhaBalancoGrupo} placeholder="Ex.: Alvenaria"/><Inp label="Frente / pavimento" type="number" value={linhaBalancoFrente} onChange={setLinhaBalancoFrente} placeholder="Ex.: 3"/></div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>Preencha em tarefas repetidas para acompanhar a cadência entre frentes.</p></div>}
         {!tarefa.titulo && (
-          <div style={{ background:`${C.blue}0A`, border:`1px solid ${C.blue}33`, borderRadius:8, padding:"10px 11px", display:"flex", flexDirection:"column", gap:8 }}>
-            <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color:C.blue, textTransform:"uppercase", letterSpacing:.5 }}>Realizado (execução)</p>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+          <div style={{ background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)", border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)", borderRadius:8, padding:"var(--arcd-space-2) var(--arcd-space-3)", display:"flex", flexDirection:"column", gap:"var(--arcd-space-2)" }}>
+            <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-action-primary)", textTransform:"uppercase", letterSpacing:"var(--arcd-letter-spacing-body)" }}>Realizado (execução)</p>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"var(--arcd-space-2)" }}>
               <Inp label="Início real" type="date" value={iniReal} onChange={setIniReal} />
               <Inp label="Fim real" type="date" value={fimReal} onChange={setFimReal} />
             </div>
             <Inp label="Custo real lançado (R$)" type="number" value={custoReal} onChange={setCustoReal} placeholder={tarefa.custo>0?`previsto ${fmt(tarefa.custo)}`:"0"} />
-            {materialAplicado > 0 && <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, marginTop:4 }}>Material consumido do estoque nesta tarefa: {fmt(materialAplicado)}. O custo real lançado deve incluir também mão de obra e terceiros.</p>}
+            {materialAplicado > 0 && <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)", marginTop:"var(--arcd-space-1)" }}>Material consumido do estoque nesta tarefa: {fmt(materialAplicado)}. O custo real lançado deve incluir também mão de obra e terceiros.</p>}
             {iniReal && fimReal && fim && fimReal>fim && (
-              <p style={{ fontSize:"var(--arcd-type-label)", color:C.red }}>O fim real está após o planejado — esta tarefa atrasou.</p>
+              <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-danger-text)" }}>O fim real está após o planejado — esta tarefa atrasou.</p>
             )}
-            <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted, lineHeight:1.4 }}>
+            <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)", lineHeight:"var(--arcd-line-height-normal)" }}>
               Estes campos alimentam a linha "Realizado" no cronograma, a curva S e o físico-financeiro realizado. Deixe em branco se ainda não executou.
             </p>
           </div>
         )}
         {!tarefa.titulo && (
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}>
             {[["Antecessoras",candidatasPred,preds,setPreds],["Sucessoras",candidatasSuc,sucs,setSucs]].map(([titulo,lista,selecionadas,setter])=>(
-              <div key={titulo} style={{border:`1px solid ${C.border}`,borderRadius:6,padding:8,minWidth:0}}>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",marginBottom:6}}>{titulo}</p>
-                <div style={{maxHeight:135,overflowY:"auto",display:"flex",flexDirection:"column",gap:4}}>
-                  {lista.length===0 && <span style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma atividade disponível</span>}
-                  {lista.map(t=><label key={t.id} style={{display:"flex",gap:6,alignItems:"flex-start",fontSize:"var(--arcd-type-label)",color:C.text,cursor:"pointer"}}>
-                    <input type="checkbox" checked={selecionadas.includes(t.id)} onChange={()=>alternar(setter,t.id)}
-                           style={{accentColor:C.yellow,marginTop:1}}/>
-                    <span style={{lineHeight:1.25}}>{t.nome}</span>
+              <div key={titulo} style={{border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2)",minWidth:0}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",marginBottom:"var(--arcd-space-1)"}}>{titulo}</p>
+                <div style={{maxHeight:135,overflowY:"auto",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
+                  {lista.length===0 && <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma atividade disponível</span>}
+                  {lista.map(t=><label key={t.id} style={{display:"flex",gap:"var(--arcd-space-1)",alignItems:"flex-start",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",cursor:"pointer"}}>
+                    <ChoiceControl type="checkbox" checked={selecionadas.includes(t.id)} onChange={()=>alternar(setter,t.id)}
+                           style={{accentColor:"var(--arcd-action-primary)",marginTop:"var(--arcd-space-0)"}}/>
+                    <span style={{lineHeight:"var(--arcd-line-height-normal)"}}>{t.nome}</span>
                   </label>)}
                 </div>
               </div>
             ))}
           </div>
         )}
-        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.45}}>
+        <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
           Os vinculos manuais respeitam a ordem do orcamento: antecessoras anteriores e sucessoras posteriores, evitando ciclos.
         </p>
-        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+        <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-1)" }}>
           <Btn full onClick={salvar}>Salvar</Btn>
           <Btn v="danger" onClick={onRemover}><Ic n="trash" /></Btn>
         </div>
@@ -2267,47 +2268,39 @@ function ModalCalendario({ cal, onSalvar, onClose }) {
 
   return (
     <Modal title="Calendario de trabalho" onClose={onClose}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
         <div>
-          <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.text, textTransform: "uppercase",
-                      letterSpacing: .6, marginBottom: 8 }}>Dias trabalhados</p>
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase",
+                      letterSpacing: "var(--arcd-letter-spacing-body)", marginBottom: "var(--arcd-space-2)" }}>Dias trabalhados</p>
+          <div style={{ display: "flex", gap: "var(--arcd-space-1)", flexWrap: "wrap" }}>
             {DIAS.map(([lbl, d]) => (
-              <button key={d} onClick={() => toggleDia(d)} style={{
-                flex: 1, minWidth: 42, padding: "9px 4px", borderRadius: 6, cursor: "pointer",
-                border: `1.5px solid ${dias.includes(d) ? C.yellow : C.border}`,
-                background: dias.includes(d) ? `${C.yellow}18` : "transparent",
-                color: dias.includes(d) ? C.yellowD : C.muted,
-                fontSize:"var(--arcd-type-control)", fontWeight:600,
-              }}>{lbl}</button>
+              <StandardButton variant="secondary" key={d} onClick={() => toggleDia(d)} style={{flex: 1,minWidth: 42}}>{lbl}</StandardButton>
             ))}
           </div>
         </div>
 
-        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-          <input type="checkbox" checked={pular} onChange={e => setPular(e.target.checked)}
-                 style={{ width: 18, height: 18, accentColor: C.yellow }} />
-          <span style={{ fontSize: "var(--arcd-type-body)", color: C.text }}>Retirar feriados do cronograma</span>
+        <label style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", cursor: "pointer" }}>
+          <ChoiceControl type="checkbox" checked={pular} onChange={e => setPular(e.target.checked)}
+                 style={{ width: 18, height: 18, accentColor: "var(--arcd-action-primary)" }} />
+          <span style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-primary)" }}>Retirar feriados do cronograma</span>
         </label>
 
         {pular && (
           <div>
-            <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.text, textTransform: "uppercase",
-                        letterSpacing: .6, marginBottom: 8 }}>Feriados</p>
+            <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase",
+                        letterSpacing: "var(--arcd-letter-spacing-body)", marginBottom: "var(--arcd-space-2)" }}>Feriados</p>
             {fers.length > 0 && (
-              <div style={{ marginBottom: 10 }}>
+              <div style={{ marginBottom: "var(--arcd-space-2)" }}>
                 {fers.map(f => (
                   <div key={f.data} style={{ display: "flex", justifyContent: "space-between",
-                       alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.line}` }}>
-                    <span style={{ fontSize: "var(--arcd-type-body)", color: C.text }}>{fmtDate(f.data)} - {f.nome}</span>
-                    <button onClick={() => setFers(prev => prev.filter(x => x.data !== f.data))}
-                            style={{ background: "transparent", border: 0, color: C.red, cursor: "pointer",
-                                     fontSize:"var(--arcd-type-control)", fontWeight:600 }}>remover</button>
+                       alignItems: "center", padding: "var(--arcd-space-1) var(--arcd-space-0)", borderBottom: "1px solid var(--arcd-border-default)" }}>
+                    <span style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-primary)" }}>{fmtDate(f.data)} - {f.nome}</span>
+                    <StandardButton variant="secondary" onClick={() => setFers(prev => prev.filter(x => x.data !== f.data))}>Remover</StandardButton>
                   </div>
                 ))}
               </div>
             )}
-            <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+            <div style={{ display: "flex", gap: "var(--arcd-space-1)", alignItems: "flex-end" }}>
               <div style={{ flex: 1 }}>
                 <Inp label="Data" type="date" value={novoFer.data}
                      onChange={v => setNovoFer(p => ({ ...p, data: v }))} />
@@ -2338,7 +2331,7 @@ function ModalMarco({ marco, onSalvar, onRemover, onClose }) {
 
   return (
     <Modal title={marco.id ? "Marco" : "Novo marco"} onClose={onClose}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
         <Inp label="Nome" value={nome} onChange={setNome} placeholder="Ex.: Comprar porcelanato" />
         <Sel label="Tipo" value={tipo} onChange={setTipo} options={[
           { v: "compra", l: "Compra" }, { v: "entrega", l: "Entrega" },
@@ -2347,12 +2340,12 @@ function ModalMarco({ marco, onSalvar, onRemover, onClose }) {
         ]} />
         <Inp label="Data" type="date" value={dataM} onChange={setDataM} />
         <Inp label="Nota (opcional)" value={nota} onChange={setNota} multiline />
-        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-          <input type="checkbox" checked={feito} onChange={e => setFeito(e.target.checked)}
-                 style={{ width: 18, height: 18, accentColor: C.green }} />
-          <span style={{ fontSize: "var(--arcd-type-body)", color: C.text }}>Ja concluido</span>
+        <label style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", cursor: "pointer" }}>
+          <ChoiceControl type="checkbox" checked={feito} onChange={e => setFeito(e.target.checked)}
+                 style={{ width: 18, height: 18, accentColor: "var(--arcd-success-text)" }} />
+          <span style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-primary)" }}>Ja concluido</span>
         </label>
-        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+        <div style={{ display: "flex", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-1)" }}>
           <Btn full onClick={() => onSalvar({ id: marco.id, nome, tipo, data: dataM, feito, nota })}>Salvar</Btn>
           {onRemover && <Btn v="danger" onClick={onRemover}><Ic n="trash" /></Btn>}
         </div>

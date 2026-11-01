@@ -1,4 +1,6 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {Input} from '../../components/ui/input.jsx';
+import {TextareaControl} from '../../design-system/primitives/Textarea.jsx';
 
 // Célula editável da planilha do orçamento. `multiline` troca o <input> por um
 // <textarea> de uma linha que cresce com o conteúdo: descrições longas quebram
@@ -55,7 +57,7 @@ export const BudgetTextCell = memo(function BudgetTextCell({
     element.blur();
   };
 
-  const Campo = multiline ? "textarea" : "input";
+  const Campo = multiline ? TextareaControl : Input;
   return <Campo
     {...props}
     ref={campo}

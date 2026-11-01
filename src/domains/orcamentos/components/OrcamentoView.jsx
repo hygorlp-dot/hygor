@@ -1,3 +1,10 @@
+import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
+import {Input as StandardInput} from '../../../components/ui/input.jsx';
+import {Button as StandardButton} from '../../../components/ui/button.jsx';
+import {SelectControl} from '../../../design-system/primitives/Select.jsx';
+import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
+import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
+import {TextareaControl} from '../../../design-system/primitives/Textarea.jsx';
 import {useWorkspaceState,useWorkspaceScroll} from "../../../features/workflow/workspace-session.jsx";
 import {useRememberWorkflowScope,useWorkflow} from "../../../features/workflow/WorkflowNavigation.jsx";
 import { WorkspaceNavigation } from "../../../design-system/patterns/WorkspaceNavigation";
@@ -69,7 +76,7 @@ import "./budget-sheet.css";
 const IconeMais = () => <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="8" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="13" cy="8" r="1.4"/></svg>;
 const IconeAlca = () => <svg width="10" height="14" viewBox="0 0 10 16" fill="currentColor" aria-hidden="true"><circle cx="2.5" cy="3" r="1.2"/><circle cx="7.5" cy="3" r="1.2"/><circle cx="2.5" cy="8" r="1.2"/><circle cx="7.5" cy="8" r="1.2"/><circle cx="2.5" cy="13" r="1.2"/><circle cx="7.5" cy="13" r="1.2"/></svg>;
 const IconeSeta = ({aberta}) => <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">{aberta?<path d="M1 3l4 4 4-4z"/>:<path d="M3 1l4 4-4 4z"/>}</svg>;
-const IconeEditado = () => <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{marginRight:4,flexShrink:0}}><path d="M1.5 10.5l.7-2.8 6.3-6.3 2.1 2.1-6.3 6.3z"/></svg>;
+const IconeEditado = () => <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{marginRight:"var(--arcd-space-1)",flexShrink:0}}><path d="M1.5 10.5l.7-2.8 6.3-6.3 2.1 2.1-6.3 6.3z"/></svg>;
 import {
   detectarColunasImportacao, montarLinhasImportacao, resumoImportacao,
 } from "../budget-import-mapping";
@@ -202,37 +209,37 @@ const DISCIPLINAS_MEMORIA = [["itens","ITEM A ITEM"],["caixas","CAIXAS E RESERVA
 // é apresentado.
 // ===================================================================
 const Metric = ({ label, value, unit }) => (
-  <div style={{display:"flex",flexDirection:"column",gap:1}}>
-    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{label}</span>
-    <span style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,marginLeft:3}}>{unit}</span>}</span>
+  <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-0)"}}>
+    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>{label}</span>
+    <span style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",marginLeft:"var(--arcd-space-half)"}}>{unit}</span>}</span>
   </div>
 );
 
 const EditableField = ({ label, value, onChange, unit, ariaLabel, width }) => (
-  <label style={{display:"flex",flexDirection:"column",gap:3,width}}>
-    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{label}</span>
+  <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)",width}}>
+    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>{label}</span>
     <span style={{position:"relative",display:"flex"}}>
-      <input type="number" min="0" step="any" aria-label={ariaLabel||label} value={value}
+      <StandardInput type="number" min="0" step="any" aria-label={ariaLabel||label} value={value}
         onChange={e=>onChange(e.target.value.replace(",","."))}
-        style={{width:"100%",boxSizing:"border-box",padding:unit?"7px 28px 7px 8px":"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right",fontSize:"var(--arcd-type-control)",fontVariantNumeric:"tabular-nums"}}/>
-      {unit&&<span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",fontSize:"var(--arcd-type-caption)",color:C.subtle,pointerEvents:"none"}}>{unit}</span>}
+        style={{width:"100%",boxSizing:"border-box",padding:unit?"7px 28px 7px 8px":"7px 8px",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:"var(--arcd-type-control)",fontVariantNumeric:"tabular-nums"}}/>
+      {unit&&<span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-muted)",pointerEvents:"none"}}>{unit}</span>}
     </span>
   </label>
 );
 
 const CalculatedValue = ({ label, value, unit }) => (
-  <div style={{display:"flex",flexDirection:"column",gap:2,background:C.card2,borderRadius:6,padding:"6px 9px"}}>
-    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>{label}</span>
-    <span style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,marginLeft:3}}>{unit}</span>}</span>
+  <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)",background:"var(--arcd-surface-muted)",borderRadius:6,padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>
+    <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>{label}</span>
+    <span style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",marginLeft:"var(--arcd-space-half)"}}>{unit}</span>}</span>
   </div>
 );
 
 const ResultValue = ({ label, value, unit, tone="purple" }) => {
   const cor = tone==="blue" ? C.blue : C.purple;
   return (
-    <div style={{display:"flex",flexDirection:"column",gap:2,background:`${cor}0c`,border:`1px solid ${cor}33`,borderRadius:6,padding:"7px 10px"}}>
-      <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:cor}}>{label}</span>
-      <span style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:cor,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,marginLeft:3}}>{unit}</span>}</span>
+    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)",background:`${cor}0c`,border:`1px solid ${cor}33`,borderRadius:6,padding:"var(--arcd-space-2)"}}>
+      <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor}}>{label}</span>
+      <span style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,fontVariantNumeric:"tabular-nums"}}>{value}{unit&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",marginLeft:"var(--arcd-space-half)"}}>{unit}</span>}</span>
     </div>
   );
 };
@@ -240,8 +247,8 @@ const ResultValue = ({ label, value, unit, tone="purple" }) => {
 const Warning = ({ children, tone="warn" }) => {
   const cor = tone==="error" ? C.red : C.orange;
   return (
-    <div style={{background:`${cor}0d`,border:`1px solid ${cor}44`,borderRadius:6,padding:"7px 9px"}}>
-      <p style={{fontSize:"var(--arcd-type-caption)",color:cor,fontWeight:600,lineHeight:1.5}}>⚠ {children}</p>
+    <div style={{background:`${cor}0d`,border:`1px solid ${cor}44`,borderRadius:6,padding:"var(--arcd-space-2)"}}>
+      <p style={{fontSize:"var(--arcd-type-caption)",color:cor,fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)"}}>⚠ {children}</p>
     </div>
   );
 };
@@ -250,8 +257,8 @@ const Warning = ({ children, tone="warn" }) => {
 // usuário pedir (pedido explícito: resultado antes do detalhe).
 const CalculationDetails = ({ formula }) => (
   <details>
-    <summary style={{cursor:"pointer",fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:600}}>Ver memória do cálculo</summary>
-    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4,lineHeight:1.5}}>{formula}</p>
+    <summary style={{cursor:"pointer",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Ver memória do cálculo</summary>
+    <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",lineHeight:"var(--arcd-line-height-normal)"}}>{formula}</p>
   </details>
 );
 
@@ -265,26 +272,26 @@ const LABEL_GRUPO = { fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.
 const fmtNum = (n,casas=2) => Number(n||0).toLocaleString("pt-BR",{maximumFractionDigits:casas});
 
 const FloorSection = ({ id, sectionRef, title, resumo, children }) => (
-  <section ref={sectionRef} id={id} style={{display:"flex",flexDirection:"column",gap:12,scrollMarginTop:SCROLL_MARGIN}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:"4px 18px",paddingBottom:8,borderBottom:`2px solid ${C.border}`}}>
-      <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text,letterSpacing:.2}}>{title}</p>
-      {resumo&&<div style={{display:"flex",gap:18,flexWrap:"wrap"}}>{resumo}</div>}
+  <section ref={sectionRef} id={id} style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",scrollMarginTop:SCROLL_MARGIN}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:"var(--arcd-space-1) var(--arcd-space-4)",paddingBottom:"var(--arcd-space-2)",borderBottom:"2px solid var(--arcd-border-default)"}}>
+      <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{title}</p>
+      {resumo&&<div style={{display:"flex",gap:"var(--arcd-space-4)",flexWrap:"wrap"}}>{resumo}</div>}
     </div>
     {children}
   </section>
 );
 
 const StructuralElementSection = ({ id, sectionRef, title, subtitle, open, onToggle, resumo, warning, children }) => (
-  <div ref={sectionRef} id={id} style={{border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,scrollMarginTop:SCROLL_MARGIN,overflow:"hidden"}}>
-    <button onClick={onToggle} aria-expanded={open} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12,padding:"14px 16px",border:0,background:"transparent",cursor:"pointer",textAlign:"left"}}>
-      <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+  <div ref={sectionRef} id={id} style={{border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-page)",scrollMarginTop:SCROLL_MARGIN,overflow:"hidden"}}>
+    <StandardButton variant="secondary" onClick={onToggle} aria-expanded={open} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"var(--arcd-space-3)",textAlign:"left"}}>
+      <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",minWidth:0}}>
         <span style={{display:"flex",flexShrink:0,transform:open?"rotate(90deg)":"none",transition:"transform 120ms ease-out"}}><Ic n="chevR" s={12} color={C.muted}/></span>
-        <span style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,whiteSpace:"nowrap"}}>{title}</span>
-        {subtitle&&<span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{subtitle}</span>}
+        <span style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap"}}>{title}</span>
+        {subtitle&&<span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{subtitle}</span>}
       </div>
-      {resumo&&<div style={{display:"flex",gap:14,flexWrap:"wrap",justifyContent:"flex-end"}}>{resumo}</div>}
-    </button>
-    {open&&<div style={{padding:"2px 12px 12px",display:"flex",flexDirection:"column",gap:10}}>
+      {resumo&&<div style={{display:"flex",gap:"var(--arcd-space-3)",flexWrap:"wrap",justifyContent:"flex-end"}}>{resumo}</div>}
+    </StandardButton>
+    {open&&<div style={{padding:"var(--arcd-space-half) var(--arcd-space-3) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
       {warning}
       {children}
     </div>}
@@ -302,34 +309,34 @@ const TabelaEditavel = ({ colunas, linhas, onChange, onAdd, onRemove, totalLabel
   return (
     <div style={{display:"flex",flexDirection:"column",gap:0}}>
       {linhas.length>0&&(
-        <div style={{display:"grid",gridTemplateColumns:grid,gap:6,padding:"0 2px 4px",borderBottom:`1px solid ${C.line}`,marginBottom:4}}>
-          {colunas.map(c=><span key={c.chave} style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.subtle,textAlign:c.numero?"right":"left"}}>{c.rotulo}</span>)}
+        <div style={{display:"grid",gridTemplateColumns:grid,gap:"var(--arcd-space-1)",padding:"var(--arcd-space-0) var(--arcd-space-half) var(--arcd-space-1)",borderBottom:"1px solid var(--arcd-border-default)",marginBottom:"var(--arcd-space-1)"}}>
+          {colunas.map(c=><span key={c.chave} style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-muted)",textAlign:c.numero?"right":"left"}}>{c.rotulo}</span>)}
           <span/>
         </div>
       )}
       {linhas.map((linha,i)=>(
-        <div key={i} style={{display:"grid",gridTemplateColumns:grid,gap:6,alignItems:"center",padding:"3px 0"}}>
+        <div key={i} style={{display:"grid",gridTemplateColumns:grid,gap:"var(--arcd-space-1)",alignItems:"center",padding:"var(--arcd-space-half) var(--arcd-space-0)"}}>
           {colunas.map(c=>(
             <span key={c.chave}>
               {c.opcoes ? (
-                <select aria-label={c.rotulo} value={linha[c.chave]||""} onChange={e=>onChange(i,{[c.chave]:e.target.value})}
-                  style={{width:"100%",boxSizing:"border-box",padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,fontSize:"var(--arcd-type-control)"}}>
+                <SelectControl aria-label={c.rotulo} value={linha[c.chave]||""} onChange={e=>onChange(i,{[c.chave]:e.target.value})}
+                  style={{width:"100%",boxSizing:"border-box",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)"}}>
                   <option value="">-</option>
                   {c.opcoes.map(o=><option key={o} value={o}>{o}</option>)}
-                </select>
+                </SelectControl>
               ) : (
-                <input type={c.numero?"number":"text"} min={c.numero?0:undefined} step={c.numero?"any":undefined} aria-label={c.rotulo} value={linha[c.chave]}
+                <StandardInput type={c.numero?"number":"text"} min={c.numero?0:undefined} step={c.numero?"any":undefined} aria-label={c.rotulo} value={linha[c.chave]}
                   onChange={e=>onChange(i,{[c.chave]:c.numero?e.target.value.replace(",","."):e.target.value})}
-                  style={{width:"100%",boxSizing:"border-box",padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:c.numero?"right":"left",fontSize:"var(--arcd-type-control)"}}/>
+                  style={{width:"100%",boxSizing:"border-box",padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:c.numero?"right":"left",fontSize:"var(--arcd-type-control)"}}/>
               )}
             </span>
           ))}
-          <button aria-label="Remover esta linha" title="Remover" onClick={()=>onRemove(i)} style={{border:0,background:"transparent",color:C.subtle,cursor:"pointer",display:"flex",justifyContent:"center"}}><Ic n="trash" s={13}/></button>
+          <StandardButton variant="secondary" aria-label="Remover esta linha" title="Remover" onClick={()=>onRemove(i)} style={{display:"flex",justifyContent:"center"}}><Ic n="trash" s={13}/></StandardButton>
         </div>
       ))}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:8}}>
-        <button onClick={onAdd} style={{border:`1px dashed ${C.border}`,background:"transparent",color:C.blue,borderRadius:5,padding:"5px 9px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>+ Adicionar linha</button>
-        {totalLabel&&linhas.length>0&&<span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{totalLabel}: <b style={{color:C.purple,fontSize:"var(--arcd-type-body)"}}>{totalValor}</b></span>}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}>
+        <StandardButton variant="secondary" onClick={onAdd}>+ Adicionar linha</StandardButton>
+        {totalLabel&&linhas.length>0&&<span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{totalLabel}: <b style={{color:"var(--arcd-action-primary)",fontSize:"var(--arcd-type-body)"}}>{totalValor}</b></span>}
       </div>
     </div>
   );
@@ -1178,27 +1185,27 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     return (
       <div style={{display:"flex",flexDirection:"column",gap:0}}>
         {lista.length>0&&(
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 22px",gap:6,padding:"0 2px 4px",borderBottom:`1px solid ${C.line}`,marginBottom:4}}>
-            <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.subtle,textTransform:"uppercase",letterSpacing:.3}}>Bitola</span>
-            <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.subtle,textTransform:"uppercase",letterSpacing:.3,textAlign:"right"}}>Peso</span>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 22px",gap:"var(--arcd-space-1)",padding:"var(--arcd-space-0) var(--arcd-space-half) var(--arcd-space-1)",borderBottom:"1px solid var(--arcd-border-default)",marginBottom:"var(--arcd-space-1)"}}>
+            <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-muted)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Bitola</span>
+            <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-muted)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",textAlign:"right"}}>Peso</span>
             <span/>
           </div>
         )}
         {lista.map((l,i)=>(
-          <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 22px",gap:6,alignItems:"center",padding:"3px 0"}}>
-            <select aria-label="Bitola" value={l.bitola} onChange={e=>atualizarLinha(i,{bitola:e.target.value})} style={{padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.bg,color:C.text,fontSize:"var(--arcd-type-control)"}}>
+          <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 22px",gap:"var(--arcd-space-1)",alignItems:"center",padding:"var(--arcd-space-half) var(--arcd-space-0)"}}>
+            <SelectControl aria-label="Bitola" value={l.bitola} onChange={e=>atualizarLinha(i,{bitola:e.target.value})} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)"}}>
               {BITOLAS_ACO.map(b=><option key={b} value={b}>∅{b}</option>)}
-            </select>
+            </SelectControl>
             <div style={{position:"relative"}}>
-              <input type="number" min="0" step="any" aria-label="Peso em kg" value={l.kg} onChange={e=>atualizarLinha(i,{kg:e.target.value.replace(",",".")})} style={{width:"100%",boxSizing:"border-box",padding:"6px 26px 6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.bg,color:C.text,textAlign:"right",fontSize:"var(--arcd-type-control)"}}/>
-              <span style={{position:"absolute",right:7,top:"50%",transform:"translateY(-50%)",fontSize:"var(--arcd-type-caption)",color:C.subtle,pointerEvents:"none"}}>kg</span>
+              <StandardInput type="number" min="0" step="any" aria-label="Peso em kg" value={l.kg} onChange={e=>atualizarLinha(i,{kg:e.target.value.replace(",",".")})} style={{width:"100%",boxSizing:"border-box",padding:"var(--arcd-space-1) var(--arcd-space-6) var(--arcd-space-1) var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:"var(--arcd-type-control)"}}/>
+              <span style={{position:"absolute",right:7,top:"50%",transform:"translateY(-50%)",fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-muted)",pointerEvents:"none"}}>kg</span>
             </div>
-            <button aria-label="Remover esta bitola" title="Remover" onClick={()=>removerLinha(i)} style={{border:0,background:"transparent",color:C.subtle,cursor:"pointer",display:"flex",justifyContent:"center"}}><Ic n="trash" s={13}/></button>
+            <StandardButton variant="secondary" aria-label="Remover esta bitola" title="Remover" onClick={()=>removerLinha(i)} style={{display:"flex",justifyContent:"center"}}><Ic n="trash" s={13}/></StandardButton>
           </div>
         ))}
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:8}}>
-          <button onClick={adicionarLinha} style={{border:`1px dashed ${C.border}`,background:"transparent",color:C.blue,borderRadius:5,padding:"5px 9px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>+ Adicionar bitola</button>
-          {lista.length>0&&<span style={{fontSize:"var(--arcd-type-label)",color:C.text}}>{totalLabel}: <b style={{color:C.purple,fontSize:"var(--arcd-type-body)"}}>{somaAcoPorBitola(lista).toFixed(1)} kg</b></span>}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}>
+          <StandardButton variant="secondary" onClick={adicionarLinha}>+ Adicionar bitola</StandardButton>
+          {lista.length>0&&<span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>{totalLabel}: <b style={{color:"var(--arcd-action-primary)",fontSize:"var(--arcd-type-body)"}}>{somaAcoPorBitola(lista).toFixed(1)} kg</b></span>}
         </div>
       </div>
     );
@@ -1225,17 +1232,17 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
     const acoPilares = somaAcoPorBitola(pilar.acoPorBitola);
     return (
       <StructuralElementSection id={chave} sectionRef={registrarSecaoMemoria(chave)}
-        title={<span style={{display:"flex",alignItems:"center",gap:6}}>PILARES{pilar.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo aqui remove este aviso." style={{width:7,height:7,borderRadius:"50%",background:C.orange,display:"inline-block"}}/>}</span>}
+        title={<span style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>PILARES{pilar.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo aqui remove este aviso." style={{width:7,height:7,borderRadius:"50%",background:"var(--arcd-warning-text)",display:"inline-block"}}/>}</span>}
         open={aberto} onToggle={()=>alternarElementoMemoria(chave,false)}
         resumo={<>
           <Metric label="Concreto" value={fmtNum(pilar.concretoM3)} unit="m³"/>
           <Metric label="Fôrma" value={fmtNum(pilar.formaM2)} unit="m²"/>
           <Metric label="Aço" value={fmtNum(acoPilares,1)} unit="kg"/>
         </>}>
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:-4}}>Total do pavimento inteiro (o orçamento sempre orça pilares assim, nunca pilar a pilar) - quando disponível, a importação usa o quadro-resumo do projeto. O quadro-resumo prevalece sobre os detalhamentos.</p>
+        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:-4}}>Total do pavimento inteiro (o orçamento sempre orça pilares assim, nunca pilar a pilar) - quando disponível, a importação usa o quadro-resumo do projeto. O quadro-resumo prevalece sobre os detalhamentos.</p>
         <div>
           <p style={LABEL_GRUPO}>Parâmetros</p>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:"var(--arcd-space-2)"}}>
             <EditableField label="CONCRETO (M³)" ariaLabel="Concreto dos pilares" value={pilar.concretoM3} onChange={v=>salvarPilarDoPavimento(pav,{concretoM3:v})}/>
             <EditableField label="FÔRMA (M²)" ariaLabel="Fôrma dos pilares" value={pilar.formaM2} onChange={v=>salvarPilarDoPavimento(pav,{formaM2:v})}/>
           </div>
@@ -1268,10 +1275,10 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
           <Metric label="Aço" value={fmtNum(acoVigas,1)} unit="kg"/>
         </>}
         warning={viga.avisoConcretoIncorreto&&<Warning>O próprio projeto avisa que não conseguiu calcular o volume de concreto das vigas deste pavimento com segurança ("por não dispor dos dados necessários"). Confira antes de confiar neste número.</Warning>}>
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:-4}}>O projeto detalha viga a viga (armadura), mas só entrega concreto/fôrma como total do pavimento inteiro - por isso é um valor só, não uma tabela por viga.</p>
+        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:-4}}>O projeto detalha viga a viga (armadura), mas só entrega concreto/fôrma como total do pavimento inteiro - por isso é um valor só, não uma tabela por viga.</p>
         <div>
           <p style={LABEL_GRUPO}>Parâmetros</p>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:"var(--arcd-space-2)"}}>
             <EditableField label="CONCRETO (M³)" ariaLabel="Concreto das vigas" value={viga.concretoM3} onChange={v=>salvarVigaDoPavimento(pav,{concretoM3:v})}/>
             <EditableField label="FÔRMA (M²)" ariaLabel="Fôrma das vigas" value={viga.formaM2} onChange={v=>salvarVigaDoPavimento(pav,{formaM2:v})}/>
           </div>
@@ -1279,16 +1286,16 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         {(pav==="terreo" || floors.find(f=>f.id===pav)?.origem==="terreo")&&(
           <div>
             <p style={LABEL_GRUPO}>Concreto magro (lastro sob a viga baldrame)</p>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:8}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,190px))",gap:"var(--arcd-space-2)"}}>
               <EditableField label="LARGURA DA VIGA (M)" ariaLabel="Largura da viga" value={viga.larguraVigaM} onChange={v=>salvarVigaDoPavimento(pav,{larguraVigaM:v})}/>
               <EditableField label="ACRÉSCIMO DE CADA LADO (M)" ariaLabel="Largura a acrescer no magro, de cada lado" value={viga.magroLarguraAcrescidaM} onChange={v=>salvarVigaDoPavimento(pav,{magroLarguraAcrescidaM:v})}/>
               <EditableField label="ESPESSURA DO LASTRO" unit="cm" ariaLabel="Espessura do lastro de concreto magro em centímetros" value={viga.magroEspessuraCm} onChange={v=>salvarVigaDoPavimento(pav,{magroEspessuraCm:v})}/>
             </div>
-            <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,marginTop:8}}>Informe a espessura do lastro em centímetros. O volume vinculado ao orçamento é a área do lastro × espessura em metros (cm ÷ 100).</p>
-            <div style={{marginTop:8}}><CalculatedValue label="Volume do magro" value={Number(viga.magroEspessuraCm)>0?fmtNum(magro,4):"Informe a espessura"} unit={Number(viga.magroEspessuraCm)>0?"m³":undefined}/><CalculatedValue label="Área do lastro" value={fmtNum(areaMagro)} unit="m²"/></div>
+            <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)"}}>Informe a espessura do lastro em centímetros. O volume vinculado ao orçamento é a área do lastro × espessura em metros (cm ÷ 100).</p>
+            <div style={{marginTop:"var(--arcd-space-2)"}}><CalculatedValue label="Volume do magro" value={Number(viga.magroEspessuraCm)>0?fmtNum(magro,4):"Informe a espessura"} unit={Number(viga.magroEspessuraCm)>0?"m³":undefined}/><CalculatedValue label="Área do lastro" value={fmtNum(areaMagro)} unit="m²"/></div>
             <CalculationDetails formula={`Comprimento = ${Number(viga.areaPlantaVigasM2||0).toFixed(2)} m² em planta ÷ ${Number(viga.larguraVigaM||0).toFixed(3)} m = ${comprimento.toFixed(2)} m. Área do magro = ${comprimento.toFixed(2)} m × (${Number(viga.larguraVigaM||0).toFixed(3)} m largura + 2 × ${Number(viga.magroLarguraAcrescidaM||0).toFixed(3)} m de acréscimo) = ${areaMagro.toFixed(2)} m². Volume = ${areaMagro.toFixed(2)} m² × (${Number(viga.magroEspessuraCm||0)} cm ÷ 100) = ${magro.toFixed(4)} m³.`}/>
             {!viga.areaPlantaVigasM2&&viga.larguraVigaM>0&&(
-              <div style={{marginTop:6}}><Warning>Área em planta ainda não importada (0 m²) - o concreto/fôrma deste pavimento vieram de uma importação anterior ao PDF de Quantitativos trazer esse dado. Reimporte o PDF de Quantitativos (seção "Importar projeto" acima) para calcular o magro.</Warning></div>
+              <div style={{marginTop:"var(--arcd-space-1)"}}><Warning>Área em planta ainda não importada (0 m²) - o concreto/fôrma deste pavimento vieram de uma importação anterior ao PDF de Quantitativos trazer esse dado. Reimporte o PDF de Quantitativos (seção "Importar projeto" acima) para calcular o magro.</Warning></div>
             )}
           </div>
         )}
@@ -1318,11 +1325,11 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
         </>}>
         {laje.somenteTelaSoldada&&<p>Vigotas: somente tela soldada, calculada pela área × peso da malha. Aços em barras do projeto desconsiderados.</p>}
         {laje.acoSemBitolas&&<Warning>O quadro informa {laje.acoTotalProjetoKg} kg de aço sem separar bitolas. O resumo usa somente esse total; a estimativa de vigotas não é somada novamente. Confira o escopo antes de discriminar os insumos.</Warning>}
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:-4}}>Volumes, áreas e quantitativos de aço do pavimento - o mesmo jeito que o Quantitativos do projeto resume.</p>
+        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:-4}}>Volumes, áreas e quantitativos de aço do pavimento - o mesmo jeito que o Quantitativos do projeto resume.</p>
 
         <div>
           <p style={LABEL_GRUPO}>Volumes</p>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:"var(--arcd-space-2)"}}>
             <EditableField label="VOLUME TOTAL" unit="m³" ariaLabel="Volume total de laje" value={laje.volumeM3} onChange={v=>salvarLajeDoPavimento(pav,{volumeM3:v})}/>
             <EditableField label="MACIÇA" unit="m³" ariaLabel="Volume de laje maciça" value={laje.volumeMacicasM3} onChange={v=>salvarLajeDoPavimento(pav,{volumeMacicasM3:v})}/>
             <EditableField label="VIGOTA" unit="m³" ariaLabel="Volume de laje vigota" value={laje.volumeVigotasM3} onChange={v=>salvarLajeDoPavimento(pav,{volumeVigotasM3:v})}/>
@@ -1331,35 +1338,35 @@ export default function Orcamento({ data, update, showToast, obraIdFixo="", curr
 
         <div>
           <p style={LABEL_GRUPO}>Áreas</p>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:"var(--arcd-space-2)"}}>
             <EditableField label="ÁREA MACIÇA" unit="m²" ariaLabel="Área de laje maciça" value={laje.areaMacicaM2} onChange={v=>salvarLajeDoPavimento(pav,{areaMacicaM2:v})}/>
             <EditableField label="ÁREA VIGOTA" unit="m²" ariaLabel="Área de laje vigota" value={laje.areaVigotaM2} onChange={v=>salvarLajeDoPavimento(pav,{areaVigotaM2:v})}/>
           </div>
-          {semAreaImportada&&<div style={{marginTop:6}}><Warning>Área ainda não importada (0 m²) - o volume deste pavimento veio de uma importação anterior ao PDF de Quantitativos trazer esse dado. Reimporte o PDF de Quantitativos (seção "Importar projeto" acima) para calcular o aço da vigota.</Warning></div>}
+          {semAreaImportada&&<div style={{marginTop:"var(--arcd-space-1)"}}><Warning>Área ainda não importada (0 m²) - o volume deste pavimento veio de uma importação anterior ao PDF de Quantitativos trazer esse dado. Reimporte o PDF de Quantitativos (seção "Importar projeto" acima) para calcular o aço da vigota.</Warning></div>}
         </div>
 
         <div>
           <p style={LABEL_GRUPO}>Aço da laje</p>
-          <div style={{display:"grid",gridTemplateColumns:isMobile||laje.somenteTelaSoldada?"1fr":"3fr 2fr",gap:10,alignItems:"start"}}>
-            {!laje.somenteTelaSoldada&&<div style={{border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 11px",display:"flex",flexDirection:"column",gap:6}}>
-              <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Maciça - aço por bitola</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Não inclui vigota - a treliça pré-moldada não entra no Resumo Aço do projeto.</p></div>
+          <div style={{display:"grid",gridTemplateColumns:isMobile||laje.somenteTelaSoldada?"1fr":"3fr 2fr",gap:"var(--arcd-space-2)",alignItems:"start"}}>
+            {!laje.somenteTelaSoldada&&<div style={{border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
+              <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Maciça - aço por bitola</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Não inclui vigota - a treliça pré-moldada não entra no Resumo Aço do projeto.</p></div>
               {renderEditorAcoPorBitola(laje.acoPorBitola, lista=>salvarLajeDoPavimento(pav,{acoPorBitola:lista}), "Total aço maciça")}
             </div>}
-            <div style={{border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 11px",display:"flex",flexDirection:"column",gap:8}}>
-              <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Vigota - tela soldada</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Peso = área x peso/m² da malha - não soma com o aço da maciça.</p></div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                <label style={{display:"flex",flexDirection:"column",gap:3}}>
-                  <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>MALHA</span>
-                  <select aria-label="Malha da tela soldada da vigota" value={laje.malhaVigota}
+            <div style={{border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+              <div><p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Vigota - tela soldada</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Peso = área x peso/m² da malha - não soma com o aço da maciça.</p></div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}>
+                <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
+                  <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>MALHA</span>
+                  <SelectControl aria-label="Malha da tela soldada da vigota" value={laje.malhaVigota}
                     onChange={e=>salvarLajeDoPavimento(pav,{malhaVigota:e.target.value,pesoMalhaVigotaKgM2:PESO_TELA_SOLDADA_KG_M2[e.target.value]})}
-                    style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,fontSize:"var(--arcd-type-control)"}}>
+                    style={{padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)"}}>
                     {MALHAS_TELA_SOLDADA.map(m=><option key={m} value={m}>{m}</option>)}
-                  </select>
+                  </SelectControl>
                 </label>
                 <EditableField label="PESO/M²" unit="kg" ariaLabel="Peso por m² da malha da vigota" value={laje.pesoMalhaVigotaKgM2} onChange={v=>salvarLajeDoPavimento(pav,{pesoMalhaVigotaKgM2:v})}/>
               </div>
               <ResultValue label="Peso calculado" value={acoVigota.toFixed(1)} unit="kg"/>
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{Number(laje.areaVigotaM2||0).toFixed(2)} m² × {Number(laje.pesoMalhaVigotaKgM2||0).toFixed(2)} kg/m² = {acoVigota.toFixed(1)} kg</p>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{Number(laje.areaVigotaM2||0).toFixed(2)} m² × {Number(laje.pesoMalhaVigotaKgM2||0).toFixed(2)} kg/m² = {acoVigota.toFixed(1)} kg</p>
             </div>
           </div>
         </div>
@@ -3403,7 +3410,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
   //  VIEW: LISTA
   if (view === "lista") {
     return (
-      <div className="anim budget-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div className="anim budget-workspace" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
         <PageHeader headingLevel={obraIdFixo?2:1} className="workspace-header"
           title="Orçamentos"
           description="Planilha orçamentária com BDI e exportação."
@@ -3415,29 +3422,29 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         />
 
         {undoOrc && (
-          <div style={{background:`${C.blue}0C`,border:`1px solid ${C.blue}55`,borderRadius:8,padding:"10px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
-            <p style={{fontSize:"var(--arcd-type-body)",color:C.text}}>Orçamento "{undoOrc.orc?.nome}" removido.</p>
+          <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
+            <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>Orçamento "{undoOrc.orc?.nome}" removido.</p>
             <Btn size="sm" v="ghost" onClick={desfazerDelOrc}><Ic n="refresh" s={13}/> Desfazer</Btn>
           </div>
         )}
 
         {ajudaModal && (
           <Modal title="Como funciona o Orçamento" onClose={()=>setAjudaModal(false)} wide>
-            <div style={{display:"flex",flexDirection:"column",gap:14,fontSize:"var(--arcd-type-body)",color:C.text,lineHeight:1.6}}>
+            <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>
               <div>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>Bases de preços</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-half)"}}>Bases de preços</p>
                 <p>Vincule uma base <b>SINAPI</b> ou <b>ORSE</b> (ou as duas) ao orçamento para pesquisar composições e insumos por código ou descrição. Sem base vinculada, só é possível lançar itens avulsos ou favoritos já salvos.</p>
               </div>
               <div>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>BDI</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-half)"}}>BDI</p>
                 <p>O selo colorido ao lado do BDI mostra se o percentual está dentro da faixa auditável do TCU (Acórdão 2622/2013) para o tipo de obra escolhido. Fora da faixa não bloqueia o orçamento, mas fica sinalizado para justificar em auditoria.</p>
               </div>
               <div>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>Versão e baseline</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-half)"}}>Versão e baseline</p>
                 <p>Um orçamento <b>aprovado</b> fica bloqueado para edição - crie uma <b>revisão</b> para alterar valores depois disso. A <b>baseline</b> é a versão que planejamento, medições e comparativos usam como referência da obra; sem baseline definida, essas telas não têm o que comparar.</p>
               </div>
               <div>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.6,marginBottom:3}}>Copiar de outra obra</p>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-half)"}}>Copiar de outra obra</p>
                 <p>Traz a estrutura de etapas, itens e (se existir) o cronograma de um orçamento de outra obra. Você escolhe se as quantidades vêm repetidas (útil para obras quase idênticas) ou zeradas (a estrutura e o preço de referência vêm, você lança a medida real desta obra). As datas do cronograma copiado são deslocadas para começar hoje.</p>
               </div>
               <Btn v="ghost" onClick={()=>setAjudaModal(false)} full>Fechar</Btn>
@@ -3446,16 +3453,16 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         )}
 
         {obraIdFixo&&!getActiveBudgetBaseline(data,obraIdFixo,"controle").budget&&orcamentos.length>0&&(
-          <div style={{background:`${C.orange}0C`,border:`1px solid ${C.orange}66`,borderRadius:8,padding:"10px 12px",fontSize:"var(--arcd-type-body)",color:C.text,lineHeight:1.45}}>
-            <b style={{color:C.orange}}>Baseline ainda não definida.</b> Abra a versão correta e use <b>“Aprovar e adotar baseline”</b>. Enquanto isso, planejamento, medições, qualidade e comparativos não usarão nenhum orçamento desta obra.
+          <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>
+            <b style={{color:"var(--arcd-warning-text)"}}>Baseline ainda não definida.</b> Abra a versão correta e use <b>“Aprovar e adotar baseline”</b>. Enquanto isso, planejamento, medições, qualidade e comparativos não usarão nenhum orçamento desta obra.
           </div>
         )}
 
         {orcamentos.length===0 && (
-          <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,padding:30,textAlign:"center",boxShadow:`0 1px 4px ${C.shadow}`}}>
-            <div style={{display:"flex",justifyContent:"center",marginBottom:8}}><Ic n="fileText" s={38} color={C.muted}/></div>
-            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginBottom:6}}>Nenhum orçamento criado</p>
-            <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,lineHeight:1.6}}>Crie um orçamento, importe a base SINAPI ou ORSE<br/>e monte a planilha por etapas.</p>
+          <div style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderRadius:8,padding:"var(--arcd-space-8)",textAlign:"center",boxShadow:`0 1px 4px ${C.shadow}`}}>
+            <div style={{display:"flex",justifyContent:"center",marginBottom:"var(--arcd-space-2)"}}><Ic n="fileText" s={38} color={C.muted}/></div>
+            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-1)"}}>Nenhum orçamento criado</p>
+            <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>Crie um orçamento, importe a base SINAPI ou ORSE<br/>e monte a planilha por etapas.</p>
           </div>
         )}
 
@@ -3465,27 +3472,27 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           const ehBaseline=(data.budgetBaselines||[]).some(b=>b.ativo!==false&&b.tipo==="controle"&&b.budgetId===o.id);
           const bloqueado=budgetIsImmutable(o);
           return (
-            <div key={o.id} style={{background:C.bg,border:`1.5px solid ${C.border}`,borderLeft:`1px solid ${C.yellow}`,borderRadius:8,padding:"12px 14px",boxShadow:`0 1px 4px ${C.shadow}`}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+            <div key={o.id} style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-action-primary)",borderRadius:8,padding:"var(--arcd-space-3)",boxShadow:`0 1px 4px ${C.shadow}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}>
                 <div style={{flex:1,minWidth:0}}>
-                  <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text}}>{o.nome}</p>
-                  {o.descricao && <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,marginTop:2,lineHeight:1.4}}>{o.descricao}</p>}
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
+                  <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{o.nome}</p>
+                  {o.descricao && <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>{o.descricao}</p>}
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
                     {o.cliente && `${o.cliente}  `}
                     {obraNome && `${obraNome}  `}
                     {o.fonte} {o.uf} {o.dataBase && ` ${o.dataBase}`}  BDI {o.bdi}%
                   </p>
-                  <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:5}}>{ehBaseline&&<Badge color={C.green}>BASELINE ATIVA</Badge>}<Badge color={bloqueado?C.blue:C.orange}>V{o.versionNumber||1} · {bloqueado?"APROVADA":"RASCUNHO"}</Badge></div>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
+                  <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",marginTop:"var(--arcd-space-1)"}}>{ehBaseline&&<Badge color={C.green}>BASELINE ATIVA</Badge>}<Badge color={bloqueado?C.blue:C.orange}>V{o.versionNumber||1} · {bloqueado?"APROVADA":"RASCUNHO"}</Badge></div>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
                     {c.qtdItens} item(ns){o.areaM2>0 && ` · ${o.areaM2} m² · ${fmt(c.porM2)}/m²`}
                   </p>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-section-title)",fontWeight:600,color:C.yellow}}>{fmt(c.total)}</p>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>com BDI</p>
+                  <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{fmt(c.total)}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>com BDI</p>
                 </div>
               </div>
-              <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap"}}>
+              <div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)",flexWrap:"wrap"}}>
                 <Btn size="sm" onClick={()=>{setSelOrc(o.id);setView("editor");}}><Ic n="edit"/> Abrir</Btn>
                 {ehAdmin && o.obraId && !ehBaseline ? (
                   <Btn size="sm" v="success" onClick={()=>aprovarEAdotarBaseline(o.id)}>{bloqueado ? "Adotar como baseline" : "Aprovar baseline"}</Btn>
@@ -3499,7 +3506,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         {/* Modal novo orçamento */}
         {novoModal && (
           <Modal title="Novo orçamento" onClose={()=>setNovoModal(false)}>
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
               <Inp label="Nome do orçamento *" value={form.nome} onChange={F("nome")} placeholder="Ex.: Residência Terras Alpha - CA1-13"/>
               <Inp label="Descrição" value={form.descricao} onChange={F("descricao")} placeholder="Resumo, escopo ou observações do orçamento"/>
               {obraIdFixo
@@ -3507,14 +3514,14 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 : <Sel label="Vincular a uma obra (opcional)" value={form.obraId} onChange={F("obraId")}
                     options={[{v:"",l:"- Nenhuma -"}, ...data.obras.map(o=>({v:o.id,l:o.name}))]}/>
               }
-              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
+              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
                 <Inp label="Cliente" value={form.cliente} onChange={F("cliente")} placeholder="Nome do contratante"/>
                 <Inp label="Área construída (m)" type="number" value={form.areaM2} onChange={F("areaM2")} placeholder="Ex.: 388"/>
               </div>
               <Inp label="Local / Endereço" value={form.local} onChange={F("local")} placeholder="Ex.: Caruaru/PE"/>
-              <div style={{height:1,background:C.line,margin:"2px 0"}}/>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Base de preços</p>
-              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
+              <div style={{height:1,background:"var(--arcd-border-default)",margin:"var(--arcd-space-half) var(--arcd-space-0)"}}/>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Base de preços</p>
+              <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
                 <Sel label="Fonte" value={form.fonte} onChange={F("fonte")} options={[
                   {v:"SINAPI",l:"SINAPI"},{v:"ORSE",l:"ORSE"},{v:"MISTO",l:"Misto (SINAPI + ORSE)"},
                 ]}/>
@@ -3522,20 +3529,20 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 <Inp label="Data-base" value={form.dataBase} onChange={F("dataBase")} placeholder="Ex.: mai/2026"/>
                 <Inp label="BDI (%)" type="number" value={form.bdi} onChange={F("bdi")} placeholder="23.25"/>
               </div>
-              <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"9px 12px",background:form.desonerado?`${C.green}08`:C.surface,borderRadius:6,border:`1.5px solid ${form.desonerado?C.green+"55":C.border}`}}>
+              <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:form.desonerado?"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)":"var(--arcd-surface-muted)",borderRadius:6,border:`1.5px solid ${form.desonerado?"var(--arcd-success-text)"+"55":"var(--arcd-border-default)"}`}}>
                 <span style={{position:"relative",width:19,height:19,flexShrink:0,display:"inline-block"}}>
-                  <input type="checkbox" checked={form.desonerado!==false} onChange={e=>F("desonerado")(e.target.checked)}
+                  <ChoiceControl type="checkbox" checked={form.desonerado!==false} onChange={e=>F("desonerado")(e.target.checked)}
                     style={{position:"absolute",inset:0,width:"100%",height:"100%",margin:0,opacity:0,cursor:"pointer"}}/>
-                  <div aria-hidden="true" style={{width:19,height:19,border:`2px solid ${form.desonerado?C.green:C.muted}`,background:form.desonerado?C.green:"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
-                    {form.desonerado && <span style={{color:"#fff",fontSize:"var(--arcd-type-body)",fontWeight:600}}>ok</span>}
+                  <div aria-hidden="true" style={{width:19,height:19,border:`2px solid ${form.desonerado?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,background:form.desonerado?"var(--arcd-success-text)":"transparent",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
+                    {form.desonerado && <span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)"}}>ok</span>}
                   </div>
                 </span>
                 <div>
-                  <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:form.desonerado?C.green:C.text}}>Encargos desonerados</p>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Desmarque para usar a tabela não desonerada</p>
+                  <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:form.desonerado?"var(--arcd-success-text)":"var(--arcd-text-primary)"}}>Encargos desonerados</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Desmarque para usar a tabela não desonerada</p>
                 </div>
               </label>
-              <div style={{display:"flex",gap:8}}>
+              <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
                 <Btn v="ghost" onClick={()=>setNovoModal(false)} full>Cancelar</Btn>
                 <Btn onClick={criarOrc} full><Ic n="check"/> Criar</Btn>
               </div>
@@ -3550,8 +3557,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           const planoOrigemTemTarefas = !!planosParaCopia.find(p => p.obraId === copiarModal.obraOrigemId)?.tarefas?.length;
           return (
             <Modal title="Copiar de outra obra" onClose={()=>setCopiarModal(null)} wide>
-              <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,lineHeight:1.5}}>
+              <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+                <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
                   Cria um orçamento novo nesta obra a partir das etapas e itens de um orçamento já existente em outra obra. Se a obra de origem já tiver um cronograma montado, ele também é copiado - com datas deslocadas para começar hoje.
                 </p>
                 {!obraIdFixo && (
@@ -3566,39 +3573,39 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     ? <Sel label="Orçamento de origem *" value={copiarModal.orcOrigemId}
                            onChange={v=>setCopiarModal(m=>({...m,orcOrigemId:v}))}
                            options={[{v:"",l:"- Selecione -"}, ...orcsDaOrigem.map(o=>({v:o.id,l:`${o.nome} · V${o.versionNumber||1}`}))]}/>
-                    : <p style={{fontSize:"var(--arcd-type-label)",color:C.orange}}>Esta obra ainda não tem nenhum orçamento.</p>
+                    : <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}>Esta obra ainda não tem nenhum orçamento.</p>
                 )}
                 {copiarModal.orcOrigemId && (
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
                     {planoOrigemTemTarefas
                       ? "Esta origem tem um cronograma montado - será copiado junto, com as datas deslocadas para começar hoje."
                       : "Esta origem ainda não tem cronograma montado - só o orçamento será copiado."}
                   </p>
                 )}
                 {copiarModal.orcOrigemId && (
-                  <label style={{display:"flex",alignItems:"flex-start",gap:9,cursor:"pointer",padding:"8px 11px",
-                          background: copiarModal.repetirQuantidades ? `${C.yellow}10` : C.surface,
-                          border:`1.5px solid ${copiarModal.repetirQuantidades ? C.yellow : C.border}`,borderRadius:6}}>
-                    <span style={{position:"relative",width:18,height:18,flexShrink:0,marginTop:1,display:"inline-block"}}>
-                      <input type="checkbox" checked={copiarModal.repetirQuantidades}
+                  <label style={{display:"flex",alignItems:"flex-start",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",
+                          background: copiarModal.repetirQuantidades ? "color-mix(in srgb, var(--arcd-action-primary) 6%, transparent)" : "var(--arcd-surface-muted)",
+                          border:`1.5px solid ${copiarModal.repetirQuantidades ? "var(--arcd-action-primary)" : "var(--arcd-border-default)"}`,borderRadius:6}}>
+                    <span style={{position:"relative",width:18,height:18,flexShrink:0,marginTop:"var(--arcd-space-0)",display:"inline-block"}}>
+                      <ChoiceControl type="checkbox" checked={copiarModal.repetirQuantidades}
                         onChange={e=>setCopiarModal(m=>({...m,repetirQuantidades:e.target.checked}))}
                         style={{position:"absolute",inset:0,width:"100%",height:"100%",margin:0,opacity:0,cursor:"pointer"}}/>
                       <div aria-hidden="true"
                            style={{width:18,height:18,borderRadius:4,
-                                   border:`2px solid ${copiarModal.repetirQuantidades?C.yellow:C.muted}`,background:copiarModal.repetirQuantidades?C.yellow:"transparent",
+                                   border:`2px solid ${copiarModal.repetirQuantidades?"var(--arcd-action-primary)":"var(--arcd-text-secondary)"}`,background:copiarModal.repetirQuantidades?"var(--arcd-action-primary)":"transparent",
                                    display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
-                        {copiarModal.repetirQuantidades && <span style={{color:"#fff",fontSize:"var(--arcd-type-label)",fontWeight:600}}>ok</span>}
+                        {copiarModal.repetirQuantidades && <span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>ok</span>}
                       </div>
                     </span>
                     <div>
-                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:copiarModal.repetirQuantidades?C.yellow:C.text}}>Repetir as quantidades da obra de origem</p>
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.5}}>Desmarcado, os itens entram com quantidade zerada - a estrutura e o preço unitário de referência vêm, mas você lança a medida real desta obra.</p>
+                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:copiarModal.repetirQuantidades?"var(--arcd-action-primary)":"var(--arcd-text-primary)"}}>Repetir as quantidades da obra de origem</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>Desmarcado, os itens entram com quantidade zerada - a estrutura e o preço unitário de referência vêm, mas você lança a medida real desta obra.</p>
                     </div>
                   </label>
                 )}
                 <Inp label="Nome do novo orçamento" value={form.nome} onChange={F("nome")}
                      placeholder={copiarModal.orcOrigemId ? `Cópia de ${orcamentosParaCopia.find(o=>o.id===copiarModal.orcOrigemId)?.nome||""}` : ""}/>
-                <div style={{display:"flex",gap:8}}>
+                <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
                   <Btn v="ghost" onClick={()=>setCopiarModal(null)} full>Cancelar</Btn>
                   <Btn onClick={confirmarCopiaDeObra} full disabled={!copiarModal.orcOrigemId||!obraDestinoId}><Ic n="copy"/> Copiar</Btn>
                 </div>
@@ -3625,15 +3632,15 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
     const aberto = menuAberto === id;
     return (
       <div className="budget-menu-wrap" onKeyDown={e=>{ if(e.key==="Escape") setMenuAberto(""); }}>
-        <button type="button" className="budget-more" aria-haspopup="menu" aria-expanded={aberto}
-          aria-label={rotulo} title={rotulo} onClick={()=>setMenuAberto(aberto?"":id)}><IconeMais/></button>
+        <StandardButton variant="secondary" type="button" size="icon" className="budget-more" aria-haspopup="menu" aria-expanded={aberto}
+          aria-label={rotulo} title={rotulo} onClick={()=>setMenuAberto(aberto?"":id)}><IconeMais/></StandardButton>
         {aberto && <>
           <div className="budget-menu-scrim" onClick={()=>setMenuAberto("")}/>
           <div className="budget-menu" role="menu">
             {itens.filter(Boolean).map(item=>(
-              <button key={item.rotulo} type="button" role="menuitem" disabled={item.desabilitado}
+              <StandardButton variant="secondary" key={item.rotulo} type="button" role="menuitem" disabled={item.desabilitado}
                 className={item.perigo?"is-danger":undefined}
-                onClick={()=>{ setMenuAberto(""); item.acao(); }}>{item.rotulo}</button>
+                onClick={()=>{ setMenuAberto(""); item.acao(); }}>{item.rotulo}</StandardButton>
             ))}
           </div>
         </>}
@@ -3642,7 +3649,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
   };
 
   return (
-    <div className="anim budget-workspace" style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div className="anim budget-workspace" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
 
 
       {floorEditorOpen && <Modal title="Pavimentos do orçamento" onClose={()=>setFloorEditorOpen(false)}>
@@ -3658,9 +3665,9 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         <Btn onClick={()=>{try{const stageId=itemPosition.stageId ?? orc.itens.find(i=>i.id===itemPosition.id)?.etapaId;if(!orc.etapas.some(s=>s.id===stageId))throw new Error('Selecione uma etapa.');salvarOrc({itens:repositionBudgetItem(orc.itens,itemPosition.id,itemPosition.position,stageId)});setItemPosition(null);}catch(error){showToast(error.message,'warn');}}}>Mover</Btn>
       </Modal>}
       {undoEtapa && (
-        <div style={{background:`${C.blue}0C`,border:`1px solid ${C.blue}55`,borderRadius:4,padding:"6px 10px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
-          <p style={{fontSize:12,color:C.text}}>Etapa removida.</p>
-          <button type="button" className="budget-tool" onClick={desfazerDelEtapa}>Desfazer</button>
+        <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:4,padding:"var(--arcd-space-1) var(--arcd-space-2)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}>Etapa removida.</p>
+          <StandardButton variant="secondary" type="button" className="budget-tool" onClick={desfazerDelEtapa}>Desfazer</StandardButton>
         </div>
       )}
 
@@ -3668,20 +3675,20 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           fica numa linha só; o resto que era card vira a faixa de totais. */}
       <div style={{display:"flex",flexDirection:"column"}}>
         <div className="budget-bar">
-          <button type="button" className="budget-tool" onClick={()=>{setView("lista");setSelOrc(null);}}>← Orçamentos</button>
+          <StandardButton variant="secondary" type="button" className="budget-tool" onClick={()=>{setView("lista");setSelOrc(null);}}>← Orçamentos</StandardButton>
           {obraIdFixo?<h2 className="budget-bar__name" title={orc.nome}>{orc.nome}</h2>:<h1 className="budget-bar__name" title={orc.nome}>{orc.nome}</h1>}
           <span className="budget-bar__meta">{orc.fonte} {orc.uf} · {orc.dataBase||"sem data-base"} · {orc.desonerado?"Desonerado":"Não desonerado"} · BDI {orc.bdi}%</span>
-          {baselineAtiva.budget?.id===orc.id&&<span className="budget-badge" style={{background:`${C.green}1F`,color:C.green}}>BASELINE ATIVA</span>}
-          <span className="budget-badge" title={budgetIsImmutable(orc)?"Versão aprovada e bloqueada para edição":"Rascunho editável"} style={{background:`${budgetIsImmutable(orc)?C.blue:C.orange}1F`,color:budgetIsImmutable(orc)?C.blue:C.orange}}>V{orc.versionNumber||1} · {budgetIsImmutable(orc)?"APROVADA":"RASCUNHO"}</span>
+          {baselineAtiva.budget?.id===orc.id&&<span className="budget-badge" style={{background:"color-mix(in srgb, var(--arcd-success-text) 12%, transparent)",color:"var(--arcd-success-text)"}}>BASELINE ATIVA</span>}
+          <span className="budget-badge" title={budgetIsImmutable(orc)?"Versão aprovada e bloqueada para edição":"Rascunho editável"} style={{background:`${budgetIsImmutable(orc)?"var(--arcd-action-primary)":"var(--arcd-warning-text)"}1F`,color:budgetIsImmutable(orc)?"var(--arcd-action-primary)":"var(--arcd-warning-text)"}}>V{orc.versionNumber||1} · {budgetIsImmutable(orc)?"APROVADA":"RASCUNHO"}</span>
           <span className="budget-bar__spacer"/>
           {memorySave?.id===selOrc && <span className="budget-bar__status" role="status">{memorySave.state==='saving'?'Salvando…':memorySave.state==='saved'?'Salvo':'Falha ao salvar'}</span>}
           {memorySave?.id===selOrc && memorySave.message && <span className="budget-bar__status">{memorySave.message}</span>}
           <details className="budget-management"><summary>Dados e versões</summary><div className="budget-management__actions">
-          <button type="button" className="budget-tool" disabled={!budgetReceipt || budgetReceipt.budgetId!==selOrc || memorySave?.state!=='saved' || budgetIsImmutable(orc)} onClick={desfazerAlteracaoOrcamento}>Desfazer última alteração</button>
-          <button type="button" className="budget-tool" disabled={budgetIsImmutable(orc)} onClick={()=>setFloorEditorOpen(true)}>Gerenciar pavimentos</button>
-          {!budgetIsImmutable(orc)&&<button type="button" className="budget-tool" onClick={abrirEdicaoOrc}>Dados</button>}
-          {budgetIsImmutable(orc)&&<button type="button" className="budget-tool" onClick={criarRevisaoOrc}>Criar revisão</button>}
-          {ehAdmin&&orc.obraId&&baselineAtiva.budget?.id!==orc.id&&<button type="button" className="budget-tool budget-tool--primary" onClick={()=>aprovarEAdotarBaseline(orc.id)}>{budgetIsImmutable(orc)?"Adotar como baseline":"Aprovar e adotar baseline"}</button>}
+          <StandardButton variant="secondary" type="button" className="budget-tool" disabled={!budgetReceipt || budgetReceipt.budgetId!==selOrc || memorySave?.state!=='saved' || budgetIsImmutable(orc)} onClick={desfazerAlteracaoOrcamento}>Desfazer última alteração</StandardButton>
+          <StandardButton variant="secondary" type="button" className="budget-tool" disabled={budgetIsImmutable(orc)} onClick={()=>setFloorEditorOpen(true)}>Gerenciar pavimentos</StandardButton>
+          {!budgetIsImmutable(orc)&&<StandardButton variant="secondary" type="button" className="budget-tool" onClick={abrirEdicaoOrc}>Dados</StandardButton>}
+          {budgetIsImmutable(orc)&&<StandardButton variant="secondary" type="button" className="budget-tool" onClick={criarRevisaoOrc}>Criar revisão</StandardButton>}
+          {ehAdmin&&orc.obraId&&baselineAtiva.budget?.id!==orc.id&&<StandardButton variant="primary" type="button" className="budget-tool budget-tool--primary" onClick={()=>aprovarEAdotarBaseline(orc.id)}>{budgetIsImmutable(orc)?"Adotar como baseline":"Aprovar e adotar baseline"}</StandardButton>}
           </div></details>
           {orc.descricao && <span className="budget-bar__meta" title={orc.descricao} style={{flexBasis:"100%",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{orc.descricao}</span>}
         </div>
@@ -3694,10 +3701,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           return (
             <div className="budget-kpis">
               <div className="budget-kpi"><span>Custo direto</span><strong>{fmt(calc.custoDireto)}</strong></div>
-              <button type="button" className="budget-kpi" onClick={abrirBDI} title={foraDaFaixa?`${detalheBDI}. ${sit.msg}`:`${detalheBDI}. Abrir cálculo do BDI`}>
+              <StandardButton variant="secondary" type="button" className="budget-kpi" onClick={abrirBDI} title={foraDaFaixa?`${detalheBDI}. ${sit.msg}`:`${detalheBDI}. Abrir cálculo do BDI`}>
                 <span>BDI {orc.bdi}%{foraDaFaixa&&<b className="budget-kpi__alert"> · fora da faixa TCU</b>}</span>
                 <strong>{fmt(calc.valorBDI)}</strong>
-              </button>
+              </StandardButton>
               <div className="budget-kpi budget-kpi--total"><span>Total</span><strong>{fmt(calc.total)}</strong></div>
               <div className="budget-kpi"><span>{orc.areaM2>0?"Por m²":"Itens"}</span><strong>{orc.areaM2>0 ? fmt(calc.porM2) : String(calc.qtdItens)}</strong></div>
             </div>
@@ -3712,10 +3719,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         ]}/>
         <div className="budget-tabs">
           {orcAba==="orcamento"&&<details className="budget-analysis"><summary>Análises e ferramentas{budgetIssues.length>0?` · ${budgetIssues.length} ocorrência(s)`:""}</summary><div className="budget-tabs__chips">
-            <button type="button" className="budget-tool" aria-expanded={ferramentasOrcAberto} onClick={()=>setFerramentasOrcAberto(v=>!v)} title="Importar, analisar e exportar">Ferramentas do orçamento</button>
-            <button type="button" className="budget-tool" aria-expanded={controleCustosAberto} onClick={()=>setControleCustosAberto(v=>!v)} title="Orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível">Controle de custos</button>
-            <button type="button" className="budget-tool" aria-expanded={confAberta} onClick={()=>setConfAberta(v=>!v)} title="Escopo, preços, cotações, itens esquecidos, interfaces e quantitativos">Auditoria técnica{checklistAuditoria.filter(item=>item.status==="pendente").length>0?` · ${checklistAuditoria.filter(item=>item.status==="pendente").length} pendente(s)`:""}</button>
-            <button type="button" className="budget-tool" aria-expanded={basesPainelAberto} onClick={()=>setBasesPainelAberto(v=>!v)} title="Bases de referência SINAPI e ORSE vinculadas">Bases e preços · {basesVinculadas.length}{totalBasesDuplicadas>0?` · ${totalBasesDuplicadas} repetida(s)`:""}</button>
+            <StandardButton variant="secondary" type="button" className="budget-tool" aria-expanded={ferramentasOrcAberto} onClick={()=>setFerramentasOrcAberto(v=>!v)} title="Importar, analisar e exportar">Ferramentas do orçamento</StandardButton>
+            <StandardButton variant="secondary" type="button" className="budget-tool" aria-expanded={controleCustosAberto} onClick={()=>setControleCustosAberto(v=>!v)} title="Orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível">Controle de custos</StandardButton>
+            <StandardButton variant="secondary" type="button" className="budget-tool" aria-expanded={confAberta} onClick={()=>setConfAberta(v=>!v)} title="Escopo, preços, cotações, itens esquecidos, interfaces e quantitativos">Auditoria técnica{checklistAuditoria.filter(item=>item.status==="pendente").length>0?` · ${checklistAuditoria.filter(item=>item.status==="pendente").length} pendente(s)`:""}</StandardButton>
+            <StandardButton variant="secondary" type="button" className="budget-tool" aria-expanded={basesPainelAberto} onClick={()=>setBasesPainelAberto(v=>!v)} title="Bases de referência SINAPI e ORSE vinculadas">Bases e preços · {basesVinculadas.length}{totalBasesDuplicadas>0?` · ${totalBasesDuplicadas} repetida(s)`:""}</StandardButton>
       <BudgetAuditPanel issues={budgetIssues} onNavigate={abrirOcorrenciaOrcamento} readOnly={budgetIsImmutable(orc)} onRemoveLink={source=>salvarOrc({memoriaCalculo:{...orc.memoriaCalculo,vinculosEstruturais:{...orc.memoriaCalculo?.vinculosEstruturais,[source]:''}}})}/>
           </div></details>}
         </div>
@@ -3723,15 +3730,15 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
 
 
-      {orcAba==="orcamento"&&ferramentasOrcAberto&&<div className="budget-panel"><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:6}}><label style={{display:"flex"}}><input type="file" accept=".xlsx,.xls" disabled={basePorCodigo.size===0||impLoad} onChange={e=>{importarOrcamentoXLSX(e.target.files?.[0]);e.target.value="";}} style={{display:"none"}}/><span style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:5,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 8px",fontSize:9.5,fontWeight:800,color:basePorCodigo.size?C.blue:C.muted,cursor:basePorCodigo.size?"pointer":"not-allowed"}}><Ic n="download" s={12}/> Importar planilha</span></label><Btn size="sm" v="ghost" onClick={()=>setOrcAba("insumos")}><Ic n="chart"/> Curva ABC</Btn><Btn size="sm" v="danger" onClick={exportPDF}><Ic n="file"/> PDF</Btn><Btn size="sm" v="success" onClick={exportXLSX}><Ic n="download"/> Excel completo</Btn><Btn size="sm" v="success" onClick={exportXLSXExportado}><Ic n="download"/> Excel padrão</Btn><Btn size="sm" v="ghost" onClick={exportXLSXCurvaABC}><Ic n="download"/> Excel ABC</Btn></div></div>}
+      {orcAba==="orcamento"&&ferramentasOrcAberto&&<div className="budget-panel"><div style={{display:"grid",gridTemplateColumns:cols(2,3,6),gap:"var(--arcd-space-1)"}}><FilePicker buttonLabel="Importar planilha" accept=".xlsx,.xls" disabled={basePorCodigo.size===0||impLoad} onChange={e=>{importarOrcamentoXLSX(e.target.files?.[0]);e.target.value="";}} style={{display:"flex"}}></FilePicker><Btn size="sm" v="ghost" onClick={()=>setOrcAba("insumos")}><Ic n="chart"/> Curva ABC</Btn><Btn size="sm" v="danger" onClick={exportPDF}><Ic n="file"/> PDF</Btn><Btn size="sm" v="success" onClick={exportXLSX}><Ic n="download"/> Excel completo</Btn><Btn size="sm" v="success" onClick={exportXLSXExportado}><Ic n="download"/> Excel padrão</Btn><Btn size="sm" v="ghost" onClick={exportXLSXCurvaABC}><Ic n="download"/> Excel ABC</Btn></div></div>}
 
       {orcAba==="orcamento"&&controleCustosAberto&&<div className="budget-panel">
         <div>
-          <p style={{fontSize:12,fontWeight:600,color:C.text,marginBottom:6}}>Controle integrado de custos <span style={{fontSize:11,fontWeight:400,color:C.muted}}>· orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível</span></p>
-          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6,marginBottom:9}}>{[["Orçado",controleCustos.total.orcado,C.blue],["Comprometido",controleCustos.total.comprometido,C.orange],["Saldo",controleCustos.total.saldo,controleCustos.total.saldo<0?C.red:C.green],["Projeção",controleCustos.total.projecao,controleCustos.total.projecao>controleCustos.total.orcado?C.red:C.purple]].map(([l,v,c])=><div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:`3px solid ${c}`,borderRadius:6,padding:"7px 9px"}}><p style={{fontSize:8.5,fontWeight:800,color:C.muted,textTransform:"uppercase"}}>{l}</p><p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:15,fontWeight:900,color:c,marginTop:2}}>{fmt(v)}</p></div>)}</div>
-          <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:850,borderCollapse:"collapse",fontSize:10.5}}><thead><tr style={{background:C.surface,color:C.muted,textAlign:"right"}}>{["Etapa de 1º nível","Orçado","Solicitado","Comprometido","Recebido","Aplicado","Pago","Saldo"].map((h,i)=><th key={h} style={{padding:"7px 8px",textAlign:i?"right":"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead><tbody>{controleCustos.etapas.map(l=><tr key={l.id} style={{borderTop:`1px solid ${C.line}`}}><td style={{padding:"8px",fontWeight:800,color:C.text}}>{l.nome}</td>{[l.orcado,l.solicitado,l.comprometido,l.recebido,l.aplicado,l.pago,l.saldo].map((v,i)=><td key={i} style={{padding:"8px",textAlign:"right",whiteSpace:"nowrap",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontWeight:i===6?850:600,color:i===6&&v<0?C.red:C.text}}>{fmt(v)}</td>)}</tr>)}</tbody></table></div>
-          {Object.values(controleCustos.semApropriacao).some(v=>v>0)&&<p style={{fontSize:9.5,color:C.orange,marginTop:7,lineHeight:1.45}}>Atenção: existem valores sem linha orçamentária vinculada — solicitado {fmt(controleCustos.semApropriacao.solicitado)}, comprometido {fmt(controleCustos.semApropriacao.comprometido)}, recebido {fmt(controleCustos.semApropriacao.recebido)} e aplicado {fmt(controleCustos.semApropriacao.aplicado)}. Eles não foram distribuídos artificialmente entre as etapas.</p>}
-          <p style={{fontSize:11,color:C.muted,marginTop:6}}>Projeção atual = maior valor entre orçamento e compromissos assumidos. “Pago” exige pedido vinculado a uma transação conciliada.</p>
+          <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-1)"}}>Controle integrado de custos <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-regular)",color:"var(--arcd-text-secondary)"}}>· orçamento, compras, recebimento, aplicação e pagamento por etapa de 1º nível</span></p>
+          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-1)",marginBottom:"var(--arcd-space-2)"}}>{[["Orçado",controleCustos.total.orcado,C.blue],["Comprometido",controleCustos.total.comprometido,C.orange],["Saldo",controleCustos.total.saldo,controleCustos.total.saldo<0?C.red:C.green],["Projeção",controleCustos.total.projecao,controleCustos.total.projecao>controleCustos.total.orcado?C.red:C.purple]].map(([l,v,c])=><div key={l} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${c}`,borderRadius:6,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-bold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{l}</p><p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-bold)",color:c,marginTop:"var(--arcd-space-half)"}}>{fmt(v)}</p></div>)}</div>
+          <div style={{overflowX:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:7}}><table style={{width:"100%",minWidth:850,borderCollapse:"collapse",fontSize:"var(--arcd-type-caption)"}}><thead><tr style={{background:"var(--arcd-surface-muted)",color:"var(--arcd-text-secondary)",textAlign:"right"}}>{["Etapa de 1º nível","Orçado","Solicitado","Comprometido","Recebido","Aplicado","Pago","Saldo"].map((h,i)=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:i?"right":"left",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead><tbody>{controleCustos.etapas.map(l=><tr key={l.id} style={{borderTop:"1px solid var(--arcd-border-default)"}}><td style={{padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-bold)",color:"var(--arcd-text-primary)"}}>{l.nome}</td>{[l.orcado,l.solicitado,l.comprometido,l.recebido,l.aplicado,l.pago,l.saldo].map((v,i)=><td key={i} style={{padding:"var(--arcd-space-2)",textAlign:"right",whiteSpace:"nowrap",fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontWeight:i===6?850:600,color:i===6&&v<0?"var(--arcd-danger-text)":"var(--arcd-text-primary)"}}>{fmt(v)}</td>)}</tr>)}</tbody></table></div>
+          {Object.values(controleCustos.semApropriacao).some(v=>v>0)&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)"}}>Atenção: existem valores sem linha orçamentária vinculada — solicitado {fmt(controleCustos.semApropriacao.solicitado)}, comprometido {fmt(controleCustos.semApropriacao.comprometido)}, recebido {fmt(controleCustos.semApropriacao.recebido)} e aplicado {fmt(controleCustos.semApropriacao.aplicado)}. Eles não foram distribuídos artificialmente entre as etapas.</p>}
+          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>Projeção atual = maior valor entre orçamento e compromissos assumidos. “Pago” exige pedido vinculado a uma transação conciliada.</p>
         </div>
       </div>}
 
@@ -3740,84 +3747,84 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       <>
         {confAberta && (
           <div className="budget-panel">
-            <p style={{fontSize:12,fontWeight:600,color:C.text}}>Auditoria técnica do orçamento <span style={{fontSize:11,fontWeight:400,color:C.muted}}>· escopo, preços, cotações, itens esquecidos, interfaces e quantitativos</span></p>
-            <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:6,marginTop:10}}>
+            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Auditoria técnica do orçamento <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-regular)",color:"var(--arcd-text-secondary)"}}>· escopo, preços, cotações, itens esquecidos, interfaces e quantitativos</span></p>
+            <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>
               {[
                 ["Falhas prováveis",auditoriaResultado?.resumo.criticos||0,C.red],
                 ["Atenções",auditoriaResultado?.resumo.atencoes||0,C.orange],
                 ["Cotações",auditoriaResultado?.resumo.cotacoes||0,C.blue],
                 ["Confirmar escopo",auditoriaResultado?.resumo.escopo||0,C.purple],
-              ].map(([label,value,color])=><div key={label} style={{background:C.surface,border:`1px solid ${C.border}`,borderTop:`3px solid ${color}`,borderRadius:6,padding:"7px 9px"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>{label}</p><p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:600,color}}>{value}</p></div>)}
+              ].map(([label,value,color])=><div key={label} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${color}`,borderRadius:6,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>{label}</p><p style={{fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color}}>{value}</p></div>)}
             </div>
 
-            <div style={{display:"flex",gap:5,marginTop:9,overflowX:"auto"}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)",overflowX:"auto"}}>
               {[["pendente","Pendentes"],["corrigido","Corrigidos"],["ignorado","Ignorados"],["todos","Todos"]].map(([valor,label])=>{
                 const quantidade=valor==="todos"?checklistAuditoria.length:checklistAuditoria.filter(item=>item.status===valor).length;
-                return <button key={valor} onClick={()=>setCheckFiltro(valor)} style={{border:`1px solid ${checkFiltro===valor?C.yellowD:C.border}`,background:checkFiltro===valor?`${C.yellow}18`:C.card,color:checkFiltro===valor?C.text:C.muted,borderRadius:6,padding:"5px 8px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>{label} · {quantidade}</button>;
+                return <StandardButton variant="secondary" key={valor} onClick={()=>setCheckFiltro(valor)} style={{whiteSpace:"nowrap"}}>{label} · {quantidade}</StandardButton>;
               })}
             </div>
-            <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:7}}>
+            <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>
               {checklistAuditoria.filter(item=>checkFiltro==="todos"||item.status===checkFiltro).map(achado=>{
                 const cor=achado.nivel==="critico"?C.red:achado.nivel==="atencao"?C.orange:achado.nivel==="cotacao"?C.blue:C.purple;
                 const rotulo=achado.nivel==="critico"?"FALHA PROVÁVEL":achado.nivel==="atencao"?"ATENÇÃO":achado.nivel==="cotacao"?"COTAÇÃO":"CONFIRMAR ESCOPO";
                 const corStatus=achado.status==="corrigido"?C.green:achado.status==="ignorado"?C.muted:C.orange;
-                return <div key={achado.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderLeft:`1px solid ${cor}`,borderRadius:7,padding:"8px 10px",opacity:achado.ativo===false?.72:1}}><div style={{display:"flex",gap:7,alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:cor,background:`${cor}12`,padding:"2px 5px",borderRadius:4}}>{rotulo}</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:corStatus,background:`${corStatus}12`,padding:"2px 5px",borderRadius:4}}>{achado.status==="corrigido"?"CORRIGIDO":achado.status==="ignorado"?"IGNORADO":"PENDENTE"}</span>{achado.origem==="ia"&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.purple}}>IA</span>}<p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,flex:"1 1 220px"}}>{achado.titulo}</p><Btn size="sm" v="ghost" onClick={()=>setCheckEdit({...achado})}>Revisar</Btn></div><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.45,marginTop:3}}>{achado.detalhe}</p>{achado.acaoSugerida&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.subtle,lineHeight:1.45,marginTop:4}}><b>Próxima ação:</b> {achado.acaoSugerida}</p>}{achado.observacao&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.text,marginTop:5,padding:"5px 7px",background:C.card,borderRadius:5}}><b>Decisão:</b> {achado.observacao}{achado.atualizadoPor?` · ${achado.atualizadoPor}`:""}</p>}</div>;
+                return <div key={achado.id} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderLeft:`1px solid ${cor}`,borderRadius:7,padding:"var(--arcd-space-2)",opacity:achado.ativo===false?.72:1}}><div style={{display:"flex",gap:"var(--arcd-space-2)",alignItems:"center",flexWrap:"wrap"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,background:`${cor}12`,padding:"var(--arcd-space-half) var(--arcd-space-1)",borderRadius:4}}>{rotulo}</span><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:corStatus,background:`${corStatus}12`,padding:"var(--arcd-space-half) var(--arcd-space-1)",borderRadius:4}}>{achado.status==="corrigido"?"CORRIGIDO":achado.status==="ignorado"?"IGNORADO":"PENDENTE"}</span>{achado.origem==="ia"&&<span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>IA</span>}<p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",flex:"1 1 220px"}}>{achado.titulo}</p><Btn size="sm" v="ghost" onClick={()=>setCheckEdit({...achado})}>Revisar</Btn></div><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-half)"}}>{achado.detalhe}</p>{achado.acaoSugerida&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}><b>Próxima ação:</b> {achado.acaoSugerida}</p>}{achado.observacao&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-1) var(--arcd-space-2)",background:"var(--arcd-surface-card)",borderRadius:5}}><b>Decisão:</b> {achado.observacao}{achado.atualizadoPor?` · ${achado.atualizadoPor}`:""}</p>}</div>;
               })}
-              {checklistAuditoria.filter(item=>checkFiltro==="todos"||item.status===checkFiltro).length===0&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,padding:"9px",textAlign:"center"}}>Nenhum item neste estado.</p>}
+              {checklistAuditoria.filter(item=>checkFiltro==="todos"||item.status===checkFiltro).length===0&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",padding:"var(--arcd-space-2)",textAlign:"center"}}>Nenhum item neste estado.</p>}
             </div>
 
-            <div style={{marginTop:11}}>
+            <div style={{marginTop:"var(--arcd-space-3)"}}>
               <Btn v="ghost" size="sm" full onClick={analisarDimensionalIA} disabled={confIALoad||!(orc.itens||[]).some(item=>item.tipo!=="titulo")}>
                 {confIALoad ? "Auditando orçamento..." : (<><Ic n="brain" s={14}/> Pedir segunda análise da IA</>)}
               </Btn>
-              {confIA && <div style={{marginTop:9,background:`${C.purple}08`,border:`1px solid ${C.purple}33`,borderRadius:6,padding:"10px 12px"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.55}}>{confIA.resumo}</p>{confIA.achados?.length>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.purple,fontWeight:600,marginTop:5}}>{confIA.achados.length} novo(s) item(ns) incluído(s) no checklist acima.</p>}{confIA.perguntas?.map((pergunta,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4}}>• {pergunta}</p>)}</div>}
+              {confIA && <div style={{marginTop:"var(--arcd-space-2)",background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)"}}>{confIA.resumo}</p>{confIA.achados?.length>0&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-1)"}}>{confIA.achados.length} novo(s) item(ns) incluído(s) no checklist acima.</p>}{confIA.perguntas?.map((pergunta,i)=><p key={i} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>• {pergunta}</p>)}</div>}
             </div>
 
-            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginTop:13,marginBottom:6,textTransform:"uppercase"}}>Conferência dimensional</p>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-3)",marginBottom:"var(--arcd-space-1)",textTransform:"uppercase"}}>Conferência dimensional</p>
             {!confResultado?.temArea ? (
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55,marginTop:10}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-2)"}}>
                 Para conferir, cadastre a <strong>area construida</strong> no orcamento (campo
                 "Area construida" na edicao) ou na obra vinculada. Sem area de referencia
                 nao da para comparar as quantidades.
               </p>
             ) : confResultado.linhas.length === 0 ? (
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55,marginTop:10}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-2)"}}>
                 Nenhum item medido em m2 reconhecido (forro, piso, paredes, pintura...).
                 A conferencia atua sobre itens de area.
               </p>
             ) : (
               <>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:10,marginBottom:8}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)"}}>
                   Base: <strong>{areaRef.toFixed(0)} m2</strong> de area construida
                 </p>
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
                   {confResultado.linhas.map(l => {
                     const cor = l.status === "alto" ? C.red
                               : l.status === "baixo" ? C.orange : C.green;
                     return (
-                      <div key={l.chave} style={{background:C.surface,border:`1px solid ${C.border}`,
-                           borderLeft:`1px solid ${cor}`,borderRadius:7,padding:"8px 11px"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"flex-start"}}>
+                      <div key={l.chave} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",
+                           borderLeft:`1px solid ${cor}`,borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"flex-start"}}>
                           <div style={{minWidth:0,flex:1}}>
-                            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,textTransform:"capitalize"}}>{l.nome}</p>
-                            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>
+                            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",textTransform:"capitalize"}}>{l.nome}</p>
+                            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>
                               lancado {l.qtd.toLocaleString("pt-BR",{maximumFractionDigits:1})} m2
                               {" - "}esperado ~{l.esperado.toLocaleString("pt-BR",{maximumFractionDigits:0})} m2
                             </p>
                           </div>
-                          <span style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:cor,flexShrink:0}}>
+                          <span style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,flexShrink:0}}>
                             {l.difPct > 0 ? "+" : ""}{l.difPct.toFixed(0)}%
                           </span>
                         </div>
                         {l.status !== "ok" && (
-                          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:4,lineHeight:1.4}}>{l.obs}</p>
+                          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)",lineHeight:"var(--arcd-line-height-normal)"}}>{l.obs}</p>
                         )}
                       </div>
                     );
                   })}
                 </div>
 
-                <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:10,lineHeight:1.45}}>
+                <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)"}}>
                   A conferencia e um alerta, nao uma regra: projetos com pe-direito alto, muitos
                   vazios ou sacadas fogem dos fatores medios. Voce decide o que ajustar.
                 </p>
@@ -3833,34 +3840,34 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           Aqui fica só pesquisa, vínculo a uma base já cadastrada e reprecificação -
           disponível para qualquer usuário com acesso ao orçamento. O painel abre
           pelo chip "Bases e preços" da barra de abas. */}
-      <div className="budget-panel" style={{display:"flex",flexDirection:"column",gap:11}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
+      <div className="budget-panel" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
           <div style={{minWidth:0,flex:1}}>
-            <p style={{fontSize:12,fontWeight:600,color:C.text}}>Bases de referência no Supabase <span style={{fontWeight:400,color:C.muted}}>· {basesConsolidadas.length} base(s) única(s)</span></p>
-            <p style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.5}}>Vincule SINAPI e ORSE ao mesmo orçamento e atualize os preços pelos códigos já lançados.</p>
+            <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Bases de referência no Supabase <span style={{fontWeight:"var(--arcd-font-weight-regular)",color:"var(--arcd-text-secondary)"}}>· {basesConsolidadas.length} base(s) única(s)</span></p>
+            <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>Vincule SINAPI e ORSE ao mesmo orçamento e atualize os preços pelos códigos já lançados.</p>
           </div>
           <Btn size="sm" v="success" disabled={atualizandoPrecos || basesVinculadas.length===0} onClick={atualizarPrecosVinculados}>
             {atualizandoPrecos ? "Atualizando..." : "Atualizar preços dos itens"}
           </Btn>
         </div>
-        {basesCarregando ? <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Carregando bases cadastradas...</p>
+        {basesCarregando ? <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Carregando bases cadastradas...</p>
         : basesVinculadas.length > 0 ? (
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
             {basesVinculadas.map(base => { const cor=base.fonte==="ORSE"?C.purple:C.blue; return (
-              <div key={base.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,background:`${cor}0B`,border:`1px solid ${cor}3D`,padding:"8px 10px",borderRadius:6}}>
+              <div key={base.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)",background:`${cor}0B`,border:`1px solid ${cor}3D`,padding:"var(--arcd-space-2)",borderRadius:6}}>
                 <div style={{minWidth:0}}>
-                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:cor}}>{base.fonte} · {base.dataBase}{base.uf?` · ${base.uf}`:""}</p>
-                  <p title={base.arquivo} style={{fontSize:"var(--arcd-type-caption)",color:C.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{base.fonte==="ORSE"?"Pesquisa oficial CEHOP":`${base.total.toLocaleString("pt-BR")} composições no Supabase`}{base.arquivo?` · ${base.arquivo}`:""}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor}}>{base.fonte} · {base.dataBase}{base.uf?` · ${base.uf}`:""}</p>
+                  <p title={base.arquivo} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{base.fonte==="ORSE"?"Pesquisa oficial CEHOP":`${base.total.toLocaleString("pt-BR")} composições no Supabase`}{base.arquivo?` · ${base.arquivo}`:""}</p>
                 </div>
-                {ehAdmin&&<button onClick={()=>desvincularBase(base)} title="Desvincular" style={{border:`1px solid ${C.border}`,background:C.bg,color:C.muted,width:28,height:28,borderRadius:6,cursor:"pointer",fontWeight:600}}>×</button>}
+                {ehAdmin&&<StandardButton variant="secondary" onClick={()=>desvincularBase(base)} title="Desvincular" style={{width:28,height:28}}>×</StandardButton>}
               </div>); })}
           </div>
-        ) : <div style={{background:C.surface,border:`1px dashed ${C.border}`,padding:10,borderRadius:6}}><p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma base do Supabase vinculada a este orçamento.</p></div>}
+        ) : <div style={{background:"var(--arcd-surface-muted)",border:"1px dashed var(--arcd-border-default)",padding:"var(--arcd-space-2)",borderRadius:6}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma base do Supabase vinculada a este orçamento.</p></div>}
 
-        {basesDisponiveis.length>0 && <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:7,alignItems:"end"}}><Sel label="Vincular uma base já cadastrada" value={baseParaVincular} onChange={setBaseParaVincular} options={[{v:"",l:"Selecione"},...basesDisponiveis.map(base=>({v:base.id,l:`${base.fonte} ${base.dataBase}${base.uf?` · ${base.uf}`:""} · ${base.total||"oficial"}`}))]}/><Btn size="sm" v="info" disabled={!baseParaVincular} onClick={vincularBaseExistente}>Vincular</Btn></div>}
-        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.5}}>Ao alterar um código na linha, fonte, descrição, unidade e custo unitário são consultados e atualizados automaticamente. Cadastro de novas bases é feito pelo administrador em Central do Administrador → Bases de preço.</p>
+        {basesDisponiveis.length>0 && <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:"var(--arcd-space-2)",alignItems:"end"}}><Sel label="Vincular uma base já cadastrada" value={baseParaVincular} onChange={setBaseParaVincular} options={[{v:"",l:"Selecione"},...basesDisponiveis.map(base=>({v:base.id,l:`${base.fonte} ${base.dataBase}${base.uf?` · ${base.uf}`:""} · ${base.total||"oficial"}`}))]}/><Btn size="sm" v="info" disabled={!baseParaVincular} onClick={vincularBaseExistente}>Vincular</Btn></div>}
+        <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>Ao alterar um código na linha, fonte, descrição, unidade e custo unitário são consultados e atualizados automaticamente. Cadastro de novas bases é feito pelo administrador em Central do Administrador → Bases de preço.</p>
         {(data.baseFavoritos||[]).length > 0 && (
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,paddingTop:9,borderTop:`1px solid ${C.line}`}}>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",paddingTop:"var(--arcd-space-2)",borderTop:"1px solid var(--arcd-border-default)"}}>
             {(data.baseFavoritos||[]).length} composição(ões) na sua base de favoritos (sempre disponível, sem depender de nenhuma base vinculada)
           </p>
         )}
@@ -3914,12 +3921,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   outlineOffset:-2,
                   paddingLeft: 8 + recuo,
                 }}>
-                <button draggable={!budgetIsImmutable(orc)} aria-label={`Arrastar etapa ${no.codigo}`} title="Arraste para reordenar etapas"
+                <StandardButton variant="secondary" draggable={!budgetIsImmutable(orc)} aria-label={`Arrastar etapa ${no.codigo}`} title="Arraste para reordenar etapas"
                   onDragStart={e=>{e.stopPropagation();setDraggedStage(no.id);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',no.id);}}
-                  onDragEnd={()=>{setDraggedStage(null);setStageDrop(null);}} className="budget-drag-handle"><IconeAlca/></button>
-                <button type="button" className="budget-stage__fold" onClick={()=>setEtapasFechadas(f=>({...f,[no.id]:!f[no.id]}))}
+                  onDragEnd={()=>{setDraggedStage(null);setStageDrop(null);}} className="budget-drag-handle"><IconeAlca/></StandardButton>
+                <RecordAction type="button" className="budget-stage__fold" onClick={()=>setEtapasFechadas(f=>({...f,[no.id]:!f[no.id]}))}
                   title={recolhida?"Expandir nível":"Recolher nível"} aria-label={`${recolhida?"Expandir":"Recolher"} etapa ${no.codigo}`}
-                  aria-expanded={!recolhida}><IconeSeta aberta={!recolhida}/></button>
+                  aria-expanded={!recolhida}><IconeSeta aberta={!recolhida}/></RecordAction>
                 <span className="budget-stage__name" title={no.nome}>
                   <span className="budget-stage__code">{no.codigo}</span>
                   {no.nome}{no.pavimentoId && no.nivelM!=null && <span className="budget-stage__meta">Nível {fmtNum(no.nivelM)} m</span>}
@@ -3933,8 +3940,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   )}
                 </span>
                 {no.total > 0 && <span className="budget-stage__total">{fmt(no.total)}</span>}
-                <button type="button" className="budget-tool" title="Adicionar item"
-                  onClick={() => { setEtapaAlvo(no.id); setBusca(""); setBuscaModal(true); }}>+ Item</button>
+                <StandardButton variant="secondary" type="button" className="budget-tool" title="Adicionar item"
+                  onClick={() => { setEtapaAlvo(no.id); setBusca(""); setBuscaModal(true); }}>+ Item</StandardButton>
                 {renderMenu(`etapa-${no.id}`, `Mais ações da etapa ${no.codigo}`, [
                   {rotulo:"Nova composição externa ou cotação", acao:()=>abrirExterno(no.id)},
                   {rotulo:"Adicionar título (texto sem valor)", acao:()=>addTitulo(no.id)},
@@ -4004,11 +4011,11 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     onDrop={e => { e.preventDefault(); moverItemPara(arrastandoItem, it.id); setArrastandoItem(null); setSobreItem(null); }}
                     style={{
                     display:"grid",gridTemplateColumns:gc.join(" "),width:"100%",boxSizing:"border-box",
-                    borderLeftColor: alvoDrop ? C.blue : undefined,
-                    background: arrastando ? `${C.blue}12` : undefined,
+                    borderLeftColor: alvoDrop ? "var(--arcd-action-primary)" : undefined,
+                    background: arrastando ? "color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)" : undefined,
                     opacity: arrastando ? .5 : 1,
                   }}>
-                    <span title="Arraste para reordenar" className="budget-plain" style={{cursor:"grab",color:C.muted,userSelect:"none",justifyContent:"center",padding:"6px 0 0"}}><IconeAlca/></span>
+                    <span title="Arraste para reordenar" className="budget-plain" style={{cursor:"grab",color:"var(--arcd-text-secondary)",userSelect:"none",justifyContent:"center",padding:"var(--arcd-space-1) var(--arcd-space-0) var(--arcd-space-0)"}}><IconeAlca/></span>
                     <span className="budget-plain budget-num-item">{it.codigoItem}</span>
                     <span className="budget-plain" title="Fonte do preço"><span className={`budget-src budget-src--${String(it.fonte||"").normalize("NFD").replace(/[^A-Za-z]/g,"").toLowerCase()||"outra"}`}>{it.fonte}</span></span>
                     {colsOrc.codigo && (
@@ -4069,38 +4076,36 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     {buscaLinha.itemId===it.id && buscaLinha.termo.trim().length>=2 && (
                       <div className="budget-search-pop" style={{
                         gridColumn:"4 / -1",minWidth:0,maxHeight:230,overflowY:"auto",
-                        background:C.bg,border:`1px solid ${C.blue}`,borderRadius:4,
-                        boxShadow:`0 4px 12px ${C.shadow}`,padding:5,zIndex:20,margin:"2px 0",
+                        background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-action-primary)",borderRadius:4,
+                        boxShadow:`0 4px 12px ${C.shadow}`,padding:"var(--arcd-space-1)",zIndex:20,margin:"var(--arcd-space-half) var(--arcd-space-0)",
                       }}>
-                          {it.codigo&&<button type="button" disabled={codigoAtualizando===it.id} onMouseDown={e=>e.preventDefault()} onClick={async()=>{
+                          {it.codigo&&<StandardButton variant="secondary" type="button" disabled={codigoAtualizando===it.id} onMouseDown={e=>e.preventDefault()} onClick={async()=>{
                             await updItemCampo(it.id,"codigo",it.codigo);
                             setSelecaoLinhaVersao(v=>({...v,[it.id]:(v[it.id]||0)+1}));
                             setBuscaLinha({itemId:"",termo:""});
-                          }} style={{border:0,background:"transparent",color:C.blue,cursor:"pointer",padding:6,textDecoration:"underline"}}>Restaurar composição pelo código {it.codigo}</button>}
-                          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,padding:"3px 6px 5px"}}>
+                          }}>Restaurar composição pelo código {it.codigo}</StandardButton>}
+                          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",padding:"var(--arcd-space-half) var(--arcd-space-1) var(--arcd-space-1)"}}>
                             {buscaLinhaLoading ? "Pesquisando nas bases vinculadas..." : "Selecione uma composição para atualizar código, unidade e preço"}
                           </p>
-                          {buscaLinhaAviso && <p style={{fontSize:"var(--arcd-type-caption)",color:C.orange,padding:"2px 6px 5px"}}>{buscaLinhaAviso}</p>}
+                          {buscaLinhaAviso && <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-warning-text)",padding:"var(--arcd-space-half) var(--arcd-space-1) var(--arcd-space-1)"}}>{buscaLinhaAviso}</p>}
                           {resultadosLinha.slice(0,12).map((resultado,indice)=>(
-                            <button key={`${resultado.fonte}-${resultado.codigo}-${indice}`}
+                            <StandardButton variant="secondary" key={`${resultado.fonte}-${resultado.codigo}-${indice}`}
                               onMouseDown={e=>e.preventDefault()}
                               onClick={()=>selecionarReferenciaLinha(it.id,resultado)}
-                              style={{width:"100%",display:"grid",gridTemplateColumns:"74px minmax(0,1fr) 78px",gap:7,
-                                alignItems:"center",background:"transparent",border:0,borderTop:indice?`1px solid ${C.line}`:"none",
-                                padding:"6px",textAlign:"left",cursor:"pointer",fontFamily:"var(--arcd-font-sans)"}}>
-                              <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:resultado.fonte==="ORSE"?C.purple:C.blue,whiteSpace:"nowrap"}}>
+                              style={{width:"100%",display:"grid",gridTemplateColumns:"74px minmax(0,1fr) 78px",gap:"var(--arcd-space-2)",alignItems:"center",borderTop:indice?"1px solid var(--arcd-border-default)":"none",textAlign:"left"}}>
+                              <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:resultado.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)",whiteSpace:"nowrap"}}>
                                 {resultado.fonte||"SINAPI"} {resultado.codigo}
                               </span>
-                              <span title={resultado.descricao} style={{fontSize:"var(--arcd-type-label)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                              <span title={resultado.descricao} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
                                 {resultado.descricao}
                               </span>
-                              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellowD,textAlign:"right",whiteSpace:"nowrap"}}>
+                              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textAlign:"right",whiteSpace:"nowrap"}}>
                                 {fmt(precoDoItem(resultado,orc))}/{resultado.unidade||"UN"}
                               </span>
-                            </button>
+                            </StandardButton>
                           ))}
                           {!buscaLinhaLoading && resultadosLinha.length===0 && (
-                            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"center",padding:10}}>Nenhuma composição encontrada.</p>
+                            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-2)"}}>Nenhuma composição encontrada.</p>
                           )}
                         </div>
                       )}
@@ -4109,7 +4114,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 })}
 
                 {!recolhida && no.itens.length === 0 && no.sub.length === 0 && (
-                  <p style={{ padding:"9px 12px", fontSize:10.5, color:C.muted }}>Vazia - use + Item ou o menu ⋯ da etapa para título, subnível ou cotação.</p>
+                  <p style={{ padding:"var(--arcd-space-2) var(--arcd-space-3)", fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>Vazia - use + Item ou o menu ⋯ da etapa para título, subnível ou cotação.</p>
                 )}
             </div>
           );
@@ -4117,25 +4122,25 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
         return (
           <>
-            <details className="budget-sheet-tools"><summary>Organizar planilha</summary><div style={{display:"flex",justifyContent:"flex-end",flexWrap:"wrap",gap:4,position:"relative"}}>
-              {!budgetIsImmutable(orc) && <button type="button" className="budget-tool" onClick={()=>setAddFloorOpen(true)}>+ Adicionar pavimento</button>}
-              <button type="button" className="budget-tool" aria-expanded={colsOrcAberto} onClick={()=>setColsOrcAberto(a=>!a)}>Colunas</button>
-              <button type="button" className="budget-tool" onClick={()=>setEtapasFechadas({})}>Expandir todos</button>
-              <button type="button" className="budget-tool" onClick={()=>setEtapasFechadas(Object.fromEntries((orc.etapas||[]).map(e=>[e.id,true])))}>Recolher todos</button>
+            <details className="budget-sheet-tools"><summary>Organizar planilha</summary><div style={{display:"flex",justifyContent:"flex-end",flexWrap:"wrap",gap:"var(--arcd-space-1)",position:"relative"}}>
+              {!budgetIsImmutable(orc) && <StandardButton variant="secondary" type="button" className="budget-tool" onClick={()=>setAddFloorOpen(true)}>+ Adicionar pavimento</StandardButton>}
+              <StandardButton variant="secondary" type="button" className="budget-tool" aria-expanded={colsOrcAberto} onClick={()=>setColsOrcAberto(a=>!a)}>Colunas</StandardButton>
+              <StandardButton variant="secondary" type="button" className="budget-tool" onClick={()=>setEtapasFechadas({})}>Expandir todos</StandardButton>
+              <StandardButton variant="secondary" type="button" className="budget-tool" onClick={()=>setEtapasFechadas(Object.fromEntries((orc.etapas||[]).map(e=>[e.id,true])))}>Recolher todos</StandardButton>
               {colsOrcAberto && (
-                <div style={{position:"absolute",top:"100%",right:0,marginTop:4,zIndex:41,
-                             background:C.bg,border:`1px solid ${C.border}`,borderRadius:4,
-                             boxShadow:`0 4px 12px ${C.shadow}`,padding:"10px 12px",minWidth:190}}>
-                  <p style={{fontSize:11,fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>Colunas visíveis</p>
+                <div style={{position:"absolute",top:"100%",right:0,marginTop:"var(--arcd-space-1)",zIndex:41,
+                             background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:4,
+                             boxShadow:`0 4px 12px ${C.shadow}`,padding:"var(--arcd-space-2) var(--arcd-space-3)",minWidth:190}}>
+                  <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-2)"}}>Colunas visíveis</p>
                   {[["codigo","Código"],["unidade","Unidade"],["custoUnit","Custo unitário"],["bdi","BDI por item"],["total","Total"]].map(([k,l])=>(
-                    <label key={k} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:C.text}}>
-                      <input type="checkbox" checked={!!colsOrc[k]}
+                    <label key={k} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-0)",cursor:"pointer",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>
+                      <ChoiceControl type="checkbox" checked={!!colsOrc[k]}
                         onChange={()=>setColsOrc(c=>({...c,[k]:!c[k]}))}
-                        style={{width:15,height:15,accentColor:C.yellowD,cursor:"pointer"}}/>
+                        style={{width:15,height:15,accentColor:"var(--arcd-action-primary)",cursor:"pointer"}}/>
                       {l}
                     </label>
                   ))}
-                  <p style={{fontSize:11,color:C.muted,marginTop:7,lineHeight:1.45,borderTop:`1px solid ${C.line}`,paddingTop:7}}>
+                  <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)",borderTop:"1px solid var(--arcd-border-default)",paddingTop:"var(--arcd-space-2)"}}>
                     Fonte, descrição e quantidade ficam sempre visíveis.
                   </p>
                 </div>
@@ -4167,7 +4172,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               </div>
             </div>
             <div style={{display:"flex",justifyContent:"flex-start"}}>
-              <button type="button" className="budget-tool" onClick={() => abrirNovaEtapa("")}>+ Nova etapa de 1º nível</button>
+              <StandardButton variant="secondary" type="button" className="budget-tool" onClick={() => abrirNovaEtapa("")}>+ Nova etapa de 1º nível</StandardButton>
             </div>
           </>
         );
@@ -4176,27 +4181,26 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {false&&<>
       {/*  CURVA ABC  */}
-      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
-        <button onClick={()=>setAbcAberta(a=>!a)}
-                style={{width:"100%",background:C.surface,border:0,borderBottom:abcAberta?`1.5px solid ${C.border}`:"0",
-                        padding:"12px 15px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,textAlign:"left"}}>
+      <div style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderRadius:8,overflow:"hidden",boxShadow:`0 1px 4px ${C.shadow}`}}>
+        <StandardButton variant="secondary" onClick={()=>setAbcAberta(a=>!a)}
+                style={{width:"100%",borderBottom:abcAberta?"1.5px solid var(--arcd-border-default)":"0",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"var(--arcd-space-2)",textAlign:"left"}}>
           <div>
-            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.8}}>Análise de Pareto</p>
-            <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text,marginTop:1}}>Curva ABC</p>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Análise de Pareto</p>
+            <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-0)"}}>Curva ABC</p>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)"}}>
             {abc && abc.itens.length>0 && (
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"right"}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textAlign:"right"}}>
                 <b style={{color:CLASSE_ABC.A.cor}}>{abc.resumo[0].qtd} itens</b> = {abc.resumo[0].pctValor.toFixed(1)}% do custo
               </p>
             )}
-            <span style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.yellow}}>{abcAberta ? "-" : "+"}</span>
+            <span style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{abcAberta ? "-" : "+"}</span>
           </div>
-        </button>
+        </StandardButton>
 
         {abcAberta && (!abc || abc.itens.length===0) && (
-          <div style={{padding:"18px 15px",textAlign:"center"}}>
-            <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,lineHeight:1.6}}>
+          <div style={{padding:"var(--arcd-space-4)",textAlign:"center"}}>
+            <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
               A curva ABC precisa de itens com quantidade e preço.<br/>Adicione composições ao orçamento para vê-la.
             </p>
           </div>
@@ -4211,28 +4215,26 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             cor:   CLASSE_ABC[i.classe].cor,
           }));
           return (
-            <div style={{padding:"13px 15px",display:"flex",flexDirection:"column",gap:13}}>
+            <div style={{padding:"var(--arcd-space-3) var(--arcd-space-4)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
 
               {/* Resumo por classe */}
-              <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:8}}>
+              <div style={{display:"grid",gridTemplateColumns:cols(1,3,3),gap:"var(--arcd-space-2)"}}>
                 {abc.resumo.map(r => (
-                  <button key={r.classe} onClick={()=>setAbcFiltro(f=>f===r.classe?"todas":r.classe)}
-                          style={{textAlign:"left",cursor:"pointer",background:abcFiltro===r.classe?`${r.cor}12`:C.surface,
-                                  border:`1.5px solid ${abcFiltro===r.classe?r.cor:C.border}`,borderLeft:`1px solid ${r.cor}`,
-                                  borderRadius:6,padding:"9px 11px"}}>
-                    <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:6}}>
-                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:r.cor}}>Classe {r.classe}</p>
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{r.qtd} item(ns)  {r.pctItens.toFixed(0)}%</p>
+                  <StandardButton variant="secondary" key={r.classe} onClick={()=>setAbcFiltro(f=>f===r.classe?"todas":r.classe)}
+                          style={{textAlign:"left",borderLeft:`1px solid ${r.cor}`}}>
+                    <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:"var(--arcd-space-1)"}}>
+                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:r.cor}}>Classe {r.classe}</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{r.qtd} item(ns)  {r.pctItens.toFixed(0)}%</p>
                     </div>
-                    <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.text,marginTop:3}}>{r.pctValor.toFixed(1)}%</p>
-                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>{fmt(r.custoDireto)} de custo direto</p>
-                  </button>
+                    <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{r.pctValor.toFixed(1)}%</p>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>{fmt(r.custoDireto)} de custo direto</p>
+                  </StandardButton>
                 ))}
               </div>
 
               {/* Grafico: barras = custo, linha = % acumulado */}
-              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"11px 8px 4px"}}>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.7,paddingLeft:6,marginBottom:6}}>
+              <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-3) var(--arcd-space-2) var(--arcd-space-1)"}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",paddingLeft:"var(--arcd-space-1)",marginBottom:"var(--arcd-space-1)"}}>
                   20 itens de maior custo  linha = % acumulado
                 </p>
                 <div style={{height:250}}>
@@ -4257,61 +4259,59 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               </div>
 
               {/* Controles */}
-              <div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:8,justifyContent:"space-between"}}>
-                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+              <div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:"var(--arcd-space-2)",justifyContent:"space-between"}}>
+                <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer"}}>
                   <div onClick={()=>setAbcAgrupar(v=>!v)}
                        style={{width:18,height:18,borderRadius:4,flexShrink:0,cursor:"pointer",
-                               border:`2px solid ${abcAgrupar?C.green:C.muted}`,background:abcAgrupar?C.green:"transparent",
+                               border:`2px solid ${abcAgrupar?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,background:abcAgrupar?"var(--arcd-success-text)":"transparent",
                                display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    {abcAgrupar && <span style={{color:"#fff",fontSize:"var(--arcd-type-label)",fontWeight:600}}>ok</span>}
+                    {abcAgrupar && <span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>ok</span>}
                   </div>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle}}>Agrupar o mesmo código somado entre etapas</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)"}}>Agrupar o mesmo código somado entre etapas</p>
                 </label>
                 {abcFiltro!=="todas" && (
-                  <button onClick={()=>setAbcFiltro("todas")}
-                          style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"4px 10px",
-                                  borderRadius:4,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>
+                  <StandardButton variant="secondary" onClick={()=>setAbcFiltro("todas")}>
                     Mostrando classe {abcFiltro}  limpar filtro
-                  </button>
+                  </StandardButton>
                 )}
               </div>
 
               {/* Tabela */}
-              <div style={{border:`1px solid ${C.border}`,borderRadius:6,overflow:"hidden"}}>
+              <div style={{border:"1px solid var(--arcd-border-default)",borderRadius:6,overflow:"hidden"}}>
                 <div className="scroll-x" style={{maxHeight:360,overflowY:"auto"}}>
                   <table style={{width:"100%",borderCollapse:"collapse",fontSize:"var(--arcd-type-label)",minWidth:660}}>
                     <thead style={{position:"sticky",top:0,zIndex:1}}>
-                      <tr style={{background:C.surface}}>
+                      <tr style={{background:"var(--arcd-surface-muted)"}}>
                         {["#","Cl.","Código","Descrição","Un.","Qtd.","Custo direto","% item","% acum."].map((h,i)=>(
-                          <th key={h} style={{padding:"7px 8px",textAlign:i>=4?"right":"left",fontSize:"var(--arcd-type-label)",fontWeight:600,
-                                              color:C.muted,textTransform:"uppercase",letterSpacing:.5,
-                                              borderBottom:`1.5px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>
+                          <th key={h} style={{padding:"var(--arcd-space-2)",textAlign:i>=4?"right":"left",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",
+                                              color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",
+                                              borderBottom:"1.5px solid var(--arcd-border-default)",whiteSpace:"nowrap"}}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {listaAbc.map(i => (
-                        <tr key={`${i.codigo}-${i.ordem}`} style={{borderBottom:`1px solid ${C.line}`}}>
-                          <td style={{padding:"6px 8px",color:C.muted}}>{i.ordem}</td>
-                          <td style={{padding:"6px 8px"}}>
-                            <span style={{display:"inline-block",minWidth:17,textAlign:"center",padding:"1px 5px",borderRadius:4,
+                        <tr key={`${i.codigo}-${i.ordem}`} style={{borderBottom:"1px solid var(--arcd-border-default)"}}>
+                          <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-secondary)"}}>{i.ordem}</td>
+                          <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>
+                            <span style={{display:"inline-block",minWidth:17,textAlign:"center",padding:"var(--arcd-space-0) var(--arcd-space-1)",borderRadius:4,
                                           background:`${CLASSE_ABC[i.classe].cor}18`,color:CLASSE_ABC[i.classe].cor,
-                                          fontSize:"var(--arcd-type-label)",fontWeight:600}}>{i.classe}</span>
+                                          fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{i.classe}</span>
                           </td>
-                          <td style={{padding:"6px 8px",color:C.subtle,whiteSpace:"nowrap"}}>{i.codigo||"-"}</td>
-                          <td style={{padding:"6px 8px",color:C.text,minWidth:230}}>
+                          <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-muted)",whiteSpace:"nowrap"}}>{i.codigo||"-"}</td>
+                          <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-primary)",minWidth:230}}>
                             {i.descricao}
                             {i.ocorrencias>1 && (
-                              <span style={{marginLeft:6,fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>({i.ocorrencias}x)</span>
+                              <span style={{marginLeft:"var(--arcd-space-1)",fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>({i.ocorrencias}x)</span>
                             )}
                           </td>
-                          <td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{i.unidade}</td>
-                          <td style={{padding:"6px 8px",textAlign:"right",color:C.subtle,whiteSpace:"nowrap"}}>
+                          <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",color:"var(--arcd-text-secondary)"}}>{i.unidade}</td>
+                          <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",color:"var(--arcd-text-muted)",whiteSpace:"nowrap"}}>
                             {i.quantidade.toLocaleString("pt-BR",{maximumFractionDigits:2})}
                           </td>
-                          <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:C.text,whiteSpace:"nowrap"}}>{fmt(i.custoDireto)}</td>
-                          <td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{i.pct.toFixed(2)}%</td>
-                          <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:CLASSE_ABC[i.classe].cor}}>{i.pctAcum.toFixed(1)}%</td>
+                          <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap"}}>{fmt(i.custoDireto)}</td>
+                          <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",color:"var(--arcd-text-secondary)"}}>{i.pct.toFixed(2)}%</td>
+                          <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:CLASSE_ABC[i.classe].cor}}>{i.pctAcum.toFixed(1)}%</td>
                         </tr>
                       ))}
                     </tbody>
@@ -4319,7 +4319,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 </div>
               </div>
 
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.6}}>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
                 Classe A: itens até 80% do custo acumulado  B: até 95%  C: o restante.
                 Os valores são de <b>custo direto</b>, sem BDI. Negociar preço nos itens A
                 move o orçamento; nos itens C, quase não muda.
@@ -4330,29 +4330,18 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       </div>
 
       {/* Importar planilha do orçamento (código + qtd) */}
-      <div style={{background:C.bg,border:`1.5px solid ${C.border}`,borderRadius:8,padding:"13px 15px",boxShadow:`0 1px 4px ${C.shadow}`}}>
-        <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginBottom:3}}>Importar planilha do orçamento</p>
-        <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginBottom:9,lineHeight:1.55}}>
+      <div style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",borderRadius:8,padding:"var(--arcd-space-3) var(--arcd-space-4)",boxShadow:`0 1px 4px ${C.shadow}`}}>
+        <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-half)"}}>Importar planilha do orçamento</p>
+        <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginBottom:"var(--arcd-space-2)",lineHeight:"var(--arcd-line-height-normal)"}}>
           A planilha precisa das colunas <b>Código</b> e <b>Qtd.</b> - descrição, unidade e preço
           vêm da base {orc.fonte} já carregada, na data-base deste orçamento.
           {basePorCodigo.size === 0
-            ? <span style={{color:C.red,fontWeight:600}}> Importe a base SINAPI/ORSE antes.</span>
+            ? <span style={{color:"var(--arcd-danger-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}> Importe a base SINAPI/ORSE antes.</span>
             : <> Base ativa: <b>{basePorCodigo.size.toLocaleString("pt-BR")}</b> códigos.</>}
         </p>
-        <div style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}>
-          <label style={{display:"inline-block",opacity: basePorCodigo.size===0 || impLoad ? .5 : 1}}>
-            <input type="file" accept=".xlsx,.xls" disabled={basePorCodigo.size===0 || impLoad}
-                   onChange={e=>{ importarOrcamentoXLSX(e.target.files?.[0]); e.target.value=""; }}
-                   style={{display:"none"}}/>
-            <span style={{display:"inline-flex",alignItems:"center",gap:6,background:C.yellow,color:"#fff",
-                          border:`1.5px solid ${C.yellowD}`,padding:"8px 14px",borderRadius:6,
-                          cursor: basePorCodigo.size===0||impLoad ? "not-allowed" : "pointer",
-                          fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-body)",
-                          textTransform:"uppercase",letterSpacing:.5}}>
-              {impLoad ? "Lendo..." : "Escolher planilha"}
-            </span>
-          </label>
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>
+        <div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-2)",alignItems:"center"}}>
+          <FilePicker buttonLabel="Importar planilha" accept=".xlsx,.xls" disabled={basePorCodigo.size===0 || impLoad} onChange={e=>{ importarOrcamentoXLSX(e.target.files?.[0]); e.target.value=""; }} style={{display:"inline-block",opacity: basePorCodigo.size===0 || impLoad ? .5 : 1}}></FilePicker>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
             Use o <b>Excel padrão</b> abaixo como modelo do layout.
           </p>
         </div>
@@ -4377,17 +4366,17 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         ];
         return (
           <Modal title="Onde está cada coluna?" onClose={()=>setColMapModal(null)} wide>
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,lineHeight:1.5}}>
+            <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+              <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
                 A detecção automática pelo nome do cabeçalho é só um palpite. Confirme (ou corrija) qual coluna da planilha é cada campo antes de importar - especialmente <b>Código</b>, <b>Descrição</b>, <b>Quantidade</b> e <b>Preço</b>.
               </p>
-              <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:9}}>
+              <div style={{display:"grid",gridTemplateColumns:cols(1,2,2),gap:"var(--arcd-space-2)"}}>
                 {campos.map(c => (
                   <Sel key={c.k} label={`${c.l}${c.obrig?" *":""}`} value={col[c.k]===undefined?"":String(col[c.k])}
                        onChange={v=>setCol(c.k,v)} options={opcoesColuna}/>
                 ))}
               </div>
-              <div style={{display:"flex",gap:8}}>
+              <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
                 <Btn v="ghost" onClick={()=>setColMapModal(null)} full>Cancelar</Btn>
                 <Btn onClick={confirmarMapeamentoImportacao} full><Ic n="check"/> Confirmar e continuar</Btn>
               </div>
@@ -4401,43 +4390,43 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
         const s = impModal.stats;
         const pend = impModal.linhas.filter(l => l.kind==="item" && (!l.achou || l.semPreco || l.semQtd));
         const Nm = ({v,l,cor}) => (
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 9px"}}>
-            <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:cor||C.text}}>{v}</p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:1}}>{l}</p>
+          <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
+            <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor||"var(--arcd-text-primary)"}}>{v}</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-0)"}}>{l}</p>
           </div>
         );
         return (
           <Modal title="Conferir importação" onClose={()=>setImpModal(null)} wide>
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>
+            <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+              <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)"}}>
                 <Nm v={s.itens}    l="itens na planilha"/>
                 <Nm v={s.ok}       l="prontos" cor={C.green}/>
                 <Nm v={s.naoAchou} l="código fora da base" cor={s.naoAchou?C.red:C.muted}/>
                 <Nm v={s.etapas}   l="etapas"/>
               </div>
 
-              <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:6,padding:"9px 12px",
-                           display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Custo direto que será importado</p>
-                <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.yellow}}>{fmt(s.valor)}</p>
+              <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)",
+                           display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Custo direto que será importado</p>
+                <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{fmt(s.valor)}</p>
               </div>
 
               {pend.length > 0 && (
-                <div style={{border:`1px solid ${C.border}`,borderLeft:`1px solid ${C.red}`,borderRadius:6,overflow:"hidden"}}>
-                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,padding:"8px 11px",background:C.surface}}>
+                <div style={{border:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-danger-text)",borderRadius:6,overflow:"hidden"}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:"var(--arcd-surface-muted)"}}>
                     {pend.length} linha(s) precisam de atenção
                   </p>
-                  <div style={{maxHeight:150,overflowY:"auto",padding:"6px 11px"}}>
+                  <div style={{maxHeight:150,overflowY:"auto",padding:"var(--arcd-space-1) var(--arcd-space-3)"}}>
                     {pend.slice(0,40).map((p,i)=>(
-                      <p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.7,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                        Linha {p._i}: <b style={{color:C.subtle}}>{p.codigo||"sem código"}</b>
+                      <p key={i} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                        Linha {p._i}: <b style={{color:"var(--arcd-text-muted)"}}>{p.codigo||"sem código"}</b>
                         {" - "}
                         {!p.achou   ? "não existe na base carregada"
                          : p.semQtd ? "sem quantidade"
                          : "a base não tem preço para este código"}
                       </p>
                     ))}
-                    {pend.length>40 && <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>...e mais {pend.length-40}.</p>}
+                    {pend.length>40 && <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>...e mais {pend.length-40}.</p>}
                   </div>
                 </div>
               )}
@@ -4448,23 +4437,23 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 { k:"substituir", cor:C.red, t:"Substituir o conteúdo atual do orçamento",
                   s:"Apaga etapas e itens já lançados neste orçamento. Desmarcado, a planilha é somada ao que existe." },
               ].map(o => (
-                <label key={o.k} style={{display:"flex",alignItems:"flex-start",gap:9,cursor:"pointer",padding:"8px 11px",
-                        background: impModal[o.k] ? `${o.cor}10` : C.surface,
-                        border:`1.5px solid ${impModal[o.k] ? o.cor : C.border}`,borderRadius:6}}>
+                <label key={o.k} style={{display:"flex",alignItems:"flex-start",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",
+                        background: impModal[o.k] ? `${o.cor}10` : "var(--arcd-surface-muted)",
+                        border:`1.5px solid ${impModal[o.k] ? o.cor : "var(--arcd-border-default)"}`,borderRadius:6}}>
                   <div onClick={()=>setImpModal(m=>({...m,[o.k]:!m[o.k]}))}
-                       style={{width:18,height:18,borderRadius:4,flexShrink:0,marginTop:1,
-                               border:`2px solid ${impModal[o.k]?o.cor:C.muted}`,background:impModal[o.k]?o.cor:"transparent",
+                       style={{width:18,height:18,borderRadius:4,flexShrink:0,marginTop:"var(--arcd-space-0)",
+                               border:`2px solid ${impModal[o.k]?o.cor:"var(--arcd-text-secondary)"}`,background:impModal[o.k]?o.cor:"transparent",
                                display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    {impModal[o.k] && <span style={{color:"#fff",fontSize:"var(--arcd-type-label)",fontWeight:600}}>ok</span>}
+                    {impModal[o.k] && <span style={{color:"var(--arcd-text-inverse)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)"}}>ok</span>}
                   </div>
                   <div>
-                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:impModal[o.k]?o.cor:C.text}}>{o.t}</p>
-                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.5}}>{o.s}</p>
+                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:impModal[o.k]?o.cor:"var(--arcd-text-primary)"}}>{o.t}</p>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>{o.s}</p>
                   </div>
                 </label>
               ))}
 
-              <div style={{display:"flex",gap:8}}>
+              <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
                 <Btn v="ghost" onClick={()=>setImpModal(null)} full>Cancelar</Btn>
                 <Btn onClick={aplicarImportacao} full><Ic n="check"/> Importar</Btn>
               </div>
@@ -4474,7 +4463,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       })()}
 
       {/* Exportar */}
-      <div style={{display:"grid",gridTemplateColumns:cols("1fr 1fr","1fr 1fr","200px 200px"),gap:8}}>
+      <div style={{display:"grid",gridTemplateColumns:cols("1fr 1fr","1fr 1fr","200px 200px"),gap:"var(--arcd-space-2)"}}>
         <Btn onClick={exportPDF}  v="danger"  full><Ic n="file"/> PDF</Btn>
         <Btn onClick={exportXLSX} v="success" full><Ic n="download"/> Excel completo</Btn>
         <Btn onClick={exportXLSXExportado} v="success" full><Ic n="download"/> Excel padrão</Btn>
@@ -4485,17 +4474,17 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       {/* Modal: BDI - Acórdão 2622/2013-TCU */}
       {editMetaModal && (
         <Modal title="Editar dados do orçamento" onClose={()=>setEditMetaModal(false)} wide>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
             <Inp label="Nome do orçamento *" value={form.nome} onChange={F("nome")}/>
-            <label style={{display:"flex",flexDirection:"column",gap:5}}>
-              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Descrição</span>
-              <textarea value={form.descricao||""} onChange={e=>F("descricao")(e.target.value)} rows={3}
+            <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
+              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Descrição</span>
+              <TextareaControl value={form.descricao||""} onChange={e=>F("descricao")(e.target.value)} rows={3}
                 placeholder="Escopo, objetivo ou observações do orçamento"
-                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
+                style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:7,fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
             </label>
             <Sel label="Obra vinculada" value={form.obraId} onChange={F("obraId")}
               options={[{v:"",l:"- Nenhuma -"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
-            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
               <Inp label="Cliente" value={form.cliente} onChange={F("cliente")}/>
               <Inp label="Área construída (m²)" type="number" value={form.areaM2} onChange={F("areaM2")}/>
               <Inp label="Local / Endereço" value={form.local} onChange={F("local")}/>
@@ -4509,11 +4498,11 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 {v:"rascunho",l:"Rascunho"},{v:"revisao",l:"Em revisão"},{v:"enviado",l:"Enviado"},
               ]}/>
             </div>
-            <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"9px 12px",background:form.desonerado?`${C.green}08`:C.surface,borderRadius:6,border:`1.5px solid ${form.desonerado?C.green+"55":C.border}`}}>
-              <input type="checkbox" checked={form.desonerado!==false} onChange={e=>F("desonerado")(e.target.checked)}/>
-              <span style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>Encargos desonerados</span>
+            <label style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2) var(--arcd-space-3)",background:form.desonerado?"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)":"var(--arcd-surface-muted)",borderRadius:6,border:`1.5px solid ${form.desonerado?"var(--arcd-success-text)"+"55":"var(--arcd-border-default)"}`}}>
+              <ChoiceControl type="checkbox" checked={form.desonerado!==false} onChange={e=>F("desonerado")(e.target.checked)}/>
+              <span style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Encargos desonerados</span>
             </label>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>setEditMetaModal(false)} full>Cancelar</Btn>
               <Btn onClick={salvarDadosOrc} full><Ic n="check"/> Salvar dados</Btn>
             </div>
@@ -4541,19 +4530,19 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
           const fora = ref && val > 0 && (val < ref.q1 || val > ref.q3);
           const dica = hint || (ref ? `TCU edif.: ${f2p(ref.q1)} - ${f2p(ref.q3)}` : null);
           return (
-            <label key={k} style={{display:"flex",flexDirection:"column",gap:3}}>
-              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,letterSpacing:.3}}>{label}</span>
-              <div style={{display:"flex",alignItems:"center",gap:4}}>
-                <input type="number" step="0.01" value={bdiP[k]}
+            <label key={k} style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
+              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{label}</span>
+              <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
+                <StandardInput type="number" step="0.01" value={bdiP[k]}
                   onChange={e => P(k)(e.target.value)}
-                  style={{width:"100%",background:C.bg,
-                          border:`1.5px solid ${fora ? C.orange : C.border}`,color:C.text,
-                          padding:"7px 9px",borderRadius:6,fontSize:"var(--arcd-type-control)",outline:"none",
+                  style={{width:"100%",background:"var(--arcd-surface-page)",
+                          border:`1.5px solid ${fora ? "var(--arcd-warning-text)" : "var(--arcd-border-default)"}`,color:"var(--arcd-text-primary)",
+                          padding:"var(--arcd-space-2)",borderRadius:6,fontSize:"var(--arcd-type-control)",outline:"none",
                           fontFamily:"var(--arcd-font-sans)"}}/>
-                <span style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>%</span>
+                <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>%</span>
               </div>
               {dica && (
-                <span style={{fontSize:"var(--arcd-type-caption)",color: fora ? C.orange : C.muted}}>
+                <span style={{fontSize:"var(--arcd-type-caption)",color: fora ? "var(--arcd-warning-text)" : "var(--arcd-text-secondary)"}}>
                   {fora ? "! " : ""}{dica}
                 </span>
               )}
@@ -4563,19 +4552,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
         return (
           <Modal title="BDI - Acórdão 2622/2013 (TCU)" onClose={()=>setBdiModal(false)} wide>
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
 
               {/* Abas */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-1)"}}>
                 {[["faixa","Faixa referencial"],["detalhado","Cálculo detalhado"]].map(([v,l])=>(
-                  <button key={v} onClick={()=>setBdiAba(v)} style={{
-                    padding:"8px 4px",
-                    border:`2px solid ${bdiAba===v?C.yellow:C.border}`,
-                    background:bdiAba===v?`${C.yellow}12`:"transparent",
-                    color:bdiAba===v?C.text:C.muted,
-                    fontFamily:"var(--arcd-font-sans)",
-                    fontWeight:600,fontSize:"var(--arcd-type-control)",cursor:"pointer",borderRadius:6,
-                  }}>{l}</button>
+                  <StandardButton variant="secondary" key={v} onClick={()=>setBdiAba(v)}>{l}</StandardButton>
                 ))}
               </div>
 
@@ -4585,12 +4567,12 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
               {/*  ABA: FAIXA REFERENCIAL  */}
               {bdiAba === "faixa" && (<>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
-                  O TCU não fixa um BDI: fixa um <strong style={{color:C.text}}>intervalo</strong>.
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
+                  O TCU não fixa um BDI: fixa um <strong style={{color:"var(--arcd-text-primary)"}}>intervalo</strong>.
                   Dentro dele, o valor é aceito sem questionamento. Fora, é preciso justificar tecnicamente.
                 </p>
 
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"var(--arcd-space-2)"}}>
                   {[
                     ["1º Quartil", t.q1,  C.blue,   "Mínimo aceitável"],
                     ["Médio",      t.med, C.yellow, "Referência usual"],
@@ -4598,42 +4580,38 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   ].map(([l,val,cor,sub])=>{
                     const atual = Math.abs(Number(orc.bdi) - val) < 0.005;
                     return (
-                      <button key={l} onClick={()=>aplicarBDI(val, bdiTipo, null)} style={{
-                        background: atual ? `${cor}15` : C.bg,
-                        border:`2px solid ${atual ? cor : C.border}`,
-                        borderRadius:6, padding:"11px 6px", cursor:"pointer", textAlign:"center",
-                      }}>
-                        <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.5}}>{l}</p>
-                        <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-section-title)",fontWeight:600,color:cor,marginTop:3,lineHeight:1}}>
+                      <StandardButton variant="secondary" key={l} onClick={()=>aplicarBDI(val, bdiTipo, null)} style={{textAlign:"center"}}>
+                        <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{l}</p>
+                        <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-section-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>
                           {val.toFixed(2)}%
                         </p>
-                        <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:3}}>{sub}</p>
-                        {atual && <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:cor,marginTop:3,display:"flex",alignItems:"center",justifyContent:"center",gap:3}}><Ic n="check" s={10} color={cor}/> EM USO</p>}
-                      </button>
+                        <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{sub}</p>
+                        {atual && <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor,marginTop:"var(--arcd-space-half)",display:"flex",alignItems:"center",justifyContent:"center",gap:"var(--arcd-space-half)"}}><Ic n="check" s={10} color={cor}/> EM USO</p>}
+                      </StandardButton>
                     );
                   })}
                 </div>
 
-                <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 12px"}}>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>
+                <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
                     Estes valores são o BDI <strong>total</strong>. Se você precisa demonstrar a
                     memória de cálculo (comum em perícia e em obra pública), use a aba
-                    <strong style={{color:C.text}}> Cálculo detalhado</strong>.
+                    <strong style={{color:"var(--arcd-text-primary)"}}> Cálculo detalhado</strong>.
                   </p>
                 </div>
               </>)}
 
               {/*  ABA: CÁLCULO DETALHADO  */}
               {bdiAba === "detalhado" && (<>
-                <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 12px"}}>
-                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,textTransform:"uppercase",letterSpacing:.5,marginBottom:3}}>Fórmula do TCU</p>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,fontFamily:"monospace",lineHeight:1.5}}>
+                <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginBottom:"var(--arcd-space-half)"}}>Fórmula do TCU</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",fontFamily:"var(--arcd-font-mono)",lineHeight:"var(--arcd-line-height-normal)"}}>
                     BDI = [ (1+AC+S+R+G) x (1+DF) x (1+L)  (1I) ]  1
                   </p>
                 </div>
 
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.7}}>Componentes</p>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Componentes</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}>
                   {pct("AC - Administração Central", "ac")}
                   {pct("S - Seguro", "seguro")}
                   {pct("R - Risco", "risco")}
@@ -4642,10 +4620,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   {pct("L - Lucro", "lucro")}
                 </div>
 
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.7,marginTop:2}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",marginTop:"var(--arcd-space-half)"}}>
                   I - Tributos sobre o faturamento
                 </p>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}>
                   {pct("PIS", "pis", "Cumulativo: 0,65")}
                   {pct("COFINS", "cofins", "Cumulativo: 3,00")}
                   {pct("ISS", "iss", "Municipal: 2,00 - 5,00")}
@@ -4657,18 +4635,18 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   const usaDes = orc.desonerado !== false;
                   const temCprb = Number(bdiP.cprb || 0) > 0;
                   if (usaDes && !temCprb) return (
-                    <div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}44`,borderRadius:6,padding:"8px 11px"}}>
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600}}>! Orçamento desonerado sem CPRB</p>
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.5}}>
+                    <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>! Orçamento desonerado sem CPRB</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>
                         Você escolheu a tabela <strong>desonerada</strong>, então a empresa recolhe CPRB (4,5% sobre a
                         receita) - e isso precisa estar nos tributos do BDI. Deixar em zero subestima o BDI.
                       </p>
                     </div>
                   );
                   if (!usaDes && temCprb) return (
-                    <div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}44`,borderRadius:6,padding:"8px 11px"}}>
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.orange,fontWeight:600}}>! Orçamento não desonerado com CPRB</p>
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,lineHeight:1.5}}>
+                    <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>! Orçamento não desonerado com CPRB</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>
                         A tabela é <strong>não desonerada</strong> (encargos já na folha), logo não há CPRB.
                         Mantê-la infla o BDI indevidamente.
                       </p>
@@ -4678,24 +4656,24 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 })()}
 
                 {/* Resultado */}
-                <div style={{background:`${sit.cor}0A`,border:`2px solid ${sit.cor}`,borderRadius:8,padding:"13px 15px"}}>
+                <div style={{background:`${sit.cor}0A`,border:`2px solid ${sit.cor}`,borderRadius:8,padding:"var(--arcd-space-3) var(--arcd-space-4)"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div>
-                      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.6}}>BDI calculado</p>
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Tributos (I) = {r.tributos.toFixed(2)}%</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}>BDI calculado</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Tributos (I) = {r.tributos.toFixed(2)}%</p>
                     </div>
-                    <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"clamp(18px,8vw,32px)",fontWeight:600,color:sit.cor,lineHeight:1}}>
+                    <p style={{fontFamily:"var(--arcd-font-mono)",fontVariantNumeric:"tabular-nums",fontSize:"var(--arcd-type-page-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:sit.cor,lineHeight:"var(--arcd-line-height-normal)"}}>
                       {r.erro ? "-" : `${r.bdi.toFixed(2)}%`}
                     </p>
                   </div>
-                  <div style={{marginTop:9,paddingTop:9,borderTop:`1px solid ${sit.cor}33`}}>
-                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:sit.cor}}>
+                  <div style={{marginTop:"var(--arcd-space-2)",paddingTop:"var(--arcd-space-2)",borderTop:`1px solid ${sit.cor}33`}}>
+                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:sit.cor}}>
                       {sit.st==="dentro" ? "Dentro da faixa TCU" : sit.st==="acima" ? "Acima do 3º quartil" : "Abaixo do 1º quartil"}
                     </p>
-                    <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3,lineHeight:1.5}}>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",lineHeight:"var(--arcd-line-height-normal)"}}>
                       {r.erro || sit.msg}
                     </p>
-                    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:5}}>
+                    <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>
                       Faixa para <strong>{t.l.toLowerCase()}</strong>: {t.q1}% (1ºQ)  {t.med}% (médio)  {t.q3}% (3ºQ)
                     </p>
                   </div>
@@ -4707,7 +4685,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 </Btn>
               </>)}
 
-              <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,textAlign:"center",lineHeight:1.5}}>
+              <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",textAlign:"center",lineHeight:"var(--arcd-line-height-normal)"}}>
                 Faixas do Acórdão 2622/2013-TCU-Plenário. Confira sempre contra a íntegra do
                 acórdão antes de usar em processo.
               </p>
@@ -4724,26 +4702,26 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                : "Nova etapa"}
           onClose={()=>{setEtapaModal(null);setEtapaNome("");}}
         >
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
             {etapaModal.modo==="editar" && <>
               <Inp label="Posição na lista" type="number" value={etapaModal.position}
                 onChange={position=>setEtapaModal(current=>({...current,position}))}/>
-              <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>Para mover a etapa 16 para o lugar da 7, informe 7. As demais etapas serão renumeradas automaticamente.</p>
+              <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>Para mover a etapa 16 para o lugar da 7, informe 7. As demais etapas serão renumeradas automaticamente.</p>
               <Sel label="Etapa superior" value={etapaModal.paiId}
                 onChange={paiId=>setEtapaModal(current=>({...current,paiId,position:1}))}
                 options={[{v:"",l:"Nível 1 · Etapa principal"},
                   ...achatarArvore(calc.arvore).filter(row=>row.tipo==="etapa" && !idsDaSubarvore(orc.etapas,etapaModal.etapa.id).includes(row.id))
                     .map(row=>({v:row.id,l:`Dentro de ${row.codigo} · ${row.nome} (nível ${row.nivel+1})`}))]}/>
-              <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>Os itens e subetapas serão movidos juntos. A numeração será atualizada e os vínculos da memória serão preservados.</p>
+              <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>Os itens e subetapas serão movidos juntos. A numeração será atualizada e os vínculos da memória serão preservados.</p>
             </>}
             {etapaModal.paiId && (() => {
               const pai = orc.etapas.find(e=>e.id===etapaModal.paiId);
               const nivelPai = nivelDaEtapa(orc.etapas, etapaModal.paiId);
               return (
-                <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"9px 12px"}}>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textTransform:"uppercase",fontWeight:600,letterSpacing:.6}}>Dentro de</p>
-                  <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:2}}>{pai?.nome}</p>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:3}}>
+                <div style={{background:"var(--arcd-surface-muted)",border:"1.5px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)"}}>Dentro de</p>
+                  <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{pai?.nome}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
                     Será o nível {nivelPai+1} de {MAX_NIVEL}
                   </p>
                 </div>
@@ -4751,7 +4729,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             })()}
             <Inp label="Nome da etapa *" value={etapaNome} onChange={setEtapaNome}
               placeholder={etapaModal.modo==="sub" ? "Ex.: Alvenaria de vedação" : "Ex.: PAREDES E PAINÉIS"}/>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>{setEtapaModal(null);setEtapaNome("");}} full>Cancelar</Btn>
               <Btn onClick={salvarEtapa} full><Ic n="check"/> Salvar</Btn>
             </div>
@@ -4762,45 +4740,41 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       {/* Modal: buscar composição */}
       {buscaModal && (
         <Modal title="Adicionar item à etapa" onClose={()=>{setBuscaModal(false);setBusca("");}} wide>
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
             <Inp label="Buscar por código ou descrição" value={busca} onChange={setBusca}
               placeholder={temBasePesquisa ? "Ex.: 93358, alvenaria, contrapiso..." : "Vincule uma base ou use seus favoritos"}/>
 
             {!temBasePesquisa && (
-              <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:16,textAlign:"center"}}>
-                <p style={{fontSize:"var(--arcd-type-body)",color:C.muted}}>Nenhuma base vinculada. Cadastre ou vincule uma base SINAPI/ORSE neste orçamento.</p>
+              <div style={{background:"var(--arcd-surface-muted)",border:"1.5px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-4)",textAlign:"center"}}>
+                <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)"}}>Nenhuma base vinculada. Cadastre ou vincule uma base SINAPI/ORSE neste orçamento.</p>
               </div>
             )}
-            {buscaRemotaLoading && <p style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600}}>Pesquisando nas bases vinculadas...</p>}
-            {buscaRemotaAviso && <div style={{background:`${C.orange}0B`,border:`1px solid ${C.orange}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:"var(--arcd-type-label)",color:C.orange}}>{buscaRemotaAviso}</p></div>}
+            {buscaRemotaLoading && <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Pesquisando nas bases vinculadas...</p>}
+            {buscaRemotaAviso && <div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}>{buscaRemotaAviso}</p></div>}
 
             {!busca && baseBusca.some(i=>i._fav) && (
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.muted,textTransform:"uppercase",letterSpacing:.8,display:"flex",alignItems:"center",gap:4}}><Ic n="star" s={11} color={C.yellow}/> Seus favoritos</p>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)",display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}><Ic n="star" s={11} color={C.yellow}/> Seus favoritos</p>
             )}
 
-            <div style={{maxHeight:340,overflowY:"auto",display:"flex",flexDirection:"column",gap:5}}>
+            <div style={{maxHeight:340,overflowY:"auto",display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
               {resultados.map((r,i)=>(
-                <button key={`${r.codigo}-${i}`} onClick={()=>{setQtdModal(r);setQtd("");setBuscaModal(false);}} style={{
-                  background:C.bg, border:`1.5px solid ${C.border}`,
-                  borderLeft:`1px solid ${r._fav?C.yellow:(r.fonte==="ORSE"?C.purple:C.blue)}`,
-                  borderRadius:6, padding:"8px 11px", textAlign:"left", cursor:"pointer",
-                }}>
-                  <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start"}}>
+                <StandardButton variant="secondary" key={`${r.codigo}-${i}`} onClick={()=>{setQtdModal(r);setQtd("");setBuscaModal(false);}} style={{borderLeft:`1px solid ${r._fav?"var(--arcd-action-primary)":(r.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)")}`,textAlign:"left"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"flex-start"}}>
                     <div style={{flex:1,minWidth:0}}>
-                      <p style={{fontSize:"var(--arcd-type-body)",color:C.text,lineHeight:1.4}}>{r.descricao}</p>
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,display:"flex",alignItems:"center",gap:3,flexWrap:"wrap"}}>
+                      <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{r.descricao}</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",display:"flex",alignItems:"center",gap:"var(--arcd-space-half)",flexWrap:"wrap"}}>
                         {r._fav && <Ic n="star" s={9} color={C.yellow}/>}
-                        <span style={{fontWeight:600,color:r.fonte==="ORSE"?C.purple:C.blue}}>{r.fonte||"SINAPI"}</span>
+                        <span style={{fontWeight:"var(--arcd-font-weight-semibold)",color:r.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{r.fonte||"SINAPI"}</span>
                         {" "}{r.codigo}  {r.unidade}
                         {r.dataBase?` · ${r.dataBase}`:""}{r.uf?` · ${r.uf}`:""}
                       </p>
                     </div>
-                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.yellow,flexShrink:0}}>{fmt(precoDoItem(r, orc))}</p>
+                    <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",flexShrink:0}}>{fmt(precoDoItem(r, orc))}</p>
                   </div>
-                </button>
+                </StandardButton>
               ))}
               {busca.trim().length>=2 && resultados.length===0 && !buscaRemotaLoading && (
-                <p style={{fontSize:"var(--arcd-type-body)",color:C.muted,textAlign:"center",padding:16}}>Nenhum resultado para "{busca}".</p>
+                <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-4)"}}>Nenhum resultado para "{busca}".</p>
               )}
             </div>
           </div>
@@ -4810,35 +4784,35 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       {/* Modal: quantidade */}
       {qtdModal && (
         <Modal title="Quantidade" onClose={()=>{setQtdModal(null);setQtd("");}}>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
             {(() => {
               const pu = precoDoItem(qtdModal, orc);
               const substituido = precoFoiSubstituido(qtdModal, orc);
               return (<>
-                <div style={{background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:6,padding:"11px 13px"}}>
-                  <p style={{fontSize:"var(--arcd-type-body)",color:C.text,lineHeight:1.4}}>{qtdModal.descricao}</p>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:4}}>
-                    <span style={{fontWeight:600,color:qtdModal.fonte==="ORSE"?C.purple:C.blue}}>{qtdModal.fonte||"SINAPI"}</span>
-                    {" "}{qtdModal.codigo}  {fmt(pu)}/{qtdModal.unidade} <span style={{color:C.muted}}>(sem BDI)</span>
+                <div style={{background:"var(--arcd-surface-muted)",border:"1.5px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-3)"}}>
+                  <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)"}}>{qtdModal.descricao}</p>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>
+                    <span style={{fontWeight:"var(--arcd-font-weight-semibold)",color:qtdModal.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{qtdModal.fonte||"SINAPI"}</span>
+                    {" "}{qtdModal.codigo}  {fmt(pu)}/{qtdModal.unidade} <span style={{color:"var(--arcd-text-secondary)"}}>(sem BDI)</span>
                     {qtdModal.dataBase?` · ${qtdModal.dataBase}`:""}{qtdModal.uf?` · ${qtdModal.uf}`:""}
                   </p>
-                  {qtdModal.detailUrl && <a href={qtdModal.detailUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:"var(--arcd-type-label)",color:C.blue,marginTop:5,fontWeight:600}}>Ver composição oficial</a>}
+                  {qtdModal.detailUrl && <a href={qtdModal.detailUrl} target="_blank" rel="noreferrer" style={{display:"inline-block",fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",marginTop:"var(--arcd-space-1)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Ver composição oficial</a>}
                   {substituido && (
-                    <p style={{fontSize:"var(--arcd-type-label)",color:C.orange,marginTop:4,fontWeight:600}}>
+                    <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-1)",fontWeight:"var(--arcd-font-weight-semibold)"}}>
                       ! Preço {orc.desonerado!==false ? "não desonerado" : "desonerado"} - a coluna escolhida no orçamento está vazia nesta base.
                     </p>
                   )}
                 </div>
                 <Inp label={`Quantidade (${qtdModal.unidade}) *`} type="number" value={qtd} onChange={setQtd} placeholder="0,00"/>
                 {qtd && Number(qtd)>0 && (
-                  <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderRadius:6,padding:"9px 13px"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>Custo direto</p>
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{fmt(Number(qtd)*pu)}</p>
+                  <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:"var(--arcd-space-half)"}}>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Custo direto</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{fmt(Number(qtd)*pu)}</p>
                     </div>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <p style={{fontSize:"var(--arcd-type-body)",color:C.text,fontWeight:600}}>Total c/ BDI {orc.bdi}%</p>
-                      <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.yellow}}>
+                      <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>Total c/ BDI {orc.bdi}%</p>
+                      <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>
                         {fmt(Number(qtd)*pu*(1+Number(orc.bdi||0)/100))}
                       </p>
                     </div>
@@ -4846,7 +4820,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 )}
               </>);
             })()}
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>{setQtdModal(null);setQtd("");}} full>Cancelar</Btn>
               <Btn onClick={addItem} full><Ic n="check"/> Adicionar</Btn>
             </div>
@@ -4856,8 +4830,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {editItem && (
         <Modal title="Editar item do orçamento" onClose={()=>setEditItem(null)} wide>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
               <Inp label="Código" value={editItem.codigo||""} onChange={v=>setEditItem(x=>({...x,codigo:v}))}/>
               <Inp label="Fonte" value={editItem.fonte||""} onChange={v=>setEditItem(x=>({...x,fonte:v}))}/>
               <Inp label="Descrição *" value={editItem.descricao||""} onChange={v=>setEditItem(x=>({...x,descricao:v}))}/>
@@ -4865,13 +4839,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <Inp label="Quantidade" type="number" value={editItem.quantidade} onChange={v=>setEditItem(x=>({...x,quantidade:v}))}/>
               <Inp label="Preço unitário sem BDI" type="number" value={editItem.precoUnit} onChange={v=>setEditItem(x=>({...x,precoUnit:v}))}/>
             </div>
-            <label style={{display:"flex",flexDirection:"column",gap:5}}>
-              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Composição / memória de preços</span>
-              <textarea value={editItem.composicao||""} onChange={e=>setEditItem(x=>({...x,composicao:e.target.value}))}
+            <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
+              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Composição / memória de preços</span>
+              <TextareaControl value={editItem.composicao||""} onChange={e=>setEditItem(x=>({...x,composicao:e.target.value}))}
                 placeholder="Material, mão de obra, equipamentos, coeficientes e valores..." rows={5}
-                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
+                style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:7,fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
             </label>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>setEditItem(null)} full>Cancelar</Btn>
               <Btn onClick={salvarItemCompleto} full><Ic n="check"/> Salvar alterações</Btn>
             </div>
@@ -4881,11 +4855,11 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
       {externoModal && (
         <Modal title="Nova composição externa / cotação" onClose={()=>setExternoModal(false)} wide>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
               Use para serviços próprios, cotações de fornecedores ou composições que não existem na base SINAPI/ORSE.
             </p>
-            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
               <Inp label="Código (opcional)" value={externoForm.codigo} onChange={v=>setExternoForm(f=>({...f,codigo:v}))}/>
               <Inp label="Fonte" value={externoForm.fonte} onChange={v=>setExternoForm(f=>({...f,fonte:v}))} placeholder="EXTERNO ou COTAÇÃO"/>
               <Inp label="Descrição *" value={externoForm.descricao} onChange={v=>setExternoForm(f=>({...f,descricao:v}))}/>
@@ -4893,13 +4867,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               <Inp label="Quantidade *" type="number" value={externoForm.quantidade} onChange={v=>setExternoForm(f=>({...f,quantidade:v}))}/>
               <Inp label="Custo unitário sem BDI *" type="number" value={externoForm.precoUnit} onChange={v=>setExternoForm(f=>({...f,precoUnit:v}))}/>
             </div>
-            <label style={{display:"flex",flexDirection:"column",gap:5}}>
-              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Composição / detalhes da cotação</span>
-              <textarea value={externoForm.composicao} onChange={e=>setExternoForm(f=>({...f,composicao:e.target.value}))}
+            <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
+              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Composição / detalhes da cotação</span>
+              <TextareaControl value={externoForm.composicao} onChange={e=>setExternoForm(f=>({...f,composicao:e.target.value}))}
                 rows={5} placeholder="Materiais, mão de obra, fornecedor, validade, coeficientes..."
-                style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 11px",borderRadius:7,fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
+                style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:7,fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/>
             </label>
-            <div style={{display:"flex",gap:8}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)"}}>
               <Btn v="ghost" onClick={()=>setExternoModal(false)} full>Cancelar</Btn>
               <Btn onClick={salvarExterno} full><Ic n="check"/> Adicionar ao orçamento</Btn>
             </div>
@@ -4909,231 +4883,221 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       </>}
 
       {orcAba==="insumos" && (
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{background:C.bg,border:`1px solid ${C.border}`,borderLeft:`1px solid ${C.blue}`,borderRadius:6,padding:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:7}}>
-              <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>CONSULTA ANALÍTICA DAS BASES</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Pesquise e abra separadamente os insumos ou as composições SINAPI/ORSE vinculadas.</p></div>
-              <div style={{display:"flex",gap:4}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>setCompTipoBusca(valor)} style={{border:`1px solid ${compTipoBusca===valor?C.blue:C.border}`,background:compTipoBusca===valor?`${C.blue}10`:C.bg,color:compTipoBusca===valor?C.blue:C.muted,borderRadius:5,padding:"5px 8px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{label}</button>)}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+          <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-action-primary)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap",marginBottom:"var(--arcd-space-2)"}}>
+              <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>CONSULTA ANALÍTICA DAS BASES</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Pesquise e abra separadamente os insumos ou as composições SINAPI/ORSE vinculadas.</p></div>
+              <div style={{display:"flex",gap:"var(--arcd-space-1)"}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><StandardButton variant="secondary" key={valor} onClick={()=>setCompTipoBusca(valor)}>{label}</StandardButton>)}</div>
             </div>
             <Inp value={compBusca} onChange={setCompBusca} placeholder={compTipoBusca==="INSUMO"?"Pesquisar insumo por código ou descrição...":compTipoBusca==="COMPOSICAO"?"Pesquisar composição por código ou descrição...":"Pesquisar insumo ou composição por código ou descrição..."}/>
-            {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:5,maxHeight:250,overflowY:"auto",border:`1px solid ${C.border}`,borderRadius:7}}>
-              {compBuscaLoading&&<p style={{fontSize:"var(--arcd-type-label)",color:C.blue,padding:8,fontWeight:600}}>PESQUISANDO...</p>}
-              {compBuscaAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,padding:8}}>{compBuscaAviso}</p>}
-              {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"115px minmax(0,1fr) 95px auto",gap:7,padding:"7px 8px",borderTop:index?`1px solid ${C.line}`:"none",alignItems:"center"}}>
-                <span><b style={{display:"block",fontSize:"var(--arcd-type-caption)",color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b><small style={{fontSize:"var(--arcd-type-caption)",color:item.tipoItem==="COMPOSICAO"?C.green:C.orange,fontWeight:600}}>{item.tipoItem==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</small></span>
-                <span title={item.descricao} style={{fontSize:"var(--arcd-type-label)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span>
-                <span style={{fontSize:"var(--arcd-type-label)",color:C.yellowD,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
-                <button onClick={()=>analisarItemReferencia(item)} style={{border:`1px solid ${C.blue}`,background:`${C.blue}08`,color:C.blue,borderRadius:5,padding:"5px 8px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>ANALISAR</button>
+            {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:"var(--arcd-space-1)",maxHeight:250,overflowY:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:7}}>
+              {compBuscaLoading&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",padding:"var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)"}}>PESQUISANDO...</p>}
+              {compBuscaAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",padding:"var(--arcd-space-2)"}}>{compBuscaAviso}</p>}
+              {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"115px minmax(0,1fr) 95px auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2)",borderTop:index?"1px solid var(--arcd-border-default)":"none",alignItems:"center"}}>
+                <span><b style={{display:"block",fontSize:"var(--arcd-type-caption)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte} {item.codigo}</b><small style={{fontSize:"var(--arcd-type-caption)",color:item.tipoItem==="COMPOSICAO"?"var(--arcd-success-text)":"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{item.tipoItem==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</small></span>
+                <span title={item.descricao} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span>
+                <span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
+                <StandardButton variant="secondary" onClick={()=>analisarItemReferencia(item)}>Analisar</StandardButton>
               </div>)}
-              {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"center",padding:10}}>Nenhum resultado.</p>}
+              {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-2)"}}>Nenhum resultado.</p>}
             </div>}
           </div>
 
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:5}}>
-            {[["insumos","CURVA ABC DE INSUMOS"],["composicoes","CURVA ABC DE COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>{setAbcTipo(valor);setAbcFiltro("todas");setAbcInsumoFiltro("todas");}} style={{border:`1px solid ${abcTipo===valor?C.blue:C.border}`,background:abcTipo===valor?C.blue:C.bg,color:abcTipo===valor?"#fff":C.muted,borderRadius:6,padding:"8px 10px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{label}</button>)}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-1)",background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-1)"}}>
+            {[["insumos","CURVA ABC DE INSUMOS"],["composicoes","CURVA ABC DE COMPOSIÇÕES"]].map(([valor,label])=><StandardButton variant="secondary" key={valor} onClick={()=>{setAbcTipo(valor);setAbcFiltro("todas");setAbcInsumoFiltro("todas");}}>{label}</StandardButton>)}
           </div>
 
           {abcTipo==="insumos"&&<>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
             <div>
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>QUANTITATIVOS DE INSUMOS</p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Expansão analítica das composições SINAPI, ORSE e próprias conforme as quantidades do orçamento. O que a base não abre em insumos fica marcado como COMPOSIÇÃO e não entra na curva de insumos.</p>
+              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>QUANTITATIVOS DE INSUMOS</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Expansão analítica das composições SINAPI, ORSE e próprias conforme as quantidades do orçamento. O que a base não abre em insumos fica marcado como COMPOSIÇÃO e não entra na curva de insumos.</p>
             </div>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
               <Btn size="sm" v="info" onClick={carregarDetalhesComposicoes} disabled={detalhesLoading}>{detalhesLoading?"CARREGANDO...":"ATUALIZAR INSUMOS"}</Btn>
               <Btn size="sm" v="success" onClick={exportarABCInsumos}>EXCEL</Btn>
             </div>
           </div>
-          {detalhesAviso&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"8px 10px",fontSize:"var(--arcd-type-label)",color:C.orange}}>{detalhesAviso}</div>}
+          {detalhesAviso&&<div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}>{detalhesAviso}</div>}
 
           {/* Alerta acionavel: nao basta dizer "faltam N composicoes da fonte X" -
               sem o codigo e a descricao, o administrador nao sabe qual composicao
               especifica precisa ir buscar/importar na base analitica. Ordenada por
               custo para a mais cara (mais urgente) aparecer primeiro. */}
-          {composicoesNaoDocumentadas.length>0&&<div style={{background:`${C.orange}0f`,border:`1px solid ${C.orange}66`,borderRadius:6,padding:"9px 11px"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>⚠ COMPOSIÇÕES SEM DOCUMENTAÇÃO ANALÍTICA - BUSQUE A COMPOSIÇÃO CORRESPONDENTE</p>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55,marginTop:3}}>
+          {composicoesNaoDocumentadas.length>0&&<div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 40%, transparent)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>⚠ COMPOSIÇÕES SEM DOCUMENTAÇÃO ANALÍTICA - BUSQUE A COMPOSIÇÃO CORRESPONDENTE</p>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-half)"}}>
               Estas composições entraram inteiras na curva (marcadas como COMPOSIÇÃO) porque a base vinculada não tem a relação delas com insumos.
               Localize o código na fonte oficial (SINAPI ou ORSE) e reenvie a planilha/tabelas analíticas em Administração → Bases de preço para documentá-las.
             </p>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:7}}>
+            <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",marginTop:"var(--arcd-space-2)"}}>
               {naoAbertasPorFonte.map(linha=>(
-                <button key={linha.fonte} onClick={()=>{setAbcInsumoTipo("COMPOSICAO");setAbcInsumoFiltro("todas");}}
+                <StandardButton variant="secondary" key={linha.fonte} onClick={()=>{setAbcInsumoTipo("COMPOSICAO");setAbcInsumoFiltro("todas");}}
                   title="Ver só as composições não abertas"
-                  style={{border:`1px solid ${linha.fonte==="ORSE"?C.purple:C.blue}55`,background:C.bg,
-                          borderRadius:6,padding:"5px 9px",cursor:"pointer",textAlign:"left"}}>
-                  <b style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:linha.fonte==="ORSE"?C.purple:C.blue}}>{linha.fonte}</b>
-                  <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginLeft:6}}>{linha.qtd} composição(ões) · {fmt(linha.custo)}</span>
-                </button>
+                  style={{textAlign:"left"}}>
+                  <b style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:linha.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{linha.fonte}</b>
+                  <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginLeft:"var(--arcd-space-1)"}}>{linha.qtd} composição(ões) · {fmt(linha.custo)}</span>
+                </StandardButton>
               ))}
             </div>
-            <div style={{marginTop:8,maxHeight:180,overflowY:"auto",border:`1px solid ${C.orange}33`,borderRadius:5}}>
+            <div style={{marginTop:"var(--arcd-space-2)",maxHeight:180,overflowY:"auto",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 20%, transparent)",borderRadius:5}}>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
-                <thead><tr style={{background:C.bg}}>{["FONTE","CÓDIGO","DESCRIÇÃO","CUSTO NO ORÇAMENTO"].map(h=><th key={h} style={{padding:"5px 7px",textAlign:h==="CUSTO NO ORÇAMENTO"?"right":"left",color:C.muted,fontSize:"var(--arcd-type-label)",position:"sticky",top:0,background:C.bg,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
-                <tbody>{composicoesNaoDocumentadas.map(item=><tr key={`${item.fonte}-${item.codigo}`} style={{borderBottom:`1px solid ${C.line}`}}>
-                  <td style={{padding:"4px 7px",fontWeight:600,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td>
-                  <td style={{padding:"4px 7px",color:C.text}}>{item.codigo}</td>
-                  <td title={item.descricao} style={{padding:"4px 7px",color:C.text,maxWidth:320,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td>
-                  <td style={{padding:"4px 7px",textAlign:"right",fontWeight:600,color:C.orange}}>{fmt(item.custo)}</td>
+                <thead><tr style={{background:"var(--arcd-surface-page)"}}>{["FONTE","CÓDIGO","DESCRIÇÃO","CUSTO NO ORÇAMENTO"].map(h=><th key={h} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:h==="CUSTO NO ORÇAMENTO"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",position:"sticky",top:0,background:"var(--arcd-surface-page)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead>
+                <tbody>{composicoesNaoDocumentadas.map(item=><tr key={`${item.fonte}-${item.codigo}`} style={{borderBottom:"1px solid var(--arcd-border-default)"}}>
+                  <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte}</td>
+                  <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-primary)"}}>{item.codigo}</td>
+                  <td title={item.descricao} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-primary)",maxWidth:320,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td>
+                  <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>{fmt(item.custo)}</td>
                 </tr>)}</tbody>
               </table>
             </div>
           </div>}
-          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>
+          <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)"}}>
             {[
               [abcInsumos.qtdInsumos,"INSUMOS CONSOLIDADOS",C.blue],
               [abcInsumos.qtdComposicoes,"COMPOSIÇÕES NÃO ABERTAS",abcInsumos.qtdComposicoes?C.orange:C.green],
               [fmt(abcInsumosCurva.total),abcInsumoTipo==="INSUMO"?"CUSTO EM INSUMOS":abcInsumoTipo==="COMPOSICAO"?"CUSTO EM COMPOSIÇÕES":"CUSTO ANALÍTICO",C.yellow],
               [abcInsumos.semPreco.length,"SEM PREÇO",abcInsumos.semPreco.length?C.red:C.green],
-            ].map(([valor,label,cor])=><div key={label} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${cor}`,borderRadius:6,padding:"9px 11px"}}>
-              <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:cor}}>{valor}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,marginTop:2}}>{label}</p>
+            ].map(([valor,label,cor])=><div key={label} style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${cor}`,borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+              <p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:cor}}>{valor}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>{label}</p>
             </div>)}
           </div>
           {/* Familia primeiro: a curva e recalculada dentro do que voce escolheu. */}
-          <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
-            <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,letterSpacing:.5}}>MOSTRAR</span>
+          <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",alignItems:"center"}}>
+            <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",letterSpacing:"var(--arcd-letter-spacing-body)"}}>MOSTRAR</span>
             {[["INSUMO","SÓ INSUMOS"],["COMPOSICAO","SÓ COMPOSIÇÕES"],["TODOS","TUDO JUNTO"]].map(([valor,label])=>(
-              <button key={valor} onClick={()=>{setAbcInsumoTipo(valor);setAbcInsumoFiltro("todas");}} style={{
-                border:`1px solid ${abcInsumoTipo===valor?C.blue:C.border}`,
-                background:abcInsumoTipo===valor?C.blue:C.bg,
-                color:abcInsumoTipo===valor?"#fff":C.muted,
-                borderRadius:6,padding:"5px 10px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",
-              }}>{label}</button>
+              <StandardButton variant="secondary" key={valor} onClick={()=>{setAbcInsumoTipo(valor);setAbcInsumoFiltro("todas");}}>{label}</StandardButton>
             ))}
           </div>
-          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-            {["todas","A","B","C"].map(classe=><button key={classe} onClick={()=>setAbcInsumoFiltro(classe)} style={{
-              border:`1px solid ${abcInsumoFiltro===classe?(classe==="todas"?C.blue:CLASSE_ABC[classe].cor):C.border}`,
-              background:abcInsumoFiltro===classe?`${classe==="todas"?C.blue:CLASSE_ABC[classe].cor}12`:C.bg,
-              color:classe==="todas"?C.blue:CLASSE_ABC[classe].cor,borderRadius:6,padding:"5px 10px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",
-            }}>{classe==="todas"?"TODAS":`CLASSE ${classe}`}</button>)}
+          <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
+            {["todas","A","B","C"].map(classe=><StandardButton variant="secondary" key={classe} onClick={()=>setAbcInsumoFiltro(classe)}>{classe==="todas"?"TODAS":`CLASSE ${classe}`}</StandardButton>)}
           </div>
-          <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:6,background:C.bg}}>
+          <div style={{overflowX:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:6,background:"var(--arcd-surface-page)"}}>
             <table style={{width:"100%",minWidth:940,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
-              <thead><tr style={{background:C.surface}}>{["CL.","TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"7px 8px",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:C.muted,fontSize:"var(--arcd-type-label)",borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
-              <tbody>{abcInsumosCurva.itens.filter(item=>abcInsumoFiltro==="todas"||item.classe===abcInsumoFiltro).map(item=><tr key={`${item.tipo}-${item.fonte}-${item.codigo}-${item.unidade}`} style={{borderBottom:`1px solid ${C.line}`}}>
-                <td style={{padding:"6px 8px",fontWeight:600,color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td>
-                <td title={item.tipo==="COMPOSICAO"?"Composição que a base analítica não abriu em insumos":"Insumo"} style={{padding:"6px 8px",fontWeight:600,fontSize:"var(--arcd-type-table)",color:item.tipo==="COMPOSICAO"?C.green:C.orange}}>{item.tipo==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</td>
-                <td style={{padding:"6px 8px",fontWeight:600,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td>
-                <td style={{padding:"6px 8px",color:C.text}}>{item.codigo}</td>
-                <td title={item.descricao} style={{padding:"6px 8px",color:C.text,maxWidth:440,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td>
-                <td style={{padding:"6px 8px",color:C.muted}}>{item.unidade}</td>
-                <td style={{padding:"6px 8px",textAlign:"right",color:C.text}}>{item.quantidade.toLocaleString("pt-BR",{maximumFractionDigits:6})}</td>
-                <td style={{padding:"6px 8px",textAlign:"right",color:item.precoUnit?C.text:C.red}}>{fmt(item.precoUnit)}</td>
-                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:C.text}}>{fmt(item.custo)}</td>
-                <td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{item.pct.toFixed(2)}%</td>
-                <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
+              <thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["CL.","TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+              <tbody>{abcInsumosCurva.itens.filter(item=>abcInsumoFiltro==="todas"||item.classe===abcInsumoFiltro).map(item=><tr key={`${item.tipo}-${item.fonte}-${item.codigo}-${item.unidade}`} style={{borderBottom:"1px solid var(--arcd-border-default)"}}>
+                <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td>
+                <td title={item.tipo==="COMPOSICAO"?"Composição que a base analítica não abriu em insumos":"Insumo"} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-table)",color:item.tipo==="COMPOSICAO"?"var(--arcd-success-text)":"var(--arcd-warning-text)"}}>{item.tipo==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</td>
+                <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte}</td>
+                <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-primary)"}}>{item.codigo}</td>
+                <td title={item.descricao} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-primary)",maxWidth:440,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td>
+                <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-secondary)"}}>{item.unidade}</td>
+                <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",color:"var(--arcd-text-primary)"}}>{item.quantidade.toLocaleString("pt-BR",{maximumFractionDigits:6})}</td>
+                <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",color:item.precoUnit?"var(--arcd-text-primary)":"var(--arcd-danger-text)"}}>{fmt(item.precoUnit)}</td>
+                <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{fmt(item.custo)}</td>
+                <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",color:"var(--arcd-text-secondary)"}}>{item.pct.toFixed(2)}%</td>
+                <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
               </tr>)}</tbody>
             </table>
-            {!abcInsumosCurva.itens.length&&!detalhesLoading&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>{abcInsumos.linhas.length?"Nenhuma linha nesta família. Troque o filtro acima.":"Nenhum quantitativo calculado. Confira se os itens possuem código, quantidade e custo unitário."}</p>}
+            {!abcInsumosCurva.itens.length&&!detalhesLoading&&<p style={{padding:"var(--arcd-space-5)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{abcInsumos.linhas.length?"Nenhuma linha nesta família. Troque o filtro acima.":"Nenhum quantitativo calculado. Confira se os itens possuem código, quantidade e custo unitário."}</p>}
           </div>
           {/* SEM DETALHAMENTO (chaves cruas fonte|codigo) some daqui - o alerta
               acionavel acima ja mostra a mesma informacao com codigo, descricao
               e custo, que e o que importa para ir buscar a composicao certa. */}
-          {abcInsumos.semPreco.length>0&&<div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.red,lineHeight:1.6}}><b>SEM PREÇO:</b> {abcInsumos.semPreco.slice(0,20).join(", ")}{abcInsumos.semPreco.length>20?"...":""}</p>
+          {abcInsumos.semPreco.length>0&&<div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-danger-text)",lineHeight:"var(--arcd-line-height-normal)"}}><b>SEM PREÇO:</b> {abcInsumos.semPreco.slice(0,20).join(", ")}{abcInsumos.semPreco.length>20?"...":""}</p>
           </div>}
           </>}
 
           {abcTipo==="composicoes"&&<>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-              <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>CURVA ABC DE COMPOSIÇÕES</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Somente serviços e composições lançados no orçamento. Insumos analíticos não entram nesta curva.</p></div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
+              <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>CURVA ABC DE COMPOSIÇÕES</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Somente serviços e composições lançados no orçamento. Insumos analíticos não entram nesta curva.</p></div>
               <Btn size="sm" v="success" onClick={exportXLSXCurvaABC}>EXCEL</Btn>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:7}}>
-              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.blue}`,borderRadius:6,padding:"9px 11px"}}><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.blue}}>{abc?.itens?.length||0}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,marginTop:2}}>COMPOSIÇÕES CONSOLIDADAS</p></div>
-              <div style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,borderRadius:6,padding:"9px 11px"}}><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.yellowD}}>{fmt(abc?.totalCD||0)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,marginTop:2}}>CUSTO DIRETO DAS COMPOSIÇÕES</p></div>
-              {(abc?.resumo||[]).map(r=><div key={r.classe} style={{background:C.bg,border:`1px solid ${C.border}`,borderTop:`3px solid ${r.cor}`,borderRadius:6,padding:"9px 11px"}}><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:r.cor}}>{r.qtd}</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600,marginTop:2}}>CLASSE {r.classe} · {r.pctValor.toFixed(1)}%</p></div>)}
+            <div style={{display:"grid",gridTemplateColumns:cols(2,4,4),gap:"var(--arcd-space-2)"}}>
+              <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-action-primary)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{abc?.itens?.length||0}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>COMPOSIÇÕES CONSOLIDADAS</p></div>
+              <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-action-primary)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{fmt(abc?.totalCD||0)}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>CUSTO DIRETO DAS COMPOSIÇÕES</p></div>
+              {(abc?.resumo||[]).map(r=><div key={r.classe} style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderTop:`3px solid ${r.cor}`,borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:r.cor}}>{r.qtd}</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>CLASSE {r.classe} · {r.pctValor.toFixed(1)}%</p></div>)}
             </div>
-            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-              {["todas","A","B","C"].map(classe=><button key={classe} onClick={()=>setAbcFiltro(classe)} style={{border:`1px solid ${abcFiltro===classe?(classe==="todas"?C.blue:CLASSE_ABC[classe].cor):C.border}`,background:abcFiltro===classe?`${classe==="todas"?C.blue:CLASSE_ABC[classe].cor}12`:C.bg,color:classe==="todas"?C.blue:CLASSE_ABC[classe].cor,borderRadius:6,padding:"5px 10px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{classe==="todas"?"TODAS":`CLASSE ${classe}`}</button>)}
+            <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
+              {["todas","A","B","C"].map(classe=><StandardButton variant="secondary" key={classe} onClick={()=>setAbcFiltro(classe)}>{classe==="todas"?"TODAS":`CLASSE ${classe}`}</StandardButton>)}
             </div>
-            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:6,background:C.bg}}>
+            <div style={{overflowX:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:6,background:"var(--arcd-surface-page)"}}>
               <table style={{width:"100%",minWidth:940,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
-                <thead><tr style={{background:C.surface}}>{["CL.","FONTE","CÓDIGO","DESCRIÇÃO DA COMPOSIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"7px 8px",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:C.muted,fontSize:"var(--arcd-type-label)",borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
-                <tbody>{(abc?.itens||[]).filter(item=>abcFiltro==="todas"||item.classe===abcFiltro).map(item=><tr key={`${item.codigo}-${item.ordem}`} style={{borderBottom:`1px solid ${C.line}`}}>
-                  <td style={{padding:"6px 8px",fontWeight:600,color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td><td style={{padding:"6px 8px",fontWeight:600,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte||"-"}</td><td style={{padding:"6px 8px",color:C.text}}>{item.codigo}</td>
-                  <td title={item.descricao} style={{padding:"6px 8px",color:C.text,maxWidth:440,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:"6px 8px",color:C.muted}}>{item.unidade}</td>
-                  <td style={{padding:"6px 8px",textAlign:"right"}}>{Number(item.quantidade||0).toLocaleString("pt-BR",{maximumFractionDigits:6})}</td><td style={{padding:"6px 8px",textAlign:"right"}}>{fmt(item.precoUnit)}</td><td style={{padding:"6px 8px",textAlign:"right",fontWeight:600}}>{fmt(item.custoDireto)}</td><td style={{padding:"6px 8px",textAlign:"right",color:C.muted}}>{item.pct.toFixed(2)}%</td><td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
+                <thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["CL.","FONTE","CÓDIGO","DESCRIÇÃO DA COMPOSIÇÃO","UN.","QUANTIDADE","CUSTO UNIT.","CUSTO TOTAL","%","% ACUM."].map(h=><th key={h} style={{padding:"var(--arcd-space-2)",textAlign:h.includes("CUSTO")||h.includes("%")||h==="QUANTIDADE"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+                <tbody>{(abc?.itens||[]).filter(item=>abcFiltro==="todas"||item.classe===abcFiltro).map(item=><tr key={`${item.codigo}-${item.ordem}`} style={{borderBottom:"1px solid var(--arcd-border-default)"}}>
+                  <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",color:CLASSE_ABC[item.classe].cor}}>{item.classe}</td><td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",fontWeight:"var(--arcd-font-weight-semibold)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte||"-"}</td><td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-primary)"}}>{item.codigo}</td>
+                  <td title={item.descricao} style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-primary)",maxWidth:440,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",color:"var(--arcd-text-secondary)"}}>{item.unidade}</td>
+                  <td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right"}}>{Number(item.quantidade||0).toLocaleString("pt-BR",{maximumFractionDigits:6})}</td><td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right"}}>{fmt(item.precoUnit)}</td><td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)"}}>{fmt(item.custoDireto)}</td><td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",color:"var(--arcd-text-secondary)"}}>{item.pct.toFixed(2)}%</td><td style={{padding:"var(--arcd-space-1) var(--arcd-space-2)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:CLASSE_ABC[item.classe].cor}}>{item.pctAcum.toFixed(2)}%</td>
                 </tr>)}</tbody>
               </table>
-              {!(abc?.itens||[]).length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhuma composição com quantidade e preço foi encontrada no orçamento.</p>}
+              {!(abc?.itens||[]).length&&<p style={{padding:"var(--arcd-space-5)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhuma composição com quantidade e preço foi encontrada no orçamento.</p>}
             </div>
           </>}
         </div>
       )}
 
       {orcAba==="proprias" && (
-        <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","300px minmax(0,1fr)"),gap:10,alignItems:"start"}}>
-          <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6,marginBottom:8}}>
-              <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>COMPOSIÇÕES SALVAS</p><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{composicoesEmpresa.length} cadastrada(s) na empresa</p></div>
+        <div style={{display:"grid",gridTemplateColumns:cols("1fr","1fr","300px minmax(0,1fr)"),gap:"var(--arcd-space-2)",alignItems:"start"}}>
+          <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-1)",marginBottom:"var(--arcd-space-2)"}}>
+              <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>COMPOSIÇÕES SALVAS</p><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{composicoesEmpresa.length} cadastrada(s) na empresa</p></div>
               <Btn size="sm" v="ghost" onClick={()=>novaComposicao()}>NOVA</Btn>
             </div>
             <Inp label="Buscar nas composições salvas" value={buscaComposicoesSalvas} onChange={setBuscaComposicoesSalvas} placeholder="Ex.: baldrame concreto — palavras em qualquer ordem"/>
-            <div style={{display:"flex",flexDirection:"column",gap:5}}>{composicoesEmpresa.filter(comp=>correspondeBuscaComposicao(comp,buscaComposicoesSalvas)).map(comp=>{
+            <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>{composicoesEmpresa.filter(comp=>correspondeBuscaComposicao(comp,buscaComposicoesSalvas)).map(comp=>{
               const custo=(comp.itens||[]).reduce((s,item)=>s+Number(item.coeficiente||0)*Number(item.precoUnit||0),0);
-              return <div key={comp.id} style={{border:`1px solid ${compForm.id===comp.id?C.blue:C.border}`,borderRadius:7,padding:"8px 9px",background:compForm.id===comp.id?`${C.blue}08`:C.surface}}>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>{comp.codigo} · {comp.unidade}</p>
-                <p title={comp.descricao} style={{fontSize:"var(--arcd-type-label)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:2}}>{comp.descricao}</p>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginTop:8,flexWrap:"wrap"}}>
-                  <b style={{fontSize:"var(--arcd-type-label)",color:C.yellowD}}>{fmt(custo)}</b>
-                  <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
-                    <button onClick={()=>setCompForm({...comp,itens:(comp.itens||[]).map(item=>({...item}))})} style={{display:"inline-flex",alignItems:"center",gap:4,minHeight:28,padding:"5px 8px",border:`1px solid ${C.blue}55`,borderRadius:6,background:`${C.blue}09`,color:C.blue,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}><Ic n="edit" s={11}/> EDITAR</button>
-                    <button title="Criar uma nova composição a partir desta" onClick={()=>novaComposicao({...comp,id:"",itens:(comp.itens||[]).map(item=>({...item,id:uid()})),codigo:proximoCodigoProprio()})} style={{display:"inline-flex",alignItems:"center",gap:4,minHeight:28,padding:"5px 8px",border:`1px solid ${C.green}55`,borderRadius:6,background:`${C.green}09`,color:C.green,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}><Ic n="copy" s={11}/> DUPLICAR</button>
-                    <button onClick={()=>excluirComposicaoPropria(comp)} style={{display:"inline-flex",alignItems:"center",gap:4,minHeight:28,padding:"5px 8px",border:`1px solid ${C.red}44`,borderRadius:6,background:`${C.red}08`,color:C.red,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}><Ic n="trash" s={11}/> EXCLUIR</button>
+              return <div key={comp.id} style={{border:`1px solid ${compForm.id===comp.id?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,borderRadius:7,padding:"var(--arcd-space-2)",background:compForm.id===comp.id?"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)":"var(--arcd-surface-muted)"}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{comp.codigo} · {comp.unidade}</p>
+                <p title={comp.descricao} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:"var(--arcd-space-half)"}}>{comp.descricao}</p>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)",flexWrap:"wrap"}}>
+                  <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)"}}>{fmt(custo)}</b>
+                  <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
+                    <StandardButton variant="secondary" onClick={()=>setCompForm({...comp,itens:(comp.itens||[]).map(item=>({...item}))})} style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",minHeight:28}}><Ic n="edit" s={11}/> Editar</StandardButton>
+                    <StandardButton variant="secondary" title="Criar uma nova composição a partir desta" onClick={()=>novaComposicao({...comp,id:"",itens:(comp.itens||[]).map(item=>({...item,id:uid()})),codigo:proximoCodigoProprio()})} style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",minHeight:28}}><Ic n="copy" s={11}/> Duplicar</StandardButton>
+                    <StandardButton variant="secondary" onClick={()=>excluirComposicaoPropria(comp)} style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",minHeight:28}}><Ic n="trash" s={11}/> Excluir</StandardButton>
                   </div>
                 </div>
               </div>;
-            })}{!composicoesEmpresa.some(comp=>correspondeBuscaComposicao(comp,buscaComposicoesSalvas))&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"center",padding:14}}>Nenhuma composição encontrada.</p>}</div>
+            })}{!composicoesEmpresa.some(comp=>correspondeBuscaComposicao(comp,buscaComposicoesSalvas))&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-3)"}}>Nenhuma composição encontrada.</p>}</div>
           </div>
-          <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:12,display:"flex",flexDirection:"column",gap:10}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
-              <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{compForm.id?"EDITAR COMPOSIÇÃO":"NOVA COMPOSIÇÃO PRÓPRIA"}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Comece do zero ou traga uma composição pronta da base e ajuste coeficientes e preços. O custo unitário é calculado pelos coeficientes.</p></div>
+          <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
+              <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{compForm.id?"EDITAR COMPOSIÇÃO":"NOVA COMPOSIÇÃO PRÓPRIA"}</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Comece do zero ou traga uma composição pronta da base e ajuste coeficientes e preços. O custo unitário é calculado pelos coeficientes.</p></div>
               <Btn size="sm" v="info" onClick={()=>{setCompTipoBusca("COMPOSICAO");buscaCompRef.current?.focus();}}>
                 <Ic n="copy"/> IMPORTAR DA BASE
               </Btn>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:8}}>
+            <div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-2)"}}>
               <Inp label="Código automático" value={compForm.codigo} onChange={()=>{}} disabled/>
               <Inp label="Unidade *" value={compForm.unidade} onChange={valor=>setCompForm(form=>({...form,unidade:valor}))} placeholder="M2"/>
-              <div style={{background:`${C.yellow}10`,border:`1px solid ${C.yellow}44`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>CUSTO UNITÁRIO</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:600,color:C.yellowD,marginTop:2}}>{fmt(custoCompForm)}</p></div>
+              <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 6%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>CUSTO UNITÁRIO</p><p style={{fontSize:"var(--arcd-type-card-title)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",marginTop:"var(--arcd-space-half)"}}>{fmt(custoCompForm)}</p></div>
             </div>
             <Inp label="Descrição *" value={compForm.descricao} onChange={valor=>setCompForm(form=>({...form,descricao:valor}))} placeholder="DESCRIÇÃO DA COMPOSIÇÃO"/>
-            {compForm.origemCodigo&&<div style={{background:`${C.blue}08`,border:`1px solid ${C.blue}35`,borderRadius:7,padding:"7px 9px"}}><p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontWeight:600}}>COMPOSIÇÃO COPIADA DE</p><p style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600,marginTop:2}}>{compForm.origemFonte} {compForm.origemCodigo}{compForm.origemDataBase?` · ${compForm.origemDataBase}`:""}{compForm.origemUf?` · ${compForm.origemUf}`:""}</p></div>}
+            {compForm.origemCodigo&&<div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 21%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)"}}><p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>COMPOSIÇÃO COPIADA DE</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-half)"}}>{compForm.origemFonte} {compForm.origemCodigo}{compForm.origemDataBase?` · ${compForm.origemDataBase}`:""}{compForm.origemUf?` · ${compForm.origemUf}`:""}</p></div>}
             <div style={{position:"relative"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:8,flexWrap:"wrap",marginBottom:5}}>
-                <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Pesquisar nas bases vinculadas</p>
-                <div style={{display:"flex",gap:4}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><button key={valor} onClick={()=>setCompTipoBusca(valor)} style={{border:`1px solid ${compTipoBusca===valor?C.blue:C.border}`,background:compTipoBusca===valor?`${C.blue}10`:C.bg,color:compTipoBusca===valor?C.blue:C.muted,borderRadius:5,padding:"4px 7px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{label}</button>)}</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:"var(--arcd-space-2)",flexWrap:"wrap",marginBottom:"var(--arcd-space-1)"}}>
+                <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Pesquisar nas bases vinculadas</p>
+                <div style={{display:"flex",gap:"var(--arcd-space-1)"}}>{[["TODOS","TODOS"],["INSUMO","INSUMOS"],["COMPOSICAO","COMPOSIÇÕES"]].map(([valor,label])=><StandardButton variant="secondary" key={valor} onClick={()=>setCompTipoBusca(valor)}>{label}</StandardButton>)}</div>
               </div>
               <Inp inputRef={buscaCompRef} value={compBusca} onChange={setCompBusca} placeholder={compTipoBusca==="INSUMO"?"Pesquisar insumo por código ou descrição...":compTipoBusca==="COMPOSICAO"?"Pesquisar composição pronta para importar...":"Pesquisar insumo ou composição..."}/>
-              {compItemSubstituirId&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginTop:5,padding:"6px 8px",borderRadius:6,background:`${C.orange}10`,border:`1px solid ${C.orange}44`,fontSize:"var(--arcd-type-label)",color:C.orange}}><span>Selecione abaixo o insumo que substituirá a linha escolhida.</span><button onClick={()=>{setCompItemSubstituirId("");setCompBusca("");}} style={{border:0,background:"transparent",color:C.orange,fontWeight:600,cursor:"pointer"}}>CANCELAR</button></div>}
-              {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:4,maxHeight:240,overflowY:"auto",border:`1px solid ${C.blue}`,borderRadius:7,padding:4}}>
-                {compBuscaLoading&&<p style={{fontSize:"var(--arcd-type-label)",color:C.blue,padding:6}}>PESQUISANDO...</p>}
-                {compBuscaAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,padding:6}}>{compBuscaAviso}</p>}
-                {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"105px minmax(0,1fr) 82px auto",gap:7,padding:"6px 7px",borderTop:index?`1px solid ${C.line}`:"none",alignItems:"center"}}>
-                  <span><b style={{display:"block",fontSize:"var(--arcd-type-caption)",color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte} {item.codigo}</b><small style={{fontSize:"var(--arcd-type-caption)",color:item.tipoItem==="COMPOSICAO"?C.green:C.orange,fontWeight:600}}>{item.tipoItem==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</small></span><span title={item.descricao} style={{fontSize:"var(--arcd-type-label)",color:C.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span><span style={{fontSize:"var(--arcd-type-label)",color:C.yellowD,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
-                  <span style={{display:"flex",gap:4}}>
-                    <button onClick={()=>analisarItemReferencia(item)} style={{border:`1px solid ${C.blue}`,background:`${C.blue}08`,color:C.blue,borderRadius:5,padding:"4px 7px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>ANALISAR</button>
-                    <button onClick={()=>adicionarItemComposicao(item)} title={item.tipoItem==="COMPOSICAO"?"Usar como composição auxiliar":"Adicionar insumo"} style={{border:`1px solid ${C.border}`,background:C.bg,color:C.blue,borderRadius:5,padding:"4px 7px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>+</button>
-                    {item.tipoItem==="COMPOSICAO"&&<button disabled={!!clonandoComposicao} onClick={()=>clonarComposicaoReferencia(item)} style={{border:`1px solid ${C.green}`,background:`${C.green}10`,color:C.green,borderRadius:5,padding:"4px 7px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>{clonandoComposicao===`${item.fonte}|${item.codigo}`?"COPIANDO...":"CLONAR"}</button>}
+              {compItemSubstituirId&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-1)",padding:"var(--arcd-space-1) var(--arcd-space-2)",borderRadius:6,background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 27%, transparent)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}><span>Selecione abaixo o insumo que substituirá a linha escolhida.</span><StandardButton variant="secondary" onClick={()=>{setCompItemSubstituirId("");setCompBusca("");}}>Cancelar</StandardButton></div>}
+              {(compBusca.trim().length>=2||compBuscaLoading)&&<div style={{marginTop:"var(--arcd-space-1)",maxHeight:240,overflowY:"auto",border:"1px solid var(--arcd-action-primary)",borderRadius:7,padding:"var(--arcd-space-1)"}}>
+                {compBuscaLoading&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",padding:"var(--arcd-space-1)"}}>PESQUISANDO...</p>}
+                {compBuscaAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",padding:"var(--arcd-space-1)"}}>{compBuscaAviso}</p>}
+                {compResultados.map((item,index)=><div key={`${item.fonte}-${item.codigo}-${index}`} style={{display:"grid",gridTemplateColumns:"105px minmax(0,1fr) 82px auto",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-1) var(--arcd-space-2)",borderTop:index?"1px solid var(--arcd-border-default)":"none",alignItems:"center"}}>
+                  <span><b style={{display:"block",fontSize:"var(--arcd-type-caption)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte} {item.codigo}</b><small style={{fontSize:"var(--arcd-type-caption)",color:item.tipoItem==="COMPOSICAO"?"var(--arcd-success-text)":"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{item.tipoItem==="COMPOSICAO"?"COMPOSIÇÃO":"INSUMO"}</small></span><span title={item.descricao} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</span><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",textAlign:"right"}}>{fmt(precoDoItem(item,orc))}/{item.unidade}</span>
+                  <span style={{display:"flex",gap:"var(--arcd-space-1)"}}>
+                    <StandardButton variant="secondary" onClick={()=>analisarItemReferencia(item)}>Analisar</StandardButton>
+                    <StandardButton variant="secondary" onClick={()=>adicionarItemComposicao(item)} title={item.tipoItem==="COMPOSICAO"?"Usar como composição auxiliar":"Adicionar insumo"}>+</StandardButton>
+                    {item.tipoItem==="COMPOSICAO"&&<StandardButton variant="secondary" disabled={!!clonandoComposicao} onClick={()=>clonarComposicaoReferencia(item)} style={{whiteSpace:"nowrap"}}>{clonandoComposicao===`${item.fonte}|${item.codigo}`?"COPIANDO...":"CLONAR"}</StandardButton>}
                   </span>
                 </div>)}
-                {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"center",padding:9}}>Nenhum resultado.</p>}
+                {!compBuscaLoading&&!compResultados.length&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-2)"}}>Nenhum resultado.</p>}
               </div>}
-              {compBusca.trim()&&compTipoBusca!=="COMPOSICAO"&&<button onClick={criarInsumoDaBusca} style={{display:"inline-flex",alignItems:"center",gap:5,marginTop:6,border:`1px solid ${C.green}`,background:`${C.green}0C`,color:C.green,borderRadius:6,padding:"6px 9px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}><Ic n="plus"/> CRIAR INSUMO “{compBusca.trim().slice(0,55)}{compBusca.trim().length>55?"…":""}”</button>}
+              {compBusca.trim()&&compTipoBusca!=="COMPOSICAO"&&<StandardButton variant="secondary" onClick={criarInsumoDaBusca} style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-1)"}}><Ic n="plus"/> Criar insumo “{compBusca.trim().slice(0,55)}{compBusca.trim().length>55?"…":""}”</StandardButton>}
             </div>
-            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7}}><table style={{width:"100%",minWidth:750,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
-              <thead><tr style={{background:C.surface}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL",""] .map(h=><th key={h} style={{padding:"6px",textAlign:h.includes("PREÇO")||h==="TOTAL"||h==="COEFICIENTE"?"right":"left",color:C.muted,fontSize:"var(--arcd-type-label)",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
-              <tbody>{(compForm.itens||[]).map(item=><tr key={item.id} style={{borderBottom:`1px solid ${C.line}`}}>
-                <td style={{padding:6,color:C.muted}}>{item.tipoItem}</td><td style={{padding:6,fontWeight:600,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td><td style={{padding:6}}>{item.codigo}</td>
-                <td style={{padding:4,maxWidth:300}}><input title="Edite para pesquisar e substituir este insumo" value={compItemSubstituirId===item.id?compBusca:item.descricao} onFocus={()=>{setCompItemSubstituirId(item.id);setCompTipoBusca("INSUMO");setCompBusca(item.descricao||"");}} onChange={e=>{setCompItemSubstituirId(item.id);setCompTipoBusca("INSUMO");setCompBusca(e.target.value);}} style={{width:"100%",boxSizing:"border-box",padding:"5px 6px",border:`1px solid ${compItemSubstituirId===item.id?C.blue:C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:"var(--arcd-type-control)"}}/></td><td style={{padding:6}}>{item.unidade}</td>
-                <td style={{padding:4}}><input type="number" step="any" value={item.coeficiente} onChange={e=>setCompForm(form=>({...form,itens:form.itens.map(x=>x.id===item.id?{...x,coeficiente:e.target.value}:x)}))} style={{width:85,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right"}}/></td>
-                <td style={{padding:4}}><input type="number" step="any" value={item.precoUnit} onChange={e=>setCompForm(form=>({...form,itens:form.itens.map(x=>x.id===item.id?{...x,precoUnit:e.target.value}:x)}))} style={{width:90,boxSizing:"border-box",padding:"4px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right"}}/></td>
-                <td style={{padding:6,textAlign:"right",fontWeight:600}}>{fmt(Number(item.coeficiente||0)*Number(item.precoUnit||0))}</td><td style={{padding:4}}><button onClick={()=>setCompForm(form=>({...form,itens:form.itens.filter(x=>x.id!==item.id)}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>x</button></td>
+            <div style={{overflowX:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:7}}><table style={{width:"100%",minWidth:750,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
+              <thead><tr style={{background:"var(--arcd-surface-muted)"}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL",""] .map(h=><th key={h} style={{padding:"var(--arcd-space-1)",textAlign:h.includes("PREÇO")||h==="TOTAL"||h==="COEFICIENTE"?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead>
+              <tbody>{(compForm.itens||[]).map(item=><tr key={item.id} style={{borderBottom:"1px solid var(--arcd-border-default)"}}>
+                <td style={{padding:"var(--arcd-space-1)",color:"var(--arcd-text-secondary)"}}>{item.tipoItem}</td><td style={{padding:"var(--arcd-space-1)",fontWeight:"var(--arcd-font-weight-semibold)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte}</td><td style={{padding:"var(--arcd-space-1)"}}>{item.codigo}</td>
+                <td style={{padding:"var(--arcd-space-1)",maxWidth:300}}><StandardInput title="Edite para pesquisar e substituir este insumo" value={compItemSubstituirId===item.id?compBusca:item.descricao} onFocus={()=>{setCompItemSubstituirId(item.id);setCompTipoBusca("INSUMO");setCompBusca(item.descricao||"");}} onChange={e=>{setCompItemSubstituirId(item.id);setCompTipoBusca("INSUMO");setCompBusca(e.target.value);}} style={{width:"100%",boxSizing:"border-box",padding:"var(--arcd-space-1)",border:`1px solid ${compItemSubstituirId===item.id?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)"}}/></td><td style={{padding:"var(--arcd-space-1)"}}>{item.unidade}</td>
+                <td style={{padding:"var(--arcd-space-1)"}}><StandardInput type="number" step="any" value={item.coeficiente} onChange={e=>setCompForm(form=>({...form,itens:form.itens.map(x=>x.id===item.id?{...x,coeficiente:e.target.value}:x)}))} style={{width:85,boxSizing:"border-box",padding:"var(--arcd-space-1)",border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right"}}/></td>
+                <td style={{padding:"var(--arcd-space-1)"}}><StandardInput type="number" step="any" value={item.precoUnit} onChange={e=>setCompForm(form=>({...form,itens:form.itens.map(x=>x.id===item.id?{...x,precoUnit:e.target.value}:x)}))} style={{width:90,boxSizing:"border-box",padding:"var(--arcd-space-1)",border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right"}}/></td>
+                <td style={{padding:"var(--arcd-space-1)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)"}}>{fmt(Number(item.coeficiente||0)*Number(item.precoUnit||0))}</td><td style={{padding:"var(--arcd-space-1)"}}><StandardButton variant="secondary" onClick={()=>setCompForm(form=>({...form,itens:form.itens.filter(x=>x.id!==item.id)}))}>x</StandardButton></td>
               </tr>)}</tbody>
-            </table>{!(compForm.itens||[]).length&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,textAlign:"center",padding:13}}>Pesquise e adicione os insumos.</p>}</div>
-            <div style={{display:"flex",gap:7,justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>novaComposicao()}>LIMPAR</Btn><Btn onClick={salvarComposicaoPropria}><Ic n="check"/> SALVAR COMPOSIÇÃO</Btn></div>
+            </table>{!(compForm.itens||[]).length&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",textAlign:"center",padding:"var(--arcd-space-3)"}}>Pesquise e adicione os insumos.</p>}</div>
+            <div style={{display:"flex",gap:"var(--arcd-space-2)",justifyContent:"flex-end"}}><Btn v="ghost" onClick={()=>novaComposicao()}>LIMPAR</Btn><Btn onClick={salvarComposicaoPropria}><Ic n="check"/> SALVAR COMPOSIÇÃO</Btn></div>
           </div>
         </div>
       )}
@@ -5147,37 +5111,32 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             }}/>
           </Modal>}
       {orcAba==="memoria" && (
-        <div className="structural-memory" style={{display:"flex",flexDirection:"column",gap:16}}>
+        <div className="structural-memory" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-4)"}}>
           {memorySave?.id===selOrc && <div role="status" className="memory-sync-status">
             <strong>{memorySave.state==='saving'?'Salvando…':memorySave.state==='saved'?'Salvo':'Falha ao salvar'}</strong>
             {memorySave.message && <span>{memorySave.message}</span>}
             {memoryReceipt?.budgetId===selOrc && <>
               {memoryReceipt.changes.map(change=><div key={change.id}>{change.description}: {fmtNum(change.before,4)} → {fmtNum(change.after,4)} {change.unit}</div>)}
-              <button disabled={memorySave.state!=='saved'} onClick={desfazerAtualizacaoMemoria}>Desfazer última alteração do memorial</button>
+              <StandardButton variant="secondary" disabled={memorySave.state!=='saved'} onClick={desfazerAtualizacaoMemoria}>Desfazer última alteração do memorial</StandardButton>
             </>}
           </div>}
           {memoryIssues.length>0 && <details className="memory-disclosure">
             <summary>Conferência dos vínculos · {memoryIssues.length} ocorrência(s)</summary>
-            {memoryIssues.map(issue=><button type="button" className="memory-audit-link" key={issue.source} onClick={()=>{
+            {memoryIssues.map(issue=><StandardButton variant="secondary" type="button" className="memory-audit-link" key={issue.source} onClick={()=>{
               setDisciplinaMemoria('estrutural');
               navegarParaSecaoMemoria(issue.scope,issue.scope==='fundacao'?null:issue.scope);
-            }}>{issue.label} — {issue.message}</button>)}
+            }}>{issue.label} — {issue.message}</StandardButton>)}
           </details>}
 
-          <div style={{background:`${C.blue}0a`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 11px"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.55}}>
+          <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+            <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>
               Os quantitativos vinculados atualizam automaticamente o orçamento ao salvar as medidas. Os totais são recalculados. Dados ausentes ou incompatíveis preservam a quantidade anterior e aparecem na conferência abaixo.
             </p>
           </div>
 
-          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap"}}>
             {DISCIPLINAS_MEMORIA.map(([valor,label])=>(
-              <button key={valor} aria-pressed={disciplinaMemoria===valor} onClick={()=>setDisciplinaMemoria(valor)} style={{
-                border:`1px solid ${disciplinaMemoria===valor?C.blue:C.border}`,
-                background:disciplinaMemoria===valor?`${C.blue}12`:C.bg,
-                color:disciplinaMemoria===valor?C.blue:C.muted,
-                borderRadius:6,padding:"8px 14px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",
-              }}>{label}</button>
+              <StandardButton variant="secondary" key={valor} aria-pressed={disciplinaMemoria===valor} onClick={()=>setDisciplinaMemoria(valor)}>{label}</StandardButton>
             ))}
           </div>
 
@@ -5227,8 +5186,8 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             }}/>}
           {disciplinaMemoria==="estrutural" && (<>
           {!budgetIsImmutable(orc) && <div><Btn onClick={()=>setAddFloorOpen(true)}>+ Adicionar pavimento</Btn></div>}
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 14px",display:"flex",flexWrap:"wrap",gap:"6px 28px",alignItems:"center"}}>
-            <span style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>Resumo geral</span>
+          <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1) var(--arcd-space-6)",alignItems:"center"}}>
+            <span style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Resumo geral</span>
             <Metric label="Concreto total" value={fmtNum(resumoGeralMemoria.concreto)} unit="m³"/>
             <Metric label="Fôrma total" value={fmtNum(resumoGeralMemoria.forma)} unit="m²"/>
             <Metric label="Aço total" value={fmtNum(resumoGeralMemoria.aco,1)} unit="kg"/>
@@ -5243,50 +5202,50 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
 
           <details className="memory-disclosure">
             <summary>Importar projeto PDF</summary>
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>IMPORTAR PROJETO (PDF)</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Sinalize qual documento é e o sistema tenta preencher a memória de cálculo sozinho - você sempre confere antes de aplicar.</p></div>
-            <select aria-label="Tipo de documento do PDF" value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} style={{padding:"7px 8px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:"var(--arcd-type-control)",fontWeight:600,maxWidth:360}}>
+            <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+            <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>IMPORTAR PROJETO (PDF)</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Sinalize qual documento é e o sistema tenta preencher a memória de cálculo sozinho - você sempre confere antes de aplicar.</p></div>
+            <SelectControl aria-label="Tipo de documento do PDF" value={pdfTipoDocumento} onChange={e=>setPdfTipoDocumento(e.target.value)} style={{padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)",fontWeight:"var(--arcd-font-weight-semibold)",maxWidth:360}}>
               <option value="estrutural-completo">Projeto estrutural completo - Fundação, Pilares, Vigas e Laje</option>
               <option value="quantitativos">Quantitativos de superfícies e volumes - concreto/fôrma de vigas e laje</option>
-            </select>
-            <label onDragOver={e=>{e.preventDefault();setPdfArrastando(true);}} onDragLeave={()=>setPdfArrastando(false)}
+            </SelectControl>
+            <FilePicker buttonLabel="Selecionar PDF" accept=".pdf" disabled={pdfProcessando} onChange={e=>{const arquivo=e.target.files?.[0];e.target.value="";if(arquivo)processarPdfProjeto(arquivo);}} onDragOver={e=>{e.preventDefault();setPdfArrastando(true);}} onDragLeave={()=>setPdfArrastando(false)}
               onDrop={e=>{e.preventDefault();setPdfArrastando(false);const arquivo=e.dataTransfer.files?.[0];if(arquivo)processarPdfProjeto(arquivo);}}
-              style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,border:`1.5px dashed ${pdfArrastando?C.blue:C.border}`,background:pdfArrastando?`${C.blue}0a`:"transparent",borderRadius:7,padding:"14px 10px",cursor:pdfProcessando?"wait":"pointer"}}>
-              <input type="file" accept=".pdf" disabled={pdfProcessando} onChange={e=>{const arquivo=e.target.files?.[0];e.target.value="";if(arquivo)processarPdfProjeto(arquivo);}} style={{display:"none"}}/>
+              style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"var(--arcd-space-1)",border:`1.5px dashed ${pdfArrastando?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,background:pdfArrastando?"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)":"transparent",borderRadius:7,padding:"var(--arcd-space-3) var(--arcd-space-2)",cursor:pdfProcessando?"wait":"pointer"}}>
+
               <Ic n="download" s={16} color={C.muted}/>
-              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>{pdfProcessando?"Lendo PDF...":"Selecionar PDF"}</span>
-              <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>ou arraste o arquivo aqui</span>
-            </label>
-            {pdfAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
+              <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{pdfProcessando?"Lendo PDF...":"Selecionar PDF"}</span>
+              <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>ou arraste o arquivo aqui</span>
+            </FilePicker>
+            {pdfAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",lineHeight:"var(--arcd-line-height-normal)"}}>{pdfAviso}</p>}
             {(pdfPreviewCompleto || pdfPreviewQuantitativos) && <div className="floor-create-form">
               <strong>Destino de cada pavimento do projeto</strong>
               <p>Escolha onde aplicar os dados. Os vínculos do destino serão preservados e suas quantidades atualizadas.</p>
               {fontesDoPdf().map(([source,label])=><label key={source}>{label} no PDF → pavimento do memorial
-                <select value={pdfImportTargets[source] || source} onChange={e=>setPdfImportTargets(current=>({...current,[source]:e.target.value}))}>
+                <SelectControl value={pdfImportTargets[source] || source} onChange={e=>setPdfImportTargets(current=>({...current,[source]:e.target.value}))}>
                   {floors.map(f=><option key={f.id} value={f.id}>{f.nome}{f.origem?' · criado por cópia':''}</option>)}
-                </select>
+                </SelectControl>
               </label>)}
             </div>}
-            {pdfPreviewCompleto&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green}}>Encontrado - confira antes de aplicar.</p>
+            {pdfPreviewCompleto&&<div style={{border:"1px solid color-mix(in srgb, var(--arcd-success-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)"}}>Encontrado - confira antes de aplicar.</p>
               {pdfPreviewCompleto.avisos?.map((aviso,i)=><Warning key={i}>{aviso}</Warning>)}
-              <div style={{border:`1px solid ${C.orange}55`,background:`${C.orange}12`,borderRadius:6,padding:"7px 9px"}}>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>⚠ Reimportar substitui a versão anterior de cada pavimento - nunca soma/duplica. É possível desfazer a última alteração após salvar.</p>
+              <div style={{border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-warning-text) 7%, transparent)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>⚠ Reimportar substitui a versão anterior de cada pavimento - nunca soma/duplica. É possível desfazer a última alteração após salvar.</p>
               </div>
 
-              {!!pdfPreviewCompleto.sapatas.length&&<div style={{display:"flex",flexDirection:"column",gap:5}}>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>FUNDAÇÃO: {pdfPreviewCompleto.sapatas.length} tipo(s) de sapata</p>
+              {!!pdfPreviewCompleto.sapatas.length&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>FUNDAÇÃO: {pdfPreviewCompleto.sapatas.length} tipo(s) de sapata</p>
                 {pdfPreviewCompleto.resumoAcoSapatas&&(()=>{
                   const totalCalculado=pdfPreviewCompleto.sapatas.reduce((s,sapata)=>s+calcularSapataTipo(sapata).pesoAcoTotal,0);
                   const diferenca=Math.abs(totalCalculado-pdfPreviewCompleto.resumoAcoSapatas.totalKg);
                   const bateu=diferenca<=pdfPreviewCompleto.resumoAcoSapatas.totalKg*0.02; // até 2% de diferença por arredondamento
-                  return <div style={{border:`1px solid ${bateu?C.green:C.orange}55`,background:C.card,borderRadius:6,padding:"7px 9px"}}>
-                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:bateu?C.green:C.orange}}>{bateu?"✓":"⚠"} Conferência com o Resumo Aço da folha</p>
-                    <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Extraído (com os comprimentos resolvidos): <b>{totalCalculado.toFixed(1)} kg</b> · Total pronto do projeto: <b>{pdfPreviewCompleto.resumoAcoSapatas.totalKg.toFixed(1)} kg</b>{!bateu&&" - confira comprimentos, armaduras superiores, repetições e arredondamentos do projeto."}</p>
+                  return <div style={{border:`1px solid ${bateu?"var(--arcd-success-text)":"var(--arcd-warning-text)"}55`,background:"var(--arcd-surface-card)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
+                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:bateu?"var(--arcd-success-text)":"var(--arcd-warning-text)"}}>{bateu?"✓":"⚠"} Conferência com o Resumo Aço da folha</p>
+                    <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Extraído (com os comprimentos resolvidos): <b>{totalCalculado.toFixed(1)} kg</b> · Total pronto do projeto: <b>{pdfPreviewCompleto.resumoAcoSapatas.totalKg.toFixed(1)} kg</b>{!bateu&&" - confira comprimentos, armaduras superiores, repetições e arredondamentos do projeto."}</p>
                   </div>;
                 })()}
-                <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:160,overflowY:"auto"}}>
-                  {pdfPreviewCompleto.sapatas.map(sapata=><div key={sapata.tipo} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>
+                <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)",maxHeight:160,overflowY:"auto"}}>
+                  {pdfPreviewCompleto.sapatas.map(sapata=><div key={sapata.tipo} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}>
                     <b>{sapata.tipo}</b> · {sapata.qtd} peça(s) · {(sapata.largura*100).toFixed(0)}x{(sapata.comprimento*100).toFixed(0)}cm · alt. do projeto {sapata.alturasProjetoCm}cm ({sapata.geometriaPendente ? "geometria não identificada" : "geometria extraída dos cortes"})
                     {" · X:"}{sapata.armaduraX.quantidade}∅{sapata.armaduraX.bitola}{sapata.armaduraX.comprimento?` (${sapata.armaduraX.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
                     {" · Y:"}{sapata.armaduraY.quantidade}∅{sapata.armaduraY.bitola}{sapata.armaduraY.comprimento?` (${sapata.armaduraY.comprimento.toFixed(2)}m)`:" (comprimento não identificado - complete à mão)"}
@@ -5294,7 +5253,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 </div>
               </div>}
 
-              <div style={{display:"flex",flexDirection:"column",gap:3}}>
+              <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
                 {PAVIMENTOS_ESTRUTURA.map(([pav,label])=>{
                   const pilares=pdfPreviewCompleto.pilares[pav]||[];
                   const acoPilares=pdfPreviewCompleto.pilaresAcoPorBitola[pav];
@@ -5303,7 +5262,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   if(!pilares.length&&!acoPilares&&!acoVigas&&!acoLaje)return null;
                   const concretoPilares=pilares.reduce((s,p)=>s+Number(p.concretoUnit||0)*Number(p.qtd||0),0);
                   const formaPilares=pilares.reduce((s,p)=>s+Number(p.formaUnit||0)*Number(p.qtd||0),0);
-                  return <p key={pav} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>
+                  return <p key={pav} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}>
                     <b>{label}:</b> {pilares.length>0?`pilares ${concretoPilares.toFixed(2)}m³ concreto / ${formaPilares.toFixed(2)}m² fôrma`:""}
                     {acoPilares?` · aço de pilares: ${acoPilares.totalKg.toFixed(1)}kg`:""}
                     {acoVigas?` · aço de vigas: ${acoVigas.totalKg.toFixed(1)}kg`:""}
@@ -5311,19 +5270,19 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   </p>;
                 })}
               </div>
-              <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewCompleto(null)}>DESCARTAR</Btn><Btn size="sm" onClick={()=>setConfirmarAplicarPdf(true)}><Ic n="check"/> APLICAR (SUBSTITUI A VERSÃO ANTERIOR)</Btn></div>
+              <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewCompleto(null)}>DESCARTAR</Btn><Btn size="sm" onClick={()=>setConfirmarAplicarPdf(true)}><Ic n="check"/> APLICAR (SUBSTITUI A VERSÃO ANTERIOR)</Btn></div>
             </div>}
 
-            {pdfPreviewQuantitativos&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
-              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green}}>Pavimentos encontrados - confira antes de aplicar:</p>
-              <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                {pdfPreviewQuantitativos.map(grupo=><p key={grupo.pavimento} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}>
-                  <b>{grupo.pavimento}:</b> vigas {grupo.concretoVigasM3?.toFixed(2)}m³ concreto / {grupo.formaVigasM2?.toFixed(2)}m² fôrma{grupo.avisoConcretoIncorreto?<span style={{color:C.orange,fontWeight:600}}> ⚠ o próprio projeto avisa que este volume pode estar incorreto - confira</span>:""}
+            {pdfPreviewQuantitativos&&<div style={{border:"1px solid color-mix(in srgb, var(--arcd-success-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+              <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)"}}>Pavimentos encontrados - confira antes de aplicar:</p>
+              <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
+                {pdfPreviewQuantitativos.map(grupo=><p key={grupo.pavimento} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}>
+                  <b>{grupo.pavimento}:</b> vigas {grupo.concretoVigasM3?.toFixed(2)}m³ concreto / {grupo.formaVigasM2?.toFixed(2)}m² fôrma{grupo.avisoConcretoIncorreto?<span style={{color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}> ⚠ o próprio projeto avisa que este volume pode estar incorreto - confira</span>:""}
                   {" · laje "}{grupo.volumeLajesM3?.toFixed(2)}m³{grupo.volumeLajesM3?` (${grupo.lajeMacicasM3?.toFixed(2)}m³ maciça + ${grupo.lajeVigotasM3?.toFixed(2)}m³ vigota)`:""}
                   {grupo.areaMacicaLajeM2||grupo.areaVigotaLajeM2?` · área da laje ${grupo.areaMacicaLajeM2?.toFixed(2)}m² maciça + ${grupo.areaVigotaLajeM2?.toFixed(2)}m² vigota`:""}
                 </p>)}
               </div>
-              <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewQuantitativos(null)}>DESCARTAR</Btn><Btn size="sm" onClick={()=>setConfirmarAplicarQuantitativos(true)}><Ic n="check"/> APLICAR NAS TABELAS</Btn></div>
+              <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewQuantitativos(null)}>DESCARTAR</Btn><Btn size="sm" onClick={()=>setConfirmarAplicarQuantitativos(true)}><Ic n="check"/> APLICAR NAS TABELAS</Btn></div>
             </div>}
           </div>
           </details>
@@ -5343,35 +5302,35 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               elemento estrutural, pra responder rápido "em que pavimento/
               elemento estou" sem depender só de rolar a página inteira. */}
           {isMobile && (
-            <select aria-label="Ir para seção da memória de cálculo" value={secaoAtivaMemoria}
+            <SelectControl aria-label="Ir para seção da memória de cálculo" value={secaoAtivaMemoria}
               onChange={e=>{
                 const item=ITENS_NAV_MEMORIA.find(i=>i.elementos.some(el=>el.id===e.target.value));
                 navegarParaSecaoMemoria(e.target.value, item&&item.id!=="fundacao"?e.target.value:null);
               }}
-              style={{padding:"9px 10px",border:`1px solid ${C.border}`,borderRadius:6,background:C.card,color:C.text,fontSize:"var(--arcd-type-control)",fontWeight:600}}>
+              style={{padding:"var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:6,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-control)",fontWeight:"var(--arcd-font-weight-semibold)"}}>
               {ITENS_NAV_MEMORIA.map(item=>(
                 <optgroup key={item.id} label={item.label}>
                   {item.elementos.map(el=><option key={el.id} value={el.id}>{el.label}</option>)}
                 </optgroup>
               ))}
-            </select>
+            </SelectControl>
           )}
 
-          <div style={{display:"flex",gap:20,alignItems:"flex-start"}}>
+          <div style={{display:"flex",gap:"var(--arcd-space-5)",alignItems:"flex-start"}}>
             {!isMobile && (
-              <nav aria-label="Índice da memória de cálculo" style={{position:"sticky",top:SCROLL_MARGIN,width:160,flexShrink:0,display:"flex",flexDirection:"column",gap:14,maxHeight:`calc(100vh - ${SCROLL_MARGIN+16}px)`,overflowY:"auto",paddingBottom:8}}>
+              <nav aria-label="Índice da memória de cálculo" style={{position:"sticky",top:SCROLL_MARGIN,width:160,flexShrink:0,display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)",maxHeight:`calc(100vh - ${SCROLL_MARGIN+16}px)`,overflowY:"auto",paddingBottom:"var(--arcd-space-2)"}}>
                 {ITENS_NAV_MEMORIA.map(item=>(
-                  <div key={item.id} style={{display:"flex",flexDirection:"column",gap:3}}>
-                    <button onClick={()=>navegarParaSecaoMemoria(item.id)} style={{textAlign:"left",border:0,background:"transparent",cursor:"pointer",padding:"2px 0",fontSize:"var(--arcd-type-control)",fontWeight:600,color:secaoAtivaMemoria===item.id?C.blue:C.subtle,letterSpacing:.3}}>{item.label}</button>
+                  <div key={item.id} style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
+                    <StandardButton variant="secondary" onClick={()=>navegarParaSecaoMemoria(item.id)} style={{textAlign:"left"}}>{item.label}</StandardButton>
                     {item.elementos.length>1 && item.elementos.map(el=>(
-                      <button key={el.id} onClick={()=>navegarParaSecaoMemoria(el.id,el.id)} style={{textAlign:"left",border:0,borderLeft:`1px solid ${secaoAtivaMemoria===el.id?C.blue:"transparent"}`,background:"transparent",cursor:"pointer",padding:"3px 0 3px 10px",fontSize:"var(--arcd-type-control)",fontWeight:secaoAtivaMemoria===el.id?600:600,color:secaoAtivaMemoria===el.id?C.blue:C.muted}}>{el.label}</button>
+                      <StandardButton variant="secondary" key={el.id} onClick={()=>navegarParaSecaoMemoria(el.id,el.id)} style={{textAlign:"left",borderLeft:`1px solid ${secaoAtivaMemoria===el.id?"var(--arcd-action-primary)":"transparent"}`}}>{el.label}</StandardButton>
                     ))}
                   </div>
                 ))}
               </nav>
             )}
 
-            <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:28}}>
+            <div style={{flex:1,minWidth:0,display:"flex",flexDirection:"column",gap:"var(--arcd-space-6)"}}>
               <FloorSection id="fundacao" sectionRef={registrarSecaoMemoria("fundacao")} title="FUNDAÇÃO"
                 resumo={<>
                   <Metric label="Escavação" value={fmtNum(resumoSapatasFundacao.totais.volumeEscavacao)} unit="m³"/>
@@ -5381,16 +5340,13 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 {renderDestinosMemoria("fundacao")}
                 <details className="memory-disclosure">
                   <summary>Dimensões, armaduras e conferência das sapatas · {sapatasFundacao.length} tipos</summary>
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>SAPATAS</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Uma linha por tipo de sapata (peças com a mesma dimensão), com a quantidade de peças daquele tipo - mesmo agrupamento que o próprio projeto estrutural já usa.</p></div>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-                  <div title="Espaçamento das colunas na tela - vale para a memória de cálculo de todos os orçamentos até você trocar de novo" style={{display:"flex",border:`1px solid ${C.border}`,borderRadius:6,overflow:"hidden"}}>
+            <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
+                <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>SAPATAS</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Uma linha por tipo de sapata (peças com a mesma dimensão), com a quantidade de peças daquele tipo - mesmo agrupamento que o próprio projeto estrutural já usa.</p></div>
+                <div style={{display:"flex",gap:"var(--arcd-space-1)",flexWrap:"wrap",alignItems:"center"}}>
+                  <div title="Espaçamento das colunas na tela - vale para a memória de cálculo de todos os orçamentos até você trocar de novo" style={{display:"flex",border:"1px solid var(--arcd-border-default)",borderRadius:6,overflow:"hidden"}}>
                     {[["compacto","COMPACTO"],["normal","NORMAL"],["confortavel","CONFORTÁVEL"]].map(([valor,label])=>(
-                      <button key={valor} aria-pressed={densidadeMemoria===valor} onClick={()=>salvarDensidadeMemoria(valor)} style={{
-                        border:0,padding:"7px 9px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer",
-                        background:densidadeMemoria===valor?C.blue:C.bg,color:densidadeMemoria===valor?"#fff":C.muted,
-                      }}>{label}</button>
+                      <StandardButton variant="secondary" key={valor} aria-pressed={densidadeMemoria===valor} onClick={()=>salvarDensidadeMemoria(valor)}>{label}</StandardButton>
                     ))}
                   </div>
                   <Btn size="sm" v="ghost" onClick={exportPDFSapatas} title="Gera uma versão em A4 paisagem para imprimir ou salvar como PDF"><Ic n="file"/> PDF / IMPRIMIR</Btn>
@@ -5402,41 +5358,41 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               {/* Glossário sempre visível - achado da crítica Impeccable: antes só
                   existia como tooltip de hover em 2 colunas, inacessível por teclado
                   e invisível até passar o mouse por cima. */}
-              <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 9px",display:"flex",flexWrap:"wrap",gap:"3px 16px"}}>
+              <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2)",display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-half) var(--arcd-space-4)"}}>
                 {[["Folga","quanto a cova é maior que a sapata, de cada lado"],
                   ["Tronco","parte da sapata que sobe até o pilar, acima da base"],
                   ["Conc. magro","concreto pobre só de regularização, sob a sapata"],
                   ["Fôrmas","molde para a concretagem da base (perímetro x altura)"],
                   ["Bitola","diâmetro da barra de aço, em milímetros"]].map(([termo,def])=>(
-                  <span key={termo} style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}><b style={{color:C.text}}>{termo}:</b> {def}</span>
+                  <span key={termo} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}><b style={{color:"var(--arcd-text-primary)"}}>{termo}:</b> {def}</span>
                 ))}
               </div>
 
               {undoSapata && (
-                <div style={{background:`${C.blue}0C`,border:`1px solid ${C.blue}55`,borderRadius:8,padding:"9px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
-                  <p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>Tipo "{undoSapata.tipo?.tipo||"sem nome"}" removido.</p>
+                <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)"}}>
+                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>Tipo "{undoSapata.tipo?.tipo||"sem nome"}" removido.</p>
                   <Btn size="sm" v="ghost" onClick={desfazerRemocaoSapata}><Ic n="refresh" s={13}/> Desfazer</Btn>
                 </div>
               )}
 
-              <div style={{background:`${C.blue}0a`,border:`1px solid ${C.blue}33`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Vai usar o padrão de folga (20cm) e profundidade (1,5m) de escavação em todas as sapatas, ou tipos diferentes precisam de valores próprios?</p>
-                <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,lineHeight:1.5}}>Ajuste os dois valores abaixo e aplique de uma vez a todos os tipos - depois, se algum tipo específico precisar de um valor diferente (ex.: um pilar mais profundo), edite só a linha dele na tabela.</p>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
-                  <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>FOLGA PADRÃO (m)</span><input type="number" step="any" min="0" value={padraoEscavacaoFundacao.folga} onChange={e=>salvarPadraoEscavacaoFundacao({folga:e.target.value.replace(",",".")})} style={{width:80,padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right"}}/></label>
-                  <label style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted}}>PROFUNDIDADE PADRÃO (m)</span><input type="number" step="any" min="0" value={padraoEscavacaoFundacao.profundidade} onChange={e=>salvarPadraoEscavacaoFundacao({profundidade:e.target.value.replace(",",".")})} style={{width:90,padding:"6px 7px",border:`1px solid ${C.border}`,borderRadius:5,background:C.card,color:C.text,textAlign:"right"}}/></label>
+              <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Vai usar o padrão de folga (20cm) e profundidade (1,5m) de escavação em todas as sapatas, ou tipos diferentes precisam de valores próprios?</p>
+                <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)"}}>Ajuste os dois valores abaixo e aplique de uma vez a todos os tipos - depois, se algum tipo específico precisar de um valor diferente (ex.: um pilar mais profundo), edite só a linha dele na tabela.</p>
+                <div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap",alignItems:"flex-end"}}>
+                  <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>FOLGA PADRÃO (m)</span><StandardInput type="number" step="any" min="0" value={padraoEscavacaoFundacao.folga} onChange={e=>salvarPadraoEscavacaoFundacao({folga:e.target.value.replace(",",".")})} style={{width:80,padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:"right"}}/></label>
+                  <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}><span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>PROFUNDIDADE PADRÃO (m)</span><StandardInput type="number" step="any" min="0" value={padraoEscavacaoFundacao.profundidade} onChange={e=>salvarPadraoEscavacaoFundacao({profundidade:e.target.value.replace(",",".")})} style={{width:90,padding:"var(--arcd-space-1) var(--arcd-space-2)",border:"1px solid var(--arcd-border-default)",borderRadius:5,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:"right"}}/></label>
                   <Btn size="sm" onClick={aplicarPadraoEscavacaoATodos} disabled={!sapatasFundacao.length}><Ic n="check"/> APLICAR A TODOS OS TIPOS</Btn>
                 </div>
               </div>
 
-              <details open={larguraColunasAberto} onToggle={e=>setLarguraColunasAberto(e.target.open)} style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:"7px 11px"}}>
-                <summary style={{cursor:"pointer",fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>AJUSTAR LARGURA DAS COLUNAS <span style={{fontWeight:600,color:C.muted}}>(vale pra empresa inteira, até você trocar de novo)</span></summary>
-                <div style={{display:"flex",flexWrap:"wrap",gap:"6px 10px",marginTop:8,maxHeight:180,overflowY:"auto"}}>
+              <details open={larguraColunasAberto} onToggle={e=>setLarguraColunasAberto(e.target.open)} style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                <summary style={{cursor:"pointer",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>AJUSTAR LARGURA DAS COLUNAS <span style={{fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)"}}>(vale pra empresa inteira, até você trocar de novo)</span></summary>
+                <div style={{display:"flex",flexWrap:"wrap",gap:"var(--arcd-space-1) var(--arcd-space-2)",marginTop:"var(--arcd-space-2)",maxHeight:180,overflowY:"auto"}}>
                   {COLUNAS_SAPATAS.filter(col=>col.chave!=="acoes").map(col=>(
-                    <label key={col.chave} style={{display:"flex",alignItems:"center",gap:5}}>
-                      <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted,minWidth:98}}>{col.rotulo||"AÇÕES"}</span>
-                      <input type="number" min={col.largura} step="1" value={larguraColunaEfetiva(col.chave)} onChange={e=>salvarLarguraColunaSapatas(col.chave,e.target.value)}
-                        style={{width:52,padding:"3px 5px",border:`1px solid ${C.border}`,borderRadius:4,background:C.card,color:C.text,textAlign:"right",fontSize:"var(--arcd-type-control)"}}/>
+                    <label key={col.chave} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
+                      <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",minWidth:98}}>{col.rotulo||"AÇÕES"}</span>
+                      <StandardInput type="number" min={col.largura} step="1" value={larguraColunaEfetiva(col.chave)} onChange={e=>salvarLarguraColunaSapatas(col.chave,e.target.value)}
+                        style={{width:52,padding:"var(--arcd-space-half) var(--arcd-space-1)",border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-card)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:"var(--arcd-type-control)"}}/>
                     </label>
                   ))}
                 </div>
@@ -5447,10 +5403,10 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   cortava o valor digitado (achado do usuário via screenshot). */}
               <style>{`.sapata-num-input::-webkit-outer-spin-button,.sapata-num-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.sapata-num-input{-moz-appearance:textfield}`}</style>
               <p className="sapata-scroll-hint">Dimensões em metros. Quantitativos calculados para todas as peças de cada linha. Deslize a tabela para consultar os demais grupos.</p>
-              <div className="sapata-table-scroll" role="region" aria-label="Dimensões e quantitativos das sapatas" tabIndex={0} style={{overflow:"auto",maxHeight:"62vh",border:`1px solid ${C.border}`,borderRadius:7}}>
+              <div className="sapata-table-scroll" role="region" aria-label="Dimensões e quantitativos das sapatas" tabIndex={0} style={{overflow:"auto",maxHeight:"62vh",border:"1px solid var(--arcd-border-default)",borderRadius:7}}>
                 <table className="sapata-table" style={{width:"100%",minWidth:COLUNAS_SAPATAS.reduce((s,c)=>s+larguraColunaEfetiva(c.chave),0),tableLayout:"fixed",borderCollapse:"separate",borderSpacing:0,fontSize:dSapatas.fonte,userSelect:colunaArrastando?"none":"auto"}}>
                   <colgroup>{COLUNAS_SAPATAS.map(col=><col key={col.chave} style={{width:larguraColunaEfetiva(col.chave)}}/>)}</colgroup>
-                  <thead style={{position:"sticky",top:0,zIndex:4,background:C.surface}}>
+                  <thead style={{position:"sticky",top:0,zIndex:4,background:"var(--arcd-surface-muted)"}}>
                     {/* Cabeçalho em dois níveis - agrupa as 23 colunas em blocos
                         (Dimensões/Escavação/Concreto/Armadura X/Armadura Y), achado
                         da crítica Impeccable contra a densidade da tabela. Rótulo
@@ -5460,20 +5416,20 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                         DUAS linhas) gruda no topo do próprio scroll da tabela -
                         pedido do usuário (28/08/2026), tabela ganhou altura máxima
                         com rolagem própria pra isso funcionar. */}
-                    <tr style={{background:C.surface}}>
-                      <th colSpan={2} style={{position:"sticky",left:0,zIndex:2,background:C.surface,borderBottom:`1px solid ${C.border}`}}/>
+                    <tr style={{background:"var(--arcd-surface-muted)"}}>
+                      <th colSpan={2} style={{position:"sticky",left:0,zIndex:2,background:"var(--arcd-surface-muted)",borderBottom:"1px solid var(--arcd-border-default)"}}/>
                       {GRUPOS_CABECALHO_SAPATAS.filter(g=>g.nome).map(g=>
-                        <th key={g.nome} colSpan={g.span} style={{padding:dSapatas.pad,textAlign:"center",color:C.subtle,fontSize:dSapatas.fonteGrupo,fontWeight:600,letterSpacing:.4,borderBottom:`1px solid ${C.border}`,borderLeft:`1px solid ${C.line}`}}>{g.nome}</th>
+                        <th key={g.nome} colSpan={g.span} style={{padding:dSapatas.pad,textAlign:"center",color:"var(--arcd-text-muted)",fontSize:dSapatas.fonteGrupo,fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",borderBottom:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-border-default)"}}>{g.nome}</th>
                       )}
-                      <th colSpan={2} style={{borderBottom:`1px solid ${C.border}`}}/>
+                      <th colSpan={2} style={{borderBottom:"1px solid var(--arcd-border-default)"}}/>
                     </tr>
-                    <tr style={{background:C.surface}}>
-                      {COLUNAS_SAPATAS.map((col,i)=><th key={col.chave} scope="col" style={{position:"relative",padding:dSapatas.padHeader,textAlign:/\(m|QTD|PEÇAS/.test(col.rotulo)?"right":"left",color:C.muted,fontSize:dSapatas.fonteHeader,borderBottom:`1px solid ${C.border}`,whiteSpace:"normal",wordBreak:"break-word",lineHeight:1.15,
-                        ...(i===0?{position:"sticky",left:0,zIndex:2,background:C.surface}:{}),
-                        ...(i===1?{position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:2,background:C.surface,borderRight:`1px solid ${C.line}`}:{}),
+                    <tr style={{background:"var(--arcd-surface-muted)"}}>
+                      {COLUNAS_SAPATAS.map((col,i)=><th key={col.chave} scope="col" style={{position:"relative",padding:dSapatas.padHeader,textAlign:/\(m|QTD|PEÇAS/.test(col.rotulo)?"right":"left",color:"var(--arcd-text-secondary)",fontSize:dSapatas.fonteHeader,borderBottom:"1px solid var(--arcd-border-default)",whiteSpace:"normal",wordBreak:"break-word",lineHeight:"var(--arcd-line-height-normal)",
+                        ...(i===0?{position:"sticky",left:0,zIndex:2,background:"var(--arcd-surface-muted)"}:{}),
+                        ...(i===1?{position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:2,background:"var(--arcd-surface-muted)",borderRight:"1px solid var(--arcd-border-default)"}:{}),
                       }}>{col.rotulo}
                         {col.chave!=="acoes"&&<span onMouseDown={e=>iniciarArrastoColuna(col.chave,e)} title="Arraste para ajustar a largura desta coluna" style={{position:"absolute",top:0,right:-4,bottom:0,width:8,cursor:"col-resize",zIndex:3,display:"flex",justifyContent:"center"}}>
-                          <span style={{width:1,height:"100%",background:colunaArrastando?.chave===col.chave?C.blue:C.border}}/>
+                          <span style={{width:1,height:"100%",background:colunaArrastando?.chave===col.chave?"var(--arcd-action-primary)":"var(--arcd-border-default)"}}/>
                         </span>}
                       </th>)}
                     </tr>
@@ -5484,86 +5440,86 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       // brasileiro digita "0,2") - o navegador filtra a vírgula e deixa
                       // um valor truncado/inválido no campo. Normaliza para ponto antes
                       // de gravar.
-                      const numInput=(campo,largura="100%",rotulo=ROTULO_CAMPO_SAPATA[campo])=><input type="number" step="any" min="0" className="sapata-num-input" aria-label={rotulo} value={tipo[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[campo]:e.target.value.replace(",",".")})}
-                        style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:dSapatas.fonte}}/>;
+                      const numInput=(campo,largura="100%",rotulo=ROTULO_CAMPO_SAPATA[campo])=><StandardInput type="number" step="any" min="0" className="sapata-num-input" aria-label={rotulo} value={tipo[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[campo]:e.target.value.replace(",",".")})}
+                        style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:dSapatas.fonte}}/>;
                       const resultadoGeometria = (valor, campoConferido) => {
                         const conferido = campoConferido && tipo[campoConferido] != null && tipo[campoConferido] !== "";
-                        if (tipo.geometriaPendente && !conferido) return <span style={{color:C.orange}} title="Geometria ainda não conferida. Não representa quantidade zero.">Pendente</span>;
+                        if (tipo.geometriaPendente && !conferido) return <span style={{color:"var(--arcd-warning-text)"}} title="Geometria ainda não conferida. Não representa quantidade zero.">Pendente</span>;
                         return valor.toFixed(2);
                       };
                       const alturaGeometria = campo => {
                         if (!tipo.alturasProjetoCm) return numInput(campo);
                         const alturas = alturasReferenciaSapata(tipo);
                         const valor = campo === "alturaBase" ? alturas?.base : alturas?.trechoInclinado;
-                        return <span title={`Referência do PDF: ${tipo.alturasProjetoCm} cm (total / borda). O trecho superior é inclinado; seu volume depende das dimensões do topo.`} style={{color:C.text}}>{Number.isFinite(valor) && valor >= 0 ? valor.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "Pendente"}</span>;
+                        return <span title={`Referência do PDF: ${tipo.alturasProjetoCm} cm (total / borda). O trecho superior é inclinado; seu volume depende das dimensões do topo.`} style={{color:"var(--arcd-text-primary)"}}>{Number.isFinite(valor) && valor >= 0 ? valor.toLocaleString("pt-BR",{minimumFractionDigits:2}) : "Pendente"}</span>;
                       };
-                      const armInput=(direcao,campo,largura="100%")=><input type="number" step="any" min="0" className="sapata-num-input" aria-label={`${campo==="quantidade"?"Quantidade":"Comprimento"} da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value.replace(",",".")}})}
-                        style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,textAlign:"right",fontSize:dSapatas.fonte}}/>;
-                      const armSelect=direcao=><select aria-label={`Bitola da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.bitola} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],bitola:e.target.value}})}
-                        style={{width:"100%",boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:dSapatas.fonte}}>
+                      const armInput=(direcao,campo,largura="100%")=><StandardInput type="number" step="any" min="0" className="sapata-num-input" aria-label={`${campo==="quantidade"?"Quantidade":"Comprimento"} da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.[campo]} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],[campo]:e.target.value.replace(",",".")}})}
+                        style={{width:largura,boxSizing:"border-box",padding:dSapatas.pad,border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",textAlign:"right",fontSize:dSapatas.fonte}}/>;
+                      const armSelect=direcao=><SelectControl aria-label={`Bitola da armadura ${direcao==="armaduraX"?"X":"Y"}`} value={tipo[direcao]?.bitola} onChange={e=>atualizarSapataTipo(tipo.id,{[direcao]:{...tipo[direcao],bitola:e.target.value}})}
+                        style={{width:"100%",boxSizing:"border-box",padding:dSapatas.pad,border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",fontSize:dSapatas.fonte}}>
                         {BITOLAS_ACO.map(b=><option key={b} value={b}>∅{b}</option>)}
-                      </select>;
+                      </SelectControl>;
                       // Vermelho ganha de laranja: escavação insuficiente é um erro de
                       // medida (mais grave) - precisaRevisar é só "ainda não conferi".
                       const corLinha = calc.escavacaoInsuficiente ? `${C.red}0a` : (tipo.precisaRevisar ? `${C.orange}08` : "transparent");
                       const corFixa = calc.escavacaoInsuficiente ? (C.red+"14") : (tipo.precisaRevisar ? (C.orange+"10") : C.bg);
                       return (
-                        <tr key={tipo.id} style={{borderBottom:`1px solid ${C.line}`,background:corLinha}}>
+                        <tr key={tipo.id} style={{borderBottom:"1px solid var(--arcd-border-default)",background:corLinha}}>
                           <td style={{padding:dSapatas.pad,position:"sticky",left:0,zIndex:1,background:corFixa}}>
-                            <div style={{display:"flex",alignItems:"center",gap:4}}>
-                              {tipo.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo desta linha remove este aviso." style={{flexShrink:0,width:7,height:7,borderRadius:"50%",background:C.orange}}/>}
-                              <input aria-label="Tipo (referência dos pilares)" value={tipo.tipo} onChange={e=>atualizarSapataTipo(tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:"100%",boxSizing:"border-box",padding:dSapatas.pad,border:`1px solid ${C.border}`,borderRadius:4,background:C.bg,color:C.text,fontSize:dSapatas.fonte}}/>
+                            <div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-1)"}}>
+                              {tipo.precisaRevisar&&<span title="Importado do PDF - ainda não revisado. Editar qualquer campo desta linha remove este aviso." style={{flexShrink:0,width:7,height:7,borderRadius:"50%",background:"var(--arcd-warning-text)"}}/>}
+                              <StandardInput aria-label="Tipo (referência dos pilares)" value={tipo.tipo} onChange={e=>atualizarSapataTipo(tipo.id,{tipo:e.target.value})} placeholder="Ex.: P1, P4, P5..." style={{width:"100%",boxSizing:"border-box",padding:dSapatas.pad,border:"1px solid var(--arcd-border-default)",borderRadius:4,background:"var(--arcd-surface-page)",color:"var(--arcd-text-primary)",fontSize:dSapatas.fonte}}/>
                             </div>
 
                           </td>
-                          <td style={{padding:dSapatas.pad,position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:1,background:corFixa,borderRight:`1px solid ${C.line}`}}>{numInput("qtd")}</td>
+                          <td style={{padding:dSapatas.pad,position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:1,background:corFixa,borderRight:"1px solid var(--arcd-border-default)"}}>{numInput("qtd")}</td>
                           <td style={{padding:dSapatas.pad}}>{numInput("largura")}</td>
                           <td style={{padding:dSapatas.pad}}>{numInput("comprimento")}</td>
                           <td style={{padding:dSapatas.pad}}>{alturaGeometria("alturaBase")}</td>
                           <td style={{padding:dSapatas.pad}}>{alturaGeometria("alturaTronco")}</td>
                           <td style={{padding:dSapatas.pad}} title="Quanto a cova é maior que a sapata, de cada lado (2x este valor soma em largura e em comprimento)">{numInput("folgaEscavacao")}</td>
                           <td style={{padding:dSapatas.pad}}>{numInput("profundidadeEscavacao")}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",color:calc.escavacaoInsuficiente?C.red:C.blue,fontWeight:600}} title={calc.escavacaoInsuficiente?`⚠ A cova (${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m) é menor que o volume de concreto da sapata - confira as medidas, a sapata não cabe nessa escavação.`:`Cova: ${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m`}>{calc.escavacaoInsuficiente?"⚠ ":""}{calc.volumeEscavacaoTotal.toFixed(2)}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{calc.areaConcretoMagroTotal.toFixed(2)}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}} title="Laterais verticais da base e faces verticais do trecho superior, quando presentes">{resultadoGeometria(calc.formaAreaTotal,"formaConferidaM2")}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{tipo.alturasProjetoCm && !tipo.geometriaProjeto ? <span title="O volume conferido da sapata não é decomposto em prismas nesta tabela">—</span> : calc.volumeBaseTotal.toFixed(2)}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.muted}}>{tipo.alturasProjetoCm && !tipo.geometriaProjeto ? <span title="O volume conferido da sapata não é decomposto em prismas nesta tabela">—</span> : calc.volumeTroncoTotal.toFixed(2)}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:600,color:C.text}}>{resultadoGeometria(calc.volumeSapataTotal,"volumeConferidoM3")}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",color:C.orange}}>{resultadoGeometria(calc.reaterroTotal)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:calc.escavacaoInsuficiente?"var(--arcd-danger-text)":"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}} title={calc.escavacaoInsuficiente?`⚠ A cova (${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m) é menor que o volume de concreto da sapata - confira as medidas, a sapata não cabe nessa escavação.`:`Cova: ${calc.larguraEscavacaoUnit.toFixed(2)} x ${calc.comprimentoEscavacaoUnit.toFixed(2)}m`}>{calc.escavacaoInsuficiente?"⚠ ":""}{calc.volumeEscavacaoTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:"var(--arcd-text-secondary)"}}>{calc.areaConcretoMagroTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:"var(--arcd-text-secondary)"}} title="Laterais verticais da base e faces verticais do trecho superior, quando presentes">{resultadoGeometria(calc.formaAreaTotal,"formaConferidaM2")}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:"var(--arcd-text-secondary)"}}>{tipo.alturasProjetoCm && !tipo.geometriaProjeto ? <span title="O volume conferido da sapata não é decomposto em prismas nesta tabela">—</span> : calc.volumeBaseTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:"var(--arcd-text-secondary)"}}>{tipo.alturasProjetoCm && !tipo.geometriaProjeto ? <span title="O volume conferido da sapata não é decomposto em prismas nesta tabela">—</span> : calc.volumeTroncoTotal.toFixed(2)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{resultadoGeometria(calc.volumeSapataTotal,"volumeConferidoM3")}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",color:"var(--arcd-warning-text)"}}>{resultadoGeometria(calc.reaterroTotal)}</td>
                           <td style={{padding:dSapatas.pad}}>{armSelect("armaduraX")}</td>
                           <td style={{padding:dSapatas.pad}}>{armInput("armaduraX","quantidade")}</td>
                           <td style={{padding:dSapatas.pad}}>{armInput("armaduraX","comprimento")}</td>
                           <td style={{padding:dSapatas.pad}}>{armSelect("armaduraY")}</td>
                           <td style={{padding:dSapatas.pad}}>{armInput("armaduraY","quantidade")}</td>
                           <td style={{padding:dSapatas.pad}}>{armInput("armaduraY","comprimento")}</td>
-                          <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:600,color:C.purple}}>{calc.pesoAcoTotal.toFixed(1)}</td>
+                          <td style={{padding:dSapatas.pad,textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{calc.pesoAcoTotal.toFixed(1)}</td>
                           <td style={{padding:dSapatas.pad}}><div className="sapata-row-actions">
-                            <button aria-label="Duplicar este tipo" type="button" title="Duplicar" onClick={()=>duplicarSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.blue,cursor:"pointer",display:"flex"}}><Ic n="copy" s={13}/></button>
-                            <button aria-label="Remover este tipo" type="button" title="Remover" onClick={()=>removerSapataTipo(tipo.id)} style={{border:0,background:"transparent",color:C.red,cursor:"pointer",fontWeight:600}}>×</button>
+                            <StandardButton variant="secondary" aria-label="Duplicar este tipo" type="button" title="Duplicar" onClick={()=>duplicarSapataTipo(tipo.id)} style={{display:"flex"}}><Ic n="copy" s={13}/></StandardButton>
+                            <StandardButton variant="secondary" aria-label="Remover este tipo" type="button" title="Remover" onClick={()=>removerSapataTipo(tipo.id)}>×</StandardButton>
                           </div></td>
                         </tr>
                       );
                     })}
                   </tbody>
                   {resumoSapatasFundacao.linhas.length>0&&<tfoot>
-                    <tr style={{background:C.surface,fontWeight:600}}>
-                      <td style={{padding:dSapatas.padHeader,position:"sticky",left:0,zIndex:1,background:C.surface}}>TOTAIS</td>
-                      <td style={{position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:1,background:C.surface,borderRight:`1px solid ${C.line}`}}/>
+                    <tr style={{background:"var(--arcd-surface-muted)",fontWeight:"var(--arcd-font-weight-semibold)"}}>
+                      <td style={{padding:dSapatas.padHeader,position:"sticky",left:0,zIndex:1,background:"var(--arcd-surface-muted)"}}>TOTAIS</td>
+                      <td style={{position:"sticky",left:larguraColunaEfetiva("tipo"),zIndex:1,background:"var(--arcd-surface-muted)",borderRight:"1px solid var(--arcd-border-default)"}}/>
                       <td/><td/><td/><td/><td/><td/>
-                      <td style={{padding:dSapatas.padHeader,textAlign:"right",color:C.blue}}>{resumoSapatasFundacao.totais.volumeEscavacao.toFixed(2)}</td>
+                      <td style={{padding:dSapatas.padHeader,textAlign:"right",color:"var(--arcd-action-primary)"}}>{resumoSapatasFundacao.totais.volumeEscavacao.toFixed(2)}</td>
                       <td style={{padding:dSapatas.padHeader,textAlign:"right"}}>{resumoSapatasFundacao.totais.areaConcretoMagro.toFixed(2)}</td>
                       <td style={{padding:dSapatas.padHeader,textAlign:"right"}}>{resumoSapatasFundacao.totais.formaArea.toFixed(2)}</td>
                       <td style={{padding:dSapatas.padHeader,textAlign:"right"}}>{resumoSapatasFundacao.totais.volumeBase.toFixed(2)}</td>
                       <td style={{padding:dSapatas.padHeader,textAlign:"right"}}>{resumoSapatasFundacao.totais.volumeTronco.toFixed(2)}</td>
                       <td style={{padding:dSapatas.padHeader,textAlign:"right"}}>{resumoSapatasFundacao.totais.volumeSapata.toFixed(2)}</td>
-                      <td style={{padding:dSapatas.padHeader,textAlign:"right",color:C.orange}}>{resumoSapatasFundacao.totais.reaterro.toFixed(2)}</td>
+                      <td style={{padding:dSapatas.padHeader,textAlign:"right",color:"var(--arcd-warning-text)"}}>{resumoSapatasFundacao.totais.reaterro.toFixed(2)}</td>
                       <td/><td/><td/><td/><td/><td/>
-                      <td style={{padding:dSapatas.padHeader,textAlign:"right",color:C.purple}}>{resumoSapatasFundacao.totais.pesoAco.toFixed(1)}</td>
+                      <td style={{padding:dSapatas.padHeader,textAlign:"right",color:"var(--arcd-action-primary)"}}>{resumoSapatasFundacao.totais.pesoAco.toFixed(1)}</td>
                       <td/>
                     </tr>
                   </tfoot>}
                 </table>
-                {!resumoSapatasFundacao.linhas.length&&<p style={{padding:20,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.muted}}>Nenhum tipo de sapata cadastrado. Clique em "NOVO TIPO" para começar.</p>}
+                {!resumoSapatasFundacao.linhas.length&&<p style={{padding:"var(--arcd-space-5)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>Nenhum tipo de sapata cadastrado. Clique em "NOVO TIPO" para começar.</p>}
               </div>
 
               <details className="memory-disclosure sapata-technical-details"><summary>Referências do projeto e armaduras superiores</summary>
@@ -5585,14 +5541,14 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                 </div>)}
               </details>)}
               </details>
-              {resumoSapatasFundacao.acoPorBitola.length>0&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 11px"}}>
-                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.purple}}>RESUMO DE AÇO POR BITOLA (já com 10% de perda)</p>
-                <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:6}}>
-                  {resumoSapatasFundacao.acoPorBitola.map(l=><div key={l.bitola} style={{border:`1px solid ${C.border}`,borderRadius:6,padding:"6px 10px"}}>
-                    <b style={{fontSize:"var(--arcd-type-label)",color:C.text}}>∅{l.bitola}mm</b><span style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginLeft:6}}>{l.kg.toFixed(1)} kg</span>
+              {resumoSapatasFundacao.acoPorBitola.length>0&&<div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>RESUMO DE AÇO POR BITOLA (já com 10% de perda)</p>
+                <div style={{display:"flex",gap:"var(--arcd-space-2)",flexWrap:"wrap",marginTop:"var(--arcd-space-1)"}}>
+                  {resumoSapatasFundacao.acoPorBitola.map(l=><div key={l.bitola} style={{border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>
+                    <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>∅{l.bitola}mm</b><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginLeft:"var(--arcd-space-1)"}}>{l.kg.toFixed(1)} kg</span>
                   </div>)}
-                  <div style={{border:`1px solid ${C.purple}55`,background:`${C.purple}0c`,borderRadius:6,padding:"6px 10px"}}>
-                    <b style={{fontSize:"var(--arcd-type-label)",color:C.purple}}>TOTAL</b><span style={{fontSize:"var(--arcd-type-label)",color:C.purple,marginLeft:6,fontWeight:600}}>{resumoSapatasFundacao.totais.pesoAco.toFixed(1)} kg</span>
+                  <div style={{border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)",borderRadius:6,padding:"var(--arcd-space-1) var(--arcd-space-2)"}}>
+                    <b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)"}}>TOTAL</b><span style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",marginLeft:"var(--arcd-space-1)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{resumoSapatasFundacao.totais.pesoAco.toFixed(1)} kg</span>
                   </div>
                 </div>
               </div>}
@@ -5610,7 +5566,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                       <Metric label="Fôrma" value={fmtNum(totaisPav.forma)} unit="m²"/>
                       <Metric label="Aço" value={fmtNum(totaisPav.aco,1)} unit="kg"/>
                     </>}>
-                    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
                       {renderCardPilar(pav)}
                       {renderCardViga(pav)}
                       {floorsWithSlab.includes(pav) && renderCardLaje(pav)}
@@ -5645,29 +5601,29 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
               );
             };
             return (
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
-                  <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>IMPORTAR PROJETO HIDROSSANITÁRIO (PDF)</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>Lê a folha "Tabelas e Detalhes" do projeto (a que consolida o quantitativo da obra inteira) e preenche as 8 tabelas abaixo - você sempre confere antes de aplicar.</p></div>
-                  <label onDragOver={e=>{e.preventDefault();setPdfArrastando(true);}} onDragLeave={()=>setPdfArrastando(false)}
+              <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+                <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+                  <div><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>IMPORTAR PROJETO HIDROSSANITÁRIO (PDF)</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Lê a folha "Tabelas e Detalhes" do projeto (a que consolida o quantitativo da obra inteira) e preenche as 8 tabelas abaixo - você sempre confere antes de aplicar.</p></div>
+                  <FilePicker buttonLabel="Selecionar PDF" accept=".pdf" disabled={pdfProcessando} onChange={e=>{const arquivo=e.target.files?.[0];e.target.value="";if(arquivo)processarPdfProjeto(arquivo,"hidrossanitario");}} onDragOver={e=>{e.preventDefault();setPdfArrastando(true);}} onDragLeave={()=>setPdfArrastando(false)}
                     onDrop={e=>{e.preventDefault();setPdfArrastando(false);const arquivo=e.dataTransfer.files?.[0];if(arquivo)processarPdfProjeto(arquivo,"hidrossanitario");}}
-                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,border:`1.5px dashed ${pdfArrastando?C.blue:C.border}`,background:pdfArrastando?`${C.blue}0a`:"transparent",borderRadius:7,padding:"14px 10px",cursor:pdfProcessando?"wait":"pointer"}}>
-                    <input type="file" accept=".pdf" disabled={pdfProcessando} onChange={e=>{const arquivo=e.target.files?.[0];e.target.value="";if(arquivo)processarPdfProjeto(arquivo,"hidrossanitario");}} style={{display:"none"}}/>
+                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"var(--arcd-space-1)",border:`1.5px dashed ${pdfArrastando?"var(--arcd-action-primary)":"var(--arcd-border-default)"}`,background:pdfArrastando?"color-mix(in srgb, var(--arcd-action-primary) 4%, transparent)":"transparent",borderRadius:7,padding:"var(--arcd-space-3) var(--arcd-space-2)",cursor:pdfProcessando?"wait":"pointer"}}>
+
                     <Ic n="download" s={16} color={C.muted}/>
-                    <span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.blue}}>{pdfProcessando?"Lendo PDF...":"Selecionar PDF"}</span>
-                    <span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>ou arraste o arquivo aqui</span>
-                  </label>
-                  {pdfAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,lineHeight:1.5}}>{pdfAviso}</p>}
-                  {pdfPreviewHidrossanitario&&<div style={{border:`1px solid ${C.green}55`,background:`${C.green}0a`,borderRadius:7,padding:"9px 11px",display:"flex",flexDirection:"column",gap:7}}>
-                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green}}>Encontrado - confira antes de aplicar.</p>
-                    <div style={{border:`1px solid ${C.orange}55`,background:`${C.orange}12`,borderRadius:6,padding:"7px 9px"}}>
-                      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange}}>⚠ Reimportar substitui cada tabela inteira - nunca soma/duplica. É possível desfazer a última alteração após salvar.</p>
+                    <span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}>{pdfProcessando?"Lendo PDF...":"Selecionar PDF"}</span>
+                    <span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>ou arraste o arquivo aqui</span>
+                  </FilePicker>
+                  {pdfAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",lineHeight:"var(--arcd-line-height-normal)"}}>{pdfAviso}</p>}
+                  {pdfPreviewHidrossanitario&&<div style={{border:"1px solid color-mix(in srgb, var(--arcd-success-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+                    <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)"}}>Encontrado - confira antes de aplicar.</p>
+                    <div style={{border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",background:"color-mix(in srgb, var(--arcd-warning-text) 7%, transparent)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
+                      <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)"}}>⚠ Reimportar substitui cada tabela inteira - nunca soma/duplica. É possível desfazer a última alteração após salvar.</p>
                     </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
                       {CHAVES_TABELAS_HIDROSSANITARIO.filter(([chave])=>pdfPreviewHidrossanitario[chave]?.length).map(([chave,label])=>(
-                        <p key={chave} style={{fontSize:"var(--arcd-type-caption)",color:C.text}}><b>{label}:</b> {pdfPreviewHidrossanitario[chave].length} linha(s)</p>
+                        <p key={chave} style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-primary)"}}><b>{label}:</b> {pdfPreviewHidrossanitario[chave].length} linha(s)</p>
                       ))}
                     </div>
-                    <div style={{display:"flex",gap:7}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewHidrossanitario(null)}>DESCARTAR</Btn><Btn size="sm" onClick={()=>setConfirmarAplicarHidrossanitario(true)}><Ic n="check"/> APLICAR (SUBSTITUI A VERSÃO ANTERIOR)</Btn></div>
+                    <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>setPdfPreviewHidrossanitario(null)}>DESCARTAR</Btn><Btn size="sm" onClick={()=>setConfirmarAplicarHidrossanitario(true)}><Ic n="check"/> APLICAR (SUBSTITUI A VERSÃO ANTERIOR)</Btn></div>
                   </div>}
                 </div>
 
@@ -5676,49 +5632,49 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                   description={descricaoSubstituicaoHidrossanitario()}
                   onConfirm={()=>{aplicarPdfPreviewHidrossanitario();setConfirmarAplicarHidrossanitario(false);}}/>
 
-                <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:11,display:"flex",flexDirection:"column",gap:8}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
+                <div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-3)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
                     <div>
-                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>ASSOCIAR ÀS COMPOSIÇÕES (IA)</p>
-                      <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2,maxWidth:520}}>Busca a composição SINAPI/ORSE mais próxima nas bases vinculadas a este orçamento para cada peça/conexão/tubo já lançado - associa direto quando só existe um candidato compatível, e só chama a IA para desempatar quando sobra mais de uma opção plausível. Só propõe - nada é adicionado ao orçamento sozinho, você confere e adiciona manualmente na aba Itens.</p>
+                      <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>ASSOCIAR ÀS COMPOSIÇÕES (IA)</p>
+                      <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)",maxWidth:520}}>Busca a composição SINAPI/ORSE mais próxima nas bases vinculadas a este orçamento para cada peça/conexão/tubo já lançado - associa direto quando só existe um candidato compatível, e só chama a IA para desempatar quando sobra mais de uma opção plausível. Só propõe - nada é adicionado ao orçamento sozinho, você confere e adiciona manualmente na aba Itens.</p>
                     </div>
                     <Btn size="sm" onClick={executarAssociacaoIA} disabled={matchIACarregando}>
                       <Ic n="ia" s={14}/> {matchIACarregando?"Associando...":"Associar automaticamente"}
                     </Btn>
                   </div>
-                  {matchIAAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:C.orange,lineHeight:1.5}}>{matchIAAviso}</p>}
+                  {matchIAAviso&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",lineHeight:"var(--arcd-line-height-normal)"}}>{matchIAAviso}</p>}
                   {matchIA&&(() => {
                     const porItemId = new Map(matchIA.matches.map(m=>[m.itemId,m]));
                     const associados = matchIA.matches.filter(m=>m.status==="associado").length;
                     const porRegra = matchIA.matches.filter(m=>m.status==="associado"&&m.origem==="regra").length;
                     const porIA = associados - porRegra;
                     return (
-                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>
+                      <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}>
+                        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>
                           {associados} de {matchIA.itens.length} item(ns) com composição sugerida.
-                          {associados>0&&<span style={{fontWeight:500,color:C.muted}}> ({porRegra} por candidato único, {porIA} desempatados pela IA)</span>}
+                          {associados>0&&<span style={{fontWeight:"var(--arcd-font-weight-medium)",color:"var(--arcd-text-secondary)"}}> ({porRegra} por candidato único, {porIA} desempatados pela IA)</span>}
                         </p>
-                        <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:420,overflow:"auto"}}>
+                        <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)",maxHeight:420,overflow:"auto"}}>
                           {matchIA.itens.map(item => {
                             const m = porItemId.get(item.id);
                             const associado = m?.status==="associado";
                             return (
-                              <div key={item.id} style={{border:`1px solid ${associado?C.green+"44":C.orange+"44"}`,background:associado?`${C.green}08`:`${C.orange}08`,borderRadius:6,padding:"7px 9px",display:"flex",flexDirection:"column",gap:3}}>
-                                <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}>
-                                  <p style={{fontSize:"var(--arcd-type-label)",color:C.text,fontWeight:600}}>{item.descricao} <span style={{color:C.muted,fontWeight:500}}>({fmtNum(item.quantidade)} {item.unidade})</span></p>
-                                  <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:associado?C.green:C.orange,whiteSpace:"nowrap"}}>{associado?"ASSOCIADO":"PENDENTE"}</span>
+                              <div key={item.id} style={{border:`1px solid ${associado?"var(--arcd-success-text)"+"44":"var(--arcd-warning-text)"+"44"}`,background:associado?"color-mix(in srgb, var(--arcd-success-text) 3%, transparent)":"color-mix(in srgb, var(--arcd-warning-text) 3%, transparent)",borderRadius:6,padding:"var(--arcd-space-2)",display:"flex",flexDirection:"column",gap:"var(--arcd-space-half)"}}>
+                                <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"baseline"}}>
+                                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{item.descricao} <span style={{color:"var(--arcd-text-secondary)",fontWeight:"var(--arcd-font-weight-medium)"}}>({fmtNum(item.quantidade)} {item.unidade})</span></p>
+                                  <span style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:associado?"var(--arcd-success-text)":"var(--arcd-warning-text)",whiteSpace:"nowrap"}}>{associado?"ASSOCIADO":"PENDENTE"}</span>
                                 </div>
                                 {associado ? (
-                                  <p style={{fontSize:"var(--arcd-type-label)",color:C.text}}>
-                                    <span style={{fontWeight:600,color:m.fonte==="ORSE"?C.purple:C.blue}}>{m.fonte}</span> {m.codigo} - {m.descricao}
-                                    <span style={{color:C.muted}}> · {Math.round((m.confianca||0)*100)}% confiança · {m.origem==="ia"?"desempate por IA":"candidato único"}</span>
+                                  <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)"}}>
+                                    <span style={{fontWeight:"var(--arcd-font-weight-semibold)",color:m.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{m.fonte}</span> {m.codigo} - {m.descricao}
+                                    <span style={{color:"var(--arcd-text-secondary)"}}> · {Math.round((m.confianca||0)*100)}% confiança · {m.origem==="ia"?"desempate por IA":"candidato único"}</span>
                                   </p>
                                 ) : null}
-                                {m?.justificativa&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,fontStyle:"italic"}}>{m.justificativa}</p>}
+                                {m?.justificativa&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",fontStyle:"italic"}}>{m.justificativa}</p>}
                                 {associado&&(
-                                  <div style={{display:"flex",gap:12,alignItems:"center"}}>
-                                    <button onClick={()=>{navigator.clipboard?.writeText(m.codigo);showToast("Código copiado.");}} style={{fontSize:"var(--arcd-type-control)",fontWeight:600,color:C.blue,background:"none",border:"none",padding:0,cursor:"pointer"}}>Copiar código</button>
-                                    <button onClick={()=>abrirAplicarMatchIA(m,item)} style={{fontSize:"var(--arcd-type-control)",fontWeight:600,color:C.green,background:"none",border:"none",padding:0,cursor:"pointer"}}>+ Adicionar ao orçamento</button>
+                                  <div style={{display:"flex",gap:"var(--arcd-space-3)",alignItems:"center"}}>
+                                    <StandardButton variant="secondary" onClick={()=>{navigator.clipboard?.writeText(m.codigo);showToast("Código copiado.");}}>Copiar código</StandardButton>
+                                    <StandardButton variant="secondary" onClick={()=>abrirAplicarMatchIA(m,item)}>+ Adicionar ao orçamento</StandardButton>
                                   </div>
                                 )}
                               </div>
@@ -5735,7 +5691,7 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
                     <Metric label="Peças e conexões" value={fmtNum(totalPecas,0)} unit="un"/>
                     <Metric label="Tubulação" value={fmtNum(totalMetrosTubo)} unit="m"/>
                   </>}>
-                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
                     {secaoHidro("conexoesAguaFria","Conexões - água fria",
                       [{chave:"codigo",rotulo:"Código",largura:"70px"},{chave:"descricao",rotulo:"Descrição"},{chave:"quantidade",rotulo:"Qtd",largura:"64px",numero:true}],
                       novaLinhaConexao, "Total de peças", lista=>fmtNum(somaQuantidade(lista),0))}
@@ -5769,20 +5725,20 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
       )}
 
       {checkEdit&&<Modal title="Revisar item do orçamento" onClose={()=>setCheckEdit(null)} wide>
-        <div style={{display:"flex",flexDirection:"column",gap:11}}>
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:"10px 11px"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{checkEdit.titulo}</p><p style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.5,marginTop:4}}>{checkEdit.detalhe}</p>{checkEdit.acaoSugerida&&<p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.5,marginTop:5}}><b>Próxima ação sugerida:</b> {checkEdit.acaoSugerida}</p>}</div>
-          <div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase",marginBottom:5}}>Decisão do operador</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:6}}>{[["pendente","Pendente",C.orange],["corrigido","Corrigido",C.green],["ignorado","Ignorar",C.muted]].map(([status,label,color])=><button key={status} onClick={()=>setCheckEdit(item=>({...item,status}))} style={{border:`1.5px solid ${checkEdit.status===status?color:C.border}`,background:checkEdit.status===status?`${color}12`:C.card,color:checkEdit.status===status?color:C.muted,borderRadius:7,padding:"8px 9px",fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>{label}</button>)}</div></div>
-          <label style={{display:"flex",flexDirection:"column",gap:5}}><span style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text}}>Observação {checkEdit.status==="ignorado"?"*":""}</span><textarea rows={4} value={checkEdit.observacao||""} onChange={e=>setCheckEdit(item=>({...item,observacao:e.target.value}))} placeholder={checkEdit.status==="corrigido"?"Descreva o que foi corrigido e onde conferir.":checkEdit.status==="ignorado"?"Justifique por que o item não se aplica ao escopo.":"Registre a dúvida, responsável ou ação combinada."} style={{background:C.bg,border:`1.5px solid ${C.border}`,color:C.text,padding:"9px 10px",borderRadius:7,fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/></label>
-          <p style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>A decisão ficará vinculada a este orçamento com operador e data. A IA nunca marca um item como corrigido ou ignorado automaticamente.</p>
-          <div style={{display:"flex",gap:7}}><Btn v="ghost" onClick={()=>setCheckEdit(null)} full>Cancelar</Btn><Btn onClick={salvarRevisaoChecklist} full><Ic n="check"/> Salvar revisão</Btn></div>
+        <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
+          <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{checkEdit.titulo}</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}>{checkEdit.detalhe}</p>{checkEdit.acaoSugerida&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}><b>Próxima ação sugerida:</b> {checkEdit.acaoSugerida}</p>}</div>
+          <div><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase",marginBottom:"var(--arcd-space-1)"}}>Decisão do operador</p><div style={{display:"grid",gridTemplateColumns:formGrid(3),gap:"var(--arcd-space-1)"}}>{[["pendente","Pendente",C.orange],["corrigido","Corrigido",C.green],["ignorado","Ignorar",C.muted]].map(([status,label,color])=><StandardButton variant="secondary" key={status} onClick={()=>setCheckEdit(item=>({...item,status}))}>{label}</StandardButton>)}</div></div>
+          <label style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)"}}><span style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>Observação {checkEdit.status==="ignorado"?"*":""}</span><TextareaControl rows={4} value={checkEdit.observacao||""} onChange={e=>setCheckEdit(item=>({...item,observacao:e.target.value}))} placeholder={checkEdit.status==="corrigido"?"Descreva o que foi corrigido e onde conferir.":checkEdit.status==="ignorado"?"Justifique por que o item não se aplica ao escopo.":"Registre a dúvida, responsável ou ação combinada."} style={{background:"var(--arcd-surface-page)",border:"1.5px solid var(--arcd-border-default)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-2)",borderRadius:7,fontSize:"var(--arcd-type-control)",outline:"none",resize:"vertical",fontFamily:"var(--arcd-font-sans)"}}/></label>
+          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>A decisão ficará vinculada a este orçamento com operador e data. A IA nunca marca um item como corrigido ou ignorado automaticamente.</p>
+          <div style={{display:"flex",gap:"var(--arcd-space-2)"}}><Btn v="ghost" onClick={()=>setCheckEdit(null)} full>Cancelar</Btn><Btn onClick={salvarRevisaoChecklist} full><Ic n="check"/> Salvar revisão</Btn></div>
         </div>
       </Modal>}
 
       {analiseReferencia&&<Modal title={`${analiseReferencia.tipoItem==="COMPOSICAO"?"Composição":"Insumo"} ${analiseReferencia.fonte} ${analiseReferencia.codigo}`} onClose={()=>{setAnaliseReferencia(null);setAnaliseComponentes([]);setAnaliseReferenciaAviso("");}} wide>
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,padding:10}}>
-            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>{analiseReferencia.descricao}</p>
-            <div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:7,fontSize:"var(--arcd-type-label)",color:C.muted}}>
+        <div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+          <div style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:6,padding:"var(--arcd-space-2)"}}>
+            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>{analiseReferencia.descricao}</p>
+            <div style={{display:"flex",gap:"var(--arcd-space-3)",flexWrap:"wrap",marginTop:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>
               <span><b>Tipo:</b> {analiseReferencia.tipoItem==="COMPOSICAO"?"Composição":"Insumo"}</span>
               <span><b>Unidade:</b> {analiseReferencia.unidade||"UN"}</span>
               <span><b>Preço:</b> {fmt(precoDoItem(analiseReferencia,orc))}</span>
@@ -5794,28 +5750,28 @@ ${notasExportacaoSapatas().map(n=>`<p>${escapeHtml(n)}</p>`).join("")}
             </div>
           </div>
 
-          {analiseReferenciaLoading&&<p style={{padding:18,textAlign:"center",fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600}}>CARREGANDO ANÁLISE...</p>}
-          {analiseReferenciaAviso&&<div style={{background:`${C.orange}10`,border:`1px solid ${C.orange}55`,borderRadius:7,padding:"8px 10px",fontSize:"var(--arcd-type-label)",color:C.orange}}>{analiseReferenciaAviso}</div>}
+          {analiseReferenciaLoading&&<p style={{padding:"var(--arcd-space-4)",textAlign:"center",fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>CARREGANDO ANÁLISE...</p>}
+          {analiseReferenciaAviso&&<div style={{background:"color-mix(in srgb, var(--arcd-warning-text) 6%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-warning-text) 33%, transparent)",borderRadius:7,padding:"var(--arcd-space-2)",fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)"}}>{analiseReferenciaAviso}</div>}
 
-          {analiseReferencia.memoriaTexto&&<div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:"9px 11px"}}>
-            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.text,marginBottom:5}}>MEMÓRIA DE PREÇOS DO ITEM</p>
-            <pre style={{fontSize:"var(--arcd-type-label)",color:C.muted,lineHeight:1.6,whiteSpace:"pre-wrap",fontFamily:"var(--arcd-font-sans)",margin:0}}>{analiseReferencia.memoriaTexto}</pre>
+          {analiseReferencia.memoriaTexto&&<div style={{background:"var(--arcd-surface-page)",border:"1px solid var(--arcd-border-default)",borderRadius:7,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+            <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginBottom:"var(--arcd-space-1)"}}>MEMÓRIA DE PREÇOS DO ITEM</p>
+            <pre style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",whiteSpace:"pre-wrap",fontFamily:"var(--arcd-font-sans)",margin:0}}>{analiseReferencia.memoriaTexto}</pre>
           </div>}
 
           {analiseReferencia.tipoItem==="COMPOSICAO"&&!analiseReferenciaLoading&&analiseComponentes.length>0&&<>
-            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text}}>COMPOSIÇÃO ANALÍTICA DIRETA</p><b style={{fontSize:"var(--arcd-type-body)",color:C.yellowD}}>{fmt(analiseComponentes.reduce((s,item)=>s+Number(item.coeficiente||0)*precoDoItem(item,orc),0))}</b></div>
-            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:7,maxHeight:390,overflowY:"auto"}}><table style={{width:"100%",minWidth:760,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
-              <thead style={{position:"sticky",top:0,zIndex:1}}><tr style={{background:C.surface}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL"].map(h=><th key={h} style={{padding:"7px 6px",textAlign:["COEFICIENTE","PREÇO UNIT.","TOTAL"].includes(h)?"right":"left",color:C.muted,fontSize:"var(--arcd-type-label)",borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
-              <tbody>{analiseComponentes.map((item,index)=><tr key={`${item.itemType}-${item.itemCode}-${index}`} style={{borderBottom:`1px solid ${C.line}`}}>
-                <td style={{padding:6,color:item.itemType==="COMPOSICAO"?C.green:C.orange,fontWeight:600}}>{item.itemType}</td>
-                <td style={{padding:6,fontWeight:600,color:item.fonte==="ORSE"?C.purple:C.blue}}>{item.fonte}</td><td style={{padding:6}}>{item.itemCode}</td>
-                <td title={item.descricao} style={{padding:6,maxWidth:310,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:6}}>{item.unidade}</td>
-                <td style={{padding:6,textAlign:"right"}}>{Number(item.coeficiente||0).toLocaleString("pt-BR",{maximumFractionDigits:8})}</td><td style={{padding:6,textAlign:"right"}}>{fmt(precoDoItem(item,orc))}</td><td style={{padding:6,textAlign:"right",fontWeight:600}}>{fmt(Number(item.coeficiente||0)*precoDoItem(item,orc))}</td>
+            <div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",alignItems:"center"}}><p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)"}}>COMPOSIÇÃO ANALÍTICA DIRETA</p><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-action-primary)"}}>{fmt(analiseComponentes.reduce((s,item)=>s+Number(item.coeficiente||0)*precoDoItem(item,orc),0))}</b></div>
+            <div style={{overflowX:"auto",border:"1px solid var(--arcd-border-default)",borderRadius:7,maxHeight:390,overflowY:"auto"}}><table style={{width:"100%",minWidth:760,borderCollapse:"collapse",fontSize:"var(--arcd-type-label)"}}>
+              <thead style={{position:"sticky",top:0,zIndex:1}}><tr style={{background:"var(--arcd-surface-muted)"}}>{["TIPO","FONTE","CÓDIGO","DESCRIÇÃO","UN.","COEFICIENTE","PREÇO UNIT.","TOTAL"].map(h=><th key={h} style={{padding:"var(--arcd-space-2) var(--arcd-space-1)",textAlign:["COEFICIENTE","PREÇO UNIT.","TOTAL"].includes(h)?"right":"left",color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)",borderBottom:"1px solid var(--arcd-border-default)"}}>{h}</th>)}</tr></thead>
+              <tbody>{analiseComponentes.map((item,index)=><tr key={`${item.itemType}-${item.itemCode}-${index}`} style={{borderBottom:"1px solid var(--arcd-border-default)"}}>
+                <td style={{padding:"var(--arcd-space-1)",color:item.itemType==="COMPOSICAO"?"var(--arcd-success-text)":"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{item.itemType}</td>
+                <td style={{padding:"var(--arcd-space-1)",fontWeight:"var(--arcd-font-weight-semibold)",color:item.fonte==="ORSE"?"var(--arcd-action-primary)":"var(--arcd-action-primary)"}}>{item.fonte}</td><td style={{padding:"var(--arcd-space-1)"}}>{item.itemCode}</td>
+                <td title={item.descricao} style={{padding:"var(--arcd-space-1)",maxWidth:310,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.descricao}</td><td style={{padding:"var(--arcd-space-1)"}}>{item.unidade}</td>
+                <td style={{padding:"var(--arcd-space-1)",textAlign:"right"}}>{Number(item.coeficiente||0).toLocaleString("pt-BR",{maximumFractionDigits:8})}</td><td style={{padding:"var(--arcd-space-1)",textAlign:"right"}}>{fmt(precoDoItem(item,orc))}</td><td style={{padding:"var(--arcd-space-1)",textAlign:"right",fontWeight:"var(--arcd-font-weight-semibold)"}}>{fmt(Number(item.coeficiente||0)*precoDoItem(item,orc))}</td>
               </tr>)}</tbody>
             </table></div>
           </>}
 
-          <div style={{display:"flex",justifyContent:"flex-end",gap:7,flexWrap:"wrap"}}>
+          <div style={{display:"flex",justifyContent:"flex-end",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
             {/* Clonar so faz sentido para composicao que vive na base de referencia.
                 Composicao propria e cotacao ja sao da empresa - para essas o
                 caminho e editar/duplicar na aba Próprias. */}

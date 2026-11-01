@@ -1,3 +1,7 @@
+import {Button as StandardButton} from '../../../components/ui/button.jsx';
+import {SelectControl} from '../../../design-system/primitives/Select.jsx';
+import {Input as StandardInput} from '../../../components/ui/input.jsx';
+import {TextareaControl} from '../../../design-system/primitives/Textarea.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ITEM_MEMORY_MODELS, newMeasurementRow, measurementUnit } from '../item-memory-models';
 import { compatibleItemModels, evaluateItemMemory, itemMemoryRows, itemMemorySignature, reusableItemModel, startItemMemory } from '../item-memory';
@@ -32,32 +36,32 @@ function ItemMeasurementEditor({item,budget,models,onSave,onSaveModel,onNavigate
       <span className="item-memory-eyebrow">{item.stagePath}</span>
       <h3>Item {item.codigoItem} · {item.descricao || 'Sem descrição'}</h3>
       <p>{item.fonte} {item.codigo} · Unidade do orçamento: <strong>{item.unidade}</strong></p>
-      <button type="button" onClick={()=>onNavigate(item)}>Ver item na planilha ↗</button>
+      <StandardButton variant="secondary" type="button" onClick={()=>onNavigate(item)}>Ver item na planilha ↗</StandardButton>
     </header>
     {item.suggestion.warning && <p className="item-memory-warning">{item.suggestion.warning}</p>}
     {item.memorialMedicao?.signature && item.memorialMedicao.signature!==itemMemorySignature(item) && <p className="item-memory-warning">A composição mudou desde o último cálculo. O modelo e a unidade precisam corresponder ao novo serviço antes de salvar.</p>}
     <fieldset disabled={readOnly || busy}>
       <div className="item-memory-fields">
         <label>Como medir este serviço
-          <select value={draft.model} onChange={e=>setModel(e.target.value)}>
+          <SelectControl value={draft.model} onChange={e=>setModel(e.target.value)}>
             {Object.entries(ITEM_MEMORY_MODELS).filter(([,m])=>!m.unit || m.unit===measurementUnit(item.unidade)).map(([key,m])=><option key={key} value={key}>{m.name}</option>)}
-          </select>
+          </SelectControl>
         </label>
         {library.length>0 && <label>Modelo salvo para esta composição
-          <select aria-label="Usar modelo salvo" value="" onChange={e=>{const m=library.find(x=>x.id===e.target.value);if(m)setModel(m.model);}}>
+          <SelectControl aria-label="Usar modelo salvo" value="" onChange={e=>{const m=library.find(x=>x.id===e.target.value);if(m)setModel(m.model);}}>
             <option value="">Escolher modelo com medidas em branco</option>{library.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
+          </SelectControl>
         </label>}
       </div>
       <div className="item-memory-guide"><strong>{model.formula}</strong><p>{model.help}</p><small>Exemplo: {model.example}</small></div>
       <p className="item-memory-hint">Preencha as medidas reais em metros; espessuras indicadas em cm. Use vírgula ou ponto decimal, sem separador de milhar. Campos em branco não valem zero.</p>
       <div className="item-memory-measures">
         {draft.rows.map((row,index)=><section key={row.id} className={`item-memory-measure ${row.operation==='subtract'?'is-deduction':''}`} aria-label={`Medição ${index+1}`}>
-          <div className="item-memory-row-heading"><strong>{row.operation==='subtract'?'− Desconto / vão':'+ Área, local ou trecho'} {index+1}</strong><button type="button" onClick={()=>change({rows:draft.rows.filter(r=>r.id!==row.id)})} aria-label={`Remover medição ${index+1}`}>Remover</button></div>
-          <label>Local / identificação<input value={row.local} onChange={e=>editRow(row.id,{local:e.target.value})} placeholder="Ex.: térreo · sala · parede norte"/></label>
+          <div className="item-memory-row-heading"><strong>{row.operation==='subtract'?'− Desconto / vão':'+ Área, local ou trecho'} {index+1}</strong><StandardButton variant="secondary" type="button" onClick={()=>change({rows:draft.rows.filter(r=>r.id!==row.id)})} aria-label={`Remover medição ${index+1}`}>Remover</StandardButton></div>
+          <label>Local / identificação<StandardInput value={row.local} onChange={e=>editRow(row.id,{local:e.target.value})} placeholder="Ex.: térreo · sala · parede norte"/></label>
           <div className="item-memory-fields">
             {model.fields.map(f=><label key={f.key}>{f.label} {f.unit?`(${f.unit})`:`(${item.unidade})`}
-              <input inputMode="decimal" autoComplete="off" aria-label={`${f.label} da medição ${index+1}`} value={row.values?.[f.key] ?? ''} onChange={e=>editRow(row.id,{values:{...row.values,[f.key]:e.target.value}})} placeholder="Preencher"/>
+              <StandardInput inputMode="decimal" autoComplete="off" aria-label={`${f.label} da medição ${index+1}`} value={row.values?.[f.key] ?? ''} onChange={e=>editRow(row.id,{values:{...row.values,[f.key]:e.target.value}})} placeholder="Preencher"/>
               <small>{f.help}</small>
             </label>)}
           </div>
@@ -65,12 +69,12 @@ function ItemMeasurementEditor({item,budget,models,onSave,onSaveModel,onNavigate
         </section>)}
       </div>
       <div className="item-memory-actions">
-        <button type="button" onClick={()=>change({rows:[...draft.rows,newMeasurementRow(draft.model,uid())]})}>+ Adicionar local / trecho</button>
-        <button type="button" onClick={()=>change({rows:[...draft.rows,{...newMeasurementRow(draft.model,uid()),operation:'subtract'}]})}>− Adicionar desconto / vão</button>
+        <StandardButton variant="secondary" type="button" onClick={()=>change({rows:[...draft.rows,newMeasurementRow(draft.model,uid())]})}>+ Adicionar local / trecho</StandardButton>
+        <StandardButton variant="secondary" type="button" onClick={()=>change({rows:[...draft.rows,{...newMeasurementRow(draft.model,uid()),operation:'subtract'}]})}>− Adicionar desconto / vão</StandardButton>
       </div>
       <div className="item-memory-fields">
-        <label>Origem das medidas<input value={draft.source || ''} onChange={e=>change({source:e.target.value})} placeholder="Ex.: planta arquitetônica, folha 02, revisão 03"/><small>Obrigatório para quantidade medida diretamente; recomendado nos demais modelos.</small></label>
-        <label>Observações / critério de medição<textarea value={draft.note || ''} onChange={e=>change({note:e.target.value})} placeholder="Ex.: apenas face interna; vãos descontados; trecho sem revestimento" rows={2}/></label>
+        <label>Origem das medidas<StandardInput value={draft.source || ''} onChange={e=>change({source:e.target.value})} placeholder="Ex.: planta arquitetônica, folha 02, revisão 03"/><small>Obrigatório para quantidade medida diretamente; recomendado nos demais modelos.</small></label>
+        <label>Observações / critério de medição<TextareaControl value={draft.note || ''} onChange={e=>change({note:e.target.value})} placeholder="Ex.: apenas face interna; vãos descontados; trecho sem revestimento" rows={2}/></label>
       </div>
       <div className="item-memory-result" aria-live="polite">
         <div><small>No orçamento agora</small><strong>{number(item.quantidade)} {item.unidade}</strong></div>
@@ -80,18 +84,18 @@ function ItemMeasurementEditor({item,budget,models,onSave,onSaveModel,onNavigate
       </div>
       {!preview.valid && <details className="item-memory-pending"><summary>Faltam {preview.errors.length} ajuste(s) para aplicar</summary><ul>{preview.errors.map((e,i)=><li key={i}>{e}</li>)}</ul></details>}
       <div className="item-memory-actions">
-        <button type="submit" className="item-memory-primary" disabled={!preview.valid}>{busy?'Salvando…':'Salvar e atualizar orçamento'}</button>
-        <button type="button" onClick={()=>save(true)}>Salvar rascunho</button>
+        <StandardButton variant="primary" type="submit" className="item-memory-primary" disabled={!preview.valid}>{busy?'Salvando…':'Salvar e atualizar orçamento'}</StandardButton>
+        <StandardButton variant="secondary" type="button" onClick={()=>save(true)}>Salvar rascunho</StandardButton>
       </div>
       {drafts.current.has(item.id) && <small>Alterações ainda não salvas. Salve o cálculo ou o rascunho antes de sair desta aba.</small>}
       <details className="item-memory-library"><summary>Reutilizar este modelo em outros orçamentos</summary>
         <p>Salva a forma de calcular para esta mesma composição. Medidas, locais, origem e quantidades ficam em branco ao reutilizar.</p>
-        <label>Nome do modelo<input value={modelName} onChange={e=>setModelName(e.target.value)} placeholder="Ex.: alvenaria por parede com desconto de vãos"/></label>
-        <button type="button" onClick={async()=>{
+        <label>Nome do modelo<StandardInput value={modelName} onChange={e=>setModelName(e.target.value)} placeholder="Ex.: alvenaria por parede com desconto de vãos"/></label>
+        <StandardButton variant="secondary" type="button" onClick={async()=>{
           setBusy(true);setError('');
           try{const result=await onSaveModel(reusableItemModel(item,draft,modelName,uid()));if(!result?.ok)throw new Error(result?.reason || 'Falha ao salvar modelo.');setModelName('');setMessage('Modelo salvo para reutilizar com medidas em branco.');}
           catch(e){setError(e.message);}finally{setBusy(false);}
-        }}>Salvar modelo</button>
+        }}>Salvar modelo</StandardButton>
       </details>
     </fieldset>
     {readOnly && <p>Orçamento aprovado: crie uma revisão para editar o memorial.</p>}
@@ -107,8 +111,8 @@ function BoxLinkedItem({item,budget,onNavigate,onOpenBox}){
     <p>Calculado pelas medidas de <strong>{box?.nome || 'um reservatório removido'}</strong> ({BOX_MEASURES[item.memorialMedicao.measure]?.label || 'medida não definida'}).</p>
     <p>{result.valid?`Quantidade: ${number(result.total)} ${item.unidade}`:result.errors[0]}</p>
     <div className="item-memory-actions">
-      <button type="button" className="item-memory-primary" onClick={onOpenBox}>Editar medidas do reservatório</button>
-      <button type="button" onClick={()=>onNavigate(item)}>Ver item na planilha</button>
+      <StandardButton variant="primary" type="button" className="item-memory-primary" onClick={onOpenBox}>Editar medidas do reservatório</StandardButton>
+      <StandardButton variant="secondary" type="button" onClick={()=>onNavigate(item)}>Ver item na planilha</StandardButton>
     </div>
   </article>;
 }
@@ -127,20 +131,20 @@ export default function ItemMemoryPanel({budget,budgets=[],onSave,onSaveModel,on
     <header className="item-memory-intro"><div><h2>Memorial item a item</h2><p>Escolha um serviço, informe os locais e preencha as medidas. Cada formulário já está vinculado ao seu item na planilha.</p></div><strong>{completed} de {editable.length} preenchidos</strong></header>
     <p className="item-memory-hint">{rows.length-editable.length} itens de disciplinas ou vínculos existentes preservados. Modelos geométricos são sugestões; a unidade e o serviço contratado definem o que medir.</p>
     <div className="item-memory-filters">
-      <label>Buscar item<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Número, serviço, ambiente ou pavimento"/></label>
-      <label>Etapa<select value={stage} onChange={e=>setStage(e.target.value)}><option value="">Todas as etapas</option>{[...new Map(rows.map(i=>[i.etapaId,i.stagePath])).entries()].map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>
-      <label>Mostrar<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="editable">Serviços para medir aqui</option><option value="pending">Ainda não aplicados</option><option value="all">Todos, incluindo disciplinas existentes</option></select></label>
+      <label>Buscar item<StandardInput value={search} onChange={e=>setSearch(e.target.value)} placeholder="Número, serviço, ambiente ou pavimento"/></label>
+      <label>Etapa<SelectControl value={stage} onChange={e=>setStage(e.target.value)}><option value="">Todas as etapas</option>{[...new Map(rows.map(i=>[i.etapaId,i.stagePath])).entries()].map(([id,name])=><option key={id} value={id}>{name}</option>)}</SelectControl></label>
+      <label>Mostrar<SelectControl value={filter} onChange={e=>setFilter(e.target.value)}><option value="editable">Serviços para medir aqui</option><option value="pending">Ainda não aplicados</option><option value="all">Todos, incluindo disciplinas existentes</option></SelectControl></label>
     </div>
     <div className="item-memory-layout">
       <nav aria-label="Itens do memorial" className="item-memory-list">
         <small>{shown.length} item(ns) encontrado(s)</small>
-        {shown.map(i=><button key={i.id} type="button" aria-current={i.id===selected?'true':undefined} onClick={()=>setSelected(i.id)}>
+        {shown.map(i=><StandardButton variant="secondary" key={i.id} type="button" aria-current={i.id===selected?'true':undefined} onClick={()=>setSelected(i.id)}>
           <span>Item {i.codigoItem} · {i.unidade}</span><strong>{i.descricao || 'Sem descrição'}</strong><small>{i.stagePath}</small>
           <span>{i.owner?'Memorial da disciplina':!i.memorialMedicao?'A preencher':i.memorialMedicao.active&&evaluateItemMemory(i,budget).valid?'Aplicado':'Rascunho / ajustar'}</span>
-        </button>)}
+        </StandardButton>)}
         {!shown.length && <p>Nenhum item com estes filtros.</p>}
       </nav>
-      {item?item.owner?<article className="item-memory-editor"><h3>Item {item.codigoItem} · {item.descricao || 'Sem descrição'}</h3><p>{item.owner.name}: utilize o levantamento e os vínculos desta disciplina. Este formulário não modifica esses dados.</p><p>Quantidade atual: {number(item.quantidade)} {item.unidade}</p><button onClick={()=>onNavigate(item)}>Ver item na planilha</button>{item.owner.discipline&&<button onClick={()=>onOpenOwner(item.owner)}>Abrir memorial da disciplina</button>}</article>:
+      {item?item.owner?<article className="item-memory-editor"><h3>Item {item.codigoItem} · {item.descricao || 'Sem descrição'}</h3><p>{item.owner.name}: utilize o levantamento e os vínculos desta disciplina. Este formulário não modifica esses dados.</p><p>Quantidade atual: {number(item.quantidade)} {item.unidade}</p><StandardButton variant="secondary" onClick={()=>onNavigate(item)}>Ver item na planilha</StandardButton>{item.owner.discipline&&<StandardButton variant="secondary" onClick={()=>onOpenOwner(item.owner)}>Abrir memorial da disciplina</StandardButton>}</article>:
         item.memorialMedicao?.model==='element'?<BoxLinkedItem {...{item,budget,onNavigate,onOpenBox}}/>:
         <ItemMeasurementEditor key={`${budget.id}:${item.id}`} {...{item,budget,models,onSave,onSaveModel,onNavigate,readOnly,drafts}}/>:<p>Selecione um item para começar.</p>}
     </div>

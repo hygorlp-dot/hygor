@@ -1,3 +1,4 @@
+import {Button as StandardButton} from '../../../components/ui/button.jsx';
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
 // RescisaoView — tela "Cálculo de Rescisão", extraída de
@@ -302,7 +303,7 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
   const rescisoes  = (data.rescisoes||[]).slice().reverse();
 
   return (
-    <div className="anim" style={{display:"flex",flexDirection:"column",gap:14}}>
+    <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-3)"}}>
 
       <PageHero
         eyebrow="Documentos"
@@ -311,14 +312,14 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       />
 
       {/* Selecionar funcionário */}
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.yellow}`,padding:14,borderRadius:10,display:"flex",flexDirection:"column",gap:10}}>
-        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.yellow,textTransform:"uppercase",letterSpacing:.8}}> Trabalhador</p>
+      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-action-primary)",padding:"var(--arcd-space-3)",borderRadius:10,display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}> Trabalhador</p>
         <Sel label="Selecionar da lista (ou preencha manualmente abaixo)"
           value={form.empId}
           onChange={selectEmp}
           options={[{v:"",l:"- Preenchimento manual -"},...activeEmps.map(e=>({v:e.id,l:`${e.name}${e.role?" · "+e.role:""}`}))]}
         />
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
           <Inp label="Nome completo *" value={form.empName} onChange={F("empName")} placeholder="Nome do trabalhador"/>
           <Inp label="CPF" value={form.empCPF} onChange={v=>F("empCPF")(fmtCPF(v))} placeholder="000.000.000-00"/>
           <Inp label="Função" value={form.empFuncao} onChange={F("empFuncao")} placeholder="Pedreiro, servente..."/>
@@ -327,9 +328,9 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       </div>
 
       {/* Datas e valores */}
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.orange}`,padding:14,borderRadius:10,display:"flex",flexDirection:"column",gap:10}}>
-        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.orange,textTransform:"uppercase",letterSpacing:.8}}> Período e Valores</p>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
+      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-warning-text)",padding:"var(--arcd-space-3)",borderRadius:10,display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-warning-text)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}> Período e Valores</p>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
           <Inp label="Data de admissão *"  type="date" value={form.admissao}    onChange={F("admissao")}/>
           <Inp label="Data de rescisão *"  type="date" value={form.demissao}    onChange={F("demissao")}/>
           <Inp label="Valor mensal (R$) *" type="number" value={form.valorMensal} onChange={F("valorMensal")} placeholder="Diária x 26 dias"/>
@@ -337,14 +338,14 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         </div>
         <Sel label="Motivo da rescisão *" value={form.tipo} onChange={F("tipo")} options={RESCISSION_TYPES}/>
         {form.tipoHerdado && form.tipoHerdado === form.tipo && (
-          <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:-4}}>Herdado do desligamento registrado em Equipe - revise se necessário.</p>
+          <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:-4}}>Herdado do desligamento registrado em Equipe - revise se necessário.</p>
         )}
 
         {/* Acordo interno - campo especial */}
         {form.tipo === "acordo_interno" && (
-          <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}44`,borderLeft:`1px solid ${C.yellow}`,padding:"12px 14px",borderRadius:8,display:"flex",flexDirection:"column",gap:10}}>
-            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.yellow}}> Acordo Interno - cálculo simplificado</p>
-            <p style={{fontSize:"var(--arcd-type-body)",color:C.subtle}}>
+          <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",borderLeft:"1px solid var(--arcd-action-primary)",padding:"var(--arcd-space-3)",borderRadius:8,display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+            <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-action-primary)"}}> Acordo Interno - cálculo simplificado</p>
+            <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-muted)"}}>
               Total = Valor fixo mensal x meses ativos (+ fração proporcional de dias).
             </p>
             <Inp
@@ -355,11 +356,11 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
               placeholder={form.valorMensal ? `Sugerido: R$ ${Number(form.valorMensal).toLocaleString("pt-BR")}` : "Ex.: 3.000,00"}
             />
             {calc && calc.isAcordoInterno && (
-              <div style={{background:`${C.yellow}20`,borderRadius:8,padding:"10px 14px"}}>
-                <p style={{fontSize:"var(--arcd-type-body)",color:C.yellow,fontWeight:600}}>
+              <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 13%, transparent)",borderRadius:8,padding:"var(--arcd-space-2) var(--arcd-space-3)"}}>
+                <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>
                   {fmt(Number(form.valorFixoAcordo||form.valorMensal||0))} x {calc.mesesAtivos.toFixed(2)} meses = {fmt(calc.totalBruto)}
                 </p>
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,marginTop:3}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",marginTop:"var(--arcd-space-half)"}}>
                   ({calc.totalMeses} meses completos + {calc.diasResto} dias = {calc.mesesAtivos.toFixed(4)} meses)
                 </p>
               </div>
@@ -368,10 +369,10 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
         )}
 
         {form.admissao && form.demissao && calc && (
-          <div style={{background:`${C.yellow}12`,border:`1px solid ${C.yellow}33`,padding:"10px 14px",borderRadius:8}}>
-            <p style={{fontSize:"var(--arcd-type-body)",color:C.yellow,fontWeight:600}}>
+          <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 20%, transparent)",padding:"var(--arcd-space-2) var(--arcd-space-3)",borderRadius:8}}>
+            <p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>
                {calc.anos > 0 ? `${calc.anos} ano(s), ` : ""}{calc.totalMeses % 12} mês(es) e {calc.diasResto} dia(s) de serviço
-               <span style={{color:C.subtle}}>{calc.avos13} avo(s) para 13º e férias</span>
+               <span style={{color:"var(--arcd-text-muted)"}}>{calc.avos13} avo(s) para 13º e férias</span>
             </p>
           </div>
         )}
@@ -379,27 +380,27 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 
       {/* Verbas rescisórias - ocultar no acordo interno */}
       {form.tipo !== "acordo_interno" && (
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.green}`,padding:14,borderRadius:10,display:"flex",flexDirection:"column",gap:10}}>
-        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.green,textTransform:"uppercase",letterSpacing:.8}}> Verbas rescisórias</p>
+      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-success-text)",padding:"var(--arcd-space-3)",borderRadius:10,display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-success-text)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}> Verbas rescisórias</p>
         {[
           ["incluirSaldo",  "Saldo de salário",              true],
           ["incluir13",     "13º salário proporcional",      true],
           ["incluirFerias", "Férias proporcionais + 1/3",    true],
           ["incluirAviso",  "Aviso prévio (30 dias)",        false],
         ].map(([key, label, def]) => (
-          <label key={key} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 10px",background:form[key]?`${C.green}0d`:"transparent",borderRadius:8,border:`1px solid ${form[key]?C.green+"33":C.line}`}}>
-            <div onClick={()=>F(key)(!form[key])} style={{width:20,height:20,border:`2px solid ${form[key]?C.green:C.muted}`,background:form[key]?C.green:"transparent",borderRadius:5,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
-              {form[key] && <span style={{color:C.ink,fontSize:"var(--arcd-type-body)",fontWeight:600,lineHeight:1}}>ok</span>}
+          <label key={key} style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",cursor:"pointer",padding:"var(--arcd-space-2)",background:form[key]?"color-mix(in srgb, var(--arcd-success-text) 5%, transparent)":"transparent",borderRadius:8,border:`1px solid ${form[key]?"var(--arcd-success-text)"+"33":"var(--arcd-border-default)"}`}}>
+            <div onClick={()=>F(key)(!form[key])} style={{width:20,height:20,border:`2px solid ${form[key]?"var(--arcd-success-text)":"var(--arcd-text-secondary)"}`,background:form[key]?"var(--arcd-success-text)":"transparent",borderRadius:5,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
+              {form[key] && <span style={{color:"var(--arcd-text-primary)",fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",lineHeight:"var(--arcd-line-height-normal)"}}>ok</span>}
             </div>
             <div style={{flex:1}}>
-              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:form[key]?C.text:C.muted}}>{label}</p>
+              <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:form[key]?"var(--arcd-text-primary)":"var(--arcd-text-secondary)"}}>{label}</p>
               {calc && form[key] && (
-                <p style={{fontSize:"var(--arcd-type-label)",color:C.green,marginTop:1}}>
+                <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-success-text)",marginTop:"var(--arcd-space-0)"}}>
                   {key==="incluirSaldo"  && `${form.diasNoMes||0} dias x R$ ${Number((Number(form.valorMensal||0)/30)).toFixed(2)} = ${fmt(calc.saldoSalario)}`}
                   {key==="incluir13"     && `${calc.avos13}/12 x ${fmt(Number(form.valorMensal||0))} = ${fmt(calc.dec13)}`}
                   {key==="incluirFerias" && `${calc.avosFerias}/12 x ${fmt(Number(form.valorMensal||0))} x 4/3 = ${fmt(calc.feriasTotal)}`}
                   {key==="incluirAviso"  && (form.tipo==="sem_justa_causa"||form.tipo==="acordo_mutuo") && `${fmt(calc.avisoPrevio)}`}
-                  {key==="incluirAviso"  && form.tipo!=="sem_justa_causa" && form.tipo!=="acordo_mutuo" && <span style={{color:C.red}}>não aplicável neste tipo de rescisão</span>}
+                  {key==="incluirAviso"  && form.tipo!=="sem_justa_causa" && form.tipo!=="acordo_mutuo" && <span style={{color:"var(--arcd-danger-text)"}}>não aplicável neste tipo de rescisão</span>}
                 </p>
               )}
             </div>
@@ -409,9 +410,9 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       )} {/* fim {form.tipo !== "acordo_interno"} */}
 
       {/* Descontos */}
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderTop:`3px solid ${C.red}`,padding:14,borderRadius:10,display:"flex",flexDirection:"column",gap:10}}>
-        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,color:C.red,textTransform:"uppercase",letterSpacing:.8}}> Descontos</p>
-        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:10}}>
+      <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderTop:"3px solid var(--arcd-danger-text)",padding:"var(--arcd-space-3)",borderRadius:10,display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
+        <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-danger-text)",textTransform:"uppercase",letterSpacing:"var(--arcd-letter-spacing-body)"}}> Descontos</p>
+        <div style={{display:"grid",gridTemplateColumns:formGrid(2),gap:"var(--arcd-space-2)"}}>
           <Inp label="Adiantamentos (R$)" type="number" value={form.descAdiantamento} onChange={F("descAdiantamento")} placeholder="0,00"/>
           <Inp label="Outros descontos (R$)" type="number" value={form.descOutros} onChange={F("descOutros")} placeholder="0,00"/>
         </div>
@@ -420,25 +421,25 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
 
       {/* Resultado */}
       {calc ? (
-        <div style={{background:`${C.yellow}12`,color:C.text,padding:"18px 20px",borderRadius:12,border:`1px solid ${C.yellow}44`}}>
-          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:600,letterSpacing:1.2,textTransform:"uppercase",color:C.yellowD}}>Total líquido a receber</p>
-          <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"clamp(26px,11vw,48px)",letterSpacing:1,lineHeight:.95,color:C.text}}>{fmt(calc.totalLiquido)}</p>
-          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,marginTop:6,color:C.muted}}>{valorPorExtenso(calc.totalLiquido)}</p>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:14}}>
+        <div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)",color:"var(--arcd-text-primary)",padding:"var(--arcd-space-4) var(--arcd-space-5)",borderRadius:12,border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)"}}>
+          <p style={{fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",letterSpacing:"var(--arcd-letter-spacing-body)",textTransform:"uppercase",color:"var(--arcd-action-primary)"}}>Total líquido a receber</p>
+          <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-page-title)",letterSpacing:"var(--arcd-letter-spacing-body)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-primary)"}}>{fmt(calc.totalLiquido)}</p>
+          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-1)",color:"var(--arcd-text-secondary)"}}>{valorPorExtenso(calc.totalLiquido)}</p>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-3)"}}>
             {[
               ["Vencimentos",fmt(calc.totalBruto)],
               ["Descontos",  fmt(calc.totalDesc)],
               ["Líquido",    fmt(calc.totalLiquido)],
             ].map(([l,v])=>(
-              <div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,padding:"8px 10px",borderRadius:8}}>
-                <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,textTransform:"uppercase",color:C.muted}}>{l}</p>
-                <p style={{fontWeight:600,fontSize:"var(--arcd-type-card-title)",color:C.text}}>{v}</p>
+              <div key={l} style={{background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-2)",borderRadius:8}}>
+                <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",textTransform:"uppercase",color:"var(--arcd-text-secondary)"}}>{l}</p>
+                <p style={{fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-card-title)",color:"var(--arcd-text-primary)"}}>{v}</p>
               </div>
             ))}
           </div>
         </div>
       ) : (
-        <div style={{background:C.card,border:`1px solid ${C.border}`,padding:20,textAlign:"center",color:C.muted,borderRadius:10}}>
+        <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-5)",textAlign:"center",color:"var(--arcd-text-secondary)",borderRadius:10}}>
           Preencha nome, datas e valor mensal para calcular.
         </div>
       )}
@@ -446,40 +447,40 @@ ${fonte.obs?`<div class="declaracao"><strong>Observações:</strong> ${escapeHtm
       {/* Observações e ações */}
       <Inp label="Observações (aparece no documento)" value={form.obs} onChange={F("obs")} multiline placeholder="Informações adicionais, acordos, pendências..."/>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)"}}>
         <Btn v="ghost" onClick={()=>setForm(emptyForm)} full><Ic n="x"/> Limpar</Btn>
         <Btn v="ghost" onClick={()=>gerarPDF()} full disabled={!calc}><Ic n="file"/> Gerar PDF</Btn>
       </div>
       <Btn onClick={salvar} full disabled={!calc||salvando}><Ic n="check"/> {salvando?"Salvando e auditando...":"Salvar no histórico"}</Btn>
 
       {/* Histórico */}
-      <button onClick={()=>setHistory(h=>!h)} style={{background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"10px 14px",cursor:"pointer",borderRadius:8,fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-control)",textTransform:"uppercase",letterSpacing:.5,textAlign:"left"}}>
-        {history?" Ocultar":" Ver"} histórico de rescisões ({rescisoes.length})
-      </button>
+      <StandardButton variant="secondary" onClick={()=>setHistory(h=>!h)} style={{textTransform:"uppercase",textAlign:"left"}}>
+        {history?" Ocultar":" Ver"} Histórico de rescisões ({rescisoes.length})
+      </StandardButton>
 
       {history && rescisoes.length === 0 && (
-        <div style={{background:C.card,border:`1px solid ${C.border}`,padding:16,textAlign:"center",color:C.muted,borderRadius:10}}>
+        <div style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",padding:"var(--arcd-space-4)",textAlign:"center",color:"var(--arcd-text-secondary)",borderRadius:10}}>
           Nenhuma rescisão salva ainda.
         </div>
       )}
 
       {history && rescisoes.map(r => (
-        <div key={r.id} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`1px solid ${C.red}`,padding:"12px 16px",borderRadius:10}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+        <div key={r.id} style={{background:"var(--arcd-surface-card)",border:"1px solid var(--arcd-border-default)",borderLeft:"1px solid var(--arcd-danger-text)",padding:"var(--arcd-space-3) var(--arcd-space-4)",borderRadius:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}>
             <div>
-              <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-card-title)"}}>{r.empName}</p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:2}}>
+              <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-card-title)"}}>{r.empName}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>
                 {r.empFuncao&&`${r.empFuncao}  `}{r.obraName&&`${r.obraName}  `}
                 {fmtDateFull(r.admissao)} → {fmtDateFull(r.demissao)}
               </p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,marginTop:2}}>{RESCISSION_TYPE_LABEL[r.tipo]||r.tipo}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",marginTop:"var(--arcd-space-half)"}}>{RESCISSION_TYPE_LABEL[r.tipo]||r.tipo}</p>
             </div>
             <div style={{textAlign:"right",flexShrink:0}}>
-              <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:600,fontSize:"var(--arcd-type-section-title)",color:C.yellow,letterSpacing:.5}}>{fmt(r.totalLiquido)}</p>
-              <p style={{fontSize:"var(--arcd-type-label)",color:C.muted}}>{new Date(r.createdAt).toLocaleDateString("pt-BR")}</p>
+              <p style={{fontFamily:"var(--arcd-font-sans)",fontWeight:"var(--arcd-font-weight-semibold)",fontSize:"var(--arcd-type-section-title)",color:"var(--arcd-action-primary)",letterSpacing:"var(--arcd-letter-spacing-body)"}}>{fmt(r.totalLiquido)}</p>
+              <p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)"}}>{new Date(r.createdAt).toLocaleDateString("pt-BR")}</p>
             </div>
           </div>
-          <div style={{display:"flex",gap:6,marginTop:10}}>
+          <div style={{display:"flex",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>
             {/* "Reabrir" só existe para registro cancelado - salvar() sempre
                 cria uma rescisão NOVA (id:uid(), único comando é
                 PAYROLL_RESCISSION_CREATED, não existe comando de edição).

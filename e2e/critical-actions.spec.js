@@ -163,4 +163,16 @@ test.describe("ações críticas", () => {
     else await page.getByRole("button", { name:"Insumos e Curva ABC",exact:true }).click();
     await expect(page.getByText(/Curva calculada pelos itens do orçamento/)).toBeVisible();
   });
+
+  test('célula de descrição cresce e Escape restaura o texto sem substituir a composição',async({page},info)=>{
+    await abrirOrcamento(page);const description=page.locator('textarea.budget-cell.is-desc').first();await expect(description).toBeVisible();
+    const original=await description.inputValue();await description.fill('Descrição longa para revisão da composição e da unidade. '.repeat(8));
+    expect(await description.evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThan(26);
+    await description.press('Escape');await expect(description).toHaveValue(original);await expect(description).not.toBeFocused();
+    const menu=page.getByRole('button',{name:'Mais ações da etapa 1',exact:true});
+    await expect(menu.locator('svg')).toBeVisible();
+    await menu.click();await expect(page.getByRole('menuitem',{name:'Editar nome e posição',exact:true})).toBeVisible();await menu.press('Escape');
+    await page.screenshot({path:info.outputPath('orcamento-padrao.png')});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  });
 });

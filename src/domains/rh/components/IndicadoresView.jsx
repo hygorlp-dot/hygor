@@ -38,14 +38,14 @@ function Indicadores({ data }) {
     .sort((a, b) => a.employee.name.localeCompare(b.employee.name));
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1280, margin: "0 auto" }}>
+    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)", maxWidth: 1280, margin: "var(--arcd-space-0) auto" }}>
       <PageHero
         eyebrow="Recursos Humanos"
         title="Indicadores"
         description="Visão consolidada de quadro, movimentação, adiantamentos e documentação da equipe."
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: cols(2, 3, 3), gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: cols(2, 3, 3), gap: "var(--arcd-space-2)" }}>
         <MiniKpi label="Funcionários ativos" value={headcount.ativo} cor={C.blue} sub={`${headcount.total} no total`} />
         <MiniKpi label="Desligamento agendado" value={headcount.desligamento_agendado} cor={headcount.desligamento_agendado ? C.orange : C.muted} />
         <MiniKpi label="Admissões no mês" value={turnover.admissions} cor={turnover.admissions ? C.green : C.muted} />
@@ -54,15 +54,15 @@ function Indicadores({ data }) {
         <MiniKpi label="Documentação vencida" value={compliance.withExpiredCount} cor={compliance.withExpiredCount ? C.red : C.green} sub={`de ${compliance.activeCount} ativos`} />
       </div>
 
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px" }}>
+      <div style={{ background: "var(--arcd-surface-card)", border: "1px solid var(--arcd-border-default)", borderRadius: 8, padding: "var(--arcd-space-3)" }}>
         <p style={TYPO.eyebrow}>Documentos e certificações vencidos</p>
-        {pendentes.length === 0 && <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 8 }}>Nenhum funcionário ativo com ASO ou treinamento (NR) vencido.</p>}
+        {pendentes.length === 0 && <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-2)" }}>Nenhum funcionário ativo com ASO ou treinamento (NR) vencido.</p>}
         {pendentes.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)", marginTop: "var(--arcd-space-2)" }}>
             {pendentes.map(({ employee, expired }) => (
-              <div key={employee.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>{employee.name}</span>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <div key={employee.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)", padding: "var(--arcd-space-2) var(--arcd-space-0)", borderBottom: "1px solid var(--arcd-border-default)" }}>
+                <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{employee.name}</span>
+                <div style={{ display: "flex", gap: "var(--arcd-space-1)", flexWrap: "wrap", justifyContent: "flex-end" }}>
                   {expired.map(label => <Badge key={label} color={C.red}>{label}</Badge>)}
                 </div>
               </div>
@@ -71,7 +71,7 @@ function Indicadores({ data }) {
         )}
       </div>
 
-      <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Indicadores calculados em {fmtDateFull(asOf)}. Custo de folha por obra ainda não entra neste painel - depende do motor de custo de mão de obra por competência (src/domains/financeiro/labor-cost-engine.js), que exige seleção de obra e período; fica para uma próxima rodada.</p>
+      <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Indicadores calculados em {fmtDateFull(asOf)}. Custo de folha por obra ainda não entra neste painel - depende do motor de custo de mão de obra por competência (src/domains/financeiro/labor-cost-engine.js), que exige seleção de obra e período; fica para uma próxima rodada.</p>
     </div>
   );
 }

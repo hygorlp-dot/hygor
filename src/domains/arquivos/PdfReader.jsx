@@ -1,3 +1,4 @@
+import {SelectControl} from '../../design-system/primitives/Select.jsx';
 import {useEffect,useRef,useState} from 'react';
 import {getDocument,GlobalWorkerOptions} from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -15,7 +16,7 @@ export default function PdfReader({url,name,onError}){
   return <div className="work-pdf-reader"><Input label={`Buscar no texto do PDF · ${name}`} type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Digite uma palavra ou expressão" />
     <p role="status">{indexing?'Preparando busca no texto…':!pages.some(text=>text.trim())?'PDF sem texto extraível. Documentos digitalizados precisam de OCR.':query.trim()?`${matches.length} página(s) encontrada(s).`:'A busca lê todas as páginas deste PDF.'}</p>
     {Boolean(matches.length)&&<ol className="work-pdf-matches">{matches.map(match=><li key={match.page}><Button variant="link" onClick={()=>setPage(match.page)}>Ir para página {match.page}</Button><p>{match.text.slice(Math.max(0,normalize(match.text).indexOf(normalize(query))-55),Math.max(0,normalize(match.text).indexOf(normalize(query))-55)+200)}</p></li>)}</ol>}
-    <div className="work-files-actions" aria-label={`Páginas de ${name}`}><Button variant="outline" disabled={!pdf||page===1} onClick={()=>setPage(n=>n-1)}>Anterior</Button><label>Zoom do PDF<select aria-label="Zoom do PDF" value={zoom} onChange={event=>setZoom(Number(event.target.value))}>{[0.75,1,1.5,2].map(value=><option key={value} value={value}>{value*100}%</option>)}</select></label><span>Página {page} de {pdf?.numPages||'…'}</span><Button variant="outline" disabled={!pdf||page>=pdf.numPages} onClick={()=>setPage(n=>n+1)}>Próxima</Button></div>
+    <div className="work-files-actions" aria-label={`Páginas de ${name}`}><Button variant="outline" disabled={!pdf||page===1} onClick={()=>setPage(n=>n-1)}>Anterior</Button><label>Zoom do PDF<SelectControl aria-label="Zoom do PDF" value={zoom} onChange={event=>setZoom(Number(event.target.value))}>{[0.75,1,1.5,2].map(value=><option key={value} value={value}>{value*100}%</option>)}</SelectControl></label><span>Página {page} de {pdf?.numPages||'…'}</span><Button variant="outline" disabled={!pdf||page>=pdf.numPages} onClick={()=>setPage(n=>n+1)}>Próxima</Button></div>
     <div className="work-file-viewer-surface" tabIndex={0} aria-label={`Página do PDF · ${name}`}><canvas ref={canvas} style={{width:`${zoom*100}%`,maxWidth:'none'}} role="img" aria-label={`${name}, página ${page}`} /></div>
   </div>;
 }

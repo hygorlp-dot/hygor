@@ -2733,6 +2733,18 @@ Alterar o formulário não salva automaticamente. O acesso aos serviços e às m
 
 ## Aparência, botões e navegação
 
+### Arquivos de obra e orçamento
+
+Use Importar planilha para escolher o arquivo Excel e Selecionar PDF na leitura estrutural do Orçamento. No Diário de obra, use Selecionar áudio, Selecionar anexo ou Usar câmera. Na Conferência, use Usar câmera ou Selecionar fotos. O navegador pode oferecer câmera ou arquivos conforme o dispositivo. Confira a obra, o tipo de arquivo e o resultado apresentado antes de continuar.
+
+### Documentos do funcionário
+
+No prontuário, escolha a categoria e as datas, use Selecionar documento do prontuário e confira o arquivo. Use Salvar documento para concluir o envio. Essa escolha não altera o vínculo, o ponto ou a folha do funcionário.
+
+### Editar a planilha do orçamento
+
+Nas células de texto, Enter confirma a edição e Escape descarta o texto que ainda está sendo editado. Descrições longas podem ocupar mais de uma linha. Confira a versão, a etapa e a unidade antes de alterar quantidades ou preços. Use os controles da barra para escolher a consulta; não confunda a seleção de uma linha com salvar uma alteração.
+
 ### Exportar a fila de Compras
 
 Na Fila de trabalho, use Exportar para Excel junto à contagem de registros, também no celular. A planilha acompanha a busca, os filtros e a obra da consulta. Confira o recorte antes de baixar; exportar não altera os registros.

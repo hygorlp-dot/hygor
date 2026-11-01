@@ -1,3 +1,7 @@
+import {Button as StandardButton} from '../../../components/ui/button.jsx';
+import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
+import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
+import {Input as StandardInput} from '../../../components/ui/input.jsx';
 import {PageHeader} from "../../../design-system/patterns/PageHeader.jsx";
 import {EmptyState} from "../../../design-system/patterns/FeedbackState.jsx";
 // A consulta preserva as batidas originais; a integração exige conferência explícita do RH.
@@ -270,8 +274,8 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
     </PageHeader>
 
     <div className="pe-tabs" role="tablist" aria-label="Consultas do ponto eletrônico" onKeyDown={navegarAbas}>
-      <button ref={batidasTabRef} id="pe-tab-batidas" type="button" role="tab" aria-selected={aba === "batidas"} aria-controls="pe-panel-batidas" tabIndex={aba === "batidas" ? 0 : -1} onClick={() => setAba("batidas")}>Batidas</button>
-      <button ref={bancoTabRef} id="pe-tab-banco" type="button" role="tab" aria-selected={aba === "banco"} aria-controls="pe-panel-banco" tabIndex={aba === "banco" ? 0 : -1} onClick={() => setAba("banco")}>Banco de horas</button>
+      <StandardButton variant="secondary" ref={batidasTabRef} id="pe-tab-batidas" type="button" role="tab" aria-selected={aba === "batidas"} aria-controls="pe-panel-batidas" tabIndex={aba === "batidas" ? 0 : -1} onClick={() => setAba("batidas")}>Batidas</StandardButton>
+      <StandardButton variant="secondary" ref={bancoTabRef} id="pe-tab-banco" type="button" role="tab" aria-selected={aba === "banco"} aria-controls="pe-panel-banco" tabIndex={aba === "banco" ? 0 : -1} onClick={() => setAba("banco")}>Banco de horas</StandardButton>
     </div>
 
     <div className="pe-context">
@@ -312,7 +316,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
           abrirDetalhe={abrirDetalhe} showToast={showToast} disabled={recursos.marcacoes.loading || !!recursos.marcacoes.error}/>
           {!!acessosTerceiros.length && <details className="pe-thirdparty">
             <summary>Acessos de terceirizados ({acessosTerceiros.length})</summary>
-            <ul className="pe-simple-list">{acessosTerceiros.map(a => <li key={a.id}><span>{nomeDaMarcacao(a)}</span><button type="button" className="pe-punch" onClick={() => abrirDetalhe(a)} aria-label={`Ver acesso de ${nomeDaMarcacao(a)} às ${horaLocal(a.marcadoEm).slice(0, 5)}`}>{horaLocal(a.marcadoEm).slice(0, 5)}</button></li>)}</ul>
+            <ul className="pe-simple-list">{acessosTerceiros.map(a => <li key={a.id}><span>{nomeDaMarcacao(a)}</span><RecordAction type="button" className="pe-punch" onClick={() => abrirDetalhe(a)} aria-label={`Ver acesso de ${nomeDaMarcacao(a)} às ${horaLocal(a.marcadoEm).slice(0, 5)}`}>{horaLocal(a.marcadoEm).slice(0, 5)}</RecordAction></li>)}</ul>
           </details>}
       </>}
 
@@ -342,7 +346,7 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
             <p className="pe-muted">O rosto é cadastrado no aparelho da obra por um responsável com PIN, com o consentimento do funcionário (LGPD).</p>
             <EstadoRecurso recurso={recursos.biometrias} nome="os cadastros de biometria" />
             {recursos.biometrias.success && <>
-              <label className="pe-check"><input type="checkbox" checked={somenteBioPendente} onChange={event => setSomenteBioPendente(event.target.checked)} />Mostrar somente cadastros pendentes</label>
+              <label className="pe-check"><ChoiceControl type="checkbox" checked={somenteBioPendente} onChange={event => setSomenteBioPendente(event.target.checked)} />Mostrar somente cadastros pendentes</label>
               {!funcionariosBio.length ? <p className="pe-empty">{funcionarios.length ? "Todos os funcionários lotados nesta obra têm biometria cadastrada." : "Nenhum funcionário ativo lotado nesta obra."}</p>
                 : <div className="pe-record-list">{funcionariosBio.map(f => {
                   const b = bioPorFuncionario.get(String(f.id));
@@ -406,11 +410,11 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
       <form className="pe-form" onSubmit={event => { event.preventDefault(); salvarPin(); }}>
         {erroAcao && <p className="pe-inline-error" role="alert">{erroAcao}</p>}
         <Sel label="Responsável" value={pinModal.userId} disabled={ocupado} onChange={v => setPinModal(p => ({ ...p, userId: v }))} options={[{ v: "", l: "Selecione" }, ...(data?.usuarios || []).filter(u => u.active !== false).map(u => ({ v: String(u.id), l: u.nome || u.email }))]} />
-        <label className="arcd-field pe-native-field" htmlFor="pe-pin"><span>PIN do app</span><input id="pe-pin" className="arcd-field-control" type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} autoComplete="new-password" aria-describedby="pe-pin-hint" disabled={ocupado} value={pinModal.pin} onChange={event => setPinModal(p => ({ ...p, pin: event.target.value.replace(/\D/g, "").slice(0, 8) }))} /><small id="pe-pin-hint">Use de 4 a 8 números. Este PIN é exclusivo do app de ponto.</small></label>
+        <label className="arcd-field pe-native-field" htmlFor="pe-pin"><span>PIN do app</span><StandardInput id="pe-pin" className="arcd-field-control" type="password" inputMode="numeric" pattern="[0-9]{4,8}" minLength={4} maxLength={8} autoComplete="new-password" aria-describedby="pe-pin-hint" disabled={ocupado} value={pinModal.pin} onChange={event => setPinModal(p => ({ ...p, pin: event.target.value.replace(/\D/g, "").slice(0, 8) }))} /><small id="pe-pin-hint">Use de 4 a 8 números. Este PIN é exclusivo do app de ponto.</small></label>
         <fieldset className="pe-scope"><legend>Obras em que pode atuar</legend>
-          <label className="pe-check"><input type="radio" name="pe-pin-scope" value="todas" checked={pinModal.escopo === "todas"} disabled={ocupado} onChange={() => setPinModal(p => ({ ...p, escopo: "todas" }))} />Todas as obras</label>
-          <label className="pe-check"><input type="radio" name="pe-pin-scope" value="selecionadas" checked={pinModal.escopo === "selecionadas"} disabled={ocupado} onChange={() => setPinModal(p => ({ ...p, escopo: "selecionadas" }))} />Somente as obras selecionadas</label>
-          {pinModal.escopo === "selecionadas" && <div className="pe-work-options">{obras.map(o => <label key={o.id} className="pe-check"><input type="checkbox" checked={pinModal.obras.includes(String(o.id))} disabled={ocupado} onChange={event => setPinModal(p => ({ ...p, obras: event.target.checked ? [...p.obras, String(o.id)] : p.obras.filter(id => id !== String(o.id)) }))} />{o.name}</label>)}{!pinModal.obras.length && <p className="pe-warning" role="status">Selecione pelo menos uma obra ou escolha “Todas as obras”.</p>}</div>}
+          <label className="pe-check"><ChoiceControl type="radio" name="pe-pin-scope" value="todas" checked={pinModal.escopo === "todas"} disabled={ocupado} onChange={() => setPinModal(p => ({ ...p, escopo: "todas" }))} />Todas as obras</label>
+          <label className="pe-check"><ChoiceControl type="radio" name="pe-pin-scope" value="selecionadas" checked={pinModal.escopo === "selecionadas"} disabled={ocupado} onChange={() => setPinModal(p => ({ ...p, escopo: "selecionadas" }))} />Somente as obras selecionadas</label>
+          {pinModal.escopo === "selecionadas" && <div className="pe-work-options">{obras.map(o => <label key={o.id} className="pe-check"><ChoiceControl type="checkbox" checked={pinModal.obras.includes(String(o.id))} disabled={ocupado} onChange={event => setPinModal(p => ({ ...p, obras: event.target.checked ? [...p.obras, String(o.id)] : p.obras.filter(id => id !== String(o.id)) }))} />{o.name}</label>)}{!pinModal.obras.length && <p className="pe-warning" role="status">Selecione pelo menos uma obra ou escolha “Todas as obras”.</p>}</div>}
         </fieldset>
         <Btn type="submit" disabled={ocupado || !pinModal.userId || pinModal.pin.length < 4 || (pinModal.escopo === "selecionadas" && !pinModal.obras.length)} loading={acaoEmCurso === "pin" ? "Salvando PIN…" : false}>Salvar PIN</Btn>
       </form>
@@ -425,9 +429,9 @@ export default function PontoEletronicoView({ data, showToast, currentUser, disp
         {estabModal.tipoInscricao && <Inp label={`Número do ${estabModal.tipoInscricao.toUpperCase()}`} value={estabModal.numeroInscricao || ""} disabled={ocupado} onChange={v => setEstabModal(e => ({ ...e, numeroInscricao: v }))} />}
         <Inp label="CNO (12 dígitos)" value={estabModal.cno || ""} disabled={ocupado} onChange={v => setEstabModal(e => ({ ...e, cno: v }))} />
         <Inp label="CAEPF (14 dígitos)" value={estabModal.caepf || ""} disabled={ocupado} onChange={v => setEstabModal(e => ({ ...e, caepf: v }))} />
-        <label className="arcd-field pe-native-field" htmlFor="pe-timezone"><span>Fuso horário</span><input id="pe-timezone" className="arcd-field-control" type="text" list="pe-timezones" aria-describedby="pe-timezone-hint" value={estabModal.timezone ?? "America/Recife"} disabled={ocupado} onChange={event => setEstabModal(e => ({ ...e, timezone: event.target.value }))} /><small id="pe-timezone-hint">{FUSOS[estabModal.timezone] || "Use um fuso IANA, como America/Recife."}</small></label>
+        <label className="arcd-field pe-native-field" htmlFor="pe-timezone"><span>Fuso horário</span><StandardInput id="pe-timezone" className="arcd-field-control" type="text" list="pe-timezones" aria-describedby="pe-timezone-hint" value={estabModal.timezone ?? "America/Recife"} disabled={ocupado} onChange={event => setEstabModal(e => ({ ...e, timezone: event.target.value }))} /><small id="pe-timezone-hint">{FUSOS[estabModal.timezone] || "Use um fuso IANA, como America/Recife."}</small></label>
         <datalist id="pe-timezones">{Object.entries(FUSOS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</datalist>
-        {!estabModal.id && <label className="pe-check"><input type="checkbox" checked={Boolean(estabModal.vincular)} disabled={ocupado} onChange={event => setEstabModal(e => ({ ...e, vincular: event.target.checked }))} />Vincular a obra {estabModal.obraNome} a este estabelecimento</label>}
+        {!estabModal.id && <label className="pe-check"><ChoiceControl type="checkbox" checked={Boolean(estabModal.vincular)} disabled={ocupado} onChange={event => setEstabModal(e => ({ ...e, vincular: event.target.checked }))} />Vincular a obra {estabModal.obraNome} a este estabelecimento</label>}
         <Btn type="submit" disabled={ocupado || !String(estabModal.nome || "").trim()} loading={acaoEmCurso === "estabelecimento" ? "Salvando…" : false}>Salvar estabelecimento</Btn>
       </form>
     </Modal>}

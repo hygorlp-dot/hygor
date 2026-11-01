@@ -1,3 +1,4 @@
+import {ChoiceControl} from '../../design-system/primitives/ChoiceControl.jsx';
 import { useState } from "react";
 import { Play, Pause, ExternalLink } from "lucide-react";
 import { Button } from "../../components/ui/button.jsx";
@@ -27,7 +28,7 @@ function TaskCard({ task, project, users, currentUser, now, active, busy, editab
     <p className="engineering-duration">{formatDuration(taskSeconds(project, task.id, now))} / {Number(task.plannedHours || 0).toLocaleString("pt-BR")} h previstas</p>
     {blocked && <p className="engineering-blocked">{blocked}</p>}
     {task.description && <p>{task.description}</p>}
-    {progress.total > 0 && <fieldset className="engineering-checklist"><legend>Checklist · {progress.done}/{progress.total}{pendingChecklist ? " · salvando…" : ""}</legend>{task.checklist.map(item => <label key={item.id}><input type="checkbox" aria-label={`Checklist · ${task.title} · ${item.text}`} checked={pendingChecklist?.id === item.id ? pendingChecklist.done : item.done} disabled={busy || !editable || task.status === "concluida"} onChange={async event => { const done = event.target.checked; setPendingChecklist({ id: item.id, done }); await send(CMD.ENG_CHECKLIST_TOGGLED, project.id, { taskId: task.id, itemId: item.id, done }, project.version); setPendingChecklist(null); }} /><span>{item.text}</span></label>)}</fieldset>}
+    {progress.total > 0 && <fieldset className="engineering-checklist"><legend>Checklist · {progress.done}/{progress.total}{pendingChecklist ? " · salvando…" : ""}</legend>{task.checklist.map(item => <label key={item.id}><ChoiceControl type="checkbox" aria-label={`Checklist · ${task.title} · ${item.text}`} checked={pendingChecklist?.id === item.id ? pendingChecklist.done : item.done} disabled={busy || !editable || task.status === "concluida"} onChange={async event => { const done = event.target.checked; setPendingChecklist({ id: item.id, done }); await send(CMD.ENG_CHECKLIST_TOGGLED, project.id, { taskId: task.id, itemId: item.id, done }, project.version); setPendingChecklist(null); }} /><span>{item.text}</span></label>)}</fieldset>}
     {task.dependencies?.length > 0 && <p className="engineering-task-dependencies">Depende de: {task.dependencies.map(id => project.tasks.find(item => item.id === id)?.title || "Atividade indisponível").join("; ")}</p>}
     {link && <div className="engineering-task-delivery"><p>{link.title} · {revision ? `R${String(revision.number).padStart(2, "0")} · ${REVISION_STATUSES[revision.status]}` : "Sem revisão enviada"}</p>{task.requireReview && <Badge>Exige aprovação</Badge>}{url && <a href={url} target="_blank" rel="noopener noreferrer">Abrir entrega<ExternalLink size={14} aria-hidden="true" /></a>}</div>}
     <div className="engineering-actions">

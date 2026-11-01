@@ -1,3 +1,5 @@
+import {SelectControl} from '../../../design-system/primitives/Select.jsx';
+import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ClipboardList, Download, FileText, RefreshCw, X } from "lucide-react";
 import { Button } from "../../../components/ui/button.jsx";
@@ -23,7 +25,7 @@ const messageText = message => typeof message === "string" ? message : message?.
 
 function SelectField({ label, value, onChange, children, disabled = false }) {
   const id = useId();
-  return <div className="lp-field"><Label htmlFor={id}>{label}</Label><select id={id} value={value} onChange={event => onChange(event.target.value)} disabled={disabled}>{children}</select></div>;
+  return <div className="lp-field"><Label htmlFor={id}>{label}</Label><SelectControl id={id} value={value} onChange={event => onChange(event.target.value)} disabled={disabled}>{children}</SelectControl></div>;
 }
 
 function ScrollTable({ label, children }) {
@@ -165,7 +167,7 @@ export default function LaborProjectionReport({ requestReport, onOpenPending, in
       <SelectField label="Remuneração" value={draft.mode} onChange={value => patch("mode", value)}><option value="">Todas as modalidades</option>{array(options.modes).map(mode => <option key={optionValue(mode)} value={optionValue(mode)}>{typeof mode === "string" ? laborProjectionMode(mode) : optionLabel(mode)}</option>)}</SelectField>
       <SelectField label="Função" value={draft.role} onChange={value => patch("role", value)}><option value="">Todas as funções</option>{array(options.roles).map(role => <option key={optionValue(role)} value={optionValue(role)}>{optionLabel(role)}</option>)}</SelectField>
       {canViewPeople && <SelectField label="Pessoa" value={draft.employeeId} onChange={value => patch("employeeId", value)}><option value="">Todas as pessoas permitidas</option>{array(options.employees).map(person => <option key={person.id} value={person.id}>{person.name}</option>)}</SelectField>}
-    </div><div className="lp-filter-footer"><label className="lp-checkbox"><input type="checkbox" checked={draft.onlyIssues} onChange={event => patch("onlyIssues", event.target.checked)} /><span>Somente pendências</span></label><div><Button type="submit" variant="outline">Aplicar filtros</Button><Button type="button" variant="ghost" onClick={() => { setDraft({ ...EMPTY_FILTERS }); load(EMPTY_FILTERS); }}>Limpar filtros</Button></div></div></fieldset></form>
+    </div><div className="lp-filter-footer"><label className="lp-checkbox"><ChoiceControl type="checkbox" checked={draft.onlyIssues} onChange={event => patch("onlyIssues", event.target.checked)} /><span>Somente pendências</span></label><div><Button type="submit" variant="outline">Aplicar filtros</Button><Button type="button" variant="ghost" onClick={() => { setDraft({ ...EMPTY_FILTERS }); load(EMPTY_FILTERS); }}>Limpar filtros</Button></div></div></fieldset></form>
     {changed && <p className="lp-note lp-draft-notice" role="status">Filtros em edição. A tela e as exportações continuam usando a última consulta confirmada até aplicar os filtros.</p>}
 
     <div className="lp-results" aria-busy={loading}>

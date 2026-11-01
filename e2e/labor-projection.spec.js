@@ -81,15 +81,15 @@ test("Obras e Administração Central separam Folha e Gestão do ponto sem alter
   const group = () => page.getByRole("navigation", { name: "Grupo da equipe", exact: true });
   for (const [screen, selector] of [["Folha", ".payroll-workspace"], ["Gestão do ponto", ".ponto-geral"], ["Ponto por obra", ".obra-attendance"]]) {
     await navigate(page, screen);
-    await selectWorkspaceArea(page,'Grupo da equipe','Administração Central');
+    await page.locator('.labor-area-tabs').getByRole('button',{name:'Administrativo',exact:true}).click();
     const content = page.locator(selector);
     for (const name of ["Pessoa administrativa QA", "Engenheira local QA", "Mestre local QA"]) await expect(content).toContainText(name);
     await expect(content).not.toContainText("Pessoa de campo QA");
-    await selectWorkspaceArea(page,'Grupo da equipe','Obras');
+    await page.locator('.labor-area-tabs').getByRole('button',{name:'Pessoal de obra',exact:true}).click();
     await expect(content).toContainText("Pessoa de campo QA");
     await expect(content).not.toContainText("Engenheira local QA");
     await expect(content).not.toContainText("Mestre local QA");
-    await selectWorkspaceArea(page,'Grupo da equipe','Consolidado');
+    await page.locator('.labor-area-tabs').getByRole('button',{name:'Todos',exact:true}).click();
     await expect(content).toContainText("Mestre local QA");
   }
   await page.screenshot({ path: testInfo.outputPath("grupos-do-ponto.png"), fullPage: true });

@@ -1,4 +1,4 @@
-.amendment-workspace{margin:16px 0;min-width:0;overflow-wrap:anywhere}
-.amendment-workspace label{display:grid;gap:6px;min-width:0}
-.amendment-workspace select{min-height:44px;max-width:100%;width:100%;padding:8px;background:var(--arcd-surface-card);color:var(--arcd-text-primary);border:1px solid var(--arcd-border-strong);border-radius:var(--arcd-radius-md)}
+.amendment-workspace{margin:var(--arcd-space-4) 0;min-width:0;overflow-wrap:anywhere}
+.amendment-workspace label{display:grid;gap:var(--arcd-space-1);min-width:0}
+.amendment-workspace select{min-height:44px;max-width:100%;width:100%;padding:var(--arcd-space-2);background:var(--arcd-surface-card);color:var(--arcd-text-primary);border:1px solid var(--arcd-border-strong);border-radius:var(--arcd-radius-md)}
 .amendment-workspace :focus-visible{outline:2px solid var(--arcd-focus-ring);outline-offset:2px}

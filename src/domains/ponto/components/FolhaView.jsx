@@ -1,3 +1,6 @@
+import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
+import {SelectControl} from '../../../design-system/primitives/Select.jsx';
+import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
 import { sessionContext } from "../../../lib/session-context.js";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 import { DreIntegration, FlowTabs, useRememberWorkflowScope, useWorkflow } from "../../../features/workflow/WorkflowNavigation.jsx";
@@ -899,7 +902,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
       {payrollView==="union"&&<section className="payroll-union" aria-labelledby="union-title">
         <header className="payroll-union__header">
           <div><h3 id="union-title">Desconto e recolhimento sindical</h3><p>Defina uma regra por função. O valor reduz o líquido do funcionário e fica separado como sindicato a recolher pela construtora.</p></div>
-          <label className="payroll-union__switch"><input type="checkbox" checked={unionDraft.enabled} onChange={e=>setUnionDraft(d=>({...d,enabled:e.target.checked}))}/><span>{unionDraft.enabled?"Regra ativa":"Regra inativa"}</span></label>
+          <label className="payroll-union__switch"><ChoiceControl type="checkbox" checked={unionDraft.enabled} onChange={e=>setUnionDraft(d=>({...d,enabled:e.target.checked}))}/><span>{unionDraft.enabled?"Regra ativa":"Regra inativa"}</span></label>
         </header>
         <div className="payroll-union__notice" role="note"><Ic n="alert"/><span>Aplique o desconto somente quando houver autorização ou base legal válida. A vigência impede que competências anteriores sejam recalculadas.</span></div>
         <div className="payroll-union__fields">
@@ -913,7 +916,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           <div className="payroll-section-heading"><div><h3>Classificação das funções</h3><p>Cargos não classificados permanecem isentos para evitar desconto indevido.</p></div><span className="payroll-scope-chip">{roleCatalog.length} função(ões)</span></div>
           {roleCatalog.length===0?<div className="payroll-union__empty">Cadastre funcionários e suas funções para classificá-los.</div>:roleCatalog.map(role=>{
             const key=normalizeRoleKey(role);const count=(data.employees||[]).filter(e=>normalizeRoleKey(e.role)===key).length;
-            return <div className="payroll-union__role" key={key}><div><strong>{role}</strong><span>{count} funcionário(s)</span></div><select aria-label={`Classificação sindical de ${role}`} value={unionDraft.roleGroups[key]||UNION_DUE_GROUP.EXEMPT} onChange={e=>setUnionDraft(d=>({...d,roleGroups:{...d.roleGroups,[key]:e.target.value}}))}><option value={UNION_DUE_GROUP.PROFESSIONAL}>Profissional</option><option value={UNION_DUE_GROUP.HELPER}>Ajudante</option><option value={UNION_DUE_GROUP.EXEMPT}>Isento</option></select></div>;
+            return <div className="payroll-union__role" key={key}><div><strong>{role}</strong><span>{count} funcionário(s)</span></div><SelectControl aria-label={`Classificação sindical de ${role}`} value={unionDraft.roleGroups[key]||UNION_DUE_GROUP.EXEMPT} onChange={e=>setUnionDraft(d=>({...d,roleGroups:{...d.roleGroups,[key]:e.target.value}}))}><option value={UNION_DUE_GROUP.PROFESSIONAL}>Profissional</option><option value={UNION_DUE_GROUP.HELPER}>Ajudante</option><option value={UNION_DUE_GROUP.EXEMPT}>Isento</option></SelectControl></div>;
           })}
         </div>
         <div className="payroll-union__roles payroll-union__exemptions">
@@ -927,7 +930,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
               const exempt=(unionDraft.exemptionsByPeriod[unionPeriodKey]||[]).includes(String(r.id));
               return <label className="payroll-union__role payroll-union__exemption" key={r.id}>
                 <div><strong>{r.name}</strong><span>{r.role||"Funcionário"} · {unionDueGroupForEmployee(r,unionDraft)===UNION_DUE_GROUP.PROFESSIONAL?"Profissional":"Ajudante"}</span></div>
-                <span className="payroll-union__exemption-check"><input type="checkbox" checked={exempt} onChange={e=>toggleEmployeeExemption(r.id,e.target.checked)}/> Não paga nesta quinzena</span>
+                <span className="payroll-union__exemption-check"><ChoiceControl type="checkbox" checked={exempt} onChange={e=>toggleEmployeeExemption(r.id,e.target.checked)}/> Não paga nesta quinzena</span>
               </label>;
             })}
         </div>
@@ -961,12 +964,12 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
           <h3>Quinzena fechada</h3>
           <p>{closedTitles.length} pagamento(s) · {fmt(closedTotal)} · vencimento {fmtDateFull(closedTitles[0].vencimento)} · fechada por {closedTitles[0].fechadoFolhaPor||"—"} em {fmtDate(String(closedTitles[0].fechadoFolhaEm||"").slice(0,10))}.</p>
           <p>Os pagamentos estão em contas a pagar e são baixados pela conciliação do extrato.</p>
-          {closingDivergences.length>0&&<p role="alert" style={{color:C.red}}><Ic n="alert"/> O ponto mudou depois do fechamento para {closingDivergences.length} funcionário(s). Reabra a quinzena para refazer os pagamentos.</p>}
+          {closingDivergences.length>0&&<p role="alert" style={{color:"var(--arcd-danger-text)"}}><Ic n="alert"/> O ponto mudou depois do fechamento para {closingDivergences.length} funcionário(s). Reabra a quinzena para refazer os pagamentos.</p>}
           {canManageClosing&&<Btn v="ghost" disabled={!isCompanyScope} onClick={()=>setClosingModal("reopen")}>Reabrir quinzena</Btn>}
         </>:<>
           <h3>Fechamento da quinzena</h3>
           <p>Fechar transforma o líquido de cada funcionário em um pagamento a fazer, dividido por obra, com vencimento em {paymentDateLabel}.</p>
-          {closingBlockers.map(reason=><p key={reason} style={{color:C.red}}><Ic n="alert"/> {reason}</p>)}
+          {closingBlockers.map(reason=><p key={reason} style={{color:"var(--arcd-danger-text)"}}><Ic n="alert"/> {reason}</p>)}
           {canManageClosing&&<Btn v="primary" disabled={closingBlockers.length>0||!rows.some(r=>r.net>0)} onClick={()=>setClosingModal("close")}><Ic n="check"/> Fechar quinzena</Btn>}
         </>}
       </section>
@@ -983,7 +986,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
         const hasIssue=v.semRegistro>0||v.faltas>0;
         return (
         <article key={r.id} className="payroll-person" data-expanded={expandedId===r.id}>
-          <button
+          <RecordAction
             type="button"
             className="payroll-person__trigger"
             aria-expanded={expandedId===r.id}
@@ -1011,7 +1014,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
               {v.advances > 0 && <span>Adiantamento: − {fmt(v.advances)}</span>}
               {v.unionDue > 0 && <span>Sindicato: − {fmt(v.unionDue)}</span>}
             </div>
-          </button>
+          </RecordAction>
 
           {expandedId === r.id && (
             <div id={`payroll-detail-${r.id}`} className="payroll-person__detail">
@@ -1026,7 +1029,7 @@ function Folha({ data, showToast, onTab, currentUser, dispatchCommand }) {
                 ].map(([label, value, color]) => (
                   <div key={label} className="payroll-detail-metric">
                     <p>{label}</p>
-                    <strong style={{color:color||C.text}}>{value}</strong>
+                    <strong style={{color:color||"var(--arcd-text-primary)"}}>{value}</strong>
                   </div>
                 ))}
               </div>

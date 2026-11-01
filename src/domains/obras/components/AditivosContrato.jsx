@@ -1,3 +1,4 @@
+import {SelectControl} from '../../../design-system/primitives/Select.jsx';
 import ForecastReviewHistory from '../../../features/financeiro/ForecastReviewHistory.jsx';
 import ForecastDuplicationWarnings from '../../../features/financeiro/ForecastDuplicationWarnings.jsx';
 import {forecastDuplicationWarnings} from '../../financeiro/forecast-duplication.js';
@@ -67,27 +68,27 @@ export function AditivosContrato({ obra, data={}, currentUser, dispatchCommand, 
     await enviar({ type:OPERATIONAL_COMMAND.CONTRACT_AMENDMENT_CANCELLED, payload:{ obraId:obra.id, amendmentId:item.id, expectedVersion:item.version, reason:motivo } }, "Aditivo cancelado.");
   };
 
-  return <section className="amendment-workspace" style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:8, padding:"12px 14px", display:"flex", flexDirection:"column", gap:8 }} aria-label="Mudanças e aditivos">
-    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+  return <section className="amendment-workspace" style={{ background:"var(--arcd-surface-card)", border:"1px solid var(--arcd-border-default)", borderRadius:8, padding:"var(--arcd-space-3)", display:"flex", flexDirection:"column", gap:"var(--arcd-space-2)" }} aria-label="Mudanças e aditivos">
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:"var(--arcd-space-2)", flexWrap:"wrap" }}>
       <div>
-        <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:600, color:C.text }}>Mudanças e aditivos</p>
-        <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted }}>Contrato vigente {fmt(valorContratoVigente(obra))} (original {fmt(obra?.contractValue || 0)}){fimContratoVigente(obra) ? ` · término ${fmtDate(fimContratoVigente(obra))}` : ""}</p>
+        <p style={{ fontSize:"var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color:"var(--arcd-text-primary)" }}>Mudanças e aditivos</p>
+        <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)" }}>Contrato vigente {fmt(valorContratoVigente(obra))} (original {fmt(obra?.contractValue || 0)}){fimContratoVigente(obra) ? ` · término ${fmtDate(fimContratoVigente(obra))}` : ""}</p>
       </div>
       <HelpButton pageId="obra_aditivos" allowedTabs={["obras","fin"]} label="Ajuda de mudanças"/>
       {podeRegistrar && <Btn v="ghost" size="sm" onClick={() => setForm({ id:uid(), descricao:"", justificativa:"", valor:"", prazoDias:"" })}>Nova mudança ou aditivo</Btn>}
     </div>
     {notice&&<p role="status">{notice}</p>}
-    <p style={{color:C.muted,fontSize:"var(--arcd-type-label)"}}>Contrato e custo são valores diferentes. Informe apenas o custo que ainda falta incorrer. Se já estiver na previsão da etapa, escolha Já incluído. Pendências geram avisos e permitem continuar.</p>
+    <p style={{color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-label)"}}>Contrato e custo são valores diferentes. Informe apenas o custo que ainda falta incorrer. Se já estiver na previsão da etapa, escolha Já incluído. Pendências geram avisos e permitem continuar.</p>
     <ForecastDuplicationWarnings warnings={duplicationWarnings}/>
-    {aditivos.length === 0 && <p style={{ fontSize:"var(--arcd-type-label)", color:C.muted }}>Nenhum aditivo registrado. Mudança de escopo, valor ou prazo pedida pelo cliente entra aqui.</p>}
-    {aditivos.map(item => <div key={item.id} style={{ display:"flex", justifyContent:"space-between", gap:10, flexWrap:"wrap", borderTop:`1px solid ${C.line}`, paddingTop:8 }}>
+    {aditivos.length === 0 && <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-secondary)" }}>Nenhum aditivo registrado. Mudança de escopo, valor ou prazo pedida pelo cliente entra aqui.</p>}
+    {aditivos.map(item => <div key={item.id} style={{ display:"flex", justifyContent:"space-between", gap:"var(--arcd-space-2)", flexWrap:"wrap", borderTop:"1px solid var(--arcd-border-default)", paddingTop:"var(--arcd-space-2)" }}>
       <div style={{ minWidth:0 }}>
-        <p style={{ fontSize:"var(--arcd-type-label)", color:C.text }}><b>Aditivo {item.numero}</b> · {item.descricao}</p>
-        <p style={{ fontSize:"var(--arcd-type-caption)", color:C.muted }}>{fmt(item.valor)}{item.prazoDias ? ` · ${item.prazoDias > 0 ? "+" : ""}${item.prazoDias} dia(s)` : ""} · <span style={{ color:COR[item.status] }}>{ROTULO[item.status] || item.status}</span>{item.evidenciaDecisao ? ` · ${item.evidenciaDecisao}` : ""}</p>
-        <p style={{color:C.muted,fontSize:"var(--arcd-type-caption)"}}>Execução: {({planejada:"Planejada",em_andamento:"Em andamento",concluida:"Concluída"})[item.execucaoStatus]||"Planejada"} · {item.responsavel||"Sem responsável"} · Custo restante: {item.impactoCustoRestante==null?"A estimar":fmt(item.impactoCustoRestante)} · {({adicional:"Adicional na previsão",ja_incluido:"Já incluído na previsão",nao_incluir:"Fora da previsão"})[item.impactoNaPrevisao]||"Fora da previsão"}</p>
-        {amendmentWarnings(item).map((w,i)=><p role="status" key={i} style={{color:C.orange,fontSize:"var(--arcd-type-caption)"}}>{w.message}</p>)}
+        <p style={{ fontSize:"var(--arcd-type-label)", color:"var(--arcd-text-primary)" }}><b>Aditivo {item.numero}</b> · {item.descricao}</p>
+        <p style={{ fontSize:"var(--arcd-type-caption)", color:"var(--arcd-text-secondary)" }}>{fmt(item.valor)}{item.prazoDias ? ` · ${item.prazoDias > 0 ? "+" : ""}${item.prazoDias} dia(s)` : ""} · <span style={{ color:COR[item.status] }}>{ROTULO[item.status] || item.status}</span>{item.evidenciaDecisao ? ` · ${item.evidenciaDecisao}` : ""}</p>
+        <p style={{color:"var(--arcd-text-secondary)",fontSize:"var(--arcd-type-caption)"}}>Execução: {({planejada:"Planejada",em_andamento:"Em andamento",concluida:"Concluída"})[item.execucaoStatus]||"Planejada"} · {item.responsavel||"Sem responsável"} · Custo restante: {item.impactoCustoRestante==null?"A estimar":fmt(item.impactoCustoRestante)} · {({adicional:"Adicional na previsão",ja_incluido:"Já incluído na previsão",nao_incluir:"Fora da previsão"})[item.impactoNaPrevisao]||"Fora da previsão"}</p>
+        {amendmentWarnings(item).map((w,i)=><p role="status" key={i} style={{color:"var(--arcd-warning-text)",fontSize:"var(--arcd-type-caption)"}}>{w.message}</p>)}
       </div>
-      <div style={{ display:"flex", gap:6,flexWrap:"wrap" }}>
+      <div style={{ display:"flex", gap:"var(--arcd-space-1)",flexWrap:"wrap" }}>
         {podeRegistrar && item.status!==AMENDMENT_STATUS.PROPOSED&&<Btn v="ghost" size="sm" onClick={()=>setForm({...item,operationalOnly:true})}>Atualizar acompanhamento</Btn>}
         {item.status === AMENDMENT_STATUS.PROPOSED && podeRegistrar && <Btn v="ghost" size="sm" onClick={() => setForm({ ...item, valor:String(item.valor), prazoDias:String(item.prazoDias || "") })}>Editar</Btn>}
         {item.status === AMENDMENT_STATUS.PROPOSED && podeDecidir && <Btn size="sm" onClick={() => setDecisao({ item, decision:AMENDMENT_STATUS.APPROVED, evidencia:"" })}>Registrar decisão</Btn>}
@@ -98,25 +99,25 @@ export function AditivosContrato({ obra, data={}, currentUser, dispatchCommand, 
     <ForecastReviewHistory work={obra}/>
 
     {form && <Modal title={form.operationalOnly?"Atualizar acompanhamento":form.version ? `Editar aditivo ${form.numero}` : "Nova mudança ou aditivo"} onClose={() => setForm(null)}>
-      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+      <div style={{ display:"flex", flexDirection:"column", gap:"var(--arcd-space-2)" }}>
         <Inp disabled={form.operationalOnly} label="O que muda *" value={form.descricao} onChange={v => setForm(f => ({ ...f, descricao:v }))} placeholder="Troca do piso da sala por porcelanato 90×90"/>
         <Inp disabled={form.operationalOnly} label="Impacto no contrato (R$) — negativo para supressão" type="number" value={form.valor} onChange={v => setForm(f => ({ ...f, valor:v }))}/>
         <Inp disabled={form.operationalOnly} label="Prazo (dias) — + acréscimo, − redução" type="number" value={form.prazoDias} onChange={v => setForm(f => ({ ...f, prazoDias:v }))}/>
         <Inp disabled={form.operationalOnly} label="Justificativa" value={form.justificativa} onChange={v => setForm(f => ({ ...f, justificativa:v }))}/>
         {form.operationalOnly&&<Inp label="Evidência da decisão do cliente" value={form.evidenciaDecisao||""} onChange={v=>setForm(f=>({...f,evidenciaDecisao:v}))}/>}
         <Inp label="Responsável pelo acompanhamento" value={form.responsavel||""} onChange={v=>setForm(f=>({...f,responsavel:v}))}/>
-        <label>Etapa de custo<select value={form.etapaId||""} onChange={e=>setForm(f=>({...f,etapaId:e.target.value}))}><option value="">Sem apropriação</option>{form.etapaId&&!stages.some(s=>s.id===form.etapaId)&&<option value={form.etapaId}>Etapa anterior — reconferir</option>}{stages.map(s=><option key={s.id} value={s.id}>{s.nome||s.id}</option>)}</select></label>
-        <label>Situação da execução<select value={form.execucaoStatus||"planejada"} onChange={e=>setForm(f=>({...f,execucaoStatus:e.target.value}))}><option value="planejada">Planejada</option><option value="em_andamento">Em andamento</option><option value="concluida">Concluída</option></select></label>
+        <label>Etapa de custo<SelectControl value={form.etapaId||""} onChange={e=>setForm(f=>({...f,etapaId:e.target.value}))}><option value="">Sem apropriação</option>{form.etapaId&&!stages.some(s=>s.id===form.etapaId)&&<option value={form.etapaId}>Etapa anterior — reconferir</option>}{stages.map(s=><option key={s.id} value={s.id}>{s.nome||s.id}</option>)}</SelectControl></label>
+        <label>Situação da execução<SelectControl value={form.execucaoStatus||"planejada"} onChange={e=>setForm(f=>({...f,execucaoStatus:e.target.value}))}><option value="planejada">Planejada</option><option value="em_andamento">Em andamento</option><option value="concluida">Concluída</option></SelectControl></label>
         <Inp label="Impacto no custo restante (R$) — negativo para economia" type="number" value={form.impactoCustoRestante??""} onChange={v=>setForm(f=>({...f,impactoCustoRestante:v}))}/>
-        <label>Como considerar na previsão<select value={form.impactoNaPrevisao||"nao_incluir"} onChange={e=>setForm(f=>({...f,impactoNaPrevisao:e.target.value}))}><option value="nao_incluir">Não incluir — apenas acompanhar</option><option value="adicional">Somar como custo restante adicional</option><option value="ja_incluido">Já incluído no restante da etapa</option></select></label>
+        <label>Como considerar na previsão<SelectControl value={form.impactoNaPrevisao||"nao_incluir"} onChange={e=>setForm(f=>({...f,impactoNaPrevisao:e.target.value}))}><option value="nao_incluir">Não incluir — apenas acompanhar</option><option value="adicional">Somar como custo restante adicional</option><option value="ja_incluido">Já incluído no restante da etapa</option></SelectControl></label>
         <p role="status">A falta de responsável, etapa ou evidência gera aviso. Uma mudança pode ser acompanhada sem alterar o valor ou prazo contratual.</p>
-        <div style={{ display:"flex", gap:8 }}><Btn v="ghost" full onClick={() => setForm(null)}>Cancelar</Btn><Btn full disabled={salvando} onClick={salvar}>{salvando ? "Salvando…" : "Salvar mudança"}</Btn></div>
+        <div style={{ display:"flex", gap:"var(--arcd-space-2)" }}><Btn v="ghost" full onClick={() => setForm(null)}>Cancelar</Btn><Btn full disabled={salvando} onClick={salvar}>{salvando ? "Salvando…" : "Salvar mudança"}</Btn></div>
       </div>
     </Modal>}
 
     {decisao && <Modal title={`Decisão do cliente · aditivo ${decisao.item.numero}`} onClose={() => setDecisao(null)}>
-      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-        <label>Decisão do cliente<select value={decisao.decision} onChange={e=>setDecisao(d=>({...d,decision:e.target.value}))}><option value="aprovado">Cliente aprovou</option><option value="recusado">Cliente recusou</option></select></label>
+      <div style={{ display:"flex", flexDirection:"column", gap:"var(--arcd-space-2)" }}>
+        <label>Decisão do cliente<SelectControl value={decisao.decision} onChange={e=>setDecisao(d=>({...d,decision:e.target.value}))}><option value="aprovado">Cliente aprovou</option><option value="recusado">Cliente recusou</option></SelectControl></label>
         <Inp label="Como o cliente decidiu" value={decisao.evidencia} onChange={v => setDecisao(d => ({ ...d, evidencia:v }))} placeholder="E-mail de 28/10, documento assinado, reunião…"/>
         {!decisao.evidencia.trim()&&<p role="status">Sem evidência: a decisão pode ser registrada; complemente o acompanhamento depois.</p>}
         <Btn full disabled={salvando} onClick={decidir}>{salvando ? "Registrando…" : "Registrar decisão"}</Btn>

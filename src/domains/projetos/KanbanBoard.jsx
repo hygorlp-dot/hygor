@@ -1,3 +1,4 @@
+import {Button as StandardButton} from '../../components/ui/button.jsx';
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, GripVertical } from "lucide-react";
 import { Button } from "../../components/ui/button.jsx";
@@ -91,7 +92,7 @@ export default function KanbanBoard({ label, columns, items, columnOf, titleOf, 
           {limit > 0 && total >= limit && <p className="engineering-capacity" role="status">{total > limit ? "Acima do limite" : "Limite atingido"}</p>}
           {!cards.length && <p className="engineering-drop-empty">Solte um cartão aqui</p>}
           {cards.map((item, index) => <article key={item.id} className="engineering-kanban-card" data-kanban-card={item.id} data-dragging={drag?.id === item.id || undefined} data-before={drag?.target?.beforeId === item.id || undefined} aria-label={titleOf(item)}>
-            <button type="button" className="engineering-drag-handle" aria-label={`Arrastar ${titleOf(item)}`} disabled={busy || !canMove(item)} onPointerDown={event => pointerDown(event, item)} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { pointer.current = null; setDrag(null); }} onKeyDown={event => { if (event.key === "Escape") { pointer.current = null; setDrag(null); } }}><GripVertical size={18} aria-hidden="true" /><span>Mover cartão</span></button>
+            <StandardButton variant="secondary" type="button" className="engineering-drag-handle" aria-label={`Arrastar ${titleOf(item)}`} disabled={busy || !canMove(item)} onPointerDown={event => pointerDown(event, item)} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { pointer.current = null; setDrag(null); }} onKeyDown={event => { if (event.key === "Escape") { pointer.current = null; setDrag(null); } }}><GripVertical size={18} aria-hidden="true" /><span>Mover cartão</span></StandardButton>
             {renderCard(item)}
             <div className="engineering-card-move"><Select label={`Mover para · ${titleOf(item)}`} value={column.id} disabled={busy || !canMove(item)} onChange={event => move(item, event.target.value)} options={columns.map(entry => ({ value: entry.id, label: entry.label }))} /><div className="engineering-actions"><Button type="button" variant="ghost" size="icon" aria-label={`Subir ${titleOf(item)}`} disabled={busy || !canMove(item) || index === 0} onClick={() => move(item, column.id, cards[index - 1].id)}><ArrowUp size={16} /></Button><Button type="button" variant="ghost" size="icon" aria-label={`Descer ${titleOf(item)}`} disabled={busy || !canMove(item) || index === cards.length - 1} onClick={() => move(item, column.id, cards[index + 2]?.id)}><ArrowDown size={16} /></Button></div></div>
           </article>)}

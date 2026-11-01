@@ -1,3 +1,4 @@
+import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import {useState} from "react";
 import { Btn, Inp, Sel } from "../../../legacy/ui.jsx";
 import { fmt, uid } from "../../../legacy/format.js";
@@ -54,7 +55,7 @@ export function PayModeSimulation({data,currentUser,dispatchCommand,showToast,ye
     <p>Custo recorrente do cenário: <strong>{fmt(summary.recurringCost)}</strong> · Admissões nesta competência: <strong>{fmt(summary.admissionCost)}</strong> · Total no mês: <strong>{fmt(summary.cost)}</strong>. Custos de admissão ficam a cargo da empresa e não reduzem o líquido do funcionário.</p>
     <div className="provisions-table" role="region" aria-label="Comparativo por funcionário" tabIndex={0}><table><thead><tr><th rowSpan={2}>Funcionário</th><th colSpan={2}>Diária</th><th colSpan={2}>CLT</th><th rowSpan={2}>CLT − diária (custo)</th><th rowSpan={2}>Pagar o mês como</th><th rowSpan={2}>Ajustar</th></tr><tr><th>Líquido</th><th>Custo</th><th>Líquido</th><th>Custo</th></tr></thead>
       <tbody>{rows.map(({employee:e,sim,result:r})=>{const both=!r.daily.errors.length&&!r.clt.errors.length;const diff=both?r.clt.cost-r.daily.cost:null;return <tr key={e.id}><td>{e.name}<small>{edits[e.id]?"Não salvo":saved(e)?"Simulação salva":"Sugestão"}</small></td>{cell(r.daily)}{cell(r.clt)}<td data-tone={diff>0?"deficit":undefined}>{diff===null?"—":`${diff>0?"+":""}${fmt(diff)}`}</td>
-        <td><div role="radiogroup" aria-label={`Modalidade de ${e.name}`} className="pay-mode-choice">{CHOICES.map(c=><label key={c.v}><input type="radio" name={`pay-mode-${e.id}`} value={c.v} checked={sim.choice===c.v} disabled={!canEdit||saving} onChange={()=>change(e,"choice",c.v)}/>{c.l}</label>)}</div></td>
+        <td><div role="radiogroup" aria-label={`Modalidade de ${e.name}`} className="pay-mode-choice">{CHOICES.map(c=><label key={c.v}><ChoiceControl type="radio" name={`pay-mode-${e.id}`} value={c.v} checked={sim.choice===c.v} disabled={!canEdit||saving} onChange={()=>change(e,"choice",c.v)}/>{c.l}</label>)}</div></td>
         <td><Btn v="secondary" onClick={()=>setSelected(e.id)}>{canEdit?"Ajustar":"Consultar"} {e.name}</Btn></td></tr>;})}</tbody></table></div>
     {!employees.length&&<p>Nenhum funcionário neste filtro.</p>}
     {current&&<><h3>Premissas de {current.employee.name}</h3><fieldset disabled={!canEdit||saving}><legend>Dias e valores do mês</legend>
@@ -62,7 +63,7 @@ export function PayModeSimulation({data,currentUser,dispatchCommand,showToast,ye
       <p>Os dias vêm do ponto do mês (meio período = 0,5) e podem ser ajustados para projetar o mês. VT e VR usam os valores diários do cadastro. Na CLT, o VT é descontado até 6% do salário. Os encargos patronais seguem o regime tributário escolhido no topo.</p>
       <Inp label="Observações da simulação" value={current.sim.notes} onChange={v=>change(current.employee,"notes",v)}/></fieldset>
       <fieldset disabled={!canEdit||saving}><legend>Custos de admissão neste mês</legend>
-        <label className="clt-check"><input type="checkbox" checked={!!current.sim.includeAdmissionCosts} onChange={e=>change(current.employee,"includeAdmissionCosts",e.target.checked)}/>Incluir custos de admissão nesta competência</label>
+        <label className="clt-check"><ChoiceControl type="checkbox" checked={!!current.sim.includeAdmissionCosts} onChange={e=>change(current.employee,"includeAdmissionCosts",e.target.checked)}/>Incluir custos de admissão nesta competência</label>
         <p>Informe orçamentos ou valores conhecidos; o sistema não presume preços. Use zero quando não houver custo. São despesas iniciais desta simulação, sem repetição automática nos próximos meses e sem registrar pagamentos.</p>
         {current.sim.includeAdmissionCosts&&<div className="clt-grid">{ADMISSION_COST_FIELDS.map(([key,label])=><Inp key={key} label={label} type="number" value={String(current.sim.admissionCosts?.[key]??"")} onChange={v=>change(current.employee,"admissionCosts",{...current.sim.admissionCosts,[key]:v})}/>)}</div>}
         <p>Admissão de {current.employee.name}: {current.sim.includeAdmissionCosts&&current.result.daily.errors.some(e=>e.startsWith("Informe ")&&e.includes("use zero"))?"Dados incompletos":fmt(current.result.daily.admissionCost)}. Esse valor é acrescido ao custo da empresa nos cenários diária e CLT.</p>

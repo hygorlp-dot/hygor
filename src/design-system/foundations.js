@@ -10,4 +10,6 @@ export const foundationTokens = Object.freeze({
   "--arcd-button-padding-sm":".375rem .625rem", "--arcd-button-padding-lg":".625rem 1.25rem",
   "--arcd-button-height-sm":"2.25rem", "--arcd-button-height-lg":"3rem", "--arcd-touch-target":"2.75rem",
   "--arcd-textarea-min-height":"6rem",
+  "--arcd-sheet-row-height":"1.625rem", "--arcd-sheet-line-height":"1.125rem",
+  "--arcd-sheet-cell-padding":"var(--arcd-space-1)", "--arcd-sheet-type-body":"var(--arcd-type-caption)",
 });

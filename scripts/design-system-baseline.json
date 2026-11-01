@@ -8,10 +8,10 @@
       "native-control": 2
     },
     "src/LegacyApp.jsx": {
-      "literal-spacing": 1185,
-      "literal-typography": 524,
-      "native-control": 115,
-      "literal-color": 100
+      "literal-spacing": 780,
+      "literal-typography": 344,
+      "native-control": 77,
+      "literal-color": 79
     },
     "src/client-portal/app/ClientPortalApp.jsx": {
       "native-control": 1
@@ -75,9 +75,6 @@
       "literal-spacing": 7,
       "literal-typography": 1
     },
-    "src/domains/arquivos/PdfReader.jsx": {
-      "native-control": 1
-    },
     "src/domains/comercial/RealEstateCommercial.jsx": {
       "native-control": 26,
       "literal-typography": 1
@@ -117,11 +114,6 @@
       "literal-typography": 24,
       "native-control": 2
     },
-    "src/domains/licenciamento/components/LicenciamentoView.jsx": {
-      "literal-spacing": 64,
-      "literal-typography": 23,
-      "native-control": 9
-    },
     "src/domains/medicoes/components/MedicoesView.jsx": {
       "literal-spacing": 81,
       "literal-typography": 54,
@@ -131,115 +123,9 @@
     "src/domains/medicoes/components/ProgressPercentageField.jsx": {
       "native-control": 2
     },
-    "src/domains/obras/components/AditivosContrato.jsx": {
-      "literal-spacing": 9,
-      "literal-typography": 1,
-      "native-control": 4
-    },
-    "src/domains/obras/components/DiarioObraView.jsx": {
-      "literal-spacing": 97,
-      "literal-typography": 42,
-      "native-control": 26,
-      "literal-color": 3
-    },
-    "src/domains/orcamentos/components/AddFloorForm.jsx": {
-      "native-control": 6
-    },
-    "src/domains/orcamentos/components/BoxMemoryPanel.jsx": {
-      "native-control": 21
-    },
-    "src/domains/orcamentos/components/BudgetAuditPanel.jsx": {
-      "native-control": 5
-    },
-    "src/domains/orcamentos/components/BudgetFloorEditor.jsx": {
-      "native-control": 6
-    },
-    "src/domains/orcamentos/components/ItemMemoryPanel.jsx": {
-      "native-control": 22
-    },
-    "src/domains/orcamentos/components/OrcamentoView.jsx": {
-      "literal-spacing": 548,
-      "literal-typography": 303,
-      "native-control": 93,
-      "literal-color": 5
-    },
-    "src/domains/orcamentos/components/StructuralBudgetLinks.jsx": {
-      "native-control": 5
-    },
     "src/domains/patrimonio/components/PatrimonioEmpresaView.jsx": {
       "literal-spacing": 30,
       "native-control": 7
-    },
-    "src/domains/planejamento/components/PlanejamentoView.jsx": {
-      "literal-spacing": 254,
-      "literal-typography": 112,
-      "native-control": 18,
-      "literal-color": 7
-    },
-    "src/domains/ponto-eletronico/components/BancoHorasView.jsx": {
-      "native-control": 10
-    },
-    "src/domains/ponto-eletronico/components/EquipeObrasView.jsx": {
-      "native-control": 1
-    },
-    "src/domains/ponto-eletronico/components/PontoEletronicoView.jsx": {
-      "native-control": 10
-    },
-    "src/domains/ponto/components/CltAttendanceImport.jsx": {
-      "native-control": 2
-    },
-    "src/domains/ponto/components/CltPayslips.jsx": {
-      "native-control": 6
-    },
-    "src/domains/ponto/components/FolhaView.jsx": {
-      "native-control": 4
-    },
-    "src/domains/ponto/components/LaborProjectionReport.jsx": {
-      "native-control": 2
-    },
-    "src/domains/ponto/components/LaborProvisions.jsx": {
-      "native-control": 2
-    },
-    "src/domains/ponto/components/PayModeSimulation.jsx": {
-      "native-control": 2
-    },
-    "src/domains/projetos/KanbanBoard.jsx": {
-      "native-control": 1
-    },
-    "src/domains/projetos/ProjectForms.jsx": {
-      "native-control": 3
-    },
-    "src/domains/projetos/ProjectTimerStatus.jsx": {
-      "literal-spacing": 1
-    },
-    "src/domains/projetos/TasksView.jsx": {
-      "native-control": 1
-    },
-    "src/domains/qualidade/components/ConferenciaView.jsx": {
-      "literal-spacing": 73,
-      "literal-typography": 22,
-      "native-control": 21,
-      "literal-color": 7
-    },
-    "src/domains/rh/components/AttendancePayMode.jsx": {
-      "native-control": 1
-    },
-    "src/domains/rh/components/EmployeeDossier.jsx": {
-      "native-control": 1
-    },
-    "src/domains/rh/components/EquipeView.jsx": {
-      "literal-spacing": 28,
-      "native-control": 4,
-      "literal-typography": 8
-    },
-    "src/domains/rh/components/IndicadoresView.jsx": {
-      "literal-spacing": 10,
-      "literal-typography": 1
-    },
-    "src/domains/rh/components/RescisaoView.jsx": {
-      "literal-spacing": 35,
-      "literal-typography": 28,
-      "native-control": 1
     },
     "src/domains/suppliers/SupplierCategoriesField.jsx": {
       "literal-spacing": 2
@@ -247,11 +133,6 @@
     "src/domains/suprimentos/components/MarcosCurvaASuprimentos.jsx": {
       "literal-spacing": 57,
       "literal-typography": 6
-    },
-    "src/domains/terceirizados/components/TerceirosView.jsx": {
-      "native-control": 17,
-      "literal-spacing": 103,
-      "literal-typography": 64
     },
     "src/features/conciliacao/ConciliacaoView.jsx": {
       "native-control": 18,

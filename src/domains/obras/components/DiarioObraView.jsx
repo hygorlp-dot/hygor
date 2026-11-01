@@ -1,3 +1,10 @@
+import {FilePicker} from '../../../design-system/patterns/FilePicker.jsx';
+import {Button as StandardButton} from '../../../components/ui/button.jsx';
+import {TextareaControl} from '../../../design-system/primitives/Textarea.jsx';
+import {SelectControl} from '../../../design-system/primitives/Select.jsx';
+import {RecordAction} from '../../../design-system/primitives/RecordAction.jsx';
+import {Input as StandardInput} from '../../../components/ui/input.jsx';
+import {ChoiceControl} from '../../../design-system/primitives/ChoiceControl.jsx';
 import { sessionContext } from "../../../lib/session-context.js";
 import { marcellReportHtml } from "../../../reports/marcell-report.js";
 // ===================================================================
@@ -380,20 +387,20 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
   const voltarHistoricoRdo=async()=>{const result=await sincronizarCamposRdo();if(result.ok)setModoRdo("lista");else showToast?.("Há alterações que ainda não foram confirmadas. Tente novamente antes de sair.","error");};
 
   if (!obras.length) {
-    return <div style={{ padding: 24, textAlign: "center" }}>
-      <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>Cadastre uma obra para abrir o diario.</p>
+    return <div style={{ padding: "var(--arcd-space-6)", textAlign: "center" }}>
+      <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Cadastre uma obra para abrir o diario.</p>
     </div>;
   }
 
   if (modoRdo === "lista") {
-    return <div className="anim" style={{display:"flex",flexDirection:"column",gap:10}}>
+    return <div className="anim" style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}>
       <PageHero
         eyebrow="Engenharia de campo"
         title="Diário de Obra"
         description={`${(data.rdos||[]).length} relatório(s) registrados`}
         actions={<Btn onClick={novoRdo}><Ic n="plus"/> Novo relatório</Btn>}
       />
-      <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:7,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:10}}>
+      <div style={{display:"grid",gridTemplateColumns:cols(1,2,4),gap:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)",borderRadius:8,padding:"var(--arcd-space-2)"}}>
         <Inp value={inicioRdo} onChange={setInicioRdo} type="date" label="Data inicial"/>
         <Inp value={fimRdo} onChange={setFimRdo} type="date" label="Data final"/>
         <Sel value={filtroObraRdo} onChange={setFiltroObraRdo} label="Obra" options={[{v:"all",l:"Todas"},...(data.obras||[]).map(o=>({v:o.id,l:o.name}))]}/>
@@ -401,27 +408,27 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
         <Sel value={filtroClimaRdo} onChange={setFiltroClimaRdo} label="Clima" options={[{v:"all",l:"Todos"},...CLIMA_OPC.map(o=>({v:o.v,l:o.l}))]}/>
         <Inp value={buscaRdo} onChange={setBuscaRdo} label="Pesquisar" placeholder="Código, obra ou descrição"/>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:9}}>
+      <div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:"var(--arcd-space-2)"}}>
         {rdosFiltrados.map(item=>{const obra=obraPorIdRdo.get(item.obraId);const statusLabel=item.status==="concluido"?"Concluído":item.status==="cancelado"?"Cancelado":"Em preparação";const statusColor=item.status==="concluido"?C.green:item.status==="cancelado"?C.red:C.orange;return <article key={item.id} className="rdo-history-card" data-status={item.status||"preparacao"}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:7}}><div><b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>RDO-{String(item.codigo||0).padStart(3,"0")} · {fmtDate(item.data)}</b><p style={{fontSize:"var(--arcd-type-body)",color:C.muted,marginTop:2}}>{obra?.name||"Obra removida"}</p></div><Badge color={statusColor}>{statusLabel}</Badge></div>
-          <p className="brk" style={{fontSize:"var(--arcd-type-body)",color:C.subtle,marginTop:7,minHeight:28,lineHeight:1.5}}>{[item.descricao,item.ocorrencias,item.pendencias].filter(Boolean).join(" · ")||item.responsavel||"Sem descrição informada."}</p>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"var(--arcd-space-2)"}}><div><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>RDO-{String(item.codigo||0).padStart(3,"0")} · {fmtDate(item.data)}</b><p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>{obra?.name||"Obra removida"}</p></div><Badge color={statusColor}>{statusLabel}</Badge></div>
+          <p className="brk" style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-muted)",marginTop:"var(--arcd-space-2)",minHeight:28,lineHeight:"var(--arcd-line-height-normal)"}}>{[item.descricao,item.ocorrencias,item.pendencias].filter(Boolean).join(" · ")||item.responsavel||"Sem descrição informada."}</p>
           {item.status==="cancelado"&&<p className="rdo-cancel-reason"><b>Motivo do cancelamento:</b> {item.motivoCancelamento||"Não informado"}</p>}
-          {(item.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4,marginTop:8}}>{item.fotos.slice(0,4).map((foto,i)=><button key={foto.url} onClick={()=>setFotoPreviewRdo({foto,item,index:i})} title="Ver foto" style={{position:"relative",padding:0,border:`1px solid ${C.border}`,borderRadius:5,overflow:"hidden",height:58,cursor:"pointer",background:C.surface}}><img src={foto.url} alt={foto.legenda||`Foto ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>{i===3&&item.fotos.length>4&&<span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.55)",color:"#fff",fontWeight:600}}>+{item.fotos.length-4}</span>}</button>)}</div>}
-          <p style={{fontSize:"var(--arcd-type-caption)",color:C.blue,fontWeight:600,marginTop:7}}>{(item.fotos||[]).length} foto(s) · {(item.anexos||[]).length} documento(s)</p>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginTop:9}}><Btn size="sm" v="ghost" onClick={()=>abrirRdo(item)}><Ic n={fieldReportIsReadOnly(item)?"eye":"edit"}/> {fieldReportIsReadOnly(item)?"Consultar":"Abrir e editar"}</Btn><Btn size="sm" v="ghost" onClick={()=>imprimirRdo(item)}><Ic n="fileText"/> PDF</Btn><Btn size="sm" v="ghost" onClick={()=>duplicarRdo(item)}><Ic n="copy"/> Duplicar</Btn>{item.status!=="cancelado"&&<Btn size="sm" v="danger" onClick={()=>excluirRdo(item)}><Ic n="x"/> Cancelar RDO</Btn>}</div>
+          {(item.fotos||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>{item.fotos.slice(0,4).map((foto,i)=><StandardButton variant="secondary" key={foto.url} onClick={()=>setFotoPreviewRdo({foto,item,index:i})} title="Ver foto" style={{position:"relative",overflow:"hidden",height:58}}><img src={foto.url} alt={foto.legenda||`Foto ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>{i===3&&item.fotos.length>4&&<span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"var(--arcd-surface-overlay)",color:"var(--arcd-text-inverse)",fontWeight:"var(--arcd-font-weight-semibold)"}}>+{item.fotos.length-4}</span>}</StandardButton>)}</div>}
+          <p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>{(item.fotos||[]).length} foto(s) · {(item.anexos||[]).length} documento(s)</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"var(--arcd-space-2)",marginTop:"var(--arcd-space-2)"}}><Btn size="sm" v="ghost" onClick={()=>abrirRdo(item)}><Ic n={fieldReportIsReadOnly(item)?"eye":"edit"}/> {fieldReportIsReadOnly(item)?"Consultar":"Abrir e editar"}</Btn><Btn size="sm" v="ghost" onClick={()=>imprimirRdo(item)}><Ic n="fileText"/> PDF</Btn><Btn size="sm" v="ghost" onClick={()=>duplicarRdo(item)}><Ic n="copy"/> Duplicar</Btn>{item.status!=="cancelado"&&<Btn size="sm" v="danger" onClick={()=>excluirRdo(item)}><Ic n="x"/> Cancelar RDO</Btn>}</div>
         </article>})}
         {!rdosFiltrados.length&&<div className="rdo-empty"><strong>Nenhum diário encontrado</strong><p>Ajuste os filtros ou limpe a pesquisa para ver outros registros.</p><Btn v="ghost" onClick={()=>{setInicioRdo("");setFimRdo("");setFiltroObraRdo("all");setFiltroStatusRdo("all");setFiltroClimaRdo("all");setBuscaRdo("");}}>Limpar filtros</Btn></div>}
       </div>
-      {fotoPreviewRdo&&<Modal title={`RDO-${String(fotoPreviewRdo.item.codigo||0).padStart(3,"0")} · Foto ${fotoPreviewRdo.index+1}`} onClose={()=>setFotoPreviewRdo(null)} wide><img src={fotoPreviewRdo.foto.url} alt={fotoPreviewRdo.foto.legenda||"Foto do diário"} style={{display:"block",width:"100%",maxHeight:"70vh",objectFit:"contain",background:"#111",borderRadius:7}}/>{fotoPreviewRdo.foto.legenda&&<p style={{fontSize:"var(--arcd-type-body)",color:C.text,marginTop:8}}>{fotoPreviewRdo.foto.legenda}</p>}<Btn full v="ghost" onClick={()=>setFotoPreviewRdo(null)} style={{marginTop:10}}>Fechar</Btn></Modal>}
+      {fotoPreviewRdo&&<Modal title={`RDO-${String(fotoPreviewRdo.item.codigo||0).padStart(3,"0")} · Foto ${fotoPreviewRdo.index+1}`} onClose={()=>setFotoPreviewRdo(null)} wide><img src={fotoPreviewRdo.foto.url} alt={fotoPreviewRdo.foto.legenda||"Foto do diário"} style={{display:"block",width:"100%",maxHeight:"70vh",objectFit:"contain",background:"var(--arcd-surface-inverse)",borderRadius:7}}/>{fotoPreviewRdo.foto.legenda&&<p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-2)"}}>{fotoPreviewRdo.foto.legenda}</p>}<Btn full v="ghost" onClick={()=>setFotoPreviewRdo(null)} style={{marginTop:"var(--arcd-space-2)"}}>Fechar</Btn></Modal>}
     </div>;
   }
 
   return (
-    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="anim" style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
 
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-        <button onClick={voltarHistoricoRdo} style={{border:0,background:"transparent",padding:0,color:C.blue,fontSize:"var(--arcd-type-control)",fontWeight:600,cursor:"pointer"}}>← Histórico dos diários</button>
-        <div style={{display:"flex",gap:5}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",flexWrap:"wrap"}}>
+        <StandardButton variant="secondary" onClick={voltarHistoricoRdo}>← Histórico dos diários</StandardButton>
+        <div style={{display:"flex",gap:"var(--arcd-space-1)"}}>
           {rdo.id&&!somenteLeituraRdo&&<Btn size="sm" v="danger" onClick={async()=>{if(await excluirRdo(rdo))setModoRdo("lista");}}><Ic n="x"/> Cancelar RDO</Btn>}
           {rdo.id&&<Btn size="sm" v="ghost" onClick={()=>imprimirRdo(rdo)}><Ic n="fileText"/> PDF</Btn>}
           {rdo.status==="concluido"&&currentUser?.role==="admin"&&<Btn size="sm" v="warning" onClick={reabrirRdo}><Ic n="edit"/> Reabrir como administrador</Btn>}
@@ -431,14 +438,14 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       <div className="rdo-document-status" data-status={rdo.status||"preparacao"}>
         <div><b>RDO-{String(rdo.codigo||0).padStart(3,"0")}</b><p>{somenteLeituraRdo?rdo.status==="cancelado"?"Documento cancelado e preservado no histórico.":"Documento concluído e bloqueado para edição.":`${completionRdo.pending.length} requisito(s) pendente(s) para concluir.`}</p></div><Badge color={rdo.status==="concluido"?C.green:rdo.status==="cancelado"?C.red:C.orange}>{rdo.status==="concluido"?"Concluído":rdo.status==="cancelado"?"Cancelado":"Em preparação"}</Badge>
       </div>
-      <div className="rdo-save-state" data-state={salvamentoRdo.status} role={salvamentoRdo.status==="error"?"alert":"status"} aria-live="polite"><span>{salvamentoRdo.status==="local"?"Alterações locais":salvamentoRdo.status==="saving"?"Sincronizando":salvamentoRdo.status==="error"?"Falha ao salvar":salvamentoRdo.status==="saved"?`Salvo às ${new Date(salvamentoRdo.at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Pronto para registrar"}</span><p>{salvamentoRdo.message||"As alterações serão confirmadas pelo servidor."}</p>{salvamentoRdo.status==="error"&&<button onClick={salvarNovamenteRdo}>Tentar novamente</button>}</div>
+      <div className="rdo-save-state" data-state={salvamentoRdo.status} role={salvamentoRdo.status==="error"?"alert":"status"} aria-live="polite"><span>{salvamentoRdo.status==="local"?"Alterações locais":salvamentoRdo.status==="saving"?"Sincronizando":salvamentoRdo.status==="error"?"Falha ao salvar":salvamentoRdo.status==="saved"?`Salvo às ${new Date(salvamentoRdo.at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`:"Pronto para registrar"}</span><p>{salvamentoRdo.message||"As alterações serão confirmadas pelo servidor."}</p>{salvamentoRdo.status==="error"&&<StandardButton variant="secondary" onClick={salvarNovamenteRdo}>Tentar novamente</StandardButton>}</div>
 
-      <nav className="rdo-stepper" aria-label="Etapas obrigatórias do Diário de Obra">{completionRdo.checks.map((check,index)=><button type="button" key={check.id} data-complete={check.complete} aria-label={`${check.label}: ${check.complete?"concluída":"pendente"}`} onClick={()=>irParaEtapa(check.id)}><span>{check.complete?"✓":index+1}</span><b>{check.label}</b><small>{check.complete?"Concluída":"Pendente"}</small></button>)}</nav>
+      <nav className="rdo-stepper" aria-label="Etapas obrigatórias do Diário de Obra">{completionRdo.checks.map((check,index)=><StandardButton variant="secondary" type="button" key={check.id} data-complete={check.complete} aria-label={`${check.label}: ${check.complete?"concluída":"pendente"}`} onClick={()=>irParaEtapa(check.id)}><span>{check.complete?"✓":index+1}</span><b>{check.label}</b><small>{check.complete?"Concluída":"Pendente"}</small></StandardButton>)}</nav>
 
       <fieldset className="rdo-editor-fields" disabled={somenteLeituraRdo}>
 
       {/* Seletor de obra + data */}
-      <div id="rdo-etapa-contexto" className="rdo-section-anchor" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+      <div id="rdo-etapa-contexto" className="rdo-section-anchor" style={{ display: "flex", gap: "var(--arcd-space-2)", flexWrap: "wrap", alignItems: "flex-end" }}>
         <div style={{ flex: 2, minWidth: 160 }}>
           {obraIdFixo
             ? <Inp label="Obra" value={(data.obras||[]).find(o=>o.id===obraIdFixo)?.name||"Obra atual"} onChange={()=>{}} disabled/>
@@ -451,43 +458,43 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       </div>
 
       <Bloco id="rdo-etapa-relato" titulo="Descrição detalhada e atividades planejadas">
-        <label className="rdo-field-label" htmlFor="rdo-descricao">Relato do dia <span>obrigatório</span></label><textarea id="rdo-descricao" value={valorCampoRdo("descricao")} onChange={e=>editarCampoRdo("descricao",e.target.value)} onBlur={()=>confirmarCampoRdo("descricao")} placeholder="Objetivo da visita, serviços planejados, verificações, decisões e evolução observada..." rows={5} className="rdo-textarea"/>
+        <label className="rdo-field-label" htmlFor="rdo-descricao">Relato do dia <span>obrigatório</span></label><TextareaControl id="rdo-descricao" value={valorCampoRdo("descricao")} onChange={e=>editarCampoRdo("descricao",e.target.value)} onBlur={()=>confirmarCampoRdo("descricao")} placeholder="Objetivo da visita, serviços planejados, verificações, decisões e evolução observada..." rows={5} className="rdo-textarea"/>
       </Bloco>
 
-      <Bloco titulo="Relato por voz · opcional" acao={<div style={{display:"flex",gap:5}}><Btn size="sm" v={gravandoVoz?"danger":"info"} onClick={gravandoVoz?pararVoz:iniciarVoz} disabled={enviandoAudio}><Ic n={gravandoVoz?"stop":"mic"}/> {gravandoVoz?"Parar e salvar":"Gravar relato"}</Btn><label className="rdo-file-action">Enviar áudio<input type="file" accept="audio/*" onChange={escolherAudioRdo} style={{display:"none"}}/></label></div>}>
-        {gravandoVoz&&<div style={{display:"flex",alignItems:"center",gap:7,color:C.red,fontSize:"var(--arcd-type-label)",fontWeight:600,marginBottom:8}}><span style={{width:9,height:9,borderRadius:99,background:C.red,boxShadow:`0 0 0 5px ${C.red}18`}}/>Gravando e transcrevendo em português...</div>}
-        <label className="rdo-field-label" htmlFor="rdo-transcricao">Transcrição revisável</label><textarea id="rdo-transcricao" value={valorCampoRdo("transcricaoVoz")} onChange={e=>editarCampoRdo("transcricaoVoz",e.target.value)} onBlur={()=>confirmarCampoRdo("transcricaoVoz")} placeholder="A transcrição aparece aqui. Você também pode revisar ou complementar o relato antes da análise." rows={4} className="rdo-textarea"/>
-        {(rdo.audios||[]).length>0&&<div style={{display:"flex",flexDirection:"column",gap:5,marginTop:8}}>{rdo.audios.map(a=><div key={a.id||a.url} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"7px 9px",background:C.surface,borderRadius:7}}><a href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600}}>▶ {a.nome}</a><button aria-label={`Remover áudio ${a.nome}`} onClick={()=>salvarRDO(r=>({...r,audios:(r.audios||[]).filter(x=>(x.id||x.url)!==(a.id||a.url))}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>×</button></div>)}</div>}
-        {enviandoAudio&&<p style={{fontSize:"var(--arcd-type-label)",color:C.blue,marginTop:7}}>Enviando áudio para a pasta do diário no OneDrive...</p>}
+      <Bloco titulo="Relato por voz · opcional" acao={<div style={{display:"flex",gap:"var(--arcd-space-1)"}}><Btn size="sm" v={gravandoVoz?"danger":"info"} onClick={gravandoVoz?pararVoz:iniciarVoz} disabled={enviandoAudio}><Ic n={gravandoVoz?"stop":"mic"}/> {gravandoVoz?"Parar e salvar":"Gravar relato"}</Btn><FilePicker buttonLabel="Selecionar áudio" accept="audio/*" onChange={escolherAudioRdo} className="rdo-file-action"></FilePicker></div>}>
+        {gravandoVoz&&<div style={{display:"flex",alignItems:"center",gap:"var(--arcd-space-2)",color:"var(--arcd-danger-text)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",marginBottom:"var(--arcd-space-2)"}}><span style={{width:9,height:9,borderRadius:99,background:"var(--arcd-danger-text)",boxShadow:"0 0 0 5px color-mix(in srgb, var(--arcd-danger-text) 9%, transparent)"}}/>Gravando e transcrevendo em português...</div>}
+        <label className="rdo-field-label" htmlFor="rdo-transcricao">Transcrição revisável</label><TextareaControl id="rdo-transcricao" value={valorCampoRdo("transcricaoVoz")} onChange={e=>editarCampoRdo("transcricaoVoz",e.target.value)} onBlur={()=>confirmarCampoRdo("transcricaoVoz")} placeholder="A transcrição aparece aqui. Você também pode revisar ou complementar o relato antes da análise." rows={4} className="rdo-textarea"/>
+        {(rdo.audios||[]).length>0&&<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)"}}>{rdo.audios.map(a=><div key={a.id||a.url} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2)",background:"var(--arcd-surface-muted)",borderRadius:7}}><a href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>▶ {a.nome}</a><StandardButton variant="secondary" aria-label={`Remover áudio ${a.nome}`} onClick={()=>salvarRDO(r=>({...r,audios:(r.audios||[]).filter(x=>(x.id||x.url)!==(a.id||a.url))}))}>×</StandardButton></div>)}</div>}
+        {enviandoAudio&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",marginTop:"var(--arcd-space-2)"}}>Enviando áudio para a pasta do diário no OneDrive...</p>}
       </Bloco>
 
       {!rdoExistente && (
-        <div style={{ background: `${C.yellow}12`, border: `1px solid ${C.yellow}44`,
-                      borderRadius: 6, padding: "9px 11px" }}>
-          <p style={{ fontSize:"var(--arcd-type-label)", color: C.subtle }}>
+        <div style={{ background: "color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",
+                      borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-3)" }}>
+          <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-muted)" }}>
             Novo diário para {fmtDate(dataRDO)}. Confirme o clima, registre o relato e ao menos um serviço. O indicador acima mostra quando cada alteração chegar ao servidor.
           </p>
         </div>
       )}
 
       {/* CLIMA */}
-      <Bloco id="rdo-etapa-clima" titulo="Clima do dia · obrigatório" acao={<select aria-label="Aplicar o mesmo clima aos três períodos" defaultValue="" onChange={e=>{if(e.target.value){aplicarClimaTodos(e.target.value);e.target.value="";}}} className="rdo-apply-all"><option value="">Aplicar a todos...</option>{CLIMA_OPC.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</select>}>
-        <div style={{marginBottom:9,padding:"8px 10px",borderRadius:6,background:C.surface,border:`1px solid ${C.border}`}}>
-          <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Responsável pelo registro · automático</p>
-          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:600,color:C.text,marginTop:2}}>{rdo.responsavel||responsavelAutomatico?.nome||"Nenhum usuário identificado"}</p>
-          {currentUser?.nome&&<p style={{fontSize:"var(--arcd-type-caption)",color:C.muted,marginTop:2}}>Lançado por {rdo.registradoPor||currentUser.nome}</p>}
+      <Bloco id="rdo-etapa-clima" titulo="Clima do dia · obrigatório" acao={<SelectControl aria-label="Aplicar o mesmo clima aos três períodos" defaultValue="" onChange={e=>{if(e.target.value){aplicarClimaTodos(e.target.value);e.target.value="";}}} className="rdo-apply-all"><option value="">Aplicar a todos...</option>{CLIMA_OPC.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</SelectControl>}>
+        <div style={{marginBottom:"var(--arcd-space-2)",padding:"var(--arcd-space-2)",borderRadius:6,background:"var(--arcd-surface-muted)",border:"1px solid var(--arcd-border-default)"}}>
+          <p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Responsável pelo registro · automático</p>
+          <p style={{fontSize:"var(--arcd-type-body)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-primary)",marginTop:"var(--arcd-space-half)"}}>{rdo.responsavel||responsavelAutomatico?.nome||"Nenhum usuário identificado"}</p>
+          {currentUser?.nome&&<p style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-half)"}}>Lançado por {rdo.registradoPor||currentUser.nome}</p>}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "var(--arcd-space-2)" }}>
           {[["manha", "Manhã"], ["tarde", "Tarde"], ["noite", "Noite"]].map(([p, lbl]) => (
             <div key={p}>
               <label htmlFor={`rdo-clima-${p}`} className="rdo-field-label">{lbl}</label>
-              <select id={`rdo-clima-${p}`} value={rdo.clima[p]||""} onChange={e => setClima(p, e.target.value)}
-                      style={{ width: "100%", padding: "7px 6px", borderRadius: 7,
-                               border: `1px solid ${C.border}`, background: C.card,
-                               color: C.text, fontSize: "var(--arcd-type-control)" }}>
+              <SelectControl id={`rdo-clima-${p}`} value={rdo.clima[p]||""} onChange={e => setClima(p, e.target.value)}
+                      style={{ width: "100%", padding: "var(--arcd-space-2) var(--arcd-space-1)", borderRadius: 7,
+                               border: "1px solid var(--arcd-border-default)", background: "var(--arcd-surface-card)",
+                               color: "var(--arcd-text-primary)", fontSize: "var(--arcd-type-control)" }}>
                 <option value="">Não informado</option>
                 {CLIMA_OPC.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-              </select>
+              </SelectControl>
             </div>
           ))}
         </div>
@@ -497,7 +504,7 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       <Bloco id="rdo-etapa-execucao" titulo="Serviços executados · obrigatório"
              acao={<Btn v="ghost" size="sm" onClick={() => setServicoModal({ novo: true })}>+ Serviço</Btn>}>
         {(rdo.servicos || []).length === 0 ? (
-          <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted, lineHeight: 1.5 }}>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)", lineHeight: "var(--arcd-line-height-normal)" }}>
             Indique quais servicos foram executados hoje. O progresso lancado aqui
             alimenta a medicao de evolucao da obra automaticamente.
           </p>
@@ -505,31 +512,31 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
           (rdo.servicos || []).map(s => {
             const tarefa = tarefas.find(t => t.id === s.tarefaId);
             return (
-              <button type="button" key={s.tarefaId} onClick={() => setServicoModal({ servico: s })} className="rdo-service-row"
-                   style={{ padding: "9px 0", borderTop: `1px solid ${C.line}`, cursor: "pointer" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                  <span className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>
+              <RecordAction type="button" key={s.tarefaId} onClick={() => setServicoModal({ servico: s })} className="rdo-service-row"
+                   style={{ padding: "var(--arcd-space-2) var(--arcd-space-0)", borderTop: "1px solid var(--arcd-border-default)", cursor: "pointer" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--arcd-space-2)" }}>
+                  <span className="brk" style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>
                     {tarefa?.nome || s.descricao || "Servico"}
                   </span>
-                  <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.blue, flexShrink: 0 }}>{s.progressoAte}%</span>
+                  <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)", flexShrink: 0 }}>{s.progressoAte}%</span>
                 </div>
-                <div style={{ marginTop: 5, height: 5, background: C.line, borderRadius: 99, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${s.progressoAte}%`, background: C.blue, borderRadius: 99 }} />
+                <div style={{ marginTop: "var(--arcd-space-1)", height: 5, background: "var(--arcd-border-default)", borderRadius: 99, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${s.progressoAte}%`, background: "var(--arcd-action-primary)", borderRadius: 99 }} />
                 </div>
-                {s.obs && <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 4 }}>{s.obs}</p>}
+                {s.obs && <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-1)" }}>{s.obs}</p>}
                 {((s.equipe || []).length > 0 || (s.tercIds || []).length > 0) && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 5 }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--arcd-space-1)", marginTop: "var(--arcd-space-1)" }}>
                     {(s.equipe || []).map(id => {
                       const emp = employeePorId.get(id);
-                      return emp ? <span key={id} style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: C.blue, background: `${C.blue}14`, borderRadius: 5, padding: "2px 6px" }}>{emp.name.split(" ")[0]}</span> : null;
+                      return emp ? <span key={id} style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)", background: "color-mix(in srgb, var(--arcd-action-primary) 8%, transparent)", borderRadius: 5, padding: "var(--arcd-space-half) var(--arcd-space-1)" }}>{emp.name.split(" ")[0]}</span> : null;
                     })}
                     {(s.tercIds || []).map(id => {
                       const terc = tercPorId.get(id);
-                      return terc ? <span key={id} style={{ fontSize:"var(--arcd-type-caption)", fontWeight:600, color: specInfo(terc.specialty).color, background: `${specInfo(terc.specialty).color}14`, borderRadius: 5, padding: "2px 6px" }}>{terc.name.split(" ")[0]} ⚙</span> : null;
+                      return terc ? <span key={id} style={{ fontSize:"var(--arcd-type-caption)", fontWeight:"var(--arcd-font-weight-semibold)", color: specInfo(terc.specialty).color, background: `${specInfo(terc.specialty).color}14`, borderRadius: 5, padding: "var(--arcd-space-half) var(--arcd-space-1)" }}>{terc.name.split(" ")[0]} ⚙</span> : null;
                     })}
                   </div>
                 )}
-              </button>
+              </RecordAction>
             );
           })
         )}
@@ -538,15 +545,15 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
       {/* EFETIVO / PONTO */}
       <Bloco titulo={`Efetivo e presenças${presentes ? ` (${presentes} presentes${meios ? ` + ${meios} meio período` : ""})` : ""}`} acao={empregadosObra.length?<Btn size="sm" v="ghost" onClick={marcarTodosPresentesRdo}>Marcar todos presentes</Btn>:null}>
         <p className="rdo-help">Escolha um estado explícito para cada pessoa. O registro alimenta o ponto sem sair do diário.</p>
-        {empregadosObra.length>8&&<input className="rdo-list-search" value={buscaEquipeRdo} onChange={e=>setBuscaEquipeRdo(e.target.value)} placeholder="Pesquisar funcionário..." aria-label="Pesquisar funcionário no efetivo"/>}
+        {empregadosObra.length>8&&<StandardInput className="rdo-list-search" value={buscaEquipeRdo} onChange={e=>setBuscaEquipeRdo(e.target.value)} placeholder="Pesquisar funcionário..." aria-label="Pesquisar funcionário no efetivo"/>}
         {empregadosObra.length === 0 ? (
-          <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>Nenhum funcionario lotado nesta obra.</p>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>Nenhum funcionario lotado nesta obra.</p>
         ) : (
           <div className="rdo-attendance-list">
             {empregadosObra.filter(emp=>!buscaEquipeRdo||emp.name.toLocaleLowerCase("pt-BR").includes(buscaEquipeRdo.toLocaleLowerCase("pt-BR"))).map(emp => {
               const st = presencaDe(emp.id);
               return (
-                <div key={emp.id} className="rdo-attendance-row"><strong>{emp.name}</strong><div role="group" aria-label={`Presença de ${emp.name}`}>{[["presente","Presente"],["meio","Meio período"],["falta","Falta"],["","Limpar"]].map(([value,label])=><button type="button" key={label} data-state={value||"clear"} aria-pressed={st===value} onClick={()=>setPresencaRdo(emp.id,value)}>{label}</button>)}</div></div>
+                <div key={emp.id} className="rdo-attendance-row"><strong>{emp.name}</strong><div role="group" aria-label={`Presença de ${emp.name}`}>{[["presente","Presente"],["meio","Meio período"],["falta","Falta"],["","Limpar"]].map(([value,label])=><StandardButton variant="secondary" type="button" key={label} data-state={value||"clear"} aria-pressed={st===value} onClick={()=>setPresencaRdo(emp.id,value)}>{label}</StandardButton>)}</div></div>
               );
             })}
           </div>
@@ -558,32 +565,32 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
         const pres = (rdo.terceirizados || []).filter(t => t.status === "presente").length;
         return `Terceirizados${pres ? ` (${pres} trabalhando)` : ""}`;
       })()}>
-        <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginBottom: 8, lineHeight: 1.4 }}>
+        <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginBottom: "var(--arcd-space-2)", lineHeight: "var(--arcd-line-height-normal)" }}>
           Escolha o estado de cada contrato e, quando houver trabalho, selecione a etapa executada.
         </p>
         {terceirizadosObra.length === 0 ? (
-          <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>
             Nenhum terceirizado ativo nesta obra. Cadastre em Terceirizados.
           </p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-2)" }}>
             {terceirizadosObra.map(terc => {
               const st = statusTerc(terc.id);
               const cor = st === "presente" ? C.green : st === "meio" ? C.yellow : st === "falta" ? C.red : C.border;
               const info = specInfo(terc.specialty);
               const etapaSel = (rdo.terceirizados || []).find(t => t.tercId === terc.id)?.etapaId || "";
               return (
-                <div key={terc.id} style={{ border: `1.5px solid ${st ? cor : C.border}`,
-                     background: st ? `${cor}0E` : "transparent", borderRadius: 8, padding: "8px 10px" }}>
-                  <div className="rdo-third-party-head"><div><strong>{terc.name}</strong><span>{info.l}</span></div><div role="group" aria-label={`Presença de ${terc.name}`}>{[["presente","Trabalhou"],["meio","Meio período"],["falta","Faltou"],["","Limpar"]].map(([value,label])=><button type="button" key={label} aria-pressed={st===value} onClick={()=>setStatusTercRdo(terc.id,value)}>{label}</button>)}</div></div>
+                <div key={terc.id} style={{ border: `1.5px solid ${st ? cor : "var(--arcd-border-default)"}`,
+                     background: st ? `${cor}0E` : "transparent", borderRadius: 8, padding: "var(--arcd-space-2)" }}>
+                  <div className="rdo-third-party-head"><div><strong>{terc.name}</strong><span>{info.l}</span></div><div role="group" aria-label={`Presença de ${terc.name}`}>{[["presente","Trabalhou"],["meio","Meio período"],["falta","Faltou"],["","Limpar"]].map(([value,label])=><StandardButton variant="secondary" type="button" key={label} aria-pressed={st===value} onClick={()=>setStatusTercRdo(terc.id,value)}>{label}</StandardButton>)}</div></div>
                   {/* Etapa do contrato - só quando presente/meio e o contrato tem etapas */}
                   {(st === "presente" || st === "meio") && (terc.etapas || []).length > 0 && (
-                    <select value={etapaSel} onChange={e => setEtapaTerc(terc.id, e.target.value)}
-                      style={{ width: "100%", marginTop: 7, padding: "6px 8px", borderRadius: 7,
-                               border: `1px solid ${C.border}`, background: C.card, color: C.text, fontSize:"var(--arcd-type-control)" }}>
+                    <SelectControl value={etapaSel} onChange={e => setEtapaTerc(terc.id, e.target.value)}
+                      style={{ width: "100%", marginTop: "var(--arcd-space-2)", padding: "var(--arcd-space-1) var(--arcd-space-2)", borderRadius: 7,
+                               border: "1px solid var(--arcd-border-default)", background: "var(--arcd-surface-card)", color: "var(--arcd-text-primary)", fontSize:"var(--arcd-type-control)" }}>
                       <option value="">Etapa do contrato (opcional)...</option>
                       {terc.etapas.map(et => <option key={et.id} value={et.id}>{et.nome}</option>)}
-                    </select>
+                    </SelectControl>
                   )}
                 </div>
               );
@@ -597,39 +604,38 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
         const n = (rdo.equipamentos || []).filter(x => x.equipId).length;
         return `Equipamentos${n ? ` (${n} no diário)` : ""}`;
       })()}>
-        <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginBottom: 8, lineHeight: 1.4 }}>
+        <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginBottom: "var(--arcd-space-2)", lineHeight: "var(--arcd-line-height-normal)" }}>
           Toque para registrar quais equipamentos estiveram na obra hoje. Se quiser, informe as horas trabalhadas.
         </p>
-        {equipamentosDaObra.length>8&&<input className="rdo-list-search" value={buscaEquipRdo} onChange={e=>setBuscaEquipRdo(e.target.value)} placeholder="Pesquisar equipamento..." aria-label="Pesquisar equipamento"/>}
+        {equipamentosDaObra.length>8&&<StandardInput className="rdo-list-search" value={buscaEquipRdo} onChange={e=>setBuscaEquipRdo(e.target.value)} placeholder="Pesquisar equipamento..." aria-label="Pesquisar equipamento"/>}
         {equipamentosDaObra.length === 0 ? (
-          <p style={{ fontSize: "var(--arcd-type-body)", color: C.muted }}>
+          <p style={{ fontSize: "var(--arcd-type-body)", color: "var(--arcd-text-secondary)" }}>
             Nenhum equipamento cadastrado. Cadastre em Equipamentos.
           </p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-1)" }}>
             {equipamentosDaObra.filter(eq=>!buscaEquipRdo||String(eq.nome||"").toLocaleLowerCase("pt-BR").includes(buscaEquipRdo.toLocaleLowerCase("pt-BR"))).map(eq => {
               const noRdo = equipNoRdo(eq.id);
               const ativo = !!noRdo;
               return (
-                <div key={eq.id} style={{ border: `1.5px solid ${ativo ? C.blue : C.border}`,
-                     background: ativo ? `${C.blue}0E` : "transparent", borderRadius: 8, padding: "8px 10px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                    <button onClick={() => toggleEquip(eq.id)} aria-pressed={ativo} aria-label={`${ativo?"Remover":"Adicionar"} ${eq.nome} ${ativo?"do":"ao"} diário`} style={{
-                      flex: 1, textAlign: "left", background: "transparent", border: 0, cursor: "pointer", minWidth: 0 }}>
-                      <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: ativo ? C.blue : C.text }}>{eq.nome}</span>
-                      {eq.categoria && <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginLeft: 6 }}>{eq.categoria}</span>}
+                <div key={eq.id} style={{ border: `1.5px solid ${ativo ? "var(--arcd-action-primary)" : "var(--arcd-border-default)"}`,
+                     background: ativo ? "color-mix(in srgb, var(--arcd-action-primary) 5%, transparent)" : "transparent", borderRadius: 8, padding: "var(--arcd-space-2)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--arcd-space-2)" }}>
+                    <StandardButton variant="secondary" onClick={() => toggleEquip(eq.id)} aria-pressed={ativo} aria-label={`${ativo?"Remover":"Adicionar"} ${eq.nome} ${ativo?"do":"ao"} diário`} style={{flex: 1,textAlign: "left",minWidth: 0}}>
+                      <span style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: ativo ? "var(--arcd-action-primary)" : "var(--arcd-text-primary)" }}>{eq.nome}</span>
+                      {eq.categoria && <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginLeft: "var(--arcd-space-1)" }}>{eq.categoria}</span>}
                       <span className="rdo-equipment-state">{ativo?"No diário":"Não utilizado"}</span>{!eq.proprietarioId
-                        ? <span style={{ fontSize:"var(--arcd-type-caption)", color: C.green, marginLeft: 6, fontWeight:600 }}>PRÓPRIO</span>
-                        : <span style={{ fontSize:"var(--arcd-type-caption)", color: C.purple, marginLeft: 6, fontWeight:600 }}>TERCEIRO</span>}
-                    </button>
-                    <span style={{ width: 11, height: 11, borderRadius: 99, background: ativo ? C.blue : C.border, flexShrink: 0 }} />
+                        ? <span style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-success-text)", marginLeft: "var(--arcd-space-1)", fontWeight:"var(--arcd-font-weight-semibold)" }}>PRÓPRIO</span>
+                        : <span style={{ fontSize:"var(--arcd-type-caption)", color: "var(--arcd-action-primary)", marginLeft: "var(--arcd-space-1)", fontWeight:"var(--arcd-font-weight-semibold)" }}>TERCEIRO</span>}
+                    </StandardButton>
+                    <span style={{ width: 11, height: 11, borderRadius: 99, background: ativo ? "var(--arcd-action-primary)" : "var(--arcd-border-default)", flexShrink: 0 }} />
                   </div>
                   {ativo && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 7 }}>
-                      <span style={{ fontSize:"var(--arcd-type-label)", color: C.muted }}>Horas trabalhadas:</span>
-                      <input type="number" value={noRdo.horas || ""} onChange={e => setEquipHoras(eq.id, e.target.value)}
-                        placeholder="0" style={{ width: 80, padding: "5px 8px", borderRadius: 6,
-                          border: `1px solid ${C.border}`, background: C.card, color: C.text, fontSize:"var(--arcd-type-control)" }} />
+                    <div style={{ display: "flex", alignItems: "center", gap: "var(--arcd-space-2)", marginTop: "var(--arcd-space-2)" }}>
+                      <span style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)" }}>Horas trabalhadas:</span>
+                      <StandardInput type="number" value={noRdo.horas || ""} onChange={e => setEquipHoras(eq.id, e.target.value)}
+                        placeholder="0" style={{ width: 80, padding: "var(--arcd-space-1) var(--arcd-space-2)", borderRadius: 6,
+                          border: "1px solid var(--arcd-border-default)", background: "var(--arcd-surface-card)", color: "var(--arcd-text-primary)", fontSize:"var(--arcd-type-control)" }} />
                     </div>
                   )}
                 </div>
@@ -641,61 +647,54 @@ export default function DiarioObra({ data, showToast, currentUser, obraIdFixo=""
 
       {/* OCORRENCIAS */}
       <Bloco titulo="Ocorrências e observações · opcional">
-        <label className="rdo-field-label" htmlFor="rdo-ocorrencias">Fatos relevantes, impedimentos e decisões</label><textarea id="rdo-ocorrencias" value={valorCampoRdo("ocorrencias")} onChange={e=>editarCampoRdo("ocorrencias",e.target.value)} onBlur={()=>confirmarCampoRdo("ocorrencias")}
+        <label className="rdo-field-label" htmlFor="rdo-ocorrencias">Fatos relevantes, impedimentos e decisões</label><TextareaControl id="rdo-ocorrencias" value={valorCampoRdo("ocorrencias")} onChange={e=>editarCampoRdo("ocorrencias",e.target.value)} onBlur={()=>confirmarCampoRdo("ocorrencias")}
                   placeholder="Atrasos, impedimentos, visitas, acidentes, decisoes tomadas..."
-                  rows={3} style={{ width: "100%", padding: "9px 11px", borderRadius: 6,
-                           border: `1px solid ${C.border}`, background: C.card, color: C.text,
-                           fontSize: "var(--arcd-type-control)", fontFamily: "inherit", resize: "vertical" }} />
+                  rows={3} style={{ width: "100%", padding: "var(--arcd-space-2) var(--arcd-space-3)", borderRadius: 6,
+                           border: "1px solid var(--arcd-border-default)", background: "var(--arcd-surface-card)", color: "var(--arcd-text-primary)",
+                           fontSize: "var(--arcd-type-control)", fontFamily: "var(--arcd-font-sans)", resize: "vertical" }} />
       </Bloco>
 
       <Bloco titulo="Pendências e providências · opcional">
-        <label className="rdo-field-label" htmlFor="rdo-pendencias">Pendência, responsável, prazo e impacto</label><textarea id="rdo-pendencias" value={valorCampoRdo("pendencias")} onChange={e=>editarCampoRdo("pendencias",e.target.value)} onBlur={()=>confirmarCampoRdo("pendencias")} placeholder="Pendência, responsável pela solução, prazo combinado e impacto..." rows={3} className="rdo-textarea"/>
+        <label className="rdo-field-label" htmlFor="rdo-pendencias">Pendência, responsável, prazo e impacto</label><TextareaControl id="rdo-pendencias" value={valorCampoRdo("pendencias")} onChange={e=>editarCampoRdo("pendencias",e.target.value)} onBlur={()=>confirmarCampoRdo("pendencias")} placeholder="Pendência, responsável pela solução, prazo combinado e impacto..." rows={3} className="rdo-textarea"/>
       </Bloco>
 
       <Bloco titulo="Comentários e notas complementares · opcional">
-        <label className="rdo-field-label" htmlFor="rdo-comentarios">Comentários do cliente, fiscalização ou equipe</label><textarea id="rdo-comentarios" value={valorCampoRdo("comentarios")} onChange={e=>editarCampoRdo("comentarios",e.target.value)} onBlur={()=>confirmarCampoRdo("comentarios")} placeholder="Comentários do cliente, fiscalização, projetistas ou equipe..." rows={3} className="rdo-textarea"/>
+        <label className="rdo-field-label" htmlFor="rdo-comentarios">Comentários do cliente, fiscalização ou equipe</label><TextareaControl id="rdo-comentarios" value={valorCampoRdo("comentarios")} onChange={e=>editarCampoRdo("comentarios",e.target.value)} onBlur={()=>confirmarCampoRdo("comentarios")} placeholder="Comentários do cliente, fiscalização, projetistas ou equipe..." rows={3} className="rdo-textarea"/>
       </Bloco>
 
       <Bloco titulo={`Documentos e anexos${(rdo.anexos||[]).length?` (${rdo.anexos.length})`:""}`}>
-        {(rdo.anexos||[]).map(a=><div key={a.id||a.url} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"7px 0",borderBottom:`1px solid ${C.line}`}}><a href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:C.blue,fontWeight:600}}>{a.nome} ↗</a><button aria-label={`Remover documento ${a.nome}`} onClick={()=>salvarRDO(r=>({...r,anexos:(r.anexos||[]).filter(x=>(x.id||x.url)!==(a.id||a.url))}))} style={{border:0,background:"transparent",color:C.red,cursor:"pointer"}}>×</button></div>)}
-        <label style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:8,padding:"7px 10px",border:`1px dashed ${C.blue}`,borderRadius:6,color:C.blue,fontSize:"var(--arcd-type-label)",fontWeight:600,cursor:subindoAnexo?"wait":"pointer"}}><Ic n="file"/>{subindoAnexo?"Enviando...":"Adicionar documento"}<input type="file" onChange={escolherAnexoRdo} disabled={subindoAnexo} style={{display:"none"}}/></label>
+        {(rdo.anexos||[]).map(a=><div key={a.id||a.url} style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",padding:"var(--arcd-space-2) var(--arcd-space-0)",borderBottom:"1px solid var(--arcd-border-default)"}}><a href={a.url} target="_blank" rel="noreferrer" style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{a.nome} ↗</a><StandardButton variant="secondary" aria-label={`Remover documento ${a.nome}`} onClick={()=>salvarRDO(r=>({...r,anexos:(r.anexos||[]).filter(x=>(x.id||x.url)!==(a.id||a.url))}))}>×</StandardButton></div>)}
+        <FilePicker buttonLabel="Selecionar anexo" onChange={escolherAnexoRdo} disabled={subindoAnexo} style={{display:"inline-flex",alignItems:"center",gap:"var(--arcd-space-1)",marginTop:"var(--arcd-space-2)",padding:"var(--arcd-space-2)",border:"1px dashed var(--arcd-action-primary)",borderRadius:6,color:"var(--arcd-action-primary)",fontSize:"var(--arcd-type-label)",fontWeight:"var(--arcd-font-weight-semibold)",cursor:subindoAnexo?"wait":"pointer"}}></FilePicker>
       </Bloco>
 
       {/* FOTOS */}
       <Bloco titulo={`Fotos${(rdo.fotos || []).length ? ` (${rdo.fotos.length})` : ""}`}>
-        <div style={{ display: "grid", gridTemplateColumns: cols(2, 3, 4), gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: cols(2, 3, 4), gap: "var(--arcd-space-2)" }}>
           {(rdo.fotos || []).map(f => (
             <div key={f.url} style={{ position: "relative", borderRadius: 6, overflow: "hidden",
-                                      border: `1px solid ${C.border}` }}>
+                                      border: "1px solid var(--arcd-border-default)" }}>
               <img src={f.url} alt={f.legenda || "Foto"} style={{ width: "100%", height: 100,
                    objectFit: "cover", display: "block" }} />
-              <button onClick={() => removerFoto(f.url)} aria-label={`Remover foto ${f.legenda||"sem legenda"}`} className="rdo-photo-remove">×</button>
-              <input value={f.legenda} onChange={e => setLegenda(f.url, e.target.value)} aria-label="Legenda da foto"
-                     placeholder="Legenda" style={{ width: "100%", padding: "5px 7px", border: 0,
-                     borderTop: `1px solid ${C.line}`, fontSize:"var(--arcd-type-control)", color: C.text, background: C.surface }} />
+              <StandardButton variant="secondary" onClick={() => removerFoto(f.url)} aria-label={`Remover foto ${f.legenda||"sem legenda"}`} className="rdo-photo-remove">×</StandardButton>
+              <StandardInput value={f.legenda} onChange={e => setLegenda(f.url, e.target.value)} aria-label="Legenda da foto"
+                     placeholder="Legenda" style={{ width: "100%", padding: "var(--arcd-space-1) var(--arcd-space-2)", border: 0,
+                     borderTop: "1px solid var(--arcd-border-default)", fontSize:"var(--arcd-type-control)", color: "var(--arcd-text-primary)", background: "var(--arcd-surface-muted)" }} />
             </div>
           ))}
           {/* Botao de adicionar */}
-          <label style={{ height: 100, borderRadius: 6, border: `2px dashed ${C.border}`,
+          <FilePicker buttonLabel="Usar câmera" accept="image/*" onChange={escolherFoto} disabled={subindo} inputProps={{"capture":"environment"}} style={{ height: 100, borderRadius: 6, border: "2px dashed var(--arcd-border-default)",
                           display: "flex", flexDirection: "column", alignItems: "center",
                           justifyContent: "center", cursor: subindo ? "wait" : "pointer",
-                          color: C.muted, background: C.surface }}>
-            <Ic n={subindo ? "clock" : "plus"} s={20} />
-            <span style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, marginTop: 4 }}>
-              {subindo ? "Enviando..." : "Foto"}
-            </span>
-            <input type="file" accept="image/*" capture="environment" onChange={escolherFoto}
-                   disabled={subindo} style={{ display: "none" }} />
-          </label>
+                          color: "var(--arcd-text-secondary)", background: "var(--arcd-surface-muted)" }}></FilePicker>
         </div>
       </Bloco>
 
       <Bloco titulo="Reflexão técnica por IA · opcional" acao={<Btn v="info" size="sm" onClick={refletirRdo} disabled={refletindo||!(rdo.fotos||[]).length}><Ic n="brain"/> {refletindo?"Analisando imagens...":rdo.reflexaoIA?.texto?"Refletir novamente":"Refletir"}</Btn>}>
-        {!rdo.reflexaoIA?.texto?<div style={{padding:"12px 13px",border:`1px dashed ${C.blue}55`,borderRadius:10,background:`${C.blue}08`}}><p style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.6}}>A IA cruza fotos, voz, clima, serviços, efetivo, materiais e planejamento. Ela sugere avanço, identifica riscos, atividades não previstas e pendências, mas nada é concluído sem revisão do engenheiro.</p></div>:<div style={{display:"flex",flexDirection:"column",gap:9}}><div style={{background:`${C.blue}07`,border:`1px solid ${C.blue}35`,borderRadius:10,padding:"12px 13px"}}><div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:8,flexWrap:"wrap"}}><b style={{fontSize:"var(--arcd-type-label)",color:C.blue}}>PANORAMA DO DIA</b><span style={{fontSize:"var(--arcd-type-caption)",color:C.muted}}>{rdo.reflexaoIA.fotosAnalisadas} foto(s) · {rdo.reflexaoIA.geradoEm?new Date(rdo.reflexaoIA.geradoEm).toLocaleString("pt-BR"):""}</span></div><div style={{whiteSpace:"pre-wrap",fontSize:"var(--arcd-type-label)",lineHeight:1.65,color:C.text}}>{rdo.reflexaoIA.texto}</div></div>{rdo.reflexaoIA.analise&&<><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:7}}>{[["Riscos",rdo.reflexaoIA.analise.riscos,C.red],["Pendências",rdo.reflexaoIA.analise.pendencias,C.orange],["Materiais sugeridos",rdo.reflexaoIA.analise.materiais,C.purple]].map(([titulo,lista,cor])=><div key={titulo} style={{border:`1px solid ${cor}44`,borderTop:`3px solid ${cor}`,borderRadius:9,padding:"9px 10px",background:C.card}}><b style={{fontSize:"var(--arcd-type-caption)",color:cor,textTransform:"uppercase"}}>{titulo} · {(lista||[]).length}</b>{(lista||[]).slice(0,4).map((x,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.subtle,lineHeight:1.4,marginTop:5}}>• {typeof x==="string"?x:x.descricao}</p>)}{!(lista||[]).length&&<p style={{fontSize:"var(--arcd-type-label)",color:C.muted,marginTop:5}}>Nada indicado.</p>}</div>)}</div><div style={{padding:"10px 11px",border:`1px solid ${C.border}`,borderRadius:9,background:C.surface}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:600,color:C.muted,textTransform:"uppercase"}}>Comparação com o planejamento</p><p style={{fontSize:"var(--arcd-type-label)",color:C.text,lineHeight:1.55,marginTop:4}}>{rdo.reflexaoIA.analise.comparacaoPlanejamento||"Sem comparação conclusiva."}</p>{(rdo.reflexaoIA.analise.atividadesNaoPrevistas||[]).map((x,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:C.orange,marginTop:4}}>⚠ Atividade não prevista: {x}</p>)}</div><Btn v="ghost" onClick={aplicarSugestoesRdo}><Ic n="check"/> Incorporar riscos e pendências ao rascunho</Btn></>}</div>}
+        {!rdo.reflexaoIA?.texto?<div style={{padding:"var(--arcd-space-3)",border:"1px dashed color-mix(in srgb, var(--arcd-action-primary) 33%, transparent)",borderRadius:10,background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)"}}><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)"}}>A IA cruza fotos, voz, clima, serviços, efetivo, materiais e planejamento. Ela sugere avanço, identifica riscos, atividades não previstas e pendências, mas nada é concluído sem revisão do engenheiro.</p></div>:<div style={{display:"flex",flexDirection:"column",gap:"var(--arcd-space-2)"}}><div style={{background:"color-mix(in srgb, var(--arcd-action-primary) 3%, transparent)",border:"1px solid color-mix(in srgb, var(--arcd-action-primary) 21%, transparent)",borderRadius:10,padding:"var(--arcd-space-3)"}}><div style={{display:"flex",justifyContent:"space-between",gap:"var(--arcd-space-2)",marginBottom:"var(--arcd-space-2)",flexWrap:"wrap"}}><b style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-action-primary)"}}>PANORAMA DO DIA</b><span style={{fontSize:"var(--arcd-type-caption)",color:"var(--arcd-text-secondary)"}}>{rdo.reflexaoIA.fotosAnalisadas} foto(s) · {rdo.reflexaoIA.geradoEm?new Date(rdo.reflexaoIA.geradoEm).toLocaleString("pt-BR"):""}</span></div><div style={{whiteSpace:"pre-wrap",fontSize:"var(--arcd-type-label)",lineHeight:"var(--arcd-line-height-normal)",color:"var(--arcd-text-primary)"}}>{rdo.reflexaoIA.texto}</div></div>{rdo.reflexaoIA.analise&&<><div style={{display:"grid",gridTemplateColumns:cols(1,2,3),gap:"var(--arcd-space-2)"}}>{[["Riscos",rdo.reflexaoIA.analise.riscos,C.red],["Pendências",rdo.reflexaoIA.analise.pendencias,C.orange],["Materiais sugeridos",rdo.reflexaoIA.analise.materiais,C.purple]].map(([titulo,lista,cor])=><div key={titulo} style={{border:`1px solid ${cor}44`,borderTop:`3px solid ${cor}`,borderRadius:9,padding:"var(--arcd-space-2)",background:"var(--arcd-surface-card)"}}><b style={{fontSize:"var(--arcd-type-caption)",color:cor,textTransform:"uppercase"}}>{titulo} · {(lista||[]).length}</b>{(lista||[]).slice(0,4).map((x,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-muted)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}>• {typeof x==="string"?x:x.descricao}</p>)}{!(lista||[]).length&&<p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-secondary)",marginTop:"var(--arcd-space-1)"}}>Nada indicado.</p>}</div>)}</div><div style={{padding:"var(--arcd-space-2) var(--arcd-space-3)",border:"1px solid var(--arcd-border-default)",borderRadius:9,background:"var(--arcd-surface-muted)"}}><p style={{fontSize:"var(--arcd-type-caption)",fontWeight:"var(--arcd-font-weight-semibold)",color:"var(--arcd-text-secondary)",textTransform:"uppercase"}}>Comparação com o planejamento</p><p style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-text-primary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}>{rdo.reflexaoIA.analise.comparacaoPlanejamento||"Sem comparação conclusiva."}</p>{(rdo.reflexaoIA.analise.atividadesNaoPrevistas||[]).map((x,i)=><p key={i} style={{fontSize:"var(--arcd-type-label)",color:"var(--arcd-warning-text)",marginTop:"var(--arcd-space-1)"}}>⚠ Atividade não prevista: {x}</p>)}</div><Btn v="ghost" onClick={aplicarSugestoesRdo}><Ic n="check"/> Incorporar riscos e pendências ao rascunho</Btn></>}</div>}
       </Bloco>
 
       <Bloco id="rdo-etapa-revisao" titulo="Revisão obrigatória do engenheiro">
-        <div style={{padding:"13px 14px",border:`1px solid ${rdo.revisaoEngenheiro?.aprovado?C.green:C.orange}55`,borderRadius:10,background:rdo.revisaoEngenheiro?.aprovado?`${C.green}09`:`${C.orange}09`}}><label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&requisitosAntesRevisaoOk?"pointer":"not-allowed"}}><input type="checkbox" checked={!!rdo.revisaoEngenheiro?.aprovado} disabled={!['engenheiro','engenheiro_auditor'].includes(currentUser?.role)||!requisitosAntesRevisaoOk} onChange={e=>salvarRDO(r=>({...r,revisaoEngenheiro:{...r.revisaoEngenheiro,aprovado:e.target.checked,engenheiroId:e.target.checked?currentUser.id:"",engenheiro:e.target.checked?currentUser.nome:"",revisadoEm:e.target.checked?new Date().toISOString():""},atualizadoEm:new Date().toISOString()}))} style={{width:22,height:22,accentColor:C.green,marginTop:1}}/><span><b style={{fontSize:"var(--arcd-type-body)",color:C.text}}>Revisei o relato, o clima, os serviços e todas as evidências disponíveis.</b><p style={{fontSize:"var(--arcd-type-body)",color:C.muted,lineHeight:1.5,marginTop:4}}>Fotos, áudio e reflexão por IA são opcionais. O avanço físico e as pendências permanecem sob responsabilidade técnica do engenheiro.</p></span></label>{!requisitosAntesRevisaoOk&&<p style={{fontSize:"var(--arcd-type-body)",color:C.orange,fontWeight:600,marginTop:9}}>Complete primeiro: {completionRdo.pending.filter(item=>item.id!=="revisao").map(item=>item.label).join(", ")}.</p>}{rdo.revisaoEngenheiro?.aprovado&&<p style={{fontSize:"var(--arcd-type-body)",color:C.green,fontWeight:600,marginTop:9}}>Revisado por {rdo.revisaoEngenheiro.engenheiro} em {new Date(rdo.revisaoEngenheiro.revisadoEm).toLocaleString("pt-BR")}</p>}{!["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&<p style={{fontSize:"var(--arcd-type-body)",color:C.orange,fontWeight:600,marginTop:9}}>Aguardando revisão do engenheiro responsável.</p>}</div>
+        <div style={{padding:"var(--arcd-space-3)",border:`1px solid ${rdo.revisaoEngenheiro?.aprovado?"var(--arcd-success-text)":"var(--arcd-warning-text)"}55`,borderRadius:10,background:rdo.revisaoEngenheiro?.aprovado?"color-mix(in srgb, var(--arcd-success-text) 4%, transparent)":"color-mix(in srgb, var(--arcd-warning-text) 4%, transparent)"}}><label style={{display:"flex",alignItems:"flex-start",gap:"var(--arcd-space-2)",cursor:["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&requisitosAntesRevisaoOk?"pointer":"not-allowed"}}><ChoiceControl type="checkbox" checked={!!rdo.revisaoEngenheiro?.aprovado} disabled={!['engenheiro','engenheiro_auditor'].includes(currentUser?.role)||!requisitosAntesRevisaoOk} onChange={e=>salvarRDO(r=>({...r,revisaoEngenheiro:{...r.revisaoEngenheiro,aprovado:e.target.checked,engenheiroId:e.target.checked?currentUser.id:"",engenheiro:e.target.checked?currentUser.nome:"",revisadoEm:e.target.checked?new Date().toISOString():""},atualizadoEm:new Date().toISOString()}))} style={{width:22,height:22,accentColor:"var(--arcd-success-text)",marginTop:"var(--arcd-space-0)"}}/><span><b style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-primary)"}}>Revisei o relato, o clima, os serviços e todas as evidências disponíveis.</b><p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-text-secondary)",lineHeight:"var(--arcd-line-height-normal)",marginTop:"var(--arcd-space-1)"}}>Fotos, áudio e reflexão por IA são opcionais. O avanço físico e as pendências permanecem sob responsabilidade técnica do engenheiro.</p></span></label>{!requisitosAntesRevisaoOk&&<p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Complete primeiro: {completionRdo.pending.filter(item=>item.id!=="revisao").map(item=>item.label).join(", ")}.</p>}{rdo.revisaoEngenheiro?.aprovado&&<p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-success-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Revisado por {rdo.revisaoEngenheiro.engenheiro} em {new Date(rdo.revisaoEngenheiro.revisadoEm).toLocaleString("pt-BR")}</p>}{!["engenheiro","engenheiro_auditor"].includes(currentUser?.role)&&<p style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-warning-text)",fontWeight:"var(--arcd-font-weight-semibold)",marginTop:"var(--arcd-space-2)"}}>Aguardando revisão do engenheiro responsável.</p>}</div>
       </Bloco>
 
       </fieldset>
@@ -753,19 +752,19 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
 
   return (
     <Modal title={servico ? "Servico executado" : "Novo servico"} onClose={onClose}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--arcd-space-3)" }}>
         <Sel label="Servico (do planejamento)" value={tarefaId} onChange={setTarefaId}
              options={[{ v: "", l: "Escolha..." }, ...disponiveis.map(t => ({ v: t.id, l: t.nome }))]} />
         {tarefa && (tarefa.etapaNome || tarefa.custo > 0) && (
-          <div style={{ background: `${C.yellow}12`, border: `1px solid ${C.yellow}44`,
-                        borderRadius: 6, padding: "8px 11px", display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-            {tarefa.etapaNome && <div><p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, fontWeight:600 }}>ETAPA</p><p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.text }}>{tarefa.etapaNome}</p></div>}
-            {tarefa.custo > 0 && <div style={{ textAlign: "right" }}><p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, fontWeight:600 }}>CUSTO PREVISTO</p><p style={{ fontSize: "var(--arcd-type-body)", fontWeight:600, color: C.yellowD }}>{fmt(tarefa.custo)}</p></div>}
+          <div style={{ background: "color-mix(in srgb, var(--arcd-action-primary) 7%, transparent)", border: "1px solid color-mix(in srgb, var(--arcd-action-primary) 27%, transparent)",
+                        borderRadius: 6, padding: "var(--arcd-space-2) var(--arcd-space-3)", display: "flex", justifyContent: "space-between", gap: "var(--arcd-space-2)", flexWrap: "wrap" }}>
+            {tarefa.etapaNome && <div><p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", fontWeight:"var(--arcd-font-weight-semibold)" }}>ETAPA</p><p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)" }}>{tarefa.etapaNome}</p></div>}
+            {tarefa.custo > 0 && <div style={{ textAlign: "right" }}><p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", fontWeight:"var(--arcd-font-weight-semibold)" }}>CUSTO PREVISTO</p><p style={{ fontSize: "var(--arcd-type-body)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-action-primary)" }}>{fmt(tarefa.custo)}</p></div>}
           </div>
         )}
         <div>
           <Inp label="Progresso acumulado (%)" type="number" value={prog} onChange={setProg} min="0" max="100" />
-          <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 4 }}>
+          <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-1)" }}>
             O total ja executado deste servico (nao so o de hoje). E o que a medicao usa.
           </p>
         </div>
@@ -773,17 +772,14 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
         {/* Equipe própria */}
         {empregados.length > 0 && (
           <div>
-            <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.text, textTransform: "uppercase", letterSpacing: .6, marginBottom: 6 }}>Quem executou (equipe própria)</p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)", marginBottom: "var(--arcd-space-1)" }}>Quem executou (equipe própria)</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--arcd-space-1)" }}>
               {empregados.map(emp => {
                 const on = equipe.includes(emp.id);
                 return (
-                  <button key={emp.id} aria-pressed={on} onClick={() => toggle(equipe, setEquipe, emp.id)} style={{
-                    padding: "6px 9px", borderRadius: 6, cursor: "pointer", fontSize:"var(--arcd-type-control)", fontWeight:600,
-                    border: `1.5px solid ${on ? C.blue : C.border}`, background: on ? `${C.blue}16` : "transparent",
-                    color: on ? C.blue : C.muted }}>
+                  <StandardButton variant="secondary" key={emp.id} aria-pressed={on} onClick={() => toggle(equipe, setEquipe, emp.id)}>
                     {presentesIds.has(emp.id) ? "• " : ""}{emp.name}
-                  </button>
+                  </StandardButton>
                 );
               })}
             </div>
@@ -793,28 +789,25 @@ function ModalServicoRDO({ servico, tarefas, jaLancados, empregados = [], tercei
         {/* Terceirizados */}
         {terceirizados.length > 0 && (
           <div>
-            <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:600, color: C.text, textTransform: "uppercase", letterSpacing: .6, marginBottom: 6 }}>Terceirizados no serviço</p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            <p style={{ fontSize:"var(--arcd-type-label)", fontWeight:"var(--arcd-font-weight-semibold)", color: "var(--arcd-text-primary)", textTransform: "uppercase", letterSpacing: "var(--arcd-letter-spacing-body)", marginBottom: "var(--arcd-space-1)" }}>Terceirizados no serviço</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--arcd-space-1)" }}>
               {terceirizados.map(terc => {
                 const on = tercIds.includes(terc.id);
                 const info = specInfo(terc.specialty);
                 return (
-                  <button key={terc.id} aria-pressed={on} onClick={() => toggle(tercIds, setTercIds, terc.id)} style={{
-                    padding: "6px 9px", borderRadius: 6, cursor: "pointer", fontSize:"var(--arcd-type-control)", fontWeight:600,
-                    border: `1.5px solid ${on ? info.color : C.border}`, background: on ? `${info.color}16` : "transparent",
-                    color: on ? info.color : C.muted }}>
+                  <StandardButton variant="secondary" key={terc.id} aria-pressed={on} onClick={() => toggle(tercIds, setTercIds, terc.id)}>
                     {tercPresentesIds.has(terc.id) ? "• " : ""}{terc.name}
-                  </button>
+                  </StandardButton>
                 );
               })}
             </div>
-            <p style={{ fontSize:"var(--arcd-type-label)", color: C.muted, marginTop: 5 }}>• = já marcado como presente hoje</p>
+            <p style={{ fontSize:"var(--arcd-type-label)", color: "var(--arcd-text-secondary)", marginTop: "var(--arcd-space-1)" }}>• = já marcado como presente hoje</p>
           </div>
         )}
 
         <Inp label="Observacao (opcional)" value={obs} onChange={setObs} multiline />
-        {erro&&<p role="alert" style={{fontSize:"var(--arcd-type-body)",color:C.red,fontWeight:600}}>{erro}</p>}
-        <div style={{ display: "flex", gap: 8 }}>
+        {erro&&<p role="alert" style={{fontSize:"var(--arcd-type-body)",color:"var(--arcd-danger-text)",fontWeight:"var(--arcd-font-weight-semibold)"}}>{erro}</p>}
+        <div style={{ display: "flex", gap: "var(--arcd-space-2)" }}>
           <Btn full onClick={salvar} disabled={!tarefaId}>Salvar</Btn>
           {onRemover && <Btn v="danger" onClick={onRemover} aria-label="Remover serviço executado"><Ic n="trash" /></Btn>}
         </div>

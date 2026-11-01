@@ -18,6 +18,10 @@ for(const tab of ['ponto_geral','ponto','folha'])test(`${tab}: grupos, período 
  const main=page.locator('.arcd-main'),tabs=main.locator('.labor-area-tabs');
  await expect(tabs).toBeVisible();
  const before=await main.locator('input[type=date],input[type=number],select').evaluateAll(nodes=>nodes.filter(n=>!n.closest('.labor-area-tabs')).map(n=>({label:n.getAttribute('aria-label'),value:n.value})));
+ if(tab==='ponto_geral'){
+  const present=main.locator('button[title="Presente"]').first();
+  await expect(present).toBeVisible();await expect(present).toHaveCSS('background-color','rgb(36, 99, 75)');await expect(present).toHaveCSS('color','rgb(255, 255, 255)');
+ }
  await tabs.getByRole('button',{name:'Administrativo',exact:true}).click();
  await expect(main.getByText('Assistente exclusivo administrativo',{exact:true}).first()).toBeVisible();
  await expect(main.getByText('Engenheiro da obra no administrativo',{exact:true}).first()).toBeVisible();

@@ -22,9 +22,9 @@
 .work-file-viewer .invoice-original__toolbar select { padding:.5rem; color:var(--arcd-text-primary); background:var(--arcd-surface-card); border:1px solid var(--arcd-border-strong); border-radius:var(--arcd-radius-md,8px); }
 .work-file-viewer-text { white-space:pre-wrap; overflow-wrap:anywhere; max-height:65vh; overflow:auto; padding:1rem; background:var(--arcd-surface-muted); font:inherit; }
 .work-files p { color:var(--arcd-text-secondary); overflow-wrap:anywhere; }
-.work-files h2 { font-size:1.125rem; font-weight:600; margin:0 0 1rem; }
-.work-files h3 { font-size:1rem; font-weight:600; margin:1.5rem 0 .75rem; }
-.work-files h4 { font-weight:600; margin:0; }
+.work-files h2 { font-size:1.125rem; font-weight:var(--arcd-font-weight-semibold); margin:0 0 1rem; }
+.work-files h3 { font-size:1rem; font-weight:var(--arcd-font-weight-semibold); margin:1.5rem 0 .75rem; }
+.work-files h4 { font-weight:var(--arcd-font-weight-semibold); margin:0; }
 .work-files-actions,.work-files-toolbar,.work-files-breadcrumb { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
 .work-files-toolbar { justify-content:space-between; }
 .work-files-toolbar p,.work-files-status { font-size:.875rem; margin:0; }
