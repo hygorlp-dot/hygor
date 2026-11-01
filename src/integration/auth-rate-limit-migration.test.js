@@ -34,7 +34,9 @@ describe("SEC-002 — limite de tentativas compartilhado", () => {
     expect(api).toContain('rateLimitCentral(limiteUsuario,"status")');
     expect(api).toContain('rateLimitCentral(limiteUsuario,"failure")');
     expect(api).toContain('rateLimitCentral(limiteUsuario,"success")');
-    expect(api).toContain('const usaPin=!accessToken');
+    // Grants de integração também não entram no fluxo PIN nem em seu contador.
+    expect(api).toContain('const usaPin=!isIntegration&&!accessToken');
+    expect(api).toContain('accessToken=null; pin=null; userId=null;');
     expect(api).toContain('rateLimitCentral(authSubject,"status")');
     expect(api).toContain('rateLimitCentral(authSubject,"failure")');
     expect(api).toContain('rateLimitCentral(authSubject,"success")');

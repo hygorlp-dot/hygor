@@ -34,6 +34,7 @@
     "build": "vite build",
     "lint": "node scripts/check-financial-boundaries.mjs && node scripts/check-undeclared-names.mjs && node scripts/check-ui-pitfalls.mjs",
     "test": "vitest run",
+    "test:integration": "node --test tests/integration/*.test.mjs",
     "test:e2e": "playwright test",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit -p tsconfig.quality.json",

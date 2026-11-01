@@ -59,6 +59,8 @@ const CATALOG_SECTIONS=new Set([
 
 export const authorizeSectionChanges = (user = {}, sections = {}) => {
   const keys=Object.keys(sections || {}).filter(key=>key&&!key.startsWith("__"));
+  // Integration evidence, incident dedup and quotas are server-owned, including for admin clients.
+  if(keys.some(key=>["integrationIncidents","integrationMonitoringCounters","integrationSignaturePackets"].includes(key)))return "Registros de integração exigem a rota auditada específica do servidor.";
   if (user.role === "admin") return "";
   for (const key of keys) {
     const roles=SECTION_ROLES[key];
