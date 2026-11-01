@@ -27,6 +27,7 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   projects: [
+    {name:"sidebar-width",testMatch:/sidebar-width\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
     {name:"internal-loading-desktop",testMatch:/internal-loading\.spec\.js/,use:{browserName:"chromium",viewport:{width:1440,height:1000}}},
     {name:"internal-loading-mobile",testMatch:/internal-loading\.spec\.js/,use:{browserName:"chromium",viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:"photo-drafts-narrow",testMatch:/photo-drafts\.spec\.js/,grep:/editor usa diálogo|Limpar cálculo confirma/,use:{browserName:"chromium",viewport:{width:320,height:568},isMobile:true,hasTouch:true}},

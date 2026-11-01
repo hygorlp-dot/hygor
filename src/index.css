@@ -7882,3 +7882,13 @@ body.no-scroll .arcd-mobile-nav { visibility:hidden; pointer-events:none; }
 
 .mrc-loading-state{display:flex;align-items:center;gap:var(--arcd-space-2);padding:var(--arcd-space-3);min-height:var(--arcd-control-height);color:var(--arcd-text-secondary);font-size:var(--arcd-type-body);overflow-wrap:anywhere}
 .mrc-loading-state>.arcd-spinner{flex-shrink:0}
+
+/* Shared desktop navigation: hit area straddles the edge without moving content. */
+.mrc-sidebar-resize {position:absolute;inset:0 -5px 0 auto;width:10px;cursor:col-resize;touch-action:none;user-select:none;}
+.mrc-sidebar-resize::after {content:"";position:absolute;top:0;bottom:0;left:4px;width:2px;background:var(--arcd-nav-border);}
+.mrc-sidebar-resize:hover::after,
+.mrc-sidebar-resize:focus-visible::after,
+.arcd-sidebar[data-resizing] .mrc-sidebar-resize::after {background:var(--arcd-focus-ring);}
+.mrc-sidebar-resize:focus-visible {outline:2px solid var(--arcd-focus-ring);outline-offset:-3px;}
+.arcd-sidebar[data-resizing] {user-select:none;}
+@media (prefers-reduced-motion:reduce) {.arcd-app-shell,.arcd-sidebar {transition:none !important;}}

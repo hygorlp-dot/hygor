@@ -104,3 +104,7 @@ Não crie textos soltos de Carregando nem deixe uma ação explícita sem retorn
 Consultas de fundo devem conservar os dados úteis e indicar a atualização no próprio trecho. Esqueletos estruturados, mensagens de última consulta/offline e botões com loading continuam tendo função própria. Elementos decorativos não precisam anunciar espera. O status do carregamento não deve ficar dentro de um contêiner aria-busy que impeça seu anúncio; a DataTable usa a mensagem comum como indicação de espera.
 
 Revisão e evidências em `docs/CARREGAMENTOS-INTERNOS-20261101.md`.
+
+## Menu lateral ajustável
+
+O shell compartilhado usa `SidebarResize` e `useSidebarWidth`. Largura expandida de 208 a 360 px, inicial de 224 px, persistida neste navegador. Arrastar, setas, Home/End e Enter (restaurar) têm o mesmo resultado em todos os módulos. O modo compacto conserva a preferência; celular e tablet mantêm a navegação existente. Não definir larguras próprias por módulo.

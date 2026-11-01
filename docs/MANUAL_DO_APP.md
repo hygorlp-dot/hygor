@@ -756,27 +756,27 @@ A análise não aprova nem compra materiais. O print exige Drive conectado; se o
 
 ## Compras · Pedido por texto ou print
 
-Preparar uma solicitação a partir de uma conversa copiada.
+Preparar uma solicitação a partir de uma conversa.
 
 ### Antes de começar
 
-Copie somente o trecho necessário do pedido. A inteligência artificial (IA) deve estar configurada; para guardar o print, conecte o Drive da obra.
+Tenha a IA configurada. Para guardar o print, conecte o Drive da obra.
 
 ### Como fazer
 
 1. Em Nova solicitação, abra Colar pedido do WhatsApp.
-2. Cole o texto em Texto do pedido ou print colado. Para imagem, cole com Ctrl+V no campo ou use Selecionar print. Aceita PNG, JPG ou WEBP de até 2 MB e texto de até 6.000 caracteres.
-3. Clique em Analisar pedido. Leia os materiais, quantidades, unidades e avisos. Se a análise falhar, tente novamente ou preencha manualmente.
-4. Use Usar itens no rascunho. Os materiais são acrescentados; obra e data já preenchidas são preservadas. O original fica protegido contra substituição; ajuste os materiais no formulário. Para outra conversa, inicie outra solicitação. Corrija campos ausentes e confira o orçamento.
-5. Use Formalizar e enviar para Compras. O print é enviado ao Drive antes de salvar. Se houver falha, os dados permanecem no formulário; tente novamente. O original fica disponível em Pedido original da conversa.
+2. Cole em Texto do pedido ou print colado. Para imagem, use Ctrl+V ou Selecionar print: PNG, JPG ou WEBP até 2 MB. Texto: até 6.000 caracteres.
+3. Clique em Analisar pedido. Confira materiais, quantidades, unidades e avisos. Se falhar, tente novamente ou preencha manualmente.
+4. Use Usar itens no rascunho. Os itens são acrescentados, mantendo obra e data. Corrija dados ausentes e confira o orçamento. O original fica protegido; para outra conversa, inicie outra solicitação.
+5. Use Formalizar e enviar para Compras. O print vai ao Drive antes da gravação. Em caso de falha, o formulário permanece aberto para tentar novamente. Consulte Pedido original da conversa no registro.
 
 ### Como conferir se deu certo
 
-Você preparou uma solicitação com rastreabilidade do pedido original e confirmação pelo fluxo existente.
+A solicitação conserva o pedido original e a confirmação do fluxo existente.
 
 ### O que merece atenção
 
-Leitura de imagem pode errar. Não aceite quantidades, embalagens ou unidades sem conferir. As mensagens são enviadas à IA configurada do ERP; recorte informações pessoais desnecessárias. Não há envio automático de mensagens, aprovação, pedido ao fornecedor ou pagamento.
+A IA pode errar: confira quantidades, embalagens e unidades. Recorte informações pessoais desnecessárias; o conteúdo vai à IA configurada no ERP. Não há envio de mensagens, aprovação, pedido ao fornecedor ou pagamento automático.
 
 <a id="guia-cmp_cotacoes"></a>
 
@@ -2789,6 +2789,10 @@ O contrato e seu histórico ficam identificados no recorte escolhido.
 Alterar o formulário não salva automaticamente. O acesso aos serviços e às medições depende do perfil; contrato de fornecimento não confirma entrega nem pagamento.
 
 ## Aparência, botões e navegação
+
+### Ajustar o menu lateral
+
+No computador, arraste a borda direita do menu. Pelo teclado, use Tab para chegar à borda, setas para ajustar e Home/End para os limites. Enter ou duplo clique restaura a largura inicial. Minimizar menu lateral conserva o ajuste ao expandir. A preferência fica neste navegador e vale em todos os módulos, sem alterar dados. No celular, use a navegação inferior e Mais.
 
 ### Carregamento de telas
 

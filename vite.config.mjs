@@ -42,7 +42,7 @@ export default defineConfig(({mode})=>mergeConfig({
         chunkFileNames(chunk) {
           const name=chunk.name;
           const preserve=["LegacyApp","spreadsheet-tools","charts","vendor","ClientPortalApp"].includes(name)||/worker/i.test(name);
-          const prefix=preserve?name:name==="rolldown-runtime"?"r":name.slice(0,3);
+          const prefix=preserve?name:name==="rolldown-runtime"?"r":name.slice(0,2);
           return `assets/${prefix}-[hash].js`;
         },
         manualChunks(id) {

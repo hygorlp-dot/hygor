@@ -1,3 +1,4 @@
+import {SidebarResize, useSidebarWidth} from './design-system/patterns/SidebarResize.jsx';
 import {SelectControl} from './design-system/primitives/Select.jsx';
 import {RecordAction} from './design-system/primitives/RecordAction.jsx';
 import {ChoiceControl} from './design-system/primitives/ChoiceControl.jsx';
@@ -14149,7 +14150,9 @@ export default function App() {
   // Layout responsivo
   const { isDesktop, pick } = useBreakpoint();
   const operationalWorkspace=tab!=="tv";
-  const SIDEBAR_W = sidebarCompacta ? 68 : 224;
+  const [sidebarWidth, setSidebarWidth] = useSidebarWidth();
+  const [sidebarResizing, setSidebarResizing] = useState(false);
+  const SIDEBAR_W = sidebarCompacta ? 68 : sidebarWidth;
   // No desktop a navegação vira sidebar → não há barra inferior ocupando espaço
   const navHeight  = isDesktop ? 0 : (hasSubTabs&&!operationalWorkspace ? 132 : 80);
   // Em monitor ultrawide (21:9, 34"), esticar o conteúdo até a borda deixa a
@@ -14380,17 +14383,17 @@ export default function App() {
         minHeight:"100vh", background:"transparent", color:C.text,
         paddingBottom: isDesktop ? 8 : `calc(${navHeight + 8}px + env(safe-area-inset-bottom))`,
         paddingLeft: isDesktop ? SIDEBAR_W : 0,   // abre espaço p/ a sidebar
-        transition: "padding-left .18s ease",
+        transition: sidebarResizing ? "none" : "padding-left .18s ease",
       }}>
 
         {/*  SIDEBAR (só desktop)  */}
         {isDesktop && (
-          <aside className="no-print arcd-sidebar" style={{
+          <aside id="menu-lateral" className="no-print arcd-sidebar" data-resizing={sidebarResizing || undefined} style={{
             position:"fixed", top:0, left:0, bottom:0, width:SIDEBAR_W, zIndex:90,
             background:C.bg, borderRight:`1px solid ${C.border}`,
             display:"flex", flexDirection:"column",
             boxShadow:"none",
-            transition:"width .18s ease",
+            transition:sidebarResizing ? "none" : "width .18s ease",
           }}>
             {/* Marca */}
             <div style={{
@@ -14579,6 +14582,7 @@ export default function App() {
               </div>
               )}
             </div>
+            {!sidebarCompacta && <SidebarResize width={sidebarWidth} onChange={setSidebarWidth} onResizing={setSidebarResizing}/>}
           </aside>
         )}
 
