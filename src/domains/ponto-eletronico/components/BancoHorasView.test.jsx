@@ -7,7 +7,7 @@ import BancoHorasView from "./BancoHorasView.jsx";
 // Modelo e hook reais: só a fronteira da API e a apresentação compartilhada
 // são substituídas. Os funcionários e horários abaixo são inteiramente sintéticos.
 vi.mock("../../../api.js", () => ({ chamarPontoEletronico: vi.fn() }));
-vi.mock("../../../LegacyApp", () => ({
+vi.mock("../../../legacy/ui.jsx", () => ({
   C: { blue: "#355874", muted: "#536171", line: "#d3dce3" },
   Ic: () => <svg aria-hidden="true" />,
   Btn: ({ children, onClick, disabled, loading, type = "button" }) => <button type={type} onClick={onClick} disabled={disabled || Boolean(loading)}>{loading || children}</button>,

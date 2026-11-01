@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Badge, Btn, Inp, Modal, Sel, C } from "../../../LegacyApp";
+import {Badge, Btn, Inp, Modal, Sel} from "../../../legacy/ui.jsx";
+import {C} from "../../../legacy/palette.js";
 import { Alert, AlertDescription } from "../../../components/ui/alert.jsx";
 import { inspectDay, CLOCK_FIELDS, CLOCK_LABELS, EVENT_TYPES, localClock, sourceSignature, recordSignature } from "../conferencia.js";
 import { calculateTimekeeping, formatMinutes } from "../../ponto/timekeeping.js";

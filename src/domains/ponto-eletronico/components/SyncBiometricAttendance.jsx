@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {Modal} from '../../../LegacyApp';
+import {Modal} from "../../../legacy/ui.jsx";
 import {chamarPontoEletronico} from '../../../api';
 import {Button} from '../../../components/ui/button';
 import {Alert,AlertDescription} from '../../../components/ui/alert';

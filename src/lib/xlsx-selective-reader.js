@@ -1,4 +1,4 @@
-import JSZip from "jszip";
+import {openZip} from "./zip-reader.js";
 
 const decodeXml = value => String(value ?? "")
   .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(Number.parseInt(code, 16)))
@@ -153,7 +153,7 @@ export const readSelectedXlsxSheets = async (bytes, {
   onProgress = () => {},
 } = {}) => {
   onProgress({ stage:"zip", message:"Abrindo a estrutura compactada do XLSX..." });
-  const zip = await JSZip.loadAsync(bytes);
+  const zip = await openZip(bytes);
   const workbookEntry = zip.file("xl/workbook.xml");
   const relationsEntry = zip.file("xl/_rels/workbook.xml.rels");
   if (!workbookEntry || !relationsEntry) throw new Error("O arquivo não possui uma estrutura XLSX válida.");

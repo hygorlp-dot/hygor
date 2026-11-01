@@ -5,7 +5,7 @@ import { lazyWithCssRetry as lazy } from "../lib/lazy-with-css-retry.js";
 // O sistema operacional continua em chunk próprio para exibir um estado de
 // carregamento imediato enquanto o aplicativo principal é baixado.
 const LegacyApp = lazy(() =>
-  import(/* webpackChunkName: "operational-app" */ "../LegacyApp")
+  import(/* webpackChunkName: "operational-app" */ "./legacy/LegacyApp.jsx")
 );
 
 function RouteLoading() {

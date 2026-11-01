@@ -1,7 +1,7 @@
 import {dossierCheck,dossierFiles,slug} from './dossier.js';
 export async function buildDossierZip({license,work,mode,readFile,onProgress=()=>{},now=new Date().toISOString()}){
   const check=dossierCheck(license,now);if(mode==='final'&&!check.complete)throw new Error('Dossiê final bloqueado: resolva as pendências.');
-  const {default:JSZip}=await import('jszip');const zip=new JSZip(),files=dossierFiles(license,work),failed=[];let bytes=0;
+  const {default:JSZip}=await import('../../lib/spreadsheet-zip.js');const zip=new JSZip(),files=dossierFiles(license,work),failed=[];let bytes=0;
   for(const [index,file] of files.entries()){
     onProgress(`Preparando arquivo ${index+1} de ${files.length}…`);
     try{const blob=await readFile(file.revision);bytes+=blob.size;if(bytes>100*1024*1024)throw new Error('O ZIP excede 100 MB.');zip.file(`${slug(file.area)}/${file.name}`,await blob.arrayBuffer());}

@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node scripts/check-financial-enforcement-readiness.mjs && npx vite build",
+  "buildCommand": "node scripts/audit-import-cycles.mjs && npx vite build && node scripts/bundle-metrics.mjs",
   "outputDirectory": "dist",
   "framework": "vite",
   "ignoreCommand": "node scripts/vercel-ignore-build.mjs",

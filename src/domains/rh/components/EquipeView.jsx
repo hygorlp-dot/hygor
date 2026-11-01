@@ -11,10 +11,10 @@ import "../../ponto-eletronico/components/conferencia-batidas.css";
 
 import { useEffect, useRef, useState } from "react";
 import { useBreakpoint } from "../../../hooks/useBreakpoint";
-import {
-  Badge, Btn, C, Divider, Ic, Inp, Modal, Sel, TYPO,
-  fmt, fmtDate, fmtDateFull, gerarFichaFuncionarioPDF, today, uid,
-} from "../../../LegacyApp";
+import {Badge, Btn, Divider, Ic, Inp, Modal, Sel} from "../../../legacy/ui.jsx";
+import {C, TYPO} from "../../../legacy/palette.js";
+import {fmt, fmtDate, fmtDateFull, today, uid} from "../../../legacy/format.js";
+import {gerarFichaFuncionarioPDF} from "../../../reports/legacy-standard.js";
 import { overdue } from "../../seguranca/calculations";
 import { WORKER_TRAINING_TYPES } from "../../seguranca/constants";
 import { employeeComplianceStatus } from "../compliance";

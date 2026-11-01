@@ -1,4 +1,5 @@
-import { Btn, Inp, today } from "../../../LegacyApp";
+import {Btn, Inp} from "../../../legacy/ui.jsx";
+import {today} from "../../../legacy/format.js";
 import { SCHEDULE_44, SCHEDULE_LABEL } from "../work-schedule.js";
 
 export default function WorkScheduleFields({ employee, onChange }) {

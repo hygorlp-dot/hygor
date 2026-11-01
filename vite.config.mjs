@@ -2,21 +2,17 @@ import {defineConfig, mergeConfig} from "vite";
 import react from "@vitejs/plugin-react";
 import {fileURLToPath, URL} from "node:url";
 import {spreadsheetBrowserConfig} from "./scripts/spreadsheet-browser-config.mjs";
+import {sharedSinapiWorker} from "./scripts/shared-sinapi-worker.mjs";
 
 export default defineConfig(({mode})=>mergeConfig({
-  plugins: [react()],
+  plugins: [react(),sharedSinapiWorker()],
   // Evidências e builds locais não são fontes da aplicação. Observá-los
   // dispara recargas contínuas enquanto outras verificações estão rodando.
   server: {
     watch: {ignored: ["**/artifacts/**", "**/analises/**", "**/.impeccable/**", "**/test-results*/**", "**/playwright-report/**", "**/output/**"]},
   },
   resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
-      // O alvo moderno do Vite já suporta Promise, Symbol e Object.assign.
-      // A distribuição bare mantém o ExcelJS sem duplicar seus polyfills ES5.
-      "exceljs": "exceljs/dist/exceljs.bare.min.js",
-    },
+    alias: {"@": fileURLToPath(new URL("./src", import.meta.url))},
   },
   // O formato padrão de worker do Vite é "iife" - incompatível com
   // `new Worker(url, {type:"module"})`, que sinapi-parser.worker.js e
@@ -29,7 +25,7 @@ export default defineConfig(({mode})=>mergeConfig({
     // O navegador de produção não precisa receber 10+ MB de mapas contendo o
     // código-fonte completo. Previews e builds locais preservam os mapas para
     // diagnóstico; produção publica somente os artefatos executáveis.
-    sourcemap: process.env.VERCEL_ENV !== "production",
+    sourcemap: process.env.VERCEL_ENV === "production" ? false : "hidden",
     chunkSizeWarningLimit: 650,
     // Um Web Worker pequeno (como o do ORSE, orse-parser.worker.js) vira
     // uma data: URL inline por tamanho - mas nesse caminho o bundler não
@@ -41,14 +37,20 @@ export default defineConfig(({mode})=>mergeConfig({
     assetsInlineLimit: (filePath) => filePath.includes(".worker.") ? false : undefined,
     rollupOptions: {
       output: {
+        // Compacta apenas os prefixos dos arquivos; hashes e nomes com
+        // orçamentos individuais permanecem intactos. O manifest mapeia a origem.
+        chunkFileNames(chunk) {
+          const name=chunk.name;
+          const preserve=["LegacyApp","spreadsheet-tools","charts","vendor","ClientPortalApp"].includes(name)||/worker/i.test(name);
+          const prefix=preserve?name:name==="rolldown-runtime"?"r":name.slice(0,8);
+          return `assets/${prefix}-[hash].js`;
+        },
         manualChunks(id) {
+          if(id.includes('/node_modules/fflate/')||id.endsWith('/src/lib/zip-reader.js'))return 'zip-codec';
           // Os gráficos compartilham Lodash com a leitura CSV do ExcelJS.
           // Um chunk comum evita vários blocos pequenos comprimidos à parte.
           if(id.includes("/node_modules/recharts/")||id.includes("/node_modules/lodash/"))return "charts";
           if (id.includes("exceljs")) return "spreadsheet-tools";
-          // Mantém o Recharts em um único arquivo compartilhado entre os painéis,
-          // reduzindo a repetição de imports e a fragmentação da compressão.
-          if (id.includes("/node_modules/recharts/")) return "charts";
           if (
             id.includes("/src/domains/financeiro/")
             || id.includes("/src/domains/dre/")

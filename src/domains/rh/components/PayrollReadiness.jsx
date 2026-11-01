@@ -1,5 +1,5 @@
 import {useMemo,useState} from 'react';
-import {Inp,Sel} from '../../../LegacyApp';
+import {Inp, Sel} from "../../../legacy/ui.jsx";
 import {Button} from '../../../components/ui/button';
 import {Alert,AlertDescription} from '../../../components/ui/alert';
 import {payrollReadiness} from '../payroll-readiness.js';

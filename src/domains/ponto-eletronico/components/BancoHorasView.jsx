@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Btn, C, Ic } from "../../../LegacyApp";
+import {Btn, Ic} from "../../../legacy/ui.jsx";
+import {C} from "../../../legacy/palette.js";
 import { formatMinutes } from "../../ponto/timekeeping.js";
 import { construirBancoHoras, formatarSaldoMinutos, resumirLinhasBancoHoras, validarPeriodoBancoHoras } from "../banco-horas.js";
 import { dataLocal, FUSO_OBRA, horaLocal } from "../painel.js";

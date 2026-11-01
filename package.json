@@ -25,7 +25,9 @@
     "react-dom": "^18.2.0",
     "recharts": "^2.12.7",
     "sha.js": "2.4.12",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "fflate": "0.8.3",
+    "setimmediate": "1.0.5"
   },
   "scripts": {
     "prebuild": "node scripts/check-financial-enforcement-readiness.mjs && node scripts/audit-catalog-integrity.mjs && npm run financial:migrate-shadow && npm run registry:migrate-shadow && npm run equipment-registry:migrate-shadow && npm run purchase-requests:migrate && npm run financial-engine:rls && npm run procurement-registry:migrate-shadow && npm run attendance-registry:migrate-shadow && npm run ponto-eletronico:migrate && npm run manutencao-banco:migrate && node scripts/ensure-rh-storage.mjs && npm run acesso-publico:migrate",
@@ -68,9 +70,7 @@
     "ponto-eletronico:migrate": "node scripts/apply-ponto-eletronico.mjs",
     "manutencao-banco:migrate": "node scripts/apply-manutencao-banco.mjs",
     "acesso-publico:migrate": "node scripts/apply-acesso-publico.mjs",
-    "financial:activation-check": "node scripts/check-financial-activation-evidence.mjs",
-    "manual:generate": "node scripts/generate-app-manual.mjs",
-    "manual:check": "node scripts/generate-app-manual.mjs --check"
+    "financial:activation-check": "node scripts/check-financial-activation-evidence.mjs"
   },
   "browserslist": {
     "production": [
@@ -100,7 +100,8 @@
     "vite": "^8.3.5",
     "vite-plugin-node-polyfills": "0.28.0",
     "vitest": "^4.1.12",
-    "workbox-build": "^7.4.1"
+    "workbox-build": "^7.4.1",
+    "magic-string": "0.30.21"
   },
   "overrides": {
     "brace-expansion": "^5.0.8",
